@@ -2561,7 +2561,7 @@ function init(){
   document.getElementById('bug-report-btn').style.display='flex';
   document.getElementById('notif-bell').style.display='flex';
   loadNotifications();
-  startAutoSync();
+  startAutoSync(); initHumanSync();
   // Si es version vieja sin sistema de login, limpiar para evitar conflictos
   const ver=localStorage.getItem('tcfc_ver');
   if(ver!=='v2'){localStorage.removeItem('tcfc_v1');localStorage.setItem('tcfc_ver','v2');}
@@ -2606,7 +2606,7 @@ function enterApp(role){
   document.getElementById('bug-report-btn').style.display='flex';
   document.getElementById('notif-bell').style.display='flex';
   loadNotifications();
-  startAutoSync();
+  startAutoSync(); initHumanSync();
   // Hide nav items not in role
   const roleNav = ROLES[currentRole]?.nav || [];
   document.querySelectorAll('.mnit[id^="mob-"]').forEach(el => {
@@ -4547,7 +4547,7 @@ function openCfg(){
   document.getElementById('bug-report-btn').style.display='flex';
   document.getElementById('notif-bell').style.display='flex';
   loadNotifications();
-  startAutoSync();
+  startAutoSync(); initHumanSync();
   // Hide nav items not in role
   const roleNav = ROLES[currentRole]?.nav || [];
   document.querySelectorAll('.mnit[id^="mob-"]').forEach(el => {
@@ -4582,7 +4582,7 @@ function addCat(){
   if(!A.config.categories) A.config.categories=[...DEFAULT_CATS];
   A.config.categories.push(name);
   inp.value='';
-  saveData();refreshCatSels();renderCatList();snack('Categoria agregada','ok');
+  saveData(); syncConfig();refreshCatSels();renderCatList();snack('Categoria agregada','ok');
 }
 
 function delCat(i){
@@ -5123,14 +5123,14 @@ async function processSyncQueue(){
   const q=loadQueue();
   const pending=q.filter(i=>i.status==='pending'&&i.tries<SQ_MAX_TRIES);
   if(!pending.length){updateSyncBadge();return;}
-  _syncRunning=true;updateSyncBadge();
+  _syncRunning=true;updateSyncStatus('syncing');
   for(const item of pending.slice(0,10)){
     try{
       await fetch(A.config.scriptUrl,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:A.config.clubToken||'',action:item.action,entity:item.entity,entityId:item.entityId,data:item.payload,deviceId:item.deviceId,role:item.role,sentAt:new Date().toISOString()})});
       markSyncSuccess(item.id);
     }catch(err){markSyncError(item.id,err.message||'Error de red');}
   }
-  _syncRunning=false;updateSyncBadge();
+  _syncRunning=false;updateSyncStatus('ok');
 }
 
 function markSyncSuccess(id){const q=loadQueue();const i=q.findIndex(x=>x.id===id);if(i>=0)q[i].status='synced';saveQueue(q);}
@@ -8174,7 +8174,9 @@ window.pullFromSheets = pullFromSheets;
 /*  PULL FROM SHEETS  AUTO SYNC  */
 var _pullInterval = null;
 var _lastPull = 0;
-var PULL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
+var PULL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutos
+var _pendingSave = false;
+var _lastSyncTime = 0;
 
 async function pullFromSheets(silent){
   if(!A.config.scriptUrl) return;
@@ -8243,14 +8245,23 @@ function startAutoSync(){
   clearFailedSync();
   if(_pullInterval) clearInterval(_pullInterval);
   // Pull immediately on login
-  setTimeout(function(){ pullFromSheets(true); }, 1500);
+  setTimeout(function(){ pullFromSheets(true); }, 800);
   // Then every 5 minutes
   _pullInterval = setInterval(function(){
     pullFromSheets(true);
-    // Also push pending items
     if(typeof syncQueue === 'function') syncQueue();
     else if(typeof processSyncQueue === 'function') processSyncQueue();
   }, PULL_INTERVAL_MS);
+  // Retry failed syncs every 30 seconds
+  setInterval(function(){
+    if(currentRole) clearFailedSync();
+    var q=JSON.parse(localStorage.getItem('tcfc_sync_queue')||'[]');
+    var hasPending=q.some(function(i){return i.status==='pending'||i.status==='error';});
+    if(hasPending && A.config.scriptUrl){
+      if(typeof syncQueue==='function') syncQueue();
+      else if(typeof processSyncQueue==='function') processSyncQueue();
+    }
+  }, 30000);
 }
 
 function stopAutoSync(){
@@ -8260,6 +8271,105 @@ function stopAutoSync(){
 window.pullFromSheets = pullFromSheets;
 window.startAutoSync = startAutoSync;
 window.stopAutoSync = stopAutoSync;
+
+/*  SYNC CONFIG TO SHEETS  */
+function syncConfig(){
+  if(!A.config.scriptUrl || !A.config.clubToken) return;
+  var payload = {
+    action: 'UPSERT_CONFIG',
+    clubToken: A.config.clubToken,
+    deviceId: getDeviceId(),
+    role: currentRole,
+    data: {
+      id: 'club_config',
+      categories: JSON.stringify(A.config.categories || []),
+      scriptUrl: A.config.scriptUrl,
+      clubToken: A.config.clubToken,
+      updatedAt: new Date().toISOString()
+    }
+  };
+  fetch(A.config.scriptUrl, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: {'Content-Type': 'text/plain'},
+    body: JSON.stringify(payload)
+  }).catch(function(){});
+}
+
+/*  PULL ON APP FOCUS  jala datos cuando vuelves a la app  */
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && currentRole){
+    // Solo jala si pasaron mas de 30 segundos desde el ultimo pull
+    if(Date.now() - _lastPull > 30000){
+      pullFromSheets(true);
+    }
+  }
+});
+
+// En movil  cuando vuelves a la app desde otra pantalla
+window.addEventListener('focus', function(){
+  if(currentRole && Date.now() - _lastPull > 30000){
+    pullFromSheets(true);
+  }
+});
+
+/*  SYNC STATUS HUMANO  */
+function getTimeSinceSync(){
+  if(!_lastSyncTime) return '';
+  var diff = Math.floor((Date.now() - _lastSyncTime) / 1000);
+  if(diff < 60) return 'hace unos segundos';
+  if(diff < 120) return 'hace 1 minuto';
+  var mins = Math.floor(diff / 60);
+  if(mins < 60) return 'hace ' + mins + ' minutos';
+  return 'hace un momento';
+}
+
+function updateSyncStatus(status, msg){
+  var pill = document.getElementById('sync-pill');
+  var lbl = document.getElementById('sync-lbl');
+  if(!pill) return;
+  if(status === 'ok'){
+    _lastSyncTime = Date.now();
+    pill.className = 'sync-pill synced';
+    if(lbl) lbl.textContent = 'Guardado';
+    pill.title = 'Todo sincronizado con Google Sheets';
+    // After 3 seconds show time
+    setTimeout(function(){
+      if(lbl && _lastSyncTime) lbl.textContent = 'Guardado ' + getTimeSinceSync();
+    }, 3000);
+  } else if(status === 'syncing'){
+    pill.className = 'sync-pill syncing';
+    if(lbl) lbl.textContent = 'Guardando...';
+    pill.title = 'Subiendo cambios a Google Sheets';
+  } else if(status === 'error'){
+    pill.className = 'sync-pill s-err';
+    if(lbl) lbl.textContent = 'Reintentar';
+    pill.title = msg || 'Error al sincronizar. Toca para reintentar.';
+  } else if(status === 'offline'){
+    pill.className = 'sync-pill s-pend';
+    if(lbl) lbl.textContent = 'Sin internet';
+    pill.title = 'Sin conexion. Los datos se guardaron en el dispositivo.';
+  } else if(status === 'no_url'){
+    pill.className = 'sync-pill s-off';
+    if(lbl) lbl.textContent = 'Sin nube';
+    pill.title = 'Configura la URL del backend en Config.';
+  }
+}
+
+// Override updateSyncBadge to use human status
+var _origUpdateSyncBadge = null;
+function initHumanSync(){
+  // Update time display every minute
+  setInterval(function(){
+    if(_lastSyncTime){
+      var lbl = document.getElementById('sync-lbl');
+      var pill = document.getElementById('sync-pill');
+      if(lbl && pill && pill.className.includes('synced')){
+        lbl.textContent = 'Guardado ' + getTimeSinceSync();
+      }
+    }
+  }, 60000);
+}
 
 function clearFailedSync(){
   var q = JSON.parse(localStorage.getItem('tcfc_sync_queue')||'[]');

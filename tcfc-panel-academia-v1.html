@@ -8195,44 +8195,28 @@ async function pullFromSheets(silent){
     if(!data.ok) throw new Error(data.msg||'Error del servidor');
 
     var pulled = data.data || {};
-    var added = {players:0, sessions:0, payments:0, events:0};
 
-    // Merge players
-    if(Array.isArray(pulled.players)){
-      pulled.players.forEach(function(p){
-        if(!p.id) return;
-        var idx = A.players.findIndex(function(x){return x.id===p.id;});
-        if(idx < 0){ A.players.push(p); added.players++; }
-        else { A.players[idx] = Object.assign({}, A.players[idx], p); }
-      });
+    // FULL REPLACE  Sheets es la fuente de verdad
+    if(Array.isArray(pulled.players) && pulled.players.length > 0){
+      A.players = pulled.players;
     }
-    // Merge sessions
-    if(Array.isArray(pulled.sessions)){
-      pulled.sessions.forEach(function(s){
-        if(!s.id) return;
-        var idx = A.sessions.findIndex(function(x){return x.id===s.id;});
-        if(idx < 0){ A.sessions.push(s); added.sessions++; }
-        else { A.sessions[idx] = Object.assign({}, A.sessions[idx], s); }
-      });
+    if(Array.isArray(pulled.sessions) && pulled.sessions.length > 0){
+      A.sessions = pulled.sessions;
     }
-    // Merge payments
-    if(Array.isArray(pulled.payments)){
-      pulled.payments.forEach(function(p){
-        if(!p.id) return;
-        var idx = A.payments.findIndex(function(x){return x.id===p.id;});
-        if(idx < 0){ A.payments.push(p); added.payments++; }
-        else { A.payments[idx] = Object.assign({}, A.payments[idx], p); }
-      });
+    if(Array.isArray(pulled.payments) && pulled.payments.length > 0){
+      A.payments = pulled.payments;
     }
-    // Merge events
-    if(Array.isArray(pulled.events)){
-      pulled.events.forEach(function(e){
-        if(!e.id) return;
-        var idx = A.events.findIndex(function(x){return x.id===e.id;});
-        if(idx < 0){ A.events.push(e); added.events++; }
-        else { A.events[idx] = Object.assign({}, A.events[idx], e); }
-      });
+    if(Array.isArray(pulled.events) && pulled.events.length > 0){
+      A.events = pulled.events;
     }
+    if(Array.isArray(pulled.prospects) && pulled.prospects.length > 0){
+      A.prospects = pulled.prospects;
+    }
+    var added = {
+      players: pulled.players ? pulled.players.length : 0,
+      sessions: pulled.sessions ? pulled.sessions.length : 0,
+      payments: pulled.payments ? pulled.payments.length : 0
+    };
 
     saveData();
     renderCurrentView();
@@ -8256,6 +8240,7 @@ async function pullFromSheets(silent){
 }
 
 function startAutoSync(){
+  clearFailedSync();
   if(_pullInterval) clearInterval(_pullInterval);
   // Pull immediately on login
   setTimeout(function(){ pullFromSheets(true); }, 1500);
@@ -8275,6 +8260,14 @@ function stopAutoSync(){
 window.pullFromSheets = pullFromSheets;
 window.startAutoSync = startAutoSync;
 window.stopAutoSync = stopAutoSync;
+
+function clearFailedSync(){
+  var q = JSON.parse(localStorage.getItem('tcfc_sync_queue')||'[]');
+  var clean = q.filter(function(i){ return (i.tries||0) < 3; });
+  if(clean.length !== q.length){
+    localStorage.setItem('tcfc_sync_queue', JSON.stringify(clean));
+  }
+}
 
 init();
 

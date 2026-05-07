@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2562,6 +2561,7 @@ function init(){
   document.getElementById('bug-report-btn').style.display='flex';
   document.getElementById('notif-bell').style.display='flex';
   loadNotifications();
+  startAutoSync();
   // Si es version vieja sin sistema de login, limpiar para evitar conflictos
   const ver=localStorage.getItem('tcfc_ver');
   if(ver!=='v2'){localStorage.removeItem('tcfc_v1');localStorage.setItem('tcfc_ver','v2');}
@@ -2606,6 +2606,7 @@ function enterApp(role){
   document.getElementById('bug-report-btn').style.display='flex';
   document.getElementById('notif-bell').style.display='flex';
   loadNotifications();
+  startAutoSync();
   // Hide nav items not in role
   const roleNav = ROLES[currentRole]?.nav || [];
   document.querySelectorAll('.mnit[id^="mob-"]').forEach(el => {
@@ -2661,6 +2662,7 @@ function updateReadonlyHint(){
 }
 
 function doLogout(){
+  stopAutoSync();
   clearSessionTimers();
   currentRole=null;pinEntry='';loginRole='admin';
   selCat='all';attSelCat=null;
@@ -4545,6 +4547,7 @@ function openCfg(){
   document.getElementById('bug-report-btn').style.display='flex';
   document.getElementById('notif-bell').style.display='flex';
   loadNotifications();
+  startAutoSync();
   // Hide nav items not in role
   const roleNav = ROLES[currentRole]?.nav || [];
   document.querySelectorAll('.mnit[id^="mob-"]').forEach(el => {
@@ -5156,7 +5159,14 @@ function updateSyncBadge(){
 }
 
 function getMsgHumano(s){
-  return{ok:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Todo guardado y sincronizado.',syncing:'Subiendo cambios...',pending:'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F59E0B;flex-shrink:0;vertical-align:middle"></span> Cambios guardados. Se subiran cuando haya internet.',offline:'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F59E0B;flex-shrink:0;vertical-align:middle"></span> Sin internet. Tus datos estan seguros en este dispositivo.',no_url:'Configura la URL de Apps Script para activar la nube.',error:'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#EF4444;flex-shrink:0;vertical-align:middle"></span> Error de conexion. Avisale al Admin.'}[s]||'';
+  return{
+    ok:'Todo guardado y sincronizado.',
+    syncing:'Subiendo cambios...',
+    pending:'Hay cambios pendientes de subir.',
+    offline:'Sin conexion a internet.',
+    no_url:'Sin conexion a la nube. Configura la URL en Config.',
+    error:'Error al sincronizar. Toca para reintentar.'
+  }[s]||'';
 }
 
 function showSyncDetail(){
@@ -8101,6 +8111,170 @@ function updatePinHint(){
   var isDefault = pins.admin==='1234'&&pins.profe==='5678'&&pins.administrativo==='9012';
   if(!isDefault) hint.style.display='none';
 }
+
+/*  PULL FROM SHEETS  */
+async function pullFromSheets(){
+  if(!A.config.scriptUrl){ snack('Primero configura la URL del backend en Config'); return; }
+  var btn = document.getElementById('pull-sheets-btn');
+  if(btn){ btn.textContent='Jalando datos...'; btn.disabled=true; }
+  snack('Conectando con Google Sheets...');
+  try{
+    var res = await fetch(A.config.scriptUrl + '?action=PULL_ALL&clubToken=' + encodeURIComponent(A.config.clubToken||'') + '&t=' + Date.now());
+    var data = await res.json();
+    if(!data.ok){ throw new Error(data.msg||'Error del servidor'); }
+    var pulled = data.data || {};
+    var changes = {players:0, sessions:0, payments:0, events:0};
+    // Merge players
+    if(Array.isArray(pulled.players) && pulled.players.length){
+      var existingIds = A.players.map(function(p){return p.id;});
+      pulled.players.forEach(function(p){
+        if(!existingIds.includes(p.id)){ A.players.push(p); changes.players++; }
+        else{
+          var idx = A.players.findIndex(function(x){return x.id===p.id;});
+          if(idx>=0){ A.players[idx]=Object.assign({},A.players[idx],p); }
+        }
+      });
+    }
+    // Merge sessions
+    if(Array.isArray(pulled.sessions) && pulled.sessions.length){
+      var existingSessIds = A.sessions.map(function(s){return s.id;});
+      pulled.sessions.forEach(function(s){
+        if(!existingSessIds.includes(s.id)){ A.sessions.push(s); changes.sessions++; }
+      });
+    }
+    // Merge payments
+    if(Array.isArray(pulled.payments) && pulled.payments.length){
+      var existingPayIds = A.payments.map(function(p){return p.id;});
+      pulled.payments.forEach(function(p){
+        if(!existingPayIds.includes(p.id)){ A.payments.push(p); changes.payments++; }
+      });
+    }
+    // Merge events
+    if(Array.isArray(pulled.events) && pulled.events.length){
+      var existingEvIds = A.events.map(function(e){return e.id;});
+      pulled.events.forEach(function(e){
+        if(!existingEvIds.includes(e.id)){ A.events.push(e); changes.events++; }
+      });
+    }
+    saveData();
+    renderCurrentView();
+    var msg = 'Datos jalados: '+pulled.players.length+' jugadores, '+
+      (pulled.payments&&pulled.payments.length||0)+' pagos, '+
+      (pulled.sessions&&pulled.sessions.length||0)+' sesiones.';
+    snack(msg, 'ok');
+    auditLog('PULL_FROM_SHEETS','sistema','Pull exitoso: '+JSON.stringify(changes));
+  } catch(e){
+    snack('Error al jalar datos: '+(e.message||e), 'err');
+  } finally {
+    if(btn){ btn.textContent='Jalar datos de Sheets'; btn.disabled=false; }
+  }
+}
+window.pullFromSheets = pullFromSheets;
+
+/*  PULL FROM SHEETS  AUTO SYNC  */
+var _pullInterval = null;
+var _lastPull = 0;
+var PULL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
+
+async function pullFromSheets(silent){
+  if(!A.config.scriptUrl) return;
+  // Avoid pulling too frequently
+  if(Date.now() - _lastPull < 30000 && !silent===false) return;
+  _lastPull = Date.now();
+
+  var btn = document.getElementById('pull-sheets-btn');
+  if(btn && !silent){ btn.textContent='Jalando...'; btn.disabled=true; }
+  if(!silent) snack('Sincronizando con Sheets...');
+
+  try{
+    var url = A.config.scriptUrl + '?action=PULL_ALL' +
+      '&clubToken=' + encodeURIComponent(A.config.clubToken||'') +
+      '&t=' + Date.now();
+    var res = await fetch(url);
+    var data = await res.json();
+    if(!data.ok) throw new Error(data.msg||'Error del servidor');
+
+    var pulled = data.data || {};
+    var added = {players:0, sessions:0, payments:0, events:0};
+
+    // Merge players
+    if(Array.isArray(pulled.players)){
+      pulled.players.forEach(function(p){
+        if(!p.id) return;
+        var idx = A.players.findIndex(function(x){return x.id===p.id;});
+        if(idx < 0){ A.players.push(p); added.players++; }
+        else { A.players[idx] = Object.assign({}, A.players[idx], p); }
+      });
+    }
+    // Merge sessions
+    if(Array.isArray(pulled.sessions)){
+      pulled.sessions.forEach(function(s){
+        if(!s.id) return;
+        var idx = A.sessions.findIndex(function(x){return x.id===s.id;});
+        if(idx < 0){ A.sessions.push(s); added.sessions++; }
+        else { A.sessions[idx] = Object.assign({}, A.sessions[idx], s); }
+      });
+    }
+    // Merge payments
+    if(Array.isArray(pulled.payments)){
+      pulled.payments.forEach(function(p){
+        if(!p.id) return;
+        var idx = A.payments.findIndex(function(x){return x.id===p.id;});
+        if(idx < 0){ A.payments.push(p); added.payments++; }
+        else { A.payments[idx] = Object.assign({}, A.payments[idx], p); }
+      });
+    }
+    // Merge events
+    if(Array.isArray(pulled.events)){
+      pulled.events.forEach(function(e){
+        if(!e.id) return;
+        var idx = A.events.findIndex(function(x){return x.id===e.id;});
+        if(idx < 0){ A.events.push(e); added.events++; }
+        else { A.events[idx] = Object.assign({}, A.events[idx], e); }
+      });
+    }
+
+    saveData();
+    renderCurrentView();
+
+    // Update sync badge
+    var pill = document.getElementById('sync-pill');
+    if(pill){ pill.textContent='Sheets'; pill.className='sync-pill synced'; }
+
+    var total = added.players + added.sessions + added.payments + added.events;
+    if(!silent || total > 0){
+      snack('Sync OK  ' + pulled.players.length + ' jugadores, ' +
+        (pulled.payments ? pulled.payments.length : 0) + ' pagos', 'ok');
+    }
+    auditLog('PULL_FROM_SHEETS','sistema','Pull OK: '+JSON.stringify(added));
+
+  } catch(err){
+    if(!silent) snack('Error al sincronizar: '+(err.message||err), 'err');
+  } finally {
+    if(btn){ btn.textContent='Jalar datos de Sheets'; btn.disabled=false; }
+  }
+}
+
+function startAutoSync(){
+  if(_pullInterval) clearInterval(_pullInterval);
+  // Pull immediately on login
+  setTimeout(function(){ pullFromSheets(true); }, 1500);
+  // Then every 5 minutes
+  _pullInterval = setInterval(function(){
+    pullFromSheets(true);
+    // Also push pending items
+    if(typeof syncQueue === 'function') syncQueue();
+    else if(typeof processSyncQueue === 'function') processSyncQueue();
+  }, PULL_INTERVAL_MS);
+}
+
+function stopAutoSync(){
+  if(_pullInterval){ clearInterval(_pullInterval); _pullInterval=null; }
+}
+
+window.pullFromSheets = pullFromSheets;
+window.startAutoSync = startAutoSync;
+window.stopAutoSync = stopAutoSync;
 
 init();
 

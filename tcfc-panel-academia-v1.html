@@ -1096,24 +1096,21 @@ mark{background:rgba(37,99,235,.15);color:var(--blue-m);border-radius:3px;paddin
 
     <!-- === JUGADORES === -->
     <div id="view-jugadores" class="view"><div style="display:none" id="j-help-hint"></div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
-        <div style="flex:1;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden">
-          <div id="j-tabs-quick" style="display:flex;gap:6px;flex-shrink:0"></div>
-          <button id="j-tabs-toggle" onclick="toggleCatTabs()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;color:var(--muted);background:var(--card);border:1.5px solid var(--border);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0">
-            <svg id="j-tabs-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-            Categorias
-          </button>
-          <div id="j-tabs-expanded" style="display:none;position:absolute;top:calc(var(--hh) + 56px);left:22px;right:22px;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:12px;z-index:200;box-shadow:var(--shl)">
-            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Filtrar por categoria</div>
-            <div class="cat-tabs" id="j-tabs" style="margin-bottom:0"></div>
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
-          <button class="help-btn" onclick="showHelp('jugadores')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Ayuda</button>
-          <button class="ctab active" id="jview-roster" onclick="switchJugView('roster',this)">Roster</button>
-          <button class="ctab" id="jview-numeros" onclick="switchJugView('numeros',this)">Por numero</button>
-          <button class="ctab" id="jview-prospectos" onclick="switchJugView('prospectos',this)">Prospectos <span id="bdg-prospectos" style="background:var(--blue-m);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;display:none">0</span></button>
-        </div>
+
+      <!-- FILTRO POR CATEGORÍA: scroll horizontal en mobile, visible siempre -->
+      <div style="overflow-x:auto;padding-bottom:4px;margin-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:none">
+        <div id="j-cat-pills" style="display:flex;gap:6px;flex-wrap:nowrap;min-width:max-content"></div>
+      </div>
+
+      <!-- SUB-TABS: Roster / Por número / Prospectos -->
+      <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+        <button class="ctab active" id="jview-roster" onclick="switchJugView('roster',this)">Roster</button>
+        <button class="ctab" id="jview-numeros" onclick="switchJugView('numeros',this)">Por número</button>
+        <button class="ctab" id="jview-prospectos" onclick="switchJugView('prospectos',this)">Prospectos <span id="bdg-prospectos" style="background:var(--blue-m);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;display:none">0</span></button>
+        <!-- hidden compat elements -->
+        <div id="j-tabs-quick" style="display:none"></div>
+        <div id="j-tabs-toggle" style="display:none"></div>
+        <div id="j-tabs-expanded" style="display:none"><div class="cat-tabs" id="j-tabs"></div></div>
       </div>
 
       <!-- ROSTER VIEW -->
@@ -2861,7 +2858,9 @@ function populateSels(){
     tabs.innerHTML='<button class="ctab active" onclick="filtCat(\'all\',this);closeCatTabs()">Todas</button>';
     cats.forEach(c=>{tabs.innerHTML+=`<button class="ctab" onclick="filtCat('${c}',this);closeCatTabs()">${c}</button>`;});
   }
-  // Quick tabs: just "Todas" visible always
+  // Quick cat pills (new horizontal scroll bar)
+  renderCatPills();
+  // Quick tabs: just "Todas" visible always (legacy compat)
   const qtabs=document.getElementById('j-tabs-quick');
   if(qtabs){
     qtabs.innerHTML='<button class="ctab active" id="j-tab-quick-all" onclick="filtCat(\'all\',this)">Todas</button>';
@@ -3103,29 +3102,30 @@ function getLowAtt(){
 }
 
 /* ============== JUGADORES ============== */
+function renderCatPills(){
+  const el=document.getElementById('j-cat-pills');
+  if(!el) return;
+  const cats=getCats();
+  const pills=[{val:'all',lbl:'Todos'},...cats.map(c=>({val:c,lbl:c}))];
+  el.innerHTML=pills.map(p=>`
+    <button onclick="filtCat('${p.val}',this)" class="ctab${selCat===p.val?' active':''}" style="flex-shrink:0;white-space:nowrap">${p.lbl}</button>
+  `).join('');
+}
+
 function filtCat(cat,el){
   selCat=cat;
-  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
+  renderCatPills(); // rerender pills with new active state
   renderJugadores();
-  // Update toggle button label
-  const tb=document.getElementById('j-tabs-toggle');
-  if(tb){
-    const arr=document.getElementById('j-tabs-arrow');
-    const svg=arr?arr.outerHTML:'';
-    tb.innerHTML=svg+(cat==='all'?' Categorias':' '+cat);
-    tb.style.borderColor=cat==='all'?'var(--border)':'var(--blue-m)';
-  }
   closeCatTabs();
 }
 
 function renderJugadores(){
-  const srch=document.getElementById('j-srch').value.toLowerCase();
+  const srch=nrm(document.getElementById('j-srch').value);
   const inactive=document.getElementById('j-inactive').checked;
   let ps=A.players;
   if(selCat!=='all') ps=ps.filter(p=>p.category===selCat);
   if(!inactive) ps=ps.filter(p=>p.active!==false);
-  if(srch) ps=ps.filter(p=>p.name.toLowerCase().includes(srch));
+  if(srch) ps=ps.filter(p=>nrm(p.name).includes(srch)||nrm(p.tutor).includes(srch)||String(p.number||'').includes(srch)||nrm(p.category).includes(srch));
   const now=new Date(),m=now.getMonth(),y=now.getFullYear();
   const g=document.getElementById('j-grid');
 
@@ -3730,10 +3730,10 @@ function switchPayTab(tab){
 
 function renderPagos(){
   const m=parseInt(document.getElementById('p-mes').value),y=parseInt(document.getElementById('p-anio').value),cat=document.getElementById('p-cat').value;
-  const srch=(document.getElementById('p-srch')?.value||'').toLowerCase().trim();
+  const srch=nrm(document.getElementById('p-srch')?.value||'');
   let ps=A.players.filter(p=>p.active!==false);
   if(cat!=='all') ps=ps.filter(p=>p.category===cat);
-  if(srch) ps=ps.filter(p=>(p.name||'').toLowerCase().includes(srch)||(p.tutor||'').toLowerCase().includes(srch)||(p.phone||'').toLowerCase().includes(srch));
+  if(srch) ps=ps.filter(p=>nrm(p.name).includes(srch)||nrm(p.tutor).includes(srch)||String(p.phone||'').includes(srch));
   let paidCount=0,totCobrado=0,totEfectivo=0,totTransfer=0;
   document.getElementById('p-tbody').innerHTML=ps.map((p,i)=>{
     const r=A.payments.find(pm=>pm.playerId===p.id&&pm.month===m&&pm.year===y&&(!pm.tipo||pm.tipo==='mensualidad'));
@@ -3958,11 +3958,11 @@ function exportHistorialJugadorCSV(){
 function renderHistorial(){
   const cat=document.getElementById('ph-cat')?.value||'all';
   const met=document.getElementById('ph-met')?.value||'all';
-  const srch=(document.getElementById('ph-srch')?.value||'').toLowerCase();
+  const srch=nrm(document.getElementById('ph-srch')?.value||'');
   let recs=A.payments.filter(p=>p.status==='paid').sort((a,b)=>new Date(b.registeredAt||b.paidDate)-new Date(a.registeredAt||a.paidDate));
   if(cat!=='all') recs=recs.filter(r=>r.category===cat);
   if(met!=='all') recs=recs.filter(r=>r.method===met);
-  if(srch) recs=recs.filter(r=>(r.playerName||'').toLowerCase().includes(srch));
+  if(srch) recs=recs.filter(r=>nrm(r.playerName).includes(srch)||nrm(r.receivedBy).includes(srch));
   const totEf=recs.filter(r=>r.method==='efectivo').reduce((s,r)=>s+(r.amount||0),0);
   const totTr=recs.filter(r=>r.method==='transferencia').reduce((s,r)=>s+(r.amount||0),0);
   const totTot=recs.reduce((s,r)=>s+(r.amount||0),0);
@@ -6585,14 +6585,30 @@ function runInlineSearch(q){
   _srchTimeout = setTimeout(() => _doSearch(q), 160);
 }
 
+/* ====== NORMALIZE HELPER (acentos + mayúsculas) ====== */
+function nrm(str){
+  return String(str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+
 function _highlight(text, q){
   if(!q || !text) return text || '';
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  return String(text).replace(new RegExp('(' + escaped + ')', 'gi'), '<mark>$1</mark>');
+  // highlight ignoring accents
+  const nText = nrm(text), nQ = nrm(q);
+  if(!nText.includes(nQ)) return String(text);
+  let result = '', i = 0;
+  while(i < text.length){
+    if(nText.substring(i, i+nQ.length) === nQ){
+      result += '<mark>' + text.substring(i, i+nQ.length) + '</mark>';
+      i += nQ.length;
+    } else {
+      result += text[i++];
+    }
+  }
+  return result;
 }
 
 function _doSearch(q){
-  const sq = q.toLowerCase().trim();
+  const sq = nrm(q);
   const res = document.getElementById('inline-srch-results');
   if(!res) return;
   res.style.display = 'block';
@@ -6601,38 +6617,31 @@ function _doSearch(q){
   const f = _srchFilter;
   const role = currentRole;
 
-  // -- JUGADORES -----------------------------------------
-  if((f === 'all' || f === 'jugador') && ['admin','profe','administrativo'].includes(role)){
+  // -- JUGADORES: SIEMPRE se buscan (el chip solo ordena, no excluye) ----
+  if(['admin','profe','administrativo'].includes(role)){
     const hits = A.players.filter(p => {
-      const name   = (p.name||'').toLowerCase();
-      const tutor  = (p.tutor||'').toLowerCase();
-      const phone  = (p.phone||'').toLowerCase();
-      const cat    = (p.category||'').toLowerCase();
-      const num    = String(p.number||'');
-      const pos    = (p.position||'').toLowerCase();
-      // Beca: solo admin y administrativo
-      const beca = (role !== 'profe') ? (p.scholarship?.type||'').toLowerCase() : '';
-      return name.includes(sq) || tutor.includes(sq) || phone.includes(sq) ||
-             cat.includes(sq) || num.includes(sq) || pos.includes(sq) ||
-             (beca && beca.includes(sq));
+      return nrm(p.name).includes(sq) ||
+             nrm(p.tutor).includes(sq) ||
+             nrm(p.phone).includes(sq) ||
+             nrm(p.category).includes(sq) ||
+             String(p.number||'').includes(sq) ||
+             nrm(p.position).includes(sq) ||
+             (role !== 'profe' ? nrm(p.scholarship?.type).includes(sq) : false);
     }).slice(0, 6);
 
     if(hits.length){
       const ico = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-m)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
       const items = hits.map(p => {
-        // Build sub line -- phone hidden for profe
-        const parts = [];
-        parts.push(p.category||'--');
+        const parts = [p.category||'--'];
         if(p.number) parts.push('#'+p.number);
         if(p.tutor) parts.push(p.tutor);
         if(role !== 'profe' && p.phone) parts.push(p.phone);
         if(p.scholarship?.type && role !== 'profe') parts.push('Beca: '+p.scholarship.type);
-        const sub = parts.join(' . ');
         return `<div class="isr-item" onclick="isrGo('jugador','${p.id}')">
           <div class="isr-ico">${ico}</div>
           <div style="flex:1;min-width:0">
             <div class="isr-ttl">${_highlight(p.name, q)}</div>
-            <div class="isr-sub">${_highlight(sub, q)}</div>
+            <div class="isr-sub">${_highlight(parts.join(' · '), q)}</div>
           </div>
           <span class="isr-badge">${p.active!==false?'Activo':'Inactivo'}</span>
         </div>`;
@@ -6641,19 +6650,14 @@ function _doSearch(q){
     }
   }
 
-  // -- PAGOS ---------------------------------------------
+  // -- PAGOS (solo aparece cuando chip = pago, o como extra) ---------
   if((f === 'all' || f === 'pago') && ['admin','administrativo'].includes(role)){
-    const hits = A.payments.filter(p => {
-      const name = (p.playerName||'').toLowerCase();
-      const cat  = (p.category||'').toLowerCase();
-      const met  = (p.method||'').toLowerCase();
-      const rec  = (p.receivedBy||'').toLowerCase();
-      const conc = (p.concepto||'').toLowerCase();
-      const st   = (p.status||'').toLowerCase();
-      return name.includes(sq) || cat.includes(sq) || met.includes(sq) ||
-             rec.includes(sq) || conc.includes(sq) || st.includes(sq) ||
-             String(p.amount||'').includes(sq);
-    }).slice(0, 5);
+    const hits = A.payments.filter(p =>
+      nrm(p.playerName).includes(sq) || nrm(p.category).includes(sq) ||
+      nrm(p.method).includes(sq) || nrm(p.receivedBy).includes(sq) ||
+      nrm(p.concepto).includes(sq) || nrm(p.status).includes(sq) ||
+      String(p.amount||'').includes(sq)
+    ).slice(0, 5);
 
     if(hits.length){
       const ico = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>';
@@ -6661,8 +6665,8 @@ function _doSearch(q){
       const items = hits.map(p => `<div class="isr-item" onclick="isrGo('pago','${p.id}')">
         <div class="isr-ico">${ico}</div>
         <div style="flex:1;min-width:0">
-          <div class="isr-ttl">${_highlight(p.playerName||'--', q)} -- <span style="color:var(--ok)">$${p.amount||0}</span></div>
-          <div class="isr-sub">${_highlight((p.concepto||'')+ ' . '+(p.paidDate||'--')+' . '+(p.receivedBy||'--'), q)}</div>
+          <div class="isr-ttl">${_highlight(p.playerName||'--', q)} — <span style="color:var(--ok)">$${p.amount||0}</span></div>
+          <div class="isr-sub">${_highlight((p.concepto||'')+' · '+(p.paidDate||'--')+' · '+(p.receivedBy||'--'), q)}</div>
         </div>
         <span class="isr-badge">${stLabel(p.status)}</span>
       </div>`);
@@ -6672,16 +6676,11 @@ function _doSearch(q){
 
   // -- SESIONES ------------------------------------------
   if((f === 'all' || f === 'sesion') && ['admin','profe'].includes(role)){
-    const hits = A.sessions.filter(s => {
-      const cat   = (s.category||'').toLowerCase();
-      const coach = (s.coach||'').toLowerCase();
-      const type  = (s.type||'').toLowerCase();
-      const date  = (s.date||'').toLowerCase();
-      // Also search player names inside session
-      const hasPlayer = (s.players||[]).some(p => (p.name||'').toLowerCase().includes(sq));
-      return cat.includes(sq) || coach.includes(sq) || type.includes(sq) ||
-             date.includes(sq) || hasPlayer;
-    }).slice(0, 4);
+    const hits = A.sessions.filter(s =>
+      nrm(s.category).includes(sq) || nrm(s.coach).includes(sq) ||
+      nrm(s.type).includes(sq) || nrm(s.date).includes(sq) ||
+      (s.players||[]).some(p => nrm(p.name).includes(sq))
+    ).slice(0, 4);
 
     if(hits.length){
       const ico = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
@@ -6691,8 +6690,8 @@ function _doSearch(q){
         return `<div class="isr-item" onclick="isrGo('sesion','${s.id}')">
           <div class="isr-ico">${ico}</div>
           <div style="flex:1;min-width:0">
-            <div class="isr-ttl">${_highlight(s.category+' -- '+s.type, q)}</div>
-            <div class="isr-sub">${_highlight(d.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})+' . Profe: '+(s.coach||'--'), q)}</div>
+            <div class="isr-ttl">${_highlight(s.category+' — '+s.type, q)}</div>
+            <div class="isr-sub">${d.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})} · Profe: ${s.coach||'--'}</div>
           </div>
           <span class="isr-badge">${pct}%</span>
         </div>`;
@@ -6703,16 +6702,11 @@ function _doSearch(q){
 
   // -- EVENTOS / AGENDA ----------------------------------
   if(f === 'all' || f === 'evento'){
-    const hits = A.events.filter(e => {
-      const ttl  = (e.title||'').toLowerCase();
-      const cat  = (e.category||'').toLowerCase();
-      const type = (e.type||'').toLowerCase();
-      const loc  = (e.location||'').toLowerCase();
-      const date = (e.date||'').toLowerCase();
-      const notes= (e.notes||'').toLowerCase();
-      return ttl.includes(sq) || cat.includes(sq) || type.includes(sq) ||
-             loc.includes(sq) || date.includes(sq) || notes.includes(sq);
-    }).slice(0, 4);
+    const hits = A.events.filter(e =>
+      nrm(e.title).includes(sq) || nrm(e.category).includes(sq) ||
+      nrm(e.type).includes(sq) || nrm(e.location).includes(sq) ||
+      nrm(e.date).includes(sq) || nrm(e.notes).includes(sq)
+    ).slice(0, 4);
 
     if(hits.length){
       const ico = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
@@ -6722,7 +6716,7 @@ function _doSearch(q){
           <div class="isr-ico">${ico}</div>
           <div style="flex:1;min-width:0">
             <div class="isr-ttl">${_highlight(e.title, q)}</div>
-            <div class="isr-sub">${_highlight(d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'})+' '+((e.time||''))+' . '+(e.category||'')+(e.location?' . '+e.location:''), q)}</div>
+            <div class="isr-sub">${d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'})} ${e.time||''} · ${e.category||''}${e.location?' · '+e.location:''}</div>
           </div>
           <span class="isr-badge">${e.type||'Evento'}</span>
         </div>`;
@@ -6733,17 +6727,12 @@ function _doSearch(q){
 
   // -- PROSPECTOS ----------------------------------------
   if((f === 'all' || f === 'prospecto') && role === 'admin'){
-    const hits = (A.prospects||[]).filter(p => {
-      const name  = (p.childName||'').toLowerCase();
-      const tutor = (p.tutorName||'').toLowerCase();
-      const phone = (p.phone||'').toLowerCase();
-      const chan  = (p.channel||'').toLowerCase();
-      const st    = (p.status||'').toLowerCase();
-      const cat   = (p.suggestedCategory||'').toLowerCase();
-      const ref   = (p.recommendedBy||'').toLowerCase();
-      return name.includes(sq) || tutor.includes(sq) || phone.includes(sq) ||
-             chan.includes(sq) || st.includes(sq) || cat.includes(sq) || ref.includes(sq);
-    }).slice(0, 4);
+    const hits = (A.prospects||[]).filter(p =>
+      nrm(p.childName).includes(sq) || nrm(p.tutorName).includes(sq) ||
+      nrm(p.phone).includes(sq) || nrm(p.channel).includes(sq) ||
+      nrm(p.status).includes(sq) || nrm(p.suggestedCategory).includes(sq) ||
+      nrm(p.recommendedBy).includes(sq)
+    ).slice(0, 4);
 
     if(hits.length){
       const ico = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>';
@@ -6751,7 +6740,7 @@ function _doSearch(q){
         <div class="isr-ico">${ico}</div>
         <div style="flex:1;min-width:0">
           <div class="isr-ttl">${_highlight(p.childName||'--', q)}</div>
-          <div class="isr-sub">${_highlight((p.tutorName||'')+(p.phone?' . '+p.phone:'')+(p.suggestedCategory?' . '+p.suggestedCategory:''), q)}</div>
+          <div class="isr-sub">${(p.tutorName||'')}${p.phone?' · '+p.phone:''}${p.suggestedCategory?' · '+p.suggestedCategory:''}</div>
         </div>
         <span class="isr-badge">${p.status||'Nuevo'}</span>
       </div>`);
@@ -6761,14 +6750,14 @@ function _doSearch(q){
 
   // -- Render ---------------------------------------------
   if(!sections.length){
-    res.innerHTML = `<div class="isr-empty">Sin resultados para "<strong>${q}</strong>"<br><span style="font-size:11px">Intenta con otro nombre, numero o categoria</span></div>`;
+    res.innerHTML = `<div class="isr-empty">Sin resultados para "<strong>${q}</strong>"<br><span style="font-size:11px">Intenta con otro nombre, número o categoría</span></div>`;
     return;
   }
 
   const total = sections.reduce((a,s) => a + s.items.length, 0);
   res.innerHTML = sections.map(s =>
     `<div class="isr-section">${s.label}</div>` + s.items.join('')
-  ).join('') + (total >= 10 ? `<div class="isr-empty" style="font-size:11px;padding:8px 14px">Mostrando ${total} resultados. Afina la busqueda para ver mas.</div>` : '');
+  ).join('') + (total >= 10 ? `<div class="isr-empty" style="font-size:11px;padding:8px 14px">Mostrando ${total} resultados. Afina la búsqueda para ver más.</div>` : '');
 }
 
 /* Navigate to result */
@@ -8705,9 +8694,7 @@ function clearFailedSync(){
 
 init();
 
-</script>
-</body>
-</html>,
+,
   {id:'QA-30',name:'La cola de sync no tiene items fallidos acumulados',cat:'Sincronizacion',run:function(){
     var q=JSON.parse(localStorage.getItem('tcfc_sync_queue')||'[]');
     var failed=q.filter(function(i){return i.tries>=3;});
@@ -8744,3 +8731,8 @@ init();
     var open=bugs.filter(function(b){return b.status==='Abierto';}).length;
     return {pass:true,detail:'Bugs OK. Total: '+bugs.length+'. Abiertos: '+open+'. Push via UPSERT_BUG. Pull incluido en PULL_ALL (solo Admin).'};
   }}
+];
+
+</script>
+</body>
+</html>

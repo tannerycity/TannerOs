@@ -7313,7 +7313,13 @@ var TESTS_DEF = [
     if(!found) return {pass:false,detail:'El cobro de prueba no se guardo'};
     if(found.status!=='por_confirmar') return {pass:false,detail:'El cobro deberia quedar como "por validar" pero quedo como: '+found.status};
     return {pass:true,detail:'Flujo de cobro pendiente OK. El cobro registrado por Profe queda en estado "por validar" hasta que Admin confirme.'};
-  }},,
+  }},
+  {id:'QA-30',name:'La cola de sync no tiene items fallidos acumulados',cat:'Sincronizacion',run:function(){
+    var q=JSON.parse(localStorage.getItem('tcfc_sync_queue')||'[]');
+    var failed=q.filter(function(i){return i.tries>=3;});
+    if(failed.length>3) return {pass:false,detail:'Hay '+failed.length+' items con 3+ intentos fallidos. Esto puede indicar un problema de conexion o de token.'};
+    return {pass:true,detail:'Cola de sync OK. Total items: '+q.length+'. Fallidos criticos: '+failed.length+'.'};
+  }},
   {id:'QA-31',name:'Los cumpleanos de los jugadores se calculan correctamente',cat:'Cumpleanos',run:function(){
     var tp={id:'qa_bday_test',name:'Tanner QA',active:true,category:'T-10',
       birthdate:(new Date().getFullYear()-10)+'-'+(String(new Date().getMonth()+1).padStart(2,'0'))+'-'+(String(new Date().getDate()).padStart(2,'0')),
@@ -8693,45 +8699,6 @@ function clearFailedSync(){
 }
 
 init();
-
-,
-  {id:'QA-30',name:'La cola de sync no tiene items fallidos acumulados',cat:'Sincronizacion',run:function(){
-    var q=JSON.parse(localStorage.getItem('tcfc_sync_queue')||'[]');
-    var failed=q.filter(function(i){return i.tries>=3;});
-    if(failed.length>3) return {pass:false,detail:'Hay '+failed.length+' items con 3+ intentos fallidos. Esto puede indicar un problema de conexion o de token.'};
-    return {pass:true,detail:'Cola de sync OK. Total items: '+q.length+'. Fallidos criticos: '+failed.length+'.'};
-  }},
-  {id:'QA-39',name:'pullFromSheets existe y tiene conexion configurada',cat:'Sincronizacion',run:function(){
-    if(typeof pullFromSheets!=='function') return {pass:false,detail:'Funcion pullFromSheets no existe'};
-    if(typeof startAutoSync!=='function') return {pass:false,detail:'Funcion startAutoSync no existe'};
-    if(typeof syncConfig!=='function') return {pass:false,detail:'Funcion syncConfig no existe'};
-    if(!A.config.scriptUrl) return {pass:false,detail:'URL del Apps Script no configurada. Ve a Config y pega la URL.'};
-    if(!A.config.clubToken) return {pass:false,detail:'Club token no configurado.'};
-    return {pass:true,detail:'Sync OK. URL configurada. Token: '+A.config.clubToken+'. Auto-sync activo.'};
-  }},
-  {id:'QA-40',name:'Notificaciones se sincronizan correctamente entre perfiles',cat:'Notificaciones',run:function(){
-    if(typeof sendInternalNotif!=='function') return {pass:false,detail:'sendInternalNotif no existe'};
-    if(typeof loadNotifications!=='function') return {pass:false,detail:'loadNotifications no existe'};
-    if(typeof getUnreadNotifs!=='function') return {pass:false,detail:'getUnreadNotifs no existe'};
-    var stored=JSON.parse(localStorage.getItem('tcfc_notif')||'[]');
-    var bell=document.getElementById('notif-bell');
-    if(!bell) return {pass:false,detail:'Campana de notificaciones no encontrada'};
-    return {pass:true,detail:'Notificaciones OK. Almacenadas: '+stored.length+'. Campana presente. Sync a Sheets activo via UPSERT_NOTIF.'};
-  }},
-  {id:'QA-41',name:'Utileria se sincroniza con Sheets',cat:'Sincronizacion',run:function(){
-    if(!Array.isArray(A.utileria)) return {pass:false,detail:'A.utileria no es un array'};
-    // Check that enqueueSync is called in saveUtil context
-    if(typeof enqueueSync!=='function') return {pass:false,detail:'enqueueSync no existe'};
-    return {pass:true,detail:'Utileria OK. Items: '+A.utileria.length+'. Push via UPSERT_UTILERIA. Pull incluido en PULL_ALL.'};
-  }},
-  {id:'QA-42',name:'Bugs se sincronizan y Admin los puede ver desde cualquier dispositivo',cat:'Bug reporter',run:function(){
-    if(typeof sendBugReport!=='function') return {pass:false,detail:'sendBugReport no existe'};
-    if(typeof renderBugDashboard!=='function') return {pass:false,detail:'renderBugDashboard no existe'};
-    var bugs=JSON.parse(localStorage.getItem('tcfc_bugs')||'[]');
-    var open=bugs.filter(function(b){return b.status==='Abierto';}).length;
-    return {pass:true,detail:'Bugs OK. Total: '+bugs.length+'. Abiertos: '+open+'. Push via UPSERT_BUG. Pull incluido en PULL_ALL (solo Admin).'};
-  }}
-];
 
 </script>
 </body>

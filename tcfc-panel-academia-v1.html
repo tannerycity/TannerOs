@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5270,14 +5271,32 @@ function deleteUtil(){
 function submitUtilReport(){
   const item=document.getElementById('util-rep-item').value.trim();
   if(!item){snack('Describe que hace falta');return;}
-  const rep={id:'rep_'+Date.now(),item,urgency:document.getElementById('util-rep-urg').value,notes:document.getElementById('util-rep-notas').value.trim(),date:new Date().toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}),by:currentRole};
+  const urgency=document.getElementById('util-rep-urg').value;
+  const rep={id:'rep_'+Date.now(),item,urgency,notes:document.getElementById('util-rep-notas').value.trim(),date:new Date().toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}),by:currentRole};
   if(!A.utilReports) A.utilReports=[];
   A.utilReports.unshift(rep);
   if(A.utilReports.length>20) A.utilReports=A.utilReports.slice(0,20);
-  auditLog('CREATE','utileria',`Reporto necesidad: ${item} (${rep.urgency})`);
+  auditLog('CREATE','utileria',`Reporto necesidad: ${item} (${urgency})`);
   document.getElementById('util-rep-item').value='';
   document.getElementById('util-rep-notas').value='';
-  saveData();renderUtileria();snack('Reporte enviado','ok');
+
+  // Notificación automática para Admin
+  const urgEmoji = urgency==='urgente'?'🔴':'🟡';
+  const notifMsg = `${urgEmoji} Solicitud de utilería: "${item}" — por ${currentRole}`;
+  try{
+    var notifKey = typeof NOTIF_KEY!=='undefined' ? NOTIF_KEY : 'tcfc_notifs_v1';
+    var all = JSON.parse(localStorage.getItem(notifKey)||'[]');
+    all.unshift({id:'notif_util_'+Date.now(),ts:new Date().toISOString(),from:currentRole,target:'admin',type:'alert',msg:notifMsg,read:false});
+    localStorage.setItem(notifKey, JSON.stringify(all.slice(0,50)));
+    if(typeof updateNotifBell==='function') updateNotifBell();
+  }catch(e){}
+
+  // Sync a Sheets si hay conexión
+  if(A.config?.scriptUrl){
+    enqueueSync('UPSERT_UTIL_REPORT','utilReports',rep.id,rep);
+  }
+
+  saveData();renderUtileria();snack('Solicitud enviada — Admin notificado','ok');
 }
 
 // Keyboard PIN support
@@ -6154,8 +6173,8 @@ function openQuickPayModal(){
   const hint = document.getElementById('qp-mode-hint');
   const note = document.getElementById('qp-flow-note');
   const saveBtn = document.getElementById('qp-save-btn');
-  if(currentRole === 'admin'){
-    if(hint) hint.textContent = 'Como Admin, el cobro se registra directo como pagado.';
+  if(['admin','administrativo'].includes(currentRole)){
+    if(hint) hint.textContent = 'El cobro se registra directo como pagado.';
     if(note) {note.style.background='rgba(16,185,129,.06)';note.style.color='#059669';note.textContent='El pago quedara confirmado de inmediato.';}
     if(saveBtn) {saveBtn.textContent='Confirmar pago';saveBtn.style.background='var(--ok)';}
   } else {
@@ -6214,8 +6233,8 @@ function saveQuickPay(){
   const d = new Date(fecha + 'T00:00:00');
   const paidDate = d.toLocaleDateString('es-MX', {day:'numeric', month:'short', year:'numeric'});
 
-  // Admin registra directo como 'paid'; otros roles como 'por_confirmar'
-  const finalStatus = currentRole === 'admin' ? 'paid' : 'por_confirmar';
+  // Admin y Administrativo registran directo como 'paid'; profe como 'por_confirmar'
+  const finalStatus = ['admin','administrativo'].includes(currentRole) ? 'paid' : 'por_confirmar';
 
   const record = {
     id: 'pay_' + Date.now(),
@@ -6839,19 +6858,24 @@ function openAddEvento(){
 }
 
 /* ====== openViewJProfe -- ficha de jugador para Profe ====== */
-// Solo muestra: datos generales + medico (sin pagos, sin docs privados)
+// Solo muestra: datos generales + medico + foto (sin pagos, sin docs privados)
 function openViewJProfe(id){
   const p = A.players.find(x => x.id === id);
   if(!p) return;
   const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate).getTime()) / (1000*60*60*24*365.25)) : null;
+  const photoHTML = getPlayerPhotoHTML(p, 64);
   document.getElementById('mjv-body').innerHTML = `
     <div style="padding:4px 0 16px">
-      <!-- Header jugador -->
+      <!-- Header jugador con foto -->
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">
-        <div style="width:52px;height:52px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;flex-shrink:0">${p.number||'?'}</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+          ${photoHTML}
+          <button class="photo-upload-btn" onclick="openPhotoUpload('${p.id}')">📷 Foto</button>
+        </div>
         <div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--navy)">${p.name}</div>
-          <div style="font-size:12px;color:var(--muted)">${p.category||'--'} . ${p.position||'--'}${p.isCaptain?' . Capitan':''}</div>
+          <div style="font-size:12px;color:var(--muted)">${p.category||'--'} · ${p.position||'--'}${p.isCaptain?' · Capitán':''}</div>
+          ${p.number?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">#${p.number}</div>`:''}
         </div>
       </div>
 

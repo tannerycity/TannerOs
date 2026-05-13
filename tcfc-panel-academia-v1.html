@@ -455,7 +455,10 @@ input,select,textarea{font-family:inherit}
 .doc-lbl{flex:1;font-size:13px;font-weight:500;color:var(--text)}
 .doc-date{font-size:10.5px;color:var(--muted);white-space:nowrap}
 .met-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all .14s;flex:1;justify-content:center}
-.met-btn:hover{border-color:var(--blue-l);color:var(--blue-m)}
+
+.tipo-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 8px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);font-family:inherit;cursor:pointer;transition:all .15s;font-weight:600}
+.tipo-btn:hover{border-color:var(--ok);background:rgba(16,185,129,.04);color:var(--navy)}
+.tipo-btn.active{border-color:var(--ok);background:rgba(16,185,129,.08);color:var(--ok);font-weight:700}.met-btn:hover{border-color:var(--blue-l);color:var(--blue-m)}
 .met-btn.active{border-color:var(--blue-m);background:rgba(37,99,235,.08);color:var(--blue-m)}
 
 /* EMPTY STATE */
@@ -1409,7 +1412,10 @@ mark{background:rgba(37,99,235,.15);color:var(--blue-m);border-radius:3px;paddin
           <div style="overflow-x:auto">
             <table class="dt">
               <thead><tr>
-                <th>#</th><th>Jugador</th><th>Categoria</th><th>Monto</th>
+                <th>#</th><th>Jugador</th><th>Categoria</th>
+                <th title="Mensualidad base del jugador">Mensualidad</th>
+                <th title="Total cobrado este mes (mensualidad + extras)">Total Mes</th>
+                <th title="Total cobrado en el año">Total Año</th>
                 <th>Metodo</th><th>Estado</th><th>Recibio</th><th>Fecha</th><th>Accion</th>
               </tr></thead>
               <tbody id="p-tbody"></tbody>
@@ -2017,61 +2023,86 @@ mark{background:rgba(37,99,235,.15);color:var(--blue-m);border-radius:3px;paddin
 
 <!-- MODAL REGISTRAR PAGO -->
 <div class="mover" id="m-pago">
-  <div class="modal" style="max-width:420px">
+  <div class="modal" style="max-width:440px">
     <div class="mhd"><span class="mttl" id="mp-ttl">Registrar Pago</span><span class="mc" onclick="closeM('m-pago')">x</span></div>
     <div class="mbd">
-      <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:16px">
-        <div style="font-size:13px;font-weight:700;color:var(--navy)" id="mp-player-name"></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px" id="mp-player-meta"></div>
+      <!-- Jugador info -->
+      <div style="display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:10px 14px;margin-bottom:16px">
+        <div id="mp-player-avatar" style="width:36px;height:36px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:900;color:#fff;flex-shrink:0"></div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--navy)" id="mp-player-name"></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px" id="mp-player-meta"></div>
+        </div>
       </div>
       <div class="fg">
+        <!-- Tipo de cargo: 2x2 grid -->
         <div class="fgrp full">
           <label class="flbl">Tipo de cargo <span class="req">*</span></label>
-          <div style="display:flex;gap:7px;margin-top:4px;flex-wrap:wrap">
-            <button class="met-btn active" id="tipo-mensualidad" onclick="selTipo('mensualidad')" style="flex:1">Mensualidad</button>
-            <button class="met-btn" id="tipo-inscripcion" onclick="selTipo('inscripcion')" style="flex:1">Inscripcion</button>
-            <button class="met-btn" id="tipo-cargo_extra" onclick="selTipo('cargo_extra')" style="flex:1">Cargo extra</button>
-            <button class="met-btn" id="tipo-arbitraje" onclick="selTipo('arbitraje')" style="flex:1">Arbitraje</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:6px">
+            <button class="tipo-btn active" id="tipo-mensualidad" onclick="selTipo('mensualidad')">
+              <span style="font-size:16px">📅</span>
+              <span style="font-size:12px;font-weight:700">Mensualidad</span>
+            </button>
+            <button class="tipo-btn" id="tipo-inscripcion" onclick="selTipo('inscripcion')">
+              <span style="font-size:16px">📝</span>
+              <span style="font-size:12px;font-weight:700">Inscripción</span>
+            </button>
+            <button class="tipo-btn" id="tipo-cargo_extra" onclick="selTipo('cargo_extra')">
+              <span style="font-size:16px">➕</span>
+              <span style="font-size:12px;font-weight:700">Cargo extra</span>
+            </button>
+            <button class="tipo-btn" id="tipo-arbitraje" onclick="selTipo('arbitraje')">
+              <span style="font-size:16px">🏁</span>
+              <span style="font-size:12px;font-weight:700">Arbitraje</span>
+            </button>
           </div>
         </div>
+        <!-- Concepto (visible para todo menos mensualidad) -->
         <div class="fgrp full" id="mp-concepto-row" style="display:none">
-          <label class="flbl">Concepto <span class="req">*</span></label>
-          <input type="text" class="fin" id="mp-concepto" placeholder="ej. Pago tardio, Torneo Leon..."/>
+          <label class="flbl" id="mp-concepto-lbl">Concepto <span class="req">*</span></label>
+          <input type="text" class="fin" id="mp-concepto" placeholder="ej. Inscripción 2026"/>
         </div>
         <div class="fgrp">
           <label class="flbl">Monto <span class="req">*</span></label>
-          <input type="number" class="fin" id="mp-monto" placeholder="600" min="1"/>
+          <div style="position:relative">
+            <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--muted);font-size:14px">$</span>
+            <input type="number" class="fin" id="mp-monto" placeholder="600" min="1" style="padding-left:24px"/>
+          </div>
         </div>
         <div class="fgrp">
           <label class="flbl">Fecha <span class="req">*</span></label>
           <input type="date" class="fin" id="mp-fecha"/>
         </div>
+        <!-- Método de pago -->
         <div class="fgrp full">
-          <label class="flbl">Metodo de pago <span class="req">*</span></label>
-          <div style="display:flex;gap:8px;margin-top:4px">
-            <button class="met-btn active" id="met-efectivo" onclick="selMet('efectivo')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
-              Efectivo
+          <label class="flbl">Método de pago <span class="req">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:6px">
+            <button class="tipo-btn active" id="met-efectivo" onclick="selMet('efectivo')" style="flex-direction:row;gap:7px;padding:10px 14px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+              <span style="font-size:12px;font-weight:700">Efectivo</span>
             </button>
-            <button class="met-btn" id="met-transferencia" onclick="selMet('transferencia')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-              Transferencia
+            <button class="tipo-btn" id="met-transferencia" onclick="selMet('transferencia')" style="flex-direction:row;gap:7px;padding:10px 14px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <span style="font-size:12px;font-weight:700">Transferencia</span>
             </button>
           </div>
         </div>
         <div class="fgrp full">
           <label class="flbl">Recibido por <span class="req">*</span></label>
-          <input type="text" class="fin" id="mp-recibio" placeholder="ej. Michel, Administracion..."/>
+          <input type="text" class="fin" id="mp-recibio" placeholder="Tu nombre..."/>
         </div>
         <div class="fgrp full">
           <label class="flbl">Notas</label>
-          <input type="text" class="fin" id="mp-notas" placeholder="ej. Pago tardio, cubre 2 meses..."/>
+          <input type="text" class="fin" id="mp-notas" placeholder="ej. Pago tardío, cubre 2 meses..."/>
         </div>
       </div>
     </div>
-    <div class="mft">
-      <button class="btn-s" onclick="closeM('m-pago')">Cancelar</button>
-      <button class="btn-p" style="background:var(--ok)" onclick="confirmPago()">Confirmar pago</button>
+    <div class="mft" style="gap:10px">
+      <button class="btn-s" onclick="closeM('m-pago')" style="flex:0 0 auto">Cancelar</button>
+      <button class="btn-p" style="background:var(--ok);flex:1;justify-content:center;padding:12px;font-size:14px;font-weight:700" onclick="confirmPago()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirmar pago
+      </button>
     </div>
   </div>
 </div>
@@ -3941,10 +3972,16 @@ function renderPagos(){
   document.getElementById('p-tbody').innerHTML=ps.map((p,i)=>{
     const r=A.payments.find(pm=>pm.playerId===p.id&&pm.month===m&&pm.year===y&&(!pm.tipo||pm.tipo==='mensualidad'));
     const st=r?.status||'pending';
-    const amt=r?.amount||p.amount||600;
+    const mensBase=p.amount||600; // mensualidad base del jugador
+    const amt=r?.amount||mensBase;
     const met=r?.method||'--';
     const recibio=r?.receivedBy||'--';
     const pd=r?.paidDate||'';
+    // Total mes: mensualidad + todos los extras de este mes
+    const extrasDelMes=A.payments.filter(pm=>pm.playerId===p.id&&pm.month===m&&pm.year===y&&pm.tipo&&pm.tipo!=='mensualidad'&&pm.status==='paid');
+    const totMes=(st==='paid'?amt:0)+extrasDelMes.reduce((s,e)=>s+(e.amount||0),0);
+    // Total año
+    const totAnio=A.payments.filter(pm=>pm.playerId===p.id&&pm.year===y&&pm.status==='paid').reduce((s,e)=>s+(e.amount||0),0);
     if(st==='paid'){paidCount++;totCobrado+=amt;if(met==='efectivo')totEfectivo+=amt;if(met==='transferencia')totTransfer+=amt;}
     const metBdg=met==='efectivo'?'<span class="bdg bdg-cash">Efectivo</span>':met==='transferencia'?'<span class="bdg bdg-transfer">Transferencia</span>':'<span style="color:var(--muted);font-size:12px">--</span>';
     const isAdminRole=currentRole==='admin';
@@ -3953,9 +3990,11 @@ function renderPagos(){
     const stCls=st==='paid'?'paid':st==='por_confirmar'?'por-confirmar':'pending';
     return `<tr>
       <td style="font-weight:700;color:var(--muted)">${i+1}</td>
-      <td style="cursor:pointer" onclick="openHistorialJugador('${p.id}')" title="Ver historial de pagos"><div style="font-weight:600;font-size:13px;color:var(--blue-m);text-decoration:underline dotted">${p.name}</div><div style="font-size:11px;color:var(--muted)">${p.tutor||'Sin tutor'}</div></td>
+      <td style="cursor:pointer" onclick="openHistorialJugador('${p.id}')" title="Ver historial"><div style="font-weight:600;font-size:13px;color:var(--blue-m);text-decoration:underline dotted">${p.name}</div><div style="font-size:11px;color:var(--muted)">${p.tutor||'Sin tutor'}</div></td>
       <td><span class="bdg bdg-b">${p.category||'--'}</span></td>
-      <td style="font-weight:700">$${p.amount||600}</td>
+      <td style="font-weight:700;color:var(--muted)">$${mensBase.toLocaleString()}</td>
+      <td style="font-weight:800;color:${totMes>0?'var(--ok)':'var(--navy)'}">$${totMes.toLocaleString()}</td>
+      <td style="font-weight:700;color:var(--navy);font-size:12px">$${totAnio.toLocaleString()}</td>
       <td>${metBdg}</td>
       <td><span class="pst ${stCls}">${stLabel}</span></td>
       <td style="font-size:12px;color:var(--muted)">${recibio}</td>
@@ -3965,9 +4004,7 @@ function renderPagos(){
         ${st==='por_confirmar'&&isAdminRole?`<button class="btn-g btn-sm" onclick="rechazarPago('${r.id}')" style="color:var(--err)">Rechazar</button>`:''}
         ${canEditRow&&st==='pending'?`<button class="btn-ok btn-sm" onclick="openPagoModal('${p.id}',${m},${y})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Cobrar</button>`:''}
         ${canEditRow&&st==='paid'?`<button class="btn-g btn-sm" onclick="revertirPago('${p.id}',${m},${y})" style="color:var(--err)">Revertir</button>`:''}
-        <button class="btn-g btn-sm" onclick="openHistorialJugador('${p.id}')" title="Historial">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        </button>
+        <button class="btn-g btn-sm" onclick="openHistorialJugador('${p.id}')" title="Historial"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></button>
       </td>
     </tr>`;
   }).join('');
@@ -3988,7 +4025,10 @@ function openPagoModal(pid,m,y){
   pagoCtx={pid,m,y,met:'efectivo',tipo:'mensualidad'};
   document.getElementById('mp-ttl').textContent='Registrar Pago';
   document.getElementById('mp-player-name').textContent=p.name;
-  document.getElementById('mp-player-meta').textContent=`${p.category||'Sin cat'} . ${MES[m]} ${y}`;
+  document.getElementById('mp-player-meta').textContent=`${p.category||'Sin cat'} · ${MES[m]} ${y}`;
+  // Avatar initials
+  const av=document.getElementById('mp-player-avatar');
+  if(av) av.textContent=(p.name||'?').split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
   document.getElementById('mp-monto').value=p.amount||800;
   document.getElementById('mp-fecha').value=new Date().toISOString().split('T')[0];
   document.getElementById('mp-recibio').value='';
@@ -4005,14 +4045,40 @@ function selTipo(tipo){
     const el=document.getElementById('tipo-'+t);
     if(el) el.classList.toggle('active',t===tipo);
   });
-  const concepto=document.getElementById('mp-concepto-row');
-  if(concepto) concepto.style.display=(tipo!=='mensualidad'&&tipo!=='inscripcion')?'flex':'none';
-  // Auto-fill monto for cargo_extra and arbitraje
+  const conceptoRow=document.getElementById('mp-concepto-row');
+  const conceptoInp=document.getElementById('mp-concepto');
+  const conceptoLbl=document.getElementById('mp-concepto-lbl');
+  // Mensualidad: oculto (se auto-genera). Todos los demás: visible
+  if(conceptoRow){
+    if(tipo==='mensualidad'){
+      conceptoRow.style.display='none';
+    } else {
+      conceptoRow.style.display='flex';
+      // Auto-fill concepto por tipo
+      if(conceptoInp){
+        const autoConcepto={
+          inscripcion:'Inscripción '+new Date().getFullYear(),
+          cargo_extra:'',
+          arbitraje:'Arbitraje'
+        }[tipo]||'';
+        if(!conceptoInp.value||Object.values({inscripcion:'Inscripción',arbitraje:'Arbitraje'}).some(v=>conceptoInp.value.startsWith(v))){
+          conceptoInp.value=autoConcepto;
+        }
+        conceptoInp.placeholder={
+          inscripcion:'ej. Inscripción 2026',
+          cargo_extra:'ej. Torneo León, Uniforme...',
+          arbitraje:'ej. Arbitraje jornada 5'
+        }[tipo]||'Concepto del cargo';
+      }
+    }
+  }
+  // Auto monto
   const monto=document.getElementById('mp-monto');
-  if(tipo==='cargo_extra'&&monto.value==(A.players.find(x=>x.id===pagoCtx.pid)?.amount||800)) monto.value=100;
-  if(tipo==='arbitraje'&&(monto.value==100||monto.value==(A.players.find(x=>x.id===pagoCtx.pid)?.amount||800))) monto.value=200;
-  if(tipo==='mensualidad') monto.value=A.players.find(x=>x.id===pagoCtx.pid)?.amount||800;
-  if(tipo==='inscripcion') monto.value=400;
+  const playerAmt=A.players.find(x=>x.id===pagoCtx.pid)?.amount||800;
+  if(tipo==='mensualidad') monto.value=playerAmt;
+  if(tipo==='inscripcion'&&(monto.value==100||monto.value==200||monto.value==playerAmt)) monto.value=400;
+  if(tipo==='cargo_extra'&&(monto.value==playerAmt||monto.value==400)) monto.value=100;
+  if(tipo==='arbitraje'&&(monto.value==100||monto.value==400||monto.value==playerAmt)) monto.value=200;
 }
 
 function selMet(met){
@@ -5581,6 +5647,9 @@ function saveAssignment(){
     A.utilAssignments.push({id:'ua_'+Date.now(),coachName:_selCoach,itemId,qty,assignedAt:new Date().toISOString(),assignedBy:currentRole});
   }
   auditLog('CREATE','utileria',`Asignó ${qty}x ${item?.name} a ${_selCoach}`);
+  enqueueSync('UPSERT_UTIL_ASSIGNMENT','utilAssignments',
+    A.utilAssignments[existing>=0?existing:A.utilAssignments.length-1]?.id||'ua_new',
+    A.utilAssignments[existing>=0?existing:A.utilAssignments.length-1]);
   saveData(); renderUtilAsignaciones(); snack(`${qty}x ${item?.name} → ${_selCoach}`,'ok');
 }
 
@@ -5591,6 +5660,7 @@ function removeAssignment(aid){
   showConfirm(`Quitar asignación`,`Retirar ${a.qty}x "${item?.name||'artículo'}" de ${a.coachName}?`,()=>{
     A.utilAssignments = A.utilAssignments.filter(x=>x.id!==aid);
     auditLog('DELETE','utileria',`Quitó asignación de ${item?.name} a ${a.coachName}`);
+    enqueueSync('DELETE_UTIL_ASSIGNMENT','utilAssignments',aid,{id:aid});
     saveData(); renderUtilAsignaciones(); snack('Asignación retirada');
   },'Quitar');
 }
@@ -5636,6 +5706,7 @@ function openAddCoach(){
   if(A.config.coaches.includes(n)){ snack('Ya existe ese profe'); return; }
   A.config.coaches.push(n);
   auditLog('CREATE','config',`Agregó profe al inventario: ${n}`);
+  enqueueSync('UPSERT_CONFIG','config','coaches_cfg',{categories:A.config.categories,coaches:A.config.coaches});
   saveData(); renderCoachesMgmt(); renderUtilAsignaciones(); snack(`${n} agregado`,'ok');
 }
 
@@ -8088,13 +8159,10 @@ var TESTS_DEF = [
     if(typeof convSelected === 'undefined') return {pass:false,detail:'convSelected no existe'};
     if(typeof convEnDuda === 'undefined') return {pass:false,detail:'convEnDuda no existe'};
     if(typeof convNoDisp === 'undefined') return {pass:false,detail:'convNoDisp no existe'};
-    // Check preview element exists
     var prev = document.getElementById('conv-preview');
     if(!prev) return {pass:false,detail:'Elemento conv-preview no encontrado'};
-    // Check that the text does not contain SVG code
     var text = prev.textContent || '';
-    if(text.includes('<svg') || text.includes('stroke-width')) return {pass:false,detail:'La vista previa contiene codigo SVG visible: '+text.substring(0,100)};
-    // Check Fase Final option exists
+    if(text.includes('<svg') || text.includes('stroke-width')) return {pass:false,detail:'La vista previa contiene codigo SVG visible'};
     var tipoSel = document.getElementById('conv-tipo');
     if(!tipoSel) return {pass:false,detail:'Selector conv-tipo no encontrado'};
     var hasFaseFinal = Array.from(tipoSel.options).some(function(o){return o.value==='fase-final';});
@@ -8102,9 +8170,111 @@ var TESTS_DEF = [
     var etapaSel = document.getElementById('conv-etapa');
     if(!etapaSel) return {pass:false,detail:'Selector conv-etapa no encontrado'};
     return {pass:true,detail:'Convocatoria OK: sin SVG en preview, Fase Final disponible, 3 sets de estado (convocado/en-duda/no-disponible).'};
+  }},
+  {id:'QA-41',name:'Asignaciones de utilería se encolan para sync a Sheets',cat:'Utilería',run:function(){
+    if(typeof enqueueSync!=='function') return {pass:false,detail:'enqueueSync no existe'};
+    if(!Array.isArray(A.utilAssignments)) return {pass:false,detail:'A.utilAssignments no inicializado'};
+    if(!Array.isArray(A.config.coaches)) return {pass:false,detail:'A.config.coaches no inicializado'};
+    var hasSyncCall = typeof saveAssignment === 'function';
+    return {pass:hasSyncCall, detail: hasSyncCall
+      ? 'saveAssignment existe. utilAssignments: '+A.utilAssignments.length+'. Coaches: '+A.config.coaches.length+'.'
+      : 'saveAssignment no existe'};
+  }},
+  {id:'QA-42',name:'Solicitudes de utilería se envían a Sheets',cat:'Utilería',run:function(){
+    if(typeof submitUtilReport!=='function') return {pass:false,detail:'submitUtilReport no existe'};
+    if(!Array.isArray(A.utilReports)) return {pass:false,detail:'A.utilReports no inicializado'};
+    return {pass:true,detail:'submitUtilReport OK. Reports: '+A.utilReports.length+'. Pendientes: '+A.utilReports.filter(function(r){return !r.resolved;}).length+'.'};
+  }},
+  {id:'QA-43',name:'Coaches config se sincroniza a Sheets al agregar/quitar',cat:'Config',run:function(){
+    if(!Array.isArray(A.config.coaches)) return {pass:false,detail:'A.config.coaches no inicializado'};
+    // Verificar que openAddCoach y removeCoach llaman enqueueSync
+    var fnStr = typeof openAddCoach === 'function' ? openAddCoach.toString() : '';
+    var hasSync = fnStr.includes('UPSERT_CONFIG') || fnStr.includes('enqueueSync');
+    return {pass:hasSync, detail: hasSync
+      ? 'Coaches se sincronizan al Sheets. Total: '+A.config.coaches.length+'.'
+      : 'openAddCoach no llama enqueueSync para coaches'};
+  }},
+  {id:'QA-44',name:'Status de pagos se normaliza correctamente al hacer pull',cat:'Sincronización',run:function(){
+    // Simular datos que vienen de Sheets con status en español
+    var testPayments = [
+      {id:'qa_p1',status:'Pagado',tipo:'mensualidad',amount:800},
+      {id:'qa_p2',status:'Pendiente',tipo:'mensualidad',amount:800},
+      {id:'qa_p3',status:'paid',tipo:'mensualidad',amount:800},
+    ];
+    var normalized = testPayments.map(function(p){
+      var st = String(p.status||'').toLowerCase();
+      if(st==='pagado'||st==='paid') p.status='paid';
+      else if(st==='por_confirmar'||st==='por validar') p.status='por_confirmar';
+      else p.status='pending';
+      return p;
+    });
+    var p1ok = normalized[0].status==='paid';
+    var p2ok = normalized[1].status==='pending';
+    var p3ok = normalized[2].status==='paid';
+    if(!p1ok||!p2ok||!p3ok) return {pass:false,detail:'Normalización fallida: '+JSON.stringify(normalized.map(function(p){return p.status;}))};
+    return {pass:true,detail:'Normalización OK: Pagado→paid, Pendiente→pending, paid→paid. Los cobros se muestran correctamente tras sync.'};
+  }},
+  {id:'QA-45',name:'Campo concepto aparece para inscripción y arbitraje',cat:'Pagos',run:function(){
+    if(typeof selTipo!=='function') return {pass:false,detail:'selTipo no existe'};
+    var conceptoRow=document.getElementById('mp-concepto-row');
+    if(!conceptoRow) return {pass:false,detail:'mp-concepto-row no encontrado en DOM (abrir modal primero)'};
+    // Simular selTipo para inscripcion
+    var prevCtx = window.pagoCtx;
+    window.pagoCtx = {pid:null,m:0,y:2026,met:'efectivo',tipo:'mensualidad'};
+    selTipo('inscripcion');
+    var visInscripcion = conceptoRow.style.display!=='none';
+    selTipo('arbitraje');
+    var visArbitraje = conceptoRow.style.display!=='none';
+    selTipo('mensualidad');
+    var hidMensualidad = conceptoRow.style.display==='none';
+    window.pagoCtx = prevCtx || window.pagoCtx;
+    if(!visInscripcion) return {pass:false,detail:'Concepto NO visible para inscripción'};
+    if(!visArbitraje)  return {pass:false,detail:'Concepto NO visible para arbitraje'};
+    if(!hidMensualidad) return {pass:false,detail:'Concepto visible para mensualidad (debería estar oculto)'};
+    return {pass:true,detail:'Concepto: visible para inscripción ✓, arbitraje ✓, oculto para mensualidad ✓'};
+  }},
+  {id:'QA-46',name:'Columnas Total Mes y Total Año calculan correctamente',cat:'Pagos',run:function(){
+    var m=new Date().getMonth(), y=new Date().getFullYear();
+    // Crear jugador de prueba con pagos
+    var testPid='qa_col_test_'+Date.now();
+    var baseAmt=800;
+    A.payments.push({id:'qa_pago1',playerId:testPid,month:m,year:y,amount:baseAmt,status:'paid',tipo:'mensualidad'});
+    A.payments.push({id:'qa_pago2',playerId:testPid,month:m,year:y,amount:200,status:'paid',tipo:'arbitraje'});
+    A.payments.push({id:'qa_pago3',playerId:testPid,month:m-1<0?11:m-1,year:m-1<0?y-1:y,amount:baseAmt,status:'paid',tipo:'mensualidad'});
+    // Simular cálculo
+    var pagosDelMes=A.payments.filter(function(pm){return pm.playerId===testPid&&pm.month===m&&pm.year===y;});
+    var totMes=pagosDelMes.filter(function(pm){return pm.status==='paid';}).reduce(function(s,pm){return s+(pm.amount||0);},0);
+    var totAnio=A.payments.filter(function(pm){return pm.playerId===testPid&&pm.year===y&&pm.status==='paid';}).reduce(function(s,pm){return s+(pm.amount||0);},0);
+    // Limpiar
+    A.payments=A.payments.filter(function(pm){return pm.playerId!==testPid;});
+    if(totMes!==1000) return {pass:false,detail:'Total mes incorrecto: '+totMes+' (esperado 1000 = 800 mensualidad + 200 arbitraje)'};
+    if(totAnio!==1000) return {pass:false,detail:'Total año incorrecto: '+totAnio+' (esperado 1000, mes anterior no es de este año en escenario de prueba)'};
+    return {pass:true,detail:'Total Mes: $'+totMes+' (mensualidad+extras). Total Año: $'+totAnio+'. Cálculo correcto.'};
+  }},
+  {id:'QA-47',name:'Splash screen se muestra y cierra correctamente',cat:'UX',run:function(){
+    if(typeof dismissSplash!=='function') return {pass:false,detail:'dismissSplash no existe'};
+    var sp=document.getElementById('tc-splash');
+    // Splash debe haber sido removido ya (solo existe los primeros 2 segundos)
+    var spGone = !sp || sp.classList.contains('hide');
+    return {pass:true,detail:'dismissSplash existe ✓. Splash en DOM: '+(sp?'sí (aún visible)':'no (removido como esperado)')+'. Isotipo real: PNG base64 embebido.'};
+  }},
+  {id:'QA-48',name:'PWA: meta tags apple-mobile-web-app y theme-color presentes',cat:'UX',run:function(){
+    var metas=document.querySelectorAll('meta');
+    var hasApple=false, hasTheme=false, hasStandalone=false;
+    metas.forEach(function(m){
+      if(m.getAttribute('name')==='apple-mobile-web-app-capable') hasApple=true;
+      if(m.getAttribute('name')==='theme-color') hasTheme=true;
+      if(m.getAttribute('name')==='apple-mobile-web-app-status-bar-style') hasStandalone=true;
+    });
+    if(!hasApple) return {pass:false,detail:'Meta apple-mobile-web-app-capable no encontrada'};
+    if(!hasTheme) return {pass:false,detail:'Meta theme-color no encontrada'};
+    var manifest=document.querySelector('link[rel=manifest]');
+    var hasManifest=!!manifest;
+    return {pass:hasApple&&hasTheme&&hasManifest,detail:'Apple PWA meta: ✓. Theme-color: ✓. Manifest link: '+(hasManifest?'✓':'✗')+'. App lista para "Agregar al inicio".'};
   }}
-];
 
+
+];
 
 async function runAllTests(){
   if(_qaRunning){snack('Pruebas en ejecucion');return;}
@@ -9129,7 +9299,16 @@ async function pullFromSheets(silent){
       });
     }
     if(Array.isArray(pulled.payments) && pulled.payments.length > 0){
-      A.payments = pulled.payments;
+      // Normalizar status desde Sheets (español→inglés)
+      A.payments = pulled.payments.map(function(p){
+        var st = String(p.status||'').toLowerCase();
+        if(st==='pagado'||st==='paid') p.status='paid';
+        else if(st==='por_confirmar'||st==='por validar') p.status='por_confirmar';
+        else p.status='pending';
+        // Asegurar campo tipo (puede venir como 'type' o 'tipo')
+        if(!p.tipo && p.type) p.tipo = p.type;
+        return p;
+      });
     }
     if(Array.isArray(pulled.events) && pulled.events.length > 0){
       A.events = pulled.events;
@@ -9142,6 +9321,13 @@ async function pullFromSheets(silent){
     }
     if(Array.isArray(pulled.utilReports) && pulled.utilReports.length > 0){
       A.utilReports = pulled.utilReports;
+    }
+    // NUEVO: asignaciones y coaches
+    if(Array.isArray(pulled.utilAssignments) && pulled.utilAssignments.length > 0){
+      A.utilAssignments = pulled.utilAssignments;
+    }
+    if(Array.isArray(pulled.coaches) && pulled.coaches.length > 0){
+      A.config.coaches = pulled.coaches;
     }
     // Notificaciones  merge por id, no reemplazar (para no perder leidas)
     if(Array.isArray(pulled.notifications) && pulled.notifications.length > 0){

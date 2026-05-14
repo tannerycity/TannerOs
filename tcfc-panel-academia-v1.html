@@ -6368,17 +6368,23 @@ function showSyncPanel(){
 async function doManualSync(){
   const btn=document.getElementById('msync-sync-btn');
   if(btn){btn.textContent='Sincronizando...';btn.disabled=true;}
+  _syncRunning=false; // reset por si estaba atorado
   try{
     await processSyncQueue();
-    snack('✅ Cambios subidos a la nube','ok');
+    const q=loadQueue();
+    const pend=q.filter(i=>i.status==='pending').length;
+    const fail=q.filter(i=>i.status==='failed').length;
+    if(pend===0&&fail===0) snack('✅ Todo sincronizado','ok');
+    else if(fail>0) snack('⚠️ '+fail+' errores — revisa conexión');
+    else snack('⏳ '+pend+' pendientes...');
   }catch(e){snack('Error al sincronizar','err');}
   finally{
     if(btn){btn.textContent='🔄 Sincronizar ahora';btn.disabled=false;}
     updateSyncBadge();
-    const q=loadQueue();
-    const pend=q.filter(i=>i.status==='pending').length;
+    // Actualizar stats del panel sin cerrarlo
     const ttl=document.getElementById('msync-ttl');
-    if(ttl&&pend===0) ttl.textContent='Todo sincronizado';
+    const q=loadQueue();
+    if(ttl&&q.filter(i=>i.status==='pending').length===0) ttl.textContent='Todo sincronizado';
   }
 }
 
@@ -9819,15 +9825,12 @@ function startAutoSync(){
     if(typeof syncQueue === 'function') syncQueue();
     else if(typeof processSyncQueue === 'function') processSyncQueue();
   }, PULL_INTERVAL_MS);
-  // Retry failed syncs every 30 seconds
+  // Retry failed syncs every 30 seconds — usar tcfc_sq (key real)
   setInterval(function(){
-    if(currentRole) clearFailedSync();
-    var q=JSON.parse(localStorage.getItem('tcfc_sync_queue')||'[]');
-    var hasPending=q.some(function(i){return i.status==='pending'||i.status==='error';});
-    if(hasPending && A.config.scriptUrl){
-      if(typeof syncQueue==='function') syncQueue();
-      else if(typeof processSyncQueue==='function') processSyncQueue();
-    }
+    if(!currentRole||!A.config.scriptUrl) return;
+    var q=JSON.parse(localStorage.getItem('tcfc_sq')||'[]');
+    var hasPending=q.some(function(i){return i.status==='pending';});
+    if(hasPending && !_syncRunning) processSyncQueue();
   }, 30000);
 }
 
@@ -9939,17 +9942,17 @@ function initHumanSync(){
 }
 
 function clearFailedSync(){
-  var q = JSON.parse(localStorage.getItem('tcfc_sync_queue')||'[]');
-  // Resetear tries de fallidos para que reintenten
-  var reset = q.map(function(i){
-    if(i.status==='failed'){ i.status='pending'; i.tries=0; }
+  var q=JSON.parse(localStorage.getItem('tcfc_sq')||'[]');
+  var failedCount=q.filter(function(i){return i.status==='failed';}).length;
+  if(!failedCount){snack('Sin errores en la cola');updateSyncBadge();return;}
+  q=q.map(function(i){
+    if(i.status==='failed'){i.status='pending';i.tries=0;}
     return i;
   });
-  localStorage.setItem('tcfc_sync_queue', JSON.stringify(reset));
+  localStorage.setItem('tcfc_sq',JSON.stringify(q));
   updateSyncBadge();
-  snack('Cola reiniciada — reintentando...');
-  showSyncPanel(); // refrescar panel
-  setTimeout(processSyncQueue, 500); // intentar de inmediato
+  snack('🔄 '+failedCount+' errores reiniciados');
+  setTimeout(processSyncQueue,500);
 }
 
 init();

@@ -6230,17 +6230,22 @@ async function processSyncQueue(){
   const pending=q.filter(i=>i.status==='pending'&&i.tries<SQ_MAX_TRIES);
   if(!pending.length){updateSyncBadge();return;}
   _syncRunning=true;updateSyncStatus('syncing');
-  for(const item of pending.slice(0,10)){
+  // Safety timeout - nunca quedar atorado
+  const _st=setTimeout(()=>{_syncRunning=false;},120000);
+  for(const item of pending){
     try{
-      await fetch(A.config.scriptUrl,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({clubToken:A.config.clubToken||'1850TC1850',action:item.action,entity:item.entity,entityId:item.entityId,data:item.payload,deviceId:item.deviceId,role:item.role,sentAt:new Date().toISOString()})});
-      markSyncSuccess(item.id);
+      const res=await fetch(A.config.scriptUrl,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({clubToken:A.config.clubToken||'1850TC1850',action:item.action,entity:item.entity,entityId:item.entityId,data:item.payload,deviceId:item.deviceId,role:item.role,sentAt:new Date().toISOString()})});
+      const data=await res.json().catch(()=>({ok:true}));
+      if(data.ok!==false) markSyncSuccess(item.id);
+      else markSyncError(item.id, data.msg||'Error del servidor');
     }catch(err){markSyncError(item.id,err.message||'Error de red');}
   }
-  _syncRunning=false;updateSyncStatus('ok');
+  clearTimeout(_st);
+  _syncRunning=false;updateSyncStatus('ok');updateSyncBadge();
 }
 
-function markSyncSuccess(id){const q=loadQueue();const i=q.findIndex(x=>x.id===id);if(i>=0)q[i].status='synced';saveQueue(q);}
-function markSyncError(id,err){const q=loadQueue();const i=q.findIndex(x=>x.id===id);if(i>=0){q[i].tries+=1;q[i].lastError=err;if(q[i].tries>=SQ_MAX_TRIES)q[i].status='failed';}saveQueue(q);}
+function markSyncSuccess(id){const q=loadQueue();const i=q.findIndex(x=>x.id===id);if(i>=0){q[i].status='sent';q[i].sentAt=new Date().toISOString();}saveQueue(q);}
+function markSyncError(id,err){const q=loadQueue();const i=q.findIndex(x=>x.id===id);if(i>=0){q[i].tries=(q[i].tries||0)+1;q[i].lastError=err;if(q[i].tries>=SQ_MAX_TRIES)q[i].status='failed';}saveQueue(q);}
 
 function getSyncStatus(){
   if(!navigator.onLine)return'offline';

@@ -2917,6 +2917,21 @@ function init(){
   if(ver!=='v2'){localStorage.removeItem('tcfc_v1');localStorage.setItem('tcfc_ver','v2');}
   loadData();
   if(!A.players.length) seedDemo();
+  // Si se cargaron 0 jugadores pero hay backup con datos reales, restaurar
+  if(A.players.length<=3){
+    const backupRaw=localStorage.getItem('tcfc_backup_full');
+    if(backupRaw){
+      try{
+        const backup=JSON.parse(backupRaw);
+        if(backup.players&&backup.players.length>3){
+          console.warn('[TannerOS] Datos principales vacíos — restaurando desde backup automático');
+          A=backup;
+          localStorage.setItem('tcfc_v1',JSON.stringify(A));
+          snack('⚠️ Datos restaurados desde backup automático','ok');
+        }
+      }catch(e){}
+    }
+  }
   const now=new Date();
   // Show login screen
   document.getElementById('login-screen').classList.remove('hidden');
@@ -5285,7 +5300,24 @@ function snack(msg,type){
 }
 
 /* ============== DATA ============== */
-function saveData(){try{localStorage.setItem('tcfc_v1',JSON.stringify(A));}catch(e){}updateSyncBadge();}
+function saveData(){
+  try{
+    localStorage.setItem('tcfc_v1',JSON.stringify(A));
+    // Auto-respaldo con timestamp (mantiene los últimos 2)
+    if(A.players&&A.players.length>0){
+      const backup={ts:Date.now(),players:A.players.length,data:JSON.stringify(A)};
+      localStorage.setItem('tcfc_backup_1',localStorage.getItem('tcfc_backup_2')||'');
+      localStorage.setItem('tcfc_backup_2',JSON.stringify({ts:backup.ts,size:A.players.length}));
+      // Solo guarda backup completo cada 5 minutos
+      const lastFull=parseInt(localStorage.getItem('tcfc_backup_ts')||'0');
+      if(Date.now()-lastFull > 5*60*1000){
+        localStorage.setItem('tcfc_backup_full',backup.data);
+        localStorage.setItem('tcfc_backup_ts',String(Date.now()));
+      }
+    }
+  }catch(e){}
+  updateSyncBadge();
+}
 function loadData(){
   try{
     const s=localStorage.getItem('tcfc_v1');

@@ -2190,6 +2190,10 @@ mark{background:rgba(37,99,235,.15);color:var(--blue-m);border-radius:3px;paddin
 
       <!-- Acciones -->
       <div style="display:flex;flex-direction:column;gap:8px">
+        <!-- Limpiar errores: SIEMPRE VISIBLE cuando hay fallos, primero -->
+        <button onclick="clearFailedSync()" id="msync-clear-btn" style="display:none;width:100%;padding:13px;border-radius:12px;background:var(--err);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;align-items:center;justify-content:center;gap:8px">
+          🗑️ Limpiar errores y reintentar
+        </button>
         <button onclick="doManualSync()" id="msync-sync-btn" style="width:100%;padding:13px;border-radius:12px;background:var(--navy);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           Sincronizar ahora
@@ -2197,9 +2201,6 @@ mark{background:rgba(37,99,235,.15);color:var(--blue-m);border-radius:3px;paddin
         <button onclick="doPullSync()" id="msync-pull-btn" style="width:100%;padding:13px;border-radius:12px;background:var(--bg);color:var(--navy);font-size:13px;font-weight:600;border:1.5px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
           Traer datos de la nube
-        </button>
-        <button onclick="clearFailedSync()" id="msync-clear-btn" style="display:none;width:100%;padding:11px;border-radius:12px;background:rgba(239,68,68,.08);color:var(--err);font-size:13px;font-weight:600;border:1.5px solid rgba(239,68,68,.2);cursor:pointer;align-items:center;justify-content:center;gap:8px">
-          🗑️ Limpiar errores y reintentar
         </button>
         <!-- Reset sheet (para arreglar schemas viejos) -->
         <details style="margin-top:4px">

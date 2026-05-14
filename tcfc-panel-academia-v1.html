@@ -5133,8 +5133,13 @@ function refreshCatSels(){
 
 function saveUrl(){
   const url=(document.getElementById('cfg-url')?.value||'').trim();
-  if(url){A.config.scriptUrl=url;saveData();updateSheetsDot();updateSyncBadge();snack('<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> URL guardada','ok');}
-  else{snack('[!] Ingresa una URL valida');}
+  if(url){
+    A.config.scriptUrl=url;
+    // Asegurar que el token esté siempre configurado
+    if(!A.config.clubToken) A.config.clubToken='1850TC1850';
+    saveData();updateSheetsDot();updateSyncBadge();
+    snack('URL guardada ✅ Token: '+A.config.clubToken,'ok');
+  }else{snack('[!] Ingresa una URL valida');}
 }
 function updateSheetsDot(){
   const c=!!A.config.scriptUrl;
@@ -6195,7 +6200,7 @@ async function processSyncQueue(){
   _syncRunning=true;updateSyncStatus('syncing');
   for(const item of pending.slice(0,10)){
     try{
-      await fetch(A.config.scriptUrl,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({clubToken:A.config.clubToken||'',action:item.action,entity:item.entity,entityId:item.entityId,data:item.payload,deviceId:item.deviceId,role:item.role,sentAt:new Date().toISOString()})});
+      await fetch(A.config.scriptUrl,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({clubToken:A.config.clubToken||'1850TC1850',action:item.action,entity:item.entity,entityId:item.entityId,data:item.payload,deviceId:item.deviceId,role:item.role,sentAt:new Date().toISOString()})});
       markSyncSuccess(item.id);
     }catch(err){markSyncError(item.id,err.message||'Error de red');}
   }
@@ -6361,7 +6366,7 @@ async function resetRemoteSheet(){
   if(!confirm(`¿Reiniciar la hoja "${sel}"? Los datos en Sheets se borrarán pero el app los volverá a subir.`))return;
   try{
     snack('Reiniciando hoja...');
-    const res=await fetch(A.config.scriptUrl,{method:'POST',body:JSON.stringify({action:'RESET_SHEET',clubToken:A.config.clubToken||'1850TC1850',sheetName:sel})});
+    const res=await fetch(A.config.scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'RESET_SHEET',clubToken:A.config.clubToken||'1850TC1850',sheetName:sel})});
     const data=await res.json();
     if(data.ok){
       snack(`✅ Hoja ${sel} reiniciada — ahora sincroniza para subir los datos`,'ok');

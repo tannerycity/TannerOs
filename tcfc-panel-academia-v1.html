@@ -1935,10 +1935,11 @@ mark{background:rgba(37,99,235,.15);color:var(--blue-m);border-radius:3px;paddin
         <p style="font-size:11px;color:var(--muted);margin-top:5px;">No puedes eliminar una categoria con jugadores activos.</p>
       </div>
 
-      <div class="fgrp" style="margin-bottom:20px">
-        <label class="flbl" style="margin-bottom:8px;display:block">Datos de prueba (Beta)</label>
-        <button class="btn-s btn-sm" onclick="seedBetaData()">Cargar datos de prueba</button>
-        <p style="font-size:11px;color:var(--muted);margin-top:5px">Solo cuando el sistema este vacio. Carga jugadores y pagos de prueba para explorar el panel.</p>
+      <!-- Datos de prueba: SOLO visible cuando no hay jugadores reales -->
+      <div class="fgrp" id="demo-data-section" style="margin-bottom:20px;display:none">
+        <label class="flbl" style="margin-bottom:8px;display:block;color:var(--muted)">Datos de prueba (Solo sistema vacío)</label>
+        <button class="btn-s btn-sm" style="color:var(--muted);border-color:var(--border)" onclick="confirmarCargaDemo()">Cargar datos de prueba</button>
+        <p style="font-size:11px;color:var(--muted);margin-top:5px">Solo cuando el sistema esté completamente vacío.</p>
       </div>
 
       <div class="fgrp" style="margin-bottom:20px">
@@ -5176,6 +5177,7 @@ function openCfg(){
   startSessionTimer();
   checkAndShowSecurityAlerts();
   initDarkMode();
+  updateDemoSection(); // Mostrar/ocultar datos de prueba según jugadores reales
   setTimeout(function(){ startOnboarding(currentRole); }, 800);
   document.getElementById('bug-report-btn').style.display='flex';
   document.getElementById('notif-bell').style.display='flex';
@@ -7571,7 +7573,24 @@ function exportEventsICS(){
   snack('Calendario exportado -- importalo en Google Calendar', 'ok');
 }
 
-/* ====== BETA MODE -- seed de datos de prueba ====== */
+/* Datos de prueba — triple protección */
+function confirmarCargaDemo(){
+  if(A.players.filter(p=>p.active!==false).length>0){
+    snack('⚠️ Ya tienes jugadores reales. No puedes cargar datos de prueba.','err');
+    return;
+  }
+  if(!confirm('⚠️ ADVERTENCIA\n\nEsto carga datos FICTICIOS para explorar el panel.\n\nSolo úsalo si el sistema está completamente vacío.\n\n¿Estás seguro?')) return;
+  if(!confirm('Confirma de nuevo: ¿Cargar datos de prueba? Esto no puede deshacerse fácilmente.')) return;
+  seedBetaData();
+}
+
+function updateDemoSection(){
+  const sec = document.getElementById('demo-data-section');
+  if(!sec) return;
+  // Solo mostrar si NO hay jugadores reales Y es admin
+  const hasRealPlayers = A.players.filter(p=>p.active!==false).length > 0;
+  sec.style.display = (!hasRealPlayers && currentRole==='admin') ? 'block' : 'none';
+}
 function seedBetaData(){
   if(A.players.length > 0){
     snack('Ya hay datos en el sistema. Borra primero si quieres cargar datos de prueba.');
@@ -8305,19 +8324,24 @@ var TESTS_DEF = [
 /*  NIVEL 4: CONFIGURACION DEL CLUB  */
   {id:'QA-13',name:'Las categorias del club estan configuradas',cat:'Config del club',run:function(){
     var cats=getCats();
-    if(!Array.isArray(cats)||cats.length===0) return {pass:false,detail:'No hay categorias configuradas. Ve a Config y agrega las categorias de tu club (ej. Sub-10, Sub-12).'};
-    var testCats=['T-10','T-12','Baby Tanner'];
-    var hasTest=cats.filter(function(c){return testCats.indexOf(c)>=0;});
-    if(hasTest.length>0) return {pass:null,detail:'AVISO: Todavia tienes categorias de prueba: '+hasTest.join(', ')+'. Considera reemplazarlas con las categorias reales del club.'};
-    return {pass:true,detail:'Categorias configuradas ('+cats.length+'): '+cats.join(', ')};
+    if(!Array.isArray(cats)||cats.length===0) return {pass:false,detail:'No hay categorias configuradas. Ve a Config y agrega las categorias del club.'};
+    // Solo avisar si son exactamente las del sistema por default (Sub-9 a Sub-17), no las del club
+    var defaultCats=['Sub-9','Sub-10','Sub-11','Sub-12','Sub-13','Sub-14','Sub-15','Sub-17'];
+    var isAllDefault=defaultCats.every(function(d){return cats.indexOf(d)>=0;})&&cats.every(function(c){return defaultCats.indexOf(c)>=0;});
+    if(isAllDefault) return {pass:null,detail:'AVISO: Tienes las categorias del sistema por defecto (Sub-9 a Sub-17). Ve a Config y configura las categorias reales del club.'};
+    return {pass:true,detail:'Categorias del club OK ('+cats.length+'): '+cats.join(', ')};
   }},
   {id:'QA-14',name:'La fecha del proximo martes se calcula correctamente',cat:'Config del club',run:function(){
     var r=getNextTuesday();
     if(!r) return {pass:false,detail:'No se pudo calcular el proximo martes'};
-    var d=new Date(r+'T00:00:00');
+    var parts=r.split('-');
+    if(parts.length<3) return {pass:false,detail:'Formato de fecha invalido: '+r};
+    // Usar UTC para evitar problemas de zona horaria
+    var d=new Date(Date.UTC(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])));
     if(isNaN(d.getTime())) return {pass:false,detail:'La fecha calculada no es valida: '+r};
-    if(d.getDay()!==2) return {pass:false,detail:'La fecha no es martes (dia '+d.getDay()+') para: '+r};
-    if(d<=new Date()) return {pass:false,detail:'La fecha calculada ya paso: '+r};
+    if(d.getUTCDay()!==2) return {pass:false,detail:'La fecha no es martes (dia UTC '+d.getUTCDay()+') para: '+r};
+    var today=new Date(); var todayUTC=new Date(Date.UTC(today.getFullYear(),today.getMonth(),today.getDate()));
+    if(d<todayUTC) return {pass:false,detail:'La fecha calculada ya paso: '+r};
     return {pass:true,detail:'Proximo martes calculado correctamente: '+r};
   }},
 
@@ -9719,7 +9743,7 @@ async function pullFromSheets(){
       });
     }
     saveData();
-    renderCurrentView();
+    if(typeof nav==='function'&&currentView) nav(currentView);
     var msg = 'Datos jalados: '+pulled.players.length+' jugadores, '+
       (pulled.payments&&pulled.payments.length||0)+' pagos, '+
       (pulled.sessions&&pulled.sessions.length||0)+' sesiones.';
@@ -9837,7 +9861,7 @@ async function pullFromSheets(silent){
     };
 
     saveData();
-    renderCurrentView();
+    if(typeof nav==='function'&&currentView) nav(currentView);
 
     // Update sync badge
     var pill = document.getElementById('sync-pill');

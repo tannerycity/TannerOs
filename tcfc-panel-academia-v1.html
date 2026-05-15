@@ -8686,8 +8686,11 @@ var TESTS_DEF = [
     // Limpiar
     A.payments=A.payments.filter(function(pm){return pm.playerId!==testPid;});
     if(totMes!==1000) return {pass:false,detail:'Total mes incorrecto: '+totMes+' (esperado 1000 = 800 mensualidad + 200 arbitraje)'};
-    if(totAnio!==1000) return {pass:false,detail:'Total año incorrecto: '+totAnio+' (esperado 1000, mes anterior no es de este año en escenario de prueba)'};
-    return {pass:true,detail:'Total Mes: $'+totMes+' (mensualidad+extras). Total Año: $'+totAnio+'. Cálculo correcto.'};
+    // totAnio incluye mes anterior si es el mismo año (comportamiento correcto)
+    var prevYear=m-1<0?y-1:y;
+    var expectedAnio=prevYear===y?1800:1000;
+    if(totAnio!==expectedAnio) return {pass:false,detail:'Total año incorrecto: '+totAnio+' (esperado '+expectedAnio+')'};
+    return {pass:true,detail:'Total Mes: $'+totMes+' ✓ Total Año: $'+totAnio+' ✓ (incluye todos los cobros del año).'};
   }},
   {id:'QA-47',name:'Splash screen se muestra y cierra correctamente',cat:'UX',run:function(){
     if(typeof dismissSplash!=='function') return {pass:false,detail:'dismissSplash no existe'};
@@ -8855,31 +8858,27 @@ function exportQAReport(){
 function getBirthdaysIn(days, refDate){
   if(!A.players) return [];
   var ref = refDate || new Date();
+  // Usar solo fecha (sin hora) para evitar edge cases con cumpleaños hoy
+  var refDay = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
   var results = [];
-  
+
   A.players.filter(function(p){ return p.active !== false && p.birthdate; }).forEach(function(p){
     var parts = p.birthdate.split('-');
     if(parts.length < 2) return;
-    
     var birthMonth = parseInt(parts[1]) - 1;
     var birthDay = parseInt(parts[2]);
     if(isNaN(birthMonth) || isNaN(birthDay)) return;
-    
-    // Calculate birthday this year
-    var bdayThisYear = new Date(ref.getFullYear(), birthMonth, birthDay);
-    // If already passed this year, check next year
-    if(bdayThisYear < ref){
-      bdayThisYear = new Date(ref.getFullYear() + 1, birthMonth, birthDay);
+
+    var bdayThisYear = new Date(refDay.getFullYear(), birthMonth, birthDay);
+    // Si ya pasó HOY (estrictamente antes), usar el siguiente año
+    if(bdayThisYear < refDay){
+      bdayThisYear = new Date(refDay.getFullYear() + 1, birthMonth, birthDay);
     }
-    
-    // Days until birthday
-    var diff = Math.round((bdayThisYear - ref) / (1000 * 60 * 60 * 24));
-    
+
+    var diff = Math.round((bdayThisYear - refDay) / (1000 * 60 * 60 * 24));
+
     if(diff >= 0 && diff <= days){
-      var age = ref.getFullYear() - parseInt(parts[0]);
-      if(diff === 0 || bdayThisYear.getFullYear() > ref.getFullYear()) {
-        age = bdayThisYear.getFullYear() - parseInt(parts[0]);
-      }
+      var age = bdayThisYear.getFullYear() - parseInt(parts[0]);
       results.push({
         player: p,
         daysUntil: diff,
@@ -8889,7 +8888,7 @@ function getBirthdaysIn(days, refDate){
       });
     }
   });
-  
+
   return results.sort(function(a,b){ return a.daysUntil - b.daysUntil; });
 }
 

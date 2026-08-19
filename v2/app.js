@@ -11,29 +11,47 @@ const views = ['authView','pendingView','appView'];
 let authMode = 'signin';
 let ctx = null;
 let players = [];
+let lastSignupEmail = '';
 const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 
 function showView(id){ views.forEach(v => $(v)?.classList.toggle('hidden',v!==id)); }
 function setMessage(text='',type='error'){ const b=$('authMessage'); if(!b)return; b.textContent=text; b.dataset.type=type; b.classList.toggle('hidden',!text); }
+function showResend(show=true){ $('resendConfirmation')?.classList.toggle('hidden',!show); }
 function friendlyError(e){ const r=String(e?.message||e||'Ocurrió un error.'); if(/invalid login credentials/i.test(r))return 'Correo o contraseña incorrectos.'; if(/email not confirmed/i.test(r))return 'Confirma tu correo antes de entrar.'; if(/user already registered/i.test(r))return 'Ese correo ya tiene una cuenta. Usa “Entrar”.'; if(/rate limit/i.test(r))return 'Demasiados intentos. Intenta de nuevo en unos minutos.'; if(/not authorized/i.test(r))return 'Tu cuenta todavía no tiene acceso al club.'; return r; }
-function switchAuthMode(mode){ authMode=mode; const up=mode==='signup'; $('signInTab')?.classList.toggle('active',!up); $('signUpTab')?.classList.toggle('active',up); $('nameField')?.classList.toggle('hidden',!up); $('authSubmit').textContent=up?'Crear cuenta':'Entrar'; $('password')?.setAttribute('autocomplete',up?'new-password':'current-password'); setMessage(); }
+function switchAuthMode(mode){ authMode=mode; const up=mode==='signup'; $('signInTab')?.classList.toggle('active',!up); $('signUpTab')?.classList.toggle('active',up); $('nameField')?.classList.toggle('hidden',!up); $('authSubmit').textContent=up?'Crear cuenta':'Entrar'; $('password')?.setAttribute('autocomplete',up?'new-password':'current-password'); setMessage(); showResend(false); }
 async function rpc(name,params={}){ const {data,error}=await supabase.rpc(name,params); if(error)throw error; return data; }
 
 async function handleAuthSubmit(ev){
-  ev.preventDefault(); setMessage();
+  ev.preventDefault(); setMessage(); showResend(false);
   const email=$('email').value.trim(), password=$('password').value, displayName=$('displayName')?.value.trim();
   const btn=$('authSubmit'); btn.disabled=true;
   try{
     if(authMode==='signup'){
+      lastSignupEmail=email;
       const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name:displayName||email.split('@')[0]},emailRedirectTo:`${location.origin}/v2`}});
       if(error)throw error;
-      if(!data.session){ setMessage('Cuenta creada. Revisa tu correo, confirma el acceso y luego vuelve a entrar.','success'); return; }
+      if(!data.session){ setMessage('Cuenta creada. Revisa tu correo y confirma el acceso. Si el enlace expira, puedes reenviarlo aquí.','success'); showResend(true); return; }
     }else{
       const {error}=await supabase.auth.signInWithPassword({email,password}); if(error)throw error;
     }
     await loadAuthenticatedApp();
-  }catch(e){ setMessage(friendlyError(e)); }
+  }catch(e){
+    const msg=friendlyError(e); setMessage(msg);
+    if(/confirma tu correo/i.test(msg)){ lastSignupEmail=email; showResend(true); }
+  }
   finally{ btn.disabled=false; btn.textContent=authMode==='signup'?'Crear cuenta':'Entrar'; }
+}
+
+async function resendConfirmation(){
+  const email=lastSignupEmail||$('email')?.value.trim();
+  if(!email){ setMessage('Escribe primero el correo que quieres confirmar.'); return; }
+  const btn=$('resendConfirmation'); btn.disabled=true;
+  try{
+    const {error}=await supabase.auth.resend({type:'signup',email,options:{emailRedirectTo:`${location.origin}/v2`}});
+    if(error)throw error;
+    setMessage(`Listo. Enviamos un nuevo correo de confirmación a ${email}. Usa el más reciente.`,'success');
+  }catch(e){ setMessage(friendlyError(e)); }
+  finally{ btn.disabled=false; }
 }
 
 async function loadAuthenticatedApp(){
@@ -80,6 +98,7 @@ async function signOut(){ await supabase.auth.signOut(); ctx=null; players=[]; s
 $('signInTab')?.addEventListener('click',()=>switchAuthMode('signin'));
 $('signUpTab')?.addEventListener('click',()=>switchAuthMode('signup'));
 $('authForm')?.addEventListener('submit',handleAuthSubmit);
+$('resendConfirmation')?.addEventListener('click',resendConfirmation);
 $('signOut')?.addEventListener('click',signOut);
 $('pendingSignOut')?.addEventListener('click',signOut);
 $('refreshAccess')?.addEventListener('click',loadAuthenticatedApp);

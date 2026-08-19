@@ -2,9 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     { "source": "/v2", "destination": "/v2/index.html" },
-    { "source": "/registro", "destination": "/?registro=1" },
-    { "source": "/pedido", "destination": "/?pedido=1" },
-    { "source": "/programas", "destination": "/?inscripcion=1" }
+    { "source": "/registro", "destination": "/public/index.html" },
+    { "source": "/pedido", "destination": "/public/index.html" },
+    { "source": "/programas", "destination": "/public/index.html" }
   ],
   "headers": [
     {
@@ -50,21 +50,27 @@
       ]
     },
     {
+      "source": "/public/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
       "source": "/registro",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
       "source": "/pedido",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
       "source": "/programas",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     }
   ]

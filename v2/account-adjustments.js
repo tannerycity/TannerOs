@@ -47,6 +47,8 @@ let ctx = null;
 let pendingPlayerId = null;
 let requestSeq = 0;
 let refreshTimer = null;
+let payerSummaryTimer = null;
+let payerSummaryBusy = false;
 
 async function rpc(name, params = {}) {
   const { data, error } = await supabase.rpc(name, params);
@@ -59,6 +61,114 @@ async function ensureCtx() {
   const rows = await rpc('v2_my_context');
   ctx = rows?.[0] || null;
   return ctx;
+}
+
+function payerBucket(type) {
+  if (type === 'sponsor') return 'sponsor';
+  if (type === 'organization') return 'organization';
+  if (type === 'guardian' || type === 'player' || !type) return 'family';
+  return 'other';
+}
+
+function ensurePayerSummaryShell() {
+  let section = $('payerReceivablesSummary');
+  if (section) return section;
+
+  const baseKpis = document.querySelector('#appView > .kpis');
+  if (!baseKpis) return null;
+
+  section = document.createElement('section');
+  section.id = 'payerReceivablesSummary';
+  section.className = 'panel';
+  section.innerHTML = `
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">COBRANZA POR RESPONSABLE</div>
+        <h2>Quién tiene saldo pendiente</h2>
+        <p class="muted tiny">Separa lo que corresponde cobrar a familia, patrocinadores y otros responsables.</p>
+      </div>
+    </div>
+    <div class="kpis">
+      <article><span>Familia / tutor</span><strong id="payerFamilyDebt">—</strong><small id="payerFamilyMeta"></small></article>
+      <article><span>Patrocinador</span><strong id="payerSponsorDebt">—</strong><small id="payerSponsorMeta"></small></article>
+      <article><span>Club / otros</span><strong id="payerOtherDebt">—</strong><small id="payerOtherMeta"></small></article>
+      <article><span>Cartera identificada</span><strong id="payerTotalDebt">—</strong><small id="payerTotalMeta"></small></article>
+    </div>`;
+  baseKpis.insertAdjacentElement('afterend', section);
+  return section;
+}
+
+function setPayerCard(valueId, metaId, amount, rows) {
+  const value = $(valueId);
+  const meta = $(metaId);
+  if (value) value.textContent = money.format(amount);
+  if (meta) {
+    const players = new Set(rows.map(row => row.player_id).filter(Boolean));
+    meta.textContent = `${rows.length} cargo${rows.length === 1 ? '' : 's'} · ${players.size} Tanner${players.size === 1 ? '' : 's'}`;
+  }
+}
+
+function renderPayerSummary(rows = []) {
+  if (!ensurePayerSummaryShell()) return;
+  const openRows = rows.filter(row => Number(row.balance_due || 0) > 0);
+  const groups = {
+    family: [],
+    sponsor: [],
+    organization: [],
+    other: []
+  };
+  openRows.forEach(row => groups[payerBucket(row.payer_type)].push(row));
+
+  const sum = list => list.reduce((total, row) => total + Number(row.balance_due || 0), 0);
+  const familyAmount = sum(groups.family);
+  const sponsorAmount = sum(groups.sponsor);
+  const otherRows = [...groups.organization, ...groups.other];
+  const otherAmount = sum(otherRows);
+  const totalAmount = familyAmount + sponsorAmount + otherAmount;
+
+  setPayerCard('payerFamilyDebt', 'payerFamilyMeta', familyAmount, groups.family);
+  setPayerCard('payerSponsorDebt', 'payerSponsorMeta', sponsorAmount, groups.sponsor);
+  setPayerCard('payerOtherDebt', 'payerOtherMeta', otherAmount, otherRows);
+  setPayerCard('payerTotalDebt', 'payerTotalMeta', totalAmount, openRows);
+}
+
+async function refreshPayerSummary() {
+  const app = $('appView');
+  if (!app || app.classList.contains('hidden') || payerSummaryBusy) return;
+  payerSummaryBusy = true;
+  try {
+    const c = await ensureCtx();
+    if (!c) return;
+    const rows = await rpc('v2_open_receivables', { organization_id: c.organization_id });
+    renderPayerSummary(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    $('payerReceivablesSummary')?.remove();
+    console.error('payer receivables summary', error);
+  } finally {
+    payerSummaryBusy = false;
+  }
+}
+
+function schedulePayerSummaryRefresh() {
+  clearTimeout(payerSummaryTimer);
+  payerSummaryTimer = setTimeout(refreshPayerSummary, 50);
+}
+
+function wirePayerSummary() {
+  const app = $('appView');
+  if (app) {
+    new MutationObserver(() => {
+      if (!app.classList.contains('hidden')) schedulePayerSummaryRefresh();
+    }).observe(app, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  const totalDebt = $('kpiTotalDebt');
+  if (totalDebt) {
+    new MutationObserver(schedulePayerSummaryRefresh)
+      .observe(totalDebt, { childList: true, characterData: true, subtree: true });
+  }
+
+  schedulePayerSummaryRefresh();
 }
 
 function formatPeriod(value) {
@@ -267,3 +377,4 @@ function wire() {
 }
 
 wire();
+wirePayerSummary();

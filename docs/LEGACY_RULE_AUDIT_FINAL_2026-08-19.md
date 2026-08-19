@@ -1,8 +1,8 @@
-# TannerOS V2 — Auditoría legacy → V2 · corte final 2026-08-19
+# TannerOS V2 — Auditoría legacy → V2 · cierre 2026-08-19
 
 Supabase: `pacnegivzgxpanphrnwp`  
 Repo: `tannerycity/TannerOs`  
-Producción: `https://app.tannerycity.com`
+Target productivo: `https://app.tannerycity.com`
 
 ## Regla de autoridad
 
@@ -12,17 +12,18 @@ Producción: `https://app.tannerycity.com`
 
 Si legacy contradice una decisión V2, **gana V2**. `/` y `public.*` continúan durante cutover como compatibilidad, no como autoridad para nuevas escrituras.
 
-## Estado ejecutivo
+## Estado ejecutivo final
 
-- Reglas catalogadas: **106**.
+- Reglas catalogadas: **100**.
 - Activas + probadas: **99**.
-- Reemplazadas/superseded: **3**.
-- Pendientes por decisión real de negocio: **4**.
+- Superseded: **1**.
+- Pendientes por decisión de negocio: **0**.
 - Reglas activas sin probar: **0**.
 - Conflictos de migración preservados: **33**.
 - Auditoría legacy preservada: **1,262** eventos.
-- DML directo desde roles de navegador (`authenticated`, `anon`, `PUBLIC`) sobre `app.*`: **0**.
-- RLS cross-tenant: probado con segundo tenant temporal + rollback.
+- DML directo desde roles de navegador sobre `app.*`: **0**.
+- Los RPC financieros nuevos tienen EXECUTE para `authenticated` y **0** EXECUTE para `anon/PUBLIC`.
+- QA destructivo de decisiones financieras: transaccional + rollback + **0 residuos**.
 
 ## Datos legacy reconciliados
 
@@ -47,96 +48,161 @@ Si legacy contradice una decisión V2, **gana V2**. `/` y `public.*` continúan 
 - V2 usa Supabase como persistencia canónica.
 - `WRITE_ROLES` estático legacy fue reemplazado por organización + membership + rol + módulo habilitado.
 - Escrituras canónicas son command/RPC; la UI no es frontera de seguridad.
-- QA detectó una regresión posterior de grants DML y la volvió a cerrar. El chequeo permanente ahora inspecciona `authenticated`, `anon` y `PUBLIC`.
+- El chequeo permanente inspecciona grants de `authenticated`, `anon` y `PUBLIC`.
 - Legacy Sync queda **superseded** por Supabase, RLS, commands, domain events y QA de integridad.
-
-## Teléfono y formularios públicos
-
-- Selector internacional con búsqueda por país/lada.
-- México default `+52`, exactamente 10 dígitos nacionales.
-- EUA/NANP, Argentina y resto del mundo soportados.
-- Frontend + backend validan.
-- Persistencia E.164.
-- Teléfonos históricos ambiguos se preservan raw; no se adivina país.
 
 ## Jugadores / expediente
 
 - Dorsal único por categoría activa.
-- Conversión Prospecto → Tanner evita duplicado activo y doble conversión.
+- Prospecto → Tanner evita duplicado activo y doble conversión.
 - Código `TannerNNN` secuencial sin reescribir legacy.
 - Un tutor primario máximo por Tanner.
 - Tutor se reutiliza por teléfono canónico cuando es posible.
-- Expediente V2 incluye: identidad, nacimiento, posición, pierna, dorsal, escuela, sangre, alergias, domicilio, emergencia, tutor y notas.
-- Valores legacy `Derecha/Izquierda/Ambas` se normalizan al editar a `right/left/both`.
-- Teléfonos de tutor/emergencia se normalizan E.164.
-- Cambio de categoría se guarda atómicamente con el perfil y conserva historial de enrollment.
-- `/v2/jugadores/` es la consola canónica de expedientes.
+- Expediente V2 incluye identidad, nacimiento, posición, pierna, dorsal, escuela, sangre, alergias, domicilio, emergencia, tutor y notas.
+- Cambio de categoría se guarda atómicamente y conserva historial de enrollment.
+- `/v2/jugadores/` es la consola canónica.
 
 ### Documentación
 
 - Legacy tenía `doc_acta`, `doc_curp`, `doc_studies`.
 - En los **67 Tanners vigentes**, los tres flags legacy estaban en falso.
-- V2 sembró **201** estados documentales (3 por Tanner): Acta, CURP, estudios.
-- El checklist guarda recibido/faltante, fecha, actor y nota.
-- **No bloquea** participación, cobranza ni activación porque legacy no dejó evidencia para tratar faltantes como regla de elegibilidad.
+- V2 sembró **201** estados documentales: Acta, CURP y estudios por Tanner.
+- Checklist guarda recibido/faltante, fecha, actor y nota.
+- No bloquea participación, cobranza ni activación.
 
-## Cobranza / beneficios / ajustes
+## Cobranza canónica
 
-- Reglas V2 de billing mantienen precedencia: obligación día 1, vencimiento día 5, recargo futuro desde día 6, prorrateo de primer mes, pagos parciales, oldest-debt-first, saldo a favor y exenciones/beneficios definidos.
-- Beca completa ya está reflejada como fee $0/exento.
-- Hermanos Tanner ya está absorbido en cuota resultante; no se descuenta dos veces.
-- Becas parciales migradas ya tienen cuota resultante; no se recalculan.
-- `player_benefits` se muestra read-only en estado de cuenta.
-- Ajustes/waivers históricos se muestran read-only con monto, fecha y motivo.
-- No se creó un botón nuevo para perdonar deuda sin autoridad aprobada.
+- Obligación mensual según billing policy.
+- Vencimiento día 5.
+- Recargo desde día 6 cuando aplica.
+- Primer mes prorrateable según `weekly_quarters`.
+- Pagos parciales.
+- Allocación oldest-debt-first dentro del responsable correcto.
+- Saldo a favor controlado.
+- Beca completa permanece fee $0/exento.
+- Hermanos Tanner y becas parciales migradas no se vuelven a descontar.
 
-## Asistencia
+### `BENEFIT-SPONSOR-001` — sponsor / Curtibrother — CERRADA
 
-- Un registro por Tanner/sesión; repetir actualiza.
-- Estados canónicos: `present|absent|late|excused`.
-- Inicio/fin cronológicamente válidos.
-- Actor/recorder autenticado.
+Decisión aprobada 2026-08-19:
 
-## Scouting / captación
+- Sponsor-funded es configurable por Tanner.
+- Se define **total mensual**.
+- La cobertura del sponsor puede ser:
+  - monto fijo; o
+  - porcentaje.
+- El remanente queda como cuenta por cobrar de familia.
+- El sistema genera cargos separados:
+  - `monthly_fee` → familia;
+  - `monthly_fee_sponsor` → sponsor.
+- Pagos sponsor solo liquidan deuda sponsor; pagos familiares no liquidan deuda sponsor.
+- Para pagos sponsor se exige nombre del patrocinador.
+- Los registros legacy informativos no se transformaron automáticamente; requieren configuración explícita.
 
-- Funnel Prospectos y Scouting están separados por permisos.
-- Scouting standalone no requiere Captación.
-- Scores Técnico/Físico/Táctico/Mental: 0–10.
-- Rol Scouting no puede convertir jugadores.
-- Consolas: `/v2/prospectos/`, `/v2/scouting/`.
+QA rollback:
+- $800 total + $300 sponsor → $500 familia + $300 Curtibrother.
+- Pago sponsor $300 liquidó solo sponsor.
+- Modo 25% sobre $800 → $200 sponsor + $600 familia.
+- 101% fue rechazado.
 
-## Academias / porteros
+UI: `/v2/contabilidad/` → Sponsor / Curtibrother.
 
-- Duplicado activo Tanner+academia bloqueado.
-- Fee por enrollment puede heredar default o usar override.
-- Baja conserva enrollment, fecha, motivo, pagos y asistencia.
-- Porteros: paquete consume capacidad y evita doble cobro; sesión suelta usa rate; duración/expiración validadas.
-- Consolas: `/v2/academias/`, `/v2/porteros/`.
+### `ACA-BILL-001` — mensualidad de Academia — CERRADA
 
-## Programas
+Decisión aprobada 2026-08-19:
 
-- Edad validada server-side.
-- Cupo manda a waitlist.
-- No se puede forzar confirmación si está lleno.
-- Draft apaga registro público.
-- Consola: `/v2/programas/`; público: `/programas/`.
+- Academia genera **cargo separado** en el ledger del Tanner.
+- `agreed_fee` tiene precedencia; si está vacío hereda la cuota de Academia.
+- Primer mes usa el mismo prorrateo de billing.
+- Vencimiento usa el día canónico del club.
+- Primer mes respeta `first_month_late_fee_enabled`.
+- Meses posteriores vencidos generan el recargo estándar.
+- La automatización mensual genera cuota de club + cuota de Academia.
+
+QA rollback:
+- Academia $400 iniciando día 15 → cargo septiembre $200.
+- Octubre → $400.
+- Recargo posterior de Academia generado una sola vez.
+- Repetir generación no duplicó cargos.
+
+UI: `/v2/academias/` explica que Academia se cobra por separado y el primer mes puede prorratearse.
+
+### `BILL-WAIVER-001` — autoridad de ajustes de deuda — CERRADA
+
+Decisión aprobada 2026-08-19:
+
+- **Solo Presidencia autoriza** un waiver, descuento o corrección descendente.
+- Contabilidad puede aplicar una autorización aprobada.
+- Nunca se elimina el cargo original.
+- Se conserva:
+  - cargo original;
+  - tipo de ajuste;
+  - monto;
+  - motivo;
+  - quién autorizó;
+  - fecha/hora de autorización;
+  - quién aplicó;
+  - fecha/hora de aplicación.
+- Presidencia puede revocar una autorización mientras siga pendiente.
+- El ajuste no puede superar el saldo actual.
+
+QA rollback:
+- Cargo $100 → Presidencia autorizó $40 → Contabilidad aplicó → saldo $60.
+- Con rol Contabilidad, autorización nueva fue rechazada.
+
+UI: `/v2/contabilidad/` → Ajustes de deuda + cola de autorizaciones.
 
 ## Tienda / pedidos / kits
 
-- Precio siempre se resuelve en backend.
-- Pago real deriva `pending_payment|partial_payment|paid`.
-- V2 exige **100% pagado** antes de producción; reemplaza 50% legacy.
+- Precio se resuelve en backend.
+- Estados de pago derivan de dinero real.
+- V2 exige **100% pagado** antes de producción.
 - Talla/personalización requerida se valida antes de producción.
-- Se añadió command para corregir talla/nombre/número/observación **solo antes de producción**; `in_production+` queda bloqueado.
+- Talla/nombre/número/observación pueden corregirse solo antes de producción.
 - Snapshots de precio/costo protegen rentabilidad histórica.
-- Público `/pedido/` ahora soporta productos + kits.
+- Pedidos ahora conservan **quién pagó** (`guardian|sponsor|player|organization|other`) y nombre del pagador.
+- `/v2/pedidos/` muestra:
+  - venta;
+  - costo congelado;
+  - utilidad bruta esperada;
+  - cobrado;
+  - saldo;
+  - historial con pagador.
 
-### Bundles/kit
+### Bundles / kit
 
-- Legacy elegía Niño/Adulto y backend tomaba `priceKid/priceAdult`; V2 conserva esa regla.
-- Bundle se expande a piezas reales del pedido con costo congelado.
-- `Kit Game` es compatible con catálogo V2 y pasó QA: Niño **$1,299**, 4 piezas, costo congelado total **$870**.
-- `Kit Training` y `Kit Tanner - Completo` permanecen bloqueados porque dependen de prendas archivadas en V2; no se reactivan productos a escondidas.
+- Niño/Adulto conserva el comportamiento legacy de `priceKid/priceAdult`.
+- Bundle se expande a piezas reales con costo congelado.
+- `Kit Game`: Niño **$1,299**, 4 piezas, costo congelado **$870** en QA.
+- Kits que dependen de prendas archivadas permanecen bloqueados.
+
+## `CUT-PAY-001` — cortes / pago a proveedor — CERRADA
+
+Decisión aprobada 2026-08-19:
+
+1. Tienda/Producción crea el corte.
+2. El corte congela venta y costo por pedido.
+3. Contabilidad registra pagos al proveedor **ligados al corte**.
+4. Puede haber pagos parciales.
+5. No puede pagarse por encima del costo congelado pendiente.
+6. El egreso conserva proveedor, método, referencia, actor, fecha y vínculo al corte.
+
+Se separan dos métricas:
+
+- **Utilidad bruta esperada = venta congelada − costo congelado.**
+- **Caja neta actual = cobrado a clientes − pagado al proveedor.**
+
+QA rollback controlado:
+- venta: $100;
+- cobrado: $100;
+- costo: $60;
+- pagado proveedor: $60;
+- pendiente proveedor: $0;
+- utilidad esperada: $40;
+- caja neta: $40;
+- pago adicional de $1 fue rechazado.
+
+UI: `/v2/produccion/` → Finanzas por corte. Contabilidad puede abrir el control financiero aunque no tenga permiso operativo de Tienda.
 
 ## Producción / garantías
 
@@ -150,47 +216,35 @@ Si legacy contradice una decisión V2, **gana V2**. `/` y `public.*` continúan 
 
 ## Rendimiento deportivo
 
-- Partido/estadística/evaluación/nota ya tienen commands V2.
-- Una fila estadística máxima por Tanner+partido; repetir captura hace upsert.
-- Estadísticas no pueden ser negativas.
-- Tanner marcado como no asistió no puede tener minutos/goles/tarjetas/atajadas/titularidad.
-- Evaluaciones canónicas 0–10; actor autenticado.
-- Perfil deportivo deriva minutos, goles, asistencias, tarjetas, atajadas, partidos recientes, evaluaciones y notas.
+- Partido/estadística/evaluación/nota tienen commands V2.
+- Una estadística máxima por Tanner+partido; repetir hace upsert.
+- Valores deportivos negativos bloqueados.
+- Evaluaciones 0–10.
+- Perfil deportivo deriva minutos, goles, asistencias, tarjetas, atajadas, partidos, evaluaciones y notas.
 - Consola: `/v2/deportivo/`.
 
 ## Convocatoria
 
-- Legacy dejó módulo + permisos de escritura para Presidencia, Operaciones y Formadores, pero no dejó entidad RSVP/confirmaciones familiares.
-- V2 implementa únicamente la conducta demostrable: roster por partido, seleccionado/no seleccionado + nota.
-- Roster filtra Tanners activos por categoría del partido.
+- Legacy dejó módulo + permisos pero no entidad RSVP familiar.
+- V2 implementa solo lo demostrable: roster por partido, seleccionado/no seleccionado + nota.
 - Solo partidos `scheduled` aceptan cambios.
-- No se inventaron estados de respuesta familiar.
 - Consola: `/v2/convocatoria/`.
 
-## Calendario
+## Otros dominios cerrados
 
-- Es una proyección unificada de `sessions + matches + programs + club_events`; no duplica datos.
-- Eventos manuales usan command validado.
-- Consola: `/v2/calendario/`.
+- Asistencia: `/v2/asistencia/`.
+- Prospectos: `/v2/prospectos/`.
+- Scouting: `/v2/scouting/`.
+- Programas: `/v2/programas/`.
+- Porteros: `/v2/porteros/`.
+- Utilería: `/v2/utileria/`.
+- Patrocinadores: `/v2/patrocinadores/`.
+- Calendario: `/v2/calendario/`.
+- Usuarios: `/v2/usuarios/`.
+- Administración: `/v2/admin/`.
+- QA: `/v2/qa/`.
 
-## Patrocinadores / utilería / contabilidad / usuarios
-
-- Patrocinadores: pipeline y convenios command-only, fechas/valores validados. `/v2/patrocinadores/`.
-- Utilería: alta, asignación, devolución y reorder command-only. `/v2/utileria/`.
-- Contabilidad: egresos idempotentes y anulación sin borrar. `/v2/contabilidad/`.
-- Usuarios: invitaciones, revocaciones y memberships command-only; owner protegido. `/v2/usuarios/`.
-- Administración: hub de gobierno V2. `/v2/admin/`.
-
-## QA / integridad
-
-`/v2/qa/` muestra:
-- catálogo de reglas;
-- reglas activas no probadas;
-- conflictos de migración;
-- auditoría legacy preservada;
-- salud de grants DML canónicos.
-
-Conflictos preservados:
+## Conflictos de migración preservados
 
 | Dominio | Tipo | Filas |
 |---|---|---:|
@@ -202,54 +256,30 @@ Conflictos preservados:
 | Programas | referencia a programa inexistente | 2 |
 | **Total** | | **33** |
 
-## Cuatro decisiones reales pendientes
+No se resolvió ningún conflicto inventando jugador, producto, precio, país o programa.
 
-### `CUT-PAY-001` — pago a proveedor de un corte
+## QA de cierre
 
-V2 congela el costo del lote, pero no genera egreso automático hasta definir autoridad/flujo.
+`public.v2_qa_integrity` al cierre reporta:
 
-Opciones:
-- Taquilla;
-- Contabilidad;
-- solo Presidencia;
-- **recomendado:** Tienda/Producción crea lote → Contabilidad publica egreso ligado al lote.
+- total de reglas: **100**;
+- pendientes: **0**;
+- superseded: **1**;
+- activas/probadas: **99**;
+- activas sin probar: **0**;
+- conflictos de migración: **33**;
+- eventos legacy: **1,262**;
+- `canonicalDmlLocked = true`;
+- DML directo `authenticated` sobre canónico: **0**.
 
-### `ACA-BILL-001` — mensualidad de Academia
+Chequeo ampliado de grants:
 
-Definir:
-- cargo separado vs reemplazo de cuota en ciertos casos;
-- prorrateo;
-- recargo;
-- interacción con paquetes/sesiones de portero.
-
-### `BENEFIT-SPONSOR-001` — Curtibrother
-
-La regla aprobada dice “sponsor-funded, no scholarship”, pero los datos migrados no permiten reconstruir el receivable exacto:
-- 5 Tanners sponsor-funded;
-- cuotas legacy/V2 mezclan $0, $400 y $500;
-- pagos migrados no identifican sponsor vs familia.
-
-Definir:
-- cuánto debe sponsor;
-- si familia paga remanente;
-- cómo cuenta en KPI de cobranza;
-- tratamiento especial del caso $0/exento.
-
-### `BILL-WAIVER-001` — autoridad para perdonar deuda
-
-Hay 5 waivers históricos con monto/motivo, pero:
-- fuente = `migration_opening_balance`;
-- `created_by_user_id` histórico = null;
-- auditoría legacy no recupera rol/actor de esas decisiones.
-
-Definir:
-- quién puede crear un waiver nuevo;
-- si requiere motivo obligatorio;
-- si hay límite/umbral de aprobación;
-- si Contabilidad puede hacerlo o solo Presidencia.
+- DML directo para `authenticated|anon|PUBLIC`: **0**.
+- RPC financieros nuevos con EXECUTE `anon|PUBLIC`: **0**.
+- Fixtures/residuos de QA financiero: **0**.
 
 ## Criterio de cutover
 
-Un dominio se considera listo cuando: datos reconciliados → regla catalogada → enforcement backend → permisos cerrados → caja blanca + caja negra → rollback limpio → UI V2 consume contrato canónico para escrituras.
+Un dominio está listo cuando: datos reconciliados → regla catalogada → enforcement backend → permisos cerrados → caja blanca + caja negra → rollback limpio → UI V2 consume contrato canónico para escrituras.
 
-Con este corte, **todo lo determinístico identificado quedó implementado o explícitamente superseded**. Las únicas reglas pendientes requieren una decisión financiera de Tannery City.
+**Con las decisiones financieras del 19 de agosto de 2026, el catálogo queda en 0 reglas pendientes de decisión.**

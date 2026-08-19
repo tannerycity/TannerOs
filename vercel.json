@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/registro", "destination": "/?registro=1" },
+    { "source": "/pedido", "destination": "/?pedido=1" },
+    { "source": "/programas", "destination": "/?inscripcion=1" }
+  ],
   "headers": [
     {
       "source": "/sw.js",
@@ -15,6 +20,24 @@
     },
     {
       "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/registro",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/pedido",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/programas",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
       ]

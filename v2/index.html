@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#07191e" />
+  <title>TannerOS 2.0 Preview</title>
+  <link rel="stylesheet" href="/v2/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section id="authView" class="auth-wrap">
+      <div class="brand-lockup">
+        <div class="brand-mark">T</div>
+        <div><div class="eyebrow">TANNERY CITY</div><h1>TannerOS <span>2.0</span></h1></div>
+      </div>
+      <div class="auth-card">
+        <div class="preview-pill">Preview seguro</div>
+        <h2>Tu club, ahora en la nube.</h2>
+        <p class="muted">Esta vista usa Supabase Auth y el Core v2. La app productiva actual no se modifica.</p>
+        <div class="tabs" role="tablist">
+          <button id="signInTab" class="tab active" type="button">Entrar</button>
+          <button id="signUpTab" class="tab" type="button">Crear cuenta</button>
+        </div>
+        <form id="authForm">
+          <label>Correo<input id="email" type="email" autocomplete="email" required /></label>
+          <label>Contraseña<input id="password" type="password" minlength="8" autocomplete="current-password" required /></label>
+          <label id="nameField" class="hidden">Nombre<input id="displayName" type="text" autocomplete="name" /></label>
+          <button id="authSubmit" class="primary" type="submit">Entrar</button>
+        </form>
+        <div id="authMessage" class="message hidden"></div>
+      </div>
+    </section>
+
+    <section id="pendingView" class="hidden center-card">
+      <div class="brand-mark small">T</div>
+      <h2>Cuenta creada</h2>
+      <p id="pendingText" class="muted">Tu cuenta ya existe en Supabase Auth. Falta vincularla a Tannery City.</p>
+      <button id="refreshAccess" class="primary" type="button">Actualizar acceso</button>
+      <button id="pendingSignOut" class="secondary" type="button">Cerrar sesión</button>
+    </section>
+
+    <section id="appView" class="hidden app-wrap">
+      <header class="topbar">
+        <div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS 2.0</div><strong id="orgName">Club</strong></div></div>
+        <div class="top-actions"><span id="roleBadge" class="role-badge"></span><button id="signOut" class="secondary mini" type="button">Salir</button></div>
+      </header>
+
+      <section class="hero">
+        <div><div class="eyebrow">CORE V2 · SUPABASE</div><h1>Dirección</h1><p id="welcome" class="muted"></p></div>
+        <span class="health"><i></i> Backend v2 conectado</span>
+      </section>
+
+      <section class="kpis">
+        <article><span>Jugadores activos</span><strong id="kpiPlayers">—</strong></article>
+        <article><span>Cobranza</span><strong id="kpiCollection">—</strong><small id="kpiCovered"></small></article>
+        <article><span>Cartera del mes</span><strong id="kpiCurrentDebt">—</strong></article>
+        <article><span>Cartera total</span><strong id="kpiTotalDebt">—</strong></article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel players-panel">
+          <div class="panel-head"><div><div class="eyebrow">PLANTILLA</div><h2>Jugadores</h2></div><input id="playerSearch" class="search" type="search" placeholder="Buscar Tanner…" /></div>
+          <div class="table-wrap"><table><thead><tr><th>Código</th><th>Jugador</th><th>Categoría</th><th>Cuota</th><th>Estado</th></tr></thead><tbody id="playersBody"></tbody></table></div>
+          <div id="playersEmpty" class="empty hidden">No encontramos jugadores.</div>
+        </article>
+        <aside class="panel architecture-panel">
+          <div class="eyebrow">ARQUITECTURA</div><h2>Tu acceso</h2>
+          <div id="modulesList" class="modules"></div>
+          <p class="muted tiny">Los permisos provienen de membership + rol + módulos habilitados por la suscripción.</p>
+        </aside>
+      </section>
+    </section>
+  </main>
+  <script type="module" src="/v2/app.js"></script>
+</body>
+</html>

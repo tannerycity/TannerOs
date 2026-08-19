@@ -2,9 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     { "source": "/v2", "destination": "/v2/index.html" },
-    { "source": "/registro", "destination": "/public/index.html" },
-    { "source": "/pedido", "destination": "/public/index.html" },
-    { "source": "/programas", "destination": "/public/index.html" }
+    { "source": "/registro", "destination": "/public-form.html" },
+    { "source": "/pedido", "destination": "/public-form.html" },
+    { "source": "/programas", "destination": "/public-form.html" }
   ],
   "headers": [
     {
@@ -50,7 +50,19 @@
       ]
     },
     {
-      "source": "/public/(.*)",
+      "source": "/public-form.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/public-form.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/public-form.css",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]

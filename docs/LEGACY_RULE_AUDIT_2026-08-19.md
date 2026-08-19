@@ -4,214 +4,203 @@ Fecha de corte: **2026-08-19**
 Supabase: `pacnegivzgxpanphrnwp`  
 Repo: `tannerycity/TannerOs`
 
-## Criterio de precedencia
-
-1. **Decisión aprobada V2**.
+## Autoridad
+1. Decisión aprobada V2.
 2. Regla legacy compatible.
-3. Seguridad/plataforma cuando evita corrupción, cruces de tenant o bypass de reglas.
+3. Restricción de seguridad/plataforma que evita corrupción o bypass.
 
-Si legacy contradice una decisión V2 aprobada, **gana V2**. Legacy permanece como evidencia y compatibilidad durante cutover, no como autoridad.
+Si legacy contradice una decisión V2, **gana V2**. `/` y `public.*` permanecen durante cutover por compatibilidad, no como autoridad para nuevas escrituras.
 
 ## Estado ejecutivo
+- Reglas catalogadas: **86**.
+- Activas + probadas: **83**.
+- Reemplazadas: **1** (`SEC-LEGACY-001`).
+- Pendientes por decisión real de negocio: **2** (`ACA-BILL-001`, `CUT-PAY-001`).
+- Reglas activas sin probar: **0**.
+- Tablas canónicas `app.*` con INSERT/UPDATE/DELETE directo para `authenticated`: **0**.
+- RLS cross-tenant: probado con segundo tenant temporal + rollback.
+- QA destructivo: transaccional, con rollback y **0 residuos QA** en las suites cerradas.
 
-- Reglas catalogadas en `app.business_rule_catalog`: **73**.
-- Activas + probadas: **71**.
-- Reemplazadas explícitamente por V2: **1** (`SEC-LEGACY-001`).
-- Pendientes por decisión real de negocio: **1** (`CUT-PAY-001`).
-- Toda regla activa del catálogo tiene `test_status = tested` al cierre de esta auditoría.
-- QA destructivo/operativo se ejecutó con subtransacciones y rollback; las suites reportaron **0 filas QA residuales**.
+## Migración de datos legacy
+- Prospectos: **55/55**; conversiones ligadas: **18/18**.
+- Scouting: **29/29**.
+- Academia: **1/1**; inscripciones **6/6**.
+- Asistencia válida: **331/331** en **24** sesiones; 6 filas irresolubles preservadas como conflictos.
+- Programas: **30/30**; inscripciones **17/19**; 2 conflictos por programa inexistente.
+- Productos legacy preservados: **89/89**; catálogo operativo V2: **8**.
+- Pedidos: **45/45**; líneas: **68/68**.
+- Sponsors: **12/12** + convenios.
+- Utilería: **16/16**.
+- Partidos: **2/2**; estadísticas: **19/19**.
+- Evaluaciones: **13/13**; 7 ligadas y 6 preservadas sin inventar jugador.
+- Nota de jugador: **1/1**; evento: **1/1**.
+- Paquetes/kit: **8/8**, 3 vigentes.
+- Activos publicitarios históricos: **20/20**.
+- Auditoría legacy: **1,262/1,262** eventos.
 
-## Regla legacy → resultado V2
+## Reglas por dominio
 
-### Seguridad y permisos
-
-| Regla | Resultado | V2 |
-|---|---|---|
-| `WRITE_ROLES` estático por entidad | **REEMPLAZADA** | `SEC-002`: matriz SaaS explícita por organización/rol/módulo. |
-| Escritura directa de pedidos/productos desde cliente | **ENDURECIDA** | `authenticated` conserva SELECT, pero no INSERT/UPDATE/DELETE en `app.orders`, `app.order_items`, `app.products`. Escritura solo por comandos. |
-| Actor libre en asistencia/scouting | **ENDURECIDA** | Actor/responsable proviene de `auth.uid()`. |
-| Relaciones entre organizaciones | **ENDURECIDA** | FKs/commands tenant-safe. |
+### Seguridad
+- `SEC-002`: matriz SaaS organización + rol + módulo reemplaza `WRITE_ROLES` legacy.
+- `SEC-003`: todas las mutaciones canónicas relevantes se ejecutan mediante commands/RPC.
+- `SEC-004`: RLS aísla lecturas por tenant; validado con tenant QA real dentro de rollback.
+- El navegador conserva lectura únicamente cuando corresponde; no posee DML libre sobre `app.*`.
 
 ### Teléfono público
-
-| Regla | Resultado | V2 |
-|---|---|---|
-| México | **ACTIVA** | +52 por defecto, exactamente 10 dígitos nacionales. |
-| EUA/NANP | **ACTIVA** | +1 + 10 dígitos. |
-| Argentina | **ACTIVA** | +54 fijo o móvil E.164. |
-| Resto del mundo | **ACTIVA** | envolvente E.164 válida. |
-| Persistencia | **ACTIVA** | valor canónico E.164 en backend. |
-| Teléfonos históricos ambiguos | **PRESERVADOS** | no se adivina país; se conserva raw legacy cuando no puede normalizarse de forma determinística. |
+- Selector internacional con búsqueda país/lada.
+- México default `+52`; exactamente 10 dígitos nacionales.
+- EUA/NANP y Argentina soportados; resto del mundo validado como E.164.
+- Frontend y backend validan; backend guarda canónico E.164.
+- Datos históricos ambiguos no se adivinan.
 
 ### Jugadores / categorías
-
-- Dorsal único por categoría activa: **ACTIVO**.
-- Conversión Prospecto → Tanner con protección de duplicado: **ACTIVO**.
-- Código Tanner secuencial sin reescribir códigos históricos: **ACTIVO**.
-- Reutilización de tutor por teléfono canónico: **ACTIVO**.
-- Categoría canónica mediante `player_enrollments`: **ACTIVO**.
-- Un solo enrollment de club activo por Tanner: **ACTIVO**.
-- Cambio de categoría conserva historia, cierra enrollment anterior y crea uno nuevo: **ACTIVO + QA rollback**.
+- Dorsal único dentro de categoría activa.
+- Prospecto → Tanner evita duplicado activo y no convierte dos veces.
+- Código `TannerNNN` secuencial sin reescribir códigos históricos.
+- Tutor reutilizado por teléfono canónico cuando corresponde.
+- Categoría canónica mediante `player_enrollments`.
+- Cambio de categoría conserva enrollment anterior y abre el nuevo.
+- Baja/reactivación conserva historia financiera y deportiva.
 
 ### Cobranza
-
-Las reglas `BILL-001..007` permanecen como decisiones V2 aprobadas y tienen precedencia sobre comportamiento financiero legacy cuando existe conflicto.
+Las reglas `BILL-001..007` V2 tienen precedencia: obligación día 1, vencimiento día 5, recargo futuro desde día 6, prorrateo de primer mes, pagos parciales, oldest-debt-first, saldo a favor y beneficios/exenciones según decisión V2.
 
 ### Asistencia
-
-- Estados canónicos `present|absent|late|excused`: **ACTIVO**.
-- Sesión no puede terminar antes de iniciar: **ACTIVO**.
-- Responsable/recorder autenticado: **ACTIVO**.
-- Historial legacy válido: **331/331** registros migrados en **24** sesiones.
-- **6** filas legacy sin `player_id`/`session_id`: excluidas del dominio operativo y registradas como conflictos de migración.
+- Estados `present|absent|late|excused`.
+- Un registro por Tanner/sesión; repetir actualiza.
+- Inicio/fin cronológicamente válidos.
+- Responsable y recorder provienen de identidad autenticada.
 
 ### Prospectos / Scouting
-
-- Prospectos legacy: **55/55** migrados.
-- Conversiones legacy: **18/18** ligadas al Tanner correcto.
-- Scouting legacy: **29/29** migrados (**3 open**, **26 históricos/closed**).
-- Scouting puede existir sin Prospecto: **ACTIVO**.
-- Scores Técnico/Físico/Táctico/Mental: **0–10**.
-- Escritura de Scouting directa a tabla: **BLOQUEADA**; solo comandos autorizados.
-- Rol Scouting no obtiene acceso a Captación ni a conversión de jugadores: **ACTIVO + QA**.
-- Consola standalone: `/v2/scouting/`.
+- Funnel y statuses canónicos V2.
+- Scouting standalone no requiere acceso a Captación.
+- Scores Técnico/Físico/Táctico/Mental: 0–10.
+- Rol Scouting no puede convertir jugadores.
+- Consola: `/v2/scouting/`.
 
 ### Academias
+- Duplicado activo Tanner+academia bloqueado.
+- Fee individual puede heredar default o usar override.
+- Baja de academia conserva enrollment, fecha, motivo, pagos y asistencia.
+- **Pendiente `ACA-BILL-001`**: decidir cómo `academy_fee` entra al ledger de cobranza y cómo interactúa con prorrateo/recargos.
 
-- Academia legacy: **1/1** migrada.
-- Inscripciones: **6/6** migradas; **5 activas + 1 histórica**.
-- Duplicado activo jugador+academia: **BLOQUEADO**.
-- Fee por jugador puede usar default de academia o override individual: **ACTIVO**.
-- Baja de academia conserva enrollment, fecha y motivo; no borra historia: **ACTIVO + QA rollback**.
+### Programas
+- Rango de edad validado server-side.
+- Cupo manda a waitlist; no se puede forzar confirmación si está lleno.
+- Draft apaga registro público.
+- Escrituras command-only.
+- Consola: `/v2/programas/`; formulario público: `/programas/`.
 
-> Pendiente de diseño financiero separado: generación automática de `academy_fee` dentro del mismo ledger y tratamiento de recargos. La regla de prorrateo existe conceptualmente, pero no se activó en producción para no alterar cartera sin definir su interacción financiera.
-
-### Programas / cursos
-
-- Programas legacy: **30/30** migrados.
-- Inscripciones: **17/19** migradas canónicamente.
-- **2** inscripciones apuntan a cursos legacy inexistentes y no tienen match determinístico: preservadas como conflictos, sin inventar relación.
-- Rango de edad público: **ACTIVO + QA**.
-
-### Tienda / pedidos
-
-Decisión V2 de catálogo: **8 productos limpios activos**. Los **89/89 productos legacy** se preservan como histórico, pero no se reviven como catálogo operativo.
-
-Pedidos:
-- **45/45** headers migrados.
-- **68/68** líneas migradas.
-- Precio/costo histórico usa snapshots congelados cuando existen.
-- Cuando no existe snapshot de precio, solo se reconstruye si el catálogo legacy concilia exactamente con subtotal guardado.
-- Si no puede reconstruirse, se registra conflicto; nunca se inventa rentabilidad.
-
-Reglas V2:
-- `pending → partial/paid → production` tiene precedencia.
-- Legacy permitía corte con 50%; V2 exige **100% de pago registrado** antes de producción.
-- `partial_payment` y `paid` derivan del dinero ligado al pedido; no son estados manuales.
+### Pedidos / tienda
+- Precio se resuelve en backend; cantidades > 0.
+- Estados canónicos: `draft → pending_payment → partial_payment/paid → in_production → ready → delivered` más cancelled/refunded.
+- V2 exige **100% de pago real** antes de producción; reemplaza el 50% legacy.
+- `partial_payment`/`paid` derivan del dinero, no de selección manual.
 - Sobrepago normal bloqueado.
-- Antes de producción: piezas + talla + personalización requerida + pago completo.
-- Descuento/margen se calcula con costo congelado; si se configura margen mínimo, quedar debajo exige Presidencia/Admin.
-- Si `margin_min_percent` está vacío, la regla de margen está deshabilitada.
-- `/v2/pedidos/` ya consume pagos, saldo y readiness del backend.
+- Talla/personalización obligatoria antes de producción cuando aplica.
+- Snapshots de precio/costo preservan rentabilidad histórica; si no se puede reconstruir, se registra conflicto.
+- Consola: `/v2/pedidos/`.
 
-### Cortes / producción
-
-Legacy `cortes` fue normalizado como `production_batches`.
-
-- Pedido sin pago completo: **BLOQUEADO**.
-- Pedido incompleto: **BLOQUEADO**.
-- Costo congelado faltante: **BLOQUEADO**.
-- Corte congela `sale_snapshot` y `cost_snapshot`.
-- Un pedido original solo puede pertenecer a un corte normal.
-- Crear corte mueve pedido pagado/listo a `in_production` por state machine.
-- Recibir corte mueve pedido a `ready`.
-- QA: **11/11** suite Cortes/Garantías, con rollback y 0 residuo.
-
-### Garantías
-
-- Solo se abre contra pedido `delivered`.
-- Debe referenciar al menos una pieza real del pedido.
-- Congela descripción, atributos, cantidad y costo de la pieza original.
-- Reposición usa lote separado `warranty_replacement` con venta **$0** y costo congelado.
-- Recepción: garantía → `ready`.
-- Entrega: acción explícita → `delivered` + timestamp.
+### Cortes / producción / garantías
+- `cortes` se normaliza como `production_batches`.
+- Corte requiere pedido pagado, completo y con costo congelado.
+- Corte congela venta/costo y mueve a producción; recepción mueve a listo.
+- Garantía solo contra pedido entregado y piezas reales.
+- Reposición: lote `warranty_replacement`, venta $0, costo congelado.
+- Entrega de garantía es explícita y fechada.
+- Consola: `/v2/produccion/`.
+- **Pendiente `CUT-PAY-001`**: autoridad sobre pago a proveedor de un corte.
 
 ### Porteros
-
-- Paquetes, consumo, expiración y no-cobro por sesión de paquete ya estaban implementados en backend; las reglas inicialmente catalogadas como pendientes fueron corregidas a activas/tested tras inspección de código y QA.
-- Duración de sesión positiva y limitada.
-- Capacidad de paquete positiva y expiración no anterior a compra.
+- Sesión con paquete consume capacidad y no crea segundo cobro.
+- Sesión suelta genera su cobro según rate.
+- Duración positiva; paquete positivo; expiración válida; historial trazable.
+- Consola: `/v2/porteros/`.
 
 ### Utilería
+- Reorder solo si `min_stock > 0` y disponible llega al umbral.
+- `min_stock=0` no crea falso reorder.
+- Alta, asignación y devolución por commands.
+- Consola: `/v2/utileria/`.
 
-- Inventario legacy: **16/16** migrado.
-- Reorder solo cuando `min_stock > 0` y cantidad cae al umbral: **ACTIVO + QA**.
-- `min_stock = 0` no crea falso reorder.
+### Patrocinadores
+- Pipeline y convenios son command-only.
+- Teléfono se normaliza; valor potencial no puede ser negativo.
+- Fin de convenio no puede preceder inicio; valor monetario no puede ser negativo.
+- Beneficios/derechos y entregables permanecen trazables.
+- Edición de sponsor/convenio consume API admin canónica.
+- Consola: `/v2/patrocinadores/`.
 
-### Sponsors / eventos / deporte / auditoría
+### Contabilidad
+- Egresos se publican mediante command idempotente.
+- Anular no borra: cambia estado y conserva motivo/timestamp.
+- Taquilla no puede publicar egresos contables si no tiene permiso Accounting.
+- Consola: `/v2/contabilidad/`.
+- Pago a proveedor de corte no se publica automáticamente hasta resolver `CUT-PAY-001`.
 
-- Sponsors: **12/12** + acuerdos preservados.
-- Partidos: **2/2**.
-- Estadísticas: **19/19**.
-- Evaluaciones: **13/13**; **7** ligadas a jugador, **6** sin referencia confiable preservadas sin inventar vínculo.
-- Nota de jugador: **1/1**.
-- Evento: **1/1**.
-- Paquetes/kit legacy: **8/8**, **3 vigentes**.
-- Activos publicitarios históricos: **20/20**.
-- Auditoría legacy: **1,262/1,262** eventos preservados.
+### Usuarios
+- Invitaciones duran 7 días y se aceptan al crear cuenta con el mismo correo.
+- Invitaciones, revocaciones y cambios de membership pasan por commands.
+- Owner está protegido contra degradación/desactivación desde administración estándar.
+- Roles se traducen a la matriz operativa V2.
+- Consola: `/v2/usuarios/`.
+
+### Calendario
+- No existe una copia paralela del calendario.
+- `/v2/calendario/` proyecta `sessions + matches + programs + club_events`.
+- Eventos manuales se crean mediante command con título/fecha/tipo/status válidos.
+- Lectura directa de tabla continúa bloqueada al navegador.
+
+### Administración
+- `/v2/admin/` es hub de gobierno; no inventa settings sensibles.
+- Centraliza Usuarios, Módulos/SaaS, QA, Contabilidad, Calendario y consolas operativas según permisos.
+- `/v2/modulos/` ya tiene destino real para todos los módulos habilitados actuales.
 
 ## Conflictos de migración preservados
-
-`app.legacy_migration_conflicts` registra datos que no pueden convertirse con certeza:
-
 | Dominio | Tipo | Filas |
 |---|---|---:|
 | Asistencia | falta jugador o sesión | 6 |
 | Comercio | snapshot histórico de precio no reconstruible | 4 |
-| Comercio | pedido sin detalle de líneas suficiente | 11 |
-| Comercio | referencia a producto legacy inexistente | 4 |
-| Jugadores | evaluación sin referencia confiable a jugador | 6 |
-| Programas | referencia a curso legacy inexistente | 2 |
+| Comercio | pedido sin líneas suficientes | 11 |
+| Comercio | producto legacy inexistente | 4 |
+| Jugadores | evaluación sin jugador confiable | 6 |
+| Programas | programa legacy inexistente | 2 |
 
-Ninguno de estos conflictos se resolvió mediante adivinación por nombre/precio.
+No se resolvió ningún conflicto adivinando por nombre, precio o país.
 
-## QA realizado
-
-- Teléfono: white-box + RPC público real; MX inválido rechazado, EUA canonizado, rollback 0 residuo.
-- Pedidos: **14/14** casos, incluidos pagos, state machine, readiness, margen, permisos y rollback.
-- Reglas ACA/EQUIP/PROG/PROS: **6/6** incluyendo rollback.
+## QA cerrado
+- Teléfono público: RPC real + white-box; rollback.
+- Pedidos: **14/14**.
+- ACA/EQUIP/PROG/PROS base: **6/6**.
 - Categoría + baja academia: **7/7**.
 - Cortes/Garantías: **11/11**.
-- Scouting con rol real temporal y rollback: **7/7**.
+- Scouting: **7/7** con rol temporal + rollback.
+- Programas admin: **8/8**.
+- Sponsors admin: alta/consulta/convenio/fechas + rollback.
+- Security lockdown: 0 DML directo + smoke commands.
+- RLS tenant isolation: tenant QA + rollback.
+- Usuarios: crear/consultar/revocar invitación + owner protegido + rollback.
+- Calendario: crear/consultar evento, validación y 0 residuo.
 
-## Decisiones V2 que reemplazan legacy
-
-1. **Autorización:** `SEC-002` role/module matrix reemplaza `WRITE_ROLES` estático (`SEC-LEGACY-001`).
-2. **Producción:** ORDER-002 exige pago completo; el 50% legacy queda como evidencia histórica, no criterio operativo.
-3. **Catálogo:** 8 productos V2 activos; los otros productos legacy son históricos.
-4. **Persistencia:** tablas `app.*` son el modelo canónico; `public.*` legacy continúa durante cutover, pero no debe dictar nuevas reglas.
-
-## Única regla catalogada pendiente al cierre
+## Decisiones que faltan
 
 ### `CUT-PAY-001` — pago a proveedor
+Elegir autoridad y flujo:
+- Taquilla;
+- Contabilidad;
+- solo Presidencia;
+- o **Tienda crea corte → Contabilidad publica egreso ligado al corte**.
 
-Legacy guarda `cortes.pago_proveedor`. En V2 la operación cruza Tienda y Contabilidad, y todavía no existe una decisión de autoridad:
+Hasta decidir, el lote conserva costo pero no genera egreso automático.
 
-- ¿Puede registrarlo Taquilla?
-- ¿Debe registrarlo Contabilidad?
-- ¿Solo Presidencia?
-- ¿O Tienda registra el corte y Contabilidad publica el egreso contra ese corte?
+### `ACA-BILL-001` — mensualidad de academia
+Definir si la mensualidad de academia:
+- se suma como cargo separado al ledger del Tanner;
+- reemplaza una cuota de club en ciertos casos;
+- aplica recargo desde día 6 igual que mensualidad;
+- y cómo se comporta cuando el Tanner tiene paquete/sesión suelta.
 
-Hasta resolverlo, V2 conserva costo del lote pero **no inventa actor ni publica automáticamente un egreso**.
+Hasta decidir, la academia conserva fee/enrollment, pero no altera automáticamente la cartera canónica.
 
-## Principio de cutover
-
-No borrar `public.*` ni romper `/` hasta completar reconciliación, UI V2 y validación. Cada dominio se considera listo para corte cuando:
-
-1. datos reconciliados;
-2. regla catalogada;
-3. enforcement backend;
-4. permisos cerrados;
-5. caja blanca + caja negra;
-6. rollback limpio;
-7. UI V2 consume exclusivamente el contrato canónico para escrituras.
+## Criterio de cutover
+Un dominio está listo cuando: datos reconciliados → regla catalogada → enforcement backend → permisos cerrados → caja blanca + caja negra → rollback limpio → UI V2 usa exclusivamente el contrato canónico para escrituras.

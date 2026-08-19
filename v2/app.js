@@ -12,12 +12,15 @@ let authMode = 'signin';
 let ctx = null;
 let players = [];
 let lastSignupEmail = '';
+let moduleRows = [];
+let pendingPaymentKey = null;
 const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 
 function showView(id){ views.forEach(v => $(v)?.classList.toggle('hidden',v!==id)); }
 function setMessage(text='',type='error'){ const b=$('authMessage'); if(!b)return; b.textContent=text; b.dataset.type=type; b.classList.toggle('hidden',!text); }
+function setPaymentMessage(text='',type='error'){ const b=$('paymentMessage'); if(!b)return; b.textContent=text; b.dataset.type=type; b.classList.toggle('hidden',!text); }
 function showResend(show=true){ $('resendConfirmation')?.classList.toggle('hidden',!show); }
-function friendlyError(e){ const r=String(e?.message||e||'Ocurrió un error.'); if(/invalid login credentials/i.test(r))return 'Correo o contraseña incorrectos.'; if(/email not confirmed/i.test(r))return 'Confirma tu correo antes de entrar.'; if(/user already registered/i.test(r))return 'Ese correo ya tiene una cuenta. Usa “Entrar”.'; if(/rate limit/i.test(r))return 'Demasiados intentos. Intenta de nuevo en unos minutos.'; if(/not authorized/i.test(r))return 'Tu cuenta todavía no tiene acceso al club.'; return r; }
+function friendlyError(e){ const r=String(e?.message||e||'Ocurrió un error.'); if(/invalid login credentials/i.test(r))return 'Correo o contraseña incorrectos.'; if(/email not confirmed/i.test(r))return 'Confirma tu correo antes de entrar.'; if(/user already registered/i.test(r))return 'Ese correo ya tiene una cuenta. Usa “Entrar”.'; if(/rate limit/i.test(r))return 'Demasiados intentos. Intenta de nuevo en unos minutos.'; if(/not authorized/i.test(r))return 'No tienes permiso para realizar esta operación.'; if(/player not found/i.test(r))return 'No encontramos ese jugador dentro de tu club.'; if(/amount must be greater than zero/i.test(r))return 'El monto debe ser mayor a cero.'; return r; }
 function switchAuthMode(mode){ authMode=mode; const up=mode==='signup'; $('signInTab')?.classList.toggle('active',!up); $('signUpTab')?.classList.toggle('active',up); $('nameField')?.classList.toggle('hidden',!up); $('authSubmit').textContent=up?'Crear cuenta':'Entrar'; $('password')?.setAttribute('autocomplete',up?'new-password':'current-password'); setMessage(); showResend(false); }
 async function rpc(name,params={}){ const {data,error}=await supabase.rpc(name,params); if(error)throw error; return data; }
 
@@ -65,14 +68,16 @@ async function loadAuthenticatedApp(){
 }
 
 function monthStart(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; }
+function todayLocal(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 async function loadDashboard(user){
   const org=ctx.organization_id;
-  const [snap,playerRows,moduleRows]=await Promise.all([
+  const [snap,playerRows,modules]=await Promise.all([
     rpc('v2_collection_snapshot',{organization_id:org,billing_period:monthStart()}),
     rpc('v2_players',{organization_id:org,status_filter:'active'}),
     rpc('v2_my_modules',{organization_id:org})
   ]);
   players=Array.isArray(playerRows)?playerRows:[];
+  moduleRows=Array.isArray(modules)?modules:[];
   $('orgName').textContent=ctx.organization_name||'Tannery City FC';
   $('roleBadge').textContent=ctx.is_owner?'Propietario':(ctx.role||'Miembro');
   $('welcome').textContent=`Sesión segura de ${ctx.display_name||user.email||'Tanner'}`;
@@ -81,8 +86,64 @@ async function loadDashboard(user){
   $('kpiCovered').textContent=snap?.covered==null?'':`${snap.covered}/${snap.collection_population} cubiertos`;
   $('kpiCurrentDebt').textContent=money.format(Number(snap?.current_period_receivable||0));
   $('kpiTotalDebt').textContent=money.format(Number(snap?.total_receivable||0));
-  renderModules((moduleRows||[]).filter(m=>m.enabled&&m.can_read));
+  renderModules(moduleRows.filter(m=>m.enabled&&m.can_read));
   renderPlayers(players);
+  configurePaymentPanel();
+}
+
+function configurePaymentPanel(){
+  const billing=moduleRows.find(m=>m.module_code==='billing');
+  const canWrite=Boolean(billing?.enabled&&billing?.can_write);
+  $('paymentPanel')?.classList.toggle('hidden',!canWrite);
+  if(!canWrite)return;
+  const select=$('paymentPlayer');
+  const current=select.value;
+  select.innerHTML='<option value="">Selecciona un Tanner</option>';
+  [...players].sort((a,b)=>playerName(a).localeCompare(playerName(b),'es-MX')).forEach(p=>{
+    const opt=document.createElement('option'); opt.value=p.id; opt.textContent=`${playerName(p)}${p.code?` · ${p.code}`:''}`; select.appendChild(opt);
+  });
+  if(current&&players.some(p=>p.id===current))select.value=current;
+  if(!$('paymentDate').value)$('paymentDate').value=todayLocal();
+}
+
+function newIdempotencyKey(){
+  if(globalThis.crypto?.randomUUID)return `pay:${ctx.organization_id}:${crypto.randomUUID()}`;
+  return `pay:${ctx.organization_id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+}
+
+async function postPayment(ev){
+  ev.preventDefault(); setPaymentMessage();
+  const btn=$('paymentSubmit');
+  const playerId=$('paymentPlayer').value;
+  const amount=Number($('paymentAmount').value);
+  const paymentDate=$('paymentDate').value;
+  if(!playerId||!Number.isFinite(amount)||amount<=0||!paymentDate){ setPaymentMessage('Completa jugador, monto y fecha.'); return; }
+  if(!pendingPaymentKey)pendingPaymentKey=newIdempotencyKey();
+  btn.disabled=true; btn.textContent='Registrando…';
+  try{
+    const paymentId=await rpc('v2_post_payment',{
+      organization_id:ctx.organization_id,
+      player_id:playerId,
+      amount,
+      payment_date:paymentDate,
+      method:$('paymentMethod').value,
+      reference:$('paymentReference').value.trim()||null,
+      concept:'Mensualidad',
+      payer_type:$('paymentPayerType').value,
+      payer_name:$('paymentPayerName').value.trim()||null,
+      idempotency_key:pendingPaymentKey
+    });
+    pendingPaymentKey=null;
+    const paidPlayer=players.find(p=>p.id===playerId);
+    setPaymentMessage(`Pago registrado${paidPlayer?` para ${playerName(paidPlayer)}`:''}. ID ${String(paymentId).slice(0,8)}…`,'success');
+    $('paymentAmount').value=''; $('paymentReference').value=''; $('paymentPayerName').value='';
+    const {data:userData}=await supabase.auth.getUser();
+    await loadDashboard(userData.user);
+  }catch(e){
+    setPaymentMessage(friendlyError(e));
+  }finally{
+    btn.disabled=false; btn.textContent='Registrar pago';
+  }
 }
 
 const moduleLabels={players:'Jugadores',billing:'Cobranza',accounting:'Contabilidad',academies:'Academias',attendance:'Asistencia',programs:'Programas',commerce:'Tienda',prospects:'Prospectos',scouting:'Scouting',sponsors:'Patrocinadores',equipment:'Utilería',calendar:'Calendario',users:'Usuarios',admin:'Administración',qa:'QA'};
@@ -93,7 +154,7 @@ function renderPlayers(rows){
   rows.forEach(p=>{ const tr=document.createElement('tr'); [p.code||'—',playerName(p)||'Sin nombre',p.category||'Sin categoría',p.base_monthly_fee==null?'Por configurar':money.format(Number(p.base_monthly_fee))].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);}); const td=document.createElement('td'), badge=document.createElement('span'); const review=Boolean(p.needs_review||p.billing_status==='review'); badge.className=`status ${review?'review':'active'}`; badge.textContent=review?'Revisar':'Activo'; td.appendChild(badge); tr.appendChild(td); body.appendChild(tr); });
 }
 function filterPlayers(){ const q=$('playerSearch').value.trim().toLocaleLowerCase('es-MX'); renderPlayers(!q?players:players.filter(p=>`${p.code||''} ${playerName(p)} ${p.category||''}`.toLocaleLowerCase('es-MX').includes(q))); }
-async function signOut(){ await supabase.auth.signOut(); ctx=null; players=[]; switchAuthMode('signin'); showView('authView'); }
+async function signOut(){ await supabase.auth.signOut(); ctx=null; players=[]; moduleRows=[]; pendingPaymentKey=null; switchAuthMode('signin'); showView('authView'); }
 
 $('signInTab')?.addEventListener('click',()=>switchAuthMode('signin'));
 $('signUpTab')?.addEventListener('click',()=>switchAuthMode('signup'));
@@ -103,6 +164,7 @@ $('signOut')?.addEventListener('click',signOut);
 $('pendingSignOut')?.addEventListener('click',signOut);
 $('refreshAccess')?.addEventListener('click',loadAuthenticatedApp);
 $('playerSearch')?.addEventListener('input',filterPlayers);
+$('paymentForm')?.addEventListener('submit',postPayment);
 
 const {data:initial}=await supabase.auth.getSession();
 if(initial?.session){ try{ await loadAuthenticatedApp(); }catch(e){ console.error(e); $('pendingText').textContent=friendlyError(e); showView('pendingView'); } }

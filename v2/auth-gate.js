@@ -53,7 +53,7 @@ function normalAccessEnhancements() {
     forgot.disabled = true;
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${location.origin}/v2/?recovery=1`
+        redirectTo: `${location.origin}/?recovery=1`
       });
       if (error) throw error;
       setMessage('Te enviamos un correo para cambiar tu contraseña. Revisa también spam.', 'success');
@@ -93,7 +93,7 @@ async function renderRecovery() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setMessage('Contraseña actualizada. Volviendo al vestidor…', 'success');
-      setTimeout(() => location.replace('/v2/'), 900);
+      setTimeout(() => location.replace('/'), 900);
     } catch (e) {
       setMessage(String(e?.message || e || 'No pudimos cambiar la contraseña.'));
       btn.disabled = false;

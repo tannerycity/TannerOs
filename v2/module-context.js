@@ -1,40 +1,41 @@
 const GROUPS=[
-  {name:'Club deportivo',match:['/v2/jugadores/','/v2/deportivo/','/v2/asistencia/','/v2/convocatoria/','/v2/calendario/'],items:[
-    {label:'Plantilla',href:'/v2/jugadores/',module:'jugadores'},
-    {label:'Rendimiento',href:'/v2/deportivo/',module:'jugadores'},
-    {label:'Asistencia',href:'/v2/asistencia/',module:'asistencia'},
-    {label:'Convocatoria',href:'/v2/convocatoria/',module:'convocatoria'},
-    {label:'Calendario',href:'/v2/calendario/',module:'calendario'}
+  {name:'Club deportivo',match:['/jugadores/','/deportivo/','/asistencia/','/convocatoria/','/calendario/'],items:[
+    {label:'Plantilla',href:'/jugadores/',module:'jugadores'},
+    {label:'Rendimiento',href:'/deportivo/',module:'jugadores'},
+    {label:'Asistencia',href:'/asistencia/',module:'asistencia'},
+    {label:'Convocatoria',href:'/convocatoria/',module:'convocatoria'},
+    {label:'Calendario',href:'/calendario/',module:'calendario'}
   ]},
-  {name:'Talento',match:['/v2/prospectos/','/v2/scouting/','/v2/academias/','/v2/porteros/'],items:[
-    {label:'Captación',href:'/v2/prospectos/',module:'prospectos'},
-    {label:'Scouting',href:'/v2/scouting/',module:'scouting'},
-    {label:'Academias',href:'/v2/academias/',module:'academias'},
-    {label:'Porteros',href:'/v2/porteros/',module:'academias'}
+  {name:'Talento',match:['/prospectos/','/scouting/','/academias/','/porteros/'],items:[
+    {label:'Captación',href:'/prospectos/',module:'prospectos'},
+    {label:'Scouting',href:'/scouting/',module:'scouting'},
+    {label:'Academias',href:'/academias/',module:'academias'},
+    {label:'Porteros',href:'/porteros/',module:'academias'}
   ]},
-  {name:'Tienda',match:['/v2/pedidos/','/v2/produccion/'],items:[
-    {label:'Pedidos',href:'/v2/pedidos/',module:'tienda'},
-    {label:'Producción y garantías',href:'/v2/produccion/',module:'tienda'}
+  {name:'Tienda',match:['/pedidos/','/produccion/'],items:[
+    {label:'Pedidos',href:'/pedidos/',module:'tienda'},
+    {label:'Producción y garantías',href:'/produccion/',module:'tienda'}
   ]},
-  {name:'Finanzas',match:['/v2/finanzas/','/v2/taquilla/','/v2/contabilidad/'],items:[
-    {label:'Resumen',href:'/v2/finanzas/',module:'finanzas'},
-    {label:'Taquilla',href:'/v2/taquilla/',module:'taquilla'},
-    {label:'Contabilidad',href:'/v2/contabilidad/',module:'contabilidad'}
+  {name:'Finanzas',match:['/finanzas/','/taquilla/','/contabilidad/'],items:[
+    {label:'Resumen',href:'/finanzas/',module:'finanzas'},
+    {label:'Taquilla',href:'/taquilla/',module:'taquilla'},
+    {label:'Contabilidad',href:'/contabilidad/',module:'contabilidad'}
   ]}
 ];
-const normalizedPath=()=>location.pathname.endsWith('/')?location.pathname:`${location.pathname}/`;
+function canonicalPath(pathname=location.pathname){const p=String(pathname||'/');if(p==='/v2'||p==='/v2/')return'/';if(p==='/v2/programas'||p.startsWith('/v2/programas/'))return p.replace(/^\/v2\/programas(?=\/|$)/,'/operacion/programas');if(p.startsWith('/v2/'))return p.slice(3)||'/';return p;}
+const normalizedPath=()=>{const p=canonicalPath();return p==='/'?'/':(p.endsWith('/')?p:`${p}/`);};
 function readable(navigation,code){const row=(navigation||[]).find(r=>r.module_code===code);return Boolean(row?.enabled&&row?.can_read);}
 function active(item,path){return path.startsWith(item.href);}
 function applyPlayerContext(path){
-  if(!path.startsWith('/v2/deportivo/'))return;
+  if(!path.startsWith('/deportivo/'))return;
   const params=new URLSearchParams(location.search),player=params.get('player'),action=params.get('action');if(!player)return;
   const apply=()=>{const primary=document.getElementById('playerSelect');if(!primary||![...primary.options].some(o=>o.value===player))return false;primary.value=player;primary.dispatchEvent(new Event('change',{bubbles:true}));['statPlayer','evalPlayer','notePlayer'].forEach(id=>{const s=document.getElementById(id);if(s&&[...s.options].some(o=>o.value===player))s.value=player;});if(action==='evaluar')document.getElementById('evaluationPanel')?.scrollIntoView({behavior:'smooth',block:'start'});return true;};
   if(!apply()){const observer=new MutationObserver(()=>{if(apply())observer.disconnect();});observer.observe(document.body,{childList:true,subtree:true});setTimeout(()=>observer.disconnect(),7000);}
 }
 function installPlayerSnapshotActions(path){
-  if(!path.startsWith('/v2/jugadores/')||document.documentElement.dataset.tosPlayerSnapshotActions==='1')return;
+  if(!path.startsWith('/jugadores/')||document.documentElement.dataset.tosPlayerSnapshotActions==='1')return;
   document.documentElement.dataset.tosPlayerSnapshotActions='1';
-  const update=playerId=>{const head=document.querySelector('.sports-snapshot .snapshot-head');if(!head||!playerId)return;const open=document.getElementById('openSports');if(open)open.href=`/v2/deportivo/?player=${encodeURIComponent(playerId)}`;let evaluate=document.getElementById('newEvaluation');if(!evaluate){evaluate=document.createElement('a');evaluate.id='newEvaluation';evaluate.className='primary mini nav-link';evaluate.textContent='Nueva evaluación';head.appendChild(evaluate);}evaluate.href=`/v2/deportivo/?player=${encodeURIComponent(playerId)}&action=evaluar`;};
+  const update=playerId=>{const head=document.querySelector('.sports-snapshot .snapshot-head');if(!head||!playerId)return;const open=document.getElementById('openSports');if(open)open.href=`/deportivo/?player=${encodeURIComponent(playerId)}`;let evaluate=document.getElementById('newEvaluation');if(!evaluate){evaluate=document.createElement('a');evaluate.id='newEvaluation';evaluate.className='primary mini nav-link';evaluate.textContent='Nueva evaluación';head.appendChild(evaluate);}evaluate.href=`/deportivo/?player=${encodeURIComponent(playerId)}&action=evaluar`;};
   document.addEventListener('tanner-profile-opened',event=>update(event.detail?.playerId));
 }
 export function installModuleContext({navigation}={}){

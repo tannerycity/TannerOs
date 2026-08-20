@@ -1,9 +1,62 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
+  "redirects": [
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": false
+    },
     {
       "source": "/v2",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/v2/index.html",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/v2/programas",
+      "destination": "/operacion/programas/",
+      "permanent": false
+    },
+    {
+      "source": "/v2/programas/:path*",
+      "destination": "/operacion/programas/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/v2/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)",
+      "destination": "/:module/",
+      "permanent": false
+    },
+    {
+      "source": "/v2/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/:path*",
+      "destination": "/:module/:path*",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/",
       "destination": "/v2/index.html"
+    },
+    {
+      "source": "/operacion/programas",
+      "destination": "/v2/programas/index.html"
+    },
+    {
+      "source": "/operacion/programas/:path*",
+      "destination": "/v2/programas/:path*"
+    },
+    {
+      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)",
+      "destination": "/v2/:module/index.html"
+    },
+    {
+      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/:path*",
+      "destination": "/v2/:module/:path*"
     }
   ],
   "headers": [
@@ -31,6 +84,42 @@
         {
           "key": "Cache-Control",
           "value": "no-cache, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/operacion/programas",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/operacion/programas/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     },

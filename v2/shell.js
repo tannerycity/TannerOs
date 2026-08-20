@@ -60,19 +60,19 @@ export function renderShell({ctx,navigation,active='inicio',title='Inicio',searc
 
   $('shellSignOut')?.addEventListener('click',async()=>{
     await supabase.auth.signOut();
-    location.href='/v2/';
+    location.href='/';
   });
 }
 
 export async function bootstrapProtectedShell({active,title}){
   const {data:{session}}=await supabase.auth.getSession();
-  if(!session){location.href='/v2/';return null;}
+  if(!session){location.href='/';return null;}
   const rows=await rpc('v2_my_context');
-  if(!rows?.length){location.href='/v2/';return null;}
+  if(!rows?.length){location.href='/';return null;}
   const ctx=rows[0];
   const navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});
   if(active!=='inicio'&&!moduleAccess(navigation,active,false)){
-    location.href='/v2/';
+    location.href='/';
     return null;
   }
   renderShell({ctx,navigation,active,title});

@@ -13,31 +13,11 @@
     <header class="topbar"><div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS 2.0</div><strong id="orgName">Tannery City FC</strong></div></div><div class="top-actions"><a class="secondary mini nav-link" href="/v2/admin/">Administración</a><span id="roleBadge" class="role-badge"></span></div></header>
     <section class="hero"><div><div class="eyebrow">ADMIN · ACCESO</div><h1>Usuarios</h1><p class="muted">Rol base + permisos personalizados por usuario.</p></div><span class="health"><i></i> Auth + permisos efectivos</span></section>
     <section class="kpis compact-kpis"><article><span>Miembros activos</span><strong id="kpiActive">0</strong></article><article><span>Inactivos</span><strong id="kpiInactive">0</strong></article><article><span>Invitaciones pendientes</span><strong id="kpiPending">0</strong></article><article><span>Personalizados</span><strong id="kpiCustomized">0</strong></article></section>
-    <section class="users-grid">
-      <article class="panel">
-        <div class="panel-head"><div><div class="eyebrow">INVITAR</div><h2>Nuevo usuario</h2></div></div>
-        <form id="inviteForm" class="form-grid">
-          <label class="span-2">Correo<input id="inviteEmail" type="email" autocomplete="email" maxlength="254" required></label>
-          <label class="span-2">Rol<select id="inviteRole" required><option value="president">Presidencia</option><option value="operations">Operaciones</option><option value="coach">Formadores</option><option value="academy">Academia</option><option value="cashier">Taquilla</option><option value="accounting">Contabilidad</option><option value="commercial">La Quinta Fuerza</option><option value="scouting">Scouting</option><option value="player">Tanner</option></select></label>
-          <button id="sendInvite" class="primary span-2" type="submit">Crear invitación</button><div id="inviteMessage" class="inline-message hidden span-2"></div>
-        </form>
-        <div class="rule-box"><strong>Cómo funciona</strong><p>El rol define la plantilla base. Después puedes prender o apagar módulos para una persona sin cambiar el rol de todo el equipo.</p></div>
-      </article>
-      <article class="panel"><div class="panel-head"><div><div class="eyebrow">PENDIENTES</div><h2>Invitaciones</h2></div></div><div id="inviteList" class="invite-list"></div><div id="inviteEmpty" class="empty hidden">No hay invitaciones pendientes.</div></article>
-    </section>
+    <section class="users-grid"><article class="panel"><div class="panel-head"><div><div class="eyebrow">INVITAR</div><h2>Nuevo usuario</h2></div></div><form id="inviteForm" class="form-grid"><label class="span-2">Correo<input id="inviteEmail" type="email" autocomplete="email" maxlength="254" required></label><label class="span-2">Rol<select id="inviteRole" required><option value="president">Presidencia</option><option value="operations">Operaciones</option><option value="coach">Formadores</option><option value="academy">Academia</option><option value="cashier">Taquilla</option><option value="accounting">Contabilidad</option><option value="commercial">La Quinta Fuerza</option><option value="scouting">Scouting</option><option value="player">Tanner</option></select></label><button id="sendInvite" class="primary span-2" type="submit">Crear invitación</button><div id="inviteMessage" class="inline-message hidden span-2"></div></form><div class="rule-box"><strong>Cómo funciona</strong><p>El rol define la plantilla base. Después puedes prender o apagar módulos para una persona sin cambiar el rol de todo el equipo.</p></div></article><article class="panel"><div class="panel-head"><div><div class="eyebrow">PENDIENTES</div><h2>Invitaciones</h2></div></div><div id="inviteList" class="invite-list"></div><div id="inviteEmpty" class="empty hidden">No hay invitaciones pendientes.</div></article></section>
     <section class="panel"><div class="panel-head"><div><div class="eyebrow">MEMBRESÍAS</div><h2>Equipo con acceso</h2></div><button id="refresh" class="secondary mini" type="button">Actualizar</button></div><div id="memberList" class="member-list"></div><div id="memberEmpty" class="empty hidden">No hay miembros.</div></section>
   </section>
 </main>
-
-<div id="accessBackdrop" class="drawer-backdrop hidden"></div>
-<aside id="accessDrawer" class="access-drawer hidden" aria-hidden="true">
-  <div class="drawer-head"><div><div class="eyebrow">PERMISOS POR USUARIO</div><h2 id="accessName">Usuario</h2><p id="accessMeta" class="muted"></p></div><button id="closeAccess" class="secondary mini" type="button">Cerrar</button></div>
-  <div id="ownerProtection" class="owner-protection hidden"><strong>Owner protegido</strong><p>La cuenta propietaria conserva sus accesos administrativos para evitar un bloqueo accidental.</p></div>
-  <div class="access-legend"><span><i class="dot role"></i> Del rol</span><span><i class="dot custom"></i> Personalizado</span></div>
-  <div class="access-table-head"><span>Módulo</span><span>Ver</span><span>Editar</span><span></span></div>
-  <div id="moduleAccessList" class="module-access-list"></div>
-  <div class="drawer-footer"><button id="resetAllModules" class="secondary" type="button">Restaurar todo al rol</button><div id="accessMessage" class="inline-message hidden"></div></div>
-</aside>
-
+<div id="accessBackdrop" class="drawer-backdrop hidden"></div><aside id="accessDrawer" class="access-drawer hidden" aria-hidden="true"><div class="drawer-head"><div><div class="eyebrow">PERMISOS POR USUARIO</div><h2 id="accessName">Usuario</h2><p id="accessMeta" class="muted"></p></div><button id="closeAccess" class="secondary mini" type="button">Cerrar</button></div><div id="ownerProtection" class="owner-protection hidden"><strong>Owner protegido</strong><p>La cuenta propietaria conserva sus accesos administrativos para evitar un bloqueo accidental.</p></div><div class="access-legend"><span><i class="dot role"></i> Del rol</span><span><i class="dot custom"></i> Personalizado</span></div><div class="access-table-head"><span>Módulo</span><span>Ver</span><span>Editar</span><span></span></div><div id="moduleAccessList" class="module-access-list"></div><div class="drawer-footer"><button id="resetAllModules" class="secondary" type="button">Restaurar todo al rol</button><div id="accessMessage" class="inline-message hidden"></div></div></aside>
+<script type="module" src="/v2/branding-auto.js"></script>
 <script type="module" src="/v2/usuarios/app.js"></script>
 </body></html>

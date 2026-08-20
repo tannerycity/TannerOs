@@ -2,6 +2,7 @@ const cashIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" wi
 
 function moduleRow(navigation,code){return (navigation||[]).find(r=>r.module_code===code);}
 function readable(navigation,code){const r=moduleRow(navigation,code);return Boolean(r?.enabled&&r?.can_read);}
+function canonicalPath(pathname=location.pathname){const p=String(pathname||'/');if(p==='/v2'||p==='/v2/')return'/';if(p==='/v2/programas'||p.startsWith('/v2/programas/'))return p.replace(/^\/v2\/programas(?=\/|$)/,'/operacion/programas');if(p.startsWith('/v2/'))return p.slice(3)||'/';return p;}
 
 function ensureFinanceSection(nav){
   let section=nav.querySelector('.tos-nav-section-finance');
@@ -22,7 +23,7 @@ function installCashierNavigation(navigation){
   const nav=document.getElementById('sidebarNav')||document.getElementById('tosExperienceNav');
   if(!nav||nav.querySelector('[data-module="taquilla"]'))return;
   const section=ensureFinanceSection(nav),a=document.createElement('a');
-  a.href='/v2/taquilla/';a.dataset.module='taquilla';a.className=`tos-nav-item ${location.pathname.startsWith('/v2/taquilla/')?'active':''}`;
+  a.href='/taquilla/';a.dataset.module='taquilla';a.className=`tos-nav-item ${canonicalPath().startsWith('/taquilla/')?'active':''}`;
   a.innerHTML=`<span class="tos-nav-icon">${cashIcon}</span><span>Taquilla</span>`;
   section.prepend(a);
 }
@@ -30,18 +31,18 @@ function installSearchExtension(navigation){
   const current=Array.isArray(window.__tosSearchExtras)?window.__tosSearchExtras:[],next=[...current];
   const add=item=>{if(!next.some(r=>r.href===item.href&&r.label===item.label))next.push(item);};
   if(readable(navigation,'taquilla')){
-    add({label:'Registrar cobro',meta:'Taquilla · caja rápida · mensualidad · ingreso',href:'/v2/taquilla/?action=cobrar'});
-    add({label:'Abrir Taquilla',meta:'Caja · cobrar · pagar · corte · efectivo · movimientos',href:'/v2/taquilla/'});
+    add({label:'Registrar cobro',meta:'Taquilla · caja rápida · mensualidad · ingreso',href:'/taquilla/?action=cobrar'});
+    add({label:'Abrir Taquilla',meta:'Caja · cobrar · pagar · corte · efectivo · movimientos',href:'/taquilla/'});
   }
-  if(readable(navigation,'tienda')||readable(navigation,'commerce'))add({label:'Abrir Tienda',meta:'Pedidos · producción · garantías · rentabilidad',href:'/v2/pedidos/'});
+  if(readable(navigation,'tienda')||readable(navigation,'commerce'))add({label:'Abrir Tienda',meta:'Pedidos · producción · garantías · rentabilidad',href:'/pedidos/'});
   if(next.length===current.length)return;
   window.__tosSearchExtras=next;window.dispatchEvent(new CustomEvent('tanneros:search-extras',{detail:next}));
 }
 function upgradeFinanceCard(){
-  if(!location.pathname.startsWith('/v2/finanzas/'))return;
+  if(!canonicalPath().startsWith('/finanzas/'))return;
   const update=()=>{
     const links=[...document.querySelectorAll('a.tos-hub-card')],card=links.find(a=>/Taquilla\s*\/\s*operación/i.test(a.textContent));
-    if(!card)return false;card.href='/v2/taquilla/';
+    if(!card)return false;card.href='/taquilla/';
     const desc=card.querySelector('span:not(.tos-hub-icon)');if(desc)desc.textContent='Caja, cobros, egresos y corte';
     return true;
   };

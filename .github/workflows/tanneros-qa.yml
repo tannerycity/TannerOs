@@ -1,0 +1,66 @@
+name: TannerOS QA
+
+on:
+  pull_request:
+    paths:
+      - 'v2/**'
+      - 'registro/**'
+      - 'pedido/**'
+      - 'programas/**'
+      - 'public-form.*'
+      - 'vercel.json'
+      - 'scripts/qa-static.mjs'
+  push:
+    branches: [main]
+    paths:
+      - 'v2/**'
+      - 'registro/**'
+      - 'pedido/**'
+      - 'programas/**'
+      - 'public-form.*'
+      - 'vercel.json'
+      - 'scripts/qa-static.mjs'
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          find v2 -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check public-form.js
+      - name: TannerOS structural QA
+        run: node scripts/qa-static.mjs
+
+  live-smoke:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Public production routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://app.tannerycity.com'
+          routes=(
+            '/v2/'
+            '/registro'
+            '/registro/porteros'
+            '/registro/jugadores'
+            '/pedido'
+            '/programas'
+          )
+          for route in "${routes[@]}"; do
+            echo "Checking ${base}${route}"
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 4 --max-time 30 "${base}${route}" -o /tmp/page.html
+            test "$(wc -c </tmp/page.html)" -gt 120
+          done

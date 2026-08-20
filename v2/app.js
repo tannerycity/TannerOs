@@ -1,75 +1,245 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth} from '/v2/shell.js';
 
-const supabase = createClient(
-  'https://pacnegivzgxpanphrnwp.supabase.co',
-  'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
-  { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
-);
+const views=['authView','pendingView','appView'];
+let authMode='signin';
+let ctx=null;
+let navigation=[];
+let state={players:[],prospects:[],calendar:[],attendance:[],sponsors:[],equipment:[],collection:null};
 
-const $ = id => document.getElementById(id);
-const views = ['authView','pendingView','appView'];
-let authMode = 'signin';
-let ctx = null;
-let players = [];
-let lastSignupEmail = '';
-let moduleRows = [];
-let pendingPaymentKey = null;
-let drawerPlayer = null;
-const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
+const roleProfiles={
+  'Presidencia':{subtitle:'Control del club · datos vivos en Supabase',focus:'Pulso del club'},
+  'Operaciones':{subtitle:'La operación de hoy, en un solo lugar',focus:'Operación del día'},
+  'Formadores':{subtitle:'Entrenamientos, jugadores y seguimiento',focus:'Sesiones y equipo'},
+  'Academia':{subtitle:'Academias, asistencia y calendario',focus:'Academia hoy'},
+  'Contabilidad':{subtitle:'Cobranza, pagos y caja del club',focus:'Pulso de cobranza'},
+  'Taquilla':{subtitle:'Cobros, pedidos y atención a familias',focus:'Caja y atención'},
+  'La Quinta Fuerza':{subtitle:'Marcas, acuerdos y activaciones',focus:'Ruta de marcas'},
+  'Scouting':{subtitle:'El próximo Tanner está ahí afuera',focus:'Talento en el radar'},
+  'Tanner':{subtitle:'Tu club, tu agenda y tu camino Tanner',focus:'Tu semana'}
+};
 
-function showView(id){ views.forEach(v => $(v)?.classList.toggle('hidden',v!==id)); }
-function setMessage(text='',type='error'){ const b=$('authMessage'); if(!b)return; b.textContent=text; b.dataset.type=type; b.classList.toggle('hidden',!text); }
-function setPaymentMessage(text='',type='error'){ const b=$('paymentMessage'); if(!b)return; b.textContent=text; b.dataset.type=type; b.classList.toggle('hidden',!text); }
-function setLifecycleMessage(text='',type='error'){ const b=$('lifecycleMessage'); if(!b)return; b.textContent=text; b.dataset.type=type; b.classList.toggle('hidden',!text); }
-function showResend(show=true){ $('resendConfirmation')?.classList.toggle('hidden',!show); }
-function friendlyError(e){ const r=String(e?.message||e||'Ocurrió un error.'); if(/invalid login credentials/i.test(r))return 'Correo o contraseña incorrectos.'; if(/email not confirmed/i.test(r))return 'Confirma tu correo antes de entrar.'; if(/user already registered/i.test(r))return 'Ese correo ya tiene una cuenta. Usa “Entrar”.'; if(/rate limit/i.test(r))return 'Demasiados intentos. Intenta de nuevo en unos minutos.'; if(/not authorized/i.test(r))return 'No tienes permiso para realizar esta operación.'; if(/player not found/i.test(r))return 'No encontramos ese jugador dentro de tu club.'; if(/amount must be greater than zero/i.test(r))return 'El monto debe ser mayor a cero.'; if(/withdrawal reason required/i.test(r))return 'Escribe el motivo de la baja.'; if(/only active players can be withdrawn/i.test(r))return 'Solo un Tanner activo puede darse de baja.'; if(/only withdrawn players can be reactivated/i.test(r))return 'Solo un Tanner dado de baja puede reactivarse.'; return r; }
-function switchAuthMode(mode){ authMode=mode; const up=mode==='signup'; $('signInTab')?.classList.toggle('active',!up); $('signUpTab')?.classList.toggle('active',up); $('nameField')?.classList.toggle('hidden',!up); $('authSubmit').textContent=up?'Crear cuenta':'Entrar'; $('password')?.setAttribute('autocomplete',up?'new-password':'current-password'); setMessage(); showResend(false); }
-async function rpc(name,params={}){ const {data,error}=await supabase.rpc(name,params); if(error)throw error; return data; }
+function showView(id){views.forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
+function setMessage(text='',type='error'){const b=$('authMessage');if(!b)return;b.textContent=text;b.dataset.type=type;b.classList.toggle('hidden',!text);}
+function showResend(show=true){$('resendConfirmation')?.classList.toggle('hidden',!show);}
+function friendlyError(e){
+  const r=String(e?.message||e||'Ocurrió un error.');
+  if(/invalid login credentials/i.test(r))return 'Correo o contraseña incorrectos.';
+  if(/email not confirmed/i.test(r))return 'Confirma tu correo antes de entrar.';
+  if(/user already registered/i.test(r))return 'Ese correo ya tiene una cuenta. Usa “Entrar”.';
+  if(/rate limit/i.test(r))return 'Demasiados intentos. Intenta de nuevo en unos minutos.';
+  if(/not authorized/i.test(r))return 'Tu usuario no tiene permiso para esta sección.';
+  return r;
+}
+function switchAuthMode(mode){
+  authMode=mode;const up=mode==='signup';
+  $('signInTab')?.classList.toggle('active',!up);$('signUpTab')?.classList.toggle('active',up);
+  $('nameField')?.classList.toggle('hidden',!up);$('authSubmit').textContent=up?'Crear cuenta':'Entrar';
+  $('password')?.setAttribute('autocomplete',up?'new-password':'current-password');setMessage();showResend(false);
+}
+async function handleAuthSubmit(ev){
+  ev.preventDefault();setMessage();showResend(false);
+  const email=$('email').value.trim(),password=$('password').value,displayName=$('displayName')?.value.trim();
+  const btn=$('authSubmit');btn.disabled=true;
+  try{
+    if(authMode==='signup'){
+      const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name:displayName||email.split('@')[0]},emailRedirectTo:`${location.origin}/v2/`}});
+      if(error)throw error;
+      if(!data.session){setMessage('Cuenta creada. Revisa tu correo y confirma el acceso.','success');showResend(true);return;}
+    }else{
+      const {error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;
+    }
+    await loadAuthenticatedApp();
+  }catch(e){setMessage(friendlyError(e));if(/confirma tu correo/i.test(friendlyError(e)))showResend(true);}
+  finally{btn.disabled=false;btn.textContent=authMode==='signup'?'Crear cuenta':'Entrar';}
+}
+async function resendConfirmation(){
+  const email=$('email')?.value.trim();if(!email){setMessage('Escribe primero el correo.');return;}
+  const btn=$('resendConfirmation');btn.disabled=true;
+  try{
+    const {error}=await supabase.auth.resend({type:'signup',email,options:{emailRedirectTo:`${location.origin}/v2/`}});
+    if(error)throw error;setMessage(`Listo. Enviamos un nuevo correo a ${email}.`,'success');
+  }catch(e){setMessage(friendlyError(e));}finally{btn.disabled=false;}
+}
+function monthStart(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;}
+function isoDaysFromNow(days){const d=new Date();d.setDate(d.getDate()+days);return d.toISOString();}
+function safe(promise,fallback=null){return promise.catch(err=>{console.warn('home widget',err);return fallback;});}
+function can(code,write=false){return moduleAccess(navigation,code,write);}
 
-async function handleAuthSubmit(ev){ ev.preventDefault(); setMessage(); showResend(false); const email=$('email').value.trim(), password=$('password').value, displayName=$('displayName')?.value.trim(); const btn=$('authSubmit'); btn.disabled=true; try{ if(authMode==='signup'){ lastSignupEmail=email; const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name:displayName||email.split('@')[0]},emailRedirectTo:`${location.origin}/v2`}}); if(error)throw error; if(!data.session){ setMessage('Cuenta creada. Revisa tu correo y confirma el acceso. Si el enlace expira, puedes reenviarlo aquí.','success'); showResend(true); return; } }else{ const {error}=await supabase.auth.signInWithPassword({email,password}); if(error)throw error; } await loadAuthenticatedApp(); }catch(e){ const msg=friendlyError(e); setMessage(msg); if(/confirma tu correo/i.test(msg)){ lastSignupEmail=email; showResend(true); } }finally{ btn.disabled=false; btn.textContent=authMode==='signup'?'Crear cuenta':'Entrar'; } }
+async function loadAuthenticatedApp(){
+  const {data:userData}=await supabase.auth.getUser();
+  if(!userData?.user){showView('authView');return;}
+  const rows=await rpc('v2_my_context');
+  if(!rows?.length){
+    $('pendingText').textContent=`La cuenta ${userData.user.email||'actual'} ya existe. Falta vincularla a Tannery City.`;
+    showView('pendingView');return;
+  }
+  ctx=rows[0];
+  navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});
+  showView('appView');document.body.classList.add('tos-body');
+  renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
+  await loadHome();
+}
 
-async function resendConfirmation(){ const email=lastSignupEmail||$('email')?.value.trim(); if(!email){ setMessage('Escribe primero el correo que quieres confirmar.'); return; } const btn=$('resendConfirmation'); btn.disabled=true; try{ const {error}=await supabase.auth.resend({type:'signup',email,options:{emailRedirectTo:`${location.origin}/v2`}}); if(error)throw error; setMessage(`Listo. Enviamos un nuevo correo de confirmación a ${email}. Usa el más reciente.`,'success'); }catch(e){ setMessage(friendlyError(e)); }finally{ btn.disabled=false; } }
+async function loadHome(){
+  const org=ctx.organization_id,now=new Date().toISOString(),week=isoDaysFromNow(7);
+  const calls=[];
+  if(can('jugadores'))calls.push(safe(rpc('v2_players',{organization_id:org,status_filter:'active'}),[]).then(v=>state.players=v||[]));
+  if(can('prospectos')||can('scouting'))calls.push(safe(rpc('v2_prospects',{organization_id:org,status_filter:null}),[]).then(v=>state.prospects=v||[]));
+  if(can('cobranza')||can('contabilidad'))calls.push(safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:monthStart()}),null).then(v=>state.collection=v));
+  if(can('calendario'))calls.push(safe(rpc('v2_calendar',{organization_id:org,from_at:now,to_at:week}),[]).then(v=>state.calendar=Array.isArray(v)?v:[]));
+  if(can('asistencia'))calls.push(safe(rpc('v2_attendance_sessions',{organization_id:org,from_at:now,to_at:week}),[]).then(v=>state.attendance=v||[]));
+  if(can('patrocinadores'))calls.push(safe(rpc('v2_sponsors',{organization_id:org}),[]).then(v=>state.sponsors=v||[]));
+  if(can('utileria'))calls.push(safe(rpc('v2_equipment_items',{organization_id:org}),[]).then(v=>state.equipment=v||[]));
+  await Promise.all(calls);
+  renderHome();
+}
 
-async function loadAuthenticatedApp(){ const {data:userData}=await supabase.auth.getUser(); if(!userData?.user){ showView('authView'); return; } const rows=await rpc('v2_my_context'); if(!Array.isArray(rows)||!rows.length){ $('pendingText').textContent=`La cuenta ${userData.user.email||'actual'} ya existe en Supabase Auth. Falta vincularla a Tannery City.`; showView('pendingView'); return; } ctx=rows[0]; await loadDashboard(userData.user); showView('appView'); }
+function firstName(){return String(ctx.display_name||'Tanner').trim().split(/\s+/)[0];}
+function activeProspects(){return state.prospects.filter(p=>!['converted','not_continuing','archived'].includes(p.status));}
+function overdueProspects(){const now=Date.now();return activeProspects().filter(p=>p.next_action_at&&new Date(p.next_action_at).getTime()<now);}
+function upcomingTrialCount(){return activeProspects().filter(p=>p.status==='trial_scheduled').length;}
+function equipmentAlerts(){return state.equipment.filter(x=>x.needs_reorder||Number(x.available_quantity||0)<0);}
+function sponsorRenewals(){return state.sponsors.filter(s=>['due','soon','overdue','attention'].includes(String(s.renewal_state||'').toLowerCase()));}
 
-function monthStart(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; }
-function todayLocal(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-async function loadDashboard(user){ const org=ctx.organization_id; const [snap,playerRows,modules]=await Promise.all([ rpc('v2_collection_snapshot',{organization_id:org,billing_period:monthStart()}), rpc('v2_players',{organization_id:org,status_filter:'active'}), rpc('v2_my_modules',{organization_id:org}) ]); players=Array.isArray(playerRows)?playerRows:[]; moduleRows=Array.isArray(modules)?modules:[]; $('orgName').textContent=ctx.organization_name||'Tannery City FC'; $('roleBadge').textContent=ctx.is_owner?'Propietario':(ctx.role||'Miembro'); $('welcome').textContent=`Sesión segura de ${ctx.display_name||user.email||'Tanner'}`; $('kpiPlayers').textContent=snap?.active_players??players.length; $('kpiCollection').textContent=snap?.collection_rate==null?'—':`${snap.collection_rate}%`; $('kpiCovered').textContent=snap?.covered==null?'':`${snap.covered}/${snap.collection_population} cubiertos`; $('kpiCurrentDebt').textContent=money.format(Number(snap?.current_period_receivable||0)); $('kpiTotalDebt').textContent=money.format(Number(snap?.total_receivable||0)); renderModules(moduleRows.filter(m=>m.enabled&&m.can_read)); renderPlayers(players); configurePaymentPanel(); }
+function kpi(label,value,sub='',className=''){
+  return `<article class="tos-kpi ${className}"><span>${label}</span><strong>${value}</strong>${sub?`<small>${sub}</small>`:''}</article>`;
+}
+function renderKpis(){
+  const candidates=[];
+  if(can('jugadores'))candidates.push({key:'players',html:kpi('Plantilla',state.players.length,'Tanners activos')});
+  if(can('prospectos')||can('scouting'))candidates.push({key:'talent',html:kpi('Talento',activeProspects().length,`${state.prospects.filter(p=>p.status==='new').length} nuevos`)});
+  if(state.collection){
+    candidates.push({key:'collection',html:kpi('Cobranza',`${Number(state.collection.collection_rate||0)}%`,`${state.collection.covered||0}/${state.collection.collection_population||0} cubiertos`,Number(state.collection.collection_rate||0)>=85?'good':'')});
+    candidates.push({key:'debt',html:kpi('Cartera total',money.format(Number(state.collection.total_receivable||0)),`${money.format(Number(state.collection.current_period_receivable||0))} del periodo`,Number(state.collection.total_receivable||0)>0?'danger':'')});
+  }
+  if(can('asistencia'))candidates.push({key:'sessions',html:kpi('Sesiones esta semana',state.attendance.length,'Entrenamientos / sesiones')});
+  if(can('patrocinadores'))candidates.push({key:'sponsors',html:kpi('Marcas activas',state.sponsors.filter(s=>Number(s.active_agreements||0)>0).length,`${sponsorRenewals().length} por atender`)});
+  if(can('utileria'))candidates.push({key:'stock',html:kpi('Utilería',state.equipment.reduce((a,x)=>a+Number(x.available_quantity||0),0),`${equipmentAlerts().length} alertas de stock`)});
 
-function configurePaymentPanel(){ const billing=moduleRows.find(m=>m.module_code==='billing'); const canWrite=Boolean(billing?.enabled&&billing?.can_write); $('paymentPanel')?.classList.toggle('hidden',!canWrite); if(!canWrite)return; const select=$('paymentPlayer'); const current=select.value; select.innerHTML='<option value="">Selecciona un Tanner</option>'; [...players].sort((a,b)=>playerName(a).localeCompare(playerName(b),'es-MX')).forEach(p=>{ const opt=document.createElement('option'); opt.value=p.id; opt.textContent=`${playerName(p)}${p.code?` · ${p.code}`:''}`; select.appendChild(opt); }); if(current&&players.some(p=>p.id===current))select.value=current; if(!$('paymentDate').value)$('paymentDate').value=todayLocal(); }
+  const priorities={
+    'Presidencia':['players','talent','collection','debt'],
+    'Contabilidad':['collection','debt','players','sessions'],
+    'Taquilla':['collection','debt','talent','players'],
+    'Scouting':['talent','players','sessions','sponsors'],
+    'Formadores':['players','sessions','talent','stock'],
+    'Academia':['players','sessions','collection','talent'],
+    'Operaciones':['players','talent','sessions','stock'],
+    'La Quinta Fuerza':['sponsors','talent','collection','debt'],
+    'Tanner':['sessions','players','talent','collection']
+  };
+  const order=priorities[ctx.role]||priorities['Presidencia'];
+  const sorted=[...candidates].sort((a,b)=>{
+    const ai=order.indexOf(a.key),bi=order.indexOf(b.key);
+    return (ai<0?99:ai)-(bi<0?99:bi);
+  }).slice(0,4);
+  $('homeKpis').innerHTML=sorted.map(x=>x.html).join('');
+  if(!sorted.length)$('homeKpis').innerHTML=kpi('Acceso','Listo','Usa el menú para entrar a tus módulos');
+}
 
-function newIdempotencyKey(){ if(globalThis.crypto?.randomUUID)return `pay:${ctx.organization_id}:${crypto.randomUUID()}`; return `pay:${ctx.organization_id}:${Date.now()}:${Math.random().toString(36).slice(2)}`; }
-async function postPayment(ev){ ev.preventDefault(); setPaymentMessage(); const btn=$('paymentSubmit'); const playerId=$('paymentPlayer').value; const amount=Number($('paymentAmount').value); const paymentDate=$('paymentDate').value; if(!playerId||!Number.isFinite(amount)||amount<=0||!paymentDate){ setPaymentMessage('Completa jugador, monto y fecha.'); return; } if(!pendingPaymentKey)pendingPaymentKey=newIdempotencyKey(); btn.disabled=true; btn.textContent='Registrando…'; try{ const paymentId=await rpc('v2_post_payment',{organization_id:ctx.organization_id,player_id:playerId,amount,payment_date:paymentDate,method:$('paymentMethod').value,reference:$('paymentReference').value.trim()||null,concept:'Mensualidad',payer_type:$('paymentPayerType').value,payer_name:$('paymentPayerName').value.trim()||null,idempotency_key:pendingPaymentKey}); pendingPaymentKey=null; const paidPlayer=players.find(p=>p.id===playerId); setPaymentMessage(`Pago registrado${paidPlayer?` para ${playerName(paidPlayer)}`:''}. ID ${String(paymentId).slice(0,8)}…`,'success'); $('paymentAmount').value=''; $('paymentReference').value=''; $('paymentPayerName').value=''; const {data:userData}=await supabase.auth.getUser(); await loadDashboard(userData.user); if(drawerPlayer?.id===playerId)await openPlayerDrawer(playerId); }catch(e){ setPaymentMessage(friendlyError(e)); }finally{ btn.disabled=false; btn.textContent='Registrar pago'; } }
+const quickDefs=[
+  {code:'jugadores',write:true,label:'Nuevo jugador',href:'/v2/jugadores/'},
+  {code:'asistencia',write:true,label:'Asistencia',href:'/v2/asistencia/'},
+  {code:'callups',write:true,label:'Convocar',href:'/v2/convocatoria/'},
+  {code:'prospectos',write:true,label:'Captación',href:'/v2/prospectos/'},
+  {code:'scouting',write:true,label:'Scouting',href:'/v2/scouting/'},
+  {code:'academias',write:true,label:'Academias',href:'/v2/academias/'},
+  {code:'tienda',write:true,label:'Pedidos',href:'/v2/pedidos/'},
+  {code:'utileria',write:true,label:'Utilería',href:'/v2/utileria/'}
+];
+function renderQuickActions(){
+  const rows=quickDefs.filter(x=>can(x.code,x.write)).slice(0,5);
+  $('quickActions').innerHTML=rows.length?rows.map((x,i)=>`<a class="tos-quick-action ${i===0?'primary':''}" href="${x.href}">${x.label}</a>`).join(''):'<div class="tos-empty">Tu rol no tiene acciones de captura en Inicio.</div>';
+  const collect=can('cobranza',true),pay=can('contabilidad',true);
+  $('cashPanel').classList.toggle('hidden',!(collect||pay));
+  $('cashActions').innerHTML=`${collect?'<a class="tos-action-big collect" href="/v2/finanzas/">COBRAR</a>':''}${pay?'<a class="tos-action-big pay" href="/v2/finanzas/">PAGAR</a>':''}`;
+}
 
-const moduleLabels={players:'Jugadores',billing:'Cobranza',accounting:'Contabilidad',academies:'Academias',attendance:'Asistencia',programs:'Programas',commerce:'Tienda',prospects:'Prospectos',scouting:'Scouting',sponsors:'Patrocinadores',equipment:'Utilería',calendar:'Calendario',users:'Usuarios',admin:'Administración',qa:'QA'};
-function renderModules(rows){ const list=$('modulesList'); list.innerHTML=''; rows.forEach(m=>{ const x=document.createElement('span'); x.className='module'; x.textContent=moduleLabels[m.module_code]||m.module_code; list.appendChild(x); }); if(!rows.length){ const x=document.createElement('span'); x.className='module'; x.textContent='Sin módulos disponibles'; list.appendChild(x); } }
-function playerName(p){ return [p.first_name,p.last_name].filter(Boolean).join(' ').trim(); }
-function renderPlayers(rows){ const body=$('playersBody'); body.innerHTML=''; $('playersEmpty').classList.toggle('hidden',rows.length>0); rows.forEach(p=>{ const tr=document.createElement('tr'); tr.className='player-row'; tr.tabIndex=0; tr.dataset.playerId=p.id; [p.code||'—',playerName(p)||'Sin nombre',p.category||'Sin categoría',p.base_monthly_fee==null?'Por configurar':money.format(Number(p.base_monthly_fee))].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);}); const td=document.createElement('td'), badge=document.createElement('span'); const review=Boolean(p.needs_review||p.billing_status==='review'); badge.className=`status ${review?'review':'active'}`; badge.textContent=review?'Revisar':'Activo'; td.appendChild(badge); tr.appendChild(td); tr.addEventListener('click',()=>openPlayerDrawer(p.id)); tr.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openPlayerDrawer(p.id);}}); body.appendChild(tr); }); }
-function filterPlayers(){ const q=$('playerSearch').value.trim().toLocaleLowerCase('es-MX'); renderPlayers(!q?players:players.filter(p=>`${p.code||''} ${playerName(p)} ${p.category||''}`.toLocaleLowerCase('es-MX').includes(q))); }
+function alertCard(tag,title,value,detail,type=''){
+  return `<article class="tos-alert ${type}"><span class="tos-alert-tag">${tag}</span><b>${value?`${title}<br>${value}`:title}</b><small>${detail}</small></article>`;
+}
+function renderAttention(){
+  const alerts=[];
+  if(state.collection&&Number(state.collection.total_receivable||0)>0){
+    alerts.push(alertCard('Atención','Cartera por cobrar',money.format(Number(state.collection.total_receivable||0)),`${state.collection.pending_players||0} Tanners pendientes`,'danger'));
+  }
+  if(state.collection&&Number(state.collection.needs_configuration||0)>0){
+    alerts.push(alertCard('Atención','Cuotas por configurar',String(state.collection.needs_configuration),`No se inventa ninguna cuota: requiere definición.`,''));
+  }
+  const overdue=overdueProspects();
+  if(overdue.length)alerts.push(alertCard('Atención','Seguimientos vencidos',String(overdue.length),'Prospectos con próxima acción ya vencida.','danger'));
+  const news=state.prospects.filter(p=>p.status==='new');
+  if(news.length)alerts.push(alertCard('Oportunidad','Prospectos nuevos',String(news.length),`${activeProspects().filter(p=>p.registration_type==='goalkeeper').length} portero(s) en captación.`,'opportunity'));
+  const eq=equipmentAlerts();
+  if(eq.length)alerts.push(alertCard('Atención','Utilería con alerta',String(eq.length),'Revisa faltantes o mínimos de inventario.',''));
+  const renew=sponsorRenewals();
+  if(renew.length)alerts.push(alertCard('Oportunidad','Patrocinios por revisar',String(renew.length),'Hay acuerdos próximos a requerir acción.','opportunity'));
+  if(!alerts.length)alerts.push(alertCard('Bien','Todo en orden','', 'No hay alertas disponibles para los módulos que puedes ver.','good'));
+  $('attentionList').innerHTML=alerts.slice(0,6).join('');
+  const hasAttention=alerts.some(a=>a.includes('Atención'));
+  setShellHealth(hasAttention?{state:'attention',label:'Requiere atención'}:{state:'ok',label:'Todo en orden'});
+}
 
-function formatPeriod(v){ if(!v)return 'Sin periodo'; const [y,m]=v.slice(0,7).split('-'); const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']; return `${names[Number(m)-1]} ${y}`; }
-function renderLedgerList(el,rows,type){ el.innerHTML=''; if(!rows?.length){ el.innerHTML='<div class="ledger-empty">Sin movimientos.</div>'; return; } rows.forEach(r=>{ const item=document.createElement('div'); item.className='ledger-item'; const title=type==='charge'?`${formatPeriod(r.period)} · ${r.type==='monthly_fee'?'Mensualidad':r.type}`:`${r.date||''} · ${r.method||'Pago'}`; const detail=type==='charge'?`${money.format(Number(r.allocated||0))} aplicado · saldo ${money.format(Number(r.balance||0))}`:`${money.format(Number(r.allocated||0))} aplicado${Number(r.credit||0)>0?` · ${money.format(Number(r.credit))} a favor`:''}`; item.innerHTML=`<div><strong>${title}</strong><small>${detail}</small></div><b>${money.format(Number(r.amount||0))}</b>`; el.appendChild(item); }); }
-function renderBenefits(rows=[]){ const el=$('drawerBenefits'); el.innerHTML=''; if(!rows.length){ el.innerHTML='<div class="ledger-empty">Sin beneficios registrados.</div>'; return; } const names={scholarship_full:'Beca completa',scholarship_partial:'Beca parcial',sibling_discount:'Hermanos Tanner',sponsor_funded:'Apoyo patrocinado'}; rows.forEach(r=>{ const item=document.createElement('div'); item.className='ledger-item'; const state=r.active&&(r.endsOn==null||r.endsOn>=todayLocal())?'Activo':'Histórico'; const detail=[r.legacyLabel,r.fundingSourceName,r.startsOn?`desde ${r.startsOn}`:null,r.endsOn?`hasta ${r.endsOn}`:null].filter(Boolean).join(' · '); let amount='Info'; if(r.calculationType==='full_waiver')amount='100%'; else if(r.fixedAmount!=null)amount=money.format(Number(r.fixedAmount)); else if(r.percentage!=null)amount=`${Number(r.percentage)}%`; else if(r.overrideAmount!=null)amount=money.format(Number(r.overrideAmount)); item.innerHTML=`<div><strong>${names[r.type]||r.type} · ${state}</strong><small>${detail||r.notes||'Sin detalle adicional'}</small></div><b>${amount}</b>`; el.appendChild(item); }); }
-async function openPlayerDrawer(playerId){ setLifecycleMessage(); const account=await rpc('v2_player_account',{organization_id:ctx.organization_id,player_id:playerId}); if(!account?.player)throw new Error('Player not found'); drawerPlayer=account.player; $('drawerPlayerName').textContent=[drawerPlayer.firstName,drawerPlayer.lastName].filter(Boolean).join(' '); $('drawerMeta').textContent=`${drawerPlayer.code||'Sin código'} · ${drawerPlayer.status==='active'?'Activo':drawerPlayer.status==='withdrawn'?'Baja':'Inactivo'}`; $('drawerFee').textContent=drawerPlayer.baseMonthlyFee==null?'Por configurar':money.format(Number(drawerPlayer.baseMonthlyFee)); const total=(account.charges||[]).reduce((s,c)=>s+Number(c.balance||0),0); $('drawerBalance').textContent=money.format(total); renderBenefits(account.benefits||[]); renderLedgerList($('drawerCharges'),account.charges||[],'charge'); renderLedgerList($('drawerPayments'),account.payments||[],'payment'); const playersModule=moduleRows.find(m=>m.module_code==='players'); const canWrite=Boolean(playersModule?.enabled&&playersModule?.can_write); $('playerLifecycle').classList.toggle('hidden',!canWrite); $('withdrawControls').classList.toggle('hidden',drawerPlayer.status!=='active'); $('reactivateControls').classList.toggle('hidden',drawerPlayer.status!=='withdrawn'); $('withdrawDate').value=todayLocal(); $('reactivateDate').value=todayLocal(); $('drawerBackdrop').classList.remove('hidden'); $('playerDrawer').classList.remove('hidden'); $('playerDrawer').setAttribute('aria-hidden','false'); }
-function closePlayerDrawer(){ drawerPlayer=null; $('drawerBackdrop').classList.add('hidden'); $('playerDrawer').classList.add('hidden'); $('playerDrawer').setAttribute('aria-hidden','true'); }
-async function withdrawCurrentPlayer(){ if(!drawerPlayer)return; const reason=$('withdrawReason').value.trim(), date=$('withdrawDate').value; if(!reason){setLifecycleMessage('Escribe el motivo de la baja.');return;} if(!confirm(`¿Dar de baja a ${[drawerPlayer.firstName,drawerPlayer.lastName].filter(Boolean).join(' ')}? La deuda histórica se conservará.`))return; const btn=$('withdrawPlayer'); btn.disabled=true; try{ await rpc('v2_withdraw_player',{organization_id:ctx.organization_id,player_id:drawerPlayer.id,withdrawn_at:date,reason}); setLifecycleMessage('Baja registrada correctamente. El historial financiero se conservó.','success'); const {data:userData}=await supabase.auth.getUser(); await loadDashboard(userData.user); closePlayerDrawer(); }catch(e){setLifecycleMessage(friendlyError(e));}finally{btn.disabled=false;} }
-async function reactivateCurrentPlayer(){ if(!drawerPlayer)return; const date=$('reactivateDate').value; if(!confirm(`¿Reactivar a ${[drawerPlayer.firstName,drawerPlayer.lastName].filter(Boolean).join(' ')} desde ${date}?`))return; const btn=$('reactivatePlayer'); btn.disabled=true; try{ await rpc('v2_reactivate_player',{organization_id:ctx.organization_id,player_id:drawerPlayer.id,reactivated_at:date}); setLifecycleMessage('Tanner reactivado correctamente.','success'); const {data:userData}=await supabase.auth.getUser(); await loadDashboard(userData.user); closePlayerDrawer(); }catch(e){setLifecycleMessage(friendlyError(e));}finally{btn.disabled=false;} }
+function fmtDateTime(v){
+  if(!v)return 'Sin fecha';
+  const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v);
+  return new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(d);
+}
+function renderAgenda(){
+  const rows=[...state.calendar].sort((a,b)=>new Date(a.startsAt)-new Date(b.startsAt)).slice(0,6);
+  $('calendarLink').classList.toggle('hidden',!can('calendario'));
+  $('agendaList').innerHTML=rows.length?rows.map(x=>`<div class="tos-list-row"><div><strong>${x.title||'Actividad'}</strong><span>${fmtDateTime(x.startsAt)}${x.location?` · ${x.location}`:''}</span></div><b>›</b></div>`).join(''):'<div class="tos-empty">Sin eventos visibles en los próximos 7 días.</div>';
+}
+function mini(label,value){return `<div class="tos-mini-stat"><strong>${value}</strong><span>${label}</span></div>`;}
+function renderRoleFocus(){
+  const profile=roleProfiles[ctx.role]||roleProfiles['Presidencia'];
+  $('roleFocusTitle').textContent=profile.focus;
+  let html='',href='';
+  if(ctx.role==='Scouting'||(can('prospectos')&&!state.collection)){
+    html=`<div class="tos-mini-stats">${mini('En seguimiento',activeProspects().length)}${mini('Nuevos',state.prospects.filter(p=>p.status==='new').length)}${mini('Pruebas',upcomingTrialCount())}</div>`;href='/v2/prospectos/';
+  }else if(ctx.role==='La Quinta Fuerza'&&can('patrocinadores')){
+    html=`<div class="tos-mini-stats">${mini('Marcas',state.sponsors.length)}${mini('Activas',state.sponsors.filter(s=>Number(s.active_agreements||0)>0).length)}${mini('Por atender',sponsorRenewals().length)}</div>`;href='/v2/patrocinadores/';
+  }else if((ctx.role==='Formadores'||ctx.role==='Academia'||ctx.role==='Operaciones')&&can('asistencia')){
+    html=`<div class="tos-mini-stats">${mini('Sesiones',state.attendance.length)}${mini('Plantilla',state.players.length)}${mini('Talento',activeProspects().length)}</div>`;href='/v2/asistencia/';
+  }else if(state.collection){
+    html=`<div class="tos-mini-stats">${mini('Cobranza',`${state.collection.collection_rate||0}%`)}${mini('Pendientes',state.collection.pending_players||0)}${mini('Cartera',money.format(Number(state.collection.total_receivable||0)))}</div>`;href='/v2/finanzas/';
+  }else{
+    html=`<div class="tos-mini-stats">${mini('Agenda',state.calendar.length)}${mini('Módulos',navigation.filter(n=>n.enabled&&n.can_read).length)}${mini('Rol',ctx.role||'Tanner')}</div>`;
+  }
+  $('roleFocusBody').innerHTML=html;
+  const link=$('roleFocusLink');link.classList.toggle('hidden',!href);if(href)link.href=href;
+}
+function daysToBirthday(date){
+  if(!date)return 999;
+  const birth=new Date(`${String(date).slice(0,10)}T12:00:00`),now=new Date();
+  let next=new Date(now.getFullYear(),birth.getMonth(),birth.getDate(),12);
+  if(next<new Date(now.getFullYear(),now.getMonth(),now.getDate(),0))next.setFullYear(next.getFullYear()+1);
+  return Math.ceil((next-now)/(86400000));
+}
+function renderBirthdays(){
+  const rows=state.players.map(p=>({...p,days:daysToBirthday(p.birth_date)})).filter(p=>p.days>=0&&p.days<=31).sort((a,b)=>a.days-b.days).slice(0,8);
+  $('birthdayPanel').classList.toggle('hidden',!rows.length);
+  $('birthdayList').innerHTML=rows.map(p=>`<div class="tos-list-row"><div><strong>${[p.first_name,p.last_name].filter(Boolean).join(' ')}</strong><span>${p.days===0?'Hoy':p.days===1?'Mañana':`En ${p.days} días`} · ${p.category||'Sin categoría'}</span></div><span>🎂</span></div>`).join('');
+}
+function renderSearch(){
+  const items=[];
+  state.players.forEach(p=>items.push({label:[p.first_name,p.last_name].filter(Boolean).join(' '),meta:`Jugador · ${p.category||'Sin categoría'}`,href:'/v2/jugadores/'}));
+  state.prospects.forEach(p=>items.push({label:[p.first_name,p.last_name].filter(Boolean).join(' '),meta:`Prospecto · ${p.phone||p.category_interest||''}`,href:'/v2/prospectos/'}));
+  setShellSearchItems(items);
+}
+function renderHome(){
+  const profile=roleProfiles[ctx.role]||roleProfiles['Presidencia'];
+  $('welcomeTitle').textContent=`Bienvenido al vestidor, ${firstName()}`;
+  $('welcomeSubtitle').textContent=profile.subtitle;
+  renderKpis();renderQuickActions();renderAttention();renderAgenda();renderRoleFocus();renderBirthdays();renderSearch();
+}
 
-async function signOut(){ await supabase.auth.signOut(); ctx=null; players=[]; moduleRows=[]; pendingPaymentKey=null; closePlayerDrawer(); switchAuthMode('signin'); showView('authView'); }
 $('signInTab')?.addEventListener('click',()=>switchAuthMode('signin'));
 $('signUpTab')?.addEventListener('click',()=>switchAuthMode('signup'));
 $('authForm')?.addEventListener('submit',handleAuthSubmit);
 $('resendConfirmation')?.addEventListener('click',resendConfirmation);
-$('signOut')?.addEventListener('click',signOut);
-$('pendingSignOut')?.addEventListener('click',signOut);
 $('refreshAccess')?.addEventListener('click',loadAuthenticatedApp);
-$('playerSearch')?.addEventListener('input',filterPlayers);
-$('paymentForm')?.addEventListener('submit',postPayment);
-$('closeDrawer')?.addEventListener('click',closePlayerDrawer);
-$('drawerBackdrop')?.addEventListener('click',closePlayerDrawer);
-$('withdrawPlayer')?.addEventListener('click',withdrawCurrentPlayer);
-$('reactivatePlayer')?.addEventListener('click',reactivateCurrentPlayer);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('playerDrawer')?.classList.contains('hidden'))closePlayerDrawer();});
+$('pendingSignOut')?.addEventListener('click',async()=>{await supabase.auth.signOut();location.reload();});
 
-const {data:initial}=await supabase.auth.getSession();
-if(initial?.session){ try{ await loadAuthenticatedApp(); }catch(e){ console.error(e); $('pendingText').textContent=friendlyError(e); showView('pendingView'); } } else { switchAuthMode('signin'); showView('authView'); }
+const {data:{session}}=await supabase.auth.getSession();
+if(session)loadAuthenticatedApp().catch(e=>{console.error(e);showView('authView');setMessage(friendlyError(e));});
+else showView('authView');

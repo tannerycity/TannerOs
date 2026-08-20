@@ -12,55 +12,22 @@
 <main class="shell">
   <section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Programas</h2><p class="muted">Conectando…</p></section>
   <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2">Volver</a></section>
-
   <section id="view" class="hidden app-wrap">
     <header class="topbar"><div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS 2.0</div><strong id="orgName">Tannery City FC</strong></div></div><div class="top-actions"><a class="secondary mini nav-link" href="/programas/" target="_blank" rel="noopener">Registro público</a><a class="secondary mini nav-link" href="/v2">Dirección</a><span id="roleBadge" class="role-badge"></span></div></header>
-
     <section class="hero program-hero"><div><div class="eyebrow">PROGRAMAS · CORE V2</div><h1>Programas y eventos</h1><p class="muted">Administra cursos, campamentos, cupo, edades y personas inscritas.</p></div><button id="newProgram" class="primary" type="button">+ Nuevo programa</button></section>
-
     <section class="kpis compact-kpis"><article><span>Vigentes</span><strong id="kpiCurrent">0</strong></article><article><span>Registro público</span><strong id="kpiPublic">0</strong></article><article><span>Inscritos activos</span><strong id="kpiEnrollments">0</strong></article><article><span>Lista de espera</span><strong id="kpiWaitlist">0</strong></article></section>
-
     <section class="panel"><div class="panel-head program-head"><div><div class="eyebrow">CATÁLOGO</div><h2>Programas</h2></div><div class="filters"><select id="programStatusFilter"><option value="current">Vigentes</option><option value="">Todos</option><option value="draft">Borrador</option><option value="published">Publicado</option><option value="active">Activo</option><option value="completed">Completado</option><option value="cancelled">Cancelado</option><option value="archived">Archivado</option></select><input id="programSearch" type="search" placeholder="Buscar programa…" /></div></div><div id="programList" class="program-list"></div><div id="empty" class="empty hidden">No hay programas con ese filtro.</div></section>
   </section>
 </main>
-
 <div id="backdrop" class="drawer-backdrop hidden"></div>
 <aside id="drawer" class="player-drawer program-drawer hidden" aria-hidden="true">
   <div class="drawer-head"><div><div id="drawerEyebrow" class="eyebrow">PROGRAMA</div><h2 id="drawerTitle">Nuevo programa</h2><p id="drawerMeta" class="muted"></p></div><button id="closeDrawer" class="secondary mini" type="button">Cerrar</button></div>
-
-  <section class="drawer-section">
-    <div class="eyebrow">CONFIGURACIÓN</div><h3>Datos del programa</h3>
-    <div class="form-grid">
-      <label class="span-2">Nombre<input id="programName" type="text" maxlength="160" /></label>
-      <label>Slug público<input id="programSlug" type="text" maxlength="120" placeholder="curso-verano-2026" /></label>
-      <label>Tipo<input id="programType" type="text" maxlength="80" placeholder="course, camp…" /></label>
-      <label>Categoría / grupo<input id="categoryLabel" type="text" maxlength="120" /></label>
-      <label>Ubicación<input id="programLocation" type="text" maxlength="160" /></label>
-      <label>Inicia<input id="startsOn" type="date" /></label>
-      <label>Termina<input id="endsOn" type="date" /></label>
-      <label>Edad mínima<input id="ageMin" type="number" min="0" max="99" inputmode="numeric" /></label>
-      <label>Edad máxima<input id="ageMax" type="number" min="0" max="99" inputmode="numeric" /></label>
-      <label>Cupo<input id="capacity" type="number" min="0" max="9999" inputmode="numeric" /></label>
-      <label>Cuota total<input id="fee" type="number" min="0" step="0.01" inputmode="decimal" /></label>
-      <label>Cuota semanal<input id="feeWeekly" type="number" min="0" step="0.01" inputmode="decimal" /></label>
-      <label>Semanas<input id="weeks" type="number" min="1" max="99" inputmode="numeric" /></label>
-      <label class="span-2">Horario<input id="scheduleLabel" type="text" maxlength="240" placeholder="Lunes a viernes · 9:00 a 13:00" /></label>
-      <label>Estado<select id="programStatus"><option value="draft">Borrador</option><option value="published">Publicado</option><option value="active">Activo</option><option value="completed">Completado</option><option value="cancelled">Cancelado</option><option value="archived">Archivado</option></select></label>
-      <label class="toggle-label"><span>Registro público</span><input id="publicEnabled" type="checkbox" /></label>
-      <label class="span-2">Descripción<textarea id="programDescription" rows="4" maxlength="2000"></textarea></label>
-    </div>
-    <button id="saveProgram" class="primary full" type="button">Guardar programa</button><div id="programMessage" class="inline-message hidden"></div>
-  </section>
-
-  <section id="enrollmentSection" class="drawer-section hidden">
-    <div class="eyebrow">INSCRITOS</div><div class="enrollment-head"><h3>Participantes</h3><div><span id="capacityBadge" class="capacity-badge"></span></div></div>
-    <div id="enrollmentList" class="enrollment-list"></div><div id="enrollmentEmpty" class="mini-empty">Sin inscritos.</div>
-  </section>
+  <section class="drawer-section"><div class="eyebrow">CONFIGURACIÓN</div><h3>Datos del programa</h3><div class="form-grid"><label class="span-2">Nombre<input id="programName" type="text" maxlength="160" /></label><label>Slug público<input id="programSlug" type="text" maxlength="120" placeholder="curso-verano-2026" /></label><label>Tipo<input id="programType" type="text" maxlength="80" placeholder="course, camp…" /></label><label>Categoría / grupo<input id="categoryLabel" type="text" maxlength="120" /></label><label>Ubicación<input id="programLocation" type="text" maxlength="160" /></label><label>Inicia<input id="startsOn" type="date" /></label><label>Termina<input id="endsOn" type="date" /></label><label>Edad mínima<input id="ageMin" type="number" min="0" max="99" inputmode="numeric" /></label><label>Edad máxima<input id="ageMax" type="number" min="0" max="99" inputmode="numeric" /></label><label>Cupo<input id="capacity" type="number" min="0" max="9999" inputmode="numeric" /></label><label>Cuota total<input id="fee" type="number" min="0" step="0.01" inputmode="decimal" /></label><label>Cuota semanal<input id="feeWeekly" type="number" min="0" step="0.01" inputmode="decimal" /></label><label>Semanas<input id="weeks" type="number" min="1" max="99" inputmode="numeric" /></label><label class="span-2">Horario<input id="scheduleLabel" type="text" maxlength="240" placeholder="Lunes a viernes · 9:00 a 13:00" /></label><label>Estado<select id="programStatus"><option value="draft">Borrador</option><option value="published">Publicado</option><option value="active">Activo</option><option value="completed">Completado</option><option value="cancelled">Cancelado</option><option value="archived">Archivado</option></select></label><label class="toggle-label"><span>Registro público</span><input id="publicEnabled" type="checkbox" /></label><label class="span-2">Descripción<textarea id="programDescription" rows="4" maxlength="2000"></textarea></label></div><button id="saveProgram" class="primary full" type="button">Guardar programa</button><div id="programMessage" class="inline-message hidden"></div></section>
+  <section id="enrollmentSection" class="drawer-section hidden"><div class="eyebrow">INSCRITOS</div><div class="enrollment-head"><h3>Participantes</h3><div><span id="capacityBadge" class="capacity-badge"></span></div></div><div id="enrollmentList" class="enrollment-list"></div><div id="enrollmentEmpty" class="mini-empty">Sin inscritos.</div></section>
 </aside>
-
 <div id="enrollmentBackdrop" class="modal-backdrop hidden"></div>
 <section id="enrollmentModal" class="mini-modal hidden" aria-hidden="true"><div class="modal-head"><div><div class="eyebrow">PARTICIPANTE</div><h3 id="enrollmentName">Participante</h3></div><button id="closeEnrollment" class="secondary mini" type="button">Cerrar</button></div><div id="enrollmentFacts" class="enrollment-facts"></div><label>Estado<select id="enrollmentStatus"><option value="registered">Registrado</option><option value="confirmed">Confirmado</option><option value="waitlisted">Lista de espera</option><option value="completed">Completado</option><option value="cancelled">Cancelado</option></select></label><label>Nota<textarea id="enrollmentNote" rows="3" maxlength="800" placeholder="Motivo o seguimiento opcional"></textarea></label><button id="saveEnrollment" class="primary full" type="button">Guardar estado</button><div id="enrollmentMessage" class="inline-message hidden"></div></section>
-
+<script type="module" src="/v2/branding-auto.js"></script>
 <script type="module" src="/v2/programas/app.js"></script>
 </body>
 </html>

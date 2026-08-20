@@ -1,12 +1,11 @@
 /* =============================================================================
-   TannerOS — Service Worker (v2)
+   TannerOS — Service Worker
    -----------------------------------------------------------------------------
-   Solo administra el documento interno de TannerOS (/ y /index.html).
-   Rutas públicas y TannerOS v2 quedan fuera del app-shell para evitar que un
-   fallback offline entregue la app interna en /registro, /pedido, /programas
-   o /v2.
+   Administra el documento interno principal de TannerOS (/ y /index.html).
+   Las rutas públicas quedan fuera del app-shell para evitar que un fallback
+   offline entregue la app interna en /registro, /pedido o /programas.
    ========================================================================== */
-const CACHE = 'tanneros-shell-v2';
+const CACHE = 'tanneros-shell-prod-20260820';
 const SHELL_KEY = 'app-shell';
 const NET_TIMEOUT_MS = 4000;
 

@@ -3,6 +3,7 @@ import {applyBranding,loadAndApplyBranding} from '/v2/branding.js';
 import {initUniversalExperience} from '/v2/experience.js';
 import {initFocusFallback} from '/v2/focus-fallback.js?v=20260819a';
 import {installProductExtensions} from '/v2/product-extensions.js?v=20260819a';
+import {installModuleContext} from '/v2/module-context.js?v=20260819a';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 let lastOrg=null,busy=false;
 async function applyForSession(){
@@ -14,7 +15,9 @@ async function applyForSession(){
     let branding=window.__tosBranding;
     if(lastOrg!==org||!branding)branding=await loadAndApplyBranding(supabase,org);
     const experience=await initUniversalExperience({supabase,ctx});
-    installProductExtensions({navigation:experience?.navigation||window.__tosExperienceNavigation||[]});
+    const navigation=experience?.navigation||window.__tosExperienceNavigation||[];
+    installProductExtensions({navigation});
+    installModuleContext({navigation});
     await initFocusFallback({supabase,ctx});
     if(branding)applyBranding(branding,{organizationId:org});
     lastOrg=org;

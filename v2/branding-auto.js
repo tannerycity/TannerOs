@@ -36,7 +36,7 @@ const FINAL_ROUTES=[
 ];
 
 function canonicalPath(pathname=location.pathname){
-  let path=String(pathname||'/');
+  const path=String(pathname||'/');
   if(path==='/v2'||path==='/v2/')return '/';
   if(path==='/v2/programas'||path.startsWith('/v2/programas/'))return path.replace(/^\/v2\/programas(?=\/|$)/,'/operacion/programas');
   if(path.startsWith('/v2/'))return path.slice(3)||'/';
@@ -85,14 +85,17 @@ function normalizeTextNode(node){
   if(next!==node.nodeValue)node.nodeValue=next;
 }
 
+function normalizeLink(link){
+  if(!link?.matches?.('a[href]'))return;
+  const current=link.getAttribute('href');const next=canonicalHref(current);
+  if(next&&next!==current)link.setAttribute('href',next);
+}
+
 function normalizeSurface(root=document){
   if(root?.nodeType===Node.TEXT_NODE){normalizeTextNode(root);return;}
+  if(root?.nodeType===Node.ELEMENT_NODE)normalizeLink(root);
   const scope=root?.querySelectorAll?root:document;
-  if(root?.nodeType===Node.ELEMENT_NODE){
-    root.querySelectorAll('a[href]').forEach(link=>{const next=canonicalHref(link.getAttribute('href'));if(next&&next!==link.getAttribute('href'))link.setAttribute('href',next);});
-  }else{
-    scope.querySelectorAll?.('a[href]').forEach(link=>{const next=canonicalHref(link.getAttribute('href'));if(next&&next!==link.getAttribute('href'))link.setAttribute('href',next);});
-  }
+  scope.querySelectorAll?.('a[href]').forEach(normalizeLink);
   const walker=document.createTreeWalker(root?.nodeType===Node.DOCUMENT_NODE?root.documentElement:root,NodeFilter.SHOW_TEXT);
   let node;while((node=walker.nextNode()))normalizeTextNode(node);
   const cleanTitle=cleanProductText(document.title);if(cleanTitle!==document.title)document.title=cleanTitle;
@@ -149,12 +152,12 @@ async function applyForSession(){
     if(lastOrg!==org||!branding)branding=await loadAndApplyBranding(supabase,org);
     const experience=await initUniversalExperience({supabase,ctx});
     const navigation=experience?.navigation||window.__tosExperienceNavigation||[];
+    if(branding)applyBranding(branding,{organizationId:org});
     syncFinalExperience({navigation,ctx});
     installProductExtensions({navigation});
     installModuleContext({navigation});
     await initFocusFallback({supabase,ctx});
-    if(branding)applyBranding(branding,{organizationId:org});
-    syncFinalExperience({navigation,ctx});
+    normalizeSurface(document);
     lastOrg=org;
   }catch(e){console.warn('branding/experience auto',e);}finally{busy=false;}
 }

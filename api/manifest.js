@@ -11,6 +11,6 @@ module.exports=async function handler(req,res){
     if(b?.assets?.appIcon192)icons.push({src:asset(b.assets.appIcon192),sizes:'192x192',type:'image/png',purpose:'any maskable'});
     if(b?.assets?.appIcon512)icons.push({src:asset(b.assets.appIcon512),sizes:'512x512',type:'image/png',purpose:'any maskable'});
     res.setHeader('Content-Type','application/manifest+json; charset=utf-8');res.setHeader('Cache-Control','public, max-age=0, s-maxage=300, stale-while-revalidate=3600');
-    res.status(200).send(JSON.stringify({id:`/v2/?org=${org}`,name,short_name:name.slice(0,18),description:b?.tagline||`${b?.brand||'Club'} · ${name}`,start_url:'/v2/',scope:'/v2/',display:'standalone',orientation:'any',background_color:b?.colors?.background||'#F5F3EB',theme_color:b?.colors?.primary||'#012A3A',icons}));
+    res.status(200).send(JSON.stringify({id:`/?org=${org}`,name,short_name:name.slice(0,18),description:b?.tagline||`${b?.brand||'Club'} · ${name}`,start_url:'/',scope:'/',display:'standalone',orientation:'any',background_color:b?.colors?.background||'#F5F3EB',theme_color:b?.colors?.primary||'#012A3A',icons}));
   }catch(e){res.status(502).json({error:'branding unavailable'});}
 };

@@ -29,6 +29,10 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/v2/index.html"
+    },
+    {
       "source": "/operacion/programas",
       "destination": "/v2/programas/index.html"
     },

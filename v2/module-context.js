@@ -31,8 +31,14 @@ function applyPlayerContext(path){
   const apply=()=>{const primary=document.getElementById('playerSelect');if(!primary||![...primary.options].some(o=>o.value===player))return false;primary.value=player;primary.dispatchEvent(new Event('change',{bubbles:true}));['statPlayer','evalPlayer','notePlayer'].forEach(id=>{const s=document.getElementById(id);if(s&&[...s.options].some(o=>o.value===player))s.value=player;});if(action==='evaluar')document.getElementById('evaluationPanel')?.scrollIntoView({behavior:'smooth',block:'start'});return true;};
   if(!apply()){const observer=new MutationObserver(()=>{if(apply())observer.disconnect();});observer.observe(document.body,{childList:true,subtree:true});setTimeout(()=>observer.disconnect(),7000);}
 }
+function installPlayerSnapshotActions(path){
+  if(!path.startsWith('/v2/jugadores/')||document.documentElement.dataset.tosPlayerSnapshotActions==='1')return;
+  document.documentElement.dataset.tosPlayerSnapshotActions='1';
+  const update=playerId=>{const head=document.querySelector('.sports-snapshot .snapshot-head');if(!head||!playerId)return;const open=document.getElementById('openSports');if(open)open.href=`/v2/deportivo/?player=${encodeURIComponent(playerId)}`;let evaluate=document.getElementById('newEvaluation');if(!evaluate){evaluate=document.createElement('a');evaluate.id='newEvaluation';evaluate.className='primary mini nav-link';evaluate.textContent='Nueva evaluación';head.appendChild(evaluate);}evaluate.href=`/v2/deportivo/?player=${encodeURIComponent(playerId)}&action=evaluar`;};
+  document.addEventListener('tanner-profile-opened',event=>update(event.detail?.playerId));
+}
 export function installModuleContext({navigation}={}){
-  const path=normalizedPath();applyPlayerContext(path);
+  const path=normalizedPath();applyPlayerContext(path);installPlayerSnapshotActions(path);
   if(document.getElementById('tosModuleContext'))return;
   const group=GROUPS.find(g=>g.match.some(p=>path.startsWith(p)));if(!group)return;
   const items=group.items.filter(item=>readable(navigation,item.module));if(items.length<2)return;

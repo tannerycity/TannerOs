@@ -1,5 +1,6 @@
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
-import {loadAndApplyBranding} from '/v2/branding.js';
+import {applyBranding,loadAndApplyBranding} from '/v2/branding.js';
+import {initUniversalExperience} from '/v2/experience.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 let lastOrg=null,busy=false;
 async function applyForSession(){
@@ -7,9 +8,13 @@ async function applyForSession(){
   try{
     const {data:{session}}=await supabase.auth.getSession();if(!session)return;
     const {data,error}=await supabase.rpc('v2_my_context');if(error||!data?.length)return;
-    const org=data[0].organization_id;if(!org)return;if(lastOrg===org&&window.__tosBranding)return;
-    await loadAndApplyBranding(supabase,org);lastOrg=org;
-  }catch(e){console.warn('branding auto',e);}finally{busy=false;}
+    const ctx=data[0],org=ctx.organization_id;if(!org)return;
+    let branding=window.__tosBranding;
+    if(lastOrg!==org||!branding)branding=await loadAndApplyBranding(supabase,org);
+    await initUniversalExperience({supabase,ctx});
+    if(branding)applyBranding(branding,{organizationId:org});
+    lastOrg=org;
+  }catch(e){console.warn('branding/experience auto',e);}finally{busy=false;}
 }
 applyForSession();
-supabase.auth.onAuthStateChange(event=>{if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED')setTimeout(applyForSession,0);if(event==='SIGNED_OUT')lastOrg=null;});
+supabase.auth.onAuthStateChange(event=>{if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED')setTimeout(applyForSession,0);if(event==='SIGNED_OUT'){lastOrg=null;window.__tosExperienceNavigation=null;}});

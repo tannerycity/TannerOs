@@ -25,9 +25,16 @@ const GROUPS=[
 const normalizedPath=()=>location.pathname.endsWith('/')?location.pathname:`${location.pathname}/`;
 function readable(navigation,code){const row=(navigation||[]).find(r=>r.module_code===code);return Boolean(row?.enabled&&row?.can_read);}
 function active(item,path){return path.startsWith(item.href);}
+function applyPlayerContext(path){
+  if(!path.startsWith('/v2/deportivo/'))return;
+  const params=new URLSearchParams(location.search),player=params.get('player'),action=params.get('action');if(!player)return;
+  const apply=()=>{const primary=document.getElementById('playerSelect');if(!primary||![...primary.options].some(o=>o.value===player))return false;primary.value=player;primary.dispatchEvent(new Event('change',{bubbles:true}));['statPlayer','evalPlayer','notePlayer'].forEach(id=>{const s=document.getElementById(id);if(s&&[...s.options].some(o=>o.value===player))s.value=player;});if(action==='evaluar')document.getElementById('evaluationPanel')?.scrollIntoView({behavior:'smooth',block:'start'});return true;};
+  if(!apply()){const observer=new MutationObserver(()=>{if(apply())observer.disconnect();});observer.observe(document.body,{childList:true,subtree:true});setTimeout(()=>observer.disconnect(),7000);}
+}
 export function installModuleContext({navigation}={}){
+  const path=normalizedPath();applyPlayerContext(path);
   if(document.getElementById('tosModuleContext'))return;
-  const path=normalizedPath(),group=GROUPS.find(g=>g.match.some(p=>path.startsWith(p)));if(!group)return;
+  const group=GROUPS.find(g=>g.match.some(p=>path.startsWith(p)));if(!group)return;
   const items=group.items.filter(item=>readable(navigation,item.module));if(items.length<2)return;
   const target=document.querySelector('.app-wrap .hero,.tos-content .tos-welcome,.tos-content .brand-hero');if(!target)return;
   const nav=document.createElement('nav');nav.id='tosModuleContext';nav.className='tos-module-context';nav.setAttribute('aria-label',group.name);

@@ -64,12 +64,18 @@ async function renderDirection(){
   setShellSearchItems(players.map(p=>({label:[p.first_name,p.last_name].filter(Boolean).join(' '),meta:`Jugador · ${p.category||''}`,href:'/v2/jugadores/'})));
 }
 
+function todayLocal(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function paymentKey(){return globalThis.crypto?.randomUUID?`pay:${org}:${crypto.randomUUID()}`:`pay:${org}:${Date.now()}:${Math.random().toString(36).slice(2)}`;}
+
 async function renderFinance(){
   $('hubEyebrow').textContent='COBRANZA Y CONTABILIDAD';
   $('hubTitle').textContent='Finanzas';
   $('hubSubtitle').textContent='Caja, cartera y movimientos financieros sin duplicar fuentes de verdad.';
-  const collection=(can('cobranza')||can('contabilidad'))?await safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:new Date().toISOString().slice(0,7)+'-01'}),null):null;
-  const receivables=can('cobranza')?await safe(rpc('v2_open_receivables',{organization_id:org}),[]):[];
+  const [collection,receivables,billingPlayers]=await Promise.all([
+    (can('cobranza')||can('contabilidad'))?safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:new Date().toISOString().slice(0,7)+'-01'}),null):null,
+    can('cobranza')?safe(rpc('v2_open_receivables',{organization_id:org}),[]):[],
+    can('cobranza')?safe(rpc('v2_billing_players',{organization_id:org}),[]):[]
+  ]);
   const byPlayer=new Map();
   receivables.forEach(r=>{
     const key=r.player_id||r.player_name;
@@ -88,9 +94,48 @@ async function renderFinance(){
     ${card('contabilidad','Contabilidad','Egresos, ajustes y ledger','/v2/contabilidad/','','C')}
     ${can('taquilla')?`<a class="tos-hub-card gold" href="/v2/pedidos/"><span class="tos-hub-icon">T</span><div><strong>Taquilla / operación</strong><span>Pedidos y atención de caja</span></div><b>›</b></a>`:''}
   </section>`;
+  const payment=can('cobranza',true)?`<section class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><div><h2>Caja rápida · Cobrar</h2><span class="tos-user-note">El pago se aplica a la deuda más antigua; el excedente queda a favor.</span></div></div>
+    <form id="financePaymentForm" class="tos-payment-form">
+      <label class="span-2">Tanner<select id="financePaymentPlayer" required><option value="">Selecciona un Tanner</option>${billingPlayers.slice().sort((a,b)=>String(a.player_name).localeCompare(String(b.player_name),'es-MX')).map(p=>`<option value="${p.player_id}" data-fee="${p.base_monthly_fee??''}">${p.player_name}${p.billing_status==='review'?' · revisar cuota':''}</option>`).join('')}</select></label>
+      <label>Monto<input id="financePaymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
+      <label>Fecha<input id="financePaymentDate" type="date" value="${todayLocal()}" required></label>
+      <label>Método<select id="financePaymentMethod"><option value="transfer">Transferencia</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
+      <label>Quién paga<select id="financePayerType"><option value="guardian">Familia / tutor</option><option value="sponsor">Patrocinador</option><option value="player">Jugador</option><option value="organization">Club</option><option value="other">Otro</option></select></label>
+      <label>Nombre del pagador<input id="financePayerName" type="text" placeholder="Opcional"></label>
+      <label>Referencia<input id="financePaymentReference" type="text" placeholder="Folio o nota"></label>
+      <button id="financePaymentSubmit" class="primary span-2" type="submit">Registrar pago</button>
+      <div id="financePaymentMessage" class="inline-message hidden span-2"></div>
+    </form></section>`:'';
   const list=can('cobranza')?`<section id="cobranza" class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><h2>Cartera del club</h2><span class="tos-user-note">${debtors.length?`Top ${debtors.length} saldos`:'Sin saldos'}</span></div><div class="tos-list">${debtors.length?debtors.map(d=>`<div class="tos-list-row"><div><strong>${d.name||'Tanner'}</strong><span>Saldo pendiente</span></div><b style="color:#d23829">${money.format(d.amount)}</b></div>`).join(''):'<div class="tos-empty">Sin cartera pendiente.</div>'}</div></section>`:'';
-  $('hubBody').innerHTML=`${kpis}${modules}${list}`;
+  $('hubBody').innerHTML=`${kpis}${modules}${payment}${list}`;
   if(collection&&Number(collection.total_receivable||0)>0)setShellHealth({state:'attention',label:'Cobranza pendiente'});
+
+  const form=$('financePaymentForm');
+  if(form){
+    $('financePaymentPlayer').addEventListener('change',()=>{
+      const option=$('financePaymentPlayer').selectedOptions?.[0];
+      if(!$('financePaymentAmount').value&&option?.dataset?.fee)$('financePaymentAmount').value=Number(option.dataset.fee)||'';
+    });
+    form.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const btn=$('financePaymentSubmit'),message=$('financePaymentMessage');
+      const playerId=$('financePaymentPlayer').value,amount=Number($('financePaymentAmount').value),date=$('financePaymentDate').value;
+      if(!playerId||!Number.isFinite(amount)||amount<=0||!date)return;
+      btn.disabled=true;btn.textContent='Registrando…';message.classList.add('hidden');
+      try{
+        const id=await rpc('v2_post_payment',{
+          organization_id:org,player_id:playerId,amount,payment_date:date,method:$('financePaymentMethod').value,
+          reference:$('financePaymentReference').value.trim()||null,concept:'Mensualidad',
+          payer_type:$('financePayerType').value,payer_name:$('financePayerName').value.trim()||null,idempotency_key:paymentKey()
+        });
+        await renderFinance();
+        const next=$('financePaymentMessage');next.textContent=`Pago registrado · ${String(id).slice(0,8)}…`;next.dataset.type='success';next.classList.remove('hidden');
+      }catch(err){
+        message.textContent=err?.message||'No se pudo registrar el pago.';message.dataset.type='error';message.classList.remove('hidden');
+        btn.disabled=false;btn.textContent='Registrar pago';
+      }
+    });
+  }
 }
 
 if(page==='club')await renderClub();

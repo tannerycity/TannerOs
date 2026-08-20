@@ -8,6 +8,7 @@ const supabase=createClient(
 
 const $=id=>document.getElementById(id);
 let ctx=null,reports=[],current=null,canWrite=false;
+const DAY=86400000;
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function message(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
@@ -19,6 +20,15 @@ function age(birth){if(!birth)return null;const b=new Date(`${birth}T12:00:00`),
 function score(v){return v==null||v===''?null:Number(v);}
 function safe(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function highInterest(v){return ['alto','alta','high'].includes(String(v||'').trim().toLocaleLowerCase('es-MX'));}
+function open(r){return r.status==='open';}
+function priority(r){return open(r)&&highInterest(r.interest_level);}
+function overdue(r){return open(r)&&r.next_action_at&&new Date(r.next_action_at).getTime()<Date.now();}
+function cooling(r){return open(r)&&!r.next_action_at&&r.observed_at&&(Date.now()-new Date(r.observed_at).getTime())>=10*DAY;}
+function unplanned(r){return open(r)&&!r.next_action_at;}
+function signed(r){return Boolean(r.player_id);}
+function daysSince(v){if(!v)return null;return Math.max(0,Math.floor((Date.now()-new Date(v).getTime())/DAY));}
+function pipelineMatch(r,value){if(!value)return true;return value==='priority'?priority(r):value==='overdue'?overdue(r):value==='cooling'?cooling(r):value==='unplanned'?unplanned(r):value==='signed'?signed(r):true;}
+function pipelineRank(r){if(overdue(r))return 0;if(priority(r))return 1;if(cooling(r))return 2;if(open(r))return 3;if(signed(r))return 4;return 5;}
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -45,20 +55,31 @@ async function load(){
 }
 
 function renderKpis(){
-  $('kpiTotal').textContent=reports.length;
-  $('kpiOpen').textContent=reports.filter(r=>r.status==='open').length;
-  $('kpiHigh').textContent=reports.filter(r=>highInterest(r.interest_level)).length;
-  $('kpiClosed').textContent=reports.filter(r=>r.status==='closed').length;
+  const radar=reports.filter(open).length,priorities=reports.filter(priority).length,late=reports.filter(overdue).length,cold=reports.filter(cooling).length,players=reports.filter(signed).length;
+  $('kpiRadar').textContent=radar;$('kpiPriority').textContent=priorities;$('kpiOverdue').textContent=late;$('kpiCooling').textContent=cold;$('kpiSigned').textContent=players;
+  $('attentionOverdue').textContent=late;$('attentionCooling').textContent=cold;$('attentionPriority').textContent=priorities;
+  const state=$('attentionState');state.textContent=late?`${late} vencido${late===1?'':'s'}`:cold?`${cold} enfriándose`:priorities?`${priorities} prioritario${priorities===1?'':'s'}`:'Radar al día';state.dataset.state=late?'danger':cold||priorities?'attention':'ok';
 }
 
 function filtered(){
-  const status=$('statusFilter').value,q=$('searchScout').value.trim().toLocaleLowerCase('es-MX');
+  const status=$('statusFilter').value,pipeline=$('pipelineFilter').value,q=$('searchScout').value.trim().toLocaleLowerCase('es-MX');
   return reports.filter(r=>{
     if(status&&r.status!==status)return false;
+    if(!pipelineMatch(r,pipeline))return false;
     if(!q)return true;
-    const hay=[r.observed_name,r.player_position,r.category,r.observed_location,r.verdict,r.interest_level,r.guardian_name,r.contact_phone].filter(Boolean).join(' ').toLocaleLowerCase('es-MX');
+    const hay=[r.observed_name,r.player_position,r.category,r.observed_location,r.verdict,r.interest_level,r.guardian_name,r.contact_phone,r.star_quality].filter(Boolean).join(' ').toLocaleLowerCase('es-MX');
     return hay.includes(q);
-  });
+  }).sort((a,b)=>pipelineRank(a)-pipelineRank(b)||new Date(b.observed_at||0)-new Date(a.observed_at||0));
+}
+
+function badges(r){
+  const out=[];
+  if(signed(r))out.push('<em class="pipeline-badge signed">Fichado</em>');
+  if(overdue(r))out.push('<em class="pipeline-badge overdue">Vencido</em>');
+  else if(priority(r))out.push('<em class="pipeline-badge priority">Prioritario</em>');
+  else if(cooling(r)){const d=daysSince(r.observed_at);out.push(`<em class="pipeline-badge cooling">${d??10}d sin próxima acción</em>`);}
+  else if(unplanned(r))out.push('<em class="pipeline-badge unplanned">Sin próxima acción</em>');
+  return out.join('');
 }
 
 function renderList(){
@@ -66,8 +87,9 @@ function renderList(){
   rows.forEach(r=>{
     const avg=[r.technical_score,r.physical_score,r.tactical_score,r.mental_score].filter(v=>v!=null).map(Number);
     const avgText=avg.length?(avg.reduce((a,b)=>a+b,0)/avg.length).toFixed(1):'—';
-    const card=document.createElement('button');card.type='button';card.className='scout-row';
-    card.innerHTML=`<div class="scout-main"><strong>${safe(r.observed_name||'Sin nombre')}</strong><span>${safe([r.player_position,r.category,r.observed_location].filter(Boolean).join(' · ')||'Sin datos deportivos')}</span><small>${safe(fmtDate(r.observed_at))}</small></div><div class="scout-side"><b>${avgText}</b><small>promedio</small><span class="scout-status ${safe(r.status)}">${r.status==='open'?'Abierta':'Cerrada'}</span>${highInterest(r.interest_level)?'<em>Interés alto</em>':''}</div>`;
+    const next=r.next_action_at?`Próxima acción · ${fmtDate(r.next_action_at)}`:cooling(r)?`${daysSince(r.observed_at)} días desde la visoría · sin próxima acción`:'Sin próxima acción';
+    const card=document.createElement('button');card.type='button';card.className=`scout-row ${overdue(r)?'needs-attention':cooling(r)?'cooling':''}`;card.dataset.reportId=r.id;
+    card.innerHTML=`<div class="scout-main"><strong>${safe(r.observed_name||'Sin nombre')}</strong><span>${safe([r.player_position,r.category,r.observed_location].filter(Boolean).join(' · ')||'Sin datos deportivos')}</span><small>${safe(next)}</small><div class="pipeline-badges">${badges(r)}</div></div><div class="scout-side"><b>${avgText}</b><small>${avg.length?'promedio':'sin evaluar'}</small><span class="scout-status ${safe(r.status)}">${r.status==='open'?'Abierta':'Cerrada'}</span>${highInterest(r.interest_level)?'<em>Interés alto</em>':''}</div>`;
     card.addEventListener('click',()=>openReport(r.id));list.appendChild(card);
   });
 }
@@ -88,7 +110,7 @@ function scoreCards(r){
 function facts(r){
   const a=age(r.birth_date);
   const rows=[
-    ['Contacto',r.contact_phone],['Tutor',r.guardian_name],['Edad',a==null?null:`${a} años`],['Posición',r.player_position],['Categoría',r.category],['Lugar',r.observed_location],['Calidad estrella',r.star_quality],['Origen',r.prospect_id?'Prospecto TannerOS':(r.source||'Visoría directa')]
+    ['Contacto',r.contact_phone],['Tutor',r.guardian_name],['Edad',a==null?null:`${a} años`],['Posición',r.player_position],['Categoría',r.category],['Lugar',r.observed_location],['Calidad estrella',r.star_quality],['Origen',r.prospect_id?'Prospecto TannerOS':(r.source||'Visoría directa')],['Próxima acción',r.next_action_at?fmtDate(r.next_action_at):'Sin programar'],['Resultado',r.player_id?'Fichado como jugador':null]
   ].filter(([,v])=>v!=null&&String(v).trim()!=='');
   $('detailFacts').innerHTML=rows.length?rows.map(([k,v])=>`<div><span>${safe(k)}</span><strong>${safe(v)}</strong></div>`).join(''):'<p class="muted">Sin datos adicionales.</p>';
 }
@@ -131,5 +153,5 @@ async function saveFollowup(){
   }catch(e){message('followupMessage',e.message||'No se pudo guardar el seguimiento.');}finally{btn.disabled=!canWrite;}
 }
 
-$('newScout').addEventListener('click',openCreate);$('statusFilter').addEventListener('change',renderList);$('searchScout').addEventListener('input',renderList);$('closeDrawer').addEventListener('click',closeDrawer);$('backdrop').addEventListener('click',closeDrawer);$('saveScout').addEventListener('click',saveScout);$('saveFollowup').addEventListener('click',saveFollowup);
+$('newScout').addEventListener('click',openCreate);$('statusFilter').addEventListener('change',renderList);$('pipelineFilter').addEventListener('change',renderList);$('searchScout').addEventListener('input',renderList);document.querySelectorAll('[data-pipeline]').forEach(b=>b.addEventListener('click',()=>{$('pipelineFilter').value=b.dataset.pipeline;renderList();document.querySelector('.scout-list')?.scrollIntoView({behavior:'smooth',block:'start'});}));$('closeDrawer').addEventListener('click',closeDrawer);$('backdrop').addEventListener('click',closeDrawer);$('saveScout').addEventListener('click',saveScout);$('saveFollowup').addEventListener('click',saveFollowup);
 boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Scouting.';show('deniedView');});

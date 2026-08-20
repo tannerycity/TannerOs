@@ -22,11 +22,15 @@ function installCashierNavigation(navigation){
   section.prepend(a);
 }
 function installSearchExtension(navigation){
-  if(!readable(navigation,'taquilla'))return;
-  const current=Array.isArray(window.__tosSearchExtras)?window.__tosSearchExtras:[];
-  if(current.some(r=>r.href==='/v2/taquilla/'))return;
-  window.__tosSearchExtras=[...current,{label:'Abrir Taquilla',meta:'Caja · cobrar · pagar · corte · efectivo · movimientos',href:'/v2/taquilla/'}];
-  window.dispatchEvent(new CustomEvent('tanneros:search-extras',{detail:window.__tosSearchExtras}));
+  const current=Array.isArray(window.__tosSearchExtras)?window.__tosSearchExtras:[],next=[...current];
+  const add=item=>{if(!next.some(r=>r.href===item.href&&r.label===item.label))next.push(item);};
+  if(readable(navigation,'taquilla')){
+    add({label:'Registrar cobro',meta:'Taquilla · caja rápida · mensualidad · ingreso',href:'/v2/taquilla/?action=cobrar'});
+    add({label:'Abrir Taquilla',meta:'Caja · cobrar · pagar · corte · efectivo · movimientos',href:'/v2/taquilla/'});
+  }
+  if(readable(navigation,'admin'))add({label:'Comparar V1 → V2',meta:'Cutover · migración · Spreadsheet · delta legacy',href:'/v2/admin/cutover/'});
+  if(next.length===current.length)return;
+  window.__tosSearchExtras=next;window.dispatchEvent(new CustomEvent('tanneros:search-extras',{detail:next}));
 }
 function upgradeFinanceCard(){
   if(!location.pathname.startsWith('/v2/finanzas/'))return;

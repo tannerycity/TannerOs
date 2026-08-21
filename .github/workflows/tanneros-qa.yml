@@ -22,6 +22,7 @@ on:
       - 'public-form.*'
       - 'vercel.json'
       - 'scripts/qa-static.mjs'
+      - '.github/workflows/tanneros-qa.yml'
   schedule:
     - cron: '17 */6 * * *'
   workflow_dispatch:
@@ -45,9 +46,12 @@ jobs:
         run: node scripts/qa-static.mjs
 
   live-smoke:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - name: Wait for Vercel production propagation
+        if: github.event_name == 'push'
+        run: sleep 75
       - name: Production canonical routes
         shell: bash
         run: |
@@ -91,7 +95,7 @@ jobs:
           )
           for route in "${routes[@]}"; do
             echo "Checking ${base}${route}"
-            code="$(curl --silent --show-error --location --retry 3 --retry-delay 3 --max-time 30 -o /tmp/page.html -w '%{http_code}' "${base}${route}")"
+            code="$(curl --silent --show-error --location --retry 4 --retry-delay 3 --max-time 30 -o /tmp/page.html -w '%{http_code}' "${base}${route}")"
             test "$code" = '200'
             test "$(wc -c </tmp/page.html)" -gt 120
             ! grep -Eiq '<title>[^<]*404|404: NOT_FOUND|The page could not be found' /tmp/page.html
@@ -111,7 +115,7 @@ jobs:
           )
           for asset in "${assets[@]}"; do
             echo "Checking asset ${base}${asset}"
-            code="$(curl --silent --show-error --retry 3 --retry-delay 3 --max-time 30 -o /tmp/asset -w '%{http_code}' "${base}${asset}")"
+            code="$(curl --silent --show-error --retry 4 --retry-delay 3 --max-time 30 -o /tmp/asset -w '%{http_code}' "${base}${asset}")"
             test "$code" = '200'
             test "$(wc -c </tmp/asset)" -gt 80
           done

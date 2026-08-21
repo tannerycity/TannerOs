@@ -20,6 +20,12 @@
       "permanent": false
     },
     {
+      "source": "/",
+      "has": [{ "type": "query", "key": "cursoverano", "value": "1" }],
+      "destination": "/programas/",
+      "permanent": false
+    },
+    {
       "source": "/index.html",
       "destination": "/",
       "permanent": false

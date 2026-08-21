@@ -1,38 +1,12 @@
-import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
-import {applyBranding,loadAndApplyBranding} from '/v2/branding.js';
-import {initUniversalExperience,renderExperienceNavigation} from '/v2/experience.js';
-import {initFocusFallback} from '/v2/focus-fallback.js?v=20260819a';
-import {installProductExtensions} from '/v2/product-extensions.js?v=20260819a';
-import {installModuleContext} from '/v2/module-context.js?v=20260819a';
-
-const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-let lastOrg=null,busy=false;
+import {supabase,rpc,renderShell} from '/v2/shell.js?v=20260821e';
+import {loadAndApplyBranding} from '/v2/branding.js';
 
 const FINAL_ROUTES=[
-  {prefix:'/admin/branding/',active:'admin',title:'Marca y apariencia',parent:'/admin/'},
-  {prefix:'/operacion/programas/',active:'cursosVerano',title:'Programas y eventos',parent:'/club/'},
-  {prefix:'/produccion/',active:'tienda',title:'Producción',parent:'/finanzas/'},
-  {prefix:'/porteros/',active:'academias',title:'Porteros',parent:'/academias/'},
-  {prefix:'/deportivo/',active:'club',title:'Rendimiento deportivo',parent:'/club/'},
-  {prefix:'/convocatoria/',active:'convocatoria',title:'Convocatoria',parent:'/club/'},
-  {prefix:'/jugadores/',active:'jugadores',title:'Jugadores',parent:'/club/'},
-  {prefix:'/asistencia/',active:'asistencia',title:'Asistencia',parent:'/club/'},
-  {prefix:'/calendario/',active:'calendario',title:'Calendario',parent:'/club/'},
-  {prefix:'/academias/',active:'academias',title:'Academias',parent:'/club/'},
-  {prefix:'/prospectos/',active:'prospectos',title:'Captación',parent:'/club/'},
-  {prefix:'/scouting/',active:'scouting',title:'Scouting',parent:'/club/'},
-  {prefix:'/pedidos/',active:'tienda',title:'Pedidos',parent:'/finanzas/'},
-  {prefix:'/taquilla/',active:'taquilla',title:'Taquilla',parent:'/finanzas/'},
-  {prefix:'/contabilidad/',active:'contabilidad',title:'Contabilidad',parent:'/finanzas/'},
-  {prefix:'/patrocinadores/',active:'patrocinadores',title:'Patrocinadores',parent:'/direccion/'},
-  {prefix:'/utileria/',active:'utileria',title:'Utilería',parent:'/club/'},
-  {prefix:'/usuarios/',active:'usuarios',title:'Usuarios',parent:'/admin/'},
-  {prefix:'/qa/',active:'qa',title:'QA',parent:'/admin/'},
-  {prefix:'/admin/',active:'admin',title:'Administración',parent:'/direccion/'},
-  {prefix:'/modulos/',active:'inicio',title:'Módulos',parent:'/'},
-  {prefix:'/club/',active:'club',title:'Club',parent:'/'},
-  {prefix:'/direccion/',active:'direccion',title:'Dirección',parent:'/'},
-  {prefix:'/finanzas/',active:'finanzas',title:'Finanzas',parent:'/'}
+  ['/admin/branding/','admin','Marca y apariencia'],['/produccion/','tienda','Producción'],['/porteros/','academias','Porteros'],['/deportivo/','club','Rendimiento deportivo'],
+  ['/convocatoria/','convocatoria','Convocatoria'],['/jugadores/','jugadores','Jugadores'],['/asistencia/','asistencia','Asistencia'],['/calendario/','calendario','Calendario'],
+  ['/academias/','academias','Academias'],['/prospectos/','prospectos','Captación'],['/scouting/','scouting','Scouting'],['/operacion/programas/','cursosVerano','Programas y eventos'],
+  ['/pedidos/','tienda','Pedidos'],['/taquilla/','taquilla','Taquilla'],['/contabilidad/','contabilidad','Contabilidad'],['/patrocinadores/','patrocinadores','Patrocinadores'],
+  ['/utileria/','utileria','Utilería'],['/usuarios/','usuarios','Usuarios'],['/qa/','qa','QA'],['/admin/','admin','Administración'],['/club/','club','Club'],['/direccion/','direccion','Dirección'],['/finanzas/','finanzas','Finanzas']
 ];
 
 function canonicalPath(pathname=location.pathname){
@@ -42,126 +16,38 @@ function canonicalPath(pathname=location.pathname){
   if(path.startsWith('/v2/'))return path.slice(3)||'/';
   return path;
 }
-
-function normalizedCanonicalPath(pathname=location.pathname){
-  const path=canonicalPath(pathname);
-  if(path==='/')return '/';
-  return path.endsWith('/')?path:`${path}/`;
-}
-
-function finalMeta(pathname=location.pathname){
-  const path=normalizedCanonicalPath(pathname);
-  if(path==='/')return {path,active:'inicio',title:'Inicio',parent:'/'};
-  return {...(FINAL_ROUTES.find(item=>path.startsWith(item.prefix))||{active:'inicio',title:'Inicio',parent:'/'}),path};
-}
-
-function isTannerOSPath(pathname){
-  const path=normalizedCanonicalPath(pathname);
-  return path==='/'||FINAL_ROUTES.some(item=>path.startsWith(item.prefix));
-}
-
 function canonicalHref(value){
   if(!value||value.startsWith('#')||value.startsWith('mailto:')||value.startsWith('tel:')||value.startsWith('javascript:'))return value;
-  try{
-    const url=new URL(value,location.origin);
-    if(url.origin!==location.origin)return value;
-    const path=canonicalPath(url.pathname);
-    if(path===url.pathname)return value;
-    return `${path}${url.search}${url.hash}`;
-  }catch{return value;}
+  try{const u=new URL(value,location.origin);if(u.origin!==location.origin)return value;const p=canonicalPath(u.pathname);return `${p}${u.search}${u.hash}`;}catch{return value;}
 }
-
-function cleanProductText(value){
-  let text=String(value??'');
-  text=text.replace(/TannerOS\s+(?:v(?:ersion)?\s*)?2(?:\.0)?/gi,'TannerOS');
-  text=text.replace(/\bV2(?:\.0)?\b/gi,'');
-  text=text.replace(/\b(?:versión|version)\s*2(?:\.0)?\b/gi,'');
-  return text.replace(/[ \t]{2,}/g,' ').replace(/\s+([,.;:])/g,'$1');
+function meta(){
+  const path=canonicalPath(location.pathname);const normalized=path==='/'?'/':(path.endsWith('/')?path:`${path}/`);const row=FINAL_ROUTES.find(([prefix])=>normalized.startsWith(prefix));return row?{active:row[1],title:row[2]}:{active:'inicio',title:'TannerOS'};
 }
-
-function normalizeTextNode(node){
-  if(!node?.nodeValue||node.parentElement?.closest('script,style,code,pre'))return;
-  const next=cleanProductText(node.nodeValue);
-  if(next!==node.nodeValue)node.nodeValue=next;
+function ensureCss(href,id){if(document.getElementById(id))return;const link=document.createElement('link');link.id=id;link.rel='stylesheet';link.href=href;document.head.appendChild(link);}
+function cleanText(value){return String(value??'').replace(/TannerOS\s+(?:v(?:ersion)?\s*)?2(?:\.0)?/gi,'TannerOS').replace(/TANNEROS\s*2\.0/gi,'TANNEROS').replace(/\bCORE\s+V2\b/gi,'OPERACIÓN').replace(/\bV2(?:\.0)?\b/gi,'').replace(/[ \t]{2,}/g,' ');}
+function normalizeNode(root=document){
+  const scope=root?.querySelectorAll?root:document;scope.querySelectorAll?.('a[href]').forEach(a=>{const old=a.getAttribute('href'),next=canonicalHref(old);if(next&&next!==old)a.setAttribute('href',next);});
+  const walker=document.createTreeWalker(root?.nodeType===Node.DOCUMENT_NODE?root.documentElement:root,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode())){if(node.parentElement?.closest('script,style,code,pre'))continue;const next=cleanText(node.nodeValue);if(next!==node.nodeValue)node.nodeValue=next;}
+  document.title=cleanText(document.title);
 }
-
-function normalizeLink(link){
-  if(!link?.matches?.('a[href]'))return;
-  const current=link.getAttribute('href');const next=canonicalHref(current);
-  if(next&&next!==current)link.setAttribute('href',next);
+function buildFrame(){
+  if(document.querySelector('.tos-layout')||document.getElementById('tosUnifiedSidebar'))return;
+  document.body.classList.add('tos-experience-legacy','tos-body');
+  const aside=document.createElement('aside');aside.id='tosUnifiedSidebar';aside.className='tos-sidebar tos-experience-sidebar';aside.innerHTML='<div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">Tannery City</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div>';
+  const backdrop=document.createElement('div');backdrop.id='shellNavBackdrop';backdrop.className='tos-nav-backdrop tos-experience-backdrop';
+  const header=document.createElement('header');header.id='tosUnifiedTopbar';header.className='tos-topbar tos-experience-topbar';header.innerHTML='<div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button" aria-label="Abrir menú">☰</button><span id="shellTitle" class="tos-page-title">TannerOS</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span>⌕</span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS..." autocomplete="off"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health" data-state="ok"><i></i><span>Todo en orden</span></span><span id="shellRole" class="tos-role">Rol</span></div>';
+  document.body.prepend(header);document.body.prepend(backdrop);document.body.prepend(aside);
 }
-
-function normalizeSurface(root=document){
-  if(root?.nodeType===Node.TEXT_NODE){normalizeTextNode(root);return;}
-  if(root?.nodeType===Node.ELEMENT_NODE)normalizeLink(root);
-  const scope=root?.querySelectorAll?root:document;
-  scope.querySelectorAll?.('a[href]').forEach(normalizeLink);
-  const walker=document.createTreeWalker(root?.nodeType===Node.DOCUMENT_NODE?root.documentElement:root,NodeFilter.SHOW_TEXT);
-  let node;while((node=walker.nextNode()))normalizeTextNode(node);
-  const cleanTitle=cleanProductText(document.title);if(cleanTitle!==document.title)document.title=cleanTitle;
+function installObserver(){
+  if(document.documentElement.dataset.tosNormalizeObserver==='1')return;document.documentElement.dataset.tosNormalizeObserver='1';
+  const observer=new MutationObserver(mutations=>mutations.forEach(m=>m.addedNodes.forEach(node=>{if(node.nodeType===Node.ELEMENT_NODE||node.nodeType===Node.TEXT_NODE)normalizeNode(node);})));observer.observe(document.body,{childList:true,subtree:true});
 }
-
-function installFinalProductLayer(){
-  normalizeSurface(document);
-  if(document.documentElement.dataset.tosFinalProductLayer==='1')return;
-  document.documentElement.dataset.tosFinalProductLayer='1';
-  const target=document.body||document.documentElement;
-  const observer=new MutationObserver(mutations=>{
-    mutations.forEach(mutation=>{
-      if(mutation.type==='attributes')normalizeSurface(mutation.target);
-      mutation.addedNodes.forEach(node=>normalizeSurface(node));
-    });
-  });
-  observer.observe(target,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});
+async function boot(){
+  ensureCss('/v2/shell.css?v=20260821e','tosShellCss');ensureCss('/v2/experience.css?v=20260821e','tosExperienceCss');ensureCss('/v2/production.css?v=20260821e','tosProductionCss');
+  const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
+  const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return;}const ctx=rows[0];const navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});
+  buildFrame();const page=meta();renderShell({ctx,navigation,active:page.active,title:page.title});
+  try{await loadAndApplyBranding(supabase,ctx.organization_id);}catch(error){console.warn('branding',error);}
+  normalizeNode(document);installObserver();
 }
-
-function wireFinalBackButton(meta){
-  const button=document.querySelector('.tos-back-button');
-  if(meta.path==='/'){button?.remove();return;}
-  if(!button||button.dataset.tosFinalBack==='1')return;
-  const clean=button.cloneNode(true);clean.dataset.tosFinalBack='1';button.replaceWith(clean);
-  clean.addEventListener('click',()=>{
-    try{
-      const ref=document.referrer?new URL(document.referrer):null;
-      if(ref?.origin===location.origin&&isTannerOSPath(ref.pathname)&&history.length>1){history.back();return;}
-    }catch{}
-    location.href=meta.parent||'/';
-  });
-}
-
-function syncFinalExperience({navigation,ctx}){
-  const meta=finalMeta();
-  const nav=document.getElementById('sidebarNav')||document.getElementById('tosExperienceNav');
-  if(nav){renderExperienceNavigation(nav,navigation||[],meta.active);normalizeSurface(nav);}
-  const title=document.getElementById('shellTitle')||document.getElementById('tosExperienceTitle');if(title)title.textContent=meta.title;
-  document.querySelectorAll('.tos-version').forEach(el=>{if(/TannerOS|^\s*$/.test(el.textContent||''))el.textContent=ctx?.organization_name||'Tannery City';});
-  wireFinalBackButton(meta);
-  normalizeSurface(document);
-}
-
-function installUiSystem(){document.body?.classList.add('tos-ui-v3');if(document.getElementById('tosUiSystemCss'))return;const link=document.createElement('link');link.id='tosUiSystemCss';link.rel='stylesheet';link.href='/v2/ui-system.css?v=20260819a';document.head.appendChild(link);}
-
-async function applyForSession(){
-  if(busy)return;busy=true;
-  try{
-    const {data:{session}}=await supabase.auth.getSession();if(!session){normalizeSurface(document);return;}
-    const {data,error}=await supabase.rpc('v2_my_context');if(error||!data?.length)return;
-    const ctx=data[0],org=ctx.organization_id;if(!org)return;
-    installUiSystem();
-    let branding=window.__tosBranding;
-    if(lastOrg!==org||!branding)branding=await loadAndApplyBranding(supabase,org);
-    const experience=await initUniversalExperience({supabase,ctx});
-    const navigation=experience?.navigation||window.__tosExperienceNavigation||[];
-    if(branding)applyBranding(branding,{organizationId:org});
-    syncFinalExperience({navigation,ctx});
-    installProductExtensions({navigation});
-    installModuleContext({navigation});
-    await initFocusFallback({supabase,ctx});
-    normalizeSurface(document);
-    lastOrg=org;
-  }catch(e){console.warn('branding/experience auto',e);}finally{busy=false;}
-}
-
-installFinalProductLayer();
-applyForSession();
-supabase.auth.onAuthStateChange(event=>{if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED')setTimeout(applyForSession,0);if(event==='SIGNED_OUT'){lastOrg=null;window.__tosExperienceNavigation=null;}});
+boot().catch(error=>{console.error('TannerOS shell',error);});

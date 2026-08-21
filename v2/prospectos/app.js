@@ -42,7 +42,7 @@ function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/pos
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
-  if(!session){location.href='/v2';return;}
+  if(!session){location.href='/';return;}
   const rows=await rpc('v2_my_context');
   if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}
   ctx=rows[0];
@@ -127,8 +127,15 @@ function renderSourceBreakdown(rows){
   const counts=new Map();
   for(const p of rows){const key=sourceName(p.source_channel||p.source);counts.set(key,(counts.get(key)||0)+1);}
   const ranked=[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6);
-  if(!ranked.length){box.innerHTML='<span class="muted tiny">Sin datos de origen.</span>';return;}
-  for(const [label,count] of ranked){const chip=document.createElement('button');chip.type='button';chip.className='source-chip';chip.innerHTML=`<span>${label}</span><strong>${count}</strong>`;chip.addEventListener('click',()=>{const source=$('sourceFilter');const option=[...source.options].find(o=>o.value===label);if(option){source.value=label;applyFilters();}});box.appendChild(chip);}
+  if(!ranked.length){const empty=document.createElement('span');empty.className='muted tiny';empty.textContent='Sin datos de origen.';box.appendChild(empty);return;}
+  for(const [label,count] of ranked){
+    const chip=document.createElement('button');chip.type='button';chip.className='source-chip';
+    const name=document.createElement('span');name.textContent=label;
+    const total=document.createElement('strong');total.textContent=String(count);
+    chip.append(name,total);
+    chip.addEventListener('click',()=>{const source=$('sourceFilter');const option=[...source.options].find(o=>o.value===label);if(option){source.value=label;applyFilters();}});
+    box.appendChild(chip);
+  }
 }
 
 function renderAttentionSummary(rows){
@@ -233,6 +240,6 @@ $('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter',
 $('refreshProspects').addEventListener('click',loadProspects);
 $('closeProspect').addEventListener('click',closeProspect);$('prospectBackdrop').addEventListener('click',closeProspect);
 $('saveFollowup').addEventListener('click',saveFollowup);$('convertProspect').addEventListener('click',convertProspect);$('saveScout').addEventListener('click',saveScout);
-$('signOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/v2';});
+$('signOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});
 
 boot().catch(e=>{$('deniedText').textContent=friendly(e)||'No pudimos abrir Prospectos.';show('deniedView');});

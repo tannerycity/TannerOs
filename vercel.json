@@ -25,31 +25,11 @@
       "destination": "/programas/",
       "permanent": false
     },
-    {
-      "source": "/index.html",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/v2",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/v2/index.html",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/v2/programas",
-      "destination": "/operacion/programas/",
-      "permanent": false
-    },
-    {
-      "source": "/v2/programas/:path*",
-      "destination": "/operacion/programas/:path*",
-      "permanent": false
-    },
+    { "source": "/index.html", "destination": "/", "permanent": false },
+    { "source": "/v2", "destination": "/", "permanent": false },
+    { "source": "/v2/index.html", "destination": "/", "permanent": false },
+    { "source": "/v2/programas", "destination": "/operacion/programas/", "permanent": false },
+    { "source": "/v2/programas/:path*", "destination": "/operacion/programas/:path*", "permanent": false },
     {
       "source": "/v2/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)",
       "destination": "/:module/",
@@ -62,18 +42,9 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/",
-      "destination": "/v2/index.html"
-    },
-    {
-      "source": "/operacion/programas",
-      "destination": "/v2/programas/index.html"
-    },
-    {
-      "source": "/operacion/programas/:path*",
-      "destination": "/v2/programas/:path*"
-    },
+    { "source": "/", "destination": "/v2/index.html" },
+    { "source": "/operacion/programas", "destination": "/v2/programas/index.html" },
+    { "source": "/operacion/programas/:path*", "destination": "/v2/programas/:path*" },
     {
       "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)",
       "destination": "/v2/:module/index.html"
@@ -85,79 +56,38 @@
   ],
   "headers": [
     {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" }
+      ]
+    },
+    {
       "source": "/sw.js",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
       "source": "/",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
       "source": "/index.html",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
-    },
-    {
-      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/:path*",
+      "source": "/v2/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/operacion/programas",
+      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/operacion/programas/:path*",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/index.html",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/app.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/shell.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/shell.css",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/experience.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/experience.css",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/branding.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/branding-auto.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/admin/branding/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/account-adjustments.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/styles.css",
+      "source": "/operacion/programas/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {

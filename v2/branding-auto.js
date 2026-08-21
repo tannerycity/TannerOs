@@ -1,14 +1,35 @@
-import {supabase,rpc,renderShell} from '/v2/shell.js?v=20260821e';
+import {supabase,rpc,renderShell} from '/v2/shell.js?v=20260821f';
 import {loadAndApplyBranding} from '/v2/branding.js';
 
 const FINAL_ROUTES=[
-  ['/admin/branding/','admin','Marca y apariencia'],['/produccion/','tienda','Producción'],['/porteros/','academias','Porteros'],['/deportivo/','club','Rendimiento deportivo'],
-  ['/convocatoria/','convocatoria','Convocatoria'],['/jugadores/','jugadores','Jugadores'],['/asistencia/','asistencia','Asistencia'],['/calendario/','calendario','Calendario'],
-  ['/academias/','academias','Academias'],['/prospectos/','prospectos','Captación'],['/scouting/','scouting','Scouting'],['/operacion/programas/','cursosVerano','Programas y eventos'],
-  ['/pedidos/','tienda','Pedidos'],['/taquilla/','taquilla','Taquilla'],['/contabilidad/','contabilidad','Contabilidad'],['/patrocinadores/','patrocinadores','Patrocinadores'],
-  ['/utileria/','utileria','Utilería'],['/usuarios/','usuarios','Usuarios'],['/qa/','qa','QA'],['/admin/','admin','Administración'],['/club/','club','Club'],['/direccion/','direccion','Dirección'],['/finanzas/','finanzas','Finanzas']
+  ['/admin/auditoria/','admin','Auditoría'],
+  ['/admin/branding/','admin','Marca y apariencia'],
+  ['/admin/club/','admin','Club y SaaS'],
+  ['/admin/onboarding/','admin','Onboarding / Go Live'],
+  ['/produccion/','tienda','Producción'],
+  ['/porteros/','academias','Porteros'],
+  ['/deportivo/','club','Rendimiento deportivo'],
+  ['/convocatoria/','convocatoria','Convocatoria'],
+  ['/jugadores/','jugadores','Jugadores'],
+  ['/asistencia/','asistencia','Asistencia'],
+  ['/calendario/','calendario','Calendario'],
+  ['/academias/','academias','Academias'],
+  ['/prospectos/','prospectos','Captación'],
+  ['/scouting/','scouting','Scouting'],
+  ['/operacion/programas/','cursosVerano','Programas y eventos'],
+  ['/pedidos/','tienda','Pedidos'],
+  ['/taquilla/','taquilla','Taquilla'],
+  ['/contabilidad/','contabilidad','Contabilidad'],
+  ['/patrocinadores/','patrocinadores','Patrocinadores'],
+  ['/utileria/','utileria','Utilería'],
+  ['/usuarios/','usuarios','Usuarios'],
+  ['/qa/','qa','QA'],
+  ['/admin/','admin','Administración'],
+  ['/modulos/','inicio','Módulos'],
+  ['/club/','club','Club'],
+  ['/direccion/','direccion','Dirección'],
+  ['/finanzas/','finanzas','Finanzas']
 ];
-
 function canonicalPath(pathname=location.pathname){
   const path=String(pathname||'/');
   if(path==='/v2'||path==='/v2/')return '/';
@@ -20,14 +41,12 @@ function canonicalHref(value){
   if(!value||value.startsWith('#')||value.startsWith('mailto:')||value.startsWith('tel:')||value.startsWith('javascript:'))return value;
   try{const u=new URL(value,location.origin);if(u.origin!==location.origin)return value;const p=canonicalPath(u.pathname);return `${p}${u.search}${u.hash}`;}catch{return value;}
 }
-function meta(){
-  const path=canonicalPath(location.pathname);const normalized=path==='/'?'/':(path.endsWith('/')?path:`${path}/`);const row=FINAL_ROUTES.find(([prefix])=>normalized.startsWith(prefix));return row?{active:row[1],title:row[2]}:{active:'inicio',title:'TannerOS'};
-}
+function meta(){const path=canonicalPath(location.pathname),normalized=path==='/'?'/':(path.endsWith('/')?path:`${path}/`),row=FINAL_ROUTES.find(([prefix])=>normalized.startsWith(prefix));return row?{active:row[1],title:row[2]}:{active:'inicio',title:'TannerOS'};}
 function ensureCss(href,id){if(document.getElementById(id))return;const link=document.createElement('link');link.id=id;link.rel='stylesheet';link.href=href;document.head.appendChild(link);}
 function cleanText(value){return String(value??'').replace(/TannerOS\s+(?:v(?:ersion)?\s*)?2(?:\.0)?/gi,'TannerOS').replace(/TANNEROS\s*2\.0/gi,'TANNEROS').replace(/\bCORE\s+V2\b/gi,'OPERACIÓN').replace(/\bV2(?:\.0)?\b/gi,'').replace(/[ \t]{2,}/g,' ');}
 function normalizeNode(root=document){
   const scope=root?.querySelectorAll?root:document;scope.querySelectorAll?.('a[href]').forEach(a=>{const old=a.getAttribute('href'),next=canonicalHref(old);if(next&&next!==old)a.setAttribute('href',next);});
-  const walker=document.createTreeWalker(root?.nodeType===Node.DOCUMENT_NODE?root.documentElement:root,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode())){if(node.parentElement?.closest('script,style,code,pre'))continue;const next=cleanText(node.nodeValue);if(next!==node.nodeValue)node.nodeValue=next;}
+  const base=root?.nodeType===Node.DOCUMENT_NODE?root.documentElement:root;if(base){const walker=document.createTreeWalker(base,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode())){if(node.parentElement?.closest('script,style,code,pre'))continue;const next=cleanText(node.nodeValue);if(next!==node.nodeValue)node.nodeValue=next;}}
   document.title=cleanText(document.title);
 }
 function buildFrame(){
@@ -38,15 +57,12 @@ function buildFrame(){
   const header=document.createElement('header');header.id='tosUnifiedTopbar';header.className='tos-topbar tos-experience-topbar';header.innerHTML='<div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button" aria-label="Abrir menú">☰</button><span id="shellTitle" class="tos-page-title">TannerOS</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span>⌕</span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS..." autocomplete="off"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health" data-state="ok"><i></i><span>Todo en orden</span></span><span id="shellRole" class="tos-role">Rol</span></div>';
   document.body.prepend(header);document.body.prepend(backdrop);document.body.prepend(aside);
 }
-function installObserver(){
-  if(document.documentElement.dataset.tosNormalizeObserver==='1')return;document.documentElement.dataset.tosNormalizeObserver='1';
-  const observer=new MutationObserver(mutations=>mutations.forEach(m=>m.addedNodes.forEach(node=>{if(node.nodeType===Node.ELEMENT_NODE||node.nodeType===Node.TEXT_NODE)normalizeNode(node);})));observer.observe(document.body,{childList:true,subtree:true});
-}
+function installObserver(){if(document.documentElement.dataset.tosNormalizeObserver==='1')return;document.documentElement.dataset.tosNormalizeObserver='1';const observer=new MutationObserver(mutations=>mutations.forEach(m=>m.addedNodes.forEach(node=>{if(node.nodeType===Node.ELEMENT_NODE||node.nodeType===Node.TEXT_NODE)normalizeNode(node);})));observer.observe(document.body,{childList:true,subtree:true});}
 async function boot(){
-  ensureCss('/v2/shell.css?v=20260821e','tosShellCss');ensureCss('/v2/experience.css?v=20260821e','tosExperienceCss');ensureCss('/v2/production.css?v=20260821e','tosProductionCss');
+  ensureCss('/v2/shell.css?v=20260821f','tosShellCss');ensureCss('/v2/experience.css?v=20260821f','tosExperienceCss');ensureCss('/v2/production.css?v=20260821f','tosProductionCss');
   const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
-  const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return;}const ctx=rows[0];const navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});
-  const nativeShell=Boolean(document.querySelector('.tos-layout'));const page=meta();
+  const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return;}
+  const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id}),nativeShell=Boolean(document.querySelector('.tos-layout')),page=meta();
   if(!nativeShell){buildFrame();renderShell({ctx,navigation,active:page.active,title:page.title});}
   try{await loadAndApplyBranding(supabase,ctx.organization_id);}catch(error){console.warn('branding',error);}
   normalizeNode(document);installObserver();

@@ -48,29 +48,70 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Production routes
+      - name: Production canonical routes
         shell: bash
         run: |
           set -euo pipefail
           base='https://app.tannerycity.com'
           routes=(
             '/'
-            '/jugadores/'
-            '/asistencia/'
+            '/club/'
+            '/direccion/'
             '/finanzas/'
             '/taquilla/'
+            '/jugadores/'
+            '/asistencia/'
+            '/convocatoria/'
+            '/calendario/'
+            '/academias/'
             '/prospectos/'
             '/scouting/'
-            '/academias/'
             '/pedidos/'
+            '/utileria/'
+            '/patrocinadores/'
             '/contabilidad/'
+            '/usuarios/'
+            '/admin/'
+            '/admin/auditoria/'
+            '/admin/branding/'
+            '/admin/club/'
+            '/admin/onboarding/'
+            '/qa/'
+            '/modulos/'
+            '/deportivo/'
+            '/porteros/'
+            '/produccion/'
+            '/operacion/programas/'
             '/registro/'
             '/registro/scouting/'
+            '/registro/jugadores/'
+            '/registro/porteros/'
             '/pedido/'
             '/programas/'
           )
           for route in "${routes[@]}"; do
             echo "Checking ${base}${route}"
-            curl --fail --silent --show-error --location --retry 3 --retry-delay 4 --max-time 30 "${base}${route}" -o /tmp/page.html
+            code="$(curl --silent --show-error --location --retry 3 --retry-delay 3 --max-time 30 -o /tmp/page.html -w '%{http_code}' "${base}${route}")"
+            test "$code" = '200'
             test "$(wc -c </tmp/page.html)" -gt 120
+            ! grep -Eiq '<title>[^<]*404|404: NOT_FOUND|The page could not be found' /tmp/page.html
+          done
+      - name: Protected module assets stay addressable
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://app.tannerycity.com'
+          assets=(
+            '/v2/app.js'
+            '/v2/shell.js'
+            '/v2/jugadores/app.js'
+            '/v2/asistencia/app.js'
+            '/v2/taquilla/app.js'
+            '/v2/branding-auto.js'
+          )
+          for asset in "${assets[@]}"; do
+            echo "Checking asset ${base}${asset}"
+            code="$(curl --silent --show-error --retry 3 --retry-delay 3 --max-time 30 -o /tmp/asset -w '%{http_code}' "${base}${asset}")"
+            test "$code" = '200'
+            test "$(wc -c </tmp/asset)" -gt 80
           done

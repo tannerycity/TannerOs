@@ -1,13 +1,12 @@
 /* =============================================================================
    TannerOS — Service Worker
    -----------------------------------------------------------------------------
-   Administra el documento interno principal de TannerOS (/ y /index.html).
-   Las rutas públicas quedan fuera del app-shell para evitar que un fallback
-   offline entregue la app interna en /registro, /pedido o /programas.
+   Administra únicamente el documento principal de TannerOS (/ y /index.html).
+   Nunca conserva ni sirve shells legacy. Las rutas públicas quedan fuera.
    ========================================================================== */
-const CACHE = 'tanneros-shell-prod-20260820';
+const CACHE = 'tanneros-shell-final-20260821';
 const SHELL_KEY = 'app-shell';
-const NET_TIMEOUT_MS = 4000;
+const NET_TIMEOUT_MS = 8000;
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -52,6 +51,15 @@ function isInternalAppNavigation(request) {
   return url.pathname === '/' || url.pathname === '/index.html';
 }
 
+async function isCurrentTannerOSShell(response) {
+  try {
+    const html = await response.clone().text();
+    return html.includes('id="authView"') && html.includes('id="appView"') && html.includes('tos-layout');
+  } catch (_) {
+    return false;
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   if (!isInternalAppNavigation(event.request)) return;
   event.respondWith(networkFirstInternalApp(event.request));
@@ -62,14 +70,18 @@ async function networkFirstInternalApp(request) {
 
   try {
     const fresh = await fetchWithTimeout(request, NET_TIMEOUT_MS);
-    if (fresh && (fresh.ok || fresh.type === 'opaque')) {
-      await cache.put(SHELL_KEY, fresh.clone());
+    if (fresh && fresh.ok) {
+      // Solo cacheamos el shell actual de TannerOS. Un HTML legacy jamás puede
+      // convertirse otra vez en fallback del dominio principal.
+      if (await isCurrentTannerOSShell(fresh)) {
+        await cache.put(SHELL_KEY, fresh.clone());
+      }
       return fresh;
     }
     throw new Error('respuesta no OK');
   } catch (error) {
     const cached = await cache.match(SHELL_KEY);
-    if (cached) return cached;
+    if (cached && await isCurrentTannerOSShell(cached)) return cached;
 
     return new Response(OFFLINE_HTML, {
       status: 200,
@@ -95,7 +107,7 @@ const OFFLINE_HTML = `<!doctype html><html lang="es"><head>
   <div class="card">
     <div class="badge"><span>TC</span></div>
     <h1>No se pudo abrir TannerOS</h1>
-    <p>Parece que no hay conexión en este momento. Tus datos están a salvo. Conéctate a internet y vuelve a intentar.</p>
+    <p>No hay conexión suficiente para cargar TannerOS. Conéctate a internet y vuelve a intentar.</p>
     <button onclick="location.reload()">Reintentar</button>
   </div>
 </body></html>`;

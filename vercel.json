@@ -1,114 +1,73 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "redirects": [
-    {
-      "source": "/",
-      "has": [{ "type": "query", "key": "registro", "value": "1" }],
-      "destination": "/registro/",
-      "permanent": false
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "query", "key": "pedido", "value": "1" }],
-      "destination": "/pedido/",
-      "permanent": false
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "query", "key": "inscripcion", "value": "1" }],
-      "destination": "/programas/",
-      "permanent": false
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "query", "key": "cursoverano", "value": "1" }],
-      "destination": "/programas/",
-      "permanent": false
-    },
-    { "source": "/index.html", "destination": "/", "permanent": false },
-    { "source": "/v2", "destination": "/", "permanent": false },
-    { "source": "/v2/index.html", "destination": "/", "permanent": false },
-    { "source": "/v2/programas", "destination": "/operacion/programas/", "permanent": false },
-    { "source": "/v2/programas/:path*", "destination": "/operacion/programas/:path*", "permanent": false },
-    {
-      "source": "/v2/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)",
-      "destination": "/:module/",
-      "permanent": false
-    },
-    {
-      "source": "/v2/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/:path*",
-      "destination": "/:module/:path*",
-      "permanent": false
-    }
+    {"source":"/","has":[{"type":"query","key":"registro","value":"1"}],"destination":"/registro/","permanent":false},
+    {"source":"/","has":[{"type":"query","key":"pedido","value":"1"}],"destination":"/pedido/","permanent":false},
+    {"source":"/","has":[{"type":"query","key":"inscripcion","value":"1"}],"destination":"/programas/","permanent":false},
+    {"source":"/","has":[{"type":"query","key":"cursoverano","value":"1"}],"destination":"/programas/","permanent":false},
+    {"source":"/index.html","destination":"/","permanent":false},
+    {"source":"/v2","destination":"/","permanent":false},
+    {"source":"/v2/","destination":"/","permanent":false},
+    {"source":"/v2/index.html","destination":"/","permanent":false},
+    {"source":"/v2/programas","destination":"/operacion/programas/","permanent":false},
+    {"source":"/v2/programas/","destination":"/operacion/programas/","permanent":false},
+    {"source":"/v2/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)","destination":"/:module/","permanent":false},
+    {"source":"/v2/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/","destination":"/:module/","permanent":false},
+    {"source":"/v2/admin/auditoria","destination":"/admin/auditoria/","permanent":false},
+    {"source":"/v2/admin/auditoria/","destination":"/admin/auditoria/","permanent":false},
+    {"source":"/v2/admin/branding","destination":"/admin/branding/","permanent":false},
+    {"source":"/v2/admin/branding/","destination":"/admin/branding/","permanent":false},
+    {"source":"/v2/admin/club","destination":"/admin/club/","permanent":false},
+    {"source":"/v2/admin/club/","destination":"/admin/club/","permanent":false},
+    {"source":"/v2/admin/onboarding","destination":"/admin/onboarding/","permanent":false},
+    {"source":"/v2/admin/onboarding/","destination":"/admin/onboarding/","permanent":false}
   ],
   "rewrites": [
-    { "source": "/", "destination": "/v2/index.html" },
-    { "source": "/operacion/programas", "destination": "/v2/programas/index.html" },
-    { "source": "/operacion/programas/:path*", "destination": "/v2/programas/:path*" },
-    {
-      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)",
-      "destination": "/v2/:module/index.html"
-    },
-    {
-      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/:path*",
-      "destination": "/v2/:module/:path*"
-    }
+    {"source":"/club","destination":"/v2/club/index.html"},{"source":"/club/","destination":"/v2/club/index.html"},
+    {"source":"/direccion","destination":"/v2/direccion/index.html"},{"source":"/direccion/","destination":"/v2/direccion/index.html"},
+    {"source":"/finanzas","destination":"/v2/finanzas/index.html"},{"source":"/finanzas/","destination":"/v2/finanzas/index.html"},
+    {"source":"/taquilla","destination":"/v2/taquilla/index.html"},{"source":"/taquilla/","destination":"/v2/taquilla/index.html"},
+    {"source":"/jugadores","destination":"/v2/jugadores/index.html"},{"source":"/jugadores/","destination":"/v2/jugadores/index.html"},
+    {"source":"/asistencia","destination":"/v2/asistencia/index.html"},{"source":"/asistencia/","destination":"/v2/asistencia/index.html"},
+    {"source":"/convocatoria","destination":"/v2/convocatoria/index.html"},{"source":"/convocatoria/","destination":"/v2/convocatoria/index.html"},
+    {"source":"/calendario","destination":"/v2/calendario/index.html"},{"source":"/calendario/","destination":"/v2/calendario/index.html"},
+    {"source":"/academias","destination":"/v2/academias/index.html"},{"source":"/academias/","destination":"/v2/academias/index.html"},
+    {"source":"/prospectos","destination":"/v2/prospectos/index.html"},{"source":"/prospectos/","destination":"/v2/prospectos/index.html"},
+    {"source":"/scouting","destination":"/v2/scouting/index.html"},{"source":"/scouting/","destination":"/v2/scouting/index.html"},
+    {"source":"/pedidos","destination":"/v2/pedidos/index.html"},{"source":"/pedidos/","destination":"/v2/pedidos/index.html"},
+    {"source":"/utileria","destination":"/v2/utileria/index.html"},{"source":"/utileria/","destination":"/v2/utileria/index.html"},
+    {"source":"/patrocinadores","destination":"/v2/patrocinadores/index.html"},{"source":"/patrocinadores/","destination":"/v2/patrocinadores/index.html"},
+    {"source":"/contabilidad","destination":"/v2/contabilidad/index.html"},{"source":"/contabilidad/","destination":"/v2/contabilidad/index.html"},
+    {"source":"/usuarios","destination":"/v2/usuarios/index.html"},{"source":"/usuarios/","destination":"/v2/usuarios/index.html"},
+    {"source":"/admin","destination":"/v2/admin/index.html"},{"source":"/admin/","destination":"/v2/admin/index.html"},
+    {"source":"/qa","destination":"/v2/qa/index.html"},{"source":"/qa/","destination":"/v2/qa/index.html"},
+    {"source":"/modulos","destination":"/v2/modulos/index.html"},{"source":"/modulos/","destination":"/v2/modulos/index.html"},
+    {"source":"/deportivo","destination":"/v2/deportivo/index.html"},{"source":"/deportivo/","destination":"/v2/deportivo/index.html"},
+    {"source":"/porteros","destination":"/v2/porteros/index.html"},{"source":"/porteros/","destination":"/v2/porteros/index.html"},
+    {"source":"/produccion","destination":"/v2/produccion/index.html"},{"source":"/produccion/","destination":"/v2/produccion/index.html"},
+    {"source":"/operacion/programas","destination":"/v2/programas/index.html"},{"source":"/operacion/programas/","destination":"/v2/programas/index.html"},
+    {"source":"/admin/auditoria","destination":"/v2/admin/auditoria/index.html"},{"source":"/admin/auditoria/","destination":"/v2/admin/auditoria/index.html"},
+    {"source":"/admin/branding","destination":"/v2/admin/branding/index.html"},{"source":"/admin/branding/","destination":"/v2/admin/branding/index.html"},
+    {"source":"/admin/club","destination":"/v2/admin/club/index.html"},{"source":"/admin/club/","destination":"/v2/admin/club/index.html"},
+    {"source":"/admin/onboarding","destination":"/v2/admin/onboarding/index.html"},{"source":"/admin/onboarding/","destination":"/v2/admin/onboarding/index.html"}
   ],
   "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" }
-      ]
-    },
-    {
-      "source": "/sw.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/index.html",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/v2/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/:module(academias|admin|asistencia|calendario|club|contabilidad|convocatoria|deportivo|direccion|finanzas|jugadores|modulos|patrocinadores|pedidos|porteros|produccion|prospectos|qa|scouting|taquilla|usuarios|utileria)/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/operacion/programas/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/public-form.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/public-form.css",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/registro/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/pedido/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/programas/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    }
+    {"source":"/(.*)","headers":[
+      {"key":"X-Content-Type-Options","value":"nosniff"},
+      {"key":"X-Frame-Options","value":"DENY"},
+      {"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"},
+      {"key":"Permissions-Policy","value":"camera=(self), microphone=(), geolocation=(), payment=(), usb=()"},
+      {"key":"Cross-Origin-Opener-Policy","value":"same-origin-allow-popups"},
+      {"key":"Content-Security-Policy","value":"default-src 'self'; script-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"}
+    ]},
+    {"source":"/","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/index.html","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/v2/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/registro/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/pedido/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/programas/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/public-form.js","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/public-form.css","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/:path*","headers":[{"key":"Cache-Control","value":"no-cache, must-revalidate"}]}
   ]
 }

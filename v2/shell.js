@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import {EXPERIENCE_MODULES,renderExperienceNavigation,wireSmartOmnibox,wireFluidNavigation,ensureBackButton} from '/v2/experience.js';
 
 export const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -10,28 +9,30 @@ export const supabase=createClient(
 export const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 export const $=id=>document.getElementById(id);
 
-const canonicalRoutes={
-  '/v2/':'/',
-  '/v2/club/':'/club/',
-  '/v2/direccion/':'/direccion/',
-  '/v2/finanzas/':'/finanzas/',
-  '/v2/jugadores/':'/jugadores/',
-  '/v2/asistencia/':'/asistencia/',
-  '/v2/convocatoria/':'/convocatoria/',
-  '/v2/calendario/':'/calendario/',
-  '/v2/academias/':'/academias/',
-  '/v2/prospectos/':'/prospectos/',
-  '/v2/scouting/':'/scouting/',
-  '/v2/programas/':'/operacion/programas/',
-  '/v2/pedidos/':'/pedidos/',
-  '/v2/taquilla/':'/taquilla/',
-  '/v2/contabilidad/':'/contabilidad/',
-  '/v2/patrocinadores/':'/patrocinadores/',
-  '/v2/utileria/':'/utileria/',
-  '/v2/usuarios/':'/usuarios/',
-  '/v2/qa/':'/qa/',
-  '/v2/admin/':'/admin/'
-};
+export const navItems=[
+  {code:'inicio',label:'Inicio',href:'/',group:'main'},
+  {code:'club',label:'Club',href:'/club/',group:'main'},
+  {code:'direccion',label:'Dirección',href:'/direccion/',group:'main'},
+  {code:'finanzas',label:'Finanzas',href:'/finanzas/',group:'main',aliases:['cobranza','contabilidad']},
+  {code:'taquilla',label:'Taquilla',href:'/taquilla/',group:'finance'},
+  {code:'jugadores',label:'Jugadores',href:'/jugadores/',group:'club'},
+  {code:'asistencia',label:'Asistencia',href:'/asistencia/',group:'club'},
+  {code:'convocatoria',label:'Convocatoria',href:'/convocatoria/',group:'club',aliases:['callups']},
+  {code:'calendario',label:'Calendario',href:'/calendario/',group:'club'},
+  {code:'academias',label:'Academias',href:'/academias/',group:'club'},
+  {code:'prospectos',label:'Captación',href:'/prospectos/',group:'club'},
+  {code:'scouting',label:'Scouting',href:'/scouting/',group:'club'},
+  {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club'},
+  {code:'tienda',label:'Pedidos',href:'/pedidos/',group:'ops'},
+  {code:'utileria',label:'Utilería',href:'/utileria/',group:'ops'},
+  {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'ops'},
+  {code:'contabilidad',label:'Contabilidad',href:'/contabilidad/',group:'finance'},
+  {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin'},
+  {code:'admin',label:'Administración',href:'/admin/',group:'admin'},
+  {code:'qa',label:'QA',href:'/qa/',group:'admin'}
+];
+
+const groupLabels={main:'',club:'Club',finance:'Finanzas',ops:'Operación',admin:'Administración'};
 
 export async function rpc(name,params={}){
   const {data,error}=await supabase.rpc(name,params);
@@ -39,24 +40,34 @@ export async function rpc(name,params={}){
   return data;
 }
 
-export const navItems=EXPERIENCE_MODULES;
 export function navigationMap(rows=[]){return new Map((rows||[]).map(r=>[r.module_code,r]));}
-export function moduleAccess(rows,code,write=false){const row=navigationMap(rows).get(code);return Boolean(row?.enabled && (write?row.can_write:row.can_read));}
-export function setShellSearchItems(items=[]){window.__tosSearchExtras=Array.isArray(items)?items:[];window.dispatchEvent(new CustomEvent('tanneros:search-extras',{detail:window.__tosSearchExtras}));}
+export function moduleAccess(rows,code,write=false){
+  const row=navigationMap(rows).get(code);
+  return Boolean(row?.enabled && (write?row.can_write:row.can_read));
+}
+function itemReadable(rows,item){return [item.code,...(item.aliases||[])].some(code=>moduleAccess(rows,code,false));}
+function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active);}
 
-function canonicalizeNav(nav,navigation,active){
+export function setShellSearchItems(items=[]){
+  window.__tosSearchExtras=Array.isArray(items)?items:[];
+}
+
+function renderNavigation(nav,navigation,active){
   if(!nav)return;
-  nav.querySelectorAll('a[href]').forEach(a=>{
-    const href=a.getAttribute('href');
-    if(canonicalRoutes[href])a.setAttribute('href',canonicalRoutes[href]);
+  nav.innerHTML='';
+  ['main','club','finance','ops','admin'].forEach(group=>{
+    const items=navItems.filter(item=>item.group===group&&itemReadable(navigation,item));
+    if(!items.length)return;
+    const section=document.createElement('div');section.className=`tos-nav-section tos-nav-section-${group}`;
+    if(groupLabels[group]){const title=document.createElement('div');title.className='tos-nav-section-label';title.textContent=groupLabels[group];section.appendChild(title);}
+    items.forEach(item=>{
+      const a=document.createElement('a');a.href=item.href;a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;
+      a.innerHTML=`<span class="tos-nav-icon" aria-hidden="true">${item.code==='inicio'?'⌂':item.code==='finanzas'?'$':item.code==='taquilla'?'▣':'•'}</span><span>${item.label}</span>`;
+      a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));
+      section.appendChild(a);
+    });
+    nav.appendChild(section);
   });
-  if(moduleAccess(navigation,'taquilla',false)&&!nav.querySelector('[data-module="taquilla"]')){
-    const section=nav.querySelector('.tos-nav-section-finance')||nav.querySelector('.tos-nav-section-ops')||nav;
-    const a=document.createElement('a');
-    a.href='/taquilla/';a.className=`tos-nav-item ${active==='taquilla'?'active':''}`;a.dataset.module='taquilla';
-    a.innerHTML='<span class="tos-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10"/><path d="M8 15h4"/></svg></span><span>Taquilla</span>';
-    section.appendChild(a);
-  }
 }
 
 function wireMobileNav(){
@@ -66,33 +77,54 @@ function wireMobileNav(){
   $('shellNavBackdrop')?.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));
 }
 
+function wireSearch(navigation){
+  const input=$('shellSearch'),results=$('shellSearchResults');
+  if(!input||!results||input.dataset.tosSearchWired==='1')return;
+  input.dataset.tosSearchWired='1';
+  const close=()=>{results.classList.add('hidden');results.innerHTML='';};
+  const run=()=>{
+    const q=String(input.value||'').trim().toLocaleLowerCase('es-MX');
+    if(!q){close();return;}
+    const moduleRows=navItems.filter(item=>itemReadable(navigation,item)&&`${item.label} ${item.code}`.toLocaleLowerCase('es-MX').includes(q)).map(item=>({label:item.label,meta:'Módulo',href:item.href}));
+    const extras=(window.__tosSearchExtras||[]).filter(item=>`${item.label||''} ${item.meta||''}`.toLocaleLowerCase('es-MX').includes(q));
+    const rows=[...moduleRows,...extras].slice(0,12);
+    results.innerHTML=rows.length?rows.map(row=>`<a class="tos-smart-result" href="${row.href||'#'}"><strong>${String(row.label||'Resultado')}</strong><span>${String(row.meta||'')}</span></a>`).join(''):'<div class="tos-empty">Sin resultados.</div>';
+    results.classList.remove('hidden');
+  };
+  input.addEventListener('input',run);input.addEventListener('focus',run);
+  document.addEventListener('pointerdown',event=>{if(!event.target.closest?.('.tos-search-wrap'))close();});
+  document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();input.focus();}});
+}
+
+function ensureBackButton(){
+  const topLeft=document.querySelector('.tos-topbar .tos-top-left');
+  if(!topLeft)return;
+  const root=location.pathname==='/'||location.pathname==='/v2'||location.pathname==='/v2/';
+  topLeft.querySelector('.tos-back-button')?.remove();
+  if(root)return;
+  const button=document.createElement('button');button.type='button';button.className='tos-back-button';button.setAttribute('aria-label','Volver');button.textContent='‹';
+  button.addEventListener('click',()=>{if(history.length>1)history.back();else location.href='/';});
+  topLeft.prepend(button);
+}
+
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
   window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
-  const nav=$('sidebarNav');
-  if(nav){renderExperienceNavigation(nav,navigation,active);canonicalizeNav(nav,navigation,active);}
-
-  const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro');
-  const display=ctx?.display_name||'Tanner';
+  renderNavigation($('sidebarNav'),navigation,active);
+  const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
   if($('sidebarName'))$('sidebarName').textContent=display;
   if($('sidebarRole'))$('sidebarRole').textContent=role;
   if($('shellTitle'))$('shellTitle').textContent=title;
   if($('shellRole'))$('shellRole').textContent=role;
   if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';
-  setShellSearchItems(searchItems);wireMobileNav();wireFluidNavigation();
-
-  const topLeft=document.querySelector('.tos-topbar .tos-top-left');
-  if(location.pathname==='/'||location.pathname==='/v2'||location.pathname==='/v2/')document.querySelector('.tos-back-button')?.remove();
-  else ensureBackButton(topLeft);
-
-  wireSmartOmnibox({supabase,ctx,navigation,input:$('shellSearch'),results:$('shellSearchResults')});
-  $('shellSignOut')?.addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});
+  setShellSearchItems(searchItems);wireMobileNav();wireSearch(navigation);ensureBackButton();
+  if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});}
 }
 
 export async function bootstrapProtectedShell({active,title}){
   const {data:{session}}=await supabase.auth.getSession();
   if(!session){location.href='/';return null;}
   const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}
-  const ctx=rows[0];const navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});
+  const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});
   if(active!=='inicio'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}
   renderShell({ctx,navigation,active,title});
   return {ctx,navigation,map:navigationMap(navigation)};

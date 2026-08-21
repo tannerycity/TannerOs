@@ -10,10 +10,11 @@ const hiddenModules=new Set(['convocatoria','sync']);
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,t='',type='error'){const e=$(id);if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}
 async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}
+function safe(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function friendly(e){const t=String(e?.message||e||'Error');const map={'Not authorized':'No tienes permiso para administrar usuarios.','Valid email required':'Escribe un correo válido.','Invalid role':'Rol inválido.','Owner membership is protected':'La cuenta Owner está protegida.','Pending invitation not found':'La invitación ya no está pendiente.','Invalid module':'Módulo inválido.','Membership not found':'No encontramos esa membresía.'};return map[t]||t;}
 
 async function boot(){
-  const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2/';return;}
+  const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
   const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}
   ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='users');
   if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Usuarios.';show('deniedView');return;}
@@ -32,13 +33,14 @@ function render(){
   $('kpiCustomized').textContent=members.filter(m=>(m.modules||[]).some(x=>x.customized)).length;
   renderMembers();renderInvites(pending);
 }
-function roleOptions(current){return Object.entries(roleLabels).map(([v,l])=>`<option value="${v}" ${v===current?'selected':''}>${l}</option>`).join('');}
+function roleOptions(current){return Object.entries(roleLabels).map(([v,l])=>`<option value="${safe(v)}" ${v===current?'selected':''}>${safe(l)}</option>`).join('');}
 function customCount(m){return (m.modules||[]).filter(x=>x.customized&&!hiddenModules.has(x.moduleCode)).length;}
 function renderMembers(){
   const box=$('memberList');box.innerHTML='';$('memberEmpty').classList.toggle('hidden',members.length>0);
   members.forEach(m=>{
     const row=document.createElement('article');row.className=`member-card ${m.active?'':'inactive'}`;const locked=m.isOwner||!canWrite;const custom=customCount(m);
-    row.innerHTML=`<div class="member-main"><div class="member-title"><strong>${m.displayName||m.email||'Usuario'}</strong>${m.isOwner?'<span class="owner-chip">Owner</span>':''}${custom?`<span class="custom-chip">${custom} personalizado${custom===1?'':'s'}</span>`:''}</div><span>${m.email||'Sin correo visible'}</span><small>${m.active?'Acceso activo':'Acceso inactivo'} · ${roleLabels[m.roleCode]||m.role}</small></div><div class="member-actions"><button class="secondary mini permissions-member" data-id="${m.membershipId}" type="button">Permisos</button><select class="role-select" data-id="${m.membershipId}" ${locked?'disabled':''}>${roleOptions(m.roleCode||'player')}</select>${m.isOwner?'':`<button class="secondary mini toggle-member" data-id="${m.membershipId}" data-active="${m.active}" type="button" ${!canWrite?'disabled':''}>${m.active?'Desactivar':'Reactivar'}</button>`}</div>`;
+    const id=safe(m.membershipId),display=safe(m.displayName||m.email||'Usuario'),email=safe(m.email||'Sin correo visible'),role=safe(roleLabels[m.roleCode]||m.role||'Miembro');
+    row.innerHTML=`<div class="member-main"><div class="member-title"><strong>${display}</strong>${m.isOwner?'<span class="owner-chip">Owner</span>':''}${custom?`<span class="custom-chip">${custom} personalizado${custom===1?'':'s'}</span>`:''}</div><span>${email}</span><small>${m.active?'Acceso activo':'Acceso inactivo'} · ${role}</small></div><div class="member-actions"><button class="secondary mini permissions-member" data-id="${id}" type="button">Permisos</button><select class="role-select" data-id="${id}" ${locked?'disabled':''}>${roleOptions(m.roleCode||'player')}</select>${m.isOwner?'':`<button class="secondary mini toggle-member" data-id="${id}" data-active="${m.active}" type="button" ${!canWrite?'disabled':''}>${m.active?'Desactivar':'Reactivar'}</button>`}</div>`;
     box.appendChild(row);
   });
   box.querySelectorAll('.role-select').forEach(s=>s.addEventListener('change',()=>updateMember(s.dataset.id,s.value,null)));
@@ -47,7 +49,7 @@ function renderMembers(){
 }
 function renderInvites(rows){
   const box=$('inviteList');box.innerHTML='';$('inviteEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(i=>{const exp=new Date(i.expiresAt).toLocaleDateString('es-MX');const row=document.createElement('article');row.className='invite-card';row.innerHTML=`<div><strong>${i.email}</strong><span>${roleLabels[i.roleCode]||i.roleCode} · vence ${exp}</span></div>${canWrite?`<button class="secondary mini revoke-invite" data-id="${i.id}" type="button">Revocar</button>`:''}`;box.appendChild(row);});
+  rows.forEach(i=>{const exp=new Date(i.expiresAt).toLocaleDateString('es-MX'),id=safe(i.id),email=safe(i.email),role=safe(roleLabels[i.roleCode]||i.roleCode||'Miembro');const row=document.createElement('article');row.className='invite-card';row.innerHTML=`<div><strong>${email}</strong><span>${role} · vence ${safe(exp)}</span></div>${canWrite?`<button class="secondary mini revoke-invite" data-id="${id}" type="button">Revocar</button>`:''}`;box.appendChild(row);});
   box.querySelectorAll('.revoke-invite').forEach(b=>b.addEventListener('click',()=>revokeInvite(b.dataset.id)));
 }
 function openAccess(id){
@@ -65,8 +67,9 @@ function renderAccessDrawer(){
   const box=$('moduleAccessList');box.innerHTML='';
   (currentMember.modules||[]).filter(m=>!hiddenModules.has(m.moduleCode)&&moduleLabels[m.moduleCode]).sort(moduleSort).forEach(m=>{
     const row=document.createElement('article');row.className=`module-access-row ${m.customized?'customized':''} ${!m.enabled?'plan-disabled':''}`;
-    const disabled=currentMember.isOwner||!canWrite||!m.enabled;
-    row.innerHTML=`<div class="module-access-name"><strong>${moduleLabels[m.moduleCode]||m.moduleName||m.moduleCode}</strong><small>${!m.enabled?'Fuera del plan':m.customized?'Personalizado':`Del rol · ${m.baseCanRead?'ver':'sin acceso'}${m.baseCanWrite?' + editar':''}`}</small></div><label class="switch-wrap"><input class="read-switch" type="checkbox" data-code="${m.moduleCode}" ${m.effectiveCanRead?'checked':''} ${disabled?'disabled':''}><span class="switch-ui"></span></label><label class="switch-wrap"><input class="write-switch" type="checkbox" data-code="${m.moduleCode}" ${m.effectiveCanWrite?'checked':''} ${disabled||!m.effectiveCanRead?'disabled':''}><span class="switch-ui"></span></label><button class="inherit-module secondary mini" data-code="${m.moduleCode}" type="button" ${disabled||!m.customized?'disabled':''}>Rol</button>`;
+    const disabled=currentMember.isOwner||!canWrite||!m.enabled,code=safe(m.moduleCode),label=safe(moduleLabels[m.moduleCode]||m.moduleName||m.moduleCode);
+    const description=!m.enabled?'Fuera del plan':m.customized?'Personalizado':`Del rol · ${m.baseCanRead?'ver':'sin acceso'}${m.baseCanWrite?' + editar':''}`;
+    row.innerHTML=`<div class="module-access-name"><strong>${label}</strong><small>${safe(description)}</small></div><label class="switch-wrap"><input class="read-switch" type="checkbox" data-code="${code}" ${m.effectiveCanRead?'checked':''} ${disabled?'disabled':''}><span class="switch-ui"></span></label><label class="switch-wrap"><input class="write-switch" type="checkbox" data-code="${code}" ${m.effectiveCanWrite?'checked':''} ${disabled||!m.effectiveCanRead?'disabled':''}><span class="switch-ui"></span></label><button class="inherit-module secondary mini" data-code="${code}" type="button" ${disabled||!m.customized?'disabled':''}>Rol</button>`;
     box.appendChild(row);
   });
   box.querySelectorAll('.read-switch').forEach(input=>input.addEventListener('change',()=>setModule(input.dataset.code,input.checked,input.checked?getModule(input.dataset.code)?.effectiveCanWrite:false)));

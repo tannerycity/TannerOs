@@ -46,7 +46,8 @@ async function boot(){
   ensureCss('/v2/shell.css?v=20260821e','tosShellCss');ensureCss('/v2/experience.css?v=20260821e','tosExperienceCss');ensureCss('/v2/production.css?v=20260821e','tosProductionCss');
   const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
   const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return;}const ctx=rows[0];const navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});
-  buildFrame();const page=meta();renderShell({ctx,navigation,active:page.active,title:page.title});
+  const nativeShell=Boolean(document.querySelector('.tos-layout'));const page=meta();
+  if(!nativeShell){buildFrame();renderShell({ctx,navigation,active:page.active,title:page.title});}
   try{await loadAndApplyBranding(supabase,ctx.organization_id);}catch(error){console.warn('branding',error);}
   normalizeNode(document);installObserver();
 }

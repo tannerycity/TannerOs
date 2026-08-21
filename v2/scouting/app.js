@@ -32,7 +32,7 @@ function pipelineRank(r){if(overdue(r))return 0;if(priority(r))return 1;if(cooli
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
-  if(!session){location.href='/v2';return;}
+  if(!session){location.href='/';return;}
   const rows=await rpc('v2_my_context');
   if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a una organización.';show('deniedView');return;}
   ctx=rows[0];

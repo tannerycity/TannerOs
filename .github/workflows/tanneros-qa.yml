@@ -3,6 +3,7 @@ name: TannerOS QA
 on:
   pull_request:
     paths:
+      - 'index.html'
       - 'v2/**'
       - 'registro/**'
       - 'pedido/**'
@@ -13,6 +14,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'index.html'
       - 'v2/**'
       - 'registro/**'
       - 'pedido/**'
@@ -46,18 +48,26 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Public production routes
+      - name: Production routes
         shell: bash
         run: |
           set -euo pipefail
           base='https://app.tannerycity.com'
           routes=(
-            '/v2/'
-            '/registro'
-            '/registro/porteros'
-            '/registro/jugadores'
-            '/pedido'
-            '/programas'
+            '/'
+            '/jugadores/'
+            '/asistencia/'
+            '/finanzas/'
+            '/taquilla/'
+            '/prospectos/'
+            '/scouting/'
+            '/academias/'
+            '/pedidos/'
+            '/contabilidad/'
+            '/registro/'
+            '/registro/scouting/'
+            '/pedido/'
+            '/programas/'
           )
           for route in "${routes[@]}"; do
             echo "Checking ${base}${route}"

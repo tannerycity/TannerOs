@@ -42,7 +42,7 @@ export const navItems=[
   {code:'jugadores',label:'Jugadores',href:'/jugadores/',group:'club',icon:'users'},
   {code:'asistencia',label:'Asistencia',href:'/asistencia/',group:'club',icon:'check'},
   {code:'convocatoria',label:'Convocatoria',href:'/convocatoria/',group:'club',icon:'list',aliases:['callups']},
-  {code:'calendario',label:'Calendario',href:'/calendario/',group:'club',icon:'calendar'},
+  {code:'calendario',label:'Calendario',href:'/calendario/',group:'main',icon:'calendar'},
   {code:'academias',label:'Academias',href:'/academias/',group:'club',icon:'academy'},
   {code:'prospectos',label:'Captación',href:'/prospectos/',group:'club',icon:'target'},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},

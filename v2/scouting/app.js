@@ -7,8 +7,9 @@ const supabase=createClient(
 );
 
 const $=id=>document.getElementById(id);
-let ctx=null,reports=[],current=null,canWrite=false,selectedQuality='';
+let ctx=null,reports=[],current=null,canWrite=false,selectedQuality='',pendingPhoto=null,pendingPreviewUrl=null;
 const DAY=86400000;
+const PHOTO_BUCKET='tanneros-private',MAX_PHOTO_BYTES=5*1024*1024;
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function message(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
@@ -31,6 +32,13 @@ function pipelineMatch(r,value){if(!value)return true;return value==='priority'?
 function pipelineRank(r){if(overdue(r))return 0;if(priority(r))return 1;if(cooling(r))return 2;if(open(r))return 3;if(signed(r))return 4;return 5;}
 function initials(name){return String(name||'TC').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();}
 function scoreWord(v){const n=Number(v);return n>=9?'Sobresale':n>=7?'Destaca':n>=5?'Cumple':n>0?'Por desarrollar':'Sin evaluar';}
+function loadImage(file){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('No pudimos leer la foto.'));};img.src=url;});}
+function canvasBlob(canvas,type,quality){return new Promise(resolve=>canvas.toBlob(resolve,type,quality));}
+async function preparePhoto(file){if(!file||!String(file.type||'').startsWith('image/'))throw new Error('Selecciona una imagen válida.');const img=await loadImage(file),w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,scale=Math.min(1,1600/Math.max(w,h)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));const c=canvas.getContext('2d');if(!c)throw new Error('No pudimos preparar la foto.');c.drawImage(img,0,0,canvas.width,canvas.height);let blob=await canvasBlob(canvas,'image/webp',.84),ext='webp';if(!blob){blob=await canvasBlob(canvas,'image/jpeg',.82);ext='jpg';}if(blob?.size>MAX_PHOTO_BYTES){blob=await canvasBlob(canvas,'image/jpeg',.66);ext='jpg';}if(!blob||blob.size>MAX_PHOTO_BYTES)throw new Error('La foto es demasiado pesada.');return{blob,ext,mime:blob.type||'image/jpeg'};}
+async function uploadScoutPhoto(reportId,file){const prepared=await preparePhoto(file),path=`organizations/${ctx.organization_id}/scouting/${reportId}/profile-${Date.now()}.${prepared.ext}`,previousPath=reports.find(r=>r.id===reportId)?.photo_path;const {error}=await supabase.storage.from(PHOTO_BUCKET).upload(path,prepared.blob,{contentType:prepared.mime,cacheControl:'3600',upsert:false});if(error)throw error;try{await rpc('v2_set_scouting_photo',{organization_id:ctx.organization_id,report_id:reportId,photo_path:path});}catch(e){await supabase.storage.from(PHOTO_BUCKET).remove([path]);throw e;}if(previousPath&&previousPath!==path&&previousPath.startsWith(`organizations/${ctx.organization_id}/scouting/${reportId}/`))await supabase.storage.from(PHOTO_BUCKET).remove([previousPath]);return path;}
+async function loadPhotos(){const rows=await rpc('v2_scouting_photos',{organization_id:ctx.organization_id})||[],byId=new Map(rows.map(x=>[x.report_id,x.photo_path]));await Promise.all(reports.map(async r=>{r.photo_path=byId.get(r.id)||null;r.photo_url=null;if(!r.photo_path)return;const {data}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(r.photo_path,600);r.photo_url=data?.signedUrl||null;}));}
+function setPhotoPreview(file){pendingPhoto=file||null;if(pendingPreviewUrl)URL.revokeObjectURL(pendingPreviewUrl);pendingPreviewUrl=file?URL.createObjectURL(file):null;const box=$('scoutPhotoPreview');box.innerHTML=pendingPreviewUrl?`<img src="${safe(pendingPreviewUrl)}" alt="Vista previa del jugador">`:'<span class="tos-icon tos-icon-camera" aria-hidden="true"></span><strong>Agregar foto</strong><small>Cámara o galería</small>';}
+function renderDetailPhoto(r){const box=$('detailPhoto');if(!box)return;box.innerHTML=r.photo_url?`<img src="${safe(r.photo_url)}" alt="Foto de ${safe(r.observed_name||'jugador')}">`:`<span>${safe(initials(r.observed_name))}</span>`;$('changeScoutPhoto').classList.toggle('hidden',!canWrite);}
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -52,6 +60,7 @@ async function boot(){
 async function load(){
   reports=await rpc('v2_scouting_reports',{organization_id:ctx.organization_id,prospect_id:null});
   reports=Array.isArray(reports)?reports:[];
+  await loadPhotos();
   renderKpis();
   renderList();
 }
@@ -91,7 +100,7 @@ function renderList(){
     const avgText=avg.length?(avg.reduce((a,b)=>a+b,0)/avg.length).toFixed(1):'—';
     const next=r.next_action_at?`Próxima acción · ${fmtDate(r.next_action_at)}`:cooling(r)?`${daysSince(r.observed_at)} días desde la visoría · sin próxima acción`:'Sin próxima acción';
     const card=document.createElement('button');card.type='button';card.className=`scout-row ${overdue(r)?'needs-attention':cooling(r)?'cooling':''}`;card.dataset.reportId=r.id;
-    card.innerHTML=`<span class="scout-avatar">${safe(initials(r.observed_name))}</span><div class="scout-main"><strong>${safe(r.observed_name||'Sin nombre')}</strong><span>${safe([r.player_position,r.category,r.observed_location].filter(Boolean).join(' · ')||'Completar datos deportivos')}</span><small>${safe(next)}</small><div class="pipeline-badges">${badges(r)}</div></div><div class="scout-side"><span class="score-ring"><b>${avgText}</b><small>${avg.length?scoreWord(avgText):'Pendiente'}</small></span><span class="scout-chevron" aria-hidden="true">›</span></div>`;
+    card.innerHTML=`<span class="scout-avatar">${r.photo_url?`<img src="${safe(r.photo_url)}" alt="Foto de ${safe(r.observed_name||'jugador')}">`:safe(initials(r.observed_name))}</span><div class="scout-main"><strong>${safe(r.observed_name||'Sin nombre')}</strong><span>${safe([r.player_position,r.category,r.observed_location].filter(Boolean).join(' · ')||'Completar datos deportivos')}</span><small>${safe(next)}</small><div class="pipeline-badges">${badges(r)}</div></div><div class="scout-side"><span class="score-ring"><b>${avgText}</b><small>${avg.length?scoreWord(avgText):'Pendiente'}</small></span><span class="scout-chevron" aria-hidden="true">›</span></div>`;
     card.addEventListener('click',()=>openReport(r.id));list.appendChild(card);
   });
 }
@@ -102,6 +111,7 @@ function openCreate(){
   $('createSection').classList.remove('hidden');$('detailSection').classList.add('hidden');$('followupSection').classList.add('hidden');
   ['observedName','observedLocation','playerPosition','category','technicalScore','physicalScore','tacticalScore','mentalScore','starQuality','createVerdict','createNotes'].forEach(id=>$(id).value='');
   selectedQuality='';document.querySelectorAll('[data-score],[data-quality],[data-decision]').forEach(b=>b.classList.remove('selected'));$('quickDecision').value='follow';$('createVerdict').value='Volver a observar';document.querySelector('[data-decision="follow"]')?.classList.add('selected');
+  setPhotoPreview(null);
   $('observedAt').value=localInput();message('createMessage');openDrawer();
 }
 
@@ -123,6 +133,7 @@ async function openReport(id){
   $('drawerEyebrow').textContent='VISORÍA';$('drawerName').textContent=r.observed_name||'Sin nombre';$('drawerMeta').textContent=`${fmtDate(r.observed_at)} · ${r.status==='open'?'Abierta':'Cerrada'}`;
   $('createSection').classList.add('hidden');$('detailSection').classList.remove('hidden');$('followupSection').classList.remove('hidden');
   scoreCards(r);facts(r);
+  renderDetailPhoto(r);
   $('reportStatus').value=r.status||'open';$('interestLevel').value=['alto','medio','bajo'].includes(String(r.interest_level||'').toLowerCase())?String(r.interest_level).toLowerCase():'';
   $('nextActionAt').value=r.next_action_at?localInput(r.next_action_at):'';$('updateVerdict').value=r.verdict||'';$('updateNotes').value=r.notes||'';
   ['reportStatus','interestLevel','nextActionAt','updateVerdict','updateNotes','saveFollowup'].forEach(id=>$(id).disabled=!canWrite);
@@ -146,7 +157,8 @@ async function saveScout(){
     });
     const decision=$('quickDecision').value,interest=decision==='invite'?'alto':decision==='follow'?'medio':'bajo',next=decision==='reject'?null:new Date(Date.now()+(decision==='invite'?2:7)*DAY).toISOString(),status=decision==='reject'?'closed':'open';
     await rpc('v2_update_scouting_report',{organization_id:ctx.organization_id,report_id:id,status,interest_level:interest,next_action_at:next,verdict:$('createVerdict').value.trim()||null,notes:$('createNotes').value.trim()||null});
-    await load();closeDrawer();const created=reports.find(r=>r.id===id);if(created)openReport(created.id);
+    let photoWarning='';if(pendingPhoto){try{await uploadScoutPhoto(id,pendingPhoto);}catch(e){photoWarning='Talento guardado, pero la foto no pudo subirse. Puedes agregarla desde su ficha.';}}
+    await load();closeDrawer();const created=reports.find(r=>r.id===id);if(created){openReport(created.id);if(photoWarning)message('followupMessage',photoWarning);}
   }catch(e){message('createMessage',e.message||'No se pudo guardar la visoría.');}finally{btn.disabled=!canWrite;}
 }
 
@@ -158,5 +170,18 @@ async function saveFollowup(){
   }catch(e){message('followupMessage',e.message||'No se pudo guardar el seguimiento.');}finally{btn.disabled=!canWrite;}
 }
 
-$('newScout').addEventListener('click',openCreate);$('statusFilter').addEventListener('change',renderList);$('pipelineFilter').addEventListener('change',renderList);$('searchScout').addEventListener('input',renderList);document.querySelectorAll('[data-pipeline]').forEach(b=>b.addEventListener('click',()=>{$('pipelineFilter').value=b.dataset.pipeline;renderList();document.querySelector('.scout-list')?.scrollIntoView({behavior:'smooth',block:'start'});}));document.querySelectorAll('[data-score]').forEach(b=>b.addEventListener('click',()=>{const group=b.closest('[data-score-group]'),input=$(group.dataset.scoreGroup);input.value=b.dataset.score;group.querySelectorAll('[data-score]').forEach(x=>x.classList.toggle('selected',x===b));group.querySelector('.score-reading').textContent=scoreWord(b.dataset.score);}));document.querySelectorAll('[data-quality]').forEach(b=>b.addEventListener('click',()=>{selectedQuality=b.dataset.quality;$('starQuality').value=selectedQuality;document.querySelectorAll('[data-quality]').forEach(x=>x.classList.toggle('selected',x===b));}));document.querySelectorAll('[data-decision]').forEach(b=>b.addEventListener('click',()=>{$('quickDecision').value=b.dataset.decision;document.querySelectorAll('[data-decision]').forEach(x=>x.classList.toggle('selected',x===b));$('createVerdict').value=({follow:'Volver a observar',invite:'Invitar a prueba',reject:'No continuar'})[b.dataset.decision];}));$('closeDrawer').addEventListener('click',closeDrawer);$('backdrop').addEventListener('click',closeDrawer);$('saveScout').addEventListener('click',saveScout);$('saveFollowup').addEventListener('click',saveFollowup);
+function mountPhotoUi(){
+  if(!document.querySelector('link[href="/v2/scouting/photos.css"]')){const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/scouting/photos.css?v=20260823a';document.head.appendChild(link);}
+  const identity=$('observedName')?.closest('.identity-grid');
+  if(identity&&!$('scoutPhotoPreview')){
+    const block=document.createElement('div');block.className='scout-photo-capture';block.innerHTML=`<button id="scoutPhotoPreview" class="scout-photo-preview" type="button"><span class="tos-icon tos-icon-camera" aria-hidden="true"></span><strong>Agregar foto</strong><small>Abrir cámara</small></button><div><strong>Foto del jugador</strong><small>Acércate lo suficiente para reconocerlo después.</small><button id="chooseScoutPhoto" class="secondary mini" type="button">Elegir de galería</button></div><input id="scoutPhotoCamera" type="file" accept="image/*" capture="environment" hidden><input id="scoutPhotoUpload" type="file" accept="image/*" hidden>`;identity.before(block);
+  }
+  const detail=$('detailSection');
+  if(detail&&!$('detailPhoto')){
+    const block=document.createElement('div');block.className='detail-photo-wrap';block.innerHTML=`<div id="detailPhoto" class="detail-photo"><span>TC</span></div><button id="changeScoutPhoto" class="secondary mini" type="button">Cambiar foto</button><input id="existingScoutPhoto" type="file" accept="image/*" capture="environment" hidden>`;detail.insertBefore(block,detail.querySelector('.eyebrow'));
+  }
+}
+mountPhotoUi();
+
+$('newScout').addEventListener('click',openCreate);$('statusFilter').addEventListener('change',renderList);$('pipelineFilter').addEventListener('change',renderList);$('searchScout').addEventListener('input',renderList);document.querySelectorAll('[data-pipeline]').forEach(b=>b.addEventListener('click',()=>{$('pipelineFilter').value=b.dataset.pipeline;renderList();document.querySelector('.scout-list')?.scrollIntoView({behavior:'smooth',block:'start'});}));document.querySelectorAll('[data-score]').forEach(b=>b.addEventListener('click',()=>{const group=b.closest('[data-score-group]'),input=$(group.dataset.scoreGroup);input.value=b.dataset.score;group.querySelectorAll('[data-score]').forEach(x=>x.classList.toggle('selected',x===b));group.querySelector('.score-reading').textContent=scoreWord(b.dataset.score);}));document.querySelectorAll('[data-quality]').forEach(b=>b.addEventListener('click',()=>{selectedQuality=b.dataset.quality;$('starQuality').value=selectedQuality;document.querySelectorAll('[data-quality]').forEach(x=>x.classList.toggle('selected',x===b));}));document.querySelectorAll('[data-decision]').forEach(b=>b.addEventListener('click',()=>{$('quickDecision').value=b.dataset.decision;document.querySelectorAll('[data-decision]').forEach(x=>x.classList.toggle('selected',x===b));$('createVerdict').value=({follow:'Volver a observar',invite:'Invitar a prueba',reject:'No continuar'})[b.dataset.decision];}));$('scoutPhotoPreview').addEventListener('click',()=>$('scoutPhotoCamera').click());$('chooseScoutPhoto').addEventListener('click',()=>$('scoutPhotoUpload').click());['scoutPhotoCamera','scoutPhotoUpload'].forEach(id=>$(id).addEventListener('change',e=>{const file=e.target.files?.[0];if(file)setPhotoPreview(file);e.target.value='';}));$('changeScoutPhoto').addEventListener('click',()=>$('existingScoutPhoto').click());$('existingScoutPhoto').addEventListener('change',async e=>{const file=e.target.files?.[0],id=current?.id;e.target.value='';if(!file||!id)return;const btn=$('changeScoutPhoto');btn.disabled=true;btn.textContent='Subiendo…';try{await uploadScoutPhoto(id,file);await load();await openReport(id);message('followupMessage','Foto actualizada.','success');}catch(error){message('followupMessage',error.message||'No pudimos guardar la foto.');}finally{btn.disabled=false;btn.textContent='Cambiar foto';}});$('closeDrawer').addEventListener('click',closeDrawer);$('backdrop').addEventListener('click',closeDrawer);$('saveScout').addEventListener('click',saveScout);$('saveFollowup').addEventListener('click',saveFollowup);
 boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Scouting.';show('deniedView');});

@@ -258,7 +258,7 @@ export function wireFluidNavigation(){
   document.addEventListener('focusin',event=>{const a=event.target.closest?.('a[href]');if(a)prefetchHref(a.href);});
   document.addEventListener('click',event=>{
     const a=event.target.closest?.('a[href]');if(!a||event.defaultPrevented||event.button>0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||a.target==='_blank'||a.hasAttribute('download'))return;
-    try{const u=new URL(a.href,location.origin);if(u.origin!==location.origin||!u.pathname.startsWith('/v2/'))return;const here=new URL(location.href);if(u.pathname===here.pathname&&u.search===here.search&&u.hash&&u.hash!==here.hash)return;document.body.classList.add('tos-navigating');}catch{}
+    try{const u=new URL(a.href,location.origin);if(u.origin!==location.origin||!u.pathname.startsWith('/v2/'))return;const here=new URL(location.href);if(u.pathname===here.pathname&&u.search===here.search&&u.hash&&u.hash!==here.hash)return;sessionStorage.setItem(`tos:return:${u.pathname}`,here.pathname+here.search+here.hash);document.body.classList.add('tos-navigating');}catch{}
   },{capture:true});
   window.addEventListener('pageshow',()=>document.body.classList.remove('tos-navigating'));
 }
@@ -266,7 +266,15 @@ export function wireFluidNavigation(){
 function fallbackForCurrent(){return pageMeta()[3]||'/v2/';}
 function backAction(){
   const fallback=fallbackForCurrent();
-  try{const ref=document.referrer?new URL(document.referrer):null;if(ref?.origin===location.origin&&ref.pathname.startsWith('/v2/')&&history.length>1){history.back();return;}}catch{}
+  try{
+    const key=`tos:return:${location.pathname}`,saved=sessionStorage.getItem(key),ref=document.referrer?new URL(document.referrer):null;
+    if(saved&&saved.startsWith('/v2/')&&saved!==location.pathname+location.search+location.hash){
+      sessionStorage.removeItem(key);
+      if(ref?.origin===location.origin&&ref.pathname+ref.search+ref.hash===saved&&history.length>1){history.back();return;}
+      location.href=saved;return;
+    }
+    if(ref?.origin===location.origin&&ref.pathname.startsWith('/v2/')&&ref.pathname!==location.pathname&&history.length>1){history.back();return;}
+  }catch{}
   location.href=fallback;
 }
 

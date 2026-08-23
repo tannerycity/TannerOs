@@ -7,7 +7,7 @@ const supabase=createClient(
 );
 
 const $=id=>document.getElementById(id);
-let ctx=null,reports=[],current=null,canWrite=false;
+let ctx=null,reports=[],current=null,canWrite=false,selectedQuality='';
 const DAY=86400000;
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
@@ -29,6 +29,8 @@ function signed(r){return Boolean(r.player_id);}
 function daysSince(v){if(!v)return null;return Math.max(0,Math.floor((Date.now()-new Date(v).getTime())/DAY));}
 function pipelineMatch(r,value){if(!value)return true;return value==='priority'?priority(r):value==='overdue'?overdue(r):value==='cooling'?cooling(r):value==='unplanned'?unplanned(r):value==='signed'?signed(r):true;}
 function pipelineRank(r){if(overdue(r))return 0;if(priority(r))return 1;if(cooling(r))return 2;if(open(r))return 3;if(signed(r))return 4;return 5;}
+function initials(name){return String(name||'TC').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();}
+function scoreWord(v){const n=Number(v);return n>=9?'Sobresale':n>=7?'Destaca':n>=5?'Cumple':n>0?'Por desarrollar':'Sin evaluar';}
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -89,16 +91,17 @@ function renderList(){
     const avgText=avg.length?(avg.reduce((a,b)=>a+b,0)/avg.length).toFixed(1):'—';
     const next=r.next_action_at?`Próxima acción · ${fmtDate(r.next_action_at)}`:cooling(r)?`${daysSince(r.observed_at)} días desde la visoría · sin próxima acción`:'Sin próxima acción';
     const card=document.createElement('button');card.type='button';card.className=`scout-row ${overdue(r)?'needs-attention':cooling(r)?'cooling':''}`;card.dataset.reportId=r.id;
-    card.innerHTML=`<div class="scout-main"><strong>${safe(r.observed_name||'Sin nombre')}</strong><span>${safe([r.player_position,r.category,r.observed_location].filter(Boolean).join(' · ')||'Sin datos deportivos')}</span><small>${safe(next)}</small><div class="pipeline-badges">${badges(r)}</div></div><div class="scout-side"><b>${avgText}</b><small>${avg.length?'promedio':'sin evaluar'}</small><span class="scout-status ${safe(r.status)}">${r.status==='open'?'Abierta':'Cerrada'}</span>${highInterest(r.interest_level)?'<em>Interés alto</em>':''}</div>`;
+    card.innerHTML=`<span class="scout-avatar">${safe(initials(r.observed_name))}</span><div class="scout-main"><strong>${safe(r.observed_name||'Sin nombre')}</strong><span>${safe([r.player_position,r.category,r.observed_location].filter(Boolean).join(' · ')||'Completar datos deportivos')}</span><small>${safe(next)}</small><div class="pipeline-badges">${badges(r)}</div></div><div class="scout-side"><span class="score-ring"><b>${avgText}</b><small>${avg.length?scoreWord(avgText):'Pendiente'}</small></span><span class="scout-chevron" aria-hidden="true">›</span></div>`;
     card.addEventListener('click',()=>openReport(r.id));list.appendChild(card);
   });
 }
 
 function openCreate(){
   current=null;
-  $('drawerEyebrow').textContent='NUEVA VISORÍA';$('drawerName').textContent='Detectar talento';$('drawerMeta').textContent='Registro independiente de Captación';
+  $('drawerEyebrow').textContent='NUEVA VISORÍA';$('drawerName').textContent='Detectar talento';$('drawerMeta').textContent='Nueva observación en cancha';
   $('createSection').classList.remove('hidden');$('detailSection').classList.add('hidden');$('followupSection').classList.add('hidden');
   ['observedName','observedLocation','playerPosition','category','technicalScore','physicalScore','tacticalScore','mentalScore','starQuality','createVerdict','createNotes'].forEach(id=>$(id).value='');
+  selectedQuality='';document.querySelectorAll('[data-score],[data-quality],[data-decision]').forEach(b=>b.classList.remove('selected'));$('quickDecision').value='follow';$('createVerdict').value='Volver a observar';document.querySelector('[data-decision="follow"]')?.classList.add('selected');
   $('observedAt').value=localInput();message('createMessage');openDrawer();
 }
 
@@ -141,6 +144,8 @@ async function saveScout(){
       player_position:$('playerPosition').value.trim()||null,category:$('category').value.trim()||null,technical_score:scores[0],physical_score:scores[1],tactical_score:scores[2],mental_score:scores[3],
       star_quality:$('starQuality').value.trim()||null,verdict:$('createVerdict').value.trim()||null,notes:$('createNotes').value.trim()||null
     });
+    const decision=$('quickDecision').value,interest=decision==='invite'?'alto':decision==='follow'?'medio':'bajo',next=decision==='reject'?null:new Date(Date.now()+(decision==='invite'?2:7)*DAY).toISOString(),status=decision==='reject'?'closed':'open';
+    await rpc('v2_update_scouting_report',{organization_id:ctx.organization_id,report_id:id,status,interest_level:interest,next_action_at:next,verdict:$('createVerdict').value.trim()||null,notes:$('createNotes').value.trim()||null});
     await load();closeDrawer();const created=reports.find(r=>r.id===id);if(created)openReport(created.id);
   }catch(e){message('createMessage',e.message||'No se pudo guardar la visoría.');}finally{btn.disabled=!canWrite;}
 }
@@ -153,5 +158,5 @@ async function saveFollowup(){
   }catch(e){message('followupMessage',e.message||'No se pudo guardar el seguimiento.');}finally{btn.disabled=!canWrite;}
 }
 
-$('newScout').addEventListener('click',openCreate);$('statusFilter').addEventListener('change',renderList);$('pipelineFilter').addEventListener('change',renderList);$('searchScout').addEventListener('input',renderList);document.querySelectorAll('[data-pipeline]').forEach(b=>b.addEventListener('click',()=>{$('pipelineFilter').value=b.dataset.pipeline;renderList();document.querySelector('.scout-list')?.scrollIntoView({behavior:'smooth',block:'start'});}));$('closeDrawer').addEventListener('click',closeDrawer);$('backdrop').addEventListener('click',closeDrawer);$('saveScout').addEventListener('click',saveScout);$('saveFollowup').addEventListener('click',saveFollowup);
+$('newScout').addEventListener('click',openCreate);$('statusFilter').addEventListener('change',renderList);$('pipelineFilter').addEventListener('change',renderList);$('searchScout').addEventListener('input',renderList);document.querySelectorAll('[data-pipeline]').forEach(b=>b.addEventListener('click',()=>{$('pipelineFilter').value=b.dataset.pipeline;renderList();document.querySelector('.scout-list')?.scrollIntoView({behavior:'smooth',block:'start'});}));document.querySelectorAll('[data-score]').forEach(b=>b.addEventListener('click',()=>{const group=b.closest('[data-score-group]'),input=$(group.dataset.scoreGroup);input.value=b.dataset.score;group.querySelectorAll('[data-score]').forEach(x=>x.classList.toggle('selected',x===b));group.querySelector('.score-reading').textContent=scoreWord(b.dataset.score);}));document.querySelectorAll('[data-quality]').forEach(b=>b.addEventListener('click',()=>{selectedQuality=b.dataset.quality;$('starQuality').value=selectedQuality;document.querySelectorAll('[data-quality]').forEach(x=>x.classList.toggle('selected',x===b));}));document.querySelectorAll('[data-decision]').forEach(b=>b.addEventListener('click',()=>{$('quickDecision').value=b.dataset.decision;document.querySelectorAll('[data-decision]').forEach(x=>x.classList.toggle('selected',x===b));$('createVerdict').value=({follow:'Volver a observar',invite:'Invitar a prueba',reject:'No continuar'})[b.dataset.decision];}));$('closeDrawer').addEventListener('click',closeDrawer);$('backdrop').addEventListener('click',closeDrawer);$('saveScout').addEventListener('click',saveScout);$('saveFollowup').addEventListener('click',saveFollowup);
 boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Scouting.';show('deniedView');});

@@ -21,6 +21,7 @@ const terminalStatuses=new Set(['converted','not_continuing','archived']);
 
 function show(id){['loadingView','deniedView','prospectsView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
+function toast(text){const el=$('prospectToast');if(!el)return;el.textContent=text;el.classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('visible'),3200);}
 async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 function fmtDate(v){if(!v)return '—';return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium'}).format(new Date(v));}
 function fmtDateTime(v){if(!v)return '—';return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v));}
@@ -40,7 +41,7 @@ function campaignName(code){
 }
 function sourceName(source){return source||'Sin origen';}
 function waUrl(phone){const digits=String(phone||'').replace(/\D/g,'');return digits.length>=8?`https://wa.me/${digits}`:null;}
-function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/possible duplicate player/i.test(s))return 'Ya existe un Tanner activo con el mismo nombre y fecha de nacimiento. Revisa antes de convertir.';if(/ux_players_active_category_jersey|duplicate key/i.test(s))return 'Ese número de camiseta ya está ocupado en la categoría seleccionada.';if(/not authorized/i.test(s))return 'Tu rol no tiene permiso para convertir prospectos.';return s;}
+function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/possible duplicate player/i.test(s))return 'Ya existe un Tanner activo con el mismo nombre y fecha de nacimiento. Revisa antes de convertir.';if(/ux_players_active_category_jersey|duplicate key/i.test(s))return 'Ese número de camiseta ya está ocupado en la categoría seleccionada.';if(/only presidency can delete/i.test(s))return 'Sólo Presidencia puede eliminar prospectos.';if(/not authorized/i.test(s))return 'Tu rol no tiene permiso para realizar esta acción.';return s;}
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -246,10 +247,23 @@ async function openProspect(p){
   $('prospectStatus').value=p.status||'new';$('nextAction').value=p.next_action_at?localDateTimeValue(p.next_action_at):'';$('prospectNotes').value=p.notes||'';
   $('saveFollowup').disabled=!ctx.canProspectsWrite;$('saveScout').disabled=!ctx.canScoutingWrite;$('scoutCategory').value=p.category_interest||'';$('scoutPosition').value=p.registration_type==='goalkeeper'?'Portero':'';$('scoutDate').value=localDateTimeValue();
   msg('followupMessage');msg('scoutMessage');renderProspectDetails(p);renderDrawerActions(p);prepareConversion(p);
+  $('deleteProspectSection')?.classList.toggle('hidden',!ctx.is_owner);$('deleteProspectConfirm')?.classList.add('hidden');$('deleteProspect')?.classList.remove('hidden');msg('deleteProspectMessage');
   await Promise.all([renderProspectPhoto(p),loadScoutingHistory()]);
   $('prospectBackdrop').classList.remove('hidden');$('prospectDrawer').classList.remove('hidden');$('prospectDrawer').setAttribute('aria-hidden','false');
 }
 function closeProspect(){current=null;$('prospectBackdrop').classList.add('hidden');$('prospectDrawer').classList.add('hidden');$('prospectDrawer').setAttribute('aria-hidden','true');}
+
+async function deleteProspect(){
+  if(!current||!ctx.is_owner)return;
+  const prospect=current,button=$('confirmDeleteProspect');button.disabled=true;button.textContent='Eliminando…';msg('deleteProspectMessage');
+  try{
+    const result=await rpc('v2_delete_prospect',{organization_id:ctx.organization_id,prospect_id:prospect.id});
+    closeProspect();await loadProspects();
+    if(result?.photoPath&&result?.photoBucket===PHOTO_BUCKET)await supabase.storage.from(PHOTO_BUCKET).remove([result.photoPath]);
+    toast(`${nameOf(prospect)||'El prospecto'} se eliminó de Captación.`);
+  }catch(e){msg('deleteProspectMessage',friendly(e));}
+  finally{button.disabled=false;button.textContent='Sí, eliminar prospecto';}
+}
 
 async function saveFollowup(){if(!current||!ctx.canProspectsWrite)return;msg('followupMessage');const btn=$('saveFollowup');btn.disabled=true;try{const id=current.id;await rpc('v2_update_prospect_followup',{organization_id:ctx.organization_id,prospect_id:id,status:$('prospectStatus').value,next_action_at:$('nextAction').value?new Date($('nextAction').value).toISOString():null,notes:$('prospectNotes').value.trim()||null});msg('followupMessage','Seguimiento guardado.','success');await loadProspects();current=prospects.find(p=>p.id===id)||current;if(current)renderDrawerActions(current);}catch(e){msg('followupMessage',friendly(e));}finally{btn.disabled=!ctx.canProspectsWrite;}}
 async function convertProspect(){if(!current||!ctx.canPlayersWrite||!ctx.canProspectsWrite)return;msg('convertMessage');const btn=$('convertProspect');const feeRaw=$('convertFee').value;const fee=feeRaw===''?null:Number(feeRaw);if(fee!==null&&(!Number.isFinite(fee)||fee<0)){msg('convertMessage','La cuota debe ser 0 o mayor.');return;}if(!confirm(`¿Convertir a ${nameOf(current)} en Tanner? Se conservarán foto, tutor, campaña y consentimientos.`))return;btn.disabled=true;btn.textContent='Convirtiendo…';try{const id=await rpc('v2_convert_prospect_to_player',{organization_id:ctx.organization_id,prospect_id:current.id,category_id:$('convertCategory').value||null,monthly_fee:fee,joined_at:$('convertDate').value||todayLocal(),jersey_number:$('convertJersey').value.trim()||null,player_position:$('convertPosition').value.trim()||null});msg('convertMessage',`Tanner creado correctamente · ${String(id).slice(0,8)}…`,'success');await loadProspects();const updated=prospects.find(p=>p.id===current.id);if(updated){current=updated;$('prospectStatus').value=updated.status;prepareConversion(updated);renderDrawerActions(updated);}}catch(e){msg('convertMessage',friendly(e));}finally{btn.disabled=false;btn.textContent='Convertir a Tanner';}}
@@ -268,11 +282,17 @@ function mountCaptureUx(){
   const profileSection=$('prospectPhotoBox')?.closest('.drawer-section'),conversion=$('conversionSection');
   if(profileSection&&conversion)profileSection.after(conversion);
   conversion?.classList.add('conversion-feature');
+  const drawer=$('prospectDrawer');
+  if(drawer&&!$('deleteProspectSection')){
+    const section=document.createElement('section');section.id='deleteProspectSection';section.className='drawer-section prospect-danger hidden';section.innerHTML='<button id="deleteProspect" class="delete-prospect" type="button"><span class="tos-icon tos-icon-trash" aria-hidden="true"></span>Eliminar prospecto</button><div id="deleteProspectConfirm" class="delete-prospect-confirm hidden"><strong>¿Eliminar este prospecto?</strong><p>Se borrarán el registro de Captación y su fotografía. Si ya se convirtió en Tanner, su ficha de jugador permanecerá.</p><div><button id="cancelDeleteProspect" class="secondary" type="button">Cancelar</button><button id="confirmDeleteProspect" class="danger-action" type="button">Sí, eliminar prospecto</button></div><div id="deleteProspectMessage" class="inline-message hidden"></div></div>';drawer.appendChild(section);
+  }
+  if(!$('prospectToast')){const notice=document.createElement('div');notice.id='prospectToast';notice.className='prospect-toast';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');document.body.appendChild(notice);}
   updateFilterButton();
 }
 
 mountCaptureUx();
 
+$('deleteProspect').addEventListener('click',()=>{$('deleteProspect').classList.add('hidden');$('deleteProspectConfirm').classList.remove('hidden');$('deleteProspectConfirm').scrollIntoView({behavior:'smooth',block:'nearest'});msg('deleteProspectMessage');});$('cancelDeleteProspect').addEventListener('click',()=>{$('deleteProspectConfirm').classList.add('hidden');$('deleteProspect').classList.remove('hidden');msg('deleteProspectMessage');});$('confirmDeleteProspect').addEventListener('click',deleteProspect);
 for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).addEventListener('change',applyFilters);
 $('searchProspect').addEventListener('input',applyFilters);
 $('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';applyFilters();});

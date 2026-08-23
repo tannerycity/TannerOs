@@ -34,7 +34,10 @@ function friendly(e){const t=String(e?.message||e||'Error');const map={
   'Username must use 3-32 letters, numbers, dots, dashes or underscores':'El usuario debe tener de 3 a 32 caracteres: letras, números, punto, guion o guion bajo.',
   'Valid display name required':'Escribe un nombre válido.',
   'Username already exists':'Ese usuario ya existe. Elige otro.',
-  'Password resets for email accounts use email recovery':'Las cuentas con correo recuperan su contraseña por correo.'
+  'Password resets for email accounts use email recovery':'Las cuentas con correo recuperan su contraseña por correo.',
+  'Email already registered':'Ese correo ya tiene una cuenta. Usa “Olvidé mi contraseña” para recuperar el acceso.',
+  'Email rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Espera unos minutos e inténtalo de nuevo.',
+  'rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Espera unos minutos e inténtalo de nuevo.'
 };return map[t]||t;}
 
 async function boot(){
@@ -74,7 +77,8 @@ function renderMembers(){
 }
 function renderInvites(rows){
   const box=$('inviteList');box.innerHTML='';$('inviteEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(i=>{const exp=new Date(i.expiresAt).toLocaleDateString('es-MX'),id=safe(i.id),email=safe(i.email),role=safe(roleLabels[i.roleCode]||i.roleCode||'Miembro');const row=document.createElement('article');row.className='invite-card';row.innerHTML=`<div><strong>${email}</strong><span>${role} · vence ${safe(exp)}</span></div>${canWrite?`<button class="secondary mini revoke-invite" data-id="${id}" type="button">Revocar</button>`:''}`;box.appendChild(row);});
+  rows.forEach(i=>{const exp=new Date(i.expiresAt).toLocaleDateString('es-MX'),id=safe(i.id),email=safe(i.email),roleCode=safe(i.roleCode),role=safe(roleLabels[i.roleCode]||i.roleCode||'Miembro');const row=document.createElement('article');row.className='invite-card';row.innerHTML=`<div><strong>${email}</strong><span>${role} · vence ${safe(exp)}</span></div>${canWrite?`<div class="invite-actions"><button class="secondary mini send-email-invite" data-email="${email}" data-role="${roleCode}" type="button">Reenviar correo</button><button class="secondary mini revoke-invite" data-id="${id}" type="button">Revocar</button></div>`:''}`;box.appendChild(row);});
+  box.querySelectorAll('.send-email-invite').forEach(b=>b.addEventListener('click',()=>sendEmailInvite(b.dataset.email,b.dataset.role)));
   box.querySelectorAll('.revoke-invite').forEach(b=>b.addEventListener('click',()=>revokeInvite(b.dataset.id)));
 }
 function openAccess(id){
@@ -168,8 +172,20 @@ async function copyStaffCredential(){
 }
 async function createInvite(e){
   e.preventDefault();msg('inviteMessage');const btn=$('sendInvite');btn.disabled=true;
-  try{await rpc('v2_create_invitation',{organization_id:ctx.organization_id,email:$('inviteEmail').value.trim(),role_code:$('inviteRole').value});e.target.reset();$('inviteRole').value='president';await load();msg('inviteMessage','Invitación creada. Debe registrarse con ese mismo correo dentro de 7 días.','success');}
-  catch(err){msg('inviteMessage',friendly(err));}finally{btn.disabled=!canWrite;}
+  try{
+    await invokeStaff({action:'send_email_invite',email:$('inviteEmail').value.trim(),role_code:$('inviteRole').value});
+    e.target.reset();$('inviteRole').value='president';await load();
+    msg('inviteMessage','Correo enviado. Pídele que revise también Spam o No deseado.','success');
+  }catch(err){msg('inviteMessage',friendly(err));}
+  finally{btn.disabled=!canWrite;}
+}
+async function sendEmailInvite(email,roleCode){
+  msg('inviteMessage');
+  try{
+    await invokeStaff({action:'send_email_invite',email,role_code:roleCode});
+    await load();msg('inviteMessage',`Correo enviado a ${email}. Revisa también Spam o No deseado.`,'success');
+    $('inviteMessage').scrollIntoView({behavior:'smooth',block:'center'});
+  }catch(err){msg('inviteMessage',friendly(err));}
 }
 async function updateMember(id,roleCode,active){
   const m=members.find(x=>x.membershipId===id);if(!m)return;

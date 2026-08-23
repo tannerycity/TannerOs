@@ -5,7 +5,7 @@
 - Asunto: `Bienvenido al vestidor · Tannery City`
 - Template: `supabase/templates/invite.html`
 - Remitente recomendado: `Tannery City <acceso@tannerycity.com>`
-- Dominio de envío recomendado: `acceso.tannerycity.com`
+- Dominio de envío por verificar: `tannerycity.com`
 
 El template conserva `{{ .ConfirmationURL }}` y usa `{{ .Data.role_label }}`, enviado desde la función protegida `staff-access`.
 

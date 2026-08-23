@@ -13,3 +13,5 @@
 .member-actions{flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:1100px){.users-grid{grid-template-columns:1fr 1fr}.users-grid>.panel:last-child{grid-column:1/-1}}
 @media(max-width:840px){.users-grid{grid-template-columns:1fr}.users-grid>.panel:last-child{grid-column:auto}}
+.invite-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+@media(max-width:600px){.invite-actions{justify-content:stretch}.invite-actions button{flex:1}}

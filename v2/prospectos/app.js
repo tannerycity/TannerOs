@@ -27,6 +27,8 @@ function fmtDateTime(v){if(!v)return '—';return new Intl.DateTimeFormat('es-MX
 function localDateTimeValue(v){const d=v?new Date(v):new Date();const z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;}
 function todayLocal(){const d=new Date(),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;}
 function nameOf(p){return [p.first_name,p.last_name].filter(Boolean).join(' ').trim();}
+function ageOf(p){if(!p.birth_date)return null;const birth=new Date(`${p.birth_date}T12:00:00`),now=new Date();let age=now.getFullYear()-birth.getFullYear();const month=now.getMonth()-birth.getMonth();if(month<0||(month===0&&now.getDate()<birth.getDate()))age--;return age>=0?age:null;}
+function initials(p){return nameOf(p).split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'TC';}
 function active(p){return !terminalStatuses.has(p.status);}
 function overdue(p){return active(p)&&p.next_action_at&&new Date(p.next_action_at).getTime()<Date.now();}
 function upcoming(p){if(!active(p)||!p.next_action_at)return false;const t=new Date(p.next_action_at).getTime(),now=Date.now();return t>=now&&t<=now+48*60*60*1000;}
@@ -72,8 +74,19 @@ function renderConvertCategories(){const sel=$('convertCategory');if(!sel)return
 async function loadProspects(){
   prospects=await rpc('v2_prospects',{organization_id:ctx.organization_id,status_filter:null});
   prospects=Array.isArray(prospects)?prospects:[];
+  await loadProspectPhotos();
   populateFilterOptions();
   applyFilters();
+}
+
+async function loadProspectPhotos(){
+  const paths=[...new Set(prospects.map(p=>p.photo_path).filter(Boolean))];
+  prospects.forEach(p=>p.photo_url=null);
+  if(!paths.length)return;
+  const {data,error}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths,900);
+  if(error)return;
+  const urls=new Map((data||[]).filter(x=>x.signedUrl).map(x=>[x.path,x.signedUrl]));
+  prospects.forEach(p=>{p.photo_url=urls.get(p.photo_path)||null;});
 }
 
 function populateFilterOptions(){
@@ -170,7 +183,10 @@ function applyFilters(){
   });
   renderKpis();renderList();
   $('resultCount').textContent=`${filtered.length} resultado${filtered.length===1?'':'s'}`;
+  updateFilterButton();
 }
+
+function updateFilterButton(){const button=$('toggleProspectFilters');if(!button)return;const ids=['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'],count=ids.filter(id=>$(id).value).length;button.querySelector('span').textContent=count?`Filtros · ${count}`:'Filtros';button.classList.toggle('active',count>0);}
 
 function makeBadge(text,cls='neutral'){const span=document.createElement('span');span.className=`lead-badge ${cls}`;span.textContent=text;return span;}
 function renderList(){
@@ -178,37 +194,44 @@ function renderList(){
   for(const p of filtered){
     const card=document.createElement('article');card.className=`prospect-row ${overdue(p)?'overdue':''} ${needsContact(p)?'new-lead':''}`;
     const clickArea=document.createElement('button');clickArea.type='button';clickArea.className='prospect-open';
+    const photo=document.createElement('span');photo.className=`prospect-card-photo ${p.photo_url?'has-photo':''}`;if(p.photo_url){const image=document.createElement('img');image.src=p.photo_url;image.alt=`Foto de ${nameOf(p)}`;photo.appendChild(image);}else{const mark=document.createElement('span'),missing=document.createElement('small');mark.textContent=initials(p);missing.textContent='Sin foto';photo.append(mark,missing);}
     const main=document.createElement('div');main.className='prospect-main';
     const strong=document.createElement('strong');strong.textContent=nameOf(p)||'Sin nombre';
-    const sub=document.createElement('span');sub.textContent=`${typeLabel[p.registration_type]||p.category_interest||'Prospecto'} · ${p.category_interest||'Sin categoría'} · ${p.phone||p.email||'Sin contacto'}`;
+    const sporting=document.createElement('div');sporting.className='prospect-sporting';
+    const category=document.createElement('b');category.textContent=p.category_interest||'Categoría por definir';
+    const age=ageOf(p),profile=document.createElement('span');profile.textContent=[typeLabel[p.registration_type]||'Prospecto',age!=null?`${age} años`:null,footLabel[p.dominant_foot]].filter(Boolean).join(' · ');
+    sporting.append(category,profile);
+    const contact=document.createElement('small');contact.textContent=[p.guardian_name,p.phone||p.email].filter(Boolean).join(' · ')||'Contacto pendiente';
     const badges=document.createElement('div');badges.className='lead-badges';
     badges.append(makeBadge(campaignName(p.source_campaign),'campaign'));
     if(p.source_channel||p.source)badges.append(makeBadge(sourceName(p.source_channel||p.source),'source'));
     if(needsContact(p))badges.append(makeBadge('Sin contactar','alert'));
     else if(overdue(p))badges.append(makeBadge('Seguimiento vencido','danger'));
     else if(upcoming(p))badges.append(makeBadge('Próxima acción','warning'));
-    main.append(strong,sub,badges);
+    main.append(strong,sporting,contact,badges);
     const meta=document.createElement('div');meta.className='prospect-meta';
     const pipe=document.createElement('span');pipe.className=`pipeline ${p.status}`;pipe.textContent=statusLabel[p.status]||p.status;
     const small=document.createElement('small');small.textContent=p.next_action_at?`Siguiente: ${fmtDateTime(p.next_action_at)}`:`Alta: ${fmtDate(p.created_at)}`;
     meta.append(pipe,small);
-    clickArea.append(main,meta);clickArea.addEventListener('click',()=>openProspect(p));
+    clickArea.append(photo,main,meta);clickArea.addEventListener('click',()=>openProspect(p));
     const actions=document.createElement('div');actions.className='lead-actions';
     const wa=waUrl(p.phone);
     if(wa){const a=document.createElement('a');a.className='whatsapp-action';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='WhatsApp';a.setAttribute('aria-label',`Abrir WhatsApp de ${nameOf(p)}`);actions.appendChild(a);}
-    const detail=document.createElement('button');detail.type='button';detail.className='secondary mini';detail.textContent='Abrir';detail.addEventListener('click',()=>openProspect(p));actions.appendChild(detail);
+    if(ctx.canPlayersWrite&&ctx.canProspectsWrite&&p.status==='trial_completed'){const convert=document.createElement('button');convert.type='button';convert.className='convert-card-action';convert.textContent='Dar de alta';convert.addEventListener('click',async()=>{await openProspect(p);$('conversionSection')?.scrollIntoView({behavior:'smooth',block:'start'});});actions.appendChild(convert);}
+    const detail=document.createElement('button');detail.type='button';detail.className='secondary mini';detail.textContent='Ver ficha';detail.addEventListener('click',()=>openProspect(p));actions.appendChild(detail);
     card.append(clickArea,actions);list.appendChild(card);
   }
 }
 
 function addDetail(container,label,value){const item=document.createElement('div');item.className='detail-item';const l=document.createElement('span');l.textContent=label;const v=document.createElement('strong');v.textContent=value||'—';item.append(l,v);container.appendChild(item);}
-async function renderProspectPhoto(p){const box=$('prospectPhotoBox');box.innerHTML='';if(!p.photo_path){const s=document.createElement('span');s.textContent='Sin foto';box.appendChild(s);return;}const {data,error}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(p.photo_path,600);if(error||!data?.signedUrl){const s=document.createElement('span');s.textContent='Foto protegida';box.appendChild(s);return;}const img=document.createElement('img');img.src=data.signedUrl;img.alt=`Foto de ${nameOf(p)}`;box.appendChild(img);}
+async function renderProspectPhoto(p){const box=$('prospectPhotoBox');box.innerHTML='';let url=p.photo_url;if(!url&&p.photo_path){const {data}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(p.photo_path,600);url=data?.signedUrl||null;}if(!url){const mark=document.createElement('strong'),label=document.createElement('small');mark.textContent=initials(p);label.textContent='Sin fotografía';box.append(mark,label);return;}const img=document.createElement('img');img.src=url;img.alt=`Foto de ${nameOf(p)}`;box.appendChild(img);}
 function renderProspectDetails(p){
   const box=$('prospectDetails');box.innerHTML='';
-  addDetail(box,'Tipo',typeLabel[p.registration_type]||'Registro');
+  const age=ageOf(p);addDetail(box,'Categoría',p.category_interest);addDetail(box,'Edad',age==null?null:`${age} años`);
+  addDetail(box,'Perfil',typeLabel[p.registration_type]||'Registro');addDetail(box,'¿A qué viene?',p.purpose);
+  addDetail(box,'Pierna',footLabel[p.dominant_foot]||p.dominant_foot);addDetail(box,'Escuela',p.school_name);
+  addDetail(box,'Tutor',p.guardian_name);addDetail(box,'WhatsApp',p.phone);addDetail(box,'Correo',p.email);
   addDetail(box,'Campaña',campaignName(p.source_campaign));
-  addDetail(box,'¿A qué viene?',p.purpose);addDetail(box,'Pierna',footLabel[p.dominant_foot]||p.dominant_foot);
-  addDetail(box,'Escuela',p.school_name);addDetail(box,'Tutor',p.guardian_name);addDetail(box,'WhatsApp',p.phone);addDetail(box,'Correo',p.email);
   addDetail(box,'Origen',p.source_channel||p.source);if(p.referral_name)addDetail(box,'Recomendó',p.referral_name);if(p.public_message)addDetail(box,'Mensaje',p.public_message);
   const badges=$('consentBadges');badges.innerHTML='';
   const data=document.createElement('span');data.className=`consent-badge ${p.data_consent?'ok':'warn'}`;data.textContent=p.data_consent?'Datos autorizados':'Consentimiento pendiente';
@@ -233,6 +256,22 @@ async function convertProspect(){if(!current||!ctx.canPlayersWrite||!ctx.canPros
 function num(id){const v=$(id).value;return v===''?null:Number(v);}
 async function saveScout(){if(!current||!ctx.canScoutingWrite)return;msg('scoutMessage');const btn=$('saveScout');btn.disabled=true;try{await rpc('v2_create_scouting_report',{organization_id:ctx.organization_id,prospect_id:current.id,observed_name:null,observed_at:$('scoutDate').value?new Date($('scoutDate').value).toISOString():new Date().toISOString(),observed_location:$('scoutLocation').value.trim()||null,player_position:$('scoutPosition').value.trim()||null,category:$('scoutCategory').value.trim()||null,technical_score:num('scoreTechnical'),physical_score:num('scorePhysical'),tactical_score:num('scoreTactical'),mental_score:num('scoreMental'),star_quality:$('starQuality').value.trim()||null,verdict:$('scoutVerdict').value.trim()||null,notes:$('scoutNotes').value.trim()||null});msg('scoutMessage','Visoría guardada.','success');['scoutPosition','scoutLocation','scoreTechnical','scorePhysical','scoreTactical','scoreMental','starQuality','scoutVerdict','scoutNotes'].forEach(id=>$(id).value='');await Promise.all([loadScoutingHistory(),loadProspects()]);}catch(e){msg('scoutMessage',friendly(e));}finally{btn.disabled=!ctx.canScoutingWrite;}}
 async function loadScoutingHistory(){const box=$('scoutingHistory');box.innerHTML='';if(!ctx.canScoutingRead){box.innerHTML='<div class="empty">Sin acceso a Scouting.</div>';return;}const rows=await rpc('v2_scouting_reports',{organization_id:ctx.organization_id,prospect_id:current.id});if(!rows?.length){box.innerHTML='<div class="empty">Sin visorías todavía.</div>';return;}for(const r of rows){const values=[r.technical_score,r.physical_score,r.tactical_score,r.mental_score].filter(v=>v!=null).map(Number);const avg=values.length?values.reduce((a,b)=>a+b,0)/values.length:0;const card=document.createElement('article');card.className='scout-card';const left=document.createElement('div'),right=document.createElement('div');const when=document.createElement('strong');when.textContent=fmtDateTime(r.observed_at);const where=document.createElement('span');where.textContent=`${r.observed_location||'Sin lugar'} · ${r.player_position||'Sin posición'}`;left.append(when,where);const score=document.createElement('b');score.textContent=avg?avg.toFixed(1):'—';const verdict=document.createElement('span');verdict.textContent=r.verdict||'Sin veredicto';right.append(score,verdict);card.append(left,right);box.appendChild(card);}}
+
+function mountCaptureUx(){
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/prospectos/ux.css?v=20260823a';document.head.appendChild(link);
+  const filters=document.querySelector('.campaign-filters'),head=document.querySelector('.campaign-panel-head');
+  if(filters&&head&&!$('prospectSearchBar')){
+    const toolbar=document.createElement('div');toolbar.className='prospect-tools';toolbar.innerHTML='<label id="prospectSearchBar" class="prospect-search-bar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span></label><button id="toggleProspectFilters" class="prospect-filter-toggle" type="button"><span>Filtros</span><i class="tos-icon tos-icon-chevron" aria-hidden="true"></i></button>';
+    toolbar.querySelector('label').appendChild($('searchProspect'));head.after(toolbar);toolbar.after(filters);
+    $('toggleProspectFilters').addEventListener('click',()=>{filters.classList.toggle('open');$('toggleProspectFilters').classList.toggle('open',filters.classList.contains('open'));});
+  }
+  const profileSection=$('prospectPhotoBox')?.closest('.drawer-section'),conversion=$('conversionSection');
+  if(profileSection&&conversion)profileSection.after(conversion);
+  conversion?.classList.add('conversion-feature');
+  updateFilterButton();
+}
+
+mountCaptureUx();
 
 for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).addEventListener('change',applyFilters);
 $('searchProspect').addEventListener('input',applyFilters);

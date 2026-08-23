@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07191e"><title>Usuarios · TannerOS 2.0</title>
-  <link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/usuarios/styles.css?v=20260823b">
+  <link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/usuarios/styles.css?v=20260823c">
 </head>
 <body>
 <main class="shell">
@@ -39,6 +39,13 @@
           <button id="sendInvite" class="primary span-2" type="submit">Enviar invitación por correo</button>
           <div id="inviteMessage" class="inline-message hidden span-2"></div>
         </form>
+        <section id="inviteLinkResult" class="credential-card hidden" aria-live="polite">
+          <div><div class="eyebrow">ENLACE DE INVITACIÓN</div><h3>Compártelo con esta persona</h3></div>
+          <div class="credential-row"><span>Correo</span><strong id="inviteLinkEmail"></strong></div>
+          <div class="credential-row"><span>Enlace seguro</span><code id="inviteLinkValue" class="invite-link-code"></code></div>
+          <button id="copyInviteLink" class="secondary" type="button">Copiar enlace</button>
+          <p>Este enlace permite entrar a la cuenta. No lo abras tú; envíalo de forma privada por WhatsApp o mensaje directo.</p>
+        </section>
         <div class="rule-box"><strong>¿Cuál uso?</strong><p>Sin correo crea acceso inmediato con contraseña temporal. Por correo conserva el flujo de invitación.</p></div>
       </article>
       <article class="panel">
@@ -51,5 +58,5 @@
 </main>
 <div id="accessBackdrop" class="drawer-backdrop hidden"></div><aside id="accessDrawer" class="access-drawer hidden" aria-hidden="true"><div class="drawer-head"><div><div class="eyebrow">PERMISOS POR USUARIO</div><h2 id="accessName">Usuario</h2><p id="accessMeta" class="muted"></p></div><button id="closeAccess" class="secondary mini" type="button">Cerrar</button></div><div id="ownerProtection" class="owner-protection hidden"><strong>Owner protegido</strong><p>La cuenta propietaria conserva sus accesos administrativos para evitar un bloqueo accidental.</p></div><div class="access-legend"><span><i class="dot role"></i> Del rol</span><span><i class="dot custom"></i> Personalizado</span></div><div class="access-table-head"><span>Módulo</span><span>Ver</span><span>Editar</span><span></span></div><div id="moduleAccessList" class="module-access-list"></div><div class="drawer-footer"><button id="resetAllModules" class="secondary" type="button">Restaurar todo al rol</button><div id="accessMessage" class="inline-message hidden"></div></div></aside>
 <script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/usuarios/app.js?v=20260823b"></script>
+<script type="module" src="/v2/usuarios/app.js?v=20260823c"></script>
 </body></html>

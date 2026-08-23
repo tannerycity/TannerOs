@@ -1,6 +1,6 @@
 import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth} from '/v2/shell.js';
 
-const views=['authView','pendingView','appView'];
+const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
 let authMode='signin';
 let ctx=null;
@@ -15,7 +15,7 @@ const roleProfiles={
   Academia:{subtitle:'Academias, asistencia y calendario',focus:'Academia hoy'},
   Contabilidad:{subtitle:'Cobranza, pagos y caja del club',focus:'Pulso financiero'},
   Taquilla:{subtitle:'Cobros, pedidos y atención a familias',focus:'Caja y atención'},
-  'La Quinta Fuerza':{subtitle:'Marcas, acuerdos y activaciones',focus:'Ruta de marcas'},
+  Marketing:{subtitle:'Marcas, acuerdos y activaciones',focus:'Ruta de marcas'},
   Scouting:{subtitle:'El próximo Tanner está ahí afuera',focus:'Talento en el radar'},
   Tanner:{subtitle:'Tu club, tu agenda y tu camino Tanner',focus:'Tu semana'}
 };
@@ -54,9 +54,10 @@ function setMessage(text='',type='error'){
   box.textContent=text;box.dataset.type=type;box.classList.toggle('hidden',!text);
 }
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function credentialEmail(value){const credential=String(value||'').trim().toLowerCase();if(credential.includes('@'))return credential;return `${credential.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_')}@staff.tanneros.invalid`;}
 function friendlyError(error){
   const raw=String(error?.message||error||'Ocurrió un error.');
-  if(/invalid login credentials/i.test(raw))return 'Correo o contraseña incorrectos.';
+  if(/invalid login credentials/i.test(raw))return 'Usuario, correo o contraseña incorrectos.';
   if(/email not confirmed/i.test(raw))return 'Confirma tu correo antes de entrar.';
   if(/user already registered/i.test(raw))return 'Ese correo ya tiene una cuenta. Usa “Entrar”.';
   if(/rate limit/i.test(raw))return 'Demasiados intentos. Intenta de nuevo en unos minutos.';
@@ -86,6 +87,8 @@ function switchAuthMode(mode){
   $('signUpTab')?.classList.toggle('active',signup);
   $('nameField')?.classList.toggle('hidden',!signup);
   if($('authSubmit'))$('authSubmit').textContent=signup?'Crear cuenta':'Entrar';
+  const credential=$('email');if(credential){credential.type=signup?'email':'text';credential.inputMode='email';credential.autocomplete=signup?'email':'username';credential.placeholder=signup?'tu@correo.com':'Ej. brandon';}
+  if($('credentialLabel'))$('credentialLabel').textContent=signup?'Correo de la invitación':'Usuario o correo';
   $('password')?.setAttribute('autocomplete',signup?'new-password':'current-password');
   setMessage();$('resendConfirmation')?.classList.add('hidden');
 }
@@ -96,11 +99,12 @@ function installAuthExtras(){
   button.id='forgotPassword';button.type='button';button.className='auth-link-button';button.textContent='Olvidé mi contraseña';
   form.after(button);
   button.addEventListener('click',async()=>{
-    const email=$('email')?.value.trim();
-    if(!email){setMessage('Escribe primero tu correo.');$('email')?.focus();return;}
+    const credential=$('email')?.value.trim();
+    if(!credential){setMessage('Escribe primero tu usuario o correo.');$('email')?.focus();return;}
+    if(!credential.includes('@')){setMessage('Pide a Presidencia una contraseña temporal nueva para tu usuario.');return;}
     button.disabled=true;
     try{
-      const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}/?recovery=1`});
+      const {error}=await supabase.auth.resetPasswordForEmail(credential.toLowerCase(),{redirectTo:`${location.origin}/?recovery=1`});
       if(error)throw error;setMessage('Te enviamos un correo para cambiar tu contraseña.','success');
     }catch(error){setMessage(friendlyError(error));}
     finally{button.disabled=false;}
@@ -110,9 +114,9 @@ function installAuthExtras(){
 async function handleAuthSubmit(event){
   event.preventDefault();setMessage();
   const emailInput=$('email'),passwordInput=$('password'),displayName=$('displayName')?.value.trim();
-  const email=emailInput?.value.trim(),password=passwordInput?.value||'';
-  if(!email){setMessage('Escribe tu correo.');emailInput?.focus();return;}
-  if(!emailInput?.validity?.valid){setMessage('Escribe un correo válido.');emailInput?.focus();return;}
+  const credential=emailInput?.value.trim(),email=credentialEmail(credential),password=passwordInput?.value||'';
+  if(!credential){setMessage(authMode==='signup'?'Escribe el correo de la invitación.':'Escribe tu usuario o correo.');emailInput?.focus();return;}
+  if(authMode==='signup'&&!credential.includes('@')){setMessage('Para aceptar una invitación escribe el correo completo.');emailInput?.focus();return;}
   if(password.length<8){setMessage('La contraseña debe tener al menos 8 caracteres.');passwordInput?.focus();return;}
   const btn=$('authSubmit');btn.disabled=true;btn.textContent=authMode==='signup'?'Creando cuenta…':'Entrando…';
   try{
@@ -134,7 +138,7 @@ async function handleAuthSubmit(event){
 }
 
 async function resendConfirmation(){
-  const email=$('email')?.value.trim();if(!email){setMessage('Escribe primero el correo.');return;}
+  const email=$('email')?.value.trim();if(!email||!email.includes('@')){setMessage('Escribe primero el correo completo de la invitación.');return;}
   const btn=$('resendConfirmation');btn.disabled=true;
   try{
     const {error}=await supabase.auth.resend({type:'signup',email,options:{emailRedirectTo:`${location.origin}/`}});
@@ -160,6 +164,18 @@ async function renderRecovery(){
   });
 }
 
+async function handleForcedPassword(event){
+  event.preventDefault();const password=$('forceNewPassword')?.value||'',confirmPassword=$('forceConfirmPassword')?.value||'',message=$('forcePasswordMessage'),button=$('forcePasswordSubmit');
+  const show=(text,type='error')=>{message.textContent=text;message.dataset.type=type;message.classList.toggle('hidden',!text);};
+  show();if(password.length<10){show('Usa al menos 10 caracteres.');return;}if(password!==confirmPassword){show('Las contraseñas no coinciden.');return;}
+  button.disabled=true;button.textContent='Guardando…';
+  try{
+    const {error:updateError}=await supabase.auth.updateUser({password});if(updateError)throw updateError;
+    const {data,error}=await supabase.functions.invoke('staff-access',{body:{action:'complete_password_change'}});if(error)throw error;if(data?.error)throw new Error(data.error);
+    await supabase.auth.refreshSession();$('forcePasswordForm').reset();show('Contraseña actualizada. Entrando…','success');ctx=null;setTimeout(()=>loadAuthenticatedApp().catch(console.error),350);
+  }catch(error){show(friendlyError(error));button.disabled=false;button.textContent='Guardar y entrar';}
+}
+
 function wireAuth(){
   if(document.documentElement.dataset.tosAuthWired==='1')return;
   document.documentElement.dataset.tosAuthWired='1';
@@ -169,6 +185,7 @@ function wireAuth(){
   $('resendConfirmation')?.addEventListener('click',resendConfirmation);
   $('refreshAccess')?.addEventListener('click',()=>loadAuthenticatedApp());
   $('pendingSignOut')?.addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});
+  $('forcePasswordForm')?.addEventListener('submit',handleForcedPassword);
   installAuthExtras();
 }
 
@@ -200,6 +217,7 @@ async function loadAuthenticatedApp(){
   bootPromise=(async()=>{
     const {data:{user}}=await supabase.auth.getUser();
     if(!user){ctx=null;navigation=[];showView('authView');document.body.classList.remove('tos-body');installAuthExtras();return;}
+    if(user.app_metadata?.must_change_password){showView('forcePasswordView');document.body.classList.remove('tos-body');return;}
     const rows=await rpc('v2_my_context');
     if(!rows?.length){
       $('pendingText').textContent=`La cuenta ${user.email||'actual'} ya existe. Falta vincularla a Tannery City.`;

@@ -15,3 +15,4 @@
 @media(max-width:840px){.users-grid{grid-template-columns:1fr}.users-grid>.panel:last-child{grid-column:auto}}
 .invite-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 @media(max-width:600px){.invite-actions{justify-content:stretch}.invite-actions button{flex:1}}
+.invite-link-code{display:block;max-height:96px;overflow:auto;word-break:break-all;line-height:1.35}

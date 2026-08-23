@@ -39,6 +39,7 @@ async function uploadScoutPhoto(reportId,file){const prepared=await preparePhoto
 async function loadPhotos(){const rows=await rpc('v2_scouting_photos',{organization_id:ctx.organization_id})||[],byId=new Map(rows.map(x=>[x.report_id,x.photo_path]));await Promise.all(reports.map(async r=>{r.photo_path=byId.get(r.id)||null;r.photo_url=null;if(!r.photo_path)return;const {data}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(r.photo_path,600);r.photo_url=data?.signedUrl||null;}));}
 function setPhotoPreview(file){pendingPhoto=file||null;if(pendingPreviewUrl)URL.revokeObjectURL(pendingPreviewUrl);pendingPreviewUrl=file?URL.createObjectURL(file):null;const box=$('scoutPhotoPreview');box.innerHTML=pendingPreviewUrl?`<img src="${safe(pendingPreviewUrl)}" alt="Vista previa del jugador">`:'<span class="tos-icon tos-icon-camera" aria-hidden="true"></span><strong>Agregar foto</strong><small>Cámara o galería</small>';}
 function renderDetailPhoto(r){const box=$('detailPhoto');if(!box)return;box.innerHTML=r.photo_url?`<img src="${safe(r.photo_url)}" alt="Foto de ${safe(r.observed_name||'jugador')}">`:`<span>${safe(initials(r.observed_name))}</span>`;$('changeScoutPhoto').classList.toggle('hidden',!canWrite);}
+function toast(text){const el=$('scoutToast');if(!el)return;el.textContent=text;el.classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('visible'),3200);}
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -109,6 +110,7 @@ function openCreate(){
   current=null;
   $('drawerEyebrow').textContent='NUEVA VISORÍA';$('drawerName').textContent='Detectar talento';$('drawerMeta').textContent='Nueva observación en cancha';
   $('createSection').classList.remove('hidden');$('detailSection').classList.add('hidden');$('followupSection').classList.add('hidden');
+  $('deleteSection')?.classList.add('hidden');
   ['observedName','observedLocation','playerPosition','category','technicalScore','physicalScore','tacticalScore','mentalScore','starQuality','createVerdict','createNotes'].forEach(id=>$(id).value='');
   selectedQuality='';document.querySelectorAll('[data-score],[data-quality],[data-decision]').forEach(b=>b.classList.remove('selected'));$('quickDecision').value='follow';$('createVerdict').value='Volver a observar';document.querySelector('[data-decision="follow"]')?.classList.add('selected');
   setPhotoPreview(null);
@@ -132,6 +134,7 @@ async function openReport(id){
   const r=reports.find(x=>x.id===id);if(!r)return;current=r;
   $('drawerEyebrow').textContent='VISORÍA';$('drawerName').textContent=r.observed_name||'Sin nombre';$('drawerMeta').textContent=`${fmtDate(r.observed_at)} · ${r.status==='open'?'Abierta':'Cerrada'}`;
   $('createSection').classList.add('hidden');$('detailSection').classList.remove('hidden');$('followupSection').classList.remove('hidden');
+  $('deleteSection')?.classList.toggle('hidden',!canWrite);$('deleteConfirm')?.classList.add('hidden');$('deleteScout')?.classList.remove('hidden');
   scoreCards(r);facts(r);
   renderDetailPhoto(r);
   $('reportStatus').value=r.status||'open';$('interestLevel').value=['alto','medio','bajo'].includes(String(r.interest_level||'').toLowerCase())?String(r.interest_level).toLowerCase():'';
@@ -142,6 +145,18 @@ async function openReport(id){
 
 function openDrawer(){$('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');$('drawer').setAttribute('aria-hidden','false');}
 function closeDrawer(){current=null;$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');$('drawer').setAttribute('aria-hidden','true');message('createMessage');message('followupMessage');}
+
+async function deleteScout(){
+  if(!current||!canWrite)return;
+  const report=current,button=$('confirmDeleteScout');button.disabled=true;button.textContent='Eliminando…';
+  try{
+    const result=await rpc('v2_delete_scouting_report',{organization_id:ctx.organization_id,report_id:report.id});
+    closeDrawer();await load();
+    if(result?.photoPath&&result?.photoBucket===PHOTO_BUCKET)await supabase.storage.from(PHOTO_BUCKET).remove([result.photoPath]);
+    toast(`${report.observed_name||'La visoría'} se eliminó del radar.`);
+  }catch(e){message('deleteMessage',e.message||'No pudimos eliminar la visoría.');}
+  finally{button.disabled=false;button.textContent='Sí, eliminar visoría';}
+}
 
 async function saveScout(){
   if(!canWrite)return;
@@ -171,7 +186,7 @@ async function saveFollowup(){
 }
 
 function mountPhotoUi(){
-  if(!document.querySelector('link[href="/v2/scouting/photos.css"]')){const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/scouting/photos.css?v=20260823a';document.head.appendChild(link);}
+  if(!document.querySelector('link[href^="/v2/scouting/photos.css"]')){const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/scouting/photos.css?v=20260823b';document.head.appendChild(link);}
   const identity=$('observedName')?.closest('.identity-grid');
   if(identity&&!$('scoutPhotoPreview')){
     const block=document.createElement('div');block.className='scout-photo-capture';block.innerHTML=`<button id="scoutPhotoPreview" class="scout-photo-preview" type="button"><span class="tos-icon tos-icon-camera" aria-hidden="true"></span><strong>Agregar foto</strong><small>Abrir cámara</small></button><div><strong>Foto del jugador</strong><small>Acércate lo suficiente para reconocerlo después.</small><button id="chooseScoutPhoto" class="secondary mini" type="button">Elegir de galería</button></div><input id="scoutPhotoCamera" type="file" accept="image/*" capture="environment" hidden><input id="scoutPhotoUpload" type="file" accept="image/*" hidden>`;identity.before(block);
@@ -180,8 +195,14 @@ function mountPhotoUi(){
   if(detail&&!$('detailPhoto')){
     const block=document.createElement('div');block.className='detail-photo-wrap';block.innerHTML=`<div id="detailPhoto" class="detail-photo"><span>TC</span></div><button id="changeScoutPhoto" class="secondary mini" type="button">Cambiar foto</button><input id="existingScoutPhoto" type="file" accept="image/*" capture="environment" hidden>`;detail.insertBefore(block,detail.querySelector('.eyebrow'));
   }
+  const followup=$('followupSection');
+  if(followup&&!$('deleteSection')){
+    const section=document.createElement('section');section.id='deleteSection';section.className='drawer-section scouting-danger hidden';section.innerHTML=`<button id="deleteScout" class="delete-scout" type="button"><span class="tos-icon tos-icon-trash" aria-hidden="true"></span>Eliminar visoría</button><div id="deleteConfirm" class="delete-confirm hidden"><strong>¿Eliminar esta visoría?</strong><p>Se borrarán el registro y su foto. Si ya se convirtió en Tanner, su ficha de jugador no se eliminará.</p><div><button id="cancelDeleteScout" class="secondary" type="button">Cancelar</button><button id="confirmDeleteScout" class="danger-action" type="button">Sí, eliminar visoría</button></div><div id="deleteMessage" class="inline-message hidden"></div></div>`;followup.after(section);
+  }
+  if(!$('scoutToast')){const notice=document.createElement('div');notice.id='scoutToast';notice.className='scout-toast';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');document.body.appendChild(notice);}
 }
 mountPhotoUi();
 
+$('deleteScout').addEventListener('click',()=>{$('deleteScout').classList.add('hidden');$('deleteConfirm').classList.remove('hidden');$('deleteConfirm').scrollIntoView({behavior:'smooth',block:'nearest'});message('deleteMessage');});$('cancelDeleteScout').addEventListener('click',()=>{$('deleteConfirm').classList.add('hidden');$('deleteScout').classList.remove('hidden');message('deleteMessage');});$('confirmDeleteScout').addEventListener('click',deleteScout);
 $('newScout').addEventListener('click',openCreate);$('statusFilter').addEventListener('change',renderList);$('pipelineFilter').addEventListener('change',renderList);$('searchScout').addEventListener('input',renderList);document.querySelectorAll('[data-pipeline]').forEach(b=>b.addEventListener('click',()=>{$('pipelineFilter').value=b.dataset.pipeline;renderList();document.querySelector('.scout-list')?.scrollIntoView({behavior:'smooth',block:'start'});}));document.querySelectorAll('[data-score]').forEach(b=>b.addEventListener('click',()=>{const group=b.closest('[data-score-group]'),input=$(group.dataset.scoreGroup);input.value=b.dataset.score;group.querySelectorAll('[data-score]').forEach(x=>x.classList.toggle('selected',x===b));group.querySelector('.score-reading').textContent=scoreWord(b.dataset.score);}));document.querySelectorAll('[data-quality]').forEach(b=>b.addEventListener('click',()=>{selectedQuality=b.dataset.quality;$('starQuality').value=selectedQuality;document.querySelectorAll('[data-quality]').forEach(x=>x.classList.toggle('selected',x===b));}));document.querySelectorAll('[data-decision]').forEach(b=>b.addEventListener('click',()=>{$('quickDecision').value=b.dataset.decision;document.querySelectorAll('[data-decision]').forEach(x=>x.classList.toggle('selected',x===b));$('createVerdict').value=({follow:'Volver a observar',invite:'Invitar a prueba',reject:'No continuar'})[b.dataset.decision];}));$('scoutPhotoPreview').addEventListener('click',()=>$('scoutPhotoCamera').click());$('chooseScoutPhoto').addEventListener('click',()=>$('scoutPhotoUpload').click());['scoutPhotoCamera','scoutPhotoUpload'].forEach(id=>$(id).addEventListener('change',e=>{const file=e.target.files?.[0];if(file)setPhotoPreview(file);e.target.value='';}));$('changeScoutPhoto').addEventListener('click',()=>$('existingScoutPhoto').click());$('existingScoutPhoto').addEventListener('change',async e=>{const file=e.target.files?.[0],id=current?.id;e.target.value='';if(!file||!id)return;const btn=$('changeScoutPhoto');btn.disabled=true;btn.textContent='Subiendo…';try{await uploadScoutPhoto(id,file);await load();await openReport(id);message('followupMessage','Foto actualizada.','success');}catch(error){message('followupMessage',error.message||'No pudimos guardar la foto.');}finally{btn.disabled=false;btn.textContent='Cambiar foto';}});$('closeDrawer').addEventListener('click',closeDrawer);$('backdrop').addEventListener('click',closeDrawer);$('saveScout').addEventListener('click',saveScout);$('saveFollowup').addEventListener('click',saveFollowup);
 boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Scouting.';show('deniedView');});

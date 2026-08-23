@@ -21,6 +21,7 @@ const ICONS={
   academy:'<path d="m3 10 9-5 9 5-9 5-9-5Z"/><path d="M7 12v5c3 2 7 2 10 0v-5"/>',
   target:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  chevronRight:'<path d="m9 18 6-6-6-6"/>',
   spark:'<path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="3"/>',
   bag:'<path d="M6 8h12l1 13H5L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
   box:'<path d="m21 8-9 5-9-5 9-5 9 5Z"/><path d="m3 8 9 5 9-5v9l-9 5-9-5V8Z"/>',
@@ -30,7 +31,7 @@ const ICONS={
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 20.9V21h-4v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/>',
   bug:'<path d="M8 2h8"/><rect x="6" y="5" width="12" height="15" rx="6"/><path d="M3 9h3"/><path d="M18 9h3"/><path d="M3 15h3"/><path d="M18 15h3"/>'
 };
-const icon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]||ICONS.home}</svg>`;
+export const shellIcon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]||ICONS.home}</svg>`;
 
 export const navItems=[
   {code:'inicio',label:'Inicio',href:'/',group:'main',icon:'home'},
@@ -70,7 +71,7 @@ function renderNavigation(nav,navigation,active){
     const items=navItems.filter(item=>item.group===group&&itemReadable(navigation,item));if(!items.length)return;
     const section=document.createElement('div');section.className=`tos-nav-section tos-nav-section-${group}`;
     if(groupLabels[group]){const title=document.createElement('div');title.className='tos-nav-section-label';title.textContent=groupLabels[group];section.appendChild(title);}
-    items.forEach(item=>{const a=document.createElement('a');a.href=item.href;a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${icon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
+    items.forEach(item=>{const a=document.createElement('a');a.href=item.href;a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
     nav.appendChild(section);
   });
 }

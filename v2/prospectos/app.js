@@ -211,7 +211,7 @@ function renderProspectDetails(p){
   addDetail(box,'Escuela',p.school_name);addDetail(box,'Tutor',p.guardian_name);addDetail(box,'WhatsApp',p.phone);addDetail(box,'Correo',p.email);
   addDetail(box,'Origen',p.source_channel||p.source);if(p.referral_name)addDetail(box,'Recomendó',p.referral_name);if(p.public_message)addDetail(box,'Mensaje',p.public_message);
   const badges=$('consentBadges');badges.innerHTML='';
-  const data=document.createElement('span');data.className=`consent-badge ${p.data_consent?'ok':'warn'}`;data.textContent=p.data_consent?'Datos autorizados':'Sin consentimiento v2';
+  const data=document.createElement('span');data.className=`consent-badge ${p.data_consent?'ok':'warn'}`;data.textContent=p.data_consent?'Datos autorizados':'Consentimiento pendiente';
   const image=document.createElement('span');image.className=`consent-badge ${p.image_consent?'ok':'neutral'}`;image.textContent=p.image_consent?'Imagen autorizada':'Imagen solo control interno';
   const version=document.createElement('span');version.className='consent-badge neutral';version.textContent=p.privacy_notice_version?`Aviso ${p.privacy_notice_version}`:'Registro anterior';
   badges.append(data,image,version);

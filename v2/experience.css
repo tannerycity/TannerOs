@@ -30,22 +30,22 @@
 body.tos-navigating:before{content:"";position:fixed;top:0;left:0;height:3px;width:35%;z-index:9999;background:var(--tos-gold,#c6ac5c);animation:tosProgress .7s ease-in-out infinite;box-shadow:0 0 12px color-mix(in srgb,var(--tos-gold,#c6ac5c) 65%,transparent)}
 @keyframes tosProgress{0%{transform:translateX(-100%);width:28%}50%{width:52%}100%{transform:translateX(320%);width:28%}}
 
-.tos-experience-legacy .tos-experience-sidebar{position:fixed!important;left:0;top:0;height:100dvh;width:278px;z-index:120}
-.tos-experience-legacy .tos-experience-topbar{position:fixed!important;left:278px;right:0;top:0;z-index:110;grid-template-columns:minmax(170px,1fr) minmax(320px,540px) minmax(180px,1fr)}
-.tos-experience-legacy main.shell{margin-left:278px;padding-top:76px;min-width:0}
-.tos-experience-legacy .app-wrap>.topbar{display:none!important}
-.tos-experience-legacy .center-card{margin-top:9vh}
-.tos-experience-legacy .tos-experience-backdrop{display:none}
-.tos-experience-legacy .app-wrap{padding-top:22px}
+.tos-unified-shell .tos-experience-sidebar{position:fixed!important;left:0;top:0;height:100dvh;width:278px;z-index:120}
+.tos-unified-shell .tos-experience-topbar{position:fixed!important;left:278px;right:0;top:0;z-index:110;grid-template-columns:minmax(170px,1fr) minmax(320px,540px) minmax(180px,1fr)}
+.tos-unified-shell main.shell{margin-left:278px;padding-top:76px;min-width:0}
+.tos-unified-shell .app-wrap>.topbar{display:none!important}
+.tos-unified-shell .center-card{margin-top:9vh}
+.tos-unified-shell .tos-experience-backdrop{display:none}
+.tos-unified-shell .app-wrap{padding-top:22px}
 
 .tos-mobile-dock{display:none;position:fixed;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));height:62px;z-index:150;background:rgba(3,47,59,.95);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:7px 9px;box-shadow:0 18px 40px rgba(3,47,59,.28);backdrop-filter:blur(18px)}
 .tos-mobile-dock a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#dff1f3;text-decoration:none;font-size:9px;font-weight:850;border-radius:12px}.tos-mobile-dock a:active{background:rgba(255,255,255,.08)}.tos-mobile-dock svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
-@media(max-width:1050px){.tos-experience-legacy .tos-experience-sidebar{width:235px}.tos-experience-legacy .tos-experience-topbar{left:235px}.tos-experience-legacy main.shell{margin-left:235px}}
+@media(max-width:1050px){.tos-unified-shell .tos-experience-sidebar{width:235px}.tos-unified-shell .tos-experience-topbar{left:235px}.tos-unified-shell main.shell{margin-left:235px}}
 @media(max-width:820px){
-  .tos-experience-legacy .tos-experience-sidebar{left:-285px;width:278px;transition:left .2s ease}.tos-experience-legacy.tos-nav-open .tos-experience-sidebar{left:0}.tos-experience-legacy.tos-nav-open .tos-experience-backdrop{display:block!important;position:fixed;inset:0;background:rgba(0,20,27,.45);z-index:115}
-  .tos-experience-legacy .tos-experience-topbar{left:0;right:0;grid-template-columns:auto 1fr auto}.tos-experience-legacy main.shell{margin-left:0;padding-top:126px;padding-bottom:80px}
-  .tos-experience-legacy .tos-experience-search{grid-column:1/-1;grid-row:2;margin-top:8px}.tos-experience-legacy .tos-top-right{display:none}
+  .tos-unified-shell .tos-experience-sidebar{left:-285px;width:278px;transition:left .2s ease}.tos-unified-shell.tos-nav-open .tos-experience-sidebar{left:0}.tos-unified-shell.tos-nav-open .tos-experience-backdrop{display:block!important;position:fixed;inset:0;background:rgba(0,20,27,.45);z-index:115}
+  .tos-unified-shell .tos-experience-topbar{left:0;right:0;grid-template-columns:auto 1fr auto}.tos-unified-shell main.shell{margin-left:0;padding-top:126px;padding-bottom:80px}
+  .tos-unified-shell .tos-experience-search{grid-column:1/-1;grid-row:2;margin-top:8px}.tos-unified-shell .tos-top-right{display:none}
   .tos-mobile-dock{display:flex}
   .tos-content,.app-wrap{padding-bottom:90px!important}
   .tos-back-button span{display:none}.tos-back-button{width:38px;padding:0;justify-content:center}

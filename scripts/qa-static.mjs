@@ -66,7 +66,7 @@ for(const [route,destination] of Object.entries(routeContract)){
 for(const rule of redirects){if(String(rule.source||'').startsWith('/v2/')&&String(rule.source||'').includes(':path*'))errors.push(`Redirect legacy captura assets y puede provocar 404: ${rule.source}`);}
 for(const header of ['Content-Security-Policy','X-Content-Type-Options','X-Frame-Options','Referrer-Policy','Permissions-Policy'])if(!vercelRaw.includes(header))errors.push(`Falta header de seguridad: ${header}`);
 
-const qa=fs.readFileSync('v2/qa/index.html','utf8');for(const id of ['runSmoke','runCritical','runFull','resultRows','historyList'])if(!qa.includes(`id="${id}"`))errors.push(`QA Center incompleto: falta #${id}`);
+const qa=fs.readFileSync('v2/qa/index.html','utf8');for(const id of ['runSmoke','runCritical','runFull','resultRows','historyList'])if(!qa.includes(`id="${id}"`))errors.push(`Calidad incompleto: falta #${id}`);
 const publicForm=fs.readFileSync('public-form.js','utf8');for(const route of ['/registro/porteros','/registro/jugadores','/registro/scouting','/pedido','/programas'])if(!publicForm.includes(route))errors.push(`public-form.js no reconoce ${route}`);
 
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}

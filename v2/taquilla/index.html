@@ -8,19 +8,19 @@
   <link rel="stylesheet" href="/v2/styles.css">
   <link rel="stylesheet" href="/v2/shell.css">
   <link rel="stylesheet" href="/v2/taquilla/styles.css">
-</head>
+<link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260823a"><link rel="stylesheet" href="/polish.css?v=20260823a"></head>
 <body class="tos-body">
   <div class="tos-layout">
     <aside class="tos-sidebar">
-      <div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS v2.0</small></div></div>
+      <div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS</small></div></div>
       <nav id="sidebarNav" class="tos-nav"></nav>
       <div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div>
     </aside>
     <div id="shellNavBackdrop" class="tos-nav-backdrop"></div>
     <div class="tos-main">
       <header class="tos-topbar">
-        <div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button">☰</button><span id="shellTitle" class="tos-page-title">Taquilla</span></div>
-        <div class="tos-search-wrap"><div class="tos-search-box"><span>⌕</span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div>
+        <div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">Taquilla</span></div>
+        <div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div>
         <div class="tos-top-right"><span id="shellHealth" class="tos-health" data-state="ok"><i></i><span>Todo en orden</span></span><span id="shellRole" class="tos-role">Rol</span></div>
       </header>
       <main class="tos-content cashier-page">
@@ -52,7 +52,7 @@
         </section>
 
         <section class="cashier-panel">
-          <div class="cashier-panel-head"><div><h2>Últimos movimientos</h2><p>Historial operativo. En V2 los movimientos se corrigen con anulación o reembolso; no se borran.</p></div><label class="movement-filter">Estado<select id="movementStatus"><option value="posted">Publicados</option><option value="all">Todos</option><option value="void">Anulados</option></select></label></div>
+          <div class="cashier-panel-head"><div><h2>Últimos movimientos</h2><p>Los movimientos se corrigen con una anulación o un reembolso para conservar el historial.</p></div><label class="movement-filter">Estado<select id="movementStatus"><option value="posted">Publicados</option><option value="all">Todos</option><option value="void">Anulados</option></select></label></div>
           <div class="cashier-table-wrap"><table class="cashier-table movements"><thead><tr><th>Fecha</th><th>Movimiento</th><th>Categoría</th><th>Concepto</th><th>Quién</th><th>Método</th><th>Monto</th><th>Estado</th></tr></thead><tbody id="movementRows"></tbody></table></div>
           <div id="movementsEmpty" class="cashier-empty hidden">Sin movimientos.</div>
         </section>
@@ -66,7 +66,7 @@
     <div class="cashier-tabs"><button type="button" class="active" data-mode="player">Tanner / mensualidad</button><button type="button" data-mode="general">Otro ingreso</button></div>
     <form id="collectForm" class="cashier-form">
       <div id="playerFields" class="cashier-form-grid">
-        <label class="wide">Tanner<select id="collectPlayer"><option value="">Selecciona un Tanner</option></select></label>
+        <label class="wide">Tanner<select id="collectPlayer" data-smart-search data-search-placeholder="Escribe el nombre del Tanner"><option value="">Selecciona un Tanner</option></select></label>
         <label>Monto<input id="collectAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
         <label>Fecha<input id="collectDate" type="date"></label>
         <label>Método<select id="collectMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>

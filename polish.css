@@ -1,0 +1,28 @@
+/* Lenguaje visual compartido: directo, calmado y fácil de tocar. */
+:root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif!important;--ink:#173d4c;--teal:#17677a;--gold:#a78e49;--line:#e3e4e1;--muted:#6f777b;--card:#fff;--tos-gold:#a78e49;--tos-bg:#f6f6f4;--tos-line:#e3e4e1;--tos-muted:#6f777b;color:#17262c;background:#f6f6f4}
+body,body.tos-body{background:#f6f6f4;color:#17262c}
+.eyebrow{letter-spacing:.035em!important;text-transform:none!important;color:#647378;font-weight:750!important}
+.hero,.tos-welcome{background:#fff!important;color:#17262c!important;border:1px solid var(--line)!important;box-shadow:0 7px 24px rgba(23,61,76,.04)!important;padding:26px!important;border-radius:22px!important}
+.hero .muted,.tos-welcome p{color:var(--muted)!important}
+.hero .health{background:#f1f5f4;color:#35565f}
+.panel,.kpis article,.drawer-section,.drawer-kpis article,.auth-card,.center-card,.card,.subcard,.program-card,.tos-panel,.tos-kpi{background:#fff;border-color:var(--line)!important;box-shadow:0 5px 18px rgba(23,61,76,.035)!important}
+input,select,textarea{min-height:46px;border-color:#d6d9d7!important;border-radius:13px!important;background:#fff}
+textarea{min-height:96px}
+input:focus,select:focus,textarea:focus{border-color:#4c8190!important;box-shadow:0 0 0 4px rgba(23,103,122,.11)!important}
+.primary,.secondary,.danger,.ghost{min-height:44px;border-radius:13px!important;font-weight:750!important}
+.primary{background:#173d4c!important}.primary:hover{background:#0f303c!important}.secondary{background:#eef0ee!important}
+.player-drawer,.drawer-head{background:#f6f6f4}
+.tos-brand-mark{background:#f2f4f3!important;color:#173d4c!important;box-shadow:none!important;font-weight:850!important}
+.tos-brand-mark img,.brand-mark img,.asset-preview.app img,.mock-mark img,#phoneIcon img{filter:grayscale(1) contrast(1.1)}
+.tos-topbar{border-bottom-color:var(--tos-line)!important;background:rgba(250,250,248,.92)!important;backdrop-filter:blur(18px)!important}
+.tos-welcome:after{display:none!important}
+
+.tos-smart-select{position:relative;display:grid;min-width:min(320px,100%)}
+.tos-smart-select-native{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.tos-smart-select>.tos-icon{position:absolute;left:14px;top:15px;z-index:2;color:#68797e;pointer-events:none}
+.tos-smart-select-input{min-height:50px!important;padding-left:42px!important;padding-right:38px!important;font-size:16px;font-weight:700}
+.tos-smart-select-results{position:absolute;left:0;right:0;top:56px;z-index:85;max-height:min(340px,52vh);overflow:auto;padding:6px;border:1px solid #d4d9d7;border-radius:16px;background:#fff;box-shadow:0 18px 48px rgba(23,61,76,.16)}
+.tos-smart-select-results button{width:100%;display:grid;grid-template-columns:22px minmax(0,1fr);align-items:center;gap:9px;border:0;border-radius:11px;background:#fff;color:#17313a;padding:12px;text-align:left}
+.tos-smart-select-results button:hover,.tos-smart-select-results button:focus,.tos-smart-select-results button.active{background:#f0f5f4;outline:none}
+.tos-smart-select-empty{padding:20px 14px;text-align:center;color:#737d80;font-size:13px}
+@media(max-width:600px){.tos-smart-select{min-width:0;width:100%}.tos-smart-select-results{position:fixed;left:12px;right:12px;top:auto;bottom:max(14px,env(safe-area-inset-bottom));max-height:58vh;border-radius:20px;padding:9px}.tos-smart-select-results button{min-height:50px}.tos-smart-select-input{min-height:54px!important}}

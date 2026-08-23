@@ -3,15 +3,15 @@ const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publi
 const $=id=>document.getElementById(id);
 const cards=[
   {module:'admin',name:'Onboarding / Go Live',desc:'Checklist automático para preparar un club y retirar sistemas anteriores sin perder datos.',href:'/admin/onboarding/'},
-  {module:'admin',name:'Club y SaaS',desc:'Nombre legal, región, moneda y estado de suscripción.',href:'/admin/club/'},
+  {module:'admin',name:'Configuración del club',desc:'Datos generales, región, moneda y plan.',href:'/admin/club/'},
   {module:'admin',name:'Marca y apariencia',desc:'Logos, colores, icono PWA y white-label por organización.',href:'/admin/branding/'},
   {module:'admin',name:'Auditoría',desc:'Quién hizo qué y cuándo, con trazabilidad por organización.',href:'/admin/auditoria/'},
   {module:'users',name:'Usuarios',desc:'Membresías, roles e invitaciones.',href:'/usuarios/'},
   {module:'admin',name:'Módulos',desc:'Módulos habilitados para tu organización.',href:'/modulos/'},
-  {module:'qa',name:'QA Center',desc:'Smoke, pruebas críticas, regresión, seguridad, integridad e historial de fallas.',href:'/qa/'},
+  {module:'qa',name:'Calidad',desc:'Smoke, pruebas críticas, regresión, seguridad, integridad e historial de fallas.',href:'/qa/'},
   {module:'accounting',name:'Contabilidad',desc:'Egresos y trazabilidad contable.',href:'/contabilidad/'},
   {module:'calendar',name:'Calendario',desc:'Agenda unificada del club.',href:'/calendario/'},
-  {module:'sponsors',name:'Patrocinadores',desc:'Pipeline y convenios comerciales.',href:'/patrocinadores/'},
+  {module:'sponsors',name:'Patrocinadores',desc:'Seguimiento y convenios comerciales.',href:'/patrocinadores/'},
   {module:'commerce',name:'Pedidos y producción',desc:'Órdenes, cortes y garantías.',href:'/pedidos/'},
   {module:'equipment',name:'Utilería',desc:'Inventario y asignaciones.',href:'/utileria/'}
 ];

@@ -342,7 +342,7 @@ function daysToBirthday(date){
 function renderBirthdays(){
   const rows=state.players.map(player=>({...player,days:daysToBirthday(player.birth_date)})).filter(player=>player.days>=0&&player.days<=31).sort((a,b)=>a.days-b.days).slice(0,8);
   $('birthdayPanel').classList.toggle('hidden',!rows.length);
-  $('birthdayList').innerHTML=rows.map(player=>`<a class="tos-list-row" href="/jugadores/"><div><strong>${esc([player.first_name,player.last_name].filter(Boolean).join(' '))}</strong><span>${player.days===0?'Hoy':player.days===1?'Mañana':`En ${player.days} días`} · ${esc(player.category||'Sin categoría')}</span></div><span>🎂</span></a>`).join('');
+  $('birthdayList').innerHTML=rows.map(player=>`<a class="tos-list-row" href="/jugadores/"><div><strong>${esc([player.first_name,player.last_name].filter(Boolean).join(' '))}</strong><span>${player.days===0?'Hoy':player.days===1?'Mañana':`En ${player.days} días`} · ${esc(player.category||'Sin categoría')}</span></div><span class="tos-icon tos-icon-cake" aria-hidden="true"></span></a>`).join('');
 }
 function renderSearch(){
   const items=[];

@@ -63,8 +63,8 @@
 .photo-card-action{position:absolute;right:8px;bottom:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:7px 10px;border:1px solid rgba(255,255,255,.78);border-radius:999px;background:rgba(16,47,64,.9);color:#fff;font:inherit;font-size:10px;font-weight:900;box-shadow:0 6px 16px rgba(16,47,64,.24);cursor:pointer;backdrop-filter:blur(8px)}
 .photo-card-action:hover{background:#184159;transform:translateY(-1px)}
 .photo-card-action:disabled{opacity:.7;cursor:wait;transform:none}
-.legacy-photo-note{display:grid;justify-items:center;gap:4px;text-align:center;line-height:1.15}
-.legacy-photo-note small{max-width:120px;font-size:8px;font-weight:750;color:#52675f}
+.previous-photo-note{display:grid;justify-items:center;gap:4px;text-align:center;line-height:1.15}
+.previous-photo-note small{max-width:120px;font-size:8px;font-weight:750;color:#52675f}
 .photo-editor{display:grid;gap:8px;margin-top:5px;padding:12px;border:1px solid #d9e4e1;border-radius:14px;background:linear-gradient(180deg,#f8fbfa,#eef5f3)}
 .photo-editor__buttons{display:flex;gap:8px;flex-wrap:wrap}
 .photo-editor__buttons button{flex:1 1 130px}

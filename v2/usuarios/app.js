@@ -3,7 +3,7 @@ const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publi
 const $=id=>document.getElementById(id);
 let ctx=null,canWrite=false,members=[],invites=[],currentMember=null;
 
-const roleLabels={president:'Presidencia',operations:'Operaciones',coach:'Formadores',academy:'Academia',cashier:'Taquilla',accounting:'Contabilidad',commercial:'La Quinta Fuerza',scouting:'Scouting',player:'Tanner'};
+const roleLabels={president:'Presidencia',operations:'Operaciones',coach:'Formadores',academy:'Academia',cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scouting',player:'Tanner'};
 const moduleLabels={inicio:'Inicio',club:'Club',direccion:'Dirección',finanzas:'Finanzas',jugadores:'Jugadores',asistencia:'Asistencia',callups:'Convocatoria',calendario:'Calendario',academias:'Academias',scouting:'Scouting',prospectos:'Captación',cursosVerano:'Programas y Eventos',taquilla:'Taquilla',cobranza:'Cobranza',contabilidad:'Contabilidad',patrocinadores:'Patrocinadores',tienda:'Tienda',utileria:'Utilería',usuarios:'Usuarios',qa:'QA',admin:'Administración'};
 const hiddenModules=new Set(['convocatoria','sync']);
 

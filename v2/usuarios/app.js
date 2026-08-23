@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
-let ctx=null,canWrite=false,members=[],invites=[],currentMember=null,lastCredential=null;
+let ctx=null,canWrite=false,members=[],invites=[],currentMember=null,lastCredential=null,lastInviteLink=null;
 
 const roleLabels={president:'Presidencia',operations:'Operaciones',coach:'Formadores',academy:'Academia',cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scouting',player:'Tanner'};
 const moduleLabels={inicio:'Inicio',club:'Club',direccion:'Dirección',finanzas:'Finanzas',jugadores:'Jugadores',asistencia:'Asistencia',callups:'Convocatoria',calendario:'Calendario',academias:'Academias',scouting:'Scouting',prospectos:'Captación',cursosVerano:'Programas y Eventos',taquilla:'Taquilla',cobranza:'Cobranza',contabilidad:'Contabilidad',patrocinadores:'Patrocinadores',tienda:'Tienda',utileria:'Utilería',usuarios:'Usuarios',qa:'QA',admin:'Administración'};
@@ -170,21 +170,41 @@ async function copyStaffCredential(){
   }
   const button=$('copyStaffCredential'),original=button.textContent;button.textContent='Copiado';setTimeout(()=>button.textContent=original,1600);
 }
+function resetInviteLink(){
+  lastInviteLink=null;$('inviteLinkResult').classList.add('hidden');$('inviteLinkEmail').textContent='';$('inviteLinkValue').textContent='';
+}
+function showInviteOutcome(data,email){
+  if(data?.email_sent){
+    resetInviteLink();msg('inviteMessage',`Correo enviado a ${email}. Revisa también Spam o No deseado.`,'success');
+  }else if(data?.invitation_link){
+    lastInviteLink=data.invitation_link;$('inviteLinkEmail').textContent=email;$('inviteLinkValue').textContent=data.invitation_link;
+    $('inviteLinkResult').classList.remove('hidden');
+    msg('inviteMessage','El correo automático no está habilitado. Copia el enlace y compártelo de forma privada.','success');
+    $('inviteLinkResult').scrollIntoView({behavior:'smooth',block:'center'});
+  }else throw new Error('No se pudo entregar la invitación.');
+}
+async function copyInviteLink(){
+  if(!lastInviteLink)return;
+  try{await navigator.clipboard.writeText(lastInviteLink);}
+  catch{
+    const area=document.createElement('textarea');area.value=lastInviteLink;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();
+  }
+  const button=$('copyInviteLink'),original=button.textContent;button.textContent='Enlace copiado';setTimeout(()=>button.textContent=original,1600);
+}
 async function createInvite(e){
-  e.preventDefault();msg('inviteMessage');const btn=$('sendInvite');btn.disabled=true;
+  e.preventDefault();msg('inviteMessage');resetInviteLink();const btn=$('sendInvite');btn.disabled=true;
+  const email=$('inviteEmail').value.trim();
   try{
-    await invokeStaff({action:'send_email_invite',email:$('inviteEmail').value.trim(),role_code:$('inviteRole').value});
-    e.target.reset();$('inviteRole').value='president';await load();
-    msg('inviteMessage','Correo enviado. Pídele que revise también Spam o No deseado.','success');
+    const data=await invokeStaff({action:'send_email_invite',email,role_code:$('inviteRole').value});
+    e.target.reset();$('inviteRole').value='president';await load();showInviteOutcome(data,email);
   }catch(err){msg('inviteMessage',friendly(err));}
   finally{btn.disabled=!canWrite;}
 }
 async function sendEmailInvite(email,roleCode){
-  msg('inviteMessage');
+  msg('inviteMessage');resetInviteLink();
   try{
-    await invokeStaff({action:'send_email_invite',email,role_code:roleCode});
-    await load();msg('inviteMessage',`Correo enviado a ${email}. Revisa también Spam o No deseado.`,'success');
-    $('inviteMessage').scrollIntoView({behavior:'smooth',block:'center'});
+    const data=await invokeStaff({action:'send_email_invite',email,role_code:roleCode});
+    await load();showInviteOutcome(data,email);
   }catch(err){msg('inviteMessage',friendly(err));}
 }
 async function updateMember(id,roleCode,active){
@@ -194,6 +214,6 @@ async function updateMember(id,roleCode,active){
 }
 async function revokeInvite(id){if(!confirm('¿Revocar esta invitación?'))return;try{await rpc('v2_revoke_invitation',{organization_id:ctx.organization_id,invitation_id:id});await load();}catch(err){alert(friendly(err));}}
 
-$('staffAccessForm').addEventListener('submit',createStaffAccess);$('copyStaffCredential').addEventListener('click',copyStaffCredential);$('inviteForm').addEventListener('submit',createInvite);$('refresh').addEventListener('click',()=>load());
+$('staffAccessForm').addEventListener('submit',createStaffAccess);$('copyStaffCredential').addEventListener('click',copyStaffCredential);$('inviteForm').addEventListener('submit',createInvite);$('copyInviteLink').addEventListener('click',copyInviteLink);$('refresh').addEventListener('click',()=>load());
 $('closeAccess').addEventListener('click',closeAccess);$('accessBackdrop').addEventListener('click',closeAccess);$('resetAllModules').addEventListener('click',resetAll);
 boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});

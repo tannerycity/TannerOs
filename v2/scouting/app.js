@@ -7,7 +7,8 @@ const supabase=createClient(
 );
 
 const $=id=>document.getElementById(id);
-let ctx=null,reports=[],current=null,canWrite=false,selectedQuality='',pendingPhoto=null,pendingPreviewUrl=null;
+let ctx=null,reports=[],current=null,canWrite=false,selectedQuality='',pendingPhoto=null,pendingPreviewUrl=null,createProspect=null;
+const linkedProspect=(()=>{const q=new URLSearchParams(location.search),id=q.get('prospect');return id?{id,name:q.get('name')||'',category:q.get('category')||'',type:q.get('type')||''}:null;})();
 const DAY=86400000;
 const PHOTO_BUCKET='tanneros-private',MAX_PHOTO_BYTES=5*1024*1024;
 
@@ -56,6 +57,7 @@ async function boot(){
   $('newScout').classList.toggle('hidden',!canWrite);
   await load();
   show('view');
+  if(linkedProspect&&canWrite)openCreate(linkedProspect);
 }
 
 async function load(){
@@ -106,13 +108,14 @@ function renderList(){
   });
 }
 
-function openCreate(){
-  current=null;
+function openCreate(prospect=null){
+  current=null;createProspect=prospect&&prospect.id?prospect:null;
   $('drawerEyebrow').textContent='NUEVA VISORÍA';$('drawerName').textContent='Detectar talento';$('drawerMeta').textContent='Nueva observación en cancha';
   $('createSection').classList.remove('hidden');$('detailSection').classList.add('hidden');$('followupSection').classList.add('hidden');
   $('deleteSection')?.classList.add('hidden');
   ['observedName','observedLocation','playerPosition','category','technicalScore','physicalScore','tacticalScore','mentalScore','starQuality','createVerdict','createNotes'].forEach(id=>$(id).value='');
   selectedQuality='';document.querySelectorAll('[data-score],[data-quality],[data-decision]').forEach(b=>b.classList.remove('selected'));$('quickDecision').value='follow';$('createVerdict').value='Volver a observar';document.querySelector('[data-decision="follow"]')?.classList.add('selected');
+  if(createProspect){$('observedName').value=createProspect.name;$('category').value=createProspect.category;$('playerPosition').value=createProspect.type==='goalkeeper'?'Portero':'';$('drawerName').textContent=createProspect.name||'Evaluar prospecto';$('drawerMeta').textContent='Prospecto vinculado desde Captación';}
   setPhotoPreview(null);
   $('observedAt').value=localInput();message('createMessage');openDrawer();
 }
@@ -166,7 +169,7 @@ async function saveScout(){
   const btn=$('saveScout');btn.disabled=true;message('createMessage');
   try{
     const id=await rpc('v2_create_scouting_report',{
-      organization_id:ctx.organization_id,prospect_id:null,observed_name:name,observed_at:toIsoOrNull($('observedAt').value),observed_location:$('observedLocation').value.trim()||null,
+      organization_id:ctx.organization_id,prospect_id:createProspect?.id||null,observed_name:name,observed_at:toIsoOrNull($('observedAt').value),observed_location:$('observedLocation').value.trim()||null,
       player_position:$('playerPosition').value.trim()||null,category:$('category').value.trim()||null,technical_score:scores[0],physical_score:scores[1],tactical_score:scores[2],mental_score:scores[3],
       star_quality:$('starQuality').value.trim()||null,verdict:$('createVerdict').value.trim()||null,notes:$('createNotes').value.trim()||null
     });

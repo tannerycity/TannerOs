@@ -28,3 +28,34 @@ async function saveItem(row){if(!current||!canWrite||!row)return;const orderId=c
 async function postPayment(){if(!current||!canWrite)return;const d=current.order,amount=Number($('paymentAmount').value||0),balance=Number(current.balance||0),payerType=$('paymentPayerType').value,payerName=$('paymentPayer').value.trim();if(!Number.isFinite(amount)||amount<=0){payMsg('Captura un monto mayor a cero.');return;}if(amount>balance+0.005){payMsg(`El pago excede el saldo de ${money.format(balance)}.`);return;}if(payerType==='sponsor'&&!payerName){payMsg('Indica el nombre del patrocinador.');return;}const btn=$('savePayment');btn.disabled=true;payMsg();try{await rpc('v2_post_order_payment_attributed',{organization_id:ctx.organization_id,order_id:d.id,amount,payment_date:$('paymentDate').value||new Date().toISOString().slice(0,10),method:$('paymentMethod').value||'other',reference:$('paymentReference').value.trim()||null,payer_type:payerType,payer_name:payerName||d.customer_name||null,idempotency_key:`order-${d.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`});await refreshCurrent(d.id);payMsg('Pago registrado con pagador y estado actualizado.','success');}catch(e){payMsg(e.message||'No se pudo registrar el pago.');}finally{btn.disabled=!canWrite;}}
 async function saveStatus(){if(!current||!canWrite)return;const btn=$('saveStatus'),id=current.order.id;btn.disabled=true;try{await rpc('v2_update_order_status',{organization_id:ctx.organization_id,order_id:id,new_status:$('nextStatus').value});await refreshCurrent(id);msg('Estado actualizado.','success');}catch(e){msg(e.message||'No se pudo actualizar.');}finally{btn.disabled=!canWrite;}}
 $('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('saveStatus').addEventListener('click',saveStatus);$('savePayment').addEventListener('click',postPayment);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
+// === Eliminar pedido — solo Presidencia (agregado) ===
+(function(){
+  function inject(){
+    var drawer=$('drawer'); if(!drawer||$('dangerZone'))return;
+    var sec=document.createElement('section');
+    sec.className='drawer-section'; sec.id='dangerZone'; sec.style.display='none';
+    sec.innerHTML='<div class="eyebrow">ZONA DE PRESIDENCIA</div><h3>Eliminar pedido</h3>'
+      +'<p class="muted state-help">Quita el pedido de la lista. Solo Presidencia. Si tiene pagos registrados, primero cancélalo o reembólsalo.</p>'
+      +'<button id="deleteOrder" type="button" style="color:#fff;background:#C0362C;border:1px solid #C0362C;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer">Eliminar pedido</button>'
+      +'<div id="deleteMessage" class="inline-message hidden" style="margin-top:8px"></div>';
+    drawer.appendChild(sec);
+    $('deleteOrder').addEventListener('click', async function(){
+      if(!current) return;
+      if(!confirm('¿Eliminar este pedido? Solo Presidencia puede hacerlo.')) return;
+      var b=$('deleteOrder'); b.disabled=true;
+      try{
+        await rpc('v2_delete_order',{organization_id:ctx.organization_id, order_id:current.order.id});
+        close(); await load();
+      }catch(e){
+        var m=$('deleteMessage'); m.textContent=(e&&e.message)||'No se pudo eliminar el pedido'; m.classList.remove('hidden');
+      }finally{ b.disabled=false; }
+    });
+  }
+  var t=setInterval(function(){
+    if(typeof ctx!=='undefined' && ctx){
+      inject();
+      if(ctx.role==='Presidencia'){ var z=$('dangerZone'); if(z) z.style.display=''; }
+      clearInterval(t);
+    }
+  },300);
+})();

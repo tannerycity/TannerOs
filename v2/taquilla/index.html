@@ -30,19 +30,19 @@
         </section>
 
         <section class="cashier-actions">
-          <button id="openCollect" class="cashier-action collect" type="button"><span>▰</span><strong>COBRAR</strong><small>Entra dinero al club</small></button>
-          <button id="openExpense" class="cashier-action expense" type="button"><span>▥</span><strong>PAGAR</strong><small id="paySubtitle">Sale dinero del club</small></button>
+          <button id="openCollect" class="cashier-action collect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg><strong>COBRAR</strong><small>Entra dinero al club</small></button>
+          <button id="openExpense" class="cashier-action expense" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/></svg><strong>PAGAR</strong><small id="paySubtitle">Sale dinero del club</small></button>
         </section>
 
         <section class="cashier-kpis">
           <article><span>Ingresos del día</span><strong id="incomeDay">$0.00</strong></article>
-          <article><span>Egresos del día</span><strong id="expenseDay" class="danger">$0.00</strong></article>
+          <article><span>Egresos del día</span><strong id="expenseDay" class="sem-neutral">$0.00</strong></article>
           <article><span>Caja del día</span><strong id="netDay">$0.00</strong></article>
         </section>
 
         <section class="cashier-cash-card">
           <div><span>Efectivo contable esperado</span><strong id="expectedCash">$0.00</strong><p>Efectivo acumulado hasta la fecha seleccionada. Transferencias y tarjeta no entran aquí.</p></div>
-          <div class="cashier-note">Cuenta el dinero físico y compáralo con este valor al cerrar.</div>
+          <div class="cashier-reconcile"><label>Efectivo contado<input id="countedCash" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Cuenta el dinero físico"></label><div id="reconcileResult" class="reconcile-result hidden"></div></div>
         </section>
 
         <section class="cashier-panel">

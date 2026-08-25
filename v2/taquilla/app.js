@@ -36,12 +36,24 @@ function renderMovements(){
   rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';tr.innerHTML=`<td>${esc(m.date||'')}</td><td><span class="movement-pill ${income?'income':'expense'}">${income?'Ingreso':'Egreso'}</span></td><td>${esc(m.category||'—')}</td><td>${esc(m.concept||'—')}</td><td>${esc(m.who||'—')}</td><td>${esc(methodLabel(m.method))}</td><td class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span></td>`;body.appendChild(tr);});
 }
 function render(){
-  $('incomeDay').textContent=money.format(Number(snapshot?.incomeTotal||0));
-  $('expenseDay').textContent=money.format(Number(snapshot?.expenseTotal||0));
-  const net=Number(snapshot?.netTotal||0);$('netDay').textContent=money.format(net);$('netDay').classList.toggle('danger',net<0);
-  $('expectedCash').textContent=money.format(Number(snapshot?.expectedCash||0));
+  const _inc=Number(snapshot?.incomeTotal||0),_exp=Number(snapshot?.expenseTotal||0),_net=Number(snapshot?.netTotal||0);
+  $('incomeDay').textContent=money.format(_inc);$('incomeDay').className=_inc>0?'sem-ok':'sem-neutral';
+  $('expenseDay').textContent=money.format(_exp);$('expenseDay').className='sem-neutral';
+  $('netDay').textContent=money.format(_net);$('netDay').className=_net>=0?'sem-ok':(_net>-1000?'sem-warn':'sem-alert');
+  $('expectedCash').textContent=money.format(Number(snapshot?.expectedCash||0));renderReconcile();
   renderMethods();renderMovements();renderCategoryLists();
   const hasMovement=Number(snapshot?.incomeTotal||0)||Number(snapshot?.expenseTotal||0);setShellHealth(hasMovement?{state:'ok',label:'Caja actualizada'}:{state:'ok',label:'Sin movimientos hoy'});
+}
+function renderReconcile(){
+  const exp=Number(snapshot?.expectedCash||0),box=$('reconcileResult');if(!box)return;
+  const raw=$('countedCash')?.value;
+  if(raw===''||raw==null){box.className='reconcile-result hidden';box.textContent='';return;}
+  const counted=Number(raw);if(!Number.isFinite(counted)){box.className='reconcile-result hidden';return;}
+  const diff=counted-exp,abs=Math.abs(diff);let cls,txt;
+  if(abs<1){cls='sem-ok';txt='Caja cuadra exacto.';}
+  else if(abs<=50){cls='sem-warn';txt=(diff>0?'Sobran ':'Faltan ')+money.format(abs)+' · diferencia menor.';}
+  else{cls='sem-alert';txt=(diff>0?'Sobran ':'Faltan ')+money.format(abs)+' · revisa la caja.';}
+  box.className='reconcile-result '+cls;box.textContent=txt;
 }
 async function load(){
   snapshot=await rpc('v2_cashier_snapshot',{organization_id:org,business_date:$('businessDate').value||isoToday()});
@@ -92,7 +104,7 @@ $('modalBackdrop').addEventListener('click',closeModals);document.querySelectorA
 document.querySelectorAll('.cashier-tabs button').forEach(b=>b.addEventListener('click',()=>setCollectMode(b.dataset.mode)));
 $('collectPlayer').addEventListener('change',()=>{const op=$('collectPlayer').selectedOptions?.[0];if(op?.dataset?.fee&&!$('collectAmount').value)$('collectAmount').value=Number(op.dataset.fee)||'';});
 $('collectForm').addEventListener('submit',e=>{e.preventDefault();postCollect();});$('expenseForm').addEventListener('submit',e=>{e.preventDefault();postExpense();});
-$('printClose').addEventListener('click',()=>window.print());
+$('printClose').addEventListener('click',()=>window.print());$('countedCash')?.addEventListener('input',renderReconcile);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 const action=new URLSearchParams(location.search).get('action');if(action==='cobrar'&&canCashWrite)setTimeout(()=>modal('collectModal',true),150);
 await Promise.all([loadPlayers(),load()]);

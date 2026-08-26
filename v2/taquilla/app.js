@@ -32,7 +32,7 @@ function renderMethods(){
 function renderMovements(){
   const status=$('movementStatus').value,rows=(snapshot?.movements||[]).filter(m=>status==='all'||m.status===status),body=$('movementRows');body.innerHTML='';
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vbtn=(income&&m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income" data-void="'+esc(m.id)+'">Borrar</button>'):'';tr.innerHTML=`<td>${esc(m.date||'')}</td><td><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td>${esc(m.category||'—')}</td><td>${esc(m.concept||'—')}</td><td>${esc(m.who||'—')}</td><td>${esc(methodLabel(m.method))}</td><td class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${vbtn}</td>`;body.appendChild(tr);});
+  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income" data-void="'+esc(m.id)+'" data-type="'+(income?'income':'expense')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">Borrar</button>'):'';tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${esc(m.who||'—')}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${vbtn}</td>`;body.appendChild(tr);});
 }
 function render(){
   const _inc=Number(snapshot?.incomeTotal||0),_exp=Number(snapshot?.expenseTotal||0),_net=Number(snapshot?.netTotal||0);
@@ -109,15 +109,23 @@ const action=new URLSearchParams(location.search).get('action');if(action==='cob
 await Promise.all([loadPlayers(),load()]);
 
 
-// === Borrar ingreso (VAR · solo Presidencia) + categoría "Otra" ===
-async function voidIncome(id){
-  if(ctx.role!=='Presidencia')return;
-  const reason=prompt('¿Por qué se borra este ingreso? (queda registrado en el VAR)');
-  if(reason===null)return;
-  if(!reason.trim()){alert('Necesitas escribir el motivo.');return;}
-  try{ await rpc('v2_void_income',{organization_id:org,payment_id:id,reason:reason.trim()}); await load(); }
-  catch(e){ alert((e&&e.message)||'No se pudo borrar el ingreso'); }
+// === Borrar movimiento (VAR · solo Presidencia) — cobros y pagos ===
+let pendingVoid=null;
+function openVoid(id,type,sum){pendingVoid={id,type};$('voidKicker').textContent=type==='income'?'COBRO':'PAGO';$('voidSummary').textContent=sum||'';$('voidReason').value='';$('voidMessage').classList.add('hidden');$('voidModal').classList.remove('hidden');$('modalBackdrop').classList.remove('hidden');setTimeout(()=>$('voidReason').focus(),60);}
+function closeVoid(){pendingVoid=null;$('voidModal').classList.add('hidden');$('modalBackdrop').classList.add('hidden');}
+async function confirmVoid(){
+  if(!pendingVoid)return;
+  const reason=($('voidReason').value||'').trim(),msg=$('voidMessage');
+  if(!reason){msg.textContent='Escribe el motivo (por qué se borra).';msg.classList.remove('hidden');return;}
+  const btn=$('voidConfirm');btn.disabled=true;
+  try{
+    if(pendingVoid.type==='income'){await rpc('v2_void_income',{organization_id:org,payment_id:pendingVoid.id,reason});}
+    else{await rpc('v2_void_expense',{organization_id:org,expense_id:pendingVoid.id,reason});}
+    closeVoid();await load();
+  }catch(e){msg.textContent=(e&&e.message)||'No se pudo borrar.';msg.classList.remove('hidden');}
+  finally{btn.disabled=false;}
 }
-document.addEventListener('click',e=>{const b=e.target.closest?.('.void-income');if(b&&b.dataset.void)voidIncome(b.dataset.void);});
+document.addEventListener('click',e=>{const b=e.target.closest?.('.void-income');if(b&&b.dataset.void){openVoid(b.dataset.void,b.dataset.type,b.dataset.sum);}if(e.target.closest?.('[data-close-void]'))closeVoid();});
+$('voidConfirm')?.addEventListener('click',confirmVoid);
 $('generalCategory')?.addEventListener('change',e=>$('generalCategoryOtherWrap')?.classList.toggle('hidden',e.target.value!=='__otra__'));
 $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')?.classList.toggle('hidden',e.target.value!=='__otra__'));

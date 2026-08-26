@@ -107,6 +107,14 @@
     </form>
   </section>
 
+  <section id="voidModal" class="cashier-modal void-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voidTitle">
+    <div class="cashier-modal-head"><div><span id="voidKicker">MOVIMIENTO</span><h2 id="voidTitle">Borrar movimiento</h2></div><button type="button" data-close-void>×</button></div>
+    <div class="void-summary" id="voidSummary"></div>
+    <label class="void-reason">Motivo · queda en el VAR<textarea id="voidReason" rows="3" placeholder="¿Por qué se borra? Ej. cobro duplicado, monto equivocado…"></textarea></label>
+    <div id="voidMessage" class="cashier-message hidden"></div>
+    <div class="void-actions"><button type="button" class="void-cancel" data-close-void>Cancelar</button><button type="button" class="void-confirm" id="voidConfirm">Sí, borrar</button></div>
+  </section>
+
   <script type="module" src="/v2/branding-auto.js"></script>
   <script type="module" src="/v2/taquilla/app.js"></script>
 </body>

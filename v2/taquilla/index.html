@@ -52,7 +52,7 @@
         </section>
 
         <section class="cashier-panel">
-          <div class="cashier-panel-head"><div><h2>Últimos movimientos</h2><p>Los movimientos se corrigen con una anulación o un reembolso para conservar el historial.</p></div><label class="movement-filter">Estado<select id="movementStatus"><option value="posted">Publicados</option><option value="all">Todos</option><option value="void">Anulados</option></select></label></div>
+          <div class="cashier-panel-head"><div><h2>Últimos movimientos</h2><p>Los movimientos se corrigen con una anulación o un reembolso para conservar el historial.</p></div><label class="movement-filter">Estado<select id="movementStatus"><option value="posted">Publicados</option><option value="all">Todos</option><option value="refunded">Reembolsados</option><option value="void">Anulados</option></select></label></div>
           <div class="cashier-table-wrap"><table class="cashier-table movements"><thead><tr><th>Fecha</th><th>Movimiento</th><th>Categoría</th><th>Concepto</th><th>Quién</th><th>Método</th><th>Monto</th><th>Estado</th></tr></thead><tbody id="movementRows"></tbody></table></div>
           <div id="movementsEmpty" class="cashier-empty hidden">Sin movimientos.</div>
         </section>
@@ -110,6 +110,7 @@
   <section id="voidModal" class="cashier-modal void-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voidTitle">
     <div class="cashier-modal-head"><div><span id="voidKicker">MOVIMIENTO</span><h2 id="voidTitle">Borrar movimiento</h2></div><button type="button" data-close-void>×</button></div>
     <div class="void-summary" id="voidSummary"></div>
+    <p class="void-hint hidden" id="voidHint"></p>
     <label class="void-reason">Motivo · queda en el VAR<textarea id="voidReason" rows="3" placeholder="¿Por qué se borra? Ej. cobro duplicado, monto equivocado…"></textarea></label>
     <div id="voidMessage" class="cashier-message hidden"></div>
     <div class="void-actions"><button type="button" class="void-cancel" data-close-void>Cancelar</button><button type="button" class="void-confirm" id="voidConfirm">Sí, borrar</button></div>

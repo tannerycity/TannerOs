@@ -25,3 +25,7 @@
  .cashier-table.movements td[data-label="Concepto"],.cashier-table.movements td[data-label="Quién"]{text-align:right}
  .cashier-table.movements .void-income{margin-left:0}
 }
+.void-hint{background:#eaf3f2;border:1px solid #cfe6e2;color:#0c6a5b;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:600;margin:0 0 12px}
+.void-confirm.refund-mode{background:var(--tos-teal)}
+.void-income.is-refund{background:#e7f2f4;border-color:#bcdde2;color:#0c6270}
+.void-income.is-refund:hover{background:#d6eaee}

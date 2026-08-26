@@ -61,7 +61,7 @@ async function load(){
 async function loadPlayers(){
   if(!moduleAccess(navigation,'cobranza',false))return;
   try{billingPlayers=await rpc('v2_billing_players',{organization_id:org});}catch(e){console.warn('billing players',e);billingPlayers=[];}
-  const sel=$('collectPlayer');const _opts=billingPlayers.slice().sort((a,b)=>String(a.player_name).localeCompare(String(b.player_name),'es-MX')).map(p=>`<option value="${p.player_id}" data-fee="${p.base_monthly_fee??''}">${esc(p.player_name)}${p.billing_status==='review'?' · revisar cuota':''}</option>`).join('');sel.innerHTML='<option value="">Selecciona un Tanner</option>'+_opts;const _gp=$('generalPlayer');if(_gp)_gp.innerHTML='<option value="">Sin Tanner (ingreso general)</option>'+_opts;
+  const sel=$('collectPlayer');const _opts=billingPlayers.slice().sort((a,b)=>String(a.player_name).localeCompare(String(b.player_name),'es-MX')).map(p=>`<option value="${p.player_id}" data-fee="${p.base_monthly_fee??''}">${esc(p.player_name)}${p.billing_status==='review'?' · revisar cuota':''}</option>`).join('');sel.innerHTML='<option value="">Selecciona un Tanner</option>'+_opts;
 }
 function setCollectMode(mode){
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
@@ -140,3 +140,25 @@ document.addEventListener('click',e=>{const b=e.target.closest?.('.void-income')
 $('voidConfirm')?.addEventListener('click',confirmVoid);
 $('generalCategory')?.addEventListener('change',e=>$('generalCategoryOtherWrap')?.classList.toggle('hidden',e.target.value!=='__otra__'));
 $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')?.classList.toggle('hidden',e.target.value!=='__otra__'));
+
+
+// === Buscador inteligente de Tanners (por cualquier nombre, sin acentos) ===
+function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId){
+  const inp=$(searchId),hid=$(hiddenId),res=$(resultsId),clr=$(clearId);
+  if(!inp||!hid||!res)return;
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  function render(q){
+    const nq=norm(q).trim();
+    if(!nq){res.classList.add('hidden');res.innerHTML='';return;}
+    const toks=nq.split(/\s+/);
+    const matches=(billingPlayers||[]).filter(p=>{const n=norm(p.player_name);return toks.every(t=>n.includes(t));}).slice(0,25);
+    res.innerHTML=matches.length?matches.map(p=>`<button type="button" class="tsearch-opt" data-id="${p.player_id}">${esc(p.player_name)}</button>`).join(''):'<div class="tsearch-empty">Sin coincidencias</div>';
+    res.classList.remove('hidden');
+  }
+  inp.addEventListener('input',()=>{hid.value='';if(clr)clr.classList.toggle('hidden',!inp.value);render(inp.value);});
+  inp.addEventListener('focus',()=>{if(inp.value)render(inp.value);});
+  res.addEventListener('click',e=>{const b=e.target.closest('.tsearch-opt');if(!b)return;hid.value=b.dataset.id;inp.value=b.textContent;res.classList.add('hidden');if(clr)clr.classList.remove('hidden');});
+  if(clr)clr.addEventListener('click',()=>{hid.value='';inp.value='';res.classList.add('hidden');clr.classList.add('hidden');inp.focus();});
+  document.addEventListener('click',e=>{if(!e.target.closest('#'+boxId))res.classList.add('hidden');});
+}
+tannerSearchInit('generalPlayerBox','generalPlayerSearch','generalPlayer','generalPlayerResults','generalPlayerClear');

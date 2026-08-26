@@ -32,7 +32,7 @@ function renderMethods(){
 function renderMovements(){
   const status=$('movementStatus').value,rows=(snapshot?.movements||[]).filter(m=>status==='all'||m.status===status),body=$('movementRows');body.innerHTML='';
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income" data-void="'+esc(m.id)+'" data-type="'+(income?'income':'expense')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">Borrar</button>'):'';tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${esc(m.who||'—')}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${vbtn}</td>`;body.appendChild(tr);});
+  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${esc(m.who||'—')}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${vbtn}</td>`;body.appendChild(tr);});
 }
 function render(){
   const _inc=Number(snapshot?.incomeTotal||0),_exp=Number(snapshot?.expenseTotal||0),_net=Number(snapshot?.netTotal||0);
@@ -109,23 +109,34 @@ const action=new URLSearchParams(location.search).get('action');if(action==='cob
 await Promise.all([loadPlayers(),load()]);
 
 
-// === Borrar movimiento (VAR · solo Presidencia) — cobros y pagos ===
+// === Corregir movimiento (VAR · solo Presidencia): Borrar o Reembolsar ===
 let pendingVoid=null;
-function openVoid(id,type,sum){pendingVoid={id,type};$('voidKicker').textContent=type==='income'?'COBRO':'PAGO';$('voidSummary').textContent=sum||'';$('voidReason').value='';$('voidMessage').classList.add('hidden');$('voidModal').classList.remove('hidden');$('modalBackdrop').classList.remove('hidden');setTimeout(()=>$('voidReason').focus(),60);}
+function openVoid(o){
+  pendingVoid=o;const refund=o.kind==='refund';
+  $('voidKicker').textContent=refund?'COBRO DE TANNER':(o.kind==='void-income'?'COBRO':'PAGO');
+  $('voidTitle').textContent=refund?'Reembolsar cobro':'Borrar movimiento';
+  $('voidSummary').textContent=o.sum||'';
+  const hint=$('voidHint');if(hint){hint.textContent=refund?'Devuelve el dinero y regresa el saldo del Tanner. Su cuenta no se descuadra.':'';hint.classList.toggle('hidden',!refund);}
+  const cta=$('voidConfirm');cta.textContent=refund?'Reembolsar':'Sí, borrar';cta.classList.toggle('refund-mode',refund);
+  $('voidReason').value='';$('voidMessage').classList.add('hidden');
+  $('voidModal').classList.remove('hidden');$('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>$('voidReason').focus(),60);
+}
 function closeVoid(){pendingVoid=null;$('voidModal').classList.add('hidden');$('modalBackdrop').classList.add('hidden');}
 async function confirmVoid(){
   if(!pendingVoid)return;
   const reason=($('voidReason').value||'').trim(),msg=$('voidMessage');
-  if(!reason){msg.textContent='Escribe el motivo (por qué se borra).';msg.classList.remove('hidden');return;}
+  if(!reason){msg.textContent='Escribe el motivo (queda en el VAR).';msg.classList.remove('hidden');return;}
   const btn=$('voidConfirm');btn.disabled=true;
   try{
-    if(pendingVoid.type==='income'){await rpc('v2_void_income',{organization_id:org,payment_id:pendingVoid.id,reason});}
+    if(pendingVoid.kind==='refund'){await rpc('v2_refund_payment',{organization_id:org,payment_id:pendingVoid.id,amount:pendingVoid.amount,refund_date:isoToday(),method:(pendingVoid.method||'Efectivo'),reference:'Corrección en taquilla',reason,idempotency_key:key('refund')});}
+    else if(pendingVoid.kind==='void-income'){await rpc('v2_void_income',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else{await rpc('v2_void_expense',{organization_id:org,expense_id:pendingVoid.id,reason});}
     closeVoid();await load();
-  }catch(e){msg.textContent=(e&&e.message)||'No se pudo borrar.';msg.classList.remove('hidden');}
+  }catch(e){msg.textContent=(e&&e.message)||'No se pudo completar.';msg.classList.remove('hidden');}
   finally{btn.disabled=false;}
 }
-document.addEventListener('click',e=>{const b=e.target.closest?.('.void-income');if(b&&b.dataset.void){openVoid(b.dataset.void,b.dataset.type,b.dataset.sum);}if(e.target.closest?.('[data-close-void]'))closeVoid();});
+document.addEventListener('click',e=>{const b=e.target.closest?.('.void-income');if(b&&b.dataset.void){openVoid({id:b.dataset.void,kind:b.dataset.kind,amount:Number(b.dataset.amt||0),method:b.dataset.method||'',sum:b.dataset.sum});}if(e.target.closest?.('[data-close-void]'))closeVoid();});
 $('voidConfirm')?.addEventListener('click',confirmVoid);
 $('generalCategory')?.addEventListener('change',e=>$('generalCategoryOtherWrap')?.classList.toggle('hidden',e.target.value!=='__otra__'));
 $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')?.classList.toggle('hidden',e.target.value!=='__otra__'));

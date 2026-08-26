@@ -61,7 +61,7 @@ async function load(){
 async function loadPlayers(){
   if(!moduleAccess(navigation,'cobranza',false))return;
   try{billingPlayers=await rpc('v2_billing_players',{organization_id:org});}catch(e){console.warn('billing players',e);billingPlayers=[];}
-  const sel=$('collectPlayer');sel.innerHTML='<option value="">Selecciona un Tanner</option>'+billingPlayers.slice().sort((a,b)=>String(a.player_name).localeCompare(String(b.player_name),'es-MX')).map(p=>`<option value="${p.player_id}" data-fee="${p.base_monthly_fee??''}">${esc(p.player_name)}${p.billing_status==='review'?' · revisar cuota':''}</option>`).join('');
+  const sel=$('collectPlayer');const _opts=billingPlayers.slice().sort((a,b)=>String(a.player_name).localeCompare(String(b.player_name),'es-MX')).map(p=>`<option value="${p.player_id}" data-fee="${p.base_monthly_fee??''}">${esc(p.player_name)}${p.billing_status==='review'?' · revisar cuota':''}</option>`).join('');sel.innerHTML='<option value="">Selecciona un Tanner</option>'+_opts;const _gp=$('generalPlayer');if(_gp)_gp.innerHTML='<option value="">Sin Tanner (ingreso general)</option>'+_opts;
 }
 function setCollectMode(mode){
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
@@ -79,7 +79,7 @@ async function postCollect(){
     }else{
       const amount=Number($('generalAmount').value),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
-      await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income')});
+      await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
     }
     closeModals();await load();
   }catch(e){message('collectMessage',e.message||'No se pudo registrar.');}finally{btn.disabled=false;}

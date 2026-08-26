@@ -22,8 +22,7 @@ function uniqueCategories(type){
   return [...new Set(rows.map(m=>m.category))].sort((a,b)=>a.localeCompare(b,'es-MX'));
 }
 function renderCategoryLists(){
-  $('incomeCategories').innerHTML=uniqueCategories('income').map(v=>`<option value="${esc(v)}"></option>`).join('');
-  $('expenseCategories').innerHTML=uniqueCategories('expense').map(v=>`<option value="${esc(v)}"></option>`).join('');
+  if($('incomeCategories'))$('incomeCategories').innerHTML=uniqueCategories('income').map(v=>`<option value="${esc(v)}"></option>`).join('');if($('expenseCategories'))$('expenseCategories').innerHTML=uniqueCategories('expense').map(v=>`<option value="${esc(v)}"></option>`).join('');
 }
 function renderMethods(){
   const rows=snapshot?.methods||[],body=$('methodRows');body.innerHTML='';
@@ -33,7 +32,7 @@ function renderMethods(){
 function renderMovements(){
   const status=$('movementStatus').value,rows=(snapshot?.movements||[]).filter(m=>status==='all'||m.status===status),body=$('movementRows');body.innerHTML='';
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';tr.innerHTML=`<td>${esc(m.date||'')}</td><td><span class="movement-pill ${income?'income':'expense'}">${income?'Ingreso':'Egreso'}</span></td><td>${esc(m.category||'—')}</td><td>${esc(m.concept||'—')}</td><td>${esc(m.who||'—')}</td><td>${esc(methodLabel(m.method))}</td><td class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span></td>`;body.appendChild(tr);});
+  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vbtn=(income&&m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income" data-void="'+esc(m.id)+'">Borrar</button>'):'';tr.innerHTML=`<td>${esc(m.date||'')}</td><td><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td>${esc(m.category||'—')}</td><td>${esc(m.concept||'—')}</td><td>${esc(m.who||'—')}</td><td>${esc(methodLabel(m.method))}</td><td class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${vbtn}</td>`;body.appendChild(tr);});
 }
 function render(){
   const _inc=Number(snapshot?.incomeTotal||0),_exp=Number(snapshot?.expenseTotal||0),_net=Number(snapshot?.netTotal||0);
@@ -78,7 +77,7 @@ async function postCollect(){
       if($('collectPayerType').value==='sponsor'&&!$('collectPayerName').value.trim())throw new Error('Indica el patrocinador.');
       await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,idempotency_key:key('cashier-payment')});
     }else{
-      const amount=Number($('generalAmount').value),date=$('generalDate').value,category=$('generalCategory').value.trim(),concept=$('generalConcept').value.trim();
+      const amount=Number($('generalAmount').value),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
       await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income')});
     }
@@ -88,7 +87,7 @@ async function postCollect(){
 async function postExpense(){
   const btn=$('saveExpense');btn.disabled=true;message('expenseMessage');
   try{
-    const amount=Number($('expenseAmount').value),date=$('expenseDate').value,category=$('expenseCategory').value.trim(),concept=$('expenseConcept').value.trim(),who=$('expenseWho').value.trim();
+    const amount=Number($('expenseAmount').value),date=$('expenseDate').value,category=(($('expenseCategory').value==='__otra__')?($('expenseCategoryOther')?.value||''):$('expenseCategory').value).trim(),concept=$('expenseConcept').value.trim(),who=$('expenseWho').value.trim();
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
     await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},idempotency_key:key('cashier-expense')});
     closeModals();await load();
@@ -108,3 +107,17 @@ $('printClose').addEventListener('click',()=>window.print());$('countedCash')?.a
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 const action=new URLSearchParams(location.search).get('action');if(action==='cobrar'&&canCashWrite)setTimeout(()=>modal('collectModal',true),150);
 await Promise.all([loadPlayers(),load()]);
+
+
+// === Borrar ingreso (VAR · solo Presidencia) + categoría "Otra" ===
+async function voidIncome(id){
+  if(ctx.role!=='Presidencia')return;
+  const reason=prompt('¿Por qué se borra este ingreso? (queda registrado en el VAR)');
+  if(reason===null)return;
+  if(!reason.trim()){alert('Necesitas escribir el motivo.');return;}
+  try{ await rpc('v2_void_income',{organization_id:org,payment_id:id,reason:reason.trim()}); await load(); }
+  catch(e){ alert((e&&e.message)||'No se pudo borrar el ingreso'); }
+}
+document.addEventListener('click',e=>{const b=e.target.closest?.('.void-income');if(b&&b.dataset.void)voidIncome(b.dataset.void);});
+$('generalCategory')?.addEventListener('change',e=>$('generalCategoryOtherWrap')?.classList.toggle('hidden',e.target.value!=='__otra__'));
+$('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')?.classList.toggle('hidden',e.target.value!=='__otra__'));

@@ -35,8 +35,8 @@
         </section>
 
         <section class="cashier-kpis">
-          <article><span>Ingresos del día</span><strong id="incomeDay">$0.00</strong></article>
-          <article><span>Egresos del día</span><strong id="expenseDay" class="sem-neutral">$0.00</strong></article>
+          <article><span>Cobrado del día</span><strong id="incomeDay">$0.00</strong></article>
+          <article><span>Pagado del día</span><strong id="expenseDay" class="sem-neutral">$0.00</strong></article>
           <article><span>Caja del día</span><strong id="netDay">$0.00</strong></article>
         </section>
 
@@ -78,14 +78,14 @@
         <label>Monto<input id="generalAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
         <label>Fecha<input id="generalDate" type="date"></label>
         <label>Método<select id="generalMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
-        <label>Categoría<input id="generalCategory" list="incomeCategories" placeholder="Ej. Inscripción"></label>
-        <datalist id="incomeCategories"></datalist>
+        <label>Categoría<select id="generalCategory"><option value="">Selecciona…</option><option>Inscripción</option><option>Mensualidad</option><option>Torneo</option><option>Evento</option><option>Clase muestra</option><option>Uniforme / Tienda</option><option>Patrocinio</option><option value="__otra__">Otra…</option></select></label>
+        <label class="wide cat-other hidden" id="generalCategoryOtherWrap">Especifica la categoría<input id="generalCategoryOther" type="text" placeholder="Escribe la categoría"></label>
         <label class="wide">Concepto<input id="generalConcept" type="text" placeholder="Qué se cobró"></label>
         <label>Quién pagó<input id="generalPayer" type="text" placeholder="Opcional"></label>
         <label>Referencia<input id="generalReference" type="text" placeholder="Opcional"></label>
       </div>
       <div id="collectMessage" class="cashier-message hidden"></div>
-      <button id="saveCollect" class="cashier-submit collect" type="submit">Registrar ingreso</button>
+      <button id="saveCollect" class="cashier-submit collect" type="submit">Registrar cobro</button>
       <p class="cashier-help">Los pedidos de tienda se cobran desde <a href="/v2/pedidos/">Pedidos</a> para conservar su saldo y estado.</p>
     </form>
   </section>
@@ -96,13 +96,13 @@
       <label>Monto<input id="expenseAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
       <label>Fecha<input id="expenseDate" type="date" required></label>
       <label>Método<select id="expenseMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
-      <label>Categoría<input id="expenseCategory" list="expenseCategories" placeholder="Ej. Nómina profesores" required></label>
-      <datalist id="expenseCategories"></datalist>
+      <label>Categoría<select id="expenseCategory" required><option value="">Selecciona…</option><option>Nómina profesores</option><option>Renta de cancha</option><option>Material deportivo</option><option>Uniformes</option><option>Transporte</option><option>Arbitraje</option><option>Mantenimiento</option><option>Servicios (luz/agua)</option><option>Marketing</option><option value="__otra__">Otra…</option></select></label>
+      <label class="wide cat-other hidden" id="expenseCategoryOtherWrap">Especifica la categoría<input id="expenseCategoryOther" type="text" placeholder="Escribe la categoría"></label>
       <label class="wide">Concepto<input id="expenseConcept" type="text" placeholder="Qué se pagó" required></label>
       <label>A quién<input id="expenseWho" type="text" placeholder="Proveedor / persona"></label>
       <label>Referencia<input id="expenseReference" type="text" placeholder="Opcional"></label>
       <div id="expenseMessage" class="cashier-message hidden wide"></div>
-      <button id="saveExpense" class="cashier-submit expense wide" type="submit">Registrar egreso</button>
+      <button id="saveExpense" class="cashier-submit expense wide" type="submit">Registrar pago</button>
       <p class="cashier-help wide">Esta acción requiere permiso de Contabilidad. Taquilla sin ese permiso puede cobrar, pero no publicar salidas.</p>
     </form>
   </section>

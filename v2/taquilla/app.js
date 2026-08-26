@@ -129,7 +129,7 @@ async function confirmVoid(){
   if(!reason){msg.textContent='Escribe el motivo (queda en el VAR).';msg.classList.remove('hidden');return;}
   const btn=$('voidConfirm');btn.disabled=true;
   try{
-    if(pendingVoid.kind==='refund'){await rpc('v2_refund_payment',{organization_id:org,payment_id:pendingVoid.id,amount:pendingVoid.amount,refund_date:isoToday(),method:(pendingVoid.method||'Efectivo'),reference:'Corrección en taquilla',reason,idempotency_key:key('refund')});}
+    if(pendingVoid.kind==='refund'){await rpc('v2_correct_tanner_payment',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else if(pendingVoid.kind==='void-income'){await rpc('v2_void_income',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else{await rpc('v2_void_expense',{organization_id:org,expense_id:pendingVoid.id,reason});}
     closeVoid();await load();

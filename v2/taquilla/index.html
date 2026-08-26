@@ -78,9 +78,10 @@
         <label>Monto<input id="generalAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
         <label>Fecha<input id="generalDate" type="date"></label>
         <label>Método<select id="generalMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
-        <label>Categoría<select id="generalCategory"><option value="">Selecciona…</option><option>Inscripción</option><option>Mensualidad</option><option>Torneo</option><option>Evento</option><option>Clase muestra</option><option>Uniforme / Tienda</option><option>Patrocinio</option><option value="__otra__">Otra…</option></select></label>
+        <label>Categoría<select id="generalCategory"><option value="">Selecciona…</option><option>Academia · Academia de porteros</option><option>Inscripción</option><option>Uniforme</option><option>Tienda</option><option>Torneo</option><option>Arbitraje</option><option>Renta de cancha</option><option>Patrocinio</option><option>Curso de Verano</option><option value="__otra__">Otra…</option></select></label>
         <label class="wide cat-other hidden" id="generalCategoryOtherWrap">Especifica la categoría<input id="generalCategoryOther" type="text" placeholder="Escribe la categoría"></label>
         <label class="wide">Concepto<input id="generalConcept" type="text" placeholder="Qué se cobró"></label>
+        <label class="wide">Ligar a Tanner <span class="opt">· opcional, para trazabilidad</span><select id="generalPlayer"><option value="">Sin Tanner (ingreso general)</option></select></label>
         <label>Quién pagó<input id="generalPayer" type="text" placeholder="Opcional"></label>
         <label>Referencia<input id="generalReference" type="text" placeholder="Opcional"></label>
       </div>
@@ -96,7 +97,7 @@
       <label>Monto<input id="expenseAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
       <label>Fecha<input id="expenseDate" type="date" required></label>
       <label>Método<select id="expenseMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
-      <label>Categoría<select id="expenseCategory" required><option value="">Selecciona…</option><option>Nómina profesores</option><option>Renta de cancha</option><option>Material deportivo</option><option>Uniformes</option><option>Transporte</option><option>Arbitraje</option><option>Mantenimiento</option><option>Servicios (luz/agua)</option><option>Marketing</option><option value="__otra__">Otra…</option></select></label>
+      <label>Categoría<select id="expenseCategory" required><option value="">Selecciona…</option><option>Nómina profesores</option><option>Profesor de porteros</option><option>Árbitros</option><option>Renta cancha</option><option>Marketing</option><option>Merchandising</option><option>Mantenimiento</option><option>Servicios</option><option>Utilería</option><option>Proveedor</option><option>Premios</option><option>Comisiones bancarias</option><option>Comisiones por captación</option><option value="__otra__">Otra…</option></select></label>
       <label class="wide cat-other hidden" id="expenseCategoryOtherWrap">Especifica la categoría<input id="expenseCategoryOther" type="text" placeholder="Escribe la categoría"></label>
       <label class="wide">Concepto<input id="expenseConcept" type="text" placeholder="Qué se pagó" required></label>
       <label>A quién<input id="expenseWho" type="text" placeholder="Proveedor / persona"></label>

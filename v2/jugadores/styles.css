@@ -134,3 +134,33 @@
 .num-legend i{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-1px;margin-right:5px}
 .num-legend i.free{background:#eaf6f1;border:1px solid #bfe3d4}
 .num-legend i.taken{background:#f3f2ee;border:1px solid #e2e0d8}
+/* === Plantilla estilo legacy: jersey cards + stats === */
+.plantilla-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.plantilla-header h2{font-size:24px;font-weight:800;margin:0;color:#0b1418}
+.plantilla-search{width:100%;border:1px solid #dfe6e4;border-radius:14px;padding:14px 16px;font:inherit;font-size:15px;background:#fff;margin-bottom:14px}
+.plantilla-search:focus{outline:none;border-color:#087d8e;box-shadow:0 0 0 3px rgba(8,125,142,.12)}
+.stat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.stat-card{border:1px solid #e4ebe9;background:#fff;border-radius:16px;padding:14px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all .12s}
+.stat-card:hover{border-color:#bcdde2}
+.stat-card.on{border-color:#087d8e;background:#eef6f4;box-shadow:0 0 0 1px #087d8e}
+.stat-card .stat-n{font-size:26px;font-weight:900;color:#0b1418;line-height:1}
+.stat-card.danger .stat-n{color:#c0362c}
+.stat-card .stat-l{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#68777d}
+.chips-counts{margin-bottom:16px}
+.cat-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 2px 11px;gap:10px}
+.cat-head h3{font-size:19px;font-weight:800;margin:0;color:#0b1418}
+.free-link{border:0;background:none;color:#087d8e;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}
+.free-link:hover{text-decoration:underline}
+.jgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.jcard{position:relative;aspect-ratio:3/4;border:0;border-radius:18px;overflow:hidden;cursor:pointer;background:linear-gradient(160deg,#0a3038,#04222a);background-size:cover;background-position:center top;padding:0;display:block;box-shadow:0 4px 14px rgba(11,20,24,.14);transition:transform .1s,box-shadow .15s}
+.jcard:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(11,20,24,.22)}
+.jcard.selected{outline:3px solid #c6ac5c;outline-offset:-2px}
+.jcard::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,26,32,.12) 0%,rgba(3,26,32,.02) 38%,rgba(3,26,32,.86) 100%)}
+.jcard-cat{position:absolute;top:10px;left:10px;z-index:2;background:#c6ac5c;color:#0b1418;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;padding:4px 8px;border-radius:7px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jcard-num{position:absolute;top:6px;right:12px;z-index:2;color:#fff;font-size:34px;font-weight:900;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,.45)}
+.jcard-dot{position:absolute;top:46px;right:14px;z-index:2;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+.jcard-dot.review{background:#e0483b}
+.jcard-dot.ok{background:#3fae6a}
+.jcard-initials{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);z-index:1;font-size:62px;font-weight:900;color:rgba(255,255,255,.07);letter-spacing:.06em}
+.jcard-name{position:absolute;left:12px;right:12px;bottom:12px;z-index:2;color:#fff;font-size:14px;font-weight:800;line-height:1.2;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:640px){.jgrid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}.jcard-num{font-size:27px}.jcard-initials{font-size:48px}.stat-cards{grid-template-columns:repeat(2,1fr)}}

@@ -87,9 +87,23 @@ function ensureBackButton(){
   const topLeft=document.querySelector('.tos-topbar .tos-top-left');if(!topLeft)return;topLeft.querySelector('.tos-back-button')?.remove();const root=location.pathname==='/'||location.pathname==='/v2'||location.pathname==='/v2/';if(root)return;
   const button=document.createElement('button');button.type='button';button.className='tos-back-button';button.setAttribute('aria-label','Volver');button.textContent='‹';button.addEventListener('click',()=>{try{const key=`tos:return:${location.pathname}`,saved=sessionStorage.getItem(key),ref=document.referrer?new URL(document.referrer):null;if(saved&&saved.startsWith('/')&&saved!==location.pathname+location.search+location.hash){sessionStorage.removeItem(key);if(ref?.origin===location.origin&&ref.pathname+ref.search+ref.hash===saved&&history.length>1){history.back();return;}location.href=saved;return;}if(ref?.origin===location.origin&&ref.pathname!==location.pathname&&history.length>1){history.back();return;}}catch{}const clubRoutes=['/jugadores/','/asistencia/','/convocatoria/','/academias/','/prospectos/','/scouting/'];location.href=clubRoutes.some(path=>location.pathname.startsWith(path))?'/club/':'/';});topLeft.prepend(button);
 }
+async function loadTannerSearchIndex(ctx){
+  try{
+    if(!ctx||!ctx.organization_id)return;
+    const data=await rpc('v2_search_index',{organization_id:ctx.organization_id});
+    const items=(data||[]).map(p=>({
+      label:p.name||'Tanner',
+      meta:[p.jersey?('#'+p.jersey):'',p.pos||'',p.guardians||'',p.phones||''].filter(Boolean).join(' \u00b7 '),
+      href:'/v2/jugadores/?player='+p.id,
+      __tanner:true
+    }));
+    const prev=(window.__tosSearchExtras||[]).filter(x=>!x.__tanner);
+    window.__tosSearchExtras=[...prev,...items];
+  }catch(e){/* silencioso */}
+}
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;renderNavigation($('sidebarNav'),navigation,active);
-  const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});}
+  const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation);loadTannerSearchIndex(ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});}
 }
 export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

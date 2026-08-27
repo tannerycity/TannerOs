@@ -83,7 +83,7 @@ function openNumPicker(){
     if(who){const ini=who.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();html+=`<div class="num-cell taken" title="${esc(who)}">${n}<small>${esc(ini)}</small></div>`;}
     else{html+=`<button type="button" class="num-cell free${sel?' sel':''}" data-num="${n}">${n}</button>`;}
   }
-  $('numGrid').innerHTML=html;$('numPicker').classList.remove('hidden');
+  grid.innerHTML=html;modal.classList.remove('hidden');
 }
 function closeNumPicker(){$('numPicker').classList.add('hidden');}
 document.addEventListener('click',e=>{
@@ -107,13 +107,14 @@ function renderStats(){
   box.innerHTML=cards.map(([k,n,l,cls])=>`<button type="button" class="stat-card${cls?' '+cls:''}${(k!=='cat'&&fStat===k)?' on':''}" data-stat="${k}"><span class="stat-n">${n}</span><span class="stat-l">${l}</span></button>`).join('');
 }
 function openFreeNums(cat){
+  const modal=$('numPicker'),grid=$('numGrid');if(!modal||!grid){return;}
   const taken={};
   (players||[]).forEach(p=>{if(p.category===cat){const n=parseInt(p.jersey_number,10);if(!isNaN(n))taken[n]=nameOf(p);}});
   $('numPickerCat').textContent=(cat||'').toUpperCase();
   const t=$('numPickerTitle');if(t)t.textContent='Números de la categoría';
   let html='';
   for(let n=1;n<=30;n++){const who=taken[n];if(who){const ini=who.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();html+=`<div class="num-cell taken" title="${esc(who)}">${n}<small>${esc(ini)}</small></div>`;}else{html+=`<div class="num-cell free">${n}</div>`;}}
-  $('numGrid').innerHTML=html;$('numPicker').classList.remove('hidden');
+  grid.innerHTML=html;modal.classList.remove('hidden');
 }
 
 

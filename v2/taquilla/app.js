@@ -32,7 +32,7 @@ function renderMethods(){
 function renderMovements(){
   const status=$('movementStatus').value,rows=(snapshot?.movements||[]).filter(m=>status==='all'||m.status===status),body=$('movementRows');body.innerHTML='';
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${esc(m.who||'—')}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${vbtn}</td>`;body.appendChild(tr);});
+  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const ebtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="edit-move" data-edit="'+esc(m.id)+'">Editar</button>'):'';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${esc(m.who||'—')}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${ebtn}${vbtn}</td>`;body.appendChild(tr);});
 }
 function render(){
   const _inc=Number(snapshot?.incomeTotal||0),_exp=Number(snapshot?.expenseTotal||0),_net=Number(snapshot?.netTotal||0);
@@ -61,7 +61,7 @@ async function load(){
 async function loadPlayers(){
   if(!moduleAccess(navigation,'cobranza',false))return;
   try{billingPlayers=await rpc('v2_billing_players',{organization_id:org});}catch(e){console.warn('billing players',e);billingPlayers=[];}
-  const sel=$('collectPlayer');const _opts=billingPlayers.slice().sort((a,b)=>String(a.player_name).localeCompare(String(b.player_name),'es-MX')).map(p=>`<option value="${p.player_id}" data-fee="${p.base_monthly_fee??''}">${esc(p.player_name)}${p.billing_status==='review'?' · revisar cuota':''}</option>`).join('');sel.innerHTML='<option value="">Selecciona un Tanner</option>'+_opts;
+  
 }
 function setCollectMode(mode){
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
@@ -101,7 +101,7 @@ if(!canAccountingWrite){$('openExpense').classList.add('disabled');$('openExpens
 $('openExpense').addEventListener('click',()=>{if(canAccountingWrite)modal('expenseModal',true);});
 $('modalBackdrop').addEventListener('click',closeModals);document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
 document.querySelectorAll('.cashier-tabs button').forEach(b=>b.addEventListener('click',()=>setCollectMode(b.dataset.mode)));
-$('collectPlayer').addEventListener('change',()=>{const op=$('collectPlayer').selectedOptions?.[0];if(op?.dataset?.fee&&!$('collectAmount').value)$('collectAmount').value=Number(op.dataset.fee)||'';});
+
 $('collectForm').addEventListener('submit',e=>{e.preventDefault();postCollect();});$('expenseForm').addEventListener('submit',e=>{e.preventDefault();postExpense();});
 $('printClose').addEventListener('click',()=>window.print());$('countedCash')?.addEventListener('input',renderReconcile);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
@@ -143,7 +143,7 @@ $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')
 
 
 // === Buscador inteligente de Tanners (por cualquier nombre, sin acentos) ===
-function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId){
+function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
   const inp=$(searchId),hid=$(hiddenId),res=$(resultsId),clr=$(clearId);
   if(!inp||!hid||!res)return;
   const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -157,8 +157,51 @@ function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId){
   }
   inp.addEventListener('input',()=>{hid.value='';if(clr)clr.classList.toggle('hidden',!inp.value);render(inp.value);});
   inp.addEventListener('focus',()=>{if(inp.value)render(inp.value);});
-  res.addEventListener('click',e=>{const b=e.target.closest('.tsearch-opt');if(!b)return;hid.value=b.dataset.id;inp.value=b.textContent;res.classList.add('hidden');if(clr)clr.classList.remove('hidden');});
+  res.addEventListener('click',e=>{const b=e.target.closest('.tsearch-opt');if(!b)return;hid.value=b.dataset.id;inp.value=b.textContent;res.classList.add('hidden');if(clr)clr.classList.remove('hidden');if(typeof onSelect==='function'){const pl=(billingPlayers||[]).find(x=>String(x.player_id)===String(b.dataset.id));onSelect(pl);}});
   if(clr)clr.addEventListener('click',()=>{hid.value='';inp.value='';res.classList.add('hidden');clr.classList.add('hidden');inp.focus();});
   document.addEventListener('click',e=>{if(!e.target.closest('#'+boxId))res.classList.add('hidden');});
 }
 tannerSearchInit('generalPlayerBox','generalPlayerSearch','generalPlayer','generalPlayerResults','generalPlayerClear');
+tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','collectPlayerResults','collectPlayerClear',(pl)=>{if(pl&&pl.base_monthly_fee!=null&&!$('collectAmount').value)$('collectAmount').value=Number(pl.base_monthly_fee)||'';});
+
+
+// === Editar movimiento (solo Presidencia) ===
+const _METHOD_VAL={'Efectivo':'cash','Transferencia':'transfer','Tarjeta':'card','Otro':'other'};
+let pendingEdit=null;
+function openEditMove(m){
+  if(!m)return;pendingEdit=m;const income=m.type==='income';
+  $('editKicker').textContent=income?'COBRO':'PAGO';
+  $('editAmount').value=Number(m.amount||0);
+  $('editDate').value=m.date||isoToday();
+  $('editMethod').value=_METHOD_VAL[m.method]||'other';
+  $('editCategory').value=m.category&&m.category!=='—'?m.category:'';
+  $('editConcept').value=m.concept&&m.concept!=='—'?m.concept:'';
+  $('editWho').value=(m.who&&m.who!=='—')?m.who:'';
+  $('editPlayerBox').classList.toggle('hidden',!income);
+  if(income){$('editPlayer').value=m.playerId||'';$('editPlayerSearch').value=m.playerId&&m.who&&m.who!=='—'?m.who:'';$('editPlayerClear').classList.toggle('hidden',!m.playerId);}
+  $('editMessage').classList.add('hidden');
+  $('editModal').classList.remove('hidden');$('modalBackdrop').classList.remove('hidden');
+}
+function closeEditMove(){pendingEdit=null;$('editModal').classList.add('hidden');$('modalBackdrop').classList.add('hidden');}
+async function saveEditMove(){
+  if(!pendingEdit)return;const m=pendingEdit,income=m.type==='income',msg=$('editMessage');
+  const amount=Number($('editAmount').value);
+  if(!Number.isFinite(amount)||amount<=0){msg.textContent='El monto debe ser mayor a cero.';msg.classList.remove('hidden');return;}
+  const btn=$('editSave');btn.disabled=true;
+  try{
+    if(income){
+      await rpc('v2_update_payment',{organization_id:org,payment_id:m.id,amount,method:$('editMethod').value,category:$('editCategory').value.trim(),concept:$('editConcept').value.trim(),payer_name:$('editWho').value.trim()||null,payment_date:$('editDate').value||null,reference:m.reference||null,player_id:$('editPlayer').value||null});
+    }else{
+      await rpc('v2_update_expense',{organization_id:org,expense_id:m.id,amount,method:$('editMethod').value,category:$('editCategory').value.trim(),concept:$('editConcept').value.trim(),supplier_name:$('editWho').value.trim()||null,expense_date:$('editDate').value||null,reference:m.reference||null});
+    }
+    closeEditMove();await load();
+  }catch(e){msg.textContent=(e&&e.message)||'No se pudo guardar.';msg.classList.remove('hidden');}
+  finally{btn.disabled=false;}
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest?.('.edit-move');
+  if(b&&b.dataset.edit){openEditMove((snapshot?.movements||[]).find(x=>x.id===b.dataset.edit));return;}
+  if(e.target.closest?.('[data-close-edit]'))closeEditMove();
+});
+$('editSave')?.addEventListener('click',saveEditMove);
+tannerSearchInit('editPlayerBox','editPlayerSearch','editPlayer','editPlayerResults','editPlayerClear');

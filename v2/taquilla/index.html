@@ -66,7 +66,7 @@
     <div class="cashier-tabs"><button type="button" class="active" data-mode="player">Tanner / mensualidad</button><button type="button" data-mode="general">Otro ingreso</button></div>
     <form id="collectForm" class="cashier-form">
       <div id="playerFields" class="cashier-form-grid">
-        <label class="wide">Tanner<select id="collectPlayer" data-smart-search data-search-placeholder="Escribe el nombre del Tanner"><option value="">Selecciona un Tanner</option></select></label>
+        <div class="tsearch wide" id="collectPlayerBox"><span class="tsearch-label">Tanner</span><div class="tsearch-field"><input type="text" id="collectPlayerSearch" placeholder="Escribe cualquier nombre del Tanner…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="collectPlayerClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="collectPlayerResults"></div></div><input type="hidden" id="collectPlayer" value=""></div>
         <label>Monto<input id="collectAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
         <label>Fecha<input id="collectDate" type="date"></label>
         <label>Método<select id="collectMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
@@ -106,6 +106,21 @@
       <button id="saveExpense" class="cashier-submit expense wide" type="submit">Registrar pago</button>
       <p class="cashier-help wide">Esta acción requiere permiso de Contabilidad. Taquilla sin ese permiso puede cobrar, pero no publicar salidas.</p>
     </form>
+  </section>
+
+  <section id="editModal" class="cashier-modal edit-modal hidden" role="dialog" aria-modal="true">
+    <div class="cashier-modal-head"><div><span id="editKicker">MOVIMIENTO</span><h2>Editar movimiento</h2></div><button type="button" data-close-edit aria-label="Cerrar">×</button></div>
+    <div class="edit-body cashier-form-grid">
+      <label>Monto<input id="editAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
+      <label>Fecha<input id="editDate" type="date"></label>
+      <label>Método<select id="editMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
+      <label>Categoría<input id="editCategory" type="text"></label>
+      <label class="wide">Concepto<input id="editConcept" type="text"></label>
+      <label class="wide">Quién<input id="editWho" type="text" placeholder="Quién pagó / beneficiario"></label>
+      <div class="tsearch wide hidden" id="editPlayerBox"><span class="tsearch-label">Ligar a Tanner <span class="opt">· opcional</span></span><div class="tsearch-field"><input type="text" id="editPlayerSearch" placeholder="Escribe cualquier nombre…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="editPlayerClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="editPlayerResults"></div></div><input type="hidden" id="editPlayer" value=""></div>
+      <div id="editMessage" class="cashier-message hidden wide"></div>
+    </div>
+    <div class="void-actions"><button type="button" class="void-cancel" data-close-edit>Cancelar</button><button type="button" class="void-confirm edit-save" id="editSave">Guardar cambios</button></div>
   </section>
 
   <section id="voidModal" class="cashier-modal void-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voidTitle">

@@ -17,13 +17,19 @@
 @media(max-width:720px){
  .cashier-table.movements{min-width:0}
  .cashier-table.movements thead{display:none}
- .cashier-table.movements tr{display:block;border:1px solid #ece8de;border-radius:16px;padding:8px 13px;margin-bottom:10px;background:#fff}
+ .cashier-table.movements tr{display:grid;grid-template-columns:1fr auto;column-gap:12px;row-gap:3px;border:1px solid #ece8de;border-radius:16px;padding:12px 14px;margin-bottom:10px;background:#fff}
  .cashier-table.movements tr:last-child{margin-bottom:0}
- .cashier-table.movements td{display:flex;justify-content:space-between;align-items:center;gap:14px;border:0;padding:7px 0;font-size:13.5px}
- .cashier-table.movements td::before{content:attr(data-label);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#8894a0;flex:0 0 auto}
- .cashier-table.movements td[data-label="Monto"]{font-size:17px;font-weight:900}
- .cashier-table.movements td[data-label="Concepto"],.cashier-table.movements td[data-label="Quién"]{text-align:right}
- .cashier-table.movements .void-income{margin-left:0}
+ .cashier-table.movements td{grid-column:1 / -1;display:flex;justify-content:space-between;align-items:baseline;gap:10px;border:0;padding:2px 0;font-size:13px}
+ .cashier-table.movements td::before{content:attr(data-label);font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:#9aa4ad;flex:0 0 auto}
+ .cashier-table.movements td[data-label="Movimiento"]{grid-column:1;grid-row:1;padding-bottom:5px}
+ .cashier-table.movements td[data-label="Movimiento"]::before{display:none}
+ .cashier-table.movements td[data-label="Monto"]{grid-column:2;grid-row:1;justify-content:flex-end;font-size:18px;font-weight:900;padding-bottom:5px}
+ .cashier-table.movements td[data-label="Monto"]::before{display:none}
+ .cashier-table.movements td[data-label="Concepto"]{gap:8px}
+ .cashier-table.movements td[data-label="Concepto"] span,.cashier-table.movements td[data-label="Quién"] span{text-align:right}
+ .cashier-table.movements td[data-label="Estado"]{margin-top:7px;padding-top:9px;border-top:1px solid #f0efe9;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+ .cashier-table.movements td[data-label="Estado"]::before{display:none}
+ .cashier-table.movements .void-income,.cashier-table.movements .edit-move{margin-left:0}
 }
 .void-hint{background:#eaf3f2;border:1px solid #cfe6e2;color:#0c6a5b;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:600;margin:0 0 12px}
 .void-confirm.refund-mode{background:var(--tos-teal)}
@@ -43,3 +49,10 @@
 .tsearch-opt:last-child{border-bottom:0}
 .tsearch-opt:hover{background:#eef6f4}
 .tsearch-empty{padding:13px 14px;color:#8a969b;font-size:13.5px}
+.edit-move{margin-left:8px;border:1px solid #cfe6e2;background:#eef6f4;color:#0c6270;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;cursor:pointer}
+.edit-move:hover{background:#dceeeb}
+.edit-modal{width:min(560px,calc(100vw - 24px))}
+.edit-body{margin-top:4px}
+.edit-body .cashier-message.wide{grid-column:1 / -1}
+.void-confirm.edit-save{background:var(--tos-teal)}
+@media(max-width:720px){.cashier-table.movements td[data-label="Estado"]{flex-wrap:wrap;gap:6px}}

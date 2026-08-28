@@ -14,10 +14,66 @@
   <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2">Volver a Dirección</a></section>
   <section id="prospectsView" class="hidden app-wrap">
     <header class="topbar"><div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div><div class="top-actions"><a class="secondary mini nav-link" href="/v2">Dirección</a><span id="roleBadge" class="role-badge"></span><button id="signOut" class="secondary mini" type="button">Salir</button></div></header>
-    <section class="hero campaign-hero"><div><div class="eyebrow">CAPTACIÓN · OPERACIÓN</div><h1>Prospectos</h1><p class="muted">Atiende campañas, agenda pruebas y convierte prospectos sin perder seguimiento.</p></div><div class="hero-actions"><button id="refreshProspects" class="secondary mini" type="button">Actualizar</button><span class="health"><i></i> Seguimiento conectado</span></div></section>
-    <section class="campaign-kpis"><article><span>Captados</span><strong id="kpiCaptured">0</strong><small>según filtros de campaña</small></article><article class="attention"><span>Sin contactar</span><strong id="kpiNew">0</strong><small>prioridad inmediata</small></article><article><span>En prueba</span><strong id="kpiTrial">0</strong><small>agendada o realizada</small></article><article class="success"><span>Convertidos</span><strong id="kpiConverted">0</strong><small id="kpiConversion">0%</small></article><article class="danger"><span>Seguimiento vencido</span><strong id="kpiOverdue">0</strong><small>requiere acción</small></article></section>
-    <section class="campaign-overview"><div class="overview-block"><div class="eyebrow">SEGUIMIENTO</div><div class="funnel-row"><span>Nuevo <strong id="funnelNew">0</strong></span><i>→</i><span>Contactado <strong id="funnelContacted">0</strong></span><i>→</i><span>Prueba <strong id="funnelTrial">0</strong></span><i>→</i><span>Alta <strong id="funnelConverted">0</strong></span></div></div><div class="overview-block"><div class="eyebrow">ATENCIÓN</div><div id="attentionSummary" class="attention-summary"></div></div><div class="overview-block"><div class="eyebrow">ORIGEN</div><div id="sourceBreakdown" class="source-breakdown"></div></div></section>
-    <section class="panel campaign-panel"><div class="panel-head campaign-panel-head"><div><div class="eyebrow">CAPTACIÓN</div><h2>Seguimiento</h2><p id="resultCount" class="muted tiny">0 resultados</p></div><div class="filters campaign-filters"><select id="typeFilter" aria-label="Filtrar por tipo"><option value="">Porteros + jugadores</option><option value="goalkeeper">Solo porteros</option><option value="player">Solo jugadores</option></select><select id="campaignFilter" aria-label="Filtrar por campaña"><option value="">Todas las campañas</option></select><select id="sourceFilter" aria-label="Filtrar por origen"><option value="">Todos los orígenes</option></select><select id="statusFilter" aria-label="Filtrar por etapa"><option value="">Todas las etapas</option><option value="new">Nuevos</option><option value="contacted">Contactados</option><option value="trial_scheduled">Prueba agendada</option><option value="trial_completed">Prueba realizada</option><option value="converted">Convertidos</option><option value="not_continuing">No continúan</option></select><select id="urgencyFilter" aria-label="Filtrar por prioridad"><option value="">Cualquier prioridad</option><option value="needs_contact">Sin contactar</option><option value="overdue">Seguimiento vencido</option><option value="upcoming">Próximas 48 h</option></select><input id="searchProspect" type="search" placeholder="Nombre, tutor, teléfono, escuela…"><button id="clearFilters" class="secondary mini" type="button">Limpiar</button></div></div><div id="prospectList" class="prospect-list"></div><div id="prospectEmpty" class="empty hidden">No hay prospectos con estos filtros.</div></section>
+    <section class="capture-intro">
+      <div>
+        <div class="eyebrow">CAPTACIÓN TANNERY CITY</div>
+        <h1>Radar de nuevos Tanners</h1>
+        <p>Detecta qué requiere acción, mide cada campaña y mueve a cada niño al siguiente paso.</p>
+      </div>
+      <button id="refreshProspects" class="refresh-action" type="button"><span class="tos-icon tos-icon-check" aria-hidden="true"></span>Actualizar</button>
+    </section>
+
+    <section class="manager-board" aria-label="Resumen de captación">
+      <button id="managerAttention" class="manager-card manager-attention" type="button">
+        <span class="manager-icon"><span class="tos-icon tos-icon-target" aria-hidden="true"></span></span>
+        <span class="manager-copy"><small>Requieren acción</small><strong id="managerActionCount">0</strong><span id="managerActionCopy">Todo al día</span></span>
+        <span class="manager-chevron" aria-hidden="true">›</span>
+      </button>
+      <article class="manager-card manager-conversion">
+        <span id="conversionRing" class="conversion-ring"><b id="managerConversion">0%</b></span>
+        <span class="manager-copy"><small>Conversión a Tanner</small><strong id="managerConverted">0 altas</strong><span id="managerConversionCopy">de 0 captados</span></span>
+      </article>
+      <button id="managerCampaign" class="manager-card manager-campaign" type="button">
+        <span class="manager-icon gold"><span class="tos-icon tos-icon-trophy" aria-hidden="true"></span></span>
+        <span class="manager-copy"><small>Campaña con más altas</small><strong id="managerCampaignName">Sin datos</strong><span id="managerCampaignCopy">Aún no hay campañas</span></span>
+        <span class="manager-chevron" aria-hidden="true">›</span>
+      </button>
+    </section>
+
+    <section class="campaign-selector" aria-labelledby="campaignSelectorTitle">
+      <div class="section-title-row">
+        <div><div class="eyebrow">RENDIMIENTO</div><h2 id="campaignSelectorTitle">Campañas</h2></div>
+        <span id="campaignContext" class="campaign-context">Todas</span>
+      </div>
+      <div id="campaignButtons" class="campaign-buttons" role="list"></div>
+    </section>
+
+    <section class="panel campaign-panel">
+      <div class="panel-head campaign-panel-head">
+        <div><div class="eyebrow">OPERACIÓN DIARIA</div><h2>Talento captado</h2><p id="resultCount" class="muted tiny">0 resultados</p></div>
+      </div>
+      <nav id="stageTabs" class="stage-tabs" aria-label="Etapas de captación">
+        <button class="stage-tab active" data-view="attention" type="button"><span>Por atender</span><strong id="stageAttentionCount">0</strong></button>
+        <button class="stage-tab" data-view="trials" type="button"><span>Pruebas</span><strong id="stageTrialsCount">0</strong></button>
+        <button class="stage-tab" data-view="ready" type="button"><span>Por dar de alta</span><strong id="stageReadyCount">0</strong></button>
+        <button class="stage-tab" data-view="converted" type="button"><span>Tanners</span><strong id="stageConvertedCount">0</strong></button>
+        <button class="stage-tab" data-view="all" type="button"><span>Todos</span><strong id="stageAllCount">0</strong></button>
+      </nav>
+      <div class="prospect-tools">
+        <label id="prospectSearchBar" class="prospect-search-bar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="searchProspect" type="search" placeholder="Buscar niño, tutor o teléfono" aria-label="Buscar prospecto"></label>
+        <button id="toggleProspectFilters" class="prospect-filter-toggle" type="button"><span>Más filtros</span><i class="tos-icon tos-icon-chevron" aria-hidden="true"></i></button>
+      </div>
+      <div class="filters campaign-filters">
+        <label>Perfil<select id="typeFilter"><option value="">Jugadores y porteros</option><option value="goalkeeper">Porteros</option><option value="player">Jugadores</option></select></label>
+        <label>Campaña<select id="campaignFilter"><option value="">Todas las campañas</option></select></label>
+        <label>Origen<select id="sourceFilter"><option value="">Todos los orígenes</option></select></label>
+        <label>Etapa<select id="statusFilter"><option value="">Todas las etapas</option><option value="new">Nuevos</option><option value="contacted">Contactados</option><option value="trial_scheduled">Prueba agendada</option><option value="trial_completed">Prueba realizada</option><option value="converted">Convertidos</option><option value="not_continuing">No continúan</option></select></label>
+        <label>Prioridad<select id="urgencyFilter"><option value="">Cualquier prioridad</option><option value="needs_contact">Sin contactar</option><option value="overdue">Seguimiento vencido</option><option value="upcoming">Próximas 48 h</option></select></label>
+        <button id="clearFilters" class="secondary mini" type="button">Limpiar filtros</button>
+      </div>
+      <div id="prospectList" class="prospect-list"></div>
+      <div id="prospectEmpty" class="empty hidden"><strong>No encontramos prospectos aquí.</strong><span>Prueba otra etapa o limpia los filtros.</span></div>
+    </section>
   </section>
 </main>
 <div id="prospectBackdrop" class="drawer-backdrop hidden"></div>

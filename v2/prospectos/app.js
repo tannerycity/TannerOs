@@ -9,6 +9,7 @@ const supabase=createClient(
 const PHOTO_BUCKET='tanneros-prospect-photos';
 const $=id=>document.getElementById(id);
 let ctx=null,prospects=[],filtered=[],current=null,moduleRows=[],categories=[];
+let operationalView='attention',initialViewReady=false,managerCampaignCode='';
 
 const statusLabel={
   new:'Nuevo',contacted:'Contactado',trial_scheduled:'Prueba agendada',
@@ -77,6 +78,7 @@ async function loadProspects(){
   prospects=Array.isArray(prospects)?prospects:[];
   await loadProspectPhotos();
   populateFilterOptions();
+  if(!initialViewReady){operationalView=prospects.some(p=>active(p)&&(needsContact(p)||overdue(p)||upcoming(p)))?'attention':'all';initialViewReady=true;}
   applyFilters();
 }
 
@@ -108,63 +110,83 @@ function baseScoped(){
   return prospects.filter(p=>(!type||p.registration_type===type)&&(!campaign||p.source_campaign===campaign)&&(!source||(p.source_channel||p.source)===source));
 }
 
-function renderKpis(){
-  const scoped=baseScoped();
-  const total=scoped.length;
-  const newCount=scoped.filter(needsContact).length;
-  const trial=scoped.filter(p=>['trial_scheduled','trial_completed'].includes(p.status)).length;
-  const converted=scoped.filter(p=>p.status==='converted').length;
-  const overdueCount=scoped.filter(overdue).length;
-  $('kpiCaptured').textContent=total;
-  $('kpiNew').textContent=newCount;
-  $('kpiTrial').textContent=trial;
-  $('kpiConverted').textContent=converted;
-  $('kpiConversion').textContent=total?`${Math.round((converted/total)*100)}%`:'0%';
-  $('kpiOverdue').textContent=overdueCount;
-
-  const stages={
-    new:scoped.filter(p=>p.status==='new').length,
-    contacted:scoped.filter(p=>p.status==='contacted').length,
-    trial:scoped.filter(p=>['trial_scheduled','trial_completed'].includes(p.status)).length,
-    converted
-  };
-  $('funnelNew').textContent=stages.new;
-  $('funnelContacted').textContent=stages.contacted;
-  $('funnelTrial').textContent=stages.trial;
-  $('funnelConverted').textContent=stages.converted;
-  renderSourceBreakdown(scoped);
-  renderAttentionSummary(scoped);
+function campaignUniverse(){
+  const type=$('typeFilter').value,source=$('sourceFilter').value;
+  return prospects.filter(p=>(!type||p.registration_type===type)&&(!source||(p.source_channel||p.source)===source));
 }
 
-function renderSourceBreakdown(rows){
-  const box=$('sourceBreakdown');box.innerHTML='';
-  const counts=new Map();
-  for(const p of rows){const key=sourceName(p.source_channel||p.source);counts.set(key,(counts.get(key)||0)+1);}
-  const ranked=[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6);
-  if(!ranked.length){const empty=document.createElement('span');empty.className='muted tiny';empty.textContent='Sin datos de origen.';box.appendChild(empty);return;}
-  for(const [label,count] of ranked){
-    const chip=document.createElement('button');chip.type='button';chip.className='source-chip';
-    const name=document.createElement('span');name.textContent=label;
-    const total=document.createElement('strong');total.textContent=String(count);
-    chip.append(name,total);
-    chip.addEventListener('click',()=>{const source=$('sourceFilter');const option=[...source.options].find(o=>o.value===label);if(option){source.value=label;applyFilters();}});
-    box.appendChild(chip);
+function campaignStats(rows){
+  const groups=new Map();
+  for(const p of rows){
+    const code=p.source_campaign||'';
+    if(!code)continue;
+    if(!groups.has(code))groups.set(code,{code,label:campaignName(code),total:0,converted:0,active:0});
+    const item=groups.get(code);item.total++;if(p.status==='converted')item.converted++;if(active(p))item.active++;
   }
+  return [...groups.values()].map(item=>({...item,rate:item.total?Math.round(item.converted/item.total*100):0})).sort((a,b)=>b.converted-a.converted||b.rate-a.rate||b.total-a.total||a.label.localeCompare(b.label,'es-MX'));
 }
 
-function renderAttentionSummary(rows){
-  const box=$('attentionSummary');box.innerHTML='';
-  const items=[
-    ['Sin contactar',rows.filter(needsContact).length,'needs_contact'],
-    ['Seguimiento vencido',rows.filter(overdue).length,'overdue'],
-    ['Próximas 48 h',rows.filter(upcoming).length,'upcoming']
-  ];
-  for(const [label,count,value] of items){const b=document.createElement('button');b.type='button';b.className=`attention-chip ${count?'hot':''}`;b.innerHTML=`<span>${label}</span><strong>${count}</strong>`;b.addEventListener('click',()=>{$('urgencyFilter').value=value;applyFilters();});box.appendChild(b);}
+function selectCampaign(code){
+  $('campaignFilter').value=code||'';
+  applyFilters();
+  document.querySelector('.campaign-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderCampaignButtons(){
+  const box=$('campaignButtons');box.innerHTML='';
+  const rows=campaignUniverse(),stats=campaignStats(rows),selected=$('campaignFilter').value;
+  const all={code:'',label:'Todas las campañas',total:rows.length,converted:rows.filter(p=>p.status==='converted').length};
+  const makeButton=item=>{
+    const rate=item.total?Math.round(item.converted/item.total*100):0;
+    const button=document.createElement('button');button.type='button';button.className='campaign-button';button.dataset.campaign=item.code;button.setAttribute('aria-pressed',String(selected===item.code));
+    const heading=document.createElement('span'),title=document.createElement('strong'),metric=document.createElement('b'),detail=document.createElement('small');
+    title.textContent=item.label;metric.textContent=`${rate}%`;detail.textContent=`${item.total} captados · ${item.converted} altas`;heading.append(title,metric);button.append(heading,detail);
+    button.addEventListener('click',()=>selectCampaign(item.code));return button;
+  };
+  box.appendChild(makeButton(all));for(const item of stats)box.appendChild(makeButton(item));
+  $('campaignContext').textContent=selected?campaignName(selected):'Todas';
+}
+
+function actionRows(rows){return rows.filter(p=>active(p)&&(needsContact(p)||overdue(p)||upcoming(p)));}
+function matchesOperationalView(p){
+  if(operationalView==='attention')return active(p)&&(needsContact(p)||overdue(p)||upcoming(p));
+  if(operationalView==='trials')return p.status==='trial_scheduled';
+  if(operationalView==='ready')return p.status==='trial_completed';
+  if(operationalView==='converted')return p.status==='converted';
+  return true;
+}
+
+function renderStageTabs(rows){
+  const counts={
+    attention:rows.filter(p=>active(p)&&(needsContact(p)||overdue(p)||upcoming(p))).length,
+    trials:rows.filter(p=>p.status==='trial_scheduled').length,
+    ready:rows.filter(p=>p.status==='trial_completed').length,
+    converted:rows.filter(p=>p.status==='converted').length,
+    all:rows.length
+  };
+  $('stageAttentionCount').textContent=counts.attention;$('stageTrialsCount').textContent=counts.trials;$('stageReadyCount').textContent=counts.ready;$('stageConvertedCount').textContent=counts.converted;$('stageAllCount').textContent=counts.all;
+  document.querySelectorAll('.stage-tab').forEach(button=>{const selected=button.dataset.view===operationalView;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));});
+}
+
+function renderManagerBoard(rows){
+  const total=rows.length,converted=rows.filter(p=>p.status==='converted').length,actions=actionRows(rows);
+  const overdueCount=actions.filter(overdue).length,newCount=actions.filter(p=>!overdue(p)&&needsContact(p)).length,upcomingCount=actions.filter(p=>!overdue(p)&&!needsContact(p)&&upcoming(p)).length;
+  const rate=total?Math.round(converted/total*100):0;
+  $('managerActionCount').textContent=String(actions.length);
+  $('managerActionCopy').textContent=actions.length?[overdueCount?`${overdueCount} vencido${overdueCount===1?'':'s'}`:null,newCount?`${newCount} sin contacto`:null,upcomingCount?`${upcomingCount} próxim${upcomingCount===1?'a':'as'}`:null].filter(Boolean).join(' · '):'Todo al día';
+  $('managerAttention').classList.toggle('is-clear',actions.length===0);
+  $('managerConversion').textContent=`${rate}%`;$('managerConverted').textContent=`${converted} alta${converted===1?'':'s'}`;$('managerConversionCopy').textContent=`de ${total} captado${total===1?'':'s'}`;
+  $('conversionRing').style.setProperty('--progress',`${rate*3.6}deg`);
+  const top=campaignStats(campaignUniverse())[0];managerCampaignCode=top?.code||'';
+  $('managerCampaignName').textContent=top?.label||'Sin datos';
+  $('managerCampaignCopy').textContent=top?`${top.converted} altas · ${top.rate}% de conversión`:'Aún no hay campañas';
+  $('managerCampaign').disabled=!top;
 }
 
 function applyFilters(){
   const status=$('statusFilter').value,q=$('searchProspect').value.trim().toLocaleLowerCase('es-MX'),urgency=$('urgencyFilter').value;
   filtered=baseScoped().filter(p=>{
+    if(!matchesOperationalView(p))return false;
     if(status&&p.status!==status)return false;
     if(urgency==='needs_contact'&&!needsContact(p))return false;
     if(urgency==='overdue'&&!overdue(p))return false;
@@ -175,21 +197,39 @@ function applyFilters(){
     return hay.includes(q);
   });
   filtered.sort((a,b)=>{
-    const score=p=>needsContact(p)?0:overdue(p)?1:upcoming(p)?2:3;
+    const score=p=>overdue(p)?0:needsContact(p)?1:upcoming(p)?2:p.status==='trial_completed'?3:4;
     const s=score(a)-score(b);if(s)return s;
     const an=a.next_action_at?new Date(a.next_action_at).getTime():Infinity;
     const bn=b.next_action_at?new Date(b.next_action_at).getTime():Infinity;
     if(an!==bn)return an-bn;
     return new Date(b.created_at||0)-new Date(a.created_at||0);
   });
-  renderKpis();renderList();
+  const scoped=baseScoped();renderCampaignButtons();renderManagerBoard(scoped);renderStageTabs(scoped);renderList();
   $('resultCount').textContent=`${filtered.length} resultado${filtered.length===1?'':'s'}`;
   updateFilterButton();
 }
 
-function updateFilterButton(){const button=$('toggleProspectFilters');if(!button)return;const ids=['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'],count=ids.filter(id=>$(id).value).length;button.querySelector('span').textContent=count?`Filtros · ${count}`:'Filtros';button.classList.toggle('active',count>0);}
+function updateFilterButton(){const button=$('toggleProspectFilters');if(!button)return;const ids=['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'],count=ids.filter(id=>$(id).value).length;button.querySelector('span').textContent=count?`Filtros · ${count}`:'Más filtros';button.classList.toggle('active',count>0);}
 
 function makeBadge(text,cls='neutral'){const span=document.createElement('span');span.className=`lead-badge ${cls}`;span.textContent=text;return span;}
+function scoutingUrl(p){const params=new URLSearchParams({prospect:p.id,name:nameOf(p),category:p.category_interest||'',type:p.registration_type||''});return `/scouting/?${params}`;}
+async function openForIntent(p,intent='view'){
+  await openProspect(p);
+  if(intent==='schedule'){
+    $('prospectStatus').value='trial_scheduled';
+    $('prospectStatus').closest('.drawer-section')?.scrollIntoView({behavior:'smooth',block:'start'});
+    window.setTimeout(()=>$('nextAction').focus(),260);
+  }else if(intent==='convert'){
+    $('conversionSection')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+}
+async function markContacted(p,button){
+  if(!ctx.canProspectsWrite)return;button.disabled=true;const original=button.textContent;button.textContent='Guardando…';
+  try{
+    await rpc('v2_update_prospect_followup',{organization_id:ctx.organization_id,prospect_id:p.id,status:'contacted',next_action_at:p.next_action_at||null,notes:p.notes||null});
+    toast(`${nameOf(p)||'Prospecto'} quedó como contactado.`);await loadProspects();
+  }catch(e){toast(friendly(e));button.disabled=false;button.textContent=original;}
+}
 function renderList(){
   const list=$('prospectList');list.innerHTML='';$('prospectEmpty').classList.toggle('hidden',filtered.length>0);
   for(const p of filtered){
@@ -197,29 +237,29 @@ function renderList(){
     const clickArea=document.createElement('button');clickArea.type='button';clickArea.className='prospect-open';
     const photo=document.createElement('span');photo.className=`prospect-card-photo ${p.photo_url?'has-photo':''}`;if(p.photo_url){const image=document.createElement('img');image.src=p.photo_url;image.alt=`Foto de ${nameOf(p)}`;photo.appendChild(image);}else{const mark=document.createElement('span'),missing=document.createElement('small');mark.textContent=initials(p);missing.textContent='Sin foto';photo.append(mark,missing);}
     const main=document.createElement('div');main.className='prospect-main';
-    const strong=document.createElement('strong');strong.textContent=nameOf(p)||'Sin nombre';
+    const heading=document.createElement('div');heading.className='prospect-heading';const strong=document.createElement('strong');strong.textContent=nameOf(p)||'Sin nombre';
+    const pipe=document.createElement('span');pipe.className=`pipeline ${p.status}`;pipe.textContent=statusLabel[p.status]||p.status;heading.append(strong,pipe);
     const sporting=document.createElement('div');sporting.className='prospect-sporting';
     const category=document.createElement('b');category.textContent=p.category_interest||'Categoría por definir';
     const age=ageOf(p),profile=document.createElement('span');profile.textContent=[typeLabel[p.registration_type]||'Prospecto',age!=null?`${age} años`:null,footLabel[p.dominant_foot]].filter(Boolean).join(' · ');
     sporting.append(category,profile);
-    const contact=document.createElement('small');contact.textContent=[p.guardian_name,p.phone||p.email].filter(Boolean).join(' · ')||'Contacto pendiente';
-    const badges=document.createElement('div');badges.className='lead-badges';
-    badges.append(makeBadge(campaignName(p.source_campaign),'campaign'));
-    if(p.source_channel||p.source)badges.append(makeBadge(sourceName(p.source_channel||p.source),'source'));
-    if(needsContact(p))badges.append(makeBadge('Sin contactar','alert'));
-    else if(overdue(p))badges.append(makeBadge('Seguimiento vencido','danger'));
-    else if(upcoming(p))badges.append(makeBadge('Próxima acción','warning'));
-    main.append(strong,sporting,contact,badges);
-    const meta=document.createElement('div');meta.className='prospect-meta';
-    const pipe=document.createElement('span');pipe.className=`pipeline ${p.status}`;pipe.textContent=statusLabel[p.status]||p.status;
-    const small=document.createElement('small');small.textContent=p.next_action_at?`Siguiente: ${fmtDateTime(p.next_action_at)}`:`Alta: ${fmtDate(p.created_at)}`;
-    meta.append(pipe,small);
-    clickArea.append(photo,main,meta);clickArea.addEventListener('click',()=>openProspect(p));
+    const origin=document.createElement('div');origin.className='prospect-origin';origin.innerHTML='<span class="tos-icon tos-icon-target" aria-hidden="true"></span>';const originText=document.createElement('span');originText.textContent=[campaignName(p.source_campaign),p.source_channel||p.source].filter(Boolean).join(' · ');origin.appendChild(originText);
+    const next=document.createElement('div');next.className=`prospect-next ${overdue(p)?'is-overdue':needsContact(p)?'needs-contact':upcoming(p)?'is-upcoming':''}`;
+    const nextLabel=document.createElement('small'),nextValue=document.createElement('strong');
+    if(overdue(p)){nextLabel.textContent='Atención';nextValue.textContent=`Seguimiento vencido · ${fmtDateTime(p.next_action_at)}`;}
+    else if(needsContact(p)){nextLabel.textContent='Siguiente paso';nextValue.textContent='Contactar a la familia';}
+    else if(p.status==='trial_completed'){nextLabel.textContent='Siguiente paso';nextValue.textContent='Dar de alta como Tanner';}
+    else if(p.next_action_at){nextLabel.textContent='Próxima acción';nextValue.textContent=fmtDateTime(p.next_action_at);}
+    else{nextLabel.textContent='Registro';nextValue.textContent=fmtDate(p.created_at);}
+    next.append(nextLabel,nextValue);main.append(heading,sporting,origin,next);
+    clickArea.append(photo,main);clickArea.addEventListener('click',()=>openForIntent(p));
     const actions=document.createElement('div');actions.className='lead-actions';
     const wa=waUrl(p.phone);
-    if(wa){const a=document.createElement('a');a.className='whatsapp-action';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='WhatsApp';a.setAttribute('aria-label',`Abrir WhatsApp de ${nameOf(p)}`);actions.appendChild(a);}
-    if(ctx.canPlayersWrite&&ctx.canProspectsWrite&&p.status==='trial_completed'){const convert=document.createElement('button');convert.type='button';convert.className='convert-card-action';convert.textContent='Dar de alta';convert.addEventListener('click',async()=>{await openProspect(p);$('conversionSection')?.scrollIntoView({behavior:'smooth',block:'start'});});actions.appendChild(convert);}
-    const detail=document.createElement('button');detail.type='button';detail.className='secondary mini';detail.textContent='Ver ficha';detail.addEventListener('click',()=>openProspect(p));actions.appendChild(detail);
+    if(p.status==='new'&&wa){const a=document.createElement('a');a.className='lead-primary whatsapp-action';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Contactar';a.setAttribute('aria-label',`Contactar por WhatsApp a la familia de ${nameOf(p)}`);actions.appendChild(a);if(ctx.canProspectsWrite){const done=document.createElement('button');done.type='button';done.className='lead-secondary';done.textContent='Ya contacté';done.addEventListener('click',()=>markContacted(p,done));actions.appendChild(done);}}
+    else if(p.status==='contacted'&&ctx.canProspectsWrite){const schedule=document.createElement('button');schedule.type='button';schedule.className='lead-primary';schedule.textContent='Agendar prueba';schedule.addEventListener('click',()=>openForIntent(p,'schedule'));actions.appendChild(schedule);}
+    else if(p.status==='trial_scheduled'&&ctx.canScoutingWrite){const scout=document.createElement('a');scout.className='lead-primary';scout.href=scoutingUrl(p);scout.textContent='Evaluar jugador';actions.appendChild(scout);}
+    else if(p.status==='trial_completed'&&ctx.canPlayersWrite&&ctx.canProspectsWrite){const convert=document.createElement('button');convert.type='button';convert.className='lead-primary convert-card-action';convert.textContent='Dar de alta';convert.addEventListener('click',()=>openForIntent(p,'convert'));actions.appendChild(convert);}
+    const detail=document.createElement('button');detail.type='button';detail.className='lead-secondary';detail.textContent=p.status==='converted'?'Ver registro':'Ver ficha';detail.addEventListener('click',()=>openForIntent(p));actions.appendChild(detail);
     card.append(clickArea,actions);list.appendChild(card);
   }
 }
@@ -270,13 +310,13 @@ async function convertProspect(){if(!current||!ctx.canPlayersWrite||!ctx.canPros
 async function loadScoutingHistory(){const box=$('scoutingHistory');box.innerHTML='';if(!ctx.canScoutingRead){box.innerHTML='<div class="empty">Sin acceso a Scouting.</div>';return;}const rows=await rpc('v2_scouting_reports',{organization_id:ctx.organization_id,prospect_id:current.id});if(!rows?.length){box.innerHTML='<div class="empty">Aún no tiene evaluaciones deportivas.</div>';return;}for(const r of rows){const values=[r.technical_score,r.physical_score,r.tactical_score,r.mental_score].filter(v=>v!=null).map(Number);const avg=values.length?values.reduce((a,b)=>a+b,0)/values.length:0;const card=document.createElement('article');card.className='scout-card';const left=document.createElement('div'),right=document.createElement('div');const when=document.createElement('strong');when.textContent=fmtDateTime(r.observed_at);const where=document.createElement('span');where.textContent=`${r.observed_location||'Sin lugar'} · ${r.player_position||'Sin posición'}`;left.append(when,where);const score=document.createElement('b');score.textContent=avg?avg.toFixed(1):'—';const verdict=document.createElement('span');verdict.textContent=r.verdict||'Sin veredicto';right.append(score,verdict);card.append(left,right);box.appendChild(card);}}
 
 function mountCaptureUx(){
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/prospectos/ux.css?v=20260823a';document.head.appendChild(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/prospectos/ux.css?v=20260828a';document.head.appendChild(link);
   const filters=document.querySelector('.campaign-filters'),head=document.querySelector('.campaign-panel-head');
   if(filters&&head&&!$('prospectSearchBar')){
     const toolbar=document.createElement('div');toolbar.className='prospect-tools';toolbar.innerHTML='<label id="prospectSearchBar" class="prospect-search-bar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span></label><button id="toggleProspectFilters" class="prospect-filter-toggle" type="button"><span>Filtros</span><i class="tos-icon tos-icon-chevron" aria-hidden="true"></i></button>';
     toolbar.querySelector('label').appendChild($('searchProspect'));head.after(toolbar);toolbar.after(filters);
-    $('toggleProspectFilters').addEventListener('click',()=>{filters.classList.toggle('open');$('toggleProspectFilters').classList.toggle('open',filters.classList.contains('open'));});
   }
+  $('toggleProspectFilters')?.addEventListener('click',()=>{filters.classList.toggle('open');$('toggleProspectFilters').classList.toggle('open',filters.classList.contains('open'));});
   const profileSection=$('prospectPhotoBox')?.closest('.drawer-section'),conversion=$('conversionSection');
   if(profileSection&&conversion)profileSection.after(conversion);
   conversion?.classList.add('conversion-feature');
@@ -294,9 +334,13 @@ function mountCaptureUx(){
 mountCaptureUx();
 
 $('deleteProspect').addEventListener('click',()=>{$('deleteProspect').classList.add('hidden');$('deleteProspectConfirm').classList.remove('hidden');$('deleteProspectConfirm').scrollIntoView({behavior:'smooth',block:'nearest'});msg('deleteProspectMessage');});$('cancelDeleteProspect').addEventListener('click',()=>{$('deleteProspectConfirm').classList.add('hidden');$('deleteProspect').classList.remove('hidden');msg('deleteProspectMessage');});$('confirmDeleteProspect').addEventListener('click',deleteProspect);
-for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).addEventListener('change',applyFilters);
+for(const id of ['typeFilter','campaignFilter','sourceFilter'])$(id).addEventListener('change',applyFilters);
+for(const id of ['statusFilter','urgencyFilter'])$(id).addEventListener('change',()=>{operationalView='all';applyFilters();});
+$('stageTabs').addEventListener('click',event=>{const button=event.target.closest('.stage-tab');if(!button)return;operationalView=button.dataset.view;$('statusFilter').value='';$('urgencyFilter').value='';applyFilters();});
+$('managerAttention').addEventListener('click',()=>{operationalView='attention';$('statusFilter').value='';$('urgencyFilter').value='';applyFilters();document.querySelector('.campaign-panel')?.scrollIntoView({behavior:'smooth',block:'start'});});
+$('managerCampaign').addEventListener('click',()=>{if(managerCampaignCode)selectCampaign(managerCampaignCode);});
 $('searchProspect').addEventListener('input',applyFilters);
-$('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';applyFilters();});
+$('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';operationalView='all';applyFilters();});
 $('refreshProspects').addEventListener('click',loadProspects);
 $('closeProspect').addEventListener('click',closeProspect);$('prospectBackdrop').addEventListener('click',closeProspect);
 $('saveFollowup').addEventListener('click',saveFollowup);$('convertProspect').addEventListener('click',convertProspect);

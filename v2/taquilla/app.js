@@ -105,7 +105,7 @@ document.querySelectorAll('.cashier-tabs button').forEach(b=>b.addEventListener(
 $('collectForm').addEventListener('submit',e=>{e.preventDefault();postCollect();});$('expenseForm').addEventListener('submit',e=>{e.preventDefault();postExpense();});
 $('printClose').addEventListener('click',()=>window.print());$('countedCash')?.addEventListener('input',renderReconcile);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
-const action=new URLSearchParams(location.search).get('action');if(action==='cobrar'&&canCashWrite)setTimeout(()=>modal('collectModal',true),150);
+const _params=new URLSearchParams(location.search);const action=_params.get('action');if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);
 await Promise.all([loadPlayers(),load()]);
 
 

@@ -80,7 +80,7 @@ function wireRouteMemory(){if(document.documentElement.dataset.tosRouteMemoryWir
 function wireSearch(navigation){
   const input=$('shellSearch'),results=$('shellSearchResults');if(!input||!results||input.dataset.tosSearchWired==='1')return;input.dataset.tosSearchWired='1';
   const close=()=>{results.classList.add('hidden');results.innerHTML='';};
-  const run=()=>{const q=String(input.value||'').trim().toLocaleLowerCase('es-MX');if(!q){close();return;}const modules=navItems.filter(item=>itemReadable(navigation,item)&&`${item.label} ${item.code}`.toLocaleLowerCase('es-MX').includes(q)).map(item=>({label:item.label,meta:'Módulo',href:item.href}));const extras=(window.__tosSearchExtras||[]).filter(item=>`${item.label||''} ${item.meta||''}`.toLocaleLowerCase('es-MX').includes(q));const rows=[...modules,...extras].slice(0,12);results.innerHTML=rows.length?rows.map(row=>`<a class="tos-smart-result" href="${row.href||'#'}"><strong>${String(row.label||'Resultado')}</strong><span>${String(row.meta||'')}</span></a>`).join(''):'<div class="tos-empty">Sin resultados.</div>';results.classList.remove('hidden');};
+  const run=()=>{const q=String(input.value||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();if(!q){close();return;}const modules=navItems.filter(item=>itemReadable(navigation,item)&&`${item.label} ${item.code}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q)).map(item=>({label:item.label,meta:'Módulo',href:item.href}));const extras=(window.__tosSearchExtras||[]).filter(item=>`${item.label||''} ${item.meta||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q));const rows=[...modules,...extras].slice(0,12);results.innerHTML=rows.length?rows.map(row=>`<a class="tos-smart-result" href="${row.href||'#'}"><strong>${String(row.label||'Resultado')}</strong><span>${String(row.meta||'')}</span></a>`).join(''):'<div class="tos-empty">Sin resultados.</div>';results.classList.remove('hidden');};
   input.addEventListener('input',run);input.addEventListener('focus',run);document.addEventListener('pointerdown',event=>{if(!event.target.closest?.('.tos-search-wrap'))close();});document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();input.focus();}});
 }
 function ensureBackButton(){
@@ -94,7 +94,7 @@ async function loadTannerSearchIndex(ctx){
     const items=(data||[]).map(p=>({
       label:p.name||'Tanner',
       meta:[p.jersey?('#'+p.jersey):'',p.pos||'',p.guardians||'',p.phones||''].filter(Boolean).join(' \u00b7 '),
-      href:'/jugadores/?player='+p.id,
+      href:'/v2/jugadores/?player='+p.id,
       __tanner:true
     }));
     const prev=(window.__tosSearchExtras||[]).filter(x=>!x.__tanner);

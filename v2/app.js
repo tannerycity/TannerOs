@@ -1,372 +1,125 @@
-import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth} from '/v2/shell.js';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
+const $=id=>document.getElementById(id);let ctx=null,players=[],categories=[],current=null,canWrite=false,sportsSeq=0;
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}function msg(t='',type='error'){const e=$('profileMessage');e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}
+function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}function nameOf(p){return [p.first_name,p.last_name].filter(Boolean).join(' ').trim();}
+function setText(id,value){const node=$(id);if(node)node.textContent=value??'—';}
+function positionCode(value){const label=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();if(/porter/.test(label))return'POR';if(/defen|central|lateral/.test(label))return'DEF';if(/medio|volante|contenci/.test(label))return'MED';if(/delanter|extremo|punta/.test(label))return'DEL';return value?String(value).slice(0,3).toUpperCase():'POS';}
+function renderCardIdentity(p){const fullName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Tanner',foot={right:'Derecha',left:'Izquierda',both:'Ambas',Derecha:'Derecha',Izquierda:'Izquierda',Ambas:'Ambas'}[p.dominantFoot]||p.dominantFoot||'Por definir',status=p.status==='active'?'ACTIVO':p.status==='withdrawn'?'BAJA':String(p.status||'ACTIVO').toUpperCase();setText('cardName',fullName);setText('cardCode',p.code||'Sin código');setText('cardPosition',positionCode(p.position));setText('cardCategory',p.category||'Sin categoría');setText('cardJersey',p.jerseyNumber||'—');setText('cardFoot',`Pierna ${foot}`);setText('cardStatus',status);setText('quickPosition',p.position||'Por definir');setText('quickFoot',foot);setText('quickCategory',p.category||'Sin categoría');setText('quickJersey',p.jerseyNumber||'—');const card=$('tannerCard');if(card){card.dataset.status=p.status||'active';card.setAttribute('aria-label',`Carta deportiva de ${fullName}`);}}
+function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/ux_players_active_category_jersey|duplicate key/i.test(s))return 'Ese dorsal ya está ocupado por otro Tanner activo en la categoría seleccionada.';const map={'Not authorized':'No tienes permiso para editar expedientes.','Player not found':'No encontramos ese Tanner.','Valid birth date required':'La fecha de nacimiento no es válida.','Invalid dominant foot':'Selecciona una pierna válida.','Invalid phone number':'Revisa el formato del teléfono.','Mexico phone must have exactly 10 digits':'Para México usa exactamente 10 dígitos.','Guardian phone required':'Captura un teléfono válido para el tutor.','Invalid guardian email':'El correo del tutor no es válido.','Effective date cannot precede current enrollment start':'La fecha del cambio no puede ser anterior al inicio de la categoría actual.'};return map[s]||s;}
+async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='players');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Jugadores.';show('deniedView');return;}canWrite=!!mod.can_write;$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];await signPlayerPhotos(players);renderStats();buildCatChips();renderCategories();renderList();show('view');const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
+function renderCategories(){const s=$('categoryId');s.innerHTML='<option value="">Sin categoría</option>';categories.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;s.appendChild(o);});}
+async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];await signPlayerPhotos(players);renderStats();buildCatChips();renderList();}
+function renderList(){const q=$('search').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const rows=players.filter(p=>{const active=p.status_value==='active';const stOk=fStat==='active'?active:(fStat==='withdrawn'?!active:(fStat==='review'?(p.needs_review&&active):true));if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q))return false;return true;});const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className='jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;if(p._photoUrl)b.style.backgroundImage=`url("${p._photoUrl}")`;const review=p.needs_review;b.innerHTML=`<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span><span class="jcard-dot${review?' review':' ok'}"></span>${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
+let photoRenderSeq=0;
+function legacyPhotoSource(value){const raw=String(value||'').trim();if(/^data:image\//i.test(raw)||/^https?:\/\//i.test(raw))return raw;return null;}
+function drawPhoto(box,src,alt){box.innerHTML='';const img=document.createElement('img');img.src=src;img.alt=alt;img.decoding='async';box.appendChild(img);}
+async function renderPhoto(p){const seq=++photoRenderSeq,box=$('photoBox'),alt=`Foto de ${p.firstName||'Tanner'}`;box.innerHTML='<span>Sin foto</span>';if(p.photoPath){try{const bucket=p.photoBucket||'tanneros-private';const {data,error}=await supabase.storage.from(bucket).createSignedUrl(p.photoPath,600);if(error||!data?.signedUrl)throw error;if(seq===photoRenderSeq)drawPhoto(box,data.signedUrl,alt);return;}catch{if(seq!==photoRenderSeq)return;}}const legacy=legacyPhotoSource(p.legacyPhotoData);if(legacy){drawPhoto(box,legacy,alt);return;}if(p.legacyPhotoData){box.innerHTML='<span class="previous-photo-note">Foto anterior<small>Vuelve a subirla</small></span>';}else if(p.photoPath){box.innerHTML='<span>Foto protegida</span>';}}
+function fill(p,g,enrollment){$('firstName').value=p.firstName||'';$('lastName').value=p.lastName||'';$('birthDate').value=p.birthDate||'';$('position').value=p.position||'';const foot={Derecha:'right',Izquierda:'left',Ambas:'both'}[p.dominantFoot]||p.dominantFoot||'';$('dominantFoot').value=foot;$('jerseyNumber').value=p.jerseyNumber||'';$('school').value=p.school||'';$('bloodType').value=p.bloodType||'';$('allergies').value=p.allergies||'';$('address').value=p.address||'';$('emergencyName').value=p.emergencyContactName||'';$('emergencyPhone').value=p.emergencyContactPhone||'';$('notes').value=p.notes||'';$('categoryId').value=enrollment?.categoryId||'';$('categoryDate').value=today();$('categoryNotes').value='';$('guardianName').value=[g?.firstName,g?.lastName].filter(Boolean).join(' ').trim();$('guardianPhone').value=g?.phone||'';$('guardianEmail').value=g?.email||'';$('guardianRelationship').value=g?.relationship||g?.relationshipDefault||'';$('canPickup').checked=g?.canPickup??true;$('receivesBilling').checked=g?.receivesBilling??true;}
+function renderOtherGuardians(rows,primary){const box=$('otherGuardians'),others=(rows||[]).filter(g=>g.id!==primary?.id);box.innerHTML=others.length?`<strong>Otros contactos vinculados</strong>${others.map(g=>`<span>${esc([g.firstName,g.lastName].filter(Boolean).join(' '))} · ${esc(g.phone||'Sin teléfono')} · ${esc(g.relationship||'Contacto')}</span>`).join('')}`:'';}
+function renderPrivacy(p){const box=$('privacyBadges');box.innerHTML='';const badges=[p.dataConsent?'Datos autorizados':'Consentimiento pendiente',p.imageConsent?'Imagen autorizada':'Sin autorización publicitaria',p.privacyNoticeVersion?`Aviso ${p.privacyNoticeVersion}`:null].filter(Boolean);badges.forEach((x,i)=>{const s=document.createElement('span');s.textContent=x;s.className=`profile-badge ${i===0&&p.dataConsent?'ok':''}`;box.appendChild(s);});}
+function num(v){if(v==null||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}
+function setCardScore(id,value){const n=num(value);setText(id,n==null?'—':String(Math.round(Math.max(0,Math.min(10,n))*10)));}
+function setCardSports(scores={},average=null){setText('cardOverall',average==null?'—':String(Math.round(Math.max(0,Math.min(10,average))*10)));setCardScore('cardTechnique',scores.tecnica);setCardScore('cardGame',scores.inteligencia);setCardScore('cardBody',scores.intensidad);setCardScore('cardMentality',scores.mentalidad);setCardScore('cardValues',scores.valores);}
+function setMetric(scoreId,barId,value){const n=num(value);$(scoreId).textContent=n==null?'—':`${n}/10`;$(`${barId}`)?.style.setProperty('width',`${Math.max(0,Math.min(10,n??0))*10}%`);}
+function radarPoint(value,angle){const n=Math.max(0,Math.min(10,num(value)??0))/10,r=96*n,cx=130,cy=120,a=(angle-90)*Math.PI/180;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+function setRadar(scores){document.querySelectorAll('#sportsRadar line').forEach(line=>{line.setAttribute('x1','130');line.setAttribute('y1','120');});const values=[scores?.tecnica,scores?.inteligencia,scores?.intensidad],angles=[0,120,240],points=values.map((v,i)=>radarPoint(v,angles[i]));$('sportsRadarPolygon').setAttribute('points',points.map(p=>p.map(x=>x.toFixed(1)).join(',')).join(' '));points.forEach((p,i)=>{const dot=$(`radarPoint${i+1}`);dot.setAttribute('cx',p[0].toFixed(1));dot.setAttribute('cy',p[1].toFixed(1));});}
+function formatEvalDate(value){if(!value)return'Sin fecha';try{return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium'}).format(new Date(`${value}T12:00:00`));}catch{return value;}}
+function renderGoalkeeper(scores){const box=$('goalkeeperMetrics'),g=scores?.goalkeeper||{},items=[['Manos',g.manos],['Colocación',g.colocacion],['Aéreo',g.aereo],['Pies',g.pies],['Mando',g.mando]].filter(([,v])=>num(v)!=null);box.classList.toggle('hidden',!items.length);box.innerHTML=items.length?`<div class="eyebrow">PORTERO</div><div>${items.map(([k,v])=>`<span><b>${esc(k)}</b> ${num(v)}/10</span>`).join('')}</div>`:'';}
+function renderSports(data){const summary=data?.summary||{},latest=(data?.evaluations||[])[0]||null,s=latest?.scores||{},hasEval=!!latest,hasMatches=Number(summary.played||0)>0;$('sportsLoading').classList.add('hidden');$('sportsEmpty').classList.toggle('hidden',hasEval||hasMatches);$('sportsContent').classList.toggle('hidden',!hasEval&&!hasMatches);$('sportsPlayed').textContent=Number(summary.played||0);$('sportsMinutes').textContent=Number(summary.minutes||0);$('sportsGoals').textContent=Number(summary.goals||0);$('sportsAssists').textContent=Number(summary.assists||0);if(!hasEval){setCardSports({},null);$('evaluationAverage').textContent='—';$('evaluationDate').textContent='Sin evaluación';setRadar({});['Technique','Game','Body','Mentality','Values'].forEach(k=>{$(`score${k}`).textContent='—';$(`bar${k}`).style.width='0%';});$('goalkeeperMetrics').classList.add('hidden');$('evaluationObjectives').classList.add('hidden');return;}const vals=[s.tecnica,s.inteligencia,s.intensidad,s.mentalidad,s.valores].map(num).filter(v=>v!=null),avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;setCardSports(s,avg);$('evaluationAverage').textContent=avg==null?'—':`${avg.toFixed(1)}/10`;$('evaluationDate').textContent=`Evaluación ${formatEvalDate(latest.date||latest.evaluatedOn||latest.evaluated_on)}`;setMetric('scoreTechnique','barTechnique',s.tecnica);setMetric('scoreGame','barGame',s.inteligencia);setMetric('scoreBody','barBody',s.intensidad);setMetric('scoreMentality','barMentality',s.mentalidad);setMetric('scoreValues','barValues',s.valores);setRadar(s);renderGoalkeeper(s);const goals=[latest.sportsObjective?`<div><span>Objetivo deportivo</span><strong>${esc(latest.sportsObjective)}</strong></div>`:'',latest.formativeObjective?`<div><span>Objetivo formativo</span><strong>${esc(latest.formativeObjective)}</strong></div>`:''].filter(Boolean).join('');$('evaluationObjectives').classList.toggle('hidden',!goals);$('evaluationObjectives').innerHTML=goals;}
+async function loadSports(playerId){const seq=++sportsSeq;setCardSports({},null);$('sportsLoading').textContent='Cargando lectura deportiva…';$('sportsLoading').classList.remove('hidden');$('sportsEmpty').classList.add('hidden');$('sportsContent').classList.add('hidden');$('openSports').href=`/v2/deportivo/?player=${encodeURIComponent(playerId)}`;try{const data=await rpc('v2_player_sports',{organization_id:ctx.organization_id,player_id:playerId});if(seq!==sportsSeq)return;renderSports(data);}catch(e){if(seq!==sportsSeq)return;$('sportsLoading').textContent='No pudimos cargar el perfil deportivo en este momento.';}}
+async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':p.status==='withdrawn'?'Baja':p.status}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderPhoto(p);renderList();loadSports(id);document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail:{playerId:id,player:p,organizationId:ctx.organization_id,canWrite}}));}
+async function save(e){e.preventDefault();if(!current||!canWrite)return;msg();const btn=$('saveProfile');btn.disabled=true;try{const p=current.player;current=await rpc('v2_save_player_profile',{organization_id:ctx.organization_id,player_id:p.id,first_name:$('firstName').value.trim(),last_name:$('lastName').value.trim(),birth_date:$('birthDate').value,player_position:$('position').value.trim()||null,dominant_foot:$('dominantFoot').value||null,jersey_number:$('jerseyNumber').value.trim()||null,school:$('school').value.trim()||null,blood_type:$('bloodType').value.trim()||null,allergies:$('allergies').value.trim()||null,address:$('address').value.trim()||null,emergency_contact_name:$('emergencyName').value.trim()||null,emergency_contact_phone:$('emergencyPhone').value.trim()||null,notes:$('notes').value.trim()||null,guardian_name:$('guardianName').value.trim()||null,guardian_phone:$('guardianPhone').value.trim()||null,guardian_email:$('guardianEmail').value.trim()||null,guardian_relationship:$('guardianRelationship').value.trim()||null,can_pickup:$('canPickup').checked,receives_billing:$('receivesBilling').checked,category_id:$('categoryId').value||null,category_effective_date:$('categoryDate').value||today(),category_notes:$('categoryNotes').value.trim()||null});await loadPlayers();await openProfile(p.id);msg('Expediente guardado. Los teléfonos nuevos quedaron normalizados y la categoría conserva historial.','success');}catch(err){msg(friendly(err));}finally{btn.disabled=!canWrite;}}
+$('statusFilter').addEventListener('change',loadPlayers);$('search').addEventListener('input',renderList);$('profileForm').addEventListener('submit',save);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 
-const views=['authView','pendingView','forcePasswordView','appView'];
-const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
-let authMode='signin';
-let ctx=null;
-let navigation=[];
-let bootPromise=null;
-let loadGeneration=0;
 
-const roleProfiles={
-  Presidencia:{subtitle:'Control del club · una sola operación, datos vivos',focus:'Inteligencia del club'},
-  Operaciones:{subtitle:'La operación de hoy, en un solo lugar',focus:'Operación del día'},
-  Formadores:{subtitle:'Entrenamientos, jugadores y seguimiento',focus:'Pulso deportivo'},
-  Academia:{subtitle:'Academias, asistencia y calendario',focus:'Academia hoy'},
-  Contabilidad:{subtitle:'Cobranza, pagos y caja del club',focus:'Pulso financiero'},
-  Taquilla:{subtitle:'Cobros, pedidos y atención a familias',focus:'Caja y atención'},
-  Marketing:{subtitle:'Marcas, acuerdos y activaciones',focus:'Ruta de marcas'},
-  Scouting:{subtitle:'El próximo Tanner está ahí afuera',focus:'Talento en el radar'},
-  Tanner:{subtitle:'Tu club, tu agenda y tu camino Tanner',focus:'Tu semana'}
-};
-
-const moduleLinks=[
-  {codes:['taquilla','cobranza'],label:'Cobrar',href:'/taquilla/?action=cobrar',write:true,primary:true},
-  {codes:['jugadores'],label:'Jugadores',href:'/jugadores/'},
-  {codes:['asistencia'],label:'Asistencia',href:'/asistencia/'},
-  {codes:['finanzas','cobranza','contabilidad'],label:'Finanzas',href:'/finanzas/'},
-  {codes:['taquilla'],label:'Taquilla',href:'/taquilla/'},
-  {codes:['prospectos'],label:'Captación',href:'/prospectos/'},
-  {codes:['scouting'],label:'Scouting',href:'/scouting/'},
-  {codes:['academias'],label:'Academias',href:'/academias/'},
-  {codes:['tienda'],label:'Pedidos',href:'/pedidos/'},
-  {codes:['cursosVerano'],label:'Programas',href:'/operacion/programas/'},
-  {codes:['calendario'],label:'Calendario',href:'/calendario/'},
-  {codes:['callups','convocatoria'],label:'Convocatoria',href:'/convocatoria/'},
-  {codes:['utileria'],label:'Utilería',href:'/utileria/'},
-  {codes:['patrocinadores'],label:'Patrocinadores',href:'/patrocinadores/'},
-  {codes:['contabilidad'],label:'Contabilidad',href:'/contabilidad/'},
-  {codes:['usuarios'],label:'Usuarios',href:'/usuarios/'},
-  {codes:['admin'],label:'Administración',href:'/admin/'},
-  {codes:['qa'],label:'QA',href:'/qa/'}
-];
-
-const actionModules={
-  billing:['cobranza','finanzas','contabilidad'],players:['jugadores'],prospects:['prospectos'],
-  sponsors:['patrocinadores'],commerce:['tienda'],equipment:['utileria'],admin:['admin']
-};
-const priorityLabels={critical:'Urgente',attention:'Atención',info:'Seguimiento'};
-const safePriorities=new Set(['critical','attention','info']);
-
-function showView(id){views.forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
-function setMessage(text='',type='error'){
-  const box=$('authMessage');if(!box)return;
-  box.textContent=text;box.dataset.type=type;box.classList.toggle('hidden',!text);
-}
-function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function credentialEmail(value){const credential=String(value||'').trim().toLowerCase();if(credential.includes('@'))return credential;return `${credential.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_')}@staff.tanneros.invalid`;}
-function friendlyError(error){
-  const raw=String(error?.message||error||'Ocurrió un error.');
-  if(/invalid login credentials/i.test(raw))return 'Usuario, correo o contraseña incorrectos.';
-  if(/email not confirmed/i.test(raw))return 'Confirma tu correo antes de entrar.';
-  if(/user already registered/i.test(raw))return 'Ese correo ya tiene una cuenta. Usa “Entrar”.';
-  if(/rate limit/i.test(raw))return 'Demasiados intentos. Intenta de nuevo en unos minutos.';
-  if(/not authorized|permission denied/i.test(raw))return 'Tu usuario no tiene permiso para esta sección.';
-  if(/failed to fetch|network/i.test(raw))return 'No pudimos conectar con TannerOS. Revisa tu señal e intenta de nuevo.';
-  return raw;
-}
-function can(code,write=false){return moduleAccess(navigation,code,write);}
-function canAny(codes,write=false){return codes.some(code=>can(code,write));}
-function firstName(){return String(ctx?.display_name||'Tanner').trim().split(/\s+/)[0];}
-function isoDaysFromNow(days){const d=new Date();d.setDate(d.getDate()+days);return d.toISOString();}
-
-async function rpcSafe(name,params,fallback,timeoutMs=7500){
-  let timer;
+// === Fotos protagonistas en la lista (URLs firmadas, 1 llamada por bucket) ===
+async function signPlayerPhotos(list){
   try{
-    return await Promise.race([
-      rpc(name,params),
-      new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${name} timeout`)),timeoutMs);})
-    ]);
-  }catch(error){console.warn('TannerOS home RPC',name,error);return fallback;}
-  finally{if(timer)clearTimeout(timer);}
-}
-
-function switchAuthMode(mode){
-  authMode=mode;const signup=mode==='signup';
-  $('signInTab')?.classList.toggle('active',!signup);
-  $('signUpTab')?.classList.toggle('active',signup);
-  $('nameField')?.classList.toggle('hidden',!signup);
-  if($('authSubmit'))$('authSubmit').textContent=signup?'Crear cuenta':'Entrar';
-  const credential=$('email');if(credential){credential.type=signup?'email':'text';credential.inputMode='email';credential.autocomplete=signup?'email':'username';credential.placeholder=signup?'tu@correo.com':'Ej. brandon';}
-  if($('credentialLabel'))$('credentialLabel').textContent=signup?'Correo de la invitación':'Usuario o correo';
-  $('password')?.setAttribute('autocomplete',signup?'new-password':'current-password');
-  setMessage();$('resendConfirmation')?.classList.add('hidden');
-}
-
-function installAuthExtras(){
-  const form=$('authForm');if(!form||document.getElementById('forgotPassword'))return;
-  const button=document.createElement('button');
-  button.id='forgotPassword';button.type='button';button.className='auth-link-button';button.textContent='Olvidé mi contraseña';
-  form.after(button);
-  button.addEventListener('click',async()=>{
-    const credential=$('email')?.value.trim();
-    if(!credential){setMessage('Escribe primero tu usuario o correo.');$('email')?.focus();return;}
-    if(!credential.includes('@')){setMessage('Pide a Presidencia una contraseña temporal nueva para tu usuario.');return;}
-    button.disabled=true;
-    try{
-      const {error}=await supabase.auth.resetPasswordForEmail(credential.toLowerCase(),{redirectTo:`${location.origin}/?recovery=1`});
-      if(error)throw error;setMessage('Te enviamos un correo para cambiar tu contraseña.','success');
-    }catch(error){setMessage(friendlyError(error));}
-    finally{button.disabled=false;}
-  });
-}
-
-async function handleAuthSubmit(event){
-  event.preventDefault();setMessage();
-  const emailInput=$('email'),passwordInput=$('password'),displayName=$('displayName')?.value.trim();
-  const credential=emailInput?.value.trim(),email=credentialEmail(credential),password=passwordInput?.value||'';
-  if(!credential){setMessage(authMode==='signup'?'Escribe el correo de la invitación.':'Escribe tu usuario o correo.');emailInput?.focus();return;}
-  if(authMode==='signup'&&!credential.includes('@')){setMessage('Para aceptar una invitación escribe el correo completo.');emailInput?.focus();return;}
-  if(password.length<8){setMessage('La contraseña debe tener al menos 8 caracteres.');passwordInput?.focus();return;}
-  const btn=$('authSubmit');btn.disabled=true;btn.textContent=authMode==='signup'?'Creando cuenta…':'Entrando…';
-  try{
-    if(authMode==='signup'){
-      const {data,error}=await supabase.auth.signUp({
-        email,password,
-        options:{data:{display_name:displayName||email.split('@')[0]},emailRedirectTo:`${location.origin}/`}
-      });
-      if(error)throw error;
-      if(!data.session){setMessage('Cuenta creada. Revisa tu correo y confirma el acceso.','success');$('resendConfirmation')?.classList.remove('hidden');return;}
-    }else{
-      const {error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;
+    const byBucket={};
+    (list||[]).forEach(p=>{if(p&&p.photo_path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(p.photo_path);}});
+    for(const b of Object.keys(byBucket)){
+      const {data}=await supabase.storage.from(b).createSignedUrls(byBucket[b],3600);
+      const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
+      (list||[]).forEach(p=>{if(p&&p.photo_path&&(p.photo_bucket||'tanneros-private')===b&&map[p.photo_path])p._photoUrl=map[p.photo_path];});
     }
-    await loadAuthenticatedApp();
-  }catch(error){
-    const message=friendlyError(error);setMessage(message);
-    if(/confirma tu correo/i.test(message))$('resendConfirmation')?.classList.remove('hidden');
-  }finally{btn.disabled=false;btn.textContent=authMode==='signup'?'Crear cuenta':'Entrar';}
+  }catch(e){}
 }
 
-async function resendConfirmation(){
-  const email=$('email')?.value.trim();if(!email||!email.includes('@')){setMessage('Escribe primero el correo completo de la invitación.');return;}
-  const btn=$('resendConfirmation');btn.disabled=true;
-  try{
-    const {error}=await supabase.auth.resend({type:'signup',email,options:{emailRedirectTo:`${location.origin}/`}});
-    if(error)throw error;setMessage(`Listo. Enviamos un nuevo correo a ${email}.`,'success');
-  }catch(error){setMessage(friendlyError(error));}
-  finally{btn.disabled=false;}
-}
 
-async function renderRecovery(){
-  const card=document.querySelector('.auth-card');if(!card)return;
-  showView('authView');
-  card.innerHTML=`<div class="preview-pill">Recuperar acceso</div><h2>Nueva contraseña</h2><p class="muted">Elige una contraseña nueva para volver al vestidor.</p><form id="recoveryForm"><label>Nueva contraseña<input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></label><label>Confirmar contraseña<input id="confirmPassword" type="password" minlength="8" autocomplete="new-password" required></label><button id="savePassword" class="primary" type="submit">Guardar contraseña</button></form><div id="authMessage" class="message hidden"></div>`;
-  $('recoveryForm')?.addEventListener('submit',async event=>{
-    event.preventDefault();const a=$('newPassword').value,b=$('confirmPassword').value;
-    if(a.length<8){setMessage('La contraseña debe tener al menos 8 caracteres.');return;}
-    if(a!==b){setMessage('Las contraseñas no coinciden.');return;}
-    const btn=$('savePassword');btn.disabled=true;
-    try{
-      const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('El enlace de recuperación venció. Solicita uno nuevo.');
-      const {error}=await supabase.auth.updateUser({password:a});if(error)throw error;
-      setMessage('Contraseña actualizada. Entrando…','success');setTimeout(()=>location.replace('/'),700);
-    }catch(error){setMessage(friendlyError(error));btn.disabled=false;}
-  });
+// === Filtros futboleros: chips de categoría + estado ===
+let fCat='';
+function buildCatChips(){
+  const box=$('catChips');if(!box)return;
+  const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];
+  const scope=(players||[]).filter(p=>{const active=p.status_value==='active';return fStat==='active'?active:(fStat==='withdrawn'?!active:(fStat==='review'?(p.needs_review&&active):true));});
+  const counts={};scope.forEach(p=>{const k=p.category||'Sin categoría';counts[k]=(counts[k]||0)+1;});
+  const present=Object.keys(counts).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
+  if(fCat&&!present.includes(fCat))fCat='';
+  const chips=[['','Todas',scope.length],...present.map(c=>[c,c,counts[c]])];
+  box.innerHTML=chips.map(([v,l,n])=>`<button type="button" class="chip${v===fCat?' on':''}" data-cat="${esc(v)}">${esc(l)} · ${n}</button>`).join('');
 }
+document.addEventListener('click',e=>{
+  const chip=e.target.closest?.('#catChips .chip');
+  if(chip){fCat=chip.dataset.cat||'';buildCatChips();renderList();return;}
+  const stat=e.target.closest?.('.stat-card');
+  if(stat){const k=stat.dataset.stat;if(k==='cat'){fStat='active';fCat='';}else{fStat=k;}renderStats();buildCatChips();renderList();return;}
+  const fl=e.target.closest?.('.free-link');
+  if(fl){openFreeNums(fl.dataset.freecat);return;}
+});
 
-async function handleForcedPassword(event){
-  event.preventDefault();const password=$('forceNewPassword')?.value||'',confirmPassword=$('forceConfirmPassword')?.value||'',message=$('forcePasswordMessage'),button=$('forcePasswordSubmit');
-  const show=(text,type='error')=>{message.textContent=text;message.dataset.type=type;message.classList.toggle('hidden',!text);};
-  show();if(password.length<10){show('Usa al menos 10 caracteres.');return;}if(password!==confirmPassword){show('Las contraseñas no coinciden.');return;}
-  button.disabled=true;button.textContent='Guardando…';
-  try{
-    const {error:updateError}=await supabase.auth.updateUser({password});if(updateError)throw updateError;
-    const {data,error}=await supabase.functions.invoke('staff-access',{body:{action:'complete_password_change'}});if(error)throw error;if(data?.error)throw new Error(data.error);
-    await supabase.auth.refreshSession();$('forcePasswordForm').reset();show('Contraseña actualizada. Entrando…','success');ctx=null;setTimeout(()=>loadAuthenticatedApp().catch(console.error),350);
-  }catch(error){show(friendlyError(error));button.disabled=false;button.textContent='Guardar y entrar';}
-}
 
-function wireAuth(){
-  if(document.documentElement.dataset.tosAuthWired==='1')return;
-  document.documentElement.dataset.tosAuthWired='1';
-  $('signInTab')?.addEventListener('click',()=>switchAuthMode('signin'));
-  $('signUpTab')?.addEventListener('click',()=>switchAuthMode('signup'));
-  $('authForm')?.addEventListener('submit',handleAuthSubmit);
-  $('resendConfirmation')?.addEventListener('click',resendConfirmation);
-  $('refreshAccess')?.addEventListener('click',()=>loadAuthenticatedApp());
-  $('pendingSignOut')?.addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});
-  $('forcePasswordForm')?.addEventListener('submit',handleForcedPassword);
-  installAuthExtras();
-}
-
-async function retireLegacyCaches(){
-  try{
-    if('serviceWorker' in navigator){const registrations=await navigator.serviceWorker.getRegistrations();await Promise.all(registrations.map(r=>r.unregister()));}
-    if('caches' in window){const keys=await caches.keys();await Promise.all(keys.filter(k=>/^tanneros-shell/i.test(k)||k==='app-shell').map(k=>caches.delete(k)));}
-  }catch(error){console.warn('Legacy cache cleanup',error);}
-}
-
-function resetHomeState(){
-  state.players=[];state.prospects=[];state.calendar=[];state.orders=[];state.executive=null;state.actionCenter=null;
-}
-
-function renderImmediateHome(){
-  const profile=roleProfiles[ctx?.role]||roleProfiles.Presidencia;
-  $('welcomeTitle').textContent=`Bienvenido al vestidor, ${firstName()}`;
-  $('welcomeSubtitle').textContent=profile.subtitle;
-  renderQuickActions();
-  $('homeKpis').innerHTML='<article class="tos-kpi"><span>Conexión</span><strong>Lista</strong><small>Cargando indicadores del club…</small></article>';
-  $('attentionList').innerHTML='<article class="tos-alert good"><span class="tos-alert-tag">TannerOS</span><b>Operación disponible</b><small>Los indicadores se actualizan en segundo plano sin bloquear tu trabajo.</small></article>';
-  $('agendaList').innerHTML='<div class="tos-empty">Cargando agenda…</div>';
-  $('roleFocusBody').innerHTML='<div class="tos-empty">Preparando inteligencia del club…</div>';
-  setShellHealth({state:'ok',label:'Conectando datos'});
-}
-
-async function loadAuthenticatedApp(){
-  if(bootPromise)return bootPromise;
-  bootPromise=(async()=>{
-    const {data:{user}}=await supabase.auth.getUser();
-    if(!user){ctx=null;navigation=[];showView('authView');document.body.classList.remove('tos-body');installAuthExtras();return;}
-    if(user.app_metadata?.must_change_password){showView('forcePasswordView');document.body.classList.remove('tos-body');return;}
-    const rows=await rpc('v2_my_context');
-    if(!rows?.length){
-      $('pendingText').textContent=`La cuenta ${user.email||'actual'} ya existe. Falta vincularla a Tannery City.`;
-      showView('pendingView');document.body.classList.remove('tos-body');return;
-    }
-    ctx=rows[0];navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});resetHomeState();
-    showView('appView');document.body.classList.add('tos-body');
-    renderShell({ctx,navigation,active:'inicio',title:'Inicio'});renderImmediateHome();
-    const generation=++loadGeneration;
-    loadHomeData(generation).catch(error=>{console.error('TannerOS home data',error);setShellHealth({state:'attention',label:'Datos parciales'});});
-  })().finally(()=>{bootPromise=null;});
-  return bootPromise;
-}
-
-async function loadHomeData(generation){
-  const org=ctx.organization_id,now=new Date().toISOString(),week=isoDaysFromNow(7),jobs=[];
-  jobs.push(rpcSafe('v2_executive_insights',{organization_id:org},null).then(v=>state.executive=v&&typeof v==='object'?v:null));
-  jobs.push(rpcSafe('v2_action_center',{organization_id:org},{items:[],summary:{}}).then(v=>state.actionCenter=v&&typeof v==='object'?v:{items:[],summary:{}}));
-  if(can('jugadores'))jobs.push(rpcSafe('v2_players',{organization_id:org,status_filter:'active'},[]).then(v=>state.players=Array.isArray(v)?v:[]));
-  if(can('prospectos')||can('scouting'))jobs.push(rpcSafe('v2_prospects',{organization_id:org,status_filter:null},[]).then(v=>state.prospects=Array.isArray(v)?v:[]));
-  if(can('calendario'))jobs.push(rpcSafe('v2_calendar',{organization_id:org,from_at:now,to_at:week},[]).then(v=>state.calendar=Array.isArray(v)?v:[]));
-  if(can('tienda'))jobs.push(rpcSafe('v2_orders',{organization_id:org,status_filter:null},[]).then(v=>state.orders=Array.isArray(v)?v:[]));
-  await Promise.allSettled(jobs);
-  if(generation===loadGeneration)renderHome();
-}
-
-function kpi(label,value,sub='',className=''){
-  return `<article class="tos-kpi ${className}"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:''}</article>`;
-}
-function mini(label,value,sub=''){
-  return `<div class="tos-mini-stat"><strong>${esc(value)}</strong><span>${esc(label)}</span>${sub?`<small>${esc(sub)}</small>`:''}</div>`;
-}
-
-function renderKpis(){
-  const cards=[],executive=state.executive||{},billing=executive.billing,acquisition=executive.acquisition,attendance=executive.attendance,commerce=executive.commerce;
-  if(executive.players||can('jugadores'))cards.push(kpi('Plantilla',executive.players?.active??state.players.length,'Tanners activos'));
-  if(billing)cards.push(kpi('Cobranza',`${Number(billing.collection_rate||0)}%`,`${billing.covered||0}/${billing.collection_population||0} cubiertos`,Number(billing.collection_rate||0)>=85?'good':''));
-  if(attendance?.rate30d!=null)cards.push(kpi('Asistencia 30 días',`${Number(attendance.rate30d).toFixed(1)}%`,`${attendance.attended30d||0}/${attendance.records30d||0} registros`,Number(attendance.rate30d)>=85?'good':''));
-  if(acquisition)cards.push(kpi('Conversión captación',`${Number(acquisition.conversionRate||0).toFixed(1)}%`,`${acquisition.converted||0}/${acquisition.total||0} convertidos`));
-  if(cards.length<4&&billing)cards.push(kpi('Cartera activa',money.format(Number(billing.total_receivable||0)),`${money.format(Number(billing.current_period_receivable||0))} del mes`,Number(billing.total_receivable||0)>0?'danger':''));
-  if(cards.length<4&&commerce)cards.push(kpi('Ventas 30 días',money.format(Number(commerce.sales30d||0)),`${commerce.orders30d||0} pedidos`));
-  $('homeKpis').innerHTML=(cards.length?cards.slice(0,4):[kpi('TannerOS','Listo','Usa los accesos para trabajar')]).join('');
-}
-
-function renderQuickActions(){
-  const visible=moduleLinks.filter(item=>canAny(item.codes,item.write===true)).sort((a,b)=>(b.primary?1:0)-(a.primary?1:0));
-  $('quickActions').innerHTML=visible.slice(0,9).map((item,index)=>`<a class="tos-quick-action ${(item.primary||index===0)?'primary':''}" href="${item.href}">${esc(item.label)}</a>`).join('')||'<div class="tos-empty">No hay acciones disponibles para tu rol.</div>';
-  const cashVisible=can('taquilla',true)||can('cobranza',true)||can('contabilidad',true);
-  $('cashPanel').classList.toggle('hidden',!cashVisible);
-  $('cashActions').innerHTML=`${(can('taquilla',true)||can('cobranza',true))?'<a class="tos-action-big collect" href="/taquilla/?action=cobrar">COBRAR</a>':''}${can('contabilidad',true)?'<a class="tos-action-big pay" href="/taquilla/">CAJA</a>':''}`;
-}
-
-function actionAllowed(item){
-  if(item?.code==='legacy_cutover')return false;
-  const codes=actionModules[item?.module]||[];return !codes.length||codes.some(code=>can(code));
-}
-function actionHref(item){
-  const href=String(item?.href||'').trim();
-  if(href.startsWith('/')&&!href.startsWith('//'))return href;
-  const fallbacks={billing_overdue:'/finanzas/#cobranza',billing_review:'/finanzas/',players_review:'/jugadores/',prospects_overdue:'/prospectos/',prospects_unplanned:'/prospectos/',orders_ready:'/pedidos/',orders_payment_pending:'/pedidos/',sponsors_renewal_overdue:'/patrocinadores/',sponsors_renewal_soon:'/patrocinadores/',sponsors_followup_overdue:'/patrocinadores/',equipment_low:'/utileria/'};
-  return fallbacks[item?.code]||'/';
-}
-function renderAttention(){
-  const items=(Array.isArray(state.actionCenter?.items)?state.actionCenter.items:[]).filter(actionAllowed);
-  if(!items.length){
-    $('attentionList').innerHTML='<article class="tos-alert good"><span class="tos-alert-tag">Bien</span><b>Todo en orden</b><small>No hay pendientes visibles para tus módulos.</small></article>';
-    setShellHealth({state:'ok',label:'Todo en orden'});return;
+// === Popup elegir dorsal (libres/ocupados por categoría) ===
+function openNumPicker(){
+  const cat=(categories.find(c=>c.id===$('categoryId').value)||{}).name||(current&&current.player&&current.player.category)||'';
+  const curId=current&&current.player&&current.player.id;
+  const taken={};
+  (players||[]).forEach(p=>{if(p.category===cat&&p.id!==curId){const n=parseInt(p.jersey_number,10);if(!isNaN(n))taken[n]=nameOf(p);}});
+  $('numPickerCat').textContent=(cat||'Sin categoría').toUpperCase();
+  const cur=($('jerseyNumber').value||'').trim();let html='';
+  for(let n=1;n<=30;n++){
+    const who=taken[n],sel=String(n)===cur;
+    if(who){const ini=who.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();html+=`<div class="num-cell taken" title="${esc(who)}">${n}<small>${esc(ini)}</small></div>`;}
+    else{html+=`<button type="button" class="num-cell free${sel?' sel':''}" data-num="${n}">${n}</button>`;}
   }
-  $('attentionList').innerHTML=items.slice(0,7).map(item=>{
-    const priority=safePriorities.has(item.priority)?item.priority:'info';
-    return `<a class="tos-action-alert ${priority}" href="${esc(actionHref(item))}"><span class="tos-alert-tag">${priorityLabels[priority]}</span><div><b>${esc(item.title||'Pendiente')}${Number(item.count||0)>0?` <em>${Number(item.count)}</em>`:''}</b><small>${esc(item.detail||'Abrir para revisar')}</small></div><span class="tos-action-arrow">›</span></a>`;
-  }).join('');
-  const critical=items.filter(x=>x.priority==='critical').length,attention=items.filter(x=>x.priority==='attention').length;
-  setShellHealth(critical?{state:'danger',label:`${critical} urgente${critical===1?'':'s'}`}:attention?{state:'attention',label:`${attention} por atender`}:{state:'ok',label:'Todo en orden'});
+  grid.innerHTML=html;modal.classList.remove('hidden');
+}
+function closeNumPicker(){$('numPicker').classList.add('hidden');}
+document.addEventListener('click',e=>{
+  if(e.target.closest?.('#pickJersey')){openNumPicker();return;}
+  if(e.target.closest?.('[data-close-num]')||e.target.id==='numPicker'){closeNumPicker();return;}
+  const cell=e.target.closest?.('.num-cell.free[data-num]');
+  if(cell){$('jerseyNumber').value=cell.dataset.num;closeNumPicker();}
+});
+
+
+// === Stats como filtros (estilo legacy) ===
+let fStat='active';
+function renderStats(){
+  const box=$('statCards');if(!box)return;
+  const all=players||[];const active=all.filter(p=>p.status_value==='active');
+  const jugadores=active.length;
+  const categorias=new Set(active.map(p=>p.category).filter(Boolean)).size;
+  const bajas=all.filter(p=>p.status_value!=='active').length;
+  const exp=active.filter(p=>p.needs_review).length;
+  const cards=[['active',jugadores,'Jugadores',''],['cat',categorias,'Categorías',''],['withdrawn',bajas,'Bajas',''],['review',exp,'Exp. incompleto','danger']];
+  box.innerHTML=cards.map(([k,n,l,cls])=>`<button type="button" class="stat-card${cls?' '+cls:''}${(k!=='cat'&&fStat===k)?' on':''}" data-stat="${k}"><span class="stat-n">${n}</span><span class="stat-l">${l}</span></button>`).join('');
+}
+function openFreeNums(cat){
+  const modal=$('numPicker'),grid=$('numGrid');if(!modal||!grid){return;}
+  const taken={};
+  (players||[]).forEach(p=>{if(p.category===cat){const n=parseInt(p.jersey_number,10);if(!isNaN(n))taken[n]=nameOf(p);}});
+  $('numPickerCat').textContent=(cat||'').toUpperCase();
+  const t=$('numPickerTitle');if(t)t.textContent='Números de la categoría';
+  let html='';
+  for(let n=1;n<=30;n++){const who=taken[n];if(who){const ini=who.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();html+=`<div class="num-cell taken" title="${esc(who)}">${n}<small>${esc(ini)}</small></div>`;}else{html+=`<div class="num-cell free">${n}</div>`;}}
+  grid.innerHTML=html;modal.classList.remove('hidden');
 }
 
-function fmtDateTime(value){
-  if(!value)return 'Sin fecha';const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value);
-  return new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(date);
-}
-function renderAgenda(){
-  const rows=[...state.calendar].sort((a,b)=>new Date(a.startsAt||a.starts_at)-new Date(b.startsAt||b.starts_at)).slice(0,6);
-  $('calendarLink').classList.toggle('hidden',!can('calendario'));
-  $('agendaList').innerHTML=rows.length?rows.map(item=>`<a class="tos-list-row" href="/calendario/"><div><strong>${esc(item.title||'Actividad')}</strong><span>${esc(fmtDateTime(item.startsAt||item.starts_at))}${item.location?` · ${esc(item.location)}`:''}</span></div><b>›</b></a>`).join(''):'<div class="tos-empty">Sin eventos en los próximos 7 días.</div>';
-}
 
-function usefulSourceRows(){
-  const rows=state.executive?.acquisition?.bySource||[];
-  return rows.filter(row=>Number(row.total||0)>=3&&!/^(desconocido|sin atribuci[oó]n|otro)$/i.test(String(row.label||'').trim()));
-}
-function renderRoleFocus(){
-  const profile=roleProfiles[ctx?.role]||roleProfiles.Presidencia,executive=state.executive||{};
-  $('roleFocusTitle').textContent=profile.focus;
-  const billing=executive.billing,acquisition=executive.acquisition,attendance=executive.attendance,commerce=executive.commerce,sponsors=executive.sponsors;
-  const stats=[];
-  if(billing)stats.push(mini('Cobranza',`${Number(billing.collection_rate||0)}%`,`${billing.pending_players||0} pendientes`));
-  if(attendance?.rate30d!=null)stats.push(mini('Asistencia',`${Number(attendance.rate30d).toFixed(1)}%`,'últimos 30 días'));
-  if(acquisition)stats.push(mini('Conversión',`${Number(acquisition.conversionRate||0).toFixed(1)}%`,'captación'));
-  if(!stats.length)stats.push(mini('Jugadores',executive.players?.active??state.players.length),mini('Prospectos',acquisition?.active??state.prospects.length),mini('Pedidos',commerce?.orders30d??state.orders.length));
-
-  const insights=[];
-  if(billing?.current_period_receivable>0)insights.push(`Hay ${money.format(Number(billing.current_period_receivable))} pendientes del periodo y ${billing.pending_players||0} Tanners con saldo activo.`);
-  if(acquisition?.unplanned>0)insights.push(`${acquisition.unplanned} prospecto${acquisition.unplanned===1?'':'s'} nuevo${acquisition.unplanned===1?'':'s'} todavía no tiene${acquisition.unplanned===1?'':'n'} próxima acción.`);
-  if(acquisition?.topSource?.count>0)insights.push(`${acquisition.topSource.label} es la fuente con más registros (${acquisition.topSource.count}).`);
-  const best=usefulSourceRows().sort((a,b)=>Number(b.conversionRate||0)-Number(a.conversionRate||0))[0];
-  if(best)insights.push(`${best.label} convierte ${Number(best.conversionRate||0).toFixed(1)}% (${best.converted||0}/${best.total||0}) entre las fuentes con volumen suficiente.`);
-  if(attendance?.rate30d!=null)insights.push(`La asistencia registrada de los últimos 30 días es ${Number(attendance.rate30d).toFixed(1)}%.`);
-  if(commerce?.pendingPayment>0)insights.push(`${commerce.pendingPayment} pedido${commerce.pendingPayment===1?'':'s'} tiene${commerce.pendingPayment===1?'':'n'} pago pendiente.`);
-  if(sponsors?.followupsOverdue>0)insights.push(`${sponsors.followupsOverdue} seguimiento${sponsors.followupsOverdue===1?'':'s'} comercial${sponsors.followupsOverdue===1?'':'es'} de patrocinio está${sponsors.followupsOverdue===1?'':'n'} vencido${sponsors.followupsOverdue===1?'':'s'}.`);
-
-  $('roleFocusBody').innerHTML=`<div class="tos-mini-stats">${stats.slice(0,3).join('')}</div><p class="tos-insight-copy">${esc(insights.slice(0,5).join(' ')||'Sin alertas relevantes en los datos cargados.')}</p>`;
-  const href=billing?.current_period_receivable>0?'/finanzas/':acquisition?.unplanned>0?'/prospectos/':commerce?.pendingPayment>0?'/pedidos/':'';
-  $('roleFocusLink').classList.toggle('hidden',!href);if(href)$('roleFocusLink').href=href;
-}
-
-function daysToBirthday(date){
-  if(!date)return 999;const birth=new Date(`${String(date).slice(0,10)}T12:00:00`),now=new Date();
-  let next=new Date(now.getFullYear(),birth.getMonth(),birth.getDate(),12);
-  if(next<new Date(now.getFullYear(),now.getMonth(),now.getDate()))next.setFullYear(next.getFullYear()+1);
-  return Math.ceil((next-now)/86400000);
-}
-function renderBirthdays(){
-  const rows=state.players.map(player=>({...player,days:daysToBirthday(player.birth_date)})).filter(player=>player.days>=0&&player.days<=31).sort((a,b)=>a.days-b.days).slice(0,8);
-  $('birthdayPanel').classList.toggle('hidden',!rows.length);
-  $('birthdayList').innerHTML=rows.map(player=>`<a class="tos-list-row" href="/jugadores/"><div><strong>${esc([player.first_name,player.last_name].filter(Boolean).join(' '))}</strong><span>${player.days===0?'Hoy':player.days===1?'Mañana':`En ${player.days} días`} · ${esc(player.category||'Sin categoría')}</span></div><span class="tos-icon tos-icon-cake" aria-hidden="true"></span></a>`).join('');
-}
-function renderSearch(){
-  const items=[];
-  state.players.forEach(player=>items.push({label:[player.first_name,player.last_name].filter(Boolean).join(' '),meta:`Jugador · ${player.category||'Sin categoría'}`,href:'/jugadores/'}));
-  state.prospects.forEach(prospect=>items.push({label:[prospect.first_name,prospect.last_name].filter(Boolean).join(' '),meta:`Prospecto · ${prospect.phone||prospect.category_interest||''}`,href:'/prospectos/'}));
-  setShellSearchItems(items);
-}
-function renderHome(){
-  const profile=roleProfiles[ctx?.role]||roleProfiles.Presidencia;
-  $('welcomeTitle').textContent=`Bienvenido al vestidor, ${firstName()}`;$('welcomeSubtitle').textContent=profile.subtitle;
-  renderKpis();renderQuickActions();renderAttention();renderAgenda();renderRoleFocus();renderBirthdays();renderSearch();
-}
-
-const recovery=new URLSearchParams(location.search).get('recovery')==='1'||/type=recovery/i.test(location.hash);
-await retireLegacyCaches();
-if(recovery){await renderRecovery();}
-else{
-  wireAuth();
-  const {data:{session}}=await supabase.auth.getSession();
-  if(session){try{await loadAuthenticatedApp();}catch(error){console.error(error);showView('authView');setMessage(friendlyError(error));}}
-  else showView('authView');
-  supabase.auth.onAuthStateChange(event=>{
-    if(event==='SIGNED_OUT'){
-      ctx=null;navigation=[];loadGeneration++;resetHomeState();showView('authView');document.body.classList.remove('tos-body');
-    }else if(event==='SIGNED_IN'&&!ctx){setTimeout(()=>loadAuthenticatedApp().catch(console.error),0);}
-  });
-}
+// === Ficha como modal (lista full-width) ===
+function closeProfile(){$('profilePanel')?.classList.remove('open');}
+$('profileClose')?.addEventListener('click',closeProfile);
+$('profilePanel')?.addEventListener('click',e=>{if(e.target.id==='profilePanel')closeProfile();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProfile();});

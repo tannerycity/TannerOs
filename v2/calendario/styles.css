@@ -1,1 +1,95 @@
-.calendar-shell{display:grid;gap:16px}.calendar-overview{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(270px,.75fr);gap:16px}.calendar-panel{min-width:0}.month-controls{display:flex;gap:7px;align-items:center}.month-controls input{min-width:150px}.today-button{white-space:nowrap}.calendar-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.calendar-kpis button{appearance:none;border:1px solid #dfe6e3;background:#f8faf9;border-radius:15px;padding:11px;text-align:left;color:#64777b;display:grid;gap:3px;cursor:pointer}.calendar-kpis button b{font-size:22px;color:#092b35}.calendar-kpis button[aria-pressed="true"]{border-color:#0d8994;background:#eef8f8;box-shadow:inset 0 0 0 1px #0d8994}.calendar-kpis .birthday-kpi[aria-pressed="true"]{border-color:#b88a22;background:#fff8e8}.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.weekday{text-align:center;padding:6px 0;font-size:11px;font-weight:800;color:#809094}.day{appearance:none;border:0;background:transparent;min-height:56px;border-radius:13px;padding:7px 4px;color:#17353d;display:flex;flex-direction:column;align-items:center;justify-content:space-between;cursor:pointer}.day:hover{background:#f0f5f3}.day.today b{display:grid;place-items:center;width:27px;height:27px;background:#0a3b4e;color:#fff;border-radius:50%}.day.selected{background:#e9f4f4;box-shadow:inset 0 0 0 1px #91c3c7}.day.blank{pointer-events:none}.day-dots{display:flex;gap:3px;min-height:6px}.day-dots i{width:5px;height:5px;border-radius:50%;background:#759094}.day-dots .dot-birthday{background:#d39d25}.day-dots .dot-session{background:#168a72}.day-dots .dot-match{background:#2767b0}.day-dots .dot-event,.day-dots .dot-program{background:#7b67a7}.birthday-panel{background:linear-gradient(145deg,#fffaf0,#fff 62%);border-color:#eadcb9}.birthday-lead{display:flex;gap:12px;align-items:center;min-height:84px}.birthday-lead>div:last-child{display:grid;gap:3px}.birthday-lead span,.birthday-lead small{color:#756b56;font-size:12px}.birthday-lead strong{font-size:19px;color:#2c2921}.birthday-avatar,.mini-avatar{display:grid;place-items:center;border-radius:50%;background:#ead39a;color:#594719;font-weight:900;flex:0 0 auto}.birthday-avatar{width:64px;height:64px;font-size:19px}.mini-avatar{width:36px;height:36px;font-size:11px}.birthday-actions{display:flex;gap:8px;margin:12px 0}.birthday-actions .secondary{flex:1;padding:9px 10px}.upcoming-birthdays{display:grid;gap:6px;border-top:1px solid #eee4ce;padding-top:8px}.upcoming-birthdays a{display:flex;gap:9px;align-items:center;padding:7px;border-radius:12px;text-decoration:none;color:#20363c}.upcoming-birthdays a:hover{background:#fff6df}.upcoming-birthdays a>span:last-child{display:grid}.upcoming-birthdays small{color:#7b7c73}.agenda-list{display:grid;gap:8px}.day-heading{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#6a8084;margin:10px 0 2px}.agenda-card{border:1px solid #dfe7e5;border-radius:16px;padding:11px 12px;display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;background:#fff;text-decoration:none;color:inherit}.agenda-card:hover{border-color:#b7ccca;background:#fbfdfc}.agenda-icon{width:38px;height:38px;border-radius:12px;background:#f2f6f5;display:grid;place-items:center}.source-birthday .agenda-icon{background:#fff3d4;color:#8a6819}.source-match .agenda-icon{background:#edf4fc;color:#245f9f}.source-session .agenda-icon{background:#eaf7f2;color:#14735f}.agenda-main{display:grid;gap:2px;min-width:0}.agenda-main span,.agenda-main small{font-size:12px;color:#687c80}.source-chip{font-size:11px!important;font-weight:800;padding:4px 7px;border-radius:999px;background:#edf2f1}.event-details{overflow:hidden}.event-details summary{list-style:none;cursor:pointer}.event-details summary::-webkit-details-marker{display:none}.event-details summary .panel-head{margin:0}.event-details[open] summary{padding-bottom:14px;border-bottom:1px solid #e7ecea;margin-bottom:14px}.nav-link{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}@media(max-width:1050px){.calendar-kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.calendar-overview{grid-template-columns:1fr}.birthday-panel{grid-row:1}}@media(max-width:560px){.panel-head{align-items:flex-start;gap:10px}.month-controls{display:grid;grid-template-columns:auto 1fr auto;width:100%}.month-controls input{min-width:0;width:100%}.today-button{width:100%}.calendar-kpis{display:flex;overflow:auto;scroll-snap-type:x mandatory;padding-bottom:3px}.calendar-kpis button{min-width:122px;scroll-snap-align:start}.day{min-height:48px;padding:5px 2px}.birthday-actions{flex-direction:column}.agenda-card{grid-template-columns:auto 1fr}.source-chip{grid-column:2;justify-self:start}}
+.hero-actions{display:flex;gap:9px;align-items:center}
+.today-button,.hero-actions .primary{white-space:nowrap}
+.calendar-shell{display:grid;gap:16px}
+.calendar-overview{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(270px,.75fr);gap:16px}
+.calendar-panel{min-width:0}
+.month-controls{display:flex;gap:7px;align-items:center}
+.month-controls input{min-width:150px}
+.calendar-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}
+.calendar-kpis button{appearance:none;border:1px solid var(--line);background:#f8faf9;border-radius:15px;padding:11px;text-align:left;color:var(--muted);display:grid;gap:3px;cursor:pointer}
+.calendar-kpis button b{font-size:22px;color:var(--ink)}
+.calendar-kpis button[aria-pressed="true"]{border-color:var(--teal);background:#eef8f8;box-shadow:inset 0 0 0 1px var(--teal)}
+.calendar-kpis .birthday-kpi[aria-pressed="true"]{border-color:var(--gold);background:#fff8e8}
+.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.weekday{text-align:center;padding:6px 0;font-size:11px;font-weight:800;color:#809094}
+.day{appearance:none;border:0;background:transparent;min-height:56px;border-radius:13px;padding:7px 4px;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:space-between;cursor:pointer}
+.day:hover{background:#f0f5f3}
+.day.today b{display:grid;place-items:center;width:27px;height:27px;background:var(--ink);color:#fff;border-radius:50%}
+.day.selected{background:#e9f4f4;box-shadow:inset 0 0 0 1px #91c3c7}
+.day.blank{pointer-events:none}
+.day-dots{display:flex;gap:3px;min-height:6px}
+.day-dots i{width:5px;height:5px;border-radius:50%;background:#759094}
+.day-dots .dot-birthday{background:var(--gold)}
+.day-dots .dot-session{background:#168a72}
+.day-dots .dot-match{background:#2767b0}
+.day-dots .dot-event,.day-dots .dot-program{background:#7b67a7}
+
+/* === Fotos protagonistas: avatar redondo con imagen real, iniciales solo como fallback === */
+.tanner-avatar{display:block;border-radius:50%;background-size:cover;background-position:center top;background-color:#ead39a;flex:0 0 auto}
+.tanner-avatar.initials{display:grid;place-items:center;color:#594719;font-weight:900}
+.tanner-avatar.lg{width:64px;height:64px;font-size:19px}
+.tanner-avatar.sm{width:36px;height:36px;font-size:11px}
+
+.birthday-panel{background:linear-gradient(145deg,#fffaf0,#fff 62%);border-color:#eadcb9}
+.birthday-lead{display:flex;gap:12px;align-items:center;min-height:84px}
+.birthday-lead>div:last-child{display:grid;gap:3px}
+.birthday-lead span,.birthday-lead small{color:#756b56;font-size:12px}
+.birthday-lead strong{font-size:19px;color:#2c2921}
+.birthday-actions{display:flex;gap:8px;margin:12px 0}
+.birthday-actions .secondary{flex:1;padding:9px 10px}
+.upcoming-birthdays{display:grid;gap:6px;border-top:1px solid #eee4ce;padding-top:8px}
+.upcoming-birthdays a{display:flex;gap:9px;align-items:center;padding:7px;border-radius:12px;text-decoration:none;color:#20363c}
+.upcoming-birthdays a:hover{background:#fff6df}
+.upcoming-birthdays a>span:last-child{display:grid}
+.upcoming-birthdays small{color:#7b7c73}
+
+/* === Carrusel dinámico: reemplaza la fila vertical interminable por una franja horizontal === */
+.rail-panel{min-width:0}
+.agenda-rail{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 10px;-webkit-overflow-scrolling:touch}
+.agenda-rail::-webkit-scrollbar{height:7px}
+.agenda-rail::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.rail-card{scroll-snap-align:start;flex:0 0 auto;width:198px;min-height:150px;border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:4px;background:#fff;text-decoration:none;color:inherit}
+.rail-card:hover{border-color:#b7ccca}
+.rail-card strong{font-size:14px;line-height:1.25;color:var(--ink)}
+.rail-card small,.rail-loc{font-size:12px;color:var(--muted)}
+.rail-icon{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.rail-icon .tos-icon{width:26px;height:26px;padding:6px;border-radius:10px;background:#f2f6f5;color:#31565e;box-sizing:content-box}
+.source-chip{font-size:10px!important;font-weight:800;padding:4px 7px;border-radius:999px;background:#edf2f1;color:#31565e;white-space:nowrap}
+.rail-date{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#8a969b}
+.rail-card.source-birthday{border-color:#eadcb9}
+.rail-card.source-birthday .rail-icon .tos-icon{background:#fff3d4;color:#8a6819}
+.rail-card.source-match .rail-icon .tos-icon{background:#edf4fc;color:#245f9f}
+.rail-card.source-session .rail-icon .tos-icon{background:#eaf7f2;color:#14735f}
+.rail-card.has-photo{width:170px;min-height:210px;padding:0;background-size:cover;background-position:center top;position:relative;overflow:hidden;justify-content:flex-end}
+.rail-date.on-photo{position:absolute;top:10px;left:10px;color:#fff;background:rgba(11,20,24,.45);padding:4px 8px;border-radius:999px;backdrop-filter:blur(2px)}
+.rail-scrim{background:linear-gradient(0deg,rgba(11,20,24,.86),rgba(11,20,24,.05) 78%);padding:34px 12px 12px;display:grid;gap:2px}
+.rail-scrim strong{color:#fff;font-size:15px}
+.rail-scrim span{color:#f0e3c2;font-size:12px}
+
+/* === Modal "Agregar evento" (reemplaza el acordeón escondido al fondo) === */
+.modal-backdrop{position:fixed;inset:0;z-index:200;background:rgba(11,20,24,.5);display:grid;place-items:center;padding:16px;overflow:auto}
+.modal-card{width:min(560px,100%);background:#fff;border-radius:22px;padding:22px;box-shadow:0 24px 70px rgba(11,20,24,.28);max-height:92vh;overflow:auto}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.modal-head h2{margin:2px 0}
+.notify-row{display:flex!important;flex-direction:row!important;align-items:center;gap:9px;font-size:13px;color:var(--ink)}
+.notify-row input{width:auto}
+.audience-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.nav-link{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+@media(max-width:1050px){.calendar-kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.calendar-overview{grid-template-columns:1fr}.birthday-panel{grid-row:1}}
+@media(max-width:560px){
+  .panel-head{align-items:flex-start;gap:10px}
+  .hero-actions{width:100%;flex-direction:column}
+  .hero-actions .primary,.hero-actions .today-button{width:100%}
+  .month-controls{display:grid;grid-template-columns:auto 1fr auto;width:100%}
+  .month-controls input{min-width:0;width:100%}
+  .calendar-kpis{display:flex;overflow:auto;scroll-snap-type:x mandatory;padding-bottom:3px}
+  .calendar-kpis button{min-width:122px;scroll-snap-align:start}
+  .day{min-height:48px;padding:5px 2px}
+  .birthday-actions{flex-direction:column}
+  .rail-card{width:168px}
+  .rail-card.has-photo{width:150px;min-height:190px}
+  .audience-row{grid-template-columns:1fr}
+  .modal-card{padding:18px;border-radius:18px}
+}

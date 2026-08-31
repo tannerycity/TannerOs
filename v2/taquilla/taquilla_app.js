@@ -38,14 +38,18 @@ function renderMovements(){
 }
 function applyLedgerVisibility(){
   document.querySelector('.cashier-kpis')?.classList.toggle('hidden',!canViewLedger);
-  document.querySelector('.cashier-cash-card')?.classList.toggle('hidden',!canViewLedger);
+  document.querySelectorAll('.cashier-cash-card:not(#cashTodayCard)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
   document.querySelectorAll('.cashier-panel').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
   const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
+  $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
 }
 function render(){
   canViewLedger=snapshot?.canViewLedger!==false;
   applyLedgerVisibility();
-  if(!canViewLedger){renderCategoryLists();setShellHealth({state:'ok',label:'Listo para cobrar'});return;}
+  if(!canViewLedger){
+    $('cashTodayNet').textContent=money.format(Number(snapshot?.cashTodayNet||0));
+    renderCategoryLists();setShellHealth({state:'ok',label:'Listo para cobrar'});return;
+  }
   const _inc=Number(snapshot?.incomeTotal||0),_exp=Number(snapshot?.expenseTotal||0),_net=Number(snapshot?.netTotal||0);
   $('incomeDay').textContent=money.format(_inc);$('incomeDay').className=_inc>0?'sem-ok':'sem-neutral';
   $('expenseDay').textContent=money.format(_exp);$('expenseDay').className='sem-neutral';

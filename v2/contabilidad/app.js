@@ -24,7 +24,7 @@ $('expenseForm').addEventListener('submit',saveExpense);$('fundingForm').addEven
 
 async function renderAccountingOverview(){
   const box=$('accountingOverview');if(!box)return;
-  let ov;try{ov=await rpc('v2_accounting_overview',{organization_id:ctx.organization_id});}catch(e){return;}
+  let ov;try{ov=await rpc('v2_accounting_overview',{p_organization_id:ctx.organization_id});}catch(e){return;}
   if(!ov)return;
   const m=v=>money.format(Number(v||0));
   const cb=ov.clubBalance||{},mo=ov.month||{},q=ov.quality||{},be=ov.breakEven||{};

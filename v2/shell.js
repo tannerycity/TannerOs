@@ -94,7 +94,7 @@ async function loadTannerSearchIndex(ctx){
     const items=(data||[]).map(p=>({
       label:p.name||'Tanner',
       meta:[p.jersey?('#'+p.jersey):'',p.pos||'',p.guardians||'',p.phones||''].filter(Boolean).join(' \u00b7 '),
-      href:'/v2/jugadores/?player='+p.id,
+      href:'/jugadores/?player='+p.id,
       __tanner:true
     }));
     const prev=(window.__tosSearchExtras||[]).filter(x=>!x.__tanner);

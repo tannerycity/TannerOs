@@ -212,10 +212,9 @@ function renderImmediateHome(){
   setShellHealth({state:'ok',label:'Conectando datos'});
 }
 
-function renderTaquillaHome(){
+async function renderTaquillaHome(){
   $('welcomeTitle').textContent=`Bienvenido al vestidor, ${firstName()}`;
   $('welcomeSubtitle').textContent='Cobra, paga y revisa pedidos y calendario.';
-  $('homeKpis').innerHTML='';$('homeKpis').classList.add('hidden');
   $('attentionPanel')?.classList.add('hidden');
   $('roleFocusPanel')?.classList.add('hidden');
   $('birthdayPanel')?.classList.add('hidden');
@@ -228,6 +227,20 @@ function renderTaquillaHome(){
   if(can('cursosVerano'))links.push('<a class="tos-quick-action" href="/operacion/programas/">Programas vigentes</a>');
   $('quickActions').innerHTML=links.join('')||'<div class="tos-empty">Sin accesos disponibles para tu rol.</div>';
   setShellHealth({state:'ok',label:'Listo para cobrar'});
+  // Un solo número operativo: efectivo del día para entregar al cierre. Nada de saldos, nada de historial.
+  const kpis=$('homeKpis');
+  if(kpis&&can('taquilla')){
+    kpis.style.gridTemplateColumns='minmax(0,320px)';
+    kpis.classList.remove('hidden');
+    kpis.innerHTML=kpi('Efectivo de hoy','Calculando…','Para entregar al cierre de caja');
+    try{
+      const snap=await rpcSafe('v2_cashier_snapshot',{organization_id:ctx.organization_id},null);
+      const net=Number(snap?.cashTodayNet||0);
+      kpis.innerHTML=kpi('Efectivo de hoy',money.format(net),'Para entregar al cierre de caja · solo efectivo',net>0?'good':'');
+    }catch(error){kpis.innerHTML=kpi('Efectivo de hoy','—','No se pudo calcular. Abre Taquilla para ver el detalle.');}
+  }else if(kpis){
+    kpis.innerHTML='';kpis.classList.add('hidden');
+  }
 }
 
 async function loadAuthenticatedApp(){
@@ -244,7 +257,7 @@ async function loadAuthenticatedApp(){
     ctx=rows[0];navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});resetHomeState();
     showView('appView');document.body.classList.add('tos-body');
     renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
-    if(ctx.role==='Taquilla'){renderTaquillaHome();}
+    if(ctx.role==='Taquilla'){renderTaquillaHome().catch(error=>console.error('Taquilla home',error));}
     else{
       renderImmediateHome();
       const generation=++loadGeneration;

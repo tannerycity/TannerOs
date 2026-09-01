@@ -1,0 +1,67 @@
+/* Hoja de producción (corte para el proveedor) — solo agrega reglas nuevas,
+   no toca produccion/styles.css. Pensada para pantalla Y para imprimir /
+   guardar como PDF: la regla @media print al final aísla #sheetModal. */
+
+.sheet-modal{width:min(900px,calc(100vw - 28px));}
+.sheet-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+
+.sheet-header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  flex-wrap:wrap;padding-bottom:14px;border-bottom:2px solid var(--ink);margin-bottom:14px;
+}
+.sheet-brand{display:flex;flex-direction:column;gap:2px;}
+.sheet-brand strong{font-size:18px;color:var(--ink);}
+.sheet-brand span{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+.sheet-meta{display:flex;gap:22px;flex-wrap:wrap;}
+.sheet-meta div{display:flex;flex-direction:column;gap:2px;}
+.sheet-meta span{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+.sheet-meta strong{font-size:14px;color:var(--ink);}
+
+.sheet-notes{font-size:12.5px;color:var(--muted);background:#f7f9f8;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 16px;}
+
+.sheet-section{margin-bottom:22px;}
+.sheet-section-title{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-size:14px;font-weight:800;color:var(--ink);
+  padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid var(--line);
+}
+.sheet-section-title small{font-size:11px;font-weight:700;color:var(--muted);}
+
+.sheet-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.sheet-table th{
+  text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--ink);
+}
+.sheet-table td{padding:7px 8px;border-bottom:1px solid var(--line);color:var(--ink);}
+.sheet-table th:last-child,.sheet-table td:last-child{text-align:right;}
+.sheet-table tfoot td{font-weight:800;border-top:2px solid var(--ink);border-bottom:none;}
+.sheet-table .mini-empty{padding:12px 8px;}
+
+.sheet-person-table{margin-bottom:18px;}
+.sheet-person-table caption{
+  caption-side:top;text-align:left;font-size:13px;font-weight:800;color:var(--ink);
+  padding:8px 0;
+}
+.sheet-kit-row td{background:rgba(184,164,100,.18);color:#766526;font-weight:800;font-size:11px;letter-spacing:.02em;border-bottom:none;padding:6px 8px;}
+
+@media (max-width:680px){
+  .sheet-header{flex-direction:column;}
+  .sheet-meta{gap:14px;}
+  .sheet-table{font-size:11.5px;}
+}
+
+/* Impresión: aísla #sheetModal de todo lo demás (topbar, otros modales, backdrop)
+   sin importar cómo esté posicionado en pantalla. Técnica estándar: ocultar todo
+   por visibility y solo revelar el contenido de la hoja. */
+@media print{
+  body *{visibility:hidden;}
+  #sheetModal,#sheetModal *{visibility:visible;}
+  #sheetModal{
+    position:absolute;left:0;top:0;width:100%;max-width:none;height:auto;max-height:none;
+    overflow:visible;box-shadow:none;border-radius:0;padding:0;margin:0;transform:none;
+  }
+  #backdrop{display:none!important;}
+  .no-print{display:none!important;}
+  .sheet-break{page-break-before:always;}
+  .sheet-person-table{page-break-inside:avoid;}
+}

@@ -212,6 +212,37 @@ function renderImmediateHome(){
   setShellHealth({state:'ok',label:'Conectando datos'});
 }
 
+async function renderTaquillaHome(){
+  $('welcomeTitle').textContent=`Bienvenido al vestidor, ${firstName()}`;
+  $('welcomeSubtitle').textContent='Cobra, paga y revisa pedidos y calendario.';
+  $('attentionPanel')?.classList.add('hidden');
+  $('roleFocusPanel')?.classList.add('hidden');
+  $('birthdayPanel')?.classList.add('hidden');
+  $('agendaList')?.closest('.tos-panel')?.classList.add('hidden');
+  $('cashPanel')?.classList.remove('hidden');
+  $('cashActions').innerHTML=`${can('taquilla',true)?'<a class="tos-action-big collect" href="/taquilla/?action=cobrar">COBRAR</a><a class="tos-action-big pay" href="/taquilla/?action=pagar">PAGAR</a>':''}`;
+  const links=[];
+  if(can('tienda'))links.push('<a class="tos-quick-action primary" href="/pedidos/">Pedidos</a>');
+  if(can('calendario'))links.push('<a class="tos-quick-action primary" href="/calendario/">Calendario</a>');
+  if(can('cursosVerano'))links.push('<a class="tos-quick-action" href="/operacion/programas/">Programas vigentes</a>');
+  $('quickActions').innerHTML=links.join('')||'<div class="tos-empty">Sin accesos disponibles para tu rol.</div>';
+  setShellHealth({state:'ok',label:'Listo para cobrar'});
+  // Un solo número operativo: efectivo del día para entregar al cierre. Nada de saldos, nada de historial.
+  const kpis=$('homeKpis');
+  if(kpis&&can('taquilla')){
+    kpis.style.gridTemplateColumns='minmax(0,320px)';
+    kpis.classList.remove('hidden');
+    kpis.innerHTML=kpi('Efectivo de hoy','Calculando…','Para entregar al cierre de caja');
+    try{
+      const snap=await rpcSafe('v2_cashier_snapshot',{organization_id:ctx.organization_id},null);
+      const net=Number(snap?.cashTodayNet||0);
+      kpis.innerHTML=kpi('Efectivo de hoy',money.format(net),'Para entregar al cierre de caja · solo efectivo',net>0?'good':'');
+    }catch(error){kpis.innerHTML=kpi('Efectivo de hoy','—','No se pudo calcular. Abre Taquilla para ver el detalle.');}
+  }else if(kpis){
+    kpis.innerHTML='';kpis.classList.add('hidden');
+  }
+}
+
 async function loadAuthenticatedApp(){
   if(bootPromise)return bootPromise;
   bootPromise=(async()=>{
@@ -225,9 +256,13 @@ async function loadAuthenticatedApp(){
     }
     ctx=rows[0];navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});resetHomeState();
     showView('appView');document.body.classList.add('tos-body');
-    renderShell({ctx,navigation,active:'inicio',title:'Inicio'});renderImmediateHome();
-    const generation=++loadGeneration;
-    loadHomeData(generation).catch(error=>{console.error('TannerOS home data',error);setShellHealth({state:'attention',label:'Datos parciales'});});
+    renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
+    if(ctx.role==='Taquilla'){renderTaquillaHome().catch(error=>console.error('Taquilla home',error));}
+    else{
+      renderImmediateHome();
+      const generation=++loadGeneration;
+      loadHomeData(generation).catch(error=>{console.error('TannerOS home data',error);setShellHealth({state:'attention',label:'Datos parciales'});});
+    }
   })().finally(()=>{bootPromise=null;});
   return bootPromise;
 }

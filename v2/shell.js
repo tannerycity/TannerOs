@@ -65,8 +65,21 @@ function itemActive(item,active){return item.code===active||(item.aliases||[]).i
 export function setShellSearchItems(items=[]){window.__tosSearchExtras=Array.isArray(items)?items:[];}
 
 function ensureProductionCss(){if(document.getElementById('tosProductionCss'))return;const link=document.createElement('link');link.id='tosProductionCss';link.rel='stylesheet';link.href='/v2/production.css?v=20260821e';document.head.appendChild(link);}
-function renderNavigation(nav,navigation,active){
+// Roles con barra lateral simplificada: sin encabezados de sección y sin ítems que no usan a diario.
+// Taquilla ve solo Inicio (implícito), Taquilla, Pedidos, Calendario y Programas — nada de Finanzas,
+// aunque técnicamente tenga lectura de cobranza (la necesita solo para el buscador de Tanners en Cobrar).
+const SIMPLE_SIDEBAR_ROLES={Taquilla:{exclude:['finanzas']}};
+function renderNavigation(nav,navigation,active,role){
   if(!nav)return;nav.innerHTML='';
+  const simple=SIMPLE_SIDEBAR_ROLES[role];
+  if(simple){
+    const exclude=new Set(simple.exclude||[]);
+    const items=navItems.filter(item=>itemReadable(navigation,item)&&!exclude.has(item.code));
+    const section=document.createElement('div');section.className='tos-nav-section tos-nav-section-simple';
+    items.forEach(item=>{const a=document.createElement('a');a.href=item.href;a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
+    nav.appendChild(section);
+    return;
+  }
   ['main','club','finance','ops','admin'].forEach(group=>{
     const items=navItems.filter(item=>item.group===group&&itemReadable(navigation,item));if(!items.length)return;
     const section=document.createElement('div');section.className=`tos-nav-section tos-nav-section-${group}`;
@@ -102,8 +115,9 @@ async function loadTannerSearchIndex(ctx){
   }catch(e){/* silencioso */}
 }
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
-  ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;renderNavigation($('sidebarNav'),navigation,active);
-  const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation);loadTannerSearchIndex(ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});}
+  ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
+  const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
+  renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation);loadTannerSearchIndex(ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});}
 }
 export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

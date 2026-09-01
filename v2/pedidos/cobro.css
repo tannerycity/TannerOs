@@ -160,6 +160,15 @@
 .whatsapp-btn:hover{background:#dcf0e6;}
 .whatsapp-btn svg{flex:0 0 auto;}
 
+/* Plan de pago (anticipo/50-50) dentro de COBRANZA */
+.payment-plan-box{margin-bottom:12px;}
+.payment-plan-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:#eef4f3;font-size:12.5px;font-weight:700;color:#2d4a4a;}
+.payment-plan-row .link-toggle{width:auto;padding:0;font-size:11px;}
+.payment-plan-form{margin-top:10px;padding:12px;border-radius:12px;background:#f4f7f6;display:flex;flex-direction:column;gap:8px;}
+.payment-plan-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted);}
+.payment-plan-form select,.payment-plan-form input{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);}
+.payment-plan-form button{align-self:flex-start;}
+
 /* Botones de acción de estado (OPERACIÓN) */
 .status-btn{display:block;width:100%;text-align:center;}
 #statusActions{display:flex;flex-direction:column;gap:10px;}

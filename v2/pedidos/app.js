@@ -13,7 +13,10 @@ async function confirmAction(o={}){
    cancelled/refunded rompen el recorrido y muestran una nota en su lugar. */
 const TRACK_STEPS=['Pedido','Pagado','Producción','Listo'];
 const TRACK_CURRENT={draft:1,pending_payment:1,partial_payment:1,paid:2,in_production:2,ready:3,delivered:4};
-function renderTracker(status){
+/* paidFull: con anticipo (plan de pago < 100%) un pedido puede llegar a producción sin
+   estar 100% pagado. En ese caso el paso "Pagado" NO se marca como hecho (sería engañoso);
+   se muestra como "en curso" igual que producción, para no esconder que falta cobrar. */
+function renderTracker(status,paidFull){
   const wrap=$('orderTracker');if(!wrap)return;
   if(status==='cancelled'||status==='refunded'){
     wrap.innerHTML=`<div class="order-tracker-alert ${esc(status)}">${status==='cancelled'?'Este pedido fue cancelado.':'Este pedido fue reembolsado.'}</div>`;
@@ -21,7 +24,8 @@ function renderTracker(status){
   }
   const cur=TRACK_CURRENT[status]??1;
   wrap.innerHTML=`<div class="order-tracker">${TRACK_STEPS.map((label,i)=>{
-    const state=i<cur?'done':i===cur?'current':'pending';
+    let state=i<cur?'done':i===cur?'current':'pending';
+    if(i===1&&state==='done'&&!paidFull)state='current';
     return `<div class="track-step ${state}"><span class="track-dot">${state==='done'?'✓':i+1}</span><span class="track-label">${esc(label)}</span></div>`;
   }).join('')}</div>`;
 }
@@ -48,8 +52,8 @@ function itemChip(label,value){return value?`<span class="item-chip">${esc(label
    OJO: pending_payment/partial_payment también admiten saltar a "paid" manualmente,
    pero eso casi nunca hace falta porque un cobro que cubre el saldo ya lo hace solo —
    por eso no se ofrece como botón, para no confundir a quien está cobrando. */
-function primaryNextStep(status){const map={paid:{to:'in_production',label:'Enviar a producción'},in_production:{to:'ready',label:'Marcar listo'},ready:{to:'delivered',label:'Marcar entregado'}};return map[status]||null;}
-function secondarySkip(status){return status==='paid'?{to:'ready',label:'Marcar listo (sin pasar por producción)'}:null;}
+function primaryNextStep(status,readyOk){const map={partial_payment:readyOk?{to:'in_production',label:'Enviar a producción'}:null,paid:{to:'in_production',label:'Enviar a producción'},in_production:{to:'ready',label:'Marcar listo'},ready:{to:'delivered',label:'Marcar entregado'}};return map[status]||null;}
+function secondarySkip(status,readyOk){if(status==='paid')return{to:'ready',label:'Marcar listo (sin pasar por producción)'};if(status==='partial_payment'&&readyOk)return{to:'ready',label:'Marcar listo (sin pasar por producción)'};return null;}
 function dangerAction(status){if(['draft','pending_payment'].includes(status))return{to:'cancelled',label:'Cancelar pedido'};if(['partial_payment','paid','in_production','ready','delivered'].includes(status))return{to:'refunded',label:'Reembolsar pedido'};return null;}
 function waLink(phone){const d=String(phone||'').replace(/\D/g,'');return d?`https://wa.me/${d}`:null;}
 const WA_ICON='<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.4 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.6-.1a13 13 0 0 1-1.5-.6c-2.6-1.1-4.3-3.8-4.5-4-.1-.2-1-1.4-1-2.7s.6-1.9.9-2.2c.3-.3.6-.4.8-.4h.5c.2 0 .4 0 .5.4l.8 1.9c.1.2.1.4 0 .5l-.4.5c-.1.2-.2.3-.1.5.2.3.8 1.4 1.8 2.2 1.3 1 2.3 1.3 2.6 1.5.3.1.4.1.6-.1l.6-.7c.2-.3.4-.2.6-.1l1.7.8c.2.1.4.2.4.3.1.2.1.8-.1 1.4Z"/></svg>';
@@ -86,7 +90,7 @@ function renderPayments(d){
     }
     hist.appendChild(row);
   });
-  const open=['pending_payment','partial_payment'].includes(d.status)&&balance>0;const canPay=open&&canWrite;
+  const open=['pending_payment','partial_payment','in_production','ready'].includes(d.status)&&balance>0;const canPay=open&&canWrite;
   $('paymentForm').classList.toggle('hidden',!canPay);$('paymentClosedNote').classList.toggle('hidden',canPay);
   if(canPay){$('paymentAmount').value=balance.toFixed(2);$('paymentAmount').max=balance.toFixed(2);$('paymentDate').value=new Date().toISOString().slice(0,10);$('paymentPayerType').value='guardian';$('paymentPayer').value=d.customer_name||'';}
   payMsg();
@@ -104,14 +108,60 @@ async function correctPayment(paymentId,row){
   }catch(e){payMsg(e.message||'No se pudo corregir el cobro.');btn.disabled=false;}
 }
 function renderReadiness(){const r=current?.readiness||{},box=$('readinessBox');box.dataset.ready=r.ok?'true':'false';$('readinessTitle').textContent=r.ok?'Listo para producción':'Aún no está listo';$('readinessText').textContent=readinessText(r);$('readinessPayment').textContent=`Pago ${Number(r.paidPercent||0).toFixed(0)}% · requerido ${Number(r.effectivePaymentRequirementPercent||100).toFixed(0)}%`;}
+/* Plan de pago por pedido: por defecto exige 100% antes de producción; Presidencia/Comercio
+   puede bajarlo (ej. 50% anticipo) mientras el pedido no haya entrado a producción todavía.
+   El saldo restante siempre se puede seguir cobrando en COBRANZA, y "Marcar entregado" exige
+   el pago completo sin importar el plan (el plan solo adelanta cuándo empieza la producción). */
+function renderPaymentPlan(d){
+  const box=$('paymentPlanBox');if(!box)return;
+  if(!canManage){box.classList.add('hidden');box.innerHTML='';return;}
+  const pct=Number(current?.readiness?.effectivePaymentRequirementPercent||100);
+  const editable=['draft','pending_payment','partial_payment','paid'].includes(d.status);
+  box.classList.remove('hidden');
+  box.innerHTML=`<div class="payment-plan-row"><span>${pct<100?`Plan de pago: anticipo ${pct.toFixed(0)}% para producción, resto a la entrega`:'Plan de pago: pago completo antes de producción'}</span>${editable?'<button id="editPaymentPlan" class="link-toggle" type="button">Editar</button>':''}</div><div id="paymentPlanForm" class="payment-plan-form hidden"></div>`;
+  if(editable)$('editPaymentPlan').addEventListener('click',togglePaymentPlanForm);
+}
+function togglePaymentPlanForm(){
+  const wrap=$('paymentPlanForm');if(!wrap)return;
+  if(!wrap.classList.contains('hidden')){wrap.classList.add('hidden');wrap.innerHTML='';return;}
+  const cur=Number(current?.readiness?.effectivePaymentRequirementPercent||100);
+  wrap.innerHTML=`<label><span>Anticipo requerido para producción</span><select id="planPercent"><option value="100">100% (pago completo)</option><option value="50">50% (mitad ahora, mitad a la entrega)</option><option value="custom">Otro porcentaje…</option></select></label><input id="planPercentCustom" type="number" min="1" max="100" step="1" class="hidden" placeholder="% requerido"><button id="savePaymentPlan" class="primary mini" type="button">Guardar plan de pago</button><div id="paymentPlanMessage" class="inline-message hidden"></div>`;
+  wrap.classList.remove('hidden');
+  const sel=$('planPercent'),custom=$('planPercentCustom');
+  sel.value=cur===100?'100':cur===50?'50':'custom';
+  custom.classList.toggle('hidden',sel.value!=='custom');
+  if(sel.value==='custom')custom.value=cur;
+  sel.addEventListener('change',()=>custom.classList.toggle('hidden',sel.value!=='custom'));
+  $('savePaymentPlan').addEventListener('click',savePaymentPlan);
+}
+async function savePaymentPlan(){
+  const sel=$('planPercent').value;
+  const pct=sel==='custom'?Number($('planPercentCustom').value):Number(sel);
+  const pm=$('paymentPlanMessage');const setPm=(t,type='error')=>{if(!pm)return;pm.textContent=t;pm.dataset.type=type;pm.classList.toggle('hidden',!t);};
+  if(!Number.isFinite(pct)||pct<=0||pct>100){setPm('Captura un porcentaje entre 1 y 100.');return;}
+  const ok=await confirmAction({kicker:'PLAN DE PAGO',title:'¿Actualizar plan de pago?',message:pct>=100?`${current.order.folio} volverá a requerir el pago completo antes de producción.`:`${current.order.folio} podrá enviarse a producción con ${pct}% pagado. El resto se cobra antes de entregar.`,confirmText:'Sí, guardar'});
+  if(!ok)return;
+  const btn=$('savePaymentPlan');btn.disabled=true;
+  try{await rpc('v2_set_order_payment_plan',{organization_id:ctx.organization_id,order_id:current.order.id,required_percent:pct>=100?null:pct});await refreshCurrent(current.order.id);}
+  catch(e){setPm(e.message||'No se pudo actualizar el plan de pago.');btn.disabled=false;}
+}
 function renderStateActions(d){
   const wrap=$('statusActions');if(!wrap)return;wrap.innerHTML='';
   if(!canManage)return;
-  const primary=primaryNextStep(d.status),skip=secondarySkip(d.status),danger=dangerAction(d.status);
-  if(!primary&&!skip&&!danger){wrap.innerHTML='<p class="muted state-help">Este pedido ya no tiene más movimientos de estado.</p>';return;}
-  if(primary){const b=document.createElement('button');b.type='button';b.className='primary status-btn';b.textContent=primary.label;b.addEventListener('click',()=>changeStatus(primary.to,primary.label,false));wrap.appendChild(b);}
-  if(skip){const b=document.createElement('button');b.type='button';b.className='secondary status-btn';b.textContent=skip.label;b.addEventListener('click',()=>changeStatus(skip.to,skip.label,false));wrap.appendChild(b);}
+  const readyOk=!!current?.readiness?.ok,balance=Number(current?.balance||0);
+  const primary=primaryNextStep(d.status,readyOk),skip=secondarySkip(d.status,readyOk),danger=dangerAction(d.status);
+  const heldByBalance=!!primary&&primary.to==='delivered'&&balance>0.005;
+  if(heldByBalance){
+    const p=document.createElement('p');p.className='muted state-help';p.textContent=`Falta cobrar ${money.format(balance)} antes de poder entregar. Registra el cobro en COBRANZA.`;wrap.appendChild(p);
+  }else if(primary){
+    const b=document.createElement('button');b.type='button';b.className='primary status-btn';b.textContent=primary.label;b.addEventListener('click',()=>changeStatus(primary.to,primary.label,false));wrap.appendChild(b);
+  }
+  if(!heldByBalance&&skip){const b=document.createElement('button');b.type='button';b.className='secondary status-btn';b.textContent=skip.label;b.addEventListener('click',()=>changeStatus(skip.to,skip.label,false));wrap.appendChild(b);}
+  if(d.status==='partial_payment'&&!primary){
+    const p=document.createElement('p');p.className='muted state-help';p.textContent=`Aún no se puede enviar a producción: ${readinessText(current.readiness)}.`;wrap.appendChild(p);
+  }
   if(danger){const b=document.createElement('button');b.type='button';b.className='danger status-btn';b.textContent=danger.label;b.addEventListener('click',()=>changeStatus(danger.to,danger.label,true));wrap.appendChild(b);}
+  if(!wrap.children.length){wrap.innerHTML='<p class="muted state-help">Este pedido ya no tiene más movimientos de estado.</p>';}
 }
 async function changeStatus(newStatus,label,danger){
   if(!current||!canManage)return;
@@ -192,14 +242,14 @@ async function openOrder(o){
   $('orderMeta').textContent=fmt(d.created_at);
   $('orderTotal').textContent=money.format(Number(d.total||0));
   $('orderStatusLabel').className='order-status '+esc(d.status);$('orderStatusLabel').textContent=labels[d.status]||d.status;
-  renderTracker(d.status);
+  renderTracker(d.status,Number(current.balance||0)<=0.005);
   $('customerName').textContent=d.customer_name||'Sin nombre';
   const wa=waLink(d.customer_phone);
   const contactBits=[d.customer_phone,d.customer_email].filter(Boolean).map(v=>`<span>${esc(v)}</span>`).join('<span class="dot">·</span>');
   $('customerContact').innerHTML=(contactBits||'<span class="muted">Sin contacto</span>')+(wa?`<a class="whatsapp-btn" href="${esc(wa)}" target="_blank" rel="noopener">${WA_ICON}WhatsApp</a>`:'');
   const items=$('itemList');items.innerHTML=(current.items||[]).map(i=>itemEditor(i,d)).join('');
   items.querySelectorAll('.save-item').forEach(b=>b.addEventListener('click',()=>saveItem(b.closest('.item-row'))));
-  renderProfitability();renderPayments(d);renderReadiness();renderStateActions(d);renderWarranty(d);
+  renderProfitability();renderPaymentPlan(d);renderPayments(d);renderReadiness();renderStateActions(d);renderWarranty(d);
   renderBusinessMetrics(orders.filter(vigente));render();msg();collapseDrawerSections();
   $('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');
 }

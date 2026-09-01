@@ -16,6 +16,7 @@
 
   <section class="drawer-section" id="paymentSection">
     <div class="eyebrow">COBRANZA</div><h3>Registrar cobro</h3>
+    <div id="paymentPlanBox" class="payment-plan-box hidden"></div>
     <div id="paymentForm" class="payment-form hidden"><div class="payment-grid"><label><span>Monto</span><input id="paymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label><label><span>Fecha</span><input id="paymentDate" type="date"></label><label><span>Método</span><select id="paymentMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label><label><span>Quién paga</span><select id="paymentPayerType"><option value="guardian">Familia / tutor</option><option value="sponsor">Patrocinador</option><option value="player">Jugador</option><option value="organization">Club</option><option value="other">Otro</option></select></label><label><span>Nombre del pagador</span><input id="paymentPayer" type="text" maxlength="160" placeholder="Nombre de familia, sponsor o persona"></label><label><span>Referencia</span><input id="paymentReference" type="text" maxlength="120" placeholder="Folio / transferencia"></label></div><button id="savePayment" class="primary payment-save" type="button">Registrar pago</button></div>
     <p id="paymentClosedNote" class="muted state-help hidden">Este pedido no tiene saldo pendiente o no admite más pagos.</p>
     <div id="paymentMessage" class="inline-message hidden"></div>

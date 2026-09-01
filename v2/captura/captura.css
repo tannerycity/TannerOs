@@ -1,0 +1,69 @@
+/* Captura rápida — solo agrega reglas nuevas; reutiliza /v2/styles.css y
+   /v2/pedidos/styles.css para topbar, kpis, panel, drawer, botones, etc. */
+
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:14px;}
+.field-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted);}
+.field-grid input,.field-grid textarea{font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--line);color:var(--ink);}
+.notes-label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:12px;}
+.notes-label textarea{font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--line);color:var(--ink);resize:vertical;}
+.drawer-subhead{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;}
+.drawer-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.drawer-actions button{flex:1;min-width:120px;}
+.catalog-drawer{width:min(480px,92vw);}
+
+/* Selección de kits/productos */
+.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.pick-card{
+  display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;
+  padding:14px;border-radius:16px;border:1px solid var(--line);background:#fff;cursor:pointer;
+}
+.pick-card:hover{border-color:var(--teal);}
+.pick-card strong{font-size:14px;}
+.pick-card span{font-size:11.5px;color:var(--muted);}
+.pick-card b{font-size:13px;color:var(--teal);margin-top:2px;}
+
+/* Selector de talla adulto/niño */
+.tier-toggle{display:flex;gap:8px;margin-bottom:14px;}
+.tier-btn{flex:1;padding:10px;border-radius:12px;border:1px solid var(--line);background:#fff;font:inherit;font-weight:700;cursor:pointer;}
+.tier-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+.tier-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* Piezas del kit (tallas) */
+.component-list{display:grid;gap:8px;margin-bottom:14px;}
+.component-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:#f7f9f8;}
+.component-name{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--ink);}
+.component-row input{width:110px;font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);}
+
+/* Carrito / resumen */
+.cart-list{display:grid;gap:8px;margin-bottom:10px;}
+.cart-row{
+  display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:12px;background:#f7f9f8;font-size:13px;
+}
+.cart-row b{color:var(--teal);}
+.cart-remove{border:none;background:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 4px;}
+.cart-remove:hover{color:#943c35;}
+.cart-total{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px;border-radius:12px;background:var(--ink);color:#fff;margin:6px 0 16px;
+}
+.cart-total span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;opacity:.8;}
+.cart-total strong{font-size:18px;}
+.full{width:100%;}
+
+/* Confirmación */
+.confirm-panel{text-align:center;padding:36px 20px;}
+.confirm-icon{
+  width:56px;height:56px;border-radius:50%;background:#edf8f2;color:#226b45;
+  display:grid;place-items:center;font-size:26px;font-weight:800;margin:0 auto 14px;
+}
+.confirm-panel h2{margin:0 0 6px;}
+.confirm-actions{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.confirm-actions .primary,.confirm-actions .secondary{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;padding:12px 20px;}
+
+@media (max-width:620px){
+  .field-grid{grid-template-columns:1fr;}
+  .pick-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));}
+  .cart-row{grid-template-columns:1fr auto;}
+  .cart-row b{grid-column:1/2;}
+}

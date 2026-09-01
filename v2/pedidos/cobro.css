@@ -81,7 +81,77 @@
   transform:rotate(180deg);
 }
 
+/* Recorrido del pedido (tracker estilo Amazon/Mercado Libre) */
+.order-tracker{
+  display:flex;
+  align-items:flex-start;
+  gap:0;
+  margin:14px 0 2px;
+}
+.track-step{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  position:relative;
+  text-align:center;
+}
+.track-step:not(:last-child)::after{
+  content:'';
+  position:absolute;
+  top:13px;
+  left:50%;
+  width:100%;
+  height:2px;
+  background:var(--line);
+  z-index:0;
+}
+.track-step.done:not(:last-child)::after{background:var(--teal);}
+.track-dot{
+  width:26px;height:26px;border-radius:50%;
+  background:#fff;border:2px solid var(--line);
+  display:grid;place-items:center;
+  font-size:11px;font-weight:800;color:var(--muted);
+  z-index:1;
+}
+.track-step.done .track-dot{background:var(--teal);border-color:var(--teal);color:#fff;}
+.track-step.current .track-dot{border-color:var(--teal);color:var(--teal);box-shadow:0 0 0 4px rgba(5,108,127,.12);}
+.track-label{font-size:10.5px;font-weight:750;color:var(--muted);}
+.track-step.done .track-label,.track-step.current .track-label{color:var(--ink);}
+.order-tracker-alert{
+  margin:14px 0 2px;
+  padding:10px 12px;
+  border-radius:12px;
+  font-size:12.5px;
+  font-weight:750;
+}
+.order-tracker-alert.cancelled{background:#f7eeee;color:#943c35;}
+.order-tracker-alert.refunded{background:rgba(184,164,100,.18);color:#766526;}
+
+/* Tarjetas de artículo estilo e-commerce: miniatura + variantes + estado de datos */
+.item-summary{display:flex;gap:12px;align-items:flex-start;}
+.item-thumb{
+  flex:0 0 auto;width:52px;height:52px;border-radius:12px;
+  background:#eef4f3;display:grid;place-items:center;color:var(--teal);
+}
+.item-thumb svg{width:26px;height:26px;}
+.item-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
+.item-info strong{font-size:14px;}
+.item-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.item-chip{font-size:11px;font-weight:750;padding:3px 8px;border-radius:999px;background:#edf2f1;color:#42575d;}
+.item-chip.bundle{background:rgba(184,164,100,.18);color:#766526;}
+.item-chip.muted{background:transparent;color:var(--muted);padding:3px 0;}
+.item-qty{font-size:12px;color:var(--muted);}
+.item-price{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.item-badge{font-size:10px;font-weight:800;padding:3px 7px;border-radius:999px;white-space:nowrap;}
+.item-badge.ok{background:#edf8f2;color:#226b45;}
+.item-badge.warn{background:#f7eeee;color:#943c35;}
+
 @media (max-width:620px){
   .order-hero{padding:14px;}
   .order-hero-balance strong{font-size:22px;}
+  .track-label{font-size:9.5px;}
+  .item-thumb{width:44px;height:44px;}
+  .item-thumb svg{width:22px;height:22px;}
 }

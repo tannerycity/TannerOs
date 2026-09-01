@@ -1,0 +1,95 @@
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Catálogo · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/pedidos/styles.css"><link rel="stylesheet" href="/v2/catalogo/catalogo.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260823a"><link rel="stylesheet" href="/polish.css?v=20260823a"></head><body><main class="shell">
+<section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Catálogo</h2><p class="muted">Cargando kits y productos…</p></section>
+<section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2">Volver</a></section>
+<section id="view" class="hidden app-wrap">
+  <header class="topbar">
+    <div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div>
+    <div class="top-actions"><a class="secondary mini nav-link" href="/v2/pedidos/">Pedidos</a><a class="secondary mini nav-link" href="/v2/produccion/">Producción</a><a class="secondary mini nav-link" href="/v2">Dirección</a><span id="roleBadge" class="role-badge"></span></div>
+  </header>
+
+  <section class="hero">
+    <div><div class="eyebrow">COMERCIO · CATÁLOGO</div><h1>Kits y productos</h1><p class="muted">Arma los kits, define sus piezas y precios, y revisa el margen antes de publicarlos en Pedidos y en la tienda.</p></div>
+    <span class="health"><i></i> Información actualizada</span>
+  </section>
+
+  <section class="kpis compact-kpis">
+    <article><span>Kits activos</span><strong id="kpiBundles">0</strong><small id="kpiBundlesSub">—</small></article>
+    <article><span>Productos activos</span><strong id="kpiProducts">0</strong><small id="kpiProductsSub">—</small></article>
+    <article><span>Margen prom. kits</span><strong id="kpiMargin">—</strong><small>sobre precio adulto</small></article>
+    <article><span>Sin costo capturado</span><strong id="kpiNoCost">0</strong><small>productos activos</small></article>
+  </section>
+
+  <section class="panel" id="bundlesPanel">
+    <div class="panel-head"><div><div class="eyebrow">KITS</div><h2>Paquetes configurados</h2><p class="muted">Lo que se vende como una sola pieza (jersey + short + calcetas, etc.). Esto es lo que ve quien registra un pedido.</p></div><button id="newBundleBtn" class="primary mini hidden" type="button">+ Nuevo kit</button></div>
+    <div id="bundleList" class="catalog-list"></div>
+    <div id="bundleEmpty" class="empty hidden">Todavía no hay kits configurados.</div>
+  </section>
+
+  <section class="panel" id="productsPanel">
+    <div class="panel-head"><div><div class="eyebrow">PRODUCTOS</div><h2>Catálogo de piezas</h2><p class="muted">Las prendas sueltas que después se combinan en los kits.</p></div>
+      <div class="panel-head-actions"><label class="inline-check"><input type="checkbox" id="showArchived"> Ver archivados</label><button id="newProductBtn" class="primary mini hidden" type="button">+ Nuevo producto</button></div>
+    </div>
+    <div id="productList" class="catalog-list"></div>
+    <div id="productEmpty" class="empty hidden">Sin productos que mostrar.</div>
+  </section>
+</section>
+</main>
+
+<div id="backdrop" class="drawer-backdrop hidden"></div>
+<aside id="drawer" class="player-drawer catalog-drawer hidden">
+  <div class="drawer-head"><div><div class="eyebrow" id="drawerKicker">EDITAR</div><h2 id="drawerTitle">—</h2></div><button id="closeDrawer" class="secondary mini" type="button">Cerrar</button></div>
+  <div id="drawerMessage" class="inline-message hidden"></div>
+
+  <div id="bundleForm" class="hidden">
+    <div class="field-grid">
+      <label><span>Nombre del kit</span><input id="bName" type="text" maxlength="120" placeholder="Ej. Kit Tanner - Completo"></label>
+      <label><span>Descripción</span><input id="bDescription" type="text" maxlength="200" placeholder="Opcional"></label>
+      <label><span>Precio adulto</span><input id="bPriceAdult" type="number" min="0" step="0.01"></label>
+      <label><span>Precio niño</span><input id="bPriceKid" type="number" min="0" step="0.01" placeholder="Opcional"></label>
+      <label><span>Vigente hasta</span><input id="bValidUntil" type="date"></label>
+      <label class="inline-check-label"><input id="bActive" type="checkbox"> Kit activo (visible para vender)</label>
+    </div>
+
+    <div class="drawer-subhead">Piezas del kit</div>
+    <div id="bComponents" class="component-list"></div>
+    <div class="component-picker">
+      <select id="bAddProduct"></select>
+      <input id="bAddQty" type="number" min="1" max="20" step="1" value="1">
+      <button id="bAddBtn" class="secondary mini" type="button">Agregar pieza</button>
+    </div>
+
+    <div class="margin-preview">
+      <div><span>Costo total del kit</span><strong id="bCostPreview">—</strong></div>
+      <div><span>Margen adulto</span><strong id="bMarginAdultPreview">—</strong></div>
+      <div><span>Margen niño</span><strong id="bMarginKidPreview">—</strong></div>
+    </div>
+
+    <div class="drawer-actions">
+      <button id="bSave" class="primary" type="button">Guardar kit</button>
+      <button id="bArchiveToggle" class="secondary" type="button"></button>
+    </div>
+  </div>
+
+  <div id="productForm" class="hidden">
+    <div class="field-grid">
+      <label><span>Nombre</span><input id="pName" type="text" maxlength="160" placeholder="Ej. Jersey Local"></label>
+      <label><span>SKU</span><input id="pSku" type="text" maxlength="60" placeholder="Opcional"></label>
+      <label><span>Categoría</span><input id="pCategory" type="text" maxlength="60" placeholder="jersey, short, socks…"></label>
+      <label><span>Precio de venta</span><input id="pPrice" type="number" min="0" step="0.01"></label>
+      <label><span>Costo</span><input id="pCost" type="number" min="0" step="0.01" placeholder="Déjalo vacío si aún no lo sabes"></label>
+      <label><span>Tallas (separadas por coma)</span><input id="pSizes" type="text" placeholder="Ej. 8, 10, 12, 14, Adulto"></label>
+      <label class="inline-check-label"><input id="pActive" type="checkbox"> Producto activo (visible para vender)</label>
+    </div>
+    <div class="margin-preview single">
+      <div><span>Margen</span><strong id="pMarginPreview">—</strong></div>
+    </div>
+    <div class="drawer-actions">
+      <button id="pSave" class="primary" type="button">Guardar producto</button>
+      <button id="pArchiveToggle" class="secondary" type="button"></button>
+    </div>
+  </div>
+</aside>
+<script type="module" src="/v2/tos-dialog.js"></script>
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/catalogo/app.js"></script>
+</body></html>

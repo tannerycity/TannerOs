@@ -218,8 +218,7 @@ async function deliverWarranty(id){
 function itemEditor(i,d){
   const a=i.attributes||{},editable=canManage&&['draft','pending_payment','partial_payment','paid'].includes(d.status);
   const talla=a.talla||a.size||'',nombre=a.nombrePers||a.personalizationName||'',numero=a.numero||a.number||'';
-  const bundle=a.bundleName?`<span class="item-chip bundle">${esc(a.bundleName)}${a.bundleTier?` · ${esc(a.bundleTier)}`:''}</span>`:'';
-  const chips=[bundle,itemChip('Talla',talla),itemChip('Nombre',nombre),itemChip('Número',numero)].filter(Boolean).join('');
+  const chips=[itemChip('Talla',talla),itemChip('Nombre',nombre),itemChip('Número',numero)].filter(Boolean).join('');
   const complete=itemComplete(i),lineTotal=Number(i.quantity||0)*Number(i.unitPrice||0);
   return `<article class="item-row ${editable?'editable':''}" data-item-id="${esc(i.id)}">
     <div class="item-summary">
@@ -234,6 +233,58 @@ function itemEditor(i,d){
     ${editable?`<div class="item-editor"><label>Talla / medida<input class="item-size" value="${esc(talla)}" maxlength="40"></label><label>Nombre<input class="item-name" value="${esc(nombre)}" maxlength="80" placeholder="Si aplica"></label><label>Número<input class="item-number" value="${esc(numero)}" maxlength="4" inputmode="numeric" placeholder="Si aplica"></label><label>Observación<input class="item-note" value="${esc(a.obs||'')}" maxlength="200"></label><button class="secondary save-item" type="button">Guardar pieza</button></div>`:''}
   </article>`;
 }
+/* Agrupación de kits/paquetes: cuando un pedido viene de un kit (app.product_bundles), el
+   backend reparte el precio del kit entre varias filas de order_items (una por prenda) para
+   que producción y finanzas tengan costo/talla por pieza. Mostrar esas filas sueltas con su
+   precio "derivado" confunde — el cliente compró UN kit a UN precio, no N prendas sueltas.
+   Detectamos el grupo por 'kitInstanceId' (pedidos migrados del sistema anterior) o 'bundleId'
+   (pedidos nuevos desde la tienda pública); el nombre visible sale de 'esPaquete' o 'bundleName'.
+   Las piezas se siguen editando una por una (cada una puede tener su propia talla). */
+function kitKey(i){const a=i.attributes||{};return a.bundleId||a.kitInstanceId||null;}
+function kitLabel(i){const a=i.attributes||{};return a.bundleName||a.esPaquete||'Kit';}
+function kitPieceRow(i,d){
+  const a=i.attributes||{},editable=canManage&&['draft','pending_payment','partial_payment','paid'].includes(d.status);
+  const talla=a.talla||a.size||'',nombre=a.nombrePers||a.personalizationName||'',numero=a.numero||a.number||'';
+  const chips=[itemChip('Talla',talla),itemChip('Nombre',nombre),itemChip('Número',numero)].filter(Boolean).join('');
+  const complete=itemComplete(i);
+  return `<div class="kit-piece" data-item-id="${esc(i.id)}">
+    <div class="kit-piece-head"><span>${esc(i.description)}</span><span class="item-badge ${complete?'ok':'warn'}">${complete?'Completo':'Falta info'}</span></div>
+    <div class="item-chips">${chips||'<span class="item-chip muted">Sin variante capturada</span>'}</div>
+    ${editable?`<div class="item-editor"><label>Talla / medida<input class="item-size" value="${esc(talla)}" maxlength="40"></label><label>Nombre<input class="item-name" value="${esc(nombre)}" maxlength="80" placeholder="Si aplica"></label><label>Número<input class="item-number" value="${esc(numero)}" maxlength="4" inputmode="numeric" placeholder="Si aplica"></label><label>Observación<input class="item-note" value="${esc(a.obs||'')}" maxlength="200"></label><button class="secondary save-item" type="button">Guardar pieza</button></div>`:''}
+  </div>`;
+}
+function kitCard(items,d){
+  const label=kitLabel(items[0]);
+  const total=items.reduce((s,i)=>s+Number(i.quantity||0)*Number(i.unitPrice||0),0);
+  const cost=items.reduce((s,i)=>s+(i.unitCost!=null?Number(i.quantity||0)*Number(i.unitCost):0),0);
+  const hasCost=canManage&&items.every(i=>i.unitCost!=null);
+  const complete=items.every(itemComplete);
+  return `<article class="item-row kit-row">
+    <div class="item-summary">
+      <div class="item-thumb">${ICONS.kit}</div>
+      <div class="item-info">
+        <strong>${esc(label)}</strong>
+        <div class="item-chips"><span class="item-chip bundle">${items.length} pieza${items.length===1?'':'s'}</span>${hasCost?`<span class="item-chip muted">Costo del kit ${money.format(cost)}</span>`:''}</div>
+      </div>
+      <div class="item-price"><b>${money.format(total)}</b><span class="item-badge ${complete?'ok':'warn'}">${complete?'Completo':'Falta info'}</span></div>
+    </div>
+    <div class="kit-pieces">${items.map(i=>kitPieceRow(i,d)).join('')}</div>
+  </article>`;
+}
+function renderItems(items,d){
+  const seen=new Set(),html=[];
+  (items||[]).forEach(i=>{
+    const key=kitKey(i);
+    if(key){
+      if(seen.has(key))return;
+      seen.add(key);
+      html.push(kitCard(items.filter(x=>kitKey(x)===key),d));
+    }else{
+      html.push(itemEditor(i,d));
+    }
+  });
+  return html.join('');
+}
 function collapseDrawerSections(){['paymentHistoryWrap','fullDetail'].forEach(id=>$(id)?.classList.add('hidden'));['togglePaymentHistory','toggleFullDetail'].forEach(id=>{const b=$(id);if(!b)return;b.setAttribute('aria-expanded','false');b.classList.remove('open');});}
 async function openOrder(o){
   current=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,current);
@@ -247,8 +298,8 @@ async function openOrder(o){
   const wa=waLink(d.customer_phone);
   const contactBits=[d.customer_phone,d.customer_email].filter(Boolean).map(v=>`<span>${esc(v)}</span>`).join('<span class="dot">·</span>');
   $('customerContact').innerHTML=(contactBits||'<span class="muted">Sin contacto</span>')+(wa?`<a class="whatsapp-btn" href="${esc(wa)}" target="_blank" rel="noopener">${WA_ICON}WhatsApp</a>`:'');
-  const items=$('itemList');items.innerHTML=(current.items||[]).map(i=>itemEditor(i,d)).join('');
-  items.querySelectorAll('.save-item').forEach(b=>b.addEventListener('click',()=>saveItem(b.closest('.item-row'))));
+  const items=$('itemList');items.innerHTML=renderItems(current.items||[],d);
+  items.querySelectorAll('.save-item').forEach(b=>b.addEventListener('click',()=>saveItem(b.closest('[data-item-id]'))));
   renderProfitability();renderPaymentPlan(d);renderPayments(d);renderReadiness();renderStateActions(d);renderWarranty(d);
   renderBusinessMetrics(orders.filter(vigente));render();msg();collapseDrawerSections();
   $('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');

@@ -148,6 +148,16 @@
 .item-badge.ok{background:#edf8f2;color:#226b45;}
 .item-badge.warn{background:#f7eeee;color:#943c35;}
 
+/* Tarjeta de kit/paquete: una sola cabecera con nombre y precio total del kit;
+   las piezas individuales van adentro, sin precio propio (evita mostrar precios
+   "derivados" del reparto interno que confunden a quien ve el pedido). */
+.kit-row .item-thumb{background:rgba(184,164,100,.18);color:#766526;}
+.kit-pieces{display:grid;gap:10px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
+.kit-piece{padding:10px 12px;border-radius:12px;background:#f7f9f8;}
+.kit-piece-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;font-size:13px;margin-bottom:6px;}
+.kit-piece .item-chips{margin-bottom:2px;}
+.kit-piece .item-editor{margin-top:8px;}
+
 /* Cliente: teléfono/email + botón de WhatsApp */
 .customer-contact{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;color:var(--muted);font-size:13px;}
 .customer-contact .dot{color:var(--line);}

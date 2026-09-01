@@ -1,10 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-const $=id=>document.getElementById(id);let ctx=null,orders=[],current=null,canWrite=false,canManage=false,canViewFinance=true,metricsRun=0;const details=new Map();const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);let ctx=null,orders=[],current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DIACRITICS_RE=new RegExp(String.fromCharCode(91)+String.fromCharCode(0x300)+'-'+String.fromCharCode(0x36f)+String.fromCharCode(93),'g');
 const labels={draft:'Borrador',pending_payment:'Pendiente pago',partial_payment:'Pago parcial',paid:'Pagado',in_production:'En producción',ready:'Listo',delivered:'Entregado',cancelled:'Cancelado',refunded:'Reembolsado'};
 const payerLabels={guardian:'Familia / tutor',sponsor:'Patrocinador',player:'Jugador',organization:'Club',other:'Otro'};
-const sourceLabels={legacy_import:'Importado del sistema anterior',online:'En línea',pos:'Mostrador',manual:'Registro manual',whatsapp:'WhatsApp'};
-function sourceLabel(v){if(!v)return'Interno';return sourceLabels[v]||v.replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
+async function confirmAction(o={}){
+  if(!window.tosConfirm)return confirm(o.message||'¿Confirmar?');
+  return window.tosConfirm({kicker:o.kicker||'CONFIRMAR',title:o.title||'¿Confirmar?',message:o.message||'',confirmText:o.confirmText||'Sí, confirmar',cancelText:o.cancelText||'Cancelar',danger:!!o.danger});
+}
 /* Recorrido del pedido estilo e-commerce (Amazon/Mercado Libre): 4 hitos fijos.
    "Pedido" cubre captura+cobro (se marca "hecho" en cuanto ya se pagó por completo).
    cancelled/refunded rompen el recorrido y muestran una nota en su lugar. */
@@ -41,24 +44,127 @@ function itemThumb(i){const d=(i.description||'').toLowerCase();if(/jersey|playe
    nombre y número solo si la descripción suena a jersey/uniforme/playera. */
 function itemComplete(i){const a=i.attributes||{},d=i.description||'';const jerseyish=/jersey|uniforme|playera/i.test(d);const hasSize=!!String(a.talla||a.size||'').trim();const hasName=!!String(a.nombrePers||a.personalizationName||'').trim();const hasNumber=!!String(a.numero||a.number||'').trim();if(!hasSize)return false;if(jerseyish&&(!hasName||!hasNumber))return false;return true;}
 function itemChip(label,value){return value?`<span class="item-chip">${esc(label)}: ${esc(value)}</span>`:'';}
-const transitions={draft:['pending_payment','cancelled'],pending_payment:['cancelled'],partial_payment:['cancelled','refunded'],paid:['in_production','ready','refunded'],in_production:['ready','refunded'],ready:['delivered','refunded'],delivered:['refunded'],cancelled:['cancelled'],refunded:['refunded']};
+/* Transiciones reales que valida el backend (private.command_update_order_status).
+   OJO: pending_payment/partial_payment también admiten saltar a "paid" manualmente,
+   pero eso casi nunca hace falta porque un cobro que cubre el saldo ya lo hace solo —
+   por eso no se ofrece como botón, para no confundir a quien está cobrando. */
+function primaryNextStep(status){const map={paid:{to:'in_production',label:'Enviar a producción'},in_production:{to:'ready',label:'Marcar listo'},ready:{to:'delivered',label:'Marcar entregado'}};return map[status]||null;}
+function secondarySkip(status){return status==='paid'?{to:'ready',label:'Marcar listo (sin pasar por producción)'}:null;}
+function dangerAction(status){if(['draft','pending_payment'].includes(status))return{to:'cancelled',label:'Cancelar pedido'};if(['partial_payment','paid','in_production','ready','delivered'].includes(status))return{to:'refunded',label:'Reembolsar pedido'};return null;}
+function waLink(phone){const d=String(phone||'').replace(/\D/g,'');return d?`https://wa.me/${d}`:null;}
+const WA_ICON='<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.4 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.6-.1a13 13 0 0 1-1.5-.6c-2.6-1.1-4.3-3.8-4.5-4-.1-.2-1-1.4-1-2.7s.6-1.9.9-2.2c.3-.3.6-.4.8-.4h.5c.2 0 .4 0 .5.4l.8 1.9c.1.2.1.4 0 .5l-.4.5c-.1.2-.2.3-.1.5.2.3.8 1.4 1.8 2.2 1.3 1 2.3 1.3 2.6 1.5.3.1.4.1.6-.1l.6-.7c.2-.3.4-.2.6-.1l1.7.8c.2.1.4.2.4.3.1.2.1.8-.1 1.4Z"/></svg>';
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(t='',type='error'){const e=$('statusMessage');e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}function payMsg(t='',type='error'){const e=$('paymentMessage');e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}
 async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}function fmt(v){return v?new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v)):'—';}function fmtDate(v){return v?new Intl.DateTimeFormat('es-MX',{dateStyle:'medium'}).format(new Date(`${v}T12:00:00`)):'—';}
 function readinessText(r){const miss=Array.isArray(r?.missing)?r.missing:[];return r?.ok?'Listo para producción':miss.length?miss.join(' · '):'Pendiente de validar';}
 function vigente(o){return !['cancelled','refunded'].includes(o.status);}
-async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;canManage=canWrite&&ctx.role!=='Taquilla';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=!!(financeMod?.enabled&&financeMod?.can_read);document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;await load();show('view');}
+async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=!!(financeMod?.enabled&&financeMod?.can_read);document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;await load();show('view');}
 async function load(){orders=await rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null})||[];render();renderKpis();loadBusinessMetrics();}
-function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();return orders.filter(o=>(!status||o.status===status)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q)));}
+function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();return orders.filter(o=>(!status||o.status===status)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
 function renderKpis(){const rows=orders.filter(vigente);$('kpiOrders').textContent=rows.length;$('kpiPending').textContent=rows.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length;$('kpiProduction').textContent=rows.filter(o=>o.status==='in_production').length;$('kpiReady').textContent=rows.filter(o=>o.status==='ready').length;}
 function render(){const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,b=document.createElement('button');b.type='button';b.dataset.orderId=o.id;b.className='order-row';b.innerHTML=`<div><strong>${esc(o.folio)}</strong><span>${esc(o.customer_name)} · ${fmt(o.created_at)}</span><small>${Number(o.item_count||0)} pieza(s)${balance!=null&&balance>0?` · saldo ${money.format(balance)}`:''}</small></div><div class="order-right"><b>${money.format(Number(o.total||0))}</b><span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span></div>`;b.addEventListener('click',()=>openOrder(o));list.appendChild(b);});}
 async function fetchDetail(order){try{const d=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:order.id});details.set(order.id,d);return d;}catch{return null;}}
 async function loadBusinessMetrics(){if(!canViewFinance)return;const run=++metricsRun,rows=orders.filter(vigente);$('metricsStatus').textContent='Calculando…';for(let i=0;i<rows.length;i+=8){const batch=rows.slice(i,i+8).filter(o=>!details.has(o.id));if(batch.length)await Promise.all(batch.map(fetchDetail));if(run!==metricsRun)return;}if(run!==metricsRun)return;renderBusinessMetrics(rows);render();}
 function renderBusinessMetrics(rows){let sales=0,collected=0,receivable=0,cost=0,knownSales=0,profit=0,complete=0,resolved=0;rows.forEach(o=>{sales+=Number(o.total||0);const d=details.get(o.id);if(!d)return;resolved++;collected+=Number(d.paidAmount||0);receivable+=Math.max(0,Number(d.balance||0));if(d.costComplete){complete++;cost+=Number(d.costTotal||0);knownSales+=Number(d.order?.total??o.total??0);profit+=Number(d.grossProfitExpected||0);}});$('bizSales').textContent=money.format(sales);$('bizCollected').textContent=money.format(collected);$('bizReceivable').textContent=money.format(receivable);$('bizCost').textContent=complete?money.format(cost):'Pendiente';$('bizProfit').textContent=complete?money.format(profit):'Pendiente';$('bizProfit').dataset.state=profit<0?'negative':'normal';$('bizMargin').textContent=complete&&knownSales>0?`${(profit/knownSales*100).toFixed(0)}%`:'—';$('costCoverage').textContent=`${complete}/${rows.length} pedido(s) con costo completo`;const incomplete=rows.length-complete,failed=rows.length-resolved;$('metricsStatus').textContent=failed?'Lectura parcial':incomplete?`${incomplete} sin costo completo`:'Costos completos';$('metricsStatus').dataset.state=failed?'attention':incomplete?'attention':'ok';}
 function renderProfitability(){if(!canViewFinance)return;const cost=current?.costComplete?Number(current.costTotal||0):null,profit=current?.costComplete?Number(current.grossProfitExpected||0):null;$('orderCost').textContent=cost==null?'Pendiente':money.format(cost);$('orderProfit').textContent=profit==null?'Pendiente':money.format(profit);$('orderProfit').dataset.state=profit!=null&&profit<0?'negative':'normal';}
-function renderPayments(d){const paid=Number(current?.paidAmount||0),balance=Number(current?.balance||0);$('orderPaid').textContent=money.format(paid);$('orderBalance').textContent=money.format(balance);const hist=$('paymentList');hist.innerHTML='';const rows=current?.payments||[];$('paymentEmpty').classList.toggle('hidden',rows.length>0);rows.forEach(p=>{const who=[payerLabels[p.payerType]||p.payerType,p.payerName].filter(Boolean).join(' · ');const row=document.createElement('article');row.className='payment-row';row.innerHTML=`<div><strong>${money.format(Number(p.amount||0))}</strong><span>${fmtDate(p.paymentDate)} · ${esc(p.method||'otro')}${p.reference?` · ${esc(p.reference)}`:''}</span><small>${esc(who||'Pagador no especificado')}</small></div><span class="payment-status ${esc(p.status)}">${p.status==='posted'?'Cobrado':esc(p.status)}</span>`;hist.appendChild(row);});const open=['pending_payment','partial_payment'].includes(d.status)&&balance>0;const canPay=open&&canWrite;$('paymentForm').classList.toggle('hidden',!canPay);$('paymentClosedNote').classList.toggle('hidden',canPay);if(canPay){$('paymentAmount').value=balance.toFixed(2);$('paymentAmount').max=balance.toFixed(2);$('paymentDate').value=new Date().toISOString().slice(0,10);$('paymentPayerType').value='guardian';$('paymentPayer').value=d.customer_name||'';}payMsg();}
+function renderPayments(d){
+  const paid=Number(current?.paidAmount||0),balance=Number(current?.balance||0);
+  $('orderPaid').textContent=money.format(paid);$('orderBalance').textContent=money.format(balance);
+  const hist=$('paymentList');hist.innerHTML='';
+  const rows=current?.payments||[];
+  $('paymentEmpty').classList.toggle('hidden',rows.length>0);
+  rows.forEach(p=>{
+    const who=[payerLabels[p.payerType]||p.payerType,p.payerName].filter(Boolean).join(' · ');
+    const canFix=canCorrect&&p.status==='posted';
+    const statusLabel=p.status==='posted'?'Cobrado':p.status==='refunded'?'Corregido':esc(p.status);
+    const row=document.createElement('article');row.className='payment-row';
+    row.innerHTML=`<div class="payment-row-main"><div><strong>${money.format(Number(p.amount||0))}</strong><span>${fmtDate(p.paymentDate)} · ${esc(p.method||'otro')}${p.reference?` · ${esc(p.reference)}`:''}</span><small>${esc(who||'Pagador no especificado')}</small></div><div class="payment-row-side"><span class="payment-status ${esc(p.status)}">${statusLabel}</span>${canFix?'<button class="link-toggle correct-payment" type="button">Corregir</button>':''}</div></div>${canFix?'<div class="correct-form hidden"><textarea class="correct-reason" maxlength="200" placeholder="¿Por qué se corrige este cobro? (obligatorio, queda en la bitácora)"></textarea><div class="correct-actions"><button class="secondary mini cancel-correct" type="button">Cancelar</button><button class="danger mini confirm-correct" type="button">Confirmar corrección</button></div></div>':''}`;
+    if(canFix){
+      row.querySelector('.correct-payment').addEventListener('click',()=>row.querySelector('.correct-form').classList.toggle('hidden'));
+      row.querySelector('.cancel-correct').addEventListener('click',()=>row.querySelector('.correct-form').classList.add('hidden'));
+      row.querySelector('.confirm-correct').addEventListener('click',()=>correctPayment(p.id,row));
+    }
+    hist.appendChild(row);
+  });
+  const open=['pending_payment','partial_payment'].includes(d.status)&&balance>0;const canPay=open&&canWrite;
+  $('paymentForm').classList.toggle('hidden',!canPay);$('paymentClosedNote').classList.toggle('hidden',canPay);
+  if(canPay){$('paymentAmount').value=balance.toFixed(2);$('paymentAmount').max=balance.toFixed(2);$('paymentDate').value=new Date().toISOString().slice(0,10);$('paymentPayerType').value='guardian';$('paymentPayer').value=d.customer_name||'';}
+  payMsg();
+}
+async function correctPayment(paymentId,row){
+  const reason=row.querySelector('.correct-reason').value.trim();
+  if(reason.length<3){payMsg('Escribe el motivo de la corrección (mínimo 3 caracteres).');return;}
+  const ok=await confirmAction({kicker:'CORREGIR COBRO',title:'¿Corregir este cobro?',message:`Se revierte el monto y el saldo del pedido se recalcula. Motivo: "${reason}".`,confirmText:'Sí, corregir',danger:true});
+  if(!ok)return;
+  const btn=row.querySelector('.confirm-correct');btn.disabled=true;
+  try{
+    await rpc('v2_correct_order_payment',{organization_id:ctx.organization_id,payment_id:paymentId,reason});
+    await refreshCurrent(current.order.id);
+    payMsg('Cobro corregido. El saldo del pedido ya se actualizó.','success');
+  }catch(e){payMsg(e.message||'No se pudo corregir el cobro.');btn.disabled=false;}
+}
 function renderReadiness(){const r=current?.readiness||{},box=$('readinessBox');box.dataset.ready=r.ok?'true':'false';$('readinessTitle').textContent=r.ok?'Listo para producción':'Aún no está listo';$('readinessText').textContent=readinessText(r);$('readinessPayment').textContent=`Pago ${Number(r.paidPercent||0).toFixed(0)}% · requerido ${Number(r.effectivePaymentRequirementPercent||100).toFixed(0)}%`;}
-function renderStateActions(d){if(!canManage)return;const s=$('nextStatus');s.innerHTML='';const opts=transitions[d.status]||[];opts.forEach(v=>{const op=document.createElement('option');op.value=v;op.textContent=labels[v]||v;s.appendChild(op);});const hasAction=opts.some(v=>v!==d.status);$('statusActions').classList.toggle('hidden',!hasAction);$('saveStatus').disabled=!canManage||!hasAction;}
+function renderStateActions(d){
+  const wrap=$('statusActions');if(!wrap)return;wrap.innerHTML='';
+  if(!canManage)return;
+  const primary=primaryNextStep(d.status),skip=secondarySkip(d.status),danger=dangerAction(d.status);
+  if(!primary&&!skip&&!danger){wrap.innerHTML='<p class="muted state-help">Este pedido ya no tiene más movimientos de estado.</p>';return;}
+  if(primary){const b=document.createElement('button');b.type='button';b.className='primary status-btn';b.textContent=primary.label;b.addEventListener('click',()=>changeStatus(primary.to,primary.label,false));wrap.appendChild(b);}
+  if(skip){const b=document.createElement('button');b.type='button';b.className='secondary status-btn';b.textContent=skip.label;b.addEventListener('click',()=>changeStatus(skip.to,skip.label,false));wrap.appendChild(b);}
+  if(danger){const b=document.createElement('button');b.type='button';b.className='danger status-btn';b.textContent=danger.label;b.addEventListener('click',()=>changeStatus(danger.to,danger.label,true));wrap.appendChild(b);}
+}
+async function changeStatus(newStatus,label,danger){
+  if(!current||!canManage)return;
+  const ok=await confirmAction({kicker:'CAMBIAR ESTADO',title:label,message:`El pedido ${current.order.folio} pasará a "${labels[newStatus]||newStatus}". ¿Confirmas?`,confirmText:'Sí, confirmar',danger:!!danger});
+  if(!ok)return;
+  msg();
+  try{await rpc('v2_update_order_status',{organization_id:ctx.organization_id,order_id:current.order.id,new_status:newStatus});await refreshCurrent(current.order.id);msg('Estado actualizado.','success');}
+  catch(e){msg(e.message||'No se pudo actualizar el estado.');}
+}
+const WARRANTY_LABELS={opened:'Abierta',in_repair:'En reparación / reposición',ready:'Lista para entregar',delivered:'Entregada'};
+async function renderWarranty(d){
+  const section=$('warrantySection');if(!section)return;
+  if(!canManage){section.classList.add('hidden');return;}
+  let list=[];try{list=await rpc('v2_warranties',{organization_id:ctx.organization_id})||[];}catch{list=[];}
+  if(!current||current.order.id!==d.id)return; // el usuario ya cambió de pedido mientras cargaba
+  const mine=list.filter(w=>w.order_id===d.id);
+  const canOpen=d.status==='delivered';
+  if(!canOpen&&!mine.length){section.classList.add('hidden');return;}
+  section.classList.remove('hidden');
+  const body=$('warrantyBody');
+  let html='';
+  if(mine.length)html+=`<div class="warranty-list">${mine.map(w=>`<div class="warranty-row"><div><strong>${esc(w.folio)}</strong><span>${esc(w.reason)}</span></div><div class="warranty-row-side"><span class="payment-status">${WARRANTY_LABELS[w.status]||esc(w.status)}</span>${w.status==='ready'?`<button class="secondary mini deliver-warranty" data-id="${esc(w.id)}" type="button">Marcar entregada</button>`:''}</div></div>`).join('')}</div>`;
+  if(canOpen)html+='<button id="openWarrantyBtn" class="secondary" type="button">Abrir garantía de una pieza</button><div id="warrantyForm" class="hidden"></div>';
+  body.innerHTML=html;
+  body.querySelectorAll('.deliver-warranty').forEach(b=>b.addEventListener('click',()=>deliverWarranty(b.dataset.id)));
+  if(canOpen)$('openWarrantyBtn')?.addEventListener('click',toggleWarrantyForm);
+}
+function toggleWarrantyForm(){
+  const wrap=$('warrantyForm');if(!wrap)return;
+  if(!wrap.classList.contains('hidden')){wrap.classList.add('hidden');wrap.innerHTML='';return;}
+  const items=current?.items||[];
+  wrap.innerHTML=`<div class="warranty-items">${items.map(i=>`<label class="warranty-item-pick"><input type="checkbox" value="${esc(i.id)}"> ${esc(i.description)}</label>`).join('')}</div><textarea id="warrantyReason" maxlength="200" placeholder="¿Qué falló? (obligatorio)"></textarea><button id="submitWarranty" class="primary" type="button">Registrar garantía</button><div id="warrantyMessage" class="inline-message hidden"></div>`;
+  wrap.classList.remove('hidden');
+  $('submitWarranty').addEventListener('click',submitWarranty);
+}
+async function submitWarranty(){
+  const reason=$('warrantyReason').value.trim();
+  const picked=[...document.querySelectorAll('.warranty-item-pick input:checked')].map(i=>({order_item_id:i.value}));
+  const wm=$('warrantyMessage');const setWm=(t,type='error')=>{if(!wm)return;wm.textContent=t;wm.dataset.type=type;wm.classList.toggle('hidden',!t);};
+  if(reason.length<3){setWm('Escribe qué falló.');return;}
+  if(!picked.length){setWm('Selecciona al menos una pieza.');return;}
+  const ok=await confirmAction({kicker:'GARANTÍA',title:'Abrir garantía',message:`Se abrirá una garantía para ${picked.length} pieza(s) de ${current.order.folio}.`,confirmText:'Sí, abrir'});
+  if(!ok)return;
+  const btn=$('submitWarranty');btn.disabled=true;
+  try{await rpc('v2_open_warranty',{organization_id:ctx.organization_id,order_id:current.order.id,reason,items:picked});await refreshCurrent(current.order.id);}
+  catch(e){setWm(e.message||'No se pudo abrir la garantía.');btn.disabled=false;}
+}
+async function deliverWarranty(id){
+  const ok=await confirmAction({kicker:'GARANTÍA',title:'Marcar entregada',message:'¿Confirmas que ya se entregó la pieza de reposición al Tanner?',confirmText:'Sí, entregada'});
+  if(!ok)return;
+  try{await rpc('v2_deliver_warranty',{organization_id:ctx.organization_id,warranty_id:id});await refreshCurrent(current.order.id);}
+  catch(e){msg(e.message||'No se pudo marcar como entregada.');}
+}
 function itemEditor(i,d){
   const a=i.attributes||{},editable=canManage&&['draft','pending_payment','partial_payment','paid'].includes(d.status);
   const talla=a.talla||a.size||'',nombre=a.nombrePers||a.personalizationName||'',numero=a.numero||a.number||'';
@@ -79,14 +185,30 @@ function itemEditor(i,d){
   </article>`;
 }
 function collapseDrawerSections(){['paymentHistoryWrap','fullDetail'].forEach(id=>$(id)?.classList.add('hidden'));['togglePaymentHistory','toggleFullDetail'].forEach(id=>{const b=$(id);if(!b)return;b.setAttribute('aria-expanded','false');b.classList.remove('open');});}
-async function openOrder(o){current=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,current);const d=current.order;$('orderFolio').textContent=d.folio;$('orderMeta').textContent=`${fmt(d.created_at)} · ${sourceLabel(d.source)}`;$('orderTotal').textContent=money.format(Number(d.total||0));$('orderStatusLabel').className='order-status '+esc(d.status);$('orderStatusLabel').textContent=labels[d.status]||d.status;renderTracker(d.status);$('customerName').textContent=d.customer_name||'Sin nombre';$('customerContact').textContent=[d.customer_phone,d.customer_email].filter(Boolean).join(' · ')||'Sin contacto';const items=$('itemList');items.innerHTML=(current.items||[]).map(i=>itemEditor(i,d)).join('');items.querySelectorAll('.save-item').forEach(b=>b.addEventListener('click',()=>saveItem(b.closest('.item-row'))));renderProfitability();renderPayments(d);renderReadiness();renderStateActions(d);renderBusinessMetrics(orders.filter(vigente));render();msg();collapseDrawerSections();$('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');}
+async function openOrder(o){
+  current=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,current);
+  const d=current.order;
+  $('orderFolio').textContent=d.folio;
+  $('orderMeta').textContent=fmt(d.created_at);
+  $('orderTotal').textContent=money.format(Number(d.total||0));
+  $('orderStatusLabel').className='order-status '+esc(d.status);$('orderStatusLabel').textContent=labels[d.status]||d.status;
+  renderTracker(d.status);
+  $('customerName').textContent=d.customer_name||'Sin nombre';
+  const wa=waLink(d.customer_phone);
+  const contactBits=[d.customer_phone,d.customer_email].filter(Boolean).map(v=>`<span>${esc(v)}</span>`).join('<span class="dot">·</span>');
+  $('customerContact').innerHTML=(contactBits||'<span class="muted">Sin contacto</span>')+(wa?`<a class="whatsapp-btn" href="${esc(wa)}" target="_blank" rel="noopener">${WA_ICON}WhatsApp</a>`:'');
+  const items=$('itemList');items.innerHTML=(current.items||[]).map(i=>itemEditor(i,d)).join('');
+  items.querySelectorAll('.save-item').forEach(b=>b.addEventListener('click',()=>saveItem(b.closest('.item-row'))));
+  renderProfitability();renderPayments(d);renderReadiness();renderStateActions(d);renderWarranty(d);
+  renderBusinessMetrics(orders.filter(vigente));render();msg();collapseDrawerSections();
+  $('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');
+}
 function close(){current=null;$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');msg();payMsg();}async function refreshCurrent(orderId){details.delete(orderId);await load();const o=orders.find(x=>x.id===orderId);if(o)await openOrder(o);else close();}
 async function saveItem(row){if(!current||!canManage||!row)return;const orderId=current.order.id,btn=row.querySelector('.save-item');btn.disabled=true;try{await rpc('v2_update_order_item_fulfillment',{organization_id:ctx.organization_id,order_item_id:row.dataset.itemId,size:row.querySelector('.item-size').value.trim()||null,personalization_name:row.querySelector('.item-name').value.trim()||null,number:row.querySelector('.item-number').value.trim()||null,notes:row.querySelector('.item-note').value.trim()||null});await refreshCurrent(orderId);msg('Datos de pieza actualizados y readiness recalculado.','success');}catch(e){msg(e.message||'No se pudo actualizar la pieza.');btn.disabled=false;}}
 async function postPayment(){if(!current||!canWrite)return;const d=current.order,amount=Number($('paymentAmount').value||0),balance=Number(current.balance||0),payerType=$('paymentPayerType').value,payerName=$('paymentPayer').value.trim();if(!Number.isFinite(amount)||amount<=0){payMsg('Captura un monto mayor a cero.');return;}if(amount>balance+0.005){payMsg(`El pago excede el saldo de ${money.format(balance)}.`);return;}if(payerType==='sponsor'&&!payerName){payMsg('Indica el nombre del patrocinador.');return;}const btn=$('savePayment');btn.disabled=true;payMsg();try{await rpc('v2_post_order_payment_attributed',{organization_id:ctx.organization_id,order_id:d.id,amount,payment_date:$('paymentDate').value||new Date().toISOString().slice(0,10),method:$('paymentMethod').value||'other',reference:$('paymentReference').value.trim()||null,payer_type:payerType,payer_name:payerName||d.customer_name||null,idempotency_key:`order-${d.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`});await refreshCurrent(d.id);payMsg('Pago registrado con pagador y estado actualizado.','success');}catch(e){payMsg(e.message||'No se pudo registrar el pago.');}finally{btn.disabled=!canWrite;}}
-async function saveStatus(){if(!current||!canManage)return;const btn=$('saveStatus'),id=current.order.id;btn.disabled=true;try{await rpc('v2_update_order_status',{organization_id:ctx.organization_id,order_id:id,new_status:$('nextStatus').value});await refreshCurrent(id);msg('Estado actualizado.','success');}catch(e){msg(e.message||'No se pudo actualizar.');}finally{btn.disabled=!canManage;}}
 function setupToggle(btnId,wrapId){const btn=$(btnId),wrap=$(wrapId);if(!btn||!wrap)return;btn.addEventListener('click',()=>{const nowHidden=wrap.classList.toggle('hidden');btn.setAttribute('aria-expanded',String(!nowHidden));btn.classList.toggle('open',!nowHidden);});}
 setupToggle('togglePaymentHistory','paymentHistoryWrap');setupToggle('toggleFullDetail','fullDetail');
-$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('saveStatus').addEventListener('click',saveStatus);$('savePayment').addEventListener('click',postPayment);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
+$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
 // === Eliminar pedido — solo Presidencia (agregado) ===
 (function(){
   function inject(){
@@ -100,7 +222,8 @@ $('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').va
     drawer.appendChild(sec);
     $('deleteOrder').addEventListener('click', async function(){
       if(!current) return;
-      if(!confirm('¿Eliminar este pedido? Solo Presidencia puede hacerlo.')) return;
+      var ok = await confirmAction({kicker:'ZONA DE PRESIDENCIA',title:'Eliminar pedido',message:'Esto quita el pedido de la lista. Solo Presidencia puede hacerlo.',confirmText:'Sí, eliminar',danger:true});
+      if(!ok) return;
       var b=$('deleteOrder'); b.disabled=true;
       try{
         await rpc('v2_delete_order',{organization_id:ctx.organization_id, order_id:current.order.id});

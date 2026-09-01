@@ -10,7 +10,9 @@
     <div class="order-hero-balance"><span>Saldo pendiente</span><strong id="orderBalance">—</strong></div>
   </section>
 
-  <section class="drawer-section"><div class="eyebrow">CLIENTE</div><h3 id="customerName"></h3><p id="customerContact" class="muted"></p></section>
+  <section class="drawer-section"><div class="eyebrow">ARTÍCULOS</div><h3>Qué compró</h3><div id="itemList" class="item-list"></div></section>
+
+  <section class="drawer-section"><div class="eyebrow">CLIENTE</div><h3 id="customerName"></h3><div id="customerContact" class="customer-contact"></div></section>
 
   <section class="drawer-section" id="paymentSection">
     <div class="eyebrow">COBRANZA</div><h3>Registrar cobro</h3>
@@ -25,12 +27,12 @@
     </div>
   </section>
 
-  <button id="toggleFullDetail" class="detail-toggle" type="button" aria-expanded="false">Ver detalle completo del pedido <span class="chev">▾</span></button>
+  <button id="toggleFullDetail" class="detail-toggle" type="button" aria-expanded="false">Ver producción, negocio y estado del pedido <span class="chev">▾</span></button>
 
   <div id="fullDetail" class="hidden">
     <section class="drawer-section hidden" id="financeSection"><div class="eyebrow">NEGOCIO</div><h3>Costo y utilidad</h3><div class="drawer-kpis"><article><span>Costo</span><strong id="orderCost">—</strong></article><article><span>Utilidad esperada</span><strong id="orderProfit">—</strong></article></div></section>
-    <section class="drawer-section"><div class="eyebrow">ARTÍCULOS</div><h3>Detalle</h3><div id="itemList" class="item-list"></div></section>
     <section class="drawer-section"><div class="eyebrow">PRODUCCIÓN</div><h3>Validación automática</h3><div id="readinessBox" class="readiness-box"><div><strong id="readinessTitle">Pendiente</strong><p id="readinessText">Validando…</p></div><span id="readinessPayment"></span></div></section>
-    <section class="drawer-section hidden" id="statusSection"><div class="eyebrow">OPERACIÓN</div><h3>Cambiar estado</h3><p class="muted state-help">Los estados de pago se actualizan automáticamente al registrar cobros. Producción solo se habilita si el pago y los datos de las prendas están completos.</p><div id="statusActions" class="status-actions"><select id="nextStatus"></select><button id="saveStatus" class="primary" type="button">Actualizar estado</button></div><div id="statusMessage" class="inline-message hidden"></div></section>
+    <section class="drawer-section hidden" id="statusSection"><div class="eyebrow">OPERACIÓN</div><h3>Estado del pedido</h3><p class="muted state-help">Producción y "listo" solo se habilitan si el pago y los datos de las prendas están completos.</p><div id="statusActions" class="status-actions"></div><div id="statusMessage" class="inline-message hidden"></div></section>
+    <section class="drawer-section hidden" id="warrantySection"><div class="eyebrow">GARANTÍA</div><h3>Garantía</h3><div id="warrantyBody"></div></section>
   </div>
-</aside><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/pedidos/app.js"></script></body></html>
+</aside><script type="module" src="/v2/tos-dialog.js"></script><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/pedidos/app.js"></script></body></html>

@@ -6,7 +6,9 @@ const {ctx,navigation}=boot;
 const org=ctx.organization_id;
 const canCashWrite=moduleAccess(navigation,'taquilla',true)||moduleAccess(navigation,'cobranza',true);
 const canAccountingWrite=moduleAccess(navigation,'contabilidad',true);
-let snapshot=null,billingPlayers=[],collectMode='player';
+// Pagar ya no depende exclusivamente de Contabilidad: quien opera esta caja (Taquilla RW) también puede pagar.
+const canPayWrite=canCashWrite||canAccountingWrite;
+let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true;
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -34,7 +36,20 @@ function renderMovements(){
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const ebtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="edit-move" data-edit="'+esc(m.id)+'">Editar</button>'):'';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${esc(m.who||'—')}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${ebtn}${vbtn}</td>`;body.appendChild(tr);});
 }
+function applyLedgerVisibility(){
+  document.querySelector('.cashier-kpis')?.classList.toggle('hidden',!canViewLedger);
+  document.querySelectorAll('.cashier-cash-card:not(#cashTodayCard)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
+  document.querySelectorAll('.cashier-panel').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
+  const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
+  $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
+}
 function render(){
+  canViewLedger=snapshot?.canViewLedger!==false;
+  applyLedgerVisibility();
+  if(!canViewLedger){
+    $('cashTodayNet').textContent=money.format(Number(snapshot?.cashTodayNet||0));
+    renderCategoryLists();setShellHealth({state:'ok',label:'Listo para cobrar'});return;
+  }
   const _inc=Number(snapshot?.incomeTotal||0),_exp=Number(snapshot?.expenseTotal||0),_net=Number(snapshot?.netTotal||0);
   $('incomeDay').textContent=money.format(_inc);$('incomeDay').className=_inc>0?'sem-ok':'sem-neutral';
   $('expenseDay').textContent=money.format(_exp);$('expenseDay').className='sem-neutral';
@@ -61,24 +76,32 @@ async function load(){
 async function loadPlayers(){
   if(!moduleAccess(navigation,'cobranza',false))return;
   try{billingPlayers=await rpc('v2_billing_players',{organization_id:org});}catch(e){console.warn('billing players',e);billingPlayers=[];}
-  
+
 }
 function setCollectMode(mode){
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   $('playerFields').classList.toggle('hidden',mode!=='player');$('generalFields').classList.toggle('hidden',mode!=='general');
   $('saveCollect').textContent=mode==='player'?'Registrar cobro':'Registrar ingreso';message('collectMessage');
 }
+async function confirmDoubleCheck(o){
+  if(!window.tosConfirm)return true;
+  return window.tosConfirm({kicker:'DOBLE CHECK',title:o.title,message:o.message,confirmText:o.confirmText||'Sí, confirmar',cancelText:'Revisar'});
+}
 async function postCollect(){
   const btn=$('saveCollect');btn.disabled=true;message('collectMessage');
   try{
     if(collectMode==='player'){
-      const player=$('collectPlayer').value,amount=Number($('collectAmount').value),date=$('collectDate').value;
+      const player=$('collectPlayer').value,playerName=$('collectPlayerSearch').value.trim(),amount=Number($('collectAmount').value),date=$('collectDate').value;
       if(!player||!Number.isFinite(amount)||amount<=0||!date)throw new Error('Completa Tanner, monto y fecha.');
       if($('collectPayerType').value==='sponsor'&&!$('collectPayerName').value.trim())throw new Error('Indica el patrocinador.');
+      const okDbl=await confirmDoubleCheck({title:'Confirma el cobro',message:`Vas a registrar un cobro de ${money.format(amount)} a ${playerName||'este Tanner'} · ${methodLabel($('collectMethod').value)}. ¿Es correcto?`,confirmText:'Sí, cobrar'});
+      if(!okDbl){btn.disabled=false;return;}
       await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,idempotency_key:key('cashier-payment')});
     }else{
       const amount=Number($('generalAmount').value),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
+      const okDbl=await confirmDoubleCheck({title:'Confirma el ingreso',message:`Vas a registrar un ingreso de ${money.format(amount)} · ${concept} (${category}) · ${methodLabel($('generalMethod').value)}. ¿Es correcto?`,confirmText:'Sí, registrar'});
+      if(!okDbl){btn.disabled=false;return;}
       await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
     }
     closeModals();await load();
@@ -89,6 +112,8 @@ async function postExpense(){
   try{
     const amount=Number($('expenseAmount').value),date=$('expenseDate').value,category=(($('expenseCategory').value==='__otra__')?($('expenseCategoryOther')?.value||''):$('expenseCategory').value).trim(),concept=$('expenseConcept').value.trim(),who=$('expenseWho').value.trim();
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
+    const okDbl=await confirmDoubleCheck({title:'Confirma el pago',message:`Vas a registrar un pago de ${money.format(amount)} a ${who||concept} · ${category} · ${methodLabel($('expenseMethod').value)}. ¿Es correcto?`,confirmText:'Sí, pagar'});
+    if(!okDbl){btn.disabled=false;return;}
     await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},idempotency_key:key('cashier-expense')});
     closeModals();await load();
   }catch(e){message('expenseMessage',e.message||'No se pudo registrar el egreso.');}finally{btn.disabled=false;}
@@ -97,15 +122,17 @@ async function postExpense(){
 $('businessDate').value=isoToday();$('collectDate').value=isoToday();$('generalDate').value=isoToday();$('expenseDate').value=isoToday();
 $('businessDate').addEventListener('change',load);$('movementStatus').addEventListener('change',renderMovements);
 $('openCollect').disabled=!canCashWrite;$('openCollect').addEventListener('click',()=>{if(canCashWrite)modal('collectModal',true);});
-if(!canAccountingWrite){$('openExpense').classList.add('disabled');$('openExpense').setAttribute('aria-disabled','true');$('paySubtitle').textContent='Requiere permiso de Contabilidad';}
-$('openExpense').addEventListener('click',()=>{if(canAccountingWrite)modal('expenseModal',true);});
+if(!canPayWrite){$('openExpense').classList.add('disabled');$('openExpense').setAttribute('aria-disabled','true');$('paySubtitle').textContent='Sin permiso para pagar';}
+$('openExpense').addEventListener('click',()=>{if(canPayWrite)modal('expenseModal',true);});
 $('modalBackdrop').addEventListener('click',closeModals);document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
 document.querySelectorAll('.cashier-tabs button').forEach(b=>b.addEventListener('click',()=>setCollectMode(b.dataset.mode)));
 
 $('collectForm').addEventListener('submit',e=>{e.preventDefault();postCollect();});$('expenseForm').addEventListener('submit',e=>{e.preventDefault();postExpense();});
 $('printClose').addEventListener('click',()=>window.print());$('countedCash')?.addEventListener('input',renderReconcile);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
-const _params=new URLSearchParams(location.search);const action=_params.get('action');if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);
+const _params=new URLSearchParams(location.search);const action=_params.get('action');
+if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);
+if(action==='pagar'&&canPayWrite)setTimeout(()=>{modal('expenseModal',true);},150);
 await Promise.all([loadPlayers(),load()]);
 
 
@@ -146,7 +173,8 @@ $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')
 function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
   const inp=$(searchId),hid=$(hiddenId),res=$(resultsId),clr=$(clearId);
   if(!inp||!hid||!res)return;
-  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const DIACRITICS=new RegExp(String.fromCharCode(0x5b)+String.fromCharCode(0x300)+'-'+String.fromCharCode(0x36f)+String.fromCharCode(0x5d),'g');
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(DIACRITICS,'');
   function render(q){
     const nq=norm(q).trim();
     if(!nq){res.classList.add('hidden');res.innerHTML='';return;}

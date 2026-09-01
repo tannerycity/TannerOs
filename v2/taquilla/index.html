@@ -34,6 +34,10 @@
           <button id="openExpense" class="cashier-action expense" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/></svg><strong>PAGAR</strong><small id="paySubtitle">Sale dinero del club</small></button>
         </section>
 
+        <section id="cashTodayCard" class="cashier-cash-card hidden">
+          <div><span>Efectivo de hoy</span><strong id="cashTodayNet">$0.00</strong><p>Para entregar al cierre de caja. No incluye transferencia ni tarjeta.</p></div>
+        </section>
+
         <section class="cashier-kpis">
           <article><span>Cobrado del día</span><strong id="incomeDay">$0.00</strong></article>
           <article><span>Pagado del día</span><strong id="expenseDay" class="sem-neutral">$0.00</strong></article>
@@ -104,7 +108,7 @@
       <label>Referencia<input id="expenseReference" type="text" placeholder="Opcional"></label>
       <div id="expenseMessage" class="cashier-message hidden wide"></div>
       <button id="saveExpense" class="cashier-submit expense wide" type="submit">Registrar pago</button>
-      <p class="cashier-help wide">Esta acción requiere permiso de Contabilidad. Taquilla sin ese permiso puede cobrar, pero no publicar salidas.</p>
+      <p class="cashier-help wide">Vas a confirmar el pago antes de publicarlo. Cada movimiento queda registrado con tu usuario.</p>
     </form>
   </section>
 
@@ -133,6 +137,7 @@
   </section>
 
   <script type="module" src="/v2/branding-auto.js"></script>
+  <script type="module" src="/v2/tos-dialog.js"></script>
   <script type="module" src="/v2/taquilla/app.js"></script>
 </body>
 </html>

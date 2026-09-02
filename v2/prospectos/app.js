@@ -234,6 +234,8 @@ function renderProspectDetails(p){
   addDetail(box,'Tutor',p.guardian_name);addDetail(box,'WhatsApp',p.phone);addDetail(box,'Correo',p.email);
   addDetail(box,'Campaña',campaignName(p.source_campaign));
   addDetail(box,'Origen',p.source_channel||p.source);if(p.referral_name)addDetail(box,'Recomendó',p.referral_name);if(p.public_message)addDetail(box,'Mensaje',p.public_message);
+  if(p.status==='not_continuing'&&p.loss_reason)addDetail(box,'Motivo',p.loss_reason);
+  if(p.assigned_user_name)addDetail(box,'Responsable',p.assigned_user_name);
   const badges=$('consentBadges');badges.innerHTML='';
   const data=document.createElement('span');data.className=`consent-badge ${p.data_consent?'ok':'warn'}`;data.textContent=p.data_consent?'Datos autorizados':'Consentimiento pendiente';
   const image=document.createElement('span');image.className=`consent-badge ${p.image_consent?'ok':'neutral'}`;image.textContent=p.image_consent?'Imagen autorizada':'Imagen solo control interno';
@@ -241,10 +243,27 @@ function renderProspectDetails(p){
   badges.append(data,image,version);
 }
 function renderDrawerActions(p){const wrap=$('drawerQuickActions');wrap.innerHTML='';const wa=waUrl(p.phone);if(wa){const a=document.createElement('a');a.className='whatsapp-action drawer-wa';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir WhatsApp';wrap.appendChild(a);}const campaign=document.createElement('span');campaign.className='lead-badge campaign';campaign.textContent=campaignName(p.source_campaign);wrap.appendChild(campaign);if(overdue(p))wrap.appendChild(makeBadge('Seguimiento vencido','danger'));else if(needsContact(p))wrap.appendChild(makeBadge('Sin contactar','alert'));}
+const KNOWN_LOSS_REASONS=['Precio / costo','Distancia / ubicación','Se fue a otro club','Horarios no le acomodan','No contestó / se enfrió'];
+function toggleLossReasonField(){
+  const show=$('prospectStatus').value==='not_continuing';
+  $('lossReasonField')?.classList.toggle('hidden',!show);
+}
+function setLossReasonValue(reason){
+  const sel=$('lossReasonSelect'),custom=$('lossReasonCustom');if(!sel||!custom)return;
+  if(reason&&KNOWN_LOSS_REASONS.includes(reason)){sel.value=reason;custom.classList.add('hidden');custom.value='';}
+  else if(reason){sel.value='custom';custom.classList.remove('hidden');custom.value=reason;}
+  else{sel.value='';custom.classList.add('hidden');custom.value='';}
+}
+function currentLossReasonValue(){
+  const sel=$('lossReasonSelect'),custom=$('lossReasonCustom');if(!sel)return null;
+  if(sel.value==='custom')return custom.value.trim()||null;
+  return sel.value||null;
+}
 function prepareConversion(p){const section=$('conversionSection');const allowed=ctx.canPlayersWrite&&ctx.canProspectsWrite&&p.status!=='converted';section.classList.toggle('hidden',!allowed);msg('convertMessage');if(!allowed)return;renderConvertCategories();const match=categories.find(c=>String(c.name||'').toLocaleLowerCase('es-MX')===String(p.category_interest||'').toLocaleLowerCase('es-MX'));$('convertCategory').value=match?.id||'';$('convertFee').value='';$('convertDate').value=todayLocal();$('convertJersey').value='';$('convertPosition').value=p.registration_type==='goalkeeper'?'Portero':'';}
 async function openProspect(p){
   current=p;$('prospectName').textContent=nameOf(p)||'Prospecto';$('prospectMeta').textContent=`${typeLabel[p.registration_type]||p.category_interest||'Prospecto'} · alta ${fmtDate(p.created_at)}`;
   $('prospectStatus').value=p.status||'new';$('nextAction').value=p.next_action_at?localDateTimeValue(p.next_action_at):'';$('prospectNotes').value=p.notes||'';
+  setLossReasonValue(p.loss_reason||null);toggleLossReasonField();
   $('saveFollowup').disabled=!ctx.canProspectsWrite;msg('followupMessage');renderProspectDetails(p);renderDrawerActions(p);prepareConversion(p);
   const scoutingLink=$('openProspectScouting');if(scoutingLink){const params=new URLSearchParams({prospect:p.id,name:nameOf(p),category:p.category_interest||'',type:p.registration_type||''});scoutingLink.href=`/scouting/?${params}`;scoutingLink.classList.toggle('hidden',!ctx.canScoutingWrite);}
   $('deleteProspectSection')?.classList.toggle('hidden',!ctx.is_owner);$('deleteProspectConfirm')?.classList.add('hidden');$('deleteProspect')?.classList.remove('hidden');msg('deleteProspectMessage');
@@ -252,6 +271,45 @@ async function openProspect(p){
   $('prospectBackdrop').classList.remove('hidden');$('prospectDrawer').classList.remove('hidden');$('prospectDrawer').setAttribute('aria-hidden','false');
 }
 function closeProspect(){current=null;$('prospectBackdrop').classList.add('hidden');$('prospectDrawer').classList.add('hidden');$('prospectDrawer').setAttribute('aria-hidden','true');}
+
+/* Reporte de conversión: se calcula en el navegador sobre los prospectos ya cargados
+   (todas las etapas, sin filtro de fecha por ahora) — no hace falta un RPC nuevo porque
+   v2_prospects ya trae status, loss_reason y assigned_user_name. */
+function groupConversionStats(list,keyFn){
+  const map=new Map();
+  for(const p of list){
+    const key=keyFn(p)||'Sin especificar';
+    if(!map.has(key))map.set(key,{key,total:0,converted:0,lost:0,active:0});
+    const g=map.get(key);g.total++;
+    if(p.status==='converted')g.converted++;
+    else if(p.status==='not_continuing')g.lost++;
+    else g.active++;
+  }
+  return [...map.values()].map(g=>({...g,rate:g.total?Math.round((g.converted/g.total)*100):0})).sort((a,b)=>b.total-a.total);
+}
+function lossReasonStats(list){
+  const lost=list.filter(p=>p.status==='not_continuing'),total=lost.length,map=new Map();
+  for(const p of lost){const key=p.loss_reason||'Sin especificar';map.set(key,(map.get(key)||0)+1);}
+  return [...map.entries()].map(([reason,count])=>({reason,count,pct:total?Math.round((count/total)*100):0})).sort((a,b)=>b.count-a.count);
+}
+function renderConversionTable(boxId,rows){
+  const box=$(boxId);if(!box)return;
+  box.innerHTML=rows.length?rows.map(r=>`<tr><td>${safeHtml(r.key)}</td><td>${r.total}</td><td>${r.converted}</td><td>${r.lost}</td><td>${r.rate}%</td></tr>`).join(''):'<tr><td colspan="5" class="mini-empty">Sin datos.</td></tr>';
+}
+function safeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function openReport(){
+  const summary=$('reportSummary');
+  const total=prospects.length,converted=prospects.filter(p=>p.status==='converted').length,lost=prospects.filter(p=>p.status==='not_continuing').length,active=total-converted-lost;
+  const rate=total?Math.round((converted/total)*100):0;
+  summary.innerHTML=`<article><span>Total</span><strong>${total}</strong></article><article class="success"><span>Convertidos</span><strong>${converted}</strong></article><article class="danger"><span>No continúa</span><strong>${lost}</strong></article><article><span>En proceso</span><strong>${active}</strong></article><article class="attention"><span>Tasa de conversión</span><strong>${rate}%</strong></article>`;
+  renderConversionTable('reportByChannel',groupConversionStats(prospects,p=>sourceName(p.source_channel||p.source)));
+  renderConversionTable('reportByCampaign',groupConversionStats(prospects,p=>campaignName(p.source_campaign)));
+  renderConversionTable('reportByScout',groupConversionStats(prospects,p=>p.assigned_user_name||'Sin asignar'));
+  const reasons=lossReasonStats(prospects),reasonsBox=$('reportLossReasons');
+  reasonsBox.innerHTML=reasons.length?`<table><thead><tr><th>Motivo</th><th>Prospectos</th><th>% de "no continúa"</th></tr></thead><tbody>${reasons.map(r=>`<tr><td>${safeHtml(r.reason)}</td><td>${r.count}</td><td>${r.pct}%</td></tr>`).join('')}</tbody></table>`:'<p class="mini-empty">Aún no hay prospectos marcados como "No continúa".</p>';
+  $('reportBackdrop').classList.remove('hidden');$('reportDrawer').classList.remove('hidden');$('reportDrawer').setAttribute('aria-hidden','false');
+}
+function closeReport(){$('reportBackdrop').classList.add('hidden');$('reportDrawer').classList.add('hidden');$('reportDrawer').setAttribute('aria-hidden','true');}
 
 async function deleteProspect(){
   if(!current||!ctx.is_owner)return;
@@ -265,7 +323,13 @@ async function deleteProspect(){
   finally{button.disabled=false;button.textContent='Sí, eliminar prospecto';}
 }
 
-async function saveFollowup(){if(!current||!ctx.canProspectsWrite)return;msg('followupMessage');const btn=$('saveFollowup');btn.disabled=true;try{const id=current.id;await rpc('v2_update_prospect_followup',{organization_id:ctx.organization_id,prospect_id:id,status:$('prospectStatus').value,next_action_at:$('nextAction').value?new Date($('nextAction').value).toISOString():null,notes:$('prospectNotes').value.trim()||null});msg('followupMessage','Seguimiento guardado.','success');await loadProspects();current=prospects.find(p=>p.id===id)||current;if(current)renderDrawerActions(current);}catch(e){msg('followupMessage',friendly(e));}finally{btn.disabled=!ctx.canProspectsWrite;}}
+async function saveFollowup(){
+  if(!current||!ctx.canProspectsWrite)return;msg('followupMessage');
+  const status=$('prospectStatus').value,lossReason=currentLossReasonValue();
+  if(status==='not_continuing'&&!lossReason){msg('followupMessage','Selecciona el motivo por el que no continúa.');return;}
+  const btn=$('saveFollowup');btn.disabled=true;
+  try{const id=current.id;await rpc('v2_update_prospect_followup',{organization_id:ctx.organization_id,prospect_id:id,status,next_action_at:$('nextAction').value?new Date($('nextAction').value).toISOString():null,notes:$('prospectNotes').value.trim()||null,loss_reason:status==='not_continuing'?lossReason:null});msg('followupMessage','Seguimiento guardado.','success');await loadProspects();current=prospects.find(p=>p.id===id)||current;if(current){renderDrawerActions(current);renderProspectDetails(current);}}catch(e){msg('followupMessage',friendly(e));}finally{btn.disabled=!ctx.canProspectsWrite;}
+}
 async function convertProspect(){if(!current||!ctx.canPlayersWrite||!ctx.canProspectsWrite)return;msg('convertMessage');const btn=$('convertProspect');const feeRaw=$('convertFee').value;const fee=feeRaw===''?null:Number(feeRaw);if(fee!==null&&(!Number.isFinite(fee)||fee<0)){msg('convertMessage','La cuota debe ser 0 o mayor.');return;}if(!(await window.tosConfirm({kicker:'CAPTACIÓN',title:'Convertir a Tanner',message:`Vas a convertir a ${nameOf(current)} en Tanner. Se conservan su foto, tutor, campaña y consentimientos.`,confirmText:'Sí, convertir',cancelText:'Cancelar'})))return;btn.disabled=true;btn.textContent='Convirtiendo…';try{const id=await rpc('v2_convert_prospect_to_player',{organization_id:ctx.organization_id,prospect_id:current.id,category_id:$('convertCategory').value||null,monthly_fee:fee,joined_at:$('convertDate').value||todayLocal(),jersey_number:$('convertJersey').value.trim()||null,player_position:$('convertPosition').value.trim()||null});msg('convertMessage',`Tanner creado correctamente · ${String(id).slice(0,8)}…`,'success');await loadProspects();const updated=prospects.find(p=>p.id===current.id);if(updated){current=updated;$('prospectStatus').value=updated.status;prepareConversion(updated);renderDrawerActions(updated);}}catch(e){msg('convertMessage',friendly(e));}finally{btn.disabled=false;btn.textContent='Convertir a Tanner';}}
 async function loadScoutingHistory(){const box=$('scoutingHistory');box.innerHTML='';if(!ctx.canScoutingRead){box.innerHTML='<div class="empty">Sin acceso a Scouting.</div>';return;}const rows=await rpc('v2_scouting_reports',{organization_id:ctx.organization_id,prospect_id:current.id});if(!rows?.length){box.innerHTML='<div class="empty">Aún no tiene evaluaciones deportivas.</div>';return;}for(const r of rows){const values=[r.technical_score,r.physical_score,r.tactical_score,r.mental_score].filter(v=>v!=null).map(Number);const avg=values.length?values.reduce((a,b)=>a+b,0)/values.length:0;const card=document.createElement('article');card.className='scout-card';const left=document.createElement('div'),right=document.createElement('div');const when=document.createElement('strong');when.textContent=fmtDateTime(r.observed_at);const where=document.createElement('span');where.textContent=`${r.observed_location||'Sin lugar'} · ${r.player_position||'Sin posición'}`;left.append(when,where);const score=document.createElement('b');score.textContent=avg?avg.toFixed(1):'—';const verdict=document.createElement('span');verdict.textContent=r.verdict||'Sin veredicto';right.append(score,verdict);card.append(left,right);box.appendChild(card);}}
 
@@ -300,6 +364,9 @@ $('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter',
 $('refreshProspects').addEventListener('click',loadProspects);
 $('closeProspect').addEventListener('click',closeProspect);$('prospectBackdrop').addEventListener('click',closeProspect);
 $('saveFollowup').addEventListener('click',saveFollowup);$('convertProspect').addEventListener('click',convertProspect);
+$('openReport').addEventListener('click',openReport);$('closeReport').addEventListener('click',closeReport);$('reportBackdrop').addEventListener('click',closeReport);
+$('prospectStatus').addEventListener('change',toggleLossReasonField);
+$('lossReasonSelect')?.addEventListener('change',()=>{$('lossReasonCustom').classList.toggle('hidden',$('lossReasonSelect').value!=='custom');});
 $('signOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});
 
 boot().catch(e=>{$('deniedText').textContent=friendly(e)||'No pudimos abrir Prospectos.';show('deniedView');});

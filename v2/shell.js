@@ -48,9 +48,10 @@ export const navItems=[
   {code:'prospectos',label:'Captación',href:'/prospectos/',group:'club',icon:'target'},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
-  {code:'tienda',label:'Pedidos',href:'/pedidos/',group:'ops',icon:'bag'},
+  {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
+  {code:'catalogo',label:'Catálogo',href:'/catalogo/',group:'ops',icon:'box',aliases:['tienda']},
   {code:'utileria',label:'Utilería',href:'/utileria/',group:'ops',icon:'box'},
-  {code:'patrocinadores',label:'Patrocinios',href:'/patrocinadores/',group:'ops',icon:'briefcase'},
+  {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'ops',icon:'briefcase'},
   {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin',icon:'userCog'},
   {code:'admin',label:'Administración',href:'/admin/',group:'admin',icon:'settings'},
   {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug'}

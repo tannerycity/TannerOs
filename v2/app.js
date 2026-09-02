@@ -29,12 +29,13 @@ const moduleLinks=[
   {codes:['prospectos'],label:'Captación',href:'/prospectos/'},
   {codes:['scouting'],label:'Scouting',href:'/scouting/'},
   {codes:['academias'],label:'Academias',href:'/academias/'},
-  {codes:['tienda'],label:'Pedidos',href:'/pedidos/'},
+  {codes:['tienda'],label:'Tienda',href:'/pedidos/'},
+  {codes:['tienda'],label:'Catálogo',href:'/catalogo/'},
   {codes:['cursosVerano'],label:'Programas',href:'/operacion/programas/'},
   {codes:['calendario'],label:'Calendario',href:'/calendario/'},
   {codes:['callups','convocatoria'],label:'Convocatoria',href:'/convocatoria/'},
   {codes:['utileria'],label:'Utilería',href:'/utileria/'},
-  {codes:['patrocinadores'],label:'Patrocinios',href:'/patrocinadores/'},
+  {codes:['patrocinadores'],label:'Patrocinadores',href:'/patrocinadores/'},
   {codes:['contabilidad'],label:'Contabilidad',href:'/contabilidad/'},
   {codes:['usuarios'],label:'Usuarios',href:'/usuarios/'},
   {codes:['admin'],label:'Administración',href:'/admin/'},
@@ -222,7 +223,7 @@ async function renderTaquillaHome(){
   $('cashPanel')?.classList.remove('hidden');
   $('cashActions').innerHTML=`${can('taquilla',true)?'<a class="tos-action-big collect" href="/taquilla/?action=cobrar">COBRAR</a><a class="tos-action-big pay" href="/taquilla/?action=pagar">PAGAR</a>':''}`;
   const links=[];
-  if(can('tienda'))links.push('<a class="tos-quick-action primary" href="/pedidos/">Pedidos</a>');
+  if(can('tienda'))links.push('<a class="tos-quick-action primary" href="/pedidos/">Tienda</a>');
   if(can('calendario'))links.push('<a class="tos-quick-action primary" href="/calendario/">Calendario</a>');
   if(can('cursosVerano'))links.push('<a class="tos-quick-action" href="/operacion/programas/">Programas vigentes</a>');
   $('quickActions').innerHTML=links.join('')||'<div class="tos-empty">Sin accesos disponibles para tu rol.</div>';

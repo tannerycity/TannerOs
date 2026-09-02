@@ -21,7 +21,7 @@ const FINAL_ROUTES=[
   ['/pedidos/','tienda','Pedidos'],
   ['/taquilla/','taquilla','Taquilla'],
   ['/contabilidad/','contabilidad','Contabilidad'],
-  ['/patrocinadores/','patrocinadores','Patrocinadores'],
+  ['/patrocinadores/','patrocinadores','Patrocinios'],
   ['/utileria/','utileria','Utilería'],
   ['/usuarios/','usuarios','Usuarios'],
   ['/qa/','qa','QA'],

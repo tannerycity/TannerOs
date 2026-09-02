@@ -1,20 +1,977 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-const $=id=>document.getElementById(id);let ctx=null,canWrite=false,sponsors=[],agreements=[],assets=[];const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0});
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}function msg(id,t='',type='error'){const e=$(id);if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}
-function toIso(v){return v?new Date(v).toISOString():null;}function toLocalInput(v){if(!v)return'';const d=new Date(v),pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}function lines(id){return $(id).value.split('\n').map(x=>x.trim()).filter(Boolean);}function arrLines(v){return Array.isArray(v)?v.join('\n'):'';}function sponsorById(id){return sponsors.find(s=>s.id===id);}function statusLabel(s){return ({prospect:'Prospecto',negotiation:'Negociación',active:'Activo',archived:'Archivado'})[s]||s;}function agreementStatusLabel(s){return ({draft:'Borrador',active:'Activo',completed:'Completado'})[s]||s;}
-function friendly(err){const t=String(err?.message||err||'Error');const map={'Invalid sponsor phone':'El teléfono no tiene un formato válido. Usa 10 dígitos de México o formato internacional.','Invalid sponsor status':'Estatus de patrocinador inválido.','Potential value cannot be negative':'El valor potencial no puede ser negativo.','Agreement end cannot precede start':'La fecha fin no puede ser anterior al inicio.','Agreement value cannot be negative':'El valor del convenio no puede ser negativo.','Invalid agreement status':'Estatus de convenio inválido.','Not authorized':'No tienes permiso para realizar esta operación.'};return map[t]||t;}
-async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='sponsors');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Patrocinadores.';show('deniedView');return;}canWrite=!!mod.can_write;$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Presidencia':ctx.role;[$('saveSponsor'),$('saveAgreement')].forEach(b=>b.disabled=!canWrite);await load();show('view');}
-async function load(){const data=await rpc('v2_sponsor_admin',{organization_id:ctx.organization_id});sponsors=Array.isArray(data?.sponsors)?data.sponsors:[];agreements=Array.isArray(data?.agreements)?data.agreements:[];assets=Array.isArray(data?.assets)?data.assets:[];render();}
-function render(){const active=sponsors.filter(s=>s.status==='active').length,neg=sponsors.filter(s=>s.status==='negotiation').length,activeAgr=agreements.filter(a=>a.status==='active').length,potential=sponsors.reduce((a,s)=>a+Number(s.potentialValue||0),0);$('kpiActive').textContent=active;$('kpiNegotiation').textContent=neg;$('kpiAgreements').textContent=activeAgr;$('kpiPotential').textContent=money.format(potential);renderSponsorSelect();renderSponsors();renderAgreements();}
-function renderSponsorSelect(){const sel=$('agreementSponsor'),current=sel.value;sel.innerHTML='<option value="">Selecciona</option>';sponsors.filter(s=>s.status!=='archived').sort((a,b)=>String(a.name).localeCompare(String(b.name),'es-MX')).forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name||'Patrocinador';sel.appendChild(o);});if(current&&sponsors.some(s=>s.id===current))sel.value=current;}
-function renderSponsors(){const box=$('sponsorList');box.innerHTML='';$('empty').classList.toggle('hidden',sponsors.length>0);sponsors.forEach(s=>{const due=s.nextActionAt?new Date(s.nextActionAt).toLocaleDateString('es-MX'):'Sin próxima fecha',card=document.createElement('article');card.className='sponsor-card';const commercial=[s.tier,s.stage,s.contactName].filter(Boolean).map(esc).join(' · ')||'Sin datos comerciales',contact=[s.phone,s.email].filter(Boolean).map(esc).join(' · ');card.innerHTML=`<div class="sponsor-main"><div class="sponsor-title"><strong>${esc(s.name||'Patrocinador')}</strong><span class="status-chip ${['prospect','negotiation','active','archived'].includes(s.status)?s.status:'prospect'}">${esc(statusLabel(s.status))}</span></div><span>${commercial}</span>${s.nextAction?`<small>Próximo: ${esc(s.nextAction)} · ${esc(due)}</small>`:''}${contact?`<small>${contact}</small>`:''}</div><div class="sponsor-side"><b>${s.potentialValue!=null?money.format(Number(s.potentialValue)):'—'}</b><small>${Number(s.activeAgreementCount||0)} convenio(s) activo(s)</small>${canWrite?`<button class="secondary mini edit-sponsor" type="button" data-id="${esc(s.id)}">Editar</button>`:''}</div>`;box.appendChild(card);});box.querySelectorAll('.edit-sponsor').forEach(b=>b.addEventListener('click',()=>editSponsor(b.dataset.id)));}
-function renderAgreements(){const box=$('agreementList');box.innerHTML='';$('agreementsEmpty').classList.toggle('hidden',agreements.length>0);agreements.forEach(a=>{const s=sponsorById(a.sponsorId),card=document.createElement('article');card.className='agreement-card';const range=[a.startsOn,a.endsOn].filter(Boolean).map(esc).join(' → ')||'Sin vigencia',deliverables=Array.isArray(a.deliverables)&&a.deliverables.length?`${a.deliverables.length} entregable(s)`:'Sin entregables capturados',rights=Array.isArray(a.benefitsReceived)&&a.benefitsReceived.length?` · ${a.benefitsReceived.length} derecho(s)`:'';card.innerHTML=`<div><strong>${esc(s?.name||'Patrocinador')}</strong><span>${esc(agreementStatusLabel(a.status))} · ${range}</span><small>${esc(deliverables+rights)}</small></div><div class="agreement-side"><b>${a.monetaryValue!=null?money.format(Number(a.monetaryValue)):'—'}</b>${canWrite?`<button class="secondary mini edit-agreement" type="button" data-id="${esc(a.id)}">Editar</button>`:''}</div>`;box.appendChild(card);});box.querySelectorAll('.edit-agreement').forEach(b=>b.addEventListener('click',()=>editAgreement(b.dataset.id)));}
-function resetSponsorForm(){const f=$('sponsorForm');f.reset();$('sponsorId').value='';$('sponsorStatus').value='prospect';$('sponsorFormTitle').textContent='Nuevo patrocinador';$('saveSponsor').textContent='Guardar patrocinador';$('cancelSponsorEdit').classList.add('hidden');msg('sponsorMessage');}
-function editSponsor(id){const s=sponsorById(id);if(!s)return;$('sponsorId').value=s.id;$('sponsorName').value=s.name||'';$('sponsorStatus').value=s.status||'prospect';$('sponsorTier').value=s.tier||'';$('sponsorType').value=s.sponsorType||'';$('sponsorContact').value=s.contactName||'';$('sponsorPhone').value=s.phone||'';$('sponsorEmail').value=s.email||'';$('sponsorPotential').value=s.potentialValue??'';$('sponsorStage').value=s.stage||'';$('sponsorRelationship').value=s.relationshipType||'';$('sponsorNextAction').value=s.nextAction||'';$('sponsorNextDate').value=toLocalInput(s.nextActionAt);$('sponsorNotes').value=s.notes||'';$('sponsorFormTitle').textContent='Editar patrocinador';$('saveSponsor').textContent='Guardar cambios';$('cancelSponsorEdit').classList.remove('hidden');$('sponsorForm').scrollIntoView({behavior:'smooth',block:'start'});}
-function resetAgreementForm(){const f=$('agreementForm');f.reset();$('agreementId').value='';$('agreementStatus').value='draft';$('agreementFormTitle').textContent='Nuevo acuerdo';$('saveAgreement').textContent='Guardar acuerdo';$('cancelAgreementEdit').classList.add('hidden');renderSponsorSelect();msg('agreementMessage');}
-function editAgreement(id){const a=agreements.find(x=>x.id===id);if(!a)return;$('agreementId').value=a.id;$('agreementSponsor').value=a.sponsorId||'';$('agreementStart').value=a.startsOn||'';$('agreementEnd').value=a.endsOn||'';$('agreementValue').value=a.monetaryValue??'';$('agreementStatus').value=a.status||'draft';$('agreementBenefits').value=arrLines(a.benefitsReceived);$('agreementDeliverables').value=arrLines(a.deliverables);$('agreementNotes').value=a.notes||'';$('agreementFormTitle').textContent='Editar acuerdo';$('saveAgreement').textContent='Guardar cambios';$('cancelAgreementEdit').classList.remove('hidden');$('agreementForm').scrollIntoView({behavior:'smooth',block:'start'});}
-async function saveSponsor(e){e.preventDefault();msg('sponsorMessage');const btn=$('saveSponsor');btn.disabled=true;try{await rpc('v2_upsert_sponsor_admin',{organization_id:ctx.organization_id,sponsor_id:$('sponsorId').value||null,name:$('sponsorName').value.trim(),sponsor_type:$('sponsorType').value.trim()||null,contact_name:$('sponsorContact').value.trim()||null,phone:$('sponsorPhone').value.trim()||null,email:$('sponsorEmail').value.trim()||null,status:$('sponsorStatus').value,tier:$('sponsorTier').value.trim()||null,relationship_type:$('sponsorRelationship').value.trim()||null,stage:$('sponsorStage').value.trim()||null,potential_value:$('sponsorPotential').value===''?null:Number($('sponsorPotential').value),next_action:$('sponsorNextAction').value.trim()||null,next_action_at:toIso($('sponsorNextDate').value),notes:$('sponsorNotes').value.trim()||null});resetSponsorForm();await load();msg('sponsorMessage','Patrocinador guardado.','success');}catch(err){msg('sponsorMessage',friendly(err));}finally{btn.disabled=!canWrite;}}
-async function saveAgreement(e){e.preventDefault();msg('agreementMessage');const btn=$('saveAgreement');btn.disabled=true;try{await rpc('v2_upsert_sponsor_agreement_admin',{organization_id:ctx.organization_id,agreement_id:$('agreementId').value||null,sponsor_id:$('agreementSponsor').value,starts_on:$('agreementStart').value||null,ends_on:$('agreementEnd').value||null,monetary_value:$('agreementValue').value===''?null:Number($('agreementValue').value),benefits_received:lines('agreementBenefits'),deliverables:lines('agreementDeliverables'),status:$('agreementStatus').value,notes:$('agreementNotes').value.trim()||null});resetAgreementForm();await load();msg('agreementMessage','Convenio guardado.','success');}catch(err){msg('agreementMessage',friendly(err));}finally{btn.disabled=!canWrite;}}
-$('sponsorForm')?.addEventListener('submit',saveSponsor);$('agreementForm')?.addEventListener('submit',saveAgreement);$('cancelSponsorEdit')?.addEventListener('click',resetSponsorForm);$('cancelAgreementEdit')?.addEventListener('click',resetAgreementForm);$('refresh')?.addEventListener('click',load);boot().catch(e=>{$('deniedText').textContent=friendly(e)||'No pudimos abrir Patrocinadores.';show('deniedView');});
+
+const supabase = createClient(
+  'https://pacnegivzgxpanphrnwp.supabase.co',
+  'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
+  { auth: { persistSession: true, autoRefreshToken: true } },
+);
+
+const $ = (id) => document.getElementById(id);
+const money = new Intl.NumberFormat('es-MX', {
+  style: 'currency',
+  currency: 'MXN',
+  maximumFractionDigits: 0,
+});
+
+const RELATIONSHIPS = {
+  sponsorship: 'Patrocinio',
+  commercial_alliance: 'Alianza comercial',
+  exchange: 'Intercambio',
+  benefit_agreement: 'Convenio / beneficio',
+};
+const STAGES = [
+  ['radar', 'En radar'],
+  ['contacted', 'Contactado'],
+  ['talking', 'En plática'],
+  ['agreement', 'Acuerdo'],
+  ['closing', 'Por cerrar'],
+  ['active', 'Activo'],
+  ['paused', 'Pausado'],
+  ['lost', 'No se cerró'],
+  ['finished', 'Finalizado'],
+];
+const AGREEMENT_STATUSES = { draft: 'Borrador', active: 'Activo', completed: 'Finalizado', cancelled: 'Cancelado' };
+const ASSET_CATEGORIES = {
+  digital: 'Digital',
+  park: 'Tannery City Park',
+  uniforms: 'Uniformes',
+  sports: 'Deportivo',
+  content: 'Contenido',
+  other: 'Otros',
+};
+const ASSET_AVAILABILITY = { available: 'Disponible', partial: 'Parcial', occupied: 'Ocupado' };
+const MOVEMENT_TYPES = { call: 'Llamada', whatsapp: 'WhatsApp', email: 'Email', meeting: 'Reunión', note: 'Nota' };
+const RECEIVE_TYPES = { money: 'Dinero', product: 'Producto', service: 'Servicio', discount: 'Descuento', benefit: 'Beneficio', other: 'Otro' };
+const GIVE_TYPES = { advertising: 'Publicidad', banner: 'Lona', social: 'Redes sociales', jersey: 'Jersey', activation: 'Activación', tanner_asset: 'Activo Tanner', other: 'Otro' };
+const BENEFICIARIES = { players: 'Jugadores', families: 'Familias', coaches: 'Entrenadores', staff: 'Staff', community: 'Comunidad Tanner' };
+
+let ctx = null;
+let canWrite = false;
+let sponsors = [];
+let agreements = [];
+let assets = [];
+let agreementItems = [];
+let movements = [];
+let selectedSponsorId = null;
+let selectedStage = 'all';
+let currentView = 'summary';
+let drawerView = 'brand-summary';
+
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+}[char]));
+
+function show(id) {
+  ['loadingView', 'deniedView', 'view'].forEach((viewId) => {
+    $(viewId)?.classList.toggle('hidden', viewId !== id);
+  });
+}
+
+function message(id, text = '', type = 'error') {
+  const element = $(id);
+  if (!element) return;
+  element.textContent = text;
+  element.dataset.type = type;
+  element.classList.toggle('hidden', !text);
+}
+
+async function rpc(name, params = {}) {
+  const { data, error } = await supabase.rpc(name, params);
+  if (error) throw error;
+  return data;
+}
+
+function friendly(error) {
+  const text = String(error?.message || error || 'No pudimos completar la acción.');
+  const labels = {
+    'Not authorized': 'No tienes permiso para realizar esta acción.',
+    'Sponsor name required': 'Escribe el nombre de la marca.',
+    'Invalid sponsor phone': 'El teléfono no tiene un formato válido.',
+    'Invalid sponsor email': 'El email no tiene un formato válido.',
+    'Invalid relationship type': 'Selecciona un tipo de relación válido.',
+    'Invalid sponsor stage': 'Selecciona una etapa válida.',
+    'Potential value cannot be negative': 'El valor potencial no puede ser negativo.',
+    'Agreement end cannot precede start': 'La fecha final no puede ser anterior al inicio.',
+    'Agreement value cannot be negative': 'El valor del acuerdo no puede ser negativo.',
+    'Discount must be between 0 and 100': 'El descuento debe estar entre 0 y 100.',
+    'Agreement item description required': 'Describe cada elemento del acuerdo.',
+    'Asset name required': 'Escribe el nombre del Activo Tanner.',
+    'Asset price cannot be negative': 'El precio de referencia no puede ser negativo.',
+    'Movement result required': 'Escribe el resultado del movimiento.',
+  };
+  return labels[text] || text;
+}
+
+function normalizeRelation(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (RELATIONSHIPS[raw]) return raw;
+  if (raw.includes('alianza')) return 'commercial_alliance';
+  if (raw.includes('intercambio')) return 'exchange';
+  if (raw.includes('convenio') || raw.includes('beneficio')) return 'benefit_agreement';
+  return 'sponsorship';
+}
+
+function normalizeStage(value, status) {
+  const raw = String(value || '').trim().toLowerCase();
+  const direct = STAGES.find(([code]) => code === raw);
+  if (direct) return direct[0];
+  if (raw.includes('radar')) return 'radar';
+  if (raw.includes('contact')) return 'contacted';
+  if (raw.includes('plática') || raw.includes('platica') || raw.includes('negocia')) return 'talking';
+  if (raw.includes('por cerrar') || raw.includes('cierre')) return 'closing';
+  if (raw.includes('acuerdo')) return 'agreement';
+  if (raw.includes('pausa')) return 'paused';
+  if (raw.includes('no se cerr') || raw.includes('perdid')) return 'lost';
+  if (raw.includes('final')) return 'finished';
+  if (raw.includes('activ') || status === 'active') return 'active';
+  if (status === 'lost') return 'lost';
+  if (status === 'inactive' || status === 'archived') return 'finished';
+  return 'radar';
+}
+
+function stageLabel(value, status) {
+  const normalized = normalizeStage(value, status);
+  return STAGES.find(([code]) => code === normalized)?.[1] || 'En radar';
+}
+
+function statusFromStage(stage) {
+  if (stage === 'radar') return 'prospect';
+  if (stage === 'active') return 'active';
+  if (stage === 'lost') return 'lost';
+  if (stage === 'finished') return 'inactive';
+  return 'negotiation';
+}
+
+function sponsorById(id) {
+  return sponsors.find((sponsor) => sponsor.id === id);
+}
+function agreementsForSponsor(id) {
+  return agreements.filter((agreement) => agreement.sponsorId === id);
+}
+function itemsForAgreement(id) {
+  return agreementItems.filter((item) => item.agreementId === id);
+}
+function assetById(id) {
+  return assets.find((asset) => asset.id === id);
+}
+function toDateInput(value) {
+  return value ? String(value).slice(0, 10) : '';
+}
+function dateToIso(value) {
+  return value ? new Date(value + 'T12:00:00').toISOString() : null;
+}
+function dateValue(value) {
+  if (!value) return null;
+  const date = new Date(String(value).length === 10 ? value + 'T12:00:00' : value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+function shortDate(value) {
+  const date = dateValue(value);
+  return date ? date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Sin fecha';
+}
+function longDate(value) {
+  const date = dateValue(value);
+  return date ? date.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha';
+}
+function dayDiff(value) {
+  const date = dateValue(value);
+  if (!date) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return Math.round((date - today) / 86400000);
+}
+function timingLabel(value, renewal = false) {
+  const days = dayDiff(value);
+  if (days === null) return 'Sin seguimiento';
+  if (days < 0) return renewal ? 'Renovación vencida' : 'Atrasado';
+  if (days === 0) return 'Hoy';
+  if (days === 1) return 'Mañana';
+  return renewal ? 'Renovación en ' + days + ' días' : 'En ' + days + ' días';
+}
+function isOpenSponsor(sponsor) {
+  return !['active', 'lost', 'finished'].includes(normalizeStage(sponsor.stage, sponsor.status));
+}
+function agreementProgress(agreementId) {
+  const items = itemsForAgreement(agreementId);
+  return { done: items.filter((item) => item.fulfilled).length, total: items.length };
+}
+function writeControls() {
+  document.querySelectorAll('.write-only').forEach((element) => {
+    element.classList.toggle('hidden', !canWrite);
+  });
+}
+
+async function boot() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    location.href = '/';
+    return;
+  }
+  const rows = await rpc('v2_my_context');
+  if (!rows?.length) {
+    $('deniedText').textContent = 'Tu cuenta no tiene una organización activa.';
+    show('deniedView');
+    return;
+  }
+  ctx = rows[0];
+  const modules = await rpc('v2_my_modules', { organization_id: ctx.organization_id });
+  const moduleAccess = modules.find((item) => item.module_code === 'sponsors');
+  if (!moduleAccess?.enabled || !moduleAccess?.can_read) {
+    $('deniedText').textContent = 'Tu rol no tiene acceso a Patrocinios.';
+    show('deniedView');
+    return;
+  }
+  canWrite = Boolean(moduleAccess.can_write);
+  $('orgName').textContent = ctx.organization_name || 'Tannery City FC';
+  $('roleBadge').textContent = ctx.is_owner ? 'Presidencia' : ctx.role;
+  writeControls();
+  renderBeneficiaries();
+  await load();
+  show('view');
+}
+
+async function load() {
+  const data = await rpc('v2_sponsor_admin', { organization_id: ctx.organization_id });
+  sponsors = Array.isArray(data?.sponsors) ? data.sponsors : [];
+  agreements = Array.isArray(data?.agreements) ? data.agreements : [];
+  assets = Array.isArray(data?.assets) ? data.assets : [];
+  agreementItems = Array.isArray(data?.agreementItems) ? data.agreementItems : [];
+  movements = Array.isArray(data?.movements) ? data.movements : [];
+  render();
+}
+
+function render() {
+  renderKpis();
+  renderSummary();
+  renderRoute();
+  renderBrands();
+  renderAssets();
+  if (selectedSponsorId && !$('brandDrawer').classList.contains('hidden')) renderBrandDrawer();
+  writeControls();
+}
+
+function renderKpis() {
+  const activeAgreements = agreements.filter((agreement) => agreement.status === 'active');
+  const receivedValue = activeAgreements.reduce((total, agreement) => {
+    const received = itemsForAgreement(agreement.id).filter((item) => item.direction === 'receive');
+    if (!received.length) return total + Number(agreement.monetaryValue || 0);
+    return total + received.filter((item) => item.fulfilled).reduce((sum, item) => sum + Number(item.estimatedValue || 0), 0);
+  }, 0);
+  const renewals = activeAgreements.filter((agreement) => {
+    const days = dayDiff(agreement.endsOn);
+    return days !== null && days <= 45;
+  });
+  $('kpiActiveAgreements').textContent = activeAgreements.length;
+  $('kpiReceivedValue').textContent = money.format(receivedValue);
+  $('kpiPlaying').textContent = sponsors.filter(isOpenSponsor).length;
+  $('kpiClosing').textContent = sponsors.filter((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === 'closing').length;
+  $('kpiRenewals').textContent = renewals.length;
+}
+
+function buildNextItems() {
+  const next = [];
+  sponsors.forEach((sponsor) => {
+    const stage = normalizeStage(sponsor.stage, sponsor.status);
+    if (['lost', 'finished'].includes(stage)) return;
+    if (sponsor.nextAction && sponsor.nextActionAt) {
+      next.push({
+        sponsorId: sponsor.id,
+        title: sponsor.name,
+        detail: sponsor.nextAction,
+        meta: timingLabel(sponsor.nextActionAt),
+        date: dateValue(sponsor.nextActionAt)?.getTime() || Number.MAX_SAFE_INTEGER,
+        urgent: (dayDiff(sponsor.nextActionAt) ?? 99) <= 0,
+      });
+    } else if (stage !== 'active') {
+      next.push({
+        sponsorId: sponsor.id,
+        title: sponsor.name,
+        detail: 'Sin seguimiento',
+        meta: 'Define el próximo movimiento',
+        date: Date.now() + 86400000,
+        urgent: true,
+      });
+    }
+  });
+  agreements
+    .filter((agreement) => agreement.status === 'active' && dayDiff(agreement.endsOn) !== null && dayDiff(agreement.endsOn) <= 60)
+    .forEach((agreement) => {
+      const sponsor = sponsorById(agreement.sponsorId);
+      if (!sponsor) return;
+      next.push({
+        sponsorId: sponsor.id,
+        title: sponsor.name,
+        detail: 'Renovar acuerdo',
+        meta: timingLabel(agreement.endsOn, true),
+        date: dateValue(agreement.endsOn)?.getTime() || Number.MAX_SAFE_INTEGER,
+        urgent: (dayDiff(agreement.endsOn) ?? 99) <= 15,
+      });
+    });
+  return next.sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.date - b.date).slice(0, 10);
+}
+
+function renderSummary() {
+  const next = buildNextItems();
+  $('nextCount').textContent = next.length;
+  $('nextEmpty').classList.toggle('hidden', next.length > 0);
+  $('nextList').innerHTML = next.map((item) => (
+    '<button class="next-item ' + (item.urgent ? 'urgent' : '') + '" data-sponsor-id="' + esc(item.sponsorId) + '" type="button">' +
+      '<span class="next-marker"></span>' +
+      '<span class="next-copy"><strong>' + esc(item.title) + '</strong><span>' + esc(item.detail) + '</span></span>' +
+      '<span class="next-time">' + esc(item.meta) + '</span>' +
+    '</button>'
+  )).join('');
+  bindSponsorOpeners($('nextList'));
+
+  const activeIds = [...new Set(agreements.filter((agreement) => agreement.status === 'active').map((agreement) => agreement.sponsorId))];
+  const activeSponsors = activeIds.map(sponsorById).filter(Boolean);
+  $('activeEmpty').classList.toggle('hidden', activeSponsors.length > 0);
+  $('activeList').innerHTML = activeSponsors.map((sponsor) => {
+    const active = agreementsForSponsor(sponsor.id).filter((agreement) => agreement.status === 'active');
+    const nearestEnd = active.map((agreement) => agreement.endsOn).filter(Boolean).sort()[0];
+    return '<button class="compact-brand" data-sponsor-id="' + esc(sponsor.id) + '" type="button">' +
+      '<span class="brand-monogram small-monogram">' + esc(String(sponsor.name || 'T').charAt(0).toUpperCase()) + '</span>' +
+      '<span><strong>' + esc(sponsor.name) + '</strong><small>' + esc(RELATIONSHIPS[normalizeRelation(sponsor.relationshipType)]) + '</small></span>' +
+      '<span class="compact-brand-meta">' + (nearestEnd ? 'Hasta ' + esc(shortDate(nearestEnd)) : active.length + ' activo(s)') + '</span>' +
+    '</button>';
+  }).join('');
+  bindSponsorOpeners($('activeList'));
+}
+
+function renderRoute() {
+  const stageOptions = [['all', 'Todas'], ...STAGES];
+  $('stageRail').innerHTML = stageOptions.map(([code, label]) => {
+    const count = code === 'all' ? sponsors.length : sponsors.filter((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === code).length;
+    return '<button class="' + (selectedStage === code ? 'active' : '') + '" data-stage="' + code + '" type="button"><span>' + esc(label) + '</span><b>' + count + '</b></button>';
+  }).join('');
+  $('stageRail').querySelectorAll('[data-stage]').forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedStage = button.dataset.stage;
+      renderRoute();
+    });
+  });
+  const filtered = selectedStage === 'all' ? sponsors : sponsors.filter((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === selectedStage);
+  $('routeResultCount').textContent = filtered.length + ' marca' + (filtered.length === 1 ? '' : 's');
+  $('routeEmpty').classList.toggle('hidden', filtered.length > 0);
+  $('routeList').innerHTML = filtered.map(brandCard).join('');
+  bindSponsorOpeners($('routeList'));
+}
+
+function brandCard(sponsor) {
+  const stage = normalizeStage(sponsor.stage, sponsor.status);
+  const relation = normalizeRelation(sponsor.relationshipType);
+  const next = sponsor.nextAction && sponsor.nextActionAt ? sponsor.nextAction + ' · ' + timingLabel(sponsor.nextActionAt) : 'Sin seguimiento';
+  return '<button class="brand-card" data-sponsor-id="' + esc(sponsor.id) + '" type="button">' +
+    '<span class="brand-card-top">' +
+      '<span class="brand-monogram">' + esc(String(sponsor.name || 'T').charAt(0).toUpperCase()) + '</span>' +
+      '<span class="brand-card-title"><strong>' + esc(sponsor.name || 'Marca') + '</strong><small>' + esc(RELATIONSHIPS[relation]) + '</small></span>' +
+      '<span class="stage-chip stage-' + esc(stage) + '">' + esc(stageLabel(stage)) + '</span>' +
+    '</span>' +
+    '<span class="brand-card-next"><small>Próximo movimiento</small><strong class="' + (next === 'Sin seguimiento' ? 'missing' : '') + '">' + esc(next) + '</strong></span>' +
+    '<span class="brand-card-foot"><span>' + (sponsor.contactName ? esc(sponsor.contactName) : 'Sin contacto') + '</span><b>' + (sponsor.potentialValue != null ? money.format(Number(sponsor.potentialValue)) : '—') + '</b></span>' +
+  '</button>';
+}
+
+function renderBrands() {
+  const term = $('brandSearch').value.trim().toLowerCase();
+  const filtered = sponsors.filter((sponsor) => [
+    sponsor.name,
+    sponsor.contactName,
+    sponsor.email,
+    RELATIONSHIPS[normalizeRelation(sponsor.relationshipType)],
+  ].some((value) => String(value || '').toLowerCase().includes(term)));
+  $('brandEmpty').classList.toggle('hidden', filtered.length > 0);
+  $('brandList').innerHTML = filtered.map(brandCard).join('');
+  bindSponsorOpeners($('brandList'));
+}
+
+function renderAssets() {
+  $('assetEmpty').classList.toggle('hidden', assets.length > 0);
+  $('assetList').innerHTML = assets.map((asset) => (
+    '<button class="asset-card" data-asset-id="' + esc(asset.id) + '" type="button">' +
+      '<span class="asset-category">' + esc(ASSET_CATEGORIES[asset.category] || asset.category || 'Otros') + '</span>' +
+      '<strong>' + esc(asset.name) + '</strong>' +
+      '<span class="asset-description">' + esc(asset.description || 'Sin descripción') + '</span>' +
+      '<span class="asset-foot"><b>' + (asset.price != null ? money.format(Number(asset.price)) : 'Sin precio') + '</b>' +
+      '<i class="availability ' + esc(asset.availability || 'available') + '">' + esc(ASSET_AVAILABILITY[asset.availability] || asset.availability || 'Disponible') + '</i></span>' +
+    '</button>'
+  )).join('');
+  $('assetList').querySelectorAll('[data-asset-id]').forEach((button) => {
+    button.addEventListener('click', () => openAssetForm(assetById(button.dataset.assetId)));
+  });
+}
+
+function bindSponsorOpeners(container) {
+  container.querySelectorAll('[data-sponsor-id]').forEach((button) => {
+    button.addEventListener('click', () => openBrand(button.dataset.sponsorId));
+  });
+}
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.module-nav [data-view]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.view === view);
+  });
+  ['summary', 'route', 'brands', 'assets'].forEach((name) => {
+    $(name + 'View').classList.toggle('hidden', name !== view);
+  });
+}
+
+function openBrand(id) {
+  if (!sponsorById(id)) return;
+  selectedSponsorId = id;
+  switchDrawerView('brand-summary');
+  renderBrandDrawer();
+  $('brandDrawer').classList.remove('hidden');
+  $('brandDrawer').setAttribute('aria-hidden', 'false');
+  $('backdrop').classList.remove('hidden');
+  document.body.classList.add('workspace-open');
+}
+
+function closeBrand() {
+  $('brandDrawer').classList.add('hidden');
+  $('brandDrawer').setAttribute('aria-hidden', 'true');
+  selectedSponsorId = null;
+  if (!document.querySelector('.workspace-modal:not(.hidden)')) {
+    $('backdrop').classList.add('hidden');
+    document.body.classList.remove('workspace-open');
+  }
+}
+
+function switchDrawerView(view) {
+  drawerView = view;
+  document.querySelectorAll('[data-drawer-view]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.drawerView === view);
+  });
+  const panels = {
+    'brand-summary': 'brandSummaryPanel',
+    'brand-agreement': 'brandAgreementPanel',
+    'brand-assets': 'brandAssetsPanel',
+    'brand-followup': 'brandFollowupPanel',
+  };
+  Object.entries(panels).forEach(([name, id]) => $(id).classList.toggle('hidden', name !== view));
+}
+
+function renderBrandDrawer() {
+  const sponsor = sponsorById(selectedSponsorId);
+  if (!sponsor) {
+    closeBrand();
+    return;
+  }
+  const relation = normalizeRelation(sponsor.relationshipType);
+  const stage = normalizeStage(sponsor.stage, sponsor.status);
+  $('drawerMonogram').textContent = String(sponsor.name || 'T').charAt(0).toUpperCase();
+  $('drawerRelationship').textContent = RELATIONSHIPS[relation];
+  $('drawerBrandName').textContent = sponsor.name;
+  $('drawerStage').textContent = stageLabel(stage);
+  $('drawerStage').className = 'stage-chip stage-' + stage;
+  const hasFollowup = sponsor.nextAction && sponsor.nextActionAt;
+  $('drawerFollowup').textContent = hasFollowup ? timingLabel(sponsor.nextActionAt) : 'Sin seguimiento';
+  $('drawerFollowup').className = 'followup-chip ' + (hasFollowup ? '' : 'missing');
+  renderBrandSummary(sponsor);
+  renderBrandAgreements(sponsor);
+  renderCommitments(sponsor);
+  renderMovements(sponsor);
+}
+
+function contactLinks(sponsor) {
+  const links = [];
+  if (sponsor.phone) {
+    const digits = String(sponsor.phone).replace(/\D/g, '');
+    links.push('<a href="https://wa.me/' + esc(digits) + '" target="_blank" rel="noopener">WhatsApp</a>');
+  }
+  if (sponsor.email) links.push('<a href="mailto:' + esc(sponsor.email) + '">Email</a>');
+  return links.join('<span>·</span>');
+}
+
+function renderBrandSummary(sponsor) {
+  const relation = normalizeRelation(sponsor.relationshipType);
+  const nextText = sponsor.nextAction && sponsor.nextActionAt
+    ? '<strong>' + esc(sponsor.nextAction) + '</strong><span>' + esc(longDate(sponsor.nextActionAt)) + ' · ' + esc(timingLabel(sponsor.nextActionAt)) + '</span>'
+    : '<strong>Sin seguimiento</strong><span>Esta marca necesita próximo movimiento y fecha.</span>';
+  $('brandSummaryBody').innerHTML =
+    '<section class="drawer-summary-card">' +
+      '<div class="summary-field"><span>Tipo</span><strong>' + esc(RELATIONSHIPS[relation]) + '</strong></div>' +
+      '<div class="summary-field"><span>Estado</span><strong>' + esc(stageLabel(sponsor.stage, sponsor.status)) + '</strong></div>' +
+      '<div class="summary-field"><span>Contacto</span><strong>' + esc(sponsor.contactName || 'Sin contacto') + '</strong></div>' +
+      '<div class="summary-field"><span>Valor potencial</span><strong>' + (sponsor.potentialValue != null ? money.format(Number(sponsor.potentialValue)) : 'Sin definir') + '</strong></div>' +
+      '<div class="summary-field"><span>Teléfono</span><strong>' + esc(sponsor.phone || '—') + '</strong></div>' +
+      '<div class="summary-field"><span>Email</span><strong>' + esc(sponsor.email || '—') + '</strong></div>' +
+    '</section>' +
+    '<section class="next-action-card ' + (sponsor.nextAction && sponsor.nextActionAt ? '' : 'missing') + '">' +
+      '<div><span>Próximo movimiento</span>' + nextText + '</div>' +
+      '<div class="contact-links">' + contactLinks(sponsor) + '</div>' +
+    '</section>' +
+    (sponsor.notes ? '<section class="notes-card"><span>Nota</span><p>' + esc(sponsor.notes) + '</p></section>' : '');
+}
+
+function renderBrandAgreements(sponsor) {
+  const sponsorAgreements = agreementsForSponsor(sponsor.id);
+  $('brandAgreementEmpty').classList.toggle('hidden', sponsorAgreements.length > 0);
+  $('brandAgreementList').innerHTML = sponsorAgreements.map((agreement) => {
+    const received = itemsForAgreement(agreement.id).filter((item) => item.direction === 'receive');
+    const given = itemsForAgreement(agreement.id).filter((item) => item.direction === 'give');
+    const progress = agreementProgress(agreement.id);
+    const period = agreement.startsOn || agreement.endsOn
+      ? (agreement.startsOn ? shortDate(agreement.startsOn) : 'Sin inicio') + ' → ' + (agreement.endsOn ? shortDate(agreement.endsOn) : 'Sin fin')
+      : 'Sin vigencia definida';
+    return '<article class="agreement-card">' +
+      '<div class="agreement-card-head"><span class="agreement-status ' + esc(agreement.status) + '">' + esc(AGREEMENT_STATUSES[agreement.status] || agreement.status) + '</span>' +
+      '<strong>' + (agreement.monetaryValue != null ? money.format(Number(agreement.monetaryValue)) : 'Sin valor') + '</strong></div>' +
+      '<span class="agreement-period">' + esc(period) + '</span>' +
+      (agreement.benefit ? '<p class="agreement-benefit">' + esc(agreement.benefit) + (agreement.discountPercent != null ? ' · ' + esc(agreement.discountPercent) + '%' : '') + '</p>' : '') +
+      '<div class="agreement-counts"><span><b>' + received.length + '</b> recibimos</span><span><b>' + given.length + '</b> damos</span><span><b>' + progress.done + '/' + progress.total + '</b> cumplidos</span></div>' +
+      (canWrite ? '<button class="secondary mini edit-agreement-button" data-agreement-id="' + esc(agreement.id) + '" type="button">Editar acuerdo</button>' : '') +
+    '</article>';
+  }).join('');
+  $('brandAgreementList').querySelectorAll('[data-agreement-id]').forEach((button) => {
+    button.addEventListener('click', () => openAgreementForm(agreements.find((agreement) => agreement.id === button.dataset.agreementId)));
+  });
+}
+
+function renderCommitments(sponsor) {
+  const sponsorAgreements = agreementsForSponsor(sponsor.id);
+  const items = sponsorAgreements.flatMap((agreement) => itemsForAgreement(agreement.id));
+  const fulfilled = items.filter((item) => item.fulfilled).length;
+  $('commitmentProgress').textContent = fulfilled + ' de ' + items.length;
+  $('commitmentEmpty').classList.toggle('hidden', items.length > 0);
+  if (!items.length) {
+    $('commitmentList').innerHTML = '';
+    return;
+  }
+  function group(direction, title) {
+    const groupItems = items.filter((item) => item.direction === direction);
+    if (!groupItems.length) return '';
+    return '<section class="commitment-group">' +
+      '<div class="commitment-group-head"><h4>' + esc(title) + '</h4><span>' + groupItems.filter((item) => item.fulfilled).length + '/' + groupItems.length + '</span></div>' +
+      groupItems.map((item) => {
+        const asset = assetById(item.assetId);
+        const detail = [
+          item.quantity != null ? (item.quantity + ' ' + (item.unit || '')).trim() : '',
+          item.estimatedValue != null ? money.format(Number(item.estimatedValue)) : '',
+          asset?.name || '',
+        ].filter(Boolean).join(' · ');
+        return '<label class="commitment-item ' + (item.fulfilled ? 'fulfilled' : '') + '">' +
+          '<input class="fulfillment-toggle" data-item-id="' + esc(item.id) + '" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + ' ' + (canWrite ? '' : 'disabled') + '>' +
+          '<span><strong>' + esc(item.description) + '</strong><small>' + esc(detail || (item.fulfilled ? 'Entregado' : 'Pendiente')) + '</small></span>' +
+          '<b>' + (item.fulfilled ? 'Entregado' : 'Pendiente') + '</b>' +
+        '</label>';
+      }).join('') +
+    '</section>';
+  }
+  $('commitmentList').innerHTML = group('receive', 'Qué recibimos') + group('give', 'Qué damos');
+  $('commitmentList').querySelectorAll('.fulfillment-toggle').forEach((input) => {
+    input.addEventListener('change', () => setFulfillment(input));
+  });
+}
+
+function renderMovements(sponsor) {
+  const sponsorMovements = movements.filter((movement) => movement.sponsorId === sponsor.id);
+  $('movementEmpty').classList.toggle('hidden', sponsorMovements.length > 0);
+  $('movementList').innerHTML = sponsorMovements.map((movement) => (
+    '<article class="timeline-item">' +
+      '<span class="timeline-dot"></span><div>' +
+        '<div class="timeline-head"><strong>' + esc(MOVEMENT_TYPES[movement.type] || movement.type) + '</strong><time>' + esc(longDate(movement.occurredAt)) + '</time></div>' +
+        '<p>' + esc(movement.result) + '</p>' +
+        (movement.nextAction ? '<small>Próximo: ' + esc(movement.nextAction) + ' · ' + esc(shortDate(movement.nextActionAt)) + '</small>' : '') +
+      '</div>' +
+    '</article>'
+  )).join('');
+}
+
+function openModal(id) {
+  document.querySelectorAll('.workspace-modal').forEach((modal) => modal.classList.add('hidden'));
+  $(id).classList.remove('hidden');
+  $('backdrop').classList.remove('hidden');
+  document.body.classList.add('workspace-open');
+  setTimeout(() => $(id).querySelector('input:not([type="hidden"]),select,textarea')?.focus(), 30);
+}
+
+function closeModal() {
+  document.querySelectorAll('.workspace-modal').forEach((modal) => modal.classList.add('hidden'));
+  if ($('brandDrawer').classList.contains('hidden')) {
+    $('backdrop').classList.add('hidden');
+    document.body.classList.remove('workspace-open');
+  }
+}
+
+function resetSponsorForm() {
+  $('sponsorForm').reset();
+  $('sponsorId').value = '';
+  $('sponsorRelationship').value = 'sponsorship';
+  $('sponsorStage').value = 'radar';
+  $('sponsorModalTitle').textContent = 'Nueva marca';
+  $('saveSponsor').textContent = 'Guardar marca';
+  message('sponsorMessage');
+}
+
+function openSponsorForm(sponsor = null) {
+  if (!canWrite) return;
+  resetSponsorForm();
+  if (sponsor) {
+    $('sponsorId').value = sponsor.id;
+    $('sponsorName').value = sponsor.name || '';
+    $('sponsorRelationship').value = normalizeRelation(sponsor.relationshipType);
+    $('sponsorStage').value = normalizeStage(sponsor.stage, sponsor.status);
+    $('sponsorContact').value = sponsor.contactName || '';
+    $('sponsorPhone').value = sponsor.phone || '';
+    $('sponsorEmail').value = sponsor.email || '';
+    $('sponsorPotential').value = sponsor.potentialValue ?? '';
+    $('sponsorNextAction').value = sponsor.nextAction || '';
+    $('sponsorNextDate').value = toDateInput(sponsor.nextActionAt);
+    $('sponsorNotes').value = sponsor.notes || '';
+    $('sponsorModalTitle').textContent = 'Editar marca';
+    $('saveSponsor').textContent = 'Guardar cambios';
+  }
+  openModal('sponsorModal');
+}
+
+async function saveSponsor(event) {
+  event.preventDefault();
+  message('sponsorMessage');
+  const button = $('saveSponsor');
+  button.disabled = true;
+  try {
+    const relationship = $('sponsorRelationship').value;
+    const stage = $('sponsorStage').value;
+    const id = await rpc('v2_upsert_sponsor_admin', {
+      organization_id: ctx.organization_id,
+      sponsor_id: $('sponsorId').value || null,
+      name: $('sponsorName').value.trim(),
+      sponsor_type: RELATIONSHIPS[relationship],
+      contact_name: $('sponsorContact').value.trim() || null,
+      phone: $('sponsorPhone').value.trim() || null,
+      email: $('sponsorEmail').value.trim() || null,
+      status: statusFromStage(stage),
+      tier: null,
+      relationship_type: relationship,
+      stage,
+      potential_value: $('sponsorPotential').value === '' ? null : Number($('sponsorPotential').value),
+      next_action: $('sponsorNextAction').value.trim() || null,
+      next_action_at: dateToIso($('sponsorNextDate').value),
+      notes: $('sponsorNotes').value.trim() || null,
+    });
+    closeModal();
+    await load();
+    openBrand(id);
+  } catch (error) {
+    message('sponsorMessage', friendly(error));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderBeneficiaries() {
+  $('beneficiaryOptions').innerHTML = Object.entries(BENEFICIARIES).map(([code, label]) => (
+    '<label><input type="checkbox" name="beneficiary" value="' + code + '"><span>' + esc(label) + '</span></label>'
+  )).join('');
+}
+
+function resetAgreementForm() {
+  $('agreementForm').reset();
+  $('agreementId').value = '';
+  $('agreementStatus').value = 'draft';
+  $('agreementModalTitle').textContent = 'Nuevo acuerdo';
+  $('receivedItems').innerHTML = '';
+  $('givenItems').innerHTML = '';
+  addItemRow('receive');
+  addItemRow('give');
+  message('agreementMessage');
+}
+
+function openAgreementForm(agreement = null) {
+  if (!canWrite || !selectedSponsorId) return;
+  const sponsor = sponsorById(selectedSponsorId);
+  resetAgreementForm();
+  $('agreementSponsorId').value = sponsor.id;
+  $('agreementBrandName').textContent = sponsor.name;
+  $('benefitFields').classList.toggle('hidden', normalizeRelation(sponsor.relationshipType) !== 'benefit_agreement');
+  if (agreement) {
+    $('agreementId').value = agreement.id;
+    $('agreementStatus').value = agreement.status || 'draft';
+    $('agreementValue').value = agreement.monetaryValue ?? '';
+    $('agreementStart').value = agreement.startsOn || '';
+    $('agreementEnd').value = agreement.endsOn || '';
+    $('agreementBenefit').value = agreement.benefit || '';
+    $('agreementDiscount').value = agreement.discountPercent ?? '';
+    $('agreementRedemption').value = agreement.redemptionInstructions || '';
+    const beneficiaries = Array.isArray(agreement.beneficiaries) ? agreement.beneficiaries : [];
+    document.querySelectorAll('[name="beneficiary"]').forEach((input) => {
+      input.checked = beneficiaries.includes(input.value);
+    });
+    $('agreementNotes').value = agreement.notes || '';
+    $('receivedItems').innerHTML = '';
+    $('givenItems').innerHTML = '';
+    let received = itemsForAgreement(agreement.id).filter((item) => item.direction === 'receive');
+    let given = itemsForAgreement(agreement.id).filter((item) => item.direction === 'give');
+    if (!received.length && Array.isArray(agreement.benefitsReceived)) {
+      received = agreement.benefitsReceived.map((description) => ({ type: 'other', description }));
+    }
+    if (!received.length && agreement.monetaryValue != null && Number(agreement.monetaryValue) > 0) {
+      received = [{ type: 'money', description: 'Aportación económica', estimatedValue: agreement.monetaryValue }];
+    }
+    if (!given.length && Array.isArray(agreement.deliverables)) {
+      given = agreement.deliverables.map((description) => ({ type: 'other', description }));
+    }
+    received.forEach((item) => addItemRow('receive', item));
+    given.forEach((item) => addItemRow('give', item));
+    $('agreementModalTitle').textContent = 'Editar acuerdo';
+  }
+  openModal('agreementModal');
+}
+
+function typeOptions(direction, selected) {
+  const options = direction === 'receive' ? RECEIVE_TYPES : GIVE_TYPES;
+  return Object.entries(options).map(([value, label]) => (
+    '<option value="' + value + '" ' + (selected === value ? 'selected' : '') + '>' + esc(label) + '</option>'
+  )).join('');
+}
+
+function assetOptions(selected) {
+  return '<option value="">Sin Activo Tanner</option>' + assets.map((asset) => (
+    '<option value="' + esc(asset.id) + '" ' + (selected === asset.id ? 'selected' : '') + '>' +
+    esc(asset.name) + ' · ' + esc(ASSET_AVAILABILITY[asset.availability] || '') + '</option>'
+  )).join('');
+}
+
+function addItemRow(direction, item = {}) {
+  const container = direction === 'receive' ? $('receivedItems') : $('givenItems');
+  const row = document.createElement('article');
+  row.className = 'item-editor';
+  const defaultType = item.type || (direction === 'receive' ? 'money' : 'advertising');
+  row.innerHTML =
+    '<div class="item-editor-head"><strong>Elemento</strong><button class="remove-item" type="button" aria-label="Quitar elemento">Quitar</button></div>' +
+    '<div class="item-editor-grid">' +
+      '<label>Tipo<select class="item-type">' + typeOptions(direction, defaultType) + '</select></label>' +
+      '<label class="item-description-label">Descripción<input class="item-description" maxlength="500" required value="' + esc(item.description || '') + '" placeholder="' + (direction === 'receive' ? 'Ej. 30 jerseys' : 'Ej. Reel mensual') + '"></label>' +
+      '<label>Cantidad <span class="optional">opcional</span><input class="item-quantity" type="number" min="0" step="0.01" value="' + (item.quantity ?? '') + '" inputmode="decimal"></label>' +
+      '<label>Unidad <span class="optional">opcional</span><input class="item-unit" maxlength="60" value="' + esc(item.unit || '') + '" placeholder="piezas, meses…"></label>' +
+      '<label>Valor estimado <span class="optional">opcional</span><input class="item-value" type="number" min="0" step="0.01" value="' + (item.estimatedValue ?? '') + '" inputmode="decimal"></label>' +
+      (direction === 'give' ? '<label>Activo Tanner <span class="optional">opcional</span><select class="item-asset">' + assetOptions(item.assetId || '') + '</select></label>' : '') +
+    '</div>' +
+    '<label class="item-done"><input class="item-fulfilled" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + '><span>' +
+    (direction === 'receive' ? 'Ya lo recibimos' : 'Ya lo entregamos') + '</span></label>';
+  row.querySelector('.remove-item').addEventListener('click', () => row.remove());
+  if (direction === 'give') {
+    row.querySelector('.item-asset').addEventListener('change', (event) => {
+      const asset = assetById(event.target.value);
+      if (!asset) return;
+      row.querySelector('.item-type').value = 'tanner_asset';
+      if (!row.querySelector('.item-description').value.trim()) row.querySelector('.item-description').value = asset.name;
+      if (!row.querySelector('.item-value').value && asset.price != null) row.querySelector('.item-value').value = asset.price;
+    });
+  }
+  container.appendChild(row);
+}
+
+function collectItems(direction) {
+  const container = direction === 'receive' ? $('receivedItems') : $('givenItems');
+  return [...container.querySelectorAll('.item-editor')].map((row) => ({
+    type: row.querySelector('.item-type').value,
+    description: row.querySelector('.item-description').value.trim(),
+    quantity: row.querySelector('.item-quantity').value === '' ? null : Number(row.querySelector('.item-quantity').value),
+    unit: row.querySelector('.item-unit').value.trim() || null,
+    estimatedValue: row.querySelector('.item-value').value === '' ? null : Number(row.querySelector('.item-value').value),
+    assetId: row.querySelector('.item-asset')?.value || null,
+    fulfilled: row.querySelector('.item-fulfilled').checked,
+  }));
+}
+
+async function saveAgreement(event) {
+  event.preventDefault();
+  message('agreementMessage');
+  const button = $('saveAgreement');
+  button.disabled = true;
+  try {
+    const received = collectItems('receive');
+    const given = collectItems('give');
+    const calculatedValue = received.reduce((sum, item) => sum + Number(item.estimatedValue || 0), 0);
+    await rpc('v2_save_sponsor_agreement', {
+      organization_id: ctx.organization_id,
+      agreement_id: $('agreementId').value || null,
+      sponsor_id: $('agreementSponsorId').value,
+      starts_on: $('agreementStart').value || null,
+      ends_on: $('agreementEnd').value || null,
+      agreement_value: $('agreementValue').value === '' ? (calculatedValue || null) : Number($('agreementValue').value),
+      status: $('agreementStatus').value,
+      notes: $('agreementNotes').value.trim() || null,
+      benefit: $('agreementBenefit').value.trim() || null,
+      discount_percent: $('agreementDiscount').value === '' ? null : Number($('agreementDiscount').value),
+      beneficiaries: [...document.querySelectorAll('[name="beneficiary"]:checked')].map((input) => input.value),
+      redemption_instructions: $('agreementRedemption').value.trim() || null,
+      received_items: received,
+      given_items: given,
+    });
+    closeModal();
+    await load();
+    switchDrawerView('brand-agreement');
+  } catch (error) {
+    message('agreementMessage', friendly(error));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function setFulfillment(input) {
+  input.disabled = true;
+  try {
+    await rpc('v2_set_sponsor_item_fulfillment', {
+      organization_id: ctx.organization_id,
+      item_id: input.dataset.itemId,
+      fulfilled: input.checked,
+    });
+    await load();
+  } catch (error) {
+    input.checked = !input.checked;
+    alert(friendly(error));
+  } finally {
+    input.disabled = !canWrite;
+  }
+}
+
+function resetAssetForm() {
+  $('assetForm').reset();
+  $('assetId').value = '';
+  $('assetCategory').value = 'digital';
+  $('assetAvailability').value = 'available';
+  $('assetModalTitle').textContent = 'Agregar Activo Tanner';
+  $('saveAsset').textContent = 'Guardar activo';
+  $('archiveAsset').classList.add('hidden');
+  message('assetMessage');
+}
+
+function openAssetForm(asset = null) {
+  if (!canWrite) return;
+  resetAssetForm();
+  if (asset) {
+    $('assetId').value = asset.id;
+    $('assetName').value = asset.name || '';
+    $('assetCategory').value = ASSET_CATEGORIES[asset.category] ? asset.category : 'other';
+    $('assetAvailability').value = ASSET_AVAILABILITY[asset.availability] ? asset.availability : 'available';
+    $('assetPrice').value = asset.price ?? '';
+    $('assetDescription').value = asset.description || '';
+    $('assetModalTitle').textContent = 'Editar Activo Tanner';
+    $('saveAsset').textContent = 'Guardar cambios';
+    $('archiveAsset').classList.remove('hidden');
+  }
+  openModal('assetModal');
+}
+
+async function saveAsset(event) {
+  event.preventDefault();
+  message('assetMessage');
+  const button = $('saveAsset');
+  button.disabled = true;
+  try {
+    await rpc('v2_upsert_sponsor_asset_admin', {
+      organization_id: ctx.organization_id,
+      asset_id: $('assetId').value || null,
+      name: $('assetName').value.trim(),
+      category: $('assetCategory').value,
+      price: $('assetPrice').value === '' ? null : Number($('assetPrice').value),
+      description: $('assetDescription').value.trim() || null,
+      availability: $('assetAvailability').value,
+    });
+    closeModal();
+    await load();
+    switchView('assets');
+  } catch (error) {
+    message('assetMessage', friendly(error));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function archiveAsset() {
+  const id = $('assetId').value;
+  if (!id || !confirm('¿Retirar este activo del inventario disponible? Los acuerdos anteriores conservarán su historial.')) return;
+  $('archiveAsset').disabled = true;
+  try {
+    await rpc('v2_archive_sponsor_asset_admin', { organization_id: ctx.organization_id, asset_id: id });
+    closeModal();
+    await load();
+  } catch (error) {
+    message('assetMessage', friendly(error));
+  } finally {
+    $('archiveAsset').disabled = false;
+  }
+}
+
+function openMovementForm() {
+  if (!canWrite || !selectedSponsorId) return;
+  const sponsor = sponsorById(selectedSponsorId);
+  $('movementForm').reset();
+  $('movementBrandName').textContent = sponsor.name;
+  $('movementNextAction').value = sponsor.nextAction || '';
+  $('movementNextDate').value = toDateInput(sponsor.nextActionAt);
+  message('movementMessage');
+  openModal('movementModal');
+}
+
+async function saveMovement(event) {
+  event.preventDefault();
+  message('movementMessage');
+  const button = $('saveMovement');
+  button.disabled = true;
+  try {
+    await rpc('v2_register_sponsor_movement', {
+      organization_id: ctx.organization_id,
+      sponsor_id: selectedSponsorId,
+      movement_type: $('movementType').value,
+      result: $('movementResult').value.trim(),
+      next_action: $('movementNextAction').value.trim() || null,
+      next_action_at: dateToIso($('movementNextDate').value),
+    });
+    closeModal();
+    await load();
+    switchDrawerView('brand-followup');
+  } catch (error) {
+    message('movementMessage', friendly(error));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.querySelectorAll('.module-nav [data-view]').forEach((button) => {
+  button.addEventListener('click', () => switchView(button.dataset.view));
+});
+document.querySelectorAll('[data-drawer-view]').forEach((button) => {
+  button.addEventListener('click', () => switchDrawerView(button.dataset.drawerView));
+});
+document.querySelectorAll('.open-new-sponsor').forEach((button) => button.addEventListener('click', () => openSponsorForm()));
+document.querySelectorAll('.open-new-asset').forEach((button) => button.addEventListener('click', () => openAssetForm()));
+document.querySelectorAll('.close-workspace-modal').forEach((button) => button.addEventListener('click', closeModal));
+
+$('newSponsorButton').addEventListener('click', () => openSponsorForm());
+$('newAssetButton').addEventListener('click', () => openAssetForm());
+$('editSponsorButton').addEventListener('click', () => openSponsorForm(sponsorById(selectedSponsorId)));
+$('closeBrandDrawer').addEventListener('click', closeBrand);
+$('newAgreementButton').addEventListener('click', () => openAgreementForm());
+$('newMovementButton').addEventListener('click', openMovementForm);
+$('addReceivedItem').addEventListener('click', () => addItemRow('receive'));
+$('addGivenItem').addEventListener('click', () => addItemRow('give'));
+$('brandSearch').addEventListener('input', renderBrands);
+$('sponsorForm').addEventListener('submit', saveSponsor);
+$('agreementForm').addEventListener('submit', saveAgreement);
+$('assetForm').addEventListener('submit', saveAsset);
+$('movementForm').addEventListener('submit', saveMovement);
+$('archiveAsset').addEventListener('click', archiveAsset);
+$('backdrop').addEventListener('click', () => {
+  if (document.querySelector('.workspace-modal:not(.hidden)')) closeModal();
+  else closeBrand();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (document.querySelector('.workspace-modal:not(.hidden)')) closeModal();
+  else if (!$('brandDrawer').classList.contains('hidden')) closeBrand();
+});
+
+boot().catch((error) => {
+  $('deniedText').textContent = friendly(error) || 'No pudimos abrir Patrocinios.';
+  show('deniedView');
+});

@@ -11,7 +11,7 @@ const cards=[
   {module:'qa',name:'Calidad',desc:'Smoke, pruebas críticas, regresión, seguridad, integridad e historial de fallas.',href:'/qa/'},
   {module:'accounting',name:'Contabilidad',desc:'Egresos y trazabilidad contable.',href:'/contabilidad/'},
   {module:'calendar',name:'Calendario',desc:'Agenda unificada del club.',href:'/calendario/'},
-  {module:'sponsors',name:'Patrocinadores',desc:'Seguimiento y convenios comerciales.',href:'/patrocinadores/'},
+  {module:'sponsors',name:'Patrocinios',desc:'Marcas, acuerdos, beneficios y renovaciones.',href:'/patrocinadores/'},
   {module:'commerce',name:'Pedidos y producción',desc:'Órdenes, cortes y garantías.',href:'/pedidos/'},
   {module:'equipment',name:'Utilería',desc:'Inventario y asignaciones.',href:'/utileria/'}
 ];

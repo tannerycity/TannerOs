@@ -1,1 +1,301 @@
-<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Patrocinadores · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/patrocinadores/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260823a"><link rel="stylesheet" href="/polish.css?v=20260823a"></head><body><main class="shell"><section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Patrocinadores</h2><p class="muted">Conectando…</p></section><section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2/modulos/">Volver</a></section><section id="view" class="hidden app-wrap"><header class="topbar"><div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div><div class="top-actions"><a class="secondary mini nav-link" href="/v2/modulos/">Módulos</a><span id="roleBadge" class="role-badge"></span></div></header><section class="hero"><div><div class="eyebrow">COMERCIAL · PATROCINADORES</div><h1>Patrocinadores</h1><p class="muted">Seguimiento, convenios, beneficios, compromisos y renovaciones.</p></div><span class="health"><i></i> Información actualizada</span></section><section class="kpis compact-kpis"><article><span>Activos</span><strong id="kpiActive">0</strong></article><article><span>Negociación</span><strong id="kpiNegotiation">0</strong></article><article><span>Convenios activos</span><strong id="kpiAgreements">0</strong></article><article><span>Valor potencial</span><strong id="kpiPotential">$0</strong></article></section><section class="sponsor-grid"><article class="panel"><div class="panel-head"><div><div class="eyebrow">RELACIÓN</div><h2 id="sponsorFormTitle">Nuevo patrocinador</h2></div><button id="cancelSponsorEdit" class="secondary mini hidden" type="button">Cancelar edición</button></div><form id="sponsorForm" class="form-grid"><input id="sponsorId" type="hidden"><label>Marca / empresa<input id="sponsorName" minlength="2" maxlength="160" required></label><label>Estatus<select id="sponsorStatus"><option value="prospect">Prospecto</option><option value="negotiation">Negociación</option><option value="active">Activo</option><option value="archived">Archivado</option></select></label><label>Nivel<input id="sponsorTier" maxlength="80" placeholder="Gold, Silver…"></label><label>Tipo<input id="sponsorType" maxlength="80" placeholder="Comercial, intercambio…"></label><label>Contacto<input id="sponsorContact" maxlength="120"></label><label>Teléfono<input id="sponsorPhone" inputmode="tel" maxlength="24" placeholder="4771234567 o +52…"></label><label>Correo<input id="sponsorEmail" type="email" maxlength="254"></label><label>Valor potencial<input id="sponsorPotential" type="number" min="0" step="0.01"></label><label>Etapa<input id="sponsorStage" maxlength="100" placeholder="Contacto, propuesta, cierre…"></label><label>Tipo de relación<input id="sponsorRelationship" maxlength="120"></label><label>Próximo movimiento<input id="sponsorNextAction" maxlength="200"></label><label>Fecha próxima acción<input id="sponsorNextDate" type="datetime-local"></label><label class="span-2">Notas<textarea id="sponsorNotes" rows="3" maxlength="1500"></textarea></label><button id="saveSponsor" class="primary span-2" type="submit">Guardar patrocinador</button><div id="sponsorMessage" class="inline-message hidden span-2"></div></form></article><article class="panel"><div class="panel-head"><div><div class="eyebrow">CONVENIO</div><h2 id="agreementFormTitle">Nuevo acuerdo</h2></div><button id="cancelAgreementEdit" class="secondary mini hidden" type="button">Cancelar edición</button></div><form id="agreementForm" class="form-grid"><input id="agreementId" type="hidden"><label class="span-2">Patrocinador<select id="agreementSponsor" required><option value="">Selecciona</option></select></label><label>Inicio<input id="agreementStart" type="date"></label><label>Fin<input id="agreementEnd" type="date"></label><label>Valor monetario<input id="agreementValue" type="number" min="0" step="0.01"></label><label>Estatus<select id="agreementStatus"><option value="draft">Borrador</option><option value="active">Activo</option><option value="completed">Completado</option></select></label><label class="span-2">Derechos / activos recibidos<textarea id="agreementBenefits" rows="3" placeholder="Uno por línea"></textarea></label><label class="span-2">Entregables del club<textarea id="agreementDeliverables" rows="3" placeholder="Uno por línea"></textarea></label><label class="span-2">Notas<input id="agreementNotes" maxlength="1000"></label><button id="saveAgreement" class="primary span-2" type="submit">Guardar acuerdo</button><div id="agreementMessage" class="inline-message hidden span-2"></div></form></article></section><section class="panel"><div class="panel-head"><div><div class="eyebrow">SEGUIMIENTO</div><h2>Patrocinadores</h2></div><button id="refresh" class="secondary mini" type="button">Actualizar</button></div><div id="sponsorList" class="sponsor-list"></div><div id="empty" class="empty hidden">Aún no hay patrocinadores.</div></section><section class="panel"><div class="panel-head"><div><div class="eyebrow">HISTORIAL</div><h2>Convenios</h2></div></div><div id="agreementList" class="agreement-list"></div><div id="agreementsEmpty" class="empty hidden">Aún no hay convenios.</div></section></section></main><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/patrocinadores/app.js"></script></body></html>
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07191e">
+  <title>Patrocinios · TannerOS</title>
+  <link rel="stylesheet" href="/v2/styles.css">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="stylesheet" href="/icons.css?v=20260823a">
+  <link rel="stylesheet" href="/polish.css?v=20260823a">
+</head>
+<body>
+<main class="shell">
+  <section id="loadingView" class="center-card">
+    <div class="brand-mark small">T</div>
+    <h2>Patrocinios</h2>
+    <p class="muted">Preparando las relaciones comerciales…</p>
+  </section>
+
+  <section id="deniedView" class="center-card hidden">
+    <div class="brand-mark small">T</div>
+    <h2>Sin acceso</h2>
+    <p id="deniedText" class="muted"></p>
+    <a class="secondary nav-link" href="/modulos/">Volver</a>
+  </section>
+
+  <section id="view" class="hidden app-wrap sponsorship-app">
+    <header class="topbar">
+      <div class="brand-lockup compact">
+        <div class="brand-mark small">T</div>
+        <div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div>
+      </div>
+      <div class="top-actions">
+        <a class="secondary mini nav-link" href="/modulos/">Módulos</a>
+        <span id="roleBadge" class="role-badge"></span>
+      </div>
+    </header>
+
+    <section class="hero sponsorship-hero">
+      <div>
+        <div class="eyebrow">RELACIONES QUE HACEN CRECER AL CLUB</div>
+        <h1>Patrocinios</h1>
+        <p class="muted">Patrocinios, alianzas, intercambios y beneficios en un solo lugar.</p>
+      </div>
+      <button id="newSponsorButton" class="primary hero-primary write-only" type="button">+ Nueva marca</button>
+    </section>
+
+    <section class="kpis sponsorship-kpis" aria-label="Indicadores de patrocinios">
+      <article><span>Acuerdos activos</span><strong id="kpiActiveAgreements">0</strong></article>
+      <article><span>Valor recibido</span><strong id="kpiReceivedValue">$0</strong></article>
+      <article><span>Marcas en juego</span><strong id="kpiPlaying">0</strong></article>
+      <article><span>Por cerrar</span><strong id="kpiClosing">0</strong></article>
+      <article><span>Por renovar</span><strong id="kpiRenewals">0</strong></article>
+    </section>
+
+    <nav class="module-nav" aria-label="Secciones de Patrocinios">
+      <button class="active" data-view="summary" type="button">Resumen</button>
+      <button data-view="route" type="button">Ruta de marcas</button>
+      <button data-view="brands" type="button">Marcas y aliados</button>
+      <button data-view="assets" type="button">Activos Tanner</button>
+    </nav>
+
+    <section id="summaryView" class="module-view">
+      <div class="summary-grid">
+        <article class="panel next-panel">
+          <div class="panel-head">
+            <div><div class="eyebrow">PRIORIDAD COMERCIAL</div><h2>Lo que sigue</h2></div>
+            <span id="nextCount" class="count-badge">0</span>
+          </div>
+          <div id="nextList" class="next-list"></div>
+          <div id="nextEmpty" class="empty-state hidden">
+            <strong>Todo está al día</strong>
+            <span>Las próximas acciones y renovaciones aparecerán aquí.</span>
+          </div>
+        </article>
+
+        <article class="panel active-panel">
+          <div class="panel-head">
+            <div><div class="eyebrow">RELACIONES VIGENTES</div><h2>Acuerdos activos</h2></div>
+          </div>
+          <div id="activeList" class="compact-brand-list"></div>
+          <div id="activeEmpty" class="empty-state hidden">
+            <strong>Aún no hay acuerdos activos</strong>
+            <span>Cuando una relación llegue a Activo se mostrará aquí.</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="routeView" class="module-view hidden">
+      <article class="panel">
+        <div class="panel-head route-head">
+          <div><div class="eyebrow">RUTA COMERCIAL</div><h2>¿En qué momento está cada marca?</h2></div>
+          <span id="routeResultCount" class="muted tiny"></span>
+        </div>
+        <div id="stageRail" class="stage-rail" aria-label="Filtrar por etapa"></div>
+        <div id="routeList" class="brand-grid"></div>
+        <div id="routeEmpty" class="empty-state hidden">
+          <strong>No hay marcas en esta etapa</strong>
+          <span>Elige otra etapa o registra una nueva marca.</span>
+        </div>
+      </article>
+    </section>
+
+    <section id="brandsView" class="module-view hidden">
+      <article class="panel">
+        <div class="panel-head brands-head">
+          <div><div class="eyebrow">DIRECTORIO COMERCIAL</div><h2>Marcas y aliados</h2></div>
+          <label class="search-field" aria-label="Buscar marcas">
+            <input id="brandSearch" type="search" placeholder="Buscar marca, contacto o tipo…">
+          </label>
+        </div>
+        <div id="brandList" class="brand-grid"></div>
+        <div id="brandEmpty" class="empty-state hidden">
+          <strong>Aún no hay marcas</strong>
+          <span>Registra la primera relación comercial del club.</span>
+          <button class="primary write-only open-new-sponsor" type="button">Nueva marca</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="assetsView" class="module-view hidden">
+      <article class="panel">
+        <div class="panel-head assets-head">
+          <div>
+            <div class="eyebrow">LO QUE TANNERY CITY PUEDE OFRECER</div>
+            <h2>Activos Tanner</h2>
+            <p class="muted section-copy">Crea solamente los espacios, contenidos y beneficios que realmente puedas ofrecer.</p>
+          </div>
+          <button id="newAssetButton" class="secondary write-only" type="button">+ Agregar activo</button>
+        </div>
+        <div id="assetList" class="asset-grid"></div>
+        <div id="assetEmpty" class="empty-state asset-empty hidden">
+          <div class="empty-icon">T</div>
+          <strong>Tu inventario comienza aquí</strong>
+          <span>No precargamos activos. Agrega únicamente lo que Tannery City tenga disponible.</span>
+          <button class="primary write-only open-new-asset" type="button">Agregar primer activo</button>
+        </div>
+      </article>
+    </section>
+  </section>
+</main>
+
+<div id="backdrop" class="workspace-backdrop hidden"></div>
+
+<aside id="brandDrawer" class="brand-drawer hidden" aria-hidden="true" aria-labelledby="drawerBrandName">
+  <div class="drawer-head sponsor-drawer-head">
+    <div class="brand-identity">
+      <div id="drawerMonogram" class="brand-monogram">T</div>
+      <div>
+        <div id="drawerRelationship" class="eyebrow">PATROCINIO</div>
+        <h2 id="drawerBrandName">Marca</h2>
+        <div class="drawer-chips"><span id="drawerStage" class="stage-chip"></span><span id="drawerFollowup" class="followup-chip"></span></div>
+      </div>
+    </div>
+    <div class="drawer-actions">
+      <button id="editSponsorButton" class="secondary mini write-only" type="button">Editar</button>
+      <button id="closeBrandDrawer" class="secondary mini" type="button" aria-label="Cerrar ficha">Cerrar</button>
+    </div>
+  </div>
+
+  <nav class="drawer-nav" aria-label="Ficha de marca">
+    <button class="active" data-drawer-view="brand-summary" type="button">Resumen</button>
+    <button data-drawer-view="brand-agreement" type="button">Acuerdo</button>
+    <button data-drawer-view="brand-assets" type="button">Activos</button>
+    <button data-drawer-view="brand-followup" type="button">Seguimiento</button>
+  </nav>
+
+  <section id="brandSummaryPanel" class="drawer-panel"><div id="brandSummaryBody"></div></section>
+
+  <section id="brandAgreementPanel" class="drawer-panel hidden">
+    <div class="drawer-section-head">
+      <div><div class="eyebrow">QUÉ RECIBIMOS Y QUÉ DAMOS</div><h3>Acuerdos</h3></div>
+      <button id="newAgreementButton" class="secondary mini write-only" type="button">+ Agregar acuerdo</button>
+    </div>
+    <div id="brandAgreementList" class="agreement-stack"></div>
+    <div id="brandAgreementEmpty" class="empty-state hidden"><strong>Sin acuerdo capturado</strong><span>Agrega lo esencial cuando la relación avance.</span></div>
+  </section>
+
+  <section id="brandAssetsPanel" class="drawer-panel hidden">
+    <div class="drawer-section-head">
+      <div><div class="eyebrow">CUMPLIMIENTO</div><h3>Compromisos del acuerdo</h3></div>
+      <span id="commitmentProgress" class="progress-badge">0 de 0</span>
+    </div>
+    <div id="commitmentList" class="commitment-groups"></div>
+    <div id="commitmentEmpty" class="empty-state hidden"><strong>Sin compromisos</strong><span>Los elementos de “qué recibimos” y “qué damos” aparecerán aquí.</span></div>
+  </section>
+
+  <section id="brandFollowupPanel" class="drawer-panel hidden">
+    <div class="drawer-section-head">
+      <div><div class="eyebrow">HISTORIAL COMERCIAL</div><h3>Seguimiento</h3></div>
+      <button id="newMovementButton" class="secondary mini write-only" type="button">Registrar movimiento</button>
+    </div>
+    <div id="movementList" class="timeline"></div>
+    <div id="movementEmpty" class="empty-state hidden"><strong>Sin movimientos registrados</strong><span>Las llamadas, mensajes y reuniones quedarán ordenadas aquí.</span></div>
+  </section>
+</aside>
+
+<section id="sponsorModal" class="workspace-modal hidden" role="dialog" aria-modal="true" aria-labelledby="sponsorModalTitle">
+  <div class="modal-head">
+    <div><div class="eyebrow">MARCA / ORGANIZACIÓN</div><h2 id="sponsorModalTitle">Nueva marca</h2></div>
+    <button class="secondary mini close-workspace-modal" type="button">Cerrar</button>
+  </div>
+  <p class="muted modal-intro">Guarda lo esencial. El acuerdo y los activos se agregan después.</p>
+  <form id="sponsorForm" class="form-grid">
+    <input id="sponsorId" type="hidden">
+    <label class="span-2">Marca / organización<input id="sponsorName" minlength="2" maxlength="160" required autocomplete="organization"></label>
+    <label>Tipo de relación<select id="sponsorRelationship" required>
+      <option value="sponsorship">Patrocinio</option><option value="commercial_alliance">Alianza comercial</option>
+      <option value="exchange">Intercambio</option><option value="benefit_agreement">Convenio / beneficio</option>
+    </select></label>
+    <label>Etapa<select id="sponsorStage" required>
+      <option value="radar">En radar</option><option value="contacted">Contactado</option><option value="talking">En plática</option>
+      <option value="agreement">Acuerdo</option><option value="closing">Por cerrar</option><option value="active">Activo</option>
+      <option value="paused">Pausado</option><option value="lost">No se cerró</option><option value="finished">Finalizado</option>
+    </select></label>
+    <label>Contacto<input id="sponsorContact" maxlength="120" autocomplete="name"></label>
+    <label>Teléfono / WhatsApp<input id="sponsorPhone" inputmode="tel" maxlength="24" autocomplete="tel"></label>
+    <label>Email<input id="sponsorEmail" type="email" maxlength="254" autocomplete="email"></label>
+    <label>Valor potencial <span class="optional">opcional</span><input id="sponsorPotential" type="number" min="0" step="0.01" inputmode="decimal"></label>
+    <label>Próximo movimiento<input id="sponsorNextAction" maxlength="200" placeholder="Ej. Enviar propuesta"></label>
+    <label>Fecha<input id="sponsorNextDate" type="date"></label>
+    <label class="span-2">Nota<textarea id="sponsorNotes" rows="3" maxlength="1500" placeholder="Contexto breve de la relación"></textarea></label>
+    <button id="saveSponsor" class="primary span-2" type="submit">Guardar marca</button>
+    <div id="sponsorMessage" class="inline-message hidden span-2"></div>
+  </form>
+</section>
+
+<section id="agreementModal" class="workspace-modal agreement-modal hidden" role="dialog" aria-modal="true" aria-labelledby="agreementModalTitle">
+  <div class="modal-head">
+    <div><div class="eyebrow">ACUERDO</div><h2 id="agreementModalTitle">Nuevo acuerdo</h2><p id="agreementBrandName" class="muted modal-subtitle"></p></div>
+    <button class="secondary mini close-workspace-modal" type="button">Cerrar</button>
+  </div>
+  <form id="agreementForm">
+    <input id="agreementId" type="hidden"><input id="agreementSponsorId" type="hidden">
+    <div class="form-grid agreement-basics">
+      <label>Estado<select id="agreementStatus"><option value="draft">Borrador</option><option value="active">Activo</option><option value="completed">Finalizado</option><option value="cancelled">Cancelado</option></select></label>
+      <label>Valor del acuerdo <span class="optional">opcional</span><input id="agreementValue" type="number" min="0" step="0.01" inputmode="decimal"></label>
+      <label>Inicio<input id="agreementStart" type="date"></label><label>Fin<input id="agreementEnd" type="date"></label>
+    </div>
+
+    <section id="benefitFields" class="benefit-fields hidden">
+      <div><div class="eyebrow">DATOS DEL CONVENIO</div><h3>Beneficio para la comunidad</h3></div>
+      <div class="form-grid">
+        <label class="span-2">Beneficio<input id="agreementBenefit" maxlength="300" placeholder="Ej. Descuento mostrando credencial Tanner"></label>
+        <label>Porcentaje de descuento<input id="agreementDiscount" type="number" min="0" max="100" step="0.01" inputmode="decimal"></label>
+        <label>Cómo utilizarlo<input id="agreementRedemption" maxlength="500" placeholder="Ej. Mostrar credencial"></label>
+        <fieldset class="span-2 beneficiary-fieldset"><legend>Beneficiarios</legend><div id="beneficiaryOptions" class="check-grid"></div></fieldset>
+      </div>
+    </section>
+
+    <div class="exchange-grid">
+      <section class="exchange-panel receive-panel">
+        <div class="exchange-head"><div><div class="eyebrow">QUÉ RECIBIMOS</div><h3>Valor para Tanner</h3></div><button id="addReceivedItem" class="secondary mini" type="button">+ Agregar</button></div>
+        <div id="receivedItems" class="item-editor-list"></div>
+      </section>
+      <section class="exchange-panel give-panel">
+        <div class="exchange-head"><div><div class="eyebrow">QUÉ DAMOS</div><h3>Compromisos del club</h3></div><button id="addGivenItem" class="secondary mini" type="button">+ Agregar</button></div>
+        <div id="givenItems" class="item-editor-list"></div>
+      </section>
+    </div>
+    <label>Nota del acuerdo<textarea id="agreementNotes" rows="3" maxlength="1000"></textarea></label>
+    <button id="saveAgreement" class="primary full-button" type="submit">Guardar acuerdo</button>
+    <div id="agreementMessage" class="inline-message hidden"></div>
+  </form>
+</section>
+
+<section id="assetModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="assetModalTitle">
+  <div class="modal-head"><div><div class="eyebrow">INVENTARIO COMERCIAL</div><h2 id="assetModalTitle">Agregar Activo Tanner</h2></div><button class="secondary mini close-workspace-modal" type="button">Cerrar</button></div>
+  <form id="assetForm" class="form-grid">
+    <input id="assetId" type="hidden">
+    <label class="span-2">Nombre<input id="assetName" minlength="2" maxlength="160" required></label>
+    <label>Categoría<select id="assetCategory"><option value="digital">Digital</option><option value="park">Tannery City Park</option><option value="uniforms">Uniformes</option><option value="sports">Deportivo</option><option value="content">Contenido</option><option value="other">Otros</option></select></label>
+    <label>Disponibilidad<select id="assetAvailability"><option value="available">Disponible</option><option value="partial">Parcial</option><option value="occupied">Ocupado</option></select></label>
+    <label class="span-2">Precio de referencia <span class="optional">opcional</span><input id="assetPrice" type="number" min="0" step="0.01" inputmode="decimal"></label>
+    <label class="span-2">Descripción <span class="optional">opcional</span><textarea id="assetDescription" rows="3" maxlength="500"></textarea></label>
+    <button id="saveAsset" class="primary span-2" type="submit">Guardar activo</button>
+    <button id="archiveAsset" class="text-danger span-2 hidden" type="button">Retirar del inventario</button>
+    <div id="assetMessage" class="inline-message hidden span-2"></div>
+  </form>
+</section>
+
+<section id="movementModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="movementModalTitle">
+  <div class="modal-head"><div><div class="eyebrow">SEGUIMIENTO</div><h2 id="movementModalTitle">Registrar movimiento</h2><p id="movementBrandName" class="muted modal-subtitle"></p></div><button class="secondary mini close-workspace-modal" type="button">Cerrar</button></div>
+  <form id="movementForm" class="form-grid">
+    <label>Tipo<select id="movementType"><option value="call">Llamada</option><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="meeting">Reunión</option><option value="note">Nota</option></select></label>
+    <label class="span-2">Resultado<textarea id="movementResult" rows="3" minlength="2" maxlength="2000" required placeholder="¿Qué pasó?"></textarea></label>
+    <label>Próximo movimiento<input id="movementNextAction" maxlength="200" placeholder="Ej. Enviar propuesta"></label>
+    <label>Fecha<input id="movementNextDate" type="date"></label>
+    <button id="saveMovement" class="primary span-2" type="submit">Guardar movimiento</button>
+    <div id="movementMessage" class="inline-message hidden span-2"></div>
+  </form>
+</section>
+
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/patrocinadores/app.js"></script>
+</body>
+</html>

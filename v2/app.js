@@ -34,7 +34,7 @@ const moduleLinks=[
   {codes:['calendario'],label:'Calendario',href:'/calendario/'},
   {codes:['callups','convocatoria'],label:'Convocatoria',href:'/convocatoria/'},
   {codes:['utileria'],label:'Utilería',href:'/utileria/'},
-  {codes:['patrocinadores'],label:'Patrocinadores',href:'/patrocinadores/'},
+  {codes:['patrocinadores'],label:'Patrocinios',href:'/patrocinadores/'},
   {codes:['contabilidad'],label:'Contabilidad',href:'/contabilidad/'},
   {codes:['usuarios'],label:'Usuarios',href:'/usuarios/'},
   {codes:['admin'],label:'Administración',href:'/admin/'},

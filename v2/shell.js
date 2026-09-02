@@ -50,7 +50,7 @@ export const navItems=[
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
   {code:'tienda',label:'Pedidos',href:'/pedidos/',group:'ops',icon:'bag'},
   {code:'utileria',label:'Utilería',href:'/utileria/',group:'ops',icon:'box'},
-  {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'ops',icon:'briefcase'},
+  {code:'patrocinadores',label:'Patrocinios',href:'/patrocinadores/',group:'ops',icon:'briefcase'},
   {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin',icon:'userCog'},
   {code:'admin',label:'Administración',href:'/admin/',group:'admin',icon:'settings'},
   {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug'}

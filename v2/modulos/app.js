@@ -11,7 +11,7 @@ const routes={
   billing:{name:'Cobranza',desc:'Pagos, beneficios y cartera del club.',href:'/finanzas/'},
   accounting:{name:'Contabilidad',desc:'Egresos y trazabilidad contable.',href:'/contabilidad/'},
   programs:{name:'Programas',desc:'Programas, cupos e inscritos.',href:'/operacion/programas/'},
-  sponsors:{name:'Patrocinadores',desc:'Pipeline, convenios, derechos y renovaciones.',href:'/patrocinadores/'},
+  sponsors:{name:'Patrocinios',desc:'Marcas, acuerdos, beneficios y renovaciones.',href:'/patrocinadores/'},
   equipment:{name:'Utilería',desc:'Inventario, asignaciones y devoluciones.',href:'/utileria/'},
   calendar:{name:'Calendario',desc:'Entrenamientos, partidos, programas y eventos.',href:'/calendario/'},
   users:{name:'Usuarios',desc:'Cuentas, membresías e invitaciones.',href:'/usuarios/'},

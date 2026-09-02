@@ -179,15 +179,27 @@ async function renderWarranty(d){
   if(!current||current.order.id!==d.id)return; // el usuario ya cambió de pedido mientras cargaba
   const mine=list.filter(w=>w.order_id===d.id);
   const canOpen=d.status==='delivered';
+  let warrantyExpired=false,warrantyDaysLeft=null;
+  if(canOpen&&d.delivered_at){
+    const msLeft=new Date(d.delivered_at).getTime()+5*24*60*60*1000-Date.now();
+    warrantyExpired=msLeft<=0;
+    warrantyDaysLeft=Math.max(0,Math.ceil(msLeft/(24*60*60*1000)));
+  }
+  const canOpenNow=canOpen&&!warrantyExpired;
   if(!canOpen&&!mine.length){section.classList.add('hidden');return;}
   section.classList.remove('hidden');
   const body=$('warrantyBody');
   let html='';
   if(mine.length)html+=`<div class="warranty-list">${mine.map(w=>`<div class="warranty-row"><div><strong>${esc(w.folio)}</strong><span>${esc(w.reason)}</span></div><div class="warranty-row-side"><span class="payment-status">${WARRANTY_LABELS[w.status]||esc(w.status)}</span>${w.status==='ready'?`<button class="secondary mini deliver-warranty" data-id="${esc(w.id)}" type="button">Marcar entregada</button>`:''}</div></div>`).join('')}</div>`;
-  if(canOpen)html+='<button id="openWarrantyBtn" class="secondary" type="button">Abrir garantía de una pieza</button><div id="warrantyForm" class="hidden"></div>';
+  if(canOpenNow){
+    html+='<button id="openWarrantyBtn" class="secondary" type="button">Abrir garantía de una pieza</button><div id="warrantyForm" class="hidden"></div>';
+    if(warrantyDaysLeft!==null)html+=`<p class="muted state-help">Quedan ${warrantyDaysLeft} día(s) para abrir garantía sobre este pedido.</p>`;
+  }else if(canOpen&&warrantyExpired){
+    html+='<p class="muted state-help">La ventana de garantía (5 días desde la entrega) ya venció para este pedido.</p>';
+  }
   body.innerHTML=html;
   body.querySelectorAll('.deliver-warranty').forEach(b=>b.addEventListener('click',()=>deliverWarranty(b.dataset.id)));
-  if(canOpen)$('openWarrantyBtn')?.addEventListener('click',toggleWarrantyForm);
+  if(canOpenNow)$('openWarrantyBtn')?.addEventListener('click',toggleWarrantyForm);
 }
 function toggleWarrantyForm(){
   const wrap=$('warrantyForm');if(!wrap)return;
@@ -342,3 +354,4 @@ $('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').va
     }
   },300);
 })();
+ 

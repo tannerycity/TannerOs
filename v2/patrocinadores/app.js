@@ -52,6 +52,10 @@ let agreements = [];
 let assets = [];
 let agreementItems = [];
 let movements = [];
+let itemEvidence = [];
+let evidenceTargetItemId = null;
+const PHOTO_BUCKET = 'tanneros-private';
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 let selectedSponsorId = null;
 let selectedStage = 'all';
 let currentView = 'summary';
@@ -102,6 +106,12 @@ function friendly(error) {
     'Asset name required': 'Escribe el nombre del Activo Tanner.',
     'Asset price cannot be negative': 'El precio de referencia no puede ser negativo.',
     'Movement result required': 'Escribe el resultado del movimiento.',
+    'Invalid photo path': 'No pudimos validar la foto. Vuelve a intentarlo.',
+    'Photo upload not found': 'La foto no terminó de subir. Vuelve a intentarlo.',
+    'Asset not found': 'No encontramos ese Activo Tanner.',
+    'Invalid evidence path': 'No pudimos validar la evidencia. Vuelve a intentarlo.',
+    'Evidence upload not found': 'La evidencia no terminó de subir. Vuelve a intentarlo.',
+    'Agreement item not found': 'No encontramos ese compromiso del acuerdo.',
   };
   return labels[text] || text;
 }
@@ -157,6 +167,9 @@ function itemsForAgreement(id) {
 }
 function assetById(id) {
   return assets.find((asset) => asset.id === id);
+}
+function evidenceForItem(id) {
+  return itemEvidence.filter((evidence) => evidence.itemId === id);
 }
 function toDateInput(value) {
   return value ? String(value).slice(0, 10) : '';
@@ -242,7 +255,151 @@ async function load() {
   assets = Array.isArray(data?.assets) ? data.assets : [];
   agreementItems = Array.isArray(data?.agreementItems) ? data.agreementItems : [];
   movements = Array.isArray(data?.movements) ? data.movements : [];
+  itemEvidence = Array.isArray(data?.itemEvidence) ? data.itemEvidence : [];
   render();
+}
+
+function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No pudimos leer esa foto. Prueba con JPG, PNG o WebP.')); };
+    img.src = url;
+  });
+}
+function canvasBlobFrom(canvas, type, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+}
+async function preparePhotoFile(file) {
+  if (!file) throw new Error('Selecciona una foto.');
+  if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');
+  const img = await loadImageFile(file);
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  if (!width || !height) throw new Error('No pudimos leer el tamaño de esa foto.');
+  const maxSide = 1600;
+  const scale = Math.min(1, maxSide / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Tu navegador no pudo preparar la foto.');
+  context.drawImage(img, 0, 0, canvas.width, canvas.height);
+  let blob = await canvasBlobFrom(canvas, 'image/webp', .84);
+  let ext = 'webp';
+  if (!blob) {
+    blob = await canvasBlobFrom(canvas, 'image/jpeg', .84);
+    ext = 'jpg';
+  }
+  if (blob && blob.size > PHOTO_MAX_BYTES) {
+    blob = await canvasBlobFrom(canvas, 'image/jpeg', .68);
+    ext = 'jpg';
+  }
+  if (!blob || blob.size > PHOTO_MAX_BYTES) throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
+  return { blob, ext, mime: blob.type || ('image/' + (ext === 'jpg' ? 'jpeg' : ext)) };
+}
+async function signedUrl(bucket, path) {
+  if (!path) return null;
+  const { data, error } = await supabase.storage.from(bucket || PHOTO_BUCKET).createSignedUrl(path, 600);
+  if (error) throw error;
+  return data?.signedUrl || null;
+}
+
+function hydrateAssetPhotos() {
+  assets.filter((asset) => asset.photoPath).forEach(async (asset) => {
+    try {
+      const url = await signedUrl(asset.photoBucket, asset.photoPath);
+      const box = document.querySelector('[data-photo-for="' + CSS.escape(asset.id) + '"]');
+      if (url && box && !box.querySelector('img')) box.innerHTML = '<img src="' + url + '" alt="">';
+    } catch { /* silent: thumbnail best-effort */ }
+  });
+}
+
+function hydrateEvidenceThumbs() {
+  itemEvidence.forEach(async (evidence) => {
+    try {
+      const url = await signedUrl(evidence.photoBucket, evidence.photoPath);
+      const box = document.querySelector('[data-evidence-photo="' + CSS.escape(evidence.id) + '"]');
+      if (url && box && !box.querySelector('img')) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '';
+        box.prepend(img);
+      }
+    } catch { /* silent: thumbnail best-effort */ }
+  });
+}
+
+async function uploadAssetPhoto(file) {
+  const assetId = $('assetId').value;
+  if (!canWrite || !assetId || !file) return;
+  message('assetPhotoMessage');
+  $('assetPhotoMessage').textContent = 'Subiendo…';
+  $('assetPhotoMessage').dataset.type = 'success';
+  $('assetPhotoMessage').classList.remove('hidden');
+  try {
+    const prepared = await preparePhotoFile(file);
+    const stamp = Date.now();
+    const path = 'organizations/' + ctx.organization_id + '/sponsors/assets/' + assetId + '/photo-' + stamp + '.' + prepared.ext;
+    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.blob, { contentType: prepared.mime, cacheControl: '3600', upsert: false });
+    if (uploadError) throw uploadError;
+    let updated;
+    try {
+      updated = await rpc('v2_set_sponsor_asset_photo', { organization_id: ctx.organization_id, asset_id: assetId, photo_path: path });
+    } catch (rpcError) {
+      await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+      throw rpcError;
+    }
+    const previous = assetById(assetId);
+    const oldPath = previous?.photoPath;
+    const prefix = 'organizations/' + ctx.organization_id + '/sponsors/assets/' + assetId + '/';
+    if (oldPath && oldPath !== path && oldPath.startsWith(prefix)) {
+      await supabase.storage.from(PHOTO_BUCKET).remove([oldPath]);
+    }
+    await load();
+    const url = await signedUrl(updated.photoBucket, updated.photoPath);
+    if (url) $('assetPhotoBox').innerHTML = '<img src="' + url + '" alt="">';
+    message('assetPhotoMessage', 'Foto actualizada.', 'success');
+  } catch (error) {
+    message('assetPhotoMessage', friendly(error));
+  }
+}
+
+async function uploadItemEvidence(file) {
+  const itemId = evidenceTargetItemId;
+  evidenceTargetItemId = null;
+  if (!canWrite || !itemId || !file) return;
+  const item = agreementItems.find((candidate) => candidate.id === itemId);
+  if (!item) return;
+  try {
+    const prepared = await preparePhotoFile(file);
+    const stamp = Date.now();
+    const path = 'organizations/' + ctx.organization_id + '/sponsors/agreements/' + item.agreementId + '/items/' + itemId + '/evidence-' + stamp + '.' + prepared.ext;
+    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.blob, { contentType: prepared.mime, cacheControl: '3600', upsert: false });
+    if (uploadError) throw uploadError;
+    try {
+      await rpc('v2_add_sponsor_item_evidence', { organization_id: ctx.organization_id, item_id: itemId, photo_path: path, note: null });
+    } catch (rpcError) {
+      await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+      throw rpcError;
+    }
+    await load();
+  } catch (error) {
+    alert(friendly(error));
+  }
+}
+
+async function deleteEvidence(evidenceId, bucket, path) {
+  if (!canWrite || !evidenceId) return;
+  if (!confirm('¿Eliminar esta evidencia?')) return;
+  try {
+    await rpc('v2_delete_sponsor_item_evidence', { organization_id: ctx.organization_id, evidence_id: evidenceId });
+    if (bucket && path) await supabase.storage.from(bucket).remove([path]);
+    await load();
+  } catch (error) {
+    alert(friendly(error));
+  }
 }
 
 function render() {
@@ -394,6 +551,7 @@ function renderAssets() {
   $('assetEmpty').classList.toggle('hidden', assets.length > 0);
   $('assetList').innerHTML = assets.map((asset) => (
     '<button class="asset-card" data-asset-id="' + esc(asset.id) + '" type="button">' +
+      '<span class="asset-photo" data-photo-for="' + esc(asset.id) + '">' + (asset.photoPath ? '' : 'Sin foto') + '</span>' +
       '<span class="asset-category">' + esc(ASSET_CATEGORIES[asset.category] || asset.category || 'Otros') + '</span>' +
       '<strong>' + esc(asset.name) + '</strong>' +
       '<span class="asset-description">' + esc(asset.description || 'Sin descripción') + '</span>' +
@@ -404,6 +562,7 @@ function renderAssets() {
   $('assetList').querySelectorAll('[data-asset-id]').forEach((button) => {
     button.addEventListener('click', () => openAssetForm(assetById(button.dataset.assetId)));
   });
+  hydrateAssetPhotos();
 }
 
 function bindSponsorOpeners(container) {
@@ -556,11 +715,23 @@ function renderCommitments(sponsor) {
           item.estimatedValue != null ? money.format(Number(item.estimatedValue)) : '',
           asset?.name || '',
         ].filter(Boolean).join(' · ');
-        return '<label class="commitment-item ' + (item.fulfilled ? 'fulfilled' : '') + '">' +
-          '<input class="fulfillment-toggle" data-item-id="' + esc(item.id) + '" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + ' ' + (canWrite ? '' : 'disabled') + '>' +
-          '<span><strong>' + esc(item.description) + '</strong><small>' + esc(detail || (item.fulfilled ? 'Entregado' : 'Pendiente')) + '</small></span>' +
-          '<b>' + (item.fulfilled ? 'Entregado' : 'Pendiente') + '</b>' +
-        '</label>';
+        const evidence = evidenceForItem(item.id);
+        const thumbs = evidence.map((item2) => (
+          '<span class="evidence-thumb" data-evidence-photo="' + esc(item2.id) + '">' +
+            (canWrite ? '<button type="button" class="evidence-delete" data-evidence-id="' + esc(item2.id) + '" data-bucket="' + esc(item2.photoBucket || '') + '" data-path="' + esc(item2.photoPath || '') + '" aria-label="Eliminar evidencia">&times;</button>' : '') +
+          '</span>'
+        )).join('');
+        return '<div class="commitment-item ' + (item.fulfilled ? 'fulfilled' : '') + '">' +
+          '<label class="commitment-item-main">' +
+            '<input class="fulfillment-toggle" data-item-id="' + esc(item.id) + '" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + ' ' + (canWrite ? '' : 'disabled') + '>' +
+            '<span><strong>' + esc(item.description) + '</strong><small>' + esc(detail || (item.fulfilled ? 'Entregado' : 'Pendiente')) + '</small></span>' +
+            '<b>' + (item.fulfilled ? 'Entregado' : 'Pendiente') + '</b>' +
+          '</label>' +
+          '<div class="commitment-evidence">' +
+            '<div class="evidence-thumbs">' + thumbs + '</div>' +
+            (canWrite ? '<button type="button" class="evidence-add-btn" data-item-id="' + esc(item.id) + '">+ Evidencia</button>' : '') +
+          '</div>' +
+        '</div>';
       }).join('') +
     '</section>';
   }
@@ -568,6 +739,19 @@ function renderCommitments(sponsor) {
   $('commitmentList').querySelectorAll('.fulfillment-toggle').forEach((input) => {
     input.addEventListener('change', () => setFulfillment(input));
   });
+  $('commitmentList').querySelectorAll('.evidence-add-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      evidenceTargetItemId = button.dataset.itemId;
+      $('evidenceUploadInput').click();
+    });
+  });
+  $('commitmentList').querySelectorAll('.evidence-delete').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      deleteEvidence(button.dataset.evidenceId, button.dataset.bucket, button.dataset.path);
+    });
+  });
+  hydrateEvidenceThumbs();
 }
 
 function renderMovements(sponsor) {
@@ -842,7 +1026,10 @@ function resetAssetForm() {
   $('assetModalTitle').textContent = 'Agregar Activo Tanner';
   $('saveAsset').textContent = 'Guardar activo';
   $('archiveAsset').classList.add('hidden');
+  $('assetPhotoSection').classList.add('hidden');
+  $('assetPhotoBox').innerHTML = '<span>Sin foto</span>';
   message('assetMessage');
+  message('assetPhotoMessage');
 }
 
 function openAssetForm(asset = null) {
@@ -858,6 +1045,12 @@ function openAssetForm(asset = null) {
     $('assetModalTitle').textContent = 'Editar Activo Tanner';
     $('saveAsset').textContent = 'Guardar cambios';
     $('archiveAsset').classList.remove('hidden');
+    $('assetPhotoSection').classList.remove('hidden');
+    if (asset.photoPath) {
+      signedUrl(asset.photoBucket, asset.photoPath).then((url) => {
+        if (url) $('assetPhotoBox').innerHTML = '<img src="' + url + '" alt="">';
+      }).catch(() => {});
+    }
   }
   openModal('assetModal');
 }
@@ -961,6 +1154,15 @@ $('agreementForm').addEventListener('submit', saveAgreement);
 $('assetForm').addEventListener('submit', saveAsset);
 $('movementForm').addEventListener('submit', saveMovement);
 $('archiveAsset').addEventListener('click', archiveAsset);
+$('assetPhotoAction').addEventListener('click', () => $('assetPhotoInput').click());
+$('assetPhotoInput').addEventListener('change', (event) => {
+  const input = event.currentTarget;
+  uploadAssetPhoto(input.files?.[0]).finally(() => { input.value = ''; });
+});
+$('evidenceUploadInput').addEventListener('change', (event) => {
+  const input = event.currentTarget;
+  uploadItemEvidence(input.files?.[0]).finally(() => { input.value = ''; });
+});
 $('backdrop').addEventListener('click', () => {
   if (document.querySelector('.workspace-modal:not(.hidden)')) closeModal();
   else closeBrand();

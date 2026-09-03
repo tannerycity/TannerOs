@@ -145,6 +145,7 @@
 </main>
 
 <div id="backdrop" class="workspace-backdrop hidden"></div>
+<input type="file" id="evidenceUploadInput" accept="image/*" hidden>
 
 <aside id="brandDrawer" class="brand-drawer hidden" aria-hidden="true" aria-labelledby="drawerBrandName">
   <div class="drawer-head sponsor-drawer-head">
@@ -272,6 +273,14 @@
   <div class="modal-head"><div><div class="eyebrow">INVENTARIO COMERCIAL</div><h2 id="assetModalTitle">Agregar Activo Tanner</h2></div><button class="secondary mini close-workspace-modal" type="button">Cerrar</button></div>
   <form id="assetForm" class="form-grid">
     <input id="assetId" type="hidden">
+    <div id="assetPhotoSection" class="photo-field span-2 hidden">
+      <div id="assetPhotoBox" class="photo-box"><span>Sin foto</span></div>
+      <div class="photo-actions">
+        <button type="button" id="assetPhotoAction" class="secondary mini">Agregar foto</button>
+        <input type="file" id="assetPhotoInput" accept="image/*" hidden>
+      </div>
+      <div id="assetPhotoMessage" class="inline-message hidden"></div>
+    </div>
     <label class="span-2">Nombre<input id="assetName" minlength="2" maxlength="160" required></label>
     <label>Categoría<select id="assetCategory"><option value="digital">Digital</option><option value="park">Tannery City Park</option><option value="uniforms">Uniformes</option><option value="sports">Deportivo</option><option value="content">Contenido</option><option value="other">Otros</option></select></label>
     <label>Disponibilidad<select id="assetAvailability"><option value="available">Disponible</option><option value="partial">Parcial</option><option value="occupied">Ocupado</option></select></label>

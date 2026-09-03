@@ -58,6 +58,7 @@
 @media(max-width:720px){.cashier-table.movements td[data-label="Estado"]{flex-wrap:wrap;gap:6px}}
 
 .collection-panel{background:#fff;border:1px solid var(--tos-line);border-left:3px solid #087d8e;border-radius:20px;padding:20px;margin:16px 0}
+.movement-payer{display:block;font-size:11px;color:#8a969b;margin-top:1px}
 .collection-debt-list{display:flex;flex-direction:column;gap:8px;margin-top:2px}
 .collection-debt-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid #e4ebe9;border-radius:12px;background:#fff}
 .collection-debt-row strong{display:block;font-size:14px;color:#0b1418}

@@ -8,12 +8,14 @@ const canCashWrite=moduleAccess(navigation,'taquilla',true)||moduleAccess(naviga
 const canAccountingWrite=moduleAccess(navigation,'contabilidad',true);
 // Pagar ya no depende exclusivamente de Contabilidad: quien opera esta caja (Taquilla RW) también puede pagar.
 const canPayWrite=canCashWrite||canAccountingWrite;
-let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true;
+const canViewCobranza=moduleAccess(navigation,'cobranza',false)||moduleAccess(navigation,'contabilidad',false);
+let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,collectionSnapshot=null,receivables=[],phoneMap={};
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=prefix=>globalThis.crypto?.randomUUID?`${prefix}:${org}:${crypto.randomUUID()}`:`${prefix}:${org}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
 const methodLabel=v=>({cash:'Efectivo',efectivo:'Efectivo',transfer:'Transferencia',transferencia:'Transferencia',card:'Tarjeta',tarjeta:'Tarjeta'}[String(v||'').toLowerCase()]||v||'Otro');
+const safe=(p,fallback=null)=>p.catch(e=>{console.warn('cobranza widget',e);return fallback;});
 
 function message(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
 function modal(id,open){$('modalBackdrop').classList.toggle('hidden',!open);$(id).classList.toggle('hidden',!open);document.body.classList.toggle('cashier-modal-open',open);}
@@ -96,6 +98,52 @@ async function loadPlayers(){
   try{billingPlayers=await rpc('v2_billing_players',{organization_id:org});}catch(e){console.warn('billing players',e);billingPlayers=[];}
 
 }
+const BILLING_ENGINE_START='2026-09-01';
+async function loadCollection(){
+  const panel=$('collectionPanel');if(!panel)return;
+  if(!canViewCobranza){panel.classList.add('hidden');return;}
+  const period=new Date().toISOString().slice(0,7)+'-01';
+  const [snap,recv,idx]=await Promise.all([
+    safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:period}),null),
+    safe(rpc('v2_open_receivables',{organization_id:org}),[]),
+    safe(rpc('v2_search_index',{organization_id:org}),[])
+  ]);
+  collectionSnapshot=snap;receivables=Array.isArray(recv)?recv:[];
+  phoneMap={};(Array.isArray(idx)?idx:[]).forEach(p=>{if(p&&p.id&&p.phones)phoneMap[p.id]=String(p.phones).split(' ')[0];});
+  renderCollectionPanel();
+}
+function renderCollectionPanel(){
+  const panel=$('collectionPanel');if(!panel)return;
+  if(!canViewCobranza||!collectionSnapshot){panel.classList.add('hidden');return;}
+  panel.classList.remove('hidden');
+  const c=collectionSnapshot;
+  const monthLabel=new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(new Date());
+  const rate=Number(c.collection_rate||0),rateColor=rate>=85?'#159c4c':rate>=60?'#a9791b':'#d23829';
+  const kpi=(l,v,sub,color)=>`<div style="flex:1;min-width:140px;background:#f7faf9;border:1px solid #e4ebe9;border-radius:14px;padding:12px 14px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#68737a">${l}</div><div style="font-size:21px;font-weight:900;color:${color||'#0b1418'};margin-top:2px">${v}</div>${sub?`<div style="font-size:11.5px;color:#8a969b;margin-top:1px">${sub}</div>`:''}</div>`;
+  const kpis=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">${kpi('Cobranza del mes',`${rate}%`,`${c.covered||0}/${c.collection_population||0} cubiertos`,rateColor)}${kpi('Falta por cobrar (mes)',money.format(Number(c.current_period_receivable||0)),'',Number(c.current_period_receivable||0)>0?'#d23829':'#159c4c')}${kpi('Cartera activa total',money.format(Number(c.total_receivable||0)),`${c.pending_players||0} Tanners`,Number(c.total_receivable||0)>0?'#d23829':'#159c4c')}</div>`;
+  const byPlayer=new Map();
+  receivables.forEach(r=>{const pid=r.player_id||r.player_name,cur=byPlayer.get(pid)||{name:r.player_name,amount:0,playerId:r.player_id||null,oldest:null};cur.amount+=Number(r.balance_due||0);const dd=r.due_date||r.billing_period;if(dd&&(!cur.oldest||String(dd)<cur.oldest))cur.oldest=String(dd);byPlayer.set(pid,cur);});
+  const debtors=[...byPlayer.values()].sort((a,b)=>String(a.oldest||'9999').localeCompare(String(b.oldest||'9999'))||b.amount-a.amount).slice(0,10);
+  const rows=debtors.map(d=>{
+    const ph=d.playerId&&phoneMap[d.playerId]?String(phoneMap[d.playerId]).replace(/\D/g,''):'';
+    const waMsg=encodeURIComponent(`Hola, le recordamos el pago pendiente de ${d.name} en Tannery City por ${money.format(d.amount)}. ¡Gracias!`);
+    const wa=ph?`<a href="https://wa.me/${ph}?text=${waMsg}" target="_blank" rel="noopener" class="collection-wa-btn">WhatsApp</a>`:'';
+    const cob=(d.playerId&&canCashWrite)?`<button type="button" class="collection-cobrar-btn" data-quick-collect="${d.playerId}" data-amount="${Math.round(d.amount)}" data-name="${esc(d.name||'')}">Cobrar</button>`:'';
+    const since=d.oldest?` · desde ${d.oldest}`:'';
+    return `<div class="collection-debt-row"><div><strong>${esc(d.name||'Tanner')}</strong><span>Saldo pendiente${since}</span></div><div class="collection-debt-actions"><b>${money.format(d.amount)}</b><div style="display:flex;gap:6px">${wa}${cob}</div></div></div>`;
+  }).join('');
+  const list=debtors.length?rows:'<div class="cashier-empty">Sin cartera activa pendiente. 🎉</div>';
+  panel.innerHTML=`<div class="cashier-panel-head"><div><h2>Cobranza · ${monthLabel[0].toUpperCase()+monthLabel.slice(1)}</h2><p>Quién ya pagó este mes y quién falta. Datos de cobranza automática desde septiembre 2026.</p></div></div>${kpis}<div class="collection-debt-list">${list}</div>`;
+}
+function quickCollect(playerId,name,amount){
+  if(!canCashWrite)return;
+  resetCollectForm();
+  $('collectPlayer').value=playerId;$('collectPlayerSearch').value=name||'';
+  if(name)$('collectPlayerClear')?.classList.remove('hidden');
+  if(amount)$('collectAmount').value=amount;
+  modal('collectModal',true);
+}
+document.addEventListener('click',e=>{const b=e.target.closest?.('[data-quick-collect]');if(b)quickCollect(b.dataset.quickCollect,b.dataset.name,b.dataset.amount);});
 function setCollectMode(mode){
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   $('playerFields').classList.toggle('hidden',mode!=='player');$('generalFields').classList.toggle('hidden',mode!=='general');
@@ -122,7 +170,7 @@ async function postCollect(){
       if(!okDbl){btn.disabled=false;return;}
       await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
     }
-    closeModals();await load();
+    closeModals();await Promise.all([load(),loadCollection()]);
   }catch(e){message('collectMessage',e.message||'No se pudo registrar.');}finally{btn.disabled=false;}
 }
 async function postExpense(){
@@ -151,7 +199,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 const _params=new URLSearchParams(location.search);const action=_params.get('action');
 if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);
 if(action==='pagar'&&canPayWrite)setTimeout(()=>{modal('expenseModal',true);},150);
-await Promise.all([loadPlayers(),load()]);
+await Promise.all([loadPlayers(),load(),loadCollection()]);
 
 
 // === Corregir movimiento (VAR · solo Presidencia): Borrar o Reembolsar ===

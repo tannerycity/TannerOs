@@ -54,6 +54,7 @@
       <article><span>Marcas en juego</span><strong id="kpiPlaying">0</strong></article>
       <article><span>Por cerrar</span><strong id="kpiClosing">0</strong></article>
       <article><span>Por renovar</span><strong id="kpiRenewals">0</strong></article>
+      <article><span>Valor ponderado del pipeline</span><strong id="kpiWeighted">$0</strong></article>
     </section>
 
     <nav class="module-nav" aria-label="Secciones de Patrocinios">
@@ -158,6 +159,7 @@
       </div>
     </div>
     <div class="drawer-actions">
+      <button id="exportSponsorKit" class="secondary mini" type="button">Descargar kit</button>
       <button id="editSponsorButton" class="secondary mini write-only" type="button">Editar</button>
       <button id="closeBrandDrawer" class="secondary mini" type="button" aria-label="Cerrar ficha">Cerrar</button>
     </div>
@@ -170,7 +172,17 @@
     <button data-drawer-view="brand-followup" type="button">Seguimiento</button>
   </nav>
 
-  <section id="brandSummaryPanel" class="drawer-panel"><div id="brandSummaryBody"></div></section>
+  <section id="brandSummaryPanel" class="drawer-panel">
+    <div id="brandSummaryBody"></div>
+    <div id="fundedPlayersSection" class="funded-players-section">
+      <div class="drawer-section-head">
+        <div><div class="eyebrow">IMPACTO</div><h3>Jugadores becados</h3></div>
+        <button id="linkFundedPlayerButton" class="secondary mini write-only" type="button">+ Vincular jugador</button>
+      </div>
+      <div id="fundedPlayersList" class="funded-players-list"></div>
+      <div id="fundedPlayersEmpty" class="empty-state hidden"><strong>Sin jugadores becados</strong><span>Vincula un Tanner para mostrar aquí el impacto real de este patrocinio.</span></div>
+    </div>
+  </section>
 
   <section id="brandAgreementPanel" class="drawer-panel hidden">
     <div class="drawer-section-head">
@@ -222,8 +234,10 @@
     <label>Teléfono / WhatsApp<input id="sponsorPhone" inputmode="tel" maxlength="24" autocomplete="tel"></label>
     <label>Email<input id="sponsorEmail" type="email" maxlength="254" autocomplete="email"></label>
     <label>Valor potencial <span class="optional">opcional</span><input id="sponsorPotential" type="number" min="0" step="0.01" inputmode="decimal"></label>
+    <label>Responsable de cuenta <span class="optional">opcional</span><input id="sponsorOwner" maxlength="120" placeholder="Quién lleva esta marca"></label>
     <label>Próximo movimiento<input id="sponsorNextAction" maxlength="200" placeholder="Ej. Enviar propuesta"></label>
     <label>Fecha<input id="sponsorNextDate" type="date"></label>
+    <label id="sponsorLostReasonField" class="span-2 hidden">Motivo de pérdida<input id="sponsorLostReason" maxlength="300" placeholder="Por qué no se cerró"></label>
     <label class="span-2">Nota<textarea id="sponsorNotes" rows="3" maxlength="1500" placeholder="Contexto breve de la relación"></textarea></label>
     <button id="saveSponsor" class="primary span-2" type="submit">Guardar marca</button>
     <div id="sponsorMessage" class="inline-message hidden span-2"></div>
@@ -289,6 +303,29 @@
     <button id="saveAsset" class="primary span-2" type="submit">Guardar activo</button>
     <button id="archiveAsset" class="text-danger span-2 hidden" type="button">Retirar del inventario</button>
     <div id="assetMessage" class="inline-message hidden span-2"></div>
+  </form>
+</section>
+
+<section id="fundingModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="fundingModalTitle">
+  <div class="modal-head">
+    <div><div class="eyebrow">PATROCINIO DE BECA</div><h2 id="fundingModalTitle">Vincular jugador becado</h2><p id="fundingBrandName" class="muted modal-subtitle"></p></div>
+    <button class="secondary mini close-workspace-modal" type="button">Cerrar</button>
+  </div>
+  <p class="muted modal-intro">Vincula a un Tanner para que esta marca cubra total o parcialmente su mensualidad.</p>
+  <form id="fundingForm" class="form-grid">
+    <div class="search-field span-2">
+      <label>Jugador<input id="fundingPlayerSearch" autocomplete="off" placeholder="Buscar Tanner por nombre"></label>
+      <input type="hidden" id="fundingPlayerId">
+      <div id="fundingPlayerResults" class="tsearch-results hidden"></div>
+    </div>
+    <label>Modalidad<select id="fundingMode"><option value="fixed_amount">Monto fijo</option><option value="percentage">Porcentaje</option></select></label>
+    <label>Monto mensual total<input id="fundingMonthlyTotal" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+    <label>Aporte del patrocinador<input id="fundingSponsorValue" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+    <label>Desde<input id="fundingStart" type="date"></label>
+    <label>Hasta <span class="optional">opcional</span><input id="fundingEnd" type="date"></label>
+    <label class="span-2">Nota <span class="optional">opcional</span><textarea id="fundingNotes" rows="2" maxlength="500"></textarea></label>
+    <button id="saveFunding" class="primary span-2" type="submit">Guardar beca</button>
+    <div id="fundingMessage" class="inline-message hidden span-2"></div>
   </form>
 </section>
 

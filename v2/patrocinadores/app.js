@@ -31,6 +31,8 @@ const STAGES = [
   ['finished', 'Finalizado'],
 ];
 const AGREEMENT_STATUSES = { draft: 'Borrador', active: 'Activo', completed: 'Finalizado', cancelled: 'Cancelado' };
+const STAGE_PROBABILITY = { radar: 10, contacted: 25, talking: 40, agreement: 60, closing: 80, active: 100, paused: 15, lost: 0, finished: 100 };
+const STALE_DAYS_THRESHOLD = 21;
 const ASSET_CATEGORIES = {
   digital: 'Digital',
   park: 'Tannery City Park',
@@ -54,6 +56,8 @@ let agreementItems = [];
 let movements = [];
 let itemEvidence = [];
 let evidenceTargetItemId = null;
+let billingPlayers = [];
+let fundedPlayers = [];
 const PHOTO_BUCKET = 'tanneros-private';
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 let selectedSponsorId = null;
@@ -112,6 +116,17 @@ function friendly(error) {
     'Invalid evidence path': 'No pudimos validar la evidencia. Vuelve a intentarlo.',
     'Evidence upload not found': 'La evidencia no terminó de subir. Vuelve a intentarlo.',
     'Agreement item not found': 'No encontramos ese compromiso del acuerdo.',
+    'Financial configuration requires Presidencia or Contabilidad': 'Solo Presidencia o Contabilidad pueden configurar becas de patrocinio.',
+    'Monthly total must be zero or greater': 'El monto mensual total no puede ser negativo.',
+    'Funding mode must be fixed_amount or percentage': 'Selecciona una modalidad válida.',
+    'Sponsor value must be zero or greater': 'El aporte del patrocinador no puede ser negativo.',
+    'Sponsor amount cannot exceed monthly total': 'El aporte no puede ser mayor al monto mensual total.',
+    'Sponsor percentage cannot exceed 100': 'El porcentaje no puede ser mayor a 100.',
+    'Funding source required': 'Falta el nombre de la fuente de patrocinio.',
+    'Benefit end cannot precede start': 'La fecha final no puede ser anterior al inicio.',
+    'Player not found': 'No encontramos a ese Tanner.',
+    'Billing profile not found': 'Ese Tanner no tiene un perfil de cobranza configurado.',
+    'Sponsor benefit not found': 'No encontramos esa beca de patrocinio.',
   };
   return labels[text] || text;
 }
@@ -208,6 +223,24 @@ function timingLabel(value, renewal = false) {
 }
 function isOpenSponsor(sponsor) {
   return !['active', 'lost', 'finished'].includes(normalizeStage(sponsor.stage, sponsor.status));
+}
+function daysSince(value) {
+  const date = dateValue(value);
+  if (!date) return null;
+  return Math.floor((Date.now() - date.getTime()) / 86400000);
+}
+function buildWhatsAppLink(sponsor, detail) {
+  if (!sponsor?.phone) return null;
+  const digits = String(sponsor.phone).replace(/\D/g, '');
+  if (!digits) return null;
+  const greeting = sponsor.contactName ? 'Hola ' + sponsor.contactName : 'Hola';
+  const message = greeting + ', te escribo de Tannery City FC para dar seguimiento: ' + (detail || 'nuestra relación de patrocinio') + '.';
+  return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(message);
+}
+function toggleLostReasonField(stage) {
+  const isLost = stage === 'lost';
+  $('sponsorLostReasonField').classList.toggle('hidden', !isLost);
+  $('sponsorLostReason').required = isLost;
 }
 function agreementProgress(agreementId) {
   const items = itemsForAgreement(agreementId);
@@ -423,11 +456,18 @@ function renderKpis() {
     const days = dayDiff(agreement.endsOn);
     return days !== null && days <= 45;
   });
+  const weightedValue = sponsors.reduce((total, sponsor) => {
+    const stage = normalizeStage(sponsor.stage, sponsor.status);
+    if (stage === 'lost' || stage === 'finished') return total;
+    const probability = STAGE_PROBABILITY[stage] ?? 0;
+    return total + (Number(sponsor.potentialValue || 0) * probability / 100);
+  }, 0);
   $('kpiActiveAgreements').textContent = activeAgreements.length;
   $('kpiReceivedValue').textContent = money.format(receivedValue);
   $('kpiPlaying').textContent = sponsors.filter(isOpenSponsor).length;
   $('kpiClosing').textContent = sponsors.filter((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === 'closing').length;
   $('kpiRenewals').textContent = renewals.length;
+  $('kpiWeighted').textContent = money.format(weightedValue);
 }
 
 function buildNextItems() {
@@ -476,13 +516,18 @@ function renderSummary() {
   const next = buildNextItems();
   $('nextCount').textContent = next.length;
   $('nextEmpty').classList.toggle('hidden', next.length > 0);
-  $('nextList').innerHTML = next.map((item) => (
-    '<button class="next-item ' + (item.urgent ? 'urgent' : '') + '" data-sponsor-id="' + esc(item.sponsorId) + '" type="button">' +
-      '<span class="next-marker"></span>' +
-      '<span class="next-copy"><strong>' + esc(item.title) + '</strong><span>' + esc(item.detail) + '</span></span>' +
-      '<span class="next-time">' + esc(item.meta) + '</span>' +
-    '</button>'
-  )).join('');
+  $('nextList').innerHTML = next.map((item) => {
+    const sponsor = sponsorById(item.sponsorId);
+    const waLink = buildWhatsAppLink(sponsor, item.detail);
+    return '<div class="next-item ' + (item.urgent ? 'urgent' : '') + '">' +
+      '<button class="next-item-main" data-sponsor-id="' + esc(item.sponsorId) + '" type="button">' +
+        '<span class="next-marker"></span>' +
+        '<span class="next-copy"><strong>' + esc(item.title) + '</strong><span>' + esc(item.detail) + '</span></span>' +
+        '<span class="next-time">' + esc(item.meta) + '</span>' +
+      '</button>' +
+      (waLink ? '<a class="next-wa-btn" href="' + esc(waLink) + '" target="_blank" rel="noopener">WhatsApp</a>' : '') +
+    '</div>';
+  }).join('');
   bindSponsorOpeners($('nextList'));
 
   const activeIds = [...new Set(agreements.filter((agreement) => agreement.status === 'active').map((agreement) => agreement.sponsorId))];
@@ -523,11 +568,13 @@ function brandCard(sponsor) {
   const stage = normalizeStage(sponsor.stage, sponsor.status);
   const relation = normalizeRelation(sponsor.relationshipType);
   const next = sponsor.nextAction && sponsor.nextActionAt ? sponsor.nextAction + ' · ' + timingLabel(sponsor.nextActionAt) : 'Sin seguimiento';
+  const staleDays = isOpenSponsor(sponsor) ? daysSince(sponsor.stageChangedAt) : null;
+  const staleBadge = (staleDays !== null && staleDays >= STALE_DAYS_THRESHOLD) ? '<span class="stage-stale">' + staleDays + ' días sin avanzar</span>' : '';
   return '<button class="brand-card" data-sponsor-id="' + esc(sponsor.id) + '" type="button">' +
     '<span class="brand-card-top">' +
       '<span class="brand-monogram">' + esc(String(sponsor.name || 'T').charAt(0).toUpperCase()) + '</span>' +
       '<span class="brand-card-title"><strong>' + esc(sponsor.name || 'Marca') + '</strong><small>' + esc(RELATIONSHIPS[relation]) + '</small></span>' +
-      '<span class="stage-chip stage-' + esc(stage) + '">' + esc(stageLabel(stage)) + '</span>' +
+      '<span class="stage-cell"><span class="stage-chip stage-' + esc(stage) + '">' + esc(stageLabel(stage)) + '</span>' + staleBadge + '</span>' +
     '</span>' +
     '<span class="brand-card-next"><small>Próximo movimiento</small><strong class="' + (next === 'Sin seguimiento' ? 'missing' : '') + '">' + esc(next) + '</strong></span>' +
     '<span class="brand-card-foot"><span>' + (sponsor.contactName ? esc(sponsor.contactName) : 'Sin contacto') + '</span><b>' + (sponsor.potentialValue != null ? money.format(Number(sponsor.potentialValue)) : '—') + '</b></span>' +
@@ -584,6 +631,7 @@ function switchView(view) {
 function openBrand(id) {
   if (!sponsorById(id)) return;
   selectedSponsorId = id;
+  fundedPlayers = [];
   switchDrawerView('brand-summary');
   renderBrandDrawer();
   $('brandDrawer').classList.remove('hidden');
@@ -636,6 +684,7 @@ function renderBrandDrawer() {
   renderBrandAgreements(sponsor);
   renderCommitments(sponsor);
   renderMovements(sponsor);
+  loadFundedPlayers(sponsor.id);
 }
 
 function contactLinks(sponsor) {
@@ -661,12 +710,90 @@ function renderBrandSummary(sponsor) {
       '<div class="summary-field"><span>Valor potencial</span><strong>' + (sponsor.potentialValue != null ? money.format(Number(sponsor.potentialValue)) : 'Sin definir') + '</strong></div>' +
       '<div class="summary-field"><span>Teléfono</span><strong>' + esc(sponsor.phone || '—') + '</strong></div>' +
       '<div class="summary-field"><span>Email</span><strong>' + esc(sponsor.email || '—') + '</strong></div>' +
+      '<div class="summary-field"><span>Responsable</span><strong>' + esc(sponsor.ownerName || 'Sin asignar') + '</strong></div>' +
     '</section>' +
     '<section class="next-action-card ' + (sponsor.nextAction && sponsor.nextActionAt ? '' : 'missing') + '">' +
       '<div><span>Próximo movimiento</span>' + nextText + '</div>' +
       '<div class="contact-links">' + contactLinks(sponsor) + '</div>' +
     '</section>' +
-    (sponsor.notes ? '<section class="notes-card"><span>Nota</span><p>' + esc(sponsor.notes) + '</p></section>' : '');
+    (sponsor.notes ? '<section class="notes-card"><span>Nota</span><p>' + esc(sponsor.notes) + '</p></section>' : '') +
+    (sponsor.lostReason ? '<section class="notes-card lost-reason-card"><span>Motivo de pérdida</span><p>' + esc(sponsor.lostReason) + '</p></section>' : '');
+}
+
+async function loadFundedPlayers(sponsorId) {
+  try {
+    fundedPlayers = await rpc('v2_sponsor_funded_players', { organization_id: ctx.organization_id, sponsor_id: sponsorId });
+  } catch {
+    fundedPlayers = [];
+  }
+  if (selectedSponsorId === sponsorId) renderFundedPlayers();
+}
+
+function renderFundedPlayers() {
+  if (!$('fundedPlayersSection')) return;
+  $('fundedPlayersEmpty').classList.toggle('hidden', fundedPlayers.length > 0);
+  $('fundedPlayersList').innerHTML = fundedPlayers.map((row) => (
+    '<div class="funded-player-row">' +
+      '<span><strong>' + esc(row.player_name) + '</strong><small>' +
+        (row.funding_mode === 'percentage'
+          ? Number(row.sponsor_value) + '% de la mensualidad'
+          : money.format(Number(row.sponsor_value)) + ' de ' + money.format(Number(row.monthly_total)) + ' mensuales') +
+      '</small></span>' +
+      '<b class="' + (row.active ? 'funded-active' : 'funded-inactive') + '">' + (row.active ? 'Activo' : 'Inactivo') + '</b>' +
+    '</div>'
+  )).join('');
+}
+
+async function openFundingModal() {
+  if (!canWrite || !selectedSponsorId) return;
+  const sponsor = sponsorById(selectedSponsorId);
+  $('fundingForm').reset();
+  $('fundingPlayerId').value = '';
+  $('fundingPlayerResults').classList.add('hidden');
+  $('fundingBrandName').textContent = sponsor.name;
+  $('fundingMode').value = 'fixed_amount';
+  message('fundingMessage');
+  if (!billingPlayers.length) {
+    try {
+      billingPlayers = await rpc('v2_billing_players', { organization_id: ctx.organization_id });
+    } catch {
+      billingPlayers = [];
+    }
+  }
+  openModal('fundingModal');
+}
+
+async function saveFunding(event) {
+  event.preventDefault();
+  message('fundingMessage');
+  const playerId = $('fundingPlayerId').value;
+  if (!playerId) {
+    message('fundingMessage', 'Busca y selecciona un Tanner de la lista.');
+    return;
+  }
+  const button = $('saveFunding');
+  button.disabled = true;
+  try {
+    await rpc('v2_configure_sponsor_funding', {
+      organization_id: ctx.organization_id,
+      player_id: playerId,
+      benefit_id: null,
+      funding_source_name: sponsorById(selectedSponsorId)?.name || 'Patrocinador',
+      monthly_total: Number($('fundingMonthlyTotal').value || 0),
+      funding_mode: $('fundingMode').value,
+      sponsor_value: Number($('fundingSponsorValue').value || 0),
+      starts_on: $('fundingStart').value || null,
+      ends_on: $('fundingEnd').value || null,
+      notes: $('fundingNotes').value.trim() || null,
+      sponsor_id: selectedSponsorId,
+    });
+    closeModal();
+    await loadFundedPlayers(selectedSponsorId);
+  } catch (error) {
+    message('fundingMessage', friendly(error));
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderBrandAgreements(sponsor) {
@@ -791,6 +918,7 @@ function resetSponsorForm() {
   $('sponsorStage').value = 'radar';
   $('sponsorModalTitle').textContent = 'Nueva marca';
   $('saveSponsor').textContent = 'Guardar marca';
+  toggleLostReasonField('radar');
   message('sponsorMessage');
 }
 
@@ -806,11 +934,14 @@ function openSponsorForm(sponsor = null) {
     $('sponsorPhone').value = sponsor.phone || '';
     $('sponsorEmail').value = sponsor.email || '';
     $('sponsorPotential').value = sponsor.potentialValue ?? '';
+    $('sponsorOwner').value = sponsor.ownerName || '';
     $('sponsorNextAction').value = sponsor.nextAction || '';
     $('sponsorNextDate').value = toDateInput(sponsor.nextActionAt);
+    $('sponsorLostReason').value = sponsor.lostReason || '';
     $('sponsorNotes').value = sponsor.notes || '';
     $('sponsorModalTitle').textContent = 'Editar marca';
     $('saveSponsor').textContent = 'Guardar cambios';
+    toggleLostReasonField($('sponsorStage').value);
   }
   openModal('sponsorModal');
 }
@@ -839,6 +970,8 @@ async function saveSponsor(event) {
       next_action: $('sponsorNextAction').value.trim() || null,
       next_action_at: dateToIso($('sponsorNextDate').value),
       notes: $('sponsorNotes').value.trim() || null,
+      owner_name: $('sponsorOwner').value.trim() || null,
+      lost_reason: stage === 'lost' ? ($('sponsorLostReason').value.trim() || null) : null,
     });
     closeModal();
     await load();
@@ -1130,6 +1263,132 @@ async function saveMovement(event) {
   }
 }
 
+async function imageToDataUrl(url) {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function exportSponsorKit() {
+  const sponsor = sponsorById(selectedSponsorId);
+  if (!sponsor) return;
+  const button = $('exportSponsorKit');
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Generando…';
+  try {
+    const { jsPDF } = await import('https://esm.sh/jspdf@2.5.2');
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 40;
+    let y = margin;
+
+    function ensureSpace(height) {
+      if (y + height > pageHeight - margin) { doc.addPage(); y = margin; }
+    }
+    function heading(text, size = 14) {
+      ensureSpace(size + 10);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(size); doc.setTextColor(11, 48, 56);
+      doc.text(text, margin, y); y += size + 8;
+    }
+    function label(text) {
+      ensureSpace(14);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(70, 85, 88);
+      doc.text(text, margin, y); y += 15;
+    }
+
+    doc.setFillColor(7, 25, 30); doc.rect(0, 0, pageWidth, 66, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(17);
+    doc.text('Tannery City FC', margin, 30);
+    doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+    doc.text('Kit de patrocinio · ' + sponsor.name, margin, 48);
+    y = 92;
+
+    heading(sponsor.name, 17);
+    label('Tipo: ' + (RELATIONSHIPS[normalizeRelation(sponsor.relationshipType)] || '—'));
+    label('Etapa: ' + stageLabel(sponsor.stage, sponsor.status));
+    label('Contacto: ' + (sponsor.contactName || '—') + (sponsor.phone ? ' · ' + sponsor.phone : '') + (sponsor.email ? ' · ' + sponsor.email : ''));
+    y += 4;
+
+    const sponsorAgreements = agreementsForSponsor(sponsor.id);
+    if (sponsorAgreements.length) {
+      sponsorAgreements.forEach((agreement) => {
+        heading('Acuerdo', 12);
+        const period = agreement.startsOn || agreement.endsOn
+          ? (agreement.startsOn ? shortDate(agreement.startsOn) : 'Sin inicio') + ' → ' + (agreement.endsOn ? shortDate(agreement.endsOn) : 'Sin fin')
+          : 'Sin vigencia definida';
+        label('Periodo: ' + period + ' · Estado: ' + (AGREEMENT_STATUSES[agreement.status] || agreement.status) +
+          (agreement.monetaryValue != null ? ' · Valor: ' + money.format(Number(agreement.monetaryValue)) : ''));
+        const items = itemsForAgreement(agreement.id);
+        ['receive', 'give'].forEach((direction) => {
+          const groupItems = items.filter((item) => item.direction === direction);
+          if (!groupItems.length) return;
+          ensureSpace(16);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20, 40, 45);
+          doc.text(direction === 'receive' ? 'Qué recibimos' : 'Qué damos', margin, y); y += 14;
+          groupItems.forEach((item) => {
+            ensureSpace(14);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(50, 65, 68);
+            const mark = item.fulfilled ? '[Cumplido] ' : '[Pendiente] ';
+            doc.text(mark + item.description, margin + 10, y); y += 14;
+          });
+        });
+        y += 6;
+      });
+    } else {
+      heading('Acuerdo', 12);
+      label('Sin acuerdo capturado.');
+    }
+
+    const items = sponsorAgreements.flatMap((agreement) => itemsForAgreement(agreement.id));
+    const evidence = items.flatMap((item) => evidenceForItem(item.id).map((ev) => ({ ...ev, itemDescription: item.description })));
+    if (evidence.length) {
+      heading('Evidencia de cumplimiento', 12);
+      const thumbSize = 100, gap = 14;
+      let x = margin;
+      for (const ev of evidence) {
+        if (x + thumbSize > pageWidth - margin) { x = margin; y += thumbSize + 26; }
+        ensureSpace(thumbSize + 26);
+        try {
+          const url = await signedUrl(ev.photoBucket, ev.photoPath);
+          const dataUrl = await imageToDataUrl(url);
+          const format = dataUrl.includes('image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(dataUrl, format, x, y, thumbSize, thumbSize * 0.75);
+        } catch { /* skip broken image, keep building the kit */ }
+        doc.setFontSize(8); doc.setTextColor(90, 100, 103);
+        doc.text(String(ev.itemDescription || ''), x, y + thumbSize * 0.75 + 11, { maxWidth: thumbSize });
+        x += thumbSize + gap;
+      }
+      y += thumbSize + 34;
+    }
+
+    if (fundedPlayers.length) {
+      heading('Impacto: jugadores becados', 12);
+      fundedPlayers.forEach((row) => {
+        label('• ' + row.player_name + ' — ' + (row.funding_mode === 'percentage'
+          ? Number(row.sponsor_value) + '% de la mensualidad'
+          : money.format(Number(row.sponsor_value)) + ' mensuales'));
+      });
+    }
+
+    doc.setFontSize(8); doc.setTextColor(150, 160, 163);
+    doc.text('Generado por TannerOS · ' + new Date().toLocaleDateString('es-MX'), margin, pageHeight - 20);
+
+    doc.save('Kit-patrocinio-' + sponsor.name.replace(/[^a-z0-9]+/gi, '-') + '.pdf');
+  } catch (error) {
+    alert('No pudimos generar el kit: ' + friendly(error));
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
 document.querySelectorAll('.module-nav [data-view]').forEach((button) => {
   button.addEventListener('click', () => switchView(button.dataset.view));
 });
@@ -1162,6 +1421,28 @@ $('assetPhotoInput').addEventListener('change', (event) => {
 $('evidenceUploadInput').addEventListener('change', (event) => {
   const input = event.currentTarget;
   uploadItemEvidence(input.files?.[0]).finally(() => { input.value = ''; });
+});
+$('sponsorStage').addEventListener('change', () => toggleLostReasonField($('sponsorStage').value));
+$('exportSponsorKit').addEventListener('click', exportSponsorKit);
+$('linkFundedPlayerButton').addEventListener('click', openFundingModal);
+$('fundingForm').addEventListener('submit', saveFunding);
+$('fundingPlayerSearch').addEventListener('input', () => {
+  const query = $('fundingPlayerSearch').value.trim().toLowerCase();
+  const results = $('fundingPlayerResults');
+  $('fundingPlayerId').value = '';
+  if (!query) { results.classList.add('hidden'); results.innerHTML = ''; return; }
+  const matches = (billingPlayers || []).filter((p) => String(p.player_name || '').toLowerCase().includes(query)).slice(0, 15);
+  results.innerHTML = matches.length
+    ? matches.map((p) => '<button type="button" class="tsearch-opt" data-id="' + esc(p.player_id) + '">' + esc(p.player_name) + '</button>').join('')
+    : '<div class="tsearch-empty">Sin coincidencias</div>';
+  results.classList.remove('hidden');
+});
+$('fundingPlayerResults').addEventListener('click', (event) => {
+  const button = event.target.closest('.tsearch-opt');
+  if (!button) return;
+  $('fundingPlayerId').value = button.dataset.id;
+  $('fundingPlayerSearch').value = button.textContent;
+  $('fundingPlayerResults').classList.add('hidden');
 });
 $('backdrop').addEventListener('click', () => {
   if (document.querySelector('.workspace-modal:not(.hidden)')) closeModal();

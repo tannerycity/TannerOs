@@ -1,1 +1,238 @@
-<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Utilería · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/utileria/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260823a"><link rel="stylesheet" href="/polish.css?v=20260823a"></head><body><main class="shell"><section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Utilería</h2><p class="muted">Conectando con inventario…</p></section><section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2/modulos/">Volver a módulos</a></section><section id="view" class="hidden app-wrap"><header class="topbar"><div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div><div class="top-actions"><a class="secondary mini nav-link" href="/v2/modulos/">Módulos</a><span id="roleBadge" class="role-badge"></span></div></header><section class="hero"><div><div class="eyebrow">OPERACIÓN · INVENTARIO</div><h1>Utilería</h1><p class="muted">Alta de material, disponibilidad, asignaciones y devoluciones.</p></div><span class="health"><i></i> Stock protegido</span></section><section class="kpis compact-kpis"><article><span>Artículos</span><strong id="kpiItems">0</strong></article><article><span>Unidades totales</span><strong id="kpiUnits">0</strong></article><article><span>Asignadas</span><strong id="kpiAssigned">0</strong></article><article><span>Por reponer</span><strong id="kpiLow">0</strong></article></section><section class="equipment-grid"><article class="panel"><div class="panel-head"><div><div class="eyebrow">INVENTARIO</div><h2>Nuevo artículo</h2></div></div><form id="itemForm" class="form-grid"><label>Nombre<input id="itemName" minlength="2" maxlength="120" required></label><label>SKU<input id="itemSku" maxlength="60"></label><label>Categoría<input id="itemCategory" maxlength="80" placeholder="Balones, conos, petos…"></label><label>Cantidad<input id="itemQuantity" type="number" min="0" step="1" value="0" required></label><label>Stock mínimo<input id="itemMinStock" type="number" min="0" step="1" value="0"></label><label>Costo unitario<input id="itemCost" type="number" min="0" step="0.01"></label><label class="span-2">Ubicación<input id="itemLocation" maxlength="120" placeholder="Bodega, cancha…"></label><label class="span-2">Notas<input id="itemNotes" maxlength="500"></label><button id="saveItem" class="primary span-2" type="submit">Guardar artículo</button><div id="itemMessage" class="inline-message hidden span-2"></div></form></article><article class="panel"><div class="panel-head"><div><div class="eyebrow">ASIGNAR</div><h2>Entregar material</h2></div></div><form id="assignForm" class="form-grid"><label class="span-2">Artículo<select id="assignItem" required><option value="">Selecciona</option></select></label><label>Responsable<input id="assignLabel" maxlength="120" placeholder="Ej. Profe Brandon" required></label><label>Cantidad<input id="assignQuantity" type="number" min="1" step="1" value="1" required></label><label class="span-2">Notas<input id="assignNotes" maxlength="500"></label><button id="saveAssignment" class="primary span-2" type="submit">Asignar material</button><div id="assignMessage" class="inline-message hidden span-2"></div></form></article></section><section class="panel"><div class="panel-head"><div><div class="eyebrow">EXISTENCIAS</div><h2>Inventario actual</h2></div><button id="refresh" class="secondary mini" type="button">Actualizar</button></div><div class="table-wrap"><table><thead><tr><th>Artículo</th><th>Total</th><th>Asignado</th><th>Disponible</th><th>Estado</th></tr></thead><tbody id="itemsBody"></tbody></table></div><div id="itemsEmpty" class="empty hidden">Aún no hay artículos.</div></section><section class="panel"><div class="panel-head"><div><div class="eyebrow">EN CAMPO</div><h2>Asignaciones activas</h2></div></div><div id="assignmentList" class="assignment-list"></div><div id="assignmentsEmpty" class="empty hidden">No hay material asignado.</div></section></section></main><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/utileria/app.js"></script></body></html>
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Utilería · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/utileria/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260823a"><link rel="stylesheet" href="/polish.css?v=20260823a"></head>
+<body>
+<main class="shell">
+
+<section id="loadingView" class="center-card">
+  <div class="brand-mark small">T</div>
+  <h2>Utilería</h2>
+  <p class="muted">Conectando con inventario…</p>
+</section>
+
+<section id="deniedView" class="center-card hidden">
+  <div class="brand-mark small">T</div>
+  <h2>Sin acceso</h2>
+  <p id="deniedText" class="muted"></p>
+  <a class="secondary nav-link" href="/v2/modulos/">Volver a módulos</a>
+</section>
+
+<section id="view" class="hidden app-wrap">
+  <header class="topbar">
+    <div class="brand-lockup compact">
+      <div class="brand-mark small">T</div>
+      <div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div>
+    </div>
+    <div class="top-actions">
+      <a class="secondary mini nav-link" href="/v2/modulos/">Módulos</a>
+      <span id="roleBadge" class="role-badge"></span>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">OPERACIÓN · INVENTARIO</div>
+      <h1 id="heroTitle">Utilería</h1>
+      <p class="muted" id="heroSubtitle">Qué tenemos, cuánto tenemos, dónde está y quién lo tiene.</p>
+    </div>
+    <span class="health"><i></i> Stock protegido</span>
+  </section>
+
+  <!-- ================= VISTA ADMINISTRACIÓN ================= -->
+  <div id="adminView" class="hidden">
+
+    <nav class="tabs" id="adminTabs">
+      <button class="tab active" data-tab="resumen" type="button">Resumen</button>
+      <button class="tab" data-tab="inventario" type="button">Inventario</button>
+      <button class="tab" data-tab="bodega" type="button">Bodega</button>
+      <button class="tab" data-tab="kits" type="button">Kits</button>
+      <button class="tab" data-tab="incidencias" type="button">Incidencias <span id="incidenciasBadge" class="tab-badge hidden">0</span></button>
+    </nav>
+
+    <!-- RESUMEN -->
+    <section class="tab-panel" data-panel="resumen">
+      <section class="kpis compact-kpis">
+        <article><span>Artículos</span><strong id="kpiItems">0</strong></article>
+        <article><span>Unidades totales</span><strong id="kpiUnits">0</strong></article>
+        <article><span>Asignadas</span><strong id="kpiAssigned">0</strong></article>
+        <article><span>Por reponer</span><strong id="kpiLow">0</strong></article>
+        <article><span>Valor aproximado</span><strong id="kpiValue">$0</strong></article>
+      </section>
+      <div class="equipment-grid">
+        <article class="panel">
+          <div class="panel-head"><div><div class="eyebrow">STOCK</div><h2>Por reponer</h2></div></div>
+          <div id="reorderList" class="mini-list"></div>
+          <div id="reorderEmpty" class="empty hidden">Todo el stock está por arriba del mínimo.</div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><div class="eyebrow">VALOR</div><h2>Inventario por categoría</h2></div></div>
+          <div id="valueList" class="mini-list"></div>
+          <div id="valueEmpty" class="empty hidden">Aún no hay artículos con costo.</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- INVENTARIO -->
+    <section class="tab-panel hidden" data-panel="inventario">
+      <article class="panel action-panel">
+        <div class="panel-head action-head">
+          <div><div class="eyebrow">INVENTARIO</div><h2>Artículos</h2><p class="action-copy muted">Material por cantidad (conos, casacas) o activos individuales (balones, escaleras) con identificador propio.</p></div>
+          <button id="toggleItemForm" class="primary write-only" type="button">+ Nuevo artículo</button>
+        </div>
+        <form id="itemForm" class="form-grid hidden">
+          <input type="hidden" id="itemId">
+          <label>Nombre<input id="itemName" minlength="2" maxlength="120" required></label>
+          <label>SKU<input id="itemSku" maxlength="60"></label>
+          <label>Categoría<input id="itemCategory" maxlength="80" placeholder="Balones, conos, petos…" list="categoryOptions"></label>
+          <datalist id="categoryOptions"></datalist>
+          <label>Tipo de control
+            <select id="itemControlType">
+              <option value="cantidad">Por cantidad</option>
+              <option value="individual">Activos individuales</option>
+            </select>
+          </label>
+          <label>Cantidad<input id="itemQuantity" type="number" min="0" step="1" value="0" required></label>
+          <label>Stock mínimo<input id="itemMinStock" type="number" min="0" step="1" value="0"></label>
+          <label>Costo unitario<input id="itemCost" type="number" min="0" step="0.01"></label>
+          <label class="span-2">Ubicación<input id="itemLocation" maxlength="120" placeholder="Bodega, cancha…"></label>
+          <label class="span-2">Notas<input id="itemNotes" maxlength="500"></label>
+          <label class="span-2">Foto
+            <input id="itemPhotoInput" type="file" accept="image/*">
+          </label>
+          <div class="span-2 photo-row"><div id="itemPhotoBox" class="photo-box small">Sin foto</div></div>
+          <div class="span-2" style="display:flex;gap:10px">
+            <button id="saveItem" class="primary" type="submit">Guardar artículo</button>
+            <button id="cancelItemEdit" class="secondary" type="button">Cancelar</button>
+          </div>
+          <div id="itemMessage" class="inline-message hidden span-2"></div>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div><div class="eyebrow">EXISTENCIAS</div><h2>Inventario actual</h2></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="itemSearch" class="search" type="search" placeholder="Buscar artículo…">
+            <button id="refreshInventory" class="secondary mini" type="button">Actualizar</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th></th><th>Artículo</th><th>Control</th><th>Total</th><th>Asignado</th><th>Disponible</th><th>Estado</th></tr></thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
+        <div id="itemsEmpty" class="empty hidden">Aún no hay artículos.</div>
+      </article>
+    </section>
+
+    <!-- BODEGA -->
+    <section class="tab-panel hidden" data-panel="bodega">
+      <article class="panel action-panel">
+        <div class="panel-head"><div><div class="eyebrow">BODEGA</div><h2>Entregar material</h2><p class="action-copy muted">Bodega disminuye, el kit del entrenador aumenta. Queda registrado automáticamente.</p></div></div>
+        <form id="assignForm" class="form-grid">
+          <label class="span-2">Artículo
+            <select id="assignItem" required><option value="">Selecciona</option></select>
+          </label>
+          <label class="span-2" id="assignUnitField">Unidad
+            <select id="assignUnit"><option value="">Selecciona una unidad</option></select>
+          </label>
+          <label class="span-2">Entrenador
+            <select id="assignCoach"><option value="">Selecciona un entrenador…</option><option value="__other__">Otro (escribir nombre)</option></select>
+          </label>
+          <label class="span-2 hidden" id="assignLabelField">Nombre<input id="assignLabel" maxlength="120" placeholder="Ej. Profe Brandon"></label>
+          <label id="assignQuantityField">Cantidad<input id="assignQuantity" type="number" min="1" step="1" value="1"></label>
+          <label class="span-2">Notas<input id="assignNotes" maxlength="500"></label>
+          <button id="saveAssignment" class="primary span-2" type="submit">Entregar material</button>
+          <div id="assignMessage" class="inline-message hidden span-2"></div>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><div><div class="eyebrow">STOCK EN BODEGA</div><h2>Disponible ahora</h2></div></div>
+        <div id="bodegaList" class="bodega-grid"></div>
+        <div id="bodegaEmpty" class="empty hidden">No hay material disponible en bodega.</div>
+      </article>
+    </section>
+
+    <!-- KITS -->
+    <section class="tab-panel hidden" data-panel="kits">
+      <article class="panel">
+        <div class="panel-head"><div><div class="eyebrow">EN CAMPO</div><h2>Kit por entrenador</h2></div></div>
+        <div id="kitsList" class="kits-grid"></div>
+        <div id="kitsEmpty" class="empty hidden">No hay material asignado.</div>
+      </article>
+    </section>
+
+    <!-- INCIDENCIAS -->
+    <section class="tab-panel hidden" data-panel="incidencias">
+      <article class="panel">
+        <div class="panel-head">
+          <div><div class="eyebrow">REPORTES</div><h2>Incidencias</h2></div>
+          <select id="reportStatusFilter" class="search">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en_reparacion">En reparación</option>
+            <option value="aprobado">Aprobado</option>
+            <option value="rechazado">Rechazado</option>
+            <option value="resuelto">Resuelto</option>
+            <option value="cerrado">Cerrado</option>
+          </select>
+        </div>
+        <div id="reportsList" class="report-list"></div>
+        <div id="reportsEmpty" class="empty hidden">No hay incidencias reportadas.</div>
+      </article>
+    </section>
+
+  </div>
+
+  <!-- ================= VISTA ENTRENADOR ================= -->
+  <div id="coachView" class="hidden">
+    <article class="panel">
+      <div class="panel-head"><div><div class="eyebrow">MI UTILERÍA</div><h2>Lo que tengo asignado</h2></div></div>
+      <div id="myKitList" class="kits-grid"></div>
+      <div id="myKitEmpty" class="empty hidden">No tienes material asignado todavía.</div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head"><div><h2>¿Necesitas algo?</h2></div></div>
+      <div class="coach-actions">
+        <button class="secondary report-trigger" data-preset="problema" type="button">Reportar problema</button>
+        <button class="secondary report-trigger" data-preset="reposicion" type="button">Solicitar reposición</button>
+        <button class="secondary report-trigger" data-preset="material_adicional" type="button">Solicitar material</button>
+      </div>
+      <form id="reportForm" class="form-grid hidden">
+        <label class="span-2" id="reportItemField">Artículo (de mi kit)
+          <select id="reportItem"><option value="">Selecciona…</option></select>
+        </label>
+        <label class="span-2 hidden" id="reportFreeTextField">¿Qué necesitas?<input id="reportFreeText" maxlength="160" placeholder="Ej. 2 conos, un peto talla M…"></label>
+        <label id="reportTypeField">Tipo
+          <select id="reportType">
+            <option value="danado">Dañado</option>
+            <option value="roto">Roto</option>
+            <option value="perdido">Perdido</option>
+            <option value="faltante">Faltante</option>
+          </select>
+        </label>
+        <label>Cantidad<input id="reportQuantity" type="number" min="1" step="1" value="1"></label>
+        <label class="span-2">Motivo<input id="reportReason" maxlength="300" placeholder="Ej. Se ponchó en el entrenamiento"></label>
+        <label class="span-2">Foto (opcional)<input id="reportPhotoInput" type="file" accept="image/*"></label>
+        <label class="span-2">Comentario (opcional)<input id="reportComment" maxlength="300"></label>
+        <div class="span-2" style="display:flex;gap:10px">
+          <button id="saveReport" class="primary" type="submit">Enviar reporte</button>
+          <button id="cancelReport" class="secondary" type="button">Cancelar</button>
+        </div>
+        <div id="reportMessage" class="inline-message hidden span-2"></div>
+      </form>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head"><div><div class="eyebrow">SEGUIMIENTO</div><h2>Mis reportes</h2></div></div>
+      <div id="myReportsList" class="report-list"></div>
+      <div id="myReportsEmpty" class="empty hidden">No has enviado reportes.</div>
+    </article>
+  </div>
+
+</section>
+</main>
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/utileria/app.js"></script>
+</body></html>

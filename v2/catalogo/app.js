@@ -24,8 +24,8 @@ async function boot(){
   if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}
   ctx=rows[0];
   const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});
-  const mod=mods.find(m=>m.module_code==='commerce');
-  if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Comercio/Catálogo.';show('deniedView');return;}
+  const mod=mods.find(m=>m.module_code==='catalogo');
+  if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Catálogo.';show('deniedView');return;}
   const financeMod=mods.find(m=>m.module_code==='commerce_finance');
   canFinance=!!(financeMod?.enabled&&financeMod?.can_read);
   // Presidencia es la única que puede crear/editar el catálogo (lo exige también el backend).

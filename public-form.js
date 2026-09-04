@@ -157,4 +157,30 @@ function renderProgramForm(slug,p){
   });
 }
 
-try{if(path==='/registro'||registrationCampaigns[path])await renderRegistro(registrationCampaigns[path]||null);else if(path==='/pedido')await renderPedido();else if(path==='/programas')await renderProgramas();else show('<div class="empty-state"><h2>Ruta no disponible</h2></div>');}catch(err){show(`<div class="empty-state"><h2>No pudimos cargar esta página</h2><p class="muted">${err.message||'Intenta nuevamente.'}</p></div>`);}
+async function renderAcademias(){
+  setTitle('Academias Tannery City');
+  const slug=new URLSearchParams(location.search).get('academia');
+  if(!slug){show(`<div class="empty-state"><div class="eyebrow">ACADEMIAS</div><h2>Falta el enlace de la academia</h2><p class="muted">Pide a Tannery City el link directo de la academia a la que te quieres inscribir.</p></div>`);return;}
+  let academy;
+  try{academy=await rpc('v2_public_academy_info',{club_key:CLUB_KEY,slug});}
+  catch{show(`<div class="empty-state"><div class="eyebrow">ACADEMIAS</div><h2>Este registro no está disponible</h2><p class="muted">La academia pudo cerrar su inscripción o el link ya no es válido. Escríbenos para más información.</p></div>`);return;}
+  const fee=Number(academy.monthlyFee)>0?`${money.format(Number(academy.monthlyFee))} / mes`:'Cuota por confirmar';
+  const meta=[academy.location,academy.availableSpots!=null?`${academy.availableSpots} lugares disponibles`:null].filter(Boolean).join(' · ');
+  show(`<div class="subcard program-registration"><div class="program-registration-head"><div><div class="eyebrow">ACADEMIA</div><h2>${escapePublic(academy.name)}</h2>${meta?`<p>${escapePublic(meta)}</p>`:''}</div><strong>${escapePublic(fee)}</strong></div>${academy.description?`<p class="muted">${escapePublic(academy.description)}</p>`:''}<form id="academiaForm" class="form-grid registration-form"><div class="form-section span-2"><b>Datos del jugador</b><span>Usaremos esta información para identificarlo e inscribirlo en la academia.</span></div><label>Nombre *<input id="afFirst" autocomplete="given-name" minlength="2" maxlength="80" required></label><label>Apellidos *<input id="afLast" autocomplete="family-name" minlength="2" maxlength="100" required></label><label>Fecha de nacimiento *<input id="afBirth" type="date" required></label><label>Escuela *<input id="afSchool" minlength="2" maxlength="160" required></label><label>Pierna dominante *<select id="afDominantFoot" required><option value="">Selecciona</option><option value="right">Derecha</option><option value="left">Izquierda</option><option value="both">Ambas</option></select></label><div class="form-section span-2"><b>Tutor y contacto</b><span>La persona responsable recibirá el seguimiento y la información de cobro.</span></div><label>Nombre del padre/madre/tutor *<input id="afGuardian" autocomplete="name" minlength="2" maxlength="120" required></label>${phoneField('afPhone','Teléfono (WhatsApp)')}<label>Correo<input id="afEmail" type="email" maxlength="254"></label><label class="span-2">¿Cómo se enteraron? *<select id="afSource" required><option>Redes sociales</option><option>Recomendación</option><option>Escuela</option><option>Evento</option><option>Volante / QR</option><option>Otro</option></select></label><label id="afReferralWrap" class="hidden span-2">¿Quién te recomendó? *<input id="afReferralName" maxlength="120"></label>${privacyBlock('afreg',{imageConsent:true})}<div id="formMessage" class="message hidden span-2"></div><button id="afSubmit" class="primary span-2" type="submit">Enviar inscripción</button></form></div>`);
+  wirePhoneField('afPhone','MX');$('afBirth').max=todayInput();
+  const source=$('afSource'),refWrap=$('afReferralWrap'),refInput=$('afReferralName');
+  const toggleReferral=()=>{const on=source.value==='Recomendación';refWrap.classList.toggle('hidden',!on);refInput.required=on;if(!on)refInput.value='';};
+  source.addEventListener('change',toggleReferral);toggleReferral();
+  $('academiaForm').addEventListener('submit',async e=>{
+    e.preventDefault();msg('');const btn=$('afSubmit');btn.disabled=true;
+    const {missing,first}=collectMissingRequired(e.target);
+    if(missing.length){msg(missingMessage(missing));focusMissing(first);btn.disabled=false;return;}
+    try{
+      const phone=requirePhone('afPhone');btn.textContent='Enviando…';
+      const result=await rpc('v2_public_register_enhanced',{club_key:CLUB_KEY,first_name:$('afFirst').value.trim(),last_name:$('afLast').value.trim(),birth_date:$('afBirth').value,phone,email:$('afEmail').value.trim()||null,guardian_name:$('afGuardian').value.trim(),category_interest:academy.name,source_campaign:`academia:${slug}`,source_channel:$('afSource').value,registration_type:'general',purpose:'Inscripción a la academia',dominant_foot:$('afDominantFoot').value,school_name:$('afSchool').value.trim(),referral_name:$('afReferralName').value.trim()||null,public_message:null,privacy_notice_version:PRIVACY_NOTICE_VERSION,data_consent:$('afregDataConsent').checked,image_consent:$('afregImageConsent').checked});
+      show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>Inscripción recibida</h2><p>Tannery City te contactará por WhatsApp para confirmar tu lugar en <b>${escapePublic(academy.name)}</b> y los detalles de cobro.</p>${result?.folio?`<div class="folio">${escapePublic(result.folio)}</div>`:''}</div>`);
+    }catch(err){msg(err.message||'No se pudo enviar la inscripción.');btn.disabled=false;btn.textContent='Enviar inscripción';}
+  });
+}
+
+try{if(path==='/registro'||registrationCampaigns[path])await renderRegistro(registrationCampaigns[path]||null);else if(path==='/pedido')await renderPedido();else if(path==='/programas')await renderProgramas();else if(path==='/academias')await renderAcademias();else show('<div class="empty-state"><h2>Ruta no disponible</h2></div>');}catch(err){show(`<div class="empty-state"><h2>No pudimos cargar esta página</h2><p class="muted">${err.message||'Intenta nuevamente.'}</p></div>`);}

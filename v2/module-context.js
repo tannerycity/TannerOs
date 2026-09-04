@@ -6,10 +6,10 @@ const GROUPS=[
     {label:'Convocatoria',href:'/convocatoria/',module:'convocatoria'},
     {label:'Calendario',href:'/calendario/',module:'calendario'}
   ]},
-  {name:'Talento',match:['/prospectos/','/scouting/','/academias/','/porteros/'],items:[
+  {name:'Talento',match:['/prospectos/','/scouting/','/operacion/academias/','/porteros/'],items:[
     {label:'Captación',href:'/prospectos/',module:'prospectos'},
     {label:'Scouting',href:'/scouting/',module:'scouting'},
-    {label:'Academias',href:'/academias/',module:'academias'},
+    {label:'Academias',href:'/operacion/academias/',module:'academias'},
     {label:'Porteros',href:'/porteros/',module:'academias'}
   ]},
   {name:'Tienda',match:['/pedidos/','/produccion/'],items:[
@@ -22,7 +22,7 @@ const GROUPS=[
     {label:'Contabilidad',href:'/contabilidad/',module:'contabilidad'}
   ]}
 ];
-function canonicalPath(pathname=location.pathname){const p=String(pathname||'/');if(p==='/v2'||p==='/v2/')return'/';if(p==='/v2/programas'||p.startsWith('/v2/programas/'))return p.replace(/^\/v2\/programas(?=\/|$)/,'/operacion/programas');if(p.startsWith('/v2/'))return p.slice(3)||'/';return p;}
+function canonicalPath(pathname=location.pathname){const p=String(pathname||'/');if(p==='/v2'||p==='/v2/')return'/';if(p==='/v2/programas'||p.startsWith('/v2/programas/'))return p.replace(/^\/v2\/programas(?=\/|$)/,'/operacion/programas');if(p==='/v2/academias'||p.startsWith('/v2/academias/'))return p.replace(/^\/v2\/academias(?=\/|$)/,'/operacion/academias');if(p.startsWith('/v2/'))return p.slice(3)||'/';return p;}
 const normalizedPath=()=>{const p=canonicalPath();return p==='/'?'/':(p.endsWith('/')?p:`${p}/`);};
 function readable(navigation,code){const row=(navigation||[]).find(r=>r.module_code===code);return Boolean(row?.enabled&&row?.can_read);}
 function active(item,path){return path.startsWith(item.href);}

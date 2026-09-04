@@ -22,7 +22,7 @@ function campaignLabel(value){const code=String(value||'').trim();if(!code)retur
 
 async function renderClub(){
   $('hubEyebrow').textContent='EL CORAZÓN DEPORTIVO DEL CLUB';$('hubTitle').textContent='Club';$('hubSubtitle').textContent='Plantilla, asistencia, convocatorias, captación y calendario.';
-  $('hubBody').innerHTML=`<section class="tos-hub-grid">${card('jugadores','Jugadores','Plantilla y fichas Tanner','/jugadores/','','users')}${card('asistencia','Asistencia','Entrenamientos y registro','/asistencia/','blue','check')}${card('callups','Convocatoria','Arma tu convocatoria','/convocatoria/','gold','list')}${card('prospectos','Captación','Seguimiento de talento','/prospectos/','gold','target')}${card('scouting','Scouting','Visorías y radar de talento','/scouting/','','search')}${card('academias','Academias','Inscripciones y operación','/academias/','blue','academy')}</section>`;
+  $('hubBody').innerHTML=`<section class="tos-hub-grid">${card('jugadores','Jugadores','Plantilla y fichas Tanner','/jugadores/','','users')}${card('asistencia','Asistencia','Entrenamientos y registro','/asistencia/','blue','check')}${card('callups','Convocatoria','Arma tu convocatoria','/convocatoria/','gold','list')}${card('prospectos','Captación','Seguimiento de talento','/prospectos/','gold','target')}${card('scouting','Scouting','Visorías y radar de talento','/scouting/','','search')}${card('academias','Academias','Inscripciones y operación','/operacion/academias/','blue','academy')}</section>`;
 }
 
 async function renderDirection(){

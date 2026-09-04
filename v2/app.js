@@ -28,7 +28,7 @@ const moduleLinks=[
   {codes:['taquilla'],label:'Taquilla',href:'/taquilla/'},
   {codes:['prospectos'],label:'Captación',href:'/prospectos/'},
   {codes:['scouting'],label:'Scouting',href:'/scouting/'},
-  {codes:['academias'],label:'Academias',href:'/academias/'},
+  {codes:['academias'],label:'Academias',href:'/operacion/academias/'},
   {codes:['tienda'],label:'Tienda',href:'/pedidos/'},
   {codes:['tienda'],label:'Catálogo',href:'/catalogo/'},
   {codes:['cursosVerano'],label:'Programas',href:'/operacion/programas/'},

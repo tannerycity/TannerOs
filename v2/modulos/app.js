@@ -6,7 +6,7 @@ const routes={
   attendance:{name:'Asistencia',desc:'Sesiones, roster y registro de asistencia.',href:'/asistencia/'},
   prospects:{name:'Captación',desc:'Prospectos, seguimiento y funnel.',href:'/prospectos/'},
   scouting:{name:'Scouting',desc:'Visorías y evaluación de talento.',href:'/scouting/'},
-  academies:{name:'Academias',desc:'Academias, cupos e inscripciones de Tanners.',href:'/academias/'},
+  academies:{name:'Academias',desc:'Academias, cupos e inscripciones de Tanners.',href:'/operacion/academias/'},
   commerce:{name:'Pedidos y producción',desc:'Órdenes, cortes, producción, entrega y garantías.',href:'/pedidos/'},
   billing:{name:'Cobranza',desc:'Pagos, beneficios y cartera del club.',href:'/finanzas/'},
   accounting:{name:'Contabilidad',desc:'Egresos y trazabilidad contable.',href:'/contabilidad/'},

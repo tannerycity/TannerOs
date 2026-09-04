@@ -14,7 +14,7 @@ const FINAL_ROUTES=[
   ['/jugadores/','jugadores','Jugadores'],
   ['/asistencia/','asistencia','Asistencia'],
   ['/calendario/','calendario','Calendario'],
-  ['/academias/','academias','Academias'],
+  ['/operacion/academias/','academias','Academias'],
   ['/prospectos/','prospectos','Captación'],
   ['/scouting/','scouting','Scouting'],
   ['/operacion/programas/','cursosVerano','Programas y eventos'],
@@ -36,6 +36,7 @@ function canonicalPath(pathname=location.pathname){
   const path=String(pathname||'/');
   if(path==='/v2'||path==='/v2/')return '/';
   if(path==='/v2/programas'||path.startsWith('/v2/programas/'))return path.replace(/^\/v2\/programas(?=\/|$)/,'/operacion/programas');
+  if(path==='/v2/academias'||path.startsWith('/v2/academias/'))return path.replace(/^\/v2\/academias(?=\/|$)/,'/operacion/academias');
   if(path.startsWith('/v2/'))return path.slice(3)||'/';
   return path;
 }

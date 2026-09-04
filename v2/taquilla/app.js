@@ -8,7 +8,9 @@ const canCashWrite=moduleAccess(navigation,'taquilla',true)||moduleAccess(naviga
 const canAccountingWrite=moduleAccess(navigation,'contabilidad',true);
 // Pagar ya no depende exclusivamente de Contabilidad: quien opera esta caja (Taquilla RW) también puede pagar.
 const canPayWrite=canCashWrite||canAccountingWrite;
-const canViewCobranza=moduleAccess(navigation,'cobranza',false)||moduleAccess(navigation,'contabilidad',false);
+// El panel de cartera/deudores es información de morosidad por familia — no es parte
+// de operar la caja. Taquilla cobra y ve su propio histórico, pero no la lista de quién debe.
+const canViewCobranza=(moduleAccess(navigation,'cobranza',false)||moduleAccess(navigation,'contabilidad',false))&&ctx.role!=='Taquilla';
 let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,collectionSnapshot=null,receivables=[],phoneMap={};
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};

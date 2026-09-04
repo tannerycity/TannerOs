@@ -116,6 +116,10 @@ function friendly(error) {
     'Invalid evidence path': 'No pudimos validar la evidencia. Vuelve a intentarlo.',
     'Evidence upload not found': 'La evidencia no terminó de subir. Vuelve a intentarlo.',
     'Agreement item not found': 'No encontramos ese compromiso del acuerdo.',
+    'Invalid phone number': 'El teléfono no es válido. Usa 10 dígitos, por ejemplo 477 274 6136.',
+    'Mexico phone must have exactly 10 digits': 'El teléfono debe tener exactamente 10 dígitos, sin anteponer 1 ni la lada del país.',
+    'US/Canada phone must have exactly 10 digits': 'El teléfono de EE.UU./Canadá debe tener exactamente 10 dígitos.',
+    'Invalid Argentina phone number': 'El teléfono de Argentina no es válido.',
     'Financial configuration requires Presidencia or Contabilidad': 'Solo Presidencia o Contabilidad pueden configurar becas de patrocinio.',
     'Monthly total must be zero or greater': 'El monto mensual total no puede ser negativo.',
     'Funding mode must be fixed_amount or percentage': 'Selecciona una modalidad válida.',
@@ -236,6 +240,25 @@ function buildWhatsAppLink(sponsor, detail) {
   const greeting = sponsor.contactName ? 'Hola ' + sponsor.contactName : 'Hola';
   const message = greeting + ', te escribo de Tannery City FC para dar seguimiento: ' + (detail || 'nuestra relación de patrocinio') + '.';
   return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(message);
+}
+function formatMxPhoneDisplay(digits) {
+  const d = digits.slice(0, 10);
+  return [d.slice(0, 3), d.slice(3, 6), d.slice(6, 10)].filter(Boolean).join(' ');
+}
+function mxPhoneDisplayFromStored(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '');
+  if (raw.startsWith('+52') && digits.length === 12) return formatMxPhoneDisplay(digits.slice(2));
+  if (!raw.startsWith('+') && digits.length === 10) return formatMxPhoneDisplay(digits);
+  return raw;
+}
+function bindPhoneMask(input) {
+  input.addEventListener('input', () => {
+    if (input.value.trim().startsWith('+')) return;
+    const digits = input.value.replace(/\D/g, '').slice(0, 10);
+    input.value = formatMxPhoneDisplay(digits);
+  });
 }
 function toggleLostReasonField(stage) {
   const isLost = stage === 'lost';
@@ -636,6 +659,7 @@ function openBrand(id) {
   renderBrandDrawer();
   $('brandDrawer').classList.remove('hidden');
   $('brandDrawer').setAttribute('aria-hidden', 'false');
+  $('brandDrawer').scrollTop = 0;
   $('backdrop').classList.remove('hidden');
   document.body.classList.add('workspace-open');
 }
@@ -662,6 +686,7 @@ function switchDrawerView(view) {
     'brand-followup': 'brandFollowupPanel',
   };
   Object.entries(panels).forEach(([name, id]) => $(id).classList.toggle('hidden', name !== view));
+  $('brandDrawer').scrollTop = 0;
 }
 
 function renderBrandDrawer() {
@@ -681,6 +706,7 @@ function renderBrandDrawer() {
   $('drawerFollowup').textContent = hasFollowup ? timingLabel(sponsor.nextActionAt) : 'Sin seguimiento';
   $('drawerFollowup').className = 'followup-chip ' + (hasFollowup ? '' : 'missing');
   renderBrandSummary(sponsor);
+  renderExchangeSummary(sponsor);
   renderBrandAgreements(sponsor);
   renderCommitments(sponsor);
   renderMovements(sponsor);
@@ -718,6 +744,35 @@ function renderBrandSummary(sponsor) {
     '</section>' +
     (sponsor.notes ? '<section class="notes-card"><span>Nota</span><p>' + esc(sponsor.notes) + '</p></section>' : '') +
     (sponsor.lostReason ? '<section class="notes-card lost-reason-card"><span>Motivo de pérdida</span><p>' + esc(sponsor.lostReason) + '</p></section>' : '');
+}
+
+function renderExchangeSummary(sponsor) {
+  const box = $('brandExchangeSummary');
+  if (!box) return;
+  const sponsorAgreements = agreementsForSponsor(sponsor.id);
+  const items = sponsorAgreements.flatMap((agreement) => itemsForAgreement(agreement.id));
+  if (!items.length) {
+    box.innerHTML = '<section class="exchange-summary-card empty"><div class="eyebrow">A CAMBIO</div><h3>Qué nos da / qué le damos</h3>' +
+      '<p class="muted">Sin elementos capturados todavía. Agrégalos en la pestaña “Acuerdo”.</p></section>';
+    return;
+  }
+  function group(direction, title) {
+    const groupItems = items.filter((item) => item.direction === direction);
+    if (!groupItems.length) return '';
+    const done = groupItems.filter((item) => item.fulfilled).length;
+    return '<div class="exchange-summary-group">' +
+      '<div class="exchange-summary-head"><h4>' + esc(title) + '</h4><span>' + done + '/' + groupItems.length + ' cumplido(s)</span></div>' +
+      '<ul class="exchange-summary-list">' + groupItems.map((item) => (
+        '<li class="' + (item.fulfilled ? 'fulfilled' : 'pending') + '"><span>' + esc(item.description) + '</span><b>' + (item.fulfilled ? 'Entregado' : 'Pendiente') + '</b></li>'
+      )).join('') + '</ul>' +
+    '</div>';
+  }
+  box.innerHTML = '<section class="exchange-summary-card">' +
+    '<div class="drawer-section-head"><div><div class="eyebrow">A CAMBIO</div><h3>Qué nos da / qué le damos</h3></div>' +
+    '<button class="secondary mini exchange-summary-detail" type="button">Ver detalle</button></div>' +
+    group('receive', 'Qué nos da') + group('give', 'Qué le damos') +
+  '</section>';
+  box.querySelector('.exchange-summary-detail')?.addEventListener('click', () => switchDrawerView('brand-assets'));
 }
 
 async function loadFundedPlayers(sponsorId) {
@@ -898,6 +953,7 @@ function renderMovements(sponsor) {
 function openModal(id) {
   document.querySelectorAll('.workspace-modal').forEach((modal) => modal.classList.add('hidden'));
   $(id).classList.remove('hidden');
+  $(id).scrollTop = 0;
   $('backdrop').classList.remove('hidden');
   document.body.classList.add('workspace-open');
   setTimeout(() => $(id).querySelector('input:not([type="hidden"]),select,textarea')?.focus(), 30);
@@ -931,7 +987,7 @@ function openSponsorForm(sponsor = null) {
     $('sponsorRelationship').value = normalizeRelation(sponsor.relationshipType);
     $('sponsorStage').value = normalizeStage(sponsor.stage, sponsor.status);
     $('sponsorContact').value = sponsor.contactName || '';
-    $('sponsorPhone').value = sponsor.phone || '';
+    $('sponsorPhone').value = mxPhoneDisplayFromStored(sponsor.phone);
     $('sponsorEmail').value = sponsor.email || '';
     $('sponsorPotential').value = sponsor.potentialValue ?? '';
     $('sponsorOwner').value = sponsor.ownerName || '';
@@ -949,6 +1005,16 @@ function openSponsorForm(sponsor = null) {
 async function saveSponsor(event) {
   event.preventDefault();
   message('sponsorMessage');
+  const phoneRaw = $('sponsorPhone').value.trim();
+  let phoneValue = phoneRaw || null;
+  if (phoneRaw && !phoneRaw.startsWith('+')) {
+    const phoneDigits = phoneRaw.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      message('sponsorMessage', 'El teléfono debe tener 10 dígitos. Ejemplo: 477 274 6136.');
+      return;
+    }
+    phoneValue = phoneDigits;
+  }
   const button = $('saveSponsor');
   button.disabled = true;
   try {
@@ -960,7 +1026,7 @@ async function saveSponsor(event) {
       name: $('sponsorName').value.trim(),
       sponsor_type: RELATIONSHIPS[relationship],
       contact_name: $('sponsorContact').value.trim() || null,
-      phone: $('sponsorPhone').value.trim() || null,
+      phone: phoneValue,
       email: $('sponsorEmail').value.trim() || null,
       status: statusFromStage(stage),
       tier: null,
@@ -1423,6 +1489,7 @@ $('evidenceUploadInput').addEventListener('change', (event) => {
   uploadItemEvidence(input.files?.[0]).finally(() => { input.value = ''; });
 });
 $('sponsorStage').addEventListener('change', () => toggleLostReasonField($('sponsorStage').value));
+bindPhoneMask($('sponsorPhone'));
 $('exportSponsorKit').addEventListener('click', exportSponsorKit);
 $('linkFundedPlayerButton').addEventListener('click', openFundingModal);
 $('fundingForm').addEventListener('submit', saveFunding);

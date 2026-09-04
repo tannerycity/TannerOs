@@ -158,6 +158,7 @@
 .free-link:hover{text-decoration:underline}
 .jgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
 .jcard{position:relative;aspect-ratio:3/4;border:0;border-radius:18px;overflow:hidden;cursor:pointer;background:linear-gradient(160deg,#0a3038,#04222a);background-size:cover;background-position:center top;padding:0;display:block;box-shadow:0 4px 14px rgba(11,20,24,.14);transition:transform .1s,box-shadow .15s}
+.jcard-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top}
 .jcard:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(11,20,24,.22)}
 .jcard.selected{outline:3px solid #c6ac5c;outline-offset:-2px}
 .jcard::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,26,32,.12) 0%,rgba(3,26,32,.02) 38%,rgba(3,26,32,.86) 100%)}

@@ -8,7 +8,15 @@ const supabase=createClient(
 
 const PHOTO_BUCKET='tanneros-prospect-photos';
 const $=id=>document.getElementById(id);
-let ctx=null,prospects=[],filtered=[],current=null,moduleRows=[],categories=[],activeView='pipeline';
+let ctx=null,prospects=[],filtered=[],current=null,moduleRows=[],categories=[],activeView='pipeline',viewMode='list';
+const KANBAN_STAGES=[
+  {key:'new',label:'Nuevo'},
+  {key:'contacted',label:'Contactado'},
+  {key:'trial_scheduled',label:'Prueba agendada'},
+  {key:'trial_completed',label:'Prueba realizada'},
+  {key:'converted',label:'Convertido'},
+  {key:'not_continuing',label:'No continúa'}
+];
 
 const statusLabel={
   new:'Nuevo',contacted:'Contactado',trial_scheduled:'Prueba agendada',
@@ -127,6 +135,142 @@ function updateTabCounts(){
   $('tabCountAll').textContent=rows.length;
 }
 
+function setViewMode(mode){
+  viewMode=mode;
+  $('viewList').classList.toggle('active',mode==='list');
+  $('viewKanban').classList.toggle('active',mode==='kanban');
+  $('prospectList').classList.toggle('hidden',mode!=='list');
+  $('kanbanBoard').classList.toggle('hidden',mode!=='kanban');
+  $('pipelineTabs').classList.toggle('hidden',mode==='kanban');
+  document.querySelector('.campaign-overview')?.classList.toggle('hidden',mode==='kanban');
+  applyFilters();
+  if(mode==='kanban')$('resultCount').textContent=`${kanbanRows().length} en el tablero`;
+}
+function kanbanRows(){
+  const q=$('searchProspect').value.trim().toLocaleLowerCase('es-MX');
+  return baseScoped().filter(p=>{
+    if(!q)return true;
+    const hay=[nameOf(p),p.phone,p.email,p.guardian_name,p.category_interest,p.school_name,p.source_campaign,p.source_channel,p.purpose,p.referral_name]
+      .filter(Boolean).join(' ').toLocaleLowerCase('es-MX');
+    return hay.includes(q);
+  });
+}
+function buildKanbanCard(p){
+  const card=document.createElement('div');
+  card.className=`kanban-card st-${p.status} ${overdue(p)?'overdue':''}`;
+  card.dataset.id=p.id;
+  const photoHtml=p.photo_url?`<img src="${p.photo_url}" alt="">`:`<span>${initials(p)}</span>`;
+  const flag=needsContact(p)?'<span class="lead-badge alert">Sin contactar</span>':overdue(p)?'<span class="lead-badge danger">Vencido</span>':'<span></span>';
+  card.innerHTML=`<div class="kanban-card-top"><span class="kanban-avatar">${photoHtml}</span><div class="kanban-card-name"><strong>${safeHtml(nameOf(p)||'Sin nombre')}</strong><small>${safeHtml(p.category_interest||'Categoría por definir')}</small></div></div><div class="kanban-card-meta">${flag}<small>${p.next_action_at?fmtDateTime(p.next_action_at):fmtDate(p.created_at)}</small></div>`;
+  card.addEventListener('click',()=>{if(card.dataset.dragged==='1'){card.dataset.dragged='0';return;}openProspect(p);});
+  if(ctx.canProspectsWrite){
+    const moveBtn=document.createElement('button');moveBtn.type='button';moveBtn.className='kanban-move-btn';moveBtn.textContent='⇄';moveBtn.setAttribute('aria-label',`Mover a ${nameOf(p)||'prospecto'} de etapa`);
+    moveBtn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      closeAllKanbanMenus();
+      const menu=document.createElement('div');menu.className='kanban-move-menu';
+      KANBAN_STAGES.filter(st=>st.key!==p.status).forEach(st=>{
+        const item=document.createElement('button');item.type='button';item.textContent=st.label;
+        item.addEventListener('click',(ev)=>{ev.stopPropagation();menu.remove();moveProspectToStage(p,st.key);});
+        menu.appendChild(item);
+      });
+      card.appendChild(menu);
+      const closer=(ev)=>{if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('pointerdown',closer,true);}};
+      setTimeout(()=>document.addEventListener('pointerdown',closer,true),0);
+    });
+    card.querySelector('.kanban-card-top')?.appendChild(moveBtn);
+    attachKanbanDrag(card,p);
+  }
+  return card;
+}
+function closeAllKanbanMenus(){document.querySelectorAll('.kanban-move-menu').forEach(m=>m.remove());}
+function moveProspectToStage(p,newStage){
+  if(newStage===p.status)return;
+  if(newStage==='converted'){
+    openProspect(p);
+    setTimeout(()=>$('conversionSection')?.scrollIntoView({behavior:'smooth',block:'start'}),150);
+  }else if(newStage==='not_continuing'){
+    openProspect(p).then(()=>{$('prospectStatus').value='not_continuing';toggleLossReasonField();setTimeout(()=>$('lossReasonField')?.scrollIntoView({behavior:'smooth',block:'center'}),150);});
+  }else{
+    p.status=newStage;
+    saveKanbanStatus(p,newStage);
+  }
+}
+function renderKanban(){
+  const board=$('kanbanBoard');if(!board)return;board.innerHTML='';
+  const rows=kanbanRows();
+  for(const stage of KANBAN_STAGES){
+    const col=document.createElement('div');col.className='kanban-col';col.dataset.stage=stage.key;
+    const stageRows=rows.filter(p=>p.status===stage.key);
+    const head=document.createElement('div');head.className='kanban-col-head';head.innerHTML=`<strong>${stage.label}</strong><span class="kanban-col-count">${stageRows.length}</span>`;
+    const body=document.createElement('div');body.className='kanban-col-body';body.dataset.stage=stage.key;
+    for(const p of stageRows)body.appendChild(buildKanbanCard(p));
+    col.append(head,body);board.appendChild(col);
+  }
+}
+async function saveKanbanStatus(p,newStatus){
+  try{
+    await rpc('v2_update_prospect_followup',{organization_id:ctx.organization_id,prospect_id:p.id,status:newStatus,next_action_at:p.next_action_at||null,notes:p.notes||null,loss_reason:null});
+    toast(`${nameOf(p)||'Prospecto'} → ${statusLabel[newStatus]||newStatus}`);
+  }catch(e){toast(friendly(e));}
+  finally{await loadProspects();}
+}
+function attachKanbanDrag(card,p){
+  if(!ctx.canProspectsWrite)return;
+  card.classList.add('draggable');
+  let dragging=false,grabX=0,grabY=0,placeholder=null,originBody=null,startX=0,startY=0;
+  function onMove(ev){
+    const dx=ev.clientX-startX,dy=ev.clientY-startY;
+    if(!dragging&&Math.hypot(dx,dy)>8){
+      dragging=true;
+      const rect=card.getBoundingClientRect();
+      grabX=startX-rect.left;grabY=startY-rect.top;
+      placeholder=document.createElement('div');placeholder.className='kanban-placeholder';placeholder.style.height=`${rect.height}px`;
+      originBody=card.parentElement;
+      originBody.insertBefore(placeholder,card);
+      card.classList.add('dragging');
+      card.style.width=`${rect.width}px`;
+      card.style.position='fixed';card.style.zIndex='9995';
+    }
+    if(dragging){
+      card.style.left=`${ev.clientX-grabX}px`;card.style.top=`${ev.clientY-grabY}px`;
+      document.querySelectorAll('.kanban-col-body.drag-over').forEach(el=>el.classList.remove('drag-over'));
+      const under=document.elementFromPoint(ev.clientX,ev.clientY);
+      const col=under?.closest('.kanban-col-body');
+      if(col)col.classList.add('drag-over');
+    }
+  }
+  function onUp(ev){
+    card.removeEventListener('pointermove',onMove);
+    card.removeEventListener('pointerup',onUp);
+    card.removeEventListener('pointercancel',onUp);
+    if(!dragging)return;
+    document.querySelectorAll('.kanban-col-body.drag-over').forEach(el=>el.classList.remove('drag-over'));
+    card.classList.remove('dragging');
+    card.style.position='';card.style.left='';card.style.top='';card.style.width='';card.style.zIndex='';
+    card.dataset.dragged='1';
+    const under=document.elementFromPoint(ev.clientX,ev.clientY);
+    const col=under?.closest('.kanban-col-body');
+    placeholder?.remove();
+    if(col&&col.dataset.stage&&col.dataset.stage!==p.status){
+      const newStage=col.dataset.stage;
+      (newStage==='converted'||newStage==='not_continuing'?originBody:col).appendChild(card);
+      moveProspectToStage(p,newStage);
+    }else{
+      originBody.appendChild(card);
+    }
+    setTimeout(()=>{card.dataset.dragged='0';},250);
+  }
+  card.addEventListener('pointerdown',(ev)=>{
+    if(ev.pointerType==='mouse'&&ev.button!==0)return;
+    startX=ev.clientX;startY=ev.clientY;dragging=false;
+    try{card.setPointerCapture(ev.pointerId);}catch{}
+    card.addEventListener('pointermove',onMove);
+    card.addEventListener('pointerup',onUp);
+    card.addEventListener('pointercancel',onUp);
+  });
+}
+
 function renderKpis(){
   const scoped=baseScoped();
   const total=scoped.length;
@@ -204,8 +348,11 @@ function applyFilters(){
     return new Date(b.created_at||0)-new Date(a.created_at||0);
   });
   renderKpis();renderList();updateTabCounts();
-  $('resultCount').textContent=`${filtered.length} resultado${filtered.length===1?'':'s'}`;
-  $('prospectEmpty').textContent=EMPTY_MESSAGES[activeView]||EMPTY_MESSAGES.all;
+  if(viewMode==='list'){
+    $('resultCount').textContent=`${filtered.length} resultado${filtered.length===1?'':'s'}`;
+    $('prospectEmpty').textContent=EMPTY_MESSAGES[activeView]||EMPTY_MESSAGES.all;
+  }
+  if(viewMode==='kanban')renderKanban();
   updateFilterButton();
 }
 
@@ -213,7 +360,7 @@ function updateFilterButton(){const button=$('toggleProspectFilters');if(!button
 
 function makeBadge(text,cls='neutral'){const span=document.createElement('span');span.className=`lead-badge ${cls}`;span.textContent=text;return span;}
 function renderList(){
-  const list=$('prospectList');list.innerHTML='';$('prospectEmpty').classList.toggle('hidden',filtered.length>0);
+  const list=$('prospectList');list.innerHTML='';$('prospectEmpty').classList.toggle('hidden',viewMode!=='list'||filtered.length>0);
   for(const p of filtered){
     const card=document.createElement('article');card.className=`prospect-row st-${p.status} ${overdue(p)?'overdue':''} ${needsContact(p)?'new-lead':''}`;
     const clickArea=document.createElement('button');clickArea.type='button';clickArea.className='prospect-open';
@@ -392,6 +539,8 @@ $('urgencyFilter').addEventListener('change',()=>{if($('urgencyFilter').value)se
 $('searchProspect').addEventListener('input',applyFilters);
 $('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';setActiveView('pipeline');applyFilters();});
 document.querySelectorAll('.pipeline-tab').forEach(btn=>btn.addEventListener('click',()=>{setActiveView(btn.dataset.view);applyFilters();}));
+$('viewList').addEventListener('click',()=>setViewMode('list'));
+$('viewKanban').addEventListener('click',()=>setViewMode('kanban'));
 document.querySelectorAll('.funnel-stage').forEach(btn=>btn.addEventListener('click',()=>{
   const stage=btn.dataset.stage;
   if(stage==='converted'){setActiveView('converted');$('statusFilter').value='';}

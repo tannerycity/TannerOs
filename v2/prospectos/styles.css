@@ -23,3 +23,41 @@
 .prospect-row.new-lead{border-left:4px solid #0c7f93}
 .prospect-row.overdue{border-left:4px solid #b94d42}
 @media(max-width:760px){.pipeline-tabs{margin-bottom:12px}.pipeline-tab{padding:9px 12px;font-size:12px}}
+
+/* === Vista Kanban arrastrable === */
+.view-switch-row{display:flex;justify-content:flex-end;margin:-6px 0 12px}
+.view-switch{display:inline-flex;background:#eef3f1;border-radius:12px;padding:4px;gap:3px}
+.view-switch-btn{appearance:none;border:0;background:transparent;color:#4d6267;padding:7px 14px;border-radius:9px;font:850 12px/1 inherit;cursor:pointer;transition:background .15s ease,color .15s ease}
+.view-switch-btn.active{background:#0e3038;color:#fff}
+.view-switch-btn:hover:not(.active){background:#e2ebe8}
+.kanban-board{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x proximity;align-items:flex-start}
+.kanban-board.hidden{display:none}
+.kanban-col{flex:0 0 250px;background:#f4f7f6;border-radius:18px;padding:10px;display:flex;flex-direction:column;gap:8px;max-height:74vh;scroll-snap-align:start}
+.kanban-col-head{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 2px;font-size:12px;font-weight:900;color:#3a4d51;text-transform:uppercase;letter-spacing:.03em}
+.kanban-col-count{background:rgba(7,25,30,.08);border-radius:999px;padding:2px 8px;font-size:11px}
+.kanban-col-body{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:70px;padding:4px;border-radius:12px;transition:background .12s ease}
+.kanban-col-body.drag-over{background:rgba(22,140,150,.12);box-shadow:inset 0 0 0 2px rgba(22,140,150,.35)}
+.kanban-card{position:relative;background:#fff;border:1px solid #e3eae8;border-radius:14px;padding:10px;cursor:grab;box-shadow:0 2px 6px rgba(7,25,30,.05);touch-action:none;user-select:none;transition:box-shadow .15s ease}
+.kanban-move-btn{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;border:0;background:#eef3f1;color:#3a4d51;font-size:12px;line-height:1;cursor:pointer;display:grid;place-items:center;touch-action:manipulation}
+.kanban-move-btn:hover{background:#dbe6e3}
+.kanban-move-menu{position:absolute;top:30px;right:6px;z-index:20;background:#fff;border:1px solid #dfe7e5;border-radius:12px;box-shadow:0 12px 28px rgba(7,25,30,.18);padding:5px;display:flex;flex-direction:column;gap:2px;min-width:150px}
+.kanban-move-menu button{appearance:none;border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:8px;font:750 12px/1 inherit;color:#233b40;cursor:pointer}
+.kanban-move-menu button:hover{background:#eef3f1}
+.kanban-card:hover{box-shadow:0 6px 16px rgba(7,25,30,.09)}
+.kanban-card.dragging{cursor:grabbing;box-shadow:0 16px 30px rgba(7,25,30,.25);opacity:.97}
+.kanban-card.st-new{border-left:3px solid #0c7f93}
+.kanban-card.st-contacted{border-left:3px solid #4d5779}
+.kanban-card.st-trial_scheduled,.kanban-card.st-trial_completed{border-left:3px solid #8a5c00}
+.kanban-card.st-converted{border-left:3px solid #1e6b3c}
+.kanban-card.st-not_continuing{border-left:3px solid #943c35;opacity:.85}
+.kanban-card.overdue{box-shadow:0 0 0 2px rgba(185,77,66,.35)}
+.kanban-card-top{display:flex;align-items:center;gap:8px}
+.kanban-avatar{width:34px;height:34px;border-radius:10px;background:#eaf2f0;color:#174a55;display:grid;place-items:center;font-size:11px;font-weight:900;overflow:hidden;flex:0 0 34px}
+.kanban-avatar img{width:100%;height:100%;object-fit:cover}
+.kanban-card-name{min-width:0}
+.kanban-card-name strong{font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:calc(100% - 4px);padding-right:26px}
+.kanban-card-name small{font-size:10.5px;color:#71858a}
+.kanban-card-meta{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:7px;font-size:10px;color:#78898c}
+.kanban-card-meta .lead-badge{font-size:8.5px}
+.kanban-placeholder{border:2px dashed #c3d3d1;border-radius:14px;background:rgba(22,140,150,.05)}
+@media(max-width:760px){.kanban-col{flex:0 0 78vw;max-height:none}.view-switch-row{justify-content:flex-start;margin-top:2px}.kanban-board{padding-bottom:16px}}

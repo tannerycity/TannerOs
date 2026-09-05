@@ -356,7 +356,15 @@ function applyFilters(){
   updateFilterButton();
 }
 
-function updateFilterButton(){const button=$('toggleProspectFilters');if(!button)return;const ids=['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'],count=ids.filter(id=>$(id).value).length;button.querySelector('span').textContent=count?`Filtros · ${count}`:'Filtros';button.classList.toggle('active',count>0);}
+function updateFilterButton(){
+  const ids=['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'];
+  ids.forEach(id=>{const el=$(id);if(el)el.classList.toggle('has-value',!!el.value);});
+  document.querySelectorAll('.pill-group').forEach(group=>{const sel=$(group.dataset.for);if(!sel)return;group.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.value===sel.value));});
+  const button=$('toggleProspectFilters');if(!button)return;
+  const count=ids.filter(id=>$(id).value).length;
+  button.querySelector('span').textContent=count?`Filtros · ${count}`:'Filtros';
+  button.classList.toggle('active',count>0);
+}
 
 function makeBadge(text,cls='neutral'){const span=document.createElement('span');span.className=`lead-badge ${cls}`;span.textContent=text;return span;}
 function renderList(){
@@ -503,7 +511,7 @@ async function convertProspect(){if(!current||!ctx.canPlayersWrite||!ctx.canPros
 async function loadScoutingHistory(){const box=$('scoutingHistory');box.innerHTML='';if(!ctx.canScoutingRead){box.innerHTML='<div class="empty">Sin acceso a Scouting.</div>';return;}const rows=await rpc('v2_scouting_reports',{organization_id:ctx.organization_id,prospect_id:current.id});if(!rows?.length){box.innerHTML='<div class="empty">Aún no tiene evaluaciones deportivas.</div>';return;}for(const r of rows){const values=[r.technical_score,r.physical_score,r.tactical_score,r.mental_score].filter(v=>v!=null).map(Number);const avg=values.length?values.reduce((a,b)=>a+b,0)/values.length:0;const card=document.createElement('article');card.className='scout-card';const left=document.createElement('div'),right=document.createElement('div');const when=document.createElement('strong');when.textContent=fmtDateTime(r.observed_at);const where=document.createElement('span');where.textContent=`${r.observed_location||'Sin lugar'} · ${r.player_position||'Sin posición'}`;left.append(when,where);const score=document.createElement('b');score.textContent=avg?avg.toFixed(1):'—';const verdict=document.createElement('span');verdict.textContent=r.verdict||'Sin veredicto';right.append(score,verdict);card.append(left,right);box.appendChild(card);}}
 
 function mountCaptureUx(){
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/prospectos/ux.css?v=20260823a';document.head.appendChild(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/prospectos/ux.css?v=20260905d';document.head.appendChild(link);
   const filters=document.querySelector('.campaign-filters'),head=document.querySelector('.campaign-panel-head');
   if(filters&&head&&!$('prospectSearchBar')){
     const toolbar=document.createElement('div');toolbar.className='prospect-tools';toolbar.innerHTML='<label id="prospectSearchBar" class="prospect-search-bar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span></label><button id="toggleProspectFilters" class="prospect-filter-toggle" type="button"><span>Filtros</span><i class="tos-icon tos-icon-chevron" aria-hidden="true"></i></button>';
@@ -536,6 +544,15 @@ $('statusFilter').addEventListener('change',()=>{
   applyFilters();
 });
 $('urgencyFilter').addEventListener('change',()=>{if($('urgencyFilter').value)setActiveView('pipeline');applyFilters();});
+document.querySelectorAll('.pill-group button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const group=b.closest('.pill-group'),sel=group&&$(group.dataset.for);
+    if(!sel||sel.value===b.dataset.value)return;
+    sel.value=b.dataset.value;
+    if(sel.id==='urgencyFilter'&&b.dataset.value)setActiveView('pipeline');
+    applyFilters();
+  });
+});
 $('searchProspect').addEventListener('input',applyFilters);
 $('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';setActiveView('pipeline');applyFilters();});
 document.querySelectorAll('.pipeline-tab').forEach(btn=>btn.addEventListener('click',()=>{setActiveView(btn.dataset.view);applyFilters();}));

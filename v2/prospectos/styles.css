@@ -4,7 +4,9 @@
 .filter-block{display:flex;flex-direction:column;gap:7px}
 .filter-label{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#8b9c9f}
 .pill-group{display:inline-flex;gap:3px;padding:3px;background:#eef2f1;border-radius:999px}
-.pill-group button{border:0;background:transparent;border-radius:999px;padding:9px 13px;font:800 11px/1 inherit;color:#4c6167;cursor:pointer;white-space:nowrap;transition:background .15s ease,color .15s ease}
+.pill-group button{border:0;background:transparent;border-radius:999px;padding:9px 13px;font:800 11px/1 inherit;color:#4c6167;cursor:pointer;white-space:nowrap;transition:background .15s ease,color .15s ease;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;z-index:1}
+.pill-group button:active{background:#dfe6e4}
+.pill-group button.active:active{background:#0e3038}
 .pill-group button:hover{color:#07191e}
 .pill-group button.active{background:linear-gradient(180deg,#0e3038,#07191e);color:#fff;box-shadow:0 4px 10px rgba(7,25,30,.22)}
 select.pill-source{display:none}

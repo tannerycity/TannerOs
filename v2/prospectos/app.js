@@ -511,7 +511,7 @@ async function convertProspect(){if(!current||!ctx.canPlayersWrite||!ctx.canPros
 async function loadScoutingHistory(){const box=$('scoutingHistory');box.innerHTML='';if(!ctx.canScoutingRead){box.innerHTML='<div class="empty">Sin acceso a Scouting.</div>';return;}const rows=await rpc('v2_scouting_reports',{organization_id:ctx.organization_id,prospect_id:current.id});if(!rows?.length){box.innerHTML='<div class="empty">Aún no tiene evaluaciones deportivas.</div>';return;}for(const r of rows){const values=[r.technical_score,r.physical_score,r.tactical_score,r.mental_score].filter(v=>v!=null).map(Number);const avg=values.length?values.reduce((a,b)=>a+b,0)/values.length:0;const card=document.createElement('article');card.className='scout-card';const left=document.createElement('div'),right=document.createElement('div');const when=document.createElement('strong');when.textContent=fmtDateTime(r.observed_at);const where=document.createElement('span');where.textContent=`${r.observed_location||'Sin lugar'} · ${r.player_position||'Sin posición'}`;left.append(when,where);const score=document.createElement('b');score.textContent=avg?avg.toFixed(1):'—';const verdict=document.createElement('span');verdict.textContent=r.verdict||'Sin veredicto';right.append(score,verdict);card.append(left,right);box.appendChild(card);}}
 
 function mountCaptureUx(){
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/prospectos/ux.css?v=20260905d';document.head.appendChild(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/v2/prospectos/ux.css?v=20260905e';document.head.appendChild(link);
   const filters=document.querySelector('.campaign-filters'),head=document.querySelector('.campaign-panel-head');
   if(filters&&head&&!$('prospectSearchBar')){
     const toolbar=document.createElement('div');toolbar.className='prospect-tools';toolbar.innerHTML='<label id="prospectSearchBar" class="prospect-search-bar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span></label><button id="toggleProspectFilters" class="prospect-filter-toggle" type="button"><span>Filtros</span><i class="tos-icon tos-icon-chevron" aria-hidden="true"></i></button>';
@@ -547,7 +547,7 @@ $('urgencyFilter').addEventListener('change',()=>{if($('urgencyFilter').value)se
 document.querySelectorAll('.pill-group button').forEach(b=>{
   b.addEventListener('click',()=>{
     const group=b.closest('.pill-group'),sel=group&&$(group.dataset.for);
-    if(!sel||sel.value===b.dataset.value)return;
+    if(!sel)return;
     sel.value=b.dataset.value;
     if(sel.id==='urgencyFilter'&&b.dataset.value)setActiveView('pipeline');
     applyFilters();

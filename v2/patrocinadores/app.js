@@ -472,7 +472,6 @@ function renderKpis() {
   const activeAgreements = agreements.filter((agreement) => agreement.status === 'active');
   const receivedValue = activeAgreements.reduce((total, agreement) => {
     const received = itemsForAgreement(agreement.id).filter((item) => item.direction === 'receive');
-    if (!received.length) return total + Number(agreement.monetaryValue || 0);
     return total + received.filter((item) => item.fulfilled).reduce((sum, item) => sum + Number(item.estimatedValue || 0), 0);
   }, 0);
   const renewals = activeAgreements.filter((agreement) => {

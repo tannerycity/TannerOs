@@ -86,6 +86,7 @@ jobs:
             '/porteros/'
             '/produccion/'
             '/operacion/programas/'
+            '/operacion/academias/'
             '/registro/'
             '/registro/scouting/'
             '/registro/jugadores/'

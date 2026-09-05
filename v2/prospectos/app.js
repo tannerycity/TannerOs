@@ -8,7 +8,7 @@ const supabase=createClient(
 
 const PHOTO_BUCKET='tanneros-prospect-photos';
 const $=id=>document.getElementById(id);
-let ctx=null,prospects=[],filtered=[],current=null,moduleRows=[],categories=[];
+let ctx=null,prospects=[],filtered=[],current=null,moduleRows=[],categories=[],activeView='pipeline';
 
 const statusLabel={
   new:'Nuevo',contacted:'Contactado',trial_scheduled:'Prueba agendada',
@@ -107,6 +107,25 @@ function baseScoped(){
   const type=$('typeFilter').value,campaign=$('campaignFilter').value,source=$('sourceFilter').value;
   return prospects.filter(p=>(!type||p.registration_type===type)&&(!campaign||p.source_campaign===campaign)&&(!source||(p.source_channel||p.source)===source));
 }
+function setActiveView(view){
+  activeView=view;
+  document.querySelectorAll('.pipeline-tab').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+}
+function viewFiltered(){
+  const rows=baseScoped();
+  if(activeView==='pipeline')return rows.filter(p=>!terminalStatuses.has(p.status));
+  if(activeView==='converted')return rows.filter(p=>p.status==='converted');
+  if(activeView==='lost')return rows.filter(p=>p.status==='not_continuing');
+  return rows;
+}
+function updateTabCounts(){
+  const rows=baseScoped();
+  const pipeline=rows.filter(p=>!terminalStatuses.has(p.status)).length,converted=rows.filter(p=>p.status==='converted').length,lost=rows.filter(p=>p.status==='not_continuing').length;
+  $('tabCountPipeline').textContent=pipeline;
+  $('tabCountConverted').textContent=converted;
+  $('tabCountLost').textContent=lost;
+  $('tabCountAll').textContent=rows.length;
+}
 
 function renderKpis(){
   const scoped=baseScoped();
@@ -159,13 +178,15 @@ function renderAttentionSummary(rows){
     ['Seguimiento vencido',rows.filter(overdue).length,'overdue'],
     ['Próximas 48 h',rows.filter(upcoming).length,'upcoming']
   ];
-  for(const [label,count,value] of items){const b=document.createElement('button');b.type='button';b.className=`attention-chip ${count?'hot':''}`;b.innerHTML=`<span>${label}</span><strong>${count}</strong>`;b.addEventListener('click',()=>{$('urgencyFilter').value=value;applyFilters();});box.appendChild(b);}
+  for(const [label,count,value] of items){const b=document.createElement('button');b.type='button';b.className=`attention-chip ${count?'hot':''}`;b.innerHTML=`<span>${label}</span><strong>${count}</strong>`;b.addEventListener('click',()=>{setActiveView('pipeline');$('urgencyFilter').value=value;applyFilters();});box.appendChild(b);}
 }
 
+const EMPTY_MESSAGES={pipeline:'🎉 Sin pendientes: no hay prospectos activos con estos filtros.',converted:'Aún no hay convertidos con estos filtros.',lost:'Nadie marcado como "No continúa" con estos filtros.',all:'No hay prospectos con estos filtros.'};
 function applyFilters(){
   const status=$('statusFilter').value,q=$('searchProspect').value.trim().toLocaleLowerCase('es-MX'),urgency=$('urgencyFilter').value;
-  filtered=baseScoped().filter(p=>{
-    if(status&&p.status!==status)return false;
+  filtered=viewFiltered().filter(p=>{
+    if(status==='trial'){if(!['trial_scheduled','trial_completed'].includes(p.status))return false;}
+    else if(status&&p.status!==status)return false;
     if(urgency==='needs_contact'&&!needsContact(p))return false;
     if(urgency==='overdue'&&!overdue(p))return false;
     if(urgency==='upcoming'&&!upcoming(p))return false;
@@ -182,8 +203,9 @@ function applyFilters(){
     if(an!==bn)return an-bn;
     return new Date(b.created_at||0)-new Date(a.created_at||0);
   });
-  renderKpis();renderList();
+  renderKpis();renderList();updateTabCounts();
   $('resultCount').textContent=`${filtered.length} resultado${filtered.length===1?'':'s'}`;
+  $('prospectEmpty').textContent=EMPTY_MESSAGES[activeView]||EMPTY_MESSAGES.all;
   updateFilterButton();
 }
 
@@ -193,7 +215,7 @@ function makeBadge(text,cls='neutral'){const span=document.createElement('span')
 function renderList(){
   const list=$('prospectList');list.innerHTML='';$('prospectEmpty').classList.toggle('hidden',filtered.length>0);
   for(const p of filtered){
-    const card=document.createElement('article');card.className=`prospect-row ${overdue(p)?'overdue':''} ${needsContact(p)?'new-lead':''}`;
+    const card=document.createElement('article');card.className=`prospect-row st-${p.status} ${overdue(p)?'overdue':''} ${needsContact(p)?'new-lead':''}`;
     const clickArea=document.createElement('button');clickArea.type='button';clickArea.className='prospect-open';
     const photo=document.createElement('span');photo.className=`prospect-card-photo ${p.photo_url?'has-photo':''}`;if(p.photo_url){const image=document.createElement('img');image.src=p.photo_url;image.alt=`Foto de ${nameOf(p)}`;photo.appendChild(image);}else{const mark=document.createElement('span'),missing=document.createElement('small');mark.textContent=initials(p);missing.textContent='Sin foto';photo.append(mark,missing);}
     const main=document.createElement('div');main.className='prospect-main';
@@ -358,9 +380,33 @@ function mountCaptureUx(){
 mountCaptureUx();
 
 $('deleteProspect').addEventListener('click',()=>{$('deleteProspect').classList.add('hidden');$('deleteProspectConfirm').classList.remove('hidden');$('deleteProspectConfirm').scrollIntoView({behavior:'smooth',block:'nearest'});msg('deleteProspectMessage');});$('cancelDeleteProspect').addEventListener('click',()=>{$('deleteProspectConfirm').classList.add('hidden');$('deleteProspect').classList.remove('hidden');msg('deleteProspectMessage');});$('confirmDeleteProspect').addEventListener('click',deleteProspect);
-for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).addEventListener('change',applyFilters);
+for(const id of ['typeFilter','campaignFilter','sourceFilter'])$(id).addEventListener('change',applyFilters);
+$('statusFilter').addEventListener('change',()=>{
+  const v=$('statusFilter').value;
+  if(v==='converted')setActiveView('converted');
+  else if(v==='not_continuing')setActiveView('lost');
+  else if(v&&activeView!=='all')setActiveView('pipeline');
+  applyFilters();
+});
+$('urgencyFilter').addEventListener('change',()=>{if($('urgencyFilter').value)setActiveView('pipeline');applyFilters();});
 $('searchProspect').addEventListener('input',applyFilters);
-$('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';applyFilters();});
+$('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';setActiveView('pipeline');applyFilters();});
+document.querySelectorAll('.pipeline-tab').forEach(btn=>btn.addEventListener('click',()=>{setActiveView(btn.dataset.view);applyFilters();}));
+document.querySelectorAll('.funnel-stage').forEach(btn=>btn.addEventListener('click',()=>{
+  const stage=btn.dataset.stage;
+  if(stage==='converted'){setActiveView('converted');$('statusFilter').value='';}
+  else{setActiveView('pipeline');$('statusFilter').value=stage;}
+  applyFilters();
+}));
+document.querySelectorAll('.kpi-card').forEach(btn=>btn.addEventListener('click',()=>{
+  const kind=btn.dataset.kpi;$('statusFilter').value='';$('urgencyFilter').value='';
+  if(kind==='needs_contact'){setActiveView('pipeline');$('urgencyFilter').value='needs_contact';}
+  else if(kind==='overdue'){setActiveView('pipeline');$('urgencyFilter').value='overdue';}
+  else if(kind==='trial'){setActiveView('all');$('statusFilter').value='trial';}
+  else if(kind==='converted'){setActiveView('converted');}
+  else{setActiveView('all');}
+  applyFilters();
+}));
 $('refreshProspects').addEventListener('click',loadProspects);
 $('closeProspect').addEventListener('click',closeProspect);$('prospectBackdrop').addEventListener('click',closeProspect);
 $('saveFollowup').addEventListener('click',saveFollowup);$('convertProspect').addEventListener('click',convertProspect);

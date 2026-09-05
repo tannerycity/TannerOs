@@ -43,6 +43,7 @@ const ASSET_CATEGORIES = {
 };
 const ASSET_AVAILABILITY = { available: 'Disponible', partial: 'Parcial', occupied: 'Ocupado' };
 const MOVEMENT_TYPES = { call: 'Llamada', whatsapp: 'WhatsApp', email: 'Email', meeting: 'Reunión', note: 'Nota' };
+const PAYMENT_METHODS = { transferencia: 'Transferencia', efectivo: 'Efectivo', cheque: 'Cheque', deposito: 'Depósito', otro: 'Otro' };
 const RECEIVE_TYPES = { money: 'Dinero', product: 'Producto', service: 'Servicio', discount: 'Descuento', benefit: 'Beneficio', other: 'Otro' };
 const GIVE_TYPES = { advertising: 'Publicidad', banner: 'Lona', social: 'Redes sociales', jersey: 'Jersey', activation: 'Activación', tanner_asset: 'Activo Tanner', other: 'Otro' };
 const BENEFICIARIES = { players: 'Jugadores', families: 'Familias', coaches: 'Entrenadores', staff: 'Staff', community: 'Comunidad Tanner' };
@@ -55,7 +56,9 @@ let assets = [];
 let agreementItems = [];
 let movements = [];
 let itemEvidence = [];
+let payments = [];
 let evidenceTargetItemId = null;
+let paymentsAgreementId = null;
 let billingPlayers = [];
 let fundedPlayers = [];
 const PHOTO_BUCKET = 'tanneros-private';
@@ -131,6 +134,10 @@ function friendly(error) {
     'Player not found': 'No encontramos a ese Tanner.',
     'Billing profile not found': 'Ese Tanner no tiene un perfil de cobranza configurado.',
     'Sponsor benefit not found': 'No encontramos esa beca de patrocinio.',
+    'Agreement not found': 'No encontramos ese acuerdo.',
+    'Payment amount must be greater than zero': 'El monto del pago debe ser mayor a cero.',
+    'Invalid payment method': 'Selecciona un método de pago válido.',
+    'Payment not found': 'No encontramos ese pago.',
   };
   return labels[text] || text;
 }
@@ -189,6 +196,12 @@ function assetById(id) {
 }
 function evidenceForItem(id) {
   return itemEvidence.filter((evidence) => evidence.itemId === id);
+}
+function paymentsForAgreement(id) {
+  return payments.filter((payment) => payment.agreementId === id);
+}
+function paidTotalForAgreement(id) {
+  return paymentsForAgreement(id).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 }
 function toDateInput(value) {
   return value ? String(value).slice(0, 10) : '';
@@ -312,6 +325,7 @@ async function load() {
   agreementItems = Array.isArray(data?.agreementItems) ? data.agreementItems : [];
   movements = Array.isArray(data?.movements) ? data.movements : [];
   itemEvidence = Array.isArray(data?.itemEvidence) ? data.itemEvidence : [];
+  payments = Array.isArray(data?.payments) ? data.payments : [];
   render();
 }
 
@@ -471,8 +485,10 @@ function render() {
 function renderKpis() {
   const activeAgreements = agreements.filter((agreement) => agreement.status === 'active');
   const receivedValue = activeAgreements.reduce((total, agreement) => {
-    const received = itemsForAgreement(agreement.id).filter((item) => item.direction === 'receive');
-    return total + received.filter((item) => item.fulfilled).reduce((sum, item) => sum + Number(item.estimatedValue || 0), 0);
+    const inKindItems = itemsForAgreement(agreement.id).filter((item) => item.direction === 'receive' && item.type !== 'money');
+    const inKindReceived = inKindItems.filter((item) => item.fulfilled).reduce((sum, item) => sum + Number(item.estimatedValue || 0), 0);
+    const moneyReceived = Math.min(paidTotalForAgreement(agreement.id), Number(agreement.monetaryValue || 0));
+    return total + inKindReceived + moneyReceived;
   }, 0);
   const renewals = activeAgreements.filter((agreement) => {
     const days = dayDiff(agreement.endsOn);
@@ -860,17 +876,29 @@ function renderBrandAgreements(sponsor) {
     const period = agreement.startsOn || agreement.endsOn
       ? (agreement.startsOn ? shortDate(agreement.startsOn) : 'Sin inicio') + ' → ' + (agreement.endsOn ? shortDate(agreement.endsOn) : 'Sin fin')
       : 'Sin vigencia definida';
+    const monetaryValue = Number(agreement.monetaryValue || 0);
+    const paid = paidTotalForAgreement(agreement.id);
+    const paymentStatus = monetaryValue > 0
+      ? '<div class="payment-status ' + (paid >= monetaryValue ? '' : 'missing') + '">' +
+          '<span>' + money.format(paid) + ' de ' + money.format(monetaryValue) + ' pagado</span>' +
+          '<button class="secondary mini payments-button" data-payments-agreement-id="' + esc(agreement.id) + '" type="button">Pagos</button>' +
+        '</div>'
+      : '';
     return '<article class="agreement-card">' +
       '<div class="agreement-card-head"><span class="agreement-status ' + esc(agreement.status) + '">' + esc(AGREEMENT_STATUSES[agreement.status] || agreement.status) + '</span>' +
       '<strong>' + (agreement.monetaryValue != null ? money.format(Number(agreement.monetaryValue)) : 'Sin valor') + '</strong></div>' +
       '<span class="agreement-period">' + esc(period) + '</span>' +
       (agreement.benefit ? '<p class="agreement-benefit">' + esc(agreement.benefit) + (agreement.discountPercent != null ? ' · ' + esc(agreement.discountPercent) + '%' : '') + '</p>' : '') +
       '<div class="agreement-counts"><span><b>' + received.length + '</b> recibimos</span><span><b>' + given.length + '</b> damos</span><span><b>' + progress.done + '/' + progress.total + '</b> cumplidos</span></div>' +
+      paymentStatus +
       (canWrite ? '<button class="secondary mini edit-agreement-button" data-agreement-id="' + esc(agreement.id) + '" type="button">Editar acuerdo</button>' : '') +
     '</article>';
   }).join('');
   $('brandAgreementList').querySelectorAll('[data-agreement-id]').forEach((button) => {
     button.addEventListener('click', () => openAgreementForm(agreements.find((agreement) => agreement.id === button.dataset.agreementId)));
+  });
+  $('brandAgreementList').querySelectorAll('[data-payments-agreement-id]').forEach((button) => {
+    button.addEventListener('click', () => openPaymentsModal(button.dataset.paymentsAgreementId));
   });
 }
 
@@ -1328,6 +1356,80 @@ async function saveMovement(event) {
   }
 }
 
+function openPaymentsModal(agreementId) {
+  const agreement = agreements.find((candidate) => candidate.id === agreementId);
+  if (!agreement) return;
+  paymentsAgreementId = agreementId;
+  const sponsor = sponsorById(agreement.sponsorId);
+  $('paymentsBrandName').textContent = sponsor?.name || '';
+  $('paymentForm').reset();
+  $('paymentPaidOn').value = new Date().toISOString().slice(0, 10);
+  message('paymentMessage');
+  $('paymentForm').classList.toggle('hidden', !canWrite);
+  renderPaymentsModal();
+  openModal('paymentsModal');
+}
+
+function renderPaymentsModal() {
+  const agreement = agreements.find((candidate) => candidate.id === paymentsAgreementId);
+  if (!agreement) return;
+  const monetaryValue = Number(agreement.monetaryValue || 0);
+  const rows = paymentsForAgreement(paymentsAgreementId).slice().sort((a, b) => (b.paidOn || '').localeCompare(a.paidOn || ''));
+  const paid = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  $('paymentsSummary').textContent = money.format(paid) + ' de ' + money.format(monetaryValue) + ' pagado';
+  $('paymentsSummary').className = 'payments-summary ' + (paid >= monetaryValue && monetaryValue > 0 ? '' : 'missing');
+  $('paymentEmpty').classList.toggle('hidden', rows.length > 0);
+  $('paymentList').innerHTML = rows.map((payment) => (
+    '<div class="payment-row">' +
+      '<div><strong>' + money.format(Number(payment.amount || 0)) + '</strong>' +
+      '<small>' + esc(shortDate(payment.paidOn)) + (payment.method ? ' · ' + esc(PAYMENT_METHODS[payment.method] || payment.method) : '') +
+      (payment.reference ? ' · ' + esc(payment.reference) : '') + '</small>' +
+      (payment.note ? '<small class="payment-note">' + esc(payment.note) + '</small>' : '') + '</div>' +
+      (canWrite ? '<button type="button" class="text-danger mini delete-payment-button" data-payment-id="' + esc(payment.id) + '">Eliminar</button>' : '') +
+    '</div>'
+  )).join('');
+  $('paymentList').querySelectorAll('.delete-payment-button').forEach((button) => {
+    button.addEventListener('click', () => deletePayment(button.dataset.paymentId));
+  });
+}
+
+async function savePayment(event) {
+  event.preventDefault();
+  message('paymentMessage');
+  if (!paymentsAgreementId) return;
+  const button = $('savePayment');
+  button.disabled = true;
+  try {
+    await rpc('v2_add_sponsor_agreement_payment', {
+      organization_id: ctx.organization_id,
+      agreement_id: paymentsAgreementId,
+      amount: Number($('paymentAmount').value || 0),
+      paid_on: $('paymentPaidOn').value || null,
+      method: $('paymentMethod').value || null,
+      reference: $('paymentReference').value.trim() || null,
+      note: $('paymentNote').value.trim() || null,
+    });
+    await load();
+    openPaymentsModal(paymentsAgreementId);
+  } catch (error) {
+    message('paymentMessage', friendly(error));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deletePayment(paymentId) {
+  if (!canWrite || !paymentId) return;
+  if (!confirm('¿Eliminar este pago del registro?')) return;
+  try {
+    await rpc('v2_delete_sponsor_agreement_payment', { organization_id: ctx.organization_id, payment_id: paymentId });
+    await load();
+    openPaymentsModal(paymentsAgreementId);
+  } catch (error) {
+    alert(friendly(error));
+  }
+}
+
 async function imageToDataUrl(url) {
   const response = await fetch(url);
   const blob = await response.blob();
@@ -1477,6 +1579,7 @@ $('sponsorForm').addEventListener('submit', saveSponsor);
 $('agreementForm').addEventListener('submit', saveAgreement);
 $('assetForm').addEventListener('submit', saveAsset);
 $('movementForm').addEventListener('submit', saveMovement);
+$('paymentForm').addEventListener('submit', savePayment);
 $('archiveAsset').addEventListener('click', archiveAsset);
 $('assetPhotoAction').addEventListener('click', () => $('assetPhotoInput').click());
 $('assetPhotoInput').addEventListener('change', (event) => {

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07191e">
   <title>Patrocinios · TannerOS</title>
   <link rel="stylesheet" href="/v2/styles.css">
-  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20260905b">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20260905d">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <link rel="stylesheet" href="/icons.css?v=20260823a">
@@ -342,7 +342,33 @@
   </form>
 </section>
 
+<section id="paymentsModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="paymentsModalTitle">
+  <div class="modal-head">
+    <div><div class="eyebrow">LEDGER DE PAGOS</div><h2 id="paymentsModalTitle">Pagos del acuerdo</h2><p id="paymentsBrandName" class="muted modal-subtitle"></p></div>
+    <button class="secondary mini close-workspace-modal" type="button">Cerrar</button>
+  </div>
+  <p id="paymentsSummary" class="payments-summary"></p>
+  <div id="paymentList" class="payment-list"></div>
+  <div id="paymentEmpty" class="empty-state hidden"><strong>Sin pagos registrados</strong><span>Los abonos que registres aparecerán aquí con fecha, monto y método.</span></div>
+  <form id="paymentForm" class="form-grid">
+    <label>Monto<input id="paymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
+    <label>Fecha<input id="paymentPaidOn" type="date" required></label>
+    <label>Método <span class="optional">opcional</span><select id="paymentMethod">
+      <option value="">Sin especificar</option>
+      <option value="transferencia">Transferencia</option>
+      <option value="efectivo">Efectivo</option>
+      <option value="cheque">Cheque</option>
+      <option value="deposito">Depósito</option>
+      <option value="otro">Otro</option>
+    </select></label>
+    <label>Referencia <span class="optional">opcional</span><input id="paymentReference" maxlength="120"></label>
+    <label class="span-2">Nota <span class="optional">opcional</span><textarea id="paymentNote" rows="2" maxlength="500"></textarea></label>
+    <button id="savePayment" class="primary span-2" type="submit">Registrar pago</button>
+    <div id="paymentMessage" class="inline-message hidden span-2"></div>
+  </form>
+</section>
+
 <script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/patrocinadores/app.js?v=20260905c"></script>
+<script type="module" src="/v2/patrocinadores/app.js?v=20260905d"></script>
 </body>
 </html>

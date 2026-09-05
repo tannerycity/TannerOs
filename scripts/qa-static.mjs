@@ -11,7 +11,7 @@ const routeContract={
   '/asistencia/':'v2/asistencia/index.html',
   '/convocatoria/':'v2/convocatoria/index.html',
   '/calendario/':'v2/calendario/index.html',
-  '/academias/':'v2/academias/index.html',
+  '/operacion/academias/':'v2/academias/index.html',
   '/prospectos/':'v2/prospectos/index.html',
   '/scouting/':'v2/scouting/index.html',
   '/pedidos/':'v2/pedidos/index.html',
@@ -31,7 +31,7 @@ const routeContract={
   '/admin/club/':'v2/admin/club/index.html',
   '/admin/onboarding/':'v2/admin/onboarding/index.html'
 };
-const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html'];
+const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html','academias/index.html'];
 for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta archivo crítico: ${file}`);
 
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p];});}

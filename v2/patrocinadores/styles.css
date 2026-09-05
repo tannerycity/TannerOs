@@ -182,6 +182,17 @@
 .agreement-counts span{padding:7px 8px;border-radius:9px;background:#f2f6f5;color:#61757a;font-size:10px}
 .agreement-counts b{color:#153941}
 .edit-agreement-button{justify-self:start}
+.payment-status{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;background:#edf7f0;color:#286948;font-size:11px}
+.payment-status.missing{background:#fff3e6;color:#995929}
+.payment-status button{flex:none}
+
+.payments-summary{margin:0 0 10px;padding:9px 12px;border-radius:10px;background:#edf7f0;color:#286948;font-size:12px;font-weight:800}
+.payments-summary.missing{background:#fff3e6;color:#995929}
+.payment-list{display:grid;gap:8px;margin-bottom:14px}
+.payment-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid #e5ece9;border-radius:12px}
+.payment-row strong{font-size:13px;color:#153941}
+.payment-row small{display:block;font-size:10px;color:#728388;margin-top:2px}
+.payment-note{color:#5a6d72}
 
 .commitment-groups{display:grid;gap:14px}
 .commitment-group{border:1px solid #e0e8e6;border-radius:16px;overflow:hidden}

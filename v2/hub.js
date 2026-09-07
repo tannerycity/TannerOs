@@ -44,11 +44,13 @@ async function renderDirection(){
   const conversion=prospects.length?Math.round(converted/prospects.length*100):0;
   const cards=[];
   if(can('jugadores')){const categoryShare=topCategory&&players.length?Math.round(topCategory[1]/players.length*100):0;cards.push(barKpi('Jugadores activos',players.length,topCategory?`${topCategory[0]} · ${topCategory[1]} Tanners`:'Plantilla actual',categoryShare));}
-  if(collection){const rate=Number(collection.collection_rate||0),rateState=rate>=90?'good':rate>=75?'attention':'danger';cards.push(ringKpi('Cobranza',`${rate}%`,`${collection.covered||0}/${collection.collection_population||0} cubiertos`,rate,rateState));cards.push(moneyKpi('Cartera del mes',collection.current_period_receivable,'Pendiente del periodo','attention'));cards.push(moneyKpi('Cartera activa',collection.total_receivable,`${collection.pending_players||0} Tanners activos pendientes`,'danger'));}
+  if(collection){const rate=Number(collection.collection_rate||0),rateState=rate>=90?'good':rate>=75?'attention':'danger';cards.push(ringKpi('Cobranza',`${rate}%`,`${collection.covered||0}/${collection.collection_population||0} cubiertos`,rate,rateState));cards.push(moneyKpi('Cartera del mes',collection.current_period_receivable,'Pendiente del periodo','attention'));const _cob=Number(collection.collectable_receivable??collection.total_receivable??0);if(_cob>Number(collection.current_period_receivable||0))cards.push(moneyKpi('Cartera cobrable',_cob,`${collection.collectable_players??collection.pending_players??0} Tanners activos pendientes`,'danger'));if(Number(collection.residual_receivable||0)>0)cards.push(moneyKpi('Saldo a conciliar',collection.residual_receivable,`${collection.residual_players||0} Tanners con cargos anteriores al corte`,'attention'));}
   if(can('prospectos')||can('scouting')){cards.push(ringKpi('Conversión captación',`${conversion}%`,`${converted}/${prospects.length} convertidos`,conversion));cards.push(iconKpi('Mejor fuente',topCampaign?campaignLabel(topCampaign[0]):'Sin datos',topCampaign?`${topCampaign[1]} registros`:'Aún sin atribución','target'));}
   if(can('patrocinadores'))cards.push(kpi('Marcas activas',sponsors.filter(s=>Number(s.active_agreements||0)>0).length,`${renewal.length} por revisar`));
   const attention=[];
-  if(collection&&Number(collection.total_receivable||0)>0)attention.push(alert('Atención','Cartera activa por cobrar',money.format(Number(collection.total_receivable||0)),`${collection.pending_players||0} Tanners activos con saldo.`,'danger','/finanzas/'));
+  const _cobrable=collection?Number(collection.collectable_receivable??collection.total_receivable??0):0;
+  if(_cobrable>0)attention.push(alert('Atención','Cartera cobrable',money.format(_cobrable),`${collection.collectable_players??collection.pending_players??0} Tanners activos con saldo por cobrar.`,'danger','/finanzas/'));
+  if(collection&&Number(collection.residual_receivable||0)>0)attention.push(alert('Atención','Saldo a conciliar',money.format(Number(collection.residual_receivable)),`${collection.residual_players||0} Tanners con cargos previos al corte de migración.`,'','/contabilidad/#ajustes'));
   if(collection&&Number(collection.needs_configuration||0)>0)attention.push(alert('Atención','Cuotas por configurar',collection.needs_configuration,'Se requiere definición antes de cobrar.','','/finanzas/'));
   if(overdue.length)attention.push(alert('Atención','Seguimientos vencidos',overdue.length,'Captación requiere acción.','danger','/prospectos/'));
   if(open.length)attention.push(alert('Oportunidad','Talento en seguimiento',open.length,'Prospectos activos en el funnel.','opportunity','/prospectos/'));
@@ -71,7 +73,7 @@ async function renderFinance(){
   // La asignación de pagos sólo toca cargos desde 2026-09-01 (frontera de la
   // migración). Lo anterior es residuo que el sistema no puede conciliar solo,
   // así que se reporta aparte en vez de sumarlo a lo que los cobradores persiguen.
-  const CORTE='2026-09-01';
+  const CORTE=String((collection&&collection.billing_cutover)||'2026-09-01').slice(0,10);
   const vencidos=(receivables||[]).filter(r=>{const d=r.due_date||r.billing_period;return d&&String(d).slice(0,10)<_today&&Number(r.balance_due||0)>0;});
   const esBaja=r=>r.player_status&&r.player_status!=='active';
   const esResiduo=r=>String(r.billing_period||'').slice(0,10)<CORTE;

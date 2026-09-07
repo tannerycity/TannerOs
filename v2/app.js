@@ -305,7 +305,7 @@ function renderKpis(){
   if(billing)cards.push(kpi('Cobranza',`${Number(billing.collection_rate||0)}%`,`${billing.covered||0}/${billing.collection_population||0} cubiertos`,Number(billing.collection_rate||0)>=85?'good':''));
   if(attendance?.rate30d!=null)cards.push(kpi('Asistencia 30 días',pct(attendance.rate30d),`${attendance.attended30d||0}/${attendance.records30d||0} registros`,Number(attendance.rate30d)>=85?'good':''));
   if(acquisition)cards.push(kpi('Conversión captación',pct(acquisition.conversionRate),`${acquisition.converted||0}/${acquisition.total||0} convertidos`));
-  if(cards.length<4&&billing)cards.push(kpi('Cartera activa',money.format(Number(billing.total_receivable||0)),`${money.format(Number(billing.current_period_receivable||0))} del mes`,Number(billing.total_receivable||0)>0?'danger':''));
+  if(cards.length<4&&billing){const cobrable=Number(billing.collectable_receivable??billing.total_receivable??0);cards.push(kpi('Cartera cobrable',money.format(cobrable),`${money.format(Number(billing.current_period_receivable||0))} del mes`,cobrable>0?'danger':''));}
   if(cards.length<4&&commerce)cards.push(kpi('Ventas 30 días',money.format(Number(commerce.sales30d||0)),`${commerce.orders30d||0} pedidos`));
   $('homeKpis').innerHTML=(cards.length?cards.slice(0,4):[kpi('TannerOS','Listo','Usa los accesos para trabajar')]).join('');
 }

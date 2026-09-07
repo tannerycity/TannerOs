@@ -45,7 +45,9 @@ function needsContact(p){return p.status==='new';}
 function campaignName(code){
   if(!code)return 'General';
   const known={captacion_porteros_2026:'Captación Porteros 2026',captacion_jugadores_2026:'Captación Jugadores 2026',registro_general_2026:'Registro general 2026'};
-  return known[code]||String(code).replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
+  // \p{L} en vez de \w: con /\b\w/ la ó no cuenta como letra, abría un falso
+  // límite de palabra y "recomendación" salía como "RecomendacióN".
+  return known[code]||String(code).replaceAll('_',' ').replace(/(^|\s)(\p{L})/gu,(m,sep,ch)=>sep+ch.toUpperCase());
 }
 function sourceName(source){return source||'Sin origen';}
 function waUrl(phone){const digits=String(phone||'').replace(/\D/g,'');return digits.length>=8?`https://wa.me/${digits}`:null;}

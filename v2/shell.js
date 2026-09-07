@@ -75,21 +75,33 @@ function urlBase64ToUint8Array(base64){
   const raw=atob(base64Safe);
   return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
 }
+function positionBellPanel(){
+  const button=document.getElementById('tosBellButton'),panel=document.getElementById('tosBellPanel');
+  if(!button||!panel)return;
+  if(window.innerWidth<=560){panel.style.top='';panel.style.right='';panel.style.left='';return;}
+  const rect=button.getBoundingClientRect();
+  const width=Math.min(360,window.innerWidth*0.88);
+  let right=Math.max(12,window.innerWidth-rect.right);
+  if(right+width>window.innerWidth-12)right=Math.max(12,window.innerWidth-width-12);
+  panel.style.left='';
+  panel.style.right=`${right}px`;
+  panel.style.top=`${Math.round(rect.bottom+10)}px`;
+}
 function ensureBellMarkup(){
   if($('tosBellButton'))return;
   const topRight=document.querySelector('.tos-top-right');
   if(!topRight)return;
   topRight.insertAdjacentHTML('afterbegin',`
     <div class="tos-bell-wrap">
-      <button id="tosBellButton" class="tos-bell-button" type="button" aria-label="Mensajes"><span aria-hidden="true">🔔</span><span id="tosBellBadge" class="tos-bell-badge hidden">0</span></button>
-      <div id="tosBellPanel" class="tos-bell-panel hidden">
-        <div class="tos-bell-head"><strong>Mensajes</strong><button id="tosBellCompose" class="secondary mini hidden" type="button">+ Nuevo</button></div>
-        <div id="tosBellSubscribeRow" class="tos-bell-subscribe hidden"><span>Recibe estos avisos aunque no tengas TannerOS abierto.</span><button id="tosEnablePush" class="secondary mini" type="button">Activar notificaciones</button></div>
-        <div id="tosBellList" class="tos-bell-list"></div>
-        <div id="tosBellEmpty" class="tos-bell-empty hidden">Sin mensajes por ahora.</div>
-      </div>
+      <button id="tosBellButton" class="tos-bell-button" type="button" aria-label="Mensajes"><span class="tos-icon tos-icon-bell" aria-hidden="true"></span><span id="tosBellBadge" class="tos-bell-badge hidden">0</span></button>
     </div>`);
   document.body.insertAdjacentHTML('beforeend',`
+    <div id="tosBellPanel" class="tos-bell-panel hidden">
+      <div class="tos-bell-head"><strong>Mensajes</strong><button id="tosBellCompose" class="secondary mini hidden" type="button">+ Nuevo</button></div>
+      <div id="tosBellSubscribeRow" class="tos-bell-subscribe hidden"><span>Recibe estos avisos aunque no tengas TannerOS abierto.</span><button id="tosEnablePush" class="secondary mini" type="button">Activar notificaciones</button></div>
+      <div id="tosBellList" class="tos-bell-list"></div>
+      <div id="tosBellEmpty" class="tos-bell-empty hidden">Sin mensajes por ahora.</div>
+    </div>
     <div id="tosComposeBackdrop" class="tos-compose-backdrop hidden"></div>
     <section id="tosComposeModal" class="tos-compose-modal hidden" role="dialog" aria-modal="true">
       <h3>Nuevo mensaje</h3>
@@ -105,12 +117,15 @@ function ensureBellMarkup(){
   document.getElementById('tosBellButton').addEventListener('click',()=>{
     const panel=document.getElementById('tosBellPanel');
     const opening=panel.classList.contains('hidden');
+    if(opening){positionBellPanel();window.addEventListener('resize',positionBellPanel);}
+    else window.removeEventListener('resize',positionBellPanel);
     panel.classList.toggle('hidden');
     if(opening&&window.__tosCtx)markAnnouncementsSeen(window.__tosCtx);
   });
   document.addEventListener('pointerdown',event=>{
-    if(event.target.closest?.('.tos-bell-wrap'))return;
+    if(event.target.closest?.('.tos-bell-wrap')||event.target.closest?.('#tosBellPanel'))return;
     document.getElementById('tosBellPanel')?.classList.add('hidden');
+    window.removeEventListener('resize',positionBellPanel);
   });
   document.getElementById('tosComposeCancel').addEventListener('click',closeCompose);
   document.getElementById('tosComposeBackdrop').addEventListener('click',closeCompose);

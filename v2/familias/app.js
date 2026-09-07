@@ -5,9 +5,9 @@ import {supabase,rpc,money,$} from '/v2/shell.js';
 // Todo lo que se muestra viene de los RPC v2_portal_*, que resuelven al tutor
 // por auth.uid() y nunca confían en un id que mande esta página.
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme'};
+const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',parking_pass:'Gafete'};
 const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';
-const state={home:null,playerId:'',tab:'cuenta',statements:{},calendar:null,catalog:null,cart:{}};
+const state={home:null,playerId:'',tab:'cuenta',statements:{},calendar:null,catalog:null,cart:{},parking:null};
 
 function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -228,6 +228,62 @@ async function renderTienda(){
   renderCartBar();
 }
 
+
+/* ---------- Gafete de estacionamiento ---------- */
+const PASS_STATE={
+  requested:{t:'En revisión',d:'El club está revisando tu solicitud.',tone:'pendiente'},
+  approved:{t:'Autorizado',d:'Pasa a recogerlo al club.',tone:'pendiente'},
+  issued:{t:'Vigente',d:'Ya lo tienes contigo.',tone:'pagado'},
+  rejected:{t:'No autorizado',d:'',tone:'vencido'},
+  revoked:{t:'Cancelado',d:'',tone:'vencido'},
+  lost:{t:'Reportado perdido',d:'',tone:'vencido'},
+  expired:{t:'Vencido',d:'Ya puedes solicitar el de la nueva temporada.',tone:'vencido'}
+};
+async function renderGafete(){
+  if(!state.parking){
+    $('famBody').innerHTML='<div class="fam-empty">Cargando…</div>';
+    try{state.parking=await rpc('v2_portal_parking');}
+    catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
+  }
+  const {price,season,passes=[]}=state.parking;
+  const vivos=passes.filter(p=>['requested','approved','issued'].includes(p.status));
+  const cards=passes.map(p=>{
+    const st=PASS_STATE[p.status]||{t:p.status,d:'',tone:''};
+    const saldo=Number(p.balance||0);
+    const detalle=[p.vehicle,p.player&&`de ${p.player}`,p.folio&&`folio ${p.folio}`]
+      .filter(Boolean).join(' · ');
+    const cobro=saldo>0?`<span class="fam-chip-val"><span>Por pagar</span><b>${money.format(saldo)}</b></span>`
+      :p.status==='issued'||p.status==='approved'?'<span class="fam-chip-val"><span>Pago</span><b>Cubierto</b></span>':'';
+    return `<article class="fam-card" style="margin-top:12px"><div class="fam-card-head"><h2>${esc(p.plate||'Sin placas')}</h2><span class="fam-pass-state" data-state="${st.tone}">${esc(st.t)}</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">${esc(detalle)}</p>${st.d?`<p class="fam-muted" style="margin:6px 0 0;font-size:12.5px">${esc(st.d)}</p>`:''}${p.close_reason?`<p class="fam-muted" style="margin:6px 0 0;font-size:12.5px">Motivo: ${esc(p.close_reason)}</p>`:''}<div class="fam-split">${cobro}<span class="fam-chip-val"><span>Temporada</span><b>${esc(String(p.season))}</b></span></div></article>`;
+  }).join('');
+
+  const form=`<article class="fam-card" style="margin-top:12px"><div class="fam-card-head"><h2>Solicitar un gafete</h2><span>${money.format(Number(price||0))}</span></div><p class="fam-muted" style="margin:0 0 12px;font-size:12.5px">Cada gafete cuesta ${money.format(Number(price||0))} por la temporada ${esc(String(season))} y se te carga a tu estado de cuenta. Un gafete por vehículo.</p><form id="gafeteForm" class="fam-pass-form"><label>Para<select id="gafetePlayer"></select></label><label>Placas<input id="gafetePlate" maxlength="15" placeholder="ABC-123-X" autocapitalize="characters" required></label><label>Vehículo <span class="fam-muted">(opcional)</span><input id="gafeteVehicle" maxlength="60" placeholder="Mazda 3 gris"></label><button id="gafeteSubmit" class="fam-btn" type="submit">Solicitar por ${money.format(Number(price||0))}</button><div id="gafeteMessage" class="fam-message hidden"></div></form></article>`;
+
+  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Estacionamiento</h2><span>${vivos.length} vigente${vivos.length===1?'':'s'}</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aquí solicitas y sigues tus gafetes. Puedes tener uno por cada vehículo.</p></section>${cards}${form}`;
+
+  const sel=$('gafetePlayer');
+  (state.home?.players||[]).forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.id;o.textContent=[p.first_name,p.last_name].filter(Boolean).join(' ');
+    sel.appendChild(o);
+  });
+  if(state.playerId)sel.value=state.playerId;
+  $('gafeteForm').addEventListener('submit',async e=>{
+    e.preventDefault();msg('gafeteMessage');
+    const btn=$('gafeteSubmit');btn.disabled=true;btn.textContent='Enviando…';
+    try{
+      await rpc('v2_portal_request_parking',{
+        player_id:sel.value,plate:$('gafetePlate').value,vehicle:$('gafeteVehicle').value||null});
+      state.parking=null;state.statements={};
+      await renderGafete();
+      msg('gafeteMessage','Listo, el club revisa tu solicitud.','success');
+    }catch(error){
+      msg('gafeteMessage',friendly(error));
+      btn.disabled=false;btn.textContent=`Solicitar por ${money.format(Number(price||0))}`;
+    }
+  });
+}
+
 /* ---------- Marco ---------- */
 async function renderTabs(){
   const players=state.home?.players||[];
@@ -248,6 +304,7 @@ function paint(){
   document.getElementById('famCart')?.remove();
   if(state.tab==='calendario')renderCalendario();
   else if(state.tab==='tienda')renderTienda();
+  else if(state.tab==='gafete')renderGafete();
   else renderCuenta();
 }
 

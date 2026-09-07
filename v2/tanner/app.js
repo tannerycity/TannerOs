@@ -10,7 +10,7 @@ const can=(code,write=false)=>moduleAccess(navigation,code,write);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const playerId=new URLSearchParams(location.search).get('id');
 
-const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',other:'Otro cargo'};
+const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',parking_pass:'Gafete',other:'Otro cargo'};
 const DOC_LABEL={birth_certificate:'Acta de nacimiento',curp:'CURP',studies:'Constancia de estudios',photo:'Fotografía',id:'Identificación'};
 const STATUS_LABEL={active:'Activo',withdrawn:'Baja',paused:'En pausa',archived:'Archivado'};
 const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';

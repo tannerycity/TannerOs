@@ -192,8 +192,17 @@ function wireAuth(){
 
 async function retireLegacyCaches(){
   try{
-    if('serviceWorker' in navigator){const registrations=await navigator.serviceWorker.getRegistrations();await Promise.all(registrations.map(r=>r.unregister()));}
-    if('caches' in window){const keys=await caches.keys();await Promise.all(keys.filter(k=>/^tanneros-shell/i.test(k)||k==='app-shell').map(k=>caches.delete(k)));}
+    if(!('serviceWorker' in navigator))return;
+    const currentSwUrl=new URL('/sw.js',location.origin).href;
+    const registrations=await navigator.serviceWorker.getRegistrations();
+    // Solo tira service workers de otro script (prototipos viejos). El cache
+    // de la versión vigente lo poda sw.js mismo en su evento 'activate' — si
+    // lo borráramos aquí también, se pierde justo después de escribirse en
+    // cada carga y el fallback offline nunca llega a tener nada que servir.
+    await Promise.all(registrations
+      .filter(r=>(r.active||r.installing||r.waiting)?.scriptURL!==currentSwUrl)
+      .map(r=>r.unregister()));
+    await navigator.serviceWorker.register('/sw.js').catch(()=>{});
   }catch(error){console.warn('Legacy cache cleanup',error);}
 }
 

@@ -72,14 +72,11 @@ function loadImageFile(file) {
   });
 }
 function canvasBlobFrom(canvas, type, quality) { return new Promise((resolve) => canvas.toBlob(resolve, type, quality)); }
-async function preparePhotoFile(file) {
-  if (!file) throw new Error('Selecciona una foto.');
-  if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');
-  const img = await loadImageFile(file);
+const THUMB_MAX_SIDE = 260;
+const THUMB_MAX_BYTES = 180 * 1024;
+async function prepareVariant(img, maxSide, quality, maxBytes) {
   const width = img.naturalWidth || img.width;
   const height = img.naturalHeight || img.height;
-  if (!width || !height) throw new Error('No pudimos leer el tamaño de esa foto.');
-  const maxSide = 1200;
   const scale = Math.min(1, maxSide / Math.max(width, height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(width * scale));
@@ -87,19 +84,41 @@ async function preparePhotoFile(file) {
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Tu navegador no pudo preparar la foto.');
   context.drawImage(img, 0, 0, canvas.width, canvas.height);
-  let blob = await canvasBlobFrom(canvas, 'image/webp', 0.82);
+  let blob = await canvasBlobFrom(canvas, 'image/webp', quality);
   let ext = 'webp';
-  if (!blob) { blob = await canvasBlobFrom(canvas, 'image/jpeg', 0.82); ext = 'jpg'; }
-  if (blob && blob.size > 5 * 1024 * 1024) { blob = await canvasBlobFrom(canvas, 'image/jpeg', 0.65); ext = 'jpg'; }
-  if (!blob || blob.size > 5 * 1024 * 1024) throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
+  if (!blob) { blob = await canvasBlobFrom(canvas, 'image/jpeg', quality); ext = 'jpg'; }
+  if (blob && blob.size > maxBytes) { blob = await canvasBlobFrom(canvas, 'image/jpeg', Math.max(0.5, quality - 0.17)); ext = 'jpg'; }
+  if (!blob || blob.size > maxBytes) throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
   return { blob, ext, mime: blob.type || (ext === 'jpg' ? 'image/jpeg' : 'image/webp') };
+}
+async function preparePhotoFile(file) {
+  if (!file) throw new Error('Selecciona una foto.');
+  if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');
+  const img = await loadImageFile(file);
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  if (!width || !height) throw new Error('No pudimos leer el tamaño de esa foto.');
+  const full = await prepareVariant(img, 1200, 0.82, 5 * 1024 * 1024);
+  const thumb = await prepareVariant(img, THUMB_MAX_SIDE, 0.75, THUMB_MAX_BYTES);
+  return { full, thumb };
 }
 async function uploadPhoto(pathPrefix, file) {
   const prepared = await preparePhotoFile(file);
-  const path = `${pathPrefix}-${Date.now()}.${prepared.ext}`;
-  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.blob, { contentType: prepared.mime, cacheControl: '3600', upsert: false });
-  if (error) throw error;
-  return path;
+  const stamp = Date.now();
+  const path = `${pathPrefix}-${stamp}.${prepared.full.ext}`;
+  const thumbPath = `${pathPrefix}-${stamp}-thumb.${prepared.thumb.ext}`;
+  const [{ error: fullErr }, { error: thumbErr }] = await Promise.all([
+    supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
+    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+  ]);
+  if (fullErr || thumbErr) {
+    await Promise.all([
+      supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {}),
+      supabase.storage.from(PHOTO_BUCKET).remove([thumbPath]).catch(() => {}),
+    ]);
+    throw fullErr || thumbErr;
+  }
+  return { path, thumbPath };
 }
 async function signedPhoto(bucket, path) {
   if (!path) return null;
@@ -110,6 +129,18 @@ async function signedPhoto(bucket, path) {
 function hydratePhoto(boxEl, bucket, path, alt) {
   if (!boxEl || !path) return;
   signedPhoto(bucket, path).then((url) => { if (url) boxEl.innerHTML = `<img src="${url}" alt="${esc(alt || '')}">`; });
+}
+async function hydratePhotosBatch(entries) {
+  const list = entries.filter((entry) => entry.boxEl && entry.path);
+  const paths = [...new Set(list.map((entry) => entry.path))];
+  if (!paths.length) return;
+  const { data } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, 600);
+  const map = {};
+  (data || []).forEach((row) => { if (row?.signedUrl && !row.error) map[row.path] = row.signedUrl; });
+  list.forEach(({ boxEl, path, alt }) => {
+    const url = map[path];
+    if (url) boxEl.innerHTML = `<img src="${url}" alt="${esc(alt || '')}">`;
+  });
 }
 
 function writeControls() {
@@ -222,6 +253,7 @@ function renderItemsTable() {
   const term = ($('itemSearch').value || '').trim().toLowerCase();
   const filtered = items.filter((i) => !term || String(i.name || '').toLowerCase().includes(term) || String(i.category || '').toLowerCase().includes(term));
   $('itemsEmpty').classList.toggle('hidden', items.length > 0);
+  const photoEntries = [];
   filtered.forEach((i) => {
     const state = stateFor(i);
     const meta = [i.category, i.location, i.unit_cost != null ? money.format(Number(i.unit_cost)) : null].filter(Boolean).map(esc).join(' · ');
@@ -237,9 +269,10 @@ function renderItemsTable() {
       <td><strong>${Number(i.available_quantity || 0)}</strong></td>
       <td><span class="stock-state ${state.cls}">${state.label}</span></td>`;
     body.appendChild(tr);
-    if (i.photo_path) hydratePhoto(tr.querySelector(`[data-photo-for="${i.id}"]`), i.photo_bucket, i.photo_path, i.name);
+    photoEntries.push({ boxEl: tr.querySelector(`[data-photo-for="${i.id}"]`), path: i.photo_thumb_path || i.photo_path, alt: i.name });
     if (canWrite) tr.addEventListener('click', () => toggleItemDetail(tr, i));
   });
+  hydratePhotosBatch(photoEntries);
 }
 
 async function toggleItemDetail(tr, item) {
@@ -399,6 +432,7 @@ function renderBodega() {
   box.innerHTML = '';
   const stocked = items.filter((i) => i.status === 'active' && (i.control_type === 'individual' ? Number(i.units_bodega || 0) > 0 : Number(i.available_quantity || 0) > 0));
   $('bodegaEmpty').classList.toggle('hidden', stocked.length > 0);
+  const photoEntries = [];
   stocked.forEach((i) => {
     const avail = i.control_type === 'individual' ? Number(i.units_bodega || 0) : Number(i.available_quantity || 0);
     const card = document.createElement('article');
@@ -408,8 +442,9 @@ function renderBodega() {
       <button class="secondary mini" type="button">Entregar</button>`;
     card.querySelector('button').addEventListener('click', () => { $('assignItem').value = i.id; updateAssignUnitField(); document.querySelector('[data-tab="bodega"]').click(); $('assignForm').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
     box.appendChild(card);
-    if (i.photo_path) hydratePhoto(card.querySelector(`[data-photo-for="bodega-${i.id}"]`), i.photo_bucket, i.photo_path, i.name);
+    photoEntries.push({ boxEl: card.querySelector(`[data-photo-for="bodega-${i.id}"]`), path: i.photo_thumb_path || i.photo_path, alt: i.name });
   });
+  hydratePhotosBatch(photoEntries);
 }
 
 function renderKits() {
@@ -452,6 +487,7 @@ function renderReports() {
   const filterVal = $('reportStatusFilter').value;
   const filtered = reports.filter((r) => !filterVal || r.status === filterVal);
   $('reportsEmpty').classList.toggle('hidden', reports.length > 0);
+  const photoEntries = [];
   filtered.forEach((r) => {
     const card = document.createElement('article');
     card.className = `report-card status-${r.status}`;
@@ -476,7 +512,7 @@ function renderReports() {
     if (r.photo_path) {
       const photoBox = card.querySelector('.report-photo');
       photoBox.classList.remove('hidden');
-      hydratePhoto(photoBox, r.photo_bucket, r.photo_path, 'Evidencia');
+      photoEntries.push({ boxEl: photoBox, path: r.photo_thumb_path || r.photo_path, alt: 'Evidencia' });
     }
     card.querySelector('.report-actions button')?.addEventListener('click', async () => {
       const status = card.querySelector('.resolve-status').value;
@@ -486,6 +522,7 @@ function renderReports() {
     });
     box.appendChild(card);
   });
+  hydratePhotosBatch(photoEntries);
   writeControls();
 }
 
@@ -495,10 +532,12 @@ async function saveItem(e) {
   const btn = $('saveItem');
   btn.disabled = true;
   try {
-    let photoPath = null, photoBucket = null;
+    let photoPath = null, photoBucket = null, photoThumbPath = null;
     if (itemPhotoFile) {
       const targetId = editingItemId || 'new';
-      photoPath = await uploadPhoto(`organizations/${ctx.organization_id}/equipment/items/${targetId}/foto`, itemPhotoFile);
+      const uploaded = await uploadPhoto(`organizations/${ctx.organization_id}/equipment/items/${targetId}/foto`, itemPhotoFile);
+      photoPath = uploaded.path;
+      photoThumbPath = uploaded.thumbPath;
       photoBucket = PHOTO_BUCKET;
     }
     await rpc('v2_upsert_equipment_item', {
@@ -507,7 +546,7 @@ async function saveItem(e) {
       category: $('itemCategory').value.trim() || null, quantity: Number($('itemQuantity').value || 0),
       min_stock: Number($('itemMinStock').value || 0), unit_cost: $('itemCost').value === '' ? null : Number($('itemCost').value),
       location: $('itemLocation').value.trim() || null, status: 'active', notes: $('itemNotes').value.trim() || null,
-      control_type: $('itemControlType').value, photo_path: photoPath, photo_bucket: photoBucket,
+      control_type: $('itemControlType').value, photo_path: photoPath, photo_bucket: photoBucket, photo_thumb_path: photoThumbPath,
     });
     msg('itemMessage', 'Artículo guardado.', 'success');
     resetItemForm();
@@ -588,18 +627,19 @@ function renderMyKit() {
   const box = $('myKitList');
   box.innerHTML = '';
   $('myKitEmpty').classList.toggle('hidden', myKit.length > 0);
+  const photoEntries = [];
   myKit.forEach((k) => {
     const card = document.createElement('article');
     card.className = 'kit-card';
-    const photoPath = k.unit_photo_path || k.item_photo_path;
-    const photoBucket = k.unit_photo_path ? k.unit_photo_bucket : k.item_photo_bucket;
+    const photoPath = (k.unit_photo_thumb_path || k.unit_photo_path) || (k.item_photo_thumb_path || k.item_photo_path);
     card.innerHTML = `<div class="kit-row">
         <div class="photo-box small" data-photo-for="mykit-${k.id}">${photoPath ? '' : (k.item_name || '?').slice(0, 1)}</div>
         <div><strong>${esc(k.item_name)}</strong><span>${k.unit_code ? esc(k.unit_code) : `${Number(k.quantity || 0)} unidad${Number(k.quantity) === 1 ? '' : 'es'}`} · desde ${esc(fmtDate(k.assigned_at))}</span></div>
       </div>`;
     box.appendChild(card);
-    if (photoPath) hydratePhoto(card.querySelector(`[data-photo-for="mykit-${k.id}"]`), photoBucket, photoPath, k.item_name);
+    photoEntries.push({ boxEl: card.querySelector(`[data-photo-for="mykit-${k.id}"]`), path: photoPath, alt: k.item_name });
   });
+  hydratePhotosBatch(photoEntries);
 }
 
 function renderReportItemOptions() {
@@ -666,15 +706,17 @@ async function saveReport(e) {
     const reason = isFreeRequest ? [freeText, reasonBase].filter(Boolean).join(' — ') : reasonBase;
     if (isFreeRequest && !freeText) throw new Error('Escribe qué material necesitas.');
 
-    let photoPath = null, photoBucket = null;
+    let photoPath = null, photoBucket = null, photoThumbPath = null;
     if (reportPhotoFile) {
-      photoPath = await uploadPhoto(`organizations/${ctx.organization_id}/equipment/reports/reporte-${Date.now()}`, reportPhotoFile);
+      const uploaded = await uploadPhoto(`organizations/${ctx.organization_id}/equipment/reports/reporte-${Date.now()}`, reportPhotoFile);
+      photoPath = uploaded.path;
+      photoThumbPath = uploaded.thumbPath;
       photoBucket = PHOTO_BUCKET;
     }
     await rpc('v2_report_equipment_issue', {
       organization_id: ctx.organization_id, item_id: itemId, unit_id: unitId, report_type: reportType,
       quantity: Number($('reportQuantity').value || 1), reason: reason || null,
-      photo_path: photoPath, photo_bucket: photoBucket, comment: $('reportComment').value.trim() || null,
+      photo_path: photoPath, photo_bucket: photoBucket, comment: $('reportComment').value.trim() || null, photo_thumb_path: photoThumbPath,
     });
     msg('reportMessage', 'Reporte enviado. Administración lo va a revisar.', 'success');
     e.target.reset();

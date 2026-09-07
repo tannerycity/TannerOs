@@ -1,0 +1,50 @@
+/* Padrón de gafetes de estacionamiento */
+.park-drawer,.park-drawer *,.park-row,.park-row *,.park-search,.park-chip{box-sizing:border-box}
+.park-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+.park-filters{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.park-chip{border:1px solid var(--tos-line,#dedbd0);background:#fff;border-radius:999px;min-height:44px;
+  padding:0 15px;font:inherit;font-size:13.5px;font-weight:600;color:#0d2730;cursor:pointer}
+.park-chip[aria-pressed="true"]{background:var(--tos-ink-deep,#032f3b);border-color:var(--tos-ink-deep,#032f3b);color:#fff}
+.park-search{flex:1 1 200px;min-width:0;border:1px solid var(--tos-line,#dedbd0);border-radius:12px;
+  padding:0 13px;min-height:44px;font:inherit;font-size:16px;background:#fff}
+
+.park-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;
+  padding:13px 0;border-bottom:1px solid #eeeae0}
+.park-row:last-child{border-bottom:0}
+.park-plate{flex:0 0 auto;padding:7px 11px;border-radius:10px;background:#0d2730;color:#fff;
+  font-size:13px;font-weight:700;letter-spacing:.04em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.park-body{min-width:0}
+.park-body strong{display:block;font-size:14px;line-height:1.25}
+.park-body span{display:block;margin-top:2px;font-size:11.5px;color:#8b979c}
+.park-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end}
+.park-actions button{min-height:40px;padding:0 13px;border-radius:10px;border:1px solid var(--tos-line,#dedbd0);
+  background:#fff;font:inherit;font-size:12.5px;font-weight:600;color:#0d2730;cursor:pointer;white-space:nowrap}
+.park-actions button[data-kind="go"]{background:#087d8e;border-color:#087d8e;color:#fff}
+.park-state{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;
+  background:#f4f6f5;color:#6f7d82}
+.park-state[data-s="requested"]{background:#fdf8ec;color:#8a6413}
+.park-state[data-s="approved"]{background:#eef5f6;color:#0c5163}
+.park-state[data-s="issued"]{background:#e6f4ec;color:#1e6b3c}
+.park-state[data-s="rejected"],.park-state[data-s="revoked"],
+.park-state[data-s="lost"],.park-state[data-s="expired"]{background:#fdecea;color:#b4443a}
+
+/* Bitácora: la trazabilidad se lee como una línea de tiempo */
+.park-backdrop{position:fixed;inset:0;background:rgba(5,30,38,.45);z-index:90}
+.park-drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);z-index:91;background:#fff;
+  overflow:auto;padding:20px;box-shadow:-18px 0 46px rgba(4,49,61,.22);
+  padding-top:max(20px,env(safe-area-inset-top));padding-bottom:max(20px,env(safe-area-inset-bottom))}
+.park-drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.park-drawer-head h2{margin:4px 0 0;font-size:21px;letter-spacing:-.02em}
+.park-log{display:grid;margin-top:8px}
+.park-ev{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:11px 0;border-bottom:1px solid #eeeae0}
+.park-ev:last-child{border-bottom:0}
+.park-ev-dot{width:10px;height:10px;border-radius:50%;margin-top:5px;background:#c3ccd0}
+.park-ev:first-child .park-ev-dot{background:#087d8e}
+.park-ev strong{display:block;font-size:13.5px}
+.park-ev span{display:block;margin-top:2px;font-size:11.5px;color:#8b979c}
+@media(max-width:560px){
+  .park-kpis{grid-template-columns:1fr 1fr}
+  .park-row{grid-template-columns:auto minmax(0,1fr);row-gap:9px}
+  .park-actions{grid-column:1/-1;justify-content:flex-start}
+  .park-drawer{width:100%}
+}

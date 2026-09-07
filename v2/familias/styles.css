@@ -56,7 +56,7 @@
 .fam-empty{padding:28px 18px;text-align:center;color:var(--fam-muted);border:1px dashed #ddd8ca;border-radius:16px;background:#fff}
 
 /* Navegación inferior, al alcance del pulgar */
-.fam-nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(3,1fr);
+.fam-nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);
   background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-top:1px solid #e3e0d4;
   padding-bottom:env(safe-area-inset-bottom)}
 .fam-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:transparent;
@@ -69,10 +69,12 @@
 .fam-nav-ico[data-i="wallet"]{-webkit-mask-image:var(--fam-i-wallet);mask-image:var(--fam-i-wallet)}
 .fam-nav-ico[data-i="calendar"]{-webkit-mask-image:var(--fam-i-calendar);mask-image:var(--fam-i-calendar)}
 .fam-nav-ico[data-i="bag"]{-webkit-mask-image:var(--fam-i-bag);mask-image:var(--fam-i-bag)}
+.fam-nav-ico[data-i="car"]{-webkit-mask-image:var(--fam-i-car);mask-image:var(--fam-i-car)}
 :root{
   --fam-i-wallet:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='13' rx='3'/%3E%3Cpath d='M3 10h18M16.5 14h.01'/%3E%3C/svg%3E");
   --fam-i-calendar:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M8 3v4M16 3v4M3 10h18'/%3E%3C/svg%3E");
   --fam-i-bag:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 7h12l1 13H5z'/%3E%3Cpath d='M9 7a3 3 0 0 1 6 0'/%3E%3C/svg%3E");
+  --fam-i-car:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 16h14M4 16l1.6-5.2A3 3 0 0 1 8.5 8.6h7a3 3 0 0 1 2.9 2.2L20 16v3h-2.5v-1.5h-11V19H4z'/%3E%3Cpath d='M7 13h.01M17 13h.01'/%3E%3C/svg%3E");
 }
 
 /* Saldo */
@@ -153,3 +155,16 @@
   .fam-main{padding-bottom:40px}
   .fam-nav{position:sticky;bottom:0;max-width:760px;margin:0 auto;border-radius:18px 18px 0 0;border:1px solid #e3e0d4;border-bottom:0}
 }
+
+/* Gafete de estacionamiento */
+.fam-pass-state{font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:999px;white-space:nowrap;
+  background:#f4f6f5;color:#6f7d82}
+.fam-pass-state[data-state="pagado"]{background:#e6f4ec;color:var(--fam-ok)}
+.fam-pass-state[data-state="pendiente"]{background:#fdf8ec;color:var(--fam-warn)}
+.fam-pass-state[data-state="vencido"]{background:#fdecea;color:var(--fam-danger)}
+.fam-pass-form{display:grid;gap:12px}
+.fam-pass-form label{display:grid;gap:6px;font-size:12.5px;font-weight:600;color:var(--fam-muted)}
+.fam-pass-form input,.fam-pass-form select{border:1px solid var(--fam-line);border-radius:12px;padding:12px 13px;
+  min-height:48px;font:inherit;font-size:16px;background:#fff;color:var(--fam-ink);-webkit-appearance:none;appearance:none}
+.fam-pass-form input{text-transform:uppercase}
+.fam-pass-form #gafeteVehicle{text-transform:none}

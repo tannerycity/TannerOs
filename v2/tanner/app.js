@@ -84,6 +84,42 @@ function saldoTexto(v){
   if(v<-0.004)return `${money.format(Math.abs(v))} a favor`;
   return 'al corriente';
 }
+// Tarjetero por mes: la pregunta "¿de qué meses debe este niño?" no se contesta
+// leyendo movimientos uno por uno. Se arma agrupando los cargos que ya trae el
+// estado de cuenta, sin pedirle nada más al servidor.
+function monthsBlock(data){
+  const hoy=new Date().toISOString().slice(0,10);
+  const meses=new Map();
+  (data.ledger||[]).filter(m=>m.kind==='charge'&&m.period).forEach(m=>{
+    const k=String(m.period).slice(0,7);
+    const acc=meses.get(k)||{key:k,cargado:0,saldo:0,vence:'',conceptos:[]};
+    acc.cargado+=Number(m.amount||0);
+    acc.saldo+=Number(m.charge_balance||0);
+    if(m.date&&String(m.date)>acc.vence)acc.vence=String(m.date).slice(0,10);
+    if(Number(m.charge_balance||0)>0)acc.conceptos.push({l:chargeLabel(m.subtype),v:Number(m.charge_balance||0)});
+    meses.set(k,acc);
+  });
+  const filas=[...meses.values()].sort((a,b)=>b.key.localeCompare(a.key));
+  if(!filas.length)return '';
+  const conSaldo=filas.filter(f=>f.saldo>0.004);
+  const nombre=k=>{
+    const d=new Date(`${k}-01T12:00:00`);
+    return Number.isNaN(d.getTime())?k:new Intl.DateTimeFormat('es-MX',{month:'short'}).format(d).replace('.','');
+  };
+  const cards=filas.map(f=>{
+    const debe=f.saldo>0.004,vencido=debe&&f.vence&&f.vence<hoy;
+    const estado=!debe?'pagado':vencido?'vencido':'pendiente';
+    const pie=!debe?'Pagado':vencido?'Vencido':'Por vencer';
+    const cifra=debe?money.format(f.saldo):money.format(f.cargado);
+    const titulo=debe?`Debe ${money.format(f.saldo)} de ${[...new Set(f.conceptos.sort((a,b)=>b.v-a.v).map(c=>c.l))].join(' y ').toLowerCase()||'mensualidad'}`:`Pagado · ${money.format(f.cargado)}`;
+    return `<div class="tan-mes" data-state="${estado}" title="${esc(titulo)}"><span class="tan-mes-nom">${esc(nombre(f.key))}</span><b>${cifra}</b><span class="tan-mes-pie">${pie}</span>${f.key.slice(0,4)!==String(new Date().getFullYear())?`<small>${esc(f.key.slice(0,4))}</small>`:''}</div>`;
+  }).join('');
+  const resumen=conSaldo.length
+    ? `debe ${conSaldo.length} mes${conSaldo.length===1?'':'es'}`
+    : 'sin meses pendientes';
+  return `<section class="tan-section"><div class="tan-section-head"><h2>Por mes</h2><span>${esc(resumen)}</span></div><div class="tan-meses">${cards}</div></section>`;
+}
+
 function ledgerBlock(data){
   const rows=(data.ledger||[]).filter(m=>m.kind!=='payment'||m.status==='posted');
   if(!rows.length)return '';
@@ -144,7 +180,7 @@ async function render(){
   // Se pinta sin foto y la foto entra después: la URL firmada no debe retrasar
   // el dato, que es a lo que la persona vino.
   const paint=url=>{
-    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${ledgerBlock(data)}<div class="tan-grid">${docsBlock(data)}${extrasBlock(data)}</div>`;
+    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${monthsBlock(data)}${ledgerBlock(data)}<div class="tan-grid">${docsBlock(data)}${extrasBlock(data)}</div>`;
   };
   paint('');
   const saldo=Number(data.summary?.balance||0);

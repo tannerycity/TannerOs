@@ -243,7 +243,7 @@ function wireBell(ctx,navigation){
   wirePush(ctx);
 }
 
-function ensureProductionCss(){if(document.getElementById('tosProductionCss'))return;const link=document.createElement('link');link.id='tosProductionCss';link.rel='stylesheet';link.href='/v2/production.css?v=20260907a';document.head.appendChild(link);}
+function ensureProductionCss(){if(document.getElementById('tosProductionCss'))return;const link=document.createElement('link');link.id='tosProductionCss';link.rel='stylesheet';link.href='/v2/production.css?v=20260907b';document.head.appendChild(link);}
 // Roles con barra lateral simplificada: sin encabezados de sección y sin ítems que no usan a diario.
 // Taquilla ve solo Inicio (implícito), Taquilla, Pedidos, Calendario y Programas — nada de Finanzas,
 // aunque técnicamente tenga lectura de cobranza (la necesita solo para el buscador de Tanners en Cobrar).

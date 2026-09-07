@@ -63,6 +63,8 @@ let billingPlayers = [];
 let fundedPlayers = [];
 const PHOTO_BUCKET = 'tanneros-private';
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const THUMB_MAX_SIDE = 260;
+const THUMB_MAX_BYTES = 180 * 1024;
 let selectedSponsorId = null;
 let selectedStage = 'all';
 let currentView = 'summary';
@@ -341,14 +343,9 @@ function loadImageFile(file) {
 function canvasBlobFrom(canvas, type, quality) {
   return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
 }
-async function preparePhotoFile(file) {
-  if (!file) throw new Error('Selecciona una foto.');
-  if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');
-  const img = await loadImageFile(file);
+async function prepareVariant(img, maxSide, quality, maxBytes) {
   const width = img.naturalWidth || img.width;
   const height = img.naturalHeight || img.height;
-  if (!width || !height) throw new Error('No pudimos leer el tamaño de esa foto.');
-  const maxSide = 1600;
   const scale = Math.min(1, maxSide / Math.max(width, height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(width * scale));
@@ -356,18 +353,29 @@ async function preparePhotoFile(file) {
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Tu navegador no pudo preparar la foto.');
   context.drawImage(img, 0, 0, canvas.width, canvas.height);
-  let blob = await canvasBlobFrom(canvas, 'image/webp', .84);
+  let blob = await canvasBlobFrom(canvas, 'image/webp', quality);
   let ext = 'webp';
   if (!blob) {
-    blob = await canvasBlobFrom(canvas, 'image/jpeg', .84);
+    blob = await canvasBlobFrom(canvas, 'image/jpeg', quality);
     ext = 'jpg';
   }
-  if (blob && blob.size > PHOTO_MAX_BYTES) {
-    blob = await canvasBlobFrom(canvas, 'image/jpeg', .68);
+  if (blob && blob.size > maxBytes) {
+    blob = await canvasBlobFrom(canvas, 'image/jpeg', Math.max(.5, quality - .16));
     ext = 'jpg';
   }
-  if (!blob || blob.size > PHOTO_MAX_BYTES) throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
+  if (!blob || blob.size > maxBytes) throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
   return { blob, ext, mime: blob.type || ('image/' + (ext === 'jpg' ? 'jpeg' : ext)) };
+}
+async function preparePhotoFile(file) {
+  if (!file) throw new Error('Selecciona una foto.');
+  if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');
+  const img = await loadImageFile(file);
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  if (!width || !height) throw new Error('No pudimos leer el tamaño de esa foto.');
+  const full = await prepareVariant(img, 1600, .84, PHOTO_MAX_BYTES);
+  const thumb = await prepareVariant(img, THUMB_MAX_SIDE, .75, THUMB_MAX_BYTES);
+  return { full, thumb };
 }
 async function signedUrl(bucket, path) {
   if (!path) return null;
@@ -375,29 +383,38 @@ async function signedUrl(bucket, path) {
   if (error) throw error;
   return data?.signedUrl || null;
 }
+async function signedUrls(bucket, paths) {
+  const unique = [...new Set(paths.filter(Boolean))];
+  if (!unique.length) return {};
+  const { data } = await supabase.storage.from(bucket || PHOTO_BUCKET).createSignedUrls(unique, 600);
+  const map = {};
+  (data || []).forEach((row) => { if (row?.signedUrl && !row.error) map[row.path] = row.signedUrl; });
+  return map;
+}
 
-function hydrateAssetPhotos() {
-  assets.filter((asset) => asset.photoPath).forEach(async (asset) => {
-    try {
-      const url = await signedUrl(asset.photoBucket, asset.photoPath);
-      const box = document.querySelector('[data-photo-for="' + CSS.escape(asset.id) + '"]');
-      if (url && box && !box.querySelector('img')) box.innerHTML = '<img src="' + url + '" alt="">';
-    } catch { /* silent: thumbnail best-effort */ }
+async function hydrateAssetPhotos() {
+  const withPhoto = assets.filter((asset) => asset.photoPath);
+  if (!withPhoto.length) return;
+  const map = await signedUrls(PHOTO_BUCKET, withPhoto.map((asset) => asset.photoThumbPath || asset.photoPath));
+  withPhoto.forEach((asset) => {
+    const url = map[asset.photoThumbPath || asset.photoPath];
+    const box = document.querySelector('[data-photo-for="' + CSS.escape(asset.id) + '"]');
+    if (url && box && !box.querySelector('img')) box.innerHTML = '<img src="' + url + '" alt="">';
   });
 }
 
-function hydrateEvidenceThumbs() {
-  itemEvidence.forEach(async (evidence) => {
-    try {
-      const url = await signedUrl(evidence.photoBucket, evidence.photoPath);
-      const box = document.querySelector('[data-evidence-photo="' + CSS.escape(evidence.id) + '"]');
-      if (url && box && !box.querySelector('img')) {
-        const img = document.createElement('img');
-        img.src = url;
-        img.alt = '';
-        box.prepend(img);
-      }
-    } catch { /* silent: thumbnail best-effort */ }
+async function hydrateEvidenceThumbs() {
+  if (!itemEvidence.length) return;
+  const map = await signedUrls(PHOTO_BUCKET, itemEvidence.map((evidence) => evidence.photoThumbPath || evidence.photoPath));
+  itemEvidence.forEach((evidence) => {
+    const url = map[evidence.photoThumbPath || evidence.photoPath];
+    const box = document.querySelector('[data-evidence-photo="' + CSS.escape(evidence.id) + '"]');
+    if (url && box && !box.querySelector('img')) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      box.prepend(img);
+    }
   });
 }
 
@@ -411,21 +428,38 @@ async function uploadAssetPhoto(file) {
   try {
     const prepared = await preparePhotoFile(file);
     const stamp = Date.now();
-    const path = 'organizations/' + ctx.organization_id + '/sponsors/assets/' + assetId + '/photo-' + stamp + '.' + prepared.ext;
-    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.blob, { contentType: prepared.mime, cacheControl: '3600', upsert: false });
-    if (uploadError) throw uploadError;
+    const prefix = 'organizations/' + ctx.organization_id + '/sponsors/assets/' + assetId + '/';
+    const path = prefix + 'photo-' + stamp + '.' + prepared.full.ext;
+    const thumbPath = prefix + 'photo-' + stamp + '-thumb.' + prepared.thumb.ext;
+    const [{ error: uploadError }, { error: thumbUploadError }] = await Promise.all([
+      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+    ]);
+    if (uploadError || thumbUploadError) {
+      await Promise.all([
+        supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {}),
+        supabase.storage.from(PHOTO_BUCKET).remove([thumbPath]).catch(() => {}),
+      ]);
+      throw uploadError || thumbUploadError;
+    }
     let updated;
     try {
-      updated = await rpc('v2_set_sponsor_asset_photo', { organization_id: ctx.organization_id, asset_id: assetId, photo_path: path });
+      updated = await rpc('v2_set_sponsor_asset_photo', { organization_id: ctx.organization_id, asset_id: assetId, photo_path: path, thumb_path: thumbPath });
     } catch (rpcError) {
-      await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+      await Promise.all([
+        supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {}),
+        supabase.storage.from(PHOTO_BUCKET).remove([thumbPath]).catch(() => {}),
+      ]);
       throw rpcError;
     }
     const previous = assetById(assetId);
     const oldPath = previous?.photoPath;
-    const prefix = 'organizations/' + ctx.organization_id + '/sponsors/assets/' + assetId + '/';
+    const oldThumbPath = previous?.photoThumbPath;
     if (oldPath && oldPath !== path && oldPath.startsWith(prefix)) {
       await supabase.storage.from(PHOTO_BUCKET).remove([oldPath]);
+    }
+    if (oldThumbPath && oldThumbPath !== thumbPath && oldThumbPath.startsWith(prefix)) {
+      await supabase.storage.from(PHOTO_BUCKET).remove([oldThumbPath]);
     }
     await load();
     const url = await signedUrl(updated.photoBucket, updated.photoPath);
@@ -445,13 +479,27 @@ async function uploadItemEvidence(file) {
   try {
     const prepared = await preparePhotoFile(file);
     const stamp = Date.now();
-    const path = 'organizations/' + ctx.organization_id + '/sponsors/agreements/' + item.agreementId + '/items/' + itemId + '/evidence-' + stamp + '.' + prepared.ext;
-    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.blob, { contentType: prepared.mime, cacheControl: '3600', upsert: false });
-    if (uploadError) throw uploadError;
+    const prefix = 'organizations/' + ctx.organization_id + '/sponsors/agreements/' + item.agreementId + '/items/' + itemId + '/';
+    const path = prefix + 'evidence-' + stamp + '.' + prepared.full.ext;
+    const thumbPath = prefix + 'evidence-' + stamp + '-thumb.' + prepared.thumb.ext;
+    const [{ error: uploadError }, { error: thumbUploadError }] = await Promise.all([
+      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+    ]);
+    if (uploadError || thumbUploadError) {
+      await Promise.all([
+        supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {}),
+        supabase.storage.from(PHOTO_BUCKET).remove([thumbPath]).catch(() => {}),
+      ]);
+      throw uploadError || thumbUploadError;
+    }
     try {
-      await rpc('v2_add_sponsor_item_evidence', { organization_id: ctx.organization_id, item_id: itemId, photo_path: path, note: null });
+      await rpc('v2_add_sponsor_item_evidence', { organization_id: ctx.organization_id, item_id: itemId, photo_path: path, note: null, thumb_path: thumbPath });
     } catch (rpcError) {
-      await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+      await Promise.all([
+        supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {}),
+        supabase.storage.from(PHOTO_BUCKET).remove([thumbPath]).catch(() => {}),
+      ]);
       throw rpcError;
     }
     await load();

@@ -18,12 +18,14 @@ function nextBirthday(p){const now=new Date(),today=new Date(now.getFullYear(),n
 // === Fotos protagonistas (mismo patrón que Jugadores: signed URLs por lote, bucket privado) ===
 async function signPlayerPhotos(list){
   try{
+    // Avatares chicos (agenda/cumpleaños): usar el thumb (v2_players ya lo trae)
+    // en vez de la foto completa — antes se pedía siempre photo_path aquí.
     const byBucket={};
-    (list||[]).forEach(p=>{if(p&&p.photo_path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(p.photo_path);}});
+    (list||[]).forEach(p=>{const path=p&&(p.photo_thumb_path||p.photo_path);if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
     for(const b of Object.keys(byBucket)){
       const {data}=await supabase.storage.from(b).createSignedUrls(byBucket[b],3600);
       const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
-      (list||[]).forEach(p=>{if(p&&p.photo_path&&(p.photo_bucket||'tanneros-private')===b&&map[p.photo_path])p._photoUrl=map[p.photo_path];});
+      (list||[]).forEach(p=>{const path=p&&(p.photo_thumb_path||p.photo_path);if(path&&(p.photo_bucket||'tanneros-private')===b&&map[path])p._photoUrl=map[path];});
     }
   }catch(e){}
 }

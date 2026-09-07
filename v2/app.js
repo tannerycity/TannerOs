@@ -1,4 +1,4 @@
-import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth} from '/v2/shell.js';
+import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon} from '/v2/shell.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -292,6 +292,9 @@ async function loadHomeData(generation){
 function kpi(label,value,sub='',className=''){
   return `<article class="tos-kpi ${className}"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:''}</article>`;
 }
+// Porcentaje sin precisión falsa: 73.0 se muestra "73%", 45.8 sí "45.8%".
+// Antes convivían "21%", "73.0%" y "45.8%" en la misma fila.
+function pct(value){return `${Number(value||0).toFixed(1).replace(/\.0$/,'')}%`;}
 function mini(label,value,sub=''){
   return `<div class="tos-mini-stat"><strong>${esc(value)}</strong><span>${esc(label)}</span>${sub?`<small>${esc(sub)}</small>`:''}</div>`;
 }
@@ -300,8 +303,8 @@ function renderKpis(){
   const cards=[],executive=state.executive||{},billing=executive.billing,acquisition=executive.acquisition,attendance=executive.attendance,commerce=executive.commerce;
   if(executive.players||can('jugadores'))cards.push(kpi('Plantilla',executive.players?.active??state.players.length,'Tanners activos'));
   if(billing)cards.push(kpi('Cobranza',`${Number(billing.collection_rate||0)}%`,`${billing.covered||0}/${billing.collection_population||0} cubiertos`,Number(billing.collection_rate||0)>=85?'good':''));
-  if(attendance?.rate30d!=null)cards.push(kpi('Asistencia 30 días',`${Number(attendance.rate30d).toFixed(1)}%`,`${attendance.attended30d||0}/${attendance.records30d||0} registros`,Number(attendance.rate30d)>=85?'good':''));
-  if(acquisition)cards.push(kpi('Conversión captación',`${Number(acquisition.conversionRate||0).toFixed(1)}%`,`${acquisition.converted||0}/${acquisition.total||0} convertidos`));
+  if(attendance?.rate30d!=null)cards.push(kpi('Asistencia 30 días',pct(attendance.rate30d),`${attendance.attended30d||0}/${attendance.records30d||0} registros`,Number(attendance.rate30d)>=85?'good':''));
+  if(acquisition)cards.push(kpi('Conversión captación',pct(acquisition.conversionRate),`${acquisition.converted||0}/${acquisition.total||0} convertidos`));
   if(cards.length<4&&billing)cards.push(kpi('Cartera activa',money.format(Number(billing.total_receivable||0)),`${money.format(Number(billing.current_period_receivable||0))} del mes`,Number(billing.total_receivable||0)>0?'danger':''));
   if(cards.length<4&&commerce)cards.push(kpi('Ventas 30 días',money.format(Number(commerce.sales30d||0)),`${commerce.orders30d||0} pedidos`));
   $('homeKpis').innerHTML=(cards.length?cards.slice(0,4):[kpi('TannerOS','Listo','Usa los accesos para trabajar')]).join('');
@@ -359,21 +362,32 @@ function renderRoleFocus(){
   const billing=executive.billing,acquisition=executive.acquisition,attendance=executive.attendance,commerce=executive.commerce,sponsors=executive.sponsors;
   const stats=[];
   if(billing)stats.push(mini('Cobranza',`${Number(billing.collection_rate||0)}%`,`${billing.pending_players||0} pendientes`));
-  if(attendance?.rate30d!=null)stats.push(mini('Asistencia',`${Number(attendance.rate30d).toFixed(1)}%`,'últimos 30 días'));
-  if(acquisition)stats.push(mini('Conversión',`${Number(acquisition.conversionRate||0).toFixed(1)}%`,'captación'));
+  if(attendance?.rate30d!=null)stats.push(mini('Asistencia',pct(attendance.rate30d),'últimos 30 días'));
+  if(acquisition)stats.push(mini('Conversión',pct(acquisition.conversionRate),'captación'));
   if(!stats.length)stats.push(mini('Jugadores',executive.players?.active??state.players.length),mini('Prospectos',acquisition?.active??state.prospects.length),mini('Pedidos',commerce?.orders30d??state.orders.length));
 
+  // Cada hallazgo es una fila propia: la cifra al frente para poder escanearla
+  // y un destino al módulo donde se actúa. Antes se concatenaban con join(' ')
+  // en un solo párrafo, así que había que leerlo completo para encontrar el dato.
   const insights=[];
-  if(billing?.current_period_receivable>0)insights.push(`Hay ${money.format(Number(billing.current_period_receivable))} pendientes del periodo y ${billing.pending_players||0} Tanners con saldo activo.`);
-  if(acquisition?.unplanned>0)insights.push(`${acquisition.unplanned} prospecto${acquisition.unplanned===1?'':'s'} nuevo${acquisition.unplanned===1?'':'s'} todavía no tiene${acquisition.unplanned===1?'':'n'} próxima acción.`);
-  if(acquisition?.topSource?.count>0)insights.push(`${acquisition.topSource.label} es la fuente con más registros (${acquisition.topSource.count}).`);
+  const plural=(n,one,many)=>Number(n)===1?one:many;
+  if(billing?.current_period_receivable>0)insights.push({icon:'wallet',tone:'danger',module:'cobranza',href:'/finanzas/',value:money.format(Number(billing.current_period_receivable)),label:`Pendiente del periodo · ${billing.pending_players||0} ${plural(billing.pending_players,'Tanner','Tanners')} con saldo activo`});
+  if(acquisition?.unplanned>0)insights.push({icon:'target',tone:'attention',module:'prospectos',href:'/prospectos/',value:String(acquisition.unplanned),label:`${plural(acquisition.unplanned,'Prospecto nuevo','Prospectos nuevos')} sin próxima acción agendada`});
+  if(acquisition?.topSource?.count>0)insights.push({icon:'spark',tone:'',module:'prospectos',href:'/prospectos/',value:String(acquisition.topSource.count),label:`${acquisition.topSource.label} es la fuente con más registros`});
   const best=usefulSourceRows().sort((a,b)=>Number(b.conversionRate||0)-Number(a.conversionRate||0))[0];
-  if(best)insights.push(`${best.label} convierte ${Number(best.conversionRate||0).toFixed(1)}% (${best.converted||0}/${best.total||0}) entre las fuentes con volumen suficiente.`);
-  if(attendance?.rate30d!=null)insights.push(`La asistencia registrada de los últimos 30 días es ${Number(attendance.rate30d).toFixed(1)}%.`);
-  if(commerce?.pendingPayment>0)insights.push(`${commerce.pendingPayment} pedido${commerce.pendingPayment===1?'':'s'} tiene${commerce.pendingPayment===1?'':'n'} pago pendiente.`);
-  if(sponsors?.followupsOverdue>0)insights.push(`${sponsors.followupsOverdue} seguimiento${sponsors.followupsOverdue===1?'':'s'} comercial${sponsors.followupsOverdue===1?'':'es'} de patrocinio está${sponsors.followupsOverdue===1?'':'n'} vencido${sponsors.followupsOverdue===1?'':'s'}.`);
+  if(best)insights.push({icon:'chart',tone:'good',module:'prospectos',href:'/prospectos/',value:pct(best.conversionRate),label:`${best.label} es la fuente que mejor convierte (${best.converted||0}/${best.total||0})`});
+  if(attendance?.rate30d!=null)insights.push({icon:'check',tone:Number(attendance.rate30d)>=85?'good':'attention',module:'asistencia',href:'/asistencia/',value:pct(attendance.rate30d),label:'Asistencia registrada en los últimos 30 días'});
+  if(commerce?.pendingPayment>0)insights.push({icon:'bag',tone:'attention',module:'tienda',href:'/pedidos/',value:String(commerce.pendingPayment),label:`${plural(commerce.pendingPayment,'Pedido','Pedidos')} con pago pendiente`});
+  if(sponsors?.followupsOverdue>0)insights.push({icon:'briefcase',tone:'attention',module:'patrocinadores',href:'/patrocinadores/',value:String(sponsors.followupsOverdue),label:`${plural(sponsors.followupsOverdue,'Seguimiento comercial vencido','Seguimientos comerciales vencidos')} de patrocinio`});
 
-  $('roleFocusBody').innerHTML=`<div class="tos-mini-stats">${stats.slice(0,3).join('')}</div><p class="tos-insight-copy">${esc(insights.slice(0,5).join(' ')||'Sin alertas relevantes en los datos cargados.')}</p>`;
+  const rows=insights.slice(0,5).map(item=>{
+    const body=`<span class="tos-insight-icon" aria-hidden="true">${shellIcon(item.icon)}</span><span class="tos-insight-body"><strong>${esc(item.value)}</strong><span>${esc(item.label)}</span></span>`;
+    // Sólo enlaza si el rol puede abrir ese módulo; si no, se queda informativo.
+    return item.module&&can(item.module)
+      ? `<a class="tos-insight" data-tone="${esc(item.tone)}" href="${esc(item.href)}">${body}<span class="tos-insight-go" aria-hidden="true">${shellIcon('chevronRight')}</span></a>`
+      : `<div class="tos-insight" data-tone="${esc(item.tone)}">${body}</div>`;
+  }).join('');
+  $('roleFocusBody').innerHTML=`<div class="tos-mini-stats">${stats.slice(0,3).join('')}</div>${rows?`<div class="tos-insight-list">${rows}</div>`:'<div class="tos-empty">Sin alertas relevantes en los datos cargados.</div>'}`;
   const href=billing?.current_period_receivable>0?'/finanzas/':acquisition?.unplanned>0?'/prospectos/':commerce?.pendingPayment>0?'/pedidos/':'';
   $('roleFocusLink').classList.toggle('hidden',!href);if(href)$('roleFocusLink').href=href;
 }

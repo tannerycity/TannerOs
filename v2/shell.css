@@ -38,7 +38,28 @@ body.tos-body{background:var(--tos-bg);color:#0d2630}
 .tos-quick-actions{display:flex;flex-wrap:wrap;gap:9px}.tos-quick-action{display:inline-flex;align-items:center;gap:6px;padding:11px 13px;border-radius:13px;background:#e8f1f2;color:#07546a;text-decoration:none;font-weight:900;font-size:13px}.tos-quick-action.primary{background:var(--tos-teal);color:#fff}
 .tos-attention-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tos-alert{border:1px solid #ecdcae;border-left:4px solid #d99a14;border-radius:16px;padding:13px 14px;min-height:104px;background:#fffaf0;box-shadow:0 6px 18px rgba(3,47,59,.03)}.tos-alert.opportunity{border-color:#d7e3f1;border-left-color:var(--tos-blue);background:#f5f9fd}.tos-alert.good{border-color:#cce8d6;border-left-color:var(--tos-success);background:#f4fbf7}.tos-alert.danger{border-color:#f0d0ca;border-left-color:var(--tos-danger);background:#fff5f3}.tos-alert b{display:block;margin:6px 0 3px;font-size:16px}.tos-alert small{color:#6e7a7f;line-height:1.4}.tos-alert-tag{display:inline-flex;border-radius:999px;padding:4px 8px;background:#f4e4b8;color:#765719;font-size:9px;font-weight:950;text-transform:uppercase}.tos-alert.opportunity .tos-alert-tag{background:#e4eefc;color:#2d64a6}.tos-alert.good .tos-alert-tag{background:#dcefe3;color:#08713a}.tos-alert.danger .tos-alert-tag{background:#f7d9d4;color:#a92a21}
 .tos-list{display:grid}.tos-list-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:11px 0;border-bottom:1px solid #eeeae0}.tos-list-row:last-child{border-bottom:0}.tos-list-row strong{display:block;font-size:13px}.tos-list-row span{display:block;color:#738087;font-size:11px;margin-top:3px}.tos-empty{color:#778388;padding:18px;text-align:center;border:1px dashed #ddd8ca;border-radius:14px}
-.tos-mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.tos-mini-stat{padding:12px;border-radius:14px;background:#f5f5ef}.tos-mini-stat strong{font-size:22px;display:block}.tos-mini-stat span{font-size:10px;color:#758087;text-transform:uppercase;font-weight:850}
+.tos-mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.tos-mini-stat{padding:12px;border-radius:14px;background:#f5f5ef}.tos-mini-stat strong{font-size:22px;display:block}.tos-mini-stat span{display:block;font-size:11px;color:#758087;font-weight:600}
+
+/* Hallazgos de "Inteligencia del club". Antes era un <p> sin una sola regla de
+   CSS: todas las frases pegadas en un párrafo, sin jerarquía y sin destino.
+   Ahora cada uno es una fila escaneable (cifra al frente) y navegable. */
+.tos-insight-list{display:grid;margin-top:12px}
+.tos-insight{display:flex;align-items:center;gap:12px;padding:11px 8px;border-radius:12px;border-bottom:1px solid #eeeae0;color:inherit;text-decoration:none}
+.tos-insight:last-child{border-bottom:0}
+a.tos-insight:hover{background:#f7f9f8}
+.tos-insight-icon{flex:0 0 34px;width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:#eef2f1;color:#456770}
+.tos-insight-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tos-insight-body{min-width:0;display:block;flex:1}
+.tos-insight-body strong{display:block;font-size:17px;line-height:1.15;color:#0d2730;font-variant-numeric:tabular-nums}
+.tos-insight-body span{display:block;margin-top:3px;font-size:12px;line-height:1.35;color:#6f7d82}
+.tos-insight-go{flex:0 0 auto;color:#9fadb1;display:grid;place-items:center}
+.tos-insight-go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* El tono va en data-tone y no como clase .danger/.good: las clases sueltas
+   chocan con los estilos globales de botón (.danger pinta un gradiente rojo
+   con texto blanco) y se comían la fila entera. */
+.tos-insight[data-tone="danger"] .tos-insight-icon{background:#fdecea;color:#b4443a}
+.tos-insight[data-tone="attention"] .tos-insight-icon{background:#fbf3e2;color:#8a6413}
+.tos-insight[data-tone="good"] .tos-insight-icon{background:#eaf6ee;color:#1e6b3c}
 .tos-section-title{margin:28px 0 10px}.tos-section-title h2{margin:0;font-size:21px}.tos-section-title p{margin:4px 0;color:#718085}
 .tos-hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.tos-hub-card{display:flex;align-items:center;gap:14px;min-height:94px;padding:16px;border-radius:22px;text-decoration:none;color:#0d2730;border:1px solid rgba(8,55,70,.09);background:rgba(235,242,241,.88);box-shadow:0 8px 24px rgba(3,47,59,.045),inset 0 1px 0 rgba(255,255,255,.72);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;backdrop-filter:blur(16px)}.tos-hub-card.gold{background:rgba(244,239,220,.88)}.tos-hub-card.purple{background:rgba(239,235,242,.88)}.tos-hub-card.blue{background:rgba(232,240,247,.9)}.tos-hub-card:hover{transform:translateY(-2px);border-color:rgba(8,55,70,.15);box-shadow:0 14px 34px rgba(3,47,59,.08),inset 0 1px 0 rgba(255,255,255,.8)}.tos-hub-copy{min-width:0}.tos-hub-copy strong{display:block;font-size:16px;letter-spacing:-.015em}.tos-hub-copy span{display:block;font-size:12px;color:#63757b;margin-top:4px;line-height:1.35}.tos-hub-icon{width:52px;height:52px;border-radius:17px;display:grid;place-items:center;flex:0 0 52px;background:linear-gradient(145deg,#128b9b,#087486);color:#fff;box-shadow:0 8px 18px rgba(8,116,134,.2),inset 0 1px 0 rgba(255,255,255,.24)}.tos-hub-icon svg{width:27px;height:27px;display:block;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}.tos-hub-chevron{width:22px;height:22px;margin-left:auto;display:grid;place-items:center;flex:0 0 22px;color:#718187}.tos-hub-chevron svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tos-user-note{font-size:11px;color:#7b8588;padding:7px 10px}

@@ -32,7 +32,9 @@ body{overscroll-behavior-y:none}
   .brand-lockup{width:min(460px,100%)}
   .auth-card{border-radius:22px}
   .tos-content{padding-bottom:max(42px,env(safe-area-inset-bottom))}
-  .tos-mini-stats{grid-template-columns:1fr}
+  /* Se quita el override a 1 columna: production.css carga después de
+     shell.css y le pisaba su 1fr 1fr 1fr de móvil, dejando tres tarjetas a
+     todo lo ancho con mucho espacio muerto. */
 }
 
 

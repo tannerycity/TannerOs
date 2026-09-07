@@ -85,7 +85,7 @@ async function boot(){
   // Estas versiones deben ir en sync con los <link> del HTML: ensureCss sólo
   // checa por id, y los <link> del HTML no lo llevan, así que si aquí queda una
   // versión vieja se inyecta una segunda copia que gana por orden en el head.
-  ensureCss('/icons.css?v=20260907a','tosIconsCss');ensureCss('/polish.css?v=20260907a','tosPolishCss');ensureCss('/v2/shell.css?v=20260907e','tosShellCss');ensureCss('/v2/experience.css?v=20260823a','tosExperienceCss');ensureCss('/v2/production.css?v=20260907a','tosProductionCss');
+  ensureCss('/icons.css?v=20260907a','tosIconsCss');ensureCss('/polish.css?v=20260907a','tosPolishCss');ensureCss('/v2/shell.css?v=20260907f','tosShellCss');ensureCss('/v2/experience.css?v=20260823a','tosExperienceCss');ensureCss('/v2/production.css?v=20260907a','tosProductionCss');
   const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
   const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return;}
   const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id}),nativeShell=Boolean(document.querySelector('.tos-layout')),page=meta();

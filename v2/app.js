@@ -398,10 +398,46 @@ function daysToBirthday(date){
   if(next<new Date(now.getFullYear(),now.getMonth(),now.getDate()))next.setFullYear(next.getFullYear()+1);
   return Math.ceil((next-now)/86400000);
 }
+function initials(player){
+  return [player.first_name,player.last_name].filter(Boolean).map(part=>String(part).trim()[0]||'').join('').toUpperCase().slice(0,2)||'T';
+}
+function whenLabel(days){return days===0?'Hoy':days===1?'Mañana':`En ${days} días`;}
+
+// Firma las fotos en un solo lote por bucket y usa la variante thumb: es el
+// mismo patrón de Jugadores, para no bajar la foto completa por cada avatar.
+async function signBirthdayPhotos(list){
+  try{
+    const byBucket={};
+    list.forEach(p=>{const path=p.photo_thumb_path||p.photo_path;if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
+    for(const bucket of Object.keys(byBucket)){
+      const {data}=await supabase.storage.from(bucket).createSignedUrls(byBucket[bucket],3600);
+      const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
+      list.forEach(p=>{const path=p.photo_thumb_path||p.photo_path;if(path&&(p.photo_bucket||'tanneros-private')===bucket&&map[path])p._photoUrl=map[path];});
+    }
+  }catch(e){/* sin foto se queda el monograma */}
+}
+
 function renderBirthdays(){
-  const rows=state.players.map(player=>({...player,days:daysToBirthday(player.birth_date)})).filter(player=>player.days>=0&&player.days<=31).sort((a,b)=>a.days-b.days).slice(0,8);
+  const rows=state.players.map(player=>({...player,days:daysToBirthday(player.birth_date)})).filter(player=>player.days>=0&&player.days<=31).sort((a,b)=>a.days-b.days).slice(0,12);
   $('birthdayPanel').classList.toggle('hidden',!rows.length);
-  $('birthdayList').innerHTML=rows.map(player=>`<a class="tos-list-row" href="/jugadores/"><div><strong>${esc([player.first_name,player.last_name].filter(Boolean).join(' '))}</strong><span>${player.days===0?'Hoy':player.days===1?'Mañana':`En ${player.days} días`} · ${esc(player.category||'Sin categoría')}</span></div><span class="tos-icon tos-icon-cake" aria-hidden="true"></span></a>`).join('');
+  if(!rows.length)return;
+  // Se pinta de inmediato con el monograma y las fotos entran después, para
+  // que el carrusel no espere a las URLs firmadas.
+  const paint=()=>{
+    $('birthdayList').innerHTML=rows.map(player=>{
+      const name=[player.first_name,player.last_name].filter(Boolean).join(' ');
+      // En la tarjeta va el nombre de pila (así se felicita, y casi nunca se
+      // trunca); el nombre completo queda en el title.
+      const shortName=String(player.first_name||'').trim()||name;
+      const when=player.days<=1?'now':player.days<=7?'soon':'';
+      const face=player._photoUrl
+        ? `<img src="${esc(player._photoUrl)}" alt="" loading="lazy">`
+        : `<b aria-hidden="true">${esc(initials(player))}</b>`;
+      return `<a class="tos-bday" href="/jugadores/?player=${encodeURIComponent(player.id)}" title="${esc(name)}"><span class="tos-bday-face" data-when="${when}">${face}</span><strong>${esc(shortName)}</strong><span class="tos-bday-when" data-when="${when}">${whenLabel(player.days)}</span><small>${esc(player.category||'Sin categoría')}</small></a>`;
+    }).join('');
+  };
+  paint();
+  if(rows.some(p=>p.photo_thumb_path||p.photo_path))signBirthdayPhotos(rows).then(paint);
 }
 function renderSearch(){
   const items=[];

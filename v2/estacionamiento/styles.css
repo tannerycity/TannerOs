@@ -1,6 +1,6 @@
 /* Padrón de gafetes de estacionamiento */
 .park-drawer,.park-drawer *,.park-row,.park-row *,.park-search,.park-chip{box-sizing:border-box}
-.park-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+.park-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin:14px 0}
 .park-filters{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
 .park-chip{border:1px solid var(--tos-line,#dedbd0);background:#fff;border-radius:999px;min-height:44px;
   padding:0 15px;font:inherit;font-size:13.5px;font-weight:600;color:#0d2730;cursor:pointer}
@@ -48,3 +48,18 @@
   .park-actions{grid-column:1/-1;justify-content:flex-start}
   .park-drawer{width:100%}
 }
+
+/* Alta manual de gafetes */
+.park-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.park-form label{display:grid;gap:6px;font-size:12.5px;font-weight:600;color:#6b7a80}
+.park-form label>span:first-child{display:block}
+.park-form input,.park-form select{border:1px solid var(--tos-line,#dedbd0);border-radius:11px;padding:11px 12px;
+  min-height:46px;font:inherit;font-size:16px;background:#fff;color:#0d2730;box-sizing:border-box}
+.park-form #nplate{text-transform:uppercase}
+.park-check{grid-column:1/-1;display:flex!important;flex-direction:row;align-items:center;gap:9px;
+  padding:12px 13px;border-radius:11px;background:#f7f9f8;border:1px solid #e2e7e5;min-height:46px;cursor:pointer}
+.park-check input{width:20px;height:20px;min-height:0;flex:0 0 20px;accent-color:#087d8e}
+.park-form button{grid-column:1/-1;min-height:48px}
+.park-form .inline-message{grid-column:1/-1}
+.park-state[data-s="courtesy"]{background:#f4ecd9;color:#7a5c14}
+@media(max-width:560px){.park-form{grid-template-columns:1fr}}

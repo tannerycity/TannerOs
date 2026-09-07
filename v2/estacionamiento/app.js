@@ -7,12 +7,15 @@ if(!boot)throw new Error('No access');
 const {ctx,navigation}=boot;
 const puedeAutorizar=moduleAccess(navigation,'contabilidad',true)||moduleAccess(navigation,'cobranza',true);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const state={data:null,filtro:'requested',busca:''};
+const state={data:null,filtro:'requested',busca:'',tanners:null,alta:false};
+const PORTADOR={familia:'Familia',coach:'Profe',scout:'Visor',staff:'Staff',
+  sponsor:'Patrocinador',vendor:'Proveedor',other:'Otro'};
 
 const ESTADO={requested:'Solicitado',approved:'Autorizado',issued:'Entregado',
   rejected:'Rechazado',revoked:'Cancelado',lost:'Perdido',expired:'Vencido'};
-const EVENTO={requested:'La familia lo solicitó',approved:'Autorizado y cobrado',issued:'Gafete entregado',
-  rejected:'Solicitud rechazada',revoked:'Gafete cancelado',lost:'Reportado perdido',expired:'Vencido por temporada'};
+const EVENTO={requested:'Solicitado',approved:'Autorizado y cobrado',courtesy:'Autorizado como cortesía',
+  issued:'Gafete entregado',rejected:'Solicitud rechazada',revoked:'Gafete cancelado',
+  lost:'Reportado perdido',expired:'Vencido por temporada'};
 const ACTOR={familia:'desde el portal',staff:'por el club',sistema:'automático'};
 
 function fmtFecha(v){
@@ -52,7 +55,8 @@ function render(){
     kpi('Por autorizar',s.requested||0,'Solicitudes de familias',Number(s.requested||0)>0?'attention':'')}${
     kpi('Por entregar',s.approved||0,'Autorizados sin recoger')}${
     kpi('Entregados',s.issued||0,`Temporada ${d.season||''}`)}${
-    kpi('Por cobrar',money.format(Number(s.por_cobrar||0)),'De gafetes autorizados',Number(s.por_cobrar||0)>0?'danger':'')
+    kpi('Por cobrar',money.format(Number(s.por_cobrar||0)),'De gafetes autorizados',Number(s.por_cobrar||0)>0?'danger':'')}${
+    kpi('Cortesías',s.cortesias||0,`${money.format(Number(s.cortesia_valor||0))} no cobrados`)
   }</section>`;
 
   const chips=[['requested','Por autorizar'],['approved','Por entregar'],['issued','Entregados'],
@@ -61,20 +65,25 @@ function render(){
 
   const filas=filtrados.map(p=>{
     const saldo=Number(p.balance||0);
-    const detalle=[p.category,p.guardian&&`tutor: ${p.guardian}`,p.vehicle,
-      p.folio&&`folio ${p.folio}`,saldo>0&&`debe ${money.format(saldo)}`].filter(Boolean).join(' · ');
+    const detalle=[p.holder_kind!=='familia'&&PORTADOR[p.holder_kind],p.category,
+      p.guardian&&`tutor: ${p.guardian}`,p.vehicle,p.folio&&`folio ${p.folio}`,
+      p.is_courtesy&&p.courtesy_reason?`cortesía: ${p.courtesy_reason}`:null,
+      saldo>0&&`debe ${money.format(saldo)}`].filter(Boolean).join(' · ');
     const acciones=[];
     if(p.status==='requested'&&puedeAutorizar)
-      acciones.push(`<button data-kind="go" data-approve="${esc(p.id)}" type="button">Autorizar ${money.format(Number(p.price||0))}</button>`,
+      acciones.push(`<button data-kind="go" data-approve="${esc(p.id)}" type="button">Autorizar ${money.format(Number(d.price||0))}</button>`,
+                    `<button data-courtesy="${esc(p.id)}" type="button">Cortesía</button>`,
                     `<button data-reject="${esc(p.id)}" type="button">Rechazar</button>`);
     if(p.status==='approved')acciones.push(`<button data-kind="go" data-issue="${esc(p.id)}" type="button">Entregar</button>`);
     if(p.status==='issued')acciones.push(`<button data-lost="${esc(p.id)}" type="button">Perdido</button>`,
                                          `<button data-revoke="${esc(p.id)}" type="button">Cancelar</button>`);
     acciones.push(`<button data-detail="${esc(p.id)}" type="button">Historial</button>`);
-    return `<div class="park-row"><span class="park-plate">${esc(p.plate||'—')}</span><span class="park-body"><strong>${esc(p.player||'Tanner')}</strong><span>${esc(detalle)}</span></span><span class="park-actions"><span class="park-state" data-s="${esc(p.status)}">${esc(ESTADO[p.status]||p.status)}</span>${acciones.join('')}</span></div>`;
+    return `<div class="park-row"><span class="park-plate">${esc(p.plate||'—')}</span><span class="park-body"><strong>${esc(p.player||'Tanner')}</strong><span>${esc(detalle)}</span></span><span class="park-actions">${p.is_courtesy?'<span class="park-state" data-s="courtesy">Cortesía</span>':''}<span class="park-state" data-s="${esc(p.status)}">${esc(ESTADO[p.status]||p.status)}</span>${acciones.join('')}</span></div>`;
   }).join('');
 
-  $('parkBody').innerHTML=`${kpis}<section class="tos-panel"><div class="tos-panel-head"><h2>Padrón de gafetes</h2><span class="tos-user-note">${filtrados.length} de ${passes.length}</span></div><div class="park-filters">${chips}<input id="parkSearch" class="park-search" type="search" placeholder="Buscar placa, Tanner, tutor o folio" value="${esc(state.busca)}"></div><div>${filas||'<div class="tos-empty">No hay gafetes con ese filtro.</div>'}</div></section>`;
+  const alta=state.alta?`<section class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><h2>Nuevo gafete</h2><span class="tos-user-note">Para quien no entra al portal</span></div><form id="parkNew" class="park-form"><label>Para<select id="nkind">${Object.entries(PORTADOR).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><label id="nplayerWrap">Tanner<select id="nplayer"></select></label><label id="nnameWrap" hidden>Nombre<input id="nname" maxlength="80" placeholder="Carlos Méndez"></label><label id="nphoneWrap" hidden><span>Teléfono <span class="tos-user-note">(opcional)</span></span><input id="nphone" maxlength="20" inputmode="tel"></label><label>Placas<input id="nplate" maxlength="15" placeholder="ABC-123-X" required></label><label><span>Vehículo <span class="tos-user-note">(opcional)</span></span><input id="nvehicle" maxlength="60" placeholder="Tsuru blanco"></label><label class="park-check"><input id="ncourtesy" type="checkbox"> Sin costo (cortesía)</label><label id="nreasonWrap" hidden>Motivo de la cortesía<input id="nreason" maxlength="120" placeholder="Entrenador de U13"></label><button class="primary" type="submit">Dar de alta</button><div id="nmsg" class="inline-message hidden"></div></form></section>`:'';
+
+  $('parkBody').innerHTML=`${kpis}<section class="tos-panel"><div class="tos-panel-head"><h2>Padrón de gafetes</h2><button id="parkToggleNew" class="secondary mini" type="button">${state.alta?'Cerrar':'Nuevo gafete'}</button></div><div class="park-filters">${chips}<input id="parkSearch" class="park-search" type="search" placeholder="Buscar placa, Tanner, tutor o folio" value="${esc(state.busca)}"></div><div>${filas||'<div class="tos-empty">No hay gafetes con ese filtro.</div>'}</div></section>${alta}`;
 
   $('parkBody').querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{
     state.filtro=b.dataset.f;render();}));
@@ -87,16 +96,80 @@ function render(){
   $('parkBody').querySelectorAll('[data-lost]').forEach(b=>b.addEventListener('click',()=>cerrar(b.dataset.lost,'lost','¿Qué reportó la familia?')));
   $('parkBody').querySelectorAll('[data-revoke]').forEach(b=>b.addEventListener('click',()=>cerrar(b.dataset.revoke,'revoked','Motivo de la cancelación:')));
   $('parkBody').querySelectorAll('[data-detail]').forEach(b=>b.addEventListener('click',()=>verHistorial(b.dataset.detail)));
+  $('parkBody').querySelectorAll('[data-courtesy]').forEach(b=>b.addEventListener('click',()=>darCortesia(b.dataset.courtesy)));
+  $('parkToggleNew')?.addEventListener('click',()=>{state.alta=!state.alta;render();if(state.alta)montarAlta();});
+  if(state.alta)montarAlta();
 
   setShellHealth(Number(s.requested||0)>0
     ? {state:'attention',label:`${s.requested} por autorizar`}
     : {state:'ok',label:'Sin solicitudes'});
 }
 
+
+// Alta manual: el profe o el visor no entran al portal, así que el club los
+// da de alta aquí. Nace como solicitud y se autoriza en el mismo flujo, para
+// que ningún gafete se salte la bitácora.
+async function montarAlta(){
+  const kind=$('nkind');if(!kind)return;
+  if(!state.tanners){
+    try{state.tanners=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:'active'})||[];}
+    catch(e){state.tanners=[];}
+  }
+  const sel=$('nplayer');
+  if(sel&&!sel.options.length){
+    state.tanners.forEach(p=>{
+      const o=document.createElement('option');
+      o.value=p.id;o.textContent=[p.first_name,p.last_name].filter(Boolean).join(' ')+(p.category?` · ${p.category}`:'');
+      sel.appendChild(o);
+    });
+  }
+  const sync=()=>{
+    const esFamilia=kind.value==='familia';
+    $('nplayerWrap').hidden=!esFamilia;
+    $('nnameWrap').hidden=esFamilia;
+    $('nphoneWrap').hidden=esFamilia;
+    $('nreasonWrap').hidden=!$('ncourtesy').checked;
+  };
+  kind.addEventListener('change',sync);
+  $('ncourtesy').addEventListener('change',sync);
+  sync();
+  $('parkNew').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const box=$('nmsg');box.classList.add('hidden');
+    const esFamilia=kind.value==='familia';
+    try{
+      await rpc('v2_create_parking',{
+        organization_id:ctx.organization_id, holder_kind:kind.value, plate:$('nplate').value,
+        player_id:esFamilia?$('nplayer').value:null,
+        holder_name:esFamilia?null:$('nname').value,
+        holder_phone:esFamilia?null:($('nphone').value||null),
+        vehicle:$('nvehicle').value||null,
+        courtesy:$('ncourtesy').checked, courtesy_reason:$('nreason').value||null});
+      state.alta=false;state.filtro='requested';await load();
+    }catch(error){
+      box.textContent=String(error?.message||error);box.dataset.type='error';box.classList.remove('hidden');
+    }
+  });
+}
+
+// Cortesía: regalar el lugar siempre pide motivo, y queda con nombre y fecha
+// en la bitácora.
+async function darCortesia(id){
+  const motivo=prompt('¿Por qué se da sin costo? (queda registrado)','');
+  if(motivo===null||!motivo.trim())return;
+  const folio=prompt('Folio del gafete (opcional):','');
+  if(folio===null)return;
+  try{
+    await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,
+      folio:folio||null,courtesy:true,courtesy_reason:motivo.trim()});
+    await load();
+  }catch(error){alert(String(error?.message||error));}
+}
+
 async function aprobar(id){
   const folio=prompt('Folio del gafete (puedes dejarlo en blanco y ponerlo al entregarlo):','');
   if(folio===null)return;
-  try{await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,folio:folio||null});await load();}
+  try{await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,folio:folio||null,courtesy:false,courtesy_reason:null});await load();}
   catch(error){alert(String(error?.message||error));}
 }
 async function entregar(id){

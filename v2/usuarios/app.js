@@ -214,6 +214,69 @@ async function updateMember(id,roleCode,active){
 }
 async function revokeInvite(id){if(!confirm('¿Revocar esta invitación?'))return;try{await rpc('v2_revoke_invitation',{organization_id:ctx.organization_id,invitation_id:id});await load();}catch(err){alert(friendly(err));}}
 
+
+/* ---------- Portal de familias ---------- */
+// El tutor recibe una cuenta ligada a app.guardians, sin membresía de
+// organización: por diseño no puede tocar ningún módulo interno.
+let guardians=[],guardianFilter='';
+const gEsc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function loadGuardians(){
+  try{guardians=await rpc('v2_guardian_access',{organization_id:ctx.organization_id})||[];}
+  catch(e){guardians=[];}
+  renderGuardians();
+}
+function renderGuardians(){
+  const box=$('guardianList');if(!box)return;
+  const q=guardianFilter.trim().toLowerCase();
+  const rows=guardians.filter(g=>!q
+    || String(g.name||'').toLowerCase().includes(q)
+    || (g.players||[]).some(p=>String(p).toLowerCase().includes(q)));
+  $('guardianEmpty')?.classList.toggle('hidden',rows.length>0);
+  box.innerHTML=rows.map(g=>{
+    const hijos=(g.players||[]).join(' · ')||'Sin Tanner ligado';
+    const btn=g.has_access
+      ? `<button class="secondary mini" data-reset="${gEsc(g.guardian_id)}" type="button">Nueva contraseña</button><button class="secondary mini" data-revoke="${gEsc(g.guardian_id)}" type="button">Quitar acceso</button>`
+      : `<button class="primary mini" data-grant="${gEsc(g.guardian_id)}" type="button">Dar acceso</button>`;
+    return `<article class="member-row"><div class="member-main"><div class="member-title"><strong>${gEsc(g.name||'Tutor')}</strong>${g.has_access?'<span class="staff-chip">Con acceso</span>':''}</div><span>${gEsc(hijos)}</span><small>${gEsc(g.email||g.phone||'Sin contacto')}</small></div><div class="member-actions">${btn}</div></article>`;
+  }).join('');
+  box.querySelectorAll('[data-grant]').forEach(b=>b.addEventListener('click',()=>grantGuardian(b.dataset.grant)));
+  box.querySelectorAll('[data-revoke]').forEach(b=>b.addEventListener('click',()=>revokeGuardian(b.dataset.revoke)));
+  box.querySelectorAll('[data-reset]').forEach(b=>b.addEventListener('click',()=>resetGuardian(b.dataset.reset)));
+}
+// La contraseña temporal se muestra una sola vez: no queda guardada en ningún
+// lado desde donde se pueda volver a leer.
+function showCredential(email,password){
+  msg('guardianMessage',`Acceso listo · ${email} · contraseña temporal: ${password} — cópiala ahora, no se vuelve a mostrar.`,'success');
+  try{navigator.clipboard?.writeText(`Portal de familias Tannery City\nhttps://app.tannerycity.com/familias/\nCorreo: ${email}\nContraseña temporal: ${password}`);}catch(e){}
+}
+async function grantGuardian(guardianId){
+  const g=guardians.find(x=>String(x.guardian_id)===String(guardianId));
+  const email=prompt(`Correo del tutor ${g?.name||''}:`, g?.email||'');
+  if(!email||!email.trim())return;
+  msg('guardianMessage');
+  try{
+    const res=await invokeStaff({action:'create_guardian_access',guardian_id:guardianId,email:email.trim()});
+    showCredential(res.email,res.temporary_password);
+    await loadGuardians();
+  }catch(e){msg('guardianMessage',friendly(e));}
+}
+async function revokeGuardian(guardianId){
+  if(!confirm('¿Quitar el acceso al portal de este tutor? Su cuenta se elimina.'))return;
+  msg('guardianMessage');
+  try{await invokeStaff({action:'revoke_guardian_access',guardian_id:guardianId});await loadGuardians();
+    msg('guardianMessage','Acceso retirado.','success');}
+  catch(e){msg('guardianMessage',friendly(e));}
+}
+async function resetGuardian(guardianId){
+  if(!confirm('¿Generar una contraseña temporal nueva para este tutor?'))return;
+  msg('guardianMessage');
+  try{const res=await invokeStaff({action:'reset_guardian_password',guardian_id:guardianId});
+    showCredential(res.email,res.temporary_password);}
+  catch(e){msg('guardianMessage',friendly(e));}
+}
+$('guardianSearch')?.addEventListener('input',e=>{guardianFilter=e.target.value;renderGuardians();});
+
 $('staffAccessForm').addEventListener('submit',createStaffAccess);$('copyStaffCredential').addEventListener('click',copyStaffCredential);$('inviteForm').addEventListener('submit',createInvite);$('copyInviteLink').addEventListener('click',copyInviteLink);$('refresh').addEventListener('click',()=>load());
 $('closeAccess').addEventListener('click',closeAccess);$('accessBackdrop').addEventListener('click',closeAccess);$('resetAllModules').addEventListener('click',resetAll);
-boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
+boot().then(()=>loadGuardians()).catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});

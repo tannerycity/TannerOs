@@ -18,7 +18,11 @@ function iconKpi(label,value,sub,iconName='target',cls=''){return `<article clas
 function moneyKpi(label,amount,sub='',severity='danger'){const numeric=Number(amount||0),cls=numeric>0?severity:'good',badge=numeric>0?(severity==='attention'?'En seguimiento':'Por cobrar'):numeric<0?'A favor':'Al día',detail=numeric===0?'Sin saldo pendiente':numeric<0?'Saldo disponible':sub;return `<article class="tos-kpi tos-kpi-money ${esc(cls)}"><div class="tos-kpi-label"><span>${esc(label)}</span><em>${badge}</em></div><strong>${money.format(Math.abs(numeric))}</strong><small>${esc(detail)}</small></article>`;}
 function alert(tag,title,value,detail,type='',href=''){const body=`<span class="tos-alert-tag">${esc(tag)}</span><b>${esc(title)}${value?`<br>${esc(value)}`:''}</b><small>${esc(detail)}</small>`;return href?`<a class="tos-alert ${esc(type)}" href="${esc(href)}">${body}</a>`:`<article class="tos-alert ${esc(type)}">${body}</article>`;}
 function countBy(rows,getter){const map=new Map();for(const row of rows||[]){const key=String(getter(row)||'').trim();if(!key)continue;map.set(key,(map.get(key)||0)+1);}return [...map.entries()].sort((a,b)=>b[1]-a[1]);}
-function campaignLabel(value){const code=String(value||'').trim();if(!code)return 'Sin campaña';const known={captacion_porteros_2026:'Captación Porteros',captacion_jugadores_2026:'Captación Jugadores',registro_general_2026:'Registro general'};return known[code]||code.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());}
+// Pone en mayúscula la inicial de cada palabra sin romper los acentos: con
+// /\b\w/ la ó no es \w, así que "recomendación" abría un falso límite de
+// palabra antes de la n y salía "RecomendacióN". \p{L} sí es Unicode.
+function titleCase(text){return String(text||'').replace(/(^|\s)(\p{L})/gu,(m,sep,ch)=>sep+ch.toUpperCase());}
+function campaignLabel(value){const code=String(value||'').trim();if(!code)return 'Sin campaña';const known={captacion_porteros_2026:'Captación Porteros',captacion_jugadores_2026:'Captación Jugadores',registro_general_2026:'Registro general'};return known[code]||titleCase(code.replaceAll('_',' '));}
 
 async function renderClub(){
   $('hubEyebrow').textContent='EL CORAZÓN DEPORTIVO DEL CLUB';$('hubTitle').textContent='Club';$('hubSubtitle').textContent='Plantilla, asistencia, convocatorias, captación y calendario.';

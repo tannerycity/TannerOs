@@ -7,6 +7,7 @@ const routeContract={
   '/direccion/':'v2/direccion/index.html',
   '/finanzas/':'v2/finanzas/index.html',
   '/taquilla/':'v2/taquilla/index.html',
+  '/tanner/':'v2/tanner/index.html',
   '/jugadores/':'v2/jugadores/index.html',
   '/asistencia/':'v2/asistencia/index.html',
   '/convocatoria/':'v2/convocatoria/index.html',

@@ -1,0 +1,77 @@
+/* Estado de cuenta del Tanner */
+.tan-head{display:flex;align-items:center;gap:16px;background:linear-gradient(115deg,var(--tos-ink-deep,#032f3b),#0d5b6d);color:#fff;border-radius:24px;padding:20px 22px;box-shadow:0 12px 32px rgba(3,47,59,.09)}
+.tan-face{position:relative;width:72px;height:72px;flex:0 0 72px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+.tan-face img{width:100%;height:100%;object-fit:cover;display:block}
+.tan-face b{font-size:25px;font-weight:700;letter-spacing:-.02em}
+.tan-id{min-width:0;flex:1}
+.tan-id h1{margin:0;font-size:25px;line-height:1.1;letter-spacing:-.024em}
+.tan-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.tan-chip{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:600;background:rgba(255,255,255,.14);color:#e6f3f5}
+.tan-chip[data-tone="off"]{background:rgba(255,190,180,.2);color:#ffd9d2}
+
+/* Tarjeta de saldo: la cifra manda, y debajo el porqué. */
+.tan-balance{margin-top:14px;background:#fff;border:1px solid var(--tos-line,#dedbd0);border-radius:20px;padding:20px 22px;box-shadow:0 1px 2px rgba(3,47,59,.05),0 10px 26px -14px rgba(3,47,59,.18)}
+.tan-balance>span{display:block;font-size:12.5px;font-weight:600;color:#6b7a80}
+.tan-balance strong{display:block;font-size:42px;line-height:1;margin-top:8px;letter-spacing:-.036em;font-variant-numeric:tabular-nums;color:#bd2e22}
+.tan-balance[data-state="clear"] strong{color:#087c3a}
+.tan-balance[data-state="credit"] strong{color:#0d6b7d}
+.tan-balance small{display:block;margin-top:7px;font-size:12.5px;color:#8b979c;font-variant-numeric:tabular-nums}
+.tan-split{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.tan-split-item{display:flex;flex-direction:column;gap:2px;padding:9px 13px;border-radius:12px;background:#f4f6f5;border:1px solid #e2e7e5}
+.tan-split-item span{font-size:11.5px;color:#6f7d82;font-weight:600}
+.tan-split-item b{font-size:16px;letter-spacing:-.02em;color:#0d2730;font-variant-numeric:tabular-nums}
+.tan-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+.tan-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 18px;border-radius:13px;font-weight:600;font-size:14px;text-decoration:none;border:1px solid transparent}
+.tan-btn[data-kind="pay"]{background:#087d8e;color:#fff}
+.tan-btn[data-kind="wa"]{background:#25D366;color:#fff}
+.tan-btn[data-kind="ghost"]{background:#fff;color:#0d2730;border-color:var(--tos-line,#dedbd0)}
+
+/* Aviso cuando hay dinero del Tanner sin aplicar: explica el saldo raro. */
+.tan-note{display:flex;gap:11px;align-items:flex-start;margin-top:12px;padding:12px 14px;border-radius:13px;background:#eef5f6;border:1px solid #cfe2e5}
+.tan-note strong{display:block;font-size:13.5px;color:#0c5163}
+.tan-note span{display:block;margin-top:2px;font-size:12.5px;line-height:1.4;color:#4a6870}
+
+.tan-section{margin-top:16px;background:#fff;border:1px solid var(--tos-line,#dedbd0);border-radius:20px;padding:18px}
+.tan-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px}
+.tan-section-head h2{margin:0;font-size:17px;letter-spacing:-.018em}
+.tan-section-head span{font-size:12px;color:#8b979c;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* Movimientos: cargo/abono a la izquierda, saldo corriente a la derecha.
+   Es la única forma de que un número se pueda auditar de un vistazo. */
+.tan-ledger{display:grid;margin-top:8px}
+.tan-mov{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #eeeae0}
+.tan-mov:last-child{border-bottom:0}
+.tan-dot{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:0 0 32px;background:#fdecea;color:#b4443a}
+.tan-mov[data-kind="payment"] .tan-dot{background:#e6f4ec;color:#1e6b3c}
+.tan-dot svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tan-mov-body{min-width:0}
+.tan-mov-body strong{display:block;font-size:13.5px;line-height:1.25;color:#0d2730}
+.tan-mov-body span{display:block;margin-top:2px;font-size:11.5px;color:#8b979c}
+.tan-mov-nums{text-align:right;white-space:nowrap}
+.tan-mov-nums b{display:block;font-size:14px;letter-spacing:-.015em;font-variant-numeric:tabular-nums;color:#b4443a}
+.tan-mov[data-kind="payment"] .tan-mov-nums b{color:#1e6b3c}
+.tan-mov-nums span{display:block;margin-top:2px;font-size:11.5px;color:#93a0a5;font-variant-numeric:tabular-nums}
+
+.tan-rows{display:grid;margin-top:6px}
+.tan-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #eeeae0}
+.tan-row:last-child{border-bottom:0}
+.tan-row strong{font-size:13.5px;font-weight:600;color:#0d2730}
+.tan-row small{display:block;margin-top:2px;font-size:11.5px;color:#8b979c}
+.tan-state{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;background:#f4f6f5;color:#6f7d82}
+.tan-state[data-ok="1"]{background:#e6f4ec;color:#1e6b3c}
+.tan-state[data-ok="0"]{background:#fdecea;color:#b4443a}
+
+.tan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.tan-grid>.tan-section{margin-top:0}
+
+@media(max-width:760px){
+  .tan-grid{grid-template-columns:1fr}
+  .tan-head{flex-direction:column;align-items:flex-start;gap:13px;padding:18px;border-radius:20px}
+  .tan-id h1{font-size:22px}
+  .tan-balance{padding:17px 18px;border-radius:18px}
+  .tan-balance strong{font-size:36px}
+  .tan-actions .tan-btn{flex:1 1 auto}
+  .tan-mov{grid-template-columns:auto minmax(0,1fr);row-gap:6px}
+  .tan-mov-nums{grid-column:2;text-align:left;display:flex;align-items:baseline;gap:9px}
+  .tan-mov-nums span{margin-top:0}
+}

@@ -29,6 +29,7 @@
     {"source":"/direccion","destination":"/v2/direccion/index.html"},{"source":"/direccion/","destination":"/v2/direccion/index.html"},
     {"source":"/finanzas","destination":"/v2/finanzas/index.html"},{"source":"/finanzas/","destination":"/v2/finanzas/index.html"},
     {"source":"/taquilla","destination":"/v2/taquilla/index.html"},{"source":"/taquilla/","destination":"/v2/taquilla/index.html"},
+    {"source":"/tanner","destination":"/v2/tanner/index.html"},{"source":"/tanner/","destination":"/v2/tanner/index.html"},
     {"source":"/jugadores","destination":"/v2/jugadores/index.html"},{"source":"/jugadores/","destination":"/v2/jugadores/index.html"},
     {"source":"/asistencia","destination":"/v2/asistencia/index.html"},{"source":"/asistencia/","destination":"/v2/asistencia/index.html"},
     {"source":"/convocatoria","destination":"/v2/convocatoria/index.html"},{"source":"/convocatoria/","destination":"/v2/convocatoria/index.html"},

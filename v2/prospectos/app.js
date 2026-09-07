@@ -478,7 +478,7 @@ function openReport(){
   const summary=$('reportSummary');
   const total=prospects.length,converted=prospects.filter(p=>p.status==='converted').length,lost=prospects.filter(p=>p.status==='not_continuing').length,active=total-converted-lost;
   const rate=total?Math.round((converted/total)*100):0;
-  summary.innerHTML=`<article><span>Total</span><strong>${total}</strong></article><article class="success"><span>Convertidos</span><strong>${converted}</strong></article><article class="danger"><span>No continúa</span><strong>${lost}</strong></article><article><span>En proceso</span><strong>${active}</strong></article><article class="attention"><span>Tasa de conversión</span><strong>${rate}%</strong></article>`;
+  summary.innerHTML=`<article class="kpi-card"><span>Total</span><strong>${total}</strong></article><article class="kpi-card success"><span>Convertidos</span><strong>${converted}</strong></article><article class="kpi-card danger"><span>No continúa</span><strong>${lost}</strong></article><article class="kpi-card"><span>En proceso</span><strong>${active}</strong></article><article class="kpi-card attention"><span>Tasa de conversión</span><strong>${rate}%</strong></article>`;
   renderConversionTable('reportByChannel',groupConversionStats(prospects,p=>sourceName(p.source_channel||p.source)));
   renderConversionTable('reportByCampaign',groupConversionStats(prospects,p=>campaignName(p.source_campaign)));
   renderConversionTable('reportByScout',groupConversionStats(prospects,p=>p.assigned_user_name||'Sin asignar'));

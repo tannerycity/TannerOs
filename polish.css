@@ -1,7 +1,7 @@
 /* Lenguaje visual compartido: directo, calmado y fácil de tocar. */
 :root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif!important;--ink:#173d4c;--teal:#17677a;--gold:#a78e49;--line:#e3e4e1;--muted:#6f777b;--card:#fff;--tos-gold:#a78e49;--tos-bg:#f6f6f4;--tos-line:#e3e4e1;--tos-muted:#6f777b;color:#17262c;background:#f6f6f4}
 body,body.tos-body{background:#f6f6f4;color:#17262c}
-.eyebrow{letter-spacing:.035em!important;text-transform:none!important;color:#647378;font-weight:750!important}
+.eyebrow{letter-spacing:.035em!important;text-transform:none!important;color:#647378;font-weight:600!important}
 .hero,.tos-welcome{background:#fff!important;color:#17262c!important;border:1px solid var(--line)!important;box-shadow:0 7px 24px rgba(23,61,76,.04)!important;padding:26px!important;border-radius:22px!important}
 .hero .muted,.tos-welcome p{color:var(--muted)!important}
 .hero .health{background:#f1f5f4;color:#35565f}
@@ -9,7 +9,7 @@ body,body.tos-body{background:#f6f6f4;color:#17262c}
 input,select,textarea{min-height:46px;border-color:#d6d9d7!important;border-radius:13px!important;background:#fff}
 textarea{min-height:96px}
 input:focus,select:focus,textarea:focus{border-color:#4c8190!important;box-shadow:0 0 0 4px rgba(23,103,122,.11)!important}
-.primary,.secondary,.danger,.ghost{min-height:44px;border-radius:13px!important;font-weight:750!important}
+.primary,.secondary,.danger,.ghost{min-height:44px;border-radius:13px!important;font-weight:600!important}
 .primary{background:#173d4c!important}.primary:hover{background:#0f303c!important}.secondary{background:#eef0ee!important}
 .player-drawer,.drawer-head{background:#f6f6f4}
 .tos-brand-mark{background:#f2f4f3!important;color:#173d4c!important;box-shadow:none!important;font-weight:850!important}
@@ -26,3 +26,66 @@ input:focus,select:focus,textarea:focus{border-color:#4c8190!important;box-shado
 .tos-smart-select-results button:hover,.tos-smart-select-results button:focus,.tos-smart-select-results button.active{background:#f0f5f4;outline:none}
 .tos-smart-select-empty{padding:20px 14px;text-align:center;color:#737d80;font-size:13px}
 @media(max-width:600px){.tos-smart-select{min-width:0;width:100%}.tos-smart-select-results{position:fixed;left:12px;right:12px;top:auto;bottom:max(14px,env(safe-area-inset-bottom));max-height:58vh;border-radius:20px;padding:9px}.tos-smart-select-results button{min-height:50px}.tos-smart-select-input{min-height:54px!important}}
+
+/* ===========================================================================
+   Refinamiento tipográfico y de movimiento.
+   Va al final del archivo (y polish.css se carga al final de cada pantalla)
+   para poder afinar los módulos sin editar los 40 CSS uno por uno.
+   Se usa :where(...) para no subir la especificidad: los módulos siguen
+   pudiendo ganar cuando de verdad lo necesitan.
+   ======================================================================== */
+
+/* SF renderizada como en una app nativa. Sin esto el texto se ve pesado. */
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+
+/* iOS pinta un recuadro gris al tocar cualquier control: delata que es web. */
+:where(a,button,label,summary,[role="button"],.tos-nav-item,.kpi-card,.prospect-row,.player-row,.tos-quick-action){-webkit-tap-highlight-color:transparent}
+
+/* --- Escala de peso ---
+   La app venía con 149 declaraciones en 900-1000: todo gritaba al mismo
+   volumen y nada destacaba. La jerarquía debe venir del tamaño y el color,
+   no del grosor. SF en UI no pasa de 700 sin verse tosca. */
+:where(strong,b,th,label,.status,.pipeline,.lead-badge,.consent-badge,.role-badge,.safe-pill,.preview-pill,.health,.module,.tab,.tos-nav-item,.filter-label,.tab-count,.status-badge,.movement-pill,.status-pill,.check-status,.tos-smart-result-badge,.tos-alert-tag){font-weight:600!important}
+:where(h1,h2,h3,h4,.tos-page-title,.hero h1,.panel h2,.drawer-head h2,.auth-card h2,.center-card h2,.brand-lockup h1,.tos-action-big){font-weight:700!important}
+
+/* Micro-etiquetas: Apple las usa discretas. Aquí venían en 950 con .14em
+   de tracking, que es tono de rótulo deportivo, no de sistema operativo. */
+:where(.tos-nav-section-label,.tos-smart-section-title,.tos-payment-kicker,.brand-kicker,.cashier-eyebrow,.org-label,.tos-module-context-label,.tos-player-summary small){font-weight:600!important;letter-spacing:.045em!important}
+
+/* Etiquetas de dato en versalitas gritadas ("CANAL", "NO CONTINÚA"): el
+   texto en el HTML ya viene bien escrito, era el CSS quien lo volvía
+   mayúscula. En sentence case se lee como iOS/macOS, no como rótulo. */
+:where(th,.detail-item span,.kpis span,.campaign-kpis span,.drawer-kpis span,.sport-kpis span){font-weight:600!important;text-transform:none!important;letter-spacing:0!important;font-size:12px!important}
+
+/* Tracking óptico: los títulos grandes cierran, como en apple.com. */
+:where(h1,.hero h1,.tos-page-title,.brand-lockup h1){letter-spacing:-.022em!important}
+:where(h2,h3,.panel h2,.drawer-head h2,.auth-card h2,.center-card h2){letter-spacing:-.014em!important}
+
+/* --- Números ---
+   Cifras tabulares: los montos, KPIs y tablas dejan de bailar al cambiar
+   de valor y las columnas alinean. SF ya las trae, sólo hay que pedirlas. */
+:where(table,td,th,.kpis strong,.tos-kpi strong,.campaign-kpis strong,.drawer-kpis strong,.sport-kpis strong,.tos-mini-stat strong,.scout-card b,.ledger-item b,.money-in,.money-out,.tab-count,.tos-bell-badge,.funnel-row strong,.tos-payment-review strong,.tos-player-summary strong,time){font-variant-numeric:tabular-nums}
+
+/* La cifra es el dato: peso y tracking propios, por encima de la regla base. */
+:where(.kpis strong,.tos-kpi strong,.campaign-kpis strong,.drawer-kpis strong,.sport-kpis strong,.scout-card b){font-weight:700!important;letter-spacing:-.02em!important}
+
+/* --- Movimiento ---
+   Curva de desaceleración tipo Apple: arranca rápido y asienta suave.
+   'ease' (el default) es simétrico y se siente lento y blando. */
+:root{--tos-ease-out:cubic-bezier(.22,1,.36,1)}
+:where(button,a,input,select,textarea,.kpi-card,.tos-nav-item,.prospect-row,.player-row,.tos-quick-action,.tos-hub-card,.tos-list-row){transition-timing-function:var(--tos-ease-out)}
+:where(button,.kpi-card,.tos-nav-item,.prospect-row,.player-row,.tos-quick-action,.tos-hub-card):active{transform:scale(.978);transition-duration:.09s}
+
+/* Selección de texto con el acento del club, no el azul del navegador. */
+::selection{background:rgba(23,103,122,.16)}
+
+/* iOS hace zoom al enfocar un campo de menos de 16px. Se ve como un salto
+   y obliga a volver a hacer pinch: en móvil ningún control baja de 16px. */
+@media(max-width:768px){
+  :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),select,textarea){font-size:16px!important}
+}
+
+/* Respeta "reducir movimiento" del sistema. */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}

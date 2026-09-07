@@ -1,0 +1,47 @@
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Tannery City · Familias</title><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"><link rel="stylesheet" href="/v2/familias/styles.css?v=20260907a"></head><body class="fam-body">
+
+<section id="loginView" class="fam-auth hidden">
+  <div class="fam-auth-card">
+    <div class="fam-mark">T</div>
+    <h1>Portal de familias</h1>
+    <p class="fam-muted">Entra con el correo y la contraseña que te dio el club.</p>
+    <form id="loginForm">
+      <label>Correo<input id="email" type="email" inputmode="email" autocomplete="username" required></label>
+      <label>Contraseña<input id="password" type="password" autocomplete="current-password" required></label>
+      <button id="loginSubmit" class="fam-btn" type="submit">Entrar</button>
+      <div id="loginMessage" class="fam-message hidden"></div>
+    </form>
+  </div>
+</section>
+
+<section id="passwordView" class="fam-auth hidden">
+  <div class="fam-auth-card">
+    <div class="fam-mark">T</div>
+    <h1>Elige tu contraseña</h1>
+    <p class="fam-muted">Por seguridad, cambia la contraseña temporal antes de continuar.</p>
+    <form id="passwordForm">
+      <label>Nueva contraseña<input id="newPassword" type="password" minlength="10" autocomplete="new-password" required></label>
+      <label>Confirmar<input id="confirmPassword" type="password" minlength="10" autocomplete="new-password" required></label>
+      <button id="passwordSubmit" class="fam-btn" type="submit">Guardar y entrar</button>
+      <div id="passwordMessage" class="fam-message hidden"></div>
+    </form>
+  </div>
+</section>
+
+<section id="appView" class="hidden">
+  <header class="fam-top">
+    <div class="fam-top-in">
+      <div class="fam-brand"><span class="fam-mark small">T</span><strong id="orgName">Tannery City</strong></div>
+      <button id="signOut" class="fam-link" type="button">Salir</button>
+    </div>
+    <div id="playerTabs" class="fam-tabs"></div>
+  </header>
+  <main id="famBody" class="fam-main"><div class="fam-empty">Cargando…</div></main>
+  <nav class="fam-nav">
+    <button class="fam-nav-item" data-tab="cuenta" type="button" aria-current="page"><span class="fam-nav-ico" data-i="wallet"></span>Cuenta</button>
+    <button class="fam-nav-item" data-tab="calendario" type="button"><span class="fam-nav-ico" data-i="calendar"></span>Calendario</button>
+    <button class="fam-nav-item" data-tab="tienda" type="button"><span class="fam-nav-ico" data-i="bag"></span>Tienda</button>
+  </nav>
+</section>
+
+<script type="module" src="/v2/familias/app.js?v=20260907a"></script></body></html>

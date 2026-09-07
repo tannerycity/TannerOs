@@ -289,8 +289,9 @@ async function loadHomeData(generation){
   if(generation===loadGeneration)renderHome();
 }
 
-function kpi(label,value,sub='',className=''){
-  return `<article class="tos-kpi ${className}"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:''}</article>`;
+function kpi(label,value,sub='',className='',progress=null){
+  const meter=progress==null?'':`<div class="tos-kpi-meter"><i style="--v:${Math.max(0,Math.min(100,Number(progress)||0))}%"></i></div>`;
+  return `<article class="tos-kpi ${className}"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:''}${meter}</article>`;
 }
 // Porcentaje sin precisión falsa: 73.0 se muestra "73%", 45.8 sí "45.8%".
 // Antes convivían "21%", "73.0%" y "45.8%" en la misma fila.
@@ -301,10 +302,10 @@ function mini(label,value,sub=''){
 
 function renderKpis(){
   const cards=[],executive=state.executive||{},billing=executive.billing,acquisition=executive.acquisition,attendance=executive.attendance,commerce=executive.commerce;
-  if(executive.players||can('jugadores'))cards.push(kpi('Plantilla',executive.players?.active??state.players.length,'Tanners activos'));
-  if(billing)cards.push(kpi('Cobranza',`${Number(billing.collection_rate||0)}%`,`${billing.covered||0}/${billing.collection_population||0} cubiertos`,Number(billing.collection_rate||0)>=85?'good':''));
-  if(attendance?.rate30d!=null)cards.push(kpi('Asistencia 30 días',pct(attendance.rate30d),`${attendance.attended30d||0}/${attendance.records30d||0} registros`,Number(attendance.rate30d)>=85?'good':''));
-  if(acquisition)cards.push(kpi('Conversión captación',pct(acquisition.conversionRate),`${acquisition.converted||0}/${acquisition.total||0} convertidos`));
+  if(executive.players||can('jugadores')){const alta=Number(executive.players?.joined30d||0);cards.push(kpi('Plantilla',executive.players?.active??state.players.length,alta>0?`Activos · +${alta} este mes`:'Tanners activos'));}
+  if(billing){const r=Number(billing.collection_rate||0);cards.push(kpi('Cobranza',`${r}%`,`${billing.covered||0}/${billing.collection_population||0} cubiertos`,r>=85?'good':'',r));}
+  if(attendance?.rate30d!=null){const r=Number(attendance.rate30d);cards.push(kpi('Asistencia 30 días',pct(r),`${attendance.attended30d||0}/${attendance.records30d||0} registros`,r>=85?'good':'',r));}
+  if(acquisition)cards.push(kpi('Conversión captación',pct(acquisition.conversionRate),`${acquisition.converted||0}/${acquisition.total||0} convertidos`,'',Number(acquisition.conversionRate||0)));
   if(cards.length<4&&billing){const cobrable=Number(billing.collectable_receivable??billing.total_receivable??0);cards.push(kpi('Cartera cobrable',money.format(cobrable),`${money.format(Number(billing.current_period_receivable||0))} del mes`,cobrable>0?'danger':''));}
   if(cards.length<4&&commerce)cards.push(kpi('Ventas 30 días',money.format(Number(commerce.sales30d||0)),`${commerce.orders30d||0} pedidos`));
   $('homeKpis').innerHTML=(cards.length?cards.slice(0,4):[kpi('TannerOS','Listo','Usa los accesos para trabajar')]).join('');

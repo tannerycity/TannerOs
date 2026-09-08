@@ -44,3 +44,28 @@
 #saveAttendance.ready{background:linear-gradient(180deg,#12a06e,#0c6b4a)!important}
 #saveAttendance.ready:hover{background:linear-gradient(180deg,#15b47c,#0e7c54)!important}
 @media(max-width:620px){.category-choice,.session-row{box-shadow:0 1px 4px rgba(7,25,30,.05)}}
+/* === Reportar baja desde la lista === */
+/* El botón vive en la fila del nombre y no junto a los botones de estado, para que
+   no compita con el gesto de marcar asistencia, que es lo que se hace 20 veces seguidas. */
+.roster-person{min-width:0}
+.roster-person>.roster-name{display:grid;min-width:0}
+.roster-person>.roster-name strong,.roster-person>.roster-name small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.roster-flag{margin-left:auto;flex:0 0 auto;appearance:none;width:34px;height:34px;border-radius:11px;
+  border:1px solid #e4ebe9;background:#fff;color:#93a3a7;font-size:14px;line-height:1;cursor:pointer;
+  display:grid;place-items:center;transition:border-color .14s ease,background .14s ease,color .14s ease}
+@media(hover:hover){.roster-flag:hover{border-color:#e0b9b5;background:#fdf4f3;color:#a03f3c}}
+.roster-flag:active{transform:scale(.92)}
+.roster-flag.reportado{border-color:#e0b9b5;background:#fdeceb;color:#a03f3c}
+.baja-backdrop{position:fixed;inset:0;z-index:9994;background:rgba(6,20,24,.55)}
+.baja-modal{position:fixed;z-index:9995;left:50%;top:50%;transform:translate(-50%,-50%);
+  background:#fff;border-radius:20px;padding:18px;width:min(430px,calc(100vw - 32px));
+  max-height:86vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.32)}
+.baja-modal,.baja-modal *{box-sizing:border-box}
+.baja-modal h3{margin:2px 0 0;font-size:19px;letter-spacing:-.01em}
+.baja-help{margin:9px 0 0;font-size:12.5px;line-height:1.45;color:#66787d}
+.baja-field{display:grid;gap:6px;margin-top:14px;font-size:12px;font-weight:800;color:#42575d}
+.baja-field textarea{width:100%;border:1px solid #cedbd8;background:#fff;padding:11px 12px;border-radius:12px;
+  outline:none;font:inherit;font-weight:400;color:#07191e;resize:vertical;min-height:82px}
+.baja-field textarea:focus{border-color:#056c7f;box-shadow:0 0 0 3px rgba(5,108,127,.09)}
+.baja-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.baja-actions button{min-height:46px}

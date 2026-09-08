@@ -196,3 +196,22 @@
 .demo-age-bar{width:100%;max-width:26px;background:#087d8e;border-radius:4px 4px 0 0;min-height:4px}
 .demo-age-col small{font-size:10px;color:#8a969b}
 .demo-age-col b{font-size:11px;color:#0b1418}
+/* === Bajas reportadas desde la lista de asistencia === */
+/* Tono ámbar, no rojo: es un aviso que espera decisión, no un error. */
+.bajas-panel{border:1px solid #ecd9a8;background:#fdf8ee;border-radius:16px;padding:14px 15px;margin-bottom:14px}
+.bajas-panel,.bajas-panel *{box-sizing:border-box}
+.bajas-head{display:grid;gap:3px;margin-bottom:11px}
+.bajas-head .eyebrow{color:#a9791b;font-size:10.5px;font-weight:800;letter-spacing:.05em}
+.bajas-head strong{font-size:15px;color:#0a2d37;letter-spacing:-.01em}
+.bajas-head small{font-size:12px;color:#7d7057;line-height:1.4}
+.bajas-list{display:grid;gap:8px}
+.bajas-row{background:#fff;border:1px solid #efe2c6;border-radius:13px;padding:11px 12px;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.bajas-row>div:first-child{display:grid;gap:2px;min-width:0;flex:1 1 220px}
+.bajas-row strong{font-size:14.5px;color:#0a2d37}
+.bajas-row small{font-size:11.5px;color:#7f8e93}
+.bajas-row em{font-size:12.5px;color:#4a585e;font-style:normal;line-height:1.4;margin-top:3px}
+.bajas-row .bajas-meta{color:#a09077}
+.bajas-actions{display:flex;gap:7px;flex-wrap:wrap;flex:0 0 auto}
+.bajas-actions button{min-height:36px;padding:0 13px;font-size:12.5px;white-space:nowrap;border-radius:10px}
+@media(max-width:560px){.bajas-actions{width:100%}.bajas-actions button{flex:1 1 0}}

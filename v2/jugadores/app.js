@@ -10,7 +10,7 @@ function setText(id,value){const node=$(id);if(node)node.textContent=value??'—
 function positionCode(value){const label=String(value||'').toLocaleLowerCase('es-MX');if(/porter/.test(label))return'POR';if(/defen|central|lateral/.test(label))return'DEF';if(/medio|volante|contenci/.test(label))return'MED';if(/delanter|extremo|punta/.test(label))return'DEL';return value?String(value).slice(0,3).toUpperCase():'POS';}
 function renderCardIdentity(p){const fullName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Tanner',foot={right:'Derecha',left:'Izquierda',both:'Ambas',Derecha:'Derecha',Izquierda:'Izquierda',Ambas:'Ambas'}[p.dominantFoot]||p.dominantFoot||'Por definir',status=p.status==='active'?'ACTIVO':'BAJA';setText('cardName',fullName);setText('cardCode',p.code||'Sin código');setText('cardPosition',positionCode(p.position));setText('cardCategory',p.category||'Sin categoría');setText('cardJersey',p.jerseyNumber||'—');setText('cardFoot',`Pierna ${foot}`);setText('cardStatus',status);setText('quickPosition',p.position||'Por definir');setText('quickFoot',foot);setText('quickCategory',p.category||'Sin categoría');setText('quickJersey',p.jerseyNumber||'—');const card=$('tannerCard');if(card){card.dataset.status=p.status||'active';card.setAttribute('aria-label',`Carta deportiva de ${fullName}`);}}
 function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/ux_players_active_category_jersey|duplicate key/i.test(s))return 'Ese dorsal ya está ocupado por otro Tanner activo en la categoría seleccionada.';const map={'Not authorized':'No tienes permiso para editar expedientes.','Player not found':'No encontramos ese Tanner.','Valid birth date required':'La fecha de nacimiento no es válida.','Invalid dominant foot':'Selecciona una pierna válida.','Invalid phone number':'Revisa el formato del teléfono.','Mexico phone must have exactly 10 digits':'Para México usa exactamente 10 dígitos.','Guardian phone required':'Captura un teléfono válido para el tutor.','Invalid guardian email':'El correo del tutor no es válido.','Effective date cannot precede current enrollment start':'La fecha del cambio no puede ser anterior al inicio de la categoría actual.','Only withdrawn players can be reactivated':'Este Tanner ya está activo.','Only withdrawn or inactive players can be reactivated':'Este Tanner ya está activo.','Only active players can be withdrawn':'Este Tanner ya está de baja.','Reactivation date required':'Indica la fecha de alta.','Withdrawal date required':'Indica la fecha de baja.','Withdrawal reason required':'Escribe el motivo de la baja.'};return map[s]||s;}
-function renderStatusAction(p){const btn=$('toggleStatusBtn');if(!btn)return;if(!canStatus){btn.classList.add('hidden');return;}btn.classList.remove('hidden');if(p.status!=='active'){btn.textContent='Dar de alta';btn.dataset.action='reactivate';btn.classList.remove('danger-mini');}else{btn.textContent='Dar de baja';btn.dataset.action='withdraw';btn.classList.add('danger-mini');}}
+function renderStatusAction(p){const btn=$('toggleStatusBtn'),alt=$('withdrawInactiveBtn');if(!btn)return;if(!canStatus){btn.classList.add('hidden');alt?.classList.add('hidden');return;}btn.classList.remove('hidden');if(p.status!=='active'){btn.textContent='Dar de alta';btn.dataset.action='reactivate';btn.classList.remove('danger-mini');}else{btn.textContent='Dar de baja';btn.dataset.action='withdraw';btn.classList.add('danger-mini');}alt?.classList.toggle('hidden',p.status!=='inactive');}
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='players');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Jugadores.';show('deniedView');return;}canWrite=!!mod.can_write;
   const familyMod=mods.find(m=>m.module_code==='jugadores_familia');canFamily=!!(familyMod?.enabled&&familyMod?.can_write);
   const statusMod=mods.find(m=>m.module_code==='jugadores_estado');canStatus=!!(statusMod?.enabled&&statusMod?.can_write);
@@ -166,9 +166,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProfile();});
 
 
 // === Dar de baja / Dar de alta ===
-function openStatusModal(){
+function openStatusModal(forceMode){
   const p=current?.player;if(!p||!canWrite)return;
-  const willWithdraw=p.status==='active';
+  const willWithdraw=forceMode?forceMode==='withdraw':p.status==='active';
   const fullName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'este Tanner';
   $('statusModalEyebrow').textContent=willWithdraw?'BAJA':'ALTA';
   $('statusModalTitle').textContent=willWithdraw?`Dar de baja a ${fullName}`:`Dar de alta a ${fullName}`;
@@ -208,6 +208,7 @@ async function confirmStatusChange(){
 }
 document.addEventListener('click',e=>{
   if(e.target.closest?.('#toggleStatusBtn')){openStatusModal();return;}
+  if(e.target.closest?.('#withdrawInactiveBtn')){openStatusModal('withdraw');return;}
   if(e.target.closest?.('[data-close-status]')||e.target.id==='statusModal'){closeStatusModal();return;}
   if(e.target.closest?.('#statusModalConfirm')){confirmStatusChange();return;}
 });

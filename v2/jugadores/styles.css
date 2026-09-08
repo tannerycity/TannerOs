@@ -223,3 +223,25 @@
 .review-note span{font-size:12.5px;color:#7d7057;line-height:1.45}
 .review-note ul{margin:4px 0 0;padding-left:18px;display:grid;gap:2px}
 .review-note li{font-size:12.5px;color:#4a585e}
+
+/* Demografía navegable: cada dato es un botón que filtra la lista de abajo. */
+.demo-head .demo-clear{margin-left:auto;appearance:none;border:1px solid #cedbd8;background:#fff;
+  border-radius:999px;padding:5px 11px;font:inherit;font-size:11.5px;font-weight:700;color:#4a585e;cursor:pointer}
+.demo-head .demo-clear:hover{border-color:#087d8e;color:#087d8e}
+.demo-sex-row{display:block;width:100%;text-align:left;appearance:none;border:1px solid transparent;
+  background:transparent;border-radius:10px;padding:6px 8px;margin-bottom:4px;cursor:pointer;font:inherit}
+.demo-sex-row:disabled{cursor:default;opacity:.45}
+@media(hover:hover){.demo-sex-row:not(:disabled):hover{background:#f4f8f7;border-color:#dde7e4}}
+.demo-sex-row.on{background:#eef6f4;border-color:#087d8e}
+.demo-sex-top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px;color:#0a2d37}
+.demo-sex-track{display:block;height:8px;background:#eef1ee;border-radius:4px;overflow:hidden}
+.demo-sex-track i{display:block;height:8px;border-radius:4px}
+/* .demo-age-col pasa de <div> a <button>: hay que apagar el estilo de botón. */
+.demo-age-col{appearance:none;border:1px solid transparent;background:transparent;font:inherit;
+  cursor:pointer;padding:4px 2px;border-radius:10px}
+.demo-age-col:disabled{cursor:default;opacity:.45}
+@media(hover:hover){.demo-age-col:not(:disabled):hover{background:#f4f8f7;border-color:#dde7e4}}
+.demo-age-col.on{background:#eef6f4;border-color:#087d8e}
+.demo-age-col small{font-size:10.5px;color:#68737a}
+.demo-age-col b{font-size:12px;color:#0a2d37}
+.demo-age-col .demo-age-bar{display:block}

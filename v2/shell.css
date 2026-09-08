@@ -109,3 +109,5 @@ a.tos-insight:hover{background:#f7f9f8}
 
 /* Primitiva del shell: sin esto, todo lo que se marca oculto se ve. */
 .hidden{display:none!important}
+/* El [hidden] del navegador lo pisa cualquier regla de autor con display. */
+[hidden]{display:none!important}

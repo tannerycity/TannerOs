@@ -63,3 +63,39 @@
 .park-form .inline-message{grid-column:1/-1}
 .park-state[data-s="courtesy"]{background:#f4ecd9;color:#7a5c14}
 @media(max-width:560px){.park-form{grid-template-columns:1fr}}
+
+/* Tipo de pase: el VIP se distingue de un vistazo, en pantalla y en papel. */
+.park-type{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;background:#eaf3f4;color:#0a5c68;white-space:nowrap}
+.park-type[data-t="vip"]{background:#f4ecd9;color:#7a5c14;border:1px solid #e0cf9f}
+.park-type-pick{min-height:38px;padding:0 8px;border-radius:9px;border:1px solid #d5dedb;background:#fff;font:inherit;font-size:13px}
+.park-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* Hoja imprimible. Vive fuera del layout para que al imprimir se apague todo
+   lo demás sin depender de qué le agreguemos al shell después. */
+.park-print{display:none}
+.park-print-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:14px}
+.park-print-head strong{display:block;font-size:17px}
+.park-print-head small,.park-print-meta small{display:block;font-size:11px;color:#444}
+.park-print-meta{text-align:right}
+.park-print h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px;border-bottom:1px solid #bbb;padding-bottom:3px}
+.park-print h2 small{font-weight:400;text-transform:none;letter-spacing:0;color:#555}
+.park-print-table{width:100%;border-collapse:collapse;font-size:12px}
+.park-print-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#555;border-bottom:1px solid #999;padding:4px 6px}
+.park-print-table td{padding:5px 6px;border-bottom:1px solid #e2e2e2;vertical-align:top}
+.park-print-table td small{color:#666}
+.park-print-table .pp-plate{font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.03em;white-space:nowrap}
+.park-print-foot{margin-top:16px;padding-top:8px;border-top:1px solid #bbb;font-size:11px;color:#333}
+.park-print-empty{font-size:12px;color:#555}
+@media print{
+  @page{size:letter;margin:14mm}
+  body>*{display:none!important}
+  html,body{background:#fff!important}
+  .park-print{display:block!important}
+  /* En papel no hay marca: tinta negra y nada que herede el color del shell. */
+  .park-print,.park-print *{color:#000!important;background:transparent!important}
+  .park-print small,.park-print th{color:#555!important}
+  .park-print-table{page-break-inside:auto}
+  .park-print-table tr{page-break-inside:avoid}
+  .park-print thead{display:table-header-group}
+}
+@media(max-width:560px){.park-head-actions{width:100%}.park-head-actions button{flex:1}}

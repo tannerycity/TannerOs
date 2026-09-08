@@ -1,0 +1,24 @@
+/* Aviso de privacidad. Documento largo: se prioriza que se lea sin cansar —
+   medida de línea acotada, jerarquía clara y foco en el contenido. */
+.legal{max-width:none;line-height:1.6;color:#26403f}
+.legal h2{margin:30px 0 10px;font-size:17px;letter-spacing:-.015em;color:#07191e}
+.legal h2:first-of-type{margin-top:24px}
+.legal p{margin:0 0 12px;font-size:14.5px}
+.legal ul{margin:0 0 14px;padding-left:20px}
+.legal li{margin-bottom:7px;font-size:14.5px}
+.legal a{color:#056c7f;text-decoration:underline;text-underline-offset:2px}
+.legal-meta{font-size:12px;color:#7b8f92;margin-bottom:18px!important;
+  padding-bottom:14px;border-bottom:1px solid #e2ebe9}
+.legal-lead{font-size:16px!important;line-height:1.55;color:#0d2b31}
+/* La parte sensible del aviso se destaca: es lo que un tutor debe leer sí o sí. */
+.legal-note{background:#f6f9f8;border:1px solid #dbe6e3;border-left:3px solid #c8ae62;
+  border-radius:12px;padding:13px 15px;font-size:13.5px!important;color:#41585c}
+.legal-updated{margin-top:26px!important;padding-top:16px;border-top:1px solid #e2ebe9;
+  font-size:12px;color:#8a999c}
+@media(max-width:640px){
+  .legal h2{font-size:16px;margin-top:26px}
+  .legal p,.legal li{font-size:14px}
+  .legal-lead{font-size:15px!important}
+}
+/* El pie es navegación de verdad, no un enlace dentro de un párrafo. */
+.foot a{display:inline-flex;align-items:center;min-height:44px;padding:0 8px;margin:0 -8px;color:#056c7f;text-decoration:underline;text-underline-offset:3px;border-radius:8px}

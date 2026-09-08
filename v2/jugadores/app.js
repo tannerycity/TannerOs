@@ -71,7 +71,7 @@ const FILTROS=[
   {key:'nocorreo',label:'Sin correo',     tono:'danger', test:p=>!p.has_guardian_email},
   {key:'nofoto',  label:'Sin foto',       tono:'',       test:p=>!p.photo_path}
 ];
-function pasaFiltro(p){
+function pasaEstado(p){
   const activo=p.status_value==='active';
   if(fStat==='active')return activo;
   if(fStat==='withdrawn')return !activo;
@@ -80,6 +80,9 @@ function pasaFiltro(p){
   if(f)return activo&&f.test(p);
   return true;
 }
+// Estado y demografía se combinan: "Sin documentos" + "Niñas" da las niñas sin papeles.
+function pasaFiltro(p){return pasaEstado(p)&&pasaDemo(p);}
+let fDemo='';
 function renderList(){const q=$('search').value.trim().toLocaleLowerCase('es-MX');const rows=players.filter(p=>{const stOk=pasaFiltro(p);if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.toLocaleLowerCase('es-MX').includes(q))return false;return true;});const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const NOTAS={review:{t:'Esto no es documentación faltante.',d:'Son Tanners cuyo <b>cobro</b> quedó sin configurar.'},nodocs:{t:'Expediente incompleto de verdad.',d:'Les falta al menos un documento del checklist: acta, CURP o constancia de estudios.'},beca:{t:'Tanners con beca o apoyo activo.',d:'Alguien más cubre parte o toda su cuota. Revisa que el patrocinio esté configurado.'},nocorreo:{t:'Sin correo de tutor.',d:'Sin correo no se les puede dar acceso al portal de familias ni mandarles su estado de cuenta.'},nofoto:{t:'Sin foto en el expediente.',d:'La foto se usa en la credencial y para pasar lista más rápido.'}};const nota=NOTAS[fStat];if(nota&&rows.length){const motivos=fStat==='review'?[...new Set(rows.map(p=>p.review_reason).filter(Boolean))]:[];const fuentes=fStat==='beca'?[...new Set(rows.map(p=>p.benefit_source).filter(Boolean))]:[];const extra=motivos.length?motivos:fuentes;const el=document.createElement('div');el.className='review-note';el.innerHTML=`<strong>${nota.t}</strong><span>${nota.d}${extra.length?' '+(fStat==='beca'?'Fuentes:':'Motivo'+(extra.length>1?'s':'')+':'):''}</span>`+(extra.length?`<ul>${extra.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'');box.appendChild(el);}const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className='jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;const review=p.needs_review;if(review&&p.review_reason)b.title=p.review_reason;b.innerHTML=`${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:''}<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span><span class="jcard-dot${review?' review':' ok'}"></span>${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
 let photoRenderSeq=0;
 function legacyPhotoSource(value){const raw=String(value||'').trim();if(/^data:image\//i.test(raw)||/^https?:\/\//i.test(raw))return raw;return null;}
@@ -134,6 +137,8 @@ document.addEventListener('click',e=>{
   if(chip){fCat=chip.dataset.cat||'';buildCatChips();renderList();return;}
   const stat=e.target.closest?.('.stat-card');
   if(stat){const k=stat.dataset.stat;if(k==='cat'){fStat='active';fCat='';}else{fStat=k;}renderStats();buildCatChips();renderList();return;}
+  const demo=e.target.closest?.('[data-demo]');
+  if(demo){const k=demo.dataset.demo||'';fDemo=(k&&k===fDemo)?'':k;renderDemographics();buildCatChips();renderList();return;}
   const fl=e.target.closest?.('.free-link');
   if(fl){openFreeNums(fl.dataset.freecat);return;}
 });
@@ -178,20 +183,52 @@ function renderStats(){
   box.innerHTML=cards.map(([k,n,l,cls])=>`<button type="button" class="stat-card${cls?' '+cls:''}${(k!=='cat'&&fStat===k)?' on':''}" data-stat="${k}"><span class="stat-n">${n}</span><span class="stat-l">${l}</span></button>`).join('');
 }
 function ageOf(birthDate){if(!birthDate)return null;const b=new Date(birthDate+'T00:00:00');if(isNaN(b))return null;const now=new Date();let age=now.getFullYear()-b.getFullYear();const m=now.getMonth()-b.getMonth();if(m<0||(m===0&&now.getDate()<b.getDate()))age--;return age;}
+// === Demografía navegable ===
+// Cada dato del panel es un botón: al tocarlo, la lista de abajo se queda solo con
+// esos Tanners. Antes eran cifras muertas — se veía "4 niñas" sin poder saber quiénes.
+const EDADES=[[0,6,'≤6'],[7,8,'7-8'],[9,10,'9-10'],[11,12,'11-12'],[13,14,'13-14'],[15,99,'15+']];
+function bucketDe(p){
+  const a=ageOf(p.birth_date);
+  if(a==null)return 'none';
+  const b=EDADES.find(([lo,hi])=>a>=lo&&a<=hi);
+  return b?`${b[0]}-${b[1]}`:'none';
+}
+function pasaDemo(p){
+  if(!fDemo)return true;
+  if(fDemo==='sex:M')return p.sex==='M';
+  if(fDemo==='sex:F')return p.sex==='F';
+  if(fDemo==='sex:none')return p.sex!=='M'&&p.sex!=='F';
+  if(fDemo.startsWith('age:'))return bucketDe(p)===fDemo.slice(4);
+  return true;
+}
 function renderDemographics(){
   const box=$('demographicsPanel');if(!box)return;
-  const active=(players||[]).filter(p=>p.status_value==='active');
-  if(!active.length){box.classList.add('hidden');box.innerHTML='';return;}
+  // El panel se calcula SIN el filtro demográfico: si no, al tocar "Niñas" las
+  // barras se recalcularían a 4 de 4 y se perdería la referencia.
+  const scope=(players||[]).filter(p=>pasaEstado(p)&&(!fCat||p.category===fCat));
+  if(!scope.length){box.classList.add('hidden');box.innerHTML='';return;}
   box.classList.remove('hidden');
-  const ninos=active.filter(p=>p.sex==='M').length,ninas=active.filter(p=>p.sex==='F').length,sinDato=active.length-ninos-ninas;
-  const buckets=[[0,6,'≤6'],[7,8,'7-8'],[9,10,'9-10'],[11,12,'11-12'],[13,14,'13-14'],[15,99,'15+']];
-  const ages=active.map(p=>ageOf(p.birth_date)).filter(a=>a!=null);
-  const byBucket=buckets.map(([lo,hi,label])=>({label,n:ages.filter(a=>a>=lo&&a<=hi).length}));
-  const maxBucket=Math.max(1,...byBucket.map(b=>b.n));
-  const sexBar=(label,n,color)=>{const pct=active.length?Math.round(n/active.length*100):0;return `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${label}</span><b>${n} (${pct}%)</b></div><div style="height:8px;background:#eef1ee;border-radius:4px"><div style="height:8px;width:${pct}%;background:${color};border-radius:4px"></div></div></div>`;};
-  const ageBars=byBucket.map(b=>`<div class="demo-age-col"><div class="demo-age-bar" style="height:${Math.round(b.n/maxBucket*54)+4}px"></div><small>${b.label}</small><b>${b.n}</b></div>`).join('');
-  box.innerHTML=`<div class="demo-head"><strong>Demografía · ${active.length} activos</strong><span>Para seguros, patrocinios y reportes</span></div><div class="demo-grid"><div class="demo-sex">${sexBar('Niños',ninos,'#087d8e')}${sexBar('Niñas',ninas,'#c8ae62')}${sinDato?sexBar('Sin dato',sinDato,'#c7cfcd'):''}</div><div class="demo-ages"><span class="demo-ages-label">Por edad</span><div class="demo-age-row">${ageBars}</div></div></div>`;
+  const ninos=scope.filter(p=>p.sex==='M').length,ninas=scope.filter(p=>p.sex==='F').length,sinDato=scope.length-ninos-ninas;
+  const porBucket=EDADES.map(([lo,hi,label])=>({key:`${lo}-${hi}`,label,n:scope.filter(p=>bucketDe(p)===`${lo}-${hi}`).length}));
+  const sinFecha=scope.filter(p=>bucketDe(p)==='none').length;
+  if(sinFecha)porBucket.push({key:'none',label:'Sin fecha',n:sinFecha});
+  const maxBucket=Math.max(1,...porBucket.map(b=>b.n));
+  const sexBar=(label,n,color,key)=>{
+    const pct=scope.length?Math.round(n/scope.length*100):0;
+    return `<button type="button" class="demo-sex-row${fDemo===key?' on':''}" data-demo="${key}"${n?'':' disabled'}>`+
+      `<span class="demo-sex-top"><span>${label}</span><b>${n} (${pct}%)</b></span>`+
+      `<span class="demo-sex-track"><i style="width:${pct}%;background:${color}"></i></span></button>`;
+  };
+  const ageBars=porBucket.map(b=>`<button type="button" class="demo-age-col${fDemo==='age:'+b.key?' on':''}" data-demo="age:${b.key}"${b.n?'':' disabled'}>`+
+    `<span class="demo-age-bar" style="height:${Math.round(b.n/maxBucket*54)+4}px"></span>`+
+    `<small>${esc(b.label)}</small><b>${b.n}</b></button>`).join('');
+  const limpiar=fDemo?`<button type="button" class="demo-clear" data-demo="">Quitar filtro ×</button>`:'';
+  box.innerHTML=`<div class="demo-head"><strong>Demografía · ${scope.length} Tanner${scope.length===1?'':'s'}</strong>`+
+    `<span>${fDemo?'Toca de nuevo para quitar el filtro':'Toca cualquier dato para ver quiénes son'}</span>${limpiar}</div>`+
+    `<div class="demo-grid"><div class="demo-sex">${sexBar('Niños',ninos,'#087d8e','sex:M')}${sexBar('Niñas',ninas,'#c8ae62','sex:F')}${sinDato?sexBar('Sin dato',sinDato,'#c7cfcd','sex:none'):''}</div>`+
+    `<div class="demo-ages"><span class="demo-ages-label">Por edad</span><div class="demo-age-row">${ageBars}</div></div></div>`;
 }
+
 function exportRosterCsv(){
   const rows=(players||[]).map(p=>{
     const age=ageOf(p.birth_date);

@@ -14,7 +14,7 @@ function renderStatusAction(p){const btn=$('toggleStatusBtn'),alt=$('withdrawIna
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='players');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Jugadores.';show('deniedView');return;}canWrite=!!mod.can_write;
   const familyMod=mods.find(m=>m.module_code==='jugadores_familia');canFamily=!!(familyMod?.enabled&&familyMod?.can_write);
   const statusMod=mods.find(m=>m.module_code==='jugadores_estado');canStatus=!!(statusMod?.enabled&&statusMod?.can_write);
-  applyFamilyLock();
+  applyFamilyLock();acotarFechaNacimiento();
   $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderStats();renderDemographics();buildCatChips();renderCategories();renderList();signPlayerPhotos(players).then(()=>renderList());
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
   loadBajasPendientes();
@@ -83,12 +83,67 @@ function pasaEstado(p){
 // Estado y demografía se combinan: "Sin documentos" + "Niñas" da las niñas sin papeles.
 function pasaFiltro(p){return pasaEstado(p)&&pasaDemo(p);}
 let fDemo='';
+// === Cotas y listas del expediente ===
+// El input nativo de fecha acepta años de hasta seis dígitos (19/08/999999).
+// min y max lo acotan a un rango humano y el navegador bloquea el guardado.
+function acotarFechaNacimiento(){
+  const el=$('birthDate');if(!el)return;
+  const hoy=new Date(),iso=d=>d.toISOString().slice(0,10);
+  el.max=iso(hoy);
+  el.min=iso(new Date(hoy.getFullYear()-100,hoy.getMonth(),hoy.getDate()));
+  el.addEventListener('input',pistaEdad);
+}
+function pistaEdad(){
+  const el=$('birthDate'),hint=$('birthHint');if(!el||!hint)return;
+  const v=el.value;
+  if(!v){hint.textContent='';hint.dataset.tone='';return;}
+  const a=ageOf(v);
+  if(a==null||a<0||a>100){hint.textContent='Esa fecha no puede ser: revisa el año.';hint.dataset.tone='bad';return;}
+  hint.textContent=`${a} año${a===1?'':'s'}`;hint.dataset.tone='';
+}
+// Un <select> descarta en silencio un valor que no esté entre sus opciones.
+// Los expedientes viejos traen posiciones que no están en la lista estándar.
+function setSelectValue(id,value){
+  const el=$(id);if(!el)return;
+  const v=value==null?'':String(value);
+  if(v&&![...el.options].some(o=>o.value===v)){
+    const o=document.createElement('option');o.value=v;o.textContent=v+' (capturado antes)';el.appendChild(o);
+  }
+  el.value=v;
+}
+// === Posición: carrusel en vez de lista ===
+// Las cinco que usa el club. Un valor viejo que no esté aquí (24 Tanners quedaron
+// como "Mediocampista") NO se descarta: se muestra como chip aparte, marcado, para
+// que se vea que hay que actualizarlo en vez de perderlo al guardar.
+const POSICIONES=['Portero','Defensa','Medio defensivo','Medio ofensivo','Delantero'];
+function setPosicion(value){
+  const rail=$('positionRail'),input=$('position');if(!rail||!input)return;
+  const v=(value==null?'':String(value)).trim();
+  input.value=v;
+  const opciones=POSICIONES.slice();
+  const heredada=v&&!opciones.includes(v)?v:'';
+  rail.innerHTML=[['','Por definir',false],...opciones.map(o=>[o,o,false]),...(heredada?[[heredada,heredada,true]]:[])]
+    .map(([val,label,vieja])=>`<button type="button" class="pos-chip${val===v?' on':''}${vieja?' legacy':''}" `+
+      `role="radio" aria-checked="${val===v}" data-pos="${esc(val)}"${canWrite?'':' disabled'}>`+
+      `${esc(label)}${vieja?'<small>capturado antes</small>':''}</button>`).join('');
+  // El carrusel desborda: si el elegido queda fuera de vista, al abrir la ficha
+  // parecería que no hay ninguno seleccionado. Pasa siempre con el heredado, que va al final.
+  const sel=rail.querySelector('.pos-chip.on');
+  if(sel){
+    const c=sel.getBoundingClientRect(),r=rail.getBoundingClientRect();
+    if(c.left<r.left||c.right>r.right)rail.scrollLeft+=c.left-r.left-12;
+  }
+}
+document.addEventListener('click',e=>{
+  const chip=e.target.closest?.('#positionRail .pos-chip');
+  if(chip&&!chip.disabled){setPosicion(chip.dataset.pos);}
+});
 function renderList(){const q=$('search').value.trim().toLocaleLowerCase('es-MX');const rows=players.filter(p=>{const stOk=pasaFiltro(p);if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.toLocaleLowerCase('es-MX').includes(q))return false;return true;});const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const NOTAS={review:{t:'Esto no es documentación faltante.',d:'Son Tanners cuyo <b>cobro</b> quedó sin configurar.'},nodocs:{t:'Expediente incompleto de verdad.',d:'Les falta al menos un documento del checklist: acta, CURP o constancia de estudios.'},beca:{t:'Tanners con beca o apoyo activo.',d:'Alguien más cubre parte o toda su cuota. Revisa que el patrocinio esté configurado.'},nocorreo:{t:'Sin correo de tutor.',d:'Sin correo no se les puede dar acceso al portal de familias ni mandarles su estado de cuenta.'},nofoto:{t:'Sin foto en el expediente.',d:'La foto se usa en la credencial y para pasar lista más rápido.'}};const nota=NOTAS[fStat];if(nota&&rows.length){const motivos=fStat==='review'?[...new Set(rows.map(p=>p.review_reason).filter(Boolean))]:[];const fuentes=fStat==='beca'?[...new Set(rows.map(p=>p.benefit_source).filter(Boolean))]:[];const extra=motivos.length?motivos:fuentes;const el=document.createElement('div');el.className='review-note';el.innerHTML=`<strong>${nota.t}</strong><span>${nota.d}${extra.length?' '+(fStat==='beca'?'Fuentes:':'Motivo'+(extra.length>1?'s':'')+':'):''}</span>`+(extra.length?`<ul>${extra.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'');box.appendChild(el);}const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className='jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;const review=p.needs_review;if(review&&p.review_reason)b.title=p.review_reason;b.innerHTML=`${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:''}<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span><span class="jcard-dot${review?' review':' ok'}"></span>${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
 let photoRenderSeq=0;
 function legacyPhotoSource(value){const raw=String(value||'').trim();if(/^data:image\//i.test(raw)||/^https?:\/\//i.test(raw))return raw;return null;}
 function drawPhoto(box,src,alt){box.innerHTML='';const img=document.createElement('img');img.src=src;img.alt=alt;img.decoding='async';box.appendChild(img);}
 async function renderPhoto(p){const seq=++photoRenderSeq,box=$('photoBox'),alt=`Foto de ${p.firstName||'Tanner'}`;box.innerHTML='<span>Sin foto</span>';if(p.photoPath){try{const bucket=p.photoBucket||'tanneros-private';const {data,error}=await supabase.storage.from(bucket).createSignedUrl(p.photoPath,600);if(error||!data?.signedUrl)throw error;if(seq===photoRenderSeq)drawPhoto(box,data.signedUrl,alt);return;}catch{if(seq!==photoRenderSeq)return;}}const legacy=legacyPhotoSource(p.legacyPhotoData);if(legacy){drawPhoto(box,legacy,alt);return;}if(p.legacyPhotoData){box.innerHTML='<span class="previous-photo-note">Foto anterior<small>Vuelve a subirla</small></span>';}else if(p.photoPath){box.innerHTML='<span>Foto protegida</span>';}}
-function fill(p,g,enrollment){$('firstName').value=p.firstName||'';$('lastName').value=p.lastName||'';$('birthDate').value=p.birthDate||'';$('position').value=p.position||'';const foot={Derecha:'right',Izquierda:'left',Ambas:'both'}[p.dominantFoot]||p.dominantFoot||'';$('dominantFoot').value=foot;$('sex').value=p.sex||'';$('jerseyNumber').value=p.jerseyNumber||'';$('school').value=p.school||'';$('bloodType').value=p.bloodType||'';$('allergies').value=p.allergies||'';$('address').value=p.address||'';$('emergencyName').value=p.emergencyContactName||'';$('emergencyPhone').value=p.emergencyContactPhone||'';$('notes').value=p.notes||'';$('categoryId').value=enrollment?.categoryId||'';$('categoryDate').value=today();$('categoryNotes').value='';$('guardianName').value=[g?.firstName,g?.lastName].filter(Boolean).join(' ').trim();$('guardianPhone').value=g?.phone||'';$('guardianEmail').value=g?.email||'';$('guardianRelationship').value=g?.relationship||g?.relationshipDefault||'';$('canPickup').checked=g?.canPickup??true;$('receivesBilling').checked=g?.receivesBilling??true;}
+function fill(p,g,enrollment){$('firstName').value=p.firstName||'';$('lastName').value=p.lastName||'';$('birthDate').value=p.birthDate||'';pistaEdad();setPosicion(p.position);const foot={Derecha:'right',Izquierda:'left',Ambas:'both'}[p.dominantFoot]||p.dominantFoot||'';$('dominantFoot').value=foot;$('sex').value=p.sex||'';$('jerseyNumber').value=p.jerseyNumber||'';$('school').value=p.school||'';setSelectValue('bloodType',p.bloodType);$('allergies').value=p.allergies||'';$('address').value=p.address||'';$('emergencyName').value=p.emergencyContactName||'';$('emergencyPhone').value=p.emergencyContactPhone||'';$('notes').value=p.notes||'';$('categoryId').value=enrollment?.categoryId||'';$('categoryDate').value=today();$('categoryNotes').value='';$('guardianName').value=[g?.firstName,g?.lastName].filter(Boolean).join(' ').trim();$('guardianPhone').value=g?.phone||'';$('guardianEmail').value=g?.email||'';$('guardianRelationship').value=g?.relationship||g?.relationshipDefault||'';$('canPickup').checked=g?.canPickup??true;$('receivesBilling').checked=g?.receivesBilling??true;}
 function renderOtherGuardians(rows,primary){const box=$('otherGuardians'),others=(rows||[]).filter(g=>g.id!==primary?.id);box.innerHTML=others.length?`<strong>Otros contactos vinculados</strong>${others.map(g=>`<span>${esc([g.firstName,g.lastName].filter(Boolean).join(' '))} · ${esc(g.phone||'Sin teléfono')} · ${esc(g.relationship||'Contacto')}</span>`).join('')}`:'';}
 function renderPrivacy(p){const box=$('privacyBadges');box.innerHTML='';const badges=[p.dataConsent?'Datos autorizados':'Consentimiento pendiente',p.imageConsent?'Imagen autorizada':'Sin autorización publicitaria',p.privacyNoticeVersion?`Aviso ${p.privacyNoticeVersion}`:null].filter(Boolean);badges.forEach((x,i)=>{const s=document.createElement('span');s.textContent=x;s.className=`profile-badge ${i===0&&p.dataConsent?'ok':''}`;box.appendChild(s);});}
 function num(v){if(v==null||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}

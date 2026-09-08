@@ -17,9 +17,51 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   applyFamilyLock();
   $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderStats();renderDemographics();buildCatChips();renderCategories();renderList();signPlayerPhotos(players).then(()=>renderList());
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
+  loadBajasPendientes();
   show('view');const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
 function renderCategories(){const s=$('categoryId');s.innerHTML='<option value="">Sin categoría</option>';categories.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;s.appendChild(o);});}
 async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];renderStats();renderDemographics();buildCatChips();renderList();signPlayerPhotos(players).then(()=>renderList());}
+
+// === Bajas reportadas desde la lista de asistencia ===
+// El profe que toma lista es quien se entera de que un niño ya no viene, pero no
+// tiene permiso de alta y baja. Su reporte aterriza aquí, que es donde sí se ejecuta.
+let bajasPend=[];
+async function loadBajasPendientes(){
+  const box=$('bajasPendientes');if(!box)return;
+  if(!canStatus){box.classList.add('hidden');return;}
+  try{bajasPend=await rpc('v2_withdrawal_requests',{organization_id:ctx.organization_id})||[];}
+  catch{bajasPend=[];}
+  renderBajasPendientes();
+}
+function renderBajasPendientes(){
+  const box=$('bajasPendientes');if(!box)return;
+  if(!bajasPend.length){box.classList.add('hidden');box.innerHTML='';return;}
+  const n=bajasPend.length;
+  box.innerHTML=`<div class="bajas-head"><span class="eyebrow">REPORTADOS DESDE LA LISTA</span>`+
+    `<strong>${n} Tanner${n>1?'s':''} que quizá ya no viene${n>1?'n':''}</strong>`+
+    `<small>Nadie los dio de baja todavía: siguen cobrándose y apareciendo al tomar lista.</small></div>`+
+    `<div class="bajas-list">${bajasPend.map(r=>`<article class="bajas-row"><div><strong>${esc(r.player_name||'Tanner')}</strong>`+
+      `<small>${esc([r.player_code,r.category_name].filter(Boolean).join(' · '))}</small>`+
+      `<em>“${esc(r.reason||'')}”</em>`+
+      `<small class="bajas-meta">Reportó ${esc(r.requested_by||'staff')} · ${esc(fechaCorta(r.requested_at))}</small></div>`+
+      `<div class="bajas-actions"><button type="button" class="primary mini" data-baja-ver="${esc(r.player_id)}">Revisar expediente</button>`+
+      `<button type="button" class="secondary mini" data-baja-descartar="${esc(r.request_id)}">Sí viene</button></div></article>`).join('')}</div>`;
+  box.classList.remove('hidden');
+}
+function fechaCorta(v){if(!v)return '';try{return new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'}).format(new Date(v));}catch{return '';}}
+async function descartarBaja(id){
+  try{await rpc('v2_dismiss_withdrawal_request',{organization_id:ctx.organization_id,request_id:id,note:null});
+    bajasPend=bajasPend.filter(r=>r.request_id!==id);renderBajasPendientes();
+    msg('Reporte descartado. El Tanner se queda en la plantilla.','success');
+  }catch(err){msg(friendly(err));}
+}
+document.addEventListener('click',e=>{
+  const ver=e.target.closest?.('[data-baja-ver]');
+  if(ver){openProfile(ver.dataset.bajaVer);document.getElementById('profilePanel')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
+  const quitar=e.target.closest?.('[data-baja-descartar]');
+  if(quitar){descartarBaja(quitar.dataset.bajaDescartar);return;}
+});
+
 function renderList(){const q=$('search').value.trim().toLocaleLowerCase('es-MX');const rows=players.filter(p=>{const active=p.status_value==='active';const stOk=fStat==='active'?active:(fStat==='withdrawn'?!active:(fStat==='review'?(p.needs_review&&active):true));if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.toLocaleLowerCase('es-MX').includes(q))return false;return true;});const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className='jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;const review=p.needs_review;b.innerHTML=`${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:''}<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span><span class="jcard-dot${review?' review':' ok'}"></span>${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
 let photoRenderSeq=0;
 function legacyPhotoSource(value){const raw=String(value||'').trim();if(/^data:image\//i.test(raw)||/^https?:\/\//i.test(raw))return raw;return null;}
@@ -192,7 +234,7 @@ async function confirmStatusChange(){
     btn.disabled=true;btn.textContent='Guardando…';
     try{
       await rpc('v2_withdraw_player',{organization_id:ctx.organization_id,player_id:p.id,withdrawn_at:date,reason});
-      closeStatusModal();await loadPlayers();await openProfile(p.id);
+      closeStatusModal();await loadPlayers();await loadBajasPendientes();await openProfile(p.id);
       msg('Tanner dado de baja correctamente.','success');
     }catch(err){errBox.textContent=friendly(err);errBox.classList.remove('hidden');}
     finally{btn.disabled=false;btn.textContent='Confirmar baja';}

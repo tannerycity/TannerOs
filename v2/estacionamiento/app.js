@@ -2,10 +2,10 @@ import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth} from '/
 
 // Padrón de gafetes. La cola de solicitudes va primero porque es lo único con
 // una familia esperando del otro lado; el resto es consulta.
-const boot=await bootstrapProtectedShell({active:'inicio',title:'Estacionamiento'});
+const boot=await bootstrapProtectedShell({active:'estacionamiento',title:'Estacionamiento'});
 if(!boot)throw new Error('No access');
 const {ctx,navigation}=boot;
-const puedeAutorizar=moduleAccess(navigation,'contabilidad',true)||moduleAccess(navigation,'cobranza',true);
+const puedeAutorizar=moduleAccess(navigation,'estacionamiento',true)||moduleAccess(navigation,'contabilidad',true)||moduleAccess(navigation,'cobranza',true);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={data:null,filtro:'requested',busca:'',tanners:null,alta:false};
 const PORTADOR={familia:'Familia',coach:'Profe',scout:'Visor',staff:'Staff',

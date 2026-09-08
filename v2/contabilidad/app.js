@@ -1,10 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-const $=id=>document.getElementById(id);let ctx=null,canWrite=false,isPresidency=false,expenses=[],billingPlayers=[],receivables=[],adjustments=[];const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);let ctx=null,canWrite=false,isPresidency=false,expenses=[],billingPlayers=[],receivables=[],adjustments=[],credits=[];const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}function msg(id,t='',type='error'){const e=$(id);if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}function monthValue(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}function periodDate(){return `${$('period').value||monthValue()}-01`;}function idem(prefix='expense'){return globalThis.crypto?.randomUUID?`${prefix}:${ctx.organization_id}:${crypto.randomUUID()}`:`${prefix}:${ctx.organization_id}:${Date.now()}:${Math.random()}`;}
 function friendly(e){const t=String(e?.message||e||'Error');const map={'Not authorized':'No tienes permiso para registrar este movimiento.','Expense amount must be greater than zero':'El monto debe ser mayor a cero.','Expense concept required':'Escribe el concepto del egreso.','Void reason required':'Escribe el motivo de anulación.','Only Presidencia can authorize debt adjustments':'Solo Presidencia puede autorizar un ajuste de deuda.','Accounting permission required':'Se requiere permiso de Contabilidad para aplicar el ajuste.','Adjustment exceeds outstanding balance':'El ajuste supera el saldo pendiente.','Authorized amount now exceeds outstanding balance':'El saldo cambió y ya es menor al monto autorizado.','Financial configuration requires Presidencia or Contabilidad':'Solo Presidencia o Contabilidad pueden configurar financiamiento.'};return map[t]||t;}
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='accounting');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Contabilidad.';show('deniedView');return;}canWrite=!!mod.can_write;isPresidency=ctx.role==='Presidencia';$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('date').value=today();$('period').value=monthValue();$('fundingStart').value=today();$('saveExpense').disabled=!canWrite;$('saveFunding').disabled=!canWrite;$('authorizeAdjustment').classList.toggle('hidden',!isPresidency);await loadAll();show('view');}
-async function loadAll(){const tasks=[rpc('v2_expenses',{organization_id:ctx.organization_id,period:periodDate()}),rpc('v2_billing_players',{organization_id:ctx.organization_id}),rpc('v2_open_receivables',{organization_id:ctx.organization_id}),rpc('v2_adjustment_authorizations',{organization_id:ctx.organization_id,status_filter:null})];const [e,p,r,a]=await Promise.all(tasks);expenses=Array.isArray(e)?e:[];billingPlayers=Array.isArray(p)?p:[];receivables=Array.isArray(r)?r:[];adjustments=Array.isArray(a)?a:[];renderAccountingOverview();renderExpenses();renderFunding();renderReceivables();renderAdjustments();}
+async function loadAll(){const tasks=[rpc('v2_expenses',{organization_id:ctx.organization_id,period:periodDate()}),rpc('v2_billing_players',{organization_id:ctx.organization_id}),rpc('v2_open_receivables',{organization_id:ctx.organization_id}),rpc('v2_adjustment_authorizations',{organization_id:ctx.organization_id,status_filter:null})];tasks.push(rpc('v2_unresolved_credit',{organization_id:ctx.organization_id}).catch(()=>[]));const [e,p,r,a,c]=await Promise.all(tasks);expenses=Array.isArray(e)?e:[];billingPlayers=Array.isArray(p)?p:[];receivables=Array.isArray(r)?r:[];adjustments=Array.isArray(a)?a:[];credits=Array.isArray(c)?c:[];renderAccountingOverview();renderExpenses();renderFunding();renderReceivables();renderAdjustments();renderCredits();}
 async function loadExpenses(){expenses=await rpc('v2_expenses',{organization_id:ctx.organization_id,period:periodDate()})||[];renderExpenses();}
 function renderExpenses(){const posted=expenses.filter(x=>x.status==='posted'),voided=expenses.filter(x=>x.status==='void'),total=posted.reduce((s,x)=>s+Number(x.amount||0),0),byCat={};posted.forEach(x=>byCat[x.category||'Sin categoría']=(byCat[x.category||'Sin categoría']||0)+Number(x.amount||0));const top=Object.entries(byCat).sort((a,b)=>b[1]-a[1])[0];$('kpiTotal').textContent=money.format(total);$('kpiCount').textContent=posted.length;$('kpiVoided').textContent=voided.length;$('kpiCategory').textContent=top?top[0]:'—';const box=$('expenseList');box.innerHTML='';$('empty').classList.toggle('hidden',expenses.length>0);expenses.forEach(x=>{const linked=x.metadata?.productionBatchId||x.production_batch_id;const row=document.createElement('article');row.className=`expense-card ${x.status==='void'?'voided':''}`;row.innerHTML=`<div><div class="expense-title"><strong>${esc(x.concept||x.category||'Egreso')}</strong><span class="status-chip">${x.status==='void'?'Anulado':'Publicado'}</span></div><span>${esc(x.expense_date||'')} · ${esc(x.category||'Sin categoría')} · ${esc(x.method||'Sin método')}</span>${x.reference?`<small>Ref: ${esc(x.reference)}</small>`:''}${linked?`<small>Ligado a corte de producción</small>`:''}${x.status==='void'&&x.void_reason?`<small>Motivo: ${esc(x.void_reason)}</small>`:''}</div><div class="expense-side"><b>${money.format(Number(x.amount||0))}</b>${canWrite&&x.status==='posted'?`<button class="secondary mini void-expense" data-id="${x.id}" type="button">Anular</button>`:''}</div>`;box.appendChild(row);});box.querySelectorAll('.void-expense').forEach(b=>b.addEventListener('click',()=>voidExpense(b.dataset.id)));}
 function renderFunding(){const s=$('fundingPlayer'),selected=s.value;s.innerHTML='<option value="">Selecciona Tanner</option>';billingPlayers.forEach(p=>{const o=document.createElement('option');o.value=p.player_id;o.textContent=`${p.player_name} · ${money.format(Number(p.base_monthly_fee||0))}${p.sponsor_source?` · ${p.sponsor_source}`:''}`;s.appendChild(o);});if(selected&&billingPlayers.some(p=>p.player_id===selected))s.value=selected;const list=$('fundingList');list.innerHTML='';const rows=billingPlayers.filter(p=>p.sponsor_benefit_id);$('fundingEmpty').classList.toggle('hidden',rows.length>0);rows.forEach(p=>{const configured=!!p.sponsor_configured_at,unit=p.sponsor_mode==='percentage'?`${Number(p.sponsor_value||0)}%`:p.sponsor_value!=null?money.format(Number(p.sponsor_value)):'Sin definir';const card=document.createElement('button');card.type='button';card.className=`funding-card ${configured?'configured':'needs-config'}`;card.innerHTML=`<div><strong>${esc(p.player_name)}</strong><span>${esc(p.sponsor_source||'Patrocinador')} · ${configured?`cubre ${unit}`:'apoyo pendiente de configurar'}</span></div><b>${money.format(Number(p.base_monthly_fee||0))}</b>`;card.onclick=()=>{$('fundingPlayer').value=p.player_id;$('fundingPlayer').dispatchEvent(new Event('change',{bubbles:true}));};list.appendChild(card);});}
@@ -14,7 +14,7 @@ async function saveFunding(e){e.preventDefault();msg('fundingMessage');const p=b
 function renderReceivables(){const s=$('waiverCharge'),selected=s.value;s.innerHTML='<option value="">Selecciona cargo pendiente</option>';receivables.forEach(r=>{const o=document.createElement('option');o.value=r.charge_id;o.textContent=`${r.player_name||'Sin Tanner'} · ${r.concept} · saldo ${money.format(Number(r.balance_due||0))}${r.payer_type==='sponsor'?` · ${r.payer_name||'Patrocinador'}`:''}`;s.appendChild(o);});if(selected&&receivables.some(r=>r.charge_id===selected))s.value=selected;}
 function fillAdjustment(){const r=receivables.find(x=>x.charge_id===$('waiverCharge').value);if(r){$('waiverAmount').value=Number(r.balance_due||0).toFixed(2);$('waiverBalance').textContent=`Saldo actual: ${money.format(Number(r.balance_due||0))}`;}else{$('waiverAmount').value='';$('waiverBalance').textContent='';}}
 async function authorizeAdjustment(e){e.preventDefault();if(!isPresidency)return;msg('waiverMessage');const r=receivables.find(x=>x.charge_id===$('waiverCharge').value),amount=Number($('waiverAmount').value),reason=$('waiverReason').value.trim();if(!r||!Number.isFinite(amount)||amount<=0||!reason){msg('waiverMessage','Selecciona cargo, monto y escribe el motivo.');return;}const btn=$('authorizeAdjustment');btn.disabled=true;try{await rpc('v2_authorize_charge_adjustment',{organization_id:ctx.organization_id,charge_id:r.charge_id,adjustment_type:$('waiverType').value,amount,reason,idempotency_key:idem('adjustment-auth')});$('waiverReason').value='';await refreshFinancialQueues();msg('waiverMessage','Ajuste autorizado por Presidencia. Contabilidad ya puede aplicarlo.','success');}catch(err){msg('waiverMessage',friendly(err));}finally{btn.disabled=false;}}
-async function refreshFinancialQueues(){[receivables,adjustments]=await Promise.all([rpc('v2_open_receivables',{organization_id:ctx.organization_id}),rpc('v2_adjustment_authorizations',{organization_id:ctx.organization_id,status_filter:null})]);renderReceivables();renderAdjustments();}
+async function refreshFinancialQueues(){[receivables,adjustments,credits]=await Promise.all([rpc('v2_open_receivables',{organization_id:ctx.organization_id}),rpc('v2_adjustment_authorizations',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_unresolved_credit',{organization_id:ctx.organization_id}).catch(()=>[])]);renderReceivables();renderAdjustments();renderCredits();}
 function renderAdjustments(){const box=$('waiverQueue');box.innerHTML='';$('waiverQueueEmpty').classList.toggle('hidden',adjustments.length>0);adjustments.forEach(a=>{const card=document.createElement('article');card.className=`waiver-card ${a.status}`;card.innerHTML=`<div><strong>${esc(a.player_name||'Sin Tanner')} · ${money.format(Number(a.amount||0))}</strong><span>${esc(a.charge_concept||'Cargo')} · ${esc(a.adjustment_type)} · ${esc(a.status)}</span><small>${esc(a.reason)} · autorizado ${new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(new Date(a.authorized_at))}</small></div><div class="waiver-actions"></div>`;const acts=card.querySelector('.waiver-actions');if(a.status==='approved'&&canWrite){const apply=document.createElement('button');apply.className='primary mini';apply.type='button';apply.textContent='Aplicar';apply.onclick=()=>postAdjustment(a.id);acts.appendChild(apply);}if(a.status==='approved'&&isPresidency){const revoke=document.createElement('button');revoke.className='secondary mini';revoke.type='button';revoke.textContent='Revocar';revoke.onclick=()=>revokeAdjustment(a.id);acts.appendChild(revoke);}box.appendChild(card);});}
 async function postAdjustment(id){if(!confirm('¿Aplicar este ajuste autorizado? El cargo original se conserva.'))return;try{await rpc('v2_post_authorized_adjustment',{organization_id:ctx.organization_id,authorization_id:id});await refreshFinancialQueues();}catch(err){alert(friendly(err));}}
 async function revokeAdjustment(id){const reason=prompt('Motivo de revocación:');if(!reason?.trim())return;try{await rpc('v2_revoke_charge_adjustment_authorization',{organization_id:ctx.organization_id,authorization_id:id,reason:reason.trim()});await refreshFinancialQueues();}catch(err){alert(friendly(err));}}
@@ -61,4 +61,63 @@ async function renderAccountingOverview(){
   const pk=box.querySelector('#periodPicker');if(pk)pk.onchange=()=>{__contaPeriod=pk.value;renderAccountingOverview();};
   const pm=box.querySelector('#payeeMesBtn'),pa=box.querySelector('#payeeAllBtn'),pml=box.querySelector('#payeeMesList'),pal=box.querySelector('#payeeAllList');
   if(pm&&pa){pm.onclick=()=>{pml.style.display='';pal.style.display='none';pm.style.background='#e7f2f4';pm.style.color='#0c6270';pm.style.borderColor='#087d8e';pa.style.background='#fff';pa.style.color='#68737a';pa.style.borderColor='#dce5e3';};pa.onclick=()=>{pml.style.display='none';pal.style.display='';pa.style.background='#e7f2f4';pa.style.color='#0c6270';pa.style.borderColor='#087d8e';pm.style.background='#fff';pm.style.color='#68737a';pm.style.borderColor='#dce5e3';};}
+}
+
+// === Saldo a favor por resolver ===
+// Dinero cobrado que no se aplicó a ningún cargo. Mientras vive aquí es invisible:
+// no baja la deuda de nadie y tampoco aparece como algo que devolver.
+const SIT={
+  sin_tanner:{etiqueta:'Sin dueño',tono:'danger',ayuda:'Nadie sabe de quién es este pago.'},
+  aplicable:{etiqueta:'Se puede aplicar',tono:'warn',ayuda:'Este Tanner debe: su propio dinero cubre su deuda.'},
+  tanner_de_baja:{etiqueta:'Tanner de baja',tono:'warn',ayuda:'Ya no está en el club: se devuelve o se da por cerrado.'},
+  a_favor:{etiqueta:'A favor',tono:'',ayuda:'Está al corriente. Queda a cuenta del próximo mes.'}
+};
+function renderCredits(){
+  const box=$('creditList');if(!box)return;
+  const total=credits.reduce((a,c)=>a+Number(c.held_credit||0),0);
+  $('creditTotal').textContent=credits.length?`${money.format(total)} en ${credits.length}`:'Todo aplicado';
+  $('creditEmpty').classList.toggle('hidden',credits.length>0);
+  box.innerHTML='';
+  credits.forEach(c=>{
+    const s=SIT[c.situation]||SIT.a_favor;
+    const quien=c.player_name?`${esc(c.player_name)}${c.player_code?` · ${esc(c.player_code)}`:''}`:'<em>Sin Tanner asignado</em>';
+    const card=document.createElement('article');
+    card.className=`credit-card ${s.tono}`;
+    card.innerHTML=`<div class="credit-main"><strong>${money.format(Number(c.held_credit||0))} · ${quien}</strong>`+
+      `<span>${esc(c.concept||'Movimiento')} · ${esc(c.method||'')} · ${esc(c.payment_date||'')}</span>`+
+      `<small>${esc(s.ayuda)}${Number(c.player_open_debt||0)>0?` Debe ${money.format(Number(c.player_open_debt))}.`:''}</small></div>`+
+      `<div class="credit-actions"><span class="credit-tag">${esc(s.etiqueta)}</span></div>`;
+    const acts=card.querySelector('.credit-actions');
+    if(c.situation==='sin_tanner'&&isPresidency){
+      const sel=document.createElement('select');sel.className='credit-picker';
+      sel.innerHTML='<option value="">Asignar a…</option>'+billingPlayers
+        .map(p=>`<option value="${esc(p.player_id)}">${esc(p.player_name||'Tanner')}</option>`).join('');
+      sel.onchange=()=>{if(sel.value)assignCredit(c.payment_id,sel.value,sel);};
+      acts.appendChild(sel);
+    }
+    if(c.situation==='aplicable'&&canWrite){
+      const b=document.createElement('button');b.className='primary mini';b.type='button';
+      b.textContent=`Aplicar a su deuda`;b.onclick=()=>applyCredit(c.player_id,b);
+      acts.appendChild(b);
+    }
+    box.appendChild(card);
+  });
+}
+async function assignCredit(paymentId,playerId,el){
+  msg('creditMessage');el.disabled=true;
+  try{
+    const aplicado=await rpc('v2_assign_payment_player',{organization_id:ctx.organization_id,payment_id:paymentId,player_id:playerId});
+    await refreshFinancialQueues();
+    msg('creditMessage',Number(aplicado)>0
+      ?`Pago asignado y ${money.format(Number(aplicado))} aplicados a su deuda.`
+      :'Pago asignado. Ese Tanner no debe nada, así que queda a su favor.','success');
+  }catch(err){msg('creditMessage',friendly(err));el.disabled=false;}
+}
+async function applyCredit(playerId,btn){
+  msg('creditMessage');btn.disabled=true;btn.textContent='Aplicando…';
+  try{
+    const aplicado=await rpc('v2_apply_player_credit',{organization_id:ctx.organization_id,player_id:playerId});
+    await refreshFinancialQueues();
+    msg('creditMessage',`${money.format(Number(aplicado||0))} aplicados a su deuda.`,'success');
+  }catch(err){msg('creditMessage',friendly(err));btn.disabled=false;btn.textContent='Aplicar a su deuda';}
 }

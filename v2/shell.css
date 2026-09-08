@@ -106,3 +106,6 @@ a.tos-insight:hover{background:#f7f9f8}
 .tos-bday-when{font-size:11px;font-weight:600;color:#6f7d82}
 .tos-bday-when[data-when="now"]{color:#8a6413}
 .tos-bday>small{font-size:10px;color:#8b979b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* Primitiva del shell: sin esto, todo lo que se marca oculto se ve. */
+.hidden{display:none!important}

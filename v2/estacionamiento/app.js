@@ -8,6 +8,7 @@ const {ctx,navigation}=boot;
 const puedeAutorizar=moduleAccess(navigation,'estacionamiento',true)||moduleAccess(navigation,'contabilidad',true)||moduleAccess(navigation,'cobranza',true);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={data:null,filtro:'requested',busca:'',tanners:null,alta:false};
+const TIPO={tanner:'Tanner Pass',vip:'VIP'};
 const PORTADOR={familia:'Familia',coach:'Profe',scout:'Visor',staff:'Staff',
   sponsor:'Patrocinador',vendor:'Proveedor',other:'Otro'};
 
@@ -23,6 +24,20 @@ function fmtFecha(v){
   const d=new Date(v);
   return Number.isNaN(d.getTime())?String(v)
     :new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(d);
+}
+// Hoja para el de la caseta: se imprime lo mismo que estás viendo, agrupado
+// por tipo de pase y ordenado por placa, que es lo único que él puede checar
+// desde la ventanilla.
+function hojaImpresa(lista,etiqueta,season){
+  const hoy=new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'long',year:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date());
+  const grupos=Object.keys(TIPO).map(t=>[t,lista.filter(p=>(p.pass_type||'tanner')===t)
+    .sort((a,b)=>String(a.plate||'').localeCompare(String(b.plate||''),'es'))]).filter(([,f])=>f.length);
+  const bloques=grupos.map(([t,f])=>`<h2>${esc(TIPO[t])} <small>${f.length} ${f.length===1?'gafete':'gafetes'}</small></h2><table class="park-print-table"><thead><tr><th>Placas</th><th>Vehículo</th><th>Portador</th><th>Folio</th><th>Estado</th></tr></thead><tbody>${
+    f.map(p=>`<tr><td class="pp-plate">${esc(p.plate||'—')}</td><td>${esc(p.vehicle||'—')}</td><td>${esc(p.player||'—')}${p.category?`<small> · ${esc(p.category)}</small>`:''}${p.guardian?`<br><small>tutor: ${esc(p.guardian)}</small>`:''}</td><td>${esc(p.folio||'—')}</td><td>${esc(ESTADO[p.status]||p.status||'')}${p.is_courtesy?' · cortesía':''}</td></tr>`).join('')
+  }</tbody></table>`).join('');
+  return `<header class="park-print-head"><div><strong>Tannery City · Gafetes de estacionamiento</strong><small>${esc(etiqueta)}${season?` · temporada ${esc(String(season))}`:''}</small></div><div class="park-print-meta"><small>${esc(hoy)}</small><small>${lista.length} ${lista.length===1?'gafete':'gafetes'} en la lista</small></div></header>${
+    bloques||'<p class="park-print-empty">No hay gafetes en esta lista.</p>'
+  }<footer class="park-print-foot">El gafete es personal e intransferible: solo entra el vehículo con estas placas. Si las placas no coinciden con la lista, no se autoriza el acceso.</footer>`;
 }
 function kpi(label,value,sub='',cls=''){
   return `<article class="tos-kpi ${cls}"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:''}</article>`;
@@ -63,6 +78,8 @@ function render(){
                ['vigentes','Vigentes'],['todos','Todos']]
     .map(([k,l])=>`<button class="park-chip" type="button" data-f="${k}" aria-pressed="${state.filtro===k}">${l}</button>`).join('');
 
+  const precio=t=>Number((d.prices||{})[t||'tanner']??d.price??0);
+
   const filas=filtrados.map(p=>{
     const saldo=Number(p.balance||0);
     const detalle=[p.holder_kind!=='familia'&&PORTADOR[p.holder_kind],p.category,
@@ -70,26 +87,37 @@ function render(){
       p.is_courtesy&&p.courtesy_reason?`cortesía: ${p.courtesy_reason}`:null,
       saldo>0&&`debe ${money.format(saldo)}`].filter(Boolean).join(' · ');
     const acciones=[];
-    if(p.status==='requested'&&puedeAutorizar)
-      acciones.push(`<button data-kind="go" data-approve="${esc(p.id)}" type="button">Autorizar ${money.format(Number(d.price||0))}</button>`,
+    const eligeTipo=p.status==='requested'&&puedeAutorizar;
+    if(eligeTipo)
+      acciones.push(`<select class="park-type-pick" data-typefor="${esc(p.id)}" aria-label="Tipo de pase">${Object.entries(TIPO).map(([k,l])=>`<option value="${k}"${(p.pass_type||'tanner')===k?' selected':''}>${l}</option>`).join('')}</select>`,`<button data-kind="go" data-approve="${esc(p.id)}" type="button">Autorizar ${money.format(precio(p.pass_type))}</button>`,
                     `<button data-courtesy="${esc(p.id)}" type="button">Cortesía</button>`,
                     `<button data-reject="${esc(p.id)}" type="button">Rechazar</button>`);
     if(p.status==='approved')acciones.push(`<button data-kind="go" data-issue="${esc(p.id)}" type="button">Entregar</button>`);
     if(p.status==='issued')acciones.push(`<button data-lost="${esc(p.id)}" type="button">Perdido</button>`,
                                          `<button data-revoke="${esc(p.id)}" type="button">Cancelar</button>`);
     acciones.push(`<button data-detail="${esc(p.id)}" type="button">Historial</button>`);
-    return `<div class="park-row"><span class="park-plate">${esc(p.plate||'—')}</span><span class="park-body"><strong>${esc(p.player||'Tanner')}</strong><span>${esc(detalle)}</span></span><span class="park-actions">${p.is_courtesy?'<span class="park-state" data-s="courtesy">Cortesía</span>':''}<span class="park-state" data-s="${esc(p.status)}">${esc(ESTADO[p.status]||p.status)}</span>${acciones.join('')}</span></div>`;
+    const badge=eligeTipo?'':`<span class="park-type" data-t="${esc(p.pass_type||'tanner')}">${esc(TIPO[p.pass_type]||TIPO.tanner)}</span>`;
+    return `<div class="park-row"><span class="park-plate">${esc(p.plate||'—')}</span><span class="park-body"><strong>${esc(p.player||'Tanner')}</strong><span>${esc(detalle)}</span></span><span class="park-actions">${badge}${p.is_courtesy?'<span class="park-state" data-s="courtesy">Cortesía</span>':''}<span class="park-state" data-s="${esc(p.status)}">${esc(ESTADO[p.status]||p.status)}</span>${acciones.join('')}</span></div>`;
   }).join('');
 
-  const alta=state.alta?`<section class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><h2>Nuevo gafete</h2><span class="tos-user-note">Para quien no entra al portal</span></div><form id="parkNew" class="park-form"><label>Para<select id="nkind">${Object.entries(PORTADOR).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><label id="nplayerWrap">Tanner<select id="nplayer" data-smart-search data-search-placeholder="Escribe el nombre del Tanner"></select></label><label id="nnameWrap" hidden>Nombre<input id="nname" maxlength="80" placeholder="Carlos Méndez"></label><label id="nphoneWrap" hidden><span>Teléfono <span class="tos-user-note">(opcional)</span></span><input id="nphone" maxlength="20" inputmode="tel"></label><label>Placas<input id="nplate" maxlength="15" placeholder="ABC-123-X" required></label><label><span>Vehículo <span class="tos-user-note">(opcional)</span></span><input id="nvehicle" maxlength="60" placeholder="Tsuru blanco"></label><label class="park-check"><input id="ncourtesy" type="checkbox"> Sin costo (cortesía)</label><label id="nreasonWrap" hidden>Motivo de la cortesía<input id="nreason" maxlength="120" placeholder="Entrenador de U13"></label><button class="primary" type="submit">Dar de alta</button><div id="nmsg" class="inline-message hidden"></div></form></section>`:'';
+  const alta=state.alta?`<section class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><h2>Nuevo gafete</h2><span class="tos-user-note">Para quien no entra al portal</span></div><form id="parkNew" class="park-form"><label>Para<select id="nkind">${Object.entries(PORTADOR).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><label id="nplayerWrap">Tanner<select id="nplayer" data-smart-search data-search-placeholder="Escribe el nombre del Tanner"></select></label><label id="nnameWrap" hidden>Nombre<input id="nname" maxlength="80" placeholder="Carlos Méndez"></label><label id="nphoneWrap" hidden><span>Teléfono <span class="tos-user-note">(opcional)</span></span><input id="nphone" maxlength="20" inputmode="tel"></label><label>Tipo de pase<select id="ntype">${Object.entries(TIPO).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><label>Placas<input id="nplate" maxlength="15" placeholder="ABC-123-X" required></label><label><span>Vehículo <span class="tos-user-note">(opcional)</span></span><input id="nvehicle" maxlength="60" placeholder="Tsuru blanco"></label><label class="park-check"><input id="ncourtesy" type="checkbox"> Sin costo (cortesía)</label><label id="nreasonWrap" hidden>Motivo de la cortesía<input id="nreason" maxlength="120" placeholder="Entrenador de U13"></label><button class="primary" type="submit">Dar de alta</button><div id="nmsg" class="inline-message hidden"></div></form></section>`:'';
 
-  $('parkBody').innerHTML=`${kpis}<section class="tos-panel"><div class="tos-panel-head"><h2>Padrón de gafetes</h2><button id="parkToggleNew" class="secondary mini" type="button">${state.alta?'Cerrar':'Nuevo gafete'}</button></div><div class="park-filters">${chips}<input id="parkSearch" class="park-search" type="search" placeholder="Buscar placa, Tanner, tutor o folio" value="${esc(state.busca)}"></div><div>${filas||'<div class="tos-empty">No hay gafetes con ese filtro.</div>'}</div></section>${alta}`;
+  $('parkBody').innerHTML=`${kpis}<section class="tos-panel"><div class="tos-panel-head"><h2>Padrón de gafetes</h2><span class="park-head-actions"><button id="parkPrintBtn" class="secondary mini" type="button">Imprimir / PDF</button><button id="parkToggleNew" class="secondary mini" type="button">${state.alta?'Cerrar':'Nuevo gafete'}</button></span></div><div class="park-filters">${chips}<input id="parkSearch" class="park-search" type="search" placeholder="Buscar placa, Tanner, tutor o folio" value="${esc(state.busca)}"></div><div>${filas||'<div class="tos-empty">No hay gafetes con ese filtro.</div>'}</div></section>${alta}`;
+
+  const etiqueta=({requested:'Por autorizar',approved:'Por entregar',issued:'Entregados',
+    vigentes:'Vigentes',todos:'Todos'})[state.filtro]||'Gafetes';
+  $('parkPrint').innerHTML=hojaImpresa(filtrados,state.busca?`${etiqueta} · filtro "${state.busca}"`:etiqueta,d.season);
+  $('parkPrintBtn')?.addEventListener('click',()=>window.print());
 
   $('parkBody').querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{
     state.filtro=b.dataset.f;render();}));
   const buscador=$('parkSearch');
   buscador?.addEventListener('input',e=>{state.busca=e.target.value;render();
     const n=$('parkSearch');if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}});
+  $('parkBody').querySelectorAll('.park-type-pick').forEach(sel=>sel.addEventListener('change',()=>{
+    const b=$('parkBody').querySelector(`[data-approve="${sel.dataset.typefor}"]`);
+    if(b)b.textContent=`Autorizar ${money.format(precio(sel.value))}`;
+  }));
   $('parkBody').querySelectorAll('[data-approve]').forEach(b=>b.addEventListener('click',()=>aprobar(b.dataset.approve)));
   $('parkBody').querySelectorAll('[data-issue]').forEach(b=>b.addEventListener('click',()=>entregar(b.dataset.issue)));
   $('parkBody').querySelectorAll('[data-reject]').forEach(b=>b.addEventListener('click',()=>cerrar(b.dataset.reject,'rejected','Motivo del rechazo:')));
@@ -143,7 +171,7 @@ async function montarAlta(){
         player_id:esFamilia?$('nplayer').value:null,
         holder_name:esFamilia?null:$('nname').value,
         holder_phone:esFamilia?null:($('nphone').value||null),
-        vehicle:$('nvehicle').value||null,
+        vehicle:$('nvehicle').value||null, pass_type:$('ntype').value,
         courtesy:$('ncourtesy').checked, courtesy_reason:$('nreason').value||null});
       state.alta=false;state.filtro='requested';await load();
     }catch(error){
@@ -151,6 +179,10 @@ async function montarAlta(){
     }
   });
 }
+
+// El tipo que quedó elegido en la fila. Si el selector no está (otro estado),
+// va null y el backend respeta el que ya traía el gafete.
+const tipoElegido=id=>document.querySelector(`[data-typefor="${id}"]`)?.value||null;
 
 // Cortesía: regalar el lugar siempre pide motivo, y queda con nombre y fecha
 // en la bitácora.
@@ -161,7 +193,7 @@ async function darCortesia(id){
   if(folio===null)return;
   try{
     await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,
-      folio:folio||null,courtesy:true,courtesy_reason:motivo.trim()});
+      folio:folio||null,courtesy:true,courtesy_reason:motivo.trim(),pass_type:tipoElegido(id)});
     await load();
   }catch(error){alert(String(error?.message||error));}
 }
@@ -169,7 +201,7 @@ async function darCortesia(id){
 async function aprobar(id){
   const folio=prompt('Folio del gafete (puedes dejarlo en blanco y ponerlo al entregarlo):','');
   if(folio===null)return;
-  try{await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,folio:folio||null,courtesy:false,courtesy_reason:null});await load();}
+  try{await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,folio:folio||null,courtesy:false,courtesy_reason:null,pass_type:tipoElegido(id)});await load();}
   catch(error){alert(String(error?.message||error));}
 }
 async function entregar(id){

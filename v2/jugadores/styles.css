@@ -245,3 +245,23 @@
 .demo-age-col small{font-size:10.5px;color:#68737a}
 .demo-age-col b{font-size:12px;color:#0a2d37}
 .demo-age-col .demo-age-bar{display:block}
+
+/* Pista de edad bajo la fecha de nacimiento: un dedazo en el año se nota al teclear. */
+.field-hint{display:block;margin-top:5px;font-size:11.5px;font-weight:600;color:#68737a;min-height:14px}
+.field-hint[data-tone="bad"]{color:#a03f3c}
+
+/* Posición: carrusel horizontal. En una cancha las posiciones son pocas y fijas;
+   verlas todas de un vistazo es más rápido que abrir una lista. */
+.pos-rail{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 2px 6px;margin:0 -2px}
+.pos-rail::-webkit-scrollbar{display:none}
+.pos-chip{flex:0 0 auto;appearance:none;border:1px solid #dde7e4;background:#fff;border-radius:999px;
+  padding:9px 15px;font:inherit;font-size:13px;font-weight:600;color:#3f5459;cursor:pointer;
+  white-space:nowrap;min-height:40px;transition:border-color .12s ease,background .12s ease,color .12s ease}
+@media(hover:hover){.pos-chip:not(:disabled):hover{border-color:#aac4c1;background:#f6faf9}}
+.pos-chip:disabled{opacity:.5;cursor:default}
+.pos-chip.on{background:#0d3f4c;border-color:#0d3f4c;color:#fff}
+.pos-chip.legacy{border-style:dashed;border-color:#e0b9b5;color:#8a3f3b;display:flex;flex-direction:column;
+  align-items:flex-start;gap:1px;padding-top:6px;padding-bottom:6px}
+.pos-chip.legacy.on{background:#8a3f3b;border-color:#8a3f3b;color:#fff}
+.pos-chip.legacy small{font-size:9.5px;font-weight:600;opacity:.8;letter-spacing:.01em}

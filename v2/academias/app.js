@@ -99,6 +99,7 @@ function renderStaffStep(){
   $('staffPicker').innerHTML='<option value="">Selecciona un profesor…</option>'+options.map(o=>`<option value="${safe(o.userId)}">${safe(o.displayName)} · ${safe(o.role)}</option>`).join('');
   $('staffPicker').closest('.staff-add-row').classList.toggle('hidden',!canWrite);
   $('enrollPlayer').classList.toggle('hidden',!canWrite);
+  $('dayPass').classList.toggle('hidden',!(canWrite&&canMoney));
 
   const people=academyEnrollments(a.id),elist=$('enrollmentList');elist.innerHTML='';$('enrollmentEmpty').classList.toggle('hidden',people.length>0);
   people.forEach(p=>{const row=document.createElement('div');row.className='enrollment-row';row.innerHTML=`<div class="participant-avatar">${safe((p.playerName||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><div class="participant-main"><strong>${safe(p.playerName)}</strong><span>${safe(p.playerCode||'')}</span><small>Desde ${dateFmt(p.startsOn)} · ${money.format(Number(p.agreedFee||a.monthlyFee||0))}/mes</small></div><div class="participant-state">${canWrite?`<button class="leave-button" data-leave="${safe(p.id)}" type="button">Dar de baja</button>`:'<span>Activo</span>'}</div>`;elist.appendChild(row);});
@@ -197,6 +198,46 @@ async function saveLeave(e){
   finally{btn.disabled=false;}
 }
 
+// Día suelto: el que no está inscrito y cae un día. Antes ese dinero no tenía
+// dónde registrarse — o lo inscribías al mes completo, o se cobraba por fuera.
+function openDayPass(){
+  if(!currentAcademy||!canWrite||!canMoney)return;
+  // Quien tiene inscripción viva ya paga ese día en su mensualidad: no aparece.
+  const inscritos=new Set(enrollments.filter(e=>e.academyId===currentAcademy.id&&e.status==='active').map(e=>e.playerId));
+  const sel=$('dayPlayerPick');
+  sel.innerHTML='<option value="">Selecciona un Tanner…</option>'+
+    enrollable.filter(p=>!inscritos.has(p.id)).map(p=>{
+      const extra=[p.category,p.position&&p.position!=='Por definir'?p.position:null].filter(Boolean).join(' · ');
+      return `<option value="${safe(p.id)}">${safe(p.name)}${extra?` · ${safe(extra)}`:''}</option>`;
+    }).join('');
+  $('dayDate').value=today();
+  $('dayDate').max=today();
+  $('dayPrice').value=currentAcademy.hourlyRate??'';
+  $('dayNotes').value='';
+  message('dayMessage');
+  $('dayBackdrop').classList.remove('hidden');$('dayModal').classList.remove('hidden');
+  $('dayModal').setAttribute('aria-hidden','false');
+}
+function closeDayPass(){
+  $('dayBackdrop').classList.add('hidden');$('dayModal').classList.add('hidden');
+  $('dayModal').setAttribute('aria-hidden','true');message('dayMessage');
+}
+async function saveDayPass(e){
+  e.preventDefault();
+  if(!currentAcademy)return;
+  const btn=$('daySubmit');btn.disabled=true;message('dayMessage');
+  try{
+    const playerId=$('dayPlayerPick').value;
+    if(!playerId)throw new Error('Elige al Tanner que vino.');
+    const r=await rpc('v2_register_academy_day',{organization_id:ctx.organization_id,
+      academy_id:currentAcademy.id,player_id:playerId,day:$('dayDate').value||today(),
+      price:asNum($('dayPrice').value),notes:$('dayNotes').value.trim()||null});
+    await load();closeDayPass();setStep('dinero');
+    toast(`${r?.player||'Tanner'}: ${money.format(Number(r?.price||0))} cargados a su cuenta`);
+  }catch(err){message('dayMessage',err.message||'No se pudo registrar el día.');}
+  finally{btn.disabled=false;}
+}
+
 // === De dónde viene el dinero ===
 async function loadRevenue(){
   if(!currentAcademy)return;
@@ -214,6 +255,7 @@ function renderRevenue(){
     kpi('Cobrado',money.format(Number(s.charged||0)),`${s.charges||0} cargo${Number(s.charges)===1?'':'s'}`)+
     kpi('Cobrado y pagado',money.format(Number(s.paid||0)),'Ya entró')+
     kpi('Por cobrar',money.format(Number(s.balance||0)),'Sigue pendiente',Number(s.balance||0)>0)+
+    kpi('Días sueltos',s.dayPasses||0,'Cobrados por día')+
     kpi('De bajas',s.fromCancelled||0,'Cargos de inscripciones cerradas',Number(s.fromCancelled||0)>0);
   $('dineroMonths').innerHTML=meses.length
     ? `<div class="eyebrow">POR MES</div>`+meses.map(m=>`<div class="dinero-month"><b>${safe(dateFmt(m.period).replace(/^\d+ /,''))}</b>`+
@@ -223,16 +265,17 @@ function renderRevenue(){
     : '';
   if(!filas.length){$('dineroBody').innerHTML='<div class="mini-empty">Todavía no se ha generado ningún cargo de esta academia.</div>';return;}
   $('dineroBody').innerHTML=filas.map(r=>{
-    const baja=r.enrollmentStatus!=='active';
+    const esDia=r.kind==='dia';
+    const baja=!esDia&&r.enrollmentStatus!=='active';
     const pagos=(r.payments||[]).map(p=>{
       const parcial=Number(p.applied)<Number(p.paymentTotal);
       return `<li>${safe(dateFmt(p.date))} · <b>${money.format(Number(p.applied||0))}</b> por ${safe(metodo(p.method))}`+
         (parcial?` <span class="dinero-parcial">(de un pago de ${money.format(Number(p.paymentTotal||0))}${p.payer?` de ${safe(p.payer)}`:''})</span>`:'')+
         (p.reference?` · ref. ${safe(p.reference)}`:'')+`</li>`;
     }).join('');
-    return `<article class="dinero-row${baja?' baja':''}">`+
+    return `<article class="dinero-row${baja?' baja':''}${esDia?' dia':''}">`+
       `<div class="dinero-row-head"><div><strong>${safe(r.player)}</strong>`+
-        `<span>${safe(r.code||'sin código')} · ${safe(dateFmt(r.period).replace(/^\d+ /,''))}</span></div>`+
+        `<span>${safe(r.code||'sin código')} · ${esDia?`día suelto ${safe(dateFmt(r.day))}`:safe(dateFmt(r.period).replace(/^\d+ /,''))}</span></div>`+
         `<div class="dinero-row-amount"><b>${money.format(Number(r.amount||0))}</b>`+
         `<small class="${Number(r.balance)>0?'pend':'ok'}">${Number(r.balance)>0?`${money.format(Number(r.balance))} pendiente`:'cubierto'}</small></div></div>`+
       (baja?`<div class="dinero-warn">La inscripción se cerró el ${safe(dateFmt(r.endsOn))}${r.playerStatus!=='active'?' y el Tanner está dado de baja':''}. Este cargo salió del mes de la salida: revísalo antes de cobrarlo.</div>`:'')+
@@ -265,10 +308,12 @@ document.querySelectorAll('.type-card').forEach(b=>b.addEventListener('click',()
 $('academyForm').addEventListener('submit',saveAcademy);$('academyName').addEventListener('blur',()=>{if(!currentAcademy&&!$('academySlug').value.trim())$('academySlug').value=slugify($('academyName').value);});
 $('addStaff').addEventListener('click',assignStaff);
 $('enrollPlayer').addEventListener('click',openEnroll);
+$('dayPass').addEventListener('click',openDayPass);
+$('closeDay').addEventListener('click',closeDayPass);$('dayBackdrop').addEventListener('click',closeDayPass);$('dayForm').addEventListener('submit',saveDayPass);
 $('closeLeave').addEventListener('click',closeLeave);$('leaveBackdrop').addEventListener('click',closeLeave);$('leaveForm').addEventListener('submit',saveLeave);$('leaveEndsOn').addEventListener('change',pintaAvisoBaja);
 $('closeEnroll').addEventListener('click',closeEnroll);$('enrollBackdrop').addEventListener('click',closeEnroll);$('enrollForm').addEventListener('submit',saveEnroll);
 $('closeConvert').addEventListener('click',closeConvert);$('convertBackdrop').addEventListener('click',closeConvert);$('convertForm').addEventListener('submit',saveConvert);
 $('closePayment').addEventListener('click',closePayment);$('paymentBackdrop').addEventListener('click',closePayment);$('paymentForm').addEventListener('submit',savePayment);
-document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('leaveModal').classList.contains('hidden'))closeLeave();else if(!$('enrollModal').classList.contains('hidden'))closeEnroll();else if(!$('paymentModal').classList.contains('hidden'))closePayment();else if(!$('convertModal').classList.contains('hidden'))closeConvert();else if(!$('drawer').classList.contains('hidden'))closeDrawer();});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('dayModal').classList.contains('hidden'))closeDayPass();else if(!$('leaveModal').classList.contains('hidden'))closeLeave();else if(!$('enrollModal').classList.contains('hidden'))closeEnroll();else if(!$('paymentModal').classList.contains('hidden'))closePayment();else if(!$('convertModal').classList.contains('hidden'))closeConvert();else if(!$('drawer').classList.contains('hidden'))closeDrawer();});
 
 boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Academias.';show('deniedView');});

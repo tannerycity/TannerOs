@@ -246,7 +246,8 @@ function openWizard(guardianId=''){
   document.body.style.overflow='hidden';
   if(guardianId){
     const g=guardians.find(x=>String(x.guardian_id)===String(guardianId));
-    if(g){eligePersona({tipo:'tutor',id:g.guardian_id,nombre:guardianName(g),dato:g});return;}
+    if(g){eligePersona({tipo:'tutor',id:g.guardian_id,nombre:guardianName(g),
+      detalle:(g.players||[]).join(' · ')||'Sin Tanner ligado',dato:g});return;}
   }
   setTimeout(()=>$('whoSearch').focus(),60);
 }

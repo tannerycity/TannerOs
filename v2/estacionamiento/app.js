@@ -187,6 +187,7 @@ const tipoElegido=id=>document.querySelector(`[data-typefor="${id}"]`)?.value||n
 // El nombre de quien lleva el gafete: para que el diálogo diga de quién habla
 // en lugar de preguntar en abstracto.
 const portadorDe=id=>(state.data?.passes||[]).find(p=>p.id===id)?.player||'este gafete';
+const folioDe=id=>(state.data?.passes||[]).find(p=>p.id===id)?.folio||'';
 
 // Cortesía: regalar el lugar siempre pide motivo, y queda con nombre y fecha
 // en la bitácora.
@@ -198,33 +199,38 @@ async function darCortesia(id){
     required:true,requiredText:'Escribe por qué se da sin costo.',maxlength:120,
     confirmText:'Dar sin costo'});
   if(motivo===null)return;
-  const folio=await tosPrompt({kicker:'ESTACIONAMIENTO',title:'Folio del gafete',
-    message:'Puedes dejarlo en blanco y ponerlo al entregarlo.',
-    placeholder:'Ej. T-014',maxlength:30,confirmText:'Autorizar'});
-  if(folio===null)return;
+  // El folio ya no se teclea: lo asigna el sistema, consecutivo por tipo.
   try{
-    await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,
-      folio:folio||null,courtesy:true,courtesy_reason:motivo,pass_type:tipoElegido(id)});
+    const r=await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,
+      folio:null,courtesy:true,courtesy_reason:motivo,pass_type:tipoElegido(id)});
     await load();
+    if(r?.folio)await tosAlert({kicker:'ESTACIONAMIENTO',title:`Gafete ${r.folio}`,
+      message:'Autorizado sin costo. Ese es el folio que le corresponde.'});
   }catch(error){await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo autorizar',message:String(error?.message||error)});}
 }
 
 async function aprobar(id){
-  const folio=await tosPrompt({kicker:'ESTACIONAMIENTO',title:'Folio del gafete',
-    message:`Vas a autorizar el gafete de ${portadorDe(id)}.`,
-    hint:'Puedes dejarlo en blanco y ponerlo al entregarlo.',
-    placeholder:'Ej. T-014',maxlength:30,confirmText:'Autorizar y cobrar'});
-  if(folio===null)return;
-  try{await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,folio:folio||null,courtesy:false,courtesy_reason:null,pass_type:tipoElegido(id)});await load();}
+  const tipo=tipoElegido(id);
+  const ok=await tosConfirm({kicker:'ESTACIONAMIENTO',title:'¿Autorizar este gafete?',
+    message:`Gafete ${tipo==='vip'?'VIP':'Tanner'} de ${portadorDe(id)}. Se le carga a su estado de cuenta y el folio se asigna solo.`,
+    confirmText:'Autorizar y cobrar'});
+  if(!ok)return;
+  try{
+    const r=await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,folio:null,courtesy:false,courtesy_reason:null,pass_type:tipo});
+    await load();
+    if(r?.folio)await tosAlert({kicker:'ESTACIONAMIENTO',title:`Gafete ${r.folio}`,
+      message:'Autorizado. Ese es el folio que le corresponde.'});
+  }
   catch(error){await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo autorizar',message:String(error?.message||error)});}
 }
 async function entregar(id){
-  const folio=await tosPrompt({kicker:'ESTACIONAMIENTO',title:'¿Qué folio le estás entregando?',
-    message:`Gafete de ${portadorDe(id)}.`,
-    placeholder:'Ej. T-014',required:true,requiredText:'Anota el folio que entregas.',
-    maxlength:30,confirmText:'Entregar'});
-  if(folio===null)return;
-  try{await rpc('v2_issue_parking',{organization_id:ctx.organization_id,pass_id:id,folio});await load();}
+  const folio=folioDe(id);
+  const ok=await tosConfirm({kicker:'ESTACIONAMIENTO',
+    title:folio?`¿Entregar el gafete ${folio}?`:'¿Entregar este gafete?',
+    message:`Es el de ${portadorDe(id)}. Confirma cuando ya lo tenga en la mano.`,
+    confirmText:'Sí, ya lo entregué'});
+  if(!ok)return;
+  try{await rpc('v2_issue_parking',{organization_id:ctx.organization_id,pass_id:id,folio:null});await load();}
   catch(error){await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo entregar',message:String(error?.message||error)});}
 }
 // Cerrar nunca cancela el cargo: condonar es una decisión aparte, y pasa por

@@ -298,11 +298,15 @@ function formBeca(playerId,benefitId){
   });
 }
 async function terminarBeca(playerId,benefitId){
-  const motivo=prompt('¿Por qué termina el apoyo? (queda registrado)','');
-  if(motivo===null||!motivo.trim())return;
+  const motivo=await tosPrompt({kicker:'BECAS',title:'¿Por qué termina el apoyo?',
+    message:'El histórico se conserva: queda con fecha y motivo.',
+    placeholder:'Cambió la situación de la familia, se acabó el patrocinio…',
+    required:true,requiredText:'Escribe por qué termina.',maxlength:200,
+    confirmText:'Terminar apoyo',danger:true});
+  if(motivo===null)return;
   try{
     benefits=await rpc('v2_end_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
-      benefit_id:benefitId,reason:motivo.trim()})||[];
+      benefit_id:benefitId,reason:motivo})||[];
     renderBenefits(playerId);
     await loadPlayers();
     msg('Apoyo terminado. El histórico se conserva.','success');

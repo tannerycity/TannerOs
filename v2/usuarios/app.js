@@ -401,7 +401,10 @@ async function saveMemberProfile(){
 async function resetAllModules(){
   if(currentPerson?.kind!=='staff'||currentPerson.data.isOwner)return;
   const member=currentPerson.data,customized=(member.modules||[]).filter(module=>module.customized&&!hiddenModules.has(module.moduleCode));if(!customized.length)return;
-  if(!confirm(`¿Usar nuevamente el acceso recomendado de ${roleName(member.roleCode)}?`))return;
+  const ok=await tosConfirm({kicker:'LLAVES',title:'¿Volver al acceso recomendado?',
+    message:`${memberName(member)} tiene ${customized.length} permiso${customized.length===1?'':'s'} a la medida. Se le devolverán los de ${roleName(member.roleCode)}.`,
+    confirmText:'Sí, restaurar'});
+  if(!ok)return;
   setDrawerBusy(true);message('accessMessage');
   try{for(const module of customized)await rpc('v2_set_membership_module_access',{organization_id:ctx.organization_id,membership_id:member.membershipId,module_code:module.moduleCode,can_read:null,can_write:null});await load(true);message('accessMessage','Acceso restaurado al perfil recomendado.','success');}
   catch(error){message('accessMessage',friendly(error));await load(true);}finally{setDrawerBusy(false);}
@@ -411,31 +414,46 @@ async function togglePersonAccess(){
   if(currentPerson.kind==='guardian'){
     const guardian=currentPerson.data;
     if(!guardian.has_access){const id=guardian.guardian_id;closePerson();openWizard(id);return;}
-    if(!confirm(`¿Quitar el acceso al portal de ${guardianName(guardian)}? La ficha y los pagos del Tanner se conservan.`))return;
+    const ok=await tosConfirm({kicker:'PORTAL DE FAMILIAS',title:'¿Quitar el acceso del portal?',
+      message:`${guardianName(guardian)} dejará de entrar. La ficha y los pagos del Tanner se conservan.`,
+      confirmText:'Sí, quitar acceso',danger:true});
+    if(!ok)return;
     try{await invokeStaff({action:'revoke_guardian_access',guardian_id:guardian.guardian_id});await load();closePerson();}
     catch(error){message('profileMessage',friendly(error));}
     return;
   }
   const member=currentPerson.data;if(member.isOwner)return;
   const next=!member.active,verb=next?'reactivar':'desactivar';
-  if(!confirm(`¿${verb[0].toUpperCase()+verb.slice(1)} la llave de ${memberName(member)}?`))return;
+  const ok=await tosConfirm({kicker:'LLAVES',title:`¿${verb[0].toUpperCase()+verb.slice(1)} esta llave?`,
+    message:next?`${memberName(member)} podrá volver a entrar a TannerOS.`:`${memberName(member)} dejará de entrar a TannerOS. Su historial se conserva.`,
+    confirmText:next?'Sí, reactivar':'Sí, desactivar',danger:!next});
+  if(!ok)return;
   try{await rpc('v2_update_membership',{organization_id:ctx.organization_id,membership_id:member.membershipId,role_code:member.roleCode,active:next});await load();closePerson();}
   catch(error){message('profileMessage',friendly(error));}
 }
 async function resetPersonPassword(){
   if(!currentPerson)return;
   const guardian=currentPerson.kind==='guardian',data=currentPerson.data,name=guardian?guardianName(data):memberName(data);
-  if(!confirm(`¿Crear una contraseña temporal nueva para ${name}? La anterior dejará de funcionar.`))return;
+  const ok=await tosConfirm({kicker:'LLAVES',title:'¿Nueva contraseña temporal?',
+    message:`Para ${name}. La anterior dejará de funcionar de inmediato.`,
+    confirmText:'Sí, generarla',danger:true});
+  if(!ok)return;
   try{
     const result=await invokeStaff(guardian?{action:'reset_guardian_password',guardian_id:data.guardian_id}:{action:'reset_username_password',user_id:data.userId});
     closePerson();openWizard();showCredentialResult(result,name,guardian?'family':'staff');
   }catch(error){message('profileMessage',friendly(error));}
 }
 async function resendInvite(email,roleCode){
-  try{const result=await invokeStaff({action:'send_email_invite',email,role_code:roleCode});await load();if(result.email_sent)alert(`Invitación enviada a ${email}.`);else if(result.invitation_link){lastCredentialText=`Bienvenido a Tannery City\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;await copyCredential();alert('El enlace privado quedó copiado.');}}
-  catch(error){alert(friendly(error));}
+  try{const result=await invokeStaff({action:'send_email_invite',email,role_code:roleCode});await load();if(result.email_sent)await tosAlert({kicker:'LLAVES',title:'Invitación enviada',message:`Le llegó a ${email}.`});else if(result.invitation_link){lastCredentialText=`Bienvenido a Tannery City\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;await copyCredential();alert('El enlace privado quedó copiado.');}}
+  catch(error){await tosAlert({kicker:'LLAVES',title:'No se pudo reenviar',message:friendly(error)});}
 }
-async function revokeInvite(id){if(!confirm('¿Revocar esta invitación?'))return;try{await rpc('v2_revoke_invitation',{organization_id:ctx.organization_id,invitation_id:id});await load();}catch(error){alert(friendly(error));}}
+async function revokeInvite(id){
+  const ok=await tosConfirm({kicker:'LLAVES',title:'¿Revocar esta invitación?',
+    message:'El enlace dejará de servir. Puedes volver a invitar después.',
+    confirmText:'Sí, revocar',danger:true});
+  if(!ok)return;
+  try{await rpc('v2_revoke_invitation',{organization_id:ctx.organization_id,invitation_id:id});await load();}
+  catch(error){await tosAlert({kicker:'LLAVES',title:'No se pudo revocar',message:friendly(error)});}}
 
 $('openCreateUser').addEventListener('click',()=>openWizard());$('closeWizard').addEventListener('click',closeWizard);$('wizardBackdrop').addEventListener('click',closeWizard);$('finishWizard').addEventListener('click',closeWizard);$('copyCredential').addEventListener('click',copyCredential);
 document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener('click',()=>chooseProfile(button.dataset.role)));

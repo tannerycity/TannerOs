@@ -320,7 +320,7 @@ async function toggleItemDetail(tr, item) {
       try {
         await rpc('v2_upsert_equipment_unit', { organization_id: ctx.organization_id, unit_id: null, item_id: item.id, code, status: 'bodega', condition: condition || null, notes: null });
         await loadAdmin();
-      } catch (err) { alert(friendly(err)); }
+      } catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo guardar la pieza', message: friendly(err) }); }
     });
     td.appendChild(wrap);
   } else {
@@ -473,9 +473,12 @@ function renderKits() {
 
 async function returnAssignment(a) {
   if (!canWrite) return;
-  if (!confirm(`¿Registrar devolución de ${a.unit_code || `${Number(a.quantity || 0)} × ${a.item_name}`} de ${a.recipient_name}?`)) return;
+  const ok = await tosConfirm({ kicker: 'UTILERÍA', title: '¿Registrar la devolución?',
+    message: `${a.unit_code || `${Number(a.quantity || 0)} × ${a.item_name}`} de ${a.recipient_name}.`,
+    confirmText: 'Sí, la devolvió' });
+  if (!ok) return;
   try { await rpc('v2_return_equipment', { organization_id: ctx.organization_id, assignment_id: a.id, notes: 'Devolución registrada desde TannerOS' }); await loadAdmin(); }
-  catch (err) { alert(friendly(err)); }
+  catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo registrar la devolución', message: friendly(err) }); }
 }
 
 const REPORT_TYPE_LABEL = { perdido: 'Perdido', danado: 'Dañado', roto: 'Roto', faltante: 'Faltante', reposicion: 'Reposición', material_adicional: 'Material adicional' };
@@ -518,7 +521,7 @@ function renderReports() {
       const status = card.querySelector('.resolve-status').value;
       const note = card.querySelector('.resolve-note').value.trim();
       try { await rpc('v2_resolve_equipment_report', { organization_id: ctx.organization_id, report_id: r.id, status, resolution_note: note || null }); await loadAdmin(); }
-      catch (err) { alert(friendly(err)); }
+      catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo resolver el reporte', message: friendly(err) }); }
     });
     box.appendChild(card);
   });

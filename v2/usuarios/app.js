@@ -13,6 +13,8 @@ let members=[];
 let invites=[];
 let guardians=[];
 let currentPerson=null;
+let categoryCatalog=[];      // categorías vivas del club
+let categoriesByUser={};     // userId -> [categoryId]
 let memberFilter='active';
 let wizard={step:1,kind:null,role:null,method:'username'};
 let lastCredentialText='';
@@ -121,13 +123,18 @@ async function boot(){
 }
 
 async function load(reopen=false){
-  const [userData,guardianData]=await Promise.all([
+  const [userData,guardianData,catData]=await Promise.all([
     rpc('v2_users_admin',{organization_id:ctx.organization_id}),
-    rpc('v2_guardian_access',{organization_id:ctx.organization_id})
+    rpc('v2_guardian_access',{organization_id:ctx.organization_id}),
+    // Si falla, el resto del módulo sigue vivo: la sección de categorías
+    // simplemente no se muestra.
+    rpc('v2_category_staff',{organization_id:ctx.organization_id}).catch(()=>null)
   ]);
   members=Array.isArray(userData?.members)?userData.members:[];
   invites=Array.isArray(userData?.invitations)?userData.invitations:[];
   guardians=Array.isArray(guardianData)?guardianData:[];
+  categoryCatalog=Array.isArray(catData?.categories)?catData.categories:[];
+  categoriesByUser=catData?.byUser&&typeof catData.byUser==='object'?catData.byUser:{};
   render();
   if(reopen&&currentPerson){
     if(currentPerson.kind==='staff')currentPerson.data=members.find(member=>member.membershipId===currentPerson.data.membershipId)||null;
@@ -364,11 +371,42 @@ function renderPersonDrawer(){
     $('memberRole').innerHTML=roleOptions(data.roleCode);$('memberRole').disabled=data.isOwner||!canWrite;$('saveMemberProfile').disabled=data.isOwner||!canWrite;
     $('resetAllModules').disabled=data.isOwner||!canWrite||!customCount(data);renderModuleAccess();
   }
+  renderCategoryPicker();
   $('resetMemberPassword').classList.toggle('hidden',!active||(guardian?false:(!username||data.isOwner)));$('resetMemberPassword').disabled=!canWrite;
   $('toggleMember').classList.toggle('hidden',!guardian&&data.isOwner);$('toggleMember').disabled=!canWrite;
   $('toggleMember').textContent=guardian?(active?'Retirar llave':'Entregar llave'):(active?'Pausar llave':'Reactivar llave');
   $('memberSecurityHelp').textContent=guardian?'Puedes renovar su contraseña o retirar la llave sin afectar la ficha del Tanner.':username?'Puedes entregar una nueva contraseña o pausar esta llave.':'Las cuentas con correo recuperan su contraseña desde la entrada al vestidor.';
 }
+// Las categorías del profe. Sólo se ofrece para quien entrena: a Presidencia y
+// Operaciones no se les asigna nada porque ven el club completo, y ofrecerles
+// la sección haría pensar que el candado también les aplica.
+function renderCategoryPicker(){
+  const box=$('memberCategories');if(!box)return;
+  const data=currentPerson?.data;
+  const aplica=currentPerson?.kind==='staff'&&data?.roleCode==='coach'&&categoryCatalog.length>0;
+  box.classList.toggle('hidden',!aplica);
+  if(!aplica)return;
+  const mias=new Set((categoriesByUser[data.userId]||[]).map(String));
+  $('categoryPicker').innerHTML=categoryCatalog.map(c=>
+    `<label class="category-option"><input type="checkbox" value="${safe(c.id)}" ${mias.has(String(c.id))?'checked':''} ${canWrite?'':'disabled'}>`+
+    `<span><strong>${safe(c.name)}</strong><small>${Number(c.players||0)} Tanner${Number(c.players||0)===1?'':'s'}</small></span></label>`).join('');
+  $('saveCategories').disabled=!canWrite;
+  message('categoryMessage');
+}
+async function saveCategories(){
+  const data=currentPerson?.data;if(!data)return;
+  const ids=[...document.querySelectorAll('#categoryPicker input:checked')].map(i=>i.value);
+  const button=$('saveCategories');button.disabled=true;
+  try{
+    await rpc('v2_set_category_staff',{organization_id:ctx.organization_id,user_id:data.userId,category_ids:ids});
+    categoriesByUser[data.userId]=ids;
+    message('categoryMessage', ids.length
+      ? `Listo. Verá ${ids.length===1?'esa categoría':`esas ${ids.length} categorías`}.`
+      : 'Sin categorías asignadas: por ahora no verá el expediente de ningún Tanner.','success');
+  }catch(error){message('categoryMessage',friendly(error));}
+  finally{button.disabled=!canWrite;}
+}
+
 function moduleSort(a,b){return Number(a.sortOrder||999)-Number(b.sortOrder||999)||String(a.moduleName).localeCompare(String(b.moduleName),'es-MX');}
 function levelOf(module){return module.effectiveCanWrite?'write':module.effectiveCanRead?'read':'none';}
 function baseLevelOf(module){return module.baseCanWrite?'write':module.baseCanRead?'read':'none';}
@@ -462,7 +500,7 @@ document.querySelectorAll('[data-method]').forEach(button=>button.addEventListen
 $('wizardBack2').addEventListener('click',()=>setWizardStep(1));$('wizardNext2').addEventListener('click',goToReview);$('wizardBack3').addEventListener('click',()=>setWizardStep(2));$('accessForm').addEventListener('submit',createAccess);
 $('accessDisplayName').addEventListener('blur',()=>{if(wizard.method==='username'&&!$('accessUsername').value)$('accessUsername').value=suggestedUsername($('accessDisplayName').value);});
 $('familyGuardian').addEventListener('change',syncGuardianEmail);$('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());
-$('closeMember').addEventListener('click',closePerson);$('memberBackdrop').addEventListener('click',closePerson);$('saveMemberProfile').addEventListener('click',saveMemberProfile);$('resetAllModules').addEventListener('click',resetAllModules);$('toggleMember').addEventListener('click',togglePersonAccess);$('resetMemberPassword').addEventListener('click',resetPersonPassword);
+$('closeMember').addEventListener('click',closePerson);$('memberBackdrop').addEventListener('click',closePerson);$('saveMemberProfile').addEventListener('click',saveMemberProfile);$('resetAllModules').addEventListener('click',resetAllModules);$('saveCategories').addEventListener('click',saveCategories);$('toggleMember').addEventListener('click',togglePersonAccess);$('resetMemberPassword').addEventListener('click',resetPersonPassword);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!$('memberDrawer').classList.contains('hidden'))closePerson();else if(!$('wizardModal').classList.contains('hidden'))closeWizard();}});
 
 boot().catch(error=>{$('deniedText').textContent=friendly(error);show('deniedView');});

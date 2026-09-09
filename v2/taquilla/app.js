@@ -247,7 +247,7 @@ $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')
 // cargo de otro.
 const TIPO_CARGO={monthly_fee:'Mensualidad',monthly_fee_sponsor:'Mensualidad · patrocinio',
   academy_fee:'Academia',academy_day:'Día de academia',late_fee:'Recargo',
-  product:'Tienda',equipment:'Uniforme',parking:'Estacionamiento'};
+  product:'Tienda',equipment:'Uniforme',parking:'Estacionamiento',parking_pass:'Gafete'};
 function conceptoCorto(r){
   const base=TIPO_CARGO[r.charge_type]||r.concept||'Cargo';
   const mes=r.billing_period

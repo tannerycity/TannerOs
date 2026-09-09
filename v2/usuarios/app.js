@@ -92,7 +92,12 @@ function friendly(error){
     'Email rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Intenta de nuevo en unos minutos.',
     'rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Intenta de nuevo en unos minutos.'
   };
-  return translations[raw]||raw;
+  // Se compara sin acentos: el backend y esta tabla se escriben por separado y
+  // un acento de diferencia dejaba el mensaje crudo en pantalla.
+  const plano=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(translations[raw])return translations[raw];
+  const clave=Object.keys(translations).find(k=>plano(k)===plano(raw));
+  return clave?translations[clave]:raw;
 }
 async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 async function invokeStaff(body){

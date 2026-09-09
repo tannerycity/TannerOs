@@ -211,9 +211,62 @@ const TIPOS_EDITABLES=['scholarship_full','scholarship_partial','sibling_discoun
 const esNotaDelLegacy=n=>!n||/^Imported as legacy context/.test(n);
 let benefits=[];
 
+// Solicitudes de beca que mandó la familia desde el portal. Si nadie las ve,
+// pedirlas no sirve de nada: aparecen aquí, junto a las becas, que es donde
+// Presidencia ya trabaja el tema.
+let benefitRequests=[];
+async function loadBenefitRequests(playerId){
+  const box=$('benefitRequests');
+  if(!box)return;
+  // El cuerpo técnico no ve dinero: si la RPC dice que no, la caja queda vacía.
+  try{benefitRequests=await rpc('v2_benefit_requests',{organization_id:ctx.organization_id,player_id:playerId})||[];}
+  catch(e){benefitRequests=[];box.innerHTML='';return;}
+  renderBenefitRequests(playerId);
+}
+function renderBenefitRequests(playerId){
+  const box=$('benefitRequests');
+  if(!box)return;
+  const pend=benefitRequests.filter(r=>r.status==='pending');
+  const ultima=benefitRequests.find(r=>r.status!=='pending');
+  if(!pend.length){
+    box.innerHTML=ultima
+      ? `<div class="ben-req" data-state="${esc(ultima.status)}"><div class="ben-req-head"><strong>${
+          ultima.status==='approved'?'Solicitud aprobada':'Solicitud no aprobada'}</strong><span>${
+          esc(fechaCorta(ultima.resolvedAt))}${ultima.resolvedBy?` · ${esc(ultima.resolvedBy)}`:''}</span></div>${
+          ultima.note?`<p>${esc(ultima.note)}</p>`:''}</div>`
+      : '';
+    return;
+  }
+  box.innerHTML=pend.map(r=>`<div class="ben-req" data-state="pending">
+    <div class="ben-req-head"><strong>Pidió beca</strong><span>${esc(fechaCorta(r.requestedAt))}${
+      r.guardian?` · ${esc(r.guardian)}`:''}</span></div>
+    <p>${esc(r.reason)}</p>
+    ${canStatus?`<div class="ben-req-actions">
+      <input class="ben-req-note" data-note="${esc(r.id)}" maxlength="300" placeholder="Nota para el expediente (opcional)">
+      <button type="button" class="secondary mini" data-approve="${esc(r.id)}">Aprobar</button>
+      <button type="button" class="secondary mini danger-mini" data-reject="${esc(r.id)}">No aprobar</button>
+    </div>`:'<p class="ben-gap">Presidencia la resuelve.</p>'}
+  </div>`).join('');
+  box.querySelectorAll('[data-approve],[data-reject]').forEach(btn=>btn.addEventListener('click',async()=>{
+    const id=btn.dataset.approve||btn.dataset.reject;
+    const status=btn.dataset.approve?'approved':'rejected';
+    const nota=box.querySelector(`[data-note="${CSS.escape(id)}"]`)?.value.trim()||null;
+    box.querySelectorAll('button').forEach(b=>b.disabled=true);
+    try{
+      await rpc('v2_resolve_benefit_request',{organization_id:ctx.organization_id,request_id:id,status,note:nota});
+      await loadBenefitRequests(playerId);
+    }catch(e){
+      box.querySelectorAll('button').forEach(b=>b.disabled=false);
+      const aviso=$('benefitMessage');
+      if(aviso){aviso.textContent=friendly(e);aviso.dataset.type='error';aviso.classList.remove('hidden');}
+    }
+  }));
+}
+
 async function loadBenefits(playerId){
   const box=$('benefitsList');
   $('addBenefit')?.classList.toggle('hidden',!canStatus);
+  loadBenefitRequests(playerId);
   try{benefits=await rpc('v2_player_benefits',{organization_id:ctx.organization_id,player_id:playerId})||[];}
   catch(e){box.innerHTML=`<div class="mini-empty">${esc(friendly(e))}</div>`;return;}
   renderBenefits(playerId);

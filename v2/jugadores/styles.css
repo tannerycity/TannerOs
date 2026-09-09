@@ -334,6 +334,18 @@
 .ben-warn,.ben-gap{font-size:11px;border-radius:8px;padding:6px 8px;line-height:1.35}
 .ben-warn{background:#fdeeec;color:#a3352a}
 .ben-gap{background:#fbf6e8;color:#7a6520}
+/* Solicitud de beca que mandó la familia desde el portal */
+.ben-req{margin-bottom:10px;padding:12px 13px;border-radius:12px;border:1px solid #e6ddc4;background:#fdf9ef}
+.ben-req[data-state="approved"]{border-color:#cfe6d8;background:#f0f8f3}
+.ben-req[data-state="rejected"]{border-color:#e9d3cf;background:#fcf3f1}
+.ben-req-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ben-req-head strong{font-size:13px}
+.ben-req-head span{font-size:11px;color:#7d8c90}
+.ben-req p{margin:7px 0 0;font-size:12.5px;line-height:1.45;color:#41595f;white-space:pre-line}
+.ben-req-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ben-req-note{flex:1 1 200px;min-width:0;font:inherit;font-size:12px;padding:7px 9px;
+  border:1px solid #ddd8ca;border-radius:9px;background:#fff}
+
 .ben-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:13px;margin-bottom:10px;
   border:1px solid #cfe0e3;border-radius:14px;background:#f7fbfb}
 .ben-form label{display:grid;gap:4px;font-size:11px;font-weight:800;color:#52666b}

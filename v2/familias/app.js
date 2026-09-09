@@ -5,7 +5,8 @@ import {supabase,rpc,money,$} from '/v2/shell.js';
 // Todo lo que se muestra viene de los RPC v2_portal_*, que resuelven al tutor
 // por auth.uid() y nunca confían en un id que mande esta página.
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',parking_pass:'Gafete'};
+const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',
+  parking_pass:'Gafete',other:'Otro cargo'};
 const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';
 // De qué fue cada pago. El portal mostraba todos los cargos pero sólo los
 // pagos de mensualidad: quien pagaba un uniforme veía el cargo y no su abono.
@@ -124,6 +125,14 @@ function waBoton(texto,etiqueta){
   if(!href)return '';
   return `<a class="fam-wa" href="${esc(href)}" target="_blank" rel="noopener">${WA_ICON}${esc(etiqueta)}</a>`;
 }
+// El motor de cobranza escribe conceptos como "Monthly fee 2026-08" o
+// "Mensualidad 2026-09": para esos manda la etiqueta bonita. Un concepto que no
+// sigue ese molde lo escribió una persona y dice más que cualquier etiqueta.
+const conceptoPropio=m=>{
+  const c=String(m.concept||'').trim();
+  if(!c||m.kind!=='charge')return '';
+  return /^(monthly fee|mensualidad|recargo|academia|academy)\b/i.test(c)?'':c;
+};
 const nombreDe=p=>[p?.first_name,p?.last_name].filter(Boolean).join(' ')||'mi Tanner';
 
 function playerProfileBlock(p){
@@ -194,7 +203,9 @@ function ledgerBlock(st){
       ? `Pago recibido${payLabel(m.subtype)?` · ${payLabel(m.subtype)}`:''}`
       : m.kind==='order'
         ? `Pedido de la tienda${m.folio?` · ${m.folio}`:''}`
-        : `${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`;
+        // Un ajuste trae un concepto escrito por una persona ("Mensualidades
+        // atrasadas anteriores a julio"). Eso explica mejor que "Otro cargo · jun".
+        : conceptoPropio(m)||`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`;
     const detalle=pago
       ? `${fmtDate(m.date)}${m.method?` · ${esc(m.method)}`:''}`
       : m.kind==='order'

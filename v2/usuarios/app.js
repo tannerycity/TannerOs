@@ -1,15 +1,98 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
+
+const supabase=createClient(
+  'https://pacnegivzgxpanphrnwp.supabase.co',
+  'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
+  {auth:{persistSession:true,autoRefreshToken:true}}
+);
 const $=id=>document.getElementById(id);
-let ctx=null,canWrite=false,members=[],invites=[],currentMember=null,lastCredential=null,lastInviteLink=null;
 
-const roleLabels={president:'Presidencia',operations:'Operaciones',coach:'Formadores',academy:'Academia',cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scouting',player:'Tanner'};
-const moduleLabels={inicio:'Inicio',club:'Club',direccion:'Dirección',finanzas:'Finanzas',jugadores:'Jugadores',asistencia:'Asistencia',callups:'Convocatoria',calendario:'Calendario',academias:'Academias',scouting:'Scouting',prospectos:'Captación',cursosVerano:'Programas y Eventos',taquilla:'Taquilla',cobranza:'Cobranza',contabilidad:'Contabilidad',patrocinadores:'Patrocinios',tienda:'Tienda',utileria:'Utilería',usuarios:'Usuarios',qa:'QA',admin:'Administración'};
-const hiddenModules=new Set(['convocatoria','sync']);
+let ctx=null;
+let canWrite=false;
+let members=[];
+let invites=[];
+let guardians=[];
+let currentPerson=null;
+let memberFilter='active';
+let wizard={step:1,kind:null,role:null,method:'username'};
+let lastCredentialText='';
 
-function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
-function msg(id,t='',type='error'){const e=$(id);if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}
-async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}
+const roleLabels={
+  president:'Presidencia',operations:'Operación',coach:'Entrenador',academy:'Academia',
+  cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scout',player:'Familia'
+};
+const profileDescriptions={
+  guardian:'Ve únicamente a sus Tanners, estado de cuenta, pagos, calendario, tienda y gafete.',
+  president:'Control completo del club y de sus accesos.',
+  operations:'Operación diaria, jugadores, programas, tienda y utilería.',
+  coach:'Jugadores, asistencia, convocatorias, calendario y trabajo deportivo.',
+  academy:'Academias, asistencia y calendario.',
+  cashier:'Cobros, pedidos, programas y calendario.',
+  accounting:'Cobranza, pagos y contabilidad.',
+  commercial:'Patrocinios, tienda, rentabilidad y calendario.',
+  scouting:'Scouting y calendario, sin información administrativa.'
+};
+const profileHighlights={
+  guardian:['Sus Tanners','Historial de pagos','Calendario'],
+  president:['Todo TannerOS','Usuarios y permisos','Administración'],
+  operations:['Jugadores','Operación diaria','Tienda y utilería'],
+  coach:['Jugadores','Asistencia','Convocatorias'],
+  academy:['Academias','Asistencia','Calendario'],
+  cashier:['Cobros','Pedidos','Calendario'],
+  accounting:['Cobranza','Pagos','Contabilidad'],
+  commercial:['Patrocinios','Tienda','Calendario'],
+  scouting:['Scouting','Evaluaciones','Calendario']
+};
+const moduleLabels={
+  inicio:'Inicio',club:'Club',direccion:'Dirección',finanzas:'Finanzas',jugadores:'Jugadores',
+  asistencia:'Asistencia',callups:'Convocatoria',calendario:'Calendario',academias:'Academias',
+  scouting:'Scouting',prospectos:'Captación',cursosVerano:'Programas y Eventos',taquilla:'Taquilla',
+  cobranza:'Cobranza',contabilidad:'Contabilidad',patrocinadores:'Patrocinios',tienda:'Tienda',
+  utileria:'Utilería',usuarios:'Usuarios',qa:'QA',admin:'Administración',estacionamiento:'Estacionamiento',
+  catalogo:'Catálogo'
+};
+const hiddenModules=new Set(['convocatoria','sync','commerce_finance']);
+
+function show(id){['loadingView','deniedView','view'].forEach(view=>$(view)?.classList.toggle('hidden',view!==id));}
+function message(id,text='',type='error'){
+  const box=$(id);if(!box)return;
+  box.textContent=text;box.dataset.type=type;box.classList.toggle('hidden',!text);
+}
+function safe(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
+function normalize(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function initials(value){return String(value||'TC').trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'TC';}
+function usernameFromEmail(email){const match=String(email||'').match(/^(.+)@staff\.tanneros\.invalid$/i);return match?.[1]||'';}
+function roleName(code){return roleLabels[code]||'Integrante';}
+function memberName(member){return member?.displayName||member?.email||'Usuario';}
+function guardianName(guardian){return guardian?.name||guardian?.email||guardian?.phone||'Tutor';}
+function friendly(error){
+  const raw=String(error?.message||error||'No pudimos completar esta acción.');
+  const translations={
+    'Not authorized':'No tienes permiso para administrar usuarios.',
+    'Valid email required':'Escribe un correo válido.',
+    'Invalid role':'Ese perfil no está disponible.',
+    'Owner membership is protected':'La cuenta propietaria está protegida.',
+    'Owner account is protected':'La cuenta propietaria está protegida.',
+    'Pending invitation not found':'La invitación ya no está pendiente.',
+    'Membership not found':'No encontramos esa llave.',
+    'Guardian not found':'No encontramos a ese tutor.',
+    'Valid guardian required':'Selecciona un tutor válido.',
+    'Guardian has no linked players':'Ese tutor todavía no está ligado a un Tanner.',
+    'Guardian already has portal access':'Esta familia ya tiene acceso.',
+    'Este tutor ya tiene acceso':'Esta familia ya tiene acceso.',
+    'Este tutor no tiene acceso todavía':'Esta familia todavía no tiene acceso.',
+    'Ese correo ya tiene una cuenta':'Ese correo ya tiene una cuenta. Usa otro correo o recupera su acceso.',
+    'Username must use 3-32 letters, numbers, dots, dashes or underscores':'El usuario debe tener de 3 a 32 caracteres: letras, números, punto, guion o guion bajo.',
+    'Valid display name required':'Escribe el nombre completo.',
+    'Username already exists':'Ese usuario ya existe. Elige otro.',
+    'Password resets for email accounts use email recovery':'Las cuentas con correo recuperan su contraseña desde la pantalla de entrada.',
+    'Email already registered':'Ese correo ya tiene una cuenta. Puede recuperar su acceso desde la pantalla de entrada.',
+    'Email rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Intenta de nuevo en unos minutos.',
+    'rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Intenta de nuevo en unos minutos.'
+  };
+  return translations[raw]||raw;
+}
+async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 async function invokeStaff(body){
   const {data,error}=await supabase.functions.invoke('staff-access',{body:{organization_id:ctx.organization_id,...body}});
   if(error){
@@ -20,263 +103,348 @@ async function invokeStaff(body){
   if(data?.error)throw new Error(data.error);
   return data;
 }
-function safe(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-function staffUsernameFromEmail(email){const match=String(email||'').match(/^(.+)@staff\.tanneros\.invalid$/i);return match?.[1]||'';}
-function friendly(e){const t=String(e?.message||e||'Error');const map={
-  'Not authorized':'No tienes permiso para administrar usuarios.',
-  'Valid email required':'Escribe un correo válido.',
-  'Invalid role':'Rol inválido.',
-  'Owner membership is protected':'La cuenta Owner está protegida.',
-  'Owner account is protected':'La cuenta propietaria está protegida.',
-  'Pending invitation not found':'La invitación ya no está pendiente.',
-  'Invalid module':'Módulo inválido.',
-  'Membership not found':'No encontramos esa membresía.',
-  'Username must use 3-32 letters, numbers, dots, dashes or underscores':'El usuario debe tener de 3 a 32 caracteres: letras, números, punto, guion o guion bajo.',
-  'Valid display name required':'Escribe un nombre válido.',
-  'Username already exists':'Ese usuario ya existe. Elige otro.',
-  'Password resets for email accounts use email recovery':'Las cuentas con correo recuperan su contraseña por correo.',
-  'Email already registered':'Ese correo ya tiene una cuenta. Usa “Olvidé mi contraseña” para recuperar el acceso.',
-  'Email rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Espera unos minutos e inténtalo de nuevo.',
-  'rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Espera unos minutos e inténtalo de nuevo.'
-};return map[t]||t;}
 
 async function boot(){
-  const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
-  const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}
-  ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='users');
-  if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Usuarios.';show('deniedView');return;}
-  canWrite=!!mod.can_write;$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('sendInvite').disabled=!canWrite;$('createStaffAccess').disabled=!canWrite;
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session){location.href='/';return;}
+  const contexts=await rpc('v2_my_context');
+  if(!contexts?.length){$('deniedText').textContent='Tu cuenta no está vinculada a Tannery City.';show('deniedView');return;}
+  ctx=contexts[0];
+  const modules=await rpc('v2_my_modules',{organization_id:ctx.organization_id});
+  const access=modules.find(module=>module.module_code==='users');
+  if(!access?.enabled||!access?.can_read){$('deniedText').textContent='Tu llave no abre Usuarios.';show('deniedView');return;}
+  canWrite=Boolean(access.can_write);
+  $('orgName').textContent=ctx.organization_name||'Tannery City FC';
+  $('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Integrante');
+  $('openCreateUser').disabled=!canWrite;
   await load();show('view');
 }
+
 async function load(reopen=false){
-  const data=await rpc('v2_users_admin',{organization_id:ctx.organization_id});
-  members=Array.isArray(data?.members)?data.members:[];invites=Array.isArray(data?.invitations)?data.invitations:[];
+  const [userData,guardianData]=await Promise.all([
+    rpc('v2_users_admin',{organization_id:ctx.organization_id}),
+    rpc('v2_guardian_access',{organization_id:ctx.organization_id})
+  ]);
+  members=Array.isArray(userData?.members)?userData.members:[];
+  invites=Array.isArray(userData?.invitations)?userData.invitations:[];
+  guardians=Array.isArray(guardianData)?guardianData:[];
   render();
-  if(reopen&&currentMember){currentMember=members.find(m=>m.membershipId===currentMember.membershipId)||null;if(currentMember)renderAccessDrawer();}
+  if(reopen&&currentPerson){
+    if(currentPerson.kind==='staff')currentPerson.data=members.find(member=>member.membershipId===currentPerson.data.membershipId)||null;
+    else currentPerson.data=guardians.find(guardian=>String(guardian.guardian_id)===String(currentPerson.data.guardian_id))||null;
+    if(currentPerson.data)renderPersonDrawer();else closePerson();
+  }
+}
+
+function pendingInvites(){return invites.filter(invite=>invite.status==='pending'&&new Date(invite.expiresAt)>new Date());}
+function personRows(){
+  return [
+    ...members.map(data=>({kind:'staff',id:data.membershipId,active:Boolean(data.active),name:memberName(data),data})),
+    ...guardians.map(data=>({kind:'guardian',id:data.guardian_id,active:Boolean(data.has_access),name:guardianName(data),data}))
+  ];
 }
 function render(){
-  const pending=invites.filter(i=>i.status==='pending'&&new Date(i.expiresAt)>new Date());
-  $('kpiActive').textContent=members.filter(m=>m.active).length;$('kpiInactive').textContent=members.filter(m=>!m.active).length;$('kpiPending').textContent=pending.length;
-  $('kpiCustomized').textContent=members.filter(m=>(m.modules||[]).some(x=>x.customized)).length;
-  renderMembers();renderInvites(pending);
+  const activeStaff=members.filter(member=>member.active).length;
+  const activeFamilies=guardians.filter(guardian=>guardian.has_access).length;
+  $('kpiActive').textContent=activeStaff+activeFamilies;
+  $('kpiFamilies').textContent=activeFamilies;
+  $('kpiPending').textContent=pendingInvites().length;
+  $('kpiNeedsAttention').textContent=guardians.filter(guardian=>!guardian.has_access).length;
+  renderPeople();renderInvites();renderGuardianOptions();
 }
-function roleOptions(current){return Object.entries(roleLabels).map(([v,l])=>`<option value="${safe(v)}" ${v===current?'selected':''}>${safe(l)}</option>`).join('');}
-function customCount(m){return (m.modules||[]).filter(x=>x.customized&&!hiddenModules.has(x.moduleCode)).length;}
-function renderMembers(){
-  const box=$('memberList');box.innerHTML='';$('memberEmpty').classList.toggle('hidden',members.length>0);
-  members.forEach(m=>{
-    const row=document.createElement('article');row.className=`member-card ${m.active?'':'inactive'}`;const locked=m.isOwner||!canWrite;const custom=customCount(m);
-    const id=safe(m.membershipId),userId=safe(m.userId),display=safe(m.displayName||m.email||'Usuario'),staffUsername=staffUsernameFromEmail(m.email),contact=staffUsername?`@${safe(staffUsername)}`:safe(m.email||'Sin correo visible'),role=safe(roleLabels[m.roleCode]||m.role||'Miembro');
-    row.innerHTML=`<div class="member-main"><div class="member-title"><strong>${display}</strong>${m.isOwner?'<span class="owner-chip">Owner</span>':''}${staffUsername?'<span class="staff-chip">Sin correo</span>':''}${custom?`<span class="custom-chip">${custom} personalizado${custom===1?'':'s'}</span>`:''}</div><span>${contact}</span><small>${m.active?'Acceso activo':'Acceso inactivo'} · ${role}</small></div><div class="member-actions"><button class="secondary mini permissions-member" data-id="${id}" type="button">Permisos</button><select class="role-select" data-id="${id}" ${locked?'disabled':''}>${roleOptions(m.roleCode||'player')}</select>${staffUsername&&!m.isOwner?`<button class="secondary mini reset-staff-password" data-user-id="${userId}" type="button" ${!canWrite?'disabled':''}>Resetear contraseña</button>`:''}${m.isOwner?'':`<button class="secondary mini toggle-member" data-id="${id}" data-active="${m.active}" type="button" ${!canWrite?'disabled':''}>${m.active?'Desactivar':'Reactivar'}</button>`}</div>`;
-    box.appendChild(row);
+
+function personMatchesFilter(person){
+  if(memberFilter==='active')return person.active;
+  if(memberFilter==='inactive')return !person.active;
+  if(memberFilter==='family')return person.kind==='guardian'||person.data.roleCode==='player';
+  if(memberFilter==='team')return person.kind==='staff'&&person.data.roleCode!=='player'&&person.active;
+  return true;
+}
+function personSearchText(person){
+  if(person.kind==='guardian')return normalize([person.name,person.data.email,person.data.phone,(person.data.players||[]).join(' ')].join(' '));
+  return normalize([person.name,person.data.email,usernameFromEmail(person.data.email),roleName(person.data.roleCode)].join(' '));
+}
+function renderPeople(){
+  const query=normalize($('userSearch').value.trim());
+  const rows=personRows().filter(person=>personMatchesFilter(person)&&(!query||personSearchText(person).includes(query))).sort((a,b)=>Number(b.data.isOwner)-Number(a.data.isOwner)||Number(b.active)-Number(a.active)||a.name.localeCompare(b.name,'es-MX'));
+  const list=$('memberList');list.innerHTML='';$('memberEmpty').classList.toggle('hidden',rows.length>0);
+  rows.forEach(person=>{
+    const family=person.kind==='guardian'||person.data.roleCode==='player';
+    const username=person.kind==='staff'?usernameFromEmail(person.data.email):'';
+    const contact=person.kind==='guardian'?(person.data.email||person.data.phone||'Sin contacto'):(username?`@${username}`:(person.data.email||'Sin correo visible'));
+    const detail=person.kind==='guardian'?((person.data.players||[]).join(' · ')||'Sin Tanner ligado'):`${roleName(person.data.roleCode)} · ${person.active?'Acceso activo':'Acceso desactivado'}`;
+    const card=document.createElement('article');card.className=`member-card ${person.active?'':'inactive'}`;
+    card.innerHTML=`
+      <div class="member-avatar ${family?'family':''}">${safe(initials(person.name))}</div>
+      <div class="member-info">
+        <div class="member-title-line"><strong>${safe(person.name)}</strong>${person.data.isOwner?'<span class="member-chip owner">Protegida</span>':''}${person.kind==='guardian'&&!person.active?'<span class="member-chip attention">Sin acceso</span>':''}</div>
+        <span>${safe(contact)}</span><small>${safe(detail)}</small>
+      </div>
+      <button class="member-open" type="button" data-kind="${person.kind}" data-person-id="${safe(person.id)}" aria-label="Abrir a ${safe(person.name)}"><span aria-hidden="true"></span></button>`;
+    list.appendChild(card);
   });
-  box.querySelectorAll('.role-select').forEach(s=>s.addEventListener('change',()=>updateMember(s.dataset.id,s.value,null)));
-  box.querySelectorAll('.toggle-member').forEach(b=>b.addEventListener('click',()=>updateMember(b.dataset.id,null,b.dataset.active!=='true')));
-  box.querySelectorAll('.permissions-member').forEach(b=>b.addEventListener('click',()=>openAccess(b.dataset.id)));
-  box.querySelectorAll('.reset-staff-password').forEach(b=>b.addEventListener('click',()=>resetStaffPassword(b.dataset.userId)));
+  list.querySelectorAll('[data-person-id]').forEach(button=>button.addEventListener('click',()=>openPerson(button.dataset.kind,button.dataset.personId)));
 }
-function renderInvites(rows){
-  const box=$('inviteList');box.innerHTML='';$('inviteEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(i=>{const exp=new Date(i.expiresAt).toLocaleDateString('es-MX'),id=safe(i.id),email=safe(i.email),roleCode=safe(i.roleCode),role=safe(roleLabels[i.roleCode]||i.roleCode||'Miembro');const row=document.createElement('article');row.className='invite-card';row.innerHTML=`<div><strong>${email}</strong><span>${role} · vence ${safe(exp)}</span></div>${canWrite?`<div class="invite-actions"><button class="secondary mini send-email-invite" data-email="${email}" data-role="${roleCode}" type="button">Reenviar correo</button><button class="secondary mini revoke-invite" data-id="${id}" type="button">Revocar</button></div>`:''}`;box.appendChild(row);});
-  box.querySelectorAll('.send-email-invite').forEach(b=>b.addEventListener('click',()=>sendEmailInvite(b.dataset.email,b.dataset.role)));
-  box.querySelectorAll('.revoke-invite').forEach(b=>b.addEventListener('click',()=>revokeInvite(b.dataset.id)));
+
+function renderInvites(){
+  const rows=pendingInvites();$('invitationPanel').classList.toggle('hidden',!rows.length);
+  const list=$('inviteList');list.innerHTML='';$('inviteEmpty').classList.toggle('hidden',rows.length>0);
+  rows.forEach(invite=>{
+    const expires=new Date(invite.expiresAt).toLocaleDateString('es-MX',{day:'numeric',month:'short'});
+    const card=document.createElement('article');card.className='invite-card';
+    card.innerHTML=`<div><strong>${safe(invite.email)}</strong><span>${safe(roleName(invite.roleCode))} · disponible hasta ${safe(expires)}</span></div>${canWrite?`<div class="invite-actions"><button class="secondary mini resend-invite" type="button" data-email="${safe(invite.email)}" data-role="${safe(invite.roleCode)}">Reenviar</button><button class="secondary mini revoke-invite" type="button" data-id="${safe(invite.id)}">Revocar</button></div>`:''}`;
+    list.appendChild(card);
+  });
+  list.querySelectorAll('.resend-invite').forEach(button=>button.addEventListener('click',()=>resendInvite(button.dataset.email,button.dataset.role)));
+  list.querySelectorAll('.revoke-invite').forEach(button=>button.addEventListener('click',()=>revokeInvite(button.dataset.id)));
 }
-function openAccess(id){
-  currentMember=members.find(m=>m.membershipId===id)||null;if(!currentMember)return;
-  renderAccessDrawer();$('accessBackdrop').classList.remove('hidden');$('accessDrawer').classList.remove('hidden');$('accessDrawer').setAttribute('aria-hidden','false');
+
+function setFilter(filter){
+  memberFilter=filter;
+  document.querySelectorAll('.filter-chip').forEach(button=>button.classList.toggle('active',button.dataset.filter===filter));
+  renderPeople();
 }
-function closeAccess(){currentMember=null;$('accessBackdrop').classList.add('hidden');$('accessDrawer').classList.add('hidden');$('accessDrawer').setAttribute('aria-hidden','true');msg('accessMessage');}
+function renderGuardianOptions(){
+  const select=$('familyGuardian'),current=select.value;
+  select.innerHTML='<option value="">Selecciona al tutor</option>';
+  guardians.forEach(guardian=>{
+    const option=document.createElement('option');option.value=guardian.guardian_id;
+    option.textContent=`${guardianName(guardian)}${guardian.has_access?' · Ya tiene acceso':''}`;
+    option.dataset.search=[guardian.email,guardian.phone,(guardian.players||[]).join(' ')].filter(Boolean).join(' ');
+    select.appendChild(option);
+  });
+  if([...select.options].some(option=>option.value===current))select.value=current;
+  select.dispatchEvent(new Event('change',{bubbles:true}));
+}
+
+function openWizard(guardianId=''){
+  if(!canWrite)return;
+  wizard={step:1,kind:null,role:null,method:'username'};lastCredentialText='';
+  $('accessForm').reset();$('credentialResult').classList.add('hidden');$('wizardProgress').classList.remove('hidden');
+  document.querySelectorAll('[data-role],[data-profile]').forEach(button=>button.classList.remove('selected'));
+  setMethod('username');setWizardStep(1);message('wizardMessage');message('createMessage');
+  $('wizardBackdrop').classList.remove('hidden');$('wizardModal').classList.remove('hidden');document.body.style.overflow='hidden';
+  if(guardianId){chooseProfile('guardian');$('familyGuardian').value=guardianId;$('familyGuardian').dispatchEvent(new Event('change',{bubbles:true}));syncGuardianEmail();}
+}
+function closeWizard(){$('wizardBackdrop').classList.add('hidden');$('wizardModal').classList.add('hidden');document.body.style.overflow='';}
+function setWizardStep(step){
+  wizard.step=step;
+  [1,2,3].forEach(index=>{$(`wizardStep${index}`)?.classList.toggle('hidden',index!==step);document.querySelector(`[data-step-indicator="${index}"]`)?.classList.toggle('active',index<=step);});
+  $('accessForm').classList.toggle('hidden',step===1);$('credentialResult').classList.add('hidden');
+}
+function chooseProfile(profile){
+  const guardian=profile==='guardian';
+  if(!guardian&&!roleLabels[profile])return;
+  wizard.kind=guardian?'guardian':'staff';wizard.role=guardian?null:profile;
+  document.querySelectorAll('[data-role]').forEach(button=>button.classList.toggle('selected',button.dataset.role===profile));
+  document.querySelectorAll('[data-profile]').forEach(button=>button.classList.toggle('selected',button.dataset.profile===profile));
+  $('staffIdentityFields').classList.toggle('hidden',guardian);$('familyIdentityFields').classList.toggle('hidden',!guardian);
+  renderAccessPreview();setWizardStep(2);
+  if(guardian)focusSmartSelect('familyGuardian');else $('accessDisplayName').focus();
+}
+function setMethod(method){
+  wizard.method=method;
+  $('methodUsername').classList.toggle('active',method==='username');$('methodEmail').classList.toggle('active',method==='email');
+  $('usernameField').classList.toggle('hidden',method!=='username');$('emailField').classList.toggle('hidden',method!=='email');
+}
+function currentProfile(){return wizard.kind==='guardian'?'guardian':wizard.role;}
+function renderAccessPreview(){
+  const profile=currentProfile()||'operations',tags=profileHighlights[profile]||[];
+  $('accessPreview').innerHTML=`<strong>Así se sentirá su acceso</strong><p>${safe(profileDescriptions[profile])}</p><div class="access-tags">${tags.map(tag=>`<span>${safe(tag)}</span>`).join('')}</div>`;
+}
+function suggestedUsername(name){return normalize(name).trim().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'').slice(0,32);}
+function focusSmartSelect(id){const select=$(id),input=select?.nextElementSibling?.querySelector('.tos-smart-select-input');(input||select)?.focus();}
+function selectedGuardian(){return guardians.find(guardian=>String(guardian.guardian_id)===String($('familyGuardian').value));}
+function syncGuardianEmail(){const guardian=selectedGuardian();$('familyEmail').value=guardian?.email||'';}
+function validEmail(input){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim());}
+function validateStep2(){
+  message('wizardMessage');
+  if(wizard.kind==='guardian'){
+    const guardian=selectedGuardian();
+    if(!guardian){message('wizardMessage','Selecciona al tutor que recibirá esta llave.');focusSmartSelect('familyGuardian');return false;}
+    if(guardian.has_access){message('wizardMessage','Esta familia ya tiene acceso. Ábrela desde la lista para administrarlo.');focusSmartSelect('familyGuardian');return false;}
+    if(!(guardian.players||[]).length){message('wizardMessage','Primero liga este tutor con un Tanner desde la ficha del jugador.');focusSmartSelect('familyGuardian');return false;}
+    if(!validEmail($('familyEmail'))){message('wizardMessage','Escribe un correo válido para esta familia.');$('familyEmail').focus();return false;}
+    return true;
+  }
+  const name=$('accessDisplayName').value.trim();
+  if(name.length<2){message('wizardMessage','Escribe el nombre de la persona.');$('accessDisplayName').focus();return false;}
+  if(wizard.method==='username'){
+    const username=$('accessUsername').value.trim();
+    if(!/^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$/.test(username)){message('wizardMessage','El usuario necesita al menos 3 caracteres y no puede llevar espacios.');$('accessUsername').focus();return false;}
+  }else if(!validEmail($('accessEmail'))){message('wizardMessage','Escribe un correo válido.');$('accessEmail').focus();return false;}
+  return true;
+}
+function renderReview(){
+  const profile=currentProfile();
+  if(wizard.kind==='guardian'){
+    const guardian=selectedGuardian(),players=(guardian?.players||[]).join(' · ')||'Sin Tanner ligado';
+    $('accessReview').innerHTML=`
+      <div class="review-row"><span>Persona</span><strong>${safe(guardianName(guardian))}</strong></div>
+      <div class="review-row"><span>Perfil</span><strong>Familia</strong></div>
+      <div class="review-row"><span>Entrada</span><strong>${safe($('familyEmail').value.trim())}</strong></div>
+      <div class="review-row"><span>Puede ver</span><strong>${safe(players)}</strong></div>
+      <div class="review-row"><span>Acceso</span><strong>${safe(profileHighlights.guardian.join(' · '))}</strong></div>`;
+    return;
+  }
+  const credential=wizard.method==='username'?`@${$('accessUsername').value.trim()}`:$('accessEmail').value.trim();
+  $('accessReview').innerHTML=`
+    <div class="review-row"><span>Persona</span><strong>${safe($('accessDisplayName').value.trim())}</strong></div>
+    <div class="review-row"><span>Perfil</span><strong>${safe(roleName(wizard.role))}</strong></div>
+    <div class="review-row"><span>Entrada</span><strong>${safe(credential)}</strong></div>
+    <div class="review-row"><span>Acceso</span><strong>${safe(profileHighlights[profile].join(' · '))}</strong></div>`;
+}
+function goToReview(){if(!validateStep2())return;renderReview();setWizardStep(3);}
+
+async function createAccess(event){
+  event.preventDefault();if(!canWrite||!wizard.kind||!validateStep2())return;
+  message('createMessage');const button=$('createAccess');button.disabled=true;button.textContent='Creando llave…';
+  try{
+    let result,displayName,portal='staff';
+    if(wizard.kind==='guardian'){
+      const guardian=selectedGuardian();displayName=guardianName(guardian);portal='family';
+      result=await invokeStaff({action:'create_guardian_access',guardian_id:guardian.guardian_id,email:$('familyEmail').value.trim()});
+    }else{
+      displayName=$('accessDisplayName').value.trim();
+      result=wizard.method==='username'
+        ?await invokeStaff({action:'create_username_user',display_name:displayName,username:$('accessUsername').value.trim(),role_code:wizard.role})
+        :await invokeStaff({action:'send_email_invite',display_name:displayName,email:$('accessEmail').value.trim(),role_code:wizard.role});
+    }
+    await load();showCredentialResult(result,displayName,portal);
+  }catch(error){message('createMessage',friendly(error));}
+  finally{button.disabled=!canWrite;button.textContent='Crear llave';}
+}
+function showCredentialResult(result,displayName,portal='staff'){
+  $('wizardStep3').classList.add('hidden');$('accessForm').classList.add('hidden');$('wizardProgress').classList.add('hidden');$('credentialResult').classList.remove('hidden');
+  if(result.temporary_password){
+    const login=portal==='family'?(result.email||'Correo'):result.username,loginLabel=portal==='family'?'Correo':'Usuario',url=portal==='family'?'https://app.tannerycity.com/familias/':'https://app.tannerycity.com/';
+    $('credentialTitle').textContent=`La llave de ${displayName} está lista`;
+    $('credentialHelp').textContent='Copia estos datos ahora. La contraseña temporal sólo se muestra una vez.';
+    $('credentialRows').innerHTML=`<div class="credential-row"><span>${loginLabel}</span><strong>${safe(login)}</strong></div><div class="credential-row"><span>Contraseña temporal</span><code>${safe(result.temporary_password)}</code></div>`;
+    $('copyCredential').classList.remove('hidden');
+    lastCredentialText=`Bienvenido a Tannery City\nTu llave está lista.\n\n${loginLabel}: ${login}\nContraseña temporal: ${result.temporary_password}\nEntrar: ${url}\n\nAl entrar crearás tu propia contraseña.`;
+  }else if(result.invitation_link){
+    $('credentialTitle').textContent=`Invitación lista para ${displayName}`;$('credentialHelp').textContent='Comparte este enlace de forma privada.';
+    $('credentialRows').innerHTML=`<div class="credential-row"><span>Correo</span><strong>${safe(result.email)}</strong></div><div class="credential-row"><span>Enlace privado</span><code>${safe(result.invitation_link)}</code></div>`;
+    $('copyCredential').classList.remove('hidden');lastCredentialText=`Bienvenido a Tannery City\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;
+  }else{
+    $('credentialTitle').textContent=`Invitación enviada a ${displayName}`;$('credentialHelp').textContent=`Enviamos el acceso a ${result.email}. Puede revisar también Spam o No deseado.`;
+    $('credentialRows').innerHTML=`<div class="credential-row"><span>Correo enviado</span><strong>${safe(result.email)}</strong></div>`;
+    $('copyCredential').classList.add('hidden');lastCredentialText='';
+  }
+}
+async function copyCredential(){
+  if(!lastCredentialText)return;
+  try{await navigator.clipboard.writeText(lastCredentialText);}catch{
+    const area=document.createElement('textarea');area.value=lastCredentialText;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();
+  }
+  const button=$('copyCredential'),original=button.textContent;button.textContent='Acceso copiado';setTimeout(()=>button.textContent=original,1500);
+}
+
+function roleOptions(current){
+  return Object.entries(roleLabels).filter(([value])=>value!=='player'||current==='player').map(([value,label])=>`<option value="${safe(value)}" ${value===current?'selected':''}>${safe(label)}</option>`).join('');
+}
+function customCount(member){return (member.modules||[]).filter(module=>module.customized&&!hiddenModules.has(module.moduleCode)).length;}
+function openPerson(kind,id){
+  const data=kind==='staff'?members.find(member=>String(member.membershipId)===String(id)):guardians.find(guardian=>String(guardian.guardian_id)===String(id));
+  if(!data)return;currentPerson={kind,data};renderPersonDrawer();
+  $('memberBackdrop').classList.remove('hidden');$('memberDrawer').classList.remove('hidden');$('memberDrawer').setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+}
+function closePerson(){currentPerson=null;$('memberBackdrop').classList.add('hidden');$('memberDrawer').classList.add('hidden');$('memberDrawer').setAttribute('aria-hidden','true');document.body.style.overflow='';message('profileMessage');message('accessMessage');}
+function renderPersonDrawer(){
+  if(!currentPerson)return;
+  const guardian=currentPerson.kind==='guardian',data=currentPerson.data,name=guardian?guardianName(data):memberName(data),username=guardian?'':usernameFromEmail(data.email),active=guardian?Boolean(data.has_access):Boolean(data.active);
+  $('memberName').textContent=name;$('memberAvatar').textContent=initials(name);$('memberAvatar').classList.toggle('family',guardian||data.roleCode==='player');
+  $('memberMeta').textContent=guardian?`${data.email||data.phone||'Sin contacto'} · ${active?'Portal activo':'Sin acceso'}`:`${username?`@${username}`:(data.email||'Sin correo visible')} · ${active?'Acceso activo':'Acceso desactivado'}`;
+  $('ownerProtection').classList.toggle('hidden',guardian||!data.isOwner);
+  $('memberProfileFields').classList.toggle('hidden',guardian);$('guardianProfileFields').classList.toggle('hidden',!guardian);$('memberAccessDetails').classList.toggle('hidden',guardian);
+  if(guardian){
+    $('guardianPlayers').textContent=(data.players||[]).join(' · ')||'Sin Tanner ligado';$('guardianContact').textContent=data.email||data.phone||'Sin correo';
+  }else{
+    $('memberRole').innerHTML=roleOptions(data.roleCode);$('memberRole').disabled=data.isOwner||!canWrite;$('saveMemberProfile').disabled=data.isOwner||!canWrite;
+    $('resetAllModules').disabled=data.isOwner||!canWrite||!customCount(data);renderModuleAccess();
+  }
+  $('resetMemberPassword').classList.toggle('hidden',!active||(guardian?false:(!username||data.isOwner)));$('resetMemberPassword').disabled=!canWrite;
+  $('toggleMember').classList.toggle('hidden',!guardian&&data.isOwner);$('toggleMember').disabled=!canWrite;
+  $('toggleMember').textContent=guardian?(active?'Quitar acceso':'Dar acceso'):(active?'Desactivar acceso':'Reactivar acceso');
+  $('memberSecurityHelp').textContent=guardian?'Puedes renovar la contraseña temporal o retirar el portal sin afectar la ficha del Tanner.':username?'Puedes entregar una nueva contraseña temporal o pausar esta llave.':'Las cuentas con correo recuperan su contraseña desde la pantalla de entrada.';
+}
 function moduleSort(a,b){return Number(a.sortOrder||999)-Number(b.sortOrder||999)||String(a.moduleName).localeCompare(String(b.moduleName),'es-MX');}
-function renderAccessDrawer(){
-  if(!currentMember)return;
-  $('accessName').textContent=currentMember.displayName||currentMember.email||'Usuario';
-  $('accessMeta').textContent=`${roleLabels[currentMember.roleCode]||currentMember.role} · ${currentMember.active?'Acceso activo':'Acceso inactivo'}`;
-  $('ownerProtection').classList.toggle('hidden',!currentMember.isOwner);
-  $('resetAllModules').disabled=currentMember.isOwner||!canWrite||!customCount(currentMember);
-  const box=$('moduleAccessList');box.innerHTML='';
-  (currentMember.modules||[]).filter(m=>!hiddenModules.has(m.moduleCode)&&moduleLabels[m.moduleCode]).sort(moduleSort).forEach(m=>{
-    const row=document.createElement('article');row.className=`module-access-row ${m.customized?'customized':''} ${!m.enabled?'plan-disabled':''}`;
-    const disabled=currentMember.isOwner||!canWrite||!m.enabled,code=safe(m.moduleCode),label=safe(moduleLabels[m.moduleCode]||m.moduleName||m.moduleCode);
-    const description=!m.enabled?'Fuera del plan':m.customized?'Personalizado':`Del rol · ${m.baseCanRead?'ver':'sin acceso'}${m.baseCanWrite?' + editar':''}`;
-    row.innerHTML=`<div class="module-access-name"><strong>${label}</strong><small>${safe(description)}</small></div><label class="switch-wrap"><input class="read-switch" type="checkbox" data-code="${code}" ${m.effectiveCanRead?'checked':''} ${disabled?'disabled':''}><span class="switch-ui"></span></label><label class="switch-wrap"><input class="write-switch" type="checkbox" data-code="${code}" ${m.effectiveCanWrite?'checked':''} ${disabled||!m.effectiveCanRead?'disabled':''}><span class="switch-ui"></span></label><button class="inherit-module secondary mini" data-code="${code}" type="button" ${disabled||!m.customized?'disabled':''}>Rol</button>`;
-    box.appendChild(row);
+function levelOf(module){return module.effectiveCanWrite?'write':module.effectiveCanRead?'read':'none';}
+function baseLevelOf(module){return module.baseCanWrite?'write':module.baseCanRead?'read':'none';}
+function renderModuleAccess(){
+  if(currentPerson?.kind!=='staff')return;
+  const member=currentPerson.data,list=$('moduleAccessList');list.innerHTML='';
+  (member.modules||[]).filter(module=>!hiddenModules.has(module.moduleCode)&&moduleLabels[module.moduleCode]).sort(moduleSort).forEach(module=>{
+    const disabled=member.isOwner||!canWrite||!module.enabled,current=levelOf(module),source=!module.enabled?'No disponible':module.customized?'Ajuste especial':`Incluido en ${roleName(member.roleCode)}`;
+    const row=document.createElement('article');row.className=`module-access-row ${module.customized?'customized':''} ${!module.enabled?'plan-disabled':''}`;
+    row.innerHTML=`<div class="module-access-name"><strong>${safe(moduleLabels[module.moduleCode])}</strong><small>${safe(source)}</small></div><select class="module-level" data-code="${safe(module.moduleCode)}" ${disabled?'disabled':''}><option value="none" ${current==='none'?'selected':''}>Sin acceso</option><option value="read" ${current==='read'?'selected':''}>Puede ver</option><option value="write" ${current==='write'?'selected':''}>Puede gestionar</option></select>`;
+    list.appendChild(row);
   });
-  box.querySelectorAll('.read-switch').forEach(input=>input.addEventListener('change',()=>setModule(input.dataset.code,input.checked,input.checked?getModule(input.dataset.code)?.effectiveCanWrite:false)));
-  box.querySelectorAll('.write-switch').forEach(input=>input.addEventListener('change',()=>setModule(input.dataset.code,true,input.checked)));
-  box.querySelectorAll('.inherit-module').forEach(btn=>btn.addEventListener('click',()=>inheritModule(btn.dataset.code)));
+  list.querySelectorAll('.module-level').forEach(select=>select.addEventListener('change',()=>setModuleLevel(select.dataset.code,select.value)));
 }
-function getModule(code){return (currentMember?.modules||[]).find(m=>m.moduleCode===code);}
-async function setModule(code,read,write){
-  if(!currentMember||currentMember.isOwner)return;msg('accessMessage');setDrawerBusy(true);
-  try{
-    await rpc('v2_set_membership_module_access',{organization_id:ctx.organization_id,membership_id:currentMember.membershipId,module_code:code,can_read:read,can_write:write});
-    await load(true);msg('accessMessage',`${moduleLabels[code]||code}: permisos actualizados.`,'success');
-  }catch(e){msg('accessMessage',friendly(e));await load(true);}finally{setDrawerBusy(false);}
+function moduleByCode(code){return currentPerson?.kind==='staff'?(currentPerson.data.modules||[]).find(module=>module.moduleCode===code):null;}
+function setDrawerBusy(busy){$('moduleAccessList').classList.toggle('busy',busy);$('resetAllModules').disabled=busy||currentPerson?.data?.isOwner||!canWrite||!customCount(currentPerson?.data||{});}
+async function setModuleLevel(code,level){
+  if(currentPerson?.kind!=='staff'||currentPerson.data.isOwner)return;
+  const member=currentPerson.data,module=moduleByCode(code),read=level!=='none',write=level==='write',useRole=module&&level===baseLevelOf(module);
+  setDrawerBusy(true);message('accessMessage');
+  try{await rpc('v2_set_membership_module_access',{organization_id:ctx.organization_id,membership_id:member.membershipId,module_code:code,can_read:useRole?null:read,can_write:useRole?null:write});await load(true);message('accessMessage',`${moduleLabels[code]} actualizado.`,'success');}
+  catch(error){message('accessMessage',friendly(error));await load(true);}finally{setDrawerBusy(false);}
 }
-async function inheritModule(code){
-  if(!currentMember||currentMember.isOwner)return;msg('accessMessage');setDrawerBusy(true);
-  try{
-    await rpc('v2_set_membership_module_access',{organization_id:ctx.organization_id,membership_id:currentMember.membershipId,module_code:code,can_read:null,can_write:null});
-    await load(true);msg('accessMessage',`${moduleLabels[code]||code}: vuelve a heredar del rol.`,'success');
-  }catch(e){msg('accessMessage',friendly(e));await load(true);}finally{setDrawerBusy(false);}
+async function saveMemberProfile(){
+  if(currentPerson?.kind!=='staff'||currentPerson.data.isOwner)return;
+  const member=currentPerson.data,roleCode=$('memberRole').value,button=$('saveMemberProfile');button.disabled=true;message('profileMessage');
+  try{await rpc('v2_update_membership',{organization_id:ctx.organization_id,membership_id:member.membershipId,role_code:roleCode,active:member.active});await load(true);message('profileMessage','Perfil guardado. Su TannerOS ya refleja este acceso.','success');}
+  catch(error){message('profileMessage',friendly(error));await load(true);}finally{button.disabled=!canWrite||currentPerson?.data?.isOwner;}
 }
-function setDrawerBusy(busy){$('moduleAccessList')?.classList.toggle('busy',busy);$('resetAllModules').disabled=busy||currentMember?.isOwner||!canWrite||!customCount(currentMember);}
-async function resetAll(){
-  if(!currentMember||currentMember.isOwner)return;
-  const customized=(currentMember.modules||[]).filter(m=>m.customized&&!hiddenModules.has(m.moduleCode));
-  if(!customized.length)return;
-  if(!confirm(`¿Restaurar ${customized.length} permiso(s) de ${currentMember.displayName||'este usuario'} a lo definido por su rol?`))return;
-  setDrawerBusy(true);msg('accessMessage');
-  try{
-    for(const m of customized)await rpc('v2_set_membership_module_access',{organization_id:ctx.organization_id,membership_id:currentMember.membershipId,module_code:m.moduleCode,can_read:null,can_write:null});
-    await load(true);msg('accessMessage','Todos los módulos vuelven a heredar del rol.','success');
-  }catch(e){msg('accessMessage',friendly(e));await load(true);}finally{setDrawerBusy(false);}
+async function resetAllModules(){
+  if(currentPerson?.kind!=='staff'||currentPerson.data.isOwner)return;
+  const member=currentPerson.data,customized=(member.modules||[]).filter(module=>module.customized&&!hiddenModules.has(module.moduleCode));if(!customized.length)return;
+  if(!confirm(`¿Usar nuevamente el acceso recomendado de ${roleName(member.roleCode)}?`))return;
+  setDrawerBusy(true);message('accessMessage');
+  try{for(const module of customized)await rpc('v2_set_membership_module_access',{organization_id:ctx.organization_id,membership_id:member.membershipId,module_code:module.moduleCode,can_read:null,can_write:null});await load(true);message('accessMessage','Acceso restaurado al perfil recomendado.','success');}
+  catch(error){message('accessMessage',friendly(error));await load(true);}finally{setDrawerBusy(false);}
 }
-function showStaffCredential(title,username,password){
-  lastCredential={username,password};
-  $('staffCredentialTitle').textContent=title;
-  $('staffCredentialUsername').textContent=username;
-  $('staffCredentialPassword').textContent=password;
-  $('staffCredentialResult').classList.remove('hidden');
-  $('staffCredentialResult').scrollIntoView({behavior:'smooth',block:'center'});
-}
-async function createStaffAccess(e){
-  e.preventDefault();msg('staffAccessMessage');$('staffCredentialResult').classList.add('hidden');lastCredential=null;
-  const btn=$('createStaffAccess');btn.disabled=true;
-  try{
-    const data=await invokeStaff({action:'create_username_user',display_name:$('staffDisplayName').value.trim(),username:$('staffUsername').value.trim(),role_code:$('staffRole').value});
-    e.target.reset();$('staffRole').value='operations';await load();
-    showStaffCredential('Acceso creado',data.username,data.temporary_password);
-    msg('staffAccessMessage','Usuario creado. Entrega estos datos de forma privada.','success');
-  }catch(err){msg('staffAccessMessage',friendly(err));}
-  finally{btn.disabled=!canWrite;}
-}
-async function resetStaffPassword(userId){
-  const member=members.find(m=>String(m.userId)===String(userId));if(!member)return;
-  if(!confirm(`¿Crear una contraseña temporal nueva para ${member.displayName||staffUsernameFromEmail(member.email)||'este usuario'}? La contraseña anterior dejará de funcionar.`))return;
-  msg('staffAccessMessage');$('staffCredentialResult').classList.add('hidden');lastCredential=null;
-  try{
-    const data=await invokeStaff({action:'reset_username_password',user_id:userId});
-    showStaffCredential('Contraseña restablecida',data.username,data.temporary_password);
-    msg('staffAccessMessage','Contraseña temporal creada. Entrégala de forma privada.','success');
-  }catch(err){msg('staffAccessMessage',friendly(err));}
-}
-async function copyStaffCredential(){
-  if(!lastCredential)return;
-  const value=`TannerOS\nUsuario: ${lastCredential.username}\nContraseña temporal: ${lastCredential.password}\nEntrar: https://app.tannerycity.com/`;
-  try{await navigator.clipboard.writeText(value);}
-  catch{
-    const area=document.createElement('textarea');area.value=value;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();
+async function togglePersonAccess(){
+  if(!currentPerson)return;
+  if(currentPerson.kind==='guardian'){
+    const guardian=currentPerson.data;
+    if(!guardian.has_access){const id=guardian.guardian_id;closePerson();openWizard(id);return;}
+    if(!confirm(`¿Quitar el acceso al portal de ${guardianName(guardian)}? La ficha y los pagos del Tanner se conservan.`))return;
+    try{await invokeStaff({action:'revoke_guardian_access',guardian_id:guardian.guardian_id});await load();closePerson();}
+    catch(error){message('profileMessage',friendly(error));}
+    return;
   }
-  const button=$('copyStaffCredential'),original=button.textContent;button.textContent='Copiado';setTimeout(()=>button.textContent=original,1600);
+  const member=currentPerson.data;if(member.isOwner)return;
+  const next=!member.active,verb=next?'reactivar':'desactivar';
+  if(!confirm(`¿${verb[0].toUpperCase()+verb.slice(1)} la llave de ${memberName(member)}?`))return;
+  try{await rpc('v2_update_membership',{organization_id:ctx.organization_id,membership_id:member.membershipId,role_code:member.roleCode,active:next});await load();closePerson();}
+  catch(error){message('profileMessage',friendly(error));}
 }
-function resetInviteLink(){
-  lastInviteLink=null;$('inviteLinkResult').classList.add('hidden');$('inviteLinkEmail').textContent='';$('inviteLinkValue').textContent='';
-}
-function showInviteOutcome(data,email){
-  if(data?.email_sent){
-    resetInviteLink();msg('inviteMessage',`Correo enviado a ${email}. Revisa también Spam o No deseado.`,'success');
-  }else if(data?.invitation_link){
-    lastInviteLink=data.invitation_link;$('inviteLinkEmail').textContent=email;$('inviteLinkValue').textContent=data.invitation_link;
-    $('inviteLinkResult').classList.remove('hidden');
-    msg('inviteMessage','El correo automático no está habilitado. Copia el enlace y compártelo de forma privada.','success');
-    $('inviteLinkResult').scrollIntoView({behavior:'smooth',block:'center'});
-  }else throw new Error('No se pudo entregar la invitación.');
-}
-async function copyInviteLink(){
-  if(!lastInviteLink)return;
-  try{await navigator.clipboard.writeText(lastInviteLink);}
-  catch{
-    const area=document.createElement('textarea');area.value=lastInviteLink;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();
-  }
-  const button=$('copyInviteLink'),original=button.textContent;button.textContent='Enlace copiado';setTimeout(()=>button.textContent=original,1600);
-}
-async function createInvite(e){
-  e.preventDefault();msg('inviteMessage');resetInviteLink();const btn=$('sendInvite');btn.disabled=true;
-  const email=$('inviteEmail').value.trim();
+async function resetPersonPassword(){
+  if(!currentPerson)return;
+  const guardian=currentPerson.kind==='guardian',data=currentPerson.data,name=guardian?guardianName(data):memberName(data);
+  if(!confirm(`¿Crear una contraseña temporal nueva para ${name}? La anterior dejará de funcionar.`))return;
   try{
-    const data=await invokeStaff({action:'send_email_invite',email,role_code:$('inviteRole').value});
-    e.target.reset();$('inviteRole').value='president';await load();showInviteOutcome(data,email);
-  }catch(err){msg('inviteMessage',friendly(err));}
-  finally{btn.disabled=!canWrite;}
+    const result=await invokeStaff(guardian?{action:'reset_guardian_password',guardian_id:data.guardian_id}:{action:'reset_username_password',user_id:data.userId});
+    closePerson();openWizard();showCredentialResult(result,name,guardian?'family':'staff');
+  }catch(error){message('profileMessage',friendly(error));}
 }
-async function sendEmailInvite(email,roleCode){
-  msg('inviteMessage');resetInviteLink();
-  try{
-    const data=await invokeStaff({action:'send_email_invite',email,role_code:roleCode});
-    await load();showInviteOutcome(data,email);
-  }catch(err){msg('inviteMessage',friendly(err));}
+async function resendInvite(email,roleCode){
+  try{const result=await invokeStaff({action:'send_email_invite',email,role_code:roleCode});await load();if(result.email_sent)alert(`Invitación enviada a ${email}.`);else if(result.invitation_link){lastCredentialText=`Bienvenido a Tannery City\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;await copyCredential();alert('El enlace privado quedó copiado.');}}
+  catch(error){alert(friendly(error));}
 }
-async function updateMember(id,roleCode,active){
-  const m=members.find(x=>x.membershipId===id);if(!m)return;
-  try{await rpc('v2_update_membership',{organization_id:ctx.organization_id,membership_id:id,role_code:roleCode||m.roleCode,active:active===null?m.active:active});await load();}
-  catch(err){alert(friendly(err));await load();}
-}
-async function revokeInvite(id){if(!confirm('¿Revocar esta invitación?'))return;try{await rpc('v2_revoke_invitation',{organization_id:ctx.organization_id,invitation_id:id});await load();}catch(err){alert(friendly(err));}}
+async function revokeInvite(id){if(!confirm('¿Revocar esta invitación?'))return;try{await rpc('v2_revoke_invitation',{organization_id:ctx.organization_id,invitation_id:id});await load();}catch(error){alert(friendly(error));}}
 
+$('openCreateUser').addEventListener('click',()=>openWizard());$('closeWizard').addEventListener('click',closeWizard);$('wizardBackdrop').addEventListener('click',closeWizard);$('finishWizard').addEventListener('click',closeWizard);$('copyCredential').addEventListener('click',copyCredential);
+document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener('click',()=>chooseProfile(button.dataset.role)));
+document.querySelectorAll('[data-profile]').forEach(button=>button.addEventListener('click',()=>chooseProfile(button.dataset.profile)));
+document.querySelectorAll('[data-method]').forEach(button=>button.addEventListener('click',()=>setMethod(button.dataset.method)));
+$('wizardBack2').addEventListener('click',()=>setWizardStep(1));$('wizardNext2').addEventListener('click',goToReview);$('wizardBack3').addEventListener('click',()=>setWizardStep(2));$('accessForm').addEventListener('submit',createAccess);
+$('accessDisplayName').addEventListener('blur',()=>{if(wizard.method==='username'&&!$('accessUsername').value)$('accessUsername').value=suggestedUsername($('accessDisplayName').value);});
+$('familyGuardian').addEventListener('change',syncGuardianEmail);$('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());
+$('closeMember').addEventListener('click',closePerson);$('memberBackdrop').addEventListener('click',closePerson);$('saveMemberProfile').addEventListener('click',saveMemberProfile);$('resetAllModules').addEventListener('click',resetAllModules);$('toggleMember').addEventListener('click',togglePersonAccess);$('resetMemberPassword').addEventListener('click',resetPersonPassword);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!$('memberDrawer').classList.contains('hidden'))closePerson();else if(!$('wizardModal').classList.contains('hidden'))closeWizard();}});
 
-/* ---------- Portal de familias ---------- */
-// El tutor recibe una cuenta ligada a app.guardians, sin membresía de
-// organización: por diseño no puede tocar ningún módulo interno.
-let guardians=[],guardianFilter='';
-const gEsc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-async function loadGuardians(){
-  try{guardians=await rpc('v2_guardian_access',{organization_id:ctx.organization_id})||[];}
-  catch(e){guardians=[];}
-  renderGuardians();
-}
-function renderGuardians(){
-  const box=$('guardianList');if(!box)return;
-  const q=guardianFilter.trim().toLowerCase();
-  const rows=guardians.filter(g=>!q
-    || String(g.name||'').toLowerCase().includes(q)
-    || (g.players||[]).some(p=>String(p).toLowerCase().includes(q)));
-  $('guardianEmpty')?.classList.toggle('hidden',rows.length>0);
-  box.innerHTML=rows.map(g=>{
-    const hijos=(g.players||[]).join(' · ')||'Sin Tanner ligado';
-    const btn=g.has_access
-      ? `<button class="secondary mini" data-reset="${gEsc(g.guardian_id)}" type="button">Nueva contraseña</button><button class="secondary mini" data-revoke="${gEsc(g.guardian_id)}" type="button">Quitar acceso</button>`
-      : `<button class="primary mini" data-grant="${gEsc(g.guardian_id)}" type="button">Dar acceso</button>`;
-    return `<article class="member-row"><div class="member-main"><div class="member-title"><strong>${gEsc(g.name||'Tutor')}</strong>${g.has_access?'<span class="staff-chip">Con acceso</span>':''}</div><span>${gEsc(hijos)}</span><small>${gEsc(g.email||g.phone||'Sin contacto')}</small></div><div class="member-actions">${btn}</div></article>`;
-  }).join('');
-  box.querySelectorAll('[data-grant]').forEach(b=>b.addEventListener('click',()=>grantGuardian(b.dataset.grant)));
-  box.querySelectorAll('[data-revoke]').forEach(b=>b.addEventListener('click',()=>revokeGuardian(b.dataset.revoke)));
-  box.querySelectorAll('[data-reset]').forEach(b=>b.addEventListener('click',()=>resetGuardian(b.dataset.reset)));
-}
-// La contraseña temporal se muestra una sola vez: no queda guardada en ningún
-// lado desde donde se pueda volver a leer.
-function showCredential(email,password){
-  msg('guardianMessage',`Acceso listo · ${email} · contraseña temporal: ${password} — cópiala ahora, no se vuelve a mostrar.`,'success');
-  try{navigator.clipboard?.writeText(`Portal de familias Tannery City\nhttps://app.tannerycity.com/familias/\nCorreo: ${email}\nContraseña temporal: ${password}`);}catch(e){}
-}
-async function grantGuardian(guardianId){
-  const g=guardians.find(x=>String(x.guardian_id)===String(guardianId));
-  const email=prompt(`Correo del tutor ${g?.name||''}:`, g?.email||'');
-  if(!email||!email.trim())return;
-  msg('guardianMessage');
-  try{
-    const res=await invokeStaff({action:'create_guardian_access',guardian_id:guardianId,email:email.trim()});
-    showCredential(res.email,res.temporary_password);
-    await loadGuardians();
-  }catch(e){msg('guardianMessage',friendly(e));}
-}
-async function revokeGuardian(guardianId){
-  if(!confirm('¿Quitar el acceso al portal de este tutor? Su cuenta se elimina.'))return;
-  msg('guardianMessage');
-  try{await invokeStaff({action:'revoke_guardian_access',guardian_id:guardianId});await loadGuardians();
-    msg('guardianMessage','Acceso retirado.','success');}
-  catch(e){msg('guardianMessage',friendly(e));}
-}
-async function resetGuardian(guardianId){
-  if(!confirm('¿Generar una contraseña temporal nueva para este tutor?'))return;
-  msg('guardianMessage');
-  try{const res=await invokeStaff({action:'reset_guardian_password',guardian_id:guardianId});
-    showCredential(res.email,res.temporary_password);}
-  catch(e){msg('guardianMessage',friendly(e));}
-}
-$('guardianSearch')?.addEventListener('input',e=>{guardianFilter=e.target.value;renderGuardians();});
-
-$('staffAccessForm').addEventListener('submit',createStaffAccess);$('copyStaffCredential').addEventListener('click',copyStaffCredential);$('inviteForm').addEventListener('submit',createInvite);$('copyInviteLink').addEventListener('click',copyInviteLink);$('refresh').addEventListener('click',()=>load());
-$('closeAccess').addEventListener('click',closeAccess);$('accessBackdrop').addEventListener('click',closeAccess);$('resetAllModules').addEventListener('click',resetAll);
-boot().then(()=>loadGuardians()).catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
+boot().catch(error=>{$('deniedText').textContent=friendly(error);show('deniedView');});

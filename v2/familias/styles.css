@@ -69,11 +69,12 @@
 .fam-profile-facts small{color:#7d8c90;font-size:10px;font-weight:600}.fam-profile-facts b{overflow:hidden;color:#26454c;font-size:11.5px;text-overflow:ellipsis;white-space:nowrap}
 
 /* Navegación inferior, al alcance del pulgar */
-.fam-nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);
+.fam-nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(5,1fr);
   background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-top:1px solid #e3e0d4;
   padding-bottom:env(safe-area-inset-bottom)}
 .fam-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:transparent;
-  padding:9px 4px 8px;min-height:56px;font:inherit;font-size:11px;font-weight:600;color:#8b979c;cursor:pointer;
+  padding:9px 2px 8px;min-height:56px;font:inherit;font-size:10.5px;font-weight:600;color:#8b979c;cursor:pointer;
+  letter-spacing:-.01em;white-space:nowrap;
   -webkit-tap-highlight-color:transparent}
 .fam-nav-item[aria-current="page"]{color:var(--fam-teal)}
 .fam-nav-ico{width:22px;height:22px;display:block;background:currentColor;
@@ -83,12 +84,37 @@
 .fam-nav-ico[data-i="calendar"]{-webkit-mask-image:var(--fam-i-calendar);mask-image:var(--fam-i-calendar)}
 .fam-nav-ico[data-i="bag"]{-webkit-mask-image:var(--fam-i-bag);mask-image:var(--fam-i-bag)}
 .fam-nav-ico[data-i="car"]{-webkit-mask-image:var(--fam-i-car);mask-image:var(--fam-i-car)}
+.fam-nav-ico[data-i="star"]{-webkit-mask-image:var(--fam-i-star);mask-image:var(--fam-i-star)}
 :root{
   --fam-i-wallet:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='13' rx='3'/%3E%3Cpath d='M3 10h18M16.5 14h.01'/%3E%3C/svg%3E");
   --fam-i-calendar:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M8 3v4M16 3v4M3 10h18'/%3E%3C/svg%3E");
   --fam-i-bag:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 7h12l1 13H5z'/%3E%3Cpath d='M9 7a3 3 0 0 1 6 0'/%3E%3C/svg%3E");
   --fam-i-car:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 16h14M4 16l1.6-5.2A3 3 0 0 1 8.5 8.6h7a3 3 0 0 1 2.9 2.2L20 16v3h-2.5v-1.5h-11V19H4z'/%3E%3Cpath d='M7 13h.01M17 13h.01'/%3E%3C/svg%3E");
+  --fam-i-star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.7l5.8-.8z'/%3E%3C/svg%3E");
 }
+
+/* Progreso: cómo va el Tanner */
+.fam-hero{display:grid;justify-items:center;gap:10px;padding:22px 18px;background:#fff;
+  border:1px solid var(--fam-line);border-radius:20px;text-align:center}
+.fam-hero-photo{width:104px;height:104px;border-radius:32px;overflow:hidden;display:grid;place-items:center;
+  background:linear-gradient(160deg,var(--fam-deep),var(--fam-teal));color:#fff;font-size:32px;font-weight:700}
+.fam-hero-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.fam-hero h2{margin:0;font-size:21px;letter-spacing:-.022em}
+.fam-hero p{margin:0;font-size:12.5px;color:var(--fam-muted)}
+.fam-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.fam-stat{display:grid;gap:2px;padding:11px 8px;border-radius:14px;background:#f4f8f7;text-align:center}
+.fam-stat b{font-size:19px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.fam-stat span{font-size:10.5px;font-weight:600;color:var(--fam-muted)}
+.fam-stat[data-tone="ok"] b{color:var(--fam-ok)}
+.fam-stat[data-tone="warn"] b{color:var(--fam-warn)}
+.fam-score{display:grid;grid-template-columns:minmax(84px,auto) 1fr auto;align-items:center;gap:10px;padding:8px 0}
+.fam-score>span:first-child{font-size:12.5px;font-weight:600;color:var(--fam-ink)}
+.fam-bar{height:8px;border-radius:99px;background:#eceff0;overflow:hidden}
+.fam-bar i{display:block;height:100%;border-radius:99px;background:var(--fam-teal)}
+.fam-score b{font-size:13px;font-variant-numeric:tabular-nums;color:var(--fam-deep);min-width:26px;text-align:right}
+.fam-goal{margin-top:10px;padding:11px 13px;border-radius:13px;background:#f4f8f7}
+.fam-goal small{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--fam-teal)}
+.fam-goal p{margin:3px 0 0;font-size:13px;color:var(--fam-ink);line-height:1.4}
 
 /* Saldo */
 .fam-balance{background:#fff;border:1px solid var(--fam-line);border-radius:20px;padding:20px;
@@ -148,6 +174,8 @@
 .fam-ev-day span{display:block;margin-top:2px;font-size:10.5px;font-weight:600;color:#6f7d82;text-transform:uppercase}
 .fam-ev-body strong{display:block;font-size:14px}
 .fam-ev-body span{display:block;margin-top:2px;font-size:12px;color:#8b979c}
+.fam-ev[data-kind="birthday"] .fam-ev-day{background:#fdf4e3;color:#8a6413;border-color:#f0e2c4}
+.fam-ev[data-mine="1"] .fam-ev-body strong::after{content:"su equipo";margin-left:7px;padding:2px 7px;border-radius:999px;background:#e6f2f4;color:var(--fam-teal);font-size:10px;font-weight:700;vertical-align:middle}
 
 /* Tienda */
 .fam-prods{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}

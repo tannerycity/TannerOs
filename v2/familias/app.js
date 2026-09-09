@@ -17,7 +17,7 @@ const ORDER_LABEL={draft:'Por confirmar',pending:'Apartado',confirmed:'Confirmad
   in_production:'En producción',ready:'Listo para recoger',delivered:'Entregado',
   cancelled:'Cancelado',paid:'Pagado'};
 const orderLabel=t=>ORDER_LABEL[t]||'';
-const state={home:null,playerId:'',tab:'cuenta',statements:{},calendar:null,catalog:null,cart:{},parking:null};
+const state={home:null,playerId:'',tab:'cuenta',statements:{},progress:{},calendar:null,catalog:null,cart:{},parking:null};
 
 function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -242,19 +242,89 @@ async function renderCalendario(){
     catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
   }
   const rows=state.calendar||[];
-  if(!rows.length){
-    $('famBody').innerHTML='<div class="fam-empty">Todavía no hay actividades programadas. Aquí te avisamos en cuanto el club publique el calendario.</div>';
-    return;
-  }
-  const html=rows.map(e=>{
+  // El cumpleaños no lleva hora: poner "9:00 a.m." haría creer que hay algo
+  // agendado a esa hora. Los del equipo de su hijo se marcan.
+  const fila=e=>{
     const d=new Date(e.starts_at);
+    const cumple=e.kind==='birthday';
     const dia=new Intl.DateTimeFormat('es-MX',{day:'numeric'}).format(d);
     const mes=new Intl.DateTimeFormat('es-MX',{month:'short'}).format(d).replace('.','');
-    const hora=new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'}).format(d);
+    const hora=cumple?'':new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'}).format(d);
     const detalle=[hora,e.location,e.category].filter(Boolean).join(' · ');
-    return `<div class="fam-ev"><span class="fam-ev-day"><b>${esc(dia)}</b><span>${esc(mes)}</span></span><span class="fam-ev-body"><strong>${esc(e.title||'Actividad')}</strong><span>${esc(detalle)}</span></span></div>`;
-  }).join('');
-  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Próximas actividades</h2><span>${rows.length}</span></div>${html}</section>`;
+    return `<div class="fam-ev" data-kind="${cumple?'birthday':'session'}"${cumple&&e.mine?' data-mine="1"':''}><span class="fam-ev-day"><b>${esc(dia)}</b><span>${esc(mes)}</span></span><span class="fam-ev-body"><strong>${cumple?'🎂 ':''}${esc(e.title||'Actividad')}</strong><span>${esc(detalle)}</span></span></div>`;
+  };
+  const ordena=(a,b)=>new Date(a.starts_at)-new Date(b.starts_at);
+  const sesiones=rows.filter(e=>e.kind!=='birthday').sort(ordena);
+  const cumples=rows.filter(e=>e.kind==='birthday').sort(ordena);
+  const bloque=(titulo,lista,vacio)=>lista.length
+    ? `<section class="fam-card"><div class="fam-card-head"><h2>${titulo}</h2><span>${lista.length}</span></div>${lista.map(fila).join('')}</section>`
+    : `<section class="fam-card"><div class="fam-card-head"><h2>${titulo}</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">${vacio}</p></section>`;
+  $('famBody').innerHTML=
+    bloque('Entrenamientos y eventos',sesiones,'El club todavía no publica las próximas fechas. Aquí te avisamos en cuanto las suba.')+
+    (cumples.length?bloque('Cumpleaños Tanner',cumples,''):'');
+}
+
+/* ---------- Progreso ---------- */
+// Las etiquetas del profe vienen en clave; aquí se traducen. "goalkeeper" es un
+// objeto anidado con las áreas de portero y se aplana al mismo nivel.
+const SCORE_LABEL={tecnica:'Técnica',valores:'Valores',intensidad:'Intensidad',
+  mentalidad:'Mentalidad',inteligencia:'Inteligencia',
+  manos:'Manos',pies:'Pies',aereo:'Juego aéreo',mando:'Mando',colocacion:'Colocación'};
+function aplanaScores(scores){
+  const out=[];
+  Object.entries(scores||{}).forEach(([k,v])=>{
+    if(v&&typeof v==='object'){
+      Object.entries(v).forEach(([k2,v2])=>{if(Number(v2)>0)out.push([SCORE_LABEL[k2]||k2,Number(v2)]);});
+    }else if(Number(v)>0)out.push([SCORE_LABEL[k]||k,Number(v)]);
+  });
+  return out;
+}
+function evaluacionBlock(ev){
+  const filas=aplanaScores(ev.scores).map(([nombre,valor])=>
+    `<div class="fam-score"><span>${esc(nombre)}</span><span class="fam-bar"><i style="width:${Math.min(100,valor*10)}%"></i></span><b>${valor.toFixed(0)}</b></div>`).join('');
+  const meta=[ev.by&&`Por ${ev.by}`,ev.date&&fmtDate(ev.date)].filter(Boolean).join(' · ');
+  const objetivo=(etiqueta,texto)=>texto?`<div class="fam-goal"><small>${etiqueta}</small><p>${esc(texto)}</p></div>`:'';
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2><span>${esc(meta)}</span></div>${
+    filas||'<p class="fam-muted" style="margin:0;font-size:12.5px">Sin calificaciones capturadas.</p>'}${
+    objetivo('OBJETIVO DEPORTIVO',ev.sports_objective)}${
+    objetivo('OBJETIVO FORMATIVO',ev.formative_objective)}${
+    objetivo('NOTAS DEL PROFE',ev.notes)}</section>`;
+}
+async function renderProgreso(){
+  const p=currentPlayer();
+  if(!p){$('famBody').innerHTML='<div class="fam-empty">Tu cuenta todavía no tiene un Tanner ligado. Avísale al club.</div>';return;}
+  if(!state.progress[p.id]){
+    $('famBody').innerHTML='<div class="fam-empty">Cargando cómo va tu Tanner…</div>';
+    try{state.progress[p.id]=await rpc('v2_portal_progress',{player_id:p.id});}
+    catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
+  }
+  const d=state.progress[p.id],a=d.attendance||{},nombre=nombreDe(p);
+  const pct=a.percent==null?null:Number(a.percent);
+  const hero=`<section class="fam-hero">
+    <span class="fam-hero-photo" data-profile-photo="${esc(p.id)}">${p._photo?`<img src="${esc(p._photo)}" alt="Foto de ${esc(nombre)}">`:esc(initials(p))}</span>
+    <h2>${esc(nombre)}</h2>
+    <p>${esc([p.category,p.position,p.jersey_number&&`#${p.jersey_number}`].filter(Boolean).join(' · ')||'Tanner')}</p>
+    <div class="fam-stats" style="width:100%">
+      <div class="fam-stat" data-tone="${pct==null?'':pct>=80?'ok':'warn'}"><b>${pct==null?'—':`${pct}%`}</b><span>ASISTENCIA</span></div>
+      <div class="fam-stat"><b>${Number(a.present||0)}</b><span>PRESENTE</span></div>
+      <div class="fam-stat"><b>${Number(a.absent||0)}</b><span>FALTAS</span></div>
+    </div>
+  </section>`;
+  const recientes=(d.recent||[]).map(r=>
+    `<div class="fam-mov"><span><strong>${esc(r.title||'Entrenamiento')}</strong><span>${esc(fmtDate(r.date))}</span></span><b style="color:${r.status==='present'?'var(--fam-ok)':'var(--fam-danger)'}">${r.status==='present'?'Asistió':'Faltó'}</b></div>`).join('');
+  const listaAsistencia=recientes
+    ? `<section class="fam-card"><div class="fam-card-head"><h2>Últimos entrenamientos</h2><span>${(d.recent||[]).length}</span></div>${recientes}</section>`
+    : `<section class="fam-card"><div class="fam-card-head"><h2>Últimos entrenamientos</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Todavía no hay listas tomadas para tu Tanner.</p></section>`;
+  const evs=d.evaluations||[];
+  const valoraciones=evs.length?evs.map(evaluacionBlock).join('')
+    : `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Sus profes todavía no capturan una valoración. Aquí la vas a ver en cuanto la hagan.</p></section>`;
+  $('famBody').innerHTML=hero+valoraciones+listaAsistencia;
+  // La foto llega firmada aparte, igual que en Cuenta.
+  if(!p._photo&&(p.photo_thumb_path||p.photo_path)){
+    const url=await signPhoto(p);
+    if(url){p._photo=url;const box=document.querySelector(`[data-profile-photo="${CSS.escape(String(p.id))}"]`);
+      if(box)box.innerHTML=`<img src="${esc(url)}" alt="Foto de ${esc(nombre)}">`;}
+  }
 }
 
 /* ---------- Tienda ---------- */
@@ -418,6 +488,7 @@ function paint(){
     b.setAttribute('aria-current',b.dataset.tab===state.tab?'page':'false'));
   document.getElementById('famCart')?.remove();
   if(state.tab==='calendario')renderCalendario();
+  else if(state.tab==='progreso')renderProgreso();
   else if(state.tab==='tienda')renderTienda();
   else if(state.tab==='gafete')renderGafete();
   else renderCuenta();

@@ -6,9 +6,12 @@
 .users-hero .eyebrow{color:#8cd6dd}
 .users-hero h1{max-width:760px;margin:5px 0 8px;font-size:clamp(32px,4.4vw,54px);line-height:1.03;letter-spacing:-.045em}
 .users-hero p{max-width:650px;margin:0;color:#bdd0d3;font-size:15px;line-height:1.55}
-.create-user-button{display:inline-flex;align-items:center;gap:10px;white-space:nowrap;padding:14px 19px;border-radius:16px;background:#fff;color:#07191e;box-shadow:0 10px 24px rgba(0,0,0,.18)}
-.create-user-button:hover{background:#f5fbfa}
+.create-user-button{display:inline-flex;align-items:center;gap:10px;white-space:nowrap;padding:14px 19px;border-radius:16px!important;background:#fff!important;color:#07191e!important;box-shadow:0 10px 24px rgba(0,0,0,.18)!important}
+.create-user-button:hover{background:#f5fbfa!important;color:#07191e!important}
+.create-user-button:focus-visible{outline:3px solid #7bd6e3;outline-offset:3px}
+.create-user-button:disabled{background:rgba(255,255,255,.72)!important;color:#29464d!important;opacity:1;cursor:not-allowed;box-shadow:none!important}
 .button-plus{display:grid;width:24px;height:24px;place-items:center;border-radius:50%;background:#07191e;color:#fff;font-size:18px;font-weight:500}
+.create-user-button:disabled .button-plus{background:#587077;color:#fff}
 .access-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
 .access-summary article{display:grid;min-height:122px;padding:18px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.94)}
 .access-summary span{font-size:12px;font-weight:850;color:#667a7e}

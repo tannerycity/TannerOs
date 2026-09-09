@@ -52,6 +52,7 @@
     {"source":"/produccion","destination":"/v2/produccion/index.html"},{"source":"/produccion/","destination":"/v2/produccion/index.html"},
     {"source":"/operacion/programas","destination":"/v2/programas/index.html"},{"source":"/operacion/programas/","destination":"/v2/programas/index.html"},
     {"source":"/operacion/academias","destination":"/v2/academias/index.html"},{"source":"/operacion/academias/","destination":"/v2/academias/index.html"},
+    {"source":"/mi-academia","destination":"/v2/mi-academia/index.html"},{"source":"/mi-academia/","destination":"/v2/mi-academia/index.html"},
     {"source":"/admin/auditoria","destination":"/v2/admin/auditoria/index.html"},{"source":"/admin/auditoria/","destination":"/v2/admin/auditoria/index.html"},
     {"source":"/admin/branding","destination":"/v2/admin/branding/index.html"},{"source":"/admin/branding/","destination":"/v2/admin/branding/index.html"},
     {"source":"/admin/club","destination":"/v2/admin/club/index.html"},{"source":"/admin/club/","destination":"/v2/admin/club/index.html"},

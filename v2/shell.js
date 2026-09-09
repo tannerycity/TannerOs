@@ -250,6 +250,13 @@ function ensureProductionCss(){if(document.getElementById('tosProductionCss'))re
 // Taquilla ve solo Inicio (implícito), Taquilla, Pedidos, Calendario y Programas — nada de Finanzas,
 // aunque técnicamente tenga lectura de cobranza (la necesita solo para el buscador de Tanners en Cobrar).
 const SIMPLE_SIDEBAR_ROLES={Taquilla:{exclude:['finanzas']}};
+// El profesor de academia entra a SU academia, no al panel administrativo:
+// mismo permiso de módulo, distinta puerta. Se decide por poder escribir, que es
+// lo que distingue a quien administra academias de quien solo da clase en una.
+function destinoAcademias(navigation,item){
+  if(item.code!=='academias')return item.href;
+  return moduleAccess(navigation,'academias',true)?item.href:'/mi-academia/';
+}
 function renderNavigation(nav,navigation,active,role){
   if(!nav)return;nav.innerHTML='';
   const simple=SIMPLE_SIDEBAR_ROLES[role];
@@ -257,7 +264,7 @@ function renderNavigation(nav,navigation,active,role){
     const exclude=new Set(simple.exclude||[]);
     const items=navItems.filter(item=>itemReadable(navigation,item)&&!exclude.has(item.code));
     const section=document.createElement('div');section.className='tos-nav-section tos-nav-section-simple';
-    items.forEach(item=>{const a=document.createElement('a');a.href=item.href;a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
+    items.forEach(item=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
     nav.appendChild(section);
     return;
   }
@@ -265,7 +272,7 @@ function renderNavigation(nav,navigation,active,role){
     const items=navItems.filter(item=>item.group===group&&itemReadable(navigation,item));if(!items.length)return;
     const section=document.createElement('div');section.className=`tos-nav-section tos-nav-section-${group}`;
     if(groupLabels[group]){const title=document.createElement('div');title.className='tos-nav-section-label';title.textContent=groupLabels[group];section.appendChild(title);}
-    items.forEach(item=>{const a=document.createElement('a');a.href=item.href;a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
+    items.forEach(item=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
     nav.appendChild(section);
   });
 }

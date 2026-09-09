@@ -175,6 +175,7 @@ function renderOtherGuardians(rows,primary){const box=$('otherGuardians'),others
 // muestra el formulario público (public-form.js), o el expediente diría que el
 // tutor aceptó un texto distinto del que leyó.
 const AVISO_VIGENTE='2026-08-19-v1';
+const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0});
 const fechaConAnio=v=>{if(!v)return'';try{return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium'}).format(new Date(v));}catch{return'';}};
 
 // Los Tanners del legacy firmaron en papel: sin esto se quedarían marcados como
@@ -200,6 +201,161 @@ function renderPrivacy(p){
   $('cCancel')?.addEventListener('click',()=>$('consentBox').classList.add('hidden'));
   $('cSave')?.addEventListener('click',()=>guardarConsentimiento(p.id));
 }
+// === Beca y apoyos ===
+// Hoy la beca vive escondida en la cuota base: el registro es solo una etiqueta y
+// nadie puede responder de cuánto es ni por qué. Esto la saca a la superficie.
+const TIPO_BECA={scholarship_full:'Beca total',scholarship_partial:'Beca parcial',
+  sponsor_funded:'La paga un patrocinador',sibling_discount:'Descuento por hermanos'};
+const TIPOS_EDITABLES=['scholarship_full','scholarship_partial','sibling_discount'];
+// La nota que dejó la importación no es un motivo: la escribió el script, no una persona.
+const esNotaDelLegacy=n=>!n||/^Imported as legacy context/.test(n);
+let benefits=[];
+
+async function loadBenefits(playerId){
+  const box=$('benefitsList');
+  $('addBenefit')?.classList.toggle('hidden',!canStatus);
+  try{benefits=await rpc('v2_player_benefits',{organization_id:ctx.organization_id,player_id:playerId})||[];}
+  catch(e){box.innerHTML=`<div class="mini-empty">${esc(friendly(e))}</div>`;return;}
+  renderBenefits(playerId);
+}
+function montoBeca(b){
+  if(b.fixedAmount!=null)return money.format(Number(b.fixedAmount));
+  if(b.percentage!=null)return `${Number(b.percentage)}%`;
+  return null;
+}
+function renderBenefits(playerId){
+  const box=$('benefitsList');
+  const vivos=benefits.filter(b=>b.active);
+  if(!vivos.length){
+    box.innerHTML='<div class="mini-empty">Este Tanner no tiene beca ni apoyo registrado.</div>';
+    return;
+  }
+  box.innerHTML=vivos.map(b=>{
+    const monto=montoBeca(b);
+    const bloqueado=b.type==='sponsor_funded';
+    const avisos=[
+      b.blocksBilling?'<span class="ben-warn">Sin configurar en Contabilidad: mientras siga así no se le genera su mensualidad.</span>':'',
+      !monto?'<span class="ben-gap">Falta anotar de cuánto es el apoyo.</span>':'',
+      esNotaDelLegacy(b.notes)?'<span class="ben-gap">Falta el motivo: lo que dice hoy lo escribió la importación.</span>':''
+    ].filter(Boolean).join('');
+    const datos=[
+      monto&&`<span><b>${esc(monto)}</b> de apoyo</span>`,
+      b.sponsorName||b.fundingSource?`<span>Lo cubre ${esc(b.sponsorName||b.fundingSource)}</span>`:'',
+      b.startsOn?`<span>Desde ${esc(fechaConAnio(b.startsOn))}</span>`:'',
+      b.endsOn?`<span>Hasta ${esc(fechaConAnio(b.endsOn))}</span>`:'',
+      b.legacyLabel?`<span class="ben-legacy">Venía como “${esc(b.legacyLabel)}”</span>`:''
+    ].filter(Boolean).join('');
+    const acciones=canStatus&&!bloqueado
+      ? `<span class="ben-actions"><button type="button" class="secondary mini" data-benedit="${esc(b.id)}">Editar</button>`+
+        `<button type="button" class="secondary mini" data-benend="${esc(b.id)}">Terminar</button></span>`
+      : bloqueado?'<span class="ben-locked">Se edita en Contabilidad</span>':'';
+    return `<article class="ben-row"><div class="ben-head"><strong>${esc(TIPO_BECA[b.type]||b.type)}</strong>${acciones}</div>`+
+      (datos?`<div class="ben-facts">${datos}</div>`:'')+
+      (esNotaDelLegacy(b.notes)?'':`<p class="ben-note">${esc(b.notes)}</p>`)+
+      (avisos?`<div class="ben-avisos">${avisos}</div>`:'')+
+      `</article>`;
+  }).join('');
+  box.querySelectorAll('[data-benedit]').forEach(b=>b.addEventListener('click',()=>formBeca(playerId,b.dataset.benedit)));
+  box.querySelectorAll('[data-benend]').forEach(b=>b.addEventListener('click',()=>terminarBeca(playerId,b.dataset.benend)));
+}
+function formBeca(playerId,benefitId){
+  const b=benefits.find(x=>x.id===benefitId)||{};
+  const box=$('benefitsList');
+  const opciones=TIPOS_EDITABLES.map(t=>`<option value="${t}"${b.type===t?' selected':''}>${esc(TIPO_BECA[t])}</option>`).join('');
+  const nota=esNotaDelLegacy(b.notes)?'':b.notes;
+  box.insertAdjacentHTML('afterbegin',`<form class="ben-form" id="benForm">
+    <label>Tipo de apoyo<select id="benType">${opciones}</select></label>
+    <label>Monto mensual <span class="tos-user-note">(o deja vacío y usa el %)</span><input id="benAmount" type="number" min="1" step="1" value="${b.fixedAmount??''}"></label>
+    <label>Porcentaje<input id="benPct" type="number" min="1" max="100" step="1" value="${b.percentage??''}"></label>
+    <label>¿Quién lo cubre? <span class="tos-user-note">(opcional)</span><input id="benSource" maxlength="120" value="${esc(b.fundingSource||'')}" placeholder="El club, un padrino…"></label>
+    <label>Desde<input id="benStart" type="date" value="${esc(b.startsOn||'')}"></label>
+    <label>Hasta <span class="tos-user-note">(opcional)</span><input id="benEnd" type="date" value="${esc(b.endsOn||'')}"></label>
+    <label class="span-2">Motivo<input id="benNotes" maxlength="300" value="${esc(nota||'')}" placeholder="Por qué se le da y hasta cuándo se revisa" required></label>
+    <small class="ben-hint span-2">Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.</small>
+    <div class="ben-form-actions span-2"><button type="submit" class="primary mini">Guardar apoyo</button>
+      <button type="button" class="secondary mini" id="benCancel">Cancelar</button></div>
+  </form>`);
+  $('benCancel').addEventListener('click',()=>renderBenefits(playerId));
+  $('benForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const box2=$('benefitMessage');box2.classList.add('hidden');
+    const btn=e.target.querySelector('[type="submit"]');btn.disabled=true;
+    try{
+      benefits=await rpc('v2_save_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
+        benefit_id:benefitId||null,benefit_type:$('benType').value,
+        fixed_amount:$('benAmount').value?Number($('benAmount').value):null,
+        percentage:$('benPct').value?Number($('benPct').value):null,
+        funding_source:$('benSource').value.trim()||null,
+        starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
+        notes:$('benNotes').value.trim()})||[];
+      renderBenefits(playerId);
+      await loadPlayers();
+      msg('Apoyo registrado. Quedó en la bitácora con tu nombre y la fecha.','success');
+    }catch(err){
+      box2.textContent=friendly(err);box2.dataset.type='error';box2.classList.remove('hidden');
+      btn.disabled=false;
+    }
+  });
+}
+async function terminarBeca(playerId,benefitId){
+  const motivo=prompt('¿Por qué termina el apoyo? (queda registrado)','');
+  if(motivo===null||!motivo.trim())return;
+  try{
+    benefits=await rpc('v2_end_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
+      benefit_id:benefitId,reason:motivo.trim()})||[];
+    renderBenefits(playerId);
+    await loadPlayers();
+    msg('Apoyo terminado. El histórico se conserva.','success');
+  }catch(err){msg(friendly(err));}
+}
+
+// === Padrón de becas ===
+async function abrirPadronBecas(){
+  $('scholarshipModal').classList.remove('hidden');
+  $('schBody').innerHTML='<div class="mini-empty">Cargando padrón…</div>';
+  let d;
+  try{d=await rpc('v2_scholarships',{organization_id:ctx.organization_id});}
+  catch(e){$('schBody').innerHTML=`<div class="mini-empty">${esc(friendly(e))}</div>`;return;}
+  schRows=d?.rows||[];
+  const s=d?.summary||{};
+  const tarjeta=(n,l,alerta)=>`<article class="sch-kpi${alerta&&Number(n)>0?' alerta':''}"><strong>${esc(String(n??0))}</strong><span>${esc(l)}</span></article>`;
+  $('schSummary').innerHTML=tarjeta(s.total,'Apoyos vivos')+
+    tarjeta(s.sinMonto,'Sin monto anotado',true)+
+    tarjeta(s.sinDocumentar,'Sin motivo escrito',true)+
+    tarjeta(s.bloqueanCobro,'Frenan su mensualidad',true);
+  if(!schRows.length){$('schBody').innerHTML='<div class="mini-empty">No hay apoyos activos.</div>';return;}
+  const fila=r=>{
+    const monto=r.fixedAmount!=null?money.format(Number(r.fixedAmount))
+      :r.percentage!=null?`${Number(r.percentage)}%`:'<i class="sch-falta">falta</i>';
+    const motivo=esNotaDelLegacy(r.notes)?'<i class="sch-falta">falta</i>':esc(r.notes);
+    return `<tr${r.blocksBilling?' class="sch-alerta"':''}>`+
+      `<td><b>${esc(r.player)}</b><small>${esc(r.code||'')}${r.category?' · '+esc(r.category):''}</small></td>`+
+      `<td>${esc(TIPO_BECA[r.type]||r.type)}${r.legacyLabel?`<small>“${esc(r.legacyLabel)}”</small>`:''}</td>`+
+      `<td>${monto}</td>`+
+      `<td>${r.monthlyFee!=null?money.format(Number(r.monthlyFee)):'—'}</td>`+
+      `<td>${esc(r.fundingSource||'—')}</td>`+
+      `<td>${esc(r.startsOn?fechaConAnio(r.startsOn):'—')}</td>`+
+      `<td class="sch-motivo">${motivo}</td></tr>`;
+  };
+  $('schBody').innerHTML=`<table class="sch-table"><thead><tr><th>Tanner</th><th>Tipo</th><th>Apoyo</th>`+
+    `<th>Cuota que paga</th><th>Lo cubre</th><th>Desde</th><th>Motivo</th></tr></thead>`+
+    `<tbody>${schRows.map(fila).join('')}</tbody></table>`+
+    `<p class="sch-pie">La cuota que paga es la que hoy tiene configurada. El sistema no calcula cuánto absorbe el club porque no hay una tarifa de lista por categoría contra la cual comparar.</p>`;
+}
+let schRows=[];
+function exportarBecasCsv(){
+  const header=['Tanner','Código','Categoría','Tipo','Apoyo','Cuota que paga','Lo cubre','Desde','Hasta','Motivo'];
+  const rows=schRows.map(r=>[r.player,r.code||'',r.category||'',TIPO_BECA[r.type]||r.type,
+    r.fixedAmount!=null?r.fixedAmount:(r.percentage!=null?r.percentage+'%':''),
+    r.monthlyFee??'',r.fundingSource||'',r.startsOn||'',r.endsOn||'',
+    esNotaDelLegacy(r.notes)?'':r.notes]);
+  const cell=v=>{const t=String(v??'');return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+  const csv='\ufeff'+[header,...rows].map(r=>r.map(cell).join(',')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  const a=document.createElement('a');a.href=url;a.download=`tannery-city-becas-${today()}.csv`;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
 async function guardarConsentimiento(playerId){
   const btn=$('cSave'),box=$('cMsg');
   box.classList.add('hidden');btn.disabled=true;
@@ -225,8 +381,12 @@ function formatEvalDate(value){if(!value)return'Sin fecha';try{return new Intl.D
 function renderGoalkeeper(scores){const box=$('goalkeeperMetrics'),g=scores?.goalkeeper||{},items=[['Manos',g.manos],['Colocación',g.colocacion],['Aéreo',g.aereo],['Pies',g.pies],['Mando',g.mando]].filter(([,v])=>num(v)!=null);box.classList.toggle('hidden',!items.length);box.innerHTML=items.length?`<div class="eyebrow">PORTERO</div><div>${items.map(([k,v])=>`<span><b>${esc(k)}</b> ${num(v)}/10</span>`).join('')}</div>`:'';}
 function renderSports(data){const summary=data?.summary||{},latest=(data?.evaluations||[])[0]||null,s=latest?.scores||{},hasEval=!!latest,hasMatches=Number(summary.played||0)>0;$('sportsLoading').classList.add('hidden');$('sportsEmpty').classList.toggle('hidden',hasEval||hasMatches);$('sportsContent').classList.toggle('hidden',!hasEval&&!hasMatches);$('sportsPlayed').textContent=Number(summary.played||0);$('sportsMinutes').textContent=Number(summary.minutes||0);$('sportsGoals').textContent=Number(summary.goals||0);$('sportsAssists').textContent=Number(summary.assists||0);if(!hasEval){setCardSports({},null);$('evaluationAverage').textContent='—';$('evaluationDate').textContent='Sin evaluación';setRadar({});['Technique','Game','Body','Mentality','Values'].forEach(k=>{$(`score${k}`).textContent='—';$(`bar${k}`).style.width='0%';});$('goalkeeperMetrics').classList.add('hidden');$('evaluationObjectives').classList.add('hidden');return;}const vals=[s.tecnica,s.inteligencia,s.intensidad,s.mentalidad,s.valores].map(num).filter(v=>v!=null),avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;setCardSports(s,avg);$('evaluationAverage').textContent=avg==null?'—':`${avg.toFixed(1)}/10`;$('evaluationDate').textContent=`Evaluación ${formatEvalDate(latest.date||latest.evaluatedOn||latest.evaluated_on)}`;setMetric('scoreTechnique','barTechnique',s.tecnica);setMetric('scoreGame','barGame',s.inteligencia);setMetric('scoreBody','barBody',s.intensidad);setMetric('scoreMentality','barMentality',s.mentalidad);setMetric('scoreValues','barValues',s.valores);setRadar(s);renderGoalkeeper(s);const goals=[latest.sportsObjective?`<div><span>Objetivo deportivo</span><strong>${esc(latest.sportsObjective)}</strong></div>`:'',latest.formativeObjective?`<div><span>Objetivo formativo</span><strong>${esc(latest.formativeObjective)}</strong></div>`:''].filter(Boolean).join('');$('evaluationObjectives').classList.toggle('hidden',!goals);$('evaluationObjectives').innerHTML=goals;}
 async function loadSports(playerId){const seq=++sportsSeq;setCardSports({},null);$('sportsLoading').textContent='Cargando lectura deportiva…';$('sportsLoading').classList.remove('hidden');$('sportsEmpty').classList.add('hidden');$('sportsContent').classList.add('hidden');$('openSports').href=`/v2/deportivo/?player=${encodeURIComponent(playerId)}`;try{const data=await rpc('v2_player_sports',{organization_id:ctx.organization_id,player_id:playerId});if(seq!==sportsSeq)return;renderSports(data);}catch(e){if(seq!==sportsSeq)return;$('sportsLoading').textContent='No pudimos cargar el perfil deportivo en este momento.';}}
-async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderPhoto(p);renderList();loadSports(id);document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail:{playerId:id,player:p,organizationId:ctx.organization_id,canWrite}}));}
+async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderPhoto(p);renderList();loadSports(id);loadBenefits(id);document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail:{playerId:id,player:p,organizationId:ctx.organization_id,canWrite}}));}
 async function save(e){e.preventDefault();if(!current||!canWrite)return;msg();const btn=$('saveProfile');btn.disabled=true;try{const p=current.player;current=await rpc('v2_save_player_profile',{organization_id:ctx.organization_id,player_id:p.id,first_name:$('firstName').value.trim(),last_name:$('lastName').value.trim(),birth_date:$('birthDate').value,player_position:$('position').value.trim()||null,dominant_foot:$('dominantFoot').value||null,sex:$('sex').value||null,jersey_number:$('jerseyNumber').value.trim()||null,school:$('school').value.trim()||null,blood_type:$('bloodType').value.trim()||null,allergies:$('allergies').value.trim()||null,address:$('address').value.trim()||null,emergency_contact_name:$('emergencyName').value.trim()||null,emergency_contact_phone:$('emergencyPhone').value.trim()||null,notes:$('notes').value.trim()||null,guardian_name:$('guardianName').value.trim()||null,guardian_phone:$('guardianPhone').value.trim()||null,guardian_email:$('guardianEmail').value.trim()||null,guardian_relationship:$('guardianRelationship').value.trim()||null,can_pickup:$('canPickup').checked,receives_billing:$('receivesBilling').checked,category_id:$('categoryId').value||null,category_effective_date:$('categoryDate').value||today(),category_notes:$('categoryNotes').value.trim()||null});await loadPlayers();await openProfile(p.id);msg('Expediente guardado. Los teléfonos nuevos quedaron normalizados y la categoría conserva historial.','success');}catch(err){msg(friendly(err));}finally{btn.disabled=!canWrite;}}
+document.querySelector('[data-close-sch]')?.addEventListener('click',()=>$('scholarshipModal').classList.add('hidden'));
+$('scholarshipModal')?.addEventListener('click',e=>{if(e.target.id==='scholarshipModal')$('scholarshipModal').classList.add('hidden');});
+$('schExport')?.addEventListener('click',exportarBecasCsv);
+$('addBenefit')?.addEventListener('click',()=>{if(current?.player?.id)formBeca(current.player.id,null);});
 $('statusFilter').addEventListener('change',loadPlayers);$('search').addEventListener('input',renderList);$('profileForm').addEventListener('submit',save);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 
 
@@ -310,7 +470,8 @@ function renderFacetBody(){
     const conBeca=activos.filter(p=>p.benefit_active);
     html=chip(fStat==='beca','stat:beca','Todos los apoyos',conBeca.length)+
       BECAS.map(b=>chip(fStat==='beca:'+b.key,'stat:beca:'+b.key,b.label,
-        conBeca.filter(p=>p.benefit_type===b.key).length)).join('');
+        conBeca.filter(p=>p.benefit_type===b.key).length)).join('')+
+      `<span class="fchip-sep"></span><button type="button" class="fchip fchip-link" data-filtro="ir:padron"><span>Ver el padrón completo</span></button>`;
   }
 
   box.classList.toggle('is-perfil',facet==='perfil');
@@ -346,6 +507,7 @@ document.addEventListener('click',e=>{
   if(fc&&!fc.disabled){
     const [tipo,...resto]=fc.dataset.filtro.split(':');
     const val=resto.join(':');
+    if(tipo==='ir'){abrirPadronBecas();return;}
     if(tipo==='cat')fCat=val;
     if(tipo==='pos')fPos=(val&&val===fPos)?'':val;
     if(tipo==='stat')fStat=(val&&val===fStat&&val!=='active')?'active':val;

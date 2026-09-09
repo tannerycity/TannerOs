@@ -317,3 +317,50 @@
 .consent-ev input{border:1px solid #cedbd8;border-radius:10px;padding:9px 10px;font:inherit;font-size:13px;color:#07191e;background:#fff}
 .consent-note{font-size:10.5px;color:#718386;line-height:1.4}
 .consent-actions{display:flex;gap:8px}
+
+/* === Beca y apoyos en la ficha === */
+.benefits-panel{margin-top:15px;padding:16px;border:1px solid #dfe7e5;border-radius:18px;background:linear-gradient(180deg,#fff,#fbfdfc)}
+.ben-row{border:1px solid #e3e9e7;border-radius:14px;padding:12px 13px;background:#fff;display:grid;gap:7px}
+.ben-row+.ben-row{margin-top:8px}
+.ben-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.ben-head strong{font-size:14px}
+.ben-actions{display:flex;gap:6px}
+.ben-locked{font-size:10.5px;color:#718386;font-style:italic}
+.ben-facts{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:12px;color:#52666b}
+.ben-facts b{color:#0b1418}
+.ben-legacy{color:#8a7b4e}
+.ben-note{margin:0;font-size:12.5px;color:#2c4046;line-height:1.45}
+.ben-avisos{display:grid;gap:4px}
+.ben-warn,.ben-gap{font-size:11px;border-radius:8px;padding:6px 8px;line-height:1.35}
+.ben-warn{background:#fdeeec;color:#a3352a}
+.ben-gap{background:#fbf6e8;color:#7a6520}
+.ben-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:13px;margin-bottom:10px;
+  border:1px solid #cfe0e3;border-radius:14px;background:#f7fbfb}
+.ben-form label{display:grid;gap:4px;font-size:11px;font-weight:800;color:#52666b}
+.ben-form .span-2{grid-column:1/-1}
+.ben-form input,.ben-form select{border:1px solid #cedbd8;border-radius:10px;padding:9px 10px;font:inherit;font-size:13px;color:#07191e;background:#fff}
+.ben-hint{font-size:10.5px;color:#718386;line-height:1.4}
+.ben-form-actions{display:flex;gap:8px}
+@media(max-width:620px){.ben-form{grid-template-columns:1fr}}
+
+/* === Padrón de becas === */
+.sch-card{max-width:min(1100px,94vw);width:100%}
+.sch-head-actions{display:flex;gap:8px;align-items:center}
+.sch-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:13px}
+.sch-kpi{border:1px solid #e4ebe9;border-radius:14px;padding:11px;background:#fafcfc;display:grid;gap:2px;text-align:center}
+.sch-kpi strong{font-size:23px;font-weight:900;color:#0b1418;line-height:1}
+.sch-kpi span{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#68777d}
+.sch-kpi.alerta{background:#fdf3f1;border-color:#f0d3ce}
+.sch-kpi.alerta strong{color:#c0362c}
+.sch-body{max-height:58vh;overflow:auto}
+.sch-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.sch-table th{position:sticky;top:0;background:#fff;text-align:left;font-size:10px;text-transform:uppercase;
+  letter-spacing:.04em;color:#68777d;border-bottom:1px solid #d9e2e0;padding:7px 8px;z-index:1}
+.sch-table td{padding:8px;border-bottom:1px solid #eef2f1;vertical-align:top}
+.sch-table td small{display:block;font-size:10.5px;color:#718386;margin-top:2px}
+.sch-table tr.sch-alerta td{background:#fdf6f5}
+.sch-falta{color:#c0362c;font-style:normal;font-size:11px;font-weight:800}
+.sch-motivo{max-width:260px;color:#40595f}
+.sch-pie{margin:12px 0 0;font-size:11px;color:#718386;line-height:1.45}
+.fchip-link{border-style:dashed;color:#0a5c68}
+@media(max-width:760px){.sch-body{overflow-x:auto}.sch-table{min-width:720px}}

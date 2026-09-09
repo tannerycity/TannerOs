@@ -1,1 +1,195 @@
-<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#184159"><title>Calidad · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/qa/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body><main class="shell"><section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Calidad</h2><p class="muted">Preparando departamento de calidad…</p></section><section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2/admin/">Volver</a></section><section id="view" class="hidden app-wrap"><header class="topbar"><div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS · CALIDAD</div><strong id="orgName">Tannery City</strong></div></div><div class="top-actions"><a class="secondary mini nav-link" href="/v2/admin/">Administración</a><span id="roleBadge" class="role-badge"></span></div></header><section class="hero qa-hero"><div><div class="eyebrow">REVISIÓN DEL SERVICIO</div><h1>Control de Calidad</h1><p class="muted">Prueba rutas, permisos, datos, reglas y seguridad sin tocar información de negocio.</p></div><span id="overallHealth" class="health"><i></i> Esperando ejecución</span></section><section class="runner-panel panel"><div class="runner-actions"><button id="runSmoke" class="primary" type="button">Prueba rápida</button><button id="runCritical" class="warning-btn" type="button">Revisión crítica</button><button id="runFull" class="secondary" type="button">Revisión completa</button><button id="exportJson" class="secondary" type="button">Descargar resultados</button></div><div class="runner-meta"><span id="runnerStatus">Listo para probar.</span><div class="progress"><i id="progressBar"></i></div></div></section><section class="kpis qa-kpis"><article><span>Última revisión</span><strong id="kpiSuite">—</strong></article><article><span>Pasaron</span><strong id="kpiPassed">0</strong></article><article><span>Fallaron</span><strong id="kpiFailed">0</strong></article><article><span>Duración</span><strong id="kpiDuration">—</strong></article></section><section class="panel results-panel"><div class="panel-head"><div><div class="eyebrow">EJECUCIÓN</div><h2>Resultados</h2></div><div class="filters"><select id="resultFilter"><option value="">Todos</option><option value="failed">Fallidos</option><option value="warning">Advertencias</option><option value="passed">Pasaron</option><option value="skipped">Omitidos</option></select></div></div><div class="qa-table-wrap"><table class="qa-table"><thead><tr><th>Prueba</th><th>Resultado</th><th>Detalle</th><th>Tiempo</th></tr></thead><tbody id="resultRows"></tbody></table></div><div id="resultsEmpty" class="empty">Ejecuta Prueba rápida, Revisión crítica o Revisión completa.</div></section><section class="panel history-panel"><div class="panel-head"><div><div class="eyebrow">HISTORIAL</div><h2>Revisiones recientes</h2></div><button id="refreshHistory" class="secondary mini" type="button">Actualizar</button></div><div id="historyList" class="history-list"></div><div id="historyEmpty" class="empty hidden">Aún no hay ejecuciones guardadas.</div></section><details class="panel details-panel"><summary><span><b>Historial, seguridad y reglas</b><small>Historial y reglas de operación</small></span></summary><section class="integrity-grid"><article class="panel integrity-card"><div class="eyebrow">SEGURIDAD</div><h2>Accesos protegidos</h2><strong id="integrityDml">—</strong><p id="integrityDmlText" class="muted"></p></article><article class="panel integrity-card"><div class="eyebrow">HISTORIAL</div><h2>Historial disponible</h2><strong id="integrityAudit">—</strong><p class="muted">eventos históricos conservados</p></article><article class="panel integrity-card"><div class="eyebrow">HISTORIAL</div><h2>Registros por revisar</h2><strong id="integrityConflicts">—</strong><p class="muted">pendientes de confirmación</p></article><article class="panel integrity-card"><div class="eyebrow">REGLAS</div><h2>Reglas sin revisar</h2><strong id="integrityUntested">—</strong><p class="muted">debe permanecer en cero</p></article></section><div id="conflictList" class="conflict-list"></div><div class="panel-head rules-head"><div><div class="eyebrow">MATRIZ</div><h2>Reglas de negocio</h2></div><div class="filters"><select id="domainFilter"><option value="">Todos los dominios</option></select><select id="statusFilter"><option value="">Todo</option><option value="pending">Pendientes</option><option value="tested">Probadas</option></select></div></div><div id="ruleList" class="rule-list"></div></details></section></main><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/qa/app.js"></script></body></html>
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b3445">
+  <title>Calidad · TannerOS</title>
+  <link rel="stylesheet" href="/v2/styles.css">
+  <link rel="stylesheet" href="/v2/qa/styles.css?v=20260909b">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="stylesheet" href="/icons.css?v=20260907a">
+  <link rel="stylesheet" href="/polish.css?v=20260907a">
+</head>
+<body>
+  <main class="shell">
+    <section id="loadingView" class="center-card">
+      <div class="brand-mark small">T</div>
+      <h2>Centro de Calidad</h2>
+      <p class="muted">Preparando el vestidor de pruebas…</p>
+    </section>
+
+    <section id="deniedView" class="center-card hidden">
+      <div class="brand-mark small">T</div>
+      <h2>Sin acceso</h2>
+      <p id="deniedText" class="muted"></p>
+      <a class="secondary nav-link" href="/admin/">Volver</a>
+    </section>
+
+    <section id="view" class="hidden app-wrap">
+      <header class="topbar">
+        <div class="brand-lockup compact">
+          <div class="brand-mark small">T</div>
+          <div>
+            <div class="eyebrow">TANNEROS · CALIDAD</div>
+            <strong id="orgName">Tannery City</strong>
+          </div>
+        </div>
+        <div class="top-actions">
+          <a class="secondary mini nav-link" href="/admin/">Club House</a>
+          <span id="roleBadge" class="role-badge"></span>
+        </div>
+      </header>
+
+      <section class="quality-hero">
+        <div class="quality-hero-copy">
+          <div class="eyebrow">CENTRO DE CALIDAD</div>
+          <h1 id="heroTitle">¿TannerOS está listo para jugar?</h1>
+          <p id="heroCopy">Revisa los flujos que sostienen al club antes de que una falla llegue al equipo.</p>
+          <div class="hero-actions">
+            <button id="runCritical" class="primary" type="button">Probar lo esencial</button>
+            <button id="runFull" class="hero-secondary" type="button">Revisar todo TannerOS</button>
+          </div>
+        </div>
+        <div id="qualityScore" class="quality-score" aria-label="Confianza de la última revisión">
+          <span>Confianza</span>
+          <strong>—</strong>
+          <small id="overallHealth"><i></i> Sin revisar</small>
+        </div>
+      </section>
+
+      <nav class="qa-nav" aria-label="Secciones de Calidad">
+        <button class="qa-tab is-active" type="button" data-view="summary">Resumen</button>
+        <button class="qa-tab" type="button" data-view="modules">Módulos</button>
+        <button class="qa-tab" type="button" data-view="runs">Ejecuciones</button>
+        <button class="qa-tab" type="button" data-view="findings">Hallazgos <span id="findingCount" class="tab-count hidden">0</span></button>
+      </nav>
+
+      <section id="summaryView" class="qa-view">
+        <section class="quality-kpis">
+          <article><span>Flujos aprobados</span><strong id="kpiPassRate">—</strong><small id="kpiPassDetail">Sin ejecución</small></article>
+          <article><span>Módulos saludables</span><strong id="kpiModules">—</strong><small id="kpiModuleDetail">Esperando revisión</small></article>
+          <article><span>Bloqueantes</span><strong id="kpiBlockers">0</strong><small>Deben permanecer en cero</small></article>
+          <article><span>Tiempo de revisión</span><strong id="kpiDuration">—</strong><small id="kpiSuite">Sin ejecución</small></article>
+        </section>
+
+        <section id="nextAction" class="next-action panel">
+          <div class="next-icon"><i></i></div>
+          <div class="next-copy">
+            <div class="eyebrow">LO QUE NECESITA ATENCIÓN</div>
+            <h2 id="nextTitle">Primero revisemos el equipo</h2>
+            <p id="nextDetail">Ejecuta “Probar lo esencial” para conocer el estado real de TannerOS.</p>
+          </div>
+          <button id="nextActionButton" class="secondary mini" type="button">Probar ahora</button>
+        </section>
+
+        <section class="panel runner-panel">
+          <div class="panel-head runner-head">
+            <div>
+              <div class="eyebrow">VESTIDOR DE PRUEBAS</div>
+              <h2>Elige la profundidad</h2>
+            </div>
+            <button id="runSmoke" class="text-button" type="button">Revisión rápida</button>
+          </div>
+          <div class="suite-grid">
+            <button class="suite-card" type="button" data-suite="smoke">
+              <span class="suite-number">01</span>
+              <strong>Revisión rápida</strong>
+              <small>Sesión, rutas públicas y señales básicas.</small>
+              <em>Objetivo · menos de 3 min</em>
+            </button>
+            <button class="suite-card is-featured" type="button" data-suite="critical">
+              <span class="suite-number">02</span>
+              <strong>Flujos esenciales</strong>
+              <small>Seguridad, módulos clave, datos y reglas.</small>
+              <em>Debe pasar antes de publicar</em>
+            </button>
+            <button class="suite-card" type="button" data-suite="full">
+              <span class="suite-number">03</span>
+              <strong>Todo TannerOS</strong>
+              <small>Todos los módulos, rutas y rendimiento base.</small>
+              <em>Regresión completa</em>
+            </button>
+          </div>
+          <div class="runner-meta">
+            <span id="runnerStatus">Listo para probar.</span>
+            <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+          </div>
+        </section>
+
+        <section class="panel modules-preview">
+          <div class="panel-head">
+            <div><div class="eyebrow">POR MÓDULO</div><h2>Estado del club</h2></div>
+            <button class="text-button qa-jump" type="button" data-view="modules">Ver todos</button>
+          </div>
+          <div id="modulePreview" class="module-grid"></div>
+          <div id="modulePreviewEmpty" class="empty">La salud de cada módulo aparecerá después de la primera revisión.</div>
+        </section>
+      </section>
+
+      <section id="modulesView" class="qa-view hidden">
+        <section class="panel">
+          <div class="panel-head stack-mobile">
+            <div><div class="eyebrow">MAPA DE CALIDAD</div><h2>Todos los módulos</h2><p class="muted">Abre un módulo para ver sus pruebas y fallas.</p></div>
+            <div class="segmented" role="group" aria-label="Filtro de módulos">
+              <button class="is-active" type="button" data-module-status="">Todos</button>
+              <button type="button" data-module-status="attention">Atención</button>
+              <button type="button" data-module-status="healthy">Saludables</button>
+            </div>
+          </div>
+          <div id="moduleGrid" class="module-grid module-grid-full"></div>
+          <div id="moduleEmpty" class="empty">Ejecuta una revisión para construir el mapa de módulos.</div>
+        </section>
+        <section id="moduleDetail" class="panel module-detail hidden">
+          <div class="panel-head"><div><div class="eyebrow">DETALLE DEL MÓDULO</div><h2 id="moduleDetailTitle">Módulo</h2></div><button id="closeModule" class="text-button" type="button">Cerrar</button></div>
+          <div id="moduleDetailStats" class="detail-stats"></div>
+          <div id="moduleDetailTests" class="test-list"></div>
+        </section>
+      </section>
+
+      <section id="runsView" class="qa-view hidden">
+        <section class="panel results-panel">
+          <div class="panel-head stack-mobile">
+            <div><div class="eyebrow">ÚLTIMA EJECUCIÓN</div><h2>Pruebas realizadas</h2></div>
+            <div class="filters"><select id="resultFilter"><option value="">Todos los resultados</option><option value="failed">Fallaron</option><option value="warning">Advertencias</option><option value="passed">Aprobadas</option><option value="skipped">Omitidas</option></select><button id="exportJson" class="secondary mini" type="button">Descargar evidencia</button></div>
+          </div>
+          <div id="resultRows" class="test-list"></div>
+          <div id="resultsEmpty" class="empty">Todavía no hay una ejecución en esta sesión.</div>
+        </section>
+        <section class="panel history-panel">
+          <div class="panel-head"><div><div class="eyebrow">HISTORIAL</div><h2>Revisiones recientes</h2></div><button id="refreshHistory" class="text-button" type="button">Actualizar</button></div>
+          <div id="historyList" class="history-list"></div>
+          <div id="historyEmpty" class="empty hidden">Aún no hay ejecuciones guardadas.</div>
+        </section>
+      </section>
+
+      <section id="findingsView" class="qa-view hidden">
+        <section class="panel">
+          <div class="panel-head stack-mobile">
+            <div><div class="eyebrow">HALLAZGOS</div><h2>Qué debemos corregir</h2><p class="muted">Ordenado por impacto en la operación del club.</p></div>
+            <div class="filters"><select id="findingFilter"><option value="">Todos</option><option value="failed">Bloqueantes</option><option value="warning">Atención</option></select></div>
+          </div>
+          <div id="findingList" class="finding-list"></div>
+          <div id="findingsEmpty" class="empty">No hay hallazgos en la ejecución actual.</div>
+        </section>
+
+        <details class="panel details-panel">
+          <summary><span><b>Seguridad, datos y reglas</b><small>Controles técnicos para el equipo de calidad</small></span></summary>
+          <section class="integrity-grid">
+            <article class="integrity-card"><div class="eyebrow">SEGURIDAD</div><h3>Accesos abiertos</h3><strong id="integrityDml">—</strong><p id="integrityDmlText" class="muted"></p></article>
+            <article class="integrity-card"><div class="eyebrow">HISTORIAL</div><h3>Movimientos conservados</h3><strong id="integrityAudit">—</strong><p class="muted">eventos disponibles</p></article>
+            <article class="integrity-card"><div class="eyebrow">DATOS</div><h3>Registros por revisar</h3><strong id="integrityConflicts">—</strong><p class="muted">pendientes de confirmación</p></article>
+            <article class="integrity-card"><div class="eyebrow">REGLAS</div><h3>Sin prueba</h3><strong id="integrityUntested">—</strong><p class="muted">debe permanecer en cero</p></article>
+          </section>
+          <div id="conflictList" class="conflict-list"></div>
+          <div class="panel-head rules-head"><div><div class="eyebrow">REGLAS DEL CLUB</div><h2>Cobertura de negocio</h2></div><div class="filters"><select id="domainFilter"><option value="">Todos los módulos</option></select><select id="statusFilter"><option value="">Todas</option><option value="pending">Pendientes</option><option value="tested">Probadas</option></select></div></div>
+          <div id="ruleList" class="rule-list"></div>
+        </details>
+      </section>
+    </section>
+  </main>
+  <script type="module" src="/v2/branding-auto.js"></script>
+  <script type="module" src="/v2/qa/app.js?v=20260909b"></script>
+</body>
+</html>

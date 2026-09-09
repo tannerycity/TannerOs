@@ -15,12 +15,12 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   const familyMod=mods.find(m=>m.module_code==='jugadores_familia');canFamily=!!(familyMod?.enabled&&familyMod?.can_write);
   const statusMod=mods.find(m=>m.module_code==='jugadores_estado');canStatus=!!(statusMod?.enabled&&statusMod?.can_write);
   applyFamilyLock();acotarFechaNacimiento();
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderStats();renderDemographics();buildCatChips();renderCategories();renderList();signPlayerPhotos(players).then(()=>renderList());
+  $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();signPlayerPhotos(players).then(()=>renderList());
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
   loadBajasPendientes();
   show('view');const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
 function renderCategories(){const s=$('categoryId');s.innerHTML='<option value="">Sin categoría</option>';categories.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;s.appendChild(o);});}
-async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];renderStats();renderDemographics();buildCatChips();renderList();signPlayerPhotos(players).then(()=>renderList());}
+async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];renderFiltros();renderList();signPlayerPhotos(players).then(()=>renderList());}
 
 // === Bajas reportadas desde la lista de asistencia ===
 // El profe que toma lista es quien se entera de que un niño ya no viene, pero no
@@ -69,20 +69,46 @@ const FILTROS=[
   {key:'nodocs',  label:'Sin documentos', tono:'danger', test:p=>Number(p.docs_missing||0)>0},
   {key:'beca',    label:'Becados',        tono:'',       test:p=>Boolean(p.benefit_active)},
   {key:'nocorreo',label:'Sin correo',     tono:'danger', test:p=>!p.has_guardian_email},
-  {key:'nofoto',  label:'Sin foto',       tono:'',       test:p=>!p.photo_path}
+  {key:'nofoto',  label:'Sin foto',       tono:'',       test:p=>!p.photo_path},
+  {key:'noconsent',label:'Consentimiento pendiente',tono:'danger',test:p=>!p.data_consent},
+  {key:'noimagen', label:'Sin permiso de imagen',   tono:'',      test:p=>!p.image_consent}
+];
+// Desglose de becas: para dar seguimiento no basta saber que hay 20 becados,
+// hay que poder ver de golpe cuántas son totales y cuántas las paga alguien más.
+const BECAS=[
+  {key:'scholarship_full',   label:'Beca total'},
+  {key:'scholarship_partial',label:'Beca parcial'},
+  {key:'sponsor_funded',     label:'Paga un patrocinador'},
+  {key:'sibling_discount',   label:'Descuento por hermanos'}
 ];
 function pasaEstado(p){
   const activo=p.status_value==='active';
   if(fStat==='active')return activo;
   if(fStat==='withdrawn')return !activo;
   if(fStat==='review')return Boolean(p.needs_review)&&activo;
+  if(fStat.startsWith('beca:'))return activo&&p.benefit_active&&p.benefit_type===fStat.slice(5);
   const f=FILTROS.find(x=>x.key===fStat);
   if(f)return activo&&f.test(p);
   return true;
 }
-// Estado y demografía se combinan: "Sin documentos" + "Niñas" da las niñas sin papeles.
-function pasaFiltro(p){return pasaEstado(p)&&pasaDemo(p);}
+// Los filtros se combinan: "Sin documentos" + "Portero" + "Niñas" da las porteras sin papeles.
+function pasaFiltro(p){return pasaEstado(p)&&pasaDemo(p)&&pasaPos(p);}
 let fDemo='';
+let fPos='';
+
+// === Posición ===
+// El catálogo real son cinco. Lo que traía el legacy ("Mediocampista", "Volante",
+// "Extremo") no se reparte a mano: se junta en "Etiqueta vieja" para que se vea
+// cuánto falta por depurar en lugar de esconderlo en una posición inventada.
+const POS_CANON=['Portero','Defensa','Medio defensivo','Medio ofensivo','Delantero'];
+const POS_SIN='Por definir';
+function grupoPos(p){
+  const v=String(p.player_position||'').trim();
+  if(!v||v===POS_SIN)return 'none';
+  if(POS_CANON.includes(v))return v;
+  return 'legacy';
+}
+function pasaPos(p){return !fPos||grupoPos(p)===fPos;}
 // === Cotas y listas del expediente ===
 // El input nativo de fecha acepta años de hasta seis dígitos (19/08/999999).
 // min y max lo acotan a un rango humano y el navegador bloquea el guardado.
@@ -145,7 +171,50 @@ function drawPhoto(box,src,alt){box.innerHTML='';const img=document.createElemen
 async function renderPhoto(p){const seq=++photoRenderSeq,box=$('photoBox'),alt=`Foto de ${p.firstName||'Tanner'}`;box.innerHTML='<span>Sin foto</span>';if(p.photoPath){try{const bucket=p.photoBucket||'tanneros-private';const {data,error}=await supabase.storage.from(bucket).createSignedUrl(p.photoPath,600);if(error||!data?.signedUrl)throw error;if(seq===photoRenderSeq)drawPhoto(box,data.signedUrl,alt);return;}catch{if(seq!==photoRenderSeq)return;}}const legacy=legacyPhotoSource(p.legacyPhotoData);if(legacy){drawPhoto(box,legacy,alt);return;}if(p.legacyPhotoData){box.innerHTML='<span class="previous-photo-note">Foto anterior<small>Vuelve a subirla</small></span>';}else if(p.photoPath){box.innerHTML='<span>Foto protegida</span>';}}
 function fill(p,g,enrollment){$('firstName').value=p.firstName||'';$('lastName').value=p.lastName||'';$('birthDate').value=p.birthDate||'';pistaEdad();setPosicion(p.position);const foot={Derecha:'right',Izquierda:'left',Ambas:'both'}[p.dominantFoot]||p.dominantFoot||'';$('dominantFoot').value=foot;$('sex').value=p.sex||'';$('jerseyNumber').value=p.jerseyNumber||'';$('school').value=p.school||'';setSelectValue('bloodType',p.bloodType);$('allergies').value=p.allergies||'';$('address').value=p.address||'';$('emergencyName').value=p.emergencyContactName||'';$('emergencyPhone').value=p.emergencyContactPhone||'';$('notes').value=p.notes||'';$('categoryId').value=enrollment?.categoryId||'';$('categoryDate').value=today();$('categoryNotes').value='';$('guardianName').value=[g?.firstName,g?.lastName].filter(Boolean).join(' ').trim();$('guardianPhone').value=g?.phone||'';$('guardianEmail').value=g?.email||'';$('guardianRelationship').value=g?.relationship||g?.relationshipDefault||'';$('canPickup').checked=g?.canPickup??true;$('receivesBilling').checked=g?.receivesBilling??true;}
 function renderOtherGuardians(rows,primary){const box=$('otherGuardians'),others=(rows||[]).filter(g=>g.id!==primary?.id);box.innerHTML=others.length?`<strong>Otros contactos vinculados</strong>${others.map(g=>`<span>${esc([g.firstName,g.lastName].filter(Boolean).join(' '))} · ${esc(g.phone||'Sin teléfono')} · ${esc(g.relationship||'Contacto')}</span>`).join('')}`:'';}
-function renderPrivacy(p){const box=$('privacyBadges');box.innerHTML='';const badges=[p.dataConsent?'Datos autorizados':'Consentimiento pendiente',p.imageConsent?'Imagen autorizada':'Sin autorización publicitaria',p.privacyNoticeVersion?`Aviso ${p.privacyNoticeVersion}`:null].filter(Boolean);badges.forEach((x,i)=>{const s=document.createElement('span');s.textContent=x;s.className=`profile-badge ${i===0&&p.dataConsent?'ok':''}`;box.appendChild(s);});}
+// La versión del aviso que se está firmando hoy. Tiene que ser la misma que
+// muestra el formulario público (public-form.js), o el expediente diría que el
+// tutor aceptó un texto distinto del que leyó.
+const AVISO_VIGENTE='2026-08-19-v1';
+const fechaConAnio=v=>{if(!v)return'';try{return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium'}).format(new Date(v));}catch{return'';}};
+
+// Los Tanners del legacy firmaron en papel: sin esto se quedarían marcados como
+// pendientes para siempre. El botón registra lo que ya existe, no lo inventa,
+// por eso pide con qué evidencia y lo manda a la bitácora.
+function renderPrivacy(p){
+  const box=$('privacyBadges');if(!box)return;
+  const badge=(ok,siOk,siNo,fecha)=>`<span class="profile-badge ${ok?'ok':'pend'}">${esc(ok?siOk:siNo)}${ok&&fecha?` · ${esc(fechaConAnio(fecha))}`:''}</span>`;
+  box.innerHTML=
+    badge(p.dataConsent,'Datos autorizados','Consentimiento pendiente',p.dataConsentAt)+
+    badge(p.imageConsent,'Imagen autorizada','Sin autorización publicitaria',p.imageConsentAt)+
+    (p.privacyNoticeVersion?`<span class="profile-badge">Aviso ${esc(p.privacyNoticeVersion)}</span>`:'')+
+    (canWrite?`<button type="button" class="profile-badge badge-action" id="consentToggle">${p.dataConsent&&p.imageConsent?'Editar permisos':'Registrar permisos'}</button>`:'')+
+    `<div id="consentBox" class="consent-box hidden">
+      <label class="check"><input type="checkbox" id="cData"${p.dataConsent?' checked':''}> Autoriza el tratamiento de sus datos</label>
+      <label class="check"><input type="checkbox" id="cImage"${p.imageConsent?' checked':''}> Autoriza el uso de su imagen en redes y publicidad</label>
+      <label class="consent-ev">¿Con qué evidencia?<input id="cEvidence" maxlength="160" placeholder="Carta firmada en oficina, WhatsApp del tutor…"></label>
+      <small class="consent-note">Queda registrado con tu nombre, la fecha y el aviso ${esc(AVISO_VIGENTE)}. Solo hace falta al autorizar.</small>
+      <div class="consent-actions"><button type="button" class="primary mini" id="cSave">Guardar</button><button type="button" class="secondary mini" id="cCancel">Cancelar</button></div>
+      <div id="cMsg" class="inline-message hidden"></div>
+    </div>`;
+  $('consentToggle')?.addEventListener('click',()=>$('consentBox').classList.toggle('hidden'));
+  $('cCancel')?.addEventListener('click',()=>$('consentBox').classList.add('hidden'));
+  $('cSave')?.addEventListener('click',()=>guardarConsentimiento(p.id));
+}
+async function guardarConsentimiento(playerId){
+  const btn=$('cSave'),box=$('cMsg');
+  box.classList.add('hidden');btn.disabled=true;
+  try{
+    await rpc('v2_set_player_consent',{organization_id:ctx.organization_id,player_id:playerId,
+      data_consent:$('cData').checked,image_consent:$('cImage').checked,
+      notice_version:AVISO_VIGENTE,evidence:$('cEvidence').value.trim()||null});
+    await loadPlayers();
+    await openProfile(playerId);
+    msg('Permisos registrados. Quedó en la bitácora con tu nombre y la fecha.','success');
+  }catch(err){
+    box.textContent=friendly(err);box.dataset.type='error';box.classList.remove('hidden');
+    btn.disabled=false;
+  }
+}
 function num(v){if(v==null||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}
 function setCardScore(id,value){const n=num(value);setText(id,n==null?'—':String(Math.round(Math.max(0,Math.min(10,n))*10)));}
 function setCardSports(scores={},average=null){setText('cardOverall',average==null?'—':String(Math.round(Math.max(0,Math.min(10,average))*10)));setCardScore('cardTechnique',scores.tecnica);setCardScore('cardGame',scores.inteligencia);setCardScore('cardBody',scores.intensidad);setCardScore('cardMentality',scores.mentalidad);setCardScore('cardValues',scores.valores);}
@@ -175,25 +244,124 @@ async function signPlayerPhotos(list){
 }
 
 
-// === Filtros futboleros: chips de categoría + estado ===
+// === Filtros por facetas ===
+// Antes eran ocho tarjetas, los chips de categoría y el panel de demografía, todo
+// al mismo tiempo: veinte botones compitiendo. Ahora se elige primero POR QUÉ estás
+// mirando la plantilla y solo se despliegan los cortes de esa faceta.
 let fCat='';
-function buildCatChips(){
-  const box=$('catChips');if(!box)return;
-  const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];
-  const scope=(players||[]).filter(pasaFiltro);
-  const counts={};scope.forEach(p=>{const k=p.category||'Sin categoría';counts[k]=(counts[k]||0)+1;});
-  const present=Object.keys(counts).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
-  if(fCat&&!present.includes(fCat))fCat='';
-  const chips=[['','Todas',scope.length],...present.map(c=>[c,c,counts[c]])];
-  box.innerHTML=chips.map(([v,l,n])=>`<button type="button" class="chip${v===fCat?' on':''}" data-cat="${esc(v)}">${esc(l)} · ${n}</button>`).join('');
+let facet='plantilla';
+const CAT_ORDEN=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];
+const FACETAS=[
+  {key:'plantilla', label:'Plantilla'},
+  {key:'expediente',label:'Expediente', gate:true},
+  {key:'cancha',    label:'Cancha'},
+  {key:'becas',     label:'Becas',      gate:true},
+  {key:'perfil',    label:'Perfil'}
+];
+
+// El conteo de cada corte se calcula SIN ese corte aplicado: si no, al tocar
+// "Porteros" todas las demás posiciones se irían a cero y se perdería la referencia.
+function chip(activo,dato,label,n,extra=''){
+  return `<button type="button" class="fchip${activo?' on':''}${extra}" data-filtro="${esc(dato)}"${n?'':' disabled'}>`+
+    `<span>${esc(label)}</span><b>${n}</b></button>`;
 }
+function renderFacetTabs(){
+  const box=$('facetTabs');if(!box)return;
+  box.innerHTML=FACETAS.filter(f=>!f.gate||canStatus)
+    .map(f=>`<button type="button" role="tab" class="facet-tab${facet===f.key?' on':''}" `+
+      `aria-selected="${facet===f.key}" data-facet="${f.key}">${esc(f.label)}</button>`).join('');
+}
+function renderFacetBody(){
+  const box=$('facetBody');if(!box)return;
+  const todos=players||[];
+  const activos=todos.filter(p=>p.status_value==='active');
+  let html='';
+
+  if(facet==='plantilla'){
+    // Categorías: el corte se cuenta sobre el resto de filtros, sin la categoría misma.
+    const scope=todos.filter(p=>pasaEstado(p)&&pasaDemo(p)&&pasaPos(p));
+    const counts={};scope.forEach(p=>{const k=p.category||'Sin categoría';counts[k]=(counts[k]||0)+1;});
+    const present=Object.keys(counts).sort((a,b)=>{const ia=CAT_ORDEN.indexOf(a),ib=CAT_ORDEN.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
+    if(fCat&&!present.includes(fCat))fCat='';
+    html=chip(fStat==='active',   'stat:active',   'Activos',activos.length)+
+         chip(fStat==='withdrawn','stat:withdrawn','Bajas',  todos.length-activos.length)+
+         `<span class="fchip-sep"></span>`+
+         chip(!fCat,'cat:','Todas las categorías',scope.length)+
+         present.map(c=>chip(fCat===c,'cat:'+c,c,counts[c])).join('');
+  }
+
+  if(facet==='expediente'){
+    html=chip(fStat==='review','stat:review','Cobro por revisar',activos.filter(p=>p.needs_review).length,' danger')+
+      FILTROS.filter(f=>f.key!=='beca')
+        .map(f=>chip(fStat===f.key,'stat:'+f.key,f.label,activos.filter(f.test).length,f.tono?' '+f.tono:'')).join('');
+  }
+
+  if(facet==='cancha'){
+    const scope=todos.filter(p=>pasaEstado(p)&&pasaDemo(p)&&(!fCat||p.category===fCat));
+    const n=g=>scope.filter(p=>grupoPos(p)===g).length;
+    html=chip(!fPos,'pos:','Todas',scope.length)+
+         POS_CANON.map(v=>chip(fPos===v,'pos:'+v,v,n(v))).join('')+
+         `<span class="fchip-sep"></span>`+
+         chip(fPos==='none','pos:none','Por definir',n('none'))+
+         chip(fPos==='legacy','pos:legacy','Etiqueta vieja',n('legacy'));
+  }
+
+  if(facet==='becas'){
+    const conBeca=activos.filter(p=>p.benefit_active);
+    html=chip(fStat==='beca','stat:beca','Todos los apoyos',conBeca.length)+
+      BECAS.map(b=>chip(fStat==='beca:'+b.key,'stat:beca:'+b.key,b.label,
+        conBeca.filter(p=>p.benefit_type===b.key).length)).join('');
+  }
+
+  box.classList.toggle('is-perfil',facet==='perfil');
+  box.innerHTML=facet==='perfil'?'':html;
+  $('demographicsPanel').classList.toggle('hidden',facet!=='perfil');
+  if(facet==='perfil')renderDemographics();
+}
+function renderFilterSummary(){
+  const box=$('filterSummary');if(!box)return;
+  const total=(players||[]).filter(p=>p.status_value==='active').length;
+  const visibles=(players||[]).filter(p=>pasaFiltro(p)&&(!fCat||p.category===fCat)).length;
+  const activos=[];
+  if(fStat!=='active'){
+    const f=FILTROS.find(x=>x.key===fStat);
+    const b=fStat.startsWith('beca:')&&BECAS.find(x=>'beca:'+x.key===fStat);
+    activos.push({tipo:'stat',label:fStat==='withdrawn'?'Bajas':fStat==='review'?'Cobro por revisar'
+      :fStat==='beca'?'Con apoyo':b?b.label:f?f.label:fStat});
+  }
+  if(fCat)activos.push({tipo:'cat',label:fCat});
+  if(fPos)activos.push({tipo:'pos',label:fPos==='none'?'Posición por definir':fPos==='legacy'?'Etiqueta vieja':fPos});
+  if(fDemo)activos.push({tipo:'demo',label:fDemo==='sex:M'?'Niños':fDemo==='sex:F'?'Niñas'
+    :fDemo==='sex:none'?'Sexo sin dato':'Edad '+fDemo.slice(4).replace('-','–')});
+  if(!activos.length){box.innerHTML=`<span class="fsum-plain">${total} Tanner${total===1?'':'s'} en la plantilla</span>`;return;}
+  box.innerHTML=`<span class="fsum-count">Viendo <b>${visibles}</b> de ${total}</span>`+
+    activos.map(a=>`<button type="button" class="fsum-pill" data-quitar="${a.tipo}">${esc(a.label)} <i>×</i></button>`).join('')+
+    `<button type="button" class="fsum-clear" data-quitar="todo">Limpiar todo</button>`;
+}
+function renderFiltros(){renderFacetTabs();renderFacetBody();renderFilterSummary();}
 document.addEventListener('click',e=>{
-  const chip=e.target.closest?.('#catChips .chip');
-  if(chip){fCat=chip.dataset.cat||'';buildCatChips();renderList();return;}
-  const stat=e.target.closest?.('.stat-card');
-  if(stat){const k=stat.dataset.stat;if(k==='cat'){fStat='active';fCat='';}else{fStat=k;}renderStats();buildCatChips();renderList();return;}
+  const tab=e.target.closest?.('.facet-tab');
+  if(tab){facet=tab.dataset.facet;renderFiltros();return;}
+  const fc=e.target.closest?.('#facetBody .fchip');
+  if(fc&&!fc.disabled){
+    const [tipo,...resto]=fc.dataset.filtro.split(':');
+    const val=resto.join(':');
+    if(tipo==='cat')fCat=val;
+    if(tipo==='pos')fPos=(val&&val===fPos)?'':val;
+    if(tipo==='stat')fStat=(val&&val===fStat&&val!=='active')?'active':val;
+    renderFiltros();renderList();return;
+  }
+  const quitar=e.target.closest?.('[data-quitar]');
+  if(quitar){
+    const k=quitar.dataset.quitar;
+    if(k==='stat'||k==='todo')fStat='active';
+    if(k==='cat'||k==='todo')fCat='';
+    if(k==='pos'||k==='todo')fPos='';
+    if(k==='demo'||k==='todo')fDemo='';
+    renderFiltros();renderList();return;
+  }
   const demo=e.target.closest?.('[data-demo]');
-  if(demo){const k=demo.dataset.demo||'';fDemo=(k&&k===fDemo)?'':k;renderDemographics();buildCatChips();renderList();return;}
+  if(demo){const k=demo.dataset.demo||'';fDemo=(k&&k===fDemo)?'':k;renderFiltros();renderList();return;}
   const fl=e.target.closest?.('.free-link');
   if(fl){openFreeNums(fl.dataset.freecat);return;}
 });
@@ -226,17 +394,6 @@ document.addEventListener('click',e=>{
 
 // === Stats como filtros (estilo legacy) ===
 let fStat='active';
-function renderStats(){
-  const box=$('statCards');if(!box)return;
-  const all=players||[];const active=all.filter(p=>p.status_value==='active');
-  const jugadores=active.length;
-  const categorias=new Set(active.map(p=>p.category).filter(Boolean)).size;
-  const bajas=all.filter(p=>p.status_value!=='active').length;
-  const exp=active.filter(p=>p.needs_review).length;
-  const cards=[['active',jugadores,'Jugadores',''],['cat',categorias,'Categorías',''],['withdrawn',bajas,'Bajas',''],['review',exp,'Cobro por revisar','danger']];
-  if(canStatus)FILTROS.forEach(f=>cards.push([f.key,active.filter(f.test).length,f.label,f.tono]));
-  box.innerHTML=cards.map(([k,n,l,cls])=>`<button type="button" class="stat-card${cls?' '+cls:''}${(k!=='cat'&&fStat===k)?' on':''}" data-stat="${k}"><span class="stat-n">${n}</span><span class="stat-l">${l}</span></button>`).join('');
-}
 function ageOf(birthDate){if(!birthDate)return null;const b=new Date(birthDate+'T00:00:00');if(isNaN(b))return null;const now=new Date();let age=now.getFullYear()-b.getFullYear();const m=now.getMonth()-b.getMonth();if(m<0||(m===0&&now.getDate()<b.getDate()))age--;return age;}
 // === Demografía navegable ===
 // Cada dato del panel es un botón: al tocarlo, la lista de abajo se queda solo con

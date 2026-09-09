@@ -68,4 +68,9 @@
 .collection-debt-actions b{color:#d23829;font-size:14px}
 .collection-wa-btn{background:#25D366;color:#fff;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap}
 .collection-cobrar-btn{background:#087d8e;color:#fff;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:800;border:0;cursor:pointer;white-space:nowrap}
-@media(max-width:640px){.collection-debt-row{flex-direction:column;align-items:flex-start}.collection-debt-actions{align-items:flex-start;width:100%}}
+@media(max-width:640px){.collection-debt-row{flex-direction:column;align-items:flex-start}.collection-debt-actions{align-items:flex-start;width:100%}}/* Resultados de búsqueda con lo que cada Tanner debe: antes solo salía el nombre
+   y había que abrirlo para saber qué se le cobra. */
+.tsearch-opt{display:grid;gap:2px;text-align:left;line-height:1.35}
+.tsearch-opt>span{font-weight:700}
+.tsearch-conc{font-size:11px;color:#68777d}
+.tsearch-none{font-size:11px;color:#9aa8ac}

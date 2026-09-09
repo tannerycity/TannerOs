@@ -69,3 +69,24 @@
 .baja-field textarea:focus{border-color:#056c7f;box-shadow:0 0 0 3px rgba(5,108,127,.09)}
 .baja-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
 .baja-actions button{min-height:46px}
+
+/* Cubrir otra categoría: existe, pero no compite con las suyas. */
+.cover-block{margin-top:4px;border:1px dashed #d5e0dd;border-radius:15px;background:#fbfcfc;overflow:hidden}
+.cover-block>summary{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;list-style:none}
+.cover-block>summary::-webkit-details-marker{display:none}
+.cover-block>summary>span:first-child{font-size:12.5px;font-weight:850;color:#40595f;white-space:nowrap}
+.cover-hint{flex:1;min-width:0;font-size:10.5px;font-weight:650;color:#8a969b;text-align:right;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cover-block>summary::after{content:'+';flex:0 0 auto;font-size:18px;line-height:15px;color:#9aa8ac}
+.cover-block[open]>summary::after{content:'\2013'}
+.cover-block .category-choices{margin:0;padding:0 12px 12px}
+.session-row.is-covered .session-copy small{color:#8a6a1b}
+@media(max-width:620px){
+  /* El carrusel llega hasta la orilla del bloque en vez de cortarse a media tarjeta. */
+  .cover-block .category-choices{margin:0;padding:0 12px 12px}
+  .cover-block .category-choices::after{content:'';flex:0 0 2px}
+  .cover-block>summary{flex-wrap:wrap;row-gap:2px}
+  .cover-hint{flex:1 0 100%;text-align:left;white-space:normal}
+  .cover-block>summary::after{position:absolute;right:14px}
+  .cover-block>summary{position:relative;padding-right:34px}
+}

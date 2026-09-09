@@ -81,6 +81,11 @@
   </section>
 </aside>
 
+<div id="leaveBackdrop" class="modal-backdrop hidden"></div>
+<section id="leaveModal" class="mini-modal hidden" aria-hidden="true">
+  <div class="modal-head"><div><div class="eyebrow">DAR DE BAJA</div><h3 id="leaveName">Tanner</h3><p class="muted">Sale de la academia. Sigue en el club con su mensualidad normal.</p></div><button id="closeLeave" class="icon-close" type="button" aria-label="Cerrar"><span class="tos-icon tos-icon-close" aria-hidden="true"></span></button></div>
+  <form id="leaveForm"><div class="form-grid"><label>Último día<input id="leaveEndsOn" type="date" required></label><label class="span-2">Motivo<input id="leaveReason" maxlength="200" placeholder="Ya no le queda el horario, cambio de actividad…" required></label></div><p id="leaveHint" class="leave-hint"></p><div id="leaveMessage" class="inline-message hidden"></div><button id="leaveSubmit" class="primary full" type="submit">Dar de baja de la academia</button></form>
+</section>
 <div id="enrollBackdrop" class="modal-backdrop hidden"></div>
 <section id="enrollModal" class="mini-modal hidden" aria-hidden="true">
   <div class="modal-head"><div><div class="eyebrow">INSCRIBIR</div><h3>Tanner que ya está en el club</h3><p class="muted">Para quien ya tiene ficha y no entró por el link público.</p></div><button id="closeEnroll" class="icon-close" type="button" aria-label="Cerrar"><span class="tos-icon tos-icon-close" aria-hidden="true"></span></button></div>

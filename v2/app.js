@@ -218,9 +218,82 @@ function renderImmediateHome(){
   $('homeKpis').innerHTML='<article class="tos-kpi"><span>Conexión</span><strong>Lista</strong><small>Cargando indicadores del club…</small></article>';
   $('attentionList').innerHTML='<article class="tos-alert good"><span class="tos-alert-tag">TannerOS</span><b>Operación disponible</b><small>Los indicadores se actualizan en segundo plano sin bloquear tu trabajo.</small></article>';
   $('agendaList').innerHTML='<div class="tos-empty">Cargando agenda…</div>';
+  // Si antes entró un profesor en esta misma pestaña, el panel quedó con su
+  // nombre. Se devuelve al del club.
+  const tituloAgenda=$('agendaList')?.closest('.tos-panel')?.querySelector('h2');
+  if(tituloAgenda)tituloAgenda.textContent='Agenda de la semana';
   $('roleFocusBody').innerHTML='<div class="tos-empty">Preparando inteligencia del club…</div>';
   setShellHealth({state:'ok',label:'Conectando datos'});
 }
+
+// Inicio del profesor de academia. Mismo patrón que el de Taquilla: en lugar de
+// enseñarle el tablero del club con casi todo apagado, se le arma su pantalla.
+// Nada de dinero: v2_coach_home no devuelve un solo campo financiero.
+async function renderAcademiaHome(){
+  const hora=new Date().getHours();
+  $('welcomeTitle').textContent=`${hora<12?'Buenos días':hora<19?'Buenas tardes':'Buenas noches'}, ${firstName()}`;
+  $('welcomeSubtitle').textContent='Tu academia, tus jugadores y el entrenamiento de hoy.';
+  ['attentionPanel','roleFocusPanel','cashPanel'].forEach(id=>$(id)?.classList.add('hidden'));
+  $('homeKpis').innerHTML='';
+  $('quickActions').innerHTML='<a class="tos-quick-action primary" href="/mi-academia/">Abrir mi academia</a>';
+  $('agendaList').innerHTML='<div class="tos-empty">Cargando tu academia…</div>';
+
+  // El panel de agenda cambia de nombre: aquí no va la semana del club, va lo
+  // suyo — el próximo entrenamiento y los cumpleaños de sus jugadores.
+  const tituloAgenda=$('agendaList')?.closest('.tos-panel')?.querySelector('h2');
+  if(tituloAgenda)tituloAgenda.textContent='Lo que viene en tu academia';
+
+  let d=null;
+  try{d=await rpc('v2_coach_home',{organization_id:ctx.organization_id});}
+  catch(error){
+    $('agendaList').innerHTML='<div class="tos-empty">No pudimos cargar tu academia en este momento.</div>';
+    setShellHealth({state:'attention',label:'Datos parciales'});return;
+  }
+  if(!d?.academy){
+    $('agendaList').innerHTML='<div class="tos-empty">Todavía no tienes una academia asignada. Pídele a Presidencia que te asigne una.</div>';
+    setShellHealth({state:'ok',label:'Sin academia asignada'});return;
+  }
+
+  const fecha=new Intl.DateTimeFormat('es-MX',{weekday:'long',day:'numeric',month:'long'});
+  const reloj=new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'});
+  const dia=new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'});
+  const mayus=t=>t?t[0].toUpperCase()+t.slice(1):'';
+  // Mismo lenguaje que en su pantalla: "Hoy", "Mañana", y ya después la fecha.
+  const cuando=v=>{const h=new Date();h.setHours(0,0,0,0);const x=new Date(v);x.setHours(0,0,0,0);
+    const dif=Math.round((x-h)/86400000);
+    return dif===0?'Hoy':dif===1?'Mañana':mayus(fecha.format(new Date(v)));};
+  const jugadores=(d.players||[]).length;
+  const prox=d.nextSession;
+
+  $('welcomeSubtitle').textContent=`${d.academy.name} · ${jugadores} jugador${jugadores===1?'':'es'}`;
+  $('homeKpis').innerHTML=
+    `<article class="tos-kpi"><span>Jugadores</span><strong>${jugadores}</strong><small>${escHome(d.academy.name)}</small></article>`+
+    `<article class="tos-kpi${d.pendingEvaluations>0?' attention':''}"><span>Por evaluar</span><strong>${d.pendingEvaluations||0}</strong><small>De tu academia</small></article>`+
+    `<article class="tos-kpi"><span>Cumpleaños</span><strong>${(d.birthdays||[]).length}</strong><small>Próximos 30 días</small></article>`;
+
+  // La acción que el profe repite todos los días va primero y en grande.
+  const acciones=[];
+  if(prox)acciones.push(`<a class="tos-quick-action primary" href="/mi-academia/">${prox.taken?'Revisar la lista':'Tomar asistencia'}</a>`);
+  acciones.push('<a class="tos-quick-action" href="/mi-academia/">Mis jugadores</a>');
+  acciones.push('<a class="tos-quick-action" href="/mi-academia/">Evaluaciones</a>');
+  $('quickActions').innerHTML=acciones.join('');
+
+  // Mismo renglón que usa el resto de TannerOS (.tos-list-row), no uno inventado.
+  const agenda=[];
+  if(prox)agenda.push(`<a class="tos-list-row" href="/mi-academia/"><div>`+
+    `<strong>${escHome(cuando(prox.startsAt))} · entrenamiento</strong>`+
+    `<span>${escHome(reloj.format(new Date(prox.startsAt)))}${prox.location?` · ${escHome(prox.location)}`:''}</span>`+
+    `</div><b>›</b></a>`);
+  (d.birthdays||[]).slice(0,3).forEach(b=>agenda.push(
+    `<div class="tos-list-row"><div><strong>${escHome(b.name)} cumple ${escHome(String(b.turns))}</strong>`+
+    `<span>${escHome(dia.format(new Date(`${b.day}T12:00:00`)))}</span></div><b>🎂</b></div>`));
+  $('agendaList').innerHTML=agenda.join('')||'<div class="tos-empty">Sin entrenamiento agendado. Agenda uno en tu academia.</div>';
+
+  setShellHealth(d.pendingEvaluations>0
+    ? {state:'attention',label:`${d.pendingEvaluations} por evaluar`}
+    : {state:'ok',label:'Al día'});
+}
+const escHome=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 async function renderTaquillaHome(){
   $('welcomeTitle').textContent=`Bienvenido al vestidor, ${firstName()}`;
@@ -268,6 +341,7 @@ async function loadAuthenticatedApp(){
     showView('appView');document.body.classList.add('tos-body');
     renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
     if(ctx.role==='Taquilla'){renderTaquillaHome().catch(error=>console.error('Taquilla home',error));}
+    else if(ctx.role==='Academia'){renderAcademiaHome().catch(error=>console.error('Academia home',error));}
     else{
       renderImmediateHome();
       const generation=++loadGeneration;

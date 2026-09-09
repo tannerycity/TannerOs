@@ -15,7 +15,12 @@ const state={data:null,vista:'inicio',academyId:null,jugador:null,sesion:null,ma
 const fFecha=new Intl.DateTimeFormat('es-MX',{weekday:'long',day:'numeric',month:'long'});
 const fHora=new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'});
 const fCorta=new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'});
-const dia=v=>{try{return fFecha.format(new Date(v));}catch{return'';}};
+// El profe no piensa en "jueves 10 de septiembre", piensa en "hoy" o "mañana".
+const cuando=v=>{try{
+  const h=new Date();h.setHours(0,0,0,0);const x=new Date(v);x.setHours(0,0,0,0);
+  const dif=Math.round((x-h)/86400000);
+  return dif===0?'Hoy':dif===1?'Mañana':mayus(fFecha.format(new Date(v)));
+}catch{return'';}};
 const hora=v=>{try{return fHora.format(new Date(v));}catch{return'';}};
 const corta=v=>{try{return fCorta.format(new Date(String(v).length<=10?`${v}T12:00:00`:v));}catch{return'';}};
 const mayus=s=>s?s[0].toUpperCase()+s.slice(1):'';
@@ -63,7 +68,7 @@ function vistaInicio(){
     ? `<div class="ca-switch">${d.academies.map(x=>`<button type="button" class="ca-switch-b${x.id===a.id?' on':''}" data-academia="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div>`
     : '';
   const proxCard=prox
-    ? `<div class="ca-next"><div><span class="ca-next-when">${esc(mayus(dia(prox.startsAt)))}</span>
+    ? `<div class="ca-next"><div><span class="ca-next-when">${esc(cuando(prox.startsAt))}</span>
         <strong>${esc(hora(prox.startsAt))}${prox.endsAt?` – ${esc(hora(prox.endsAt))}`:''}</strong>
         ${prox.location?`<small>${esc(prox.location)}</small>`:''}</div>
         <button class="ca-cta" type="button" data-lista="${esc(prox.id)}">${prox.taken?'Revisar lista':'Tomar asistencia'}</button></div>`
@@ -156,7 +161,7 @@ function vistaAsistencia(){
   const d=state.data,s=d.sessions.find(x=>x.id===state.sesion);
   const roster=state.roster||[];
   const opciones=[['present','Vino'],['late','Tarde'],['excused','Justificado'],['absent','Faltó']];
-  return `${cabecera('Tomar asistencia',s?`${mayus(dia(s.startsAt))} · ${hora(s.startsAt)}`:'')}
+  return `${cabecera('Tomar asistencia',s?`${cuando(s.startsAt)} · ${hora(s.startsAt)}`:'')}
     <div class="ca-lista ca-lista-asis">${roster.map(p=>`
       <div class="ca-asis"><div class="ca-asis-top">${avatar(p,'ca-avatar ca-avatar-sm')}<strong>${esc(p.name)}</strong></div>
         <div class="ca-marcas">${opciones.map(([v,l])=>
@@ -171,7 +176,7 @@ function vistaCalendario(){
   const d=state.data,hoy=new Date();
   const prox=d.sessions.filter(s=>new Date(s.startsAt)>=hoy).sort((a,b)=>new Date(a.startsAt)-new Date(b.startsAt));
   const pasadas=d.sessions.filter(s=>new Date(s.startsAt)<hoy);
-  const fila=s=>`<div class="ca-ses"><div><strong>${esc(mayus(dia(s.startsAt)))}</strong>
+  const fila=s=>`<div class="ca-ses"><div><strong>${esc(cuando(s.startsAt))}</strong>
       <span>${esc(hora(s.startsAt))}${s.endsAt?` – ${esc(hora(s.endsAt))}`:''}${s.location?` · ${esc(s.location)}`:''}</span></div>
       <button type="button" class="ca-mini" data-lista="${esc(s.id)}">${s.taken?`${s.present} presentes`:'Tomar lista'}</button></div>`;
   return `${cabecera('Calendario',d.academy.name)}

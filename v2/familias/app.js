@@ -7,6 +7,10 @@ import {supabase,rpc,money,$} from '/v2/shell.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',parking_pass:'Gafete'};
 const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';
+// De qué fue cada pago. El portal mostraba todos los cargos pero sólo los
+// pagos de mensualidad: quien pagaba un uniforme veía el cargo y no su abono.
+const PAY_LABEL={billing:'Mensualidad',commerce:'Tienda',registration:'Inscripción',program:'Academia',other:'Otro concepto'};
+const payLabel=t=>PAY_LABEL[t]||'';
 const state={home:null,playerId:'',tab:'cuenta',statements:{},calendar:null,catalog:null,cart:{},parking:null};
 
 function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
@@ -179,7 +183,8 @@ function ledgerBlock(st){
   if(!rows.length)return '';
   const html=rows.map(m=>{
     const cargo=m.kind==='charge',monto=Number(m.amount||0);
-    const titulo=cargo?`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`:'Pago recibido';
+    const de=cargo?'':payLabel(m.subtype);
+    const titulo=cargo?`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`:`Pago recibido${de?` · ${de}`:''}`;
     const detalle=cargo
       ? `${fmtDate(m.date)}${Number(m.charge_balance||0)>0?` · faltan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`
       : `${fmtDate(m.date)}${m.method?` · ${esc(m.method)}`:''}`;

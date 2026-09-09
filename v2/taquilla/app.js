@@ -106,14 +106,15 @@ async function loadPlayers(){
 const BILLING_ENGINE_START='2026-09-01';
 async function loadCollection(){
   const panel=$('collectionPanel');if(!panel)return;
+  const recv=await safe(rpc('v2_open_receivables',{organization_id:org}),[]);
+  receivables=Array.isArray(recv)?recv:[];
   if(!canViewCobranza){panel.classList.add('hidden');return;}
   const period=new Date().toISOString().slice(0,7)+'-01';
-  const [snap,recv,idx]=await Promise.all([
+  const [snap,idx]=await Promise.all([
     safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:period}),null),
-    safe(rpc('v2_open_receivables',{organization_id:org}),[]),
     safe(rpc('v2_search_index',{organization_id:org}),[])
   ]);
-  collectionSnapshot=snap;receivables=Array.isArray(recv)?recv:[];
+  collectionSnapshot=snap;
   phoneMap={};(Array.isArray(idx)?idx:[]).forEach(p=>{if(p&&p.id&&p.phones)phoneMap[p.id]=String(p.phones).split(' ')[0];});
   renderCollectionPanel();
 }
@@ -241,6 +242,19 @@ $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')
 
 
 // === Buscador inteligente de Tanners (por cualquier nombre, sin acentos) ===
+// El concepto que emite el motor viene largo ("Academia Academia de porteros ·
+// 2026-09"). En una lista de búsqueda estorba: se muestra lo que distingue un
+// cargo de otro.
+const TIPO_CARGO={monthly_fee:'Mensualidad',monthly_fee_sponsor:'Mensualidad · patrocinio',
+  academy_fee:'Academia',academy_day:'Día de academia',late_fee:'Recargo',
+  product:'Tienda',equipment:'Uniforme',parking:'Estacionamiento'};
+function conceptoCorto(r){
+  const base=TIPO_CARGO[r.charge_type]||r.concept||'Cargo';
+  const mes=r.billing_period
+    ? new Intl.DateTimeFormat('es-MX',{month:'short',year:'2-digit'}).format(new Date(`${String(r.billing_period).slice(0,10)}T12:00:00`))
+    : '';
+  return mes?`${base} ${mes}`:base;
+}
 function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
   const inp=$(searchId),hid=$(hiddenId),res=$(resultsId),clr=$(clearId);
   if(!inp||!hid||!res)return;
@@ -251,7 +265,19 @@ function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
     if(!nq){res.classList.add('hidden');res.innerHTML='';return;}
     const toks=nq.split(/\s+/);
     const matches=(billingPlayers||[]).filter(p=>{const n=norm(p.player_name);return toks.every(t=>n.includes(t));}).slice(0,25);
-    res.innerHTML=matches.length?matches.map(p=>`<button type="button" class="tsearch-opt" data-id="${p.player_id}">${esc(p.player_name)}</button>`).join(''):'<div class="tsearch-empty">Sin coincidencias</div>';
+    // Los conceptos abiertos de cada Tanner, para no tener que adivinar qué se le cobra.
+    const pend={};
+    (receivables||[]).forEach(r=>{if(r.player_id)(pend[r.player_id]=pend[r.player_id]||[]).push(r);});
+    const detalle=p=>{
+      const filas=(pend[p.player_id]||[]).slice(0,3);
+      if(!filas.length)return '<small class="tsearch-none">Sin adeudo</small>';
+      return `<small class="tsearch-conc">${filas.map(r=>
+        `${esc(conceptoCorto(r))} · ${money.format(Number(r.balance_due||0))}`).join(' — ')}${
+        (pend[p.player_id]||[]).length>3?' — …':''}</small>`;
+    };
+    res.innerHTML=matches.length?matches.map(p=>
+      `<button type="button" class="tsearch-opt" data-id="${p.player_id}"><span>${esc(p.player_name)}</span>${detalle(p)}</button>`
+    ).join(''):'<div class="tsearch-empty">Sin coincidencias</div>';
     res.classList.remove('hidden');
   }
   inp.addEventListener('input',()=>{hid.value='';if(clr)clr.classList.toggle('hidden',!inp.value);render(inp.value);});

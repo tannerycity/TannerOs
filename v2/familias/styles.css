@@ -133,6 +133,12 @@
 .fam-mov span{display:block;margin-top:2px;font-size:11.5px;color:#8b979c}
 .fam-mov b{font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--fam-danger)}
 .fam-mov[data-kind="payment"] b{color:var(--fam-ok)}
+.fam-wa{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;min-height:46px;
+  border-radius:13px;background:#25d366;color:#08331b;font-weight:700;font-size:14px;text-decoration:none;
+  -webkit-tap-highlight-color:transparent}
+.fam-wa svg{flex:none}
+.fam-wa:active{filter:brightness(.94)}
+.fam-player-profile .fam-wa{grid-column:1/-1}
 
 /* Calendario */
 .fam-ev{display:grid;grid-template-columns:auto minmax(0,1fr);gap:13px;align-items:center;padding:12px 0;border-bottom:1px solid #eeeae0}

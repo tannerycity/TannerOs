@@ -15,11 +15,17 @@ const roles:Record<string,string>={
 function usernameOf(value:unknown){
   return String(value??"").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g,"_");
 }
-function temporaryPassword(){
+// La contrasena temporal lleva el branding del club: abre y cierra con el
+// prefijo configurado (TC para Tannery City) y termina en dos digitos, para que
+// al leerla por telefono se reconozca de quien viene. El prefijo se edita en
+// Administracion, asi cada club del SaaS entrega las suyas.
+function temporaryPassword(brand:string){
+  const prefix=String(brand||"TC").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6)||"TC";
   const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  const bytes=new Uint32Array(13);crypto.getRandomValues(bytes);
+  const bytes=new Uint32Array(10);crypto.getRandomValues(bytes);
   const random=Array.from(bytes,n=>alphabet[n%alphabet.length]).join("");
-  return `T!${random}9`;
+  const tail=new Uint32Array(2);crypto.getRandomValues(tail);
+  return `${prefix}${random}${prefix}${Array.from(tail,n=>n%10).join("")}`;
 }
 // Un PostgrestError no es un Error de JS: si se deja caer al catch general sale
 // "Unexpected error" y se pierde la causa. Eso escondio durante semanas que
@@ -73,6 +79,11 @@ Deno.serve(async(req:Request)=>{
     const usersAccess=(modules||[]).find((row:Record<string,unknown>)=>row.module_code==="users");
     if(!usersAccess?.enabled||!usersAccess?.can_write)return json({error:"Not authorized"},403);
 
+    // El prefijo del club para las contrasenas temporales. Si la configuracion
+    // no responde se usa TC, nunca se deja de entregar la llave por esto.
+    const {data:clubConfig}=await userClient.rpc("v2_club_config",{organization_id:organizationId});
+    const brand=String((clubConfig as Record<string,unknown>|null)?.passwordPrefix||"TC");
+
     // Los tutores se leen y escriben por RPC, no por PostgREST: app.guardians no
     // vive en el esquema public y admin.from("guardians") nunca la alcanzo.
     async function guardianInfo(guardianId:string){
@@ -93,7 +104,7 @@ Deno.serve(async(req:Request)=>{
       if(!info?.found)return json({error:"Guardian not found"},404);
       if(info.userId)return json({error:"Este tutor ya tiene acceso"},409);
       const displayName=String(info.name||email.split("@")[0]);
-      const password=temporaryPassword();
+      const password=temporaryPassword(brand);
       const {data:created,error:createError}=await admin.auth.admin.createUser({
         email,password,email_confirm:true,
         user_metadata:{display_name:displayName},
@@ -124,7 +135,7 @@ Deno.serve(async(req:Request)=>{
       if(info.userId)return json({error:"Este tutor ya tiene acceso"},409);
       const displayName=String(info.name||username);
       const loginEmail=`${username}@familias.tanneros.invalid`;
-      const password=temporaryPassword();
+      const password=temporaryPassword(brand);
       const {data:created,error:createError}=await admin.auth.admin.createUser({
         email:loginEmail,password,email_confirm:true,
         user_metadata:{display_name:displayName},
@@ -162,7 +173,7 @@ Deno.serve(async(req:Request)=>{
       if(!info.userId)return json({error:"Este tutor no tiene acceso todavía"},400);
       const {data:target,error:targetError}=await admin.auth.admin.getUserById(String(info.userId));
       if(targetError||!target.user)throw targetError||new Error("User not found");
-      const password=temporaryPassword();
+      const password=temporaryPassword(brand);
       const appMetadata={...(target.user.app_metadata||{}),must_change_password:true,password_reset_at:new Date().toISOString()};
       const {error:updateError}=await admin.auth.admin.updateUserById(String(info.userId),{password,app_metadata:appMetadata});
       if(updateError)throw updateError;
@@ -219,7 +230,7 @@ Deno.serve(async(req:Request)=>{
       if(!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username))return json({error:"Username must use 3-32 letters, numbers, dots, dashes or underscores"},400);
       if(displayName.length<2||displayName.length>120)return json({error:"Valid display name required"},400);
       const role=roles[roleCode];if(!role)return json({error:"Invalid role"},400);
-      const email=`${username}@staff.tanneros.invalid`,password=temporaryPassword();
+      const email=`${username}@staff.tanneros.invalid`,password=temporaryPassword(brand);
       const {data:created,error:createError}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:displayName},app_metadata:{login_type:"username",login_username:username,must_change_password:true}});
       if(createError){if(/already|registered|exists/i.test(createError.message))return json({error:"Username already exists"},409);throw createError;}
       const userId=created.user?.id;if(!userId)throw new Error("User was not created");
@@ -236,7 +247,7 @@ Deno.serve(async(req:Request)=>{
       if(membershipError)throw new Error(reason(membershipError));if(!membership)return json({error:"Membership not found"},404);if(membership.is_owner)return json({error:"Owner account is protected"},403);
       const {data:target,error:targetError}=await admin.auth.admin.getUserById(targetUserId);if(targetError||!target.user)throw targetError||new Error("User not found");
       if(target.user.app_metadata?.login_type!=="username")return json({error:"Password resets for email accounts use email recovery"},400);
-      const password=temporaryPassword(),appMetadata={...(target.user.app_metadata||{}),must_change_password:true,password_reset_at:new Date().toISOString()};
+      const password=temporaryPassword(brand),appMetadata={...(target.user.app_metadata||{}),must_change_password:true,password_reset_at:new Date().toISOString()};
       const {error:updateError}=await admin.auth.admin.updateUserById(targetUserId,{password,app_metadata:appMetadata});if(updateError)throw updateError;
       return json({ok:true,username:target.user.app_metadata?.login_username||"",temporary_password:password});
     }

@@ -100,10 +100,30 @@ async function handlePassword(event){
 }
 
 /* ---------- Cuenta ---------- */
+// Botones de WhatsApp al club. El numero vive en Administracion > Configuracion
+// del club y llega en v2_portal_home; si el club no lo capturo, el boton no se
+// pinta en lugar de abrir una conversacion vacia.
+function waHref(texto){
+  const num=String(state.home?.organization?.whatsapp||'').replace(/\D/g,'');
+  if(num.length<11)return '';
+  return `https://wa.me/${num}?text=${encodeURIComponent(texto)}`;
+}
+const WA_ICON='<svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.4 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.6-.1a13 13 0 0 1-1.5-.6c-2.6-1.1-4.3-3.8-4.5-4-.1-.2-1-1.4-1-2.7s.6-1.9.9-2.2c.3-.3.6-.4.8-.4h.5c.2 0 .4 0 .5.4l.8 1.9c.1.2.1.4 0 .5l-.4.5c-.1.2-.2.3-.1.5.2.3.8 1.4 1.8 2.2 1.3 1 2.3 1.3 2.6 1.5.3.1.4.1.6-.1l.6-.7c.2-.3.4-.2.6-.1l1.7.8c.2.1.4.2.4.3.1.2.1.8-.1 1.4Z"/></svg>';
+function waBoton(texto,etiqueta){
+  const href=waHref(texto);
+  if(!href)return '';
+  return `<a class="fam-wa" href="${esc(href)}" target="_blank" rel="noopener">${WA_ICON}${esc(etiqueta)}</a>`;
+}
+const nombreDe=p=>[p?.first_name,p?.last_name].filter(Boolean).join(' ')||'mi Tanner';
+
 function playerProfileBlock(p){
   const name=[p.first_name,p.last_name].filter(Boolean).join(' ')||'Tanner';
   const age=ageOf(p.birth_date);
   const position=[p.position,p.dominant_foot&&`Pie ${p.dominant_foot}`].filter(Boolean).join(' · ')||'Perfil deportivo';
+  const faltantes=[
+    !p.birth_date&&'fecha de nacimiento',
+    !p.joined_at&&'desde cuándo está en el club'
+  ].filter(Boolean);
   return `<section class="fam-player-profile">
     <span class="fam-profile-photo" data-profile-photo="${esc(p.id)}">${p._photo?`<img src="${esc(p._photo)}" alt="Foto de ${esc(name)}">`:esc(initials(p))}</span>
     <span class="fam-profile-main"><small>MI TANNER</small><strong>${esc(name)}</strong><span>${esc([p.category,position].filter(Boolean).join(' · '))}</span></span>
@@ -112,6 +132,9 @@ function playerProfileBlock(p){
       <span><small>Número</small><b>${esc(p.jersey_number||'Por asignar')}</b></span>
       <span><small>En el club</small><b>${p.joined_at?`Desde ${fmtDate(p.joined_at)}`:'Por registrar'}</b></span>
     </span>
+    ${faltantes.length?waBoton(
+      `Hola, soy familia de ${name}. Les paso lo que falta en su expediente: ${faltantes.join(', ')}.`,
+      'Mandarle mis datos al club'):''}
   </section>`;
 }
 function balanceBlock(st){
@@ -171,8 +194,12 @@ function docsBlock(st){
   const LABEL={birth_certificate:'Acta de nacimiento',curp:'CURP',studies:'Constancia de estudios'};
   const faltan=docs.filter(d=>!d.received);
   if(!faltan.length)return '';
-  const rows=faltan.map(d=>`<div class="fam-mov"><span><strong>${esc(LABEL[d.type]||String(d.type).replace(/_/g,' '))}</strong></span></div>`).join('');
-  return `<section class="fam-card"><div class="fam-card-head"><h2>Documentos por entregar</h2><span>faltan ${faltan.length} de ${docs.length}</span></div>${rows}</section>`;
+  const nombres=faltan.map(d=>LABEL[d.type]||String(d.type).replace(/_/g,' '));
+  const rows=nombres.map(n=>`<div class="fam-mov"><span><strong>${esc(n)}</strong></span></div>`).join('');
+  const boton=waBoton(
+    `Hola, soy familia de ${nombreDe(currentPlayer())}. Les mando ${nombres.join(' y ')}.`,
+    nombres.length===1?'Mandar este documento al club':'Mandar estos documentos al club');
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Documentos por entregar</h2><span>faltan ${faltan.length} de ${docs.length}</span></div>${rows}${boton}</section>`;
 }
 
 async function renderCuenta(){

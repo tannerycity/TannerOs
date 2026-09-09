@@ -50,9 +50,18 @@ async function signPhoto(p){
 }
 
 /* ---------- Acceso ---------- */
+// El club le da a la familia un usuario (no todos tienen correo). Se traduce al
+// correo interno con el que vive la cuenta. Mismo truco que ya usa el staff,
+// pero con dominio propio: son dos padrones y no deben chocar.
+function loginEmail(value){
+  const dato=String(value||'').trim().toLowerCase();
+  if(dato.includes('@'))return dato;
+  return `${dato.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_')}@familias.tanneros.invalid`;
+}
+
 async function handleLogin(event){
   event.preventDefault();msg('loginMessage');
-  const email=$('email').value.trim().toLowerCase(),password=$('password').value;
+  const email=loginEmail($('email').value),password=$('password').value;
   const btn=$('loginSubmit');btn.disabled=true;btn.textContent='Entrando…';
   try{
     const {error}=await supabase.auth.signInWithPassword({email,password});
@@ -68,9 +77,20 @@ async function handlePassword(event){
   if(a.length<10){msg('passwordMessage','Usa al menos 10 caracteres.');return;}
   if(a!==b){msg('passwordMessage','Las contraseñas no coinciden.');return;}
   const btn=$('passwordSubmit');btn.disabled=true;btn.textContent='Guardando…';
+  // Sólo se lee si de verdad se le pidió: un campo oculto con valor viejo no
+  // debe acabar guardándose como su correo.
+  const pideCorreo=!$('contactEmailField')?.classList.contains('hidden');
+  const correo=pideCorreo?($('contactEmail')?.value.trim()||''):'';
+  if(correo&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)){msg('passwordMessage','Revisa tu correo, parece incompleto.');btn.disabled=false;btn.textContent='Guardar y entrar';return;}
   try{
     const {error}=await supabase.auth.updateUser({password:a});
     if(error)throw error;
+    // El correo es opcional: si falla, no se le cierra la puerta a la familia
+    // por un dato de contacto.
+    if(correo){
+      try{await supabase.functions.invoke('staff-access',{body:{action:'save_my_contact_email',email:correo}});}
+      catch(e){console.warn('correo de contacto',e);}
+    }
     const {data,error:fnError}=await supabase.functions.invoke('staff-access',{body:{action:'complete_password_change'}});
     if(fnError)throw fnError;
     if(data?.error)throw new Error(data.error);
@@ -334,7 +354,11 @@ async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
   if(!session){show('loginView');return;}
   const {data:{user}}=await supabase.auth.getUser();
-  if(user?.app_metadata?.must_change_password){show('passwordView');return;}
+  if(user?.app_metadata?.must_change_password){
+    // Sólo se le pide a quien entró con usuario: quien entró con su correo ya lo dio.
+    $('contactEmailField')?.classList.toggle('hidden',user?.app_metadata?.login_type!=='username');
+    show('passwordView');return;
+  }
   try{state.home=await rpc('v2_portal_home');}
   catch(error){
     // Una cuenta de staff que abre el portal por error no debe quedarse en blanco.

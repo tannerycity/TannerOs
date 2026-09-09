@@ -146,7 +146,15 @@
           <select id="familyGuardian" data-smart-search data-search-placeholder="Buscar por tutor o Tanner"><option value="">Selecciona al tutor</option></select>
           <small>Los Tanners ya relacionados con este tutor aparecerán en el siguiente paso.</small>
         </label>
-        <label class="field-label">Correo para entrar
+        <div class="method-picker" role="group" aria-label="Cómo va a entrar la familia">
+          <button id="familyMethodUsername" class="active" type="button" data-family-method="username"><strong>Usuario y contraseña</strong><small>No necesita correo</small></button>
+          <button id="familyMethodEmail" type="button" data-family-method="email"><strong>Con su correo</strong><small>Recupera su contraseña sola</small></button>
+        </div>
+        <label id="familyUsernameField" class="field-label">Usuario para entrar
+          <input id="familyUsername" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}" placeholder="Ej. irvin.enriquez">
+          <small>Le entregarás una contraseña temporal. Al entrar elegirá una propia.</small>
+        </label>
+        <label id="familyEmailField" class="field-label hidden">Correo para entrar
           <input id="familyEmail" type="email" autocomplete="email" maxlength="254" placeholder="familia@correo.com">
           <small>Le entregarás una contraseña temporal. Al entrar elegirá una propia.</small>
         </label>

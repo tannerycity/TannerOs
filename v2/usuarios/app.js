@@ -16,7 +16,7 @@ let currentPerson=null;
 let categoryCatalog=[];      // categorías vivas del club
 let categoriesByUser={};     // userId -> [categoryId]
 let memberFilter='active';
-let wizard={step:1,kind:null,role:null,method:'username'};
+let wizard={step:1,kind:null,role:null,method:'username',familyMethod:'username'};
 let lastCredentialText='';
 
 const roleLabels={
@@ -92,7 +92,12 @@ function friendly(error){
     'Email rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Intenta de nuevo en unos minutos.',
     'rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Intenta de nuevo en unos minutos.'
   };
-  return translations[raw]||raw;
+  // Se compara sin acentos: el backend y esta tabla se escriben por separado y
+  // un acento de diferencia dejaba el mensaje crudo en pantalla.
+  const plano=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(translations[raw])return translations[raw];
+  const clave=Object.keys(translations).find(k=>plano(k)===plano(raw));
+  return clave?translations[clave]:raw;
 }
 async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 async function invokeStaff(body){
@@ -226,10 +231,10 @@ function renderGuardianOptions(){
 
 function openWizard(guardianId=''){
   if(!canWrite)return;
-  wizard={step:1,kind:null,role:null,method:'username'};lastCredentialText='';
+  wizard={step:1,kind:null,role:null,method:'username',familyMethod:'username'};lastCredentialText='';
   $('accessForm').reset();$('credentialResult').classList.add('hidden');$('wizardProgress').classList.remove('hidden');
   document.querySelectorAll('[data-role],[data-profile]').forEach(button=>button.classList.remove('selected'));
-  setMethod('username');setWizardStep(1);message('wizardMessage');message('createMessage');
+  setMethod('username');setFamilyMethod('username');setWizardStep(1);message('wizardMessage');message('createMessage');
   $('wizardBackdrop').classList.remove('hidden');$('wizardModal').classList.remove('hidden');document.body.style.overflow='hidden';
   if(guardianId){chooseProfile('guardian');$('familyGuardian').value=guardianId;$('familyGuardian').dispatchEvent(new Event('change',{bubbles:true}));syncGuardianEmail();}
 }
@@ -249,6 +254,18 @@ function chooseProfile(profile){
   renderAccessPreview();setWizardStep(2);
   if(guardian)focusSmartSelect('familyGuardian');else $('accessDisplayName').focus();
 }
+// La familia entra con usuario o con correo. Arranca en usuario porque 51 de los
+// 55 tutores con hijo activo no tienen correo registrado: es el caso normal,
+// no la excepción.
+function setFamilyMethod(method){
+  wizard.familyMethod=method;
+  $('familyMethodUsername')?.classList.toggle('active',method==='username');
+  $('familyMethodEmail')?.classList.toggle('active',method==='email');
+  $('familyUsernameField')?.classList.toggle('hidden',method!=='username');
+  $('familyEmailField')?.classList.toggle('hidden',method!=='email');
+  message('wizardMessage');
+}
+
 function setMethod(method){
   wizard.method=method;
   $('methodUsername').classList.toggle('active',method==='username');$('methodEmail').classList.toggle('active',method==='email');
@@ -259,10 +276,25 @@ function renderAccessPreview(){
   const profile=currentProfile()||'operations',tags=profileHighlights[profile]||[];
   $('accessPreview').innerHTML=`<strong>Esto podrá hacer en el club</strong><p>${safe(profileDescriptions[profile])}</p><div class="access-tags">${tags.map(tag=>`<span>${safe(tag)}</span>`).join('')}</div>`;
 }
+// El tutor va a teclear esto en un celular: nombre y primer apellido bastan.
+// "Irvin Alan Enríquez Olivares" -> "irvin.enriquez", no la cadena completa.
+function usuarioCorto(name){
+  const partes=normalize(name).trim().split(/\s+/).filter(Boolean);
+  if(partes.length<2)return suggestedUsername(name);
+  const apellido=partes.length>2?partes[partes.length-2]:partes[1];
+  return suggestedUsername(`${partes[0]} ${apellido}`);
+}
 function suggestedUsername(name){return normalize(name).trim().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'').slice(0,32);}
 function focusSmartSelect(id){const select=$(id),input=select?.nextElementSibling?.querySelector('.tos-smart-select-input');(input||select)?.focus();}
 function selectedGuardian(){return guardians.find(guardian=>String(guardian.guardian_id)===String($('familyGuardian').value));}
-function syncGuardianEmail(){const guardian=selectedGuardian();$('familyEmail').value=guardian?.email||'';}
+function syncGuardianEmail(){
+  const guardian=selectedGuardian();
+  $('familyEmail').value=guardian?.email||'';
+  if($('familyUsername')&&!$('familyUsername').value)$('familyUsername').value=usuarioCorto(guardianName(guardian)||'');
+  // Si el tutor ya trae correo, ese es el mejor camino: puede recuperar su
+  // contraseña solo. Si no, usuario, que es el caso de casi todos.
+  setFamilyMethod(guardian?.email?'email':'username');
+}
 function validEmail(input){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim());}
 function validateStep2(){
   message('wizardMessage');
@@ -271,7 +303,15 @@ function validateStep2(){
     if(!guardian){message('wizardMessage','Selecciona al tutor que recibirá esta llave.');focusSmartSelect('familyGuardian');return false;}
     if(guardian.has_access){message('wizardMessage','Esta familia ya tiene acceso. Ábrela desde la lista para administrarlo.');focusSmartSelect('familyGuardian');return false;}
     if(!(guardian.players||[]).length){message('wizardMessage','Primero liga este tutor con un Tanner desde la ficha del jugador.');focusSmartSelect('familyGuardian');return false;}
-    if(!validEmail($('familyEmail'))){message('wizardMessage','Escribe un correo válido para esta familia.');$('familyEmail').focus();return false;}
+    if(wizard.familyMethod==='username'){
+      const usuario=$('familyUsername').value.trim();
+      if(!/^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$/.test(usuario)){
+        message('wizardMessage','El usuario necesita al menos 3 caracteres y no puede llevar espacios.');
+        $('familyUsername').focus();return false;
+      }
+      return true;
+    }
+    if(!validEmail($('familyEmail'))){message('wizardMessage','Escribe un correo válido, o cámbialo a usuario si esta familia no tiene.');$('familyEmail').focus();return false;}
     return true;
   }
   const name=$('accessDisplayName').value.trim();
@@ -289,7 +329,7 @@ function renderReview(){
     $('accessReview').innerHTML=`
       <div class="review-row"><span>Persona</span><strong>${safe(guardianName(guardian))}</strong></div>
       <div class="review-row"><span>Perfil</span><strong>Familia</strong></div>
-      <div class="review-row"><span>Entrada</span><strong>${safe($('familyEmail').value.trim())}</strong></div>
+      <div class="review-row"><span>Entrada</span><strong>${safe(wizard.familyMethod==='username'?$('familyUsername').value.trim():$('familyEmail').value.trim())}</strong></div>
       <div class="review-row"><span>Puede ver</span><strong>${safe(players)}</strong></div>
       <div class="review-row"><span>Acceso</span><strong>${safe(profileHighlights.guardian.join(' · '))}</strong></div>`;
     return;
@@ -310,7 +350,9 @@ async function createAccess(event){
     let result,displayName,portal='staff';
     if(wizard.kind==='guardian'){
       const guardian=selectedGuardian();displayName=guardianName(guardian);portal='family';
-      result=await invokeStaff({action:'create_guardian_access',guardian_id:guardian.guardian_id,email:$('familyEmail').value.trim()});
+      result=wizard.familyMethod==='username'
+        ?await invokeStaff({action:'create_guardian_username_access',guardian_id:guardian.guardian_id,username:$('familyUsername').value.trim()})
+        :await invokeStaff({action:'create_guardian_access',guardian_id:guardian.guardian_id,email:$('familyEmail').value.trim()});
     }else{
       displayName=$('accessDisplayName').value.trim();
       result=wizard.method==='username'
@@ -324,7 +366,8 @@ async function createAccess(event){
 function showCredentialResult(result,displayName,portal='staff'){
   $('wizardStep3').classList.add('hidden');$('accessForm').classList.add('hidden');$('wizardProgress').classList.add('hidden');$('credentialResult').classList.remove('hidden');
   if(result.temporary_password){
-    const login=portal==='family'?(result.email||'Correo'):result.username,loginLabel=portal==='family'?'Correo':'Usuario',url=portal==='family'?'https://app.tannerycity.com/familias/':'https://app.tannerycity.com/';
+    const porUsuario=Boolean(result.username);
+    const login=porUsuario?result.username:(result.email||'Correo'),loginLabel=porUsuario?'Usuario':'Correo',url=portal==='family'?'https://app.tannerycity.com/familias/':'https://app.tannerycity.com/';
     $('credentialTitle').textContent=`${displayName} ya tiene su llave`;
     $('credentialHelp').textContent='Entrégale estos datos ahora. La contraseña temporal sólo se muestra una vez.';
     $('credentialRows').innerHTML=`<div class="credential-row"><span>${loginLabel}</span><strong>${safe(login)}</strong></div><div class="credential-row"><span>Contraseña temporal</span><code>${safe(result.temporary_password)}</code></div>`;
@@ -497,6 +540,7 @@ $('openCreateUser').addEventListener('click',()=>openWizard());$('closeWizard').
 document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener('click',()=>chooseProfile(button.dataset.role)));
 document.querySelectorAll('[data-profile]').forEach(button=>button.addEventListener('click',()=>chooseProfile(button.dataset.profile)));
 document.querySelectorAll('[data-method]').forEach(button=>button.addEventListener('click',()=>setMethod(button.dataset.method)));
+document.querySelectorAll('[data-family-method]').forEach(button=>button.addEventListener('click',()=>setFamilyMethod(button.dataset.familyMethod)));
 $('wizardBack2').addEventListener('click',()=>setWizardStep(1));$('wizardNext2').addEventListener('click',goToReview);$('wizardBack3').addEventListener('click',()=>setWizardStep(2));$('accessForm').addEventListener('submit',createAccess);
 $('accessDisplayName').addEventListener('blur',()=>{if(wizard.method==='username'&&!$('accessUsername').value)$('accessUsername').value=suggestedUsername($('accessDisplayName').value);});
 $('familyGuardian').addEventListener('change',syncGuardianEmail);$('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());

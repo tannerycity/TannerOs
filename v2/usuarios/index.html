@@ -97,79 +97,53 @@
     <button id="closeWizard" class="icon-button" type="button" aria-label="Cerrar"><span class="close-glyph" aria-hidden="true"></span></button>
   </header>
 
-  <div id="wizardProgress" class="wizard-progress" aria-label="Progreso">
-    <span class="active" data-step-indicator="1"><b>1</b> Su lugar</span><i></i>
-    <span data-step-indicator="2"><b>2</b> Su llave</span><i></i>
-    <span data-step-indicator="3"><b>3</b> Confirmar</span>
-  </div>
-
-  <div id="wizardStep1" class="wizard-step">
-    <div class="step-copy"><h3>¿Cuál es su lugar en el club?</h3><p>Elige cómo participa en Tannery City y nosotros preparamos su acceso.</p></div>
-    <div id="profileChoices" class="profile-choices">
-      <button type="button" class="profile-choice" data-profile="guardian"><span class="profile-symbol family-symbol" aria-hidden="true">F</span><strong>Familia Tanner</strong><small>Acompaña a sus jugadores, pagos y calendario.</small><i class="choice-chevron" aria-hidden="true"></i></button>
-      <button type="button" class="profile-choice" data-role="coach"><span class="profile-symbol" aria-hidden="true">E</span><strong>Entrenador</strong><small>Dirige jugadores, asistencia y convocatorias.</small><i class="choice-chevron" aria-hidden="true"></i></button>
-      <button type="button" class="profile-choice" data-role="scouting"><span class="profile-symbol" aria-hidden="true">S</span><strong>Scout</strong><small>Observa talento y registra evaluaciones.</small><i class="choice-chevron" aria-hidden="true"></i></button>
-      <button type="button" class="profile-choice" data-role="operations"><span class="profile-symbol" aria-hidden="true">O</span><strong>Operación</strong><small>Mantiene al club en movimiento.</small><i class="choice-chevron" aria-hidden="true"></i></button>
-    </div>
-    <details class="more-profiles">
-      <summary>Otro lugar en el club</summary>
-      <div class="other-profile-grid">
-        <button type="button" data-role="academy">Academia</button>
-        <button type="button" data-role="cashier">Taquilla</button>
-        <button type="button" data-role="accounting">Contabilidad</button>
-        <button type="button" data-role="commercial">Marketing</button>
-        <button type="button" data-role="president">Presidencia</button>
-      </div>
-    </details>
-  </div>
-
   <form id="accessForm" novalidate>
-    <div id="wizardStep2" class="wizard-step hidden">
-      <div class="step-copy"><h3>¿Cómo entrará al vestidor?</h3><p>Elige una llave inmediata o envíale una invitación privada.</p></div>
-      <div id="staffIdentityFields">
-        <label class="field-label">Nombre completo<input id="accessDisplayName" type="text" autocomplete="name" maxlength="120" placeholder="Ej. Paco Tenorio"></label>
-        <div class="method-picker" role="group" aria-label="Forma de acceso">
+    <!-- Una sola pantalla. Cada campo que el sistema puede decidir, lo decide. -->
+    <div class="key-block">
+      <label class="key-label" for="whoSearch">¿Quién?</label>
+      <div class="key-search">
+        <span class="key-search-icon" aria-hidden="true"></span>
+        <input id="whoSearch" type="text" autocomplete="off" maxlength="120"
+               placeholder="Busca o escribe su nombre" aria-describedby="whoHint">
+      </div>
+      <div id="whoResults" class="key-results" role="listbox" aria-label="Personas"></div>
+      <div id="whoPicked" class="key-picked hidden"></div>
+      <small id="whoHint" class="key-hint">Si ya está en el club aparecerá aquí. Si no, se crea con ese nombre.</small>
+    </div>
+
+    <div id="roleBlock" class="key-block hidden">
+      <label class="key-label">¿Qué hace en el club?</label>
+      <div id="roleChips" class="key-chips" role="group" aria-label="Lugar en el club"></div>
+    </div>
+
+    <div id="coachBlock" class="key-block hidden">
+      <label class="key-label">¿Qué categorías lleva?</label>
+      <div id="coachChips" class="key-chips" role="group" aria-label="Categorías"></div>
+      <small id="coachHint" class="key-hint"></small>
+    </div>
+
+    <details id="keyDetails" class="key-details hidden">
+      <summary><span>Cómo va a entrar</span><b id="keySummary"></b></summary>
+      <div class="key-details-body">
+        <div id="methodPicker" class="method-picker" role="group" aria-label="Forma de acceso">
           <button id="methodUsername" class="active" type="button" data-method="username"><strong>Llave inmediata</strong><small>Usuario y contraseña temporal</small></button>
           <button id="methodEmail" type="button" data-method="email"><strong>Invitación al club</strong><small>La recibe por correo</small></button>
         </div>
         <label id="usernameField" class="field-label">Nombre de usuario
-          <input id="accessUsername" type="text" autocapitalize="none" autocomplete="off" minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}" placeholder="Ej. paco.tenorio">
-          <small>Puede entrar sin correo. Le entregaremos una contraseña temporal.</small>
+          <input id="accessUsername" type="text" autocapitalize="none" autocomplete="off" minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}">
         </label>
         <label id="emailField" class="field-label hidden">Correo
           <input id="accessEmail" type="email" autocomplete="email" maxlength="254" placeholder="paco@correo.com">
-          <small>Recibirá un enlace privado para crear su acceso.</small>
         </label>
       </div>
-      <div id="familyIdentityFields" class="hidden">
-        <label class="field-label">Tutor
-          <select id="familyGuardian" data-smart-search data-search-placeholder="Buscar por tutor o Tanner"><option value="">Selecciona al tutor</option></select>
-          <small>Los Tanners ya relacionados con este tutor aparecerán en el siguiente paso.</small>
-        </label>
-        <div class="method-picker" role="group" aria-label="Cómo va a entrar la familia">
-          <button id="familyMethodUsername" class="active" type="button" data-family-method="username"><strong>Usuario y contraseña</strong><small>No necesita correo</small></button>
-          <button id="familyMethodEmail" type="button" data-family-method="email"><strong>Con su correo</strong><small>Recupera su contraseña sola</small></button>
-        </div>
-        <label id="familyUsernameField" class="field-label">Usuario para entrar
-          <input id="familyUsername" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}" placeholder="Ej. irvin.enriquez">
-          <small>Le entregarás una contraseña temporal. Al entrar elegirá una propia.</small>
-        </label>
-        <label id="familyEmailField" class="field-label hidden">Correo para entrar
-          <input id="familyEmail" type="email" autocomplete="email" maxlength="254" placeholder="familia@correo.com">
-          <small>Le entregarás una contraseña temporal. Al entrar elegirá una propia.</small>
-        </label>
-      </div>
-      <section id="accessPreview" class="access-preview"></section>
-      <div id="wizardMessage" class="inline-message hidden"></div>
-      <footer class="wizard-actions"><button id="wizardBack2" class="secondary" type="button">Atrás</button><button id="wizardNext2" class="primary" type="button">Revisar llave</button></footer>
-    </div>
+    </details>
 
-    <div id="wizardStep3" class="wizard-step hidden">
-      <div class="step-copy"><h3>Todo listo para sumarse</h3><p>Confirma su lugar y lo que podrá ver dentro del club.</p></div>
-      <section id="accessReview" class="access-review"></section>
-      <div id="createMessage" class="inline-message hidden"></div>
-      <footer class="wizard-actions"><button id="wizardBack3" class="secondary" type="button">Atrás</button><button id="createAccess" class="primary" type="submit">Entregar llave</button></footer>
-    </div>
+    <section id="accessPreview" class="access-preview"></section>
+    <div id="wizardMessage" class="inline-message hidden"></div>
+    <div id="createMessage" class="inline-message hidden"></div>
+    <footer class="wizard-actions">
+      <button id="createAccess" class="primary full-button" type="submit" disabled>Entregar llave</button>
+    </footer>
   </form>
 
   <section id="credentialResult" class="wizard-step credential-result hidden" aria-live="polite">

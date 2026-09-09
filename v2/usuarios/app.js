@@ -16,7 +16,7 @@ let currentPerson=null;
 let categoryCatalog=[];      // categorías vivas del club
 let categoriesByUser={};     // userId -> [categoryId]
 let memberFilter='active';
-let wizard={step:1,kind:null,role:null,method:'username',familyMethod:'username'};
+let wizard={kind:null,role:null,method:'username',familyMethod:'username',persona:null,categorias:new Set()};
 let lastCredentialText='';
 
 const roleLabels={
@@ -162,7 +162,7 @@ function render(){
   $('kpiFamilies').textContent=activeFamilies;
   $('kpiPending').textContent=pendingInvites().length;
   $('kpiNeedsAttention').textContent=guardians.filter(guardian=>!guardian.has_access).length;
-  renderPeople();renderInvites();renderGuardianOptions();
+  renderPeople();renderInvites();
 }
 
 function personMatchesFilter(person){
@@ -216,68 +216,204 @@ function setFilter(filter){
   document.querySelectorAll('.filter-chip').forEach(button=>button.classList.toggle('active',button.dataset.filter===filter));
   renderPeople();
 }
-function renderGuardianOptions(){
-  const select=$('familyGuardian'),current=select.value;
-  select.innerHTML='<option value="">Selecciona al tutor</option>';
-  guardians.forEach(guardian=>{
-    const option=document.createElement('option');option.value=guardian.guardian_id;
-    option.textContent=`${guardianName(guardian)}${guardian.has_access?' · Ya tiene llave':''}`;
-    option.dataset.search=[guardian.email,guardian.phone,(guardian.players||[]).join(' ')].filter(Boolean).join(' ');
-    select.appendChild(option);
-  });
-  if([...select.options].some(option=>option.value===current))select.value=current;
-  select.dispatchEvent(new Event('change',{bubbles:true}));
-}
+/* ===================== Entregar una llave =====================
+   Una sola pantalla. El principio: cada dato que el sistema puede decidir, lo
+   decide, y se muestra ya resuelto en un plegable en vez de preguntarse.
+   Antes eran tres pasos y, para un entrenador, una segunda vuelta por la ficha
+   para asignarle categorías: se creaba gente a medias.
+
+   El buscador es uno solo a propósito. Buscar antes de crear es la regla que
+   evita expedientes duplicados: si la persona ya existe en el club aparece; si
+   no, ese mismo texto se vuelve el nombre del nuevo registro. */
+const ROLES_VISIBLES=['coach','operations','cashier','academy','scouting','accounting','commercial','president'];
 
 function openWizard(guardianId=''){
-  if(!canWrite)return;
-  wizard={step:1,kind:null,role:null,method:'username',familyMethod:'username'};lastCredentialText='';
-  $('accessForm').reset();$('credentialResult').classList.add('hidden');$('wizardProgress').classList.remove('hidden');
-  document.querySelectorAll('[data-role],[data-profile]').forEach(button=>button.classList.remove('selected'));
-  setMethod('username');setFamilyMethod('username');setWizardStep(1);message('wizardMessage');message('createMessage');
-  $('wizardBackdrop').classList.remove('hidden');$('wizardModal').classList.remove('hidden');document.body.style.overflow='hidden';
-  if(guardianId){chooseProfile('guardian');$('familyGuardian').value=guardianId;$('familyGuardian').dispatchEvent(new Event('change',{bubbles:true}));syncGuardianEmail();}
+  wizard={step:1,kind:null,role:null,method:'username',familyMethod:'username',
+          persona:null,categorias:new Set()};
+  lastCredentialText='';
+  $('accessForm').reset();$('accessForm').classList.remove('hidden');
+  $('credentialResult').classList.add('hidden');
+  $('whoSearch').value='';$('whoResults').innerHTML='';
+  $('whoSearch').closest('.key-search').classList.remove('hidden');
+  $('whoHint').classList.remove('hidden');
+  $('whoPicked').classList.add('hidden');$('whoPicked').innerHTML='';
+  $('roleBlock').classList.add('hidden');$('coachBlock').classList.add('hidden');
+  $('keyDetails').classList.add('hidden');$('keyDetails').open=false;
+  $('accessPreview').innerHTML='';
+  message('wizardMessage');message('createMessage');
+  pintaRoles();sincroniza();
+  $('wizardBackdrop').classList.remove('hidden');$('wizardModal').classList.remove('hidden');
+  document.body.style.overflow='hidden';
+  if(guardianId){
+    const g=guardians.find(x=>String(x.guardian_id)===String(guardianId));
+    if(g){eligePersona({tipo:'tutor',id:g.guardian_id,nombre:guardianName(g),
+      detalle:(g.players||[]).join(' · ')||'Sin Tanner ligado',dato:g});return;}
+  }
+  setTimeout(()=>$('whoSearch').focus(),60);
 }
-function closeWizard(){$('wizardBackdrop').classList.add('hidden');$('wizardModal').classList.add('hidden');document.body.style.overflow='';}
-function setWizardStep(step){
-  wizard.step=step;
-  [1,2,3].forEach(index=>{$(`wizardStep${index}`)?.classList.toggle('hidden',index!==step);document.querySelector(`[data-step-indicator="${index}"]`)?.classList.toggle('active',index<=step);});
-  $('accessForm').classList.toggle('hidden',step===1);$('credentialResult').classList.add('hidden');
-}
-function chooseProfile(profile){
-  const guardian=profile==='guardian';
-  if(!guardian&&!roleLabels[profile])return;
-  wizard.kind=guardian?'guardian':'staff';wizard.role=guardian?null:profile;
-  document.querySelectorAll('[data-role]').forEach(button=>button.classList.toggle('selected',button.dataset.role===profile));
-  document.querySelectorAll('[data-profile]').forEach(button=>button.classList.toggle('selected',button.dataset.profile===profile));
-  $('staffIdentityFields').classList.toggle('hidden',guardian);$('familyIdentityFields').classList.toggle('hidden',!guardian);
-  renderAccessPreview();setWizardStep(2);
-  if(guardian)focusSmartSelect('familyGuardian');else $('accessDisplayName').focus();
-}
-// La familia entra con usuario o con correo. Arranca en usuario porque 51 de los
-// 55 tutores con hijo activo no tienen correo registrado: es el caso normal,
-// no la excepción.
-function setFamilyMethod(method){
-  wizard.familyMethod=method;
-  $('familyMethodUsername')?.classList.toggle('active',method==='username');
-  $('familyMethodEmail')?.classList.toggle('active',method==='email');
-  $('familyUsernameField')?.classList.toggle('hidden',method!=='username');
-  $('familyEmailField')?.classList.toggle('hidden',method!=='email');
-  message('wizardMessage');
+function closeWizard(){
+  $('wizardBackdrop').classList.add('hidden');$('wizardModal').classList.add('hidden');
+  document.body.style.overflow='';
 }
 
+/* ---------- Buscador único ---------- */
+// Se listan también los que YA tienen llave, en gris: saber que alguien ya
+// existe evita crearlo dos veces, que es el error caro de un padrón.
+function buscaPersonas(q){
+  const t=normalize(q);if(t.length<2)return [];
+  const out=[];
+  guardians.forEach(g=>{
+    const texto=normalize([guardianName(g),(g.players||[]).join(' '),g.email,g.phone].join(' '));
+    if(texto.includes(t))out.push({
+      tipo:'tutor',id:g.guardian_id,nombre:guardianName(g),
+      detalle:(g.players||[]).join(' · ')||'Sin Tanner ligado',
+      ocupado:Boolean(g.has_access),motivo:'Ya tiene llave',dato:g});
+  });
+  members.forEach(m=>{
+    if(m.roleCode==='player')return;
+    if(normalize(memberName(m)).includes(t))out.push({
+      tipo:'staff',id:m.membershipId,nombre:memberName(m),
+      detalle:`${roleName(m.roleCode)} · ${m.active?'Llave activa':'Llave pausada'}`,
+      ocupado:true,motivo:'Ya está en el club',dato:m});
+  });
+  return out.sort((a,b)=>Number(a.ocupado)-Number(b.ocupado)||a.nombre.localeCompare(b.nombre,'es-MX')).slice(0,6);
+}
+function pintaResultados(){
+  const q=$('whoSearch').value.trim(),box=$('whoResults');
+  if(q.length<2){box.innerHTML='';return;}
+  const filas=buscaPersonas(q);
+  const nuevo=q.length>=3&&!filas.some(f=>!f.ocupado&&normalize(f.nombre)===normalize(q))
+    ? `<button type="button" class="key-result is-new" data-nuevo="1">
+         <span class="key-result-face">+</span>
+         <span class="key-result-body"><strong>Crear a “${safe(q)}”</strong><small>Alguien nuevo en el club</small></span>
+       </button>` : '';
+  box.innerHTML=filas.map(f=>
+    `<button type="button" class="key-result${f.ocupado?' is-busy':''}" data-pick="${safe(f.tipo)}:${safe(f.id)}" ${f.ocupado?'disabled':''}>
+       <span class="key-result-face">${safe(initials(f.nombre))}</span>
+       <span class="key-result-body"><strong>${safe(f.nombre)}</strong><small>${safe(f.detalle)}</small></span>
+       ${f.ocupado?`<span class="key-result-tag">${safe(f.motivo)}</span>`:'<span class="key-result-go">›</span>'}
+     </button>`).join('')+nuevo;
+  box.querySelectorAll('[data-pick]').forEach(b=>b.addEventListener('click',()=>{
+    const [tipo,id]=b.dataset.pick.split(':');
+    const f=buscaPersonas($('whoSearch').value.trim()).find(x=>x.tipo===tipo&&String(x.id)===id);
+    if(f)eligePersona(f);
+  }));
+  box.querySelector('[data-nuevo]')?.addEventListener('click',()=>
+    eligePersona({tipo:'nuevo',id:'',nombre:q,dato:null}));
+}
+function eligePersona(f){
+  wizard.persona=f;
+  // Un tutor sólo puede ser Familia: su llave es la del portal, no la del staff.
+  wizard.kind=f.tipo==='tutor'?'guardian':'staff';
+  wizard.role=f.tipo==='tutor'?null:(wizard.role&&ROLES_VISIBLES.includes(wizard.role)?wizard.role:null);
+  wizard.categorias=new Set();
+  $('whoResults').innerHTML='';$('whoSearch').value='';
+  // Ya no hay nada que buscar: el campo y su ayuda estorban.
+  $('whoSearch').closest('.key-search').classList.add('hidden');
+  $('whoHint').classList.add('hidden');
+  $('whoPicked').classList.remove('hidden');
+  $('whoPicked').innerHTML=
+    `<span class="key-result-face">${safe(initials(f.nombre))}</span>
+     <span class="key-result-body"><strong>${safe(f.nombre)}</strong><small>${safe(f.tipo==='tutor'?(f.detalle||'Familia Tanner'):'Nueva persona en el club')}</small></span>
+     <button type="button" id="whoClear" class="key-clear" aria-label="Elegir a otra persona">✕</button>`;
+  $('whoClear').addEventListener('click',()=>{
+    wizard.persona=null;wizard.kind=null;wizard.role=null;wizard.categorias=new Set();
+    $('whoPicked').classList.add('hidden');$('whoPicked').innerHTML='';
+    $('whoSearch').closest('.key-search').classList.remove('hidden');
+    $('whoHint').classList.remove('hidden');
+    sincroniza();$('whoSearch').focus();
+  });
+  sincroniza();
+  if(wizard.kind==='staff'&&!wizard.role)$('roleChips').querySelector('button')?.focus();
+}
+
+/* ---------- Rol y categorías ---------- */
+function pintaRoles(){
+  $('roleChips').innerHTML=ROLES_VISIBLES.map(code=>
+    `<button type="button" class="key-chip" data-rol="${code}">${safe(roleName(code))}</button>`).join('');
+  $('roleChips').querySelectorAll('[data-rol]').forEach(b=>b.addEventListener('click',()=>{
+    wizard.role=b.dataset.rol;wizard.categorias=new Set();sincroniza();
+  }));
+}
+function pintaCategorias(){
+  const box=$('coachChips');
+  box.innerHTML=categoryCatalog.map(c=>
+    `<button type="button" class="key-chip${wizard.categorias.has(String(c.id))?' on':''}" data-cat="${safe(c.id)}">
+       ${safe(c.name)}<small>${Number(c.players||0)}</small></button>`).join('');
+  box.querySelectorAll('[data-cat]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.cat;
+    wizard.categorias.has(id)?wizard.categorias.delete(id):wizard.categorias.add(id);
+    sincroniza();
+  }));
+  const n=wizard.categorias.size;
+  $('coachHint').textContent=n
+    ? `Verá el expediente de ${n===1?'esa categoría':`esas ${n} categorías`}. Nada de dinero.`
+    : 'Sin categorías no verá a ningún Tanner. Puedes asignarlas después desde su ficha.';
+  $('coachHint').dataset.tone=n?'':'warn';
+}
+
+/* ---------- Cómo entra: ya resuelto, no preguntado ---------- */
+function sincroniza(){
+  const p=wizard.persona;
+  $('roleBlock').classList.toggle('hidden',!p||wizard.kind!=='staff');
+  $('roleChips').querySelectorAll('[data-rol]').forEach(b=>
+    b.classList.toggle('on',b.dataset.rol===wizard.role));
+
+  const esEntrenador=wizard.kind==='staff'&&wizard.role==='coach'&&categoryCatalog.length>0;
+  $('coachBlock').classList.toggle('hidden',!esEntrenador);
+  if(esEntrenador)pintaCategorias();
+
+  const listo=Boolean(p)&&(wizard.kind==='guardian'||Boolean(wizard.role));
+  $('keyDetails').classList.toggle('hidden',!listo);
+  if(listo)resuelveLlave();
+  $('createAccess').disabled=!listo||!canWrite;
+  renderAccessPreview();
+}
+// La regla: si la persona trae correo, ese es el mejor camino porque recupera su
+// contraseña sola. Si no, usuario con contraseña temporal.
+function resuelveLlave(){
+  const p=wizard.persona,correo=p?.dato?.email||'';
+  if(wizard.kind==='guardian'){
+    setFamilyMethod(correo?'email':'username');
+    if(correo)$('accessEmail').value=correo;
+    else if(!$('accessUsername').value)$('accessUsername').value=usuarioCorto(p.nombre);
+  }else{
+    if(!$('accessUsername').value)$('accessUsername').value=usuarioCorto(p.nombre);
+    setMethod(wizard.method);
+  }
+  const usa=(wizard.kind==='guardian'?wizard.familyMethod:wizard.method)==='email';
+  $('keySummary').textContent=usa
+    ?(($('accessEmail').value.trim()||'con su correo'))
+    :`usuario ${$('accessUsername').value.trim()||'—'}`;
+}
+function setFamilyMethod(method){
+  wizard.familyMethod=method;aplicaMetodo(method);
+}
 function setMethod(method){
-  wizard.method=method;
-  $('methodUsername').classList.toggle('active',method==='username');$('methodEmail').classList.toggle('active',method==='email');
-  $('usernameField').classList.toggle('hidden',method!=='username');$('emailField').classList.toggle('hidden',method!=='email');
+  wizard.method=method;aplicaMetodo(method);
+}
+function aplicaMetodo(method){
+  $('methodUsername')?.classList.toggle('active',method==='username');
+  $('methodEmail')?.classList.toggle('active',method==='email');
+  $('usernameField')?.classList.toggle('hidden',method!=='username');
+  $('emailField')?.classList.toggle('hidden',method!=='email');
+  const invita=wizard.kind==='staff'&&method==='email';
+  $('methodEmail')?.querySelector('strong')?.replaceChildren(
+    document.createTextNode(wizard.kind==='guardian'?'Con su correo':'Invitación al club'));
+  $('methodEmail')?.querySelector('small')?.replaceChildren(
+    document.createTextNode(wizard.kind==='guardian'?'Recupera su contraseña sola':'La recibe por correo'));
+  if($('keySummary'))$('keySummary').textContent=method==='email'
+    ?(($('accessEmail').value.trim()||'con su correo'))
+    :`usuario ${$('accessUsername').value.trim()||'—'}`;
+  void invita;
 }
 function currentProfile(){return wizard.kind==='guardian'?'guardian':wizard.role;}
 function renderAccessPreview(){
-  const profile=currentProfile()||'operations',tags=profileHighlights[profile]||[];
-  $('accessPreview').innerHTML=`<strong>Esto podrá hacer en el club</strong><p>${safe(profileDescriptions[profile])}</p><div class="access-tags">${tags.map(tag=>`<span>${safe(tag)}</span>`).join('')}</div>`;
+  const profile=currentProfile();
+  const box=$('accessPreview');if(!box)return;
+  if(!profile){box.innerHTML='';return;}
+  box.innerHTML=`<div class="preview-title">Esto podrá hacer en el club</div><p>${safe(profileDescriptions[profile]||'')}</p>`;
 }
-// El tutor va a teclear esto en un celular: nombre y primer apellido bastan.
-// "Irvin Alan Enríquez Olivares" -> "irvin.enriquez", no la cadena completa.
 function usuarioCorto(name){
   const partes=normalize(name).trim().split(/\s+/).filter(Boolean);
   if(partes.length<2)return suggestedUsername(name);
@@ -285,86 +421,61 @@ function usuarioCorto(name){
   return suggestedUsername(`${partes[0]} ${apellido}`);
 }
 function suggestedUsername(name){return normalize(name).trim().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'').slice(0,32);}
-function focusSmartSelect(id){const select=$(id),input=select?.nextElementSibling?.querySelector('.tos-smart-select-input');(input||select)?.focus();}
-function selectedGuardian(){return guardians.find(guardian=>String(guardian.guardian_id)===String($('familyGuardian').value));}
-function syncGuardianEmail(){
-  const guardian=selectedGuardian();
-  $('familyEmail').value=guardian?.email||'';
-  if($('familyUsername')&&!$('familyUsername').value)$('familyUsername').value=usuarioCorto(guardianName(guardian)||'');
-  // Si el tutor ya trae correo, ese es el mejor camino: puede recuperar su
-  // contraseña solo. Si no, usuario, que es el caso de casi todos.
-  setFamilyMethod(guardian?.email?'email':'username');
-}
-function validEmail(input){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim());}
-function validateStep2(){
+function validEmail(input){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(input?.value||'').trim());}
+
+function validaLlave(){
   message('wizardMessage');
-  if(wizard.kind==='guardian'){
-    const guardian=selectedGuardian();
-    if(!guardian){message('wizardMessage','Selecciona al tutor que recibirá esta llave.');focusSmartSelect('familyGuardian');return false;}
-    if(guardian.has_access){message('wizardMessage','Esta familia ya tiene acceso. Ábrela desde la lista para administrarlo.');focusSmartSelect('familyGuardian');return false;}
-    if(!(guardian.players||[]).length){message('wizardMessage','Primero liga este tutor con un Tanner desde la ficha del jugador.');focusSmartSelect('familyGuardian');return false;}
-    if(wizard.familyMethod==='username'){
-      const usuario=$('familyUsername').value.trim();
-      if(!/^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$/.test(usuario)){
-        message('wizardMessage','El usuario necesita al menos 3 caracteres y no puede llevar espacios.');
-        $('familyUsername').focus();return false;
-      }
-      return true;
+  if(!wizard.persona){message('wizardMessage','Elige o escribe a quién le entregas la llave.');$('whoSearch').focus();return false;}
+  if(wizard.kind==='staff'&&!wizard.role){message('wizardMessage','Elige qué hace en el club.');return false;}
+  const metodo=wizard.kind==='guardian'?wizard.familyMethod:wizard.method;
+  if(metodo==='email'){
+    if(!validEmail($('accessEmail'))){
+      message('wizardMessage','Revisa el correo, o cámbialo a usuario si no tiene.');
+      $('keyDetails').open=true;$('accessEmail').focus();return false;
     }
-    if(!validEmail($('familyEmail'))){message('wizardMessage','Escribe un correo válido, o cámbialo a usuario si esta familia no tiene.');$('familyEmail').focus();return false;}
     return true;
   }
-  const name=$('accessDisplayName').value.trim();
-  if(name.length<2){message('wizardMessage','Escribe el nombre de la persona.');$('accessDisplayName').focus();return false;}
-  if(wizard.method==='username'){
-    const username=$('accessUsername').value.trim();
-    if(!/^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$/.test(username)){message('wizardMessage','El usuario necesita al menos 3 caracteres y no puede llevar espacios.');$('accessUsername').focus();return false;}
-  }else if(!validEmail($('accessEmail'))){message('wizardMessage','Escribe un correo válido.');$('accessEmail').focus();return false;}
+  const usuario=$('accessUsername').value.trim();
+  if(!/^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$/.test(usuario)){
+    message('wizardMessage','El usuario necesita al menos 3 caracteres y no puede llevar espacios.');
+    $('keyDetails').open=true;$('accessUsername').focus();return false;
+  }
   return true;
 }
-function renderReview(){
-  const profile=currentProfile();
-  if(wizard.kind==='guardian'){
-    const guardian=selectedGuardian(),players=(guardian?.players||[]).join(' · ')||'Sin Tanner ligado';
-    $('accessReview').innerHTML=`
-      <div class="review-row"><span>Persona</span><strong>${safe(guardianName(guardian))}</strong></div>
-      <div class="review-row"><span>Perfil</span><strong>Familia</strong></div>
-      <div class="review-row"><span>Entrada</span><strong>${safe(wizard.familyMethod==='username'?$('familyUsername').value.trim():$('familyEmail').value.trim())}</strong></div>
-      <div class="review-row"><span>Puede ver</span><strong>${safe(players)}</strong></div>
-      <div class="review-row"><span>Acceso</span><strong>${safe(profileHighlights.guardian.join(' · '))}</strong></div>`;
-    return;
-  }
-  const credential=wizard.method==='username'?`@${$('accessUsername').value.trim()}`:$('accessEmail').value.trim();
-  $('accessReview').innerHTML=`
-    <div class="review-row"><span>Persona</span><strong>${safe($('accessDisplayName').value.trim())}</strong></div>
-    <div class="review-row"><span>Perfil</span><strong>${safe(roleName(wizard.role))}</strong></div>
-    <div class="review-row"><span>Entrada</span><strong>${safe(credential)}</strong></div>
-    <div class="review-row"><span>Acceso</span><strong>${safe(profileHighlights[profile].join(' · '))}</strong></div>`;
-}
-function goToReview(){if(!validateStep2())return;renderReview();setWizardStep(3);}
 
 async function createAccess(event){
-  event.preventDefault();if(!canWrite||!wizard.kind||!validateStep2())return;
-  message('createMessage');const button=$('createAccess');button.disabled=true;button.textContent='Preparando llave…';
+  event.preventDefault();
+  if(!canWrite||!validaLlave())return;
+  message('createMessage');
+  const button=$('createAccess');button.disabled=true;button.textContent='Preparando llave…';
   try{
-    let result,displayName,portal='staff';
+    let result,portal='staff';
+    const p=wizard.persona,displayName=p.nombre;
     if(wizard.kind==='guardian'){
-      const guardian=selectedGuardian();displayName=guardianName(guardian);portal='family';
+      portal='family';
       result=wizard.familyMethod==='username'
-        ?await invokeStaff({action:'create_guardian_username_access',guardian_id:guardian.guardian_id,username:$('familyUsername').value.trim()})
-        :await invokeStaff({action:'create_guardian_access',guardian_id:guardian.guardian_id,email:$('familyEmail').value.trim()});
+        ?await invokeStaff({action:'create_guardian_username_access',guardian_id:p.id,username:$('accessUsername').value.trim()})
+        :await invokeStaff({action:'create_guardian_access',guardian_id:p.id,email:$('accessEmail').value.trim()});
     }else{
-      displayName=$('accessDisplayName').value.trim();
       result=wizard.method==='username'
         ?await invokeStaff({action:'create_username_user',display_name:displayName,username:$('accessUsername').value.trim(),role_code:wizard.role})
         :await invokeStaff({action:'send_email_invite',display_name:displayName,email:$('accessEmail').value.trim(),role_code:wizard.role});
+      // Las categorías van en el mismo acto: un entrenador sin categorías no ve
+      // a nadie, y dejarlo para una segunda vuelta es como se crea gente a medias.
+      if(wizard.role==='coach'&&wizard.categorias.size&&result?.user_id){
+        try{
+          await rpc('v2_set_category_staff',{organization_id:ctx.organization_id,
+            user_id:result.user_id,category_ids:[...wizard.categorias]});
+        }catch(error){console.warn('categorías del entrenador',error);}
+      }
     }
     await load();showCredentialResult(result,displayName,portal);
   }catch(error){message('createMessage',friendly(error));}
   finally{button.disabled=!canWrite;button.textContent='Entregar llave';}
 }
+
 function showCredentialResult(result,displayName,portal='staff'){
-  $('wizardStep3').classList.add('hidden');$('accessForm').classList.add('hidden');$('wizardProgress').classList.add('hidden');$('credentialResult').classList.remove('hidden');
+  $('accessForm').classList.add('hidden');$('credentialResult').classList.remove('hidden');
   if(result.temporary_password){
     const porUsuario=Boolean(result.username);
     const login=porUsuario?result.username:(result.email||'Correo'),loginLabel=porUsuario?'Usuario':'Correo',url=portal==='family'?'https://app.tannerycity.com/familias/':'https://app.tannerycity.com/';
@@ -537,13 +648,24 @@ async function revokeInvite(id){
   catch(error){await tosAlert({kicker:'LLAVES',title:'No se pudo revocar',message:friendly(error)});}}
 
 $('openCreateUser').addEventListener('click',()=>openWizard());$('closeWizard').addEventListener('click',closeWizard);$('wizardBackdrop').addEventListener('click',closeWizard);$('finishWizard').addEventListener('click',closeWizard);$('copyCredential').addEventListener('click',copyCredential);
-document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener('click',()=>chooseProfile(button.dataset.role)));
-document.querySelectorAll('[data-profile]').forEach(button=>button.addEventListener('click',()=>chooseProfile(button.dataset.profile)));
-document.querySelectorAll('[data-method]').forEach(button=>button.addEventListener('click',()=>setMethod(button.dataset.method)));
-document.querySelectorAll('[data-family-method]').forEach(button=>button.addEventListener('click',()=>setFamilyMethod(button.dataset.familyMethod)));
-$('wizardBack2').addEventListener('click',()=>setWizardStep(1));$('wizardNext2').addEventListener('click',goToReview);$('wizardBack3').addEventListener('click',()=>setWizardStep(2));$('accessForm').addEventListener('submit',createAccess);
-$('accessDisplayName').addEventListener('blur',()=>{if(wizard.method==='username'&&!$('accessUsername').value)$('accessUsername').value=suggestedUsername($('accessDisplayName').value);});
-$('familyGuardian').addEventListener('change',syncGuardianEmail);$('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());
+// El método de entrada es uno solo: el bloque de familia y el de staff se
+// fundieron, así que el mismo par de botones sirve para los dos.
+document.querySelectorAll('[data-method]').forEach(button=>button.addEventListener('click',()=>{
+  wizard.kind==='guardian'?setFamilyMethod(button.dataset.method):setMethod(button.dataset.method);
+  resuelveLlave();
+}));
+$('whoSearch').addEventListener('input',pintaResultados);
+// Enter elige el primero, como cualquier buscador. Sin esto hay que soltar el
+// teclado para dar un clic, que es justo lo que se siente lento.
+$('whoSearch').addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  ($('whoResults').querySelector('.key-result:not([disabled])'))?.click();
+});
+$('accessUsername').addEventListener('input',resuelveLlave);
+$('accessEmail').addEventListener('input',resuelveLlave);
+$('accessForm').addEventListener('submit',createAccess);
+$('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());
 $('closeMember').addEventListener('click',closePerson);$('memberBackdrop').addEventListener('click',closePerson);$('saveMemberProfile').addEventListener('click',saveMemberProfile);$('resetAllModules').addEventListener('click',resetAllModules);$('saveCategories').addEventListener('click',saveCategories);$('toggleMember').addEventListener('click',togglePersonAccess);$('resetMemberPassword').addEventListener('click',resetPersonPassword);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!$('memberDrawer').classList.contains('hidden'))closePerson();else if(!$('wizardModal').classList.contains('hidden'))closeWizard();}});
 

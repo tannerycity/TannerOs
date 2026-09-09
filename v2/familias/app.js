@@ -208,7 +208,7 @@ function renderCartBar(){
 }
 async function checkout(){
   const p=currentPlayer();
-  if(!p){alert('Elige primero a tu Tanner.');return;}
+  if(!p){await tosAlert({kicker:'TIENDA',title:'Falta elegir a tu Tanner',message:'Selecciona de quién es el pedido antes de apartarlo.'});return;}
   const items=Object.values(state.cart).map(i=>({product_id:i.id,quantity:i.quantity,size:i.size||null}));
   if(!items.length)return;
   const btn=document.getElementById('famCheckout');btn.disabled=true;btn.textContent='Enviando…';
@@ -219,7 +219,7 @@ async function checkout(){
       `<section class="fam-card"><div class="fam-card-head"><h2>Pedido apartado</h2><span>${esc(res.folio||'')}</span></div><div class="fam-mov"><span><strong>Lo tenemos registrado</strong><span>El club te confirma disponibilidad y forma de pago. Total ${money.format(Number(res.total||0))}.</span></span></div></section>`);
     document.querySelectorAll('.fam-prod button').forEach(b=>{b.dataset.in='0';b.textContent='Agregar';});
     window.scrollTo({top:0,behavior:'smooth'});
-  }catch(error){alert(friendly(error));btn.disabled=false;btn.textContent='Apartar';}
+  }catch(error){await tosAlert({kicker:'TIENDA',title:'No se pudo apartar el pedido',message:friendly(error)});btn.disabled=false;btn.textContent='Apartar';}
 }
 async function renderTienda(){
   if(!state.catalog){

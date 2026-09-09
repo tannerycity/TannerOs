@@ -16,10 +16,30 @@ function fillAdjustment(){const r=receivables.find(x=>x.charge_id===$('waiverCha
 async function authorizeAdjustment(e){e.preventDefault();if(!isPresidency)return;msg('waiverMessage');const r=receivables.find(x=>x.charge_id===$('waiverCharge').value),amount=Number($('waiverAmount').value),reason=$('waiverReason').value.trim();if(!r||!Number.isFinite(amount)||amount<=0||!reason){msg('waiverMessage','Selecciona cargo, monto y escribe el motivo.');return;}const btn=$('authorizeAdjustment');btn.disabled=true;try{await rpc('v2_authorize_charge_adjustment',{organization_id:ctx.organization_id,charge_id:r.charge_id,adjustment_type:$('waiverType').value,amount,reason,idempotency_key:idem('adjustment-auth')});$('waiverReason').value='';await refreshFinancialQueues();msg('waiverMessage','Ajuste autorizado por Presidencia. Contabilidad ya puede aplicarlo.','success');}catch(err){msg('waiverMessage',friendly(err));}finally{btn.disabled=false;}}
 async function refreshFinancialQueues(){[receivables,adjustments,credits]=await Promise.all([rpc('v2_open_receivables',{organization_id:ctx.organization_id}),rpc('v2_adjustment_authorizations',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_unresolved_credit',{organization_id:ctx.organization_id}).catch(()=>[])]);renderReceivables();renderAdjustments();renderCredits();}
 function renderAdjustments(){const box=$('waiverQueue');box.innerHTML='';$('waiverQueueEmpty').classList.toggle('hidden',adjustments.length>0);adjustments.forEach(a=>{const card=document.createElement('article');card.className=`waiver-card ${a.status}`;card.innerHTML=`<div><strong>${esc(a.player_name||'Sin Tanner')} · ${money.format(Number(a.amount||0))}</strong><span>${esc(a.charge_concept||'Cargo')} · ${esc(a.adjustment_type)} · ${esc(a.status)}</span><small>${esc(a.reason)} · autorizado ${new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(new Date(a.authorized_at))}</small></div><div class="waiver-actions"></div>`;const acts=card.querySelector('.waiver-actions');if(a.status==='approved'&&canWrite){const apply=document.createElement('button');apply.className='primary mini';apply.type='button';apply.textContent='Aplicar';apply.onclick=()=>postAdjustment(a.id);acts.appendChild(apply);}if(a.status==='approved'&&isPresidency){const revoke=document.createElement('button');revoke.className='secondary mini';revoke.type='button';revoke.textContent='Revocar';revoke.onclick=()=>revokeAdjustment(a.id);acts.appendChild(revoke);}box.appendChild(card);});}
-async function postAdjustment(id){if(!confirm('¿Aplicar este ajuste autorizado? El cargo original se conserva.'))return;try{await rpc('v2_post_authorized_adjustment',{organization_id:ctx.organization_id,authorization_id:id});await refreshFinancialQueues();}catch(err){alert(friendly(err));}}
-async function revokeAdjustment(id){const reason=prompt('Motivo de revocación:');if(!reason?.trim())return;try{await rpc('v2_revoke_charge_adjustment_authorization',{organization_id:ctx.organization_id,authorization_id:id,reason:reason.trim()});await refreshFinancialQueues();}catch(err){alert(friendly(err));}}
+async function postAdjustment(id){
+  const ok=await tosConfirm({kicker:'CONTABILIDAD',title:'¿Aplicar este ajuste?',
+    message:'Ya está autorizado. El cargo original se conserva y el ajuste queda aparte.',
+    confirmText:'Sí, aplicar'});
+  if(!ok)return;
+  try{await rpc('v2_post_authorized_adjustment',{organization_id:ctx.organization_id,authorization_id:id});await refreshFinancialQueues();}
+  catch(err){await tosAlert({kicker:'CONTABILIDAD',title:'No se pudo aplicar',message:friendly(err)});}}
+async function revokeAdjustment(id){
+  const reason=await tosPrompt({kicker:'CONTABILIDAD',title:'¿Por qué se revoca?',
+    message:'La autorización queda cancelada y el ajuste no se aplica.',
+    required:true,requiredText:'Escribe el motivo.',maxlength:200,
+    confirmText:'Revocar',danger:true});
+  if(reason===null)return;
+  try{await rpc('v2_revoke_charge_adjustment_authorization',{organization_id:ctx.organization_id,authorization_id:id,reason});await refreshFinancialQueues();}
+  catch(err){await tosAlert({kicker:'CONTABILIDAD',title:'No se pudo revocar',message:friendly(err)});}}
 async function saveExpense(e){e.preventDefault();msg('expenseMessage');const amount=Number($('amount').value);if(!Number.isFinite(amount)||amount<=0){msg('expenseMessage','El monto debe ser mayor a cero.');return;}const btn=$('saveExpense');btn.disabled=true;try{await rpc('v2_post_expense',{organization_id:ctx.organization_id,amount,expense_date:$('date').value,category:$('category').value,method:$('method').value,reference:$('reference').value.trim()||null,concept:$('concept').value.trim(),metadata:{source:'v2_accounting_console'},idempotency_key:idem()});e.target.reset();$('date').value=today();$('category').value='Proveedor';$('method').value='Efectivo';await loadExpenses();msg('expenseMessage','Egreso registrado.','success');}catch(err){msg('expenseMessage',friendly(err));}finally{btn.disabled=!canWrite;}}
-async function voidExpense(id){const reason=prompt('Motivo de anulación:');if(reason===null||!reason.trim())return;try{await rpc('v2_void_expense',{organization_id:ctx.organization_id,expense_id:id,reason:reason.trim()});await loadExpenses();}catch(err){alert(friendly(err));}}
+async function voidExpense(id){
+  const reason=await tosPrompt({kicker:'CONTABILIDAD',title:'¿Por qué se anula el gasto?',
+    message:'El gasto se conserva en el histórico, marcado como anulado.',
+    required:true,requiredText:'Escribe el motivo.',maxlength:200,
+    confirmText:'Anular gasto',danger:true});
+  if(reason===null)return;
+  try{await rpc('v2_void_expense',{organization_id:ctx.organization_id,expense_id:id,reason});await loadExpenses();}
+  catch(err){await tosAlert({kicker:'CONTABILIDAD',title:'No se pudo anular',message:friendly(err)});}}
 $('expenseForm').addEventListener('submit',saveExpense);$('fundingForm').addEventListener('submit',saveFunding);$('fundingPlayer').addEventListener('change',fillFundingForm);['fundingMonthlyTotal','fundingMode','fundingValue'].forEach(id=>$(id).addEventListener('input',updateFundingHint));$('waiverForm').addEventListener('submit',authorizeAdjustment);$('waiverCharge').addEventListener('change',fillAdjustment);$('refresh').addEventListener('click',loadExpenses);$('period').addEventListener('change',loadExpenses);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 let __contaPeriod=null;
 async function renderAccountingOverview(){

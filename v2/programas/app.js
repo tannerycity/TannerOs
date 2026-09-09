@@ -39,7 +39,7 @@ function isPublic(p){return Boolean(p?.publicRegistrationEnabled)&&['published',
 function paymentDue(e){return ['pending','partial'].includes(e.paymentStatus);}
 function nextProgram(){return programs.filter(p=>!closedStatuses.has(p.status)&&p.startsOn&&p.startsOn>=today()).sort((a,b)=>String(a.startsOn).localeCompare(String(b.startsOn)))[0]||null;}
 function toast(text){let el=document.getElementById('programToast');if(!el){el=document.createElement('div');el.id='programToast';el.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:220;background:#07191e;color:#fff;padding:11px 15px;border-radius:12px;font:800 12px Inter,system-ui;box-shadow:0 12px 32px rgba(0,0,0,.25)';document.body.appendChild(el);}el.textContent=text;el.classList.remove('hidden');clearTimeout(el._timer);el._timer=setTimeout(()=>el.classList.add('hidden'),2300);}
-async function copyText(text,success='Link copiado'){try{await navigator.clipboard.writeText(text);toast(success);}catch{prompt('Copia el enlace:',text);}}
+async function copyText(text,success='Link copiado'){try{await navigator.clipboard.writeText(text);toast(success);}catch{await tosPrompt({kicker:'ENLACE',title:'Copia el enlace',value:text,maxlength:400,confirmText:'Listo'});}}
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}

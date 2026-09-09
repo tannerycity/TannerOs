@@ -504,19 +504,21 @@ async function uploadItemEvidence(file) {
     }
     await load();
   } catch (error) {
-    alert(friendly(error));
+    await tosAlert({ kicker: 'PATROCINIOS', title: 'No se pudo guardar', message: friendly(error) });
   }
 }
 
 async function deleteEvidence(evidenceId, bucket, path) {
   if (!canWrite || !evidenceId) return;
-  if (!confirm('¿Eliminar esta evidencia?')) return;
+  const ok = await tosConfirm({ kicker: 'PATROCINIOS', title: '¿Eliminar esta evidencia?',
+    message: 'El archivo se borra y no se puede recuperar.', confirmText: 'Sí, eliminar', danger: true });
+  if (!ok) return;
   try {
     await rpc('v2_delete_sponsor_item_evidence', { organization_id: ctx.organization_id, evidence_id: evidenceId });
     if (bucket && path) await supabase.storage.from(bucket).remove([path]);
     await load();
   } catch (error) {
-    alert(friendly(error));
+    await tosAlert({ kicker: 'PATROCINIOS', title: 'No se pudo eliminar', message: friendly(error) });
   }
 }
 
@@ -1286,7 +1288,7 @@ async function setFulfillment(input) {
     await load();
   } catch (error) {
     input.checked = !input.checked;
-    alert(friendly(error));
+    await tosAlert({ kicker: 'PATROCINIOS', title: 'No se pudo actualizar', message: friendly(error) });
   } finally {
     input.disabled = !canWrite;
   }
@@ -1356,7 +1358,11 @@ async function saveAsset(event) {
 
 async function archiveAsset() {
   const id = $('assetId').value;
-  if (!id || !confirm('¿Retirar este activo del inventario disponible? Los acuerdos anteriores conservarán su historial.')) return;
+  if (!id) return;
+  const ok = await tosConfirm({ kicker: 'PATROCINIOS', title: '¿Retirar este activo?',
+    message: 'Deja de ofrecerse en el inventario. Los acuerdos anteriores conservan su historial.',
+    confirmText: 'Sí, retirar', danger: true });
+  if (!ok) return;
   $('archiveAsset').disabled = true;
   try {
     await rpc('v2_archive_sponsor_asset_admin', { organization_id: ctx.organization_id, asset_id: id });
@@ -1468,13 +1474,16 @@ async function savePayment(event) {
 
 async function deletePayment(paymentId) {
   if (!canWrite || !paymentId) return;
-  if (!confirm('¿Eliminar este pago del registro?')) return;
+  const ok = await tosConfirm({ kicker: 'PATROCINIOS', title: '¿Eliminar este pago?',
+    message: 'Se borra del registro del convenio y el saldo se recalcula.',
+    confirmText: 'Sí, eliminar', danger: true });
+  if (!ok) return;
   try {
     await rpc('v2_delete_sponsor_agreement_payment', { organization_id: ctx.organization_id, payment_id: paymentId });
     await load();
     openPaymentsModal(paymentsAgreementId);
   } catch (error) {
-    alert(friendly(error));
+    await tosAlert({ kicker: 'PATROCINIOS', title: 'No se pudo eliminar el pago', message: friendly(error) });
   }
 }
 
@@ -1597,7 +1606,7 @@ async function exportSponsorKit() {
 
     doc.save('Kit-patrocinio-' + sponsor.name.replace(/[^a-z0-9]+/gi, '-') + '.pdf');
   } catch (error) {
-    alert('No pudimos generar el kit: ' + friendly(error));
+    await tosAlert({ kicker: 'PATROCINIOS', title: 'No pudimos generar el kit', message: friendly(error) });
   } finally {
     button.disabled = false;
     button.textContent = originalText;

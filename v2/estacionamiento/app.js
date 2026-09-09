@@ -184,42 +184,64 @@ async function montarAlta(){
 // va null y el backend respeta el que ya traía el gafete.
 const tipoElegido=id=>document.querySelector(`[data-typefor="${id}"]`)?.value||null;
 
+// El nombre de quien lleva el gafete: para que el diálogo diga de quién habla
+// en lugar de preguntar en abstracto.
+const portadorDe=id=>(state.data?.passes||[]).find(p=>p.id===id)?.player||'este gafete';
+
 // Cortesía: regalar el lugar siempre pide motivo, y queda con nombre y fecha
 // en la bitácora.
 async function darCortesia(id){
-  const motivo=prompt('¿Por qué se da sin costo? (queda registrado)','');
-  if(motivo===null||!motivo.trim())return;
-  const folio=prompt('Folio del gafete (opcional):','');
+  const motivo=await tosPrompt({kicker:'ESTACIONAMIENTO',title:'Gafete sin costo',
+    message:`${portadorDe(id)} no pagará este gafete.`,
+    hint:'Queda registrado con tu nombre y la fecha.',
+    placeholder:'Es staff, patrocinador, acuerdo con la familia…',
+    required:true,requiredText:'Escribe por qué se da sin costo.',maxlength:120,
+    confirmText:'Dar sin costo'});
+  if(motivo===null)return;
+  const folio=await tosPrompt({kicker:'ESTACIONAMIENTO',title:'Folio del gafete',
+    message:'Puedes dejarlo en blanco y ponerlo al entregarlo.',
+    placeholder:'Ej. T-014',maxlength:30,confirmText:'Autorizar'});
   if(folio===null)return;
   try{
     await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,
-      folio:folio||null,courtesy:true,courtesy_reason:motivo.trim(),pass_type:tipoElegido(id)});
+      folio:folio||null,courtesy:true,courtesy_reason:motivo,pass_type:tipoElegido(id)});
     await load();
-  }catch(error){alert(String(error?.message||error));}
+  }catch(error){await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo autorizar',message:String(error?.message||error)});}
 }
 
 async function aprobar(id){
-  const folio=prompt('Folio del gafete (puedes dejarlo en blanco y ponerlo al entregarlo):','');
+  const folio=await tosPrompt({kicker:'ESTACIONAMIENTO',title:'Folio del gafete',
+    message:`Vas a autorizar el gafete de ${portadorDe(id)}.`,
+    hint:'Puedes dejarlo en blanco y ponerlo al entregarlo.',
+    placeholder:'Ej. T-014',maxlength:30,confirmText:'Autorizar y cobrar'});
   if(folio===null)return;
   try{await rpc('v2_approve_parking',{organization_id:ctx.organization_id,pass_id:id,folio:folio||null,courtesy:false,courtesy_reason:null,pass_type:tipoElegido(id)});await load();}
-  catch(error){alert(String(error?.message||error));}
+  catch(error){await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo autorizar',message:String(error?.message||error)});}
 }
 async function entregar(id){
-  const folio=prompt('Folio del gafete que estás entregando:','');
+  const folio=await tosPrompt({kicker:'ESTACIONAMIENTO',title:'¿Qué folio le estás entregando?',
+    message:`Gafete de ${portadorDe(id)}.`,
+    placeholder:'Ej. T-014',required:true,requiredText:'Anota el folio que entregas.',
+    maxlength:30,confirmText:'Entregar'});
   if(folio===null)return;
   try{await rpc('v2_issue_parking',{organization_id:ctx.organization_id,pass_id:id,folio});await load();}
-  catch(error){alert(String(error?.message||error));}
+  catch(error){await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo entregar',message:String(error?.message||error)});}
 }
 // Cerrar nunca cancela el cargo: condonar es una decisión aparte, y pasa por
 // Contabilidad con su propia autorización.
 async function cerrar(id,estado,pregunta){
-  const motivo=prompt(pregunta,'');
-  if(motivo===null||!motivo.trim())return;
+  const motivo=await tosPrompt({kicker:'ESTACIONAMIENTO',title:pregunta,
+    message:`Gafete de ${portadorDe(id)}.`,
+    hint:'Queda registrado con tu nombre y la fecha.',
+    required:true,requiredText:'Escribe el motivo.',maxlength:200,
+    confirmText:'Confirmar',danger:estado!=='lost'});
+  if(motivo===null)return;
   try{
-    const r=await rpc('v2_close_parking',{organization_id:ctx.organization_id,pass_id:id,new_status:estado,reason:motivo.trim()});
+    const r=await rpc('v2_close_parking',{organization_id:ctx.organization_id,pass_id:id,new_status:estado,reason:motivo});
     await load();
-    if(r?.charge_pendiente)alert('Listo. El cargo del gafete sigue en su estado de cuenta: si vas a condonarlo, hazlo en Contabilidad › Ajustes.');
-  }catch(error){alert(String(error?.message||error));}
+    if(r?.charge_pendiente)await tosAlert({kicker:'ESTACIONAMIENTO',title:'Listo, pero ojo con el cargo',
+      message:'El cargo del gafete sigue en su estado de cuenta. Si lo vas a condonar, hazlo en Contabilidad › Ajustes.'});
+  }catch(error){await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo cerrar',message:String(error?.message||error)});}
 }
 
 function cerrarDrawer(){

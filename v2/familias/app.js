@@ -30,6 +30,14 @@ function fmtDate(v){
 function initials(p){
   return [p.first_name,p.last_name].filter(Boolean).map(s=>String(s).trim()[0]||'').join('').toUpperCase().slice(0,2)||'T';
 }
+function ageOf(value){
+  if(!value)return null;
+  const born=new Date(`${String(value).slice(0,10)}T12:00:00`);
+  if(Number.isNaN(born.getTime()))return null;
+  const today=new Date();let years=today.getFullYear()-born.getFullYear();
+  if(today.getMonth()<born.getMonth()||(today.getMonth()===born.getMonth()&&today.getDate()<born.getDate()))years--;
+  return Math.max(0,years);
+}
 const currentPlayer=()=>(state.home?.players||[]).find(p=>String(p.id)===String(state.playerId))||null;
 
 async function signPhoto(p){
@@ -72,6 +80,20 @@ async function handlePassword(event){
 }
 
 /* ---------- Cuenta ---------- */
+function playerProfileBlock(p){
+  const name=[p.first_name,p.last_name].filter(Boolean).join(' ')||'Tanner';
+  const age=ageOf(p.birth_date);
+  const position=[p.position,p.dominant_foot&&`Pie ${p.dominant_foot}`].filter(Boolean).join(' · ')||'Perfil deportivo';
+  return `<section class="fam-player-profile">
+    <span class="fam-profile-photo" data-profile-photo="${esc(p.id)}">${p._photo?`<img src="${esc(p._photo)}" alt="Foto de ${esc(name)}">`:esc(initials(p))}</span>
+    <span class="fam-profile-main"><small>MI TANNER</small><strong>${esc(name)}</strong><span>${esc([p.category,position].filter(Boolean).join(' · '))}</span></span>
+    <span class="fam-profile-facts">
+      <span><small>Nacimiento</small><b>${p.birth_date?`${fmtDate(p.birth_date)}${age!==null?` · ${age} años`:''}`:'Por registrar'}</b></span>
+      <span><small>Número</small><b>${esc(p.jersey_number||'Por asignar')}</b></span>
+      <span><small>En el club</small><b>${p.joined_at?`Desde ${fmtDate(p.joined_at)}`:'Por registrar'}</b></span>
+    </span>
+  </section>`;
+}
 function balanceBlock(st){
   const s=st.summary||{};
   const saldo=Number(s.balance||0),aFavor=Number(s.credit_available||0);
@@ -142,7 +164,7 @@ async function renderCuenta(){
     catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
   }
   const st=state.statements[p.id];
-  $('famBody').innerHTML=`${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}`;
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}`;
 }
 
 /* ---------- Calendario ---------- */
@@ -331,6 +353,8 @@ async function boot(){
   if(conFoto.length){
     await Promise.all(conFoto.map(async p=>{p._photo=await signPhoto(p);}));
     renderTabs();
+    const player=currentPlayer(),face=player&&document.querySelector(`[data-profile-photo="${CSS.escape(String(player.id))}"]`);
+    if(face&&player._photo)face.innerHTML=`<img src="${esc(player._photo)}" alt="Foto de ${esc([player.first_name,player.last_name].filter(Boolean).join(' '))}">`;
   }
 }
 

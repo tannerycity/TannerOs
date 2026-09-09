@@ -1,63 +1,214 @@
 <!doctype html>
 <html lang="es-MX">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#07191e"><title>Usuarios · TannerOS</title>
-  <link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/usuarios/styles.css?v=20260823c">
-<link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07191e">
+  <title>Usuarios · TannerOS</title>
+  <link rel="stylesheet" href="/v2/styles.css">
+  <link rel="stylesheet" href="/v2/usuarios/styles.css?v=20260908a">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="stylesheet" href="/icons.css?v=20260823a">
+  <link rel="stylesheet" href="/polish.css?v=20260823a">
+</head>
 <body>
 <main class="shell">
-  <section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Usuarios</h2><p class="muted">Conectando…</p></section>
-  <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2/">Volver</a></section>
-  <section id="view" class="hidden app-wrap">
-    <header class="topbar"><div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div><div class="top-actions"><a class="secondary mini nav-link" href="/v2/admin/">Administración</a><span id="roleBadge" class="role-badge"></span></div></header>
-    <section class="hero"><div><div class="eyebrow">ADMIN · ACCESO</div><h1>Usuarios</h1><p class="muted">Rol base + permisos personalizados por usuario.</p></div><span class="health"><i></i> Auth + permisos efectivos</span></section>
-    <section class="kpis compact-kpis"><article><span>Miembros activos</span><strong id="kpiActive">0</strong></article><article><span>Inactivos</span><strong id="kpiInactive">0</strong></article><article><span>Invitaciones pendientes</span><strong id="kpiPending">0</strong></article><article><span>Personalizados</span><strong id="kpiCustomized">0</strong></article></section>
-    <section class="users-grid">
-      <article class="panel">
-        <div class="panel-head"><div><div class="eyebrow">SIN CORREO</div><h2>Acceso con usuario</h2></div></div>
-        <form id="staffAccessForm" class="form-grid">
-          <label class="span-2">Nombre<input id="staffDisplayName" type="text" autocomplete="name" maxlength="120" placeholder="Ej. Brandon Andrade" required></label>
-          <label class="span-2">Usuario<input id="staffUsername" type="text" inputmode="text" autocapitalize="none" autocomplete="off" minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}" placeholder="Ej. brandon" required><small>3–32 caracteres: letras, números, punto, guion o guion bajo.</small></label>
-          <label class="span-2">Rol<select id="staffRole" required><option value="president">Presidencia</option><option value="operations" selected>Operaciones</option><option value="coach">Formadores</option><option value="academy">Academia</option><option value="cashier">Taquilla</option><option value="accounting">Contabilidad</option><option value="commercial">Marketing</option><option value="scouting">Scouting</option><option value="player">Tanner</option></select></label>
-          <button id="createStaffAccess" class="primary span-2" type="submit">Crear acceso temporal</button>
-          <div id="staffAccessMessage" class="inline-message hidden span-2"></div>
-        </form>
-        <section id="staffCredentialResult" class="credential-card hidden" aria-live="polite">
-          <div><div class="eyebrow">ENTREGAR AL USUARIO</div><h3 id="staffCredentialTitle">Acceso creado</h3></div>
-          <div class="credential-row"><span>Usuario</span><strong id="staffCredentialUsername"></strong></div>
-          <div class="credential-row"><span>Contraseña temporal</span><code id="staffCredentialPassword"></code></div>
-          <button id="copyStaffCredential" class="secondary" type="button">Copiar acceso</button>
-          <p>Guárdala ahora: se muestra una sola vez. Al entrar deberá crear una contraseña nueva.</p>
-        </section>
-      </article>
-      <article class="panel">
-        <div class="panel-head"><div><div class="eyebrow">POR CORREO</div><h2>Crear invitación</h2></div></div>
-        <form id="inviteForm" class="form-grid">
-          <label class="span-2">Correo<input id="inviteEmail" type="email" autocomplete="email" maxlength="254" required></label>
-          <label class="span-2">Rol<select id="inviteRole" required><option value="president">Presidencia</option><option value="operations">Operaciones</option><option value="coach">Formadores</option><option value="academy">Academia</option><option value="cashier">Taquilla</option><option value="accounting">Contabilidad</option><option value="commercial">Marketing</option><option value="scouting">Scouting</option><option value="player">Tanner</option></select></label>
-          <button id="sendInvite" class="primary span-2" type="submit">Enviar invitación por correo</button>
-          <div id="inviteMessage" class="inline-message hidden span-2"></div>
-        </form>
-        <section id="inviteLinkResult" class="credential-card hidden" aria-live="polite">
-          <div><div class="eyebrow">ENLACE DE INVITACIÓN</div><h3>Compártelo con esta persona</h3></div>
-          <div class="credential-row"><span>Correo</span><strong id="inviteLinkEmail"></strong></div>
-          <div class="credential-row"><span>Enlace seguro</span><code id="inviteLinkValue" class="invite-link-code"></code></div>
-          <button id="copyInviteLink" class="secondary" type="button">Copiar enlace</button>
-          <p>Este enlace permite entrar a la cuenta. No lo abras tú; envíalo de forma privada por WhatsApp o mensaje directo.</p>
-        </section>
-        <div class="rule-box"><strong>¿Cuál uso?</strong><p>Sin correo crea acceso inmediato con contraseña temporal. Por correo conserva el flujo de invitación.</p></div>
-      </article>
-      <article class="panel">
-        <div class="panel-head"><div><div class="eyebrow">PENDIENTES</div><h2>Invitaciones</h2></div></div>
-        <div id="inviteList" class="invite-list"></div><div id="inviteEmpty" class="empty hidden">No hay invitaciones pendientes.</div>
-      </article>
+  <section id="loadingView" class="center-card">
+    <div class="brand-mark small">T</div>
+    <h2>Usuarios</h2>
+    <p class="muted">Preparando las llaves del club…</p>
+  </section>
+
+  <section id="deniedView" class="center-card hidden">
+    <div class="brand-mark small">T</div>
+    <h2>Sin acceso</h2>
+    <p id="deniedText" class="muted"></p>
+    <a class="secondary nav-link" href="/">Volver</a>
+  </section>
+
+  <section id="view" class="hidden app-wrap users-page">
+    <header class="topbar">
+      <div class="brand-lockup compact">
+        <div class="brand-mark small">T</div>
+        <div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div>
+      </div>
+      <div class="top-actions">
+        <a class="secondary mini nav-link" href="/admin/">Administración</a>
+        <span id="roleBadge" class="role-badge"></span>
+      </div>
+    </header>
+
+    <section class="users-hero">
+      <div class="users-hero-copy">
+        <div class="eyebrow">LAS LLAVES DEL CLUB</div>
+        <h1>¿A quién le damos acceso?</h1>
+        <p>Crea una entrada clara para cada persona. TannerOS se encarga de los permisos recomendados.</p>
+      </div>
+      <button id="openCreateUser" class="primary create-user-button" type="button">
+        <span class="button-plus" aria-hidden="true">+</span>
+        Dar una llave
+      </button>
     </section>
-    <section class="panel"><div class="panel-head"><div><div class="eyebrow">MEMBRESÍAS</div><h2>Equipo con acceso</h2></div><button id="refresh" class="secondary mini" type="button">Actualizar</button></div><div id="memberList" class="member-list"></div><div id="memberEmpty" class="empty hidden">No hay miembros.</div></section>
-    <section class="panel"><div class="panel-head"><div><div class="eyebrow">PORTAL DE FAMILIAS</div><h2>Acceso de tutores</h2></div><input id="guardianSearch" type="search" placeholder="Buscar tutor o Tanner" style="border:1px solid #dedbd0;border-radius:10px;padding:9px 11px;min-height:44px;font:inherit;font-size:16px"></div><p class="muted">El tutor entra a <strong>/familias/</strong> con su correo y la contraseña temporal que le entregues. No recibe ningún acceso interno del club.</p><div id="guardianList" class="member-list"></div><div id="guardianEmpty" class="empty hidden">No hay tutores registrados.</div><div id="guardianMessage" class="inline-message hidden"></div></section>
+
+    <section class="access-summary" aria-label="Resumen de accesos">
+      <article><span>Dentro del club</span><strong id="kpiActive">0</strong><small>personas con acceso</small></article>
+      <article><span>Familias</span><strong id="kpiFamilies">0</strong><small>con su portal activo</small></article>
+      <article><span>Por entrar</span><strong id="kpiPending">0</strong><small>invitaciones pendientes</small></article>
+      <article><span>Requieren atención</span><strong id="kpiNeedsAttention">0</strong><small>tutores todavía sin acceso</small></article>
+    </section>
+
+    <section class="panel people-panel">
+      <div class="people-head">
+        <div><div class="eyebrow">PERSONAS CON LLAVE</div><h2>Equipo y familias</h2></div>
+        <button id="refresh" class="secondary mini" type="button">Actualizar</button>
+      </div>
+      <div class="people-tools">
+        <label class="people-search">
+          <span class="search-icon" aria-hidden="true"></span>
+          <input id="userSearch" type="search" autocomplete="off" placeholder="Buscar por nombre, usuario o correo">
+        </label>
+        <div class="filter-rail" aria-label="Filtrar usuarios">
+          <button class="filter-chip active" type="button" data-filter="active">Activos</button>
+          <button class="filter-chip" type="button" data-filter="family">Familias</button>
+          <button class="filter-chip" type="button" data-filter="team">Equipo</button>
+          <button class="filter-chip" type="button" data-filter="inactive">Sin acceso</button>
+          <button class="filter-chip" type="button" data-filter="all">Todos</button>
+        </div>
+      </div>
+      <div id="memberList" class="member-list"></div>
+      <div id="memberEmpty" class="empty hidden">No encontramos personas con ese filtro.</div>
+    </section>
+
+    <section id="invitationPanel" class="panel invitation-panel">
+      <div class="people-head">
+        <div><div class="eyebrow">POR ENTRAR</div><h2>Invitaciones pendientes</h2></div>
+      </div>
+      <div id="inviteList" class="invite-list"></div>
+      <div id="inviteEmpty" class="empty hidden">No hay invitaciones pendientes.</div>
+    </section>
   </section>
 </main>
-<div id="accessBackdrop" class="drawer-backdrop hidden"></div><aside id="accessDrawer" class="access-drawer hidden" aria-hidden="true"><div class="drawer-head"><div><div class="eyebrow">PERMISOS POR USUARIO</div><h2 id="accessName">Usuario</h2><p id="accessMeta" class="muted"></p></div><button id="closeAccess" class="secondary mini" type="button">Cerrar</button></div><div id="ownerProtection" class="owner-protection hidden"><strong>Owner protegido</strong><p>La cuenta propietaria conserva sus accesos administrativos para evitar un bloqueo accidental.</p></div><div class="access-legend"><span><i class="dot role"></i> Del rol</span><span><i class="dot custom"></i> Personalizado</span></div><div class="access-table-head"><span>Módulo</span><span>Ver</span><span>Editar</span><span></span></div><div id="moduleAccessList" class="module-access-list"></div><div class="drawer-footer"><button id="resetAllModules" class="secondary" type="button">Restaurar todo al rol</button><div id="accessMessage" class="inline-message hidden"></div></div></aside>
+
+<div id="wizardBackdrop" class="modal-backdrop hidden"></div>
+<section id="wizardModal" class="access-wizard hidden" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
+  <header class="wizard-head">
+    <div><div class="eyebrow">BIENVENIDO AL CLUB</div><h2 id="wizardTitle">Dar una llave</h2></div>
+    <button id="closeWizard" class="icon-button" type="button" aria-label="Cerrar"><span class="close-glyph" aria-hidden="true"></span></button>
+  </header>
+
+  <div id="wizardProgress" class="wizard-progress" aria-label="Progreso">
+    <span class="active" data-step-indicator="1"><b>1</b> Persona</span><i></i>
+    <span data-step-indicator="2"><b>2</b> Acceso</span><i></i>
+    <span data-step-indicator="3"><b>3</b> Revisar</span>
+  </div>
+
+  <div id="wizardStep1" class="wizard-step">
+    <div class="step-copy"><h3>¿Quién va a entrar?</h3><p>Elige el perfil que más se parece a esta persona.</p></div>
+    <div id="profileChoices" class="profile-choices">
+      <button type="button" class="profile-choice" data-profile="guardian"><span class="profile-symbol family-symbol" aria-hidden="true">F</span><strong>Familia</strong><small>Ve a sus Tanners, pagos y agenda.</small><i class="choice-chevron" aria-hidden="true"></i></button>
+      <button type="button" class="profile-choice" data-role="coach"><span class="profile-symbol" aria-hidden="true">E</span><strong>Entrenador</strong><small>Jugadores, asistencia y convocatorias.</small><i class="choice-chevron" aria-hidden="true"></i></button>
+      <button type="button" class="profile-choice" data-role="scouting"><span class="profile-symbol" aria-hidden="true">S</span><strong>Scout</strong><small>Talento, evaluaciones y seguimiento.</small><i class="choice-chevron" aria-hidden="true"></i></button>
+      <button type="button" class="profile-choice" data-role="operations"><span class="profile-symbol" aria-hidden="true">O</span><strong>Operación</strong><small>La operación diaria del club.</small><i class="choice-chevron" aria-hidden="true"></i></button>
+    </div>
+    <details class="more-profiles">
+      <summary>Buscar otro perfil</summary>
+      <div class="other-profile-grid">
+        <button type="button" data-role="academy">Academia</button>
+        <button type="button" data-role="cashier">Taquilla</button>
+        <button type="button" data-role="accounting">Contabilidad</button>
+        <button type="button" data-role="commercial">Marketing</button>
+        <button type="button" data-role="president">Presidencia</button>
+      </div>
+    </details>
+  </div>
+
+  <form id="accessForm" novalidate>
+    <div id="wizardStep2" class="wizard-step hidden">
+      <div class="step-copy"><h3>¿Cómo recibirá su llave?</h3><p>Sólo necesitamos los datos esenciales.</p></div>
+      <div id="staffIdentityFields">
+        <label class="field-label">Nombre completo<input id="accessDisplayName" type="text" autocomplete="name" maxlength="120" placeholder="Ej. Paco Tenorio"></label>
+        <div class="method-picker" role="group" aria-label="Forma de acceso">
+          <button id="methodUsername" class="active" type="button" data-method="username"><strong>Usuario</strong><small>Acceso inmediato</small></button>
+          <button id="methodEmail" type="button" data-method="email"><strong>Correo</strong><small>Recibe invitación</small></button>
+        </div>
+        <label id="usernameField" class="field-label">Nombre de usuario
+          <input id="accessUsername" type="text" autocapitalize="none" autocomplete="off" minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}" placeholder="Ej. paco.tenorio">
+          <small>Puede entrar sin correo. Le entregaremos una contraseña temporal.</small>
+        </label>
+        <label id="emailField" class="field-label hidden">Correo
+          <input id="accessEmail" type="email" autocomplete="email" maxlength="254" placeholder="paco@correo.com">
+          <small>Recibirá un enlace privado para crear su acceso.</small>
+        </label>
+      </div>
+      <div id="familyIdentityFields" class="hidden">
+        <label class="field-label">Tutor
+          <select id="familyGuardian" data-smart-search data-search-placeholder="Buscar por tutor o Tanner"><option value="">Selecciona al tutor</option></select>
+          <small>Los Tanners ya relacionados con este tutor aparecerán en el siguiente paso.</small>
+        </label>
+        <label class="field-label">Correo para entrar
+          <input id="familyEmail" type="email" autocomplete="email" maxlength="254" placeholder="familia@correo.com">
+          <small>Le entregarás una contraseña temporal. Al entrar elegirá una propia.</small>
+        </label>
+      </div>
+      <section id="accessPreview" class="access-preview"></section>
+      <div id="wizardMessage" class="inline-message hidden"></div>
+      <footer class="wizard-actions"><button id="wizardBack2" class="secondary" type="button">Atrás</button><button id="wizardNext2" class="primary" type="button">Revisar acceso</button></footer>
+    </div>
+
+    <div id="wizardStep3" class="wizard-step hidden">
+      <div class="step-copy"><h3>Todo listo para entrar</h3><p>Confirma que esta llave abre únicamente lo necesario.</p></div>
+      <section id="accessReview" class="access-review"></section>
+      <div id="createMessage" class="inline-message hidden"></div>
+      <footer class="wizard-actions"><button id="wizardBack3" class="secondary" type="button">Atrás</button><button id="createAccess" class="primary" type="submit">Crear llave</button></footer>
+    </div>
+  </form>
+
+  <section id="credentialResult" class="wizard-step credential-result hidden" aria-live="polite">
+    <div class="success-mark" aria-hidden="true"><span></span></div>
+    <div class="step-copy"><h3 id="credentialTitle">La llave está lista</h3><p id="credentialHelp"></p></div>
+    <div id="credentialRows" class="credential-rows"></div>
+    <button id="copyCredential" class="primary" type="button">Copiar acceso</button>
+    <button id="finishWizard" class="secondary" type="button">Terminar</button>
+  </section>
+</section>
+
+<div id="memberBackdrop" class="drawer-backdrop hidden"></div>
+<aside id="memberDrawer" class="member-drawer hidden" aria-hidden="true">
+  <header class="member-drawer-head">
+    <div id="memberAvatar" class="member-avatar large">TC</div>
+    <div class="member-drawer-title"><div class="eyebrow">LLAVE TANNEROS</div><h2 id="memberName">Usuario</h2><p id="memberMeta"></p></div>
+    <button id="closeMember" class="icon-button" type="button" aria-label="Cerrar"><span class="close-glyph" aria-hidden="true"></span></button>
+  </header>
+  <div id="ownerProtection" class="owner-protection hidden"><strong>Cuenta protegida</strong><p>La cuenta propietaria conserva sus accesos administrativos para evitar un bloqueo accidental.</p></div>
+  <section class="drawer-section">
+    <div class="drawer-section-head"><div><h3>Su lugar en el club</h3><p>El perfil define el acceso recomendado.</p></div></div>
+    <div id="memberProfileFields">
+      <label class="field-label">Perfil<select id="memberRole"></select></label>
+      <button id="saveMemberProfile" class="primary full-button" type="button">Guardar perfil</button>
+    </div>
+    <div id="guardianProfileFields" class="guardian-profile hidden">
+      <div><span>Puede ver</span><strong id="guardianPlayers">Sin Tanner ligado</strong></div>
+      <div><span>Entrada</span><strong id="guardianContact">Sin correo</strong></div>
+      <p>Su portal muestra únicamente la ficha de sus Tanners, estado de cuenta, pagos y calendario.</p>
+    </div>
+    <div id="profileMessage" class="inline-message hidden"></div>
+  </section>
+  <details id="memberAccessDetails" class="drawer-section access-details">
+    <summary><div><h3>Personalizar acceso</h3><p>Sólo si esta persona necesita algo diferente a su perfil.</p></div><span class="disclosure-icon" aria-hidden="true"></span></summary>
+    <div class="permissions-body">
+      <div class="drawer-section-head"><div><p>Elige por módulo: sin acceso, puede ver o puede gestionar.</p></div><button id="resetAllModules" class="text-button" type="button">Usar perfil</button></div>
+      <div id="moduleAccessList" class="module-access-list"></div>
+      <div id="accessMessage" class="inline-message hidden"></div>
+    </div>
+  </details>
+  <section class="drawer-section quiet-section">
+    <div class="drawer-section-head"><div><h3>Seguridad</h3><p id="memberSecurityHelp">Administra esta llave sin eliminar a la persona.</p></div></div>
+    <div class="security-actions"><button id="resetMemberPassword" class="secondary" type="button">Crear nueva contraseña temporal</button><button id="toggleMember" class="secondary danger-soft" type="button">Desactivar acceso</button></div>
+  </section>
+</aside>
+
 <script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/usuarios/app.js?v=20260907a"></script>
-</body></html>
+<script type="module" src="/v2/usuarios/app.js?v=20260908a"></script>
+</body>
+</html>

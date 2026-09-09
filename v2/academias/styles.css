@@ -30,3 +30,41 @@
 
 @media(max-width:900px){.academy-board-list{grid-template-columns:1fr}}
 @media(max-width:640px){.academies-app{padding:12px 10px 32px}.academy-hero{align-items:flex-start;padding:20px;gap:16px}.academy-hero h1{font-size:28px}.academy-hero .muted{font-size:12px}.hero-action{width:100%;justify-content:center}.academy-card{padding:14px;border-radius:17px}.academy-numbers{gap:4px}.staff-add-row{flex-direction:column}}
+
+/* === Inscribir a un Tanner que ya está en el club === */
+.enroll-hint{font-size:10.5px;color:#718386;line-height:1.4}
+
+/* === De dónde viene el dinero ===
+   La base ya ligaba cada cargo con la inscripción que lo originó; esto solo lo
+   saca a la superficie para poder contestar de dónde salió cada peso. */
+.dinero-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin-bottom:12px}
+.dinero-kpi{border:1px solid #e4ebe9;border-radius:14px;padding:11px 12px;background:#fafcfc;display:grid;gap:2px}
+.dinero-kpi span{font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#68777d}
+.dinero-kpi strong{font-size:21px;font-weight:900;color:#0b1418;line-height:1.05}
+.dinero-kpi small{font-size:10px;color:#8a969b}
+.dinero-kpi.alerta{background:#fdf3f1;border-color:#f0d3ce}
+.dinero-kpi.alerta strong{color:#c0362c}
+.dinero-months{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.dinero-months .eyebrow{width:100%;font-size:9.5px;font-weight:900;letter-spacing:.06em;color:#8a969b}
+.dinero-month{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;border:1px solid #e4ebe9;
+  border-radius:12px;padding:8px 11px;background:#fff;font-size:11.5px;color:#68777d}
+.dinero-month b{font-size:12.5px;color:#0b1418;text-transform:capitalize}
+.dinero-month .ok{color:#246746}
+.dinero-month .pend{color:#c0362c;font-weight:800}
+.dinero-row{border:1px solid #e4ebe9;border-radius:14px;padding:12px 13px;background:#fff;margin-bottom:8px}
+.dinero-row.baja{background:#fdf6f5;border-color:#f0d3ce}
+.dinero-row-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.dinero-row-head strong{display:block;font-size:14px;color:#0b1418}
+.dinero-row-head span{display:block;font-size:11px;color:#8a969b;margin-top:2px}
+.dinero-row-amount{text-align:right;flex:0 0 auto}
+.dinero-row-amount b{display:block;font-size:15px;color:#0b1418}
+.dinero-row-amount small{display:block;font-size:10.5px;margin-top:2px;font-weight:800}
+.dinero-row-amount .ok{color:#246746}
+.dinero-row-amount .pend{color:#c0362c}
+.dinero-pagos{margin:9px 0 0;padding:9px 0 0 16px;border-top:1px solid #eef2f1;display:grid;gap:4px}
+.dinero-pagos li{font-size:11.5px;color:#40595f;line-height:1.45}
+.dinero-pagos b{color:#0b1418}
+.dinero-parcial{color:#8a969b}
+.dinero-sinpago{margin-top:9px;padding-top:9px;border-top:1px solid #eef2f1;font-size:11.5px;color:#8a969b}
+.dinero-warn{margin-top:8px;padding:8px 10px;border-radius:9px;background:#fdeeec;color:#a3352a;font-size:11px;line-height:1.4}
+@media(max-width:560px){.dinero-row-head{flex-direction:column;gap:6px}.dinero-row-amount{text-align:left}}

@@ -215,7 +215,11 @@ function ledgerBlock(st){
   }).join('');
   // El saldo de arriba es el de mensualidades; aquí abajo va todo el dinero que
   // se movió. Sin esta línea un pago de tienda se lee como saldo a favor.
-  return `<section class="fam-card"><div class="fam-card-head"><h2>Movimientos</h2><span>${rows.length}</span></div><p class="fam-muted" style="margin:0 0 4px;font-size:12px">Todo lo que se te ha cobrado y todo lo que has pagado, del concepto que sea.</p>${html}</section>`;
+  // Y si el club hizo corte, se dice desde cuándo: la cuenta no empieza en cero
+  // porque sí, empieza donde el club la abrió.
+  const desde=st.summary?.since
+    ? ` Tu cuenta en la app arranca el ${fmtDate(st.summary.since)}.`:'';
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Movimientos</h2><span>${rows.length}</span></div><p class="fam-muted" style="margin:0 0 4px;font-size:12px">Todo lo que se te ha cobrado y todo lo que has pagado, del concepto que sea.${esc(desde)}</p>${html}</section>`;
 }
 
 function docsBlock(st){

@@ -67,7 +67,7 @@
     <div class="staff-add-row"><select id="staffPicker"><option value="">Selecciona un profesor…</option></select><button id="addStaff" class="secondary mini" type="button">Asignar</button></div>
     <div id="staffMessage" class="inline-message hidden"></div>
 
-    <div class="section-toolbar staff-section-gap"><div><div class="eyebrow">INSCRITOS</div><h3>Tanners en esta academia</h3></div><button id="enrollPlayer" class="secondary mini hidden" type="button">Inscribir Tanner</button></div>
+    <div class="section-toolbar staff-section-gap"><div><div class="eyebrow">INSCRITOS</div><h3>Tanners en esta academia</h3></div><span class="inscritos-actions"><button id="dayPass" class="secondary mini hidden" type="button">Cobrar día suelto</button><button id="enrollPlayer" class="secondary mini hidden" type="button">Inscribir Tanner</button></span></div>
     <div id="enrollmentList" class="enrollment-list"></div><div id="enrollmentEmpty" class="mini-empty hidden">Aún no hay Tanners inscritos.</div>
 
     <div class="section-toolbar staff-section-gap"><div><div class="eyebrow">LINK PÚBLICO</div><h3>Registros por confirmar</h3></div></div>
@@ -81,6 +81,11 @@
   </section>
 </aside>
 
+<div id="dayBackdrop" class="modal-backdrop hidden"></div>
+<section id="dayModal" class="mini-modal hidden" aria-hidden="true">
+  <div class="modal-head"><div><div class="eyebrow">DÍA SUELTO</div><h3>Cobrar un día</h3><p class="muted">Para quien no está inscrito y vino un día. Se le carga a su cuenta.</p></div><button id="closeDay" class="icon-close" type="button" aria-label="Cerrar"><span class="tos-icon tos-icon-close" aria-hidden="true"></span></button></div>
+  <form id="dayForm"><div class="form-grid"><label class="span-2">Tanner<select id="dayPlayerPick" data-smart-search data-search-placeholder="Escribe el nombre del Tanner" required></select></label><label>Día que vino<input id="dayDate" type="date" required></label><label>Precio<input id="dayPrice" type="number" min="1" step="1" required><small>Por día de esta academia</small></label><label class="span-2">Nota<input id="dayNotes" maxlength="200" placeholder="Vino a probar, invitado del profe…"><small>Opcional</small></label></div><p class="muted enroll-hint">Solo aparecen los Tanners que no están inscritos. Quien ya paga mensualidad tiene el día cubierto.</p><div id="dayMessage" class="inline-message hidden"></div><button id="daySubmit" class="primary full" type="submit">Registrar y cobrar</button></form>
+</section>
 <div id="leaveBackdrop" class="modal-backdrop hidden"></div>
 <section id="leaveModal" class="mini-modal hidden" aria-hidden="true">
   <div class="modal-head"><div><div class="eyebrow">DAR DE BAJA</div><h3 id="leaveName">Tanner</h3><p class="muted">Sale de la academia. Sigue en el club con su mensualidad normal.</p></div><button id="closeLeave" class="icon-close" type="button" aria-label="Cerrar"><span class="tos-icon tos-icon-close" aria-hidden="true"></span></button></div>

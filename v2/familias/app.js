@@ -17,7 +17,7 @@ const ORDER_LABEL={draft:'Por confirmar',pending:'Apartado',confirmed:'Confirmad
   in_production:'En producción',ready:'Listo para recoger',delivered:'Entregado',
   cancelled:'Cancelado',paid:'Pagado'};
 const orderLabel=t=>ORDER_LABEL[t]||'';
-const state={home:null,playerId:'',tab:'cuenta',statements:{},progress:{},calendar:null,catalog:null,cart:{},parking:null};
+const state={home:null,playerId:'',tab:'cuenta',statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null};
 
 function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -221,6 +221,60 @@ function docsBlock(st){
   return `<section class="fam-card"><div class="fam-card-head"><h2>Documentos por entregar</h2><span>faltan ${faltan.length} de ${docs.length}</span></div>${rows}${boton}</section>`;
 }
 
+/* ---------- Papeles del club ---------- */
+// El reglamento y el uso de imagen se firmaban en papel o no se firmaban. Aquí
+// la familia lee el texto completo y acepta; queda la fecha y la versión.
+function consentsBlock(pw){
+  const docs=pw?.consents||[];
+  if(!docs.length)return '';
+  const filas=docs.map(d=>{
+    const firmado=!!d.accepted_at&&!d.outdated;
+    const pie=firmado
+      ? `Firmado el ${fmtDate(d.accepted_at)}`
+      : d.outdated
+        ? 'El club actualizó este documento. Vuelve a leerlo y fírmalo.'
+        : (d.required?'Obligatorio para el club':'Opcional, tú decides');
+    return `<details class="fam-doc"${firmado?'':' open'}>
+      <summary><span><strong>${esc(d.title)}</strong><span>${esc(pie)}</span></span>
+        <i class="fam-doc-mark" data-ok="${firmado?'1':'0'}" aria-hidden="true"></i></summary>
+      <p class="fam-doc-body">${esc(d.body)}</p>
+      ${firmado?'':`<button class="fam-btn fam-doc-sign" type="button" data-consent="${esc(d.code)}">Leí y acepto</button>`}
+    </details>`;
+  }).join('');
+  // Un documento que el club cambió después de firmarlo también avisa, aunque
+  // sea opcional: la familia firmó otro texto.
+  const faltan=docs.filter(d=>d.required&&!d.accepted_at).length;
+  const cambiados=docs.filter(d=>d.outdated).length;
+  const nota=faltan?`falta${faltan===1?'':'n'} ${faltan} por firmar`
+    :cambiados?`${cambiados} se actualiz${cambiados===1?'ó':'aron'}`
+    :'todo en orden';
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Papeles del club</h2><span>${nota}</span></div>${filas}</section>`;
+}
+
+// La beca: o se ve la que ya tiene, o se pide explicando por qué.
+function benefitBlock(pw){
+  const b=pw?.benefit,r=pw?.benefit_request;
+  if(b?.has){
+    const cuanto=b.percentage?`${Number(b.percentage)}% de descuento`
+      :b.amount?`${money.format(Number(b.amount))} de apoyo`:'Apoyo activo';
+    return `<section class="fam-card"><div class="fam-card-head"><h2>Tu beca</h2><span>activa</span></div>
+      <div class="fam-mov"><span><strong>${esc(cuanto)}</strong><span>${
+        b.since?`Desde ${fmtDate(b.since)}`:''}${b.until?` · hasta ${fmtDate(b.until)}`:''}</span></span></div></section>`;
+  }
+  if(r&&r.status==='pending'){
+    return `<section class="fam-card"><div class="fam-card-head"><h2>Tu beca</h2><span>en revisión</span></div>
+      <div class="fam-mov"><span><strong>El club está revisando tu solicitud</strong><span>La mandaste el ${fmtDate(r.requested_at)}</span></span></div></section>`;
+  }
+  const previa=r&&r.status==='rejected'
+    ? `<p class="fam-muted" style="margin:0 0 10px;font-size:12.5px">Tu solicitud anterior no procedió${r.note?`: ${esc(r.note)}`:'.'} Puedes volver a pedirla.</p>`:'';
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Beca</h2></div>${previa}
+    <details class="fam-doc"><summary><span><strong>Solicitar una beca</strong><span>Cuéntanos tu situación y el club la revisa</span></span><i class="fam-doc-mark" data-ok="0" aria-hidden="true"></i></summary>
+      <textarea id="benefitReason" class="fam-textarea" rows="4" maxlength="2000" placeholder="Cuéntanos por qué la necesitas. Entre más claro, mejor puede ayudarte el club."></textarea>
+      <div id="benefitMessage" class="fam-message hidden"></div>
+      <button id="benefitSend" class="fam-btn" type="button">Enviar solicitud</button>
+    </details></section>`;
+}
+
 async function renderCuenta(){
   const p=currentPlayer();
   if(!p){$('famBody').innerHTML='<div class="fam-empty">Tu cuenta todavía no tiene un Tanner ligado. Avísale al club.</div>';return;}
@@ -229,8 +283,42 @@ async function renderCuenta(){
     try{state.statements[p.id]=await rpc('v2_portal_statement',{player_id:p.id});}
     catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
   }
-  const st=state.statements[p.id];
-  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}`;
+  // El papeleo no bloquea el saldo: si falla, la cuenta se ve igual.
+  if(!state.paperwork[p.id]){
+    try{state.paperwork[p.id]=await rpc('v2_portal_paperwork',{player_id:p.id});}
+    catch(error){console.warn('papeleo',error);state.paperwork[p.id]={};}
+  }
+  const st=state.statements[p.id],pw=state.paperwork[p.id];
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${consentsBlock(pw)}${benefitBlock(pw)}`;
+  cableaTramites(p);
+}
+
+function cableaTramites(p){
+  $('famBody').querySelectorAll('[data-consent]').forEach(btn=>btn.addEventListener('click',async()=>{
+    btn.disabled=true;btn.textContent='Firmando…';
+    try{
+      await rpc('v2_portal_accept_consent',{player_id:p.id,code:btn.dataset.consent});
+      delete state.paperwork[p.id];
+      await renderCuenta();
+    }catch(error){
+      await tosAlert({kicker:'PAPELES',title:'No se pudo firmar',message:friendly(error)});
+      btn.disabled=false;btn.textContent='Leí y acepto';
+    }
+  }));
+  const enviar=$('benefitSend');
+  if(enviar)enviar.addEventListener('click',async()=>{
+    const motivo=$('benefitReason').value.trim();
+    if(motivo.length<20){msg('benefitMessage','Cuéntanos un poco más: al menos 20 caracteres.');return;}
+    enviar.disabled=true;enviar.textContent='Enviando…';
+    try{
+      await rpc('v2_portal_request_benefit',{player_id:p.id,reason:motivo});
+      delete state.paperwork[p.id];
+      await renderCuenta();
+    }catch(error){
+      msg('benefitMessage',friendly(error));
+      enviar.disabled=false;enviar.textContent='Enviar solicitud';
+    }
+  });
 }
 
 /* ---------- Calendario ---------- */

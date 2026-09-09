@@ -116,6 +116,27 @@
 .fam-goal small{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--fam-teal)}
 .fam-goal p{margin:3px 0 0;font-size:13px;color:var(--fam-ink);line-height:1.4}
 
+/* Papeles del club y beca */
+.fam-doc{border-bottom:1px solid #eeeae0}
+.fam-doc:last-child{border-bottom:0}
+.fam-doc>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;
+  cursor:pointer;list-style:none;-webkit-tap-highlight-color:transparent}
+.fam-doc>summary::-webkit-details-marker{display:none}
+.fam-doc>summary>span{display:grid;gap:2px;min-width:0}
+.fam-doc>summary strong{font-size:13.5px;color:var(--fam-ink)}
+.fam-doc>summary span span{font-size:11.5px;color:#8b979c}
+.fam-doc-mark{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid #dfe5e4;position:relative}
+.fam-doc-mark[data-ok="1"]{background:var(--fam-ok);border-color:var(--fam-ok)}
+.fam-doc-mark[data-ok="1"]::after{content:"";position:absolute;left:6px;top:3px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.fam-doc-body{margin:0 0 12px;padding:12px 13px;border-radius:12px;background:#f7f9f9;
+  font-size:12.5px;line-height:1.55;color:#41595f;white-space:pre-line}
+.fam-doc .fam-btn{width:100%;margin-bottom:12px}
+.fam-textarea{width:100%;margin-bottom:10px;border:1px solid var(--fam-line);border-radius:12px;padding:11px 12px;
+  font:inherit;font-size:16px;line-height:1.45;background:#fff;color:var(--fam-ink);resize:vertical;
+  -webkit-appearance:none;appearance:none}
+.fam-textarea:focus-visible{outline:3px solid rgba(8,125,142,.24);outline-offset:1px;border-color:var(--fam-teal)}
+
 /* Saldo */
 .fam-balance{background:#fff;border:1px solid var(--fam-line);border-radius:20px;padding:20px;
   box-shadow:0 1px 2px rgba(3,47,59,.05),0 10px 26px -14px rgba(3,47,59,.18)}

@@ -6,6 +6,7 @@ const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maxim
 const longDate=new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'});
 const typeLabels={general:'General',goalkeeper:'Porteros',forwards:'Delanteros',tactical:'Táctica'};
 let ctx=null,academies=[],enrollments=[],staff=[],staffOptions=[],pending=[],receivables=[];
+let enrollable=[],revenue=null;
 let currentAcademy=null,currentStep='datos',canWrite=false,canMoney=false;
 let convertingProspect=null,payingReceivable=null;
 
@@ -37,6 +38,7 @@ async function load(){
   academies=Array.isArray(data?.academies)?data.academies:[];enrollments=Array.isArray(data?.enrollments)?data.enrollments:[];
   staff=Array.isArray(data?.staff)?data.staff:[];staffOptions=Array.isArray(data?.staffOptions)?data.staffOptions:[];
   pending=Array.isArray(data?.pendingRegistrations)?data.pendingRegistrations:[];receivables=Array.isArray(data?.openReceivables)?data.openReceivables:[];
+  enrollable=Array.isArray(data?.enrollablePlayers)?data.enrollablePlayers:[];
   const caps=data?.capabilities||{};canWrite=Boolean(caps.canWrite);canMoney=Boolean(caps.canMoney);
   $('newAcademy').classList.toggle('hidden',!canWrite);
   renderBoard();
@@ -62,7 +64,7 @@ function renderBoard(){
 
 function openDrawer(){$('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');$('drawer').setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
 function closeDrawer(){currentAcademy=null;$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');$('drawer').setAttribute('aria-hidden','true');document.body.style.overflow='';closeConvert();closePayment();message('academyMessage');}
-function setStep(name){currentStep=name;document.querySelectorAll('.operation-pane').forEach(el=>el.classList.toggle('hidden',el.id!==`${name}Step`));document.querySelectorAll('#stepTabs .operation-tab').forEach(el=>el.classList.toggle('active',el.dataset.step===name));if(name==='staff')renderStaffStep();if(name==='cobro')renderCobroStep();}
+function setStep(name){currentStep=name;document.querySelectorAll('.operation-pane').forEach(el=>el.classList.toggle('hidden',el.id!==`${name}Step`));document.querySelectorAll('#stepTabs .operation-tab').forEach(el=>el.classList.toggle('active',el.dataset.step===name));if(name==='staff')renderStaffStep();if(name==='cobro')renderCobroStep();if(name==='dinero')loadRevenue();}
 
 function openAcademy(id){const a=academies.find(x=>x.id===id);if(!a)return;currentAcademy=a;populateAcademy(a);$('operationActions').classList.remove('hidden');document.querySelectorAll('#stepTabs .operation-tab').forEach(b=>b.disabled=false);setStep('staff');openDrawer();}
 function renderDrawer(){if(!currentAcademy)return;populateAcademy(currentAcademy);if(currentStep!=='datos')setStep(currentStep);}
@@ -96,6 +98,7 @@ function renderStaffStep(){
   const assignedIds=new Set(assigned.map(s=>s.userId));const options=staffOptions.filter(o=>!assignedIds.has(o.userId));
   $('staffPicker').innerHTML='<option value="">Selecciona un profesor…</option>'+options.map(o=>`<option value="${safe(o.userId)}">${safe(o.displayName)} · ${safe(o.role)}</option>`).join('');
   $('staffPicker').closest('.staff-add-row').classList.toggle('hidden',!canWrite);
+  $('enrollPlayer').classList.toggle('hidden',!canWrite);
 
   const people=academyEnrollments(a.id),elist=$('enrollmentList');elist.innerHTML='';$('enrollmentEmpty').classList.toggle('hidden',people.length>0);
   people.forEach(p=>{const row=document.createElement('div');row.className='enrollment-row';row.innerHTML=`<div class="participant-avatar">${safe((p.playerName||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><div class="participant-main"><strong>${safe(p.playerName)}</strong><span>${safe(p.playerCode||'')}</span><small>Desde ${dateFmt(p.startsOn)} · ${money.format(Number(p.agreedFee||a.monthlyFee||0))}/mes</small></div><div class="participant-state"><span>Activo</span></div>`;elist.appendChild(row);});
@@ -106,6 +109,92 @@ function renderStaffStep(){
 }
 async function assignStaff(){if(!currentAcademy||!canWrite)return;const userId=$('staffPicker').value;if(!userId)return;message('staffMessage');try{await rpc('v2_assign_academy_staff',{organization_id:ctx.organization_id,academy_id:currentAcademy.id,user_id:userId});await load();renderStaffStep();toast('Profesor asignado');}catch(err){message('staffMessage',err.message||'No se pudo asignar.');}}
 async function unassignStaff(userId){if(!currentAcademy||!canWrite)return;try{await rpc('v2_unassign_academy_staff',{organization_id:ctx.organization_id,academy_id:currentAcademy.id,user_id:userId});await load();renderStaffStep();toast('Profesor removido');}catch(err){toast(err.message||'No se pudo quitar al profesor.');}}
+
+// Inscribir a alguien que YA es Tanner. Hasta ahora el único camino era convertir
+// un prospecto del formulario público, así que un niño que ya está en el club no
+// tenía por dónde entrar a la academia.
+function openEnroll(){
+  if(!currentAcademy||!canWrite)return;
+  const yaDentro=new Set(academyEnrollments(currentAcademy.id).map(e=>e.playerId));
+  const libres=enrollable.filter(p=>!yaDentro.has(p.id));
+  const sel=$('enrollPlayerPick');
+  sel.innerHTML='<option value="">Selecciona un Tanner…</option>'+libres.map(p=>{
+    const otras=(p.inAcademies||[]).length;
+    const extra=[p.category,p.position&&p.position!=='Por definir'?p.position:null,
+      otras?`ya está en ${otras} academia${otras===1?'':'s'}`:null].filter(Boolean).join(' · ');
+    return `<option value="${safe(p.id)}">${safe(p.name)}${extra?` · ${safe(extra)}`:''}</option>`;
+  }).join('');
+  $('enrollStartsOn').value=today();
+  $('enrollFee').value=currentAcademy.monthlyFee??'';
+  $('enrollNotes').value='';
+  message('enrollMessage');
+  $('enrollBackdrop').classList.remove('hidden');$('enrollModal').classList.remove('hidden');
+  $('enrollModal').setAttribute('aria-hidden','false');
+}
+function closeEnroll(){
+  $('enrollBackdrop').classList.add('hidden');$('enrollModal').classList.add('hidden');
+  $('enrollModal').setAttribute('aria-hidden','true');message('enrollMessage');
+}
+async function saveEnroll(e){
+  e.preventDefault();
+  if(!currentAcademy||!canWrite)return;
+  const btn=$('enrollSubmit');btn.disabled=true;message('enrollMessage');
+  try{
+    const playerId=$('enrollPlayerPick').value;
+    if(!playerId)throw new Error('Elige al Tanner que vas a inscribir.');
+    await rpc('v2_enroll_academy',{organization_id:ctx.organization_id,academy_id:currentAcademy.id,
+      player_id:playerId,starts_on:$('enrollStartsOn').value||today(),
+      agreed_fee:asNum($('enrollFee').value),notes:$('enrollNotes').value.trim()||null});
+    await load();closeEnroll();setStep('staff');toast('Tanner inscrito');
+  }catch(err){message('enrollMessage',err.message||'No se pudo inscribir.');}
+  finally{btn.disabled=false;}
+}
+
+// === De dónde viene el dinero ===
+async function loadRevenue(){
+  if(!currentAcademy)return;
+  $('dineroDenied').classList.toggle('hidden',canMoney);
+  if(!canMoney){$('dineroSummary').innerHTML='';$('dineroMonths').innerHTML='';$('dineroBody').innerHTML='';return;}
+  $('dineroBody').innerHTML='<div class="mini-empty">Cargando movimientos…</div>';
+  try{revenue=await rpc('v2_academy_revenue',{organization_id:ctx.organization_id,academy_id:currentAcademy.id});}
+  catch(err){$('dineroBody').innerHTML=`<div class="mini-empty">${safe(err.message||'No se pudo cargar.')}</div>`;return;}
+  renderRevenue();
+}
+function renderRevenue(){
+  const s=revenue?.summary||{},filas=revenue?.rows||[],meses=revenue?.months||[];
+  const kpi=(label,valor,sub,alerta)=>`<article class="dinero-kpi${alerta?' alerta':''}"><span>${safe(label)}</span><strong>${safe(valor)}</strong>${sub?`<small>${safe(sub)}</small>`:''}</article>`;
+  $('dineroSummary').innerHTML=
+    kpi('Cobrado',money.format(Number(s.charged||0)),`${s.charges||0} cargo${Number(s.charges)===1?'':'s'}`)+
+    kpi('Cobrado y pagado',money.format(Number(s.paid||0)),'Ya entró')+
+    kpi('Por cobrar',money.format(Number(s.balance||0)),'Sigue pendiente',Number(s.balance||0)>0)+
+    kpi('De bajas',s.fromCancelled||0,'Cargos de inscripciones cerradas',Number(s.fromCancelled||0)>0);
+  $('dineroMonths').innerHTML=meses.length
+    ? `<div class="eyebrow">POR MES</div>`+meses.map(m=>`<div class="dinero-month"><b>${safe(dateFmt(m.period).replace(/^\d+ /,''))}</b>`+
+        `<span>${money.format(Number(m.charged||0))} cobrado</span>`+
+        `<span class="ok">${money.format(Number(m.paid||0))} pagado</span>`+
+        `<span class="${Number(m.balance)>0?'pend':''}">${money.format(Number(m.balance||0))} pendiente</span></div>`).join('')
+    : '';
+  if(!filas.length){$('dineroBody').innerHTML='<div class="mini-empty">Todavía no se ha generado ningún cargo de esta academia.</div>';return;}
+  $('dineroBody').innerHTML=filas.map(r=>{
+    const baja=r.enrollmentStatus!=='active';
+    const pagos=(r.payments||[]).map(p=>{
+      const parcial=Number(p.applied)<Number(p.paymentTotal);
+      return `<li>${safe(dateFmt(p.date))} · <b>${money.format(Number(p.applied||0))}</b> por ${safe(metodo(p.method))}`+
+        (parcial?` <span class="dinero-parcial">(de un pago de ${money.format(Number(p.paymentTotal||0))}${p.payer?` de ${safe(p.payer)}`:''})</span>`:'')+
+        (p.reference?` · ref. ${safe(p.reference)}`:'')+`</li>`;
+    }).join('');
+    return `<article class="dinero-row${baja?' baja':''}">`+
+      `<div class="dinero-row-head"><div><strong>${safe(r.player)}</strong>`+
+        `<span>${safe(r.code||'sin código')} · ${safe(dateFmt(r.period).replace(/^\d+ /,''))}</span></div>`+
+        `<div class="dinero-row-amount"><b>${money.format(Number(r.amount||0))}</b>`+
+        `<small class="${Number(r.balance)>0?'pend':'ok'}">${Number(r.balance)>0?`${money.format(Number(r.balance))} pendiente`:'cubierto'}</small></div></div>`+
+      (baja?`<div class="dinero-warn">La inscripción se cerró el ${safe(dateFmt(r.endsOn))}${r.playerStatus!=='active'?' y el Tanner está dado de baja':''}. Este cargo salió del mes de la salida: revísalo antes de cobrarlo.</div>`:'')+
+      (pagos?`<ul class="dinero-pagos">${pagos}</ul>`:'<div class="dinero-sinpago">Sin pagos aplicados todavía.</div>')+
+      `</article>`;
+  }).join('');
+}
+const METODOS={cash:'efectivo',transfer:'transferencia',card:'tarjeta',deposit:'depósito',other:'otro'};
+function metodo(m){return METODOS[m]||m||'—';}
 
 function openConvert(prospectId){const p=pending.find(x=>x.id===prospectId);if(!p||!canWrite)return;convertingProspect=p;$('convertName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('convertStartsOn').value=today();$('convertFee').value=currentAcademy?.monthlyFee??'';message('convertMessage');$('convertBackdrop').classList.remove('hidden');$('convertModal').classList.remove('hidden');$('convertModal').setAttribute('aria-hidden','false');}
 function closeConvert(){convertingProspect=null;$('convertBackdrop').classList.add('hidden');$('convertModal').classList.add('hidden');$('convertModal').setAttribute('aria-hidden','true');message('convertMessage');}
@@ -128,8 +217,10 @@ document.querySelectorAll('#stepTabs .operation-tab').forEach(b=>b.addEventListe
 document.querySelectorAll('.type-card').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)selectType(b.dataset.type);}));
 $('academyForm').addEventListener('submit',saveAcademy);$('academyName').addEventListener('blur',()=>{if(!currentAcademy&&!$('academySlug').value.trim())$('academySlug').value=slugify($('academyName').value);});
 $('addStaff').addEventListener('click',assignStaff);
+$('enrollPlayer').addEventListener('click',openEnroll);
+$('closeEnroll').addEventListener('click',closeEnroll);$('enrollBackdrop').addEventListener('click',closeEnroll);$('enrollForm').addEventListener('submit',saveEnroll);
 $('closeConvert').addEventListener('click',closeConvert);$('convertBackdrop').addEventListener('click',closeConvert);$('convertForm').addEventListener('submit',saveConvert);
 $('closePayment').addEventListener('click',closePayment);$('paymentBackdrop').addEventListener('click',closePayment);$('paymentForm').addEventListener('submit',savePayment);
-document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('paymentModal').classList.contains('hidden'))closePayment();else if(!$('convertModal').classList.contains('hidden'))closeConvert();else if(!$('drawer').classList.contains('hidden'))closeDrawer();});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('enrollModal').classList.contains('hidden'))closeEnroll();else if(!$('paymentModal').classList.contains('hidden'))closePayment();else if(!$('convertModal').classList.contains('hidden'))closeConvert();else if(!$('drawer').classList.contains('hidden'))closeDrawer();});
 
 boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Academias.';show('deniedView');});

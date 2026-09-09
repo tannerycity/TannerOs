@@ -1,4 +1,4 @@
-<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Academias · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/programas/styles.css"><link rel="stylesheet" href="/v2/academias/styles.css?v=20260904a"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body>
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Academias · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/programas/styles.css"><link rel="stylesheet" href="/v2/academias/styles.css?v=20260909a"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body>
 <main class="shell">
   <section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Academias</h2><p class="muted">Conectando…</p></section>
   <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2">Volver</a></section>
@@ -37,6 +37,7 @@
     <button class="operation-tab active" data-step="datos" type="button">1 · Datos y cuota</button>
     <button class="operation-tab" data-step="staff" type="button">2 · Staff e inscritos</button>
     <button class="operation-tab" data-step="cobro" type="button">3 · Cobrar</button>
+    <button class="operation-tab" data-step="dinero" type="button">4 · De dónde viene</button>
   </nav>
 
   <section id="datosStep" class="operation-pane">
@@ -66,20 +67,25 @@
     <div class="staff-add-row"><select id="staffPicker"><option value="">Selecciona un profesor…</option></select><button id="addStaff" class="secondary mini" type="button">Asignar</button></div>
     <div id="staffMessage" class="inline-message hidden"></div>
 
-    <div class="section-toolbar staff-section-gap"><div><div class="eyebrow">INSCRITOS</div><h3>Tanners en esta academia</h3></div></div>
+    <div class="section-toolbar staff-section-gap"><div><div class="eyebrow">INSCRITOS</div><h3>Tanners en esta academia</h3></div><button id="enrollPlayer" class="secondary mini hidden" type="button">Inscribir Tanner</button></div>
     <div id="enrollmentList" class="enrollment-list"></div><div id="enrollmentEmpty" class="mini-empty hidden">Aún no hay Tanners inscritos.</div>
 
     <div class="section-toolbar staff-section-gap"><div><div class="eyebrow">LINK PÚBLICO</div><h3>Registros por confirmar</h3></div></div>
     <div id="pendingList" class="enrollment-list"></div><div id="pendingEmpty" class="mini-empty hidden">No hay registros pendientes del link público.</div>
   </section>
 
-  <section id="cobroStep" class="operation-pane hidden">
+  <section id="dineroStep" class="operation-pane hidden"><div class="step-copy"><strong>De dónde viene el dinero de esta academia</strong><span>Cada cargo se liga a la inscripción que lo originó, y cada pago dice con qué método y de qué pago salió.</span></div><div id="dineroDenied" class="mini-empty hidden">Tu rol no puede ver el dinero de la academia.</div><div id="dineroSummary" class="dinero-kpis"></div><div id="dineroMonths" class="dinero-months"></div><div id="dineroBody"></div></section><section id="cobroStep" class="operation-pane hidden">
     <div class="section-toolbar"><div><div class="eyebrow">COBRANZA DE LA ACADEMIA</div><h3>Mensualidades abiertas</h3></div><a class="secondary mini nav-link" href="/v2/taquilla/">Abrir Taquilla</a></div>
     <div id="receivablesList" class="payment-list"></div><div id="receivablesEmpty" class="mini-empty hidden">No hay cobros pendientes de esta academia.</div>
     <p id="cobroDenied" class="mini-empty hidden">Tu rol no tiene acceso a cobranza.</p>
   </section>
 </aside>
 
+<div id="enrollBackdrop" class="modal-backdrop hidden"></div>
+<section id="enrollModal" class="mini-modal hidden" aria-hidden="true">
+  <div class="modal-head"><div><div class="eyebrow">INSCRIBIR</div><h3>Tanner que ya está en el club</h3><p class="muted">Para quien ya tiene ficha y no entró por el link público.</p></div><button id="closeEnroll" class="icon-close" type="button" aria-label="Cerrar"><span class="tos-icon tos-icon-close" aria-hidden="true"></span></button></div>
+  <form id="enrollForm"><div class="form-grid"><label class="span-2">Tanner<select id="enrollPlayerPick" data-smart-search data-search-placeholder="Escribe el nombre del Tanner" required></select></label><label>Empieza el<input id="enrollStartsOn" type="date" required></label><label>Cuota acordada<input id="enrollFee" type="number" min="0" step="0.01"><small>Vacío = cuota de la academia</small></label><label class="span-2">Nota<input id="enrollNotes" maxlength="200" placeholder="Acuerdo con la familia, horario…"><small>Opcional</small></label></div><p class="muted enroll-hint">Desde esa fecha se le genera el cargo mensual de la academia, aparte de su mensualidad del club.</p><div id="enrollMessage" class="inline-message hidden"></div><button id="enrollSubmit" class="primary full" type="submit">Inscribir</button></form>
+</section>
 <div id="convertBackdrop" class="modal-backdrop hidden"></div>
 <section id="convertModal" class="mini-modal hidden" aria-hidden="true">
   <div class="modal-head"><div><div class="eyebrow">INSCRIBIR</div><h3 id="convertName">Inscribir Tanner</h3><p class="muted">Se creará su ficha y quedará inscrito en la academia.</p></div><button id="closeConvert" class="icon-close" type="button" aria-label="Cerrar"><span class="tos-icon tos-icon-close" aria-hidden="true"></span></button></div>
@@ -93,5 +99,5 @@
 </section>
 
 <script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/academias/app.js"></script>
+<script type="module" src="/v2/smart-select.js"></script><script type="module" src="/v2/academias/app.js"></script>
 </body></html>

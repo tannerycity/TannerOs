@@ -101,7 +101,8 @@ function renderStaffStep(){
   $('enrollPlayer').classList.toggle('hidden',!canWrite);
 
   const people=academyEnrollments(a.id),elist=$('enrollmentList');elist.innerHTML='';$('enrollmentEmpty').classList.toggle('hidden',people.length>0);
-  people.forEach(p=>{const row=document.createElement('div');row.className='enrollment-row';row.innerHTML=`<div class="participant-avatar">${safe((p.playerName||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><div class="participant-main"><strong>${safe(p.playerName)}</strong><span>${safe(p.playerCode||'')}</span><small>Desde ${dateFmt(p.startsOn)} · ${money.format(Number(p.agreedFee||a.monthlyFee||0))}/mes</small></div><div class="participant-state"><span>Activo</span></div>`;elist.appendChild(row);});
+  people.forEach(p=>{const row=document.createElement('div');row.className='enrollment-row';row.innerHTML=`<div class="participant-avatar">${safe((p.playerName||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><div class="participant-main"><strong>${safe(p.playerName)}</strong><span>${safe(p.playerCode||'')}</span><small>Desde ${dateFmt(p.startsOn)} · ${money.format(Number(p.agreedFee||a.monthlyFee||0))}/mes</small></div><div class="participant-state">${canWrite?`<button class="leave-button" data-leave="${safe(p.id)}" type="button">Dar de baja</button>`:'<span>Activo</span>'}</div>`;elist.appendChild(row);});
+  elist.querySelectorAll('[data-leave]').forEach(b=>b.addEventListener('click',()=>openLeave(b.dataset.leave)));
 
   const pend=academyPending(a),plist=$('pendingList');plist.innerHTML='';$('pendingEmpty').classList.toggle('hidden',pend.length>0);
   pend.forEach(p=>{const row=document.createElement('div');row.className='enrollment-row';row.innerHTML=`<div class="participant-avatar">${safe((p.firstName||'?')[0]||'?').toUpperCase()}</div><div class="participant-main"><strong>${safe([p.firstName,p.lastName].filter(Boolean).join(' '))}</strong><span>${safe(p.guardianName||'')}</span><small>${safe(p.phone||'')} · registrado ${dateFmt(p.createdAt)}</small></div><div class="participant-state">${canWrite?`<button class="collect-button" data-convert="${safe(p.id)}" type="button">Convertir</button>`:'<span>Pendiente</span>'}</div>`;plist.appendChild(row);});
@@ -147,6 +148,52 @@ async function saveEnroll(e){
       agreed_fee:asNum($('enrollFee').value),notes:$('enrollNotes').value.trim()||null});
     await load();closeEnroll();setStep('staff');toast('Tanner inscrito');
   }catch(err){message('enrollMessage',err.message||'No se pudo inscribir.');}
+  finally{btn.disabled=false;}
+}
+
+// Sacar a alguien SOLO de la academia. Antes el único camino era darlo de baja
+// del club entero, que es otra cosa: el niño puede seguir entrenando y solo dejar
+// la academia. La fecha importa porque decide cuánto se le cobra del mes.
+let leavingEnrollment=null;
+function openLeave(enrollmentId){
+  const e=enrollments.find(x=>x.id===enrollmentId);
+  if(!e||!canWrite)return;
+  leavingEnrollment=e;
+  $('leaveName').textContent=e.playerName;
+  $('leaveEndsOn').value=today();
+  $('leaveReason').value='';
+  pintaAvisoBaja();
+  message('leaveMessage');
+  $('leaveBackdrop').classList.remove('hidden');$('leaveModal').classList.remove('hidden');
+  $('leaveModal').setAttribute('aria-hidden','false');
+}
+function closeLeave(){
+  leavingEnrollment=null;
+  $('leaveBackdrop').classList.add('hidden');$('leaveModal').classList.add('hidden');
+  $('leaveModal').setAttribute('aria-hidden','true');message('leaveMessage');
+}
+// La regla del club: sale el 15 o antes, medio mes; del 16 en adelante, completo.
+// Se muestra antes de confirmar para que nadie se entere del monto por el recibo.
+function pintaAvisoBaja(){
+  const v=$('leaveEndsOn').value;const box=$('leaveHint');
+  if(!v||!leavingEnrollment){box.textContent='';return;}
+  const dia=Number(String(v).slice(8,10));
+  const cuota=Number(leavingEnrollment.agreedFee||currentAcademy?.monthlyFee||0);
+  box.textContent=dia<=15
+    ? `Sale a la mitad del mes o antes: de ${money.format(cuota)} se le cobrará ${money.format(Math.round(cuota/2))} de ese mes.`
+    : `Sale después del día 15: ese mes se cobra completo, ${money.format(cuota)}.`;
+}
+async function saveLeave(e){
+  e.preventDefault();
+  if(!leavingEnrollment)return;
+  const btn=$('leaveSubmit');btn.disabled=true;message('leaveMessage');
+  try{
+    const motivo=$('leaveReason').value.trim();
+    if(!motivo)throw new Error('Escribe por qué deja la academia.');
+    await rpc('v2_withdraw_academy_enrollment',{organization_id:ctx.organization_id,
+      enrollment_id:leavingEnrollment.id,ends_on:$('leaveEndsOn').value||today(),reason:motivo});
+    await load();closeLeave();setStep('staff');toast('Baja registrada');
+  }catch(err){message('leaveMessage',err.message||'No se pudo dar de baja.');}
   finally{btn.disabled=false;}
 }
 
@@ -218,9 +265,10 @@ document.querySelectorAll('.type-card').forEach(b=>b.addEventListener('click',()
 $('academyForm').addEventListener('submit',saveAcademy);$('academyName').addEventListener('blur',()=>{if(!currentAcademy&&!$('academySlug').value.trim())$('academySlug').value=slugify($('academyName').value);});
 $('addStaff').addEventListener('click',assignStaff);
 $('enrollPlayer').addEventListener('click',openEnroll);
+$('closeLeave').addEventListener('click',closeLeave);$('leaveBackdrop').addEventListener('click',closeLeave);$('leaveForm').addEventListener('submit',saveLeave);$('leaveEndsOn').addEventListener('change',pintaAvisoBaja);
 $('closeEnroll').addEventListener('click',closeEnroll);$('enrollBackdrop').addEventListener('click',closeEnroll);$('enrollForm').addEventListener('submit',saveEnroll);
 $('closeConvert').addEventListener('click',closeConvert);$('convertBackdrop').addEventListener('click',closeConvert);$('convertForm').addEventListener('submit',saveConvert);
 $('closePayment').addEventListener('click',closePayment);$('paymentBackdrop').addEventListener('click',closePayment);$('paymentForm').addEventListener('submit',savePayment);
-document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('enrollModal').classList.contains('hidden'))closeEnroll();else if(!$('paymentModal').classList.contains('hidden'))closePayment();else if(!$('convertModal').classList.contains('hidden'))closeConvert();else if(!$('drawer').classList.contains('hidden'))closeDrawer();});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('leaveModal').classList.contains('hidden'))closeLeave();else if(!$('enrollModal').classList.contains('hidden'))closeEnroll();else if(!$('paymentModal').classList.contains('hidden'))closePayment();else if(!$('convertModal').classList.contains('hidden'))closeConvert();else if(!$('drawer').classList.contains('hidden'))closeDrawer();});
 
 boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Academias.';show('deniedView');});

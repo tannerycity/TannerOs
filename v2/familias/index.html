@@ -4,9 +4,9 @@
   <div class="fam-auth-card">
     <div class="fam-mark">T</div>
     <h1>Portal de familias</h1>
-    <p class="fam-muted">Entra con el correo y la contraseña que te dio el club.</p>
+    <p class="fam-muted">Entra con el usuario o correo y la contraseña que te dio el club.</p>
     <form id="loginForm">
-      <label>Correo<input id="email" type="email" inputmode="email" autocomplete="username" required></label>
+      <label>Usuario o correo<input id="email" type="text" inputmode="email" autocomplete="username" required></label>
       <label>Contraseña<input id="password" type="password" autocomplete="current-password" required></label>
       <button id="loginSubmit" class="fam-btn" type="submit">Entrar</button>
       <div id="loginMessage" class="fam-message hidden"></div>
@@ -22,6 +22,10 @@
     <form id="passwordForm">
       <label>Nueva contraseña<input id="newPassword" type="password" minlength="10" autocomplete="new-password" required></label>
       <label>Confirmar<input id="confirmPassword" type="password" minlength="10" autocomplete="new-password" required></label>
+      <label id="contactEmailField" class="hidden">Tu correo <span class="fam-optional">(opcional)</span>
+        <input id="contactEmail" type="email" inputmode="email" autocomplete="email" placeholder="tucorreo@ejemplo.com">
+        <small class="fam-hint">Para mandarte tu estado de cuenta y avisos del club. Sigues entrando con tu usuario.</small>
+      </label>
       <button id="passwordSubmit" class="fam-btn" type="submit">Guardar y entrar</button>
       <div id="passwordMessage" class="fam-message hidden"></div>
     </form>

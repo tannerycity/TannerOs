@@ -11,6 +11,12 @@ const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';
 // pagos de mensualidad: quien pagaba un uniforme veía el cargo y no su abono.
 const PAY_LABEL={billing:'Mensualidad',commerce:'Tienda',registration:'Inscripción',program:'Academia',other:'Otro concepto'};
 const payLabel=t=>PAY_LABEL[t]||'';
+// Estado del pedido en español. Lo que guarda la tienda viene en inglés y un
+// papá no tiene por qué leer "delivered" en su estado de cuenta.
+const ORDER_LABEL={draft:'Por confirmar',pending:'Apartado',confirmed:'Confirmado',
+  in_production:'En producción',ready:'Listo para recoger',delivered:'Entregado',
+  cancelled:'Cancelado',paid:'Pagado'};
+const orderLabel=t=>ORDER_LABEL[t]||'';
 const state={home:null,playerId:'',tab:'cuenta',statements:{},calendar:null,catalog:null,cart:{},parking:null};
 
 function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
@@ -182,15 +188,23 @@ function ledgerBlock(st){
   const rows=(st.ledger||[]).filter(m=>m.kind!=='payment'||m.status==='posted');
   if(!rows.length)return '';
   const html=rows.map(m=>{
-    const cargo=m.kind==='charge',monto=Number(m.amount||0);
-    const de=cargo?'':payLabel(m.subtype);
-    const titulo=cargo?`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`:`Pago recibido${de?` · ${de}`:''}`;
-    const detalle=cargo
-      ? `${fmtDate(m.date)}${Number(m.charge_balance||0)>0?` · faltan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`
-      : `${fmtDate(m.date)}${m.method?` · ${esc(m.method)}`:''}`;
-    return `<div class="fam-mov" data-kind="${cargo?'charge':'payment'}"><span><strong>${esc(titulo)}</strong><span>${detalle}</span></span><b>${cargo?'+':'−'}${money.format(Math.abs(monto))}</b></div>`;
+    const pago=m.kind==='payment',monto=Number(m.amount||0);
+    // El pedido de la tienda suma como cargo: es algo que la familia debe o pagó.
+    const titulo=pago
+      ? `Pago recibido${payLabel(m.subtype)?` · ${payLabel(m.subtype)}`:''}`
+      : m.kind==='order'
+        ? `Pedido de la tienda${m.folio?` · ${m.folio}`:''}`
+        : `${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`;
+    const detalle=pago
+      ? `${fmtDate(m.date)}${m.method?` · ${esc(m.method)}`:''}`
+      : m.kind==='order'
+        ? `${fmtDate(m.date)}${orderLabel(m.status)?` · ${orderLabel(m.status)}`:''}`
+        : `${fmtDate(m.date)}${Number(m.charge_balance||0)>0?` · faltan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`;
+    return `<div class="fam-mov" data-kind="${pago?'payment':'charge'}"><span><strong>${esc(titulo)}</strong><span>${detalle}</span></span><b>${pago?'−':'+'}${money.format(Math.abs(monto))}</b></div>`;
   }).join('');
-  return `<section class="fam-card"><div class="fam-card-head"><h2>Movimientos</h2><span>${rows.length}</span></div>${html}</section>`;
+  // El saldo de arriba es el de mensualidades; aquí abajo va todo el dinero que
+  // se movió. Sin esta línea un pago de tienda se lee como saldo a favor.
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Movimientos</h2><span>${rows.length}</span></div><p class="fam-muted" style="margin:0 0 4px;font-size:12px">Todo lo que se te ha cobrado y todo lo que has pagado, del concepto que sea.</p>${html}</section>`;
 }
 
 function docsBlock(st){

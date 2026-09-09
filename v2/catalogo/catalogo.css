@@ -59,6 +59,20 @@
 .margin-preview span{font-size:11px;font-weight:700;color:var(--muted);}
 .margin-preview strong{font-size:16px;color:var(--teal);}
 
+/* Foto del producto: es lo que la familia ve en la tienda del portal. */
+.photo-field{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:start;
+  padding:12px;border-radius:14px;background:#f4f8f7;margin-bottom:16px;}
+.photo-box{width:96px;height:96px;border-radius:14px;background:#edf2f1;display:flex;align-items:center;
+  justify-content:center;color:#8a9a9e;font-size:11px;font-weight:700;overflow:hidden;}
+.photo-box img{width:100%;height:100%;object-fit:cover;display:block;}
+.photo-copy{display:grid;gap:4px;min-width:0;}
+.photo-copy strong{font-size:13px;color:var(--ink);}
+.photo-copy p{margin:0;font-size:11.5px;line-height:1.4;color:var(--muted);}
+.photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.photo-actions label,.photo-actions button{font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
+  border-radius:10px;padding:9px 13px;border:1px solid var(--line);background:#fff;color:var(--ink);}
+@media (max-width:620px){.photo-field{grid-template-columns:1fr;}}
+
 .drawer-actions{display:flex;gap:10px;flex-wrap:wrap;}
 .drawer-actions button{flex:1;min-width:120px;}
 

@@ -268,6 +268,28 @@ async function checkout(){
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(error){await tosAlert({kicker:'TIENDA',title:'No se pudo apartar el pedido',message:friendly(error)});btn.disabled=false;btn.textContent='Apartar';}
 }
+// Las fotos viven en un bucket privado: se firman en lote (una llamada por
+// bucket) y se pintan cuando llegan, sin bloquear el render de la tienda.
+async function pintaFotos(rows){
+  const porBucket={};
+  rows.forEach(p=>{
+    const path=p.photo_thumb_path||p.photo_path;
+    if(!path)return;
+    const b=p.photo_bucket||'tanneros-private';
+    (porBucket[b]=porBucket[b]||[]).push({id:p.id,path,name:p.name});
+  });
+  for(const b of Object.keys(porBucket)){
+    try{
+      const {data}=await supabase.storage.from(b).createSignedUrls(porBucket[b].map(x=>x.path),3600);
+      const mapa={};(data||[]).forEach(d=>{if(d?.path&&d.signedUrl)mapa[d.path]=d.signedUrl;});
+      porBucket[b].forEach(x=>{
+        const url=mapa[x.path];if(!url)return;
+        const box=document.querySelector(`[data-shot="${CSS.escape(String(x.id))}"]`);
+        if(box)box.innerHTML=`<img src="${esc(url)}" alt="${esc(x.name||'Producto')}" loading="lazy">`;
+      });
+    }catch(e){console.warn('fotos de la tienda',e);}
+  }
+}
 async function renderTienda(){
   if(!state.catalog){
     $('famBody').innerHTML='<div class="fam-empty">Cargando tienda…</div>';
@@ -281,9 +303,14 @@ async function renderTienda(){
     const sel=tallas.length
       ? `<select data-size="${esc(p.id)}" aria-label="Talla">${tallas.map(s=>`<option>${esc(s)}</option>`).join('')}</select>`:'';
     const enCarrito=state.cart[p.id]?'1':'0';
-    return `<article class="fam-prod"><strong>${esc(p.name)}</strong><span class="fam-price">${money.format(Number(p.price||0))}</span>${p.description?`<p>${esc(p.description)}</p>`:''}${sel}<button type="button" data-add="${esc(p.id)}" data-in="${enCarrito}">${enCarrito==='1'?'Quitar':'Agregar'}</button></article>`;
+    const foto=`<span class="fam-shot" data-shot="${esc(p.id)}">${p.photo_path||p.photo_thumb_path?'':'Sin foto'}</span>`;
+    return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong><span class="fam-price">${money.format(Number(p.price||0))}</span>${p.description?`<p>${esc(p.description)}</p>`:''}${sel}<button type="button" data-add="${esc(p.id)}" data-in="${enCarrito}">${enCarrito==='1'?'Quitar':'Agregar'}</button></article>`;
   }).join('');
-  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${rows.length} productos</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p></section><div class="fam-prods">${cards}</div>`;
+  const tienda=String(state.home?.organization?.storeUrl||'');
+  const irALaTienda=/^https:\/\//i.test(tienda)
+    ? `<a class="fam-store" href="${esc(tienda)}" target="_blank" rel="noopener">Ver toda la tienda del club</a>`:'';
+  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${rows.length} productos</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p>${irALaTienda}</section><div class="fam-prods">${cards}</div>`;
+  pintaFotos(rows);
   $('famBody').querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{
     const id=btn.dataset.add,prod=rows.find(x=>String(x.id)===String(id));
     if(!prod)return;

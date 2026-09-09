@@ -14,9 +14,10 @@ async function cargaClub(){
   const cfg=await rpc('v2_club_config',{organization_id:org});
   $('whatsappInput').value=cfg?.whatsapp||'';
   $('prefixInput').value=cfg?.passwordPrefix||'';
+  $('storeUrlInput').value=cfg?.storeUrl||'';
   muestraEjemplo();
   $('saveClub').disabled=!canWrite;
-  if(!canWrite){$('saveClub').textContent='Solo lectura';$('whatsappInput').disabled=true;$('prefixInput').disabled=true;}
+  if(!canWrite){$('saveClub').textContent='Solo lectura';[...$('clubForm').elements].forEach(el=>{if(el.id!=='saveClub')el.disabled=true;});}
 }
 $('prefixInput').addEventListener('input',muestraEjemplo);
 $('clubForm').addEventListener('submit',async e=>{
@@ -30,7 +31,9 @@ $('clubForm').addEventListener('submit',async e=>{
     if(whatsapp&&whatsapp.length===10)throw new Error('Falta la lada de país. Para México escribe 52 y luego los 10 dígitos.');
     if(whatsapp&&(whatsapp.length<11||whatsapp.length>15))throw new Error('El WhatsApp necesita entre 11 y 15 números, con lada de país.');
     if(prefijo&&!/^[A-Z0-9]{2,6}$/.test(prefijo))throw new Error('El prefijo va de 2 a 6 letras o números, por ejemplo TC.');
-    await rpc('v2_update_club_config',{organization_id:org,whatsapp:whatsapp||null,password_prefix:prefijo||null});
+    const tienda=$('storeUrlInput').value.trim();
+    if(tienda&&!/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(tienda))throw new Error('La liga de la tienda debe empezar con https:// y traer un dominio válido.');
+    await rpc('v2_update_club_config',{organization_id:org,whatsapp:whatsapp||null,password_prefix:prefijo||null,store_url:tienda||null});
     await cargaClub();
     clubMsg('Contacto y llaves guardados.','success');
   }catch(err){clubMsg(err.message||'No se pudo guardar.');}

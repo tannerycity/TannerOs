@@ -22,15 +22,15 @@ const roleLabels={
   cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scout',player:'Familia'
 };
 const profileDescriptions={
-  guardian:'Ve únicamente a sus Tanners, estado de cuenta, pagos, calendario, tienda y gafete.',
-  president:'Control completo del club y de sus accesos.',
-  operations:'Operación diaria, jugadores, programas, tienda y utilería.',
-  coach:'Jugadores, asistencia, convocatorias, calendario y trabajo deportivo.',
-  academy:'Academias, asistencia y calendario.',
-  cashier:'Cobros, pedidos, programas y calendario.',
-  accounting:'Cobranza, pagos y contabilidad.',
-  commercial:'Patrocinios, tienda, rentabilidad y calendario.',
-  scouting:'Scouting y calendario, sin información administrativa.'
+  guardian:'Acompaña únicamente a sus Tanners: ficha, estado de cuenta, pagos, calendario, tienda y gafete.',
+  president:'Abre todo el club y la administración de sus llaves.',
+  operations:'Mantiene en movimiento jugadores, programas, tienda y utilería.',
+  coach:'Dirige jugadores, asistencia, convocatorias, calendario y trabajo deportivo.',
+  academy:'Acompaña academias, asistencia y calendario.',
+  cashier:'Recibe cobros y acompaña pedidos, programas y calendario.',
+  accounting:'Cuida cobranza, pagos y contabilidad del club.',
+  commercial:'Impulsa patrocinios, tienda, rentabilidad y calendario.',
+  scouting:'Observa talento y consulta calendario, sin información administrativa.'
 };
 const profileHighlights={
   guardian:['Sus Tanners','Historial de pagos','Calendario'],
@@ -63,7 +63,7 @@ function normalize(value){return String(value||'').normalize('NFD').replace(/[\u
 function initials(value){return String(value||'TC').trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'TC';}
 function usernameFromEmail(email){const match=String(email||'').match(/^(.+)@staff\.tanneros\.invalid$/i);return match?.[1]||'';}
 function roleName(code){return roleLabels[code]||'Integrante';}
-function memberName(member){return member?.displayName||member?.email||'Usuario';}
+function memberName(member){return member?.displayName||member?.email||'Integrante';}
 function guardianName(guardian){return guardian?.name||guardian?.email||guardian?.phone||'Tutor';}
 function friendly(error){
   const raw=String(error?.message||error||'No pudimos completar esta acción.');
@@ -172,12 +172,12 @@ function renderPeople(){
     const family=person.kind==='guardian'||person.data.roleCode==='player';
     const username=person.kind==='staff'?usernameFromEmail(person.data.email):'';
     const contact=person.kind==='guardian'?(person.data.email||person.data.phone||'Sin contacto'):(username?`@${username}`:(person.data.email||'Sin correo visible'));
-    const detail=person.kind==='guardian'?((person.data.players||[]).join(' · ')||'Sin Tanner ligado'):`${roleName(person.data.roleCode)} · ${person.active?'Acceso activo':'Acceso desactivado'}`;
+    const detail=person.kind==='guardian'?((person.data.players||[]).join(' · ')||'Sin Tanner ligado'):`${roleName(person.data.roleCode)} · ${person.active?'Llave activa':'Llave pausada'}`;
     const card=document.createElement('article');card.className=`member-card ${person.active?'':'inactive'}`;
     card.innerHTML=`
       <div class="member-avatar ${family?'family':''}">${safe(initials(person.name))}</div>
       <div class="member-info">
-        <div class="member-title-line"><strong>${safe(person.name)}</strong>${person.data.isOwner?'<span class="member-chip owner">Protegida</span>':''}${person.kind==='guardian'&&!person.active?'<span class="member-chip attention">Sin acceso</span>':''}</div>
+        <div class="member-title-line"><strong>${safe(person.name)}</strong>${person.data.isOwner?'<span class="member-chip owner">Protegida</span>':''}${person.kind==='guardian'&&!person.active?'<span class="member-chip attention">Sin llave</span>':''}</div>
         <span>${safe(contact)}</span><small>${safe(detail)}</small>
       </div>
       <button class="member-open" type="button" data-kind="${person.kind}" data-person-id="${safe(person.id)}" aria-label="Abrir a ${safe(person.name)}"><span aria-hidden="true"></span></button>`;
@@ -209,7 +209,7 @@ function renderGuardianOptions(){
   select.innerHTML='<option value="">Selecciona al tutor</option>';
   guardians.forEach(guardian=>{
     const option=document.createElement('option');option.value=guardian.guardian_id;
-    option.textContent=`${guardianName(guardian)}${guardian.has_access?' · Ya tiene acceso':''}`;
+    option.textContent=`${guardianName(guardian)}${guardian.has_access?' · Ya tiene llave':''}`;
     option.dataset.search=[guardian.email,guardian.phone,(guardian.players||[]).join(' ')].filter(Boolean).join(' ');
     select.appendChild(option);
   });
@@ -250,7 +250,7 @@ function setMethod(method){
 function currentProfile(){return wizard.kind==='guardian'?'guardian':wizard.role;}
 function renderAccessPreview(){
   const profile=currentProfile()||'operations',tags=profileHighlights[profile]||[];
-  $('accessPreview').innerHTML=`<strong>Así se sentirá su acceso</strong><p>${safe(profileDescriptions[profile])}</p><div class="access-tags">${tags.map(tag=>`<span>${safe(tag)}</span>`).join('')}</div>`;
+  $('accessPreview').innerHTML=`<strong>Esto podrá hacer en el club</strong><p>${safe(profileDescriptions[profile])}</p><div class="access-tags">${tags.map(tag=>`<span>${safe(tag)}</span>`).join('')}</div>`;
 }
 function suggestedUsername(name){return normalize(name).trim().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'').slice(0,32);}
 function focusSmartSelect(id){const select=$(id),input=select?.nextElementSibling?.querySelector('.tos-smart-select-input');(input||select)?.focus();}
@@ -298,7 +298,7 @@ function goToReview(){if(!validateStep2())return;renderReview();setWizardStep(3)
 
 async function createAccess(event){
   event.preventDefault();if(!canWrite||!wizard.kind||!validateStep2())return;
-  message('createMessage');const button=$('createAccess');button.disabled=true;button.textContent='Creando llave…';
+  message('createMessage');const button=$('createAccess');button.disabled=true;button.textContent='Preparando llave…';
   try{
     let result,displayName,portal='staff';
     if(wizard.kind==='guardian'){
@@ -312,23 +312,23 @@ async function createAccess(event){
     }
     await load();showCredentialResult(result,displayName,portal);
   }catch(error){message('createMessage',friendly(error));}
-  finally{button.disabled=!canWrite;button.textContent='Crear llave';}
+  finally{button.disabled=!canWrite;button.textContent='Entregar llave';}
 }
 function showCredentialResult(result,displayName,portal='staff'){
   $('wizardStep3').classList.add('hidden');$('accessForm').classList.add('hidden');$('wizardProgress').classList.add('hidden');$('credentialResult').classList.remove('hidden');
   if(result.temporary_password){
     const login=portal==='family'?(result.email||'Correo'):result.username,loginLabel=portal==='family'?'Correo':'Usuario',url=portal==='family'?'https://app.tannerycity.com/familias/':'https://app.tannerycity.com/';
-    $('credentialTitle').textContent=`La llave de ${displayName} está lista`;
-    $('credentialHelp').textContent='Copia estos datos ahora. La contraseña temporal sólo se muestra una vez.';
+    $('credentialTitle').textContent=`${displayName} ya tiene su llave`;
+    $('credentialHelp').textContent='Entrégale estos datos ahora. La contraseña temporal sólo se muestra una vez.';
     $('credentialRows').innerHTML=`<div class="credential-row"><span>${loginLabel}</span><strong>${safe(login)}</strong></div><div class="credential-row"><span>Contraseña temporal</span><code>${safe(result.temporary_password)}</code></div>`;
     $('copyCredential').classList.remove('hidden');
     lastCredentialText=`Bienvenido a Tannery City\nTu llave está lista.\n\n${loginLabel}: ${login}\nContraseña temporal: ${result.temporary_password}\nEntrar: ${url}\n\nAl entrar crearás tu propia contraseña.`;
   }else if(result.invitation_link){
-    $('credentialTitle').textContent=`Invitación lista para ${displayName}`;$('credentialHelp').textContent='Comparte este enlace de forma privada.';
+    $('credentialTitle').textContent=`${displayName} está por entrar al club`;$('credentialHelp').textContent='Comparte esta invitación de forma privada.';
     $('credentialRows').innerHTML=`<div class="credential-row"><span>Correo</span><strong>${safe(result.email)}</strong></div><div class="credential-row"><span>Enlace privado</span><code>${safe(result.invitation_link)}</code></div>`;
     $('copyCredential').classList.remove('hidden');lastCredentialText=`Bienvenido a Tannery City\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;
   }else{
-    $('credentialTitle').textContent=`Invitación enviada a ${displayName}`;$('credentialHelp').textContent=`Enviamos el acceso a ${result.email}. Puede revisar también Spam o No deseado.`;
+    $('credentialTitle').textContent=`Invitamos a ${displayName} al club`;$('credentialHelp').textContent=`La llave va en camino a ${result.email}. Puede revisar también Spam o No deseado.`;
     $('credentialRows').innerHTML=`<div class="credential-row"><span>Correo enviado</span><strong>${safe(result.email)}</strong></div>`;
     $('copyCredential').classList.add('hidden');lastCredentialText='';
   }
@@ -338,7 +338,7 @@ async function copyCredential(){
   try{await navigator.clipboard.writeText(lastCredentialText);}catch{
     const area=document.createElement('textarea');area.value=lastCredentialText;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();
   }
-  const button=$('copyCredential'),original=button.textContent;button.textContent='Acceso copiado';setTimeout(()=>button.textContent=original,1500);
+  const button=$('copyCredential'),original=button.textContent;button.textContent='Llave copiada';setTimeout(()=>button.textContent=original,1500);
 }
 
 function roleOptions(current){
@@ -355,7 +355,7 @@ function renderPersonDrawer(){
   if(!currentPerson)return;
   const guardian=currentPerson.kind==='guardian',data=currentPerson.data,name=guardian?guardianName(data):memberName(data),username=guardian?'':usernameFromEmail(data.email),active=guardian?Boolean(data.has_access):Boolean(data.active);
   $('memberName').textContent=name;$('memberAvatar').textContent=initials(name);$('memberAvatar').classList.toggle('family',guardian||data.roleCode==='player');
-  $('memberMeta').textContent=guardian?`${data.email||data.phone||'Sin contacto'} · ${active?'Portal activo':'Sin acceso'}`:`${username?`@${username}`:(data.email||'Sin correo visible')} · ${active?'Acceso activo':'Acceso desactivado'}`;
+  $('memberMeta').textContent=guardian?`${data.email||data.phone||'Sin contacto'} · ${active?'Portal familiar activo':'Sin llave'}`:`${username?`@${username}`:(data.email||'Sin correo visible')} · ${active?'Llave activa':'Llave pausada'}`;
   $('ownerProtection').classList.toggle('hidden',guardian||!data.isOwner);
   $('memberProfileFields').classList.toggle('hidden',guardian);$('guardianProfileFields').classList.toggle('hidden',!guardian);$('memberAccessDetails').classList.toggle('hidden',guardian);
   if(guardian){
@@ -366,8 +366,8 @@ function renderPersonDrawer(){
   }
   $('resetMemberPassword').classList.toggle('hidden',!active||(guardian?false:(!username||data.isOwner)));$('resetMemberPassword').disabled=!canWrite;
   $('toggleMember').classList.toggle('hidden',!guardian&&data.isOwner);$('toggleMember').disabled=!canWrite;
-  $('toggleMember').textContent=guardian?(active?'Quitar acceso':'Dar acceso'):(active?'Desactivar acceso':'Reactivar acceso');
-  $('memberSecurityHelp').textContent=guardian?'Puedes renovar la contraseña temporal o retirar el portal sin afectar la ficha del Tanner.':username?'Puedes entregar una nueva contraseña temporal o pausar esta llave.':'Las cuentas con correo recuperan su contraseña desde la pantalla de entrada.';
+  $('toggleMember').textContent=guardian?(active?'Retirar llave':'Entregar llave'):(active?'Pausar llave':'Reactivar llave');
+  $('memberSecurityHelp').textContent=guardian?'Puedes renovar su contraseña o retirar la llave sin afectar la ficha del Tanner.':username?'Puedes entregar una nueva contraseña o pausar esta llave.':'Las cuentas con correo recuperan su contraseña desde la entrada al vestidor.';
 }
 function moduleSort(a,b){return Number(a.sortOrder||999)-Number(b.sortOrder||999)||String(a.moduleName).localeCompare(String(b.moduleName),'es-MX');}
 function levelOf(module){return module.effectiveCanWrite?'write':module.effectiveCanRead?'read':'none';}
@@ -378,7 +378,7 @@ function renderModuleAccess(){
   (member.modules||[]).filter(module=>!hiddenModules.has(module.moduleCode)&&moduleLabels[module.moduleCode]).sort(moduleSort).forEach(module=>{
     const disabled=member.isOwner||!canWrite||!module.enabled,current=levelOf(module),source=!module.enabled?'No disponible':module.customized?'Ajuste especial':`Incluido en ${roleName(member.roleCode)}`;
     const row=document.createElement('article');row.className=`module-access-row ${module.customized?'customized':''} ${!module.enabled?'plan-disabled':''}`;
-    row.innerHTML=`<div class="module-access-name"><strong>${safe(moduleLabels[module.moduleCode])}</strong><small>${safe(source)}</small></div><select class="module-level" data-code="${safe(module.moduleCode)}" ${disabled?'disabled':''}><option value="none" ${current==='none'?'selected':''}>Sin acceso</option><option value="read" ${current==='read'?'selected':''}>Puede ver</option><option value="write" ${current==='write'?'selected':''}>Puede gestionar</option></select>`;
+    row.innerHTML=`<div class="module-access-name"><strong>${safe(moduleLabels[module.moduleCode])}</strong><small>${safe(source)}</small></div><select class="module-level" data-code="${safe(module.moduleCode)}" ${disabled?'disabled':''}><option value="none" ${current==='none'?'selected':''}>No abre</option><option value="read" ${current==='read'?'selected':''}>Puede consultar</option><option value="write" ${current==='write'?'selected':''}>Puede operar</option></select>`;
     list.appendChild(row);
   });
   list.querySelectorAll('.module-level').forEach(select=>select.addEventListener('change',()=>setModuleLevel(select.dataset.code,select.value)));
@@ -395,7 +395,7 @@ async function setModuleLevel(code,level){
 async function saveMemberProfile(){
   if(currentPerson?.kind!=='staff'||currentPerson.data.isOwner)return;
   const member=currentPerson.data,roleCode=$('memberRole').value,button=$('saveMemberProfile');button.disabled=true;message('profileMessage');
-  try{await rpc('v2_update_membership',{organization_id:ctx.organization_id,membership_id:member.membershipId,role_code:roleCode,active:member.active});await load(true);message('profileMessage','Perfil guardado. Su TannerOS ya refleja este acceso.','success');}
+  try{await rpc('v2_update_membership',{organization_id:ctx.organization_id,membership_id:member.membershipId,role_code:roleCode,active:member.active});await load(true);message('profileMessage','Su lugar quedó guardado y la llave ya abre lo necesario.','success');}
   catch(error){message('profileMessage',friendly(error));await load(true);}finally{button.disabled=!canWrite||currentPerson?.data?.isOwner;}
 }
 async function resetAllModules(){
@@ -406,7 +406,7 @@ async function resetAllModules(){
     confirmText:'Sí, restaurar'});
   if(!ok)return;
   setDrawerBusy(true);message('accessMessage');
-  try{for(const module of customized)await rpc('v2_set_membership_module_access',{organization_id:ctx.organization_id,membership_id:member.membershipId,module_code:module.moduleCode,can_read:null,can_write:null});await load(true);message('accessMessage','Acceso restaurado al perfil recomendado.','success');}
+  try{for(const module of customized)await rpc('v2_set_membership_module_access',{organization_id:ctx.organization_id,membership_id:member.membershipId,module_code:module.moduleCode,can_read:null,can_write:null});await load(true);message('accessMessage','La llave volvió a las puertas recomendadas para su función.','success');}
   catch(error){message('accessMessage',friendly(error));await load(true);}finally{setDrawerBusy(false);}
 }
 async function togglePersonAccess(){

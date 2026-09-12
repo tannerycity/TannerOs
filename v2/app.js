@@ -1,4 +1,5 @@
 import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon} from '/v2/shell.js';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -485,8 +486,7 @@ async function signBirthdayPhotos(list){
     const byBucket={};
     list.forEach(p=>{const path=p.photo_thumb_path;if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
     for(const bucket of Object.keys(byBucket)){
-      const {data}=await supabase.storage.from(bucket).createSignedUrls(byBucket[bucket],3600);
-      const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
+      const map=await getSignedPhotoUrls(supabase,bucket,byBucket[bucket]);
       list.forEach(p=>{const path=p.photo_thumb_path;if(path&&(p.photo_bucket||'tanneros-private')===bucket&&map[path])p._photoUrl=map[path];});
     }
   }catch(e){/* sin foto se queda el monograma */}

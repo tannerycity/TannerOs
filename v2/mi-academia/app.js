@@ -30,15 +30,15 @@ function edad(f){if(!f)return null;const b=new Date(`${f}T00:00:00`);if(isNaN(b)
 function saludo(){const h=new Date().getHours();return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches';}
 const iniciales=n=>String(n||'?').split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
 
-// Las fotos viven en un bucket privado: se firman por lote, una llamada por bucket.
+// En listas sólo se firman miniaturas; si faltan, se muestran iniciales.
 async function firmarFotos(lista){
   try{
     const porBucket={};
-    (lista||[]).forEach(p=>{if(p.photoPath){const b=p.photoBucket||'tanneros-private';(porBucket[b]=porBucket[b]||[]).push(p.photoPath);}});
+    (lista||[]).forEach(p=>{if(p.photoThumbPath){const b=p.photoBucket||'tanneros-private';(porBucket[b]=porBucket[b]||[]).push(p.photoThumbPath);}});
     for(const b of Object.keys(porBucket)){
       const {data}=await supabase.storage.from(b).createSignedUrls(porBucket[b],3600);
       const mapa={};(data||[]).forEach(d=>{if(d?.signedUrl&&!d.error)mapa[d.path]=d.signedUrl;});
-      (lista||[]).forEach(p=>{if(p.photoPath&&(p.photoBucket||'tanneros-private')===b&&mapa[p.photoPath])p._foto=mapa[p.photoPath];});
+      (lista||[]).forEach(p=>{if(p.photoThumbPath&&(p.photoBucket||'tanneros-private')===b&&mapa[p.photoThumbPath])p._foto=mapa[p.photoThumbPath];});
     }
   }catch(e){}
 }
@@ -228,7 +228,7 @@ async function abrirLista(sessionId){
   state.sesion=sessionId;state.marcas={};
   try{
     const filas=await rpc('v2_attendance_roster',{organization_id:ctx.organization_id,session_id:sessionId})||[];
-    state.roster=filas.map(r=>({id:r.player_id,name:r.player_name,photoPath:r.photo_path,photoBucket:r.photo_bucket}));
+    state.roster=filas.map(r=>({id:r.player_id,name:r.player_name,photoThumbPath:r.photo_thumb_path,photoBucket:r.photo_bucket}));
     filas.forEach(r=>{if(r.status)state.marcas[r.player_id]=r.status;});
     await firmarFotos(state.roster);
   }catch(e){await tosAlert({kicker:'ASISTENCIA',title:'No se pudo abrir la lista',message:String(e?.message||e)});return;}

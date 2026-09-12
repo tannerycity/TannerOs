@@ -77,5 +77,15 @@ for(const route of Object.keys(routeContract))if(!qaApp.includes(`'${route}'`))e
 if(/nextActionButton'\)\.addEventListener/.test(qaApp))errors.push('Centro de Calidad registra dos acciones posibles en #nextActionButton; debe usar un único onclick reemplazable');
 const publicForm=fs.readFileSync('public-form.js','utf8');for(const route of ['/registro/porteros','/registro/jugadores','/registro/scouting','/pedido','/programas'])if(!publicForm.includes(route))errors.push(`public-form.js no reconoce ${route}`);
 
+// Guardas de egress: un avatar nunca debe caer silenciosamente en la foto
+// original. El pull heredado se frena en el gateway de Supabase.
+for(const file of ['v2/jugadores/app.js','v2/calendario/app.js','v2/app.js']){
+  const source=fs.readFileSync(file,'utf8');
+  if(/photo_thumb_path\s*\|\|\s*(?:p\.)?photo_path/.test(source))errors.push(`Egress: ${file} usa foto completa como fallback de miniatura`);
+}
+const attendanceApp=fs.readFileSync('v2/asistencia/app.js','utf8');
+if(/signRosterPhotos[\s\S]*?photo_path[\s\S]*?createSignedUrls/.test(attendanceApp))errors.push('Egress: Asistencia firma fotos completas para el roster');
+const prospectsApp=fs.readFileSync('v2/prospectos/app.js','utf8');
+if(/loadProspects\(\)[\s\S]{0,300}await loadProspectPhotos\(\)/.test(prospectsApp))errors.push('Egress: Prospectos descarga todas las fotos al abrir la lista');
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

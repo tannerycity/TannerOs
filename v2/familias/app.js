@@ -5,9 +5,20 @@ import {supabase,rpc,money,$} from '/v2/shell.js';
 // Todo lo que se muestra viene de los RPC v2_portal_*, que resuelven al tutor
 // por auth.uid() y nunca confían en un id que mande esta página.
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',parking_pass:'Gafete'};
+const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',
+  parking_pass:'Gafete',other:'Otro cargo'};
 const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';
-const state={home:null,playerId:'',tab:'cuenta',statements:{},calendar:null,catalog:null,cart:{},parking:null};
+// De qué fue cada pago. El portal mostraba todos los cargos pero sólo los
+// pagos de mensualidad: quien pagaba un uniforme veía el cargo y no su abono.
+const PAY_LABEL={billing:'Mensualidad',commerce:'Tienda',registration:'Inscripción',program:'Academia',other:'Otro concepto'};
+const payLabel=t=>PAY_LABEL[t]||'';
+// Estado del pedido en español. Lo que guarda la tienda viene en inglés y un
+// papá no tiene por qué leer "delivered" en su estado de cuenta.
+const ORDER_LABEL={draft:'Por confirmar',pending:'Apartado',confirmed:'Confirmado',
+  in_production:'En producción',ready:'Listo para recoger',delivered:'Entregado',
+  cancelled:'Cancelado',paid:'Pagado'};
+const orderLabel=t=>ORDER_LABEL[t]||'';
+const state={home:null,playerId:'',tab:'cuenta',statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null};
 
 function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -100,10 +111,38 @@ async function handlePassword(event){
 }
 
 /* ---------- Cuenta ---------- */
+// Botones de WhatsApp al club. El numero vive en Administracion > Configuracion
+// del club y llega en v2_portal_home; si el club no lo capturo, el boton no se
+// pinta en lugar de abrir una conversacion vacia.
+function waHref(texto){
+  const num=String(state.home?.organization?.whatsapp||'').replace(/\D/g,'');
+  if(num.length<11)return '';
+  return `https://wa.me/${num}?text=${encodeURIComponent(texto)}`;
+}
+const WA_ICON='<svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.4 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.6-.1a13 13 0 0 1-1.5-.6c-2.6-1.1-4.3-3.8-4.5-4-.1-.2-1-1.4-1-2.7s.6-1.9.9-2.2c.3-.3.6-.4.8-.4h.5c.2 0 .4 0 .5.4l.8 1.9c.1.2.1.4 0 .5l-.4.5c-.1.2-.2.3-.1.5.2.3.8 1.4 1.8 2.2 1.3 1 2.3 1.3 2.6 1.5.3.1.4.1.6-.1l.6-.7c.2-.3.4-.2.6-.1l1.7.8c.2.1.4.2.4.3.1.2.1.8-.1 1.4Z"/></svg>';
+function waBoton(texto,etiqueta){
+  const href=waHref(texto);
+  if(!href)return '';
+  return `<a class="fam-wa" href="${esc(href)}" target="_blank" rel="noopener">${WA_ICON}${esc(etiqueta)}</a>`;
+}
+// El motor de cobranza escribe conceptos como "Monthly fee 2026-08" o
+// "Mensualidad 2026-09": para esos manda la etiqueta bonita. Un concepto que no
+// sigue ese molde lo escribió una persona y dice más que cualquier etiqueta.
+const conceptoPropio=m=>{
+  const c=String(m.concept||'').trim();
+  if(!c||m.kind!=='charge')return '';
+  return /^(monthly fee|mensualidad|recargo|academia|academy)\b/i.test(c)?'':c;
+};
+const nombreDe=p=>[p?.first_name,p?.last_name].filter(Boolean).join(' ')||'mi Tanner';
+
 function playerProfileBlock(p){
   const name=[p.first_name,p.last_name].filter(Boolean).join(' ')||'Tanner';
   const age=ageOf(p.birth_date);
   const position=[p.position,p.dominant_foot&&`Pie ${p.dominant_foot}`].filter(Boolean).join(' · ')||'Perfil deportivo';
+  const faltantes=[
+    !p.birth_date&&'fecha de nacimiento',
+    !p.joined_at&&'desde cuándo está en el club'
+  ].filter(Boolean);
   return `<section class="fam-player-profile">
     <span class="fam-profile-photo" data-profile-photo="${esc(p.id)}">${p._photo?`<img src="${esc(p._photo)}" alt="Foto de ${esc(name)}">`:esc(initials(p))}</span>
     <span class="fam-profile-main"><small>MI TANNER</small><strong>${esc(name)}</strong><span>${esc([p.category,position].filter(Boolean).join(' · '))}</span></span>
@@ -112,6 +151,9 @@ function playerProfileBlock(p){
       <span><small>Número</small><b>${esc(p.jersey_number||'Por asignar')}</b></span>
       <span><small>En el club</small><b>${p.joined_at?`Desde ${fmtDate(p.joined_at)}`:'Por registrar'}</b></span>
     </span>
+    ${faltantes.length?waBoton(
+      `Hola, soy familia de ${name}. Les paso lo que falta en su expediente: ${faltantes.join(', ')}.`,
+      'Mandarle mis datos al club'):''}
   </section>`;
 }
 function balanceBlock(st){
@@ -155,14 +197,29 @@ function ledgerBlock(st){
   const rows=(st.ledger||[]).filter(m=>m.kind!=='payment'||m.status==='posted');
   if(!rows.length)return '';
   const html=rows.map(m=>{
-    const cargo=m.kind==='charge',monto=Number(m.amount||0);
-    const titulo=cargo?`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`:'Pago recibido';
-    const detalle=cargo
-      ? `${fmtDate(m.date)}${Number(m.charge_balance||0)>0?` · faltan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`
-      : `${fmtDate(m.date)}${m.method?` · ${esc(m.method)}`:''}`;
-    return `<div class="fam-mov" data-kind="${cargo?'charge':'payment'}"><span><strong>${esc(titulo)}</strong><span>${detalle}</span></span><b>${cargo?'+':'−'}${money.format(Math.abs(monto))}</b></div>`;
+    const pago=m.kind==='payment',monto=Number(m.amount||0);
+    // El pedido de la tienda suma como cargo: es algo que la familia debe o pagó.
+    const titulo=pago
+      ? `Pago recibido${payLabel(m.subtype)?` · ${payLabel(m.subtype)}`:''}`
+      : m.kind==='order'
+        ? `Pedido de la tienda${m.folio?` · ${m.folio}`:''}`
+        // Un ajuste trae un concepto escrito por una persona ("Mensualidades
+        // atrasadas anteriores a julio"). Eso explica mejor que "Otro cargo · jun".
+        : conceptoPropio(m)||`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`;
+    const detalle=pago
+      ? `${fmtDate(m.date)}${m.method?` · ${esc(m.method)}`:''}`
+      : m.kind==='order'
+        ? `${fmtDate(m.date)}${orderLabel(m.status)?` · ${orderLabel(m.status)}`:''}`
+        : `${fmtDate(m.date)}${Number(m.charge_balance||0)>0?` · faltan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`;
+    return `<div class="fam-mov" data-kind="${pago?'payment':'charge'}"><span><strong>${esc(titulo)}</strong><span>${detalle}</span></span><b>${pago?'−':'+'}${money.format(Math.abs(monto))}</b></div>`;
   }).join('');
-  return `<section class="fam-card"><div class="fam-card-head"><h2>Movimientos</h2><span>${rows.length}</span></div>${html}</section>`;
+  // El saldo de arriba es el de mensualidades; aquí abajo va todo el dinero que
+  // se movió. Sin esta línea un pago de tienda se lee como saldo a favor.
+  // Y si el club hizo corte, se dice desde cuándo: la cuenta no empieza en cero
+  // porque sí, empieza donde el club la abrió.
+  const desde=st.summary?.since
+    ? ` Tu cuenta en la app arranca el ${fmtDate(st.summary.since)}.`:'';
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Movimientos</h2><span>${rows.length}</span></div><p class="fam-muted" style="margin:0 0 4px;font-size:12px">Todo lo que se te ha cobrado y todo lo que has pagado, del concepto que sea.${esc(desde)}</p>${html}</section>`;
 }
 
 function docsBlock(st){
@@ -171,8 +228,66 @@ function docsBlock(st){
   const LABEL={birth_certificate:'Acta de nacimiento',curp:'CURP',studies:'Constancia de estudios'};
   const faltan=docs.filter(d=>!d.received);
   if(!faltan.length)return '';
-  const rows=faltan.map(d=>`<div class="fam-mov"><span><strong>${esc(LABEL[d.type]||String(d.type).replace(/_/g,' '))}</strong></span></div>`).join('');
-  return `<section class="fam-card"><div class="fam-card-head"><h2>Documentos por entregar</h2><span>faltan ${faltan.length} de ${docs.length}</span></div>${rows}</section>`;
+  const nombres=faltan.map(d=>LABEL[d.type]||String(d.type).replace(/_/g,' '));
+  const rows=nombres.map(n=>`<div class="fam-mov"><span><strong>${esc(n)}</strong></span></div>`).join('');
+  const boton=waBoton(
+    `Hola, soy familia de ${nombreDe(currentPlayer())}. Les mando ${nombres.join(' y ')}.`,
+    nombres.length===1?'Mandar este documento al club':'Mandar estos documentos al club');
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Documentos por entregar</h2><span>faltan ${faltan.length} de ${docs.length}</span></div>${rows}${boton}</section>`;
+}
+
+/* ---------- Papeles del club ---------- */
+// El reglamento y el uso de imagen se firmaban en papel o no se firmaban. Aquí
+// la familia lee el texto completo y acepta; queda la fecha y la versión.
+function consentsBlock(pw){
+  const docs=pw?.consents||[];
+  if(!docs.length)return '';
+  const filas=docs.map(d=>{
+    const firmado=!!d.accepted_at&&!d.outdated;
+    const pie=firmado
+      ? `Firmado el ${fmtDate(d.accepted_at)}`
+      : d.outdated
+        ? 'El club actualizó este documento. Vuelve a leerlo y fírmalo.'
+        : (d.required?'Obligatorio para el club':'Opcional, tú decides');
+    return `<details class="fam-doc"${firmado?'':' open'}>
+      <summary><span><strong>${esc(d.title)}</strong><span>${esc(pie)}</span></span>
+        <i class="fam-doc-mark" data-ok="${firmado?'1':'0'}" aria-hidden="true"></i></summary>
+      <p class="fam-doc-body">${esc(d.body)}</p>
+      ${firmado?'':`<button class="fam-btn fam-doc-sign" type="button" data-consent="${esc(d.code)}">Leí y acepto</button>`}
+    </details>`;
+  }).join('');
+  // Un documento que el club cambió después de firmarlo también avisa, aunque
+  // sea opcional: la familia firmó otro texto.
+  const faltan=docs.filter(d=>d.required&&!d.accepted_at).length;
+  const cambiados=docs.filter(d=>d.outdated).length;
+  const nota=faltan?`falta${faltan===1?'':'n'} ${faltan} por firmar`
+    :cambiados?`${cambiados} se actualiz${cambiados===1?'ó':'aron'}`
+    :'todo en orden';
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Papeles del club</h2><span>${nota}</span></div>${filas}</section>`;
+}
+
+// La beca: o se ve la que ya tiene, o se pide explicando por qué.
+function benefitBlock(pw){
+  const b=pw?.benefit,r=pw?.benefit_request;
+  if(b?.has){
+    const cuanto=b.percentage?`${Number(b.percentage)}% de descuento`
+      :b.amount?`${money.format(Number(b.amount))} de apoyo`:'Apoyo activo';
+    return `<section class="fam-card"><div class="fam-card-head"><h2>Tu beca</h2><span>activa</span></div>
+      <div class="fam-mov"><span><strong>${esc(cuanto)}</strong><span>${
+        b.since?`Desde ${fmtDate(b.since)}`:''}${b.until?` · hasta ${fmtDate(b.until)}`:''}</span></span></div></section>`;
+  }
+  if(r&&r.status==='pending'){
+    return `<section class="fam-card"><div class="fam-card-head"><h2>Tu beca</h2><span>en revisión</span></div>
+      <div class="fam-mov"><span><strong>El club está revisando tu solicitud</strong><span>La mandaste el ${fmtDate(r.requested_at)}</span></span></div></section>`;
+  }
+  const previa=r&&r.status==='rejected'
+    ? `<p class="fam-muted" style="margin:0 0 10px;font-size:12.5px">Tu solicitud anterior no procedió${r.note?`: ${esc(r.note)}`:'.'} Puedes volver a pedirla.</p>`:'';
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Beca</h2></div>${previa}
+    <details class="fam-doc"><summary><span><strong>Solicitar una beca</strong><span>Cuéntanos tu situación y el club la revisa</span></span><i class="fam-doc-mark" data-ok="0" aria-hidden="true"></i></summary>
+      <textarea id="benefitReason" class="fam-textarea" rows="4" maxlength="2000" placeholder="Cuéntanos por qué la necesitas. Entre más claro, mejor puede ayudarte el club."></textarea>
+      <div id="benefitMessage" class="fam-message hidden"></div>
+      <button id="benefitSend" class="fam-btn" type="button">Enviar solicitud</button>
+    </details></section>`;
 }
 
 async function renderCuenta(){
@@ -183,8 +298,42 @@ async function renderCuenta(){
     try{state.statements[p.id]=await rpc('v2_portal_statement',{player_id:p.id});}
     catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
   }
-  const st=state.statements[p.id];
-  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}`;
+  // El papeleo no bloquea el saldo: si falla, la cuenta se ve igual.
+  if(!state.paperwork[p.id]){
+    try{state.paperwork[p.id]=await rpc('v2_portal_paperwork',{player_id:p.id});}
+    catch(error){console.warn('papeleo',error);state.paperwork[p.id]={};}
+  }
+  const st=state.statements[p.id],pw=state.paperwork[p.id];
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${consentsBlock(pw)}${benefitBlock(pw)}`;
+  cableaTramites(p);
+}
+
+function cableaTramites(p){
+  $('famBody').querySelectorAll('[data-consent]').forEach(btn=>btn.addEventListener('click',async()=>{
+    btn.disabled=true;btn.textContent='Firmando…';
+    try{
+      await rpc('v2_portal_accept_consent',{player_id:p.id,code:btn.dataset.consent});
+      delete state.paperwork[p.id];
+      await renderCuenta();
+    }catch(error){
+      await tosAlert({kicker:'PAPELES',title:'No se pudo firmar',message:friendly(error)});
+      btn.disabled=false;btn.textContent='Leí y acepto';
+    }
+  }));
+  const enviar=$('benefitSend');
+  if(enviar)enviar.addEventListener('click',async()=>{
+    const motivo=$('benefitReason').value.trim();
+    if(motivo.length<20){msg('benefitMessage','Cuéntanos un poco más: al menos 20 caracteres.');return;}
+    enviar.disabled=true;enviar.textContent='Enviando…';
+    try{
+      await rpc('v2_portal_request_benefit',{player_id:p.id,reason:motivo});
+      delete state.paperwork[p.id];
+      await renderCuenta();
+    }catch(error){
+      msg('benefitMessage',friendly(error));
+      enviar.disabled=false;enviar.textContent='Enviar solicitud';
+    }
+  });
 }
 
 /* ---------- Calendario ---------- */
@@ -196,19 +345,89 @@ async function renderCalendario(){
     catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
   }
   const rows=state.calendar||[];
-  if(!rows.length){
-    $('famBody').innerHTML='<div class="fam-empty">Todavía no hay actividades programadas. Aquí te avisamos en cuanto el club publique el calendario.</div>';
-    return;
-  }
-  const html=rows.map(e=>{
+  // El cumpleaños no lleva hora: poner "9:00 a.m." haría creer que hay algo
+  // agendado a esa hora. Los del equipo de su hijo se marcan.
+  const fila=e=>{
     const d=new Date(e.starts_at);
+    const cumple=e.kind==='birthday';
     const dia=new Intl.DateTimeFormat('es-MX',{day:'numeric'}).format(d);
     const mes=new Intl.DateTimeFormat('es-MX',{month:'short'}).format(d).replace('.','');
-    const hora=new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'}).format(d);
+    const hora=cumple?'':new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'}).format(d);
     const detalle=[hora,e.location,e.category].filter(Boolean).join(' · ');
-    return `<div class="fam-ev"><span class="fam-ev-day"><b>${esc(dia)}</b><span>${esc(mes)}</span></span><span class="fam-ev-body"><strong>${esc(e.title||'Actividad')}</strong><span>${esc(detalle)}</span></span></div>`;
-  }).join('');
-  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Próximas actividades</h2><span>${rows.length}</span></div>${html}</section>`;
+    return `<div class="fam-ev" data-kind="${cumple?'birthday':'session'}"${cumple&&e.mine?' data-mine="1"':''}><span class="fam-ev-day"><b>${esc(dia)}</b><span>${esc(mes)}</span></span><span class="fam-ev-body"><strong>${cumple?'🎂 ':''}${esc(e.title||'Actividad')}</strong><span>${esc(detalle)}</span></span></div>`;
+  };
+  const ordena=(a,b)=>new Date(a.starts_at)-new Date(b.starts_at);
+  const sesiones=rows.filter(e=>e.kind!=='birthday').sort(ordena);
+  const cumples=rows.filter(e=>e.kind==='birthday').sort(ordena);
+  const bloque=(titulo,lista,vacio)=>lista.length
+    ? `<section class="fam-card"><div class="fam-card-head"><h2>${titulo}</h2><span>${lista.length}</span></div>${lista.map(fila).join('')}</section>`
+    : `<section class="fam-card"><div class="fam-card-head"><h2>${titulo}</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">${vacio}</p></section>`;
+  $('famBody').innerHTML=
+    bloque('Entrenamientos y eventos',sesiones,'El club todavía no publica las próximas fechas. Aquí te avisamos en cuanto las suba.')+
+    (cumples.length?bloque('Cumpleaños Tanner',cumples,''):'');
+}
+
+/* ---------- Progreso ---------- */
+// Las etiquetas del profe vienen en clave; aquí se traducen. "goalkeeper" es un
+// objeto anidado con las áreas de portero y se aplana al mismo nivel.
+const SCORE_LABEL={tecnica:'Técnica',valores:'Valores',intensidad:'Intensidad',
+  mentalidad:'Mentalidad',inteligencia:'Inteligencia',
+  manos:'Manos',pies:'Pies',aereo:'Juego aéreo',mando:'Mando',colocacion:'Colocación'};
+function aplanaScores(scores){
+  const out=[];
+  Object.entries(scores||{}).forEach(([k,v])=>{
+    if(v&&typeof v==='object'){
+      Object.entries(v).forEach(([k2,v2])=>{if(Number(v2)>0)out.push([SCORE_LABEL[k2]||k2,Number(v2)]);});
+    }else if(Number(v)>0)out.push([SCORE_LABEL[k]||k,Number(v)]);
+  });
+  return out;
+}
+function evaluacionBlock(ev){
+  const filas=aplanaScores(ev.scores).map(([nombre,valor])=>
+    `<div class="fam-score"><span>${esc(nombre)}</span><span class="fam-bar"><i style="width:${Math.min(100,valor*10)}%"></i></span><b>${valor.toFixed(0)}</b></div>`).join('');
+  const meta=[ev.by&&`Por ${ev.by}`,ev.date&&fmtDate(ev.date)].filter(Boolean).join(' · ');
+  const objetivo=(etiqueta,texto)=>texto?`<div class="fam-goal"><small>${etiqueta}</small><p>${esc(texto)}</p></div>`:'';
+  return `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2><span>${esc(meta)}</span></div>${
+    filas||'<p class="fam-muted" style="margin:0;font-size:12.5px">Sin calificaciones capturadas.</p>'}${
+    objetivo('OBJETIVO DEPORTIVO',ev.sports_objective)}${
+    objetivo('OBJETIVO FORMATIVO',ev.formative_objective)}${
+    objetivo('NOTAS DEL PROFE',ev.notes)}</section>`;
+}
+async function renderProgreso(){
+  const p=currentPlayer();
+  if(!p){$('famBody').innerHTML='<div class="fam-empty">Tu cuenta todavía no tiene un Tanner ligado. Avísale al club.</div>';return;}
+  if(!state.progress[p.id]){
+    $('famBody').innerHTML='<div class="fam-empty">Cargando cómo va tu Tanner…</div>';
+    try{state.progress[p.id]=await rpc('v2_portal_progress',{player_id:p.id});}
+    catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
+  }
+  const d=state.progress[p.id],a=d.attendance||{},nombre=nombreDe(p);
+  const pct=a.percent==null?null:Number(a.percent);
+  const hero=`<section class="fam-hero">
+    <span class="fam-hero-photo" data-profile-photo="${esc(p.id)}">${p._photo?`<img src="${esc(p._photo)}" alt="Foto de ${esc(nombre)}">`:esc(initials(p))}</span>
+    <h2>${esc(nombre)}</h2>
+    <p>${esc([p.category,p.position,p.jersey_number&&`#${p.jersey_number}`].filter(Boolean).join(' · ')||'Tanner')}</p>
+    <div class="fam-stats" style="width:100%">
+      <div class="fam-stat" data-tone="${pct==null?'':pct>=80?'ok':'warn'}"><b>${pct==null?'—':`${pct}%`}</b><span>ASISTENCIA</span></div>
+      <div class="fam-stat"><b>${Number(a.present||0)}</b><span>PRESENTE</span></div>
+      <div class="fam-stat"><b>${Number(a.absent||0)}</b><span>FALTAS</span></div>
+    </div>
+  </section>`;
+  const recientes=(d.recent||[]).map(r=>
+    `<div class="fam-mov"><span><strong>${esc(r.title||'Entrenamiento')}</strong><span>${esc(fmtDate(r.date))}</span></span><b style="color:${r.status==='present'?'var(--fam-ok)':'var(--fam-danger)'}">${r.status==='present'?'Asistió':'Faltó'}</b></div>`).join('');
+  const listaAsistencia=recientes
+    ? `<section class="fam-card"><div class="fam-card-head"><h2>Últimos entrenamientos</h2><span>${(d.recent||[]).length}</span></div>${recientes}</section>`
+    : `<section class="fam-card"><div class="fam-card-head"><h2>Últimos entrenamientos</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Todavía no hay listas tomadas para tu Tanner.</p></section>`;
+  const evs=d.evaluations||[];
+  const valoraciones=evs.length?evs.map(evaluacionBlock).join('')
+    : `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Sus profes todavía no capturan una valoración. Aquí la vas a ver en cuanto la hagan.</p></section>`;
+  $('famBody').innerHTML=hero+valoraciones+listaAsistencia;
+  // La foto llega firmada aparte, igual que en Cuenta.
+  if(!p._photo&&(p.photo_thumb_path||p.photo_path)){
+    const url=await signPhoto(p);
+    if(url){p._photo=url;const box=document.querySelector(`[data-profile-photo="${CSS.escape(String(p.id))}"]`);
+      if(box)box.innerHTML=`<img src="${esc(url)}" alt="Foto de ${esc(nombre)}">`;}
+  }
 }
 
 /* ---------- Tienda ---------- */
@@ -241,6 +460,28 @@ async function checkout(){
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(error){await tosAlert({kicker:'TIENDA',title:'No se pudo apartar el pedido',message:friendly(error)});btn.disabled=false;btn.textContent='Apartar';}
 }
+// Las fotos viven en un bucket privado: se firman en lote (una llamada por
+// bucket) y se pintan cuando llegan, sin bloquear el render de la tienda.
+async function pintaFotos(rows){
+  const porBucket={};
+  rows.forEach(p=>{
+    const path=p.photo_thumb_path||p.photo_path;
+    if(!path)return;
+    const b=p.photo_bucket||'tanneros-private';
+    (porBucket[b]=porBucket[b]||[]).push({id:p.id,path,name:p.name});
+  });
+  for(const b of Object.keys(porBucket)){
+    try{
+      const {data}=await supabase.storage.from(b).createSignedUrls(porBucket[b].map(x=>x.path),3600);
+      const mapa={};(data||[]).forEach(d=>{if(d?.path&&d.signedUrl)mapa[d.path]=d.signedUrl;});
+      porBucket[b].forEach(x=>{
+        const url=mapa[x.path];if(!url)return;
+        const box=document.querySelector(`[data-shot="${CSS.escape(String(x.id))}"]`);
+        if(box)box.innerHTML=`<img src="${esc(url)}" alt="${esc(x.name||'Producto')}" loading="lazy">`;
+      });
+    }catch(e){console.warn('fotos de la tienda',e);}
+  }
+}
 async function renderTienda(){
   if(!state.catalog){
     $('famBody').innerHTML='<div class="fam-empty">Cargando tienda…</div>';
@@ -254,9 +495,14 @@ async function renderTienda(){
     const sel=tallas.length
       ? `<select data-size="${esc(p.id)}" aria-label="Talla">${tallas.map(s=>`<option>${esc(s)}</option>`).join('')}</select>`:'';
     const enCarrito=state.cart[p.id]?'1':'0';
-    return `<article class="fam-prod"><strong>${esc(p.name)}</strong><span class="fam-price">${money.format(Number(p.price||0))}</span>${p.description?`<p>${esc(p.description)}</p>`:''}${sel}<button type="button" data-add="${esc(p.id)}" data-in="${enCarrito}">${enCarrito==='1'?'Quitar':'Agregar'}</button></article>`;
+    const foto=`<span class="fam-shot" data-shot="${esc(p.id)}">${p.photo_path||p.photo_thumb_path?'':'Sin foto'}</span>`;
+    return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong><span class="fam-price">${money.format(Number(p.price||0))}</span>${p.description?`<p>${esc(p.description)}</p>`:''}${sel}<button type="button" data-add="${esc(p.id)}" data-in="${enCarrito}">${enCarrito==='1'?'Quitar':'Agregar'}</button></article>`;
   }).join('');
-  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${rows.length} productos</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p></section><div class="fam-prods">${cards}</div>`;
+  const tienda=String(state.home?.organization?.storeUrl||'');
+  const irALaTienda=/^https:\/\//i.test(tienda)
+    ? `<a class="fam-store" href="${esc(tienda)}" target="_blank" rel="noopener">Ver toda la tienda del club</a>`:'';
+  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${rows.length} productos</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p>${irALaTienda}</section><div class="fam-prods">${cards}</div>`;
+  pintaFotos(rows);
   $('famBody').querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{
     const id=btn.dataset.add,prod=rows.find(x=>String(x.id)===String(id));
     if(!prod)return;
@@ -296,7 +542,12 @@ async function renderGafete(){
       .filter(Boolean).join(' · ');
     const cobro=saldo>0?`<span class="fam-chip-val"><span>Por pagar</span><b>${money.format(saldo)}</b></span>`
       :p.status==='issued'||p.status==='approved'?'<span class="fam-chip-val"><span>Pago</span><b>Cubierto</b></span>':'';
-    return `<article class="fam-card" style="margin-top:12px"><div class="fam-card-head"><h2>${esc(p.plate||'Sin placas')}</h2><span class="fam-pass-state" data-state="${st.tone}">${esc(st.t)}</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">${esc(detalle)}</p>${st.d?`<p class="fam-muted" style="margin:6px 0 0;font-size:12.5px">${esc(st.d)}</p>`:''}${p.close_reason?`<p class="fam-muted" style="margin:6px 0 0;font-size:12.5px">Motivo: ${esc(p.close_reason)}</p>`:''}<div class="fam-split">${cobro}<span class="fam-chip-val"><span>Temporada</span><b>${esc(String(p.season))}</b></span></div></article>`;
+    // El cargo del gafete se cobra en taquilla como cualquier otro; el botón
+    // sólo le ahorra a la familia tener que explicar de qué se trata.
+    const aviso=saldo>0?waBoton(
+      `Hola, quiero pagar el gafete de estacionamiento${p.plate?` de las placas ${p.plate}`:''}${p.player?` (${p.player})`:''}: ${money.format(saldo)}.`,
+      'Avisar que voy a pagarlo'):'';
+    return `<article class="fam-card" style="margin-top:12px"><div class="fam-card-head"><h2>${esc(p.plate||'Sin placas')}</h2><span class="fam-pass-state" data-state="${st.tone}">${esc(st.t)}</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">${esc(detalle)}</p>${st.d?`<p class="fam-muted" style="margin:6px 0 0;font-size:12.5px">${esc(st.d)}</p>`:''}${p.close_reason?`<p class="fam-muted" style="margin:6px 0 0;font-size:12.5px">Motivo: ${esc(p.close_reason)}</p>`:''}<div class="fam-split">${cobro}<span class="fam-chip-val"><span>Temporada</span><b>${esc(String(p.season))}</b></span></div>${aviso}</article>`;
   }).join('');
 
   const form=`<article class="fam-card" style="margin-top:12px"><div class="fam-card-head"><h2>Solicitar un gafete</h2><span>${money.format(Number(price||0))}</span></div><p class="fam-muted" style="margin:0 0 12px;font-size:12.5px">Cada gafete cuesta ${money.format(Number(price||0))} por la temporada ${esc(String(season))} y se te carga a tu estado de cuenta. Un gafete por vehículo.</p><form id="gafeteForm" class="fam-pass-form"><label>Para<select id="gafetePlayer"></select></label><label>Placas<input id="gafetePlate" maxlength="15" placeholder="ABC-123-X" autocapitalize="characters" required></label><label>Vehículo <span class="fam-muted">(opcional)</span><input id="gafeteVehicle" maxlength="60" placeholder="Mazda 3 gris"></label><button id="gafeteSubmit" class="fam-btn" type="submit">Solicitar por ${money.format(Number(price||0))}</button><div id="gafeteMessage" class="fam-message hidden"></div></form></article>`;
@@ -345,6 +596,7 @@ function paint(){
     b.setAttribute('aria-current',b.dataset.tab===state.tab?'page':'false'));
   document.getElementById('famCart')?.remove();
   if(state.tab==='calendario')renderCalendario();
+  else if(state.tab==='progreso')renderProgreso();
   else if(state.tab==='tienda')renderTienda();
   else if(state.tab==='gafete')renderGafete();
   else renderCuenta();

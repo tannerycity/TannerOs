@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,canWrite=false,calendarItems=[],players=[],playersById={},items=[],filter='all',selectedDay='';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -23,8 +24,7 @@ async function signPlayerPhotos(list){
     const byBucket={};
     (list||[]).forEach(p=>{const path=p&&p.photo_thumb_path;if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
     for(const b of Object.keys(byBucket)){
-      const {data}=await supabase.storage.from(b).createSignedUrls(byBucket[b],3600);
-      const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
+      const map=await getSignedPhotoUrls(supabase,b,byBucket[b]);
       (list||[]).forEach(p=>{const path=p&&p.photo_thumb_path;if(path&&(p.photo_bucket||'tanneros-private')===b&&map[path])p._photoUrl=map[path];});
     }
   }catch(e){}

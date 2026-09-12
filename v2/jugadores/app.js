@@ -394,15 +394,15 @@ $('addBenefit')?.addEventListener('click',()=>{if(current?.player?.id)formBeca(c
 $('statusFilter').addEventListener('change',loadPlayers);$('search').addEventListener('input',renderList);$('profileForm').addEventListener('submit',save);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 
 
-// === Fotos protagonistas en la lista (URLs firmadas, 1 llamada por bucket) ===
+// === Miniaturas en la lista (la foto completa se reserva para la ficha) ===
 async function signPlayerPhotos(list){
   try{
     const byBucket={};
-    (list||[]).forEach(p=>{const path=p&&(p.photo_thumb_path||p.photo_path);if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
+    (list||[]).forEach(p=>{const path=p&&p.photo_thumb_path;if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
     for(const b of Object.keys(byBucket)){
       const {data}=await supabase.storage.from(b).createSignedUrls(byBucket[b],3600);
       const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
-      (list||[]).forEach(p=>{const path=p&&(p.photo_thumb_path||p.photo_path);if(path&&(p.photo_bucket||'tanneros-private')===b&&map[path])p._photoUrl=map[path];});
+      (list||[]).forEach(p=>{const path=p&&p.photo_thumb_path;if(path&&(p.photo_bucket||'tanneros-private')===b&&map[path])p._photoUrl=map[path];});
     }
   }catch(e){}
 }

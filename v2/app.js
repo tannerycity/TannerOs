@@ -483,11 +483,11 @@ function whenLabel(days){return days===0?'Hoy':days===1?'MaÃ±ana':`En ${days} dÃ
 async function signBirthdayPhotos(list){
   try{
     const byBucket={};
-    list.forEach(p=>{const path=p.photo_thumb_path||p.photo_path;if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
+    list.forEach(p=>{const path=p.photo_thumb_path;if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
     for(const bucket of Object.keys(byBucket)){
       const {data}=await supabase.storage.from(bucket).createSignedUrls(byBucket[bucket],3600);
       const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
-      list.forEach(p=>{const path=p.photo_thumb_path||p.photo_path;if(path&&(p.photo_bucket||'tanneros-private')===bucket&&map[path])p._photoUrl=map[path];});
+      list.forEach(p=>{const path=p.photo_thumb_path;if(path&&(p.photo_bucket||'tanneros-private')===bucket&&map[path])p._photoUrl=map[path];});
     }
   }catch(e){/* sin foto se queda el monograma */}
 }
@@ -512,7 +512,7 @@ function renderBirthdays(){
     }).join('');
   };
   paint();
-  if(rows.some(p=>p.photo_thumb_path||p.photo_path))signBirthdayPhotos(rows).then(paint);
+  if(rows.some(p=>p.photo_thumb_path))signBirthdayPhotos(rows).then(paint);
 }
 function renderSearch(){
   const items=[];

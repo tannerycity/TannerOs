@@ -91,15 +91,15 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('bajaModal')?.cl
 $('sessionForm')?.addEventListener('submit',createSession);['sessionCategory','sessionDate','sessionTime','sessionDuration'].forEach(id=>$(id)?.addEventListener('change',()=>{if(id==='sessionCategory')selectCategory($(id).value);else updateSessionSummary();}));$('refreshSessions')?.addEventListener('click',loadSessions);$('closeRoster')?.addEventListener('click',closeRoster);$('rosterBackdrop')?.addEventListener('click',closeRoster);$('allPresent')?.addEventListener('click',()=>{if(!ctx.canWrite)return;currentRoster.forEach(p=>{p.attendance_status='present';p.status='present';});renderRoster();});$('clearMarks')?.addEventListener('click',()=>{if(!ctx.canWrite)return;currentRoster.forEach(p=>{p.attendance_status='';p.status='';});renderRoster();});$('rosterSearch')?.addEventListener('input',e=>{rosterQuery=e.target.value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();renderRoster();});$('saveAttendance')?.addEventListener('click',saveAttendance);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 
 
-// === Fotos de Tanners en asistencia (URLs firmadas, 1 llamada por bucket) ===
+// === Miniaturas de Tanners (sin descargar originales de varios MB en la lista) ===
 async function signRosterPhotos(list){
   try{
     const byBucket={};
-    (list||[]).forEach(p=>{if(p&&p.photo_path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(p.photo_path);}});
+    (list||[]).forEach(p=>{if(p&&p.photo_thumb_path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(p.photo_thumb_path);}});
     for(const b of Object.keys(byBucket)){
       const {data}=await supabase.storage.from(b).createSignedUrls(byBucket[b],3600);
       const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
-      (list||[]).forEach(p=>{if(p&&p.photo_path&&(p.photo_bucket||'tanneros-private')===b&&map[p.photo_path])p._photoUrl=map[p.photo_path];});
+      (list||[]).forEach(p=>{if(p&&p.photo_thumb_path&&(p.photo_bucket||'tanneros-private')===b&&map[p.photo_thumb_path])p._photoUrl=map[p.photo_thumb_path];});
     }
   }catch(e){/* si falla, quedan las iniciales */}
 }

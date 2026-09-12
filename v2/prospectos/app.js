@@ -85,7 +85,8 @@ function renderConvertCategories(){const sel=$('convertCategory');if(!sel)return
 async function loadProspects(){
   prospects=await rpc('v2_prospects',{organization_id:ctx.organization_id,status_filter:null});
   prospects=Array.isArray(prospects)?prospects:[];
-  await loadProspectPhotos();
+  // La lista usa iniciales: la foto completa se firma únicamente al abrir la ficha.
+  prospects.forEach(p=>p.photo_url=null);
   populateFilterOptions();
   applyFilters();
 }

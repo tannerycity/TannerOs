@@ -21,11 +21,11 @@ async function signPlayerPhotos(list){
     // Avatares chicos (agenda/cumpleaños): usar el thumb (v2_players ya lo trae)
     // en vez de la foto completa — antes se pedía siempre photo_path aquí.
     const byBucket={};
-    (list||[]).forEach(p=>{const path=p&&(p.photo_thumb_path||p.photo_path);if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
+    (list||[]).forEach(p=>{const path=p&&p.photo_thumb_path;if(path){const b=p.photo_bucket||'tanneros-private';(byBucket[b]=byBucket[b]||[]).push(path);}});
     for(const b of Object.keys(byBucket)){
       const {data}=await supabase.storage.from(b).createSignedUrls(byBucket[b],3600);
       const map={};(data||[]).forEach(d=>{if(d&&d.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
-      (list||[]).forEach(p=>{const path=p&&(p.photo_thumb_path||p.photo_path);if(path&&(p.photo_bucket||'tanneros-private')===b&&map[path])p._photoUrl=map[path];});
+      (list||[]).forEach(p=>{const path=p&&p.photo_thumb_path;if(path&&(p.photo_bucket||'tanneros-private')===b&&map[path])p._photoUrl=map[path];});
     }
   }catch(e){}
 }

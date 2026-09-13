@@ -1,4 +1,5 @@
 import {supabase,rpc,money,$} from '/v2/shell.js';
+import {getSignedPhotoUrl, getSignedPhotoUrls} from '/v2/photo-cache.js';
 
 // Portal de familias. No usa el shell del staff a propósito: un tutor no tiene
 // módulos que navegar, y mezclar ambas superficies es como se filtran datos.
@@ -51,13 +52,14 @@ function ageOf(value){
 }
 const currentPlayer=()=>(state.home?.players||[]).find(p=>String(p.id)===String(state.playerId))||null;
 
+// Contrato de egress (docs/MEDIA_EGRESS_ARCHITECTURE.md): un avatar sólo consume
+// miniatura y nunca cae a la foto original. Sin miniatura van las iniciales.
+// La firma pasa por el caché compartido para que el navegador reutilice bytes.
 async function signPhoto(p){
-  const path=p.photo_thumb_path||p.photo_path;
+  const path=p.photo_thumb_path;
   if(!path)return '';
-  try{
-    const {data,error}=await supabase.storage.from(p.photo_bucket||'tanneros-private').createSignedUrl(path,3600);
-    return error?'':(data?.signedUrl||'');
-  }catch(e){return '';}
+  try{return await getSignedPhotoUrl(supabase,p.photo_bucket||'tanneros-private',path)||'';}
+  catch(e){return '';}
 }
 
 /* ---------- Acceso ---------- */
@@ -423,7 +425,7 @@ async function renderProgreso(){
     : `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Sus profes todavía no capturan una valoración. Aquí la vas a ver en cuanto la hagan.</p></section>`;
   $('famBody').innerHTML=hero+valoraciones+listaAsistencia;
   // La foto llega firmada aparte, igual que en Cuenta.
-  if(!p._photo&&(p.photo_thumb_path||p.photo_path)){
+  if(!p._photo&&p.photo_thumb_path){
     const url=await signPhoto(p);
     if(url){p._photo=url;const box=document.querySelector(`[data-profile-photo="${CSS.escape(String(p.id))}"]`);
       if(box)box.innerHTML=`<img src="${esc(url)}" alt="Foto de ${esc(nombre)}">`;}
@@ -460,20 +462,20 @@ async function checkout(){
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(error){await tosAlert({kicker:'TIENDA',title:'No se pudo apartar el pedido',message:friendly(error)});btn.disabled=false;btn.textContent='Apartar';}
 }
-// Las fotos viven en un bucket privado: se firman en lote (una llamada por
-// bucket) y se pintan cuando llegan, sin bloquear el render de la tienda.
+// La vitrina es una colección: sólo miniaturas, firmadas por el caché compartido
+// (docs/MEDIA_EGRESS_ARCHITECTURE.md). Un producto sin miniatura dice "Sin foto"
+// en vez de arrastrar el original.
 async function pintaFotos(rows){
   const porBucket={};
   rows.forEach(p=>{
-    const path=p.photo_thumb_path||p.photo_path;
+    const path=p.photo_thumb_path;
     if(!path)return;
     const b=p.photo_bucket||'tanneros-private';
     (porBucket[b]=porBucket[b]||[]).push({id:p.id,path,name:p.name});
   });
   for(const b of Object.keys(porBucket)){
     try{
-      const {data}=await supabase.storage.from(b).createSignedUrls(porBucket[b].map(x=>x.path),3600);
-      const mapa={};(data||[]).forEach(d=>{if(d?.path&&d.signedUrl)mapa[d.path]=d.signedUrl;});
+      const mapa=await getSignedPhotoUrls(supabase,b,porBucket[b].map(x=>x.path));
       porBucket[b].forEach(x=>{
         const url=mapa[x.path];if(!url)return;
         const box=document.querySelector(`[data-shot="${CSS.escape(String(x.id))}"]`);
@@ -495,7 +497,7 @@ async function renderTienda(){
     const sel=tallas.length
       ? `<select data-size="${esc(p.id)}" aria-label="Talla">${tallas.map(s=>`<option>${esc(s)}</option>`).join('')}</select>`:'';
     const enCarrito=state.cart[p.id]?'1':'0';
-    const foto=`<span class="fam-shot" data-shot="${esc(p.id)}">${p.photo_path||p.photo_thumb_path?'':'Sin foto'}</span>`;
+    const foto=`<span class="fam-shot" data-shot="${esc(p.id)}">${p.photo_thumb_path?'':'Sin foto'}</span>`;
     return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong><span class="fam-price">${money.format(Number(p.price||0))}</span>${p.description?`<p>${esc(p.description)}</p>`:''}${sel}<button type="button" data-add="${esc(p.id)}" data-in="${enCarrito}">${enCarrito==='1'?'Quitar':'Agregar'}</button></article>`;
   }).join('');
   const tienda=String(state.home?.organization?.storeUrl||'');
@@ -625,7 +627,7 @@ async function boot(){
   if(!state.playerId&&players.length)state.playerId=players[0].id;
   renderTabs();paint();
   // Las fotos entran después: el saldo es a lo que la familia vino.
-  const conFoto=players.filter(p=>p.photo_thumb_path||p.photo_path);
+  const conFoto=players.filter(p=>p.photo_thumb_path);
   if(conFoto.length){
     await Promise.all(conFoto.map(async p=>{p._photo=await signPhoto(p);}));
     renderTabs();

@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
+import { getSignedPhotoUrl } from '/v2/photo-cache.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
@@ -267,13 +268,16 @@ function pintaFotoLocal(url,alt){
   $('pPhotoClear').hidden=!url;
 }
 async function pintaFotoGuardada(p){
+  // El drawer es detalle abierto por intención, así que puede usar el original;
+  // se prefiere la miniatura porque la caja mide 96px. La firma pasa por el
+  // caché compartido (docs/MEDIA_EGRESS_ARCHITECTURE.md).
   const seq=++photoSeq,path=p?.photoThumbPath||p?.photoPath;
   pintaFotoLocal('',p?.name);
   if(!path)return;
   try{
-    const {data,error}=await supabase.storage.from(p.photoBucket||PHOTO_BUCKET).createSignedUrl(path,600);
-    if(error||!data?.signedUrl)return;
-    if(seq===photoSeq)pintaFotoLocal(data.signedUrl,p.name);
+    const url=await getSignedPhotoUrl(supabase,p.photoBucket||PHOTO_BUCKET,path);
+    if(!url)return;
+    if(seq===photoSeq)pintaFotoLocal(url,p.name);
   }catch(e){/* la foto es opcional: no rompe el drawer */}
 }
 $('pPhotoInput')?.addEventListener('change',async e=>{

@@ -109,7 +109,8 @@ if(/openSports.+href=/.test(playersApp))errors.push('Evaluación en ficha: no de
 if(playersApp.includes('Evaluación histórica · escala 1–10'))errors.push('Perfil Tanner: no debe presentar evaluaciones legacy');
 if(!playerProfile.includes('radarPoint5')||!playerProfile.includes('Espíritu</text>'))errors.push('Perfil Tanner: el mapa visual debe representar las cinco dimensiones');
 if(playerProfile.includes('<details class="radar-secondary">'))errors.push('Perfil Tanner: el pentagrama debe estar siempre visible');
-for(const contract of ['sportsRadarPrevious','profileEvalProgressBar','profileEvalRadarPolygon','PROFILE_SCALE_LABELS','sameStage'])if(!playersApp.includes(contract)&&!playerProfile.includes(contract))errors.push(`Perfil Tanner UX: falta ${contract}`);
+for(const contract of ['sportsRadarPrevious','profileEvalProgressBar','profileEvalRadarPolygon','PROFILE_SCALE_LABELS','sameStage','openEvaluationCoach','openDimensionGuidance','Guardar y siguiente'])if(!playersApp.includes(contract)&&!playerProfile.includes(contract))errors.push(`Perfil Tanner UX: falta ${contract}`);
+if(!playersApp.includes("'/v2/evaluation-guidance.js'"))errors.push('Perfil Tanner UX: Jugadores no usa el catálogo configurable de coaching');
 const profileFixture=fs.readFileSync('v2/qa/perfil-tanner/index.html','utf8');
 for(const contract of ['noindex,nofollow','TC_1.0','Sin evidencia','Guardar y siguiente'])if(!profileFixture.includes(contract))errors.push(`Captura Perfil Tanner: falta ${contract}`);
 const cleanupMigration=fs.readFileSync('supabase/migrations/202609130001_delete_legacy_player_evaluations.sql','utf8');

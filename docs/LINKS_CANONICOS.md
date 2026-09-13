@@ -10,6 +10,14 @@ Estos son los links que Administración, WhatsApp Business y comunicación deben
 
 El Registro Tanner es el embudo principal y permite clasificar el interés como jugador, portero o academia/otra actividad. Todos entran a Prospectos para seguimiento.
 
+## Centro Tanner
+
+- Reglamento, políticas y preguntas frecuentes: `https://app.tannerycity.com/centro-tanner/`
+- Aviso de privacidad: `https://app.tannerycity.com/aviso-de-privacidad/`
+- Historial de cambios: `https://app.tannerycity.com/centro-tanner/cambios/`
+
+Es la misma fuente de contenido que usan TannerOS (Mis documentos, dentro del área autenticada) y el portal de familias: una política se edita una sola vez en `/admin/centro-tanner/` y se refleja en todos los canales.
+
 ## Scouting
 
 - Registro de talento / scouting externo: `https://app.tannerycity.com/registro/scouting/`

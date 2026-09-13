@@ -87,5 +87,32 @@ const attendanceApp=fs.readFileSync('v2/asistencia/app.js','utf8');
 if(/signRosterPhotos[\s\S]*?photo_path[\s\S]*?createSignedUrls/.test(attendanceApp))errors.push('Egress: Asistencia firma fotos completas para el roster');
 const prospectsApp=fs.readFileSync('v2/prospectos/app.js','utf8');
 if(/loadProspects\(\)[\s\S]{0,300}await loadProspectPhotos\(\)/.test(prospectsApp))errors.push('Egress: Prospectos descarga todas las fotos al abrir la lista');
+for(const file of ['v2/app.js','v2/asistencia/app.js','v2/calendario/app.js','v2/jugadores/app.js']){
+  const source=fs.readFileSync(file,'utf8');
+  if(!source.includes("from '/v2/photo-cache.js'"))errors.push(`Egress: ${file} no reutiliza URLs firmadas de fotos`);
+}
+for(const file of clientFiles.filter(file=>file.startsWith('v2/')&&file.endsWith('.js')&&file!=='v2/photo-cache.js')){
+  const source=fs.readFileSync(file,'utf8');
+  if(source.includes('.createSignedUrls('))errors.push(`Egress: ${file} firma lotes fuera del caché compartido`);
+}
+const academyApp=fs.readFileSync('v2/mi-academia/app.js','utf8');
+for(const contract of ["const METODOLOGIA='TC_1.0'",'Guardar y siguiente','Sin evidencia','BABY_DIMENSIONES','v2_save_academy_evaluation'])if(!academyApp.includes(contract))errors.push(`Perfil Tanner: falta contrato ${contract}`);
+const playerProfile=fs.readFileSync('v2/jugadores/index.html','utf8');
+if(/Promedio última evaluación|id="cardOverall"/.test(playerProfile))errors.push('Perfil Tanner: no debe mostrar promedio global');
+const sportsApp=fs.readFileSync('v2/deportivo/app.js','utf8');
+for(const contract of ["const METODOLOGIA='TC_1.0'",'restoreEvaluationDraft','v2_upsert_player_evaluation'])if(!sportsApp.includes(contract))errors.push(`Evaluación directa: falta ${contract}`);
+if(sportsApp.includes("evaluationPanel').classList.add('hidden')"))errors.push('Evaluación directa: el panel oficial está oculto');
+const playersApp=fs.readFileSync('v2/jugadores/app.js','utf8');
+for(const contract of ['openInlineEvaluation','saveInlineEvaluation','v2_upsert_player_evaluation','scaleMax','isTcEvaluation'])if(!playersApp.includes(contract))errors.push(`Evaluación en ficha: falta ${contract}`);
+if(!playersApp.includes("methodology_version==='TC_1.0'"))errors.push('Perfil Tanner: la ficha vuelve a mezclar evaluaciones de prueba');
+if(/openSports.+href=/.test(playersApp))errors.push('Evaluación en ficha: no debe sacar al profesor del módulo de jugadores');
+if(playersApp.includes('Evaluación histórica · escala 1–10'))errors.push('Perfil Tanner: no debe presentar evaluaciones legacy');
+if(!playerProfile.includes('radarPoint5')||!playerProfile.includes('Espíritu</text>'))errors.push('Perfil Tanner: el mapa visual debe representar las cinco dimensiones');
+if(playerProfile.includes('<details class="radar-secondary">'))errors.push('Perfil Tanner: el pentagrama debe estar siempre visible');
+for(const contract of ['sportsRadarPrevious','profileEvalProgressBar','profileEvalRadarPolygon','PROFILE_SCALE_LABELS','sameStage'])if(!playersApp.includes(contract)&&!playerProfile.includes(contract))errors.push(`Perfil Tanner UX: falta ${contract}`);
+const profileFixture=fs.readFileSync('v2/qa/perfil-tanner/index.html','utf8');
+for(const contract of ['noindex,nofollow','TC_1.0','Sin evidencia','Guardar y siguiente'])if(!profileFixture.includes(contract))errors.push(`Captura Perfil Tanner: falta ${contract}`);
+const cleanupMigration=fs.readFileSync('supabase/migrations/202609130001_delete_legacy_player_evaluations.sql','utf8');
+for(const contract of ['begin;','delete from app.player_evaluations',"not like '[TC_1.0] %'",'commit;'])if(!cleanupMigration.includes(contract))errors.push(`Limpieza de evaluaciones: falta ${contract}`);
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

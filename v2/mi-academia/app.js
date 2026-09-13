@@ -1,4 +1,5 @@
 import {bootstrapProtectedShell,rpc,$,setShellHealth} from '/v2/shell.js';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 
 // La pantalla del profesor de academia. Deliberadamente no hay nada de dinero:
@@ -29,6 +30,33 @@ function edad(f){if(!f)return null;const b=new Date(`${f}T00:00:00`);if(isNaN(b)
   if(m<0||(m===0&&h.getDate()<b.getDate()))a--;return a;}
 function saludo(){const h=new Date().getHours();return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches';}
 const iniciales=n=>String(n||'?').split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
+const METODOLOGIA='TC_1.0';
+const ESCALA=[['1','Necesita apoyo'],['2','En proceso'],['3','Esperado'],['4','Sólido'],['5','Destacado'],['','Sin evidencia']];
+const DIMENSIONES=[
+  {key:'tecnica',name:'Técnica',claim:'Tengo herramientas',observe:'control, conducción, pase, golpeo y recursos técnicos'},
+  {key:'inteligencia',name:'Juego',claim:'Entiendo y resuelvo',observe:'percepción, decisiones, ubicación, compañeros y uso del espacio'},
+  {key:'intensidad',name:'Cuerpo',claim:'Puedo ejecutar',observe:'coordinación, movilidad, equilibrio, agilidad y control corporal'},
+  {key:'mentalidad',name:'Mentalidad',claim:'No desaparezco',observe:'reacción al error, concentración, resiliencia, valentía y autonomía'},
+  {key:'valores',name:'Espíritu',claim:'Represento algo más grande que yo',observe:'respeto, compañerismo, humildad, responsabilidad y pertenencia'}
+];
+const BABY_DIMENSIONES=[
+  {key:'movimiento',name:'Movimiento',claim:'Descubro mi cuerpo',observe:'coordinación, equilibrio, desplazamientos y confianza'},
+  {key:'balon',name:'Balón',claim:'Me relaciono con el balón',observe:'curiosidad, contacto, conducción y disfrute'},
+  {key:'juego',name:'Juego',claim:'Exploro jugando',observe:'participación, atención y soluciones sencillas'},
+  {key:'convivencia',name:'Convivencia',claim:'Juego con los demás',observe:'turnos, respeto, cooperación y pertenencia'}
+];
+const BABY_ESCALA=[['1','Descubriendo'],['2','En desarrollo'],['3','Avanza con seguridad'],['','Sin evidencia']];
+const OPCIONES=['Técnica','Juego','Cuerpo','Mentalidad','Espíritu','Velocidad','Regate','Golpeo','Definición','Pase','Visión','Juego aéreo','1v1','Defensa','Liderazgo','Otro'];
+const SUPERPODER=['Aún no identificado','Velocidad','Regate','Golpeo','Definición','Pase','Visión','Juego aéreo','1v1','Defensa','Liderazgo','Otro'];
+const periodoActual=()=>new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(new Date()).replace(/^./,x=>x.toUpperCase());
+const esBaby=p=>/baby/i.test(p?.category||'');
+const pendiente=p=>!p.lastEvaluationOn||(Date.now()-new Date(p.lastEvaluationOn).getTime())>80*86400000;
+const EXPECTATIVAS={T8:{inteligencia:'empieza a levantar la cabeza, reconoce espacios, ayuda a compañeros y encuentra soluciones sencillas'},T10:{inteligencia:'identifica ventajas, se ofrece antes de recibir y decide con menor dependencia del profesor'},T12:{inteligencia:'interpreta cambios del juego, ocupa espacios con intención y conecta decisiones con el plan del equipo'}};
+const contextoCategoria=(p,dim)=>EXPECTATIVAS[String(p.category||'').toUpperCase()]?.[dim.key]||`${dim.observe}; observa lo esperable para ${p.category||'su etapa'}`;
+const draftKey=p=>`tanneros:evaluacion:${METODOLOGIA}:${state.academyId}:${p.id}`;
+function leerBorrador(p){try{return JSON.parse(localStorage.getItem(draftKey(p))||'null')||{};}catch{return{};}}
+function guardarBorradorLocal(p,form){const values={scores:{},period:form.evPeriod.value,fortaleza:form.evStrength.value,otraFortaleza:form.evStrengthOther.value,prioridad:form.evPriority.value,otraPrioridad:form.evPriorityOther.value,superpoder:form.evPower.value,otroPoder:form.evPowerOther.value,objetivo:form.evObj.value,nota:form.evNota.value};form.querySelectorAll('[data-eje]:checked').forEach(i=>{values.scores[i.dataset.eje]=i.value===''?null:Number(i.value);});const status=$('evDraftStatus');try{localStorage.setItem(draftKey(p),JSON.stringify(values));if(status)status.textContent='Borrador guardado en este dispositivo';}catch{if(status)status.textContent='No se pudo guardar el borrador local';}}
+function opcionesSelect(items,value=''){return items.map(x=>`<option${x===value?' selected':''}>${esc(x)}</option>`).join('');}
 
 // En listas sólo se firman miniaturas; si faltan, se muestran iniciales.
 async function firmarFotos(lista){
@@ -36,8 +64,7 @@ async function firmarFotos(lista){
     const porBucket={};
     (lista||[]).forEach(p=>{if(p.photoThumbPath){const b=p.photoBucket||'tanneros-private';(porBucket[b]=porBucket[b]||[]).push(p.photoThumbPath);}});
     for(const b of Object.keys(porBucket)){
-      const {data}=await supabase.storage.from(b).createSignedUrls(porBucket[b],3600);
-      const mapa={};(data||[]).forEach(d=>{if(d?.signedUrl&&!d.error)mapa[d.path]=d.signedUrl;});
+      const mapa=await getSignedPhotoUrls(supabase,b,porBucket[b]);
       (lista||[]).forEach(p=>{if(p.photoThumbPath&&(p.photoBucket||'tanneros-private')===b&&mapa[p.photoThumbPath])p._foto=mapa[p.photoThumbPath];});
     }
   }catch(e){}
@@ -103,15 +130,11 @@ function vistaInicio(){
 
 // === Mis jugadores ===
 function tarjetaJugador(p){
-  const e=edad(p.birthDate);
-  const asis=p.sessionsTotal>0?`${Math.round(p.sessionsAttended/p.sessionsTotal*100)}% asistencia`:'sin sesiones aún';
-  const ev=p.lastEvaluationOn?`Evaluado ${corta(p.lastEvaluationOn)}`:'Sin evaluar';
-  return `<button type="button" class="ca-jug" data-jugador="${esc(p.id)}">
-    ${avatar(p)}
-    <span class="ca-jug-info"><strong>${esc(p.name)}</strong>
-      <span>${[p.category,e!=null?`${e} años`:null,p.position&&p.position!=='Por definir'?p.position:null].filter(Boolean).map(esc).join(' · ')}</span>
-      <small>${esc(asis)} · ${esc(ev)}</small></span>
-    <span class="ca-chevron" aria-hidden="true">›</span></button>`;
+  const e=edad(p.birthDate),asis=p.sessionsTotal>0?`${Math.round(p.sessionsAttended/p.sessionsTotal*100)}% asistencia`:'sin sesiones aún';
+  const ev=pendiente(p)?(p.lastEvaluationOn?'Evaluación trimestral pendiente':'Sin evaluar'):`Evaluado ${corta(p.lastEvaluationOn)}`;
+  return `<article class="ca-jug${pendiente(p)?' is-pending':''}"><button type="button" class="ca-jug-main" data-jugador="${esc(p.id)}">
+    ${avatar(p)}<span class="ca-jug-info"><strong>${esc(p.name)}</strong><span>${[p.category,e!=null?`${e} años`:null,p.position&&p.position!=='Por definir'?p.position:null].filter(Boolean).map(esc).join(' · ')}</span><small>${esc(asis)} · ${esc(ev)}</small></span></button>
+    <button type="button" class="ca-eval-fast" data-evaluar="${esc(p.id)}">Evaluar</button></article>`;
 }
 function vistaJugadores(){
   const d=state.data;
@@ -119,15 +142,31 @@ function vistaJugadores(){
     <div class="ca-lista">${d.players.map(tarjetaJugador).join('')||'<div class="tos-empty">Todavía no hay jugadores inscritos.</div>'}</div>`;
 }
 function vistaEvaluaciones(){
-  const d=state.data;
-  const sin=d.players.filter(p=>!p.lastEvaluationOn),con=d.players.filter(p=>p.lastEvaluationOn);
-  return `${cabecera('Evaluaciones',`${sin.length} por hacer`)}
-    ${sin.length?`<div class="ca-lista">${sin.map(tarjetaJugador).join('')}</div>`:'<div class="tos-empty">Ya evaluaste a todos.</div>'}
-    ${con.length?`<h2 class="ca-sub">Ya evaluados</h2><div class="ca-lista">${con.map(tarjetaJugador).join('')}</div>`:''}`;
+  const d=state.data,sin=d.players.filter(pendiente),con=d.players.filter(p=>!pendiente(p)),total=d.players.length;
+  return `${cabecera(`Evaluaciones ${periodoActual()}`,`${con.length} / ${total} completadas`)}
+    <div class="ca-eval-progress"><i style="width:${total?Math.round(con.length/total*100):0}%"></i></div>
+    ${sin.length?`<h2 class="ca-sub">Pendientes</h2><div class="ca-lista">${sin.map(tarjetaJugador).join('')}</div>`:'<div class="tos-empty">Evaluaciones trimestrales al día.</div>'}
+    ${con.length?`<h2 class="ca-sub">Terminadas</h2><div class="ca-lista">${con.map(tarjetaJugador).join('')}</div>`:''}`;
 }
-
 // === Perfil deportivo ===
 // Solo lo que sirve para entrenarlo: nada de cuotas, adeudos ni datos de la familia.
+function formularioEvaluacion(p){
+  const baby=esBaby(p),dims=baby?BABY_DIMENSIONES:DIMENSIONES,scale=baby?BABY_ESCALA:ESCALA,d=leerBorrador(p);
+  return `<form id="evalForm" class="ca-eval" data-player="${esc(p.id)}">
+    <label class="ca-eval-txt">Periodo<input id="evPeriod" value="${esc(d.period||periodoActual())}" maxlength="40"></label>
+    ${dims.map(dim=>`<fieldset class="ca-dimension"><legend><strong>${esc(dim.name)}</strong><span>${esc(dim.claim)}</span></legend>
+      <div class="ca-scale">${scale.map(([v,l])=>`<label class="ca-score${v===''?' no-evidence':''}"><input type="radio" name="score-${esc(dim.key)}" data-eje="${esc(dim.key)}" value="${v}"${Object.prototype.hasOwnProperty.call(d.scores||{},dim.key)&&String(d.scores[dim.key]??'')===v?' checked':''}><b>${v||'—'}</b><small>${esc(l)}</small></label>`).join('')}</div>
+      <details class="ca-observe"><summary>ⓘ ¿Qué observar en ${esc(p.category||'su categoría')}?</summary><p>${esc(contextoCategoria(p,dim))}. No lo compares contra otros Tanners.</p></details></fieldset>`).join('')}
+    <div class="ca-decisions"><label>Fortaleza principal<small>¿Qué está haciendo especialmente bien?</small><select id="evStrength"><option value="">Selecciona</option>${opcionesSelect(OPCIONES,d.fortaleza)}</select><input id="evStrengthOther" class="${d.fortaleza==='Otro'?'':'hidden'}" maxlength="60" value="${esc(d.otraFortaleza||'')}" placeholder="Escribe la fortaleza"></label>
+    <label>Prioridad de desarrollo<small>¿Qué queremos ayudarle a mejorar?</small><select id="evPriority"><option value="">Selecciona</option>${opcionesSelect(OPCIONES,d.prioridad)}</select><input id="evPriorityOther" class="${d.prioridad==='Otro'?'':'hidden'}" maxlength="60" value="${esc(d.otraPrioridad||'')}" placeholder="Escribe la prioridad"></label>
+    <label>Superpoder<small>No es una calificación. Puede no estar identificado.</small><select id="evPower">${opcionesSelect(SUPERPODER,d.superpoder||'Aún no identificado')}</select></label>
+    <label id="powerOtherWrap" class="${d.superpoder==='Otro'?'':'hidden'}">¿Cuál?<input id="evPowerOther" maxlength="60" value="${esc(d.otroPoder||'')}" placeholder="Talento diferencial"></label></div>
+    <details class="ca-optional"><summary>Objetivos y nota opcional</summary><label class="ca-eval-txt">Próximo objetivo deportivo<input id="evObj" maxlength="160" value="${esc(d.objetivo||'')}" placeholder="Una frase corta"></label><label class="ca-eval-txt">Nota interna del profesor<input id="evNota" maxlength="300" value="${esc(d.nota||'')}" placeholder="Opcional"></label></details>
+    <div id="evMsg" class="inline-message hidden"></div><small id="evDraftStatus" class="ca-draft">Los cambios se guardan en este dispositivo</small>
+    <div class="ca-save-row"><button class="ca-mini" id="saveDraft" type="button">Guardar borrador</button><button class="ca-cta" name="action" value="next" type="submit">Guardar y siguiente</button></div>
+  </form>`;
+}
+
 function vistaJugador(){
   const p=state.data.players.find(x=>x.id===state.jugador);
   if(!p)return vistaJugadores();
@@ -143,16 +182,9 @@ function vistaJugador(){
         ${dato('Asistencia',p.sessionsTotal>0?`${p.sessionsAttended} de ${p.sessionsTotal}`:'Sin sesiones')}
       </div>
     </div>
-    <section class="ca-card"><h2>Evaluación</h2>
-      <p class="ca-hint">${p.lastEvaluationOn?`La última fue el ${esc(corta(p.lastEvaluationOn))}.`:'Todavía no lo evalúas.'}</p>
-      <form id="evalForm" class="ca-eval">
-        ${state.data.academy.axes.map(([k,l])=>`<label class="ca-eval-row"><span>${esc(l)}</span>
-          <input type="number" min="0" max="10" step="1" inputmode="numeric" data-eje="${esc(k)}" placeholder="—"></label>`).join('')}
-        <label class="ca-eval-txt">En qué enfocarse<input id="evObj" maxlength="160" placeholder="Salida rápida, achique…"></label>
-        <label class="ca-eval-txt">Observaciones<input id="evNota" maxlength="300" placeholder="Cómo lo viste hoy"></label>
-        <div id="evMsg" class="inline-message hidden"></div>
-        <button class="ca-cta ca-cta-full" type="submit">Guardar evaluación</button>
-      </form>
+    <section class="ca-card ca-method"><div class="ca-method-head"><div><span>METODOLOGÍA TANNERY CITY · ${METODOLOGIA}</span><h2>Perfil Tanner</h2></div><small>2–3 min</small></div>
+      <p class="ca-hint">${p.lastEvaluationOn?`Última evaluación: ${esc(corta(p.lastEvaluationOn))}.`:'Primera evaluación de esta etapa.'}</p>
+      ${formularioEvaluacion(p)}
     </section>`;
 }
 
@@ -211,6 +243,7 @@ function enganchar(){
   b.querySelectorAll('[data-ir]').forEach(x=>x.addEventListener('click',()=>{state.vista=x.dataset.ir;render();window.scrollTo({top:0});}));
   b.querySelectorAll('[data-academia]').forEach(x=>x.addEventListener('click',()=>cargar(x.dataset.academia)));
   b.querySelectorAll('[data-jugador]').forEach(x=>x.addEventListener('click',()=>{state.jugador=x.dataset.jugador;state.vista='jugador';render();window.scrollTo({top:0});}));
+  b.querySelectorAll('[data-evaluar]').forEach(x=>x.addEventListener('click',()=>{state.jugador=x.dataset.evaluar;state.vista='jugador';render();window.scrollTo({top:0});}));
   b.querySelectorAll('[data-lista]').forEach(x=>x.addEventListener('click',()=>abrirLista(x.dataset.lista)));
   b.querySelectorAll('[data-nuevo]').forEach(x=>x.addEventListener('click',agendar));
   b.querySelectorAll('[data-compartir]').forEach(x=>x.addEventListener('click',compartir));
@@ -221,7 +254,7 @@ function enganchar(){
     $('asisMsg')?.classList.add('hidden');
   }));
   $('guardarAsis')?.addEventListener('click',guardarAsistencia);
-  $('evalForm')?.addEventListener('submit',guardarEvaluacion);
+  const evalForm=$('evalForm');evalForm?.addEventListener('submit',guardarEvaluacion);evalForm?.addEventListener('input',()=>guardarBorradorLocal(state.data.players.find(p=>p.id===state.jugador),evalForm));$('saveDraft')?.addEventListener('click',()=>guardarBorradorLocal(state.data.players.find(p=>p.id===state.jugador),evalForm));$('evPower')?.addEventListener('change',e=>$('powerOtherWrap')?.classList.toggle('hidden',e.target.value!=='Otro'));$('evStrength')?.addEventListener('change',e=>$('evStrengthOther')?.classList.toggle('hidden',e.target.value!=='Otro'));$('evPriority')?.addEventListener('change',e=>$('evPriorityOther')?.classList.toggle('hidden',e.target.value!=='Otro'));
 }
 
 async function abrirLista(sessionId){
@@ -256,25 +289,16 @@ async function guardarAsistencia(){
 }
 
 async function guardarEvaluacion(e){
-  e.preventDefault();
-  const btn=e.target.querySelector('[type="submit"]'),caja=$('evMsg');
-  const scores={};
-  e.target.querySelectorAll('[data-eje]').forEach(i=>{if(i.value!=='')scores[i.dataset.eje]=Number(i.value);});
-  if(!Object.keys(scores).length){
-    caja.textContent='Califica al menos un criterio.';caja.dataset.type='error';caja.classList.remove('hidden');return;
-  }
+  e.preventDefault();const form=e.target,p=state.data.players.find(x=>x.id===state.jugador),btn=e.submitter||form.querySelector('[type="submit"]'),caja=$('evMsg'),scores={};
+  form.querySelectorAll('[data-eje]:checked').forEach(i=>{if(i.value!=='')scores[i.dataset.eje]=Number(i.value);});
+  const expected=(esBaby(p)?BABY_DIMENSIONES:DIMENSIONES).map(x=>x.key);
+  if(expected.some(k=>!form.querySelector(`[data-eje="${k}"]:checked`))){caja.textContent='Elige un nivel o “Sin evidencia” en cada dimensión.';caja.dataset.type='error';caja.classList.remove('hidden');return;}
+  if(!$('evStrength').value||!$('evPriority').value){caja.textContent='Selecciona la fortaleza y la prioridad.';caja.dataset.type='error';caja.classList.remove('hidden');return;}
+  if($('evPower').value==='Otro'&&!$('evPowerOther').value.trim()){caja.textContent='Escribe cuál es el superpoder.';caja.dataset.type='error';caja.classList.remove('hidden');return;}
+  const meta={methodology_version:METODOLOGIA,category:p.category||null,period:$('evPeriod').value.trim(),strength:$('evStrength').value==='Otro'?$('evStrengthOther').value.trim():$('evStrength').value,priority:$('evPriority').value==='Otro'?$('evPriorityOther').value.trim():$('evPriority').value,superpower:$('evPower').value==='Otro'?$('evPowerOther').value.trim():$('evPower').value,baby:esBaby(p)};
   btn.disabled=true;caja.classList.add('hidden');
-  try{
-    await rpc('v2_save_academy_evaluation',{organization_id:ctx.organization_id,
-      academy_id:state.academyId,player_id:state.jugador,scores,
-      sports_objective:$('evObj').value.trim()||null,notes:$('evNota').value.trim()||null});
-    await cargar(state.academyId);
-    state.vista='jugadores';render();
-    await tosAlert({kicker:'EVALUACIÓN',title:'Evaluación guardada',message:'Quedó con tu nombre, la fecha y la academia.'});
-  }catch(err){
-    caja.textContent=String(err?.message||err);caja.dataset.type='error';caja.classList.remove('hidden');
-    btn.disabled=false;
-  }
+  try{await rpc('v2_save_academy_evaluation',{organization_id:ctx.organization_id,academy_id:state.academyId,player_id:state.jugador,scores,sports_objective:$('evObj').value.trim()||meta.priority,notes:`[${METODOLOGIA}] ${JSON.stringify(meta)}${$('evNota').value.trim()?`\n${$('evNota').value.trim()}`:''}`});localStorage.removeItem(draftKey(p));await cargar(state.academyId);const next=state.data.players.find(x=>x.id!==p.id&&pendiente(x));if(next){state.jugador=next.id;state.vista='jugador';render();window.scrollTo({top:0});}else{state.vista='evaluaciones';render();}await tosAlert({kicker:'PERFIL TANNER',title:'Evaluación guardada',message:next?`Sigue ${next.name}.`:'Evaluaciones trimestrales al día.'});}
+  catch(err){caja.textContent=String(err?.message||err);caja.dataset.type='error';caja.classList.remove('hidden');btn.disabled=false;}
 }
 
 async function agendar(){
@@ -318,3 +342,5 @@ async function compartir(){
 }
 
 await cargar();
+const jugadorSolicitado=new URLSearchParams(location.search).get('player');
+if(jugadorSolicitado&&state.data?.players?.some(p=>String(p.id)===jugadorSolicitado)){state.jugador=jugadorSolicitado;state.vista='jugador';render();}

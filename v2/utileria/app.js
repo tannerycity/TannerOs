@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 
 const supabase = createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -134,9 +135,7 @@ async function hydratePhotosBatch(entries) {
   const list = entries.filter((entry) => entry.boxEl && entry.path);
   const paths = [...new Set(list.map((entry) => entry.path))];
   if (!paths.length) return;
-  const { data } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, 600);
-  const map = {};
-  (data || []).forEach((row) => { if (row?.signedUrl && !row.error) map[row.path] = row.signedUrl; });
+  const map = await getSignedPhotoUrls(supabase, PHOTO_BUCKET, paths);
   list.forEach(({ boxEl, path, alt }) => {
     const url = map[path];
     if (url) boxEl.innerHTML = `<img src="${url}" alt="${esc(alt || '')}">`;

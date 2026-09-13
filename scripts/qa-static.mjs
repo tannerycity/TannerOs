@@ -103,12 +103,14 @@ const sportsApp=fs.readFileSync('v2/deportivo/app.js','utf8');
 for(const contract of ["const METODOLOGIA='TC_1.0'",'restoreEvaluationDraft','v2_upsert_player_evaluation'])if(!sportsApp.includes(contract))errors.push(`Evaluación directa: falta ${contract}`);
 if(sportsApp.includes("evaluationPanel').classList.add('hidden')"))errors.push('Evaluación directa: el panel oficial está oculto');
 const playersApp=fs.readFileSync('v2/jugadores/app.js','utf8');
-for(const contract of ['openInlineEvaluation','saveInlineEvaluation','v2_upsert_player_evaluation','scaleMax','Evaluación histórica · escala 1–10'])if(!playersApp.includes(contract))errors.push(`Evaluación en ficha: falta ${contract}`);
+for(const contract of ['openInlineEvaluation','saveInlineEvaluation','v2_upsert_player_evaluation','scaleMax','isTcEvaluation'])if(!playersApp.includes(contract))errors.push(`Evaluación en ficha: falta ${contract}`);
 if(!playersApp.includes("methodology_version==='TC_1.0'"))errors.push('Perfil Tanner: la ficha vuelve a mezclar evaluaciones de prueba');
 if(/openSports.+href=/.test(playersApp))errors.push('Evaluación en ficha: no debe sacar al profesor del módulo de jugadores');
+if(playersApp.includes('Evaluación histórica · escala 1–10'))errors.push('Perfil Tanner: no debe presentar evaluaciones legacy');
+if(!playerProfile.includes('radarPoint5')||!playerProfile.includes('Espíritu</text>'))errors.push('Perfil Tanner: el mapa visual debe representar las cinco dimensiones');
 const profileFixture=fs.readFileSync('v2/qa/perfil-tanner/index.html','utf8');
 for(const contract of ['noindex,nofollow','TC_1.0','Sin evidencia','Guardar y siguiente'])if(!profileFixture.includes(contract))errors.push(`Captura Perfil Tanner: falta ${contract}`);
-const cleanupMigration=fs.readFileSync('supabase/migrations/202609130001_archive_legacy_player_evaluations.sql','utf8');
-for(const contract of ['begin;','player_evaluations_legacy_archive_20260913',"not like '[TC_1.0] %'",'commit;'])if(!cleanupMigration.includes(contract))errors.push(`Limpieza de evaluaciones: falta ${contract}`);
+const cleanupMigration=fs.readFileSync('supabase/migrations/202609130001_delete_legacy_player_evaluations.sql','utf8');
+for(const contract of ['begin;','delete from app.player_evaluations',"not like '[TC_1.0] %'",'commit;'])if(!cleanupMigration.includes(contract))errors.push(`Limpieza de evaluaciones: falta ${contract}`);
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

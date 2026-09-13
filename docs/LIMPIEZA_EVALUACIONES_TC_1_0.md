@@ -1,31 +1,33 @@
 # Limpieza inicial de evaluaciones TC 1.0
 
-La migración `202609130001_archive_legacy_player_evaluations.sql` retira todas
-las evaluaciones anteriores a la metodología TC 1.0 de la tabla activa.
+La migración `202609130001_delete_legacy_player_evaluations.sql` elimina de
+forma definitiva todas las evaluaciones de prueba anteriores a TC 1.0. Producto
+confirmó que esos registros no representan historial deportivo válido.
 
-Para evitar una pérdida irreversible accidental, primero copia esas filas a
-`app.player_evaluations_legacy_archive_20260913` y después las elimina de
-`app.player_evaluations`. Las evaluaciones cuya nota comienza con
-`[TC_1.0] ` se conservan.
+Se conservan exclusivamente las evaluaciones cuya nota comienza con
+`[TC_1.0] `. La operación corre dentro de una transacción y se revierte si la
+tabla esperada no existe o si queda cualquier registro legacy.
 
-La operación corre en una transacción y falla sin modificar datos si la tabla
-esperada no existe o si alguna fila anterior permanece después del `delete`.
-
-## Verificación posterior al despliegue
+## Verificación previa
 
 ```sql
-select count(*) as evaluaciones_activas
-from app.player_evaluations;
-
-select count(*) as pruebas_archivadas
-from app.player_evaluations_legacy_archive_20260913;
-
-select count(*) as evaluaciones_anteriores_restantes
+select count(*) as evaluaciones_legacy_a_eliminar
 from app.player_evaluations
 where coalesce(notes, '') not like '[TC_1.0] %';
 ```
 
-El último conteo debe ser cero. Este repositorio no despliega automáticamente
-migraciones a Supabase: la migración debe ejecutarse mediante el pipeline de
-base de datos o el SQL Editor autorizado y verificarse antes de borrar el
-archivo de respaldo.
+## Verificación posterior
+
+```sql
+select count(*) as evaluaciones_tc_1_0
+from app.player_evaluations
+where notes like '[TC_1.0] %';
+
+select count(*) as evaluaciones_legacy_restantes
+from app.player_evaluations
+where coalesce(notes, '') not like '[TC_1.0] %';
+```
+
+`evaluaciones_legacy_restantes` debe ser cero. Este repositorio no ejecuta SQL
+automáticamente en Supabase: la migración debe aplicarse con el pipeline de base
+de datos o el SQL Editor autorizado.

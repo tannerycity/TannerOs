@@ -103,7 +103,7 @@ const sportsApp=fs.readFileSync('v2/deportivo/app.js','utf8');
 for(const contract of ["const METODOLOGIA='TC_1.0'",'restoreEvaluationDraft','v2_upsert_player_evaluation'])if(!sportsApp.includes(contract))errors.push(`Evaluación directa: falta ${contract}`);
 if(sportsApp.includes("evaluationPanel').classList.add('hidden')"))errors.push('Evaluación directa: el panel oficial está oculto');
 const playersApp=fs.readFileSync('v2/jugadores/app.js','utf8');
-for(const contract of ['openInlineEvaluation','saveInlineEvaluation','v2_upsert_player_evaluation'])if(!playersApp.includes(contract))errors.push(`Evaluación en ficha: falta ${contract}`);
+for(const contract of ['openInlineEvaluation','saveInlineEvaluation','v2_upsert_player_evaluation','scaleMax','Evaluación histórica · escala 1–10'])if(!playersApp.includes(contract))errors.push(`Evaluación en ficha: falta ${contract}`);
 if(/openSports.+href=/.test(playersApp))errors.push('Evaluación en ficha: no debe sacar al profesor del módulo de jugadores');
 const profileFixture=fs.readFileSync('v2/qa/perfil-tanner/index.html','utf8');
 for(const contract of ['noindex,nofollow','TC_1.0','Sin evidencia','Guardar y siguiente'])if(!profileFixture.includes(contract))errors.push(`Captura Perfil Tanner: falta ${contract}`);

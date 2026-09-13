@@ -80,6 +80,18 @@
       <label><span>Tallas (separadas por coma)</span><input id="pSizes" type="text" placeholder="Ej. 8, 10, 12, 14, Adulto"></label>
       <label class="inline-check-label"><input id="pActive" type="checkbox"> Producto activo (visible para vender)</label>
     </div>
+    <div class="photo-field">
+      <div id="pPhotoBox" class="photo-box"><span>Sin foto</span></div>
+      <div class="photo-copy">
+        <strong>Foto del producto</strong>
+        <p>Es lo que ven las familias en la tienda del portal. Cuadrada se ve mejor.</p>
+        <div class="photo-actions">
+          <label class="secondary" for="pPhotoInput">Elegir foto</label>
+          <input id="pPhotoInput" type="file" accept="image/*" hidden>
+          <button id="pPhotoClear" class="secondary" type="button" hidden>Quitar foto</button>
+        </div>
+      </div>
+    </div>
     <div class="margin-preview single">
       <div><span>Margen</span><strong id="pMarginPreview">—</strong></div>
     </div>

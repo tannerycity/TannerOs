@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -95,10 +96,8 @@ async function loadProspectPhotos(){
   const paths=[...new Set(prospects.map(p=>p.photo_path).filter(Boolean))];
   prospects.forEach(p=>p.photo_url=null);
   if(!paths.length)return;
-  const {data,error}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths,900);
-  if(error)return;
-  const urls=new Map((data||[]).filter(x=>x.signedUrl).map(x=>[x.path,x.signedUrl]));
-  prospects.forEach(p=>{p.photo_url=urls.get(p.photo_path)||null;});
+  const urls=await getSignedPhotoUrls(supabase,PHOTO_BUCKET,paths);
+  prospects.forEach(p=>{p.photo_url=urls[p.photo_path]||null;});
 }
 
 function populateFilterOptions(){

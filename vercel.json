@@ -22,9 +22,13 @@
     {"source":"/v2/admin/club","destination":"/admin/club/","permanent":false},
     {"source":"/v2/admin/club/","destination":"/admin/club/","permanent":false},
     {"source":"/v2/admin/onboarding","destination":"/admin/onboarding/","permanent":false},
-    {"source":"/v2/admin/onboarding/","destination":"/admin/onboarding/","permanent":false}
+    {"source":"/v2/admin/onboarding/","destination":"/admin/onboarding/","permanent":false},
+    {"source":"/centro-tanner/privacidad","destination":"/centro-tanner/documento/privacidad","permanent":false}
   ],
   "rewrites": [
+    {"source":"/admin/centro-tanner","destination":"/v2/admin/centro-tanner/index.html"},{"source":"/admin/centro-tanner/","destination":"/v2/admin/centro-tanner/index.html"},
+    {"source":"/centro-tanner","destination":"/centro-tanner/index.html"},
+    {"source":"/centro-tanner/:path*","destination":"/centro-tanner/index.html"},
     {"source":"/club","destination":"/v2/club/index.html"},{"source":"/club/","destination":"/v2/club/index.html"},
     {"source":"/direccion","destination":"/v2/direccion/index.html"},{"source":"/direccion/","destination":"/v2/direccion/index.html"},
     {"source":"/finanzas","destination":"/v2/finanzas/index.html"},{"source":"/finanzas/","destination":"/v2/finanzas/index.html"},

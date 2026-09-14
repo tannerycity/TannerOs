@@ -1,4 +1,5 @@
-import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth} from '/v2/shell.js';
+import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,supabase} from '/v2/shell.js';
+import {getSignedPhotoUrls} from '/v2/photo-cache.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
@@ -8,10 +9,12 @@ const canCashWrite=moduleAccess(navigation,'taquilla',true)||moduleAccess(naviga
 const canAccountingWrite=moduleAccess(navigation,'contabilidad',true);
 // Pagar ya no depende exclusivamente de Contabilidad: quien opera esta caja (Taquilla RW) también puede pagar.
 const canPayWrite=canCashWrite||canAccountingWrite;
-// El panel de cartera/deudores es información de morosidad por familia — no es parte
-// de operar la caja. Taquilla cobra y ve su propio histórico, pero no la lista de quién debe.
-const canViewCobranza=(moduleAccess(navigation,'cobranza',false)||moduleAccess(navigation,'contabilidad',false))&&ctx.role!=='Taquilla';
-let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,collectionSnapshot=null,receivables=[],phoneMap={};
+// Cobranza es información sensible del club: solo Presidencia la ve en
+// Taquilla, aunque el módulo 'cobranza' (adeudos al buscar un Tanner para
+// cobrar) siga habilitado para el rol Taquilla como hasta ahora.
+const canViewCollections=moduleAccess(navigation,'cobranza',false)&&ctx.role==='Presidencia';
+let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,receivables=[],collectionsFilter='all',collectionsExpanded=false;
+const COLLECTIONS_COLLAPSED_LIMIT=6;
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -58,15 +61,97 @@ function renderMovements(){
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const ebtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="edit-move" data-edit="'+esc(m.id)+'">Editar</button>'):'';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';
     const payerDiffers=m.playerName&&m.who&&m.who!=='—'&&m.who!==m.playerName;
-    const whoCell=m.playerName?`<strong>${esc(m.playerName)}</strong>${payerDiffers?`<span class="movement-payer">Pagó: ${esc(m.who)}</span>`:''}`:esc(m.who||'—');
+    const whoCell=m.playerName?`<div class="movement-who"><strong>${esc(m.playerName)}</strong>${payerDiffers?`<span class="movement-payer">Pagó: ${esc(m.who)}</span>`:''}</div>`:esc(m.who||'—');
     tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${whoCell}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${ebtn}${vbtn}</td>`;body.appendChild(tr);});
 }
 function applyLedgerVisibility(){
   document.querySelector('.cashier-kpis')?.classList.toggle('hidden',!canViewLedger);
   document.querySelectorAll('.cashier-cash-card:not(#cashTodayCard)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
-  document.querySelectorAll('.cashier-panel').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
+  // Cobranza no es el libro contable: Taquilla (rol simple, sin ver caja completa)
+  // también necesita saber a quién cobrarle, así que no se apaga con el resto.
+  document.querySelectorAll('.cashier-panel:not(#collectionsPanel)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
   const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
   $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
+}
+
+// El concepto que emite el motor viene largo ("Academia Academia de porteros ·
+// 2026-09"). En una lista se muestra lo que distingue un cargo de otro. Usado
+// por el buscador de Tanners y por Cobranza.
+const TIPO_CARGO={monthly_fee:'Mensualidad',monthly_fee_sponsor:'Mensualidad · patrocinio',
+  academy_fee:'Academia',academy_day:'Día de academia',late_fee:'Recargo',
+  product:'Tienda',equipment:'Uniforme',parking:'Estacionamiento',parking_pass:'Gafete'};
+function conceptoCorto(r){
+  const base=TIPO_CARGO[r.charge_type]||r.concept||'Cargo';
+  const mes=r.billing_period
+    ? new Intl.DateTimeFormat('es-MX',{month:'short',year:'2-digit'}).format(new Date(`${String(r.billing_period).slice(0,10)}T12:00:00`))
+    : '';
+  return mes?`${base} ${mes}`:base;
+}
+
+// === Cobranza: estado por jugador (quién debe, quién está al corriente) con
+// una acción directa de cobro — reusa el mismo modal de COBRAR (quickCollect),
+// no inventa un segundo flujo para registrar pagos. ===
+function playerReceivables(playerId){return (receivables||[]).filter(r=>r.player_id===playerId&&Number(r.balance_due||0)>0);}
+function fmtLastPayment(d){
+  if(!d)return 'Sin pagos registrados';
+  return new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${String(d).slice(0,10)}T12:00:00`));
+}
+const DIACRITICS_RE=new RegExp(String.fromCharCode(0x5b)+String.fromCharCode(0x300)+'-'+String.fromCharCode(0x36f)+String.fromCharCode(0x5d),'g');
+const normSearch=s=>String(s||'').toLowerCase().normalize('NFD').replace(DIACRITICS_RE,'');
+async function renderCollections(){
+  const panel=$('collectionsPanel');if(!panel)return;
+  panel.classList.toggle('hidden',!canViewCollections);
+  if(!canViewCollections)return;
+  const q=normSearch($('collectionsSearch')?.value).trim();
+  const rows=(billingPlayers||[])
+    .filter(p=>!q||normSearch(p.player_name).includes(q))
+    .filter(p=>{
+      if(collectionsFilter==='all')return true;
+      const pending=playerReceivables(p.player_id).length>0;
+      return collectionsFilter==='pending'?pending:!pending;
+    })
+    .sort((a,b)=>{
+      const pa=playerReceivables(a.player_id).length>0,pb=playerReceivables(b.player_id).length>0;
+      if(pa!==pb)return pa?-1:1;
+      return String(a.player_name||'').localeCompare(String(b.player_name||''),'es-MX');
+    });
+  const list=$('collectionsList');if(!list)return;
+  $('collectionsEmpty').classList.toggle('hidden',rows.length>0);
+  const visibleRows=collectionsExpanded?rows:rows.slice(0,COLLECTIONS_COLLAPSED_LIMIT);
+  const toggle=$('collectionsToggle');
+  if(toggle){
+    toggle.classList.toggle('hidden',rows.length<=COLLECTIONS_COLLAPSED_LIMIT);
+    toggle.textContent=collectionsExpanded?'Ver menos':`Ver todos (${rows.length})`;
+  }
+  list.innerHTML=visibleRows.map(p=>{
+    const pend=playerReceivables(p.player_id),isPending=pend.length>0;
+    const total=pend.reduce((sum,r)=>sum+Number(r.balance_due||0),0);
+    const concept=isPending?pend.slice(0,2).map(conceptoCorto).join(' · ')+(pend.length>2?' …':''):'Sin adeudos pendientes';
+    const amount=isPending?total:Number(p.base_monthly_fee||0);
+    const initials=String(p.player_name||'T').trim().split(/\s+/).map(part=>part[0]||'').join('').toUpperCase().slice(0,2)||'T';
+    const photoAttrs=p.photo_thumb_path?` data-photo-path="${esc(p.photo_thumb_path)}" data-photo-bucket="${esc(p.photo_bucket||'tanneros-private')}"`:'';
+    return `<div class="collections-row">
+      <span class="collections-face"${photoAttrs}><b aria-hidden="true">${esc(initials)}</b></span>
+      <div class="collections-info"><strong>${esc(p.player_name)}</strong><span class="collections-concept">${esc(concept)}</span></div>
+      <div class="collections-status"><span class="status-pill ${isPending?'pending':'current'}">${isPending?'Pendiente':'Al corriente'}</span><small class="collections-last">${esc(fmtLastPayment(p.last_payment_date))}</small></div>
+      ${canCashWrite?`<button type="button" class="collections-collect" data-quick-collect="${esc(p.player_id)}" data-name="${esc(p.player_name||'')}" data-amount="${amount>0?amount:''}">Registrar</button>`:''}
+    </div>`;
+  }).join('');
+  signCollectionsPhotos();
+}
+// Igual que signBirthdayPhotos en el home: primero pintan las iniciales (no
+// bloquea la lista) y la foto entra encima cuando llega la URL firmada.
+async function signCollectionsPhotos(){
+  const faces=[...document.querySelectorAll('#collectionsList .collections-face[data-photo-path]')];
+  if(!faces.length)return;
+  const byBucket={};
+  faces.forEach(el=>{const bucket=el.dataset.photoBucket||'tanneros-private';(byBucket[bucket]=byBucket[bucket]||[]).push(el.dataset.photoPath);});
+  for(const bucket of Object.keys(byBucket)){
+    try{
+      const map=await getSignedPhotoUrls(supabase,bucket,byBucket[bucket]);
+      faces.forEach(el=>{if((el.dataset.photoBucket||'tanneros-private')===bucket&&map[el.dataset.photoPath])el.innerHTML=`<img src="${esc(map[el.dataset.photoPath])}" alt="" loading="lazy">`;});
+    }catch{/* sin foto se queda el monograma */}
+  }
 }
 function render(){
   canViewLedger=snapshot?.canViewLedger!==false;
@@ -104,42 +189,12 @@ async function loadPlayers(){
 
 }
 const BILLING_ENGINE_START='2026-09-01';
-async function loadCollection(){
-  const panel=$('collectionPanel');if(!panel)return;
+// Los adeudos abiertos se siguen cargando: el buscador de cobro los muestra
+// junto a cada Tanner para no tener que adivinar qué se le cobra. Lo que ya no
+// vive aquí es el panel de cartera y morosidad — eso es Dirección, no caja.
+async function loadReceivables(){
   const recv=await safe(rpc('v2_open_receivables',{organization_id:org}),[]);
   receivables=Array.isArray(recv)?recv:[];
-  if(!canViewCobranza){panel.classList.add('hidden');return;}
-  const period=new Date().toISOString().slice(0,7)+'-01';
-  const [snap,idx]=await Promise.all([
-    safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:period}),null),
-    safe(rpc('v2_search_index',{organization_id:org}),[])
-  ]);
-  collectionSnapshot=snap;
-  phoneMap={};(Array.isArray(idx)?idx:[]).forEach(p=>{if(p&&p.id&&p.phones)phoneMap[p.id]=String(p.phones).split(' ')[0];});
-  renderCollectionPanel();
-}
-function renderCollectionPanel(){
-  const panel=$('collectionPanel');if(!panel)return;
-  if(!canViewCobranza||!collectionSnapshot){panel.classList.add('hidden');return;}
-  panel.classList.remove('hidden');
-  const c=collectionSnapshot;
-  const monthLabel=new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(new Date());
-  const rate=Number(c.collection_rate||0),rateColor=rate>=85?'#159c4c':rate>=60?'#a9791b':'#d23829';
-  const kpi=(l,v,sub,color)=>`<div style="flex:1;min-width:140px;background:#f7faf9;border:1px solid #e4ebe9;border-radius:14px;padding:12px 14px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#68737a">${l}</div><div style="font-size:21px;font-weight:900;color:${color||'#0b1418'};margin-top:2px">${v}</div>${sub?`<div style="font-size:11.5px;color:#8a969b;margin-top:1px">${sub}</div>`:''}</div>`;
-  const kpis=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">${kpi('Cobranza del mes',`${rate}%`,`${c.covered||0}/${c.collection_population||0} cubiertos`,rateColor)}${kpi('Falta por cobrar (mes)',money.format(Number(c.current_period_receivable||0)),'',Number(c.current_period_receivable||0)>0?'#d23829':'#159c4c')}${kpi('Cartera activa total',money.format(Number(c.total_receivable||0)),`${c.pending_players||0} Tanners`,Number(c.total_receivable||0)>0?'#d23829':'#159c4c')}</div>`;
-  const byPlayer=new Map();
-  receivables.forEach(r=>{const pid=r.player_id||r.player_name,cur=byPlayer.get(pid)||{name:r.player_name,amount:0,playerId:r.player_id||null,oldest:null};cur.amount+=Number(r.balance_due||0);const dd=r.due_date||r.billing_period;if(dd&&(!cur.oldest||String(dd)<cur.oldest))cur.oldest=String(dd);byPlayer.set(pid,cur);});
-  const debtors=[...byPlayer.values()].sort((a,b)=>String(a.oldest||'9999').localeCompare(String(b.oldest||'9999'))||b.amount-a.amount).slice(0,10);
-  const rows=debtors.map(d=>{
-    const ph=d.playerId&&phoneMap[d.playerId]?String(phoneMap[d.playerId]).replace(/\D/g,''):'';
-    const waMsg=encodeURIComponent(`Hola, le recordamos el pago pendiente de ${d.name} en Tannery City por ${money.format(d.amount)}. ¡Gracias!`);
-    const wa=ph?`<a href="https://wa.me/${ph}?text=${waMsg}" target="_blank" rel="noopener" class="collection-wa-btn">WhatsApp</a>`:'';
-    const cob=(d.playerId&&canCashWrite)?`<button type="button" class="collection-cobrar-btn" data-quick-collect="${d.playerId}" data-amount="${Math.round(d.amount)}" data-name="${esc(d.name||'')}">Cobrar</button>`:'';
-    const since=d.oldest?` · desde ${d.oldest}`:'';
-    return `<div class="collection-debt-row"><div><strong>${esc(d.name||'Tanner')}</strong><span>Saldo pendiente${since}</span></div><div class="collection-debt-actions"><b>${money.format(d.amount)}</b><div style="display:flex;gap:6px">${wa}${cob}</div></div></div>`;
-  }).join('');
-  const list=debtors.length?rows:'<div class="cashier-empty">Sin cartera activa pendiente. 🎉</div>';
-  panel.innerHTML=`<div class="cashier-panel-head"><div><h2>Cobranza · ${monthLabel[0].toUpperCase()+monthLabel.slice(1)}</h2><p>Quién ya pagó este mes y quién falta. Datos de cobranza automática desde septiembre 2026.</p></div></div>${kpis}<div class="collection-debt-list">${list}</div>`;
 }
 function quickCollect(playerId,name,amount){
   if(!canCashWrite)return;
@@ -176,7 +231,7 @@ async function postCollect(){
       if(!okDbl){btn.disabled=false;return;}
       await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
     }
-    closeModals();await Promise.all([load(),loadCollection()]);
+    closeModals();await Promise.all([load(),loadReceivables()]);renderCollections();
   }catch(e){message('collectMessage',e.message||'No se pudo registrar.');}finally{btn.disabled=false;}
 }
 async function postExpense(){
@@ -205,7 +260,21 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 const _params=new URLSearchParams(location.search);const action=_params.get('action');
 if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);
 if(action==='pagar'&&canPayWrite)setTimeout(()=>{modal('expenseModal',true);},150);
-await Promise.all([loadPlayers(),load(),loadCollection()]);
+let collectionsSearchTimer=null;
+$('collectionsSearch')?.addEventListener('input',()=>{
+  $('collectionsSearchClear')?.classList.toggle('hidden',!$('collectionsSearch').value);
+  collectionsExpanded=false;
+  clearTimeout(collectionsSearchTimer);collectionsSearchTimer=setTimeout(renderCollections,120);
+});
+$('collectionsSearchClear')?.addEventListener('click',()=>{$('collectionsSearch').value='';$('collectionsSearchClear').classList.add('hidden');collectionsExpanded=false;renderCollections();});
+document.querySelectorAll('.collections-filters button').forEach(b=>b.addEventListener('click',()=>{
+  collectionsFilter=b.dataset.collectionsFilter;collectionsExpanded=false;
+  document.querySelectorAll('.collections-filters button').forEach(x=>x.classList.toggle('active',x===b));
+  renderCollections();
+}));
+$('collectionsToggle')?.addEventListener('click',()=>{collectionsExpanded=!collectionsExpanded;renderCollections();});
+
+await Promise.all([loadPlayers(),load(),loadReceivables()]);renderCollections();
 
 
 // === Corregir movimiento (VAR · solo Presidencia): Borrar o Reembolsar ===
@@ -231,7 +300,7 @@ async function confirmVoid(){
     if(pendingVoid.kind==='refund'){await rpc('v2_correct_tanner_payment',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else if(pendingVoid.kind==='void-income'){await rpc('v2_void_income',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else{await rpc('v2_void_expense',{organization_id:org,expense_id:pendingVoid.id,reason});}
-    closeVoid();await load();
+    closeVoid();await Promise.all([load(),loadReceivables()]);renderCollections();
   }catch(e){msg.textContent=(e&&e.message)||'No se pudo completar.';msg.classList.remove('hidden');}
   finally{btn.disabled=false;}
 }
@@ -242,19 +311,6 @@ $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')
 
 
 // === Buscador inteligente de Tanners (por cualquier nombre, sin acentos) ===
-// El concepto que emite el motor viene largo ("Academia Academia de porteros ·
-// 2026-09"). En una lista de búsqueda estorba: se muestra lo que distingue un
-// cargo de otro.
-const TIPO_CARGO={monthly_fee:'Mensualidad',monthly_fee_sponsor:'Mensualidad · patrocinio',
-  academy_fee:'Academia',academy_day:'Día de academia',late_fee:'Recargo',
-  product:'Tienda',equipment:'Uniforme',parking:'Estacionamiento',parking_pass:'Gafete'};
-function conceptoCorto(r){
-  const base=TIPO_CARGO[r.charge_type]||r.concept||'Cargo';
-  const mes=r.billing_period
-    ? new Intl.DateTimeFormat('es-MX',{month:'short',year:'2-digit'}).format(new Date(`${String(r.billing_period).slice(0,10)}T12:00:00`))
-    : '';
-  return mes?`${base} ${mes}`:base;
-}
 function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
   const inp=$(searchId),hid=$(hiddenId),res=$(resultsId),clr=$(clearId);
   if(!inp||!hid||!res)return;

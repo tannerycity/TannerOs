@@ -34,7 +34,7 @@ const routeContract={
   '/admin/club/':'v2/admin/club/index.html',
   '/admin/onboarding/':'v2/admin/onboarding/index.html'
 };
-const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html','academias/index.html'];
+const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
 for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta archivo crítico: ${file}`);
 
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p];});}
@@ -76,6 +76,13 @@ for(const moduleKey of ['platform','home','public','club','players','attendance'
 for(const route of Object.keys(routeContract))if(!qaApp.includes(`'${route}'`))errors.push(`Centro de Calidad no reconoce la ruta ${route}`);
 if(/nextActionButton'\)\.addEventListener/.test(qaApp))errors.push('Centro de Calidad registra dos acciones posibles en #nextActionButton; debe usar un único onclick reemplazable');
 const publicForm=fs.readFileSync('public-form.js','utf8');for(const route of ['/registro/porteros','/registro/jugadores','/registro/scouting','/pedido','/programas'])if(!publicForm.includes(route))errors.push(`public-form.js no reconoce ${route}`);
+
+const centroTannerApp=fs.readFileSync('centro-tanner/app.js','utf8');
+for(const marker of ["rest[0] === 'tema'","rest[0] === 'p'","rest[0] === 'documento'","rest[0] === 'cambios'"])if(!centroTannerApp.includes(marker))errors.push(`centro-tanner/app.js perdió una ruta del router: ${marker}`);
+const ctRewriteOk=rewrites.some(r=>r.source==='/centro-tanner/:path*'&&r.destination==='/centro-tanner/index.html');
+if(!ctRewriteOk)errors.push('vercel.json no tiene el rewrite catch-all de /centro-tanner/:path*');
+const ctAdminRewriteOk=rewrites.some(r=>r.source==='/admin/centro-tanner'&&r.destination==='/v2/admin/centro-tanner/index.html');
+if(!ctAdminRewriteOk)errors.push('vercel.json no tiene el rewrite de /admin/centro-tanner');
 
 // Guardas de egress: un avatar nunca debe caer silenciosamente en la foto
 // original. El pull heredado se frena en el gateway de Supabase.

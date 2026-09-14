@@ -43,7 +43,7 @@
       <button class="tab active" data-tab="resumen" type="button">Resumen</button>
       <button class="tab" data-tab="inventario" type="button">Inventario</button>
       <button class="tab" data-tab="bodega" type="button">Bodega</button>
-      <button class="tab" data-tab="kits" type="button">Kits</button>
+      <button class="tab" data-tab="kits" type="button">Entregado</button>
       <button class="tab" data-tab="incidencias" type="button">Incidencias <span id="incidenciasBadge" class="tab-badge hidden">0</span></button>
     </nav>
 
@@ -127,23 +127,9 @@
     <!-- BODEGA -->
     <section class="tab-panel hidden" data-panel="bodega">
       <article class="panel action-panel">
-        <div class="panel-head"><div><div class="eyebrow">BODEGA</div><h2>Entregar material</h2><p class="action-copy muted">Bodega disminuye, el kit del entrenador aumenta. Queda registrado automáticamente.</p></div></div>
-        <form id="assignForm" class="form-grid">
-          <label class="span-2">Artículo
-            <select id="assignItem" required><option value="">Selecciona</option></select>
-          </label>
-          <label class="span-2" id="assignUnitField">Unidad
-            <select id="assignUnit"><option value="">Selecciona una unidad</option></select>
-          </label>
-          <label class="span-2">Entrenador
-            <select id="assignCoach"><option value="">Selecciona un entrenador…</option><option value="__other__">Otro (escribir nombre)</option></select>
-          </label>
-          <label class="span-2 hidden" id="assignLabelField">Nombre<input id="assignLabel" maxlength="120" placeholder="Ej. Profe Brandon"></label>
-          <label id="assignQuantityField">Cantidad<input id="assignQuantity" type="number" min="1" step="1" value="1"></label>
-          <label class="span-2">Notas<input id="assignNotes" maxlength="500"></label>
-          <button id="saveAssignment" class="primary span-2" type="submit">Entregar material</button>
-          <div id="assignMessage" class="inline-message hidden span-2"></div>
-        </form>
+        <div class="panel-head"><div><div class="eyebrow">BODEGA</div><h2>Entregar material</h2><p class="action-copy muted">3 pasos: qué, a quién y confirmar. Bodega disminuye, la persona lo recibe, queda registrado solo.</p></div>
+          <button id="openDeliveryWizard" class="primary write-only" type="button">+ Entregar material</button>
+        </div>
       </article>
 
       <article class="panel">
@@ -156,7 +142,7 @@
     <!-- KITS -->
     <section class="tab-panel hidden" data-panel="kits">
       <article class="panel">
-        <div class="panel-head"><div><div class="eyebrow">EN CAMPO</div><h2>Kit por entrenador</h2></div></div>
+        <div class="panel-head"><div><div class="eyebrow">EN CAMPO</div><h2>Quién tiene qué</h2><p class="action-copy muted">Material entregado y sin devolver todavía.</p></div></div>
         <div id="kitsList" class="kits-grid"></div>
         <div id="kitsEmpty" class="empty hidden">No hay material asignado.</div>
       </article>
@@ -183,6 +169,45 @@
     </section>
 
   </div>
+
+  <!-- ASISTENTE DE ENTREGA: 3 pasos, qué / a quién / confirmar -->
+  <div id="deliveryModalBackdrop" class="delivery-modal-backdrop hidden"></div>
+  <section id="deliveryModal" class="delivery-modal hidden" role="dialog" aria-modal="true" aria-labelledby="deliveryModalTitle">
+    <div class="delivery-modal-head">
+      <h2 id="deliveryModalTitle">Entregar material</h2>
+      <button type="button" id="closeDeliveryModal" aria-label="Cerrar">×</button>
+    </div>
+    <div class="delivery-steps">
+      <span class="dstep" data-step="1"><b>1</b>Qué</span>
+      <span class="dstep" data-step="2"><b>2</b>A quién</span>
+      <span class="dstep" data-step="3"><b>3</b>Confirmar</span>
+    </div>
+    <div class="delivery-body">
+      <div class="delivery-panel" data-dpanel="1">
+        <input id="deliverySearchItem" class="search" type="search" placeholder="Buscar artículo en bodega…">
+        <div id="deliveryItemList" class="delivery-pick-list"></div>
+        <div id="deliveryUnitList" class="delivery-pick-list hidden"></div>
+      </div>
+      <div class="delivery-panel hidden" data-dpanel="2">
+        <div id="deliveryCoachList" class="delivery-pick-list"></div>
+        <button type="button" class="secondary mini" id="deliveryOtherBtn">Otro (escribir nombre)</button>
+        <div id="deliveryOtherWrap" class="hidden delivery-other-wrap">
+          <input id="deliveryOtherName" maxlength="120" placeholder="Nombre de quien recibe">
+          <button type="button" class="primary mini" id="deliveryOtherConfirm">Usar este nombre</button>
+        </div>
+      </div>
+      <div class="delivery-panel hidden" data-dpanel="3">
+        <div id="deliverySummary" class="delivery-summary"></div>
+        <label id="deliveryQtyField">Cantidad<input id="deliveryQty" type="number" min="1" step="1" value="1"></label>
+        <label>Notas <span class="tos-user-note">(opcional)</span><input id="deliveryNotes" maxlength="500"></label>
+        <div id="deliveryMessage" class="inline-message hidden"></div>
+        <button type="button" id="confirmDelivery" class="primary full-width">Confirmar entrega</button>
+      </div>
+    </div>
+    <div class="delivery-modal-foot">
+      <button type="button" id="deliveryBack" class="secondary mini hidden">‹ Atrás</button>
+    </div>
+  </section>
 
   <!-- ================= VISTA ENTRENADOR ================= -->
   <div id="coachView" class="hidden">

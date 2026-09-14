@@ -194,7 +194,6 @@ async function loadAdmin() {
   renderKpis(Array.isArray(value) ? value : []);
   renderCategoryDatalist();
   renderItemsTable();
-  renderAssignSelects();
   renderBodega();
   renderKits();
   renderReports();
@@ -321,6 +320,12 @@ async function toggleItemDetail(tr, item) {
         await loadAdmin();
       } catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo guardar la pieza', message: friendly(err) }); }
     });
+    // Cada pieza es editable con un clic: así se corrigen identificadores mal
+    // capturados o se da de baja una pieza vieja sin tener que borrar nada.
+    list.querySelectorAll('.unit-row').forEach((row, idx) => {
+      row.classList.add('clickable');
+      row.addEventListener('click', () => openUnitEditor(wrap, item, units[idx]));
+    });
     td.appendChild(wrap);
   } else {
     td.innerHTML = '';
@@ -333,6 +338,48 @@ async function toggleItemDetail(tr, item) {
 }
 
 function unitStatusLabel(s) { return { bodega: 'En bodega', asignado: 'Asignado', mantenimiento: 'Mantenimiento', baja: 'Baja' }[s] || s; }
+
+function openUnitEditor(wrap, item, unit) {
+  const already = wrap.querySelector('.unit-edit-form');
+  if (already) { const same = already.dataset.unit === unit.id; already.remove(); if (same) return; }
+  const form = document.createElement('form');
+  form.className = 'unit-edit-form form-grid';
+  form.dataset.unit = unit.id;
+  const opciones = [['bodega', 'En bodega'], ['mantenimiento', 'Mantenimiento'], ['baja', 'Baja (retirada)']];
+  if (unit.status === 'asignado') opciones.unshift(['asignado', 'Asignado']);
+  form.innerHTML = `
+    <label>Identificador<input class="ue-code" maxlength="60" value="${esc(unit.code)}" required></label>
+    <label>Estado<select class="ue-status">${opciones.map(([v, l]) => `<option value="${v}"${v === unit.status ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="span-2">Estado físico<input class="ue-condition" maxlength="60" value="${esc(unit.condition || '')}"></label>
+    <label class="span-2">Notas<input class="ue-notes" maxlength="300" value="${esc(unit.notes || '')}"></label>
+    <div class="span-2" style="display:flex;gap:10px">
+      <button type="submit" class="primary mini">Guardar</button>
+      <button type="button" class="secondary mini ue-cancel">Cancelar</button>
+    </div>
+    <div class="ue-message inline-message hidden span-2"></div>`;
+  form.addEventListener('click', (e) => e.stopPropagation());
+  form.querySelector('.ue-cancel').addEventListener('click', () => form.remove());
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const box = form.querySelector('.ue-message'); box.classList.add('hidden');
+    const status = form.querySelector('.ue-status').value;
+    if (unit.status === 'asignado' && status !== 'asignado') {
+      box.textContent = 'Está asignada: registra la devolución desde "Entregado" antes de cambiar su estado.';
+      box.classList.remove('hidden');
+      return;
+    }
+    try {
+      await rpc('v2_upsert_equipment_unit', {
+        organization_id: ctx.organization_id, unit_id: unit.id, item_id: item.id,
+        code: form.querySelector('.ue-code').value.trim(), status,
+        condition: form.querySelector('.ue-condition').value.trim() || null,
+        notes: form.querySelector('.ue-notes').value.trim() || null,
+      });
+      await loadAdmin();
+    } catch (err) { box.textContent = friendly(err); box.classList.remove('hidden'); }
+  });
+  wrap.insertBefore(form, wrap.querySelector('.unit-form'));
+}
 
 async function showItemHistory(td, itemId) {
   const events = await rpc('v2_equipment_history', { organization_id: ctx.organization_id, item_id: itemId, unit_id: null }).catch(() => []);
@@ -379,51 +426,108 @@ function resetItemForm() {
   $('itemPhotoBox').innerHTML = 'Sin foto';
 }
 
-function renderAssignSelects() {
-  const itemSel = $('assignItem');
-  const current = itemSel.value;
-  itemSel.innerHTML = '<option value="">Selecciona</option>';
-  items.filter((i) => i.status === 'active' && (i.control_type === 'individual' ? Number(i.units_bodega || 0) > 0 : Number(i.available_quantity || 0) > 0)).forEach((i) => {
-    const avail = i.control_type === 'individual' ? Number(i.units_bodega || 0) : Number(i.available_quantity || 0);
-    const o = document.createElement('option');
-    o.value = i.id;
-    o.dataset.control = i.control_type;
-    o.textContent = `${i.name || 'Artículo'} · ${avail} disponibles`;
-    itemSel.appendChild(o);
-  });
-  if (current && items.some((i) => i.id === current)) itemSel.value = current;
-
-  const coachSel = $('assignCoach');
-  const currentCoach = coachSel.value;
-  coachSel.innerHTML = '<option value="">Selecciona un entrenador…</option><option value="__other__">Otro (escribir nombre)</option>';
-  coaches.forEach((c) => {
-    const o = document.createElement('option');
-    o.value = c.user_id;
-    o.textContent = c.display_name || 'Sin nombre';
-    coachSel.appendChild(o);
-  });
-  if (currentCoach) coachSel.value = currentCoach;
-
-  updateAssignUnitField();
+/* ---------- Asistente de entrega: 3 pasos (qué / a quién / confirmar) ----------
+   Antes era un formulario largo con 6 campos a la vez. Ahora se pregunta una
+   cosa por pantalla y se avanza solo al elegir, para que darle su material a
+   un profe sea tan rápido como tocar tres botones. */
+let deliveryState = { step: 1, item: null, unitId: null, unitCode: null, recipientType: null, recipientId: null, recipientName: null };
+function stockedItems() {
+  return items.filter((i) => i.status === 'active' && (i.control_type === 'individual' ? Number(i.units_bodega || 0) > 0 : Number(i.available_quantity || 0) > 0));
 }
-
-async function updateAssignUnitField() {
-  const itemSel = $('assignItem');
-  const opt = itemSel.selectedOptions[0];
-  const isIndividual = opt && opt.dataset.control === 'individual';
-  $('assignUnitField').classList.toggle('hidden', !isIndividual);
-  $('assignQuantityField').classList.toggle('hidden', isIndividual);
-  const unitSel = $('assignUnit');
-  unitSel.innerHTML = '<option value="">Selecciona una unidad</option>';
-  if (isIndividual && itemSel.value) {
-    const units = await rpc('v2_equipment_units', { organization_id: ctx.organization_id, item_id: itemSel.value }).catch(() => []);
-    units.filter((u) => u.status === 'bodega').forEach((u) => {
-      const o = document.createElement('option');
-      o.value = u.id;
-      o.textContent = u.code;
-      unitSel.appendChild(o);
-    });
+function openDeliveryWizard(presetItem) {
+  deliveryState = { step: 1, item: null, unitId: null, unitCode: null, recipientType: null, recipientId: null, recipientName: null };
+  $('deliverySearchItem').value = '';
+  $('deliveryOtherWrap').classList.add('hidden');
+  $('deliveryOtherName').value = '';
+  $('deliveryModalBackdrop').classList.remove('hidden');
+  $('deliveryModal').classList.remove('hidden');
+  if (presetItem) {
+    deliveryState.item = presetItem;
+    if (presetItem.control_type === 'individual') { renderDeliveryStep(1); renderDeliveryUnits(presetItem); }
+    else renderDeliveryStep(2);
+  } else {
+    renderDeliveryStep(1);
   }
+}
+function closeDeliveryWizard() {
+  $('deliveryModalBackdrop').classList.add('hidden');
+  $('deliveryModal').classList.add('hidden');
+}
+function renderDeliveryStep(step) {
+  deliveryState.step = step;
+  document.querySelectorAll('.dstep').forEach((el) => el.classList.toggle('active', Number(el.dataset.step) === step));
+  document.querySelectorAll('.delivery-panel').forEach((el) => el.classList.toggle('hidden', Number(el.dataset.dpanel) !== step));
+  $('deliveryBack').classList.toggle('hidden', step === 1);
+  if (step === 1) renderDeliveryItems();
+  if (step === 2) renderDeliveryCoaches();
+  if (step === 3) renderDeliverySummary();
+}
+function deliveryBack() { if (deliveryState.step > 1) renderDeliveryStep(deliveryState.step - 1); }
+function renderDeliveryItems() {
+  const term = ($('deliverySearchItem').value || '').trim().toLowerCase();
+  const list = $('deliveryItemList');
+  const rows = stockedItems().filter((i) => !term || String(i.name || '').toLowerCase().includes(term));
+  list.innerHTML = rows.map((i) => {
+    const avail = i.control_type === 'individual' ? Number(i.units_bodega || 0) : Number(i.available_quantity || 0);
+    return `<button type="button" class="delivery-pick-row" data-item="${i.id}"><strong>${esc(i.name)}</strong><span>${avail} disponible${avail === 1 ? '' : 's'}</span></button>`;
+  }).join('') || '<div class="empty">Nada disponible con ese nombre.</div>';
+  list.querySelectorAll('[data-item]').forEach((btn) => btn.addEventListener('click', () => {
+    const item = items.find((i) => i.id === btn.dataset.item);
+    deliveryState.item = item; deliveryState.unitId = null; deliveryState.unitCode = null;
+    if (item.control_type === 'individual') renderDeliveryUnits(item);
+    else renderDeliveryStep(2);
+  }));
+  $('deliveryUnitList').classList.add('hidden');
+  $('deliveryUnitList').innerHTML = '';
+}
+async function renderDeliveryUnits(item) {
+  const box = $('deliveryUnitList');
+  box.classList.remove('hidden');
+  box.innerHTML = '<div class="empty">Cargando unidades…</div>';
+  const units = await rpc('v2_equipment_units', { organization_id: ctx.organization_id, item_id: item.id }).catch(() => []);
+  const free = units.filter((u) => u.status === 'bodega');
+  box.innerHTML = `<div class="units-head">Elige la unidad de ${esc(item.name)}</div>` +
+    (free.map((u) => `<button type="button" class="delivery-pick-row" data-unit="${u.id}" data-code="${esc(u.code)}"><strong>${esc(u.code)}</strong>${u.condition ? `<span>${esc(u.condition)}</span>` : ''}</button>`).join('') || '<div class="empty">Sin unidades libres.</div>');
+  box.querySelectorAll('[data-unit]').forEach((btn) => btn.addEventListener('click', () => {
+    deliveryState.unitId = btn.dataset.unit; deliveryState.unitCode = btn.dataset.code;
+    renderDeliveryStep(2);
+  }));
+}
+function renderDeliveryCoaches() {
+  const list = $('deliveryCoachList');
+  list.innerHTML = coaches.map((c) => `<button type="button" class="delivery-pick-row" data-coach="${c.user_id}" data-name="${esc(c.display_name)}"><strong>${esc(c.display_name || 'Sin nombre')}</strong></button>`).join('') || '<div class="empty">No hay profes registrados todavía. Usa "Otro" para escribir el nombre.</div>';
+  list.querySelectorAll('[data-coach]').forEach((btn) => btn.addEventListener('click', () => {
+    deliveryState.recipientType = 'coach'; deliveryState.recipientId = btn.dataset.coach; deliveryState.recipientName = btn.dataset.name;
+    renderDeliveryStep(3);
+  }));
+}
+function renderDeliverySummary() {
+  const s = deliveryState;
+  const what = s.unitCode ? `${s.item.name} · ${s.unitCode}` : s.item.name;
+  $('deliverySummary').innerHTML = `Vas a entregar <strong>${esc(what)}</strong> a <strong>${esc(s.recipientName)}</strong>.`;
+  $('deliveryQtyField').classList.toggle('hidden', !!s.unitId);
+  $('deliveryQty').value = '1';
+  $('deliveryNotes').value = '';
+  msg('deliveryMessage');
+}
+async function confirmDelivery() {
+  const s = deliveryState;
+  msg('deliveryMessage');
+  const btn = $('confirmDelivery');
+  btn.disabled = true;
+  try {
+    await rpc('v2_assign_equipment', {
+      organization_id: ctx.organization_id, item_id: s.item.id,
+      assigned_to_user_id: s.recipientType === 'coach' ? s.recipientId : null,
+      assigned_to_label: s.recipientType === 'label' ? s.recipientName : null,
+      quantity: s.unitId ? 1 : Number($('deliveryQty').value || 1),
+      notes: $('deliveryNotes').value.trim() || null,
+      equipment_unit_id: s.unitId || null,
+    });
+    closeDeliveryWizard();
+    await loadAdmin();
+  } catch (err) { msg('deliveryMessage', friendly(err)); btn.disabled = false; }
+  finally { btn.disabled = false; }
 }
 
 function renderBodega() {
@@ -439,7 +543,7 @@ function renderBodega() {
     card.innerHTML = `<div class="photo-box small" data-photo-for="bodega-${i.id}">${i.photo_path ? '' : (i.name || '?').slice(0, 1)}</div>
       <div><strong>${esc(i.name)}</strong><span>${avail} disponible${avail === 1 ? '' : 's'} · ${i.control_type === 'individual' ? 'Individual' : 'Por cantidad'}</span></div>
       <button class="secondary mini" type="button">Entregar</button>`;
-    card.querySelector('button').addEventListener('click', () => { $('assignItem').value = i.id; updateAssignUnitField(); document.querySelector('[data-tab="bodega"]').click(); $('assignForm').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+    card.querySelector('button').addEventListener('click', () => openDeliveryWizard(i));
     box.appendChild(card);
     photoEntries.push({ boxEl: card.querySelector(`[data-photo-for="bodega-${i.id}"]`), path: i.photo_thumb_path || i.photo_path, alt: i.name });
   });
@@ -559,31 +663,6 @@ async function saveItem(e) {
   finally { btn.disabled = !canWrite; }
 }
 
-async function saveAssignment(e) {
-  e.preventDefault();
-  msg('assignMessage');
-  const btn = $('saveAssignment');
-  btn.disabled = true;
-  try {
-    const coachVal = $('assignCoach').value;
-    const assignedUserId = coachVal && coachVal !== '__other__' ? coachVal : null;
-    const assignedLabel = coachVal === '__other__' ? $('assignLabel').value.trim() : null;
-    const unitId = $('assignUnitField').classList.contains('hidden') ? null : ($('assignUnit').value || null);
-    await rpc('v2_assign_equipment', {
-      organization_id: ctx.organization_id, item_id: $('assignItem').value,
-      assigned_to_user_id: assignedUserId, assigned_to_label: assignedLabel,
-      quantity: Number($('assignQuantity').value || 1), notes: $('assignNotes').value.trim() || null,
-      equipment_unit_id: unitId,
-    });
-    msg('assignMessage', 'Material entregado.', 'success');
-    e.target.reset();
-    $('assignQuantity').value = '1';
-    $('assignLabelField').classList.add('hidden');
-    await loadAdmin();
-  } catch (err) { msg('assignMessage', friendly(err)); }
-  finally { btn.disabled = !canWrite; }
-}
-
 function bindAdminEvents() {
   document.querySelectorAll('#adminTabs .tab').forEach((tab) => {
     tab.addEventListener('click', () => {
@@ -604,10 +683,21 @@ function bindAdminEvents() {
   });
   $('itemSearch').addEventListener('input', renderItemsTable);
   $('refreshInventory').addEventListener('click', loadAdmin);
-  $('assignForm').addEventListener('submit', saveAssignment);
-  $('assignItem').addEventListener('change', updateAssignUnitField);
-  $('assignCoach').addEventListener('change', () => $('assignLabelField').classList.toggle('hidden', $('assignCoach').value !== '__other__'));
   $('reportStatusFilter').addEventListener('change', renderReports);
+  $('openDeliveryWizard').addEventListener('click', () => openDeliveryWizard());
+  $('closeDeliveryModal').addEventListener('click', closeDeliveryWizard);
+  $('deliveryModalBackdrop').addEventListener('click', closeDeliveryWizard);
+  $('deliveryBack').addEventListener('click', deliveryBack);
+  $('deliverySearchItem').addEventListener('input', renderDeliveryItems);
+  $('deliveryOtherBtn').addEventListener('click', () => $('deliveryOtherWrap').classList.toggle('hidden'));
+  $('deliveryOtherConfirm').addEventListener('click', () => {
+    const name = $('deliveryOtherName').value.trim();
+    if (!name) return;
+    deliveryState.recipientType = 'label'; deliveryState.recipientId = null; deliveryState.recipientName = name;
+    renderDeliveryStep(3);
+  });
+  $('confirmDelivery').addEventListener('click', confirmDelivery);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('deliveryModal').classList.contains('hidden')) closeDeliveryWizard(); });
 }
 
 /* =========================================================

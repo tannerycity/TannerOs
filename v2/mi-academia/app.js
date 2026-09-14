@@ -31,7 +31,7 @@ function edad(f){if(!f)return null;const b=new Date(`${f}T00:00:00`);if(isNaN(b)
 function saludo(){const h=new Date().getHours();return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches';}
 const iniciales=n=>String(n||'?').split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
 const METODOLOGIA='TC_1.0';
-const ESCALA=[['1','Necesita apoyo'],['2','En proceso'],['3','Esperado'],['4','Sólido'],['5','Destacado'],['','Sin evidencia']];
+const ESCALA=[['1','En formación'],['2','Tomando ritmo'],['3','En nivel'],['4','Sobresale'],['5','Alto nivel'],['','Sin evidencia']];
 const DIMENSIONES=[
   {key:'tecnica',name:'Técnica',claim:'Tengo herramientas',observe:'control, conducción, pase, golpeo y recursos técnicos'},
   {key:'inteligencia',name:'Juego',claim:'Entiendo y resuelvo',observe:'percepción, decisiones, ubicación, compañeros y uso del espacio'},

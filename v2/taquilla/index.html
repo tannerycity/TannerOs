@@ -40,6 +40,19 @@
           <div><span>Efectivo de hoy</span><strong id="cashTodayNet">$0.00</strong><p>Para entregar al cierre de caja. No incluye transferencia ni tarjeta.</p></div>
         </section>
 
+        <section id="collectionsPanel" class="cashier-panel hidden">
+          <div class="cashier-panel-head">
+            <div><h2>Cobranza</h2><p>Estado de cada Tanner. Un toque para registrar su cobro.</p></div>
+          </div>
+          <div class="collections-toolbar">
+            <div class="tsearch wide" id="collectionsSearchBox"><div class="tsearch-field"><input type="text" id="collectionsSearch" placeholder="Buscar familia o jugador…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="collectionsSearchClear" aria-label="Quitar">×</button></div></div>
+            <div class="collections-filters"><button type="button" class="active" data-collections-filter="all">Todos</button><button type="button" data-collections-filter="pending">Pendientes</button><button type="button" data-collections-filter="ok">Al corriente</button></div>
+          </div>
+          <div id="collectionsList" class="collections-list"></div>
+          <div id="collectionsEmpty" class="cashier-empty hidden">Sin Tanners que coincidan con la búsqueda.</div>
+          <button type="button" id="collectionsToggle" class="collections-toggle hidden"></button>
+        </section>
+
         <section class="cashier-kpis">
           <article><span>Cobrado del día</span><strong id="incomeDay">$0.00</strong></article>
           <article><span>Pagado del día</span><strong id="expenseDay" class="sem-neutral">$0.00</strong></article>

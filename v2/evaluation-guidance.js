@@ -1,10 +1,10 @@
 export const TANNER_SCALE={
-  1:{label:'Necesita apoyo',detail:'Todavía necesita ayuda frecuente para mostrarlo.'},
-  2:{label:'En proceso',detail:'Empieza a mostrarlo, pero todavía de forma irregular o con ayuda.'},
-  3:{label:'Esperado',detail:'Lo muestra como esperamos para su edad y etapa.',confirmation:'✓ Va donde debe ir.'},
-  4:{label:'Sólido',detail:'Lo muestra con autonomía y de forma consistente.'},
-  5:{label:'Destacado',detail:'Muestra un nivel destacado para su etapa actual; no significa perfecto.'},
-  none:{label:'Sin evidencia',detail:'Todavía no has visto suficiente para evaluarlo con seguridad.'}
+  1:{label:'En formación',detail:'Todavía necesita bastante acompañamiento.'},
+  2:{label:'Tomando ritmo',detail:'Ya empieza a mostrarlo, pero todavía es irregular.'},
+  3:{label:'En nivel',detail:'Está donde esperamos para su categoría.',confirmation:'✓ Está donde debe estar.'},
+  4:{label:'Sobresale',detail:'Lo muestra con mucha consistencia y por encima de lo esperado.'},
+  5:{label:'Alto nivel',detail:'Tiene un nivel claramente avanzado para su edad y categoría.'},
+  none:{label:'Sin evidencia',detail:'Todavía no lo he visto lo suficiente. No cuenta como nivel.'}
 };
 
 export const TANNER_DIMENSIONS=[
@@ -34,6 +34,6 @@ export function guidanceForCategory(value=''){
 
 export const EVALUATION_ONBOARDING=[
   {title:'Evalúa su etapa, no a sus compañeros',body:'Piensa en lo que esperamos de un Tanner de su edad y categoría. No lo compares con el mejor niño del equipo.'},
-  {title:'3 es lo esperado',body:'Un 3 significa que va exactamente donde debe ir. No es una mala calificación: es la base correcta para su etapa.',scale:true},
+  {title:'3 significa “En nivel”',body:'Un 3 significa que está exactamente donde debe estar. No es una mala calificación: es la base correcta para su etapa.',scale:true},
   {title:'Evalúa lo que realmente has visto',body:'Piensa en varias semanas de entrenamiento y partido, no solamente en la última jugada.',evidence:true}
 ];

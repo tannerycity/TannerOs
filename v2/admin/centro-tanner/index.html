@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07191e">
+  <title>Centro Tanner · Administración · TannerOS</title>
+  <link rel="stylesheet" href="/v2/styles.css">
+  <link rel="stylesheet" href="/v2/admin/styles.css?v=20260909a">
+  <link rel="stylesheet" href="/v2/admin/centro-tanner/styles.css?v=20260913a">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="stylesheet" href="/icons.css?v=20260907a">
+  <link rel="stylesheet" href="/polish.css?v=20260907a">
+</head>
+<body>
+<main class="shell">
+  <section id="loadingView" class="center-card">
+    <div class="brand-mark small">T</div>
+    <h2>Centro Tanner</h2>
+    <p class="muted">Revisando permisos…</p>
+  </section>
+
+  <section id="deniedView" class="center-card hidden">
+    <div class="brand-mark small">T</div>
+    <h2>Esta puerta no abre</h2>
+    <p id="deniedText" class="muted"></p>
+    <a class="secondary nav-link" href="/admin/">Volver a Administración</a>
+  </section>
+
+  <section id="view" class="hidden app-wrap admin-page ct-admin">
+    <header class="topbar admin-topbar">
+      <div class="brand-lockup compact">
+        <div class="brand-mark small">T</div>
+        <div><div class="eyebrow">CENTRO TANNER</div><strong>Reglamento, FAQ y políticas</strong></div>
+      </div>
+      <div class="top-actions">
+        <a class="secondary mini nav-link" href="/admin/">Volver a Administración</a>
+        <a class="secondary mini nav-link" href="/centro-tanner/" target="_blank" rel="noopener">Ver público ↗</a>
+      </div>
+    </header>
+
+    <nav class="ct-tabs" id="ctTabs">
+      <button class="ct-tab active" data-tab="policies" type="button">Políticas</button>
+      <button class="ct-tab" data-tab="faqs" type="button">FAQ</button>
+      <button class="ct-tab" data-tab="documents" type="button">Documentos</button>
+      <button class="ct-tab" data-tab="changes" type="button">Cambios</button>
+      <button class="ct-tab" data-tab="acceptance" type="button">Aceptaciones</button>
+      <button class="ct-tab" data-tab="misses" type="button">Búsquedas sin resultado</button>
+    </nav>
+
+    <section id="ctPanel" class="ct-panel"><div class="ct-loading">Cargando…</div></section>
+  </section>
+</main>
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/admin/centro-tanner/app.js?v=20260913a"></script>
+</body>
+</html>

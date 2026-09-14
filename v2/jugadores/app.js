@@ -11,7 +11,16 @@ function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMon
 function setText(id,value){const node=$(id);if(node)node.textContent=value??'—';}
 function positionCode(value){const label=String(value||'').toLocaleLowerCase('es-MX');if(/porter/.test(label))return'POR';if(/defen|central|lateral/.test(label))return'DEF';if(/medio|volante|contenci/.test(label))return'MED';if(/delanter|extremo|punta/.test(label))return'DEL';return value?String(value).slice(0,3).toUpperCase():'POS';}
 function renderCardIdentity(p){const fullName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Tanner',foot={right:'Derecha',left:'Izquierda',both:'Ambas',Derecha:'Derecha',Izquierda:'Izquierda',Ambas:'Ambas'}[p.dominantFoot]||p.dominantFoot||'Por definir',status=p.status==='active'?'ACTIVO':'BAJA';setText('cardName',fullName);setText('cardCode',p.code||'Sin código');setText('cardPosition',positionCode(p.position));setText('cardCategory',p.category||'Sin categoría');setText('cardJersey',p.jerseyNumber||'—');setText('cardFoot',`Pierna ${foot}`);setText('cardStatus',status);setText('quickPosition',p.position||'Por definir');setText('quickFoot',foot);setText('quickCategory',p.category||'Sin categoría');setText('quickJersey',p.jerseyNumber||'—');const card=$('tannerCard');if(card){card.dataset.status=p.status||'active';card.setAttribute('aria-label',`Carta deportiva de ${fullName}`);}}
-function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/failed to fetch|networkerror|load failed|network request failed/i.test(s))return 'Se cortó la conexión con el servidor. No se guardó ningún cambio: revisa tu internet y vuelve a intentar.';if(/ux_players_active_category_jersey|duplicate key/i.test(s))return 'Ese dorsal ya está ocupado por otro Tanner activo en la categoría seleccionada.';const map={'Not authorized':'No tienes permiso para editar expedientes.','Player not found':'No encontramos ese Tanner.','Valid birth date required':'La fecha de nacimiento no es válida.','Invalid dominant foot':'Selecciona una pierna válida.','Invalid phone number':'Revisa el formato del teléfono.','Mexico phone must have exactly 10 digits':'Para México usa exactamente 10 dígitos.','Guardian phone required':'Captura un teléfono válido para el tutor.','Invalid guardian email':'El correo del tutor no es válido.','Effective date cannot precede current enrollment start':'La fecha del cambio no puede ser anterior al inicio de la categoría actual.','Only withdrawn players can be reactivated':'Este Tanner ya está activo.','Only withdrawn or inactive players can be reactivated':'Este Tanner ya está activo.','Only active players can be withdrawn':'Este Tanner ya está de baja.','Reactivation date required':'Indica la fecha de alta.','Withdrawal date required':'Indica la fecha de baja.','Withdrawal reason required':'Escribe el motivo de la baja.'};return map[s]||s;}
+function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/failed to fetch|networkerror|load failed|network request failed/i.test(s))return 'Se cortó la conexión con el servidor. No se guardó ningún cambio: revisa tu internet y vuelve a intentar.';if(/ux_players_active_category_jersey|duplicate key/i.test(s))return 'Ese dorsal ya está ocupado por otro Tanner activo en la categoría seleccionada.';const map={'Not authorized':'No tienes permiso para editar expedientes.','Player not found':'No encontramos ese Tanner.','Valid birth date required':'La fecha de nacimiento no es válida.','Invalid dominant foot':'Selecciona una pierna válida.','Invalid phone number':'Revisa el formato del teléfono.','Mexico phone must have exactly 10 digits':'Para México usa exactamente 10 dígitos.','Guardian phone required':'Captura un teléfono válido para el tutor.','Invalid guardian email':'El correo del tutor no es válido.','Effective date cannot precede current enrollment start':'La fecha del cambio no puede ser anterior al inicio de la categoría actual.','Only withdrawn players can be reactivated':'Este Tanner ya está activo.','Only withdrawn or inactive players can be reactivated':'Este Tanner ya está activo.','Only active players can be withdrawn':'Este Tanner ya está de baja.','Reactivation date required':'Indica la fecha de alta.','Withdrawal date required':'Indica la fecha de baja.','Withdrawal reason required':'Escribe el motivo de la baja.',
+  'Financial configuration requires Presidencia or Contabilidad':'Solo Presidencia o Contabilidad pueden configurar patrocinios.',
+  'Monthly total must be zero or greater':'La mensualidad debe ser cero o más.',
+  'Funding mode must be fixed_amount or percentage':'Indica el monto fijo o el porcentaje que cubre el patrocinador.',
+  'Sponsor value must be zero or greater':'Lo que cubre el patrocinador debe ser cero o más.',
+  'Sponsor amount cannot exceed monthly total':'Lo que cubre el patrocinador no puede ser más que la mensualidad.',
+  'Sponsor percentage cannot exceed 100':'El porcentaje no puede pasar de 100.',
+  'Funding source required':'Escribe quién es el patrocinador.',
+  'Benefit end cannot precede start':'La fecha de fin no puede ser antes de la de inicio.',
+  'Sponsor benefit not found':'No encontramos ese patrocinio.'};return map[s]||s;}
 function renderStatusAction(p){const btn=$('toggleStatusBtn'),alt=$('withdrawInactiveBtn');if(!btn)return;if(!canStatus){btn.classList.add('hidden');alt?.classList.add('hidden');return;}btn.classList.remove('hidden');if(p.status!=='active'){btn.textContent='Dar de alta';btn.dataset.action='reactivate';btn.classList.remove('danger-mini');}else{btn.textContent='Dar de baja';btn.dataset.action='withdraw';btn.classList.add('danger-mini');}alt?.classList.toggle('hidden',p.status!=='inactive');}
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='players');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Jugadores.';show('deniedView');return;}canWrite=!!mod.can_write;
   const familyMod=mods.find(m=>m.module_code==='jugadores_familia');canFamily=!!(familyMod?.enabled&&familyMod?.can_write);
@@ -208,10 +217,23 @@ function renderPrivacy(p){
 // nadie puede responder de cuánto es ni por qué. Esto la saca a la superficie.
 const TIPO_BECA={scholarship_full:'Beca total',scholarship_partial:'Beca parcial',
   sponsor_funded:'La paga un patrocinador',sibling_discount:'Descuento por hermanos'};
-const TIPOS_EDITABLES=['scholarship_full','scholarship_partial','sibling_discount'];
+const TIPOS_EDITABLES=['scholarship_full','scholarship_partial','sibling_discount','sponsor_funded'];
 // La nota que dejó la importación no es un motivo: la escribió el script, no una persona.
 const esNotaDelLegacy=n=>!n||/^Imported as legacy context/.test(n);
 let benefits=[];
+
+// Configurar un patrocinio (sponsor_funded) necesita la mensualidad vigente del
+// Tanner (v2_configure_sponsor_funding la usa para fijar cuánto paga cada
+// quién). Se pide una sola vez por sesión y se guarda en caché.
+let billingFeeCache={};
+async function fetchMonthlyFee(playerId){
+  if(billingFeeCache[playerId]!=null)return billingFeeCache[playerId];
+  try{
+    const rows=await rpc('v2_billing_players',{organization_id:ctx.organization_id})||[];
+    rows.forEach(p=>{billingFeeCache[p.player_id]=Number(p.base_monthly_fee||0);});
+  }catch(e){/* silencioso: se deja en 0 y la persona lo ajusta a mano */}
+  return billingFeeCache[playerId]??0;
+}
 
 // Solicitudes de beca que mandó la familia desde el portal. Si nadie las ve,
 // pedirlas no sirve de nada: aparecen aquí, junto a las becas, que es donde
@@ -287,9 +309,8 @@ function renderBenefits(playerId){
   }
   box.innerHTML=vivos.map(b=>{
     const monto=montoBeca(b);
-    const bloqueado=b.type==='sponsor_funded';
     const avisos=[
-      b.blocksBilling?'<span class="ben-warn">Sin configurar en Contabilidad: mientras siga así no se le genera su mensualidad.</span>':'',
+      b.blocksBilling?'<span class="ben-warn">Falta configurar cuánto cubre el patrocinador: mientras siga así no se le genera su mensualidad. Dale Editar.</span>':'',
       !monto?'<span class="ben-gap">Falta anotar de cuánto es el apoyo.</span>':'',
       esNotaDelLegacy(b.notes)?'<span class="ben-gap">Falta el motivo: lo que dice hoy lo escribió la importación.</span>':''
     ].filter(Boolean).join('');
@@ -300,10 +321,10 @@ function renderBenefits(playerId){
       b.endsOn?`<span>Hasta ${esc(fechaConAnio(b.endsOn))}</span>`:'',
       b.legacyLabel?`<span class="ben-legacy">Venía como “${esc(b.legacyLabel)}”</span>`:''
     ].filter(Boolean).join('');
-    const acciones=canStatus&&!bloqueado
+    const acciones=canStatus
       ? `<span class="ben-actions"><button type="button" class="secondary mini" data-benedit="${esc(b.id)}">Editar</button>`+
         `<button type="button" class="secondary mini" data-benend="${esc(b.id)}">Terminar</button></span>`
-      : bloqueado?'<span class="ben-locked">Se edita en Contabilidad</span>':'';
+      : '';
     return `<article class="ben-row"><div class="ben-head"><strong>${esc(TIPO_BECA[b.type]||b.type)}</strong>${acciones}</div>`+
       (datos?`<div class="ben-facts">${datos}</div>`:'')+
       (esNotaDelLegacy(b.notes)?'':`<p class="ben-note">${esc(b.notes)}</p>`)+
@@ -313,36 +334,79 @@ function renderBenefits(playerId){
   box.querySelectorAll('[data-benedit]').forEach(b=>b.addEventListener('click',()=>formBeca(playerId,b.dataset.benedit)));
   box.querySelectorAll('[data-benend]').forEach(b=>b.addEventListener('click',()=>terminarBeca(playerId,b.dataset.benend)));
 }
+// El patrocinio (sponsor_funded) usa otra función en el servidor
+// (v2_configure_sponsor_funding, la misma que ya usaba Contabilidad) porque
+// además de guardar el apoyo, fija la mensualidad del Tanner. Por eso pide un
+// campo extra ("Mensualidad") que los otros tipos no necesitan.
 function formBeca(playerId,benefitId){
   const b=benefits.find(x=>x.id===benefitId)||{};
+  const esPatrocinio=t=>t==='sponsor_funded';
   const box=$('benefitsList');
   const opciones=TIPOS_EDITABLES.map(t=>`<option value="${t}"${b.type===t?' selected':''}>${esc(TIPO_BECA[t])}</option>`).join('');
   const nota=esNotaDelLegacy(b.notes)?'':b.notes;
   box.insertAdjacentHTML('afterbegin',`<form class="ben-form" id="benForm">
     <label>Tipo de apoyo<select id="benType">${opciones}</select></label>
-    <label>Monto mensual <span class="tos-user-note">(o deja vacío y usa el %)</span><input id="benAmount" type="number" min="1" step="1" value="${b.fixedAmount??''}"></label>
-    <label>Porcentaje<input id="benPct" type="number" min="1" max="100" step="1" value="${b.percentage??''}"></label>
-    <label>¿Quién lo cubre? <span class="tos-user-note">(opcional)</span><input id="benSource" maxlength="120" value="${esc(b.fundingSource||'')}" placeholder="El club, un padrino…"></label>
+    <label id="benMonthlyTotalWrap" class="hidden">Mensualidad de este Tanner<input id="benMonthlyTotal" type="number" min="0" step="1" value=""></label>
+    <label><span id="benAmountLabel">Monto mensual</span> <span class="tos-user-note" id="benAmountHint">(o deja vacío y usa el %)</span><input id="benAmount" type="number" min="1" step="1" value="${b.fixedAmount??''}"></label>
+    <label><span id="benPctLabel">Porcentaje</span><input id="benPct" type="number" min="1" max="100" step="1" value="${b.percentage??''}"></label>
+    <label id="benSourceWrap">¿Quién lo cubre? <span class="tos-user-note" id="benSourceOpt">(opcional)</span><input id="benSource" maxlength="120" value="${esc(b.fundingSource||b.sponsorName||'')}" placeholder="El club, un padrino…"></label>
     <label>Desde<input id="benStart" type="date" value="${esc(b.startsOn||'')}"></label>
     <label>Hasta <span class="tos-user-note">(opcional)</span><input id="benEnd" type="date" value="${esc(b.endsOn||'')}"></label>
     <label class="span-2">Motivo<input id="benNotes" maxlength="300" value="${esc(nota||'')}" placeholder="Por qué se le da y hasta cuándo se revisa" required></label>
-    <small class="ben-hint span-2">Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.</small>
+    <small class="ben-hint span-2" id="benHintText">Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.</small>
     <div class="ben-form-actions span-2"><button type="submit" class="primary mini">Guardar apoyo</button>
       <button type="button" class="secondary mini" id="benCancel">Cancelar</button></div>
   </form>`);
+  function pintarModo(tipo){
+    const patrocinio=esPatrocinio(tipo);
+    $('benMonthlyTotalWrap').classList.toggle('hidden',!patrocinio);
+    $('benAmountLabel').textContent=patrocinio?'Monto fijo que cubre el patrocinador':'Monto mensual';
+    $('benAmountHint').textContent=patrocinio?'(o deja vacío y usa el % de abajo)':'(o deja vacío y usa el %)';
+    $('benPctLabel').textContent=patrocinio?'% que cubre el patrocinador':'Porcentaje';
+    $('benSourceOpt').textContent=patrocinio?'(requerido)':'(opcional)';
+    $('benHintText').textContent=patrocinio
+      ? 'Esto sí ajusta lo que se le cobra: fija la mensualidad y separa cuánto paga el patrocinador y cuánto la familia.'
+      : 'Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.';
+  }
+  pintarModo(b.type||'scholarship_full');
+  if(esPatrocinio(b.type)){
+    fetchMonthlyFee(playerId).then(fee=>{if(!$('benMonthlyTotal').value)$('benMonthlyTotal').value=fee;});
+  }
+  $('benType').addEventListener('change',async e=>{
+    pintarModo(e.target.value);
+    if(esPatrocinio(e.target.value)&&!$('benMonthlyTotal').value){
+      $('benMonthlyTotal').value=await fetchMonthlyFee(playerId);
+    }
+  });
   $('benCancel').addEventListener('click',()=>renderBenefits(playerId));
   $('benForm').addEventListener('submit',async e=>{
     e.preventDefault();
     const box2=$('benefitMessage');box2.classList.add('hidden');
     const btn=e.target.querySelector('[type="submit"]');btn.disabled=true;
+    const tipo=$('benType').value;
     try{
-      benefits=await rpc('v2_save_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
-        benefit_id:benefitId||null,benefit_type:$('benType').value,
-        fixed_amount:$('benAmount').value?Number($('benAmount').value):null,
-        percentage:$('benPct').value?Number($('benPct').value):null,
-        funding_source:$('benSource').value.trim()||null,
-        starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
-        notes:$('benNotes').value.trim()})||[];
+      if(esPatrocinio(tipo)){
+        const monto=$('benAmount').value?Number($('benAmount').value):null,pct=$('benPct').value?Number($('benPct').value):null;
+        if(monto==null&&pct==null)throw new Error('Sponsor value must be zero or greater');
+        await rpc('v2_configure_sponsor_funding',{organization_id:ctx.organization_id,player_id:playerId,
+          benefit_id:esPatrocinio(b.type)?benefitId||null:null,
+          funding_source_name:$('benSource').value.trim(),
+          monthly_total:Number($('benMonthlyTotal').value||0),
+          funding_mode:monto!=null?'fixed_amount':'percentage',
+          sponsor_value:monto!=null?monto:pct,
+          starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
+          notes:$('benNotes').value.trim()||null});
+        delete billingFeeCache[playerId];
+        benefits=await rpc('v2_player_benefits',{organization_id:ctx.organization_id,player_id:playerId})||[];
+      }else{
+        benefits=await rpc('v2_save_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
+          benefit_id:benefitId||null,benefit_type:tipo,
+          fixed_amount:$('benAmount').value?Number($('benAmount').value):null,
+          percentage:$('benPct').value?Number($('benPct').value):null,
+          funding_source:$('benSource').value.trim()||null,
+          starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
+          notes:$('benNotes').value.trim()})||[];
+      }
       renderBenefits(playerId);
       await loadPlayers();
       msg('Apoyo registrado. Quedó en la bitácora con tu nombre y la fecha.','success');
@@ -433,7 +497,7 @@ async function guardarConsentimiento(playerId){
 function num(v){if(v==null||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}
 function setCardScore(id,value){const n=num(value);setText(id,n==null?'—':String(n));}
 function setCardSports(scores={}){setCardScore('cardTechnique',scores.tecnica);setCardScore('cardGame',scores.inteligencia);setCardScore('cardBody',scores.intensidad);setCardScore('cardMentality',scores.mentalidad);setCardScore('cardValues',scores.valores);}
-function setMetric(scoreId,barId,value,max=5,previous=null){const n=num(value),prev=num(previous),ratio=n==null?0:Math.max(0,Math.min(max,n))/max,label=n==null?'Sin evidencia':ratio<=.2?'Necesita apoyo':ratio<=.4?'En proceso':ratio<=.6?'Esperado':ratio<=.8?'Sólido':'Destacado',trend=n==null||prev==null?'':n>prev?' ↑':n<prev?' ↓':' →',score=$(scoreId),row=score.closest('.metric-row');score.textContent=n==null?'Sin evidencia':`${n}/${max} · ${label}${trend}`;row.dataset.level=n==null?'empty':ratio<=.4?'support':ratio<=.6?'expected':ratio<=.8?'solid':'standout';$(`${barId}`)?.style.setProperty('width',`${ratio*100}%`);}
+function setMetric(scoreId,barId,value,max=5,previous=null){const n=num(value),prev=num(previous),ratio=n==null?0:Math.max(0,Math.min(max,n))/max,label=n==null?'Sin evidencia':ratio<=.2?'En formación':ratio<=.4?'Tomando ritmo':ratio<=.6?'En nivel':ratio<=.8?'Sobresale':'Alto nivel',trend=n==null||prev==null?'':n>prev?' ↑':n<prev?' ↓':' →',score=$(scoreId),row=score.closest('.metric-row');score.textContent=n==null?'Sin evidencia':`${n}/${max} · ${label}${trend}`;row.dataset.level=n==null?'empty':ratio<=.4?'support':ratio<=.6?'expected':ratio<=.8?'solid':'standout';$(`${barId}`)?.style.setProperty('width',`${ratio*100}%`);}
 function radarPoint(value,angle,max=5){const n=Math.max(0,Math.min(max,num(value)??0))/max,r=105*n,cx=150,cy=135,a=(angle-90)*Math.PI/180;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];}
 function setRadar(scores,max=5,previousScores=null){document.querySelectorAll('#sportsRadar line').forEach(line=>{line.setAttribute('x1','150');line.setAttribute('y1','135');});const angles=[0,72,144,216,288],keys=['tecnica','inteligencia','intensidad','mentalidad','valores'],points=keys.map((key,i)=>radarPoint(scores?.[key],angles[i],max)),previousPoints=keys.map((key,i)=>radarPoint(previousScores?.[key],angles[i],max));$('sportsRadarPolygon').setAttribute('points',points.map(p=>p.map(x=>x.toFixed(1)).join(',')).join(' '));$('sportsRadarPrevious').setAttribute('points',previousPoints.map(p=>p.map(x=>x.toFixed(1)).join(',')).join(' '));$('sportsRadarPrevious').classList.toggle('hidden',!previousScores);points.forEach((p,i)=>{const dot=$(`radarPoint${i+1}`);dot.setAttribute('cx',p[0].toFixed(1));dot.setAttribute('cy',p[1].toFixed(1));});}
 function evaluationMeta(e){const line=String(e?.notes||'').split('\n')[0],match=line.match(/^\[TC_1\.0\]\s+(\{.*\})$/);if(!match)return null;try{return JSON.parse(match[1]);}catch{return null;}}
@@ -456,7 +520,7 @@ function evaluationSheet(title,content,actions=''){
   closeEvaluationSheet();const backdrop=document.createElement('div');backdrop.className='evaluation-sheet-backdrop';backdrop.innerHTML=`<section class="evaluation-sheet" role="dialog" aria-modal="true" aria-labelledby="evaluationSheetTitle"><div class="evaluation-sheet-handle"></div><header><div><span>PERFIL TANNER</span><h3 id="evaluationSheetTitle">${esc(title)}</h3></div><button type="button" data-close-sheet aria-label="Cerrar">×</button></header><div class="evaluation-sheet-content">${content}</div>${actions?`<footer>${actions}</footer>`:''}</section>`;document.body.appendChild(backdrop);backdrop.addEventListener('click',e=>{if(e.target===backdrop||e.target.closest('[data-close-sheet]'))closeEvaluationSheet();});return backdrop;
 }
 function openEvaluationCoach(firstUse=false,step=0){
-  if(!firstUse){evaluationSheet('Cómo evaluar',`<ol class="coach-rules"><li>Evalúa según su etapa, no contra sus compañeros.</li><li><b>3 significa “Esperado”:</b> va exactamente donde debe ir.</li><li>Piensa en entrenamientos y partidos de varias semanas.</li><li>Si no tienes evidencia, no inventes.</li></ol><p class="coach-mantra"><strong>Evalúa tendencia, no una jugada.</strong><br>La pantalla te recordará qué significa cada decisión.</p>`,`<button class="primary" type="button" data-close-sheet>Entendido</button>`);return;}
+  if(!firstUse){evaluationSheet('Cómo evaluar',`<ol class="coach-rules"><li>Evalúa según su etapa, no contra sus compañeros.</li><li><b>3 significa “En nivel”:</b> está exactamente donde debe estar.</li><li>Piensa en entrenamientos y partidos de varias semanas.</li><li>Si no tienes evidencia, no inventes.</li></ol><p class="coach-mantra"><strong>Evalúa tendencia, no una jugada.</strong><br>La pantalla te recordará qué significa cada decisión.</p>`,`<button class="primary" type="button" data-close-sheet>Entendido</button>`);return;}
   const card=EVALUATION_ONBOARDING[step],last=step===EVALUATION_ONBOARDING.length-1,scale=card.scale?`<div class="coach-scale">${[1,2,3,4,5].map(n=>`<span class="${n===3?'expected':''}"><b>${n}</b><small>${TANNER_SCALE[n].label}</small></span>`).join('')}</div>`:'',evidence=card.evidence?`<div class="coach-evidence"><b>Sin evidencia</b><span>Si todavía no tienes suficiente información, úsalo. Es mejor no calificar que inventar.</span></div>`:'';
   const sheet=evaluationSheet(card.title,`<div class="coach-step">${scale}<p>${card.body}</p>${evidence}</div><div class="coach-dots">${EVALUATION_ONBOARDING.map((_,i)=>`<i class="${i===step?'on':''}"></i>`).join('')}</div>`,`<button class="secondary" type="button" data-skip-coach>Omitir</button><button class="primary" type="button" data-next-coach>${last?'Empezar evaluación':'Siguiente'}</button>`);sheet.querySelector('[data-skip-coach]').addEventListener('click',()=>{evaluationCoachSeen(true);closeEvaluationSheet();});sheet.querySelector('[data-next-coach]').addEventListener('click',()=>{if(last){evaluationCoachSeen(true);closeEvaluationSheet();}else openEvaluationCoach(true,step+1);});
 }
@@ -464,7 +528,7 @@ function openDimensionGuidance(key){const dimension=TANNER_DIMENSIONS.find(item=
 function openInlineEvaluation(){
   if(!canWrite||!current?.player)return;
   const p=current.player,box=$('inlineEvaluation'),period=new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(new Date());
-  box.innerHTML=`<div class="profile-eval-head"><div><div class="eyebrow">METODOLOGÍA TANNERY CITY · ${PROFILE_METHOD}</div><h3 id="inlineEvaluationTitle">Evaluar a ${esc([p.firstName,p.lastName].filter(Boolean).join(' '))}</h3><p>${esc(p.category||'Sin categoría')} · ${esc(period)} · Se guarda automáticamente</p><button id="profileEvalHelp" class="profile-help-link" type="button">ⓘ ¿Cómo evaluar?</button></div><button id="closeInlineEvaluation" class="secondary mini" type="button">Cerrar</button></div><form id="inlineEvaluationForm"><div class="profile-eval-workspace"><aside class="profile-eval-live"><div><span>PERFIL EN VIVO</span><strong id="profileEvalProgressText" aria-live="polite">0 de 5 dimensiones</strong></div><svg class="profile-eval-radar" viewBox="0 0 300 280" role="img" aria-label="Pentagrama en vivo de las cinco dimensiones"><polygon class="grid outer" points="150,30 250,103 212,220 88,220 50,103"></polygon><polygon class="grid" points="150,80 202,118 182,180 118,180 98,118"></polygon><line x1="150" y1="135" x2="150" y2="30"></line><line x1="150" y1="135" x2="250" y2="103"></line><line x1="150" y1="135" x2="212" y2="220"></line><line x1="150" y1="135" x2="88" y2="220"></line><line x1="150" y1="135" x2="50" y2="103"></line><polygon id="profileEvalRadarPolygon" class="shape" points="150,135 150,135 150,135 150,135 150,135"></polygon><text x="150" y="16" text-anchor="middle">Técnica</text><text x="286" y="100" text-anchor="end">Juego</text><text x="239" y="258" text-anchor="middle">Cuerpo</text><text x="61" y="258" text-anchor="middle">Mentalidad</text><text x="14" y="100">Espíritu</text></svg><div class="profile-eval-progress"><i><b id="profileEvalProgressBar"></b></i></div><p>1 apoyo · 3 esperado · 5 destacado · <b>?</b> sin evidencia</p></aside><div class="profile-eval-controls">${PROFILE_DIMENSIONS.map(([key,name,claim,guide])=>{const category=guidanceForCategory(p.category);return `<fieldset class="profile-eval-dimension"><legend><span><strong>${name}</strong><small>${claim}</small></span><output id="profile-eval-selection-${key}">Elige una opción</output></legend><button class="profile-observe-button" type="button" data-guidance="${key}">ⓘ ¿Qué observo?</button><div class="profile-eval-scale">${evaluationScale(key)}</div><p id="profile-eval-feedback-${key}" class="profile-eval-feedback hidden"></p><template id="profile-guidance-${key}"><div class="guidance-content"><ul>${guide.observations.map(item=>`<li>${item}</li>`).join('')}</ul>${guide.warning?`<p class="guidance-warning">${guide.warning}</p>`:''}<strong>${guide.question}</strong><aside><span>Para ${category.stage}</span><p>${category.text}</p></aside></div></template></fieldset>`;}).join('')}</div></div><section class="profile-eval-finish"><div><span>PASO FINAL</span><strong>Define hacia dónde acompañarlo</strong></div><div class="profile-eval-decisions"><label>Fortaleza principal<small>¿Qué está haciendo especialmente bien?</small><select id="profileStrength" required>${profileOptionList(PROFILE_OPTIONS,true)}</select></label><label>Prioridad de desarrollo<small>¿Qué queremos ayudarle a mejorar?</small><select id="profilePriority" required>${profileOptionList(PROFILE_OPTIONS,true)}</select></label><label>Superpoder<small>Talento diferencial; no es calificación.</small><select id="profilePower">${profileOptionList(PROFILE_POWERS)}</select></label><label id="profilePowerOtherWrap" class="hidden">¿Cuál?<input id="profilePowerOther" maxlength="60"></label></div></section><details class="profile-eval-optional"><summary>Agregar objetivos o nota <small>Opcional</small></summary><label>Próximo objetivo deportivo<input id="profileSportsObjective" maxlength="160"></label><label>Próximo objetivo formativo<input id="profileFormativeObjective" maxlength="160"></label><label>Nota interna<textarea id="profileEvalNotes" rows="3" maxlength="500"></textarea></label></details><div id="profileEvalSummary" class="profile-eval-summary" aria-live="polite"></div><div id="profileEvalMessage" class="inline-message hidden"></div><small id="profileEvalDraftStatus" class="profile-eval-draft">Los cambios se guardan en este dispositivo.</small><div class="profile-eval-save"><button id="profileSaveDraft" class="secondary" type="button">Guardar borrador</button><button class="primary" type="submit">Guardar y siguiente</button></div></form>`;
+  box.innerHTML=`<div class="profile-eval-head"><div><div class="eyebrow">METODOLOGÍA TANNERY CITY · ${PROFILE_METHOD}</div><h3 id="inlineEvaluationTitle">Evaluar a ${esc([p.firstName,p.lastName].filter(Boolean).join(' '))}</h3><p>${esc(p.category||'Sin categoría')} · ${esc(period)} · Se guarda automáticamente</p><button id="profileEvalHelp" class="profile-help-link" type="button">ⓘ ¿Cómo evaluar?</button></div><button id="closeInlineEvaluation" class="secondary mini" type="button">Cerrar</button></div><form id="inlineEvaluationForm"><div class="profile-eval-workspace"><aside class="profile-eval-live"><div><span>PERFIL EN VIVO</span><strong id="profileEvalProgressText" aria-live="polite">0 de 5 dimensiones</strong></div><svg class="profile-eval-radar" viewBox="0 0 300 280" role="img" aria-label="Pentagrama en vivo de las cinco dimensiones"><polygon class="grid outer" points="150,30 250,103 212,220 88,220 50,103"></polygon><polygon class="grid" points="150,80 202,118 182,180 118,180 98,118"></polygon><line x1="150" y1="135" x2="150" y2="30"></line><line x1="150" y1="135" x2="250" y2="103"></line><line x1="150" y1="135" x2="212" y2="220"></line><line x1="150" y1="135" x2="88" y2="220"></line><line x1="150" y1="135" x2="50" y2="103"></line><polygon id="profileEvalRadarPolygon" class="shape" points="150,135 150,135 150,135 150,135 150,135"></polygon><text x="150" y="16" text-anchor="middle">Técnica</text><text x="286" y="100" text-anchor="end">Juego</text><text x="239" y="258" text-anchor="middle">Cuerpo</text><text x="61" y="258" text-anchor="middle">Mentalidad</text><text x="14" y="100">Espíritu</text></svg><div class="profile-eval-progress"><i><b id="profileEvalProgressBar"></b></i></div><p>1 en formación · 3 en nivel · 5 alto nivel · <b>?</b> sin evidencia</p></aside><div class="profile-eval-controls">${PROFILE_DIMENSIONS.map(([key,name,claim,guide])=>{const category=guidanceForCategory(p.category);return `<fieldset class="profile-eval-dimension"><legend><span><strong>${name}</strong><small>${claim}</small></span><output id="profile-eval-selection-${key}">Elige una opción</output></legend><button class="profile-observe-button" type="button" data-guidance="${key}">ⓘ ¿Qué observo?</button><div class="profile-eval-scale">${evaluationScale(key)}</div><p id="profile-eval-feedback-${key}" class="profile-eval-feedback hidden"></p><template id="profile-guidance-${key}"><div class="guidance-content"><ul>${guide.observations.map(item=>`<li>${item}</li>`).join('')}</ul>${guide.warning?`<p class="guidance-warning">${guide.warning}</p>`:''}<strong>${guide.question}</strong><aside><span>Para ${category.stage}</span><p>${category.text}</p></aside></div></template></fieldset>`;}).join('')}</div></div><section class="profile-eval-finish"><div><span>PASO FINAL</span><strong>Define hacia dónde acompañarlo</strong></div><div class="profile-eval-decisions"><label>Fortaleza principal<small>¿Qué está haciendo especialmente bien?</small><select id="profileStrength" required>${profileOptionList(PROFILE_OPTIONS,true)}</select></label><label>Prioridad de desarrollo<small>¿Qué queremos ayudarle a mejorar?</small><select id="profilePriority" required>${profileOptionList(PROFILE_OPTIONS,true)}</select></label><label>Superpoder<small>Talento diferencial; no es calificación.</small><select id="profilePower">${profileOptionList(PROFILE_POWERS)}</select></label><label id="profilePowerOtherWrap" class="hidden">¿Cuál?<input id="profilePowerOther" maxlength="60"></label></div></section><details class="profile-eval-optional"><summary>Agregar objetivos o nota <small>Opcional</small></summary><label>Próximo objetivo deportivo<input id="profileSportsObjective" maxlength="160"></label><label>Próximo objetivo formativo<input id="profileFormativeObjective" maxlength="160"></label><label>Nota interna<textarea id="profileEvalNotes" rows="3" maxlength="500"></textarea></label></details><div id="profileEvalSummary" class="profile-eval-summary" aria-live="polite"></div><div id="profileEvalMessage" class="inline-message hidden"></div><small id="profileEvalDraftStatus" class="profile-eval-draft">Los cambios se guardan en este dispositivo.</small><div class="profile-eval-save"><button id="profileSaveDraft" class="secondary" type="button">Guardar borrador</button><button class="primary" type="submit">Guardar y siguiente</button></div></form>`;
   box.classList.remove('hidden');$('openEvaluation').classList.add('hidden');restoreInlineEvaluation();box.scrollIntoView({behavior:'smooth',block:'start'});
   $('inlineEvaluationForm').addEventListener('input',()=>{saveInlineDraft();updateInlineEvaluationProgress();});$('profileEvalHelp').addEventListener('click',()=>openEvaluationCoach(false));box.querySelectorAll('[data-guidance]').forEach(button=>button.addEventListener('click',()=>openDimensionGuidance(button.dataset.guidance)));if(!evaluationCoachSeen())openEvaluationCoach(true);$('inlineEvaluationForm').addEventListener('submit',saveInlineEvaluation);$('profileSaveDraft').addEventListener('click',saveInlineDraft);$('profilePower').addEventListener('change',e=>$('profilePowerOtherWrap').classList.toggle('hidden',e.target.value!=='Otro'));$('closeInlineEvaluation').addEventListener('click',closeInlineEvaluation);updateInlineEvaluationProgress();
 }
@@ -473,7 +537,7 @@ function updateInlineEvaluationProgress(){
   const total=PROFILE_DIMENSIONS.length,scores={},category=guidanceForCategory(current?.player?.category);
   document.querySelectorAll('[data-profile-score]:checked').forEach(i=>scores[i.dataset.profileScore]=i.value);
   const done=Object.keys(scores).length;$('profileEvalProgressText').textContent=done===total?'Perfil completo':`${done} de ${total} dimensiones`;$('profileEvalProgressBar').style.width=`${done/total*100}%`;
-  PROFILE_DIMENSIONS.forEach(([key,name])=>{const output=$(`profile-eval-selection-${key}`),feedback=$(`profile-eval-feedback-${key}`),value=scores[key],scale=value===''?TANNER_SCALE.none:TANNER_SCALE[value];output.textContent=value===undefined?'Elige una opción':`${value||'?'} · ${scale.label}`;output.classList.toggle('selected',value!==undefined);feedback.classList.toggle('hidden',value===undefined);if(value!==undefined)feedback.innerHTML=`<strong>${value==='3'?`✓ Va donde debe ir en ${esc(category.stage)}.`:esc(scale.label)}</strong><span>${esc(scale.detail)}</span>`;});
+  PROFILE_DIMENSIONS.forEach(([key,name])=>{const output=$(`profile-eval-selection-${key}`),feedback=$(`profile-eval-feedback-${key}`),value=scores[key],scale=value===''?TANNER_SCALE.none:TANNER_SCALE[value];output.textContent=value===undefined?'Elige una opción':`${value||'?'} · ${scale.label}`;output.classList.toggle('selected',value!==undefined);feedback.classList.toggle('hidden',value===undefined);if(value!==undefined)feedback.innerHTML=`<strong>${value==='3'?`✓ Está donde debe estar en ${esc(category.stage)}.`:esc(scale.label)}</strong><span>${esc(scale.detail)}</span>`;});
   const angles=[0,72,144,216,288],points=PROFILE_DIMENSIONS.map(([key],i)=>radarPoint(scores[key],angles[i],5));$('profileEvalRadarPolygon').setAttribute('points',points.map(p=>p.map(x=>x.toFixed(1)).join(',')).join(' '));
   const data=inlineEvaluationData(),summary=$('profileEvalSummary'),rows=PROFILE_DIMENSIONS.map(([key,name])=>{const value=scores[key];return `<li><span>${name}</span><b>${value===undefined?'Pendiente':`${value||'?'} · ${PROFILE_SCALE_LABELS[value]}`}</b></li>`;}).join('');summary.innerHTML=`<header><span>RESUMEN</span><strong>Perfil Tanner</strong></header><ul>${rows}</ul><div><span>Fortaleza <b>${esc(data.strength||'Pendiente')}</b></span><span>Prioridad <b>${esc(data.priority||'Pendiente')}</b></span><span>Superpoder <b>${esc(data.power==='Otro'?(data.powerOther||'Otro'):data.power)}</b></span></div>`;
 }

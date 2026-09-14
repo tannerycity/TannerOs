@@ -34,7 +34,7 @@ const routeContract={
   '/admin/club/':'v2/admin/club/index.html',
   '/admin/onboarding/':'v2/admin/onboarding/index.html'
 };
-const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html','academias/index.html'];
+const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
 for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta archivo crítico: ${file}`);
 
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p];});}
@@ -77,6 +77,13 @@ for(const route of Object.keys(routeContract))if(!qaApp.includes(`'${route}'`))e
 if(/nextActionButton'\)\.addEventListener/.test(qaApp))errors.push('Centro de Calidad registra dos acciones posibles en #nextActionButton; debe usar un único onclick reemplazable');
 const publicForm=fs.readFileSync('public-form.js','utf8');for(const route of ['/registro/porteros','/registro/jugadores','/registro/scouting','/pedido','/programas'])if(!publicForm.includes(route))errors.push(`public-form.js no reconoce ${route}`);
 
+const centroTannerApp=fs.readFileSync('centro-tanner/app.js','utf8');
+for(const marker of ["rest[0] === 'tema'","rest[0] === 'p'","rest[0] === 'documento'","rest[0] === 'cambios'"])if(!centroTannerApp.includes(marker))errors.push(`centro-tanner/app.js perdió una ruta del router: ${marker}`);
+const ctRewriteOk=rewrites.some(r=>r.source==='/centro-tanner/:path*'&&r.destination==='/centro-tanner/index.html');
+if(!ctRewriteOk)errors.push('vercel.json no tiene el rewrite catch-all de /centro-tanner/:path*');
+const ctAdminRewriteOk=rewrites.some(r=>r.source==='/admin/centro-tanner'&&r.destination==='/v2/admin/centro-tanner/index.html');
+if(!ctAdminRewriteOk)errors.push('vercel.json no tiene el rewrite de /admin/centro-tanner');
+
 // Guardas de egress: un avatar nunca debe caer silenciosamente en la foto
 // original. El pull heredado se frena en el gateway de Supabase.
 for(const file of ['v2/jugadores/app.js','v2/calendario/app.js','v2/app.js']){
@@ -111,9 +118,14 @@ if(!playerProfile.includes('radarPoint5')||!playerProfile.includes('Espíritu</t
 if(playerProfile.includes('<details class="radar-secondary">'))errors.push('Perfil Tanner: el pentagrama debe estar siempre visible');
 for(const contract of ['sportsRadarPrevious','profileEvalProgressBar','profileEvalRadarPolygon','PROFILE_SCALE_LABELS','sameStage','openEvaluationCoach','openDimensionGuidance','Guardar y siguiente'])if(!playersApp.includes(contract)&&!playerProfile.includes(contract))errors.push(`Perfil Tanner UX: falta ${contract}`);
 if(!playersApp.includes("'/v2/evaluation-guidance.js'"))errors.push('Perfil Tanner UX: Jugadores no usa el catálogo configurable de coaching');
+for(const [file,source] of [['Jugadores',playersApp],['Mi Academia',fs.readFileSync('v2/mi-academia/app.js','utf8')],['Deportivo',fs.readFileSync('v2/deportivo/index.html','utf8')]]){
+  for(const label of ['En formación','Tomando ritmo','En nivel','Sobresale','Alto nivel','Sin evidencia'])if(!source.includes(label))errors.push(`Escala oficial: falta “${label}” en ${file}`);
+}
 const profileFixture=fs.readFileSync('v2/qa/perfil-tanner/index.html','utf8');
 for(const contract of ['noindex,nofollow','TC_1.0','Sin evidencia','Guardar y siguiente'])if(!profileFixture.includes(contract))errors.push(`Captura Perfil Tanner: falta ${contract}`);
 const cleanupMigration=fs.readFileSync('supabase/migrations/202609130001_delete_legacy_player_evaluations.sql','utf8');
 for(const contract of ['begin;','delete from app.player_evaluations',"not like '[TC_1.0] %'",'commit;'])if(!cleanupMigration.includes(contract))errors.push(`Limpieza de evaluaciones: falta ${contract}`);
+const parkingApp=fs.readFileSync('v2/estacionamiento/app.js','utf8');
+for(const contract of ["state.filtro==='por_cobrar'","state.filtro==='cancelados'",'data-kpi-filter','Cobrar en Taquilla','park-stepper','v2_delete_parking_pass',"ctx.role==='Presidencia'"])if(!parkingApp.includes(contract))errors.push(`Estacionamiento UX: falta ${contract}`);
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

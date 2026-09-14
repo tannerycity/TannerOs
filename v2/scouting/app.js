@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -62,17 +63,13 @@ async function loadPhotos(){
   const rows=await rpc('v2_scouting_photos',{organization_id:ctx.organization_id})||[];
   const byId=new Map(rows.map(x=>[x.report_id,x]));
   reports.forEach(r=>{const row=byId.get(r.id);r.photo_path=row?.photo_path||null;r.photo_thumb_path=row?.photo_thumb_path||null;r.photo_url=null;r.photo_thumb_url=null;});
-  const paths=[...new Set(reports.flatMap(r=>[r.photo_path,r.photo_thumb_path]).filter(Boolean))];
+  const paths=[...new Set(reports.map(r=>r.photo_thumb_path).filter(Boolean))];
   if(!paths.length)return;
-  const {data}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths,600);
-  const map={};(data||[]).forEach(d=>{if(d?.signedUrl&&!d.error)map[d.path]=d.signedUrl;});
-  reports.forEach(r=>{
-    if(r.photo_path)r.photo_url=map[r.photo_path]||null;
-    r.photo_thumb_url=(r.photo_thumb_path&&map[r.photo_thumb_path])||r.photo_url||null;
-  });
+  const map=await getSignedPhotoUrls(supabase,PHOTO_BUCKET,paths);
+  reports.forEach(r=>{r.photo_thumb_url=(r.photo_thumb_path&&map[r.photo_thumb_path])||null;});
 }
 function setPhotoPreview(file){pendingPhoto=file||null;if(pendingPreviewUrl)URL.revokeObjectURL(pendingPreviewUrl);pendingPreviewUrl=file?URL.createObjectURL(file):null;const box=$('scoutPhotoPreview');box.innerHTML=pendingPreviewUrl?`<img src="${safe(pendingPreviewUrl)}" alt="Vista previa del jugador">`:'<span class="tos-icon tos-icon-camera" aria-hidden="true"></span><strong>Agregar foto</strong><small>Cámara o galería</small>';}
-function renderDetailPhoto(r){const box=$('detailPhoto');if(!box)return;box.innerHTML=r.photo_url?`<img src="${safe(r.photo_url)}" alt="Foto de ${safe(r.observed_name||'jugador')}">`:`<span>${safe(initials(r.observed_name))}</span>`;$('changeScoutPhoto').classList.toggle('hidden',!canWrite);}
+async function renderDetailPhoto(r){const box=$('detailPhoto');if(!box)return;if(!r.photo_url&&r.photo_path){try{r.photo_url=await getSignedPhotoUrl(supabase,PHOTO_BUCKET,r.photo_path);}catch{r.photo_url=null;}}box.innerHTML=r.photo_url?`<img src="${safe(r.photo_url)}" alt="Foto de ${safe(r.observed_name||'jugador')}">`:`<span>${safe(initials(r.observed_name))}</span>`;$('changeScoutPhoto').classList.toggle('hidden',!canWrite);}
 function toast(text){const el=$('scoutToast');if(!el)return;el.textContent=text;el.classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('visible'),3200);}
 
 async function boot(){
@@ -174,7 +171,7 @@ async function openReport(id){
   $('createSection').classList.add('hidden');$('editSection')?.classList.add('hidden');$('detailSection').classList.remove('hidden');$('followupSection').classList.remove('hidden');
   $('deleteSection')?.classList.toggle('hidden',!canWrite);$('deleteConfirm')?.classList.add('hidden');$('deleteScout')?.classList.remove('hidden');
   scoreCards(r);facts(r);
-  renderDetailPhoto(r);
+  await renderDetailPhoto(r);
   $('editScout')?.classList.toggle('hidden',!canWrite);
   $('reportStatus').value=r.status||'open';$('interestLevel').value=['alto','medio','bajo'].includes(String(r.interest_level||'').toLowerCase())?String(r.interest_level).toLowerCase():'';
   $('nextActionAt').value=r.next_action_at?localInput(r.next_action_at):'';$('updateVerdict').value=r.verdict||'';$('updateNotes').value=r.notes||'';

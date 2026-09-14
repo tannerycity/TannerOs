@@ -269,13 +269,13 @@ async function verHistorial(id){
   let d;
   try{d=await rpc('v2_parking_pass_detail',{organization_id:ctx.organization_id,pass_id:id});}
   catch(error){$('parkDrawerBody').innerHTML=`<div class="tos-empty">${esc(String(error?.message||error))}</div>`;return;}
-  $('parkDrawerTitle').textContent=d.plate||'Gafete';
+  $('parkDrawerTitle').textContent='Detalle del gafete';
   const saldo=Number(d.balance||0);
   const datos=[['Tanner',d.player],['Tutor',d.guardian],['Vehículo',d.vehicle],['Folio',d.folio],
     ['Temporada',d.season],['Vence',d.expires_on],['Estado',ESTADO[d.status]||d.status],
     ['Cobro',saldo>0?`${money.format(saldo)} pendiente`:'Cubierto'],['Motivo',d.close_reason]]
     .filter(([,v])=>v!=null&&v!=='')
-    .map(([k,v])=>`<div class="tan-row"><span><strong>${esc(k)}</strong></span><span class="tan-state">${esc(String(v))}</span></div>`).join('');
+    .map(([k,v])=>`<div class="park-fact"><span>${esc(k)}</span><strong>${esc(String(v))}</strong></div>`).join('');
   const eventos=(d.events||[]).map(e=>{
     const quien=[ACTOR[e.actor_kind]||e.actor_kind,e.actor].filter(Boolean).join(' · ');
     return `<div class="park-ev"><span class="park-ev-dot"></span><span><strong>${esc(EVENTO[e.event]||e.event)}</strong><span>${esc(fmtFecha(e.at))} · ${esc(quien)}${e.note?` · ${esc(e.note)}`:''}</span></span></div>`;
@@ -283,7 +283,7 @@ async function verHistorial(id){
   const playerId=d.player_id||d.playerId,terminal=['rejected','revoked','lost','expired'].includes(d.status);
   const cobrar=saldo>0&&playerId?`<a class="primary park-drawer-action" href="/taquilla/?action=cobrar&amp;player=${encodeURIComponent(playerId)}&amp;amount=${encodeURIComponent(saldo)}&amp;name=${encodeURIComponent(d.player||'Tanner')}">Cobrar ${esc(money.format(saldo))} en Taquilla</a>`:'';
   const eliminar=ctx.role==='Presidencia'&&terminal?`<button class="park-delete" type="button" data-delete-pass="${esc(id)}">Eliminar registro definitivamente</button>`:'';
-  $('parkDrawerBody').innerHTML=`${cobrar}<div class="tan-rows">${datos}</div><h3 style="margin:20px 0 0;font-size:15px">Historial</h3><div class="park-log">${eventos||'<div class="tos-empty">Sin movimientos.</div>'}</div>${eliminar}`;
+  $('parkDrawerBody').innerHTML=`<section class="park-detail-hero"><span class="park-detail-plate">${esc(d.plate||'Sin placas')}</span><div><strong>${esc(d.player||PORTADOR[d.holder_kind]||'Titular del gafete')}</strong><small>${esc([d.category,d.guardian&&`Tutor: ${d.guardian}`].filter(Boolean).join(' · ')||'Datos del gafete')}</small></div><span class="park-state" data-s="${esc(d.status)}">${esc(ESTADO[d.status]||d.status)}</span></section>${cobrar}<section class="park-detail-section"><h3>Datos del gafete</h3><div class="park-facts">${datos}</div></section><section class="park-detail-section"><h3>Historial</h3><div class="park-log">${eventos||'<div class="tos-empty">Sin movimientos.</div>'}</div></section>${eliminar}`;
   $('parkDrawerBody').querySelector('[data-delete-pass]')?.addEventListener('click',()=>eliminarRegistro(id,d));
 }
 
@@ -291,7 +291,7 @@ async function eliminarRegistro(id,pass){
   const ok=await tosConfirm({kicker:'SOLO PRESIDENCIA',title:'¿Eliminar este registro?',message:`${pass.player||'Este gafete'} · ${pass.plate||'sin placas'}. Se eliminará también su historial. Esta acción no se puede deshacer.`,confirmText:'Eliminar definitivamente',danger:true});
   if(!ok)return;
   try{await rpc('v2_delete_parking_pass',{organization_id:ctx.organization_id,pass_id:id});cerrarDrawer();await load();await tosAlert({kicker:'ESTACIONAMIENTO',title:'Registro eliminado',message:'El gafete y su historial ya no aparecen en el padrón.'});}
-  catch(error){await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo eliminar',message:String(error?.message||error)});}
+  catch(error){const raw=String(error?.message||error),message=/Could not find the function|schema cache/i.test(raw)?'La actualización segura de base de datos todavía no llegó a producción. No se eliminó nada; el equipo técnico debe desplegar la migración pendiente.':/related records/i.test(raw)?'Este gafete tiene movimientos relacionados que deben conservarse. Cancela o ajusta primero esos movimientos.':raw;await tosAlert({kicker:'ESTACIONAMIENTO',title:'No se pudo eliminar',message});}
 }
 
 $('parkClose').addEventListener('click',cerrarDrawer);

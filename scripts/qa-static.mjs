@@ -126,6 +126,8 @@ for(const contract of ['noindex,nofollow','TC_1.0','Sin evidencia','Guardar y si
 const cleanupMigration=fs.readFileSync('supabase/migrations/202609130001_delete_legacy_player_evaluations.sql','utf8');
 for(const contract of ['begin;','delete from app.player_evaluations',"not like '[TC_1.0] %'",'commit;'])if(!cleanupMigration.includes(contract))errors.push(`Limpieza de evaluaciones: falta ${contract}`);
 const parkingApp=fs.readFileSync('v2/estacionamiento/app.js','utf8');
-for(const contract of ["state.filtro==='por_cobrar'","state.filtro==='cancelados'",'data-kpi-filter','Cobrar en Taquilla','park-stepper','v2_delete_parking_pass',"ctx.role==='Presidencia'"])if(!parkingApp.includes(contract))errors.push(`Estacionamiento UX: falta ${contract}`);
+for(const contract of ["state.filtro==='por_cobrar'","state.filtro==='cancelados'",'data-kpi-filter','Cobrar en Taquilla','park-stepper','park-detail-hero','park-facts','v2_delete_parking_pass',"ctx.role==='Presidencia'"])if(!parkingApp.includes(contract))errors.push(`Estacionamiento UX: falta ${contract}`);
+const parkingDeleteMigration=fs.readFileSync('supabase/migrations/202609140001_delete_parking_pass_rpc.sql','utf8');
+for(const contract of ['security definer','v2_my_context','Only Presidencia','rejected','revoked','grant execute'])if(!parkingDeleteMigration.includes(contract))errors.push(`Estacionamiento delete RPC: falta ${contract}`);
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

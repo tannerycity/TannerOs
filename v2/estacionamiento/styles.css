@@ -40,6 +40,7 @@
   padding-top:max(20px,env(safe-area-inset-top));padding-bottom:max(20px,env(safe-area-inset-bottom))}
 .park-drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
 .park-drawer-head h2{margin:4px 0 0;font-size:21px;letter-spacing:-.02em}
+.park-detail-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px;border-radius:17px;background:linear-gradient(145deg,#eef5f4,#f9fbfa);border:1px solid #dce7e4}.park-detail-plate{padding:8px 10px;border-radius:10px;background:#0d2730;color:#fff;font-size:12px;font-weight:800;letter-spacing:.04em}.park-detail-hero>div{display:grid;gap:3px;min-width:0}.park-detail-hero>div strong{font-size:14px;color:#0d2730}.park-detail-hero>div small{font-size:10px;line-height:1.4;color:#75858a}.park-detail-section{margin-top:20px}.park-detail-section>h3{margin:0 0 8px;font-size:14px}.park-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.park-fact{display:grid;gap:4px;min-width:0;padding:11px;border:1px solid #e4ebe9;border-radius:12px;background:#fff}.park-fact>span{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#7b898d}.park-fact>strong{font-size:12px;line-height:1.35;color:#17343c;overflow-wrap:anywhere}
 .park-log{display:grid;margin-top:8px}
 .park-drawer-action{display:flex;justify-content:center;margin-bottom:14px;text-decoration:none;min-height:48px;align-items:center}
 .park-delete{width:100%;min-height:46px;margin-top:22px;border:1px solid #e8bbb6;border-radius:12px;background:#fff5f4;color:#a7352c;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
@@ -55,7 +56,9 @@
   .park-actions{grid-column:1/-1;justify-content:flex-start}
   .park-drawer{width:100%}
   .park-kpi{min-height:138px;padding:15px}.park-kpi strong{font-size:27px}.park-kpi i{margin-top:auto;padding-top:8px}
+  .park-detail-hero{grid-template-columns:auto minmax(0,1fr)}.park-detail-hero>.park-state{grid-column:2;justify-self:start}.park-facts{grid-template-columns:1fr 1fr}
 }
+@media(max-width:390px){.park-facts{grid-template-columns:1fr}}
 
 /* Alta manual de gafetes */
 .park-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}

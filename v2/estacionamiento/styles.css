@@ -1,6 +1,10 @@
 /* Padrón de gafetes de estacionamiento */
 .park-drawer,.park-drawer *,.park-row,.park-row *,.park-search,.park-chip{box-sizing:border-box}
 .park-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin:14px 0}
+.park-kpi{appearance:none;text-align:left;font:inherit;cursor:pointer;position:relative;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}
+.park-kpi:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(5,30,38,.1);border-color:#b8cbc7}
+.park-kpi:active{transform:scale(.985)}
+.park-kpi i{display:block;margin-top:9px;color:#087d8e;font-size:10px;font-style:normal;font-weight:800}
 .park-filters{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
 .park-chip{border:1px solid var(--tos-line,#dedbd0);background:#fff;border-radius:999px;min-height:44px;
   padding:0 15px;font:inherit;font-size:13.5px;font-weight:600;color:#0d2730;cursor:pointer}
@@ -20,6 +24,7 @@
 .park-actions button{min-height:40px;padding:0 13px;border-radius:10px;border:1px solid var(--tos-line,#dedbd0);
   background:#fff;font:inherit;font-size:12.5px;font-weight:600;color:#0d2730;cursor:pointer;white-space:nowrap}
 .park-actions button[data-kind="go"]{background:#087d8e;border-color:#087d8e;color:#fff}
+.park-cash-link{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 13px;border-radius:10px;background:#0d2730;color:#fff;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap}
 .park-state{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;
   background:#f4f6f5;color:#6f7d82}
 .park-state[data-s="requested"]{background:#fdf8ec;color:#8a6413}
@@ -36,6 +41,8 @@
 .park-drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
 .park-drawer-head h2{margin:4px 0 0;font-size:21px;letter-spacing:-.02em}
 .park-log{display:grid;margin-top:8px}
+.park-drawer-action{display:flex;justify-content:center;margin-bottom:14px;text-decoration:none;min-height:48px;align-items:center}
+.park-delete{width:100%;min-height:46px;margin-top:22px;border:1px solid #e8bbb6;border-radius:12px;background:#fff5f4;color:#a7352c;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
 .park-ev{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:11px 0;border-bottom:1px solid #eeeae0}
 .park-ev:last-child{border-bottom:0}
 .park-ev-dot{width:10px;height:10px;border-radius:50%;margin-top:5px;background:#c3ccd0}
@@ -47,10 +54,12 @@
   .park-row{grid-template-columns:auto minmax(0,1fr);row-gap:9px}
   .park-actions{grid-column:1/-1;justify-content:flex-start}
   .park-drawer{width:100%}
+  .park-kpi{min-height:138px;padding:15px}.park-kpi strong{font-size:27px}.park-kpi i{margin-top:auto;padding-top:8px}
 }
 
 /* Alta manual de gafetes */
 .park-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.park-stepper{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:13px;background:#eef2f1}.park-stepper b{padding:9px 6px;border-radius:10px;color:#879397;text-align:center;font-size:10px}.park-stepper b.on{background:#fff;color:#0d2730;box-shadow:0 2px 7px rgba(5,30,38,.08)}.park-new-step{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px}.park-new-step[hidden]{display:none}.park-next{grid-column:1/-1}.park-step-actions{grid-column:1/-1;display:grid;grid-template-columns:.7fr 1.3fr;gap:8px}.park-step-actions button{min-height:48px}.park-confirm-copy{grid-column:1/-1;display:grid;gap:3px;padding:14px;border-radius:14px;background:#eef6f5}.park-confirm-copy strong{font-size:17px}.park-confirm-copy span{font-size:11px;color:#65777c}
 .park-form label{display:grid;gap:6px;font-size:12.5px;font-weight:600;color:#6b7a80}
 .park-form label>span:first-child{display:block}
 .park-form input,.park-form select{border:1px solid var(--tos-line,#dedbd0);border-radius:11px;padding:11px 12px;
@@ -62,7 +71,7 @@
 .park-form button{grid-column:1/-1;min-height:48px}
 .park-form .inline-message{grid-column:1/-1}
 .park-state[data-s="courtesy"]{background:#f4ecd9;color:#7a5c14}
-@media(max-width:560px){.park-form{grid-template-columns:1fr}}
+@media(max-width:560px){.park-form,.park-new-step{grid-template-columns:1fr}.park-stepper b{font-size:9px}.park-new-step>*{grid-column:1/-1}}
 
 /* Tipo de pase: el VIP se distingue de un vistazo, en pantalla y en papel. */
 .park-type{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;background:#eaf3f4;color:#0a5c68;white-space:nowrap}

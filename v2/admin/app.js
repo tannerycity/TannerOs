@@ -11,7 +11,7 @@ const settings=[
   {module:'admin',name:'Datos del club',detail:'Nombre, región, moneda y plan.',href:'/admin/club/',symbol:'TC'},
   {module:'admin',name:'Puertas disponibles',detail:'Revisa qué áreas están activas en TannerOS.',href:'/modulos/',symbol:'MO'},
   {module:'admin',name:'Huella de movimientos',detail:'Consulta quién hizo cada cambio y cuándo.',href:'/admin/auditoria/',symbol:'HI'},
-  {module:'centro_tanner',name:'Centro Tanner',detail:'Reglamento, FAQ, políticas y aceptaciones de las familias.',href:'/admin/centro-tanner/',symbol:'CT'},
+  {module:'admin',name:'Miniaturas de fotos',detail:'Genera las miniaturas que faltan para que las listas muestren cada rostro.',href:'/admin/fotos/',symbol:'FT'},
   {module:'qa',name:'Estado de TannerOS',detail:'Pruebas y salud técnica del club.',href:'/qa/',symbol:'OK'}
 ];
 

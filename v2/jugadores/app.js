@@ -11,7 +11,16 @@ function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMon
 function setText(id,value){const node=$(id);if(node)node.textContent=value??'—';}
 function positionCode(value){const label=String(value||'').toLocaleLowerCase('es-MX');if(/porter/.test(label))return'POR';if(/defen|central|lateral/.test(label))return'DEF';if(/medio|volante|contenci/.test(label))return'MED';if(/delanter|extremo|punta/.test(label))return'DEL';return value?String(value).slice(0,3).toUpperCase():'POS';}
 function renderCardIdentity(p){const fullName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Tanner',foot={right:'Derecha',left:'Izquierda',both:'Ambas',Derecha:'Derecha',Izquierda:'Izquierda',Ambas:'Ambas'}[p.dominantFoot]||p.dominantFoot||'Por definir',status=p.status==='active'?'ACTIVO':'BAJA';setText('cardName',fullName);setText('cardCode',p.code||'Sin código');setText('cardPosition',positionCode(p.position));setText('cardCategory',p.category||'Sin categoría');setText('cardJersey',p.jerseyNumber||'—');setText('cardFoot',`Pierna ${foot}`);setText('cardStatus',status);setText('quickPosition',p.position||'Por definir');setText('quickFoot',foot);setText('quickCategory',p.category||'Sin categoría');setText('quickJersey',p.jerseyNumber||'—');const card=$('tannerCard');if(card){card.dataset.status=p.status||'active';card.setAttribute('aria-label',`Carta deportiva de ${fullName}`);}}
-function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/failed to fetch|networkerror|load failed|network request failed/i.test(s))return 'Se cortó la conexión con el servidor. No se guardó ningún cambio: revisa tu internet y vuelve a intentar.';if(/ux_players_active_category_jersey|duplicate key/i.test(s))return 'Ese dorsal ya está ocupado por otro Tanner activo en la categoría seleccionada.';const map={'Not authorized':'No tienes permiso para editar expedientes.','Player not found':'No encontramos ese Tanner.','Valid birth date required':'La fecha de nacimiento no es válida.','Invalid dominant foot':'Selecciona una pierna válida.','Invalid phone number':'Revisa el formato del teléfono.','Mexico phone must have exactly 10 digits':'Para México usa exactamente 10 dígitos.','Guardian phone required':'Captura un teléfono válido para el tutor.','Invalid guardian email':'El correo del tutor no es válido.','Effective date cannot precede current enrollment start':'La fecha del cambio no puede ser anterior al inicio de la categoría actual.','Only withdrawn players can be reactivated':'Este Tanner ya está activo.','Only withdrawn or inactive players can be reactivated':'Este Tanner ya está activo.','Only active players can be withdrawn':'Este Tanner ya está de baja.','Reactivation date required':'Indica la fecha de alta.','Withdrawal date required':'Indica la fecha de baja.','Withdrawal reason required':'Escribe el motivo de la baja.'};return map[s]||s;}
+function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/failed to fetch|networkerror|load failed|network request failed/i.test(s))return 'Se cortó la conexión con el servidor. No se guardó ningún cambio: revisa tu internet y vuelve a intentar.';if(/ux_players_active_category_jersey|duplicate key/i.test(s))return 'Ese dorsal ya está ocupado por otro Tanner activo en la categoría seleccionada.';const map={'Not authorized':'No tienes permiso para editar expedientes.','Player not found':'No encontramos ese Tanner.','Valid birth date required':'La fecha de nacimiento no es válida.','Invalid dominant foot':'Selecciona una pierna válida.','Invalid phone number':'Revisa el formato del teléfono.','Mexico phone must have exactly 10 digits':'Para México usa exactamente 10 dígitos.','Guardian phone required':'Captura un teléfono válido para el tutor.','Invalid guardian email':'El correo del tutor no es válido.','Effective date cannot precede current enrollment start':'La fecha del cambio no puede ser anterior al inicio de la categoría actual.','Only withdrawn players can be reactivated':'Este Tanner ya está activo.','Only withdrawn or inactive players can be reactivated':'Este Tanner ya está activo.','Only active players can be withdrawn':'Este Tanner ya está de baja.','Reactivation date required':'Indica la fecha de alta.','Withdrawal date required':'Indica la fecha de baja.','Withdrawal reason required':'Escribe el motivo de la baja.',
+  'Financial configuration requires Presidencia or Contabilidad':'Solo Presidencia o Contabilidad pueden configurar patrocinios.',
+  'Monthly total must be zero or greater':'La mensualidad debe ser cero o más.',
+  'Funding mode must be fixed_amount or percentage':'Indica el monto fijo o el porcentaje que cubre el patrocinador.',
+  'Sponsor value must be zero or greater':'Lo que cubre el patrocinador debe ser cero o más.',
+  'Sponsor amount cannot exceed monthly total':'Lo que cubre el patrocinador no puede ser más que la mensualidad.',
+  'Sponsor percentage cannot exceed 100':'El porcentaje no puede pasar de 100.',
+  'Funding source required':'Escribe quién es el patrocinador.',
+  'Benefit end cannot precede start':'La fecha de fin no puede ser antes de la de inicio.',
+  'Sponsor benefit not found':'No encontramos ese patrocinio.'};return map[s]||s;}
 function renderStatusAction(p){const btn=$('toggleStatusBtn'),alt=$('withdrawInactiveBtn');if(!btn)return;if(!canStatus){btn.classList.add('hidden');alt?.classList.add('hidden');return;}btn.classList.remove('hidden');if(p.status!=='active'){btn.textContent='Dar de alta';btn.dataset.action='reactivate';btn.classList.remove('danger-mini');}else{btn.textContent='Dar de baja';btn.dataset.action='withdraw';btn.classList.add('danger-mini');}alt?.classList.toggle('hidden',p.status!=='inactive');}
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='players');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Jugadores.';show('deniedView');return;}canWrite=!!mod.can_write;
   const familyMod=mods.find(m=>m.module_code==='jugadores_familia');canFamily=!!(familyMod?.enabled&&familyMod?.can_write);
@@ -208,10 +217,23 @@ function renderPrivacy(p){
 // nadie puede responder de cuánto es ni por qué. Esto la saca a la superficie.
 const TIPO_BECA={scholarship_full:'Beca total',scholarship_partial:'Beca parcial',
   sponsor_funded:'La paga un patrocinador',sibling_discount:'Descuento por hermanos'};
-const TIPOS_EDITABLES=['scholarship_full','scholarship_partial','sibling_discount'];
+const TIPOS_EDITABLES=['scholarship_full','scholarship_partial','sibling_discount','sponsor_funded'];
 // La nota que dejó la importación no es un motivo: la escribió el script, no una persona.
 const esNotaDelLegacy=n=>!n||/^Imported as legacy context/.test(n);
 let benefits=[];
+
+// Configurar un patrocinio (sponsor_funded) necesita la mensualidad vigente del
+// Tanner (v2_configure_sponsor_funding la usa para fijar cuánto paga cada
+// quién). Se pide una sola vez por sesión y se guarda en caché.
+let billingFeeCache={};
+async function fetchMonthlyFee(playerId){
+  if(billingFeeCache[playerId]!=null)return billingFeeCache[playerId];
+  try{
+    const rows=await rpc('v2_billing_players',{organization_id:ctx.organization_id})||[];
+    rows.forEach(p=>{billingFeeCache[p.player_id]=Number(p.base_monthly_fee||0);});
+  }catch(e){/* silencioso: se deja en 0 y la persona lo ajusta a mano */}
+  return billingFeeCache[playerId]??0;
+}
 
 // Solicitudes de beca que mandó la familia desde el portal. Si nadie las ve,
 // pedirlas no sirve de nada: aparecen aquí, junto a las becas, que es donde
@@ -287,9 +309,8 @@ function renderBenefits(playerId){
   }
   box.innerHTML=vivos.map(b=>{
     const monto=montoBeca(b);
-    const bloqueado=b.type==='sponsor_funded';
     const avisos=[
-      b.blocksBilling?'<span class="ben-warn">Sin configurar en Contabilidad: mientras siga así no se le genera su mensualidad.</span>':'',
+      b.blocksBilling?'<span class="ben-warn">Falta configurar cuánto cubre el patrocinador: mientras siga así no se le genera su mensualidad. Dale Editar.</span>':'',
       !monto?'<span class="ben-gap">Falta anotar de cuánto es el apoyo.</span>':'',
       esNotaDelLegacy(b.notes)?'<span class="ben-gap">Falta el motivo: lo que dice hoy lo escribió la importación.</span>':''
     ].filter(Boolean).join('');
@@ -300,10 +321,10 @@ function renderBenefits(playerId){
       b.endsOn?`<span>Hasta ${esc(fechaConAnio(b.endsOn))}</span>`:'',
       b.legacyLabel?`<span class="ben-legacy">Venía como “${esc(b.legacyLabel)}”</span>`:''
     ].filter(Boolean).join('');
-    const acciones=canStatus&&!bloqueado
+    const acciones=canStatus
       ? `<span class="ben-actions"><button type="button" class="secondary mini" data-benedit="${esc(b.id)}">Editar</button>`+
         `<button type="button" class="secondary mini" data-benend="${esc(b.id)}">Terminar</button></span>`
-      : bloqueado?'<span class="ben-locked">Se edita en Contabilidad</span>':'';
+      : '';
     return `<article class="ben-row"><div class="ben-head"><strong>${esc(TIPO_BECA[b.type]||b.type)}</strong>${acciones}</div>`+
       (datos?`<div class="ben-facts">${datos}</div>`:'')+
       (esNotaDelLegacy(b.notes)?'':`<p class="ben-note">${esc(b.notes)}</p>`)+
@@ -313,36 +334,79 @@ function renderBenefits(playerId){
   box.querySelectorAll('[data-benedit]').forEach(b=>b.addEventListener('click',()=>formBeca(playerId,b.dataset.benedit)));
   box.querySelectorAll('[data-benend]').forEach(b=>b.addEventListener('click',()=>terminarBeca(playerId,b.dataset.benend)));
 }
+// El patrocinio (sponsor_funded) usa otra función en el servidor
+// (v2_configure_sponsor_funding, la misma que ya usaba Contabilidad) porque
+// además de guardar el apoyo, fija la mensualidad del Tanner. Por eso pide un
+// campo extra ("Mensualidad") que los otros tipos no necesitan.
 function formBeca(playerId,benefitId){
   const b=benefits.find(x=>x.id===benefitId)||{};
+  const esPatrocinio=t=>t==='sponsor_funded';
   const box=$('benefitsList');
   const opciones=TIPOS_EDITABLES.map(t=>`<option value="${t}"${b.type===t?' selected':''}>${esc(TIPO_BECA[t])}</option>`).join('');
   const nota=esNotaDelLegacy(b.notes)?'':b.notes;
   box.insertAdjacentHTML('afterbegin',`<form class="ben-form" id="benForm">
     <label>Tipo de apoyo<select id="benType">${opciones}</select></label>
-    <label>Monto mensual <span class="tos-user-note">(o deja vacío y usa el %)</span><input id="benAmount" type="number" min="1" step="1" value="${b.fixedAmount??''}"></label>
-    <label>Porcentaje<input id="benPct" type="number" min="1" max="100" step="1" value="${b.percentage??''}"></label>
-    <label>¿Quién lo cubre? <span class="tos-user-note">(opcional)</span><input id="benSource" maxlength="120" value="${esc(b.fundingSource||'')}" placeholder="El club, un padrino…"></label>
+    <label id="benMonthlyTotalWrap" class="hidden">Mensualidad de este Tanner<input id="benMonthlyTotal" type="number" min="0" step="1" value=""></label>
+    <label><span id="benAmountLabel">Monto mensual</span> <span class="tos-user-note" id="benAmountHint">(o deja vacío y usa el %)</span><input id="benAmount" type="number" min="1" step="1" value="${b.fixedAmount??''}"></label>
+    <label><span id="benPctLabel">Porcentaje</span><input id="benPct" type="number" min="1" max="100" step="1" value="${b.percentage??''}"></label>
+    <label id="benSourceWrap">¿Quién lo cubre? <span class="tos-user-note" id="benSourceOpt">(opcional)</span><input id="benSource" maxlength="120" value="${esc(b.fundingSource||b.sponsorName||'')}" placeholder="El club, un padrino…"></label>
     <label>Desde<input id="benStart" type="date" value="${esc(b.startsOn||'')}"></label>
     <label>Hasta <span class="tos-user-note">(opcional)</span><input id="benEnd" type="date" value="${esc(b.endsOn||'')}"></label>
     <label class="span-2">Motivo<input id="benNotes" maxlength="300" value="${esc(nota||'')}" placeholder="Por qué se le da y hasta cuándo se revisa" required></label>
-    <small class="ben-hint span-2">Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.</small>
+    <small class="ben-hint span-2" id="benHintText">Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.</small>
     <div class="ben-form-actions span-2"><button type="submit" class="primary mini">Guardar apoyo</button>
       <button type="button" class="secondary mini" id="benCancel">Cancelar</button></div>
   </form>`);
+  function pintarModo(tipo){
+    const patrocinio=esPatrocinio(tipo);
+    $('benMonthlyTotalWrap').classList.toggle('hidden',!patrocinio);
+    $('benAmountLabel').textContent=patrocinio?'Monto fijo que cubre el patrocinador':'Monto mensual';
+    $('benAmountHint').textContent=patrocinio?'(o deja vacío y usa el % de abajo)':'(o deja vacío y usa el %)';
+    $('benPctLabel').textContent=patrocinio?'% que cubre el patrocinador':'Porcentaje';
+    $('benSourceOpt').textContent=patrocinio?'(requerido)':'(opcional)';
+    $('benHintText').textContent=patrocinio
+      ? 'Esto sí ajusta lo que se le cobra: fija la mensualidad y separa cuánto paga el patrocinador y cuánto la familia.'
+      : 'Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.';
+  }
+  pintarModo(b.type||'scholarship_full');
+  if(esPatrocinio(b.type)){
+    fetchMonthlyFee(playerId).then(fee=>{if(!$('benMonthlyTotal').value)$('benMonthlyTotal').value=fee;});
+  }
+  $('benType').addEventListener('change',async e=>{
+    pintarModo(e.target.value);
+    if(esPatrocinio(e.target.value)&&!$('benMonthlyTotal').value){
+      $('benMonthlyTotal').value=await fetchMonthlyFee(playerId);
+    }
+  });
   $('benCancel').addEventListener('click',()=>renderBenefits(playerId));
   $('benForm').addEventListener('submit',async e=>{
     e.preventDefault();
     const box2=$('benefitMessage');box2.classList.add('hidden');
     const btn=e.target.querySelector('[type="submit"]');btn.disabled=true;
+    const tipo=$('benType').value;
     try{
-      benefits=await rpc('v2_save_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
-        benefit_id:benefitId||null,benefit_type:$('benType').value,
-        fixed_amount:$('benAmount').value?Number($('benAmount').value):null,
-        percentage:$('benPct').value?Number($('benPct').value):null,
-        funding_source:$('benSource').value.trim()||null,
-        starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
-        notes:$('benNotes').value.trim()})||[];
+      if(esPatrocinio(tipo)){
+        const monto=$('benAmount').value?Number($('benAmount').value):null,pct=$('benPct').value?Number($('benPct').value):null;
+        if(monto==null&&pct==null)throw new Error('Sponsor value must be zero or greater');
+        await rpc('v2_configure_sponsor_funding',{organization_id:ctx.organization_id,player_id:playerId,
+          benefit_id:esPatrocinio(b.type)?benefitId||null:null,
+          funding_source_name:$('benSource').value.trim(),
+          monthly_total:Number($('benMonthlyTotal').value||0),
+          funding_mode:monto!=null?'fixed_amount':'percentage',
+          sponsor_value:monto!=null?monto:pct,
+          starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
+          notes:$('benNotes').value.trim()||null});
+        delete billingFeeCache[playerId];
+        benefits=await rpc('v2_player_benefits',{organization_id:ctx.organization_id,player_id:playerId})||[];
+      }else{
+        benefits=await rpc('v2_save_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
+          benefit_id:benefitId||null,benefit_type:tipo,
+          fixed_amount:$('benAmount').value?Number($('benAmount').value):null,
+          percentage:$('benPct').value?Number($('benPct').value):null,
+          funding_source:$('benSource').value.trim()||null,
+          starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
+          notes:$('benNotes').value.trim()})||[];
+      }
       renderBenefits(playerId);
       await loadPlayers();
       msg('Apoyo registrado. Quedó en la bitácora con tu nombre y la fecha.','success');

@@ -70,6 +70,20 @@ function applyLedgerVisibility(){
   $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
 }
 
+// El concepto que emite el motor viene largo ("Academia Academia de porteros ·
+// 2026-09"). En una lista se muestra lo que distingue un cargo de otro. Usado
+// por el buscador de Tanners y por Cobranza.
+const TIPO_CARGO={monthly_fee:'Mensualidad',monthly_fee_sponsor:'Mensualidad · patrocinio',
+  academy_fee:'Academia',academy_day:'Día de academia',late_fee:'Recargo',
+  product:'Tienda',equipment:'Uniforme',parking:'Estacionamiento',parking_pass:'Gafete'};
+function conceptoCorto(r){
+  const base=TIPO_CARGO[r.charge_type]||r.concept||'Cargo';
+  const mes=r.billing_period
+    ? new Intl.DateTimeFormat('es-MX',{month:'short',year:'2-digit'}).format(new Date(`${String(r.billing_period).slice(0,10)}T12:00:00`))
+    : '';
+  return mes?`${base} ${mes}`:base;
+}
+
 // === Cobranza: estado por jugador (quién debe, quién está al corriente) con
 // una acción directa de cobro — reusa el mismo modal de COBRAR (quickCollect),
 // no inventa un segundo flujo para registrar pagos. ===
@@ -285,19 +299,6 @@ $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')
 
 
 // === Buscador inteligente de Tanners (por cualquier nombre, sin acentos) ===
-// El concepto que emite el motor viene largo ("Academia Academia de porteros ·
-// 2026-09"). En una lista de búsqueda estorba: se muestra lo que distingue un
-// cargo de otro.
-const TIPO_CARGO={monthly_fee:'Mensualidad',monthly_fee_sponsor:'Mensualidad · patrocinio',
-  academy_fee:'Academia',academy_day:'Día de academia',late_fee:'Recargo',
-  product:'Tienda',equipment:'Uniforme',parking:'Estacionamiento',parking_pass:'Gafete'};
-function conceptoCorto(r){
-  const base=TIPO_CARGO[r.charge_type]||r.concept||'Cargo';
-  const mes=r.billing_period
-    ? new Intl.DateTimeFormat('es-MX',{month:'short',year:'2-digit'}).format(new Date(`${String(r.billing_period).slice(0,10)}T12:00:00`))
-    : '';
-  return mes?`${base} ${mes}`:base;
-}
 function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
   const inp=$(searchId),hid=$(hiddenId),res=$(resultsId),clr=$(clearId);
   if(!inp||!hid||!res)return;

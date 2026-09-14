@@ -70,7 +70,12 @@
 /* === Cobranza: lista de jugadores con estado y cobro directo === */
 .collections-toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .collections-toolbar .tsearch{flex:1;min-width:220px}
-.collections-filters{margin:0}
+.collections-filters{display:flex;gap:7px;margin:0;overflow-x:auto;scrollbar-width:none}
+.collections-filters::-webkit-scrollbar{display:none}
+.collections-filters button{flex:0 0 auto;border:1px solid var(--tos-line);background:#fff;border-radius:999px;padding:9px 13px;font-weight:900;color:#52646b}
+.collections-filters button.active{background:var(--tos-teal);color:#fff;border-color:var(--tos-teal)}
+.collections-toggle{display:block;width:100%;text-align:center;border:0;background:none;color:var(--tos-teal);font-weight:900;font-size:12.5px;padding:12px 0 2px;cursor:pointer}
+.collections-toggle:hover{text-decoration:underline}
 .status-pill.pending{background:#fbf1dd;color:#C8890B}
 .status-pill.current{background:#e5f4ee;color:#167748}
 .collections-list{display:flex;flex-direction:column}

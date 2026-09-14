@@ -9,8 +9,12 @@ const canCashWrite=moduleAccess(navigation,'taquilla',true)||moduleAccess(naviga
 const canAccountingWrite=moduleAccess(navigation,'contabilidad',true);
 // Pagar ya no depende exclusivamente de Contabilidad: quien opera esta caja (Taquilla RW) también puede pagar.
 const canPayWrite=canCashWrite||canAccountingWrite;
-const canViewCollections=moduleAccess(navigation,'cobranza',false);
-let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,receivables=[],collectionsFilter='all';
+// Cobranza es información sensible del club: solo Presidencia la ve en
+// Taquilla, aunque el módulo 'cobranza' (adeudos al buscar un Tanner para
+// cobrar) siga habilitado para el rol Taquilla como hasta ahora.
+const canViewCollections=moduleAccess(navigation,'cobranza',false)&&ctx.role==='Presidencia';
+let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,receivables=[],collectionsFilter='all',collectionsExpanded=false;
+const COLLECTIONS_COLLAPSED_LIMIT=6;
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -113,7 +117,13 @@ async function renderCollections(){
     });
   const list=$('collectionsList');if(!list)return;
   $('collectionsEmpty').classList.toggle('hidden',rows.length>0);
-  list.innerHTML=rows.map(p=>{
+  const visibleRows=collectionsExpanded?rows:rows.slice(0,COLLECTIONS_COLLAPSED_LIMIT);
+  const toggle=$('collectionsToggle');
+  if(toggle){
+    toggle.classList.toggle('hidden',rows.length<=COLLECTIONS_COLLAPSED_LIMIT);
+    toggle.textContent=collectionsExpanded?'Ver menos':`Ver todos (${rows.length})`;
+  }
+  list.innerHTML=visibleRows.map(p=>{
     const pend=playerReceivables(p.player_id),isPending=pend.length>0;
     const total=pend.reduce((sum,r)=>sum+Number(r.balance_due||0),0);
     const concept=isPending?pend.slice(0,2).map(conceptoCorto).join(' · ')+(pend.length>2?' …':''):'Sin adeudos pendientes';
@@ -253,14 +263,16 @@ if(action==='pagar'&&canPayWrite)setTimeout(()=>{modal('expenseModal',true);},15
 let collectionsSearchTimer=null;
 $('collectionsSearch')?.addEventListener('input',()=>{
   $('collectionsSearchClear')?.classList.toggle('hidden',!$('collectionsSearch').value);
+  collectionsExpanded=false;
   clearTimeout(collectionsSearchTimer);collectionsSearchTimer=setTimeout(renderCollections,120);
 });
-$('collectionsSearchClear')?.addEventListener('click',()=>{$('collectionsSearch').value='';$('collectionsSearchClear').classList.add('hidden');renderCollections();});
+$('collectionsSearchClear')?.addEventListener('click',()=>{$('collectionsSearch').value='';$('collectionsSearchClear').classList.add('hidden');collectionsExpanded=false;renderCollections();});
 document.querySelectorAll('.collections-filters button').forEach(b=>b.addEventListener('click',()=>{
-  collectionsFilter=b.dataset.collectionsFilter;
+  collectionsFilter=b.dataset.collectionsFilter;collectionsExpanded=false;
   document.querySelectorAll('.collections-filters button').forEach(x=>x.classList.toggle('active',x===b));
   renderCollections();
 }));
+$('collectionsToggle')?.addEventListener('click',()=>{collectionsExpanded=!collectionsExpanded;renderCollections();});
 
 await Promise.all([loadPlayers(),load(),loadReceivables()]);renderCollections();
 

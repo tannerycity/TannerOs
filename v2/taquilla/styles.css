@@ -66,3 +66,30 @@
 .tsearch-opt>span{font-weight:700}
 .tsearch-conc{font-size:11px;color:#68777d}
 .tsearch-none{font-size:11px;color:#9aa8ac}
+
+/* === Cobranza: lista de jugadores con estado y cobro directo === */
+.collections-toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.collections-toolbar .tsearch{flex:1;min-width:220px}
+.collections-filters{margin:0}
+.status-pill.pending{background:#fbf1dd;color:#C8890B}
+.status-pill.current{background:#e5f4ee;color:#167748}
+.collections-list{display:flex;flex-direction:column}
+.collections-row{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid #f0efe9}
+.collections-row:last-child{border-bottom:0}
+.collections-face{width:40px;height:40px;border-radius:50%;background:#eef2f1;display:flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden}
+.collections-face img{width:100%;height:100%;object-fit:cover;display:block}
+.collections-face b{font-size:13px;font-weight:900;color:#5c6b72}
+.collections-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.collections-info strong{font-size:14px;color:var(--tos-ink-deep);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.collections-concept{font-size:11.5px;color:#8a969b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.collections-status{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:0 0 auto}
+.collections-last{font-size:10.5px;color:#9aa4ad}
+.collections-collect{flex:0 0 auto;border:1px solid var(--tos-teal);background:#fff;color:var(--tos-teal);border-radius:999px;padding:7px 14px;font-size:12px;font-weight:900;cursor:pointer}
+.collections-collect:hover{background:var(--tos-teal);color:#fff}
+@media(max-width:560px){
+  .collections-info strong{max-width:38vw}
+  .collections-concept{max-width:38vw}
+  .collections-row{flex-wrap:wrap}
+  .collections-status{order:3;flex:1 1 auto;flex-direction:row;align-items:center;justify-content:space-between;margin-top:6px}
+  .collections-collect{order:4;flex:1 1 100%;margin-top:6px;padding:9px 14px}
+}

@@ -1,4 +1,5 @@
-import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth} from '/v2/shell.js';
+import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,supabase} from '/v2/shell.js';
+import {getSignedPhotoUrls} from '/v2/photo-cache.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
@@ -8,7 +9,8 @@ const canCashWrite=moduleAccess(navigation,'taquilla',true)||moduleAccess(naviga
 const canAccountingWrite=moduleAccess(navigation,'contabilidad',true);
 // Pagar ya no depende exclusivamente de Contabilidad: quien opera esta caja (Taquilla RW) también puede pagar.
 const canPayWrite=canCashWrite||canAccountingWrite;
-let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,receivables=[];
+const canViewCollections=moduleAccess(navigation,'cobranza',false);
+let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,receivables=[],collectionsFilter='all';
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -61,9 +63,71 @@ function renderMovements(){
 function applyLedgerVisibility(){
   document.querySelector('.cashier-kpis')?.classList.toggle('hidden',!canViewLedger);
   document.querySelectorAll('.cashier-cash-card:not(#cashTodayCard)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
-  document.querySelectorAll('.cashier-panel').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
+  // Cobranza no es el libro contable: Taquilla (rol simple, sin ver caja completa)
+  // también necesita saber a quién cobrarle, así que no se apaga con el resto.
+  document.querySelectorAll('.cashier-panel:not(#collectionsPanel)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
   const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
   $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
+}
+
+// === Cobranza: estado por jugador (quién debe, quién está al corriente) con
+// una acción directa de cobro — reusa el mismo modal de COBRAR (quickCollect),
+// no inventa un segundo flujo para registrar pagos. ===
+function playerReceivables(playerId){return (receivables||[]).filter(r=>r.player_id===playerId&&Number(r.balance_due||0)>0);}
+function fmtLastPayment(d){
+  if(!d)return 'Sin pagos registrados';
+  return new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${String(d).slice(0,10)}T12:00:00`));
+}
+const DIACRITICS_RE=new RegExp(String.fromCharCode(0x5b)+String.fromCharCode(0x300)+'-'+String.fromCharCode(0x36f)+String.fromCharCode(0x5d),'g');
+const normSearch=s=>String(s||'').toLowerCase().normalize('NFD').replace(DIACRITICS_RE,'');
+async function renderCollections(){
+  const panel=$('collectionsPanel');if(!panel)return;
+  panel.classList.toggle('hidden',!canViewCollections);
+  if(!canViewCollections)return;
+  const q=normSearch($('collectionsSearch')?.value).trim();
+  const rows=(billingPlayers||[])
+    .filter(p=>!q||normSearch(p.player_name).includes(q))
+    .filter(p=>{
+      if(collectionsFilter==='all')return true;
+      const pending=playerReceivables(p.player_id).length>0;
+      return collectionsFilter==='pending'?pending:!pending;
+    })
+    .sort((a,b)=>{
+      const pa=playerReceivables(a.player_id).length>0,pb=playerReceivables(b.player_id).length>0;
+      if(pa!==pb)return pa?-1:1;
+      return String(a.player_name||'').localeCompare(String(b.player_name||''),'es-MX');
+    });
+  const list=$('collectionsList');if(!list)return;
+  $('collectionsEmpty').classList.toggle('hidden',rows.length>0);
+  list.innerHTML=rows.map(p=>{
+    const pend=playerReceivables(p.player_id),isPending=pend.length>0;
+    const total=pend.reduce((sum,r)=>sum+Number(r.balance_due||0),0);
+    const concept=isPending?pend.slice(0,2).map(conceptoCorto).join(' · ')+(pend.length>2?' …':''):'Sin adeudos pendientes';
+    const amount=isPending?total:Number(p.base_monthly_fee||0);
+    const initials=String(p.player_name||'T').trim().split(/\s+/).map(part=>part[0]||'').join('').toUpperCase().slice(0,2)||'T';
+    const photoAttrs=p.photo_thumb_path?` data-photo-path="${esc(p.photo_thumb_path)}" data-photo-bucket="${esc(p.photo_bucket||'tanneros-private')}"`:'';
+    return `<div class="collections-row">
+      <span class="collections-face"${photoAttrs}><b aria-hidden="true">${esc(initials)}</b></span>
+      <div class="collections-info"><strong>${esc(p.player_name)}</strong><span class="collections-concept">${esc(concept)}</span></div>
+      <div class="collections-status"><span class="status-pill ${isPending?'pending':'current'}">${isPending?'Pendiente':'Al corriente'}</span><small class="collections-last">${esc(fmtLastPayment(p.last_payment_date))}</small></div>
+      ${canCashWrite?`<button type="button" class="collections-collect" data-quick-collect="${esc(p.player_id)}" data-name="${esc(p.player_name||'')}" data-amount="${amount>0?amount:''}">Registrar</button>`:''}
+    </div>`;
+  }).join('');
+  signCollectionsPhotos();
+}
+// Igual que signBirthdayPhotos en el home: primero pintan las iniciales (no
+// bloquea la lista) y la foto entra encima cuando llega la URL firmada.
+async function signCollectionsPhotos(){
+  const faces=[...document.querySelectorAll('#collectionsList .collections-face[data-photo-path]')];
+  if(!faces.length)return;
+  const byBucket={};
+  faces.forEach(el=>{const bucket=el.dataset.photoBucket||'tanneros-private';(byBucket[bucket]=byBucket[bucket]||[]).push(el.dataset.photoPath);});
+  for(const bucket of Object.keys(byBucket)){
+    try{
+      const map=await getSignedPhotoUrls(supabase,bucket,byBucket[bucket]);
+      faces.forEach(el=>{if((el.dataset.photoBucket||'tanneros-private')===bucket&&map[el.dataset.photoPath])el.innerHTML=`<img src="${esc(map[el.dataset.photoPath])}" alt="" loading="lazy">`;});
+    }catch{/* sin foto se queda el monograma */}
+  }
 }
 function render(){
   canViewLedger=snapshot?.canViewLedger!==false;
@@ -143,7 +207,7 @@ async function postCollect(){
       if(!okDbl){btn.disabled=false;return;}
       await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
     }
-    closeModals();await Promise.all([load(),loadReceivables()]);
+    closeModals();await Promise.all([load(),loadReceivables()]);renderCollections();
   }catch(e){message('collectMessage',e.message||'No se pudo registrar.');}finally{btn.disabled=false;}
 }
 async function postExpense(){
@@ -172,7 +236,19 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 const _params=new URLSearchParams(location.search);const action=_params.get('action');
 if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);
 if(action==='pagar'&&canPayWrite)setTimeout(()=>{modal('expenseModal',true);},150);
-await Promise.all([loadPlayers(),load(),loadReceivables()]);
+let collectionsSearchTimer=null;
+$('collectionsSearch')?.addEventListener('input',()=>{
+  $('collectionsSearchClear')?.classList.toggle('hidden',!$('collectionsSearch').value);
+  clearTimeout(collectionsSearchTimer);collectionsSearchTimer=setTimeout(renderCollections,120);
+});
+$('collectionsSearchClear')?.addEventListener('click',()=>{$('collectionsSearch').value='';$('collectionsSearchClear').classList.add('hidden');renderCollections();});
+document.querySelectorAll('.collections-filters button').forEach(b=>b.addEventListener('click',()=>{
+  collectionsFilter=b.dataset.collectionsFilter;
+  document.querySelectorAll('.collections-filters button').forEach(x=>x.classList.toggle('active',x===b));
+  renderCollections();
+}));
+
+await Promise.all([loadPlayers(),load(),loadReceivables()]);renderCollections();
 
 
 // === Corregir movimiento (VAR · solo Presidencia): Borrar o Reembolsar ===
@@ -198,7 +274,7 @@ async function confirmVoid(){
     if(pendingVoid.kind==='refund'){await rpc('v2_correct_tanner_payment',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else if(pendingVoid.kind==='void-income'){await rpc('v2_void_income',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else{await rpc('v2_void_expense',{organization_id:org,expense_id:pendingVoid.id,reason});}
-    closeVoid();await load();
+    closeVoid();await Promise.all([load(),loadReceivables()]);renderCollections();
   }catch(e){msg.textContent=(e&&e.message)||'No se pudo completar.';msg.classList.remove('hidden');}
   finally{btn.disabled=false;}
 }

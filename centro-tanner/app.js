@@ -63,25 +63,25 @@ async function renderHome() {
     <p class="ct-updated" id="ctUpdated"></p>
   `);
   wireSearch();
-  $('ctThemeGrid').innerHTML = THEME_GROUPS.map((g) => `<a class="ct-theme-card" href="/centro-tanner/tema/${encodeURIComponent(g.categories[0])}/" data-group='${esc(JSON.stringify(g.categories))}'>
+  $('ctThemeGrid').innerHTML = THEME_GROUPS.map((g) => `<a class="ct-theme-card" href="/centro-tanner/tema/${encodeURIComponent(g.categories[0])}" data-group='${esc(JSON.stringify(g.categories))}'>
       <div class="ct-theme-icon"><span class="tos-icon tos-icon-target" aria-hidden="true"></span></div>
       <div class="ct-theme-name">${esc(g.label)}</div>
     </a>`).join('');
   document.querySelectorAll('.ct-theme-grid a').forEach((a) => a.addEventListener('click', (e) => {
     e.preventDefault();
     const cats = JSON.parse(a.dataset.group);
-    history.pushState({}, '', `/centro-tanner/tema/${cats.join(',')}/`);
+    history.pushState({}, '', `/centro-tanner/tema/${cats.join(',')}`);
     route();
   }));
 
   try {
     const home = await rpc('v2_public_centro_tanner_home', { club_key: CLUB_KEY });
     const faqs = home?.featuredFaqs || [];
-    $('ctFaqList').innerHTML = faqs.length ? faqs.map((f) => `<details class="ct-faq-item"><summary>${esc(f.question)}</summary><div class="ct-faq-body">${esc(f.answer)}${f.policySlug ? `<a class="ct-faq-link" href="/centro-tanner/p/${esc(f.policySlug)}/">Ver política completa →</a>` : ''}</div></details>`).join('') : '<p class="ct-empty">Todavía no hay preguntas frecuentes publicadas.</p>';
+    $('ctFaqList').innerHTML = faqs.length ? faqs.map((f) => `<details class="ct-faq-item"><summary>${esc(f.question)}</summary><div class="ct-faq-body">${esc(f.answer)}${f.policySlug ? `<a class="ct-faq-link" href="/centro-tanner/p/${esc(f.policySlug)}">Ver política completa →</a>` : ''}</div></details>`).join('') : '<p class="ct-empty">Todavía no hay preguntas frecuentes publicadas.</p>';
     injectFaqSchema(faqs);
     const docs = home?.documents || [];
-    $('ctDocList').innerHTML = docs.length ? docs.map((d) => `<a class="ct-doc-row" href="/centro-tanner/documento/${esc(d.code)}/"><div><div class="ct-doc-name">${esc(d.title)} — versión vigente</div><div class="ct-doc-meta">Actualizado ${esc(fmtDate(d.updatedAt))}</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>`).join('') : '<p class="ct-empty">Sin documentos publicados.</p>';
-    if (home?.lastUpdated) $('ctUpdated').innerHTML = `Última actualización: ${esc(fmtDate(home.lastUpdated))} · <a href="/centro-tanner/cambios/">Ver historial de cambios →</a>`;
+    $('ctDocList').innerHTML = docs.length ? docs.map((d) => `<a class="ct-doc-row" href="/centro-tanner/documento/${esc(d.code)}"><div><div class="ct-doc-name">${esc(d.title)} — versión vigente</div><div class="ct-doc-meta">Actualizado ${esc(fmtDate(d.updatedAt))}</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>`).join('') : '<p class="ct-empty">Sin documentos publicados.</p>';
+    if (home?.lastUpdated) $('ctUpdated').innerHTML = `Última actualización: ${esc(fmtDate(home.lastUpdated))} · <a href="/centro-tanner/cambios">Ver historial de cambios →</a>`;
   } catch (err) {
     $('ctFaqList').innerHTML = `<p class="ct-empty">No pudimos cargar Centro Tanner. ${esc(err.message || '')}</p>`;
   }
@@ -102,7 +102,7 @@ function wireSearch() {
         box.classList.remove('hidden');
         if (!results?.length) { box.innerHTML = `<div class="ct-search-empty">No encontramos nada para “${esc(q)}”. Intenta con otra palabra.</div>`; return; }
         box.innerHTML = results.map((r) => {
-          const href = r.type === 'document' ? `/centro-tanner/documento/${esc(r.slug)}/` : r.type === 'policy' ? `/centro-tanner/p/${esc(r.slug)}/` : (r.slug ? `/centro-tanner/p/${esc(r.slug)}/` : `/centro-tanner/tema/${esc(r.category)}/`);
+          const href = r.type === 'document' ? `/centro-tanner/documento/${esc(r.slug)}` : r.type === 'policy' ? `/centro-tanner/p/${esc(r.slug)}` : (r.slug ? `/centro-tanner/p/${esc(r.slug)}` : `/centro-tanner/tema/${esc(r.category)}`);
           const kicker = r.type === 'faq' ? 'PREGUNTA FRECUENTE' : r.type === 'document' ? 'DOCUMENTO' : (CATEGORY_LABELS[r.category] || 'POLÍTICA').toUpperCase();
           return `<a class="ct-result" href="${href}"><div class="ct-result-kicker">${esc(kicker)}</div><div class="ct-result-title">${esc(r.title)}</div><div class="ct-result-snippet">${esc(r.snippet || '')}</div></a>`;
         }).join('');
@@ -120,7 +120,7 @@ async function renderTheme(categoriesParam) {
   try {
     const lists = await Promise.all(cats.map((c) => rpc('v2_public_centro_tanner_category', { club_key: CLUB_KEY, category_code: c }).catch(() => [])));
     const all = lists.flat();
-    $('ctThemeList').innerHTML = all.length ? all.map((p) => `<a class="ct-doc-row" href="/centro-tanner/p/${esc(p.slug)}/"><div><div class="ct-doc-name">${esc(p.title)}</div><div class="ct-doc-meta">${esc(p.shortAnswer)}</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>`).join('') : '<p class="ct-empty">Aún no hay contenido publicado en este tema.</p>';
+    $('ctThemeList').innerHTML = all.length ? all.map((p) => `<a class="ct-doc-row" href="/centro-tanner/p/${esc(p.slug)}"><div><div class="ct-doc-name">${esc(p.title)}</div><div class="ct-doc-meta">${esc(p.shortAnswer)}</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>`).join('') : '<p class="ct-empty">Aún no hay contenido publicado en este tema.</p>';
   } catch { $('ctThemeList').innerHTML = '<p class="ct-empty">No pudimos cargar este tema.</p>'; }
 }
 
@@ -130,7 +130,7 @@ async function renderPolicy(slug) {
     const p = await rpc('v2_public_centro_tanner_policy', { club_key: CLUB_KEY, policy_slug: slug });
     setMeta(p.title, p.shortAnswer);
     const catLabel = CATEGORY_LABELS[p.category] || p.category;
-    render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { href: `/centro-tanner/tema/${esc(p.category)}/`, label: catLabel }, { label: p.title }])}
+    render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { href: `/centro-tanner/tema/${esc(p.category)}`, label: catLabel }, { label: p.title }])}
       <article class="ct-policy-card">
         <div class="ct-policy-kicker">${esc(catLabel)}</div>
         <h1 class="ct-policy-title">${esc(p.title)}</h1>
@@ -158,7 +158,7 @@ async function renderDocument(code) {
       <h1>${esc(d.title)}</h1>
       <p class="ct-doc-meta">Versión ${esc(d.version)} · Vigente desde ${esc(fmtDate(d.effectiveDate))}${d.organizationLegalName ? ` · ${esc(d.organizationLegalName)}` : ''}</p>
       <div class="ct-doc-body-card"><div class="ct-doc-body">${esc(d.body)}</div></div>
-      ${d.history?.length ? `<p class="ct-updated"><a href="/centro-tanner/cambios/">Ver historial de versiones →</a></p>` : ''}
+      ${d.history?.length ? `<p class="ct-updated"><a href="/centro-tanner/cambios">Ver historial de versiones →</a></p>` : ''}
     `);
   } catch (err) { render(`<div class="ct-empty"><h1>No encontramos este documento</h1><p>${esc(err.message || '')}</p><a href="/centro-tanner/">Volver a Centro Tanner</a></div>`); }
 }

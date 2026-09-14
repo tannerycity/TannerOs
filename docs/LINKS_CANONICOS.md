@@ -14,7 +14,7 @@ El Registro Tanner es el embudo principal y permite clasificar el interés como 
 
 - Reglamento, políticas y preguntas frecuentes: `https://app.tannerycity.com/centro-tanner/`
 - Aviso de privacidad: `https://app.tannerycity.com/aviso-de-privacidad/`
-- Historial de cambios: `https://app.tannerycity.com/centro-tanner/cambios/`
+- Historial de cambios: `https://app.tannerycity.com/centro-tanner/cambios`
 
 Es la misma fuente de contenido que usan TannerOS (Mis documentos, dentro del área autenticada) y el portal de familias: una política se edita una sola vez en `/admin/centro-tanner/` y se refleja en todos los canales.
 

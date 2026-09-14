@@ -107,7 +107,7 @@ jobs:
             '/pedido/'
             '/programas/'
             '/centro-tanner/'
-            '/centro-tanner/cambios/'
+            '/centro-tanner/cambios'
             '/aviso-de-privacidad/'
           )
           for route in "${routes[@]}"; do

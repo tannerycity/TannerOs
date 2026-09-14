@@ -256,7 +256,7 @@ async function boot(){
   const contexts=await rpc('v2_my_context');
   if(!contexts?.length){$('deniedText').textContent='Tu llave todavía no pertenece a un club.';show('deniedView');return;}
   const ctx=contexts[0];orgId=ctx.organization_id;
-  const modules=await rpc('v2_my_modules',{organization_id:orgId});
+  const modules=await rpc('v2_my_navigation',{organization_id:orgId});
   const mod=modules.find(m=>m.module_code==='centro_tanner');
   if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu llave no abre Centro Tanner.';show('deniedView');return;}
   canWrite=!!mod.can_write;

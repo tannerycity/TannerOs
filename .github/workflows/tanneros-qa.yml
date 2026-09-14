@@ -8,9 +8,13 @@ on:
       - 'registro/**'
       - 'pedido/**'
       - 'programas/**'
+      - 'academias/**'
+      - 'centro-tanner/**'
+      - 'aviso-de-privacidad/**'
       - 'public-form.*'
       - 'vercel.json'
       - 'scripts/qa-static.mjs'
+      - 'scripts/qa-centro-tanner.mjs'
   push:
     branches: [main]
     paths:
@@ -19,9 +23,13 @@ on:
       - 'registro/**'
       - 'pedido/**'
       - 'programas/**'
+      - 'academias/**'
+      - 'centro-tanner/**'
+      - 'aviso-de-privacidad/**'
       - 'public-form.*'
       - 'vercel.json'
       - 'scripts/qa-static.mjs'
+      - 'scripts/qa-centro-tanner.mjs'
       - '.github/workflows/tanneros-qa.yml'
   schedule:
     - cron: '17 */6 * * *'
@@ -98,6 +106,9 @@ jobs:
             '/registro/porteros/'
             '/pedido/'
             '/programas/'
+            '/centro-tanner/'
+            '/centro-tanner/cambios/'
+            '/aviso-de-privacidad/'
           )
           for route in "${routes[@]}"; do
             echo "Checking ${base}${route}"
@@ -127,3 +138,8 @@ jobs:
             test "$code" = '200'
             test "$(wc -c </tmp/asset)" -gt 80
           done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Centro Tanner RPC smoke test
+        run: node scripts/qa-centro-tanner.mjs

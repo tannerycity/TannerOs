@@ -1,0 +1,29 @@
+.ct-tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 14px;margin-bottom:6px;-webkit-overflow-scrolling:touch}
+.ct-tab{flex:0 0 auto;border:1px solid #dfe7e5;background:#fff;color:#33484e;font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:12px;cursor:pointer;white-space:nowrap}
+.ct-tab.active{background:#0b1418;color:#fff;border-color:#0b1418}
+.ct-panel{display:grid;gap:14px}
+.ct-row{background:#fff;border:1px solid #e3ebe9;border-radius:16px;padding:14px 16px;display:grid;gap:6px}
+.ct-row-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ct-row-title{font-weight:800;font-size:14.5px}
+.ct-row-meta{font-size:12px;color:#6a7b7f}
+.ct-badge{font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:#eef2f1;color:#42575d}
+.ct-badge[data-status="published"]{background:#e6f6ee;color:#1c7a4c}
+.ct-badge[data-status="draft"]{background:#fdf3e3;color:#966313}
+.ct-badge[data-status="archived"]{background:#f3e9e8;color:#8a4a42}
+.ct-row-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ct-btn{border:0;border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:800;cursor:pointer;background:#eef2f1;color:#0b1418}
+.ct-btn.primary{background:#087d8e;color:#fff}
+.ct-btn.danger{background:#f3e2e0;color:#a3443c}
+.ct-form{display:grid;gap:10px;background:#fbfcfb;border:1px solid #e3ebe9;border-radius:16px;padding:16px;margin-bottom:6px}
+.ct-form label{display:grid;gap:5px;font-size:11.5px;font-weight:800;color:#5d7176}
+.ct-form input,.ct-form select,.ct-form textarea{font:inherit;font-size:14px;border:1px solid #cedbd8;border-radius:10px;padding:9px 11px;background:#fff;color:#0b1418}
+.ct-form textarea{min-height:90px;resize:vertical}
+.ct-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ct-check{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:#33484e}
+.ct-table{width:100%;border-collapse:collapse;font-size:13px}
+.ct-table th,.ct-table td{text-align:left;padding:9px 10px;border-bottom:1px solid #e6ecea}
+.ct-table th{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#7b8f92}
+.ct-empty{padding:24px;text-align:center;color:#7b8f92}
+.ct-msg{font-size:12.5px;padding:9px 11px;border-radius:10px;background:#f7eeee;color:#943c35}
+.ct-msg[data-type="success"]{background:#edf8f2;color:#226b45}
+@media(max-width:640px){.ct-form-grid{grid-template-columns:1fr}}

@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
+import { getSignedPhotoUrl } from '/v2/photo-cache.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
@@ -210,6 +211,90 @@ async function toggleBundleArchive(){
   finally{btn.disabled=false;}
 }
 
+/* ---------- Fotos (mismo patrón que Utilería y Jugadores) ---------- */
+const PHOTO_BUCKET='tanneros-private',THUMB_MAX_SIDE=260,THUMB_MAX_BYTES=180*1024;
+let photoFile=null,photoCleared=false,photoSeq=0;
+function loadImageFile(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('No pudimos leer esa foto. Prueba con JPG, PNG o WebP.'));};
+    img.src=url;
+  });
+}
+const canvasBlobFrom=(canvas,type,quality)=>new Promise(r=>canvas.toBlob(r,type,quality));
+async function prepareVariant(img,maxSide,quality,maxBytes){
+  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+  const scale=Math.min(1,maxSide/Math.max(w,h));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));
+  const cx=canvas.getContext('2d');
+  if(!cx)throw new Error('Tu navegador no pudo preparar la foto.');
+  cx.drawImage(img,0,0,canvas.width,canvas.height);
+  let blob=await canvasBlobFrom(canvas,'image/webp',quality),ext='webp';
+  if(!blob){blob=await canvasBlobFrom(canvas,'image/jpeg',quality);ext='jpg';}
+  if(blob&&blob.size>maxBytes){blob=await canvasBlobFrom(canvas,'image/jpeg',Math.max(0.5,quality-0.17));ext='jpg';}
+  if(!blob||blob.size>maxBytes)throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
+  return {blob,ext,mime:blob.type||(ext==='jpg'?'image/jpeg':'image/webp')};
+}
+async function preparePhotoFile(file){
+  if(!file)throw new Error('Selecciona una foto.');
+  if(file.type&&!String(file.type).startsWith('image/'))throw new Error('Selecciona una imagen válida.');
+  const img=await loadImageFile(file);
+  if(!(img.naturalWidth||img.width))throw new Error('No pudimos leer el tamaño de esa foto.');
+  return {full:await prepareVariant(img,1200,0.82,5*1024*1024),thumb:await prepareVariant(img,THUMB_MAX_SIDE,0.75,THUMB_MAX_BYTES)};
+}
+// Si una de las dos subidas falla se borran las dos: media foto en el bucket es
+// basura que nadie vuelve a mirar.
+async function uploadPhoto(prefix,file){
+  const prepared=await preparePhotoFile(file),stamp=Date.now();
+  const path=`${prefix}-${stamp}.${prepared.full.ext}`,thumbPath=`${prefix}-${stamp}-thumb.${prepared.thumb.ext}`;
+  const [{error:e1},{error:e2}]=await Promise.all([
+    supabase.storage.from(PHOTO_BUCKET).upload(path,prepared.full.blob,{contentType:prepared.full.mime,cacheControl:'3600',upsert:false}),
+    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath,prepared.thumb.blob,{contentType:prepared.thumb.mime,cacheControl:'3600',upsert:false})
+  ]);
+  if(e1||e2){
+    await Promise.all([
+      supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(()=>{}),
+      supabase.storage.from(PHOTO_BUCKET).remove([thumbPath]).catch(()=>{})
+    ]);
+    throw e1||e2;
+  }
+  return {path,thumbPath};
+}
+function pintaFotoLocal(url,alt){
+  const box=$('pPhotoBox');if(!box)return;
+  box.innerHTML=url?`<img src="${esc(url)}" alt="${esc(alt||'Producto')}">`:'<span>Sin foto</span>';
+  $('pPhotoClear').hidden=!url;
+}
+async function pintaFotoGuardada(p){
+  // El drawer es detalle abierto por intención, así que puede usar el original;
+  // se prefiere la miniatura porque la caja mide 96px. La firma pasa por el
+  // caché compartido (docs/MEDIA_EGRESS_ARCHITECTURE.md).
+  const seq=++photoSeq,path=p?.photoThumbPath||p?.photoPath;
+  pintaFotoLocal('',p?.name);
+  if(!path)return;
+  try{
+    const url=await getSignedPhotoUrl(supabase,p.photoBucket||PHOTO_BUCKET,path);
+    if(!url)return;
+    if(seq===photoSeq)pintaFotoLocal(url,p.name);
+  }catch(e){/* la foto es opcional: no rompe el drawer */}
+}
+$('pPhotoInput')?.addEventListener('change',async e=>{
+  const file=e.target.files?.[0];e.target.value='';
+  if(!file)return;
+  try{
+    await preparePhotoFile(file);           // valida antes de prometerle nada al usuario
+    photoFile=file;photoCleared=false;
+    pintaFotoLocal(URL.createObjectURL(file),$('pName').value);
+    drawerMsg('La foto se sube al guardar el producto.','success');
+  }catch(err){drawerMsg(err.message||'No pudimos usar esa foto.');}
+});
+$('pPhotoClear')?.addEventListener('click',()=>{
+  photoFile=null;photoCleared=true;pintaFotoLocal('');
+  drawerMsg('La foto se quita al guardar el producto.','success');
+});
+
 /* ---------- Drawer: producto ---------- */
 function openProductDrawer(p){
   draft={mode:'product',id:p?.id||null,components:[]};
@@ -227,6 +312,8 @@ function openProductDrawer(p){
   $('pActive').checked=p?p.active:true;
   $('pArchiveToggle').classList.toggle('hidden',!p);
   $('pArchiveToggle').textContent=p?.archived?'Restaurar producto':'Archivar producto';
+  photoFile=null;photoCleared=false;
+  pintaFotoGuardada(p);
   recomputeProductPreview();
   openDrawer();
 }
@@ -259,6 +346,19 @@ async function saveProduct(){
       description:current?.description??null,
       lead_days:current?.leadDays??null
     });
+    // La foto va despues del upsert: un producto nuevo no tiene id hasta aqui.
+    if(photoFile||photoCleared){
+      await load();
+      const guardado=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);
+      if(guardado){
+        if(photoCleared&&!photoFile){
+          await rpc('v2_set_product_photo',{organization_id:ctx.organization_id,product_id:guardado.id,photo_path:null,photo_thumb_path:null,photo_bucket:null});
+        }else{
+          const subida=await uploadPhoto(`organizations/${ctx.organization_id}/products/${guardado.id}/foto`,photoFile);
+          await rpc('v2_set_product_photo',{organization_id:ctx.organization_id,product_id:guardado.id,photo_path:subida.path,photo_thumb_path:subida.thumbPath,photo_bucket:PHOTO_BUCKET});
+        }
+      }
+    }
     await load();
     closeDrawerFn();
   }catch(e){drawerMsg(e.message||'No se pudo guardar el producto.');}

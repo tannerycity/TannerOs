@@ -344,29 +344,38 @@ function formBeca(playerId,benefitId){
   const box=$('benefitsList');
   const opciones=TIPOS_EDITABLES.map(t=>`<option value="${t}"${b.type===t?' selected':''}>${esc(TIPO_BECA[t])}</option>`).join('');
   const nota=esNotaDelLegacy(b.notes)?'':b.notes;
+  const modoInicial=b.percentage!=null?'percentage':'fixed';
   box.insertAdjacentHTML('afterbegin',`<form class="ben-form" id="benForm">
     <label>Tipo de apoyo<select id="benType">${opciones}</select></label>
-    <label id="benMonthlyTotalWrap" class="hidden">Mensualidad de este Tanner<input id="benMonthlyTotal" type="number" min="0" step="1" value=""></label>
-    <label><span id="benAmountLabel">Monto mensual</span> <span class="tos-user-note" id="benAmountHint">(o deja vacío y usa el %)</span><input id="benAmount" type="number" min="1" step="1" value="${b.fixedAmount??''}"></label>
-    <label><span id="benPctLabel">Porcentaje</span><input id="benPct" type="number" min="1" max="100" step="1" value="${b.percentage??''}"></label>
+    <label id="benMonthlyTotalWrap" class="hidden"><span id="benMonthlyTotalLabel">Mensualidad de este Tanner</span><input id="benMonthlyTotal" type="number" min="0" step="1" inputmode="numeric" value=""></label>
+    <label class="span-2 ben-mode-row"><span id="benModeLabel">Cómo se calcula</span>
+      <span class="ben-mode-toggle">
+        <label class="ben-mode-opt"><input type="radio" name="benMode" value="fixed" id="benModeFixed"${modoInicial==='fixed'?' checked':''}> Monto fijo</label>
+        <label class="ben-mode-opt"><input type="radio" name="benMode" value="percentage" id="benModePct"${modoInicial==='percentage'?' checked':''}> Porcentaje</label>
+      </span>
+    </label>
+    <label><span id="benValueLabel">Monto mensual</span><input id="benValue" type="number" min="1" step="1" inputmode="numeric" value="${(b.fixedAmount??b.percentage)??''}" required></label>
     <label id="benSourceWrap">¿Quién lo cubre? <span class="tos-user-note" id="benSourceOpt">(opcional)</span><input id="benSource" maxlength="120" value="${esc(b.fundingSource||b.sponsorName||'')}" placeholder="El club, un padrino…"></label>
     <label>Desde<input id="benStart" type="date" value="${esc(b.startsOn||'')}"></label>
     <label>Hasta <span class="tos-user-note">(opcional)</span><input id="benEnd" type="date" value="${esc(b.endsOn||'')}"></label>
     <label class="span-2">Motivo<input id="benNotes" maxlength="300" value="${esc(nota||'')}" placeholder="Por qué se le da y hasta cuándo se revisa" required></label>
     <small class="ben-hint span-2" id="benHintText">Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.</small>
+    <div id="benFormError" class="cashier-message hidden span-2"></div>
     <div class="ben-form-actions span-2"><button type="submit" class="primary mini">Guardar apoyo</button>
       <button type="button" class="secondary mini" id="benCancel">Cancelar</button></div>
   </form>`);
+  function modoActual(){return $('benModePct').checked?'percentage':'fixed';}
   function pintarModo(tipo){
-    const patrocinio=esPatrocinio(tipo);
+    const patrocinio=esPatrocinio(tipo),pct=modoActual()==='percentage';
     $('benMonthlyTotalWrap').classList.toggle('hidden',!patrocinio);
-    $('benAmountLabel').textContent=patrocinio?'Monto fijo que cubre el patrocinador':'Monto mensual';
-    $('benAmountHint').textContent=patrocinio?'(o deja vacío y usa el % de abajo)':'(o deja vacío y usa el %)';
-    $('benPctLabel').textContent=patrocinio?'% que cubre el patrocinador':'Porcentaje';
+    $('benValueLabel').textContent=pct
+      ? (patrocinio?'% que cubre el patrocinador':'Porcentaje')
+      : (patrocinio?'Monto fijo mensual que cubre el patrocinador':'Monto fijo mensual');
+    $('benValue').max=pct?'100':'';
     $('benSourceOpt').textContent=patrocinio?'(requerido)':'(opcional)';
     $('benHintText').textContent=patrocinio
       ? 'Esto sí ajusta lo que se le cobra: fija la mensualidad y separa cuánto paga el patrocinador y cuánto la familia.'
-      : 'Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta en Contabilidad.';
+      : 'Esto documenta el apoyo. No cambia lo que se le cobra: la cuota se ajusta con un ajuste en Contabilidad.';
   }
   pintarModo(b.type||'scholarship_full');
   if(esPatrocinio(b.type)){
@@ -378,22 +387,32 @@ function formBeca(playerId,benefitId){
       $('benMonthlyTotal').value=await fetchMonthlyFee(playerId);
     }
   });
+  document.querySelectorAll('input[name="benMode"]').forEach(r=>r.addEventListener('change',()=>pintarModo($('benType').value)));
   $('benCancel').addEventListener('click',()=>renderBenefits(playerId));
   $('benForm').addEventListener('submit',async e=>{
     e.preventDefault();
     const box2=$('benefitMessage');box2.classList.add('hidden');
+    const err=$('benFormError');err.classList.add('hidden');
+    const tipo=$('benType').value,esFijo=modoActual()==='fixed';
+    const valor=$('benValue').value?Math.round(Number($('benValue').value)):null;
+    if(esPatrocinio(tipo)&&(valor==null||valor<=0)){
+      err.textContent='Escribe cuánto cubre el patrocinador (monto o %) antes de guardar.';err.classList.remove('hidden');return;
+    }
+    if(esPatrocinio(tipo)&&!$('benSource').value.trim()){
+      err.textContent='Escribe quién es el patrocinador.';err.classList.remove('hidden');return;
+    }
+    if(esPatrocinio(tipo)&&!$('benMonthlyTotal').value){
+      err.textContent='Escribe la mensualidad de este Tanner.';err.classList.remove('hidden');return;
+    }
     const btn=e.target.querySelector('[type="submit"]');btn.disabled=true;
-    const tipo=$('benType').value;
     try{
       if(esPatrocinio(tipo)){
-        const monto=$('benAmount').value?Number($('benAmount').value):null,pct=$('benPct').value?Number($('benPct').value):null;
-        if(monto==null&&pct==null)throw new Error('Sponsor value must be zero or greater');
         await rpc('v2_configure_sponsor_funding',{organization_id:ctx.organization_id,player_id:playerId,
           benefit_id:esPatrocinio(b.type)?benefitId||null:null,
           funding_source_name:$('benSource').value.trim(),
-          monthly_total:Number($('benMonthlyTotal').value||0),
-          funding_mode:monto!=null?'fixed_amount':'percentage',
-          sponsor_value:monto!=null?monto:pct,
+          monthly_total:Math.round(Number($('benMonthlyTotal').value||0)),
+          funding_mode:esFijo?'fixed_amount':'percentage',
+          sponsor_value:valor,
           starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
           notes:$('benNotes').value.trim()||null});
         delete billingFeeCache[playerId];
@@ -401,8 +420,8 @@ function formBeca(playerId,benefitId){
       }else{
         benefits=await rpc('v2_save_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
           benefit_id:benefitId||null,benefit_type:tipo,
-          fixed_amount:$('benAmount').value?Number($('benAmount').value):null,
-          percentage:$('benPct').value?Number($('benPct').value):null,
+          fixed_amount:esFijo?valor:null,
+          percentage:esFijo?null:valor,
           funding_source:$('benSource').value.trim()||null,
           starts_on:$('benStart').value||null,ends_on:$('benEnd').value||null,
           notes:$('benNotes').value.trim()})||[];
@@ -410,8 +429,8 @@ function formBeca(playerId,benefitId){
       renderBenefits(playerId);
       await loadPlayers();
       msg('Apoyo registrado. Quedó en la bitácora con tu nombre y la fecha.','success');
-    }catch(err){
-      box2.textContent=friendly(err);box2.dataset.type='error';box2.classList.remove('hidden');
+    }catch(err2){
+      box2.textContent=friendly(err2);box2.dataset.type='error';box2.classList.remove('hidden');
       btn.disabled=false;
     }
   });

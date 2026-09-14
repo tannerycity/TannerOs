@@ -127,7 +127,7 @@ async function renderCollections(){
     const pend=playerReceivables(p.player_id),isPending=pend.length>0;
     const total=pend.reduce((sum,r)=>sum+Number(r.balance_due||0),0);
     const concept=isPending?pend.slice(0,2).map(conceptoCorto).join(' · ')+(pend.length>2?' …':''):'Sin adeudos pendientes';
-    const amount=isPending?total:Number(p.base_monthly_fee||0);
+    const amount=Math.round(isPending?total:Number(p.base_monthly_fee||0));
     const initials=String(p.player_name||'T').trim().split(/\s+/).map(part=>part[0]||'').join('').toUpperCase().slice(0,2)||'T';
     const photoAttrs=p.photo_thumb_path?` data-photo-path="${esc(p.photo_thumb_path)}" data-photo-bucket="${esc(p.photo_bucket||'tanneros-private')}"`:'';
     return `<div class="collections-row">
@@ -218,14 +218,14 @@ async function postCollect(){
   const btn=$('saveCollect');btn.disabled=true;message('collectMessage');
   try{
     if(collectMode==='player'){
-      const player=$('collectPlayer').value,playerName=$('collectPlayerSearch').value.trim(),amount=Number($('collectAmount').value),date=$('collectDate').value;
+      const player=$('collectPlayer').value,playerName=$('collectPlayerSearch').value.trim(),amount=Math.round(Number($('collectAmount').value)),date=$('collectDate').value;
       if(!player||!Number.isFinite(amount)||amount<=0||!date)throw new Error('Completa Tanner, monto y fecha.');
       if($('collectPayerType').value==='sponsor'&&!$('collectPayerName').value.trim())throw new Error('Indica el patrocinador.');
       const okDbl=await confirmDoubleCheck({title:'Confirma el cobro',message:`Vas a registrar un cobro de ${money.format(amount)} a ${playerName||'este Tanner'} · ${methodLabel($('collectMethod').value)}. ¿Es correcto?`,confirmText:'Sí, cobrar'});
       if(!okDbl){btn.disabled=false;return;}
       await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,idempotency_key:key('cashier-payment')});
     }else{
-      const amount=Number($('generalAmount').value),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
+      const amount=Math.round(Number($('generalAmount').value)),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
       const okDbl=await confirmDoubleCheck({title:'Confirma el ingreso',message:`Vas a registrar un ingreso de ${money.format(amount)} · ${concept} (${category}) · ${methodLabel($('generalMethod').value)}. ¿Es correcto?`,confirmText:'Sí, registrar'});
       if(!okDbl){btn.disabled=false;return;}
@@ -237,7 +237,7 @@ async function postCollect(){
 async function postExpense(){
   const btn=$('saveExpense');btn.disabled=true;message('expenseMessage');
   try{
-    const amount=Number($('expenseAmount').value),date=$('expenseDate').value,category=(($('expenseCategory').value==='__otra__')?($('expenseCategoryOther')?.value||''):$('expenseCategory').value).trim(),concept=$('expenseConcept').value.trim(),who=$('expenseWho').value.trim();
+    const amount=Math.round(Number($('expenseAmount').value)),date=$('expenseDate').value,category=(($('expenseCategory').value==='__otra__')?($('expenseCategoryOther')?.value||''):$('expenseCategory').value).trim(),concept=$('expenseConcept').value.trim(),who=$('expenseWho').value.trim();
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
     const okDbl=await confirmDoubleCheck({title:'Confirma el pago',message:`Vas a registrar un pago de ${money.format(amount)} a ${who||concept} · ${category} · ${methodLabel($('expenseMethod').value)}. ¿Es correcto?`,confirmText:'Sí, pagar'});
     if(!okDbl){btn.disabled=false;return;}
@@ -343,7 +343,15 @@ function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
   document.addEventListener('click',e=>{if(!e.target.closest('#'+boxId))res.classList.add('hidden');});
 }
 tannerSearchInit('generalPlayerBox','generalPlayerSearch','generalPlayer','generalPlayerResults','generalPlayerClear');
-tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','collectPlayerResults','collectPlayerClear',(pl)=>{if(pl&&pl.base_monthly_fee!=null&&!$('collectAmount').value)$('collectAmount').value=Number(pl.base_monthly_fee)||'';});
+// Si el Tanner ya tiene recargo generado (después del día 5, TC-004), se
+// prellena la suma de todo lo pendiente — no solo la mensualidad — para que
+// Taquilla no tenga que hacer la cuenta a mano ni se le olvide el recargo.
+tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','collectPlayerResults','collectPlayerClear',(pl)=>{
+  if(!pl||$('collectAmount').value)return;
+  const pendiente=(receivables||[]).filter(r=>r.player_id===pl.player_id).reduce((sum,r)=>sum+Number(r.balance_due||0),0);
+  const sugerido=pendiente>0?pendiente:Number(pl.base_monthly_fee||0);
+  $('collectAmount').value=sugerido>0?Math.round(sugerido):'';
+});
 
 
 // === Editar movimiento (solo Presidencia) ===
@@ -352,7 +360,7 @@ let pendingEdit=null;
 function openEditMove(m){
   if(!m)return;pendingEdit=m;const income=m.type==='income';
   $('editKicker').textContent=income?'COBRO':'PAGO';
-  $('editAmount').value=Number(m.amount||0);
+  $('editAmount').value=Math.round(Number(m.amount||0));
   $('editDate').value=m.date||isoToday();
   $('editMethod').value=_METHOD_VAL[m.method]||'other';
   $('editCategory').value=m.category&&m.category!=='—'?m.category:'';
@@ -366,7 +374,7 @@ function openEditMove(m){
 function closeEditMove(){pendingEdit=null;$('editModal').classList.add('hidden');$('modalBackdrop').classList.add('hidden');}
 async function saveEditMove(){
   if(!pendingEdit)return;const m=pendingEdit,income=m.type==='income',msg=$('editMessage');
-  const amount=Number($('editAmount').value);
+  const amount=Math.round(Number($('editAmount').value));
   if(!Number.isFinite(amount)||amount<=0){msg.textContent='El monto debe ser mayor a cero.';msg.classList.remove('hidden');return;}
   const btn=$('editSave');btn.disabled=true;
   try{

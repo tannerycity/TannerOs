@@ -86,7 +86,7 @@
     <form id="collectForm" class="cashier-form">
       <div id="playerFields" class="cashier-form-grid">
         <div class="tsearch wide" id="collectPlayerBox"><span class="tsearch-label">Tanner</span><div class="tsearch-field"><input type="text" id="collectPlayerSearch" placeholder="Escribe cualquier nombre del Tanner…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="collectPlayerClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="collectPlayerResults"></div></div><input type="hidden" id="collectPlayer" value=""></div>
-        <label>Monto<input id="collectAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
+        <label>Monto<input id="collectAmount" type="number" min="1" step="1" inputmode="numeric"></label>
         <label>Fecha<input id="collectDate" type="date"></label>
         <label>Método<select id="collectMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
         <label>Quién paga<select id="collectPayerType"><option value="guardian">Familia / tutor</option><option value="sponsor">Patrocinador</option><option value="player">Jugador</option><option value="organization">Club</option><option value="other">Otro</option></select></label>
@@ -95,7 +95,7 @@
       </div>
       <div id="generalFields" class="cashier-form-grid hidden">
         <div class="tsearch wide" id="generalPlayerBox"><span class="tsearch-label">Ligar a Tanner <span class="opt">· opcional, para trazabilidad</span></span><div class="tsearch-field"><input type="text" id="generalPlayerSearch" placeholder="Escribe cualquier nombre del Tanner…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="generalPlayerClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="generalPlayerResults"></div></div><input type="hidden" id="generalPlayer" value=""></div>
-        <label>Monto<input id="generalAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
+        <label>Monto<input id="generalAmount" type="number" min="1" step="1" inputmode="numeric"></label>
         <label>Fecha<input id="generalDate" type="date"></label>
         <label>Método<select id="generalMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
         <label>Categoría<select id="generalCategory"><option value="">Selecciona…</option><option>Academia · Academia de porteros</option><option>Inscripción</option><option>Uniforme</option><option>Tienda</option><option>Torneo</option><option>Arbitraje</option><option>Renta de cancha</option><option>Patrocinio</option><option>Curso de Verano</option><option value="__otra__">Otra…</option></select></label>
@@ -113,7 +113,7 @@
   <section id="expenseModal" class="cashier-modal hidden" role="dialog" aria-modal="true" aria-labelledby="expenseTitle">
     <div class="cashier-modal-head"><div><span>SALIDA</span><h2 id="expenseTitle">Registrar pago / egreso</h2></div><button type="button" data-close>×</button></div>
     <form id="expenseForm" class="cashier-form cashier-form-grid">
-      <label>Monto<input id="expenseAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
+      <label>Monto<input id="expenseAmount" type="number" min="1" step="1" inputmode="numeric" required></label>
       <label>Fecha<input id="expenseDate" type="date" required></label>
       <label>Método<select id="expenseMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
       <label>Categoría<select id="expenseCategory" required><option value="">Selecciona…</option><option>Nómina profesores</option><option>Profesor de porteros</option><option>Árbitros</option><option>Renta cancha</option><option>Marketing</option><option>Merchandising</option><option>Mantenimiento</option><option>Servicios</option><option>Utilería</option><option>Proveedor</option><option>Premios</option><option>Comisiones bancarias</option><option>Comisiones por captación</option><option value="__otra__">Otra…</option></select></label>
@@ -130,7 +130,7 @@
   <section id="editModal" class="cashier-modal edit-modal hidden" role="dialog" aria-modal="true">
     <div class="cashier-modal-head"><div><span id="editKicker">MOVIMIENTO</span><h2>Editar movimiento</h2></div><button type="button" data-close-edit aria-label="Cerrar">×</button></div>
     <div class="edit-body cashier-form-grid">
-      <label>Monto<input id="editAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
+      <label>Monto<input id="editAmount" type="number" min="1" step="1" inputmode="numeric"></label>
       <label>Fecha<input id="editDate" type="date"></label>
       <label>Método<select id="editMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
       <label>Categoría<input id="editCategory" type="text"></label>

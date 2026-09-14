@@ -46,7 +46,7 @@ export const navItems=[
   {code:'asistencia',label:'Asistencia',href:'/asistencia/',group:'club',icon:'check'},
   {code:'convocatoria',label:'Convocatoria',href:'/convocatoria/',group:'club',icon:'list',aliases:['callups']},
   {code:'calendario',label:'Calendario',href:'/calendario/',group:'main',icon:'calendar'},
-  {code:'centro_tanner',label:'Centro Tanner',href:'/centro-tanner/',group:'main',icon:'book'},
+  {code:'centro_tanner',label:'Centro Tanner',href:'/admin/centro-tanner/',group:'main',icon:'book'},
   {code:'academias',label:'Academias',href:'/operacion/academias/',group:'club',icon:'academy'},
   {code:'prospectos',label:'Captación',href:'/prospectos/',group:'club',icon:'target'},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},

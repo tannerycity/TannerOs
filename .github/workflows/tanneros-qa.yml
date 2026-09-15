@@ -32,7 +32,7 @@ on:
       - 'scripts/qa-centro-tanner.mjs'
       - '.github/workflows/tanneros-qa.yml'
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17 9 * * *'
   workflow_dispatch:
 
 permissions:

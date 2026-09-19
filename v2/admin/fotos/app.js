@@ -1,6 +1,7 @@
 import {bootstrapProtectedShell,rpc,$,moduleAccess,setShellHealth} from '/v2/shell.js';
 import {supabase} from '/v2/shell.js';
 import {getSignedPhotoUrl} from '/v2/photo-cache.js';
+import {encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES} from '/v2/image-encode.js';
 
 // Mantenimiento de miniaturas.
 //
@@ -15,7 +16,7 @@ const boot=await bootstrapProtectedShell({active:'admin',title:'Miniaturas de fo
 if(!boot)throw new Error('No access');
 const {ctx,navigation}=boot,org=ctx.organization_id;
 const puedeEscribir=moduleAccess(navigation,'admin',true);
-const BUCKET='tanneros-private',LADO=260,MAX_BYTES=180*1024;
+const BUCKET='tanneros-private';
 let pendientes=[];
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,23 +37,6 @@ function cargaImagen(blob){
     img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('No se pudo leer la imagen'));};
     img.src=url;
   });
-}
-const aBlob=(canvas,tipo,calidad)=>new Promise(r=>canvas.toBlob(r,tipo,calidad));
-// Mismo tamaño y peso que genera el resto de la app, para que una miniatura
-// vieja y una nueva se vean igual.
-async function miniatura(img){
-  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
-  const escala=Math.min(1,LADO/Math.max(w,h));
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.max(1,Math.round(w*escala));canvas.height=Math.max(1,Math.round(h*escala));
-  const cx=canvas.getContext('2d');
-  if(!cx)throw new Error('El navegador no pudo preparar la miniatura');
-  cx.drawImage(img,0,0,canvas.width,canvas.height);
-  let blob=await aBlob(canvas,'image/webp',0.75),ext='webp';
-  if(!blob){blob=await aBlob(canvas,'image/jpeg',0.75);ext='jpg';}
-  if(blob&&blob.size>MAX_BYTES){blob=await aBlob(canvas,'image/jpeg',0.6);ext='jpg';}
-  if(!blob)throw new Error('No se pudo comprimir la miniatura');
-  return {blob,ext,mime:blob.type||(ext==='jpg'?'image/jpeg':'image/webp')};
 }
 const rutaThumb=(path,ext)=>`${String(path).replace(/\.[^./]+$/,'')}-thumb.${ext}`;
 
@@ -95,7 +79,7 @@ async function procesa(){
       if(!url)throw new Error('No se pudo firmar la foto');
       const respuesta=await fetch(url);
       if(!respuesta.ok)throw new Error(`No se pudo descargar (${respuesta.status})`);
-      const mini=await miniatura(await cargaImagen(await respuesta.blob()));
+      const mini=await encodeVariant(await cargaImagen(await respuesta.blob()),THUMB_MAX_SIDE,0.75,THUMB_MAX_BYTES);
       const destino=rutaThumb(p.photo_path,mini.ext);
       const {error}=await supabase.storage.from(bucket)
         .upload(destino,mini.blob,{contentType:mini.mime,cacheControl:'3600',upsert:true});

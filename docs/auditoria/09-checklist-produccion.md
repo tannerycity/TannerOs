@@ -7,19 +7,19 @@ despliegue**. Lo autoriza esta lista.
 
 | # | Criterio | Estado | Evidencia requerida |
 |---|---|---|---|
-| 1 | Sin hallazgos P0 abiertos | ⬜ | Bloque A aplicado y probado |
+| 1 | Sin hallazgos P0 abiertos | ⬜ | Bloque A aplicado y probado en rama · falta WebKit real |
 | 2 | Origen del egress identificado con evidencia | ✅ | `docs/auditoria/02` |
 | 3 | Los listados usan miniaturas | ✅ | `qa-static.mjs` en verde |
 | 4 | No se descargan originales sin intención | ✅ | Barrera de egress |
-| 5 | Las fotos nuevas salen en WebP o JPEG, nunca PNG | ⬜ | Prueba en WebKit |
-| 6 | Peso de la variante grande ≤ 400 kB | ⬜ | Prueba unitaria |
+| 5 | Las fotos nuevas salen en WebP o JPEG, nunca PNG | ⬜ | Falta subir una foto desde un iPhone real · `10` |
+| 6 | Peso de la variante grande ≤ 400 kB | ✅ | `qa-image-encode.mjs` + medición en `10` |
 | 7 | Módulos de dinero con pruebas | ⬜ | Pruebas 2, 3 y 4 de `06` |
 | 8 | Aislamiento entre familias probado | ⬜ | Prueba 1 de `06` |
 | 9 | RLS y Storage auditados | ✅ | `docs/auditoria/05` |
 | 10 | Sin secretos expuestos | ✅ | `service_role` sólo en Edge Function |
 | 11 | Migraciones reversibles | ⬜ | Cada migración con su reverso |
 | 12 | Las tres verificaciones de QA pasan | ✅ | `qa-static`, `qa-photo-cache`, `qa-evaluation-guidance` |
-| 13 | Comparación medible antes/después | ⬜ | Peso por foto y kB por sesión |
+| 13 | Comparación medible antes/después | ✅ | `docs/auditoria/10` · 2,971 kB → 95 kB por foto |
 | 14 | Reversión documentada | ⬜ | Por bloque, en `08` |
 
 ## Recomendados · No bloquean
@@ -37,13 +37,13 @@ despliegue**. Lo autoriza esta lista.
 
 Medir **antes y después**, con el mismo recorrido:
 
-| Métrica | Hoy | Objetivo |
-|---|---:|---:|
-| Peso medio de foto nueva | 3,060 kB | ≤ 400 kB |
-| Peso de miniatura | 114 kB (PNG) | ≤ 40 kB |
-| kB por sesión del portal | sin medir | ≤ 500 kB |
-| Apertura del padrón | ~138 MB (potencial) | ≤ 1 MB |
-| Egress mensual | 11.87 GB | ≤ 2 GB |
+| Métrica | Hoy | Objetivo | Medido tras Bloque A |
+|---|---:|---:|---:|
+| Peso medio de foto nueva | 3,060 kB | ≤ 400 kB | **87 kB** · `10` |
+| Peso de miniatura | 114 kB (PNG) | ≤ 40 kB | **8 kB** · `10` |
+| kB por sesión del portal | sin medir | ≤ 500 kB | pendiente · Bloque B |
+| Apertura del padrón | ~138 MB (potencial) | ≤ 1 MB | pendiente · Bloque B |
+| Egress mensual | 11.87 GB | ≤ 2 GB | pendiente · tras desplegar |
 
 ## Reversión
 

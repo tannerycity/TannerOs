@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 import { getSignedPhotoUrl } from '/v2/photo-cache.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES } from '/v2/image-encode.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
@@ -222,27 +223,12 @@ function loadImageFile(file){
     img.src=url;
   });
 }
-const canvasBlobFrom=(canvas,type,quality)=>new Promise(r=>canvas.toBlob(r,type,quality));
-async function prepareVariant(img,maxSide,quality,maxBytes){
-  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
-  const scale=Math.min(1,maxSide/Math.max(w,h));
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));
-  const cx=canvas.getContext('2d');
-  if(!cx)throw new Error('Tu navegador no pudo preparar la foto.');
-  cx.drawImage(img,0,0,canvas.width,canvas.height);
-  let blob=await canvasBlobFrom(canvas,'image/webp',quality),ext='webp';
-  if(!blob){blob=await canvasBlobFrom(canvas,'image/jpeg',quality);ext='jpg';}
-  if(blob&&blob.size>maxBytes){blob=await canvasBlobFrom(canvas,'image/jpeg',Math.max(0.5,quality-0.17));ext='jpg';}
-  if(!blob||blob.size>maxBytes)throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
-  return {blob,ext,mime:blob.type||(ext==='jpg'?'image/jpeg':'image/webp')};
-}
 async function preparePhotoFile(file){
   if(!file)throw new Error('Selecciona una foto.');
   if(file.type&&!String(file.type).startsWith('image/'))throw new Error('Selecciona una imagen válida.');
   const img=await loadImageFile(file);
   if(!(img.naturalWidth||img.width))throw new Error('No pudimos leer el tamaño de esa foto.');
-  return {full:await prepareVariant(img,1200,0.82,5*1024*1024),thumb:await prepareVariant(img,THUMB_MAX_SIDE,0.75,THUMB_MAX_BYTES)};
+  return {full:await encodeVariant(img,FULL_MAX_SIDE,0.82,FULL_MAX_BYTES),thumb:await encodeVariant(img,THUMB_MAX_SIDE,0.75,THUMB_MAX_BYTES)};
 }
 // Si una de las dos subidas falla se borran las dos: media foto en el bucket es
 // basura que nadie vuelve a mirar.

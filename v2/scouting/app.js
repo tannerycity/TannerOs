@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES } from '/v2/image-encode.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -36,9 +37,7 @@ function pipelineRank(r){if(overdue(r))return 0;if(priority(r))return 1;if(cooli
 function initials(name){return String(name||'TC').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();}
 function scoreWord(v){const n=Number(v);return n>=9?'Sobresale':n>=7?'Destaca':n>=5?'Cumple':n>0?'Por desarrollar':'Sin evaluar';}
 function loadImage(file){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('No pudimos leer la foto.'));};img.src=url;});}
-function canvasBlob(canvas,type,quality){return new Promise(resolve=>canvas.toBlob(resolve,type,quality));}
-async function prepareVariant(img,maxSide,quality,maxBytes){const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,scale=Math.min(1,maxSide/Math.max(w,h)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));const c=canvas.getContext('2d');if(!c)throw new Error('No pudimos preparar la foto.');c.drawImage(img,0,0,canvas.width,canvas.height);let blob=await canvasBlob(canvas,'image/webp',quality),ext='webp';if(!blob){blob=await canvasBlob(canvas,'image/jpeg',quality);ext='jpg';}if(blob?.size>maxBytes){blob=await canvasBlob(canvas,'image/jpeg',Math.max(.5,quality-.16));ext='jpg';}if(!blob||blob.size>maxBytes)throw new Error('La foto es demasiado pesada.');return{blob,ext,mime:blob.type||'image/jpeg'};}
-async function preparePhoto(file){if(!file||!String(file.type||'').startsWith('image/'))throw new Error('Selecciona una imagen válida.');const img=await loadImage(file);const full=await prepareVariant(img,1600,.84,MAX_PHOTO_BYTES),thumb=await prepareVariant(img,THUMB_MAX_SIDE,.75,THUMB_MAX_BYTES);return{full,thumb};}
+async function preparePhoto(file){if(!file||!String(file.type||'').startsWith('image/'))throw new Error('Selecciona una imagen válida.');const img=await loadImage(file);const full=await encodeVariant(img,FULL_MAX_SIDE,.82,FULL_MAX_BYTES),thumb=await encodeVariant(img,THUMB_MAX_SIDE,.75,THUMB_MAX_BYTES);return{full,thumb};}
 async function uploadScoutPhoto(reportId,file){
   const prepared=await preparePhoto(file),stamp=Date.now();
   const prefix=`organizations/${ctx.organization_id}/scouting/${reportId}/`;

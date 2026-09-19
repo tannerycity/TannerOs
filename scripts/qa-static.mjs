@@ -102,6 +102,15 @@ for(const file of clientFiles.filter(file=>file.startsWith('v2/')&&file.endsWith
   const source=fs.readFileSync(file,'utf8');
   if(source.includes('.createSignedUrls('))errors.push(`Egress: ${file} firma lotes fuera del caché compartido`);
 }
+// Egress: canvas.toBlob devuelve PNG —no null— cuando el navegador no soporta
+// el tipo pedido, y para PNG ignora la calidad. Pedir WebP sin verificar lo que
+// volvió fue lo que metió 143 MB en PNG. Toda codificación pasa por el helper.
+for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']){
+  if(['v2/image-encode.js','welcome-card.js','v2/admin/branding/app.js'].includes(file))continue;
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
+  if(source.includes("'image/webp'")&&!source.includes("from '/v2/image-encode.js'"))
+    errors.push(`Egress: ${file} codifica a WebP sin el helper que verifica el tipo devuelto`);
+}
 const academyApp=fs.readFileSync('v2/mi-academia/app.js','utf8');
 for(const contract of ["const METODOLOGIA='TC_1.0'",'Guardar y siguiente','Sin evidencia','BABY_DIMENSIONES','v2_save_academy_evaluation'])if(!academyApp.includes(contract))errors.push(`Perfil Tanner: falta contrato ${contract}`);
 const playerProfile=fs.readFileSync('v2/jugadores/index.html','utf8');

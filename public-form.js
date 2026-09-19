@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { renderWelcomeCard } from '/welcome-card.js';
+import { encodeVariant, FULL_MAX_BYTES } from '/v2/image-encode.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
 const CLUB_KEY='1850TC1850';
@@ -75,8 +76,14 @@ function photoField(){return `<div class="photo-field span-2"><div class="field-
 function wirePhotoField(){const camera=$('photoCamera'),upload=$('photoUpload');$('takePhoto').addEventListener('click',()=>camera.click());$('uploadPhoto').addEventListener('click',()=>upload.click());camera.addEventListener('change',()=>selectPhoto(camera.files?.[0]));upload.addEventListener('change',()=>selectPhoto(upload.files?.[0]));$('removePhoto').addEventListener('click',()=>selectPhoto(null));}
 function selectPhoto(file){selectedPhotoFile=file||null;pendingPreparedPhoto=null;pendingUploadedPath=null;const preview=$('photoPreview');if(photoPreviewUrl){URL.revokeObjectURL(photoPreviewUrl);photoPreviewUrl=null;}if(!file){preview.innerHTML='<span class="tos-icon tos-icon-user" aria-hidden="true"></span>';preview.classList.remove('has-photo');$('removePhoto').disabled=true;return;}if(!String(file.type||'').startsWith('image/')){msg('Selecciona una imagen válida.');selectedPhotoFile=null;return;}photoPreviewUrl=URL.createObjectURL(file);preview.innerHTML=`<img src="${photoPreviewUrl}" alt="Foto seleccionada">`;preview.classList.add('has-photo');$('removePhoto').disabled=false;msg('');}
 function loadImage(file){return new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),img=new Image();img.onload=()=>{URL.revokeObjectURL(u);resolve(img)};img.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('No pudimos leer esa foto. Prueba con otra imagen.'))};img.src=u;});}
-function canvasBlob(canvas,type,quality){return new Promise(resolve=>canvas.toBlob(resolve,type,quality));}
-async function preparePhoto(file){if(!file)throw new Error('La foto del jugador es obligatoria.');const img=await loadImage(file);const maxSide=1000;const maxBytes=700*1024;const scale=Math.min(1,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);let blob=await canvasBlob(canvas,'image/webp',.78);if(!blob||blob.size>maxBytes)blob=await canvasBlob(canvas,'image/jpeg',.62);if(!blob||blob.size>maxBytes)throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');const mime=blob.type||'image/jpeg',ext=mime==='image/webp'?'webp':mime==='image/png'?'png':'jpg';return {blob,ext,mime};}
+// El registro público es de donde vienen los PNG de 3 MB: lo usan las mamás
+// desde su teléfono. La codificación pasa por el helper compartido, que mira el
+// tipo que toBlob devolvió de verdad en vez de asumir que WebP salió bien.
+async function preparePhoto(file){
+  if(!file)throw new Error('La foto del jugador es obligatoria.');
+  const img=await loadImage(file);
+  return encodeVariant(img,1000,.78,FULL_MAX_BYTES);
+}
 
 async function showRegistrationSuccess(cardData){
   show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>¡Bienvenido a la familia Tanner!</h2><p>Tu registro y tu foto quedaron guardados de forma segura. Administración de Tannery City se pondrá en contacto contigo.</p><div class="wc-wrap"><p id="wcStatus" class="wc-status">Generando tu tarjeta de bienvenida…</p><div id="wcPreview" class="wc-preview hidden"><img id="wcImage" alt="Tarjeta de bienvenida Tannery City FC"></div><div id="wcActions" class="wc-actions hidden"><button id="wcShare" class="primary" type="button">Compartir por WhatsApp</button><a id="wcDownload" class="secondary" type="button">Descargar imagen</a></div><p class="wc-hint">Compártela con la familia o súbela como historia — les ayuda a darle seguimiento a ${escapePublic(cardData.firstName||'tu jugador')}.</p></div></div>`);

@@ -4,6 +4,11 @@ Cada bloque es independiente y reversible. No se mezclan cambios sin relación.
 
 ## Bloque A — P0 de egress · el PNG silencioso
 
+> **Estado: aplicado en la rama `claude/auditoria-saas-egress`, sin desplegar.**
+> Medición y pruebas en [`10-bloque-a-evidencia.md`](10-bloque-a-evidencia.md):
+> 2,971 kB → 95 kB por foto en un navegador sin WebP. Queda pendiente
+> confirmarlo subiendo una foto desde un iPhone real.
+
 **Problema.** `canvas.toBlob(cb,'image/webp',q)` devuelve PNG —no `null`— cuando
 el navegador no soporta WebP, e ignora la calidad. Salen fotos de 3 MB en vez
 de 204 kB.

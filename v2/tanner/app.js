@@ -1,4 +1,5 @@
 import {supabase,bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,shellIcon} from '/v2/shell.js';
+import {getSignedPhotoUrl} from '/v2/photo-cache.js';
 
 // El shell valida el módulo activo, pero un estado de cuenta lo abre tanto
 // Cobranza como Jugadores. Se entra con 'inicio' (que el shell exceptúa) y el
@@ -30,8 +31,7 @@ async function signPhoto(p){
   const path=p.photo_thumb_path||p.photo_path;
   if(!path)return '';
   try{
-    const {data,error}=await supabase.storage.from(p.photo_bucket||'tanneros-private').createSignedUrl(path,3600);
-    return error?'':(data?.signedUrl||'');
+    return await getSignedPhotoUrl(supabase,p.photo_bucket||'tanneros-private',path)||'';
   }catch(e){return '';}
 }
 

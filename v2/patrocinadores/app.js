@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
-import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES } from '/v2/image-encode.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -355,9 +355,7 @@ async function preparePhotoFile(file) {
 }
 async function signedUrl(bucket, path) {
   if (!path) return null;
-  const { data, error } = await supabase.storage.from(bucket || PHOTO_BUCKET).createSignedUrl(path, 600);
-  if (error) throw error;
-  return data?.signedUrl || null;
+  return getSignedPhotoUrl(supabase, bucket || PHOTO_BUCKET, path);
 }
 async function signedUrls(bucket, paths) {
   const unique = [...new Set(paths.filter(Boolean))];
@@ -405,8 +403,8 @@ async function uploadAssetPhoto(file) {
     const path = prefix + 'photo-' + stamp + '.' + prepared.full.ext;
     const thumbPath = prefix + 'photo-' + stamp + '-thumb.' + prepared.thumb.ext;
     const [{ error: uploadError }, { error: thumbUploadError }] = await Promise.all([
-      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
-      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
     ]);
     if (uploadError || thumbUploadError) {
       await Promise.all([
@@ -456,8 +454,8 @@ async function uploadItemEvidence(file) {
     const path = prefix + 'evidence-' + stamp + '.' + prepared.full.ext;
     const thumbPath = prefix + 'evidence-' + stamp + '-thumb.' + prepared.thumb.ext;
     const [{ error: uploadError }, { error: thumbUploadError }] = await Promise.all([
-      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
-      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
     ]);
     if (uploadError || thumbUploadError) {
       await Promise.all([

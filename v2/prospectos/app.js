@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { getSignedPhotoUrls, getSignedPhotoUrl } from '/v2/photo-cache.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -404,7 +404,7 @@ function renderList(){
 }
 
 function addDetail(container,label,value){const item=document.createElement('div');item.className='detail-item';const l=document.createElement('span');l.textContent=label;const v=document.createElement('strong');v.textContent=value||'—';item.append(l,v);container.appendChild(item);}
-async function renderProspectPhoto(p){const box=$('prospectPhotoBox');box.innerHTML='';let url=p.photo_url;if(!url&&p.photo_path){const {data}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(p.photo_path,600);url=data?.signedUrl||null;}if(!url){const mark=document.createElement('strong'),label=document.createElement('small');mark.textContent=initials(p);label.textContent='Sin fotografía';box.append(mark,label);return;}const img=document.createElement('img');img.src=url;img.alt=`Foto de ${nameOf(p)}`;box.appendChild(img);}
+async function renderProspectPhoto(p){const box=$('prospectPhotoBox');box.innerHTML='';let url=p.photo_url;if(!url&&p.photo_path){try{url=await getSignedPhotoUrl(supabase,PHOTO_BUCKET,p.photo_path);}catch(_){url=null;}}if(!url){const mark=document.createElement('strong'),label=document.createElement('small');mark.textContent=initials(p);label.textContent='Sin fotografía';box.append(mark,label);return;}const img=document.createElement('img');img.src=url;img.alt=`Foto de ${nameOf(p)}`;box.appendChild(img);}
 function renderProspectDetails(p){
   const box=$('prospectDetails');box.innerHTML='';
   const age=ageOf(p);addDetail(box,'Categoría',p.category_interest);addDetail(box,'Edad',age==null?null:`${age} años`);

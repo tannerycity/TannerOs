@@ -98,10 +98,31 @@ for(const file of ['v2/app.js','v2/asistencia/app.js','v2/calendario/app.js','v2
   const source=fs.readFileSync(file,'utf8');
   if(!source.includes("from '/v2/photo-cache.js'"))errors.push(`Egress: ${file} no reutiliza URLs firmadas de fotos`);
 }
-for(const file of clientFiles.filter(file=>file.startsWith('v2/')&&file.endsWith('.js')&&file!=='v2/photo-cache.js')){
-  const source=fs.readFileSync(file,'utf8');
+// Toda firma de foto pasa por el cache compartido, en lote y de a una. Una URL
+// firmada por fuera trae token nuevo, y el navegador cachea por URL completa:
+// token nuevo es descarga nueva aunque los bytes sean los mismos.
+for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']){
+  if(file==='v2/photo-cache.js')continue;
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
   if(source.includes('.createSignedUrls('))errors.push(`Egress: ${file} firma lotes fuera del caché compartido`);
+  if(source.includes('.createSignedUrl('))errors.push(`Egress: ${file} firma una foto fuera del caché compartido`);
 }
+// Toda subida declara el mismo Cache-Control, y sale de una sola constante. Las
+// rutas llevan un Date.now() y van con upsert:false, asi que son inmutables y un
+// max-age largo es seguro; un literal suelto se desincroniza sin que nadie note.
+for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']){
+  if(file==='v2/image-encode.js')continue;
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
+  if(/cacheControl\s*:\s*['"]/.test(source))
+    errors.push(`Egress: ${file} escribe su propio Cache-Control en vez de UPLOAD_CACHE_CONTROL`);
+}
+// Egress de Vercel: /v2/ con no-store obliga a volver a bajar todo el JS en cada
+// pantalla. Con no-cache el navegador lo guarda y revalida: 304 sin cuerpo.
+const cabeceraV2=(vercel.headers||[]).find(h=>h.source==='/v2/(.*)');
+const valorV2=cabeceraV2?.headers?.find(h=>h.key==='Cache-Control')?.value||'';
+if(!valorV2)errors.push('vercel.json no declara Cache-Control para /v2/(.*)');
+else if(valorV2.includes('no-store'))errors.push('Egress: /v2/ vuelve a no-store; el navegador no puede reusar nada');
+
 // Egress: canvas.toBlob devuelve PNG —no null— cuando el navegador no soporta
 // el tipo pedido, y para PNG ignora la calidad. Pedir WebP sin verificar lo que
 // volvió fue lo que metió 143 MB en PNG. Toda codificación pasa por el helper.

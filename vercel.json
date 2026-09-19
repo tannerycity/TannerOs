@@ -73,7 +73,7 @@
     ]},
     {"source":"/","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
     {"source":"/index.html","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
-    {"source":"/v2/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source":"/v2/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, must-revalidate"}]},
     {"source":"/registro/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
     {"source":"/pedido/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
     {"source":"/programas/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},

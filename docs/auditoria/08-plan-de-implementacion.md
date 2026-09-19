@@ -34,6 +34,15 @@ el tipo. **Prueba en WebKit**, que es donde ocurre.
 
 ## Bloque B — Egress e imágenes · lo existente
 
+> **Estado: B3a, B3b y B4 aplicados en la rama, sin desplegar. B1+B2 con la
+> herramienta lista pero SIN correr** —cuesta ~143 MB de descarga, va después
+> del 22 de septiembre—. **B3c requiere una decisión de privacidad.**
+> Evidencia en [`11-bloque-b-evidencia.md`](11-bloque-b-evidencia.md).
+>
+> Cambio sobre el plan: B1 y B2 se unieron en **una sola pasada**. Las dos
+> necesitan la foto original decodificada, así que separarlas obligaba a
+> descargar el padrón dos veces.
+
 **B1. Miniaturas faltantes.** 46 de 50 jugadores. Herramienta lista en PR #137,
 sin mergear.
 

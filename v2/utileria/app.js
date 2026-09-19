@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
-import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES } from '/v2/image-encode.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -92,8 +92,8 @@ async function uploadPhoto(pathPrefix, file) {
   const path = `${pathPrefix}-${stamp}.${prepared.full.ext}`;
   const thumbPath = `${pathPrefix}-${stamp}-thumb.${prepared.thumb.ext}`;
   const [{ error: fullErr }, { error: thumbErr }] = await Promise.all([
-    supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
-    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+    supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
+    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
   ]);
   if (fullErr || thumbErr) {
     await Promise.all([
@@ -106,9 +106,7 @@ async function uploadPhoto(pathPrefix, file) {
 }
 async function signedPhoto(bucket, path) {
   if (!path) return null;
-  const { data, error } = await supabase.storage.from(bucket || PHOTO_BUCKET).createSignedUrl(path, 600);
-  if (error) return null;
-  return data?.signedUrl || null;
+  try { return await getSignedPhotoUrl(supabase, bucket || PHOTO_BUCKET, path); } catch (_) { return null; }
 }
 function hydratePhoto(boxEl, bucket, path, alt) {
   if (!boxEl || !path) return;

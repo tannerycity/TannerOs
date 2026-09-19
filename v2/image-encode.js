@@ -18,6 +18,17 @@ export const THUMB_MAX_BYTES = 40 * 1024;
 export const FULL_MAX_SIDE = 1200;
 export const FULL_MAX_BYTES = 400 * 1024;
 
+// Cabecera Cache-Control de toda foto que subimos a Storage.
+//
+// Un año es seguro porque las rutas son inmutables: llevan un `Date.now()` y
+// se suben con `upsert:false`, así que una foto nueva es siempre una ruta
+// nueva. Nadie sobreescribe bytes bajo una ruta que un navegador ya guardó.
+//
+// Ojo: por sí solo esto ahorra poco. Las fotos viven en un bucket privado y se
+// sirven con URL firmada; el navegador cachea por URL completa, token incluido,
+// así que cuando el token rota el caché falla igual. Ver docs/auditoria/11.
+export const UPLOAD_CACHE_CONTROL = '31536000';
+
 export function canvasToBlob(canvas, type, quality) {
   return new Promise(resolve => canvas.toBlob(resolve, type, quality));
 }

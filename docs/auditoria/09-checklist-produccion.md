@@ -41,8 +41,8 @@ Medir **antes y después**, con el mismo recorrido:
 |---|---:|---:|---:|
 | Peso medio de foto nueva | 3,060 kB | ≤ 400 kB | **87 kB** · `10` |
 | Peso de miniatura | 114 kB (PNG) | ≤ 40 kB | **8 kB** · `10` |
-| kB por sesión del portal | sin medir | ≤ 500 kB | pendiente · Bloque B |
-| Apertura del padrón | ~138 MB (potencial) | ≤ 1 MB | pendiente · Bloque B |
+| kB por sesión del portal | sin medir | ≤ 500 kB | 108 kB de assets · falta la foto · `11` |
+| Apertura del padrón | ~138 MB (potencial) | ≤ 1 MB | pendiente · falta correr la conversión |
 | Egress mensual | 11.87 GB | ≤ 2 GB | pendiente · tras desplegar |
 
 ## Reversión

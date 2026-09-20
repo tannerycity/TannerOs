@@ -1,0 +1,41 @@
+.clubes-page .tos-panel + .tos-panel{margin-top:16px}
+.clubes-muted{color:#6b8592;font:600 12.5px/1.5 Inter,system-ui;margin:4px 0 0}
+.clubes-detalle{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.clubes-detalle code{background:#f3f7f8;border:1px solid #dde7ea;border-radius:8px;padding:6px 9px;
+  font:600 11.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#2b4652;word-break:break-all}
+
+.clubes-tabla{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.club-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  border:1px solid #e3ebee;border-radius:12px;padding:12px 14px;background:#fbfdfd}
+.club-row strong{display:block;font:800 14px Inter,system-ui;color:#0b1418}
+.club-row small{display:block;color:#6b8592;font:600 11.5px Inter,system-ui;margin-top:2px}
+.club-datos{display:flex;gap:14px;margin-left:auto;color:#3d5560;font:600 12px Inter,system-ui}
+.club-datos b{color:#0b1418}
+.club-plan{border-radius:999px;padding:4px 10px;font:800 10.5px/1.4 Inter,system-ui;letter-spacing:.04em;
+  text-transform:uppercase;background:#e8f2ef;color:#1d6b55}
+.club-plan[data-estado="trialing"]{background:#fdf2dd;color:#8a6412}
+.club-plan[data-estado="sin"]{background:#fbe6e6;color:#9b2c2c}
+
+.clubes-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+.clubes-form label{display:flex;flex-direction:column;gap:5px}
+.clubes-form label.clubes-ancho{grid-column:1/-1}
+.clubes-form span{font:800 10.5px/1 Inter,system-ui;letter-spacing:.07em;color:#6b8592;text-transform:uppercase}
+.clubes-form small{color:#7c93a0;font:600 11px/1.45 Inter,system-ui}
+.clubes-form input,.clubes-form select{padding:10px 11px;border:1px solid #d5e0e6;border-radius:10px;
+  font:600 14px Inter,system-ui;background:#fff;color:#0b1418;width:100%}
+.clubes-form input:focus,.clubes-form select:focus{outline:2px solid #087d8e;outline-offset:1px}
+
+.clubes-message{grid-column:1/-1;border-radius:10px;padding:10px 12px;font:700 12.5px/1.5 Inter,system-ui;
+  background:#fbe6e6;color:#9b2c2c}
+.clubes-message[data-type="warning"]{background:#fdf2dd;color:#7a5a10}
+.clubes-message[data-type="success"]{background:#e6f4ee;color:#1d6b55}
+.clubes-acciones{grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end}
+
+.clubes-pendientes{margin:12px 0 0;padding-left:20px;color:#2b4652;font:600 13px/1.7 Inter,system-ui}
+.clubes-pendientes li{margin-bottom:2px}
+
+@media(max-width:560px){
+  .club-datos{margin-left:0;width:100%;gap:10px;flex-wrap:wrap}
+  .clubes-acciones{flex-direction:column-reverse}
+  .clubes-acciones button{width:100%}
+}

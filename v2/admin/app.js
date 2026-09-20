@@ -15,13 +15,24 @@ const settings=[
   {module:'qa',name:'Estado de TannerOS',detail:'Pruebas y salud técnica del club.',href:'/qa/',symbol:'OK'}
 ];
 
+// Dar de alta clubes esta por encima de cualquier club, asi que este renglon
+// solo aparece para quien administra la plataforma. Mientras la migracion de
+// supabase/propuestas/F1_alta_de_un_club.sql no este aplicada, la RPC no
+// existe y el renglon simplemente no sale.
+const plataforma={module:'admin',name:'Clubes',detail:'Da de alta un club nuevo y revisa los que ya existen.',href:'/admin/clubes/',symbol:'CL'};
+async function soyDePlataforma(){
+  try{return Boolean(await rpc('v2_am_i_platform_admin'));}catch(_){return false;}
+}
+
 function show(id){['loadingView','deniedView','view'].forEach(view=>$(view)?.classList.toggle('hidden',view!==id));}
 function safe(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
 async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 
-function renderSettings(allowed){
+function renderSettings(allowed,conPlataforma=false){
   const list=$('settingsList');list.innerHTML='';
-  settings.filter(item=>item.module==='admin'||allowed.has(item.module)).forEach(item=>{
+  const filas=settings.filter(item=>item.module==='admin'||allowed.has(item.module));
+  if(conPlataforma)filas.push(plataforma);
+  filas.forEach(item=>{
     const link=document.createElement('a');link.href=item.href;link.className='settings-row';
     link.innerHTML=`<span class="settings-symbol" aria-hidden="true">${safe(item.symbol)}</span><span class="settings-copy"><strong>${safe(item.name)}</strong><small>${safe(item.detail)}</small></span><span class="settings-arrow" aria-hidden="true"></span>`;
     list.appendChild(link);
@@ -61,7 +72,7 @@ async function boot(){
   if(!admin?.enabled||!admin?.can_read){$('deniedText').textContent='Tu llave no abre el Club House.';show('deniedView');return;}
   $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Integrante');
   const allowed=new Set(modules.filter(module=>module.enabled&&module.can_read).map(module=>module.module_code));
-  renderSettings(allowed);$('usersDoor').classList.toggle('hidden',!allowed.has('usuarios'));
+  renderSettings(allowed,await soyDePlataforma());$('usersDoor').classList.toggle('hidden',!allowed.has('usuarios'));
   try{renderReadiness(await rpc('v2_onboarding_readiness',{organization_id:ctx.organization_id}));}catch{renderReadinessFallback();}
   show('view');
 }

@@ -138,6 +138,58 @@ Lo que desbloquea, todo junto:
 
 **No la creé.** Cuesta dinero y necesita tu sí.
 
+## El alta de un club · construida
+
+El hueco que este documento señalaba —«el esquema aguanta varios clubes pero
+nadie ha dado de alta uno»— ya tiene camino. Tres piezas:
+
+**1. La migración**, en `supabase/propuestas/F1_alta_de_un_club.sql`, **sin
+aplicar**. Crea `public.platform_admins` —porque dar de alta clubes está por
+encima de cualquier club, y hoy no existía nada por encima de `is_owner`— y una
+función que crea en **una sola transacción** la organización, su suscripción, su
+política de cobro y sus categorías.
+
+Esas cuatro van juntas porque son las que, si salen a medias, dejan un club
+roto: sin suscripción el club nace **sin un solo módulo**, y se ve igual que uno
+sano hasta que alguien intenta entrar.
+
+Lo que **no** crea, a propósito: los documentos legales. Copiarle a otro club su
+reglamento y su aviso de privacidad —con otra razón social— sería un regalo
+envenenado. La función devuelve la lista de lo que falta, y la pantalla la
+enseña.
+
+**2. La pantalla**, `/admin/clubes/`, sólo visible para quien esté en
+`platform_admins`. Probada en navegador en cuatro escenarios:
+
+```
+A · sin la migración aplicada  → «Falta aplicar la migración», con la ruta del archivo
+B · usuario sin permiso        → «Esta pantalla no es para tu cuenta»
+C · administrador              → lista los clubes con jugadores, usuarios y plan
+D · el identificador           → «Deportivo Águilas de Tepa» → deportivo-aguilas-de-tepa
+E · confirmación               → tras el primer clic no se creó nada
+F · alta completa              → id, slug, plan, llave pública y los 5 pendientes
+```
+
+El paso E importa: el identificador sale en las ligas públicas y **no se cambia
+después**, así que la pantalla obliga a leerlo dos veces.
+
+**3. El runbook**, `docs/alta-de-un-club.md`: los siete pasos, qué se cambia
+después y qué no, cómo verificar, cómo deshacer, y cuánto ocupa un club.
+
+### Un enlace roto que apareció de paso
+
+El Club House enlaza a `/admin/fotos/`, pero esa ruta **no existía en
+`vercel.json`**: iba a dar 404. No es de esta sesión —el enlace ya estaba— pero
+se arregló junto con el nuevo, y las dos rutas quedaron en el contrato de
+`qa-static.mjs` para que no vuelva a pasar.
+
+### El hueco que queda
+
+**Invitar al primer usuario del club nuevo desde una pantalla.** Las pantallas
+de TannerOS trabajan sobre *tu* club, no sobre el que acabas de crear, así que
+hoy la membresía de Presidencia se crea con un `insert` a mano. El runbook trae
+el SQL. Es lo último que falta para que el alta sea de verdad de punta a punta.
+
 ## Lo que falta para vender el segundo club
 
 Por orden de lo que yo haría:
@@ -147,7 +199,7 @@ Por orden de lo que yo haría:
 | 1 | **Correr la conversión de fotos** | De 6 clubes a 50 en el mismo plan |
 | 2 | Crear la rama de pruebas | Desbloquea todo lo demás |
 | 3 | Aplicar E1/E2/E3 ahí y probarlas | Sin medición no hay plan que cobrar |
-| 4 | Alta de un club nuevo de punta a punta | Nunca se ha hecho; es el hueco que queda |
+| 4 | Aplicar `F1_alta_de_un_club.sql` y dar de alta uno | Construido y probado en navegador; falta correr la migración |
 | 5 | Paginar `v2_players` (C2) | A 2,000 jugadores deja de ser opcional |
 
 El punto 4 es el que nadie ha probado: **el esquema aguanta varios clubes, pero

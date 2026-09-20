@@ -116,7 +116,19 @@ const FIX={
 const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome',args:['--no-sandbox']});
 
 // --- 1. Humo: ninguna pantalla tocada revienta al cargar --------------------
-const PANTALLAS=["/", "/academias/", "/aviso-de-privacidad/", "/centro-tanner/", "/pedido/", "/programas/", "/registro/", "/registro/jugadores/", "/registro/porteros/", "/registro/scouting/", "/v2/", "/v2/academias/", "/v2/admin/", "/v2/admin/auditoria/", "/v2/admin/branding/", "/v2/admin/centro-tanner/", "/v2/admin/club/", "/v2/admin/fotos/", "/v2/admin/onboarding/", "/v2/asistencia/", "/v2/calendario/", "/v2/captura/", "/v2/catalogo/", "/v2/club/", "/v2/contabilidad/", "/v2/convocatoria/", "/v2/deportivo/", "/v2/direccion/", "/v2/estacionamiento/", "/v2/familias/", "/v2/finanzas/", "/v2/jugadores/", "/v2/mi-academia/", "/v2/modulos/", "/v2/patrocinadores/", "/v2/pedidos/", "/v2/porteros/", "/v2/produccion/", "/v2/programas/", "/v2/prospectos/", "/v2/qa/", "/v2/qa/perfil-tanner/", "/v2/scouting/", "/v2/tanner/", "/v2/taquilla/", "/v2/usuarios/", "/v2/utileria/"];
+// La lista sale del disco, no escrita a mano: una pantalla nueva entra sola.
+// Cuando estaba fija, la de Clubes no se probo hasta que alguien lo noto.
+function rutasDelRepo(dir=ROOT, rel=''){
+  const salida=[];
+  for(const e of fs.readdirSync(dir,{withFileTypes:true})){
+    if(e.name.startsWith('.')||e.name==='node_modules'||e.name==='supabase'||e.name==='docs'||e.name==='scripts')continue;
+    const abs=path.join(dir,e.name);
+    if(e.isDirectory())salida.push(...rutasDelRepo(abs, rel+'/'+e.name));
+    else if(e.name==='index.html')salida.push((rel||'')+'/');
+  }
+  return salida;
+}
+const PANTALLAS=rutasDelRepo().sort();
 let fallos=0;
 for(const ruta of PANTALLAS){
   const p=await b.newPage({viewport:{width:1280,height:900}});

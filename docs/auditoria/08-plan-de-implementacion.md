@@ -75,6 +75,13 @@ nueva; la vieja se mantiene hasta migrar las pantallas.
 
 ## Bloque D — QA
 
+> **Estado: 7 de las 8 pruebas escritas y en verde**, todas de sólo lectura,
+> sin escribir una fila en producción. Evidencia en
+> [`13-bloque-d-evidencia.md`](13-bloque-d-evidencia.md). Falta la 08 y las
+> formas sintéticas de 02, 03 y 04: necesitan un ambiente aparte.
+>
+> Sigue sin haber **WebKit**, que es el hueco que costó los 143 MB en PNG.
+
 Las 8 pruebas de `06`, en ese orden. Primero las de aislamiento entre familias
 y las de dinero.
 

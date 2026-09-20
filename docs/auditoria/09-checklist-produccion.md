@@ -13,8 +13,8 @@ despliegue**. Lo autoriza esta lista.
 | 4 | No se descargan originales sin intención | ✅ | Barrera de egress |
 | 5 | Las fotos nuevas salen en WebP o JPEG, nunca PNG | ⬜ | Falta subir una foto desde un iPhone real · `10` |
 | 6 | Peso de la variante grande ≤ 400 kB | ✅ | `qa-image-encode.mjs` + medición en `10` |
-| 7 | Módulos de dinero con pruebas | ⬜ | Pruebas 2, 3 y 4 de `06` |
-| 8 | Aislamiento entre familias probado | ⬜ | Prueba 1 de `06` |
+| 7 | Módulos de dinero con pruebas | ✅ | Invariantes 02, 03 y 04 en `supabase/tests/` |
+| 8 | Aislamiento entre familias probado | ✅ | `supabase/tests/01` y `05` en verde |
 | 9 | RLS y Storage auditados | ✅ | `docs/auditoria/05` |
 | 10 | Sin secretos expuestos | ✅ | `service_role` sólo en Edge Function |
 | 11 | Migraciones reversibles | ⬜ | Cada migración con su reverso |

@@ -23,8 +23,10 @@ const _u={id:'presi-1',email:'mich@tannerycity.com',app_metadata:{},user_metadat
 function _store(bucket){
   return {
     getPublicUrl:()=>({data:{publicUrl:''}}),
-    createSignedUrl:async(p)=>({data:{signedUrl:window.__fotoUrl||('blob:firmada/'+p)},error:null}),
-    createSignedUrls:async(ps)=>({data:(ps||[]).map(p=>({path:p,signedUrl:window.__fotoUrl||('blob:firmada/'+p),error:null})),error:null}),
+    createSignedUrl:async(p)=>{window.__llamadas.firma.push(p);
+      return {data:{signedUrl:window.__fotoUrl||('blob:firmada/'+p)},error:null};},
+    createSignedUrls:async(ps)=>{(ps||[]).forEach(p=>window.__llamadas.firma.push(p));
+      return {data:(ps||[]).map(p=>({path:p,signedUrl:window.__fotoUrl||('blob:firmada/'+p),error:null})),error:null};},
     list:async(carpeta)=>{window.__llamadas.list.push(carpeta);
       const objs=(window.__storage||{})[carpeta]||null;
       return {data:objs,error:null};},
@@ -80,7 +82,9 @@ const s=http.createServer((q,r)=>{
   r.writeHead(200,{'Content-Type':T[path.extname(f)]||'text/plain'});
   fs.createReadStream(f).pipe(r);
 });
-await new Promise(r=>s.listen(4223,r));
+// Puerto libre que elige el sistema: dos corridas a la vez no se estorban.
+await new Promise(r=>s.listen(0,r));
+const BASE='http://localhost:'+s.address().port;
 
 const NAV=['tanner','patrocinadores','utileria','prospectos','jugadores','programas','catalogo','scouting','admin','calendario','asistencia','familias','taquilla']
   .map((c,i)=>({module_code:c,module_name:c,can_read:true,can_write:true,enabled:true,customized:false,sort_order:i*10}));
@@ -88,7 +92,7 @@ const MOD=['sponsors','equipment','prospects','players','programs','catalog','sc
   .map(c=>({module_code:c,enabled:true,can_read:true,can_write:true}));
 const JUGADORES=[
   {id:'p1',player_id:'p1',first_name:'Liam',last_name:'Santos',player_name:'Liam Santos',category:'T10',
-   photo_path:'organizations/org-1/players/p1/profile-1756000000000.webp',photo_thumb_path:null,photo_bucket:'tanneros-private'},
+   photo_path:'organizations/org-1/players/p1/profile-1756000000000.webp',photo_thumb_path:'organizations/org-1/players/p1/profile-1756000000000-thumb.webp',photo_bucket:'tanneros-private'},
   {id:'p2',player_id:'p2',first_name:'Ana',last_name:'Uc',player_name:'Ana Uc',category:'T12',
    photo_path:'organizations/org-1/players/p2/profile-1756000001000.webp',photo_thumb_path:'organizations/org-1/players/p2/profile-1756000001000-thumb.webp',photo_bucket:'tanneros-private'},
   {id:'p3',player_id:'p3',first_name:'Gianluca',last_name:'Enríquez',player_name:'Gianluca Enríquez',category:'T8',
@@ -120,8 +124,8 @@ for(const ruta of PANTALLAS){
   p.on('pageerror',e=>errs.push(String(e).split('\n')[0]));
   p.on('console',m=>{if(m.type()==='error'&&!/favicon|404|Failed to load resource/.test(m.text()))errs.push('console: '+m.text().slice(0,140));});
   await p.addInitScript(d=>{window.__fixtures=d.fix;window.__rpc=[];window.__sinFixture=[];
-    window.__storage=d.storage;window.__llamadas={list:[],upload:[],remove:[],download:[]};},{fix:FIX,storage:STORAGE});
-  try{await p.goto('http://localhost:4223'+ruta,{waitUntil:'networkidle',timeout:20000});}catch(e){errs.push('goto: '+e.message.split('\n')[0]);}
+    window.__storage=d.storage;window.__llamadas={list:[],upload:[],remove:[],download:[],firma:[]};},{fix:FIX,storage:STORAGE});
+  try{await p.goto(BASE+ruta,{waitUntil:'networkidle',timeout:20000});}catch(e){errs.push('goto: '+e.message.split('\n')[0]);}
   await p.waitForTimeout(700);
   const duros=errs.filter(e=>!/Identifier .* has already|^$/.test('')&&e);
   if(duros.length){fallos++;console.log(`✗ ${ruta}`);duros.slice(0,4).forEach(e=>console.log('   '+e));}
@@ -129,6 +133,36 @@ for(const ruta of PANTALLAS){
   await p.close();
 }
 
+// --- 2. Prueba 7 de docs/auditoria/06 · ninguna lista firma un original ------
+//
+// La barrera de qa-static impide que el CODIGO pida la foto completa en una
+// lista. Esto lo comprueba EN EJECUCION: se abre la pantalla con Tanners que
+// tienen original y miniatura, y se revisa que lo unico que se pidio firmar
+// sean miniaturas. Un original en un padron de 50 son megabytes por apertura.
+console.log('\n--- Prueba 7: las listas solo piden miniaturas ---');
+let fugas=0,firmasVistas=0;
+for(const ruta of ['/v2/jugadores/','/v2/asistencia/','/v2/']){
+  const p=await b.newPage({viewport:{width:1280,height:900}});
+  await p.addInitScript(d=>{window.__fixtures=d.fix;window.__rpc=[];window.__sinFixture=[];
+    window.__storage=d.storage;window.__llamadas={list:[],upload:[],remove:[],download:[],firma:[]};},{fix:FIX,storage:STORAGE});
+  try{await p.goto(BASE+ruta,{waitUntil:'networkidle',timeout:20000});}catch(_){ }
+  await p.waitForTimeout(900);
+  const firmadas=await p.evaluate(()=>window.__llamadas.firma);
+  firmasVistas+=firmadas.length;
+  const originales=firmadas.filter(f=>f&&!/-thumb\.[a-z0-9]+$/i.test(f));
+  if(originales.length){
+    fugas++;
+    console.log(`✗ ${ruta} firmo ${originales.length} original(es):`);
+    originales.slice(0,3).forEach(o=>console.log('   '+o));
+  }else{
+    console.log(`✓ ${ruta} · ${firmadas.length} firma(s), todas miniaturas`);
+  }
+  await p.close();
+}
+
 await b.close();s.close();
 if(fallos){console.error(`\n${fallos} pantalla(s) con error`);process.exit(1);}
-console.log(`\nHumo de navegador OK · ${PANTALLAS.length} pantallas sin errores`);
+if(fugas){console.error(`\n${fugas} pantalla(s) firmaron un original en una lista`);process.exit(1);}
+// Sin una sola firma, la prueba 7 no probo nada: pasaria igual con el modulo roto.
+if(!firmasVistas){console.error('\nLa prueba 7 no vio ni una firma de foto: no probo nada');process.exit(1);}
+console.log(`\nHumo de navegador OK · ${PANTALLAS.length} pantallas sin errores · las listas solo piden miniaturas`);

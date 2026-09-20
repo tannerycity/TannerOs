@@ -29,7 +29,7 @@ despliegue**. Lo autoriza esta lista.
 | 15 | Protección de contraseñas filtradas activa | ⬜ |
 | 16 | `migration` fuera de `db_schemas` | ⬜ |
 | 17 | `anon` sin EXECUTE en lo que no es público | ⬜ |
-| 18 | Versión del cliente de Supabase fija | ⬜ |
+| 18 | Versión del cliente de Supabase fija | ✅ |
 | 19 | Alertas de cuota configuradas | ⬜ |
 | 20 | Ambiente de pruebas separado | ⬜ |
 

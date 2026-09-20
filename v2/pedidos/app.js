@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,orders=[],current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DIACRITICS_RE=new RegExp(String.fromCharCode(91)+String.fromCharCode(0x300)+'-'+String.fromCharCode(0x36f)+String.fromCharCode(93),'g');

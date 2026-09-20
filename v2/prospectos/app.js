@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls, getSignedPhotoUrl } from '/v2/photo-cache.js';
 
 const supabase=createClient(

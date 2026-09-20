@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { renderWelcomeCard } from '/welcome-card.js';
 import { encodeVariant, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';

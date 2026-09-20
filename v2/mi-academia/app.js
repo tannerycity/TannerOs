@@ -1,6 +1,6 @@
 import {bootstrapProtectedShell,rpc,$,setShellHealth} from '/v2/shell.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
-import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
+import {createClient} from '/v2/supabase-client.js';
 
 // La pantalla del profesor de academia. Deliberadamente no hay nada de dinero:
 // ni cuotas, ni adeudos, ni cobros. La RPC que la alimenta tampoco los devuelve,

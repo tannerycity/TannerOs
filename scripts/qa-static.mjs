@@ -107,6 +107,20 @@ for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']
   if(source.includes('.createSignedUrls('))errors.push(`Egress: ${file} firma lotes fuera del caché compartido`);
   if(source.includes('.createSignedUrl('))errors.push(`Egress: ${file} firma una foto fuera del caché compartido`);
 }
+// Disponibilidad: el CDN y la versión del cliente de Supabase se nombran en UN
+// solo archivo. Un `@2` flotante resuelve a la última 2.x que exista cuando un
+// navegador la pide, así que el club podía amanecer con una versión que nadie
+// eligió, sin haber desplegado nada — y hay una 3.0 en camino.
+const clienteSupabase=fs.readFileSync('v2/supabase-client.js','utf8');
+if(!/@supabase\/supabase-js@2\.\d+\.\d+'/.test(clienteSupabase))
+  errors.push('Disponibilidad: v2/supabase-client.js no fija una versión exacta del cliente');
+for(const file of [...clientFiles,'public-form.js','centro-tanner/app.js','pedido/app.js','aviso-de-privacidad/app.js']){
+  if(file==='v2/supabase-client.js')continue;
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
+  if(source.includes('esm.sh/@supabase'))
+    errors.push(`Disponibilidad: ${file} importa el cliente del CDN por su cuenta`);
+}
+
 // Toda subida declara el mismo Cache-Control, y sale de una sola constante. Las
 // rutas llevan un Date.now() y van con upsert:false, asi que son inmutables y un
 // max-age largo es seguro; un literal suelto se desincroniza sin que nadie note.

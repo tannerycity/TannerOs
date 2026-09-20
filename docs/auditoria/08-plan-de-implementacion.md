@@ -62,6 +62,12 @@ B3 y B4 son configuración, se revierten con un commit.
 
 ## Bloque C — Rendimiento
 
+> **Estado: C1 aplicado en la rama, sin desplegar. C2 y C3 medidos y
+> NO recomendados por ahora** — la evidencia no los justifica. Detalle en
+> [`12-bloque-c-evidencia.md`](12-bloque-c-evidencia.md), que además trae un
+> hallazgo nuevo: `pg_timezone_names` consume 6.7× más tiempo de base de datos
+> que la RPC más costosa del club, y no la llama la aplicación.
+
 **C1.** Fijar la versión del cliente de Supabase. *Riesgo de disponibilidad.*
 **C2.** Paginar `v2_players` y separar el detalle. Requiere migración con RPC
 nueva; la vieja se mantiene hasta migrar las pantallas.

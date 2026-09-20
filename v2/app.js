@@ -1,5 +1,5 @@
 import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon} from '/v2/shell.js';
-import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -186,7 +186,7 @@ function wireAuth(){
   $('authForm')?.addEventListener('submit',handleAuthSubmit);
   $('resendConfirmation')?.addEventListener('click',resendConfirmation);
   $('refreshAccess')?.addEventListener('click',()=>loadAuthenticatedApp());
-  $('pendingSignOut')?.addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});
+  $('pendingSignOut')?.addEventListener('click',async()=>{await clearPhotoCache();await supabase.auth.signOut();location.href='/';});
   $('forcePasswordForm')?.addEventListener('submit',handleForcedPassword);
   installAuthExtras();
 }

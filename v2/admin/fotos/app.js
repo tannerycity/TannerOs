@@ -1,6 +1,6 @@
 import {bootstrapProtectedShell,rpc,$,moduleAccess,setShellHealth} from '/v2/shell.js';
 import {supabase} from '/v2/shell.js';
-import {getSignedPhotoUrl} from '/v2/photo-cache.js';
+import {getSignedPhotoUrl,forgetPhoto} from '/v2/photo-cache.js';
 import {encodeVariant,THUMB_MAX_SIDE,THUMB_MAX_BYTES,FULL_MAX_SIDE,FULL_MAX_BYTES,UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 // Mantenimiento de fotos del padrón.
@@ -153,6 +153,9 @@ async function procesa(){
       if(!respuesta.ok)throw new Error(`No se pudo descargar (${respuesta.status})`);
       const original=await respuesta.blob();
       bajados+=original.size;
+      // El caché de fotos no tiene por qué cargar con un original de 3 MB que
+      // esta pantalla ya recodificó y nadie va a volver a mirar.
+      forgetPhoto(bucket,p.photo_path);
       const img=await cargaImagen(original);
       const stamp=Date.now();
       const base=`${carpetaDe(p.photo_path)}/${sinExtension(nombreDe(p.photo_path))}`;

@@ -15,7 +15,12 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+    // El caché de fotos (v2/photo-cache.js) no es del shell y no se poda aquí:
+    // si se borrara en cada activación, las familias volverían a descargar la
+    // foto de su hijo en cada visita, que es justo lo que evita.
+    await Promise.all(keys
+      .filter((k) => k !== CACHE && !k.startsWith('tanneros-fotos-'))
+      .map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });

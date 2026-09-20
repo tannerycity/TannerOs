@@ -18,7 +18,7 @@ despliegue**. Lo autoriza esta lista.
 | 9 | RLS y Storage auditados | ✅ | `docs/auditoria/05` |
 | 10 | Sin secretos expuestos | ✅ | `service_role` sólo en Edge Function |
 | 11 | Migraciones reversibles | ⬜ | Cada migración con su reverso |
-| 12 | Las tres verificaciones de QA pasan | ✅ | `qa-static`, `qa-photo-cache`, `qa-evaluation-guidance` |
+| 12 | Las verificaciones de QA pasan | ✅ | `qa-static` (37 pantallas), `qa-image-encode` (7), `qa-photo-cache` (8) |
 | 13 | Comparación medible antes/después | ✅ | `docs/auditoria/10` · 2,971 kB → 95 kB por foto |
 | 14 | Reversión documentada | ⬜ | Por bloque, en `08` |
 

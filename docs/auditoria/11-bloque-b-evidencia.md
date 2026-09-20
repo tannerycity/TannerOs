@@ -14,7 +14,7 @@ lo que se vuelve a bajar sin necesidad.
 | B3a | Las 6 firmas de foto sueltas pasan por el caché compartido | Aplicado |
 | B3b | Un solo `Cache-Control` para las 15 subidas del sistema | Aplicado |
 | B4 | `/v2/` deja de ser `no-store` | Aplicado |
-| B3c | Que los bytes de una foto sobrevivan a cerrar la pestaña | **Decisión pendiente · abajo** |
+| B3c | Que los bytes de una foto sobrevivan a cerrar la pestaña | Aplicado · 24 h, se borra al salir |
 
 ## B1 + B2 · una pasada, no dos
 
@@ -146,41 +146,140 @@ ni un byte de los 11.87 GB.** Es velocidad percibida y factura de Vercel.
 
 `qa-static.mjs` rechaza que `/v2/` vuelva a `no-store`.
 
-## B3c · la decisión que falta
+## B3c · que la foto no se vuelva a bajar en cada visita
 
-Subir el `Cache-Control` a un año no sirve de mucho solo, y hay que decirlo
-claro. Las fotos viven en un **bucket privado** y se sirven con **URL firmada**:
+Este era el ahorro grande, y el que hacía falta decidir. Mich pidió el mejor
+resultado para las familias y el staff, así que se tomó el camino que ahorra sin
+alargar la vida de una URL firmada ni un minuto.
+
+### El problema
+
+Las fotos viven en un **bucket privado** y se sirven con **URL firmada**:
 
 1. El token dura **1 hora**.
-2. El navegador cachea por URL completa, token incluido.
-3. `photo-cache.js` reusa la URL 50 minutos, y en `sessionStorage`: **se borra
-   al cerrar la pestaña.**
+2. El navegador cachea por URL completa, **token incluido**.
+3. `photo-cache.js` reusaba la URL 50 minutos, y en `sessionStorage`: **se
+   borraba al cerrar la pestaña.**
 
-Resultado: una mamá que abre el portal hoy en la mañana y otra vez en la tarde
-**descarga la foto de su hijo dos veces**. Siempre.
+Una mamá que abría el portal en la mañana y otra vez en la tarde **descargaba la
+foto de su hijo dos veces**. Un profe que abría Asistencia cinco veces al día
+bajaba las 50 miniaturas cinco veces.
 
-Las dos formas de arreglarlo, y por qué no elegí solo:
+### La solución
 
-| Camino | Ahorro | Qué se paga |
+Los bytes ahora se guardan bajo la **ruta** del archivo, no bajo su URL. La ruta
+no cambia nunca —lleva un `Date.now()` y se sube con `upsert:false`—, así que
+**un token nuevo ya no cuesta una descarga nueva**.
+
+| | Antes | Ahora |
 |---|---|---|
-| **Alargar el token** (1 h → 1 o 7 días) | Alto | Una URL que se filtre sirve días, no una hora |
-| **Guardar los bytes por ruta** (Cache API), token intacto | Alto | La foto del niño queda guardada en el navegador aunque cierre sesión |
+| Vida del token | 1 hora | **1 hora, igual** |
+| Dónde vive el caché | `sessionStorage` | Cache API, en disco |
+| Qué guarda | La URL | Los bytes, bajo la ruta |
+| Cuánto dura | 50 minutos | 24 horas |
+| Al cerrar sesión | — | **Se borra todo** |
 
-Las dos guardan por más tiempo algo privado: fotos de menores. La regla 5 del
-contrato de Codex es **«privacidad antes que ahorro»**, así que esto no se
-decide solo.
+**Lo que NO se hizo, a propósito:** alargar el token. Era la opción más fácil de
+programar, y la que peor se paga: una URL que se filtrara —una captura, el
+historial de una compu compartida, un link reenviado— daría acceso a la foto de
+un menor durante días. La regla 5 del contrato de Codex es «privacidad antes que
+ahorro», y aquí se respeta al pie de la letra.
 
-**Mi recomendación:** el segundo camino, con vida de **24 horas** y borrado al
-cerrar sesión. Captura el patrón real —la misma mamá entrando varias veces el
-mismo día— sin alargar la vida del token ni un minuto, y la foto se va del
-dispositivo cuando ella sale. Falta el sí de Mich.
+Se borra en los **cuatro** puntos de salida del sistema: el vestidor
+(`v2/shell.js`), el portal de familias (dos), y la sesión pendiente
+(`v2/app.js`).
+
+### Verificado en navegador de verdad
+
+Misma foto, tres visitas, **un token distinto en cada una**:
+
+```
+1ª visita : blob:...  · descargas hasta aquí: 1
+2ª visita : blob:...  · descargas hasta aquí: 1
+3ª visita : blob:...  · descargas hasta aquí: 1
+
+cerrar sesión: caches ['tanneros-fotos-v1'] → []  · sessionStorage 0
+```
+
+Una descarga, tres visitas, tokens rotando. Antes eran tres descargas.
+
+### Un defecto que sólo se vio en el navegador
+
+El primer intento cortaba la descarga por las cabeceras cuando el archivo
+pasaba de 1 MB, para no llenar la cuota del navegador con un original heredado
+de 3 MB. **En Chromium salió peor:** el cuerpo ya venía en camino cuando se
+cancelaba, y después la etiqueta `<img>` lo volvía a pedir.
+
+```
+peticiones a la foto de 3 MB: 2 · bytes transferidos: 6,291,456
+```
+
+**6 MB por una foto de 3 MB.** Las pruebas unitarias pasaban; sólo lo vio el
+navegador. Ahora se descarga una sola vez pase lo que pase, y el peso decide
+únicamente si además se guarda en disco.
+
+```
+peticiones a la foto de 3 MB: 1 · bytes transferidos: 3,145,728
+```
+
+### Los topes
+
+| Tope | Valor | Por qué |
+|---|---|---|
+| Se guarda en disco | ≤ 1 MB | Miniaturas y fotos optimizadas sí; un original heredado no llena la cuota |
+| Vive en memoria | 120 fotos | Una URL de blob retiene sus bytes; lo que se desaloja ya se pintó |
+| Dura | 24 horas | Cubre el día de una familia sin dejar la foto ahí una semana |
+
+La pantalla de mantenimiento suelta cada original en cuanto lo recodifica
+(`forgetPhoto`), para que un lote grande no deje vivos cientos de MB.
+
+### Las pruebas
+
+`scripts/qa-photo-cache.mjs` pasó de 1 caso a **8**, y se verificó que
+**fallan contra el código viejo** —cuatro de ellas—, no sólo que pasan contra el
+nuevo:
+
+```
+=== contra el código VIEJO (sin caché de bytes):
+ - con Cache API los bytes se bajan una vez y se sirven desde el disco
+ - un token nuevo no cuesta una descarga nueva            (0 !== 1)
+ - los bytes caducan al día y se vuelven a pedir
+ - al cerrar sesión no queda ni un byte de la foto en el aparato
+Photo URL cache QA FAILED
+
+=== contra el código NUEVO:
+Photo URL cache QA OK · 8 casos, incluido el token que rota
+```
+
+También se verificó que **sin Cache API** —Node, modo privado, contexto no
+seguro— el módulo se comporta **exactamente como antes**: devuelve la URL
+firmada y todo sigue funcionando.
+
+### Y el service worker
+
+`sw.js` borraba **todos** los cachés menos el suyo en cada activación, así que
+habría barrido el de fotos en cada arranque. Ahora respeta los que empiezan con
+`tanneros-fotos-`.
+
+## Humo: las 17 pantallas que tocan fotos
+
+Cargadas en Chromium con el cliente de Supabase sustituido —el shell, el
+`app.js`, el markup y el CSS son los de verdad—, ninguna con errores:
+
+```
+✓ tanner        ✓ patrocinadores  ✓ utileria     ✓ prospectos
+✓ jugadores     ✓ programas       ✓ catalogo     ✓ scouting
+✓ admin/fotos   ✓ admin/branding  ✓ registro     ✓ familias
+✓ asistencia    ✓ calendario      ✓ taquilla     ✓ inicio
+✓ mi-academia
+```
 
 ## Reversión
 
 | Paso | Cómo |
 |---|---|
 | B1+B2 | Aditivo: sube archivos nuevos, no borra ninguno. El padrón se puede reapuntar al original viejo, que sigue ahí |
-| B3a, B3b, B4 | `git revert` del commit. No tocan datos |
+| B3a, B3b, B4, B3c | `git revert` del commit. No tocan datos ni Storage |
 
 ## Lo que este bloque NO hizo
 
@@ -188,4 +287,7 @@ dispositivo cuando ella sale. Falta el sí de Mich.
   padrón. Esperan al 22 de septiembre.
 - **No se borró nada de Storage.** Los 143 MB siguen ocupados.
 - **No se desplegó.**
-- **B3c no está implementado**, y es donde está el ahorro grande de Supabase.
+- **No se probó en un iPhone real.** El caché de bytes usa la Cache API, que
+  Safari soporta desde hace años, y el módulo cae con elegancia si no está.
+  Aun así, alguien debería abrir el portal desde un iPhone dos veces y confirmar
+  que la foto aparece al instante la segunda.

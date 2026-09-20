@@ -10,7 +10,7 @@ despliegue**. Lo autoriza esta lista.
 | 1 | Sin hallazgos P0 abiertos | ⬜ | Bloque A aplicado y probado en rama · falta WebKit real |
 | 2 | Origen del egress identificado con evidencia | ✅ | `docs/auditoria/02` |
 | 3 | Los listados usan miniaturas | ✅ | `qa-static.mjs` en verde |
-| 4 | No se descargan originales sin intención | ✅ | Barrera de egress |
+| 4 | No se descargan originales sin intención | ✅ | Barrera de egress + prueba 07 en ejecución |
 | 5 | Las fotos nuevas salen en WebP o JPEG, nunca PNG | ⬜ | Falta subir una foto desde un iPhone real · `10` |
 | 6 | Peso de la variante grande ≤ 400 kB | ✅ | `qa-image-encode.mjs` + medición en `10` |
 | 7 | Módulos de dinero con pruebas | ✅ | Invariantes 02, 03 y 04 en `supabase/tests/` |
@@ -32,6 +32,19 @@ despliegue**. Lo autoriza esta lista.
 | 18 | Versión del cliente de Supabase fija | ✅ |
 | 19 | Alertas de cuota configuradas | ⬜ |
 | 20 | Ambiente de pruebas separado | ⬜ · rama de Supabase, ~$0.75/semana · `14` |
+
+## Lo que falta de fotos
+
+Resumen vivo en [`docs/fotos-que-falta.md`](../fotos-que-falta.md).
+
+| Fuente | PNG | Peso | Cubierto |
+|---|---:|---:|---|
+| `players` | 37 | 105 MB | ✅ `/admin/fotos/` |
+| `prospects` | 13 | 35 MB | ⬜ falta migración `F2` |
+| `scouting` | 2 | 4 MB | ⬜ falta código |
+
+Prospectos y scouting son **espacio, no tráfico**: sus listas no abren fotos
+solas. Pesan para el límite de 1 GB, no para la factura que disparó la alarma.
 
 ## Métricas de aceptación
 

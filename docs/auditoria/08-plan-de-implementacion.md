@@ -90,6 +90,14 @@ encontrado nunca corriendo sólo Chromium.
 
 ## Bloque E — SaaS
 
+> **Estado: medido y propuesto, nada aplicado.** El esquema ya es
+> multi-tenant —90 tablas con RLS, 87 con `organization_id`, las 3 restantes
+> revisadas una por una— así que **no hace falta una migración a multi-tenant**.
+> Lo que falta es lo comercial. Evidencia en
+> [`14-bloque-e-evidencia.md`](14-bloque-e-evidencia.md); la propuesta E1/E2/E3
+> en `supabase/propuestas/`, sin aplicar. E4 cuesta ~$0.75 USD por una semana
+> de uso real y espera autorización.
+
 **E1.** Medición de uso por organización (cron + tabla).
 **E2.** Límites por plan en `organizations.settings.limits`.
 **E3.** Alertas al 50/75/90%.

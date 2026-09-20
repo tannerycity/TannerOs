@@ -17,7 +17,7 @@ despliegue**. Lo autoriza esta lista.
 | 8 | Aislamiento entre familias probado | ✅ | `supabase/tests/01` y `05` en verde |
 | 9 | RLS y Storage auditados | ✅ | `docs/auditoria/05` |
 | 10 | Sin secretos expuestos | ✅ | `service_role` sólo en Edge Function |
-| 11 | Migraciones reversibles | ⬜ | Cada migración con su reverso |
+| 11 | Migraciones reversibles | ⬜ | Las 378 ya están en el repo; falta el reverso de cada una |
 | 12 | Las verificaciones de QA pasan | ✅ | `qa-static` (37 pantallas), `qa-image-encode` (7), `qa-photo-cache` (8) |
 | 13 | Comparación medible antes/después | ✅ | `docs/auditoria/10` · 2,971 kB → 95 kB por foto |
 | 14 | Reversión documentada | ⬜ | Por bloque, en `08` |
@@ -31,7 +31,7 @@ despliegue**. Lo autoriza esta lista.
 | 17 | `anon` sin EXECUTE en lo que no es público | ⬜ |
 | 18 | Versión del cliente de Supabase fija | ✅ |
 | 19 | Alertas de cuota configuradas | ⬜ |
-| 20 | Ambiente de pruebas separado | ⬜ |
+| 20 | Ambiente de pruebas separado | ⬜ · rama de Supabase, ~$0.75/semana · `14` |
 
 ## Métricas de aceptación
 

@@ -1,0 +1,1 @@
+update app.business_rule_catalog set test_status='tested',updated_at=now(),metadata=metadata||jsonb_build_object('blackbox_verified_on','2026-08-19','direct_dml_tables_remaining',0,'rollback_verified',true) where rule_key in ('SEC-003','FIN-001');;

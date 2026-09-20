@@ -2,7 +2,7 @@
 
 Este archivo documenta qué contenido real se importó a `app.policies`,
 `app.faqs`, `app.consent_documents` y `app.centro_tanner_changes` en
-`supabase/migrations/202609131002_centro_tanner_module_and_seed.sql`, y
+`supabase/migrations-escritas-a-mano/202609131002_centro_tanner_module_and_seed.sql`, y
 cómo agregar más sin tocar código.
 
 ## Regla seguida

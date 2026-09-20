@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 
 const errors=[];
@@ -107,6 +108,21 @@ for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']
   if(source.includes('.createSignedUrls('))errors.push(`Egress: ${file} firma lotes fuera del caché compartido`);
   if(source.includes('.createSignedUrl('))errors.push(`Egress: ${file} firma una foto fuera del caché compartido`);
 }
+// El historial de migraciones es historia: no se edita ni se borra. Estos 378
+// archivos son la unica forma de reconstruir la base desde el repositorio, y
+// hasta el 20 de septiembre de 2026 solo 11 estaban aqui: los otros 367 vivian
+// nada mas dentro de Supabase.
+const manifiesto=JSON.parse(fs.readFileSync('supabase/migrations/MANIFIESTO.json','utf8'));
+const migraciones=fs.readdirSync('supabase/migrations').filter(f=>/^\d{14}_.*\.sql$/.test(f)).sort();
+if(migraciones.length!==manifiesto.migraciones)
+  errors.push(`Migraciones: el manifiesto dice ${manifiesto.migraciones} y hay ${migraciones.length}. Si aplicaste una nueva, exportala y corre scripts/manifiesto-migraciones.mjs --escribir`);
+else{
+  const suma=crypto.createHash('md5');
+  for(const f of migraciones)suma.update(fs.readFileSync(`supabase/migrations/${f}`));
+  if(suma.digest('hex')!==manifiesto.huella)
+    errors.push('Migraciones: el contenido no coincide con el manifiesto. Una migracion ya aplicada se edito o se borro');
+}
+
 // Disponibilidad: el CDN y la versión del cliente de Supabase se nombran en UN
 // solo archivo. Un `@2` flotante resuelve a la última 2.x que exista cuando un
 // navegador la pide, así que el club podía amanecer con una versión que nadie
@@ -167,11 +183,11 @@ for(const [file,source] of [['Jugadores',playersApp],['Mi Academia',fs.readFileS
 }
 const profileFixture=fs.readFileSync('v2/qa/perfil-tanner/index.html','utf8');
 for(const contract of ['noindex,nofollow','TC_1.0','Sin evidencia','Guardar y siguiente'])if(!profileFixture.includes(contract))errors.push(`Captura Perfil Tanner: falta ${contract}`);
-const cleanupMigration=fs.readFileSync('supabase/migrations/202609130001_delete_legacy_player_evaluations.sql','utf8');
+const cleanupMigration=fs.readFileSync('supabase/migrations-escritas-a-mano/202609130001_delete_legacy_player_evaluations.sql','utf8');
 for(const contract of ['begin;','delete from app.player_evaluations',"not like '[TC_1.0] %'",'commit;'])if(!cleanupMigration.includes(contract))errors.push(`Limpieza de evaluaciones: falta ${contract}`);
 const parkingApp=fs.readFileSync('v2/estacionamiento/app.js','utf8');
 for(const contract of ["state.filtro==='por_cobrar'","state.filtro==='cancelados'",'data-kpi-filter','Cobrar en Taquilla','park-stepper','park-detail-hero','park-facts','v2_delete_parking_pass',"ctx.role==='Presidencia'"])if(!parkingApp.includes(contract))errors.push(`Estacionamiento UX: falta ${contract}`);
-const parkingDeleteMigration=fs.readFileSync('supabase/migrations/202609140001_delete_parking_pass_rpc.sql','utf8');
+const parkingDeleteMigration=fs.readFileSync('supabase/migrations-escritas-a-mano/202609140001_delete_parking_pass_rpc.sql','utf8');
 for(const contract of ['security definer','v2_my_context','Only Presidencia','rejected','revoked','grant execute'])if(!parkingDeleteMigration.includes(contract))errors.push(`Estacionamiento delete RPC: falta ${contract}`);
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

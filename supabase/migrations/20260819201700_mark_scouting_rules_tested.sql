@@ -1,0 +1,1 @@
+update app.business_rule_catalog set test_status='tested',updated_at=now(),metadata=metadata||jsonb_build_object('blackbox_verified_on','2026-08-19','qa_cases',7,'rollback_verified',true) where rule_key in ('SCOUT-001','SCOUT-002','SCOUT-003','SCOUT-004');;

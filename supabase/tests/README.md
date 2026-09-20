@@ -43,6 +43,7 @@ Por eso cada invariante dice cuántas filas revisó, y falla si no revisó ningu
 |---|---|---|
 | 07 | Ninguna lista descarga un original | En `scripts/qa-static.mjs` (barrera) y `scripts/qa-photo-cache.mjs` (ejecución). No es SQL |
 | 08 | El formulario público resiste basura | **Falta.** Necesita escribir: un registro público crea filas. Requiere un ambiente de pruebas |
+| 99 | El repositorio tiene todas las migraciones | Compara contra el repo, así que corre con `scripts/qa-migraciones-vs-base.sh` |
 
 Las pruebas de doble envío y de reasignación de pagos **en su forma sintética**
 —mandar el cobro dos veces de verdad, revertir un pago de verdad— también

@@ -1,0 +1,9 @@
+revoke insert,update,delete on app.billing_policies from authenticated;
+revoke insert,update,delete on app.billing_profiles from authenticated;
+revoke insert,update,delete on app.organization_invitations from authenticated;
+revoke insert,update,delete on app.player_benefits from authenticated;
+revoke insert,update,delete on app.players from authenticated;
+revoke insert,update,delete on app.prospects from authenticated;
+revoke insert,update,delete on app.charge_balances from authenticated;
+revoke insert,update,delete on app.payment_balances from authenticated;
+revoke insert,update,delete on app.player_billing_status from authenticated;;

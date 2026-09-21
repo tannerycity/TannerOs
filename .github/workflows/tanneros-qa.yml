@@ -57,6 +57,22 @@ jobs:
           node --input-type=module --check < public-form.js
       - name: TannerOS structural QA
         run: node scripts/qa-static.mjs
+      - name: El CDN sirve la version fijada del cliente de Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Los 30 modulos importan el cliente desde v2/supabase-client.js, y ese
+          # archivo nombra una version exacta del CDN. Si esa URL no responde, la
+          # app entera se queda en blanco — el HTML sigue dando 200, asi que el
+          # smoke de rutas no lo veria. Por eso se comprueba aqui, antes de
+          # mezclar.
+          url="$(grep -o "https://esm.sh/@supabase/supabase-js@[0-9.]*" v2/supabase-client.js | head -1)"
+          echo "Cliente fijado en: $url"
+          code="$(curl --silent --show-error --location --retry 4 --retry-delay 3 --max-time 30 -o /tmp/cliente.js -w '%{http_code}' "$url")"
+          test "$code" = '200'
+          test "$(wc -c </tmp/cliente.js)" -gt 200
+          grep -q 'createClient' /tmp/cliente.js
+          echo "OK · el CDN responde y exporta createClient"
 
   live-smoke:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -93,6 +109,8 @@ jobs:
             '/admin/branding/'
             '/admin/club/'
             '/admin/onboarding/'
+            '/admin/fotos/'
+            '/admin/clubes/'
             '/qa/'
             '/modulos/'
             '/deportivo/'

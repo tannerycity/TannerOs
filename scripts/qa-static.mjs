@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import {spawnSync} from 'node:child_process';
 import path from 'node:path';
 
 const errors=[];
@@ -110,6 +111,24 @@ for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']
   if(source.includes('.createSignedUrls('))errors.push(`Egress: ${file} firma lotes fuera del caché compartido`);
   if(source.includes('.createSignedUrl('))errors.push(`Egress: ${file} firma una foto fuera del caché compartido`);
 }
+// Sintaxis EN MODO MODULO, que es como el navegador los carga de verdad.
+//
+// `node --check` a secas parsea como script de CommonJS y deja pasar un choque
+// entre un `import` y un `const` con el mismo nombre. Asi se colaron cinco
+// pantallas —scouting, patrocinadores, utileria, jugadores/photos y catalogo—
+// que habrian quedado EN BLANCO en produccion: al convertirlas al helper de
+// imagenes entro el import y se quedo la constante vieja. Lo atrapo el CI, no
+// esta verificacion. Ahora lo atrapa aqui tambien.
+for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js','centro-tanner/app.js','pedido/app.js','aviso-de-privacidad/app.js']){
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
+  try{new (async function(){}).constructor(''); }catch{ /* entorno raro */ }
+  const r=spawnSync(process.execPath,['--input-type=module','--check'],{input:source,encoding:'utf8'});
+  if(r.status!==0){
+    const detalle=(r.stderr||'').split('\n').find(l=>/Error/.test(l))||'sintaxis invalida';
+    errors.push(`Sintaxis de modulo: ${file} — ${detalle.trim()}`);
+  }
+}
+
 // El historial de migraciones es historia: no se edita ni se borra. Estos 378
 // archivos son la unica forma de reconstruir la base desde el repositorio, y
 // hasta el 20 de septiembre de 2026 solo 11 estaban aqui: los otros 367 vivian

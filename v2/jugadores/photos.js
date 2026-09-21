@@ -9,8 +9,6 @@ const supabase=createClient(
 );
 const PHOTO_BUCKET='tanneros-private';
 const MAX_BYTES=5*1024*1024;
-const THUMB_MAX_SIDE=260;
-const THUMB_MAX_BYTES=180*1024;
 const $=id=>document.getElementById(id);
 let active=null;
 let busy=false;

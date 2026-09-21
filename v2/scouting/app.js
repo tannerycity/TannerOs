@@ -12,7 +12,7 @@ const $=id=>document.getElementById(id);
 let ctx=null,reports=[],current=null,canWrite=false,selectedQuality='',pendingPhoto=null,pendingPreviewUrl=null,createProspect=null,editQualities=[];
 const linkedProspect=(()=>{const q=new URLSearchParams(location.search),id=q.get('prospect');return id?{id,name:q.get('name')||'',category:q.get('category')||'',type:q.get('type')||''}:null;})();
 const DAY=86400000;
-const PHOTO_BUCKET='tanneros-private',MAX_PHOTO_BYTES=5*1024*1024,THUMB_MAX_SIDE=260,THUMB_MAX_BYTES=180*1024;
+const PHOTO_BUCKET='tanneros-private',MAX_PHOTO_BYTES=5*1024*1024;
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function message(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}

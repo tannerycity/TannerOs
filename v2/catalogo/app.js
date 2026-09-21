@@ -213,7 +213,7 @@ async function toggleBundleArchive(){
 }
 
 /* ---------- Fotos (mismo patrón que Utilería y Jugadores) ---------- */
-const PHOTO_BUCKET='tanneros-private',THUMB_MAX_SIDE=260,THUMB_MAX_BYTES=180*1024;
+const PHOTO_BUCKET='tanneros-private';
 let photoFile=null,photoCleared=false,photoSeq=0;
 function loadImageFile(file){
   return new Promise((resolve,reject)=>{

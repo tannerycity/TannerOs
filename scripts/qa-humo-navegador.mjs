@@ -18,25 +18,27 @@ import http from 'node:http';import fs from 'node:fs';import path from 'node:pat
 const ROOT=path.resolve(path.dirname(new URL(import.meta.url).pathname),'..');
 const T={'.html':'text/html','.css':'text/css','.js':'text/javascript','.mjs':'text/javascript','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json','.json':'application/json'};
 
+// El modulo que sustituye a /v2/supabase-client.js. Se sirve tal cual, asi que
+// `createClient()` devuelve un cliente falso y TODO lo demas del repositorio
+// —shell.js, cada app.js, el markup, el CSS— corre sin tocarse.
 const STUB=`
 const _u={id:'presi-1',email:'mich@tannerycity.com',app_metadata:{},user_metadata:{}};
 function _store(bucket){
   return {
     getPublicUrl:()=>({data:{publicUrl:''}}),
     createSignedUrl:async(p)=>{window.__llamadas.firma.push(p);
-      return {data:{signedUrl:window.__fotoUrl||('blob:firmada/'+p)},error:null};},
+      return {data:{signedUrl:window.__fotoUrl||('https://firmada.local/'+p)},error:null};},
     createSignedUrls:async(ps)=>{(ps||[]).forEach(p=>window.__llamadas.firma.push(p));
-      return {data:(ps||[]).map(p=>({path:p,signedUrl:window.__fotoUrl||('blob:firmada/'+p),error:null})),error:null};},
+      return {data:(ps||[]).map(p=>({path:p,signedUrl:window.__fotoUrl||('https://firmada.local/'+p),error:null})),error:null};},
     list:async(carpeta)=>{window.__llamadas.list.push(carpeta);
-      const objs=(window.__storage||{})[carpeta]||null;
-      return {data:objs,error:null};},
+      return {data:(window.__storage||{})[carpeta]||null,error:null};},
     upload:async(ruta,blob,opts)=>{window.__llamadas.upload.push({ruta,tipo:blob?.type||'',bytes:blob?.size||0,cacheControl:opts?.cacheControl,upsert:!!opts?.upsert});
       return {data:{path:ruta},error:null};},
     remove:async(rutas)=>{window.__llamadas.remove.push(rutas);return {data:[],error:null};},
     download:async(p)=>{window.__llamadas.download.push(p);return {data:null,error:null};},
   };
 }
-export const supabase={
+export const createClient=()=>({
   auth:{
     getUser:async()=>({data:{user:_u},error:null}),
     getSession:async()=>({data:{session:{user:_u,access_token:'x'}},error:null}),
@@ -46,39 +48,21 @@ export const supabase={
   },
   functions:{invoke:async()=>({data:{ok:true},error:null})},
   storage:{from:_store},
+  from:()=>({select:()=>({eq:async()=>({data:[],error:null})})}),
   rpc:async(name,params)=>{window.__rpc.push({name,params});
     const f=window.__fixtures[name];
     if(f===undefined){window.__sinFixture.push(name);return {data:null,error:null};}
     return {data:typeof f==='function'?f(params):f,error:null};},
-};
+});
 `;
-function parchea(src){
-  const lineas=src.split('\n');
-  const i=lineas.findIndex(l=>l.includes("from 'https://esm.sh/@supabase/supabase-js@2'"));
-  const k=lineas.findIndex(l=>/(?:export )?const supabase\s*=\s*createClient\(/.test(l));
-  if(k<0)return null;
-  let j=k;while(j<lineas.length-1&&!/^\);|\}\);\s*$/.test(lineas[j])&&!lineas[k].trimEnd().endsWith(';'))j++;
-  if(lineas[k].trimEnd().endsWith(';'))j=k;
-  const exporta=lineas[k].startsWith('export');
-  lineas.splice(k,j-k+1,exporta?STUB:STUB.replace('export const supabase=','const supabase='));
-  if(i>=0)lineas[i]='';
-  return lineas.join('\n');
-}
 const s=http.createServer((q,r)=>{
   const u=decodeURIComponent(q.url.split('?')[0]);
-  // Este entorno no alcanza esm.sh, y de todos modos el cliente va sustituido.
+  // El unico archivo sustituido. Este entorno tampoco alcanza esm.sh.
   if(u==='/v2/supabase-client.js'){r.writeHead(200,{'Content-Type':'text/javascript'});
-    r.end('export const createClient=()=>({});');return;}
+    r.end(STUB);return;}
   let f=path.join(ROOT,u==='/'?'index.html':u);
   if(fs.existsSync(f)&&fs.statSync(f).isDirectory())f=path.join(f,'index.html');
   if(!f.startsWith(ROOT)||!fs.existsSync(f)){r.writeHead(404);r.end();return;}
-  if(f.endsWith('.js')){
-    const src=fs.readFileSync(f,'utf8');
-    if(src.includes('createClient(')){
-      const out=parchea(src);
-      if(out!==null){r.writeHead(200,{'Content-Type':'text/javascript'});r.end(out);return;}
-    }
-  }
   r.writeHead(200,{'Content-Type':T[path.extname(f)]||'text/plain'});
   fs.createReadStream(f).pipe(r);
 });
@@ -86,7 +70,12 @@ const s=http.createServer((q,r)=>{
 await new Promise(r=>s.listen(0,r));
 const BASE='http://localhost:'+s.address().port;
 
-const NAV=['tanner','patrocinadores','utileria','prospectos','jugadores','programas','catalogo','scouting','admin','calendario','asistencia','familias','taquilla']
+// Todos los codigos de navegacion que piden las pantallas. Si falta uno, esa
+// pantalla se cae con «No access» y parece un bug cuando es un hueco del arnes.
+const NAV=['inicio','club','direccion','finanzas','taquilla','tanner','jugadores','asistencia',
+  'convocatoria','calendario','academias','prospectos','scouting','pedidos','catalogo','utileria',
+  'patrocinadores','contabilidad','usuarios','admin','qa','modulos','deportivo','porteros',
+  'produccion','programas','estacionamiento','familias','captura']
   .map((c,i)=>({module_code:c,module_name:c,can_read:true,can_write:true,enabled:true,customized:false,sort_order:i*10}));
 const MOD=['sponsors','equipment','prospects','players','programs','catalog','scouting','admin','calendar','attendance','tanner','store','pos']
   .map(c=>({module_code:c,enabled:true,can_read:true,can_write:true}));
@@ -111,7 +100,17 @@ const FIX={
   v2_my_context:[{user_id:'presi-1',display_name:'Michel Enriquez',organization_id:'org-1',organization_name:'Tannery City',organization_slug:'tannery-city',role:'Presidencia',is_owner:true}],
   v2_my_navigation:NAV, v2_my_modules:MOD,
   v2_players:JUGADORES,
-  v2_set_player_photo:p=>{window.__fotoGuardada=(window.__fotoGuardada||[]);window.__fotoGuardada.push(p);return {ok:true};},
+  v2_set_player_photo:{ok:true},
+  // Estas dos devuelven null sin fixture y las pantallas hacen .length / .name
+  // sobre el resultado. Sin ellas el humo marca un error que no es del codigo.
+  v2_audit_events:[],
+  // hub.js (club, direccion, finanzas) hace .filter sobre estas sin protegerse
+  // de un null. Sin fixture, el humo reporta un error que no es del codigo.
+  v2_prospects:[], v2_sponsors:[], v2_open_receivables:[], v2_search_index:[],
+  v2_collection_snapshot:{},
+  v2_club_config:{name:'Tannery City FC',legalName:'Tannery City FC',timezone:'America/Mexico_City',
+    locale:'es-MX',currency:'MXN',slug:'tannery-city',status:'active'},
+  v2_organization_settings:{whatsappNumber:'524792651338',ledgerCutoverOn:'2026-08-01'},
 };
 const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome',args:['--no-sandbox']});
 
@@ -139,8 +138,10 @@ for(const ruta of PANTALLAS){
     window.__storage=d.storage;window.__llamadas={list:[],upload:[],remove:[],download:[],firma:[]};},{fix:FIX,storage:STORAGE});
   try{await p.goto(BASE+ruta,{waitUntil:'networkidle',timeout:20000});}catch(e){errs.push('goto: '+e.message.split('\n')[0]);}
   await p.waitForTimeout(700);
-  const duros=errs.filter(e=>!/Identifier .* has already|^$/.test('')&&e);
-  if(duros.length){fallos++;console.log(`✗ ${ruta}`);duros.slice(0,4).forEach(e=>console.log('   '+e));}
+  // Esta linea decia `.test('')` en vez de `.test(e)`, asi que el filtro daba
+  // false para TODO y ninguna pantalla podia salir en rojo. El arnes reporto 48
+  // pantallas en verde mientras cinco de ellas no compilaban. Lo atrapo el CI.
+  if(errs.length){fallos++;console.log(`✗ ${ruta}`);errs.slice(0,4).forEach(e=>console.log('   '+e));}
   else console.log(`✓ ${ruta}`);
   await p.close();
 }

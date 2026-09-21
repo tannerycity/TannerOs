@@ -73,8 +73,6 @@ function loadImageFile(file) {
     img.src = url;
   });
 }
-const THUMB_MAX_SIDE = 260;
-const THUMB_MAX_BYTES = 180 * 1024;
 async function preparePhotoFile(file) {
   if (!file) throw new Error('Selecciona una foto.');
   if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');

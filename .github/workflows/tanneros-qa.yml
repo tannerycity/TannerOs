@@ -82,9 +82,24 @@ jobs:
             head -c 400 /tmp/cliente.js || true
             exit 1
           fi
-          test "$(wc -c </tmp/cliente.js)" -gt 200
-          grep -q 'createClient' /tmp/cliente.js
-          echo "OK · el CDN responde y exporta createClient"
+          # esm.sh no devuelve la libreria: devuelve un modulo chico que reexporta
+          # del build real. Asi que `createClient` casi nunca esta en esta
+          # respuesta — hay que seguir el reexport. Pedirlo aqui hacia fallar el
+          # paso con la URL ya comprobada en 200, que es peor que no tenerlo.
+          test "$(wc -c </tmp/cliente.js)" -gt 60
+          grep -q 'export' /tmp/cliente.js || { echo "No parece un modulo:"; head -c 400 /tmp/cliente.js; exit 1; }
+          real="$(grep -oE '"[^"]*\.mjs"' /tmp/cliente.js | head -1 | tr -d '"')"
+          if [ -n "$real" ]; then
+            case "$real" in https://*) destino="$real" ;; *) destino="https://esm.sh${real}" ;; esac
+            echo "  reexporta de: $destino"
+            rcode="$(curl --silent --show-error --location --max-time 30 -o /tmp/real.js -w '%{http_code}' "$destino" || echo 000)"
+            echo "  http $rcode · $(wc -c </tmp/real.js) bytes"
+            test "$rcode" = '200'
+            grep -q 'createClient' /tmp/real.js || { echo "El build no exporta createClient"; exit 1; }
+            echo "OK · el CDN sirve la version fijada y su build exporta createClient"
+          else
+            echo "OK · el CDN sirve la version fijada (modulo sin reexport explicito)"
+          fi
 
   live-smoke:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

@@ -88,7 +88,10 @@ jobs:
           # paso con la URL ya comprobada en 200, que es peor que no tenerlo.
           test "$(wc -c </tmp/cliente.js)" -gt 60
           grep -q 'export' /tmp/cliente.js || { echo "No parece un modulo:"; head -c 400 /tmp/cliente.js; exit 1; }
-          real="$(grep -oE '"[^"]*\.mjs"' /tmp/cliente.js | head -1 | tr -d '"')"
+          # El stub reexporta de varios builds (auth-js, postgrest-js, supabase-js).
+          # Hay que seguir el de supabase-js, que es el que trae createClient; con
+          # `head -1` se agarraba auth-js y el paso decia mas de lo que probaba.
+          real="$(grep -oE '"[^"]*\.mjs"' /tmp/cliente.js | tr -d '"' | grep 'supabase-js' | head -1)"
           if [ -n "$real" ]; then
             case "$real" in https://*) destino="$real" ;; *) destino="https://esm.sh${real}" ;; esac
             echo "  reexporta de: $destino"

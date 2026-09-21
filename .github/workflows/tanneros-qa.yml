@@ -82,27 +82,21 @@ jobs:
             head -c 400 /tmp/cliente.js || true
             exit 1
           fi
-          # esm.sh no devuelve la libreria: devuelve un modulo chico que reexporta
-          # del build real. Asi que `createClient` casi nunca esta en esta
-          # respuesta — hay que seguir el reexport. Pedirlo aqui hacia fallar el
-          # paso con la URL ya comprobada en 200, que es peor que no tenerlo.
+          # Hasta aqui llega esta guarda, y a proposito.
+          #
+          # El riesgo que cierra es concreto: que la URL fijada deje de existir
+          # y la app entera se quede en blanco, con el HTML devolviendo 200 —que
+          # es justo lo que el smoke de rutas no veria—. Un 200 con un modulo
+          # dentro descarta eso.
+          #
+          # Lo que NO hace: seguir el grafo de reexports. Se intento y el stub de
+          # esm.sh cambia de forma —auth-js, tracingRegistry, chunks internos—,
+          # asi que la comprobacion fallaba con la URL buena. Perseguir la
+          # estructura interna de un CDN ajeno es una prueba fragil que miente en
+          # las dos direcciones. Que el grafo resuelva lo prueba abrir la app.
           test "$(wc -c </tmp/cliente.js)" -gt 60
-          grep -q 'export' /tmp/cliente.js || { echo "No parece un modulo:"; head -c 400 /tmp/cliente.js; exit 1; }
-          # El stub reexporta de varios builds (auth-js, postgrest-js, supabase-js).
-          # Hay que seguir el de supabase-js, que es el que trae createClient; con
-          # `head -1` se agarraba auth-js y el paso decia mas de lo que probaba.
-          real="$(grep -oE '"[^"]*\.mjs"' /tmp/cliente.js | tr -d '"' | grep 'supabase-js' | head -1)"
-          if [ -n "$real" ]; then
-            case "$real" in https://*) destino="$real" ;; *) destino="https://esm.sh${real}" ;; esac
-            echo "  reexporta de: $destino"
-            rcode="$(curl --silent --show-error --location --max-time 30 -o /tmp/real.js -w '%{http_code}' "$destino" || echo 000)"
-            echo "  http $rcode · $(wc -c </tmp/real.js) bytes"
-            test "$rcode" = '200'
-            grep -q 'createClient' /tmp/real.js || { echo "El build no exporta createClient"; exit 1; }
-            echo "OK · el CDN sirve la version fijada y su build exporta createClient"
-          else
-            echo "OK · el CDN sirve la version fijada (modulo sin reexport explicito)"
-          fi
+          grep -q 'export' /tmp/cliente.js || { echo "La respuesta no parece un modulo:"; head -c 400 /tmp/cliente.js; exit 1; }
+          echo "OK · el CDN responde 200 y devuelve un modulo para la version fijada"
 
   live-smoke:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

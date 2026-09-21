@@ -66,10 +66,22 @@ jobs:
           # app entera se queda en blanco — el HTML sigue dando 200, asi que el
           # smoke de rutas no lo veria. Por eso se comprueba aqui, antes de
           # mezclar.
-          url="$(grep -o "https://esm.sh/@supabase/supabase-js@[0-9.]*" v2/supabase-client.js | head -1)"
+          # Del renglon del export, no de los comentarios: el texto que explica
+          # el cambio tambien menciona la URL con el rango flotante, y un
+          # `head -1` ingenuo agarraba esa.
+          url="$(grep -oE "from '(https://esm\.sh/[^']+)'" v2/supabase-client.js | sed "s/^from '//;s/'$//")"
           echo "Cliente fijado en: $url"
-          code="$(curl --silent --show-error --location --retry 4 --retry-delay 3 --max-time 30 -o /tmp/cliente.js -w '%{http_code}' "$url")"
-          test "$code" = '200'
+          case "$url" in
+            *@[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "El import no apunta a una version exacta"; exit 1 ;;
+          esac
+          code="$(curl --silent --show-error --location --retry 4 --retry-delay 3 --max-time 30 -o /tmp/cliente.js -w '%{http_code}' "$url" || echo 000)"
+          echo "  http $code · $(wc -c </tmp/cliente.js) bytes"
+          if [ "$code" != '200' ]; then
+            echo "El CDN no sirve la version fijada. Ver docs/fotos-que-falta.md y el PR."
+            head -c 400 /tmp/cliente.js || true
+            exit 1
+          fi
           test "$(wc -c </tmp/cliente.js)" -gt 200
           grep -q 'createClient' /tmp/cliente.js
           echo "OK · el CDN responde y exporta createClient"

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const $=id=>document.getElementById(id);let ctx=null,categories=[],sessions=[],currentSession=null,currentRoster=[],rosterQuery='';

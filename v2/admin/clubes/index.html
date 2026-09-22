@@ -1,0 +1,43 @@
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#184159"><title>Clubes · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"><link rel="stylesheet" href="/v2/admin/clubes/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body class="tos-body"><div class="tos-layout"><aside class="tos-sidebar"><div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div></aside><div id="shellNavBackdrop" class="tos-nav-backdrop"></div><div class="tos-main"><header class="tos-topbar"><div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">Clubes</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health"><i></i><span>Clubes</span></span><span id="shellRole" class="tos-role">Rol</span></div></header><main class="tos-content clubes-page">
+<section class="tos-welcome"><div class="eyebrow">PLATAFORMA</div><h1>Clubes</h1>
+<p>Dar de alta un club crea su organización, su plan y su política de cobro en un solo paso. Todo lo demás —marca, documentos, catálogo y el primer usuario— se carga después con las pantallas de siempre.</p></section>
+
+<section id="clubesDenied" class="tos-panel hidden"><div class="tos-panel-head"><div>
+<h2>Esta pantalla no es para tu cuenta</h2>
+<p class="clubes-muted">Dar de alta clubes está por encima de cualquier club: no es algo que el dueño de uno deba poder hacerle a otro. Si necesitas este permiso, pídelo a quien administra la plataforma.</p>
+</div></div></section>
+
+<section id="clubesSinMigracion" class="tos-panel hidden"><div class="tos-panel-head"><div>
+<h2>Falta aplicar la migración</h2>
+<p class="clubes-muted">El código de esta pantalla ya está, pero la base de datos todavía no tiene las funciones que necesita. Están escritas y sin aplicar en <code>supabase/propuestas/F1_alta_de_un_club.sql</code>, y el paso a paso está en <code>docs/alta-de-un-club.md</code>.</p>
+</div></div><div id="clubesErrorDetalle" class="clubes-detalle"></div></section>
+
+<section id="clubesLista" class="tos-panel hidden"><div class="tos-panel-head"><div>
+<h2>Clubes en la plataforma</h2><p class="clubes-muted">Lo que hay hoy.</p></div>
+<button id="clubesNuevo" class="primary" type="button">Dar de alta un club</button></div>
+<div id="clubesTabla" class="clubes-tabla"></div></section>
+
+<section id="clubesForm" class="tos-panel hidden"><div class="tos-panel-head"><div>
+<h2>Club nuevo</h2><p class="clubes-muted">Lo marcado es lo único que no se puede cambiar cómodo después.</p></div></div>
+<form id="altaForm" class="clubes-form" novalidate>
+  <label><span>Nombre del club *</span><input id="cName" required maxlength="80" placeholder="Deportivo Ejemplo FC"></label>
+  <label><span>Identificador en las ligas *</span><input id="cSlug" required maxlength="50" placeholder="deportivo-ejemplo"><small>Minúsculas, números y guiones. Sale en las direcciones públicas y <b>no se cambia después</b>.</small></label>
+  <label><span>Razón social</span><input id="cLegal" maxlength="120" placeholder="Deportivo Ejemplo S.A. de C.V."></label>
+  <label><span>Zona horaria</span><input id="cTz" value="America/Mexico_City" maxlength="60"></label>
+  <label><span>Moneda</span><input id="cCurrency" value="MXN" maxlength="3"></label>
+  <label><span>Plan</span><select id="cPlan"></select></label>
+  <label><span>Día de cargo</span><input id="cCharge" type="number" min="1" max="28" value="1" inputmode="numeric"></label>
+  <label><span>Día de vencimiento</span><input id="cDue" type="number" min="1" max="28" value="5" inputmode="numeric"><small>Después de este día se genera el recargo.</small></label>
+  <label><span>Recargo</span><input id="cLate" type="number" min="0" step="1" value="100" inputmode="numeric"></label>
+  <label class="clubes-ancho"><span>Categorías</span><input id="cCats" maxlength="300" placeholder="Mini Baby, Baby, T8, T10, T12"><small>Separadas por coma. Son las del club nuevo, no las de Tannery City. Puedes dejarlo vacío y cargarlas después.</small></label>
+  <div id="clubesMessage" class="clubes-message hidden"></div>
+  <div class="clubes-acciones">
+    <button id="cCancel" class="secondary" type="button">Cancelar</button>
+    <button id="cSubmit" class="primary" type="submit">Revisar antes de crear</button>
+  </div>
+</form></section>
+
+<section id="clubesListo" class="tos-panel hidden"><div class="tos-panel-head"><div>
+<h2 id="listoTitulo">Club creado</h2><p class="clubes-muted">Falta esto para que pueda operar. Ninguna de estas pantallas es de esta sección.</p>
+</div></div><div id="listoDatos" class="clubes-detalle"></div><ol id="listoPendientes" class="clubes-pendientes"></ol></section>
+</main></div></div><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/admin/clubes/app.js"></script></body></html>

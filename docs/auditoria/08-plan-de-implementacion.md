@@ -1,0 +1,116 @@
+# 08 · Plan de implementación
+
+Cada bloque es independiente y reversible. No se mezclan cambios sin relación.
+
+## Bloque A — P0 de egress · el PNG silencioso
+
+> **Estado: aplicado en la rama `claude/auditoria-saas-egress`, sin desplegar.**
+> Medición y pruebas en [`10-bloque-a-evidencia.md`](10-bloque-a-evidencia.md):
+> 2,971 kB → 95 kB por foto en un navegador sin WebP. Queda pendiente
+> confirmarlo subiendo una foto desde un iPhone real.
+
+**Problema.** `canvas.toBlob(cb,'image/webp',q)` devuelve PNG —no `null`— cuando
+el navegador no soporta WebP, e ignora la calidad. Salen fotos de 3 MB en vez
+de 204 kB.
+
+**Evidencia.** 48 originales PNG, 3,060 kB de media, 143 MB; subidos hasta el
+12 de septiembre. Ningún archivo comprueba `blob.type`.
+
+**Cambio.** Verificar el tipo real y caer a JPEG. Bajar el techo de la variante
+grande de 5 MB a 400 kB.
+
+**Archivos.** `public-form.js`, `v2/jugadores/photos.js`, `v2/scouting/app.js`,
+`v2/patrocinadores/app.js`, `v2/utileria/app.js`, `v2/catalogo/app.js`,
+`v2/admin/fotos/app.js`, `v2/admin/branding/app.js`.
+
+**Impacto.** ~93% menos peso por foto nueva. **Riesgo: bajo** — sólo cambia el
+formato de salida; JPEG se ve igual a esta calidad.
+
+**Pruebas.** Unitaria del selector de formato simulando `toBlob` que devuelve
+PNG. Barrera en `qa-static.mjs` que falle si un archivo pide WebP sin verificar
+el tipo. **Prueba en WebKit**, que es donde ocurre.
+
+**Reversión.** Revertir el commit. No toca datos.
+
+## Bloque B — Egress e imágenes · lo existente
+
+> **Estado: B3a, B3b, B3c y B4 aplicados en la rama, sin desplegar. B1+B2 con
+> la herramienta lista pero SIN correr** —cuesta ~143 MB de descarga, va después
+> del 22 de septiembre—.
+> Evidencia en [`11-bloque-b-evidencia.md`](11-bloque-b-evidencia.md).
+>
+> Cambio sobre el plan: B1 y B2 se unieron en **una sola pasada**. Las dos
+> necesitan la foto original decodificada, así que separarlas obligaba a
+> descargar el padrón dos veces.
+
+**B1. Miniaturas faltantes.** 46 de 50 jugadores. Herramienta lista en PR #137,
+sin mergear.
+
+**B2. Convertir los 48 PNG.** Extender `admin/fotos` para regenerar también el
+original cuando detecte PNG. 143 MB → ~10 MB. Requiere descargar 143 MB una
+vez: **hacerlo después del 22 de septiembre.**
+
+**B3. `Cache-Control` a 1 año.** Las rutas ya son versionadas. Cambio en los 8
+puntos de subida; los archivos existentes requieren re-subida o actualización
+de metadata.
+
+**B4. Quitar `no-store` de `/v2/`.** Versionar los assets con hash. Egress de
+Vercel y velocidad percibida.
+
+**Reversión.** B1 y B2 son aditivos (una miniatura de más no rompe nada).
+B3 y B4 son configuración, se revierten con un commit.
+
+## Bloque C — Rendimiento
+
+> **Estado: C1 aplicado en la rama, sin desplegar. C2 y C3 medidos y
+> NO recomendados por ahora** — la evidencia no los justifica. Detalle en
+> [`12-bloque-c-evidencia.md`](12-bloque-c-evidencia.md), que además trae un
+> hallazgo nuevo: `pg_timezone_names` consume 6.7× más tiempo de base de datos
+> que la RPC más costosa del club, y no la llama la aplicación.
+
+**C1.** Fijar la versión del cliente de Supabase. *Riesgo de disponibilidad.*
+**C2.** Paginar `v2_players` y separar el detalle. Requiere migración con RPC
+nueva; la vieja se mantiene hasta migrar las pantallas.
+**C3.** Podar índices sin uso, **uno por uno y con evidencia**. Nunca en bloque.
+
+## Bloque D — QA
+
+> **Estado: 7 de las 8 pruebas escritas y en verde**, todas de sólo lectura,
+> sin escribir una fila en producción. Evidencia en
+> [`13-bloque-d-evidencia.md`](13-bloque-d-evidencia.md). Falta la 08 y las
+> formas sintéticas de 02, 03 y 04: necesitan un ambiente aparte.
+>
+> Sigue sin haber **WebKit**, que es el hueco que costó los 143 MB en PNG.
+
+Las 8 pruebas de `06`, en ese orden. Primero las de aislamiento entre familias
+y las de dinero.
+
+Añadir **WebKit** al arnés de navegador: el defecto del PNG no se habría
+encontrado nunca corriendo sólo Chromium.
+
+## Bloque E — SaaS
+
+> **Estado: medido y propuesto, nada aplicado.** El esquema ya es
+> multi-tenant —90 tablas con RLS, 87 con `organization_id`, las 3 restantes
+> revisadas una por una— así que **no hace falta una migración a multi-tenant**.
+> Lo que falta es lo comercial. Evidencia en
+> [`14-bloque-e-evidencia.md`](14-bloque-e-evidencia.md); la propuesta E1/E2/E3
+> en `supabase/propuestas/`, sin aplicar. E4 cuesta ~$0.75 USD por una semana
+> de uso real y espera autorización.
+
+**E1.** Medición de uso por organización (cron + tabla).
+**E2.** Límites por plan en `organizations.settings.limits`.
+**E3.** Alertas al 50/75/90%.
+**E4.** Branch de Supabase para desarrollo. *El más importante: hoy no existe
+ambiente de pruebas.*
+
+## Orden recomendado
+
+```
+A  →  B1  →  B3  →  B4  →  D(1,2,3,4)  →  [22 sep: cuota restablecida]
+   →  B2  →  C1  →  E4  →  C2  →  E1,E2,E3  →  C3
+```
+
+A y B1 antes del 22 porque sin ellos el consumo se reproduce. B2 después,
+porque descarga 143 MB. C3 al final porque es el de mayor riesgo y menor
+beneficio.

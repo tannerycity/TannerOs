@@ -1,5 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -72,26 +73,6 @@ function loadImageFile(file) {
     img.src = url;
   });
 }
-function canvasBlobFrom(canvas, type, quality) { return new Promise((resolve) => canvas.toBlob(resolve, type, quality)); }
-const THUMB_MAX_SIDE = 260;
-const THUMB_MAX_BYTES = 180 * 1024;
-async function prepareVariant(img, maxSide, quality, maxBytes) {
-  const width = img.naturalWidth || img.width;
-  const height = img.naturalHeight || img.height;
-  const scale = Math.min(1, maxSide / Math.max(width, height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(width * scale));
-  canvas.height = Math.max(1, Math.round(height * scale));
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Tu navegador no pudo preparar la foto.');
-  context.drawImage(img, 0, 0, canvas.width, canvas.height);
-  let blob = await canvasBlobFrom(canvas, 'image/webp', quality);
-  let ext = 'webp';
-  if (!blob) { blob = await canvasBlobFrom(canvas, 'image/jpeg', quality); ext = 'jpg'; }
-  if (blob && blob.size > maxBytes) { blob = await canvasBlobFrom(canvas, 'image/jpeg', Math.max(0.5, quality - 0.17)); ext = 'jpg'; }
-  if (!blob || blob.size > maxBytes) throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
-  return { blob, ext, mime: blob.type || (ext === 'jpg' ? 'image/jpeg' : 'image/webp') };
-}
 async function preparePhotoFile(file) {
   if (!file) throw new Error('Selecciona una foto.');
   if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');
@@ -99,8 +80,8 @@ async function preparePhotoFile(file) {
   const width = img.naturalWidth || img.width;
   const height = img.naturalHeight || img.height;
   if (!width || !height) throw new Error('No pudimos leer el tamaño de esa foto.');
-  const full = await prepareVariant(img, 1200, 0.82, 5 * 1024 * 1024);
-  const thumb = await prepareVariant(img, THUMB_MAX_SIDE, 0.75, THUMB_MAX_BYTES);
+  const full = await encodeVariant(img, FULL_MAX_SIDE, 0.82, FULL_MAX_BYTES);
+  const thumb = await encodeVariant(img, THUMB_MAX_SIDE, 0.75, THUMB_MAX_BYTES);
   return { full, thumb };
 }
 async function uploadPhoto(pathPrefix, file) {
@@ -109,8 +90,8 @@ async function uploadPhoto(pathPrefix, file) {
   const path = `${pathPrefix}-${stamp}.${prepared.full.ext}`;
   const thumbPath = `${pathPrefix}-${stamp}-thumb.${prepared.thumb.ext}`;
   const [{ error: fullErr }, { error: thumbErr }] = await Promise.all([
-    supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
-    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+    supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
+    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
   ]);
   if (fullErr || thumbErr) {
     await Promise.all([
@@ -123,9 +104,7 @@ async function uploadPhoto(pathPrefix, file) {
 }
 async function signedPhoto(bucket, path) {
   if (!path) return null;
-  const { data, error } = await supabase.storage.from(bucket || PHOTO_BUCKET).createSignedUrl(path, 600);
-  if (error) return null;
-  return data?.signedUrl || null;
+  try { return await getSignedPhotoUrl(supabase, bucket || PHOTO_BUCKET, path); } catch (_) { return null; }
 }
 function hydratePhoto(boxEl, bucket, path, alt) {
   if (!boxEl || !path) return;

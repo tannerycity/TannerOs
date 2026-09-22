@@ -1,0 +1,81 @@
+# 09 · Checklist de producción · Go / No-Go
+
+El restablecimiento de la cuota el **22 de septiembre de 2026 no autoriza el
+despliegue**. Lo autoriza esta lista.
+
+## Bloqueantes · No-Go si alguno falla
+
+| # | Criterio | Estado | Evidencia requerida |
+|---|---|---|---|
+| 1 | Sin hallazgos P0 abiertos | ⬜ | Bloque A aplicado y probado en rama · falta WebKit real |
+| 2 | Origen del egress identificado con evidencia | ✅ | `docs/auditoria/02` |
+| 3 | Los listados usan miniaturas | ✅ | `qa-static.mjs` en verde |
+| 4 | No se descargan originales sin intención | ✅ | Barrera de egress + prueba 07 en ejecución |
+| 5 | Las fotos nuevas salen en WebP o JPEG, nunca PNG | ⬜ | Falta subir una foto desde un iPhone real · `10` |
+| 6 | Peso de la variante grande ≤ 400 kB | ✅ | `qa-image-encode.mjs` + medición en `10` |
+| 7 | Módulos de dinero con pruebas | ✅ | Invariantes 02, 03 y 04 en `supabase/tests/` |
+| 8 | Aislamiento entre familias probado | ✅ | `supabase/tests/01` y `05` en verde |
+| 9 | RLS y Storage auditados | ✅ | `docs/auditoria/05` |
+| 10 | Sin secretos expuestos | ✅ | `service_role` sólo en Edge Function |
+| 11 | Migraciones reversibles | ⬜ | Las 378 ya están en el repo; falta el reverso de cada una |
+| 12 | Las verificaciones de QA pasan | ✅ | `qa-static` (37 pantallas), `qa-image-encode` (7), `qa-photo-cache` (8) |
+| 13 | Comparación medible antes/después | ✅ | `docs/auditoria/10` · 2,971 kB → 95 kB por foto |
+| 14 | Reversión documentada | ⬜ | Por bloque, en `08` |
+
+## Recomendados · No bloquean
+
+| # | Criterio | Estado |
+|---|---|---|
+| 15 | Protección de contraseñas filtradas activa | ⬜ |
+| 16 | `migration` fuera de `db_schemas` | ⬜ |
+| 17 | `anon` sin EXECUTE en lo que no es público | ⬜ |
+| 18 | Versión del cliente de Supabase fija | ✅ |
+| 19 | Alertas de cuota configuradas | ⬜ |
+| 20 | Ambiente de pruebas separado | ⬜ · rama de Supabase, ~$0.75/semana · `14` |
+
+## Lo que falta de fotos
+
+Resumen vivo en [`docs/fotos-que-falta.md`](../fotos-que-falta.md).
+
+| Fuente | PNG | Peso | Cubierto |
+|---|---:|---:|---|
+| `players` | 37 | 105 MB | ✅ `/admin/fotos/` |
+| `prospects` | 13 | 35 MB | ⬜ falta migración `F2` |
+| `scouting` | 2 | 4 MB | ⬜ falta código |
+
+Prospectos y scouting son **espacio, no tráfico**: sus listas no abren fotos
+solas. Pesan para el límite de 1 GB, no para la factura que disparó la alarma.
+
+## Métricas de aceptación
+
+Medir **antes y después**, con el mismo recorrido:
+
+| Métrica | Hoy | Objetivo | Medido tras Bloque A |
+|---|---:|---:|---:|
+| Peso medio de foto nueva | 3,060 kB | ≤ 400 kB | **87 kB** · `10` |
+| Peso de miniatura | 114 kB (PNG) | ≤ 40 kB | **8 kB** · `10` |
+| kB por sesión del portal | sin medir | ≤ 500 kB | 108 kB de assets · falta la foto · `11` |
+| Apertura del padrón | ~138 MB (potencial) | ≤ 1 MB | pendiente · falta correr la conversión |
+| Egress mensual | 11.87 GB | ≤ 2 GB | pendiente · tras desplegar |
+
+## Reversión
+
+| Bloque | Cómo se revierte | Pierde datos |
+|---|---|---|
+| A · formato de imagen | Revertir commit | No |
+| B1 · miniaturas | Dejarlas; son aditivas | No |
+| B2 · convertir PNG | **Conservar el PNG original hasta validar** | Sí, si se borra antes de tiempo |
+| B3 · Cache-Control | Revertir commit; afecta sólo a subidas nuevas | No |
+| B4 · caché de `/v2/` | Revertir `vercel.json` y redesplegar | No |
+| C2 · paginar | La RPC vieja se conserva hasta migrar todo | No |
+| C3 · índices | Recrear desde la migración de reverso | No |
+
+**Regla para B2:** no borrar ningún PNG original hasta que su reemplazo esté
+verificado en pantalla. El ahorro de storage no vale perder la foto de un niño.
+
+## Firma
+
+| Rol | Nombre | Fecha | Go / No-Go |
+|---|---|---|---|
+| Presidencia | | | |
+| Técnico | | | |

@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
+import { getSignedPhotoUrl } from '/v2/photo-cache.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const PHOTO_BUCKET='tanneros-prospect-photos';
@@ -16,7 +17,6 @@ let ctx=null,programs=[],enrollments=[],attendance=[],payments=[];
 let currentProgram=null,currentEnrollment=null,currentPaymentEnrollment=null;
 let canWrite=false,canMoneyRead=false,canCollect=false,canSensitive=false;
 let stage='current',participantFilter='all',wizardStep=1;
-const photoUrls=new Map();
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function safe(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
@@ -131,7 +131,7 @@ function avatarHtml(e){const initials=participantName(e).split(/\s+/).slice(0,2)
 function renderParticipants(){
   if(!currentProgram)return;const rows=participantRows(),box=$('enrollmentList');box.innerHTML='';$('enrollmentEmpty').classList.toggle('hidden',rows.length>0);rows.forEach(e=>{const a=age(e.birthDate),att=attendanceFor(e.id),paymentClass=['paid','waived'].includes(e.paymentStatus)?'paid':paymentDue(e)?'due':'';const row=document.createElement('button');row.type='button';row.className='enrollment-row';row.innerHTML=`${avatarHtml(e)}<div class="participant-main"><strong>${safe(participantName(e))}</strong><span>${safe([a!=null?`${a} años`:null,e.metadata?.position,e.metadata?.bibNumber?`#${e.metadata.bibNumber}`:null].filter(Boolean).join(' · ')||'Perfil por completar')}</span><small>${safe(e.phone||e.email||'Sin contacto')}</small></div><div class="participant-state"><span>${safe(enrollmentLabels[e.status]||e.status)}</span><span class="${paymentClass}">${safe(att?attendanceLabels[att.status]:(paymentLabels[e.paymentStatus]||e.paymentStatus))}</span></div>`;row.addEventListener('click',()=>openEnrollment(e.id));box.appendChild(row);});loadVisiblePhotos();
 }
-async function signedPhoto(path){if(photoUrls.has(path))return photoUrls.get(path);const {data,error}=await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(path,900);if(error)throw error;photoUrls.set(path,data.signedUrl);return data.signedUrl;}
+async function signedPhoto(path){const url=await getSignedPhotoUrl(supabase,PHOTO_BUCKET,path);if(!url)throw new Error('No se pudo firmar la foto');return url;}
 async function loadVisiblePhotos(){document.querySelectorAll('img[data-photo-path]:not([data-loaded])').forEach(async img=>{img.dataset.loaded='1';try{img.src=await signedPhoto(img.dataset.photoPath);}catch{img.remove();}});}
 function openEnrollment(id){
   const e=enrollments.find(x=>x.id===id);if(!e)return;currentEnrollment=e;const meta=e.metadata||{},a=age(e.birthDate),att=attendanceFor(e.id);$('enrollmentName').textContent=participantName(e);$('enrollmentSubtitle').textContent=[enrollmentLabels[e.status]||e.status,att?attendanceLabels[att.status]:null].filter(Boolean).join(' · ');$('enrollmentStatus').value=e.status;$('enrollmentNote').value='';$('enrollmentStatus').disabled=!canWrite;$('enrollmentNote').disabled=!canWrite;$('saveEnrollment').classList.toggle('hidden',!canWrite);

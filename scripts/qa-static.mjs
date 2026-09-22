@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
+import {spawnSync} from 'node:child_process';
 import path from 'node:path';
 
 const errors=[];
@@ -32,7 +34,9 @@ const routeContract={
   '/admin/auditoria/':'v2/admin/auditoria/index.html',
   '/admin/branding/':'v2/admin/branding/index.html',
   '/admin/club/':'v2/admin/club/index.html',
-  '/admin/onboarding/':'v2/admin/onboarding/index.html'
+  '/admin/onboarding/':'v2/admin/onboarding/index.html',
+  '/admin/fotos/':'v2/admin/fotos/index.html',
+  '/admin/clubes/':'v2/admin/clubes/index.html'
 };
 const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
 for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta archivo crítico: ${file}`);
@@ -98,9 +102,86 @@ for(const file of ['v2/app.js','v2/asistencia/app.js','v2/calendario/app.js','v2
   const source=fs.readFileSync(file,'utf8');
   if(!source.includes("from '/v2/photo-cache.js'"))errors.push(`Egress: ${file} no reutiliza URLs firmadas de fotos`);
 }
-for(const file of clientFiles.filter(file=>file.startsWith('v2/')&&file.endsWith('.js')&&file!=='v2/photo-cache.js')){
-  const source=fs.readFileSync(file,'utf8');
+// Toda firma de foto pasa por el cache compartido, en lote y de a una. Una URL
+// firmada por fuera trae token nuevo, y el navegador cachea por URL completa:
+// token nuevo es descarga nueva aunque los bytes sean los mismos.
+for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']){
+  if(file==='v2/photo-cache.js')continue;
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
   if(source.includes('.createSignedUrls('))errors.push(`Egress: ${file} firma lotes fuera del caché compartido`);
+  if(source.includes('.createSignedUrl('))errors.push(`Egress: ${file} firma una foto fuera del caché compartido`);
+}
+// Sintaxis EN MODO MODULO, que es como el navegador los carga de verdad.
+//
+// `node --check` a secas parsea como script de CommonJS y deja pasar un choque
+// entre un `import` y un `const` con el mismo nombre. Asi se colaron cinco
+// pantallas —scouting, patrocinadores, utileria, jugadores/photos y catalogo—
+// que habrian quedado EN BLANCO en produccion: al convertirlas al helper de
+// imagenes entro el import y se quedo la constante vieja. Lo atrapo el CI, no
+// esta verificacion. Ahora lo atrapa aqui tambien.
+for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js','centro-tanner/app.js','pedido/app.js','aviso-de-privacidad/app.js']){
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
+  try{new (async function(){}).constructor(''); }catch{ /* entorno raro */ }
+  const r=spawnSync(process.execPath,['--input-type=module','--check'],{input:source,encoding:'utf8'});
+  if(r.status!==0){
+    const detalle=(r.stderr||'').split('\n').find(l=>/Error/.test(l))||'sintaxis invalida';
+    errors.push(`Sintaxis de modulo: ${file} — ${detalle.trim()}`);
+  }
+}
+
+// El historial de migraciones es historia: no se edita ni se borra. Estos 378
+// archivos son la unica forma de reconstruir la base desde el repositorio, y
+// hasta el 20 de septiembre de 2026 solo 11 estaban aqui: los otros 367 vivian
+// nada mas dentro de Supabase.
+const manifiesto=JSON.parse(fs.readFileSync('supabase/migrations/MANIFIESTO.json','utf8'));
+const migraciones=fs.readdirSync('supabase/migrations').filter(f=>/^\d{14}_.*\.sql$/.test(f)).sort();
+if(migraciones.length!==manifiesto.migraciones)
+  errors.push(`Migraciones: el manifiesto dice ${manifiesto.migraciones} y hay ${migraciones.length}. Si aplicaste una nueva, exportala y corre scripts/manifiesto-migraciones.mjs --escribir`);
+else{
+  const suma=crypto.createHash('md5');
+  for(const f of migraciones)suma.update(fs.readFileSync(`supabase/migrations/${f}`));
+  if(suma.digest('hex')!==manifiesto.huella)
+    errors.push('Migraciones: el contenido no coincide con el manifiesto. Una migracion ya aplicada se edito o se borro');
+}
+
+// Disponibilidad: el CDN y la versión del cliente de Supabase se nombran en UN
+// solo archivo. Un `@2` flotante resuelve a la última 2.x que exista cuando un
+// navegador la pide, así que el club podía amanecer con una versión que nadie
+// eligió, sin haber desplegado nada — y hay una 3.0 en camino.
+const clienteSupabase=fs.readFileSync('v2/supabase-client.js','utf8');
+if(!/@supabase\/supabase-js@2\.\d+\.\d+'/.test(clienteSupabase))
+  errors.push('Disponibilidad: v2/supabase-client.js no fija una versión exacta del cliente');
+for(const file of [...clientFiles,'public-form.js','centro-tanner/app.js','pedido/app.js','aviso-de-privacidad/app.js']){
+  if(file==='v2/supabase-client.js')continue;
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
+  if(source.includes('esm.sh/@supabase'))
+    errors.push(`Disponibilidad: ${file} importa el cliente del CDN por su cuenta`);
+}
+
+// Toda subida declara el mismo Cache-Control, y sale de una sola constante. Las
+// rutas llevan un Date.now() y van con upsert:false, asi que son inmutables y un
+// max-age largo es seguro; un literal suelto se desincroniza sin que nadie note.
+for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']){
+  if(file==='v2/image-encode.js')continue;
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
+  if(/cacheControl\s*:\s*['"]/.test(source))
+    errors.push(`Egress: ${file} escribe su propio Cache-Control en vez de UPLOAD_CACHE_CONTROL`);
+}
+// Egress de Vercel: /v2/ con no-store obliga a volver a bajar todo el JS en cada
+// pantalla. Con no-cache el navegador lo guarda y revalida: 304 sin cuerpo.
+const cabeceraV2=(vercel.headers||[]).find(h=>h.source==='/v2/(.*)');
+const valorV2=cabeceraV2?.headers?.find(h=>h.key==='Cache-Control')?.value||'';
+if(!valorV2)errors.push('vercel.json no declara Cache-Control para /v2/(.*)');
+else if(valorV2.includes('no-store'))errors.push('Egress: /v2/ vuelve a no-store; el navegador no puede reusar nada');
+
+// Egress: canvas.toBlob devuelve PNG —no null— cuando el navegador no soporta
+// el tipo pedido, y para PNG ignora la calidad. Pedir WebP sin verificar lo que
+// volvió fue lo que metió 143 MB en PNG. Toda codificación pasa por el helper.
+for(const file of [...clientFiles.filter(f=>f.endsWith('.js')),'public-form.js']){
+  if(['v2/image-encode.js','welcome-card.js','v2/admin/branding/app.js'].includes(file))continue;
+  let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}
+  if(source.includes("'image/webp'")&&!source.includes("from '/v2/image-encode.js'"))
+    errors.push(`Egress: ${file} codifica a WebP sin el helper que verifica el tipo devuelto`);
 }
 const academyApp=fs.readFileSync('v2/mi-academia/app.js','utf8');
 for(const contract of ["const METODOLOGIA='TC_1.0'",'Guardar y siguiente','Sin evidencia','BABY_DIMENSIONES','v2_save_academy_evaluation'])if(!academyApp.includes(contract))errors.push(`Perfil Tanner: falta contrato ${contract}`);
@@ -123,11 +204,11 @@ for(const [file,source] of [['Jugadores',playersApp],['Mi Academia',fs.readFileS
 }
 const profileFixture=fs.readFileSync('v2/qa/perfil-tanner/index.html','utf8');
 for(const contract of ['noindex,nofollow','TC_1.0','Sin evidencia','Guardar y siguiente'])if(!profileFixture.includes(contract))errors.push(`Captura Perfil Tanner: falta ${contract}`);
-const cleanupMigration=fs.readFileSync('supabase/migrations/202609130001_delete_legacy_player_evaluations.sql','utf8');
+const cleanupMigration=fs.readFileSync('supabase/migrations-escritas-a-mano/202609130001_delete_legacy_player_evaluations.sql','utf8');
 for(const contract of ['begin;','delete from app.player_evaluations',"not like '[TC_1.0] %'",'commit;'])if(!cleanupMigration.includes(contract))errors.push(`Limpieza de evaluaciones: falta ${contract}`);
 const parkingApp=fs.readFileSync('v2/estacionamiento/app.js','utf8');
 for(const contract of ["state.filtro==='por_cobrar'","state.filtro==='cancelados'",'data-kpi-filter','Cobrar en Taquilla','park-stepper','park-detail-hero','park-facts','v2_delete_parking_pass',"ctx.role==='Presidencia'"])if(!parkingApp.includes(contract))errors.push(`Estacionamiento UX: falta ${contract}`);
-const parkingDeleteMigration=fs.readFileSync('supabase/migrations/202609140001_delete_parking_pass_rpc.sql','utf8');
+const parkingDeleteMigration=fs.readFileSync('supabase/migrations-escritas-a-mano/202609140001_delete_parking_pass_rpc.sql','utf8');
 for(const contract of ['security definer','v2_my_context','Only Presidencia','rejected','revoked','grant execute'])if(!parkingDeleteMigration.includes(contract))errors.push(`Estacionamiento delete RPC: falta ${contract}`);
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

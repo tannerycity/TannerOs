@@ -1,4 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
+import { getSignedPhotoUrl } from '/v2/photo-cache.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -7,8 +9,6 @@ const supabase=createClient(
 );
 const PHOTO_BUCKET='tanneros-private';
 const MAX_BYTES=5*1024*1024;
-const THUMB_MAX_SIDE=260;
-const THUMB_MAX_BYTES=180*1024;
 const $=id=>document.getElementById(id);
 let active=null;
 let busy=false;
@@ -63,32 +63,6 @@ function loadImage(file){
     img.src=url;
   });
 }
-function canvasBlob(canvas,type,quality){
-  return new Promise(resolve=>canvas.toBlob(resolve,type,quality));
-}
-async function prepareVariant(img,maxSide,quality,maxBytes){
-  const width=img.naturalWidth||img.width;
-  const height=img.naturalHeight||img.height;
-  const scale=Math.min(1,maxSide/Math.max(width,height));
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.max(1,Math.round(width*scale));
-  canvas.height=Math.max(1,Math.round(height*scale));
-  const context=canvas.getContext('2d');
-  if(!context)throw new Error('Tu navegador no pudo preparar la foto.');
-  context.drawImage(img,0,0,canvas.width,canvas.height);
-  let blob=await canvasBlob(canvas,'image/webp',quality);
-  let ext='webp';
-  if(!blob){
-    blob=await canvasBlob(canvas,'image/jpeg',quality);
-    ext='jpg';
-  }
-  if(blob&&blob.size>maxBytes){
-    blob=await canvasBlob(canvas,'image/jpeg',Math.max(.5,quality-.16));
-    ext='jpg';
-  }
-  if(!blob||blob.size>maxBytes)throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
-  return{blob,ext,mime:blob.type||(`image/${ext==='jpg'?'jpeg':ext}`)};
-}
 async function preparePhoto(file){
   if(!file)throw new Error('Selecciona una foto.');
   if(file.type&&!String(file.type).startsWith('image/'))throw new Error('Selecciona una imagen válida.');
@@ -99,16 +73,14 @@ async function preparePhoto(file){
   // Foto completa para el perfil (hasta 1600px de lado) y una miniatura chica
   // aparte (hasta 260px) para la parrilla de la lista — así el roster no baja
   // el peso completo de cada foto solo para mostrar una tarjetita.
-  const full=await prepareVariant(img,1600,.84,MAX_BYTES);
-  const thumb=await prepareVariant(img,THUMB_MAX_SIDE,.75,THUMB_MAX_BYTES);
+  const full=await encodeVariant(img,FULL_MAX_SIDE,.82,FULL_MAX_BYTES);
+  const thumb=await encodeVariant(img,THUMB_MAX_SIDE,.75,THUMB_MAX_BYTES);
   return{full,thumb};
 }
 async function signedPhoto(player){
   if(!player?.photoPath)return null;
   const bucket=player.photoBucket||PHOTO_BUCKET;
-  const {data,error}=await supabase.storage.from(bucket).createSignedUrl(player.photoPath,600);
-  if(error)throw error;
-  return data?.signedUrl||null;
+  return getSignedPhotoUrl(supabase,bucket,player.photoPath);
 }
 async function uploadPhoto(file){
   if(busy||!active?.canWrite||!active?.playerId||!file)return;
@@ -128,8 +100,8 @@ async function uploadPhoto(file){
     setBusy(true,'Subiendo…');
     photoMsg('Subiendo la foto de forma segura…','success');
     const [{error:uploadError},{error:thumbUploadError}]=await Promise.all([
-      supabase.storage.from(PHOTO_BUCKET).upload(uploadedPath,prepared.full.blob,{contentType:prepared.full.mime,cacheControl:'3600',upsert:false}),
-      supabase.storage.from(PHOTO_BUCKET).upload(uploadedThumbPath,prepared.thumb.blob,{contentType:prepared.thumb.mime,cacheControl:'3600',upsert:false}),
+      supabase.storage.from(PHOTO_BUCKET).upload(uploadedPath,prepared.full.blob,{contentType:prepared.full.mime,cacheControl: UPLOAD_CACHE_CONTROL,upsert:false}),
+      supabase.storage.from(PHOTO_BUCKET).upload(uploadedThumbPath,prepared.thumb.blob,{contentType:prepared.thumb.mime,cacheControl: UPLOAD_CACHE_CONTROL,upsert:false}),
     ]);
     if(uploadError||thumbUploadError){
       await Promise.all([

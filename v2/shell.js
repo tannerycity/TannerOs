@@ -1,5 +1,6 @@
-import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
+import {createClient} from '/v2/supabase-client.js';
 
+import { clearPhotoCache } from '/v2/photo-cache.js';
 export const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
   'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
@@ -313,7 +314,7 @@ async function loadTannerSearchIndex(ctx){
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
   const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
-  renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});}
+  renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
   if(ctx){ensureBellMarkup();wireBell(ctx,navigation);}
 }
 export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});return {ctx,navigation,map:navigationMap(navigation)};}

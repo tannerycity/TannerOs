@@ -1,0 +1,91 @@
+create table if not exists public.summer_attendance (
+  id text primary key, enrollment_id text, course_id text, child_name text, date date, status text, notes text,
+  created_at timestamptz, legacy_updated_at timestamptz, created_by text, updated_by text, sync_status text,
+  deleted boolean not null default false, updated_at timestamptz not null default now(), row_version bigint not null default 1,
+  server_received_at timestamptz not null default now()
+);
+drop trigger if exists trg_summer_attendance_touch on public.summer_attendance;
+create trigger trg_summer_attendance_touch before update on public.summer_attendance for each row execute function public.tanner_touch_row();
+create index if not exists idx_summer_attendance_updated_at on public.summer_attendance(updated_at);
+create index if not exists idx_summer_attendance_legacy_updated_at on public.summer_attendance(legacy_updated_at);
+create index if not exists idx_summer_attendance_deleted on public.summer_attendance(deleted);
+
+create index if not exists idx_payments_player_id on public.payments(player_id);
+create index if not exists idx_payments_prospect_id on public.payments(prospect_id);
+create index if not exists idx_payments_program_id on public.payments(program_id);
+create index if not exists idx_payments_order_id on public.payments(order_id);
+create index if not exists idx_payments_enroll_id on public.payments(enroll_id);
+create index if not exists idx_attendance_session_id on public.attendance(session_id);
+create index if not exists idx_attendance_player_id on public.attendance(player_id);
+create index if not exists idx_attendance_academia_id on public.attendance(academia_id);
+create index if not exists idx_prospects_converted_player_id on public.prospects(converted_player_id);
+create index if not exists idx_prospects_converted_scout_id on public.prospects(converted_scout_id);
+create index if not exists idx_scouting_player_id on public.scouting(player_id);
+create index if not exists idx_scouting_source_prospect_id on public.scouting(source_prospect_id);
+create index if not exists idx_evaluations_player_id on public.evaluations(player_id);
+create index if not exists idx_player_notes_player_id on public.player_notes(player_id);
+create index if not exists idx_match_stats_match_id on public.match_stats(match_id);
+create index if not exists idx_match_stats_player_id on public.match_stats(player_id);
+create index if not exists idx_orders_product_id on public.orders(product_id);
+create index if not exists idx_orders_player_id on public.orders(player_id);
+create index if not exists idx_orders_corte_id on public.orders(corte_id);
+create index if not exists idx_events_sponsor_id on public.events(sponsor_id);
+create index if not exists idx_academia_inscripciones_academia_id on public.academia_inscripciones(academia_id);
+create index if not exists idx_academia_inscripciones_player_id on public.academia_inscripciones(player_id);
+create index if not exists idx_gk_packages_academia_id on public.gk_packages(academia_id);
+create index if not exists idx_gk_packages_player_id on public.gk_packages(player_id);
+create index if not exists idx_gk_sessions_academia_id on public.gk_sessions(academia_id);
+create index if not exists idx_gk_sessions_player_id on public.gk_sessions(player_id);
+create index if not exists idx_gk_sessions_package_id on public.gk_sessions(package_id);
+create index if not exists idx_summer_enrollments_course_id on public.summer_enrollments(course_id);
+create index if not exists idx_summer_attendance_enrollment_id on public.summer_attendance(enrollment_id);
+create index if not exists idx_summer_attendance_course_id on public.summer_attendance(course_id);
+create index if not exists idx_garantias_order_id on public.garantias(order_id);
+create index if not exists idx_garantias_corte_reposicion_id on public.garantias(corte_reposicion_id);
+create index if not exists idx_players_status on public.players(status);
+create index if not exists idx_players_category on public.players(category);
+create index if not exists idx_payments_date on public.payments(date);
+create index if not exists idx_payments_period on public.payments(period);
+create index if not exists idx_attendance_date on public.attendance(date);
+create index if not exists idx_matches_date on public.matches(date);
+create index if not exists idx_orders_status on public.orders(status);
+create index if not exists idx_orders_folio on public.orders(folio);
+create index if not exists idx_products_sku on public.products(sku);
+create index if not exists idx_prospects_status on public.prospects(status);
+create index if not exists idx_scouting_status on public.scouting(status);
+create index if not exists idx_academias_activa on public.academias(activa);
+create index if not exists idx_summer_courses_status on public.summer_courses(status);
+create index if not exists idx_summer_enrollments_status on public.summer_enrollments(status);
+create index if not exists idx_events_date on public.events(date);
+
+alter table public.assets enable row level security;
+alter table public.players enable row level security;
+alter table public.payments enable row level security;
+alter table public.attendance enable row level security;
+alter table public.prospects enable row level security;
+alter table public.scouting enable row level security;
+alter table public.packages enable row level security;
+alter table public.cortes enable row level security;
+alter table public.garantias enable row level security;
+alter table public.evaluations enable row level security;
+alter table public.player_notes enable row level security;
+alter table public.matches enable row level security;
+alter table public.match_stats enable row level security;
+alter table public.sponsors enable row level security;
+alter table public.products enable row level security;
+alter table public.orders enable row level security;
+alter table public.events enable row level security;
+alter table public.equipment enable row level security;
+alter table public.academias enable row level security;
+alter table public.academia_inscripciones enable row level security;
+alter table public.gk_packages enable row level security;
+alter table public.gk_sessions enable row level security;
+alter table public.permissions enable row level security;
+alter table public.audit_log enable row level security;
+alter table public.qa_results enable row level security;
+alter table public.summer_courses enable row level security;
+alter table public.summer_enrollments enable row level security;
+alter table public.summer_attendance enable row level security;
+
+revoke all on schema migration from anon, authenticated;
+revoke all on all tables in schema migration from anon, authenticated;;

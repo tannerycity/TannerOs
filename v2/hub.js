@@ -1,4 +1,5 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,setShellSearchItems,shellIcon} from '/v2/shell.js';
+import {preparaCobro,ligaDeCobro,faltaConfigurarElClub} from '/v2/cobranza-whatsapp.js';
 
 const page=document.body.dataset.hub;
 const titles={club:'Club',direccion:'Dirección',finanzas:'Finanzas'};
@@ -64,10 +65,13 @@ async function renderDirection(){
 
 async function renderFinance(){
   $('hubEyebrow').textContent='COBRANZA Y CONTABILIDAD';$('hubTitle').textContent='Finanzas';$('hubSubtitle').textContent='Caja, cartera activa y movimientos financieros desde el mismo ledger.';
-  const [collection,receivables,searchIdx]=await Promise.all([
+  const [collection,receivables,searchIdx,clubCfg]=await Promise.all([
     (can('cobranza')||can('contabilidad'))?safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:new Date().toISOString().slice(0,7)+'-01'}),null):null,
     can('cobranza')?safe(rpc('v2_open_receivables',{organization_id:org}),[]):[],
-    can('cobranza')?safe(rpc('v2_search_index',{organization_id:org}),[]):[]
+    can('cobranza')?safe(rpc('v2_search_index',{organization_id:org}),[]):[],
+    // El WhatsApp del club da la lada de pais para completar numeros locales, y
+    // su nombre va en el mensaje. Lo puede leer cualquier miembro activo.
+    can('cobranza')?safe(rpc('v2_club_config',{organization_id:org}),null):null
   ]);
   const _today=new Date().toISOString().slice(0,10);
   // La asignación de pagos sólo toca cargos desde 2026-09-01 (frontera de la
@@ -93,8 +97,31 @@ async function renderFinance(){
   const phoneMap={};(searchIdx||[]).forEach(p=>{if(p&&p.id&&p.phones)phoneMap[p.id]=String(p.phones).split(' ')[0];});const byPlayer=new Map();for(const r of _ovd){const key=r.player_id||r.player_name,old=byPlayer.get(key)||{name:r.player_name,amount:0,playerId:r.player_id||null,oldest:null};old.amount+=Number(r.balance_due||0);const dd=r.due_date||r.billing_period;if(dd&&(!old.oldest||String(dd)<old.oldest))old.oldest=String(dd);byPlayer.set(key,old);}const debtors=[...byPlayer.values()].sort((a,b)=>String(a.oldest||'9999').localeCompare(String(b.oldest||'9999'))||b.amount-a.amount);
   const kpis=collection?`<section class="tos-kpis">${kpi('Cobranza del mes',`${collection.collection_rate||0}%`,`${collection.covered||0}/${collection.collection_population||0} cubiertos`,Number(collection.collection_rate||0)>=85?'good':'')}${kpi('Cartera del mes',money.format(Number(collection.current_period_receivable||0)),'Pendiente actual',Number(collection.current_period_receivable||0)>0?'danger':'')}${kpi('Cartera cobrable',money.format(cobrablesTotal),fueraTotal>0?`${cobrablesSet.size} Tanners activos · ${money.format(fueraTotal)} aparte`:`${cobrablesSet.size} Tanners activos`,cobrablesTotal>0?'danger':'')}${kpi('Por configurar',collection.needs_configuration||0,'Cuotas que requieren definición')}</section>`:'';
   const modules=`<section class="tos-hub-grid">${can('cobranza')?`<a class="tos-hub-card" href="#cobranza"><span class="tos-hub-icon" aria-hidden="true">${shellIcon('wallet')}</span><div class="tos-hub-copy"><strong>Cobranza</strong><span>Estado de cuenta y saldos</span></div><span class="tos-hub-chevron" aria-hidden="true">${shellIcon('chevronRight')}</span></a>`:''}${card('taquilla','Taquilla','Cobros, ingresos y egresos del día','/taquilla/','gold','cashier')}${card('contabilidad','Contabilidad','Movimientos, ajustes y trazabilidad','/contabilidad/','','ledger')}${card('estacionamiento','Estacionamiento','Gafetes: solicitudes y padrón','/estacionamiento/','blue','car')}${card('tienda','Tienda','Pedidos, cobrado y rentabilidad','/pedidos/','blue','bag')}${can('tienda')?`<a class="tos-hub-card" href="/catalogo/"><span class="tos-hub-icon" aria-hidden="true">${shellIcon('box')}</span><div class="tos-hub-copy"><strong>Catálogo</strong><span>Kits, productos y precios</span></div><span class="tos-hub-chevron" aria-hidden="true">${shellIcon('chevronRight')}</span></a>`:''}</section>`;
-  const debtRows=debtors.map(d=>{const ph=d.playerId&&phoneMap[d.playerId]?String(phoneMap[d.playerId]).replace(/\D/g,''):'';const waMsg=encodeURIComponent(`Hola, le recordamos el pago pendiente de ${d.name} en Tannery City por ${money.format(d.amount)}. ¡Gracias!`);const wa=ph?`<a href="https://wa.me/${ph}?text=${waMsg}" target="_blank" rel="noopener" style="background:#25D366;color:#fff;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:'';const cob=d.playerId?`<a href="/v2/taquilla/?action=cobrar&player=${d.playerId}&amount=${Math.round(d.amount)}&name=${encodeURIComponent(d.name||'')}" style="background:#087d8e;color:#fff;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">Cobrar</a>`:'';const since=d.oldest?` · desde ${d.oldest}`:'';const ver=d.playerId?`<a href="/tanner/?id=${encodeURIComponent(d.playerId)}" style="background:#eef2f1;color:#31525c;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Ver estado</a>`:'';return `<div class="tos-list-row"><div><strong>${esc(d.name||'Tanner')}</strong><span>Saldo pendiente${since}</span></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b style="color:#d23829">${money.format(d.amount)}</b><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${ver}${wa}${cob}</div></div></div>`;}).join('');
-  const list=can('cobranza')?`<section id="cobranza" class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><h2>Vencidos por cobrar</h2><span class="tos-user-note">${debtors.length?`${debtors.length} con saldo`:'Sin saldos'}</span></div><div class="tos-list">${debtRows||'<div class="tos-empty">Sin pagos vencidos. Todo al corriente.</div>'}</div></section>`:'';
+  // Cobro por WhatsApp. El boton ya no desaparece cuando no se puede: dice por
+  // que. Y nunca se arma un numero a medias — ver v2/cobranza-whatsapp.js.
+  const waClub=clubCfg?.whatsapp||'';
+  const nombreClub=clubCfg?.name||'';
+  const cobros=new Map();
+  debtors.forEach(d=>cobros.set(d,preparaCobro(d.playerId?phoneMap[d.playerId]:'',waClub)));
+  const avisoClub=faltaConfigurarElClub(waClub,[...cobros.values()]);
+  const chip=(texto,fondo,color,titulo,href)=>`<a href="${href}" title="${esc(titulo)}" style="background:${fondo};color:${color};padding:5px 11px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">${esc(texto)}</a>`;
+  const debtRows=debtors.map(d=>{const cobro=cobros.get(d)||{estado:'sin_telefono'};
+    const fichaHref=d.playerId?`/jugadores/?player=${encodeURIComponent(d.playerId)}`:'/jugadores/';
+    const wa=cobro.estado==='ok'
+      ? `<a href="${ligaDeCobro({numero:cobro.numero,club:nombreClub,tanner:d.name,monto:money.format(d.amount),desde:d.oldest||''})}" target="_blank" rel="noopener" style="background:#25D366;color:#fff;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">Cobrar por WhatsApp</a>`
+      : cobro.estado==='sin_telefono'
+        ? chip('Falta su teléfono','#fdf2dd','#7a5a10','Esta familia no tiene teléfono registrado. Agrégalo en su expediente para poder cobrarle por WhatsApp.',fichaHref)
+        : chip('Teléfono sin lada','#fbe6e6','#9b2c2c',`Su teléfono (${cobro.local||''}) no trae lada de país y no se puede deducir. Corrígelo en su expediente.`,fichaHref);const cob=d.playerId?`<a href="/v2/taquilla/?action=cobrar&player=${d.playerId}&amount=${Math.round(d.amount)}&name=${encodeURIComponent(d.name||'')}" style="background:#087d8e;color:#fff;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">Cobrar</a>`:'';const since=d.oldest?` · desde ${d.oldest}`:'';const ver=d.playerId?`<a href="/tanner/?id=${encodeURIComponent(d.playerId)}" style="background:#eef2f1;color:#31525c;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Ver estado</a>`:'';return `<div class="tos-list-row"><div><strong>${esc(d.name||'Tanner')}</strong><span>Saldo pendiente${since}</span></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b style="color:#d23829">${money.format(d.amount)}</b><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${ver}${wa}${cob}</div></div></div>`;}).join('');
+  const listos=[...cobros.values()].filter(c=>c.estado==='ok').length;
+  const nota=debtors.length?`${debtors.length} con saldo · ${listos} con WhatsApp listo`:'Sin saldos';
+  // El aviso es del CLUB, no de una familia: aparece solo cuando hay numeros
+  // locales que no se pueden completar porque falta la configuracion.
+  const banner=avisoClub?`<div style="margin:0 0 12px;padding:11px 13px;border-radius:10px;background:#fdf2dd;color:#7a5a10;font:700 12.5px/1.5 Inter,system-ui">${
+    avisoClub==='sin_whatsapp_del_club'
+      ? 'Falta configurar el WhatsApp del club. Sin él no se pueden completar los teléfonos que vienen sin lada de país, y esos Tanners no se pueden cobrar por aquí. <a href="/admin/club/" style="color:#7a5a10;font-weight:800">Configurarlo</a>'
+      : 'Hay teléfonos cuya lada de país no se puede deducir del WhatsApp del club. Revísalos en el expediente de cada Tanner.'
+  }</div>`:'';
+  const list=can('cobranza')?`<section id="cobranza" class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><h2>Vencidos por cobrar</h2><span class="tos-user-note">${nota}</span></div>${banner}<div class="tos-list">${debtRows||'<div class="tos-empty">Sin pagos vencidos. Todo al corriente.</div>'}</div></section>`:'';
   const attentionBlock=(_alerts.length||_aparte.length)?`<section class="tos-panel" style="margin-top:14px;padding:16px 18px"><strong style="display:block;margin-bottom:10px;font-size:15px">Necesita tu atención</strong><div style="display:flex;flex-direction:column;gap:8px">${_alerts.map(a=>{const col=a.tone==='danger'?'#d23829':'#a9791b';const bg=a.tone==='danger'?'#fdeceb':'#fbf3e2';const bd=a.tone==='danger'?'#f5c6c2':'#ecd9a8';return `<a href="#cobranza" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:${bg};border:1px solid ${bd};text-decoration:none"><span style="display:flex;flex-direction:column"><strong style="color:${col};font-size:14px">${esc(a.t)}</strong><span style="color:#66737a;font-size:12.5px">${esc(a.d)}</span></span><span style="color:${col};font-weight:800;font-size:13px;white-space:nowrap">Ver →</span></a>`;}).join('')}</div>${_aparteHtml}</section>`:'';$('hubBody').innerHTML=`${kpis}${attentionBlock}${modules}${list}`;if(collection&&Number(collection.total_receivable||0)>0)setShellHealth({state:'attention',label:'Cobranza pendiente'});
 }
 

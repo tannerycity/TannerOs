@@ -13,8 +13,7 @@ on:
       - 'aviso-de-privacidad/**'
       - 'public-form.*'
       - 'vercel.json'
-      - 'scripts/qa-static.mjs'
-      - 'scripts/qa-centro-tanner.mjs'
+      - 'scripts/qa-*.mjs'
   push:
     branches: [main]
     paths:
@@ -28,8 +27,7 @@ on:
       - 'aviso-de-privacidad/**'
       - 'public-form.*'
       - 'vercel.json'
-      - 'scripts/qa-static.mjs'
-      - 'scripts/qa-centro-tanner.mjs'
+      - 'scripts/qa-*.mjs'
       - '.github/workflows/tanneros-qa.yml'
   schedule:
     - cron: '17 9 * * *'
@@ -57,6 +55,57 @@ jobs:
           node --input-type=module --check < public-form.js
       - name: TannerOS structural QA
         run: node scripts/qa-static.mjs
+      - name: Suites unitarias de v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Estas tres suites vivian en el repo pero nadie las corria: una
+          # prueba que nunca se ejecuta no es una barrera. Cada una falla
+          # contra el comportamiento viejo que arreglo, asi que si alguien
+          # revierte el arreglo, CI se pone en rojo aqui.
+          node scripts/qa-image-encode.mjs
+          node scripts/qa-photo-cache.mjs
+          node scripts/qa-cobranza-whatsapp.mjs
+      - name: El CDN sirve la version fijada del cliente de Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Los 30 modulos importan el cliente desde v2/supabase-client.js, y ese
+          # archivo nombra una version exacta del CDN. Si esa URL no responde, la
+          # app entera se queda en blanco — el HTML sigue dando 200, asi que el
+          # smoke de rutas no lo veria. Por eso se comprueba aqui, antes de
+          # mezclar.
+          # Del renglon del export, no de los comentarios: el texto que explica
+          # el cambio tambien menciona la URL con el rango flotante, y un
+          # `head -1` ingenuo agarraba esa.
+          url="$(grep -oE "from '(https://esm\.sh/[^']+)'" v2/supabase-client.js | sed "s/^from '//;s/'$//")"
+          echo "Cliente fijado en: $url"
+          case "$url" in
+            *@[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "El import no apunta a una version exacta"; exit 1 ;;
+          esac
+          code="$(curl --silent --show-error --location --retry 4 --retry-delay 3 --max-time 30 -o /tmp/cliente.js -w '%{http_code}' "$url" || echo 000)"
+          echo "  http $code · $(wc -c </tmp/cliente.js) bytes"
+          if [ "$code" != '200' ]; then
+            echo "El CDN no sirve la version fijada. Ver docs/fotos-que-falta.md y el PR."
+            head -c 400 /tmp/cliente.js || true
+            exit 1
+          fi
+          # Hasta aqui llega esta guarda, y a proposito.
+          #
+          # El riesgo que cierra es concreto: que la URL fijada deje de existir
+          # y la app entera se quede en blanco, con el HTML devolviendo 200 —que
+          # es justo lo que el smoke de rutas no veria—. Un 200 con un modulo
+          # dentro descarta eso.
+          #
+          # Lo que NO hace: seguir el grafo de reexports. Se intento y el stub de
+          # esm.sh cambia de forma —auth-js, tracingRegistry, chunks internos—,
+          # asi que la comprobacion fallaba con la URL buena. Perseguir la
+          # estructura interna de un CDN ajeno es una prueba fragil que miente en
+          # las dos direcciones. Que el grafo resuelva lo prueba abrir la app.
+          test "$(wc -c </tmp/cliente.js)" -gt 60
+          grep -q 'export' /tmp/cliente.js || { echo "La respuesta no parece un modulo:"; head -c 400 /tmp/cliente.js; exit 1; }
+          echo "OK · el CDN responde 200 y devuelve un modulo para la version fijada"
 
   live-smoke:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -93,6 +142,8 @@ jobs:
             '/admin/branding/'
             '/admin/club/'
             '/admin/onboarding/'
+            '/admin/fotos/'
+            '/admin/clubes/'
             '/qa/'
             '/modulos/'
             '/deportivo/'

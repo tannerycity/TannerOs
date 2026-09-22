@@ -1,5 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -64,8 +65,6 @@ let billingPlayers = [];
 let fundedPlayers = [];
 const PHOTO_BUCKET = 'tanneros-private';
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
-const THUMB_MAX_SIDE = 260;
-const THUMB_MAX_BYTES = 180 * 1024;
 let selectedSponsorId = null;
 let selectedStage = 'all';
 let currentView = 'summary';
@@ -341,32 +340,6 @@ function loadImageFile(file) {
     img.src = url;
   });
 }
-function canvasBlobFrom(canvas, type, quality) {
-  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
-}
-async function prepareVariant(img, maxSide, quality, maxBytes) {
-  const width = img.naturalWidth || img.width;
-  const height = img.naturalHeight || img.height;
-  const scale = Math.min(1, maxSide / Math.max(width, height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(width * scale));
-  canvas.height = Math.max(1, Math.round(height * scale));
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Tu navegador no pudo preparar la foto.');
-  context.drawImage(img, 0, 0, canvas.width, canvas.height);
-  let blob = await canvasBlobFrom(canvas, 'image/webp', quality);
-  let ext = 'webp';
-  if (!blob) {
-    blob = await canvasBlobFrom(canvas, 'image/jpeg', quality);
-    ext = 'jpg';
-  }
-  if (blob && blob.size > maxBytes) {
-    blob = await canvasBlobFrom(canvas, 'image/jpeg', Math.max(.5, quality - .16));
-    ext = 'jpg';
-  }
-  if (!blob || blob.size > maxBytes) throw new Error('La foto es demasiado pesada. Prueba con una imagen más pequeña.');
-  return { blob, ext, mime: blob.type || ('image/' + (ext === 'jpg' ? 'jpeg' : ext)) };
-}
 async function preparePhotoFile(file) {
   if (!file) throw new Error('Selecciona una foto.');
   if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');
@@ -374,15 +347,13 @@ async function preparePhotoFile(file) {
   const width = img.naturalWidth || img.width;
   const height = img.naturalHeight || img.height;
   if (!width || !height) throw new Error('No pudimos leer el tamaño de esa foto.');
-  const full = await prepareVariant(img, 1600, .84, PHOTO_MAX_BYTES);
-  const thumb = await prepareVariant(img, THUMB_MAX_SIDE, .75, THUMB_MAX_BYTES);
+  const full = await encodeVariant(img, FULL_MAX_SIDE, .82, FULL_MAX_BYTES);
+  const thumb = await encodeVariant(img, THUMB_MAX_SIDE, .75, THUMB_MAX_BYTES);
   return { full, thumb };
 }
 async function signedUrl(bucket, path) {
   if (!path) return null;
-  const { data, error } = await supabase.storage.from(bucket || PHOTO_BUCKET).createSignedUrl(path, 600);
-  if (error) throw error;
-  return data?.signedUrl || null;
+  return getSignedPhotoUrl(supabase, bucket || PHOTO_BUCKET, path);
 }
 async function signedUrls(bucket, paths) {
   const unique = [...new Set(paths.filter(Boolean))];
@@ -430,8 +401,8 @@ async function uploadAssetPhoto(file) {
     const path = prefix + 'photo-' + stamp + '.' + prepared.full.ext;
     const thumbPath = prefix + 'photo-' + stamp + '-thumb.' + prepared.thumb.ext;
     const [{ error: uploadError }, { error: thumbUploadError }] = await Promise.all([
-      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
-      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
     ]);
     if (uploadError || thumbUploadError) {
       await Promise.all([
@@ -481,8 +452,8 @@ async function uploadItemEvidence(file) {
     const path = prefix + 'evidence-' + stamp + '.' + prepared.full.ext;
     const thumbPath = prefix + 'evidence-' + stamp + '-thumb.' + prepared.thumb.ext;
     const [{ error: uploadError }, { error: thumbUploadError }] = await Promise.all([
-      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: '3600', upsert: false }),
-      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: '3600', upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
+      supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
     ]);
     if (uploadError || thumbUploadError) {
       await Promise.all([

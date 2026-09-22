@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 
 const SUPABASE_URL='https://pacnegivzgxpanphrnwp.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG';
@@ -127,7 +127,9 @@ const fullRouteMatrix=[
   ['qa','Centro de Calidad','/qa/','qa'],['modules','Puertas disponibles','/modulos/','admin'],['sport','Área deportiva','/deportivo/','sport'],
   ['goalkeepers','Porteros','/porteros/','sport'],['production','Producción','/produccion/','commerce'],['programs-v2','Programas y eventos','/operacion/programas/','programs'],
   ['audit','Historial del club','/admin/auditoria/','admin'],['branding','Identidad del club','/admin/branding/','admin'],['club-settings','Datos del club','/admin/club/','admin'],
-  ['onboarding','Preparación del club','/admin/onboarding/','admin']
+  ['onboarding','Preparación del club','/admin/onboarding/','admin'],
+  ['photos','Fotos del padrón','/admin/fotos/','admin'],
+  ['clubs','Clubes','/admin/clubes/','admin']
 ];
 function fullTests(){return [
   ...fullRouteMatrix.map(item=>routeTest(item[0],item[1],item[2],item[3])),

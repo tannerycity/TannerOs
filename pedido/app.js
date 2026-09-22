@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 import { AsYouType,getCountries,getCountryCallingCode,parsePhoneNumberFromString } from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
 const CLUB_KEY='1850TC1850',PRIVACY_NOTICE_VERSION='2026-08-19-v1',$=id=>document.getElementById(id),money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}),regions=new Intl.DisplayNames(['es-MX','es'],{type:'region'});let catalog={products:[],bundles:[]},phoneCountry='MX';

@@ -1,0 +1,4 @@
+insert into app.billing_policies (organization_id,charge_day,due_day,late_fee_amount,proration_method,first_month_late_fee_enabled,allocation_strategy,allow_partial_payments,overpayment_strategy,sibling_discount_amount,currency)
+select id,1,5,100,'weekly_quarters',false,'oldest_first',true,'credit_balance',50,'MXN'
+from public.organizations where slug='tannery-city-fc'
+on conflict (organization_id) do update set charge_day=excluded.charge_day,due_day=excluded.due_day,late_fee_amount=excluded.late_fee_amount,proration_method=excluded.proration_method,first_month_late_fee_enabled=excluded.first_month_late_fee_enabled,allocation_strategy=excluded.allocation_strategy,allow_partial_payments=excluded.allow_partial_payments,overpayment_strategy=excluded.overpayment_strategy,sibling_discount_amount=excluded.sibling_discount_amount,currency=excluded.currency,updated_at=now();;

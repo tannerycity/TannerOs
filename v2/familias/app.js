@@ -1,5 +1,5 @@
 import {supabase,rpc,money,$} from '/v2/shell.js';
-import {getSignedPhotoUrl, getSignedPhotoUrls} from '/v2/photo-cache.js';
+import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 
 // Portal de familias. No usa el shell del staff a propósito: un tutor no tiene
 // módulos que navegar, y mezclar ambas superficies es como se filtran datos.
@@ -617,6 +617,7 @@ async function boot(){
   catch(error){
     // Una cuenta de staff que abre el portal por error no debe quedarse en blanco.
     show('loginView');msg('loginMessage',friendly(error));
+    await clearPhotoCache();
     await supabase.auth.signOut().catch(()=>{});
     return;
   }
@@ -638,7 +639,7 @@ async function boot(){
 
 $('loginForm')?.addEventListener('submit',handleLogin);
 $('passwordForm')?.addEventListener('submit',handlePassword);
-$('signOut')?.addEventListener('click',async()=>{await supabase.auth.signOut();location.reload();});
+$('signOut')?.addEventListener('click',async()=>{await clearPhotoCache();await supabase.auth.signOut();location.reload();});
 document.querySelectorAll('.fam-nav-item').forEach(b=>b.addEventListener('click',()=>{
   state.tab=b.dataset.tab;paint();
 }));

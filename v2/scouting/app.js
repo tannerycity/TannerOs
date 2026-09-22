@@ -1,5 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -11,7 +12,7 @@ const $=id=>document.getElementById(id);
 let ctx=null,reports=[],current=null,canWrite=false,selectedQuality='',pendingPhoto=null,pendingPreviewUrl=null,createProspect=null,editQualities=[];
 const linkedProspect=(()=>{const q=new URLSearchParams(location.search),id=q.get('prospect');return id?{id,name:q.get('name')||'',category:q.get('category')||'',type:q.get('type')||''}:null;})();
 const DAY=86400000;
-const PHOTO_BUCKET='tanneros-private',MAX_PHOTO_BYTES=5*1024*1024,THUMB_MAX_SIDE=260,THUMB_MAX_BYTES=180*1024;
+const PHOTO_BUCKET='tanneros-private',MAX_PHOTO_BYTES=5*1024*1024;
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function message(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
@@ -36,17 +37,15 @@ function pipelineRank(r){if(overdue(r))return 0;if(priority(r))return 1;if(cooli
 function initials(name){return String(name||'TC').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();}
 function scoreWord(v){const n=Number(v);return n>=9?'Sobresale':n>=7?'Destaca':n>=5?'Cumple':n>0?'Por desarrollar':'Sin evaluar';}
 function loadImage(file){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('No pudimos leer la foto.'));};img.src=url;});}
-function canvasBlob(canvas,type,quality){return new Promise(resolve=>canvas.toBlob(resolve,type,quality));}
-async function prepareVariant(img,maxSide,quality,maxBytes){const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,scale=Math.min(1,maxSide/Math.max(w,h)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));const c=canvas.getContext('2d');if(!c)throw new Error('No pudimos preparar la foto.');c.drawImage(img,0,0,canvas.width,canvas.height);let blob=await canvasBlob(canvas,'image/webp',quality),ext='webp';if(!blob){blob=await canvasBlob(canvas,'image/jpeg',quality);ext='jpg';}if(blob?.size>maxBytes){blob=await canvasBlob(canvas,'image/jpeg',Math.max(.5,quality-.16));ext='jpg';}if(!blob||blob.size>maxBytes)throw new Error('La foto es demasiado pesada.');return{blob,ext,mime:blob.type||'image/jpeg'};}
-async function preparePhoto(file){if(!file||!String(file.type||'').startsWith('image/'))throw new Error('Selecciona una imagen válida.');const img=await loadImage(file);const full=await prepareVariant(img,1600,.84,MAX_PHOTO_BYTES),thumb=await prepareVariant(img,THUMB_MAX_SIDE,.75,THUMB_MAX_BYTES);return{full,thumb};}
+async function preparePhoto(file){if(!file||!String(file.type||'').startsWith('image/'))throw new Error('Selecciona una imagen válida.');const img=await loadImage(file);const full=await encodeVariant(img,FULL_MAX_SIDE,.82,FULL_MAX_BYTES),thumb=await encodeVariant(img,THUMB_MAX_SIDE,.75,THUMB_MAX_BYTES);return{full,thumb};}
 async function uploadScoutPhoto(reportId,file){
   const prepared=await preparePhoto(file),stamp=Date.now();
   const prefix=`organizations/${ctx.organization_id}/scouting/${reportId}/`;
   const path=`${prefix}profile-${stamp}.${prepared.full.ext}`,thumbPath=`${prefix}profile-${stamp}-thumb.${prepared.thumb.ext}`;
   const previous=reports.find(r=>r.id===reportId),previousPath=previous?.photo_path,previousThumbPath=previous?.photo_thumb_path;
   const [{error:fullErr},{error:thumbErr}]=await Promise.all([
-    supabase.storage.from(PHOTO_BUCKET).upload(path,prepared.full.blob,{contentType:prepared.full.mime,cacheControl:'3600',upsert:false}),
-    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath,prepared.thumb.blob,{contentType:prepared.thumb.mime,cacheControl:'3600',upsert:false}),
+    supabase.storage.from(PHOTO_BUCKET).upload(path,prepared.full.blob,{contentType:prepared.full.mime,cacheControl: UPLOAD_CACHE_CONTROL,upsert:false}),
+    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath,prepared.thumb.blob,{contentType:prepared.thumb.mime,cacheControl: UPLOAD_CACHE_CONTROL,upsert:false}),
   ]);
   if(fullErr||thumbErr){await Promise.all([supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(()=>{}),supabase.storage.from(PHOTO_BUCKET).remove([thumbPath]).catch(()=>{})]);throw fullErr||thumbErr;}
   try{

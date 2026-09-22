@@ -234,5 +234,29 @@ const herramientaFotos = fs.readFileSync('v2/admin/fotos/app.js','utf8');
 if (/[^w]getSignedPhotoUrl\(/.test(herramientaFotos))
   errors.push('/admin/fotos/: usa getSignedPhotoUrl, que devuelve blob:. Debe usar getRawSignedPhotoUrl');
 
+
+// ── Las rutas de foto se arman en un solo lugar ────────────────────────────
+//
+// v2_set_player_photo valida el nombre del archivo y rechaza con "Invalid
+// photo path" DESPUES de que la foto ya se subio. La pantalla de
+// mantenimiento armaba el nombre a mano, le metia un "-opt<sello>" en medio y
+// rompia el patron: diez fotos, 27.8 MB descargados, cero guardadas.
+//
+// Por eso el nombre se arma en v2/foto-rutas.js y no en la pantalla.
+const fotosApp = fs.readFileSync('v2/admin/fotos/app.js','utf8');
+if (/`\$\{[^`]*\}-opt\$\{/.test(fotosApp))
+  errors.push('/admin/fotos/: vuelve a armar el nombre con "-opt", que la base rechaza');
+for (const pieza of ['rutaDeOriginal','rutaDeMiniatura','rutaValida'])
+  if (!fotosApp.includes(pieza))
+    errors.push(`/admin/fotos/: ya no usa ${pieza}; el nombre del archivo tiene que salir de foto-rutas.js`);
+
+// El patron vive en la base y se repite en el cliente para poder probarlo.
+// Si la base lo cambia y el cliente no, las fotos se suben y se rechazan.
+const fotoRutas = fs.readFileSync('v2/foto-rutas.js','utf8');
+for (const patron of ['^profile-[0-9]{10,16}\\.(jpg|jpeg|png|webp)$',
+                      '^profile-[0-9]{10,16}-thumb\\.(jpg|jpeg|png|webp)$'])
+  if (!fotoRutas.includes(patron))
+    errors.push(`foto-rutas.js: el patron ya no coincide con el de v2_set_player_photo (${patron})`);
+
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

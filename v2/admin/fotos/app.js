@@ -1,6 +1,7 @@
 import {bootstrapProtectedShell,rpc,$,moduleAccess,setShellHealth} from '/v2/shell.js';
 import {supabase} from '/v2/shell.js';
 import { getRawSignedPhotoUrl, forgetPhoto } from '/v2/photo-cache.js';
+import { rutaDeOriginal, rutaDeMiniatura, rutaValida, miniaturaValida } from '/v2/foto-rutas.js';
 import {encodeVariant,THUMB_MAX_SIDE,THUMB_MAX_BYTES,FULL_MAX_SIDE,FULL_MAX_BYTES,UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 // Mantenimiento de fotos del padrón.
@@ -158,7 +159,6 @@ async function procesa(){
       forgetPhoto(bucket,p.photo_path);
       const img=await cargaImagen(original);
       const stamp=Date.now();
-      const base=`${carpetaDe(p.photo_path)}/${sinExtension(nombreDe(p.photo_path))}`;
       const detalle=[];
       let rutaFoto=p.photo_path,rutaMini=p.photo_thumb_path;
 
@@ -167,7 +167,7 @@ async function procesa(){
       // perdería calidad.
       if(p.originalPesado){
         const grande=await encodeVariant(img,FULL_MAX_SIDE,0.82,FULL_MAX_BYTES);
-        rutaFoto=`${base}-opt${stamp}.${grande.ext}`;
+        rutaFoto=rutaDeOriginal(p.photo_path,stamp,grande.ext);
         const {error}=await supabase.storage.from(bucket)
           .upload(rutaFoto,grande.blob,{contentType:grande.mime,cacheControl:UPLOAD_CACHE_CONTROL,upsert:false});
         if(error)throw error;
@@ -176,7 +176,7 @@ async function procesa(){
       }
       if(p.faltaMini||p.originalPesado){
         const mini=await encodeVariant(img,THUMB_MAX_SIDE,0.75,THUMB_MAX_BYTES);
-        rutaMini=`${sinExtension(rutaFoto)}-thumb.${mini.ext}`;
+        rutaMini=rutaDeMiniatura(rutaFoto,mini.ext);
         const {error}=await supabase.storage.from(bucket)
           .upload(rutaMini,mini.blob,{contentType:mini.mime,cacheControl:UPLOAD_CACHE_CONTROL,upsert:true});
         if(error)throw error;
@@ -186,7 +186,14 @@ async function procesa(){
 
       // El padrón apunta a lo nuevo. Recién entonces el archivo viejo queda sin
       // uso — y se reporta, no se borra: borrar no es de esta herramienta.
-      await rpc('v2_set_player_photo',{organization_id:org,player_id:p.player_id||p.id,
+      const idJugador=p.player_id||p.id;
+      // La base valida el nombre y rechaza con "Invalid photo path". Se
+      // comprueba aqui para que el aviso diga cual ruta y por que.
+      if(!rutaValida(rutaFoto,org,idJugador))
+        throw new Error(`La ruta del original no cumple el formato que pide el padrón: ${rutaFoto}`);
+      if(rutaMini&&!miniaturaValida(rutaMini,org,idJugador))
+        throw new Error(`La ruta de la miniatura no cumple el formato que pide el padrón: ${rutaMini}`);
+      await rpc('v2_set_player_photo',{organization_id:org,player_id:idJugador,
         photo_path:rutaFoto,photo_thumb_path:rutaMini});
       if(rutaFoto!==p.photo_path)huerfanos.push(p.photo_path);
       if(p.photo_thumb_path&&rutaMini!==p.photo_thumb_path)huerfanos.push(p.photo_thumb_path);

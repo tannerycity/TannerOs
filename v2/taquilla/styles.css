@@ -52,6 +52,10 @@
 .tsearch-empty{padding:13px 14px;color:#8a969b;font-size:13.5px}
 .movement-who{display:flex;flex-direction:column;gap:1px}
 .movement-payer{font-size:11.5px;font-weight:650;color:#8a969b}
+/* Quien del club entrego el pago. Se distingue del proveedor —que va en
+   negrita arriba— y del tutor que pago un cobro, que es "Pago:". */
+.movement-registro{display:block;font-size:11px;color:#7d8991;margin-top:1px}
+.movement-registro.is-legacy{font-style:italic;color:#98a2a8}
 .edit-move{margin-left:8px;border:1px solid #cfe6e2;background:#eef6f4;color:#0c6270;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;cursor:pointer}
 .edit-move:hover{background:#dceeeb}
 .edit-modal{width:min(560px,calc(100vw - 24px))}

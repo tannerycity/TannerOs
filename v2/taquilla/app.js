@@ -61,7 +61,19 @@ function renderMovements(){
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const ebtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="edit-move" data-edit="'+esc(m.id)+'">Editar</button>'):'';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';
     const payerDiffers=m.playerName&&m.who&&m.who!=='—'&&m.who!==m.playerName;
-    const whoCell=m.playerName?`<div class="movement-who"><strong>${esc(m.playerName)}</strong>${payerDiffers?`<span class="movement-payer">Pagó: ${esc(m.who)}</span>`:''}</div>`:esc(m.who||'—');
+    // Quién del club entregó el pago. Es un dato distinto de "a quién se le
+    // pagó": en un egreso, m.who es el profe que cobró y esto es quien le
+    // entregó el dinero.
+    //
+    // Sale vacío mientras la base no devuelva el campo, y en los movimientos
+    // importados del sistema anterior, que nunca pasaron por TannerOS. En ese
+    // caso se dice de dónde vinieron en vez de dejar el hueco sin explicar.
+    const importado=/^legacy/i.test(String(m.source||''));
+    const registro=m.registeredBy?`<span class="movement-registro">Registró: ${esc(m.registeredBy)}</span>`
+      :(!income&&importado?'<span class="movement-registro is-legacy">Del sistema anterior</span>':'');
+    const whoCell=m.playerName
+      ?`<div class="movement-who"><strong>${esc(m.playerName)}</strong>${payerDiffers?`<span class="movement-payer">Pagó: ${esc(m.who)}</span>`:''}${registro}</div>`
+      :`<div class="movement-who"><strong>${esc(m.who||'—')}</strong>${registro}</div>`;
     tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${whoCell}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${ebtn}${vbtn}</td>`;body.appendChild(tr);});
 }
 function applyLedgerVisibility(){

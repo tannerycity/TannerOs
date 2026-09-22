@@ -241,7 +241,7 @@ async function postExpense(){
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
     const okDbl=await confirmDoubleCheck({title:'Confirma el pago',message:`Vas a registrar un pago de ${money.format(amount)} a ${who||concept} · ${category} · ${methodLabel($('expenseMethod').value)}. ¿Es correcto?`,confirmText:'Sí, pagar'});
     if(!okDbl){btn.disabled=false;return;}
-    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},idempotency_key:key('cashier-expense')});
+    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},supplier_name:who||null,idempotency_key:key('cashier-expense')});
     closeModals();await load();
   }catch(e){message('expenseMessage',e.message||'No se pudo registrar el egreso.');}finally{btn.disabled=false;}
 }

@@ -210,5 +210,38 @@ const parkingApp=fs.readFileSync('v2/estacionamiento/app.js','utf8');
 for(const contract of ["state.filtro==='por_cobrar'","state.filtro==='cancelados'",'data-kpi-filter','Cobrar en Taquilla','park-stepper','park-detail-hero','park-facts','v2_delete_parking_pass',"ctx.role==='Presidencia'"])if(!parkingApp.includes(contract))errors.push(`Estacionamiento UX: falta ${contract}`);
 const parkingDeleteMigration=fs.readFileSync('supabase/migrations-escritas-a-mano/202609140001_delete_parking_pass_rpc.sql','utf8');
 for(const contract of ['security definer','v2_my_context','Only Presidencia','rejected','revoked','grant execute'])if(!parkingDeleteMigration.includes(contract))errors.push(`Estacionamiento delete RPC: falta ${contract}`);
+
+// ── Ninguna suite se queda sin correr ──────────────────────────────────────
+//
+// Dos suites (qa-login-credencial y qa-utileria-baja) se perdieron de CI al
+// resolver un conflicto entre dos PRs que tocaban el workflow. Siguieron en el
+// repo, dejaron de correr, y CI siguio en verde: exactamente el fallo que esas
+// suites existian para impedir.
+//
+// Ahora el workflow las descubre solas y esto vigila la unica grieta que
+// queda: que alguien silencie una metiendola a la lista de exclusiones. El
+// archivo obliga a escribir el motivo, y este contador obliga a que la lista
+// no crezca sin que alguien lo note.
+const suitesEnDisco = fs.readdirSync('scripts').filter(f => /^qa-.*\.mjs$/.test(f)).sort();
+const listaExclusiones = fs.readFileSync('scripts/qa-suites-excluidas.txt', 'utf8');
+const excluidas = listaExclusiones.split('\n').map(l => l.trim())
+  .filter(l => l && !l.startsWith('#'));
+
+for (const nombre of excluidas) {
+  if (!suitesEnDisco.includes(nombre)) errors.push(`Suites: se excluye "${nombre}", que ya no existe`);
+}
+// El workflow tiene que seguir descubriendolas solo. Si alguien vuelve a
+// escribir la lista a mano, esto lo caza antes de que se pierda otra.
+const flujo = fs.readFileSync('.github/workflows/tanneros-qa.yml', 'utf8');
+if (!flujo.includes("find scripts -maxdepth 1 -name 'qa-*.mjs'"))
+  errors.push('Suites: el workflow dejo de descubrirlas solo; una suite nueva podria no correr nunca');
+if (!flujo.includes('qa-suites-excluidas.txt'))
+  errors.push('Suites: el workflow ya no lee la lista de exclusiones');
+
+const MAX_EXCLUIDAS = 4;
+if (excluidas.length > MAX_EXCLUIDAS)
+  errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
+    + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');
+
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

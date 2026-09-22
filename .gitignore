@@ -1,0 +1,10 @@
+# El arnes de navegador (qa-humo-navegador, las pruebas de imagen) necesita
+# playwright, que no vive en el repo: se enlaza desde fuera mientras se corre.
+# Sin esta linea el enlace aparece como archivo sin rastrear y alguien termina
+# commiteandolo.
+node_modules/
+node_modules
+
+# Restos de correr las pruebas a mano.
+*.log
+.DS_Store

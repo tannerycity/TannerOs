@@ -234,29 +234,43 @@ const herramientaFotos = fs.readFileSync('v2/admin/fotos/app.js','utf8');
 if (/[^w]getSignedPhotoUrl\(/.test(herramientaFotos))
   errors.push('/admin/fotos/: usa getSignedPhotoUrl, que devuelve blob:. Debe usar getRawSignedPhotoUrl');
 
-
-// ── Las rutas de foto se arman en un solo lugar ────────────────────────────
+// ── Ninguna suite se queda sin correr ──────────────────────────────────────
 //
-// v2_set_player_photo valida el nombre del archivo y rechaza con "Invalid
-// photo path" DESPUES de que la foto ya se subio. La pantalla de
-// mantenimiento armaba el nombre a mano, le metia un "-opt<sello>" en medio y
-// rompia el patron: diez fotos, 27.8 MB descargados, cero guardadas.
+// Dos suites (qa-login-credencial y qa-utileria-baja) se perdieron de CI al
+// resolver un conflicto entre dos PRs que tocaban el workflow. Siguieron en el
+// repo, dejaron de correr, y CI siguio en verde: exactamente el fallo que esas
+// suites existian para impedir.
 //
-// Por eso el nombre se arma en v2/foto-rutas.js y no en la pantalla.
-const fotosApp = fs.readFileSync('v2/admin/fotos/app.js','utf8');
-if (/`\$\{[^`]*\}-opt\$\{/.test(fotosApp))
-  errors.push('/admin/fotos/: vuelve a armar el nombre con "-opt", que la base rechaza');
-for (const pieza of ['rutaDeOriginal','rutaDeMiniatura','rutaValida'])
-  if (!fotosApp.includes(pieza))
-    errors.push(`/admin/fotos/: ya no usa ${pieza}; el nombre del archivo tiene que salir de foto-rutas.js`);
+// Y esta barrera se perdio a su vez, al resolver OTRO conflicto sobre este
+// mismo archivo dos horas despues. El mecanismo de fondo —que el workflow las
+// descubra solo— sobrevivio, asi que las suites siguieron corriendo; lo que
+// desaparecio fue el vigilante. Dos veces seguidas por la misma via dice que
+// el riesgo real de este archivo es la resolucion de conflictos, no el olvido.
+//
+// Ahora el workflow las descubre solas y esto vigila la unica grieta que
+// queda: que alguien silencie una metiendola a la lista de exclusiones. El
+// archivo obliga a escribir el motivo, y este contador obliga a que la lista
+// no crezca sin que alguien lo note.
+const suitesEnDisco = fs.readdirSync('scripts').filter(f => /^qa-.*\.mjs$/.test(f)).sort();
+const listaExclusiones = fs.readFileSync('scripts/qa-suites-excluidas.txt', 'utf8');
+const excluidas = listaExclusiones.split('\n').map(l => l.trim())
+  .filter(l => l && !l.startsWith('#'));
 
-// El patron vive en la base y se repite en el cliente para poder probarlo.
-// Si la base lo cambia y el cliente no, las fotos se suben y se rechazan.
-const fotoRutas = fs.readFileSync('v2/foto-rutas.js','utf8');
-for (const patron of ['^profile-[0-9]{10,16}\\.(jpg|jpeg|png|webp)$',
-                      '^profile-[0-9]{10,16}-thumb\\.(jpg|jpeg|png|webp)$'])
-  if (!fotoRutas.includes(patron))
-    errors.push(`foto-rutas.js: el patron ya no coincide con el de v2_set_player_photo (${patron})`);
+for (const nombre of excluidas) {
+  if (!suitesEnDisco.includes(nombre)) errors.push(`Suites: se excluye "${nombre}", que ya no existe`);
+}
+// El workflow tiene que seguir descubriendolas solo. Si alguien vuelve a
+// escribir la lista a mano, esto lo caza antes de que se pierda otra.
+const flujo = fs.readFileSync('.github/workflows/tanneros-qa.yml', 'utf8');
+if (!flujo.includes("find scripts -maxdepth 1 -name 'qa-*.mjs'"))
+  errors.push('Suites: el workflow dejo de descubrirlas solo; una suite nueva podria no correr nunca');
+if (!flujo.includes('qa-suites-excluidas.txt'))
+  errors.push('Suites: el workflow ya no lee la lista de exclusiones');
+
+const MAX_EXCLUIDAS = 4;
+if (excluidas.length > MAX_EXCLUIDAS)
+  errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
+    + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');
 
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

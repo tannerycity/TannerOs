@@ -1,6 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
+import { esBaja, contarBajas, articulosVisibles, estadoAlAlternar, textoDelBoton, estadoAlGuardar, puedeDarseDeBaja } from '/v2/utileria-baja.js';
 
 const supabase = createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -227,19 +228,27 @@ function stateFor(i) {
 function renderItemsTable() {
   const body = $('itemsBody');
   body.innerHTML = '';
-  const term = ($('itemSearch').value || '').trim().toLowerCase();
-  const filtered = items.filter((i) => !term || String(i.name || '').toLowerCase().includes(term) || String(i.category || '').toLowerCase().includes(term));
+  const term = ($('itemSearch').value || '').trim();
+  const verBajas = !!$('verBajas')?.checked;
+  const filtered = articulosVisibles(items, { verBajas, termino: term });
+  const bajas = contarBajas(items);
+  const chk = $('verBajasWrap');
+  if (chk) {
+    chk.classList.toggle('hidden', bajas === 0);
+    const et = $('verBajasLabel');
+    if (et) et.textContent = `Ver dados de baja (${bajas})`;
+  }
   $('itemsEmpty').classList.toggle('hidden', items.length > 0);
   const photoEntries = [];
   filtered.forEach((i) => {
     const state = stateFor(i);
     const meta = [i.category, i.location, i.unit_cost != null ? money.format(Number(i.unit_cost)) : null].filter(Boolean).map(esc).join(' · ');
     const tr = document.createElement('tr');
-    tr.className = 'item-row';
+    tr.className = esBaja(i) ? 'item-row es-baja' : 'item-row';
     tr.dataset.id = i.id;
     tr.innerHTML = `
       <td class="thumb-cell"><div class="photo-box tiny" data-photo-for="${i.id}">${i.photo_path ? '' : '—'}</div></td>
-      <td><strong>${esc(i.name || 'Artículo')}</strong><small>${meta}</small></td>
+      <td><strong>${esc(i.name || 'Artículo')}</strong>${esBaja(i) ? '<span class="baja-chip">Baja</span>' : ''}<small>${meta}</small></td>
       <td><span class="control-badge ${i.control_type}">${i.control_type === 'individual' ? 'Individual' : 'Por cantidad'}</span></td>
       <td>${Number(i.quantity || 0)}</td>
       <td>${Number(i.assigned_quantity || 0)}</td>
@@ -266,9 +275,10 @@ async function toggleItemDetail(tr, item) {
 
   const actions = document.createElement('div');
   actions.className = 'detail-actions';
-  actions.innerHTML = `<button class="secondary mini" data-act="edit">Editar artículo</button><button class="secondary mini" data-act="history">Ver historial</button>`;
+  actions.innerHTML = `<button class="secondary mini" data-act="edit">Editar artículo</button><button class="secondary mini" data-act="history">Ver historial</button><button class="secondary mini danger" data-act="baja">${esc(textoDelBoton(item))}</button>`;
   actions.querySelector('[data-act="edit"]').addEventListener('click', (e) => { e.stopPropagation(); startEditItem(item); });
   actions.querySelector('[data-act="history"]').addEventListener('click', async (e) => { e.stopPropagation(); await showItemHistory(td, item.id); });
+  actions.querySelector('[data-act="baja"]').addEventListener('click', async (e) => { e.stopPropagation(); await alternarBaja(item); });
 
   if (item.control_type === 'individual') {
     const units = await rpc('v2_equipment_units', { organization_id: ctx.organization_id, item_id: item.id }).catch(() => []);
@@ -313,6 +323,39 @@ async function toggleItemDetail(tr, item) {
     note.className = 'muted tiny detail-note';
     note.textContent = 'Este artículo se controla por cantidad total, sin unidades individuales.';
     td.appendChild(note);
+  }
+}
+
+async function alternarBaja(item) {
+  const permiso = puedeDarseDeBaja(item);
+  if (!permiso.ok) {
+    await tosAlert({ kicker: 'UTILERÍA', title: 'Todavía no se puede dar de baja', message: permiso.motivo });
+    return;
+  }
+  const baja = esBaja(item);
+  const ok = await tosConfirm({
+    kicker: 'UTILERÍA',
+    title: baja ? `¿Reactivar ${item.name}?` : `¿Dar de baja ${item.name}?`,
+    message: baja
+      ? 'Vuelve a aparecer en el inventario del día a día.'
+      : 'Desaparece del inventario del día a día. No se borra: su historial de entregas y reportes se conserva, y puedes reactivarlo cuando quieras.',
+  });
+  if (!ok) return;
+  try {
+    // Se mandan los campos del artículo tal cual están; lo único que cambia es
+    // el estado. La RPC es un upsert, así que omitir un campo lo borraría.
+    await rpc('v2_upsert_equipment_item', {
+      organization_id: ctx.organization_id, item_id: item.id,
+      sku: item.sku || null, name: item.name, category: item.category || null,
+      quantity: Number(item.quantity || 0), min_stock: Number(item.min_stock || 0),
+      unit_cost: item.unit_cost ?? null, location: item.location || null,
+      status: estadoAlAlternar(item), notes: item.notes || null,
+      control_type: item.control_type, photo_path: item.photo_path || null,
+      photo_bucket: item.photo_bucket || null, photo_thumb_path: item.photo_thumb_path || null,
+    });
+    await loadAdmin();
+  } catch (err) {
+    await tosAlert({ kicker: 'UTILERÍA', title: baja ? 'No se pudo reactivar' : 'No se pudo dar de baja', message: friendly(err) });
   }
 }
 
@@ -630,7 +673,7 @@ async function saveItem(e) {
       sku: $('itemSku').value.trim() || null, name: $('itemName').value.trim(),
       category: $('itemCategory').value.trim() || null, quantity: Number($('itemQuantity').value || 0),
       min_stock: Number($('itemMinStock').value || 0), unit_cost: $('itemCost').value === '' ? null : Number($('itemCost').value),
-      location: $('itemLocation').value.trim() || null, status: 'active', notes: $('itemNotes').value.trim() || null,
+      location: $('itemLocation').value.trim() || null, status: estadoAlGuardar(editingItemId ? items.find((x) => x.id === editingItemId) : null), notes: $('itemNotes').value.trim() || null,
       control_type: $('itemControlType').value, photo_path: photoPath, photo_bucket: photoBucket, photo_thumb_path: photoThumbPath,
     });
     msg('itemMessage', 'Artículo guardado.', 'success');
@@ -661,6 +704,7 @@ function bindAdminEvents() {
     if (itemPhotoFile) { const url = URL.createObjectURL(itemPhotoFile); $('itemPhotoBox').innerHTML = `<img src="${url}" alt="">`; }
   });
   $('itemSearch').addEventListener('input', renderItemsTable);
+  $('verBajas')?.addEventListener('change', renderItemsTable);
   $('refreshInventory').addEventListener('click', loadAdmin);
   $('reportStatusFilter').addEventListener('change', renderReports);
   $('openDeliveryWizard').addEventListener('click', () => openDeliveryWizard());

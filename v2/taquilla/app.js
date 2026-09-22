@@ -56,6 +56,36 @@ function renderMethods(){
   $('methodsEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(r=>{const tr=document.createElement('tr');const net=Number(r.net||0);tr.innerHTML=`<td>${esc(r.method)}</td><td class="money-in">${money.format(Number(r.income||0))}</td><td class="money-out">${Number(r.expense||0)?money.format(Number(r.expense||0)):'—'}</td><td class="${net<0?'money-out':''}">${money.format(net)}</td>`;body.appendChild(tr);});
 }
+// Quién del club hizo el movimiento.
+//
+// Se guarda en el propio dispositivo y se vuelve a proponer la siguiente vez.
+// Eso es lo que hace que preguntarlo no estorbe: en el iPad de la banca, quien
+// cobra escribe su nombre una vez en la tarde y ya no lo teclea más.
+//
+// localStorage y no sessionStorage a propósito: aquí sólo vive el nombre de
+// quien usa el aparato, no datos de familias, y el chiste es justo que
+// sobreviva a cerrar la pestaña.
+const RECUERDA_QUIEN='tos:taquilla:quien';
+function quienDelClub(id){
+  const v=($(id)?.value||'').trim();
+  if(v){try{localStorage.setItem(RECUERDA_QUIEN,v);}catch(e){/* modo privado */}}
+  return v||null;
+}
+function recuerdaQuien(){
+  let guardado='';
+  try{guardado=localStorage.getItem(RECUERDA_QUIEN)||'';}catch(e){/* modo privado */}
+  if(!guardado)return;
+  ['collectCollectedBy','expensePaidBy'].forEach(id=>{const el=$(id);if(el&&!el.value)el.value=guardado;});
+}
+// Sugerencias: los nombres que ya se usaron, sacados de los movimientos que la
+// pantalla ya cargó. No cuesta una consulta extra.
+function llenaSugerencias(){
+  const lista=$('staffSugerencias');if(!lista)return;
+  const vistos=[...new Set((snapshot?.movements||[])
+    .filter(m=>m.registeredBy&&!m.registeredByIsAccount)
+    .map(m=>m.registeredBy))].sort();
+  lista.innerHTML=vistos.map(n=>`<option value="${esc(n)}"></option>`).join('');
+}
 function renderMovements(){
   const status=$('movementStatus').value,rows=(snapshot?.movements||[]).filter(m=>status==='all'||m.status===status),body=$('movementRows');body.innerHTML='';
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
@@ -69,8 +99,13 @@ function renderMovements(){
     // importados del sistema anterior, que nunca pasaron por TannerOS. En ese
     // caso se dice de dónde vinieron en vez de dejar el hueco sin explicar.
     const importado=/^legacy/i.test(String(m.source||''));
-    const registro=m.registeredBy?`<span class="movement-registro">Registró: ${esc(m.registeredBy)}</span>`
-      :(!income&&importado?'<span class="movement-registro is-legacy">Del sistema anterior</span>':'');
+    // Un nombre escrito a mano dice quién fue. Una cuenta compartida —el iPad,
+    // Presidencia— no: poner "Cobró: iPad" sería fingir que se sabe.
+    const registro=m.registeredBy
+      ?(m.registeredByIsAccount
+        ?`<span class="movement-registro is-cuenta">Desde ${esc(m.registeredBy)} · sin nombre</span>`
+        :`<span class="movement-registro">${income?'Cobró':'Pagó'}: ${esc(m.registeredBy)}</span>`)
+      :(importado?'<span class="movement-registro is-legacy">Del sistema anterior</span>':'');
     const whoCell=m.playerName
       ?`<div class="movement-who"><strong>${esc(m.playerName)}</strong>${payerDiffers?`<span class="movement-payer">Pagó: ${esc(m.who)}</span>`:''}${registro}</div>`
       :`<div class="movement-who"><strong>${esc(m.who||'—')}</strong>${registro}</div>`;
@@ -177,7 +212,7 @@ function render(){
   $('expenseDay').textContent=money.format(_exp);$('expenseDay').className='sem-neutral';
   $('netDay').textContent=money.format(_net);$('netDay').className=_net>=0?'sem-ok':(_net>-1000?'sem-warn':'sem-alert');
   $('expectedCash').textContent=money.format(Number(snapshot?.expectedCash||0));renderReconcile();
-  renderMethods();renderMovements();renderCategoryLists();
+  renderMethods();renderMovements();renderCategoryLists();llenaSugerencias();recuerdaQuien();
   const hasMovement=Number(snapshot?.incomeTotal||0)||Number(snapshot?.expenseTotal||0);setShellHealth(hasMovement?{state:'ok',label:'Caja actualizada'}:{state:'ok',label:'Sin movimientos hoy'});
 }
 function renderReconcile(){
@@ -235,7 +270,7 @@ async function postCollect(){
       if($('collectPayerType').value==='sponsor'&&!$('collectPayerName').value.trim())throw new Error('Indica el patrocinador.');
       const okDbl=await confirmDoubleCheck({title:'Confirma el cobro',message:`Vas a registrar un cobro de ${money.format(amount)} a ${playerName||'este Tanner'} · ${methodLabel($('collectMethod').value)}. ¿Es correcto?`,confirmText:'Sí, cobrar'});
       if(!okDbl){btn.disabled=false;return;}
-      await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,idempotency_key:key('cashier-payment')});
+      await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,collected_by_name:quienDelClub('collectCollectedBy'),idempotency_key:key('cashier-payment')});
     }else{
       const amount=Math.round(Number($('generalAmount').value)),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
@@ -253,7 +288,7 @@ async function postExpense(){
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
     const okDbl=await confirmDoubleCheck({title:'Confirma el pago',message:`Vas a registrar un pago de ${money.format(amount)} a ${who||concept} · ${category} · ${methodLabel($('expenseMethod').value)}. ¿Es correcto?`,confirmText:'Sí, pagar'});
     if(!okDbl){btn.disabled=false;return;}
-    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},supplier_name:who||null,idempotency_key:key('cashier-expense')});
+    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},supplier_name:who||null,paid_by_name:quienDelClub('expensePaidBy'),idempotency_key:key('cashier-expense')});
     closeModals();await load();
   }catch(e){message('expenseMessage',e.message||'No se pudo registrar el egreso.');}finally{btn.disabled=false;}
 }

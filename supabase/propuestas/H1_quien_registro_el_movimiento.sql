@@ -50,7 +50,9 @@ create or replace function private.query_cashier_snapshot(
 )
 returns jsonb
 language plpgsql
-stable
+-- Sin 'stable' a proposito: la funcion de hoy es volatile (no declara nada) y
+-- este cambio solo anade un campo. Cambiar la volatilidad altera el plan de
+-- ejecucion y es otra decision, de otro dia.
 security definer
 set search_path to 'pg_catalog', 'public', 'app', 'private'
 as $function$

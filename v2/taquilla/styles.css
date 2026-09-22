@@ -102,3 +102,7 @@
   .collections-status{order:3;flex:1 1 auto;flex-direction:row;align-items:center;justify-content:space-between;margin-top:6px}
   .collections-collect{order:4;flex:1 1 100%;margin-top:6px;padding:9px 14px}
 }
+/* Una cuenta compartida no es una persona: se dice de dónde salió, en
+   cursiva, para no fingir que se sabe quién fue. */
+.movement-registro.is-cuenta{font-style:italic;color:#98a2a8}
+.campo-nota{display:block;font-size:11px;color:#8a969b;margin-top:3px;font-weight:400;line-height:1.35}

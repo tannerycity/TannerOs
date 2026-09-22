@@ -235,37 +235,28 @@ if (/[^w]getSignedPhotoUrl\(/.test(herramientaFotos))
   errors.push('/admin/fotos/: usa getSignedPhotoUrl, que devuelve blob:. Debe usar getRawSignedPhotoUrl');
 
 
-// ── Llamadas a una funcion que vive duplicada en la base ───────────────────
+// ── Las rutas de foto se arman en un solo lugar ────────────────────────────
 //
-// public.v2_post_expense existe DOS veces: con 9 argumentos y con 10, y el
-// decimo (supplier_name) tiene DEFAULT NULL. Llamarla sin ese argumento encaja
-// con las dos y Postgres se niega:
-//   "Could not choose the best candidate function between: ..."
+// v2_set_player_photo valida el nombre del archivo y rechaza con "Invalid
+// photo path" DESPUES de que la foto ya se subio. La pantalla de
+// mantenimiento armaba el nombre a mano, le metia un "-opt<sello>" en medio y
+// rompia el patron: diez fotos, 27.8 MB descargados, cero guardadas.
 //
-// Taquilla llamaba sin el y registrar un egreso era imposible; Contabilidad si
-// lo mandaba y por eso ahi si funcionaba. Mientras la duplicada siga en la
-// base, mandarlo es obligatorio: no es un dato opcional, es lo que desambigua.
-//
-// Se mira DENTRO de la llamada, no en el archivo entero: la primera version de
-// esta comprobacion contaba supplier_name en todo el fichero, se comia las
-// ocurrencias de otras llamadas y no habria cazado nada.
-//
-// La limpieza de fondo —borrar la version de 9— queda propuesta y sin aplicar
-// en supabase/propuestas/. En cuanto se aplique, esta comprobacion sobra.
-for (const archivo of ['v2/taquilla/app.js','v2/contabilidad/app.js']) {
-  const fuente = fs.readFileSync(archivo,'utf8');
-  let desde = 0;
-  for (;;) {
-    const i = fuente.indexOf("rpc('v2_post_expense'", desde);
-    if (i < 0) break;
-    const cierre = fuente.indexOf('});', i);
-    const llamada = fuente.slice(i, cierre < 0 ? i + 800 : cierre);
-    if (!/supplier_name\s*:/.test(llamada))
-      errors.push(`${archivo}: llama a v2_post_expense sin supplier_name. `
-        + 'La funcion esta duplicada en la base y la llamada sale ambigua');
-    desde = i + 1;
-  }
-}
+// Por eso el nombre se arma en v2/foto-rutas.js y no en la pantalla.
+const fotosApp = fs.readFileSync('v2/admin/fotos/app.js','utf8');
+if (/`\$\{[^`]*\}-opt\$\{/.test(fotosApp))
+  errors.push('/admin/fotos/: vuelve a armar el nombre con "-opt", que la base rechaza');
+for (const pieza of ['rutaDeOriginal','rutaDeMiniatura','rutaValida'])
+  if (!fotosApp.includes(pieza))
+    errors.push(`/admin/fotos/: ya no usa ${pieza}; el nombre del archivo tiene que salir de foto-rutas.js`);
+
+// El patron vive en la base y se repite en el cliente para poder probarlo.
+// Si la base lo cambia y el cliente no, las fotos se suben y se rechazan.
+const fotoRutas = fs.readFileSync('v2/foto-rutas.js','utf8');
+for (const patron of ['^profile-[0-9]{10,16}\\.(jpg|jpeg|png|webp)$',
+                      '^profile-[0-9]{10,16}-thumb\\.(jpg|jpeg|png|webp)$'])
+  if (!fotoRutas.includes(patron))
+    errors.push(`foto-rutas.js: el patron ya no coincide con el de v2_set_player_photo (${patron})`);
 
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

@@ -1,6 +1,8 @@
 import {createClient} from '/v2/supabase-client.js';
 
 import { clearPhotoCache } from '/v2/photo-cache.js';
+import {busca,filasEnOrden,trozosResaltados,TIPOS,llaveDeCache,cacheVigente,empaquetaCache} from '/v2/buscador.js';
+import {FUENTES,desdeModulos,armaIndice} from '/v2/buscador-fuentes.js';
 export const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
   'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
@@ -282,34 +284,123 @@ function renderNavigation(nav,navigation,active,role){
 function wireMobileNav(){if(document.documentElement.dataset.tosMobileNavWired==='1')return;document.documentElement.dataset.tosMobileNavWired='1';$('shellMenuToggle')?.addEventListener('click',()=>document.body.classList.toggle('tos-nav-open'));$('shellNavBackdrop')?.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));}
 function wireRouteMemory(){if(document.documentElement.dataset.tosRouteMemoryWired==='1')return;document.documentElement.dataset.tosRouteMemoryWired='1';document.addEventListener('click',event=>{const link=event.target.closest?.('a[href]');if(!link||event.defaultPrevented||link.target==='_blank')return;try{const target=new URL(link.href,location.origin),here=new URL(location.href);if(target.origin!==location.origin||target.pathname===here.pathname&&target.search===here.search)return;sessionStorage.setItem(`tos:return:${target.pathname}`,here.pathname+here.search+here.hash);}catch{}},{capture:true});}
 function wireSearch(navigation,ctx){
-  const input=$('shellSearch'),results=$('shellSearchResults');if(!input||!results||input.dataset.tosSearchWired==='1')return;input.dataset.tosSearchWired='1';
-  // El índice de jugadores (v2_search_index) antes se pedía en CADA carga de
-  // página aunque nadie tocara el buscador. Ahora solo se pide la primera vez
-  // que el usuario realmente interactúa con el buscador.
-  let indexPromise=null;
-  const ensureIndex=()=>{if(indexPromise)return indexPromise;indexPromise=loadTannerSearchIndex(ctx).then(()=>{if(String(input.value||'').trim())run();});return indexPromise;};
-  const close=()=>{results.classList.add('hidden');results.innerHTML='';};
-  const run=()=>{const q=String(input.value||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();if(!q){close();return;}const modules=navItems.filter(item=>itemReadable(navigation,item)&&`${item.label} ${item.code}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q)).map(item=>({label:item.label,meta:'Módulo',href:item.href}));const extras=(window.__tosSearchExtras||[]).filter(item=>`${item.label||''} ${item.meta||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q));const rows=[...modules,...extras].slice(0,12);results.innerHTML=rows.length?rows.map(row=>`<a class="tos-smart-result" href="${row.href||'#'}"><strong>${String(row.label||'Resultado')}</strong><span>${String(row.meta||'')}</span></a>`).join(''):'<div class="tos-empty">Sin resultados.</div>';results.classList.remove('hidden');};
+  const input=$('shellSearch'),results=$('shellSearchResults');
+  if(!input||!results||input.dataset.tosSearchWired==='1')return;
+  input.dataset.tosSearchWired='1';
+
+  // El indice se arma una sola vez y solo cuando alguien toca el buscador.
+  // Antes se pedia en CADA carga de pagina aunque nadie lo usara.
+  let indice=null,cargando=false,promesa=null,resaltado=-1,ultimoResultado=null;
+  const modulos=()=>desdeModulos(navItems.filter(item=>itemReadable(navigation,item)));
+
+  const ensureIndex=()=>{
+    if(promesa)return promesa;
+    cargando=true;pinta();
+    promesa=cargaIndiceUniversal(ctx,navigation).then(filas=>{
+      indice=armaIndice([filas,modulos()]);cargando=false;pinta();
+    }).catch(()=>{indice=armaIndice([modulos()]);cargando=false;pinta();});
+    return promesa;
+  };
+
+  const cerrar=()=>{results.classList.add('hidden');results.innerHTML='';resaltado=-1;};
+
+  const pinta=()=>{
+    const q=String(input.value||'').trim();
+    if(!q){cerrar();return;}
+    results.classList.remove('hidden');
+    // Mientras carga se busca en lo que ya hay (las pantallas), para que el
+    // buscador responda desde la primera tecla en vez de quedarse en blanco.
+    const base=indice||armaIndice([modulos()]);
+    const r=busca(base,q);
+    ultimoResultado=r;
+    const filas=filasEnOrden(r);
+    if(resaltado>=filas.length)resaltado=filas.length-1;
+
+    if(!filas.length){
+      results.innerHTML=cargando
+        ?'<div class="tos-buscando">Buscando en todo el club…</div>'
+        :`<div class="tos-sin-resultados"><strong>Nada con “${escBell(q)}”</strong><span>Prueba con el nombre de un Tanner, de un papá, de un artículo de utilería o de una pantalla.</span></div>`;
+      return;
+    }
+    let i=0;
+    const fila=(f,clase)=>{
+      const idx=i++;
+      const titulo=trozosResaltados(f.titulo,q)
+        .map(t=>t.resaltado?`<mark>${escBell(t.texto)}</mark>`:escBell(t.texto)).join('');
+      return `<a class="tos-res ${clase}${idx===resaltado?' activa':''}" href="${escBell(f.href||'#')}" data-i="${idx}">`
+        +`<span class="tos-res-ico" data-tipo="${escBell(f.tipo)}" aria-hidden="true"></span>`
+        +`<span class="tos-res-txt"><strong>${titulo}</strong><small>${escBell(f.subtitulo||'')}</small></span></a>`;
+    };
+    let html='';
+    if(r.mejor)html+=`<div class="tos-res-grupo"><div class="tos-res-titulo">Mejor resultado</div>${fila(r.mejor,'destacada')}</div>`;
+    for(const sec of r.secciones)
+      html+=`<div class="tos-res-grupo"><div class="tos-res-titulo">${escBell(sec.etiqueta)}</div>${sec.filas.map(f=>fila(f,'')).join('')}</div>`;
+    if(cargando)html+='<div class="tos-buscando">Buscando en todo el club…</div>';
+    results.innerHTML=html;
+    results.querySelector('.tos-res.activa')?.scrollIntoView({block:'nearest'});
+  };
+
+  const mover=(paso)=>{
+    const filas=filasEnOrden(ultimoResultado);
+    if(!filas.length)return;
+    resaltado=(resaltado+paso+filas.length+1)%(filas.length+1);
+    if(resaltado===filas.length)resaltado=paso>0?0:filas.length-1;
+    pinta();
+  };
+
   input.addEventListener('focus',ensureIndex,{once:true});
-  input.addEventListener('input',run);input.addEventListener('focus',run);document.addEventListener('pointerdown',event=>{if(!event.target.closest?.('.tos-search-wrap'))close();});document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();input.focus();}});
+  input.addEventListener('input',()=>{resaltado=-1;pinta();});
+  input.addEventListener('focus',pinta);
+  input.addEventListener('keydown',event=>{
+    if(event.key==='ArrowDown'){event.preventDefault();mover(1);return;}
+    if(event.key==='ArrowUp'){event.preventDefault();mover(-1);return;}
+    if(event.key==='Escape'){input.value='';cerrar();input.blur();return;}
+    if(event.key==='Enter'){
+      const filas=filasEnOrden(ultimoResultado);
+      const destino=filas[resaltado>=0?resaltado:0];
+      if(destino&&destino.href){event.preventDefault();location.href=destino.href;}
+    }
+  });
+  results.addEventListener('pointermove',event=>{
+    const a=event.target.closest?.('.tos-res');if(!a)return;
+    const idx=Number(a.dataset.i);
+    if(idx!==resaltado){resaltado=idx;
+      results.querySelectorAll('.tos-res.activa').forEach(el=>el.classList.remove('activa'));
+      a.classList.add('activa');}
+  });
+  document.addEventListener('pointerdown',event=>{if(!event.target.closest?.('.tos-search-wrap'))cerrar();});
+  document.addEventListener('keydown',event=>{
+    if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();input.focus();input.select();}
+  });
 }
+
+// Pide en paralelo solo las fuentes que esta persona puede ver: cada RPC valida
+// permisos por su cuenta, asi que un profe indexa unicamente lo suyo. Una sola
+// vez por carga, y nada mas si el buscador se usa.
+async function cargaIndiceUniversal(ctx,navigation){
+  if(!ctx||!ctx.organization_id)return [];
+  const llave=llaveDeCache(ctx.organization_id);
+  // Una pestana abierta toda la tarde arma el indice una sola vez.
+  try{
+    const crudo=sessionStorage.getItem(llave);
+    if(crudo){const guardado=JSON.parse(crudo);if(cacheVigente(guardado))return guardado.filas;}
+  }catch(e){/* modo privado o storage lleno: se pide y ya */}
+
+  const permitidas=FUENTES.filter(f=>!f.modulo||navItems.some(item=>item.code===f.modulo&&itemReadable(navigation,item)));
+  const partes=await Promise.all(permitidas.map(async f=>{
+    try{
+      const data=await rpc(f.rpc,{organization_id:ctx.organization_id});
+      return f.convierte(data||[]);
+    }catch(e){return [];}   // una fuente caida no deja sin buscador a las demas
+  }));
+  const filas=partes.flat();
+  try{sessionStorage.setItem(llave,JSON.stringify(empaquetaCache(filas)));}catch(e){/* sin cache, funciona igual */}
+  return filas;
+}
+
 function ensureBackButton(){
   const topLeft=document.querySelector('.tos-topbar .tos-top-left');if(!topLeft)return;topLeft.querySelector('.tos-back-button')?.remove();const root=location.pathname==='/'||location.pathname==='/v2'||location.pathname==='/v2/';if(root)return;
   const button=document.createElement('button');button.type='button';button.className='tos-back-button';button.setAttribute('aria-label','Volver');button.textContent='‹';button.addEventListener('click',()=>{try{const key=`tos:return:${location.pathname}`,saved=sessionStorage.getItem(key),ref=document.referrer?new URL(document.referrer):null;if(saved&&saved.startsWith('/')&&saved!==location.pathname+location.search+location.hash){sessionStorage.removeItem(key);if(ref?.origin===location.origin&&ref.pathname+ref.search+ref.hash===saved&&history.length>1){history.back();return;}location.href=saved;return;}if(ref?.origin===location.origin&&ref.pathname!==location.pathname&&history.length>1){history.back();return;}}catch{}const clubRoutes=['/jugadores/','/asistencia/','/convocatoria/','/operacion/academias/','/prospectos/','/scouting/'];location.href=clubRoutes.some(path=>location.pathname.startsWith(path))?'/club/':'/';});topLeft.prepend(button);
-}
-async function loadTannerSearchIndex(ctx){
-  try{
-    if(!ctx||!ctx.organization_id)return;
-    const data=await rpc('v2_search_index',{organization_id:ctx.organization_id});
-    const items=(data||[]).map(p=>({
-      label:p.name||'Tanner',
-      meta:[p.jersey?('#'+p.jersey):'',p.pos||'',p.guardians||'',p.phones||''].filter(Boolean).join(' \u00b7 '),
-      href:'/jugadores/?player='+p.id,
-      __tanner:true
-    }));
-    const prev=(window.__tosSearchExtras||[]).filter(x=>!x.__tanner);
-    window.__tosSearchExtras=[...prev,...items];
-  }catch(e){/* silencioso */}
 }
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;

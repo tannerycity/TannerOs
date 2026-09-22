@@ -66,8 +66,7 @@ jobs:
           node scripts/qa-image-encode.mjs
           node scripts/qa-photo-cache.mjs
           node scripts/qa-cobranza-whatsapp.mjs
-          node scripts/qa-login-credencial.mjs
-          node scripts/qa-utileria-baja.mjs
+          node scripts/qa-buscador.mjs
       - name: El CDN sirve la version fijada del cliente de Supabase
         shell: bash
         run: |

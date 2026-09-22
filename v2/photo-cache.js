@@ -151,6 +151,28 @@ export async function getSignedPhotoUrl(supabase, bucket, path) {
   return urls[path] || null;
 }
 
+// La URL firmada tal cual, sin pasar por el cache de bytes.
+//
+// getSignedPhotoUrl devuelve un blob: cuando tiene los bytes guardados, que es
+// justo lo que quiere una etiqueta <img>. Pero un fetch() sobre un blob: lo
+// gobierna connect-src, no img-src, y ahi se cayo la pantalla de /admin/fotos/:
+// las diez fotos del lote fallaron con "Failed to fetch" y cero bytes bajados.
+//
+// Quien va a recodificar un original lo quiere de Storage, no una copia del
+// cache que ademas puede tener hasta 24 horas. Por eso esta funcion existe
+// aparte en vez de arreglarse solo relajando el CSP.
+export async function getRawSignedPhotoUrl(supabase, bucket, path) {
+  if (!path) return null;
+  const guardada = read(bucket, path);
+  if (guardada) return guardada;
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrls([path], TTL_SECONDS);
+  if (error) throw error;
+  const fila = (data || [])[0];
+  if (!fila?.signedUrl || fila.error) return null;
+  write(bucket, path, fila.signedUrl);
+  return fila.signedUrl;
+}
+
 // La pantalla de mantenimiento baja originales pesados de uno en uno y ya no los
 // necesita en cuanto los recodifica. Sin esto, un lote grande dejaría vivos
 // cientos de MB de fotos que nadie va a volver a mirar.

@@ -1,6 +1,6 @@
 import {bootstrapProtectedShell,rpc,$,moduleAccess,setShellHealth} from '/v2/shell.js';
 import {supabase} from '/v2/shell.js';
-import {getSignedPhotoUrl,forgetPhoto} from '/v2/photo-cache.js';
+import { getRawSignedPhotoUrl, forgetPhoto } from '/v2/photo-cache.js';
 import {encodeVariant,THUMB_MAX_SIDE,THUMB_MAX_BYTES,FULL_MAX_SIDE,FULL_MAX_BYTES,UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 // Mantenimiento de fotos del padrón.
@@ -147,7 +147,7 @@ async function procesa(){
     btn.textContent=`Procesando ${i+1} de ${total}…`;
     try{
       const bucket=p.photo_bucket||BUCKET;
-      const url=await getSignedPhotoUrl(supabase,bucket,p.photo_path);
+      const url=await getRawSignedPhotoUrl(supabase,bucket,p.photo_path);
       if(!url)throw new Error('No se pudo firmar la foto');
       const respuesta=await fetch(url);
       if(!respuesta.ok)throw new Error(`No se pudo descargar (${respuesta.status})`);

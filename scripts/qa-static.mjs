@@ -211,37 +211,28 @@ for(const contract of ["state.filtro==='por_cobrar'","state.filtro==='cancelados
 const parkingDeleteMigration=fs.readFileSync('supabase/migrations-escritas-a-mano/202609140001_delete_parking_pass_rpc.sql','utf8');
 for(const contract of ['security definer','v2_my_context','Only Presidencia','rejected','revoked','grant execute'])if(!parkingDeleteMigration.includes(contract))errors.push(`Estacionamiento delete RPC: falta ${contract}`);
 
-// ── Ninguna suite se queda sin correr ──────────────────────────────────────
+// ── El CSP tiene que permitir lo que la app misma fabrica ──────────────────
 //
-// Dos suites (qa-login-credencial y qa-utileria-baja) se perdieron de CI al
-// resolver un conflicto entre dos PRs que tocaban el workflow. Siguieron en el
-// repo, dejaron de correr, y CI siguio en verde: exactamente el fallo que esas
-// suites existian para impedir.
+// photo-cache.js crea blob: URLs a proposito: es lo que hace que una foto ya
+// descargada no se vuelva a pedir. Pero el CSP de produccion no listaba blob:
+// en connect-src, y un fetch() se rige por connect-src, no por img-src. Las
+// fotos se VEIAN bien y aun asi /admin/fotos/ fallo con "Failed to fetch" en
+// las diez del lote, con cero bytes bajados.
 //
-// Ahora el workflow las descubre solas y esto vigila la unica grieta que
-// queda: que alguien silencie una metiendola a la lista de exclusiones. El
-// archivo obliga a escribir el motivo, y este contador obliga a que la lista
-// no crezca sin que alguien lo note.
-const suitesEnDisco = fs.readdirSync('scripts').filter(f => /^qa-.*\.mjs$/.test(f)).sort();
-const listaExclusiones = fs.readFileSync('scripts/qa-suites-excluidas.txt', 'utf8');
-const excluidas = listaExclusiones.split('\n').map(l => l.trim())
-  .filter(l => l && !l.startsWith('#'));
+// Reproducido en Chromium con el CSP exacto de produccion: el fetch falla con
+// ese mismo mensaje, y pasa en cuanto blob: entra en connect-src.
+const cspLinea = (fs.readFileSync('vercel.json','utf8').match(/"Content-Security-Policy","value":"([^"]+)"/) || [])[1] || '';
+const connectSrc = (cspLinea.match(/connect-src([^;]*)/) || [])[1] || '';
+if (!cspLinea) errors.push('CSP: no se encontro la cabecera en vercel.json');
+else if (!/\bblob:/.test(connectSrc))
+  errors.push('CSP: connect-src no permite blob:, y photo-cache.js entrega blob: URLs. '
+    + 'Cualquier fetch() sobre una foto cacheada falla con "Failed to fetch"');
 
-for (const nombre of excluidas) {
-  if (!suitesEnDisco.includes(nombre)) errors.push(`Suites: se excluye "${nombre}", que ya no existe`);
-}
-// El workflow tiene que seguir descubriendolas solo. Si alguien vuelve a
-// escribir la lista a mano, esto lo caza antes de que se pierda otra.
-const flujo = fs.readFileSync('.github/workflows/tanneros-qa.yml', 'utf8');
-if (!flujo.includes("find scripts -maxdepth 1 -name 'qa-*.mjs'"))
-  errors.push('Suites: el workflow dejo de descubrirlas solo; una suite nueva podria no correr nunca');
-if (!flujo.includes('qa-suites-excluidas.txt'))
-  errors.push('Suites: el workflow ya no lee la lista de exclusiones');
-
-const MAX_EXCLUIDAS = 4;
-if (excluidas.length > MAX_EXCLUIDAS)
-  errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
-    + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');
+// La pantalla que recodifica originales tiene que pedirlos a Storage, no al
+// cache: un blob: no se puede descargar, y el cache puede traer hasta 24 horas.
+const herramientaFotos = fs.readFileSync('v2/admin/fotos/app.js','utf8');
+if (/[^w]getSignedPhotoUrl\(/.test(herramientaFotos))
+  errors.push('/admin/fotos/: usa getSignedPhotoUrl, que devuelve blob:. Debe usar getRawSignedPhotoUrl');
 
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

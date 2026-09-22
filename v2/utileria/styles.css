@@ -112,3 +112,13 @@
   .unit-row strong{min-width:auto}
   .coach-actions{flex-direction:column}
 }
+
+/* Artículos dados de baja: se ven apagados y con su marca, para que quien
+   active "Ver dados de baja" distinga de un vistazo cuáles ya no cuentan. */
+.ver-bajas{display:flex;align-items:center;gap:6px;font-size:13px;color:#5b6b78;white-space:nowrap;cursor:pointer}
+.ver-bajas input{margin:0;cursor:pointer}
+tr.item-row.es-baja{opacity:.55}
+tr.item-row.es-baja strong{text-decoration:line-through}
+.baja-chip{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;background:#f1e0e0;color:#8a3d3d;font-size:11px;font-weight:700;vertical-align:middle;text-decoration:none}
+.detail-actions .mini.danger{color:#8a3d3d;border-color:#e5c9c9}
+.detail-actions .mini.danger:hover{background:#faf0f0}

@@ -1,5 +1,6 @@
 import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon} from '/v2/shell.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
+import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -56,7 +57,6 @@ function setMessage(text='',type='error'){
   box.textContent=text;box.dataset.type=type;box.classList.toggle('hidden',!text);
 }
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function credentialEmail(value){const credential=String(value||'').trim().toLowerCase();if(credential.includes('@'))return credential;return `${credential.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_')}@staff.tanneros.invalid`;}
 function friendlyError(error){
   const raw=String(error?.message||error||'Ocurrió un error.');
   if(/invalid login credentials/i.test(raw))return 'Usuario, correo o contraseña incorrectos.';
@@ -116,7 +116,7 @@ function installAuthExtras(){
 async function handleAuthSubmit(event){
   event.preventDefault();setMessage();
   const emailInput=$('email'),passwordInput=$('password'),displayName=$('displayName')?.value.trim();
-  const credential=emailInput?.value.trim(),email=credentialEmail(credential),password=passwordInput?.value||'';
+  const credential=emailInput?.value.trim(),email=credencialACorreo(credential),password=passwordInput?.value||'';
   if(!credential){setMessage(authMode==='signup'?'Escribe el correo de la invitación.':'Escribe tu usuario o correo.');emailInput?.focus();return;}
   if(authMode==='signup'&&!credential.includes('@')){setMessage('Para aceptar una invitación escribe el correo completo.');emailInput?.focus();return;}
   if(password.length<8){setMessage('La contraseña debe tener al menos 8 caracteres.');passwordInput?.focus();return;}
@@ -134,7 +134,13 @@ async function handleAuthSubmit(event){
     }
     await loadAuthenticatedApp();
   }catch(error){
-    const message=friendlyError(error);setMessage(message);
+    // Un rechazo de credenciales sobre un usuario a secas casi nunca es la
+    // contrasena: es que esa cuenta usa un correo real y lo que viajo fue
+    // usuario@staff.tanneros.invalid. Decir "contrasena incorrecta" manda a la
+    // persona a resetear algo que nunca estuvo mal.
+    const esCredencialRechazada=/invalid login credentials/i.test(String(error?.message||error||''));
+    const message=esCredencialRechazada?mensajeDeCredencialRechazada(credential):friendlyError(error);
+    setMessage(message);
     if(/confirma tu correo/i.test(message))$('resendConfirmation')?.classList.remove('hidden');
   }finally{btn.disabled=false;btn.textContent=authMode==='signup'?'Crear cuenta':'Entrar';}
 }

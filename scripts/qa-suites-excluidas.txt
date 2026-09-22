@@ -1,0 +1,25 @@
+# Suites que el job static-qa NO corre, y por que.
+#
+# Una linea por archivo, con el nombre exacto. Todo lo demas en
+# scripts/qa-*.mjs se descubre y se corre solo. qa-static comprueba que este
+# archivo no crezca en silencio: cada exclusion tiene que estar aqui, a la
+# vista, con su motivo escrito arriba.
+
+# Corre en el job live-smoke, contra produccion, no aqui.
+qa-centro-tanner.mjs
+
+# Necesitan Chromium y playwright, que este job no instala. Se corren a mano
+# antes de subir: son las que atrapan lo que la sintaxis no ve.
+qa-humo-navegador.mjs
+qa-image-encode-browser.mjs
+
+# DEUDA PREEXISTENTE, no una exclusion comoda.
+#
+# Falla hoy en main, y ya fallaba antes de que esta lista existiera: la suite
+# llevaba tiempo sin correr y el repo se desvio de sus reglas. Lo que reporta:
+#   v2/prospectos/app.js y v2/usuarios/app.js traen pictogramas de texto
+#   los selects enrollPlayer y collectPlayer no usan data-smart-search
+# Arreglarlo toca pantallas fuera del cambio que creo este archivo, asi que
+# queda anotado en vez de metido a la fuerza. Quitar esta linea en cuanto se
+# arregle: es el unico punto de la lista que no deberia seguir aqui.
+qa-product-ui.mjs

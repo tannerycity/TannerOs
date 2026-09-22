@@ -59,14 +59,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Estas tres suites vivian en el repo pero nadie las corria: una
-          # prueba que nunca se ejecuta no es una barrera. Cada una falla
-          # contra el comportamiento viejo que arreglo, asi que si alguien
-          # revierte el arreglo, CI se pone en rojo aqui.
-          node scripts/qa-image-encode.mjs
-          node scripts/qa-photo-cache.mjs
-          node scripts/qa-cobranza-whatsapp.mjs
-          node scripts/qa-buscador.mjs
+          # La lista de suites NO se escribe a mano: se descubre sola.
+          #
+          # Cuando estaba escrita a mano, dos suites se perdieron al resolver
+          # un conflicto entre dos PRs que tocaban este archivo. Siguieron en
+          # el repo, dejaron de correr, y CI siguio en verde. Una prueba que
+          # nunca se ejecuta no es una barrera, y peor: aparenta serlo.
+          #
+          # Solo se excluye lo que no puede correr en este job, y cada
+          # exclusion dice por que. scripts/qa-suites-excluidas.txt es la lista,
+          # y qa-static verifica que no se le cuele nada sin justificar.
+          fallos=0
+          while IFS= read -r suite; do
+            nombre="$(basename "$suite")"
+            if grep -qxF "$nombre" scripts/qa-suites-excluidas.txt; then
+              echo "· $nombre — excluida a proposito"
+              continue
+            fi
+            echo "→ $nombre"
+            node "$suite" || fallos=1
+          done < <(find scripts -maxdepth 1 -name 'qa-*.mjs' | sort)
+          exit $fallos
       - name: El CDN sirve la version fijada del cliente de Supabase
         shell: bash
         run: |

@@ -1,0 +1,17 @@
+# Las barreras que TIENEN que existir. Una por renglon.
+#
+# El cargador de qa-static corre todo lo que encuentre en esta carpeta, asi que
+# una barrera nueva funciona sin tocar este archivo. Lo que esta lista atrapa es
+# lo contrario: que una desaparezca.
+#
+# Eso paso tres veces, siempre igual: dos PRs tocaban qa-static.mjs, alguien
+# resolvia el conflicto, y una barrera se quedaba fuera. Las tres veces CI
+# siguio en verde, porque lo que desaparece no falla.
+#
+# Anadir aqui cada barrera nueva. Quitar un renglon solo cuando la barrera ya no
+# tenga sentido, y decir por que en el mensaje del commit.
+
+csp-permite-blob.mjs
+egreso-funcion-ambigua.mjs
+rutas-de-foto.mjs
+suites-sin-correr.mjs

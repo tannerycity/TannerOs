@@ -13,8 +13,7 @@ on:
       - 'aviso-de-privacidad/**'
       - 'public-form.*'
       - 'vercel.json'
-      - 'scripts/qa-static.mjs'
-      - 'scripts/qa-centro-tanner.mjs'
+      - 'scripts/qa-*.mjs'
   push:
     branches: [main]
     paths:
@@ -28,8 +27,7 @@ on:
       - 'aviso-de-privacidad/**'
       - 'public-form.*'
       - 'vercel.json'
-      - 'scripts/qa-static.mjs'
-      - 'scripts/qa-centro-tanner.mjs'
+      - 'scripts/qa-*.mjs'
       - '.github/workflows/tanneros-qa.yml'
   schedule:
     - cron: '17 9 * * *'
@@ -57,6 +55,17 @@ jobs:
           node --input-type=module --check < public-form.js
       - name: TannerOS structural QA
         run: node scripts/qa-static.mjs
+      - name: Suites unitarias de v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Estas tres suites vivian en el repo pero nadie las corria: una
+          # prueba que nunca se ejecuta no es una barrera. Cada una falla
+          # contra el comportamiento viejo que arreglo, asi que si alguien
+          # revierte el arreglo, CI se pone en rojo aqui.
+          node scripts/qa-image-encode.mjs
+          node scripts/qa-photo-cache.mjs
+          node scripts/qa-cobranza-whatsapp.mjs
       - name: El CDN sirve la version fijada del cliente de Supabase
         shell: bash
         run: |

@@ -32,7 +32,7 @@
         <section class="cashier-actions">
           <button id="openCollect" class="cashier-action collect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg><strong>COBRAR</strong><small>Entra dinero al club</small></button>
           <button id="openExpense" class="cashier-action expense" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/></svg><strong>PAGAR</strong><small id="paySubtitle">Sale dinero del club</small></button>
-        </section>
+        <button id="openMontos" class="cashier-action montos" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M11 8v6"/><path d="M9 10h4"/><path d="M9 12.5h4"/></svg><strong>CUÁNTO COBRAR</strong><small>Beca, beneficio y monto final</small></button></section>
 
         
 
@@ -51,6 +51,43 @@
           <div id="collectionsList" class="collections-list"></div>
           <div id="collectionsEmpty" class="cashier-empty hidden">Sin Tanners que coincidan con la búsqueda.</div>
           <button type="button" id="collectionsToggle" class="collections-toggle hidden"></button>
+        </section>
+
+        <section id="montosPanel" class="cashier-panel montos-panel hidden">
+          <div class="cashier-panel-head">
+            <div><h2>Montos de cobro</h2><p id="montosSub">Cuánto cobrarle a cada Tanner, con la condición que tiene autorizada.</p></div>
+            <div class="montos-head-actions">
+              <button id="montosTarifas" class="cashier-secondary hidden" type="button">Tarifas por categoría</button>
+              <button id="montosPdf" class="cashier-secondary hidden" type="button">Reporte · PDF</button>
+              <button id="closeMontos" class="cashier-secondary" type="button">Volver</button>
+            </div>
+          </div>
+
+          <div id="montosAviso" class="montos-aviso hidden"></div>
+
+          <div id="montosKpis" class="montos-kpis"></div>
+
+          <div class="collections-toolbar">
+            <div class="tsearch wide"><div class="tsearch-field">
+              <input type="text" id="montosSearch" placeholder="Buscar Tanner, tutor, categoría o beneficio…" autocomplete="off">
+              <button type="button" class="tsearch-clear hidden" id="montosSearchClear" aria-label="Quitar">×</button>
+            </div></div>
+            <div class="montos-selects">
+              <label>Mes<input id="montosPeriod" type="month"></label>
+              <label>Categoría<select id="montosCategory"><option value="">Todas</option></select></label>
+              <label>Beneficio<select id="montosType"><option value="">Todos</option></select></label>
+            </div>
+            <div class="collections-filters" id="montosChips">
+              <button type="button" class="active" data-montos-filter="all">Todos</button>
+              <button type="button" data-montos-filter="benefit">Becas y beneficios</button>
+              <button type="button" data-montos-filter="debt">Con saldo</button>
+              <button type="button" data-montos-filter="expiring">Por vencer</button>
+            </div>
+          </div>
+
+          <div id="montosList" class="montos-list"></div>
+          <div id="montosEmpty" class="cashier-empty hidden">Ningún Tanner coincide con la búsqueda.</div>
+          <div id="montosMessage" class="cashier-message hidden"></div>
         </section>
 
         <section class="cashier-kpis">
@@ -142,7 +179,12 @@
     <div class="void-actions"><button type="button" class="void-cancel" data-close-edit>Cancelar</button><button type="button" class="void-confirm edit-save" id="editSave">Guardar cambios</button></div>
   </section>
 
-  <section id="voidModal" class="cashier-modal void-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voidTitle">
+  <section id="tarifasModal" class="cashier-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tarifasTitle">
+          <div class="cashier-modal-head"><h3 id="tarifasTitle">Tarifas por categoría</h3><button type="button" class="close-modal" aria-label="Cerrar">×</button></div>
+          <p class="cashier-help" style="text-align:left;margin:0 0 12px">La mensualidad ordinaria de cada categoría. Es el número contra el que se mide cada beca y cada beneficio. <b>No cambia lo que el sistema cobra</b>: sólo permite mostrar el desglose.</p>
+          <div id="tarifasList" class="tarifas-list"></div>
+          <div id="tarifasMessage" class="cashier-message hidden"></div>
+        </section><section id="voidModal" class="cashier-modal void-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voidTitle">
     <div class="cashier-modal-head"><div><span id="voidKicker">MOVIMIENTO</span><h2 id="voidTitle">Borrar movimiento</h2></div><button type="button" data-close-void>×</button></div>
     <div class="void-summary" id="voidSummary"></div>
     <p class="void-hint hidden" id="voidHint"></p>

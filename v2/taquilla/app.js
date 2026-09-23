@@ -1,5 +1,9 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,supabase} from '/v2/shell.js';
 import {getSignedPhotoUrls} from '/v2/photo-cache.js';
+import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
+        tiposDeBeneficio,filtra,totales,beneficiosSoloEtiqueta,
+        COLUMNAS_REPORTE,filaDeReporte,resumenDeReporte,textoDeFiltros,
+        nombreDeArchivo} from '/v2/taquilla/montos.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
@@ -69,7 +73,11 @@ function applyLedgerVisibility(){
   document.querySelectorAll('.cashier-cash-card:not(#cashTodayCard)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
   // Cobranza no es el libro contable: Taquilla (rol simple, sin ver caja completa)
   // también necesita saber a quién cobrarle, así que no se apaga con el resto.
-  document.querySelectorAll('.cashier-panel:not(#collectionsPanel)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
+  // #montosPanel se excluye a proposito: su visibilidad la manda su propio
+  // boton, y quien mas lo necesita es justo Taquilla, que es quien NO ve el
+  // ledger. Sin esta exclusion, el panel se abriria solo para todos los demas
+  // y quedaria escondido para el unico rol que lo pidio.
+  document.querySelectorAll('.cashier-panel:not(#collectionsPanel):not(#montosPanel)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
   const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
   $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
 }
@@ -394,3 +402,316 @@ document.addEventListener('click',e=>{
 });
 $('editSave')?.addEventListener('click',saveEditMove);
 tannerSearchInit('editPlayerBox','editPlayerSearch','editPlayer','editPlayerResults','editPlayerClear');
+
+
+/* ===== Montos de cobro =====
+   Quien está en la ventanilla con el papá enfrente necesita una sola cosa:
+   cuánto le cobro. El criterio de lectura vive en montos.js, que sí se puede
+   probar sin navegador; aquí sólo se pinta y se filtra. */
+
+const canViewMontos=moduleAccess(navigation,'taquilla',false)
+  ||moduleAccess(navigation,'cobranza',false)
+  ||moduleAccess(navigation,'contabilidad',false);
+// Sólo Presidencia y Contabilidad exportan el reporte y fijan las tarifas.
+const canExportMontos=ctx.role==='Presidencia'||moduleAccess(navigation,'contabilidad',false);
+const canSetTarifas=ctx.role==='Presidencia';
+
+let montosData=null,montosFiltro='all',montosQuery='',tarifas=[];
+
+const mesActual=()=>new Date().toISOString().slice(0,7);
+const periodoDeMes=m=>`${m||mesActual()}-01`;
+
+function abreMontos(){
+  $('montosPanel').classList.remove('hidden');
+  $('collectionsPanel')?.classList.add('hidden');
+  if(!$('montosPeriod').value)$('montosPeriod').value=mesActual();
+  $('montosTarifas').classList.toggle('hidden',!canSetTarifas);
+  $('montosPdf').classList.toggle('hidden',!canExportMontos);
+  $('montosPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  cargaMontos();
+}
+function cierraMontos(){
+  $('montosPanel').classList.add('hidden');
+  if(canViewCollections)$('collectionsPanel')?.classList.remove('hidden');
+}
+
+async function cargaMontos(){
+  message('montosMessage');
+  $('montosList').innerHTML='<p class="cashier-help">Calculando…</p>';
+  try{
+    montosData=await rpc('v2_collection_amounts',{organization_id:org,billing_period:periodoDeMes($('montosPeriod').value)});
+  }catch(e){
+    $('montosList').innerHTML='';
+    message('montosMessage',friendlyMontos(e));
+    return;
+  }
+  llenaSelectoresMontos();
+  pintaMontos();
+}
+
+function friendlyMontos(e){
+  const t=String(e?.message||e||'');
+  if(/Not authorized/i.test(t))return 'Tu rol no tiene acceso a los montos de cobro.';
+  return t||'No pudimos cargar los montos.';
+}
+
+function llenaSelectoresMontos(){
+  const filas=montosData?.rows||[];
+  const cat=$('montosCategory'),tipo=$('montosType');
+  const catSel=cat.value,tipoSel=tipo.value;
+  const cats=new Map();
+  filas.forEach(f=>{if(f.categoryId&&!cats.has(f.categoryId))cats.set(f.categoryId,f.categoryName||'Categoría');});
+  cat.innerHTML='<option value="">Todas las categorías</option>'+
+    [...cats].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'es'))
+      .map(([id,n])=>`<option value="${esc(id)}">${esc(n)}</option>`).join('');
+  cat.value=catSel;
+  tipo.innerHTML='<option value="">Todos los beneficios</option>'+
+    tiposDeBeneficio(filas).map(t=>`<option value="${esc(t.valor)}">${esc(t.etiqueta)}</option>`).join('');
+  tipo.value=tipoSel;
+}
+
+function filtrosActuales(){
+  return {
+    texto:montosQuery,
+    categoria:$('montosCategory')?.value||'',
+    tipo:$('montosType')?.value||'',
+    soloConBeneficio:montosFiltro==='benefit',
+    soloConSaldo:montosFiltro==='debt',
+    soloPorVencer:montosFiltro==='expiring'
+  };
+}
+
+function pintaMontos(){
+  const todas=montosData?.rows||[];
+  const filas=filtra(todas,filtrosActuales());
+  const t=totales(filas);
+  const resumen=montosData?.summary||{};
+
+  $('montosSub').textContent=`Periodo ${montosData?.billingPeriod||'—'} · la fuente es la misma que ya cobra el club.`;
+
+  $('montosKpis').innerHTML=`
+    <article><span>Tanners</span><strong>${t.tanners}</strong><small>de ${todas.length} en el padrón</small></article>
+    <article><span>Por cobrar del mes</span><strong>${money.format(t.aCobrar)}</strong><small>mensualidad y recargos abiertos</small></article>
+    <article><span>Adeudo total</span><strong>${money.format(t.adeudo)}</strong><small>incluye meses anteriores</small></article>
+    <article><span>Con beneficio</span><strong>${t.conBeneficio}</strong><small>${t.porVencer} por vencer · ${t.vencidos} vencido${t.vencidos===1?'':'s'}</small></article>`;
+
+  // El aviso más importante de la pantalla: sin tarifa de categoría no se
+  // puede mostrar la resta, y hay que decirlo en vez de inventar el ordinario.
+  const sinTarifa=Number(resumen.categoriesWithoutFee||0);
+  const aviso=$('montosAviso');
+  if(sinTarifa){
+    aviso.classList.remove('hidden');
+    aviso.innerHTML=`<b>${sinTarifa} categoría${sinTarifa===1?'':'s'} sin mensualidad ordinaria capturada.</b>
+      Mientras falte, se muestra el monto final a cobrar pero no el desglose
+      «ordinario − beneficio». El club nunca guardó ese número: el descuento venía
+      metido a mano dentro de la cuota de cada Tanner.
+      ${canSetTarifas?'<button type="button" id="avisoTarifas">Capturar tarifas</button>':''}`;
+    $('avisoTarifas')?.addEventListener('click',abreTarifas);
+  }else{
+    aviso.classList.add('hidden');aviso.innerHTML='';
+  }
+
+  $('montosList').innerHTML=filas.map(tarjetaMonto).join('');
+  $('montosEmpty').classList.toggle('hidden',filas.length>0);
+}
+
+function tarjetaMonto(f){
+  const d=desglose(f);
+  const v=estadoVigencia(f);
+  const cobrar=aCobrarHoy(f);
+  const soloEtiqueta=beneficiosSoloEtiqueta(f);
+
+  const lineaDesglose=d.completo
+    ? `<div class="monto-desglose${d.inconsistente?' rara':''}">
+         <b>${money.format(d.ordinaria)}</b> ordinaria −
+         <b>${money.format(d.beneficio)}</b> beneficio =
+         <b>${money.format(d.final)}</b> mensualidad
+         ${d.inconsistente?'<br>Paga más que la tarifa de su categoría. Revisar el dato.':''}
+       </div>`
+    : `<div class="monto-desglose parcial">Mensualidad: <b>${money.format(d.final)}</b>. ${esc(d.motivo)}</div>`;
+
+  const nota=f.collectionNote?`<div class="monto-nota">${esc(f.collectionNote)}</div>`:'';
+  const etiquetas=soloEtiqueta.length
+    ? `<div class="monto-nota">${soloEtiqueta.length===1?'Este beneficio está':'Estos beneficios están'} registrado${soloEtiqueta.length===1?'':'s'} como etiqueta: no descuenta${soloEtiqueta.length===1?'':'n'} nada por su cuenta. El monto de arriba ya es el que se cobra.</div>`
+    : '';
+  const saldo=Number(f.outstanding||0);
+
+  return `<article class="monto-card">
+    <div class="monto-top">
+      <span class="monto-quien"><strong>${esc(f.name||'Tanner')}</strong>
+        <small>${esc(f.categoryName||'Sin categoría')}${f.family?` · ${esc(f.family)}`:''}</small></span>
+      <span class="monto-cobrar${cobrar?'':' cero'}"><b>${money.format(cobrar)}</b><span>A cobrar</span></span>
+    </div>
+    <div class="monto-cond">
+      <span class="cond-chip">${esc(condicionDeFila(f))}</span>
+      <span class="vig vig-${v.nivel}"><i aria-hidden="true">${esc(v.icono)}</i>${esc(v.texto)}</span>
+    </div>
+    ${lineaDesglose}
+    ${etiquetas}
+    ${nota}
+    <div class="monto-saldo${saldo>0?'':' limpio'}">${saldo>0?`Adeudo total ${money.format(saldo)}`:'Sin adeudo'}</div>
+  </article>`;
+}
+
+/* ----- Tarifas por categoría (Presidencia) ----- */
+async function abreTarifas(){
+  if(!canSetTarifas)return;
+  modal('tarifasModal',true);
+  message('tarifasMessage');
+  $('tarifasList').innerHTML='<p class="cashier-help">Cargando…</p>';
+  try{ tarifas=await rpc('v2_category_fees',{organization_id:org})||[]; }
+  catch(e){ $('tarifasList').innerHTML=''; message('tarifasMessage',friendlyMontos(e)); return; }
+  pintaTarifas();
+}
+
+function pintaTarifas(){
+  $('tarifasList').innerHTML=tarifas.map(c=>{
+    const sug=c.suggested==null?null:Number(c.suggested);
+    return `<div class="tarifa-row">
+      <div><strong>${esc(c.name||c.code||'Categoría')}</strong>
+        <small>${Number(c.activePlayers||0)} activos · ${Number(c.feeSpread||0)} cuota${Number(c.feeSpread||0)===1?'':'s'} distinta${Number(c.feeSpread||0)===1?'':'s'} hoy</small>
+        ${sug!=null&&Number(c.monthlyFee||0)!==sug?`<button type="button" class="sug" data-sug="${esc(c.categoryId)}" data-valor="${sug}">Usar la más común: ${money.format(sug)}</button>`:''}
+      </div>
+      <div><input type="number" min="0" step="10" id="tarifa-${esc(c.categoryId)}" value="${c.monthlyFee==null?'':Number(c.monthlyFee)}" placeholder="—">
+        <button type="button" data-guardar="${esc(c.categoryId)}">Guardar</button></div>
+    </div>`;
+  }).join('');
+  $('tarifasList').querySelectorAll('[data-sug]').forEach(b=>b.addEventListener('click',()=>{
+    const input=$(`tarifa-${b.dataset.sug}`); if(input)input.value=b.dataset.valor;
+  }));
+  $('tarifasList').querySelectorAll('[data-guardar]').forEach(b=>b.addEventListener('click',()=>guardaTarifa(b.dataset.guardar,b)));
+}
+
+async function guardaTarifa(categoryId,btn){
+  message('tarifasMessage');
+  const input=$(`tarifa-${categoryId}`);
+  const crudo=String(input?.value??'').trim();
+  const valor=crudo===''?null:Number(crudo);
+  if(valor!==null&&(!Number.isFinite(valor)||valor<0)){
+    message('tarifasMessage','La mensualidad no puede ser negativa.');return;
+  }
+  btn.disabled=true;const antes=btn.textContent;btn.textContent='…';
+  try{
+    await rpc('v2_set_category_fee',{organization_id:org,category_id:categoryId,monthly_fee:valor});
+    tarifas=await rpc('v2_category_fees',{organization_id:org})||[];
+    pintaTarifas();
+    message('tarifasMessage','Tarifa guardada. No cambia lo que el sistema cobra: sólo el desglose.','success');
+    if(!$('montosPanel').classList.contains('hidden'))cargaMontos();
+  }catch(e){ message('tarifasMessage',friendlyMontos(e)); }
+  finally{ btn.disabled=false;btn.textContent=antes; }
+}
+
+$('openMontos')?.addEventListener('click',abreMontos);
+$('closeMontos')?.addEventListener('click',cierraMontos);
+$('montosTarifas')?.addEventListener('click',abreTarifas);
+$('montosPeriod')?.addEventListener('change',cargaMontos);
+$('montosCategory')?.addEventListener('change',pintaMontos);
+$('montosType')?.addEventListener('change',pintaMontos);
+$('montosSearch')?.addEventListener('input',e=>{
+  montosQuery=e.target.value;
+  $('montosSearchClear')?.classList.toggle('hidden',!montosQuery);
+  pintaMontos();
+});
+$('montosSearchClear')?.addEventListener('click',()=>{
+  $('montosSearch').value='';montosQuery='';
+  $('montosSearchClear').classList.add('hidden');pintaMontos();
+});
+$('montosChips')?.querySelectorAll('[data-montos-filter]').forEach(b=>b.addEventListener('click',()=>{
+  montosFiltro=b.dataset.montosFilter;
+  $('montosChips').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
+  pintaMontos();
+}));
+$('openMontos')?.classList.toggle('hidden',!canViewMontos);
+
+/* ----- Reporte de montos de cobro en PDF -----
+   Sale de las MISMAS filas que se están viendo, ya filtradas. Si el papel
+   dijera otra cosa que la pantalla, alguien iba a cobrar de más. */
+async function exportaMontosPdf(){
+  if(!canExportMontos)return;
+  const btn=$('montosPdf');
+  const antes=btn.textContent;
+  btn.disabled=true;btn.textContent='Generando…';
+  message('montosMessage');
+  try{
+    const f=filtrosActuales();
+    const filas=filtra(montosData?.rows||[],f);
+    if(!filas.length){message('montosMessage','No hay Tanners que coincidan con esos filtros.');return;}
+
+    const catalogo={
+      categorias:Object.fromEntries([...$('montosCategory').options].map(o=>[o.value,o.textContent])),
+      tipos:Object.fromEntries([...$('montosType').options].map(o=>[o.value,o.textContent]))
+    };
+    const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+    const doc=new jsPDF({unit:'pt',format:'letter',orientation:'landscape'});
+    const ancho=doc.internal.pageSize.getWidth();
+    const alto=doc.internal.pageSize.getHeight();
+    const margen=32;
+    let y=margen;
+
+    const pesos=v=>money.format(Number(v||0));
+    const hoy=new Intl.DateTimeFormat('es-MX',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+
+    function cabecera(){
+      doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(7,25,30);
+      doc.text('Reporte de montos de cobro',margen,y);y+=17;
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,118,123);
+      doc.text(`${ctx.organization_name||'Tannery City FC'} · generado el ${hoy}`,margen,y);y+=12;
+      doc.text(textoDeFiltros({...f,periodo:$('montosPeriod').value},catalogo),margen,y,{maxWidth:ancho-margen*2});y+=12;
+      // Marca de uso interno: este papel trae montos de becas del club.
+      doc.setTextColor(163,41,32);
+      doc.text('DOCUMENTO DE CONSULTA INTERNA · no compartir fuera del club',margen,y);y+=14;
+      doc.setTextColor(7,25,30);
+      filaCabecera();
+    }
+    function filaCabecera(){
+      doc.setFillColor(238,242,241);doc.rect(margen,y-9,ancho-margen*2,16,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(60,80,86);
+      let x=margen+4;
+      for(const c of COLUMNAS_REPORTE){
+        doc.text(c.titulo,c.derecha?x+c.ancho-8:x,y+2,{align:c.derecha?'right':'left'});
+        x+=c.ancho;
+      }
+      y+=18;doc.setTextColor(7,25,30);
+    }
+    function espacio(n){ if(y+n>alto-margen-26){doc.addPage();y=margen;filaCabecera();} }
+
+    cabecera();
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+    let rayado=false;
+    for(const fila of filas){
+      espacio(15);
+      const r=filaDeReporte(fila,pesos);
+      if(rayado){doc.setFillColor(249,251,250);doc.rect(margen,y-9,ancho-margen*2,14,'F');}
+      rayado=!rayado;
+      let x=margen+4;
+      for(const c of COLUMNAS_REPORTE){
+        const txt=doc.splitTextToSize(String(r[c.clave]??'—'),c.ancho-8)[0]||'';
+        doc.text(txt,c.derecha?x+c.ancho-8:x,y,{align:c.derecha?'right':'left'});
+        x+=c.ancho;
+      }
+      y+=14;
+    }
+
+    const res=resumenDeReporte(filas,pesos);
+    espacio(48);
+    y+=6;
+    doc.setDrawColor(220,229,227);doc.line(margen,y,ancho-margen,y);y+=15;
+    doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+    doc.text(`${res.tanners} Tanners · Por cobrar ${res.aCobrar} · Adeudo total ${res.adeudo} · Con beneficio ${res.conBeneficio}`,margen,y);
+    if(res.sinTarifa){
+      y+=13;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(122,90,18);
+      doc.text(`${res.sinTarifa} Tanner${res.sinTarifa===1?'':'s'} sin mensualidad ordinaria capturada en su categoría: su columna "Ordinaria" sale en blanco.`,margen,y);
+    }
+
+    const paginas=doc.internal.getNumberOfPages();
+    for(let i=1;i<=paginas;i++){
+      doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(140,155,158);
+      doc.text(`Página ${i} de ${paginas} · TannerOS`,ancho-margen,alto-18,{align:'right'});
+    }
+    doc.save(nombreDeArchivo($('montosPeriod').value));
+    message('montosMessage',`Reporte generado con ${filas.length} Tanners.`,'success');
+  }catch(e){
+    message('montosMessage',`No pudimos generar el PDF: ${String(e?.message||e)}`);
+  }finally{ btn.disabled=false;btn.textContent=antes; }
+}
+$('montosPdf')?.addEventListener('click',exportaMontosPdf);

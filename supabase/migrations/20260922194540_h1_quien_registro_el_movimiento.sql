@@ -1,55 +1,16 @@
 -- H1 · Que se vea quien del club registro cada movimiento
 --
--- APLICADA EN PRODUCCION el 2026-09-22.
--- Migracion: 20260922194540_h1_quien_registro_el_movimiento
+-- query_cashier_snapshot devuelve un campo nuevo, registeredBy, sacado del
+-- usuario que registro el egreso. Es un CREATE OR REPLACE sobre una funcion
+-- de lectura: no toca datos, no borra nada, no cambia permisos.
 --
--- La sustituyo despues H3 (20260922201050), que ademas distingue si
--- "quien registro" es una persona o una cuenta compartida. Ver
--- H3_exponer_quien_cobro_en_movimientos.sql.
+-- La sustituyo despues H3 (20260922201050), que ademas distingue si quien
+-- registro es una persona o una cuenta compartida.
 --
--- QUE PIDE EL CLUB
--- En los cobros ya se ve "Pago: Lizbeth Moreno", que es el tutor que entrego
--- el dinero. En los egresos la columna "Quien" muestra a quien se le pago
--- (DT Max Ponce). Falta un tercer dato distinto de esos dos: QUIEN DEL CLUB
--- entrego el pago, para saber quien le pago a los profes.
+-- Este archivo es el SQL EXACTO que corre en produccion, copiado de
+-- supabase_migrations.schema_migrations y verificado con md5. Si este
+-- archivo y la base no coinciden, la base manda.
 --
--- EL DATO YA SE GUARDA
--- app.expenses.created_by_user_id existe y se llena desde que la pantalla
--- registra el egreso. Medido hoy:
---   24 de 24 egresos hechos desde TannerOS lo tienen  (100%)
---   41 sin el, todos de legacy_import y legacy_v1: nunca pasaron por la app,
---      asi que no hay registrador que mostrar y eso es correcto.
--- No hace falta rellenar nada ni inventar un valor para los viejos.
---
--- QUE CAMBIA
--- query_cashier_snapshot devuelve dos campos mas por movimiento:
---   registeredBy  el nombre de quien lo registro, o null
---   source        de donde salio el movimiento, para distinguir "no se sabe"
---                 de "vino del sistema anterior"
--- Nada mas cambia: mismos totales, mismas filas, mismo orden, mismos permisos.
---
--- RIESGO Y REVERSA
--- Es un CREATE OR REPLACE sobre una funcion de lectura. No toca datos, no
--- borra nada y no cambia permisos. Si algo saliera mal, la reversa es volver a
--- crear la version anterior, que esta guardada completa al final de este
--- archivo.
---
--- La pantalla ya sabe vivir sin estos campos: si no llegan, no muestra la
--- linea. Por eso el cambio de interfaz puede ir a produccion antes que esto.
---
--- ANTES DE APLICAR
---   1. Guardar la salida de
---        select pg_get_functiondef(oid) from pg_proc p
---        join pg_namespace n on n.oid=p.pronamespace
---        where n.nspname='private' and p.proname='query_cashier_snapshot';
---   2. Aplicar en una rama de Supabase si el plan lo permite. Hoy el proyecto
---      esta en free y las ramas no estan disponibles, asi que la alternativa
---      es aplicar y comprobar de inmediato que Taquilla sigue cargando.
---   3. Despues: abrir /taquilla/, confirmar que los totales no cambiaron y que
---      los movimientos de septiembre muestran quien los registro.
-
-begin;
-
 create or replace function private.query_cashier_snapshot(
   p_organization_id uuid, p_business_date date default current_date
 )
@@ -201,13 +162,3 @@ begin
   );
 end;
 $function$;
-
-commit;
-
--- REVERSA
--- La version anterior es identica a esta salvo por:
---   - el campo registered_by en las dos ramas del union
---   - el left join a public.profiles
---   - 'registeredBy' en el jsonb_build_object
--- Quitar esas tres cosas y volver a aplicar devuelve el estado de hoy.
--- Aun asi, guardar la definicion real antes de aplicar (paso 1 de arriba).

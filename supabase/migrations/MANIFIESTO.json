@@ -1,7 +1,7 @@
 {
-  "migraciones": 390,
-  "bytes": 2017705,
-  "huella": "7ef9337eec7a1a055d6ad3965786101c",
+  "migraciones": 395,
+  "bytes": 2055075,
+  "huella": "f03bece274380ddf3b2ae2ed4a84dc52",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
   "ultima": "20260923051711_l1_quitar_becas_qa_del_padron.sql",
   "verificadoContraLaBase": "2026-09-23"

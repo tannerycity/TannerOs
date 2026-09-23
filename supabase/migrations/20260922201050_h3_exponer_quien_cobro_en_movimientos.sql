@@ -1,37 +1,14 @@
--- H3 · Que la pantalla sepa quien cobro y si fue una persona o una cuenta
+-- H3 · Que la pantalla sepa quien cobro y si fue persona o cuenta
 --
--- APLICADA EN PRODUCCION el 2026-09-22.
--- Migracion: 20260922201050_h3_exponer_quien_cobro_en_movimientos
--- Lo que sigue es el SQL tal como se aplico, copiado de
--- supabase_migrations.schema_migrations. Si este archivo y la base no
--- coinciden, la base manda.
+-- registeredBy ahora sale primero del texto escrito a mano y, si no hay, del
+-- usuario que registro. Se anade registeredByIsAccount para que la pantalla
+-- NO finja saber quien fue: con una cuenta compartida muestra
+-- "Desde Presidencia · sin nombre" en vez de "Cobro: Presidencia".
 --
--- DE DONDE VIENE
--- H1 hizo que query_cashier_snapshot devolviera "registeredBy" sacado del
--- usuario que registro el movimiento. Medido en produccion, eso daba:
---     "Presidencia"  14 movimientos
---     "iPad"          3 movimientos
--- Ninguno es una persona. H2 anadio las columnas de texto
--- (payments.collected_by_name, expenses.paid_by_name) para que quien cobra
--- escriba su nombre. H3 las expone.
+-- Este archivo es el SQL EXACTO que corre en produccion, copiado de
+-- supabase_migrations.schema_migrations y verificado con md5. Si este
+-- archivo y la base no coinciden, la base manda.
 --
--- QUE CAMBIA
--- registeredBy ahora sale, en este orden:
---   1. El texto escrito a mano (collected_by_name / paid_by_name).
---   2. Si no hay, el display_name del usuario que registro.
--- Y se anade registeredByIsAccount: true cuando el nombre viene del usuario
--- y no de un texto. La pantalla lo usa para NO fingir que sabe quien fue:
--- con una cuenta compartida muestra "Desde Presidencia · sin nombre" en vez
--- de "Cobro: Presidencia".
---
--- CUIDADO QUE SI TIENE
--- Es un create or replace de una sola funcion con la MISMA firma, asi que no
--- deja versiones duplicadas (el problema que tuvo v2_post_expense). El cuerpo
--- se copio tal cual del que corria y solo se tocaron las dos columnas nuevas
--- del select de movimientos y las dos llaves nuevas del jsonb_build_object.
---
--- PARA REVERTIR: volver a aplicar el cuerpo de H1, que tiene la misma firma.
-
 create or replace function private.query_cashier_snapshot(
   p_organization_id uuid, p_business_date date default current_date
 )

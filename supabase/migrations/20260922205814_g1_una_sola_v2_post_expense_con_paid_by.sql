@@ -1,62 +1,19 @@
 -- G1 · Una sola v2_post_expense, y que guarde quien pago
 --
--- APLICADA EN PRODUCCION el 2026-09-22.
--- Migracion: 20260922205814_g1_una_sola_v2_post_expense_con_paid_by
--- Lo que sigue es el SQL tal como se aplico, copiado de
--- supabase_migrations.schema_migrations. Si este archivo y la base no
--- coinciden, la base manda.
+-- public.v2_post_expense existia dos veces, con 9 y con 10 argumentos. Como
+-- el decimo tenia DEFAULT, una llamada con nueve encajaba con las dos y
+-- Postgres se negaba: "Could not choose the best candidate function".
+-- Eso dejo a Taquilla sin poder registrar egresos.
 --
--- EL PROBLEMA
--- public.v2_post_expense existia dos veces:
---   oid 28972 ·  9 argumentos (la vieja)
---   oid 32499 · 10 argumentos (con supplier_name text default null)
--- y lo mismo en private.command_post_expense (oids 28969 y 32498).
+-- Ademas, al preparar H2 se metio en Taquilla una llamada con paid_by_name,
+-- un parametro que NO existia: habria roto el registro de egresos igual.
+-- Por eso G1 hace las dos cosas en una transaccion y borra las CUATRO
+-- versiones viejas.
 --
--- Como el decimo argumento tenia DEFAULT, una llamada con nueve encajaba con
--- las dos y Postgres se negaba a elegir:
---   "Could not choose the best candidate function between: ..."
+-- Este archivo es el SQL EXACTO que corre en produccion, copiado de
+-- supabase_migrations.schema_migrations y verificado con md5. Si este
+-- archivo y la base no coinciden, la base manda.
 --
--- Eso dejo a Taquilla sin poder registrar egresos. Contabilidad si mandaba
--- supplier_name, asi que ahi nunca se noto: el mismo boton funcionaba en una
--- pantalla y fallaba en la otra.
---
--- POR QUE SE APLICO AHORA Y NO SOLO EL DROP QUE DECIA ESTE ARCHIVO
--- El parche que estaba en produccion (mandar siempre supplier_name desde las
--- dos pantallas) funcionaba, pero dejaba la trampa puesta para la siguiente
--- pantalla. Y al preparar H2 se metio en Taquilla una llamada con
--- paid_by_name, un parametro que NO existia todavia: eso habria roto el
--- registro de egresos de la misma forma. Asi que G1 hace las dos cosas en una
--- sola transaccion: anadir paid_by_name y dejar una sola version de cada
--- funcion.
---
--- QUE HACE, EN ORDEN
---   1. Crea private.command_post_expense con 11 argumentos. El cuerpo se copia
---      TAL CUAL del que corria, con dos anadidos: la columna paid_by_name en
---      el insert y 'paidBy' en el evento de dominio.
---   2. Crea public.v2_post_expense con 11 argumentos (supplier_name y
---      paid_by_name con default null).
---   3. Borra las CUATRO versiones viejas: publica de 9 y de 10, privada de 9
---      y de 10. Las firmas van completas a proposito: sin ellas Postgres no
---      sabria cual borrar.
---   4. Revoca la privada de public/anon/authenticated. Crear una funcion en
---      private vuelve a darle EXECUTE a PUBLIC, asi que hay que revocar cada
---      vez.
---   5. Comprueba que quede UNA sola de cada una. Si no, revienta y la
---      transaccion no entra.
---
--- RESULTADO VERIFICADO DESPUES DE APLICAR
---   private.command_post_expense  1 version  11 args
---   private.command_post_payment  1 version  11 args
---   public.v2_post_expense        1 version  11 args
---   public.v2_post_payment        1 version  11 args
---
--- PARA REVERTIR
--- No hay vuelta atras automatica: el cuerpo viejo ya no esta en pg_proc. Para
--- volver al estado anterior hay que recrear las versiones de 9 y 10 a partir
--- del historial de este archivo. En la practica no hace falta: la version de
--- 11 acepta las mismas llamadas (los dos parametros nuevos tienen default),
--- asi que ningun cliente existente pierde comportamiento.
-
 -- El cuerpo se copia TAL CUAL del que corre hoy. Lo unico nuevo es
 -- p_paid_by_name y su columna en el insert.
 create or replace function private.command_post_expense(

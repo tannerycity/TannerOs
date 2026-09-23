@@ -211,101 +211,38 @@ for(const contract of ["state.filtro==='por_cobrar'","state.filtro==='cancelados
 const parkingDeleteMigration=fs.readFileSync('supabase/migrations-escritas-a-mano/202609140001_delete_parking_pass_rpc.sql','utf8');
 for(const contract of ['security definer','v2_my_context','Only Presidencia','rejected','revoked','grant execute'])if(!parkingDeleteMigration.includes(contract))errors.push(`Estacionamiento delete RPC: falta ${contract}`);
 
-// ── El CSP tiene que permitir lo que la app misma fabrica ──────────────────
+// ── Las barreras viven una por archivo ─────────────────────────────────────
 //
-// photo-cache.js crea blob: URLs a proposito: es lo que hace que una foto ya
-// descargada no se vuelva a pedir. Pero el CSP de produccion no listaba blob:
-// en connect-src, y un fetch() se rige por connect-src, no por img-src. Las
-// fotos se VEIAN bien y aun asi /admin/fotos/ fallo con "Failed to fetch" en
-// las diez del lote, con cero bytes bajados.
+// Antes se apilaban todas aqui, cada PR anadia la suya justo antes de esta
+// linea, y cada conflicto sobre este archivo se comia alguna: en tres merges
+// se perdieron tres barreras, y las tres veces CI siguio en verde porque lo
+// que desaparece no falla.
 //
-// Reproducido en Chromium con el CSP exacto de produccion: el fetch falla con
-// ese mismo mensaje, y pasa en cuanto blob: entra en connect-src.
-const cspLinea = (fs.readFileSync('vercel.json','utf8').match(/"Content-Security-Policy","value":"([^"]+)"/) || [])[1] || '';
-const connectSrc = (cspLinea.match(/connect-src([^;]*)/) || [])[1] || '';
-if (!cspLinea) errors.push('CSP: no se encontro la cabecera en vercel.json');
-else if (!/\bblob:/.test(connectSrc))
-  errors.push('CSP: connect-src no permite blob:, y photo-cache.js entrega blob: URLs. '
-    + 'Cualquier fetch() sobre una foto cacheada falla con "Failed to fetch"');
+// Ahora cada una vive en scripts/barreras/ y se cargan todas. Dos PRs que
+// anaden barreras ya no tocan el mismo archivo, asi que no hay conflicto que
+// resolver ni nada que perder al resolverlo.
+const dirBarreras = 'scripts/barreras';
+const archivosBarrera = fs.readdirSync(dirBarreras).filter(f => f.endsWith('.mjs')).sort();
+if (!archivosBarrera.length) errors.push('Barreras: la carpeta scripts/barreras/ quedo vacia');
 
-// La pantalla que recodifica originales tiene que pedirlos a Storage, no al
-// cache: un blob: no se puede descargar, y el cache puede traer hasta 24 horas.
-const herramientaFotos = fs.readFileSync('v2/admin/fotos/app.js','utf8');
-if (/[^w]getSignedPhotoUrl\(/.test(herramientaFotos))
-  errors.push('/admin/fotos/: usa getSignedPhotoUrl, que devuelve blob:. Debe usar getRawSignedPhotoUrl');
-
-// ── Ninguna suite se queda sin correr ──────────────────────────────────────
-//
-// Dos suites (qa-login-credencial y qa-utileria-baja) se perdieron de CI al
-// resolver un conflicto entre dos PRs que tocaban el workflow. Siguieron en el
-// repo, dejaron de correr, y CI siguio en verde: exactamente el fallo que esas
-// suites existian para impedir.
-//
-// Y esta barrera se perdio a su vez, al resolver OTRO conflicto sobre este
-// mismo archivo dos horas despues. El mecanismo de fondo —que el workflow las
-// descubra solo— sobrevivio, asi que las suites siguieron corriendo; lo que
-// desaparecio fue el vigilante. Dos veces seguidas por la misma via dice que
-// el riesgo real de este archivo es la resolucion de conflictos, no el olvido.
-//
-// Ahora el workflow las descubre solas y esto vigila la unica grieta que
-// queda: que alguien silencie una metiendola a la lista de exclusiones. El
-// archivo obliga a escribir el motivo, y este contador obliga a que la lista
-// no crezca sin que alguien lo note.
-const suitesEnDisco = fs.readdirSync('scripts').filter(f => /^qa-.*\.mjs$/.test(f)).sort();
-const listaExclusiones = fs.readFileSync('scripts/qa-suites-excluidas.txt', 'utf8');
-const excluidas = listaExclusiones.split('\n').map(l => l.trim())
-  .filter(l => l && !l.startsWith('#'));
-
-for (const nombre of excluidas) {
-  if (!suitesEnDisco.includes(nombre)) errors.push(`Suites: se excluye "${nombre}", que ya no existe`);
+// Una barrera nueva corre sola, sin tocar el inventario. Lo que el inventario
+// atrapa es la desaparicion de una, que es lo unico que no falla por si mismo.
+const inventario = fs.readFileSync(`${dirBarreras}/INVENTARIO.txt`, 'utf8')
+  .split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+for (const esperada of inventario) {
+  if (!archivosBarrera.includes(esperada))
+    errors.push(`Barreras: falta ${esperada}, que el inventario da por existente. `
+      + 'Si se borro al resolver un conflicto, recuperala; si ya no tiene sentido, quitala del inventario');
 }
-// El workflow tiene que seguir descubriendolas solo. Si alguien vuelve a
-// escribir la lista a mano, esto lo caza antes de que se pierda otra.
-const flujo = fs.readFileSync('.github/workflows/tanneros-qa.yml', 'utf8');
-if (!flujo.includes("find scripts -maxdepth 1 -name 'qa-*.mjs'"))
-  errors.push('Suites: el workflow dejo de descubrirlas solo; una suite nueva podria no correr nunca');
-if (!flujo.includes('qa-suites-excluidas.txt'))
-  errors.push('Suites: el workflow ya no lee la lista de exclusiones');
-
-const MAX_EXCLUIDAS = 8;  // sube por los humos de navegador (asistencia, familias, montos, conciliacion): necesitan Chromium
-if (excluidas.length > MAX_EXCLUIDAS)
-  errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
-    + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');
-
-
-// === Los parametros del cobro y del pago no se pierden en un merge ===
-//
-// Dos ramas distintas le agregaron campos a la misma llamada: una quien
-// cobro, la otra el monto esperado y las observaciones. Al resolver el
-// conflicto es facilisimo quedarse con un solo lado, y el resultado no
-// falla: simplemente deja de guardarse lo del lado que se perdio, en
-// silencio, para siempre. Esto lo caza.
-//
-// La funcion en la base acepta los 13 parametros; si aqui se manda uno
-// menos, ese dato ya no existe.
-const llamadasVigiladas = [
-  { archivo: 'v2/taquilla/app.js', rpc: 'v2_post_payment',
-    exigidos: ['collected_by_name', 'expected_amount', 'observations', 'idempotency_key'] },
-  { archivo: 'v2/taquilla/app.js', rpc: 'v2_post_expense',
-    exigidos: ['supplier_name', 'paid_by_name', 'idempotency_key'] },
-  { archivo: 'v2/contabilidad/app.js', rpc: 'v2_post_expense',
-    exigidos: ['supplier_name', 'idempotency_key'] }
-];
-for (const v of llamadasVigiladas) {
-  if (!fs.existsSync(v.archivo)) { errors.push(`Cobro: falta ${v.archivo}`); continue; }
-  const src = fs.readFileSync(v.archivo, 'utf8');
-  const marca = `rpc('${v.rpc}'`;
-  const desde = src.indexOf(marca);
-  if (desde < 0) { errors.push(`Cobro: ${v.archivo} ya no llama a ${v.rpc}`); continue; }
-  // Se mira SOLO dentro de esa llamada: contar en todo el archivo dejaria
-  // que otra llamada tape la que se rompio.
-  const hasta = src.indexOf('});', desde);
-  const trozo = src.slice(desde, hasta < 0 ? desde + 1200 : hasta);
-  for (const param of v.exigidos) {
-    if (!trozo.includes(`${param}:`))
-      errors.push(`Cobro: la llamada a ${v.rpc} en ${v.archivo} ya no manda ${param}`);
+for (const archivo of archivosBarrera) {
+  const modulo = await import(`../${dirBarreras}/${archivo}`);
+  if (typeof modulo.default !== 'function') {
+    errors.push(`Barreras: ${archivo} no exporta una comprobacion por defecto`);
+    continue;
   }
+  errors.push(...modulo.default());
 }
+
 
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

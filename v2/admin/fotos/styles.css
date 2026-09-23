@@ -34,3 +34,9 @@
 .thumbs-huerfanos{width:100%;margin-top:10px;padding:10px;border:1px solid #d5e0e6;border-radius:10px;
   font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3d5560;background:#f7fafb;resize:vertical}
 @media(max-width:560px){.thumbs-actions{flex-direction:column;align-items:stretch}.thumbs-batch input{width:100%}}
+
+/* El aviso de permisos en la pantalla de fotos. Es de mantenimiento, pero es
+   donde vive el archivero: si el dato no sale aquí, nadie lo ve antes de bajar
+   una foto. */
+.thumbs-permiso{margin:10px 0 0;border-radius:13px;padding:11px 13px;background:#ffe9e6;color:#a32920;font-size:12.5px;font-weight:700;line-height:1.45}
+.thumbs-permiso b{font-weight:1000}

@@ -244,8 +244,50 @@ function docsBlock(st){
 /* ---------- Papeles del club ---------- */
 // El reglamento y el uso de imagen se firmaban en papel o no se firmaban. Aquí
 // la familia lee el texto completo y acepta; queda la fecha y la versión.
+/* El permiso de imagen no es un "leí y acepto": es una pregunta con dos
+   respuestas válidas, y las dos hay que guardarlas.
+
+   Si sólo hubiera botón de aceptar, a la familia que no quiere se le seguiría
+   preguntando para siempre y el club nunca sabría si es un "no" o un "todavía
+   no le preguntamos". Medido el 23 de septiembre: 55 de 63 Tanners están en esa
+   segunda casilla, y 43 de ellos ya tienen foto cargada.
+
+   Por eso sale en su propia tarjeta, arriba, con las dos respuestas a la misma
+   altura: ninguna está empujada. Decir que no no afecta la inscripción y eso
+   se dice con todas sus letras. */
+function imagenBlock(pw){
+  const img=pw?.image_consent;
+  if(!img)return '';
+  const doc=(pw?.consents||[]).find(d=>d.code==='uso_de_imagen');
+  const decidido=img.status!=='sin_preguntar';
+  const si=img.status==='autoriza';
+
+  if(!decidido){
+    return `<section class="fam-card fam-imagen pendiente">
+      <div class="fam-card-head"><h2>¿Podemos publicar sus fotos?</h2><span>falta tu respuesta</span></div>
+      <p class="fam-doc-body">${esc(doc?.body||'El club usa fotos y video de los entrenamientos y partidos en sus redes, su página y su publicidad. Tú decides si tu hijo o hija puede aparecer.')}</p>
+      <p class="fam-imagen-nota">Decir que no <b>no afecta su inscripción</b> ni nada de lo que el club le da. Puedes cambiar de opinión cuando quieras.</p>
+      <div class="fam-imagen-botones">
+        <button class="fam-btn" type="button" data-imagen="si">Sí, puede salir</button>
+        <button class="fam-btn fam-btn-no" type="button" data-imagen="no">No, prefiero que no</button>
+      </div>
+    </section>`;
+  }
+  return `<section class="fam-card fam-imagen ${si?'si':'no'}">
+    <div class="fam-card-head"><h2>Fotos y publicidad</h2><span>${si?'autorizado':'no autorizado'}</span></div>
+    <p class="fam-imagen-estado"><i aria-hidden="true">${si?'✓':'⦸'}</i>
+      ${si?'Sí puede aparecer en las redes y la publicidad del club.':'No aparece en las redes ni en la publicidad del club.'}
+      ${si&&img.decided_at?`<small>Desde el ${esc(fmtDate(img.decided_at))}</small>`:''}</p>
+    <button class="fam-btn fam-btn-cambiar" type="button" data-imagen="${si?'no':'si'}">
+      ${si?'Cambiar a que no salga':'Cambiar a que sí pueda salir'}</button>
+  </section>`;
+}
+
 function consentsBlock(pw){
-  const docs=pw?.consents||[];
+  // uso_de_imagen sale de esta lista: tiene su propia tarjeta con dos
+  // respuestas. Dejarlo aquí además sería preguntar lo mismo dos veces, y por
+  // el camino viejo sólo se podría contestar que sí.
+  const docs=(pw?.consents||[]).filter(d=>d.code!=='uso_de_imagen');
   if(!docs.length)return '';
   const filas=docs.map(d=>{
     const firmado=!!d.accepted_at&&!d.outdated;
@@ -309,7 +351,7 @@ async function renderCuenta(){
     catch(error){console.warn('papeleo',error);state.paperwork[p.id]={};}
   }
   const st=state.statements[p.id],pw=state.paperwork[p.id];
-  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${consentsBlock(pw)}${benefitBlock(pw)}`;
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}`;
   cableaTramites(p);
 }
 
@@ -325,6 +367,20 @@ function cableaTramites(p){
       btn.disabled=false;btn.textContent='Leí y acepto';
     }
   }));
+  $('famBody').querySelectorAll('[data-imagen]').forEach(btn=>btn.addEventListener('click',async()=>{
+    const autoriza=btn.dataset.imagen==='si';
+    const antes=btn.textContent;
+    btn.disabled=true;btn.textContent='Guardando…';
+    try{
+      await rpc('v2_portal_decide_image_consent',{player_id:p.id,authorize:autoriza});
+      delete state.paperwork[p.id];
+      await renderCuenta();
+    }catch(error){
+      await tosAlert({kicker:'FOTOS',title:'No se pudo guardar',message:friendly(error)});
+      btn.disabled=false;btn.textContent=antes;
+    }
+  }));
+
   const enviar=$('benefitSend');
   if(enviar)enviar.addEventListener('click',async()=>{
     const motivo=$('benefitReason').value.trim();

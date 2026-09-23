@@ -49,8 +49,17 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
     window.__mesPedidos = [];
     const STATEMENT = { summary:{ balance:0, credit_available:0, since:'2026-08-01' },
       charges:[], payments:[], orders:[] };
+    // El caso real: 55 de 63 familias nunca fueron preguntadas por las fotos.
+    let PAPERWORK = { documents:[], consents:[
+        { code:'reglamento', title:'Reglamento del club', body:'Texto del reglamento.',
+          version:1, required:true, accepted_at:null, outdated:false },
+        { code:'uso_de_imagen', title:'Uso de fotos y video',
+          body:'El club usa fotos de los entrenamientos en sus redes.',
+          version:1, required:false, accepted_at:null, outdated:false }
+      ],
+      image_consent:{ status:'sin_preguntar', authorized:false, decided_at:null, notice_version:null } };
     const RESP = { v2_portal_home: HOME, v2_portal_progress: PROGRESS,
-      v2_portal_statement: STATEMENT, v2_portal_paperwork: { documents:[], consents:[] },
+      v2_portal_statement: STATEMENT,
       v2_portal_calendar: [], v2_portal_catalog: { products:[] }, v2_portal_parking: { passes:[] } };
     export const supabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}),
@@ -58,10 +67,21 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
              signOut:async()=>({}) } };
     export const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'});
     export const $ = id => document.getElementById(id);
+    window.__decisiones = [];
     export async function rpc(name, params={}){
       if(name==='v2_portal_attendance'){
         window.__mesPedidos.push(params);
         return params.from_date.startsWith('2026-09') ? MES : MES_VACIO;
+      }
+      if(name==='v2_portal_paperwork') return PAPERWORK;
+      if(name==='v2_portal_decide_image_consent'){
+        window.__decisiones.push(params);
+        PAPERWORK = { ...PAPERWORK, image_consent:{
+          status: params.authorize ? 'autoriza' : 'no_autoriza',
+          authorized: !!params.authorize,
+          decided_at: params.authorize ? '2026-09-23T12:00:00Z' : null,
+          notice_version: 'uso_de_imagen v1' } };
+        return { ok:true };
       }
       return RESP[name] ?? null;
     }
@@ -142,8 +162,44 @@ const idsPedidos = await pagina.evaluate(() => [...new Set(window.__mesPedidos.m
 revisa('sólo pide la asistencia de su propio Tanner',
   idsPedidos.length === 1 && idsPedidos[0] === 'p1', JSON.stringify(idsPedidos));
 
+/* ¿Podemos publicar sus fotos?
+   Es la tarjeta que convierte 55 pendientes en 55 respuestas. Lo que se vigila
+   aquí es que el "no" sea una respuesta de primera clase: mismo peso que el
+   "sí", guardada igual, y que la familia pueda cambiar de opinión después. */
+await pagina.click('.fam-nav-item[data-tab="cuenta"]');
+await pagina.waitForSelector('.fam-imagen', { timeout: 6000 });
+const tarjeta = (await pagina.textContent('.fam-imagen')).replace(/\s+/g, ' ');
+revisa('se le pregunta por las fotos, no se asume', /¿Podemos publicar sus fotos\?/.test(tarjeta), tarjeta.slice(0, 160));
+revisa('dice que decir que no no afecta la inscripción',
+  /no afecta su inscripción/.test(tarjeta), tarjeta.slice(0, 300));
+revisa('las dos respuestas están a la misma altura',
+  (await pagina.$$('.fam-imagen-botones .fam-btn')).length === 2);
+revisa('la pregunta NO se repite abajo como documento',
+  !/Uso de fotos y video/.test(await pagina.textContent('#famBody')));
+
+await pagina.click('[data-imagen="no"]');
+await pagina.waitForFunction(() => /no autorizado/.test(document.querySelector('.fam-imagen')?.textContent || ''), { timeout: 6000 });
+const dijoNo = await pagina.evaluate(() => window.__decisiones);
+revisa('el "no" se manda al servidor, no se queda en la pantalla',
+  dijoNo.length === 1 && dijoNo[0].authorize === false && dijoNo[0].player_id === 'p1',
+  JSON.stringify(dijoNo));
+const trasNo = (await pagina.textContent('.fam-imagen')).replace(/\s+/g, ' ');
+revisa('después de decir que no, ya no se le vuelve a preguntar',
+  !/¿Podemos publicar sus fotos\?/.test(trasNo) && /No aparece en las redes/.test(trasNo), trasNo.slice(0, 220));
+revisa('pero puede cambiar de opinión', await pagina.isVisible('[data-imagen="si"]'));
+
+await pagina.click('[data-imagen="si"]');
+await pagina.waitForFunction(() => /autorizado/.test(document.querySelector('.fam-imagen')?.textContent || ''), { timeout: 6000 });
+const trasSi = (await pagina.textContent('.fam-imagen')).replace(/\s+/g, ' ');
+revisa('cambiar a sí queda registrado con su fecha',
+  /Sí puede aparecer/.test(trasSi) && /Desde el/.test(trasSi), trasSi.slice(0, 220));
+
 const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 revisa('no hay scroll horizontal en iPhone', !desborde);
+
+// De vuelta a Progreso: la captura de evidencia es la del mes de asistencia.
+await pagina.click('.fam-nav-item[data-tab="progreso"]');
+await pagina.waitForSelector('#famMesLabel', { timeout: 6000 });
 
 // La captura se toma en septiembre, que es el mes con datos.
 await pagina.waitForFunction(() => /Septiembre/.test(document.getElementById('famMesLabel')?.textContent || ''), { timeout: 4000 });

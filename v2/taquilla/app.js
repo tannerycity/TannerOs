@@ -1,6 +1,7 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,supabase} from '/v2/shell.js';
 import {getSignedPhotoUrls} from '/v2/photo-cache.js';
 import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
+        motivoDeFila,etiquetaDeMotivo,
         tiposDeBeneficio,filtra,totales,beneficiosSoloEtiqueta,
         COLUMNAS_REPORTE,filaDeReporte,resumenDeReporte,textoDeFiltros,
         nombreDeArchivo} from '/v2/taquilla/montos.js';
@@ -21,6 +22,10 @@ const canPayWrite=canCashWrite||canAccountingWrite;
 // cobrar) siga habilitado para el rol Taquilla como hasta ahora.
 const canViewCollections=moduleAccess(navigation,'cobranza',false)&&ctx.role==='Presidencia';
 let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,receivables=[],collectionsFilter='all',collectionsExpanded=false;
+// El selector "Ver" se arma hasta el final del archivo, cuando ya existen los
+// permisos de cada vista. applyLedgerVisibility corre antes de eso durante el
+// arranque, así que pregunta por esta bandera en vez de romperse.
+let vistasListas=false,vistaActual=null;
 const COLLECTIONS_COLLAPSED_LIMIT=6;
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
@@ -38,6 +43,7 @@ function closeModals(){document.querySelectorAll('.cashier-modal').forEach(el=>e
 function resetCollectForm(){
   $('collectForm').reset();
   $('collectPlayer').value='';$('collectPlayerSearch').value='';
+  $('collectPorQue')?.classList.add('hidden');
   $('collectPlayerClear')?.classList.add('hidden');$('collectPlayerResults')?.classList.add('hidden');$('collectPlayerResults').innerHTML='';
   $('collectDate').value=isoToday();
   $('generalPlayer').value='';$('generalPlayerSearch').value='';
@@ -122,17 +128,15 @@ function renderMovements(){
     tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${whoCell}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${ebtn}${vbtn}</td>`;body.appendChild(tr);});
 }
 function applyLedgerVisibility(){
-  document.querySelector('.cashier-kpis')?.classList.toggle('hidden',!canViewLedger);
-  document.querySelectorAll('.cashier-cash-card:not(#cashTodayCard)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
-  // Cobranza no es el libro contable: Taquilla (rol simple, sin ver caja completa)
-  // también necesita saber a quién cobrarle, así que no se apaga con el resto.
-  // #montosPanel se excluye a proposito: su visibilidad la manda su propio
-  // boton, y quien mas lo necesita es justo Taquilla, que es quien NO ve el
-  // ledger. Sin esta exclusion, el panel se abriria solo para todos los demas
-  // y quedaria escondido para el unico rol que lo pidio.
-  document.querySelectorAll('.cashier-panel:not(#collectionsPanel):not(#montosPanel)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
+  // La caja del día (KPIs, efectivo esperado, métodos y movimientos) ya no se
+  // apaga panel por panel: vive dentro de #vistaCaja y la enciende el selector
+  // "Ver", que además sólo la ofrece a quien puede ver el libro. Cuando esto
+  // se hacía con un `querySelectorAll` de `.cashier-panel` había que ir
+  // excluyendo a mano cada panel nuevo —y el día que alguien olvidara una
+  // exclusión, el panel se escondía justo para el rol que lo pidió.
   const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
   $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
+  if(vistasListas)mostrarVista(vistaActual);
 }
 
 // El concepto que emite el motor viene largo ("Academia Academia de porteros ·
@@ -161,7 +165,9 @@ const DIACRITICS_RE=new RegExp(String.fromCharCode(0x5b)+String.fromCharCode(0x3
 const normSearch=s=>String(s||'').toLowerCase().normalize('NFD').replace(DIACRITICS_RE,'');
 async function renderCollections(){
   const panel=$('collectionsPanel');if(!panel)return;
-  panel.classList.toggle('hidden',!canViewCollections);
+  // Quién enseña este panel lo decide el selector "Ver", que ya sólo ofrece
+  // Cobranza a quien puede verla. Si aquí también se tocara `hidden`, cada
+  // recarga de la lista apagaría la vista que el usuario acaba de elegir.
   if(!canViewCollections)return;
   const q=normSearch($('collectionsSearch')?.value).trim();
   const rows=(billingPlayers||[])
@@ -425,11 +431,29 @@ tannerSearchInit('generalPlayerBox','generalPlayerSearch','generalPlayer','gener
 // prellena la suma de todo lo pendiente — no solo la mensualidad — para que
 // Taquilla no tenga que hacer la cuenta a mano ni se le olvide el recargo.
 tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','collectPlayerResults','collectPlayerClear',(pl)=>{
+  pintaPorQueEsteMonto(pl);
   if(!pl||$('collectAmount').value)return;
   const pendiente=(receivables||[]).filter(r=>r.player_id===pl.player_id).reduce((sum,r)=>sum+Number(r.balance_due||0),0);
   const sugerido=pendiente>0?pendiente:Number(pl.base_monthly_fee||0);
   $('collectAmount').value=sugerido>0?Math.round(sugerido):'';
 });
+
+/* Por qué ese monto, dentro del cobro.
+   Antes había que abrir "CUÁNTO COBRAR", buscar al Tanner otra vez y regresar.
+   Ahora la respuesta aparece sola al elegirlo. Si el padrón todavía no está
+   cargado, la línea no se inventa nada: se queda callada. */
+function pintaPorQueEsteMonto(pl){
+  const caja=$('collectPorQue');if(!caja)return;
+  const fila=pl&&(montosData?.rows||[]).find(r=>String(r.playerId)===String(pl.player_id));
+  if(!fila){ caja.classList.add('hidden'); caja.textContent=''; return; }
+  const m=motivoDeFila(fila);
+  const mensual=Number(fila.chargedFee||0);
+  const partes=[`Mensualidad ${money.format(mensual)}`,etiquetaDeMotivo(fila)];
+  if(fila.collectionNote)partes.push(fila.collectionNote);
+  caja.className=`collect-porque wide nivel-${m.nivel}`;
+  caja.innerHTML=`<i aria-hidden="true">${esc(m.icono)}</i> ${esc(partes.join(' · '))}`;
+  caja.classList.remove('hidden');
+}
 
 
 // === Editar movimiento (solo Presidencia) ===
@@ -491,18 +515,20 @@ let montosData=null,montosFiltro='all',montosQuery='',tarifas=[];
 const mesActual=()=>new Date().toISOString().slice(0,7);
 const periodoDeMes=m=>`${m||mesActual()}-01`;
 
-function abreMontos(){
-  $('montosPanel').classList.remove('hidden');
-  $('collectionsPanel')?.classList.add('hidden');
+// Sólo prepara el panel. Quién lo enseña y quién lo esconde es el selector
+// "Ver": si esta función también tocara `hidden`, habría dos dueños de la
+// misma decisión y tarde o temprano se contradicen.
+function preparaMontos(){
   if(!$('montosPeriod').value)$('montosPeriod').value=mesActual();
   $('montosTarifas').classList.toggle('hidden',!canSetTarifas);
   $('montosPdf').classList.toggle('hidden',!canExportMontos);
-  $('montosPanel').scrollIntoView({behavior:'smooth',block:'start'});
-  cargaMontos();
-}
-function cierraMontos(){
-  $('montosPanel').classList.add('hidden');
-  if(canViewCollections)$('collectionsPanel')?.classList.remove('hidden');
+  // El padrón ya se trae al arrancar (lo necesita COBRAR para decir por qué es
+  // ese monto). Abrir la vista no vuelve a pedirlo si es del mismo periodo.
+  if(montosData&&String(montosData.billingPeriod)===periodoDeMes($('montosPeriod').value)){
+    llenaSelectoresMontos();pintaMontos();
+  }else{
+    cargaMontos();
+  }
 }
 
 async function cargaMontos(){
@@ -547,7 +573,8 @@ function filtrosActuales(){
     tipo:$('montosType')?.value||'',
     soloConBeneficio:montosFiltro==='benefit',
     soloConSaldo:montosFiltro==='debt',
-    soloPorVencer:montosFiltro==='expiring'
+    soloPorVencer:montosFiltro==='expiring',
+    soloSinMotivo:montosFiltro==='sinmotivo'
   };
 }
 
@@ -563,26 +590,48 @@ function pintaMontos(){
     <article><span>Tanners</span><strong>${t.tanners}</strong><small>de ${todas.length} en el padrón</small></article>
     <article><span>Por cobrar del mes</span><strong>${money.format(t.aCobrar)}</strong><small>mensualidad y recargos abiertos</small></article>
     <article><span>Adeudo total</span><strong>${money.format(t.adeudo)}</strong><small>incluye meses anteriores</small></article>
-    <article><span>Con beneficio</span><strong>${t.conBeneficio}</strong><small>${t.porVencer} por vencer · ${t.vencidos} vencido${t.vencidos===1?'':'s'}</small></article>`;
+    <article><span>De dónde sale</span><strong>${t.enPlan}</strong><small>en plan · ${t.conBeneficio} con beca · ${t.porAcuerdo} por acuerdo</small></article>`;
 
-  // El aviso más importante de la pantalla: sin tarifa de categoría no se
-  // puede mostrar la resta, y hay que decirlo en vez de inventar el ordinario.
+  // Los dos avisos de la pantalla, en orden de qué tan mal está la cosa.
+  //
+  // El primero es el que el club no tenía: cuántos Tanners pagan una cantidad
+  // que nadie explicó. Antes eran invisibles porque el sistema los presentaba
+  // como becados. Mientras este número no sea cero, el padrón no cuadra.
   const sinTarifa=Number(resumen.categoriesWithoutFee||0);
+  const sinMotivo=Number(resumen.withoutReason||0);
   const aviso=$('montosAviso');
+  const trozos=[];
+  if(sinMotivo){
+    trozos.push(`<b>${sinMotivo} Tanner${sinMotivo===1?'':'s'} paga${sinMotivo===1?'':'n'} distinto a su categoría y nadie registró por qué.</b>
+      No ${sinMotivo===1?'es una beca':'son becas'}: el sistema ya no ${sinMotivo===1?'lo':'los'} cuenta como tal.
+      Si varios pagan lo mismo, es un plan del club y se arregla de un toque en
+      Tarifas y planes. Si es cosa de una familia, se escribe en su tarjeta.
+      ${canSetTarifas?'<button type="button" id="avisoSinMotivo">Ver sólo esos</button>':''}`);
+  }
   if(sinTarifa){
-    aviso.classList.remove('hidden');
-    aviso.innerHTML=`<b>${sinTarifa} categoría${sinTarifa===1?'':'s'} sin mensualidad ordinaria capturada.</b>
+    trozos.push(`<b>${sinTarifa} categoría${sinTarifa===1?'':'s'} sin mensualidad ordinaria capturada.</b>
       Mientras falte, se muestra el monto final a cobrar pero no el desglose
       «ordinario − beneficio». El club nunca guardó ese número: el descuento venía
       metido a mano dentro de la cuota de cada Tanner.
-      ${canSetTarifas?'<button type="button" id="avisoTarifas">Capturar tarifas</button>':''}`;
+      ${canSetTarifas?'<button type="button" id="avisoTarifas">Capturar tarifas</button>':''}`);
+  }
+  if(trozos.length){
+    aviso.classList.remove('hidden');
+    aviso.innerHTML=trozos.map(x=>`<p>${x}</p>`).join('');
     $('avisoTarifas')?.addEventListener('click',abreTarifas);
+    $('avisoSinMotivo')?.addEventListener('click',()=>{
+      montosFiltro='sinmotivo';
+      $('montosChips')?.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x.dataset.montosFilter==='sinmotivo'));
+      pintaMontos();
+    });
   }else{
     aviso.classList.add('hidden');aviso.innerHTML='';
   }
 
   $('montosList').innerHTML=filas.map(tarjetaMonto).join('');
   $('montosEmpty').classList.toggle('hidden',filas.length>0);
+  $('montosList').querySelectorAll('[data-acuerdo]').forEach(b=>
+    b.addEventListener('click',()=>pideAcuerdo(b.dataset.acuerdo)));
 }
 
 function tarjetaMonto(f){
@@ -613,30 +662,105 @@ function tarjetaMonto(f){
       <span class="monto-cobrar${cobrar?'':' cero'}"><b>${money.format(cobrar)}</b><span>A cobrar</span></span>
     </div>
     <div class="monto-cond">
-      <span class="cond-chip">${esc(condicionDeFila(f))}</span>
+      <span class="cond-chip nivel-${esc(motivoDeFila(f).nivel)}"><i aria-hidden="true">${esc(motivoDeFila(f).icono)}</i>${esc(etiquetaDeMotivo(f))}</span>
       <span class="vig vig-${v.nivel}"><i aria-hidden="true">${esc(v.icono)}</i>${esc(v.texto)}</span>
     </div>
     ${lineaDesglose}
     ${etiquetas}
     ${nota}
+    ${arreglarMotivo(f)}
     <div class="monto-saldo${saldo>0?'':' limpio'}">${saldo>0?`Adeudo total ${money.format(saldo)}`:'Sin adeudo'}</div>
   </article>`;
 }
 
-/* ----- Tarifas por categoría (Presidencia) ----- */
+/* El hueco no sólo se enseña: se puede cerrar desde donde se ve.
+
+   Hay dos maneras de que un Tanner pague distinto, y el club usa las dos: un
+   plan del club (varios pagan lo mismo, se arregla en Tarifas y planes de un
+   solo golpe) o un acuerdo con esa familia (uno solo, se escribe aquí). Sin
+   este botón, los casos de una sola familia no tendrían dónde caer y el padrón
+   nunca llegaría a cero. */
+function arreglarMotivo(f){
+  if(!canSetTarifas)return '';
+  if(motivoDeFila(f).clave!=='sin_motivo')return '';
+  return `<div class="monto-arreglo" id="arreglo-${esc(f.playerId)}">
+    <button type="button" data-acuerdo="${esc(f.playerId)}">Registrar lo acordado con la familia</button>
+  </div>`;
+}
+
+function pideAcuerdo(playerId){
+  const caja=$(`arreglo-${playerId}`);if(!caja)return;
+  caja.classList.add('editando');
+  caja.innerHTML=`<input type="text" id="acuerdo-${esc(playerId)}" maxlength="80" placeholder="¿Qué se acordó? Ej. paga la abuela, viene sólo martes">
+    <button type="button" data-guardaacuerdo="${esc(playerId)}">Guardar</button>`;
+  const input=caja.querySelector('input');
+  input?.focus();
+  input?.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();caja.querySelector('[data-guardaacuerdo]')?.click();} });
+  caja.querySelector('[data-guardaacuerdo]').addEventListener('click',b=>guardaAcuerdo(playerId,b.currentTarget));
+}
+
+async function guardaAcuerdo(playerId,btn){
+  message('montosMessage');
+  const nota=String($(`acuerdo-${playerId}`)?.value||'').trim();
+  if(!nota){ message('montosMessage','Escribe qué se acordó: sin eso vuelve a quedar sin motivo.'); return; }
+  btn.disabled=true;const antes=btn.textContent;btn.textContent='…';
+  try{
+    // Sin monto: se registra POR QUÉ paga lo que ya paga. Cambiarle la cuota
+    // desde aquí sería otra decisión y merece su propia pantalla.
+    await rpc('v2_set_player_fee_note',{organization_id:org,player_id:playerId,note:nota});
+    await cargaMontos();
+    message('montosMessage','Guardado. Ese Tanner ya dice por qué paga lo que paga.','success');
+  }catch(e){ message('montosMessage',friendlyMontos(e)); btn.disabled=false; btn.textContent=antes; }
+}
+
+/* ----- Tarifas y planes por categoría (Presidencia) -----
+
+   Una categoría no tiene un precio: tiene una lista de precios. Baby Tanner
+   cobra 550 a quien viene toda la semana y 400 a quien viene un día, y las dos
+   cifras son del club. Lo que no puede pasar es que la segunda viva sólo en la
+   cabeza de quien cobra: ahí es donde se descuadra.
+
+   Por eso, abajo de cada categoría, salen los montos que ya se están cobrando
+   y que no corresponden a ningún plan ni a ninguna beca. Ponerles nombre los
+   convierte en plan y liga de un toque a todos los que ya lo pagan. No les
+   cambia un peso: les pone de dónde sale el peso que ya pagaban. */
+
+let planesPorCategoria=[];
+
 async function abreTarifas(){
   if(!canSetTarifas)return;
   modal('tarifasModal',true);
   message('tarifasMessage');
   $('tarifasList').innerHTML='<p class="cashier-help">Cargando…</p>';
-  try{ tarifas=await rpc('v2_category_fees',{organization_id:org})||[]; }
+  try{
+    const [t,p]=await Promise.all([
+      rpc('v2_category_fees',{organization_id:org}),
+      rpc('v2_category_plans',{organization_id:org})
+    ]);
+    tarifas=t||[]; planesPorCategoria=p||[];
+  }
   catch(e){ $('tarifasList').innerHTML=''; message('tarifasMessage',friendlyMontos(e)); return; }
   pintaTarifas();
+}
+
+function planesDe(categoryId){
+  return planesPorCategoria.find(x=>String(x.categoryId)===String(categoryId))
+      ||{plans:[],unnamedAmounts:[]};
 }
 
 function pintaTarifas(){
   $('tarifasList').innerHTML=tarifas.map(c=>{
     const sug=c.suggested==null?null:Number(c.suggested);
+    const pc=planesDe(c.categoryId);
+    const planes=(pc.plans||[]).map(p=>
+      `<span class="plan-chip">${esc(p.name||'Plan')} · ${money.format(Number(p.monthlyFee||0))} · ${Number(p.players||0)}</span>`).join('');
+    const sueltos=(pc.unnamedAmounts||[]).map(u=>{
+      const n=Number(u.players||0);
+      return `<div class="plan-suelto" id="suelto-${esc(c.categoryId)}-${Number(u.monthlyFee)}">
+        <span><b>${money.format(Number(u.monthlyFee||0))}</b> · ${n} Tanner${n===1?'':'s'} sin plan ni beca</span>
+        <button type="button" class="sug" data-nombrar="${esc(c.categoryId)}" data-monto="${Number(u.monthlyFee)}">Nombrar como plan</button>
+      </div>`;
+    }).join('');
     return `<div class="tarifa-row">
       <div><strong>${esc(c.name||c.code||'Categoría')}</strong>
         <small>${Number(c.activePlayers||0)} activos · ${Number(c.feeSpread||0)} cuota${Number(c.feeSpread||0)===1?'':'s'} distinta${Number(c.feeSpread||0)===1?'':'s'} hoy</small>
@@ -644,12 +768,50 @@ function pintaTarifas(){
       </div>
       <div><input type="number" min="0" step="10" id="tarifa-${esc(c.categoryId)}" value="${c.monthlyFee==null?'':Number(c.monthlyFee)}" placeholder="—">
         <button type="button" data-guardar="${esc(c.categoryId)}">Guardar</button></div>
+      ${planes||sueltos?`<div class="plan-zona">${planes?`<div class="plan-chips">${planes}</div>`:''}${sueltos}</div>`:''}
     </div>`;
   }).join('');
   $('tarifasList').querySelectorAll('[data-sug]').forEach(b=>b.addEventListener('click',()=>{
     const input=$(`tarifa-${b.dataset.sug}`); if(input)input.value=b.dataset.valor;
   }));
   $('tarifasList').querySelectorAll('[data-guardar]').forEach(b=>b.addEventListener('click',()=>guardaTarifa(b.dataset.guardar,b)));
+  $('tarifasList').querySelectorAll('[data-nombrar]').forEach(b=>b.addEventListener('click',()=>
+    pideNombreDePlan(b.dataset.nombrar,Number(b.dataset.monto))));
+}
+
+// El nombre se pide en el mismo renglón, no en otro modal encima del modal.
+function pideNombreDePlan(categoryId,monto){
+  const caja=$(`suelto-${categoryId}-${monto}`);if(!caja)return;
+  caja.classList.add('editando');
+  caja.innerHTML=`<span><b>${money.format(monto)}</b> · ¿cómo le dice el club?</span>
+    <input type="text" id="plannombre-${esc(categoryId)}-${monto}" maxlength="40" placeholder="Ej. Un día, Fin de semana, Medio tiempo">
+    <button type="button" data-crear="${esc(categoryId)}" data-monto="${monto}">Crear plan</button>`;
+  caja.querySelector('[data-crear]').addEventListener('click',b=>creaPlan(categoryId,monto,b.currentTarget));
+  const input=caja.querySelector('input');
+  input?.focus();
+  input?.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();caja.querySelector('[data-crear]')?.click();} });
+}
+
+async function creaPlan(categoryId,monto,btn){
+  message('tarifasMessage');
+  const nombre=String($(`plannombre-${categoryId}-${monto}`)?.value||'').trim();
+  if(!nombre){ message('tarifasMessage','El plan necesita un nombre para que sirva de algo.'); return; }
+  btn.disabled=true;const antes=btn.textContent;btn.textContent='…';
+  try{
+    const r=await rpc('v2_create_category_plan',{organization_id:org,category_id:categoryId,
+      name:nombre,monthly_fee:monto,assign_matching:true});
+    const n=Number(r?.assigned||0);
+    const [t,p]=await Promise.all([
+      rpc('v2_category_fees',{organization_id:org}),
+      rpc('v2_category_plans',{organization_id:org})
+    ]);
+    tarifas=t||[]; planesPorCategoria=p||[];
+    pintaTarifas();
+    message('tarifasMessage',
+      `Listo: "${nombre}" queda como plan del club. ${n} Tanner${n===1?'':'es'} ${n===1?'quedó ligado':'quedaron ligados'} y ya no ${n===1?'aparece':'aparecen'} como beca. No se les cambió el monto.`,
+      'success');
+    cargaMontos();
+  }catch(e){ message('tarifasMessage',friendlyMontos(e)); btn.disabled=false; btn.textContent=antes; }
 }
 
 async function guardaTarifa(categoryId,btn){
@@ -671,8 +833,7 @@ async function guardaTarifa(categoryId,btn){
   finally{ btn.disabled=false;btn.textContent=antes; }
 }
 
-$('openMontos')?.addEventListener('click',abreMontos);
-$('closeMontos')?.addEventListener('click',cierraMontos);
+$('closeMontos')?.addEventListener('click',()=>mostrarVista(null,true));
 $('montosTarifas')?.addEventListener('click',abreTarifas);
 $('montosPeriod')?.addEventListener('change',cargaMontos);
 $('montosCategory')?.addEventListener('change',pintaMontos);
@@ -691,7 +852,6 @@ $('montosChips')?.querySelectorAll('[data-montos-filter]').forEach(b=>b.addEvent
   $('montosChips').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
   pintaMontos();
 }));
-$('openMontos')?.classList.toggle('hidden',!canViewMontos);
 
 /* ----- Reporte de montos de cobro en PDF -----
    Sale de las MISMAS filas que se están viendo, ya filtradas. Si el papel
@@ -812,31 +972,12 @@ async function cargaConcilia(silencioso){
   if(!$('conciliaPanel').classList.contains('hidden'))pintaConcilia();
 }
 
+// El contador de pendientes ya no vive en una barra propia: viaja como globo
+// en la pestaña "Por conciliar". Presidencia y Contabilidad siempre la tienen;
+// Taquilla sólo cuando hay una aclaración que responder, porque si no es ruido
+// en la pantalla de quien únicamente cobra.
 function pintaBarraConcilia(){
-  const bar=$('openConcilia');if(!bar)return;
-  const r=conciliaData?.summary||{};
-  const esperando=pendientesReales(r);
-  // Presidencia y Contabilidad siempre ven la barra. Taquilla sólo cuando
-  // tiene una aclaración que responder: si no, es ruido en su pantalla.
-  const mostrar=conciliaData?.seesEverything||esperando>0;
-  bar.classList.toggle('hidden',!mostrar);
-  $('conciliaBadge').textContent=esperando;
-  $('conciliaBadge').classList.toggle('hidden',!esperando);
-  $('conciliaBarSub').textContent=esperando
-    ? `${Number(r.pending||0)} por conciliar · ${Number(r.clarification||0)} con aclaración`
-    : 'Todo revisado';
-}
-
-function abreConcilia(){
-  $('conciliaPanel').classList.remove('hidden');
-  $('montosPanel')?.classList.add('hidden');
-  $('collectionsPanel')?.classList.add('hidden');
-  $('conciliaPanel').scrollIntoView({behavior:'smooth',block:'start'});
-  if(!conciliaData)cargaConcilia();else pintaConcilia();
-}
-function cierraConcilia(){
-  $('conciliaPanel').classList.add('hidden');
-  if(canViewCollections)$('collectionsPanel')?.classList.remove('hidden');
+  if(vistasListas)pintaVerTabs();
 }
 
 function pintaConcilia(){
@@ -969,8 +1110,7 @@ async function confirmaAccion(){
 }
 
 $('collectApproveWrap')?.classList.toggle('hidden',ctx.role!=='Presidencia');
-$('openConcilia')?.addEventListener('click',abreConcilia);
-$('closeConcilia')?.addEventListener('click',cierraConcilia);
+$('closeConcilia')?.addEventListener('click',()=>mostrarVista(null,true));
 $('conciliaConfirm')?.addEventListener('click',confirmaAccion);
 $('conciliaSearch')?.addEventListener('input',e=>{
   conciliaQuery=e.target.value;
@@ -990,3 +1130,68 @@ $('conciliaChips')?.querySelectorAll('[data-concilia-filter]').forEach(b=>b.addE
 // Se carga al abrir la pantalla para poder mostrar el badge sin que nadie
 // tenga que entrar a buscarlo.
 if(canSeeConcilia)cargaConcilia(true);
+
+/* ===== Ver: una sola cosa en pantalla a la vez =====
+
+   Esta pantalla tenía cinco puertas: COBRAR, PAGAR, CUÁNTO COBRAR, la barra de
+   conciliación y el panel de Cobranza, todas encendidas al mismo tiempo. Era
+   el trabajo de dos personas distintas apilado en la misma vista: quien cobra
+   en la ventanilla y quien revisa después lo cobrado.
+
+   Quedan dos acciones —entra dinero, sale dinero— y este selector para lo que
+   se consulta. Nada se movió de módulo ni de archivo: los paneles son los
+   mismos, sólo dejaron de estar todos abiertos a la vez. */
+
+const VISTAS=[
+  { clave:'cobranza', etiqueta:'Cobranza',      panel:'collectionsPanel', puede:()=>canViewCollections },
+  { clave:'montos',   etiqueta:'Montos',        panel:'montosPanel',      puede:()=>canViewMontos },
+  { clave:'caja',     etiqueta:'Caja del día',  panel:'vistaCaja',        puede:()=>canViewLedger },
+  { clave:'concilia', etiqueta:'Por conciliar', panel:'conciliaPanel',
+    puede:()=>canSeeConcilia&&(Boolean(conciliaData?.seesEverything)||pendientesDeConcilia()>0) }
+];
+
+function pendientesDeConcilia(){
+  try{ return pendientesReales(conciliaData?.summary||{}); }catch(e){ return 0; }
+}
+function vistasDisponibles(){
+  return VISTAS.filter(v=>{ try{ return Boolean(v.puede()); }catch(e){ return false; } });
+}
+
+function mostrarVista(clave,desplazar){
+  const lista=vistasDisponibles();
+  const elegida=lista.find(v=>v.clave===clave)||lista[0]||null;
+  vistaActual=elegida?elegida.clave:null;
+  // Se recorren TODAS las vistas, no sólo las disponibles: una vista que deja
+  // de estar permitida tiene que apagarse, no quedarse encendida de la vez
+  // pasada.
+  for(const v of VISTAS)$(v.panel)?.classList.toggle('hidden',v.clave!==vistaActual);
+  pintaVerTabs();
+  if(vistaActual==='montos')preparaMontos();
+  if(vistaActual==='concilia'){ if(!conciliaData)cargaConcilia(); else pintaConcilia(); }
+  if(desplazar&&elegida)$(elegida.panel)?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function pintaVerTabs(){
+  const nav=$('verTabs');if(!nav)return;
+  const lista=vistasDisponibles();
+  if(!lista.some(v=>v.clave===vistaActual))vistaActual=lista[0]?.clave||null;
+  // Con una sola vista no hay nada que elegir: el selector sobra y estorba.
+  nav.classList.toggle('hidden',lista.length<2);
+  nav.innerHTML=lista.map(v=>{
+    const pend=v.clave==='concilia'?pendientesDeConcilia():0;
+    const activa=v.clave===vistaActual;
+    return `<button type="button" role="tab" aria-selected="${activa}" class="${activa?'active':''}" data-vista="${esc(v.clave)}">${esc(v.etiqueta)}${pend?`<span class="ver-badge">${pend}</span>`:''}</button>`;
+  }).join('');
+  nav.querySelectorAll('[data-vista]').forEach(b=>b.addEventListener('click',()=>mostrarVista(b.dataset.vista,true)));
+}
+
+// El padrón se trae al arrancar, no al abrir la vista: COBRAR lo necesita para
+// decir de dónde sale el monto en cuanto se elige al Tanner, y esperar a una
+// consulta en ese momento sería justo el segundo en que la ventanilla tiene al
+// papá enfrente.
+if(canViewMontos)cargaMontos();
+
+vistasListas=true;
+// ?ver=montos entra directo a esa vista. Sirve para que otros módulos enlacen
+// al padrón sin obligar a nadie a buscarlo, y para las pruebas de humo.
+mostrarVista(_params.get('ver'));

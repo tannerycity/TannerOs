@@ -267,7 +267,7 @@ if (!flujo.includes("find scripts -maxdepth 1 -name 'qa-*.mjs'"))
 if (!flujo.includes('qa-suites-excluidas.txt'))
   errors.push('Suites: el workflow ya no lee la lista de exclusiones');
 
-const MAX_EXCLUIDAS = 4;
+const MAX_EXCLUIDAS = 8;  // sube por los humos de navegador (asistencia, familias, montos, conciliacion): necesitan Chromium
 if (excluidas.length > MAX_EXCLUIDAS)
   errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
     + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

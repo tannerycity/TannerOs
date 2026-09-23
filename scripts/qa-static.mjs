@@ -272,5 +272,40 @@ if (excluidas.length > MAX_EXCLUIDAS)
   errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
     + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');
 
+
+// === Los parametros del cobro y del pago no se pierden en un merge ===
+//
+// Dos ramas distintas le agregaron campos a la misma llamada: una quien
+// cobro, la otra el monto esperado y las observaciones. Al resolver el
+// conflicto es facilisimo quedarse con un solo lado, y el resultado no
+// falla: simplemente deja de guardarse lo del lado que se perdio, en
+// silencio, para siempre. Esto lo caza.
+//
+// La funcion en la base acepta los 13 parametros; si aqui se manda uno
+// menos, ese dato ya no existe.
+const llamadasVigiladas = [
+  { archivo: 'v2/taquilla/app.js', rpc: 'v2_post_payment',
+    exigidos: ['collected_by_name', 'expected_amount', 'observations', 'idempotency_key'] },
+  { archivo: 'v2/taquilla/app.js', rpc: 'v2_post_expense',
+    exigidos: ['supplier_name', 'paid_by_name', 'idempotency_key'] },
+  { archivo: 'v2/contabilidad/app.js', rpc: 'v2_post_expense',
+    exigidos: ['supplier_name', 'idempotency_key'] }
+];
+for (const v of llamadasVigiladas) {
+  if (!fs.existsSync(v.archivo)) { errors.push(`Cobro: falta ${v.archivo}`); continue; }
+  const src = fs.readFileSync(v.archivo, 'utf8');
+  const marca = `rpc('${v.rpc}'`;
+  const desde = src.indexOf(marca);
+  if (desde < 0) { errors.push(`Cobro: ${v.archivo} ya no llama a ${v.rpc}`); continue; }
+  // Se mira SOLO dentro de esa llamada: contar en todo el archivo dejaria
+  // que otra llamada tape la que se rompio.
+  const hasta = src.indexOf('});', desde);
+  const trozo = src.slice(desde, hasta < 0 ? desde + 1200 : hasta);
+  for (const param of v.exigidos) {
+    if (!trozo.includes(`${param}:`))
+      errors.push(`Cobro: la llamada a ${v.rpc} en ${v.archivo} ya no manda ${param}`);
+  }
+}
+
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

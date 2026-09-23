@@ -66,12 +66,59 @@ function renderMethods(){
   $('methodsEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(r=>{const tr=document.createElement('tr');const net=Number(r.net||0);tr.innerHTML=`<td>${esc(r.method)}</td><td class="money-in">${money.format(Number(r.income||0))}</td><td class="money-out">${Number(r.expense||0)?money.format(Number(r.expense||0)):'—'}</td><td class="${net<0?'money-out':''}">${money.format(net)}</td>`;body.appendChild(tr);});
 }
+// Quién del club hizo el movimiento.
+//
+// Se guarda en el propio dispositivo y se vuelve a proponer la siguiente vez.
+// Eso es lo que hace que preguntarlo no estorbe: en el iPad de la banca, quien
+// cobra escribe su nombre una vez en la tarde y ya no lo teclea más.
+//
+// localStorage y no sessionStorage a propósito: aquí sólo vive el nombre de
+// quien usa el aparato, no datos de familias, y el chiste es justo que
+// sobreviva a cerrar la pestaña.
+const RECUERDA_QUIEN='tos:taquilla:quien';
+function quienDelClub(id){
+  const v=($(id)?.value||'').trim();
+  if(v){try{localStorage.setItem(RECUERDA_QUIEN,v);}catch(e){/* modo privado */}}
+  return v||null;
+}
+function recuerdaQuien(){
+  let guardado='';
+  try{guardado=localStorage.getItem(RECUERDA_QUIEN)||'';}catch(e){/* modo privado */}
+  if(!guardado)return;
+  ['collectCollectedBy','expensePaidBy'].forEach(id=>{const el=$(id);if(el&&!el.value)el.value=guardado;});
+}
+// Sugerencias: los nombres que ya se usaron, sacados de los movimientos que la
+// pantalla ya cargó. No cuesta una consulta extra.
+function llenaSugerencias(){
+  const lista=$('staffSugerencias');if(!lista)return;
+  const vistos=[...new Set((snapshot?.movements||[])
+    .filter(m=>m.registeredBy&&!m.registeredByIsAccount)
+    .map(m=>m.registeredBy))].sort();
+  lista.innerHTML=vistos.map(n=>`<option value="${esc(n)}"></option>`).join('');
+}
 function renderMovements(){
   const status=$('movementStatus').value,rows=(snapshot?.movements||[]).filter(m=>status==='all'||m.status===status),body=$('movementRows');body.innerHTML='';
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const ebtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="edit-move" data-edit="'+esc(m.id)+'">Editar</button>'):'';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';
     const payerDiffers=m.playerName&&m.who&&m.who!=='—'&&m.who!==m.playerName;
-    const whoCell=m.playerName?`<div class="movement-who"><strong>${esc(m.playerName)}</strong>${payerDiffers?`<span class="movement-payer">Pagó: ${esc(m.who)}</span>`:''}</div>`:esc(m.who||'—');
+    // Quién del club entregó el pago. Es un dato distinto de "a quién se le
+    // pagó": en un egreso, m.who es el profe que cobró y esto es quien le
+    // entregó el dinero.
+    //
+    // Sale vacío mientras la base no devuelva el campo, y en los movimientos
+    // importados del sistema anterior, que nunca pasaron por TannerOS. En ese
+    // caso se dice de dónde vinieron en vez de dejar el hueco sin explicar.
+    const importado=/^legacy/i.test(String(m.source||''));
+    // Un nombre escrito a mano dice quién fue. Una cuenta compartida —el iPad,
+    // Presidencia— no: poner "Cobró: iPad" sería fingir que se sabe.
+    const registro=m.registeredBy
+      ?(m.registeredByIsAccount
+        ?`<span class="movement-registro is-cuenta">Desde ${esc(m.registeredBy)} · sin nombre</span>`
+        :`<span class="movement-registro">${income?'Cobró':'Pagó'}: ${esc(m.registeredBy)}</span>`)
+      :(importado?'<span class="movement-registro is-legacy">Del sistema anterior</span>':'');
+    const whoCell=m.playerName
+      ?`<div class="movement-who"><strong>${esc(m.playerName)}</strong>${payerDiffers?`<span class="movement-payer">Pagó: ${esc(m.who)}</span>`:''}${registro}</div>`
+      :`<div class="movement-who"><strong>${esc(m.who||'—')}</strong>${registro}</div>`;
     tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${whoCell}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${ebtn}${vbtn}</td>`;body.appendChild(tr);});
 }
 function applyLedgerVisibility(){
@@ -179,7 +226,7 @@ function render(){
   $('expenseDay').textContent=money.format(_exp);$('expenseDay').className='sem-neutral';
   $('netDay').textContent=money.format(_net);$('netDay').className=_net>=0?'sem-ok':(_net>-1000?'sem-warn':'sem-alert');
   $('expectedCash').textContent=money.format(Number(snapshot?.expectedCash||0));renderReconcile();
-  renderMethods();renderMovements();renderCategoryLists();
+  renderMethods();renderMovements();renderCategoryLists();llenaSugerencias();recuerdaQuien();
   const hasMovement=Number(snapshot?.incomeTotal||0)||Number(snapshot?.expenseTotal||0);setShellHealth(hasMovement?{state:'ok',label:'Caja actualizada'}:{state:'ok',label:'Sin movimientos hoy'});
 }
 function renderReconcile(){
@@ -242,7 +289,7 @@ async function postCollect(){
       const esperadoCrudo=$('collectExpected')?.value.trim()||'';
       const esperado=esperadoCrudo===''?null:Number(esperadoCrudo);
       if(esperado!==null&&(!Number.isFinite(esperado)||esperado<0))throw new Error('El monto esperado no puede ser negativo.');
-      const idPago=await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,idempotency_key:key('cashier-payment'),expected_amount:esperado,observations:$('collectObservations')?.value.trim()||null});
+      const idPago=await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,collected_by_name:quienDelClub('collectCollectedBy'),idempotency_key:key('cashier-payment'),expected_amount:esperado,observations:$('collectObservations')?.value.trim()||null});
       // Presidencia puede registrar y aprobar en un paso. Se hace como dos
       // llamadas a proposito: asi el historial guarda el paso por pendiente y
       // queda escrito quien aprobo, en vez de que el pago aparezca aprobado
@@ -269,7 +316,7 @@ async function postExpense(){
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
     const okDbl=await confirmDoubleCheck({title:'Confirma el pago',message:`Vas a registrar un pago de ${money.format(amount)} a ${who||concept} · ${category} · ${methodLabel($('expenseMethod').value)}. ¿Es correcto?`,confirmText:'Sí, pagar'});
     if(!okDbl){btn.disabled=false;return;}
-    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},supplier_name:who||null,idempotency_key:key('cashier-expense')});
+    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},supplier_name:who||null,paid_by_name:quienDelClub('expensePaidBy'),idempotency_key:key('cashier-expense')});
     closeModals();await load();
   }catch(e){message('expenseMessage',e.message||'No se pudo registrar el egreso.');}finally{btn.disabled=false;}
 }

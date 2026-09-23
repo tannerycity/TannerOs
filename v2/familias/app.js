@@ -1,5 +1,8 @@
 import {supabase,rpc,money,$} from '/v2/shell.js';
 import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
+// El mismo criterio que usa el staff, para que un papa y Presidencia nunca
+// vean dos porcentajes distintos del mismo Tanner.
+import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.js';
 
 // Portal de familias. No usa el shell del staff a propósito: un tutor no tiene
 // módulos que navegar, y mezclar ambas superficies es como se filtran datos.
@@ -415,15 +418,22 @@ async function renderProgreso(){
       <div class="fam-stat"><b>${Number(a.absent||0)}</b><span>FALTAS</span></div>
     </div>
   </section>`;
-  const recientes=(d.recent||[]).map(r=>
-    `<div class="fam-mov"><span><strong>${esc(r.title||'Entrenamiento')}</strong><span>${esc(fmtDate(r.date))}</span></span><b style="color:${r.status==='present'?'var(--fam-ok)':'var(--fam-danger)'}">${r.status==='present'?'Asistió':'Faltó'}</b></div>`).join('');
+  // Antes decia solo "Asistió" o "Faltó": un retardo salia como falta y una
+  // justificada tambien, sin decir que estaba justificada. El estado real de
+  // la base tiene cuatro valores y la familia merece verlos.
+  const recientes=(d.recent||[]).map(r=>{
+    const et=etiquetaDeEstado(r.status);
+    const tono=et.nivel==='ok'?'var(--fam-ok)':(et.nivel==='bajo'?'var(--fam-danger)':'var(--fam-warn, #8a6410)');
+    return `<div class="fam-mov"><span><strong>${esc(r.title||'Entrenamiento')}</strong><span>${esc(fmtDate(r.date))}</span></span><b style="color:${tono}">${esc(et.texto)}</b></div>`;
+  }).join('');
   const listaAsistencia=recientes
     ? `<section class="fam-card"><div class="fam-card-head"><h2>Últimos entrenamientos</h2><span>${(d.recent||[]).length}</span></div>${recientes}</section>`
     : `<section class="fam-card"><div class="fam-card-head"><h2>Últimos entrenamientos</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Todavía no hay listas tomadas para tu Tanner.</p></section>`;
   const evs=d.evaluations||[];
   const valoraciones=evs.length?evs.map(evaluacionBlock).join('')
     : `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Sus profes todavía no capturan una valoración. Aquí la vas a ver en cuanto la hagan.</p></section>`;
-  $('famBody').innerHTML=hero+valoraciones+listaAsistencia;
+  $('famBody').innerHTML=hero+tarjetaDelMes(p)+valoraciones+listaAsistencia;
+  cargarMesDeAsistencia(p);
   // La foto llega firmada aparte, igual que en Cuenta.
   if(!p._photo&&p.photo_thumb_path){
     const url=await signPhoto(p);
@@ -644,3 +654,97 @@ document.querySelectorAll('.fam-nav-item').forEach(b=>b.addEventListener('click'
   state.tab=b.dataset.tab;paint();
 }));
 await boot();
+
+
+/* ---------- Asistencia del mes ----------
+   v2_portal_progress ya daba un acumulado de por vida. Esto es la ventana del
+   mes, que es lo que un papá pregunta de verdad: "¿cómo va este mes?".
+   El RPC resuelve al tutor por auth.uid(); esta página nunca manda un id que
+   no sea de sus propios hijos, y aunque lo mandara el backend lo rechaza. */
+let mesAsistencia=0; // 0 = este mes, 1 = el pasado, 2 = el anterior
+
+function tarjetaDelMes(p){
+  return `<section class="fam-card" id="famMesCard">
+    <div class="fam-card-head"><h2>Asistencia del mes</h2>
+      <span id="famMesNav" class="fam-mes-nav">
+        <button type="button" data-mes="prev" aria-label="Mes anterior">‹</button>
+        <b id="famMesLabel">…</b>
+        <button type="button" data-mes="next" aria-label="Mes siguiente">›</button>
+      </span></div>
+    <div id="famMesBody"><p class="fam-muted" style="margin:0;font-size:12.5px">Cargando…</p></div>
+  </section>`;
+}
+
+function etiquetaMes(desfase){
+  const d=new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth()-desfase);
+  const t=new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(d);
+  return t.charAt(0).toUpperCase()+t.slice(1);
+}
+
+function rangoDelMes(desfase){
+  const hoy=new Date();
+  const ini=new Date(hoy.getFullYear(),hoy.getMonth()-desfase,1);
+  const fin=new Date(hoy.getFullYear(),hoy.getMonth()-desfase+1,0);
+  const iso=f=>`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`;
+  return {desde:iso(ini),hasta:iso(fin)};
+}
+
+async function cargarMesDeAsistencia(p){
+  const label=$('famMesLabel'),body=$('famMesBody');
+  if(!label||!body)return;
+  label.textContent=etiquetaMes(mesAsistencia);
+  $('famMesNav')?.querySelectorAll('[data-mes]').forEach(b=>{
+    b.onclick=()=>{
+      const siguiente=b.dataset.mes==='prev'?mesAsistencia+1:mesAsistencia-1;
+      // Hasta 11 meses atrás y nunca al futuro.
+      if(siguiente<0||siguiente>11)return;
+      mesAsistencia=siguiente;
+      cargarMesDeAsistencia(p);
+    };
+  });
+  const r=rangoDelMes(mesAsistencia);
+  body.innerHTML='<p class="fam-muted" style="margin:0;font-size:12.5px">Cargando…</p>';
+  let d;
+  try{ d=await rpc('v2_portal_attendance',{player_id:p.id,from_date:r.desde,to_date:r.hasta}); }
+  catch(error){ body.innerHTML=`<p class="fam-muted" style="margin:0;font-size:12.5px">${esc(friendly(error))}</p>`; return; }
+
+  const meta=Number(d?.goal||80);
+  const est=estadoDeAsistencia(d?.pct,meta);
+  const conRegistro=Number(d?.recorded||0);
+
+  if(!conRegistro){
+    body.innerHTML=`<p class="fam-muted" style="margin:0;font-size:12.5px">Todavía no hay listas tomadas en ${esc(etiquetaMes(mesAsistencia).toLowerCase())}.</p>`;
+    return;
+  }
+
+  // El aviso de asistencia baja va en tono de apoyo, no de regaño: el club
+  // quiere que el Tanner vuelva, no que la familia se sienta señalada.
+  const aviso=d?.belowGoal
+    ? `<div class="fam-aviso"><b>Va por debajo del ${meta}% que buscamos.</b>
+       Si algo está complicando que venga a entrenar, escríbenos: casi siempre se puede acomodar.</div>`
+    : '';
+
+  const justificadas=Number(d?.excused||0);
+  const retardos=Number(d?.late||0);
+
+  const historial=(d?.history||[]).map(h=>{
+    const et=etiquetaDeEstado(h.status);
+    const tono=et.nivel==='ok'?'var(--fam-ok)':(et.nivel==='bajo'?'var(--fam-danger)':'var(--fam-warn, #8a6410)');
+    return `<div class="fam-mov"><span><strong>${esc(fmtDate(h.date))}</strong><span>${esc(h.title||'Entrenamiento')}</span></span><b style="color:${tono}">${esc(et.texto)}</b></div>`;
+  }).join('');
+
+  body.innerHTML=`
+    <div class="fam-stats" style="width:100%">
+      <div class="fam-stat" data-tone="${est.nivel==='ok'?'ok':(est.nivel==='bajo'?'bad':'warn')}">
+        <b>${d?.pct==null?'—':`${d.pct}%`}</b><span>ASISTENCIA</span></div>
+      <div class="fam-stat"><b>${Number(d?.attended||0)}</b><span>ASISTIÓ</span></div>
+      <div class="fam-stat"><b>${Number(d?.absences||0)}</b><span>FALTAS</span></div>
+    </div>
+    <p class="fam-muted" style="margin:10px 0 0;font-size:12px">
+      ${esc(est.etiqueta)} · objetivo ${meta}% · sobre ${conRegistro} entrenamiento${conRegistro===1?'':'s'} con lista tomada${justificadas?` · ${justificadas} falta${justificadas===1?'':'s'} justificada${justificadas===1?'':'s'}`:''}${retardos?` · ${retardos} retardo${retardos===1?'':'s'}`:''}
+    </p>
+    ${aviso}
+    ${historial?`<div style="margin-top:12px">${historial}</div>`:''}`;
+}

@@ -1,5 +1,12 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,supabase} from '/v2/shell.js';
 import {getSignedPhotoUrls} from '/v2/photo-cache.js';
+import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
+        tiposDeBeneficio,filtra,totales,beneficiosSoloEtiqueta,
+        COLUMNAS_REPORTE,filaDeReporte,resumenDeReporte,textoDeFiltros,
+        nombreDeArchivo} from '/v2/taquilla/montos.js';
+import {estadoDe,validacionDe,accionesPara,requiereMotivo,diferenciaDe,
+        filtra as filtraConcilia,lineaDeHistorial,pendientesReales}
+  from '/v2/taquilla/conciliacion.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
@@ -24,7 +31,10 @@ const safe=(p,fallback=null)=>p.catch(e=>{console.warn('cobranza widget',e);retu
 
 function message(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
 function modal(id,open){$('modalBackdrop').classList.toggle('hidden',!open);$(id).classList.toggle('hidden',!open);document.body.classList.toggle('cashier-modal-open',open);}
-function closeModals(){['collectModal','expenseModal'].forEach(id=>$(id).classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.classList.remove('cashier-modal-open');resetCollectForm();resetExpenseForm();}
+// Cierra CUALQUIER modal de esta pantalla. Antes la lista estaba escrita a
+// mano, asi que cada modal nuevo nacia sin poder cerrarse: le pasaba al de
+// tarifas y al de conciliacion.
+function closeModals(){document.querySelectorAll('.cashier-modal').forEach(el=>el.classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.classList.remove('cashier-modal-open');resetCollectForm();resetExpenseForm();}
 function resetCollectForm(){
   $('collectForm').reset();
   $('collectPlayer').value='';$('collectPlayerSearch').value='';
@@ -116,7 +126,11 @@ function applyLedgerVisibility(){
   document.querySelectorAll('.cashier-cash-card:not(#cashTodayCard)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
   // Cobranza no es el libro contable: Taquilla (rol simple, sin ver caja completa)
   // también necesita saber a quién cobrarle, así que no se apaga con el resto.
-  document.querySelectorAll('.cashier-panel:not(#collectionsPanel)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
+  // #montosPanel se excluye a proposito: su visibilidad la manda su propio
+  // boton, y quien mas lo necesita es justo Taquilla, que es quien NO ve el
+  // ledger. Sin esta exclusion, el panel se abriria solo para todos los demas
+  // y quedaria escondido para el unico rol que lo pidio.
+  document.querySelectorAll('.cashier-panel:not(#collectionsPanel):not(#montosPanel)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
   const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
   $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
 }
@@ -270,7 +284,20 @@ async function postCollect(){
       if($('collectPayerType').value==='sponsor'&&!$('collectPayerName').value.trim())throw new Error('Indica el patrocinador.');
       const okDbl=await confirmDoubleCheck({title:'Confirma el cobro',message:`Vas a registrar un cobro de ${money.format(amount)} a ${playerName||'este Tanner'} · ${methodLabel($('collectMethod').value)}. ¿Es correcto?`,confirmText:'Sí, cobrar'});
       if(!okDbl){btn.disabled=false;return;}
-      await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,collected_by_name:quienDelClub('collectCollectedBy'),idempotency_key:key('cashier-payment')});
+      // El monto esperado es lo que permite el indicador de diferencias. Va
+      // opcional: obligarlo frenaria a quien esta cobrando con el papa enfrente.
+      const esperadoCrudo=$('collectExpected')?.value.trim()||'';
+      const esperado=esperadoCrudo===''?null:Number(esperadoCrudo);
+      if(esperado!==null&&(!Number.isFinite(esperado)||esperado<0))throw new Error('El monto esperado no puede ser negativo.');
+      const idPago=await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,collected_by_name:quienDelClub('collectCollectedBy'),idempotency_key:key('cashier-payment'),expected_amount:esperado,observations:$('collectObservations')?.value.trim()||null});
+      // Presidencia puede registrar y aprobar en un paso. Se hace como dos
+      // llamadas a proposito: asi el historial guarda el paso por pendiente y
+      // queda escrito quien aprobo, en vez de que el pago aparezca aprobado
+      // sin que nadie lo haya revisado.
+      if(idPago&&$('collectApprove')?.checked){
+        try{ await rpc('v2_reconcile_payment',{organization_id:org,payment_id:idPago,action:'approve',reason:'Aprobado por Presidencia al registrarlo',reference:null}); }
+        catch(err){ message('collectMessage','El cobro quedó registrado, pero no se pudo aprobar: '+String(err?.message||err)); }
+      }
     }else{
       const amount=Math.round(Number($('generalAmount').value)),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
@@ -279,6 +306,7 @@ async function postCollect(){
       await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
     }
     closeModals();await Promise.all([load(),loadReceivables()]);renderCollections();
+    cargaConcilia(true);
   }catch(e){message('collectMessage',e.message||'No se pudo registrar.');}finally{btn.disabled=false;}
 }
 async function postExpense(){
@@ -299,6 +327,9 @@ $('openCollect').disabled=!canCashWrite;$('openCollect').addEventListener('click
 if(!canPayWrite){$('openExpense').classList.add('disabled');$('openExpense').setAttribute('aria-disabled','true');$('paySubtitle').textContent='Sin permiso para pagar';}
 $('openExpense').addEventListener('click',()=>{if(canPayWrite){resetExpenseForm();modal('expenseModal',true);}});
 $('modalBackdrop').addEventListener('click',closeModals);document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
+// Los modales nuevos usan .close-modal, que en esta pantalla no estaba
+// conectado a nada: la cruz no cerraba.
+document.querySelectorAll('.close-modal').forEach(b=>b.addEventListener('click',closeModals));
 document.querySelectorAll('.cashier-tabs button').forEach(b=>b.addEventListener('click',()=>setCollectMode(b.dataset.mode)));
 
 $('collectForm').addEventListener('submit',e=>{e.preventDefault();postCollect();});$('expenseForm').addEventListener('submit',e=>{e.preventDefault();postExpense();});
@@ -441,3 +472,521 @@ document.addEventListener('click',e=>{
 });
 $('editSave')?.addEventListener('click',saveEditMove);
 tannerSearchInit('editPlayerBox','editPlayerSearch','editPlayer','editPlayerResults','editPlayerClear');
+
+
+/* ===== Montos de cobro =====
+   Quien está en la ventanilla con el papá enfrente necesita una sola cosa:
+   cuánto le cobro. El criterio de lectura vive en montos.js, que sí se puede
+   probar sin navegador; aquí sólo se pinta y se filtra. */
+
+const canViewMontos=moduleAccess(navigation,'taquilla',false)
+  ||moduleAccess(navigation,'cobranza',false)
+  ||moduleAccess(navigation,'contabilidad',false);
+// Sólo Presidencia y Contabilidad exportan el reporte y fijan las tarifas.
+const canExportMontos=ctx.role==='Presidencia'||moduleAccess(navigation,'contabilidad',false);
+const canSetTarifas=ctx.role==='Presidencia';
+
+let montosData=null,montosFiltro='all',montosQuery='',tarifas=[];
+
+const mesActual=()=>new Date().toISOString().slice(0,7);
+const periodoDeMes=m=>`${m||mesActual()}-01`;
+
+function abreMontos(){
+  $('montosPanel').classList.remove('hidden');
+  $('collectionsPanel')?.classList.add('hidden');
+  if(!$('montosPeriod').value)$('montosPeriod').value=mesActual();
+  $('montosTarifas').classList.toggle('hidden',!canSetTarifas);
+  $('montosPdf').classList.toggle('hidden',!canExportMontos);
+  $('montosPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  cargaMontos();
+}
+function cierraMontos(){
+  $('montosPanel').classList.add('hidden');
+  if(canViewCollections)$('collectionsPanel')?.classList.remove('hidden');
+}
+
+async function cargaMontos(){
+  message('montosMessage');
+  $('montosList').innerHTML='<p class="cashier-help">Calculando…</p>';
+  try{
+    montosData=await rpc('v2_collection_amounts',{organization_id:org,billing_period:periodoDeMes($('montosPeriod').value)});
+  }catch(e){
+    $('montosList').innerHTML='';
+    message('montosMessage',friendlyMontos(e));
+    return;
+  }
+  llenaSelectoresMontos();
+  pintaMontos();
+}
+
+function friendlyMontos(e){
+  const t=String(e?.message||e||'');
+  if(/Not authorized/i.test(t))return 'Tu rol no tiene acceso a los montos de cobro.';
+  return t||'No pudimos cargar los montos.';
+}
+
+function llenaSelectoresMontos(){
+  const filas=montosData?.rows||[];
+  const cat=$('montosCategory'),tipo=$('montosType');
+  const catSel=cat.value,tipoSel=tipo.value;
+  const cats=new Map();
+  filas.forEach(f=>{if(f.categoryId&&!cats.has(f.categoryId))cats.set(f.categoryId,f.categoryName||'Categoría');});
+  cat.innerHTML='<option value="">Todas las categorías</option>'+
+    [...cats].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'es'))
+      .map(([id,n])=>`<option value="${esc(id)}">${esc(n)}</option>`).join('');
+  cat.value=catSel;
+  tipo.innerHTML='<option value="">Todos los beneficios</option>'+
+    tiposDeBeneficio(filas).map(t=>`<option value="${esc(t.valor)}">${esc(t.etiqueta)}</option>`).join('');
+  tipo.value=tipoSel;
+}
+
+function filtrosActuales(){
+  return {
+    texto:montosQuery,
+    categoria:$('montosCategory')?.value||'',
+    tipo:$('montosType')?.value||'',
+    soloConBeneficio:montosFiltro==='benefit',
+    soloConSaldo:montosFiltro==='debt',
+    soloPorVencer:montosFiltro==='expiring'
+  };
+}
+
+function pintaMontos(){
+  const todas=montosData?.rows||[];
+  const filas=filtra(todas,filtrosActuales());
+  const t=totales(filas);
+  const resumen=montosData?.summary||{};
+
+  $('montosSub').textContent=`Periodo ${montosData?.billingPeriod||'—'} · la fuente es la misma que ya cobra el club.`;
+
+  $('montosKpis').innerHTML=`
+    <article><span>Tanners</span><strong>${t.tanners}</strong><small>de ${todas.length} en el padrón</small></article>
+    <article><span>Por cobrar del mes</span><strong>${money.format(t.aCobrar)}</strong><small>mensualidad y recargos abiertos</small></article>
+    <article><span>Adeudo total</span><strong>${money.format(t.adeudo)}</strong><small>incluye meses anteriores</small></article>
+    <article><span>Con beneficio</span><strong>${t.conBeneficio}</strong><small>${t.porVencer} por vencer · ${t.vencidos} vencido${t.vencidos===1?'':'s'}</small></article>`;
+
+  // El aviso más importante de la pantalla: sin tarifa de categoría no se
+  // puede mostrar la resta, y hay que decirlo en vez de inventar el ordinario.
+  const sinTarifa=Number(resumen.categoriesWithoutFee||0);
+  const aviso=$('montosAviso');
+  if(sinTarifa){
+    aviso.classList.remove('hidden');
+    aviso.innerHTML=`<b>${sinTarifa} categoría${sinTarifa===1?'':'s'} sin mensualidad ordinaria capturada.</b>
+      Mientras falte, se muestra el monto final a cobrar pero no el desglose
+      «ordinario − beneficio». El club nunca guardó ese número: el descuento venía
+      metido a mano dentro de la cuota de cada Tanner.
+      ${canSetTarifas?'<button type="button" id="avisoTarifas">Capturar tarifas</button>':''}`;
+    $('avisoTarifas')?.addEventListener('click',abreTarifas);
+  }else{
+    aviso.classList.add('hidden');aviso.innerHTML='';
+  }
+
+  $('montosList').innerHTML=filas.map(tarjetaMonto).join('');
+  $('montosEmpty').classList.toggle('hidden',filas.length>0);
+}
+
+function tarjetaMonto(f){
+  const d=desglose(f);
+  const v=estadoVigencia(f);
+  const cobrar=aCobrarHoy(f);
+  const soloEtiqueta=beneficiosSoloEtiqueta(f);
+
+  const lineaDesglose=d.completo
+    ? `<div class="monto-desglose${d.inconsistente?' rara':''}">
+         <b>${money.format(d.ordinaria)}</b> ordinaria −
+         <b>${money.format(d.beneficio)}</b> beneficio =
+         <b>${money.format(d.final)}</b> mensualidad
+         ${d.inconsistente?'<br>Paga más que la tarifa de su categoría. Revisar el dato.':''}
+       </div>`
+    : `<div class="monto-desglose parcial">Mensualidad: <b>${money.format(d.final)}</b>. ${esc(d.motivo)}</div>`;
+
+  const nota=f.collectionNote?`<div class="monto-nota">${esc(f.collectionNote)}</div>`:'';
+  const etiquetas=soloEtiqueta.length
+    ? `<div class="monto-nota">${soloEtiqueta.length===1?'Este beneficio está':'Estos beneficios están'} registrado${soloEtiqueta.length===1?'':'s'} como etiqueta: no descuenta${soloEtiqueta.length===1?'':'n'} nada por su cuenta. El monto de arriba ya es el que se cobra.</div>`
+    : '';
+  const saldo=Number(f.outstanding||0);
+
+  return `<article class="monto-card">
+    <div class="monto-top">
+      <span class="monto-quien"><strong>${esc(f.name||'Tanner')}</strong>
+        <small>${esc(f.categoryName||'Sin categoría')}${f.family?` · ${esc(f.family)}`:''}</small></span>
+      <span class="monto-cobrar${cobrar?'':' cero'}"><b>${money.format(cobrar)}</b><span>A cobrar</span></span>
+    </div>
+    <div class="monto-cond">
+      <span class="cond-chip">${esc(condicionDeFila(f))}</span>
+      <span class="vig vig-${v.nivel}"><i aria-hidden="true">${esc(v.icono)}</i>${esc(v.texto)}</span>
+    </div>
+    ${lineaDesglose}
+    ${etiquetas}
+    ${nota}
+    <div class="monto-saldo${saldo>0?'':' limpio'}">${saldo>0?`Adeudo total ${money.format(saldo)}`:'Sin adeudo'}</div>
+  </article>`;
+}
+
+/* ----- Tarifas por categoría (Presidencia) ----- */
+async function abreTarifas(){
+  if(!canSetTarifas)return;
+  modal('tarifasModal',true);
+  message('tarifasMessage');
+  $('tarifasList').innerHTML='<p class="cashier-help">Cargando…</p>';
+  try{ tarifas=await rpc('v2_category_fees',{organization_id:org})||[]; }
+  catch(e){ $('tarifasList').innerHTML=''; message('tarifasMessage',friendlyMontos(e)); return; }
+  pintaTarifas();
+}
+
+function pintaTarifas(){
+  $('tarifasList').innerHTML=tarifas.map(c=>{
+    const sug=c.suggested==null?null:Number(c.suggested);
+    return `<div class="tarifa-row">
+      <div><strong>${esc(c.name||c.code||'Categoría')}</strong>
+        <small>${Number(c.activePlayers||0)} activos · ${Number(c.feeSpread||0)} cuota${Number(c.feeSpread||0)===1?'':'s'} distinta${Number(c.feeSpread||0)===1?'':'s'} hoy</small>
+        ${sug!=null&&Number(c.monthlyFee||0)!==sug?`<button type="button" class="sug" data-sug="${esc(c.categoryId)}" data-valor="${sug}">Usar la más común: ${money.format(sug)}</button>`:''}
+      </div>
+      <div><input type="number" min="0" step="10" id="tarifa-${esc(c.categoryId)}" value="${c.monthlyFee==null?'':Number(c.monthlyFee)}" placeholder="—">
+        <button type="button" data-guardar="${esc(c.categoryId)}">Guardar</button></div>
+    </div>`;
+  }).join('');
+  $('tarifasList').querySelectorAll('[data-sug]').forEach(b=>b.addEventListener('click',()=>{
+    const input=$(`tarifa-${b.dataset.sug}`); if(input)input.value=b.dataset.valor;
+  }));
+  $('tarifasList').querySelectorAll('[data-guardar]').forEach(b=>b.addEventListener('click',()=>guardaTarifa(b.dataset.guardar,b)));
+}
+
+async function guardaTarifa(categoryId,btn){
+  message('tarifasMessage');
+  const input=$(`tarifa-${categoryId}`);
+  const crudo=String(input?.value??'').trim();
+  const valor=crudo===''?null:Number(crudo);
+  if(valor!==null&&(!Number.isFinite(valor)||valor<0)){
+    message('tarifasMessage','La mensualidad no puede ser negativa.');return;
+  }
+  btn.disabled=true;const antes=btn.textContent;btn.textContent='…';
+  try{
+    await rpc('v2_set_category_fee',{organization_id:org,category_id:categoryId,monthly_fee:valor});
+    tarifas=await rpc('v2_category_fees',{organization_id:org})||[];
+    pintaTarifas();
+    message('tarifasMessage','Tarifa guardada. No cambia lo que el sistema cobra: sólo el desglose.','success');
+    if(!$('montosPanel').classList.contains('hidden'))cargaMontos();
+  }catch(e){ message('tarifasMessage',friendlyMontos(e)); }
+  finally{ btn.disabled=false;btn.textContent=antes; }
+}
+
+$('openMontos')?.addEventListener('click',abreMontos);
+$('closeMontos')?.addEventListener('click',cierraMontos);
+$('montosTarifas')?.addEventListener('click',abreTarifas);
+$('montosPeriod')?.addEventListener('change',cargaMontos);
+$('montosCategory')?.addEventListener('change',pintaMontos);
+$('montosType')?.addEventListener('change',pintaMontos);
+$('montosSearch')?.addEventListener('input',e=>{
+  montosQuery=e.target.value;
+  $('montosSearchClear')?.classList.toggle('hidden',!montosQuery);
+  pintaMontos();
+});
+$('montosSearchClear')?.addEventListener('click',()=>{
+  $('montosSearch').value='';montosQuery='';
+  $('montosSearchClear').classList.add('hidden');pintaMontos();
+});
+$('montosChips')?.querySelectorAll('[data-montos-filter]').forEach(b=>b.addEventListener('click',()=>{
+  montosFiltro=b.dataset.montosFilter;
+  $('montosChips').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
+  pintaMontos();
+}));
+$('openMontos')?.classList.toggle('hidden',!canViewMontos);
+
+/* ----- Reporte de montos de cobro en PDF -----
+   Sale de las MISMAS filas que se están viendo, ya filtradas. Si el papel
+   dijera otra cosa que la pantalla, alguien iba a cobrar de más. */
+async function exportaMontosPdf(){
+  if(!canExportMontos)return;
+  const btn=$('montosPdf');
+  const antes=btn.textContent;
+  btn.disabled=true;btn.textContent='Generando…';
+  message('montosMessage');
+  try{
+    const f=filtrosActuales();
+    const filas=filtra(montosData?.rows||[],f);
+    if(!filas.length){message('montosMessage','No hay Tanners que coincidan con esos filtros.');return;}
+
+    const catalogo={
+      categorias:Object.fromEntries([...$('montosCategory').options].map(o=>[o.value,o.textContent])),
+      tipos:Object.fromEntries([...$('montosType').options].map(o=>[o.value,o.textContent]))
+    };
+    const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+    const doc=new jsPDF({unit:'pt',format:'letter',orientation:'landscape'});
+    const ancho=doc.internal.pageSize.getWidth();
+    const alto=doc.internal.pageSize.getHeight();
+    const margen=32;
+    let y=margen;
+
+    const pesos=v=>money.format(Number(v||0));
+    const hoy=new Intl.DateTimeFormat('es-MX',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+
+    function cabecera(){
+      doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(7,25,30);
+      doc.text('Reporte de montos de cobro',margen,y);y+=17;
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,118,123);
+      doc.text(`${ctx.organization_name||'Tannery City FC'} · generado el ${hoy}`,margen,y);y+=12;
+      doc.text(textoDeFiltros({...f,periodo:$('montosPeriod').value},catalogo),margen,y,{maxWidth:ancho-margen*2});y+=12;
+      // Marca de uso interno: este papel trae montos de becas del club.
+      doc.setTextColor(163,41,32);
+      doc.text('DOCUMENTO DE CONSULTA INTERNA · no compartir fuera del club',margen,y);y+=14;
+      doc.setTextColor(7,25,30);
+      filaCabecera();
+    }
+    function filaCabecera(){
+      doc.setFillColor(238,242,241);doc.rect(margen,y-9,ancho-margen*2,16,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(60,80,86);
+      let x=margen+4;
+      for(const c of COLUMNAS_REPORTE){
+        doc.text(c.titulo,c.derecha?x+c.ancho-8:x,y+2,{align:c.derecha?'right':'left'});
+        x+=c.ancho;
+      }
+      y+=18;doc.setTextColor(7,25,30);
+    }
+    function espacio(n){ if(y+n>alto-margen-26){doc.addPage();y=margen;filaCabecera();} }
+
+    cabecera();
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+    let rayado=false;
+    for(const fila of filas){
+      espacio(15);
+      const r=filaDeReporte(fila,pesos);
+      if(rayado){doc.setFillColor(249,251,250);doc.rect(margen,y-9,ancho-margen*2,14,'F');}
+      rayado=!rayado;
+      let x=margen+4;
+      for(const c of COLUMNAS_REPORTE){
+        const txt=doc.splitTextToSize(String(r[c.clave]??'—'),c.ancho-8)[0]||'';
+        doc.text(txt,c.derecha?x+c.ancho-8:x,y,{align:c.derecha?'right':'left'});
+        x+=c.ancho;
+      }
+      y+=14;
+    }
+
+    const res=resumenDeReporte(filas,pesos);
+    espacio(48);
+    y+=6;
+    doc.setDrawColor(220,229,227);doc.line(margen,y,ancho-margen,y);y+=15;
+    doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+    doc.text(`${res.tanners} Tanners · Por cobrar ${res.aCobrar} · Adeudo total ${res.adeudo} · Con beneficio ${res.conBeneficio}`,margen,y);
+    if(res.sinTarifa){
+      y+=13;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(122,90,18);
+      doc.text(`${res.sinTarifa} Tanner${res.sinTarifa===1?'':'s'} sin mensualidad ordinaria capturada en su categoría: su columna "Ordinaria" sale en blanco.`,margen,y);
+    }
+
+    const paginas=doc.internal.getNumberOfPages();
+    for(let i=1;i<=paginas;i++){
+      doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(140,155,158);
+      doc.text(`Página ${i} de ${paginas} · TannerOS`,ancho-margen,alto-18,{align:'right'});
+    }
+    doc.save(nombreDeArchivo($('montosPeriod').value));
+    message('montosMessage',`Reporte generado con ${filas.length} Tanners.`,'success');
+  }catch(e){
+    message('montosMessage',`No pudimos generar el PDF: ${String(e?.message||e)}`);
+  }finally{ btn.disabled=false;btn.textContent=antes; }
+}
+$('montosPdf')?.addEventListener('click',exportaMontosPdf);
+
+/* ===== Validación y conciliación de pagos =====
+   Camino A: el pago sigue aplicando a la deuda al registrarse. Esto es la
+   validación que va encima, con su historial. Sólo Presidencia aprueba. */
+let conciliaData=null,conciliaFiltro='pending',conciliaQuery='',conciliaAccion=null;
+
+const canSeeConcilia=moduleAccess(navigation,'taquilla',false)
+  ||moduleAccess(navigation,'cobranza',false)
+  ||moduleAccess(navigation,'contabilidad',false);
+
+function estadoChip(e){
+  return `<span class="est est-${e.nivel}"><i aria-hidden="true">${esc(e.icono)}</i>${esc(e.etiqueta)}</span>`;
+}
+
+async function cargaConcilia(silencioso){
+  if(!canSeeConcilia)return;
+  if(!silencioso)message('conciliaMessage');
+  try{
+    conciliaData=await rpc('v2_payments_to_reconcile',{organization_id:org,status_filter:null,from_date:null,to_date:null});
+  }catch(e){
+    if(!silencioso)message('conciliaMessage',friendlyMontos(e));
+    return;
+  }
+  pintaBarraConcilia();
+  if(!$('conciliaPanel').classList.contains('hidden'))pintaConcilia();
+}
+
+function pintaBarraConcilia(){
+  const bar=$('openConcilia');if(!bar)return;
+  const r=conciliaData?.summary||{};
+  const esperando=pendientesReales(r);
+  // Presidencia y Contabilidad siempre ven la barra. Taquilla sólo cuando
+  // tiene una aclaración que responder: si no, es ruido en su pantalla.
+  const mostrar=conciliaData?.seesEverything||esperando>0;
+  bar.classList.toggle('hidden',!mostrar);
+  $('conciliaBadge').textContent=esperando;
+  $('conciliaBadge').classList.toggle('hidden',!esperando);
+  $('conciliaBarSub').textContent=esperando
+    ? `${Number(r.pending||0)} por conciliar · ${Number(r.clarification||0)} con aclaración`
+    : 'Todo revisado';
+}
+
+function abreConcilia(){
+  $('conciliaPanel').classList.remove('hidden');
+  $('montosPanel')?.classList.add('hidden');
+  $('collectionsPanel')?.classList.add('hidden');
+  $('conciliaPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  if(!conciliaData)cargaConcilia();else pintaConcilia();
+}
+function cierraConcilia(){
+  $('conciliaPanel').classList.add('hidden');
+  if(canViewCollections)$('collectionsPanel')?.classList.remove('hidden');
+}
+
+function pintaConcilia(){
+  const todas=conciliaData?.rows||[];
+  const r=conciliaData?.summary||{};
+  const canApprove=Boolean(conciliaData?.canApprove);
+
+  $('conciliaSub').textContent=canApprove
+    ? 'Presidencia valida cada cobro registrado.'
+    : (conciliaData?.seesEverything
+       ? 'Consulta. La aprobación final es de Presidencia.'
+       : 'Tus cobros registrados. La aprobación final es de Presidencia.');
+
+  $('conciliaKpis').innerHTML=`
+    <article><span>Por conciliar</span><strong>${Number(r.pending||0)}</strong><small>${money.format(Number(r.pendingAmount||0))}</small></article>
+    <article><span>Con aclaración</span><strong>${Number(r.clarification||0)}</strong><small>esperan respuesta</small></article>
+    <article><span>Aprobados hoy</span><strong>${Number(r.approvedToday||0)}</strong><small>${Number(r.rejected||0)} rechazados en total</small></article>
+    <article><span>Con diferencia</span><strong>${Number(r.withDifference||0)}</strong><small>${money.format(Number(r.differenceTotal||0))} contra lo esperado</small></article>`;
+
+  const f=conciliaFiltro==='diff'
+    ? {texto:conciliaQuery,soloConDiferencia:true}
+    : {texto:conciliaQuery,estado:conciliaFiltro||undefined};
+  const filas=filtraConcilia(todas,f);
+
+  $('conciliaList').innerHTML=filas.map(x=>tarjetaConcilia(x,canApprove)).join('');
+  $('conciliaEmpty').classList.toggle('hidden',filas.length>0);
+  $('conciliaList').querySelectorAll('[data-accion]').forEach(b=>
+    b.addEventListener('click',()=>abreAccion(b.dataset.pago,b.dataset.accion)));
+}
+
+function tarjetaConcilia(x,canApprove){
+  const e=estadoDe(x);
+  const val=validacionDe(x);
+  const dif=diferenciaDe(x);
+  const esMio=Boolean(x.registeredByUserId)&&x.registeredByUserId===ctx.user_id;
+  const acciones=accionesPara(x,{canApprove,esMio});
+
+  const quienCobro=x.registeredBy
+    ? (x.registeredByIsAccount
+       ? `Desde ${esc(x.registeredBy)} · sin nombre`
+       : esc(x.registeredBy))
+    : 'Sin registrar';
+
+  const hist=(x.history||[]).map(h=>
+    `<li>${esc(lineaDeHistorial(h))}<small class="h-motivo">${esc(h.at||'')}${h.reason?` · ${esc(h.reason)}`:''}</small></li>`).join('');
+
+  return `<article class="concilia-card" data-estado="${esc(x.status||'')}" data-legacy="${x.legacyApproved?'1':'0'}">
+    <div class="concilia-top">
+      <span class="concilia-quien"><strong>${esc(x.playerName||x.family||'Cobro general')}</strong>
+        <small>${esc(x.concept||'Cobro')} · periodo ${esc(x.period||'—')} · ${esc(x.date||'')}</small></span>
+      <span class="concilia-monto"><b>${money.format(Number(x.amount||0))}</b><span>Recibido</span></span>
+    </div>
+    <div class="concilia-chips">
+      ${estadoChip(e)}
+      <span class="est est-neutro"><i aria-hidden="true">${x.validationKind==='banco'?'🏦':'💵'}</i>${esc(val.etiqueta)}</span>
+    </div>
+    <div class="concilia-datos">
+      <span>Método: <b>${esc(x.method||'—')}</b>${x.reference?` · Ref. <b>${esc(x.reference)}</b>`:''}</span>
+      <span>Cobró: <b>${quienCobro}</b></span>
+      ${x.family&&x.playerName?`<span>Familia: <b>${esc(x.family)}</b></span>`:''}
+      ${x.expectedAmount!=null?`<span>Esperado: <b>${money.format(Number(x.expectedAmount))}</b></span>`:''}
+      ${x.receiptPath?`<span>Comprobante: <b>adjunto</b></span>`:''}
+      ${x.reconciledBy?`<span>Conciliado por: <b>${esc(x.reconciledBy)}</b></span>`:''}
+      ${x.reconciliationReference?`<span>Evidencia: <b>${esc(x.reconciliationReference)}</b></span>`:''}
+    </div>
+    ${dif.hay?`<div class="concilia-dif" data-nivel="${dif.nivel}">${esc(dif.texto)} ${money.format(Math.abs(dif.monto))}</div>`:''}
+    ${x.observations?`<div class="concilia-obs">${esc(x.observations)}</div>`:''}
+    ${x.reconciliationNote?`<div class="concilia-obs">Nota de Presidencia: ${esc(x.reconciliationNote)}</div>`:''}
+    ${hist?`<details class="concilia-hist"><summary>Historial (${(x.history||[]).length})</summary><ol>${hist}</ol></details>`:''}
+    ${acciones.length?`<div class="concilia-acciones">${acciones.map(a=>
+      `<button type="button" data-tono="${a.tono}" data-pago="${esc(x.paymentId)}" data-accion="${a.clave}">${esc(a.etiqueta)}</button>`).join('')}</div>`:''}
+  </article>`;
+}
+
+const TITULO_ACCION={
+  approve:{titulo:'Aprobar el cobro',boton:'Aprobar',motivo:'Comentario (opcional)',placeholder:'Contra qué lo verificaste'},
+  reject:{titulo:'Rechazar el cobro',boton:'Rechazar',motivo:'Motivo del rechazo',placeholder:'Por qué no es válido'},
+  clarify:{titulo:'Solicitar aclaración',boton:'Solicitar',motivo:'Qué hace falta',placeholder:'Qué necesitas que corrijan o adjunten'},
+  resubmit:{titulo:'Responder la aclaración',boton:'Enviar',motivo:'Tu respuesta',placeholder:'Qué corregiste o qué adjuntaste'}
+};
+
+function abreAccion(paymentId,accion){
+  const fila=(conciliaData?.rows||[]).find(x=>String(x.paymentId)===String(paymentId));
+  if(!fila)return;
+  conciliaAccion={paymentId,accion};
+  const t=TITULO_ACCION[accion]||TITULO_ACCION.approve;
+  $('conciliaModalTitle').textContent=t.titulo;
+  $('conciliaConfirm').textContent=t.boton;
+  $('conciliaConfirm').className=`cashier-submit ${accion==='reject'?'expense':'collect'}`;
+  $('conciliaReasonLabel').textContent=t.motivo;
+  $('conciliaReason').placeholder=t.placeholder;
+  $('conciliaReason').value='';
+  $('conciliaRef').value='';
+  // La referencia de conciliación sólo tiene sentido al aprobar.
+  $('conciliaRefWrap').classList.toggle('hidden',accion!=='approve');
+  const val=validacionDe(fila);
+  $('conciliaModalWhat').innerHTML=
+    `<b>${esc(fila.playerName||fila.family||'Cobro general')}</b> · ${money.format(Number(fila.amount||0))} · ${esc(fila.method||'')}<br>`
+    +`${esc(val.etiqueta)}${val.pista?` · ${esc(val.pista)}`:''}`
+    +(accion==='reject'?'<br><b>Al rechazar, la deuda de ese periodo vuelve a aparecer.</b>':'');
+  message('conciliaModalMessage');
+  modal('conciliaModal',true);
+  setTimeout(()=>$('conciliaReason').focus(),40);
+}
+
+async function confirmaAccion(){
+  if(!conciliaAccion)return;
+  const {paymentId,accion}=conciliaAccion;
+  const motivo=$('conciliaReason').value.trim();
+  if(requiereMotivo(accion)&&motivo.length<4){
+    message('conciliaModalMessage','Escribe el motivo para que quede en el historial.');return;
+  }
+  const btn=$('conciliaConfirm');btn.disabled=true;const antes=btn.textContent;btn.textContent='…';
+  try{
+    if(accion==='resubmit'){
+      await rpc('v2_resubmit_payment',{organization_id:org,payment_id:paymentId,note:motivo});
+    }else{
+      await rpc('v2_reconcile_payment',{organization_id:org,payment_id:paymentId,action:accion,
+        reason:motivo||null,reference:$('conciliaRef').value.trim()||null});
+    }
+    modal('conciliaModal',false);
+    conciliaAccion=null;
+    await cargaConcilia();
+    // Un rechazo devuelve la deuda: la cobranza y el corte cambian.
+    if(accion==='reject')await Promise.all([load(),loadReceivables()]).catch(()=>{});
+    message('conciliaMessage','Listo. Quedó en el historial del pago.','success');
+  }catch(e){
+    message('conciliaModalMessage',friendlyMontos(e));
+  }finally{ btn.disabled=false;btn.textContent=antes; }
+}
+
+$('collectApproveWrap')?.classList.toggle('hidden',ctx.role!=='Presidencia');
+$('openConcilia')?.addEventListener('click',abreConcilia);
+$('closeConcilia')?.addEventListener('click',cierraConcilia);
+$('conciliaConfirm')?.addEventListener('click',confirmaAccion);
+$('conciliaSearch')?.addEventListener('input',e=>{
+  conciliaQuery=e.target.value;
+  $('conciliaSearchClear')?.classList.toggle('hidden',!conciliaQuery);
+  pintaConcilia();
+});
+$('conciliaSearchClear')?.addEventListener('click',()=>{
+  $('conciliaSearch').value='';conciliaQuery='';
+  $('conciliaSearchClear').classList.add('hidden');pintaConcilia();
+});
+$('conciliaChips')?.querySelectorAll('[data-concilia-filter]').forEach(b=>b.addEventListener('click',()=>{
+  conciliaFiltro=b.dataset.conciliaFilter;
+  $('conciliaChips').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
+  pintaConcilia();
+}));
+
+// Se carga al abrir la pantalla para poder mostrar el badge sin que nadie
+// tenga que entrar a buscarlo.
+if(canSeeConcilia)cargaConcilia(true);

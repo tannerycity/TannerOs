@@ -31,6 +31,7 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();signPlayerPhotos(players).then(()=>renderList());
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
   loadBajasPendientes();
+  loadCobertura();
   show('view');const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
 function renderCategories(){const s=$('categoryId');s.innerHTML='<option value="">Sin categoría</option>';categories.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;s.appendChild(o);});}
 async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];renderFiltros();renderList();signPlayerPhotos(players).then(()=>renderList());}
@@ -108,6 +109,7 @@ function pasaEstado(p){
   if(fStat.startsWith('beca:'))return activo&&p.benefit_active&&p.benefit_type===fStat.slice(5);
   const f=FILTROS.find(x=>x.key===fStat);
   if(fStat==='puedesalir')return activo&&puedePublicarse(p);
+  if(fStat==='porevaluar')return activo&&porEvaluar.has(String(p.id));
   if(f)return activo&&f.test(p);
   return true;
 }
@@ -561,8 +563,13 @@ function openEvaluationCoach(firstUse=false,step=0){
 function openDimensionGuidance(key){const dimension=TANNER_DIMENSIONS.find(item=>item.key===key),template=$(`profile-guidance-${key}`);if(!dimension||!template)return;evaluationSheet(`¿Qué observo en ${dimension.name}?`,template.innerHTML,`<button class="primary" type="button" data-close-sheet>Volver a evaluar</button>`);}
 function openInlineEvaluation(){
   if(!canWrite||!current?.player)return;
-  const p=current.player,box=$('inlineEvaluation'),period=new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(new Date());
-  box.innerHTML=`<div class="profile-eval-head"><div><div class="eyebrow">METODOLOGÍA TANNERY CITY · ${PROFILE_METHOD}</div><h3 id="inlineEvaluationTitle">Evaluar a ${esc([p.firstName,p.lastName].filter(Boolean).join(' '))}</h3><p>${esc(p.category||'Sin categoría')} · ${esc(period)} · Se guarda automáticamente</p><button id="profileEvalHelp" class="profile-help-link" type="button">ⓘ ¿Cómo evaluar?</button></div><button id="closeInlineEvaluation" class="secondary mini" type="button">Cerrar</button></div><form id="inlineEvaluationForm"><div class="profile-eval-workspace"><aside class="profile-eval-live"><div><span>PERFIL EN VIVO</span><strong id="profileEvalProgressText" aria-live="polite">0 de 5 dimensiones</strong></div><svg class="profile-eval-radar" viewBox="0 0 300 280" role="img" aria-label="Pentagrama en vivo de las cinco dimensiones"><polygon class="grid outer" points="150,30 250,103 212,220 88,220 50,103"></polygon><polygon class="grid" points="150,80 202,118 182,180 118,180 98,118"></polygon><line x1="150" y1="135" x2="150" y2="30"></line><line x1="150" y1="135" x2="250" y2="103"></line><line x1="150" y1="135" x2="212" y2="220"></line><line x1="150" y1="135" x2="88" y2="220"></line><line x1="150" y1="135" x2="50" y2="103"></line><polygon id="profileEvalRadarPolygon" class="shape" points="150,135 150,135 150,135 150,135 150,135"></polygon><text x="150" y="16" text-anchor="middle">Técnica</text><text x="286" y="100" text-anchor="end">Juego</text><text x="239" y="258" text-anchor="middle">Cuerpo</text><text x="61" y="258" text-anchor="middle">Mentalidad</text><text x="14" y="100">Espíritu</text></svg><div class="profile-eval-progress"><i><b id="profileEvalProgressBar"></b></i></div><p>1 en formación · 3 en nivel · 5 alto nivel · <b>?</b> sin evidencia</p></aside><div class="profile-eval-controls">${PROFILE_DIMENSIONS.map(([key,name,claim,guide])=>{const category=guidanceForCategory(p.category);return `<fieldset class="profile-eval-dimension"><legend><span><strong>${name}</strong><small>${claim}</small></span><output id="profile-eval-selection-${key}">Elige una opción</output></legend><button class="profile-observe-button" type="button" data-guidance="${key}">ⓘ ¿Qué observo?</button><div class="profile-eval-scale">${evaluationScale(key)}</div><p id="profile-eval-feedback-${key}" class="profile-eval-feedback hidden"></p><template id="profile-guidance-${key}"><div class="guidance-content"><ul>${guide.observations.map(item=>`<li>${item}</li>`).join('')}</ul>${guide.warning?`<p class="guidance-warning">${guide.warning}</p>`:''}<strong>${guide.question}</strong><aside><span>Para ${category.stage}</span><p>${category.text}</p></aside></div></template></fieldset>`;}).join('')}</div></div><section class="profile-eval-finish"><div><span>PASO FINAL</span><strong>Define hacia dónde acompañarlo</strong></div><div class="profile-eval-decisions"><label>Fortaleza principal<small>¿Qué está haciendo especialmente bien?</small><select id="profileStrength" required>${profileOptionList(PROFILE_OPTIONS,true)}</select></label><label>Prioridad de desarrollo<small>¿Qué queremos ayudarle a mejorar?</small><select id="profilePriority" required>${profileOptionList(PROFILE_OPTIONS,true)}</select></label><label>Superpoder<small>Talento diferencial; no es calificación.</small><select id="profilePower">${profileOptionList(PROFILE_POWERS)}</select></label><label id="profilePowerOtherWrap" class="hidden">¿Cuál?<input id="profilePowerOther" maxlength="60"></label></div></section><details class="profile-eval-optional"><summary>Agregar objetivos o nota <small>Opcional</small></summary><label>Próximo objetivo deportivo<input id="profileSportsObjective" maxlength="160"></label><label>Próximo objetivo formativo<input id="profileFormativeObjective" maxlength="160"></label><label>Nota interna<textarea id="profileEvalNotes" rows="3" maxlength="500"></textarea></label></details><div id="profileEvalSummary" class="profile-eval-summary" aria-live="polite"></div><div id="profileEvalMessage" class="inline-message hidden"></div><small id="profileEvalDraftStatus" class="profile-eval-draft">Los cambios se guardan en este dispositivo.</small><div class="profile-eval-save"><button id="profileSaveDraft" class="secondary" type="button">Guardar borrador</button><button class="primary" type="submit">Guardar y siguiente</button></div></form>`;
+  // La fecha se escoge, no se escribe, y tampoco se fuerza a hoy: un profe
+  // captura el lunes lo que observó el sábado. El periodo ya no se teclea —
+  // sale de esta fecha en el servidor— porque dos módulos escribiendo
+  // "septiembre de 2026" y "2026-T3" daban dos etiquetas para lo mismo y
+  // ninguna comparable.
+  const p=current.player,box=$('inlineEvaluation');
+  box.innerHTML=`<div class="profile-eval-head"><div><div class="eyebrow">METODOLOGÍA TANNERY CITY · ${PROFILE_METHOD}</div><h3 id="inlineEvaluationTitle">Evaluar a ${esc([p.firstName,p.lastName].filter(Boolean).join(' '))}</h3><p>${esc(p.category||'Sin categoría')} · Se guarda automáticamente</p><label class="profile-eval-fecha">¿Qué día lo observaste?<input id="profileEvalDate" type="date" max="${esc(today())}" value="${esc(today())}"></label><button id="profileEvalHelp" class="profile-help-link" type="button">ⓘ ¿Cómo evaluar?</button></div><button id="closeInlineEvaluation" class="secondary mini" type="button">Cerrar</button></div><form id="inlineEvaluationForm"><div class="profile-eval-workspace"><aside class="profile-eval-live"><div><span>PERFIL EN VIVO</span><strong id="profileEvalProgressText" aria-live="polite">0 de 5 dimensiones</strong></div><svg class="profile-eval-radar" viewBox="0 0 300 280" role="img" aria-label="Pentagrama en vivo de las cinco dimensiones"><polygon class="grid outer" points="150,30 250,103 212,220 88,220 50,103"></polygon><polygon class="grid" points="150,80 202,118 182,180 118,180 98,118"></polygon><line x1="150" y1="135" x2="150" y2="30"></line><line x1="150" y1="135" x2="250" y2="103"></line><line x1="150" y1="135" x2="212" y2="220"></line><line x1="150" y1="135" x2="88" y2="220"></line><line x1="150" y1="135" x2="50" y2="103"></line><polygon id="profileEvalRadarPolygon" class="shape" points="150,135 150,135 150,135 150,135 150,135"></polygon><text x="150" y="16" text-anchor="middle">Técnica</text><text x="286" y="100" text-anchor="end">Juego</text><text x="239" y="258" text-anchor="middle">Cuerpo</text><text x="61" y="258" text-anchor="middle">Mentalidad</text><text x="14" y="100">Espíritu</text></svg><div class="profile-eval-progress"><i><b id="profileEvalProgressBar"></b></i></div><p>1 en formación · 3 en nivel · 5 alto nivel · <b>?</b> sin evidencia</p></aside><div class="profile-eval-controls">${PROFILE_DIMENSIONS.map(([key,name,claim,guide])=>{const category=guidanceForCategory(p.category);return `<fieldset class="profile-eval-dimension"><legend><span><strong>${name}</strong><small>${claim}</small></span><output id="profile-eval-selection-${key}">Elige una opción</output></legend><button class="profile-observe-button" type="button" data-guidance="${key}">ⓘ ¿Qué observo?</button><div class="profile-eval-scale">${evaluationScale(key)}</div><p id="profile-eval-feedback-${key}" class="profile-eval-feedback hidden"></p><template id="profile-guidance-${key}"><div class="guidance-content"><ul>${guide.observations.map(item=>`<li>${item}</li>`).join('')}</ul>${guide.warning?`<p class="guidance-warning">${guide.warning}</p>`:''}<strong>${guide.question}</strong><aside><span>Para ${category.stage}</span><p>${category.text}</p></aside></div></template></fieldset>`;}).join('')}</div></div><section class="profile-eval-finish"><div><span>PASO FINAL</span><strong>Define hacia dónde acompañarlo</strong></div><div class="profile-eval-decisions"><label>Fortaleza principal<small>¿Qué está haciendo especialmente bien?</small><select id="profileStrength" required>${profileOptionList(PROFILE_OPTIONS,true)}</select></label><label>Prioridad de desarrollo<small>¿Qué queremos ayudarle a mejorar?</small><select id="profilePriority" required>${profileOptionList(PROFILE_OPTIONS,true)}</select></label><label>Superpoder<small>Talento diferencial; no es calificación.</small><select id="profilePower">${profileOptionList(PROFILE_POWERS)}</select></label><label id="profilePowerOtherWrap" class="hidden">¿Cuál?<input id="profilePowerOther" maxlength="60"></label></div></section><details class="profile-eval-optional"><summary>Agregar objetivos o nota <small>Opcional</small></summary><label>Próximo objetivo deportivo<input id="profileSportsObjective" maxlength="160"></label><label>Próximo objetivo formativo<input id="profileFormativeObjective" maxlength="160"></label><label>Nota interna<textarea id="profileEvalNotes" rows="3" maxlength="500"></textarea></label></details><div id="profileEvalSummary" class="profile-eval-summary" aria-live="polite"></div><div id="profileEvalMessage" class="inline-message hidden"></div><small id="profileEvalDraftStatus" class="profile-eval-draft">Los cambios se guardan en este dispositivo.</small><div class="profile-eval-save"><button id="profileSaveDraft" class="secondary" type="button">Guardar borrador</button><button class="primary" type="submit">Guardar y siguiente</button></div></form>`;
   box.classList.remove('hidden');$('openEvaluation').classList.add('hidden');restoreInlineEvaluation();box.scrollIntoView({behavior:'smooth',block:'start'});
   $('inlineEvaluationForm').addEventListener('input',()=>{saveInlineDraft();updateInlineEvaluationProgress();});$('profileEvalHelp').addEventListener('click',()=>openEvaluationCoach(false));box.querySelectorAll('[data-guidance]').forEach(button=>button.addEventListener('click',()=>openDimensionGuidance(button.dataset.guidance)));if(!evaluationCoachSeen())openEvaluationCoach(true);$('inlineEvaluationForm').addEventListener('submit',saveInlineEvaluation);$('profileSaveDraft').addEventListener('click',saveInlineDraft);$('profilePower').addEventListener('change',e=>$('profilePowerOtherWrap').classList.toggle('hidden',e.target.value!=='Otro'));$('closeInlineEvaluation').addEventListener('click',closeInlineEvaluation);updateInlineEvaluationProgress();
 }
@@ -579,7 +586,11 @@ function inlineEvaluationData(){const scores={};document.querySelectorAll('[data
 function saveInlineDraft(){if(!current?.player)return;try{localStorage.setItem(evaluationDraftKey(current.player.id),JSON.stringify(inlineEvaluationData()));$('profileEvalDraftStatus').textContent='Borrador guardado en este dispositivo.';}catch{$('profileEvalDraftStatus').textContent='No se pudo guardar el borrador local.';}}
 function restoreInlineEvaluation(){let d=null;try{d=JSON.parse(localStorage.getItem(evaluationDraftKey(current.player.id))||'null');}catch{}if(!d)return;Object.entries(d.scores||{}).forEach(([key,value])=>document.querySelector(`[data-profile-score="${key}"][value="${CSS.escape(String(value))}"]`)?.click());$('profileStrength').value=d.strength||'';$('profilePriority').value=d.priority||'';$('profilePower').value=d.power||'Aún no identificado';$('profilePowerOther').value=d.powerOther||'';$('profileSportsObjective').value=d.sportsObjective||'';$('profileFormativeObjective').value=d.formativeObjective||'';$('profileEvalNotes').value=d.notes||'';$('profilePowerOtherWrap').classList.toggle('hidden',d.power!=='Otro');$('profileEvalDraftStatus').textContent='Continuaste tu borrador.';}
 function nextTanner(playerId,category){const roster=players.filter(p=>p.status_value==='active'&&p.category===category);const index=roster.findIndex(p=>p.id===playerId);return index>=0&&roster.length>1?roster[(index+1)%roster.length]:null;}
-async function saveInlineEvaluation(e){e.preventDefault();const evaluatedPlayer=current.player,next=nextTanner(evaluatedPlayer.id,evaluatedPlayer.category),d=inlineEvaluationData(),box=$('profileEvalMessage'),scores={};for(const [key] of PROFILE_DIMENSIONS){if(!Object.prototype.hasOwnProperty.call(d.scores,key)){box.textContent='Elige un nivel o “Sin evidencia” en cada dimensión.';box.classList.remove('hidden');return;}if(d.scores[key]!=='')scores[key]=Number(d.scores[key]);}if(!d.strength||!d.priority){box.textContent='Selecciona la fortaleza y la prioridad.';box.classList.remove('hidden');return;}if(d.power==='Otro'&&!d.powerOther.trim()){box.textContent='Escribe cuál es el superpoder.';box.classList.remove('hidden');return;}const btn=e.submitter,meta={methodology_version:PROFILE_METHOD,category:current.player.category||null,period:new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(new Date()),strength:d.strength,priority:d.priority,superpower:d.power==='Otro'?d.powerOther.trim():d.power};btn.disabled=true;try{await rpc('v2_upsert_player_evaluation',{organization_id:ctx.organization_id,evaluation_id:null,player_id:current.player.id,period:meta.period,evaluated_on:today(),scores,sports_objective:d.sportsObjective.trim()||meta.priority,formative_objective:d.formativeObjective.trim()||null,notes:`[${PROFILE_METHOD}] ${JSON.stringify(meta)}${d.notes.trim()?`\n${d.notes.trim()}`:''}`});localStorage.removeItem(evaluationDraftKey(current.player.id));await loadSports(evaluatedPlayer.id);closeInlineEvaluation();if(next){await openProfile(next.id);openInlineEvaluation();const notice=$('profileEvalMessage');notice.textContent=`Evaluación guardada · Sigue ${nameOf(next)}`;notice.dataset.type='success';notice.classList.remove('hidden');}else msg('Evaluación guardada. Perfil Tanner actualizado.','success');}catch(error){box.textContent=friendly(error);box.classList.remove('hidden');btn.disabled=false;}}
+async function saveInlineEvaluation(e){e.preventDefault();const evaluatedPlayer=current.player,next=nextTanner(evaluatedPlayer.id,evaluatedPlayer.category),d=inlineEvaluationData(),box=$('profileEvalMessage'),scores={};for(const [key] of PROFILE_DIMENSIONS){if(!Object.prototype.hasOwnProperty.call(d.scores,key)){box.textContent='Elige un nivel o “Sin evidencia” en cada dimensión.';box.classList.remove('hidden');return;}if(d.scores[key]!=='')scores[key]=Number(d.scores[key]);}if(!d.strength||!d.priority){box.textContent='Selecciona la fortaleza y la prioridad.';box.classList.remove('hidden');return;}if(d.power==='Otro'&&!d.powerOther.trim()){box.textContent='Escribe cuál es el superpoder.';box.classList.remove('hidden');return;}const fechaEval=$('profileEvalDate')?.value||today();if(fechaEval>today()){box.textContent='No se puede evaluar con una fecha futura.';box.classList.remove('hidden');return;}const btn=e.submitter,meta={methodology_version:PROFILE_METHOD,category:current.player.category||null,strength:d.strength,priority:d.priority,superpower:d.power==='Otro'?d.powerOther.trim():d.power};btn.disabled=true;try{await rpc('v2_upsert_player_evaluation',{organization_id:ctx.organization_id,evaluation_id:null,player_id:current.player.id,period:null,evaluated_on:fechaEval,scores,sports_objective:d.sportsObjective.trim()||meta.priority,formative_objective:d.formativeObjective.trim()||null,notes:`[${PROFILE_METHOD}] ${JSON.stringify(meta)}${d.notes.trim()?`\n${d.notes.trim()}`:''}`});localStorage.removeItem(evaluationDraftKey(current.player.id));await loadSports(evaluatedPlayer.id);
+// El contador se refresca al guardar: ver bajar el número es lo que sostiene
+// la racha de evaluar uno tras otro.
+loadCobertura();
+closeInlineEvaluation();if(next){await openProfile(next.id);openInlineEvaluation();const notice=$('profileEvalMessage');notice.textContent=`Evaluación guardada · Sigue ${nameOf(next)}`;notice.dataset.type='success';notice.classList.remove('hidden');}else msg('Evaluación guardada. Perfil Tanner actualizado.','success');}catch(error){box.textContent=friendly(error);box.classList.remove('hidden');btn.disabled=false;}}
 
 async function loadSports(playerId){const seq=++sportsSeq;setCardSports({},null);$('sportsLoading').textContent='Cargando lectura deportiva…';$('sportsLoading').classList.remove('hidden');$('sportsEmpty').classList.add('hidden');$('sportsContent').classList.add('hidden');try{const data=await rpc('v2_player_sports',{organization_id:ctx.organization_id,player_id:playerId});if(seq!==sportsSeq)return;renderSports(data);}catch(e){if(seq!==sportsSeq)return;$('sportsLoading').textContent='No pudimos cargar el perfil deportivo en este momento.';}}
 async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderPhoto(p);renderList();closeInlineEvaluation();$('openEvaluation').classList.toggle('hidden',!canWrite);loadSports(id);loadBenefits(id);document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail:{playerId:id,player:p,organizationId:ctx.organization_id,canWrite}}));}
@@ -707,9 +718,37 @@ const FACETAS=[
   {key:'plantilla', label:'Plantilla'},
   {key:'expediente',label:'Expediente', gate:true},
   {key:'cancha',    label:'Cancha'},
+  // Sin `gate`: es la única faceta que el profe también ve. Si el contador de
+  // evaluaciones viviera detrás del permiso de Presidencia, la persona que
+  // tiene que evaluar nunca se enteraría de que le falta.
+  {key:'evaluacion',label:'Evaluación'},
   {key:'becas',     label:'Becas',      gate:true},
   {key:'perfil',    label:'Perfil'}
 ];
+
+/* ===== Quién evalúa a quién, y cuántos le faltan =====
+
+   Medido el 23 de septiembre: 8 de 63 Tanners evaluados alguna vez, y las 15
+   evaluaciones que existen las firmó la misma persona. El permiso ya se
+   desbloqueó (O1), pero un permiso no hace que alguien evalúe: lo que mueve el
+   número es ver el cero con el nombre del responsable al lado.
+
+   La ventana es móvil —"cuánto hace que nadie ve a este niño"— y no un
+   trimestre fijo del calendario. Con trimestres, un profe que entra en febrero
+   llega tarde al primer corte sin haber hecho nada mal. */
+let cobertura=null;
+// Se arma una vez al cargar, no en cada fila: el filtro corre por cada Tanner
+// de la lista y rehacerlo ahí lo volvía cuadrático sin necesidad.
+let porEvaluar=new Set();
+const MESES_EVALUACION=4;
+
+async function loadCobertura(){
+  try{ cobertura=await rpc('v2_evaluation_coverage',{organization_id:ctx.organization_id,months:MESES_EVALUACION}); }
+  catch(e){ cobertura=null; porEvaluar=new Set(); return; }
+  porEvaluar=new Set();
+  for(const c of cobertura?.categories||[]) for(const p of c.pending||[]) porEvaluar.add(String(p.playerId));
+  if(facet==='evaluacion')renderFacetBody();
+}
 
 // El conteo de cada corte se calcula SIN ese corte aplicado: si no, al tocar
 // "Porteros" todas las demás posiciones se irían a cero y se perdería la referencia.
@@ -765,6 +804,32 @@ function renderFacetBody(){
          chip(fPos==='legacy','pos:legacy','Etiqueta vieja',n('legacy'));
   }
 
+  if(facet==='evaluacion'){
+    const cats=cobertura?.categories||[];
+    if(!cats.length){
+      html=`<p class="facet-nota">Cargando el estado de las evaluaciones…</p>`;
+    }else{
+      const sinResp=cats.filter(c=>!(c.responsables||[]).length&&Number(c.players||0)>0).length;
+      html=chip(fStat==='porevaluar','stat:porevaluar','Por evaluar',
+        cats.reduce((s,c)=>s+(c.pending||[]).length,0),' danger')+
+        `<span class="fchip-sep"></span>`+
+        cats.filter(c=>Number(c.players||0)>0).map(c=>{
+          const resp=(c.responsables||[]);
+          const alDia=Number(c.upToDate||0),total=Number(c.players||0);
+          // El nombre del responsable va en el chip, no en una pantalla de
+          // configuración. "T8 · 0 de 6 · sin responsable" es una frase que
+          // alguien lee y actúa; un número solo se mira.
+          return `<button type="button" class="fchip fchip-eval${fCat===c.categoryName?' on':''}${resp.length?'':' danger'}" data-filtro="evalcat:${esc(c.categoryName)}">`+
+            `<span>${esc(c.categoryName)}</span><b>${alDia} de ${total}</b>`+
+            `<small>${resp.length?esc(resp.join(' · ')):'sin responsable'}</small></button>`;
+        }).join('');
+      const avisos=[];
+      if(sinResp)avisos.push(`<b>${sinResp} categoría${sinResp===1?'':'s'} sin responsable.</b> Se asigna en Usuarios; sin responsable, nadie se entera de que le toca.`);
+      avisos.push(`Al día = evaluado en los últimos ${cobertura?.months||MESES_EVALUACION} meses (desde el ${esc(String(cobertura?.cutoff||''))}).`);
+      html+=`<p class="facet-nota">${avisos.join(' ')}</p>`;
+    }
+  }
+
   if(facet==='becas'){
     const conBeca=activos.filter(p=>p.benefit_active);
     html=chip(fStat==='beca','stat:beca','Todos los apoyos',conBeca.length)+
@@ -808,6 +873,12 @@ document.addEventListener('click',e=>{
     const val=resto.join(':');
     if(tipo==='ir'){abrirPadronBecas();return;}
     if(tipo==='pdf'){exportaNoPublicables(fc);return;}
+    // Un toque en la categoría deja en pantalla justo a quien le falta: el
+    // profe abre el primero, evalúa, y el flujo ya lo lleva al siguiente.
+    if(tipo==='evalcat'){
+      fCat=(val===fCat)?'':val; fStat='porevaluar';
+      renderFiltros();renderList();return;
+    }
     if(tipo==='cat')fCat=val;
     if(tipo==='pos')fPos=(val&&val===fPos)?'':val;
     if(tipo==='stat')fStat=(val&&val===fStat&&val!=='active')?'active':val;

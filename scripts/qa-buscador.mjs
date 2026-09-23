@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { busca, puntuaFila, normaliza, trozosResaltados, filasEnOrden, esBusquedaDeTelefono,
          cacheVigente, empaquetaCache, llaveDeCache, CACHE_TTL_MS, CACHE_VERSION }
   from '../v2/buscador.js';
-import { desdeTanners, desdeUtileria, desdeModulos, armaIndice }
+import { desdeTanners, desdeUtileria, desdeModulos, desdeProspectos, desdeUsuarios, armaIndice }
   from '../v2/buscador-fuentes.js';
 
 let fallos = 0, corridas = 0;
@@ -154,6 +154,71 @@ prueba('una fila sin datos no se cuela', () => {
 prueba('no se repiten filas idénticas de dos fuentes', () => {
   const doble = armaIndice([desdeTanners(TANNERS), desdeTanners(TANNERS)]);
   assert.equal(doble.length, desdeTanners(TANNERS).length);
+});
+
+/* ===== El prospecto que ya es Tanner =====
+
+   Caso real: buscar "Gil" devolvía "Gilberto Muñoz Barrera · Prospecto ·
+   converted" como mejor resultado, cuando Gilberto ya es Tanner activo de T10.
+   La llave de deduplicación incluía el tipo, así que prospecto y Tanner nunca
+   chocaban aunque fueran la misma persona. */
+
+const GILBERTO_TANNER = [{ id: 'pl-gil', name: 'Gilberto Muñoz Barrera', jersey: '9', pos: 'Delantero', guardians: '', phones: '' }];
+const PROSPECTOS = [
+  { first_name: 'Gilberto', last_name: 'Muñoz Barrera', status: 'converted', category: 'T10' },
+  // Convertido pero sin ningún Tanner con ese nombre: es un dato roto y tiene
+  // que seguir viéndose.
+  { first_name: 'Huérfano', last_name: 'Sin Tanner', status: 'converted', category: 'T8' },
+  { first_name: 'Sofía', last_name: 'Nueva', status: 'new', category: 'Baby Tanner' },
+];
+
+prueba('el prospecto que ya es Tanner deja de competir con el Tanner', () => {
+  const idx = armaIndice([desdeTanners(GILBERTO_TANNER), desdeProspectos(PROSPECTOS)]);
+  const gil = idx.filter(f => /Gilberto/.test(f.titulo));
+  assert.equal(gil.length, 1, 'Gilberto tiene que salir una sola vez');
+  assert.equal(gil[0].tipo, 'tanner', 'y el que queda es el Tanner, no la ficha vieja');
+  assert.match(gil[0].href, /^\/jugadores\//, 'lleva a su expediente, no a Prospectos');
+});
+
+prueba('buscar "Gil" ya no ofrece el prospecto como mejor resultado', () => {
+  const idx = armaIndice([desdeTanners(GILBERTO_TANNER), desdeProspectos(PROSPECTOS)]);
+  const r = busca(idx, 'Gil');
+  assert.equal(r.mejor.tipo, 'tanner', 'el mejor resultado es el Tanner');
+  assert.equal(r.mejor.titulo, 'Gilberto Muñoz Barrera');
+  // Y no queda escondido más abajo: sólo hay un Gilberto en todo el resultado.
+  assert.equal(r.total, 1, JSON.stringify(r.secciones));
+});
+
+prueba('un convertido SIN Tanner sigue saliendo: es un dato roto, no ruido', () => {
+  const idx = armaIndice([desdeTanners(GILBERTO_TANNER), desdeProspectos(PROSPECTOS)]);
+  assert.ok(idx.some(f => f.tipo === 'prospecto' && /Huérfano/.test(f.titulo)));
+});
+
+prueba('un prospecto que NO es Tanner se queda como está', () => {
+  const idx = armaIndice([desdeTanners(GILBERTO_TANNER), desdeProspectos(PROSPECTOS)]);
+  assert.ok(idx.some(f => f.tipo === 'prospecto' && /Sofía/.test(f.titulo)));
+});
+
+prueba('el estado deja de leerse en inglés', () => {
+  const filas = desdeProspectos(PROSPECTOS);
+  assert.match(filas[0].subtitulo, /Ya inscrito/);
+  assert.match(filas[2].subtitulo, /Nuevo/);
+  assert.ok(!filas.some(f => /converted|new\b/.test(f.subtitulo)));
+});
+
+prueba('acentos y mayúsculas no rompen el emparejamiento', () => {
+  const tanner = [{ id: 'x', name: 'JOSÉ  MARIANO  ALVIZO', jersey: '', pos: '', guardians: '', phones: '' }];
+  const prosp = [{ first_name: 'Jose', last_name: 'Mariano Alvizo', status: 'converted' }];
+  const idx = armaIndice([desdeTanners(tanner), desdeProspectos(prosp)]);
+  assert.equal(idx.filter(f => /Alvizo/i.test(f.titulo)).length, 1);
+});
+
+prueba('un papá que además es del club SÍ sigue saliendo dos veces', () => {
+  // Son dos papeles distintos de la misma persona, no un registro viejo. Esto
+  // protege contra que el arreglo de arriba se generalice de más.
+  const tanner = [{ id: 'y', name: 'Rodrigo Torres', jersey: '', pos: '', guardians: 'Mayra Anda', phones: '' }];
+  const idx = armaIndice([desdeTanners(tanner), desdeUsuarios([{ display_name: 'Mayra Anda', role: 'Operaciones' }])]);
+  assert.equal(idx.filter(f => /Mayra/.test(f.titulo)).length, 2);
 });
 
 prueba('el caché se reusa mientras esté fresco', () => {

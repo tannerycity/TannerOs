@@ -38,9 +38,11 @@ export default function comprobar() {
   if (!flujo.includes('qa-suites-excluidas.txt'))
     errors.push('Suites: el workflow ya no lee la lista de exclusiones');
 
-  // Sube a 8 por los cuatro humos de navegador (asistencia, familias, montos
-  // y conciliacion): necesitan Chromium y el job static-qa no lo instala.
-  const MAX_EXCLUIDAS = 8;
+  // Sube a 9 por los cinco humos de navegador (asistencia, familias, montos,
+  // conciliacion y evaluacion): necesitan Chromium y el job static-qa no lo
+  // instala. Cada vez que este numero sube tiene que ser por una suite que SI
+  // se corre a mano antes de subir, no por una que dejo de pasar.
+  const MAX_EXCLUIDAS = 9;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

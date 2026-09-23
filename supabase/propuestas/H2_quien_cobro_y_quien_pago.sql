@@ -1,5 +1,8 @@
 -- H2 · Quien del club cobro y quien entrego cada pago
 --
+-- APLICADA EN PRODUCCION el 2026-09-22.
+-- Migracion: 20260922200825_h2_quien_cobro_y_quien_pago
+--
 -- POR QUE TEXTO Y NO SOLO EL USUARIO
 -- Medido en produccion con H1 ya aplicada, esto es lo que el usuario del
 -- sistema muestra hoy en los egresos:

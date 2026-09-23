@@ -1,63 +1,42 @@
--- H1 · Que se vea quien del club registro cada movimiento
+-- H3 · Que la pantalla sepa quien cobro y si fue una persona o una cuenta
 --
 -- APLICADA EN PRODUCCION el 2026-09-22.
--- Migracion: 20260922194540_h1_quien_registro_el_movimiento
+-- Migracion: 20260922201050_h3_exponer_quien_cobro_en_movimientos
+-- Lo que sigue es el SQL tal como se aplico, copiado de
+-- supabase_migrations.schema_migrations. Si este archivo y la base no
+-- coinciden, la base manda.
 --
--- La sustituyo despues H3 (20260922201050), que ademas distingue si
--- "quien registro" es una persona o una cuenta compartida. Ver
--- H3_exponer_quien_cobro_en_movimientos.sql.
---
--- QUE PIDE EL CLUB
--- En los cobros ya se ve "Pago: Lizbeth Moreno", que es el tutor que entrego
--- el dinero. En los egresos la columna "Quien" muestra a quien se le pago
--- (DT Max Ponce). Falta un tercer dato distinto de esos dos: QUIEN DEL CLUB
--- entrego el pago, para saber quien le pago a los profes.
---
--- EL DATO YA SE GUARDA
--- app.expenses.created_by_user_id existe y se llena desde que la pantalla
--- registra el egreso. Medido hoy:
---   24 de 24 egresos hechos desde TannerOS lo tienen  (100%)
---   41 sin el, todos de legacy_import y legacy_v1: nunca pasaron por la app,
---      asi que no hay registrador que mostrar y eso es correcto.
--- No hace falta rellenar nada ni inventar un valor para los viejos.
+-- DE DONDE VIENE
+-- H1 hizo que query_cashier_snapshot devolviera "registeredBy" sacado del
+-- usuario que registro el movimiento. Medido en produccion, eso daba:
+--     "Presidencia"  14 movimientos
+--     "iPad"          3 movimientos
+-- Ninguno es una persona. H2 anadio las columnas de texto
+-- (payments.collected_by_name, expenses.paid_by_name) para que quien cobra
+-- escriba su nombre. H3 las expone.
 --
 -- QUE CAMBIA
--- query_cashier_snapshot devuelve dos campos mas por movimiento:
---   registeredBy  el nombre de quien lo registro, o null
---   source        de donde salio el movimiento, para distinguir "no se sabe"
---                 de "vino del sistema anterior"
--- Nada mas cambia: mismos totales, mismas filas, mismo orden, mismos permisos.
+-- registeredBy ahora sale, en este orden:
+--   1. El texto escrito a mano (collected_by_name / paid_by_name).
+--   2. Si no hay, el display_name del usuario que registro.
+-- Y se anade registeredByIsAccount: true cuando el nombre viene del usuario
+-- y no de un texto. La pantalla lo usa para NO fingir que sabe quien fue:
+-- con una cuenta compartida muestra "Desde Presidencia · sin nombre" en vez
+-- de "Cobro: Presidencia".
 --
--- RIESGO Y REVERSA
--- Es un CREATE OR REPLACE sobre una funcion de lectura. No toca datos, no
--- borra nada y no cambia permisos. Si algo saliera mal, la reversa es volver a
--- crear la version anterior, que esta guardada completa al final de este
--- archivo.
+-- CUIDADO QUE SI TIENE
+-- Es un create or replace de una sola funcion con la MISMA firma, asi que no
+-- deja versiones duplicadas (el problema que tuvo v2_post_expense). El cuerpo
+-- se copio tal cual del que corria y solo se tocaron las dos columnas nuevas
+-- del select de movimientos y las dos llaves nuevas del jsonb_build_object.
 --
--- La pantalla ya sabe vivir sin estos campos: si no llegan, no muestra la
--- linea. Por eso el cambio de interfaz puede ir a produccion antes que esto.
---
--- ANTES DE APLICAR
---   1. Guardar la salida de
---        select pg_get_functiondef(oid) from pg_proc p
---        join pg_namespace n on n.oid=p.pronamespace
---        where n.nspname='private' and p.proname='query_cashier_snapshot';
---   2. Aplicar en una rama de Supabase si el plan lo permite. Hoy el proyecto
---      esta en free y las ramas no estan disponibles, asi que la alternativa
---      es aplicar y comprobar de inmediato que Taquilla sigue cargando.
---   3. Despues: abrir /taquilla/, confirmar que los totales no cambiaron y que
---      los movimientos de septiembre muestran quien los registro.
-
-begin;
+-- PARA REVERTIR: volver a aplicar el cuerpo de H1, que tiene la misma firma.
 
 create or replace function private.query_cashier_snapshot(
   p_organization_id uuid, p_business_date date default current_date
 )
 returns jsonb
 language plpgsql
--- Sin 'stable' a proposito: la funcion de hoy es volatile (no declara nada) y
--- este cambio solo anade un campo. Cambiar la volatilidad altera el plan de
--- ejecucion y es otra decision, de otro dia.
 security definer
 set search_path to 'pg_catalog', 'public', 'app', 'private'
 as $function$
@@ -153,11 +132,14 @@ begin
           when 'card' then 'Tarjeta' when 'tarjeta' then 'Tarjeta'
           else coalesce(nullif(trim(p.method),''),'Otro') end method,
         p.amount::numeric amount,p.status,p.source,p.reference,p.player_id,
-        -- app.payments todavia no guarda quien registro el cobro. Va null a
-        -- proposito para no inventarlo; anadir esa columna es otro cambio.
-        null::text registered_by
+        -- Quien del club recibio el dinero. Primero lo escrito a mano, porque
+        -- el iPad y Presidencia son cuentas compartidas y no dicen la persona.
+        coalesce(nullif(trim(p.collected_by_name),''), nullif(trim(prp.display_name),'')) registered_by,
+        (nullif(trim(p.collected_by_name),'') is null
+          and nullif(trim(prp.display_name),'') is not null) registered_by_is_account
       from app.payments p
       left join app.players pl on pl.id=p.player_id and pl.organization_id=p.organization_id
+      left join public.profiles prp on prp.user_id = p.created_by_user_id
       where p.organization_id=p_organization_id and p.payment_date<=p_business_date
       union all
       select e.id,'expense',e.expense_date,e.created_at,
@@ -170,11 +152,11 @@ begin
           when 'card' then 'Tarjeta' when 'tarjeta' then 'Tarjeta'
           else coalesce(nullif(trim(e.method),''),'Otro') end,
         e.amount::numeric,e.status,e.source,e.reference,null::uuid,
-        -- Quien del club registro el egreso. Null en los importados del
-        -- sistema anterior, que nunca pasaron por la app.
-        nullif(trim(pr.display_name),'')
+        coalesce(nullif(trim(e.paid_by_name),''), nullif(trim(pre.display_name),'')),
+        (nullif(trim(e.paid_by_name),'') is null
+          and nullif(trim(pre.display_name),'') is not null)
       from app.expenses e
-      left join public.profiles pr on pr.user_id = e.created_by_user_id
+      left join public.profiles pre on pre.user_id = e.created_by_user_id
       where e.organization_id=p_organization_id and e.expense_date<=p_business_date
     ), limited as (
       select * from movement_rows order by movement_date desc,created_at desc limit 60
@@ -183,7 +165,8 @@ begin
       'id',id,'type',movement_type,'date',movement_date,'createdAt',created_at,
       'category',category,'concept',concept,'who',who,'playerName',player_name,'method',method,'amount',amount,
       'status',status,'source',source,'reference',reference,'playerId',player_id,
-      'registeredBy',registered_by
+      'registeredBy',registered_by,
+      'registeredByIsAccount',registered_by_is_account
     ) order by movement_date desc,created_at desc),'[]'::jsonb)
     into v_movements from limited;
   end if;
@@ -201,13 +184,3 @@ begin
   );
 end;
 $function$;
-
-commit;
-
--- REVERSA
--- La version anterior es identica a esta salvo por:
---   - el campo registered_by en las dos ramas del union
---   - el left join a public.profiles
---   - 'registeredBy' en el jsonb_build_object
--- Quitar esas tres cosas y volver a aplicar devuelve el estado de hoy.
--- Aun asi, guardar la definicion real antes de aplicar (paso 1 de arriba).

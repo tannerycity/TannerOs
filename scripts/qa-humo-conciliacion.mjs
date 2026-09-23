@@ -127,14 +127,16 @@ async function corre(rol) {
   }));
 
   await pagina.goto('http://127.0.0.1:4605/v2/taquilla/', { waitUntil: 'networkidle' });
-  await pagina.waitForSelector('#openConcilia:not(.hidden)', { timeout: 8000 });
+  // La barra "Validación y conciliación de pagos" desapareció: era una quinta
+  // puerta en una pantalla que ya tenía cuatro. Ahora es una pestaña más del
+  // selector "Ver", y el contador de pendientes viaja como globo encima.
+  await pagina.waitForSelector('[data-vista="concilia"]', { timeout: 8000, state: 'attached' });
+  revisa(`[${rol}] ya no hay una barra aparte para conciliar`,
+    (await pagina.$$('#openConcilia')).length === 0);
+  revisa(`[${rol}] el globo cuenta 2 (pendiente + aclaración)`,
+    (await pagina.textContent('[data-vista="concilia"] .ver-badge')).trim() === '2');
 
-  const sub = await pagina.textContent('#conciliaBarSub');
-  revisa(`[${rol}] la barra dice qué falta`, /1 por conciliar/.test(sub) && /1 con aclaración/.test(sub), sub);
-  revisa(`[${rol}] el contador muestra 2 (pendiente + aclaración)`,
-    (await pagina.textContent('#conciliaBadge')).trim() === '2');
-
-  await pagina.click('#openConcilia');
+  await pagina.click('[data-vista="concilia"]');
   await pagina.waitForSelector('.concilia-card', { timeout: 6000 });
 
   // Arranca en Pendientes

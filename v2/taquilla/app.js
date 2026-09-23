@@ -1,6 +1,7 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,supabase} from '/v2/shell.js';
 import {getSignedPhotoUrls} from '/v2/photo-cache.js';
 import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
+        motivoDeFila,etiquetaDeMotivo,
         tiposDeBeneficio,filtra,totales,beneficiosSoloEtiqueta,
         COLUMNAS_REPORTE,filaDeReporte,resumenDeReporte,textoDeFiltros,
         nombreDeArchivo} from '/v2/taquilla/montos.js';
@@ -21,6 +22,10 @@ const canPayWrite=canCashWrite||canAccountingWrite;
 // cobrar) siga habilitado para el rol Taquilla como hasta ahora.
 const canViewCollections=moduleAccess(navigation,'cobranza',false)&&ctx.role==='Presidencia';
 let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,receivables=[],collectionsFilter='all',collectionsExpanded=false;
+// El selector "Ver" se arma hasta el final del archivo, cuando ya existen los
+// permisos de cada vista. applyLedgerVisibility corre antes de eso durante el
+// arranque, así que pregunta por esta bandera en vez de romperse.
+let vistasListas=false,vistaActual=null;
 const COLLECTIONS_COLLAPSED_LIMIT=6;
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
@@ -38,6 +43,7 @@ function closeModals(){document.querySelectorAll('.cashier-modal').forEach(el=>e
 function resetCollectForm(){
   $('collectForm').reset();
   $('collectPlayer').value='';$('collectPlayerSearch').value='';
+  $('collectPorQue')?.classList.add('hidden');
   $('collectPlayerClear')?.classList.add('hidden');$('collectPlayerResults')?.classList.add('hidden');$('collectPlayerResults').innerHTML='';
   $('collectDate').value=isoToday();
   $('generalPlayer').value='';$('generalPlayerSearch').value='';
@@ -122,17 +128,15 @@ function renderMovements(){
     tr.innerHTML=`<td data-label="Fecha">${esc(m.date||'')}</td><td data-label="Movimiento"><span class="movement-pill ${income?'income':'expense'}">${income?'Cobro':'Pago'}</span></td><td data-label="Categoría">${esc(m.category||'—')}</td><td data-label="Concepto">${esc(m.concept||'—')}</td><td data-label="Quién">${whoCell}</td><td data-label="Método">${esc(methodLabel(m.method))}</td><td data-label="Monto" class="${income?'money-in':'money-out'}">${income?'+':'−'} ${money.format(Number(m.amount||0))}</td><td data-label="Estado"><span class="status-pill ${esc(m.status)}">${m.status==='posted'?'Publicado':m.status==='void'?'Anulado':m.status==='refunded'?'Reembolsado':esc(m.status)}</span>${ebtn}${vbtn}</td>`;body.appendChild(tr);});
 }
 function applyLedgerVisibility(){
-  document.querySelector('.cashier-kpis')?.classList.toggle('hidden',!canViewLedger);
-  document.querySelectorAll('.cashier-cash-card:not(#cashTodayCard)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
-  // Cobranza no es el libro contable: Taquilla (rol simple, sin ver caja completa)
-  // también necesita saber a quién cobrarle, así que no se apaga con el resto.
-  // #montosPanel se excluye a proposito: su visibilidad la manda su propio
-  // boton, y quien mas lo necesita es justo Taquilla, que es quien NO ve el
-  // ledger. Sin esta exclusion, el panel se abriria solo para todos los demas
-  // y quedaria escondido para el unico rol que lo pidio.
-  document.querySelectorAll('.cashier-panel:not(#collectionsPanel):not(#montosPanel)').forEach(el=>el.classList.toggle('hidden',!canViewLedger));
+  // La caja del día (KPIs, efectivo esperado, métodos y movimientos) ya no se
+  // apaga panel por panel: vive dentro de #vistaCaja y la enciende el selector
+  // "Ver", que además sólo la ofrece a quien puede ver el libro. Cuando esto
+  // se hacía con un `querySelectorAll` de `.cashier-panel` había que ir
+  // excluyendo a mano cada panel nuevo —y el día que alguien olvidara una
+  // exclusión, el panel se escondía justo para el rol que lo pidió.
   const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
   $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
+  if(vistasListas)mostrarVista(vistaActual);
 }
 
 // El concepto que emite el motor viene largo ("Academia Academia de porteros ·
@@ -161,7 +165,9 @@ const DIACRITICS_RE=new RegExp(String.fromCharCode(0x5b)+String.fromCharCode(0x3
 const normSearch=s=>String(s||'').toLowerCase().normalize('NFD').replace(DIACRITICS_RE,'');
 async function renderCollections(){
   const panel=$('collectionsPanel');if(!panel)return;
-  panel.classList.toggle('hidden',!canViewCollections);
+  // Quién enseña este panel lo decide el selector "Ver", que ya sólo ofrece
+  // Cobranza a quien puede verla. Si aquí también se tocara `hidden`, cada
+  // recarga de la lista apagaría la vista que el usuario acaba de elegir.
   if(!canViewCollections)return;
   const q=normSearch($('collectionsSearch')?.value).trim();
   const rows=(billingPlayers||[])
@@ -425,11 +431,29 @@ tannerSearchInit('generalPlayerBox','generalPlayerSearch','generalPlayer','gener
 // prellena la suma de todo lo pendiente — no solo la mensualidad — para que
 // Taquilla no tenga que hacer la cuenta a mano ni se le olvide el recargo.
 tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','collectPlayerResults','collectPlayerClear',(pl)=>{
+  pintaPorQueEsteMonto(pl);
   if(!pl||$('collectAmount').value)return;
   const pendiente=(receivables||[]).filter(r=>r.player_id===pl.player_id).reduce((sum,r)=>sum+Number(r.balance_due||0),0);
   const sugerido=pendiente>0?pendiente:Number(pl.base_monthly_fee||0);
   $('collectAmount').value=sugerido>0?Math.round(sugerido):'';
 });
+
+/* Por qué ese monto, dentro del cobro.
+   Antes había que abrir "CUÁNTO COBRAR", buscar al Tanner otra vez y regresar.
+   Ahora la respuesta aparece sola al elegirlo. Si el padrón todavía no está
+   cargado, la línea no se inventa nada: se queda callada. */
+function pintaPorQueEsteMonto(pl){
+  const caja=$('collectPorQue');if(!caja)return;
+  const fila=pl&&(montosData?.rows||[]).find(r=>String(r.playerId)===String(pl.player_id));
+  if(!fila){ caja.classList.add('hidden'); caja.textContent=''; return; }
+  const m=motivoDeFila(fila);
+  const mensual=Number(fila.chargedFee||0);
+  const partes=[`Mensualidad ${money.format(mensual)}`,etiquetaDeMotivo(fila)];
+  if(fila.collectionNote)partes.push(fila.collectionNote);
+  caja.className=`collect-porque wide nivel-${m.nivel}`;
+  caja.innerHTML=`<i aria-hidden="true">${esc(m.icono)}</i> ${esc(partes.join(' · '))}`;
+  caja.classList.remove('hidden');
+}
 
 
 // === Editar movimiento (solo Presidencia) ===
@@ -491,18 +515,20 @@ let montosData=null,montosFiltro='all',montosQuery='',tarifas=[];
 const mesActual=()=>new Date().toISOString().slice(0,7);
 const periodoDeMes=m=>`${m||mesActual()}-01`;
 
-function abreMontos(){
-  $('montosPanel').classList.remove('hidden');
-  $('collectionsPanel')?.classList.add('hidden');
+// Sólo prepara el panel. Quién lo enseña y quién lo esconde es el selector
+// "Ver": si esta función también tocara `hidden`, habría dos dueños de la
+// misma decisión y tarde o temprano se contradicen.
+function preparaMontos(){
   if(!$('montosPeriod').value)$('montosPeriod').value=mesActual();
   $('montosTarifas').classList.toggle('hidden',!canSetTarifas);
   $('montosPdf').classList.toggle('hidden',!canExportMontos);
-  $('montosPanel').scrollIntoView({behavior:'smooth',block:'start'});
-  cargaMontos();
-}
-function cierraMontos(){
-  $('montosPanel').classList.add('hidden');
-  if(canViewCollections)$('collectionsPanel')?.classList.remove('hidden');
+  // El padrón ya se trae al arrancar (lo necesita COBRAR para decir por qué es
+  // ese monto). Abrir la vista no vuelve a pedirlo si es del mismo periodo.
+  if(montosData&&String(montosData.billingPeriod)===periodoDeMes($('montosPeriod').value)){
+    llenaSelectoresMontos();pintaMontos();
+  }else{
+    cargaMontos();
+  }
 }
 
 async function cargaMontos(){
@@ -613,7 +639,7 @@ function tarjetaMonto(f){
       <span class="monto-cobrar${cobrar?'':' cero'}"><b>${money.format(cobrar)}</b><span>A cobrar</span></span>
     </div>
     <div class="monto-cond">
-      <span class="cond-chip">${esc(condicionDeFila(f))}</span>
+      <span class="cond-chip nivel-${esc(motivoDeFila(f).nivel)}"><i aria-hidden="true">${esc(motivoDeFila(f).icono)}</i>${esc(etiquetaDeMotivo(f))}</span>
       <span class="vig vig-${v.nivel}"><i aria-hidden="true">${esc(v.icono)}</i>${esc(v.texto)}</span>
     </div>
     ${lineaDesglose}
@@ -671,8 +697,7 @@ async function guardaTarifa(categoryId,btn){
   finally{ btn.disabled=false;btn.textContent=antes; }
 }
 
-$('openMontos')?.addEventListener('click',abreMontos);
-$('closeMontos')?.addEventListener('click',cierraMontos);
+$('closeMontos')?.addEventListener('click',()=>mostrarVista(null,true));
 $('montosTarifas')?.addEventListener('click',abreTarifas);
 $('montosPeriod')?.addEventListener('change',cargaMontos);
 $('montosCategory')?.addEventListener('change',pintaMontos);
@@ -691,7 +716,6 @@ $('montosChips')?.querySelectorAll('[data-montos-filter]').forEach(b=>b.addEvent
   $('montosChips').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
   pintaMontos();
 }));
-$('openMontos')?.classList.toggle('hidden',!canViewMontos);
 
 /* ----- Reporte de montos de cobro en PDF -----
    Sale de las MISMAS filas que se están viendo, ya filtradas. Si el papel
@@ -812,31 +836,12 @@ async function cargaConcilia(silencioso){
   if(!$('conciliaPanel').classList.contains('hidden'))pintaConcilia();
 }
 
+// El contador de pendientes ya no vive en una barra propia: viaja como globo
+// en la pestaña "Por conciliar". Presidencia y Contabilidad siempre la tienen;
+// Taquilla sólo cuando hay una aclaración que responder, porque si no es ruido
+// en la pantalla de quien únicamente cobra.
 function pintaBarraConcilia(){
-  const bar=$('openConcilia');if(!bar)return;
-  const r=conciliaData?.summary||{};
-  const esperando=pendientesReales(r);
-  // Presidencia y Contabilidad siempre ven la barra. Taquilla sólo cuando
-  // tiene una aclaración que responder: si no, es ruido en su pantalla.
-  const mostrar=conciliaData?.seesEverything||esperando>0;
-  bar.classList.toggle('hidden',!mostrar);
-  $('conciliaBadge').textContent=esperando;
-  $('conciliaBadge').classList.toggle('hidden',!esperando);
-  $('conciliaBarSub').textContent=esperando
-    ? `${Number(r.pending||0)} por conciliar · ${Number(r.clarification||0)} con aclaración`
-    : 'Todo revisado';
-}
-
-function abreConcilia(){
-  $('conciliaPanel').classList.remove('hidden');
-  $('montosPanel')?.classList.add('hidden');
-  $('collectionsPanel')?.classList.add('hidden');
-  $('conciliaPanel').scrollIntoView({behavior:'smooth',block:'start'});
-  if(!conciliaData)cargaConcilia();else pintaConcilia();
-}
-function cierraConcilia(){
-  $('conciliaPanel').classList.add('hidden');
-  if(canViewCollections)$('collectionsPanel')?.classList.remove('hidden');
+  if(vistasListas)pintaVerTabs();
 }
 
 function pintaConcilia(){
@@ -969,8 +974,7 @@ async function confirmaAccion(){
 }
 
 $('collectApproveWrap')?.classList.toggle('hidden',ctx.role!=='Presidencia');
-$('openConcilia')?.addEventListener('click',abreConcilia);
-$('closeConcilia')?.addEventListener('click',cierraConcilia);
+$('closeConcilia')?.addEventListener('click',()=>mostrarVista(null,true));
 $('conciliaConfirm')?.addEventListener('click',confirmaAccion);
 $('conciliaSearch')?.addEventListener('input',e=>{
   conciliaQuery=e.target.value;
@@ -990,3 +994,68 @@ $('conciliaChips')?.querySelectorAll('[data-concilia-filter]').forEach(b=>b.addE
 // Se carga al abrir la pantalla para poder mostrar el badge sin que nadie
 // tenga que entrar a buscarlo.
 if(canSeeConcilia)cargaConcilia(true);
+
+/* ===== Ver: una sola cosa en pantalla a la vez =====
+
+   Esta pantalla tenía cinco puertas: COBRAR, PAGAR, CUÁNTO COBRAR, la barra de
+   conciliación y el panel de Cobranza, todas encendidas al mismo tiempo. Era
+   el trabajo de dos personas distintas apilado en la misma vista: quien cobra
+   en la ventanilla y quien revisa después lo cobrado.
+
+   Quedan dos acciones —entra dinero, sale dinero— y este selector para lo que
+   se consulta. Nada se movió de módulo ni de archivo: los paneles son los
+   mismos, sólo dejaron de estar todos abiertos a la vez. */
+
+const VISTAS=[
+  { clave:'cobranza', etiqueta:'Cobranza',      panel:'collectionsPanel', puede:()=>canViewCollections },
+  { clave:'montos',   etiqueta:'Montos',        panel:'montosPanel',      puede:()=>canViewMontos },
+  { clave:'caja',     etiqueta:'Caja del día',  panel:'vistaCaja',        puede:()=>canViewLedger },
+  { clave:'concilia', etiqueta:'Por conciliar', panel:'conciliaPanel',
+    puede:()=>canSeeConcilia&&(Boolean(conciliaData?.seesEverything)||pendientesDeConcilia()>0) }
+];
+
+function pendientesDeConcilia(){
+  try{ return pendientesReales(conciliaData?.summary||{}); }catch(e){ return 0; }
+}
+function vistasDisponibles(){
+  return VISTAS.filter(v=>{ try{ return Boolean(v.puede()); }catch(e){ return false; } });
+}
+
+function mostrarVista(clave,desplazar){
+  const lista=vistasDisponibles();
+  const elegida=lista.find(v=>v.clave===clave)||lista[0]||null;
+  vistaActual=elegida?elegida.clave:null;
+  // Se recorren TODAS las vistas, no sólo las disponibles: una vista que deja
+  // de estar permitida tiene que apagarse, no quedarse encendida de la vez
+  // pasada.
+  for(const v of VISTAS)$(v.panel)?.classList.toggle('hidden',v.clave!==vistaActual);
+  pintaVerTabs();
+  if(vistaActual==='montos')preparaMontos();
+  if(vistaActual==='concilia'){ if(!conciliaData)cargaConcilia(); else pintaConcilia(); }
+  if(desplazar&&elegida)$(elegida.panel)?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function pintaVerTabs(){
+  const nav=$('verTabs');if(!nav)return;
+  const lista=vistasDisponibles();
+  if(!lista.some(v=>v.clave===vistaActual))vistaActual=lista[0]?.clave||null;
+  // Con una sola vista no hay nada que elegir: el selector sobra y estorba.
+  nav.classList.toggle('hidden',lista.length<2);
+  nav.innerHTML=lista.map(v=>{
+    const pend=v.clave==='concilia'?pendientesDeConcilia():0;
+    const activa=v.clave===vistaActual;
+    return `<button type="button" role="tab" aria-selected="${activa}" class="${activa?'active':''}" data-vista="${esc(v.clave)}">${esc(v.etiqueta)}${pend?`<span class="ver-badge">${pend}</span>`:''}</button>`;
+  }).join('');
+  nav.querySelectorAll('[data-vista]').forEach(b=>b.addEventListener('click',()=>mostrarVista(b.dataset.vista,true)));
+}
+
+// El padrón se trae al arrancar, no al abrir la vista: COBRAR lo necesita para
+// decir de dónde sale el monto en cuanto se elige al Tanner, y esperar a una
+// consulta en ese momento sería justo el segundo en que la ventanilla tiene al
+// papá enfrente.
+if(canViewMontos)cargaMontos();
+
+vistasListas=true;
+// ?ver=montos entra directo a esa vista. Sirve para que otros módulos enlacen
+// al padrón sin obligar a nadie a buscarlo, y para las pruebas de humo.
+mostrarVista(_params.get('ver'));

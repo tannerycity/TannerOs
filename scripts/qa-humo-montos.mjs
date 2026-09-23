@@ -65,21 +65,32 @@ async function corre(rol) {
         canSeeBenefitDetail: !esTaquilla,
         rows: [
           { playerId:'p1', name:'Ana Sofia Enríquez Uc', code:'TC-1', categoryId:'c1', categoryName:'Baby Tanner',
-            family:'Michel Enríquez', ordinaryFee:null, chargedFee:0, exempt:true, benefitTotal:null,
+            family:'Michel Enríquez', ordinaryFee:null, chargedFee:0, exempt:true, benefitTotal:null, feeSource:'beca',
             benefits:[{type:'scholarship_full',label:'Beca total',clubLabel:'Total',calculation:'full_waiver',affectsAmount:true,endsOn:null,
                        fixedAmount: esTaquilla?null:0, percentage: esTaquilla?null:100}],
             validityStatus:'sin_vencimiento', validUntil:null, toCollect:200, outstanding:200, collectionNote:null },
           { playerId:'p2', name:'Dario Montalvo Díaz', code:'TC-2', categoryId:'c2', categoryName:'T10',
-            family:'Familia Montalvo', ordinaryFee:500, chargedFee:500, exempt:false, benefitTotal:0,
+            family:'Familia Montalvo', ordinaryFee:500, chargedFee:500, exempt:false, benefitTotal:0, feeSource:'beca',
             benefits:[{type:'sponsor_funded',label:'Patrocinado',clubLabel:'Parcial por Curtibrother Bruno',calculation:'fixed_amount',affectsAmount:true,endsOn:'2026-10-31'}],
             validityStatus:'por_vencer', validUntil:'2026-10-31', toCollect:0, outstanding:0,
             collectionNote:'Cobrar con el papá, no con la abuela' },
           { playerId:'p3', name:'Iker Joan Flores Procopio', code:'TC-3', categoryId:'c3', categoryName:'T12',
-            family:'Familia Flores', ordinaryFee:800, chargedFee:750, exempt:false, benefitTotal:50,
+            family:'Familia Flores', ordinaryFee:800, chargedFee:750, exempt:false, benefitTotal:50, feeSource:'beca',
             benefits:[{type:'sibling_discount',label:'Hermanos Tanners',clubLabel:'Hermanos Tanner',calculation:'informational',affectsAmount:false,endsOn:null}],
-            validityStatus:'sin_vencimiento', validUntil:null, toCollect:850, outstanding:1650, collectionNote:null }
+            validityStatus:'sin_vencimiento', validUntil:null, toCollect:850, outstanding:1650, collectionNote:null },
+          // Los dos casos que M1/M2 separaron. Antes los dos salían idénticos:
+          // "beneficio de $400". Uno es un plan del club y el otro es un hueco.
+          { playerId:'p4', name:'Emiliano Paz García', code:'TC-4', categoryId:'c3', categoryName:'T12',
+            family:'Familia Paz', ordinaryFee:800, chargedFee:400, exempt:false, benefitTotal:null,
+            feeSource:'plan', planId:'pl1', planName:'Un día', feeNote:null, benefits:[],
+            validityStatus:'ordinaria', validUntil:null, toCollect:400, outstanding:0, collectionNote:null },
+          { playerId:'p5', name:'Hugo Beltrán Serrano', code:'TC-5', categoryId:'c3', categoryName:'T12',
+            family:'Familia Beltrán', ordinaryFee:800, chargedFee:400, exempt:false, benefitTotal:null,
+            feeSource:'sin_motivo', planId:null, planName:null, feeNote:null, benefits:[],
+            validityStatus:'ordinaria', validUntil:null, toCollect:400, outstanding:0, collectionNote:null }
         ],
-        summary: { players:3, withBenefit:3, toCollect:1050, outstanding:1850,
+        summary: { players:5, withBenefit:3, onPlan:1, byAgreement:0, withoutReason:1,
+                   toCollect:1850, outstanding:1850,
                    expiringSoon:1, expired:0, categoriesWithoutFee:1 }
       };
       const TARIFAS = [
@@ -148,13 +159,13 @@ async function corre(rol) {
   }));
 
   await pagina.goto('http://127.0.0.1:4603/v2/taquilla/', { waitUntil: 'networkidle' });
-  try { await pagina.waitForSelector('#openMontos', { timeout: 8000 }); }
+  try { await pagina.waitForSelector('[data-vista="montos"]', { timeout: 8000, state: 'attached' }); }
   catch (e) {
-    console.error(`[${rol}] no apareció #openMontos. Errores de la página:`); errores.forEach(x => console.error('   ' + x));
+    console.error(`[${rol}] no apareció la pestaña Montos. Errores de la página:`); errores.forEach(x => console.error('   ' + x));
     const diag = await pagina.evaluate(() => ({
-      existe: !!document.getElementById('openMontos'),
-      clases: document.getElementById('openMontos')?.className || null,
-      acciones: !!document.querySelector('.cashier-actions'),
+      tabs: document.getElementById('verTabs')?.innerText || null,
+      clasesTabs: document.getElementById('verTabs')?.className || null,
+      acciones: document.querySelectorAll('.cashier-actions .cashier-action').length,
       bodyClase: document.body.className,
       titulo: document.title,
       texto: document.body.innerText.slice(0, 300)
@@ -162,14 +173,32 @@ async function corre(rol) {
     console.error('   diagnóstico: ' + JSON.stringify(diag, null, 1));
     throw e; }
 
-  revisa(`[${rol}] el botón CUÁNTO COBRAR es visible`, await pagina.isVisible('#openMontos'));
-  revisa(`[${rol}] el panel arranca cerrado`, await pagina.isHidden('#montosPanel'));
-
-  await pagina.click('#openMontos');
+  // La simplificación que pidió el club: la pantalla arranca con DOS acciones
+  // —entra dinero, sale dinero—. Lo que antes era el botón CUÁNTO COBRAR y la
+  // barra de conciliación ahora es una pestaña más del selector "Ver".
+  revisa(`[${rol}] la pantalla arranca con sólo dos acciones grandes`,
+    (await pagina.$$('.cashier-actions .cashier-action')).length === 2);
+  revisa(`[${rol}] ya no existe el botón CUÁNTO COBRAR`,
+    (await pagina.$$('#openMontos')).length === 0);
+  revisa(`[${rol}] ya no existe la barra de conciliación`,
+    (await pagina.$$('#openConcilia')).length === 0);
+  // Taquilla sólo puede ver una cosa (el padrón): con una sola vista no hay
+  // nada que elegir, así que el selector se esconde y el panel sale directo.
+  // Cero toques para llegar a lo único que ese rol necesita.
+  if (rol === 'Taquilla') {
+    revisa(`[${rol}] con una sola vista el selector no estorba`, await pagina.isHidden('#verTabs'));
+    revisa(`[${rol}] el padrón sale sin tener que buscarlo`, await pagina.isVisible('#montosPanel'));
+  } else {
+    revisa(`[${rol}] el selector ofrece varias vistas`, await pagina.isVisible('#verTabs'));
+    revisa(`[${rol}] arranca en Cobranza, no en el padrón`, await pagina.isHidden('#montosPanel'));
+    await pagina.click('[data-vista="montos"]');
+  }
   await pagina.waitForSelector('.monto-card', { timeout: 6000 });
+  revisa(`[${rol}] la pestaña elegida queda marcada`,
+    await pagina.getAttribute('[data-vista="montos"]', 'aria-selected') === 'true');
 
   const panel = (await pagina.textContent('#montosPanel')).replace(/\s+/g, ' ');
-  revisa(`[${rol}] salen los 3 Tanners`, (await pagina.$$('.monto-card')).length === 3);
+  revisa(`[${rol}] salen los 5 Tanners`, (await pagina.$$('.monto-card')).length === 5);
   revisa(`[${rol}] dice cuánto cobrarle a Iker (850, con recargo)`, /\$850/.test(panel), panel.slice(0, 200));
 
   // El caso central: sin tarifa de categoría no se inventa el ordinario.
@@ -180,6 +209,17 @@ async function corre(rol) {
   revisa(`[${rol}] donde sí hay tarifa, muestra la resta`,
     /\$800\.00 ordinaria/.test(panel) && /\$50\.00 beneficio/.test(panel) && /\$750\.00 mensualidad/.test(panel),
     panel.slice(0, 600));
+
+  // EL BUG QUE CERRÓ M2, visto en pantalla.
+  // Emiliano y Hugo pagan lo mismo (400 con tarifa de 800). Antes los dos
+  // salían con "beneficio de $400" que nadie autorizó. Ahora uno dice que es
+  // un plan del club y el otro dice que nadie registró por qué.
+  revisa(`[${rol}] el plan del club se nombra, no se disfraza de beca`,
+    /Plan del club · Un día/.test(panel), panel.slice(0, 900));
+  revisa(`[${rol}] al plan NO se le inventa una resta`,
+    !/\$400\.00 beneficio/.test(panel), panel.slice(0, 900));
+  revisa(`[${rol}] el que paga distinto sin explicación queda marcado`,
+    /Sin motivo registrado/.test(panel) && /nadie registró por qué/.test(panel), panel.slice(0, 1200));
 
   // El beneficio que es sólo etiqueta tiene que decirse.
   revisa(`[${rol}] avisa del beneficio que no descuenta nada`,
@@ -201,7 +241,7 @@ async function corre(rol) {
   revisa(`[${rol}] el buscador encuentra por tutor`, (await pagina.$$('.monto-card')).length === 1);
   await pagina.click('#montosSearchClear');
   await pagina.waitForTimeout(150);
-  revisa(`[${rol}] limpiar la búsqueda devuelve a todos`, (await pagina.$$('.monto-card')).length === 3);
+  revisa(`[${rol}] limpiar la búsqueda devuelve a todos`, (await pagina.$$('.monto-card')).length === 5);
 
   // Chips
   await pagina.click('[data-montos-filter="debt"]');
@@ -229,7 +269,7 @@ async function corre(rol) {
     revisa(`[${rol}] el PDF se llama por su periodo`, pdf.nombre === 'montos-de-cobro-2026-09.pdf', pdf.nombre);
     revisa(`[${rol}] el PDF va marcado como consulta interna`, /CONSULTA INTERNA/.test(texto));
     revisa(`[${rol}] el PDF dice con qué filtros se generó`, /Sólo con saldo/.test(texto), texto.slice(0, 300));
-    revisa(`[${rol}] el PDF sólo trae lo filtrado (2 de 3)`,
+    revisa(`[${rol}] el PDF sólo trae lo filtrado (2 de 5)`,
       /Ana Sofia/.test(texto) && /Iker/.test(texto) && !/Dario/.test(texto), texto.slice(0, 400));
     revisa(`[${rol}] el PDF NO lleva la nota interna`, !/abuela/.test(texto));
     revisa(`[${rol}] el PDF avisa de la columna Ordinaria en blanco`,

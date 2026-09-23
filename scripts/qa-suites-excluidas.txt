@@ -13,6 +13,7 @@ qa-centro-tanner.mjs
 qa-humo-navegador.mjs
 qa-image-encode-browser.mjs
 qa-humo-asistencia.mjs
+qa-humo-familias.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

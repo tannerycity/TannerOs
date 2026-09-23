@@ -69,8 +69,10 @@ export function diferenciaDe(fila) {
   }
   const d = Math.round((Number(fila.amount || 0) - Number(fila.expectedAmount)) * 100) / 100;
   if (d === 0) return { hay: false, monto: 0, nivel: 'ok', texto: 'Recibido igual a lo esperado' };
-  if (d < 0) return { hay: true, monto: d, nivel: 'bajo', texto: `Faltaron ${Math.abs(d)}` };
-  return { hay: true, monto: d, nivel: 'atencion', texto: `Se recibió ${d} de más` };
+  // El texto NO trae el número: quien pinta lo formatea como moneda. Si lo
+  // trajera, la pantalla terminaba diciendo "Faltaron 50 $50.00".
+  if (d < 0) return { hay: true, monto: d, nivel: 'bajo', texto: 'Faltaron' };
+  return { hay: true, monto: d, nivel: 'atencion', texto: 'Se recibió de más' };
 }
 
 const sinAcentos = v => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

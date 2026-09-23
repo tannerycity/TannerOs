@@ -147,7 +147,8 @@ async function corre(rol) {
   const tarjeta = (await pagina.textContent('.concilia-card')).replace(/\s+/g, ' ');
   revisa(`[${rol}] la tarjeta dice el periodo`, /periodo 2026-09/.test(tarjeta), tarjeta.slice(0, 160));
   revisa(`[${rol}] a una transferencia le llama conciliación bancaria`, /Conciliación bancaria/.test(tarjeta));
-  revisa(`[${rol}] señala el faltante`, /Faltaron/.test(tarjeta) && /\$50\.00/.test(tarjeta), tarjeta.slice(0, 300));
+  revisa(`[${rol}] señala el faltante`, /Faltaron \$50\.00/.test(tarjeta), tarjeta.slice(0, 300));
+  revisa(`[${rol}] no repite el monto en el faltante`, !/Faltaron 50/.test(tarjeta), tarjeta.slice(0, 300));
   revisa(`[${rol}] dice quién cobró`, /Ana de Taquilla/.test(tarjeta));
 
   // Efectivo: NO conciliación bancaria

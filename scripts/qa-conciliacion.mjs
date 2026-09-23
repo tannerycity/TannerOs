@@ -127,6 +127,10 @@ prueba('un faltante y un sobrante no se leen igual', () => {
   assert.equal(sobra.monto, 20);
   assert.equal(sobra.nivel, 'atencion');
   assert.match(sobra.texto, /de más/);
+  // El texto no lleva el número: lo formatea quien pinta. Si lo llevara, la
+  // tarjeta decía "Faltaron 50 $50.00".
+  assert.ok(!/\d/.test(falta.texto), `el texto trae el número: ${falta.texto}`);
+  assert.ok(!/\d/.test(sobra.texto), `el texto trae el número: ${sobra.texto}`);
 });
 
 prueba('sin monto esperado no se inventa una diferencia', () => {

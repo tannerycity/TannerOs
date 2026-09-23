@@ -1,8 +1,8 @@
 {
-  "migraciones": 389,
-  "bytes": 2013445,
-  "huella": "ce9cc6a60ad438df0b1e9866312364e4",
+  "migraciones": 390,
+  "bytes": 2017705,
+  "huella": "7ef9337eec7a1a055d6ad3965786101c",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260923044416_k3_post_payment_captura_esperado_y_observaciones.sql",
+  "ultima": "20260923051711_l1_quitar_becas_qa_del_padron.sql",
   "verificadoContraLaBase": "2026-09-23"
 }

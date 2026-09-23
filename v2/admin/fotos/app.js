@@ -3,6 +3,7 @@ import {supabase} from '/v2/shell.js';
 import { getRawSignedPhotoUrl, forgetPhoto } from '/v2/photo-cache.js';
 import { rutaDeOriginal, rutaDeMiniatura, rutaValida, miniaturaValida } from '/v2/foto-rutas.js';
 import {encodeVariant,THUMB_MAX_SIDE,THUMB_MAX_BYTES,FULL_MAX_SIDE,FULL_MAX_BYTES,UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
+import {cuentaDeImagen} from '/v2/permiso-de-imagen.js';
 
 // Mantenimiento de fotos del padrón.
 //
@@ -104,6 +105,25 @@ function pinta(jugadores,meta){
   $('statPesadas').textContent=pesados;
   $('statSinMini').closest('article').dataset.tone=sinMini?'warn':'ok';
   $('statPesadas').closest('article').dataset.tone=pesados?'warn':'ok';
+
+  /* Esta pantalla es de mantenimiento, pero es donde vive el archivero de
+     fotos: si el dato no aparece aquí, no aparece en ningún lado antes de que
+     alguien baje una. Medido el 23 de septiembre: 43 de las fotos guardadas
+     son de niños cuya familia nunca firmó nada. */
+  const img=cuentaDeImagen(jugadores);
+  $('statSinPermiso').textContent=img.noPublicablesConFoto;
+  $('statSinPermiso').closest('article').dataset.tone=img.noPublicablesConFoto?'warn':'ok';
+  const aviso=$('thumbsPermiso');
+  if(aviso){
+    aviso.classList.toggle('hidden',!img.noPublicablesConFoto);
+    if(img.noPublicablesConFoto){
+      aviso.innerHTML=`<b>${img.noPublicablesConFoto} de estas fotos no se pueden publicar.</b> `+
+        `${img.no_autoriza} ${img.no_autoriza===1?'familia dijo':'familias dijeron'} que no y `+
+        `${img.sin_preguntar} nunca ${img.sin_preguntar===1?'fue preguntada':'fueron preguntadas'}. `+
+        `Sólo ${img.autoriza} de ${img.total} ${img.autoriza===1?'autoriza':'autorizan'} salir en redes. `+
+        `Generar miniaturas no cambia eso: la miniatura tampoco se publica.`;
+    }
+  }
   const btn=$('thumbsRun'),lote=$('thumbsBatch'),loteCaja=$('thumbsBatch-wrap');
   if(!lista.length){
     $('thumbsHint').textContent='Todas las fotos del padrón tienen su miniatura y ninguna pesa de más. No hay nada que hacer aquí.';

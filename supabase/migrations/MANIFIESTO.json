@@ -1,8 +1,8 @@
 {
-  "migraciones": 397,
-  "bytes": 2087431,
-  "huella": "d1e0d8e10657474a4973b713c1465eaa",
+  "migraciones": 398,
+  "bytes": 2106093,
+  "huella": "fd2c24f89de3cf2130c67dcdd92ecb89",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260923132746_m2_el_monto_dice_de_donde_sale.sql",
+  "ultima": "20260923175755_n1_permiso_de_imagen_con_las_tres_respuestas.sql",
   "verificadoContraLaBase": "2026-09-23"
 }

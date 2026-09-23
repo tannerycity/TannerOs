@@ -1,6 +1,8 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { TANNER_SCALE, TANNER_DIMENSIONS, EVALUATION_ONBOARDING, guidanceForCategory } from '/v2/evaluation-guidance.js';
+import { estadoDeImagen, puedePublicarse, cuentaDeImagen, noPublicables,
+         COLUMNAS_NO_PUBLICABLES, filaDeNoPublicable, nombreDeArchivoNoPublicables } from '/v2/permiso-de-imagen.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,players=[],categories=[],current=null,canWrite=false,canFamily=false,canStatus=false,sportsSeq=0;
 const FAMILY_FIELDS=['firstName','lastName','birthDate','sex','school','bloodType','allergies','address','emergencyName','emergencyPhone','guardianName','guardianPhone','guardianEmail','guardianRelationship','canPickup','receivesBilling','notes'];
@@ -82,7 +84,13 @@ const FILTROS=[
   {key:'nocorreo',label:'Sin correo',     tono:'danger', test:p=>!p.has_guardian_email},
   {key:'nofoto',  label:'Sin foto',       tono:'',       test:p=>!p.photo_path},
   {key:'noconsent',label:'Consentimiento pendiente',tono:'danger',test:p=>!p.data_consent},
-  {key:'noimagen', label:'Sin permiso de imagen',   tono:'',      test:p=>!p.image_consent}
+  // El permiso de imagen tenía UN chip para dos situaciones opuestas. Medido el
+  // 23 de septiembre: 3 familias dijeron que no y 55 nunca fueron preguntadas.
+  // Las dos prohíben publicar, pero al que dijo que no no se le vuelve a
+  // preguntar y a los 55 hay que pedirles la firma. Con un solo chip el club no
+  // podía ver esa diferencia, y son 55 permisos sobre la mesa.
+  {key:'noautoriza',label:'No autoriza su imagen', tono:'danger',test:p=>estadoDeImagen(p).clave==='no_autoriza'},
+  {key:'sinfirma',  label:'Falta pedir la firma',  tono:'',      test:p=>estadoDeImagen(p).clave==='sin_preguntar'}
 ];
 // Desglose de becas: para dar seguimiento no basta saber que hay 20 becados,
 // hay que poder ver de golpe cuántas son totales y cuántas las paga alguien más.
@@ -99,6 +107,7 @@ function pasaEstado(p){
   if(fStat==='review')return Boolean(p.needs_review)&&activo;
   if(fStat.startsWith('beca:'))return activo&&p.benefit_active&&p.benefit_type===fStat.slice(5);
   const f=FILTROS.find(x=>x.key===fStat);
+  if(fStat==='puedesalir')return activo&&puedePublicarse(p);
   if(f)return activo&&f.test(p);
   return true;
 }
@@ -175,7 +184,7 @@ document.addEventListener('click',e=>{
   const chip=e.target.closest?.('#positionRail .pos-chip');
   if(chip&&!chip.disabled){setPosicion(chip.dataset.pos);}
 });
-function renderList(){const q=$('search').value.trim().toLocaleLowerCase('es-MX');const rows=players.filter(p=>{const stOk=pasaFiltro(p);if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.toLocaleLowerCase('es-MX').includes(q))return false;return true;});const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const NOTAS={review:{t:'Esto no es documentación faltante.',d:'Son Tanners cuyo <b>cobro</b> quedó sin configurar.'},nodocs:{t:'Expediente incompleto de verdad.',d:'Les falta al menos un documento del checklist: acta, CURP o constancia de estudios.'},beca:{t:'Tanners con beca o apoyo activo.',d:'Alguien más cubre parte o toda su cuota. Revisa que el patrocinio esté configurado.'},nocorreo:{t:'Sin correo de tutor.',d:'Sin correo no se les puede dar acceso al portal de familias ni mandarles su estado de cuenta.'},nofoto:{t:'Sin foto en el expediente.',d:'La foto se usa en la credencial y para pasar lista más rápido.'}};const nota=NOTAS[fStat];if(nota&&rows.length){const motivos=fStat==='review'?[...new Set(rows.map(p=>p.review_reason).filter(Boolean))]:[];const fuentes=fStat==='beca'?[...new Set(rows.map(p=>p.benefit_source).filter(Boolean))]:[];const extra=motivos.length?motivos:fuentes;const el=document.createElement('div');el.className='review-note';el.innerHTML=`<strong>${nota.t}</strong><span>${nota.d}${extra.length?' '+(fStat==='beca'?'Fuentes:':'Motivo'+(extra.length>1?'s':'')+':'):''}</span>`+(extra.length?`<ul>${extra.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'');box.appendChild(el);}const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className='jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;const review=p.needs_review;if(review&&p.review_reason)b.title=p.review_reason;b.innerHTML=`${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:''}<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span><span class="jcard-dot${review?' review':' ok'}"></span>${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
+function renderList(){const q=$('search').value.trim().toLocaleLowerCase('es-MX');const rows=players.filter(p=>{const stOk=pasaFiltro(p);if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.toLocaleLowerCase('es-MX').includes(q))return false;return true;});const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const NOTAS={review:{t:'Esto no es documentación faltante.',d:'Son Tanners cuyo <b>cobro</b> quedó sin configurar.'},nodocs:{t:'Expediente incompleto de verdad.',d:'Les falta al menos un documento del checklist: acta, CURP o constancia de estudios.'},beca:{t:'Tanners con beca o apoyo activo.',d:'Alguien más cubre parte o toda su cuota. Revisa que el patrocinio esté configurado.'},nocorreo:{t:'Sin correo de tutor.',d:'Sin correo no se les puede dar acceso al portal de familias ni mandarles su estado de cuenta.'},nofoto:{t:'Sin foto en el expediente.',d:'La foto se usa en la credencial y para pasar lista más rápido.'}};const nota=NOTAS[fStat];if(nota&&rows.length){const motivos=fStat==='review'?[...new Set(rows.map(p=>p.review_reason).filter(Boolean))]:[];const fuentes=fStat==='beca'?[...new Set(rows.map(p=>p.benefit_source).filter(Boolean))]:[];const extra=motivos.length?motivos:fuentes;const el=document.createElement('div');el.className='review-note';el.innerHTML=`<strong>${nota.t}</strong><span>${nota.d}${extra.length?' '+(fStat==='beca'?'Fuentes:':'Motivo'+(extra.length>1?'s':'')+':'):''}</span>`+(extra.length?`<ul>${extra.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'');box.appendChild(el);}const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className='jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;const review=p.needs_review;if(review&&p.review_reason)b.title=p.review_reason;b.innerHTML=`${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:''}<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span><span class="jcard-dot${review?' review':' ok'}"></span>${marcaDePublicidad(p)}${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
 let photoRenderSeq=0;
 function legacyPhotoSource(value){const raw=String(value||'').trim();if(/^data:image\//i.test(raw)||/^https?:\/\//i.test(raw))return raw;return null;}
 function drawPhoto(box,src,alt){box.innerHTML='';const img=document.createElement('img');img.src=src;img.alt=alt;img.decoding='async';box.appendChild(img);}
@@ -195,9 +204,15 @@ const fechaConAnio=v=>{if(!v)return'';try{return new Intl.DateTimeFormat('es-MX'
 function renderPrivacy(p){
   const box=$('privacyBadges');if(!box)return;
   const badge=(ok,siOk,siNo,fecha)=>`<span class="profile-badge ${ok?'ok':'pend'}">${esc(ok?siOk:siNo)}${ok&&fecha?` · ${esc(fechaConAnio(fecha))}`:''}</span>`;
+  // La insignia de imagen NO usa `badge`: con dos estados no alcanza. "Dijo que
+  // no" y "nunca se le preguntó" se veían idénticas y son trabajos opuestos.
+  const img=estadoDeImagen(p);
+  const badgeImagen=`<span class="profile-badge img-${esc(img.clave)}" title="${esc(img.queHacer||'')}">`+
+    `<i aria-hidden="true">${esc(img.icono)}</i> ${esc(img.etiqueta)}`+
+    `${img.clave==='autoriza'&&p.imageConsentAt?` · ${esc(fechaConAnio(p.imageConsentAt))}`:''}</span>`;
   box.innerHTML=
     badge(p.dataConsent,'Datos autorizados','Consentimiento pendiente',p.dataConsentAt)+
-    badge(p.imageConsent,'Imagen autorizada','Sin autorización publicitaria',p.imageConsentAt)+
+    badgeImagen+
     (p.privacyNoticeVersion?`<span class="profile-badge">Aviso ${esc(p.privacyNoticeVersion)}</span>`:'')+
     (canWrite?`<button type="button" class="profile-badge badge-action" id="consentToggle">${p.dataConsent&&p.imageConsent?'Editar permisos':'Registrar permisos'}</button>`:'')+
     `<div id="consentBox" class="consent-box hidden">
@@ -576,6 +591,98 @@ $('addBenefit')?.addEventListener('click',()=>{if(current?.player?.id)formBeca(c
 $('statusFilter').addEventListener('change',loadPlayers);$('search').addEventListener('input',renderList);$('profileForm').addEventListener('submit',save);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 
 
+/* La marca en la tarjeta es la POSITIVA, y es a propósito.
+
+   Hoy 58 de 63 Tanners no se pueden publicar. Ponerle candado a 58 tarjetas no
+   avisa nada: es tapiz, y a la semana nadie lo ve. Los que SÍ pueden salir son
+   5, y ése es el dato que alguien busca cuando va a armar un post.
+
+   El caso contrario —saber por qué uno no se puede— se contesta en su ficha,
+   que sí trae las tres respuestas, y en la lista imprimible con nombres. La
+   postura por omisión del club es no publicar; la marca verde es la excepción,
+   no el permiso. */
+function marcaDePublicidad(p){
+  if(!puedePublicarse(p))return '';
+  return `<span class="jcard-pub" title="La familia autorizó su imagen"><i aria-hidden="true">✓</i>Puede salir</span>`;
+}
+
+/* La lista que se le entrega a quien maneja redes.
+
+   Esa persona no tiene —ni debe tener— acceso a Jugadores: ahí hay becas,
+   adeudos y teléfonos de los tutores. Lo que sí necesita es un papel con los
+   nombres de a quién NO puede subir. Por eso el PDF lleva exactamente cuatro
+   columnas y ninguna más: nombre, categoría, situación y si hay foto cargada.
+
+   Va ordenado como se trabaja: primero los que ya dijeron que no (ésos nunca
+   cambian) y luego los que faltan de firmar. */
+async function exportaNoPublicables(btn){
+  const antes=btn.innerHTML;
+  btn.disabled=true;btn.innerHTML='<span>Armando el PDF…</span>';
+  try{
+    const activos=(players||[]).filter(p=>p.status_value==='active');
+    const filas=noPublicables(activos);
+    if(!filas.length){msg('Ningún Tanner activo queda fuera: todos autorizan su imagen.','success');return;}
+
+    const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+    const doc=new jsPDF({unit:'pt',format:'letter'});
+    const ancho=doc.internal.pageSize.getWidth();
+    const alto=doc.internal.pageSize.getHeight();
+    const margen=40;
+    let y=margen;
+    const hoyLargo=new Intl.DateTimeFormat('es-MX',{dateStyle:'long'}).format(new Date());
+    const cuenta=cuentaDeImagen(activos);
+
+    function filaCabecera(){
+      doc.setFillColor(238,242,241);doc.rect(margen,y-9,ancho-margen*2,16,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(60,80,86);
+      let x=margen+4;
+      for(const c of COLUMNAS_NO_PUBLICABLES){doc.text(c.titulo,x,y+2);x+=c.ancho;}
+      y+=18;doc.setTextColor(7,25,30);
+    }
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(7,25,30);
+    doc.text('Tanners que NO pueden salir en publicidad',margen,y);y+=17;
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,118,123);
+    doc.text(`${ctx.organization_name||'Tannery City FC'} · ${hoyLargo}`,margen,y);y+=12;
+    doc.text(`${cuenta.noPublicables} de ${cuenta.total} Tanners activos. Sólo ${cuenta.autoriza} tiene${cuenta.autoriza===1?'':'n'} autorización.`,margen,y);y+=12;
+    doc.setTextColor(163,41,32);
+    doc.setFont('helvetica','bold');
+    doc.text('Antes de publicar una foto, revisa esta lista. Si el nombre está aquí, no se sube.',margen,y);y+=15;
+    doc.setFont('helvetica','normal');doc.setTextColor(7,25,30);
+    filaCabecera();
+
+    doc.setFontSize(8.5);
+    let rayado=false;
+    for(const p of filas){
+      if(y+15>alto-margen-30){doc.addPage();y=margen;filaCabecera();doc.setFontSize(8.5);}
+      const r=filaDeNoPublicable(p);
+      if(rayado){doc.setFillColor(249,251,250);doc.rect(margen,y-9,ancho-margen*2,14,'F');}
+      rayado=!rayado;
+      let x=margen+4;
+      for(const c of COLUMNAS_NO_PUBLICABLES){
+        doc.setFont('helvetica',c.clave==='name'?'bold':'normal');
+        doc.text(doc.splitTextToSize(String(r[c.clave]??'—'),c.ancho-8)[0]||'',x,y);
+        x+=c.ancho;
+      }
+      y+=14;
+    }
+
+    if(y+40>alto-margen){doc.addPage();y=margen;}
+    y+=8;doc.setDrawColor(220,229,227);doc.line(margen,y,ancho-margen,y);y+=15;
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(100,118,123);
+    // La diferencia que este papel tiene que dejar clara: una mitad ya no se
+    // toca y la otra es trabajo del club.
+    doc.text(`${cuenta.no_autoriza} ya dijeron que no: no se les vuelve a preguntar. `+
+      `${cuenta.sin_preguntar} nunca fueron preguntados: hasta que firmen, tampoco se publican.`,
+      margen,y,{maxWidth:ancho-margen*2});
+    doc.save(nombreDeArchivoNoPublicables(today()));
+    msg(`Listo: ${filas.length} Tanners en la lista.`,'success');
+  }catch(e){
+    msg(`No se pudo armar el PDF: ${e?.message||e}`);
+  }finally{
+    btn.disabled=false;btn.innerHTML=antes;
+  }
+}
+
 // === Miniaturas en la lista (la foto completa se reserva para la ficha) ===
 async function signPlayerPhotos(list){
   try{
@@ -636,9 +743,16 @@ function renderFacetBody(){
   }
 
   if(facet==='expediente'){
+    const img=cuentaDeImagen(activos);
     html=chip(fStat==='review','stat:review','Cobro por revisar',activos.filter(p=>p.needs_review).length,' danger')+
       FILTROS.filter(f=>f.key!=='beca')
-        .map(f=>chip(fStat===f.key,'stat:'+f.key,f.label,activos.filter(f.test).length,f.tono?' '+f.tono:'')).join('');
+        .map(f=>chip(fStat===f.key,'stat:'+f.key,f.label,activos.filter(f.test).length,f.tono?' '+f.tono:'')).join('')+
+      // El chip que alguien busca de verdad cuando va a armar un post: quiénes
+      // SÍ pueden salir. Los otros dos dicen a quién perseguir y a quién no.
+      `<span class="fchip-sep"></span>`+
+      chip(fStat==='puedesalir','stat:puedesalir','Puede salir en publicidad',img.autoriza,' ok')+
+      `<button type="button" class="fchip fchip-link" data-filtro="pdf:nopublicables">`+
+        `<span>No publicables · PDF</span><b>${img.noPublicables}</b></button>`;
   }
 
   if(facet==='cancha'){
@@ -693,6 +807,7 @@ document.addEventListener('click',e=>{
     const [tipo,...resto]=fc.dataset.filtro.split(':');
     const val=resto.join(':');
     if(tipo==='ir'){abrirPadronBecas();return;}
+    if(tipo==='pdf'){exportaNoPublicables(fc);return;}
     if(tipo==='cat')fCat=val;
     if(tipo==='pos')fPos=(val&&val===fPos)?'':val;
     if(tipo==='stat')fStat=(val&&val===fStat&&val!=='active')?'active':val;

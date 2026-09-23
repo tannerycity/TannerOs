@@ -120,6 +120,14 @@
 .montos-aviso{background:#fdf2dc;border:1px solid #f0dcb0;border-radius:13px;padding:11px 13px;font-size:12.5px;color:#7a5a12;font-weight:700;line-height:1.45;margin-bottom:13px}
 .montos-aviso b{font-weight:1000}
 .montos-aviso button{margin-top:8px;border:1px solid #d8b86a;background:#fff;border-radius:999px;padding:7px 13px;font-weight:900;font-size:12px;color:#7a5a12;cursor:pointer}
+.montos-aviso p{margin:0}
+.montos-aviso p+p{margin-top:11px;padding-top:11px;border-top:1px dashed #e2cb96}
+/* Cerrar el hueco desde donde se ve. Si el botón viviera en otra pantalla,
+   nadie iría: son catorce casos sueltos, no una tarea con su propio momento. */
+.monto-arreglo{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:9px}
+.monto-arreglo button{border:1px solid #f0c4bd;background:#fff;color:#a32920;border-radius:999px;padding:8px 13px;font-weight:900;font-size:12px;cursor:pointer;min-height:40px}
+.monto-arreglo.editando input{flex:1 1 170px;min-width:0;text-align:left}
+.monto-arreglo.editando button{border:0;background:var(--tos-teal,#056c7f);color:#fff}
 
 .montos-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:13px}
 .montos-kpis article{background:#fff;border:1px solid var(--tos-line,#dce5e3);border-radius:14px;padding:10px 12px}
@@ -178,6 +186,17 @@
 .tarifa-row input{width:104px;text-align:right}
 .tarifa-row button{border:0;background:var(--tos-teal,#056c7f);color:#fff;border-radius:10px;padding:8px 12px;font-weight:900;font-size:12px;cursor:pointer;margin-left:7px}
 .tarifa-row .sug{border:1px solid #cfe0e3;background:#fff;color:#0c5464;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;cursor:pointer;margin-top:5px}
+/* Los planes de la categoría y, debajo, los montos que se cobran sin ser
+   ningún plan. Ese segundo bloque es el trabajo pendiente del club, a la
+   vista: mientras tenga renglones, hay Tanners pagando algo que nadie nombró. */
+.plan-zona{grid-column:1/-1;border-top:1px dashed #d5e2e0;margin-top:9px;padding-top:9px;display:grid;gap:7px}
+.plan-chips{display:flex;flex-wrap:wrap;gap:6px}
+.plan-chip{background:#e4f6e9;color:#11773c;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:900}
+.plan-suelto{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#ffe9e6;border-radius:11px;padding:8px 10px;font-size:12px;font-weight:800;color:#a32920}
+.plan-suelto .sug{margin-top:0;border-color:#f0c4bd}
+.plan-suelto.editando{background:#f6f9f8;color:#07191e}
+.plan-suelto input{flex:1 1 150px;min-width:0;text-align:left}
+.plan-suelto button[data-crear]{border:0;background:var(--tos-teal,#056c7f);color:#fff;border-radius:10px;padding:8px 12px;font-weight:900;font-size:12px;cursor:pointer}
 
 @media(min-width:760px){
   .montos-kpis{grid-template-columns:repeat(4,1fr)}

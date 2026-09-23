@@ -60,7 +60,7 @@ async function corre(rol) {
     body: `
       const ROL = ${JSON.stringify(rol)};
       const esTaquilla = ROL === 'Taquilla';
-      const MONTOS = {
+      let MONTOS = {
         billingPeriod: '2026-09-01',
         canSeeBenefitDetail: !esTaquilla,
         rows: [
@@ -93,6 +93,16 @@ async function corre(rol) {
                    toCollect:1850, outstanding:1850,
                    expiringSoon:1, expired:0, categoriesWithoutFee:1 }
       };
+      // Baby Tanner es el caso real: tarifa de lista 550, y diez Tanners
+      // pagando 400 que no son ninguna beca.
+      let PLANES = [
+        { categoryId:'c1', categoryName:'Baby Tanner', ordinaryFee:550,
+          plans:[{ planId:'pl0', name:'Completo', monthlyFee:550, isDefault:true, players:7 }],
+          unnamedAmounts:[{ monthlyFee:400, players:10 }] },
+        { categoryId:'c2', categoryName:'T10', ordinaryFee:500,
+          plans:[{ planId:'pl2', name:'Completo', monthlyFee:500, isDefault:true, players:12 }],
+          unnamedAmounts:[] }
+      ];
       const TARIFAS = [
         { categoryId:'c1', code:'baby_tanner', name:'Baby Tanner', monthlyFee:null, setAt:null, activePlayers:19, suggested:400, feeSpread:4 },
         { categoryId:'c2', code:'t10', name:'T10', monthlyFee:500, setAt:'2026-09-23', activePlayers:12, suggested:500, feeSpread:4 }
@@ -110,6 +120,23 @@ async function corre(rol) {
         if(name==='v2_collection_amounts') return MONTOS;
         if(name==='v2_category_fees') return TARIFAS;
         if(name==='v2_set_category_fee') return true;
+        if(name==='v2_category_plans') return PLANES;
+        if(name==='v2_set_player_fee_note'){
+          MONTOS = { ...MONTOS,
+            rows: MONTOS.rows.map(r => r.playerId !== params.player_id ? r
+              : { ...r, feeSource:'acuerdo', feeNote: params.note }),
+            summary: { ...MONTOS.summary, withoutReason:0, byAgreement:1 } };
+          return true;
+        }
+        if(name==='v2_create_category_plan'){
+          // El backend liga de un golpe a todos los que ya pagaban ese monto.
+          PLANES = PLANES.map(c => c.categoryId !== params.category_id ? c : {
+            ...c,
+            plans: [...c.plans, { planId:'nuevo', name:params.name, monthlyFee:params.monthly_fee, isDefault:false, players:10 }],
+            unnamedAmounts: c.unnamedAmounts.filter(u => Number(u.monthlyFee) !== Number(params.monthly_fee))
+          });
+          return { planId:'nuevo', assigned:10 };
+        }
         if(name==='v2_cashier_snapshot') return { businessDate:'2026-09-23', incomeTotal:0, expenseTotal:0,
           netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], movements:[], canViewLedger: !esTaquilla };
         if(name==='v2_billing_players') return [];
@@ -221,6 +248,13 @@ async function corre(rol) {
   revisa(`[${rol}] el que paga distinto sin explicación queda marcado`,
     /Sin motivo registrado/.test(panel) && /nadie registró por qué/.test(panel), panel.slice(0, 1200));
 
+  // El aviso que el club no tenía: cuántos pagan algo que nadie explicó.
+  const avisoTxt = (await pagina.textContent('#montosAviso')).replace(/\s+/g, ' ');
+  revisa(`[${rol}] avisa de los Tanners sin motivo registrado`,
+    /1 Tanner paga distinto a su categoría y nadie registró por qué/.test(avisoTxt), avisoTxt.slice(0, 300));
+  revisa(`[${rol}] el aviso dice que ya no cuentan como beca`,
+    /No es una beca: el sistema ya no lo cuenta como tal/.test(avisoTxt), avisoTxt.slice(0, 400));
+
   // El beneficio que es sólo etiqueta tiene que decirse.
   revisa(`[${rol}] avisa del beneficio que no descuenta nada`,
     /registrado como etiqueta: no descuenta nada/.test(panel), panel.slice(0, 700));
@@ -275,6 +309,39 @@ async function corre(rol) {
     revisa(`[${rol}] el PDF avisa de la columna Ordinaria en blanco`,
       /sin mensualidad ordinaria capturada/.test(texto), texto.slice(-300));
 
+    // LA OTRA MITAD: lo que se acuerda con UNA familia.
+    // Un plan arregla a diez de un golpe; esto arregla al que está solo. Sin
+    // las dos salidas, el padrón nunca llegaría a cero.
+    await pagina.click('[data-montos-filter="sinmotivo"]');
+    await pagina.waitForTimeout(150);
+    revisa(`[${rol}] el chip "Sin motivo" deja sólo al que nadie explicó`,
+      (await pagina.$$('.monto-card')).length === 1);
+    revisa(`[${rol}] ese Tanner trae el botón para cerrarlo`,
+      await pagina.isVisible('[data-acuerdo="p5"]'));
+
+    await pagina.click('[data-acuerdo="p5"]');
+    await pagina.fill('#acuerdo-p5', 'Paga la abuela los martes');
+    await pagina.click('[data-guardaacuerdo="p5"]');
+    await pagina.waitForTimeout(500);
+    const acuerdos = await pagina.evaluate(() => window.__rpc.filter(r => r.name === 'v2_set_player_fee_note'));
+    revisa(`[${rol}] guarda lo acordado sin tocarle la cuota`,
+      acuerdos.length === 1 && acuerdos[0].params.note === 'Paga la abuela los martes'
+        && acuerdos[0].params.monthly_fee === undefined,
+      JSON.stringify(acuerdos));
+    await pagina.click('[data-montos-filter="all"]');
+    await pagina.waitForTimeout(200);
+    const trasAcuerdo = (await pagina.textContent('#montosPanel')).replace(/\s+/g, ' ');
+    revisa(`[${rol}] ahora dice lo que se acordó, no "sin motivo"`,
+      /Acuerdo con la familia · Paga la abuela los martes/.test(trasAcuerdo)
+        && !/Sin motivo registrado/.test(trasAcuerdo), trasAcuerdo.slice(0, 900));
+    // El aviso NO desaparece entero: sigue faltando capturar una tarifa, que
+    // es otro problema. Lo que se va es el renglón del hueco que se cerró.
+    const aviso2 = (await pagina.textContent('#montosAviso')).replace(/\s+/g, ' ');
+    revisa(`[${rol}] el aviso del hueco se va al cerrarlo`,
+      !/nadie registró por qué/.test(aviso2), aviso2.slice(0, 300));
+    revisa(`[${rol}] pero sigue avisando de la tarifa que falta`,
+      /sin mensualidad ordinaria capturada/.test(aviso2), aviso2.slice(0, 300));
+
     // Tarifas
     await pagina.click('[data-montos-filter="all"]');
     await pagina.waitForTimeout(120);
@@ -295,6 +362,33 @@ async function corre(rol) {
     const msg = await pagina.textContent('#tarifasMessage');
     revisa(`[${rol}] avisa que la tarifa no cambia lo que se cobra`,
       /No cambia lo que el sistema cobra/.test(msg), msg);
+    // NOMBRAR UN MONTO SUELTO COMO PLAN DEL CLUB.
+    // Los diez Baby Tanners que pagan 400 se arreglan con un nombre, no con
+    // diez ediciones. Y no se les cambia el monto: se les pone de dónde sale.
+    revisa(`[${rol}] los planes que ya existen se ven`, /Completo · \$550\.00 · 7/.test(tar), tar.slice(0, 400));
+    revisa(`[${rol}] el monto sin nombre se enseña, no se esconde`,
+      /10 Tanners sin plan ni beca/.test(tar), tar.slice(0, 500));
+
+    await pagina.click('[data-nombrar="c1"]');
+    await pagina.fill('#plannombre-c1-400', 'Un día');
+    await pagina.click('[data-crear="c1"]');
+    await pagina.waitForTimeout(400);
+    const creadas = await pagina.evaluate(() => window.__rpc.filter(r => r.name === 'v2_create_category_plan'));
+    revisa(`[${rol}] crear el plan manda nombre, monto y la liga en bloque`,
+      creadas.length === 1 && creadas[0].params.name === 'Un día'
+        && Number(creadas[0].params.monthly_fee) === 400
+        && creadas[0].params.assign_matching === true,
+      JSON.stringify(creadas));
+    const msgPlan = await pagina.textContent('#tarifasMessage');
+    revisa(`[${rol}] dice a cuántos ligó y que no les cambió el monto`,
+      /10 Tanneres quedaron ligados/.test(msgPlan) && /No se les cambió el monto/.test(msgPlan), msgPlan);
+    const tar2 = (await pagina.textContent('#tarifasList')).replace(/\s+/g, ' ');
+    revisa(`[${rol}] el monto suelto ya no aparece como pendiente`,
+      !/10 Tanners sin plan ni beca/.test(tar2) && /Un día · \$400\.00/.test(tar2), tar2.slice(0, 500));
+
+    // Sin nombre no se crea nada: un plan sin nombre no explica nada.
+    revisa(`[${rol}] no quedaron montos sueltos en T10`, !/data-nombrar="c2"/.test(await pagina.innerHTML('#tarifasList')));
+
     // La cruz tiene que cerrar: .close-modal no estaba conectado a nada.
     await pagina.click('#tarifasModal .close-modal');
     await pagina.waitForTimeout(200);

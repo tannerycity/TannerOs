@@ -121,6 +121,7 @@
               <button type="button" data-montos-filter="benefit">Becas y beneficios</button>
               <button type="button" data-montos-filter="debt">Con saldo</button>
               <button type="button" data-montos-filter="expiring">Por vencer</button>
+              <button type="button" data-montos-filter="sinmotivo">Sin motivo</button>
             </div>
           </div>
 
@@ -240,8 +241,8 @@
           <button id="conciliaConfirm" class="cashier-submit collect" type="button">Confirmar</button>
         </section>
         <section id="tarifasModal" class="cashier-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tarifasTitle">
-          <div class="cashier-modal-head"><h3 id="tarifasTitle">Tarifas por categoría</h3><button type="button" class="close-modal" aria-label="Cerrar">×</button></div>
-          <p class="cashier-help" style="text-align:left;margin:0 0 12px">La mensualidad ordinaria de cada categoría. Es el número contra el que se mide cada beca y cada beneficio. <b>No cambia lo que el sistema cobra</b>: sólo permite mostrar el desglose.</p>
+          <div class="cashier-modal-head"><h3 id="tarifasTitle">Tarifas y planes del club</h3><button type="button" class="close-modal" aria-label="Cerrar">×</button></div>
+          <p class="cashier-help" style="text-align:left;margin:0 0 12px">Arriba, la mensualidad ordinaria de cada categoría: el número contra el que se mide cada beca. <b>No cambia lo que el sistema cobra</b>. Abajo, en rojo, los montos que ya se están cobrando sin ser plan ni beca: nombrarlos los convierte en plan del club y tampoco les cambia el monto.</p>
           <div id="tarifasList" class="tarifas-list"></div>
           <div id="tarifasMessage" class="cashier-message hidden"></div>
         </section><section id="voidModal" class="cashier-modal void-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voidTitle">

@@ -573,7 +573,8 @@ function filtrosActuales(){
     tipo:$('montosType')?.value||'',
     soloConBeneficio:montosFiltro==='benefit',
     soloConSaldo:montosFiltro==='debt',
-    soloPorVencer:montosFiltro==='expiring'
+    soloPorVencer:montosFiltro==='expiring',
+    soloSinMotivo:montosFiltro==='sinmotivo'
   };
 }
 
@@ -589,26 +590,48 @@ function pintaMontos(){
     <article><span>Tanners</span><strong>${t.tanners}</strong><small>de ${todas.length} en el padrón</small></article>
     <article><span>Por cobrar del mes</span><strong>${money.format(t.aCobrar)}</strong><small>mensualidad y recargos abiertos</small></article>
     <article><span>Adeudo total</span><strong>${money.format(t.adeudo)}</strong><small>incluye meses anteriores</small></article>
-    <article><span>Con beneficio</span><strong>${t.conBeneficio}</strong><small>${t.porVencer} por vencer · ${t.vencidos} vencido${t.vencidos===1?'':'s'}</small></article>`;
+    <article><span>De dónde sale</span><strong>${t.enPlan}</strong><small>en plan · ${t.conBeneficio} con beca · ${t.porAcuerdo} por acuerdo</small></article>`;
 
-  // El aviso más importante de la pantalla: sin tarifa de categoría no se
-  // puede mostrar la resta, y hay que decirlo en vez de inventar el ordinario.
+  // Los dos avisos de la pantalla, en orden de qué tan mal está la cosa.
+  //
+  // El primero es el que el club no tenía: cuántos Tanners pagan una cantidad
+  // que nadie explicó. Antes eran invisibles porque el sistema los presentaba
+  // como becados. Mientras este número no sea cero, el padrón no cuadra.
   const sinTarifa=Number(resumen.categoriesWithoutFee||0);
+  const sinMotivo=Number(resumen.withoutReason||0);
   const aviso=$('montosAviso');
+  const trozos=[];
+  if(sinMotivo){
+    trozos.push(`<b>${sinMotivo} Tanner${sinMotivo===1?'':'s'} paga${sinMotivo===1?'':'n'} distinto a su categoría y nadie registró por qué.</b>
+      No ${sinMotivo===1?'es una beca':'son becas'}: el sistema ya no ${sinMotivo===1?'lo':'los'} cuenta como tal.
+      Si varios pagan lo mismo, es un plan del club y se arregla de un toque en
+      Tarifas y planes. Si es cosa de una familia, se escribe en su tarjeta.
+      ${canSetTarifas?'<button type="button" id="avisoSinMotivo">Ver sólo esos</button>':''}`);
+  }
   if(sinTarifa){
-    aviso.classList.remove('hidden');
-    aviso.innerHTML=`<b>${sinTarifa} categoría${sinTarifa===1?'':'s'} sin mensualidad ordinaria capturada.</b>
+    trozos.push(`<b>${sinTarifa} categoría${sinTarifa===1?'':'s'} sin mensualidad ordinaria capturada.</b>
       Mientras falte, se muestra el monto final a cobrar pero no el desglose
       «ordinario − beneficio». El club nunca guardó ese número: el descuento venía
       metido a mano dentro de la cuota de cada Tanner.
-      ${canSetTarifas?'<button type="button" id="avisoTarifas">Capturar tarifas</button>':''}`;
+      ${canSetTarifas?'<button type="button" id="avisoTarifas">Capturar tarifas</button>':''}`);
+  }
+  if(trozos.length){
+    aviso.classList.remove('hidden');
+    aviso.innerHTML=trozos.map(x=>`<p>${x}</p>`).join('');
     $('avisoTarifas')?.addEventListener('click',abreTarifas);
+    $('avisoSinMotivo')?.addEventListener('click',()=>{
+      montosFiltro='sinmotivo';
+      $('montosChips')?.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x.dataset.montosFilter==='sinmotivo'));
+      pintaMontos();
+    });
   }else{
     aviso.classList.add('hidden');aviso.innerHTML='';
   }
 
   $('montosList').innerHTML=filas.map(tarjetaMonto).join('');
   $('montosEmpty').classList.toggle('hidden',filas.length>0);
+  $('montosList').querySelectorAll('[data-acuerdo]').forEach(b=>
+    b.addEventListener('click',()=>pideAcuerdo(b.dataset.acuerdo)));
 }
 
 function tarjetaMonto(f){
@@ -645,24 +668,99 @@ function tarjetaMonto(f){
     ${lineaDesglose}
     ${etiquetas}
     ${nota}
+    ${arreglarMotivo(f)}
     <div class="monto-saldo${saldo>0?'':' limpio'}">${saldo>0?`Adeudo total ${money.format(saldo)}`:'Sin adeudo'}</div>
   </article>`;
 }
 
-/* ----- Tarifas por categoría (Presidencia) ----- */
+/* El hueco no sólo se enseña: se puede cerrar desde donde se ve.
+
+   Hay dos maneras de que un Tanner pague distinto, y el club usa las dos: un
+   plan del club (varios pagan lo mismo, se arregla en Tarifas y planes de un
+   solo golpe) o un acuerdo con esa familia (uno solo, se escribe aquí). Sin
+   este botón, los casos de una sola familia no tendrían dónde caer y el padrón
+   nunca llegaría a cero. */
+function arreglarMotivo(f){
+  if(!canSetTarifas)return '';
+  if(motivoDeFila(f).clave!=='sin_motivo')return '';
+  return `<div class="monto-arreglo" id="arreglo-${esc(f.playerId)}">
+    <button type="button" data-acuerdo="${esc(f.playerId)}">Registrar lo acordado con la familia</button>
+  </div>`;
+}
+
+function pideAcuerdo(playerId){
+  const caja=$(`arreglo-${playerId}`);if(!caja)return;
+  caja.classList.add('editando');
+  caja.innerHTML=`<input type="text" id="acuerdo-${esc(playerId)}" maxlength="80" placeholder="¿Qué se acordó? Ej. paga la abuela, viene sólo martes">
+    <button type="button" data-guardaacuerdo="${esc(playerId)}">Guardar</button>`;
+  const input=caja.querySelector('input');
+  input?.focus();
+  input?.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();caja.querySelector('[data-guardaacuerdo]')?.click();} });
+  caja.querySelector('[data-guardaacuerdo]').addEventListener('click',b=>guardaAcuerdo(playerId,b.currentTarget));
+}
+
+async function guardaAcuerdo(playerId,btn){
+  message('montosMessage');
+  const nota=String($(`acuerdo-${playerId}`)?.value||'').trim();
+  if(!nota){ message('montosMessage','Escribe qué se acordó: sin eso vuelve a quedar sin motivo.'); return; }
+  btn.disabled=true;const antes=btn.textContent;btn.textContent='…';
+  try{
+    // Sin monto: se registra POR QUÉ paga lo que ya paga. Cambiarle la cuota
+    // desde aquí sería otra decisión y merece su propia pantalla.
+    await rpc('v2_set_player_fee_note',{organization_id:org,player_id:playerId,note:nota});
+    await cargaMontos();
+    message('montosMessage','Guardado. Ese Tanner ya dice por qué paga lo que paga.','success');
+  }catch(e){ message('montosMessage',friendlyMontos(e)); btn.disabled=false; btn.textContent=antes; }
+}
+
+/* ----- Tarifas y planes por categoría (Presidencia) -----
+
+   Una categoría no tiene un precio: tiene una lista de precios. Baby Tanner
+   cobra 550 a quien viene toda la semana y 400 a quien viene un día, y las dos
+   cifras son del club. Lo que no puede pasar es que la segunda viva sólo en la
+   cabeza de quien cobra: ahí es donde se descuadra.
+
+   Por eso, abajo de cada categoría, salen los montos que ya se están cobrando
+   y que no corresponden a ningún plan ni a ninguna beca. Ponerles nombre los
+   convierte en plan y liga de un toque a todos los que ya lo pagan. No les
+   cambia un peso: les pone de dónde sale el peso que ya pagaban. */
+
+let planesPorCategoria=[];
+
 async function abreTarifas(){
   if(!canSetTarifas)return;
   modal('tarifasModal',true);
   message('tarifasMessage');
   $('tarifasList').innerHTML='<p class="cashier-help">Cargando…</p>';
-  try{ tarifas=await rpc('v2_category_fees',{organization_id:org})||[]; }
+  try{
+    const [t,p]=await Promise.all([
+      rpc('v2_category_fees',{organization_id:org}),
+      rpc('v2_category_plans',{organization_id:org})
+    ]);
+    tarifas=t||[]; planesPorCategoria=p||[];
+  }
   catch(e){ $('tarifasList').innerHTML=''; message('tarifasMessage',friendlyMontos(e)); return; }
   pintaTarifas();
+}
+
+function planesDe(categoryId){
+  return planesPorCategoria.find(x=>String(x.categoryId)===String(categoryId))
+      ||{plans:[],unnamedAmounts:[]};
 }
 
 function pintaTarifas(){
   $('tarifasList').innerHTML=tarifas.map(c=>{
     const sug=c.suggested==null?null:Number(c.suggested);
+    const pc=planesDe(c.categoryId);
+    const planes=(pc.plans||[]).map(p=>
+      `<span class="plan-chip">${esc(p.name||'Plan')} · ${money.format(Number(p.monthlyFee||0))} · ${Number(p.players||0)}</span>`).join('');
+    const sueltos=(pc.unnamedAmounts||[]).map(u=>{
+      const n=Number(u.players||0);
+      return `<div class="plan-suelto" id="suelto-${esc(c.categoryId)}-${Number(u.monthlyFee)}">
+        <span><b>${money.format(Number(u.monthlyFee||0))}</b> · ${n} Tanner${n===1?'':'s'} sin plan ni beca</span>
+        <button type="button" class="sug" data-nombrar="${esc(c.categoryId)}" data-monto="${Number(u.monthlyFee)}">Nombrar como plan</button>
+      </div>`;
+    }).join('');
     return `<div class="tarifa-row">
       <div><strong>${esc(c.name||c.code||'Categoría')}</strong>
         <small>${Number(c.activePlayers||0)} activos · ${Number(c.feeSpread||0)} cuota${Number(c.feeSpread||0)===1?'':'s'} distinta${Number(c.feeSpread||0)===1?'':'s'} hoy</small>
@@ -670,12 +768,50 @@ function pintaTarifas(){
       </div>
       <div><input type="number" min="0" step="10" id="tarifa-${esc(c.categoryId)}" value="${c.monthlyFee==null?'':Number(c.monthlyFee)}" placeholder="—">
         <button type="button" data-guardar="${esc(c.categoryId)}">Guardar</button></div>
+      ${planes||sueltos?`<div class="plan-zona">${planes?`<div class="plan-chips">${planes}</div>`:''}${sueltos}</div>`:''}
     </div>`;
   }).join('');
   $('tarifasList').querySelectorAll('[data-sug]').forEach(b=>b.addEventListener('click',()=>{
     const input=$(`tarifa-${b.dataset.sug}`); if(input)input.value=b.dataset.valor;
   }));
   $('tarifasList').querySelectorAll('[data-guardar]').forEach(b=>b.addEventListener('click',()=>guardaTarifa(b.dataset.guardar,b)));
+  $('tarifasList').querySelectorAll('[data-nombrar]').forEach(b=>b.addEventListener('click',()=>
+    pideNombreDePlan(b.dataset.nombrar,Number(b.dataset.monto))));
+}
+
+// El nombre se pide en el mismo renglón, no en otro modal encima del modal.
+function pideNombreDePlan(categoryId,monto){
+  const caja=$(`suelto-${categoryId}-${monto}`);if(!caja)return;
+  caja.classList.add('editando');
+  caja.innerHTML=`<span><b>${money.format(monto)}</b> · ¿cómo le dice el club?</span>
+    <input type="text" id="plannombre-${esc(categoryId)}-${monto}" maxlength="40" placeholder="Ej. Un día, Fin de semana, Medio tiempo">
+    <button type="button" data-crear="${esc(categoryId)}" data-monto="${monto}">Crear plan</button>`;
+  caja.querySelector('[data-crear]').addEventListener('click',b=>creaPlan(categoryId,monto,b.currentTarget));
+  const input=caja.querySelector('input');
+  input?.focus();
+  input?.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();caja.querySelector('[data-crear]')?.click();} });
+}
+
+async function creaPlan(categoryId,monto,btn){
+  message('tarifasMessage');
+  const nombre=String($(`plannombre-${categoryId}-${monto}`)?.value||'').trim();
+  if(!nombre){ message('tarifasMessage','El plan necesita un nombre para que sirva de algo.'); return; }
+  btn.disabled=true;const antes=btn.textContent;btn.textContent='…';
+  try{
+    const r=await rpc('v2_create_category_plan',{organization_id:org,category_id:categoryId,
+      name:nombre,monthly_fee:monto,assign_matching:true});
+    const n=Number(r?.assigned||0);
+    const [t,p]=await Promise.all([
+      rpc('v2_category_fees',{organization_id:org}),
+      rpc('v2_category_plans',{organization_id:org})
+    ]);
+    tarifas=t||[]; planesPorCategoria=p||[];
+    pintaTarifas();
+    message('tarifasMessage',
+      `Listo: "${nombre}" queda como plan del club. ${n} Tanner${n===1?'':'es'} ${n===1?'quedó ligado':'quedaron ligados'} y ya no ${n===1?'aparece':'aparecen'} como beca. No se les cambió el monto.`,
+      'success');
+    cargaMontos();
+  }catch(e){ message('tarifasMessage',friendlyMontos(e)); btn.disabled=false; btn.textContent=antes; }
 }
 
 async function guardaTarifa(categoryId,btn){

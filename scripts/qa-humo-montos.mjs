@@ -255,6 +255,10 @@ async function corre(rol) {
     const msg = await pagina.textContent('#tarifasMessage');
     revisa(`[${rol}] avisa que la tarifa no cambia lo que se cobra`,
       /No cambia lo que el sistema cobra/.test(msg), msg);
+    // La cruz tiene que cerrar: .close-modal no estaba conectado a nada.
+    await pagina.click('#tarifasModal .close-modal');
+    await pagina.waitForTimeout(200);
+    revisa(`[${rol}] la cruz cierra el modal de tarifas`, await pagina.isHidden('#tarifasModal'));
   } else {
     revisa(`[${rol}] NO puede exportar el PDF`, !vePdf);
     revisa(`[${rol}] NO puede capturar tarifas`, !veTarifas);

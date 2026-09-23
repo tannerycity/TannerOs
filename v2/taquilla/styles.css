@@ -169,3 +169,69 @@
   .montos-list{grid-template-columns:1fr}
   .monto-card{break-inside:avoid;box-shadow:none}
 }
+
+/* === Validación y conciliación de pagos ===
+   La barra de acceso no es una cuarta acción principal: es navegación, y
+   sólo aparece cuando hay algo que revisar. */
+.concilia-bar{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:#fff;border:1px solid var(--tos-line,#dce5e3);border-radius:18px;padding:13px 15px;margin-bottom:16px;cursor:pointer;font:inherit}
+.concilia-bar:hover{border-color:#056c7f}
+.concilia-bar:focus-visible{outline:2px solid #056c7f;outline-offset:2px}
+.concilia-bar-main{flex:1;min-width:0}
+.concilia-bar-main b{display:block;font-size:14px;font-weight:1000;color:#07191e}
+.concilia-bar-main small{display:block;font-size:11.5px;color:#64767b;font-weight:700;margin-top:1px}
+.concilia-badge{flex:0 0 auto;background:#cf4b26;color:#fff;border-radius:999px;min-width:24px;height:24px;display:grid;place-items:center;font-size:12px;font-weight:1000;padding:0 7px}
+.concilia-arrow{color:#b3c2c0;font-weight:900;font-size:18px}
+
+.concilia-list{display:grid;gap:10px}
+.concilia-card{background:#fff;border:1px solid var(--tos-line,#dce5e3);border-radius:17px;padding:14px}
+.concilia-card[data-estado="pending"]{border-left:4px solid #d8a22a}
+.concilia-card[data-estado="clarification"]{border-left:4px solid #8a6410}
+.concilia-card[data-estado="rejected"]{border-left:4px solid #a32920}
+.concilia-card[data-estado="approved"]{border-left:4px solid #15964a}
+.concilia-card[data-legacy="1"]{border-left-color:#c3cecd}
+
+.concilia-top{display:flex;justify-content:space-between;align-items:flex-start;gap:11px}
+.concilia-quien strong{display:block;font-size:15px;font-weight:1000;color:#07191e;line-height:1.25}
+.concilia-quien small{display:block;font-size:11.5px;color:#64767b;font-weight:700;margin-top:1px}
+.concilia-monto{text-align:right;flex:0 0 auto}
+.concilia-monto b{display:block;font-size:20px;font-weight:1000;color:#07191e;line-height:1.1}
+.concilia-monto span{display:block;font-size:10px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.04em}
+
+.concilia-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.est{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:900}
+.est i{font-style:normal;font-weight:1000}
+.est-ok{background:#e4f6e9;color:#11773c}
+.est-atencion{background:#fdf2dc;color:#8a6410}
+.est-bajo{background:#ffe9e6;color:#a32920}
+.est-neutro{background:#eef2f1;color:#5f7076}
+
+.concilia-datos{margin-top:10px;display:grid;gap:4px;font-size:12.5px;color:#44585e;font-weight:700}
+.concilia-datos span b{color:#07191e;font-weight:1000}
+.concilia-dif{margin-top:9px;border-radius:11px;padding:8px 11px;font-size:12.5px;font-weight:900}
+.concilia-dif[data-nivel="bajo"]{background:#ffe9e6;color:#a32920}
+.concilia-dif[data-nivel="atencion"]{background:#fdf2dc;color:#8a6410}
+.concilia-obs{margin-top:8px;background:#eef2f1;border-radius:10px;padding:8px 10px;font-size:12px;color:#44585e;font-weight:700;white-space:pre-line}
+
+.concilia-hist{margin-top:10px;font-size:12px}
+.concilia-hist summary{cursor:pointer;font-weight:900;color:#056c7f;font-size:12px}
+.concilia-hist ol{margin:8px 0 0;padding-left:17px;display:grid;gap:5px;color:#5f7076;font-weight:700}
+.concilia-hist .h-motivo{display:block;color:#44585e;font-weight:600}
+
+.concilia-acciones{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.concilia-acciones button{border:0;border-radius:11px;padding:9px 14px;font-weight:1000;font-size:12.5px;cursor:pointer;color:#fff}
+.concilia-acciones button[data-tono="ok"]{background:#15964a}
+.concilia-acciones button[data-tono="atencion"]{background:#b07d12}
+.concilia-acciones button[data-tono="bajo"]{background:#cf4b26}
+.concilia-acciones button:disabled{opacity:.55;cursor:default}
+
+.concilia-field{display:block;margin-bottom:11px;font-size:11px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.04em}
+.concilia-field small{text-transform:none;font-weight:700;color:#8b999d}
+.concilia-field textarea,.concilia-field input{display:block;width:100%;margin-top:5px;font:inherit;text-transform:none;letter-spacing:0;color:#07191e}
+.concilia-field.hidden{display:none}
+
+@media(min-width:760px){ .concilia-list{grid-template-columns:repeat(2,1fr)} }
+.cashier-check{display:flex!important;align-items:flex-start;gap:9px;background:#f6f9f8;border-radius:12px;padding:10px 11px;cursor:pointer}
+.cashier-check input{width:18px;height:18px;margin:1px 0 0;flex:0 0 auto}
+.cashier-check span{font-size:12.5px;font-weight:900;color:#07191e;text-transform:none;letter-spacing:0}
+.cashier-check small{display:block;font-size:11px;font-weight:700;color:#64767b;margin-top:2px}
+.cashier-check.hidden{display:none!important}

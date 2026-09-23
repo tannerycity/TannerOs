@@ -4,6 +4,9 @@ import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
         tiposDeBeneficio,filtra,totales,beneficiosSoloEtiqueta,
         COLUMNAS_REPORTE,filaDeReporte,resumenDeReporte,textoDeFiltros,
         nombreDeArchivo} from '/v2/taquilla/montos.js';
+import {estadoDe,validacionDe,accionesPara,requiereMotivo,diferenciaDe,
+        filtra as filtraConcilia,lineaDeHistorial,pendientesReales}
+  from '/v2/taquilla/conciliacion.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
@@ -28,7 +31,10 @@ const safe=(p,fallback=null)=>p.catch(e=>{console.warn('cobranza widget',e);retu
 
 function message(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
 function modal(id,open){$('modalBackdrop').classList.toggle('hidden',!open);$(id).classList.toggle('hidden',!open);document.body.classList.toggle('cashier-modal-open',open);}
-function closeModals(){['collectModal','expenseModal'].forEach(id=>$(id).classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.classList.remove('cashier-modal-open');resetCollectForm();resetExpenseForm();}
+// Cierra CUALQUIER modal de esta pantalla. Antes la lista estaba escrita a
+// mano, asi que cada modal nuevo nacia sin poder cerrarse: le pasaba al de
+// tarifas y al de conciliacion.
+function closeModals(){document.querySelectorAll('.cashier-modal').forEach(el=>el.classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.classList.remove('cashier-modal-open');resetCollectForm();resetExpenseForm();}
 function resetCollectForm(){
   $('collectForm').reset();
   $('collectPlayer').value='';$('collectPlayerSearch').value='';
@@ -231,7 +237,20 @@ async function postCollect(){
       if($('collectPayerType').value==='sponsor'&&!$('collectPayerName').value.trim())throw new Error('Indica el patrocinador.');
       const okDbl=await confirmDoubleCheck({title:'Confirma el cobro',message:`Vas a registrar un cobro de ${money.format(amount)} a ${playerName||'este Tanner'} · ${methodLabel($('collectMethod').value)}. ¿Es correcto?`,confirmText:'Sí, cobrar'});
       if(!okDbl){btn.disabled=false;return;}
-      await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,idempotency_key:key('cashier-payment')});
+      // El monto esperado es lo que permite el indicador de diferencias. Va
+      // opcional: obligarlo frenaria a quien esta cobrando con el papa enfrente.
+      const esperadoCrudo=$('collectExpected')?.value.trim()||'';
+      const esperado=esperadoCrudo===''?null:Number(esperadoCrudo);
+      if(esperado!==null&&(!Number.isFinite(esperado)||esperado<0))throw new Error('El monto esperado no puede ser negativo.');
+      const idPago=await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,idempotency_key:key('cashier-payment'),expected_amount:esperado,observations:$('collectObservations')?.value.trim()||null});
+      // Presidencia puede registrar y aprobar en un paso. Se hace como dos
+      // llamadas a proposito: asi el historial guarda el paso por pendiente y
+      // queda escrito quien aprobo, en vez de que el pago aparezca aprobado
+      // sin que nadie lo haya revisado.
+      if(idPago&&$('collectApprove')?.checked){
+        try{ await rpc('v2_reconcile_payment',{organization_id:org,payment_id:idPago,action:'approve',reason:'Aprobado por Presidencia al registrarlo',reference:null}); }
+        catch(err){ message('collectMessage','El cobro quedó registrado, pero no se pudo aprobar: '+String(err?.message||err)); }
+      }
     }else{
       const amount=Math.round(Number($('generalAmount').value)),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
@@ -240,6 +259,7 @@ async function postCollect(){
       await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
     }
     closeModals();await Promise.all([load(),loadReceivables()]);renderCollections();
+    cargaConcilia(true);
   }catch(e){message('collectMessage',e.message||'No se pudo registrar.');}finally{btn.disabled=false;}
 }
 async function postExpense(){
@@ -260,6 +280,9 @@ $('openCollect').disabled=!canCashWrite;$('openCollect').addEventListener('click
 if(!canPayWrite){$('openExpense').classList.add('disabled');$('openExpense').setAttribute('aria-disabled','true');$('paySubtitle').textContent='Sin permiso para pagar';}
 $('openExpense').addEventListener('click',()=>{if(canPayWrite){resetExpenseForm();modal('expenseModal',true);}});
 $('modalBackdrop').addEventListener('click',closeModals);document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
+// Los modales nuevos usan .close-modal, que en esta pantalla no estaba
+// conectado a nada: la cruz no cerraba.
+document.querySelectorAll('.close-modal').forEach(b=>b.addEventListener('click',closeModals));
 document.querySelectorAll('.cashier-tabs button').forEach(b=>b.addEventListener('click',()=>setCollectMode(b.dataset.mode)));
 
 $('collectForm').addEventListener('submit',e=>{e.preventDefault();postCollect();});$('expenseForm').addEventListener('submit',e=>{e.preventDefault();postExpense();});
@@ -715,3 +738,208 @@ async function exportaMontosPdf(){
   }finally{ btn.disabled=false;btn.textContent=antes; }
 }
 $('montosPdf')?.addEventListener('click',exportaMontosPdf);
+
+/* ===== Validación y conciliación de pagos =====
+   Camino A: el pago sigue aplicando a la deuda al registrarse. Esto es la
+   validación que va encima, con su historial. Sólo Presidencia aprueba. */
+let conciliaData=null,conciliaFiltro='pending',conciliaQuery='',conciliaAccion=null;
+
+const canSeeConcilia=moduleAccess(navigation,'taquilla',false)
+  ||moduleAccess(navigation,'cobranza',false)
+  ||moduleAccess(navigation,'contabilidad',false);
+
+function estadoChip(e){
+  return `<span class="est est-${e.nivel}"><i aria-hidden="true">${esc(e.icono)}</i>${esc(e.etiqueta)}</span>`;
+}
+
+async function cargaConcilia(silencioso){
+  if(!canSeeConcilia)return;
+  if(!silencioso)message('conciliaMessage');
+  try{
+    conciliaData=await rpc('v2_payments_to_reconcile',{organization_id:org,status_filter:null,from_date:null,to_date:null});
+  }catch(e){
+    if(!silencioso)message('conciliaMessage',friendlyMontos(e));
+    return;
+  }
+  pintaBarraConcilia();
+  if(!$('conciliaPanel').classList.contains('hidden'))pintaConcilia();
+}
+
+function pintaBarraConcilia(){
+  const bar=$('openConcilia');if(!bar)return;
+  const r=conciliaData?.summary||{};
+  const esperando=pendientesReales(r);
+  // Presidencia y Contabilidad siempre ven la barra. Taquilla sólo cuando
+  // tiene una aclaración que responder: si no, es ruido en su pantalla.
+  const mostrar=conciliaData?.seesEverything||esperando>0;
+  bar.classList.toggle('hidden',!mostrar);
+  $('conciliaBadge').textContent=esperando;
+  $('conciliaBadge').classList.toggle('hidden',!esperando);
+  $('conciliaBarSub').textContent=esperando
+    ? `${Number(r.pending||0)} por conciliar · ${Number(r.clarification||0)} con aclaración`
+    : 'Todo revisado';
+}
+
+function abreConcilia(){
+  $('conciliaPanel').classList.remove('hidden');
+  $('montosPanel')?.classList.add('hidden');
+  $('collectionsPanel')?.classList.add('hidden');
+  $('conciliaPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  if(!conciliaData)cargaConcilia();else pintaConcilia();
+}
+function cierraConcilia(){
+  $('conciliaPanel').classList.add('hidden');
+  if(canViewCollections)$('collectionsPanel')?.classList.remove('hidden');
+}
+
+function pintaConcilia(){
+  const todas=conciliaData?.rows||[];
+  const r=conciliaData?.summary||{};
+  const canApprove=Boolean(conciliaData?.canApprove);
+
+  $('conciliaSub').textContent=canApprove
+    ? 'Presidencia valida cada cobro registrado.'
+    : (conciliaData?.seesEverything
+       ? 'Consulta. La aprobación final es de Presidencia.'
+       : 'Tus cobros registrados. La aprobación final es de Presidencia.');
+
+  $('conciliaKpis').innerHTML=`
+    <article><span>Por conciliar</span><strong>${Number(r.pending||0)}</strong><small>${money.format(Number(r.pendingAmount||0))}</small></article>
+    <article><span>Con aclaración</span><strong>${Number(r.clarification||0)}</strong><small>esperan respuesta</small></article>
+    <article><span>Aprobados hoy</span><strong>${Number(r.approvedToday||0)}</strong><small>${Number(r.rejected||0)} rechazados en total</small></article>
+    <article><span>Con diferencia</span><strong>${Number(r.withDifference||0)}</strong><small>${money.format(Number(r.differenceTotal||0))} contra lo esperado</small></article>`;
+
+  const f=conciliaFiltro==='diff'
+    ? {texto:conciliaQuery,soloConDiferencia:true}
+    : {texto:conciliaQuery,estado:conciliaFiltro||undefined};
+  const filas=filtraConcilia(todas,f);
+
+  $('conciliaList').innerHTML=filas.map(x=>tarjetaConcilia(x,canApprove)).join('');
+  $('conciliaEmpty').classList.toggle('hidden',filas.length>0);
+  $('conciliaList').querySelectorAll('[data-accion]').forEach(b=>
+    b.addEventListener('click',()=>abreAccion(b.dataset.pago,b.dataset.accion)));
+}
+
+function tarjetaConcilia(x,canApprove){
+  const e=estadoDe(x);
+  const val=validacionDe(x);
+  const dif=diferenciaDe(x);
+  const esMio=Boolean(x.registeredByUserId)&&x.registeredByUserId===ctx.user_id;
+  const acciones=accionesPara(x,{canApprove,esMio});
+
+  const quienCobro=x.registeredBy
+    ? (x.registeredByIsAccount
+       ? `Desde ${esc(x.registeredBy)} · sin nombre`
+       : esc(x.registeredBy))
+    : 'Sin registrar';
+
+  const hist=(x.history||[]).map(h=>
+    `<li>${esc(lineaDeHistorial(h))}<small class="h-motivo">${esc(h.at||'')}${h.reason?` · ${esc(h.reason)}`:''}</small></li>`).join('');
+
+  return `<article class="concilia-card" data-estado="${esc(x.status||'')}" data-legacy="${x.legacyApproved?'1':'0'}">
+    <div class="concilia-top">
+      <span class="concilia-quien"><strong>${esc(x.playerName||x.family||'Cobro general')}</strong>
+        <small>${esc(x.concept||'Cobro')} · periodo ${esc(x.period||'—')} · ${esc(x.date||'')}</small></span>
+      <span class="concilia-monto"><b>${money.format(Number(x.amount||0))}</b><span>Recibido</span></span>
+    </div>
+    <div class="concilia-chips">
+      ${estadoChip(e)}
+      <span class="est est-neutro"><i aria-hidden="true">${x.validationKind==='banco'?'🏦':'💵'}</i>${esc(val.etiqueta)}</span>
+    </div>
+    <div class="concilia-datos">
+      <span>Método: <b>${esc(x.method||'—')}</b>${x.reference?` · Ref. <b>${esc(x.reference)}</b>`:''}</span>
+      <span>Cobró: <b>${quienCobro}</b></span>
+      ${x.family&&x.playerName?`<span>Familia: <b>${esc(x.family)}</b></span>`:''}
+      ${x.expectedAmount!=null?`<span>Esperado: <b>${money.format(Number(x.expectedAmount))}</b></span>`:''}
+      ${x.receiptPath?`<span>Comprobante: <b>adjunto</b></span>`:''}
+      ${x.reconciledBy?`<span>Conciliado por: <b>${esc(x.reconciledBy)}</b></span>`:''}
+      ${x.reconciliationReference?`<span>Evidencia: <b>${esc(x.reconciliationReference)}</b></span>`:''}
+    </div>
+    ${dif.hay?`<div class="concilia-dif" data-nivel="${dif.nivel}">${esc(dif.texto)} ${money.format(Math.abs(dif.monto))}</div>`:''}
+    ${x.observations?`<div class="concilia-obs">${esc(x.observations)}</div>`:''}
+    ${x.reconciliationNote?`<div class="concilia-obs">Nota de Presidencia: ${esc(x.reconciliationNote)}</div>`:''}
+    ${hist?`<details class="concilia-hist"><summary>Historial (${(x.history||[]).length})</summary><ol>${hist}</ol></details>`:''}
+    ${acciones.length?`<div class="concilia-acciones">${acciones.map(a=>
+      `<button type="button" data-tono="${a.tono}" data-pago="${esc(x.paymentId)}" data-accion="${a.clave}">${esc(a.etiqueta)}</button>`).join('')}</div>`:''}
+  </article>`;
+}
+
+const TITULO_ACCION={
+  approve:{titulo:'Aprobar el cobro',boton:'Aprobar',motivo:'Comentario (opcional)',placeholder:'Contra qué lo verificaste'},
+  reject:{titulo:'Rechazar el cobro',boton:'Rechazar',motivo:'Motivo del rechazo',placeholder:'Por qué no es válido'},
+  clarify:{titulo:'Solicitar aclaración',boton:'Solicitar',motivo:'Qué hace falta',placeholder:'Qué necesitas que corrijan o adjunten'},
+  resubmit:{titulo:'Responder la aclaración',boton:'Enviar',motivo:'Tu respuesta',placeholder:'Qué corregiste o qué adjuntaste'}
+};
+
+function abreAccion(paymentId,accion){
+  const fila=(conciliaData?.rows||[]).find(x=>String(x.paymentId)===String(paymentId));
+  if(!fila)return;
+  conciliaAccion={paymentId,accion};
+  const t=TITULO_ACCION[accion]||TITULO_ACCION.approve;
+  $('conciliaModalTitle').textContent=t.titulo;
+  $('conciliaConfirm').textContent=t.boton;
+  $('conciliaConfirm').className=`cashier-submit ${accion==='reject'?'expense':'collect'}`;
+  $('conciliaReasonLabel').textContent=t.motivo;
+  $('conciliaReason').placeholder=t.placeholder;
+  $('conciliaReason').value='';
+  $('conciliaRef').value='';
+  // La referencia de conciliación sólo tiene sentido al aprobar.
+  $('conciliaRefWrap').classList.toggle('hidden',accion!=='approve');
+  const val=validacionDe(fila);
+  $('conciliaModalWhat').innerHTML=
+    `<b>${esc(fila.playerName||fila.family||'Cobro general')}</b> · ${money.format(Number(fila.amount||0))} · ${esc(fila.method||'')}<br>`
+    +`${esc(val.etiqueta)}${val.pista?` · ${esc(val.pista)}`:''}`
+    +(accion==='reject'?'<br><b>Al rechazar, la deuda de ese periodo vuelve a aparecer.</b>':'');
+  message('conciliaModalMessage');
+  modal('conciliaModal',true);
+  setTimeout(()=>$('conciliaReason').focus(),40);
+}
+
+async function confirmaAccion(){
+  if(!conciliaAccion)return;
+  const {paymentId,accion}=conciliaAccion;
+  const motivo=$('conciliaReason').value.trim();
+  if(requiereMotivo(accion)&&motivo.length<4){
+    message('conciliaModalMessage','Escribe el motivo para que quede en el historial.');return;
+  }
+  const btn=$('conciliaConfirm');btn.disabled=true;const antes=btn.textContent;btn.textContent='…';
+  try{
+    if(accion==='resubmit'){
+      await rpc('v2_resubmit_payment',{organization_id:org,payment_id:paymentId,note:motivo});
+    }else{
+      await rpc('v2_reconcile_payment',{organization_id:org,payment_id:paymentId,action:accion,
+        reason:motivo||null,reference:$('conciliaRef').value.trim()||null});
+    }
+    modal('conciliaModal',false);
+    conciliaAccion=null;
+    await cargaConcilia();
+    // Un rechazo devuelve la deuda: la cobranza y el corte cambian.
+    if(accion==='reject')await Promise.all([load(),loadReceivables()]).catch(()=>{});
+    message('conciliaMessage','Listo. Quedó en el historial del pago.','success');
+  }catch(e){
+    message('conciliaModalMessage',friendlyMontos(e));
+  }finally{ btn.disabled=false;btn.textContent=antes; }
+}
+
+$('collectApproveWrap')?.classList.toggle('hidden',ctx.role!=='Presidencia');
+$('openConcilia')?.addEventListener('click',abreConcilia);
+$('closeConcilia')?.addEventListener('click',cierraConcilia);
+$('conciliaConfirm')?.addEventListener('click',confirmaAccion);
+$('conciliaSearch')?.addEventListener('input',e=>{
+  conciliaQuery=e.target.value;
+  $('conciliaSearchClear')?.classList.toggle('hidden',!conciliaQuery);
+  pintaConcilia();
+});
+$('conciliaSearchClear')?.addEventListener('click',()=>{
+  $('conciliaSearch').value='';conciliaQuery='';
+  $('conciliaSearchClear').classList.add('hidden');pintaConcilia();
+});
+$('conciliaChips')?.querySelectorAll('[data-concilia-filter]').forEach(b=>b.addEventListener('click',()=>{
+  conciliaFiltro=b.dataset.conciliaFilter;
+  $('conciliaChips').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
+  pintaConcilia();
+}));
+
+// Se carga al abrir la pantalla para poder mostrar el badge sin que nadie
+// tenga que entrar a buscarlo.
+if(canSeeConcilia)cargaConcilia(true);

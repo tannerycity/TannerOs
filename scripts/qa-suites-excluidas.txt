@@ -15,6 +15,7 @@ qa-image-encode-browser.mjs
 qa-humo-asistencia.mjs
 qa-humo-familias.mjs
 qa-humo-montos.mjs
+qa-humo-conciliacion.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

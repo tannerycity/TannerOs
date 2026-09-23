@@ -1,8 +1,8 @@
 {
-  "migraciones": 385,
-  "bytes": 1980090,
-  "huella": "81429bbaf1c71ff7c65eca2257bbd27d",
+  "migraciones": 389,
+  "bytes": 2013445,
+  "huella": "ce9cc6a60ad438df0b1e9866312364e4",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260923035336_j2c_etiquetas_legibles_en_montos_de_cobro.sql",
+  "ultima": "20260923044416_k3_post_payment_captura_esperado_y_observaciones.sql",
   "verificadoContraLaBase": "2026-09-23"
 }

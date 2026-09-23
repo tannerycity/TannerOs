@@ -95,3 +95,87 @@
 .roster-photo-status{min-height:18px;margin:-3px 2px 8px;color:#60757a;font-size:10.5px;font-weight:750}
 .roster-photo-status[data-state="loading"]{color:#087985}
 .roster-photo-status[data-state="warning"]{color:#87691f}
+
+/* === Estadísticas de asistencia ===
+   Mobile first. El semáforo nunca va solo: cada nivel arrastra su icono y su
+   texto, así que en blanco y negro o con daltonismo se entiende igual. */
+
+.att-tabs{display:flex;gap:6px;background:#e7edeb;border-radius:999px;padding:4px;margin:0 0 14px}
+.att-tab{flex:1;border:0;background:transparent;border-radius:999px;padding:10px 12px;font-weight:900;font-size:13px;color:var(--muted);cursor:pointer;transition:background .18s,color .18s}
+.att-tab.active{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(7,25,30,.14)}
+.att-tab:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+.stats-wrap{display:grid;gap:14px}
+.stats-filters{display:grid;gap:10px}
+.period-pills{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.period-pills::-webkit-scrollbar{display:none}
+.period-pills button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:800;font-size:12px;color:#52646b;cursor:pointer}
+.period-pills button.active{background:var(--teal);border-color:var(--teal);color:#fff}
+.stats-selects{display:grid;grid-template-columns:1fr;gap:10px}
+.stats-field{font-size:11px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.04em}
+.stats-field select{display:block;width:100%;margin-top:5px}
+.stats-field.hidden{display:none}
+.stats-range{margin:0;font-size:12px;color:var(--muted);font-weight:700}
+
+.stats-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.stats-kpis article{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 13px}
+.stats-kpis .kpi-label{display:block;font-size:10px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.05em}
+.stats-kpis .kpi-value{display:block;font-size:25px;font-weight:1000;color:var(--ink);line-height:1.15;margin-top:3px}
+.stats-kpis .kpi-note{display:block;font-size:11px;color:var(--muted);margin-top:2px;font-weight:600}
+.stats-kpis article.wide{grid-column:1/-1}
+
+/* Los cuatro niveles del semáforo. El color acompaña; no informa solo. */
+.lvl{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:900}
+.lvl .lvl-icon{font-weight:1000;line-height:1}
+.lvl-ok{background:#e4f6e9;color:#11773c}
+.lvl-atencion{background:#fdf2dc;color:#8a6410}
+.lvl-bajo{background:#ffe9e6;color:#a32920}
+.lvl-sindato{background:#eef2f1;color:#5f7076}
+
+.stats-trust{background:#eef2f1;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:12px;color:#44585e;font-weight:700;display:flex;gap:8px;align-items:flex-start}
+.stats-trust[data-nivel="bajo"]{background:#ffe9e6;border-color:#f6ccc6;color:#8d2a22}
+.stats-trust[data-nivel="atencion"]{background:#fdf2dc;border-color:#f0dcb0;color:#7a5a12}
+.stats-trust b{font-weight:1000}
+
+.stats-cats{display:grid;gap:10px}
+.cat-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+.cat-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.cat-card-head strong{font-size:16px;font-weight:1000;color:var(--ink)}
+.cat-card-head small{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-top:2px}
+.cat-figures{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:11px}
+.cat-figures div{background:#f6f9f8;border-radius:11px;padding:8px 10px}
+.cat-figures span{display:block;font-size:10px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.04em}
+.cat-figures b{display:block;font-size:16px;font-weight:1000;color:var(--ink);margin-top:1px}
+.cat-lowest{margin-top:11px;border-top:1px solid var(--line);padding-top:10px}
+.cat-lowest .eyebrow{font-size:10px;margin-bottom:6px}
+
+.stats-low{display:grid;gap:7px;margin-top:10px}
+.low-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer;font:inherit}
+.low-row:hover{border-color:var(--teal)}
+.low-row:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.low-row .low-name{flex:1;min-width:0}
+.low-row .low-name strong{display:block;font-size:14px;font-weight:900;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.low-row .low-name small{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.low-row .low-pct{font-size:17px;font-weight:1000;color:var(--ink)}
+.low-row .low-arrow{color:#b3c2c0;font-weight:900}
+
+.stats-drawer .player-body{padding:0 18px 22px;display:grid;gap:13px;overflow-y:auto}
+.trend-line{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;color:#44585e}
+.player-figures{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.player-figures div{background:#f6f9f8;border-radius:12px;padding:10px 11px}
+.player-figures span{display:block;font-size:10px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.04em}
+.player-figures b{display:block;font-size:17px;font-weight:1000;color:var(--ink);margin-top:2px}
+.player-figures b.soft{font-size:12px;font-weight:800;color:var(--muted);line-height:1.35}
+.history-list{display:grid;gap:6px}
+.history-row{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 11px}
+.history-row .h-date{font-size:12px;font-weight:900;color:var(--ink);min-width:74px}
+.history-row .h-title{flex:1;min-width:0;font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+@media(min-width:720px){
+  .stats-kpis{grid-template-columns:repeat(4,1fr)}
+  .stats-kpis article.wide{grid-column:span 2}
+  .stats-selects{grid-template-columns:1fr 1fr}
+  .stats-cats{grid-template-columns:repeat(2,1fr)}
+  .cat-figures{grid-template-columns:repeat(4,1fr)}
+  .player-figures{grid-template-columns:repeat(3,1fr)}
+}

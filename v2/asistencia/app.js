@@ -1,5 +1,8 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { PERIODOS, rangoDe, estadoDeAsistencia, metaDe, confianza, tendencia,
+         etiquetaDeEstado, desgloseDeFaltas, textoDeContadorOpcional }
+  from '/v2/asistencia/estadisticas.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const $=id=>document.getElementById(id);let ctx=null,categories=[],sessions=[],currentSession=null,currentRoster=[],rosterQuery='';
 let bajaTarget=null;const bajaReportados=new Set();
@@ -104,3 +107,200 @@ async function signRosterPhotos(list){
     }
   }catch(e){/* si falla, quedan las iniciales */}
 }
+
+
+// === Estadísticas ===
+//
+// Vive en la misma pantalla, detrás de una pestaña: tomar lista sigue siendo
+// lo primero que ves al entrar. El criterio (metas, semáforo, rangos) está en
+// estadisticas.js, que sí se puede probar sin navegador.
+
+let statsPeriodo='mes', statsData=null, statsIniciado=false, statsQuery='';
+
+function nivelChip(estado){
+  return `<span class="lvl lvl-${estado.nivel}"><span class="lvl-icon" aria-hidden="true">${esc(estado.icono)}</span>${esc(estado.etiqueta)}</span>`;
+}
+const pctTexto=v=>(v===null||v===undefined)?'—':`${v}%`;
+
+function cambiarPestana(cual){
+  const esStats=cual==='stats';
+  $('tabCapture')?.classList.toggle('active',!esStats);
+  $('tabStats')?.classList.toggle('active',esStats);
+  $('tabCapture')?.setAttribute('aria-selected',String(!esStats));
+  $('tabStats')?.setAttribute('aria-selected',String(esStats));
+  $('captureTab')?.classList.toggle('hidden',esStats);
+  $('statsTab')?.classList.toggle('hidden',!esStats);
+  if(esStats&&!statsIniciado)iniciarStats();
+}
+
+function iniciarStats(){
+  statsIniciado=true;
+  const pills=$('periodPills');
+  if(pills){
+    pills.innerHTML='';
+    for(const p of PERIODOS){
+      const b=document.createElement('button');
+      b.type='button';b.textContent=p.etiqueta;b.dataset.periodo=p.clave;
+      b.classList.toggle('active',p.clave===statsPeriodo);
+      b.addEventListener('click',()=>{statsPeriodo=p.clave;pills.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x.dataset.periodo===p.clave));cargarStats();});
+      pills.appendChild(b);
+    }
+  }
+  const sel=$('statsCategory');
+  if(sel){
+    sel.innerHTML='<option value="">Todas las categorías</option>';
+    for(const c of categories){
+      const o=document.createElement('option');
+      o.value=c.category_id;o.textContent=c.name||c.code||'Categoría';
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change',cargarStats);
+  }
+  $('statsSearch')?.addEventListener('input',e=>{
+    statsQuery=e.target.value.trim().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+    pintarBajos();
+  });
+  cargarStats();
+}
+
+async function cargarStats(){
+  msg('statsMessage');
+  const r=rangoDe(statsPeriodo);
+  $('statsRange').textContent=`${r.etiqueta} · del ${r.desde} al ${r.hasta}`;
+  $('statsKpis').innerHTML='<article class="wide"><span class="kpi-note">Calculando…</span></article>';
+  try{
+    statsData=await rpc('v2_attendance_stats',{
+      organization_id:ctx.organization_id,
+      from_date:r.desde,to_date:r.hasta,
+      category_id:$('statsCategory')?.value||null,
+      session_type:$('statsType')?.value||null
+    });
+    pintarStats();
+  }catch(e){
+    $('statsKpis').innerHTML='';
+    msg('statsMessage',friendly(e));
+  }
+}
+
+function pintarStats(){
+  const t=statsData?.totals||{};
+  const meta=80;
+  const estado=estadoDeAsistencia(t.pct,meta);
+  const conf=confianza(t.marked,t.scheduled);
+  const f=desgloseDeFaltas(t);
+
+  $('statsKpis').innerHTML=`
+    <article><span class="kpi-label">Jugadores</span><b class="kpi-value">${Number(t.players||0)}</b><span class="kpi-note">${Number(t.sessions||0)} entrenamientos</span></article>
+    <article><span class="kpi-label">Asistencias</span><b class="kpi-value">${Number(t.attended||0)}</b><span class="kpi-note">de ${Number(t.marked||0)} listas marcadas</span></article>
+    <article><span class="kpi-label">Faltas</span><b class="kpi-value">${f.faltas}</b><span class="kpi-note">${f.justificadas?`${f.justificadas} justificadas`:'ninguna justificada'}</span></article>
+    <article><span class="kpi-label">Asistencia</span><b class="kpi-value">${pctTexto(t.pct)}</b><span class="kpi-note">${nivelChip(estado)}</span></article>
+    <article class="wide"><span class="kpi-label">Asistencia baja</span><b class="kpi-value">${Number(t.lowPlayers||0)}</b><span class="kpi-note">Tanners debajo de su objetivo (80% ordinario · 90% con beca)</span></article>`;
+
+  const trust=$('statsTrust');
+  trust.dataset.nivel=conf.nivel;
+  trust.innerHTML=Number(t.unmarked||0)
+    ? `<span aria-hidden="true">⚑</span><span><b>${Number(t.unmarked)} listas sin marcar.</b> El porcentaje de arriba sale solo de las ${Number(t.marked||0)} que sí se cerraron. ${esc(conf.texto)}.</span>`
+    : `<span aria-hidden="true">✓</span><span><b>Todas las listas del periodo están cerradas.</b> El porcentaje se sostiene de los ${Number(t.marked||0)} registros completos.</span>`;
+
+  const cats=statsData?.categories||[];
+  $('statsCats').innerHTML=cats.map(c=>{
+    const e=estadoDeAsistencia(c.pct,80);
+    const bajos=(c.lowest||[]).filter(x=>x.pct!==null&&x.pct<x.goal);
+    return `<article class="cat-card">
+      <div class="cat-card-head"><div><strong>${esc(c.name||c.code||'Categoría')}</strong>
+      <small>${Number(c.activePlayers||0)} activos · ${Number(c.sessions||0)} entrenamientos</small></div>${nivelChip(e)}</div>
+      <div class="cat-figures">
+        <div><span>Asistencia</span><b>${pctTexto(c.pct)}</b></div>
+        <div><span>Semanal</span><b>${pctTexto(c.weeklyPct)}</b></div>
+        <div><span>Mensual</span><b>${pctTexto(c.monthlyPct)}</b></div>
+        <div><span>Faltas</span><b>${Number(c.absences||0)}</b></div>
+      </div>
+      ${bajos.length?`<div class="cat-lowest"><div class="eyebrow">MENOR ASISTENCIA</div>${bajos.map(filaBajo).join('')}</div>`:''}
+    </article>`;
+  }).join('')||'<p class="muted">No hay entrenamientos en este periodo.</p>';
+  $('statsCats').querySelectorAll('[data-player]').forEach(b=>b.addEventListener('click',()=>abrirJugador(b.dataset.player)));
+
+  pintarBajos();
+}
+
+function filaBajo(j){
+  const e=estadoDeAsistencia(j.pct,j.goal);
+  return `<button type="button" class="low-row" data-player="${esc(j.playerId)}">
+    <span class="low-name"><strong>${esc(j.name||'Tanner')}</strong>
+    <small>${esc(j.categoryName||'')}${j.categoryName?' · ':''}${Number(j.attended||0)} de ${Number(j.scheduled||0)} · meta ${j.goal}%${j.scholarship?' · con beca':''}</small></span>
+    <span class="low-pct">${pctTexto(j.pct)}</span>${nivelChip(e)}
+    <span class="low-arrow" aria-hidden="true">›</span></button>`;
+}
+
+function pintarBajos(){
+  const todos=statsData?.lowPlayers||[];
+  const rows=todos.filter(j=>!statsQuery||String(j.name||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().includes(statsQuery));
+  $('statsLow').innerHTML=rows.map(filaBajo).join('');
+  $('statsLowEmpty').textContent=todos.length?'Ningún Tanner coincide con esa búsqueda.':'Nadie está debajo de su objetivo. Bien ahí.';
+  $('statsLowEmpty').classList.toggle('hidden',rows.length>0);
+  $('statsLow').querySelectorAll('[data-player]').forEach(b=>b.addEventListener('click',()=>abrirJugador(b.dataset.player)));
+}
+
+async function abrirJugador(playerId){
+  if(!playerId)return;
+  const r=rangoDe(statsPeriodo);
+  $('playerName').textContent='Cargando…';
+  $('playerMeta').textContent='';
+  $('playerBody').innerHTML='';
+  $('playerBackdrop').classList.remove('hidden');
+  $('playerDrawer').classList.remove('hidden');
+  $('playerDrawer').setAttribute('aria-hidden','false');
+  document.body.classList.add('drawer-open');
+  try{
+    const d=await rpc('v2_attendance_player',{organization_id:ctx.organization_id,player_id:playerId,from_date:r.desde,to_date:r.hasta});
+    pintarJugador(d);
+  }catch(e){
+    $('playerName').textContent='No se pudo abrir';
+    $('playerBody').innerHTML=`<p class="muted">${esc(friendly(e))}</p>`;
+  }
+}
+
+function pintarJugador(d){
+  const p=d?.player||{},c=d?.current||{},prev=d?.previous||{};
+  const meta=Number(p.goal||metaDe(p.scholarship));
+  const e=estadoDeAsistencia(c.pct,meta);
+  const tend=tendencia(c.pct,prev.pct);
+  const f=desgloseDeFaltas(c);
+  $('playerName').textContent=p.name||'Tanner';
+  $('playerMeta').textContent=`${p.categoryName||'Sin categoría'} · objetivo ${meta}%${p.scholarship?' (con beca)':''}`;
+  $('playerBody').innerHTML=`
+    <div class="stats-kpis">
+      <article class="wide"><span class="kpi-label">Asistencia del periodo</span>
+        <b class="kpi-value">${pctTexto(c.pct)}</b>
+        <span class="kpi-note">${nivelChip(e)} ${esc(e.texto)}</span></article>
+    </div>
+    <div class="trend-line"><span class="lvl lvl-${tend.direccion==='sube'?'ok':(tend.direccion==='baja'?'bajo':'sindato')}"><span class="lvl-icon" aria-hidden="true">${esc(tend.icono)}</span>Tendencia</span><span>${esc(tend.texto)}</span></div>
+    <div class="player-figures">
+      <div><span>Programados</span><b>${Number(c.scheduled||0)}</b></div>
+      <div><span>Asistencias</span><b>${Number(c.attended||0)}</b></div>
+      <div><span>Faltas</span><b>${f.faltas}</b></div>
+      <div><span>Justificadas</span><b class="${Number(c.excused||0)?'':'soft'}">${esc(textoDeContadorOpcional(c.excused,c.marked,'justificadas'))}</b></div>
+      <div><span>Retardos</span><b class="${Number(c.late||0)?'':'soft'}">${esc(textoDeContadorOpcional(c.late,c.marked,'retardos'))}</b></div>
+      <div><span>Sin marcar</span><b class="${Number(c.unmarked||0)?'':'soft'}">${Number(c.unmarked||0)||'0'}</b></div>
+    </div>
+    <div><div class="eyebrow">HISTORIAL DEL PERIODO</div>
+    <div class="history-list">${(d?.history||[]).map(h=>{
+      const et=etiquetaDeEstado(h.status);
+      return `<div class="history-row"><span class="h-date">${esc(String(h.date||''))}</span>
+        <span class="h-title">${esc(h.title||'Entrenamiento')}</span>
+        <span class="lvl lvl-${et.nivel}"><span class="lvl-icon" aria-hidden="true">${esc(et.icono)}</span>${esc(et.texto)}</span></div>`;
+    }).join('')||'<p class="muted">Sin entrenamientos en este periodo.</p>'}</div></div>`;
+}
+
+function cerrarJugador(){
+  $('playerBackdrop').classList.add('hidden');
+  $('playerDrawer').classList.add('hidden');
+  $('playerDrawer').setAttribute('aria-hidden','true');
+  document.body.classList.remove('drawer-open');
+}
+
+$('tabCapture')?.addEventListener('click',()=>cambiarPestana('capture'));
+$('tabStats')?.addEventListener('click',()=>cambiarPestana('stats'));
+$('closePlayer')?.addEventListener('click',cerrarJugador);
+$('playerBackdrop')?.addEventListener('click',cerrarJugador);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('playerDrawer')?.classList.contains('hidden'))cerrarJugador();});

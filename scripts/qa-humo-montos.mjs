@@ -1,0 +1,287 @@
+// Montos de cobro en Taquilla: cuánto cobrarle a cada Tanner.
+//
+// Lo que este humo protege:
+//   1. Que el panel sea visible para Taquilla. Hay una línea que des-oculta
+//      todo .cashier-panel según canViewLedger; si alguien la toca sin
+//      excluir #montosPanel, el panel se abre solo para los demás roles y se
+//      esconde justo para quien lo pidió.
+//   2. Que cuando la categoría no tiene tarifa, la pantalla lo DIGA en vez de
+//      inventar un ordinario.
+//   3. Que el PDF salga de lo filtrado y no lleve la nota interna.
+import { chromium } from 'playwright-core';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
+const TIPOS = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.json':'application/json', '.png':'image/png' };
+
+const server = http.createServer((req, res) => {
+  let p = decodeURIComponent(req.url.split('?')[0]);
+  if (p.endsWith('/')) p += 'index.html';
+  const f = path.join(RAIZ, p);
+  if (!f.startsWith(RAIZ) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end('no'); return; }
+  res.writeHead(200, { 'content-type': TIPOS[path.extname(f)] || 'application/octet-stream' });
+  res.end(fs.readFileSync(f));
+});
+await new Promise(r => server.listen(4603, r));
+
+const revisiones = [];
+const revisa = (nombre, ok, detalle = '') => revisiones.push({ nombre, ok, detalle });
+
+// Se corre dos veces: como Taquilla (sin ledger, sin export) y como
+// Presidencia (con todo).
+async function corre(rol) {
+  const errores = [];
+  const navegador = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+  const pagina = await navegador.newPage({ viewport: { width: 390, height: 844 } });
+  pagina.on('pageerror', e => errores.push(`[${rol}] pageerror: ${e.message}`));
+  // Sin salida a internet, el CDN de supabase-js no se alcanza. Es limite del
+  // entorno, no del producto: la pantalla bajo prueba no lo usa, porque
+  // shell.js va sustituido. Se filtra ESE url por nombre; cualquier otro
+  // fallo de red o de consola sigue tumbando la prueba.
+  const ESPERADO = /esm\.sh\/@supabase/;
+  pagina.on('console', m => {
+    if (m.type() !== 'error') return;
+    const t = m.text();
+    // "Failed to load resource" no trae el url en el texto: viene en
+    // location(). Se mira ahi, para no filtrar un 404 de verdad.
+    const url = m.location()?.url || '';
+    if (ESPERADO.test(t) || ESPERADO.test(url)) return;
+    errores.push(`[${rol}] console: ${t} (${url})`);
+  });
+  pagina.on('requestfailed', r => {
+    if (ESPERADO.test(r.url())) return;
+    errores.push(`[${rol}] requestfailed: ${r.url()} :: ${r.failure()?.errorText}`);
+  });
+
+  await pagina.route('**/v2/shell.js', route => route.fulfill({
+    status: 200, contentType: 'text/javascript',
+    body: `
+      const ROL = ${JSON.stringify(rol)};
+      const esTaquilla = ROL === 'Taquilla';
+      const MONTOS = {
+        billingPeriod: '2026-09-01',
+        canSeeBenefitDetail: !esTaquilla,
+        rows: [
+          { playerId:'p1', name:'Ana Sofia Enríquez Uc', code:'TC-1', categoryId:'c1', categoryName:'Baby Tanner',
+            family:'Michel Enríquez', ordinaryFee:null, chargedFee:0, exempt:true, benefitTotal:null,
+            benefits:[{type:'scholarship_full',label:'Beca total',clubLabel:'Total',calculation:'full_waiver',affectsAmount:true,endsOn:null,
+                       fixedAmount: esTaquilla?null:0, percentage: esTaquilla?null:100}],
+            validityStatus:'sin_vencimiento', validUntil:null, toCollect:200, outstanding:200, collectionNote:null },
+          { playerId:'p2', name:'Dario Montalvo Díaz', code:'TC-2', categoryId:'c2', categoryName:'T10',
+            family:'Familia Montalvo', ordinaryFee:500, chargedFee:500, exempt:false, benefitTotal:0,
+            benefits:[{type:'sponsor_funded',label:'Patrocinado',clubLabel:'Parcial por Curtibrother Bruno',calculation:'fixed_amount',affectsAmount:true,endsOn:'2026-10-31'}],
+            validityStatus:'por_vencer', validUntil:'2026-10-31', toCollect:0, outstanding:0,
+            collectionNote:'Cobrar con el papá, no con la abuela' },
+          { playerId:'p3', name:'Iker Joan Flores Procopio', code:'TC-3', categoryId:'c3', categoryName:'T12',
+            family:'Familia Flores', ordinaryFee:800, chargedFee:750, exempt:false, benefitTotal:50,
+            benefits:[{type:'sibling_discount',label:'Hermanos Tanners',clubLabel:'Hermanos Tanner',calculation:'informational',affectsAmount:false,endsOn:null}],
+            validityStatus:'sin_vencimiento', validUntil:null, toCollect:850, outstanding:1650, collectionNote:null }
+        ],
+        summary: { players:3, withBenefit:3, toCollect:1050, outstanding:1850,
+                   expiringSoon:1, expired:0, categoriesWithoutFee:1 }
+      };
+      const TARIFAS = [
+        { categoryId:'c1', code:'baby_tanner', name:'Baby Tanner', monthlyFee:null, setAt:null, activePlayers:19, suggested:400, feeSpread:4 },
+        { categoryId:'c2', code:'t10', name:'T10', monthlyFee:500, setAt:'2026-09-23', activePlayers:12, suggested:500, feeSpread:4 }
+      ];
+      window.__rpc = [];
+      export const supabase = { auth:{
+        getSession:async()=>({data:{session:{user:{id:'u1'}}}}),
+        getUser:async()=>({data:{user:{id:'u1',app_metadata:{}}}}),
+        signOut:async()=>({}),
+        onAuthStateChange(){ return {data:{subscription:{unsubscribe(){}}}}; } } };
+      export const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
+      export const $ = id => document.getElementById(id);
+      export async function rpc(name, params={}){
+        window.__rpc.push({name, params});
+        if(name==='v2_collection_amounts') return MONTOS;
+        if(name==='v2_category_fees') return TARIFAS;
+        if(name==='v2_set_category_fee') return true;
+        if(name==='v2_cashier_snapshot') return { businessDate:'2026-09-23', incomeTotal:0, expenseTotal:0,
+          netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], movements:[], canViewLedger: !esTaquilla };
+        if(name==='v2_billing_players') return [];
+        if(name==='v2_open_receivables') return [];
+        return null;
+      }
+      export function moduleAccess(rows, code, write=false){
+        const m = { taquilla:{r:true,w:true},
+                    cobranza:{ r: !esTaquilla, w: !esTaquilla },
+                    contabilidad:{ r: ROL==='Contabilidad', w: ROL==='Contabilidad' } };
+        const e = m[code]; if(!e) return false; return write ? e.w : e.r;
+      }
+      export function setShellHealth(){}
+      export function navigationMap(){ return new Map(); }
+      export async function bootstrapProtectedShell(){
+        return { ctx:{ organization_id:'o1', organization_name:'Tannery City FC', role:ROL, is_owner: ROL==='Presidencia' },
+                 navigation:[] };
+      }
+      export const shellIcon = () => '';
+      export const navItems = [];
+      export function setShellSearchItems(){}
+      export function renderShell(){}
+    `
+  }));
+  await pagina.route('**/v2/photo-cache.js', route => route.fulfill({
+    status: 200, contentType: 'text/javascript',
+    body: ['export async function getSignedPhotoUrls(){ return {}; }',
+           'export async function getSignedPhotoUrl(){ return null; }',
+           'export async function getRawSignedPhotoUrl(){ return null; }',
+           'export function clearPhotoCache(){}',
+           'export function forgetPhoto(){}'].join('\n')
+  }));
+  // jsPDF no se descarga: se sustituye por un doble que graba lo que se le pide.
+  await pagina.route('**esm.sh/jspdf**', route => route.fulfill({
+    status: 200, contentType: 'text/javascript',
+    body: `
+      export class jsPDF {
+        constructor(){ this.textos=[]; this.paginas=1;
+          this.internal={ pageSize:{getWidth:()=>792,getHeight:()=>612}, getNumberOfPages:()=>this.paginas }; }
+        setFont(){} setFontSize(){} setTextColor(){} setFillColor(){} setDrawColor(){}
+        rect(){} line(){} addPage(){ this.paginas++; } setPage(){}
+        splitTextToSize(t){ return [String(t)]; }
+        text(t){ this.textos.push(String(t)); }
+        save(nombre){ window.__pdf = { nombre, textos: this.textos }; }
+      }
+    `
+  }));
+
+  await pagina.goto('http://127.0.0.1:4603/v2/taquilla/', { waitUntil: 'networkidle' });
+  try { await pagina.waitForSelector('#openMontos', { timeout: 8000 }); }
+  catch (e) {
+    console.error(`[${rol}] no apareció #openMontos. Errores de la página:`); errores.forEach(x => console.error('   ' + x));
+    const diag = await pagina.evaluate(() => ({
+      existe: !!document.getElementById('openMontos'),
+      clases: document.getElementById('openMontos')?.className || null,
+      acciones: !!document.querySelector('.cashier-actions'),
+      bodyClase: document.body.className,
+      titulo: document.title,
+      texto: document.body.innerText.slice(0, 300)
+    }));
+    console.error('   diagnóstico: ' + JSON.stringify(diag, null, 1));
+    throw e; }
+
+  revisa(`[${rol}] el botón CUÁNTO COBRAR es visible`, await pagina.isVisible('#openMontos'));
+  revisa(`[${rol}] el panel arranca cerrado`, await pagina.isHidden('#montosPanel'));
+
+  await pagina.click('#openMontos');
+  await pagina.waitForSelector('.monto-card', { timeout: 6000 });
+
+  const panel = (await pagina.textContent('#montosPanel')).replace(/\s+/g, ' ');
+  revisa(`[${rol}] salen los 3 Tanners`, (await pagina.$$('.monto-card')).length === 3);
+  revisa(`[${rol}] dice cuánto cobrarle a Iker (850, con recargo)`, /\$850/.test(panel), panel.slice(0, 200));
+
+  // El caso central: sin tarifa de categoría no se inventa el ordinario.
+  revisa(`[${rol}] avisa que falta capturar la mensualidad ordinaria`,
+    /1 categoría sin mensualidad ordinaria capturada/.test(panel), panel.slice(0, 260));
+  revisa(`[${rol}] en el Tanner sin tarifa pone el motivo, no un cero`,
+    /La categoría todavía no tiene mensualidad ordinaria capturada/.test(panel), panel.slice(0, 400));
+  revisa(`[${rol}] donde sí hay tarifa, muestra la resta`,
+    /\$800\.00 ordinaria/.test(panel) && /\$50\.00 beneficio/.test(panel) && /\$750\.00 mensualidad/.test(panel),
+    panel.slice(0, 600));
+
+  // El beneficio que es sólo etiqueta tiene que decirse.
+  revisa(`[${rol}] avisa del beneficio que no descuenta nada`,
+    /registrado como etiqueta: no descuenta nada/.test(panel), panel.slice(0, 700));
+
+  // Etiquetas legibles, sin "Beca total · Total"
+  revisa(`[${rol}] no repite "Beca total · Total"`, !/Beca total · Total/.test(panel));
+  revisa(`[${rol}] conserva Curtibrother`, /Curtibrother/.test(panel));
+
+  // La nota de cobranza sí se ve en pantalla
+  revisa(`[${rol}] la nota autorizada se ve en pantalla`, /no con la abuela/.test(panel));
+
+  // Buscador
+  await pagina.fill('#montosSearch', 'curtibrother');
+  await pagina.waitForTimeout(150);
+  revisa(`[${rol}] el buscador encuentra por tipo de beneficio`, (await pagina.$$('.monto-card')).length === 1);
+  await pagina.fill('#montosSearch', 'michel');
+  await pagina.waitForTimeout(150);
+  revisa(`[${rol}] el buscador encuentra por tutor`, (await pagina.$$('.monto-card')).length === 1);
+  await pagina.click('#montosSearchClear');
+  await pagina.waitForTimeout(150);
+  revisa(`[${rol}] limpiar la búsqueda devuelve a todos`, (await pagina.$$('.monto-card')).length === 3);
+
+  // Chips
+  await pagina.click('[data-montos-filter="debt"]');
+  await pagina.waitForTimeout(150);
+  revisa(`[${rol}] el chip "Con saldo" filtra`, (await pagina.$$('.monto-card')).length === 2);
+  await pagina.click('[data-montos-filter="expiring"]');
+  await pagina.waitForTimeout(150);
+  revisa(`[${rol}] el chip "Por vencer" filtra`, (await pagina.$$('.monto-card')).length === 1);
+  await pagina.click('[data-montos-filter="all"]');
+  await pagina.waitForTimeout(150);
+
+  // Permisos de exportar y de fijar tarifas
+  const vePdf = await pagina.isVisible('#montosPdf');
+  const veTarifas = await pagina.isVisible('#montosTarifas');
+  if (rol === 'Presidencia') {
+    revisa(`[${rol}] puede exportar el PDF`, vePdf);
+    revisa(`[${rol}] puede capturar tarifas`, veTarifas);
+
+    await pagina.click('[data-montos-filter="debt"]');
+    await pagina.waitForTimeout(150);
+    await pagina.click('#montosPdf');
+    await pagina.waitForFunction(() => window.__pdf, { timeout: 8000 });
+    const pdf = await pagina.evaluate(() => window.__pdf);
+    const texto = pdf.textos.join(' | ');
+    revisa(`[${rol}] el PDF se llama por su periodo`, pdf.nombre === 'montos-de-cobro-2026-09.pdf', pdf.nombre);
+    revisa(`[${rol}] el PDF va marcado como consulta interna`, /CONSULTA INTERNA/.test(texto));
+    revisa(`[${rol}] el PDF dice con qué filtros se generó`, /Sólo con saldo/.test(texto), texto.slice(0, 300));
+    revisa(`[${rol}] el PDF sólo trae lo filtrado (2 de 3)`,
+      /Ana Sofia/.test(texto) && /Iker/.test(texto) && !/Dario/.test(texto), texto.slice(0, 400));
+    revisa(`[${rol}] el PDF NO lleva la nota interna`, !/abuela/.test(texto));
+    revisa(`[${rol}] el PDF avisa de la columna Ordinaria en blanco`,
+      /sin mensualidad ordinaria capturada/.test(texto), texto.slice(-300));
+
+    // Tarifas
+    await pagina.click('[data-montos-filter="all"]');
+    await pagina.waitForTimeout(120);
+    await pagina.click('#montosTarifas');
+    await pagina.waitForSelector('.tarifa-row', { timeout: 6000 });
+    const tar = (await pagina.textContent('#tarifasList')).replace(/\s+/g, ' ');
+    revisa(`[${rol}] la tarifa propone la cuota más común`, /Usar la más común/.test(tar), tar.slice(0, 200));
+    revisa(`[${rol}] la tarifa dice cuántas cuotas distintas hay hoy`, /4 cuotas distintas hoy/.test(tar), tar.slice(0, 200));
+    await pagina.click('[data-sug="c1"]');
+    revisa(`[${rol}] el botón de sugerencia llena el campo`,
+      (await pagina.inputValue('#tarifa-c1')) === '400');
+    await pagina.click('[data-guardar="c1"]');
+    await pagina.waitForTimeout(400);
+    const llamadas = await pagina.evaluate(() => window.__rpc.filter(r => r.name === 'v2_set_category_fee'));
+    revisa(`[${rol}] guardar manda la tarifa al backend`,
+      llamadas.length === 1 && Number(llamadas[0].params.monthly_fee) === 400,
+      JSON.stringify(llamadas));
+    const msg = await pagina.textContent('#tarifasMessage');
+    revisa(`[${rol}] avisa que la tarifa no cambia lo que se cobra`,
+      /No cambia lo que el sistema cobra/.test(msg), msg);
+    // La cruz tiene que cerrar: .close-modal no estaba conectado a nada.
+    await pagina.click('#tarifasModal .close-modal');
+    await pagina.waitForTimeout(200);
+    revisa(`[${rol}] la cruz cierra el modal de tarifas`, await pagina.isHidden('#tarifasModal'));
+  } else {
+    revisa(`[${rol}] NO puede exportar el PDF`, !vePdf);
+    revisa(`[${rol}] NO puede capturar tarifas`, !veTarifas);
+    // Redacción: Taquilla no recibe ni ve el desglose económico de la beca.
+    revisa(`[${rol}] no se le muestra el porcentaje de la beca`, !/100%/.test(panel), panel.slice(0, 300));
+  }
+
+  const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+  revisa(`[${rol}] no hay scroll horizontal en iPhone`, !desborde);
+
+  if (rol === 'Taquilla') {
+    await pagina.screenshot({ path: path.join(RAIZ, 'docs/evidencias/taquilla-montos-de-cobro.png'), fullPage: true });
+  }
+
+  await navegador.close();
+  return errores;
+}
+
+const errores = [...(await corre('Taquilla')), ...(await corre('Presidencia'))];
+server.close();
+
+let mal = 0;
+for (const r of revisiones) { if (!r.ok) { mal++; console.error(` - ${r.nombre}${r.detalle ? ' :: ' + r.detalle : ''}`); } }
+if (errores.length) { console.error('ERRORES DEL NAVEGADOR:'); errores.forEach(e => console.error('   ' + e)); }
+if (mal || errores.length) { console.error(`Humo Montos FAILED · ${mal} de ${revisiones.length}, ${errores.length} errores`); process.exit(1); }
+console.log(`Humo Montos OK · ${revisiones.length} revisiones en Chromium a 390px (Taquilla y Presidencia), 0 errores`);

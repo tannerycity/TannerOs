@@ -1,4 +1,11 @@
-.cashier-page{max-width:1420px}.cashier-head{display:flex;justify-content:space-between;gap:22px;align-items:flex-end;margin:8px 0 18px}.cashier-eyebrow{display:block;font-size:11px;font-weight:950;letter-spacing:.08em;color:var(--tos-teal);margin-bottom:6px}.cashier-head h1{font-size:31px;margin:0}.cashier-head p{margin:5px 0 0;color:var(--tos-muted)}.cashier-head-actions{display:flex;align-items:flex-end;gap:10px}.cashier-head-actions label{font-size:10px;font-weight:900;text-transform:uppercase;color:#68777d}.cashier-head-actions input{display:block;margin-top:5px;min-width:154px}.cashier-secondary{border:0;border-radius:14px;background:#e5f2f3;color:#07586a;padding:12px 15px;font-weight:950;min-height:44px}.cashier-actions{display:grid;grid-template-columns:1.7fr 1fr;gap:16px;margin-bottom:16px}.cashier-action{border:0;border-radius:25px;min-height:178px;color:#fff;display:grid;place-items:center;align-content:center;gap:7px;box-shadow:0 9px 25px rgba(4,49,61,.07);cursor:pointer}.cashier-action svg{width:34px;height:34px}.cashier-action strong{font-size:26px;letter-spacing:.04em}.cashier-action.collect strong{font-size:34px}.cashier-action.collect svg{width:42px;height:42px}.cashier-action small{font-size:13px;font-weight:850}.cashier-action.collect{background:#169b4b}.cashier-action.expense{background:#d34b24}.cashier-action.disabled{filter:grayscale(.75);opacity:.45;cursor:not-allowed}.cashier-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}.cashier-kpis article{background:#fff;border:1px solid var(--tos-line);border-radius:19px;padding:20px}.cashier-kpis span,.cashier-cash-card span{font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:900;color:#68777d}.cashier-kpis strong{display:block;font-size:30px;margin-top:6px;color:var(--tos-ink-deep)}.cashier-kpis strong.sem-ok{color:var(--tos-success)}.cashier-kpis strong.sem-neutral{color:var(--tos-ink-deep)}.cashier-kpis strong.sem-warn{color:#C8890B}.cashier-kpis strong.sem-alert{color:var(--tos-danger)}.cashier-kpis strong.danger,.danger{color:var(--tos-danger)!important}.cashier-cash-card{background:#fff;border:1px solid var(--tos-line);border-left:5px solid var(--tos-gold);border-radius:20px;padding:20px 22px;display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:16px}.cashier-cash-card strong{display:block;font-size:31px;color:var(--tos-success);margin:6px 0}.cashier-cash-card p{margin:0;color:#69787e}.cashier-note{max-width:380px;font-size:12px;background:#f5f2e7;border-radius:14px;padding:12px 14px;color:#657278}.cashier-panel{background:#fff;border:1px solid var(--tos-line);border-radius:20px;padding:20px;margin:16px 0}.cashier-panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;margin-bottom:14px}.cashier-panel-head h2{margin:0;font-size:20px}.cashier-panel-head p{margin:4px 0 0;color:#728086;font-size:12px}.movement-filter{font-size:10px;font-weight:900;text-transform:uppercase;color:#758086}.movement-filter select{display:block;margin-top:5px;min-width:145px}.cashier-table-wrap{overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}.cashier-table{width:100%;border-collapse:collapse;min-width:650px}.cashier-table th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;color:#607078;background:#faf9f4;padding:12px 13px;border-bottom:1px solid var(--tos-line)}.cashier-table td{padding:13px;border-bottom:1px solid #ece8de;font-size:13px}.cashier-table tr:last-child td{border-bottom:0}.cashier-table tr.is-void{opacity:.48}.cashier-table.movements{min-width:1060px}.money-in{color:var(--tos-success);font-weight:950}.money-out{color:var(--tos-danger);font-weight:950}.movement-pill,.status-pill{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:10px;font-weight:950}.movement-pill.income{background:#dbf7e6;color:#087a39}.movement-pill.expense{background:#ffe3df;color:#b42920}.status-pill.posted{background:#e5f4ee;color:#167748}.status-pill.void{background:#ecebe6;color:#69747a}.status-pill.refunded{background:#e7f0f4;color:#2a6d86}.cashier-empty{text-align:center;border:1px dashed var(--tos-line);border-radius:14px;padding:20px;color:#768287}.cashier-modal-backdrop{position:fixed;inset:0;background:rgba(1,26,34,.5);backdrop-filter:blur(3px);z-index:9990}.cashier-modal{position:fixed;z-index:9991;left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 28px));max-height:88dvh;overflow:auto;background:#fff;border:1px solid var(--tos-line);border-radius:25px;padding:22px;box-shadow:0 24px 80px rgba(2,41,52,.28);overscroll-behavior:contain}.cashier-modal-head{display:flex;justify-content:space-between;align-items:start;margin-bottom:14px}.cashier-modal-head span{font-size:10px;font-weight:950;color:var(--tos-teal);letter-spacing:.08em}.cashier-modal-head h2{margin:4px 0 0}.cashier-modal-head button{width:34px;height:34px;border:0;border-radius:50%;background:#e5ecea;color:#42575d;font-size:16px;transition:background .15s ease,color .15s ease,transform .15s ease}
+.cashier-page{max-width:1420px}.cashier-head{display:flex;justify-content:space-between;gap:22px;align-items:flex-end;margin:8px 0 18px}.cashier-eyebrow{display:block;font-size:11px;font-weight:950;letter-spacing:.08em;color:var(--tos-teal);margin-bottom:6px}.cashier-head h1{font-size:31px;margin:0}.cashier-head p{margin:5px 0 0;color:var(--tos-muted)}.cashier-head-actions{display:flex;align-items:flex-end;gap:10px}.cashier-head-actions label{font-size:10px;font-weight:900;text-transform:uppercase;color:#68777d}.cashier-head-actions input{display:block;margin-top:5px;min-width:154px}.cashier-secondary{border:0;border-radius:14px;background:#e5f2f3;color:#07586a;padding:12px 15px;font-weight:950;min-height:44px}.cashier-actions{display:grid;grid-template-columns:1.7fr 1fr;gap:16px;margin-bottom:16px}
+.cashier-action.montos{grid-column:1/-1;min-height:104px}
+@media(min-width:760px){.cashier-actions{grid-template-columns:1.7fr 1fr 1fr}.cashier-action.montos{grid-column:auto;min-height:178px}}.cashier-action{border:0;border-radius:25px;min-height:178px;color:#fff;display:grid;place-items:center;align-content:center;gap:7px;box-shadow:0 9px 25px rgba(4,49,61,.07);cursor:pointer}.cashier-action svg{width:34px;height:34px}.cashier-action strong{font-size:26px;letter-spacing:.04em}.cashier-action.collect strong{font-size:34px}.cashier-action.collect svg{width:42px;height:42px}.cashier-action small{font-size:13px;font-weight:850}.cashier-action.collect{background:#169b4b}.cashier-action.expense{background:#d34b24}
+/* La tercera acción: consultar, no mover dinero. Por eso va en el teal de
+   la marca y no en verde ni rojo, que aquí significan entra y sale. */
+.cashier-action.montos{background:#056c7f}
+.cashier-action.montos strong{font-size:19px;letter-spacing:.03em}
+.cashier-action.montos small{opacity:.88}.cashier-action.disabled{filter:grayscale(.75);opacity:.45;cursor:not-allowed}.cashier-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}.cashier-kpis article{background:#fff;border:1px solid var(--tos-line);border-radius:19px;padding:20px}.cashier-kpis span,.cashier-cash-card span{font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:900;color:#68777d}.cashier-kpis strong{display:block;font-size:30px;margin-top:6px;color:var(--tos-ink-deep)}.cashier-kpis strong.sem-ok{color:var(--tos-success)}.cashier-kpis strong.sem-neutral{color:var(--tos-ink-deep)}.cashier-kpis strong.sem-warn{color:#C8890B}.cashier-kpis strong.sem-alert{color:var(--tos-danger)}.cashier-kpis strong.danger,.danger{color:var(--tos-danger)!important}.cashier-cash-card{background:#fff;border:1px solid var(--tos-line);border-left:5px solid var(--tos-gold);border-radius:20px;padding:20px 22px;display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:16px}.cashier-cash-card strong{display:block;font-size:31px;color:var(--tos-success);margin:6px 0}.cashier-cash-card p{margin:0;color:#69787e}.cashier-note{max-width:380px;font-size:12px;background:#f5f2e7;border-radius:14px;padding:12px 14px;color:#657278}.cashier-panel{background:#fff;border:1px solid var(--tos-line);border-radius:20px;padding:20px;margin:16px 0}.cashier-panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;margin-bottom:14px}.cashier-panel-head h2{margin:0;font-size:20px}.cashier-panel-head p{margin:4px 0 0;color:#728086;font-size:12px}.movement-filter{font-size:10px;font-weight:900;text-transform:uppercase;color:#758086}.movement-filter select{display:block;margin-top:5px;min-width:145px}.cashier-table-wrap{overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}.cashier-table{width:100%;border-collapse:collapse;min-width:650px}.cashier-table th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;color:#607078;background:#faf9f4;padding:12px 13px;border-bottom:1px solid var(--tos-line)}.cashier-table td{padding:13px;border-bottom:1px solid #ece8de;font-size:13px}.cashier-table tr:last-child td{border-bottom:0}.cashier-table tr.is-void{opacity:.48}.cashier-table.movements{min-width:1060px}.money-in{color:var(--tos-success);font-weight:950}.money-out{color:var(--tos-danger);font-weight:950}.movement-pill,.status-pill{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:10px;font-weight:950}.movement-pill.income{background:#dbf7e6;color:#087a39}.movement-pill.expense{background:#ffe3df;color:#b42920}.status-pill.posted{background:#e5f4ee;color:#167748}.status-pill.void{background:#ecebe6;color:#69747a}.status-pill.refunded{background:#e7f0f4;color:#2a6d86}.cashier-empty{text-align:center;border:1px dashed var(--tos-line);border-radius:14px;padding:20px;color:#768287}.cashier-modal-backdrop{position:fixed;inset:0;background:rgba(1,26,34,.5);backdrop-filter:blur(3px);z-index:9990}.cashier-modal{position:fixed;z-index:9991;left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 28px));max-height:88dvh;overflow:auto;background:#fff;border:1px solid var(--tos-line);border-radius:25px;padding:22px;box-shadow:0 24px 80px rgba(2,41,52,.28);overscroll-behavior:contain}.cashier-modal-head{display:flex;justify-content:space-between;align-items:start;margin-bottom:14px}.cashier-modal-head span{font-size:10px;font-weight:950;color:var(--tos-teal);letter-spacing:.08em}.cashier-modal-head h2{margin:4px 0 0}.cashier-modal-head button{width:34px;height:34px;border:0;border-radius:50%;background:#e5ecea;color:#42575d;font-size:16px;transition:background .15s ease,color .15s ease,transform .15s ease}
 .cashier-modal-head button:hover{background:#0e3038;color:#fff;transform:rotate(90deg)}.cashier-tabs{display:flex;gap:7px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none}.cashier-tabs::-webkit-scrollbar{display:none}.cashier-tabs button{flex:0 0 auto;border:1px solid var(--tos-line);background:#fff;border-radius:999px;padding:9px 13px;font-weight:900;color:#52646b}.cashier-tabs button.active{background:var(--tos-teal);color:#fff;border-color:var(--tos-teal)}.cashier-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cashier-form-grid label{font-size:11px;font-weight:900;color:#5f7076}.cashier-form-grid input,.cashier-form-grid select{display:block;width:100%;margin-top:5px}.cashier-form-grid .wide{grid-column:1/-1}.cashier-submit{width:100%;border:0;border-radius:15px;padding:13px;color:#fff;font-weight:1000;margin-top:13px}.cashier-submit.collect{background:#15964a}.cashier-submit.expense{background:#cf4b26}.cashier-message{margin-top:12px;border-radius:12px;padding:10px 12px;background:#ffe9e6;color:#a32920;font-size:12px;font-weight:800}.cashier-message[data-type="success"]{background:#e4f6e9;color:#11773c}.cashier-help{font-size:11px;color:#778287;text-align:center;margin:10px 0 0}.cashier-help a{color:var(--tos-teal);font-weight:900}.cashier-modal-open{overflow:hidden}@media print{.tos-sidebar,.tos-topbar,.cashier-actions,.cashier-head-actions,.movement-filter,.cashier-modal,.cashier-modal-backdrop{display:none!important}.tos-layout{display:block}.tos-content{max-width:none;padding:0}.cashier-head{margin-top:0}.cashier-panel,.cashier-cash-card,.cashier-kpis article{break-inside:avoid;box-shadow:none}.cashier-table{min-width:0;font-size:9pt}.cashier-table.movements{min-width:0}.cashier-table th,.cashier-table td{padding:6px}}
 @media(max-width:800px){.cashier-head{align-items:stretch;flex-direction:column}.cashier-head-actions{align-items:stretch}.cashier-head-actions label{flex:1}.cashier-head-actions input{width:100%}.cashier-actions{grid-template-columns:1fr}.cashier-action{min-height:115px}.cashier-kpis{grid-template-columns:1fr 1fr}.cashier-kpis article:last-child{grid-column:1/-1}.cashier-cash-card{align-items:stretch;flex-direction:column}.cashier-note{max-width:none}}
 @media(max-width:560px){.cashier-head-actions{flex-direction:column}.cashier-kpis{grid-template-columns:1fr}.cashier-kpis article:last-child{grid-column:auto}.cashier-form-grid{grid-template-columns:1fr}.cashier-form-grid .wide{grid-column:auto}.cashier-modal{left:0;right:0;top:auto;bottom:0;transform:none;width:100%;max-width:none;max-height:94dvh;border-radius:24px 24px 0 0;padding:16px 14px calc(20px + env(safe-area-inset-bottom))}.cashier-modal-head{position:sticky;top:-16px;z-index:2;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);padding:16px 0 10px;margin-top:-16px}.cashier-action strong{font-size:23px}.cashier-action{min-height:104px;border-radius:20px}}
@@ -52,6 +59,10 @@
 .tsearch-empty{padding:13px 14px;color:#8a969b;font-size:13.5px}
 .movement-who{display:flex;flex-direction:column;gap:1px}
 .movement-payer{font-size:11.5px;font-weight:650;color:#8a969b}
+/* Quien del club entrego el pago. Se distingue del proveedor —que va en
+   negrita arriba— y del tutor que pago un cobro, que es "Pago:". */
+.movement-registro{display:block;font-size:11px;color:#7d8991;margin-top:1px}
+.movement-registro.is-legacy{font-style:italic;color:#98a2a8}
 .edit-move{margin-left:8px;border:1px solid #cfe6e2;background:#eef6f4;color:#0c6270;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;cursor:pointer}
 .edit-move:hover{background:#dceeeb}
 .edit-modal{width:min(560px,calc(100vw - 24px))}
@@ -98,3 +109,137 @@
   .collections-status{order:3;flex:1 1 auto;flex-direction:row;align-items:center;justify-content:space-between;margin-top:6px}
   .collections-collect{order:4;flex:1 1 100%;margin-top:6px;padding:9px 14px}
 }
+/* Una cuenta compartida no es una persona: se dice de dónde salió, en
+   cursiva, para no fingir que se sabe quién fue. */
+.movement-registro.is-cuenta{font-style:italic;color:#98a2a8}
+.campo-nota{display:block;font-size:11px;color:#8a969b;margin-top:3px;font-weight:400;line-height:1.35}
+
+/* === Montos de cobro ===
+   Mobile first: en celular cada Tanner es una tarjeta; en pantalla grande la
+   misma tarjeta se acomoda en dos columnas. No hay tabla que se desborde. */
+.montos-head-actions{display:flex;gap:7px;flex-wrap:wrap}
+.montos-aviso{background:#fdf2dc;border:1px solid #f0dcb0;border-radius:13px;padding:11px 13px;font-size:12.5px;color:#7a5a12;font-weight:700;line-height:1.45;margin-bottom:13px}
+.montos-aviso b{font-weight:1000}
+.montos-aviso button{margin-top:8px;border:1px solid #d8b86a;background:#fff;border-radius:999px;padding:7px 13px;font-weight:900;font-size:12px;color:#7a5a12;cursor:pointer}
+
+.montos-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:13px}
+.montos-kpis article{background:#fff;border:1px solid var(--tos-line,#dce5e3);border-radius:14px;padding:10px 12px}
+.montos-kpis span{display:block;font-size:10px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.04em}
+.montos-kpis strong{display:block;font-size:21px;font-weight:1000;color:#07191e;margin-top:2px}
+.montos-kpis small{display:block;font-size:11px;color:#778287;font-weight:700}
+
+.montos-selects{display:grid;grid-template-columns:1fr;gap:9px;margin:9px 0}
+.montos-selects label{font-size:10px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.04em}
+.montos-selects input,.montos-selects select{display:block;width:100%;margin-top:4px}
+
+.montos-list{display:grid;gap:9px}
+.monto-card{background:#fff;border:1px solid var(--tos-line,#dce5e3);border-radius:16px;padding:13px}
+.monto-top{display:flex;justify-content:space-between;align-items:flex-start;gap:11px}
+.monto-quien strong{display:block;font-size:15px;font-weight:1000;color:#07191e;line-height:1.25}
+.monto-quien small{display:block;font-size:11.5px;color:#64767b;font-weight:700;margin-top:1px}
+.monto-cobrar{text-align:right;flex:0 0 auto}
+.monto-cobrar b{display:block;font-size:21px;font-weight:1000;color:#07191e;line-height:1.1}
+.monto-cobrar span{display:block;font-size:10px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.04em}
+.monto-cobrar.cero b{color:#11773c}
+
+.monto-cond{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+.vig{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:900}
+.vig i{font-style:normal;font-weight:1000}
+.vig-ok{background:#e4f6e9;color:#11773c}
+.vig-atencion{background:#fdf2dc;color:#8a6410}
+.vig-bajo{background:#ffe9e6;color:#a32920}
+.vig-neutro{background:#eef2f1;color:#5f7076}
+.cond-chip{background:#e8f1f3;color:#0c5464;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:900}
+
+.monto-desglose{margin-top:10px;background:#f6f9f8;border-radius:12px;padding:9px 11px;font-size:12.5px;color:#44585e;font-weight:700;line-height:1.5}
+.monto-desglose b{color:#07191e;font-weight:1000}
+.monto-desglose.parcial{background:#fdf2dc;color:#7a5a12}
+.monto-desglose.rara{background:#ffe9e6;color:#8d2a22}
+.monto-nota{margin-top:8px;font-size:12px;color:#0c5464;background:#e8f1f3;border-radius:10px;padding:8px 10px;font-weight:700}
+.monto-saldo{margin-top:8px;font-size:12px;font-weight:900;color:#a32920}
+.monto-saldo.limpio{color:#11773c}
+
+.tarifas-list{display:grid;gap:9px;max-height:56vh;overflow-y:auto}
+.tarifa-row{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:center;background:#f6f9f8;border-radius:12px;padding:10px 11px}
+.tarifa-row strong{display:block;font-size:13.5px;font-weight:1000;color:#07191e}
+.tarifa-row small{display:block;font-size:11px;color:#64767b;font-weight:700}
+.tarifa-row input{width:104px;text-align:right}
+.tarifa-row button{border:0;background:var(--tos-teal,#056c7f);color:#fff;border-radius:10px;padding:8px 12px;font-weight:900;font-size:12px;cursor:pointer;margin-left:7px}
+.tarifa-row .sug{border:1px solid #cfe0e3;background:#fff;color:#0c5464;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;cursor:pointer;margin-top:5px}
+
+@media(min-width:760px){
+  .montos-kpis{grid-template-columns:repeat(4,1fr)}
+  .montos-selects{grid-template-columns:repeat(3,1fr)}
+  .montos-list{grid-template-columns:repeat(2,1fr)}
+}
+@media print{
+  .montos-panel .collections-toolbar,.montos-head-actions,.montos-aviso{display:none!important}
+  .montos-list{grid-template-columns:1fr}
+  .monto-card{break-inside:avoid;box-shadow:none}
+}
+
+/* === Validación y conciliación de pagos ===
+   La barra de acceso no es una cuarta acción principal: es navegación, y
+   sólo aparece cuando hay algo que revisar. */
+.concilia-bar{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:#fff;border:1px solid var(--tos-line,#dce5e3);border-radius:18px;padding:13px 15px;margin-bottom:16px;cursor:pointer;font:inherit}
+.concilia-bar:hover{border-color:#056c7f}
+.concilia-bar:focus-visible{outline:2px solid #056c7f;outline-offset:2px}
+.concilia-bar-main{flex:1;min-width:0}
+.concilia-bar-main b{display:block;font-size:14px;font-weight:1000;color:#07191e}
+.concilia-bar-main small{display:block;font-size:11.5px;color:#64767b;font-weight:700;margin-top:1px}
+.concilia-badge{flex:0 0 auto;background:#cf4b26;color:#fff;border-radius:999px;min-width:24px;height:24px;display:grid;place-items:center;font-size:12px;font-weight:1000;padding:0 7px}
+.concilia-arrow{color:#b3c2c0;font-weight:900;font-size:18px}
+
+.concilia-list{display:grid;gap:10px}
+.concilia-card{background:#fff;border:1px solid var(--tos-line,#dce5e3);border-radius:17px;padding:14px}
+.concilia-card[data-estado="pending"]{border-left:4px solid #d8a22a}
+.concilia-card[data-estado="clarification"]{border-left:4px solid #8a6410}
+.concilia-card[data-estado="rejected"]{border-left:4px solid #a32920}
+.concilia-card[data-estado="approved"]{border-left:4px solid #15964a}
+.concilia-card[data-legacy="1"]{border-left-color:#c3cecd}
+
+.concilia-top{display:flex;justify-content:space-between;align-items:flex-start;gap:11px}
+.concilia-quien strong{display:block;font-size:15px;font-weight:1000;color:#07191e;line-height:1.25}
+.concilia-quien small{display:block;font-size:11.5px;color:#64767b;font-weight:700;margin-top:1px}
+.concilia-monto{text-align:right;flex:0 0 auto}
+.concilia-monto b{display:block;font-size:20px;font-weight:1000;color:#07191e;line-height:1.1}
+.concilia-monto span{display:block;font-size:10px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.04em}
+
+.concilia-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.est{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:900}
+.est i{font-style:normal;font-weight:1000}
+.est-ok{background:#e4f6e9;color:#11773c}
+.est-atencion{background:#fdf2dc;color:#8a6410}
+.est-bajo{background:#ffe9e6;color:#a32920}
+.est-neutro{background:#eef2f1;color:#5f7076}
+
+.concilia-datos{margin-top:10px;display:grid;gap:4px;font-size:12.5px;color:#44585e;font-weight:700}
+.concilia-datos span b{color:#07191e;font-weight:1000}
+.concilia-dif{margin-top:9px;border-radius:11px;padding:8px 11px;font-size:12.5px;font-weight:900}
+.concilia-dif[data-nivel="bajo"]{background:#ffe9e6;color:#a32920}
+.concilia-dif[data-nivel="atencion"]{background:#fdf2dc;color:#8a6410}
+.concilia-obs{margin-top:8px;background:#eef2f1;border-radius:10px;padding:8px 10px;font-size:12px;color:#44585e;font-weight:700;white-space:pre-line}
+
+.concilia-hist{margin-top:10px;font-size:12px}
+.concilia-hist summary{cursor:pointer;font-weight:900;color:#056c7f;font-size:12px}
+.concilia-hist ol{margin:8px 0 0;padding-left:17px;display:grid;gap:5px;color:#5f7076;font-weight:700}
+.concilia-hist .h-motivo{display:block;color:#44585e;font-weight:600}
+
+.concilia-acciones{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.concilia-acciones button{border:0;border-radius:11px;padding:9px 14px;font-weight:1000;font-size:12.5px;cursor:pointer;color:#fff}
+.concilia-acciones button[data-tono="ok"]{background:#15964a}
+.concilia-acciones button[data-tono="atencion"]{background:#b07d12}
+.concilia-acciones button[data-tono="bajo"]{background:#cf4b26}
+.concilia-acciones button:disabled{opacity:.55;cursor:default}
+
+.concilia-field{display:block;margin-bottom:11px;font-size:11px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.04em}
+.concilia-field small{text-transform:none;font-weight:700;color:#8b999d}
+.concilia-field textarea,.concilia-field input{display:block;width:100%;margin-top:5px;font:inherit;text-transform:none;letter-spacing:0;color:#07191e}
+.concilia-field.hidden{display:none}
+
+@media(min-width:760px){ .concilia-list{grid-template-columns:repeat(2,1fr)} }
+.cashier-check{display:flex!important;align-items:flex-start;gap:9px;background:#f6f9f8;border-radius:12px;padding:10px 11px;cursor:pointer}
+.cashier-check input{width:18px;height:18px;margin:1px 0 0;flex:0 0 auto}
+.cashier-check span{font-size:12.5px;font-weight:900;color:#07191e;text-transform:none;letter-spacing:0}
+.cashier-check small{display:block;font-size:11px;font-weight:700;color:#64767b;margin-top:2px}
+.cashier-check.hidden{display:none!important}

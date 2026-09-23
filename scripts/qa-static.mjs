@@ -243,5 +243,6 @@ for (const archivo of archivosBarrera) {
   errors.push(...modulo.default());
 }
 
+
 if(errors.length){console.error('\nTannerOS static QA FAILED');errors.forEach(e=>console.error(`- ${e}`));process.exit(1);}
 console.log(`TannerOS static QA OK · ${htmlFiles.length} pantallas · ${Object.keys(routeContract).length} rutas canónicas verificadas · assets /v2 protegidos`);

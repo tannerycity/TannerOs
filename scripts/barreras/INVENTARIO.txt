@@ -13,5 +13,6 @@
 
 csp-permite-blob.mjs
 egreso-funcion-ambigua.mjs
+parametros-del-cobro.mjs
 rutas-de-foto.mjs
 suites-sin-correr.mjs

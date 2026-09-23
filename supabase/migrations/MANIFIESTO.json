@@ -1,8 +1,8 @@
 {
-  "migraciones": 378,
-  "bytes": 1926796,
-  "huella": "63aedddda151f6f926dec52d68709f8e",
+  "migraciones": 390,
+  "bytes": 2017705,
+  "huella": "7ef9337eec7a1a055d6ad3965786101c",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260914235222_equipment_coaches_use_real_roles.sql",
-  "verificadoContraLaBase": "2026-09-20"
+  "ultima": "20260923051711_l1_quitar_becas_qa_del_padron.sql",
+  "verificadoContraLaBase": "2026-09-23"
 }

@@ -221,6 +221,26 @@ prueba('un papá que además es del club SÍ sigue saliendo dos veces', () => {
   assert.equal(idx.filter(f => /Mayra/.test(f.titulo)).length, 2);
 });
 
+/* ===== El aviso de fuente caída sobrevive al caché =====
+
+   v2_search_index llevaba semanas tronando con "column reference
+   organization_id is ambiguous" y NADIE lo notó: el catch de shell.js devolvía
+   [] en silencio y el buscador se veía completo. Buscar un Tanner devolvía su
+   ficha vieja de prospecto, porque el Tanner no competía con nadie.
+
+   Si el aviso no viajara dentro del caché, sólo la primera búsqueda de la
+   sesión avisaría y las siguientes volverían a callarse. */
+
+prueba('el caché se lleva qué fuentes no respondieron', () => {
+  const g = empaquetaCache(INDICE, 1000, ['v2_search_index']);
+  assert.deepEqual(g.caidas, ['v2_search_index']);
+  assert.equal(cacheVigente(g, 1000), true);
+});
+
+prueba('sin fuentes caídas el caché queda limpio, no indefinido', () => {
+  assert.deepEqual(empaquetaCache(INDICE, 1000).caidas, []);
+});
+
 prueba('el caché se reusa mientras esté fresco', () => {
   const guardado = empaquetaCache(INDICE, 1000);
   assert.equal(cacheVigente(guardado, 1000), true);

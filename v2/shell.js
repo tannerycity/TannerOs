@@ -336,6 +336,10 @@ function wireSearch(navigation,ctx){
     for(const sec of r.secciones)
       html+=`<div class="tos-res-grupo"><div class="tos-res-titulo">${escBell(sec.etiqueta)}</div>${sec.filas.map(f=>fila(f,'')).join('')}</div>`;
     if(cargando)html+='<div class="tos-buscando">Buscando en todo el club…</div>';
+    // Un resultado incompleto que se ve completo es peor que ninguno: fue lo
+    // que escondió durante semanas que el índice de Tanners estaba muerto.
+    else if(fuentesDelBuscadorCaidas().length)
+      html+=`<div class="tos-buscador-roto">Faltan resultados: ${fuentesDelBuscadorCaidas().length===1?'una parte del buscador no respondió':'varias partes del buscador no respondieron'}. Vuelve a entrar; si sigue igual, avísale a quien lleva el sistema.</div>`;
     results.innerHTML=html;
     results.querySelector('.tos-res.activa')?.scrollIntoView({block:'nearest'});
   };
@@ -377,24 +381,48 @@ function wireSearch(navigation,ctx){
 // Pide en paralelo solo las fuentes que esta persona puede ver: cada RPC valida
 // permisos por su cuenta, asi que un profe indexa unicamente lo suyo. Una sola
 // vez por carga, y nada mas si el buscador se usa.
+// Qué fuentes del buscador no respondieron en la última carga. Vive fuera de
+// la función porque quien pinta los resultados está en otro lado y tiene que
+// poder decirlo.
+let fuentesCaidas=[];
+export function fuentesDelBuscadorCaidas(){ return fuentesCaidas.slice(); }
+
 async function cargaIndiceUniversal(ctx,navigation){
   if(!ctx||!ctx.organization_id)return [];
   const llave=llaveDeCache(ctx.organization_id);
   // Una pestana abierta toda la tarde arma el indice una sola vez.
   try{
     const crudo=sessionStorage.getItem(llave);
-    if(crudo){const guardado=JSON.parse(crudo);if(cacheVigente(guardado))return guardado.filas;}
+    // Un índice cacheado se sirve como bueno: si la vez pasada falló una
+    // fuente, el aviso se perdería. Se guarda junto con las filas.
+    if(crudo){const guardado=JSON.parse(crudo);if(cacheVigente(guardado)){fuentesCaidas=guardado.caidas||[];return guardado.filas;}}
   }catch(e){/* modo privado o storage lleno: se pide y ya */}
 
   const permitidas=FUENTES.filter(f=>!f.modulo||navItems.some(item=>item.code===f.modulo&&itemReadable(navigation,item)));
+  /* Una fuente caída no deja sin buscador a las demás — pero tampoco se calla.
+
+     Este catch devolvía [] en silencio, y por eso nadie notó durante semanas
+     que v2_search_index tronaba con "column reference organization_id is
+     ambiguous": el buscador seguía viéndose completo mientras la fuente MÁS
+     importante estaba muerta. Buscar un Tanner devolvía su ficha vieja de
+     prospecto, porque el Tanner no competía con nadie.
+
+     Se conserva la resiliencia y se pierde el silencio: lo que no se pudo
+     traer se anota y la pantalla lo dice. */
+  const caidas=[];
   const partes=await Promise.all(permitidas.map(async f=>{
     try{
       const data=await rpc(f.rpc,{organization_id:ctx.organization_id});
       return f.convierte(data||[]);
-    }catch(e){return [];}   // una fuente caida no deja sin buscador a las demas
+    }catch(e){
+      caidas.push(f.rpc);
+      console.error(`buscador: la fuente ${f.rpc} no respondió`,e);
+      return [];
+    }
   }));
+  fuentesCaidas=caidas;
   const filas=partes.flat();
-  try{sessionStorage.setItem(llave,JSON.stringify(empaquetaCache(filas)));}catch(e){/* sin cache, funciona igual */}
+  try{sessionStorage.setItem(llave,JSON.stringify(empaquetaCache(filas,Date.now(),caidas)));}catch(e){/* sin cache, funciona igual */}
   return filas;
 }
 

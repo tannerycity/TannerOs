@@ -192,6 +192,9 @@ export function cacheVigente(guardado, ahora = Date.now()) {
   return edad >= 0 && edad < CACHE_TTL_MS;
 }
 
-export function empaquetaCache(filas, ahora = Date.now()) {
-  return { version: CACHE_VERSION, guardadoEn: ahora, filas };
+// `caidas` viaja con el índice a propósito: si una fuente no respondió al
+// armarlo, el aviso tiene que sobrevivir al caché. Si no, la primera búsqueda
+// avisa y las siguientes —servidas de sessionStorage— se callan.
+export function empaquetaCache(filas, ahora = Date.now(), caidas = []) {
+  return { version: CACHE_VERSION, guardadoEn: ahora, filas, caidas };
 }

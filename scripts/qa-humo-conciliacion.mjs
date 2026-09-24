@@ -95,8 +95,20 @@ async function corre(rol) {
         if(name==='v2_resubmit_payment') return true;
         if(name==='v2_collection_amounts') return { billingPeriod:'2026-09-01', canSeeBenefitDetail:esPres, rows:[], summary:{categoriesWithoutFee:0} };
         if(name==='v2_category_fees') return [];
+        if(name==='v2_movement_audit') return { kind:'expense', date:'2026-09-23', amount:600,
+          concept:'5 balones', status:'posted',
+          declared:{ label:'Pagó', name:'Michel', counterparty:'Dani amigo Brandon' },
+          audited:{ account:'iPad', role:'Taquilla', at:'2026-09-24T02:00:35Z', source:'cashier' },
+          declaredDiffersFromAccount:true };
         if(name==='v2_cashier_snapshot') return { businessDate:'2026-09-23', incomeTotal:0, expenseTotal:0,
-          netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], movements:[], canViewLedger: esPres };
+          netTotal:0, expectedCash:0, cashTodayNet:0, methods:[],
+          // El egreso real que destapó esto: dice "Pagó: Michel" y lo capturó
+          // la cuenta iPad.
+          movements:[{ id:'mv1', type:'expense', date:'2026-09-23', createdAt:'2026-09-24T02:00:35Z',
+            category:'Utilería', concept:'5 balones', who:'Dani amigo Brandon', playerName:null,
+            method:'Efectivo', amount:600, status:'posted', source:'cashier', reference:null,
+            playerId:null, registeredBy:'Michel', registeredByIsAccount:false }],
+          canViewLedger: esPres };
         if(name==='v2_billing_players') return [];
         if(name==='v2_open_receivables') return [];
         return null;
@@ -247,6 +259,34 @@ async function corre(rol) {
     await pagina.waitForTimeout(150);
     const nombres = await pagina.$$eval('.concilia-card .concilia-quien strong', e => e.map(x => x.textContent.trim()));
     revisa(`[${rol}] no ve los cobros de otras cuentas`, !nombres.includes('Ana Sofía Enríquez'), nombres.join(' | '));
+  }
+
+  /* ¿QUIÉN REGISTRÓ ESTE MOVIMIENTO, DE VERDAD?
+     El club reportó un egreso de $600 que decía "Pagó: Michel" y lo había
+     capturado la cuenta iPad. El nombre tecleado tapaba a la cuenta real.
+     Se vigila que el texto escrito ya no se presente como prueba y que el
+     dato duro esté a un toque. */
+  if (rol === 'Presidencia') {
+    await pagina.click('[data-vista="caja"]');
+    await pagina.waitForSelector('[data-audit="mv1"]', { timeout: 6000 });
+    const fila = (await pagina.textContent('#movementRows')).replace(/\s+/g, ' ');
+    revisa(`[${rol}] el nombre tecleado se marca como escrito, no como prueba`,
+      /Pagó: Michel \(escrito\)/.test(fila), fila.slice(0, 220));
+
+    await pagina.click('[data-audit="mv1"]');
+    await pagina.waitForSelector('#auditModal:not(.hidden)', { timeout: 6000 });
+    const audit = (await pagina.textContent('#auditBody')).replace(/\s+/g, ' ');
+    revisa(`[${rol}] dice desde qué cuenta se guardó`, /iPad · Taquilla/.test(audit), audit.slice(0, 260));
+    revisa(`[${rol}] separa lo escrito a mano de lo auditado`,
+      /texto escrito a mano/.test(audit) && /Michel/.test(audit), audit.slice(0, 320));
+    revisa(`[${rol}] avisa cuando el nombre escrito no es la cuenta`,
+      /El nombre escrito no es la cuenta que lo guardó/.test(audit), audit.slice(0, 420));
+    revisa(`[${rol}] advierte que una cuenta compartida no dice la persona`,
+      /Una cuenta por persona/.test(audit), audit.slice(-200));
+
+    await pagina.click('#auditModal .close-modal');
+    await pagina.waitForTimeout(200);
+    revisa(`[${rol}] la cruz cierra el detalle`, await pagina.isHidden('#auditModal'));
   }
 
   const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

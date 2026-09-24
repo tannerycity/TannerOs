@@ -152,6 +152,7 @@
           <div class="cashier-panel-head"><div><h2>Últimos movimientos</h2><p>Los movimientos se corrigen con una anulación o un reembolso para conservar el historial.</p></div><label class="movement-filter">Estado<select id="movementStatus"><option value="posted">Publicados</option><option value="all">Todos</option><option value="refunded">Reembolsados</option><option value="void">Anulados</option></select></label></div>
           <div class="cashier-table-wrap"><table class="cashier-table movements"><thead><tr><th>Fecha</th><th>Movimiento</th><th>Categoría</th><th>Concepto</th><th>Quién</th><th>Método</th><th>Monto</th><th>Estado</th></tr></thead><tbody id="movementRows"></tbody></table></div>
           <div id="movementsEmpty" class="cashier-empty hidden">Sin movimientos.</div>
+          <div id="movementsMessage" class="cashier-message hidden"></div>
         </section>
         </div>
       </main>
@@ -245,6 +246,12 @@
           <p class="cashier-help" style="text-align:left;margin:0 0 12px">Arriba, la mensualidad ordinaria de cada categoría: el número contra el que se mide cada beca. <b>No cambia lo que el sistema cobra</b>. Abajo, en rojo, los montos que ya se están cobrando sin ser plan ni beca: nombrarlos los convierte en plan del club y tampoco les cambia el monto.</p>
           <div id="tarifasList" class="tarifas-list"></div>
           <div id="tarifasMessage" class="cashier-message hidden"></div>
+        </section>
+        <!-- Lo declarado y lo auditado, uno debajo del otro. Un nombre tecleado
+             no puede volver a pasar por prueba de quién hizo el movimiento. -->
+        <section id="auditModal" class="cashier-modal hidden" role="dialog" aria-modal="true" aria-labelledby="auditTitle">
+          <div class="cashier-modal-head"><div><span>MOVIMIENTO</span><h3 id="auditTitle">¿Quién lo registró?</h3></div><button type="button" class="close-modal" aria-label="Cerrar">×</button></div>
+          <div id="auditBody" class="audit-body"></div>
         </section><section id="voidModal" class="cashier-modal void-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voidTitle">
     <div class="cashier-modal-head"><div><span id="voidKicker">MOVIMIENTO</span><h2 id="voidTitle">Borrar movimiento</h2></div><button type="button" data-close-void>×</button></div>
     <div class="void-summary" id="voidSummary"></div>

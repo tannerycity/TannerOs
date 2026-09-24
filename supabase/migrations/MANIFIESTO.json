@@ -1,8 +1,8 @@
 {
-  "migraciones": 402,
-  "bytes": 2143248,
-  "huella": "d0ece86a325ec4be1cdcf0c48f7c8ce4",
+  "migraciones": 403,
+  "bytes": 2152707,
+  "huella": "883b3cc58adb7af85087821f267393ba",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260924021912_r1_quien_registro_el_movimiento_de_verdad.sql",
+  "ultima": "20260924035407_s1_el_dinero_que_ya_esta_no_espera_al_dia_primero.sql",
   "verificadoContraLaBase": "2026-09-24"
 }

@@ -1,8 +1,8 @@
 {
-  "migraciones": 399,
-  "bytes": 2119040,
-  "huella": "4ed53528bb8bf2a31d400057b222a60c",
+  "migraciones": 401,
+  "bytes": 2135773,
+  "huella": "afbb4b7a0e6b59cae0e0f0b3e410c7d5",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260923190410_o1_el_profe_califica_a_sus_tanners.sql",
-  "verificadoContraLaBase": "2026-09-23"
+  "ultima": "20260924021359_p1_la_foto_del_registro_publico_trae_miniatura.sql",
+  "verificadoContraLaBase": "2026-09-24"
 }

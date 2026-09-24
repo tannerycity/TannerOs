@@ -160,3 +160,8 @@ a.tos-insight:hover{background:#f7f9f8}
   .tos-res{padding:11px 10px}
   .tos-res-txt strong{font-size:15px}
 }
+
+/* Aviso de buscador incompleto. Va DENTRO de los resultados, no en un toast
+   que se va: si faltan resultados, tiene que verse justo donde se está
+   buscando. */
+.tos-buscador-roto{padding:10px 14px;margin:4px;border-radius:12px;background:#ffe9e6;color:#a32920;font-size:12px;font-weight:800;line-height:1.45}

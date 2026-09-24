@@ -117,11 +117,17 @@ function renderMovements(){
     const importado=/^legacy/i.test(String(m.source||''));
     // Un nombre escrito a mano dice quién fue. Una cuenta compartida —el iPad,
     // Presidencia— no: poner "Cobró: iPad" sería fingir que se sabe.
+    // Un nombre TECLEADO no prueba nada: el club reportó un egreso que decía
+    // "Pagó: Michel" y lo había registrado la cuenta iPad. Por eso el nombre
+    // escrito ya no se presenta a secas — lleva al lado la pregunta que lo
+    // contesta con el dato duro.
+    const auditable=!importado&&m.status!=='void';
+    const lupa=auditable?`<button type="button" class="movement-audit" data-audit="${esc(m.id)}" title="¿Desde qué cuenta se registró?">¿quién lo registró?</button>`:'';
     const registro=m.registeredBy
       ?(m.registeredByIsAccount
-        ?`<span class="movement-registro is-cuenta">Desde ${esc(m.registeredBy)} · sin nombre</span>`
-        :`<span class="movement-registro">${income?'Cobró':'Pagó'}: ${esc(m.registeredBy)}</span>`)
-      :(importado?'<span class="movement-registro is-legacy">Del sistema anterior</span>':'');
+        ?`<span class="movement-registro is-cuenta">Desde ${esc(m.registeredBy)} · sin nombre</span>${lupa}`
+        :`<span class="movement-registro">${income?'Cobró':'Pagó'}: ${esc(m.registeredBy)} <small>(escrito)</small></span>${lupa}`)
+      :(importado?'<span class="movement-registro is-legacy">Del sistema anterior</span>':lupa);
     const whoCell=m.playerName
       ?`<div class="movement-who"><strong>${esc(m.playerName)}</strong>${payerDiffers?`<span class="movement-payer">Pagó: ${esc(m.who)}</span>`:''}${registro}</div>`
       :`<div class="movement-who"><strong>${esc(m.who||'—')}</strong>${registro}</div>`;
@@ -272,6 +278,44 @@ function quickCollect(playerId,name,amount){
   modal('collectModal',true);
 }
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-quick-collect]');if(b)quickCollect(b.dataset.quickCollect,b.dataset.name,b.dataset.amount);});
+
+/* ¿Quién registró este movimiento, de verdad?
+
+   El club reportó un egreso de $600 que decía "Pagó: Michel" y lo había
+   capturado la cuenta iPad. El nombre escrito tapaba a la cuenta real porque
+   el servidor los mandaba en un solo campo, con el tecleado ganando.
+
+   Son dos hechos distintos y aquí se enseñan como dos:
+     DECLARADO  lo que alguien escribió. Se teclea. No prueba nada.
+     AUDITADO   la cuenta desde la que se guardó. No se puede teclear. */
+document.addEventListener('click',async e=>{
+  const b=e.target.closest?.('[data-audit]');if(!b)return;
+  const antes=b.textContent;b.disabled=true;b.textContent='…';
+  try{
+    const a=await rpc('v2_movement_audit',{organization_id:org,movement_id:b.dataset.audit});
+    const f=v=>{try{return new Intl.DateTimeFormat('es-MX',{dateStyle:'long',timeStyle:'short'}).format(new Date(v));}catch(err){return String(v||'—');}};
+    const cuenta=a?.audited?.account||'—';
+    const rol=a?.audited?.role?` · ${a.audited.role}`:'';
+    const escrito=a?.declared?.name;
+    const difieren=a?.declaredDiffersFromAccount;
+    const partes=[`<p class="audit-linea"><span>Se guardó desde la cuenta</span><strong>${esc(cuenta)}${esc(rol)}</strong></p>`,
+      `<p class="audit-linea"><span>El</span><strong>${esc(f(a?.audited?.at))}</strong></p>`];
+    if(escrito)partes.push(`<p class="audit-linea"><span>${esc(a.declared.label||'Quién')} (texto escrito a mano)</span><strong>${esc(escrito)}</strong></p>`);
+    if(a?.declared?.counterparty)partes.push(`<p class="audit-linea"><span>${a.kind==='expense'?'Proveedor':'Pagador'} (texto)</span><strong>${esc(a.declared.counterparty)}</strong></p>`);
+    if(a?.audited?.reconciledByAccount)partes.push(`<p class="audit-linea"><span>Conciliado por</span><strong>${esc(a.audited.reconciledByAccount)}</strong></p>`);
+    if(a?.audited?.voidedByAccount)partes.push(`<p class="audit-linea"><span>Anulado desde</span><strong>${esc(a.audited.voidedByAccount)}</strong></p>`);
+    const alerta=difieren
+      ? `<p class="audit-alerta"><b>El nombre escrito no es la cuenta que lo guardó.</b> Alguien en <b>${esc(cuenta)}</b> escribió “${esc(escrito)}”. Si eso no cuadra, pregúntale a quien usa esa cuenta.</p>`
+      : '';
+    // Una cuenta que no es de una persona no contesta "quién": lo dice en vez
+    // de dejar que el nombre de la cuenta se lea como un nombre propio.
+    const compartida=`<p class="audit-nota">Si varias personas entran con la misma cuenta, esto dice el dispositivo, no la persona. Una cuenta por persona es lo único que lo resuelve.</p>`;
+    $('auditBody').innerHTML=partes.join('')+alerta+compartida;
+    modal('auditModal',true);
+  }catch(err){
+    message('movementsMessage',friendlyMontos(err));
+  }finally{ b.disabled=false;b.textContent=antes; }
+});
 function setCollectMode(mode){
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   $('playerFields').classList.toggle('hidden',mode!=='player');$('generalFields').classList.toggle('hidden',mode!=='general');

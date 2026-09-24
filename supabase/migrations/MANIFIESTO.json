@@ -1,8 +1,8 @@
 {
-  "migraciones": 401,
-  "bytes": 2135773,
-  "huella": "afbb4b7a0e6b59cae0e0f0b3e410c7d5",
+  "migraciones": 402,
+  "bytes": 2143248,
+  "huella": "d0ece86a325ec4be1cdcf0c48f7c8ce4",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260924021359_p1_la_foto_del_registro_publico_trae_miniatura.sql",
+  "ultima": "20260924021912_r1_quien_registro_el_movimiento_de_verdad.sql",
   "verificadoContraLaBase": "2026-09-24"
 }

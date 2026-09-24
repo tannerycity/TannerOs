@@ -51,7 +51,10 @@ await pagina.route('**/v2/supabase-client.js', route => route.fulfill({
     const MODULES = [
       { module_code:'players',  enabled:true, can_read:true,  can_write:false },
       { module_code:'jugadores_familia', enabled:true, can_read:true, can_write:false },
-      { module_code:'jugadores_estado',  enabled:false, can_read:false, can_write:false }
+      { module_code:'jugadores_estado',  enabled:false, can_read:false, can_write:false },
+      // Un Formador NO lleva dinero: sin taquilla ni contabilidad.
+      { module_code:'taquilla',     enabled:false, can_read:false, can_write:false },
+      { module_code:'contabilidad', enabled:false, can_read:false, can_write:false }
     ];
     const PLAYERS = [
       { id:'p1', first_name:'Dario',  last_name:'Montalvo', category:'T10', status_value:'active', image_consent_status:'sin_preguntar' },
@@ -85,6 +88,14 @@ await pagina.route('**/v2/supabase-client.js', route => route.fulfill({
           if(name==='v2_players') return { data:PLAYERS, error:null };
           if(name==='v2_player_categories') return { data:[{id:'c10',name:'T10'},{id:'c8',name:'T8'}], error:null };
           if(name==='v2_evaluation_coverage') return { data:COBERTURA, error:null };
+          if(name==='v2_player_profile') return { data:{
+            player:{ id:'p1', firstName:'Dario', lastName:'Montalvo', code:'TC-2', status:'active',
+              category:'T10', birthDate:'2016-03-01', dataConsent:false, imageConsent:false,
+              privacyNoticeVersion:null, photoPath:null, photoBucket:'tanneros-private' },
+            guardians:[], activeEnrollment:null }, error:null };
+          if(name==='v2_player_documents') return { data:[], error:null };
+          if(name==='v2_player_sports') return { data:null, error:null };
+          if(name==='v2_player_benefits') return { data:[], error:null };
           return { data:[], error:null };
         }
       };
@@ -145,6 +156,19 @@ revisa('tocar T10 deja sólo a los que le faltan a ese profe',
   JSON.stringify(nombres));
 revisa('el que ya está al día NO aparece en la lista de pendientes',
   !nombres.includes('Matías Campos'), JSON.stringify(nombres));
+
+/* El estado de cuenta NO es para el profe.
+
+   El RPC que lo sirve deja pasar con lectura de Jugadores, o sea que un
+   Formador podría abrirlo. Un profe no tiene por qué ver lo que debe la
+   familia de su alumno, así que el enlace se ofrece sólo a quien lleva dinero
+   (taquilla o contabilidad). */
+await pagina.click('.jcard');
+await pagina.waitForSelector('#profileView:not(.hidden)', { timeout: 6000 });
+revisa('el enlace al estado de cuenta existe en la pantalla',
+  (await pagina.$$('#verEstadoCuenta')).length === 1);
+revisa('pero un Formador NO lo ve: no lleva dinero',
+  await pagina.isHidden('#verEstadoCuenta'));
 
 const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 revisa('no hay scroll horizontal en iPhone', !desborde);

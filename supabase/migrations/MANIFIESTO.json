@@ -1,8 +1,8 @@
 {
-  "migraciones": 403,
-  "bytes": 2152707,
-  "huella": "883b3cc58adb7af85087821f267393ba",
+  "migraciones": 404,
+  "bytes": 2155873,
+  "huella": "b2c9bdcf43ca153f4a97784bc1e28108",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260924035407_s1_el_dinero_que_ya_esta_no_espera_al_dia_primero.sql",
+  "ultima": "20260924043640_s2_los_recargos_de_septiembre_se_perdonan.sql",
   "verificadoContraLaBase": "2026-09-24"
 }

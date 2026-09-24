@@ -94,3 +94,11 @@
 .tan-mes[data-state="pendiente"]{background:#fdf8ec;border-color:#eddfba}
 .tan-mes[data-state="pendiente"] b{color:#8a6413}
 .tan-mes[data-state="pendiente"] .tan-mes-pie{color:#957430}
+
+/* "¿quién lo cobró?" en el historial de pagos. Un nombre tecleado no prueba
+   nada; la cuenta desde la que se guardó, sí. */
+.tan-audit{display:block;margin-top:3px;border:0;background:none;padding:0;font:inherit;font-size:11px;font-weight:800;color:#0c5464;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.tan-audit:hover{color:#a32920}
+.tan-audit-detalle{display:block;margin-top:4px;font-size:11px;line-height:1.5;color:#5a6a70}
+.tan-audit-detalle span{display:block}
+.tan-audit-detalle.alerta{color:#a32920;font-weight:800}

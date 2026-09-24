@@ -129,10 +129,47 @@ function ledgerBlock(data){
     const detalle=cargo
       ? `${fmtDate(m.date)}${m.charge_balance>0?` · quedan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`
       : `${fmtDate(m.date)}${m.method?` · ${esc(m.method)}`:''}${m.reference?` · ${esc(m.reference)}`:''}`;
-    return `<div class="tan-mov" data-kind="${cargo?'charge':'payment'}"><span class="tan-dot">${shellIcon(cargo?'ledger':'check')}</span><span class="tan-mov-body"><strong>${esc(titulo)}</strong><span>${detalle}</span></span><span class="tan-mov-nums"><b>${cargo?'+':'−'}${money.format(Math.abs(monto))}</b><span>${saldoTexto(Number(m.running_balance||0))}</span></span></div>`;
+    // En un historial de pagos, "quién lo cobró" es la mitad del dato. El club
+    // encontró un movimiento que decía "Pagó: Michel" y lo había capturado la
+    // cuenta iPad; aquí no se repite ese error: el nombre tecleado no se
+    // presenta a secas, la cuenta real está a un toque.
+    const audit=(!cargo&&m.ref_id&&puedeAuditar)
+      ?`<button type="button" class="tan-audit" data-audit="${esc(m.ref_id)}">¿quién lo cobró?</button>`:'';
+    return `<div class="tan-mov" data-kind="${cargo?'charge':'payment'}"><span class="tan-dot">${shellIcon(cargo?'ledger':'check')}</span><span class="tan-mov-body"><strong>${esc(titulo)}</strong><span>${detalle}</span>${audit}</span><span class="tan-mov-nums"><b>${cargo?'+':'−'}${money.format(Math.abs(monto))}</b><span>${saldoTexto(Number(m.running_balance||0))}</span></span></div>`;
   }).join('');
   return `<section class="tan-section"><div class="tan-section-head"><h2>Movimientos</h2><span>${rows.length} en total</span></div><div class="tan-ledger">${html}</div></section>`;
 }
+
+// Sólo quien puede ver el libro puede preguntar por su autor. A quien no, ni
+// se le enseña el botón: un botón que siempre falla es peor que no tenerlo.
+const puedeAuditar=can('taquilla')||can('contabilidad');
+
+/* ¿Quién cobró este pago, de verdad?
+
+   `collected_by_name` se teclea y no prueba nada; `created_by_user_id` es la
+   cuenta desde la que se guardó y no se puede teclear. v2_movement_audit
+   devuelve las dos por separado, y el detalle dice cuándo no coinciden. */
+document.addEventListener('click',async e=>{
+  const b=e.target.closest?.('[data-audit]');if(!b)return;
+  const antes=b.textContent;b.disabled=true;b.textContent='…';
+  try{
+    const a=await rpc('v2_movement_audit',{organization_id:ctx.organization_id,movement_id:b.dataset.audit});
+    const cuenta=a?.audited?.account||'—';
+    const rol=a?.audited?.role?` · ${a.audited.role}`:'';
+    const escrito=a?.declared?.name;
+    const lineas=[`Se guardó desde la cuenta ${cuenta}${rol}`,`El ${fmtDate(a?.audited?.at)}`];
+    if(escrito)lineas.push(`${a.declared.label||'Cobró'} (texto escrito a mano): ${escrito}`);
+    if(a?.declared?.counterparty)lineas.push(`Pagador (texto): ${a.declared.counterparty}`);
+    if(a?.audited?.reconciledByAccount)lineas.push(`Conciliado por: ${a.audited.reconciledByAccount}`);
+    if(a?.declaredDiffersFromAccount)lineas.push(`⚠ El nombre escrito no es la cuenta que lo guardó.`);
+    b.insertAdjacentHTML('afterend',
+      `<span class="tan-audit-detalle${a?.declaredDiffersFromAccount?' alerta':''}">${lineas.map(l=>`<span>${esc(l)}</span>`).join('')}</span>`);
+    b.remove();
+  }catch(err){
+    b.disabled=false;b.textContent=antes;
+    b.insertAdjacentHTML('afterend','<span class="tan-audit-detalle">No se pudo abrir el detalle.</span>');
+  }
+});
 
 function docsBlock(data){
   const docs=data.documents||[];

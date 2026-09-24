@@ -4,7 +4,7 @@ import { TANNER_SCALE, TANNER_DIMENSIONS, EVALUATION_ONBOARDING, guidanceForCate
 import { estadoDeImagen, puedePublicarse, cuentaDeImagen, noPublicables,
          COLUMNAS_NO_PUBLICABLES, filaDeNoPublicable, nombreDeArchivoNoPublicables } from '/v2/permiso-de-imagen.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-const $=id=>document.getElementById(id);let ctx=null,players=[],categories=[],current=null,canWrite=false,canFamily=false,canStatus=false,sportsSeq=0;
+const $=id=>document.getElementById(id);let ctx=null,players=[],categories=[],current=null,canWrite=false,canFamily=false,canStatus=false,canMoney=false,sportsSeq=0;
 const FAMILY_FIELDS=['firstName','lastName','birthDate','sex','school','bloodType','allergies','address','emergencyName','emergencyPhone','guardianName','guardianPhone','guardianEmail','guardianRelationship','canPickup','receivesBilling','notes'];
 function applyFamilyLock(){FAMILY_FIELDS.forEach(id=>{const el=$(id);if(el)el.disabled=!canFamily;});}
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -27,6 +27,12 @@ function renderStatusAction(p){const btn=$('toggleStatusBtn'),alt=$('withdrawIna
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='players');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Jugadores.';show('deniedView');return;}canWrite=!!mod.can_write;
   const familyMod=mods.find(m=>m.module_code==='jugadores_familia');canFamily=!!(familyMod?.enabled&&familyMod?.can_write);
   const statusMod=mods.find(m=>m.module_code==='jugadores_estado');canStatus=!!(statusMod?.enabled&&statusMod?.can_write);
+  // El estado de cuenta trae saldos, cargos y pagos de la familia. El RPC lo
+  // deja pasar con lectura de Jugadores —o sea, también a un Formador—, y un
+  // profe no tiene por qué ver lo que debe la familia de su alumno. El enlace
+  // se ofrece sólo a quien lleva dinero.
+  const cajaMod=mods.find(m=>m.module_code==='taquilla'),contaMod=mods.find(m=>m.module_code==='contabilidad');
+  canMoney=!!(cajaMod?.enabled&&cajaMod?.can_read)||!!(contaMod?.enabled&&contaMod?.can_read);
   applyFamilyLock();acotarFechaNacimiento();
   $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();signPlayerPhotos(players).then(()=>renderList());
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
@@ -203,6 +209,21 @@ const fechaConAnio=v=>{if(!v)return'';try{return new Intl.DateTimeFormat('es-MX'
 // Los Tanners del legacy firmaron en papel: sin esto se quedarían marcados como
 // pendientes para siempre. El botón registra lo que ya existe, no lo inventa,
 // por eso pide con qué evidencia y lo manda a la bitácora.
+/* El estado de cuenta ya existía en /tanner/ desde hace tiempo, con los
+   movimientos, el saldo y el mes a mes. El hueco no era construirlo: era que
+   sólo se llegaba desde la lista de cobranza del hub, y quien pregunta "¿qué ha
+   pagado este niño?" está parado en su expediente.
+
+   El permiso lo impone el RPC (billing, players o accounting). El enlace se
+   esconde para quien no lo tiene: un botón que siempre falla es peor que no
+   tenerlo. */
+function renderEstadoDeCuenta(p){
+  const a=$('verEstadoCuenta');if(!a)return;
+  const puede=canMoney;
+  a.classList.toggle('hidden',!puede||!p?.id);
+  if(puede&&p?.id)a.href=`/tanner/?id=${encodeURIComponent(p.id)}`;
+}
+
 function renderPrivacy(p){
   const box=$('privacyBadges');if(!box)return;
   const badge=(ok,siOk,siNo,fecha)=>`<span class="profile-badge ${ok?'ok':'pend'}">${esc(ok?siOk:siNo)}${ok&&fecha?` · ${esc(fechaConAnio(fecha))}`:''}</span>`;
@@ -593,7 +614,7 @@ loadCobertura();
 closeInlineEvaluation();if(next){await openProfile(next.id);openInlineEvaluation();const notice=$('profileEvalMessage');notice.textContent=`Evaluación guardada · Sigue ${nameOf(next)}`;notice.dataset.type='success';notice.classList.remove('hidden');}else msg('Evaluación guardada. Perfil Tanner actualizado.','success');}catch(error){box.textContent=friendly(error);box.classList.remove('hidden');btn.disabled=false;}}
 
 async function loadSports(playerId){const seq=++sportsSeq;setCardSports({},null);$('sportsLoading').textContent='Cargando lectura deportiva…';$('sportsLoading').classList.remove('hidden');$('sportsEmpty').classList.add('hidden');$('sportsContent').classList.add('hidden');try{const data=await rpc('v2_player_sports',{organization_id:ctx.organization_id,player_id:playerId});if(seq!==sportsSeq)return;renderSports(data);}catch(e){if(seq!==sportsSeq)return;$('sportsLoading').textContent='No pudimos cargar el perfil deportivo en este momento.';}}
-async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderPhoto(p);renderList();closeInlineEvaluation();$('openEvaluation').classList.toggle('hidden',!canWrite);loadSports(id);loadBenefits(id);document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail:{playerId:id,player:p,organizationId:ctx.organization_id,canWrite}}));}
+async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderEstadoDeCuenta(p);renderPhoto(p);renderList();closeInlineEvaluation();$('openEvaluation').classList.toggle('hidden',!canWrite);loadSports(id);loadBenefits(id);document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail:{playerId:id,player:p,organizationId:ctx.organization_id,canWrite}}));}
 async function save(e){e.preventDefault();if(!current||!canWrite)return;msg();const btn=$('saveProfile');btn.disabled=true;try{const p=current.player;current=await rpc('v2_save_player_profile',{organization_id:ctx.organization_id,player_id:p.id,first_name:$('firstName').value.trim(),last_name:$('lastName').value.trim(),birth_date:$('birthDate').value,player_position:$('position').value.trim()||null,dominant_foot:$('dominantFoot').value||null,sex:$('sex').value||null,jersey_number:$('jerseyNumber').value.trim()||null,school:$('school').value.trim()||null,blood_type:$('bloodType').value.trim()||null,allergies:$('allergies').value.trim()||null,address:$('address').value.trim()||null,emergency_contact_name:$('emergencyName').value.trim()||null,emergency_contact_phone:$('emergencyPhone').value.trim()||null,notes:$('notes').value.trim()||null,guardian_name:$('guardianName').value.trim()||null,guardian_phone:$('guardianPhone').value.trim()||null,guardian_email:$('guardianEmail').value.trim()||null,guardian_relationship:$('guardianRelationship').value.trim()||null,can_pickup:$('canPickup').checked,receives_billing:$('receivesBilling').checked,category_id:$('categoryId').value||null,category_effective_date:$('categoryDate').value||today(),category_notes:$('categoryNotes').value.trim()||null});await loadPlayers();await openProfile(p.id);msg('Expediente guardado. Los teléfonos nuevos quedaron normalizados y la categoría conserva historial.','success');}catch(err){msg(friendly(err));}finally{btn.disabled=!canWrite;}}
 document.querySelector('[data-close-sch]')?.addEventListener('click',()=>$('scholarshipModal').classList.add('hidden'));
 $('scholarshipModal')?.addEventListener('click',e=>{if(e.target.id==='scholarshipModal')$('scholarshipModal').classList.add('hidden');});

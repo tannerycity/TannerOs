@@ -1,8 +1,8 @@
 {
-  "migraciones": 405,
-  "bytes": 2160636,
-  "huella": "2899203a09a5853ccd333163a2688a78",
+  "migraciones": 406,
+  "bytes": 2164550,
+  "huella": "1d04c5bf3f45bba96851e3ba1581a1c0",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260924121329_s3_curtibrother_era_un_fantasma_de_la_migracion.sql",
+  "ultima": "20260927195718_t1_la_hoja_de_produccion_sabe_que_pieza_es_cada_una.sql",
   "verificadoContraLaBase": "2026-09-27"
 }

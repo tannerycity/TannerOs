@@ -1,6 +1,8 @@
 import { createClient } from '/v2/supabase-client.js';
+import { hojaPorModelo, filaDeHoja, resumenDeTallas, COLUMNAS_HOJA, nombreDeArchivoHoja }
+  from '/v2/produccion/hoja.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-const $=id=>document.getElementById(id),money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'});let ctx=null,batches=[],warranties=[],paidOrders=[],deliveredOrders=[],currentOrderDetail=null,currentFinance=null,currentSheet=null,commerceRead=false,canWrite=false,accountingRead=false,accountingWrite=false;
+const $=id=>document.getElementById(id),money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'});let ctx=null,batches=[],warranties=[],paidOrders=[],deliveredOrders=[],currentOrderDetail=null,currentFinance=null,currentSheet=null,hojaVista='modelo',commerceRead=false,canWrite=false,accountingRead=false,accountingWrite=false;
 const batchStatus={submitted:'Enviado',received:'Recibido',closed:'Cerrado',cancelled:'Cancelado'},warrantyStatus={opened:'Abierta',in_replacement:'En reposición',ready:'Lista',delivered:'Entregada',cancelled:'Cancelada'},payerLabel={guardian:'Familia',sponsor:'Sponsor',player:'Jugador',organization:'Club',other:'Otro'};
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}function message(id,text='',type='error'){const e=$(id);if(!e)return;e.textContent=text;e.dataset.type=type;e.classList.toggle('hidden',!text);}async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}function safe(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}function dateFmt(v){if(!v)return '—';const raw=String(v),d=raw.length<=10?new Date(`${raw}T12:00:00`):new Date(raw);return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',...(raw.length>10?{timeStyle:'short'}:{})}).format(d);}function selectedValues(selector){return [...document.querySelectorAll(selector)].filter(x=>x.checked).map(x=>x.value);}function idem(prefix){return globalThis.crypto?.randomUUID?`${prefix}:${ctx.organization_id}:${crypto.randomUUID()}`:`${prefix}:${ctx.organization_id}:${Date.now()}:${Math.random()}`;}
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a una organización.';show('deniedView');return;}ctx=rows[0];const modules=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),commerce=modules.find(m=>m.module_code==='commerce'),accounting=modules.find(m=>m.module_code==='accounting');commerceRead=Boolean(commerce?.enabled&&commerce?.can_read);canWrite=Boolean(commerce?.enabled&&commerce?.can_write);accountingRead=Boolean(accounting?.enabled&&accounting?.can_read);accountingWrite=Boolean(accounting?.enabled&&accounting?.can_write);if(!commerceRead&&!accountingRead){$('deniedText').textContent='Tu rol no tiene acceso a Producción ni a Contabilidad.';show('deniedView');return;}$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':(ctx.role||'Miembro');['newBatch','newWarranty','newReplacement'].forEach(id=>$(id)?.classList.toggle('hidden',!canWrite));$('tabWarranties')?.classList.toggle('hidden',!commerceRead);$('accountingLink')?.classList.toggle('hidden',!accountingRead);await load();show('view');}
@@ -46,11 +48,60 @@ function personOrderTable(o){
 }
 async function openSheet(batchId){
   openModal('sheetModal');
+  // Siempre abre en "Por modelo": es la hoja que el club manda al proveedor.
+  hojaVista='modelo';
+  const tabs=$('sheetTabs');
+  if(tabs)[...tabs.querySelectorAll('[data-hoja]')].forEach(x=>{
+    const on=x.dataset.hoja==='modelo';
+    x.classList.toggle('active',on);x.setAttribute('aria-selected',String(on));
+  });
   $('sheetBody').innerHTML='<div class="loading-mini">Armando hoja de corte y personalización…</div>';
   try{currentSheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:batchId});renderSheet();}
   catch(e){$('sheetBody').innerHTML=`<div class="mini-empty">${safe(e.message||'No se pudo generar la hoja.')}</div>`;}
 }
+/* La hoja como la arma el club: una tabla por modelo, con las mismas
+   columnas de su Excel. El proveedor produce modelos, no pedidos, y por eso
+   ésta es la vista que abre por omisión. El reparto de piezas vive en
+   /v2/produccion/hoja.js, sin DOM, para poder probarlo sin navegador. */
+function tablaDeModelo(g){
+  const filas=g.renglones.map((r,i)=>filaDeHoja(r,i));
+  const tallas=resumenDeTallas(g);
+  return `<div class="sheet-model">
+    <div class="sheet-model-head">
+      <div><strong>${safe(g.modelo)}</strong>${g.kitName?`<span class="sheet-kit-tag">${safe(g.kitName)}</span>`:''}</div>
+      <small>${g.piezas} pieza${g.piezas===1?'':'s'}</small>
+    </div>
+    ${tallas.length?`<div class="sheet-tallas">${tallas.map(t=>`<span><b>${t.cantidad}</b> ${safe(t.etiqueta)}</span>`).join('')}</div>`:''}
+    <table class="sheet-table sheet-model-table">
+      <thead><tr>${COLUMNAS_HOJA.map(c=>`<th>${safe(c.titulo)}</th>`).join('')}</tr></thead>
+      <tbody>${filas.map(f=>`<tr>${COLUMNAS_HOJA.map(c=>`<td>${safe(f[c.clave]||(c.clave==='status'?'':'\u2014'))}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+function renderHojaModelo(){
+  const b=currentSheet.batch,items=currentSheet.items||[];
+  const grupos=hojaPorModelo(items);
+  const total=grupos.reduce((s,g)=>s+g.piezas,0);
+  $('sheetBody').innerHTML=`
+    ${cabeceraDeHoja(b)}
+    <div class="sheet-section">
+      <div class="sheet-section-title">Por modelo <small>${grupos.length} modelo${grupos.length===1?'':'s'} \u00b7 ${total} pieza${total===1?'':'s'}</small></div>
+      ${grupos.length?grupos.map(tablaDeModelo).join(''):'<p class="mini-empty">Este corte no trae piezas.</p>'}
+    </div>`;
+}
+function cabeceraDeHoja(b){
+  return `<div class="sheet-header">
+      <div class="sheet-brand"><strong>${safe(ctx.organization_name||'Tannery City FC')}</strong><span>Hoja de producci\u00f3n</span></div>
+      <div class="sheet-meta">
+        <div><span>Corte</span><strong>${safe(b.folio)}</strong></div>
+        <div><span>Proveedor</span><strong>${safe(b.supplierName||'Sin asignar')}</strong></div>
+        <div><span>Fecha de env\u00edo</span><strong>${safe(dateFmt(b.submittedOn))}</strong></div>
+      </div>
+    </div>
+    ${b.notes?`<p class="sheet-notes"><strong>Notas:</strong> ${safe(b.notes)}</p>`:''}`;
+}
 function renderSheet(){
+  if(hojaVista==='modelo'){renderHojaModelo();return;}
   const b=currentSheet.batch,items=currentSheet.items||[];
   $('sheetFolio').textContent=`Hoja de producción · ${b.folio}`;
   const cuts=cutMatrix(items),totalQty=cuts.reduce((s,c)=>s+c.qty,0);
@@ -97,4 +148,93 @@ async function deliverWarranty(id,folio){
   if(!ok)return;
   try{await rpc('v2_deliver_warranty',{organization_id:ctx.organization_id,warranty_id:id,notes:null});await load();}
   catch(e){await tosAlert({kicker:'PRODUCCIÓN',title:'No se pudo entregar',message:e.message||'Intenta de nuevo.'});}}
-$('tabBatches').addEventListener('click',()=>tab('batches'));$('tabWarranties').addEventListener('click',()=>tab('warranties'));$('newBatch').addEventListener('click',openBatch);$('newWarranty').addEventListener('click',openWarranty);$('newReplacement').addEventListener('click',openReplacement);$('warrantyOrder').addEventListener('change',loadWarrantyItems);$('saveBatch').addEventListener('click',saveBatch);$('saveWarranty').addEventListener('click',saveWarranty);$('saveReplacement').addEventListener('click',saveReplacement);$('saveSupplierPayment').addEventListener('click',saveSupplierPayment);$('printSheet')?.addEventListener('click',()=>window.print());$('backdrop').addEventListener('click',closeModals);document.querySelectorAll('.close-modal').forEach(b=>b.addEventListener('click',closeModals));boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Producción.';show('deniedView');});
+$('tabBatches').addEventListener('click',()=>tab('batches'));$('tabWarranties').addEventListener('click',()=>tab('warranties'));$('newBatch').addEventListener('click',openBatch);$('newWarranty').addEventListener('click',openWarranty);$('newReplacement').addEventListener('click',openReplacement);$('warrantyOrder').addEventListener('change',loadWarrantyItems);$('saveBatch').addEventListener('click',saveBatch);$('saveWarranty').addEventListener('click',saveWarranty);$('saveReplacement').addEventListener('click',saveReplacement);$('saveSupplierPayment').addEventListener('click',saveSupplierPayment);/* La hoja en PDF.
+
+   Esto hacía window.print(), igual que el corte de caja de Taquilla: en una
+   laptop funcionaba, en el teléfono no hacía absolutamente nada, porque en
+   una PWA de iOS window.print() es un no-op silencioso. Y esta hoja se manda
+   al proveedor por WhatsApp desde el teléfono.
+
+   Sale en horizontal porque son ocho columnas: en vertical no caben sin
+   partir los nombres. */
+async function exportaHojaPdf(){
+  if(!currentSheet)return;
+  const btn=$('printSheet'),antes=btn.textContent;
+  btn.disabled=true;btn.textContent='Generando…';
+  try{
+    const b=currentSheet.batch,grupos=hojaPorModelo(currentSheet.items||[]);
+    const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+    const doc=new jsPDF({unit:'pt',format:'letter',orientation:'landscape'});
+    const ancho=doc.internal.pageSize.getWidth(),alto=doc.internal.pageSize.getHeight();
+    const margen=32;let y=margen;
+    const hoy=new Intl.DateTimeFormat('es-MX',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(7,25,30);
+    doc.text('Hoja de producción',margen,y);y+=17;
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,118,123);
+    doc.text(`${ctx.organization_name||'Tannery City FC'} · corte ${b.folio} · proveedor ${b.supplierName||'sin asignar'}`,margen,y);y+=12;
+    doc.text(`Enviado ${dateFmt(b.submittedOn)} · generado el ${hoy}`,margen,y);y+=16;
+    if(b.notes){doc.setTextColor(7,25,30);doc.text(doc.splitTextToSize(`Notas: ${b.notes}`,ancho-margen*2),margen,y);y+=14;}
+
+    const espacio=n=>{ if(y+n>alto-margen-24){doc.addPage();y=margen;} };
+    for(const g of grupos){
+      espacio(64);
+      y+=8;
+      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(7,25,30);
+      doc.text(g.modelo,margen,y);
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(120,132,136);
+      doc.text(`${g.piezas} pieza${g.piezas===1?'':'s'}`,ancho-margen,y,{align:'right'});
+      y+=12;
+      // El resumen de corte: lo que el maquilador mira antes que los nombres.
+      const tallas=resumenDeTallas(g);
+      if(tallas.length){
+        doc.setFontSize(8);doc.setTextColor(90,105,110);
+        doc.text(tallas.map(t=>`${t.cantidad} ${t.etiqueta}`).join('   ·   '),margen,y);
+        y+=12;
+      }
+      const cabecera=()=>{
+        doc.setFillColor(31,78,96);doc.rect(margen,y-9,ancho-margen*2,15,'F');
+        doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
+        let x=margen+4;
+        for(const c of COLUMNAS_HOJA){doc.text(c.titulo,x,y+1);x+=c.ancho;}
+        y+=17;doc.setTextColor(7,25,30);doc.setFont('helvetica','normal');doc.setFontSize(8);
+      };
+      cabecera();
+      let rayado=false;
+      g.renglones.forEach((r,i)=>{
+        if(y+14>alto-margen-24){doc.addPage();y=margen;cabecera();rayado=false;}
+        const f=filaDeHoja(r,i);
+        if(rayado){doc.setFillColor(247,250,249);doc.rect(margen,y-9,ancho-margen*2,13,'F');}
+        rayado=!rayado;
+        let x=margen+4;
+        for(const c of COLUMNAS_HOJA){
+          const bruto=c.clave==='status'?'':String(f[c.clave]??'');
+          doc.text(doc.splitTextToSize(bruto,c.ancho-6)[0]||'',x,y);
+          x+=c.ancho;
+        }
+        y+=13;
+      });
+      y+=6;
+    }
+
+    const paginas=doc.internal.getNumberOfPages();
+    for(let i=1;i<=paginas;i++){
+      doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(140,155,158);
+      doc.text(`Página ${i} de ${paginas} · TannerOS`,ancho-margen,alto-16,{align:'right'});
+    }
+    doc.save(nombreDeArchivoHoja(b.folio));
+  }catch(e){
+    // Nunca en silencio: si jsPDF no carga, la pantalla lo dice.
+    await tosAlert({kicker:'PRODUCCIÓN',title:'No pudimos generar la hoja',message:String(e?.message||e)});
+  }finally{ btn.disabled=false;btn.textContent=antes; }
+}
+$('printSheet')?.addEventListener('click',exportaHojaPdf);
+$('sheetTabs')?.addEventListener('click',e=>{
+  const b=e.target.closest?.('[data-hoja]');if(!b||!currentSheet)return;
+  hojaVista=b.dataset.hoja;
+  [...$('sheetTabs').querySelectorAll('[data-hoja]')].forEach(x=>{
+    const on=x.dataset.hoja===hojaVista;
+    x.classList.toggle('active',on);x.setAttribute('aria-selected',String(on));
+  });
+  renderSheet();
+});$('backdrop').addEventListener('click',closeModals);document.querySelectorAll('.close-modal').forEach(b=>b.addEventListener('click',closeModals));boot().catch(e=>{$('deniedText').textContent=e.message||'No fue posible abrir Producción.';show('deniedView');});

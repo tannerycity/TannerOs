@@ -371,6 +371,195 @@ async function postExpense(){
   }catch(e){message('expenseMessage',e.message||'No se pudo registrar el egreso.');}finally{btn.disabled=false;}
 }
 
+/* ----- Corte de caja en PDF -----
+
+   Este botón decía "PDF" y hacía window.print(). En una laptop se veía bien,
+   porque styles.css trae un @media print decente. En el teléfono no hacía
+   NADA: en una PWA de iOS, window.print() es un no-op silencioso. Y Taquilla
+   se opera desde el teléfono y desde el iPad de la banca, no desde una
+   laptop, así que el botón llevaba roto justo donde se usa.
+
+   Ahora genera el PDF de verdad, con el mismo jsPDF que ya usan los otros
+   reportes: funciona igual en teléfono y en escritorio, y el botón cumple lo
+   que promete.
+
+   Lo que lleva el papel, y por qué:
+     · Los movimientos ANULADOS aparecen, marcados. Un corte que esconde lo
+       que se canceló no sirve para revisar nada.
+     · Cada movimiento dice quién lo registró, y si eso vino de una cuenta
+       compartida lo dice así en vez de fingir un nombre.
+     · Si alguien capturó el efectivo contado, va la diferencia. Es el dato
+       por el que se firma un corte.
+     · Los renglones de firma se imprimen siempre: el papel se entrega. */
+const COLUMNAS_CORTE=[
+  {clave:'tipo',     titulo:'Tipo',      ancho:44},
+  {clave:'categoria',titulo:'Categoría', ancho:80},
+  {clave:'concepto', titulo:'Concepto',  ancho:116},
+  {clave:'quien',    titulo:'Quién',     ancho:132},
+  {clave:'metodo',   titulo:'Método',    ancho:58},
+  {clave:'monto',    titulo:'Monto',     ancho:62, derecha:true},
+  {clave:'estado',   titulo:'Estado',    ancho:56}
+];
+const ESTADO_CORTE={posted:'Publicado',void:'Anulado',refunded:'Reembolsado'};
+// Quién registró el movimiento, con la misma honestidad que la pantalla: una
+// cuenta compartida no es una persona, y un nombre tecleado no es una prueba.
+function registroDeCorte(m){
+  if(/^legacy/i.test(String(m.source||'')))return 'Del sistema anterior';
+  if(!m.registeredBy)return '';
+  return m.registeredByIsAccount
+    ? `Desde ${m.registeredBy} · sin nombre`
+    : `${m.type==='income'?'Cobró':'Pagó'}: ${m.registeredBy} (escrito)`;
+}
+async function exportaCortePdf(){
+  if(!canViewLedger)return;
+  const btn=$('printClose');
+  const antes=btn.textContent;
+  btn.disabled=true;btn.textContent='Generando…';
+  message('cutMessage');
+  try{
+    const fecha=$('businessDate').value||isoToday();
+    const movs=snapshot?.movements||[];
+    const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+    const doc=new jsPDF({unit:'pt',format:'letter'});
+    const ancho=doc.internal.pageSize.getWidth();
+    const alto=doc.internal.pageSize.getHeight();
+    const margen=32;
+    let y=margen;
+
+    const pesos=v=>money.format(Number(v||0));
+    const hoy=new Intl.DateTimeFormat('es-MX',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+
+    function filaCabecera(){
+      doc.setFillColor(238,242,241);doc.rect(margen,y-9,ancho-margen*2,16,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(60,80,86);
+      let x=margen+4;
+      for(const c of COLUMNAS_CORTE){
+        doc.text(c.titulo,c.derecha?x+c.ancho-8:x,y+2,{align:c.derecha?'right':'left'});
+        x+=c.ancho;
+      }
+      y+=18;doc.setTextColor(7,25,30);
+    }
+    function espacio(n){ if(y+n>alto-margen-26){doc.addPage();y=margen;filaCabecera();} }
+
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(7,25,30);
+    doc.text('Corte de caja',margen,y);y+=17;
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,118,123);
+    doc.text(`${ctx.organization_name||'Tannery City FC'} · día de operación ${fecha}`,margen,y);y+=12;
+    doc.text(`Generado el ${hoy}`,margen,y);y+=18;
+
+    // Resumen. Es lo que alguien mira primero cuando le entregan el papel.
+    doc.setTextColor(7,25,30);doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+    doc.text('Resumen del día',margen,y);y+=14;
+    doc.setFont('helvetica','normal');doc.setFontSize(9);
+    const resumen=[
+      ['Ingresos',pesos(snapshot?.incomeTotal)],
+      ['Egresos',pesos(snapshot?.expenseTotal)],
+      ['Neto',pesos(snapshot?.netTotal)],
+      ['Efectivo esperado en caja',pesos(snapshot?.expectedCash)]
+    ];
+    const contado=$('countedCash')?.value;
+    if(contado!==''&&contado!=null&&Number.isFinite(Number(contado))){
+      const dif=Number(contado)-Number(snapshot?.expectedCash||0);
+      resumen.push(['Efectivo contado',pesos(contado)]);
+      resumen.push([Math.abs(dif)<1?'Diferencia':(dif>0?'Sobrante':'Faltante'),pesos(Math.abs(dif))]);
+    }
+    for(const [etiqueta,valor] of resumen){
+      espacio(14);
+      doc.text(etiqueta,margen,y);
+      doc.text(valor,margen+250,y,{align:'right'});
+      y+=13;
+    }
+    y+=8;
+
+    const metodos=snapshot?.methods||[];
+    if(metodos.length){
+      espacio(30);
+      doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.text('Por método de pago',margen,y);y+=14;
+      doc.setFont('helvetica','normal');doc.setFontSize(9);
+      for(const r of metodos){
+        espacio(14);
+        doc.text(methodLabel(r.method),margen,y);
+        doc.text(`${pesos(r.income)}  /  ${pesos(r.expense)}  =  ${pesos(r.net)}`,margen+250,y,{align:'right'});
+        y+=13;
+      }
+      doc.setFontSize(7.5);doc.setTextColor(140,155,158);
+      doc.text('entró / salió = neto',margen+250,y,{align:'right'});y+=14;
+      doc.setTextColor(7,25,30);
+    }
+
+    espacio(40);
+    doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+    doc.text(`Movimientos del día · ${movs.length}`,margen,y);y+=16;
+    if(!movs.length){
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120,130,135);
+      doc.text('Sin movimientos registrados en esta fecha.',margen,y);y+=16;
+      doc.setTextColor(7,25,30);
+    }else{
+      filaCabecera();
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+      let rayado=false;
+      for(const m of movs){
+        const registro=registroDeCorte(m);
+        const anulado=m.status&&m.status!=='posted';
+        const alto2=registro?24:15;
+        espacio(alto2);
+        if(rayado){doc.setFillColor(249,251,250);doc.rect(margen,y-9,ancho-margen*2,alto2-1,'F');}
+        rayado=!rayado;
+        // Un movimiento anulado se lee distinto sin depender del color: en una
+        // impresión en blanco y negro el gris no se nota.
+        if(anulado)doc.setTextColor(150,60,55); else doc.setTextColor(7,25,30);
+        const fila={
+          tipo:m.type==='income'?'Cobro':'Pago',
+          categoria:m.category||'—',
+          concepto:m.concept||'—',
+          quien:m.playerName||m.who||'—',
+          metodo:methodLabel(m.method),
+          monto:`${m.type==='income'?'+':'−'} ${pesos(m.amount)}`,
+          estado:ESTADO_CORTE[m.status]||m.status||'—'
+        };
+        let x=margen+4;
+        for(const c of COLUMNAS_CORTE){
+          const txt=doc.splitTextToSize(String(fila[c.clave]??'—'),c.ancho-8)[0]||'';
+          doc.text(txt,c.derecha?x+c.ancho-8:x,y,{align:c.derecha?'right':'left'});
+          x+=c.ancho;
+        }
+        y+=13;
+        if(registro){
+          doc.setFontSize(7.5);doc.setTextColor(125,140,144);
+          doc.text(doc.splitTextToSize(registro,ancho-margen*2-8)[0]||'',margen+4+COLUMNAS_CORTE[0].ancho,y);
+          doc.setFontSize(8.5);y+=11;
+        }
+      }
+      doc.setTextColor(7,25,30);
+    }
+
+    // El papel se firma: por eso los renglones van siempre, haya o no
+    // movimientos. Un corte en cero también se entrega.
+    espacio(70);
+    y+=14;
+    doc.setDrawColor(220,229,227);doc.line(margen,y,ancho-margen,y);y+=28;
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(120,130,135);
+    const medio=(ancho-margen*2)/2;
+    doc.line(margen,y,margen+medio-20,y);
+    doc.line(margen+medio+20,y,ancho-margen,y);
+    y+=12;
+    doc.text('Entrega (nombre y firma)',margen,y);
+    doc.text('Recibe (nombre y firma)',margen+medio+20,y);
+
+    const paginas=doc.internal.getNumberOfPages();
+    for(let i=1;i<=paginas;i++){
+      doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(140,155,158);
+      doc.text(`Página ${i} de ${paginas} · TannerOS`,ancho-margen,alto-18,{align:'right'});
+    }
+    doc.save(`corte-de-caja-${fecha}.pdf`);
+    message('cutMessage',`Corte generado con ${movs.length} movimiento${movs.length===1?'':'s'}.`,'success');
+  }catch(e){
+    // El botón nunca vuelve a quedarse mudo: si jsPDF no carga (sin red, por
+    // ejemplo) el papel no sale, pero la pantalla lo dice.
+    message('cutMessage',`No pudimos generar el corte: ${String(e?.message||e)}`);
+  }finally{ btn.disabled=false;btn.textContent=antes; }
+}
+
 $('businessDate').value=isoToday();$('collectDate').value=isoToday();$('generalDate').value=isoToday();$('expenseDate').value=isoToday();
 $('businessDate').addEventListener('change',load);$('movementStatus').addEventListener('change',renderMovements);
 $('openCollect').disabled=!canCashWrite;$('openCollect').addEventListener('click',()=>{if(canCashWrite){resetCollectForm();modal('collectModal',true);}});
@@ -383,7 +572,7 @@ document.querySelectorAll('.close-modal').forEach(b=>b.addEventListener('click',
 document.querySelectorAll('.cashier-tabs button').forEach(b=>b.addEventListener('click',()=>setCollectMode(b.dataset.mode)));
 
 $('collectForm').addEventListener('submit',e=>{e.preventDefault();postCollect();});$('expenseForm').addEventListener('submit',e=>{e.preventDefault();postExpense();});
-$('printClose').addEventListener('click',()=>window.print());$('countedCash')?.addEventListener('input',renderReconcile);
+$('printClose').addEventListener('click',exportaCortePdf);$('countedCash')?.addEventListener('input',renderReconcile);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 const _params=new URLSearchParams(location.search);const action=_params.get('action');
 if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);

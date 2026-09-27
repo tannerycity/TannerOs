@@ -8,6 +8,9 @@
 //   2. Que cuando la categoría no tiene tarifa, la pantalla lo DIGA en vez de
 //      inventar un ordinario.
 //   3. Que el PDF salga de lo filtrado y no lleve la nota interna.
+//   4. Que el corte de caja genere un PDF de verdad. El botón decía "PDF" y
+//      hacía window.print(): en escritorio funcionaba, en el teléfono no hacía
+//      nada, y Taquilla se opera desde el teléfono.
 import { chromium } from 'playwright-core';
 import http from 'node:http';
 import fs from 'node:fs';
@@ -137,8 +140,25 @@ async function corre(rol) {
           });
           return { planId:'nuevo', assigned:10 };
         }
-        if(name==='v2_cashier_snapshot') return { businessDate:'2026-09-23', incomeTotal:0, expenseTotal:0,
-          netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], movements:[], canViewLedger: !esTaquilla };
+        // La caja del día trae los tres casos que el corte tiene que saber
+        // contar: un cobro normal, un egreso, y un movimiento ANULADO que no
+        // suma pero que el papel sí debe mostrar.
+        if(name==='v2_cashier_snapshot') return { businessDate:'2026-09-23',
+          incomeTotal:1300, expenseTotal:400, netTotal:900, expectedCash:900, cashTodayNet:900,
+          methods:[{method:'cash',income:800,expense:400,net:400},
+                   {method:'transfer',income:500,expense:0,net:500}],
+          movements:[
+            {id:'m1',date:'2026-09-23',type:'income',category:'Mensualidad',concept:'Septiembre',
+             who:'Thalia Medina',playerName:'Erick García Medina',method:'cash',amount:800,
+             status:'posted',registeredBy:'Andrea',registeredByIsAccount:false,source:'tanneros_v2'},
+            {id:'m2',date:'2026-09-23',type:'expense',category:'Balones',concept:'Compra de balones',
+             who:'Proveedor',playerName:null,method:'cash',amount:400,
+             status:'posted',registeredBy:'iPad',registeredByIsAccount:true,source:'tanneros_v2'},
+            {id:'m3',date:'2026-09-23',type:'income',category:'Uniforme',concept:'Playera cancelada',
+             who:'Familia Luna',playerName:'Luis Maximo Luna Moreno',method:'transfer',amount:650,
+             status:'void',registeredBy:'Andrea',registeredByIsAccount:false,source:'tanneros_v2'}
+          ],
+          canViewLedger: !esTaquilla };
         if(name==='v2_billing_players') return [];
         if(name==='v2_open_receivables') return [];
         return null;
@@ -215,7 +235,11 @@ async function corre(rol) {
   if (rol === 'Taquilla') {
     revisa(`[${rol}] con una sola vista el selector no estorba`, await pagina.isHidden('#verTabs'));
     revisa(`[${rol}] el padrón sale sin tener que buscarlo`, await pagina.isVisible('#montosPanel'));
+    // El corte de caja lleva los movimientos del día completos. Quien no
+    // puede ver el libro tampoco se lo lleva impreso.
+    revisa(`[${rol}] no se le ofrece el corte de caja`, await pagina.isHidden('#printClose'));
   } else {
+    revisa(`[${rol}] el corte de caja está a la mano`, await pagina.isVisible('#printClose'));
     revisa(`[${rol}] el selector ofrece varias vistas`, await pagina.isVisible('#verTabs'));
     revisa(`[${rol}] arranca en Cobranza, no en el padrón`, await pagina.isHidden('#montosPanel'));
     await pagina.click('[data-vista="montos"]');
@@ -308,6 +332,61 @@ async function corre(rol) {
     revisa(`[${rol}] el PDF NO lleva la nota interna`, !/abuela/.test(texto));
     revisa(`[${rol}] el PDF avisa de la columna Ordinaria en blanco`,
       /sin mensualidad ordinaria capturada/.test(texto), texto.slice(-300));
+
+    /* El corte de caja.
+
+       Este botón decía "PDF" y hacía window.print(). En escritorio se veía
+       bien; en el teléfono no hacía nada, porque en una PWA de iOS
+       window.print() es un no-op silencioso. Taquilla se opera desde el
+       teléfono, así que llevaba roto justo donde se usa. Lo que se vigila
+       aquí es que salga un PDF de verdad y que diga lo que un corte tiene
+       que decir para poder firmarse. */
+    await pagina.evaluate(() => { window.__pdf = null; });
+    await pagina.fill('#businessDate', '2026-09-23');
+    await pagina.waitForTimeout(300);
+    await pagina.click('#printClose');
+    // Si vuelve a ser window.print(), aquí no llega nada. Se dice con esas
+    // palabras: un timeout de 30 segundos a secas no explica el bug que este
+    // caso existe para atrapar.
+    try { await pagina.waitForFunction(() => window.__pdf, { timeout: 8000 }); }
+    catch { throw new Error('El botón de corte no generó ningún PDF. ¿Volvió a ser window.print()? En el teléfono eso no hace nada.'); }
+    const corte = await pagina.evaluate(() => window.__pdf);
+    const hoja = corte.textos.join(' | ');
+    revisa(`[${rol}] el corte sale como PDF, no como impresión del navegador`,
+      corte.nombre === 'corte-de-caja-2026-09-23.pdf', corte.nombre);
+    revisa(`[${rol}] el corte trae los totales del día`,
+      /Ingresos/.test(hoja) && /\$1,300/.test(hoja) && /\$400/.test(hoja) && /\$900/.test(hoja),
+      hoja.slice(0, 400));
+    revisa(`[${rol}] el corte desglosa por método de pago`,
+      /Efectivo/.test(hoja) && /Transferencia/.test(hoja), hoja.slice(0, 500));
+    // Un corte que esconde lo anulado no sirve para revisar nada.
+    revisa(`[${rol}] el movimiento ANULADO aparece en el corte`,
+      /Playera cancelada/.test(hoja) && /Anulado/.test(hoja), hoja);
+    revisa(`[${rol}] el corte dice quién registró cada movimiento`,
+      /Cobró: Andrea \(escrito\)/.test(hoja), hoja);
+    // Una cuenta compartida no es una persona: el papel no finge un nombre.
+    revisa(`[${rol}] una cuenta compartida se declara como tal, no como persona`,
+      /Desde iPad · sin nombre/.test(hoja), hoja);
+    revisa(`[${rol}] el corte trae renglones de firma`,
+      /Entrega \(nombre y firma\)/.test(hoja) && /Recibe \(nombre y firma\)/.test(hoja), hoja.slice(-300));
+
+    // La conciliación es el dato por el que se firma: si alguien contó el
+    // efectivo, la diferencia va en el papel. El contador vive en la vista
+    // "Caja del día", así que hay que pasar por ahí para capturarlo.
+    await pagina.evaluate(() => { window.__pdf = null; });
+    await pagina.click('[data-vista="caja"]');
+    await pagina.waitForSelector('#countedCash', { state: 'visible', timeout: 6000 });
+    await pagina.fill('#countedCash', '850');
+    await pagina.click('#printClose');
+    await pagina.waitForFunction(() => window.__pdf, { timeout: 8000 });
+    const conCorte = (await pagina.evaluate(() => window.__pdf)).textos.join(' | ');
+    revisa(`[${rol}] si contaron el efectivo, el corte lleva el faltante`,
+      /Efectivo contado/.test(conCorte) && /Faltante/.test(conCorte) && /\$50\.00/.test(conCorte),
+      conCorte.slice(0, 500));
+
+    // Se vuelve al padrón: los casos que siguen viven ahí.
+    await pagina.click('[data-vista="montos"]');
+    await pagina.waitForSelector('.monto-card', { timeout: 6000 });
 
     // LA OTRA MITAD: lo que se acuerda con UNA familia.
     // Un plan arregla a diez de un golpe; esto arregla al que está solo. Sin

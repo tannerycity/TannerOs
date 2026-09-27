@@ -41,6 +41,38 @@ const routeContract={
 const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
 for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta archivo crítico: ${file}`);
 
+/* === Ninguna pantalla vive sólo detrás de la barra escondida ===
+
+   experience.css trae `.tos-unified-shell .app-wrap>.topbar{display:none!important}`:
+   cuando branding-auto monta el menú lateral, la .topbar vieja de cada
+   pantalla desaparece. Esconderla está bien —si no, salen dos barras—, pero
+   los enlaces que viven SÓLO ahí se van con ella.
+
+   Eso ya costó caro. /v2/captura/ (levantar un pedido) y /v2/produccion/ (la
+   hoja para el proveedor) sólo se enlazaban desde la .topbar de Tienda y
+   Catálogo. Al montarse el shell quedaron inalcanzables, y la Tienda se
+   volvió de sólo lectura durante semanas sin que nadie lo notara: el botón
+   estaba en el HTML, así que al leer el código parecía que existía.
+
+   La regla: un destino al que sólo se llega desde una .topbar no cuenta como
+   alcanzable. Tiene que estar además en el contenido de alguna pantalla, en
+   el menú lateral o en un hub. */
+const DESTINOS_VIGILADOS=['/v2/captura/','/v2/produccion/','/v2/catalogo/'];
+{
+  const sinTopbar=texto=>texto.replace(/<header class="topbar">[\s\S]*?<\/header>/g,'');
+  const fuentes=[...walk('v2').filter(f=>/\.(js|html)$/i.test(f)),'index.html'];
+  for(const destino of DESTINOS_VIGILADOS){
+    const canonico=destino.replace('/v2/','/');
+    const alcanzable=fuentes.some(f=>{
+      if(f.startsWith(`v2${destino.slice(3)}`)||f.startsWith(destino.slice(1)))return false; // no vale que se enlace a sí misma
+      const crudo=fs.readFileSync(f,'utf8');
+      const texto=f.endsWith('.html')?sinTopbar(crudo):crudo;
+      return texto.includes(destino)||texto.includes(`"${canonico}"`)||texto.includes(`'${canonico}'`);
+    });
+    if(!alcanzable)errors.push(`Ruta inalcanzable: a ${destino} sólo se llega desde una .topbar, y el shell unificado la esconde. Pon el enlace dentro del contenido, en el menú o en un hub.`);
+  }
+}
+
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p];});}
 const htmlFiles=walk('v2').filter(f=>f.endsWith('index.html'));
 for(const file of htmlFiles){const html=fs.readFileSync(file,'utf8');if(!/name=["']viewport["']/i.test(html))errors.push(`Sin viewport mobile-first: ${file}`);if(html.length<120)errors.push(`HTML sospechosamente pequeño: ${file}`);}

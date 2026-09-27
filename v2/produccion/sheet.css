@@ -65,3 +65,35 @@
   .sheet-break{page-break-before:always;}
   .sheet-person-table{page-break-inside:avoid;}
 }
+
+/* === Hoja por modelo ===
+   La forma de la hoja la manda el proveedor: produce MODELOS, no pedidos. Es
+   la misma que el club arma hoy en Excel —una tabla por jersey, un renglón
+   por persona, dos columnas de talla— para no obligar a nadie a traducir
+   entre lo que ve en pantalla y lo que manda por WhatsApp. */
+.sheet-tabs{display:flex;gap:6px;margin-right:auto}
+.sheet-tabs button{border:1px solid var(--line,#dce5e3);background:#fff;border-radius:999px;
+  padding:7px 13px;font:inherit;font-weight:850;font-size:12.5px;color:#52646b;cursor:pointer}
+.sheet-tabs button.active{background:#1f4e60;border-color:#1f4e60;color:#fff}
+.sheet-model{margin:0 0 18px;break-inside:avoid}
+.sheet-model-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:0 0 6px;border-bottom:2px solid #1f4e60;margin-bottom:8px}
+.sheet-model-head strong{font-size:15px;font-weight:900;letter-spacing:-.01em}
+.sheet-model-head small{color:#7d8a8f;font-size:12px;font-weight:700;white-space:nowrap}
+.sheet-kit-tag{margin-left:8px;padding:3px 8px;border-radius:999px;background:#eef4f3;
+  color:#31565e;font-size:11px;font-weight:800}
+/* El resumen de corte va arriba de los nombres: es lo que el maquilador
+   necesita para cortar, y no depende de quién es cada pieza. */
+.sheet-tallas{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.sheet-tallas span{padding:4px 9px;border-radius:8px;background:#f4f7f6;color:#31565e;
+  font-size:11.5px;font-weight:700}
+.sheet-tallas b{font-weight:900}
+.sheet-model-table th{background:#1f4e60;color:#fff;font-size:10px;letter-spacing:.04em;
+  text-transform:uppercase;padding:7px 8px;border:1px solid #17404f;white-space:nowrap}
+.sheet-model-table td{padding:7px 8px;border:1px solid #dde5e3;font-size:12px;white-space:nowrap}
+.sheet-model-table tbody tr:nth-child(even) td{background:#f8fbfa}
+@media(max-width:720px){
+  .sheet-tabs{width:100%;margin:0 0 8px;overflow-x:auto;scrollbar-width:none}
+  .sheet-tabs::-webkit-scrollbar{display:none}
+  .sheet-model-table{display:block;overflow-x:auto}
+}

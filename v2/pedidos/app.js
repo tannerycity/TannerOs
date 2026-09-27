@@ -62,7 +62,25 @@ function msg(t='',type='error'){const e=$('statusMessage');e.textContent=t;e.dat
 async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}function fmt(v){return v?new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v)):'—';}function fmtDate(v){return v?new Intl.DateTimeFormat('es-MX',{dateStyle:'medium'}).format(new Date(`${v}T12:00:00`)):'—';}
 function readinessText(r){const miss=Array.isArray(r?.missing)?r.missing:[];return r?.ok?'Listo para producción':miss.length?miss.join(' · '):'Pendiente de validar';}
 function vigente(o){return !['cancelled','refunded'].includes(o.status);}
-async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=!!(financeMod?.enabled&&financeMod?.can_read);document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;await load();show('view');}
+/* Las tres puertas de Tienda, según lo que el rol puede hacer.
+
+   Levantar un pedido escribe; Catálogo y Producción también. Quien sólo lee
+   la Tienda ve las tarjetas apagadas con el motivo, en vez de toparse con un
+   "Sin acceso" después de haber dado el clic. */
+function aplicaAccesos(){
+  const nuevo=$('newOrderAction'),prod=$('productionAction');
+  if(nuevo&&!canWrite){
+    nuevo.classList.add('is-off');
+    nuevo.querySelector('small').textContent='Tu rol no puede levantar pedidos';
+    nuevo.removeAttribute('href');
+  }
+  if(prod&&!canManage){
+    prod.classList.add('is-off');
+    prod.querySelector('small').textContent='Sólo quien administra la Tienda';
+    prod.removeAttribute('href');
+  }
+}
+async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=!!(financeMod?.enabled&&financeMod?.can_read);document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;await load();show('view');}
 async function load(){orders=await rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null})||[];render();renderKpis();loadBusinessMetrics();}
 function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();return orders.filter(o=>(!status||o.status===status)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
 function renderKpis(){const rows=orders.filter(vigente);$('kpiOrders').textContent=rows.length;$('kpiPending').textContent=rows.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length;$('kpiProduction').textContent=rows.filter(o=>o.status==='in_production').length;$('kpiReady').textContent=rows.filter(o=>o.status==='ready').length;}

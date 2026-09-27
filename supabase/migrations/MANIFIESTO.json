@@ -1,8 +1,8 @@
 {
-  "migraciones": 404,
-  "bytes": 2155873,
-  "huella": "b2c9bdcf43ca153f4a97784bc1e28108",
+  "migraciones": 405,
+  "bytes": 2160636,
+  "huella": "2899203a09a5853ccd333163a2688a78",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260924043640_s2_los_recargos_de_septiembre_se_perdonan.sql",
-  "verificadoContraLaBase": "2026-09-24"
+  "ultima": "20260924121329_s3_curtibrother_era_un_fantasma_de_la_migracion.sql",
+  "verificadoContraLaBase": "2026-09-27"
 }

@@ -51,6 +51,22 @@ const CASOS = [
     folio: 'TC-2026-00021', dateStr: '28 SEP 2026', birthDate: '2014-03-14',
     dominantFoot: 'left', school: 'Colegio Valladolid'
   }],
+  /* La credencial de TEMPORADA. Los datos son los de un Tanner real del club
+     —con su '20+1' de dorsal y su 'Por definir' de posicion— porque es ahi
+     donde se ve si las reglas aguantan lo que hay en la base, no lo que uno
+     desearia que hubiera. */
+  ['tanner', {
+    firstName: 'Mikel', lastName: 'Ramírez Soto', category: 'Baby Tanner',
+    code: 'Tanner010', jerseyNumber: '5', position: 'Mediocampista',
+    birthDate: '2021-06-11', bloodType: 'O+',
+    allergies: 'Alergias a jarabe para gripa', school: 'Colegio Léon',
+    modo: 'tanner'
+  }],
+  ['tanner-incompleto', {
+    firstName: 'Luis Maximo', lastName: 'Vargas Peña', category: 'Baby Tanner',
+    code: 'Tanner050', jerseyNumber: '20+1', position: 'Por definir',
+    birthDate: '2022-02-03', modo: 'tanner'
+  }],
   ['redes', {
     firstName: 'Mauricio', lastName: 'Torres Avila', category: 'Baby Tanner',
     folio: 'TC-2026-00020', dateStr: '26 SEP 2026', birthDate: '2024-05-02',
@@ -99,9 +115,30 @@ if (fs.existsSync(rutaJsqr)) {
   }, { codigo: fs.readFileSync(rutaJsqr, 'utf8'), datos: CASOS[1][1] });
 
   console.log(leido === liga
-    ? `QR verificado · se decodifico de los pixeles: ${leido}`
+    ? `QR del registro verificado · decodificado de los pixeles: ${leido}`
     : `QR FALLO · se leyo ${JSON.stringify(leido)}, se esperaba ${liga}`);
   if (leido !== liga) process.exitCode = 1;
+
+  // Y el de la credencial de temporada, que vive en otra altura de la tarjeta.
+  const ligaT = 'https://app.tannerycity.com/v2/?buscar=Tanner010';
+  const leidoT = await pg.evaluate(async ({ codigo, datos }) => {
+    const { renderWelcomeCard } = await import('/welcome-card.js');
+    const { canvas, dibujado } = await renderWelcomeCard(datos);
+    const lado = 230, x = 96, y = dibujado.qrY;
+    const recorte = document.createElement('canvas');
+    recorte.width = lado; recorte.height = lado;
+    recorte.getContext('2d').drawImage(canvas, x, y, lado, lado, 0, 0, lado, lado);
+    const px = recorte.getContext('2d').getImageData(0, 0, lado, lado);
+    (0, eval)(codigo);
+    const jsQR = window.jsQR || window.default;
+    const r = jsQR(px.data, lado, lado);
+    return r ? r.data : null;
+  }, { codigo: fs.readFileSync(rutaJsqr, 'utf8'), datos: CASOS[2][1] });
+
+  console.log(leidoT === ligaT
+    ? `QR del Tanner verificado · decodificado de los pixeles: ${leidoT}`
+    : `QR DEL TANNER FALLO · se leyo ${JSON.stringify(leidoT)}, se esperaba ${ligaT}`);
+  if (leidoT !== ligaT) process.exitCode = 1;
 } else {
   console.log('QR sin verificar: falta jsqr (npm install jsqr en /tmp/claude-0)');
   process.exitCode = 1;

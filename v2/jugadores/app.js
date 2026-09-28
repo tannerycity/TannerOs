@@ -1077,3 +1077,45 @@ document.addEventListener('click',e=>{
   if(e.target.closest?.('[data-close-status]')||e.target.id==='statusModal'){closeStatusModal();return;}
   if(e.target.closest?.('#statusModalConfirm')){confirmStatusChange();return;}
 });
+
+/* ---------- La credencial del Tanner ----------
+ *
+ * La que sirve toda la temporada: la que alguien mira en la puerta, en la
+ * banca, o el dia que un niño se siente mal y hay que saber su tipo de sangre.
+ * Es otro documento que la del registro —esa es un comprobante de bienvenida
+ * para un prospecto que todavia no es Tanner— y por eso trae lo que la otra no
+ * puede: dorsal, posicion y lo medico.
+ *
+ * El dibujante es el mismo (welcome-card.js) y las reglas de que lleva cada
+ * una viven en credencial.js. Se cargan con import() dinamico porque son 52 KB
+ * de QR que solo hacen falta si alguien toca el boton: quien entra a Jugadores
+ * a revisar un pago no los descarga nunca.
+ */
+$('credencialTanner')?.addEventListener('click',async()=>{
+  if(!current?.player)return;
+  const p=current.player,btn=$('credencialTanner');
+  btn.disabled=true;const antes=btn.textContent;btn.textContent='Generando…';
+  try{
+    const {renderWelcomeCard}=await import('/welcome-card.js');
+    // La foto ya esta firmada en la pantalla: se reusa en vez de pedir otra
+    // firma al Storage (docs/MEDIA_EGRESS_ARCHITECTURE.md).
+    const foto=document.querySelector('#profilePhoto img')?.src||p._photoUrl||null;
+    const {blob}=await renderWelcomeCard({
+      modo:'tanner',
+      firstName:p.firstName,lastName:p.lastName,category:p.category,code:p.code,
+      birthDate:p.birthDate,jerseyNumber:p.jerseyNumber,position:p.position,
+      dominantFoot:p.dominantFoot,school:p.school,bloodType:p.bloodType,
+      allergies:p.allergies,photoUrl:foto
+    });
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`credencial-${(p.code||'tanner').toLowerCase()}.png`;
+    document.body.appendChild(a);a.click();a.remove();
+    // El objeto vive lo suficiente para que el navegador lo escriba a disco.
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    msg('Credencial descargada. Trae su código QR: escanéalo y abre su expediente.','success');
+  }catch(err){
+    msg(`No se pudo generar la credencial: ${err.message||'intenta otra vez.'}`);
+  }finally{btn.disabled=false;btn.textContent=antes;}
+});

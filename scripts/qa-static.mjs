@@ -75,6 +75,38 @@ const DESTINOS_VIGILADOS=['/v2/captura/','/v2/produccion/','/v2/catalogo/'];
 
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p];});}
 
+/* Un link que se pega en WhatsApp tiene que verse.
+
+   El registro no tenia una sola etiqueta og:, asi que pegado en una
+   conversacion salia como URL pelona: sin escudo, sin titulo, sin imagen. Un
+   link asi compite contra fotos y audios en la misma pantalla, y pierde.
+
+   Estas son las paginas que el club PEGA en algun lado —registro, visorias,
+   tienda, programas, academias y el Centro Tanner—, no las pantallas internas
+   a las que se llega ya estando adentro. Cada una tiene que traer su bloque:
+   titulo, descripcion e imagen. La imagen se genera con scripts/genera-og.mjs
+   a partir de los mismos assets de marca que usa la credencial, para que no
+   se quede con un escudo viejo. */
+const PAGINAS_QUE_SE_PEGAN=['registro/index.html','registro/scouting/index.html',
+  'pedido/index.html','programas/index.html','academias/index.html','centro-tanner/index.html'];
+const IMAGEN_DE_PREVIEW='brand/og-registro.jpg';
+{
+  if(!fs.existsSync(IMAGEN_DE_PREVIEW))
+    errors.push(`Falta ${IMAGEN_DE_PREVIEW}: los links publicos apuntan a una imagen que no existe. Corre: node scripts/genera-og.mjs`);
+  for(const pagina of PAGINAS_QUE_SE_PEGAN){
+    if(!fs.existsSync(pagina)){errors.push(`Pagina publica declarada que no existe: ${pagina}`);continue;}
+    const html=fs.readFileSync(pagina,'utf8');
+    for(const etiqueta of ['og:title','og:description','og:image']){
+      if(!html.includes(etiqueta))
+        errors.push(`Sin preview: ${pagina} no trae ${etiqueta}, asi que pegado en WhatsApp sale como URL pelona.`);
+    }
+    // Un dominio equivocado es peor que ninguna imagen: el preview sale roto.
+    const img=html.match(/property="og:image"\s+content="([^"]+)"/);
+    if(img&&!img[1].startsWith('https://app.tannerycity.com/'))
+      errors.push(`Preview con dominio ajeno: ${pagina} apunta a ${img[1]}`);
+  }
+}
+
 /* La carpeta de una foto es su permiso.
 
    El candado del bucket tanneros-private no mira quien sube: mira DONDE. Su

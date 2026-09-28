@@ -1,6 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { renderWelcomeCard } from '/welcome-card.js';
+import { puedeCompartirse, motivoSinCompartir } from '/credencial.js';
 import { encodeVariant, FULL_MAX_BYTES, THUMB_MAX_SIDE, THUMB_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
@@ -100,21 +101,71 @@ async function preparePhoto(file){
   return {...full, thumb};
 }
 
+/* Del registro salen DOS documentos, y hay que entregarlos como dos.
+ *
+ *   CREDENCIAL  la guarda la familia y la ve el club. Trae edad, categoria,
+ *               pie, escuela y un QR que abre al Tanner en TannerOS.
+ *
+ *   PARA REDES  la comparte la familia. Va sin folio, sin escuela y sin fecha
+ *               exacta, y SOLO existe si autorizaron el uso de la imagen.
+ *
+ * Antes era una sola, con el folio puesto y formato de historia de Instagram:
+ * mal comprobante y mal post a la vez. Y si la familia no dio permiso, la de
+ * redes no se genera y se dice por que, en vez de desaparecer sin explicacion.
+ */
 async function showRegistrationSuccess(cardData){
-  show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>¡Bienvenido a la familia Tanner!</h2><p>Tu registro y tu foto quedaron guardados de forma segura. Administración de Tannery City se pondrá en contacto contigo.</p><div class="wc-wrap"><p id="wcStatus" class="wc-status">Generando tu tarjeta de bienvenida…</p><div id="wcPreview" class="wc-preview hidden"><img id="wcImage" alt="Tarjeta de bienvenida Tannery City FC"></div><div id="wcActions" class="wc-actions hidden"><button id="wcShare" class="primary" type="button">Compartir por WhatsApp</button><a id="wcDownload" class="secondary" type="button">Descargar imagen</a></div><p class="wc-hint">Compártela con la familia o súbela como historia — les ayuda a darle seguimiento a ${escapePublic(cardData.firstName||'tu jugador')}.</p></div></div>`);
+  const nombre=escapePublic(cardData.firstName||'tu jugador');
+  const comparte=puedeCompartirse(cardData);
+  show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>¡Bienvenido a la familia Tanner!</h2><p>Tu registro y tu foto quedaron guardados de forma segura. Administración de Tannery City se pondrá en contacto contigo.</p>
+    <div class="wc-wrap">
+      <p id="wcStatus" class="wc-status">Generando tu credencial…</p>
+      <div id="wcPreview" class="wc-preview hidden"><img id="wcImage" alt="Credencial Tanner de ${nombre}"></div>
+      <div id="wcActions" class="wc-actions hidden"><a id="wcDownload" class="primary" type="button">Descargar credencial</a></div>
+      <p class="wc-hint">Guárdala: trae el código que abre el expediente de ${nombre} en el sistema del club.</p>
+    </div>
+    <div id="wcSocialWrap" class="wc-wrap hidden">
+      <p class="wc-status" id="wcSocialTitle">Y esta es para presumir</p>
+      <div id="wcSocialPreview" class="wc-preview hidden"><img id="wcSocialImage" alt="Tarjeta para compartir de ${nombre}"></div>
+      <div id="wcSocialActions" class="wc-actions hidden"><button id="wcShare" class="primary" type="button">Compartir</button><a id="wcSocialDownload" class="secondary" type="button">Descargar</a></div>
+      <p class="wc-hint" id="wcSocialHint">Sin folio ni datos de contacto: es para subir como historia.</p>
+    </div></div>`);
+
+  const archivo=(sufijo)=>`tannery-city-${sufijo}-${(cardData.firstName||'tanner').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')||'tanner'}.png`;
+
   try{
     const {blob}=await renderWelcomeCard(cardData);
     const url=URL.createObjectURL(blob);
-    const fileName=`tannery-city-bienvenida-${(cardData.firstName||'tanner').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')||'tanner'}.png`;
     $('wcImage').src=url;
     $('wcDownload').href=url;
-    $('wcDownload').setAttribute('download',fileName);
+    $('wcDownload').setAttribute('download',archivo('credencial'));
     $('wcPreview').classList.remove('hidden');
     $('wcActions').classList.remove('hidden');
     $('wcStatus').classList.add('hidden');
+  }catch(err){
+    const status=$('wcStatus');
+    if(status)status.textContent='No pudimos generar la credencial, pero tu registro ya quedó guardado.';
+  }
+
+  $('wcSocialWrap').classList.remove('hidden');
+  if(!comparte){
+    // Sin permiso no se genera y se dice por que. Desaparecer sin explicacion
+    // deja a la familia pensando que algo fallo.
+    $('wcSocialTitle').textContent=motivoSinCompartir(cardData)||'';
+    $('wcSocialHint').textContent='Puedes autorizarlo después desde tu cuenta de familia o pidiéndolo en el club.';
+    return;
+  }
+  try{
+    const {blob}=await renderWelcomeCard({...cardData,modo:'redes'});
+    const url=URL.createObjectURL(blob);
+    $('wcSocialImage').src=url;
+    $('wcSocialDownload').href=url;
+    $('wcSocialDownload').setAttribute('download',archivo('nuevo-tanner'));
+    $('wcSocialPreview').classList.remove('hidden');
+    $('wcSocialActions').classList.remove('hidden');
     $('wcShare').addEventListener('click',async()=>{
+      const nombreArchivo=archivo('nuevo-tanner');
       try{
-        const file=new File([blob],fileName,{type:'image/png'});
+        const file=new File([blob],nombreArchivo,{type:'image/png'});
         if(navigator.canShare&&navigator.canShare({files:[file]})){
           await navigator.share({files:[file],title:'Tannery City FC',text:'¡Nuevo Tanner en camino! 🟢⚪ #WeAreTanners'});
           return;
@@ -122,12 +173,10 @@ async function showRegistrationSuccess(cardData){
       }catch(err){if(err?.name==='AbortError')return;}
       let waBase='https://wa.me/?text=';
       try{const ctx=await getPublicContext();if(ctx?.whatsappNumber)waBase=`https://wa.me/${ctx.whatsappNumber}?text=`;}catch{}
-      const text=encodeURIComponent('¡Hola! 👋 Aquí está la imagen de bienvenida (descárgala y adjúntala) para darle seguimiento a mi registro en Tannery City FC.');
-      window.open(`${waBase}${text}`,'_blank','noopener');
+      window.open(`${waBase}${encodeURIComponent('¡Nuevo Tanner en camino! 🟢⚪ #WeAreTanners')}`,'_blank','noopener');
     });
   }catch(err){
-    const status=$('wcStatus');
-    if(status){status.textContent='No pudimos generar la tarjeta, pero tu registro ya quedó guardado.';}
+    $('wcSocialTitle').textContent='No pudimos generar la tarjeta para compartir.';
   }
 }
 
@@ -147,7 +196,7 @@ function registrationForm(campaign){
 async function renderRegistro(campaign=null){setTitle(campaign?.pageTitle||'Registro Tanner');await getPublicContext();show(registrationForm(campaign));wirePhotoField();wirePhoneField('phone','MX');$('birthDate').max=todayInput();const source=$('source'),refWrap=$('referralWrap'),refInput=$('referralName');const toggleReferral=()=>{const on=source.value==='Recomendación';refWrap.classList.toggle('hidden',!on);refInput.required=on;if(!on)refInput.value='';};source.addEventListener('change',toggleReferral);toggleReferral();$('regForm').addEventListener('submit',async e=>{e.preventDefault();msg('');const btn=$('regSubmit');btn.disabled=true;const {missing,first}=collectMissingRequired(e.target);if(!selectedPhotoFile&&!pendingPreparedPhoto){missing.push('Foto del jugador');markInvalid($('photoPreview'));}if(missing.length){msg(missingMessage(missing));focusMissing(first||$('photoPreview'));btn.disabled=false;return;}try{const phone=requirePhone('phone');const registrationType=$('registrationType').value;if(!registrationType)throw new Error('Indica si el registro es de jugador, portero o academia.');if(!pendingPreparedPhoto){btn.textContent='Preparando foto…';pendingPreparedPhoto=await preparePhoto(selectedPhotoFile);}const firstNameVal=$('firstName').value.trim();const lastNameVal=$('lastName').value.trim();const categoryVal=$('category').value||'';if(!pendingProspectId){btn.textContent='Guardando registro…';const regResult=await rpc('v2_public_register_enhanced',{club_key:CLUB_KEY,first_name:firstNameVal,last_name:lastNameVal,birth_date:$('birthDate').value,phone,email:$('email').value.trim()||null,guardian_name:$('guardian').value.trim(),category_interest:categoryVal||null,source_campaign:campaign?.code||'registro_general_2026',source_channel:$('source').value,registration_type:registrationType,purpose:$('purpose').value,dominant_foot:$('dominantFoot').value,school_name:$('school').value.trim(),referral_name:$('referralName').value.trim()||null,public_message:$('publicMessage').value.trim()||null,privacy_notice_version:PRIVACY_NOTICE_VERSION,data_consent:$('regDataConsent').checked,image_consent:$('regImageConsent').checked,sex:$('sex').value||null});pendingProspectId=(regResult&&typeof regResult==='object')?regResult.id:regResult;pendingProspectFolio=(regResult&&typeof regResult==='object')?regResult.folio:null;}if(!pendingUploadedPath){btn.textContent='Subiendo foto…';const ctx=await getPublicContext();pendingUploadedPath=`organizations/${ctx.organizationId}/prospects/${pendingProspectId}/profile.${pendingPreparedPhoto.ext}`;const {error}=await supabase.storage.from(PHOTO_BUCKET).upload(pendingUploadedPath,pendingPreparedPhoto.blob,{contentType:pendingPreparedPhoto.mime,cacheControl: UPLOAD_CACHE_CONTROL,upsert:false});if(error){pendingUploadedPath=null;throw error;}
       // La miniatura va aparte y NUNCA tumba el registro: si falla, el Tanner
       // queda con foto y sin miniatura, que es como quedaban todos antes.
-      if(pendingPreparedPhoto.thumb&&!pendingUploadedThumb){const ctx2=await getPublicContext();const ruta=`organizations/${ctx2.organizationId}/prospects/${pendingProspectId}/profile-thumb.${pendingPreparedPhoto.thumb.ext}`;try{const {error:errThumb}=await supabase.storage.from(PHOTO_BUCKET).upload(ruta,pendingPreparedPhoto.thumb.blob,{contentType:pendingPreparedPhoto.thumb.mime,cacheControl: UPLOAD_CACHE_CONTROL,upsert:false});if(!errThumb)pendingUploadedThumb=ruta;}catch(e){}}}btn.textContent='Finalizando…';await rpc('v2_public_attach_prospect_photo',{club_key:CLUB_KEY,prospect_id:pendingProspectId,photo_path:pendingUploadedPath,photo_thumb_path:pendingUploadedThumb});const cardData={firstName:firstNameVal,lastName:lastNameVal,category:categoryVal,folio:pendingProspectFolio,dateStr:shortDateUpper(),photoUrl:photoPreviewUrl};pendingProspectId=null;pendingProspectFolio=null;pendingPreparedPhoto=null;pendingUploadedPath=null;pendingUploadedThumb=null;await showRegistrationSuccess(cardData);}catch(err){const hasPending=Boolean(pendingProspectId);msg(hasPending?`Tus datos ya quedaron guardados. Falta completar la foto: ${err.message||'intenta nuevamente.'}`:(err.message||'No se pudo enviar el registro.'));btn.disabled=false;btn.textContent=hasPending?'Reintentar foto':'Enviar registro';}});}
+      if(pendingPreparedPhoto.thumb&&!pendingUploadedThumb){const ctx2=await getPublicContext();const ruta=`organizations/${ctx2.organizationId}/prospects/${pendingProspectId}/profile-thumb.${pendingPreparedPhoto.thumb.ext}`;try{const {error:errThumb}=await supabase.storage.from(PHOTO_BUCKET).upload(ruta,pendingPreparedPhoto.thumb.blob,{contentType:pendingPreparedPhoto.thumb.mime,cacheControl: UPLOAD_CACHE_CONTROL,upsert:false});if(!errThumb)pendingUploadedThumb=ruta;}catch(e){}}}btn.textContent='Finalizando…';await rpc('v2_public_attach_prospect_photo',{club_key:CLUB_KEY,prospect_id:pendingProspectId,photo_path:pendingUploadedPath,photo_thumb_path:pendingUploadedThumb});const cardData={firstName:firstNameVal,lastName:lastNameVal,category:categoryVal,folio:pendingProspectFolio,dateStr:shortDateUpper(),photoUrl:photoPreviewUrl,birthDate:$('birthDate').value||null,dominantFoot:$('dominantFoot').value||null,school:$('school').value.trim()||null,imageConsent:$('regImageConsent').checked===true};pendingProspectId=null;pendingProspectFolio=null;pendingPreparedPhoto=null;pendingUploadedPath=null;pendingUploadedThumb=null;await showRegistrationSuccess(cardData);}catch(err){const hasPending=Boolean(pendingProspectId);msg(hasPending?`Tus datos ya quedaron guardados. Falta completar la foto: ${err.message||'intenta nuevamente.'}`:(err.message||'No se pudo enviar el registro.'));btn.disabled=false;btn.textContent=hasPending?'Reintentar foto':'Enviar registro';}});}
 
 async function renderPedido(){setTitle('Pedido Tanner');const products=await rpc('v2_public_products',{club_key:CLUB_KEY});const options=(products||[]).map(p=>`<option value="${p.id}">${p.name} · ${money.format(Number(p.price||0))}</option>`).join('');show(`<div class="eyebrow">TIENDA TANNER</div><h2>Levanta tu pedido</h2><p class="muted">Selecciona el producto y deja tus datos. Administración te contactará para confirmar pago, talla y entrega.</p><form id="orderForm" class="form-grid"><label>Nombre del jugador / cliente<input id="customerName" minlength="2" maxlength="120" required></label>${phoneField('customerPhone','Teléfono (WhatsApp)')}<label>Correo<input id="customerEmail" type="email" maxlength="254"></label><label>Producto<select id="product" required><option value="">Selecciona un producto</option>${options}</select></label><label>Cantidad<input id="qty" type="number" min="1" max="99" value="1" required></label><label>Talla / detalle<input id="notes" maxlength="300" placeholder="Ej. talla 10"></label>${privacyBlock('order')}<div id="formMessage" class="message hidden span-2"></div><button class="primary span-2" type="submit">Confirmar pedido</button></form>`);wirePhoneField('customerPhone','MX');$('orderForm').addEventListener('submit',async e=>{e.preventDefault();msg('');const btn=e.submitter;btn.disabled=true;const {missing,first}=collectMissingRequired(e.target);if(missing.length){msg(missingMessage(missing));focusMissing(first);btn.disabled=false;return;}try{const customerPhone=requirePhone('customerPhone');const at=acceptedAt();const result=await rpc('v2_public_order_enhanced',{club_key:CLUB_KEY,customer_name:$('customerName').value.trim(),customer_phone:customerPhone,customer_email:$('customerEmail').value.trim()||null,items:[{product_id:$('product').value,quantity:Number($('qty').value||1)}],notes:$('notes').value.trim()||null,consent:{dataAccepted:$('orderDataConsent').checked,privacyNoticeVersion:PRIVACY_NOTICE_VERSION,acceptedAt:at,source:'public-web'}});show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>Pedido recibido</h2><p>Tu pedido fue registrado correctamente.</p>${result?.folio?`<div class="folio">${result.folio}</div>`:''}</div>`);}catch(err){msg(err.message||'No se pudo enviar el pedido.');btn.disabled=false;}});}
 

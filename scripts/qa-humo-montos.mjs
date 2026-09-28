@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
-const TIPOS = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.json':'application/json', '.png':'image/png' };
+const TIPOS = { '.html':'text/html', '.js':'text/javascript','.mjs':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.json':'application/json', '.png':'image/png' };
 
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);

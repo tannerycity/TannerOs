@@ -50,7 +50,12 @@ export default function comprobar() {
   // enseñando cuatro monitos identicos: la lista nunca leyo la miniatura. Que
   // una foto se vea, que sea la suya y no la del de al lado, y que se firme la
   // miniatura y no el original, no se puede comprobar sin pintar la pagina.
-  const MAX_EXCLUIDAS = 11;
+  // Sube a 12 por qa-humo-credencial.mjs. Lo que vigila es que el folio, la
+  // escuela y la fecha de nacimiento de un menor NO viajen en la tarjeta que
+  // la familia sube a una historia, y que esa tarjeta no se genere siquiera
+  // sin permiso de imagen. Esa decision vive en el canvas: no hay forma de
+  // comprobarla sin pintar la pagina.
+  const MAX_EXCLUIDAS = 12;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

@@ -2,6 +2,8 @@
 // Dibuja un PNG de 1080x1920 (formato historia de Instagram) en un <canvas>
 // a partir de los datos del registro recién guardado, para compartir por WhatsApp / redes.
 
+import { renglonesDeCredencial, datosParaRedes, puedeCompartirse, ligaDeBusqueda } from '/credencial.js';
+
 const W = 1080, H = 1920;
 
 const FONT_FACES = [
@@ -38,6 +40,47 @@ function ensureFonts() {
     })
   ).then(() => (document.fonts.ready ? document.fonts.ready : null));
   return fontsReadyPromise;
+}
+
+/* El QR que abre al Tanner en TannerOS.
+ *
+ * Es el "identificarlo en chinga": se escanea y sale su expediente, sin
+ * buscar y sin teclear un nombre que se escribe de tres formas.
+ *
+ * La libreria se trae con import() dinamico y no arriba del archivo: son 52 KB
+ * que solo hacen falta cuando de verdad se va a dibujar una credencial. Quien
+ * abre el formulario y no lo termina no los descarga nunca.
+ *
+ * No se escribio a mano a proposito: ver vendor/LEEME.md. Un QR que parece QR
+ * y no escanea es peor que ninguno, porque el de la porteria confia en el. */
+async function drawQR(ctx, texto, x, y, lado) {
+  const { default: qrcode } = await import('/vendor/qrcode.mjs');
+  // Tipo 0 = que la libreria elija la version mas chica que quepa.
+  // Correccion 'M': aguanta ~15% de daño, que es lo que pide una credencial
+  // que va a andar en una mochila.
+  const qr = qrcode(0, 'M');
+  qr.addData(texto);
+  qr.make();
+  const n = qr.getModuleCount();
+  // La zona de silencio no es decoracion: sin ella muchos lectores no
+  // enganchan el codigo. Son cuatro modulos por lado, y van DENTRO del cuadro
+  // que nos dieron, no fuera.
+  const quiet = 4, paso = lado / (n + quiet * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x, y, lado, lado);
+  ctx.fillStyle = COLORS.navy;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (!qr.isDark(r, c)) continue;
+      // Math.ceil en el tamaño: a estas escalas un redondeo hacia abajo deja
+      // rayas blancas entre modulos y el lector lee basura.
+      ctx.fillRect(x + (c + quiet) * paso, y + (r + quiet) * paso,
+                   Math.ceil(paso), Math.ceil(paso));
+    }
+  }
+  ctx.strokeStyle = COLORS.line;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, lado - 1, lado - 1);
 }
 
 function loadImageEl(src) {
@@ -180,7 +223,32 @@ async function safeLoad(src) {
  * Genera la tarjeta de bienvenida como PNG (1080x1920, formato historia).
  * @returns {Promise<{canvas:HTMLCanvasElement, blob:Blob}>}
  */
-export async function renderWelcomeCard({ firstName, lastName, category, folio, dateStr, photoUrl }) {
+/* Dibuja la credencial, o su version para redes.
+ *
+ * Son dos documentos con trabajos opuestos y por eso uno solo no puede
+ * servirles a los dos: la credencial la ve el club y quiere DATOS —edad,
+ * categoria, pie, escuela, folio— y la de redes la comparte la familia y
+ * quiere lo MINIMO, porque una historia de Instagram la ve cualquiera y aqui
+ * hablamos de menores. Que lleva cada una lo decide credencial.js.
+ *
+ * modo: 'credencial' (por defecto) | 'redes' */
+export async function renderWelcomeCard(datos = {}) {
+  const { firstName, lastName, category, folio, dateStr, photoUrl } = datos;
+  const modo = datos.modo === 'redes' ? 'redes' : 'credencial';
+  // El candado vive aqui tambien, no solo en la pantalla: si alguien llama a
+  // esta funcion en modo redes sin permiso, no se dibuja nada.
+  if (modo === 'redes' && !puedeCompartirse(datos)) {
+    throw new Error('Esta familia todavía no autoriza el uso de la imagen del Tanner.');
+  }
+  const paraRedes = modo === 'redes' ? datosParaRedes(datos) : null;
+  /* Lo que de verdad se dibujo.
+   *
+   * Se devuelve porque es lo unico que se puede comprobar sin adivinar
+   * coordenadas: el diseño se acomoda segun cuantos datos traiga el Tanner, y
+   * una prueba que mira un rectangulo fijo de pixeles empieza a mentir en
+   * cuanto alguien mueve un renglon. Esto dice QUE se puso, no DONDE. */
+  const dibujado = { modo, franja: 0, qr: null, letraChica: false, sello: false, foto: null };
+  const filasExtra = modo === 'credencial' ? renglonesDeCredencial(datos) : [];
   await ensureFonts();
 
   const [photoImg, crestGold, wordmarkGold, crestNavy] = await Promise.all([
@@ -235,7 +303,9 @@ export async function renderWelcomeCard({ firstName, lastName, category, folio, 
   ctx.fillRect(W / 2 - 70, 246, 140, 2);
 
   // badge de estatus
-  const badgeText = `CREDENCIAL DE INGRESO ${new Date().getFullYear()}`;
+  const badgeText = modo === 'redes'
+    ? `NUEVO TANNER ${new Date().getFullYear()}`
+    : `CREDENCIAL DE INGRESO ${new Date().getFullYear()}`;
   const badgeFont = '800 16px Inter';
   const badgeSpacing = 4;
   const badgeTextW = measureSpaced(ctx, badgeText, badgeFont, badgeSpacing);
@@ -249,8 +319,21 @@ export async function renderWelcomeCard({ firstName, lastName, category, folio, 
   ctx.stroke();
   drawSpaced(ctx, badgeText, W / 2, pillY + pillH / 2 + 6, badgeFont, badgeSpacing, COLORS.goldLight, 'center');
 
-  // foto + datos
-  const pbX = 90, pbY = 380, pbW = 290, pbH = 360;
+  /* La foto.
+   *
+   * En la credencial es una foto de identificacion: chica, a la izquierda, con
+   * los datos al lado. Es la forma de una credencial porque ahi la foto sirve
+   * para COMPARAR una cara con un nombre.
+   *
+   * En redes manda la foto y punto. Nadie comparte un formulario: se comparte
+   * la cara del hijo. Asi que ocupa todo el ancho y el texto va debajo, que es
+   * como se ve un post de club en cualquier lado. */
+  const esRedes = modo === 'redes';
+  const pbX = esRedes ? 90 : 90;
+  const pbY = esRedes ? 356 : 380;
+  const pbW = esRedes ? W - 180 : 290;
+  const pbH = esRedes ? 900 : 360;
+  dibujado.foto = { x: pbX, y: pbY, w: pbW, h: pbH };
   const pbGrad = ctx.createLinearGradient(pbX, pbY, pbX + pbW, pbY + pbH);
   pbGrad.addColorStop(0, '#e3dac0');
   pbGrad.addColorStop(1, '#efe9d8');
@@ -273,14 +356,74 @@ export async function renderWelcomeCard({ firstName, lastName, category, folio, 
 
   const infoX = 424, infoWidth = W - 90 - infoX;
   let cursorY = pbY + 6;
-  cursorY = drawInfoRow(ctx, { label: 'Nombre', value: `${firstName} ${lastName}`.trim(), x: infoX, width: infoWidth, y: cursorY, valueSize: 50, uppercaseValue: true });
-  cursorY = drawInfoRow(ctx, { label: 'Categoría', value: category || 'Por definir', x: infoX, width: infoWidth, y: cursorY, valueSize: 44 });
-  cursorY = drawInfoRow(ctx, { label: 'Folio · Fecha', value: `${folio || ''} · ${dateStr || ''}`, x: infoX, width: infoWidth, y: cursorY, valueSize: 36 });
+  if (esRedes) {
+    // Nombre grande debajo de la foto, y una sola linea con lo que se presume.
+    const nombre = `${firstName || ''} ${lastName || ''}`.trim().toUpperCase();
+    cursorY = drawCenteredWrapped(ctx, nombre, W / 2, pbY + pbH + 100, 900,
+      '800 76px "Barlow Condensed"', 82, COLORS.navy);
+    const linea = [paraRedes?.categoria, paraRedes?.edad].filter(Boolean).join('  ·  ');
+    if (linea) {
+      drawSpaced(ctx, linea.toUpperCase(), W / 2, cursorY + 52, '800 26px Inter', 4, COLORS.goldDark, 'center');
+      cursorY += 52;
+    }
+  } else {
+    cursorY = drawInfoRow(ctx, { label: 'Nombre', value: `${firstName} ${lastName}`.trim(), x: infoX, width: infoWidth, y: cursorY, valueSize: 50, uppercaseValue: true });
+    cursorY = drawInfoRow(ctx, { label: 'Categoría', value: category || 'Por definir', x: infoX, width: infoWidth, y: cursorY, valueSize: 44 });
+  }
+  // El folio es un numero interno: en una historia de Instagram no le dice
+  // nada a nadie de fuera, y la fecha exacta ubica a un menor sin necesidad.
+  if (modo === 'credencial') {
+    cursorY = drawInfoRow(ctx, { label: 'Folio · Fecha', value: `${folio || ''} · ${dateStr || ''}`, x: infoX, width: infoWidth, y: cursorY, valueSize: 36 });
+  }
 
   const idRowBottom = Math.max(pbY + pbH, cursorY);
 
+  /* La franja de identidad.
+   *
+   * Aqui habia 350px en blanco, casi un quinto de la tarjeta. Y al mismo
+   * tiempo la ficha no decia la edad del Tanner, aunque la fecha de nacimiento
+   * esta capturada en el 100% de ellos.
+   *
+   * Es lo que hace que alguien lo identifique rapido: edad y categoria de un
+   * vistazo, y el resto de lo que se sepa. Solo salen los renglones que tienen
+   * algo que decir —una raya ocupa el mismo lugar que un dato y no sirve—, asi
+   * que un recien registrado sale con dos casillas y no con seis vacias.
+   *
+   * En modo redes no se dibuja: ahi el trabajo es presumir, no identificar. */
+  let cursorTrasFranja = idRowBottom;
+  if (filasExtra.length) {
+    const fx = 90, fw = W - 180, celdaW = fw / Math.min(3, filasExtra.length);
+    const renglones = Math.ceil(filasExtra.length / 3);
+    const celdaH = 104, fy = idRowBottom + 46, fh = celdaH * renglones;
+
+    ctx.fillStyle = '#efe9d8';
+    ctx.fillRect(fx, fy, fw, fh);
+    ctx.strokeStyle = COLORS.line;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(fx + 0.5, fy + 0.5, fw - 1, fh - 1);
+    // Filo dorado a la izquierda, el mismo gesto del sello y del encabezado.
+    ctx.fillStyle = COLORS.gold;
+    ctx.fillRect(fx, fy, 4, fh);
+
+    filasExtra.forEach((fila, i) => {
+      const col = i % 3, ren = Math.floor(i / 3);
+      const cx = fx + col * celdaW, cy = fy + ren * celdaH;
+      if (col > 0) {
+        ctx.strokeStyle = COLORS.line;
+        ctx.beginPath(); ctx.moveTo(cx, cy + 18); ctx.lineTo(cx, cy + celdaH - 18); ctx.stroke();
+      }
+      drawSpaced(ctx, fila.etiqueta.toUpperCase(), cx + 26, cy + 38, '800 15px Inter', 2.5, COLORS.label, 'left');
+      ctx.font = '700 38px "Barlow Condensed"';
+      ctx.fillStyle = COLORS.navy;
+      ctx.textAlign = 'left';
+      ctx.fillText(fila.valor, cx + 26, cy + 78);
+    });
+    cursorTrasFranja = fy + fh;
+    dibujado.franja = filasExtra.length;
+  }
+
   // bienvenida
-  let welcomeTop = idRowBottom + 90;
+  let welcomeTop = cursorTrasFranja + 70;
   ctx.strokeStyle = COLORS.line;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -291,16 +434,52 @@ export async function renderWelcomeCard({ firstName, lastName, category, folio, 
   ctx.font = '600 19px Inter';
   ctx.fillStyle = COLORS.muted;
   ctx.textAlign = 'center';
-  ctx.fillText('Tu registro quedó autenticado en Tannery City F.C.', W / 2, lastBaseline + 40);
+  ctx.fillText(modo === 'redes'
+    ? 'Ya es uno de los nuestros.'
+    : 'Tu registro quedó autenticado en Tannery City F.C.', W / 2, lastBaseline + 40);
   ctx.textAlign = 'left';
 
-  // fine print
-  ctx.fillStyle = COLORS.gold;
-  ctx.fillRect(W / 2 - 32, 1330, 64, 2);
-  drawSpaced(ctx, 'DOCUMENTO GENERADO AUTOMÁTICAMENTE POR TANNEROS', W / 2, 1330 + 38, '600 16px Inter', 0.5, COLORS.fine, 'center');
-  drawSpaced(ctx, 'VÁLIDO COMO COMPROBANTE DE REGISTRO EN TANNERY CITY F.C.', W / 2, 1330 + 66, '600 16px Inter', 0.5, COLORS.fine, 'center');
+  /* La letra chica.
+   *
+   * "DOCUMENTO GENERADO AUTOMATICAMENTE POR TANNEROS" es lo que necesita un
+   * comprobante, y es exactamente lo que sobra en una historia de Instagram:
+   * ahi nadie esta validando un tramite, estan presumiendo a su hijo.
+   *
+   * En redes se deja el hueco a proposito. Ese espacio no esta vacio: es donde
+   * la mama escribe su texto encima, y donde caen los stickers. Una tarjeta
+   * llena de orilla a orilla obliga a taparle algo. */
+  if (modo === 'credencial') {
+    ctx.fillStyle = COLORS.gold;
+    ctx.fillRect(W / 2 - 32, 1330, 64, 2);
+    drawSpaced(ctx, 'DOCUMENTO GENERADO AUTOMÁTICAMENTE POR TANNEROS', W / 2, 1330 + 38, '600 16px Inter', 0.5, COLORS.fine, 'center');
+    drawSpaced(ctx, 'VÁLIDO COMO COMPROBANTE DE REGISTRO EN TANNERY CITY F.C.', W / 2, 1330 + 66, '600 16px Inter', 0.5, COLORS.fine, 'center');
+    dibujado.letraChica = true;
+  }
 
-  // sello
+  /* El QR, en el hueco que quedaba.
+   *
+   * Va abajo a la izquierda, frente al sello, para que la mitad baja de la
+   * credencial tenga las dos marcas de autenticidad: la que se ve y la que se
+   * escanea. Y con su renglon de instrucciones, porque un QR sin decir a donde
+   * lleva no lo escanea nadie.
+   *
+   * En redes no va: ahi el codigo llevaria a un extraño al expediente de un
+   * menor, y ademas nadie escanea una historia de Instagram. */
+  const liga = modo === 'credencial' ? ligaDeBusqueda(folio) : null;
+  if (liga) {
+    const qx = 96, qy = 1470, qLado = 230;
+    await drawQR(ctx, liga, qx, qy, qLado);
+    dibujado.qr = liga;
+    drawSpaced(ctx, 'ESCANEA PARA ABRIRLO', qx, qy + qLado + 34, '800 15px Inter', 2, COLORS.label, 'left');
+    ctx.font = '600 17px Inter';
+    ctx.fillStyle = COLORS.muted;
+    ctx.textAlign = 'left';
+    ctx.fillText('en TannerOS', qx, qy + qLado + 60);
+  }
+
+  // El sello es lenguaje de tramite —sirve en un comprobante, sobra en una
+  // historia de Instagram—, asi que en redes no se dibuja.
+  if (!esRedes) {
   ctx.save();
   ctx.translate(895, 1595);
   ctx.rotate((-9 * Math.PI) / 180);
@@ -325,6 +504,8 @@ export async function renderWelcomeCard({ firstName, lastName, category, folio, 
   drawSpaced(ctx, 'AUTENTICADO', 0, 22, '800 13px Inter', 2, COLORS.navy, 'center');
   drawSpaced(ctx, 'TCFC', 0, 40, '800 13px Inter', 2, COLORS.navy, 'center');
   ctx.restore();
+  dibujado.sello = true;
+  }
 
   // footer
   ctx.fillStyle = COLORS.navy;
@@ -333,5 +514,5 @@ export async function renderWelcomeCard({ firstName, lastName, category, folio, 
   drawSpaced(ctx, '#WEARETANNERS', W / 2, 1876, '800 26px "Barlow Condensed"', 2, '#ffffff', 'center');
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.95));
-  return { canvas, blob };
+  return { canvas, blob, dibujado };
 }

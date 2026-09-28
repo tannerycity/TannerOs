@@ -16,7 +16,7 @@
 
 import http from 'node:http';import fs from 'node:fs';import path from 'node:path';import {chromium} from 'playwright-core';
 const ROOT=path.resolve(path.dirname(new URL(import.meta.url).pathname),'..');
-const T={'.html':'text/html','.css':'text/css','.js':'text/javascript','.mjs':'text/javascript','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json','.json':'application/json'};
+const T={'.html':'text/html','.css':'text/css','.js':'text/javascript','.mjs':'text/javascript','.mjs':'text/javascript','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json','.json':'application/json'};
 
 // El modulo que sustituye a /v2/supabase-client.js. Se sirve tal cual, asi que
 // `createClient()` devuelve un cliente falso y TODO lo demas del repositorio

@@ -94,3 +94,18 @@
 .talla-chip:focus-visible{outline:2px solid #056c7f;outline-offset:2px}
 @media(max-width:420px){.pick-card-foto{grid-template-columns:64px 1fr}
   .pick-foto{width:64px;height:64px}}
+
+/* === Para quién es el pedido ===
+   Quien cobra tiene a la familia enfrente y con prisa. Elegir al Tanner es
+   un toque; teclear nombre, teléfono y correo son tres campos y la gente
+   esperando. */
+.cap-tanner{display:block;margin-bottom:10px}
+.cap-tanner>span{display:block;font-size:11px;font-weight:900;letter-spacing:.05em;
+  text-transform:uppercase;color:#68777d;margin-bottom:6px}
+.cap-quien{display:flex;flex-direction:column;gap:2px;padding:13px 15px;border-radius:15px;
+  background:#eef6f4;border:1px solid #d3e5e1;margin-bottom:10px}
+.cap-quien strong{font-size:16px;font-weight:900;letter-spacing:-.01em;color:#0e3038}
+.cap-quien span{font-size:13px;font-weight:750;color:#4a6870}
+/* Dice qué gana el club, no sólo qué pasó: el pedido entra a su cuenta. */
+.cap-quien small{margin-top:4px;font-size:11.5px;color:#7d8a8f;line-height:1.45}
+#capExterno{margin-top:2px}

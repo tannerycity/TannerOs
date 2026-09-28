@@ -65,12 +65,21 @@ export function renglonesDeCredencial(d = {}) {
   // Sin 'Categoría': ya sale arriba, junto al nombre. Repetir un dato en la
   // misma cara gasta un lugar que otro dato necesitaba, y hace dudar de si son
   // dos cosas distintas.
+  /* Sólo lo que el registro de verdad captura.
+   *
+   * Aquí hubo también 'Dorsal' y 'Posición', y estaban de más: quien acaba de
+   * registrarse es un prospecto, no un Tanner todavía. No tiene dorsal porque
+   * nadie se lo ha asignado, y el formulario público ni siquiera los pregunta.
+   *
+   * Dejar el soporte "por si acaso" no es gratis: hace creer que la credencial
+   * los trae, y el día que alguien la mire vacía va a buscar el bug donde no
+   * está. Cuando exista la credencial del Tanner ya inscrito —esa sí tiene
+   * dorsal (50 de 64) y posición (57 de 64)— se agregan ahí, con quien se los
+   * pase. */
   const filas = [
     ['Edad', edadTexto(d.birthDate, d.hoy)],
     ['Pie', pieTexto(d.dominantFoot)],
-    ['Escuela', d.school ? String(d.school).trim() : null],
-    ['Dorsal', d.jerseyNumber ? `#${String(d.jerseyNumber).trim()}` : null],
-    ['Posición', d.position ? String(d.position).trim() : null]
+    ['Escuela', d.school ? String(d.school).trim() : null]
   ];
   return filas
     .filter(([, valor]) => valor)

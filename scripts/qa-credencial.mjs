@@ -51,17 +51,26 @@ revisa('un valor desconocido no se imprime', pieTexto('xyz') === null && pieText
 {
   const filas = renglonesDeCredencial({
     birthDate: '2018-03-14', category: 'T8', dominantFoot: 'right',
-    school: 'Colegio Léon', jerseyNumber: '7', position: 'Portero', hoy: HOY
+    school: 'Colegio Léon', hoy: HOY
   });
-  revisa('la credencial completa trae sus cinco renglones', filas.length === 5,
+  revisa('la credencial completa trae sus tres renglones', filas.length === 3,
     JSON.stringify(filas.map(f => f.etiqueta)));
   // Se vio al renderizarla: "Categoría" salia dos veces en la misma cara.
   revisa('la categoría no se repite: ya sale junto al nombre',
     !filas.some(f => f.etiqueta === 'Categoría'), JSON.stringify(filas.map(f => f.etiqueta)));
   revisa('la edad va primero, que es lo que más se busca',
     filas[0].etiqueta === 'Edad' && filas[0].valor === '8 años', JSON.stringify(filas[0]));
-  revisa('el dorsal lleva su gato, para leerlo a treinta metros',
-    filas.find(f => f.etiqueta === 'Dorsal').valor === '#7');
+  /* Quien acaba de registrarse es un PROSPECTO, no un Tanner: nadie le ha
+     asignado dorsal, y el formulario publico ni siquiera lo pregunta. Una
+     credencial que lo enseñara estaria inventando. */
+  revisa('un recién registrado NO trae dorsal: todavía no tiene',
+    !filas.some(f => f.etiqueta === 'Dorsal'), JSON.stringify(filas.map(f => f.etiqueta)));
+  revisa('ni posición, por lo mismo',
+    !filas.some(f => f.etiqueta === 'Posición'), JSON.stringify(filas.map(f => f.etiqueta)));
+  // Y mandarlos no los cuela: el registro no los tiene de donde sacar.
+  revisa('aunque alguien los mande, no se imprimen',
+    renglonesDeCredencial({ birthDate: '2018-03-14', jerseyNumber: '7', position: 'Portero', hoy: HOY })
+      .length === 1);
 }
 {
   // El caso real del registro: un Baby Tanner recién inscrito casi no trae nada.

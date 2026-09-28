@@ -40,10 +40,16 @@ const CASOS = [
     firstName: 'Mauricio', lastName: 'Torres Avila', category: 'Baby Tanner',
     folio: 'TC-2026-00020', dateStr: '26 SEP 2026', birthDate: '2024-05-02'
   }],
+  /* OJO: aqui antes venia un dorsal '10' y una posicion 'Mediocampista', y
+     estaba mal. Quien acaba de registrarse es un PROSPECTO: nadie le ha
+     asignado dorsal y el formulario publico ni los pregunta. Un banco de
+     pruebas que inventa datos enseña un producto que no existe — esta imagen
+     se le mando al club y le hizo creer que la credencial traia el dorsal.
+     Los casos de abajo son exactamente lo que el registro puede producir. */
   ['credencial-completa', {
     firstName: 'Maximiliano', lastName: 'de la Torre Zamora', category: 'T12',
     folio: 'TC-2026-00021', dateStr: '28 SEP 2026', birthDate: '2014-03-14',
-    dominantFoot: 'left', school: 'Colegio Valladolid', jerseyNumber: '10', position: 'Mediocampista'
+    dominantFoot: 'left', school: 'Colegio Valladolid'
   }],
   ['redes', {
     firstName: 'Mauricio', lastName: 'Torres Avila', category: 'Baby Tanner',

@@ -1,6 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA, CATEGORIAS, categoriaCanonica, ordenaTallas } from '/v2/tienda.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -55,23 +56,33 @@ async function load(){
   const data=await rpc('v2_catalog',{organization_id:ctx.organization_id});
   products=data?.products||[];
   bundles=data?.bundles||[];
-  renderKpis();
+  renderPendientes();
   renderBundles();
   renderProducts();
 }
 
-function renderKpis(){
-  const activeBundles=bundles.filter(b=>!b.archived);
-  const activeProducts=products.filter(p=>!p.archived);
-  $('kpiBundles').textContent=activeBundles.length;
-  $('kpiBundlesSub').textContent=`${bundles.filter(b=>b.archived).length} archivado(s)`;
-  $('kpiProducts').textContent=activeProducts.length;
-  $('kpiProductsSub').textContent=`${products.filter(p=>p.archived).length} archivado(s)`;
-  const withMargin=activeBundles.filter(b=>b.marginAdultPercent!=null);
-  $('kpiMargin').textContent=withMargin.length?pct(withMargin.reduce((s,b)=>s+Number(b.marginAdultPercent||0),0)/withMargin.length):'—';
-  $('kpiNoCost').textContent=activeProducts.filter(p=>p.cost==null).length;
-  $('kpiMargin').closest('article')?.classList.toggle('hidden',!canFinance);
-  $('kpiNoCost').closest('article')?.classList.toggle('hidden',!canFinance);
+/* Una pantalla no tiene por que decir lo que ya se ve.
+
+   Aqui habia cuatro mosaicos: kits activos, productos activos, margen
+   promedio y sin costo. Con tres kits y ocho productos listados justo abajo,
+   los dos primeros contaban algo que el ojo cuenta solo, y el margen promedio
+   de los kits no es una decision: nadie cambia un precio por ese numero.
+
+   Queda lo unico que pide accion —lo que falta capturar— y en una sola linea
+   que DESAPARECE cuando no hay nada pendiente. Un tablero que siempre dice
+   algo deja de leerse; uno que habla poco se lee siempre. */
+function renderPendientes(){
+  const vivos=products.filter(p=>!p.archived&&p.active);
+  const faltas=[];
+  const sinCosto=canFinance?vivos.filter(p=>p.cost==null).length:0;
+  const sinFoto=vivos.filter(p=>!p.photoThumbPath&&!p.photoPath).length;
+  // El costo primero: sin el, el margen de los kits es una cuenta incompleta.
+  if(sinCosto)faltas.push(`${sinCosto} sin costo`);
+  if(sinFoto)faltas.push(`${sinFoto} sin foto`);
+  const linea=$('pendientes');
+  if(!linea)return;
+  linea.textContent=faltas.length?`Te falta capturar: ${faltas.join(' · ')}.`:'';
+  linea.classList.toggle('hidden',!faltas.length);
 }
 
 function bundleCard(b){
@@ -164,10 +175,8 @@ function openBundleDrawer(b){
   $('bundleForm').classList.remove('hidden');
   $('productForm').classList.add('hidden');
   $('bName').value=b?.name||'';
-  $('bDescription').value=b?.description||'';
   $('bPriceAdult').value=b?.priceAdult??'';
   $('bPriceKid').value=b?.priceKid??'';
-  $('bValidUntil').value=b?.validUntil||'';
   $('bActive').checked=b?b.active:true;
   const addSel=$('bAddProduct');
   addSel.innerHTML=products.filter(p=>!p.archived).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.sku?' · '+esc(p.sku):''}</option>`).join('')||'<option value="">Sin productos disponibles</option>';
@@ -206,10 +215,22 @@ function recomputeBundlePreview(){
     const p=products.find(x=>x.id===c.productId);
     if(!p||p.cost==null)complete=false;else cost+=Number(p.cost)*c.qty;
   });
-  $('bCostPreview').textContent=canFinance?(complete&&draft.components.length?money.format(cost):'Pendiente'):'—';
+  // Tres renglones diciendo "—" son tres renglones que no dicen nada. La caja
+  // entera aparece cuando el costo de todas las piezas esta capturado; si
+  // falta uno, en su lugar va una frase que SI acciona.
   const priceAdult=Number($('bPriceAdult').value||0),priceKid=Number($('bPriceKid').value||0);
-  $('bMarginAdultPreview').textContent=canFinance&&complete&&priceAdult>0?pct((priceAdult-cost)/priceAdult*100):'—';
-  $('bMarginKidPreview').textContent=canFinance&&complete&&priceKid>0?pct((priceKid-cost)/priceKid*100):'—';
+  const puede=canFinance&&complete&&draft.components.length>0;
+  $('bMargenCaja')?.classList.toggle('hidden',!puede);
+  const aviso=$('bSinCosto');
+  if(aviso){
+    const falta=canFinance&&draft.components.length>0&&!complete;
+    aviso.classList.toggle('hidden',!falta);
+    if(falta)aviso.textContent='Falta el costo de alguna pieza, por eso no se puede calcular el margen.';
+  }
+  if(!puede)return;
+  $('bCostPreview').textContent=money.format(cost);
+  $('bMarginAdultPreview').textContent=priceAdult>0?pct((priceAdult-cost)/priceAdult*100):'—';
+  $('bMarginKidPreview').textContent=priceKid>0?pct((priceKid-cost)/priceKid*100):'—';
 }
 $('bAddBtn')?.addEventListener('click',()=>{
   const pid=$('bAddProduct').value;if(!pid)return;
@@ -233,12 +254,12 @@ async function saveBundle(){
       organization_id:ctx.organization_id,
       id:draft.id,
       name,
-      description:$('bDescription').value.trim()||null,
+      description:current?.description??null,   // ya no se edita aqui: se conserva
       price_adult:priceAdult||null,
       price_kid:priceKid||null,
       components:draft.components.map(c=>({productId:c.productId,qty:c.qty})),
       active:$('bActive').checked,
-      valid_until:$('bValidUntil').value||null,
+      valid_until:current?.validUntil??null,    // idem
       notes:current?.notes??null
     });
     await load();
@@ -344,6 +365,70 @@ $('pPhotoClear')?.addEventListener('click',()=>{
   drawerMsg('La foto se quita al guardar el producto.','success');
 });
 
+
+/* ---- Lo que se toca en vez de teclearse ----
+
+   Dos campos del formulario eran texto libre, y los dos producian basura que
+   sale cara mas adelante:
+
+     La CATEGORIA la lee la hoja de produccion para saber si una pieza es
+     playera, short o calcetas, y con eso decide en que columna cae su talla.
+     Escrita a mano acabaron conviviendo cinco formas para ocho productos.
+
+     Las TALLAS eran doce valores tecleados con coma. Es el campo mas tedioso
+     de la pantalla y el que hizo que en los pedidos reales convivieran "12",
+     "Mediana" y "Universal" para decir cosas parecidas.
+
+   Los dos siguen aceptando algo fuera de catalogo —un producto raro no puede
+   quedar sin poder capturarse— pero el camino normal es un toque. */
+let catElegida=null, tallasElegidas=[];
+
+function pintaCategoria(){
+  const cont=$('pCatChips');if(!cont)return;
+  cont.innerHTML=CATEGORIAS.map(c=>
+    `<button type="button" class="chip${catElegida===c.valor?' on':''}" data-cat="${esc(c.valor)}">${esc(c.etiqueta)}</button>`).join('')
+    +`<button type="button" class="chip${catElegida==='__otro'?' on':''}" data-cat="__otro">Otro</button>`;
+  $('pCategory').classList.toggle('hidden',catElegida!=='__otro');
+}
+$('pCatChips')?.addEventListener('click',e=>{
+  const b=e.target.closest('[data-cat]');if(!b)return;
+  catElegida=b.dataset.cat;
+  if(catElegida==='__otro')setTimeout(()=>$('pCategory').focus(),0);
+  pintaCategoria();
+});
+function categoriaDelFormulario(){
+  if(catElegida==='__otro')return $('pCategory').value.trim()||null;
+  return catElegida||null;
+}
+
+function pintaTallas(){
+  const cont=$('pSizeChips');if(!cont)return;
+  cont.innerHTML=[...ESCALA_CLUB,TALLA_UNICA].map(t=>
+    `<button type="button" class="chip${tallasElegidas.includes(t)?' on':''}" data-talla="${esc(t)}">${esc(t)}</button>`).join('');
+  const n=tallasElegidas.length;
+  $('pSizesCount').textContent=n?`· ${n}`:'· ninguna';
+}
+$('pSizeChips')?.addEventListener('click',e=>{
+  const b=e.target.closest('[data-talla]');if(!b)return;
+  const t=b.dataset.talla;
+  // Universal es excluyente: un producto de talla unica no tiene doce tallas.
+  if(t===TALLA_UNICA)tallasElegidas=tallasElegidas.includes(t)?[]:[TALLA_UNICA];
+  else tallasElegidas=ordenaTallas(
+    tallasElegidas.filter(x=>x!==TALLA_UNICA).includes(t)
+      ? tallasElegidas.filter(x=>x!==t)
+      : [...tallasElegidas.filter(x=>x!==TALLA_UNICA),t]);
+  pintaTallas();
+});
+// Capturar doce tallas a mano, producto por producto, es donde se abandona.
+document.querySelectorAll('[data-escala]').forEach(b=>b.addEventListener('click',()=>{
+  const cual=b.dataset.escala;
+  tallasElegidas = cual==='club'?[...ESCALA_CLUB]
+    : cual==='ninos'?[...ESCALA_NINOS]
+    : cual==='adultos'?[...ESCALA_ADULTOS]
+    : cual==='unica'?[TALLA_UNICA] : [];
+  pintaTallas();
+}));
+
 /* ---------- Drawer: producto ---------- */
 function openProductDrawer(p){
   draft={mode:'product',id:p?.id||null,components:[]};
@@ -354,10 +439,15 @@ function openProductDrawer(p){
   $('bundleForm').classList.add('hidden');
   $('pName').value=p?.name||'';
   $('pSku').value=p?.sku||'';
-  $('pCategory').value=p?.category||'';
   $('pPrice').value=p?.price??'';
   $('pCost').value=p?.cost??'';
-  $('pSizes').value=Array.isArray(p?.sizes)?p.sizes.join(', '):'';
+  // Una categoria vieja se traduce a su boton en vez de mandarla a "Otro": si
+  // no, abrir un producto migrado parece que no tuviera categoria.
+  const canon=categoriaCanonica(p?.category);
+  catElegida=canon||(p?.category?'__otro':null);
+  $('pCategory').value=canon?'':(p?.category||'');
+  tallasElegidas=ordenaTallas(Array.isArray(p?.sizes)?p.sizes.map(x=>String(x).trim()).filter(Boolean):[]);
+  pintaCategoria();pintaTallas();
   $('pActive').checked=p?p.active:true;
   $('pArchiveToggle').classList.toggle('hidden',!p);
   $('pArchiveToggle').textContent=p?.archived?'Restaurar producto':'Archivar producto';
@@ -366,9 +456,13 @@ function openProductDrawer(p){
   recomputeProductPreview();
   openDrawer();
 }
+/* El margen en "—" es un renglon que ocupa lugar para decir que no sabe. Se
+   muestra cuando puede decir un numero, y si no, no esta. */
 function recomputeProductPreview(){
   const price=Number($('pPrice').value||0),cost=$('pCost').value===''?null:Number($('pCost').value);
-  $('pMarginPreview').textContent=canFinance&&price>0&&cost!=null?pct((price-cost)/price*100):'—';
+  const puede=canFinance&&price>0&&cost!=null;
+  $('pMargenCaja')?.classList.toggle('hidden',!puede);
+  if(puede)$('pMarginPreview').textContent=pct((price-cost)/price*100);
 }
 ['pPrice','pCost'].forEach(id=>$(id)?.addEventListener('input',recomputeProductPreview));
 async function saveProduct(){
@@ -378,7 +472,7 @@ async function saveProduct(){
   if(price==null||price<0){drawerMsg('El precio debe ser mayor o igual a 0.');return;}
   const cost=$('pCost').value===''?null:Number($('pCost').value);
   if(cost!=null&&cost<0){drawerMsg('El costo no puede ser negativo.');return;}
-  const sizes=$('pSizes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const sizes=[...tallasElegidas];
   const current=draft.id?products.find(x=>x.id===draft.id):null;
   const btn=$('pSave');btn.disabled=true;
   let guardado=false;
@@ -388,7 +482,7 @@ async function saveProduct(){
       id:draft.id,
       name,
       sku:$('pSku').value.trim()||null,
-      category:$('pCategory').value.trim()||null,
+      category:categoriaDelFormulario(),
       price,
       cost,
       sizes,

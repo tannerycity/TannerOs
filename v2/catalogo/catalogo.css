@@ -84,3 +84,47 @@
   .field-grid{grid-template-columns:1fr;}
   .margin-preview{grid-template-columns:1fr;}
 }
+
+/* ---- Lo que se toca en vez de teclearse ----
+
+   44px es el minimo para el dedo en un iPhone, y esta pantalla se usa de pie
+   en el mostrador tanto como sentado. Un chip mas chico obliga a apuntar, y
+   apuntar con la gente esperando es donde se toca el de al lado. */
+.campo-toques{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.campo-titulo{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#5d7177;}
+.campo-titulo small{font-weight:700;letter-spacing:0;text-transform:none;color:#8b9ba0;}
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{
+  min-width:44px;min-height:44px;padding:0 14px;border-radius:12px;
+  border:1.5px solid #dbe5e3;background:#fff;color:#2b3d43;
+  font-size:14px;font-weight:750;cursor:pointer;
+}
+.chip:hover{border-color:var(--teal);}
+/* El elegido se lee de un vistazo, sin tener que comparar tonos. */
+.chip.on{background:var(--teal);border-color:var(--teal);color:#fff;}
+.chips-otro{margin-top:2px;}
+
+/* Los atajos son texto, no botones: capturar las doce tallas es lo normal y
+   tiene que estar a un toque, pero no compite con lo que sí es una decision. */
+.chips-atajos{display:flex;flex-wrap:wrap;gap:14px;margin-top:2px;}
+.atajo{
+  border:0;background:none;padding:6px 0;cursor:pointer;
+  font-size:13px;font-weight:700;color:var(--teal);text-decoration:underline;
+  text-underline-offset:3px;
+}
+
+/* Lo que falta capturar. Aparece solo cuando hay algo que hacer: una linea que
+   siempre dice algo deja de leerse. */
+.pendientes{
+  margin:0 0 14px;padding:10px 14px;border-radius:12px;
+  background:#fdf6ec;color:#7a5a22;font-size:13px;font-weight:650;
+}
+
+/* Archivar no es hermano de Guardar. Guardar es lo que se viene a hacer;
+   archivar pasa una vez al año y no debe verse como una opcion igual de
+   probable, ni estar donde cae el pulgar por inercia. */
+.accion-menor{
+  display:block;margin:18px auto 0;border:0;background:none;cursor:pointer;
+  font-size:13px;font-weight:700;color:#8b6b6b;text-decoration:underline;
+  text-underline-offset:3px;padding:8px;
+}

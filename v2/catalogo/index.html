@@ -9,15 +9,9 @@
 
   <section class="hero">
     <div><div class="eyebrow">COMERCIO · CATÁLOGO</div><h1>Kits y productos</h1><p class="muted">Arma los kits, define sus piezas y precios, y revisa el margen antes de publicarlos en Pedidos y en la tienda.</p></div>
-    <span class="health"><i></i> Información actualizada</span>
   </section>
 
-  <section class="kpis compact-kpis">
-    <article><span>Kits activos</span><strong id="kpiBundles">0</strong><small id="kpiBundlesSub">—</small></article>
-    <article><span>Productos activos</span><strong id="kpiProducts">0</strong><small id="kpiProductsSub">—</small></article>
-    <article><span>Margen prom. kits</span><strong id="kpiMargin">—</strong><small>sobre precio adulto</small></article>
-    <article><span>Sin costo capturado</span><strong id="kpiNoCost">0</strong><small>productos activos</small></article>
-  </section>
+  <p id="pendientes" class="pendientes hidden"></p>
 
   <section class="panel" id="bundlesPanel">
     <div class="panel-head"><div><div class="eyebrow">KITS</div><h2>Paquetes configurados</h2><p class="muted">Lo que se vende como una sola pieza (jersey + short + calcetas, etc.). Esto es lo que ve quien registra un pedido.</p></div><button id="newBundleBtn" class="primary mini hidden" type="button">+ Nuevo kit</button></div>
@@ -43,11 +37,9 @@
   <div id="bundleForm" class="hidden">
     <div class="field-grid">
       <label><span>Nombre del kit</span><input id="bName" type="text" maxlength="120" placeholder="Ej. Kit Tanner - Completo"></label>
-      <label><span>Descripción</span><input id="bDescription" type="text" maxlength="200" placeholder="Opcional"></label>
       <label><span>Precio adulto</span><input id="bPriceAdult" type="number" min="0" step="0.01"></label>
       <label><span>Precio niño</span><input id="bPriceKid" type="number" min="0" step="0.01" placeholder="Opcional"></label>
-      <label><span>Vigente hasta</span><input id="bValidUntil" type="date"></label>
-      <label class="inline-check-label"><input id="bActive" type="checkbox"> Kit activo (visible para vender)</label>
+      <label class="inline-check-label"><input id="bActive" type="checkbox"> Se vende en la tienda</label>
     </div>
 
     <div class="drawer-subhead">Piezas del kit</div>
@@ -58,28 +50,43 @@
       <button id="bAddBtn" class="secondary mini" type="button">Agregar pieza</button>
     </div>
 
-    <div class="margin-preview">
-      <div><span>Costo total del kit</span><strong id="bCostPreview">—</strong></div>
+    <p id="bSinCosto" class="pendientes hidden"></p>
+    <div id="bMargenCaja" class="margin-preview hidden">
+      <div><span>Cuesta</span><strong id="bCostPreview">—</strong></div>
       <div><span>Margen adulto</span><strong id="bMarginAdultPreview">—</strong></div>
       <div><span>Margen niño</span><strong id="bMarginKidPreview">—</strong></div>
     </div>
 
     <div class="drawer-actions">
-      <button id="bSave" class="primary" type="button">Guardar kit</button>
-      <button id="bArchiveToggle" class="secondary" type="button"></button>
+      <button id="bSave" class="primary" type="button">Guardar</button>
     </div>
+    <button id="bArchiveToggle" class="accion-menor" type="button"></button>
   </div>
 
   <div id="productForm" class="hidden">
     <div class="field-grid">
       <label><span>Nombre</span><input id="pName" type="text" maxlength="160" placeholder="Ej. Jersey Local"></label>
       <label><span>SKU</span><input id="pSku" type="text" maxlength="60" placeholder="Opcional"></label>
-      <label><span>Categoría</span><input id="pCategory" type="text" maxlength="60" placeholder="jersey, short, socks…"></label>
       <label><span>Precio de venta</span><input id="pPrice" type="number" min="0" step="0.01"></label>
       <label><span>Costo</span><input id="pCost" type="number" min="0" step="0.01" placeholder="Déjalo vacío si aún no lo sabes"></label>
-      <label><span>Tallas (separadas por coma)</span><input id="pSizes" type="text" placeholder="Ej. 8, 10, 12, 14, Adulto"></label>
-      <label class="inline-check-label"><input id="pActive" type="checkbox"> Producto activo (visible para vender)</label>
     </div>
+    <div class="campo-toques">
+      <span class="campo-titulo">Qué es</span>
+      <div id="pCatChips" class="chips"></div>
+      <input id="pCategory" type="text" maxlength="60" class="chips-otro hidden" placeholder="Escríbelo">
+    </div>
+    <div class="campo-toques">
+      <span class="campo-titulo">Tallas <small id="pSizesCount"></small></span>
+      <div id="pSizeChips" class="chips"></div>
+      <div class="chips-atajos">
+        <button type="button" class="atajo" data-escala="club">Escala del club</button>
+        <button type="button" class="atajo" data-escala="ninos">Sólo niños</button>
+        <button type="button" class="atajo" data-escala="adultos">Sólo adultos</button>
+        <button type="button" class="atajo" data-escala="unica">Talla única</button>
+        <button type="button" class="atajo" data-escala="limpiar">Ninguna</button>
+      </div>
+    </div>
+    <label class="inline-check-label"><input id="pActive" type="checkbox"> Se vende en la tienda</label>
     <div class="photo-field">
       <div id="pPhotoBox" class="photo-box"><span>Sin foto</span></div>
       <div class="photo-copy">
@@ -92,13 +99,13 @@
         </div>
       </div>
     </div>
-    <div class="margin-preview single">
+    <div id="pMargenCaja" class="margin-preview single hidden">
       <div><span>Margen</span><strong id="pMarginPreview">—</strong></div>
     </div>
     <div class="drawer-actions">
-      <button id="pSave" class="primary" type="button">Guardar producto</button>
-      <button id="pArchiveToggle" class="secondary" type="button"></button>
+      <button id="pSave" class="primary" type="button">Guardar</button>
     </div>
+    <button id="pArchiveToggle" class="accion-menor" type="button"></button>
   </div>
 </aside>
 <script type="module" src="/v2/tos-dialog.js"></script>

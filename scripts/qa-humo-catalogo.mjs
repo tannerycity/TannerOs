@@ -133,6 +133,94 @@ revisa('abrir un producto sigue funcionando', await (async()=>{
   return (await pg.inputValue('#pName')).length>0;
 })());
 
+
+/* ===== La pantalla simple: lo que se quito y lo que quedo =====
+ *
+ * "No tantos botones, solo lo necesario." La regla no es quitar por gusto: se
+ * midio que campo estaba vacio en la realidad y se quito ese. Descripcion del
+ * kit y Vigente hasta estaban en 0 de 3 kits; SKU en 8 de 8, y se quedo.
+ */
+// La revision anterior dejo el panel abierto, y un panel abierto tapa la lista.
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
+
+revisa('se fueron los cuatro mosaicos de KPI',
+  (await pg.$$eval('.kpis article',n=>n.length))===0);
+revisa('y la pastilla que decia "Informacion actualizada"',
+  (await pg.$$eval('.health',n=>n.length))===0);
+// Con 3 productos sin costo y 1 sin foto, la linea tiene algo que decir.
+const pend=(await pg.textContent('#pendientes'))||'';
+revisa('la linea de pendientes dice lo que falta capturar',
+  /sin costo|sin foto/.test(pend), pend);
+
+// El formulario de producto
+await pg.click('#productList .catalog-card');
+await pg.waitForSelector('#productForm:not(.hidden)',{timeout:5000});
+revisa('la categoria ya no se teclea: se toca',
+  (await pg.$$eval('#pCatChips .chip',n=>n.length))===6,
+  `chips de categoria: ${await pg.$$eval('#pCatChips .chip',n=>n.length)}`);
+revisa('el jersey abre con SU categoria ya prendida',
+  (await pg.$eval('#pCatChips .chip.on',n=>n.textContent.trim()))==='Jersey',
+  await pg.$eval('#pCatChips .chip.on',n=>n.textContent.trim()).catch(()=>'ninguna'));
+revisa('las tallas tampoco se teclean',
+  (await pg.$$eval('#pSizeChips .chip',n=>n.length))===13);
+revisa('y el jersey abre con sus doce prendidas',
+  (await pg.$$eval('#pSizeChips .chip.on',n=>n.length))===12);
+
+// El atajo que evita teclear doce valores producto por producto.
+await pg.click('[data-escala="ninos"]');
+revisa('"Solo ninos" deja seis tallas de un toque',
+  (await pg.$$eval('#pSizeChips .chip.on',n=>n.length))===6);
+await pg.click('[data-escala="unica"]');
+revisa('"Talla unica" es excluyente: no deja doce tallas y ademas Universal',
+  (await pg.$$eval('#pSizeChips .chip.on',n=>n.length))===1
+  && (await pg.$eval('#pSizeChips .chip.on',n=>n.textContent.trim()))==='Universal');
+await pg.click('[data-escala="club"]');
+revisa('"Escala del club" las regresa todas',
+  (await pg.$$eval('#pSizeChips .chip.on',n=>n.length))===12);
+
+// Y tocando Universal directo, no solo por el atajo: un producto de talla
+// unica con doce tallas ademas es un producto que miente en la tienda.
+await pg.click('#pSizeChips .chip[data-talla="Universal"]');
+revisa('tocar Universal apaga las doce: es excluyente',
+  (await pg.$$eval('#pSizeChips .chip.on',n=>n.length))===1,
+  `prendidas: ${await pg.$$eval('#pSizeChips .chip.on',n=>n.map(x=>x.textContent.trim()).join(','))}`);
+// Y al reves: tocar una talla normal quita Universal.
+await pg.click('#pSizeChips .chip[data-talla="12"]');
+revisa('tocar una talla normal quita Universal',
+  (await pg.$$eval('#pSizeChips .chip.on',n=>n.map(x=>x.textContent.trim()).join(',')))==='12');
+await pg.click('[data-escala="club"]');
+
+// 44px es el minimo para el dedo, y esto se usa de pie en el mostrador.
+const alto=await pg.$eval('#pSizeChips .chip',n=>Math.round(n.getBoundingClientRect().height));
+revisa('los botones miden al menos 44px para el dedo', alto>=44, `alto=${alto}px`);
+
+// Hay dos formularios en el panel: se cuenta el del producto, no los dos.
+revisa('archivar dejo de ser hermano de Guardar',
+  (await pg.$$eval('#productForm .drawer-actions button',n=>n.length))===1
+  && await pg.isVisible('#pArchiveToggle')
+  && (await pg.$eval('#pArchiveToggle',n=>n.className)).includes('accion-menor'),
+  await pg.$eval('#pArchiveToggle',n=>n.className));
+
+// El margen solo aparece cuando puede decir un numero.
+revisa('sin costo capturado no hay renglon de margen en "—"',
+  await pg.isHidden('#pMargenCaja'));
+await pg.fill('#pCost','400');
+await pg.waitForTimeout(150);
+revisa('al capturar el costo, el margen aparece con su numero',
+  await pg.isVisible('#pMargenCaja')
+  && /%/.test(await pg.textContent('#pMarginPreview')),
+  await pg.textContent('#pMarginPreview'));
+
+// El kit perdio los dos campos que nadie lleno nunca.
+await pg.click('#closeDrawer');
+await pg.click('#bundleList .catalog-card');
+await pg.waitForSelector('#bundleForm:not(.hidden)',{timeout:5000});
+revisa('el kit ya no pide descripcion', (await pg.$$('#bDescription')).length===0);
+revisa('ni fecha de vigencia', (await pg.$$('#bValidUntil')).length===0);
+revisa('pero sigue pidiendo precio de nino, que si se usa en los tres kits',
+  await pg.isVisible('#bPriceKid'));
+await pg.click('#closeDrawer');
+
 revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 revisa('sin scroll horizontal en un teléfono',
   await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
@@ -140,5 +228,5 @@ revisa('sin scroll horizontal en un teléfono',
 await nav.close(); srv.close();
 console.log(fallos
   ? `Catálogo humo FAILED · ${fallos} de ${corridas}`
-  : `Catálogo humo OK · ${corridas} revisiones, incluida la foto que se subió y no se veía`);
+  : `Catálogo humo OK · ${corridas} revisiones, incluida la foto que no se veía y la pantalla que se podó con evidencia`);
 process.exit(fallos?1:0);

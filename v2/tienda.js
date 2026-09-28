@@ -170,3 +170,66 @@ export function acomodaVitrina(productos = []) {
     .sort((a, b) => ordenDeVitrina(a) - ordenDeVitrina(b)
       || String(a?.name || '').localeCompare(String(b?.name || ''), 'es'));
 }
+
+/* ---- La escala de tallas del club ----
+
+   Confirmada por Presidencia: niños de 6 a 16, adultos de XS a XXL. Vive aquí
+   y no en la pantalla porque la usan las tres tiendas y el formulario que las
+   captura: si cada una escribe su propia lista, vuelven a convivir "12",
+   "Mediana" y "Universal" para decir cosas parecidas, y el proveedor recibe
+   esa hoja y adivina. */
+export const ESCALA_NINOS = ['6', '8', '10', '12', '14', '16'];
+export const ESCALA_ADULTOS = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+export const ESCALA_CLUB = [...ESCALA_NINOS, ...ESCALA_ADULTOS];
+export const TALLA_UNICA = 'Universal';
+
+/* Ordena unas tallas como las ordena el club, no como las ordena el alfabeto.
+   Alfabéticamente la 10 va antes que la 8 y la S antes que la XS: en una hoja
+   de corte eso se lee mal y se corta peor. */
+export function ordenaTallas(tallas = []) {
+  const pos = t => {
+    const i = ESCALA_CLUB.indexOf(String(t).trim());
+    return i < 0 ? ESCALA_CLUB.length : i;
+  };
+  return [...tallas].sort((a, b) => pos(a) - pos(b) || String(a).localeCompare(String(b), 'es'));
+}
+
+/* ---- Qué es cada producto ----
+
+   La categoría no es una etiqueta decorativa: la hoja de producción la lee
+   para saber si una pieza es playera, short o calcetas, y con eso decide en
+   qué columna cae su talla. Escrita a mano acabaron conviviendo cinco formas
+   distintas para ocho productos —"Jersey / Playera", "jersey", "Jersey",
+   "Short", "shorts"—, así que aquí está la lista cerrada.
+
+   El valor es el que se guarda; la etiqueta es la que se toca. Cambiar un
+   valor de esta lista rompe la hoja de producción: v2/produccion/hoja.js tiene
+   que seguir clasificándolos bien, y scripts/qa-tienda.mjs lo comprueba. */
+/* Sin 'kit' a proposito. Un kit no es una pieza: se arma en el panel de KITS
+   escogiendo las piezas que lo forman. Ofrecerlo tambien como categoria de
+   producto abre un segundo camino para lo mismo —y el segundo camino es el
+   que produce un "producto" llamado Kit que ningun kit conoce—. Lo encontro
+   la prueba: la hoja de produccion no sabia que hacer con el. */
+export const CATEGORIAS = [
+  { valor: 'jersey',    etiqueta: 'Jersey' },
+  { valor: 'shorts',    etiqueta: 'Short' },
+  { valor: 'socks',     etiqueta: 'Calcetas' },
+  { valor: 'outerwear', etiqueta: 'Sudadera' },
+  { valor: 'pants',     etiqueta: 'Pants' }
+];
+
+/* Traduce lo que ya está guardado a uno de los valores de arriba, para que al
+   abrir un producto viejo se le prenda su botón en vez de mandarlo a "Otro" y
+   hacer creer que no tiene categoría. */
+export function categoriaCanonica(texto) {
+  const c = String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  if (!c) return null;
+  if (/\bkit\b|\bpaquete\b/.test(c)) return 'kit';
+  if (/\bjersey\b|\bplayera\b|\buniforme\b|\bconjunto\b/.test(c)) return 'jersey';
+  if (/\bshort\b|\bshorts\b/.test(c)) return 'shorts';
+  if (/\bsock\b|\bsocks\b|\bcalceta\b|\bcalcetas\b/.test(c)) return 'socks';
+  if (/\bhoodie\b|\bsudadera\b|\bchamarra\b|\bouterwear\b/.test(c)) return 'outerwear';
+  if (/\bpants\b|\bpantalon\b/.test(c)) return 'pants';
+  return null;   // no se fuerza: lo que no cuadra se queda como lo escribieron
+}

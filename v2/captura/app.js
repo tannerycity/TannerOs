@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -44,14 +45,48 @@ function bundleCard(b){
   btn.addEventListener('click',()=>openBundleDrawer(b));
   return btn;
 }
+/* La tarjeta que se ve como tienda.
+
+   Antes era tres renglones de texto. Una playera se elige con los ojos: el
+   club tiene cuatro jerseys que se distinguen por color y corte, y leer
+   "Jersey Pink Cantera - Away Edition" no es lo mismo que verla.
+
+   La foto entra DESPUÉS, firmada, igual que en Jugadores: primero se pinta
+   el monograma para que la cuadrícula no espere a la red, y la imagen cae
+   encima cuando llega. Un producto sin foto se queda con su monograma y la
+   tienda sigue sirviendo — no se rompe por un dato que falta. */
 function productCard(p){
-  const btn=document.createElement('button');btn.type='button';btn.className='pick-card';
-  btn.innerHTML=`<strong>${esc(p.name)}</strong><span>${esc(p.category||'Producto')}</span><b>${money.format(Number(p.price||0))}</b>`;
+  const btn=document.createElement('button');btn.type='button';btn.className='pick-card pick-card-foto';
+  const iniciales=String(p.name||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'T';
+  const foto=p.photoThumbPath||p.photoPath;
+  const attr=foto?` data-photo-path="${esc(foto)}" data-photo-bucket="${esc(p.photoBucket||'tanneros-private')}"`:'';
+  const tallas=Array.isArray(p.sizes)?p.sizes.length:0;
+  btn.innerHTML=`<span class="pick-foto"${attr}><b aria-hidden="true">${esc(iniciales)}</b></span>`
+    +`<span class="pick-datos"><strong>${esc(p.name)}</strong>`
+    +`<span>${esc(p.category||'Producto')}${tallas?` · ${tallas} tallas`:''}</span>`
+    +`<b>${money.format(Number(p.price||0))}</b></span>`;
   btn.addEventListener('click',()=>openProductDrawer(p));
   return btn;
 }
+// Las URLs firmadas caducan, así que se piden al pintar y no se guardan.
+async function firmaFotos(){
+  const caras=[...document.querySelectorAll('.pick-foto[data-photo-path]')];
+  if(!caras.length)return;
+  const porBucket={};
+  caras.forEach(el=>{const b=el.dataset.photoBucket||'tanneros-private';(porBucket[b]=porBucket[b]||[]).push(el.dataset.photoPath);});
+  for(const bucket of Object.keys(porBucket)){
+    try{
+      const mapa=await getSignedPhotoUrls(supabase,bucket,porBucket[bucket]);
+      caras.forEach(el=>{
+        if((el.dataset.photoBucket||'tanneros-private')!==bucket)return;
+        const url=mapa[el.dataset.photoPath];
+        if(url)el.innerHTML=`<img src="${esc(url)}" alt="" loading="lazy" decoding="async">`;
+      });
+    }catch(e){/* sin foto se queda el monograma: la tienda no depende de ella */}
+  }
+}
 function renderBundleGrid(){const g=$('bundleGrid');g.innerHTML='';$('bundleEmpty').classList.toggle('hidden',bundles.length>0);bundles.forEach(b=>g.appendChild(bundleCard(b)));}
-function renderProductGrid(){const g=$('productGrid');g.innerHTML='';$('productEmpty').classList.toggle('hidden',products.length>0);products.forEach(p=>g.appendChild(productCard(p)));}
+function renderProductGrid(){const g=$('productGrid');g.innerHTML='';$('productEmpty').classList.toggle('hidden',products.length>0);products.forEach(p=>g.appendChild(productCard(p)));firmaFotos();}
 
 /* ---------- Drawer: kit ---------- */
 function bundleSlots(b){
@@ -107,6 +142,38 @@ function addBundleToCart(){
 $('bfAdd').addEventListener('click',addBundleToCart);
 
 /* ---------- Drawer: producto suelto ---------- */
+/* La talla se toca, no se teclea.
+
+   El campo era texto libre, y en los pedidos reales del club acabaron
+   conviviendo "12", "Mediana" y "Universal" para decir cosas parecidas. El
+   proveedor recibe esa hoja y tiene que adivinar. Con el catálogo ya
+   capturado, las tallas del producto salen como botones y lo que llega a la
+   hoja de producción está escrito igual siempre.
+
+   Si un producto todavía no tiene tallas capturadas se cae al campo de
+   texto: más vale poder levantar el pedido que bloquearlo por un dato de
+   catálogo que falta. */
+function pintaTallas(p){
+  const caja=$('pfTallas'),libre=$('pfTalla');
+  const tallas=Array.isArray(p.sizes)?p.sizes.filter(Boolean):[];
+  if(!caja)return;
+  if(!tallas.length){
+    caja.innerHTML='';caja.classList.add('hidden');
+    libre.classList.remove('hidden');libre.value='';
+    return;
+  }
+  libre.classList.add('hidden');libre.value='';
+  caja.classList.remove('hidden');
+  caja.innerHTML=tallas.map(t=>`<button type="button" class="talla-chip" data-talla="${esc(t)}">${esc(t)}</button>`).join('');
+}
+function tallaElegida(){
+  const activo=$('pfTallas')?.querySelector('.talla-chip.activa');
+  return activo?activo.dataset.talla:$('pfTalla').value.trim();
+}
+$('pfTallas')?.addEventListener('click',e=>{
+  const b=e.target.closest?.('.talla-chip');if(!b)return;
+  [...e.currentTarget.querySelectorAll('.talla-chip')].forEach(x=>x.classList.toggle('activa',x===b));
+});
 function openProductDrawer(p){
   picking={kind:'product',product:p};
   drawerMsg();
@@ -115,14 +182,15 @@ function openProductDrawer(p){
   $('productForm').classList.remove('hidden');
   $('bundleForm').classList.add('hidden');
   $('pfTalla').value='';$('pfQty').value=1;$('pfName').value='';$('pfNumber').value='';
+  pintaTallas(p);
   $('pfPersonalization').classList.toggle('hidden',!JERSEY_RE.test(p.name));
   openDrawer();
 }
 function addProductToCart(){
   const p=picking.product;
-  const talla=$('pfTalla').value.trim();
+  const talla=tallaElegida();
   const qty=Math.max(1,Math.min(20,Number($('pfQty').value)||1));
-  if(!talla){drawerMsg('Captura la talla.');return;}
+  if(!talla){drawerMsg('Elige la talla.');return;}
   const isJersey=JERSEY_RE.test(p.name);
   const name=isJersey?$('pfName').value.trim():'',number=isJersey?$('pfNumber').value.trim():'';
   cart.push({
@@ -132,6 +200,7 @@ function addProductToCart(){
   });
   renderCart();
   drawerMsg('Agregado al pedido.','success');
+  $('pfTallas')?.querySelectorAll('.talla-chip.activa').forEach(x=>x.classList.remove('activa'));
   $('pfTalla').value='';$('pfQty').value=1;$('pfName').value='';$('pfNumber').value='';
 }
 $('pfAdd').addEventListener('click',addProductToCart);

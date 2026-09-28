@@ -67,3 +67,30 @@
   .cart-row{grid-template-columns:1fr auto;}
   .cart-row b{grid-column:1/2;}
 }
+
+/* === La tienda se ve, no se lee ===
+   Cuatro jerseys que se distinguen por color y corte no se eligen leyendo
+   "Jersey Pink Cantera - Away Edition". La foto manda; el texto acompaña. */
+.pick-card-foto{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:center;text-align:left;padding:12px}
+.pick-foto{width:76px;height:76px;border-radius:14px;overflow:hidden;background:#eef4f3;
+  display:grid;place-items:center;flex:0 0 auto}
+.pick-foto img{width:100%;height:100%;object-fit:cover;display:block}
+/* El monograma es el estado normal mientras la foto llega, y el definitivo
+   si el producto todavía no tiene una. No es un error: es el respaldo. */
+.pick-foto b{font-size:22px;font-weight:900;color:#7c9299;letter-spacing:-.02em}
+.pick-datos{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pick-datos strong{font-size:15px;font-weight:900;letter-spacing:-.01em;line-height:1.25}
+.pick-datos span{font-size:12px;color:#7d8a8f;font-weight:650}
+.pick-datos b{font-size:15px;font-weight:900;color:#15964a;margin-top:2px}
+
+/* Tallas de tocar. Botones de 44px: es el mínimo para el dedo en un iPhone,
+   y esto se usa de pie en el mostrador, no sentado. */
+.tallas-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+.talla-chip{min-width:48px;min-height:44px;padding:0 13px;border-radius:12px;
+  border:1px solid var(--tos-line,#dce5e3);background:#fff;color:#31525c;
+  font:inherit;font-weight:900;font-size:14px;cursor:pointer}
+.talla-chip:hover{border-color:#a9bcc2}
+.talla-chip.activa{background:#087d8e;border-color:#087d8e;color:#fff}
+.talla-chip:focus-visible{outline:2px solid #056c7f;outline-offset:2px}
+@media(max-width:420px){.pick-card-foto{grid-template-columns:64px 1fr}
+  .pick-foto{width:64px;height:64px}}

@@ -3,6 +3,9 @@ import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-
 // El mismo criterio que usa el staff, para que un papa y Presidencia nunca
 // vean dos porcentajes distintos del mismo Tanner.
 import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.js';
+import {preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
+        piezasDelCarrito, acomodaVitrina, tallasDe, tallaUnica,
+        aceptaPersonalizacion} from '/v2/tienda.js';
 
 // Portal de familias. No usa el shell del staff a propósito: un tutor no tiene
 // módulos que navegar, y mezclar ambas superficies es como se filtran datos.
@@ -498,39 +501,57 @@ async function renderProgreso(){
   }
 }
 
-/* ---------- Tienda ---------- */
-function cartTotal(){
-  return Object.values(state.cart).reduce((sum,it)=>sum+Number(it.price||0)*Number(it.quantity||0),0);
-}
+/* ---------- Tienda ----------
+
+   Comprar aquí tiene que costar lo mismo que en cualquier tienda del
+   teléfono: elegir talla, tocar Agregar, tocar Apartar. Tres toques.
+
+   Por eso no hay ventana de producto: todo vive en la tarjeta. Un modal
+   agrega dos toques (abrir y cerrar) y en un teléfono tapa la pantalla justo
+   cuando la familia quiere comparar dos jerseys.
+
+   Las reglas de qué se puede agregar viven en /v2/tienda.js, sin DOM, para
+   poder probarlas sin navegador y para que el mostrador de Taquilla y este
+   portal no acaben con reglas distintas sobre la misma playera. */
+function cartTotal(){ return totalDelCarrito(state.cart); }
 function renderCartBar(){
   document.getElementById('famCart')?.remove();
-  const items=Object.values(state.cart);
-  if(!items.length||state.tab!=='tienda')return;
-  const n=items.reduce((s,i)=>s+i.quantity,0);
+  const n=piezasDelCarrito(state.cart);
+  if(!n||state.tab!=='tienda')return;
   const bar=document.createElement('div');
   bar.id='famCart';bar.className='fam-cart';
-  bar.innerHTML=`<span><strong>${money.format(cartTotal())}</strong><span>${n} artículo${n===1?'':'s'}</span></span><button id="famCheckout" type="button">Apartar</button>`;
+  const p=currentPlayer();
+  bar.innerHTML=`<span><strong>${money.format(cartTotal())}</strong>`
+    +`<span>${n} artículo${n===1?'':'s'}${p?` · para ${esc(String(p.first_name||'').trim()||'tu Tanner')}`:''}</span></span>`
+    +`<button id="famCheckout" type="button">Apartar</button>`;
   document.body.appendChild(bar);
   document.getElementById('famCheckout').addEventListener('click',checkout);
 }
 async function checkout(){
   const p=currentPlayer();
   if(!p){await tosAlert({kicker:'TIENDA',title:'Falta elegir a tu Tanner',message:'Selecciona de quién es el pedido antes de apartarlo.'});return;}
-  const items=Object.values(state.cart).map(i=>({product_id:i.id,quantity:i.quantity,size:i.size||null}));
-  if(!items.length)return;
+  const lineas=Object.values(state.cart);
+  if(!lineas.length)return;
+  // El servidor todavía recibe una talla por línea; la personalización viaja
+  // en las notas hasta que el RPC del portal la acepte por separado. Se manda
+  // explícita para que el club no tenga que adivinar a quién es cada prenda.
+  const items=lineas.map(l=>({product_id:l.productId,quantity:l.cantidad,size:l.talla||null}));
+  const personalizadas=lineas.filter(l=>l.personalizationName||l.numero)
+    .map(l=>`${l.nombreProducto} ${l.talla||''}: ${l.personalizationName||'sin nombre'}${l.numero?` #${l.numero}`:''}`);
+  const notas=personalizadas.length?`Personalización — ${personalizadas.join(' · ')}`:null;
   const btn=document.getElementById('famCheckout');btn.disabled=true;btn.textContent='Enviando…';
   try{
-    const res=await rpc('v2_portal_place_order',{player_id:p.id,items,notes:null});
+    const res=await rpc('v2_portal_place_order',{player_id:p.id,items,notes:notas});
     state.cart={};renderCartBar();
     $('famBody').insertAdjacentHTML('afterbegin',
       `<section class="fam-card"><div class="fam-card-head"><h2>Pedido apartado</h2><span>${esc(res.folio||'')}</span></div><div class="fam-mov"><span><strong>Lo tenemos registrado</strong><span>El club te confirma disponibilidad y forma de pago. Total ${money.format(Number(res.total||0))}.</span></span></div></section>`);
-    document.querySelectorAll('.fam-prod button').forEach(b=>{b.dataset.in='0';b.textContent='Agregar';});
+    renderTienda();
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(error){await tosAlert({kicker:'TIENDA',title:'No se pudo apartar el pedido',message:friendly(error)});btn.disabled=false;btn.textContent='Apartar';}
 }
 // La vitrina es una colección: sólo miniaturas, firmadas por el caché compartido
-// (docs/MEDIA_EGRESS_ARCHITECTURE.md). Un producto sin miniatura dice "Sin foto"
-// en vez de arrastrar el original.
+// (docs/MEDIA_EGRESS_ARCHITECTURE.md). Un producto sin miniatura se queda con
+// su recuadro en vez de arrastrar el original.
 async function pintaFotos(rows){
   const porBucket={};
   rows.forEach(p=>{
@@ -550,40 +571,98 @@ async function pintaFotos(rows){
     }catch(e){console.warn('fotos de la tienda',e);}
   }
 }
+// Lo que la familia lleva elegido de ese producto, antes de agregarlo.
+const eligiendo={};
+function tarjetaProducto(p){
+  const tallas=tallasDe(p), unica=tallaUnica(p);
+  const elec=eligiendo[p.id]||{};
+  const foto=`<span class="fam-shot" data-shot="${esc(p.id)}"></span>`;
+  // Una talla única no se ofrece: obligar a tocar "Universal" es un toque que
+  // no informa. Se dice, y ya.
+  const chips=unica
+    ? `<span class="fam-talla-unica">Talla ${esc(unica)}</span>`
+    : tallas.length
+      ? `<div class="fam-tallas" data-tallas="${esc(p.id)}">${tallas.map(t=>
+          `<button type="button" class="fam-talla${elec.talla===t?' activa':''}" data-talla="${esc(t)}">${esc(t)}</button>`).join('')}</div>`
+      : '';
+  // El nombre y el número sólo aparecen cuando ya hay talla: pedirlos antes
+  // llena la tarjeta de campos que todavía no sirven de nada.
+  const hayTalla=Boolean(unica||elec.talla);
+  const pers=(aceptaPersonalizacion(p)&&hayTalla)
+    ? `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-pnombre="${esc(p.id)}" value="${esc(elec.nombre||'')}">`
+      +`<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-pnumero="${esc(p.id)}" value="${esc(elec.numero||'')}"></div>`
+    : '';
+  const aviso=elec.motivo?`<span class="fam-aviso">${esc(elec.motivo)}</span>`:'';
+  return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong>`
+    +`<span class="fam-price">${money.format(Number(p.price||0))}</span>`
+    +`${p.description?`<p>${esc(p.description)}</p>`:''}${chips}${pers}${aviso}`
+    +`<button type="button" class="fam-add" data-add="${esc(p.id)}">Agregar</button></article>`;
+}
+function lineaDelCarrito(llave,l){
+  const detalle=[l.talla,l.personalizationName,l.numero?`#${l.numero}`:null].filter(Boolean).join(' · ');
+  return `<div class="fam-mov"><span><strong>${esc(l.nombreProducto)}${l.cantidad>1?` ×${l.cantidad}`:''}</strong>`
+    +`<span>${esc(detalle||'Sin detalle')}</span></span>`
+    +`<span class="fam-linea-fin"><b>${money.format(Number(l.total||0))}</b>`
+    +`<button type="button" class="fam-quita" data-quita="${esc(llave)}" aria-label="Quitar">✕</button></span></div>`;
+}
 async function renderTienda(){
   if(!state.catalog){
     $('famBody').innerHTML='<div class="fam-empty">Cargando tienda…</div>';
     try{state.catalog=await rpc('v2_portal_catalog');}
     catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
   }
-  const rows=state.catalog||[];
+  const rows=acomodaVitrina(state.catalog||[]);
   if(!rows.length){$('famBody').innerHTML='<div class="fam-empty">Todavía no hay productos publicados.</div>';return;}
-  const cards=rows.map(p=>{
-    const tallas=Array.isArray(p.sizes)?p.sizes:[];
-    const sel=tallas.length
-      ? `<select data-size="${esc(p.id)}" aria-label="Talla">${tallas.map(s=>`<option>${esc(s)}</option>`).join('')}</select>`:'';
-    const enCarrito=state.cart[p.id]?'1':'0';
-    const foto=`<span class="fam-shot" data-shot="${esc(p.id)}">${p.photo_thumb_path?'':'Sin foto'}</span>`;
-    return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong><span class="fam-price">${money.format(Number(p.price||0))}</span>${p.description?`<p>${esc(p.description)}</p>`:''}${sel}<button type="button" data-add="${esc(p.id)}" data-in="${enCarrito}">${enCarrito==='1'?'Quitar':'Agregar'}</button></article>`;
-  }).join('');
   const tienda=String(state.home?.organization?.storeUrl||'');
   const irALaTienda=/^https:\/\//i.test(tienda)
     ? `<a class="fam-store" href="${esc(tienda)}" target="_blank" rel="noopener">Ver toda la tienda del club</a>`:'';
-  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${rows.length} productos</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p>${irALaTienda}</section><div class="fam-prods">${cards}</div>`;
+  const enCarrito=Object.entries(state.cart);
+  const resumen=enCarrito.length
+    ? `<section class="fam-card"><div class="fam-card-head"><h2>Tu pedido</h2><span>${piezasDelCarrito(state.cart)}</span></div>${enCarrito.map(([k,l])=>lineaDelCarrito(k,l)).join('')}</section>`
+    : '';
+  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${rows.length} productos</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p>${irALaTienda}</section>${resumen}<div class="fam-prods">${rows.map(tarjetaProducto).join('')}</div>`;
   pintaFotos(rows);
-  $('famBody').querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{
+  const cuerpo=$('famBody');
+
+  // Elegir talla: se marca y se vuelve a pintar sólo esa tarjeta no haría
+  // falta, pero repintar entero mantiene el estado en un solo lugar y en
+  // cuatro productos no se nota.
+  cuerpo.querySelectorAll('[data-tallas]').forEach(caja=>caja.addEventListener('click',e=>{
+    const b=e.target.closest('.fam-talla');if(!b)return;
+    const id=caja.dataset.tallas;
+    const prev=eligiendo[id]||{};
+    eligiendo[id]={...prev,talla:prev.talla===b.dataset.talla?null:b.dataset.talla,motivo:null};
+    renderTienda();
+  }));
+  // Lo que se escribe se guarda al vuelo: si la familia toca Agregar sin
+  // salir del campo, el nombre ya está.
+  cuerpo.querySelectorAll('[data-pnombre]').forEach(i=>i.addEventListener('input',e=>{
+    const id=e.target.dataset.pnombre;eligiendo[id]={...(eligiendo[id]||{}),nombre:e.target.value};
+  }));
+  cuerpo.querySelectorAll('[data-pnumero]').forEach(i=>i.addEventListener('input',e=>{
+    const id=e.target.dataset.pnumero;eligiendo[id]={...(eligiendo[id]||{}),numero:e.target.value};
+  }));
+  cuerpo.querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{
     const id=btn.dataset.add,prod=rows.find(x=>String(x.id)===String(id));
     if(!prod)return;
-    if(state.cart[id]){delete state.cart[id];btn.dataset.in='0';btn.textContent='Agregar';}
-    else{
-      const size=$('famBody').querySelector(`[data-size="${CSS.escape(id)}"]`)?.value||null;
-      state.cart[id]={id,price:prod.price,quantity:1,size};btn.dataset.in='1';btn.textContent='Quitar';
+    const r=preparaLinea(prod,eligiendo[id]||{});
+    if(!r.ok){
+      // El motivo se pinta en la tarjeta, junto al botón que se tocó, no en
+      // una alerta que tapa lo que la familia estaba viendo.
+      eligiendo[id]={...(eligiendo[id]||{}),motivo:r.motivo};
+      renderTienda();
+      return;
     }
-    renderCartBar();
+    state.cart=agregaAlCarrito(state.cart,r.linea);
+    eligiendo[id]={};
+    renderTienda();
+  }));
+  cuerpo.querySelectorAll('[data-quita]').forEach(b=>b.addEventListener('click',()=>{
+    state.cart=quitaDelCarrito(state.cart,b.dataset.quita);
+    renderTienda();
   }));
   renderCartBar();
 }
-
 
 /* ---------- Gafete de estacionamiento ---------- */
 const PASS_STATE={

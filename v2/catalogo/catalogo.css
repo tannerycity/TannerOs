@@ -23,6 +23,10 @@
   background:#eef4f3;display:grid;place-items:center;color:var(--teal);
 }
 .cat-thumb svg{width:22px;height:22px;}
+/* La miniatura llena el recuadro sin deformar el jersey: un jersey estirado
+   se ve peor que un icono. overflow oculto para respetar el radio. */
+.cat-thumb{overflow:hidden;}
+.cat-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .cat-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
 .cat-title{font-size:14px;}
 .cat-chips{display:flex;flex-wrap:wrap;gap:6px;}

@@ -18,6 +18,7 @@ qa-humo-montos.mjs
 qa-humo-conciliacion.mjs
 qa-humo-evaluacion.mjs
 qa-humo-mostrador.mjs
+qa-humo-catalogo.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

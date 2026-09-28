@@ -45,7 +45,12 @@ export default function comprobar() {
   // Sube a 10 por qa-humo-mostrador.mjs: levantar un pedido con la familia
   // enfrente es dinero, y lo que protege —que elegir al Tanner baste y que
   // el jersey se estampe con su nombre— sólo se ve en un navegador.
-  const MAX_EXCLUIDAS = 10;
+  // Sube a 11 por qa-humo-catalogo.mjs. Presidencia subio las cuatro fotos de
+  // los jerseys, la base las guardo con miniatura y la pantalla siguio
+  // enseñando cuatro monitos identicos: la lista nunca leyo la miniatura. Que
+  // una foto se vea, que sea la suya y no la del de al lado, y que se firme la
+  // miniatura y no el original, no se puede comprobar sin pintar la pagina.
+  const MAX_EXCLUIDAS = 11;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

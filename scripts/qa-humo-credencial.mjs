@@ -95,6 +95,55 @@ revisa('en redes la foto ocupa todo el ancho, no es un recuadro de credencial',
   redes.foto.w > cred.foto.w * 2 && redes.foto.h > cred.foto.h * 2,
   `credencial ${cred.foto.w}x${cred.foto.h} · redes ${redes.foto.w}x${redes.foto.h}`);
 
+/* ===== LA CREDENCIAL DE TEMPORADA =====
+ *
+ * Los datos son de un Tanner real del club, con su '20+1' de dorsal y su
+ * 'Por definir' de posicion. Ahi es donde se ve si las reglas aguantan lo que
+ * hay en la base, no lo que uno desearia que hubiera.
+ */
+const TANNER = {
+  firstName:'Mikel', lastName:'Ramírez Soto', category:'Baby Tanner',
+  code:'Tanner010', jerseyNumber:'5', position:'Mediocampista',
+  birthDate:'2021-06-11', bloodType:'O+', school:'Colegio Léon',
+  allergies:'Alergias a jarabe para gripa', modo:'tanner'
+};
+const tanner = await pg.evaluate(async d => {
+  const { renderWelcomeCard } = await import('/welcome-card.js');
+  return (await renderWelcomeCard(d)).dibujado;
+}, TANNER);
+
+// Cinco y no seis: este Tanner no tiene pie dominante capturado, como 38 de
+// los 64 activos. El fixture es el registro real, no uno ideal.
+revisa('la credencial del Tanner trae los cinco renglones que sí tiene',
+  tanner.franja === 5, `renglones: ${tanner.franja}`);
+// Lo que hace que esta credencial valga el dia que importa.
+revisa('y el aviso médico, donde se ve',
+  tanner.medico === 'Jarabe para gripa', String(tanner.medico));
+revisa('con su QR al código del Tanner',
+  typeof tanner.qr === 'string' && tanner.qr.includes('buscar=Tanner010'), String(tanner.qr));
+// Se vio al renderizarla: el lema salia dos veces en la misma cara.
+revisa('el lema del club NO se repite: ya está en el pie',
+  tanner.bienvenida === false, String(tanner.bienvenida));
+
+const tannerPelon = await pg.evaluate(async d => {
+  const { renderWelcomeCard } = await import('/welcome-card.js');
+  const { dibujado } = await renderWelcomeCard({
+    firstName:'Luis Maximo', lastName:'Vargas Peña', category:'Baby Tanner',
+    code:'Tanner050', jerseyNumber:'20+1', position:'Por definir',
+    birthDate:'2022-02-03', modo:'tanner' });
+  return dibujado;
+}, TANNER);
+// 20 de 64 Tanners tienen 'Por definir': un tercio de las credenciales
+// llevaria un renglon que no dice nada.
+revisa('"Por definir" no ocupa un renglón de la credencial',
+  tannerPelon.franja === 2, `renglones: ${tannerPelon.franja}`);
+revisa('y sin alergias capturadas no se dibuja un aviso vacío',
+  tannerPelon.medico === null, String(tannerPelon.medico));
+
+// Los tres documentos no se mezclan.
+revisa('la del registro no lleva aviso médico: el prospecto no tiene expediente',
+  cred.medico === null && redes.medico === null);
+
 /* ===== El link que se pega ===== */
 const meta=await pg.evaluate(()=>({
   titulo:document.querySelector('meta[property="og:title"]')?.content||null,
@@ -112,5 +161,5 @@ revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 await nav.close(); srv.close();
 console.log(fallos
   ? `Credencial humo FAILED · ${fallos} de ${corridas}`
-  : `Credencial humo OK · ${corridas} revisiones, incluida la que impide que el folio llegue a Instagram`);
+  : `Credencial humo OK · ${corridas} revisiones, incluidas la que impide que el folio llegue a Instagram y el aviso médico del Tanner`);
 process.exit(fallos?1:0);

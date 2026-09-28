@@ -10,7 +10,8 @@
  */
 import {
   edadDe, edadTexto, pieTexto, renglonesDeCredencial,
-  puedeCompartirse, motivoSinCompartir, datosParaRedes, ligaDeBusqueda, HOST_TANNEROS
+  puedeCompartirse, motivoSinCompartir, datosParaRedes, ligaDeBusqueda, HOST_TANNEROS,
+  valorReal, renglonesDeTanner, avisoMedico, ligaDeTanner
 } from '../credencial.js';
 
 let fallos = 0, corridas = 0;
@@ -142,7 +143,89 @@ revisa('sin folio no se imprime un QR que no lleva a ningún lado',
 revisa('la liga apunta al dominio del club, no a otro',
   ligaDeBusqueda('X').startsWith('https://app.tannerycity.com/'));
 
+
+/* ===== LA CREDENCIAL DEL TANNER =====
+
+   Otro documento, otro trabajo. La del registro es un comprobante de
+   bienvenida para un prospecto; ésta sirve toda la temporada y la mira alguien
+   en la puerta, en la banca, o el día que un niño se siente mal.
+
+   Los casos de aquí abajo salieron de mirar la base de verdad, no de
+   imaginarla. Los tres hallazgos que cambiaron el código: */
+
+/* 1. UN RELLENO NO ES UN DATO.
+      20 de 64 Tanners activos tienen 'Por definir' como posición. Es lo que el
+      formulario deja cuando nadie eligió. Impreso ocupa un renglón para decir
+      que no sabe, y encima hace creer que alguien lo capturó. */
+revisa('"Por definir" no es una posición', valorReal('Por definir') === null);
+revisa('"Sin definir" tampoco', valorReal('Sin definir') === null);
+revisa('ni "N/A", ni una raya, ni puntos suspensivos',
+  valorReal('N/A') === null && valorReal('---') === null && valorReal('...') === null);
+revisa('pero una posición de verdad sí pasa', valorReal('Mediocampista') === 'Mediocampista');
+revisa('y "Portero" no se confunde con relleno', valorReal('Portero') === 'Portero');
+revisa('vacío es nada', valorReal('') === null && valorReal(null) === null);
+
+/* 2. EL DORSAL NO SIEMPRE ES UN NÚMERO.
+      En la base hay un Tanner con dorsal '20+1'. Se imprime tal cual, porque
+      así lo conoce el club: "corregirlo" seria inventar. */
+{
+  const filas = renglonesDeTanner({ jerseyNumber: '20+1', hoy: HOY });
+  revisa('un dorsal raro como "20+1" se imprime tal cual',
+    filas.find(f => f.etiqueta === 'Dorsal')?.valor === '#20+1', JSON.stringify(filas));
+}
+
+/* 3. EL TEXTO DE ALERGIAS YA DICE "ALERGIAS".
+      Capturado en la base: "Alergias a jarabe para gripa". Con la etiqueta
+      encima quedaría "ALERGIAS · Alergias a jarabe para gripa". */
+revisa('el aviso de alergias no tartamudea',
+  avisoMedico({ allergies: 'Alergias a jarabe para gripa' }).valor === 'Jarabe para gripa',
+  JSON.stringify(avisoMedico({ allergies: 'Alergias a jarabe para gripa' })));
+revisa('y el que ya viene limpio se respeta',
+  avisoMedico({ allergies: 'Sulfas' }).valor === 'Sulfas');
+// Sólo 4 de 64 tienen alergias capturadas. Los otros 60 salen SIN aviso, que
+// es lo correcto: un "sin alergias conocidas" donde nadie preguntó da una
+// tranquilidad que el club no tiene con qué respaldar.
+revisa('sin alergias capturadas NO se inventa un "ninguna"',
+  avisoMedico({}) === null && avisoMedico({ allergies: '' }) === null);
+revisa('y un relleno en alergias tampoco produce aviso',
+  avisoMedico({ allergies: 'Ninguna' }) === null);
+
+/* ===== Los renglones del Tanner ===== */
+{
+  const filas = renglonesDeTanner({
+    birthDate: '2021-06-11', jerseyNumber: '5', position: 'Mediocampista',
+    dominantFoot: 'right', school: 'Colegio Léon', bloodType: 'O+', hoy: HOY
+  });
+  revisa('un Tanner completo trae sus seis renglones', filas.length === 6,
+    JSON.stringify(filas.map(f => f.etiqueta)));
+  revisa('la edad va primero', filas[0].etiqueta === 'Edad');
+  // El tipo de sangre es de los datos que importan el día que importan.
+  revisa('y el tipo de sangre está', filas.some(f => f.etiqueta === 'Sangre' && f.valor === 'O+'));
+}
+{
+  // El caso real de Tanner050: dorsal raro, posición de relleno, nada más.
+  const filas = renglonesDeTanner({ birthDate: '2022-02-03', jerseyNumber: '20+1', position: 'Por definir', hoy: HOY });
+  revisa('un Tanner a medio capturar sólo trae lo que tiene',
+    filas.map(f => f.etiqueta).join(',') === 'Edad,Dorsal', JSON.stringify(filas));
+}
+revisa('un Tanner sin nada no imprime renglones', renglonesDeTanner().length === 0);
+
+/* ===== El QR del Tanner ===== */
+revisa('el QR del Tanner abre su código, que es como lo conoce el club',
+  ligaDeTanner('Tanner010') === `${HOST_TANNEROS}/v2/?buscar=Tanner010`, ligaDeTanner('Tanner010'));
+revisa('sin código no se imprime un QR que no lleva a ningún lado',
+  ligaDeTanner('') === null && ligaDeTanner(null) === null);
+
+/* ===== Y que los dos documentos NO se mezclen ===== */
+// La del registro no puede traer dorsal (el prospecto no tiene) y la del
+// Tanner no puede traer folio de registro (ya no es un prospecto).
+revisa('la credencial del registro sigue sin dorsal, aunque se lo manden',
+  !renglonesDeCredencial({ birthDate: '2018-01-01', jerseyNumber: '9', hoy: HOY })
+    .some(f => f.etiqueta === 'Dorsal'));
+revisa('y la del Tanner sí lo trae',
+  renglonesDeTanner({ jerseyNumber: '9', hoy: HOY }).some(f => f.etiqueta === 'Dorsal'));
+
 console.log(fallos
   ? `Credencial QA FAILED · ${fallos} de ${corridas}`
-  : `Credencial QA OK · ${corridas} casos, incluido el folio que no debe llegar a Instagram`);
+  : `Credencial QA OK · ${corridas} casos, incluidos el folio que no debe llegar a Instagram y el "Por definir" que no es una posición`);
 process.exit(fallos ? 1 : 0);

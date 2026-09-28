@@ -2,7 +2,7 @@
 // Dibuja un PNG de 1080x1920 (formato historia de Instagram) en un <canvas>
 // a partir de los datos del registro recién guardado, para compartir por WhatsApp / redes.
 
-import { renglonesDeCredencial, datosParaRedes, puedeCompartirse, ligaDeBusqueda } from '/credencial.js';
+import { renglonesDeCredencial, renglonesDeTanner, avisoMedico, datosParaRedes, puedeCompartirse, ligaDeBusqueda, ligaDeTanner } from '/credencial.js';
 
 const W = 1080, H = 1920;
 
@@ -234,7 +234,12 @@ async function safeLoad(src) {
  * modo: 'credencial' (por defecto) | 'redes' */
 export async function renderWelcomeCard(datos = {}) {
   const { firstName, lastName, category, folio, dateStr, photoUrl } = datos;
-  const modo = datos.modo === 'redes' ? 'redes' : 'credencial';
+  /* Tres documentos, tres trabajos:
+   *   credencial  comprobante de registro. Quien lo recibe es un PROSPECTO.
+   *   tanner      la de temporada. La que se mira en la puerta y el dia que
+   *               un niño se siente mal: trae dorsal, posicion y lo medico.
+   *   redes       la que comparte la familia. Lo minimo, y con candado. */
+  const modo = ['redes', 'tanner'].includes(datos.modo) ? datos.modo : 'credencial';
   // El candado vive aqui tambien, no solo en la pantalla: si alguien llama a
   // esta funcion en modo redes sin permiso, no se dibuja nada.
   if (modo === 'redes' && !puedeCompartirse(datos)) {
@@ -247,8 +252,10 @@ export async function renderWelcomeCard(datos = {}) {
    * coordenadas: el diseño se acomoda segun cuantos datos traiga el Tanner, y
    * una prueba que mira un rectangulo fijo de pixeles empieza a mentir en
    * cuanto alguien mueve un renglon. Esto dice QUE se puso, no DONDE. */
-  const dibujado = { modo, franja: 0, qr: null, letraChica: false, sello: false, foto: null };
-  const filasExtra = modo === 'credencial' ? renglonesDeCredencial(datos) : [];
+  const dibujado = { modo, franja: 0, qr: null, letraChica: false, sello: false, foto: null, medico: null, bienvenida: false, qrY: null };
+  const filasExtra = modo === 'credencial' ? renglonesDeCredencial(datos)
+    : modo === 'tanner' ? renglonesDeTanner(datos) : [];
+  const medico = modo === 'tanner' ? avisoMedico(datos) : null;
   await ensureFonts();
 
   const [photoImg, crestGold, wordmarkGold, crestNavy] = await Promise.all([
@@ -303,8 +310,8 @@ export async function renderWelcomeCard(datos = {}) {
   ctx.fillRect(W / 2 - 70, 246, 140, 2);
 
   // badge de estatus
-  const badgeText = modo === 'redes'
-    ? `NUEVO TANNER ${new Date().getFullYear()}`
+  const badgeText = modo === 'redes' ? `NUEVO TANNER ${new Date().getFullYear()}`
+    : modo === 'tanner' ? `TANNER · TEMPORADA ${new Date().getFullYear()}`
     : `CREDENCIAL DE INGRESO ${new Date().getFullYear()}`;
   const badgeFont = '800 16px Inter';
   const badgeSpacing = 4;
@@ -374,6 +381,9 @@ export async function renderWelcomeCard(datos = {}) {
   // nada a nadie de fuera, y la fecha exacta ubica a un menor sin necesidad.
   if (modo === 'credencial') {
     cursorY = drawInfoRow(ctx, { label: 'Folio · Fecha', value: `${folio || ''} · ${dateStr || ''}`, x: infoX, width: infoWidth, y: cursorY, valueSize: 36 });
+  } else if (modo === 'tanner' && datos.code) {
+    // Su codigo, no un folio: 'Tanner010' es como lo conoce el club.
+    cursorY = drawInfoRow(ctx, { label: 'Código', value: String(datos.code), x: infoX, width: infoWidth, y: cursorY, valueSize: 40 });
   }
 
   const idRowBottom = Math.max(pbY + pbH, cursorY);
@@ -422,22 +432,57 @@ export async function renderWelcomeCard(datos = {}) {
     dibujado.franja = filasExtra.length;
   }
 
-  // bienvenida
-  let welcomeTop = cursorTrasFranja + 70;
-  ctx.strokeStyle = COLORS.line;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(90, welcomeTop);
-  ctx.lineTo(W - 90, welcomeTop);
-  ctx.stroke();
-  let lastBaseline = drawCenteredWrapped(ctx, '¡BIENVENIDO A LA FAMILIA TANNER!', W / 2, welcomeTop + 36 + 54, 900, '800 60px "Barlow Condensed"', 66, COLORS.navy);
-  ctx.font = '600 19px Inter';
-  ctx.fillStyle = COLORS.muted;
-  ctx.textAlign = 'center';
-  ctx.fillText(modo === 'redes'
-    ? 'Ya es uno de los nuestros.'
-    : 'Tu registro quedó autenticado en Tannery City F.C.', W / 2, lastBaseline + 40);
-  ctx.textAlign = 'left';
+  /* El aviso medico.
+   *
+   * No es una casilla mas. Quien abre esta credencial porque un niño se puso
+   * mal no puede andar buscando el dato entre la escuela y el pie dominante:
+   * tiene que saltarle a la cara.
+   *
+   * Solo se dibuja si hay algo capturado. Inventar un "sin alergias conocidas"
+   * donde nadie pregunto es peor que no decir nada: da una tranquilidad que el
+   * club no tiene con que respaldar. */
+  if (medico) {
+    const ax = 90, aw = W - 180, ah = 96, ay = cursorTrasFranja + 22;
+    ctx.fillStyle = '#f7eeee';
+    ctx.fillRect(ax, ay, aw, ah);
+    ctx.fillStyle = '#943c35';
+    ctx.fillRect(ax, ay, 6, ah);
+    drawSpaced(ctx, medico.etiqueta, ax + 26, ay + 36, '800 15px Inter', 2.5, '#943c35', 'left');
+    ctx.font = '700 34px "Barlow Condensed"';
+    ctx.fillStyle = '#6d2a24';
+    ctx.textAlign = 'left';
+    ctx.fillText(medico.valor, ax + 26, ay + 74);
+    dibujado.medico = medico.valor;
+    cursorTrasFranja = ay + ah;
+  }
+
+  /* El bloque de bienvenida.
+   *
+   * En la de temporada NO va. Primero porque repetiria el lema que ya esta en
+   * el pie —se vio al renderizarla: "CURTIMOS CAMPEONES DEL MUNDO" salia dos
+   * veces en la misma cara—, y segundo porque esta credencial no da la
+   * bienvenida a nadie: ese Tanner lleva meses en el club. Lo que ahi cabe es
+   * aire, y el QR sube a ocuparlo. */
+  let cursorTrasBienvenida = cursorTrasFranja;
+  if (modo !== 'tanner') {
+    const welcomeTop = cursorTrasFranja + 70;
+    ctx.strokeStyle = COLORS.line;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(90, welcomeTop);
+    ctx.lineTo(W - 90, welcomeTop);
+    ctx.stroke();
+    const lastBaseline = drawCenteredWrapped(ctx, '¡BIENVENIDO A LA FAMILIA TANNER!', W / 2, welcomeTop + 36 + 54, 900, '800 60px "Barlow Condensed"', 66, COLORS.navy);
+    ctx.font = '600 19px Inter';
+    ctx.fillStyle = COLORS.muted;
+    ctx.textAlign = 'center';
+    ctx.fillText(modo === 'redes'
+      ? 'Ya es uno de los nuestros.'
+      : 'Tu registro quedó autenticado en Tannery City F.C.', W / 2, lastBaseline + 40);
+    ctx.textAlign = 'left';
+    cursorTrasBienvenida = lastBaseline + 40;
+    dibujado.bienvenida = true;
+  }
 
   /* La letra chica.
    *
@@ -465,11 +510,15 @@ export async function renderWelcomeCard(datos = {}) {
    *
    * En redes no va: ahi el codigo llevaria a un extraño al expediente de un
    * menor, y ademas nadie escanea una historia de Instagram. */
-  const liga = modo === 'credencial' ? ligaDeBusqueda(folio) : null;
+  const liga = modo === 'credencial' ? ligaDeBusqueda(folio)
+    : modo === 'tanner' ? ligaDeTanner(datos.code) : null;
   if (liga) {
-    const qx = 96, qy = 1470, qLado = 230;
+    // En la de temporada el QR sube: ocupa el aire que dejo la bienvenida, y
+    // asi queda arriba del doblez si alguien la imprime a media hoja.
+    const qx = 96, qy = modo === 'tanner' ? cursorTrasBienvenida + 90 : 1470, qLado = 230;
     await drawQR(ctx, liga, qx, qy, qLado);
     dibujado.qr = liga;
+    dibujado.qrY = qy;
     drawSpaced(ctx, 'ESCANEA PARA ABRIRLO', qx, qy + qLado + 34, '800 15px Inter', 2, COLORS.label, 'left');
     ctx.font = '600 17px Inter';
     ctx.fillStyle = COLORS.muted;

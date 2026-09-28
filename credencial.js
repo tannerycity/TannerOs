@@ -147,3 +147,68 @@ export function ligaDeBusqueda(folio, host = HOST_TANNEROS) {
   if (!f) return null;
   return `${host}/v2/?buscar=${encodeURIComponent(f)}`;
 }
+
+/* ---- La credencial del Tanner ya inscrito ----
+
+   Otro documento, otro trabajo. La del registro es un comprobante de
+   bienvenida: la familia acaba de dejar sus datos y todavia no hay Tanner.
+
+   Esta es la que sirve TODA LA TEMPORADA: la que alguien mira en la puerta,
+   en la banca o cuando un niño se siente mal. Por eso trae lo que la otra no
+   puede traer —dorsal, posicion— y sobre todo lo que solo importa el dia que
+   importa: tipo de sangre y alergias. */
+
+/* Un relleno no es un dato.
+
+   Medido en produccion: 20 de 64 Tanners tienen 'Por definir' como posicion.
+   Es lo que el formulario deja cuando nadie eligio, no una posicion. Impreso
+   en una credencial ocupa un renglon para decir que no sabe, y ademas hace
+   creer que alguien lo capturo. Lo mismo con 'N/A', 'Sin definir' y la raya. */
+const RELLENOS = /^(por definir|sin definir|no definid[oa]|pendiente|n\/?a|ninguno|ninguna|-+|\.+)$/i;
+export function valorReal(v) {
+  const s = String(v ?? '').trim();
+  if (!s || RELLENOS.test(s)) return null;
+  return s;
+}
+
+export function renglonesDeTanner(d = {}) {
+  const filas = [
+    ['Edad', edadTexto(d.birthDate, d.hoy)],
+    // El dorsal no siempre es un numero limpio: en la base hay un '20+1'. Se
+    // imprime como este, porque asi lo conoce el club.
+    ['Dorsal', valorReal(d.jerseyNumber) ? `#${valorReal(d.jerseyNumber)}` : null],
+    ['Posición', valorReal(d.position)],
+    ['Pie', pieTexto(d.dominantFoot)],
+    ['Escuela', valorReal(d.school)],
+    ['Sangre', valorReal(d.bloodType)]
+  ];
+  return filas
+    .filter(([, valor]) => valor)
+    .map(([etiqueta, valor]) => ({ etiqueta, valor }));
+}
+
+/* El aviso medico.
+
+   No va en una casilla mas: va aparte y se ve. Un entrenador que abre esta
+   credencial porque un niño se puso mal no tiene que ir a buscar el dato
+   entre la escuela y el pie dominante.
+
+   Solo 4 de 64 Tanners tienen alergias capturadas y 19 tipo de sangre. El
+   resto sale sin aviso, que es correcto: inventar un "sin alergias conocidas"
+   donde nadie pregunto es peor que no decir nada. */
+export function avisoMedico(d = {}) {
+  const alergias = valorReal(d.allergies);
+  if (!alergias) return null;
+  // El texto capturado a veces ya empieza con "Alergias a...", y la etiqueta
+  // lo repetiria. Se le quita el arranque para que no tartamudee.
+  const limpio = alergias.replace(/^alergias?\s*(a|al|:)?\s*/i, '').trim();
+  return { etiqueta: 'ALERGIAS', valor: (limpio || alergias).replace(/^./, c => c.toUpperCase()) };
+}
+
+/* El QR del Tanner apunta a su codigo —Tanner010— que es como lo conoce el
+   club y lo que el buscador ya indexa. */
+export function ligaDeTanner(codigo, host = HOST_TANNEROS) {
+  const c = String(codigo ?? '').trim();
+  if (!c) return null;
+  return `${host}/v2/?buscar=${encodeURIComponent(c)}`;
+}

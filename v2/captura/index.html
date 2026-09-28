@@ -24,8 +24,13 @@
 
   <section id="captureView">
     <section class="panel">
-      <div class="panel-head"><div><div class="eyebrow">1 · CLIENTE</div><h2>Datos de quien compra</h2></div></div>
-      <div class="field-grid">
+      <div class="panel-head"><div><div class="eyebrow">1 · PARA QUIÉN</div><h2>¿De quién es el pedido?</h2><p class="muted">Elige al Tanner y sus datos salen solos. Si no es del club, captúralo a mano.</p></div></div>
+      <label class="cap-tanner"><span>Tanner</span>
+        <select id="capPlayer" data-smart-search data-search-placeholder="Escribe el nombre del Tanner"></select>
+      </label>
+      <div id="capPlayerCard" class="cap-quien hidden"></div>
+      <button id="capExterno" class="secondary mini" type="button">No es del club, capturar a mano</button>
+      <div id="capManual" class="field-grid hidden">
         <label><span>Nombre</span><input id="custName" type="text" maxlength="160" placeholder="Nombre del papá/mamá o cliente"></label>
         <label><span>Teléfono (WhatsApp)</span><input id="custPhone" type="tel" maxlength="20" placeholder="10 dígitos"></label>
         <label><span>Email</span><input id="custEmail" type="email" maxlength="160" placeholder="Opcional"></label>

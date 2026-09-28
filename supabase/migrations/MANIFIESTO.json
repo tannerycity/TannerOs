@@ -1,8 +1,8 @@
 {
-  "migraciones": 407,
-  "bytes": 2166059,
-  "huella": "9a44c78b735625151708a742688ecaf5",
+  "migraciones": 408,
+  "bytes": 2178450,
+  "huella": "d751143339ad65727be0d66d1e943758",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260928011747_u1_las_tallas_del_club_quedan_capturadas.sql",
+  "ultima": "20260928014037_v1_el_pedido_del_mostrador_sabe_de_quien_es.sql",
   "verificadoContraLaBase": "2026-09-28"
 }

@@ -1,12 +1,13 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import '/v2/smart-select.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 const JERSEY_RE=/jersey|uniforme|playera/i;
 
-let ctx=null,canWrite=false,bundles=[],products=[],cart=[];
+let ctx=null,canWrite=false,bundles=[],products=[],cart=[],tanners=[],tannerId='',externo=false;
 let picking=null; // {kind:'bundle', bundle} | {kind:'product', product}
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
@@ -31,7 +32,14 @@ async function boot(){
 }
 
 async function load(){
-  const data=await rpc('v2_catalog',{organization_id:ctx.organization_id});
+  const [data,jug]=await Promise.all([
+    rpc('v2_catalog',{organization_id:ctx.organization_id}),
+    // Si el padrón no carga, el mostrador sigue vendiendo a mano: una tienda
+    // que no puede cobrar porque falló una lista es peor que una sin atajo.
+    rpc('v2_players',{organization_id:ctx.organization_id}).catch(e=>{console.warn('padrón',e);return [];})
+  ]);
+  tanners=(Array.isArray(jug)?jug:[]).filter(p=>p.status==='active');
+  pintaTanners();
   bundles=(data?.bundles||[]).filter(b=>b.active&&!b.archived&&b.componentsResolved);
   products=(data?.products||[]).filter(p=>p.active&&!p.archived);
   renderBundleGrid();
@@ -87,6 +95,60 @@ async function firmaFotos(){
 }
 function renderBundleGrid(){const g=$('bundleGrid');g.innerHTML='';$('bundleEmpty').classList.toggle('hidden',bundles.length>0);bundles.forEach(b=>g.appendChild(bundleCard(b)));}
 function renderProductGrid(){const g=$('productGrid');g.innerHTML='';$('productEmpty').classList.toggle('hidden',products.length>0);products.forEach(p=>g.appendChild(productCard(p)));firmaFotos();}
+
+/* ---------- Para quién es el pedido ----------
+
+   El mostrador pedía nombre y teléfono tecleados. La familia que está
+   enfrente casi siempre es la de un Tanner que ya está en el sistema, con su
+   tutor, su teléfono, su nombre y su dorsal. Teclearlo otra vez cuesta
+   tiempo con la gente esperando, y acaba con el mismo papá escrito de tres
+   formas distintas.
+
+   Ahora se elige al Tanner y el servidor completa lo demás desde su
+   expediente (migración v1). Lo que se gana no es sólo rapidez: el pedido
+   queda LIGADO al jugador, así que aparece en su estado de cuenta y la
+   familia lo ve en su portal.
+
+   El botón de captura a mano no es un adorno: el club también le vende a un
+   abuelo, a un patrocinador o a alguien que pasó por el estadio, y ese
+   pedido tiene que poder levantarse igual de rápido. */
+function nombreDeTanner(p){
+  return String(`${p.first_name||''} ${p.last_name||''}`).replace(/\s+/g,' ').trim()||'Sin nombre';
+}
+function tannerElegido(){ return tanners.find(p=>String(p.id)===String(tannerId))||null; }
+function pintaTanners(){
+  const sel=$('capPlayer');if(!sel)return;
+  sel.innerHTML='<option value="">Selecciona al Tanner</option>'
+    +tanners.map(p=>`<option value="${esc(p.id)}">${esc(nombreDeTanner(p))}${p.category?` · ${esc(p.category)}`:''}</option>`).join('');
+  // Sin padrón no se ofrece el atajo: se captura a mano y se dice por qué.
+  if(!tanners.length){ modoExterno(true,'No se pudo cargar el padrón. Captura los datos a mano.'); }
+}
+function pintaQuien(){
+  const caja=$('capPlayerCard');if(!caja)return;
+  const p=tannerElegido();
+  if(!p||externo){caja.classList.add('hidden');caja.innerHTML='';return;}
+  const dorsal=p.jersey_number?` · #${esc(p.jersey_number)}`:'';
+  caja.classList.remove('hidden');
+  caja.innerHTML=`<strong>${esc(nombreDeTanner(p))}</strong>`
+    +`<span>${esc(p.category||'Sin categoría')}${dorsal}</span>`
+    +`<small>Los datos de contacto salen de su expediente. El pedido queda en su estado de cuenta.</small>`;
+}
+function modoExterno(on,motivo){
+  externo=Boolean(on);
+  $('capManual')?.classList.toggle('hidden',!externo);
+  $('capPlayer')?.closest('label')?.classList.toggle('hidden',externo);
+  const btn=$('capExterno');
+  if(btn)btn.textContent=externo?'Es un Tanner del club':'No es del club, capturar a mano';
+  if(externo){tannerId='';const s=$('capPlayer');if(s)s.value='';}
+  pintaQuien();
+  if(motivo)createMsg(motivo,'error');
+}
+$('capExterno')?.addEventListener('click',()=>modoExterno(!externo));
+$('capPlayer')?.addEventListener('change',e=>{
+  tannerId=e.target.value||'';
+  pintaQuien();
+  createMsg();
+});
 
 /* ---------- Drawer: kit ---------- */
 function bundleSlots(b){
@@ -181,7 +243,14 @@ function openProductDrawer(p){
   $('drawerTitle').textContent=p.name;
   $('productForm').classList.remove('hidden');
   $('bundleForm').classList.add('hidden');
-  $('pfTalla').value='';$('pfQty').value=1;$('pfName').value='';$('pfNumber').value='';
+  $('pfTalla').value='';$('pfQty').value=1;
+  // El nombre y el dorsal se proponen desde el expediente del Tanner. No se
+  // imponen: se pueden borrar. Pero teclearlos con la familia enfrente es
+  // justo donde se cuela el error de dedo, y una playera mal estampada no se
+  // devuelve.
+  const t=tannerElegido();
+  $('pfName').value=t?nombreDeTanner(t):'';
+  $('pfNumber').value=t?.jersey_number?String(t.jersey_number):'';
   pintaTallas(p);
   $('pfPersonalization').classList.toggle('hidden',!JERSEY_RE.test(p.name));
   openDrawer();
@@ -225,16 +294,22 @@ function renderCart(){
 
 /* ---------- Crear pedido ---------- */
 async function createOrder(){
+  const p=tannerElegido();
   const name=$('custName').value.trim(),phone=$('custPhone').value.trim(),email=$('custEmail').value.trim();
-  if(name.length<2){createMsg('Captura el nombre del cliente.');return;}
-  if(!phone){createMsg('Captura el teléfono.');return;}
+  // Con un Tanner elegido, el servidor completa nombre y teléfono desde su
+  // expediente: aquí no se exige teclear lo que el club ya sabe.
+  if(!p&&!externo){createMsg('Elige al Tanner, o captura los datos a mano si no es del club.');return;}
+  if(externo){
+    if(name.length<2){createMsg('Captura el nombre del cliente.');return;}
+    if(!phone){createMsg('Captura el teléfono.');return;}
+  }
   if(!cart.length){createMsg('Agrega al menos una pieza al pedido.');return;}
   const lines=cart.map(item=>item.kind==='bundle'
     ?{kind:'bundle',bundleId:item.bundleId,tier:item.tier,personalizationName:item.personalizationName,number:item.number,pieces:item.pieces}
     :{kind:'product',productId:item.productId,talla:item.talla,quantity:item.quantity,personalizationName:item.personalizationName,number:item.number});
   const btn=$('createOrder');btn.disabled=true;createMsg();
   try{
-    const result=await rpc('v2_create_internal_order',{organization_id:ctx.organization_id,customer_name:name,customer_phone:phone,customer_email:email||null,notes:$('orderNotes').value.trim()||null,lines});
+    const result=await rpc('v2_create_internal_order',{organization_id:ctx.organization_id,customer_name:name||null,customer_phone:phone||null,customer_email:email||null,notes:$('orderNotes').value.trim()||null,lines,player_id:p?p.id:null});
     $('confirmFolio').textContent=result.folio;
     $('confirmTotal').textContent=money.format(Number(result.total||0));
     $('captureView').classList.add('hidden');
@@ -246,6 +321,8 @@ $('createOrder').addEventListener('click',createOrder);
 
 function resetCapture(){
   cart=[];$('custName').value='';$('custPhone').value='';$('custEmail').value='';$('orderNotes').value='';
+  tannerId='';const selT=$('capPlayer');if(selT)selT.value='';
+  if(externo)modoExterno(false);else pintaQuien();
   renderCart();createMsg();
   $('confirmView').classList.add('hidden');
   $('captureView').classList.remove('hidden');

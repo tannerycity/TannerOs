@@ -42,7 +42,10 @@ export default function comprobar() {
   // conciliacion y evaluacion): necesitan Chromium y el job static-qa no lo
   // instala. Cada vez que este numero sube tiene que ser por una suite que SI
   // se corre a mano antes de subir, no por una que dejo de pasar.
-  const MAX_EXCLUIDAS = 9;
+  // Sube a 10 por qa-humo-mostrador.mjs: levantar un pedido con la familia
+  // enfrente es dinero, y lo que protege —que elegir al Tanner baste y que
+  // el jersey se estampe con su nombre— sólo se ve en un navegador.
+  const MAX_EXCLUIDAS = 10;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

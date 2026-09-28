@@ -376,6 +376,27 @@ function wireSearch(navigation,ctx){
   document.addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();input.focus();input.select();}
   });
+
+  /* Se puede llegar buscando algo: /v2/?buscar=TC-2026-00020
+   *
+   * Es lo que hace que el QR de la credencial Tanner sirva de verdad. Sin
+   * esto, escanear el codigo abre TannerOS en la pantalla de inicio y quien
+   * esta en la porteria con la familia enfrente tiene que teclear el folio a
+   * mano, que es justo lo que el codigo venia a evitar.
+   *
+   * Tambien sirve para cualquier liga que se mande por WhatsApp al staff.
+   * Se carga el indice y se pinta: si hay un solo resultado, ahi esta. */
+  try{
+    const buscado=new URLSearchParams(location.search).get('buscar');
+    if(buscado&&buscado.trim()){
+      input.value=buscado.trim();
+      ensureIndex().then(pinta);
+      pinta();
+      // Sin robarle el foco en un telefono: abrir el teclado encima de los
+      // resultados los tapa justo cuando acaban de aparecer.
+      if(!matchMedia('(pointer:coarse)').matches)input.focus();
+    }
+  }catch{}
 }
 
 // Pide en paralelo solo las fuentes que esta persona puede ver: cada RPC valida

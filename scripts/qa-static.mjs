@@ -74,6 +74,50 @@ const DESTINOS_VIGILADOS=['/v2/captura/','/v2/produccion/','/v2/catalogo/'];
 }
 
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p];});}
+
+/* La carpeta de una foto es su permiso.
+
+   El candado del bucket tanneros-private no mira quien sube: mira DONDE. Su
+   politica de INSERT llama a private.storage_module_code(name), que toma el
+   tercer segmento de la ruta y lo traduce a un modulo del club. Una carpeta
+   que no esta en esa lista devuelve null, la politica exige que no lo sea, y
+   Storage rechaza la subida.
+
+   Eso ya paso: el catalogo subia a organizations/<org>/products/... y
+   "products" no es un modulo, asi que TODAS las fotos de producto fueron
+   rechazadas desde el primer dia —0 de 89 productos con foto— y en pantalla
+   no se veia ningun error. Un fallo de permisos disfrazado de "no pasa nada"
+   es el que mas tarda en encontrarse.
+
+   Esta lista es copia de private.storage_module_code. Si alla se agrega una
+   carpeta, se agrega aqui; y al reves, agregarla aqui sin agregarla alla no
+   sirve de nada: manda la base. 'branding' no esta porque vive en otro bucket
+   con su propia politica (private.branding_storage_org_id). */
+const CARPETAS_DE_STORAGE=['players','guardians','billing','accounting','academies','attendance','programs','commerce','prospects','scouting','sponsors','equipment','admin'];
+const CARPETAS_DE_OTRO_BUCKET=['branding'];
+{
+  const permitidas=new Set([...CARPETAS_DE_STORAGE,...CARPETAS_DE_OTRO_BUCKET]);
+  // Toda forma de armar la ruta que se usa hoy: plantilla y concatenacion.
+  const patrones=[/organizations\/\$\{[^}]*\}\/([a-zA-Z0-9_-]+)/g,
+                  /'organizations\/'\s*\+\s*[^+]+\+\s*'\/([a-zA-Z0-9_-]+)/g];
+  for(const f of walk('v2').filter(x=>/\.js$/i.test(x))){
+    const texto=fs.readFileSync(f,'utf8');
+    for(const patron of patrones){
+      for(const m of texto.matchAll(patron)){
+        const carpeta=m[1];
+        if(carpeta.startsWith('$'))continue;   // la carpeta sale de una constante: se revisa donde se define
+        if(!permitidas.has(carpeta))
+          errors.push(`Carpeta de Storage desconocida: ${f} sube a organizations/<org>/${carpeta}/..., y private.storage_module_code no traduce "${carpeta}" a ningun modulo. Storage va a rechazar esa subida en silencio. Usa una de: ${CARPETAS_DE_STORAGE.join(', ')}.`);
+      }
+    }
+  }
+  // Y la constante que usa el catalogo tiene que apuntar a una carpeta real.
+  const catalogo=fs.readFileSync('v2/catalogo/app.js','utf8');
+  const decl=catalogo.match(/const CARPETA_MODULO='([a-zA-Z0-9_-]+)'/);
+  if(!decl)errors.push('v2/catalogo/app.js perdio CARPETA_MODULO: la ruta de la foto volvio a quedar suelta.');
+  else if(!CARPETAS_DE_STORAGE.includes(decl[1]))
+    errors.push(`v2/catalogo/app.js sube a la carpeta "${decl[1]}", que no es un modulo que Storage reconozca.`);
+}
 const htmlFiles=walk('v2').filter(f=>f.endsWith('index.html'));
 for(const file of htmlFiles){const html=fs.readFileSync(file,'utf8');if(!/name=["']viewport["']/i.test(html))errors.push(`Sin viewport mobile-first: ${file}`);if(html.length<120)errors.push(`HTML sospechosamente pequeño: ${file}`);}
 

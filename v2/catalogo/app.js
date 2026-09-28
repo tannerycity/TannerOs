@@ -17,7 +17,18 @@ const ICONS={
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}
-function drawerMsg(t='',type='error'){const e=$('drawerMessage');if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}
+/* Un aviso que no se ve no es un aviso.
+
+   El aviso vive hasta arriba del panel y el boton de guardar hasta abajo, asi
+   que en un panel con scroll —el de producto lo tiene— quien acaba de tocar
+   "Guardar" esta mirando justo donde el aviso NO esta. Un error de Storage se
+   escribia correctamente y el resultado en pantalla era: nada. Por eso el
+   aviso se trae a la vista cuando dice algo. */
+function drawerMsg(t='',type='error'){
+  const e=$('drawerMessage');if(!e)return;
+  e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);
+  if(t)e.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -214,6 +225,23 @@ async function toggleBundleArchive(){
 
 /* ---------- Fotos (mismo patrón que Utilería y Jugadores) ---------- */
 const PHOTO_BUCKET='tanneros-private';
+/* La carpeta NO es decoracion: es el permiso.
+
+   El candado del bucket no mira quien sube, mira DONDE. La politica de INSERT
+   de tanneros-private llama a private.storage_module_code(name), que toma el
+   tercer segmento de la ruta y lo traduce a un modulo del club:
+
+     organizations/<org>/<CARPETA>/...  ->  players, equipment, commerce, ...
+
+   Una carpeta que no esta en esa lista devuelve null, y la politica exige que
+   no lo sea. Este archivo subia a .../products/... —que no es un modulo— asi
+   que Storage rechazaba TODAS las fotos de producto, siempre, desde el primer
+   dia: 0 de 89 productos tenian foto guardada. El catalogo es comercio.
+
+   Si algun dia se agrega una carpeta nueva aqui, tiene que existir tambien en
+   private.storage_module_code o las fotos se pierden en silencio. La regla de
+   scripts/qa-static.mjs vigila exactamente eso. */
+const CARPETA_MODULO='commerce';
 let photoFile=null,photoCleared=false,photoSeq=0;
 function loadImageFile(file){
   return new Promise((resolve,reject)=>{
@@ -318,6 +346,7 @@ async function saveProduct(){
   const sizes=$('pSizes').value.split(',').map(s=>s.trim()).filter(Boolean);
   const current=draft.id?products.find(x=>x.id===draft.id):null;
   const btn=$('pSave');btn.disabled=true;
+  let guardado=false;
   try{
     await rpc('v2_upsert_product',{
       organization_id:ctx.organization_id,
@@ -333,21 +362,34 @@ async function saveProduct(){
       lead_days:current?.leadDays??null
     });
     // La foto va despues del upsert: un producto nuevo no tiene id hasta aqui.
+    // De aqui en adelante el producto YA esta guardado, asi que lo que falle
+    // no puede decir "no se pudo guardar el producto": seria mentira, y quien
+    // la lea va a volver a teclear un precio que ya estaba bien.
+    guardado=true;
     if(photoFile||photoCleared){
       await load();
-      const guardado=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);
-      if(guardado){
+      const prod=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);
+      // Sin producto reencontrado la foto se perdia en silencio y el papa veia
+      // la tienda sin imagen sin que nadie le hubiera dicho nada.
+      if(!prod)throw new Error('No pudimos ligarle la foto. Abre el producto otra vez y vuelve a elegirla.');
+      {
         if(photoCleared&&!photoFile){
-          await rpc('v2_set_product_photo',{organization_id:ctx.organization_id,product_id:guardado.id,photo_path:null,photo_thumb_path:null,photo_bucket:null});
+          await rpc('v2_set_product_photo',{organization_id:ctx.organization_id,product_id:prod.id,photo_path:null,photo_thumb_path:null,photo_bucket:null});
         }else{
-          const subida=await uploadPhoto(`organizations/${ctx.organization_id}/products/${guardado.id}/foto`,photoFile);
-          await rpc('v2_set_product_photo',{organization_id:ctx.organization_id,product_id:guardado.id,photo_path:subida.path,photo_thumb_path:subida.thumbPath,photo_bucket:PHOTO_BUCKET});
+          const subida=await uploadPhoto(`organizations/${ctx.organization_id}/${CARPETA_MODULO}/products/${prod.id}/foto`,photoFile);
+          await rpc('v2_set_product_photo',{organization_id:ctx.organization_id,product_id:prod.id,photo_path:subida.path,photo_thumb_path:subida.thumbPath,photo_bucket:PHOTO_BUCKET});
         }
       }
     }
     await load();
     closeDrawerFn();
-  }catch(e){drawerMsg(e.message||'No se pudo guardar el producto.');}
+  }catch(e){
+    const detalle=e?.message||'';
+    drawerMsg(guardado
+      ? `Los datos del producto SI se guardaron. La foto no: ${detalle||'Storage la rechazo.'}`
+      : (detalle||'No se pudo guardar el producto.'));
+    if(guardado)await load();   // que la lista muestre lo que si quedo
+  }
   finally{btn.disabled=false;}
 }
 async function toggleProductArchive(){

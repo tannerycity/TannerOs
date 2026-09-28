@@ -30,6 +30,7 @@ huella en tablas de auditoría de un club que está operando. No vale la pena.
 | Familia | Qué hace | Qué demuestra | Qué **no** demuestra |
 |---|---|---|---|
 | **Permisos** (01, 05) | Suplanta a un usuario real y llama la RPC con datos ajenos | Que el candado del servidor cierra | Nada sobre lo que la pantalla enseña |
+| **Forma** (09) | Revisa que cada cáscara `v2_*` pueda cruzar hasta su función privada | Que ninguna pantalla está muerta por un permiso que le falta a su RPC | Que la RPC haga lo correcto una vez que entra |
 | **Invariantes** (02, 03, 04, 06) | Recorre los libros reales buscando una contradicción | Que **hoy** los datos cuadran | Que el código no pueda volver a descuadrarlos mañana |
 
 Un invariante sobre los datos de hoy no es lo mismo que una prueba de regresión
@@ -43,6 +44,7 @@ Por eso cada invariante dice cuántas filas revisó, y falla si no revisó ningu
 |---|---|---|
 | 07 | Ninguna lista descarga un original | En `scripts/qa-static.mjs` (barrera) y `scripts/qa-photo-cache.mjs` (ejecución). No es SQL |
 | 08 | El formulario público resiste basura | **Falta.** Necesita escribir: un registro público crea filas. Requiere un ambiente de pruebas |
+| 09 | Ninguna pantalla pide un permiso que no tiene | **Hecha.** `09_ninguna_pantalla_pide_permiso_que_no_tiene.sql`. Nació de ocho cáscaras caídas en silencio el 28/09/2026 |
 | 99 | El repositorio tiene todas las migraciones | Compara contra el repo, así que corre con `scripts/qa-migraciones-vs-base.sh` |
 
 Las pruebas de doble envío y de reasignación de pagos **en su forma sintética**

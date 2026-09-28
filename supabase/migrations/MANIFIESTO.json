@@ -1,8 +1,8 @@
 {
-  "migraciones": 408,
-  "bytes": 2178450,
-  "huella": "d751143339ad65727be0d66d1e943758",
+  "migraciones": 409,
+  "bytes": 2181511,
+  "huella": "1dfbffe59f8df08b7fbb0d8f2c3bc0da",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260928014037_v1_el_pedido_del_mostrador_sabe_de_quien_es.sql",
+  "ultima": "20260928022524_w1_ocho_wrappers_sin_llave.sql",
   "verificadoContraLaBase": "2026-09-28"
 }

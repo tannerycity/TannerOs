@@ -6,8 +6,11 @@
 import {
   tallaValida, tallasDe, tallaUnica, aceptaPersonalizacion, numeroValido,
   nombreValido, cantidadValida, preparaLinea, llaveDeLinea, agregaAlCarrito,
-  quitaDelCarrito, totalDelCarrito, piezasDelCarrito, acomodaVitrina, ordenDeVitrina
+  quitaDelCarrito, totalDelCarrito, piezasDelCarrito, acomodaVitrina, ordenDeVitrina,
+  ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA,
+  CATEGORIAS, categoriaCanonica, ordenaTallas
 } from '../v2/tienda.js';
+import { tipoDePieza } from '../v2/produccion/hoja.js';
 
 let fallos = 0, corridas = 0;
 function revisa(nombre, ok, detalle) {
@@ -156,7 +159,75 @@ revisa('acomodar no muta la lista original', (() => {
 revisa('sin producto no se arma una línea fantasma',
   preparaLinea(null, {}).ok === false && preparaLinea({}, {}).ok === false);
 
+
+/* ===== La escala del club =====
+   Capturarla a mano, doce valores con coma y producto por producto, es donde
+   se abandona: por eso la pantalla la ofrece de un toque. Y si la lista no es
+   la que confirmó Presidencia, la tienda ofrece tallas que el club no vende. */
+revisa('la escala de niños es la del club', ESCALA_NINOS.join(',') === '6,8,10,12,14,16');
+revisa('la de adultos también', ESCALA_ADULTOS.join(',') === 'XS,S,M,L,XL,XXL');
+revisa('y la escala completa son las doce', ESCALA_CLUB.length === 12);
+revisa('sin repetidas', new Set(ESCALA_CLUB).size === 12);
+
+// Alfabéticamente la 10 va antes que la 8 y la S antes que la XS. En una hoja
+// de corte eso se lee mal y se corta peor.
+revisa('las tallas se ordenan como las ordena el club, no el alfabeto',
+  ordenaTallas(['M','8','XS','10','6']).join(',') === '6,8,10,M,XS'.replace('M,XS','XS,M'),
+  ordenaTallas(['M','8','XS','10','6']).join(','));
+revisa('una talla de fuera de la escala no se pierde: va al final',
+  ordenaTallas(['Mediana','12']).join(',') === '12,Mediana', ordenaTallas(['Mediana','12']).join(','));
+revisa('ordenar no muta la lista original', (() => {
+  const o = ['M','6']; ordenaTallas(o); return o[0] === 'M';
+})());
+
+/* ===== EL AMARRE QUE IMPORTA =====
+
+   La categoría no es una etiqueta decorativa: la hoja de producción la lee
+   para saber si una pieza es playera, short o calcetas, y con eso decide en
+   qué columna cae su talla. Si alguien agrega una categoría al formulario y
+   la hoja no sabe leerla, la talla de esa prenda se va a COMENTARIOS y el
+   proveedor corta a ojo.
+
+   Por eso TODA categoría que se pueda tocar en el catálogo tiene que ser una
+   que la hoja clasifique. Esta prueba une los dos archivos. */
+const ESPERADO = { jersey:'jersey', shorts:'short', socks:'calcetas',
+                   outerwear:'otra', pants:'otra' };
+for (const c of CATEGORIAS) {
+  revisa(`la hoja de producción sabe leer "${c.etiqueta}"`,
+    tipoDePieza(c.valor) === ESPERADO[c.valor],
+    `${c.valor} -> ${tipoDePieza(c.valor)}, se esperaba ${ESPERADO[c.valor]}`);
+}
+revisa('el catálogo ofrece las cinco categorías de PIEZA del club', CATEGORIAS.length === 5);
+revisa('y ninguna repetida', new Set(CATEGORIAS.map(c => c.valor)).size === 5);
+// Un kit no es una pieza: se arma en el panel de kits. Dos caminos para lo
+// mismo es como nace un "producto" llamado Kit que ningún kit conoce.
+revisa('"Kit" NO se ofrece como categoría de producto',
+  !CATEGORIAS.some(c => c.valor === 'kit'), CATEGORIAS.map(c => c.valor).join(','));
+
+/* ===== Abrir un producto viejo no lo manda a "Otro" =====
+   En la base conviven cinco formas de escribir lo mismo, de la migración y de
+   antes. Si al abrirlo no se le prende su botón, parece que no tuviera
+   categoría y quien lo guarde se la cambia sin querer. */
+revisa('"Jersey / Playera" de la migración se reconoce como jersey',
+  categoriaCanonica('Jersey / Playera') === 'jersey');
+revisa('"Jersey" con mayúscula también', categoriaCanonica('Jersey') === 'jersey');
+revisa('"Conjunto" es un jersey, que es como lo corta el proveedor',
+  categoriaCanonica('Conjunto') === 'jersey');
+revisa('"Short" y "shorts" caen en el mismo',
+  categoriaCanonica('Short') === 'shorts' && categoriaCanonica('shorts') === 'shorts');
+revisa('"Calcetas" y "socks" también',
+  categoriaCanonica('Calcetas') === 'socks' && categoriaCanonica('socks') === 'socks');
+revisa('un hoodie es sudadera', categoriaCanonica('outerwear') === 'outerwear'
+  && categoriaCanonica('Chamarra') === 'outerwear');
+// Lo que no cuadra NO se fuerza: inventarle categoría a un producto raro es
+// peor que dejarlo como lo escribieron.
+revisa('lo que no cuadra no se fuerza a una categoría inventada',
+  categoriaCanonica('Balón de entrenamiento') === null);
+revisa('sin categoría devuelve nada, no una por si acaso',
+  categoriaCanonica(null) === null && categoriaCanonica('') === null);
+revisa('la talla única del club es Universal', TALLA_UNICA === 'Universal');
+
 console.log(fallos
   ? `Tienda QA FAILED · ${fallos} de ${corridas}`
-  : `Tienda QA OK · ${corridas} casos, incluido el jersey talla 6 que nadie pidió`);
+  : `Tienda QA OK · ${corridas} casos, incluido el jersey talla 6 y las categorías que la hoja debe saber leer`);
 process.exit(fallos ? 1 : 0);

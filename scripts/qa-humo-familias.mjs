@@ -58,9 +58,21 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
           version:1, required:false, accepted_at:null, outdated:false }
       ],
       image_consent:{ status:'sin_preguntar', authorized:false, decided_at:null, notice_version:null } };
+    // portal_catalog devuelve un ARRAY (jsonb_agg), no un objeto con
+    // .products. El stub decía lo segundo y nadie lo notó porque la tienda
+    // no se probaba.
+    const TALLAS = ['6','8','10','12','14','16','XS','S','M','L','XL','XXL'];
+    const CATALOGO = [
+      { id:'prod-jersey', name:'Jersey "Wet Blue" - Home Edition', category:'jersey',
+        price:699, sizes:TALLAS, photo_thumb_path:null, photo_bucket:null, description:null },
+      { id:'prod-calcetas', name:'Par de calcetas', category:'socks',
+        price:200, sizes:['Universal'], photo_thumb_path:null, photo_bucket:null, description:null },
+      { id:'prod-kit', name:'Kit Tanner Completo', category:'kit',
+        price:1500, sizes:TALLAS, photo_thumb_path:null, photo_bucket:null, description:null }
+    ];
     const RESP = { v2_portal_home: HOME, v2_portal_progress: PROGRESS,
       v2_portal_statement: STATEMENT,
-      v2_portal_calendar: [], v2_portal_catalog: { products:[] }, v2_portal_parking: { passes:[] } };
+      v2_portal_calendar: [], v2_portal_catalog: CATALOGO, v2_portal_parking: { passes:[] } };
     export const supabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}),
              getUser:async()=>({data:{user:{app_metadata:{}}}}),
@@ -68,6 +80,7 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
     export const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'});
     export const $ = id => document.getElementById(id);
     window.__decisiones = [];
+    window.__pedidos = [];
     export async function rpc(name, params={}){
       if(name==='v2_portal_attendance'){
         window.__mesPedidos.push(params);
@@ -82,6 +95,10 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
           decided_at: params.authorize ? '2026-09-23T12:00:00Z' : null,
           notice_version: 'uso_de_imagen v1' } };
         return { ok:true };
+      }
+      if(name==='v2_portal_place_order'){
+        window.__pedidos.push(params);
+        return { folio:'PED-QA-001', total:0 };
       }
       return RESP[name] ?? null;
     }
@@ -193,6 +210,85 @@ await pagina.waitForFunction(() => /autorizado/.test(document.querySelector('.fa
 const trasSi = (await pagina.textContent('.fam-imagen')).replace(/\s+/g, ' ');
 revisa('cambiar a sí queda registrado con su fecha',
   /Sí puede aparecer/.test(trasSi) && /Desde el/.test(trasSi), trasSi.slice(0, 220));
+
+/* ===== LA TIENDA, Y EL JERSEY TALLA 6 QUE NADIE PIDIÓ =====
+
+   La talla se ofrecía en un <select>, y un <select> nace con su primera
+   opción puesta. Mientras el catálogo no tuvo tallas no se notó. El día que
+   se capturaron las doce, un papá de un Tanner de catorce que tocara
+   "Agregar" sin abrir el selector pedía un jersey talla 6 — y el pedido se
+   veía normal, con su talla y todo, hasta que llegaba la caja. */
+await pagina.click('[data-tab="tienda"]');
+await pagina.waitForSelector('.fam-prod', { timeout: 6000 });
+
+// El kit primero: un club vende el uniforme, no las piezas.
+const vitrina = await pagina.$$eval('.fam-prod strong', n => n.map(x => x.textContent.trim()));
+revisa('el kit encabeza la vitrina', /Kit Tanner/.test(vitrina[0] || ''), vitrina.join(' | '));
+
+// Ya no hay <select> que preseleccione nada.
+revisa('la talla ya no es un desplegable que elige solo',
+  (await pagina.$$('.fam-prod select')).length === 0);
+revisa('las tallas son botones que se tocan',
+  (await pagina.$$('[data-tallas="prod-jersey"] .fam-talla')).length === 12);
+revisa('y ninguna viene marcada de entrada',
+  (await pagina.$$('.fam-talla.activa')).length === 0);
+
+// EL CASO: agregar sin elegir talla no manda nada.
+await pagina.click('[data-add="prod-jersey"]');
+await pagina.waitForTimeout(250);
+revisa('sin elegir talla no se agrega nada al carrito',
+  (await pagina.$$('#famCart')).length === 0);
+// El aviso va en LA tarjeta que se tocó, no en la primera de la lista ni en
+// una alerta: quien compra tiene que verlo donde puso el dedo.
+const tarjetaJersey = await pagina.$eval('[data-add="prod-jersey"]', b => b.closest('.fam-prod').textContent);
+revisa('y la tarjeta que se tocó dice qué falta, sin tapar la pantalla',
+  /Elige la talla/.test(tarjetaJersey), tarjetaJersey);
+revisa('el aviso NO se riega a las demás tarjetas',
+  (await pagina.$$('.fam-aviso')).length === 1);
+
+// Una talla única no cobra un toque que no informa.
+revisa('las calcetas Universal no piden elegir talla',
+  (await pagina.$$('[data-tallas="prod-calcetas"]')).length === 0);
+revisa('y lo dicen en vez de callarlo',
+  /Talla Universal/.test(await pagina.textContent('.fam-prods')));
+
+// Con talla elegida sí entra, y aparecen nombre y número.
+await pagina.click('[data-tallas="prod-jersey"] [data-talla="14"]');
+await pagina.waitForTimeout(200);
+revisa('la talla elegida se marca', (await pagina.$$('.fam-talla.activa')).length === 1);
+revisa('el nombre y el número aparecen hasta que hay talla',
+  await pagina.isVisible('[data-pnombre="prod-jersey"]'));
+await pagina.fill('[data-pnombre="prod-jersey"]', 'Matías');
+await pagina.fill('[data-pnumero="prod-jersey"]', '11');
+await pagina.click('[data-add="prod-jersey"]');
+await pagina.waitForSelector('#famCart', { timeout: 6000 });
+const carrito = (await pagina.textContent('#famBody')).replace(/\s+/g, ' ');
+revisa('el renglón dice talla, nombre y número',
+  /14 · Matías · #11/.test(carrito), carrito.slice(0, 400));
+revisa('la barra del carrito dice para quién es el pedido',
+  /para /.test(await pagina.textContent('#famCart')), await pagina.textContent('#famCart'));
+
+// Un número que no es número se dice, no se estampa mal.
+await pagina.click('[data-tallas="prod-kit"] [data-talla="12"]');
+await pagina.waitForTimeout(150);
+await pagina.fill('[data-pnumero="prod-kit"]', 'abc');
+await pagina.click('[data-add="prod-kit"]');
+await pagina.waitForTimeout(250);
+revisa('un dorsal inválido no se agrega, y lo explica',
+  /1 a 3 d/.test(await pagina.textContent('.fam-prods')),
+  (await pagina.textContent('.fam-prods')).slice(0, 300));
+
+// Y lo que se manda al servidor lleva la talla que la familia eligió.
+await pagina.click('#famCheckout');
+await pagina.waitForTimeout(600);
+const pedidosTienda = await pagina.evaluate(() => window.__pedidos);
+revisa('se manda un solo pedido', pedidosTienda.length === 1, JSON.stringify(pedidosTienda));
+revisa('con la talla que la familia eligió, no con la primera de la lista',
+  pedidosTienda[0]?.items?.[0]?.size === '14', JSON.stringify(pedidosTienda[0]?.items));
+revisa('y el nombre y el dorsal viajan para que el club no adivine',
+  /Matías/.test(pedidosTienda[0]?.notes || '') && /#11/.test(pedidosTienda[0]?.notes || ''),
+  String(pedidos[0]?.notes));
+revisa('el carrito queda vacío tras apartar', (await pagina.$$('#famCart')).length === 0);
 
 const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 revisa('no hay scroll horizontal en iPhone', !desborde);

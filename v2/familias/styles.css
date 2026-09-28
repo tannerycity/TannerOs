@@ -278,3 +278,33 @@
 .fam-imagen.si .fam-imagen-estado{color:#11773c}
 .fam-imagen.no .fam-imagen-estado{color:#4d5e64}
 .fam-imagen.pendiente{border-left:5px solid #d8a30b}
+
+/* === La tienda de las familias ===
+   Tres toques para comprar: talla, Agregar, Apartar. Sin ventana de producto:
+   un modal cuesta dos toques más y en un teléfono tapa justo cuando la
+   familia quiere comparar dos jerseys. */
+.fam-tallas{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+.fam-talla{min-width:44px;min-height:44px;padding:0 11px;border-radius:11px;
+  border:1px solid var(--fam-line,#e0e7e5);background:#fff;color:#33535d;
+  font:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
+.fam-talla.activa{background:var(--fam-ink,#0d3b45);border-color:var(--fam-ink,#0d3b45);color:#fff}
+.fam-talla:focus-visible{outline:2px solid #056c7f;outline-offset:2px}
+/* Una talla única se dice, no se ofrece: tocar "Universal" es un toque que
+   no informa. */
+.fam-talla-unica{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:9px;
+  background:#eef4f3;color:#4a6870;font-size:12px;font-weight:800}
+/* Nombre y número sólo aparecen cuando ya hay talla. */
+.fam-pers{display:grid;grid-template-columns:1fr 62px;gap:6px;margin-top:8px}
+.fam-pers input{border:1px solid var(--fam-line,#e0e7e5);border-radius:11px;
+  padding:11px 12px;font:inherit;font-size:15px;min-height:44px;color:#20363c;width:100%}
+.fam-pers input:focus{outline:none;border-color:var(--fam-ink,#0d3b45)}
+/* El motivo se pinta junto al botón que se tocó, no en una alerta que tapa
+   lo que la familia estaba viendo. */
+.fam-aviso{display:block;margin-top:8px;font-size:12.5px;font-weight:800;color:#a4352b}
+.fam-add{margin-top:10px;width:100%;min-height:46px;border:0;border-radius:13px;
+  background:var(--fam-ok,#15964a);color:#fff;font:inherit;font-weight:900;font-size:15px;cursor:pointer}
+.fam-add:active{transform:scale(.99)}
+.fam-linea-fin{display:flex;align-items:center;gap:10px}
+.fam-quita{border:0;background:#f4f6f5;color:#7d8a8f;border-radius:9px;
+  min-width:32px;min-height:32px;font-size:14px;font-weight:900;cursor:pointer;line-height:1}
+.fam-quita:hover{background:#e8eceb;color:#a4352b}

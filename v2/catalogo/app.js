@@ -1,6 +1,6 @@
 import { createClient } from '/v2/supabase-client.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-import { getSignedPhotoUrl } from '/v2/photo-cache.js';
+import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -101,7 +101,7 @@ function productCard(p){
   if(p.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!p.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   if(canFinance&&p.cost==null)chips.push('<span class="cat-chip warn">Sin costo</span>');
-  btn.innerHTML=`<span class="cat-thumb">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong>${canFinance&&p.marginPercent!=null?`<small class="cat-sub">Margen ${pct(p.marginPercent)}</small>`:''}</span>`;
+  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong>${canFinance&&p.marginPercent!=null?`<small class="cat-sub">Margen ${pct(p.marginPercent)}</small>`:''}</span>`;
   if(canManage)btn.addEventListener('click',()=>openProductDrawer(p));
   else btn.disabled=true;
   return btn;
@@ -118,6 +118,41 @@ function renderProducts(){
   const rows=products.filter(p=>showArchived||!p.archived);
   $('productEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(p=>list.appendChild(productCard(p)));
+  firmaMiniaturas(rows);
+}
+
+/* La foto entra despues de pintar la lista, firmada y en lote.
+
+   Esta pantalla es donde se sube la foto, asi que es donde hay que poder
+   comprobar que quedo bien: sin esto, quien acaba de subir cuatro jerseys ve
+   cuatro monitos identicos y no tiene forma de saber cual quedo en cual —ni
+   siquiera si se guardo—. Las fotos SI se estaban guardando; esta lista nunca
+   las leyo.
+
+   Miniatura, nunca el original: una lista es una coleccion, y el original se
+   reserva para el detalle (docs/MEDIA_EGRESS_ARCHITECTURE.md). En lote y por
+   bucket, para no firmar de una en una. Un producto sin foto se queda con su
+   icono y la lista sigue sirviendo. */
+let miniaturaSeq=0;
+async function firmaMiniaturas(rows){
+  const seq=++miniaturaSeq, porBucket={};
+  for(const p of rows){
+    const path=p.photoThumbPath;
+    if(!path)continue;
+    const b=p.photoBucket||PHOTO_BUCKET;
+    (porBucket[b]=porBucket[b]||[]).push({id:p.id,path,name:p.name});
+  }
+  for(const b of Object.keys(porBucket)){
+    try{
+      const mapa=await getSignedPhotoUrls(supabase,b,porBucket[b].map(x=>x.path));
+      if(seq!==miniaturaSeq)return;   // se volvio a pintar: estas firmas ya no son
+      for(const x of porBucket[b]){
+        const url=mapa[x.path];if(!url)continue;
+        const caja=document.querySelector(`[data-foto="${CSS.escape(String(x.id))}"]`);
+        if(caja)caja.innerHTML=`<img src="${esc(url)}" alt="${esc(x.name||'Producto')}" loading="lazy">`;
+      }
+    }catch(e){/* la foto es opcional: la lista no se rompe por una firma */}
+  }
 }
 
 /* ---------- Drawer: kit ---------- */

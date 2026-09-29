@@ -3,7 +3,11 @@
 #
 #   DATABASE_URL="postgresql://..." ./supabase/tests/correr-todas.sh
 #
-# Todas son de sólo lectura: no insertan, no actualizan y no borran.
+# Casi todas son de sólo lectura: no insertan, no actualizan y no borran.
+# La 10 es la excepción y lo dice en su encabezado: levanta dos pedidos para
+# comparar cómo los cobra cada camino, dentro de un bloque que se revierte
+# solo. Al terminar no queda ni un renglón — se verifica contando pedidos de QA
+# después de correrla.
 set -euo pipefail
 : "${DATABASE_URL:?falta DATABASE_URL}"
 cd "$(dirname "$0")"

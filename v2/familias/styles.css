@@ -308,3 +308,88 @@
 .fam-quita{border:0;background:#f4f6f5;color:#7d8a8f;border-radius:9px;
   min-width:32px;min-height:32px;font-size:14px;font-weight:900;cursor:pointer;line-height:1}
 .fam-quita:hover{background:#e8eceb;color:#a4352b}
+
+/* ---- La talla, plegada ----
+
+   Antes se desplegaban las DOCE tallas en cada tarjeta, siempre: ocho
+   productos median 5,650px de alto. Ahora la tarjeta dice una linea y las
+   tallas aparecen solo en la que se toco. Mismos toques para comprar, una
+   quinta parte de pantalla. */
+.fam-talla-sel{
+  width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:0 14px;border-radius:12px;border:1.5px solid #dbe5e3;background:#fff;
+  cursor:pointer;text-align:left;
+}
+.fam-talla-sel b{font-size:14px;font-weight:800;color:#12313a;}
+.fam-talla-sel span{font-size:12px;font-weight:700;color:#7d8f95;}
+/* Sin talla elegida el boton se ve como lo que es: algo que falta. */
+.fam-talla-sel.vacia{border-style:dashed;border-color:#b9cdc8;}
+.fam-talla-sel.vacia b{color:#2f6b60;}
+
+/* ---- El kit ----
+   Va primero y ocupa el ancho: un club no vende piezas, vende el uniforme. */
+.fam-kits{display:flex;flex-direction:column;gap:12px;margin:12px 0;}
+.fam-kit{
+  background:#fff;border:1.5px solid #cfe0db;border-radius:18px;padding:16px;
+  display:flex;flex-direction:column;gap:12px;
+  box-shadow:0 10px 24px rgba(12,48,44,.07);
+}
+.fam-kit-head{display:flex;flex-direction:column;gap:4px;}
+.fam-kit-tag{
+  align-self:flex-start;font-size:10.5px;font-weight:800;letter-spacing:.09em;
+  padding:4px 10px;border-radius:999px;background:#0d2229;color:#e9d19c;
+}
+.fam-kit-head strong{font-size:17px;line-height:1.25;color:#0d2229;}
+.fam-tier{display:flex;gap:8px;flex-wrap:wrap;}
+/* Las piezas del kit: se ve QUE trae antes de pedir tallas. */
+.fam-piezas{display:flex;flex-direction:column;gap:10px;}
+.fam-pieza{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid #edf2f1;}
+.fam-pieza>span{font-size:13px;font-weight:750;color:#2b3d43;}
+.fam-pieza em{font-size:12.5px;font-style:normal;font-weight:700;color:#7d8f95;}
+
+/* ---- Iniciales cuando no hay foto ----
+   Taquilla ya lo hacia asi y Familias dejaba un recuadro gris. La foto cae
+   encima cuando llega, y si no llega queda esto en vez de un hueco. */
+.fam-shot{position:relative;display:block;}
+.fam-iniciales{
+  position:absolute;inset:0;display:grid;place-items:center;
+  font-style:normal;font-size:30px;font-weight:800;color:#9fb4ae;letter-spacing:.04em;
+}
+.fam-shot img{position:relative;z-index:1;}
+
+/* En la rejilla de dos columnas la tarjeta mide ~170px y la fila de talla no
+   cabe de lado: "Elige tu talla" se partia en tres renglones y "12
+   disponibles" en dos. Ahi se apila, que es lo que cabe. En el kit —que ocupa
+   el ancho completo— sigue de lado, que es lo que se lee mejor. */
+.fam-prod .fam-talla-sel{
+  flex-direction:column;align-items:flex-start;justify-content:center;
+  gap:2px;padding:8px 12px;min-height:52px;
+}
+.fam-prod .fam-talla-sel b{font-size:13px;}
+.fam-prod .fam-talla-sel span{font-size:11px;}
+
+
+/* ---- Las tallas abiertas: una fila que se desliza ----
+
+   Como en cualquier tienda que se usa en un telefono. Antes era un bloque que
+   se partia en seis renglones porque los jerseys del club traen DOCE tallas en
+   el mismo producto —niños 6 a 16 y adultos XS a XXL—.
+
+   overflow-x con scroll-snap: se arrastra con el pulgar y cada talla queda
+   cuadrada, sin tener que apuntar. */
+.fam-fila{
+  display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
+}
+.fam-fila::-webkit-scrollbar{height:0;}
+.fam-fila .fam-talla{flex:0 0 auto;scroll-snap-align:start;min-width:52px;}
+/* Quien busca la 10 de su hijo no tiene por que leer doce botones: el grupo
+   con su etiqueta se ve de un vistazo. */
+.fam-grupo{display:flex;flex-direction:column;gap:2px;}
+.fam-grupo>span{
+  font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:#8a9aa0;
+}
+/* Al abrirse, el panel puede salirse de la tarjeta de dos columnas: se le deja
+   romper el ancho para que la fila tenga donde deslizarse. */
+.fam-prod .fam-tallas{margin:0 -12px;padding:0 12px;}

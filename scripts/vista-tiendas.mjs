@@ -46,6 +46,19 @@ const KITS = [
   { id:'b2', name:'Kit Game', priceAdult:1200, priceKid:1100, active:true, archived:false, components:[], costComplete:false, componentsResolved:true },
   { id:'b3', name:'Kit Training', priceAdult:770, priceKid:700, active:true, archived:false, components:[], costComplete:false, componentsResolved:true }
 ];
+// Los kits como los entrega portal_catalog: con sus piezas YA resueltas,
+// porque la familia no puede elegir tallas de algo que no sabe que trae.
+const KITS_PORTAL = [
+  { id:'b1', name:'Kit Tanner - Completo', price_adult:3500, price_kid:2350, pieces:[
+    { product_id:'p4', name:'Jersey "Wet Blue" - Home Edition', sizes:TALLAS, qty:1 },
+    { product_id:'p3', name:'Jersey "Pink Cantera" - Away Edition', sizes:TALLAS, qty:1 },
+    { product_id:'p8', name:'Short', sizes:TALLAS, qty:2 },
+    { product_id:'p7', name:'Par de calcetas', sizes:['Universal'], qty:2 }]},
+  { id:'b2', name:'Kit Game', price_adult:1500, price_kid:1299, pieces:[
+    { product_id:'p4', name:'Jersey "Wet Blue" - Home Edition', sizes:TALLAS, qty:1 },
+    { product_id:'p8', name:'Short', sizes:TALLAS, qty:1 },
+    { product_id:'p7', name:'Par de calcetas', sizes:['Universal'], qty:1 }]}
+];
 const JUG = [
   { id:'t1', first_name:'Dario', last_name:'Montalvo Díaz', category:'T10', jersey_number:7, status:'active' },
   { id:'t2', first_name:'Erick', last_name:'García Medina', category:'T10', status:'active' }
@@ -77,14 +90,14 @@ const PANTALLAS = [
   // ligado" creyendo que era la tienda.
   ['tienda-familias', '/v2/familias/', stub(`
     if(n==='v2_portal_home')return{data:{organization:{name:'Tannery City FC'},guardian:{id:'g1',firstName:'Ana',lastName:'Ávila'},players:[{id:'t1',firstName:'Mauricio',lastName:'Torres Avila',category:'Baby Tanner',balance:0}],account:{balance:0}},error:null};
-    if(n==='v2_portal_catalog')return{data:${JSON.stringify(PRODUCTOS.map(p => ({ ...p, photo_thumb_path: p.photoThumbPath || null })))},error:null};
-    ${COMUN}`), '[data-tab="tienda"]', '[data-tab="tienda"]']
+    if(n==='v2_portal_catalog')return{data:${JSON.stringify({products: PRODUCTOS.map(p => ({ ...p, photo_thumb_path: p.photoThumbPath || null })),bundles: KITS_PORTAL })},error:null};
+    ${COMUN}`), '[data-tab="tienda"]', '[data-tab="tienda"]', '.fam-prod .fam-talla-sel']
 ];
 
 const nav = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 fs.mkdirSync(path.join(RAIZ, 'docs/evidencias'), { recursive: true });
 
-for (const [nombre, ruta, codigo, espera, tocar] of PANTALLAS) {
+for (const [nombre, ruta, codigo, espera, tocar, abrirTalla] of PANTALLAS) {
   const pg = await nav.newPage({ viewport: { width: 390, height: 1100 }, deviceScaleFactor: 2 });
   const errs = [];
   pg.on('pageerror', e => errs.push(e.message));
@@ -94,6 +107,20 @@ for (const [nombre, ruta, codigo, espera, tocar] of PANTALLAS) {
     await pg.goto(`http://127.0.0.1:4703${ruta}`, { waitUntil:'networkidle' });
     await pg.waitForSelector(espera, { timeout: 8000 }).catch(() => {});
     if (tocar) { await pg.click(tocar).catch(() => {}); await pg.waitForTimeout(700); }
+    // Abre un selector de talla: el estado cerrado ya se ve, el que hay que
+    // revisar es el abierto.
+    if (abrirTalla) {
+      await pg.click(abrirTalla).catch(() => {});
+      await pg.waitForTimeout(500);
+      // Un primer plano de la tarjeta abierta: el estado cerrado ya se ve en
+      // la captura entera, el que hay que revisar de cerca es este.
+      const card = await pg.$(abrirTalla.split(' ')[0]);
+      if (card) {
+        const cerca = `docs/evidencias/${nombre}-talla-abierta.jpg`;
+        await card.screenshot({ path: path.join(RAIZ, cerca), type:'jpeg', quality:88 }).catch(()=>{});
+        console.log(`${cerca}`);
+      }
+    }
     await pg.waitForTimeout(900);
     const destino = `docs/evidencias/${nombre}.jpg`;
     await pg.screenshot({ path: path.join(RAIZ, destino), type:'jpeg', quality:82, fullPage:true });

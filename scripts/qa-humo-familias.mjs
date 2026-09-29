@@ -228,8 +228,10 @@ revisa('el kit encabeza la vitrina', /Kit Tanner/.test(vitrina[0] || ''), vitrin
 // Ya no hay <select> que preseleccione nada.
 revisa('la talla ya no es un desplegable que elige solo',
   (await pagina.$$('.fam-prod select')).length === 0);
-revisa('las tallas son botones que se tocan',
-  (await pagina.$$('[data-tallas="prod-jersey"] .fam-talla')).length === 12);
+// Los botones existen, pero PLEGADOS: se cuentan al abrir, mas abajo.
+revisa('la tarjeta dice cuántas tallas hay sin enseñarlas todas',
+  /12 disponibles/.test(await pagina.textContent('[data-abre="prod-jersey"]')),
+  await pagina.textContent('[data-abre="prod-jersey"]'));
 revisa('y ninguna viene marcada de entrada',
   (await pagina.$$('.fam-talla.activa')).length === 0);
 
@@ -252,10 +254,47 @@ revisa('las calcetas Universal no piden elegir talla',
 revisa('y lo dicen en vez de callarlo',
   /Talla Universal/.test(await pagina.textContent('.fam-prods')));
 
+/* ===== LAS TALLAS YA NO SE DESPLIEGAN TODAS =====
+
+   Ocho productos con doce tallas cada uno median 5,650px de alto: scroll
+   eterno para una tienda de ocho cosas. Ahora la tarjeta dice una linea y las
+   tallas aparecen SOLO en la que se toco, en una fila que se desliza y
+   separada por quien es —un papa que busca la 10 de su hijo no tiene por que
+   leerla entre puras tallas de adulto—. */
+revisa('las tallas NO se despliegan solas: la tarjeta empieza plegada',
+  (await pagina.$$('[data-tallas="prod-jersey"]')).length === 0);
+revisa('y en su lugar hay una línea que invita a elegir',
+  await pagina.isVisible('[data-abre="prod-jersey"]'));
+
+await pagina.click('[data-abre="prod-jersey"]');
+await pagina.waitForTimeout(200);
+revisa('al abrirla salen las doce, ahora sí',
+  (await pagina.$$('[data-tallas="prod-jersey"] .fam-talla')).length === 12);
+revisa('al tocarla se abren, y separadas por niño y adulto',
+  (await pagina.$$eval('[data-tallas="prod-jersey"] .fam-grupo > span',
+    n => n.map(x => x.textContent.trim()).join(','))) === 'Niño,Adulto',
+  await pagina.$$eval('[data-tallas="prod-jersey"] .fam-grupo > span', n => n.map(x=>x.textContent).join(',')));
+// Una fila que se desliza, no un bloque que se parte en seis renglones.
+revisa('cada grupo es una sola fila, no un bloque que se parte',
+  await pagina.$eval('[data-tallas="prod-jersey"] .fam-fila',
+    n => getComputedStyle(n).overflowX === 'auto'));
+// Solo un panel abierto a la vez: dos vuelven a llenar la pantalla de botones.
+revisa('abrir una no abre las demás',
+  (await pagina.$$('[data-tallas]')).length === 1);
+
 // Con talla elegida sí entra, y aparecen nombre y número.
 await pagina.click('[data-tallas="prod-jersey"] [data-talla="14"]');
 await pagina.waitForTimeout(200);
-revisa('la talla elegida se marca', (await pagina.$$('.fam-talla.activa')).length === 1);
+// Al elegir se cierra: la talla ya se ve en la línea, y dejarlo abierto
+// obliga a un toque más para seguir.
+revisa('al elegir, el panel se cierra solo',
+  (await pagina.$$('[data-tallas="prod-jersey"]')).length === 0);
+revisa('y la línea ya dice cuál se eligió',
+  /Talla 14/.test(await pagina.textContent('[data-abre="prod-jersey"]')),
+  await pagina.textContent('[data-abre="prod-jersey"]'));
+// La marca vive en la linea plegada, no en un chip suelto.
+revisa('la talla elegida se marca',
+  /Talla 14/.test(await pagina.textContent('[data-abre="prod-jersey"]')));
 revisa('el nombre y el número aparecen hasta que hay talla',
   await pagina.isVisible('[data-pnombre="prod-jersey"]'));
 await pagina.fill('[data-pnombre="prod-jersey"]', 'Matías');
@@ -269,6 +308,8 @@ revisa('la barra del carrito dice para quién es el pedido',
   /para /.test(await pagina.textContent('#famCart')), await pagina.textContent('#famCart'));
 
 // Un número que no es número se dice, no se estampa mal.
+await pagina.click('[data-abre="prod-kit"]');
+await pagina.waitForTimeout(150);
 await pagina.click('[data-tallas="prod-kit"] [data-talla="12"]');
 await pagina.waitForTimeout(150);
 await pagina.fill('[data-pnumero="prod-kit"]', 'abc');
@@ -284,10 +325,27 @@ await pagina.waitForTimeout(600);
 const pedidosTienda = await pagina.evaluate(() => window.__pedidos);
 revisa('se manda un solo pedido', pedidosTienda.length === 1, JSON.stringify(pedidosTienda));
 revisa('con la talla que la familia eligió, no con la primera de la lista',
-  pedidosTienda[0]?.items?.[0]?.size === '14', JSON.stringify(pedidosTienda[0]?.items));
-revisa('y el nombre y el dorsal viajan para que el club no adivine',
-  /Matías/.test(pedidosTienda[0]?.notes || '') && /#11/.test(pedidosTienda[0]?.notes || ''),
-  String(pedidos[0]?.notes));
+  pedidosTienda[0]?.items?.[0]?.talla === '14', JSON.stringify(pedidosTienda[0]?.items));
+// La llave vieja también, por si el despliegue de la base va detrás.
+revisa('y con la llave vieja de talla, para no romper a quien va atrás',
+  pedidosTienda[0]?.items?.[0]?.size === '14');
+/* EL NOMBRE ESTAMPADO VIAJA EN EL PEDIDO, NO EN LAS NOTAS.
+ *
+ * Esta revisión exigía lo contrario —que el nombre fuera texto libre en
+ * 'notes'— y con eso estaba consagrando un defecto: la hoja de producción lee
+ * 'nombrePers' y 'numero' de cada renglón, así que una familia pedía el jersey
+ * con el nombre de su hijo, el club lo cobraba, y el maquilador recibía una
+ * hoja sin nombre. */
+const linea = pedidosTienda[0]?.items?.[0] || {};
+revisa('el nombre estampado viaja en el pedido, donde la hoja lo lee',
+  linea.personalizationName === 'Matías', JSON.stringify(linea));
+revisa('y el dorsal también', linea.number === '11', JSON.stringify(linea));
+revisa('ya no se cuela como texto libre en las notas',
+  !/Matías/.test(pedidosTienda[0]?.notes || ''), String(pedidosTienda[0]?.notes));
+// El mismo formato de línea que usa el mostrador: un solo formato de pedido
+// para todo el club, no dos.
+revisa('la línea dice de qué tipo es, como las del mostrador',
+  linea.kind === 'product', JSON.stringify(linea));
 revisa('el carrito queda vacío tras apartar', (await pagina.$$('#famCart')).length === 0);
 
 const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

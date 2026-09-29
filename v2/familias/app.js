@@ -5,7 +5,8 @@ import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-
 import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.js';
 import {preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
         piezasDelCarrito, acomodaVitrina, tallasDe, tallaUnica,
-        aceptaPersonalizacion} from '/v2/tienda.js';
+        aceptaPersonalizacion, preparaKit, ranurasDeKit, tiersDeKit,
+        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS} from '/v2/tienda.js';
 
 // Portal de familias. No usa el shell del staff a propósito: un tutor no tiene
 // módulos que navegar, y mezclar ambas superficies es como se filtran datos.
@@ -532,13 +533,25 @@ async function checkout(){
   if(!p){await tosAlert({kicker:'TIENDA',title:'Falta elegir a tu Tanner',message:'Selecciona de quién es el pedido antes de apartarlo.'});return;}
   const lineas=Object.values(state.cart);
   if(!lineas.length)return;
-  // El servidor todavía recibe una talla por línea; la personalización viaja
-  // en las notas hasta que el RPC del portal la acepte por separado. Se manda
-  // explícita para que el club no tenga que adivinar a quién es cada prenda.
-  const items=lineas.map(l=>({product_id:l.productId,quantity:l.cantidad,size:l.talla||null}));
-  const personalizadas=lineas.filter(l=>l.personalizationName||l.numero)
-    .map(l=>`${l.nombreProducto} ${l.talla||''}: ${l.personalizationName||'sin nombre'}${l.numero?` #${l.numero}`:''}`);
-  const notas=personalizadas.length?`Personalización — ${personalizadas.join(' · ')}`:null;
+  /* Lo que se estampa viaja en el pedido, no en las notas.
+   *
+   * Antes el nombre y el numero de la espalda se metian como texto libre en
+   * las notas, porque el RPC del portal no los aceptaba por separado. La hoja
+   * de produccion lee 'nombrePers' y 'numero' de cada renglon: una familia
+   * pedia el jersey con el nombre de su hijo, el club lo cobraba, y el
+   * maquilador recibia una hoja sin nombre.
+   *
+   * Se manda el mismo formato de linea que usa el mostrador de Taquilla, para
+   * que el club tenga UN solo formato de pedido y no dos. */
+  const items=lineas.map(l=>l.kind==='bundle'
+    ? {kind:'bundle',bundleId:l.bundleId,tier:l.tier,
+       personalizationName:l.personalizationName||null,number:l.numero||null,
+       pieces:(l.piezas||[]).map(p=>({productId:p.productId,talla:p.talla||null}))}
+    : {kind:'product',productId:l.productId,quantity:l.cantidad,talla:l.talla||null,
+       personalizationName:l.personalizationName||null,number:l.numero||null,
+       // La llave vieja tambien, por si el despliegue de la base va detras.
+       product_id:l.productId,size:l.talla||null});
+  const notas=null;
   const btn=document.getElementById('famCheckout');btn.disabled=true;btn.textContent='Enviando…';
   try{
     const res=await rpc('v2_portal_place_order',{player_id:p.id,items,notes:notas});
@@ -573,20 +586,65 @@ async function pintaFotos(rows){
 }
 // Lo que la familia lleva elegido de ese producto, antes de agregarlo.
 const eligiendo={};
+// Lo que la familia lleva elegido de un kit, antes de agregarlo.
+const eligiendoKit={};
+/* Las iniciales de un producto sin foto.
+   Taquilla ya lo resolvia asi y Familias dejaba un recuadro gris: dos tiendas
+   del mismo club resolviendo distinto el mismo hueco, y la peor era la que ven
+   las familias. */
+function inicialesDe(nombre){
+  return String(nombre||'?').replace(/["'']/g,'').split(/\s+/)
+    .filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?';
+}
+
+/* La fila de talla, plegada.
+ *
+ * Antes se desplegaban las DOCE tallas en cada tarjeta, siempre. Ocho
+ * productos median 5,650px de alto: scroll eterno para una tienda de ocho
+ * cosas. Ningun comercio serio enseña 96 botones de talla a la vez.
+ *
+ * Ahora la tarjeta dice una linea —"Elige tu talla" o "Talla 12 · cambiar"— y
+ * las tallas aparecen SOLO en la que se toco. Es el mismo numero de toques
+ * para comprar y una quinta parte de pantalla. */
+function filaDeTalla(id, tallas, elegida, abierto){
+  if(!tallas.length) return '';
+  const cabeza = elegida
+    ? `<button type="button" class="fam-talla-sel" data-abre="${esc(id)}"><b>Talla ${esc(elegida)}</b><span>cambiar</span></button>`
+    : `<button type="button" class="fam-talla-sel vacia" data-abre="${esc(id)}"><b>Elige tu talla</b><span>${tallas.length} disponibles</span></button>`;
+  if(!abierto) return cabeza;
+
+  /* Las tallas abiertas van en UNA fila que se desliza, no en un bloque que se
+     parte en seis renglones.
+     Y separadas por quién es. Los jerseys del club traen las DOCE tallas
+     —niños 6 a 16 y adultos XS a XXL— en el mismo producto, así que sin
+     separar, un papá que busca la 10 de su hijo la encuentra entre puras
+     tallas de adulto. Un grupo con su etiqueta se lee de un vistazo; doce
+     botones seguidos hay que leerlos uno por uno. */
+  const esNino = t => ESCALA_NINOS.includes(t);
+  const ninos = tallas.filter(esNino);
+  const adultos = tallas.filter(t => ESCALA_ADULTOS.includes(t));
+  const otras = tallas.filter(t => !esNino(t) && !ESCALA_ADULTOS.includes(t));
+  const chip = t => `<button type="button" class="fam-talla${elegida===t?' activa':''}" data-talla="${esc(t)}">${esc(t)}</button>`;
+  const grupo = (titulo, lista) => lista.length
+    ? `<div class="fam-grupo"><span>${titulo}</span><div class="fam-fila">${lista.map(chip).join('')}</div></div>` : '';
+  // Sin las dos escalas conviviendo no hay nada que separar: una sola fila.
+  const cuerpo = (ninos.length && adultos.length)
+    ? grupo('Niño', ninos) + grupo('Adulto', adultos) + grupo('Otras', otras)
+    : `<div class="fam-fila">${tallas.map(chip).join('')}</div>`;
+  return cabeza + `<div class="fam-tallas" data-tallas="${esc(id)}">${cuerpo}</div>`;
+}
+
 function tarjetaProducto(p){
   const tallas=tallasDe(p), unica=tallaUnica(p);
   const elec=eligiendo[p.id]||{};
-  const foto=`<span class="fam-shot" data-shot="${esc(p.id)}"></span>`;
-  // Una talla única no se ofrece: obligar a tocar "Universal" es un toque que
+  const foto=`<span class="fam-shot" data-shot="${esc(p.id)}"><i class="fam-iniciales">${esc(inicialesDe(p.name))}</i></span>`;
+  // Una talla unica no se ofrece: obligar a tocar "Universal" es un toque que
   // no informa. Se dice, y ya.
   const chips=unica
     ? `<span class="fam-talla-unica">Talla ${esc(unica)}</span>`
-    : tallas.length
-      ? `<div class="fam-tallas" data-tallas="${esc(p.id)}">${tallas.map(t=>
-          `<button type="button" class="fam-talla${elec.talla===t?' activa':''}" data-talla="${esc(t)}">${esc(t)}</button>`).join('')}</div>`
-      : '';
-  // El nombre y el número sólo aparecen cuando ya hay talla: pedirlos antes
-  // llena la tarjeta de campos que todavía no sirven de nada.
+    : filaDeTalla(p.id, tallas, elec.talla, elec.abierto);
+  // El nombre y el numero solo aparecen cuando ya hay talla: pedirlos antes
+  // llena la tarjeta de campos que todavia no sirven de nada.
   const hayTalla=Boolean(unica||elec.talla);
   const pers=(aceptaPersonalizacion(p)&&hayTalla)
     ? `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-pnombre="${esc(p.id)}" value="${esc(elec.nombre||'')}">`
@@ -597,6 +655,45 @@ function tarjetaProducto(p){
     +`<span class="fam-price">${money.format(Number(p.price||0))}</span>`
     +`${p.description?`<p>${esc(p.description)}</p>`:''}${chips}${pers}${aviso}`
     +`<button type="button" class="fam-add" data-add="${esc(p.id)}">Agregar</button></article>`;
+}
+
+/* La tarjeta del kit.
+ *
+ * Va primero y en grande porque un club no vende piezas: vende el uniforme. Un
+ * papa que acaba de inscribir a su hijo quiere "lo que necesita para
+ * entrenar", no armarlo pieza por pieza adivinando cuales van juntas.
+ *
+ * Ocupa el ancho completo, dice QUE TRAE, y pide una talla por pieza —dos
+ * shorts son dos tallas—. */
+function tarjetaKit(k){
+  const elec=eligiendoKit[k.id]||{};
+  const tiers=tiersDeKit(k);
+  const tier=tiers.includes(elec.tier)?elec.tier:(tiers.length===1?tiers[0]:null);
+  const precio=tier?precioDeKit(k,tier):Number(k.price_adult||0);
+  const ranuras=ranurasDeKit(k);
+  const tallasElegidas=elec.tallas||{};
+
+  const quien=tiers.length>1
+    ? `<div class="fam-tier" data-tier="${esc(k.id)}">${tiers.map(t=>
+        `<button type="button" class="fam-talla${tier===t?' activa':''}" data-quien="${esc(t)}">${esc(t)} ${money.format(precioDeKit(k,t))}</button>`).join('')}</div>`
+    : '';
+
+  const piezas=ranuras.map(r=>{
+    if(r.unica) return `<div class="fam-pieza"><span>${esc(r.nombre)}</span><em>Talla ${esc(r.unica)}</em></div>`;
+    if(!r.tallas.length) return `<div class="fam-pieza"><span>${esc(r.nombre)}</span><em>Incluido</em></div>`;
+    return `<div class="fam-pieza"><span>${esc(r.nombre)}</span>`
+      +filaDeTalla(`${k.id}::${r.id}`, r.tallas, tallasElegidas[r.id], elec.abierto===r.id)+`</div>`;
+  }).join('');
+
+  const pers=`<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-knombre="${esc(k.id)}" value="${esc(elec.nombre||'')}">`
+    +`<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-knumero="${esc(k.id)}" value="${esc(elec.numero||'')}"></div>`;
+  const aviso=elec.motivo?`<span class="fam-aviso">${esc(elec.motivo)}</span>`:'';
+
+  return `<article class="fam-kit"><div class="fam-kit-head"><span class="fam-kit-tag">EL UNIFORME COMPLETO</span>`
+    +`<strong>${esc(k.name)}</strong><span class="fam-price">${money.format(precio)}</span></div>`
+    +`${k.description?`<p>${esc(k.description)}</p>`:''}${quien}`
+    +`<div class="fam-piezas">${piezas}</div>${pers}${aviso}`
+    +`<button type="button" class="fam-add" data-addkit="${esc(k.id)}">Agregar el kit</button></article>`;
 }
 function lineaDelCarrito(llave,l){
   const detalle=[l.talla,l.personalizationName,l.numero?`#${l.numero}`:null].filter(Boolean).join(' · ');
@@ -611,8 +708,17 @@ async function renderTienda(){
     try{state.catalog=await rpc('v2_portal_catalog');}
     catch(error){$('famBody').innerHTML=`<div class="fam-empty">${esc(friendly(error))}</div>`;return;}
   }
-  const rows=acomodaVitrina(state.catalog||[]);
-  if(!rows.length){$('famBody').innerHTML='<div class="fam-empty">Todavía no hay productos publicados.</div>';return;}
+  /* El catalogo llega en dos formas.
+   *
+   * La de siempre era un arreglo pelon de productos. La nueva es
+   * {products, bundles}, porque los kits viven en otra tabla y hasta hoy no
+   * llegaban al portal. Se aceptan LAS DOS para que a quien tenga la pagina
+   * abierta en el momento del despliegue no se le rompa la tienda. */
+  const datos=state.catalog;
+  const productos=Array.isArray(datos)?datos:(datos?.products||[]);
+  const kits=Array.isArray(datos)?[]:(datos?.bundles||[]);
+  const rows=acomodaVitrina(productos);
+  if(!rows.length&&!kits.length){$('famBody').innerHTML='<div class="fam-empty">Todavía no hay productos publicados.</div>';return;}
   const tienda=String(state.home?.organization?.storeUrl||'');
   const irALaTienda=/^https:\/\//i.test(tienda)
     ? `<a class="fam-store" href="${esc(tienda)}" target="_blank" rel="noopener">Ver toda la tienda del club</a>`:'';
@@ -620,19 +726,89 @@ async function renderTienda(){
   const resumen=enCarrito.length
     ? `<section class="fam-card"><div class="fam-card-head"><h2>Tu pedido</h2><span>${piezasDelCarrito(state.cart)}</span></div>${enCarrito.map(([k,l])=>lineaDelCarrito(k,l)).join('')}</section>`
     : '';
-  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${rows.length} productos</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p>${irALaTienda}</section>${resumen}<div class="fam-prods">${rows.map(tarjetaProducto).join('')}</div>`;
+  // El kit primero y en grande: es lo que la familia viene a comprar. Las
+  // piezas sueltas despues, para quien ya tiene el uniforme y le falta algo.
+  const bloqueKits=kits.length
+    ? `<div class="fam-kits">${kits.map(tarjetaKit).join('')}</div>`
+    : '';
+  const tituloPiezas=kits.length&&rows.length
+    ? `<section class="fam-card"><div class="fam-card-head"><h2>O una pieza suelta</h2><span>${rows.length}</span></div></section>`
+    : '';
+  const cuenta=[kits.length?`${kits.length} kit${kits.length>1?'s':''}`:null,
+                rows.length?`${rows.length} piezas`:null].filter(Boolean).join(' · ');
+  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${esc(cuenta)}</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p>${irALaTienda}</section>${resumen}${bloqueKits}${tituloPiezas}<div class="fam-prods">${rows.map(tarjetaProducto).join('')}</div>`;
   pintaFotos(rows);
   const cuerpo=$('famBody');
 
   // Elegir talla: se marca y se vuelve a pintar sólo esa tarjeta no haría
   // falta, pero repintar entero mantiene el estado en un solo lugar y en
   // cuatro productos no se nota.
+  // Abrir y cerrar el panel de tallas. Solo una tarjeta abierta a la vez: dos
+  // paneles abiertos vuelven a llenar la pantalla de botones, que es justo lo
+  // que se vino a quitar.
+  cuerpo.querySelectorAll('[data-abre]').forEach(b=>b.addEventListener('click',()=>{
+    const ref=b.dataset.abre;
+    if(ref.includes('::')){
+      const [kitId,ranura]=ref.split('::');
+      const prev=eligiendoKit[kitId]||{};
+      eligiendoKit[kitId]={...prev,abierto:prev.abierto===ranura?null:ranura,motivo:null};
+    }else{
+      const prev=eligiendo[ref]||{};
+      // Cerrar los demas: el panel abierto es uno.
+      Object.keys(eligiendo).forEach(k=>{if(k!==ref)eligiendo[k]={...eligiendo[k],abierto:false};});
+      eligiendo[ref]={...prev,abierto:!prev.abierto,motivo:null};
+    }
+    renderTienda();
+  }));
+
   cuerpo.querySelectorAll('[data-tallas]').forEach(caja=>caja.addEventListener('click',e=>{
     const b=e.target.closest('.fam-talla');if(!b)return;
-    const id=caja.dataset.tallas;
-    const prev=eligiendo[id]||{};
-    eligiendo[id]={...prev,talla:prev.talla===b.dataset.talla?null:b.dataset.talla,motivo:null};
+    const ref=caja.dataset.tallas, talla=b.dataset.talla;
+    if(ref.includes('::')){
+      const [kitId,ranura]=ref.split('::');
+      const prev=eligiendoKit[kitId]||{};
+      const tallas={...(prev.tallas||{})};
+      if(tallas[ranura]===talla)delete tallas[ranura]; else tallas[ranura]=talla;
+      // Al elegir se cierra el panel: la talla ya se ve en la linea, y dejarlo
+      // abierto obliga a un toque mas para seguir.
+      eligiendoKit[kitId]={...prev,tallas,abierto:null,motivo:null};
+    }else{
+      const prev=eligiendo[ref]||{};
+      eligiendo[ref]={...prev,talla:prev.talla===talla?null:talla,abierto:false,motivo:null};
+    }
     renderTienda();
+  }));
+
+  // Adulto o niño: cambia el precio del kit.
+  cuerpo.querySelectorAll('[data-tier]').forEach(caja=>caja.addEventListener('click',e=>{
+    const b=e.target.closest('[data-quien]');if(!b)return;
+    const id=caja.dataset.tier;
+    eligiendoKit[id]={...(eligiendoKit[id]||{}),tier:b.dataset.quien,motivo:null};
+    renderTienda();
+  }));
+
+  cuerpo.querySelectorAll('[data-knombre]').forEach(i=>i.addEventListener('input',e=>{
+    const id=e.target.dataset.knombre;eligiendoKit[id]={...(eligiendoKit[id]||{}),nombre:e.target.value};
+  }));
+  cuerpo.querySelectorAll('[data-knumero]').forEach(i=>i.addEventListener('input',e=>{
+    const id=e.target.dataset.knumero;eligiendoKit[id]={...(eligiendoKit[id]||{}),numero:e.target.value};
+  }));
+
+  // Agregar el kit.
+  cuerpo.querySelectorAll('[data-addkit]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.addkit;
+    const kit=kits.find(k=>String(k.id)===String(id));
+    const elec=eligiendoKit[id]||{};
+    const r=preparaKit(kit,{tier:elec.tier,tallas:elec.tallas,nombre:elec.nombre,numero:elec.numero});
+    if(!r.ok){
+      // El aviso se pinta en la tarjeta que se toco, no en una alerta encima:
+      // una alerta tapa justo lo que hay que corregir.
+      eligiendoKit[id]={...elec,motivo:r.motivo,abierto:r.falta&&r.falta!=='tier'&&r.falta!=='numero'?r.falta:elec.abierto};
+      renderTienda();return;
+    }
+    state.cart=agregaAlCarrito(state.cart,r.linea);
+    eligiendoKit[id]={};
+    renderCartBar();renderTienda();
   }));
   // Lo que se escribe se guarda al vuelo: si la familia toca Agregar sin
   // salir del campo, el nombre ya está.

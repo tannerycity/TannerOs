@@ -8,7 +8,9 @@ import {
   nombreValido, cantidadValida, preparaLinea, llaveDeLinea, agregaAlCarrito,
   quitaDelCarrito, totalDelCarrito, piezasDelCarrito, acomodaVitrina, ordenDeVitrina,
   ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA,
-  CATEGORIAS, categoriaCanonica, ordenaTallas
+  CATEGORIAS, categoriaCanonica, ordenaTallas,
+  ranurasDeKit, tiersDeKit, precioDeKit, preparaKit, llaveDeKit, llaveDeCarrito,
+  TIER_ADULTO, TIER_NINO
 } from '../v2/tienda.js';
 import { tipoDePieza } from '../v2/produccion/hoja.js';
 
@@ -227,7 +229,125 @@ revisa('sin categoría devuelve nada, no una por si acaso',
   categoriaCanonica(null) === null && categoriaCanonica('') === null);
 revisa('la talla única del club es Universal', TALLA_UNICA === 'Universal');
 
+
+/* ===== LOS KITS =====
+
+   Un club no vende piezas: vende el uniforme. Y hasta hoy el portal de las
+   familias no ofrecía kits —medido contra producción—, así que la familia veía
+   ocho piezas sueltas y tenía que armar el uniforme de cabeza.
+
+   El kit del club, tal como está en la base: */
+const KIT = {
+  id:'b1', name:'Kit Tanner - Completo', price_adult:3500, price_kid:2350,
+  pieces:[
+    { product_id:'j1', name:'Jersey "Wet Blue" - Home Edition', sizes:TALLAS, qty:1 },
+    { product_id:'s1', name:'Short', sizes:TALLAS, qty:2 },
+    { product_id:'c1', name:'Par de calcetas', sizes:['Universal'], qty:2 }
+  ]
+};
+
+/* Si el kit trae DOS shorts, se preguntan DOS tallas y no una: son para dos
+   personas, o dos tallas del mismo Tanner que crece. */
+{
+  const r = ranurasDeKit(KIT);
+  revisa('un kit de cinco piezas pide cinco tallas', r.length === 5,
+    r.map(x => x.nombre).join(' | '));
+  revisa('y las repetidas se numeran, para saber cuál es cuál',
+    r.filter(x => /^Short/.test(x.nombre)).map(x => x.nombre).join(',') === 'Short 1,Short 2',
+    r.map(x => x.nombre).join(' | '));
+  revisa('la que no se repite NO lleva número colgado',
+    r[0].nombre === 'Jersey "Wet Blue" - Home Edition', r[0].nombre);
+  // Las calcetas Universal no cuestan un toque.
+  revisa('una pieza de talla única no pide elegir',
+    r.filter(x => /calcetas/i.test(x.nombre)).every(x => x.unica === 'Universal'));
+}
+revisa('un kit sin piezas no inventa ranuras', ranurasDeKit({}).length === 0 && ranurasDeKit().length === 0);
+
+/* ===== Precio: adulto o niño ===== */
+revisa('el precio de niño se usa cuando existe', precioDeKit(KIT, TIER_NINO) === 2350);
+revisa('y el de adulto cuando se pide', precioDeKit(KIT, TIER_ADULTO) === 3500);
+// Dos tiendas del mismo club no pueden cobrar distinto por lo mismo: si no hay
+// precio de niño, manda el de adulto, que es lo que hace el mostrador.
+revisa('sin precio de niño manda el de adulto',
+  precioDeKit({ price_adult:1500 }, TIER_NINO) === 1500);
+revisa('y entonces no se ofrece elegir',
+  tiersDeKit({ price_adult:1500 }).length === 1, JSON.stringify(tiersDeKit({ price_adult:1500 })));
+revisa('el kit con los dos precios ofrece los dos, y niño primero',
+  tiersDeKit(KIT).join(',') === 'Niño,Adulto', tiersDeKit(KIT).join(','));
+
+/* ===== Agregar un kit ===== */
+{
+  const sinTier = preparaKit(KIT, {});
+  revisa('sin decir si es de adulto o niño no se agrega',
+    sinTier.ok === false && sinTier.falta === 'tier', JSON.stringify(sinTier));
+
+  const faltanTallas = preparaKit(KIT, { tier:TIER_NINO });
+  revisa('y sin tallas tampoco', faltanTallas.ok === false);
+  // El motivo dice QUÉ pieza falta, no un "completa los campos".
+  revisa('el motivo nombra la pieza que falta',
+    /Jersey "Wet Blue"/.test(faltanTallas.motivo), faltanTallas.motivo);
+
+  const completo = preparaKit(KIT, { tier:TIER_NINO, nombre:'Matías', numero:'11',
+    tallas:{ 'j1#0':'12', 's1#0':'12', 's1#1':'14', 'c1#0':'Universal', 'c1#1':'Universal' } });
+  revisa('con todo puesto, el kit entra', completo.ok === true, JSON.stringify(completo));
+  revisa('y cuesta lo que cuesta el kit, no la suma de las piezas',
+    completo.linea.total === 2350, String(completo.linea.total));
+  revisa('viaja con sus cinco piezas y sus tallas',
+    completo.linea.piezas.length === 5
+    && completo.linea.piezas.filter(p => p.productId === 's1').map(p => p.talla).join(',') === '12,14',
+    JSON.stringify(completo.linea.piezas));
+  // Lo que se estampa. Antes se perdía: la familia lo pedía, el club lo
+  // cobraba, y el maquilador recibía una hoja sin nombre.
+  revisa('y con el nombre y el número que se van a estampar',
+    completo.linea.personalizationName === 'Matías' && completo.linea.numero === '11');
+  revisa('marcado como kit, para que el servidor sepa explotarlo',
+    completo.linea.kind === 'bundle' && completo.linea.bundleId === 'b1');
+}
+// Una talla inventada no se cuela en un kit, igual que no se cuela en una pieza.
+revisa('una talla que no está en el catálogo de la pieza no pasa',
+  preparaKit(KIT, { tier:TIER_ADULTO, tallas:{ 'j1#0':'42', 's1#0':'12', 's1#1':'12', 'c1#0':'Universal', 'c1#1':'Universal' } }).ok === false);
+revisa('un número mal escrito se explica, igual que en una pieza suelta',
+  /1 a 3 d/.test(preparaKit(KIT, { tier:TIER_ADULTO, numero:'abc',
+    tallas:{ 'j1#0':'12', 's1#0':'12', 's1#1':'12', 'c1#0':'Universal', 'c1#1':'Universal' } }).motivo || ''));
+revisa('un kit que ya no existe no arma una línea fantasma',
+  preparaKit(null, {}).ok === false && preparaKit({}, {}).ok === false);
+revisa('un kit sin precio no se vende',
+  preparaKit({ id:'x', name:'Kit', pieces:[{product_id:'p',name:'P'}] }, { tier:TIER_ADULTO }).ok === false);
+
+/* ===== Dos hermanos, mismo kit ===== */
+{
+  const base = { tier:TIER_ADULTO, tallas:{ 'j1#0':'10', 's1#0':'10', 's1#1':'10', 'c1#0':'Universal', 'c1#1':'Universal' } };
+  const a = preparaKit(KIT, { ...base, numero:'7' }).linea;
+  const b = preparaKit(KIT, { ...base, numero:'9' }).linea;
+  const c = preparaKit(KIT, { ...base, tallas:{ ...base.tallas, 'j1#0':'12' }, numero:'7' }).linea;
+  revisa('dos hermanos con distinto dorsal son dos renglones',
+    llaveDeKit(a) !== llaveDeKit(b));
+  revisa('y el mismo kit en otra talla también',
+    llaveDeKit(a) !== llaveDeKit(c));
+  revisa('pero el mismo kit idéntico es el mismo renglón',
+    llaveDeKit(a) === llaveDeKit(preparaKit(KIT, { ...base, numero:'7' }).linea));
+  // Quien agrega al carrito no tiene por qué saber si es pieza o kit.
+  revisa('el carrito usa una sola llave, sea pieza o kit',
+    llaveDeCarrito(a) === llaveDeKit(a)
+    && llaveDeCarrito(preparaLinea(JERSEY, { talla:'12' }).linea) === llaveDeLinea(preparaLinea(JERSEY, { talla:'12' }).linea));
+
+  let carrito = agregaAlCarrito({}, a);
+  carrito = agregaAlCarrito(carrito, b);
+  revisa('dos kits distintos suman los dos precios',
+    totalDelCarrito(carrito) === 7000, String(totalDelCarrito(carrito)));
+  // El carrito tiene que separarlos DE VERDAD, no sólo la llave. La primera
+  // version usaba la llave de pieza —que mira productId y talla, cosas que un
+  // kit no tiene— y dos kits distintos se fundian en un renglon.
+  revisa('y son dos renglones, no uno con cantidad dos',
+    Object.keys(carrito).length === 2, JSON.stringify(Object.keys(carrito)));
+  const conC = agregaAlCarrito(carrito, c);
+  revisa('el mismo kit en otra talla tampoco se funde',
+    Object.keys(conC).length === 3, JSON.stringify(Object.keys(conC)));
+  revisa('pero el idéntico sí se junta',
+    Object.keys(agregaAlCarrito(carrito, a)).length === 2);
+}
+
 console.log(fallos
   ? `Tienda QA FAILED · ${fallos} de ${corridas}`
-  : `Tienda QA OK · ${corridas} casos, incluido el jersey talla 6 y las categorías que la hoja debe saber leer`);
+  : `Tienda QA OK · ${corridas} casos, incluidos el jersey talla 6 y el kit que la familia no podía comprar`);
 process.exit(fallos ? 1 : 0);

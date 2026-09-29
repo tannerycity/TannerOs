@@ -95,8 +95,20 @@ function bundleCard(b){
   if(!b.componentsResolved)chips.push('<span class="cat-chip warn">Pieza sin resolver</span>');
   if(canFinance&&b.costComplete)chips.push(`<span class="cat-chip">Costo ${money.format(Number(b.costTotal||0))}</span>`);
   else if(canFinance)chips.push('<span class="cat-chip warn">Costo incompleto</span>');
-  const priceLine=[b.priceAdult?`Adulto ${money.format(Number(b.priceAdult))}`:null,b.priceKid?`Niño ${money.format(Number(b.priceKid))}`:null].filter(Boolean).join(' · ');
-  btn.innerHTML=`<span class="cat-thumb">${ICONS.kit}</span><span class="cat-body"><strong class="cat-title">${esc(b.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${esc(priceLine||'—')}</strong>${canFinance&&b.marginAdultPercent!=null?`<small class="cat-sub">Margen ${pct(b.marginAdultPercent)}</small>`:''}</span>`;
+  /* Los dos precios van UNO ENCIMA DEL OTRO, no en un solo renglon.
+     Juntos —"Adulto $3,500.00 · Niño $2,350.00"— son 33 caracteres en negritas
+     que a 390px no caben, y la columna del precio no encoge: se le encimaba al
+     nombre del kit y a los chips. Se vio en docs/evidencias/tienda-admin.jpg.
+     Arriba el de adulto, que es el precio de lista; debajo el de niño. */
+  const adulto=Number(b.priceAdult||0),nino=Number(b.priceKid||0);
+  const precio=adulto?money.format(adulto):(nino?money.format(nino):'—');
+  const bajoPrecio=[];
+  // Si el kit SOLO tiene precio de niño, el numero grande es ese y hay que
+  // decirlo: un precio sin etiqueta se lee como precio de adulto.
+  if(adulto&&nino)bajoPrecio.push(`Niño ${money.format(nino)}`);
+  else if(!adulto&&nino)bajoPrecio.push('Sólo niño');
+  if(canFinance&&b.marginAdultPercent!=null)bajoPrecio.push(`Margen ${pct(b.marginAdultPercent)}`);
+  btn.innerHTML=`<span class="cat-thumb">${ICONS.kit}</span><span class="cat-body"><strong class="cat-title">${esc(b.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${esc(precio)}</strong>${bajoPrecio.map(t=>`<small class="cat-sub">${esc(t)}</small>`).join('')}</span>`;
   if(canManage)btn.addEventListener('click',()=>openBundleDrawer(b));
   else btn.disabled=true;
   return btn;

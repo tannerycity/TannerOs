@@ -41,10 +41,25 @@ const PRODUCTOS = [
   { id:'p7', name:'Par de calcetas', category:'socks', price:200, cost:90, active:true, archived:false, sizes:['Universal'], sku:'TC-SOCKS' },
   { id:'p8', name:'Short', category:'shorts', price:350, cost:180, active:true, archived:false, sizes:TALLAS, sku:'TC-SHORT' }
 ];
+/* Los tres kits activos, con los precios y las piezas que tienen HOY en la base.
+ *
+ * La primera version de este banco puso 1740 / 1200 / 770 como precios: esos
+ * son los COSTOS. Un banco que enseña margenes inventados no sirve para juzgar
+ * la pantalla donde se decide un precio.
+ *
+ * Y traian components:[], que pintaba "0 pieza(s)" en las tres tarjetas. Un kit
+ * de cero piezas no existe; el chip que hay que revisar es el que dice 6. */
+const pieza = (productId, qty = 1) => ({ productId, qty });
 const KITS = [
-  { id:'b1', name:'Kit Tanner - Completo', priceAdult:1740, priceKid:1600, active:true, archived:false, components:[], costComplete:false, componentsResolved:true },
-  { id:'b2', name:'Kit Game', priceAdult:1200, priceKid:1100, active:true, archived:false, components:[], costComplete:false, componentsResolved:true },
-  { id:'b3', name:'Kit Training', priceAdult:770, priceKid:700, active:true, archived:false, components:[], costComplete:false, componentsResolved:true }
+  { id:'b1', name:'Kit Tanner - Completo', priceAdult:3500, priceKid:2350, active:true, archived:false,
+    components:[pieza('p1'),pieza('p2'),pieza('p3'),pieza('p4'),pieza('p8',2),pieza('p7',2)],
+    costComplete:true, costTotal:1740, marginAdultPercent:50.3, componentsResolved:true },
+  { id:'b2', name:'Kit Game', priceAdult:1500, priceKid:1299, active:true, archived:false,
+    components:[pieza('p3'),pieza('p4'),pieza('p7'),pieza('p8')],
+    costComplete:true, costTotal:1070, marginAdultPercent:28.7, componentsResolved:true },
+  { id:'b3', name:'Kit Training', priceAdult:1500, priceKid:1299, active:true, archived:false,
+    components:[pieza('p1'),pieza('p2'),pieza('p8')],
+    costComplete:false, componentsResolved:true }
 ];
 // Los kits como los entrega portal_catalog: con sus piezas YA resueltas,
 // porque la familia no puede elegir tallas de algo que no sabe que trae.
@@ -56,8 +71,14 @@ const KITS_PORTAL = [
     { product_id:'p7', name:'Par de calcetas', sizes:['Universal'], qty:2 }]},
   { id:'b2', name:'Kit Game', price_adult:1500, price_kid:1299, pieces:[
     { product_id:'p4', name:'Jersey "Wet Blue" - Home Edition', sizes:TALLAS, qty:1 },
+    { product_id:'p3', name:'Jersey "Pink Cantera" - Away Edition', sizes:TALLAS, qty:1 },
     { product_id:'p8', name:'Short', sizes:TALLAS, qty:1 },
-    { product_id:'p7', name:'Par de calcetas', sizes:['Universal'], qty:1 }]}
+    { product_id:'p7', name:'Par de calcetas', sizes:['Universal'], qty:1 }]},
+  // El tercero, que el banco no traia: tres kits es lo que la familia va a ver.
+  { id:'b3', name:'Kit Training', price_adult:1500, price_kid:1299, pieces:[
+    { product_id:'p1', name:'Jersey "Black Edition"', sizes:TALLAS, qty:1 },
+    { product_id:'p2', name:'Jersey "Lechuguilla Edition"', sizes:TALLAS, qty:1 },
+    { product_id:'p8', name:'Short', sizes:TALLAS, qty:1 }]}
 ];
 const JUG = [
   { id:'t1', first_name:'Dario', last_name:'Montalvo Díaz', category:'T10', jersey_number:7, status:'active' },

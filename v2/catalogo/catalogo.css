@@ -28,14 +28,18 @@
 .cat-thumb{overflow:hidden;}
 .cat-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .cat-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
-.cat-title{font-size:14px;}
+.cat-title{font-size:14px;overflow-wrap:anywhere;}
 .cat-chips{display:flex;flex-wrap:wrap;gap:6px;}
 .cat-chip{font-size:11px;font-weight:750;padding:3px 8px;border-radius:999px;background:#edf2f1;color:#42575d;}
 .cat-chip.warn{background:#f7eeee;color:#943c35;}
 .cat-chip.archived{background:rgba(184,164,100,.18);color:#766526;}
-.cat-price-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
-.cat-price{font-size:14px;}
-.cat-sub{color:var(--muted);font-size:11.5px;}
+/* El precio nunca se come al nombre.
+   flex:0 0 auto solo le dice "no crezcas"; sin un tope sigue midiendo lo que
+   mida su texto y empuja al resto de la tarjeta. El tope es lo que evita que
+   a 390px el precio del kit se encime con el nombre y los chips. */
+.cat-price-col{flex:0 1 auto;max-width:40%;display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;}
+.cat-price{font-size:14px;white-space:nowrap;}
+.cat-sub{color:var(--muted);font-size:11.5px;white-space:nowrap;}
 
 /* Drawer de edición */
 .catalog-drawer{width:min(520px,92vw);}

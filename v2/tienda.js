@@ -128,7 +128,11 @@ export function llaveDeLinea(l) {
 }
 
 export function agregaAlCarrito(carrito, linea) {
-  const k = llaveDeLinea(linea);
+  // llaveDeCarrito y no llaveDeLinea: la de pieza mira productId y talla, que
+  // un kit no tiene, asi que DOS kits distintos caian en la misma llave y se
+  // fundian en un renglon. Se vio al probar dos hermanos con el mismo dorsal y
+  // distinta talla.
+  const k = llaveDeCarrito(linea);
   const copia = { ...carrito };
   if (copia[k]) {
     const cantidad = cantidadValida(copia[k].cantidad + linea.cantidad);
@@ -232,4 +236,124 @@ export function categoriaCanonica(texto) {
   if (/\bhoodie\b|\bsudadera\b|\bchamarra\b|\bouterwear\b/.test(c)) return 'outerwear';
   if (/\bpants\b|\bpantalon\b/.test(c)) return 'pants';
   return null;   // no se fuerza: lo que no cuadra se queda como lo escribieron
+}
+
+/* ---- Los kits ----
+
+   Un club no vende piezas: vende el uniforme. El kit es el producto estrella
+   —el que más se vende al inscribirse— y hasta hoy el portal de las familias
+   no lo ofrecía: la familia veía ocho piezas sueltas y tenía que armar el
+   uniforme de cabeza, adivinando cuáles van juntas.
+
+   Un kit NO es un producto con más cosas: tiene precio de adulto y de niño,
+   trae piezas que cada una pide su talla, y su precio no es la suma de las
+   partes. Por eso sus reglas viven aparte. */
+
+/* Cuántas veces hay que pedir talla.
+
+   Si el kit trae dos shorts, se preguntan DOS tallas y no una: son para dos
+   personas distintas, o son dos tallas del mismo Tanner que crece. Devuelve
+   una ranura por unidad, con su etiqueta ya numerada cuando hay más de una. */
+export function ranurasDeKit(kit) {
+  const piezas = Array.isArray(kit?.pieces) ? kit.pieces : [];
+  const ranuras = [];
+  for (const pieza of piezas) {
+    const veces = Math.max(1, Math.min(20, Number(pieza?.qty) || 1));
+    for (let i = 0; i < veces; i++) {
+      ranuras.push({
+        id: `${pieza.product_id}#${i}`,
+        productId: pieza.product_id,
+        nombre: veces > 1 ? `${pieza.name} ${i + 1}` : pieza.name,
+        producto: pieza,
+        // Una pieza sin catálogo de tallas no pide talla: las calcetas
+        // Universal no tienen por qué costar un toque.
+        tallas: tallasDe(pieza),
+        unica: tallaUnica(pieza)
+      });
+    }
+  }
+  return ranuras;
+}
+
+export const TIER_ADULTO = 'Adulto';
+export const TIER_NINO = 'Niño';
+
+/* El precio según a quién es. Si el kit no tiene precio de niño, el de adulto
+   manda: es lo que hace el mostrador, y dos tiendas del mismo club no pueden
+   cobrar distinto por lo mismo. */
+export function precioDeKit(kit, tier) {
+  const nino = Number(kit?.price_kid || 0);
+  if (tier === TIER_NINO && nino > 0) return nino;
+  return Number(kit?.price_adult || 0);
+}
+
+export function tiersDeKit(kit) {
+  const t = [TIER_ADULTO];
+  if (Number(kit?.price_kid || 0) > 0) t.unshift(TIER_NINO);
+  return t;
+}
+
+/* ¿Se puede agregar el kit?
+
+   Devuelve la línea lista o el motivo. Igual que preparaLinea: el motivo se
+   escribe para leerse en pantalla, y dice QUÉ falta para poder señalarlo. */
+export function preparaKit(kit, opciones = {}) {
+  if (!kit?.id) return { ok: false, motivo: 'Ese kit ya no está disponible.' };
+  const tiers = tiersDeKit(kit);
+  const tier = tiers.includes(opciones.tier) ? opciones.tier : (tiers.length === 1 ? tiers[0] : null);
+  if (!tier) return { ok: false, motivo: '¿Es para adulto o para niño?', falta: 'tier' };
+
+  const precio = precioDeKit(kit, tier);
+  if (!(precio > 0)) return { ok: false, motivo: 'Ese kit todavía no tiene precio.' };
+
+  const ranuras = ranurasDeKit(kit);
+  if (!ranuras.length) return { ok: false, motivo: 'Ese kit no tiene piezas configuradas.' };
+
+  const elegidas = opciones.tallas || {};
+  const piezas = [];
+  for (const r of ranuras) {
+    const talla = r.unica || tallaValida(r.producto, elegidas[r.id]);
+    // Una pieza sin catálogo de tallas viaja sin talla; una CON catálogo y sin
+    // elegir no pasa. Un kit a medias es un pedido que el proveedor no puede
+    // cortar y que revienta al guardarse, con la familia enfrente.
+    if (!talla && r.tallas.length) {
+      return { ok: false, motivo: `Elige la talla de ${r.nombre}.`, falta: r.id };
+    }
+    piezas.push({ productId: r.productId, talla: talla || null, nombre: r.nombre });
+  }
+
+  const nombre = nombreValido(opciones.nombre);
+  const numeroCrudo = String(opciones.numero ?? '').trim();
+  const numero = numeroValido(numeroCrudo);
+  if (numeroCrudo && !numero) {
+    return { ok: false, motivo: 'El número va de 1 a 3 dígitos.', falta: 'numero' };
+  }
+
+  return {
+    ok: true,
+    linea: {
+      kind: 'bundle',
+      bundleId: kit.id, nombreProducto: kit.name || 'Kit', tier,
+      piezas, cantidad: 1,
+      personalizationName: nombre, numero,
+      precioUnitario: precio, total: precio
+    }
+  };
+}
+
+/* La llave de un kit en el carrito.
+
+   Dos kits del mismo modelo con tallas distintas son dos renglones: son para
+   dos hermanos. La llave lleva las tallas dentro, igual que la de una pieza
+   suelta lleva la suya. */
+export function llaveDeKit(l) {
+  return ['kit', l.bundleId, l.tier,
+    (l.piezas || []).map(p => `${p.productId}:${p.talla || ''}`).join(','),
+    l.personalizationName || '', l.numero || ''].join('|');
+}
+
+/* Una sola llave para el carrito, sea pieza o kit: quien agrega no tiene por
+   qué saber de qué tipo es lo que agrega. */
+export function llaveDeCarrito(l) {
+  return l?.kind === 'bundle' ? llaveDeKit(l) : llaveDeLinea(l);
 }

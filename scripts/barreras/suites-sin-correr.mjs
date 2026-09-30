@@ -55,7 +55,12 @@ export default function comprobar() {
   // la familia sube a una historia, y que esa tarjeta no se genere siquiera
   // sin permiso de imagen. Esa decision vive en el canvas: no hay forma de
   // comprobarla sin pintar la pagina.
-  const MAX_EXCLUIDAS = 12;
+  // Sube a 13 por qa-humo-link-publico.mjs. Es la unica tienda que le habla a
+  // alguien SIN cuenta: si ahi algo no se puede tocar, la persona cierra la
+  // pestaña y el club nunca se entera. Necesita navegador porque lo que vigila
+  // —que el nombre estampado y el id legacy de cada pieza lleguen en la
+  // llamada— solo existe despues de tocar la pantalla.
+  const MAX_EXCLUIDAS = 13;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

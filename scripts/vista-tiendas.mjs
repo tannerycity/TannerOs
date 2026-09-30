@@ -113,6 +113,27 @@ const PANTALLAS = [
     if(n==='v2_portal_home')return{data:{organization:{name:'Tannery City FC'},guardian:{id:'g1',firstName:'Ana',lastName:'Ávila'},players:[{id:'t1',firstName:'Mauricio',lastName:'Torres Avila',category:'Baby Tanner',balance:0}],account:{balance:0}},error:null};
     if(n==='v2_portal_catalog')return{data:${JSON.stringify({products: PRODUCTOS.map(p => ({ ...p, photo_thumb_path: p.photoThumbPath || null })),bundles: KITS_PORTAL })},error:null};
     ${COMUN}`), '[data-tab="tienda"]', '[data-tab="tienda"]', '.fam-prod .fam-talla-sel']
+,
+  /* La CUARTA tienda: la que ve quien entra por un link compartido, sin cuenta
+   * y sin sesión. Es la que el club pega en WhatsApp. */
+  ['tienda-link-publico', '/pedido/', `
+    export function createClient(){return{
+      ${stubStorage}
+      auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+      rpc:async(n)=>{
+        if(n==='v2_public_context')return{data:{organizationId:'o1',name:'Tannery City FC'},error:null};
+        if(n==='v2_public_offerings')return{data:${JSON.stringify({
+          products: PRODUCTOS.map(p => ({ ...p, priceKid: null })),
+          bundles: KITS_PORTAL.map(b => ({
+            id: b.id, kind: 'bundle', name: b.name,
+            priceAdult: b.price_adult, priceKid: b.price_kid,
+            available: true, blockedReason: null,
+            components: b.pieces.map(x => ({
+              productId: x.product_id, legacyProductId: x.product_id,
+              name: x.name, sizes: x.sizes, qty: x.qty, active: true }))
+          }))
+        })},error:null};
+        return {data:[],error:null};}};}`, '#offer, #content form']
 ];
 
 const nav = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
@@ -124,6 +145,17 @@ for (const [nombre, ruta, codigo, espera, tocar, abrirTalla] of PANTALLAS) {
   pg.on('pageerror', e => errs.push(e.message));
   await pg.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:codigo }));
   await pg.route('**/v2/branding-auto.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:'' }));
+  /* /pedido importa libphonenumber desde esm.sh. Aquí no hay salida a
+   * internet, así que el import se cuelga y la página se queda en
+   * "Cargando…" — que es exactamente lo que capturó la primera corrida.
+   * Lo suple un doble mínimo: lo que se juzga es la tienda, no el
+   * formateador de teléfonos. */
+  await pg.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+    export function AsYouType(){return{input:v=>v}}
+    export function getCountries(){return['MX','US']}
+    export function getCountryCallingCode(c){return c==='MX'?'52':'1'}
+    export function parsePhoneNumberFromString(v){return{isValid:()=>String(v).replace(/\\D/g,'').length>=10,
+      formatInternational:()=>v,number:v};}` }));
   try {
     await pg.goto(`http://127.0.0.1:4703${ruta}`, { waitUntil:'networkidle' });
     await pg.waitForSelector(espera, { timeout: 8000 }).catch(() => {});

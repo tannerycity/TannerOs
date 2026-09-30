@@ -198,23 +198,6 @@
 .fam-ev[data-kind="birthday"] .fam-ev-day{background:#fdf4e3;color:#8a6413;border-color:#f0e2c4}
 .fam-ev[data-mine="1"] .fam-ev-body strong::after{content:"su equipo";margin-left:7px;padding:2px 7px;border-radius:999px;background:#e6f2f4;color:var(--fam-teal);font-size:10px;font-weight:700;vertical-align:middle}
 
-/* Tienda */
-.fam-prods{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-.fam-prod{display:flex;flex-direction:column;gap:5px;background:#fff;border:1px solid var(--fam-line);
-  border-radius:18px;padding:15px;overflow:hidden}
-/* La foto manda: es lo primero que la familia reconoce del kit. Se saca del
-   padding de la tarjeta para que llegue de orilla a orilla. */
-.fam-shot{margin:-15px -15px 9px;aspect-ratio:1;display:grid;place-items:center;overflow:hidden;
-  background:linear-gradient(160deg,#eef3f4,#e2eaec);color:#9aa9ad;font-size:11px;font-weight:600}
-.fam-shot img{width:100%;height:100%;object-fit:cover;display:block}
-.fam-prod strong{font-size:14px;line-height:1.25}
-.fam-prod .fam-price{font-size:19px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--fam-deep)}
-.fam-prod p{margin:0;font-size:12px;color:#8b979c;line-height:1.35}
-.fam-prod select{margin-top:4px;border:1px solid var(--fam-line);border-radius:10px;padding:9px;min-height:44px;font:inherit;font-size:16px;background:#fff}
-.fam-prod button{margin-top:auto;min-height:44px;border:0;border-radius:11px;background:#eef5f6;color:#0c5163;
-  font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.fam-prod button[data-in="1"]{background:var(--fam-teal);color:#fff}
-
 .fam-store{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;min-height:48px;
   border-radius:13px;background:var(--fam-deep);color:#fff;font-weight:600;font-size:14.5px;text-decoration:none;
   -webkit-tap-highlight-color:transparent}
@@ -229,7 +212,6 @@
   padding:0 16px;min-height:44px;font:inherit;font-weight:700;font-size:14px;cursor:pointer}
 
 @media(min-width:720px){
-  .fam-prods{grid-template-columns:repeat(3,1fr)}
   .fam-main{padding-bottom:40px}
   .fam-nav{position:sticky;bottom:0;max-width:760px;margin:0 auto;border-radius:18px 18px 0 0;border:1px solid #e3e0d4;border-bottom:0}
 }
@@ -280,116 +262,3 @@
 .fam-imagen.pendiente{border-left:5px solid #d8a30b}
 
 /* === La tienda de las familias ===
-   Tres toques para comprar: talla, Agregar, Apartar. Sin ventana de producto:
-   un modal cuesta dos toques más y en un teléfono tapa justo cuando la
-   familia quiere comparar dos jerseys. */
-.fam-tallas{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
-.fam-talla{min-width:44px;min-height:44px;padding:0 11px;border-radius:11px;
-  border:1px solid var(--fam-line,#e0e7e5);background:#fff;color:#33535d;
-  font:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
-.fam-talla.activa{background:var(--fam-ink,#0d3b45);border-color:var(--fam-ink,#0d3b45);color:#fff}
-.fam-talla:focus-visible{outline:2px solid #056c7f;outline-offset:2px}
-/* Una talla única se dice, no se ofrece: tocar "Universal" es un toque que
-   no informa. */
-.fam-talla-unica{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:9px;
-  background:#eef4f3;color:#4a6870;font-size:12px;font-weight:800}
-/* Nombre y número sólo aparecen cuando ya hay talla. */
-.fam-pers{display:grid;grid-template-columns:1fr 62px;gap:6px;margin-top:8px}
-.fam-pers input{border:1px solid var(--fam-line,#e0e7e5);border-radius:11px;
-  padding:11px 12px;font:inherit;font-size:15px;min-height:44px;color:#20363c;width:100%}
-.fam-pers input:focus{outline:none;border-color:var(--fam-ink,#0d3b45)}
-/* El motivo se pinta junto al botón que se tocó, no en una alerta que tapa
-   lo que la familia estaba viendo. */
-.fam-aviso{display:block;margin-top:8px;font-size:12.5px;font-weight:800;color:#a4352b}
-.fam-add{margin-top:10px;width:100%;min-height:46px;border:0;border-radius:13px;
-  background:var(--fam-ok,#15964a);color:#fff;font:inherit;font-weight:900;font-size:15px;cursor:pointer}
-.fam-add:active{transform:scale(.99)}
-.fam-linea-fin{display:flex;align-items:center;gap:10px}
-.fam-quita{border:0;background:#f4f6f5;color:#7d8a8f;border-radius:9px;
-  min-width:32px;min-height:32px;font-size:14px;font-weight:900;cursor:pointer;line-height:1}
-.fam-quita:hover{background:#e8eceb;color:#a4352b}
-
-/* ---- La talla, plegada ----
-
-   Antes se desplegaban las DOCE tallas en cada tarjeta, siempre: ocho
-   productos median 5,650px de alto. Ahora la tarjeta dice una linea y las
-   tallas aparecen solo en la que se toco. Mismos toques para comprar, una
-   quinta parte de pantalla. */
-.fam-talla-sel{
-  width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;
-  gap:10px;padding:0 14px;border-radius:12px;border:1.5px solid #dbe5e3;background:#fff;
-  cursor:pointer;text-align:left;
-}
-.fam-talla-sel b{font-size:14px;font-weight:800;color:#12313a;}
-.fam-talla-sel span{font-size:12px;font-weight:700;color:#7d8f95;}
-/* Sin talla elegida el boton se ve como lo que es: algo que falta. */
-.fam-talla-sel.vacia{border-style:dashed;border-color:#b9cdc8;}
-.fam-talla-sel.vacia b{color:#2f6b60;}
-
-/* ---- El kit ----
-   Va primero y ocupa el ancho: un club no vende piezas, vende el uniforme. */
-.fam-kits{display:flex;flex-direction:column;gap:12px;margin:12px 0;}
-.fam-kit{
-  background:#fff;border:1.5px solid #cfe0db;border-radius:18px;padding:16px;
-  display:flex;flex-direction:column;gap:12px;
-  box-shadow:0 10px 24px rgba(12,48,44,.07);
-}
-.fam-kit-head{display:flex;flex-direction:column;gap:4px;}
-.fam-kit-tag{
-  align-self:flex-start;font-size:10.5px;font-weight:800;letter-spacing:.09em;
-  padding:4px 10px;border-radius:999px;background:#0d2229;color:#e9d19c;
-}
-.fam-kit-head strong{font-size:17px;line-height:1.25;color:#0d2229;}
-.fam-tier{display:flex;gap:8px;flex-wrap:wrap;}
-/* Las piezas del kit: se ve QUE trae antes de pedir tallas. */
-.fam-piezas{display:flex;flex-direction:column;gap:10px;}
-.fam-pieza{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid #edf2f1;}
-.fam-pieza>span{font-size:13px;font-weight:750;color:#2b3d43;}
-.fam-pieza em{font-size:12.5px;font-style:normal;font-weight:700;color:#7d8f95;}
-
-/* ---- Iniciales cuando no hay foto ----
-   Taquilla ya lo hacia asi y Familias dejaba un recuadro gris. La foto cae
-   encima cuando llega, y si no llega queda esto en vez de un hueco. */
-.fam-shot{position:relative;display:block;}
-.fam-iniciales{
-  position:absolute;inset:0;display:grid;place-items:center;
-  font-style:normal;font-size:30px;font-weight:800;color:#9fb4ae;letter-spacing:.04em;
-}
-.fam-shot img{position:relative;z-index:1;}
-
-/* En la rejilla de dos columnas la tarjeta mide ~170px y la fila de talla no
-   cabe de lado: "Elige tu talla" se partia en tres renglones y "12
-   disponibles" en dos. Ahi se apila, que es lo que cabe. En el kit —que ocupa
-   el ancho completo— sigue de lado, que es lo que se lee mejor. */
-.fam-prod .fam-talla-sel{
-  flex-direction:column;align-items:flex-start;justify-content:center;
-  gap:2px;padding:8px 12px;min-height:52px;
-}
-.fam-prod .fam-talla-sel b{font-size:13px;}
-.fam-prod .fam-talla-sel span{font-size:11px;}
-
-
-/* ---- Las tallas abiertas: una fila que se desliza ----
-
-   Como en cualquier tienda que se usa en un telefono. Antes era un bloque que
-   se partia en seis renglones porque los jerseys del club traen DOCE tallas en
-   el mismo producto —niños 6 a 16 y adultos XS a XXL—.
-
-   overflow-x con scroll-snap: se arrastra con el pulgar y cada talla queda
-   cuadrada, sin tener que apuntar. */
-.fam-fila{
-  display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;
-  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
-}
-.fam-fila::-webkit-scrollbar{height:0;}
-.fam-fila .fam-talla{flex:0 0 auto;scroll-snap-align:start;min-width:52px;}
-/* Quien busca la 10 de su hijo no tiene por que leer doce botones: el grupo
-   con su etiqueta se ve de un vistazo. */
-.fam-grupo{display:flex;flex-direction:column;gap:2px;}
-.fam-grupo>span{
-  font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  color:#8a9aa0;
-}
-/* Al abrirse, el panel puede salirse de la tarjeta de dos columnas: se le deja
-   romper el ancho para que la fila tenga donde deslizarse. */
-.fam-prod .fam-tallas{margin:0 -12px;padding:0 12px;}

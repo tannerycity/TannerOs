@@ -42,8 +42,6 @@
 -- REVERSIBLE: volver a ejecutar las dos funciones en su versión anterior las
 -- regresa. Ningún dato se toca: esto es sólo lectura y escritura nueva.
 
-begin;
-
 -- ---------------------------------------------------------------------------
 -- 1. El catálogo del portal devuelve también los kits.
 --
@@ -327,5 +325,3 @@ end $$;
 -- EXECUTE a PUBLIC, y aquí se reemplazaron dos.
 revoke all on function private.portal_catalog() from public, anon, authenticated;
 revoke all on function private.portal_place_order(uuid, jsonb, text) from public, anon, authenticated;
-
-commit;

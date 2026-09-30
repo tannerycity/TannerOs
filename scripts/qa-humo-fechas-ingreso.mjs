@@ -32,11 +32,11 @@ await new Promise(r => srv.listen(4711, r));
 const fila = { id:'t1', code:'Tanner012', first_name:'Iker Joan', last_name:'Flores Procopio',
   category:'T12', status_value:'active', jersey_number:'9', player_position:'Delantero',
   data_consent:true, has_guardian_email:true, photo_path:null, docs_missing:0 };
-const perfil = (origen, historia) => ({ id:'t1', code:'Tanner012', firstName:'Iker Joan', lastName:'Flores Procopio',
+const perfil = (origen, historia, idas = [], club = null) => ({ id:'t1', code:'Tanner012', firstName:'Iker Joan', lastName:'Flores Procopio',
   birthDate:'2015-07-31', position:'Delantero', dominantFoot:'right', sex:'M', category:'T12', status:'active',
-  registeredAt:'2026-07-02', joinedAt:null, admissionOrigin:origen, admissionHistory:historia });
+  registeredAt:'2026-07-02', joinedAt:club, admissionOrigin:origen, admissionHistory:historia, membershipHistory:idas });
 
-const stub = (esPresidencia, origen, historia) => `export function createClient(){return{
+const stub = (esPresidencia, origen, historia, idas, club) => `export function createClient(){return{
  auth:{getSession:async()=>({data:{session:{user:{id:'u1'}}}}),getUser:async()=>({data:{user:{app_metadata:{}}}}),signOut:async()=>({}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
  storage:{from:()=>({createSignedUrl:async()=>({data:null,error:null}),createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:null})),error:null})})},
  rpc:async(n,p)=>{
@@ -45,19 +45,19 @@ const stub = (esPresidencia, origen, historia) => `export function createClient(
   if(n==='v2_can_set_joined_at')return{data:${esPresidencia},error:null};
   if(n==='v2_players')return{data:[${JSON.stringify(fila)}],error:null};
   if(n==='v2_player_categories')return{data:[{id:'c1',name:'T12'}],error:null};
-  if(n==='v2_player_profile')return{data:{player:${JSON.stringify(perfil(origen, historia))},guardians:[],activeEnrollment:null},error:null};
-  if(n==='v2_save_player_profile'){window.__guardado=p;return{data:{player:${JSON.stringify(perfil(origen, historia))},guardians:[],activeEnrollment:null},error:null};}
+  if(n==='v2_player_profile')return{data:{player:${JSON.stringify(perfil(origen, historia, idas, club))},guardians:[],activeEnrollment:null},error:null};
+  if(n==='v2_save_player_profile'){window.__guardado=p;return{data:{player:${JSON.stringify(perfil(origen, historia, idas, club))},guardians:[],activeEnrollment:null},error:null};}
   return {data:[],error:null};}};}`;
 
 const nav = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 
-async function abre(esPresidencia, origen, historia, captura) {
+async function abre(esPresidencia, origen, historia, captura, idas = [], club = null) {
   const pg = await nav.newPage({ viewport:{ width:390, height:844 } });
   const errs = [];
   pg.on('pageerror', e => errs.push(e.message));
-  await pg.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:stub(esPresidencia, origen, historia) }));
+  await pg.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:stub(esPresidencia, origen, historia, idas, club) }));
   await pg.route('**/v2/branding-auto.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:'' }));
   await pg.goto('http://127.0.0.1:4711/v2/jugadores/', { waitUntil:'networkidle' });
   const tarjetas = await pg.$$('.jcard');
@@ -72,6 +72,7 @@ async function abre(esPresidencia, origen, historia, captura) {
     clubOff: document.getElementById('joinedAt')?.disabled ?? null,
     etiquetas: [...document.querySelectorAll('#profileForm label')].map(l => l.firstChild?.textContent?.trim()).filter(t => /ingreso/i.test(t || '')),
     rastro: document.getElementById('admissionTrail')?.innerText ?? '',
+    pistaClub: document.getElementById('joinedHint')?.textContent ?? '',
     rastroVisible: !document.getElementById('admissionTrail')?.classList.contains('hidden')
   }));
 
@@ -130,8 +131,26 @@ if (!otro.error) {
   revisa('sin errores de consola (otro rol)', otro.errs.length === 0, otro.errs.join(' | '));
 }
 
+/* ===== REINGRESO: LA FECHA SE RESPETA, LAS IDAS Y VUELTAS SE VEN ===== */
+const idas = [
+  { kind:'baja', date:'2026-03-10', reason:'Cambio de escuela', at:'2026-03-10T18:00:00Z', by:'michel_enriquez' },
+  { kind:'reingreso', date:'2026-08-04', reason:null, at:'2026-08-04T18:00:00Z', by:'Emmanuel' }
+];
+const vuelta = await abre(true, 'migracion', [], null, idas, '2025-02-04');
+revisa('la ficha de un Tanner que regresó abre', !vuelta.error, vuelta.error);
+if (!vuelta.error) {
+  revisa('su fecha de ingreso al club sigue siendo la primera', vuelta.antes.club === '2025-02-04', vuelta.antes.club);
+  revisa('la trayectoria cuenta el reingreso', /Trayectoria en el club · 1 reingreso/.test(vuelta.antes.rastro), vuelta.antes.rastro);
+  revisa('en orden: ingreso, baja con motivo y quién, reingreso y quién',
+    /Ingresó al club 04\/02\/2025[\s\S]*Baja 10\/03\/2026 · Cambio de escuela por michel_enriquez[\s\S]*Reingreso 04\/08\/2026 por Emmanuel/.test(vuelta.antes.rastro),
+    vuelta.antes.rastro);
+  revisa('a Presidencia se le avisa que los reingresos no la cambian',
+    /Los reingresos no la cambian/.test(vuelta.antes.pistaClub), vuelta.antes.pistaClub);
+  revisa('sin errores de consola (reingreso)', vuelta.errs.length === 0, vuelta.errs.join(' | '));
+}
+
 await nav.close(); srv.close();
 console.log(fallos
   ? `Fechas de ingreso humo FAILED · ${fallos} de ${corridas}`
-  : `Fechas de ingreso humo OK · ${corridas} revisiones: las dos fechas, quién las mueve y quién las movió`);
+  : `Fechas de ingreso humo OK · ${corridas} revisiones: las dos fechas, quién las mueve, quién las movió y los reingresos`);
 process.exit(fallos ? 1 : 0);

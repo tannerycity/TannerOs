@@ -261,6 +261,8 @@
 .admission-trail ul{margin:4px 0 0;padding-left:16px}
 .admission-trail li{margin:2px 0}
 .admission-trail small{color:#68737a}
+.admission-trail .admission-origin + ol,.admission-trail ol{margin:4px 0 0;padding-left:18px}
+.admission-trail ul + .admission-origin,.admission-trail small + .admission-origin{margin-top:8px}
 
 /* Posición: carrusel horizontal. En una cancha las posiciones son pocas y fijas;
    verlas todas de un vistazo es más rápido que abrir una lista. */

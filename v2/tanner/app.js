@@ -42,8 +42,11 @@ function headBlock(p,photoUrl){
   if(p.category)chips.push(`<span class="tan-chip">${esc(p.category)}</span>`);
   chips.push(`<span class="tan-chip" ${p.status!=='active'?'data-tone="off"':''}>${esc(STATUS_LABEL[p.status]||p.status||'')}</span>`);
   if(p.jersey_number)chips.push(`<span class="tan-chip">#${esc(p.jersey_number)}</span>`);
-  const desde=p.enrolled_on||p.joined_at;
-  if(desde)chips.push(`<span class="tan-chip">Desde ${esc(fmtDate(desde))}</span>`);
+  // La fecha de ingreso al club que capturó Presidencia manda. La primera
+  // inscripción sólo cubre mientras no haya una: en los migrados es el día de
+  // la migración, no el día en que entraron.
+  const desde=p.joined_at||p.enrolled_on;
+  if(desde)chips.push(`<span class="tan-chip">En el club desde ${esc(fmtDate(desde))}</span>`);
   return `<section class="tan-head"><div class="tan-face">${face}</div><div class="tan-id"><h1>${esc(name)}</h1><div class="tan-meta">${chips.join('')}</div></div></section>`;
 }
 

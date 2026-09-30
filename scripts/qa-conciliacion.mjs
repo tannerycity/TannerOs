@@ -85,8 +85,20 @@ prueba('quien NO registró el cobro no responde la aclaración ajena', () => {
   assert.deepEqual(a, []);
 });
 
-prueba('un pago del sistema anterior no ofrece ninguna acción', () => {
-  assert.deepEqual(accionesPara(viejo, { canApprove: true }), []);
+/* Esta prueba decía lo contrario: "un pago del sistema anterior no ofrece
+   ninguna acción". Estaba consagrando una limitación, no protegiendo una
+   regla. Medido en producción: 242 pagos por $177,522.85 quedaron congelados
+   así, y el club no podía revisarlos aunque quisiera — que es justo el doble
+   check que pidió. */
+prueba('un pago del sistema anterior SÍ se puede revisar, y el botón lo nombra bien', () => {
+  const acciones = accionesPara(viejo, { canApprove: true });
+  assert.deepEqual(acciones.map(x => x.clave), ['approve', 'clarify', 'reject']);
+  // No es "aprobar de nuevo": nadie lo aprobó nunca.
+  assert.equal(acciones[0].etiqueta, 'Revisar y aprobar');
+});
+
+prueba('pero sólo Presidencia: quien no aprueba no ve botones en un heredado', () => {
+  assert.deepEqual(accionesPara(viejo, { canApprove: false }), []);
 });
 
 prueba('un rechazado no ofrece acciones: ya está resuelto', () => {
@@ -164,11 +176,21 @@ prueba('el buscador encuentra por quién registró el cobro', () => {
 
 prueba('el filtro por estado no mezcla', () => {
   assert.equal(filtra(todos, { estado: 'pending' }).length, 1);
-  assert.equal(filtra(todos, { estado: 'approved' }).length, 3); // x2, x3 (viejo), x6
+  // "Aprobados" ya NO incluye a los del sistema anterior: mezclarlos hacía ver
+  // revisado lo que nadie había mirado.
+  assert.equal(filtra(todos, { estado: 'approved' }).length, 2); // x2, x6
+  assert.equal(filtra(todos, { estado: 'legacy' }).length, 1);   // x3, el viejo
   assert.equal(filtra(todos, { estado: 'clarification' }).length, 1);
   assert.equal(filtra(todos, { estado: 'rejected' }).length, 1);
   // Suman el total: ninguna fila se pierde ni se cuenta dos veces.
-  assert.equal(1 + 3 + 1 + 1, todos.length);
+  assert.equal(1 + 2 + 1 + 1 + 1, todos.length);
+});
+
+prueba('un aprobado de verdad no se cuela en "sin revisar"', () => {
+  // La diferencia entre los dos es UNA fecha. Si el filtro la ignorara, el
+  // club volvería a ver como pendiente algo que ya revisó.
+  assert.equal(filtra(todos, { estado: 'legacy' }).every(x => x.legacyApproved), true);
+  assert.equal(filtra(todos, { estado: 'approved' }).some(x => x.legacyApproved), false);
 });
 
 prueba('se pueden aislar los que tienen diferencia', () => {
@@ -199,6 +221,11 @@ prueba('el primer renglón, sin estado previo, no queda en blanco', () => {
 prueba('lo que espera a Presidencia son pendientes más aclaraciones', () => {
   assert.equal(pendientesReales({ pending: 3, clarification: 2, rejected: 9 }), 5);
   assert.equal(pendientesReales({}), 0);
+  // Los del sistema anterior TAMBIEN son trabajo por hacer: 242 pagos que
+  // nadie reviso no son "cero pendientes". Sin esto el club veia el badge en
+  // blanco y la pantalla parecia al dia.
+  assert.equal(pendientesReales({ pending: 0, clarification: 0, legacyApproved: 242 }), 242);
+  assert.equal(pendientesReales({ pending: 3, clarification: 2, legacyApproved: 242 }), 247);
   assert.equal(pendientesReales(null), 0);
 });
 

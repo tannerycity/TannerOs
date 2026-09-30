@@ -39,7 +39,19 @@ export function validacionDe(fila) {
 export function accionesPara(fila, ctx = {}) {
   const estado = fila?.status;
   const acciones = [];
-  if (fila?.legacyApproved) return acciones;
+  // Un pago del sistema anterior quedó en 'approved' sin que nadie lo
+  // revisara. Antes aquí se devolvía la lista vacía y quedaba congelado: 242
+  // pagos por $177,522 que el club no podía revisar aunque quisiera, que es
+  // justo el doble check que pidió. Ahora se puede, y el botón lo dice con
+  // otras palabras: no es aprobar de nuevo, es revisarlo por primera vez.
+  if (fila?.legacyApproved) {
+    if (ctx.canApprove) {
+      acciones.push({ clave: 'approve', etiqueta: 'Revisar y aprobar', tono: 'ok' });
+      acciones.push({ clave: 'clarify', etiqueta: 'Solicitar aclaración', tono: 'atencion' });
+      acciones.push({ clave: 'reject', etiqueta: 'Rechazar', tono: 'bajo' });
+    }
+    return acciones;
+  }
   if (ctx.canApprove) {
     if (estado === 'pending' || estado === 'clarification') {
       acciones.push({ clave: 'approve', etiqueta: 'Aprobar', tono: 'ok' });
@@ -81,7 +93,12 @@ export function filtra(filas, f = {}) {
   const texto = sinAcentos(f.texto || '').trim();
   const terminos = texto ? texto.split(/\s+/) : [];
   return (filas || []).filter(fila => {
-    if (f.estado && fila.status !== f.estado) return false;
+    // 'legacy' no es un estado de la base: es approved SIN fecha de revision,
+    // o sea los que nadie miro nunca. Se filtra aparte porque en la base son
+    // indistinguibles de un aprobado de verdad salvo por esa fecha.
+    if (f.estado === 'legacy') { if (!fila.legacyApproved) return false; }
+    else if (f.estado === 'approved') { if (fila.status !== 'approved' || fila.legacyApproved) return false; }
+    else if (f.estado && fila.status !== f.estado) return false;
     if (f.soloConDiferencia && !diferenciaDe(fila).hay) return false;
     if (!terminos.length) return true;
     const heno = sinAcentos([
@@ -104,5 +121,9 @@ export function lineaDeHistorial(h) {
 // Cuántas acciones de verdad esperan a Presidencia. Se usa para el aviso de
 // la pantalla, y no cuenta los rechazados: ésos ya están resueltos.
 export function pendientesReales(resumen) {
-  return Number(resumen?.pending || 0) + Number(resumen?.clarification || 0);
+  // Los del sistema anterior tambien son trabajo pendiente: 242 pagos que
+  // nadie reviso no son "cero por hacer".
+  return Number(resumen?.pending || 0)
+       + Number(resumen?.clarification || 0)
+       + Number(resumen?.legacyApproved || 0);
 }

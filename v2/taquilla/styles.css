@@ -292,3 +292,21 @@
 .audit-alerta{margin:4px 0 0;border-radius:13px;padding:11px 13px;background:#ffe9e6;color:#a32920;font-size:12.5px;font-weight:700;line-height:1.45}
 .audit-alerta b{font-weight:1000}
 .audit-nota{margin:0;font-size:11.5px;line-height:1.5;color:#68777d}
+
+/* ---- El mosaico de lo que nadie revisó ----
+   242 pagos por $177,522 estaban contados dentro de "aprobados": el panel se
+   veía al día y el trabajo ni había empezado. Va en ámbar, que es como el
+   resto de TannerOS dice "esto te está esperando", no en rojo: no hay nada
+   mal, hay algo por hacer. */
+#conciliaKpis .kpi-atencion{border-color:#e6d3a4;background:linear-gradient(180deg,#fffaf0,#fdf4e3)}
+#conciliaKpis .kpi-atencion strong{color:#8a6413}
+#conciliaKpis .kpi-atencion span{color:#8a6413}
+
+/* ---- El vacío que explica en vez de parecer roto ----
+   "No hay pagos en este estado" con todo en cero se lee como una pantalla que
+   no cargó. Cuando hay algo que decir, se dice, y se ofrece a dónde ir. */
+.cashier-empty strong{display:block;font-size:14px;color:#3a4a50;margin-bottom:4px}
+.cashier-empty span{display:block;font-size:12.5px;line-height:1.45}
+.cashier-empty button{margin-top:12px;min-height:40px;padding:0 18px;border:0;border-radius:11px;
+  background:var(--tos-teal,#056c7f);color:#fff;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
+.cashier-empty button:active{filter:brightness(1.1)}

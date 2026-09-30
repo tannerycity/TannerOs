@@ -1224,9 +1224,14 @@ function pintaConcilia(){
        ? 'Consulta. La aprobación final es de Presidencia.'
        : 'Tus cobros registrados. La aprobación final es de Presidencia.');
 
+  /* El mosaico que faltaba: los pagos que nadie revisó.
+     Se sumaban a "aprobados" y el club veía 0 pendientes con 242 sin revisar
+     debajo — la pantalla se veía terminada cuando el trabajo ni empezaba. */
+  const heredados=Number(r.legacyApproved||0);
   $('conciliaKpis').innerHTML=`
     <article><span>Por conciliar</span><strong>${Number(r.pending||0)}</strong><small>${money.format(Number(r.pendingAmount||0))}</small></article>
     <article><span>Con aclaración</span><strong>${Number(r.clarification||0)}</strong><small>esperan respuesta</small></article>
+    ${heredados?`<article class="kpi-atencion"><span>Sin revisar nunca</span><strong>${heredados}</strong><small>${money.format(Number(r.legacyApprovedAmount||0))} del sistema anterior</small></article>`:''}
     <article><span>Aprobados hoy</span><strong>${Number(r.approvedToday||0)}</strong><small>${Number(r.rejected||0)} rechazados en total</small></article>
     <article><span>Con diferencia</span><strong>${Number(r.withDifference||0)}</strong><small>${money.format(Number(r.differenceTotal||0))} contra lo esperado</small></article>`;
 
@@ -1236,7 +1241,21 @@ function pintaConcilia(){
   const filas=filtraConcilia(todas,f);
 
   $('conciliaList').innerHTML=filas.map(x=>tarjetaConcilia(x,canApprove)).join('');
-  $('conciliaEmpty').classList.toggle('hidden',filas.length>0);
+  /* "No hay pagos en este estado" con todo en cero se lee como una pantalla
+     rota. Si no hay pendientes pero sí hay 242 sin revisar, eso es lo que hay
+     que decir, y hacia dónde mandar a quien está mirando. */
+  const vacio=$('conciliaEmpty');
+  if(conciliaFiltro==='pending'&&!filas.length&&heredados){
+    vacio.innerHTML=`<strong>Ningún cobro nuevo espera revisión.</strong>`
+      +`<span>Quedan ${heredados} pagos del sistema anterior que nadie ha revisado, por ${money.format(Number(r.legacyApprovedAmount||0))}.</span>`
+      +`<button type="button" data-concilia-filter="legacy">Revisarlos</button>`;
+  }else if(!filas.length&&!todas.length){
+    vacio.innerHTML='<strong>Todavía no hay cobros registrados.</strong>'
+      +'<span>En cuanto Taquilla registre uno, aparece aquí para que lo valides.</span>';
+  }else{
+    vacio.textContent='No hay pagos en este estado.';
+  }
+  vacio.classList.toggle('hidden',filas.length>0);
   $('conciliaList').querySelectorAll('[data-accion]').forEach(b=>
     b.addEventListener('click',()=>abreAccion(b.dataset.pago,b.dataset.accion)));
 }
@@ -1354,11 +1373,21 @@ $('conciliaSearchClear')?.addEventListener('click',()=>{
   $('conciliaSearch').value='';conciliaQuery='';
   $('conciliaSearchClear').classList.add('hidden');pintaConcilia();
 });
-$('conciliaChips')?.querySelectorAll('[data-concilia-filter]').forEach(b=>b.addEventListener('click',()=>{
-  conciliaFiltro=b.dataset.conciliaFilter;
-  $('conciliaChips').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
+function eligeFiltroConcilia(valor){
+  conciliaFiltro=valor;
+  $('conciliaChips')?.querySelectorAll('button').forEach(x=>
+    x.classList.toggle('active',x.dataset.conciliaFilter===valor));
   pintaConcilia();
-}));
+}
+$('conciliaChips')?.querySelectorAll('[data-concilia-filter]').forEach(b=>
+  b.addEventListener('click',()=>eligeFiltroConcilia(b.dataset.conciliaFilter)));
+/* El botón "Revisarlos" del estado vacío se dibuja cada vez que se repinta, así
+   que se escucha en el contenedor y no en el botón: colgarle un listener a algo
+   que se vuelve a crear es colgárselo a un nodo que ya no existe. */
+$('conciliaEmpty')?.addEventListener('click',e=>{
+  const b=e.target.closest('[data-concilia-filter]');
+  if(b)eligeFiltroConcilia(b.dataset.conciliaFilter);
+});
 
 // Se carga al abrir la pantalla para poder mostrar el badge sin que nadie
 // tenga que entrar a buscarlo.

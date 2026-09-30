@@ -1,8 +1,8 @@
 {
-  "migraciones": 410,
-  "bytes": 2199753,
-  "huella": "068d562cdeee0d3eb0e8f5dc68212e7c",
+  "migraciones": 411,
+  "bytes": 2215126,
+  "huella": "83d50c85c3e7045be23f01688ef9c3d5",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260929235517_x1_la_familia_compra_el_uniforme_completo.sql",
-  "verificadoContraLaBase": "2026-09-29"
+  "ultima": "20260930015424_y1_los_242_pagos_que_nadie_pudo_revisar.sql",
+  "verificadoContraLaBase": "2026-09-30"
 }

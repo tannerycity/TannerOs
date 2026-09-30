@@ -64,7 +64,11 @@ export default function comprobar() {
   // Tanner diga la verdad: decia "Agregar foto" en los 52 Tanners que SI tienen
   // foto, porque la etiqueta se escribia dentro del span del icono. Necesita
   // navegador porque lo que se prueba es lo que una persona LEE en el boton.
-  const MAX_EXCLUIDAS = 14;
+  // Sube a 15 por qa-humo-posicion.mjs. Cambiarle la posicion a un Tanner le
+  // BORRABA la posicion: el rail vivia dentro de un <label> y el reenvio del
+  // click caia en el chip vacio. Necesita navegador porque el segundo click lo
+  // genera el navegador, no el codigo — leyendo el JS no se ve.
+  const MAX_EXCLUIDAS = 15;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

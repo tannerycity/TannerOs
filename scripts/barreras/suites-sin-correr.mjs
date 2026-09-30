@@ -60,7 +60,11 @@ export default function comprobar() {
   // pestaña y el club nunca se entera. Necesita navegador porque lo que vigila
   // —que el nombre estampado y el id legacy de cada pieza lleguen en la
   // llamada— solo existe despues de tocar la pantalla.
-  const MAX_EXCLUIDAS = 13;
+  // Sube a 14 por qa-humo-ficha-foto.mjs. Vigila que el boton de la foto del
+  // Tanner diga la verdad: decia "Agregar foto" en los 52 Tanners que SI tienen
+  // foto, porque la etiqueta se escribia dentro del span del icono. Necesita
+  // navegador porque lo que se prueba es lo que una persona LEE en el boton.
+  const MAX_EXCLUIDAS = 14;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

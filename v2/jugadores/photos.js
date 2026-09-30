@@ -31,17 +31,39 @@ function friendly(error){
 function hasPhoto(player){
   return Boolean(player?.photoPath||player?.legacyPhotoData);
 }
+/* El texto del boton de la tarjeta.
+ *
+ * Aqui habia un querySelector('span') pelon, y el PRIMER span del boton es el
+ * ICONO:
+ *
+ *   <button id="photoCardAction">
+ *     <span class="tos-icon tos-icon-camera"></span>   <- se agarraba este
+ *     <span>Agregar foto</span>                        <- el que se lee
+ *   </button>
+ *
+ * .tos-icon es una caja de 1.15em pintada con una mascara CSS, asi que el
+ * texto que se le metia adentro era invisible. Resultado: el boton decia
+ * "Agregar foto" para siempre, incluso en los 52 Tanners que SI tienen foto, y
+ * el club leia eso como "no se guardo". La foto estaba ahi.
+ *
+ * Se busca el span que NO es el icono. */
+function etiquetaDelBoton(){
+  return $('photoCardAction')?.querySelector('span:not(.tos-icon)')||null;
+}
 function setControls(detail){
   const allowed=Boolean(detail?.canWrite);
   $('photoEditor')?.classList.toggle('hidden',!allowed);
   $('photoCardAction')?.classList.toggle('hidden',!allowed);
-  const label=$('photoCardAction')?.querySelector('span');
+  const label=etiquetaDelBoton();
   if(label)label.textContent=hasPhoto(detail?.player)?'Cambiar foto':'Agregar foto';
 }
 function setBusy(on,label=''){
   busy=on;
   ['photoCardAction','takePlayerPhoto','choosePlayerPhoto'].forEach(id=>{const el=$(id);if(el)el.disabled=on;});
-  const cardLabel=$('photoCardAction')?.querySelector('span');
+  // El mismo error estaba aqui: el "Guardando…" se escribia dentro del icono y
+  // nunca se veia. Quien subia una foto no tenia ninguna señal de que estuviera
+  // pasando algo.
+  const cardLabel=etiquetaDelBoton();
   if(cardLabel)cardLabel.textContent=on?(label||'Guardando…'):(hasPhoto(active?.player)?'Cambiar foto':'Agregar foto');
 }
 function drawPhoto(src,player){

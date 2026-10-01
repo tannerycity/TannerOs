@@ -110,7 +110,7 @@ prueba('una versión de aviso en blanco no cuenta como que se preguntó', () => 
 
 prueba('el candado sale en los dos casos que no se publican', () => {
   assert.equal(candadoDeFoto(dijoNo).corto, 'No autoriza');
-  assert.equal(candadoDeFoto(nadieLePregunto).corto, 'Falta firma');
+  assert.equal(candadoDeFoto(nadieLePregunto).corto, 'No firmado');
   assert.equal(candadoDeFoto(dijoNo).icono, '⦸');
 });
 

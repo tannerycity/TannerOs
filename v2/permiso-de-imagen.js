@@ -34,7 +34,9 @@ export const IMAGEN = {
   },
   sin_preguntar: {
     etiqueta: 'Falta pedir la firma',
-    corto: 'Falta firma',
+    // "No firmado": así lo dice el club. "Falta firma" se leía como un
+    // trámite a medias, y es exactamente lo contrario: nunca se preguntó.
+    corto: 'No firmado',
     icono: '!',
     nivel: 'atencion',
     publicable: false,

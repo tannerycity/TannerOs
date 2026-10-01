@@ -20,6 +20,13 @@ qa-humo-evaluacion.mjs
 qa-humo-mostrador.mjs
 qa-humo-catalogo.mjs
 qa-humo-credencial.mjs
+# Estas tres ya tenian su motivo y su lugar en el tope de
+# barreras/suites-sin-correr.mjs, pero nunca llegaron a esta lista: CI las
+# corria sin Chromium y main quedo en rojo. Se agregan donde siempre debieron.
+qa-humo-link-publico.mjs
+qa-humo-ficha-foto.mjs
+qa-humo-posicion.mjs
+qa-humo-fechas-ingreso.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

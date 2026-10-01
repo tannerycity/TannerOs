@@ -68,7 +68,11 @@ export default function comprobar() {
   // BORRABA la posicion: el rail vivia dentro de un <label> y el reenvio del
   // click caia en el chip vacio. Necesita navegador porque el segundo click lo
   // genera el navegador, no el codigo — leyendo el JS no se ve.
-  const MAX_EXCLUIDAS = 15;
+  // Sube a 16 por qa-humo-fechas-ingreso.mjs. Vigila que solo Presidencia
+  // pueda mover las dos fechas de ingreso, que la ficha diga quien las movio y
+  // que un reingreso no toque la fecha. Lo que prueba es lo que la pantalla
+  // HABILITA y ENSEÑA, asi que necesita pintarla.
+  const MAX_EXCLUIDAS = 16;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

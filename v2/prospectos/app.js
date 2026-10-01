@@ -1,5 +1,6 @@
 import { createClient } from '/v2/supabase-client.js';
-import { getSignedPhotoUrls, getSignedPhotoUrl } from '/v2/photo-cache.js';
+import { getSignedPhotoUrls, getSignedPhotoUrl, getRawSignedPhotoUrl, forgetPhoto } from '/v2/photo-cache.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, UPLOAD_CACHE_CONTROL } from '/v2/image-encode.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -86,18 +87,63 @@ function renderConvertCategories(){const sel=$('convertCategory');if(!sel)return
 async function loadProspects(){
   prospects=await rpc('v2_prospects',{organization_id:ctx.organization_id,status_filter:null});
   prospects=Array.isArray(prospects)?prospects:[];
-  // La lista usa iniciales: la foto completa se firma únicamente al abrir la ficha.
+  // La lista sólo consume MINIATURAS (~8 kB): la foto completa se firma al
+  // abrir la ficha. Antes la lista no pintaba ninguna y el club veía puras
+  // iniciales "hasta que entraba".
   prospects.forEach(p=>p.photo_url=null);
   populateFilterOptions();
   applyFilters();
+  pintaMiniaturas().then(curaMiniaturasFaltantes);
 }
 
-async function loadProspectPhotos(){
-  const paths=[...new Set(prospects.map(p=>p.photo_path).filter(Boolean))];
-  prospects.forEach(p=>p.photo_url=null);
+async function pintaMiniaturas(){
+  const paths=[...new Set(prospects.map(p=>p.photo_thumb_path).filter(Boolean))];
   if(!paths.length)return;
-  const urls=await getSignedPhotoUrls(supabase,PHOTO_BUCKET,paths);
-  prospects.forEach(p=>{p.photo_url=urls[p.photo_path]||null;});
+  try{
+    const urls=await getSignedPhotoUrls(supabase,PHOTO_BUCKET,paths);
+    prospects.forEach(p=>{p.photo_url=p.photo_thumb_path?(urls[p.photo_thumb_path]||null):null;});
+    applyFilters();
+  }catch(_){/* sin miniaturas la lista sigue con iniciales, como antes */}
+}
+
+/* Los prospectos que tienen foto pero NO miniatura.
+
+   El formulario público nunca pudo subir la miniatura: el candado anónimo la
+   rechazaba (arreglado en la migración d2). Medido el 01/10/2026: 22 de 23.
+   Aquí se genera UNA vez, desde la foto completa, por quien puede escribir en
+   Prospectos; queda guardada y de ahí en adelante la lista sólo baja ~8 kB.
+
+   Va de uno en uno y en segundo plano: no detiene la pantalla, y si una foto
+   falla se salta y se reintenta la próxima vez que alguien abra Captación. */
+let curando=false;
+async function curaMiniaturasFaltantes(){
+  if(curando||!ctx?.canProspectsWrite)return;
+  const faltan=prospects.filter(p=>p.photo_path&&!p.photo_thumb_path);
+  if(!faltan.length)return;
+  curando=true;
+  try{
+    for(const p of faltan){
+      try{
+        const firmada=await getRawSignedPhotoUrl(supabase,PHOTO_BUCKET,p.photo_path);
+        if(!firmada)continue;
+        const r=await fetch(firmada);if(!r.ok)continue;
+        const blob=await r.blob();
+        const local=URL.createObjectURL(blob);
+        let thumb;
+        try{
+          const img=await new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=ko;i.src=local;});
+          thumb=await encodeVariant(img,THUMB_MAX_SIDE,.75,THUMB_MAX_BYTES);
+        }finally{URL.revokeObjectURL(local);forgetPhoto(PHOTO_BUCKET,p.photo_path);}
+        const ruta=`organizations/${ctx.organization_id}/prospects/${p.id}/profile-thumb-${Date.now()}.${thumb.ext}`;
+        const {error}=await supabase.storage.from(PHOTO_BUCKET).upload(ruta,thumb.blob,{contentType:thumb.mime,cacheControl:UPLOAD_CACHE_CONTROL,upsert:false});
+        if(error)continue;
+        await rpc('v2_set_prospect_photo_thumb',{organization_id:ctx.organization_id,prospect_id:p.id,thumb_path:ruta});
+        p.photo_thumb_path=ruta;
+        p.photo_url=await getSignedPhotoUrl(supabase,PHOTO_BUCKET,ruta);
+        applyFilters();
+      }catch(_){/* se reintenta la próxima vez */}
+    }
+  }finally{curando=false;}
 }
 
 function populateFilterOptions(){
@@ -374,7 +420,7 @@ function renderList(){
   for(const p of filtered){
     const card=document.createElement('article');card.className=`prospect-row st-${p.status} ${overdue(p)?'overdue':''} ${needsContact(p)?'new-lead':''}`;
     const clickArea=document.createElement('button');clickArea.type='button';clickArea.className='prospect-open';
-    const photo=document.createElement('span');photo.className=`prospect-card-photo ${p.photo_url?'has-photo':''}`;if(p.photo_url){const image=document.createElement('img');image.src=p.photo_url;image.alt=`Foto de ${nameOf(p)}`;photo.appendChild(image);}else{const mark=document.createElement('span'),missing=document.createElement('small');mark.textContent=initials(p);missing.textContent='Sin foto';photo.append(mark,missing);}
+    const photo=document.createElement('span');photo.className=`prospect-card-photo ${p.photo_url?'has-photo':''}`;if(p.photo_url){const image=document.createElement('img');image.src=p.photo_url;image.alt=`Foto de ${nameOf(p)}`;photo.appendChild(image);}else{const mark=document.createElement('span'),missing=document.createElement('small');mark.textContent=initials(p);missing.textContent=p.photo_path?'':'Sin foto';photo.append(mark,missing);}
     const main=document.createElement('div');main.className='prospect-main';
     const strong=document.createElement('strong');strong.textContent=nameOf(p)||'Sin nombre';
     const sporting=document.createElement('div');sporting.className='prospect-sporting';
@@ -404,7 +450,7 @@ function renderList(){
 }
 
 function addDetail(container,label,value){const item=document.createElement('div');item.className='detail-item';const l=document.createElement('span');l.textContent=label;const v=document.createElement('strong');v.textContent=value||'—';item.append(l,v);container.appendChild(item);}
-async function renderProspectPhoto(p){const box=$('prospectPhotoBox');box.innerHTML='';let url=p.photo_url;if(!url&&p.photo_path){try{url=await getSignedPhotoUrl(supabase,PHOTO_BUCKET,p.photo_path);}catch(_){url=null;}}if(!url){const mark=document.createElement('strong'),label=document.createElement('small');mark.textContent=initials(p);label.textContent='Sin fotografía';box.append(mark,label);return;}const img=document.createElement('img');img.src=url;img.alt=`Foto de ${nameOf(p)}`;box.appendChild(img);}
+async function renderProspectPhoto(p){const box=$('prospectPhotoBox');box.innerHTML='';let url=null;if(p.photo_path){try{url=await getSignedPhotoUrl(supabase,PHOTO_BUCKET,p.photo_path);}catch(_){url=null;}}if(!url){const mark=document.createElement('strong'),label=document.createElement('small');mark.textContent=initials(p);label.textContent='Sin fotografía';box.append(mark,label);return;}const img=document.createElement('img');img.src=url;img.alt=`Foto de ${nameOf(p)}`;box.appendChild(img);}
 function renderProspectDetails(p){
   const box=$('prospectDetails');box.innerHTML='';
   const age=ageOf(p);addDetail(box,'Categoría',p.category_interest);addDetail(box,'Edad',age==null?null:`${age} años`);

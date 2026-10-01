@@ -102,8 +102,8 @@ const FILTROS=[
   // Las dos prohíben publicar, pero al que dijo que no no se le vuelve a
   // preguntar y a los 55 hay que pedirles la firma. Con un solo chip el club no
   // podía ver esa diferencia, y son 55 permisos sobre la mesa.
-  {key:'noautoriza',label:'No autoriza su imagen', tono:'danger',test:p=>estadoDeImagen(p).clave==='no_autoriza'},
-  {key:'sinfirma',  label:'Falta pedir la firma',  tono:'',      test:p=>estadoDeImagen(p).clave==='sin_preguntar'}
+  {key:'noautoriza',label:'No autoriza su imagen', tono:'danger',imagen:true,test:p=>estadoDeImagen(p).clave==='no_autoriza'},
+  {key:'sinfirma',  label:'No firmado',            tono:'warn',  imagen:true,test:p=>estadoDeImagen(p).clave==='sin_preguntar'}
 ];
 // Desglose de becas: para dar seguimiento no basta saber que hay 20 becados,
 // hay que poder ver de golpe cuántas son totales y cuántas las paga alguien más.
@@ -697,8 +697,12 @@ $('statusFilter').addEventListener('change',loadPlayers);$('search').addEventLis
    postura por omisión del club es no publicar; la marca verde es la excepción,
    no el permiso. */
 function marcaDePublicidad(p){
-  if(!puedePublicarse(p))return '';
-  return `<span class="jcard-pub" title="La familia autorizó su imagen"><i aria-hidden="true">✓</i>Puede salir</span>`;
+  // Las TRES respuestas en la tarjeta, cada una con ícono y palabra además del
+  // color: quien arma un post revisa un mosaico de caras y no debe adivinar
+  // por qué uno no trae marca. Pedido por el club: "si no tienen firmados los
+  // consentimientos, que nos avise".
+  const e=estadoDeImagen(p);
+  return `<span class="jcard-pub img-${esc(e.clave)}" title="${esc(e.etiqueta)}"><i aria-hidden="true">${esc(e.icono)}</i>${esc(e.corto)}</span>`;
 }
 
 /* La lista que se le entrega a quien maneja redes.
@@ -807,6 +811,9 @@ const FACETAS=[
   // tiene que evaluar nunca se enteraría de que le falta.
   {key:'evaluacion',label:'Evaluación'},
   {key:'becas',     label:'Becas',      gate:true},
+  // Sin `gate`: quien arma las redes del club necesita saber a quién puede
+  // subir, y eso no expone ni dinero ni teléfonos.
+  {key:'imagen',    label:'Fotos y permisos'},
   {key:'perfil',    label:'Perfil'}
 ];
 
@@ -868,12 +875,24 @@ function renderFacetBody(){
   if(facet==='expediente'){
     const img=cuentaDeImagen(activos);
     html=chip(fStat==='review','stat:review','Cobro por revisar',activos.filter(p=>p.needs_review).length,' danger')+
-      FILTROS.filter(f=>f.key!=='beca')
-        .map(f=>chip(fStat===f.key,'stat:'+f.key,f.label,activos.filter(f.test).length,f.tono?' '+f.tono:'')).join('')+
-      // El chip que alguien busca de verdad cuando va a armar un post: quiénes
-      // SÍ pueden salir. Los otros dos dicen a quién perseguir y a quién no.
+      FILTROS.filter(f=>f.key!=='beca'&&!f.imagen)
+        .map(f=>chip(fStat===f.key,'stat:'+f.key,f.label,activos.filter(f.test).length,f.tono?' '+f.tono:'')).join('');
+  }
+
+  if(facet==='imagen'){
+    const img=cuentaDeImagen(activos);
+    // El aviso va ARRIBA y con número: 53 de 66 sin firmar no es un detalle,
+    // es la mayoría del club sin poder salir en ninguna foto.
+    const aviso=img.sin_preguntar
+      ?`<button type="button" class="fchip img-aviso" data-filtro="stat:sinfirma"><i aria-hidden="true">!</i>`+
+        `<span><b>${img.sin_preguntar} de ${img.total} Tanners no han firmado sus consentimientos.</b> `+
+        `Hasta que firmen no se publica su imagen. Toca para verlos.</span></button>`
+      :`<p class="facet-nota">Todos los Tanners activos ya respondieron sobre su imagen.</p>`;
+    html=aviso+
+      chip(fStat==='puedesalir','stat:puedesalir','✓ Puede salir',img.autoriza,' ok')+
+      chip(fStat==='noautoriza','stat:noautoriza','⦸ No autoriza',img.no_autoriza,' danger')+
+      chip(fStat==='sinfirma','stat:sinfirma','! No firmado',img.sin_preguntar,' warn')+
       `<span class="fchip-sep"></span>`+
-      chip(fStat==='puedesalir','stat:puedesalir','Puede salir en publicidad',img.autoriza,' ok')+
       `<button type="button" class="fchip fchip-link" data-filtro="pdf:nopublicables">`+
         `<span>No publicables · PDF</span><b>${img.noPublicables}</b></button>`;
   }
@@ -936,7 +955,7 @@ function renderFilterSummary(){
     const f=FILTROS.find(x=>x.key===fStat);
     const b=fStat.startsWith('beca:')&&BECAS.find(x=>'beca:'+x.key===fStat);
     activos.push({tipo:'stat',label:fStat==='withdrawn'?'Bajas':fStat==='review'?'Cobro por revisar'
-      :fStat==='beca'?'Con apoyo':b?b.label:f?f.label:fStat});
+      :fStat==='beca'?'Con apoyo':fStat==='puedesalir'?'Puede salir en fotos':b?b.label:f?f.label:fStat});
   }
   if(fCat)activos.push({tipo:'cat',label:fCat});
   if(fPos)activos.push({tipo:'pos',label:fPos==='none'?'Posición por definir':fPos==='legacy'?'Etiqueta vieja':fPos});

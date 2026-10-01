@@ -4,7 +4,20 @@ import { renderWelcomeCard } from '/welcome-card.js';
 import { puedeCompartirse, motivoSinCompartir } from '/credencial.js';
 import { encodeVariant, FULL_MAX_BYTES, THUMB_MAX_SIDE, THUMB_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
-const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
+/* Este formulario es PÚBLICO y siempre entra como visitante anónimo.
+ *
+ * Vive en el mismo dominio que TannerOS, así que el cliente por defecto leía
+ * la sesión guardada en ese navegador. El 01/10/2026 alguien de Marketing con
+ * sesión abierta llenó el registro de Damián desde su celular: el registro
+ * pasó, pero la foto la subió COMO ELLA, y el candado del bucket sólo deja
+ * subir fotos de registro a visitantes anónimos (o a quien escribe en
+ * Prospectos). "new row violates row-level security policy" y el Tanner nació
+ * sin foto.
+ *
+ * Sin sesión persistida, cualquiera que llene el formulario —papá, staff o
+ * Presidencia— sube la foto por el mismo camino que ya funciona. Es el mismo
+ * patrón que v2/qa usa para su anonClient. */
+const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 const CLUB_KEY='1850TC1850';
 const PHOTO_BUCKET='tanneros-prospect-photos';
 const PRIVACY_NOTICE_VERSION='2026-08-19-v1';

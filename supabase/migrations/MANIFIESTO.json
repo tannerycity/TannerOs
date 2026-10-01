@@ -1,8 +1,8 @@
 {
-  "migraciones": 415,
-  "bytes": 2252167,
-  "huella": "6935d3154492dbc6fd8f2462b1dd6292",
+  "migraciones": 416,
+  "bytes": 2253896,
+  "huella": "dc7a2420612d2e22d0766c4265813ee1",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20260930133620_c2_reingresos_respetan_la_fecha_de_ingreso.sql",
-  "verificadoContraLaBase": "2026-09-30"
+  "ultima": "20261001005349_d2_la_miniatura_del_registro_publico_puede_subirse.sql",
+  "verificadoContraLaBase": "2026-10-01"
 }

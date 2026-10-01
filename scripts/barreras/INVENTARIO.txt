@@ -17,3 +17,4 @@ parametros-del-cobro.mjs
 rutas-de-foto.mjs
 suites-sin-correr.mjs
 label-que-se-traga-el-click.mjs
+formulario-publico-sin-sesion.mjs

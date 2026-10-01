@@ -18,6 +18,10 @@
 -- día que el club reacomode permisos, esta prueba sigue buscando al indicado
 -- en vez de quedarse probando a alguien que ya no aplica.
 --
+-- DESDE a2 SON DOS FECHAS: ingreso a TannerOS e ingreso al club. Las dos con
+-- el mismo candado, y cada cambio deja quién lo hizo. La prueba cubre ambas y
+-- revisa que el expediente traiga el rastro con el nombre de Presidencia.
+--
 -- Todo dentro de un bloque que se revierte solo. Al terminar no queda ni una
 -- fecha cambiada; se verifica contando después de correrla.
 
@@ -27,6 +31,7 @@ declare
   v_pres uuid; v_otro uuid; v_rol_otro text;
   v_jug uuid; v_nace date; v_perfil jsonb;
   v_puso text; v_quedo text; v_apellido text;
+  v_puso_reg text; v_quedo_reg text; v_rastro int; v_rastro_quien text;
   v_pres_puede boolean; v_otro_puede boolean;
   v_futura text; v_antes_de_nacer text;
   r record;
@@ -77,8 +82,16 @@ begin
 
     v_perfil := public.v2_save_player_profile(v_org, v_jug,
       'QA','Presidencia', v_nace, null,null,null,null,null,null,null,null,null,null,
-      null,null,null,null,null,null, null,null,null,null, date '2026-01-15');
+      null,null,null,null,null,null, null,null,null,null, date '2026-01-15', date '2026-02-01');
     v_puso := coalesce(v_perfil->'player'->>'joinedAt','(null)');
+    v_puso_reg := coalesce(v_perfil->'player'->>'registeredAt','(null)');
+    v_rastro := jsonb_array_length(coalesce(v_perfil->'player'->'admissionHistory','[]'));
+    select pf.display_name into v_rastro_quien from public.profiles pf where pf.user_id = v_pres;
+    if not exists (select 1 from jsonb_array_elements(v_perfil->'player'->'admissionHistory') h
+                   where h->>'field' = 'registeredAt' and h->>'to' = '2026-02-01'
+                     and h->>'by' = coalesce(nullif(btrim(v_rastro_quien),''),'Usuario sin nombre')) then
+      v_rastro_quien := '(no quedó registro)';
+    end if;
 
     /* ===== LOS DOS DISPARATES ===== */
     begin
@@ -95,6 +108,14 @@ begin
       v_antes_de_nacer := 'SE ACEPTÓ';
     exception when others then v_antes_de_nacer := 'rechazada'; end;
 
+    -- La de TannerOS tiene las mismas guardias.
+    begin
+      perform public.v2_save_player_profile(v_org, v_jug,
+        'QA','Presidencia', v_nace, null,null,null,null,null,null,null,null,null,null,
+        null,null,null,null,null,null, null,null,null,null, null, current_date + 5);
+      v_futura := v_futura || ' / TannerOS SE ACEPTÓ';
+    exception when others then null; end;
+
     /* ===== EL OTRO ROL NO, Y SIN TRONAR ===== */
     perform set_config('request.jwt.claims',
       json_build_object('sub', v_otro, 'role','authenticated')::text, true);
@@ -102,8 +123,9 @@ begin
 
     v_perfil := public.v2_save_player_profile(v_org, v_jug,
       'QA','OtroRol', v_nace, null,null,null,null,null,null,null,null,null,null,
-      null,null,null,null,null,null, null,null,null,null, date '1999-01-01');
+      null,null,null,null,null,null, null,null,null,null, date '1999-01-01', date '1999-01-01');
     v_quedo := coalesce(v_perfil->'player'->>'joinedAt','(null)');
+    v_quedo_reg := coalesce(v_perfil->'player'->>'registeredAt','(null)');
     v_apellido := coalesce(v_perfil->'player'->>'lastName','(null)');
 
     perform set_config('role','postgres', true);
@@ -122,6 +144,12 @@ begin
   if v_puso <> '2026-01-15' then
     raise exception 'PRUEBA FALLÓ: Presidencia guardó la fecha y quedó en "%"', v_puso;
   end if;
+  if v_puso_reg <> '2026-02-01' then
+    raise exception 'PRUEBA FALLÓ: Presidencia guardó la fecha de ingreso a TannerOS y quedó en "%"', v_puso_reg;
+  end if;
+  if v_rastro < 2 or v_rastro_quien = '(no quedó registro)' then
+    raise exception 'PRUEBA FALLÓ: el expediente no trae quién movió las fechas (% cambios en el rastro)', v_rastro;
+  end if;
   if v_futura <> 'rechazada' then
     raise exception 'PRUEBA FALLÓ: se aceptó una fecha de ingreso futura';
   end if;
@@ -139,6 +167,10 @@ begin
     raise exception 'PRUEBA FALLÓ: % movió la fecha de ingreso a "%"; sólo Presidencia debe poder', v_rol_otro, v_quedo;
   end if;
 
-  raise notice 'PRUEBA OK · 11 · Presidencia puso la fecha; % guardó el expediente y la dejó intacta; futura y anterior al nacimiento rechazadas',
+  if v_quedo_reg <> '2026-02-01' then
+    raise exception 'PRUEBA FALLÓ: % movió la fecha de ingreso a TannerOS a "%"; sólo Presidencia debe poder', v_rol_otro, v_quedo_reg;
+  end if;
+
+  raise notice 'PRUEBA OK · 11 · Presidencia puso las dos fechas y quedó su nombre en el rastro; % guardó el expediente y las dejó intactas; futura y anterior al nacimiento rechazadas',
     v_rol_otro;
 end $$;

@@ -198,28 +198,57 @@ document.addEventListener('click',e=>{
   const chip=e.target.closest?.('#positionRail .pos-chip');
   if(chip&&!chip.disabled){setPosicion(chip.dataset.pos);}
 });
-/* La fecha de ingreso al club.
+/* Las dos fechas de ingreso: a TannerOS y al club.
  *
- * La columna existia desde hace tiempo y dos pantallas ya la leen —el portal
- * de familias la enseña como "En el club · Desde …"— pero no habia donde
- * capturarla. Medido: 9 de 62 Tanners la tenian, y a las otras 53 familias su
- * portal les decia "Por registrar".
+ * Ingreso a TannerOS: desde cuándo el club lo tiene en el sistema. Quien llegó
+ * por el link de registro trae el día de su formulario; los migrados, el día
+ * en que se capturaron en el sistema anterior.
+ * Ingreso al club: desde cuándo es Tanner. Los migrados no la traen; la pone
+ * Presidencia.
  *
- * Quien no es Presidencia la ve, pero no la mueve: el candado de verdad vive
- * en la base (command_set_player_joined_at); esto solo evita que alguien
- * teclee algo que le van a ignorar. */
+ * Quien no es Presidencia las ve, pero no las mueve: el candado de verdad vive
+ * en la base; esto solo evita que alguien teclee algo que le van a ignorar.
+ * Debajo va quién las ha cambiado y cuándo. */
+const ORIGEN_INGRESO={link:'Llegó por el link de registro',migracion:'Viene de la migración del sistema anterior',alta:'Dado de alta directo en TannerOS'};
+const CAMPO_INGRESO={joinedAt:'ingreso al club',registeredAt:'ingreso a TannerOS'};
+function fechaDia(v){if(!v)return '—';const [y,m,d]=String(v).slice(0,10).split('-');return `${d}/${m}/${y}`;}
 function pintaIngreso(p){
-  const campo=$('joinedAt'),pista=$('joinedHint');
-  if(!campo)return;
-  campo.value=p.joinedAt||'';
-  campo.max=today();
-  // No se puede haber ingresado antes de nacer.
-  if(p.birthDate)campo.min=p.birthDate; else campo.removeAttribute('min');
-  campo.disabled=!puedeMoverIngreso;
-  if(!pista)return;
-  pista.textContent=puedeMoverIngreso
-    ? (p.joinedAt?'':'Sin capturar. Su familia ve "Por registrar".')
-    : 'Sólo Presidencia puede cambiarla.';
+  const pares=[['registeredAt','registeredHint',p.registeredAt],['joinedAt','joinedHint',p.joinedAt]];
+  for(const [id,hint,valor] of pares){
+    const campo=$(id),pista=$(hint);
+    if(!campo)continue;
+    campo.value=valor||'';
+    campo.max=today();
+    // No se puede haber ingresado antes de nacer.
+    if(p.birthDate)campo.min=p.birthDate; else campo.removeAttribute('min');
+    campo.disabled=!puedeMoverIngreso;
+    if(!pista)continue;
+    pista.textContent=!puedeMoverIngreso
+      ? 'Sólo Presidencia puede cambiarla.'
+      : valor ? '' : (id==='joinedAt'?'Sin capturar. Su familia ve "Por registrar".':'Sin capturar.');
+  }
+  const rastro=$('admissionTrail');
+  if(!rastro)return;
+  const hist=p.admissionHistory||[];
+  const origen=ORIGEN_INGRESO[p.admissionOrigin];
+  const lineas=hist.map(h=>{const cuando=new Date(h.at);const f=isNaN(cuando)?'':cuando.toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});return `<li><b>${esc(h.by)}</b> cambió ${CAMPO_INGRESO[h.field]||'la fecha'} de ${fechaDia(h.from)} a ${fechaDia(h.to)} <small>${esc(f)}</small></li>`;}).join('');
+  /* Trayectoria: un reingreso NO mueve la fecha de ingreso al club —es la
+     primera vez que llegó y da su antigüedad—; cada baja y reingreso se
+     agrega aquí con fecha, motivo y quién. */
+  const idas=p.membershipHistory||[];
+  const reingresos=idas.filter(m=>m.kind==='reingreso').length;
+  const pasos=[
+    ...(p.joinedAt?[`<li><b>Ingresó al club</b> ${fechaDia(p.joinedAt)}</li>`]:[]),
+    ...idas.map(m=>`<li><b>${m.kind==='baja'?'Baja':'Reingreso'}</b> ${fechaDia(m.date)}${m.reason?` · ${esc(m.reason)}`:''} <small>por ${esc(m.by)}</small></li>`)
+  ].join('');
+  const trayectoria=idas.length
+    ? `<span class="admission-origin">Trayectoria en el club${reingresos?` · ${reingresos} reingreso${reingresos===1?'':'s'}`:''}</span><ol class="admission-stints">${pasos}</ol>`
+    : '';
+  rastro.innerHTML=(origen?`<span class="admission-origin">${esc(origen)}</span>`:'')+(lineas?`<ul>${lineas}</ul>`:'<small>Sin cambios registrados en las fechas.</small>')+trayectoria;
+  rastro.classList.toggle('hidden',!origen&&!lineas&&!idas.length);
+  // Quien la va a mover debe saber que es la PRIMERA llegada.
+  const pistaClub=$('joinedHint');
+  if(pistaClub&&puedeMoverIngreso&&p.joinedAt&&reingresos)pistaClub.textContent='La primera vez que llegó. Los reingresos no la cambian.';
 }
 
 function renderList(){const q=$('search').value.trim().toLocaleLowerCase('es-MX');const rows=players.filter(p=>{const stOk=pasaFiltro(p);if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.toLocaleLowerCase('es-MX').includes(q))return false;return true;});const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const NOTAS={review:{t:'Esto no es documentación faltante.',d:'Son Tanners cuyo <b>cobro</b> quedó sin configurar.'},nodocs:{t:'Expediente incompleto de verdad.',d:'Les falta al menos un documento del checklist: acta, CURP o constancia de estudios.'},beca:{t:'Tanners con beca o apoyo activo.',d:'Alguien más cubre parte o toda su cuota. Revisa que el patrocinio esté configurado.'},nocorreo:{t:'Sin correo de tutor.',d:'Sin correo no se les puede dar acceso al portal de familias ni mandarles su estado de cuenta.'},nofoto:{t:'Sin foto en el expediente.',d:'La foto se usa en la credencial y para pasar lista más rápido.'}};const nota=NOTAS[fStat];if(nota&&rows.length){const motivos=fStat==='review'?[...new Set(rows.map(p=>p.review_reason).filter(Boolean))]:[];const fuentes=fStat==='beca'?[...new Set(rows.map(p=>p.benefit_source).filter(Boolean))]:[];const extra=motivos.length?motivos:fuentes;const el=document.createElement('div');el.className='review-note';el.innerHTML=`<strong>${nota.t}</strong><span>${nota.d}${extra.length?' '+(fStat==='beca'?'Fuentes:':'Motivo'+(extra.length>1?'s':'')+':'):''}</span>`+(extra.length?`<ul>${extra.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'');box.appendChild(el);}const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className='jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;const review=p.needs_review;if(review&&p.review_reason)b.title=p.review_reason;b.innerHTML=`${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:''}<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span><span class="jcard-dot${review?' review':' ok'}"></span>${marcaDePublicidad(p)}${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
@@ -649,7 +678,7 @@ async function save(e){e.preventDefault();if(!current||!canWrite)return;msg();co
       // Sólo se manda si quien guarda puede moverla. La base la ignoraría de
       // todos modos, pero mandar un dato que se va a tirar es pedirle a la
       // pantalla que mienta sobre lo que hizo.
-      joined_at:puedeMoverIngreso?($('joinedAt').value||null):null});await loadPlayers();await openProfile(p.id);msg('Expediente guardado. Los teléfonos nuevos quedaron normalizados y la categoría conserva historial.','success');}catch(err){msg(friendly(err));}finally{btn.disabled=!canWrite;}}
+      joined_at:puedeMoverIngreso?($('joinedAt').value||null):null,registered_at:puedeMoverIngreso?($('registeredAt').value||null):null});await loadPlayers();await openProfile(p.id);msg('Expediente guardado. Los teléfonos nuevos quedaron normalizados y la categoría conserva historial.','success');}catch(err){msg(friendly(err));}finally{btn.disabled=!canWrite;}}
 document.querySelector('[data-close-sch]')?.addEventListener('click',()=>$('scholarshipModal').classList.add('hidden'));
 $('scholarshipModal')?.addEventListener('click',e=>{if(e.target.id==='scholarshipModal')$('scholarshipModal').classList.add('hidden');});
 $('schExport')?.addEventListener('click',exportarBecasCsv);

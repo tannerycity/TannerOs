@@ -51,9 +51,11 @@ const moduleLabels={
   scouting:'Scouting',prospectos:'Captación',cursosVerano:'Programas y Eventos',taquilla:'Taquilla',
   cobranza:'Cobranza',contabilidad:'Contabilidad',patrocinadores:'Patrocinios',tienda:'Tienda',
   utileria:'Utilería',usuarios:'Usuarios',qa:'QA',admin:'Administración',estacionamiento:'Estacionamiento',
-  catalogo:'Catálogo'
+  catalogo:'Catálogo',commerce_finance:'Rentabilidad de Tienda'
 };
-const hiddenModules=new Set(['convocatoria','sync','commerce_finance']);
+// 'commerce_finance' (Rentabilidad de Tienda) estaba escondida aquí, y por eso
+// nadie podía quitársela a una persona: enseña márgenes y costos de la tienda.
+const hiddenModules=new Set(['convocatoria','sync']);
 
 function show(id){['loadingView','deniedView','view'].forEach(view=>$(view)?.classList.toggle('hidden',view!==id));}
 function message(id,text='',type='error'){
@@ -170,6 +172,8 @@ function personMatchesFilter(person){
   if(memberFilter==='inactive')return !person.active;
   if(memberFilter==='family')return person.kind==='guardian'||person.data.roleCode==='player';
   if(memberFilter==='team')return person.kind==='staff'&&person.data.roleCode!=='player'&&person.active;
+  // Quién tiene permisos que su rol no trae. Pedido por el club: que "todos lo vean".
+  if(memberFilter==='custom')return person.kind==='staff'&&customCount(person.data)>0;
   return true;
 }
 function personSearchText(person){
@@ -189,7 +193,7 @@ function renderPeople(){
     card.innerHTML=`
       <div class="member-avatar ${family?'family':''}">${safe(initials(person.name))}</div>
       <div class="member-info">
-        <div class="member-title-line"><strong>${safe(person.name)}</strong>${person.data.isOwner?'<span class="member-chip owner">Protegida</span>':''}${person.kind==='guardian'&&!person.active?'<span class="member-chip attention">Sin llave</span>':''}</div>
+        <div class="member-title-line"><strong>${safe(person.name)}</strong>${person.data.isOwner?'<span class="member-chip owner">Protegida</span>':''}${person.kind==='staff'&&customCount(person.data)?`<span class="member-chip custom" title="Tiene permisos que su rol no trae">⚑ ${customCount(person.data)} ajuste${customCount(person.data)===1?'':'s'} especial${customCount(person.data)===1?'':'es'}</span>`:''}${person.kind==='guardian'&&!person.active?'<span class="member-chip attention">Sin llave</span>':''}</div>
         <span>${safe(contact)}</span><small>${safe(detail)}</small>
       </div>
       <button class="member-open" type="button" data-kind="${person.kind}" data-person-id="${safe(person.id)}" aria-label="Abrir a ${safe(person.name)}"><span aria-hidden="true"></span></button>`;
@@ -524,6 +528,13 @@ function renderPersonDrawer(){
   }else{
     $('memberRole').innerHTML=roleOptions(data.roleCode);$('memberRole').disabled=data.isOwner||!canWrite;$('saveMemberProfile').disabled=data.isOwner||!canWrite;
     $('resetAllModules').disabled=data.isOwner||!canWrite||!customCount(data);renderModuleAccess();
+    // Con ajustes especiales la sección se abre sola y dice cuáles: cerrada,
+    // un permiso que su rol no trae pasaba desapercibido para quien revisa.
+    const ajustes=(data.modules||[]).filter(m=>m.customized&&!hiddenModules.has(m.moduleCode)&&moduleLabels[m.moduleCode]);
+    $('memberAccessDetails').open=ajustes.length>0;
+    $('accessSummary').textContent=ajustes.length
+      ?`⚑ ${ajustes.length} ajuste${ajustes.length===1?'':'s'} especial${ajustes.length===1?'':'es'}: ${ajustes.map(m=>moduleLabels[m.moduleCode]).join(', ')}`
+      :'Sólo si necesita abrir algo diferente a su función.';
   }
   renderCategoryPicker();
   $('resetMemberPassword').classList.toggle('hidden',!active||(guardian?false:(!username||data.isOwner)));$('resetMemberPassword').disabled=!canWrite;
@@ -562,13 +573,21 @@ async function saveCategories(){
 }
 
 function moduleSort(a,b){return Number(a.sortOrder||999)-Number(b.sortOrder||999)||String(a.moduleName).localeCompare(String(b.moduleName),'es-MX');}
+/* Un ajuste especial dice quién lo dio, cuándo, y qué daba el rol. Sin eso
+   "Ajuste especial" era un misterio: nadie sabía si fue a propósito. */
+const NIVEL={none:'No abre',read:'Puede consultar',write:'Puede operar'};
+function ajusteDe(module,member){
+  const delRol=module.baseCanWrite?'write':module.baseCanRead?'read':'none';
+  const cuando=module.overrideAt?new Date(module.overrideAt).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}):'';
+  return `⚑ Ajuste especial${module.overrideBy?` · por ${module.overrideBy}`:''}${cuando?` · ${cuando}`:''} · ${roleName(member.roleCode)} daba: ${NIVEL[delRol]}`;
+}
 function levelOf(module){return module.effectiveCanWrite?'write':module.effectiveCanRead?'read':'none';}
 function baseLevelOf(module){return module.baseCanWrite?'write':module.baseCanRead?'read':'none';}
 function renderModuleAccess(){
   if(currentPerson?.kind!=='staff')return;
   const member=currentPerson.data,list=$('moduleAccessList');list.innerHTML='';
   (member.modules||[]).filter(module=>!hiddenModules.has(module.moduleCode)&&moduleLabels[module.moduleCode]).sort(moduleSort).forEach(module=>{
-    const disabled=member.isOwner||!canWrite||!module.enabled,current=levelOf(module),source=!module.enabled?'No disponible':module.customized?'Ajuste especial':`Incluido en ${roleName(member.roleCode)}`;
+    const disabled=member.isOwner||!canWrite||!module.enabled,current=levelOf(module),source=!module.enabled?'No disponible':module.customized?ajusteDe(module,member):`Incluido en ${roleName(member.roleCode)}`;
     const row=document.createElement('article');row.className=`module-access-row ${module.customized?'customized':''} ${!module.enabled?'plan-disabled':''}`;
     row.innerHTML=`<div class="module-access-name"><strong>${safe(moduleLabels[module.moduleCode])}</strong><small>${safe(source)}</small></div><select class="module-level" data-code="${safe(module.moduleCode)}" ${disabled?'disabled':''}><option value="none" ${current==='none'?'selected':''}>No abre</option><option value="read" ${current==='read'?'selected':''}>Puede consultar</option><option value="write" ${current==='write'?'selected':''}>Puede operar</option></select>`;
     list.appendChild(row);

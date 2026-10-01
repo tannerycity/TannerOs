@@ -73,6 +73,7 @@
           <button class="filter-chip" type="button" data-filter="family">Familias</button>
           <button class="filter-chip" type="button" data-filter="team">Equipo</button>
           <button class="filter-chip" type="button" data-filter="inactive">Sin llave</button>
+          <button class="filter-chip" type="button" data-filter="custom">Ajustes especiales</button>
           <button class="filter-chip" type="button" data-filter="all">Todos</button>
         </div>
       </div>
@@ -183,7 +184,7 @@
     <div id="categoryMessage" class="inline-message hidden"></div>
   </section>
   <details id="memberAccessDetails" class="drawer-section access-details">
-    <summary><div><h3>Ajustar esta llave</h3><p>Sólo si necesita abrir algo diferente a su función.</p></div><span class="disclosure-icon" aria-hidden="true"></span></summary>
+    <summary><div><h3>Ajustar esta llave</h3><p id="accessSummary">Sólo si necesita abrir algo diferente a su función.</p></div><span class="disclosure-icon" aria-hidden="true"></span></summary>
     <div class="permissions-body">
       <div class="drawer-section-head"><div><p>Elige qué puertas no abre, cuáles consulta y cuáles puede operar.</p></div><button id="resetAllModules" class="text-button" type="button">Usar su función</button></div>
       <div id="moduleAccessList" class="module-access-list"></div>

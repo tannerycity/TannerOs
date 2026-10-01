@@ -1,8 +1,8 @@
 {
-  "migraciones": 417,
-  "bytes": 2260808,
-  "huella": "8d93560299a4ac6c0f107962dbf16360",
+  "migraciones": 418,
+  "bytes": 2265606,
+  "huella": "94dca6031456ac938ac71c4ad0835e9c",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261001013551_e2_la_lista_de_captacion_ensena_la_cara.sql",
+  "ultima": "20261001195114_f2_permisos_especiales_a_la_vista.sql",
   "verificadoContraLaBase": "2026-10-01"
 }

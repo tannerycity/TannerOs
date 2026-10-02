@@ -347,8 +347,11 @@ function setCollectMode(mode){
 const canTienda=moduleAccess(navigation,'tienda',true);
 let pedidos=[],pedidosCargados=false,jugadoresTienda=null;
 /* El buscador de Taquilla usa v2_billing_players, que pide permiso de
-   Cobranza. Quien cobra la tienda sin ver Cobranza (Operaciones) se quedaba
-   con el buscador vacío: para la tienda basta el padrón de Jugadores. */
+   Cobranza. Quien cobra sin ver Cobranza (Operaciones: desde i2 ya puede
+   cobrar mensualidades con permiso de Taquilla) se quedaba con el buscador
+   vacío. Para encontrar al Tanner basta el padrón de Jugadores; lo que no se
+   enseña sin Cobranza es su adeudo. Sirve al cobro de mensualidad y a la
+   tienda. */
 const fuenteTienda=()=>(billingPlayers&&billingPlayers.length)?billingPlayers:(jugadoresTienda||[]);
 async function cargaJugadoresTienda(){
   if(jugadoresTienda||(billingPlayers&&billingPlayers.length)||!moduleAccess(navigation,'jugadores',false))return;
@@ -667,7 +670,7 @@ async function exportaCortePdf(){
 
 $('businessDate').value=isoToday();$('collectDate').value=isoToday();$('generalDate').value=isoToday();$('expenseDate').value=isoToday();
 $('businessDate').addEventListener('change',load);$('movementStatus').addEventListener('change',renderMovements);
-$('openCollect').disabled=!canCashWrite;$('openCollect').addEventListener('click',()=>{if(canCashWrite){resetCollectForm();modal('collectModal',true);}});
+$('openCollect').disabled=!canCashWrite;$('openCollect').addEventListener('click',()=>{if(canCashWrite){resetCollectForm();modal('collectModal',true);cargaJugadoresTienda();}});
 if(!canPayWrite){$('openExpense').classList.add('disabled');$('openExpense').setAttribute('aria-disabled','true');$('paySubtitle').textContent='Sin permiso para pagar';}
 $('openExpense').addEventListener('click',()=>{if(canPayWrite){resetExpenseForm();modal('expenseModal',true);}});
 $('modalBackdrop').addEventListener('click',closeModals);document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
@@ -798,7 +801,7 @@ tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','colle
   const pendiente=(receivables||[]).filter(r=>r.player_id===pl.player_id).reduce((sum,r)=>sum+Number(r.balance_due||0),0);
   const sugerido=pendiente>0?pendiente:Number(pl.base_monthly_fee||0);
   $('collectAmount').value=sugerido>0?Math.round(sugerido):'';
-});
+},fuenteTienda);
 
 /* Por qué ese monto, dentro del cobro.
    Antes había que abrir "CUÁNTO COBRAR", buscar al Tanner otra vez y regresar.

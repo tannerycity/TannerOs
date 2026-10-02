@@ -1,8 +1,8 @@
 {
-  "migraciones": 420,
-  "bytes": 2271610,
-  "huella": "5a6505ac269a75450509f86e58908f07",
+  "migraciones": 421,
+  "bytes": 2275828,
+  "huella": "01285188cbc8e92f0e187ec5ea1846ad",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261002205708_h2_el_cobro_de_un_pedido_dice_quien_lo_recibio.sql",
+  "ultima": "20261002211947_i2_taquilla_cobra_mensualidades_sin_ver_cobranza.sql",
   "verificadoContraLaBase": "2026-10-02"
 }

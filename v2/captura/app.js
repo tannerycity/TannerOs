@@ -8,7 +8,14 @@ const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maxim
 const JERSEY_RE=/jersey|uniforme|playera/i;
 
 let ctx=null,canWrite=false,bundles=[],products=[],cart=[],tanners=[],tannerId='',externo=false;
-let picking=null; // {kind:'bundle', bundle} | {kind:'product', product}
+let picking=null;
+/* Viniendo de Taquilla (/v2/captura/?desde=taquilla&tanner=…): el Tanner ya
+   viene elegido y, al crear el pedido, el siguiente paso es cobrar el
+   anticipo allá mismo. Los uniformes se mandan a hacer y casi siempre se
+   deja anticipo. */
+const URLQ=new URLSearchParams(location.search);
+const DESDE_TAQUILLA=URLQ.get('desde')==='taquilla';
+let ultimoPedido=null; // {kind:'bundle', bundle} | {kind:'product', product}
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}
@@ -40,6 +47,8 @@ async function load(){
   ]);
   tanners=(Array.isArray(jug)?jug:[]).filter(p=>p.status==='active');
   pintaTanners();
+  const pre=URLQ.get('tanner');
+  if(pre&&tanners.some(p=>String(p.id)===String(pre))){tannerId=pre;const sel=$('capPlayer');if(sel)sel.value=pre;pintaQuien();}
   bundles=(data?.bundles||[]).filter(b=>b.active&&!b.archived&&b.componentsResolved);
   products=(data?.products||[]).filter(p=>p.active&&!p.archived);
   renderBundleGrid();
@@ -310,6 +319,13 @@ async function createOrder(){
   const btn=$('createOrder');btn.disabled=true;createMsg();
   try{
     const result=await rpc('v2_create_internal_order',{organization_id:ctx.organization_id,customer_name:name||null,customer_phone:phone||null,customer_email:email||null,notes:$('orderNotes').value.trim()||null,lines,player_id:p?p.id:null});
+    ultimoPedido={id:result.id,tanner:p?p.id:''};
+    const cobrar=$('confirmCobrar');
+    if(cobrar){
+      cobrar.classList.toggle('hidden',!DESDE_TAQUILLA);
+      cobrar.href=`/taquilla/?cobrar=tienda&pedido=${encodeURIComponent(result.id)}${p?`&tanner=${encodeURIComponent(p.id)}`:''}`;
+    }
+    const ver=$('confirmOpenLink');if(ver)ver.className=DESDE_TAQUILLA?'secondary':'primary';
     $('confirmFolio').textContent=result.folio;
     $('confirmTotal').textContent=money.format(Number(result.total||0));
     $('captureView').classList.add('hidden');

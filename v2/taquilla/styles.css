@@ -310,3 +310,19 @@
 .cashier-empty button{margin-top:12px;min-height:40px;padding:0 18px;border:0;border-radius:11px;
   background:var(--tos-teal,#056c7f);color:#fff;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
 .cashier-empty button:active{filter:brightness(1.1)}
+
+/* Tienda / uniformes: pedidos con saldo y su cobro ligado. */
+.tienda-pedidos{display:grid;gap:8px}
+.tienda-titulo{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#5b6d72}
+.tienda-vacio{margin:0;padding:12px 14px;border:1px dashed #cdd8d6;border-radius:14px;color:#5b6d72;font-size:13.5px}
+.tienda-pedido{display:grid;gap:6px;width:100%;text-align:left;border:1px solid #dbe5e3;border-radius:16px;background:#fbfcfc;padding:12px 14px;font:inherit;color:inherit;cursor:pointer}
+.tienda-pedido.on{border-color:#2f7b86;background:#eef7f7;box-shadow:0 0 0 3px rgba(47,123,134,.15)}
+.tienda-pedido .tp-top{display:flex;justify-content:space-between;gap:8px;font-size:14px}.tienda-pedido .tp-top span{color:#5b6d72;font-size:13px;text-align:right}
+.tienda-pedido ul{margin:0;padding-left:16px;font-size:12.5px;color:#33474d}.tienda-pedido li.mas{list-style:none;margin-left:-16px;color:#7b8b90}
+.tienda-pedido .tp-dinero{display:flex;flex-wrap:wrap;gap:10px;font-size:12.5px;color:#5b6d72}.tienda-pedido .tp-dinero strong{margin-left:auto;color:#a3471f;font-size:14px}
+.tienda-nuevo{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.tienda-nuevo small{color:#6b7c80;font-size:12px;flex:1;min-width:180px}
+.tienda-nuevo-btn{display:inline-block;padding:10px 14px;border-radius:12px;background:#e8f2f1;color:#164a52;font-weight:800;text-decoration:none}
+.tienda-cobro{margin-top:4px;padding-top:12px;border-top:1px solid #e3eae9}
+.tienda-atajos{display:flex;gap:6px;align-items:flex-end}.tienda-atajos button{flex:1;padding:10px;border:1px solid #cfdcda;border-radius:12px;background:#fff;font:inherit;font-weight:700;cursor:pointer}
+.tienda-aviso{margin:0;padding:10px 12px;border-radius:12px;background:#fff6e0;color:#5c4300;font-size:13px;line-height:1.45}
+.tienda-aviso button{border:0;background:none;padding:0;font:inherit;font-weight:800;color:#164a52;text-decoration:underline;cursor:pointer}

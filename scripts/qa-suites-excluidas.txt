@@ -27,6 +27,7 @@ qa-humo-link-publico.mjs
 qa-humo-ficha-foto.mjs
 qa-humo-posicion.mjs
 qa-humo-fechas-ingreso.mjs
+qa-humo-taquilla-tienda.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

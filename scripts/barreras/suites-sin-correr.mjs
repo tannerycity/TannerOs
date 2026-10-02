@@ -72,7 +72,11 @@ export default function comprobar() {
   // pueda mover las dos fechas de ingreso, que la ficha diga quien las movio y
   // que un reingreso no toque la fecha. Lo que prueba es lo que la pantalla
   // HABILITA y ENSEÑA, asi que necesita pintarla.
-  const MAX_EXCLUIDAS = 16;
+  // Sube a 17 por qa-humo-taquilla-tienda.mjs. Vigila que el anticipo de un
+  // uniforme se cobre LIGADO a su pedido, con quién de Tannery lo recibió y
+  // sin pasarse del saldo. Antes se cobraba como "Otro ingreso · Uniforme" y
+  // el pedido nunca se enteraba; eso sólo se ve tocando la pantalla.
+  const MAX_EXCLUIDAS = 17;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

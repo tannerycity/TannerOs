@@ -50,6 +50,11 @@ function resetCollectForm(){
   $('generalPlayerClear')?.classList.add('hidden');$('generalPlayerResults')?.classList.add('hidden');$('generalPlayerResults').innerHTML='';
   $('generalDate').value=isoToday();
   $('generalCategoryOtherWrap')?.classList.add('hidden');
+  $('generalTiendaAviso')?.classList.add('hidden');
+  $('tiendaPlayer').value='';$('tiendaPlayerSearch').value='';$('tiendaOrder').value='';
+  $('tiendaPlayerClear')?.classList.add('hidden');$('tiendaPlayerResults')?.classList.add('hidden');
+  $('tiendaDate').value=isoToday();$('tiendaCobro').classList.add('hidden');
+  recuerdaQuien();
   setCollectMode('player');
   message('collectMessage');
 }
@@ -91,7 +96,7 @@ function recuerdaQuien(){
   let guardado='';
   try{guardado=localStorage.getItem(RECUERDA_QUIEN)||'';}catch(e){/* modo privado */}
   if(!guardado)return;
-  ['collectCollectedBy','expensePaidBy'].forEach(id=>{const el=$(id);if(el&&!el.value)el.value=guardado;});
+  ['collectCollectedBy','expensePaidBy','tiendaCollectedBy'].forEach(id=>{const el=$(id);if(el&&!el.value)el.value=guardado;});
 }
 // Sugerencias: los nombres que ya se usaron, sacados de los movimientos que la
 // pantalla ya cargó. No cuesta una consulta extra.
@@ -317,10 +322,99 @@ document.addEventListener('click',async e=>{
   }finally{ b.disabled=false;b.textContent=antes; }
 });
 function setCollectMode(mode){
+  if(mode==='tienda'&&!canTienda)mode='player';
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   $('playerFields').classList.toggle('hidden',mode!=='player');$('generalFields').classList.toggle('hidden',mode!=='general');
-  $('saveCollect').textContent=mode==='player'?'Registrar cobro':'Registrar ingreso';message('collectMessage');
+  $('tiendaFields').classList.toggle('hidden',mode!=='tienda');
+  $('saveCollect').textContent=mode==='player'?'Registrar cobro':mode==='tienda'?'Cobrar pedido':'Registrar ingreso';
+  $('saveCollect').classList.toggle('hidden',mode==='tienda'&&!$('tiendaOrder').value);
+  $('cashierHelp').textContent=mode==='tienda'
+    ?'El cobro queda ligado al pedido: se ve en Pedidos, en el estado de cuenta de la familia y en la caja del día.'
+    :canTienda?'¿Es un uniforme o algo de la tienda? Usa la pestaña Tienda / uniformes.':'';
+  if(mode==='tienda')cargaPedidos();
+  message('collectMessage');
 }
+
+/* ===== Tienda / uniformes =====
+
+   Los uniformes se mandan a hacer y se aceptan anticipos. Taquilla los
+   cobraba como "Otro ingreso · Uniforme" (medido el 02/10/2026: 9 cobros,
+   $10,318, ninguno ligado a un pedido), así que el pedido nunca se enteraba
+   del anticipo, la hoja de producción no veía la talla y nadie sabía cuánto
+   faltaba. Aquí se busca al Tanner, se ve lo que pidió y lo que debe, y el
+   cobro se liga al pedido. Si todavía no pidió nada, "Nuevo pedido" abre el
+   mostrador y regresa aquí para cobrar el anticipo. */
+const canTienda=moduleAccess(navigation,'tienda',true);
+let pedidos=[],pedidosCargados=false,jugadoresTienda=null;
+/* El buscador de Taquilla usa v2_billing_players, que pide permiso de
+   Cobranza. Quien cobra sin ver Cobranza (Operaciones: desde i2 ya puede
+   cobrar mensualidades con permiso de Taquilla) se quedaba con el buscador
+   vacío. Para encontrar al Tanner basta el padrón de Jugadores; lo que no se
+   enseña sin Cobranza es su adeudo. Sirve al cobro de mensualidad y a la
+   tienda. */
+const fuenteTienda=()=>(billingPlayers&&billingPlayers.length)?billingPlayers:(jugadoresTienda||[]);
+async function cargaJugadoresTienda(){
+  if(jugadoresTienda||(billingPlayers&&billingPlayers.length)||!moduleAccess(navigation,'jugadores',false))return;
+  try{
+    const filas=await rpc('v2_players',{organization_id:org,status_filter:null})||[];
+    jugadoresTienda=filas.filter(p=>(p.status_value||p.status)==='active')
+      .map(p=>({player_id:p.id,player_name:`${p.first_name||''} ${p.last_name||''}`.replace(/\s+/g,' ').trim()}));
+  }catch(e){jugadoresTienda=[];}
+}
+async function cargaPedidos(forzar=false){
+  if(!canTienda)return;
+  cargaJugadoresTienda();
+  if(pedidosCargados&&!forzar){pintaPedidos();return;}
+  try{ pedidos=await rpc('v2_orders_to_collect',{organization_id:org})||[]; pedidosCargados=true; }
+  catch(e){ $('tiendaPedidos').innerHTML=`<p class="tienda-vacio">No se pudieron cargar los pedidos: ${esc(e.message||'')}</p>`; return; }
+  pintaPedidos();
+}
+function piezaCorta(i){
+  const extra=[i.talla&&`T. ${i.talla}`,(i.nombre||i.numero)&&`${i.nombre?String(i.nombre).toUpperCase():''}${i.numero?` #${i.numero}`:''}`.trim()].filter(Boolean).join(' · ');
+  return `${i.quantity>1?`${i.quantity}× `:''}${i.kit?`${i.kit}: `:''}${i.description}${extra?` (${extra})`:''}`;
+}
+function pintaPedidos(){
+  const caja=$('tiendaPedidos'),jugador=$('tiendaPlayer').value,elegido=$('tiendaOrder').value;
+  const lista=jugador?pedidos.filter(o=>String(o.playerId)===String(jugador)):pedidos;
+  const nombre=$('tiendaPlayerSearch').value.trim();
+  const nuevo=$('tiendaNuevo');
+  nuevo.href=`/v2/captura/?desde=taquilla${jugador?`&tanner=${encodeURIComponent(jugador)}`:''}`;
+  nuevo.textContent=jugador?`＋ Nuevo pedido para ${nombre.split(/\s+/)[0]||'este Tanner'}`:'＋ Nuevo pedido';
+  if(!lista.length){
+    caja.innerHTML=`<p class="tienda-vacio">${jugador?`${esc(nombre)} no tiene pedidos con saldo pendiente.`:'No hay pedidos con saldo pendiente.'}</p>`;
+    return;
+  }
+  caja.innerHTML=`<span class="tienda-titulo">${jugador?'Sus pedidos con saldo':`Pedidos con saldo · ${lista.length}`}</span>`+lista.map(o=>{
+    const quien=o.playerName||o.customerName||'Sin nombre';
+    const piezas=(o.items||[]).slice(0,4).map(i=>`<li>${esc(piezaCorta(i))}</li>`).join('')+((o.items||[]).length>4?`<li class="mas">+${o.items.length-4} pieza(s) más</li>`:'');
+    return `<button type="button" class="tienda-pedido${String(o.id)===String(elegido)?' on':''}" data-pedido="${esc(o.id)}">
+      <div class="tp-top"><b>${esc(o.folio||'Pedido')}</b><span>${esc(quien)}${o.category?` · ${esc(o.category)}`:''}</span></div>
+      <ul>${piezas}</ul>
+      <div class="tp-dinero"><span>Total ${money.format(Number(o.total||0))}</span><span>Pagado ${money.format(Number(o.paid||0))}</span><strong>Falta ${money.format(Number(o.balance||0))}</strong></div>
+    </button>`;}).join('');
+}
+function eligePedido(id){
+  const o=pedidos.find(x=>String(x.id)===String(id));if(!o)return;
+  $('tiendaOrder').value=o.id;
+  $('tiendaAmount').value=Math.round(Number(o.balance||0));
+  $('tiendaCobro').classList.remove('hidden');
+  $('saveCollect').classList.remove('hidden');
+  pintaPedidos();
+  $('tiendaAmount').focus();
+}
+$('tiendaPedidos')?.addEventListener('click',e=>{const b=e.target.closest('[data-pedido]');if(b)eligePedido(b.dataset.pedido);});
+document.querySelectorAll('.tienda-atajos [data-parte]').forEach(b=>b.addEventListener('click',()=>{
+  const o=pedidos.find(x=>String(x.id)===String($('tiendaOrder').value));if(!o)return;
+  $('tiendaAmount').value=Math.round(Number(o.balance||0)*Number(b.dataset.parte));
+}));
+// Otro ingreso: si eligen Uniforme o Tienda, se avisa que hay un camino que sí guarda el pedido.
+$('generalCategory')?.addEventListener('change',e=>$('generalTiendaAviso')?.classList.toggle('hidden',!canTienda||!/^(uniforme|tienda)$/i.test(e.target.value)));
+$('irATienda')?.addEventListener('click',()=>{
+  const id=$('generalPlayer').value,nombre=$('generalPlayerSearch').value;
+  setCollectMode('tienda');
+  if(id){$('tiendaPlayer').value=id;$('tiendaPlayerSearch').value=nombre;$('tiendaPlayerClear')?.classList.remove('hidden');pintaPedidos();}
+});
+$('tabTienda')?.classList.toggle('hidden',!canTienda);
 async function confirmDoubleCheck(o){
   if(!window.tosConfirm)return true;
   return window.tosConfirm({kicker:'DOBLE CHECK',title:o.title,message:o.message,confirmText:o.confirmText||'Sí, confirmar',cancelText:'Revisar'});
@@ -348,6 +442,20 @@ async function postCollect(){
         try{ await rpc('v2_reconcile_payment',{organization_id:org,payment_id:idPago,action:'approve',reason:'Aprobado por Presidencia al registrarlo',reference:null}); }
         catch(err){ message('collectMessage','El cobro quedó registrado, pero no se pudo aprobar: '+String(err?.message||err)); }
       }
+    }else if(collectMode==='tienda'){
+      const o=pedidos.find(x=>String(x.id)===String($('tiendaOrder').value));
+      const amount=Math.round(Number($('tiendaAmount').value)),date=$('tiendaDate').value;
+      if(!o)throw new Error('Elige el pedido que se va a cobrar.');
+      if(!Number.isFinite(amount)||amount<=0||!date)throw new Error('Completa monto y fecha.');
+      if(amount>Number(o.balance||0)+0.005)throw new Error(`Al pedido sólo le faltan ${money.format(Number(o.balance||0))}.`);
+      const quien=o.playerName||o.customerName||'este cliente';
+      const resto=Number(o.balance||0)-amount;
+      const okDbl=await confirmDoubleCheck({title:'Confirma el cobro del pedido',message:`Vas a cobrar ${money.format(amount)} del pedido ${o.folio} de ${quien} · ${methodLabel($('tiendaMethod').value)}. ${resto>0.005?`Quedará a deber ${money.format(resto)}.`:'Con esto queda pagado.'} ¿Es correcto?`,confirmText:'Sí, cobrar'});
+      if(!okDbl){btn.disabled=false;return;}
+      await rpc('v2_post_order_payment_at_cashier',{organization_id:org,order_id:o.id,amount,payment_date:date,method:$('tiendaMethod').value,
+        reference:$('tiendaReference').value.trim()||null,payer_type:o.playerId?'guardian':'other',payer_name:o.playerId?null:(o.customerName||null),
+        collected_by_name:quienDelClub('tiendaCollectedBy'),idempotency_key:key('cashier-order')});
+      pedidosCargados=false;
     }else{
       const amount=Math.round(Number($('generalAmount').value)),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
@@ -562,7 +670,7 @@ async function exportaCortePdf(){
 
 $('businessDate').value=isoToday();$('collectDate').value=isoToday();$('generalDate').value=isoToday();$('expenseDate').value=isoToday();
 $('businessDate').addEventListener('change',load);$('movementStatus').addEventListener('change',renderMovements);
-$('openCollect').disabled=!canCashWrite;$('openCollect').addEventListener('click',()=>{if(canCashWrite){resetCollectForm();modal('collectModal',true);}});
+$('openCollect').disabled=!canCashWrite;$('openCollect').addEventListener('click',()=>{if(canCashWrite){resetCollectForm();modal('collectModal',true);cargaJugadoresTienda();}});
 if(!canPayWrite){$('openExpense').classList.add('disabled');$('openExpense').setAttribute('aria-disabled','true');$('paySubtitle').textContent='Sin permiso para pagar';}
 $('openExpense').addEventListener('click',()=>{if(canPayWrite){resetExpenseForm();modal('expenseModal',true);}});
 $('modalBackdrop').addEventListener('click',closeModals);document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
@@ -628,7 +736,8 @@ $('expenseCategory')?.addEventListener('change',e=>$('expenseCategoryOtherWrap')
 
 
 // === Buscador inteligente de Tanners (por cualquier nombre, sin acentos) ===
-function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
+function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect,fuente){
+  const lista=()=>(typeof fuente==='function'?fuente():billingPlayers)||[];
   const inp=$(searchId),hid=$(hiddenId),res=$(resultsId),clr=$(clearId);
   if(!inp||!hid||!res)return;
   const DIACRITICS=new RegExp(String.fromCharCode(0x5b)+String.fromCharCode(0x300)+'-'+String.fromCharCode(0x36f)+String.fromCharCode(0x5d),'g');
@@ -637,7 +746,7 @@ function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
     const nq=norm(q).trim();
     if(!nq){res.classList.add('hidden');res.innerHTML='';return;}
     const toks=nq.split(/\s+/);
-    const matches=(billingPlayers||[]).filter(p=>{const n=norm(p.player_name);return toks.every(t=>n.includes(t));}).slice(0,25);
+    const matches=lista().filter(p=>{const n=norm(p.player_name);return toks.every(t=>n.includes(t));}).slice(0,25);
     // Los conceptos abiertos de cada Tanner, para no tener que adivinar qué se le cobra.
     const pend={};
     (receivables||[]).forEach(r=>{if(r.player_id)(pend[r.player_id]=pend[r.player_id]||[]).push(r);});
@@ -655,11 +764,34 @@ function tannerSearchInit(boxId,searchId,hiddenId,resultsId,clearId,onSelect){
   }
   inp.addEventListener('input',()=>{hid.value='';if(clr)clr.classList.toggle('hidden',!inp.value);render(inp.value);});
   inp.addEventListener('focus',()=>{if(inp.value)render(inp.value);});
-  res.addEventListener('click',e=>{const b=e.target.closest('.tsearch-opt');if(!b)return;hid.value=b.dataset.id;inp.value=b.textContent;res.classList.add('hidden');if(clr)clr.classList.remove('hidden');if(typeof onSelect==='function'){const pl=(billingPlayers||[]).find(x=>String(x.player_id)===String(b.dataset.id));onSelect(pl);}});
+  res.addEventListener('click',e=>{const b=e.target.closest('.tsearch-opt');if(!b)return;hid.value=b.dataset.id;inp.value=(b.querySelector('span')?.textContent||b.textContent).trim();res.classList.add('hidden');if(clr)clr.classList.remove('hidden');if(typeof onSelect==='function'){const pl=lista().find(x=>String(x.player_id)===String(b.dataset.id));onSelect(pl);}});
   if(clr)clr.addEventListener('click',()=>{hid.value='';inp.value='';res.classList.add('hidden');clr.classList.add('hidden');inp.focus();});
   document.addEventListener('click',e=>{if(!e.target.closest('#'+boxId))res.classList.add('hidden');});
 }
 tannerSearchInit('generalPlayerBox','generalPlayerSearch','generalPlayer','generalPlayerResults','generalPlayerClear');
+tannerSearchInit('tiendaPlayerBox','tiendaPlayerSearch','tiendaPlayer','tiendaPlayerResults','tiendaPlayerClear',()=>{
+  $('tiendaOrder').value='';$('tiendaCobro').classList.add('hidden');$('saveCollect').classList.add('hidden');
+  pintaPedidos();
+  // Si sólo tiene un pedido con saldo, ya está elegido: un toque menos con la familia enfrente.
+  const suyos=pedidos.filter(o=>String(o.playerId)===String($('tiendaPlayer').value));
+  if(suyos.length===1)eligePedido(suyos[0].id);
+},fuenteTienda);
+$('tiendaPlayerClear')?.addEventListener('click',()=>{$('tiendaOrder').value='';$('tiendaCobro').classList.add('hidden');$('saveCollect').classList.add('hidden');pintaPedidos();});
+$('tiendaPlayerSearch')?.addEventListener('input',()=>{if(!$('tiendaPlayerSearch').value){$('tiendaOrder').value='';pintaPedidos();}});
+/* De regreso del mostrador: /taquilla/?cobrar=tienda&tanner=…&pedido=…
+   Se abre el cobro con ese pedido elegido para cobrar el anticipo ahí mismo. */
+(async()=>{
+  const q=new URLSearchParams(location.search);
+  if(q.get('cobrar')!=='tienda'||!canTienda||!canCashWrite)return;
+  resetCollectForm();modal('collectModal',true);setCollectMode('tienda');
+  await cargaPedidos(true);
+  const t=q.get('tanner'),pd=q.get('pedido');
+  await cargaJugadoresTienda();
+  if(t){const pl=fuenteTienda().find(x=>String(x.player_id)===String(t));$('tiendaPlayer').value=t;$('tiendaPlayerSearch').value=pl?.player_name||'';$('tiendaPlayerClear')?.classList.remove('hidden');}
+  pintaPedidos();
+  if(pd)eligePedido(pd);
+  history.replaceState(null,'',location.pathname);
+})();
 // Si el Tanner ya tiene recargo generado (después del día 5, TC-004), se
 // prellena la suma de todo lo pendiente — no solo la mensualidad — para que
 // Taquilla no tenga que hacer la cuenta a mano ni se le olvide el recargo.
@@ -669,7 +801,7 @@ tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','colle
   const pendiente=(receivables||[]).filter(r=>r.player_id===pl.player_id).reduce((sum,r)=>sum+Number(r.balance_due||0),0);
   const sugerido=pendiente>0?pendiente:Number(pl.base_monthly_fee||0);
   $('collectAmount').value=sugerido>0?Math.round(sugerido):'';
-});
+},fuenteTienda);
 
 /* Por qué ese monto, dentro del cobro.
    Antes había que abrir "CUÁNTO COBRAR", buscar al Tanner otra vez y regresar.

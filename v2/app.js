@@ -95,6 +95,17 @@ function switchAuthMode(mode){
   setMessage();$('resendConfirmation')?.classList.add('hidden');
 }
 
+/* Mostrar / ocultar la contraseña en la entrada. En el celular, con los
+   dedos, un error de dedo en la contraseña es lo que más frena entrar. */
+document.addEventListener('click',e=>{
+  const b=e.target.closest?.('.tc-ver');if(!b)return;
+  const input=document.getElementById(b.dataset.ver);if(!input)return;
+  const ver=input.type==='password';
+  input.type=ver?'text':'password';
+  b.textContent=ver?'Ocultar':'Mostrar';
+  b.setAttribute('aria-label',ver?'Ocultar contraseña':'Mostrar contraseña');
+  input.focus();
+});
 function installAuthExtras(){
   const form=$('authForm');if(!form||document.getElementById('forgotPassword'))return;
   const button=document.createElement('button');

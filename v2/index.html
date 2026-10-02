@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#184159">
+  <meta name="theme-color" content="#0b2a33">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TannerOS">
@@ -14,28 +14,38 @@
   <link rel="stylesheet" href="/v2/home-actions.css?v=20260821g">
   <link rel="stylesheet" href="/v2/auth-gate.css?v=20260821g">
   <link rel="stylesheet" href="/v2/production.css?v=20260907b">
-<link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head>
+<link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"><link rel="stylesheet" href="/v2/entrada.css?v=20261002a"><link rel="preload" href="/brand/crest-gold.png" as="image"></head>
 <body>
 <main class="shell">
-  <section id="authView" class="auth-wrap">
-    <div class="brand-lockup"><div class="brand-mark">T</div><div><div class="eyebrow">TANNERY CITY</div><h1>TannerOS</h1></div></div>
+  <section id="authView" class="auth-wrap tc-entrada">
+    <div class="tc-escena">
+    <header class="tc-marca">
+      <img class="tc-escudo" src="/brand/crest-gold.png" alt="" width="112" height="112">
+      <img class="tc-wordmark" src="/brand/wordmark-gold.png" alt="Tannery City" width="210" height="90">
+      <span class="tc-filete" aria-hidden="true"></span>
+      <h1 class="tc-titular">El vestidor<br><span>del club.</span></h1>
+      <p class="tc-bajada">Jugadores, cobros, tienda y entrenamientos de Tannery City, en un solo lugar.</p>
+      <p class="tc-hashtag">#WEARETANNERS</p>
+    </header>
     <div class="auth-card">
-      <div class="preview-pill">Vestidor Tannery City</div>
+      <div class="preview-pill">TannerOS · Staff</div>
       <h2>Entra al vestidor.</h2>
-      <p class="muted">Un solo acceso para operar el club. Si eres nuevo, Presidencia debe invitarte primero.</p>
+      <p class="muted">Acceso sólo para el staff del club. Si eres nuevo, Presidencia te invita primero.</p>
       <div class="tabs"><button id="signInTab" class="tab active" type="button">Entrar</button><button id="signUpTab" class="tab" type="button">Tengo invitación</button></div>
       <form id="authForm" novalidate>
         <label for="email"><span id="credentialLabel">Usuario o correo</span><input id="email" name="email" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Ej. brandon" required></label>
-        <label for="password">Contraseña<input id="password" name="password" type="password" minlength="8" autocomplete="current-password" required></label>
+        <div class="campo tc-campo"><label for="password">Contraseña</label><span class="tc-pass"><input id="password" name="password" type="password" minlength="8" autocomplete="current-password" required><button type="button" class="tc-ver" data-ver="password" aria-label="Mostrar contraseña">Mostrar</button></span></div>
         <label id="nameField" class="hidden" for="displayName">Nombre<input id="displayName" name="displayName" type="text" autocomplete="name"></label>
         <button id="authSubmit" class="primary" type="submit">Entrar</button>
       </form>
       <div id="authMessage" class="message hidden"></div>
       <button id="resendConfirmation" class="secondary hidden" type="button">Reenviar correo de confirmación</button>
     </div>
+    <p class="tc-pie">TannerOS · el sistema de Tannery City</p>
+    </div>
   </section>
-  <section id="pendingView" class="hidden center-card"><div class="brand-mark small">T</div><h2>Acceso pendiente</h2><p id="pendingText" class="muted">Tu cuenta existe, pero todavía no tiene una invitación activa para este club.</p><button id="refreshAccess" class="primary" type="button">Actualizar acceso</button><button id="pendingSignOut" class="secondary" type="button">Cerrar sesión</button></section>
-  <section id="forcePasswordView" class="hidden center-card"><div class="brand-mark small">T</div><div class="preview-pill">Primer ingreso</div><h2>Crea tu contraseña</h2><p class="muted">La contraseña temporal sólo sirve para entrar esta vez. Elige una nueva que únicamente tú conozcas.</p><form id="forcePasswordForm"><label>Nueva contraseña<input id="forceNewPassword" type="password" minlength="10" autocomplete="new-password" required></label><label>Confirmar contraseña<input id="forceConfirmPassword" type="password" minlength="10" autocomplete="new-password" required></label><button id="forcePasswordSubmit" class="primary" type="submit">Guardar y entrar</button></form><div id="forcePasswordMessage" class="message hidden"></div></section>
+  <section id="pendingView" class="hidden center-card tc-cristal"><div class="brand-mark small">T</div><h2>Acceso pendiente</h2><p id="pendingText" class="muted">Tu cuenta existe, pero todavía no tiene una invitación activa para este club.</p><button id="refreshAccess" class="primary" type="button">Actualizar acceso</button><button id="pendingSignOut" class="secondary" type="button">Cerrar sesión</button></section>
+  <section id="forcePasswordView" class="hidden center-card tc-cristal"><div class="brand-mark small">T</div><div class="preview-pill">Primer ingreso</div><h2>Crea tu contraseña</h2><p class="muted">La contraseña temporal sólo sirve para entrar esta vez. Elige una nueva que únicamente tú conozcas.</p><form id="forcePasswordForm"><label>Nueva contraseña<input id="forceNewPassword" type="password" minlength="10" autocomplete="new-password" required></label><label>Confirmar contraseña<input id="forceConfirmPassword" type="password" minlength="10" autocomplete="new-password" required></label><button id="forcePasswordSubmit" class="primary" type="submit">Guardar y entrar</button></form><div id="forcePasswordMessage" class="message hidden"></div></section>
   <section id="appView" class="hidden tos-body">
     <div class="tos-layout">
       <aside class="tos-sidebar"><div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">Tannery City</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div></aside><div id="shellNavBackdrop" class="tos-nav-backdrop"></div>

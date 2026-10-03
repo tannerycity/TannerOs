@@ -156,3 +156,7 @@ body:has(.tc-cristal:not(.hidden)){background:linear-gradient(160deg,#0b2a33,#06
 /* "Tengo invitación" no se parte en dos renglones en un teléfono angosto. */
 :is(.tc-entrada,.tc-cristal) .tab{white-space:nowrap}
 @media (max-width:420px){:is(.tc-entrada,.tc-cristal) .tab{font-size:14px!important;padding-left:8px!important;padding-right:8px!important}}
+/* Al entrar, la app le pone .hidden a la sección. El display:grid!important de
+   arriba le ganaba (mismo peso, este archivo carga al final) y la entrada se
+   quedaba pegada encima del Inicio. */
+.tc-entrada.hidden,.tc-cristal.hidden{display:none!important}

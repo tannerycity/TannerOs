@@ -12,6 +12,7 @@ const routeContract={
   '/tanner/':'v2/tanner/index.html',
   '/familias/':'v2/familias/index.html',
   '/estacionamiento/':'v2/estacionamiento/index.html',
+  '/mensajes/':'v2/mensajes/index.html',
   '/jugadores/':'v2/jugadores/index.html',
   '/asistencia/':'v2/asistencia/index.html',
   '/convocatoria/':'v2/convocatoria/index.html',

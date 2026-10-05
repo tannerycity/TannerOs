@@ -304,7 +304,7 @@ async function renderAcademiaHome(){
     `</div><b>›</b></a>`);
   (d.birthdays||[]).slice(0,3).forEach(b=>agenda.push(
     `<div class="tos-list-row"><div><strong>${escHome(b.name)} cumple ${escHome(String(b.turns))}</strong>`+
-    `<span>${escHome(dia.format(new Date(`${b.day}T12:00:00`)))}</span></div><b>🎂</b></div>`));
+    `<span>${escHome(dia.format(new Date(`${b.day}T12:00:00`)))}</span></div><b class="tos-cumple" title="Cumpleaños"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21h16"/><path d="M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M5 16c2 1.5 4 1.5 7 0s5-1.5 7 0"/><path d="M12 12V8"/><path d="M12 5.5c.8-.8.8-1.7 0-2.5-.8.8-.8 1.7 0 2.5Z"/></svg></b></div>`));
   $('agendaList').innerHTML=agenda.join('')||'<div class="tos-empty">Sin entrenamiento agendado. Agenda uno en tu academia.</div>';
 
   setShellHealth(d.pendingEvaluations>0

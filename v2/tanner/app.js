@@ -164,7 +164,7 @@ document.addEventListener('click',async e=>{
     if(escrito)lineas.push(`${a.declared.label||'Cobró'} (texto escrito a mano): ${escrito}`);
     if(a?.declared?.counterparty)lineas.push(`Pagador (texto): ${a.declared.counterparty}`);
     if(a?.audited?.reconciledByAccount)lineas.push(`Conciliado por: ${a.audited.reconciledByAccount}`);
-    if(a?.declaredDiffersFromAccount)lineas.push(`⚠ El nombre escrito no es la cuenta que lo guardó.`);
+    if(a?.declaredDiffersFromAccount)lineas.push(`Ojo: el nombre escrito no es la cuenta que lo guardó.`);
     b.insertAdjacentHTML('afterend',
       `<span class="tan-audit-detalle${a?.declaredDiffersFromAccount?' alerta':''}">${lineas.map(l=>`<span>${esc(l)}</span>`).join('')}</span>`);
     b.remove();

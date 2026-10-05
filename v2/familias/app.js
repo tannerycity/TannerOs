@@ -423,7 +423,7 @@ async function renderCalendario(){
     const mes=new Intl.DateTimeFormat('es-MX',{month:'short'}).format(d).replace('.','');
     const hora=cumple?'':new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'}).format(d);
     const detalle=[hora,e.location,e.category].filter(Boolean).join(' · ');
-    return `<div class="fam-ev" data-kind="${cumple?'birthday':'session'}"${cumple&&e.mine?' data-mine="1"':''}><span class="fam-ev-day"><b>${esc(dia)}</b><span>${esc(mes)}</span></span><span class="fam-ev-body"><strong>${cumple?'🎂 ':''}${esc(e.title||'Actividad')}</strong><span>${esc(detalle)}</span></span></div>`;
+    return `<div class="fam-ev" data-kind="${cumple?'birthday':'session'}"${cumple&&e.mine?' data-mine="1"':''}><span class="fam-ev-day"><b>${esc(dia)}</b><span>${esc(mes)}</span></span><span class="fam-ev-body"><strong>${cumple?'<svg viewBox="0 0 24 24" width="15" height="15" style="vertical-align:-2px;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21h16"/><path d="M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M5 16c2 1.5 4 1.5 7 0s5-1.5 7 0"/><path d="M12 12V8"/><path d="M12 5.5c.8-.8.8-1.7 0-2.5-.8.8-.8 1.7 0 2.5Z"/></svg>':''}${esc(e.title||'Actividad')}</strong><span>${esc(detalle)}</span></span></div>`;
   };
   const ordena=(a,b)=>new Date(a.starts_at)-new Date(b.starts_at);
   const sesiones=rows.filter(e=>e.kind!=='birthday').sort(ordena);

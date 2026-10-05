@@ -34,12 +34,15 @@ const ICONS={
   userCog:'<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 12-5"/><circle cx="18" cy="18" r="3"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 20.9V21h-4v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/>',
   bug:'<path d="M8 2h8"/><rect x="6" y="5" width="12" height="15" rx="6"/><path d="M3 9h3"/><path d="M18 9h3"/><path d="M3 15h3"/><path d="M18 15h3"/>',
+  chat:'<path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5Z"/>',
   book:'<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5V4.5Z"/><path d="M4 19a2.5 2.5 0 0 1 2.5-2.5H20"/>'
 };
 export const shellIcon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]||ICONS.home}</svg>`;
 
 export const navItems=[
   {code:'inicio',label:'Inicio',href:'/',group:'main',icon:'home'},
+  // Mensajes es de todos: cualquier miembro activo platica con su área y con el club.
+  {code:'mensajes',label:'Mensajes',href:'/mensajes/',group:'main',icon:'chat',always:true},
   {code:'club',label:'Club',href:'/club/',group:'main',icon:'shield'},
   {code:'direccion',label:'Dirección',href:'/direccion/',group:'main',icon:'chart'},
   {code:'finanzas',label:'Finanzas',href:'/finanzas/',group:'main',icon:'wallet',aliases:['cobranza']},
@@ -68,7 +71,7 @@ const groupLabels={main:'',club:'Club',finance:'Finanzas',ops:'Operación',admin
 export async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 export function navigationMap(rows=[]){return new Map((rows||[]).map(r=>[r.module_code,r]));}
 export function moduleAccess(rows,code,write=false){const row=navigationMap(rows).get(code);return Boolean(row?.enabled&&(write?row.can_write:row.can_read));}
-function itemReadable(rows,item){return [item.code,...(item.aliases||[])].some(code=>moduleAccess(rows,code,false));}
+function itemReadable(rows,item){if(item.always)return true;return [item.code,...(item.aliases||[])].some(code=>moduleAccess(rows,code,false));}
 function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active);}
 export function setShellSearchItems(items=[]){window.__tosSearchExtras=Array.isArray(items)?items:[];}
 
@@ -122,6 +125,11 @@ function ensureBellMarkup(){
       </form>
     </section>`);
   document.getElementById('tosBellButton').addEventListener('click',()=>{
+    // Desde el Vestidor (05/10/2026) la campana abre Mensajes: chats y avisos
+    // viven en una sola pantalla, no en un panel encima de lo que estás viendo.
+    if(!location.pathname.startsWith('/mensajes')&&!location.pathname.startsWith('/v2/mensajes')){location.href='/mensajes/';return;}
+    window.dispatchEvent(new CustomEvent('tos:campana'));
+    return;
     const panel=document.getElementById('tosBellPanel');
     const opening=panel.classList.contains('hidden');
     if(opening){positionBellPanel();window.addEventListener('resize',positionBellPanel);}
@@ -248,6 +256,26 @@ function wireBell(ctx,navigation){
   }
   loadAnnouncements(ctx);
   wirePush(ctx);
+  pulsoMensajes(ctx);
+}
+// El globito de la campana cuenta chats y avisos sin leer. Se refresca cada
+// 30 s y al volver a la pestaña; si la función no existe todavía, se queda
+// con la cuenta de avisos de siempre.
+let pulsoTimer=null;
+async function pulsoMensajes(ctx){
+  const pinta=async()=>{
+    try{
+      const p=await rpc('v2_chat_pulse',{organization_id:ctx.organization_id});
+      const badge=$('tosBellBadge');if(!badge||!p)return;
+      const n=Number(p.total||0);
+      badge.textContent=n>99?'99+':String(n);badge.classList.toggle('hidden',n===0);
+      window.dispatchEvent(new CustomEvent('tos:pulso',{detail:p}));
+    }catch{/* silencioso */}
+  };
+  await pinta();
+  if(pulsoTimer)return;
+  pulsoTimer=setInterval(()=>{if(document.visibilityState==='visible')pinta();},30000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pinta();});
 }
 
 function ensureProductionCss(){if(document.getElementById('tosProductionCss'))return;const link=document.createElement('link');link.id='tosProductionCss';link.rel='stylesheet';link.href='/v2/production.css?v=20260907b';document.head.appendChild(link);}
@@ -457,5 +485,5 @@ export function renderShell({ctx,navigation,active='inicio',title='Inicio',searc
   renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
   if(ctx){ensureBellMarkup();wireBell(ctx,navigation);}
 }
-export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});return {ctx,navigation,map:navigationMap(navigation)};}
+export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

@@ -80,7 +80,10 @@ export default function comprobar() {
   // 3 toques, que alta, cobro y entrega viajen en un solo movimiento con
   // método, quién cobró y llave, y que "sin costo" exija motivo. Contar
   // toques sólo se puede tocando la pantalla.
-  const MAX_EXCLUIDAS = 18;
+  // Sube a 19 por qa-humo-mensajes.mjs. Vigila los chats internos: que lo
+  // nuevo se vea, que reintentar no duplique (misma llave), las palomitas, el
+  // "visto por" y que un mensaje con HTML no se ejecute. Todo eso es pintura.
+  const MAX_EXCLUIDAS = 19;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

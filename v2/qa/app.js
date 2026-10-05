@@ -28,6 +28,7 @@ const moduleCatalog={
   calendar:{name:'Calendario',short:'Calendario',route:'/calendario/'},
   users:{name:'Usuarios y permisos',short:'Usuarios',route:'/usuarios/'},
   parking:{name:'Estacionamiento',short:'Estacionamiento',route:'/estacionamiento/'},
+  messages:{name:'Mensajes',short:'Mensajes',route:'/mensajes/'},
   sport:{name:'Área deportiva',short:'Deportivo',route:'/deportivo/'},
   admin:{name:'Administración',short:'Administración',route:'/admin/'},
   qa:{name:'Centro de Calidad',short:'Calidad',route:'/qa/'}
@@ -119,7 +120,7 @@ function criticalTests(){return [
 const fullRouteMatrix=[
   ['home-full','Inicio','/','home'],['club','Club','/club/','club'],['direction','Dirección','/direccion/','club'],
   ['finance-full','Finanzas','/finanzas/','finance'],['cashier-full','Taquilla','/taquilla/','cashier'],['tanner','Ficha Tanner','/tanner/','players'],
-  ['families','Familias','/familias/','players'],['parking','Estacionamiento','/estacionamiento/','parking'],['players-full','Jugadores','/jugadores/','players'],
+  ['families','Familias','/familias/','players'],['parking','Estacionamiento','/estacionamiento/','parking'],['messages','Mensajes','/mensajes/','messages'],['players-full','Jugadores','/jugadores/','players'],
   ['attendance','Asistencia','/asistencia/','attendance'],['callups','Convocatoria','/convocatoria/','attendance'],['calendar','Calendario','/calendario/','calendar'],
   ['academies','Academias','/operacion/academias/','academies'],['prospects-full','Captación','/prospectos/','prospects'],['scouting-full','Scouting','/scouting/','scouting'],
   ['orders-full','Pedidos','/pedidos/','commerce'],['equipment','Utilería','/utileria/','equipment'],['sponsors','Patrocinios','/patrocinadores/','sponsors'],

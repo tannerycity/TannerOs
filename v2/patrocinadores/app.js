@@ -319,7 +319,29 @@ async function boot() {
   show('view');
 }
 
+// El responsable de cada marca es una persona del club (desde l2), no un
+// texto: a esa persona le llegan los recordatorios de seguimiento. Si la marca
+// no tiene responsable, le llegan a Presidencia.
+let clubPeople = null;
+async function loadPeople() {
+  if (clubPeople) return clubPeople;
+  try { clubPeople = await rpc('v2_club_people', { organization_id: ctx.organization_id }) || []; }
+  catch (error) { clubPeople = []; }
+  const select = $('sponsorOwner');
+  if (select && select.options.length <= 1) {
+    clubPeople.forEach(person => {
+      const option = document.createElement('option');
+      option.value = person.userId;
+      option.textContent = person.name + (person.role ? ' · ' + person.role : '');
+      option.dataset.name = person.name;
+      select.appendChild(option);
+    });
+  }
+  return clubPeople;
+}
+
 async function load() {
+  loadPeople();
   const data = await rpc('v2_sponsor_admin', { organization_id: ctx.organization_id });
   sponsors = Array.isArray(data?.sponsors) ? data.sponsors : [];
   agreements = Array.isArray(data?.agreements) ? data.agreements : [];
@@ -1015,6 +1037,7 @@ function closeModal() {
 
 function resetSponsorForm() {
   $('sponsorForm').reset();
+  $('sponsorOwner').options[0].textContent = 'Sin responsable · le llega a Presidencia';
   $('sponsorId').value = '';
   $('sponsorRelationship').value = 'sponsorship';
   $('sponsorStage').value = 'radar';
@@ -1036,7 +1059,9 @@ function openSponsorForm(sponsor = null) {
     $('sponsorPhone').value = mxPhoneDisplayFromStored(sponsor.phone);
     $('sponsorEmail').value = sponsor.email || '';
     $('sponsorPotential').value = sponsor.potentialValue ?? '';
-    $('sponsorOwner').value = sponsor.ownerName || '';
+    loadPeople().then(() => { if ($('sponsorId').value === sponsor.id) $('sponsorOwner').value = sponsor.ownerUserId || ''; });
+    // Una marca con responsable escrito a mano de antes: se ve, pero hay que elegir a la persona.
+    if (sponsor.ownerName && !sponsor.ownerUserId) $('sponsorOwner').options[0].textContent = 'Antes: ' + sponsor.ownerName + ' · elige a la persona';
     $('sponsorNextAction').value = sponsor.nextAction || '';
     $('sponsorNextDate').value = toDateInput(sponsor.nextActionAt);
     $('sponsorLostReason').value = sponsor.lostReason || '';
@@ -1082,9 +1107,15 @@ async function saveSponsor(event) {
       next_action: $('sponsorNextAction').value.trim() || null,
       next_action_at: dateToIso($('sponsorNextDate').value),
       notes: $('sponsorNotes').value.trim() || null,
-      owner_name: $('sponsorOwner').value.trim() || null,
+      owner_name: (clubPeople && clubPeople.length)
+        ? ($('sponsorOwner').selectedOptions[0]?.dataset.name || null)
+        : (sponsors.find(s => s.id === $('sponsorId').value)?.ownerName || null),
       lost_reason: stage === 'lost' ? ($('sponsorLostReason').value.trim() || null) : null,
     });
+    const anterior = sponsors.find(s => s.id === id)?.ownerUserId || null;
+    const elegido = $('sponsorOwner').value || null;
+    // Si la lista de personas no cargó, no se toca el responsable (no se borra por accidente).
+    if (clubPeople && clubPeople.length && elegido !== anterior) await rpc('v2_set_sponsor_owner', { organization_id: ctx.organization_id, sponsor_id: id, user_id: elegido });
     closeModal();
     await load();
     openBrand(id);

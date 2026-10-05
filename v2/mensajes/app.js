@@ -113,7 +113,7 @@ function pintaAvisos(box){
   if(!d){box.innerHTML='<div class="ms-vacio">Cargando avisos…</div>';return;}
   const lista=d.avisos||[];
   box.innerHTML=(d.canPublish?`<button type="button" class="ms-aviso-nuevo" id="msAvisoNuevo">＋ Nuevo aviso para el club</button>`:'')
-    +(lista.length?lista.map(a=>`<article class="ms-aviso${a.unread?' unread':''}"><header><strong>${esc(a.title)}</strong><time>${esc(cuando(a.publishedAt))}</time></header>${a.body?`<p>${texto(a.body)}</p>`:''}<footer><span>${esc(a.author||'')} · ${a.audienceType==='club'?'Todo el club':a.audienceType==='role'?esc(a.audienceValue):'Personal'}</span>${a.reach?`<b class="ms-visto" title="Personas que ya lo vieron">👁 Visto por ${a.reach.seen} de ${a.reach.total}</b>`:''}</footer></article>`).join('')
+    +(lista.length?lista.map(a=>`<article class="ms-aviso${a.unread?' unread':''}"><header><strong>${esc(a.title)}</strong><time>${esc(cuando(a.publishedAt))}</time></header>${a.body?`<p>${texto(a.body)}</p>`:''}<footer><span>${esc(a.author||'')} · ${a.audienceType==='club'?'Todo el club':a.audienceType==='role'?esc(a.audienceValue):`Para ${esc((state.inbox?.people||[]).find(p=>p.userId===a.audienceValue)?.name||'ti')}`}</span>${a.reach?`<b class="ms-visto" title="Personas que ya lo vieron">👁 Visto por ${a.reach.seen} de ${a.reach.total}</b>`:''}</footer></article>`).join('')
       :`<div class="ms-vacio">${esc(d.error||'Sin avisos. Cuando Presidencia publique uno, aparece aquí.')}</div>`);
   $('msAvisoNuevo')?.addEventListener('click',hojaAviso);
 }
@@ -264,14 +264,14 @@ function hojaNuevo(){
 }
 function hojaAviso(){
   const roles=[...new Set((state.inbox?.people||[]).map(p=>p.role).filter(Boolean))].sort();
-  abreHoja(`<header class="ms-sheet-head"><h2 id="msSheetTitle">Nuevo aviso</h2><button type="button" class="ms-close" data-cerrar aria-label="Cerrar">✕</button></header><form id="msAvisoForm" class="ms-form"><label>Título<input id="msAvTitulo" maxlength="140" required placeholder="El sábado no hay entrenamiento"></label><label>Mensaje <i>(opcional)</i><textarea id="msAvCuerpo" rows="4" maxlength="1000"></textarea></label><label>Para<select id="msAvPara"><option value="club">Todo el club</option>${roles.map(r=>`<option value="role:${esc(r)}">${esc(r)}</option>`).join('')}</select></label><p class="ms-hint-sm">Lo verán en Mensajes › Avisos y en su celular si activaron notificaciones. Tú verás cuántos ya lo vieron.</p><div id="msAvError" class="ms-error hidden" role="alert"></div><button type="submit" class="ms-primary">Publicar aviso</button></form>`);
+  abreHoja(`<header class="ms-sheet-head"><h2 id="msSheetTitle">Nuevo aviso</h2><button type="button" class="ms-close" data-cerrar aria-label="Cerrar">✕</button></header><form id="msAvisoForm" class="ms-form"><label>Título<input id="msAvTitulo" maxlength="140" required placeholder="El sábado no hay entrenamiento"></label><label>Mensaje <i>(opcional)</i><textarea id="msAvCuerpo" rows="4" maxlength="1000"></textarea></label><label>Para<select id="msAvPara"><option value="club">Todo el club</option><optgroup label="Un área">${roles.map(r=>`<option value="role:${esc(r)}">${esc(r)}</option>`).join('')}</optgroup><optgroup label="Una persona">${(state.inbox?.people||[]).map(p=>`<option value="user:${esc(p.userId)}">${esc(p.name)}${p.role?` · ${esc(p.role)}`:''}</option>`).join('')}</optgroup></select></label><p class="ms-hint-sm">Lo verán en Mensajes › Avisos y en su celular si activaron notificaciones. Tú verás cuántos ya lo vieron.</p><div id="msAvError" class="ms-error hidden" role="alert"></div><button type="submit" class="ms-primary">Publicar aviso</button></form>`);
   $('msAvisoForm').addEventListener('submit',async e=>{
     e.preventDefault();
     const btn=e.submitter||$('msAvisoForm').querySelector('button[type=submit]');btn.disabled=true;
     const para=$('msAvPara').value;
     try{
       await rpc('v2_publish_announcement',{organization_id:org,title:$('msAvTitulo').value.trim(),body:$('msAvCuerpo').value.trim()||null,
-        audience_type:para==='club'?'club':'role',audience_value:para==='club'?null:para.slice(5)});
+        audience_type:para==='club'?'club':para.startsWith('user:')?'user':'role',audience_value:para==='club'?null:para.slice(5)});
       cierraHoja();state.tab='avisos';await cargaAvisos();pintaLista();
     }catch(err){$('msAvError').textContent=amable(err);$('msAvError').classList.remove('hidden');btn.disabled=false;}
   });

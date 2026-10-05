@@ -326,3 +326,9 @@
 .tienda-atajos{display:flex;gap:6px;align-items:flex-end}.tienda-atajos button{flex:1;padding:10px;border:1px solid #cfdcda;border-radius:12px;background:#fff;font:inherit;font-weight:700;cursor:pointer}
 .tienda-aviso{margin:0;padding:10px 12px;border-radius:12px;background:#fff6e0;color:#5c4300;font-size:13px;line-height:1.45}
 .tienda-aviso button{border:0;background:none;padding:0;font:inherit;font-weight:800;color:#164a52;text-decoration:underline;cursor:pointer}
+/* Estacionamiento en Taquilla: el gafete se cobra y se entrega aquí mismo. */
+.gafete-placa{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase}
+.gafete-item .tp-top b{padding:3px 7px;border:2px solid #0d2730;border-radius:6px;background:#fff;font-size:13px}
+.gafete-nuevo-btn{border:0;font:inherit;cursor:pointer;margin-top:4px;min-height:44px}
+.gafete-nuevo-btn.on{background:#164a52;color:#fff}
+.gafete-monto{margin:0;padding:10px 12px;border-radius:12px;background:#eef7f7;color:#164a52;font-size:14px}

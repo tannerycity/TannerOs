@@ -28,7 +28,7 @@ const moduleLinks=[
   {codes:['asistencia'],label:'Asistencia',href:'/asistencia/'},
   {codes:['finanzas','cobranza','contabilidad'],label:'Finanzas',href:'/finanzas/'},
   {codes:['taquilla'],label:'Taquilla',href:'/taquilla/'},
-  {codes:['prospectos'],label:'Captación',href:'/prospectos/'},
+  {codes:['prospectos'],label:'Fichajes',href:'/prospectos/'},
   {codes:['scouting'],label:'Scouting',href:'/scouting/'},
   {codes:['academias'],label:'Academias',href:'/operacion/academias/'},
   {codes:['tienda'],label:'Tienda',href:'/pedidos/'},
@@ -358,6 +358,7 @@ async function loadAuthenticatedApp(){
     ctx=rows[0];navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});resetHomeState();
     showView('appView');document.body.classList.add('tos-body');
     renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
+    renderCumpleStrip().catch(error=>console.warn('cumpleaños',error));
     if(ctx.role==='Taquilla'){renderTaquillaHome().catch(error=>console.error('Taquilla home',error));}
     else if(ctx.role==='Academia'){renderAcademiaHome().catch(error=>console.error('Academia home',error));}
     else{
@@ -397,7 +398,7 @@ function renderKpis(){
   if(executive.players||can('jugadores')){const alta=Number(executive.players?.joined30d||0);cards.push(kpi('Plantilla',executive.players?.active??state.players.length,alta>0?`Activos · +${alta} este mes`:'Tanners activos'));}
   if(billing){const r=Number(billing.collection_rate||0);cards.push(kpi('Cobranza',`${r}%`,`${billing.covered||0}/${billing.collection_population||0} cubiertos`,r>=85?'good':'',r));}
   if(attendance?.rate30d!=null){const r=Number(attendance.rate30d);cards.push(kpi('Asistencia 30 días',pct(r),`${attendance.attended30d||0}/${attendance.records30d||0} registros`,r>=85?'good':'',r));}
-  if(acquisition)cards.push(kpi('Conversión captación',pct(acquisition.conversionRate),`${acquisition.converted||0}/${acquisition.total||0} convertidos`,'',Number(acquisition.conversionRate||0)));
+  if(acquisition)cards.push(kpi('Fichajes concretados',pct(acquisition.conversionRate),`${acquisition.converted||0}/${acquisition.total||0} convertidos`,'',Number(acquisition.conversionRate||0)));
   if(cards.length<4&&billing){const cobrable=Number(billing.total_receivable||0);cards.push(kpi('Cartera cobrable',money.format(cobrable),`${money.format(Number(billing.current_period_receivable||0))} del mes`,cobrable>0?'danger':''));}
   if(cards.length<4&&commerce)cards.push(kpi('Ventas 30 días',money.format(Number(commerce.sales30d||0)),`${commerce.orders30d||0} pedidos`));
   $('homeKpis').innerHTML=(cards.length?cards.slice(0,4):[kpi('TannerOS','Listo','Usa los accesos para trabajar')]).join('');
@@ -456,8 +457,8 @@ function renderRoleFocus(){
   const stats=[];
   if(billing)stats.push(mini('Cobranza',`${Number(billing.collection_rate||0)}%`,`${billing.pending_players||0} pendientes`));
   if(attendance?.rate30d!=null)stats.push(mini('Asistencia',pct(attendance.rate30d),'últimos 30 días'));
-  if(acquisition)stats.push(mini('Conversión',pct(acquisition.conversionRate),'captación'));
-  if(!stats.length)stats.push(mini('Jugadores',executive.players?.active??state.players.length),mini('Prospectos',acquisition?.active??state.prospects.length),mini('Pedidos',commerce?.orders30d??state.orders.length));
+  if(acquisition)stats.push(mini('Conversión',pct(acquisition.conversionRate),'fichajes'));
+  if(!stats.length)stats.push(mini('Jugadores',executive.players?.active??state.players.length),mini('En fichaje',acquisition?.active??state.prospects.length),mini('Pedidos',commerce?.orders30d??state.orders.length));
 
   // Cada hallazgo es una fila propia: la cifra al frente para poder escanearla
   // y un destino al módulo donde se actúa. Antes se concatenaban con join(' ')
@@ -507,6 +508,65 @@ async function signBirthdayPhotos(list){
       list.forEach(p=>{const path=p.photo_thumb_path;if(path&&(p.photo_bucket||'tanneros-private')===bucket&&map[path])p._photoUrl=map[path];});
     }
   }catch(e){/* sin foto se queda el monograma */}
+}
+
+/* ===== Cumpleaños arriba, para todo el club =====
+   El panel de cumpleaños vivía hasta abajo y sólo para quien ve Jugadores.
+   Esta franja va justo debajo del saludo y la ve cualquiera del staff
+   (Taquilla incluida): hoy y los próximos 7 días, jugadores y staff. Si nadie
+   cumple, no ocupa lugar. A quien no ha dicho su cumpleaños se le pregunta
+   una vez; "Ahora no" lo calla 60 días. */
+const CUMPLE_ICONO='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21h16"/><path d="M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M5 16c2 1.5 4 1.5 7 0s5-1.5 7 0"/><path d="M12 12V8"/><path d="M12 5.5c.8-.8.8-1.7 0-2.5-.8.8-.8 1.7 0 2.5Z"/></svg>';
+const cumpleLlave=()=>`tos:cumple-ahora-no:${ctx?.user_id||'yo'}`;
+function cumplePreguntaCallada(){
+  try{const t=Number(localStorage.getItem(cumpleLlave())||0);return t>0&&Date.now()-t<60*86400000;}catch{return false;}
+}
+async function renderCumpleStrip(){
+  const box=$('cumpleStrip');if(!box||!ctx)return;
+  const generacion=ctx;
+  let d=null;
+  try{d=await rpc('v2_birthdays',{organization_id:ctx.organization_id,days:7});}catch(e){box.classList.add('hidden');return;}
+  if(generacion!==ctx)return;
+  const gente=Array.isArray(d?.people)?d.people:[];
+  const hoy=String(d?.today||'');
+  const deHoy=gente.filter(p=>p.day===hoy),proximos=gente.filter(p=>p.day!==hoy);
+  const soyYo=p=>p.kind==='staff'&&String(p.id)===String(ctx.user_id);
+  const preguntar=!d?.myBirthDate&&!cumplePreguntaCallada();
+  if(!gente.length&&!preguntar){box.classList.add('hidden');box.innerHTML='';return;}
+  const dia=new Intl.DateTimeFormat('es-MX',{weekday:'long',day:'numeric'});
+  const mayus=t=>t?t[0].toUpperCase()+t.slice(1):'';
+  const iniciales=n=>String(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+  const ficha=(p,cuando)=>{
+    const sub=p.kind==='player'?`${esc(p.detail)}${p.turns?` · cumple ${esc(String(p.turns))}`:''}`:esc(p.detail);
+    const cuerpo=`<span class="tcs-face" aria-hidden="true">${esc(iniciales(p.name))}</span><span class="tcs-txt"><strong>${esc(p.name)}</strong><small>${cuando?`${esc(cuando)} · `:''}${sub}</small></span>`;
+    return p.kind==='player'&&can('jugadores')
+      ?`<a class="tcs-chip" data-hoy="${cuando?'0':'1'}" href="/jugadores/?player=${encodeURIComponent(p.id)}">${cuerpo}</a>`
+      :`<span class="tcs-chip" data-hoy="${cuando?'0':'1'}">${cuerpo}</span>`;
+  };
+  const yoHoy=deHoy.some(soyYo);
+  const otrosHoy=deHoy.filter(p=>!soyYo(p));
+  let html='';
+  if(yoHoy)html+=`<div class="tcs-mine"><span class="tcs-ico">${CUMPLE_ICONO}</span><div><strong>Feliz cumpleaños, ${esc(firstName())}.</strong><small>Todo Tannery City te felicita hoy.</small></div></div>`;
+  if(otrosHoy.length||proximos.length){
+    const titulo=otrosHoy.length
+      ?(otrosHoy.length===1?'Hoy es su cumpleaños':`Hoy hay ${otrosHoy.length} cumpleaños`)
+      :'Cumpleaños de esta semana';
+    html+=`<div class="tcs-head"><span class="tcs-ico">${CUMPLE_ICONO}</span><strong>${esc(titulo)}</strong>${otrosHoy.length?'<small>No olvides felicitarlos.</small>':''}</div>`;
+    html+=`<div class="tcs-rail">${otrosHoy.map(p=>ficha(p,'')).join('')}${proximos.map(p=>ficha(p,mayus(dia.format(new Date(`${p.day}T12:00:00`))))).join('')}</div>`;
+  }
+  if(preguntar){
+    const max=new Date().toISOString().slice(0,10);
+    html+=`<form class="tcs-ask" id="cumpleAsk"><label for="cumpleMio"><strong>¿Cuándo es tu cumpleaños?</strong><small>Para que el club te felicite. Sólo se muestra el día, no tu edad.</small></label><div class="tcs-ask-row"><input id="cumpleMio" type="date" min="1920-01-01" max="${max}" required><button type="submit" class="tcs-save">Guardar</button><button type="button" class="tcs-later" id="cumpleLuego">Ahora no</button></div><p class="tcs-msg hidden" id="cumpleMsg" role="status"></p></form>`;
+  }
+  box.innerHTML=html;box.classList.remove('hidden');
+  box.dataset.hoy=otrosHoy.length||yoHoy?'1':'0';
+  $('cumpleLuego')?.addEventListener('click',()=>{try{localStorage.setItem(cumpleLlave(),String(Date.now()));}catch{}$('cumpleAsk')?.remove();if(!gente.length)box.classList.add('hidden');});
+  $('cumpleAsk')?.addEventListener('submit',async e=>{
+    e.preventDefault();const v=$('cumpleMio').value;if(!v)return;
+    const btn=e.currentTarget.querySelector('.tcs-save');btn.disabled=true;
+    try{await rpc('v2_set_my_birthday',{organization_id:ctx.organization_id,birth_date:v});renderCumpleStrip();}
+    catch(err){const m=$('cumpleMsg');m.textContent='No se pudo guardar. Revisa la fecha e intenta de nuevo.';m.classList.remove('hidden');btn.disabled=false;}
+  });
 }
 
 function renderBirthdays(){

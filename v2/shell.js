@@ -34,6 +34,10 @@ const ICONS={
   userCog:'<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 12-5"/><circle cx="18" cy="18" r="3"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 20.9V21h-4v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/>',
   bug:'<path d="M8 2h8"/><rect x="6" y="5" width="12" height="15" rx="6"/><path d="M3 9h3"/><path d="M18 9h3"/><path d="M3 15h3"/><path d="M18 15h3"/>',
+  plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+  userPlus:'<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M19 8v6"/><path d="M16 11h6"/>',
+  moneyIn:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/>',
+  moneyOut:'<path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/>',
   chat:'<path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5Z"/>',
   book:'<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5V4.5Z"/><path d="M4 19a2.5 2.5 0 0 1 2.5-2.5H20"/>'
 };
@@ -54,7 +58,7 @@ export const navItems=[
   {code:'calendario',label:'Calendario',href:'/calendario/',group:'main',icon:'calendar'},
   {code:'centro_tanner',label:'Centro Tanner',href:'/admin/centro-tanner/',group:'main',icon:'book'},
   {code:'academias',label:'Academias',href:'/operacion/academias/',group:'club',icon:'academy'},
-  {code:'prospectos',label:'Captación',href:'/prospectos/',group:'club',icon:'target'},
+  {code:'prospectos',label:'Fichajes',href:'/prospectos/',group:'club',icon:'target'},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
   {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
@@ -479,11 +483,61 @@ function ensureBackButton(){
   const topLeft=document.querySelector('.tos-topbar .tos-top-left');if(!topLeft)return;topLeft.querySelector('.tos-back-button')?.remove();const root=location.pathname==='/'||location.pathname==='/v2'||location.pathname==='/v2/';if(root)return;
   const button=document.createElement('button');button.type='button';button.className='tos-back-button';button.setAttribute('aria-label','Volver');button.textContent='‹';button.addEventListener('click',()=>{try{const key=`tos:return:${location.pathname}`,saved=sessionStorage.getItem(key),ref=document.referrer?new URL(document.referrer):null;if(saved&&saved.startsWith('/')&&saved!==location.pathname+location.search+location.hash){sessionStorage.removeItem(key);if(ref?.origin===location.origin&&ref.pathname+ref.search+ref.hash===saved&&history.length>1){history.back();return;}location.href=saved;return;}if(ref?.origin===location.origin&&ref.pathname!==location.pathname&&history.length>1){history.back();return;}}catch{}const clubRoutes=['/jugadores/','/asistencia/','/convocatoria/','/operacion/academias/','/prospectos/','/scouting/'];location.href=clubRoutes.some(path=>location.pathname.startsWith(path))?'/club/':'/';});topLeft.prepend(button);
 }
+/* ===== Acciones rápidas: botón flotante en todas las pantallas =====
+   Cada rol trae a la mano lo que más repite (pedido de Presidencia,
+   05/10/2026). Una acción sólo aparece si la persona tiene el permiso que la
+   pantalla de destino pide: el botón nunca lleva a un "Sin acceso".
+   No se pinta donde la pantalla ya es esa acción en grande (Taquilla,
+   Estacionamiento, levantar pedido), ni para cuentas de familia. */
+const ACCIONES_RAPIDAS={
+  registrar:{label:'Registrar jugador',sub:'Formulario de nuevo ingreso',href:'/registro/jugadores/',icon:'userPlus',modulos:['prospectos','jugadores'],escribe:true},
+  captacion:{label:'Fichajes',sub:'Los que quieren entrar al club',href:'/prospectos/',icon:'target',modulos:['prospectos']},
+  cobrar:{label:'Cobrar',sub:'Entra dinero al club',href:'/taquilla/?action=cobrar',icon:'moneyIn',modulos:['taquilla','cobranza'],escribe:true},
+  pagar:{label:'Pagar',sub:'Sale dinero del club',href:'/taquilla/?action=pagar',icon:'moneyOut',modulos:['taquilla','contabilidad'],escribe:true},
+  tienda:{label:'Tienda',sub:'Nuevo pedido y entregas',href:'/pedidos/',icon:'bag',modulos:['tienda'],escribe:true},
+  gafete:{label:'Gafete de estacionamiento',sub:'Agregar, cobrar y entregar',href:'/estacionamiento/?nuevo=1',icon:'car',modulos:['estacionamiento'],escribe:true},
+  conciliar:{label:'Por conciliar',sub:'Cobros por validar',href:'/taquilla/?ver=concilia',icon:'check',modulos:['taquilla','contabilidad']},
+  caja:{label:'Caja del día',sub:'Movimientos y corte',href:'/taquilla/?ver=caja',icon:'ledger',modulos:['taquilla','contabilidad']},
+  asistencia:{label:'Pasar asistencia',sub:'Lista del entrenamiento',href:'/asistencia/',icon:'check',modulos:['asistencia'],escribe:true},
+  convocatoria:{label:'Convocatoria',sub:'Quién va al partido',href:'/convocatoria/',icon:'list',modulos:['convocatoria','callups']},
+  miAcademia:{label:'Tomar asistencia',sub:'Mi academia',href:'/mi-academia/',icon:'check',siempre:true},
+  scouting:{label:'Scouting',sub:'Visorías y prospectos',href:'/scouting/',icon:'search',modulos:['scouting']},
+  mensaje:{label:'Mensaje',sub:'Escribir al equipo',href:'/mensajes/',icon:'chat',siempre:true}
+};
+const ACCIONES_POR_ROL={
+  Presidencia:['registrar','captacion','cobrar','pagar','tienda','gafete'],
+  Operaciones:['cobrar','pagar','gafete','tienda','captacion','mensaje'],
+  Contabilidad:['cobrar','pagar','conciliar','caja'],
+  Taquilla:['cobrar','pagar','gafete','tienda'],
+  Formadores:['asistencia','convocatoria','mensaje'],
+  Academia:['miAcademia','mensaje'],
+  Scouting:['registrar','scouting','captacion']
+};
+const RUTAS_SIN_BOTON=['/taquilla','/estacionamiento','/v2/captura','/v2/taquilla','/v2/estacionamiento'];
+export function accionesRapidas(ctx,navigation){
+  const rol=ctx?.is_owner?'Presidencia':ctx?.role;
+  return (ACCIONES_POR_ROL[rol]||[]).map(k=>({clave:k,...ACCIONES_RAPIDAS[k]})).filter(a=>a.siempre||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe))));
+}
+function cierraAcciones(){document.body.classList.remove('tos-fab-open');$('tosFab')?.setAttribute('aria-expanded','false');}
+function ensureQuickFab(ctx,navigation){
+  $('tosFab')?.remove();$('tosFabMenu')?.remove();$('tosFabBackdrop')?.remove();
+  if(RUTAS_SIN_BOTON.some(r=>location.pathname===r||location.pathname.startsWith(r+'/')))return;
+  const acciones=accionesRapidas(ctx,navigation);if(!acciones.length)return;
+  const fondo=document.createElement('div');fondo.id='tosFabBackdrop';fondo.className='tos-fab-backdrop';
+  const menu=document.createElement('nav');menu.id='tosFabMenu';menu.className='tos-fab-menu';menu.setAttribute('aria-label','Acciones rápidas');
+  menu.innerHTML=`<div class="tos-fab-grab" aria-hidden="true"></div><p class="tos-fab-title">Acciones rápidas</p>`+acciones.map(a=>`<a class="tos-fab-item" href="${a.href}" data-accion="${a.clave}"><span class="tos-fab-ico">${shellIcon(a.icon)}</span><span><strong>${escBell(a.label)}</strong><small>${escBell(a.sub)}</small></span></a>`).join('');
+  const boton=document.createElement('button');boton.id='tosFab';boton.type='button';boton.className='tos-fab';boton.setAttribute('aria-label','Acciones rápidas');boton.setAttribute('aria-expanded','false');boton.setAttribute('aria-controls','tosFabMenu');boton.innerHTML=shellIcon('plus');
+  boton.addEventListener('click',()=>{const abierto=document.body.classList.toggle('tos-fab-open');boton.setAttribute('aria-expanded',String(abierto));if(abierto)menu.querySelector('a')?.focus({preventScroll:true});});
+  fondo.addEventListener('click',cierraAcciones);
+  menu.addEventListener('click',e=>{if(e.target.closest('a'))cierraAcciones();});
+  if(!document.documentElement.dataset.tosFabKeys){document.documentElement.dataset.tosFabKeys='1';document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('tos-fab-open')){cierraAcciones();$('tosFab')?.focus();}});}
+  document.body.append(fondo,menu,boton);
+}
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
   const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
   renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'Tannery City';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
-  if(ctx){ensureBellMarkup();wireBell(ctx,navigation);}
+  if(ctx){ensureBellMarkup();wireBell(ctx,navigation);ensureQuickFab(ctx,navigation);}
 }
 export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

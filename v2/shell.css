@@ -165,3 +165,53 @@ a.tos-insight:hover{background:#f7f9f8}
    que se va: si faltan resultados, tiene que verse justo donde se está
    buscando. */
 .tos-buscador-roto{padding:10px 14px;margin:4px;border-radius:12px;background:#ffe9e6;color:#a32920;font-size:12px;font-weight:800;line-height:1.45}
+
+/* Franja de cumpleaños (Inicio, todo el staff). Tarjeta blanca bajo el saludo;
+   el día que alguien cumple se enciende el filo dorado. */
+.tos-cumple-strip{background:#fff;border:1px solid var(--tos-line);border-radius:22px;padding:16px 18px;margin:-4px 0 16px;display:grid;gap:12px;box-shadow:0 8px 24px rgba(3,47,59,.05)}
+.tos-cumple-strip[data-hoy="1"]{border-color:var(--tos-gold);box-shadow:0 0 0 1px var(--tos-gold),0 10px 26px rgba(166,134,48,.12)}
+.tcs-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.tcs-head strong{font-size:15px;color:#0d2730}.tcs-head small{color:var(--tos-muted);font-size:12px}
+.tcs-ico{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:#f7f0dc;color:#8a6413;flex:0 0 34px}
+.tcs-rail{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}.tcs-rail::-webkit-scrollbar{display:none}
+.tcs-chip{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:7px 14px 7px 7px;border-radius:999px;background:#f4f6f5;color:inherit;text-decoration:none;max-width:260px}
+.tcs-chip[data-hoy="1"]{background:#fbf5e4}
+a.tcs-chip:hover{background:#eceff0}a.tcs-chip[data-hoy="1"]:hover{background:#f6edd2}
+.tcs-face{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#e2ecec;color:#2e5660;font-weight:800;font-size:12px;flex:0 0 34px}
+.tcs-chip[data-hoy="1"] .tcs-face{background:var(--tos-gold);color:#fff}
+.tcs-txt{display:grid;min-width:0}.tcs-txt strong{font-size:13px;color:#0d2730;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tcs-txt small{font-size:11px;color:var(--tos-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tcs-mine{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:linear-gradient(115deg,#fbf5e4,#f4ead0)}.tcs-mine strong{display:block;font-size:16px;color:#4d3a08}.tcs-mine small{color:#7a6326;font-size:12px}
+.tcs-ask{display:grid;gap:9px;padding-top:2px}.tcs-ask label{display:grid;gap:2px}.tcs-ask label strong{font-size:14px;color:#0d2730}.tcs-ask label small{font-size:12px;color:var(--tos-muted)}
+.tcs-ask-row{display:flex;gap:8px;flex-wrap:wrap}.tcs-ask-row input{flex:1 1 170px;min-height:44px;border:1px solid var(--tos-line);border-radius:12px;padding:0 12px;font:inherit;background:#fff}
+.tcs-save,.tcs-later{min-height:44px;border-radius:12px;padding:0 16px;font:inherit;font-weight:750;cursor:pointer}
+.tcs-save{background:var(--tos-ink);color:#fff;border:0}.tcs-save:disabled{opacity:.5}.tcs-later{background:transparent;border:1px solid var(--tos-line);color:var(--tos-muted)}
+.tcs-msg{margin:0;color:#a3331f;font-size:12px}
+.tcs-head+.tcs-rail+.tcs-ask,.tcs-mine+.tcs-ask{border-top:1px solid #eeece4;padding-top:12px}
+
+/* Botón de acciones rápidas (todas las pantallas). Debajo de modales (90+) y
+   del menú lateral del teléfono (55/60); si una pantalla abre un cajón y
+   bloquea el scroll del body, el botón se aparta. */
+.tos-fab{position:fixed;right:max(22px,env(safe-area-inset-right));bottom:max(22px,calc(env(safe-area-inset-bottom) + 14px));z-index:50;width:58px;height:58px;border-radius:50%;border:0;display:grid;place-items:center;background:var(--tos-ink);color:#fff;box-shadow:0 10px 26px rgba(3,47,59,.32);cursor:pointer;transition:transform .2s ease,background .2s ease}
+.tos-fab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;transition:transform .2s ease}
+.tos-fab:hover{background:#075063}.tos-fab:active{transform:scale(.95)}
+.tos-fab-open .tos-fab svg{transform:rotate(45deg)}
+.tos-fab-backdrop{position:fixed;inset:0;z-index:48;background:rgba(0,20,27,.28);opacity:0;pointer-events:none;transition:opacity .2s ease}
+.tos-fab-open .tos-fab-backdrop{opacity:1;pointer-events:auto}
+.tos-fab-menu{position:fixed;right:max(22px,env(safe-area-inset-right));bottom:calc(max(22px,calc(env(safe-area-inset-bottom) + 14px)) + 70px);z-index:49;width:300px;background:#fff;border-radius:20px;padding:8px;box-shadow:0 20px 50px rgba(3,47,59,.22);display:grid;gap:2px;opacity:0;transform:translateY(8px) scale(.98);transform-origin:bottom right;pointer-events:none;visibility:hidden;transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s}
+.tos-fab-open .tos-fab-menu{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition:opacity .18s ease,transform .18s ease}
+.tos-fab-grab{display:none}
+.tos-fab-title{margin:6px 10px 6px;font-size:12px;font-weight:700;color:var(--tos-muted);letter-spacing:.02em}
+.tos-fab-item{display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px;color:inherit;text-decoration:none}
+.tos-fab-item:hover,.tos-fab-item:focus-visible{background:#f2f5f4;outline:none}
+.tos-fab-ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--tos-teal-soft);color:var(--tos-ink);flex:0 0 40px}
+.tos-fab-ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tos-fab-item strong{display:block;font-size:14px;color:#0d2730}.tos-fab-item small{display:block;font-size:12px;color:var(--tos-muted)}
+body[style*="overflow: hidden"]:not(.tos-fab-open) .tos-fab,.tos-nav-open .tos-fab{display:none}
+@media (max-width:760px){
+  .tos-fab{right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px)}
+  .tos-fab-menu{left:0;right:0;bottom:0;width:auto;border-radius:24px 24px 0 0;padding:8px 12px calc(env(safe-area-inset-bottom) + 92px);transform:translateY(100%);transform-origin:bottom center}
+  .tos-fab-open .tos-fab-menu{transform:none}
+  .tos-fab-grab{display:block;width:38px;height:5px;border-radius:3px;background:#d6dcdb;margin:4px auto 6px}
+  .tos-fab-item{padding:12px 10px}
+  .tos-fab-open .tos-fab{z-index:50}
+}
+@media (prefers-reduced-motion:reduce){.tos-fab,.tos-fab svg,.tos-fab-menu,.tos-fab-backdrop{transition:none}}

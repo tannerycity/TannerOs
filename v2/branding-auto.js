@@ -15,7 +15,7 @@ const FINAL_ROUTES=[
   ['/asistencia/','asistencia','Asistencia'],
   ['/calendario/','calendario','Calendario'],
   ['/operacion/academias/','academias','Academias'],
-  ['/prospectos/','prospectos','Captación'],
+  ['/prospectos/','prospectos','Fichajes'],
   ['/scouting/','scouting','Scouting'],
   ['/operacion/programas/','cursosVerano','Programas y eventos'],
   ['/pedidos/','tienda','Tienda'],

@@ -20,10 +20,14 @@ const canCashWrite=moduleAccess(navigation,'taquilla',true)||moduleAccess(naviga
 const canAccountingWrite=moduleAccess(navigation,'contabilidad',true);
 // Pagar ya no depende exclusivamente de Contabilidad: quien opera esta caja (Taquilla RW) también puede pagar.
 const canPayWrite=canCashWrite||canAccountingWrite;
-// Cobranza es información sensible del club: solo Presidencia la ve en
-// Taquilla, aunque el módulo 'cobranza' (adeudos al buscar un Tanner para
-// cobrar) siga habilitado para el rol Taquilla como hasta ahora.
-const canViewCollections=moduleAccess(navigation,'cobranza',false)&&ctx.role==='Presidencia';
+// Cobranza es información sensible del club: en Taquilla sólo la ven
+// Presidencia y Operaciones (con permiso de Cobranza), y siempre detrás de un
+// toque. El módulo 'cobranza' (adeudos al buscar un Tanner para cobrar) sigue
+// habilitado para el rol Taquilla como hasta ahora.
+const canViewCollections=moduleAccess(navigation,'cobranza',false)&&['Presidencia','Operaciones'].includes(ctx.role);
+// Quien sólo atiende la ventanilla (rol Taquilla) cobra y paga; no consulta
+// paneles del club.
+const soloVentanilla=ctx.role==='Taquilla';
 let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,receivables=[],collectionsFilter='all',collectionsExpanded=false;
 // El selector "Ver" se arma hasta el final del archivo, cuando ya existen los
 // permisos de cada vista. applyLedgerVisibility corre antes de eso durante el
@@ -1674,12 +1678,16 @@ function pendientesDeConcilia(){
   try{ return pendientesReales(conciliaData?.summary||{}); }catch(e){ return 0; }
 }
 function vistasDisponibles(){
-  return VISTAS.filter(v=>{ try{ return Boolean(v.puede()); }catch(e){ return false; } });
+  // Ventanilla sólo ve "Por conciliar", y sólo cuando tiene una aclaración que
+  // responder: es trabajo suyo, no consulta.
+  return VISTAS.filter(v=>!soloVentanilla||v.clave==='concilia').filter(v=>{ try{ return Boolean(v.puede()); }catch(e){ return false; } });
 }
 
 function mostrarVista(clave,desplazar){
   const lista=vistasDisponibles();
-  const elegida=lista.find(v=>v.clave===clave)||lista[0]||null;
+  // Nada se abre solo: la pantalla arranca en COBRAR / PAGAR y cada panel se
+  // consulta con un toque. Tocar el panel abierto lo vuelve a cerrar.
+  const elegida=lista.find(v=>v.clave===clave)||null;
   vistaActual=elegida?elegida.clave:null;
   // Se recorren TODAS las vistas, no sólo las disponibles: una vista que deja
   // de estar permitida tiene que apagarse, no quedarse encendida de la vez
@@ -1694,15 +1702,19 @@ function mostrarVista(clave,desplazar){
 function pintaVerTabs(){
   const nav=$('verTabs');if(!nav)return;
   const lista=vistasDisponibles();
-  if(!lista.some(v=>v.clave===vistaActual))vistaActual=lista[0]?.clave||null;
-  // Con una sola vista no hay nada que elegir: el selector sobra y estorba.
-  nav.classList.toggle('hidden',lista.length<2);
+  if(!lista.some(v=>v.clave===vistaActual))vistaActual=null;
+  // Sin vistas no hay selector. Con una sola sigue haciendo falta: es el toque
+  // para abrirla.
+  nav.classList.toggle('hidden',lista.length<1);
   nav.innerHTML=lista.map(v=>{
     const pend=v.clave==='concilia'?pendientesDeConcilia():0;
     const activa=v.clave===vistaActual;
     return `<button type="button" role="tab" aria-selected="${activa}" class="${activa?'active':''}" data-vista="${esc(v.clave)}">${esc(v.etiqueta)}${pend?`<span class="ver-badge">${pend}</span>`:''}</button>`;
   }).join('');
-  nav.querySelectorAll('[data-vista]').forEach(b=>b.addEventListener('click',()=>mostrarVista(b.dataset.vista,true)));
+  nav.querySelectorAll('[data-vista]').forEach(b=>b.addEventListener('click',()=>{
+    const clave=b.dataset.vista;
+    mostrarVista(clave===vistaActual?null:clave,clave!==vistaActual);
+  }));
 }
 
 // El padrón se trae al arrancar, no al abrir la vista: COBRAR lo necesita para

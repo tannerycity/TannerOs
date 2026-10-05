@@ -206,6 +206,20 @@ async function corre(rol) {
   }));
 
   await pagina.goto('http://127.0.0.1:4603/v2/taquilla/', { waitUntil: 'networkidle' });
+  // Quien sólo atiende la ventanilla no consulta paneles del club: cobra y
+  // paga. El padrón se sigue cargando para que COBRAR diga cuánto cobrar.
+  if (rol === 'Taquilla') {
+    await pagina.waitForSelector('.cashier-actions .cashier-action', { timeout: 8000 });
+    await pagina.waitForTimeout(400);
+    revisa(`[${rol}] la pantalla arranca con sólo dos acciones grandes`,
+      (await pagina.$$('.cashier-actions .cashier-action')).length === 2);
+    revisa(`[${rol}] no hay selector de paneles`, await pagina.isHidden('#verTabs'));
+    revisa(`[${rol}] no ve el padrón de montos`, await pagina.isHidden('#montosPanel'));
+    revisa(`[${rol}] no ve Cobranza`, await pagina.isHidden('#collectionsPanel'));
+    revisa(`[${rol}] no se le ofrece el corte de caja`, await pagina.isHidden('#printClose'));
+    await navegador.close();
+    return errores;
+  }
   try { await pagina.waitForSelector('[data-vista="montos"]', { timeout: 8000, state: 'attached' }); }
   catch (e) {
     console.error(`[${rol}] no apareció la pestaña Montos. Errores de la página:`); errores.forEach(x => console.error('   ' + x));
@@ -229,21 +243,13 @@ async function corre(rol) {
     (await pagina.$$('#openMontos')).length === 0);
   revisa(`[${rol}] ya no existe la barra de conciliación`,
     (await pagina.$$('#openConcilia')).length === 0);
-  // Taquilla sólo puede ver una cosa (el padrón): con una sola vista no hay
-  // nada que elegir, así que el selector se esconde y el panel sale directo.
-  // Cero toques para llegar a lo único que ese rol necesita.
-  if (rol === 'Taquilla') {
-    revisa(`[${rol}] con una sola vista el selector no estorba`, await pagina.isHidden('#verTabs'));
-    revisa(`[${rol}] el padrón sale sin tener que buscarlo`, await pagina.isVisible('#montosPanel'));
-    // El corte de caja lleva los movimientos del día completos. Quien no
-    // puede ver el libro tampoco se lo lleva impreso.
-    revisa(`[${rol}] no se le ofrece el corte de caja`, await pagina.isHidden('#printClose'));
-  } else {
-    revisa(`[${rol}] el corte de caja está a la mano`, await pagina.isVisible('#printClose'));
-    revisa(`[${rol}] el selector ofrece varias vistas`, await pagina.isVisible('#verTabs'));
-    revisa(`[${rol}] arranca en Cobranza, no en el padrón`, await pagina.isHidden('#montosPanel'));
-    await pagina.click('[data-vista="montos"]');
-  }
+  // Nada se abre solo: cada panel se consulta con un toque.
+  revisa(`[${rol}] el corte de caja está a la mano`, await pagina.isVisible('#printClose'));
+  revisa(`[${rol}] el selector ofrece varias vistas`, await pagina.isVisible('#verTabs'));
+  revisa(`[${rol}] arranca sin ningún panel abierto`,
+    await pagina.isHidden('#montosPanel') && await pagina.isHidden('#collectionsPanel') && await pagina.isHidden('#vistaCaja'));
+  revisa(`[${rol}] ninguna pestaña arranca marcada`, (await pagina.$$('#verTabs [aria-selected="true"]')).length === 0);
+  await pagina.click('[data-vista="montos"]');
   await pagina.waitForSelector('.monto-card', { timeout: 6000 });
   revisa(`[${rol}] la pestaña elegida queda marcada`,
     await pagina.getAttribute('[data-vista="montos"]', 'aria-selected') === 'true');

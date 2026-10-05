@@ -28,7 +28,7 @@ const moduleLinks=[
   {codes:['asistencia'],label:'Asistencia',href:'/asistencia/'},
   {codes:['finanzas','cobranza','contabilidad'],label:'Finanzas',href:'/finanzas/'},
   {codes:['taquilla'],label:'Taquilla',href:'/taquilla/'},
-  {codes:['prospectos'],label:'Captación',href:'/prospectos/'},
+  {codes:['prospectos'],label:'Fichajes',href:'/prospectos/'},
   {codes:['scouting'],label:'Scouting',href:'/scouting/'},
   {codes:['academias'],label:'Academias',href:'/operacion/academias/'},
   {codes:['tienda'],label:'Tienda',href:'/pedidos/'},
@@ -398,7 +398,7 @@ function renderKpis(){
   if(executive.players||can('jugadores')){const alta=Number(executive.players?.joined30d||0);cards.push(kpi('Plantilla',executive.players?.active??state.players.length,alta>0?`Activos · +${alta} este mes`:'Tanners activos'));}
   if(billing){const r=Number(billing.collection_rate||0);cards.push(kpi('Cobranza',`${r}%`,`${billing.covered||0}/${billing.collection_population||0} cubiertos`,r>=85?'good':'',r));}
   if(attendance?.rate30d!=null){const r=Number(attendance.rate30d);cards.push(kpi('Asistencia 30 días',pct(r),`${attendance.attended30d||0}/${attendance.records30d||0} registros`,r>=85?'good':'',r));}
-  if(acquisition)cards.push(kpi('Conversión captación',pct(acquisition.conversionRate),`${acquisition.converted||0}/${acquisition.total||0} convertidos`,'',Number(acquisition.conversionRate||0)));
+  if(acquisition)cards.push(kpi('Fichajes concretados',pct(acquisition.conversionRate),`${acquisition.converted||0}/${acquisition.total||0} convertidos`,'',Number(acquisition.conversionRate||0)));
   if(cards.length<4&&billing){const cobrable=Number(billing.total_receivable||0);cards.push(kpi('Cartera cobrable',money.format(cobrable),`${money.format(Number(billing.current_period_receivable||0))} del mes`,cobrable>0?'danger':''));}
   if(cards.length<4&&commerce)cards.push(kpi('Ventas 30 días',money.format(Number(commerce.sales30d||0)),`${commerce.orders30d||0} pedidos`));
   $('homeKpis').innerHTML=(cards.length?cards.slice(0,4):[kpi('TannerOS','Listo','Usa los accesos para trabajar')]).join('');
@@ -457,8 +457,8 @@ function renderRoleFocus(){
   const stats=[];
   if(billing)stats.push(mini('Cobranza',`${Number(billing.collection_rate||0)}%`,`${billing.pending_players||0} pendientes`));
   if(attendance?.rate30d!=null)stats.push(mini('Asistencia',pct(attendance.rate30d),'últimos 30 días'));
-  if(acquisition)stats.push(mini('Conversión',pct(acquisition.conversionRate),'captación'));
-  if(!stats.length)stats.push(mini('Jugadores',executive.players?.active??state.players.length),mini('Prospectos',acquisition?.active??state.prospects.length),mini('Pedidos',commerce?.orders30d??state.orders.length));
+  if(acquisition)stats.push(mini('Conversión',pct(acquisition.conversionRate),'fichajes'));
+  if(!stats.length)stats.push(mini('Jugadores',executive.players?.active??state.players.length),mini('En fichaje',acquisition?.active??state.prospects.length),mini('Pedidos',commerce?.orders30d??state.orders.length));
 
   // Cada hallazgo es una fila propia: la cifra al frente para poder escanearla
   // y un destino al módulo donde se actúa. Antes se concatenaban con join(' ')

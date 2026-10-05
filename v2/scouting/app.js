@@ -293,7 +293,7 @@ function mountPhotoUi(){
   if(detail&&!$('editSection')){
     const section=document.createElement('section');section.id='editSection';section.className='drawer-section scouting-editor hidden';section.innerHTML=`
       <div class="editor-head"><div><div class="eyebrow">EDICIÓN COMPLETA</div><h3>Datos del jugador</h3></div><button id="cancelEditScout" class="secondary mini" type="button">Cancelar</button></div>
-      <p class="editor-note">La edad se calcula automáticamente con la fecha de nacimiento. Los vínculos con Captación o la ficha Tanner permanecen protegidos.</p>
+      <p class="editor-note">La edad se calcula automáticamente con la fecha de nacimiento. Los vínculos con Fichajes o la ficha Tanner permanecen protegidos.</p>
       <div class="form-grid editor-grid">
         <label class="span-2">Nombre del jugador<input id="editObservedName" type="text" maxlength="160" autocomplete="off"></label>
         <label>Fecha de nacimiento<input id="editBirthDate" type="date"></label>

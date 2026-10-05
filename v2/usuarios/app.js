@@ -48,7 +48,7 @@ const profileHighlights={
 const moduleLabels={
   inicio:'Inicio',club:'Club',direccion:'Dirección',finanzas:'Finanzas',jugadores:'Jugadores',
   asistencia:'Asistencia',callups:'Convocatoria',calendario:'Calendario',academias:'Academias',
-  scouting:'Scouting',prospectos:'Captación',cursosVerano:'Programas y Eventos',taquilla:'Taquilla',
+  scouting:'Scouting',prospectos:'Fichajes',cursosVerano:'Programas y Eventos',taquilla:'Taquilla',
   cobranza:'Cobranza',contabilidad:'Contabilidad',patrocinadores:'Patrocinios',tienda:'Tienda',
   utileria:'Utilería',usuarios:'Usuarios',qa:'QA',admin:'Administración',estacionamiento:'Estacionamiento',
   catalogo:'Catálogo',commerce_finance:'Rentabilidad de Tienda'

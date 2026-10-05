@@ -16,13 +16,13 @@ const KANBAN_STAGES=[
   {key:'contacted',label:'Contactado'},
   {key:'trial_scheduled',label:'Prueba agendada'},
   {key:'trial_completed',label:'Prueba realizada'},
-  {key:'converted',label:'Convertido'},
+  {key:'converted',label:'Fichado'},
   {key:'not_continuing',label:'No continúa'}
 ];
 
 const statusLabel={
   new:'Nuevo',contacted:'Contactado',trial_scheduled:'Prueba agendada',
-  trial_completed:'Prueba realizada',converted:'Convertido',
+  trial_completed:'Prueba realizada',converted:'Fichado',
   not_continuing:'No continúa',archived:'Archivado'
 };
 const footLabel={right:'Derecha',left:'Izquierda',both:'Ambas'};
@@ -66,7 +66,7 @@ async function boot(){
   const scoutingMod=moduleRows.find(m=>m.module_code==='scouting');
   const playersMod=moduleRows.find(m=>m.module_code==='players');
   if(!(prospectsMod?.enabled&&prospectsMod?.can_read)&&!(scoutingMod?.enabled&&scoutingMod?.can_read)){
-    $('deniedText').textContent='Tu rol no tiene acceso a Prospectos ni Scouting.';show('deniedView');return;
+    $('deniedText').textContent='Tu rol no tiene acceso a Fichajes ni Scouting.';show('deniedView');return;
   }
   ctx.canProspectsWrite=Boolean(prospectsMod?.enabled&&prospectsMod?.can_write);
   ctx.canScoutingRead=Boolean(scoutingMod?.enabled&&scoutingMod?.can_read);
@@ -443,7 +443,7 @@ function renderList(){
     const actions=document.createElement('div');actions.className='lead-actions';
     const wa=waUrl(p.phone);
     if(wa){const a=document.createElement('a');a.className='whatsapp-action';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='WhatsApp';a.setAttribute('aria-label',`Abrir WhatsApp de ${nameOf(p)}`);actions.appendChild(a);}
-    if(ctx.canPlayersWrite&&ctx.canProspectsWrite&&p.status==='trial_completed'){const convert=document.createElement('button');convert.type='button';convert.className='convert-card-action';convert.textContent='Dar de alta';convert.addEventListener('click',async()=>{await openProspect(p);$('conversionSection')?.scrollIntoView({behavior:'smooth',block:'start'});});actions.appendChild(convert);}
+    if(ctx.canPlayersWrite&&ctx.canProspectsWrite&&p.status==='trial_completed'){const convert=document.createElement('button');convert.type='button';convert.className='convert-card-action';convert.textContent='Fichar';convert.addEventListener('click',async()=>{await openProspect(p);$('conversionSection')?.scrollIntoView({behavior:'smooth',block:'start'});});actions.appendChild(convert);}
     const detail=document.createElement('button');detail.type='button';detail.className='secondary mini';detail.textContent='Ver ficha';detail.addEventListener('click',()=>openProspect(p));actions.appendChild(detail);
     card.append(clickArea,actions);list.appendChild(card);
   }
@@ -526,7 +526,7 @@ function openReport(){
   const summary=$('reportSummary');
   const total=prospects.length,converted=prospects.filter(p=>p.status==='converted').length,lost=prospects.filter(p=>p.status==='not_continuing').length,active=total-converted-lost;
   const rate=total?Math.round((converted/total)*100):0;
-  summary.innerHTML=`<article class="kpi-card"><span>Total</span><strong>${total}</strong></article><article class="kpi-card success"><span>Convertidos</span><strong>${converted}</strong></article><article class="kpi-card danger"><span>No continúa</span><strong>${lost}</strong></article><article class="kpi-card"><span>En proceso</span><strong>${active}</strong></article><article class="kpi-card attention"><span>Tasa de conversión</span><strong>${rate}%</strong></article>`;
+  summary.innerHTML=`<article class="kpi-card"><span>Total</span><strong>${total}</strong></article><article class="kpi-card success"><span>Fichados</span><strong>${converted}</strong></article><article class="kpi-card danger"><span>No continúa</span><strong>${lost}</strong></article><article class="kpi-card"><span>En proceso</span><strong>${active}</strong></article><article class="kpi-card attention"><span>Tasa de conversión</span><strong>${rate}%</strong></article>`;
   renderConversionTable('reportByChannel',groupConversionStats(prospects,p=>sourceName(p.source_channel||p.source)));
   renderConversionTable('reportByCampaign',groupConversionStats(prospects,p=>campaignName(p.source_campaign)));
   renderConversionTable('reportByScout',groupConversionStats(prospects,p=>p.assigned_user_name||'Sin asignar'));
@@ -543,7 +543,7 @@ async function deleteProspect(){
     const result=await rpc('v2_delete_prospect',{organization_id:ctx.organization_id,prospect_id:prospect.id});
     closeProspect();await loadProspects();
     if(result?.photoPath&&result?.photoBucket===PHOTO_BUCKET)await supabase.storage.from(PHOTO_BUCKET).remove([result.photoPath]);
-    toast(`${nameOf(prospect)||'El prospecto'} se eliminó de Captación.`);
+    toast(`${nameOf(prospect)||'El prospecto'} se eliminó de Fichajes.`);
   }catch(e){msg('deleteProspectMessage',friendly(e));}
   finally{button.disabled=false;button.textContent='Sí, eliminar prospecto';}
 }
@@ -555,7 +555,7 @@ async function saveFollowup(){
   const btn=$('saveFollowup');btn.disabled=true;
   try{const id=current.id;await rpc('v2_update_prospect_followup',{organization_id:ctx.organization_id,prospect_id:id,status,next_action_at:$('nextAction').value?new Date($('nextAction').value).toISOString():null,notes:$('prospectNotes').value.trim()||null,loss_reason:status==='not_continuing'?lossReason:null});msg('followupMessage','Seguimiento guardado.','success');await loadProspects();current=prospects.find(p=>p.id===id)||current;if(current){renderDrawerActions(current);renderProspectDetails(current);}}catch(e){msg('followupMessage',friendly(e));}finally{btn.disabled=!ctx.canProspectsWrite;}
 }
-async function convertProspect(){if(!current||!ctx.canPlayersWrite||!ctx.canProspectsWrite)return;msg('convertMessage');const btn=$('convertProspect');const feeRaw=$('convertFee').value;const fee=feeRaw===''?null:Number(feeRaw);if(fee!==null&&(!Number.isFinite(fee)||fee<0)){msg('convertMessage','La cuota debe ser 0 o mayor.');return;}if(!(await window.tosConfirm({kicker:'CAPTACIÓN',title:'Convertir a Tanner',message:`Vas a convertir a ${nameOf(current)} en Tanner. Se conservan su foto, tutor, campaña y consentimientos.`,confirmText:'Sí, convertir',cancelText:'Cancelar'})))return;btn.disabled=true;btn.textContent='Convirtiendo…';try{const id=await rpc('v2_convert_prospect_to_player',{organization_id:ctx.organization_id,prospect_id:current.id,category_id:$('convertCategory').value||null,monthly_fee:fee,joined_at:$('convertDate').value||todayLocal(),jersey_number:$('convertJersey').value.trim()||null,player_position:$('convertPosition').value.trim()||null});msg('convertMessage',`Tanner creado correctamente · ${String(id).slice(0,8)}…`,'success');await loadProspects();const updated=prospects.find(p=>p.id===current.id);if(updated){current=updated;$('prospectStatus').value=updated.status;prepareConversion(updated);renderDrawerActions(updated);}}catch(e){msg('convertMessage',friendly(e));}finally{btn.disabled=false;btn.textContent='Convertir a Tanner';}}
+async function convertProspect(){if(!current||!ctx.canPlayersWrite||!ctx.canProspectsWrite)return;msg('convertMessage');const btn=$('convertProspect');const feeRaw=$('convertFee').value;const fee=feeRaw===''?null:Number(feeRaw);if(fee!==null&&(!Number.isFinite(fee)||fee<0)){msg('convertMessage','La cuota debe ser 0 o mayor.');return;}if(!(await window.tosConfirm({kicker:'FICHAJES',title:'Fichar como Tanner',message:`Vas a convertir a ${nameOf(current)} en Tanner. Se conservan su foto, tutor, campaña y consentimientos.`,confirmText:'Sí, convertir',cancelText:'Cancelar'})))return;btn.disabled=true;btn.textContent='Convirtiendo…';try{const id=await rpc('v2_convert_prospect_to_player',{organization_id:ctx.organization_id,prospect_id:current.id,category_id:$('convertCategory').value||null,monthly_fee:fee,joined_at:$('convertDate').value||todayLocal(),jersey_number:$('convertJersey').value.trim()||null,player_position:$('convertPosition').value.trim()||null});msg('convertMessage',`Tanner creado correctamente · ${String(id).slice(0,8)}…`,'success');await loadProspects();const updated=prospects.find(p=>p.id===current.id);if(updated){current=updated;$('prospectStatus').value=updated.status;prepareConversion(updated);renderDrawerActions(updated);}}catch(e){msg('convertMessage',friendly(e));}finally{btn.disabled=false;btn.textContent='Fichar como Tanner';}}
 async function loadScoutingHistory(){const box=$('scoutingHistory');box.innerHTML='';if(!ctx.canScoutingRead){box.innerHTML='<div class="empty">Sin acceso a Scouting.</div>';return;}const rows=await rpc('v2_scouting_reports',{organization_id:ctx.organization_id,prospect_id:current.id});if(!rows?.length){box.innerHTML='<div class="empty">Aún no tiene evaluaciones deportivas.</div>';return;}for(const r of rows){const values=[r.technical_score,r.physical_score,r.tactical_score,r.mental_score].filter(v=>v!=null).map(Number);const avg=values.length?values.reduce((a,b)=>a+b,0)/values.length:0;const card=document.createElement('article');card.className='scout-card';const left=document.createElement('div'),right=document.createElement('div');const when=document.createElement('strong');when.textContent=fmtDateTime(r.observed_at);const where=document.createElement('span');where.textContent=`${r.observed_location||'Sin lugar'} · ${r.player_position||'Sin posición'}`;left.append(when,where);const score=document.createElement('b');score.textContent=avg?avg.toFixed(1):'—';const verdict=document.createElement('span');verdict.textContent=r.verdict||'Sin veredicto';right.append(score,verdict);card.append(left,right);box.appendChild(card);}}
 
 function mountCaptureUx(){
@@ -574,7 +574,7 @@ function mountCaptureUx(){
   const historySection=$('scoutingHistory')?.closest('.drawer-section');if(historySection){historySection.classList.add('scouting-history-compact');const title=historySection.querySelector('h3');if(title)title.textContent='Evaluaciones anteriores';}
   const drawer=$('prospectDrawer');
   if(drawer&&!$('deleteProspectSection')){
-    const section=document.createElement('section');section.id='deleteProspectSection';section.className='drawer-section prospect-danger hidden';section.innerHTML='<button id="deleteProspect" class="delete-prospect" type="button"><span class="tos-icon tos-icon-trash" aria-hidden="true"></span>Eliminar prospecto</button><div id="deleteProspectConfirm" class="delete-prospect-confirm hidden"><strong>¿Eliminar este prospecto?</strong><p>Se borrarán el registro de Captación y su fotografía. Si ya se convirtió en Tanner, su ficha de jugador permanecerá.</p><div><button id="cancelDeleteProspect" class="secondary" type="button">Cancelar</button><button id="confirmDeleteProspect" class="danger-action" type="button">Sí, eliminar prospecto</button></div><div id="deleteProspectMessage" class="inline-message hidden"></div></div>';drawer.appendChild(section);
+    const section=document.createElement('section');section.id='deleteProspectSection';section.className='drawer-section prospect-danger hidden';section.innerHTML='<button id="deleteProspect" class="delete-prospect" type="button"><span class="tos-icon tos-icon-trash" aria-hidden="true"></span>Eliminar prospecto</button><div id="deleteProspectConfirm" class="delete-prospect-confirm hidden"><strong>¿Eliminar este prospecto?</strong><p>Se borrarán el registro de Fichajes y su fotografía. Si ya se convirtió en Tanner, su ficha de jugador permanecerá.</p><div><button id="cancelDeleteProspect" class="secondary" type="button">Cancelar</button><button id="confirmDeleteProspect" class="danger-action" type="button">Sí, eliminar prospecto</button></div><div id="deleteProspectMessage" class="inline-message hidden"></div></div>';drawer.appendChild(section);
   }
   if(!$('prospectToast')){const notice=document.createElement('div');notice.id='prospectToast';notice.className='prospect-toast';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');document.body.appendChild(notice);}
   updateFilterButton();
@@ -629,4 +629,4 @@ $('prospectStatus').addEventListener('change',toggleLossReasonField);
 $('lossReasonSelect')?.addEventListener('change',()=>{$('lossReasonCustom').classList.toggle('hidden',$('lossReasonSelect').value!=='custom');});
 $('signOut').addEventListener('click',async()=>{await supabase.auth.signOut();location.href='/';});
 
-boot().catch(e=>{$('deniedText').textContent=friendly(e)||'No pudimos abrir Prospectos.';show('deniedView');});
+boot().catch(e=>{$('deniedText').textContent=friendly(e)||'No pudimos abrir Fichajes.';show('deniedView');});

@@ -40,7 +40,7 @@ const GENTE = [
 const nav = (mods) => mods.map(([c, w]) => ({ module_code:c, enabled:true, can_read:true, can_write:w }));
 const ROLES = {
   Presidencia: { yo:'u-mich', nav: nav([['jugadores',true],['prospectos',true],['taquilla',true],['cobranza',true],['contabilidad',true],['tienda',true],['estacionamiento',true]]),
-                 espera:['Registrar jugador','Captación','Cobrar','Pagar','Tienda','Gafete de estacionamiento'] },
+                 espera:['Registrar jugador','Fichajes','Cobrar','Pagar','Tienda','Gafete de estacionamiento'] },
   Taquilla:    { yo:'u-ipad', nav: nav([['taquilla',true],['cobranza',true]]),
                  espera:['Cobrar','Pagar'] },
   Formadores:  { yo:'u-profe', nav: nav([['asistencia',true],['convocatoria',false],['jugadores',false]]),

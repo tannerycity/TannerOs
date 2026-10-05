@@ -58,7 +58,7 @@ export const navItems=[
   {code:'calendario',label:'Calendario',href:'/calendario/',group:'main',icon:'calendar'},
   {code:'centro_tanner',label:'Centro Tanner',href:'/admin/centro-tanner/',group:'main',icon:'book'},
   {code:'academias',label:'Academias',href:'/operacion/academias/',group:'club',icon:'academy'},
-  {code:'prospectos',label:'Captación',href:'/prospectos/',group:'club',icon:'target'},
+  {code:'prospectos',label:'Fichajes',href:'/prospectos/',group:'club',icon:'target'},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
   {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
@@ -491,7 +491,7 @@ function ensureBackButton(){
    Estacionamiento, levantar pedido), ni para cuentas de familia. */
 const ACCIONES_RAPIDAS={
   registrar:{label:'Registrar jugador',sub:'Formulario de nuevo ingreso',href:'/registro/jugadores/',icon:'userPlus',modulos:['prospectos','jugadores'],escribe:true},
-  captacion:{label:'Captación',sub:'Los que se registraron',href:'/prospectos/',icon:'target',modulos:['prospectos']},
+  captacion:{label:'Fichajes',sub:'Los que quieren entrar al club',href:'/prospectos/',icon:'target',modulos:['prospectos']},
   cobrar:{label:'Cobrar',sub:'Entra dinero al club',href:'/taquilla/?action=cobrar',icon:'moneyIn',modulos:['taquilla','cobranza'],escribe:true},
   pagar:{label:'Pagar',sub:'Sale dinero del club',href:'/taquilla/?action=pagar',icon:'moneyOut',modulos:['taquilla','contabilidad'],escribe:true},
   tienda:{label:'Tienda',sub:'Nuevo pedido y entregas',href:'/pedidos/',icon:'bag',modulos:['tienda'],escribe:true},

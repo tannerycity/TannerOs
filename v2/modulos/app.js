@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const routes={
   players:{name:'Jugadores',desc:'Expedientes, tutores, salud y categoría con historial.',href:'/jugadores/'},
   attendance:{name:'Asistencia',desc:'Sesiones, roster y registro de asistencia.',href:'/asistencia/'},
-  prospects:{name:'Captación',desc:'Prospectos, seguimiento y funnel.',href:'/prospectos/'},
+  prospects:{name:'Fichajes',desc:'Los que quieren entrar al club: seguimiento y pruebas.',href:'/prospectos/'},
   scouting:{name:'Scouting',desc:'Visorías y evaluación de talento.',href:'/scouting/'},
   academies:{name:'Academias',desc:'Academias, cupos e inscripciones de Tanners.',href:'/operacion/academias/'},
   commerce:{name:'Pedidos y producción',desc:'Órdenes, cortes, producción, entrega y garantías.',href:'/pedidos/'},

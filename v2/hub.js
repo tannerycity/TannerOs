@@ -26,12 +26,12 @@ function titleCase(text){return String(text||'').replace(/(^|\s)(\p{L})/gu,(m,se
 function campaignLabel(value){const code=String(value||'').trim();if(!code)return 'Sin campaña';const known={captacion_porteros_2026:'Captación Porteros',captacion_jugadores_2026:'Captación Jugadores',registro_general_2026:'Registro general'};return known[code]||titleCase(code.replaceAll('_',' '));}
 
 async function renderClub(){
-  $('hubEyebrow').textContent='EL CORAZÓN DEPORTIVO DEL CLUB';$('hubTitle').textContent='Club';$('hubSubtitle').textContent='Plantilla, asistencia, convocatorias, captación y calendario.';
-  $('hubBody').innerHTML=`<section class="tos-hub-grid">${card('jugadores','Jugadores','Plantilla y fichas Tanner','/jugadores/','','users')}${card('asistencia','Asistencia','Entrenamientos y registro','/asistencia/','blue','check')}${card('callups','Convocatoria','Arma tu convocatoria','/convocatoria/','gold','list')}${card('prospectos','Captación','Seguimiento de talento','/prospectos/','gold','target')}${card('scouting','Scouting','Visorías y radar de talento','/scouting/','','search')}${card('academias','Academias','Inscripciones y operación','/operacion/academias/','blue','academy')}</section>`;
+  $('hubEyebrow').textContent='EL CORAZÓN DEPORTIVO DEL CLUB';$('hubTitle').textContent='Club';$('hubSubtitle').textContent='Plantilla, asistencia, convocatorias, fichajes y calendario.';
+  $('hubBody').innerHTML=`<section class="tos-hub-grid">${card('jugadores','Jugadores','Plantilla y fichas Tanner','/jugadores/','','users')}${card('asistencia','Asistencia','Entrenamientos y registro','/asistencia/','blue','check')}${card('callups','Convocatoria','Arma tu convocatoria','/convocatoria/','gold','list')}${card('prospectos','Fichajes','Los que quieren entrar al club','/prospectos/','gold','target')}${card('scouting','Scouting','Visorías y radar de talento','/scouting/','','search')}${card('academias','Academias','Inscripciones y operación','/operacion/academias/','blue','academy')}</section>`;
 }
 
 async function renderDirection(){
-  $('hubEyebrow').textContent='INTELIGENCIA DEL CLUB';$('hubTitle').textContent='Dirección';$('hubSubtitle').textContent='Decisiones deportivas, financieras y de captación desde una sola fuente de verdad.';
+  $('hubEyebrow').textContent='INTELIGENCIA DEL CLUB';$('hubTitle').textContent='Dirección';$('hubSubtitle').textContent='Decisiones deportivas, financieras y de fichajes desde una sola fuente de verdad.';
   const [players,collection,prospects,sponsors]=await Promise.all([
     can('jugadores')?safe(rpc('v2_players',{organization_id:org,status_filter:'active'}),[]):[],
     (can('cobranza')||can('contabilidad'))?safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:new Date().toISOString().slice(0,7)+'-01'}),null):null,
@@ -46,15 +46,15 @@ async function renderDirection(){
   const cards=[];
   if(can('jugadores')){const categoryShare=topCategory&&players.length?Math.round(topCategory[1]/players.length*100):0;cards.push(barKpi('Jugadores activos',players.length,topCategory?`${topCategory[0]} · ${topCategory[1]} Tanners`:'Plantilla actual',categoryShare));}
   if(collection){const rate=Number(collection.collection_rate||0),rateState=rate>=90?'good':rate>=75?'attention':'danger';cards.push(ringKpi('Cobranza',`${rate}%`,`${collection.covered||0}/${collection.collection_population||0} cubiertos`,rate,rateState));cards.push(moneyKpi('Cartera del mes',collection.current_period_receivable,'Pendiente del periodo','attention'));const _cob=Number(collection.total_receivable||0);if(_cob>Number(collection.current_period_receivable||0))cards.push(moneyKpi('Cartera cobrable',_cob,`${collection.pending_players||0} Tanners activos pendientes`,'danger'));if(Number(collection.residual_receivable||0)>0)cards.push(moneyKpi('Arrastre anterior',collection.residual_receivable,`${collection.residual_players||0} Tanners con saldo de meses previos`,'attention'));}
-  if(can('prospectos')||can('scouting')){cards.push(ringKpi('Conversión captación',`${conversion}%`,`${converted}/${prospects.length} convertidos`,conversion));cards.push(iconKpi('Mejor fuente',topCampaign?campaignLabel(topCampaign[0]):'Sin datos',topCampaign?`${topCampaign[1]} registros`:'Aún sin atribución','target'));}
+  if(can('prospectos')||can('scouting')){cards.push(ringKpi('Fichajes concretados',`${conversion}%`,`${converted}/${prospects.length} convertidos`,conversion));cards.push(iconKpi('Mejor fuente',topCampaign?campaignLabel(topCampaign[0]):'Sin datos',topCampaign?`${topCampaign[1]} registros`:'Aún sin atribución','target'));}
   if(can('patrocinadores'))cards.push(kpi('Marcas activas',sponsors.filter(s=>Number(s.active_agreements||0)>0).length,`${renewal.length} por revisar`));
   const attention=[];
   const _cobrable=collection?Number(collection.total_receivable||0):0;
   if(_cobrable>0)attention.push(alert('Atención','Cartera cobrable',money.format(_cobrable),`${collection.pending_players||0} Tanners activos con saldo por cobrar.`,'danger','/finanzas/'));
   if(collection&&Number(collection.residual_receivable||0)>0)attention.push(alert('Atención','Arrastre de meses anteriores',money.format(Number(collection.residual_receivable)),`${collection.residual_players||0} Tanners con saldo de meses previos. Es lo más viejo por cobrar.`,'danger','/finanzas/#cobranza'));
   if(collection&&Number(collection.needs_configuration||0)>0)attention.push(alert('Atención','Cuotas por configurar',collection.needs_configuration,'Se requiere definición antes de cobrar.','','/finanzas/'));
-  if(overdue.length)attention.push(alert('Atención','Seguimientos vencidos',overdue.length,'Captación requiere acción.','danger','/prospectos/'));
-  if(open.length)attention.push(alert('Oportunidad','Talento en seguimiento',open.length,'Prospectos activos en el funnel.','opportunity','/prospectos/'));
+  if(overdue.length)attention.push(alert('Atención','Seguimientos vencidos',overdue.length,'Fichajes requiere acción.','danger','/prospectos/'));
+  if(open.length)attention.push(alert('Oportunidad','Talento en seguimiento',open.length,'Niños en proceso de fichaje.','opportunity','/prospectos/'));
   if(renewal.length)attention.push(alert('Oportunidad','Patrocinios por revisar',renewal.length,'Revisa convenios y renovaciones.','opportunity','/patrocinadores/'));
   if(!attention.length)attention.push(alert('Bien','Todo en orden','','No detectamos alertas en los módulos que puedes ver.','good'));
   $('hubBody').innerHTML=`<section class="tos-kpis">${cards.slice(0,6).join('')}</section><section class="tos-panel"><div class="tos-panel-head"><h2>Requiere tu atención</h2></div><div class="tos-attention-list">${attention.slice(0,6).join('')}</div></section>`;

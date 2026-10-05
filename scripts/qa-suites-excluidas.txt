@@ -30,6 +30,7 @@ qa-humo-fechas-ingreso.mjs
 qa-humo-taquilla-tienda.mjs
 qa-humo-estacionamiento.mjs
 qa-humo-mensajes.mjs
+qa-humo-inicio-cumple-fab.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

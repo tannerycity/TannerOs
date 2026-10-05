@@ -526,6 +526,7 @@ function renderPersonDrawer(){
   if(guardian){
     $('guardianPlayers').textContent=(data.players||[]).join(' · ')||'Sin Tanner ligado';$('guardianContact').textContent=data.email||data.phone||'Sin correo';
   }else{
+    $('memberBirth').value=data.birthDate||'';$('memberBirth').max=new Date().toISOString().slice(0,10);$('memberBirth').disabled=!canWrite;
     $('memberRole').innerHTML=roleOptions(data.roleCode);$('memberRole').disabled=data.isOwner||!canWrite;$('saveMemberProfile').disabled=data.isOwner||!canWrite;
     $('resetAllModules').disabled=data.isOwner||!canWrite||!customCount(data);renderModuleAccess();
     // Con ajustes especiales la sección se abre sola y dice cuáles: cerrada,
@@ -609,6 +610,17 @@ async function saveMemberProfile(){
   try{await rpc('v2_update_membership',{organization_id:ctx.organization_id,membership_id:member.membershipId,role_code:roleCode,active:member.active});await load(true);message('profileMessage','Su lugar quedó guardado y la llave ya abre lo necesario.','success');}
   catch(error){message('profileMessage',friendly(error));await load(true);}finally{button.disabled=!canWrite||currentPerson?.data?.isOwner;}
 }
+// El cumpleaños se guarda solo al elegir la fecha: no depende del rol, y al
+// dueño (cuyo rol está protegido) también se le puede capturar.
+async function saveMemberBirthday(){
+  if(currentPerson?.kind!=='staff')return;
+  const member=currentPerson.data,value=$('memberBirth').value||null;
+  if((member.birthDate||null)===value)return;
+  message('profileMessage');
+  try{await rpc('v2_set_member_birthday',{organization_id:ctx.organization_id,user_id:member.userId,birth_date:value});member.birthDate=value;
+    message('profileMessage',value?'Cumpleaños guardado. Saldrá en Inicio cuando se acerque.':'Cumpleaños borrado.','success');}
+  catch(error){message('profileMessage',friendly(error));$('memberBirth').value=member.birthDate||'';}
+}
 async function resetAllModules(){
   if(currentPerson?.kind!=='staff'||currentPerson.data.isOwner)return;
   const member=currentPerson.data,customized=(member.modules||[]).filter(module=>module.customized&&!hiddenModules.has(module.moduleCode));if(!customized.length)return;
@@ -685,7 +697,7 @@ $('accessUsername').addEventListener('input',resuelveLlave);
 $('accessEmail').addEventListener('input',resuelveLlave);
 $('accessForm').addEventListener('submit',createAccess);
 $('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());
-$('closeMember').addEventListener('click',closePerson);$('memberBackdrop').addEventListener('click',closePerson);$('saveMemberProfile').addEventListener('click',saveMemberProfile);$('resetAllModules').addEventListener('click',resetAllModules);$('saveCategories').addEventListener('click',saveCategories);$('toggleMember').addEventListener('click',togglePersonAccess);$('resetMemberPassword').addEventListener('click',resetPersonPassword);
+$('closeMember').addEventListener('click',closePerson);$('memberBackdrop').addEventListener('click',closePerson);$('saveMemberProfile').addEventListener('click',saveMemberProfile);$('memberBirth').addEventListener('change',saveMemberBirthday);$('resetAllModules').addEventListener('click',resetAllModules);$('saveCategories').addEventListener('click',saveCategories);$('toggleMember').addEventListener('click',togglePersonAccess);$('resetMemberPassword').addEventListener('click',resetPersonPassword);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!$('memberDrawer').classList.contains('hidden'))closePerson();else if(!$('wizardModal').classList.contains('hidden'))closeWizard();}});
 
 boot().catch(error=>{$('deniedText').textContent=friendly(error);show('deniedView');});

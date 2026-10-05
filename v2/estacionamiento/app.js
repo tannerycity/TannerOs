@@ -342,3 +342,7 @@ $('parkBackdrop').addEventListener('click',cerrarDrawer);
 $('pkSheetBackdrop').addEventListener('click',()=>{if(!state.hoja?.enviando)cerrarHoja();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.hoja&&!state.hoja.enviando)cerrarHoja();});
 await load();
+// ?nuevo=1 (botón de acciones rápidas): abre directo la hoja de gafete nuevo.
+if(new URLSearchParams(location.search).get('nuevo')==='1'&&$('pkNuevo')){
+  history.replaceState(null,'',location.pathname);abrirHoja({});
+}

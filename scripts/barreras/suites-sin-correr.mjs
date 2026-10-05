@@ -83,7 +83,10 @@ export default function comprobar() {
   // Sube a 19 por qa-humo-mensajes.mjs. Vigila los chats internos: que lo
   // nuevo se vea, que reintentar no duplique (misma llave), las palomitas, el
   // "visto por" y que un mensaje con HTML no se ejecute. Todo eso es pintura.
-  const MAX_EXCLUIDAS = 19;
+  // Sube a 20 por qa-humo-inicio-cumple-fab.mjs. Vigila la franja de
+  // cumpleaños bajo el saludo y el botón flotante: qué acciones ve cada rol,
+  // que abra y cierre, y que el menú quepa en el teléfono. Es pintura.
+  const MAX_EXCLUIDAS = 20;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

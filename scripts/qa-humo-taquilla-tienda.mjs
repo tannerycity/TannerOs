@@ -48,6 +48,7 @@ const PEDIDOS = [
 const shell = (puedeTienda, veCobranza = true) => `
   window.__rpc = [];
   window.tosConfirm = async () => true;
+  window.tosAlert = async (o) => { window.__alerta = o; };
   export const supabase = { auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}),
     getUser:async()=>({data:{user:{id:'u1',app_metadata:{}}}}), signOut:async()=>({}),
     onAuthStateChange(){ return {data:{subscription:{unsubscribe(){}}}}; } } };
@@ -64,11 +65,17 @@ const shell = (puedeTienda, veCobranza = true) => `
                                     {id:'p9',first_name:'Baja',last_name:'Ejemplo',status_value:'withdrawn'}];
     if(name==='v2_orders_to_collect') return ${JSON.stringify(PEDIDOS)};
     if(name==='v2_post_order_payment_at_cashier') return 'pago-1';
+    if(name==='v2_parking_passes') return { season:2026, price:200, prices:{tanner:200,vip:200}, passes:[
+      { id:'g2', status:'requested', plate:'JAL-555-B', holder:'Dario Montalvo Díaz', player_id:'p2', category:'T10', pass_type:'tanner', is_courtesy:false, balance:0 },
+      { id:'g4', status:'requested', plate:'QRO-111-X', holder:'Staff Gratis', player_id:null, pass_type:'tanner', is_courtesy:true, balance:0 },
+      { id:'g1', status:'issued', plate:'GTO-123-A', holder:'Matías Campos Rizo', player_id:'p1', pass_type:'tanner', is_courtesy:false, balance:0 } ] };
+    if(name==='v2_parking_express') return { ok:true, folio:'TC009', paid:200, method:params.method };
     return null;
   }
   export function moduleAccess(rows, code, write=false){
     const m = { taquilla:{r:true,w:true}, tienda:{r:${puedeTienda},w:${puedeTienda}},
-                cobranza:{r:${veCobranza},w:${veCobranza}}, jugadores:{r:true,w:true} };
+                cobranza:{r:${veCobranza},w:${veCobranza}}, jugadores:{r:true,w:true},
+                estacionamiento:{r:true,w:${puedeTienda}} };
     const e = m[code]; if(!e) return false; return write ? e.w : e.r;
   }
   export function setShellHealth(){}
@@ -206,6 +213,55 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   await pg.close();
 }
 
+/* ===== ESTACIONAMIENTO: "en Taquilla se puede cobrar todo" ===== */
+{
+  const { pg, errs } = await abre(true);
+  await pg.click('#openCollect');
+  revisa('la pestaña Estacionamiento existe en Taquilla', await pg.isVisible('#tabGafete'));
+  await pg.click('#tabGafete'); await pg.waitForTimeout(300);
+  const lista = await pg.$$eval('.gafete-item', e => e.map(x => x.innerText));
+  revisa('enseña los gafetes por cobrar, no los entregados ni los sin costo',
+    lista.length === 1 && /JAL-555-B/.test(lista[0]) && /Cobrar \$200/.test(lista[0]), JSON.stringify(lista));
+  revisa('sin elegir nada no deja cobrar', !(await pg.isVisible('#saveCollect')));
+  await pg.click('[data-gafete="g2"]');
+  if (process.env.QA_GAFETE) await pg.screenshot({ path: process.env.QA_GAFETE });
+  const boton = await pg.textContent('#saveCollect');
+  revisa('elegida la solicitud, el botón dice cuánto y que entrega', /Cobrar \$200(\.00)? y entregar/.test(boton), boton);
+  await pg.selectOption('#gafeteMethod', 'transfer');
+  await pg.fill('#gafeteCollectedBy', 'Zul');
+  await pg.click('#saveCollect'); await pg.waitForTimeout(400);
+  const env = await pg.evaluate(() => window.__rpc.filter(c => c.name === 'v2_parking_express').map(c => c.params));
+  const p = env[0] || {};
+  revisa('el gafete se cobra con el movimiento único, ligado a la solicitud',
+    env.length === 1 && p.pass_id === 'g2' && p.method === 'transfer' && p.courtesy === false, JSON.stringify(env));
+  revisa('con quién de Tannery cobró', p.collected_by_name === 'Zul', p.collected_by_name);
+  const alerta = await pg.evaluate(() => window.__alerta);
+  revisa('al terminar dice qué folio entregar', /TC009/.test(alerta?.title || ''), JSON.stringify(alerta));
+
+  // Gafete nuevo para un Tanner que no lo ha pedido.
+  await pg.click('#openCollect'); await pg.click('#tabGafete'); await pg.waitForTimeout(200);
+  await pg.fill('#gafetePlayerSearch', 'matias');
+  await pg.click('#gafetePlayerResults .tsearch-opt'); await pg.waitForTimeout(200);
+  revisa('si el Tanner no tiene gafete pedido, se abre el alta solo', await pg.isVisible('#gafetePlaca'));
+  revisa('sin placas no deja cobrar', !(await pg.isVisible('#saveCollect')));
+  await pg.fill('#gafetePlaca', 'gto-777-z');
+  await pg.click('#saveCollect'); await pg.waitForTimeout(400);
+  const n = (await pg.evaluate(() => window.__rpc.filter(c => c.name === 'v2_parking_express').map(c => c.params)))[1] || {};
+  revisa('el gafete nuevo va para ese Tanner, con placas en mayúsculas y en efectivo',
+    n.pass_id === null && n.player_id === 'p1' && n.holder_kind === 'familia' && n.plate === 'GTO-777-Z' && n.method === 'cash', JSON.stringify(n));
+  revisa('cada cobro lleva su propia llave', n.idempotency_key && n.idempotency_key !== p.idempotency_key);
+
+  // Otro ingreso · Estacionamiento manda a la pestaña correcta.
+  await pg.click('#openCollect');
+  await pg.click('.cashier-tabs [data-mode="general"]');
+  await pg.selectOption('#generalCategory', 'Estacionamiento');
+  revisa('"Otro ingreso · Estacionamiento" avisa que el gafete no se enteraría', await pg.isVisible('#generalGafeteAviso'));
+  await pg.click('#irAGafete');
+  revisa('y "Cobrarlo ahí" lleva a la pestaña Estacionamiento', await pg.isVisible('#gafeteFields'));
+  revisa('sin errores de consola (estacionamiento)', errs.length === 0, errs.join(' | '));
+  await pg.close();
+}
+
 /* ===== SIN PERMISO DE TIENDA ===== */
 {
   const { pg } = await abre(false);
@@ -214,11 +270,12 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   await pg.click('.cashier-tabs [data-mode="general"]');
   await pg.selectOption('#generalCategory', 'Uniforme');
   revisa('ni el aviso que manda a ella', !(await pg.isVisible('#generalTiendaAviso')));
+  revisa('quien no escribe en Estacionamiento no ve esa pestaña', !(await pg.isVisible('#tabGafete')));
   await pg.close();
 }
 
 await nav.close(); srv.close();
 console.log(fallos
   ? `Taquilla · Tienda humo FAILED · ${fallos} de ${corridas}`
-  : `Taquilla · Tienda humo OK · ${corridas} revisiones: el anticipo va ligado al pedido, con quién cobró y sin pasarse del saldo`);
+  : `Taquilla · Tienda humo OK · ${corridas} revisiones: el anticipo va ligado al pedido y el gafete se cobra y entrega desde Taquilla`);
 process.exit(fallos ? 1 : 0);

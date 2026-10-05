@@ -54,6 +54,13 @@ function resetCollectForm(){
   $('tiendaPlayer').value='';$('tiendaPlayerSearch').value='';$('tiendaOrder').value='';
   $('tiendaPlayerClear')?.classList.add('hidden');$('tiendaPlayerResults')?.classList.add('hidden');
   $('tiendaDate').value=isoToday();$('tiendaCobro').classList.add('hidden');
+  if($('gafeteFields')){
+    ['gafetePlayer','gafetePlayerSearch','gafetePase','gafeteNombre','gafetePlaca','gafeteVehiculo','gafeteReference'].forEach(id=>{$(id).value='';});
+    $('gafeteTipo').value='tanner';gafeteNuevo=false;
+    $('gafetePlayerClear')?.classList.add('hidden');$('gafetePlayerResults')?.classList.add('hidden');
+    $('gafeteNuevo').classList.add('hidden');$('gafeteCobro').classList.add('hidden');
+    $('generalGafeteAviso')?.classList.add('hidden');
+  }
   recuerdaQuien();
   setCollectMode('player');
   message('collectMessage');
@@ -323,15 +330,19 @@ document.addEventListener('click',async e=>{
 });
 function setCollectMode(mode){
   if(mode==='tienda'&&!canTienda)mode='player';
+  if(mode==='gafete'&&!canGafete)mode='player';
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   $('playerFields').classList.toggle('hidden',mode!=='player');$('generalFields').classList.toggle('hidden',mode!=='general');
   $('tiendaFields').classList.toggle('hidden',mode!=='tienda');
-  $('saveCollect').textContent=mode==='player'?'Registrar cobro':mode==='tienda'?'Cobrar pedido':'Registrar ingreso';
-  $('saveCollect').classList.toggle('hidden',mode==='tienda'&&!$('tiendaOrder').value);
+  $('gafeteFields')?.classList.toggle('hidden',mode!=='gafete');
+  $('saveCollect').textContent=mode==='player'?'Registrar cobro':mode==='tienda'?'Cobrar pedido':mode==='gafete'?textoGafete():'Registrar ingreso';
+  $('saveCollect').classList.toggle('hidden',(mode==='tienda'&&!$('tiendaOrder').value)||(mode==='gafete'&&!gafeteListo()));
   $('cashierHelp').textContent=mode==='tienda'
     ?'El cobro queda ligado al pedido: se ve en Pedidos, en el estado de cuenta de la familia y en la caja del día.'
+    :mode==='gafete'?'Se cobra, se le da folio y queda entregado en un solo paso. Si no tiene costo (patrocinio, staff), dalo desde Estacionamiento.'
     :canTienda?'¿Es un uniforme o algo de la tienda? Usa la pestaña Tienda / uniformes.':'';
   if(mode==='tienda')cargaPedidos();
+  if(mode==='gafete')cargaGafetes();
   message('collectMessage');
 }
 
@@ -415,6 +426,90 @@ $('irATienda')?.addEventListener('click',()=>{
   if(id){$('tiendaPlayer').value=id;$('tiendaPlayerSearch').value=nombre;$('tiendaPlayerClear')?.classList.remove('hidden');pintaPedidos();}
 });
 $('tabTienda')?.classList.toggle('hidden',!canTienda);
+/* ===== Estacionamiento =====
+
+   Pedido de Presidencia (05/10/2026): "en taquilla se pueda cobrar todo".
+   El gafete se cobra aquí igual que en Estacionamiento: con el mismo
+   movimiento único (v2_parking_express), así que se cobra lo que debe ESE
+   gafete (no la mensualidad más vieja), se le da folio y queda entregado.
+   Antes, cobrarlo aquí como "Otro ingreso" metía el dinero a caja pero el
+   gafete seguía "por cobrar" y nadie lo entregaba. Sin costo (patrocinio,
+   staff) se queda en Estacionamiento: aquí sólo se cobra. */
+const canGafete=moduleAccess(navigation,'estacionamiento',true);
+let gafetes=null,gafetePrecios={tanner:0,vip:0},gafeteNuevo=false;
+const gafeteSaldo=p=>p.status==='approved'?Number(p.balance||0):Number(gafetePrecios[p.pass_type||'tanner']||0);
+const gafeteNombreDe=p=>p.player||p.holder||'Sin nombre';
+async function cargaGafetes(forzar=false){
+  if(!canGafete)return;
+  cargaJugadoresTienda();
+  if(gafetes&&!forzar){pintaGafetes();return;}
+  try{
+    const d=await rpc('v2_parking_passes',{organization_id:org,status_filter:null})||{};
+    gafetePrecios=d.prices||{tanner:d.price||0,vip:d.price||0};
+    // Sólo lo que tiene algo que cobrar: solicitudes con costo y autorizados que deben.
+    gafetes=(d.passes||[]).filter(p=>(p.status==='requested'&&!p.is_courtesy)||(p.status==='approved'&&Number(p.balance||0)>0));
+  }catch(e){$('gafetePendientes').innerHTML=`<p class="tienda-vacio">No se pudieron cargar los gafetes: ${esc(e.message||'')}</p>`;return;}
+  pintaGafetes();
+}
+function pintaGafetes(){
+  const caja=$('gafetePendientes');if(!caja)return;
+  const jugador=$('gafetePlayer').value,nombre=$('gafetePlayerSearch').value.trim(),elegido=$('gafetePase').value;
+  const lista=(gafetes||[]).filter(p=>!jugador||String(p.player_id)===String(jugador));
+  const nuevoTxt=jugador?`＋ Gafete nuevo para ${esc(nombre.split(/\s+/)[0]||'este Tanner')}`:'＋ Gafete nuevo';
+  const filas=lista.map(p=>`<button type="button" class="tienda-pedido gafete-item${String(p.id)===String(elegido)?' on':''}" data-gafete="${esc(p.id)}">
+      <div class="tp-top"><b class="gafete-placa">${esc(p.plate||'Sin placas')}</b><span>${esc(gafeteNombreDe(p))}${p.category?` · ${esc(p.category)}`:''}</span></div>
+      <div class="tp-dinero"><span>${p.status==='requested'?'Lo pidió desde el portal':'Autorizado, sin entregar'}</span><strong>Cobrar ${money.format(gafeteSaldo(p))}</strong></div>
+    </button>`).join('');
+  caja.innerHTML=(lista.length?`<span class="tienda-titulo">${jugador?'Sus gafetes por cobrar':`Gafetes por cobrar · ${lista.length}`}</span>${filas}`
+    :`<p class="tienda-vacio">${jugador?`${esc(nombre)} no tiene gafetes por cobrar.`:'No hay gafetes por cobrar.'}</p>`)
+    +`<button type="button" class="tienda-nuevo-btn gafete-nuevo-btn${gafeteNuevo?' on':''}" id="gafeteNuevoBtn">${nuevoTxt}</button>`;
+}
+function gafeteListo(){
+  if($('gafetePase')?.value)return true;
+  if(!gafeteNuevo)return false;
+  if(!$('gafetePlayer').value&&!$('gafeteNombre').value.trim())return false;
+  return String($('gafetePlaca').value||'').replace(/[^A-Za-z0-9]/g,'').length>=5;
+}
+function montoGafete(){
+  const id=$('gafetePase')?.value;
+  if(id){const p=(gafetes||[]).find(x=>String(x.id)===String(id));return p?gafeteSaldo(p):0;}
+  return Number(gafetePrecios[$('gafeteTipo')?.value||'tanner']||0);
+}
+function textoGafete(){return gafeteListo()?`Cobrar ${money.format(montoGafete())} y entregar`:'Cobrar gafete';}
+function refrescaGafete(){
+  const listo=gafeteListo();
+  $('gafeteCobro').classList.toggle('hidden',!($('gafetePase').value||gafeteNuevo));
+  $('gafeteMonto').innerHTML=`Se cobra <b>${money.format(montoGafete())}</b> y el gafete queda entregado con su folio.`;
+  $('saveCollect').textContent=textoGafete();
+  $('saveCollect').classList.toggle('hidden',!listo);
+}
+function eligeGafete(id){
+  $('gafetePase').value=id;gafeteNuevo=false;
+  $('gafeteNuevo').classList.add('hidden');
+  pintaGafetes();refrescaGafete();
+}
+function abreGafeteNuevo(){
+  $('gafetePase').value='';gafeteNuevo=true;
+  $('gafeteNuevo').classList.remove('hidden');
+  $('gafeteNombreWrap').classList.toggle('hidden',!!$('gafetePlayer').value);
+  pintaGafetes();refrescaGafete();
+  ($('gafetePlayer').value?$('gafetePlaca'):$('gafeteNombre')).focus();
+}
+$('gafetePendientes')?.addEventListener('click',e=>{
+  if(e.target.closest('#gafeteNuevoBtn')){abreGafeteNuevo();return;}
+  const b=e.target.closest('[data-gafete]');if(b)eligeGafete(b.dataset.gafete);
+});
+['gafetePlaca','gafeteNombre'].forEach(id=>$(id)?.addEventListener('input',refrescaGafete));
+$('gafeteTipo')?.addEventListener('change',refrescaGafete);
+$('tabGafete')?.classList.toggle('hidden',!canGafete);
+// Otro ingreso · Estacionamiento: el dinero entraría a caja pero el gafete no se enteraría.
+$('generalCategory')?.addEventListener('change',e=>$('generalGafeteAviso')?.classList.toggle('hidden',!canGafete||!/^estacionamiento$/i.test(e.target.value)));
+$('irAGafete')?.addEventListener('click',()=>{
+  const id=$('generalPlayer').value,nombre=$('generalPlayerSearch').value;
+  setCollectMode('gafete');
+  if(id){$('gafetePlayer').value=id;$('gafetePlayerSearch').value=nombre;$('gafetePlayerClear')?.classList.remove('hidden');pintaGafetes();}
+});
+
 async function confirmDoubleCheck(o){
   if(!window.tosConfirm)return true;
   return window.tosConfirm({kicker:'DOBLE CHECK',title:o.title,message:o.message,confirmText:o.confirmText||'Sí, confirmar',cancelText:'Revisar'});
@@ -456,6 +551,27 @@ async function postCollect(){
         reference:$('tiendaReference').value.trim()||null,payer_type:o.playerId?'guardian':'other',payer_name:o.playerId?null:(o.customerName||null),
         collected_by_name:quienDelClub('tiendaCollectedBy'),idempotency_key:key('cashier-order')});
       pedidosCargados=false;
+    }else if(collectMode==='gafete'){
+      if(!gafeteListo())throw new Error('Elige el gafete o completa nombre y placas.');
+      const id=$('gafetePase').value,p=id?(gafetes||[]).find(x=>String(x.id)===String(id)):null;
+      const player=$('gafetePlayer').value||null,nombreNuevo=$('gafeteNombre').value.trim();
+      const quien=p?gafeteNombreDe(p):(player?$('gafetePlayerSearch').value.trim():nombreNuevo);
+      const placa=p?p.plate:$('gafetePlaca').value.trim().toUpperCase();
+      const amount=montoGafete();
+      const okDbl=await confirmDoubleCheck({title:'Confirma el gafete',message:`Vas a cobrar ${money.format(amount)} del gafete de ${quien} (${placa}) · ${methodLabel($('gafeteMethod').value)}, y queda entregado. ¿Es correcto?`,confirmText:'Sí, cobrar y entregar'});
+      if(!okDbl){btn.disabled=false;return;}
+      const r=await rpc('v2_parking_express',{organization_id:org,pass_id:p?p.id:null,
+        holder_kind:p?null:(player?'familia':'other'),player_id:p?null:player,
+        holder_name:p||player?null:nombreNuevo,holder_phone:null,
+        plate:p?null:placa,vehicle:p?null:($('gafeteVehiculo').value.trim()||null),
+        pass_type:p?null:$('gafeteTipo').value,courtesy:false,courtesy_reason:null,
+        method:$('gafeteMethod').value,reference:$('gafeteReference').value.trim()||null,
+        collected_by_name:quienDelClub('gafeteCollectedBy'),idempotency_key:key('cashier-parking')});
+      gafetes=null;
+      closeModals();await Promise.all([load(),loadReceivables()]);renderCollections();cargaConcilia(true);
+      if(window.tosAlert)await window.tosAlert({kicker:'ESTACIONAMIENTO',title:`Entrega el gafete ${r?.folio||''}`.trim(),
+        message:`Cobrado ${money.format(Number(r?.paid||amount))}. Dale a ${quien} el gafete ${r?.folio||''} para ${placa}.`});
+      return;
     }else{
       const amount=Math.round(Number($('generalAmount').value)),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
@@ -776,6 +892,13 @@ tannerSearchInit('tiendaPlayerBox','tiendaPlayerSearch','tiendaPlayer','tiendaPl
   const suyos=pedidos.filter(o=>String(o.playerId)===String($('tiendaPlayer').value));
   if(suyos.length===1)eligePedido(suyos[0].id);
 },fuenteTienda);
+tannerSearchInit('gafetePlayerBox','gafetePlayerSearch','gafetePlayer','gafetePlayerResults','gafetePlayerClear',()=>{
+  $('gafetePase').value='';
+  const suyos=(gafetes||[]).filter(p=>String(p.player_id)===String($('gafetePlayer').value));
+  // Si ya pidió su gafete, queda elegido; si no, se abre el alta: un toque menos.
+  if(suyos.length===1)eligeGafete(suyos[0].id);else if(!suyos.length)abreGafeteNuevo();else{gafeteNuevo=false;$('gafeteNuevo').classList.add('hidden');pintaGafetes();refrescaGafete();}
+},fuenteTienda);
+$('gafetePlayerClear')?.addEventListener('click',()=>{$('gafetePase').value='';gafeteNuevo=false;$('gafeteNuevo').classList.add('hidden');pintaGafetes();refrescaGafete();});
 $('tiendaPlayerClear')?.addEventListener('click',()=>{$('tiendaOrder').value='';$('tiendaCobro').classList.add('hidden');$('saveCollect').classList.add('hidden');pintaPedidos();});
 $('tiendaPlayerSearch')?.addEventListener('input',()=>{if(!$('tiendaPlayerSearch').value){$('tiendaOrder').value='';pintaPedidos();}});
 /* De regreso del mostrador: /taquilla/?cobrar=tienda&tanner=…&pedido=…

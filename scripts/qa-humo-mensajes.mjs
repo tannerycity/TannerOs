@@ -187,6 +187,13 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
   const pub = (await llamadas(pg, 'v2_publish_announcement'))[0] || {};
   revisa('publicar un aviso a un área', pub.title === 'Junta de staff' && pub.audience_type === 'role' && pub.audience_value === 'Operaciones', JSON.stringify(pub));
+  // Desde l2 también a UNA persona.
+  await pg.click('#msNuevo'); await pg.waitForTimeout(150);
+  await pg.fill('#msAvTitulo', 'Cobra a Don Trapo');
+  await pg.selectOption('#msAvPara', 'user:u-brandon');
+  await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
+  const uno = (await llamadas(pg, 'v2_publish_announcement'))[1] || {};
+  revisa('publicar un aviso a UNA persona', uno.audience_type === 'user' && uno.audience_value === 'u-brandon', JSON.stringify(uno));
   await pg.close();
 }
 

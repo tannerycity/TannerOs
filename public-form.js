@@ -180,13 +180,13 @@ async function showRegistrationSuccess(cardData){
       try{
         const file=new File([blob],nombreArchivo,{type:'image/png'});
         if(navigator.canShare&&navigator.canShare({files:[file]})){
-          await navigator.share({files:[file],title:'Tannery City FC',text:'¡Nuevo Tanner en camino! 🟢⚪ #WeAreTanners'});
+          await navigator.share({files:[file],title:'Tannery City FC',text:'¡Nuevo Tanner en camino! #WeAreTanners'});
           return;
         }
       }catch(err){if(err?.name==='AbortError')return;}
       let waBase='https://wa.me/?text=';
       try{const ctx=await getPublicContext();if(ctx?.whatsappNumber)waBase=`https://wa.me/${ctx.whatsappNumber}?text=`;}catch{}
-      window.open(`${waBase}${encodeURIComponent('¡Nuevo Tanner en camino! 🟢⚪ #WeAreTanners')}`,'_blank','noopener');
+      window.open(`${waBase}${encodeURIComponent('¡Nuevo Tanner en camino! #WeAreTanners')}`,'_blank','noopener');
     });
   }catch(err){
     $('wcSocialTitle').textContent='No pudimos generar la tarjeta para compartir.';

@@ -14,7 +14,21 @@ const {ctx}=boot;
 const org=ctx.organization_id;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={tab:'chats',inbox:null,avisos:null,thread:null,threadId:null,busca:'',pending:[],timer:null,inboxTimer:null};
-const AREA_ICON={'*':'🏟️',Operaciones:'🧰',Taquilla:'💵',Contabilidad:'📒',Formadores:'⚽',Academia:'🎓',Scouting:'🔭',Marketing:'📣',Presidencia:'⭐'};
+// Íconos de línea, nunca emojis (regla del club): mismo trazo que el menú.
+const ICONO={
+  club:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>',
+  Operaciones:'<path d="m21 8-9 5-9-5 9-5 9 5Z"/><path d="m3 8 9 5 9-5v9l-9 5-9-5V8Z"/>',
+  Taquilla:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10"/><path d="M8 15h4"/>',
+  Contabilidad:'<path d="M6 3h12v18H6z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>',
+  Formadores:'<circle cx="12" cy="12" r="9"/><path d="m12 7.5 4 2.9-1.5 4.6h-5L8 10.4Z"/>',
+  Academia:'<path d="m3 10 9-5 9 5-9 5-9-5Z"/><path d="M7 12v5c3 2 7 2 10 0v-5"/>',
+  Scouting:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  Marketing:'<path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1Z"/><path d="M16 9a4 4 0 0 1 0 6"/>',
+  Presidencia:'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9Z"/>',
+  chat:'<path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5Z"/>',
+  reloj:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+};
+const svg=(k,cls='')=>`<svg${cls?` class="${cls}"`:''} viewBox="0 0 24 24" aria-hidden="true">${ICONO[k]||ICONO.chat}</svg>`;
 
 const iniciales=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(p=>p[0]||'').join('').toUpperCase()||'?';
 // Un color estable por persona, de la paleta del club, para reconocerla de un vistazo.
@@ -22,7 +36,7 @@ const TONOS=['#0b6e7c','#1e7a45','#8a6413','#6b4fa0','#b4443a','#2f5d9b','#7a5c1
 const tono=s=>{let h=0;for(const c of String(s||''))h=(h*31+c.charCodeAt(0))>>>0;return TONOS[h%TONOS.length];};
 function avatar(t,grande=false){
   const cls=`ms-av${grande?' big':''}`;
-  if(t.kind==='area')return `<span class="${cls} area" aria-hidden="true">${AREA_ICON[t.areaRole]||'💬'}</span>`;
+  if(t.kind==='area')return `<span class="${cls} area" aria-hidden="true">${svg(t.areaRole==='*'?'club':t.areaRole)}</span>`;
   return `<span class="${cls}" style="background:${tono(t.title)}" aria-hidden="true">${esc(iniciales(t.title))}</span>`;
 }
 const hora=v=>new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'}).format(new Date(v));
@@ -69,7 +83,7 @@ function amable(e){
 function pintaLista(){
   const app=$('msBody');
   if(!app.querySelector('.ms-list')){
-    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="chats">Chats</button><button type="button" role="tab" data-tab="avisos">Avisos</button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">💬</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
+    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="chats">Chats</button><button type="button" role="tab" data-tab="avisos">Avisos</button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
     app.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>cambiaTab(b.dataset.tab)));
     $('msNuevo').addEventListener('click',()=>state.tab==='avisos'?hojaAviso():hojaNuevo());
     $('msBusca').addEventListener('input',e=>{state.busca=e.target.value;pintaItems();});
@@ -89,7 +103,7 @@ function pintaPush(){
   // los activó; aquí sólo se ofrece el botón, más a la mano.
   const fila=$('tosBellSubscribeRow'),box=$('msPush');if(!box)return;
   const ofrecer=fila&&!fila.classList.contains('hidden');
-  box.innerHTML=ofrecer?`<div class="ms-push"><span>🔔 Recibe los mensajes en tu celular aunque no tengas TannerOS abierto.</span><button type="button" id="msPushBtn">Activar</button></div>`:'';
+  box.innerHTML=ofrecer?`<div class="ms-push"><span>Recibe los mensajes en tu celular aunque no tengas TannerOS abierto.</span><button type="button" id="msPushBtn">Activar</button></div>`:'';
   $('msPushBtn')?.addEventListener('click',()=>{$('tosEnablePush')?.click();setTimeout(pintaPush,4000);});
 }
 function pintaItems(){
@@ -113,7 +127,7 @@ function pintaAvisos(box){
   if(!d){box.innerHTML='<div class="ms-vacio">Cargando avisos…</div>';return;}
   const lista=d.avisos||[];
   box.innerHTML=(d.canPublish?`<button type="button" class="ms-aviso-nuevo" id="msAvisoNuevo">＋ Nuevo aviso para el club</button>`:'')
-    +(lista.length?lista.map(a=>`<article class="ms-aviso${a.unread?' unread':''}"><header><strong>${esc(a.title)}</strong><time>${esc(cuando(a.publishedAt))}</time></header>${a.body?`<p>${texto(a.body)}</p>`:''}<footer><span>${esc(a.author||'')} · ${a.audienceType==='club'?'Todo el club':a.audienceType==='role'?esc(a.audienceValue):`Para ${esc((state.inbox?.people||[]).find(p=>p.userId===a.audienceValue)?.name||'ti')}`}</span>${a.reach?`<b class="ms-visto" title="Personas que ya lo vieron">👁 Visto por ${a.reach.seen} de ${a.reach.total}</b>`:''}</footer></article>`).join('')
+    +(lista.length?lista.map(a=>`<article class="ms-aviso${a.unread?' unread':''}"><header><strong>${esc(a.title)}</strong><time>${esc(cuando(a.publishedAt))}</time></header>${a.body?`<p>${texto(a.body)}</p>`:''}<footer><span>${esc(a.author||'')} · ${a.audienceType==='club'?'Todo el club':a.audienceType==='role'?esc(a.audienceValue):`Para ${esc((state.inbox?.people||[]).find(p=>p.userId===a.audienceValue)?.name||'ti')}`}</span>${a.reach?`<b class="ms-visto" title="Personas que ya lo vieron">Visto por ${a.reach.seen} de ${a.reach.total}</b>`:''}</footer></article>`).join('')
       :`<div class="ms-vacio">${esc(d.error||'Sin avisos. Cuando Presidencia publique uno, aparece aquí.')}</div>`);
   $('msAvisoNuevo')?.addEventListener('click',hojaAviso);
 }
@@ -176,7 +190,7 @@ function leidoPor(m){
   return (t?.members||[]).filter(x=>x.userId!==me&&x.lastReadAt&&new Date(x.lastReadAt)>=new Date(m.at));
 }
 function palomitas(m){
-  if(m.estado==='enviando')return '<span class="ms-tick" title="Enviando">🕓</span>';
+  if(m.estado==='enviando')return `<span class="ms-tick" title="Enviando">${svg('reloj','ms-clock')}</span>`;
   if(m.estado==='error')return '';
   const t=state.thread?.thread;const lectores=leidoPor(m);
   if(t?.kind==='direct')return `<span class="ms-tick${lectores.length?' read':''}" title="${lectores.length?'Leído':'Enviado'}">✓✓</span>`;

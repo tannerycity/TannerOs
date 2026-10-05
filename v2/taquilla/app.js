@@ -13,6 +13,9 @@ const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
 const {ctx,navigation}=boot;
 const org=ctx.organization_id;
+// Íconos de línea para la conciliación (regla del club: sin emojis).
+const ICONO_BANCO='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 4l9 6"/><path d="M5 10v8"/><path d="M10 10v8"/><path d="M14 10v8"/><path d="M19 10v8"/><path d="M3 20h18"/></svg>';
+const ICONO_EFECTIVO='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4"/><path d="M18 10v4"/></svg>';
 const canCashWrite=moduleAccess(navigation,'taquilla',true)||moduleAccess(navigation,'cobranza',true);
 const canAccountingWrite=moduleAccess(navigation,'contabilidad',true);
 // Pagar ya no depende exclusivamente de Contabilidad: quien opera esta caja (Taquilla RW) también puede pagar.
@@ -1539,7 +1542,7 @@ function tarjetaConcilia(x,canApprove){
     </div>
     <div class="concilia-chips">
       ${estadoChip(e)}
-      <span class="est est-neutro"><i aria-hidden="true">${x.validationKind==='banco'?'🏦':'💵'}</i>${esc(val.etiqueta)}</span>
+      <span class="est est-neutro"><i aria-hidden="true">${x.validationKind==='banco'?ICONO_BANCO:ICONO_EFECTIVO}</i>${esc(val.etiqueta)}</span>
     </div>
     <div class="concilia-datos">
       <span>Método: <b>${esc(x.method||'—')}</b>${x.reference?` · Ref. <b>${esc(x.reference)}</b>`:''}</span>

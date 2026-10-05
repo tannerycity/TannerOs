@@ -373,7 +373,7 @@ function renderAttentionSummary(rows){
   for(const [label,count,value] of items){const b=document.createElement('button');b.type='button';b.className=`attention-chip ${count?'hot':''}`;b.innerHTML=`<span>${label}</span><strong>${count}</strong>`;b.addEventListener('click',()=>{setActiveView('pipeline');$('urgencyFilter').value=value;applyFilters();});box.appendChild(b);}
 }
 
-const EMPTY_MESSAGES={pipeline:'🎉 Sin pendientes: no hay prospectos activos con estos filtros.',converted:'Aún no hay convertidos con estos filtros.',lost:'Nadie marcado como "No continúa" con estos filtros.',all:'No hay prospectos con estos filtros.'};
+const EMPTY_MESSAGES={pipeline:'Sin pendientes: no hay prospectos activos con estos filtros.',converted:'Aún no hay convertidos con estos filtros.',lost:'Nadie marcado como "No continúa" con estos filtros.',all:'No hay prospectos con estos filtros.'};
 function applyFilters(){
   const status=$('statusFilter').value,q=$('searchProspect').value.trim().toLocaleLowerCase('es-MX'),urgency=$('urgencyFilter').value;
   filtered=viewFiltered().filter(p=>{

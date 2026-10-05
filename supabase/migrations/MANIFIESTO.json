@@ -1,8 +1,8 @@
 {
-  "migraciones": 421,
-  "bytes": 2275828,
-  "huella": "01285188cbc8e92f0e187ec5ea1846ad",
+  "migraciones": 422,
+  "bytes": 2285246,
+  "huella": "8b339e009fa016310dc6dde7baa565c0",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261002211947_i2_taquilla_cobra_mensualidades_sin_ver_cobranza.sql",
-  "verificadoContraLaBase": "2026-10-02"
+  "ultima": "20261005025053_j2_estacionamiento_en_un_solo_movimiento.sql",
+  "verificadoContraLaBase": "2026-10-05"
 }

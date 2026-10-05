@@ -76,7 +76,11 @@ export default function comprobar() {
   // uniforme se cobre LIGADO a su pedido, con quién de Tannery lo recibió y
   // sin pasarse del saldo. Antes se cobraba como "Otro ingreso · Uniforme" y
   // el pedido nunca se enteraba; eso sólo se ve tocando la pantalla.
-  const MAX_EXCLUIDAS = 17;
+  // Sube a 18 por qa-humo-estacionamiento.mjs. Vigila que dar un gafete sean
+  // 3 toques, que alta, cobro y entrega viajen en un solo movimiento con
+  // método, quién cobró y llave, y que "sin costo" exija motivo. Contar
+  // toques sólo se puede tocando la pantalla.
+  const MAX_EXCLUIDAS = 18;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

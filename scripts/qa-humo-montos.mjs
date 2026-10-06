@@ -330,7 +330,10 @@ async function corre(rol) {
     await pagina.waitForFunction(() => window.__pdf, { timeout: 8000 });
     const pdf = await pagina.evaluate(() => window.__pdf);
     const texto = pdf.textos.join(' | ');
-    revisa(`[${rol}] el PDF se llama por su periodo`, pdf.nombre === 'montos-de-cobro-2026-09.pdf', pdf.nombre);
+    // El nombre sigue al mes elegido en pantalla (por defecto, el mes en curso);
+    // antes estaba fijo a 2026-09 y la prueba se rompió sola al cambiar de mes.
+    const periodo = await pagina.inputValue('#montosPeriod');
+    revisa(`[${rol}] el PDF se llama por su periodo`, /^\d{4}-\d{2}$/.test(periodo) && pdf.nombre === `montos-de-cobro-${periodo}.pdf`, `${pdf.nombre} · periodo ${periodo}`);
     revisa(`[${rol}] el PDF va marcado como consulta interna`, /CONSULTA INTERNA/.test(texto));
     revisa(`[${rol}] el PDF dice con qué filtros se generó`, /Sólo con saldo/.test(texto), texto.slice(0, 300));
     revisa(`[${rol}] el PDF sólo trae lo filtrado (2 de 5)`,

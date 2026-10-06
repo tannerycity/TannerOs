@@ -121,9 +121,15 @@ revisa('el profe (solo lectura) SÍ ve la faceta de Evaluación',
 // La marca de publicidad es la POSITIVA: sólo la lleva quien autoriza. Se mide
 // con la lista sin filtrar, antes de tocar nada.
 await pagina.waitForSelector('.jcard-name', { timeout: 6000 });
+// Desde que el club pidió "si no tienen firmados los consentimientos, que nos
+// avise", TODAS las tarjetas llevan su marca (autoriza / no autoriza / no
+// firmado), cada una con su color. La verde sigue siendo sólo de quien autoriza.
 revisa('sólo el Tanner que autoriza lleva la marca verde',
-  (await pagina.$$('.jcard-pub')).length === 1,
-  `tarjetas: ${(await pagina.$$('.jcard-name')).length}`);
+  (await pagina.$$('.jcard-pub.img-autoriza')).length === 1,
+  `verdes: ${(await pagina.$$('.jcard-pub.img-autoriza')).length}`);
+revisa('cada tarjeta dice su respuesta sobre la imagen',
+  (await pagina.$$('.jcard-pub')).length === (await pagina.$$('.jcard-name')).length,
+  `marcas: ${(await pagina.$$('.jcard-pub')).length} · tarjetas: ${(await pagina.$$('.jcard-name')).length}`);
 
 revisa('y sigue sin ver Expediente ni Becas',
   (await pagina.$$('[data-facet="expediente"]')).length === 0

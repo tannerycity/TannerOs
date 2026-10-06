@@ -175,13 +175,18 @@ async function corre(rol) {
     /Desde iPad · sin nombre/.test(efectivo), efectivo.slice(0, 260));
 
   if (rol === 'Presidencia') {
-    // El pago viejo no se presenta como revisado
-    await pagina.click('[data-concilia-filter="approved"]');
+    // El pago viejo no se presenta como revisado. Desde que existe el filtro
+    // "Sin revisar" (legacy), los del sistema anterior viven ahí y ya no se
+    // mezclan con los aprobados de verdad.
+    await pagina.click('[data-concilia-filter="legacy"]');
     await pagina.waitForTimeout(150);
     const viejo = (await pagina.textContent('.concilia-card')).replace(/\s+/g, ' ');
     revisa(`[${rol}] un pago anterior dice "Del sistema anterior"`, /Del sistema anterior/.test(viejo), viejo.slice(0, 200));
-    revisa(`[${rol}] un pago anterior no ofrece acciones`,
-      (await pagina.$$('.concilia-card .concilia-acciones button')).length === 0);
+    // Antes un pago del sistema anterior quedaba congelado; ahora Presidencia
+    // lo revisa por primera vez, con un botón que lo dice con esas palabras.
+    const botonesViejo = await pagina.$$eval('.concilia-card .concilia-acciones button', bs => bs.map(b => b.textContent.trim()));
+    revisa(`[${rol}] un pago anterior se revisa por primera vez, no se "re-aprueba"`,
+      botonesViejo.includes('Revisar y aprobar') && !botonesViejo.includes('Aprobar'), botonesViejo.join(' | '));
 
     // Acciones sobre el pendiente
     await pagina.click('[data-concilia-filter="pending"]');

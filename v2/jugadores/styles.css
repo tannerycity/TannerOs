@@ -477,3 +477,112 @@
 .pagos-fila span{display:grid;gap:2px;min-width:0}.pagos-fila strong{font-size:12px;color:#16343d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pagos-fila small{font-size:10.5px;color:#718386}.pagos-fila b{font-size:13px;color:#073846;white-space:nowrap}
 .pagos-todo{justify-self:start}
 @media(max-width:620px){.pagos-snapshot{padding:13px}.pagos-kpis strong{font-size:15px}.pagos-todo{justify-self:stretch}}
+
+/* ===== Ficha Tanner, estilo Apple y modo Tannery City (ficha.js) =====
+   La carta tipo FIFA ya no ocupa media pantalla: se abre al tocar la foto.
+   Arriba queda lo que se decide en 5 segundos; lo demás vive en pestañas. */
+#profileView .player-profile-hero{display:block!important;padding-bottom:0;border-bottom:0}
+#profileView .tanner-card{display:none}
+#profileView.ficha-carta .tanner-card{display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1302;width:min(320px,86vw);margin:0}
+.ficha-carta-fondo{position:fixed;inset:0;z-index:1301;background:rgba(3,22,28,.78)}
+.ficha-carta-fondo[hidden]{display:none}
+#profileView .profile-overview{display:grid;grid-template-columns:84px minmax(0,1fr);column-gap:14px;row-gap:4px;align-items:center}
+#profileView .profile-overview>.eyebrow,#profileView .profile-quick-facts,#profileView .profile-overview>.card-help{display:none}
+.ficha-avatar{grid-row:span 2;position:relative;width:84px;height:84px;border-radius:50%;border:0;padding:0;cursor:pointer;background:linear-gradient(145deg,#053746,#0b5d6e);box-shadow:0 0 0 3px #fff,0 0 0 5px #c6ac5c;display:grid;place-items:center;overflow:visible}
+.ficha-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.ficha-avatar span{font:800 30px 'Barlow Condensed',system-ui,sans-serif;color:#f2e6bd}
+.ficha-avatar i{position:absolute;right:-3px;bottom:-3px;width:28px;height:28px;border-radius:50%;background:#c6ac5c;color:#032f3b;display:grid;place-items:center;box-shadow:0 0 0 3px #fff}
+#profileView #profileName{margin:0;font-size:28px;line-height:1.05;align-self:end}
+#profileView #profileMeta{margin:0;align-self:start}
+#profileView #privacyBadges,#profileView .ficha-chips,#profileView .ficha-acciones,#profileView #photoEditor{grid-column:1/-1}
+#privacyBadges{margin-top:8px}
+#privacyBadges .profile-badge.ok,#privacyBadges .profile-badge:not([class*="img-"]):not(.pend):not(.badge-action),#privacyBadges .badge-action{display:none}
+#privacyBadges .profile-badge.pend,#privacyBadges .profile-badge[class*="img-"]{cursor:pointer}
+#privacyBadges .profile-badge.pend::after,#privacyBadges .profile-badge[class*="img-"]::after{content:" · cambiar";font-weight:600;opacity:.75}
+.ficha-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ficha-chips:empty{display:none}
+.ficha-chip{border:0;border-radius:999px;padding:6px 11px;font-weight:700;font-size:12px;font-family:inherit;cursor:pointer;background:#eef2f1;color:#35505a}
+.ficha-chip.alerta{background:#fbe9e3;color:#9b3a24}
+.ficha-acciones{display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));gap:4px;margin-top:14px}
+.ficha-accion{display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:transparent;padding:0;text-decoration:none;color:#0d2730;font-weight:600;font-size:12px;font-family:inherit;cursor:pointer}
+.ficha-accion>span{width:54px;height:54px;border-radius:50%;background:#fff;display:grid;place-items:center;color:#087d8e;box-shadow:0 2px 10px rgba(3,47,59,.1)}
+.ficha-accion.principal>span{background:#053746;color:#f2e6bd;box-shadow:0 4px 14px rgba(3,47,59,.25)}
+.ficha-accion.apagada{opacity:.5;cursor:default}
+.ficha-beca{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;padding:14px 16px;border:0;border-radius:18px;background:linear-gradient(120deg,#f6ecc9,#e6d08f);color:#3d2f07;text-align:left;font-family:inherit;cursor:pointer;box-shadow:0 6px 18px rgba(166,134,48,.22)}
+.ficha-beca[hidden]{display:none}
+.ficha-beca-ico{width:40px;height:40px;flex:0 0 40px;border-radius:12px;background:#032f3b;color:#e6d08f;display:grid;place-items:center}
+.ficha-beca-txt{flex:1;min-width:0;display:grid;gap:2px}.ficha-beca-txt strong{font-size:16px}.ficha-beca-txt small{font-size:12.5px;color:#5e4c17}
+.ficha-cuenta{margin-top:12px;background:#fff;border:1px solid #e6e2d6;border-radius:18px;overflow:hidden}
+.ficha-cuenta[hidden]{display:none}
+.ficha-cuenta-fila{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;border:0;border-top:1px solid #f0ede4;background:#fff;text-align:left;text-decoration:none;color:#0d2730;font-family:inherit;cursor:pointer}
+.ficha-cuenta-fila:first-child{border-top:0}
+.ficha-cuenta-fila.debe{background:#fffaf8}
+.ficha-ico{width:40px;height:40px;flex:0 0 40px;border-radius:12px;display:grid;place-items:center;background:#e3f1ee;color:#087d8e}
+.debe .ficha-ico{background:#fbe9e3;color:#b23a21}.ficha-ico.oro{background:#f7f0dc;color:#8a6413}
+.ficha-cuenta-txt{flex:1;min-width:0;display:grid;gap:5px}
+.ficha-cuenta-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.ficha-cuenta-top strong{font-size:15px}.ficha-cuenta-top b{font-size:19px;color:#b23a21}
+.ficha-cuenta-txt small{font-size:12px;color:#6b7a7f}
+.ficha-meses{display:flex;flex-wrap:wrap;gap:5px}
+.ficha-mes{font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;background:#e3f1ee;color:#1f6b52}
+.ficha-mes.vencido{background:#fbe9e3;color:#9b3a24}.ficha-mes.por-vencer{background:#f7f0dc;color:#7a5a10}
+.ficha-chev{color:#9aa6aa}
+.ficha-perfil{margin-top:12px;padding:16px;border-radius:20px;background:linear-gradient(150deg,#032f3b,#075063);color:#fff;display:grid;gap:12px}
+.ficha-perfil-head{display:flex;justify-content:space-between;align-items:center}
+.ficha-perfil-head span{font-size:12px;font-weight:800;letter-spacing:.12em;color:#c6ac5c}
+.ficha-perfil-head button{border:0;border-radius:10px;padding:8px 14px;background:#c6ac5c;color:#032f3b;font-weight:800;font-size:13px;font-family:inherit;cursor:pointer}
+.ficha-perfil-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ficha-perfil-grid>div{padding:11px 12px;border-radius:14px;background:rgba(255,255,255,.08);display:grid;gap:2px;min-width:0}
+.ficha-perfil-grid span{font-size:11px;color:#a9c8ce}
+.ficha-perfil-grid strong{font-size:24px;line-height:1.1;font-weight:800}.ficha-perfil-grid strong.chico{font-size:16px}.ficha-perfil-grid strong.pend{color:#f2e6bd;font-size:19px}
+.ficha-perfil-grid small{font-size:11px;color:#9fc3ca}
+.ficha-tabs{position:sticky;top:-1px;z-index:6;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:14px -4px 4px;padding:8px 4px;background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+.ficha-tabs::-webkit-scrollbar{display:none}
+.ficha-tabs button{flex:0 0 auto;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid #e1ddd0;background:#fff;color:#35505a;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer}
+.ficha-tabs button[aria-selected="true"]{background:#053746;border-color:#053746;color:#fff}
+#profileView .ficha-oculta{display:none!important}
+.ficha-bloque{display:grid;gap:10px;margin-top:8px}
+.ficha-bloque:empty{display:none}
+.ficha-card{background:#fff;border:1px solid #e6e2d6;border-radius:18px;padding:4px 0}
+.ficha-card h3{margin:10px 14px 4px;font-size:12px;letter-spacing:.08em;color:#8a7a45}
+.ficha-fila{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border:0;border-top:1px solid #f0ede4;background:transparent;text-align:left;text-decoration:none;color:#0d2730;font-family:inherit;cursor:pointer}
+.ficha-card h3+.ficha-fila{border-top:0}
+.ficha-fila.fija{cursor:default}
+.ficha-fila>i{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:#087d8e}
+.ficha-fila>i.rojo,.ficha-linea i.rojo{background:#c0492c}.ficha-fila>i.oro,.ficha-linea i.oro{background:#c6ac5c}.ficha-linea i.navy{background:#053746}
+.ficha-fila>span{flex:1;min-width:0;display:grid;gap:2px}.ficha-fila strong{font-size:15px}.ficha-fila small{font-size:12px;color:#6b7a7f}
+.ficha-fila>svg{color:#9aa6aa;flex:0 0 auto}
+.ficha-mini{width:40px;height:40px;flex:0 0 40px;border-radius:50%;background:#e3f1ee;color:#087d8e;display:grid;place-items:center}
+.ficha-vacio{margin:6px 14px 12px;font-size:13px;color:#6b7a7f}
+.ficha-linea{list-style:none;margin:4px 0 8px;padding:0 14px}
+.ficha-linea li{position:relative;display:flex;gap:12px;padding:8px 0 8px 2px}
+.ficha-linea li::before{content:"";position:absolute;left:6px;top:24px;bottom:-8px;width:2px;background:#ece8dc}
+.ficha-linea li:last-child::before{display:none}
+.ficha-linea i{position:relative;z-index:1;width:12px;height:12px;flex:0 0 12px;margin-top:4px;border-radius:50%;background:#087d8e;box-shadow:0 0 0 3px #fff}
+.ficha-linea span{display:grid;gap:2px}.ficha-linea strong{font-size:14px}.ficha-linea small{font-size:12px;color:#6b7a7f}
+.docs-progreso{display:grid;gap:8px;margin-bottom:6px}
+.docs-progreso[hidden]{display:none}
+.docs-barra{height:8px;border-radius:999px;background:#ece8dc;overflow:hidden}.docs-barra span{display:block;height:100%;border-radius:inherit;background:#087d8e}
+.docs-linea{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.docs-wa,.consent-wa{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:#e3f1ee;color:#087d8e;font-weight:700;text-decoration:none;font-size:13px}
+.consent-wa{margin-bottom:10px}
+.ficha-hoja-fondo{position:fixed;inset:0;z-index:1303;background:rgba(3,22,28,.45)}
+.ficha-hoja-fondo[hidden],.ficha-hoja[hidden]{display:none}
+.ficha-hoja{position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:1304;width:min(520px,100vw);box-sizing:border-box;max-height:80dvh;overflow:auto;background:#fff;border-radius:22px 22px 0 0;padding:8px 16px calc(env(safe-area-inset-bottom) + 16px);display:grid;gap:4px}
+.ficha-hoja-grab{justify-self:center;width:38px;height:5px;border-radius:3px;background:#d6dcdb;margin:4px 0 8px}
+.ficha-mas-lista{display:grid}
+.ficha-mas-item,.ficha-mas-viejas>a,.ficha-mas-viejas>button{display:block;width:100%;text-align:left;min-height:52px;padding:14px 6px!important;border:0!important;border-bottom:1px solid #f0ede4!important;border-radius:0!important;background:transparent!important;color:#0d2730!important;font-weight:600!important;font-size:16px!important;font-family:inherit!important;box-shadow:none!important;text-decoration:none}
+.ficha-mas-viejas>.danger-mini,.ficha-mas-viejas>#toggleStatusBtn.danger-mini{color:#b23a21!important}
+.ficha-mas-viejas>.hidden,.ficha-mas-item[hidden]{display:none!important}
+.ficha-mas-viejas{display:grid!important;gap:0!important;margin:0!important}
+.ficha-mas-cerrar{margin-top:8px;min-height:48px;border:0;border-radius:14px;background:#eef2f1;color:#053746;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
+@media (min-width:900px){
+  .ficha-perfil-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .ficha-hoja{bottom:auto;top:50%;transform:translate(-50%,-50%);border-radius:22px;width:min(420px,92vw)}
+  .ficha-hoja-grab{display:none}
+}
+/* Con la ficha abierta, el botón flotante de acciones rápidas estorba. */
+body:has(.profile-panel.open) .tos-fab{display:none}
+@media (max-width:420px){.ficha-accion>span{width:50px;height:50px}.ficha-accion{font-size:11.5px}}
+#profileView .profile-overview{text-align:left}
+#profileView .profile-overview #privacyBadges,#profileView .ficha-chips{justify-content:flex-start}
+@media (max-width:420px){#profileView #profileName{font-size:24px}}

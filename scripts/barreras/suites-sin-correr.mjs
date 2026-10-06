@@ -92,7 +92,10 @@ export default function comprobar() {
   // Sube a 22 por qa-humo-ajustes-presidencia.mjs. Vigila que Presidencia
   // ajuste, agregue cargos, corrija pagos y aplique saldo a favor desde el
   // estado de cuenta, con motivo y la misma llave al reintentar. Es pintura.
-  const MAX_EXCLUIDAS = 22;
+  // Sube a 23 por qa-humo-ficha-tanner.mjs. Vigila el rediseño de la ficha:
+  // carta al tocar la foto, beca visible, adeudo por meses, pestañas por rol,
+  // familia, documentos e historia. Es pintura.
+  const MAX_EXCLUIDAS = 23;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

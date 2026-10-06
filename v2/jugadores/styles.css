@@ -586,3 +586,39 @@ body:has(.profile-panel.open) .tos-fab{display:none}
 #profileView .profile-overview{text-align:left}
 #profileView .profile-overview #privacyBadges,#profileView .ficha-chips{justify-content:flex-start}
 @media (max-width:420px){#profileView #profileName{font-size:24px}}
+
+/* Foto grande (Presidencia, 06/10/2026: "la foto es lo que nos ayuda a ver
+   quién es"). La foto ocupa la columna izquierda a la altura del nombre, la
+   categoría y los avisos, sin encimarse. La caja para subir foto sólo sale si
+   no tiene foto o si se pide "Cambiar foto". */
+#profileView .profile-overview{grid-template-columns:136px minmax(0,1fr);column-gap:20px;row-gap:6px;align-items:start}
+#profileView .ficha-avatar{grid-row:1 / span 4;width:136px;height:136px;box-shadow:0 0 0 4px #fff,0 0 0 7px #c6ac5c,0 14px 30px rgba(3,47,59,.18)}
+#profileView .ficha-avatar span{font-size:46px}
+#profileView .ficha-avatar i{width:34px;height:34px;right:2px;bottom:2px}
+#profileView #profileName{grid-column:2;align-self:end;margin-top:10px}
+#profileView #profileMeta,#profileView #privacyBadges,#profileView .ficha-chips{grid-column:2}
+#profileView #privacyBadges{margin-top:4px}
+#profileView .ficha-acciones,#profileView #photoEditor{grid-column:1/-1}
+#profileView #photoEditor{display:none}
+#profileView.ficha-sin-foto #photoEditor:not(.hidden),#profileView.ficha-foto-abierta #photoEditor:not(.hidden){display:grid}
+@media (max-width:620px){
+  #profileView .profile-overview{grid-template-columns:112px minmax(0,1fr);column-gap:14px}
+  #profileView .ficha-avatar{width:112px;height:112px}
+  #profileView .ficha-avatar span{font-size:38px}
+  #profileView #profileName{font-size:22px;margin-top:4px}
+}
+@media (max-width:360px){
+  #profileView .profile-overview{grid-template-columns:96px minmax(0,1fr)}
+  #profileView .ficha-avatar{width:96px;height:96px}
+}
+#profileView #profileName,#profileView #profileMeta{text-align:left!important}
+#profileView #privacyBadges,#profileView .ficha-chips{justify-content:flex-start!important}
+@media (min-width:621px){
+  #profileView .profile-overview{grid-template-columns:160px minmax(0,1fr);column-gap:24px}
+  #profileView .ficha-avatar{width:160px;height:160px}
+  #profileView .ficha-avatar span{font-size:54px}
+}
+@media (max-width:620px) and (min-width:361px){
+  #profileView .profile-overview{grid-template-columns:116px minmax(0,1fr)}
+  #profileView .ficha-avatar{width:116px;height:116px}
+}

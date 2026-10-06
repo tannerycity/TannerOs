@@ -67,7 +67,7 @@ async function abre(rol, ancho=390) {
       v2_players:[{ id:'p1', first_name:'Marcelo', last_name:'Pedroza Ortiz', status:'active', category:'Mini Baby Tanner', code:'Tanner072' }],
       v2_categories:[], v2_withdrawal_requests:[], v2_benefit_requests:[],
       v2_player_profile:{ player:{ id:'p1', firstName:'Marcelo', lastName:'Pedroza Ortiz', status:'active', category:'Mini Baby Tanner', code:'Tanner072',
-          position:null, dominantFoot:'Derecha', dataConsent:true, dataConsentAt:'2026-08-23', imageConsent:false, imageConsentAt:'2026-08-23' },
+          position:null, dominantFoot:'Derecha', photoPath:'x.webp', dataConsent:true, dataConsentAt:'2026-08-23', imageConsent:false, imageConsentAt:'2026-08-23' },
         guardians:[{ name:'Laura Ortiz', phone:'4771112233', relationship:'Mamá', isPrimary:true, receivesBilling:true },{ name:'Pedro Pedroza', phone:null, relationship:'Papá', isPrimary:false }] },
       v2_player_account_statement:ESTADO,
       v2_player_benefits:[{ id:'b1', type:'scholarship_partial', percentage:50, sponsorName:'Don Trapo', endsOn:'2026-12-31', active:true }],
@@ -87,7 +87,7 @@ async function abre(rol, ancho=390) {
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
-    body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
+    body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return "/icon-512.png";}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
   await p.goto('http://127.0.0.1:4791/v2/jugadores/?player=p1', { waitUntil:'domcontentloaded' });
   await p.waitForSelector('#fichaTabs button', { timeout:8000 });
   await p.waitForFunction(() => window.__llamadas.includes('v2_player_story') && window.__llamadas.includes('v2_player_documents'), null, { timeout:6000 });
@@ -100,6 +100,12 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
 /* ---------- Presidencia, teléfono ---------- */
 {
   const p = await abre('Presidencia');
+  // "La foto es lo que nos ayuda a ver quién es": grande y sin encimarse.
+  const foto = await p.evaluate(() => { const a = document.getElementById('fichaAvatar').getBoundingClientRect(), n = document.getElementById('profileName').getBoundingClientRect();
+    return { w: Math.round(a.width), img: !!document.querySelector('#fichaAvatar img'), encima: a.right > n.left + 1 }; });
+  revisa('[foto] la foto sale grande (≥110px en teléfono) y es la del Tanner', foto.w >= 110 && foto.img, JSON.stringify(foto));
+  revisa('[foto] no se encima con el nombre', !foto.encima, JSON.stringify(foto));
+  revisa('[foto] con foto, la caja para subir no estorba', await p.isHidden('#photoEditor'));
   revisa('[pres] la carta FIFA no ocupa la pantalla', await p.isHidden('#tannerCard'));
   await p.click('#fichaAvatar');
   revisa('[pres] tocar la foto abre la Carta Tanner', await visible(p, '#tannerCard'));
@@ -179,6 +185,7 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
 /* ---------- Computadora ---------- */
 {
   const p = await abre('Presidencia', 1280);
+  revisa('[compu] foto de 160px', await p.evaluate(() => Math.round(document.getElementById('fichaAvatar').getBoundingClientRect().width) === 160));
   revisa('[compu] perfil deportivo en 4 columnas', await p.evaluate(() => getComputedStyle(document.querySelector('.ficha-perfil-grid')).gridTemplateColumns.split(' ').length === 4));
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/ficha-tanner-compu.png') });
   await p.close();

@@ -622,3 +622,30 @@ body:has(.profile-panel.open) .tos-fab{display:none}
   #profileView .profile-overview{grid-template-columns:116px minmax(0,1fr)}
   #profileView .ficha-avatar{width:116px;height:116px}
 }
+
+/* Foto cuadrada (Presidencia, 06/10/2026: "se ve mal la foto... dejalo
+   cuadrado"). Una foto vertical crecía a su alto natural y se salía del marco
+   tapando los botones: height:100% de un hijo de grid se resolvía contra la
+   misma foto. Ahora la foto se ancla al marco (absolute + inset 0) y recorta
+   centrada hacia arriba, donde está la cara. El marco es un cuadrado con
+   esquinas redondeadas, con el aro dorado del club. */
+.ficha-avatar{border-radius:22%;aspect-ratio:1/1;flex:0 0 auto}
+.ficha-avatar img{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center 22%;border-radius:inherit}
+.ficha-avatar i{z-index:1}
+#profileView .ficha-avatar i{right:-6px;bottom:-6px}
+/* Más grande ("el chiste es que se vea grande la foto"): 208px en
+   computadora, 140px en teléfono y 120px en pantallas muy angostas. */
+@media (min-width:621px){
+  #profileView .profile-overview{grid-template-columns:208px minmax(0,1fr);column-gap:28px}
+  #profileView .ficha-avatar{width:208px;height:208px;box-shadow:0 0 0 4px #fff,0 0 0 7px #c6ac5c,0 18px 36px rgba(3,47,59,.2)}
+  #profileView .ficha-avatar span{font-size:68px}
+  #profileView #profileName{margin-top:18px}
+}
+@media (max-width:620px) and (min-width:361px){
+  #profileView .profile-overview{grid-template-columns:140px minmax(0,1fr);column-gap:14px}
+  #profileView .ficha-avatar{width:140px;height:140px}
+}
+@media (max-width:360px){
+  #profileView .profile-overview{grid-template-columns:120px minmax(0,1fr)}
+  #profileView .ficha-avatar{width:120px;height:120px}
+}

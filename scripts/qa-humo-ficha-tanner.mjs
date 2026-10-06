@@ -103,9 +103,24 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   // "La foto es lo que nos ayuda a ver quién es": grande y sin encimarse.
   const foto = await p.evaluate(() => { const a = document.getElementById('fichaAvatar').getBoundingClientRect(), n = document.getElementById('profileName').getBoundingClientRect();
     return { w: Math.round(a.width), img: !!document.querySelector('#fichaAvatar img'), encima: a.right > n.left + 1 }; });
-  revisa('[foto] la foto sale grande (≥110px en teléfono) y es la del Tanner', foto.w >= 110 && foto.img, JSON.stringify(foto));
+  revisa('[foto] la foto sale grande (≥140px en teléfono) y es la del Tanner', foto.w >= 140 && foto.img, JSON.stringify(foto));
   revisa('[foto] no se encima con el nombre', !foto.encima, JSON.stringify(foto));
   revisa('[foto] con foto, la caja para subir no estorba', await p.isHidden('#photoEditor'));
+  // Foto vertical (caso real: Mauro Contreras, 06/10/2026). Crecía a su alto
+  // natural, salía ovalada y tapaba los botones. Debe quedar cuadrada.
+  const vertical = await p.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 300; c.height = 520;
+    const g = c.getContext('2d'); g.fillStyle = '#0a6'; g.fillRect(0, 0, 300, 520);
+    const img = document.querySelector('#fichaAvatar img'); img.src = c.toDataURL();
+    await new Promise(r => img.complete ? r() : img.addEventListener('load', r, { once:true }));
+    const a = document.getElementById('fichaAvatar').getBoundingClientRect(), i = img.getBoundingClientRect();
+    const acc = document.getElementById('fichaAcciones').getBoundingClientRect();
+    return { a:[Math.round(a.width), Math.round(a.height)], i:[Math.round(i.width), Math.round(i.height)], tapa: i.bottom > acc.top + 1,
+             radio: getComputedStyle(document.getElementById('fichaAvatar')).borderRadius };
+  });
+  revisa('[foto] una foto vertical queda cuadrada dentro del marco', vertical.a[0] === vertical.a[1] && vertical.i[0] === vertical.a[0] && vertical.i[1] === vertical.a[1], JSON.stringify(vertical));
+  revisa('[foto] no tapa los botones de acción', !vertical.tapa, JSON.stringify(vertical));
+  revisa('[foto] marco cuadrado con esquinas redondeadas, no círculo', vertical.radio !== '50%', JSON.stringify(vertical));
   revisa('[pres] la carta FIFA no ocupa la pantalla', await p.isHidden('#tannerCard'));
   await p.click('#fichaAvatar');
   revisa('[pres] tocar la foto abre la Carta Tanner', await visible(p, '#tannerCard'));
@@ -185,7 +200,7 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
 /* ---------- Computadora ---------- */
 {
   const p = await abre('Presidencia', 1280);
-  revisa('[compu] foto de 160px', await p.evaluate(() => Math.round(document.getElementById('fichaAvatar').getBoundingClientRect().width) === 160));
+  revisa('[compu] foto grande de 208px', await p.evaluate(() => Math.round(document.getElementById('fichaAvatar').getBoundingClientRect().width) === 208));
   revisa('[compu] perfil deportivo en 4 columnas', await p.evaluate(() => getComputedStyle(document.querySelector('.ficha-perfil-grid')).gridTemplateColumns.split(' ').length === 4));
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/ficha-tanner-compu.png') });
   await p.close();

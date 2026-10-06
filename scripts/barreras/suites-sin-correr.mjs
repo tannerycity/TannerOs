@@ -89,7 +89,10 @@ export default function comprobar() {
   // Sube a 21 por qa-humo-historial-pagos.mjs. Vigila la sección Pagos de la
   // ficha (y que al profe no le salga), y el buscador de estado de cuenta en
   // Finanzas. Es pintura sobre el RPC de estado de cuenta.
-  const MAX_EXCLUIDAS = 21;
+  // Sube a 22 por qa-humo-ajustes-presidencia.mjs. Vigila que Presidencia
+  // ajuste, agregue cargos, corrija pagos y aplique saldo a favor desde el
+  // estado de cuenta, con motivo y la misma llave al reintentar. Es pintura.
+  const MAX_EXCLUIDAS = 22;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

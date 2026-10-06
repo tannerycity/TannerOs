@@ -2,8 +2,8 @@ import {supabase,bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth
 import {getSignedPhotoUrl} from '/v2/photo-cache.js';
 
 // El shell valida el módulo activo, pero un estado de cuenta lo abre tanto
-// Cobranza como Jugadores. Se entra con 'inicio' (que el shell exceptúa) y el
-// permiso real lo impone el RPC, que exige billing, players o accounting.
+// Cobranza como Contabilidad. Se entra con 'inicio' (que el shell exceptúa) y
+// el permiso real lo impone el RPC, que exige billing o accounting (desde n2).
 const boot=await bootstrapProtectedShell({active:'inicio',title:'Estado de cuenta'});
 if(!boot)throw new Error('No access');
 const {ctx,navigation}=boot;
@@ -69,6 +69,11 @@ function balanceBlock(data){
   if(saldo>0&&tel){
     const msg=encodeURIComponent(`Hola, le recordamos el pago pendiente de ${[p.first_name,p.last_name].filter(Boolean).join(' ')} en Tannery City por ${money.format(saldo)}. ¡Gracias!`);
     acciones.push(`<a class="tan-btn" data-kind="wa" target="_blank" rel="noopener" href="https://wa.me/${String(tel).replace(/\D/g,'')}?text=${msg}">WhatsApp</a>`);
+  }
+  if(data.canAdjust){
+    if(saldo>0)acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="ajustar">Ajustar saldo</button>`);
+    acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="cargo">Agregar cargo</button>`);
+    if(saldo>0&&aFavor>0)acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="favor">Aplicar ${money.format(aFavor)} a favor</button>`);
   }
   if(can('jugadores'))acciones.push(`<a class="tan-btn" data-kind="ghost" href="/jugadores/?player=${encodeURIComponent(p.id)}">Ver ficha</a>`);
 
@@ -136,9 +141,15 @@ function ledgerBlock(data){
     // encontró un movimiento que decía "Pagó: Michel" y lo había capturado la
     // cuenta iPad; aquí no se repite ese error: el nombre tecleado no se
     // presenta a secas, la cuenta real está a un toque.
-    const audit=(!cargo&&m.ref_id&&puedeAuditar)
-      ?`<button type="button" class="tan-audit" data-audit="${esc(m.ref_id)}">¿quién lo cobró?</button>`:'';
-    return `<div class="tan-mov" data-kind="${cargo?'charge':'payment'}"><span class="tan-dot">${shellIcon(cargo?'ledger':'check')}</span><span class="tan-mov-body"><strong>${esc(titulo)}</strong><span>${detalle}</span>${audit}</span><span class="tan-mov-nums"><b>${cargo?'+':'−'}${money.format(Math.abs(monto))}</b><span>${saldoTexto(Number(m.running_balance||0))}</span></span></div>`;
+    const id=m.id||m.ref_id;
+    const audit=(!cargo&&id&&puedeAuditar)
+      ?`<button type="button" class="tan-audit" data-audit="${esc(id)}">¿quién lo cobró?</button>`:'';
+    // Presidencia corrige aquí mismo: el cargo que todavía se debe se ajusta y
+    // el pago mal capturado se revierte. Siempre con motivo; nada se borra.
+    const pres=!data.canAdjust||!id?''
+      :cargo?(Number(m.charge_balance||0)>0?`<button type="button" class="tan-audit tan-pres" data-pres="ajustar" data-charge="${esc(id)}">Ajustar</button>`:'')
+      :`<button type="button" class="tan-audit tan-pres" data-pres="corregir" data-payment="${esc(id)}">Corregir</button>`;
+    return `<div class="tan-mov" data-kind="${cargo?'charge':'payment'}"><span class="tan-dot">${shellIcon(cargo?'ledger':'check')}</span><span class="tan-mov-body"><strong>${esc(titulo)}</strong><span>${detalle}</span>${audit}${pres}</span><span class="tan-mov-nums"><b>${cargo?'+':'−'}${money.format(Math.abs(monto))}</b><span>${saldoTexto(Number(m.running_balance||0))}</span></span></div>`;
   }).join('');
   return `<section class="tan-section"><div class="tan-section-head"><h2>Movimientos</h2><span>${rows.length} en total</span></div><div class="tan-ledger">${html}</div></section>`;
 }
@@ -212,6 +223,7 @@ async function render(){
     return;
   }
   if(!data||!data.player){$('tannerBody').innerHTML='<div class="tos-empty">No encontramos a este Tanner.</div>';return;}
+  ultimo=data;
   const p=data.player;
   const nombre=[p.first_name,p.last_name].filter(Boolean).join(' ');
   document.title=`${nombre} · Estado de cuenta`;
@@ -227,5 +239,140 @@ async function render(){
   setShellHealth(saldo>0?{state:'attention',label:`Debe ${money.format(saldo)}`}:{state:'ok',label:'Al corriente'});
   if(p.photo_thumb_path||p.photo_path){const url=await signPhoto(p);if(url)paint(url);}
 }
+
+/* ===== Presidencia ajusta el saldo aquí mismo =====
+   Pedido del club (06/10/2026): no ir hasta Taquilla o Contabilidad para
+   corregir un saldo. Un saldo nunca se sobrescribe: cada acción es un
+   movimiento con motivo y con el nombre de quien lo hizo.
+     · Ajustar: descuento, condonación o corrección de un cargo que se debe
+       (v2_presidency_adjust_charge: autoriza y aplica en un paso).
+     · Agregar cargo: torneo, uniforme, etc. (v2_presidency_add_charge).
+     · Corregir pago: lo revierte y el adeudo vuelve (v2_correct_tanner_payment).
+     · Aplicar saldo a favor (v2_apply_player_credit).
+   La llave de idempotencia se crea al abrir la hoja y se reusa si se reintenta:
+   un doble toque o una red lenta no duplican nada. */
+let ultimo=null,hoja=null;
+const llave=()=>(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`);
+const TIPOS_AJUSTE=[['discount','Descuento'],['waiver','Condonación'],['correction','Corrección']];
+function cargosAbiertos(){
+  return (ultimo?.ledger||[]).filter(m=>m.kind==='charge'&&Number(m.charge_balance||0)>0&&m.id)
+    .map(m=>({id:m.id,saldo:Number(m.charge_balance),texto:`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}${m.concept&&m.subtype==='other'?` · ${m.concept}`:''}`}));
+}
+function asegurarHoja(){
+  if($('presSheet'))return;
+  document.body.insertAdjacentHTML('beforeend','<div id="presBackdrop" class="pres-backdrop hidden"></div><section id="presSheet" class="pres-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="presTitle"><div class="pres-grab" aria-hidden="true"></div><div id="presBody"></div></section>');
+  $('presBackdrop').addEventListener('click',()=>{if(!hoja?.enviando)cerrarHoja();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&hoja&&!hoja.enviando)cerrarHoja();});
+}
+function cerrarHoja(){hoja=null;$('presSheet')?.classList.add('hidden');$('presBackdrop')?.classList.add('hidden');document.body.style.overflow='';}
+function abrirHoja(tipo,datos={}){
+  asegurarHoja();
+  hoja={tipo,llave:llave(),enviando:false,error:'',...datos};
+  pintarHoja();
+  $('presSheet').classList.remove('hidden');$('presBackdrop').classList.remove('hidden');document.body.style.overflow='hidden';
+  setTimeout(()=>$('presSheet').querySelector('select,input,textarea')?.focus(),60);
+}
+function pintarHoja(){
+  const b=$('presBody');if(!b||!hoja)return;
+  const nombre=[ultimo?.player?.first_name,ultimo?.player?.last_name].filter(Boolean).join(' ');
+  const cab=(t,sub)=>`<header class="pres-head"><div><h2 id="presTitle">${esc(t)}</h2><p>${esc(sub)}</p></div><button type="button" class="pres-close" data-pres-cerrar aria-label="Cerrar">×</button></header>`;
+  const err=hoja.error?`<div class="pres-error" role="alert">${esc(hoja.error)}</div>`:'';
+  const motivo=`<label>Motivo<textarea id="presMotivo" rows="2" maxlength="300" placeholder="Queda en el registro: por qué se hace">${esc(hoja.motivo||'')}</textarea></label>`;
+  const boton=t=>`<button type="submit" class="pres-primary"${hoja.enviando?' disabled':''}>${hoja.enviando?'Un momento…':esc(t)}</button>`;
+  let html='';
+  if(hoja.tipo==='ajustar'){
+    const cargos=cargosAbiertos();
+    if(!cargos.length){html=cab('Ajustar saldo',nombre)+'<p class="pres-nota">No hay cargos con saldo pendiente.</p>';}
+    else{
+      const elegido=cargos.find(c=>c.id===hoja.charge)||cargos[0];hoja.charge=elegido.id;
+      const monto=hoja.monto??elegido.saldo;
+      html=cab('Ajustar saldo',nombre)+`<form id="presForm" class="pres-form">
+        <label>Cargo<select id="presCargo">${cargos.map(c=>`<option value="${esc(c.id)}"${c.id===elegido.id?' selected':''}>${esc(c.texto)} · debe ${money.format(c.saldo)}</option>`).join('')}</select></label>
+        <div class="pres-seg" role="radiogroup" aria-label="Tipo de ajuste">${TIPOS_AJUSTE.map(([v,l])=>`<button type="button" role="radio" aria-checked="${(hoja.ajuste||'discount')===v}" data-ajuste="${v}">${l}</button>`).join('')}</div>
+        <label>Monto a quitar<input id="presMonto" type="number" inputmode="decimal" min="1" step="1" max="${elegido.saldo}" value="${esc(String(monto))}"></label>
+        <p class="pres-nota">Debe ${money.format(elegido.saldo)} de este cargo. Después del ajuste quedaría en <b id="presQueda">${money.format(Math.max(0,elegido.saldo-Number(monto||0)))}</b>.</p>
+        ${motivo}${err}${boton('Aplicar ajuste')}</form>`;
+    }
+  }else if(hoja.tipo==='cargo'){
+    const hoy=new Date().toISOString().slice(0,10);
+    html=cab('Agregar cargo',nombre)+`<form id="presForm" class="pres-form">
+      <label>Concepto<input id="presConcepto" type="text" maxlength="120" placeholder="Ej. Torneo de Navidad" value="${esc(hoja.concepto||'')}"></label>
+      <div class="pres-row"><label>Monto<input id="presMonto" type="number" inputmode="decimal" min="1" step="1" value="${esc(hoja.monto??'')}"></label><label>Fecha límite<input id="presFecha" type="date" value="${esc(hoja.fecha||hoy)}"></label></div>
+      <p class="pres-nota">No genera recargo por atraso. Si tiene saldo a favor, se le aplica solo.</p>
+      ${motivo}${err}${boton('Agregar cargo')}</form>`;
+  }else if(hoja.tipo==='corregir'){
+    const pago=(ultimo?.ledger||[]).find(m=>m.id===hoja.payment)||{};
+    html=cab('Corregir pago',`${fmtDate(pago.date)} · ${money.format(Math.abs(Number(pago.amount||0)))}`)+`<form id="presForm" class="pres-form">
+      <p class="pres-nota">El pago se revierte y lo que cubría vuelve a quedar pendiente. Sale de la caja del día. Si el dinero sí entró pero se capturó mal, vuelve a registrarlo bien en Taquilla.</p>
+      ${motivo}${err}${boton('Revertir este pago')}</form>`;
+  }else if(hoja.tipo==='favor'){
+    const favor=Number(ultimo?.summary?.credit_available||0);
+    html=cab('Aplicar saldo a favor',nombre)+`<form id="presForm" class="pres-form">
+      <p class="pres-nota">Tiene ${money.format(favor)} a favor. Se aplica a sus cargos pendientes, del más antiguo al más nuevo.</p>
+      ${err}${boton('Aplicar saldo a favor')}</form>`;
+  }
+  b.innerHTML=html;
+  b.querySelector('[data-pres-cerrar]')?.addEventListener('click',()=>{if(!hoja?.enviando)cerrarHoja();});
+  b.querySelector('#presCargo')?.addEventListener('change',e=>{guardaCampos();hoja.charge=e.target.value;hoja.monto=undefined;pintarHoja();});
+  b.querySelectorAll('[data-ajuste]').forEach(x=>x.addEventListener('click',()=>{guardaCampos();hoja.ajuste=x.dataset.ajuste;pintarHoja();}));
+  b.querySelector('#presMonto')?.addEventListener('input',e=>{const q=$('presQueda');if(q){const c=cargosAbiertos().find(c=>c.id===hoja.charge);if(c)q.textContent=money.format(Math.max(0,c.saldo-Number(e.target.value||0)));}});
+  b.querySelector('#presForm')?.addEventListener('submit',enviarHoja);
+}
+function guardaCampos(){
+  if(!hoja)return;
+  if($('presMotivo'))hoja.motivo=$('presMotivo').value;
+  if($('presMonto'))hoja.monto=$('presMonto').value;
+  if($('presConcepto'))hoja.concepto=$('presConcepto').value;
+  if($('presFecha'))hoja.fecha=$('presFecha').value;
+}
+const ERRORES={
+  'Adjustment exceeds outstanding balance':'No se puede quitar más de lo que se debe de ese cargo.',
+  'Adjustment reason required':'Escribe el motivo (al menos 5 letras).',
+  'Charge has no outstanding balance':'Ese cargo ya no tiene saldo pendiente.',
+  'Amount must be greater than zero':'El monto debe ser mayor a cero.'
+};
+const amable=e=>{const m=String(e?.message||e||'');return ERRORES[m]||m.replace(/^.*?:\s*/,'')||'No se pudo guardar. Intenta de nuevo.';};
+async function enviarHoja(ev){
+  ev.preventDefault();if(!hoja||hoja.enviando)return;
+  guardaCampos();
+  const motivo=String(hoja.motivo||'').trim(),monto=Number(hoja.monto);
+  hoja.error='';
+  if(hoja.tipo!=='favor'&&motivo.length<5){hoja.error='Escribe el motivo (al menos 5 letras): queda en el registro.';pintarHoja();return;}
+  if((hoja.tipo==='ajustar'||hoja.tipo==='cargo')&&!(monto>0)){hoja.error='Escribe un monto mayor a cero.';pintarHoja();return;}
+  if(hoja.tipo==='cargo'&&String(hoja.concepto||'').trim().length<3){hoja.error='Escribe el concepto del cargo.';pintarHoja();return;}
+  hoja.enviando=true;pintarHoja();
+  const org=ctx.organization_id;let aviso='';
+  try{
+    if(hoja.tipo==='ajustar'){
+      await rpc('v2_presidency_adjust_charge',{organization_id:org,charge_id:hoja.charge,adjustment_type:hoja.ajuste||'discount',amount:monto,reason:motivo,idempotency_key:hoja.llave});
+      aviso=`Ajuste aplicado: se quitaron ${money.format(monto)}.`;
+    }else if(hoja.tipo==='cargo'){
+      await rpc('v2_presidency_add_charge',{organization_id:org,player_id:playerId,concept:String(hoja.concepto).trim(),amount:monto,due_date:hoja.fecha||null,reason:motivo,idempotency_key:hoja.llave});
+      aviso=`Cargo agregado: ${String(hoja.concepto).trim()} por ${money.format(monto)}.`;
+    }else if(hoja.tipo==='corregir'){
+      await rpc('v2_correct_tanner_payment',{organization_id:org,payment_id:hoja.payment,reason:motivo});
+      aviso='Pago revertido. Lo que cubría volvió a quedar pendiente.';
+    }else if(hoja.tipo==='favor'){
+      const aplicado=await rpc('v2_apply_player_credit',{organization_id:org,player_id:playerId});
+      aviso=Number(aplicado)>0?`Se aplicaron ${money.format(Number(aplicado))} del saldo a favor.`:'No había cargos donde aplicar el saldo a favor.';
+    }
+  }catch(e){hoja.enviando=false;hoja.error=amable(e);pintarHoja();return;}
+  cerrarHoja();
+  await render();
+  avisar(aviso);
+}
+function avisar(t){
+  if(!t)return;let el=$('presToast');
+  if(!el){document.body.insertAdjacentHTML('beforeend','<div id="presToast" class="pres-toast" role="status"></div>');el=$('presToast');}
+  el.textContent=t;el.classList.add('visible');clearTimeout(avisar.t);avisar.t=setTimeout(()=>el.classList.remove('visible'),3800);
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest?.('[data-pres]');if(!b||!ultimo?.canAdjust)return;
+  const t=b.dataset.pres;
+  if(t==='ajustar')abrirHoja('ajustar',{charge:b.dataset.charge||null});
+  else if(t==='cargo')abrirHoja('cargo');
+  else if(t==='corregir')abrirHoja('corregir',{payment:b.dataset.payment});
+  else if(t==='favor')abrirHoja('favor');
+});
 
 await render();

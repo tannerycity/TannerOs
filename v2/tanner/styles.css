@@ -102,3 +102,34 @@
 .tan-audit-detalle{display:block;margin-top:4px;font-size:11px;line-height:1.5;color:#5a6a70}
 .tan-audit-detalle span{display:block}
 .tan-audit-detalle.alerta{color:#a32920;font-weight:800}
+
+/* Presidencia ajusta el saldo aquí mismo: hoja desde abajo en el teléfono,
+   centrada en iPad/compu. */
+.tan-pres{color:#8a5a12!important}
+.pres-backdrop{position:fixed;inset:0;z-index:95;background:rgba(0,20,27,.42)}
+.pres-sheet{box-sizing:border-box;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:96;width:min(460px,94vw);max-height:90dvh;overflow:auto;background:#fff;border-radius:22px;padding:14px 20px 20px;box-shadow:0 30px 80px rgba(3,47,59,.3)}
+.pres-grab{display:none}
+.pres-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.pres-head h2{margin:0;font-size:20px;color:#0d2730}.pres-head p{margin:3px 0 0;color:#66737a;font-size:13px}
+.pres-close{width:34px;height:34px;flex:0 0 34px;border:0;border-radius:50%;background:#eef2f1;color:#42575d;font-size:20px;line-height:1;cursor:pointer}
+.pres-form{display:grid;gap:12px}.pres-form label{display:grid;gap:6px;font-size:12px;font-weight:700;color:#354f55}
+.pres-form input,.pres-form select,.pres-form textarea{min-height:46px;border:1px solid #d6dfdd;border-radius:12px;padding:10px 12px;font:inherit;font-size:15px;color:#0d2730;background:#fff;width:100%;box-sizing:border-box}
+.pres-form textarea{min-height:64px;resize:vertical}
+.pres-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pres-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:13px;background:#eef2f1}
+.pres-seg button{border:0;border-radius:10px;padding:10px 6px;background:transparent;font:inherit;font-size:13px;font-weight:700;color:#5c6f74;cursor:pointer}
+.pres-seg button[aria-checked="true"]{background:#fff;color:#0d2730;box-shadow:0 2px 8px rgba(3,47,59,.12)}
+.pres-nota{margin:0;font-size:12.5px;color:#66737a;line-height:1.45}
+.pres-error{padding:10px 12px;border-radius:12px;background:#fdf0ec;color:#9b3a24;font-size:13px;font-weight:600}
+.pres-primary{min-height:50px;border:0;border-radius:14px;background:#053746;color:#fff;font:inherit;font-size:15px;font-weight:800;cursor:pointer}.pres-primary:disabled{opacity:.55}
+.pres-toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);transform:translate(-50%,20px);z-index:97;background:#0d2730;color:#fff;padding:12px 16px;border-radius:14px;font-size:13.5px;font-weight:600;max-width:min(420px,90vw);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.pres-toast.visible{opacity:1;transform:translate(-50%,0)}
+@media (max-width:640px){
+  .pres-sheet{left:0;right:0;top:auto;bottom:0;transform:none;width:auto;border-radius:22px 22px 0 0;padding:8px 16px calc(env(safe-area-inset-bottom) + 18px)}
+  .pres-grab{display:block;width:38px;height:5px;border-radius:3px;background:#d6dcdb;margin:4px auto 10px}
+  .pres-row{grid-template-columns:1fr}
+}
+/* La nota de saldo a favor vive dentro de .tan-balance y heredaba la cifra
+   grande (42px) del saldo. */
+.tan-balance .tan-note strong{font-size:13.5px;line-height:1.3;margin-top:0;letter-spacing:normal;color:#0c5163}
+.tan-balance .tan-note .tan-dot{flex:0 0 28px;width:28px;height:28px;display:grid;place-items:center;border-radius:9px}
+.tan-balance .tan-note .tan-dot svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}

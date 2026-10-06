@@ -224,7 +224,7 @@ async function renderCollections(){
     const photoAttrs=p.photo_thumb_path?` data-photo-path="${esc(p.photo_thumb_path)}" data-photo-bucket="${esc(p.photo_bucket||'tanneros-private')}"`:'';
     return `<div class="collections-row">
       <span class="collections-face"${photoAttrs}><b aria-hidden="true">${esc(initials)}</b></span>
-      <div class="collections-info"><strong>${esc(p.player_name)}</strong><span class="collections-concept">${esc(concept)}</span></div>
+      <a class="collections-info collections-edo" href="/tanner/?id=${encodeURIComponent(p.player_id)}" title="Ver su historial de pagos"><strong>${esc(p.player_name)}</strong><span class="collections-concept">${esc(concept)} · <u>Ver historial</u></span></a>
       <div class="collections-status"><span class="status-pill ${isPending?'pending':'current'}">${isPending?'Pendiente':'Al corriente'}</span><small class="collections-last">${esc(fmtLastPayment(p.last_payment_date))}</small></div>
       ${canCashWrite?`<button type="button" class="collections-collect" data-quick-collect="${esc(p.player_id)}" data-name="${esc(p.player_name||'')}" data-amount="${amount>0?amount:''}">Registrar</button>`:''}
     </div>`;

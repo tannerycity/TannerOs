@@ -215,3 +215,8 @@ body[style*="overflow: hidden"]:not(.tos-fab-open) .tos-fab,.tos-nav-open .tos-f
   .tos-fab-open .tos-fab{z-index:50}
 }
 @media (prefers-reduced-motion:reduce){.tos-fab,.tos-fab svg,.tos-fab-menu,.tos-fab-backdrop{transition:none}}
+
+/* Finanzas · buscador de estado de cuenta por Tanner. */
+.tos-edo-search{display:flex;align-items:center;gap:10px;border:1px solid var(--tos-line);border-radius:14px;padding:0 14px;background:#fff;margin:4px 0 6px}
+.tos-edo-search input{flex:1;min-height:48px;border:0!important;box-shadow:none!important;padding:0!important;outline:0;font:inherit;font-size:15px;background:transparent;color:#0d2730}
+.tos-edo .tos-list-row b{font-size:12px;color:var(--tos-teal);white-space:nowrap}

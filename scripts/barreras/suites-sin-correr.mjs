@@ -86,7 +86,10 @@ export default function comprobar() {
   // Sube a 20 por qa-humo-inicio-cumple-fab.mjs. Vigila la franja de
   // cumpleaños bajo el saludo y el botón flotante: qué acciones ve cada rol,
   // que abra y cierre, y que el menú quepa en el teléfono. Es pintura.
-  const MAX_EXCLUIDAS = 20;
+  // Sube a 21 por qa-humo-historial-pagos.mjs. Vigila la sección Pagos de la
+  // ficha (y que al profe no le salga), y el buscador de estado de cuenta en
+  // Finanzas. Es pintura sobre el RPC de estado de cuenta.
+  const MAX_EXCLUIDAS = 21;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

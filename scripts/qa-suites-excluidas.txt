@@ -34,6 +34,7 @@ qa-humo-inicio-cumple-fab.mjs
 qa-humo-historial-pagos.mjs
 qa-humo-ajustes-presidencia.mjs
 qa-humo-ficha-tanner.mjs
+qa-humo-terminar-patrocinio.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

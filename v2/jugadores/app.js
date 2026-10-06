@@ -462,7 +462,7 @@ function renderBenefits(playerId){
     ].filter(Boolean).join('');
     const acciones=canStatus
       ? `<span class="ben-actions"><button type="button" class="secondary mini" data-benedit="${esc(b.id)}">Editar</button>`+
-        `<button type="button" class="secondary mini" data-benend="${esc(b.id)}">Terminar</button></span>`
+        `<button type="button" class="secondary mini" data-benend="${esc(b.id)}">${b.type==='sponsor_funded'?'Terminar patrocinio':'Terminar'}</button></span>`
       : '';
     return `<article class="ben-row"><div class="ben-head"><strong>${esc(TIPO_BECA[b.type]||b.type)}</strong>${acciones}</div>`+
       (datos?`<div class="ben-facts">${datos}</div>`:'')+
@@ -574,19 +574,31 @@ function formBeca(playerId,benefitId){
     }
   });
 }
+// Un patrocinio (sponsor_funded) se termina con su propia función: el
+// servidor lo rechaza en v2_end_player_benefit. Desde ese momento la familia
+// paga la mensualidad completa, y así se le avisa a quien lo termina.
 async function terminarBeca(playerId,benefitId){
-  const motivo=await tosPrompt({kicker:'BECAS',title:'¿Por qué termina el apoyo?',
-    message:'El histórico se conserva: queda con fecha y motivo.',
-    placeholder:'Cambió la situación de la familia, se acabó el patrocinio…',
-    required:true,requiredText:'Escribe por qué termina.',maxlength:200,
-    confirmText:'Terminar apoyo',danger:true});
+  const ben=benefits.find(b=>b.id===benefitId);
+  const patrocinio=ben?.type==='sponsor_funded';
+  const quien=ben?.sponsorName||ben?.fundingSource;
+  const motivo=await tosPrompt(patrocinio
+    ? {kicker:'PATROCINIO',title:'¿Por qué termina el patrocinio?',
+       message:`Desde hoy la familia paga la mensualidad completa${quien?`: ${quien} deja de cubrirla`:''}. El histórico se conserva con fecha y motivo.`,
+       placeholder:'Se acabó el convenio, el Tanner se dio de baja…',
+       required:true,requiredText:'Escribe por qué termina.',maxlength:200,
+       confirmText:'Terminar patrocinio',danger:true}
+    : {kicker:'BECAS',title:'¿Por qué termina el apoyo?',
+       message:'El histórico se conserva: queda con fecha y motivo.',
+       placeholder:'Cambió la situación de la familia, se acabó el patrocinio…',
+       required:true,requiredText:'Escribe por qué termina.',maxlength:200,
+       confirmText:'Terminar apoyo',danger:true});
   if(motivo===null)return;
   try{
-    benefits=await rpc('v2_end_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
+    benefits=await rpc(patrocinio?'v2_end_sponsor_funding':'v2_end_player_benefit',{organization_id:ctx.organization_id,player_id:playerId,
       benefit_id:benefitId,reason:motivo})||[];
     renderBenefits(playerId);
     await loadPlayers();
-    msg('Apoyo terminado. El histórico se conserva.','success');
+    msg(patrocinio?'Patrocinio terminado. La familia paga la mensualidad completa.':'Apoyo terminado. El histórico se conserva.','success');
   }catch(err){msg(friendly(err));}
 }
 

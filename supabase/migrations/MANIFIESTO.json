@@ -1,8 +1,8 @@
 {
-  "migraciones": 430,
-  "bytes": 2339272,
-  "huella": "47684f05b34fd83792e0a6a914b7d2ab",
+  "migraciones": 431,
+  "bytes": 2344444,
+  "huella": "caf8647aebe5b1143626329ff1c82407",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261006015259_p2_historial_de_cambios_y_cargo_masivo.sql",
+  "ultima": "20261006030212_q2_ficha_familia_y_linea_de_tiempo.sql",
   "verificadoContraLaBase": "2026-10-06"
 }

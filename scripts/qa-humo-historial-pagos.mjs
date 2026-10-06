@@ -86,6 +86,9 @@ async function abre(rol, ruta) {
 /* ---------- Ficha: Presidencia ---------- */
 {
   const p = await abre('Presidencia', '/v2/jugadores/?player=p1');
+  // Desde el rediseño de la ficha, los pagos viven en su pestaña.
+  await p.waitForSelector('[data-ficha-tab="pagos"]', { timeout:8000 });
+  await p.click('[data-ficha-tab="pagos"]');
   await p.waitForSelector('#pagosSnapshot .pagos-kpis', { timeout:8000 });
   const t = (await p.innerText('#pagosSnapshot')).replace(/\s+/g,' ');
   revisa('[ficha] sale la sección Pagos', await p.isVisible('#pagosSnapshot'));

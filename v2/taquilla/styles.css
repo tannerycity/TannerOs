@@ -332,3 +332,8 @@
 .gafete-nuevo-btn{border:0;font:inherit;cursor:pointer;margin-top:4px;min-height:44px}
 .gafete-nuevo-btn.on{background:#164a52;color:#fff}
 .gafete-monto{margin:0;padding:10px 12px;border-radius:12px;background:#eef7f7;color:#164a52;font-size:14px}
+
+/* El nombre en Cobranza abre el estado de cuenta (historial de pagos). */
+a.collections-edo{color:inherit;text-decoration:none;min-width:0}
+a.collections-edo:hover strong{color:var(--tos-teal,#087d8e)}
+a.collections-edo u{text-decoration:none;color:var(--tos-teal,#087d8e);font-weight:700}

@@ -33,12 +33,16 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
      un candado que se abre cuando algo sale mal no es un candado. */
   try{ puedeMoverIngreso=Boolean(await rpc('v2_can_set_joined_at',{organization_id:ctx.organization_id})); }
   catch(e){ puedeMoverIngreso=false; }
-  // El estado de cuenta trae saldos, cargos y pagos de la familia. El RPC lo
-  // deja pasar con lectura de Jugadores —o sea, también a un Formador—, y un
-  // profe no tiene por qué ver lo que debe la familia de su alumno. El enlace
-  // se ofrece sólo a quien lleva dinero.
-  const cajaMod=mods.find(m=>m.module_code==='taquilla'),contaMod=mods.find(m=>m.module_code==='contabilidad');
-  canMoney=!!(cajaMod?.enabled&&cajaMod?.can_read)||!!(contaMod?.enabled&&contaMod?.can_read);
+  // El estado de cuenta trae saldos, cargos y pagos de la familia. Desde n2
+  // el RPC sólo deja pasar a Cobranza o Contabilidad (antes bastaba Jugadores
+  // y un profe podía leerlo por la API). Aquí se usa la misma regla, para que
+  // la sección de Pagos y el enlace sólo salgan a quien el RPC sí contesta.
+  // OJO: v2_my_modules contesta con los códigos internos en inglés
+  // (billing = Cobranza, accounting = Contabilidad). Antes aquí se buscaba
+  // 'taquilla'/'contabilidad', que esta lista no trae, y el botón "Estado de
+  // cuenta" no le salía a nadie.
+  const cobrMod=mods.find(m=>m.module_code==='billing'),contaMod=mods.find(m=>m.module_code==='accounting');
+  canMoney=!!(cobrMod?.enabled&&cobrMod?.can_read)||!!(contaMod?.enabled&&contaMod?.can_read);
   applyFamilyLock();acotarFechaNacimiento();
   $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();signPlayerPhotos(players).then(()=>renderList());
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
@@ -281,6 +285,41 @@ function renderEstadoDeCuenta(p){
   const puede=canMoney;
   a.classList.toggle('hidden',!puede||!p?.id);
   if(puede&&p?.id)a.href=`/tanner/?id=${encodeURIComponent(p.id)}`;
+}
+
+/* ===== Pagos dentro de la ficha =====
+   "¿Qué ha pagado este niño?" se pregunta con el papá enfrente. La respuesta
+   va aquí, a la vista: lo que debe, lo que ha pagado, saldo a favor y sus
+   últimos pagos. El historial completo sigue en el estado de cuenta. Sale del
+   mismo v2_player_account_statement que Taquilla, así que cuadra igual. */
+let pagosSeq=0;
+const METODO={cash:'Efectivo',transfer:'Transferencia',card:'Tarjeta',deposit:'Depósito',other:'Otro'};
+const fechaPago=d=>d?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${String(d).slice(0,10)}T12:00:00`)):'—';
+const pesos=v=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(v||0));
+async function loadPagos(id){
+  const box=$('pagosSnapshot');if(!box)return;
+  const seq=++pagosSeq;
+  if(!canMoney){box.classList.add('hidden');box.innerHTML='';return;}
+  box.classList.remove('hidden');
+  box.innerHTML='<div class="pagos-head"><div><div class="eyebrow">PAGOS</div><h3>Lo que ha pagado</h3></div></div><div class="mini-empty">Cargando pagos…</div>';
+  let d=null;
+  try{d=await rpc('v2_player_account_statement',{organization_id:ctx.organization_id,player_id:id});}
+  catch(e){if(seq!==pagosSeq)return;box.innerHTML='<div class="pagos-head"><div><div class="eyebrow">PAGOS</div><h3>Lo que ha pagado</h3></div></div><div class="mini-empty">No pudimos cargar los pagos. Intenta de nuevo.</div>';return;}
+  if(seq!==pagosSeq)return;
+  const s=d?.summary||{};
+  const pagos=[
+    ...(d?.ledger||[]).filter(m=>m.kind==='payment').map(m=>({fecha:m.date,concepto:m.concept||'Pago',monto:Math.abs(Number(m.amount||0)),metodo:m.method})),
+    ...(d?.other_payments||[]).map(m=>({fecha:m.date,concepto:m.concept||'Otro pago',monto:Number(m.amount||0),metodo:m.method}))
+  ].sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  const debe=Number(s.balance||0),favor=Number(s.credit_available||0);
+  const estado=debe>0
+    ?`<span class="pagos-estado debe">Debe ${esc(pesos(debe))}${s.oldest_due?` · desde ${esc(fechaPago(s.oldest_due))}`:''}</span>`
+    :`<span class="pagos-estado ok">Al corriente</span>`;
+  const filas=pagos.slice(0,5).map(p=>`<div class="pagos-fila"><span><strong>${esc(p.concepto)}</strong><small>${esc(fechaPago(p.fecha))}${p.metodo?` · ${esc(METODO[p.metodo]||p.metodo)}`:''}</small></span><b>${esc(pesos(p.monto))}</b></div>`).join('');
+  box.innerHTML=`<div class="pagos-head"><div><div class="eyebrow">PAGOS</div><h3>Lo que ha pagado</h3></div>${estado}</div>`+
+    `<div class="pagos-kpis"><article><span>Ha pagado</span><strong>${esc(pesos(s.paid_total))}</strong></article><article><span>Debe</span><strong class="${debe>0?'debe':''}">${esc(pesos(debe))}</strong></article><article><span>Saldo a favor</span><strong>${esc(pesos(favor))}</strong></article></div>`+
+    (filas?`<div class="pagos-lista">${filas}</div>`:'<div class="mini-empty">Todavía no tiene pagos registrados.</div>')+
+    `<a class="secondary mini nav-link pagos-todo" href="/tanner/?id=${encodeURIComponent(id)}">Ver historial completo${pagos.length>5?` (${pagos.length} pagos)`:''}</a>`;
 }
 
 function renderPrivacy(p){
@@ -673,7 +712,7 @@ loadCobertura();
 closeInlineEvaluation();if(next){await openProfile(next.id);openInlineEvaluation();const notice=$('profileEvalMessage');notice.textContent=`Evaluación guardada · Sigue ${nameOf(next)}`;notice.dataset.type='success';notice.classList.remove('hidden');}else msg('Evaluación guardada. Perfil Tanner actualizado.','success');}catch(error){box.textContent=friendly(error);box.classList.remove('hidden');btn.disabled=false;}}
 
 async function loadSports(playerId){const seq=++sportsSeq;setCardSports({},null);$('sportsLoading').textContent='Cargando lectura deportiva…';$('sportsLoading').classList.remove('hidden');$('sportsEmpty').classList.add('hidden');$('sportsContent').classList.add('hidden');try{const data=await rpc('v2_player_sports',{organization_id:ctx.organization_id,player_id:playerId});if(seq!==sportsSeq)return;renderSports(data);}catch(e){if(seq!==sportsSeq)return;$('sportsLoading').textContent='No pudimos cargar el perfil deportivo en este momento.';}}
-async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderEstadoDeCuenta(p);renderPhoto(p);renderList();closeInlineEvaluation();$('openEvaluation').classList.toggle('hidden',!canWrite);loadSports(id);loadBenefits(id);document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail:{playerId:id,player:p,organizationId:ctx.organization_id,canWrite}}));}
+async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderEstadoDeCuenta(p);loadPagos(id);renderPhoto(p);renderList();closeInlineEvaluation();$('openEvaluation').classList.toggle('hidden',!canWrite);loadSports(id);loadBenefits(id);document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail:{playerId:id,player:p,organizationId:ctx.organization_id,canWrite}}));}
 async function save(e){e.preventDefault();if(!current||!canWrite)return;msg();const btn=$('saveProfile');btn.disabled=true;try{const p=current.player;current=await rpc('v2_save_player_profile',{organization_id:ctx.organization_id,player_id:p.id,first_name:$('firstName').value.trim(),last_name:$('lastName').value.trim(),birth_date:$('birthDate').value,player_position:$('position').value.trim()||null,dominant_foot:$('dominantFoot').value||null,sex:$('sex').value||null,jersey_number:$('jerseyNumber').value.trim()||null,school:$('school').value.trim()||null,blood_type:$('bloodType').value.trim()||null,allergies:$('allergies').value.trim()||null,address:$('address').value.trim()||null,emergency_contact_name:$('emergencyName').value.trim()||null,emergency_contact_phone:$('emergencyPhone').value.trim()||null,notes:$('notes').value.trim()||null,guardian_name:$('guardianName').value.trim()||null,guardian_phone:$('guardianPhone').value.trim()||null,guardian_email:$('guardianEmail').value.trim()||null,guardian_relationship:$('guardianRelationship').value.trim()||null,can_pickup:$('canPickup').checked,receives_billing:$('receivesBilling').checked,category_id:$('categoryId').value||null,category_effective_date:$('categoryDate').value||today(),category_notes:$('categoryNotes').value.trim()||null,
       // Sólo se manda si quien guarda puede moverla. La base la ignoraría de
       // todos modos, pero mandar un dato que se va a tirar es pedirle a la

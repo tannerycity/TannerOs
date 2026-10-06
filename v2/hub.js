@@ -63,15 +63,32 @@ async function renderDirection(){
 }
 
 
+function wireEstadoDeCuenta(padron){
+  const input=$('edoBusca'),lista=$('edoLista');if(!input||!lista)return;
+  const norm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const fecha=d=>d?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${String(d).slice(0,10)}T12:00:00`)):'';
+  const pinta=()=>{
+    const q=norm(input.value).trim();
+    if(q.length<2){lista.innerHTML='';return;}
+    const hits=padron.filter(p=>norm(p.player_name).includes(q)).slice(0,8);
+    lista.innerHTML=hits.length?hits.map(p=>`<a class="tos-list-row" href="/tanner/?id=${encodeURIComponent(p.player_id)}"><div><strong>${esc(p.player_name)}</strong><span>${p.last_payment_date?`Último pago: ${esc(fecha(p.last_payment_date))}`:'Sin pagos registrados'}</span></div><b>Ver estado de cuenta ›</b></a>`).join(''):'<div class="tos-empty">Ningún Tanner con ese nombre.</div>';
+  };
+  input.addEventListener('input',pinta);
+}
+
 async function renderFinance(){
   $('hubEyebrow').textContent='COBRANZA Y CONTABILIDAD';$('hubTitle').textContent='Finanzas';$('hubSubtitle').textContent='Caja, cartera activa y movimientos financieros desde el mismo ledger.';
-  const [collection,receivables,searchIdx,clubCfg]=await Promise.all([
+  // Estado de cuenta por Tanner: lo consulta quien lleva dinero (Cobranza),
+  // no la ventanilla. Es el mismo estado de cuenta de /tanner/.
+  const puedeEstado=can('cobranza')&&ctx.role!=='Taquilla';
+  const [collection,receivables,searchIdx,clubCfg,padron]=await Promise.all([
     (can('cobranza')||can('contabilidad'))?safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:new Date().toISOString().slice(0,7)+'-01'}),null):null,
     can('cobranza')?safe(rpc('v2_open_receivables',{organization_id:org}),[]):[],
     can('cobranza')?safe(rpc('v2_search_index',{organization_id:org}),[]):[],
     // El WhatsApp del club da la lada de pais para completar numeros locales, y
     // su nombre va en el mensaje. Lo puede leer cualquier miembro activo.
-    can('cobranza')?safe(rpc('v2_club_config',{organization_id:org}),null):null
+    can('cobranza')?safe(rpc('v2_club_config',{organization_id:org}),null):null,
+    puedeEstado?safe(rpc('v2_billing_players',{organization_id:org}),[]):[]
   ]);
   const _today=new Date().toISOString().slice(0,10);
   // La asignación de pagos sólo toca cargos desde 2026-09-01 (frontera de la
@@ -122,7 +139,9 @@ async function renderFinance(){
       : 'Hay teléfonos cuya lada de país no se puede deducir del WhatsApp del club. Revísalos en el expediente de cada Tanner.'
   }</div>`:'';
   const list=can('cobranza')?`<section id="cobranza" class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><h2>Vencidos por cobrar</h2><span class="tos-user-note">${nota}</span></div>${banner}<div class="tos-list">${debtRows||'<div class="tos-empty">Sin pagos vencidos. Todo al corriente.</div>'}</div></section>`:'';
-  const attentionBlock=(_alerts.length||_aparte.length)?`<section class="tos-panel" style="margin-top:14px;padding:16px 18px"><strong style="display:block;margin-bottom:10px;font-size:15px">Necesita tu atención</strong><div style="display:flex;flex-direction:column;gap:8px">${_alerts.map(a=>{const col=a.tone==='danger'?'#d23829':'#a9791b';const bg=a.tone==='danger'?'#fdeceb':'#fbf3e2';const bd=a.tone==='danger'?'#f5c6c2':'#ecd9a8';return `<a href="#cobranza" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:${bg};border:1px solid ${bd};text-decoration:none"><span style="display:flex;flex-direction:column"><strong style="color:${col};font-size:14px">${esc(a.t)}</strong><span style="color:#66737a;font-size:12.5px">${esc(a.d)}</span></span><span style="color:${col};font-weight:800;font-size:13px;white-space:nowrap">Ver →</span></a>`;}).join('')}</div>${_aparteHtml}</section>`:'';$('hubBody').innerHTML=`${kpis}${attentionBlock}${modules}${list}`;if(collection&&Number(collection.total_receivable||0)>0)setShellHealth({state:'attention',label:'Cobranza pendiente'});
+  const attentionBlock=(_alerts.length||_aparte.length)?`<section class="tos-panel" style="margin-top:14px;padding:16px 18px"><strong style="display:block;margin-bottom:10px;font-size:15px">Necesita tu atención</strong><div style="display:flex;flex-direction:column;gap:8px">${_alerts.map(a=>{const col=a.tone==='danger'?'#d23829':'#a9791b';const bg=a.tone==='danger'?'#fdeceb':'#fbf3e2';const bd=a.tone==='danger'?'#f5c6c2':'#ecd9a8';return `<a href="#cobranza" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:${bg};border:1px solid ${bd};text-decoration:none"><span style="display:flex;flex-direction:column"><strong style="color:${col};font-size:14px">${esc(a.t)}</strong><span style="color:#66737a;font-size:12.5px">${esc(a.d)}</span></span><span style="color:${col};font-weight:800;font-size:13px;white-space:nowrap">Ver →</span></a>`;}).join('')}</div>${_aparteHtml}</section>`:'';const estadoBlock=puedeEstado?`<section id="estadoCuenta" class="tos-panel tos-edo" style="margin-top:14px"><div class="tos-panel-head"><div><h2>Estado de cuenta por Tanner</h2><div class="tos-user-note">Qué ha pagado cada jugador, qué debe y su historial completo.</div></div></div><label class="tos-edo-search"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="edoBusca" type="search" autocomplete="off" placeholder="Escribe el nombre del Tanner" aria-label="Buscar Tanner"></label><div id="edoLista" class="tos-list"></div></section>`:'';
+  $('hubBody').innerHTML=`${kpis}${estadoBlock}${attentionBlock}${modules}${list}`;
+  if(puedeEstado)wireEstadoDeCuenta(Array.isArray(padron)?padron:[]);if(collection&&Number(collection.total_receivable||0)>0)setShellHealth({state:'attention',label:'Cobranza pendiente'});
 }
 
 if(page==='club')await renderClub();else if(page==='direccion')await renderDirection();else if(page==='finanzas')await renderFinance();

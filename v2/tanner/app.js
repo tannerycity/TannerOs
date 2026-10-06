@@ -15,6 +15,7 @@ const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Ac
 const DOC_LABEL={birth_certificate:'Acta de nacimiento',curp:'CURP',studies:'Constancia de estudios',photo:'Fotografía',id:'Identificación'};
 const STATUS_LABEL={active:'Activo',withdrawn:'Baja',paused:'En pausa',archived:'Archivado'};
 const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';
+const METODO_PAGO={cash:'Efectivo',transfer:'Transferencia',card:'Tarjeta',deposit:'Depósito',other:'Otro'};
 const docLabel=t=>DOC_LABEL[t]||String(t||'').replace(/_/g,' ');
 
 function fmtDate(value){
@@ -75,6 +76,7 @@ function balanceBlock(data){
     acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="cargo">Agregar cargo</button>`);
     if(saldo>0&&aFavor>0)acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="favor">Aplicar ${money.format(aFavor)} a favor</button>`);
   }
+  acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-enviar-edo>Enviar estado de cuenta</button>`);
   if(can('jugadores'))acciones.push(`<a class="tan-btn" data-kind="ghost" href="/jugadores/?player=${encodeURIComponent(p.id)}">Ver ficha</a>`);
 
   // Explica de dónde sale un saldo que parece no cuadrar tras un cobro.
@@ -136,7 +138,7 @@ function ledgerBlock(data){
     const titulo=cargo?`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`:'Pago recibido';
     const detalle=cargo
       ? `${fmtDate(m.date)}${m.charge_balance>0?` · quedan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`
-      : `${fmtDate(m.date)}${m.method?` · ${esc(m.method)}`:''}${m.reference?` · ${esc(m.reference)}`:''}`;
+      : `${fmtDate(m.date)}${m.method?` · ${esc(METODO_PAGO[m.method]||m.method)}`:''}${m.reference&&m.reference!==METODO_PAGO[m.method]?` · ${esc(m.reference)}`:''}`;
     // En un historial de pagos, "quién lo cobró" es la mitad del dato. El club
     // encontró un movimiento que decía "Pagó: Michel" y lo había capturado la
     // cuenta iPad; aquí no se repite ese error: el nombre tecleado no se
@@ -183,6 +185,127 @@ document.addEventListener('click',async e=>{
     b.disabled=false;b.textContent=antes;
     b.insertAdjacentHTML('afterend','<span class="tan-audit-detalle">No se pudo abrir el detalle.</span>');
   }
+});
+
+/* ===== Cambios al saldo (sólo en pantalla) =====
+   Quién ajustó qué, cuándo y por qué: descuentos, condonaciones, cargos que
+   agregó Presidencia y pagos revertidos. Es información interna: NO va en el
+   PDF que se le manda a la familia (pedido de Presidencia, 06/10/2026). */
+let cambios=null,fotoActual='';
+const TIPO_CAMBIO={discount:'Descuento',waiver:'Condonación',correction:'Corrección',late_fee_waiver:'Recargo perdonado',benefit:'Apoyo'};
+function cambiosBlock(){
+  if(!Array.isArray(cambios)||!cambios.length)return '';
+  const fecha=v=>v?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(v)):'';
+  const filas=cambios.map(c=>{
+    const titulo=c.kind==='adjustment'?`${TIPO_CAMBIO[c.type]||'Ajuste'} · ${c.concept||chargeLabel(c.chargeType)}`
+      :c.kind==='charge_added'?`Cargo agregado · ${c.concept||''}`
+      :`Pago revertido${c.paymentDate?` del ${fmtDate(c.paymentDate)}`:''}`;
+    const signo=c.kind==='charge_added'?'+':'−';
+    return `<div class="tan-mov" data-kind="cambio"><span class="tan-dot">${shellIcon('settings')}</span><span class="tan-mov-body"><strong>${esc(titulo)}</strong><span>${esc(fecha(c.at))}${c.by?` · ${esc(c.by)}`:''}</span>${c.reason?`<span class="tan-motivo">“${esc(c.reason)}”</span>`:''}</span><span class="tan-mov-nums"><b>${signo}${money.format(Math.abs(Number(c.amount||0)))}</b></span></div>`;
+  }).join('');
+  return `<section class="tan-section tan-cambios"><div class="tan-section-head"><h2>Cambios al saldo</h2><span>Sólo interno · no sale en el PDF</span></div><div class="tan-ledger">${filas}</div></section>`;
+}
+async function cargaCambios(paint){
+  try{cambios=await rpc('v2_player_change_history',{organization_id:ctx.organization_id,player_id:playerId});}catch(e){cambios=null;return;}
+  if(Array.isArray(cambios)&&cambios.length)paint(fotoActual);
+}
+
+/* ===== Estado de cuenta para la familia: PDF y WhatsApp =====
+   Lo que se le manda al papá: saldo, qué meses debe y sus movimientos. Nada
+   interno (ni quién cobró, ni el historial de cambios, ni motivos). En el
+   teléfono se comparte el PDF directo (WhatsApp, correo...) con la hoja de
+   compartir del sistema; donde no se puede, se descarga y se abre WhatsApp
+   con el resumen escrito. */
+async function generaPdf(data){
+  const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+  const doc=new jsPDF({unit:'pt',format:'letter'});
+  const ancho=doc.internal.pageSize.getWidth(),alto=doc.internal.pageSize.getHeight(),m=40;
+  let y=m;
+  const p=data.player||{},s=data.summary||{};
+  const nombre=[p.first_name,p.last_name].filter(Boolean).join(' ');
+  const pesos=v=>money.format(Number(v||0));
+  const club=ctx.organization_name||'Tannery City FC';
+  const hoy=new Intl.DateTimeFormat('es-MX',{dateStyle:'long'}).format(new Date());
+  const salto=n=>{if(y+n>alto-m-20){doc.addPage();y=m;}};
+  doc.setFillColor(5,55,70);doc.rect(0,0,ancho,74,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('Estado de cuenta',m,36);
+  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(`${club} · ${hoy}`,m,54);
+  y=104;doc.setTextColor(7,25,30);doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text(nombre,m,y);y+=15;
+  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(100,118,123);
+  doc.text([p.category,p.code].filter(Boolean).join(' · ')||' ',m,y);y+=26;
+  const saldo=Number(s.balance||0),favor=Number(s.credit_available||0);
+  const cajas=[['Saldo pendiente',pesos(saldo)],['Total pagado',pesos(s.paid_total)],['Saldo a favor',pesos(favor)]];
+  const w=(ancho-m*2-20)/3;
+  cajas.forEach(([t,v],i)=>{const x=m+i*(w+10);doc.setFillColor(243,246,245);doc.roundedRect(x,y,w,48,6,6,'F');
+    doc.setFontSize(8.5);doc.setTextColor(100,118,123);doc.text(t.toUpperCase(),x+10,y+16);
+    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(i===0&&saldo>0?170:7,i===0&&saldo>0?45:25,i===0&&saldo>0?30:30);doc.text(v,x+10,y+36);doc.setFont('helvetica','normal');});
+  y+=70;
+  // Meses con saldo
+  const meses=new Map();
+  (data.ledger||[]).filter(x=>x.kind==='charge'&&Number(x.charge_balance||0)>0).forEach(x=>{
+    const k=x.subtype==='other'?(x.concept||'Otro cargo'):`${chargeLabel(x.subtype)} ${x.period?fmtDate(x.period).replace(/^\d+ /,''):''}`.trim();
+    meses.set(k,(meses.get(k)||0)+Number(x.charge_balance));
+  });
+  if(meses.size){
+    doc.setTextColor(7,25,30);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('Pendiente de pago',m,y);y+=16;
+    doc.setFont('helvetica','normal');doc.setFontSize(10);
+    for(const [k,v] of meses){salto(16);doc.text(k,m,y);doc.text(pesos(v),ancho-m,y,{align:'right'});y+=15;}
+    y+=10;
+  }
+  // Movimientos
+  salto(40);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(7,25,30);doc.text('Movimientos',m,y);y+=12;
+  const cab=()=>{doc.setFillColor(238,242,241);doc.rect(m,y,ancho-m*2,18,'F');doc.setFontSize(8.5);doc.setTextColor(60,80,86);
+    doc.text('FECHA',m+6,y+12);doc.text('CONCEPTO',m+90,y+12);doc.text('CARGO',ancho-m-150,y+12,{align:'right'});doc.text('PAGO',ancho-m-80,y+12,{align:'right'});doc.text('SALDO',ancho-m-6,y+12,{align:'right'});y+=26;doc.setTextColor(7,25,30);doc.setFont('helvetica','normal');doc.setFontSize(9.5);};
+  doc.setFont('helvetica','bold');cab();
+  const movs=(data.ledger||[]).filter(x=>x.kind!=='payment'||x.status==='posted');
+  if(!movs.length){doc.text('Sin movimientos.',m+6,y);y+=14;}
+  for(const x of movs){
+    if(y>alto-m-30){doc.addPage();y=m;doc.setFont('helvetica','bold');cab();}
+    const cargo=x.kind==='charge';
+    const concepto=cargo?(x.subtype==='other'?(x.concept||'Otro cargo'):`${chargeLabel(x.subtype)}${x.period?` ${fmtDate(x.period).replace(/^\d+ /,'')}`:''}`):`Pago${x.method?` · ${({cash:'Efectivo',transfer:'Transferencia',card:'Tarjeta'})[x.method]||x.method}`:''}`;
+    const sc=Number(x.running_balance||0);
+    doc.text(fmtDate(x.date),m+6,y);
+    doc.text(doc.splitTextToSize(concepto,ancho-m*2-330)[0]||'',m+90,y);
+    doc.text(cargo?pesos(Math.abs(x.amount)):'',ancho-m-150,y,{align:'right'});
+    doc.text(cargo?'':pesos(Math.abs(x.amount)),ancho-m-80,y,{align:'right'});
+    doc.text(sc<-0.004?`${pesos(-sc)} a favor`:pesos(sc),ancho-m-6,y,{align:'right'});
+    y+=15;
+  }
+  salto(40);y+=16;doc.setFontSize(8.5);doc.setTextColor(120,135,140);
+  doc.text(`Para cualquier aclaración, comunícate con ${club}. Documento informativo generado el ${hoy}.`,m,y);
+  const archivo=`estado-de-cuenta-${nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'tanner'}.pdf`;
+  return {doc,archivo};
+}
+function textoWhatsapp(data){
+  const p=data.player||{},s=data.summary||{};
+  const nombre=[p.first_name,p.last_name].filter(Boolean).join(' ');
+  const saldo=Number(s.balance||0);
+  const pendientes=(data.ledger||[]).filter(x=>x.kind==='charge'&&Number(x.charge_balance||0)>0)
+    .map(x=>`• ${x.subtype==='other'?(x.concept||'Otro cargo'):`${chargeLabel(x.subtype)}${x.period?` ${fmtDate(x.period).replace(/^\d+ /,'')}`:''}`}: ${money.format(Number(x.charge_balance))}`);
+  return saldo>0
+    ?`Hola, le compartimos el estado de cuenta de ${nombre} en ${ctx.organization_name||'Tannery City'}.\n\nSaldo pendiente: ${money.format(saldo)}\n${pendientes.join('\n')}\n\nCualquier duda, aquí estamos. Gracias.`
+    :`Hola, le compartimos el estado de cuenta de ${nombre} en ${ctx.organization_name||'Tannery City'}. Está al corriente. Gracias por su puntualidad.`;
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest?.('[data-enviar-edo]');if(!b||!ultimo)return;
+  const antes=b.textContent;b.disabled=true;b.textContent='Preparando…';
+  try{
+    const {doc,archivo}=await generaPdf(ultimo);
+    const texto=textoWhatsapp(ultimo);
+    const blob=doc.output('blob');
+    const file=typeof File==='function'?new File([blob],archivo,{type:'application/pdf'}):null;
+    if(file&&navigator.canShare?.({files:[file]})){
+      try{await navigator.share({files:[file],text:texto,title:'Estado de cuenta'});}catch(err){if(err?.name!=='AbortError')throw err;}
+    }else{
+      doc.save(archivo);
+      const tel=(ultimo.player?.guardians||[]).find(g=>g.phone)?.phone;
+      const num=String(tel||'').replace(/\D/g,'');
+      window.__ultimoEnvio={archivo,texto,num};
+      if(num)window.open(`https://wa.me/${num.length===10?'52'+num:num}?text=${encodeURIComponent(texto)}`,'_blank','noopener');
+      avisar(num?'PDF descargado. Adjúntalo en el chat de WhatsApp que se abrió.':'PDF descargado. Esta familia no tiene teléfono registrado.');
+    }
+  }catch(err){console.warn('estado de cuenta pdf',err);avisar('No se pudo generar el PDF. Revisa tu conexión e intenta de nuevo.');}
+  finally{b.disabled=false;b.textContent=antes;}
 });
 
 function docsBlock(data){
@@ -232,12 +355,13 @@ async function render(){
   // Se pinta sin foto y la foto entra después: la URL firmada no debe retrasar
   // el dato, que es a lo que la persona vino.
   const paint=url=>{
-    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${monthsBlock(data)}${ledgerBlock(data)}<div class="tan-grid">${docsBlock(data)}${extrasBlock(data)}</div>`;
+    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${monthsBlock(data)}${ledgerBlock(data)}${cambiosBlock()}<div class="tan-grid">${docsBlock(data)}${extrasBlock(data)}</div>`;
   };
   paint('');
+  cargaCambios(paint,p);
   const saldo=Number(data.summary?.balance||0);
   setShellHealth(saldo>0?{state:'attention',label:`Debe ${money.format(saldo)}`}:{state:'ok',label:'Al corriente'});
-  if(p.photo_thumb_path||p.photo_path){const url=await signPhoto(p);if(url)paint(url);}
+  if(p.photo_thumb_path||p.photo_path){const url=await signPhoto(p);if(url){fotoActual=url;paint(url);}}
 }
 
 /* ===== Presidencia ajusta el saldo aquí mismo =====

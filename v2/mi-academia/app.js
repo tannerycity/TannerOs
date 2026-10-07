@@ -260,8 +260,15 @@ function enganchar(){
 async function abrirLista(sessionId){
   state.sesion=sessionId;state.marcas={};
   try{
-    const filas=await rpc('v2_attendance_roster',{organization_id:ctx.organization_id,session_id:sessionId})||[];
-    state.roster=filas.map(r=>({id:r.player_id,name:r.player_name,photoThumbPath:r.photo_thumb_path,photoBucket:r.photo_bucket}));
+    // La miniatura llega aparte (v2_attendance_roster_thumbs): la lista no la
+    // trae. Si esa llamada falla, la lista sale igual, con iniciales.
+    const [filasRaw,minis]=await Promise.all([
+      rpc('v2_attendance_roster',{organization_id:ctx.organization_id,session_id:sessionId}),
+      rpc('v2_attendance_roster_thumbs',{organization_id:ctx.organization_id,session_id:sessionId}).catch(()=>[])
+    ]);
+    const filas=filasRaw||[];
+    const miniDe=new Map((Array.isArray(minis)?minis:[]).map(m=>[m.playerId,m]));
+    state.roster=filas.map(r=>{const m=miniDe.get(r.player_id);return {id:r.player_id,name:r.player_name,photoThumbPath:r.photo_thumb_path||m?.thumb||null,photoBucket:m?.bucket||r.photo_bucket};});
     filas.forEach(r=>{if(r.status)state.marcas[r.player_id]=r.status;});
     await firmarFotos(state.roster);
   }catch(e){await tosAlert({kicker:'ASISTENCIA',title:'No se pudo abrir la lista',message:String(e?.message||e)});return;}

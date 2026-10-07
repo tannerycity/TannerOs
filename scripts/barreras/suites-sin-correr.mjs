@@ -101,7 +101,10 @@ export default function comprobar() {
   // Sube a 25 por qa-humo-fichajes-olvidados.mjs. Vigila la tarjeta y la
   // etiqueta de prospectos olvidados en Fichajes y el botón flotante de
   // Operaciones. Es pintura sobre v2_stale_prospects.
-  const MAX_EXCLUIDAS = 25;
+  // Sube a 26 por qa-humo-asistencia-fotos.mjs. Vigila que al tomar lista se
+  // vean las caras con miniatura y que nunca se firme la foto original
+  // (egress). Es pintura sobre v2_attendance_roster_thumbs.
+  const MAX_EXCLUIDAS = 26;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

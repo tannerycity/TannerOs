@@ -36,6 +36,7 @@ qa-humo-ajustes-presidencia.mjs
 qa-humo-ficha-tanner.mjs
 qa-humo-terminar-patrocinio.mjs
 qa-humo-fichajes-olvidados.mjs
+qa-humo-asistencia-fotos.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

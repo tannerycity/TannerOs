@@ -98,7 +98,10 @@ export default function comprobar() {
   // Sube a 24 por qa-humo-terminar-patrocinio.mjs. Vigila el botón "Terminar
   // patrocinio": aviso a la familia, motivo y que llame a la función correcta.
   // Es pintura sobre v2_end_sponsor_funding.
-  const MAX_EXCLUIDAS = 24;
+  // Sube a 25 por qa-humo-fichajes-olvidados.mjs. Vigila la tarjeta y la
+  // etiqueta de prospectos olvidados en Fichajes y el botón flotante de
+  // Operaciones. Es pintura sobre v2_stale_prospects.
+  const MAX_EXCLUIDAS = 25;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

@@ -1,8 +1,8 @@
 {
-  "migraciones": 432,
-  "bytes": 2348334,
-  "huella": "e2a0a14555bb869ce10398c4c40fa1d2",
+  "migraciones": 433,
+  "bytes": 2354752,
+  "huella": "b14f64fee48cf349800cef4947d024c5",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261006033759_r2_terminar_patrocinio.sql",
-  "verificadoContraLaBase": "2026-10-06"
+  "ultima": "20261007003748_s2_fichajes_olvidados.sql",
+  "verificadoContraLaBase": "2026-10-07"
 }

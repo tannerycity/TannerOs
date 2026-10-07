@@ -44,6 +44,12 @@ function active(p){return !terminalStatuses.has(p.status);}
 function overdue(p){return active(p)&&p.next_action_at&&new Date(p.next_action_at).getTime()<Date.now();}
 function upcoming(p){if(!active(p)||!p.next_action_at)return false;const t=new Date(p.next_action_at).getTime(),now=Date.now();return t>=now&&t<=now+48*60*60*1000;}
 function needsContact(p){return p.status==='new';}
+// Olvidados (07/10/2026): abiertos, más de 7 días sin seguimiento y sin un
+// siguiente paso agendado. Lo calcula el servidor (v2_stale_prospects) con el
+// último seguimiento real; aquí sólo se pinta.
+let olvidados=new Map();
+function forgotten(p){return active(p)&&olvidados.has(p.id);}
+function forgottenLabel(p){const d=olvidados.get(p.id);return `Olvidado · ${d} día${d===1?'':'s'}`;}
 function campaignName(code){
   if(!code)return 'General';
   const known={captacion_porteros_2026:'Captación Porteros 2026',captacion_jugadores_2026:'Captación Jugadores 2026',registro_general_2026:'Registro general 2026'};
@@ -85,8 +91,12 @@ async function loadCategories(){
 function renderConvertCategories(){const sel=$('convertCategory');if(!sel)return;const currentValue=sel.value;sel.innerHTML='<option value="">Por definir</option>';for(const c of categories){const o=document.createElement('option');o.value=c.id;o.textContent=c.name;sel.appendChild(o);}if(currentValue&&categories.some(c=>c.id===currentValue))sel.value=currentValue;}
 
 async function loadProspects(){
-  prospects=await rpc('v2_prospects',{organization_id:ctx.organization_id,status_filter:null});
-  prospects=Array.isArray(prospects)?prospects:[];
+  const [lista,viejos]=await Promise.all([
+    rpc('v2_prospects',{organization_id:ctx.organization_id,status_filter:null}),
+    rpc('v2_stale_prospects',{organization_id:ctx.organization_id}).catch(()=>[])
+  ]);
+  prospects=Array.isArray(lista)?lista:[];
+  olvidados=new Map((Array.isArray(viejos)?viejos:[]).map(o=>[o.id,o.days]));
   // La lista sólo consume MINIATURAS (~8 kB): la foto completa se firma al
   // abrir la ficha. Antes la lista no pintaba ninguna y el club veía puras
   // iniciales "hasta que entraba".
@@ -205,10 +215,10 @@ function kanbanRows(){
 }
 function buildKanbanCard(p){
   const card=document.createElement('div');
-  card.className=`kanban-card st-${p.status} ${overdue(p)?'overdue':''}`;
+  card.className=`kanban-card st-${p.status} ${overdue(p)||forgotten(p)?'overdue':''}`;
   card.dataset.id=p.id;
   const photoHtml=p.photo_url?`<img src="${p.photo_url}" alt="">`:`<span>${initials(p)}</span>`;
-  const flag=needsContact(p)?'<span class="lead-badge alert">Sin contactar</span>':overdue(p)?'<span class="lead-badge danger">Vencido</span>':'<span></span>';
+  const flag=forgotten(p)?`<span class="lead-badge danger">${safeHtml(forgottenLabel(p))}</span>`:needsContact(p)?'<span class="lead-badge alert">Sin contactar</span>':overdue(p)?'<span class="lead-badge danger">Vencido</span>':'<span></span>';
   card.innerHTML=`<div class="kanban-card-top"><span class="kanban-avatar">${photoHtml}</span><div class="kanban-card-name"><strong>${safeHtml(nameOf(p)||'Sin nombre')}</strong><small>${safeHtml(p.category_interest||'Categoría por definir')}</small></div></div><div class="kanban-card-meta">${flag}<small>${p.next_action_at?fmtDateTime(p.next_action_at):fmtDate(p.created_at)}</small></div>`;
   card.addEventListener('click',()=>{if(card.dataset.dragged==='1'){card.dataset.dragged='0';return;}openProspect(p);});
   if(ctx.canProspectsWrite){
@@ -332,6 +342,7 @@ function renderKpis(){
   $('kpiConverted').textContent=converted;
   $('kpiConversion').textContent=total?`${Math.round((converted/total)*100)}%`:'0%';
   $('kpiOverdue').textContent=overdueCount;
+  $('kpiForgotten').textContent=scoped.filter(forgotten).length;
 
   const stages={
     new:scoped.filter(p=>p.status==='new').length,
@@ -366,6 +377,7 @@ function renderSourceBreakdown(rows){
 function renderAttentionSummary(rows){
   const box=$('attentionSummary');box.innerHTML='';
   const items=[
+    ['Olvidados +7 días',rows.filter(forgotten).length,'forgotten'],
     ['Sin contactar',rows.filter(needsContact).length,'needs_contact'],
     ['Seguimiento vencido',rows.filter(overdue).length,'overdue'],
     ['Próximas 48 h',rows.filter(upcoming).length,'upcoming']
@@ -379,6 +391,7 @@ function applyFilters(){
   filtered=viewFiltered().filter(p=>{
     if(status==='trial'){if(!['trial_scheduled','trial_completed'].includes(p.status))return false;}
     else if(status&&p.status!==status)return false;
+    if(urgency==='forgotten'&&!forgotten(p))return false;
     if(urgency==='needs_contact'&&!needsContact(p))return false;
     if(urgency==='overdue'&&!overdue(p))return false;
     if(urgency==='upcoming'&&!upcoming(p))return false;
@@ -388,7 +401,7 @@ function applyFilters(){
     return hay.includes(q);
   });
   filtered.sort((a,b)=>{
-    const score=p=>needsContact(p)?0:overdue(p)?1:upcoming(p)?2:3;
+    const score=p=>forgotten(p)?-1:needsContact(p)?0:overdue(p)?1:upcoming(p)?2:3;
     const s=score(a)-score(b);if(s)return s;
     const an=a.next_action_at?new Date(a.next_action_at).getTime():Infinity;
     const bn=b.next_action_at?new Date(b.next_action_at).getTime():Infinity;
@@ -418,7 +431,7 @@ function makeBadge(text,cls='neutral'){const span=document.createElement('span')
 function renderList(){
   const list=$('prospectList');list.innerHTML='';$('prospectEmpty').classList.toggle('hidden',viewMode!=='list'||filtered.length>0);
   for(const p of filtered){
-    const card=document.createElement('article');card.className=`prospect-row st-${p.status} ${overdue(p)?'overdue':''} ${needsContact(p)?'new-lead':''}`;
+    const card=document.createElement('article');card.className=`prospect-row st-${p.status} ${overdue(p)||forgotten(p)?'overdue':''} ${needsContact(p)?'new-lead':''}`;
     const clickArea=document.createElement('button');clickArea.type='button';clickArea.className='prospect-open';
     const photo=document.createElement('span');photo.className=`prospect-card-photo ${p.photo_url?'has-photo':''}`;if(p.photo_url){const image=document.createElement('img');image.src=p.photo_url;image.alt=`Foto de ${nameOf(p)}`;photo.appendChild(image);}else{const mark=document.createElement('span'),missing=document.createElement('small');mark.textContent=initials(p);missing.textContent=p.photo_path?'':'Sin foto';photo.append(mark,missing);}
     const main=document.createElement('div');main.className='prospect-main';
@@ -431,7 +444,8 @@ function renderList(){
     const badges=document.createElement('div');badges.className='lead-badges';
     badges.append(makeBadge(campaignName(p.source_campaign),'campaign'));
     if(p.source_channel||p.source)badges.append(makeBadge(sourceName(p.source_channel||p.source),'source'));
-    if(needsContact(p))badges.append(makeBadge('Sin contactar','alert'));
+    if(forgotten(p))badges.append(makeBadge(forgottenLabel(p),'danger'));
+    else if(needsContact(p))badges.append(makeBadge('Sin contactar','alert'));
     else if(overdue(p))badges.append(makeBadge('Seguimiento vencido','danger'));
     else if(upcoming(p))badges.append(makeBadge('Próxima acción','warning'));
     main.append(strong,sporting,contact,badges);
@@ -467,7 +481,7 @@ function renderProspectDetails(p){
   const version=document.createElement('span');version.className='consent-badge neutral';version.textContent=p.privacy_notice_version?`Aviso ${p.privacy_notice_version}`:'Registro anterior';
   badges.append(data,image,version);
 }
-function renderDrawerActions(p){const wrap=$('drawerQuickActions');wrap.innerHTML='';const wa=waUrl(p.phone);if(wa){const a=document.createElement('a');a.className='whatsapp-action drawer-wa';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir WhatsApp';wrap.appendChild(a);}const campaign=document.createElement('span');campaign.className='lead-badge campaign';campaign.textContent=campaignName(p.source_campaign);wrap.appendChild(campaign);if(overdue(p))wrap.appendChild(makeBadge('Seguimiento vencido','danger'));else if(needsContact(p))wrap.appendChild(makeBadge('Sin contactar','alert'));}
+function renderDrawerActions(p){const wrap=$('drawerQuickActions');wrap.innerHTML='';const wa=waUrl(p.phone);if(wa){const a=document.createElement('a');a.className='whatsapp-action drawer-wa';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir WhatsApp';wrap.appendChild(a);}const campaign=document.createElement('span');campaign.className='lead-badge campaign';campaign.textContent=campaignName(p.source_campaign);wrap.appendChild(campaign);if(forgotten(p))wrap.appendChild(makeBadge(forgottenLabel(p),'danger'));else if(overdue(p))wrap.appendChild(makeBadge('Seguimiento vencido','danger'));else if(needsContact(p))wrap.appendChild(makeBadge('Sin contactar','alert'));}
 const KNOWN_LOSS_REASONS=['Precio / costo','Distancia / ubicación','Se fue a otro club','Horarios no le acomodan','No contestó / se enfrió'];
 function toggleLossReasonField(){
   const show=$('prospectStatus').value==='not_continuing';
@@ -614,7 +628,8 @@ document.querySelectorAll('.funnel-stage').forEach(btn=>btn.addEventListener('cl
 }));
 document.querySelectorAll('.kpi-card').forEach(btn=>btn.addEventListener('click',()=>{
   const kind=btn.dataset.kpi;$('statusFilter').value='';$('urgencyFilter').value='';
-  if(kind==='needs_contact'){setActiveView('pipeline');$('urgencyFilter').value='needs_contact';}
+  if(kind==='forgotten'){setActiveView('pipeline');$('urgencyFilter').value='forgotten';}
+  else if(kind==='needs_contact'){setActiveView('pipeline');$('urgencyFilter').value='needs_contact';}
   else if(kind==='overdue'){setActiveView('pipeline');$('urgencyFilter').value='overdue';}
   else if(kind==='trial'){setActiveView('all');$('statusFilter').value='trial';}
   else if(kind==='converted'){setActiveView('converted');}

@@ -506,7 +506,7 @@ const ACCIONES_RAPIDAS={
 };
 const ACCIONES_POR_ROL={
   Presidencia:['registrar','captacion','cobrar','pagar','tienda','gafete'],
-  Operaciones:['cobrar','pagar','gafete','tienda','captacion','mensaje'],
+  Operaciones:['registrar','cobrar','pagar','gafete','tienda','captacion','mensaje'],
   Contabilidad:['cobrar','pagar','conciliar','caja'],
   Taquilla:['cobrar','pagar','gafete','tienda'],
   Formadores:['asistencia','convocatoria','mensaje'],

@@ -49,6 +49,41 @@ function needsContact(p){return p.status==='new';}
 // último seguimiento real; aquí sólo se pinta.
 let olvidados=new Map();
 function forgotten(p){return active(p)&&olvidados.has(p.id);}
+// Mensajes de seguimiento (07/10/2026): cadencia de 3 por WhatsApp. El
+// servidor lleva la cuenta (v2_prospect_messages); aquí se arma el texto.
+let mensajesEnviados=new Map();
+function sent(p){return mensajesEnviados.get(p.id)||0;}
+function nombrePropio(v){return String(v||'').trim().split(/\s+/)[0].toLocaleLowerCase('es-MX').replace(/^\p{L}/u,c=>c.toLocaleUpperCase('es-MX'));}
+function mensajeSeguimiento(p,paso){
+  const tutor=nombrePropio(p.guardian_name),nino=nombrePropio(p.first_name)||'tu hijo',yo=nombrePropio(ctx?.display_name);
+  const ella=p.sex==='F',lo=ella?'la':'lo',inv=ella?'invitada':'invitado';
+  const hola=`Hola${tutor?` ${tutor}`:''}, ${yo?`soy ${yo} de Tannery City FC`:'te escribimos de Tannery City FC'}.`;
+  const cat=p.category_interest?` en ${p.category_interest}`:'';
+  const inscripcion=/inscrip/i.test(p.purpose||'');
+  const muestra=/muestra/i.test(p.purpose||'');
+  const pregunta=`¿Qué día de esta semana te queda mejor para traer${lo}?`;
+  if(paso===1&&inscripcion)return `${hola} Vimos que quieres inscribir a ${nino}${cat}, ¡qué gusto!\n\nPara dejar${lo} listo sólo falta que venga a conocer a su profe y a su equipo.\n\n${pregunta}`;
+  if(paso===1&&muestra)return `${hola} Hace unos días registraste a ${nino} para su clase muestra${cat} y queremos saber cómo le fue.\n\nSi ya vino: ¿qué le pareció? Nos encantaría escucharte.\nSi no pudo venir, no pasa nada: queda ${inv} a su clase muestra sin costo para que conozca la cancha, a los profes y a la gran familia Tanner.\n\n${pregunta}`;
+  if(paso===1)return `${hola} Registraste a ${nino} con nosotros y queremos invitar${lo} a una clase muestra sin costo para que viva lo que es ser Tanner: formación, disciplina y una gran familia.\n\n${pregunta}`;
+  if(paso===2)return `${hola} Te escribo rápido por si se te pasó mi mensaje: el lugar de ${nino}${inscripcion?cat:' para su clase muestra sin costo'} sigue apartado.\n\n¿Qué día te queda mejor para traer${lo}, esta semana o la próxima?`;
+  return `${hola} No queremos ser insistentes: sabemos que la agenda con niños es complicada.\n\nTe dejamos la puerta abierta para cuando ${nino} quiera venir a conocernos; su clase muestra sin costo sigue en pie. Sólo responde este mensaje y le apartamos su lugar.\n\nUn abrazo de la familia Tanner.`;
+}
+async function enviarSeguimiento(p){
+  const paso=sent(p)+1,wa=waUrl(p.phone);
+  if(paso>3||!wa)return;
+  window.open(`${wa}?text=${encodeURIComponent(mensajeSeguimiento(p,paso))}`,'_blank','noopener');
+  const ok=await window.tosConfirm({kicker:'FICHAJES',title:'¿Lo enviaste?',
+    message:paso<3?'Si dices que sí, queda como Contactado y TannerOS te recuerda el siguiente mensaje en 3 días.':'Es el último mensaje: si no contesta, márcalo como "No continúa".',
+    confirmText:'Sí, lo envié',cancelText:'Todavía no'});
+  if(!ok)return;
+  try{
+    await rpc('v2_log_prospect_message',{organization_id:ctx.organization_id,prospect_id:p.id,step:paso});
+    await loadProspects();
+    current=prospects.find(x=>x.id===p.id)||current;
+    if(current){openProspect(current);}
+    msg('followupMessage',`Mensaje ${paso} de 3 registrado.`,'success');
+  }catch(e){msg('followupMessage',friendly(e));}
+}
 function forgottenLabel(p){const d=olvidados.get(p.id);return `Olvidado · ${d} día${d===1?'':'s'}`;}
 function campaignName(code){
   if(!code)return 'General';
@@ -91,12 +126,14 @@ async function loadCategories(){
 function renderConvertCategories(){const sel=$('convertCategory');if(!sel)return;const currentValue=sel.value;sel.innerHTML='<option value="">Por definir</option>';for(const c of categories){const o=document.createElement('option');o.value=c.id;o.textContent=c.name;sel.appendChild(o);}if(currentValue&&categories.some(c=>c.id===currentValue))sel.value=currentValue;}
 
 async function loadProspects(){
-  const [lista,viejos]=await Promise.all([
+  const [lista,viejos,enviados]=await Promise.all([
     rpc('v2_prospects',{organization_id:ctx.organization_id,status_filter:null}),
-    rpc('v2_stale_prospects',{organization_id:ctx.organization_id}).catch(()=>[])
+    rpc('v2_stale_prospects',{organization_id:ctx.organization_id}).catch(()=>[]),
+    rpc('v2_prospect_messages',{organization_id:ctx.organization_id}).catch(()=>[])
   ]);
   prospects=Array.isArray(lista)?lista:[];
   olvidados=new Map((Array.isArray(viejos)?viejos:[]).map(o=>[o.id,o.days]));
+  mensajesEnviados=new Map((Array.isArray(enviados)?enviados:[]).map(o=>[o.id,o.sent]));
   // La lista sólo consume MINIATURAS (~8 kB): la foto completa se firma al
   // abrir la ficha. Antes la lista no pintaba ninguna y el club veía puras
   // iniciales "hasta que entraba".
@@ -444,6 +481,7 @@ function renderList(){
     const badges=document.createElement('div');badges.className='lead-badges';
     badges.append(makeBadge(campaignName(p.source_campaign),'campaign'));
     if(p.source_channel||p.source)badges.append(makeBadge(sourceName(p.source_channel||p.source),'source'));
+    if(active(p)&&sent(p))badges.append(makeBadge(sent(p)>=3?'3 mensajes sin respuesta':`Mensaje ${sent(p)} de 3`,sent(p)>=3?'danger':'source'));
     if(forgotten(p))badges.append(makeBadge(forgottenLabel(p),'danger'));
     else if(needsContact(p))badges.append(makeBadge('Sin contactar','alert'));
     else if(overdue(p))badges.append(makeBadge('Seguimiento vencido','danger'));
@@ -481,7 +519,7 @@ function renderProspectDetails(p){
   const version=document.createElement('span');version.className='consent-badge neutral';version.textContent=p.privacy_notice_version?`Aviso ${p.privacy_notice_version}`:'Registro anterior';
   badges.append(data,image,version);
 }
-function renderDrawerActions(p){const wrap=$('drawerQuickActions');wrap.innerHTML='';const wa=waUrl(p.phone);if(wa){const a=document.createElement('a');a.className='whatsapp-action drawer-wa';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir WhatsApp';wrap.appendChild(a);}const campaign=document.createElement('span');campaign.className='lead-badge campaign';campaign.textContent=campaignName(p.source_campaign);wrap.appendChild(campaign);if(forgotten(p))wrap.appendChild(makeBadge(forgottenLabel(p),'danger'));else if(overdue(p))wrap.appendChild(makeBadge('Seguimiento vencido','danger'));else if(needsContact(p))wrap.appendChild(makeBadge('Sin contactar','alert'));}
+function renderDrawerActions(p){const wrap=$('drawerQuickActions');wrap.innerHTML='';const wa=waUrl(p.phone);if(wa&&active(p)&&ctx?.canProspectsWrite){const paso=sent(p)+1;if(paso<=3){const b=document.createElement('button');b.type='button';b.className='primary drawer-followup';b.dataset.seguimiento=String(paso);b.textContent=`Enviar mensaje ${paso} de 3`;b.addEventListener('click',()=>enviarSeguimiento(p));wrap.appendChild(b);}else wrap.appendChild(makeBadge('3 mensajes sin respuesta: si no contesta, márcalo "No continúa"','danger'));}if(wa){const a=document.createElement('a');a.className='whatsapp-action drawer-wa';a.href=wa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir WhatsApp';wrap.appendChild(a);}const campaign=document.createElement('span');campaign.className='lead-badge campaign';campaign.textContent=campaignName(p.source_campaign);wrap.appendChild(campaign);if(forgotten(p))wrap.appendChild(makeBadge(forgottenLabel(p),'danger'));else if(overdue(p))wrap.appendChild(makeBadge('Seguimiento vencido','danger'));else if(needsContact(p))wrap.appendChild(makeBadge('Sin contactar','alert'));}
 const KNOWN_LOSS_REASONS=['Precio / costo','Distancia / ubicación','Se fue a otro club','Horarios no le acomodan','No contestó / se enfrió'];
 function toggleLossReasonField(){
   const show=$('prospectStatus').value==='not_continuing';

@@ -13,6 +13,8 @@
  *     · un sugerido llena el campo y se le guarda al Tanner (v2_assign_jersey).
  *   Levantar pedido para un Tanner CON número:
  *     · propone su número; elegir otro NO cambia el del club.
+ *   Subir de categoría con número ocupado: hoja con aviso, cancelar no
+ *   guarda a medias y número libre se lleva sin preguntar.
  *   Fichar:
  *     · al elegir categoría salen los libres a un toque y llenan el campo.
  */
@@ -135,6 +137,59 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.click('.dorsal-num[data-n="9"]');
   revisa('[fichar] "Elegir" abre la cancha y llena el número', (await p.inputValue('#convertJersey')) === '9');
   revisa('[fichar] no guarda nada antes de fichar', (await llamadas(p, 'v2_assign_jersey')).length === 0);
+  await p.close();
+}
+
+/* ---------- Subir de categoría con número ocupado (opción A) ---------- */
+// Caso real (08/10/2026): Hugo Beltrán, Baby Tanner #14, sube a T10 donde el #14
+// es de Oscar. Antes el guardado tronaba con "duplicate key".
+const HUGO = {
+  v2_players:[{ id:'h1', first_name:'Hugo', last_name:'Beltrán', status:'active', category:'Baby Tanner', jersey_number:'14', code:'Tanner050' }],
+  v2_player_categories:[{ id:'cb', name:'Baby Tanner' },{ id:'c10', name:'T10' }],
+  v2_player_profile:{ player:{ id:'h1', firstName:'Hugo', lastName:'Beltrán', status:'active', category:'Baby Tanner', jerseyNumber:'14', code:'Tanner050', dataConsent:true, imageConsent:true },
+    guardians:[{ name:'Ana Serrano', phone:'4771112233', isPrimary:true }], activeEnrollment:{ categoryId:'cb' } },
+  v2_jersey_board:{ category:'T10', taken:[{ number:'14', name:'Oscar Ortega', playerId:'o1' },{ number:'1', name:'Iker Morales', playerId:'o2' }], suggested:['2','3','4','5','6','7'] },
+  v2_save_player_profile:{ player:{ id:'h1', firstName:'Hugo', lastName:'Beltrán', status:'active', category:'T10', jerseyNumber:'3' }, guardians:[] },
+  v2_categories:[], v2_withdrawal_requests:[], v2_benefit_requests:[], v2_player_benefits:[], v2_player_documents:[],
+  v2_player_sports:{ summary:{ played:0 }, evaluations:[] }, v2_attendance_player:{ current:{ scheduled:0, attended:0 } },
+  v2_player_story:{ siblings:[], timeline:[] }, v2_can_set_joined_at:false,
+  v2_my_context:[{ user_id:'u1', display_name:'Mich', organization_id:'o1', organization_name:'Tannery City FC', role:'Presidencia', is_owner:true }]
+};
+async function subeHugo(extra = {}) {
+  const p = await abre('/v2/jugadores/?player=h1', Object.assign({}, HUGO, extra));
+  await p.waitForSelector('#fichaTabs button', { timeout:8000 });
+  await p.click('[data-ficha-tab="expediente"]');
+  await p.selectOption('#categoryId', 'c10');
+  await p.click('#saveProfile');
+  return p;
+}
+{
+  const p = await subeHugo();
+  await p.waitForSelector('.dorsal-hoja', { timeout:4000 });
+  const motivo = await p.innerText('.dorsal-motivo');
+  revisa('[subir] avisa quién trae su número en la nueva categoría', /El #14 ya es de Oscar Ortega en T10/.test(motivo), motivo);
+  revisa('[subir] no guarda nada antes de elegir', (await llamadas(p, 'v2_save_player_profile')).length === 0);
+  revisa('[subir] su #14 sale tachado, no como suyo', await p.$eval('.dorsal-num[data-n="14"]', b => b.classList.contains('ocupado')));
+  await p.click('.dorsal-sug[data-n="3"]');
+  await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_save_player_profile'), null, { timeout:4000 }).catch(()=>{});
+  const g = await llamadas(p, 'v2_save_player_profile');
+  revisa('[subir] guarda la categoría nueva con el número elegido', g.length === 1 && g[0].category_id === 'c10' && g[0].jersey_number === '3', JSON.stringify(g.map(x => [x.category_id, x.jersey_number])));
+  await p.close();
+}
+{
+  const p = await subeHugo();
+  await p.waitForSelector('.dorsal-hoja', { timeout:4000 });
+  await p.click('.dorsal-cerrar');
+  await p.waitForTimeout(300);
+  revisa('[subir] cerrar la hoja cancela: no se guarda a medias', (await llamadas(p, 'v2_save_player_profile')).length === 0);
+  revisa('[subir] y dice por qué no se guardó', /No se guardó: elige el nuevo número de Hugo en T10/.test(await p.innerText('#profileMessage').catch(()=> '')), await p.innerText('#profileMessage').catch(()=> ''));
+  await p.close();
+}
+{
+  const p = await subeHugo({ v2_jersey_board:{ category:'T10', taken:[{ number:'1', name:'Iker Morales', playerId:'o2' }], suggested:['2','3'] } });
+  await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_save_player_profile'), null, { timeout:4000 }).catch(()=>{});
+  const g = await llamadas(p, 'v2_save_player_profile');
+  revisa('[subir] si su número está libre allá, se lo lleva sin preguntar', !(await p.$('.dorsal-hoja')) && g.length === 1 && g[0].jersey_number === '14', JSON.stringify(g.map(x => x.jersey_number)));
   await p.close();
 }
 

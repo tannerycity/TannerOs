@@ -1,5 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
-import { elegirDorsal } from '/v2/dorsal.js';
+import { elegirDorsal, tableroDorsales } from '/v2/dorsal.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { TANNER_SCALE, TANNER_DIMENSIONS, EVALUATION_ONBOARDING, guidanceForCategory } from '/v2/evaluation-guidance.js';
 import { estadoDeImagen, puedePublicarse, cuentaDeImagen, noPublicables,
@@ -729,7 +729,28 @@ closeInlineEvaluation();if(next){await openProfile(next.id);openInlineEvaluation
 
 async function loadSports(playerId){const seq=++sportsSeq;setCardSports({},null);$('sportsLoading').textContent='Cargando lectura deportiva…';$('sportsLoading').classList.remove('hidden');$('sportsEmpty').classList.add('hidden');$('sportsContent').classList.add('hidden');try{const data=await rpc('v2_player_sports',{organization_id:ctx.organization_id,player_id:playerId});if(seq!==sportsSeq)return;renderSports(data);(window.__tannerAvisos=window.__tannerAvisos||{})['tanner-sports']={playerId,data};document.dispatchEvent(new CustomEvent('tanner-sports',{detail:{playerId,data}}));}catch(e){if(seq!==sportsSeq)return;$('sportsLoading').textContent='No pudimos cargar el perfil deportivo en este momento.';}}
 async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderEstadoDeCuenta(p);loadPagos(id);renderPhoto(p);renderList();closeInlineEvaluation();$('openEvaluation').classList.toggle('hidden',!canWrite);loadSports(id);loadBenefits(id);{const detail={playerId:id,player:p,guardians:current.guardians||[],organizationId:ctx.organization_id,canWrite,canMoney};window.__tannerAbierto=detail;document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail}));}}
-async function save(e){e.preventDefault();if(!current||!canWrite)return;msg();const btn=$('saveProfile');btn.disabled=true;try{const p=current.player;current=await rpc('v2_save_player_profile',{organization_id:ctx.organization_id,player_id:p.id,first_name:$('firstName').value.trim(),last_name:$('lastName').value.trim(),birth_date:$('birthDate').value,player_position:$('position').value.trim()||null,dominant_foot:$('dominantFoot').value||null,sex:$('sex').value||null,jersey_number:$('jerseyNumber').value.trim()||null,school:$('school').value.trim()||null,blood_type:$('bloodType').value.trim()||null,allergies:$('allergies').value.trim()||null,address:$('address').value.trim()||null,emergency_contact_name:$('emergencyName').value.trim()||null,emergency_contact_phone:$('emergencyPhone').value.trim()||null,notes:$('notes').value.trim()||null,guardian_name:$('guardianName').value.trim()||null,guardian_phone:$('guardianPhone').value.trim()||null,guardian_email:$('guardianEmail').value.trim()||null,guardian_relationship:$('guardianRelationship').value.trim()||null,can_pickup:$('canPickup').checked,receives_billing:$('receivesBilling').checked,category_id:$('categoryId').value||null,category_effective_date:$('categoryDate').value||today(),category_notes:$('categoryNotes').value.trim()||null,
+/* Subir de categoría con número ocupado (Presidencia, 08/10/2026, opción A).
+   Antes el guardado tronaba con "duplicate key" y el niño no se podía subir
+   (caso real: Hugo Beltrán, Baby #14, a T10 donde el #14 es de Oscar). Ahora,
+   si cambió la categoría y su número ya lo trae alguien allá, se abre la hoja
+   de números con el aviso y se elige el nuevo antes de guardar. Si su número
+   está libre allá, se lo lleva sin preguntar. Cerrar la hoja cancela el
+   guardado: nada se guarda a medias. */
+async function numeroLibreAlSubir(p){
+  const nueva=(categories.find(c=>c.id===$('categoryId').value)||{}).name||'';
+  const num=($('jerseyNumber').value||'').trim().replace(/^0+/,'');
+  if(!nueva||!num||nueva===(p.category||''))return true;
+  const {taken}=await tableroDorsales({rpc,organizationId:ctx.organization_id,category:nueva});
+  const dueno=taken.find(t=>String(t.number)===num&&t.playerId!==p.id);
+  if(!dueno)return true;
+  const nombre=(p.firstName||'').split(/\s+/)[0];
+  const n=await elegirDorsal({rpc,organizationId:ctx.organization_id,category:nueva,nombre,
+    motivo:`El #${num} ya es de ${dueno.name} en ${nueva}. Elige el nuevo número de ${nombre||'este Tanner'} para guardar el cambio de categoría.`});
+  if(!n){msg(`No se guardó: elige el nuevo número de ${nombre||'este Tanner'} en ${nueva}.`);return false;}
+  $('jerseyNumber').value=n;
+  return true;
+}
+async function save(e){e.preventDefault();if(!current||!canWrite)return;msg();const btn=$('saveProfile');btn.disabled=true;try{const p=current.player;if(!(await numeroLibreAlSubir(p)))return;current=await rpc('v2_save_player_profile',{organization_id:ctx.organization_id,player_id:p.id,first_name:$('firstName').value.trim(),last_name:$('lastName').value.trim(),birth_date:$('birthDate').value,player_position:$('position').value.trim()||null,dominant_foot:$('dominantFoot').value||null,sex:$('sex').value||null,jersey_number:$('jerseyNumber').value.trim()||null,school:$('school').value.trim()||null,blood_type:$('bloodType').value.trim()||null,allergies:$('allergies').value.trim()||null,address:$('address').value.trim()||null,emergency_contact_name:$('emergencyName').value.trim()||null,emergency_contact_phone:$('emergencyPhone').value.trim()||null,notes:$('notes').value.trim()||null,guardian_name:$('guardianName').value.trim()||null,guardian_phone:$('guardianPhone').value.trim()||null,guardian_email:$('guardianEmail').value.trim()||null,guardian_relationship:$('guardianRelationship').value.trim()||null,can_pickup:$('canPickup').checked,receives_billing:$('receivesBilling').checked,category_id:$('categoryId').value||null,category_effective_date:$('categoryDate').value||today(),category_notes:$('categoryNotes').value.trim()||null,
       // Sólo se manda si quien guarda puede moverla. La base la ignoraría de
       // todos modos, pero mandar un dato que se va a tirar es pedirle a la
       // pantalla que mienta sobre lo que hizo.

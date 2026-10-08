@@ -122,7 +122,7 @@ const b=await chromium.launch({executablePath:process.env.CHROME_PATH||'/opt/pw-
 function rutasDelRepo(dir=ROOT, rel=''){
   const salida=[];
   for(const e of fs.readdirSync(dir,{withFileTypes:true})){
-    if(e.name.startsWith('.')||e.name==='node_modules'||e.name==='supabase'||e.name==='docs'||e.name==='scripts')continue;
+    if(e.name.startsWith('.')||e.name==='node_modules'||e.name==='supabase'||e.name==='docs'||e.name==='scripts'||e.name==='dist')continue;
     const abs=path.join(dir,e.name);
     if(e.isDirectory())salida.push(...rutasDelRepo(abs, rel+'/'+e.name));
     else if(e.name==='index.html')salida.push((rel||'')+'/');

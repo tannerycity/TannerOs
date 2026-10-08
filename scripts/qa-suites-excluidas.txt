@@ -8,8 +8,11 @@
 # Corre en el job live-smoke, contra produccion, no aqui.
 qa-centro-tanner.mjs
 
-# Necesitan Chromium y playwright, que este job no instala. Se corren a mano
-# antes de subir: son las que atrapan lo que la sintaxis no ve.
+# Necesitan Chromium y playwright, que static-qa no instala. Desde el
+# 08/10/2026 las corre el job navegador-qa (descubre solo toda suite que
+# importe playwright-core); antes se corrian a mano y una olvidada dejaba pasar
+# una pantalla rota. La barrera suites-sin-correr vigila que cada una de esta
+# lista de verdad abra navegador.
 qa-humo-navegador.mjs
 qa-image-encode-browser.mjs
 qa-humo-asistencia.mjs

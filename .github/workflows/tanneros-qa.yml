@@ -125,6 +125,52 @@ jobs:
           grep -q 'export' /tmp/cliente.js || { echo "La respuesta no parece un modulo:"; head -c 400 /tmp/cliente.js; exit 1; }
           echo "OK · el CDN responde 200 y devuelve un modulo para la version fijada"
 
+  navegador-qa:
+    # Las suites que abren las pantallas de verdad en Chromium (390px, como un
+    # iPhone). Hasta el 08/10/2026 no corrian aqui porque este job no
+    # instalaba navegador: se corrian a mano antes de subir, y una que no se
+    # corriera dejaba pasar una pantalla rota (auditoria de QA, hallazgo P-01).
+    #
+    # No hay lista escrita a mano: corre toda suite que importe playwright-core.
+    # Una suite de navegador nueva entra sola, igual que en static-qa.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Playwright y Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock playwright-core@1.63.0 playwright@1.63.0
+          npx playwright install --with-deps chromium
+          echo "CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+      - name: Suites de navegador
+        shell: bash
+        run: |
+          set -uo pipefail
+          fallos=()
+          while IFS= read -r suite; do
+            nombre="$(basename "$suite")"
+            echo "::group::$nombre"
+            if ! timeout 300 node "$suite"; then fallos+=("$nombre"); fi
+            echo "::endgroup::"
+          done < <(grep -l "from 'playwright-core'" scripts/qa-*.mjs | sort)
+          if [ "${#fallos[@]}" -gt 0 ]; then
+            printf 'Fallaron: %s\n' "${fallos[@]}"
+            # Se repiten con el diagnostico: imprime lo que paso dentro de
+            # Chromium. No cambia el resultado: el job ya fallo.
+            for nombre in "${fallos[@]}"; do
+              echo "::group::Diagnostico de $nombre"
+              NODE_OPTIONS="--import ./scripts/diagnostico-navegador.mjs" timeout 300 node "scripts/$nombre" || true
+              echo "::endgroup::"
+            done
+            exit 1
+          fi
+          echo "OK · todas las suites de navegador pasaron"
+
   live-smoke:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

@@ -112,7 +112,7 @@ const FIX={
     locale:'es-MX',currency:'MXN',slug:'tannery-city',status:'active'},
   v2_organization_settings:{whatsappNumber:'524792651338',ledgerCutoverOn:'2026-08-01'},
 };
-const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome',args:['--no-sandbox']});
+const b=await chromium.launch({executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome',args:['--no-sandbox']});
 
 // --- 1. Humo: ninguna pantalla tocada revienta al cargar --------------------
 // La lista sale del disco, no escrita a mano: una pantalla nueva entra sola.

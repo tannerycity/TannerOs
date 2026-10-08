@@ -24,7 +24,7 @@ const server = http.createServer((req, res) => {
 await new Promise(r => server.listen(4601, r));
 
 const errores = [];
-const navegador = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const navegador = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 const pagina = await navegador.newPage({ viewport: { width: 390, height: 844 } });
 pagina.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
 pagina.on('console', m => { if (m.type() === 'error') errores.push(`console: ${m.text()}`); });

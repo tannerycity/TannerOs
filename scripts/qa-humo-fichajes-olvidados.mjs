@@ -23,7 +23,7 @@
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 
-const RAIZ = '/home/user/TannerOs';
+const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
 const T = { '.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json' };
 const srv = http.createServer((q, r) => {
   let p = decodeURIComponent(q.url.split('?')[0]); if (p.endsWith('/')) p += 'index.html';
@@ -47,7 +47,7 @@ const PROSPECTOS = [
 ];
 const revisiones = [], errores = [];
 const revisa = (n, ok, d='') => revisiones.push({ nombre:n, ok, detalle:d });
-const nav = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
+const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 
 async function abre({ falla=false } = {}) {
   const p = await nav.newPage({ viewport:{ width:390, height:844 } });

@@ -21,7 +21,7 @@
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 
-const RAIZ = '/home/user/TannerOs';
+const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
 const T = { '.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json','.png':'image/png' };
 const srv = http.createServer((q, r) => {
   let p = decodeURIComponent(q.url.split('?')[0]); if (p.endsWith('/')) p += 'index.html';
@@ -33,7 +33,7 @@ await new Promise(r => srv.listen(4798, r));
 
 const revisiones = [], errores = [];
 const revisa = (n, ok, d='') => revisiones.push({ nombre:n, ok, detalle:d });
-const nav = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
+const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 
 const TABLERO = { category:'T10', taken:[{ number:'1', name:'Oscar Ortega' },{ number:'2', name:'Dario Montalvo' },{ number:'14', name:'Erick García' }], suggested:['3','4','5','6','7','8'] };
 

@@ -17,7 +17,7 @@
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 
-const RAIZ = '/home/user/TannerOs';
+const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
 const T = { '.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css',
             '.svg':'image/svg+xml','.json':'application/json','.png':'image/png','.jpg':'image/jpeg','.woff2':'font/woff2' };
 const srv = http.createServer((q, r) => {
@@ -49,7 +49,7 @@ const stub = (esPresidencia, origen, historia, idas, club) => `export function c
   if(n==='v2_save_player_profile'){window.__guardado=p;return{data:{player:${JSON.stringify(perfil(origen, historia, idas, club))},guardians:[],activeEnrollment:null},error:null};}
   return {data:[],error:null};}};}`;
 
-const nav = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
+const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 

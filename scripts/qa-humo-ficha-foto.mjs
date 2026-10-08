@@ -24,7 +24,7 @@
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 
-const RAIZ = '/home/user/TannerOs';
+const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
 
 /* El markup real, no una copia que se va a quedar vieja. */
 const indexHtml = fs.readFileSync(path.join(RAIZ, 'v2/jugadores/index.html'), 'utf8');
@@ -56,7 +56,7 @@ const srv = http.createServer((q, r) => {
 });
 await new Promise(r => srv.listen(4708, r));
 
-const nav = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
+const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 const pg = await nav.newPage({ viewport:{ width:390, height:844 } });
 const errs = [];
 pg.on('pageerror', e => errs.push('pageerror: ' + e.message));

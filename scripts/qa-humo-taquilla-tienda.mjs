@@ -23,7 +23,7 @@
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 
-const RAIZ = '/home/user/TannerOs';
+const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
 const T = { '.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css',
             '.svg':'image/svg+xml','.json':'application/json','.png':'image/png' };
 const srv = http.createServer((q, r) => {
@@ -55,6 +55,10 @@ const shell = (puedeTienda, veCobranza = true) => `
   export const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
   export const $ = id => document.getElementById(id);
   export async function rpc(name, params={}){
+        // branding-auto.js también importa este shell (como /v2/shell.js?v=…) y
+        // sin contexto manda a "/". Pasaba en CI, donde el shell real sí cargaba.
+        if(name==='v2_my_context') return [{ user_id:'u1', display_name:'Prueba', organization_id:'o1', organization_name:'Tannery City FC', role:'Presidencia', is_owner:true }];
+        if(name==='v2_my_navigation') return [];
     window.__rpc.push({name, params});
     if(name==='v2_cashier_snapshot') return { businessDate:'2026-10-02', incomeTotal:0, expenseTotal:0, netTotal:0,
       expectedCash:0, cashTodayNet:0, methods:[], movements:[], canViewLedger:false };
@@ -89,7 +93,7 @@ const shell = (puedeTienda, veCobranza = true) => `
   export function renderShell(){}
 `;
 
-const nav = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
+const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 
@@ -97,7 +101,13 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   const pg = await nav.newPage({ viewport:{ width:430, height:900 } });
   const errs = [];
   pg.on('pageerror', e => errs.push(e.message));
-  await pg.route('**/v2/shell.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:shell(puedeTienda, veCobranza) }));
+  // Herméticas (08/10/2026): nada sale de 127.0.0.1. Antes pasaban sólo
+  // porque esta máquina no alcanzaba el CDN de Supabase; en CI sí lo alcanzaba
+  // y el shell real (pedido como /v2/shell.js?v=…) mandaba a "/" sin sesión.
+  // Va primero: las reglas de abajo, registradas después, tienen prioridad.
+  await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
+  // Con o sin ?v=… : branding-auto.js lo importa con versión.
+  await pg.route(/\/v2\/shell\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:shell(puedeTienda, veCobranza) }));
   await pg.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export async function getRawSignedPhotoUrl(){return null;}export function forgetPhoto(){}export function clearPhotoCache(){}' }));
   await pg.route('**esm.sh/jspdf**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export class jsPDF{}' }));
@@ -134,7 +144,8 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   revisa('si tiene uno solo, ya queda elegido', tras.elegido === 'o1', JSON.stringify(tras));
   revisa('el monto arranca en lo que falta', tras.monto === '850', tras.monto);
   revisa('"Nuevo pedido" abre el mostrador con el Tanner elegido',
-    tras.nuevo === '/v2/captura/?desde=taquilla&tanner=p1', tras.nuevo);
+    // branding-auto.js deja la ruta canónica (/captura/), como en producción.
+    /^(\/v2)?\/captura\/\?desde=taquilla&tanner=p1$/.test(tras.nuevo || ''), tras.nuevo);
   revisa('aparece el botón de cobrar', tras.boton);
 
   await pg.click('.tienda-atajos [data-parte="0.5"]');

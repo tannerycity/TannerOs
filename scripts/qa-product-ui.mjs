@@ -2,7 +2,7 @@ import {readFileSync,readdirSync,statSync} from 'node:fs';
 import {join,relative} from 'node:path';
 
 const root=new URL('..',import.meta.url).pathname.replace(/\/$/,'');
-const ignored=new Set(['tcfc-panel-academia-v1.html','tcfc-manual-beta.html']);
+const ignored=new Set();
 const roots=['v2','pedido','programas','registro'];
 const html=['index.html','public-form.html'];
 const code=['public-form.js','pedido/app.js'];

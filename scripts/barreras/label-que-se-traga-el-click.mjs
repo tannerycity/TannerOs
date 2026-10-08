@@ -38,7 +38,7 @@ const TRAMPA = /<label\b[^>]*>(?:(?!<\/label>).)*?(?:<button\b|role="radiogroup"
 
 function html(dir, salida = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name === '.git') continue;
+    if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist') continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) html(p, salida);
     else if (e.name.endsWith('.html')) salida.push(p);

@@ -14,6 +14,7 @@ on:
       - 'public-form.*'
       - 'vercel.json'
       - 'scripts/qa-*.mjs'
+      - 'scripts/construir.mjs'
       - 'scripts/barreras/**'
       - 'supabase/migrations/**'
   push:
@@ -30,6 +31,7 @@ on:
       - 'public-form.*'
       - 'vercel.json'
       - 'scripts/qa-*.mjs'
+      - 'scripts/construir.mjs'
       - 'scripts/barreras/**'
       - 'supabase/migrations/**'
       - '.github/workflows/tanneros-qa.yml'
@@ -170,6 +172,16 @@ jobs:
             exit 1
           fi
           echo "OK · todas las suites de navegador pasaron"
+      - name: Humo de navegador contra lo que publica Vercel
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Vercel no publica el repo tal cual: publica dist/, con una huella
+          # de contenido en cada URL (scripts/construir.mjs). Las 49 pantallas
+          # se abren tambien desde ahi, para que una referencia mal reescrita
+          # no llegue a produccion.
+          node scripts/construir.mjs
+          QA_RAIZ=dist timeout 300 node scripts/qa-humo-navegador.mjs
 
   live-smoke:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -253,6 +265,24 @@ jobs:
             test "$code" = '200'
             test "$(wc -c </tmp/asset)" -gt 80
           done
+      - name: Archivos con huella se guardan en el telefono
+        shell: bash
+        run: |
+          set -euo pipefail
+          # El HTML siempre se revisa; lo que trae ?v=<huella> se guarda un ano
+          # sin volver a preguntar. Si esto se pierde, cada pantalla vuelve a
+          # pedir 20-30 archivos en cada visita.
+          base='https://app.tannerycity.com'
+          curl --silent --show-error --retry 4 --retry-delay 3 --max-time 30 -D /tmp/h.txt -o /tmp/inicio.html "${base}/"
+          grep -iq '^cache-control:.*no-store' /tmp/h.txt
+          url="$(grep -oE '/v2/shell\.css\?v=[0-9a-f]{12}' /tmp/inicio.html | head -1)"
+          echo "Asset con huella: ${url}"
+          test -n "$url"
+          curl --silent --show-error --retry 4 --retry-delay 3 --max-time 30 -D /tmp/h.txt -o /dev/null "${base}${url}"
+          grep -i '^cache-control:' /tmp/h.txt
+          grep -iq '^cache-control:.*immutable' /tmp/h.txt
+          curl --silent --show-error --retry 4 --retry-delay 3 --max-time 30 -D /tmp/h.txt -o /dev/null "${base}/v2/shell.css"
+          ! grep -iq '^cache-control:.*immutable' /tmp/h.txt
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:

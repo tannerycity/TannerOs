@@ -55,7 +55,7 @@ const s=http.createServer((q,r)=>{
   r.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});fs.createReadStream(f).pipe(r);
 });
 await new Promise(r=>s.listen(4322,r));
-const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome'});
+const b=await chromium.launch({executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome'});
 // Los techos REALES de cada versión, no los del nuevo en ambas.
 const AJUSTES={
   viejo:{url:'/medicion/viejo-encode.js',full:[1600,0.84,5*1024*1024],thumb:[260,0.75,180*1024]},

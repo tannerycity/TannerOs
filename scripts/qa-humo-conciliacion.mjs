@@ -30,7 +30,7 @@ const revisa = (nombre, ok, detalle = '') => revisiones.push({ nombre, ok, detal
 async function corre(rol) {
   const errores = [];
   const ESPERADO = /esm\.sh\/@supabase/;
-  const navegador = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+  const navegador = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
   const pagina = await navegador.newPage({ viewport: { width: 390, height: 844 } });
   pagina.on('pageerror', e => errores.push(`[${rol}] pageerror: ${e.message}`));
   pagina.on('console', m => {

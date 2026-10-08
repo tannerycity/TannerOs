@@ -36,7 +36,7 @@ const revisa = (nombre, ok, detalle = '') => revisiones.push({ nombre, ok, detal
 // Presidencia (con todo).
 async function corre(rol) {
   const errores = [];
-  const navegador = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+  const navegador = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
   const pagina = await navegador.newPage({ viewport: { width: 390, height: 844 } });
   pagina.on('pageerror', e => errores.push(`[${rol}] pageerror: ${e.message}`));
   // Sin salida a internet, el CDN de supabase-js no se alcanza. Es limite del

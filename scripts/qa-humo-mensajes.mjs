@@ -20,7 +20,7 @@
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 
-const RAIZ = '/home/user/TannerOs';
+const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
 const T = { '.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css',
             '.svg':'image/svg+xml','.json':'application/json','.png':'image/png' };
 const srv = http.createServer((q, r) => {
@@ -85,7 +85,7 @@ const shell = (falla) => `
   export async function bootstrapProtectedShell(){ return { ctx:{ organization_id:'o1', role:'Presidencia' }, navigation:[] }; }
 `;
 
-const nav = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
+const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 async function abre({ viewport = { width:390, height:844 }, falla = false, ruta = '/v2/mensajes/' } = {}) {

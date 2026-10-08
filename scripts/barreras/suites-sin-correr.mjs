@@ -111,5 +111,27 @@ export default function comprobar() {
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');
+
+  // Desde el 08/10/2026 las suites de navegador SI corren en CI, en el job
+  // navegador-qa, que corre toda suite que importe playwright-core. Excluirlas
+  // de static-qa ya no las oculta. Lo que esta barrera vigila ahora es que
+  // ninguna excluida se quede sin correr en ningun lado: o abre navegador (y
+  // la corre navegador-qa), o es una de las dos excepciones anotadas.
+  if (!flujo.includes('navegador-qa:') || !flujo.includes(`grep -l "from 'playwright-core'" scripts/qa-*.mjs`))
+    errors.push('Suites: el job navegador-qa dejo de descubrir solo las suites de navegador');
+  const SIN_NAVEGADOR = {
+    'qa-centro-tanner.mjs': 'corre en live-smoke, contra produccion',
+    'qa-product-ui.mjs': 'deuda preexistente anotada en qa-suites-excluidas.txt',
+  };
+  for (const nombre of excluidas) {
+    if (SIN_NAVEGADOR[nombre]) continue;
+    const codigo = fs.existsSync(`scripts/${nombre}`) ? fs.readFileSync(`scripts/${nombre}`, 'utf8') : '';
+    if (!codigo.includes("from 'playwright-core'"))
+      errors.push(`Suites: "${nombre}" esta excluida de static-qa pero no abre navegador, asi que no la corre navegador-qa: no corre en ningun lado`);
+    if (codigo.includes('/opt/pw-browsers') && !codigo.includes('process.env.CHROME_PATH'))
+      errors.push(`Suites: "${nombre}" tiene escrito el Chromium de una maquina; usa process.env.CHROME_PATH para que corra en CI`);
+    if (/['"]\/home\/user\//.test(codigo))
+      errors.push(`Suites: "${nombre}" tiene escrita la carpeta de una maquina; calcula la raiz desde import.meta.url`);
+  }
   return errors;
 }

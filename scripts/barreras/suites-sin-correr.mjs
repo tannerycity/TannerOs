@@ -104,7 +104,10 @@ export default function comprobar() {
   // Sube a 26 por qa-humo-asistencia-fotos.mjs. Vigila que al tomar lista se
   // vean las caras con miniatura y que nunca se firme la foto original
   // (egress). Es pintura sobre v2_attendance_roster_thumbs.
-  const MAX_EXCLUIDAS = 26;
+  // Sube a 27 por qa-humo-numeros.mjs. Vigila la hoja de números libres en
+  // Levantar pedido y Fichar, y que el número se guarde en el expediente sólo
+  // cuando el Tanner no tenía. Es pintura sobre v2_jersey_board.
+  const MAX_EXCLUIDAS = 27;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

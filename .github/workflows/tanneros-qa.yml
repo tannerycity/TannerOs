@@ -160,6 +160,13 @@ jobs:
           done < <(grep -l "from 'playwright-core'" scripts/qa-*.mjs | sort)
           if [ "${#fallos[@]}" -gt 0 ]; then
             printf 'Fallaron: %s\n' "${fallos[@]}"
+            # Se repiten con el diagnostico: imprime lo que paso dentro de
+            # Chromium. No cambia el resultado: el job ya fallo.
+            for nombre in "${fallos[@]}"; do
+              echo "::group::Diagnostico de $nombre"
+              NODE_OPTIONS="--import ./scripts/diagnostico-navegador.mjs" timeout 300 node "scripts/$nombre" || true
+              echo "::endgroup::"
+            done
             exit 1
           fi
           echo "OK · todas las suites de navegador pasaron"

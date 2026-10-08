@@ -41,7 +41,13 @@ async function corre(rol) {
   });
   pagina.on('requestfailed', r => { if (!ESPERADO.test(r.url())) errores.push(`[${rol}] requestfailed: ${r.url()}`); });
 
-  await pagina.route('**/v2/shell.js', route => route.fulfill({
+  // Herméticas (08/10/2026): nada sale de 127.0.0.1. Antes pasaban sólo
+  // porque esta máquina no alcanzaba el CDN de Supabase; en CI sí lo alcanzaba
+  // y el shell real (pedido como /v2/shell.js?v=…) mandaba a "/" sin sesión.
+  // Va primero: las reglas de abajo, registradas después, tienen prioridad.
+  await pagina.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
+  // Con o sin ?v=… : branding-auto.js lo importa con versión.
+  await pagina.route(/\/v2\/shell\.js(\?.*)?$/, route => route.fulfill({
     status: 200, contentType: 'text/javascript',
     body: `
       const ROL = ${JSON.stringify(rol)};
@@ -89,6 +95,10 @@ async function corre(rol) {
       export const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
       export const $ = id => document.getElementById(id);
       export async function rpc(name, params={}){
+        // branding-auto.js también importa este shell (como /v2/shell.js?v=…) y
+        // sin contexto manda a "/". Pasaba en CI, donde el shell real sí cargaba.
+        if(name==='v2_my_context') return [{ user_id:'u1', display_name:'Prueba', organization_id:'o1', organization_name:'Tannery City FC', role:'Presidencia', is_owner:true }];
+        if(name==='v2_my_navigation') return [];
         window.__rpc.push({name, params});
         if(name==='v2_payments_to_reconcile') return BANDEJA;
         if(name==='v2_reconcile_payment') return { status:'approved', allocationsReversed:0, selfApproved:false };

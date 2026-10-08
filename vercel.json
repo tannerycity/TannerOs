@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/construir.mjs",
+  "outputDirectory": "dist",
+  "installCommand": "",
   "redirects": [
     {"source":"/","has":[{"type":"query","key":"registro","value":"1"}],"destination":"/registro/","permanent":false},
     {"source":"/","has":[{"type":"query","key":"pedido","value":"1"}],"destination":"/pedido/","permanent":false},
@@ -86,6 +89,7 @@
     {"source":"/programas/(.*)","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
     {"source":"/public-form.js","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
     {"source":"/public-form.css","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
-    {"source":"/:path*","headers":[{"key":"Cache-Control","value":"no-cache, must-revalidate"}]}
+    {"source":"/:path*","headers":[{"key":"Cache-Control","value":"no-cache, must-revalidate"}]},
+    {"source":"/(.*)\\.(js|css|png|svg|jpg|jpeg|webp|woff2)","has":[{"type":"query","key":"v","value":"[0-9a-f]{12}"}],"headers":[{"key":"Cache-Control","value":"public, max-age=31536000, immutable"}]}
   ]
 }

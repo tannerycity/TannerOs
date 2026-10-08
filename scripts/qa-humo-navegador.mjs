@@ -15,7 +15,9 @@
 // Uso:  npm i playwright-core   &&   node scripts/qa-humo-navegador.mjs
 
 import http from 'node:http';import fs from 'node:fs';import path from 'node:path';import {chromium} from 'playwright-core';
-const ROOT=path.resolve(path.dirname(new URL(import.meta.url).pathname),'..');
+// QA_RAIZ=dist corre el mismo humo contra lo que publica Vercel (las URLs con
+// huella de scripts/construir.mjs), no sólo contra el código fuente.
+const ROOT=process.env.QA_RAIZ?path.resolve(process.env.QA_RAIZ):path.resolve(path.dirname(new URL(import.meta.url).pathname),'..');
 const T={'.html':'text/html','.css':'text/css','.js':'text/javascript','.mjs':'text/javascript','.mjs':'text/javascript','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json','.json':'application/json'};
 
 // El modulo que sustituye a /v2/supabase-client.js. Se sirve tal cual, asi que

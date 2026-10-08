@@ -8,3 +8,4 @@ node_modules
 # Restos de correr las pruebas a mano.
 *.log
 .DS_Store
+dist/

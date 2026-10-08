@@ -101,8 +101,9 @@ export function elegirDorsal({ rpc, organizationId, category, nombre = '', actua
       }));
       const otro = cuerpo.querySelector('.dorsal-otro input');
       const usar = () => {
-        const n = otro.value.trim();
-        if (!/^[0-9]{1,3}$/.test(n)) { aviso.textContent = 'El número va de 1 a 3 dígitos.'; return; }
+        // "07" es el 7: sin ceros a la izquierda, igual que en el servidor.
+        const crudo = otro.value.trim(), n = crudo.replace(/^0+/, '');
+        if (!/^[0-9]{1,3}$/.test(crudo) || !n) { aviso.textContent = 'El número va del 1 al 999.'; return; }
         if (dueno.has(n) && n !== act) { aviso.textContent = `El #${n} ya es de ${dueno.get(n)}.`; return; }
         listo(n);
       };

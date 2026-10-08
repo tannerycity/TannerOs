@@ -1,8 +1,8 @@
 {
-  "migraciones": 436,
-  "bytes": 2374009,
-  "huella": "4ba1a5a6a0afe77aab0e060e1bd4f334",
+  "migraciones": 437,
+  "bytes": 2378306,
+  "huella": "902daf6b5cce44ef560d07e58e4048cb",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261008054208_w2_numeros_de_camiseta.sql",
+  "ultima": "20261008055852_x2_numeros_sin_ceros.sql",
   "verificadoContraLaBase": "2026-10-08"
 }

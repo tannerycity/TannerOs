@@ -88,6 +88,11 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   revisa('[hoja] la cancha va del 1 al 99 con 3 ocupados', (await p.$$('.dorsal-num')).length === 99 && (await p.$$('.dorsal-num.ocupado')).length === 3);
   await p.click('.dorsal-num[data-n="14"]', { force:true });
   revisa('[hoja] un ocupado no se elige y dice quién lo trae', /El #14 ya es de Erick García/.test(await p.innerText('.dorsal-quien')) && await p.isVisible('.dorsal-hoja'));
+  // Valores límite (hallazgo de QA 08/10/2026): "014" es el 14 y el 0 no es número.
+  await p.fill('.dorsal-otro input', '014'); await p.click('.dorsal-otro button');
+  revisa('[límites] "014" es el 14 y dice quién lo trae', /El #14 ya es de Erick García/.test(await p.innerText('.dorsal-aviso')), await p.innerText('.dorsal-aviso'));
+  await p.fill('.dorsal-otro input', '0'); await p.click('.dorsal-otro button');
+  revisa('[límites] el 0 no es número', /del 1 al 999/.test(await p.innerText('.dorsal-aviso')) && await p.isVisible('.dorsal-hoja'));
   await p.click('.dorsal-sug[data-n="3"]');
   await p.waitForTimeout(200);
   revisa('[kit] el número elegido llena el campo', (await p.inputValue('#bfNumber')) === '3');

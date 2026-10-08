@@ -44,6 +44,7 @@ function estilos() {
 .dorsal-otro{display:flex;gap:8px;margin-top:14px}
 .dorsal-otro input{flex:1;min-width:0;border:1px solid #cedbd8;border-radius:13px;padding:12px;font:inherit;font-size:16px}
 .dorsal-otro button{border:0;border-radius:13px;background:#087d8e;color:#fff;font-weight:800;padding:0 16px;cursor:pointer}
+.dorsal-motivo{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:#fff4e5;color:#7a4a00;font-size:13.5px;font-weight:700;line-height:1.35}
 .dorsal-aviso{min-height:18px;margin:10px 0 0;font-size:13px;color:#b13d34;font-weight:700}
 .dorsal-quien{margin:0 0 8px;font-size:12.5px;color:#5b6b70;min-height:16px}
 @media(max-width:380px){.dorsal-grid{grid-template-columns:repeat(6,minmax(0,1fr))}.dorsal-sug{font-size:21px;height:52px}}
@@ -58,7 +59,7 @@ export async function tableroDorsales({ rpc, organizationId, category }) {
   return { taken: Array.isArray(t?.taken) ? t.taken : [], suggested: Array.isArray(t?.suggested) ? t.suggested : [] };
 }
 
-export function elegirDorsal({ rpc, organizationId, category, nombre = '', actual = '' }) {
+export function elegirDorsal({ rpc, organizationId, category, nombre = '', actual = '', motivo = '' }) {
   estilos();
   return new Promise(resolve => {
     const fondo = document.createElement('div');
@@ -66,6 +67,7 @@ export function elegirDorsal({ rpc, organizationId, category, nombre = '', actua
     fondo.innerHTML = `<div class="dorsal-hoja" role="dialog" aria-modal="true" aria-label="Elegir número">
       <div class="dorsal-asa"></div>
       <div class="dorsal-cab"><div><small>Número de camiseta</small><h3>${nombre ? `Número para ${esc(nombre)}` : 'Elige un número'}</h3><p>${category ? `Libres en ${esc(category)}` : 'Sin categoría: elige la categoría primero'}</p></div><button type="button" class="dorsal-cerrar" aria-label="Cerrar">&times;</button></div>
+      ${motivo ? `<p class="dorsal-motivo">${esc(motivo)}</p>` : ''}
       <div class="dorsal-cuerpo"><p class="dorsal-quien">Buscando números libres…</p></div>
     </div>`;
     const cuerpo = fondo.querySelector('.dorsal-cuerpo');

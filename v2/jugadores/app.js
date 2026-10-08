@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { elegirDorsal } from '/v2/dorsal.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { TANNER_SCALE, TANNER_DIMENSIONS, EVALUATION_ONBOARDING, guidanceForCategory } from '/v2/evaluation-guidance.js';
 import { estadoDeImagen, puedePublicarse, cuentaDeImagen, noPublicables,
@@ -1058,24 +1059,16 @@ document.addEventListener('click',e=>{
 
 
 // === Popup elegir dorsal (libres/ocupados por categoría) ===
-function openNumPicker(){
-  const modal=$('numPicker'),grid=$('numGrid');if(!modal||!grid){return;}
-  const cat=(categories.find(c=>c.id===$('categoryId').value)||{}).name||(current&&current.player&&current.player.category)||'';
-  const curId=current&&current.player&&current.player.id;
-  const taken={};
-  (players||[]).forEach(p=>{if(p.category===cat&&p.id!==curId){const n=parseInt(p.jersey_number,10);if(!isNaN(n))taken[n]=nameOf(p);}});
-  $('numPickerCat').textContent=(cat||'Sin categoría').toUpperCase();
-  const cur=($('jerseyNumber').value||'').trim();let html='';
-  for(let n=1;n<=30;n++){
-    const who=taken[n],sel=String(n)===cur;
-    if(who){const ini=who.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();html+=`<div class="num-cell taken" title="${esc(who)}">${n}<small>${esc(ini)}</small></div>`;}
-    else{html+=`<button type="button" class="num-cell free${sel?' sel':''}" data-num="${n}">${n}</button>`;}
-  }
-  grid.innerHTML=html;modal.classList.remove('hidden');
-}
 function closeNumPicker(){$('numPicker').classList.add('hidden');}
 document.addEventListener('click',e=>{
-  if(e.target.closest?.('#pickJersey')){openNumPicker();return;}
+  // Mismo selector que Fichar y Levantar pedido (08/10/2026): 1 al 99 desde el
+  // servidor, no sólo del 1 al 30 con la lista que tenga cargada la pantalla.
+  if(e.target.closest?.('#pickJersey')){
+    const cat=(categories.find(c=>c.id===$('categoryId').value)||{}).name||(current&&current.player&&current.player.category)||'';
+    elegirDorsal({rpc,organizationId:ctx.organization_id,category:cat,nombre:current?.player?.firstName?.split(/\s+/)[0]||'',actual:($('jerseyNumber').value||'').trim()})
+      .then(n=>{if(n)$('jerseyNumber').value=n;});
+    return;
+  }
   if(e.target.closest?.('[data-close-num]')||e.target.id==='numPicker'){closeNumPicker();return;}
   const cell=e.target.closest?.('.num-cell.free[data-num]');
   if(cell){$('jerseyNumber').value=cell.dataset.num;closeNumPicker();}

@@ -78,3 +78,11 @@ select.pill-source{display:none}
 .kanban-card-meta .lead-badge{font-size:8.5px}
 .kanban-placeholder{border:2px dashed #c3d3d1;border-radius:14px;background:rgba(22,140,150,.05)}
 @media(max-width:760px){.kanban-col{flex:0 0 78vw;max-height:none}.view-switch-row{justify-content:flex-start;margin-top:2px}.kanban-board{padding-bottom:16px}}
+/* Número de camiseta al fichar: sugeridos libres a un toque (08/10/2026). */
+.num-campo{display:flex;gap:8px;align-items:stretch}
+.num-campo input{flex:1;min-width:0}
+.num-elegir{border:0;border-radius:12px;background:#0b3d4a;color:#f2e6bd;font-weight:800;padding:0 14px;cursor:pointer;white-space:nowrap}
+.num-sugeridos{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;align-items:center;font-size:12px;color:#5b6b70;font-weight:600}
+.num-sugeridos button{border:1px solid #cfe0dc;background:#f3f9f7;color:#0b3d4a;border-radius:999px;padding:5px 11px;font-weight:800;cursor:pointer}
+.num-sugeridos button.activo{background:#0b3d4a;color:#f2e6bd;border-color:#0b3d4a}
+.campo-num{display:grid;gap:6px;align-content:start;min-width:0}

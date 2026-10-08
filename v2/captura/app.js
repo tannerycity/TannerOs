@@ -1,6 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import '/v2/smart-select.js';
+import { elegirDorsal } from '/v2/dorsal.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -125,6 +126,41 @@ function nombreDeTanner(p){
   return String(`${p.first_name||''} ${p.last_name||''}`).replace(/\s+/g,' ').trim()||'Sin nombre';
 }
 function tannerElegido(){ return tanners.find(p=>String(p.id)===String(tannerId))||null; }
+
+/* Número de camiseta en un toque (Presidencia, 08/10/2026). "Elegir" abre los
+   libres de la categoría del Tanner. Si el Tanner todavía no tiene número, el
+   que se elige se le queda en su expediente (v2_assign_jersey): así no hay que
+   ir a Jugadores. Si ya tiene, el pedido puede llevar otro, pero el del club no
+   cambia desde aquí. */
+function pistaNumero(pre,texto,tono){
+  const el=$(`${pre}NumberHint`);if(!el)return;
+  const t=tannerElegido();
+  if(texto===undefined){
+    texto=!t?'':t.jersey_number?`Su número en el club: #${t.jersey_number}`:'Aún no tiene número: toca Elegir y se le queda.';
+    tono=t&&!t.jersey_number?'mal':'';
+  }
+  el.textContent=texto;el.className=`num-pista${tono?` ${tono}`:''}`;
+}
+async function elegirNumero(pre){
+  const t=tannerElegido();
+  const n=await elegirDorsal({rpc,organizationId:ctx.organization_id,category:t?.category||'',
+    nombre:t?(t.first_name||'').split(/\s+/)[0]:'',actual:t?.jersey_number||$(`${pre}Number`).value});
+  if(!n)return;
+  $(`${pre}Number`).value=n;
+  if(!t){pistaNumero(pre,'');return;}
+  if(t.jersey_number){
+    pistaNumero(pre,String(t.jersey_number)===n?`Su número en el club: #${n}`:`Sólo en este pedido: su número en el club sigue siendo #${t.jersey_number}.`);
+    return;
+  }
+  try{
+    await rpc('v2_assign_jersey',{organization_id:ctx.organization_id,player_id:t.id,number:n});
+    t.jersey_number=n;
+    pistaNumero(pre,`Listo: el #${n} ya es de ${(t.first_name||'').split(/\s+/)[0]} en ${t.category}.`,'ok');
+  }catch(e){
+    $(`${pre}Number`).value='';
+    pistaNumero(pre,String(e?.message||'No se pudo guardar el número.'),'mal');
+  }
+}
 function pintaTanners(){
   const sel=$('capPlayer');if(!sel)return;
   sel.innerHTML='<option value="">Selecciona al Tanner</option>'
@@ -174,7 +210,11 @@ function openBundleDrawer(b){
   $('drawerTitle').textContent=b.name;
   $('bundleForm').classList.remove('hidden');
   $('productForm').classList.add('hidden');
-  $('bfName').value='';$('bfNumber').value='';
+  // El nombre y el número se proponen desde el expediente, igual que en una
+  // prenda suelta: el kit es justo lo que más se pide y salía vacío.
+  const tk=tannerElegido();
+  $('bfName').value=tk?nombreDeTanner(tk):'';$('bfNumber').value=tk?.jersey_number?String(tk.jersey_number):'';
+  pistaNumero('bf');
   document.querySelectorAll('.tier-btn').forEach(btn=>{
     const t=btn.dataset.tier;
     btn.disabled=(t==='Adulto'&&!b.priceAdult)||(t==='Niño'&&!b.priceKid);
@@ -260,6 +300,7 @@ function openProductDrawer(p){
   const t=tannerElegido();
   $('pfName').value=t?nombreDeTanner(t):'';
   $('pfNumber').value=t?.jersey_number?String(t.jersey_number):'';
+  pistaNumero('pf');
   pintaTallas(p);
   $('pfPersonalization').classList.toggle('hidden',!JERSEY_RE.test(p.name));
   openDrawer();
@@ -282,6 +323,8 @@ function addProductToCart(){
   $('pfTalla').value='';$('pfQty').value=1;$('pfName').value='';$('pfNumber').value='';
 }
 $('pfAdd').addEventListener('click',addProductToCart);
+$('pfPickNumber').addEventListener('click',()=>elegirNumero('pf'));
+$('bfPickNumber').addEventListener('click',()=>elegirNumero('bf'));
 
 function openDrawer(){$('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');}
 function closeDrawerFn(){$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');picking=null;}

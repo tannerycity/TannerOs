@@ -12,7 +12,7 @@ en la mano.
 | Módulos grandes sin dividir | `jugadores/app.js` 84 kB, `patrocinadores/app.js` 80 kB, `jugadores/styles.css` 56 kB | P2 |
 | Cliente de Supabase sin versión fija | `esm.sh/@supabase/supabase-js@2` en cada módulo | **P1** |
 | `v2_players` completo sin paginar | 56 kB, 161 registros, se recarga tras cada guardado | P2 |
-| HTML suelto de 1.4 MB | `tcfc-panel-academia-v1.html` | P3 |
+| HTML suelto de 1.4 MB | `tcfc-panel-academia-v1.html` | P3 · resuelto 08/10/2026: borrado |
 
 ### `no-store` en `/v2/`
 

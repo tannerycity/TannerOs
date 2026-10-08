@@ -318,7 +318,6 @@ async function renderTaquillaHome(){
   $('welcomeSubtitle').textContent='Cobra, paga y revisa pedidos y calendario.';
   $('attentionPanel')?.classList.add('hidden');
   $('roleFocusPanel')?.classList.add('hidden');
-  $('birthdayPanel')?.classList.add('hidden');
   $('agendaList')?.closest('.tos-panel')?.classList.add('hidden');
   $('cashPanel')?.classList.remove('hidden');
   $('cashActions').innerHTML=`${can('taquilla',true)?'<a class="tos-action-big collect" href="/taquilla/?action=cobrar">COBRAR</a><a class="tos-action-big pay" href="/taquilla/?action=pagar">PAGAR</a>':''}`;
@@ -486,16 +485,6 @@ function renderRoleFocus(){
   $('roleFocusLink').classList.toggle('hidden',!href);if(href)$('roleFocusLink').href=href;
 }
 
-function daysToBirthday(date){
-  if(!date)return 999;const birth=new Date(`${String(date).slice(0,10)}T12:00:00`),now=new Date();
-  let next=new Date(now.getFullYear(),birth.getMonth(),birth.getDate(),12);
-  if(next<new Date(now.getFullYear(),now.getMonth(),now.getDate()))next.setFullYear(next.getFullYear()+1);
-  return Math.ceil((next-now)/86400000);
-}
-function initials(player){
-  return [player.first_name,player.last_name].filter(Boolean).map(part=>String(part).trim()[0]||'').join('').toUpperCase().slice(0,2)||'T';
-}
-function whenLabel(days){return days===0?'Hoy':days===1?'Mañana':`En ${days} días`;}
 
 // Firma las fotos en un solo lote por bucket y usa la variante thumb: es el
 // mismo patrón de Jugadores, para no bajar la foto completa por cada avatar.
@@ -511,11 +500,12 @@ async function signBirthdayPhotos(list){
 }
 
 /* ===== Cumpleaños arriba, para todo el club =====
-   El panel de cumpleaños vivía hasta abajo y sólo para quien ve Jugadores.
-   Esta franja va justo debajo del saludo y la ve cualquiera del staff
-   (Taquilla incluida): hoy y los próximos 7 días, jugadores y staff. Si nadie
-   cumple, no ocupa lugar. A quien no ha dicho su cumpleaños se le pregunta
-   una vez; "Ahora no" lo calla 60 días. */
+   Una sola sección, justo debajo del saludo, que ve cualquiera del staff
+   (Taquilla incluida): hoy y los próximos 30 días, jugadores y staff, con la
+   cara de cada quien. Antes había dos (esta franja de 7 días sin fotos y un
+   carrusel con fotos hasta abajo, sólo de jugadores); Presidencia pidió una
+   sola (08/10/2026). Si nadie cumple, no ocupa lugar. A quien no ha dicho su
+   cumpleaños se le pregunta una vez; "Ahora no" lo calla 60 días. */
 const CUMPLE_ICONO='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21h16"/><path d="M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M5 16c2 1.5 4 1.5 7 0s5-1.5 7 0"/><path d="M12 12V8"/><path d="M12 5.5c.8-.8.8-1.7 0-2.5-.8.8-.8 1.7 0 2.5Z"/></svg>';
 const cumpleLlave=()=>`tos:cumple-ahora-no:${ctx?.user_id||'yo'}`;
 function cumplePreguntaCallada(){
@@ -525,7 +515,7 @@ async function renderCumpleStrip(){
   const box=$('cumpleStrip');if(!box||!ctx)return;
   const generacion=ctx;
   let d=null;
-  try{d=await rpc('v2_birthdays',{organization_id:ctx.organization_id,days:7});}catch(e){box.classList.add('hidden');return;}
+  try{d=await rpc('v2_birthdays',{organization_id:ctx.organization_id,days:30});}catch(e){box.classList.add('hidden');return;}
   if(generacion!==ctx)return;
   const gente=Array.isArray(d?.people)?d.people:[];
   const hoy=String(d?.today||'');
@@ -536,9 +526,18 @@ async function renderCumpleStrip(){
   const dia=new Intl.DateTimeFormat('es-MX',{weekday:'long',day:'numeric'});
   const mayus=t=>t?t[0].toUpperCase()+t.slice(1):'';
   const iniciales=n=>String(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
-  const ficha=(p,cuando)=>{
+  // "Mañana", el día de la semana dentro de los próximos 7 y "En N días" después.
+  const hoyFecha=new Date(`${hoy}T12:00:00`);
+  const cuandoDe=p=>{
+    const dias=Math.round((new Date(`${p.day}T12:00:00`)-hoyFecha)/86400000);
+    return dias<=0?'':dias===1?'Mañana':dias<=7?mayus(dia.format(new Date(`${p.day}T12:00:00`))):`En ${dias} días`;
+  };
+  const ficha=p=>{
+    const cuando=p.day===hoy?'':cuandoDe(p);
     const sub=p.kind==='player'?`${esc(p.detail)}${p.turns?` · cumple ${esc(String(p.turns))}`:''}`:esc(p.detail);
-    const cuerpo=`<span class="tcs-face" aria-hidden="true">${esc(iniciales(p.name))}</span><span class="tcs-txt"><strong>${esc(p.name)}</strong><small>${cuando?`${esc(cuando)} · `:''}${sub}</small></span>`;
+    const cara=p._foto?`<img src="${esc(p._foto)}" alt="" loading="lazy">`:esc(iniciales(p.name));
+    const corto=String(p.firstName||p.name||'').trim().split(/\s+/)[0]||p.name;
+    const cuerpo=`<span class="tcs-face" aria-hidden="true">${cara}</span><span class="tcs-txt"><strong title="${esc(p.name)}">${esc(corto)}</strong><em>${cuando?esc(cuando):'Hoy'}</em><small>${sub}</small></span>`;
     return p.kind==='player'&&can('jugadores')
       ?`<a class="tcs-chip" data-hoy="${cuando?'0':'1'}" href="/jugadores/?player=${encodeURIComponent(p.id)}">${cuerpo}</a>`
       :`<span class="tcs-chip" data-hoy="${cuando?'0':'1'}">${cuerpo}</span>`;
@@ -550,9 +549,10 @@ async function renderCumpleStrip(){
   if(otrosHoy.length||proximos.length){
     const titulo=otrosHoy.length
       ?(otrosHoy.length===1?'Hoy es su cumpleaños':`Hoy hay ${otrosHoy.length} cumpleaños`)
-      :'Cumpleaños de esta semana';
-    html+=`<div class="tcs-head"><span class="tcs-ico">${CUMPLE_ICONO}</span><strong>${esc(titulo)}</strong>${otrosHoy.length?'<small>No olvides felicitarlos.</small>':''}</div>`;
-    html+=`<div class="tcs-rail">${otrosHoy.map(p=>ficha(p,'')).join('')}${proximos.map(p=>ficha(p,mayus(dia.format(new Date(`${p.day}T12:00:00`))))).join('')}</div>`;
+      :'Cumpleaños';
+    const nota=otrosHoy.length?'No olvides felicitarlos.':`Próximos 30 días · ${proximos.length}`;
+    html+=`<div class="tcs-head"><span class="tcs-ico">${CUMPLE_ICONO}</span><strong>${esc(titulo)}</strong><small>${esc(nota)}</small></div>`;
+    html+=`<div class="tcs-rail">${otrosHoy.map(ficha).join('')}${proximos.map(ficha).join('')}</div>`;
   }
   if(preguntar){
     const max=new Date().toISOString().slice(0,10);
@@ -560,6 +560,18 @@ async function renderCumpleStrip(){
   }
   box.innerHTML=html;box.classList.remove('hidden');
   box.dataset.hoy=otrosHoy.length||yoHoy?'1':'0';
+  // Las caras entran después, en un solo lote y sólo miniaturas (egress): la
+  // sección no espera a las fotos. Si no se pueden firmar, quedan iniciales.
+  const conFoto=gente.filter(p=>p.photoThumbPath);
+  if(conFoto.length){
+    const lote=conFoto.map(p=>({p,photo_thumb_path:p.photoThumbPath,photo_bucket:p.photoBucket}));
+    signBirthdayPhotos(lote).then(()=>{
+      if(generacion!==ctx)return;
+      lote.forEach(x=>{if(x._photoUrl)x.p._foto=x._photoUrl;});
+      const rail=box.querySelector('.tcs-rail');
+      if(rail)rail.innerHTML=otrosHoy.map(ficha).join('')+proximos.map(ficha).join('');
+    });
+  }
   $('cumpleLuego')?.addEventListener('click',()=>{try{localStorage.setItem(cumpleLlave(),String(Date.now()));}catch{}$('cumpleAsk')?.remove();if(!gente.length)box.classList.add('hidden');});
   $('cumpleAsk')?.addEventListener('submit',async e=>{
     e.preventDefault();const v=$('cumpleMio').value;if(!v)return;
@@ -569,28 +581,6 @@ async function renderCumpleStrip(){
   });
 }
 
-function renderBirthdays(){
-  const rows=state.players.map(player=>({...player,days:daysToBirthday(player.birth_date)})).filter(player=>player.days>=0&&player.days<=31).sort((a,b)=>a.days-b.days).slice(0,12);
-  $('birthdayPanel').classList.toggle('hidden',!rows.length);
-  if(!rows.length)return;
-  // Se pinta de inmediato con el monograma y las fotos entran después, para
-  // que el carrusel no espere a las URLs firmadas.
-  const paint=()=>{
-    $('birthdayList').innerHTML=rows.map(player=>{
-      const name=[player.first_name,player.last_name].filter(Boolean).join(' ');
-      // En la tarjeta va el nombre de pila (así se felicita, y casi nunca se
-      // trunca); el nombre completo queda en el title.
-      const shortName=String(player.first_name||'').trim()||name;
-      const when=player.days<=1?'now':player.days<=7?'soon':'';
-      const face=player._photoUrl
-        ? `<img src="${esc(player._photoUrl)}" alt="" loading="lazy">`
-        : `<b aria-hidden="true">${esc(initials(player))}</b>`;
-      return `<a class="tos-bday" href="/jugadores/?player=${encodeURIComponent(player.id)}" title="${esc(name)}"><span class="tos-bday-face" data-when="${when}">${face}</span><strong>${esc(shortName)}</strong><span class="tos-bday-when" data-when="${when}">${whenLabel(player.days)}</span><small>${esc(player.category||'Sin categoría')}</small></a>`;
-    }).join('');
-  };
-  paint();
-  if(rows.some(p=>p.photo_thumb_path))signBirthdayPhotos(rows).then(paint);
-}
 function renderSearch(){
   const items=[];
   state.players.forEach(player=>items.push({label:[player.first_name,player.last_name].filter(Boolean).join(' '),meta:`Jugador · ${player.category||'Sin categoría'}`,href:'/jugadores/'}));
@@ -600,7 +590,7 @@ function renderSearch(){
 function renderHome(){
   const profile=roleProfiles[ctx?.role]||roleProfiles.Presidencia;
   $('welcomeTitle').textContent=`Bienvenido al vestidor, ${firstName()}`;$('welcomeSubtitle').textContent=profile.subtitle;
-  renderKpis();renderQuickActions();renderAttention();renderAgenda();renderRoleFocus();renderBirthdays();renderSearch();
+  renderKpis();renderQuickActions();renderAttention();renderAgenda();renderRoleFocus();renderSearch();
 }
 
 const recovery=new URLSearchParams(location.search).get('recovery')==='1'||/type=recovery/i.test(location.hash);

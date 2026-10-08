@@ -33,7 +33,7 @@ await new Promise(r => srv.listen(4751, r));
 
 const HOY = '2026-10-05';
 const GENTE = [
-  { kind:'player', id:'p1', firstName:'Adan', name:'Adan Ibarra', detail:'Sub-12', day:HOY, turns:11 },
+  { kind:'player', id:'p1', firstName:'Adan', name:'Adan Ibarra', detail:'Sub-12', day:HOY, turns:11, photoThumbPath:'org/players/p1/profile-thumb.webp', photoBucket:'tanneros-private' },
   { kind:'staff', id:'u-zul', firstName:'Zul', name:'Zul', detail:'Operaciones', day:HOY, turns:null },
   { kind:'player', id:'p2', firstName:'Ana', name:'Ana <img src=x onerror="window.__xss=1">', detail:'Femenil', day:'2026-10-08', turns:9 }
 ];
@@ -81,7 +81,7 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
   await pagina.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await pagina.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
-    body:['export async function getSignedPhotoUrls(){ return {}; }','export async function getSignedPhotoUrl(){ return null; }',
+    body:['export async function getSignedPhotoUrls(_s,b,paths){ window.__firmadas=(window.__firmadas||[]).concat(paths); const m={}; for(const x of paths) m[x]="/icon-512.png"; return m; }','export async function getSignedPhotoUrl(){ return null; }',
           'export async function getRawSignedPhotoUrl(){ return null; }','export async function clearPhotoCache(){}','export function forgetPhoto(){}'].join('\n') }));
   await pagina.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await pagina.goto('http://127.0.0.1:4751/', { waitUntil: 'domcontentloaded' });
@@ -110,7 +110,15 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
   revisa('[Presidencia] el staff no enseña edad', /Operaciones/.test(chips[1]?.txt || '') && !/cumple/.test(chips[1]?.txt || ''), chips[1]?.txt);
   revisa('[Presidencia] el staff no es enlace', chips[1]?.tag === 'SPAN');
   revisa('[Presidencia] el de la semana dice el día', /Jueves 8/i.test(chips[2]?.txt || ''), chips[2]?.txt);
-  revisa('[Presidencia] un nombre con HTML se enseña como texto', /<img src=x/.test(chips[2]?.txt || '') && !(await p.evaluate(() => window.__xss)));
+  const tituloAna = await p.$eval('#cumpleStrip .tcs-chip:nth-child(3) strong', e => e.getAttribute('title')).catch(() => '');
+  revisa('[Presidencia] un nombre con HTML se enseña como texto', /<img src=x/.test(tituloAna) && !(await p.$('#cumpleStrip img[src="x"]')) && !(await p.evaluate(() => window.__xss)), tituloAna);
+  // Unificación (08/10/2026): una sola sección de cumpleaños, con caras.
+  revisa('[unificado] ya no existe el carrusel de abajo', (await p.$$('#birthdayPanel')).length === 0);
+  revisa('[unificado] pide los próximos 30 días', await p.evaluate(() => window.__llamadas.find(l => l.name === 'v2_birthdays')?.params?.days === 30));
+  await p.waitForSelector('#cumpleStrip .tcs-chip img', { timeout:3000 }).catch(() => {});
+  revisa('[unificado] el jugador con foto sale con su cara', (await p.$$('#cumpleStrip .tcs-chip img')).length === 1);
+  revisa('[unificado] sólo se firma la miniatura (egress)', JSON.stringify(await p.evaluate(() => window.__firmadas)) === '["org/players/p1/profile-thumb.webp"]');
+  revisa('[unificado] la tarjeta dice "Hoy" a quien cumple hoy', /Hoy/.test(chips[0]?.txt || ''), chips[0]?.txt);
 
   // Le falta su fecha: se le pregunta y se guarda.
   revisa('[Presidencia] se le pregunta su cumpleaños', await p.isVisible('#cumpleAsk'));

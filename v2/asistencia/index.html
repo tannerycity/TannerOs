@@ -67,7 +67,55 @@
       </div>
     </section>
 
-    <section id="statsTab" class="stats-wrap hidden" role="tabpanel" aria-labelledby="tabStats"><div class="stats-filters"><div id="periodPills" class="period-pills" role="group" aria-label="Periodo"></div><div class="stats-selects"><label class="stats-field">Categoría<select id="statsCategory"><option value="">Todas</option></select></label><label class="stats-field hidden" id="statsTypeField">Tipo de sesión<select id="statsType"><option value="">Todos</option></select></label></div></div><p id="statsRange" class="stats-range"></p><div id="statsKpis" class="stats-kpis"></div><div id="statsTrust" class="stats-trust"></div><div id="statsCats" class="stats-cats"></div><article class="panel stats-low-panel"><div class="panel-head"><div><div class="eyebrow">REQUIEREN ATENCIÓN</div><h2>Asistencia baja</h2></div></div><label class="roster-search"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="statsSearch" type="search" placeholder="Buscar Tanner por nombre" autocomplete="off"></label><div id="statsLow" class="stats-low"></div><div id="statsLowEmpty" class="empty hidden">Nadie está debajo de su objetivo. Bien ahí.</div></article><div id="statsMessage" class="inline-message hidden"></div></section>
+    <section id="statsTab" class="stats-wrap hidden" role="tabpanel" aria-labelledby="tabStats">
+      <div class="stats-filters">
+        <div id="periodPills" class="period-pills" role="group" aria-label="Periodo"></div>
+        <div class="stats-selects"><label class="stats-field">Categoría<select id="statsCategory"><option value="">Todas</option></select></label><label class="stats-field hidden" id="statsTypeField">Tipo de sesión<select id="statsType"><option value="">Todos</option></select></label></div>
+      </div>
+
+      <!-- El marcador del club: el porcentaje, si sube o baja, y cuánto se puede creer. -->
+      <section id="statsHero" class="as-tablero" aria-live="polite">
+        <p id="statsRange" class="stats-range"></p>
+        <div class="as-tablero-num"><b id="heroPct">—</b><span id="heroNivel"></span></div>
+        <p id="heroDelta" class="as-tablero-delta"></p>
+        <p id="heroListas" class="as-tablero-listas"></p>
+      </section>
+
+      <!-- Tres focos rojos, lo primero que tiene que atender Presidencia. -->
+      <div id="statsKpis" class="as-focos"></div>
+      <div id="statsTrust" class="stats-trust"></div>
+
+      <article class="as-carta">
+        <div class="as-carta-cab"><h2>Asistencia por semana</h2><span>Últimas 10 semanas · meta 80%</span></div>
+        <div id="statsTrend" class="as-tendencia"></div>
+        <p class="as-clave"><i class="as-clave-sinlista" aria-hidden="true"></i>Hubo entrenamiento y no se pasó lista</p>
+        <p id="statsTrendRead" class="as-lectura" aria-live="polite"></p>
+      </article>
+
+      <article class="as-carta" id="streaksCard">
+        <div class="as-carta-cab"><h2>Racha de faltas</h2><span>3 o más faltas seguidas</span></div>
+        <div id="statsStreaks" class="as-rachas"></div>
+      </article>
+
+      <article class="as-carta">
+        <div class="as-carta-cab"><h2>Por categoría</h2><span>Contra el periodo anterior</span></div>
+        <div id="statsCats" class="as-ranking"></div>
+      </article>
+
+      <article class="as-carta" id="pendingCard">
+        <div class="as-carta-cab"><h2>Listas sin pasar</h2><span>Entrenamientos que ya pasaron</span></div>
+        <div id="statsCoaches" class="as-profes"></div>
+        <div id="statsPending" class="as-pendientes"></div>
+      </article>
+
+      <article class="as-carta stats-low-panel" id="lowCard">
+        <div class="as-carta-cab"><h2>Debajo de su meta</h2><span>80% ordinario · 90% con beca</span></div>
+        <label class="roster-search"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="statsSearch" type="search" placeholder="Buscar Tanner por nombre" autocomplete="off"></label>
+        <div id="statsLow" class="stats-low"></div>
+        <div id="statsLowEmpty" class="empty hidden">Nadie está debajo de su objetivo. Bien ahí.</div>
+      </article>
+      <div id="statsMessage" class="inline-message hidden"></div>
+    </section>
   </section>
 </main>
 

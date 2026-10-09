@@ -146,3 +146,57 @@ export function textoDeContadorOpcional(valor, marcadas, nombrePlural) {
   if (!Number(marcadas || 0)) return '—';
   return `0 · aún no se registran ${nombrePlural}`;
 }
+
+// === Tablero de Presidencia (09/10/2026) ===
+
+// Las barras de "asistencia por semana". Se calcula aquí, sin DOM, para
+// poder probar la geometría: una semana con entrenamientos pero sin una sola
+// lista NO es una semana con 0% (sería mentira); se pinta aparte.
+export function barrasDeSemanas(semanas, { ancho = 320, alto = 132, meta = META_ORDINARIA } = {}) {
+  const lista = Array.isArray(semanas) ? semanas : [];
+  const n = Math.max(lista.length, 1);
+  const paso = ancho / n;
+  const w = Math.max(6, Math.min(26, paso * 0.56));
+  const y = pct => alto - (Math.max(0, Math.min(100, Number(pct))) / 100) * alto;
+  const barras = lista.map((s, i) => {
+    const x = i * paso + (paso - w) / 2;
+    const tienePct = s?.pct !== null && s?.pct !== undefined;
+    const estado = tienePct ? 'dato' : (Number(s?.sessions || 0) > 0 ? 'sinlista' : 'vacia');
+    const top = tienePct ? y(s.pct) : alto;
+    return {
+      x: redondea(x), w: redondea(w), y: redondea(top), h: redondea(alto - top),
+      cx: redondea(x + w / 2), pct: tienePct ? Number(s.pct) : null, estado,
+      bajoMeta: tienePct && Number(s.pct) < meta,
+      semana: s?.week || null, sesiones: Number(s?.sessions || 0), pasadas: Number(s?.taken || 0)
+    };
+  });
+  return { barras, yMeta: redondea(y(meta)), alto, ancho };
+}
+
+export function etiquetaDeSemana(iso) {
+  if (!iso) return '';
+  const d = new Date(`${String(iso).slice(0, 10)}T12:00:00`);
+  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(d).replace('.', '');
+}
+
+// "Hace cuánto vino" para la racha de faltas. Sin fecha = no ha venido en
+// toda la ventana que se revisa (60 días).
+export function textoUltimaVez(iso, hoy = new Date()) {
+  if (!iso) return 'No ha venido en los últimos 60 días';
+  const d = new Date(iso);
+  const dias = Math.max(0, Math.round((new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000));
+  if (dias === 0) return 'Vino hoy';
+  if (dias === 1) return 'Vino ayer';
+  return `Vino por última vez hace ${dias} días`;
+}
+
+// Qué tan bien se están pasando las listas: el porcentaje sólo vale si las
+// listas se pasan.
+export function coberturaDeListas(pasadas, sesiones) {
+  const s = Number(sesiones || 0), p = Number(pasadas || 0);
+  if (!s) return { nivel: 'sindato', pct: null, texto: 'Sin entrenamientos' };
+  const pct = Math.round((p / s) * 100);
+  if (p === s) return { nivel: 'ok', pct, texto: `${p} de ${s} listas pasadas` };
+  if (pct >= 75) return { nivel: 'atencion', pct, texto: `${p} de ${s} listas pasadas` };
+  return { nivel: 'bajo', pct, texto: `${p} de ${s} listas pasadas` };
+}

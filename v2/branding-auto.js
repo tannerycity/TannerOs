@@ -13,6 +13,7 @@ const FINAL_ROUTES=[
   ['/convocatoria/','convocatoria','Convocatoria'],
   ['/jugadores/','jugadores','Jugadores'],
   ['/asistencia/','asistencia','Asistencia'],
+  ['/becas/','becas','Becas'],
   ['/calendario/','calendario','Calendario'],
   ['/operacion/academias/','academias','Academias'],
   ['/prospectos/','prospectos','Fichajes'],

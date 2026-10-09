@@ -41,6 +41,7 @@ qa-humo-terminar-patrocinio.mjs
 qa-humo-fichajes-olvidados.mjs
 qa-humo-asistencia-fotos.mjs
 qa-humo-asistencia-lista.mjs
+qa-humo-becas.mjs
 qa-humo-numeros.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.

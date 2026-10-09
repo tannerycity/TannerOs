@@ -200,3 +200,32 @@ export function coberturaDeListas(pasadas, sesiones) {
   if (pct >= 75) return { nivel: 'atencion', pct, texto: `${p} de ${s} listas pasadas` };
   return { nivel: 'bajo', pct, texto: `${p} de ${s} listas pasadas` };
 }
+
+// === Escribir a la familia (09/10/2026) ===
+//
+// Presidencia: el mensaje va firmado por el club, no por la persona que lo
+// manda. Tono de apoyo, nunca de regaño: la meta es que el niño regrese.
+function primerNombre(v) {
+  const p = String(v || '').trim().split(/\s+/)[0] || '';
+  return p ? p.charAt(0).toLocaleUpperCase('es-MX') + p.slice(1).toLocaleLowerCase('es-MX') : '';
+}
+
+export function mensajeDeFaltas({ tanner = '', tutor = '', categoria = '', faltas = 0, pct = null,
+                                  asistio = 0, marcadas = 0, becado = false, club = 'Tannery City' } = {}) {
+  const hola = primerNombre(tutor);
+  const nino = primerNombre(tanner) || 'tu Tanner';
+  const cat = String(categoria || '').trim();
+  const n = Number(faltas || 0);
+  const lineas = [`Hola${hola ? ` ${hola}` : ''}, te escribimos de ${club}.`, ''];
+  if (n >= 2) {
+    lineas.push(`Notamos que ${nino} no ha venido a sus últimos ${n} entrenamientos${cat ? ` de ${cat}` : ''}. ¿Todo bien?`);
+  } else if (pct !== null && pct !== undefined) {
+    lineas.push(`Notamos que ${nino} ha venido a ${Number(asistio || 0)} de ${Number(marcadas || 0)} entrenamientos${cat ? ` de ${cat}` : ''} este periodo. ¿Todo bien?`);
+  } else {
+    lineas.push(`Queremos saber cómo está ${nino}. ¿Todo bien?`);
+  }
+  lineas.push('Nos importa que siga entrenando con nosotros. Si hay algo en lo que podamos apoyarte, aquí estamos.');
+  if (becado) lineas.push('', `Te recordamos que para conservar su beca se pide ${META_BECADO}% de asistencia.`);
+  lineas.push('', 'Saludos,', club);
+  return lineas.join('\n');
+}

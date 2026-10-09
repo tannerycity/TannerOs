@@ -70,7 +70,15 @@ await pagina.addInitScript(() => {
         { week: '2026-09-14', pct: null, sessions: 2, taken: 0 },
         { week: '2026-09-21', pct: 72.5, sessions: 3, taken: 3 }
       ],
-      streaks: [{ playerId: 'p1', name: 'Tanner Uno', code: 'TC-001', categoryName: 'T8', streak: 4, lastSeen: null, thumb: null }],
+      streaks: [
+        { playerId: 'p1', name: 'Tanner Uno', code: 'TC-001', categoryName: 'T8', streak: 4, lastSeen: null, thumb: null,
+          scholarship: false, guardianName: 'Laura Pérez', phone: '5512345678' },
+        { playerId: 'p2', name: 'Becado Dos', code: 'TC-002', categoryName: 'T10', streak: 3, lastSeen: null, thumb: null,
+          scholarship: true, guardianName: null, phone: null }
+      ],
+      scholarsTotal: 6,
+      scholars: [{ playerId: 'p2', name: 'Becado Dos', categoryName: 'T10', pct: 60.0, attended: 3, marked: 5, goal: 90, streak: 3,
+                   lastSeen: null, thumb: null, guardianName: 'Marta', phone: '5598765432' }],
       categories: [
         { categoryId: 'c1', name: 'T8', pct: 76.9, previousPct: 80.0, sessions: 5, taken: 4 },
         { categoryId: 'c2', name: 'T10', pct: 90.0, previousPct: 85.0, sessions: 5, taken: 5 }
@@ -121,8 +129,8 @@ await pagina.click('#tabStats');
 await pagina.waitForSelector('#statsKpis .as-foco', { timeout: 6000 });
 
 const kpis = await pagina.$$eval('#statsKpis .as-foco', els => els.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
-revisa('salen los 3 focos rojos', kpis.length === 3, `salieron ${kpis.length}`);
-revisa('[focos] racha, meta y listas sin pasar con su número', /^1 En racha/.test(kpis[0]) && /^4 Debajo de su meta/.test(kpis[1]) && /^2 Listas sin pasar/.test(kpis[2]), kpis.join(' | '));
+revisa('salen los 4 focos', kpis.length === 4, `salieron ${kpis.length}`);
+revisa('[focos] racha, becados, meta y listas sin pasar con su número', /^2 En racha/.test(kpis[0]) && /^1 Becados faltando de 6 becados/.test(kpis[1]) && /^4 Debajo de su meta/.test(kpis[2]) && /^2 Listas sin pasar/.test(kpis[3]), kpis.join(' | '));
 revisa('el porcentaje visible es 76.7%', (await pagina.textContent('#heroPct')).trim() === '76.7%', await pagina.textContent('#heroPct'));
 const delta = (await pagina.textContent('#heroDelta')).replace(/\s+/g, ' ');
 revisa('[marcador] dice cuánto subió contra el periodo anterior', /\+6\.5 pts/.test(delta) && /70\.2%/.test(delta), delta);
@@ -143,7 +151,22 @@ revisa('[gráfica] tocar una barra explica esa semana', /2 entrenamientos sin li
 
 // Racha, categorías y listas sin pasar
 const racha = (await pagina.innerText('#statsStreaks')).replace(/\s+/g, ' ');
-revisa('[racha] sale el Tanner con 4 faltas seguidas', /Tanner Uno/.test(racha) && /4 faltas/i.test(racha) && /No ha venido en los últimos 60 días/.test(racha), racha);
+revisa('[racha] sale el Tanner con 4 faltas seguidas', /Tanner Uno/.test(racha) && /4\s*faltas/i.test(racha) && /No ha venido en los últimos 60 días/.test(racha), racha);
+// Becados y escribir a la familia
+const filasRacha = await pagina.$$eval('#statsStreaks .as-racha', els => els.map(e => ({ becado: !!e.querySelector('.as-sello'), wa: e.querySelector('.as-familia')?.href || null })));
+revisa('[racha] el becado trae su sello y el que no, no', filasRacha[0]?.becado === false && filasRacha[1]?.becado === true, JSON.stringify(filasRacha));
+revisa('[familia] sin teléfono no hay botón', filasRacha[1]?.wa === null);
+const msjRacha = decodeURIComponent((filasRacha[0]?.wa || '').split('?text=')[1] || '');
+revisa('[familia] el botón abre WhatsApp al tutor con lada', /^https:\/\/wa\.me\/525512345678\?text=/.test(filasRacha[0]?.wa || ''), filasRacha[0]?.wa);
+revisa('[familia] el mensaje va firmado por el club, no por una persona', /^Hola Laura, te escribimos de Tannery City FC\./.test(msjRacha) && /Saludos,\nTannery City FC$/.test(msjRacha) && !/te saluda/.test(msjRacha), msjRacha);
+revisa('[familia] dice cuántas faltas lleva', /Tanner no ha venido a sus últimos 4 entrenamientos de T8/.test(msjRacha), msjRacha);
+const beca = (await pagina.innerText('#scholarsCard')).replace(/\s+/g, ' ');
+revisa('[becados] dice cuántos de cuántos', /1 de 6 becados/.test(beca), beca.slice(0, 160));
+revisa('[becados] el becado faltando sale con su % contra 90', /Becado Dos/.test(beca) && /60%/.test(beca) && /de 90%/i.test(beca), beca);
+const waBeca = await pagina.getAttribute('#statsScholars .as-familia', 'href');
+const msjBeca = decodeURIComponent((waBeca || '').split('?text=')[1] || '');
+revisa('[becados] al becado se le recuerda la meta de su beca', /conservar su beca se pide 90% de asistencia/.test(msjBeca), msjBeca);
+
 const cats = await pagina.$$eval('#statsCats .as-cat strong', els => els.map(e => e.textContent));
 revisa('[categorías] ordenadas de mejor a peor', JSON.stringify(cats) === '["T10","T8"]', JSON.stringify(cats));
 revisa('[categorías] con su cambio y sus listas', /-3\.1 pts/.test(await pagina.textContent('#statsCats')) && /4 de 5 listas pasadas/.test(await pagina.textContent('#statsCats')));

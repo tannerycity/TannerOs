@@ -1,8 +1,8 @@
 {
-  "migraciones": 446,
-  "bytes": 2434544,
-  "huella": "d48f81a03437f73d417a7f0da0f3b6b0",
+  "migraciones": 447,
+  "bytes": 2448166,
+  "huella": "78c481d88d1a4f8ae0695f0318bc1b02",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261009134707_g3_tablero_de_asistencia.sql",
+  "ultima": "20261009142138_h3_becados_que_faltan_y_escribir_a_la_familia.sql",
   "verificadoContraLaBase": "2026-10-09"
 }

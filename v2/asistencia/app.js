@@ -2,8 +2,10 @@ import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { PERIODOS, rangoDe, estadoDeAsistencia, metaDe, confianza, tendencia,
          etiquetaDeEstado, desgloseDeFaltas, textoDeContadorOpcional,
-         barrasDeSemanas, etiquetaDeSemana, textoUltimaVez, coberturaDeListas }
+         barrasDeSemanas, etiquetaDeSemana, textoUltimaVez, coberturaDeListas,
+         mensajeDeFaltas }
   from '/v2/asistencia/estadisticas.js';
+import { ligaWhatsApp } from '/v2/pedido-mensajes.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const $=id=>document.getElementById(id);let ctx=null,categories=[],sessions=[],currentSession=null,currentRoster=[],rosterQuery='';
 let bajaTarget=null;const bajaReportados=new Set();
@@ -457,6 +459,7 @@ function pintarStats(){
   const cob=coberturaDeListas(d.sessionsTaken,d.sessions);
   const rachas=Array.isArray(d.streaks)?d.streaks:[];
   const pendientes=Array.isArray(d.pending)?d.pending:[];
+  const becados=Array.isArray(d.scholars)?d.scholars:[];
 
   // El marcador
   const hero=$('statsHero');hero.dataset.nivel=estado.nivel;
@@ -471,6 +474,7 @@ function pintarStats(){
   const foco=(id,n,titulo,nota,nivel,destino)=>`<button type="button" class="as-foco as-foco-${n?nivel:'ok'}" data-ir="${destino}" id="${id}"><b>${n}</b><strong>${titulo}</strong><small>${nota}</small></button>`;
   $('statsKpis').innerHTML=
     foco('focoRacha',rachas.length,'En racha de faltas','3 o más seguidas','bajo','streaksCard')+
+    foco('focoBecados',becados.length,'Becados faltando',d.scholarsTotal!=null?`de ${Number(d.scholarsTotal||0)} becados`:'meta 90%','atencion','scholarsCard')+
     foco('focoMeta',Number(t.lowPlayers||0),'Debajo de su meta','80% · 90% con beca','atencion','lowCard')+
     foco('focoListas',pendientes.length,'Listas sin pasar',d.sessions!=null?`de ${Number(d.sessions||0)} entrenamientos`:'en el periodo','bajo','pendingCard');
   $('statsKpis').querySelectorAll('[data-ir]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.ir)?.scrollIntoView({behavior:'smooth',block:'start'})));
@@ -484,6 +488,7 @@ function pintarStats(){
 
   pintarTendencia(d.weeks||[]);
   pintarRachas(rachas);
+  pintarBecados(becados,d.scholarsTotal);
   pintarCategorias(d.categories,statsData?.categories||[]);
   pintarPendientes(pendientes,d.coaches);
   pintarBajos();
@@ -519,17 +524,46 @@ function pintarTendencia(semanas){
   });
 }
 
+/* Botón de WhatsApp con el mensaje listo, firmado por el club. Sólo sale
+   cuando el servidor manda el teléfono, y sólo lo manda a quien administra. */
+function botonFamilia(t,{faltas,pct,asistio,marcadas,becado}){
+  const liga=ligaWhatsApp(t.phone,mensajeDeFaltas({tanner:t.name,tutor:t.guardianName,categoria:t.categoryName,faltas,pct,asistio,marcadas,becado,club:ctx?.organization_name||'Tannery City'}));
+  return liga?`<a class="as-familia" href="${esc(liga)}" target="_blank" rel="noopener">Escribir a la familia</a>`:'';
+}
+const sello='<span class="as-sello">Becado</span>';
+
 function pintarRachas(rachas){
   const box=$('statsStreaks');
   if(!rachas.length){box.innerHTML='<p class="as-vacio">Nadie lleva 3 faltas seguidas. Bien ahí.</p>';return;}
-  box.innerHTML=rachas.map(r=>{
-    return `<button type="button" class="as-racha" data-player="${esc(r.playerId)}">
-      <span class="as-racha-cara" data-thumb="${esc(r.thumb||'')}" data-bucket="${esc(r.bucket||'')}">${esc(iniciales(r.name))}</span>
-      <span class="as-racha-txt"><strong>${esc(r.name||'Tanner')}</strong><small>${esc(r.categoryName||'')} · ${esc(textoUltimaVez(r.lastSeen))}</small></span>
-      <span class="as-racha-n"><b>${Number(r.streak||0)}</b><small>faltas</small></span>
-    </button>`;
-  }).join('');
+  box.innerHTML=rachas.map(r=>`<div class="as-racha${r.scholarship?' es-becado':''}">
+      <button type="button" class="as-racha-abre" data-player="${esc(r.playerId)}">
+        <span class="as-racha-cara" data-thumb="${esc(r.thumb||'')}" data-bucket="${esc(r.bucket||'')}">${esc(iniciales(r.name))}</span>
+        <span class="as-racha-txt"><strong>${esc(r.name||'Tanner')}</strong>${r.scholarship?sello:''}<small>${esc(r.categoryName||'')} · ${esc(textoUltimaVez(r.lastSeen))}</small></span>
+        <span class="as-racha-n"><b>${Number(r.streak||0)}</b><small>faltas</small></span>
+      </button>
+      ${botonFamilia(r,{faltas:r.streak,becado:!!r.scholarship})}
+    </div>`).join('');
   box.querySelectorAll('[data-player]').forEach(b=>b.addEventListener('click',()=>abrirJugador(b.dataset.player)));
+  firmaCaras(box);
+}
+
+/* Becados que están faltando: debajo de 90% o con 2 faltas seguidas. */
+function pintarBecados(becados,total){
+  const box=$('statsScholars');
+  $('scholarsResumen').textContent=total!=null?`${becados.length} de ${Number(total||0)} becados · meta 90%`:'Meta 90% de asistencia';
+  if(!becados.length){box.innerHTML=`<p class="as-vacio">${Number(total||0)?'Todos los becados van en su meta. Bien ahí.':'No hay becados con entrenamientos en este periodo.'}</p>`;return;}
+  box.innerHTML=becados.map(b=>{
+    const e=estadoDeAsistencia(b.pct,90);
+    return `<div class="as-racha es-becado">
+      <button type="button" class="as-racha-abre" data-player="${esc(b.playerId)}">
+        <span class="as-racha-cara" data-thumb="${esc(b.thumb||'')}" data-bucket="${esc(b.bucket||'')}">${esc(iniciales(b.name))}</span>
+        <span class="as-racha-txt"><strong>${esc(b.name||'Tanner')}</strong>${sello}<small>${esc(b.categoryName||'')} · ${Number(b.attended||0)} de ${Number(b.marked||0)} entrenamientos${Number(b.streak||0)>=2?` · ${Number(b.streak)} faltas seguidas`:''}</small></span>
+        <span class="as-beca-pct as-beca-${e.nivel}"><b>${esc(pctTexto(b.pct))}</b><small>de 90%</small></span>
+      </button>
+      ${botonFamilia(b,{faltas:b.streak,pct:b.pct,asistio:b.attended,marcadas:b.marked,becado:true})}
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-player]').forEach(x=>x.addEventListener('click',()=>abrirJugador(x.dataset.player)));
   firmaCaras(box);
 }
 

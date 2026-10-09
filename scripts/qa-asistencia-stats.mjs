@@ -9,7 +9,8 @@ import assert from 'node:assert/strict';
 import { metaDe, estadoDeAsistencia, porcentaje, confianza, tendencia,
          rangoDe, iso, etiquetaDeEstado, desgloseDeFaltas,
          textoDeContadorOpcional, META_ORDINARIA, META_BECADO,
-         barrasDeSemanas, etiquetaDeSemana, textoUltimaVez, coberturaDeListas }
+         barrasDeSemanas, etiquetaDeSemana, textoUltimaVez, coberturaDeListas,
+         mensajeDeFaltas }
   from '../v2/asistencia/estadisticas.js';
 
 let fallos = 0, corridas = 0;
@@ -208,6 +209,30 @@ prueba('la cobertura de listas tiene semáforo', () => {
   assert.equal(coberturaDeListas(4, 6).nivel, 'bajo');
   assert.equal(coberturaDeListas(0, 0).nivel, 'sindato');
   assert.equal(coberturaDeListas(4, 6).texto, '4 de 6 listas pasadas');
+});
+
+// === Escribir a la familia ===
+
+prueba('el mensaje va firmado por el club, no por una persona', () => {
+  const m = mensajeDeFaltas({ tanner: 'GISELE Sanchez', tutor: 'Juan Ignacio Ramírez', categoria: 'Mini Baby Tanner', faltas: 5, club: 'Tannery City FC' });
+  assert.match(m, /^Hola Juan, te escribimos de Tannery City FC\./);
+  assert.match(m, /Gisele no ha venido a sus últimos 5 entrenamientos de Mini Baby Tanner/);
+  assert.match(m, /Saludos,\nTannery City FC$/);
+  assert.doesNotMatch(m, /te saluda/);
+});
+
+prueba('al becado se le recuerda la meta de su beca; al que no, no', () => {
+  assert.match(mensajeDeFaltas({ tanner: 'Ana', faltas: 3, becado: true }), /conservar su beca se pide 90% de asistencia/);
+  assert.doesNotMatch(mensajeDeFaltas({ tanner: 'Ana', faltas: 3 }), /beca/);
+});
+
+prueba('un becado sin racha pero bajo de asistencia recibe sus números', () => {
+  const m = mensajeDeFaltas({ tanner: 'Bruno', categoria: 'T10', faltas: 0, pct: 66.7, asistio: 2, marcadas: 3, becado: true });
+  assert.match(m, /Bruno ha venido a 2 de 3 entrenamientos de T10 este periodo/);
+});
+
+prueba('sin nombre del tutor el saludo no queda roto', () => {
+  assert.match(mensajeDeFaltas({ tanner: 'Leo', faltas: 4 }), /^Hola, te escribimos de Tannery City\./);
 });
 
 if (fallos) { console.error(`Asistencia stats QA FAILED · ${fallos} de ${corridas}`); process.exit(1); }

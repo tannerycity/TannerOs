@@ -360,6 +360,17 @@ await pagina.waitForFunction(() => /Septiembre/.test(document.getElementById('fa
 await pagina.waitForFunction(() => /60%/.test(document.getElementById('famMesBody')?.textContent || ''), { timeout: 4000 });
 await pagina.screenshot({ path: path.join(RAIZ, 'docs/evidencias/familias-asistencia-mes.png'), fullPage: false });
 
+// El link público manda a la familia con cuenta a /familias/?tab=tienda
+// ("¿Ya eres familia Tanner? Entrar"): tiene que abrir en la Tienda.
+await pagina.goto('http://127.0.0.1:4601/v2/familias/?tab=tienda', { waitUntil: 'networkidle' });
+await pagina.waitForSelector('#appView:not(.hidden)', { timeout: 8000 });
+revisa('?tab=tienda abre el portal en la Tienda',
+  await pagina.getAttribute('.fam-nav-item[data-tab="tienda"]', 'aria-current') === 'page');
+await pagina.goto('http://127.0.0.1:4601/v2/familias/?tab=inventada', { waitUntil: 'networkidle' });
+await pagina.waitForSelector('#appView:not(.hidden)', { timeout: 8000 });
+revisa('un ?tab= desconocido abre en Cuenta',
+  await pagina.getAttribute('.fam-nav-item[data-tab="cuenta"]', 'aria-current') === 'page');
+
 await navegador.close();
 server.close();
 

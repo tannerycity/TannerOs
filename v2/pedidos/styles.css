@@ -29,3 +29,9 @@
 .review-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .review-actions .primary{background:#169b4b;border-color:#169b4b}
 .review-actions button{min-height:46px}
+/* D: el número pedido, revisado contra el club. */
+.review-numeros{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.review-num{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border-radius:12px;font-size:13px;font-weight:700;line-height:1.35}
+.review-num.ok{background:#eaf6ee;color:#1e6b3c}
+.review-num.atencion{background:#fbf3e2;color:#8a6413}
+.review-num.mal{background:#fdecea;color:#a92a21}

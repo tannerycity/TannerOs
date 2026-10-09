@@ -30,7 +30,10 @@ const ORDER_LABEL={draft:'Por confirmar',pending:'Apartado',confirmed:'Confirmad
   in_production:'En producción',ready:'Listo para recoger',delivered:'Entregado',
   cancelled:'Cancelado',paid:'Pagado'};
 const orderLabel=t=>ORDER_LABEL[t]||'';
-const state={home:null,playerId:'',tab:'cuenta',statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null};
+// ?tab=tienda abre directo en la Tienda: es a donde manda el link público de
+// compra a la familia que ya tiene cuenta ("Ya soy familia Tanner").
+const TAB_INICIAL=(()=>{const t=new URLSearchParams(location.search).get('tab');return ['cuenta','calendario','progreso','tienda','gafete'].includes(t)?t:'cuenta';})();
+const state={home:null,playerId:'',tab:TAB_INICIAL,statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null};
 
 function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){

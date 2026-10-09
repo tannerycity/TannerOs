@@ -99,7 +99,7 @@ const CLIENTE = (pagoFalla) => `
       const ok=d=>({data:d,error:null});
       if(n==='v2_public_offerings')return ok(${JSON.stringify(OFERTA)});
       if(n==='v2_public_payment_info')return ${pagoFalla ? "({data:null,error:{message:'sin red'}})" : `ok(${JSON.stringify(PAGO)})`};
-      if(n==='v2_public_order_enhanced')return ok({folio:'PED-2026-00032',total:200});
+      if(n==='v2_public_cart_order')return ok({id:'o-web',folio:'PED-2026-00032',total:200,items:1});
       if(n==='v2_my_context')return ok([{user_id:'u1',display_name:'Zulema García',organization_id:'o1',organization_name:'Tannery City FC',role:'Operaciones',is_owner:false}]);
       if(n==='v2_my_modules')return ok([{module_code:'commerce',enabled:true,can_read:true,can_write:true},{module_code:'commerce_finance',enabled:true,can_read:true,can_write:true}]);
       if(n==='v2_club_config')return ok({name:'Tannery City FC',whatsapp:'524792651338',paymentInstructions:${JSON.stringify({ transfer:PAGO.transfer, methods:PAGO.methods })}});
@@ -140,6 +140,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
 async function pideCalcetas(pg) {
   await pg.waitForSelector('.fam-prod [data-add]', { timeout:8000 });
   await pg.click('.fam-prod [data-add]');
+  await pg.click('#verCarrito');
   await pg.waitForSelector('#orderForm', { timeout:5000 });
   await pg.fill('#customerName', 'Ana Ávila');
   await pg.fill('#customerPhone', '4771234567');

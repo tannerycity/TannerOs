@@ -81,6 +81,7 @@ await pg.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentT
       if(n==='v2_public_offerings')return{data:${JSON.stringify(OFERTA)},error:null};
       if(n==='v2_public_bundle_order')return{data:{folio:'PED-QA-1',total:3500},error:null};
       if(n==='v2_public_order_enhanced')return{data:{folio:'PED-QA-2',total:699},error:null};
+      if(n==='v2_public_cart_order')return{data:{id:'o-qa',folio:'PED-QA-1',total:3500+699*2},error:null};
       return {data:null,error:null};}};}` }));
 // Sin salida a internet, el import de esm.sh se cuelga y la página nunca arranca.
 await pg.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
@@ -141,10 +142,40 @@ revisa('quedan las tres tallas que el kit pedía',
 await pg.fill('.fam-kit:first-of-type [data-knombre]', 'MAURICIO');
 await pg.fill('.fam-kit:first-of-type [data-knumero]', '10');
 await pg.click('.fam-kit:first-of-type [data-addkit]');
-await pg.waitForSelector('#orderForm', { timeout: 5000 }).catch(() => {});
-revisa('al agregar el kit se pasa a confirmar', (await pg.$('#orderForm')) !== null);
-revisa('y ahí sí se piden los datos', (await pg.$('#customerName')) !== null);
-revisa('con la opción de volver sin perder lo elegido', (await pg.$('#vitVolverPresente, #volver')) !== null);
+await pg.waitForSelector('#carritoBar', { timeout: 5000 }).catch(() => {});
+/* ===== 3. El carrito (09/10/2026): todo en UN folio ===== */
+revisa('al agregar el kit NO se va a pagar: se queda en la tienda con su carrito',
+  (await pg.$('#orderForm')) === null && (await pg.$('.fam-kit')) !== null);
+revisa('la barra dice cuánto lleva', /\$3,500/.test(await pg.innerText('#carritoBar').catch(() => '')) && /1 artículo/.test(await pg.innerText('#carritoBar').catch(() => '')),
+  await pg.innerText('#carritoBar').catch(() => 'sin barra'));
+revisa('y todavía no se piden datos', (await pg.$('#customerName')) === null);
+
+/* ===== 4. Una pieza suelta, al mismo carrito ===== */
+await pg.click('.fam-prod:first-of-type [data-add]');
+await pg.waitForTimeout(200);
+revisa('una pieza sin talla no pasa, y el motivo se ve en la tarjeta',
+  (await pg.$('.fam-prod .fam-aviso')) !== null && /1 artículo/.test(await pg.innerText('#carritoBar')));
+/* Cuál producto es la primera tarjeta lo decide acomodaVitrina. Se lee del
+   DOM en vez de darlo por hecho. */
+const compradoId = await pg.$eval('.fam-prod:first-of-type [data-add]', b => b.dataset.add);
+for (let i = 0; i < 2; i++) {
+  await pg.click('.fam-prod:first-of-type [data-abre]');
+  await pg.click('.fam-prod:first-of-type .fam-tallas .fam-talla');
+  await pg.click('.fam-prod:first-of-type [data-add]');
+  await pg.waitForTimeout(150);
+}
+revisa('la misma pieza dos veces suma cantidad, no dos renglones',
+  /3 artículos/.test(await pg.innerText('#carritoBar')), await pg.innerText('#carritoBar'));
+
+await pg.click('#verCarrito');
+await pg.waitForSelector('#orderForm', { timeout: 5000 });
+const renglones = await pg.$$eval('#resumenCarrito .fam-mov', e => e.map(x => x.innerText.replace(/\s+/g, ' ')));
+revisa('el pedido trae los dos renglones', renglones.length === 2 && renglones.some(r => /×2/.test(r)), JSON.stringify(renglones));
+const esperado = 3500 + 2 * OFERTA.products.find(x => x.id === compradoId).price;
+const totalTexto = new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN' }).format(esperado);
+revisa('con su total (kit + 2 piezas)', (await pg.innerText('#resumenCarrito .carrito-total')).includes(totalTexto), `${totalTexto} vs ${await pg.innerText('#resumenCarrito .carrito-total')}`);
+revisa('la barra se quita al revisar el pedido', (await pg.$('#carritoBar')) === null);
+revisa('ahí sí se piden los datos', (await pg.$('#customerName')) !== null);
 
 // El candado del aviso de privacidad, antes de llenar nada más.
 await pg.fill('#customerName', 'Ana Ávila');
@@ -152,79 +183,51 @@ await pg.fill('#customerPhone', '4771234567');
 await pg.click('#submitOrder');
 await pg.waitForTimeout(300);
 revisa('sin autorizar el tratamiento de datos, el pedido NO se manda',
-  llamadas.filter(c => c.n === 'v2_public_bundle_order').length === 0,
-  JSON.stringify(llamadas.map(c => c.n)));
+  llamadas.filter(c => c.n === 'v2_public_cart_order').length === 0, JSON.stringify(llamadas.map(c => c.n)));
 
 await pg.check('#orderDataConsent');
 await pg.click('#submitOrder');
 await pg.waitForTimeout(600);
 
-const pedido = llamadas.find(c => c.n === 'v2_public_bundle_order');
-revisa('con la autorización sí se manda', !!pedido, JSON.stringify(llamadas.map(c => c.n)));
-if (pedido) {
-  const p = pedido.p;
-  revisa('lleva el kit y el tipo', p.bundle_id === 'k-completo' && p.tier === 'adult',
-    `${p.bundle_id} / ${p.tier}`);
-  // Cinco unidades: 1 jersey + 2 shorts + 2 calcetas.
-  revisa('lleva una pieza por unidad, no una por tipo',
-    Array.isArray(p.pieces) && p.pieces.length === 5, `piezas: ${p.pieces?.length}`);
-  // v2_public_bundle_order resuelve por legacyProductId: mandarle el uuid
-  // haría que no encontrara la pieza.
-  revisa('cada pieza va con el id legacy que el RPC sabe resolver',
-    p.pieces.every(x => /^pro/.test(String(x.legacyProductId || ''))),
-    JSON.stringify(p.pieces.map(x => x.legacyProductId)));
-  revisa('todas con su talla', p.pieces.every(x => x.size), JSON.stringify(p.pieces));
-  // Los dos shorts van numerados: el proveedor corta dos, no uno.
-  revisa('las dos unidades del mismo producto van en ranuras distintas',
-    new Set(p.pieces.filter(x => x.legacyProductId === 'pro_mrr0dhtr_a6w6yr').map(x => x.slot)).size === 2,
-    JSON.stringify(p.pieces.filter(x => x.legacyProductId === 'pro_mrr0dhtr_a6w6yr')));
-  // Esto es lo que se perdía entre el pedido y el taller.
-  revisa('el nombre estampado llega al club',
-    p.personalization_name === 'MAURICIO', String(p.personalization_name));
-  revisa('y el número también', p.number === '10', String(p.number));
-  revisa('con el consentimiento y su versión',
-    p.consent?.dataAccepted === true && !!p.consent?.privacyNoticeVersion, JSON.stringify(p.consent));
-}
-revisa('y se confirma con su folio',
-  /PED-QA-1/.test(await pg.textContent('#content').catch(() => '')));
+const envios = llamadas.filter(c => c.n === 'v2_public_cart_order');
+revisa('todo se manda en UNA llamada: un solo folio', envios.length === 1
+  && !llamadas.some(c => c.n === 'v2_public_bundle_order' || c.n === 'v2_public_order_enhanced'), JSON.stringify(llamadas.map(c => c.n)));
+const pedido = envios[0]?.p || {};
+const kit = (pedido.items || []).find(x => x.kind === 'bundle');
+const pieza = (pedido.items || []).find(x => x.kind === 'product');
+revisa('lleva el kit y el tipo', kit?.bundleId === 'k-completo' && kit?.tier === 'Adulto', JSON.stringify(kit && { b: kit.bundleId, t: kit.tier }));
+// Cinco unidades: 1 jersey + 2 shorts + 2 calcetas.
+revisa('el kit lleva una pieza por unidad, cada una con su talla',
+  kit?.pieces?.length === 5 && kit.pieces.every(x => x.productId && x.talla), JSON.stringify(kit?.pieces));
+revisa('los dos shorts van como dos piezas del mismo producto',
+  kit?.pieces?.filter(x => x.productId === 'p-short').length === 2, JSON.stringify(kit?.pieces));
+// Esto es lo que se perdía entre el pedido y el taller.
+revisa('el nombre estampado llega al club', kit?.personalizationName === 'MAURICIO', String(kit?.personalizationName));
+revisa('y el número también', kit?.number === '10', String(kit?.number));
+revisa('la pieza suelta es la que se tocó, con su talla y cantidad 2',
+  pieza?.productId === compradoId && !!pieza?.talla && pieza?.quantity === 2, JSON.stringify(pieza));
+revisa('con el consentimiento y su versión',
+  pedido.consent?.dataAccepted === true && !!pedido.consent?.privacyNoticeVersion, JSON.stringify(pedido.consent));
+revisa('y se confirma con su folio', /PED-QA-1/.test(await pg.textContent('#content').catch(() => '')));
 
-/* ===== 4. Comprar una pieza suelta ===== */
+/* ===== 4b. Quitar un renglón no borra lo escrito ===== */
 await pg.goto('http://127.0.0.1:4705/pedido/', { waitUntil:'networkidle' });
 await pg.waitForSelector('.fam-prod', { timeout: 8000 });
-llamadas.length = 0;
-
-// Sin talla, no deja pasar: lo dice ahí mismo, no en una alerta.
-await pg.click('.fam-prod:first-of-type [data-add]');
-await pg.waitForTimeout(200);
-revisa('una pieza sin talla no pasa, y el motivo se ve en la tarjeta',
-  (await pg.$('#orderForm')) === null && (await pg.$('.fam-prod .fam-aviso')) !== null);
-
-await pg.click('.fam-prod:first-of-type [data-abre]');
-await pg.click('.fam-prod:first-of-type .fam-tallas .fam-talla');
-/* Cuál producto es la primera tarjeta lo decide acomodaVitrina, que pone el
-   kit y los jerseys primero. Se lee del DOM en vez de darlo por hecho: la
-   primera versión de esta prueba supuso el jersey, y la vitrina tenía razón. */
-const compradoId = await pg.$eval('.fam-prod:first-of-type [data-add]', b => b.dataset.add);
-await pg.click('.fam-prod:first-of-type [data-add]');
+for (const i of [1, 2]) {
+  await pg.click(`.fam-prod:nth-of-type(${i}) [data-abre]`).catch(() => {});
+  await pg.click(`.fam-prod:nth-of-type(${i}) .fam-tallas .fam-talla`).catch(() => {});
+  await pg.click(`.fam-prod:nth-of-type(${i}) [data-add]`);
+  await pg.waitForTimeout(150);
+}
+await pg.click('#verCarrito');
 await pg.waitForSelector('#orderForm', { timeout: 5000 });
 await pg.fill('#customerName', 'Ana Ávila');
-await pg.fill('#customerPhone', '4771234567');
-await pg.check('#orderDataConsent');
-await pg.click('#submitOrder');
-await pg.waitForTimeout(600);
-
-const suelta = llamadas.find(c => c.n === 'v2_public_order_enhanced');
-revisa('la pieza suelta se manda', !!suelta, JSON.stringify(llamadas.map(c => c.n)));
-if (suelta) {
-  const it = suelta.p.items?.[0];
-  revisa('se manda EL producto que se tocó, con su talla',
-    it?.product_id === compradoId && !!it?.attributes?.talla,
-    `se tocó ${compradoId} · se mandó ${JSON.stringify(it)}`);
-  // La hoja de producción lee 'talla' y 'nombrePers': son esas llaves o nada.
-  revisa('y con las llaves que la hoja de producción sabe leer',
-    'talla' in (it?.attributes || {}) && 'nombrePers' in (it?.attributes || {}),
-    JSON.stringify(it?.attributes));
-}
+await pg.click('#resumenCarrito [data-quita]');
+revisa('quitar un renglón deja el otro', (await pg.$$('#resumenCarrito .fam-mov')).length === 1);
+revisa('y no borra lo que ya se escribió', (await pg.inputValue('#customerName')) === 'Ana Ávila');
+await pg.click('#resumenCarrito [data-quita]');
+await pg.waitForTimeout(200);
+revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')) === null && (await pg.$('.fam-prod')) !== null);
 
 /* ===== 5. Sin scroll horizontal a 390px ===== */
 revisa('la tienda cabe en un teléfono',

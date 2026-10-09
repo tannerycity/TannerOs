@@ -32,3 +32,17 @@
 .ya-familia strong{display:block;font-size:15px}
 .ya-familia small{display:block;margin-top:2px;font-size:12.5px;color:#5b6b70}
 .ya-familia b{flex:0 0 auto;padding:9px 16px;border-radius:999px;background:#0b3d4a;color:#fff;font-size:14px}
+/* Carrito (09/10/2026): todo en un solo folio. La barra queda fija abajo
+   mientras se elige; el resumen usa la misma línea que el portal. */
+.carrito-bar{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;max-width:620px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px 12px 18px;border-radius:18px;background:#07191e;color:#fff;box-shadow:0 14px 34px rgba(0,0,0,.28)}
+.carrito-bar strong{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.carrito-bar small{display:block;font-size:12px;color:#b7c7cb}
+.carrito-bar button{flex:0 0 auto;min-height:46px;padding:0 18px;border:0;border-radius:13px;background:#c6ac5c;color:#07191e;font:inherit;font-weight:900;cursor:pointer}
+body:has(.carrito-bar) .page{padding-bottom:96px}
+.carrito-lista{margin:12px 0 4px;padding:6px 14px;border:1px solid #dfe7e5;border-radius:16px;background:#fff}
+.carrito-lista .fam-mov{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:11px 0;border-bottom:1px solid #eef1f0}
+.carrito-lista .fam-mov strong{display:block;font-size:14px}
+.carrito-lista .fam-mov span span{display:block;margin-top:2px;font-size:12px;color:#7d8a8f}
+.carrito-lista .fam-mov b{font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.carrito-total{display:flex;justify-content:space-between;align-items:center;padding:12px 0 8px;font-weight:800}
+.carrito-total strong{font-size:18px;font-variant-numeric:tabular-nums}

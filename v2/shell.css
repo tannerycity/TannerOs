@@ -248,3 +248,4 @@ body[style*="overflow: hidden"]:not(.tos-fab-open) .tos-fab,.tos-nav-open .tos-f
 .m-jug:hover{background:#f4f7f6}.m-jug input{width:18px!important;height:18px;min-height:0!important;flex:0 0 18px}
 .m-jug span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.m-jug small{color:#8a979b;font-size:11.5px}
 .m-resumen{font-weight:700;color:#0d2730}
+a.tos-bell-link{display:block;color:inherit;text-decoration:none}a.tos-bell-link:hover{border-color:var(--tos-teal)}

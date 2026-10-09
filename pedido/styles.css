@@ -13,3 +13,17 @@
   background:#eef4f3;color:#2f6b60;font:inherit;font-weight:800;font-size:13px;cursor:pointer;
 }
 .vit-volver:active{background:#e2ebe9}
+/* Pedido recibido: cómo pagar. La CLABE va grande y con su botón de copiar,
+   porque es lo que la familia teclea en la app del banco. */
+.pago-card{margin:18px 0 0;padding:16px;border:1px solid #dfe7e5;border-radius:16px;background:#f8faf9}
+.pago-card h3{margin:0 0 4px;font-size:16px}
+.pago-card .muted{margin:0 0 10px}
+.pago-filas{display:grid;gap:8px}
+.pago-fila{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #e7eeec}
+.pago-fila span{flex:0 0 100%;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a9aa0}
+.pago-fila strong{font-size:15px;word-break:break-word}
+.pago-clabe{font-size:18px!important;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.pago-copiar{margin-left:auto;border:0;border-radius:999px;padding:8px 14px;background:#0b3d4a;color:#fff;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.pago-otros{margin:12px 0 0!important}
+.pago-wa{display:flex;align-items:center;justify-content:center;margin:16px 0 0;min-height:52px;border-radius:14px;background:#169b4b;color:#fff;font-weight:800;text-decoration:none}
+.pago-nota{margin:8px 0 0;text-align:center;font-size:13px}

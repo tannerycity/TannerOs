@@ -52,3 +52,4 @@ qa-humo-numeros.mjs
 # queda anotado en vez de metido a la fuerza. Quitar esta linea en cuanto se
 # arregle: es el unico punto de la lista que no deberia seguir aqui.
 qa-product-ui.mjs
+qa-humo-pedidos-por-revisar.mjs

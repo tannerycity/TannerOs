@@ -20,3 +20,12 @@
 .store-action.is-off{opacity:.5;pointer-events:none}
 @media(max-width:800px){.store-actions{grid-template-columns:1fr}
   .store-action{min-height:0;padding:15px}}
+/* Por revisar (a3): lo que llegó por el link o el portal y nadie ha
+   confirmado. Ámbar, como todo lo que pide atención en TannerOS. */
+.review-banner{display:flex;width:100%;align-items:center;justify-content:center;margin:0 0 12px;padding:12px 14px;border:1px solid #eedca6;border-radius:14px;background:#fffaf0;color:#765719;font:inherit;font-weight:800;font-size:14px;cursor:pointer}
+.review-banner:hover{background:#fbf2dc}
+.order-review-tag{display:inline-block;margin:0 0 4px;padding:3px 8px;border-radius:999px;background:#f4e4b8;color:#765719;font-size:10.5px;font-weight:900;letter-spacing:.03em}
+.review-section{border:1px solid #eedca6;background:#fffaf0;border-radius:16px}
+.review-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.review-actions .primary{background:#169b4b;border-color:#169b4b}
+.review-actions button{min-height:46px}

@@ -107,7 +107,10 @@ export default function comprobar() {
   // Sube a 27 por qa-humo-numeros.mjs. Vigila la hoja de números libres en
   // Levantar pedido y Fichar, y que el número se guarde en el expediente sólo
   // cuando el Tanner no tenía. Es pintura sobre v2_jersey_board.
-  const MAX_EXCLUIDAS = 27;
+  // Sube a 28 por qa-humo-pedidos-por-revisar.mjs. Vigila que el link de la
+  // tienda diga cómo pagar y que Pedidos avise y confirme por WhatsApp. Es
+  // pintura sobre v2_orders_to_review y v2_public_payment_info.
+  const MAX_EXCLUIDAS = 28;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

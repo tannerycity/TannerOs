@@ -208,11 +208,11 @@ async function loadAnnouncements(ctx){
     badge.classList.toggle('hidden',unread===0);
     empty.classList.toggle('hidden',list.length>0);
     list_el.innerHTML=list.slice(0,20).map(a=>`
-      <article class="tos-bell-item ${a.unread?'unread':''}">
+      ${a.source==='order'&&a.sourceId?`<a class="tos-bell-item tos-bell-link ${a.unread?'unread':''}" href="/pedidos/?pedido=${encodeURIComponent(a.sourceId)}">`:`<article class="tos-bell-item ${a.unread?'unread':''}">`}
         <strong>${escBell(a.title)}</strong>
         ${a.body?`<p>${escBell(a.body)}</p>`:''}
         <small>${a.publishedAt?new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(new Date(a.publishedAt)):''}</small>
-      </article>`).join('');
+      ${a.source==='order'&&a.sourceId?'</a>':'</article>'}`).join('');
   }catch{/* silencioso */}
 }
 async function wirePush(ctx){

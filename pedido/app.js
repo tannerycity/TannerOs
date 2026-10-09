@@ -50,6 +50,7 @@ import { preparaLinea, preparaKit, ranurasDeKit, precioDeKit, tiersDeKit, acomod
   from '/v2/tienda.js';
 import { esc, dinero as money, tarjetaProducto, tarjetaKit, normalizaOfertaPublica }
   from '/v2/vitrina.js';
+import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
 const CLUB_KEY = '1850TC1850';
@@ -63,6 +64,9 @@ let phoneCountry = 'MX';
 const eligiendo = {};      // productId -> {talla, abierto, nombre, numero, motivo}
 const eligiendoKit = {};   // kitId -> {tier, tallas:{}, abierto, nombre, numero, motivo}
 let elegido = null;        // {kind:'product'|'bundle', linea, item}
+// Cómo pagar (cuenta del club y su WhatsApp). Si no carga, el pedido se
+// levanta igual: sólo falta la tarjeta de pago al final.
+let pagoInfo = null;
 
 async function rpc(n, p = {}) { const { data, error } = await supabase.rpc(n, p); if (error) throw error; return data; }
 const acceptedAt = () => new Date().toISOString();
@@ -344,17 +348,48 @@ async function submit(e) {
         }]
       });
     }
-    $('content').innerHTML = `<div class="success"><div class="success-mark">
-      <span class="tos-icon tos-icon-check" aria-hidden="true"></span></div>
-      <h2>Pedido recibido</h2>
-      <p>Te contactamos por WhatsApp para confirmar el pago y la entrega.</p>
-      ${result?.folio ? `<div class="folio">${esc(result.folio)}</div>` : ''}
-      <p><strong>Total:</strong> ${money.format(Number(result?.total || 0))}</p></div>`;
+    renderListo(result, comun.customer_name);
   } catch (err) {
     setMessage(err.message || 'No se pudo enviar el pedido.');
     btn.disabled = false; btn.textContent = 'Confirmar pedido';
   }
 }
+
+/* ---------- Pedido recibido ----------
+ * Antes terminaba en "te contactamos por WhatsApp para el pago": la familia
+ * se quedaba esperando sin saber a qué cuenta pagar. Ahora sale cómo pagar,
+ * con el folio como referencia, y un botón que le manda el comprobante al
+ * club por WhatsApp. */
+function renderListo(result, nombre) {
+  const folio = result?.folio || '', total = Number(result?.total || 0);
+  const pago = datosDePago(pagoInfo, folio);
+  const wa = ligaWhatsApp(pagoInfo?.whatsapp, mensajeComprobante({ folio, total, nombre }));
+  const filas = pago.filas.map(([k, v]) => `<div class="pago-fila"><span>${esc(k)}</span>`
+    + `<strong${k === 'CLABE' ? ' class="pago-clabe"' : ''}>${esc(v)}</strong>`
+    + `${k === 'CLABE' ? `<button type="button" class="pago-copiar" data-copiar="${esc(v)}">Copiar</button>` : ''}</div>`).join('');
+  $('content').innerHTML = `<div class="success"><div class="success-mark">
+      <span class="tos-icon tos-icon-check" aria-hidden="true"></span></div>
+      <h2>Pedido recibido</h2>
+      ${folio ? `<div class="folio">${esc(folio)}</div>` : ''}
+      <p><strong>Total:</strong> ${money.format(total)}</p></div>
+    ${filas ? `<section class="pago-card" aria-label="Cómo pagar">
+      <h3>Cómo pagar</h3>
+      <p class="muted">Transferencia con tu folio como referencia:</p>
+      <div class="pago-filas">${filas}</div>
+      ${pago.otros ? `<p class="muted pago-otros">${esc(pago.otros)}</p>` : ''}
+    </section>` : ''}
+    ${wa ? `<a class="primary pago-wa" href="${esc(wa)}" target="_blank" rel="noopener">Enviar comprobante por WhatsApp</a>
+      <p class="muted pago-nota">Al pagar, adjunta la foto o captura del comprobante en el chat.</p>`
+      : '<p class="muted pago-nota">Te contactamos por WhatsApp para confirmar tu pedido.</p>'}`;
+  $('content').querySelector('[data-copiar]')?.addEventListener('click', async e => {
+    const b = e.currentTarget;
+    try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiada'; }
+    catch { b.textContent = 'Mantén presionado para copiar'; }
+  });
+  $('content').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+rpc('v2_public_payment_info', { club_key: CLUB_KEY }).then(v => { pagoInfo = v; }).catch(() => {});
 
 try {
   catalogo = normalizaOfertaPublica(await rpc('v2_public_offerings', { club_key: CLUB_KEY }));

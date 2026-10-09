@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#07191e" />
-  <title>Pedido Tanner · Tannery City</title>
-  <meta name="description" content="Jerseys, kits y uniformes del club. Levanta tu pedido y te confirmamos talla, pago y entrega." />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Tienda Tanner · Tannery City</title>
+  <meta name="description" content="Jerseys, kits y uniformes oficiales de Tannery City F.C. Pide desde tu celular y paga por transferencia, efectivo o tarjeta." />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Tannery City F.C." />
   <meta property="og:locale" content="es_MX" />
   <meta property="og:title" content="Tienda Tannery City F.C." />
-  <meta property="og:description" content="Jerseys, kits y uniformes del club. Levanta tu pedido y te confirmamos talla, pago y entrega." />
+  <meta property="og:description" content="Jerseys, kits y uniformes oficiales del club. Pide desde tu celular." />
   <meta property="og:url" content="https://app.tannerycity.com/pedido" />
   <meta property="og:image" content="https://app.tannerycity.com/brand/og-registro.jpg" />
   <meta property="og:image:width" content="1200" />
@@ -18,19 +18,31 @@
   <meta property="og:image:alt" content="Escudo de Tannery City F.C. sobre fondo verde oscuro" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Tienda Tannery City F.C." />
-  <meta name="twitter:description" content="Jerseys, kits y uniformes del club. Levanta tu pedido y te confirmamos talla, pago y entrega." />
+  <meta name="twitter:description" content="Jerseys, kits y uniformes oficiales del club. Pide desde tu celular." />
   <meta name="twitter:image" content="https://app.tannerycity.com/brand/og-registro.jpg" />
 
   <link rel="stylesheet" href="/public-form.css" />
   <link rel="stylesheet" href="/pedido/styles.css" />
-  <link rel="stylesheet" href="/v2/vitrina.css?v=20260930a" />
+  <link rel="stylesheet" href="/v2/vitrina.css" />
+  <link rel="stylesheet" href="/pedido/tienda.css" />
 <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head>
-<body>
-  <main class="page">
-    <header class="brand"><div class="mark">T</div><div><div class="eyebrow">TANNERY CITY FC</div><h1 id="pageTitle">Pedido Tanner</h1></div></header>
-    <section id="publicCard" class="card"><div id="loading" class="loading">Cargando…</div><div id="content" class="hidden"></div></section>
-    <p class="foot"><a href="/centro-tanner/">Centro Tanner</a> · <a href="/aviso-de-privacidad/">Privacidad</a> · TannerOS · Formulario seguro</p>
+<body class="st-body">
+  <header class="st-head">
+    <a class="st-marca" href="#/" aria-label="Tienda Tanner, inicio">
+      <img src="/brand/crest-navy.png" alt="" width="30" height="30">
+      <span>Tienda Tanner</span>
+    </a>
+    <button type="button" id="stCarrito" class="st-carrito" aria-label="Tu pedido">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+      <b id="stCarritoN" hidden>0</b>
+    </button>
+  </header>
+  <main class="st-main">
+    <div id="loading" class="st-cargando" aria-live="polite">Cargando la tienda…</div>
+    <div id="content" class="hidden"></div>
   </main>
+  <footer class="st-pie"><a href="/centro-tanner/">Centro Tanner</a> · <a href="/aviso-de-privacidad/">Privacidad</a> · Tannery City F.C.</footer>
+  <div id="stAviso" class="st-aviso" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/pedido/app.js"></script>
 </body>
 </html>

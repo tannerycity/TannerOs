@@ -192,7 +192,11 @@ export function normalizaOfertaPublica(oferta) {
         legacy_product_id: c.legacyProductId ?? c.legacy_product_id ?? null,
         name: c.name,
         sizes: c.sizes || [],
-        qty: Math.max(1, Math.min(20, Number(c.qty) || 1))
+        qty: Math.max(1, Math.min(20, Number(c.qty) || 1)),
+        // Con qué foto se ve el kit en la tienda pública (e3).
+        category: c.category ?? null,
+        photoThumbPath: c.photoThumbPath ?? null,
+        photoBucket: c.photoBucket ?? null
       }))
     }));
   return { products: productos, bundles: kits };

@@ -138,9 +138,12 @@ async function abre(ruta, { pagoFalla = false } = {}) {
 }
 
 async function pideCalcetas(pg) {
-  await pg.waitForSelector('.fam-prod [data-add]', { timeout:8000 });
-  await pg.click('.fam-prod [data-add]');
-  await pg.click('#verCarrito');
+  // La tienda (09/10/2026): de la tarjeta a la ficha, agregar y abrir el pedido.
+  await pg.waitForSelector('.st-card[data-prod]', { timeout:8000 });
+  await pg.click('.st-card[data-prod]');
+  await pg.waitForSelector('#stAgregar', { timeout:4000 });
+  await pg.click('#stAgregar');
+  await pg.click('#stCarrito');
   await pg.waitForSelector('#orderForm', { timeout:5000 });
   await pg.fill('#customerName', 'Ana Ávila');
   await pg.fill('#customerPhone', '4771234567');

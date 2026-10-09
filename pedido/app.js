@@ -1,53 +1,45 @@
-/* EL LINK QUE SE PEGA EN WHATSAPP.
+/* LA TIENDA TANNER: EL LINK QUE SE PEGA EN WHATSAPP.
  *
- * Quien abre esto no tiene cuenta, no tiene sesión y muchas veces ni conoce al
- * club: le llegó un link. Es la única de las cuatro tiendas que le habla a un
- * desconocido, y era la peor de las cuatro.
+ * Quien abre esto no tiene cuenta ni sesión: le llegó un link. Es la vitrina
+ * del club frente a alguien que muchas veces ni lo conoce.
  *
- * COMO ESTABA
+ * COMO ES (Presidencia, 09/10/2026: "entrar y ver literal una tienda en línea")
  *
- * Un formulario con un menú desplegable que decía "Selecciona". Nadie compra
- * de un desplegable: no hay foto, no se ve el precio hasta abrirlo, y los tres
- * kits —el producto que de verdad vende el club— quedaban escondidos dentro de
- * un <optgroup>.
+ *   #/            La tienda (PLP): categorías arriba —Kits, Jerseys, Shorts,
+ *                 Pants, Chamarras, Calcetas y las que el club dé de alta—
+ *                 y tarjetas grandes con foto y precio.
+ *   #/c/<clave>   Una sola categoría.
+ *   #/p/<id>      La ficha de una pieza (PDP): foto grande, tallas en botones
+ *                 (Niño / Adulto), nombre y número si es jersey, cantidad y
+ *                 "Agregar al pedido" fijo abajo.
+ *   #/k/<id>      La ficha de un kit: Niño o Adulto, lo que incluye con la
+ *                 talla de cada pieza, nombre y número.
+ *   #/pedido      Confirmar: los renglones, los datos y el consentimiento.
  *
- * Peor: pedía el nombre, el teléfono y el correo ANTES de enseñar qué hay.
- * Ninguna tienda del mundo te pide los datos antes de enseñarte el producto.
+ * Todo lo que se agrega va a UN carrito y sale en UN folio
+ * (v2_public_cart_order, d3). Las reglas de cada línea —talla obligatoria, kit
+ * completo, número de 1 a 3 dígitos— son las de /v2/tienda.js, las mismas del
+ * portal de familias y del mostrador.
  *
- * Y el texto hablaba del sistema, no del cliente: "Los kits bloqueados
- * incluyen prendas que ya no forman parte del catálogo actual". Un papá no
- * sabe qué es un catálogo actual. Además, desde la migración x1 ya no hay kits
- * bloqueados, así que la frase había quedado falsa.
+ * LAS FOTOS
  *
- * COMO QUEDA
- *
- * La misma vitrina del portal de familias —/v2/vitrina.js—: el kit primero y
- * en grande, las piezas después, el selector de talla plegado. Primero se
- * elige, y sólo entonces se piden los datos.
- *
- * UN SOLO FOLIO POR COMPRA (carrito, 09/10/2026)
- *
- * Antes se levantaba una cosa por pedido: kit + calcetas extra eran dos
- * folios, dos confirmaciones y dos depósitos. Ahora se agrega al carrito lo
- * que se quiera y v2_public_cart_order levanta UN pedido con todo. Las reglas
- * de cada línea son las del portal de familias (portal_place_order): el kit
- * completo con tallas y su precio repartido entre sus piezas.
- *
- * SIN FOTOS, A PROPOSITO
- *
- * Las fotos de los productos viven en un bucket privado y firmarlas requiere
- * sesión. Quien entra por el link no la tiene. En vez de un recuadro gris,
- * cada pieza sale con su monograma, que es lo que ya hacía Taquilla.
+ * Viven en el bucket privado. Desde e3, las de productos activos del
+ * catálogo (y sólo ésas) se pueden firmar sin sesión. Las tarjetas piden la
+ * miniatura y la ficha la foto completa, por el caché compartido
+ * (/v2/photo-cache.js): una familia que vuelve no las baja otra vez. Un
+ * producto sin foto sale con el escudo del club, no con un recuadro gris.
  */
 import { createClient } from '/v2/supabase-client.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
-import { preparaLinea, preparaKit, tiersDeKit, acomodaVitrina,
-         agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
+import { preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, aceptaPersonalizacion,
+         tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
   from '/v2/tienda.js';
-import { esc, dinero as money, tarjetaProducto, tarjetaKit, normalizaOfertaPublica, lineaDelCarrito }
-  from '/v2/vitrina.js';
+import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
+import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe }
+  from '/pedido/catalogo.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
 const CLUB_KEY = '1850TC1850';
@@ -56,16 +48,17 @@ const $ = id => document.getElementById(id);
 const regions = new Intl.DisplayNames(['es-MX', 'es'], { type: 'region' });
 
 let catalogo = { products: [], bundles: [] };
+let secciones = [];
 let phoneCountry = 'MX';
-// Lo que el visitante lleva elegido en cada tarjeta, igual que en el portal.
-const eligiendo = {};      // productId -> {talla, abierto, nombre, numero, motivo}
-const eligiendoKit = {};   // kitId -> {tier, tallas:{}, abierto, nombre, numero, motivo}
-// El carrito (09/10/2026): kits y piezas en UN folio. Mismo formato de línea
-// que el portal de familias y el mostrador (/v2/tienda.js).
+// Lo que se lleva elegido en cada ficha: si se va y regresa, sigue ahí.
+const eligiendo = {};      // productId -> {talla, cantidad, nombre, numero, motivo}
+const eligiendoKit = {};   // kitId -> {tier, tallas:{}, nombre, numero, motivo, falta}
 let carrito = {};
-// Cómo pagar (cuenta del club y su WhatsApp). Si no carga, el pedido se
-// levanta igual: sólo falta la tarjeta de pago al final.
+// Cómo pagar, el WhatsApp del club y el tiempo de entrega. Si no carga, la
+// tienda funciona igual: sólo faltan esos textos.
 let pagoInfo = null;
+// Fotos ya firmadas en esta visita: ruta -> url.
+const fotos = new Map();
 
 async function rpc(n, p = {}) { const { data, error } = await supabase.rpc(n, p); if (error) throw error; return data; }
 const acceptedAt = () => new Date().toISOString();
@@ -131,122 +124,50 @@ function validatePhone(throwOnError = true) {
   return parsed.number;
 }
 
-/* ---------- La vitrina ---------- */
-function renderTienda() {
-  document.title = 'Tienda Tanner · Tannery City';
-  $('pageTitle').textContent = 'Tienda Tanner';
-  $('loading').classList.add('hidden');
-  $('content').classList.remove('hidden');
-
-  const kits = catalogo.bundles || [];
-  const productos = acomodaVitrina(catalogo.products || []);
-  if (!kits.length && !productos.length) {
-    $('content').innerHTML = `<div class="empty-state"><h2>La tienda está vacía</h2>
-      <p class="muted">Todavía no hay nada publicado. Escríbenos y te decimos qué sigue.</p></div>`;
-    return;
+/* ---------- Fotos ----------
+ * La imagen se pinta encima del escudo del club: mientras carga (o si no hay
+ * foto) se ve el escudo, nunca un hueco. */
+function medio(ruta, bucket, alt, clase = '') {
+  return `<div class="st-media${clase ? ` ${clase}` : ''}${ruta ? '' : ' vacia'}">`
+    + (ruta ? imagen(ruta, bucket, alt) : '') + '</div>';
+}
+function imagen(ruta, bucket, alt) {
+  const url = fotos.get(ruta);
+  return `<img data-ruta="${esc(ruta)}" data-bucket="${esc(bucket || 'tanneros-private')}" alt="${esc(alt || '')}" decoding="async"${url ? ` src="${esc(url)}" class="lista"` : ''}>`;
+}
+function medioProducto(p, completa = false) {
+  const ruta = completa ? (p.photoPath || p.photoThumbPath) : (p.photoThumbPath || p.photoPath);
+  return medio(ruta, p.photoBucket, p.name);
+}
+function medioKit(k, clase = '') {
+  const f = fotosDeKit(k);
+  if (!f.length) return medio(null, null, k.name, `kit ${clase}`.trim());
+  return `<div class="st-media kit n${f.length} ${clase}">${f.map(x => imagen(x.ruta, x.bucket, x.nombre)).join('')}</div>`;
+}
+async function firmaFotos(raiz) {
+  const pendientes = {};
+  raiz.querySelectorAll('img[data-ruta]:not([src])').forEach(i => (pendientes[i.dataset.bucket] ||= new Set()).add(i.dataset.ruta));
+  for (const [bucket, rutas] of Object.entries(pendientes)) {
+    try {
+      const mapa = await getSignedPhotoUrls(supabase, bucket, [...rutas]);
+      for (const [r, u] of Object.entries(mapa || {})) fotos.set(r, u);
+    } catch { /* sin foto se queda el escudo */ }
   }
-
-  /* Dos caminos (Presidencia, 09/10/2026): la familia con cuenta entra y ya
-     trae sus datos y su Tanner; quien no tiene cuenta compra aquí mismo. */
-  $('content').innerHTML = `<a class="ya-familia" href="/familias/?tab=tienda">
-      <span><strong>¿Ya eres familia Tanner?</strong><small>Entra y tus datos y tu Tanner ya van cargados.</small></span>
-      <b>Entrar</b></a>
-    <div class="eyebrow">TIENDA TANNER · SIN CUENTA</div>
-    <h2>El uniforme del club</h2>
-    <p class="muted">Agrega lo que quieras, con su talla: todo va en un solo pedido. Al confirmar ves cómo pagar.</p>
-    ${kits.length ? `<div class="fam-kits">${kits.map(k => tarjetaKit(k, eligiendoKit[k.id] || {})).join('')}</div>` : ''}
-    ${productos.length ? `<h3 class="vit-sub">Piezas sueltas</h3>
-      <div class="fam-prods">${productos.map(p => tarjetaProducto(p, eligiendo[p.id] || {})).join('')}</div>` : ''}`;
-  cableaVitrina();
-  pintaBarra(true);
+  raiz.querySelectorAll('img[data-ruta]:not([src])').forEach(i => {
+    const u = fotos.get(i.dataset.ruta);
+    if (!u) { i.remove(); return; }
+    i.addEventListener('load', () => i.classList.add('lista'), { once: true });
+    i.addEventListener('error', () => i.remove(), { once: true });
+    i.src = u;
+  });
 }
 
-/* Un solo manejador para toda la vitrina: las tarjetas se repintan enteras en
-   cada toque, así que colgar un listener por botón sería colgarlos otra vez en
-   cada repintado. */
-function cableaVitrina() {
-  const raiz = $('content');
-  raiz.onclick = e => {
-    const abre = e.target.closest('[data-abre]');
-    if (abre) { abreTallas(abre.dataset.abre); return; }
-    const talla = e.target.closest('[data-talla]');
-    if (talla) { eligeTalla(talla.closest('[data-tallas]').dataset.tallas, talla.dataset.talla); return; }
-    const quien = e.target.closest('[data-quien]');
-    if (quien) { eligeTier(quien.closest('[data-tier]').dataset.tier, quien.dataset.quien); return; }
-    const add = e.target.closest('[data-add]');
-    if (add) { agregaProducto(add.dataset.add); return; }
-    const addkit = e.target.closest('[data-addkit]');
-    if (addkit) { agregaKit(addkit.dataset.addkit); return; }
-  };
-  // El nombre estampado no se pierde al repintar: se guarda mientras se teclea.
-  raiz.oninput = e => {
-    const t = e.target;
-    if (t.dataset.pnombre) (eligiendo[t.dataset.pnombre] ||= {}).nombre = t.value;
-    else if (t.dataset.pnumero) (eligiendo[t.dataset.pnumero] ||= {}).numero = t.value;
-    else if (t.dataset.knombre) (eligiendoKit[t.dataset.knombre] ||= {}).nombre = t.value;
-    else if (t.dataset.knumero) (eligiendoKit[t.dataset.knumero] ||= {}).numero = t.value;
-  };
+/* ---------- Carrito en la cabecera y abajo ---------- */
+function actualizaCarrito() {
+  const n = piezasDelCarrito(carrito), badge = $('stCarritoN');
+  badge.hidden = !n; badge.textContent = String(n);
+  $('stCarrito').setAttribute('aria-label', n ? `Tu pedido, ${n} ${n === 1 ? 'artículo' : 'artículos'}` : 'Tu pedido');
 }
-
-function abreTallas(id) {
-  const [kitId, ranuraId] = id.split('::');
-  if (ranuraId) {
-    const e = (eligiendoKit[kitId] ||= {});
-    e.abierto = e.abierto === ranuraId ? null : ranuraId;
-  } else {
-    const e = (eligiendo[id] ||= {});
-    e.abierto = !e.abierto;
-  }
-  renderTienda();
-}
-function eligeTalla(id, talla) {
-  const [kitId, ranuraId] = id.split('::');
-  if (ranuraId) {
-    const e = (eligiendoKit[kitId] ||= {});
-    (e.tallas ||= {})[ranuraId] = talla;
-    e.abierto = null; e.motivo = null;
-  } else {
-    const e = (eligiendo[id] ||= {});
-    e.talla = talla; e.abierto = false; e.motivo = null;
-  }
-  renderTienda();
-}
-function eligeTier(kitId, tier) {
-  const e = (eligiendoKit[kitId] ||= {});
-  e.tier = tier; e.motivo = null;
-  renderTienda();
-}
-
-function agregaProducto(id) {
-  const p = (catalogo.products || []).find(x => x.id === id);
-  if (!p) return;
-  const e = (eligiendo[id] ||= {});
-  const r = preparaLinea(p, { talla: e.talla, cantidad: 1, nombre: e.nombre, numero: e.numero });
-  if (!r.ok) { e.motivo = r.motivo; renderTienda(); return; }
-  carrito = agregaAlCarrito(carrito, r.linea);
-  eligiendo[id] = {};
-  renderTienda();
-}
-function agregaKit(id) {
-  const k = (catalogo.bundles || []).find(x => x.id === id);
-  if (!k) return;
-  const e = (eligiendoKit[id] ||= {});
-  const tiers = tiersDeKit(k);
-  const tier = tiers.includes(e.tier) ? e.tier : (tiers.length === 1 ? tiers[0] : null);
-  if (!tier) { e.motivo = 'Elige si es para niño o para adulto.'; renderTienda(); return; }
-  const r = preparaKit(k, { tier, tallas: e.tallas || {}, nombre: e.nombre, numero: e.numero });
-  if (!r.ok) {
-    e.motivo = r.motivo;
-    if (r.falta) e.abierto = r.falta;
-    renderTienda(); return;
-  }
-  carrito = agregaAlCarrito(carrito, r.linea);
-  eligiendoKit[id] = {};
-  renderTienda();
-}
-
-/* La barra del carrito: siempre a la vista mientras se elige, con el total y
-   el botón para revisar. Se quita en cuanto se sale de la vitrina. */
 function pintaBarra(visible) {
   document.getElementById('carritoBar')?.remove();
   const n = piezasDelCarrito(carrito);
@@ -257,7 +178,232 @@ function pintaBarra(visible) {
     + `<small>${n} ${n === 1 ? 'artículo' : 'artículos'} en tu pedido</small></span>`
     + `<button type="button" id="verCarrito">Ver pedido</button>`;
   document.body.appendChild(bar);
-  bar.querySelector('#verCarrito').addEventListener('click', renderCheckout);
+  bar.querySelector('#verCarrito').addEventListener('click', () => { location.hash = '#/pedido'; });
+}
+let avisoTimer = 0;
+function aviso(texto, conAccion = false) {
+  const el = $('stAviso');
+  el.innerHTML = `<span>${esc(texto)}</span>${conAccion ? '<a href="#/pedido">Ver pedido</a>' : ''}`;
+  el.hidden = false; el.classList.remove('sale'); void el.offsetWidth; el.classList.add('entra');
+  clearTimeout(avisoTimer);
+  avisoTimer = setTimeout(() => { el.classList.remove('entra'); el.classList.add('sale'); setTimeout(() => { el.hidden = true; }, 250); }, 3200);
+}
+
+/* ---------- Lo que se dice en cada ficha ---------- */
+function infoDeCompra() {
+  const metodos = (pagoInfo?.methods || []).map(m => String(m).toLocaleLowerCase('es-MX'));
+  const pago = metodos.length > 1 ? `${metodos.slice(0, -1).join(', ')} o ${metodos.at(-1)}` : (metodos[0] || 'transferencia');
+  return `<ul class="st-info">
+    ${pagoInfo?.delivery ? `<li><b>Entrega</b><span>En ${esc(pagoInfo.delivery)}. Se produce sobre pedido.</span></li>` : ''}
+    <li><b>Pago</b><span>Por ${esc(pago)}. Te damos los datos al confirmar.</span></li>
+    <li><b>Confirmación</b><span>Te escribimos por WhatsApp para revisar tallas y entrega.</span></li></ul>`;
+}
+function bloquePersonaliza(e) {
+  return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Personalízalo</h2><span>Opcional</span></div>
+    <div class="st-perso">
+      <label><span>Nombre en la espalda</span><input data-campo="nombre" maxlength="20" autocomplete="off" autocapitalize="characters" value="${esc(e.nombre || '')}" placeholder="LEO"></label>
+      <label class="num"><span>Número</span><input data-campo="numero" inputmode="numeric" maxlength="3" autocomplete="off" value="${esc(e.numero || '')}" placeholder="10"></label>
+    </div>
+    <p class="st-nota">Lo estampado es personal: no tiene cambio.</p></section>`;
+}
+function barraAgregar(texto, motivo) {
+  return `<div class="st-agregar"><p class="st-motivo" role="alert">${esc(motivo || '')}</p>
+    <button type="button" id="stAgregar" class="st-cta">${esc(texto)}</button></div>`;
+}
+function botonesTalla(tallas, elegida, atributo) {
+  return gruposDeTallas(tallas).map(g => `${g.etiqueta ? `<p class="st-grupo">${g.etiqueta}</p>` : ''}<div class="st-tallas">`
+    + g.tallas.map(t => `<button type="button" class="st-talla${elegida === t ? ' activa' : ''}" ${atributo}="${esc(t)}" aria-pressed="${elegida === t}">${esc(t)}</button>`).join('')
+    + '</div>').join('');
+}
+
+/* ---------- La tienda (PLP) ---------- */
+function tarjeta({ tipo, item }) {
+  if (tipo === 'kit') {
+    const pr = precioDeTarjeta(item), n = ranurasDeKit(item).length;
+    return `<a class="st-card kit" href="#/k/${esc(item.id)}" data-kit="${esc(item.id)}">${medioKit(item)}
+      <div class="st-card-txt"><span class="st-tag">Uniforme completo</span><strong>${esc(item.name)}</strong>
+      <span class="st-precio">${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}</span>
+      <span class="st-sub">${n} ${n === 1 ? 'pieza' : 'piezas'}</span></div></a>`;
+  }
+  return `<a class="st-card" href="#/p/${esc(item.id)}" data-prod="${esc(item.id)}">${medioProducto(item)}
+    <div class="st-card-txt">${aceptaPersonalizacion(item) ? '<span class="st-tag">Personalizable</span>' : ''}
+    <strong>${esc(item.name)}</strong><span class="st-precio">${money.format(Number(item.price || 0))}</span></div></a>`;
+}
+function renderTienda(clave = '') {
+  const activa = secciones.some(s => s.clave === clave) ? clave : '';
+  const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
+  document.title = activa ? `${etiquetaDe(activa)} · Tienda Tanner` : 'Tienda Tanner · Tannery City';
+  if (!secciones.length) {
+    $('content').innerHTML = `<div class="empty-state"><h2>La tienda está vacía</h2>
+      <p class="muted">Todavía no hay nada publicado. Escríbenos y te decimos qué sigue.</p></div>`;
+    return;
+  }
+  /* Dos caminos (09/10/2026): la familia con cuenta entra y ya trae sus datos
+     y su Tanner; quien no tiene cuenta compra aquí mismo. */
+  $('content').innerHTML = `
+    <section class="st-hero">
+      <p class="st-eyebrow">Tannery City F.C.</p>
+      <h1>${activa ? esc(etiquetaDe(activa)) : 'Tienda'}</h1>
+      <p>${activa ? '' : 'El uniforme oficial del club. '}Pídelo desde tu celular${pagoInfo?.delivery ? ` y recíbelo en ${esc(pagoInfo.delivery)}` : ''}.</p>
+    </section>
+    <nav class="st-cats" aria-label="Categorías">
+      <a href="#/"${activa ? '' : ' class="activa" aria-current="page"'}>Todo</a>
+      ${secciones.map(s => `<a href="#/c/${esc(s.clave)}" data-cat="${esc(s.clave)}"${s.clave === activa ? ' class="activa" aria-current="page"' : ''}>${esc(s.etiqueta)}</a>`).join('')}
+    </nav>
+    ${visibles.map(s => `<section class="st-seccion" data-seccion="${esc(s.clave)}">
+      ${activa ? '' : `<div class="st-seccion-cab"><h2>${esc(s.etiqueta)}</h2>${s.items.length > 4 ? `<a href="#/c/${esc(s.clave)}">Ver todo</a>` : ''}</div>`}
+      <div class="st-grid${s.clave === 'kits' ? ' kits' : ''}">${s.items.map(tarjeta).join('')}</div></section>`).join('')}
+    <a class="ya-familia" href="/familias/?tab=tienda">
+      <span><strong>¿Ya eres familia Tanner?</strong><small>Entra y tus datos y tu Tanner ya van cargados.</small></span><b>Entrar</b></a>`;
+  pintaBarra(true);
+  firmaFotos($('content'));
+}
+
+/* ---------- La ficha de una pieza (PDP) ---------- */
+function renderProducto(id) {
+  const p = (catalogo.products || []).find(x => String(x.id) === String(id));
+  if (!p) { location.replace('#/'); return; }
+  const e = (eligiendo[p.id] ||= { cantidad: 1 });
+  const cat = categoriaDe(p), unica = tallaUnica(p), tallas = tallasDe(p);
+  document.title = `${p.name} · Tienda Tanner`;
+  $('content').innerHTML = `
+    <a class="st-volver" href="#/c/${esc(cat)}">‹ ${esc(etiquetaDe(cat))}</a>
+    <article class="st-pdp" data-ficha="${esc(p.id)}">
+      ${medioProducto(p, true)}
+      <div class="st-pdp-info">
+        <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
+        <h1>${esc(p.name)}</h1>
+        <p class="st-pdp-precio">${money.format(Number(p.price || 0))}</p>
+        ${p.description ? `<p class="st-desc">${esc(p.description)}</p>` : ''}
+        <section class="st-bloque${e.falta === 'talla' ? ' falta' : ''}" id="stBloqueTalla">
+          <div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}</span></div>
+          ${unica ? `<p class="st-unica">Talla ${esc(unica)}: le queda a todos.</p>` : botonesTalla(tallas, e.talla, 'data-talla')}
+        </section>
+        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e) : ''}
+        <section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
+          <div class="st-cantidad"><button type="button" data-cantidad="-1" aria-label="Uno menos">&minus;</button>
+          <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>
+        ${infoDeCompra()}
+      </div>
+    </article>
+    ${barraAgregar(`Agregar al pedido · ${money.format(Number(p.price || 0) * e.cantidad)}`, e.motivo)}`;
+  pintaBarra(false);
+  firmaFotos($('content'));
+}
+
+/* ---------- La ficha de un kit ---------- */
+function renderKit(id) {
+  const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
+  if (!k) { location.replace('#/'); return; }
+  const e = (eligiendoKit[k.id] ||= { tallas: {} });
+  const tiers = tiersDeKit(k);
+  if (!e.tier && tiers.length === 1) e.tier = tiers[0];
+  const pr = precioDeTarjeta(k);
+  document.title = `${k.name} · Tienda Tanner`;
+  const ranuras = ranurasDeKit(k);
+  $('content').innerHTML = `
+    <a class="st-volver" href="#/c/kits">‹ Kits</a>
+    <article class="st-pdp" data-ficha="${esc(k.id)}">
+      ${medioKit(k, 'grande')}
+      <div class="st-pdp-info">
+        <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
+        <h1>${esc(k.name)}</h1>
+        <p class="st-pdp-precio">${e.tier ? money.format(precioDeKit(k, e.tier)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}</p>
+        ${k.description ? `<p class="st-desc">${esc(k.description)}</p>` : ''}
+        ${tiers.length > 1 ? `<section class="st-bloque${e.falta === 'tier' ? ' falta' : ''}" id="stBloqueTier"><div class="st-bloque-cab"><h2>¿Para quién es?</h2></div>
+          <div class="st-segmento" role="radiogroup" aria-label="Para quién es">${tiers.map(t => `<button type="button" role="radio" aria-checked="${e.tier === t}" data-tier="${esc(t)}"${e.tier === t ? ' class="activa"' : ''}>
+            <strong>${esc(t)}</strong><small>${money.format(precioDeKit(k, t))}</small></button>`).join('')}</div></section>` : ''}
+        <section class="st-bloque"><div class="st-bloque-cab"><h2>Incluye</h2><span>Elige la talla de cada pieza</span></div>
+          <ul class="st-incluye">${ranuras.map(r => {
+            const elegida = r.unica || e.tallas[r.id] || '';
+            return `<li class="st-pieza${e.falta === r.id ? ' falta' : ''}" data-ranura="${esc(r.id)}">
+              <div class="st-pieza-cab">${medio(r.producto?.photoThumbPath, r.producto?.photoBucket, r.nombre, 'mini')}
+                <strong>${esc(r.nombre)}</strong><span class="${elegida ? 'ok' : ''}">${elegida ? `Talla ${esc(elegida)}` : 'Elige talla'}</span></div>
+              ${r.unica || !r.tallas.length ? '' : `<div class="st-tallas fila">${tallasDePieza(r.tallas, e.tier).map(t =>
+                `<button type="button" class="st-talla${elegida === t ? ' activa' : ''}" data-pieza-talla="${esc(t)}" aria-pressed="${elegida === t}">${esc(t)}</button>`).join('')}</div>`}
+            </li>`; }).join('')}</ul></section>
+        ${bloquePersonaliza(e)}
+        ${infoDeCompra()}
+      </div>
+    </article>
+    ${barraAgregar(`Agregar al pedido${e.tier ? ` · ${money.format(precioDeKit(k, e.tier))}` : ''}`, e.motivo)}`;
+  pintaBarra(false);
+  firmaFotos($('content'));
+}
+
+/* Las tallas de una pieza del kit: primero las del tipo elegido (un kit de
+   niño casi siempre lleva tallas de niño), luego las demás. */
+function tallasDePieza(tallas, tier) {
+  const g = gruposDeTallas(tallas);
+  const primero = tier === 'Adulto' ? 'Adulto' : 'Niño';
+  return [...g.filter(x => x.etiqueta === primero), ...g.filter(x => x.etiqueta !== primero)].flatMap(x => x.tallas);
+}
+
+/* Repinta la misma ficha sin brincar arriba. */
+function repinta(fn, id) { const y = window.scrollY; fn(id); window.scrollTo(0, y); }
+
+/* Un solo manejador para todo: las fichas se repintan enteras en cada toque. */
+function cablea() {
+  const raiz = $('content');
+  raiz.addEventListener('click', ev => {
+    const ficha = raiz.querySelector('[data-ficha]')?.dataset.ficha;
+    const esKit = !!(ficha && (catalogo.bundles || []).some(k => String(k.id) === ficha));
+    const t = ev.target;
+    const talla = t.closest('[data-talla]');
+    if (talla && ficha) { const e = eligiendo[ficha]; e.talla = talla.dataset.talla; e.motivo = null; e.falta = null; repinta(renderProducto, ficha); return; }
+    const cant = t.closest('[data-cantidad]');
+    if (cant && ficha) { const e = eligiendo[ficha]; e.cantidad = Math.max(1, Math.min(20, (e.cantidad || 1) + Number(cant.dataset.cantidad))); repinta(renderProducto, ficha); return; }
+    const tier = t.closest('[data-tier]');
+    if (tier && ficha) { const e = eligiendoKit[ficha]; e.tier = tier.dataset.tier; e.motivo = null; e.falta = null; repinta(renderKit, ficha); return; }
+    const pieza = t.closest('[data-pieza-talla]');
+    if (pieza && ficha) {
+      const e = eligiendoKit[ficha], r = pieza.closest('[data-ranura]').dataset.ranura;
+      e.tallas = { ...e.tallas, [r]: pieza.dataset.piezaTalla };
+      if (e.falta === r) { e.falta = null; e.motivo = null; }
+      repinta(renderKit, ficha); return;
+    }
+    if (t.closest('#stAgregar') && ficha) { esKit ? agregaKit(ficha) : agregaProducto(ficha); return; }
+  });
+  // Lo que se escribe se guarda al vuelo: si se toca Agregar sin salir del
+  // campo, el nombre ya está.
+  raiz.addEventListener('input', ev => {
+    const campo = ev.target.dataset?.campo, ficha = raiz.querySelector('[data-ficha]')?.dataset.ficha;
+    if (!campo || !ficha) return;
+    const e = eligiendo[ficha] || eligiendoKit[ficha];
+    if (e) e[campo] = ev.target.value;
+  });
+}
+
+function falla(e, r, render, id) {
+  e.motivo = r.motivo; e.falta = r.falta || null;
+  repinta(render, id);
+  const objetivo = e.falta === 'talla' ? $('stBloqueTalla') : e.falta === 'tier' ? $('stBloqueTier')
+    : e.falta ? document.querySelector(`[data-ranura="${CSS.escape(e.falta)}"]`) : null;
+  objetivo?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function agregaProducto(id) {
+  const p = (catalogo.products || []).find(x => String(x.id) === String(id));
+  if (!p) return;
+  const e = eligiendo[id];
+  const r = preparaLinea(p, { talla: e.talla, cantidad: e.cantidad || 1, nombre: e.nombre, numero: e.numero });
+  if (!r.ok) { falla(e, r, renderProducto, id); return; }
+  carrito = agregaAlCarrito(carrito, r.linea);
+  eligiendo[id] = { cantidad: 1 };
+  actualizaCarrito();
+  repinta(renderProducto, id);
+  aviso(`Agregado${r.linea.talla ? ` · talla ${r.linea.talla}` : ''}${r.linea.cantidad > 1 ? ` · ${r.linea.cantidad} piezas` : ''}`, true);
+}
+function agregaKit(id) {
+  const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
+  if (!k) return;
+  const e = eligiendoKit[id];
+  const r = preparaKit(k, { tier: e.tier, tallas: e.tallas || {}, nombre: e.nombre, numero: e.numero });
+  if (!r.ok) { falla(e, r, renderKit, id); return; }
+  carrito = agregaAlCarrito(carrito, r.linea);
+  eligiendoKit[id] = { tallas: {}, tier: e.tier };
+  actualizaCarrito();
+  repinta(renderKit, id);
+  aviso(`Agregado · ${k.name}, ${r.linea.tier.toLocaleLowerCase('es-MX')}`, true);
 }
 
 /* ---------- Confirmar ----------
@@ -269,13 +415,16 @@ function resumen() {
 }
 
 function renderCheckout() {
-  if (!piezasDelCarrito(carrito)) { renderTienda(); return; }
+  if (!piezasDelCarrito(carrito)) { location.replace('#/'); return; }
   pintaBarra(false);
-  $('content').innerHTML = `<button type="button" id="volver" class="vit-volver">‹ Seguir comprando</button>
-    <h2>Confirma tu pedido</h2>
+  document.title = 'Tu pedido · Tienda Tanner';
+  $('content').innerHTML = `<a class="st-volver" href="#/" id="volver">‹ Seguir comprando</a>
+    <h1 class="st-titulo">Tu pedido</h1>
     <div id="resumenCarrito">${resumen()}</div>
-    <form id="orderForm" class="form-grid order-form">
-      <label class="span-2">Nombre de quien recibe *<input id="customerName" minlength="2" maxlength="120" required></label>
+    ${pagoInfo?.delivery ? `<p class="st-nota">Entrega en ${esc(pagoInfo.delivery)}. Al confirmar te damos los datos para pagar.</p>` : ''}
+    <form id="orderForm" class="form-grid order-form st-form">
+      <h2 class="span-2">Tus datos</h2>
+      <label class="span-2">Nombre de quien recibe *<input id="customerName" minlength="2" maxlength="120" required autocomplete="name"></label>
       ${phoneMarkup()}
       <label class="span-2">Correo<input id="customerEmail" type="email" autocomplete="email" maxlength="254"></label>
       <label class="span-2">Comentarios<textarea id="orderNotes" rows="2" maxlength="500" placeholder="Algo que debamos considerar"></textarea></label>
@@ -285,19 +434,33 @@ function renderCheckout() {
         <span>Autorizo el tratamiento de mis datos para gestionar este pedido. <b>*</b></span></label>
         <div class="privacy-version">Aviso de privacidad ${PRIVACY_NOTICE_VERSION}</div></div>
       <div id="formMessage" class="message hidden span-2"></div>
-      <button id="submitOrder" class="primary span-2" type="submit">Confirmar pedido</button>
+      <button id="submitOrder" class="primary span-2 st-cta" type="submit">Confirmar pedido</button>
     </form>`;
   wirePhone();
-  $('volver').onclick = () => renderTienda();
   // Quitar un renglón no borra lo que ya se escribió en el formulario.
   $('resumenCarrito').onclick = e => {
     const q = e.target.closest('[data-quita]'); if (!q) return;
     carrito = quitaDelCarrito(carrito, q.dataset.quita);
-    if (!piezasDelCarrito(carrito)) { renderTienda(); return; }
+    actualizaCarrito();
+    if (!piezasDelCarrito(carrito)) { location.hash = '#/'; return; }
     $('resumenCarrito').innerHTML = resumen();
   };
   $('orderForm').addEventListener('submit', submit);
 }
+
+/* ---------- Rutas ---------- */
+let rutaPrevia = '';
+function ruta() {
+  const h = location.hash.replace(/^#\/?/, '');
+  const [a, b] = h.split('/');
+  const cambia = h !== rutaPrevia; rutaPrevia = h;
+  if (a === 'p' && b) renderProducto(decodeURIComponent(b));
+  else if (a === 'k' && b) renderKit(decodeURIComponent(b));
+  else if (a === 'pedido') renderCheckout();
+  else renderTienda(a === 'c' ? decodeURIComponent(b || '') : '');
+  if (cambia) { window.scrollTo(0, 0); cierraAviso(); }
+}
+function cierraAviso() { clearTimeout(avisoTimer); const el = $('stAviso'); el.classList.remove('entra'); el.hidden = true; }
 
 function setMessage(t = '', type = 'error') {
   const e = $('formMessage'); if (!e) return;
@@ -332,6 +495,7 @@ async function submit(e) {
   try {
     const result = await rpc('v2_public_cart_order', { ...comun, items });
     carrito = {};
+    actualizaCarrito();
     renderListo(result, comun.customer_name);
   } catch (err) {
     setMessage(err.message || 'No se pudo enviar el pedido.');
@@ -370,17 +534,33 @@ function renderListo(result, nombre) {
     try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiada'; }
     catch { b.textContent = 'Mantén presionado para copiar'; }
   });
-  $('content').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.title = 'Pedido recibido · Tienda Tanner';
+  window.scrollTo(0, 0);
 }
 
-rpc('v2_public_payment_info', { club_key: CLUB_KEY }).then(v => { pagoInfo = v; }).catch(() => {});
-
+/* ---------- Arranque ---------- */
+$('stCarrito').addEventListener('click', () => {
+  if (piezasDelCarrito(carrito)) location.hash = '#/pedido';
+  else aviso('Tu pedido está vacío: agrega algo de la tienda.');
+});
+cablea();
 try {
-  catalogo = normalizaOfertaPublica(await rpc('v2_public_offerings', { club_key: CLUB_KEY }));
-  renderTienda();
+  // El catálogo manda; cómo pagar es un extra que no detiene la tienda.
+  const [oferta, pago] = await Promise.allSettled([
+    rpc('v2_public_offerings', { club_key: CLUB_KEY }),
+    rpc('v2_public_payment_info', { club_key: CLUB_KEY })
+  ]);
+  if (oferta.status !== 'fulfilled') throw oferta.reason;
+  pagoInfo = pago.status === 'fulfilled' ? pago.value : null;
+  catalogo = normalizaOfertaPublica(oferta.value);
+  secciones = seccionesDeTienda(catalogo);
+  $('loading').classList.add('hidden');
+  $('content').classList.remove('hidden');
+  window.addEventListener('hashchange', ruta);
+  ruta();
 } catch (err) {
   $('loading').classList.add('hidden');
   $('content').classList.remove('hidden');
   $('content').innerHTML = `<div class="empty-state"><h2>No pudimos cargar la tienda</h2>
-    <p class="muted">${esc(err.message || 'Intenta nuevamente.')}</p></div>`;
+    <p class="muted">${esc(err?.message || 'Intenta nuevamente.')}</p></div>`;
 }

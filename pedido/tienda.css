@@ -1,0 +1,230 @@
+/* Tienda Tanner (09/10/2026): la tienda en línea del club.
+ *
+ * Criterio: el producto es el protagonista. Fondo blanco, fotos sobre gris
+ * muy claro, tipografía del sistema (San Francisco en iPhone), mucho aire y un
+ * solo color de acción. Todo lo táctil mide 44px o más. */
+.st-body {
+  --st-ink: #0b1418;
+  --st-ink-2: #3a4a50;
+  --st-muted: #6e7b80;
+  --st-line: #e6eae9;
+  --st-soft: #f4f5f4;
+  --st-brand: #0b3d4a;
+  --st-gold: #c6ac5c;
+  --st-ok: #1d7a46;
+  --st-bad: #b13d34;
+  margin: 0;
+  min-height: 100vh;
+  background: #fff;
+  color: var(--st-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.st-body * { box-sizing: border-box; }
+.st-body .hidden { display: none !important; }
+
+/* ---- Cabecera ---- */
+.st-head {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 max(16px, env(safe-area-inset-left));
+  background: rgba(255, 255, 255, .82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, .06);
+}
+.st-marca { display: flex; align-items: center; gap: 9px; color: var(--st-ink); text-decoration: none; font-weight: 700; font-size: 16px; letter-spacing: -.01em; }
+.st-marca img { width: 30px; height: 30px; object-fit: contain; }
+.st-carrito { position: relative; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--st-ink); cursor: pointer; display: grid; place-items: center; }
+.st-carrito:active { background: var(--st-soft); }
+.st-carrito svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+.st-carrito b[hidden] { display: none; }
+.st-carrito b { position: absolute; top: 5px; right: 3px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 99px; background: var(--st-brand); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+
+.st-main { max-width: 1080px; margin: 0 auto; padding: 0 16px 120px; }
+.st-cargando { padding: 80px 0; text-align: center; color: var(--st-muted); }
+.st-pie { max-width: 1080px; margin: 0 auto; padding: 24px 16px 140px; text-align: center; font-size: 12px; color: var(--st-muted); }
+.st-pie a { color: inherit; }
+
+/* ---- Tienda (PLP) ---- */
+.st-hero { padding: 28px 0 6px; }
+.st-eyebrow { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--st-muted); letter-spacing: .01em; }
+.st-hero h1, .st-titulo { margin: 0; font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -.03em; }
+.st-hero p:last-child { margin: 10px 0 0; max-width: 560px; font-size: 17px; line-height: 1.45; color: var(--st-ink-2); }
+
+.st-cats {
+  position: sticky; top: 56px; z-index: 20;
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  margin: 18px -16px 0; padding: 10px 16px;
+  background: rgba(255, 255, 255, .9);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+}
+.st-cats::-webkit-scrollbar { display: none; }
+.st-cats a {
+  flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px;
+  border-radius: 99px; background: var(--st-soft); color: var(--st-ink); text-decoration: none;
+  font-size: 15px; font-weight: 600; white-space: nowrap; transition: background .15s ease;
+}
+.st-cats a.activa { background: var(--st-ink); color: #fff; }
+
+.st-seccion { margin-top: 26px; }
+.st-seccion-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.st-seccion-cab h2 { margin: 0; font-size: 24px; font-weight: 750; letter-spacing: -.02em; }
+.st-seccion-cab a { font-size: 15px; font-weight: 600; color: var(--st-brand); text-decoration: none; }
+
+.st-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+/* Los kits, en estante: se desliza con el pulgar y se ve que hay más. */
+.st-grid.kits { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; margin: 0 -16px; padding: 0 16px 6px; scrollbar-width: none; }
+.st-grid.kits::-webkit-scrollbar { display: none; }
+.st-grid.kits .st-card { flex: 0 0 84%; scroll-snap-align: start; scroll-margin-left: 16px; }
+@media (min-width: 720px) {
+  .st-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 18px; }
+  .st-grid.kits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; margin: 0; padding: 0; }
+}
+@media (min-width: 1000px) { .st-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.st-card { display: block; color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.st-card .st-media { border-radius: 18px; transition: transform .25s ease; }
+.st-card:active .st-media { transform: scale(.98); }
+@media (hover: hover) { .st-card:hover .st-media img { transform: scale(1.03); } }
+.st-card-txt { padding: 10px 2px 0; display: grid; gap: 3px; }
+.st-card-txt strong { font-size: 15px; line-height: 1.3; font-weight: 600; }
+.st-precio { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.st-precio small, .st-pdp-precio small { font-size: .8em; font-weight: 500; color: var(--st-muted); }
+.st-sub { font-size: 13px; color: var(--st-muted); }
+.st-tag { justify-self: start; font-size: 11px; font-weight: 700; letter-spacing: .02em; color: #8a6413; }
+.st-card.kit .st-media { aspect-ratio: 16 / 10; }
+@media (min-width: 720px) { .st-card.kit .st-media { aspect-ratio: 1 / 1; } }
+
+/* ---- La foto: encima del escudo, que se ve mientras carga o si no hay ---- */
+.st-media {
+  position: relative; overflow: hidden; aspect-ratio: 1 / 1;
+  background: var(--st-soft) url('/brand/crest-navy.png') center / 34% no-repeat;
+}
+.st-media img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  background: var(--st-soft); opacity: 0; transition: opacity .35s ease, transform .4s ease;
+}
+.st-media img.lista { opacity: 1; }
+.st-media.vacia { background-size: 30%; }
+.st-media.kit.n2 img:nth-child(1) { right: 50%; width: 50%; }
+.st-media.kit.n2 img:nth-child(2) { left: 50%; width: 50%; }
+.st-media.kit.n3 img:nth-child(1) { right: 50%; width: 50%; }
+.st-media.kit.n3 img:nth-child(2) { left: 50%; width: 50%; bottom: 50%; height: 50%; }
+.st-media.kit.n3 img:nth-child(3) { left: 50%; top: 50%; width: 50%; height: 50%; }
+.st-media.kit.n4 img { width: 50%; height: 50%; }
+.st-media.kit.n4 img:nth-child(2) { left: 50%; }
+.st-media.kit.n4 img:nth-child(3) { top: 50%; }
+.st-media.kit.n4 img:nth-child(4) { left: 50%; top: 50%; }
+.st-media.kit img + img { border-left: 2px solid #fff; }
+.st-media.mini { width: 48px; flex: 0 0 48px; border-radius: 12px; background-size: 50%; }
+
+/* ---- La ficha (PDP) ---- */
+.st-volver { display: inline-flex; align-items: center; min-height: 44px; margin-top: 6px; color: var(--st-brand); font-size: 16px; font-weight: 600; text-decoration: none; }
+.st-pdp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.st-pdp-info { min-width: 0; }
+.st-pdp > .st-media { border-radius: 22px; margin: 0 -4px; }
+.st-pdp > .st-media.grande { aspect-ratio: 4 / 3; }
+@media (min-width: 860px) {
+  .st-pdp { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+  .st-pdp > .st-media { position: sticky; top: 76px; margin: 0; }
+  .st-pdp > .st-media.grande { aspect-ratio: 1 / 1; }
+}
+.st-pdp-info h1 { margin: 0; font-size: 30px; line-height: 1.12; font-weight: 800; letter-spacing: -.025em; }
+.st-pdp-precio { margin: 8px 0 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.st-desc { margin: 12px 0 0; font-size: 16px; line-height: 1.5; color: var(--st-ink-2); }
+
+.st-bloque { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--st-line); }
+.st-bloque.falta .st-bloque-cab h2, .st-pieza.falta strong { color: var(--st-bad); }
+.st-bloque-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.st-bloque-cab h2 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.st-bloque-cab span { font-size: 14px; color: var(--st-muted); font-weight: 500; }
+.st-grupo { margin: 12px 0 8px; font-size: 13px; font-weight: 600; color: var(--st-muted); }
+.st-grupo:first-of-type { margin-top: 0; }
+/* Seis por fila: Niño (6 a 16) y Adulto (XS a XXL) caben cada uno en una. */
+.st-tallas { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px; }
+.st-talla {
+  min-height: 48px; border: 1.5px solid var(--st-line); border-radius: 12px; background: #fff;
+  color: var(--st-ink); font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.st-talla.activa { border-color: var(--st-ink); background: var(--st-ink); color: #fff; }
+.st-tallas.fila { margin-top: 10px; gap: 6px; }
+.st-tallas.fila .st-talla { min-height: 44px; font-size: 15px; border-radius: 10px; }
+.st-unica { margin: 0; font-size: 15px; color: var(--st-ink-2); }
+
+.st-segmento { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+.st-segmento button {
+  display: grid; gap: 2px; justify-items: start; padding: 14px 16px; min-height: 64px;
+  border: 1.5px solid var(--st-line); border-radius: 14px; background: #fff; color: var(--st-ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.st-segmento button strong { font-size: 16px; }
+.st-segmento button small { font-size: 14px; color: var(--st-muted); font-variant-numeric: tabular-nums; }
+.st-segmento button.activa { border-color: var(--st-ink); box-shadow: inset 0 0 0 1px var(--st-ink); }
+
+.st-incluye { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.st-pieza { padding: 12px 0; border-bottom: 1px solid var(--st-line); }
+.st-pieza:last-child { border-bottom: 0; }
+.st-pieza-cab { display: flex; align-items: center; gap: 12px; }
+.st-pieza-cab strong { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.3; }
+.st-pieza-cab span { font-size: 13px; color: var(--st-muted); white-space: nowrap; }
+.st-pieza-cab span.ok { color: var(--st-ok); font-weight: 600; }
+
+.st-perso { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 10px; }
+.st-perso label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--st-muted); }
+.st-perso input {
+  min-height: 50px; padding: 0 14px; border: 1.5px solid var(--st-line); border-radius: 12px;
+  font: inherit; font-size: 17px; font-weight: 600; color: var(--st-ink); text-transform: uppercase; background: #fff;
+}
+.st-perso input:focus { outline: none; border-color: var(--st-ink); }
+.st-nota { margin: 10px 0 0; font-size: 13px; color: var(--st-muted); line-height: 1.4; }
+
+.st-cantidad { display: inline-flex; align-items: center; border: 1.5px solid var(--st-line); border-radius: 99px; }
+.st-cantidad button { width: 48px; height: 46px; border: 0; background: none; font-size: 22px; color: var(--st-ink); cursor: pointer; }
+.st-cantidad output { min-width: 28px; text-align: center; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.st-info { list-style: none; margin: 24px 0 0; padding: 16px; display: grid; gap: 12px; border-radius: 16px; background: var(--st-soft); }
+.st-info li { display: grid; grid-template-columns: 104px 1fr; gap: 10px; font-size: 14px; line-height: 1.4; }
+.st-info b { font-weight: 700; }
+.st-info span { color: var(--st-ink-2); }
+
+/* La acción, siempre a la mano del pulgar. */
+.st-agregar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, .92);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, .06);
+}
+.st-motivo { max-width: 620px; margin: 0 auto 6px; min-height: 0; font-size: 14px; font-weight: 600; color: var(--st-bad); text-align: center; }
+.st-motivo:empty { display: none; }
+.st-cta {
+  display: block; width: 100%; max-width: 620px; margin: 0 auto; min-height: 54px;
+  border: 0; border-radius: 14px; background: var(--st-brand); color: #fff;
+  font: inherit; font-size: 17px; font-weight: 700; letter-spacing: -.01em; cursor: pointer;
+}
+.st-cta:active { transform: scale(.99); }
+
+/* Aviso de "va en tu pedido". */
+.st-aviso {
+  position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top)); z-index: 50;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; width: min(440px, calc(100% - 32px));
+  padding: 12px 16px; border-radius: 14px; background: var(--st-ink); color: #fff;
+  font-size: 14px; font-weight: 600; box-shadow: 0 16px 40px rgba(0, 0, 0, .22);
+  transform: translate(-50%, -12px); opacity: 0; transition: opacity .2s ease, transform .2s ease;
+}
+.st-aviso.entra { opacity: 1; transform: translate(-50%, 0); }
+.st-aviso a { color: var(--st-gold); font-weight: 800; text-decoration: none; white-space: nowrap; }
+
+/* ---- Familia con cuenta y pedido ---- */
+.st-body .ya-familia { margin: 34px 0 0; border-radius: 18px; }
+.st-body .carrito-bar { background: var(--st-ink); }
+.st-titulo { margin-top: 8px; font-size: 34px; }
+.st-form { margin-top: 26px; }
+.st-form h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+.st-body .carrito-lista { border-radius: 18px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .st-media img, .st-card .st-media, .st-aviso { transition: none; }
+}
+.st-aviso[hidden] { display: none; }

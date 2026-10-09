@@ -69,6 +69,8 @@ export function mensajeConfirmacion({ order, items = [], info, club = 'Tannery C
     lineas.push('', 'Para pagar por transferencia:', ...pago.filas.map(([k, v]) => `${k}: ${v}`));
   }
   if (pago.otros) lineas.push(pago.otros);
+  // El tiempo de entrega (f3): lo que más preguntan después de pagar.
+  if (info?.delivery) lineas.push('', `Entrega estimada: ${String(info.delivery).trim()}.`);
   lineas.push('', '¿Están bien las tallas, el nombre y el número?',
     'Cuando pagues, mándanos tu comprobante por aquí y lo registramos.');
   return lineas.join('\n');

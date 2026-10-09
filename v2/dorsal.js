@@ -17,7 +17,7 @@
  */
 const ID_ESTILOS = 'tos-dorsal-estilos';
 
-function estilos() {
+export function estilos() {
   if (document.getElementById(ID_ESTILOS)) return;
   const s = document.createElement('style');
   s.id = ID_ESTILOS;
@@ -47,12 +47,41 @@ function estilos() {
 .dorsal-motivo{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:#fff4e5;color:#7a4a00;font-size:13.5px;font-weight:700;line-height:1.35}
 .dorsal-aviso{min-height:18px;margin:10px 0 0;font-size:13px;color:#b13d34;font-weight:700}
 .dorsal-quien{margin:0 0 8px;font-size:12.5px;color:#5b6b70;min-height:16px}
+.dorsal-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
+.dorsal-chips>span{font-size:12px;color:#5b6b70;font-weight:700;margin-right:2px}
+.dorsal-chip{border:1px solid #cfe0dc;background:#f2f8f7;color:#0b3d4a;border-radius:999px;min-width:46px;height:38px;padding:0 12px;font:800 15px system-ui,sans-serif;cursor:pointer}
+.dorsal-chip.activo{background:#0b3d4a;border-color:#0b3d4a;color:#f2e6bd}
+.dorsal-chip.otro{background:#fff;color:#087d8e;border-style:dashed;font-weight:700;font-size:13px}
+.dorsal-chip:disabled{opacity:.5;cursor:wait}
 @media(max-width:380px){.dorsal-grid{grid-template-columns:repeat(6,minmax(0,1fr))}.dorsal-sug{font-size:21px;height:52px}}
 `;
   document.head.appendChild(s);
 }
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+/* Los libres más bajos del 1 al 99, sin los ocupados. Sirve para repintar
+   chips sin volver a preguntarle al servidor después de asignar uno. */
+export function libresDe(taken, cuantos = 5) {
+  const ocupados = new Set((taken || []).map(t => String(t?.number ?? t).trim()));
+  const libres = [];
+  for (let n = 1; n <= 99 && libres.length < cuantos; n++) if (!ocupados.has(String(n))) libres.push(String(n));
+  return libres;
+}
+
+/* Chips de números libres en un toque (Presidencia, 09/10/2026): "le picas,
+   números disponibles, este, este, pum". `onPick(n)` recibe el número;
+   "Otro" abre la hoja completa. */
+export function pintaChipsDorsal(box, { libres = [], actual = '', etiqueta = '', onPick, onOtro }) {
+  if (!box) return;
+  estilos();
+  box.classList.add('dorsal-chips');
+  box.innerHTML = (etiqueta ? `<span>${esc(etiqueta)}</span>` : '')
+    + libres.map(n => `<button type="button" class="dorsal-chip${String(actual) === n ? ' activo' : ''}" data-num="${esc(n)}">#${esc(n)}</button>`).join('')
+    + (onOtro ? '<button type="button" class="dorsal-chip otro" data-otro="1">Otro</button>' : '');
+  box.querySelectorAll('[data-num]').forEach(b => b.addEventListener('click', () => onPick?.(b.dataset.num, b)));
+  box.querySelector('[data-otro]')?.addEventListener('click', () => onOtro?.());
+}
 
 export async function tableroDorsales({ rpc, organizationId, category }) {
   const t = await rpc('v2_jersey_board', { organization_id: organizationId, category: category || '' });

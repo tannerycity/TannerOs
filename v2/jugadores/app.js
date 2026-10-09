@@ -1,11 +1,12 @@
 import { createClient } from '/v2/supabase-client.js';
 import { elegirDorsal, tableroDorsales } from '/v2/dorsal.js';
+import { montaSinNumero } from '/v2/jugadores/sin-numero.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { TANNER_SCALE, TANNER_DIMENSIONS, EVALUATION_ONBOARDING, guidanceForCategory } from '/v2/evaluation-guidance.js';
 import { estadoDeImagen, puedePublicarse, cuentaDeImagen, noPublicables,
          COLUMNAS_NO_PUBLICABLES, filaDeNoPublicable, nombreDeArchivoNoPublicables } from '/v2/permiso-de-imagen.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-const $=id=>document.getElementById(id);let ctx=null,players=[],categories=[],current=null,canWrite=false,canFamily=false,canStatus=false,canMoney=false,puedeMoverIngreso=false,sportsSeq=0;
+const $=id=>document.getElementById(id);let sinNum=null,ctx=null,players=[],categories=[],current=null,canWrite=false,canFamily=false,canStatus=false,canMoney=false,puedeMoverIngreso=false,sportsSeq=0;
 const FAMILY_FIELDS=['firstName','lastName','birthDate','sex','school','bloodType','allergies','address','emergencyName','emergencyPhone','guardianName','guardianPhone','guardianEmail','guardianRelationship','canPickup','receivesBilling','notes'];
 function applyFamilyLock(){FAMILY_FIELDS.forEach(id=>{const el=$(id);if(el)el.disabled=!canFamily;});}
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -45,13 +46,13 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   const cobrMod=mods.find(m=>m.module_code==='billing'),contaMod=mods.find(m=>m.module_code==='accounting');
   canMoney=!!(cobrMod?.enabled&&cobrMod?.can_read)||!!(contaMod?.enabled&&contaMod?.can_read);
   applyFamilyLock();acotarFechaNacimiento();
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();signPlayerPhotos(players).then(()=>renderList());
+  $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();sinNum=montaSinNumero({contenedor:$('sinNumero'),rpc,organizationId:ctx.organization_id,jugadores:()=>players,puedeEscribir:canWrite,alTerminar:()=>loadPlayers()});signPlayerPhotos(players).then(()=>renderList());
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
   loadBajasPendientes();
   loadCobertura();
   show('view');const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
 function renderCategories(){const s=$('categoryId');s.innerHTML='<option value="">Sin categoría</option>';categories.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;s.appendChild(o);});}
-async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];renderFiltros();renderList();signPlayerPhotos(players).then(()=>renderList());}
+async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];renderFiltros();renderList();sinNum?.refresca();signPlayerPhotos(players).then(()=>renderList());}
 
 // === Bajas reportadas desde la lista de asistencia ===
 // El profe que toma lista es quien se entera de que un niño ya no viene, pero no

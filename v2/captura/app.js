@@ -1,7 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import '/v2/smart-select.js';
-import { elegirDorsal } from '/v2/dorsal.js';
+import { elegirDorsal, tableroDorsales, libresDe, pintaChipsDorsal } from '/v2/dorsal.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -136,16 +136,36 @@ function pistaNumero(pre,texto,tono){
   const el=$(`${pre}NumberHint`);if(!el)return;
   const t=tannerElegido();
   if(texto===undefined){
-    texto=!t?'':t.jersey_number?`Su número en el club: #${t.jersey_number}`:'Aún no tiene número: toca Elegir y se le queda.';
+    texto=!t?'':t.jersey_number?`Su número en el club: #${t.jersey_number}`:'Aún no tiene número: elige uno y se le queda.';
     tono=t&&!t.jersey_number?'mal':'';
   }
   el.textContent=texto;el.className=`num-pista${tono?` ${tono}`:''}`;
+  chipsNumero(pre);
+}
+/* A (Presidencia, 09/10/2026): si el Tanner no tiene número, sus libres salen
+   ahí mismo en chips. Un toque y queda en el pedido y en su expediente. */
+const chipsSeq={};
+async function chipsNumero(pre){
+  const box=$(`${pre}NumberChips`);if(!box)return;
+  const t=tannerElegido(),seq=chipsSeq[pre]=(chipsSeq[pre]||0)+1;
+  if(!t||t.jersey_number||!t.category){box.hidden=true;box.innerHTML='';return;}
+  try{
+    const {taken}=await tableroDorsales({rpc,organizationId:ctx.organization_id,category:t.category});
+    if(chipsSeq[pre]!==seq||tannerElegido()!==t)return;
+    box.hidden=false;
+    pintaChipsDorsal(box,{libres:libresDe(taken,5),etiqueta:`Libres en ${t.category}:`,
+      onPick:(n,b)=>{box.querySelectorAll('button').forEach(x=>x.disabled=true);asignaNumero(pre,n);},
+      onOtro:()=>elegirNumero(pre)});
+  }catch(_){if(chipsSeq[pre]===seq){box.hidden=true;box.innerHTML='';}}
 }
 async function elegirNumero(pre){
   const t=tannerElegido();
   const n=await elegirDorsal({rpc,organizationId:ctx.organization_id,category:t?.category||'',
     nombre:t?(t.first_name||'').split(/\s+/)[0]:'',actual:t?.jersey_number||$(`${pre}Number`).value});
-  if(!n)return;
+  if(n)await asignaNumero(pre,n);
+}
+async function asignaNumero(pre,n){
+  const t=tannerElegido();
   $(`${pre}Number`).value=n;
   if(!t){pistaNumero(pre,'');return;}
   if(t.jersey_number){
@@ -158,6 +178,7 @@ async function elegirNumero(pre){
     pistaNumero(pre,`Listo: el #${n} ya es de ${(t.first_name||'').split(/\s+/)[0]} en ${t.category}.`,'ok');
   }catch(e){
     $(`${pre}Number`).value='';
+    // Alguien más lo tomó en ese momento: se avisa y los chips se recalculan.
     pistaNumero(pre,String(e?.message||'No se pudo guardar el número.'),'mal');
   }
 }

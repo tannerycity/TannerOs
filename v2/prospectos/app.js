@@ -1,6 +1,6 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls, getSignedPhotoUrl, getRawSignedPhotoUrl, forgetPhoto } from '/v2/photo-cache.js';
-import { elegirDorsal, tableroDorsales } from '/v2/dorsal.js';
+import { elegirDorsal, tableroDorsales, libresDe, pintaChipsDorsal } from '/v2/dorsal.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, UPLOAD_CACHE_CONTROL } from '/v2/image-encode.js';
 
 const supabase=createClient(
@@ -537,33 +537,39 @@ function currentLossReasonValue(){
   if(sel.value==='custom')return custom.value.trim()||null;
   return sel.value||null;
 }
-function prepareConversion(p){const section=$('conversionSection');const allowed=ctx.canPlayersWrite&&ctx.canProspectsWrite&&p.status!=='converted';section.classList.toggle('hidden',!allowed);msg('convertMessage');if(!allowed)return;renderConvertCategories();const match=categories.find(c=>String(c.name||'').toLocaleLowerCase('es-MX')===String(p.category_interest||'').toLocaleLowerCase('es-MX'));$('convertCategory').value=match?.id||'';$('convertFee').value='';$('convertDate').value=todayLocal();$('convertJersey').value='';$('convertPosition').value=p.registration_type==='goalkeeper'?'Portero':'';pintaSugeridosNumero();}
+function prepareConversion(p){const section=$('conversionSection');const allowed=ctx.canPlayersWrite&&ctx.canProspectsWrite&&p.status!=='converted';section.classList.toggle('hidden',!allowed);msg('convertMessage');if(!allowed)return;renderConvertCategories();const match=categories.find(c=>String(c.name||'').toLocaleLowerCase('es-MX')===String(p.category_interest||'').toLocaleLowerCase('es-MX'));$('convertCategory').value=match?.id||'';$('convertFee').value='';$('convertDate').value=todayLocal();$('convertJersey').value='';numAuto='';$('convertPosition').value=p.registration_type==='goalkeeper'?'Portero':'';pintaSugeridosNumero();}
 /* Número al fichar (08/10/2026): debajo del campo salen los libres de la
    categoría elegida, a un toque; "Elegir" abre la cancha completa. Antes era
    un campo de texto y había que ir a Jugadores a ver cuáles estaban libres. */
 function categoriaParaFichar(){const sel=$('convertCategory');return sel&&sel.value?(sel.options[sel.selectedIndex]?.textContent||''):'';}
 let sugeridosSeq=0;
+/* B (Presidencia, 09/10/2026): al elegir categoría, el primer libre queda
+   puesto y marcado. Si sirve, sólo se da "Fichar"; si no, se pica otro. Así
+   ningún Tanner nuevo sale sin número por olvido. numAuto recuerda el que puso
+   la pantalla: si cambia la categoría se reemplaza; si lo eligió alguien, no. */
+let numAuto='';
 async function pintaSugeridosNumero(){
   const box=$('convertJerseySug');if(!box)return;
-  const cat=categoriaParaFichar(),seq=++sugeridosSeq;
-  if(!cat){box.textContent='Elige la categoría para ver los números libres.';return;}
+  const cat=categoriaParaFichar(),seq=++sugeridosSeq,campo=$('convertJersey');
+  if(!cat){box.textContent='Elige la categoría para ver los números libres.';if(campo.value===numAuto){campo.value='';numAuto='';}return;}
   box.textContent='Buscando libres…';
   try{
-    const {suggested}=await tableroDorsales({rpc,organizationId:ctx.organization_id,category:cat});
+    const {taken}=await tableroDorsales({rpc,organizationId:ctx.organization_id,category:cat});
     if(seq!==sugeridosSeq)return;
-    box.innerHTML='';
-    if(!suggested.length){box.textContent='No hay libres del 1 al 99: toca Elegir.';return;}
-    const etiqueta=document.createElement('span');etiqueta.textContent=`Libres en ${cat}:`;box.appendChild(etiqueta);
-    for(const n of suggested.slice(0,5)){const b=document.createElement('button');b.type='button';b.dataset.num=n;b.textContent=`#${n}`;
-      b.classList.toggle('activo',$('convertJersey').value.trim()===n);
-      b.addEventListener('click',()=>{$('convertJersey').value=n;box.querySelectorAll('button').forEach(x=>x.classList.toggle('activo',x===b));});box.appendChild(b);}
+    const libres=libresDe(taken,5);
+    if(!libres.length){box.textContent='No hay libres del 1 al 99: toca Elegir.';return;}
+    if(!campo.value.trim()||campo.value===numAuto){campo.value=libres[0];numAuto=libres[0];}
+    pintaChipsDorsal(box,{libres,actual:campo.value.trim(),
+      etiqueta:numAuto&&campo.value===numAuto?`Libres en ${cat} · va el #${numAuto}:`:`Libres en ${cat}:`,
+      onPick:n=>{campo.value=n;numAuto='';box.querySelectorAll('[data-num]').forEach(x=>x.classList.toggle('activo',x.dataset.num===n));
+        const et=box.querySelector('span');if(et)et.textContent=`Libres en ${cat}:`;}});
   }catch(_){if(seq===sugeridosSeq)box.textContent='';}
 }
 async function eligeNumeroFichaje(){
   const cat=categoriaParaFichar();
   if(!cat){msg('convertMessage','Elige primero la categoría: los números se reparten por categoría.');return;}
   const n=await elegirDorsal({rpc,organizationId:ctx.organization_id,category:cat,nombre:(current?.first_name||'').split(/\s+/)[0],actual:$('convertJersey').value});
-  if(n){$('convertJersey').value=n;$('convertJerseySug')?.querySelectorAll('button').forEach(x=>x.classList.toggle('activo',x.dataset.num===n));}
+  if(n){$('convertJersey').value=n;numAuto='';$('convertJerseySug')?.querySelectorAll('[data-num]').forEach(x=>x.classList.toggle('activo',x.dataset.num===n));}
 }
 async function openProspect(p){
   current=p;$('prospectName').textContent=nameOf(p)||'Prospecto';$('prospectMeta').textContent=`${typeLabel[p.registration_type]||p.category_interest||'Prospecto'} · alta ${fmtDate(p.created_at)}`;
@@ -704,7 +710,7 @@ document.querySelectorAll('.kpi-card').forEach(btn=>btn.addEventListener('click'
 }));
 $('refreshProspects').addEventListener('click',loadProspects);
 $('closeProspect').addEventListener('click',closeProspect);$('prospectBackdrop').addEventListener('click',closeProspect);
-$('convertPickJersey')?.addEventListener('click',eligeNumeroFichaje);$('convertCategory')?.addEventListener('change',pintaSugeridosNumero);$('saveFollowup').addEventListener('click',saveFollowup);$('convertProspect').addEventListener('click',convertProspect);
+$('convertPickJersey')?.addEventListener('click',eligeNumeroFichaje);$('convertJersey')?.addEventListener('input',()=>{numAuto='';});$('convertCategory')?.addEventListener('change',pintaSugeridosNumero);$('saveFollowup').addEventListener('click',saveFollowup);$('convertProspect').addEventListener('click',convertProspect);
 $('openReport').addEventListener('click',openReport);$('closeReport').addEventListener('click',closeReport);$('reportBackdrop').addEventListener('click',closeReport);
 $('prospectStatus').addEventListener('change',toggleLossReasonField);
 $('lossReasonSelect')?.addEventListener('change',()=>{$('lossReasonCustom').classList.toggle('hidden',$('lossReasonSelect').value!=='custom');});

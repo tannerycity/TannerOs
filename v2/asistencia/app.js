@@ -526,8 +526,8 @@ function pintarTendencia(semanas){
 
 /* Botón de WhatsApp con el mensaje listo, firmado por el club. Sólo sale
    cuando el servidor manda el teléfono, y sólo lo manda a quien administra. */
-function botonFamilia(t,{faltas,pct,asistio,marcadas,becado}){
-  const liga=ligaWhatsApp(t.phone,mensajeDeFaltas({tanner:t.name,tutor:t.guardianName,categoria:t.categoryName,faltas,pct,asistio,marcadas,becado,club:ctx?.organization_name||'Tannery City'}));
+function botonFamilia(t,{faltas,pct,asistio,marcadas}){
+  const liga=ligaWhatsApp(t.phone,mensajeDeFaltas({tanner:t.name,tutor:t.guardianName,categoria:t.categoryName,faltas,pct,asistio,marcadas,club:ctx?.organization_name||'Tannery City'}));
   return liga?`<a class="as-familia" href="${esc(liga)}" target="_blank" rel="noopener">Escribir a la familia</a>`:'';
 }
 const sello='<span class="as-sello">Becado</span>';
@@ -541,7 +541,7 @@ function pintarRachas(rachas){
         <span class="as-racha-txt"><strong>${esc(r.name||'Tanner')}</strong>${r.scholarship?sello:''}<small>${esc(r.categoryName||'')} · ${esc(textoUltimaVez(r.lastSeen))}</small></span>
         <span class="as-racha-n"><b>${Number(r.streak||0)}</b><small>faltas</small></span>
       </button>
-      ${botonFamilia(r,{faltas:r.streak,becado:!!r.scholarship})}
+      ${botonFamilia(r,{faltas:r.streak})}
     </div>`).join('');
   box.querySelectorAll('[data-player]').forEach(b=>b.addEventListener('click',()=>abrirJugador(b.dataset.player)));
   firmaCaras(box);
@@ -560,7 +560,7 @@ function pintarBecados(becados,total){
         <span class="as-racha-txt"><strong>${esc(b.name||'Tanner')}</strong>${sello}<small>${esc(b.categoryName||'')} · ${Number(b.attended||0)} de ${Number(b.marked||0)} entrenamientos${Number(b.streak||0)>=2?` · ${Number(b.streak)} faltas seguidas`:''}</small></span>
         <span class="as-beca-pct as-beca-${e.nivel}"><b>${esc(pctTexto(b.pct))}</b><small>de 90%</small></span>
       </button>
-      ${botonFamilia(b,{faltas:b.streak,pct:b.pct,asistio:b.attended,marcadas:b.marked,becado:true})}
+      ${botonFamilia(b,{faltas:b.streak,pct:b.pct,asistio:b.attended,marcadas:b.marked})}
     </div>`;
   }).join('');
   box.querySelectorAll('[data-player]').forEach(x=>x.addEventListener('click',()=>abrirJugador(x.dataset.player)));

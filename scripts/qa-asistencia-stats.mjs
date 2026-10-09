@@ -221,13 +221,15 @@ prueba('el mensaje va firmado por el club, no por una persona', () => {
   assert.doesNotMatch(m, /te saluda/);
 });
 
-prueba('al becado se le recuerda la meta de su beca; al que no, no', () => {
-  assert.match(mensajeDeFaltas({ tanner: 'Ana', faltas: 3, becado: true }), /conservar su beca se pide 90% de asistencia/);
-  assert.doesNotMatch(mensajeDeFaltas({ tanner: 'Ana', faltas: 3 }), /beca/);
+prueba('es un mensaje de atención: nunca menciona la beca ni el 90%', () => {
+  // Presidencia, 09/10/2026: "es un mensaje de atención, no más para saber".
+  const m = mensajeDeFaltas({ tanner: 'Ana', faltas: 3, pct: 40, asistio: 2, marcadas: 5, becado: true });
+  assert.doesNotMatch(m, /beca/i);
+  assert.doesNotMatch(m, /90/);
 });
 
 prueba('un becado sin racha pero bajo de asistencia recibe sus números', () => {
-  const m = mensajeDeFaltas({ tanner: 'Bruno', categoria: 'T10', faltas: 0, pct: 66.7, asistio: 2, marcadas: 3, becado: true });
+  const m = mensajeDeFaltas({ tanner: 'Bruno', categoria: 'T10', faltas: 0, pct: 66.7, asistio: 2, marcadas: 3 });
   assert.match(m, /Bruno ha venido a 2 de 3 entrenamientos de T10 este periodo/);
 });
 

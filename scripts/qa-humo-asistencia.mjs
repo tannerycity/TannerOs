@@ -165,7 +165,7 @@ revisa('[becados] dice cuántos de cuántos', /1 de 6 becados/.test(beca), beca.
 revisa('[becados] el becado faltando sale con su % contra 90', /Becado Dos/.test(beca) && /60%/.test(beca) && /de 90%/i.test(beca), beca);
 const waBeca = await pagina.getAttribute('#statsScholars .as-familia', 'href');
 const msjBeca = decodeURIComponent((waBeca || '').split('?text=')[1] || '');
-revisa('[becados] al becado se le recuerda la meta de su beca', /conservar su beca se pide 90% de asistencia/.test(msjBeca), msjBeca);
+revisa('[becados] el mensaje es de atención: no menciona la beca', /Becado no ha venido a sus últimos 3 entrenamientos/.test(msjBeca) && !/su beca|90 ?%|asistencia/i.test(msjBeca), msjBeca);
 
 const cats = await pagina.$$eval('#statsCats .as-cat strong', els => els.map(e => e.textContent));
 revisa('[categorías] ordenadas de mejor a peor', JSON.stringify(cats) === '["T10","T8"]', JSON.stringify(cats));

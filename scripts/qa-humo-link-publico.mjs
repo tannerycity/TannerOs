@@ -126,6 +126,9 @@ await cabe('la tienda');
 /* ===== 2. Una categoría ===== */
 await pg.click('.st-cats a[data-cat="jersey"]');
 await pg.waitForFunction(() => location.hash === '#/c/jersey');
+// El hash cambia antes de que la categoría se pinte: se espera a que la pestaña
+// activa ya sea "Jerseys" (se pinta en el mismo golpe que las tarjetas).
+await pg.waitForSelector('.st-cats a.activa[data-cat="jersey"]', { timeout: 4000 });
 const soloJerseys = await pg.$$eval('.st-card', c => c.map(x => x.dataset.prod || x.dataset.kit));
 revisa('"Jerseys" sólo enseña jerseys', JSON.stringify([...soloJerseys].sort()) === '["p-black","p-jersey"]', JSON.stringify(soloJerseys));
 revisa('y su pestaña queda marcada', (await pg.getAttribute('.st-cats a[data-cat="jersey"]', 'aria-current')) === 'page');

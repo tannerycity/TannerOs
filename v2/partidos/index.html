@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07191e">
+<title>Partidos · TannerOS</title>
+<link rel="stylesheet" href="/v2/styles.css">
+<link rel="stylesheet" href="/v2/partidos/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="stylesheet" href="/icons.css?v=20260907a">
+<link rel="stylesheet" href="/polish.css?v=20260907a">
+</head>
+<body>
+<main class="shell">
+  <section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Partidos</h2><p class="muted">Calentando…</p></section>
+  <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted">Tu rol no tiene acceso a Partidos.</p><a class="secondary nav-link" href="/v2">Volver</a></section>
+
+  <section id="view" class="hidden app-wrap pt">
+    <header class="topbar">
+      <div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div>
+      <div class="top-actions"><span id="roleBadge" class="role-badge"></span></div>
+    </header>
+
+    <section class="pt-cancha">
+      <div><p class="pt-dia">Tannery City</p><h1>Partidos</h1></div>
+      <button type="button" id="ptNuevo" class="pt-nuevo hidden"><b>+</b> Nuevo partido</button>
+    </section>
+
+    <nav class="pt-tabs" role="tablist">
+      <button type="button" id="tabPartidos" class="activo" role="tab" aria-selected="true">Partidos</button>
+      <button type="button" id="tabStats" role="tab" aria-selected="false">Estadísticas</button>
+    </nav>
+
+    <section id="ptLista">
+      <div class="pt-bloque" id="ptProximosBloque"><h2>Por jugar</h2><div id="ptProximos" class="pt-partidos"></div></div>
+      <div class="pt-bloque"><h2>Resultados</h2><div id="ptJugados" class="pt-partidos"></div></div>
+      <p id="ptVacio" class="pt-vacio hidden">Todavía no hay partidos. Toca "Nuevo partido" para registrar el primero.</p>
+    </section>
+
+    <section id="ptStats" class="hidden">
+      <div id="stPeriodos" class="pt-chips"></div>
+      <div id="stCats" class="pt-chips"></div>
+      <section class="pt-record">
+        <div><b id="stJugados">0</b><span>Jugados</span></div>
+        <div class="g"><b id="stG">0</b><span>Ganados</span></div>
+        <div class="e"><b id="stE">0</b><span>Empates</span></div>
+        <div class="p"><b id="stP">0</b><span>Perdidos</span></div>
+        <div class="gol"><b id="stGoles">0:0</b><span>Goles</span></div>
+      </section>
+      <article class="pt-carta"><div class="pt-carta-cab"><h2>Goleadores</h2></div><div id="stGoleadores" class="pt-top"></div></article>
+      <article class="pt-carta"><div class="pt-carta-cab"><h2>Asistencias</h2></div><div id="stAsist" class="pt-top"></div></article>
+      <article class="pt-carta"><div class="pt-carta-cab"><h2>Juegan poco</h2><span>Menos de la mitad de sus partidos con medio tiempo</span></div><div id="stPoco" class="pt-top"></div></article>
+      <article class="pt-carta"><div class="pt-carta-cab"><h2>Sin jugar</h2><span>No han entrado en ningún partido de su categoría</span></div><div id="stSin" class="pt-sin"></div></article>
+      <article class="pt-carta"><div class="pt-carta-cab"><h2>Por categoría</h2></div><div id="stPorCat" class="pt-porcat"></div></article>
+    </section>
+    <div id="ptMensaje" class="inline-message hidden"></div>
+  </section>
+</main>
+
+<!-- El partido: marcador, convocados y quién jugó. -->
+<div id="ptFondo" class="drawer-backdrop hidden"></div>
+<aside id="ptPartido" class="player-drawer pt-partido hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="ppTitulo">
+  <header class="pp-cab">
+    <div class="pp-top"><div class="pp-tit"><p id="ppMeta"></p><h2 id="ppTitulo">T10 vs Rival</h2></div><button type="button" id="ppCerrar" class="pp-cerrar" aria-label="Cerrar">&times;</button></div>
+    <div class="pp-marcador">
+      <div class="pp-equipo"><span>Tannery</span><b id="ppGF">0</b><button type="button" id="ppGol" class="pp-gol">+ Gol</button></div>
+      <i aria-hidden="true">–</i>
+      <div class="pp-equipo"><span id="ppRival">Rival</span><b id="ppGA">0</b><div class="pp-rival-btns"><button type="button" id="ppGAmenos" aria-label="Quitar gol del rival">−</button><button type="button" id="ppGAmas" aria-label="Gol del rival">+</button></div></div>
+    </div>
+    <div id="ppGoles" class="pp-goles"></div>
+  </header>
+  <nav class="pp-tabs" role="tablist">
+    <button type="button" id="ppTabConv" role="tab">Convocados <b id="ppNConv">0</b></button>
+    <button type="button" id="ppTabJuego" role="tab">Quién jugó <b id="ppNJugo">0</b></button>
+  </nav>
+  <p id="ppAyuda" class="pp-ayuda"></p>
+  <div id="ppHerr" class="pp-herr"><button type="button" id="ppTodos">Todos</button><button type="button" id="ppNinguno">Ninguno</button></div>
+  <div id="ppEstampas" class="pp-estampas"></div>
+  <div class="pp-guardar">
+    <div id="ppMensaje" class="inline-message hidden"></div>
+    <div class="pp-botones"><button type="button" id="ppGuardar" class="secondary">Guardar</button><button type="button" id="ppTerminar" class="pp-terminar">Terminar partido</button></div>
+  </div>
+</aside>
+
+<!-- Hojas: nuevo partido, quién metió el gol, opciones de un Tanner. -->
+<div id="hjFondo" class="pt-hoja-fondo hidden"></div>
+<section id="hjHoja" class="pt-hoja hidden" role="dialog" aria-modal="true" aria-labelledby="hjTitulo">
+  <div class="pt-asa" aria-hidden="true"></div>
+  <h3 id="hjTitulo"></h3>
+  <div id="hjCuerpo"></div>
+</section>
+
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/partidos/app.js"></script>
+</body>
+</html>

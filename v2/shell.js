@@ -57,7 +57,9 @@ export const navItems=[
   {code:'asistencia',label:'Asistencia',href:'/asistencia/',group:'club',icon:'check'},
   // Becas no es un módulo: lo ve quien ve Dirección (Presidencia, 09/10/2026).
   {code:'becas',label:'Becas',href:'/becas/',group:'club',icon:'star',lee:['direccion']},
-  {code:'convocatoria',label:'Convocatoria',href:'/convocatoria/',group:'club',icon:'list',aliases:['callups']},
+  // Partidos (09/10/2026) reemplaza a Convocatoria en el menú: la convocatoria
+  // es el primer paso del partido. Lo ve quien ve Convocatoria.
+  {code:'partidos',label:'Partidos',href:'/partidos/',group:'club',icon:'shield',lee:['convocatoria','callups']},
   {code:'calendario',label:'Calendario',href:'/calendario/',group:'main',icon:'calendar'},
   {code:'centro_tanner',label:'Centro Tanner',href:'/admin/centro-tanner/',group:'main',icon:'book'},
   {code:'academias',label:'Academias',href:'/operacion/academias/',group:'club',icon:'academy'},
@@ -502,7 +504,7 @@ const ACCIONES_RAPIDAS={
   conciliar:{label:'Por conciliar',sub:'Cobros por validar',href:'/taquilla/?ver=concilia',icon:'check',modulos:['taquilla','contabilidad']},
   caja:{label:'Caja del día',sub:'Movimientos y corte',href:'/taquilla/?ver=caja',icon:'ledger',modulos:['taquilla','contabilidad']},
   asistencia:{label:'Pasar asistencia',sub:'Lista del entrenamiento',href:'/asistencia/',icon:'check',modulos:['asistencia'],escribe:true},
-  convocatoria:{label:'Convocatoria',sub:'Quién va al partido',href:'/convocatoria/',icon:'list',modulos:['convocatoria','callups']},
+  convocatoria:{label:'Partido',sub:'Convocados, goles y quién jugó',href:'/partidos/',icon:'list',modulos:['convocatoria','callups']},
   miAcademia:{label:'Tomar asistencia',sub:'Mi academia',href:'/mi-academia/',icon:'check',siempre:true},
   scouting:{label:'Scouting',sub:'Visorías y prospectos',href:'/scouting/',icon:'search',modulos:['scouting']},
   mensaje:{label:'Mensaje',sub:'Escribir al equipo',href:'/mensajes/',icon:'chat',siempre:true}

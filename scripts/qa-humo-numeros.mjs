@@ -17,6 +17,14 @@
  *   guarda a medias y número libre se lleva sin preguntar.
  *   Fichar:
  *     · al elegir categoría salen los libres a un toque y llenan el campo.
+ *
+ * Y lo del 09/10/2026 ("le picas, números disponibles, este, este, pum"):
+ *   A. Levantar pedido: un Tanner sin número trae sus libres en chips; un toque
+ *      llena el pedido y su expediente. Si otro lo tomó, se avisa y se recalcula.
+ *   B. Fichar: el primer libre ya va puesto; cambiar de categoría lo cambia,
+ *      pero lo que eligió alguien no se pisa.
+ *   C. Jugadores: "N Tanners sin número · Asignar" abre a todos por categoría;
+ *      asignar uno lo quita de los chips de los demás y baja el contador.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -62,7 +70,11 @@ async function abre(url, extra = {}) {
     window.__llamadas = [];
     window.__fakeSupabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}), getUser:async()=>({data:{user:{id:'u1'}}}), onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}) },
-      rpc:async (n, params) => { window.__llamadas.push({ n, params }); return { data:R[n] ?? null, error:null }; },
+      rpc:async (n, params) => { window.__llamadas.push({ n, params });
+        if (n === 'v2_jersey_board' && R.__tableros) return { data:R.__tableros[params?.category] ?? TABLERO, error:null };
+        const fallo = R.__fallos?.[n]?.[params?.player_id];
+        if (fallo) return { data:null, error:{ message:fallo } };
+        return { data:R[n] ?? null, error:null }; },
       storage:{ from:()=>({ createSignedUrl:async()=>({data:null}), createSignedUrls:async()=>({data:[]}) }) },
       channel:()=>({ on(){return this;}, subscribe(){return this;} }), removeChannel(){}
     };
@@ -140,6 +152,122 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.close();
 }
 
+
+/* ---------- A. Levantar pedido: chips de libres en un toque ---------- */
+{
+  const p = await abre('/v2/captura/?tanner=p1');
+  await p.waitForSelector('#bundleGrid .pick-card', { timeout:8000 });
+  await p.click('#bundleGrid .pick-card');
+  await p.waitForSelector('#bfNumberChips [data-num]', { timeout:4000 }).catch(()=>{});
+  const chips = await p.$$eval('#bfNumberChips [data-num]', b => b.map(x => x.textContent));
+  revisa('[A] sin número, sus libres salen ahí mismo', JSON.stringify(chips) === '["#3","#4","#5","#6","#7"]', JSON.stringify(chips));
+  revisa('[A] y "Otro" para la cancha completa', (await p.$('#bfNumberChips [data-otro]')) !== null);
+  await p.click('#bfNumberChips [data-num="5"]');
+  await p.waitForTimeout(250);
+  const asig = await llamadas(p, 'v2_assign_jersey');
+  revisa('[A] un toque: llena el pedido', (await p.inputValue('#bfNumber')) === '5');
+  revisa('[A] y se queda en su expediente', asig.length === 1 && asig[0].player_id === 'p1' && asig[0].number === '5', JSON.stringify(asig));
+  revisa('[A] con número ya no hay chips', await p.$eval('#bfNumberChips', b => b.hidden));
+  await p.close();
+}
+{
+  const p = await abre('/v2/captura/?tanner=p1', { __fallos:{ v2_assign_jersey:{ p1:'El #3 ya es de Leo Paz en T10' } } });
+  await p.waitForSelector('#bundleGrid .pick-card', { timeout:8000 });
+  await p.click('#bundleGrid .pick-card');
+  await p.waitForSelector('#bfNumberChips [data-num]', { timeout:4000 });
+  const tablerosAntes = (await llamadas(p, 'v2_jersey_board')).length;
+  await p.click('#bfNumberChips [data-num="3"]');
+  await p.waitForTimeout(300);
+  revisa('[A] si otro lo tomó en ese momento, dice quién', /El #3 ya es de Leo Paz/.test(await p.innerText('#bfNumberHint')), await p.innerText('#bfNumberHint'));
+  revisa('[A] no deja el número a medias en el pedido', (await p.inputValue('#bfNumber')) === '');
+  revisa('[A] y vuelve a leer los libres', (await llamadas(p, 'v2_jersey_board')).length > tablerosAntes && !(await p.$eval('#bfNumberChips', b => b.hidden)));
+  await p.close();
+}
+{
+  const p = await abre('/v2/captura/?tanner=p2');
+  await p.waitForSelector('#productGrid .pick-card', { timeout:8000 });
+  await p.click('#productGrid .pick-card');
+  await p.waitForTimeout(250);
+  revisa('[A] un Tanner con número no trae chips', await p.$eval('#pfNumberChips', b => b.hidden));
+  await p.close();
+}
+
+/* ---------- B. Fichar: el primer libre ya va puesto ---------- */
+{
+  const p = await abre('/v2/prospectos/', { __tableros:{ T10:TABLERO, T12:{ category:'T12', taken:[{ number:'1', name:'X' },{ number:'2', name:'Y' },{ number:'3', name:'Z' }] } } });
+  await p.waitForSelector('#prospectList .prospect-row', { timeout:8000 });
+  await p.click('#prospectList .prospect-row >> text=Ver ficha');
+  await p.waitForSelector('#conversionSection:not(.hidden)', { timeout:4000 });
+  await p.waitForFunction(() => document.querySelectorAll('#convertJerseySug [data-num]').length > 0, null, { timeout:4000 }).catch(()=>{});
+  revisa('[B] el primer libre ya va en el campo', (await p.inputValue('#convertJersey')) === '3', await p.inputValue('#convertJersey'));
+  revisa('[B] marcado y dicho', await p.$eval('#convertJerseySug [data-num="3"]', b => b.classList.contains('activo')) && /va el #3/.test(await p.innerText('#convertJerseySug')));
+  await p.selectOption('#convertCategory', 'c12');
+  await p.waitForFunction(() => document.querySelector('#convertJersey').value === '4', null, { timeout:4000 }).catch(()=>{});
+  revisa('[B] cambiar de categoría cambia el sugerido', (await p.inputValue('#convertJersey')) === '4', await p.inputValue('#convertJersey'));
+  await p.click('#convertJerseySug [data-num="6"]');
+  await p.selectOption('#convertCategory', 'c10');
+  await p.waitForTimeout(400);
+  revisa('[B] pero lo que alguien eligió no se pisa', (await p.inputValue('#convertJersey')) === '6', await p.inputValue('#convertJersey'));
+  await p.close();
+}
+
+/* ---------- C. Jugadores: todos los sin número de un jalón ---------- */
+const PLANTEL = {
+  v2_players:[
+    { id:'p1', first_name:'Mateo', last_name:'Ruiz', status_value:'active', category:'T10', jersey_number:null },
+    { id:'p4', first_name:'Ángel', last_name:'Soto', status_value:'active', category:'T10', jersey_number:'' },
+    { id:'p5', first_name:'Sofía', last_name:'Luna', status_value:'active', category:'Baby Tanner', jersey_number:null },
+    { id:'p2', first_name:'Erick', last_name:'García', status_value:'active', category:'T10', jersey_number:'14' },
+    { id:'p9', first_name:'Baja', last_name:'Ejemplo', status_value:'withdrawn', category:'T10', jersey_number:null }
+  ],
+  __tableros:{ T10:TABLERO, 'Baby Tanner':{ category:'Baby Tanner', taken:[{ number:'1', name:'Iker' }] } },
+  v2_withdrawal_requests:[], v2_can_set_joined_at:false,
+  v2_my_context:[{ user_id:'u1', display_name:'Mich', organization_id:'o1', organization_name:'Tannery City FC', role:'Presidencia', is_owner:true }]
+};
+{
+  const p = await abre('/v2/jugadores/', PLANTEL);
+  await p.waitForSelector('#sinNumero .sinnum-banner', { timeout:8000 }).catch(()=>{});
+  revisa('[C] aviso con los activos sin número (no las bajas)', /3 Tanners sin número/.test(await p.innerText('#sinNumero').catch(()=> '')), await p.innerText('#sinNumero').catch(()=> ''));
+  await p.click('#abrirSinNumero');
+  await p.waitForSelector('.sinnum-fila [data-num]', { timeout:4000 });
+  const cats = await p.$$eval('.sinnum-cat', e => e.map(x => x.textContent));
+  revisa('[C] agrupados por categoría', JSON.stringify(cats) === '["Baby Tanner · 1","T10 · 2"]', JSON.stringify(cats));
+  const chipsDe = id => p.$$eval(`.sinnum-fila[data-id="${id}"] [data-num]`, b => b.map(x => x.dataset.num));
+  revisa('[C] cada uno con los libres de SU categoría', JSON.stringify(await chipsDe('p1')) === '["3","4","5","6"]' && JSON.stringify(await chipsDe('p5')) === '["2","3","4","5"]');
+  await p.click('.sinnum-fila[data-id="p1"] [data-num="3"]');
+  await p.waitForSelector('.sinnum-fila[data-id="p1"].listo', { timeout:4000 }).catch(()=>{});
+  const asig = await llamadas(p, 'v2_assign_jersey');
+  revisa('[C] un toque lo asigna', asig.length === 1 && asig[0].player_id === 'p1' && asig[0].number === '3', JSON.stringify(asig));
+  revisa('[C] la fila dice "Listo: #3"', /Listo: #3/.test(await p.innerText('.sinnum-fila[data-id="p1"]')));
+  revisa('[C] el #3 sale de los chips del otro de T10', JSON.stringify(await chipsDe('p4')) === '["4","5","6","7"]', JSON.stringify(await chipsDe('p4')));
+  revisa('[C] pero no de otra categoría', JSON.stringify(await chipsDe('p5')) === '["2","3","4","5"]');
+  revisa('[C] el contador baja', /2 Tanners sin número/.test(await p.innerText('#sinNumero')), await p.innerText('#sinNumero'));
+  const antes = (await llamadas(p, 'v2_players')).length;
+  await p.click('.dorsal-hoja .dorsal-cerrar');
+  await p.waitForTimeout(300);
+  revisa('[C] al cerrar, la lista se recarga', (await llamadas(p, 'v2_players')).length > antes);
+  await p.close();
+}
+{
+  const p = await abre('/v2/jugadores/', Object.assign({}, PLANTEL, { __fallos:{ v2_assign_jersey:{ p5:'El #2 ya es de Iker en Baby Tanner' } } }));
+  await p.waitForSelector('#abrirSinNumero', { timeout:8000 });
+  await p.click('#abrirSinNumero');
+  await p.waitForSelector('.sinnum-fila[data-id="p5"] [data-num]', { timeout:4000 });
+  await p.click('.sinnum-fila[data-id="p5"] [data-num="2"]');
+  await p.waitForTimeout(300);
+  revisa('[C] si otro lo tomó, se dice en la fila', /El #2 ya es de Iker/.test(await p.innerText('.sinnum-fila[data-id="p5"]')));
+  revisa('[C] y sigue pendiente con chips', !(await p.$eval('.sinnum-fila[data-id="p5"]', f => f.classList.contains('listo'))) && (await chipsDe2(p, 'p5')).length === 4);
+  await p.close();
+}
+async function chipsDe2(p, id) { return p.$$eval(`.sinnum-fila[data-id="${id}"] [data-num]`, b => b.map(x => x.dataset.num)); }
+{
+  const mk = l => l.map(([c,w]) => ({ module_code:c, enabled:true, can_read:true, can_write:w }));
+  const p = await abre('/v2/jugadores/', Object.assign({}, PLANTEL, { v2_my_modules:mk([['players',false]]) }));
+  await p.waitForSelector('#playerList .jcard', { timeout:8000 }).catch(()=>{});
+  revisa('[C] quien sólo lee Jugadores no ve el aviso', await p.$eval('#sinNumero', b => b.hidden));
+  await p.close();
+}
+
 /* ---------- Subir de categoría con número ocupado (opción A) ---------- */
 // Caso real (08/10/2026): Hugo Beltrán, Baby Tanner #14, sube a T10 donde el #14
 // es de Oscar. Antes el guardado tronaba con "duplicate key".
@@ -198,4 +326,4 @@ let mal = 0;
 for (const r of revisiones) if (!r.ok) { mal++; console.error(` - ${r.nombre}${r.detalle ? ' :: ' + r.detalle : ''}`); }
 if (errores.length) { console.error('ERRORES DEL NAVEGADOR:'); errores.forEach(e => console.error('   ' + e)); }
 if (mal || errores.length) { console.error(`Números humo FAILED · ${mal} de ${revisiones.length}, ${errores.length} errores`); process.exit(1); }
-console.log(`Números humo OK · ${revisiones.length} revisiones: kit con nombre y número, hoja de libres, guardar en expediente, fichar a un toque`);
+console.log(`Números humo OK · ${revisiones.length} revisiones: chips de libres en el pedido, fichar con el número ya puesto, y los sin número de un jalón`);

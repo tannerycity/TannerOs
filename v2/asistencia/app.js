@@ -11,54 +11,281 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 // "session_id", que no viene en la respuesta, así que el id se perdía.
 const sesionId=s=>s?.session_id||s?.id||null;
 const pad=v=>String(v).padStart(2,'0'),nameOf=p=>p.player_name||'Tanner',statusOf=p=>p.attendance_status||p.status||'';
+const sinAcentos=v=>String(v||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 function show(id){['loadingView','deniedView','attendanceView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
 async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
-function isoLocalDate(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+function isoLocalDate(d=new Date()){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
 function localTime(){const d=new Date();return `${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 function fmtDateTime(v){if(!v)return '—';return new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(new Date(v));}
+function fmtHora(v){return new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'}).format(new Date(v));}
 function friendly(e){const text=String(e?.message||e||'No pudimos completar la acción.');const map={'Not authorized':'Tu rol no tiene permiso para modificar la asistencia.','Category required':'Elige una categoría.','Session not found':'No encontramos esa sesión.','Player is not active':'Ese Tanner ya no está activo; probablemente ya lo dieron de baja.','Withdrawal reason required':'Escribe el motivo del reporte.'};return map[text]||text;}
-async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),attendance=mods?.find(m=>m.module_code==='attendance');if(!attendance?.enabled||!attendance?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Asistencia.';show('deniedView');return;}ctx.canWrite=Boolean(attendance.can_write);$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Presidencia':ctx.role;$('sessionForm').classList.toggle('read-only',!ctx.canWrite);$('createSession').disabled=!ctx.canWrite;await Promise.all([loadCategories(),loadSessions()]);show('attendanceView');}
+
+/* Rediseño de Presidencia (09/10/2026): "que se vea futbolero" y que pasar
+   lista cueste lo menos posible. Lo que les ha funcionado en cancha: todos
+   vienen marcados como presentes y el profe sólo toca a los que faltaron.
+
+   Inicio: un toque en la categoría abre la lista de hoy (o la crea). Las
+   categorías del profe van primero; si no tiene ninguna asignada, ve todas. */
+let detallesEditados=false;
+
+async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),attendance=mods?.find(m=>m.module_code==='attendance');if(!attendance?.enabled||!attendance?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Asistencia.';show('deniedView');return;}ctx.canWrite=Boolean(attendance.can_write);$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Presidencia':ctx.role;$('allPresent').classList.toggle('hidden',!ctx.canWrite);$('saveAttendance').classList.toggle('hidden',!ctx.canWrite);await Promise.all([loadCategories(),loadSessions()]);show('attendanceView');}
+
 async function loadCategories(){
   categories=await rpc('v2_attendance_categories',{organization_id:ctx.organization_id})||[];
-  const sel=$('sessionCategory');
-  sel.innerHTML='<option value="">Elige una categoría</option>';
-  for(const c of categories){
-    const o=document.createElement('option');
-    o.value=c.category_id;o.textContent=`${c.name||'Categoría'} · ${Number(c.active_players||0)} Tanners`;
-    sel.appendChild(o);
-  }
-  // Quien administra el club no tiene "suyas" y "ajenas": mine viene en true
-  // para todas y el bloque de cubrir ni se asoma.
-  const mias=categories.filter(c=>c.mine!==false),ajenas=categories.filter(c=>c.mine===false);
-  pintaCategorias($('categoryCards'),mias);
-  pintaCategorias($('coverCards'),ajenas);
-  $('coverBlock')?.classList.toggle('hidden',ajenas.length===0);
-  if(!mias.length&&ajenas.length)$('coverBlock')?.setAttribute('open','');
   if(!$('sessionDate').value)$('sessionDate').value=isoLocalDate();
   if(!$('sessionTime').value)$('sessionTime').value=localTime();
   updateSessionSummary();
+  pintaInicio();
 }
+
+// Quien administra el club no tiene "suyas" y "ajenas": mine viene en true
+// para todas y el bloque de cubrir ni se asoma. Un profe sin categoría
+// asignada ve todas por igual, sin el bloque de cubrir.
+function pintaInicio(){
+  const mias=categories.filter(c=>c.mine!==false),ajenas=categories.filter(c=>c.mine===false);
+  const sinAsignar=!mias.length;
+  $('catsTitulo').textContent=sinAsignar||!ajenas.length?'Categorías':'Mis categorías';
+  pintaCategorias($('categoryCards'),sinAsignar?ajenas:mias);
+  pintaCategorias($('coverCards'),sinAsignar?[]:ajenas);
+  $('coverBlock')?.classList.toggle('hidden',sinAsignar||!ajenas.length);
+}
+
+/* La lista de esa categoría para el día elegido, si ya existe. */
+function listaDelDia(categoryId){
+  const dia=$('sessionDate').value;
+  return sessions.filter(s=>s.category_id===categoryId&&s.starts_at&&isoLocalDate(new Date(s.starts_at))===dia)
+    .sort((a,b)=>String(b.starts_at).localeCompare(String(a.starts_at)))[0]||null;
+}
+
 function pintaCategorias(box,lista){
   if(!box)return;box.innerHTML='';
+  const esHoy=$('sessionDate').value===isoLocalDate();
   for(const c of lista){
+    const hoy=listaDelDia(c.category_id);
+    const total=Number(hoy?.roster_count||0),pres=Number(hoy?.present_count||0);
+    const estado=hoy?(pres?`${esHoy?'Hoy':'Ese día'} ${pres}/${total||'—'}`:'Lista abierta'):'Pasar lista';
     const b=document.createElement('button');
-    b.type='button';b.className='category-choice';b.dataset.category=c.category_id;
-    b.innerHTML=`<span class="category-symbol"><span class="tos-icon tos-icon-user" aria-hidden="true"></span></span><strong>${esc(c.name||'Categoría')}</strong><small>${Number(c.active_players||0)} Tanners</small>`;
-    b.onclick=()=>selectCategory(c.category_id);
+    b.type='button';b.className=`category-choice as-equipo${hoy?(pres?' is-hecha':' is-abierta'):''}`;b.dataset.category=c.category_id;
+    const nom=String(c.name||'Categoría');
+    if(nom.length>7)b.classList.add('nom-largo');
+    b.innerHTML=`<span class="as-equipo-nom">${esc(c.name||'Categoría')}</span><span class="as-equipo-n">${Number(c.active_players||0)} Tanners</span><span class="as-equipo-estado">${esc(estado)}<i aria-hidden="true">›</i></span>`;
+    b.setAttribute('aria-label',`${c.name||'Categoría'}, ${Number(c.active_players||0)} Tanners. ${estado}`);
+    b.onclick=()=>tocaCategoria(c,b);
     box.appendChild(b);
   }
 }
-function selectCategory(id){$('sessionCategory').value=id;document.querySelectorAll('.category-choice').forEach(b=>b.classList.toggle('selected',b.dataset.category===id));msg('sessionMessage');updateSessionSummary();$('createSession').focus({preventScroll:true});}
-function updateSessionSummary(){const c=categories.find(x=>x.category_id===$('sessionCategory').value),date=$('sessionDate').value,time=$('sessionTime').value,duration=$('sessionDuration').value;$('sessionSummary').innerHTML=`<strong>${esc(c?.name||'Elige una categoría')}</strong><span>${date===isoLocalDate()?'Hoy':date||'Sin fecha'} · ${time||'Sin hora'} · ${duration} min</span>`;$('createSession').disabled=!ctx?.canWrite||!c;}
-async function loadSessions(){const sessionsSince=new Date(Date.now()-180*86400000).toISOString();sessions=await rpc('v2_attendance_sessions',{organization_id:ctx.organization_id,from_at:sessionsSince,to_at:null})||[];const list=$('sessionsList');list.innerHTML='';$('sessionsEmpty').classList.toggle('hidden',sessions.length>0);for(const s of sessions.slice(0,12)){const total=Number(s.roster_count||0),present=Number(s.present_count||0),pct=total?Math.round(present/total*100):0,row=document.createElement('button');row.className='session-row';row.type='button';row.classList.add(total&&pct>=100?'is-complete':(total&&pct>0?'is-partial':'is-empty'));if(s.covered)row.classList.add('is-covered');row.innerHTML=`<span class="session-date"><b>${new Date(s.starts_at).getDate()}</b><small>${new Date(s.starts_at).toLocaleDateString('es-MX',{month:'short'})}</small></span><span class="session-copy"><strong>${esc(s.title||s.category_name||'Entrenamiento')}</strong><small>${esc(fmtDateTime(s.starts_at))} · ${esc(s.category_name||'Sin categoría')}${s.covered?` · cubrió ${esc(s.taken_by||'otro profe')}`:''}</small></span><span class="session-result"><b>${present}/${total||'—'}</b><small>${total?`${pct}% presentes`:'Abrir lista'}</small></span><span class="session-arrow" aria-hidden="true">›</span>`;row.addEventListener('click',()=>openRoster(s));list.appendChild(row);}}
-async function createSession(ev){ev.preventDefault();msg('sessionMessage');if(!ctx.canWrite)return;const date=$('sessionDate').value,time=$('sessionTime').value,category=$('sessionCategory').value;if(!category){msg('sessionMessage','Elige la categoría para comenzar.');return;}if(!date||!time){msg('sessionMessage','Revisa la fecha y la hora.');return;}const starts=new Date(`${date}T${time}:00`),duration=Number($('sessionDuration').value||90),ends=new Date(starts.getTime()+duration*60000),btn=$('createSession');btn.disabled=true;btn.textContent='Preparando lista…';try{const id=await rpc('v2_create_attendance_session',{organization_id:ctx.organization_id,category_id:category,starts_at:starts.toISOString(),ends_at:ends.toISOString(),title:$('sessionTitle').value.trim()||null,location:$('sessionLocation').value.trim()||null});await loadSessions();const s=sessions.find(x=>sesionId(x)===id)||sessions[0];if(s)await openRoster(s);}catch(e){msg('sessionMessage',friendly(e));}finally{btn.textContent='Tomar asistencia';updateSessionSummary();}}
-async function openRoster(s){currentSession=s;rosterQuery='';$('rosterSearch').value='';currentRoster=await rosterConMiniaturas(sesionId(s));$('rosterTitle').textContent=s.title||s.category_name||'Entrenamiento';$('rosterMeta').textContent=`${fmtDateTime(s.starts_at)} · ${s.category_name||'Sin categoría'}`;renderRoster();updatePhotoStatus(true);$('rosterBackdrop').classList.remove('hidden');$('rosterDrawer').classList.remove('hidden');$('rosterDrawer').setAttribute('aria-hidden','false');document.body.classList.add('drawer-open');const openedId=sesionId(s);signRosterPhotos(currentRoster).then(()=>{if(sesionId(currentSession)!==openedId)return;renderRoster();updatePhotoStatus(false);});}
-function updatePhotoStatus(loading){const el=$('rosterPhotoStatus');if(!el)return;const total=currentRoster.length,withThumb=currentRoster.filter(p=>p.photo_thumb_path).length,visible=currentRoster.filter(p=>p._photoUrl).length,missing=total-withThumb;if(loading&&withThumb){el.textContent='Cargando caras…';el.dataset.state='loading';return;}el.dataset.state=missing?'warning':'ready';el.textContent=missing?`${visible} caras visibles · ${missing} expedientes necesitan miniatura`:(visible?`${visible} caras listas para identificar`:'La lista está lista; aún no hay fotos.');}
-function renderRoster(){const list=$('rosterList'),rows=currentRoster.filter(p=>!rosterQuery||`${nameOf(p)} ${p.code||p.player_code||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(rosterQuery));list.innerHTML='';$('rosterEmpty').classList.toggle('hidden',rows.length>0);for(const p of rows){const selected=statusOf(p),full=nameOf(p),initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase(),row=document.createElement('article');row.className=`roster-row st-${selected||'none'} ${selected?'marked':''}`;const reportado=bajaReportados.has(p.player_id);row.innerHTML=`<div class="roster-person"><span class="roster-avatar">${p._photoUrl?`<img src="${esc(p._photoUrl)}" alt="${esc(full)}" loading="lazy">`:esc(initials||'TC')}</span><span class="roster-name"><strong>${esc(full)}</strong><small>${esc(p.code||p.player_code||'Tanner')}</small></span>${ctx.canWrite?`<button type="button" class="roster-flag${reportado?' reportado':''}" data-baja="${esc(p.player_id)}" aria-label="Reportar baja de ${esc(full)}" title="${reportado?'Baja ya reportada':'Reportar baja'}">⚑</button>`:''}</div><div class="attendance-buttons" role="group" aria-label="Asistencia de ${esc(full)}"><button type="button" data-s="present" class="status-present ${selected==='present'?'active':''}" aria-pressed="${selected==='present'}"><span class="status-mark">✓</span><span>Presente</span></button><button type="button" data-s="late" class="status-late ${selected==='late'?'active':''}" aria-pressed="${selected==='late'}"><span class="status-mark">＋</span><span>Tarde</span></button><button type="button" data-s="excused" class="status-excused ${selected==='excused'?'active':''}" aria-pressed="${selected==='excused'}"><span class="status-mark">–</span><span>Justificado</span></button><button type="button" data-s="absent" class="status-absent ${selected==='absent'?'active':''}" aria-pressed="${selected==='absent'}"><span class="status-mark">×</span><span>Ausente</span></button></div>`;row.querySelectorAll('[data-s]').forEach(b=>{b.disabled=!ctx.canWrite;b.addEventListener('click',()=>{p.attendance_status=b.dataset.s;p.status=b.dataset.s;renderRoster();});});row.querySelector('[data-baja]')?.addEventListener('click',ev=>{ev.stopPropagation();abrirBaja(p);});const per=row.querySelector('.roster-person');if(per){per.style.cursor='pointer';per.addEventListener('click',ev=>{if(!ctx.canWrite||ev.target.closest('.roster-flag'))return;const now=statusOf(p);p.attendance_status=now==='present'?'absent':'present';p.status=p.attendance_status;renderRoster();});}list.appendChild(row);}updateRosterProgress();$('saveAttendance').disabled=!ctx.canWrite;}
-function updateRosterProgress(){const total=currentRoster.length,marked=currentRoster.filter(p=>statusOf(p)).length,present=currentRoster.filter(p=>statusOf(p)==='present').length,late=currentRoster.filter(p=>statusOf(p)==='late').length,absent=currentRoster.filter(p=>['absent','excused'].includes(statusOf(p))).length,pct=total?Math.round(marked/total*100):0,complete=Boolean(total)&&marked===total;$('progressLabel').textContent=total&&marked<total?`Faltan ${total-marked} por marcar`:(total?`✓ Lista completa · ${total} de ${total}`:'Sin Tanners');$('progressBar').style.width=`${pct}%`;$('rosterCounts').innerHTML=`<span><b>${present}</b> presentes</span><span><b>${late}</b> tarde</span><span><b>${absent}</b> por revisar</span>`;$('saveAttendance').textContent=complete?`Guardar ${total} asistencias`:`Guardar avance (${marked}/${total})`;$('saveAttendance').classList.toggle('ready',complete);$('rosterProgress')?.classList.toggle('is-complete',complete);$('allPresent')?.classList.toggle('pulse-hint',total>0&&marked===0);}
-function closeRoster(){currentSession=null;currentRoster=[];$('rosterBackdrop').classList.add('hidden');$('rosterDrawer').classList.add('hidden');$('rosterDrawer').setAttribute('aria-hidden','true');document.body.classList.remove('drawer-open');msg('rosterMessage');}
-async function saveAttendance(){msg('rosterMessage');const marked=currentRoster.filter(p=>statusOf(p));if(!marked.length){msg('rosterMessage','Marca al menos un Tanner.');return;}const btn=$('saveAttendance');btn.disabled=true;btn.textContent='Guardando…';try{const payload=marked.map(p=>({player_id:p.player_id,status:statusOf(p),punctuality:statusOf(p)==='late'?'late':null,notes:null})),count=await rpc('v2_save_attendance',{organization_id:ctx.organization_id,session_id:sesionId(currentSession),records:payload});msg('rosterMessage',`${count} asistencias guardadas.`,'success');currentRoster=await rpc('v2_attendance_roster',{organization_id:ctx.organization_id,session_id:sesionId(currentSession)})||[];renderRoster();await loadSessions();}catch(e){msg('rosterMessage',friendly(e));renderRoster();}}
+
+async function tocaCategoria(c,boton){
+  msg('sessionMessage');
+  const hoy=detallesEditados?null:listaDelDia(c.category_id);
+  if(hoy){await openRoster(hoy);return;}
+  if(!ctx.canWrite){msg('sessionMessage','Todavía no hay lista de esta categoría para ese día.');return;}
+  const date=$('sessionDate').value,time=$('sessionTime').value;
+  if(!date||!time){msg('sessionMessage','Revisa la fecha y la hora.');abreDetalles(true);return;}
+  const starts=new Date(`${date}T${time}:00`),duration=Number($('sessionDuration').value||90),ends=new Date(starts.getTime()+duration*60000);
+  boton.disabled=true;boton.classList.add('is-cargando');
+  try{
+    const id=await rpc('v2_create_attendance_session',{organization_id:ctx.organization_id,category_id:c.category_id,starts_at:starts.toISOString(),ends_at:ends.toISOString(),title:$('sessionTitle').value.trim()||null,location:$('sessionLocation').value.trim()||null});
+    detallesEditados=false;
+    await loadSessions();
+    const s=sessions.find(x=>sesionId(x)===id)||sessions[0];
+    if(s)await openRoster(s);
+  }catch(e){msg('sessionMessage',friendly(e));}
+  finally{boton.disabled=false;boton.classList.remove('is-cargando');}
+}
+
+function updateSessionSummary(){
+  const date=$('sessionDate').value,time=$('sessionTime').value,duration=$('sessionDuration').value;
+  const d=date?new Date(`${date}T12:00:00`):new Date();
+  const dia=new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short'}).format(d).replace(/\./g,'');
+  $('asDia').textContent=date===isoLocalDate()?`Hoy · ${dia}`:dia;
+  $('sessionSummary').textContent=`${time||'Sin hora'} · ${duration} min`;
+}
+function abreDetalles(abrir){
+  const det=$('sessionDetails'),ab=abrir??det.classList.contains('hidden');
+  det.classList.toggle('hidden',!ab);
+  $('asHorario').setAttribute('aria-expanded',String(ab));
+}
+
+async function loadSessions(){
+  const sessionsSince=new Date(Date.now()-180*86400000).toISOString();
+  sessions=await rpc('v2_attendance_sessions',{organization_id:ctx.organization_id,from_at:sessionsSince,to_at:null})||[];
+  const list=$('sessionsList');list.innerHTML='';
+  $('sessionsEmpty').classList.toggle('hidden',sessions.length>0);
+  for(const s of sessions.slice(0,12)){
+    const total=Number(s.roster_count||0),present=Number(s.present_count||0),pct=total?Math.round(present/total*100):0;
+    const row=document.createElement('button');row.type='button';
+    row.className=`session-row as-partido ${present?(pct>=80?'is-bien':'is-baja'):'is-pendiente'}`;
+    if(s.covered)row.classList.add('is-covered');
+    const f=new Date(s.starts_at);
+    row.innerHTML=`<span class="as-fecha"><b>${f.getDate()}</b><small>${esc(f.toLocaleDateString('es-MX',{month:'short'}).replace('.',''))}</small></span>
+      <span class="as-partido-txt"><strong>${esc(s.category_name||'Sin categoría')}</strong><small>${esc(s.title||'Entrenamiento')} · ${esc(fmtHora(s.starts_at))}${s.covered?` · cubrió ${esc(s.taken_by||'otro profe')}`:''}</small></span>
+      <span class="as-score">${present?`<b>${present}<i>/</i>${total||'—'}</b><small>${pct}%</small>`:'<em>Pendiente</em>'}</span>`;
+    row.addEventListener('click',()=>openRoster(s));
+    list.appendChild(row);
+  }
+  if(categories.length)pintaInicio();
+}
+
+// === La lista ===
+let preMarcada=false,sucio=false,guardada=false;
+const tarjetas=new Map();
+const ETIQUETA={present:'Presente',absent:'Falta',late:'Tarde',excused:'Justificada','':'Sin marcar'};
+function partesDelNombre(full){const t=String(full||'').trim().split(/\s+/);return [t[0]||'Tanner',t[1]||''];}
+function iniciales(full){return String(full||'').split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'TC';}
+function marca(p,s){p.attendance_status=s;p.status=s;sucio=true;guardada=false;}
+
+async function openRoster(s){
+  currentSession=s;rosterQuery='';$('rosterSearch').value='';msg('rosterMessage');
+  currentRoster=await rosterConMiniaturas(sesionId(s));
+  // Lo que ha funcionado en cancha: si la lista nunca se ha guardado, todos
+  // vienen como presentes y el profe sólo toca a los que faltaron. Nada se
+  // guarda hasta que él toca Guardar.
+  preMarcada=false;sucio=false;guardada=false;
+  if(ctx.canWrite&&currentRoster.length&&currentRoster.every(p=>!statusOf(p))){
+    currentRoster.forEach(p=>{p.attendance_status='present';p.status='present';});
+    preMarcada=true;sucio=true;
+  }
+  $('rosterTitle').textContent=s.category_name||s.title||'Entrenamiento';
+  $('rosterMeta').textContent=`${s.title||'Entrenamiento'} · ${fmtDateTime(s.starts_at)}`;
+  renderRoster();updatePhotoStatus(true);
+  $('rosterBackdrop').classList.remove('hidden');$('rosterDrawer').classList.remove('hidden');$('rosterDrawer').setAttribute('aria-hidden','false');$('rosterDrawer').scrollTop=0;document.body.classList.add('drawer-open');
+  const openedId=sesionId(s);
+  signRosterPhotos(currentRoster).then(()=>{if(sesionId(currentSession)!==openedId)return;renderRoster();updatePhotoStatus(false);});
+}
+
+// Un aviso discreto, sólo para quien puede corregirlo: cuántos no tienen foto.
+function updatePhotoStatus(loading){
+  const el=$('rosterPhotoStatus');if(!el)return;
+  const sinFoto=currentRoster.filter(p=>!p.photo_thumb_path).length;
+  el.textContent=loading||!sinFoto||!ctx.canWrite?'':`${sinFoto} ${sinFoto===1?'Tanner':'Tanners'} sin foto en su expediente`;
+}
+
+function renderRoster(){
+  const list=$('rosterList'),q=rosterQuery;
+  const rows=currentRoster.filter(p=>!q||sinAcentos(`${nameOf(p)} ${p.code||p.player_code||''}`).includes(q));
+  list.innerHTML='';tarjetas.clear();
+  $('rosterEmpty').classList.toggle('hidden',rows.length>0);
+  for(const p of rows){
+    const full=nameOf(p),[nom,ape]=partesDelNombre(full);
+    const card=document.createElement('article');
+    card.className='roster-row as-estampa';card.dataset.id=p.player_id;
+    card.innerHTML=`<button type="button" class="as-toque"${ctx.canWrite?'':' disabled'}>
+        <span class="roster-avatar">${p._photoUrl?`<img src="${esc(p._photoUrl)}" alt="" loading="lazy">`:`<span class="as-ini">${esc(iniciales(full))}</span>`}</span>
+        <span class="as-nombre"><strong>${esc(nom)}</strong><small>${esc(ape||p.code||'')}</small></span>
+        <span class="as-estado"></span>
+      </button>${ctx.canWrite?`<button type="button" class="as-mas" aria-label="Más opciones de ${esc(full)}"><i></i><i></i><i></i></button>`:''}`;
+    const toque=card.querySelector('.as-toque');
+    conToqueLargo(toque,()=>abrirOpciones(p),()=>alterna(p));
+    card.querySelector('.as-mas')?.addEventListener('click',()=>abrirOpciones(p));
+    tarjetas.set(p.player_id,card);
+    pintaEstampa(p);
+    list.appendChild(card);
+  }
+  updateRosterProgress();
+}
+
+/* Pinta una sola estampa: tocar no redibuja la lista ni recarga las fotos. */
+function pintaEstampa(p){
+  const card=tarjetas.get(p.player_id);if(!card)return;
+  const s=statusOf(p),full=nameOf(p);
+  card.className=`roster-row as-estampa st-${s||'none'}${s?' marked':''}`;
+  const rep=bajaReportados.has(p.player_id);
+  card.querySelector('.as-estado').textContent=rep?`${ETIQUETA[s]} · baja reportada`:ETIQUETA[s];
+  const toque=card.querySelector('.as-toque');
+  toque.setAttribute('aria-pressed',String(s==='present'||s==='late'));
+  toque.setAttribute('aria-label',`${full}: ${ETIQUETA[s]}.${ctx.canWrite?` Toca para marcar ${s==='present'?'falta':'presente'}.`:''}`);
+}
+
+/* Un toque: presente <-> falta. Tarde y justificada, con toque largo o "···". */
+function alterna(p){
+  if(!ctx.canWrite)return;
+  marca(p,statusOf(p)==='present'?'absent':'present');
+  try{navigator.vibrate?.(8);}catch{}
+  pintaEstampa(p);updateRosterProgress();
+}
+
+function conToqueLargo(el,largo,corto){
+  let t=null,x=0,y=0,fueLargo=false;
+  const quita=()=>{clearTimeout(t);t=null;};
+  el.addEventListener('pointerdown',e=>{fueLargo=false;x=e.clientX;y=e.clientY;quita();t=setTimeout(()=>{fueLargo=true;t=null;try{navigator.vibrate?.(15);}catch{}largo();},480);});
+  el.addEventListener('pointermove',e=>{if(t&&(Math.abs(e.clientX-x)>10||Math.abs(e.clientY-y)>10))quita();});
+  ['pointerup','pointercancel','pointerleave'].forEach(n=>el.addEventListener(n,quita));
+  el.addEventListener('contextmenu',e=>{e.preventDefault();if(!fueLargo&&ctx.canWrite){fueLargo=true;quita();largo();}});
+  el.addEventListener('click',e=>{if(fueLargo){e.preventDefault();fueLargo=false;return;}corto();});
+}
+
+function updateRosterProgress(){
+  const total=currentRoster.length,c={present:0,absent:0,late:0,excused:0,'':0};
+  currentRoster.forEach(p=>{c[statusOf(p)]=(c[statusOf(p)]||0)+1;});
+  $('mPresentes').textContent=c.present+c.late;
+  $('mFaltas').textContent=c.absent+c.excused;
+  $('mTarde').textContent=c.late;
+  $('mSin').textContent=c[''];
+  $('rosterProgress').classList.toggle('con-sin',c['']>0);
+  const lbl=$('progressLabel');
+  if(!ctx.canWrite)lbl.textContent='Sólo lectura: tu rol puede ver la lista, no marcarla.';
+  else if(guardada)lbl.textContent='Lista guardada. Puedes cerrarla o seguir corrigiendo.';
+  else if(c[''])lbl.textContent=`Faltan ${c['']} por marcar. Toca su foto.`;
+  else if(preMarcada&&!c.absent&&!c.excused&&!c.late)lbl.textContent='Todos vienen como presentes. Toca a los que faltaron.';
+  else lbl.textContent='Toca para cambiar. Mantén presionado: tarde o justificada.';
+  const btn=$('saveAttendance');
+  btn.classList.toggle('is-listo',guardada);
+  btn.disabled=!ctx.canWrite||(!guardada&&!total);
+  btn.textContent=guardada?'Listo':(sucio?`Guardar lista · ${c.present+c.late} de ${total}`:'Guardar lista');
+  $('allPresent').disabled=!ctx.canWrite||!total||c.present===total;
+}
+
+function closeRoster(){
+  if(sucio&&ctx?.canWrite&&!window.confirm('La lista no se ha guardado. ¿Salir sin guardar?'))return;
+  cerrarOpciones();
+  currentSession=null;currentRoster=[];sucio=false;guardada=false;tarjetas.clear();
+  $('rosterBackdrop').classList.add('hidden');$('rosterDrawer').classList.add('hidden');$('rosterDrawer').setAttribute('aria-hidden','true');document.body.classList.remove('drawer-open');msg('rosterMessage');
+}
+
+async function saveAttendance(){
+  if(guardada){closeRoster();return;}
+  msg('rosterMessage');
+  const marked=currentRoster.filter(p=>statusOf(p));
+  if(!marked.length){msg('rosterMessage','Marca al menos un Tanner.');return;}
+  const btn=$('saveAttendance');btn.disabled=true;btn.textContent='Guardando…';
+  try{
+    const payload=marked.map(p=>({player_id:p.player_id,status:statusOf(p),punctuality:statusOf(p)==='late'?'late':null,notes:null}));
+    const count=await rpc('v2_save_attendance',{organization_id:ctx.organization_id,session_id:sesionId(currentSession),records:payload});
+    // La lista recargada no trae las caras ya firmadas: se conservan.
+    const antes=new Map(currentRoster.map(p=>[p.player_id,p]));
+    const nueva=await rpc('v2_attendance_roster',{organization_id:ctx.organization_id,session_id:sesionId(currentSession)})||[];
+    currentRoster=nueva.map(p=>{const a=antes.get(p.player_id);return a?{...p,photo_thumb_path:p.photo_thumb_path||a.photo_thumb_path,photo_bucket:p.photo_bucket||a.photo_bucket,_photoUrl:a._photoUrl}:p;});
+    sucio=false;guardada=true;preMarcada=false;
+    renderRoster();
+    const n=currentRoster.filter(p=>['present','late'].includes(statusOf(p))).length;
+    msg('rosterMessage',`${count} asistencias guardadas: ${n} presentes de ${currentRoster.length}.`,'success');
+    await loadSessions();
+  }catch(e){msg('rosterMessage',friendly(e));updateRosterProgress();}
+}
+
+// === Más opciones de un Tanner ===
+let opcionesDe=null;
+function abrirOpciones(p){
+  if(!ctx.canWrite)return;
+  opcionesDe=p;
+  const full=nameOf(p);
+  $('statusName').textContent=full;
+  $('statusCode').textContent=p.code||p.player_code||'Tanner';
+  $('statusFace').innerHTML=p._photoUrl?`<img src="${esc(p._photoUrl)}" alt="">`:esc(iniciales(full));
+  $('statusSheet').querySelectorAll('[data-s]').forEach(b=>{const on=b.dataset.s===statusOf(p);b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});
+  const rep=bajaReportados.has(p.player_id);
+  $('statusBaja').textContent=rep?'Baja ya reportada':'Reportar baja';
+  $('statusBaja').disabled=rep;
+  $('statusBackdrop').classList.remove('hidden');$('statusSheet').classList.remove('hidden');
+}
+function cerrarOpciones(){opcionesDe=null;$('statusBackdrop')?.classList.add('hidden');$('statusSheet')?.classList.add('hidden');}
+$('statusSheet')?.querySelectorAll('[data-s]').forEach(b=>b.addEventListener('click',()=>{const p=opcionesDe;if(!p)return;marca(p,b.dataset.s);cerrarOpciones();pintaEstampa(p);updateRosterProgress();}));
+$('statusBaja')?.addEventListener('click',()=>{const p=opcionesDe;cerrarOpciones();if(p)abrirBaja(p);});
+$('statusCancel')?.addEventListener('click',cerrarOpciones);
+$('statusBackdrop')?.addEventListener('click',cerrarOpciones);
+
 // === Reportar baja desde la lista ===
 // Quien toma lista es quien se entera de que un niño ya no viene, pero Formadores y
 // Academia no tienen permiso de alta y baja. Esto levanta un aviso para Presidencia
@@ -83,7 +310,7 @@ async function enviarBaja(){
   try{
     await rpc('v2_request_player_withdrawal',{organization_id:ctx.organization_id,player_id:jugador.player_id,reason:motivo});
     bajaReportados.add(jugador.player_id);
-    cerrarBaja();renderRoster();
+    cerrarBaja();pintaEstampa(jugador);
     msg('rosterMessage',`Reporte enviado. ${nameOf(jugador)} sigue en la lista hasta que Presidencia lo confirme.`,'success');
   }catch(e){msg('bajaMessage',friendly(e));}
   finally{btn.disabled=false;btn.textContent='Enviar reporte';}
@@ -91,9 +318,27 @@ async function enviarBaja(){
 $('bajaCancel')?.addEventListener('click',cerrarBaja);
 $('bajaBackdrop')?.addEventListener('click',cerrarBaja);
 $('bajaConfirm')?.addEventListener('click',enviarBaja);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('bajaModal')?.classList.contains('hidden'))cerrarBaja();});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if(!$('bajaModal')?.classList.contains('hidden'))cerrarBaja();
+  else if(!$('statusSheet')?.classList.contains('hidden'))cerrarOpciones();
+});
 
-$('sessionForm')?.addEventListener('submit',createSession);['sessionCategory','sessionDate','sessionTime','sessionDuration'].forEach(id=>$(id)?.addEventListener('change',()=>{if(id==='sessionCategory')selectCategory($(id).value);else updateSessionSummary();}));$('refreshSessions')?.addEventListener('click',loadSessions);$('closeRoster')?.addEventListener('click',closeRoster);$('rosterBackdrop')?.addEventListener('click',closeRoster);$('allPresent')?.addEventListener('click',()=>{if(!ctx.canWrite)return;currentRoster.forEach(p=>{p.attendance_status='present';p.status='present';});renderRoster();});$('clearMarks')?.addEventListener('click',()=>{if(!ctx.canWrite)return;currentRoster.forEach(p=>{p.attendance_status='';p.status='';});renderRoster();});$('rosterSearch')?.addEventListener('input',e=>{rosterQuery=e.target.value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();renderRoster();});$('saveAttendance')?.addEventListener('click',saveAttendance);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
+['sessionDate','sessionTime','sessionDuration','sessionLocation','sessionTitle'].forEach(id=>$(id)?.addEventListener('change',()=>{
+  // Cambiar la hora o el nombre es pedir una lista nueva; cambiar sólo el día
+  // es ver (o abrir) las de ese día.
+  if(id!=='sessionDate')detallesEditados=true;
+  updateSessionSummary();pintaInicio();
+}));
+$('asHorario')?.addEventListener('click',()=>abreDetalles());
+$('detailsDone')?.addEventListener('click',()=>abreDetalles(false));
+$('refreshSessions')?.addEventListener('click',loadSessions);
+$('closeRoster')?.addEventListener('click',closeRoster);
+$('rosterBackdrop')?.addEventListener('click',closeRoster);
+$('allPresent')?.addEventListener('click',()=>{if(!ctx.canWrite)return;currentRoster.forEach(p=>marca(p,'present'));currentRoster.forEach(pintaEstampa);updateRosterProgress();});
+$('rosterSearch')?.addEventListener('input',e=>{rosterQuery=sinAcentos(e.target.value.trim());renderRoster();});
+$('saveAttendance')?.addEventListener('click',saveAttendance);
+boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 
 
 // === Miniaturas de Tanners (sin descargar originales de varios MB en la lista) ===

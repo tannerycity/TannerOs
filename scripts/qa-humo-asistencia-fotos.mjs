@@ -74,8 +74,9 @@ async function abre({ falla=false } = {}) {
   const p = await abre();
   const caras = await p.$$eval('#rosterList .roster-row', r => r.map(x => (x.querySelector('.roster-avatar img') ? 'foto' : 'iniciales')));
   revisa('[caras] los 2 con miniatura salen con foto y el que no tiene, con iniciales', JSON.stringify(caras) === '["foto","foto","iniciales"]', JSON.stringify(caras));
+  // Rediseño 09/10/2026: sin texto técnico; sólo un aviso de cuántos no tienen foto.
   const estado = (await p.innerText('#rosterPhotoStatus')).trim();
-  revisa('[contador] ya no dice que necesitan miniatura los que sí la tienen', /2 caras visibles · 1 expediente/.test(estado), estado);
+  revisa('[contador] sólo avisa del que de verdad no tiene foto', estado === '1 Tanner sin foto en su expediente', estado);
   const firmadas = await p.evaluate(() => window.__firmadas);
   revisa('[egress] sólo se firman miniaturas, nunca la foto original', firmadas.length === 2 && firmadas.every(x => /profile-thumb/.test(x)), JSON.stringify(firmadas));
   revisa('[almacén] cada miniatura se firma en su almacén (Fichajes o privado)', firmadas.includes('tanneros-prospect-photos:org/prospects/x/profile-thumb.webp') && firmadas.includes('tanneros-private:org/players/p1/profile-thumb.webp'), JSON.stringify(firmadas));

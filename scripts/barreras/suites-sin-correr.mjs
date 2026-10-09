@@ -113,7 +113,10 @@ export default function comprobar() {
   // Sube a 29 por qa-humo-utileria.mjs. Vigila la Utilería rediseñada (qué
   // tenemos, quién lo tiene, reportes; entregar en tres toques) y que ajustar
   // la cantidad no borre la foto. Es pintura sobre v2_equipment_*.
-  const MAX_EXCLUIDAS = 29;
+  // Sube a 30 por qa-humo-asistencia-lista.mjs. Vigila pasar lista en tres
+  // toques: todos presentes de entrada, tocar a los que faltaron, opciones
+  // con toque largo y mis categorías primero. Es pintura sobre v2_attendance_*.
+  const MAX_EXCLUIDAS = 30;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

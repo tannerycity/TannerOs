@@ -61,12 +61,42 @@ await pagina.addInitScript(() => {
     v2_attendance_categories: CATS,
     v2_attendance_sessions: [],
     v2_attendance_stats: STATS,
+    // g3: el tablero de Presidencia.
+    v2_attendance_dashboard: {
+      from: '2026-09-01', to: '2026-09-30', pct: 76.7, previousPct: 70.2, sessions: 10, sessionsTaken: 8,
+      weeks: [
+        { week: '2026-08-31', pct: null, sessions: 0, taken: 0 },
+        { week: '2026-09-07', pct: 81.0, sessions: 3, taken: 3 },
+        { week: '2026-09-14', pct: null, sessions: 2, taken: 0 },
+        { week: '2026-09-21', pct: 72.5, sessions: 3, taken: 3 }
+      ],
+      streaks: [
+        { playerId: 'p1', name: 'Tanner Uno', code: 'TC-001', categoryName: 'T8', streak: 4, lastSeen: null, thumb: null,
+          scholarship: false, guardianName: 'Laura Pérez', phone: '5512345678' },
+        { playerId: 'p2', name: 'Becado Dos', code: 'TC-002', categoryName: 'T10', streak: 3, lastSeen: null, thumb: null,
+          scholarship: true, guardianName: null, phone: null }
+      ],
+      scholarsTotal: 6,
+      scholars: [{ playerId: 'p2', name: 'Becado Dos', categoryName: 'T10', pct: 60.0, attended: 3, marked: 5, goal: 90, streak: 3,
+                   lastSeen: null, thumb: null, guardianName: 'Marta', phone: '5598765432' }],
+      categories: [
+        { categoryId: 'c1', name: 'T8', pct: 76.9, previousPct: 80.0, sessions: 5, taken: 4 },
+        { categoryId: 'c2', name: 'T10', pct: 90.0, previousPct: 85.0, sessions: 5, taken: 5 }
+      ],
+      pending: [
+        { sessionId: 'x1', startsAt: '2026-09-16T00:00:00Z', categoryName: 'T8', coach: 'Profe Uno' },
+        { sessionId: 'x2', startsAt: '2026-09-17T00:00:00Z', categoryName: 'T8', coach: null }
+      ],
+      coaches: [{ userId: 'u9', name: 'Profe Uno', categories: 'T8', sessions: 5, taken: 3, pending: 2 }]
+    },
     v2_attendance_player: JUGADOR
   };
   window.__llamadas = [];
   const fakeSupabase = {
     auth: { getSession: async () => ({ data: { session: { user: { id: 'u1' } } } }) },
-    rpc: async (name, params) => { window.__llamadas.push({ name, params }); return { data: RESPUESTAS[name] ?? null, error: null }; }
+    rpc: async (name, params) => { window.__llamadas.push({ name, params });
+      if (name === 'v2_attendance_dashboard' && window.__sinTablero) return { data: null, error: { message: 'boom' } };
+      return { data: RESPUESTAS[name] ?? null, error: null }; }
   };
   // Intercepta el módulo del cliente antes de que app.js lo importe.
   const realImport = window.__realImport;
@@ -96,17 +126,54 @@ function revisa(nombre, ok, detalle = '') { revisiones.push({ nombre, ok, detall
 revisa('la pestaña Tomar lista sigue siendo la primera', await pagina.isVisible('#captureTab') && await pagina.isHidden('#statsTab'));
 
 await pagina.click('#tabStats');
-await pagina.waitForSelector('#statsKpis article', { timeout: 6000 });
+await pagina.waitForSelector('#statsKpis .as-foco', { timeout: 6000 });
 
-const kpis = await pagina.$$eval('#statsKpis article', els => els.map(e => e.textContent.trim()));
-revisa('salen los 5 indicadores', kpis.length === 5, `salieron ${kpis.length}`);
-revisa('el porcentaje visible es 76.7%', kpis.some(t => t.includes('76.7%')), kpis.join(' | ').slice(0, 160));
+const kpis = await pagina.$$eval('#statsKpis .as-foco', els => els.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
+revisa('salen los 4 focos', kpis.length === 4, `salieron ${kpis.length}`);
+revisa('[focos] racha, becados, meta y listas sin pasar con su número', /^2 En racha/.test(kpis[0]) && /^1 Becados faltando de 6 becados/.test(kpis[1]) && /^4 Debajo de su meta/.test(kpis[2]) && /^2 Listas sin pasar/.test(kpis[3]), kpis.join(' | '));
+revisa('el porcentaje visible es 76.7%', (await pagina.textContent('#heroPct')).trim() === '76.7%', await pagina.textContent('#heroPct'));
+const delta = (await pagina.textContent('#heroDelta')).replace(/\s+/g, ' ');
+revisa('[marcador] dice cuánto subió contra el periodo anterior', /\+6\.5 pts/.test(delta) && /70\.2%/.test(delta), delta);
+revisa('[marcador] dice cuántas listas se pasaron', /8 de 10 listas pasadas/.test(await pagina.textContent('#heroListas')), await pagina.textContent('#heroListas'));
 
 const aviso = await pagina.textContent('#statsTrust');
-revisa('avisa de las listas sin marcar', /48 listas sin marcar/.test(aviso), aviso.slice(0, 120));
+revisa('avisa de las marcas sin registrar', /48 marcas sin registrar/.test(aviso), aviso.slice(0, 120));
 revisa('explica que el % sale solo de lo marcado', /120/.test(aviso), aviso.slice(0, 120));
 
-const chips = await pagina.$$eval('.lvl', els => els.map(e => e.textContent.trim()));
+// Gráfica por semana
+const barras = await pagina.$$eval('#statsTrend .as-barra', els => els.map(e => e.getAttribute('class')));
+revisa('[gráfica] una barra por semana', barras.length === 4, String(barras.length));
+revisa('[gráfica] la semana con entrenamientos sin lista no se pinta como 0%', /as-barra-sinlista/.test(barras[2]) && /as-barra-vacia/.test(barras[0]), JSON.stringify(barras));
+revisa('[gráfica] la semana debajo de la meta se distingue', /bajo/.test(barras[3]) && !/bajo/.test(barras[1]));
+revisa('[gráfica] lee la última semana con datos', /Semana del 21 sep: 72\.5%/.test(await pagina.textContent('#statsTrendRead')), await pagina.textContent('#statsTrendRead'));
+await pagina.click('#statsTrend .as-barra[data-i="2"]');
+revisa('[gráfica] tocar una barra explica esa semana', /2 entrenamientos sin lista/.test(await pagina.textContent('#statsTrendRead')), await pagina.textContent('#statsTrendRead'));
+
+// Racha, categorías y listas sin pasar
+const racha = (await pagina.innerText('#statsStreaks')).replace(/\s+/g, ' ');
+revisa('[racha] sale el Tanner con 4 faltas seguidas', /Tanner Uno/.test(racha) && /4\s*faltas/i.test(racha) && /No ha venido en los últimos 60 días/.test(racha), racha);
+// Becados y escribir a la familia
+const filasRacha = await pagina.$$eval('#statsStreaks .as-racha', els => els.map(e => ({ becado: !!e.querySelector('.as-sello'), wa: e.querySelector('.as-familia')?.href || null })));
+revisa('[racha] el becado trae su sello y el que no, no', filasRacha[0]?.becado === false && filasRacha[1]?.becado === true, JSON.stringify(filasRacha));
+revisa('[familia] sin teléfono no hay botón', filasRacha[1]?.wa === null);
+const msjRacha = decodeURIComponent((filasRacha[0]?.wa || '').split('?text=')[1] || '');
+revisa('[familia] el botón abre WhatsApp al tutor con lada', /^https:\/\/wa\.me\/525512345678\?text=/.test(filasRacha[0]?.wa || ''), filasRacha[0]?.wa);
+revisa('[familia] el mensaje va firmado por el club, no por una persona', /^Hola Laura, te escribimos de Tannery City FC\./.test(msjRacha) && /Saludos,\nTannery City FC$/.test(msjRacha) && !/te saluda/.test(msjRacha), msjRacha);
+revisa('[familia] dice cuántas faltas lleva', /Tanner no ha venido a sus últimos 4 entrenamientos de T8/.test(msjRacha), msjRacha);
+const beca = (await pagina.innerText('#scholarsCard')).replace(/\s+/g, ' ');
+revisa('[becados] dice cuántos de cuántos', /1 de 6 becados/.test(beca), beca.slice(0, 160));
+revisa('[becados] el becado faltando sale con su % contra 90', /Becado Dos/.test(beca) && /60%/.test(beca) && /de 90%/i.test(beca), beca);
+const waBeca = await pagina.getAttribute('#statsScholars .as-familia', 'href');
+const msjBeca = decodeURIComponent((waBeca || '').split('?text=')[1] || '');
+revisa('[becados] el mensaje es de atención: no menciona la beca', /Becado no ha venido a sus últimos 3 entrenamientos/.test(msjBeca) && !/su beca|90 ?%|asistencia/i.test(msjBeca), msjBeca);
+
+const cats = await pagina.$$eval('#statsCats .as-cat strong', els => els.map(e => e.textContent));
+revisa('[categorías] ordenadas de mejor a peor', JSON.stringify(cats) === '["T10","T8"]', JSON.stringify(cats));
+revisa('[categorías] con su cambio y sus listas', /-3\.1 pts/.test(await pagina.textContent('#statsCats')) && /4 de 5 listas pasadas/.test(await pagina.textContent('#statsCats')));
+const pend = (await pagina.textContent('#pendingCard')).replace(/\s+/g, ' ');
+revisa('[pendientes] dice de qué profe es cada lista sin pasar', /Profe Uno/.test(pend) && /Sin profe asignado/.test(pend) && /3\/5/.test(pend), pend.slice(0, 200));
+
+const chips = await pagina.$$eval('#statsTab .lvl', els => els.map(e => e.textContent.trim()));
 revisa('ningún semáforo va sin texto', chips.every(t => t.length > 2), chips.join(' | ').slice(0, 140));
 
 // El becado al 85% tiene que salir marcado, el ordinario al 85% no saldría.
@@ -130,14 +197,25 @@ revisa('la justificada se identifica aparte', /Justificadas/.test(cuerpo) && /1/
 revisa('los retardos en cero explican que nadie los registra', /aún no se registran retardos/.test(cuerpo), cuerpo.slice(0, 260));
 revisa('el historial distingue justificada de falta', /Falta justificada/.test(cuerpo) && /Presente/.test(cuerpo));
 
+// Si el tablero falla, las estadísticas salen igual con lo de siempre.
+await pagina.click('#closePlayer');
+await pagina.waitForTimeout(150);
+await pagina.evaluate(() => { window.__sinTablero = true; });
+await pagina.click('#periodPills button[data-periodo="semana"]');
+await pagina.waitForTimeout(300);
+revisa('[falla] sin tablero, el porcentaje sale igual', (await pagina.textContent('#heroPct')).trim() === '76.7%', await pagina.textContent('#heroPct'));
+revisa('[falla] y la lista de debajo de su meta también', (await pagina.$$('#statsLow .low-row')).length === 2);
+revisa('[falla] sin mensaje de error para Presidencia', await pagina.isHidden('#statsMessage'));
+await pagina.evaluate(() => { window.__sinTablero = false; });
+await pagina.click('#periodPills button[data-periodo="mes"]');
+await pagina.waitForTimeout(300);
+
 // Móvil: nada se desborda a lo ancho
 const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 revisa('no hay scroll horizontal en iPhone', !desborde);
 
 // Evidencias visuales
 const EV = path.join(RAIZ, 'docs/evidencias');
-await pagina.click('#closePlayer');
-await pagina.waitForTimeout(150);
 await pagina.screenshot({ path: EV + '/asistencia-estadisticas.png', fullPage: true });
 await pagina.click('#statsLow .low-row');
 await pagina.waitForSelector('#playerDrawer:not(.hidden)');

@@ -8,7 +8,9 @@
 import assert from 'node:assert/strict';
 import { metaDe, estadoDeAsistencia, porcentaje, confianza, tendencia,
          rangoDe, iso, etiquetaDeEstado, desgloseDeFaltas,
-         textoDeContadorOpcional, META_ORDINARIA, META_BECADO }
+         textoDeContadorOpcional, META_ORDINARIA, META_BECADO,
+         barrasDeSemanas, etiquetaDeSemana, textoUltimaVez, coberturaDeListas,
+         mensajeDeFaltas }
   from '../v2/asistencia/estadisticas.js';
 
 let fallos = 0, corridas = 0;
@@ -156,6 +158,83 @@ prueba('un cero explica que nadie lo registra, en vez de mentir', () => {
   assert.equal(textoDeContadorOpcional(3, 307, 'retardos'), '3');
   // Sin listas marcadas no se dice nada de nada.
   assert.equal(textoDeContadorOpcional(0, 0, 'retardos'), '—');
+});
+
+// === Tablero de Presidencia ===
+
+prueba('una semana con entrenamientos pero sin listas no se pinta como 0%', () => {
+  const { barras } = barrasDeSemanas([
+    { week: '2026-09-14', pct: null, sessions: 0, taken: 0 },
+    { week: '2026-09-21', pct: null, sessions: 1, taken: 0 },
+    { week: '2026-09-28', pct: 72, sessions: 5, taken: 4 }
+  ]);
+  assert.deepEqual(barras.map(b => b.estado), ['vacia', 'sinlista', 'dato']);
+  assert.equal(barras[1].pct, null);
+  assert.equal(barras[1].h, 0);
+  assert.ok(barras[2].h > 0);
+});
+
+prueba('la altura de la barra es proporcional y la meta cae en su lugar', () => {
+  const { barras, yMeta, alto } = barrasDeSemanas([{ pct: 100, sessions: 1 }, { pct: 50, sessions: 1 }], { alto: 100, ancho: 200 });
+  assert.equal(barras[0].h, 100);
+  assert.equal(barras[1].h, 50);
+  assert.equal(yMeta, 20);
+  assert.equal(alto, 100);
+  assert.equal(barras[1].bajoMeta, true);
+  assert.equal(barras[0].bajoMeta, false);
+});
+
+prueba('las barras no se salen del ancho', () => {
+  const { barras } = barrasDeSemanas(Array.from({ length: 10 }, () => ({ pct: 80, sessions: 1 })), { ancho: 320 });
+  const ultima = barras.at(-1);
+  assert.ok(ultima.x + ultima.w <= 320);
+  assert.ok(barras[0].x >= 0);
+});
+
+prueba('la semana se nombra por su lunes', () => {
+  assert.equal(etiquetaDeSemana('2026-10-05'), '5 oct');
+  assert.equal(etiquetaDeSemana(null), '');
+});
+
+prueba('la racha dice hace cuánto vino', () => {
+  const hoy = new Date(2026, 9, 9, 10);
+  assert.equal(textoUltimaVez(null, hoy), 'No ha venido en los últimos 60 días');
+  assert.equal(textoUltimaVez(new Date(2026, 8, 27, 18).toISOString(), hoy), 'Vino por última vez hace 12 días');
+  assert.equal(textoUltimaVez(new Date(2026, 9, 8, 18).toISOString(), hoy), 'Vino ayer');
+});
+
+prueba('la cobertura de listas tiene semáforo', () => {
+  assert.equal(coberturaDeListas(6, 6).nivel, 'ok');
+  assert.equal(coberturaDeListas(4, 5).nivel, 'atencion');
+  assert.equal(coberturaDeListas(4, 6).nivel, 'bajo');
+  assert.equal(coberturaDeListas(0, 0).nivel, 'sindato');
+  assert.equal(coberturaDeListas(4, 6).texto, '4 de 6 listas pasadas');
+});
+
+// === Escribir a la familia ===
+
+prueba('el mensaje va firmado por el club, no por una persona', () => {
+  const m = mensajeDeFaltas({ tanner: 'GISELE Sanchez', tutor: 'Juan Ignacio Ramírez', categoria: 'Mini Baby Tanner', faltas: 5, club: 'Tannery City FC' });
+  assert.match(m, /^Hola Juan, te escribimos de Tannery City FC\./);
+  assert.match(m, /Gisele no ha venido a sus últimos 5 entrenamientos de Mini Baby Tanner/);
+  assert.match(m, /Saludos,\nTannery City FC$/);
+  assert.doesNotMatch(m, /te saluda/);
+});
+
+prueba('es un mensaje de atención: nunca menciona la beca ni el 90%', () => {
+  // Presidencia, 09/10/2026: "es un mensaje de atención, no más para saber".
+  const m = mensajeDeFaltas({ tanner: 'Ana', faltas: 3, pct: 40, asistio: 2, marcadas: 5, becado: true });
+  assert.doesNotMatch(m, /beca/i);
+  assert.doesNotMatch(m, /90/);
+});
+
+prueba('un becado sin racha pero bajo de asistencia recibe sus números', () => {
+  const m = mensajeDeFaltas({ tanner: 'Bruno', categoria: 'T10', faltas: 0, pct: 66.7, asistio: 2, marcadas: 3 });
+  assert.match(m, /Bruno ha venido a 2 de 3 entrenamientos de T10 este periodo/);
+});
+
+prueba('sin nombre del tutor el saludo no queda roto', () => {
+  assert.match(mensajeDeFaltas({ tanner: 'Leo', faltas: 4 }), /^Hola, te escribimos de Tannery City\./);
 });
 
 if (fallos) { console.error(`Asistencia stats QA FAILED · ${fallos} de ${corridas}`); process.exit(1); }

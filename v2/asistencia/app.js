@@ -1,8 +1,11 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { PERIODOS, rangoDe, estadoDeAsistencia, metaDe, confianza, tendencia,
-         etiquetaDeEstado, desgloseDeFaltas, textoDeContadorOpcional }
+         etiquetaDeEstado, desgloseDeFaltas, textoDeContadorOpcional,
+         barrasDeSemanas, etiquetaDeSemana, textoUltimaVez, coberturaDeListas,
+         mensajeDeFaltas }
   from '/v2/asistencia/estadisticas.js';
+import { ligaWhatsApp } from '/v2/pedido-mensajes.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const $=id=>document.getElementById(id);let ctx=null,categories=[],sessions=[],currentSession=null,currentRoster=[],rosterQuery='';
 let bajaTarget=null;const bajaReportados=new Set();
@@ -386,6 +389,8 @@ function cambiarPestana(cual){
   $('tabCapture')?.setAttribute('aria-selected',String(!esStats));
   $('tabStats')?.setAttribute('aria-selected',String(esStats));
   $('captureTab')?.classList.toggle('hidden',esStats);
+  // La hora del entrenamiento sólo importa para pasar lista.
+  $('asHorario')?.classList.toggle('hidden',esStats);
   $('statsTab')?.classList.toggle('hidden',!esStats);
   if(esStats&&!statsIniciado)iniciarStats();
 }
@@ -420,64 +425,191 @@ function iniciarStats(){
   cargarStats();
 }
 
+let tableroData=null;
+
 async function cargarStats(){
   msg('statsMessage');
   const r=rangoDe(statsPeriodo);
   $('statsRange').textContent=`${r.etiqueta} · del ${r.desde} al ${r.hasta}`;
-  $('statsKpis').innerHTML='<article class="wide"><span class="kpi-note">Calculando…</span></article>';
+  $('heroPct').textContent='…';$('heroNivel').innerHTML='';$('heroDelta').textContent='Calculando…';$('heroListas').textContent='';
+  const cat=$('statsCategory')?.value||null;
   try{
-    statsData=await rpc('v2_attendance_stats',{
-      organization_id:ctx.organization_id,
-      from_date:r.desde,to_date:r.hasta,
-      category_id:$('statsCategory')?.value||null,
-      session_type:$('statsType')?.value||null
-    });
+    // El tablero (g3) es aparte: si falla, el resto de las estadísticas sale igual.
+    const [stats,tablero]=await Promise.all([
+      rpc('v2_attendance_stats',{organization_id:ctx.organization_id,from_date:r.desde,to_date:r.hasta,category_id:cat,session_type:$('statsType')?.value||null}),
+      rpc('v2_attendance_dashboard',{organization_id:ctx.organization_id,from_date:r.desde,to_date:r.hasta,category_id:cat}).catch(()=>null)
+    ]);
+    statsData=stats;tableroData=tablero;
     pintarStats();
   }catch(e){
+    $('heroPct').textContent='—';$('heroDelta').textContent='';
     $('statsKpis').innerHTML='';
     msg('statsMessage',friendly(e));
   }
 }
 
-function pintarStats(){
-  const t=statsData?.totals||{};
-  const meta=80;
-  const estado=estadoDeAsistencia(t.pct,meta);
-  const conf=confianza(t.marked,t.scheduled);
-  const f=desgloseDeFaltas(t);
+const nombreDelPeriodoAnterior={semana:'la semana pasada',mes:'el mes pasado',mesPasado:'el mes anterior',trimestre:'los 3 meses anteriores'};
 
-  $('statsKpis').innerHTML=`
-    <article><span class="kpi-label">Jugadores</span><b class="kpi-value">${Number(t.players||0)}</b><span class="kpi-note">${Number(t.sessions||0)} entrenamientos</span></article>
-    <article><span class="kpi-label">Asistencias</span><b class="kpi-value">${Number(t.attended||0)}</b><span class="kpi-note">de ${Number(t.marked||0)} listas marcadas</span></article>
-    <article><span class="kpi-label">Faltas</span><b class="kpi-value">${f.faltas}</b><span class="kpi-note">${f.justificadas?`${f.justificadas} justificadas`:'ninguna justificada'}</span></article>
-    <article><span class="kpi-label">Asistencia</span><b class="kpi-value">${pctTexto(t.pct)}</b><span class="kpi-note">${nivelChip(estado)}</span></article>
-    <article class="wide"><span class="kpi-label">Asistencia baja</span><b class="kpi-value">${Number(t.lowPlayers||0)}</b><span class="kpi-note">Tanners debajo de su objetivo (80% ordinario · 90% con beca)</span></article>`;
+function pintarStats(){
+  const t=statsData?.totals||{},d=tableroData||{};
+  const meta=80;
+  const pct=d.pct??t.pct;
+  const estado=estadoDeAsistencia(pct,meta);
+  const tend=tendencia(pct,d.previousPct);
+  const cob=coberturaDeListas(d.sessionsTaken,d.sessions);
+  const rachas=Array.isArray(d.streaks)?d.streaks:[];
+  const pendientes=Array.isArray(d.pending)?d.pending:[];
+  const becados=Array.isArray(d.scholars)?d.scholars:[];
+
+  // El marcador
+  const hero=$('statsHero');hero.dataset.nivel=estado.nivel;
+  $('heroPct').textContent=pctTexto(pct);
+  $('heroNivel').innerHTML=nivelChip(estado);
+  $('heroDelta').innerHTML=tend.direccion==='nueva'
+    ?esc(tend.texto)
+    :`<span class="as-delta as-delta-${tend.direccion}"><i aria-hidden="true">${esc(tend.icono)}</i>${tend.delta>0?'+':''}${esc(String(tend.delta))} pts</span> contra ${esc(nombreDelPeriodoAnterior[statsPeriodo]||'el periodo anterior')} (${esc(pctTexto(d.previousPct))})`;
+  $('heroListas').textContent=d.sessions!=null?`${cob.texto} · ${Number(t.marked||0)} marcas · ${Number(t.players||0)} Tanners`:`${Number(t.marked||0)} marcas · ${Number(t.players||0)} Tanners`;
+
+  // Los tres focos
+  const foco=(id,n,titulo,nota,nivel,destino)=>`<button type="button" class="as-foco as-foco-${n?nivel:'ok'}" data-ir="${destino}" id="${id}"><b>${n}</b><strong>${titulo}</strong><small>${nota}</small></button>`;
+  $('statsKpis').innerHTML=
+    foco('focoRacha',rachas.length,'En racha de faltas','3 o más seguidas','bajo','streaksCard')+
+    foco('focoBecados',becados.length,'Becados faltando',d.scholarsTotal!=null?`de ${Number(d.scholarsTotal||0)} becados`:'meta 90%','atencion','scholarsCard')+
+    foco('focoMeta',Number(t.lowPlayers||0),'Debajo de su meta','80% · 90% con beca','atencion','lowCard')+
+    foco('focoListas',pendientes.length,'Listas sin pasar',d.sessions!=null?`de ${Number(d.sessions||0)} entrenamientos`:'en el periodo','bajo','pendingCard');
+  $('statsKpis').querySelectorAll('[data-ir]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.ir)?.scrollIntoView({behavior:'smooth',block:'start'})));
 
   const trust=$('statsTrust');
-  trust.dataset.nivel=conf.nivel;
-  trust.innerHTML=Number(t.unmarked||0)
-    ? `<span aria-hidden="true">⚑</span><span><b>${Number(t.unmarked)} listas sin marcar.</b> El porcentaje de arriba sale solo de las ${Number(t.marked||0)} que sí se cerraron. ${esc(conf.texto)}.</span>`
-    : `<span aria-hidden="true">✓</span><span><b>Todas las listas del periodo están cerradas.</b> El porcentaje se sostiene de los ${Number(t.marked||0)} registros completos.</span>`;
+  const sinMarcar=Number(t.unmarked||0);
+  trust.dataset.nivel=sinMarcar?confianza(t.marked,t.scheduled).nivel:'ok';
+  trust.innerHTML=sinMarcar
+    ?`<span><b>${sinMarcar} marcas sin registrar.</b> El porcentaje sale sólo de las ${Number(t.marked||0)} que sí se marcaron.</span>`
+    :`<span><b>Todas las listas del periodo están completas.</b> El porcentaje sale de ${Number(t.marked||0)} marcas.</span>`;
 
-  const cats=statsData?.categories||[];
-  $('statsCats').innerHTML=cats.map(c=>{
-    const e=estadoDeAsistencia(c.pct,80);
-    const bajos=(c.lowest||[]).filter(x=>x.pct!==null&&x.pct<x.goal);
-    return `<article class="cat-card">
-      <div class="cat-card-head"><div><strong>${esc(c.name||c.code||'Categoría')}</strong>
-      <small>${Number(c.activePlayers||0)} activos · ${Number(c.sessions||0)} entrenamientos</small></div>${nivelChip(e)}</div>
-      <div class="cat-figures">
-        <div><span>Asistencia</span><b>${pctTexto(c.pct)}</b></div>
-        <div><span>Semanal</span><b>${pctTexto(c.weeklyPct)}</b></div>
-        <div><span>Mensual</span><b>${pctTexto(c.monthlyPct)}</b></div>
-        <div><span>Faltas</span><b>${Number(c.absences||0)}</b></div>
-      </div>
-      ${bajos.length?`<div class="cat-lowest"><div class="eyebrow">MENOR ASISTENCIA</div>${bajos.map(filaBajo).join('')}</div>`:''}
-    </article>`;
-  }).join('')||'<p class="muted">No hay entrenamientos en este periodo.</p>';
-  $('statsCats').querySelectorAll('[data-player]').forEach(b=>b.addEventListener('click',()=>abrirJugador(b.dataset.player)));
-
+  pintarTendencia(d.weeks||[]);
+  pintarRachas(rachas);
+  pintarBecados(becados,d.scholarsTotal);
+  pintarCategorias(d.categories,statsData?.categories||[]);
+  pintarPendientes(pendientes,d.coaches);
   pintarBajos();
+}
+
+/* Barras por semana: una sola serie, la línea de meta y la lectura al tocar. */
+function pintarTendencia(semanas){
+  const box=$('statsTrend');
+  const {barras,yMeta,alto,ancho}=barrasDeSemanas(semanas,{ancho:320,alto:132});
+  if(!barras.length){box.innerHTML='<p class="muted">Sin semanas para mostrar.</p>';$('statsTrendRead').textContent='';return;}
+  const ult=[...barras].reverse().find(b=>b.estado==='dato');
+  const lectura=b=>b.estado==='dato'
+    ?`Semana del ${etiquetaDeSemana(b.semana)}: ${pctTexto(b.pct)} de asistencia · ${b.pasadas} de ${b.sesiones} listas pasadas`
+    :(b.estado==='sinlista'?`Semana del ${etiquetaDeSemana(b.semana)}: ${b.sesiones} ${b.sesiones===1?'entrenamiento':'entrenamientos'} sin lista`:`Semana del ${etiquetaDeSemana(b.semana)}: sin entrenamientos`);
+  box.innerHTML=`<svg viewBox="-2 -18 ${ancho+4} ${alto+40}" role="img" aria-label="Asistencia por semana, últimas ${barras.length} semanas">
+    <line class="as-eje" x1="0" x2="${ancho}" y1="${alto}" y2="${alto}"/>
+    <line class="as-meta" x1="0" x2="${ancho}" y1="${yMeta}" y2="${yMeta}"/>
+    <text class="as-meta-txt" x="0" y="${yMeta-5}">Meta 80%</text>
+    ${barras.map((b,i)=>`<g class="as-barra as-barra-${b.estado}${b.bajoMeta?' bajo':''}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(lectura(b))}">
+      <rect class="as-hit" x="${b.x-4}" y="-18" width="${b.w+8}" height="${alto+40}"/>
+      ${b.estado==='dato'?`<path d="M${b.x},${alto} V${b.y+4} q0,-4 4,-4 h${b.w-8} q4,0 4,4 V${alto} Z"/>`:''}
+      ${b.estado==='sinlista'?`<rect class="as-sinlista" x="${b.x}" y="${alto-6}" width="${b.w}" height="6" rx="2"/>`:''}
+      ${(i%2===barras.length%2||i===barras.length-1)?`<text class="as-x" x="${b.cx}" y="${alto+16}">${esc(etiquetaDeSemana(b.semana))}</text>`:''}
+    </g>`).join('')}
+    ${ult?`<text class="as-valor" x="${ult.cx}" y="${Math.min(ult.y,yMeta)-7}">${esc(pctTexto(ult.pct))}</text>`:''}
+  </svg>`;
+  const read=$('statsTrendRead');
+  read.textContent=ult?lectura(ult):'Ninguna semana tiene listas pasadas.';
+  box.querySelectorAll('.as-barra').forEach(g=>{
+    const b=barras[Number(g.dataset.i)];
+    const marca=()=>{box.querySelectorAll('.as-barra').forEach(x=>x.classList.toggle('activa',x===g));read.textContent=lectura(b);};
+    g.addEventListener('mouseenter',marca);g.addEventListener('click',marca);g.addEventListener('focus',marca);
+  });
+}
+
+/* Botón de WhatsApp con el mensaje listo, firmado por el club. Sólo sale
+   cuando el servidor manda el teléfono, y sólo lo manda a quien administra. */
+function botonFamilia(t,{faltas,pct,asistio,marcadas}){
+  const liga=ligaWhatsApp(t.phone,mensajeDeFaltas({tanner:t.name,tutor:t.guardianName,categoria:t.categoryName,faltas,pct,asistio,marcadas,club:ctx?.organization_name||'Tannery City'}));
+  return liga?`<a class="as-familia" href="${esc(liga)}" target="_blank" rel="noopener">Escribir a la familia</a>`:'';
+}
+const sello='<span class="as-sello">Becado</span>';
+
+function pintarRachas(rachas){
+  const box=$('statsStreaks');
+  if(!rachas.length){box.innerHTML='<p class="as-vacio">Nadie lleva 3 faltas seguidas. Bien ahí.</p>';return;}
+  box.innerHTML=rachas.map(r=>`<div class="as-racha${r.scholarship?' es-becado':''}">
+      <button type="button" class="as-racha-abre" data-player="${esc(r.playerId)}">
+        <span class="as-racha-cara" data-thumb="${esc(r.thumb||'')}" data-bucket="${esc(r.bucket||'')}">${esc(iniciales(r.name))}</span>
+        <span class="as-racha-txt"><strong>${esc(r.name||'Tanner')}</strong>${r.scholarship?sello:''}<small>${esc(r.categoryName||'')} · ${esc(textoUltimaVez(r.lastSeen))}</small></span>
+        <span class="as-racha-n"><b>${Number(r.streak||0)}</b><small>faltas</small></span>
+      </button>
+      ${botonFamilia(r,{faltas:r.streak})}
+    </div>`).join('');
+  box.querySelectorAll('[data-player]').forEach(b=>b.addEventListener('click',()=>abrirJugador(b.dataset.player)));
+  firmaCaras(box);
+}
+
+/* Becados que están faltando: debajo de 90% o con 2 faltas seguidas. */
+function pintarBecados(becados,total){
+  const box=$('statsScholars');
+  $('scholarsResumen').textContent=total!=null?`${becados.length} de ${Number(total||0)} becados · meta 90%`:'Meta 90% de asistencia';
+  if(!becados.length){box.innerHTML=`<p class="as-vacio">${Number(total||0)?'Todos los becados van en su meta. Bien ahí.':'No hay becados con entrenamientos en este periodo.'}</p>`;return;}
+  box.innerHTML=becados.map(b=>{
+    const e=estadoDeAsistencia(b.pct,90);
+    return `<div class="as-racha es-becado">
+      <button type="button" class="as-racha-abre" data-player="${esc(b.playerId)}">
+        <span class="as-racha-cara" data-thumb="${esc(b.thumb||'')}" data-bucket="${esc(b.bucket||'')}">${esc(iniciales(b.name))}</span>
+        <span class="as-racha-txt"><strong>${esc(b.name||'Tanner')}</strong>${sello}<small>${esc(b.categoryName||'')} · ${Number(b.attended||0)} de ${Number(b.marked||0)} entrenamientos${Number(b.streak||0)>=2?` · ${Number(b.streak)} faltas seguidas`:''}</small></span>
+        <span class="as-beca-pct as-beca-${e.nivel}"><b>${esc(pctTexto(b.pct))}</b><small>de 90%</small></span>
+      </button>
+      ${botonFamilia(b,{faltas:b.streak,pct:b.pct,asistio:b.attended,marcadas:b.marked})}
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-player]').forEach(x=>x.addEventListener('click',()=>abrirJugador(x.dataset.player)));
+  firmaCaras(box);
+}
+
+// Las caras de la racha: sólo miniaturas, por el caché compartido.
+async function firmaCaras(box){
+  const porBucket={};
+  box.querySelectorAll('[data-thumb]').forEach(el=>{if(el.dataset.thumb)(porBucket[el.dataset.bucket||'tanneros-private']??=[]).push(el.dataset.thumb);});
+  try{
+    for(const b of Object.keys(porBucket)){
+      const mapa=await getSignedPhotoUrls(supabase,b,porBucket[b]);
+      box.querySelectorAll('[data-thumb]').forEach(el=>{const u=mapa[el.dataset.thumb];if(u&&(el.dataset.bucket||'tanneros-private')===b)el.innerHTML=`<img src="${esc(u)}" alt="" loading="lazy">`;});
+    }
+  }catch{/* quedan las iniciales */}
+}
+
+function pintarCategorias(cats,detalle){
+  const box=$('statsCats');
+  const lista=Array.isArray(cats)&&cats.length?cats:(detalle||[]).map(c=>({categoryId:c.categoryId,name:c.name,pct:c.pct,previousPct:null,sessions:null,taken:null}));
+  if(!lista.length){box.innerHTML='<p class="as-vacio">No hay entrenamientos en este periodo.</p>';return;}
+  const orden=[...lista].sort((a,b)=>(b.pct??-1)-(a.pct??-1));
+  box.innerHTML=orden.map(c=>{
+    const e=estadoDeAsistencia(c.pct,80),tn=tendencia(c.pct,c.previousPct);
+    const cob=c.sessions!=null?coberturaDeListas(c.taken,c.sessions):null;
+    const ancho=c.pct==null?0:Math.max(2,Math.min(100,Number(c.pct)));
+    return `<div class="as-cat as-cat-${e.nivel}">
+      <div class="as-cat-cab"><strong>${esc(c.name||'Categoría')}</strong><b>${esc(pctTexto(c.pct))}</b></div>
+      <div class="as-cat-barra" aria-hidden="true"><i style="width:${ancho}%"></i><em style="left:80%"></em></div>
+      <div class="as-cat-pie">${nivelChip(e)}${tn.direccion==='nueva'?'':`<span class="as-delta as-delta-${tn.direccion}"><i aria-hidden="true">${esc(tn.icono)}</i>${tn.delta>0?'+':''}${esc(String(tn.delta))} pts</span>`}${cob?`<small class="as-cob as-cob-${cob.nivel}">${esc(cob.texto)}</small>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+function pintarPendientes(pendientes,profes){
+  const tabla=$('statsCoaches');
+  const conProfes=Array.isArray(profes)&&profes.length;
+  tabla.innerHTML=conProfes?profes.map(p=>{
+    const cob=coberturaDeListas(p.taken,p.sessions);
+    return `<div class="as-profe as-profe-${cob.nivel}"><span class="as-profe-txt"><strong>${esc(p.name)}</strong><small>${esc(p.categories||'')}</small></span><span class="as-profe-n"><b>${Number(p.taken||0)}/${Number(p.sessions||0)}</b><small>listas</small></span></div>`;
+  }).join(''):'';
+  tabla.classList.toggle('hidden',!conProfes);
+  const box=$('statsPending');
+  if(!pendientes.length){box.innerHTML='<p class="as-vacio">Todas las listas del periodo están pasadas.</p>';return;}
+  box.innerHTML=pendientes.map(s=>{const f=new Date(s.startsAt);return `<div class="as-pend">
+    <span class="as-fecha"><b>${f.getDate()}</b><small>${esc(f.toLocaleDateString('es-MX',{month:'short'}).replace('.',''))}</small></span>
+    <span class="as-pend-txt"><strong>${esc(s.categoryName||'Sin categoría')}</strong><small>${esc(fmtHora(s.startsAt))} · ${esc(s.coach||'Sin profe asignado')}</small></span>
+  </div>`;}).join('');
 }
 
 function filaBajo(j){

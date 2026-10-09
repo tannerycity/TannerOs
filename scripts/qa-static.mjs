@@ -16,6 +16,9 @@ const routeContract={
   '/jugadores/':'v2/jugadores/index.html',
   '/asistencia/':'v2/asistencia/index.html',
   '/becas/':'v2/becas/index.html',
+  // Levantar pedido. Los links a /v2/captura/ los reescribe branding-auto a
+  // /captura/, que no existía: 404 al levantar pedidos (09/10/2026).
+  '/captura/':'v2/captura/index.html',
   '/convocatoria/':'v2/convocatoria/index.html',
   '/calendario/':'v2/calendario/index.html',
   '/operacion/academias/':'v2/academias/index.html',

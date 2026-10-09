@@ -516,7 +516,7 @@ const ACCIONES_POR_ROL={
   Academia:['miAcademia','mensaje'],
   Scouting:['registrar','scouting','captacion']
 };
-const RUTAS_SIN_BOTON=['/taquilla','/estacionamiento','/v2/captura','/v2/taquilla','/v2/estacionamiento'];
+const RUTAS_SIN_BOTON=['/taquilla','/estacionamiento','/captura','/v2/captura','/v2/taquilla','/v2/estacionamiento'];
 export function accionesRapidas(ctx,navigation){
   const rol=ctx?.is_owner?'Presidencia':ctx?.role;
   return (ACCIONES_POR_ROL[rol]||[]).map(k=>({clave:k,...ACCIONES_RAPIDAS[k]})).filter(a=>a.siempre||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe))));

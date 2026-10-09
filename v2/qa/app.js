@@ -123,7 +123,7 @@ const fullRouteMatrix=[
   ['families','Familias','/familias/','players'],['parking','Estacionamiento','/estacionamiento/','parking'],['messages','Mensajes','/mensajes/','messages'],['players-full','Jugadores','/jugadores/','players'],
   ['attendance','Asistencia','/asistencia/','attendance'],['scholarships','Becas','/becas/','club'],['callups','Convocatoria','/convocatoria/','attendance'],['calendar','Calendario','/calendario/','calendar'],
   ['academies','Academias','/operacion/academias/','academies'],['prospects-full','Captación','/prospectos/','prospects'],['scouting-full','Scouting','/scouting/','scouting'],
-  ['orders-full','Pedidos','/pedidos/','commerce'],['equipment','Utilería','/utileria/','equipment'],['sponsors','Patrocinios','/patrocinadores/','sponsors'],
+  ['orders-full','Pedidos','/pedidos/','commerce'],['order-capture','Levantar pedido','/captura/','commerce'],['equipment','Utilería','/utileria/','equipment'],['sponsors','Patrocinios','/patrocinadores/','sponsors'],
   ['accounting','Contabilidad','/contabilidad/','finance'],['users','Usuarios','/usuarios/','users'],['admin-full','Administración','/admin/','admin'],
   ['qa','Centro de Calidad','/qa/','qa'],['modules','Puertas disponibles','/modulos/','admin'],['sport','Área deportiva','/deportivo/','sport'],
   ['goalkeepers','Porteros','/porteros/','sport'],['production','Producción','/produccion/','commerce'],['programs-v2','Programas y eventos','/operacion/programas/','programs'],

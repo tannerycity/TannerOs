@@ -25,17 +25,13 @@
  * en grande, las piezas después, el selector de talla plegado. Primero se
  * elige, y sólo entonces se piden los datos.
  *
- * UN PEDIDO A LA VEZ, Y ESO NO ES UN RECORTE
+ * UN SOLO FOLIO POR COMPRA (carrito, 09/10/2026)
  *
- * v2_public_bundle_order recibe UN kit y v2_public_order_enhanced una lista de
- * productos: son dos llamadas distintas y cada una levanta su propio folio. Un
- * carrito mezclado tendría que partirse en dos pedidos con dos folios, y la
- * familia recibiría dos confirmaciones por una sola compra.
- *
- * Así que aquí no hay carrito: se elige una cosa, se confirma, y quien quiera
- * dos hace dos. Es lo que el club puede cumplir hoy sin tocar una función que
- * ya cobra dinero. Fingir un carrito que el backend no sabe entregar sería
- * peor que no tenerlo.
+ * Antes se levantaba una cosa por pedido: kit + calcetas extra eran dos
+ * folios, dos confirmaciones y dos depósitos. Ahora se agrega al carrito lo
+ * que se quiera y v2_public_cart_order levanta UN pedido con todo. Las reglas
+ * de cada línea son las del portal de familias (portal_place_order): el kit
+ * completo con tallas y su precio repartido entre sus piezas.
  *
  * SIN FOTOS, A PROPOSITO
  *
@@ -46,9 +42,10 @@
 import { createClient } from '/v2/supabase-client.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
-import { preparaLinea, preparaKit, ranurasDeKit, precioDeKit, tiersDeKit, acomodaVitrina }
+import { preparaLinea, preparaKit, tiersDeKit, acomodaVitrina,
+         agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
   from '/v2/tienda.js';
-import { esc, dinero as money, tarjetaProducto, tarjetaKit, normalizaOfertaPublica }
+import { esc, dinero as money, tarjetaProducto, tarjetaKit, normalizaOfertaPublica, lineaDelCarrito }
   from '/v2/vitrina.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 
@@ -63,7 +60,9 @@ let phoneCountry = 'MX';
 // Lo que el visitante lleva elegido en cada tarjeta, igual que en el portal.
 const eligiendo = {};      // productId -> {talla, abierto, nombre, numero, motivo}
 const eligiendoKit = {};   // kitId -> {tier, tallas:{}, abierto, nombre, numero, motivo}
-let elegido = null;        // {kind:'product'|'bundle', linea, item}
+// El carrito (09/10/2026): kits y piezas en UN folio. Mismo formato de línea
+// que el portal de familias y el mostrador (/v2/tienda.js).
+let carrito = {};
 // Cómo pagar (cuenta del club y su WhatsApp). Si no carga, el pedido se
 // levanta igual: sólo falta la tarjeta de pago al final.
 let pagoInfo = null;
@@ -154,11 +153,12 @@ function renderTienda() {
       <b>Entrar</b></a>
     <div class="eyebrow">TIENDA TANNER · SIN CUENTA</div>
     <h2>El uniforme del club</h2>
-    <p class="muted">Elige lo que quieres, con su talla. Al confirmar te contactamos por WhatsApp para el pago y la entrega.</p>
+    <p class="muted">Agrega lo que quieras, con su talla: todo va en un solo pedido. Al confirmar ves cómo pagar.</p>
     ${kits.length ? `<div class="fam-kits">${kits.map(k => tarjetaKit(k, eligiendoKit[k.id] || {})).join('')}</div>` : ''}
     ${productos.length ? `<h3 class="vit-sub">Piezas sueltas</h3>
       <div class="fam-prods">${productos.map(p => tarjetaProducto(p, eligiendo[p.id] || {})).join('')}</div>` : ''}`;
   cableaVitrina();
+  pintaBarra(true);
 }
 
 /* Un solo manejador para toda la vitrina: las tarjetas se repintan enteras en
@@ -223,8 +223,9 @@ function agregaProducto(id) {
   const e = (eligiendo[id] ||= {});
   const r = preparaLinea(p, { talla: e.talla, cantidad: 1, nombre: e.nombre, numero: e.numero });
   if (!r.ok) { e.motivo = r.motivo; renderTienda(); return; }
-  elegido = { kind: 'product', item: p, linea: r.linea };
-  renderCheckout();
+  carrito = agregaAlCarrito(carrito, r.linea);
+  eligiendo[id] = {};
+  renderTienda();
 }
 function agregaKit(id) {
   const k = (catalogo.bundles || []).find(x => x.id === id);
@@ -239,42 +240,40 @@ function agregaKit(id) {
     if (r.falta) e.abierto = r.falta;
     renderTienda(); return;
   }
-  elegido = { kind: 'bundle', item: k, linea: r.linea, tier };
-  renderCheckout();
+  carrito = agregaAlCarrito(carrito, r.linea);
+  eligiendoKit[id] = {};
+  renderTienda();
+}
+
+/* La barra del carrito: siempre a la vista mientras se elige, con el total y
+   el botón para revisar. Se quita en cuanto se sale de la vitrina. */
+function pintaBarra(visible) {
+  document.getElementById('carritoBar')?.remove();
+  const n = piezasDelCarrito(carrito);
+  if (!visible || !n) return;
+  const bar = document.createElement('div');
+  bar.id = 'carritoBar'; bar.className = 'carrito-bar';
+  bar.innerHTML = `<span><strong>${money.format(totalDelCarrito(carrito))}</strong>`
+    + `<small>${n} ${n === 1 ? 'artículo' : 'artículos'} en tu pedido</small></span>`
+    + `<button type="button" id="verCarrito">Ver pedido</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector('#verCarrito').addEventListener('click', renderCheckout);
 }
 
 /* ---------- Confirmar ----------
  * Aquí sí se piden los datos, y sólo aquí: ya hay algo que comprar. */
 function resumen() {
-  if (elegido.kind === 'bundle') {
-    const k = elegido.item, ranuras = ranurasDeKit(k);
-    const tallas = (eligiendoKit[k.id] || {}).tallas || {};
-    const piezas = ranuras.map(r => `<div class="fam-pieza"><span>${esc(r.nombre)}</span>`
-      + `<em>Talla ${esc(r.unica || tallas[r.id] || '—')}</em></div>`).join('');
-    return `<div class="fam-kit"><div class="fam-kit-head">
-      <span class="fam-kit-tag">${esc(elegido.tier.toUpperCase())}</span>
-      <strong>${esc(k.name)}</strong>
-      <span class="fam-price">${money.format(precioDeKit(k, elegido.tier))}</span></div>
-      <div class="fam-piezas">${piezas}</div>${detallePersonalizacion()}</div>`;
-  }
-  const l = elegido.linea;
-  return `<div class="fam-kit"><div class="fam-kit-head"><strong>${esc(l.nombreProducto)}</strong>
-    <span class="fam-price">${money.format(Number(l.total || 0))}</span></div>
-    <div class="fam-piezas"><div class="fam-pieza"><span>Talla</span><em>${esc(l.talla || 'Universal')}</em></div></div>
-    ${detallePersonalizacion()}</div>`;
-}
-function detallePersonalizacion() {
-  const l = elegido.linea;
-  const nombre = l.personalizationName, numero = l.numero;
-  if (!nombre && !numero) return '';
-  return `<div class="fam-pieza"><span>En la espalda</span>`
-    + `<em>${esc([nombre, numero ? `#${numero}` : null].filter(Boolean).join(' · '))}</em></div>`;
+  const lineas = Object.entries(carrito);
+  return `<section class="carrito-lista">${lineas.map(([k, l]) => lineaDelCarrito(k, l)).join('')}
+    <div class="carrito-total"><span>Total</span><strong>${money.format(totalDelCarrito(carrito))}</strong></div></section>`;
 }
 
 function renderCheckout() {
-  $('content').innerHTML = `<button type="button" id="volver" class="vit-volver">‹ Seguir viendo</button>
+  if (!piezasDelCarrito(carrito)) { renderTienda(); return; }
+  pintaBarra(false);
+  $('content').innerHTML = `<button type="button" id="volver" class="vit-volver">‹ Seguir comprando</button>
     <h2>Confirma tu pedido</h2>
-    ${resumen()}
+    <div id="resumenCarrito">${resumen()}</div>
     <form id="orderForm" class="form-grid order-form">
       <label class="span-2">Nombre de quien recibe *<input id="customerName" minlength="2" maxlength="120" required></label>
       ${phoneMarkup()}
@@ -289,7 +288,14 @@ function renderCheckout() {
       <button id="submitOrder" class="primary span-2" type="submit">Confirmar pedido</button>
     </form>`;
   wirePhone();
-  $('volver').onclick = () => { elegido = null; renderTienda(); };
+  $('volver').onclick = () => renderTienda();
+  // Quitar un renglón no borra lo que ya se escribió en el formulario.
+  $('resumenCarrito').onclick = e => {
+    const q = e.target.closest('[data-quita]'); if (!q) return;
+    carrito = quitaDelCarrito(carrito, q.dataset.quita);
+    if (!piezasDelCarrito(carrito)) { renderTienda(); return; }
+    $('resumenCarrito').innerHTML = resumen();
+  };
   $('orderForm').addEventListener('submit', submit);
 }
 
@@ -316,43 +322,16 @@ async function submit(e) {
     notes: $('orderNotes').value.trim() || null,
     consent
   };
+  // El mismo formato de línea que el portal de familias (portal_place_order).
+  const items = Object.values(carrito).map(l => l.kind === 'bundle'
+    ? { kind: 'bundle', bundleId: l.bundleId, tier: l.tier,
+        personalizationName: l.personalizationName || null, number: l.numero || null,
+        pieces: (l.piezas || []).map(pz => ({ productId: pz.productId, talla: pz.talla || null })) }
+    : { kind: 'product', productId: l.productId, quantity: l.cantidad || 1, talla: l.talla || null,
+        personalizationName: l.personalizationName || null, number: l.numero || null });
   try {
-    let result;
-    if (elegido.kind === 'bundle') {
-      /* v2_public_bundle_order espera las piezas con el id LEGACY y un número
-         de ranura. preparaKit trabaja con el id del producto, que es lo que el
-         resto de la tienda usa; aquí se traduce de vuelta, en la orilla. */
-      const porProducto = {};
-      const pieces = elegido.linea.piezas.map(pz => {
-        const ranura = ranurasDeKit(elegido.item).find(r => r.productId === pz.productId);
-        const slot = (porProducto[pz.productId] = (porProducto[pz.productId] || 0) + 1);
-        return {
-          legacyProductId: ranura?.producto?.legacy_product_id || pz.productId,
-          slot,
-          size: pz.talla
-        };
-      });
-      result = await rpc('v2_public_bundle_order', {
-        ...comun, bundle_id: elegido.item.id,
-        tier: elegido.tier === 'Niño' ? 'kid' : 'adult',
-        pieces,
-        personalization_name: elegido.linea.personalizationName || null,
-        number: elegido.linea.numero || null
-      });
-    } else {
-      result = await rpc('v2_public_order_enhanced', {
-        ...comun,
-        items: [{
-          product_id: elegido.item.id,
-          quantity: elegido.linea.cantidad || 1,
-          attributes: {
-            talla: elegido.linea.talla || null,
-            nombrePers: elegido.linea.personalizationName || null,
-            numero: elegido.linea.numero || null
-          }
-        }]
-      });
-    }
+    const result = await rpc('v2_public_cart_order', { ...comun, items });
+    carrito = {};
     renderListo(result, comun.customer_name);
   } catch (err) {
     setMessage(err.message || 'No se pudo enviar el pedido.');

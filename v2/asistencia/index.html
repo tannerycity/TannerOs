@@ -1,1 +1,124 @@
-<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Asistencia · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/asistencia/styles.css?v=20260923a"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body><main class="shell"><section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Asistencia</h2><p class="muted">Preparando las listas…</p></section><section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2">Volver</a></section><section id="attendanceView" class="hidden app-wrap"><header class="topbar"><div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div><div class="top-actions"><a class="secondary mini nav-link" href="/v2">Dirección</a><span id="roleBadge" class="role-badge"></span></div></header><section class="hero attendance-hero"><div><div class="eyebrow">ENTRENAMIENTO DE HOY</div><h1>Asistencia</h1><p class="muted">Elige la categoría y abre la lista. Lo demás ya está preparado.</p></div></section><nav class="att-tabs" role="tablist" aria-label="Secciones de Asistencia"><button id="tabCapture" class="att-tab active" type="button" role="tab" aria-selected="true" aria-controls="captureTab">Tomar lista</button><button id="tabStats" class="att-tab" type="button" role="tab" aria-selected="false" aria-controls="statsTab">Estadísticas</button></nav><section class="attendance-layout" id="captureTab" role="tabpanel" aria-labelledby="tabCapture"><article class="panel quick-panel"><div class="panel-head"><div><div class="eyebrow">PASO 1</div><h2>¿Qué categoría entrena?</h2></div></div><div id="categoryCards" class="category-choices"></div><details id="coverBlock" class="cover-block hidden"><summary><span>Cubrir otra categoría</span><span class="cover-hint">Queda registrado que la tomaste tú</span></summary><div id="coverCards" class="category-choices"></div></details><form id="sessionForm" class="session-form"><select id="sessionCategory" class="sr-only" required aria-label="Categoría"><option value="">Elige una categoría</option></select><div id="sessionSummary" class="session-summary"></div><details class="session-details"><summary>Editar fecha, hora y detalles</summary><div class="details-grid"><label>Fecha<input id="sessionDate" type="date" required></label><label>Hora<input id="sessionTime" type="time" required></label><label>Duración<select id="sessionDuration"><option value="60">60 min</option><option value="90" selected>90 min</option><option value="120">120 min</option></select></label><label>Lugar<input id="sessionLocation" placeholder="Cancha / sede"></label><label class="span-2">Nombre de la sesión<input id="sessionTitle" placeholder="Entrenamiento, opcional"></label></div></details><button id="createSession" class="primary start-button" type="submit">Tomar asistencia</button><div id="sessionMessage" class="inline-message hidden"></div></form></article><article class="panel sessions-panel"><div class="panel-head"><div><div class="eyebrow">CONTINUAR</div><h2>Sesiones recientes</h2></div><button id="refreshSessions" class="secondary mini" type="button">Actualizar</button></div><div id="sessionsList" class="sessions-list"></div><div id="sessionsEmpty" class="empty hidden">Todavía no hay sesiones.</div></article></section><section id="statsTab" class="stats-wrap hidden" role="tabpanel" aria-labelledby="tabStats"><div class="stats-filters"><div id="periodPills" class="period-pills" role="group" aria-label="Periodo"></div><div class="stats-selects"><label class="stats-field">Categoría<select id="statsCategory"><option value="">Todas</option></select></label><label class="stats-field hidden" id="statsTypeField">Tipo de sesión<select id="statsType"><option value="">Todos</option></select></label></div></div><p id="statsRange" class="stats-range"></p><div id="statsKpis" class="stats-kpis"></div><div id="statsTrust" class="stats-trust"></div><div id="statsCats" class="stats-cats"></div><article class="panel stats-low-panel"><div class="panel-head"><div><div class="eyebrow">REQUIEREN ATENCIÓN</div><h2>Asistencia baja</h2></div></div><label class="roster-search"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="statsSearch" type="search" placeholder="Buscar Tanner por nombre" autocomplete="off"></label><div id="statsLow" class="stats-low"></div><div id="statsLowEmpty" class="empty hidden">Nadie está debajo de su objetivo. Bien ahí.</div></article><div id="statsMessage" class="inline-message hidden"></div></section></section></main><div id="rosterBackdrop" class="drawer-backdrop hidden"></div><aside id="rosterDrawer" class="player-drawer attendance-drawer hidden" aria-hidden="true"><div class="drawer-head roster-head"><div><div class="eyebrow">TOMAR ASISTENCIA</div><h2 id="rosterTitle">Entrenamiento</h2><p id="rosterMeta" class="muted"></p></div><button id="closeRoster" class="secondary close-button" type="button" aria-label="Cerrar lista">Cerrar</button></div><div id="rosterProgress" class="roster-progress"><div><strong id="progressLabel">0 de 0 marcados</strong><span>La lista se puede guardar aunque esté incompleta.</span></div><div class="progress-track"><i id="progressBar"></i></div><div id="rosterCounts" class="roster-counts"></div></div><div class="roster-actions"><button id="allPresent" class="primary all-present" type="button"><span class="status-mark">✓</span> Todos presentes</button><button id="clearMarks" class="secondary" type="button">Limpiar</button></div><label class="roster-search"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="rosterSearch" type="search" placeholder="Buscar Tanner por nombre" autocomplete="off"></label><div id="rosterPhotoStatus" class="roster-photo-status" role="status" aria-live="polite"></div><div id="rosterList" class="roster-list"></div><div id="rosterEmpty" class="empty hidden">No encontramos ese Tanner.</div><div class="roster-save"><div id="rosterMessage" class="inline-message hidden"></div><button id="saveAttendance" class="primary" type="button">Guardar asistencia</button></div></aside><div id="playerBackdrop" class="drawer-backdrop hidden"></div><aside id="playerDrawer" class="player-drawer stats-drawer hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="playerName"><div class="drawer-head"><div><div class="eyebrow">ASISTENCIA DEL TANNER</div><h2 id="playerName">Tanner</h2><p id="playerMeta" class="muted"></p></div><button id="closePlayer" class="secondary close-button" type="button" aria-label="Cerrar">Cerrar</button></div><div id="playerBody" class="player-body"></div></aside><div id="bajaBackdrop" class="baja-backdrop hidden"></div><section id="bajaModal" class="baja-modal hidden" role="dialog" aria-modal="true" aria-labelledby="bajaTitle"><div class="eyebrow">REPORTAR BAJA</div><h3 id="bajaTitle">Reportar baja</h3><p class="baja-help">Esto <b>no</b> da de baja al Tanner: le avisa a Presidencia para que lo revise y lo cierre con fecha y motivo.</p><label class="baja-field">¿Por qué crees que ya no viene?<textarea id="bajaReason" rows="3" maxlength="300" placeholder="Ej. la mamá avisó que se cambian de ciudad"></textarea></label><div id="bajaMessage" class="inline-message hidden"></div><div class="baja-actions"><button id="bajaCancel" class="secondary" type="button">Cancelar</button><button id="bajaConfirm" class="primary" type="button">Enviar reporte</button></div></section><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/asistencia/app.js?v=20260923a"></script></body></html>
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07191e">
+<title>Asistencia · TannerOS</title>
+<link rel="stylesheet" href="/v2/styles.css">
+<link rel="stylesheet" href="/v2/asistencia/styles.css?v=20261009a">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="stylesheet" href="/icons.css?v=20260907a">
+<link rel="stylesheet" href="/polish.css?v=20260907a">
+</head>
+<body>
+<main class="shell">
+  <section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Asistencia</h2><p class="muted">Preparando las listas…</p></section>
+  <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted"></p><a class="secondary nav-link" href="/v2">Volver</a></section>
+
+  <section id="attendanceView" class="hidden app-wrap">
+    <header class="topbar">
+      <div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div>
+      <div class="top-actions"><a class="secondary mini nav-link" href="/v2">Dirección</a><span id="roleBadge" class="role-badge"></span></div>
+    </header>
+
+    <!-- La cabecera es la cancha: qué día es y a qué hora se entrena. -->
+    <section class="as-cancha">
+      <div class="as-cancha-txt">
+        <p class="as-dia" id="asDia">Hoy</p>
+        <h1>Asistencia</h1>
+      </div>
+      <button type="button" id="asHorario" class="as-horario" aria-expanded="false" aria-controls="sessionDetails">
+        <span id="sessionSummary">18:00 · 90 min</span><small>Cambiar</small>
+      </button>
+    </section>
+
+    <nav class="att-tabs" role="tablist" aria-label="Secciones de Asistencia">
+      <button id="tabCapture" class="att-tab active" type="button" role="tab" aria-selected="true" aria-controls="captureTab">Tomar lista</button>
+      <button id="tabStats" class="att-tab" type="button" role="tab" aria-selected="false" aria-controls="statsTab">Estadísticas</button>
+    </nav>
+
+    <section class="as-captura" id="captureTab" role="tabpanel" aria-labelledby="tabCapture">
+      <!-- Fecha, hora y detalles: casi nunca se tocan, por eso viven escondidos. -->
+      <div id="sessionDetails" class="as-detalles hidden">
+        <label>Fecha<input id="sessionDate" type="date" required></label>
+        <label>Hora<input id="sessionTime" type="time" required></label>
+        <label>Duración<select id="sessionDuration"><option value="60">60 min</option><option value="90" selected>90 min</option><option value="120">120 min</option></select></label>
+        <label>Lugar<input id="sessionLocation" placeholder="Cancha / sede"></label>
+        <label class="as-span">Nombre de la sesión<input id="sessionTitle" placeholder="Entrenamiento, opcional"></label>
+        <button type="button" id="detailsDone" class="secondary as-span">Listo</button>
+      </div>
+
+      <div class="as-bloque">
+        <div class="as-bloque-cab"><h2 id="catsTitulo">Mis categorías</h2><span class="as-pista">Toca para pasar lista</span></div>
+        <div id="categoryCards" class="as-equipos"></div>
+        <details id="coverBlock" class="as-cubrir hidden">
+          <summary><span>Cubrir otra categoría</span><small>Queda registrado que la tomaste tú</small></summary>
+          <div id="coverCards" class="as-equipos as-equipos-otras"></div>
+        </details>
+        <div id="sessionMessage" class="inline-message hidden"></div>
+      </div>
+
+      <div class="as-bloque">
+        <div class="as-bloque-cab"><h2>Últimas listas</h2><button id="refreshSessions" class="as-link" type="button">Actualizar</button></div>
+        <div id="sessionsList" class="as-partidos"></div>
+        <div id="sessionsEmpty" class="empty hidden">Todavía no hay listas. Toca una categoría para pasar la primera.</div>
+      </div>
+    </section>
+
+    <section id="statsTab" class="stats-wrap hidden" role="tabpanel" aria-labelledby="tabStats"><div class="stats-filters"><div id="periodPills" class="period-pills" role="group" aria-label="Periodo"></div><div class="stats-selects"><label class="stats-field">Categoría<select id="statsCategory"><option value="">Todas</option></select></label><label class="stats-field hidden" id="statsTypeField">Tipo de sesión<select id="statsType"><option value="">Todos</option></select></label></div></div><p id="statsRange" class="stats-range"></p><div id="statsKpis" class="stats-kpis"></div><div id="statsTrust" class="stats-trust"></div><div id="statsCats" class="stats-cats"></div><article class="panel stats-low-panel"><div class="panel-head"><div><div class="eyebrow">REQUIEREN ATENCIÓN</div><h2>Asistencia baja</h2></div></div><label class="roster-search"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="statsSearch" type="search" placeholder="Buscar Tanner por nombre" autocomplete="off"></label><div id="statsLow" class="stats-low"></div><div id="statsLowEmpty" class="empty hidden">Nadie está debajo de su objetivo. Bien ahí.</div></article><div id="statsMessage" class="inline-message hidden"></div></section>
+  </section>
+</main>
+
+<!-- La lista: cada Tanner es una estampa. Toque = presente o falta. -->
+<div id="rosterBackdrop" class="drawer-backdrop hidden"></div>
+<aside id="rosterDrawer" class="player-drawer as-lista hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="rosterTitle">
+  <header class="as-lista-cab">
+    <div class="as-lista-top">
+      <div class="as-lista-tit"><p id="rosterMeta"></p><h2 id="rosterTitle">Entrenamiento</h2></div>
+      <button id="closeRoster" class="as-cerrar" type="button" aria-label="Cerrar lista">&times;</button>
+    </div>
+    <!-- El marcador: cuántos vinieron y cuántos faltaron, de un vistazo. -->
+    <div id="rosterProgress" class="as-marcador">
+      <div class="as-gol is-ok"><b id="mPresentes">0</b><span>Presentes</span></div>
+      <div class="as-gol is-mal"><b id="mFaltas">0</b><span>Faltas</span></div>
+      <div class="as-gol is-tarde"><b id="mTarde">0</b><span>Tarde</span></div>
+      <div class="as-gol is-sin"><b id="mSin">0</b><span>Sin marcar</span></div>
+    </div>
+  </header>
+  <div class="as-lista-herr">
+    <label class="as-buscar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="rosterSearch" type="search" placeholder="Buscar" autocomplete="off"></label>
+    <button id="allPresent" class="as-todos" type="button">Todos presentes</button>
+  </div>
+  <p id="progressLabel" class="as-instruccion">Toca a los que faltaron.</p>
+  <div id="rosterList" class="as-estampas"></div>
+  <div id="rosterEmpty" class="empty hidden">No encontramos ese Tanner.</div>
+  <p id="rosterPhotoStatus" class="as-sinfoto" role="status" aria-live="polite"></p>
+  <div class="as-guardar">
+    <div id="rosterMessage" class="inline-message hidden"></div>
+    <button id="saveAttendance" class="as-guardar-btn" type="button">Guardar lista</button>
+  </div>
+</aside>
+
+<!-- Más opciones de un Tanner: tarde, justificado o reportar baja. -->
+<div id="statusBackdrop" class="as-hoja-fondo hidden"></div>
+<section id="statusSheet" class="as-hoja hidden" role="dialog" aria-modal="true" aria-labelledby="statusName">
+  <div class="as-asa" aria-hidden="true"></div>
+  <div class="as-hoja-quien"><span id="statusFace" class="as-cara"></span><div><h3 id="statusName">Tanner</h3><p id="statusCode"></p></div></div>
+  <div class="as-opciones" role="group" aria-label="Estado de asistencia">
+    <button type="button" data-s="present" class="op-present"><i></i>Presente</button>
+    <button type="button" data-s="absent" class="op-absent"><i></i>Falta</button>
+    <button type="button" data-s="late" class="op-late"><i></i>Llegó tarde</button>
+    <button type="button" data-s="excused" class="op-excused"><i></i>Falta justificada</button>
+  </div>
+  <button type="button" id="statusBaja" class="as-baja">Reportar baja</button>
+  <button type="button" id="statusCancel" class="secondary as-hoja-cancelar">Cancelar</button>
+</section>
+
+<div id="playerBackdrop" class="drawer-backdrop hidden"></div><aside id="playerDrawer" class="player-drawer stats-drawer hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="playerName"><div class="drawer-head"><div><div class="eyebrow">ASISTENCIA DEL TANNER</div><h2 id="playerName">Tanner</h2><p id="playerMeta" class="muted"></p></div><button id="closePlayer" class="secondary close-button" type="button" aria-label="Cerrar">Cerrar</button></div><div id="playerBody" class="player-body"></div></aside>
+<div id="bajaBackdrop" class="baja-backdrop hidden"></div><section id="bajaModal" class="baja-modal hidden" role="dialog" aria-modal="true" aria-labelledby="bajaTitle"><div class="eyebrow">REPORTAR BAJA</div><h3 id="bajaTitle">Reportar baja</h3><p class="baja-help">Esto <b>no</b> da de baja al Tanner: le avisa a Presidencia para que lo revise y lo cierre con fecha y motivo.</p><label class="baja-field">¿Por qué crees que ya no viene?<textarea id="bajaReason" rows="3" maxlength="300" placeholder="Ej. la mamá avisó que se cambian de ciudad"></textarea></label><div id="bajaMessage" class="inline-message hidden"></div><div class="baja-actions"><button id="bajaCancel" class="secondary" type="button">Cancelar</button><button id="bajaConfirm" class="primary" type="button">Enviar reporte</button></div></section>
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/asistencia/app.js?v=20261009a"></script>
+</body>
+</html>

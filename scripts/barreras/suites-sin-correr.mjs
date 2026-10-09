@@ -119,7 +119,10 @@ export default function comprobar() {
   // Sube a 31 por qa-humo-becas.mjs. Vigila el portal de becados: que sólo
   // lo abran Presidencia y Dirección, el orden de lo que hay que atender y
   // el mensaje a la familia. Es pintura sobre v2_scholarship_portal.
-  const MAX_EXCLUIDAS = 31;
+  // Sube a 32 por qa-humo-partidos.mjs. Vigila capturar un partido en pocos
+  // toques: convocados, quién jugó, goles con asistencia y estadísticas. Es
+  // pintura sobre v2_match_board, v2_match_sheet y v2_save_match_sheet.
+  const MAX_EXCLUIDAS = 32;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

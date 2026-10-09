@@ -53,3 +53,4 @@ qa-humo-numeros.mjs
 # arregle: es el unico punto de la lista que no deberia seguir aqui.
 qa-product-ui.mjs
 qa-humo-pedidos-por-revisar.mjs
+qa-humo-utileria.mjs

@@ -1,7 +1,33 @@
+/* UTILERÍA, estilo bodega bien llevada (rediseño 09/10/2026).
+ *
+ * Presidencia: "lo tenemos como si fuera un Excel". Era una tabla de siete
+ * columnas, cinco pestañas y formularios largos; entregar algo pedía abrir un
+ * asistente desde otra pestaña, y resolver un reporte era un select, un campo y
+ * un botón por tarjeta. Resultado: cero entregas registradas.
+ *
+ * Ahora la pantalla contesta las tres preguntas de cualquier bodega:
+ *
+ *   #/bodega    QUÉ TENEMOS. Tarjetas con foto y el número grande de lo que
+ *               hay en bodega; por categoría, con buscador. Tocar una abre su
+ *               ficha: cuántos hay, quién los tiene, reportes, y Entregar.
+ *   #/quien     QUIÉN LO TIENE. Una tarjeta por persona con lo que trae.
+ *               "Devolvió" es un toque.
+ *   #/reportes  QUÉ SE REPORTÓ. Abiertos primero; "En reparación",
+ *               "Resuelto" o "Rechazar" son un toque.
+ *
+ * Entregar son tres toques: qué → a quién → confirmar.
+ *
+ * El profe (sin permiso de escritura) ve "Mi utilería": su material en
+ * tarjetas y, al tocar una, qué pasó (dañado, roto, perdido, me falta) en dos
+ * toques. "Pedir material" para lo que no tiene.
+ *
+ * El servidor no cambia: mismas funciones v2_equipment_*. Las reglas de dar de
+ * baja viven en /v2/utileria-baja.js (scripts/qa-utileria-baja.mjs).
+ */
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
-import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
-import { esBaja, contarBajas, articulosVisibles, estadoAlAlternar, textoDelBoton, estadoAlGuardar, puedeDarseDeBaja } from '/v2/utileria-baja.js';
+import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL } from '/v2/image-encode.js';
+import { esBaja, contarBajas, estadoAlAlternar, textoDelBoton, estadoAlGuardar, puedeDarseDeBaja } from '/v2/utileria-baja.js';
 
 const supabase = createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -13,6 +39,7 @@ const PHOTO_BUCKET = 'tanneros-private';
 const $ = (id) => document.getElementById(id);
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
 
 let ctx = null;
 let canWrite = false;
@@ -20,17 +47,18 @@ let items = [];
 let assignments = [];
 let coaches = [];
 let reports = [];
+let valor = [];
 let myKit = [];
 let myReports = [];
-let editingItemId = null;
-let itemPhotoFile = null;
-let reportPhotoFile = null;
-let currentReportPreset = 'problema';
+// Lo que se ve en "Qué tenemos": categoría elegida y búsqueda.
+const filtro = { cat: '', q: '' };
+let filtroReportes = 'abiertos';
 
 function show(id) { ['loadingView', 'deniedView', 'view'].forEach((v) => $(v)?.classList.toggle('hidden', v !== id)); }
-function msg(id, text = '', type = 'error') { const e = $(id); if (!e) return; e.textContent = text; e.dataset.type = type; e.classList.toggle('hidden', !text); }
 async function rpc(name, params = {}) { const { data, error } = await supabase.rpc(name, params); if (error) throw error; return data; }
-function fmtDate(v) { if (!v) return '—'; return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(v)); }
+function fecha(v) { if (!v) return '—'; return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(new Date(v)); }
+function fechaHora(v) { if (!v) return '—'; return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(v)); }
+const iniciales = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0] || '').join('').toUpperCase();
 
 function friendly(error) {
   const message = String(error?.message || error || 'Ocurrió un error.');
@@ -39,32 +67,23 @@ function friendly(error) {
     'Item name required': 'Escribe un nombre para el artículo.',
     'Inventory quantities cannot be negative': 'Las cantidades no pueden ser negativas.',
     'Unit cost cannot be negative': 'El costo no puede ser negativo.',
-    'Invalid equipment status': 'Estado de artículo inválido.',
-    'Invalid control type': 'Tipo de control inválido.',
-    'Quantity cannot be lower than currently assigned quantity': 'No puedes bajar la cantidad por debajo de lo ya asignado.',
+    'Quantity cannot be lower than currently assigned quantity': 'No puedes dejar menos de lo que ya está entregado.',
     'Equipment item not found': 'No encontramos ese artículo.',
-    'Item is not tracked as individual units': 'Ese artículo se maneja por cantidad, no por unidades.',
-    'Unit code required': 'Escribe un identificador para la unidad (ej. Balón #025).',
-    'Invalid unit status': 'Estado de unidad inválido.',
-    'Use the assignment flow to assign a unit': 'Para asignar esta unidad, usa el formulario de Bodega.',
-    'Equipment unit not found': 'No encontramos esa unidad.',
-    'Equipment unit not available': 'Esa unidad ya está asignada o no está disponible.',
-    'Assignment recipient required': 'Escribe o selecciona quién recibe el material.',
+    'Unit code required': 'Escribe un identificador para la pieza (ej. Balón #025).',
+    'Equipment unit not available': 'Esa pieza ya está entregada o no está disponible.',
+    'Assignment recipient required': 'Elige quién recibe el material.',
     'Equipment item unavailable': 'Ese artículo ya no está disponible.',
-    'Not enough equipment available': 'No hay suficiente material disponible.',
-    'Active assignment not found': 'No encontramos esa asignación activa.',
-    'Invalid report type': 'Tipo de reporte inválido.',
-    'Item or unit required': 'Selecciona un artículo.',
-    'Invalid report status': 'Estado de reporte inválido.',
+    'Not enough equipment available': 'No hay suficiente en bodega.',
+    'Active assignment not found': 'Esa entrega ya estaba devuelta.',
+    'Item or unit required': 'Elige un artículo.',
     'Report not found': 'No encontramos ese reporte.',
-    'Invalid photo path': 'No pudimos validar la foto.',
     'row-level security': 'No tienes permiso para hacer esto.',
   };
   for (const key in map) if (message.includes(key)) return map[key];
   return message;
 }
 
-/* ---------- fotos (mismo patrón que Jugadores/Patrocinadores) ---------- */
+/* ---------- Fotos (mismo patrón que Jugadores) ---------- */
 function loadImageFile(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -74,59 +93,71 @@ function loadImageFile(file) {
     img.src = url;
   });
 }
-async function preparePhotoFile(file) {
+async function uploadPhoto(pathPrefix, file) {
   if (!file) throw new Error('Selecciona una foto.');
   if (file.type && !String(file.type).startsWith('image/')) throw new Error('Selecciona una imagen válida.');
   const img = await loadImageFile(file);
-  const width = img.naturalWidth || img.width;
-  const height = img.naturalHeight || img.height;
-  if (!width || !height) throw new Error('No pudimos leer el tamaño de esa foto.');
   const full = await encodeVariant(img, FULL_MAX_SIDE, 0.82, FULL_MAX_BYTES);
   const thumb = await encodeVariant(img, THUMB_MAX_SIDE, 0.75, THUMB_MAX_BYTES);
-  return { full, thumb };
-}
-async function uploadPhoto(pathPrefix, file) {
-  const prepared = await preparePhotoFile(file);
   const stamp = Date.now();
-  const path = `${pathPrefix}-${stamp}.${prepared.full.ext}`;
-  const thumbPath = `${pathPrefix}-${stamp}-thumb.${prepared.thumb.ext}`;
-  const [{ error: fullErr }, { error: thumbErr }] = await Promise.all([
-    supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.full.blob, { contentType: prepared.full.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
-    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, prepared.thumb.blob, { contentType: prepared.thumb.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
+  const path = `${pathPrefix}-${stamp}.${full.ext}`;
+  const thumbPath = `${pathPrefix}-${stamp}-thumb.${thumb.ext}`;
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    supabase.storage.from(PHOTO_BUCKET).upload(path, full.blob, { contentType: full.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
+    supabase.storage.from(PHOTO_BUCKET).upload(thumbPath, thumb.blob, { contentType: thumb.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false }),
   ]);
-  if (fullErr || thumbErr) {
-    await Promise.all([
-      supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {}),
-      supabase.storage.from(PHOTO_BUCKET).remove([thumbPath]).catch(() => {}),
-    ]);
-    throw fullErr || thumbErr;
+  if (e1 || e2) {
+    await supabase.storage.from(PHOTO_BUCKET).remove([path, thumbPath]).catch(() => {});
+    throw e1 || e2;
   }
   return { path, thumbPath };
 }
-async function signedPhoto(bucket, path) {
-  if (!path) return null;
-  try { return await getSignedPhotoUrl(supabase, bucket || PHOTO_BUCKET, path); } catch (_) { return null; }
+// Fotos ya firmadas en esta visita: ruta -> url.
+const fotos = new Map();
+function foto(ruta, alt, clase = '') {
+  const url = ruta && fotos.get(ruta);
+  return `<div class="ut-foto ${clase}${ruta ? '' : ' vacia'}" ${ruta ? `data-ruta="${esc(ruta)}"` : ''}>`
+    + (url ? `<img src="${esc(url)}" alt="${esc(alt || '')}">` : `<span>${esc(iniciales(alt))}</span>`) + '</div>';
 }
-function hydratePhoto(boxEl, bucket, path, alt) {
-  if (!boxEl || !path) return;
-  signedPhoto(bucket, path).then((url) => { if (url) boxEl.innerHTML = `<img src="${url}" alt="${esc(alt || '')}">`; });
-}
-async function hydratePhotosBatch(entries) {
-  const list = entries.filter((entry) => entry.boxEl && entry.path);
-  const paths = [...new Set(list.map((entry) => entry.path))];
-  if (!paths.length) return;
-  const map = await getSignedPhotoUrls(supabase, PHOTO_BUCKET, paths);
-  list.forEach(({ boxEl, path, alt }) => {
-    const url = map[path];
-    if (url) boxEl.innerHTML = `<img src="${url}" alt="${esc(alt || '')}">`;
+async function firmaFotos(raiz) {
+  const pendientes = [...new Set([...raiz.querySelectorAll('.ut-foto[data-ruta]')].map((d) => d.dataset.ruta).filter((r) => !fotos.has(r)))];
+  if (pendientes.length) {
+    try { Object.entries(await getSignedPhotoUrls(supabase, PHOTO_BUCKET, pendientes) || {}).forEach(([r, u]) => fotos.set(r, u)); } catch { /* se quedan las iniciales */ }
+  }
+  raiz.querySelectorAll('.ut-foto[data-ruta]').forEach((d) => {
+    const u = fotos.get(d.dataset.ruta);
+    if (u && !d.querySelector('img')) d.innerHTML = `<img src="${esc(u)}" alt="">`;
   });
 }
+const fotoDe = (i) => i?.photo_thumb_path || i?.photo_path || null;
 
-function writeControls() {
-  document.querySelectorAll('.write-only').forEach((el) => el.classList.toggle('hidden', !canWrite));
+/* ---------- Avisos y hoja ---------- */
+let avisoTimer = 0;
+function aviso(texto) {
+  const el = $('utAviso');
+  el.textContent = texto; el.hidden = false; el.classList.add('entra');
+  clearTimeout(avisoTimer);
+  avisoTimer = setTimeout(() => { el.classList.remove('entra'); setTimeout(() => { el.hidden = true; }, 220); }, 2600);
+}
+let hojaAtras = null;
+function abreHoja(titulo, html, { atras = null } = {}) {
+  $('utHojaTitulo').textContent = titulo;
+  $('utHojaCuerpo').innerHTML = html;
+  hojaAtras = atras;
+  $('utHojaAtras').classList.toggle('hidden', !atras);
+  $('utFondo').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  $('utHojaCuerpo').scrollTop = 0;
+  firmaFotos($('utHojaCuerpo'));
+  return $('utHojaCuerpo');
+}
+function cierraHoja() {
+  $('utFondo').classList.add('hidden');
+  document.body.style.overflow = '';
+  hojaAtras = null;
 }
 
-/* ---------- boot ---------- */
+/* ---------- Arranque ---------- */
 async function boot() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { location.href = '/'; return; }
@@ -139,714 +170,533 @@ async function boot() {
   canWrite = !!mod.can_write;
   $('orgName').textContent = ctx.organization_name || 'Tannery City FC';
   $('roleBadge').textContent = ctx.is_owner ? 'Presidencia' : ctx.role;
-  writeControls();
-
+  bindHoja();
   if (canWrite) {
-    $('adminView').classList.remove('hidden');
-    $('heroSubtitle').textContent = 'Qué tenemos, cuánto tenemos, dónde está y quién lo tiene.';
-    bindAdminEvents();
+    $('utSeg').classList.remove('hidden');
+    $('utEntregar').classList.remove('hidden');
+    $('utEntregar').addEventListener('click', () => entregar());
     await loadAdmin();
+    window.addEventListener('hashchange', ruta);
+    ruta();
   } else {
-    $('coachView').classList.remove('hidden');
-    $('heroTitle').textContent = 'Mi Utilería';
-    $('heroSubtitle').textContent = 'Tu material asignado. Reporta un problema o pide lo que te falte.';
-    bindCoachEvents();
+    $('utTitulo').textContent = 'Mi utilería';
     await loadCoach();
   }
   show('view');
 }
 
+function bindHoja() {
+  $('utHojaCerrar').addEventListener('click', cierraHoja);
+  $('utHojaAtras').addEventListener('click', () => hojaAtras?.());
+  $('utFondo').addEventListener('click', (e) => { if (e.target === $('utFondo')) cierraHoja(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('utFondo').classList.contains('hidden')) cierraHoja(); });
+}
+
 /* =========================================================
-   ADMIN
+   ADMINISTRACIÓN
    ========================================================= */
 async function loadAdmin() {
-  [items, assignments, coaches, reports] = await Promise.all([
+  const [i, a, c, r, v] = await Promise.all([
     rpc('v2_equipment_items', { organization_id: ctx.organization_id }),
     rpc('v2_equipment_assignments', { organization_id: ctx.organization_id, active_only: true }),
     rpc('v2_equipment_coaches', { organization_id: ctx.organization_id }),
     rpc('v2_equipment_reports', { organization_id: ctx.organization_id }),
+    rpc('v2_equipment_inventory_value', { organization_id: ctx.organization_id }).catch(() => []),
   ]);
-  items = Array.isArray(items) ? items : [];
-  assignments = Array.isArray(assignments) ? assignments : [];
-  coaches = Array.isArray(coaches) ? coaches : [];
-  reports = Array.isArray(reports) ? reports : [];
-  const value = await rpc('v2_equipment_inventory_value', { organization_id: ctx.organization_id }).catch(() => []);
-  renderKpis(Array.isArray(value) ? value : []);
-  renderCategoryDatalist();
-  renderItemsTable();
-  renderBodega();
-  renderKits();
-  renderReports();
+  items = Array.isArray(i) ? i : [];
+  assignments = Array.isArray(a) ? a : [];
+  coaches = Array.isArray(c) ? c : [];
+  reports = Array.isArray(r) ? r : [];
+  valor = Array.isArray(v) ? v : [];
+  pintaResumen();
+}
+const activos = () => items.filter((i) => !esBaja(i));
+const enBodega = (i) => (i.control_type === 'individual' ? Number(i.units_bodega || 0) : Number(i.available_quantity || 0));
+const ABIERTOS = ['pendiente', 'en_reparacion', 'aprobado'];
+const abiertos = () => reports.filter((r) => ABIERTOS.includes(r.status));
+function personas() {
+  const g = new Map();
+  for (const a of assignments) {
+    const k = a.assigned_to_user_id || `label:${a.assigned_to_label || a.recipient_name || 'Sin nombre'}`;
+    if (!g.has(k)) g.set(k, { clave: k, nombre: a.recipient_name || a.assigned_to_label || 'Sin nombre', filas: [] });
+    g.get(k).filas.push(a);
+  }
+  return [...g.values()].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es-MX'));
+}
+function pintaResumen() {
+  const act = activos();
+  const piezasBodega = act.reduce((s, i) => s + enBodega(i), 0);
+  const entregadas = assignments.reduce((s, a) => s + Number(a.quantity || 0), 0);
+  $('segBodega').textContent = act.length;
+  $('segQuien').textContent = personas().length;
+  $('segReportes').textContent = abiertos().length;
+  $('segReportes').closest('a').classList.toggle('alerta', abiertos().length > 0);
+  const total = valor.reduce((s, x) => s + Number(x.estimated_value || 0), 0);
+  $('utResumen').textContent = [
+    plural(piezasBodega, 'pieza en bodega', 'piezas en bodega'),
+    entregadas ? plural(entregadas, 'entregada', 'entregadas') : null,
+    total ? `${money.format(total)} en material` : null,
+  ].filter(Boolean).join(' · ');
 }
 
-function renderKpis(value) {
-  $('kpiItems').textContent = items.length;
-  $('kpiUnits').textContent = items.reduce((s, i) => s + Number(i.quantity || 0), 0);
-  $('kpiAssigned').textContent = items.reduce((s, i) => s + Number(i.assigned_quantity || 0), 0);
-  const lowItems = items.filter((i) => i.needs_reorder);
-  $('kpiLow').textContent = lowItems.length;
-  const totalValue = value.reduce((s, v) => s + Number(v.estimated_value || 0), 0);
-  $('kpiValue').textContent = money.format(totalValue);
-
-  const reorderBox = $('reorderList');
-  reorderBox.innerHTML = '';
-  $('reorderEmpty').classList.toggle('hidden', lowItems.length > 0);
-  lowItems.forEach((i) => {
-    const row = document.createElement('div');
-    row.className = 'mini-row';
-    row.innerHTML = `<strong>${esc(i.name)}</strong><span>${Number(i.available_quantity || 0)} de ${Number(i.quantity || 0)} disponibles</span>`;
-    reorderBox.appendChild(row);
+function ruta() {
+  const h = location.hash.replace(/^#\/?/, '') || 'bodega';
+  const seg = ['bodega', 'quien', 'reportes'].includes(h) ? h : 'bodega';
+  document.querySelectorAll('#utSeg a').forEach((a) => {
+    const on = a.dataset.seg === seg;
+    a.classList.toggle('activa', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
-
-  const valueBox = $('valueList');
-  valueBox.innerHTML = '';
-  $('valueEmpty').classList.toggle('hidden', value.length > 0);
-  value.forEach((v) => {
-    const row = document.createElement('div');
-    row.className = 'mini-row';
-    row.innerHTML = `<strong>${esc(v.category)}</strong><span>${Number(v.units || 0)} unidades · ${money.format(Number(v.estimated_value || 0))}</span>`;
-    valueBox.appendChild(row);
-  });
-
-  const pending = reports.filter((r) => r.status === 'pendiente' || r.status === 'en_reparacion').length;
-  $('incidenciasBadge').textContent = pending;
-  $('incidenciasBadge').classList.toggle('hidden', pending === 0);
+  $('utTitulo').textContent = { bodega: 'Qué tenemos', quien: 'Quién lo tiene', reportes: 'Reportes' }[seg];
+  if (seg === 'bodega') pintaBodega();
+  else if (seg === 'quien') pintaQuien();
+  else pintaReportes();
 }
+function repinta() { pintaResumen(); ruta(); }
 
-function renderCategoryDatalist() {
-  const list = $('categoryOptions');
-  const cats = [...new Set(items.map((i) => i.category).filter(Boolean))].sort();
-  list.innerHTML = cats.map((c) => `<option value="${esc(c)}">`).join('');
+/* ---------- Qué tenemos ---------- */
+function categoriasConConteo() {
+  const m = new Map();
+  activos().forEach((i) => { const c = i.category || 'Sin categoría'; m.set(c, (m.get(c) || 0) + 1); });
+  return [...m.entries()].sort(([a], [b]) => (a === 'Sin categoría') - (b === 'Sin categoría') || a.localeCompare(b, 'es-MX'));
 }
-
-function stateFor(i) {
-  if (i.needs_reorder) return { label: 'Reponer', cls: 'low' };
-  if (Number(i.available_quantity || 0) === 0) return { label: 'Sin disponible', cls: 'empty-stock' };
-  return { label: 'OK', cls: 'ok' };
+function visiblesDeBodega() {
+  const q = filtro.q.trim().toLocaleLowerCase('es-MX');
+  let lista = filtro.cat === '__bajas' ? items.filter(esBaja) : activos();
+  if (filtro.cat === '__reponer') lista = lista.filter((i) => i.needs_reorder || enBodega(i) === 0);
+  else if (filtro.cat && filtro.cat !== '__bajas') lista = lista.filter((i) => (i.category || 'Sin categoría') === filtro.cat);
+  if (q) lista = lista.filter((i) => `${i.name} ${i.category || ''} ${i.location || ''} ${i.sku || ''}`.toLocaleLowerCase('es-MX').includes(q));
+  return lista.sort((a, b) => String(a.name).localeCompare(String(b.name), 'es-MX'));
 }
-
-function renderItemsTable() {
-  const body = $('itemsBody');
-  body.innerHTML = '';
-  const term = ($('itemSearch').value || '').trim();
-  const verBajas = !!$('verBajas')?.checked;
-  const filtered = articulosVisibles(items, { verBajas, termino: term });
+function tarjetaArticulo(i) {
+  const bodega = enBodega(i), fuera = Number(i.assigned_quantity || 0) || Number(i.units_asignado || 0);
+  const estado = esBaja(i) ? '<em class="ut-pill gris">Baja</em>'
+    : bodega === 0 ? '<em class="ut-pill rojo">Agotado</em>'
+    : i.needs_reorder ? '<em class="ut-pill ambar">Reponer</em>' : '';
+  return `<button type="button" class="ut-card" data-item="${esc(i.id)}">
+    ${foto(fotoDe(i), i.name)}${estado}
+    <span class="ut-card-txt"><strong>${esc(i.name)}</strong>
+      <span class="ut-card-num"><b>${bodega}</b> en bodega</span>
+      ${fuera ? `<small>${plural(fuera, 'entregado', 'entregados')}</small>` : `<small>${esc(i.category || 'Sin categoría')}</small>`}</span>
+  </button>`;
+}
+function pintaBodega() {
+  const cats = categoriasConConteo();
+  const reponer = activos().filter((i) => i.needs_reorder || enBodega(i) === 0).length;
   const bajas = contarBajas(items);
-  const chk = $('verBajasWrap');
-  if (chk) {
-    chk.classList.toggle('hidden', bajas === 0);
-    const et = $('verBajasLabel');
-    if (et) et.textContent = `Ver dados de baja (${bajas})`;
-  }
-  $('itemsEmpty').classList.toggle('hidden', items.length > 0);
-  const photoEntries = [];
-  filtered.forEach((i) => {
-    const state = stateFor(i);
-    const meta = [i.category, i.location, i.unit_cost != null ? money.format(Number(i.unit_cost)) : null].filter(Boolean).map(esc).join(' · ');
-    const tr = document.createElement('tr');
-    tr.className = esBaja(i) ? 'item-row es-baja' : 'item-row';
-    tr.dataset.id = i.id;
-    tr.innerHTML = `
-      <td class="thumb-cell"><div class="photo-box tiny" data-photo-for="${i.id}">${i.photo_path ? '' : '—'}</div></td>
-      <td><strong>${esc(i.name || 'Artículo')}</strong>${esBaja(i) ? '<span class="baja-chip">Baja</span>' : ''}<small>${meta}</small></td>
-      <td><span class="control-badge ${i.control_type}">${i.control_type === 'individual' ? 'Individual' : 'Por cantidad'}</span></td>
-      <td>${Number(i.quantity || 0)}</td>
-      <td>${Number(i.assigned_quantity || 0)}</td>
-      <td><strong>${Number(i.available_quantity || 0)}</strong></td>
-      <td><span class="stock-state ${state.cls}">${state.label}</span></td>`;
-    body.appendChild(tr);
-    photoEntries.push({ boxEl: tr.querySelector(`[data-photo-for="${i.id}"]`), path: i.photo_thumb_path || i.photo_path, alt: i.name });
-    if (canWrite) tr.addEventListener('click', () => toggleItemDetail(tr, i));
+  const lista = visiblesDeBodega();
+  const chip = (val, texto, n) => `<button type="button" class="ut-chip${filtro.cat === val ? ' activa' : ''}" data-cat="${esc(val)}">${esc(texto)}${n != null ? ` <small>${n}</small>` : ''}</button>`;
+  $('utPanel').innerHTML = `
+    <div class="ut-barra">
+      <label class="ut-buscar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input id="utBuscar" type="search" placeholder="Buscar balones, conos, casacas…" value="${esc(filtro.q)}" autocomplete="off"></label>
+    </div>
+    <div class="ut-chips" role="toolbar" aria-label="Filtrar por categoría">
+      ${chip('', 'Todo', activos().length)}
+      ${reponer ? chip('__reponer', 'Por reponer', reponer) : ''}
+      ${cats.map(([c, n]) => chip(c, c, n)).join('')}
+      ${bajas ? chip('__bajas', 'Dados de baja', bajas) : ''}
+    </div>
+    <div class="ut-grid">
+      ${lista.map(tarjetaArticulo).join('')}
+      ${canWrite && filtro.cat !== '__bajas' ? `<button type="button" class="ut-card nueva" id="utNuevo"><span class="ut-mas">+</span><strong>Nuevo artículo</strong></button>` : ''}
+    </div>
+    ${lista.length ? '' : `<p class="ut-vacio">${filtro.q ? 'Nada con ese nombre.' : 'No hay artículos aquí.'}</p>`}`;
+  const panel = $('utPanel');
+  panel.querySelectorAll('[data-cat]').forEach((b) => b.addEventListener('click', () => { filtro.cat = b.dataset.cat; pintaBodega(); }));
+  panel.querySelectorAll('[data-item]').forEach((b) => b.addEventListener('click', () => fichaArticulo(b.dataset.item)));
+  $('utNuevo')?.addEventListener('click', () => formArticulo(null));
+  const buscar = $('utBuscar');
+  buscar.addEventListener('input', () => {
+    filtro.q = buscar.value;
+    const grid = panel.querySelector('.ut-grid');
+    const l = visiblesDeBodega();
+    grid.querySelectorAll('[data-item]').forEach((c) => c.classList.toggle('hidden', !l.some((i) => i.id === c.dataset.item)));
   });
-  hydratePhotosBatch(photoEntries);
+  firmaFotos(panel);
 }
 
-async function toggleItemDetail(tr, item) {
-  const next = tr.nextElementSibling;
-  if (next && next.classList.contains('item-detail-row')) { next.remove(); return; }
-  document.querySelectorAll('.item-detail-row').forEach((r) => r.remove());
-  const detailTr = document.createElement('tr');
-  detailTr.className = 'item-detail-row';
-  const td = document.createElement('td');
-  td.colSpan = 7;
-  detailTr.appendChild(td);
-  tr.after(detailTr);
-  td.innerHTML = '<div class="detail-loading">Cargando…</div>';
-
-  const actions = document.createElement('div');
-  actions.className = 'detail-actions';
-  actions.innerHTML = `<button class="secondary mini" data-act="edit">Editar artículo</button><button class="secondary mini" data-act="history">Ver historial</button><button class="secondary mini danger" data-act="baja">${esc(textoDelBoton(item))}</button>`;
-  actions.querySelector('[data-act="edit"]').addEventListener('click', (e) => { e.stopPropagation(); startEditItem(item); });
-  actions.querySelector('[data-act="history"]').addEventListener('click', async (e) => { e.stopPropagation(); await showItemHistory(td, item.id); });
-  actions.querySelector('[data-act="baja"]').addEventListener('click', async (e) => { e.stopPropagation(); await alternarBaja(item); });
-
-  if (item.control_type === 'individual') {
-    const units = await rpc('v2_equipment_units', { organization_id: ctx.organization_id, item_id: item.id }).catch(() => []);
-    td.innerHTML = '';
-    td.appendChild(actions);
-    const wrap = document.createElement('div');
-    wrap.className = 'units-wrap';
-    wrap.innerHTML = `<div class="units-head">Unidades (${units.length})</div><div class="units-list"></div>
-      <form class="unit-form">
-        <input class="unit-code" maxlength="60" placeholder="Ej. Balón #025" required>
-        <input class="unit-condition" maxlength="60" placeholder="Estado físico (opcional)">
-        <button class="secondary mini" type="submit">+ Agregar unidad</button>
-      </form>`;
-    const list = wrap.querySelector('.units-list');
-    units.forEach((u) => {
-      const row = document.createElement('div');
-      row.className = `unit-row status-${u.status}`;
-      row.innerHTML = `<strong>${esc(u.code)}</strong><span class="unit-status">${unitStatusLabel(u.status)}</span><span>${esc(u.holder_name || '—')}</span>`;
-      list.appendChild(row);
-    });
-    wrap.querySelector('.unit-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const code = wrap.querySelector('.unit-code').value.trim();
-      const condition = wrap.querySelector('.unit-condition').value.trim();
-      if (!code) return;
-      try {
-        await rpc('v2_upsert_equipment_unit', { organization_id: ctx.organization_id, unit_id: null, item_id: item.id, code, status: 'bodega', condition: condition || null, notes: null });
-        await loadAdmin();
-      } catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo guardar la pieza', message: friendly(err) }); }
-    });
-    // Cada pieza es editable con un clic: así se corrigen identificadores mal
-    // capturados o se da de baja una pieza vieja sin tener que borrar nada.
-    list.querySelectorAll('.unit-row').forEach((row, idx) => {
-      row.classList.add('clickable');
-      row.addEventListener('click', () => openUnitEditor(wrap, item, units[idx]));
-    });
-    td.appendChild(wrap);
-  } else {
-    td.innerHTML = '';
-    td.appendChild(actions);
-    const note = document.createElement('div');
-    note.className = 'muted tiny detail-note';
-    note.textContent = 'Este artículo se controla por cantidad total, sin unidades individuales.';
-    td.appendChild(note);
-  }
+/* ---------- Ficha de un artículo ---------- */
+function fichaArticulo(id) {
+  const i = items.find((x) => x.id === id);
+  if (!i) return;
+  const quien = assignments.filter((a) => a.equipment_item_id === i.id);
+  const reps = abiertos().filter((r) => r.equipment_item_id === i.id);
+  const bodega = enBodega(i), fuera = quien.reduce((s, a) => s + Number(a.quantity || 0), 0);
+  const cuerpo = abreHoja(i.name, `
+    ${foto(i.photo_path || i.photo_thumb_path, i.name, 'grande')}
+    <p class="ut-ficha-cat">${esc([i.category || 'Sin categoría', i.location].filter(Boolean).join(' · '))}</p>
+    <div class="ut-stats">
+      <div><strong>${bodega}</strong><span>En bodega</span></div>
+      <div><strong>${fuera}</strong><span>Entregados</span></div>
+      <div><strong>${Number(i.quantity || 0)}</strong><span>Total</span></div>
+    </div>
+    ${esBaja(i) ? '' : `<button type="button" class="ut-btn primario" data-accion="entregar" ${bodega ? '' : 'disabled'}>${bodega ? 'Entregar' : 'Sin piezas en bodega'}</button>`}
+    <section class="ut-sec"><h3>Quién lo tiene</h3>
+      ${quien.length ? quien.map(filaEntrega).join('') : '<p class="ut-nota">Todo está en bodega.</p>'}</section>
+    ${reps.length ? `<section class="ut-sec"><h3>Reportes abiertos</h3>${reps.map((r) => `<p class="ut-nota"><b>${esc(TIPO[r.report_type] || r.report_type)}</b> · ${esc(r.reporter_name || '')} · ${esc(fecha(r.created_at))}</p>`).join('')}</section>` : ''}
+    ${i.control_type === 'cantidad' && !esBaja(i) ? `<section class="ut-sec"><h3>Cantidad total</h3>
+      <div class="ut-ajuste"><button type="button" data-ajuste="-1" aria-label="Uno menos">&minus;</button><output id="utCantidad">${Number(i.quantity || 0)}</output><button type="button" data-ajuste="1" aria-label="Uno más">+</button>
+      <button type="button" class="ut-btn chico" id="utGuardaCantidad" hidden>Guardar</button></div>
+      <p class="ut-nota">Llegó material o se perdió: ajústalo aquí. No puede quedar menos de lo entregado.</p></section>` : ''}
+    ${i.control_type === 'individual' ? '<section class="ut-sec" id="utPiezas"><h3>Piezas</h3><p class="ut-nota">Cargando…</p></section>' : ''}
+    <div class="ut-acciones">
+      <button type="button" class="ut-btn" data-accion="editar">Editar</button>
+      <button type="button" class="ut-btn" data-accion="historial">Historial</button>
+      <button type="button" class="ut-btn peligro" data-accion="baja">${esc(textoDelBoton(i))}</button>
+    </div>`);
+  cuerpo.querySelector('[data-accion="entregar"]')?.addEventListener('click', () => entregar({ item: i, desde: () => fichaArticulo(id) }));
+  cuerpo.querySelector('[data-accion="editar"]').addEventListener('click', () => formArticulo(i, () => fichaArticulo(id)));
+  cuerpo.querySelector('[data-accion="historial"]').addEventListener('click', () => historial(i, () => fichaArticulo(id)));
+  cuerpo.querySelector('[data-accion="baja"]').addEventListener('click', () => alternarBaja(i));
+  cuerpo.querySelectorAll('[data-devuelve]').forEach((b) => b.addEventListener('click', () => devolver(assignments.find((a) => a.id === b.dataset.devuelve), () => fichaArticulo(id))));
+  let cantidad = Number(i.quantity || 0);
+  cuerpo.querySelectorAll('[data-ajuste]').forEach((b) => b.addEventListener('click', () => {
+    cantidad = Math.max(fuera, cantidad + Number(b.dataset.ajuste));
+    $('utCantidad').textContent = cantidad;
+    $('utGuardaCantidad').hidden = cantidad === Number(i.quantity || 0);
+  }));
+  $('utGuardaCantidad')?.addEventListener('click', async () => {
+    try { await guardaArticulo(i, { quantity: cantidad }); aviso(`${i.name}: ahora son ${cantidad}`); await loadAdmin(); repinta(); fichaArticulo(id); }
+    catch (e) { aviso(friendly(e)); }
+  });
+  if (i.control_type === 'individual') pintaPiezas(i);
 }
-
+function filaEntrega(a) {
+  return `<div class="ut-fila">
+    <span class="ut-avatar">${esc(iniciales(a.recipient_name))}</span>
+    <span class="ut-fila-txt"><strong>${esc(a.recipient_name || 'Sin nombre')}</strong>
+      <small>${a.unit_code ? esc(a.unit_code) : plural(Number(a.quantity || 0), 'pieza', 'piezas')} · desde ${esc(fecha(a.assigned_at))}</small></span>
+    <button type="button" class="ut-btn chico" data-devuelve="${esc(a.id)}">Devolvió</button></div>`;
+}
+async function pintaPiezas(i) {
+  const box = $('utPiezas'); if (!box) return;
+  const units = await rpc('v2_equipment_units', { organization_id: ctx.organization_id, item_id: i.id }).catch(() => []);
+  const ETQ = { bodega: 'En bodega', asignado: 'Entregada', mantenimiento: 'En reparación', baja: 'Baja' };
+  box.innerHTML = `<h3>Piezas · ${units.length}</h3>
+    ${units.map((u) => `<div class="ut-fila"><span class="ut-fila-txt"><strong>${esc(u.code)}</strong><small>${esc(ETQ[u.status] || u.status)}${u.holder_name ? ` · ${esc(u.holder_name)}` : ''}${u.condition ? ` · ${esc(u.condition)}` : ''}</small></span></div>`).join('') || '<p class="ut-nota">Aún no hay piezas registradas.</p>'}
+    <form class="ut-linea" id="utNuevaPieza"><input maxlength="60" placeholder="Ej. Balón #025" required aria-label="Identificador de la pieza"><button type="submit" class="ut-btn chico">Agregar</button></form>`;
+  $('utNuevaPieza').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = e.target.querySelector('input').value.trim(); if (!code) return;
+    try { await rpc('v2_upsert_equipment_unit', { organization_id: ctx.organization_id, unit_id: null, item_id: i.id, code, status: 'bodega', condition: null, notes: null }); await loadAdmin(); repinta(); fichaArticulo(i.id); }
+    catch (err) { aviso(friendly(err)); }
+  });
+}
+async function historial(i, atras) {
+  const cuerpo = abreHoja(`Historial · ${i.name}`, '<p class="ut-nota">Cargando…</p>', { atras });
+  const ETQ = { EquipmentItemCreated: 'Alta', EquipmentItemUpdated: 'Ajuste', EquipmentUnitCreated: 'Alta de pieza', EquipmentUnitUpdated: 'Cambio de pieza',
+    EquipmentAssigned: 'Entrega', EquipmentReturned: 'Devolución', EquipmentIssueReported: 'Reporte', EquipmentReportResolved: 'Reporte resuelto' };
+  const ev = await rpc('v2_equipment_history', { organization_id: ctx.organization_id, item_id: i.id, unit_id: null }).catch(() => []);
+  cuerpo.innerHTML = (ev || []).map((e) => `<div class="ut-fila"><span class="ut-fila-txt"><strong>${esc(ETQ[e.event_type] || e.event_type)}</strong><small>${esc(e.actor_name || '—')} · ${esc(fechaHora(e.occurred_at))}</small></span></div>`).join('')
+    || '<p class="ut-nota">Sin movimientos todavía.</p>';
+}
 async function alternarBaja(item) {
   const permiso = puedeDarseDeBaja(item);
-  if (!permiso.ok) {
-    await tosAlert({ kicker: 'UTILERÍA', title: 'Todavía no se puede dar de baja', message: permiso.motivo });
-    return;
-  }
+  if (!permiso.ok) { await tosAlert({ kicker: 'UTILERÍA', title: 'Todavía no se puede dar de baja', message: permiso.motivo }); return; }
   const baja = esBaja(item);
-  const ok = await tosConfirm({
-    kicker: 'UTILERÍA',
-    title: baja ? `¿Reactivar ${item.name}?` : `¿Dar de baja ${item.name}?`,
-    message: baja
-      ? 'Vuelve a aparecer en el inventario del día a día.'
-      : 'Desaparece del inventario del día a día. No se borra: su historial de entregas y reportes se conserva, y puedes reactivarlo cuando quieras.',
-  });
+  const ok = await tosConfirm({ kicker: 'UTILERÍA', title: baja ? `¿Reactivar ${item.name}?` : `¿Dar de baja ${item.name}?`,
+    message: baja ? 'Vuelve a aparecer en la bodega.' : 'Sale de la bodega del día a día. No se borra: su historial se conserva y puedes reactivarlo.' });
   if (!ok) return;
-  try {
-    // Se mandan los campos del artículo tal cual están; lo único que cambia es
-    // el estado. La RPC es un upsert, así que omitir un campo lo borraría.
-    await rpc('v2_upsert_equipment_item', {
-      organization_id: ctx.organization_id, item_id: item.id,
-      sku: item.sku || null, name: item.name, category: item.category || null,
-      quantity: Number(item.quantity || 0), min_stock: Number(item.min_stock || 0),
-      unit_cost: item.unit_cost ?? null, location: item.location || null,
-      status: estadoAlAlternar(item), notes: item.notes || null,
-      control_type: item.control_type, photo_path: item.photo_path || null,
-      photo_bucket: item.photo_bucket || null, photo_thumb_path: item.photo_thumb_path || null,
-    });
-    await loadAdmin();
-  } catch (err) {
-    await tosAlert({ kicker: 'UTILERÍA', title: baja ? 'No se pudo reactivar' : 'No se pudo dar de baja', message: friendly(err) });
-  }
+  try { await guardaArticulo(item, { status: estadoAlAlternar(item) }); cierraHoja(); await loadAdmin(); repinta(); aviso(baja ? 'Reactivado' : 'Dado de baja'); }
+  catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo guardar', message: friendly(err) }); }
+}
+/* La función del servidor es un upsert: un campo que no se manda se borra.
+   Por eso siempre se parte del artículo completo y se cambia sólo lo pedido. */
+function guardaArticulo(i, cambios = {}) {
+  const x = { ...i, ...cambios };
+  return rpc('v2_upsert_equipment_item', {
+    organization_id: ctx.organization_id, item_id: i?.id || null,
+    sku: x.sku || null, name: x.name, category: x.category || null,
+    quantity: Number(x.quantity || 0), min_stock: Number(x.min_stock || 0),
+    unit_cost: x.unit_cost === '' || x.unit_cost == null ? null : Number(x.unit_cost), location: x.location || null,
+    status: x.status || estadoAlGuardar(i?.id ? i : null), notes: x.notes || null,
+    control_type: x.control_type || 'cantidad', photo_path: x.photo_path || null,
+    photo_bucket: x.photo_path ? (x.photo_bucket || PHOTO_BUCKET) : null, photo_thumb_path: x.photo_thumb_path || null,
+  });
 }
 
-function unitStatusLabel(s) { return { bodega: 'En bodega', asignado: 'Asignado', mantenimiento: 'Mantenimiento', baja: 'Baja' }[s] || s; }
-
-function openUnitEditor(wrap, item, unit) {
-  const already = wrap.querySelector('.unit-edit-form');
-  if (already) { const same = already.dataset.unit === unit.id; already.remove(); if (same) return; }
-  const form = document.createElement('form');
-  form.className = 'unit-edit-form form-grid';
-  form.dataset.unit = unit.id;
-  const opciones = [['bodega', 'En bodega'], ['mantenimiento', 'Mantenimiento'], ['baja', 'Baja (retirada)']];
-  if (unit.status === 'asignado') opciones.unshift(['asignado', 'Asignado']);
-  form.innerHTML = `
-    <label>Identificador<input class="ue-code" maxlength="60" value="${esc(unit.code)}" required></label>
-    <label>Estado<select class="ue-status">${opciones.map(([v, l]) => `<option value="${v}"${v === unit.status ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-    <label class="span-2">Estado físico<input class="ue-condition" maxlength="60" value="${esc(unit.condition || '')}"></label>
-    <label class="span-2">Notas<input class="ue-notes" maxlength="300" value="${esc(unit.notes || '')}"></label>
-    <div class="span-2" style="display:flex;gap:10px">
-      <button type="submit" class="primary mini">Guardar</button>
-      <button type="button" class="secondary mini ue-cancel">Cancelar</button>
-    </div>
-    <div class="ue-message inline-message hidden span-2"></div>`;
-  form.addEventListener('click', (e) => e.stopPropagation());
-  form.querySelector('.ue-cancel').addEventListener('click', () => form.remove());
-  form.addEventListener('submit', async (e) => {
+/* ---------- Nuevo / editar artículo ---------- */
+function formArticulo(i, atras = null) {
+  const cats = [...new Set(activos().map((x) => x.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es-MX'));
+  let cat = i?.category || '', cantidad = Number(i?.quantity || 0), archivo = null;
+  const cuerpo = abreHoja(i ? 'Editar artículo' : 'Nuevo artículo', `
+    <form id="utForm" class="ut-form">
+      <label class="ut-subefoto" id="utSubeFoto">${foto(fotoDe(i), i?.name || '+', 'grande')}<span>${fotoDe(i) ? 'Cambiar foto' : 'Agregar foto'}</span>
+        <input type="file" accept="image/*" id="utArchivo" hidden></label>
+      <label class="ut-campo"><span>Nombre</span><input id="fNombre" required minlength="2" maxlength="120" value="${esc(i?.name || '')}" placeholder="Balones del 5"></label>
+      <div class="ut-campo"><span>Categoría</span>
+        <div class="ut-chips envuelve" id="fCats">${cats.map((c) => `<button type="button" class="ut-chip${c === cat ? ' activa' : ''}" data-fcat="${esc(c)}">${esc(c)}</button>`).join('')}
+        <input id="fCatNueva" class="ut-chip-input" maxlength="80" placeholder="Otra…" value="${cats.includes(cat) ? '' : esc(cat)}"></div></div>
+      <div class="ut-campo"><span>Cuántos hay</span>
+        <div class="ut-ajuste"><button type="button" data-fq="-1" aria-label="Uno menos">&minus;</button><output id="fCantidad">${cantidad}</output><button type="button" data-fq="1" aria-label="Uno más">+</button>
+        <button type="button" data-fq="10" class="ut-mas10">+10</button></div></div>
+      <details class="ut-mas-opciones"><summary>Más opciones</summary>
+        <label class="ut-campo"><span>Avisar para reponer cuando queden</span><input id="fMinimo" type="number" min="0" step="1" value="${Number(i?.min_stock || 0)}"></label>
+        <label class="ut-campo"><span>Costo por pieza</span><input id="fCosto" type="number" min="0" step="0.01" value="${i?.unit_cost ?? ''}" placeholder="$0"></label>
+        <label class="ut-campo"><span>Dónde se guarda</span><input id="fUbicacion" maxlength="120" value="${esc(i?.location || '')}" placeholder="Bodega, cancha 2…"></label>
+        <label class="ut-campo"><span>Cómo se cuenta</span><select id="fControl" ${i?.id ? 'disabled' : ''}>
+          <option value="cantidad"${i?.control_type !== 'individual' ? ' selected' : ''}>Por cantidad (conos, casacas)</option>
+          <option value="individual"${i?.control_type === 'individual' ? ' selected' : ''}>Pieza por pieza (balones numerados)</option></select></label>
+        <label class="ut-campo"><span>SKU</span><input id="fSku" maxlength="60" value="${esc(i?.sku || '')}"></label>
+        <label class="ut-campo"><span>Notas</span><input id="fNotas" maxlength="500" value="${esc(i?.notes || '')}"></label>
+      </details>
+      <p class="ut-error" id="fError" role="alert"></p>
+      <button type="submit" class="ut-btn primario" id="fGuardar">${i ? 'Guardar cambios' : 'Agregar a la bodega'}</button>
+    </form>`, { atras });
+  cuerpo.querySelectorAll('[data-fcat]').forEach((b) => b.addEventListener('click', () => {
+    cat = cat === b.dataset.fcat ? '' : b.dataset.fcat; $('fCatNueva').value = '';
+    cuerpo.querySelectorAll('[data-fcat]').forEach((x) => x.classList.toggle('activa', x.dataset.fcat === cat));
+  }));
+  $('fCatNueva').addEventListener('input', (e) => { cat = e.target.value.trim(); cuerpo.querySelectorAll('[data-fcat]').forEach((x) => x.classList.remove('activa')); });
+  cuerpo.querySelectorAll('[data-fq]').forEach((b) => b.addEventListener('click', () => { cantidad = Math.max(0, cantidad + Number(b.dataset.fq)); $('fCantidad').textContent = cantidad; }));
+  $('utArchivo').addEventListener('change', (e) => {
+    archivo = e.target.files?.[0] || null;
+    if (archivo) cuerpo.querySelector('#utSubeFoto .ut-foto').innerHTML = `<img src="${URL.createObjectURL(archivo)}" alt="">`;
+  });
+  $('utForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const box = form.querySelector('.ue-message'); box.classList.add('hidden');
-    const status = form.querySelector('.ue-status').value;
-    if (unit.status === 'asignado' && status !== 'asignado') {
-      box.textContent = 'Está asignada: registra la devolución desde "Entregado" antes de cambiar su estado.';
-      box.classList.remove('hidden');
-      return;
-    }
+    const btn = $('fGuardar'); btn.disabled = true; $('fError').textContent = '';
     try {
-      await rpc('v2_upsert_equipment_unit', {
-        organization_id: ctx.organization_id, unit_id: unit.id, item_id: item.id,
-        code: form.querySelector('.ue-code').value.trim(), status,
-        condition: form.querySelector('.ue-condition').value.trim() || null,
-        notes: form.querySelector('.ue-notes').value.trim() || null,
+      let fotoNueva = {};
+      if (archivo) {
+        const up = await uploadPhoto(`organizations/${ctx.organization_id}/equipment/items/${i?.id || 'new'}/foto`, archivo);
+        fotoNueva = { photo_path: up.path, photo_thumb_path: up.thumbPath, photo_bucket: PHOTO_BUCKET };
+      }
+      await guardaArticulo(i || {}, {
+        name: $('fNombre').value.trim(), category: cat || null, quantity: cantidad,
+        min_stock: Number($('fMinimo').value || 0), unit_cost: $('fCosto').value, location: $('fUbicacion').value.trim(),
+        control_type: $('fControl').value, sku: $('fSku').value.trim(), notes: $('fNotas').value.trim(), ...fotoNueva,
       });
-      await loadAdmin();
-    } catch (err) { box.textContent = friendly(err); box.classList.remove('hidden'); }
+      await loadAdmin(); repinta();
+      aviso(i ? 'Cambios guardados' : 'Agregado a la bodega');
+      if (i) fichaArticulo(i.id); else cierraHoja();
+    } catch (err) { $('fError').textContent = friendly(err); btn.disabled = false; }
   });
-  wrap.insertBefore(form, wrap.querySelector('.unit-form'));
 }
 
-async function showItemHistory(td, itemId) {
-  const events = await rpc('v2_equipment_history', { organization_id: ctx.organization_id, item_id: itemId, unit_id: null }).catch(() => []);
-  const box = document.createElement('div');
-  box.className = 'history-list';
-  box.innerHTML = `<div class="units-head">Historial</div>` + (events.length ? events.map((e) => `<div class="history-row"><strong>${esc(historyLabel(e.event_type))}</strong><span>${esc(e.actor_name || '—')} · ${esc(fmtDate(e.occurred_at))}</span></div>`).join('') : '<div class="muted tiny">Sin movimientos todavía.</div>');
-  td.appendChild(box);
+/* ---------- Entregar: qué → a quién → confirmar ---------- */
+function entregar({ item = null, unidad = null, persona = null, desde = null } = {}) {
+  if (!item) return pasoQue(desde);
+  if (item.control_type === 'individual' && !unidad) return pasoPieza(item, desde);
+  if (!persona) return pasoQuien(item, unidad, desde);
+  return pasoConfirma(item, unidad, persona, desde);
 }
-function historyLabel(t) {
-  return {
-    EquipmentItemCreated: 'Alta de artículo', EquipmentItemUpdated: 'Ajuste de inventario',
-    EquipmentUnitCreated: 'Alta de unidad', EquipmentUnitUpdated: 'Actualización de unidad',
-    EquipmentAssigned: 'Entrega', EquipmentReturned: 'Devolución',
-    EquipmentIssueReported: 'Incidencia reportada', EquipmentReportResolved: 'Incidencia resuelta',
-  }[t] || t;
+function pasoQue(desde) {
+  const disponibles = activos().filter((i) => enBodega(i) > 0).sort((a, b) => a.name.localeCompare(b.name, 'es-MX'));
+  const cuerpo = abreHoja('¿Qué vas a entregar?', `
+    <p class="ut-paso">Paso 1 de 3</p>
+    <label class="ut-buscar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="eBuscar" type="search" placeholder="Buscar…" autocomplete="off"></label>
+    <div class="ut-grid compacta">${disponibles.map((i) => `<button type="button" class="ut-card" data-eitem="${esc(i.id)}">${foto(fotoDe(i), i.name)}
+      <span class="ut-card-txt"><strong>${esc(i.name)}</strong><span class="ut-card-num"><b>${enBodega(i)}</b> en bodega</span></span></button>`).join('')}</div>
+    ${disponibles.length ? '' : '<p class="ut-vacio">No hay nada en bodega para entregar.</p>'}`, { atras: desde });
+  cuerpo.querySelectorAll('[data-eitem]').forEach((b) => b.addEventListener('click', () => entregar({ item: items.find((i) => i.id === b.dataset.eitem), desde: () => pasoQue(desde) })));
+  $('eBuscar').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLocaleLowerCase('es-MX');
+    cuerpo.querySelectorAll('[data-eitem]').forEach((b) => b.classList.toggle('hidden', !!q && !b.textContent.toLocaleLowerCase('es-MX').includes(q)));
+  });
 }
-
-function startEditItem(item) {
-  editingItemId = item.id;
-  $('itemForm').classList.remove('hidden');
-  $('toggleItemForm').textContent = 'Cerrar formulario';
-  $('itemId').value = item.id;
-  $('itemName').value = item.name || '';
-  $('itemSku').value = item.sku || '';
-  $('itemCategory').value = item.category || '';
-  $('itemControlType').value = item.control_type || 'cantidad';
-  $('itemQuantity').value = item.quantity || 0;
-  $('itemMinStock').value = item.min_stock || 0;
-  $('itemCost').value = item.unit_cost ?? '';
-  $('itemLocation').value = item.location || '';
-  $('itemNotes').value = item.notes || '';
-  itemPhotoFile = null;
-  $('itemPhotoBox').innerHTML = 'Sin foto';
-  if (item.photo_path) hydratePhoto($('itemPhotoBox'), item.photo_bucket, item.photo_path, item.name);
-  $('itemForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+async function pasoPieza(item, desde) {
+  const cuerpo = abreHoja(`¿Cuál ${item.name}?`, '<p class="ut-nota">Cargando piezas…</p>', { atras: desde });
+  const units = (await rpc('v2_equipment_units', { organization_id: ctx.organization_id, item_id: item.id }).catch(() => [])).filter((u) => u.status === 'bodega');
+  cuerpo.innerHTML = `<p class="ut-paso">Paso 1 de 3</p><div class="ut-lista">${units.map((u) => `<button type="button" class="ut-opcion" data-unidad="${esc(u.id)}" data-code="${esc(u.code)}"><strong>${esc(u.code)}</strong>${u.condition ? `<small>${esc(u.condition)}</small>` : ''}</button>`).join('') || '<p class="ut-vacio">No hay piezas en bodega.</p>'}</div>`;
+  cuerpo.querySelectorAll('[data-unidad]').forEach((b) => b.addEventListener('click', () => entregar({ item, unidad: { id: b.dataset.unidad, code: b.dataset.code }, desde: () => pasoPieza(item, desde) })));
 }
-function resetItemForm() {
-  editingItemId = null;
-  itemPhotoFile = null;
-  $('itemForm').reset();
-  $('itemId').value = '';
-  $('itemQuantity').value = '0';
-  $('itemMinStock').value = '0';
-  $('itemPhotoBox').innerHTML = 'Sin foto';
+function pasoQuien(item, unidad, desde) {
+  // Quien ya trae material sale primero: a esa persona se le entrega más seguido.
+  const conMaterial = new Set(assignments.map((a) => a.assigned_to_user_id).filter(Boolean));
+  const lista = [...coaches].sort((a, b) => (conMaterial.has(b.user_id) - conMaterial.has(a.user_id)) || String(a.display_name).localeCompare(String(b.display_name), 'es-MX'));
+  const cuerpo = abreHoja('¿A quién?', `
+    <p class="ut-paso">Paso 2 de 3 · ${esc(unidad ? `${item.name} ${unidad.code}` : item.name)}</p>
+    <div class="ut-personas">${lista.map((c) => `<button type="button" class="ut-persona" data-coach="${esc(c.user_id)}" data-nombre="${esc(c.display_name)}">
+      <span class="ut-avatar grande">${esc(iniciales(c.display_name))}</span><strong>${esc(c.display_name || 'Sin nombre')}</strong></button>`).join('')}</div>
+    <form class="ut-linea" id="eOtro"><input maxlength="120" placeholder="Otra persona (escribe su nombre)" aria-label="Otra persona"><button type="submit" class="ut-btn chico">Usar</button></form>`, { atras: desde });
+  cuerpo.querySelectorAll('[data-coach]').forEach((b) => b.addEventListener('click', () =>
+    entregar({ item, unidad, persona: { id: b.dataset.coach, nombre: b.dataset.nombre }, desde: () => pasoQuien(item, unidad, desde) })));
+  $('eOtro').addEventListener('submit', (e) => {
+    e.preventDefault(); const n = e.target.querySelector('input').value.trim(); if (!n) return;
+    entregar({ item, unidad, persona: { id: null, nombre: n }, desde: () => pasoQuien(item, unidad, desde) });
+  });
 }
-
-/* ---------- Asistente de entrega: 3 pasos (qué / a quién / confirmar) ----------
-   Antes era un formulario largo con 6 campos a la vez. Ahora se pregunta una
-   cosa por pantalla y se avanza solo al elegir, para que darle su material a
-   un profe sea tan rápido como tocar tres botones. */
-let deliveryState = { step: 1, item: null, unitId: null, unitCode: null, recipientType: null, recipientId: null, recipientName: null };
-function stockedItems() {
-  return items.filter((i) => i.status === 'active' && (i.control_type === 'individual' ? Number(i.units_bodega || 0) > 0 : Number(i.available_quantity || 0) > 0));
-}
-function openDeliveryWizard(presetItem) {
-  deliveryState = { step: 1, item: null, unitId: null, unitCode: null, recipientType: null, recipientId: null, recipientName: null };
-  $('deliverySearchItem').value = '';
-  $('deliveryOtherWrap').classList.add('hidden');
-  $('deliveryOtherName').value = '';
-  $('deliveryModalBackdrop').classList.remove('hidden');
-  $('deliveryModal').classList.remove('hidden');
-  if (presetItem) {
-    deliveryState.item = presetItem;
-    if (presetItem.control_type === 'individual') { renderDeliveryStep(1); renderDeliveryUnits(presetItem); }
-    else renderDeliveryStep(2);
-  } else {
-    renderDeliveryStep(1);
-  }
-}
-function closeDeliveryWizard() {
-  $('deliveryModalBackdrop').classList.add('hidden');
-  $('deliveryModal').classList.add('hidden');
-}
-function renderDeliveryStep(step) {
-  deliveryState.step = step;
-  document.querySelectorAll('.dstep').forEach((el) => el.classList.toggle('active', Number(el.dataset.step) === step));
-  document.querySelectorAll('.delivery-panel').forEach((el) => el.classList.toggle('hidden', Number(el.dataset.dpanel) !== step));
-  $('deliveryBack').classList.toggle('hidden', step === 1);
-  if (step === 1) renderDeliveryItems();
-  if (step === 2) renderDeliveryCoaches();
-  if (step === 3) renderDeliverySummary();
-}
-function deliveryBack() { if (deliveryState.step > 1) renderDeliveryStep(deliveryState.step - 1); }
-function renderDeliveryItems() {
-  const term = ($('deliverySearchItem').value || '').trim().toLowerCase();
-  const list = $('deliveryItemList');
-  const rows = stockedItems().filter((i) => !term || String(i.name || '').toLowerCase().includes(term));
-  list.innerHTML = rows.map((i) => {
-    const avail = i.control_type === 'individual' ? Number(i.units_bodega || 0) : Number(i.available_quantity || 0);
-    return `<button type="button" class="delivery-pick-row" data-item="${i.id}"><strong>${esc(i.name)}</strong><span>${avail} disponible${avail === 1 ? '' : 's'}</span></button>`;
-  }).join('') || '<div class="empty">Nada disponible con ese nombre.</div>';
-  list.querySelectorAll('[data-item]').forEach((btn) => btn.addEventListener('click', () => {
-    const item = items.find((i) => i.id === btn.dataset.item);
-    deliveryState.item = item; deliveryState.unitId = null; deliveryState.unitCode = null;
-    if (item.control_type === 'individual') renderDeliveryUnits(item);
-    else renderDeliveryStep(2);
+function pasoConfirma(item, unidad, persona, desde) {
+  const max = unidad ? 1 : enBodega(item);
+  let cantidad = 1;
+  const cuerpo = abreHoja('Confirmar entrega', `
+    <p class="ut-paso">Paso 3 de 3</p>
+    <div class="ut-resumen-entrega">
+      ${foto(fotoDe(item), item.name)}
+      <div><strong>${esc(unidad ? `${item.name} · ${unidad.code}` : item.name)}</strong><span>para <b>${esc(persona.nombre)}</b></span></div>
+    </div>
+    ${unidad ? '' : `<div class="ut-campo"><span>Cuántos</span><div class="ut-ajuste"><button type="button" data-cq="-1" aria-label="Uno menos">&minus;</button><output id="eCantidad">1</output><button type="button" data-cq="1" aria-label="Uno más">+</button><small>de ${max} en bodega</small></div></div>`}
+    <label class="ut-campo"><span>Nota <small>opcional</small></span><input id="eNota" maxlength="500" placeholder="Para el torneo del sábado"></label>
+    <p class="ut-error" id="eError" role="alert"></p>
+    <button type="button" class="ut-btn primario" id="eConfirmar">Entregar</button>`, { atras: desde });
+  cuerpo.querySelectorAll('[data-cq]').forEach((b) => b.addEventListener('click', () => {
+    cantidad = Math.min(max, Math.max(1, cantidad + Number(b.dataset.cq))); $('eCantidad').textContent = cantidad;
   }));
-  $('deliveryUnitList').classList.add('hidden');
-  $('deliveryUnitList').innerHTML = '';
-}
-async function renderDeliveryUnits(item) {
-  const box = $('deliveryUnitList');
-  box.classList.remove('hidden');
-  box.innerHTML = '<div class="empty">Cargando unidades…</div>';
-  const units = await rpc('v2_equipment_units', { organization_id: ctx.organization_id, item_id: item.id }).catch(() => []);
-  const free = units.filter((u) => u.status === 'bodega');
-  box.innerHTML = `<div class="units-head">Elige la unidad de ${esc(item.name)}</div>` +
-    (free.map((u) => `<button type="button" class="delivery-pick-row" data-unit="${u.id}" data-code="${esc(u.code)}"><strong>${esc(u.code)}</strong>${u.condition ? `<span>${esc(u.condition)}</span>` : ''}</button>`).join('') || '<div class="empty">Sin unidades libres.</div>');
-  box.querySelectorAll('[data-unit]').forEach((btn) => btn.addEventListener('click', () => {
-    deliveryState.unitId = btn.dataset.unit; deliveryState.unitCode = btn.dataset.code;
-    renderDeliveryStep(2);
-  }));
-}
-function renderDeliveryCoaches() {
-  const list = $('deliveryCoachList');
-  list.innerHTML = coaches.map((c) => `<button type="button" class="delivery-pick-row" data-coach="${c.user_id}" data-name="${esc(c.display_name)}"><strong>${esc(c.display_name || 'Sin nombre')}</strong></button>`).join('') || '<div class="empty">No hay profes registrados todavía. Usa "Otro" para escribir el nombre.</div>';
-  list.querySelectorAll('[data-coach]').forEach((btn) => btn.addEventListener('click', () => {
-    deliveryState.recipientType = 'coach'; deliveryState.recipientId = btn.dataset.coach; deliveryState.recipientName = btn.dataset.name;
-    renderDeliveryStep(3);
-  }));
-}
-function renderDeliverySummary() {
-  const s = deliveryState;
-  const what = s.unitCode ? `${s.item.name} · ${s.unitCode}` : s.item.name;
-  $('deliverySummary').innerHTML = `Vas a entregar <strong>${esc(what)}</strong> a <strong>${esc(s.recipientName)}</strong>.`;
-  $('deliveryQtyField').classList.toggle('hidden', !!s.unitId);
-  $('deliveryQty').value = '1';
-  $('deliveryNotes').value = '';
-  msg('deliveryMessage');
-}
-async function confirmDelivery() {
-  const s = deliveryState;
-  msg('deliveryMessage');
-  const btn = $('confirmDelivery');
-  btn.disabled = true;
-  try {
-    await rpc('v2_assign_equipment', {
-      organization_id: ctx.organization_id, item_id: s.item.id,
-      assigned_to_user_id: s.recipientType === 'coach' ? s.recipientId : null,
-      assigned_to_label: s.recipientType === 'label' ? s.recipientName : null,
-      quantity: s.unitId ? 1 : Number($('deliveryQty').value || 1),
-      notes: $('deliveryNotes').value.trim() || null,
-      equipment_unit_id: s.unitId || null,
-    });
-    closeDeliveryWizard();
-    await loadAdmin();
-  } catch (err) { msg('deliveryMessage', friendly(err)); btn.disabled = false; }
-  finally { btn.disabled = false; }
-}
-
-function renderBodega() {
-  const box = $('bodegaList');
-  box.innerHTML = '';
-  const stocked = items.filter((i) => i.status === 'active' && (i.control_type === 'individual' ? Number(i.units_bodega || 0) > 0 : Number(i.available_quantity || 0) > 0));
-  $('bodegaEmpty').classList.toggle('hidden', stocked.length > 0);
-  const photoEntries = [];
-  stocked.forEach((i) => {
-    const avail = i.control_type === 'individual' ? Number(i.units_bodega || 0) : Number(i.available_quantity || 0);
-    const card = document.createElement('article');
-    card.className = 'bodega-card';
-    card.innerHTML = `<div class="photo-box small" data-photo-for="bodega-${i.id}">${i.photo_path ? '' : (i.name || '?').slice(0, 1)}</div>
-      <div><strong>${esc(i.name)}</strong><span>${avail} disponible${avail === 1 ? '' : 's'} · ${i.control_type === 'individual' ? 'Individual' : 'Por cantidad'}</span></div>
-      <button class="secondary mini" type="button">Entregar</button>`;
-    card.querySelector('button').addEventListener('click', () => openDeliveryWizard(i));
-    box.appendChild(card);
-    photoEntries.push({ boxEl: card.querySelector(`[data-photo-for="bodega-${i.id}"]`), path: i.photo_thumb_path || i.photo_path, alt: i.name });
-  });
-  hydratePhotosBatch(photoEntries);
-}
-
-function renderKits() {
-  const box = $('kitsList');
-  box.innerHTML = '';
-  const groups = new Map();
-  assignments.forEach((a) => {
-    const key = a.assigned_to_user_id || `label:${a.assigned_to_label || 'Sin responsable'}`;
-    if (!groups.has(key)) groups.set(key, { name: a.recipient_name || 'Sin responsable', rows: [] });
-    groups.get(key).rows.push(a);
-  });
-  $('kitsEmpty').classList.toggle('hidden', groups.size > 0);
-  groups.forEach((group) => {
-    const card = document.createElement('article');
-    card.className = 'kit-card';
-    const rowsHtml = group.rows.map((a) => `
-      <div class="kit-row" data-assignment="${a.id}">
-        <div><strong>${esc(a.item_name)}</strong><span>${a.unit_code ? esc(a.unit_code) : `${Number(a.quantity || 0)} unidad${Number(a.quantity) === 1 ? '' : 'es'}`} · ${esc(fmtDate(a.assigned_at))}</span>${a.notes ? `<small>${esc(a.notes)}</small>` : ''}</div>
-        <button class="secondary mini return-btn" type="button">Devolución</button>
-      </div>`).join('');
-    card.innerHTML = `<div class="kit-card-head"><strong>${esc(group.name)}</strong><span>${group.rows.length} artículo${group.rows.length === 1 ? '' : 's'}</span></div>${rowsHtml}`;
-    card.querySelectorAll('.return-btn').forEach((btn, idx) => btn.addEventListener('click', () => returnAssignment(group.rows[idx])));
-    box.appendChild(card);
+  $('eConfirmar').addEventListener('click', async () => {
+    const btn = $('eConfirmar'); btn.disabled = true;
+    try {
+      await rpc('v2_assign_equipment', {
+        organization_id: ctx.organization_id, item_id: item.id,
+        assigned_to_user_id: persona.id || null, assigned_to_label: persona.id ? null : persona.nombre,
+        quantity: unidad ? 1 : cantidad, notes: $('eNota').value.trim() || null, equipment_unit_id: unidad?.id || null,
+      });
+      cierraHoja(); await loadAdmin(); repinta();
+      aviso(`Entregado: ${unidad ? unidad.code : `${cantidad} ${item.name}`} a ${persona.nombre}`);
+    } catch (err) { $('eError').textContent = friendly(err); btn.disabled = false; }
   });
 }
 
-async function returnAssignment(a) {
-  if (!canWrite) return;
-  const ok = await tosConfirm({ kicker: 'UTILERÍA', title: '¿Registrar la devolución?',
-    message: `${a.unit_code || `${Number(a.quantity || 0)} × ${a.item_name}`} de ${a.recipient_name}.`,
-    confirmText: 'Sí, la devolvió' });
+/* ---------- Quién lo tiene ---------- */
+function pintaQuien() {
+  const gente = personas();
+  $('utPanel').innerHTML = gente.length ? `<div class="ut-gente">${gente.map((p) => `
+    <article class="ut-persona-card">
+      <header><span class="ut-avatar grande">${esc(iniciales(p.nombre))}</span>
+        <div><strong>${esc(p.nombre)}</strong><small>${plural(p.filas.reduce((s, a) => s + Number(a.quantity || 0), 0), 'pieza', 'piezas')}</small></div>
+        ${p.filas.length > 1 ? `<button type="button" class="ut-btn chico" data-todo="${esc(p.clave)}">Devolvió todo</button>` : ''}</header>
+      ${p.filas.map((a) => { const it = items.find((i) => i.id === a.equipment_item_id);
+        return `<div class="ut-fila">${foto(fotoDe(it), a.item_name, 'chica')}
+          <span class="ut-fila-txt"><strong>${esc(a.item_name)}</strong><small>${a.unit_code ? esc(a.unit_code) : plural(Number(a.quantity || 0), 'pieza', 'piezas')} · desde ${esc(fecha(a.assigned_at))}${a.notes ? ` · ${esc(a.notes)}` : ''}</small></span>
+          <button type="button" class="ut-btn chico" data-devuelve="${esc(a.id)}">Devolvió</button></div>`; }).join('')}
+    </article>`).join('')}</div>`
+    : `<div class="ut-vacio grande"><strong>Todo está en bodega</strong><p>Cuando entregues algo, aquí verás quién lo tiene.</p><button type="button" class="ut-btn primario" id="utVacioEntregar">Entregar algo</button></div>`;
+  $('utVacioEntregar')?.addEventListener('click', () => entregar());
+  $('utPanel').querySelectorAll('[data-devuelve]').forEach((b) => b.addEventListener('click', () => devolver(assignments.find((a) => a.id === b.dataset.devuelve))));
+  $('utPanel').querySelectorAll('[data-todo]').forEach((b) => b.addEventListener('click', () => devolverTodo(gente.find((p) => p.clave === b.dataset.todo))));
+  firmaFotos($('utPanel'));
+}
+async function devolver(a, despues = null) {
+  if (!a) return;
+  const ok = await tosConfirm({ kicker: 'UTILERÍA', title: '¿Ya lo devolvió?', message: `${a.unit_code || `${Number(a.quantity || 0)} × ${a.item_name}`} de ${a.recipient_name}. Regresa a la bodega.`, confirmText: 'Sí, lo devolvió' });
   if (!ok) return;
-  try { await rpc('v2_return_equipment', { organization_id: ctx.organization_id, assignment_id: a.id, notes: 'Devolución registrada desde TannerOS' }); await loadAdmin(); }
-  catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo registrar la devolución', message: friendly(err) }); }
-}
-
-const REPORT_TYPE_LABEL = { perdido: 'Perdido', danado: 'Dañado', roto: 'Roto', faltante: 'Faltante', reposicion: 'Reposición', material_adicional: 'Material adicional' };
-const REPORT_STATUS_LABEL = { pendiente: 'Pendiente', aprobado: 'Aprobado', rechazado: 'Rechazado', en_reparacion: 'En reparación', resuelto: 'Resuelto', cerrado: 'Cerrado' };
-
-function renderReports() {
-  const box = $('reportsList');
-  box.innerHTML = '';
-  const filterVal = $('reportStatusFilter').value;
-  const filtered = reports.filter((r) => !filterVal || r.status === filterVal);
-  $('reportsEmpty').classList.toggle('hidden', reports.length > 0);
-  const photoEntries = [];
-  filtered.forEach((r) => {
-    const card = document.createElement('article');
-    card.className = `report-card status-${r.status}`;
-    const target = r.item_name ? `${esc(r.item_name)}${r.unit_code ? ` · ${esc(r.unit_code)}` : ''}` : 'Solicitud general';
-    card.innerHTML = `
-      <div class="report-head">
-        <div><strong>${target}</strong><span class="report-type-badge">${REPORT_TYPE_LABEL[r.report_type] || r.report_type}</span></div>
-        <span class="report-status-badge status-${r.status}">${REPORT_STATUS_LABEL[r.status] || r.status}</span>
-      </div>
-      <div class="report-body">
-        ${r.reason ? `<p>${esc(r.reason)}</p>` : ''}
-        ${r.comment ? `<p class="muted tiny">${esc(r.comment)}</p>` : ''}
-        <div class="photo-box tiny report-photo hidden"></div>
-        <small class="muted">Reportado por ${esc(r.reporter_name || '—')} · ${esc(fmtDate(r.created_at))}</small>
-        ${r.resolution_note ? `<small class="muted">Resolución: ${esc(r.resolution_note)}</small>` : ''}
-      </div>
-      <div class="report-actions write-only">
-        <select class="resolve-status">${Object.entries(REPORT_STATUS_LABEL).map(([v, l]) => `<option value="${v}" ${v === r.status ? 'selected' : ''}>${l}</option>`).join('')}</select>
-        <input class="resolve-note" maxlength="300" placeholder="Nota (opcional)">
-        <button class="secondary mini" type="button">Guardar</button>
-      </div>`;
-    if (r.photo_path) {
-      const photoBox = card.querySelector('.report-photo');
-      photoBox.classList.remove('hidden');
-      photoEntries.push({ boxEl: photoBox, path: r.photo_thumb_path || r.photo_path, alt: 'Evidencia' });
-    }
-    card.querySelector('.report-actions button')?.addEventListener('click', async () => {
-      const status = card.querySelector('.resolve-status').value;
-      const note = card.querySelector('.resolve-note').value.trim();
-      try { await rpc('v2_resolve_equipment_report', { organization_id: ctx.organization_id, report_id: r.id, status, resolution_note: note || null }); await loadAdmin(); }
-      catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo resolver el reporte', message: friendly(err) }); }
-    });
-    box.appendChild(card);
-  });
-  hydratePhotosBatch(photoEntries);
-  writeControls();
-}
-
-async function saveItem(e) {
-  e.preventDefault();
-  msg('itemMessage');
-  const btn = $('saveItem');
-  btn.disabled = true;
   try {
-    let photoPath = null, photoBucket = null, photoThumbPath = null;
-    if (itemPhotoFile) {
-      const targetId = editingItemId || 'new';
-      const uploaded = await uploadPhoto(`organizations/${ctx.organization_id}/equipment/items/${targetId}/foto`, itemPhotoFile);
-      photoPath = uploaded.path;
-      photoThumbPath = uploaded.thumbPath;
-      photoBucket = PHOTO_BUCKET;
-    }
-    await rpc('v2_upsert_equipment_item', {
-      organization_id: ctx.organization_id, item_id: editingItemId,
-      sku: $('itemSku').value.trim() || null, name: $('itemName').value.trim(),
-      category: $('itemCategory').value.trim() || null, quantity: Number($('itemQuantity').value || 0),
-      min_stock: Number($('itemMinStock').value || 0), unit_cost: $('itemCost').value === '' ? null : Number($('itemCost').value),
-      location: $('itemLocation').value.trim() || null, status: estadoAlGuardar(editingItemId ? items.find((x) => x.id === editingItemId) : null), notes: $('itemNotes').value.trim() || null,
-      control_type: $('itemControlType').value, photo_path: photoPath, photo_bucket: photoBucket, photo_thumb_path: photoThumbPath,
-    });
-    msg('itemMessage', 'Artículo guardado.', 'success');
-    resetItemForm();
-    $('itemForm').classList.add('hidden');
-    $('toggleItemForm').textContent = '+ Nuevo artículo';
-    await loadAdmin();
-  } catch (err) { msg('itemMessage', friendly(err)); }
-  finally { btn.disabled = !canWrite; }
+    await rpc('v2_return_equipment', { organization_id: ctx.organization_id, assignment_id: a.id, notes: 'Devolución registrada desde TannerOS' });
+    await loadAdmin(); repinta(); aviso(`${a.item_name} regresó a la bodega`);
+    if (despues) despues();
+  } catch (err) { await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo registrar la devolución', message: friendly(err) }); }
+}
+async function devolverTodo(p) {
+  if (!p) return;
+  const ok = await tosConfirm({ kicker: 'UTILERÍA', title: `¿${p.nombre} devolvió todo?`, message: `${plural(p.filas.length, 'artículo regresa', 'artículos regresan')} a la bodega.`, confirmText: 'Sí, todo' });
+  if (!ok) return;
+  try {
+    for (const a of p.filas) await rpc('v2_return_equipment', { organization_id: ctx.organization_id, assignment_id: a.id, notes: 'Devolución registrada desde TannerOS' });
+    await loadAdmin(); repinta(); aviso(`Todo lo de ${p.nombre} regresó a la bodega`);
+  } catch (err) { await loadAdmin(); repinta(); await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo registrar todo', message: friendly(err) }); }
 }
 
-function bindAdminEvents() {
-  document.querySelectorAll('#adminTabs .tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('#adminTabs .tab').forEach((t) => t.classList.toggle('active', t === tab));
-      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== tab.dataset.tab));
-    });
-  });
-  $('toggleItemForm').addEventListener('click', () => {
-    const hidden = $('itemForm').classList.toggle('hidden');
-    $('toggleItemForm').textContent = hidden ? '+ Nuevo artículo' : 'Cerrar formulario';
-    if (hidden) resetItemForm();
-  });
-  $('cancelItemEdit').addEventListener('click', () => { resetItemForm(); $('itemForm').classList.add('hidden'); $('toggleItemForm').textContent = '+ Nuevo artículo'; });
-  $('itemForm').addEventListener('submit', saveItem);
-  $('itemPhotoInput').addEventListener('change', (e) => {
-    itemPhotoFile = e.target.files?.[0] || null;
-    if (itemPhotoFile) { const url = URL.createObjectURL(itemPhotoFile); $('itemPhotoBox').innerHTML = `<img src="${url}" alt="">`; }
-  });
-  $('itemSearch').addEventListener('input', renderItemsTable);
-  $('verBajas')?.addEventListener('change', renderItemsTable);
-  $('refreshInventory').addEventListener('click', loadAdmin);
-  $('reportStatusFilter').addEventListener('change', renderReports);
-  $('openDeliveryWizard').addEventListener('click', () => openDeliveryWizard());
-  $('closeDeliveryModal').addEventListener('click', closeDeliveryWizard);
-  $('deliveryModalBackdrop').addEventListener('click', closeDeliveryWizard);
-  $('deliveryBack').addEventListener('click', deliveryBack);
-  $('deliverySearchItem').addEventListener('input', renderDeliveryItems);
-  $('deliveryOtherBtn').addEventListener('click', () => $('deliveryOtherWrap').classList.toggle('hidden'));
-  $('deliveryOtherConfirm').addEventListener('click', () => {
-    const name = $('deliveryOtherName').value.trim();
-    if (!name) return;
-    deliveryState.recipientType = 'label'; deliveryState.recipientId = null; deliveryState.recipientName = name;
-    renderDeliveryStep(3);
-  });
-  $('confirmDelivery').addEventListener('click', confirmDelivery);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('deliveryModal').classList.contains('hidden')) closeDeliveryWizard(); });
+/* ---------- Reportes ---------- */
+const TIPO = { perdido: 'Perdido', danado: 'Dañado', roto: 'Roto', faltante: 'Me falta', reposicion: 'Reposición', material_adicional: 'Pide material' };
+const ESTADO = { pendiente: 'Nuevo', aprobado: 'Aprobado', rechazado: 'Rechazado', en_reparacion: 'En reparación', resuelto: 'Resuelto', cerrado: 'Cerrado' };
+function tarjetaReporte(r, conAcciones) {
+  const it = items.find((i) => i.id === r.equipment_item_id);
+  const titulo = r.item_name ? `${r.item_name}${r.unit_code ? ` · ${r.unit_code}` : ''}` : 'Solicitud de material';
+  const abierto = ABIERTOS.includes(r.status);
+  return `<article class="ut-reporte ${abierto ? 'abierto' : ''}" data-reporte="${esc(r.id)}">
+    <header>${foto(r.photo_thumb_path || r.photo_path || fotoDe(it), titulo, 'chica')}
+      <div><strong>${esc(titulo)}</strong><small>${esc(TIPO[r.report_type] || r.report_type)}${Number(r.quantity || 0) > 1 ? ` · ${r.quantity} piezas` : ''}</small></div>
+      <em class="ut-pill ${{ pendiente: 'ambar', en_reparacion: 'azul', aprobado: 'azul', resuelto: 'verde', cerrado: 'gris', rechazado: 'gris' }[r.status] || 'gris'}">${esc(ESTADO[r.status] || r.status)}</em></header>
+    ${r.reason ? `<p>${esc(r.reason)}</p>` : ''}${r.comment ? `<p class="ut-nota">${esc(r.comment)}</p>` : ''}
+    <small class="ut-quien">${esc(r.reporter_name || '—')} · ${esc(fechaHora(r.created_at))}</small>
+    ${r.resolution_note ? `<small class="ut-quien">Respuesta: ${esc(r.resolution_note)}</small>` : ''}
+    ${conAcciones && abierto ? `<div class="ut-acciones-reporte">
+      ${r.status !== 'en_reparacion' && ['danado', 'roto'].includes(r.report_type) ? '<button type="button" class="ut-btn chico" data-estado="en_reparacion">En reparación</button>' : ''}
+      <button type="button" class="ut-btn chico verde" data-estado="resuelto">Resuelto</button>
+      <button type="button" class="ut-btn chico" data-estado="rechazado">Rechazar</button></div>` : ''}
+  </article>`;
+}
+function pintaReportes() {
+  const lista = reports.filter((r) => (filtroReportes === 'abiertos' ? ABIERTOS.includes(r.status) : !ABIERTOS.includes(r.status)))
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const nAb = abiertos().length, nCe = reports.length - nAb;
+  $('utPanel').innerHTML = `
+    <div class="ut-chips">
+      <button type="button" class="ut-chip${filtroReportes === 'abiertos' ? ' activa' : ''}" data-fr="abiertos">Por atender <small>${nAb}</small></button>
+      <button type="button" class="ut-chip${filtroReportes === 'cerrados' ? ' activa' : ''}" data-fr="cerrados">Atendidos <small>${nCe}</small></button>
+    </div>
+    ${lista.length ? `<div class="ut-reportes">${lista.map((r) => tarjetaReporte(r, true)).join('')}</div>`
+      : `<div class="ut-vacio grande"><strong>${filtroReportes === 'abiertos' ? 'Nada pendiente' : 'Aún no hay reportes atendidos'}</strong><p>Los profes reportan desde su "Mi utilería" lo dañado, roto, perdido o lo que les falta.</p></div>`}`;
+  $('utPanel').querySelectorAll('[data-fr]').forEach((b) => b.addEventListener('click', () => { filtroReportes = b.dataset.fr; pintaReportes(); }));
+  $('utPanel').querySelectorAll('[data-estado]').forEach((b) => b.addEventListener('click', async () => {
+    const id = b.closest('[data-reporte]').dataset.reporte, status = b.dataset.estado;
+    let nota = null;
+    if (status === 'rechazado') {
+      nota = await (window.tosPrompt ? window.tosPrompt({ kicker: 'UTILERÍA', title: '¿Por qué se rechaza?', message: 'El profe lo verá en su reporte.', placeholder: 'Ej. Ya se repuso la semana pasada' }) : Promise.resolve(prompt('¿Por qué se rechaza?') || ''));
+      if (nota === null) return;
+    }
+    b.disabled = true;
+    try {
+      await rpc('v2_resolve_equipment_report', { organization_id: ctx.organization_id, report_id: id, status, resolution_note: nota || null });
+      await loadAdmin(); repinta(); aviso(`Reporte: ${ESTADO[status].toLocaleLowerCase('es-MX')}`);
+    } catch (err) { b.disabled = false; await tosAlert({ kicker: 'UTILERÍA', title: 'No se pudo guardar', message: friendly(err) }); }
+  }));
+  firmaFotos($('utPanel'));
 }
 
 /* =========================================================
-   ENTRENADOR — "Mi Utilería"
+   EL PROFE — "Mi utilería"
    ========================================================= */
 async function loadCoach() {
-  [myKit, myReports] = await Promise.all([
+  const [k, r] = await Promise.all([
     rpc('v2_my_equipment_kit', { organization_id: ctx.organization_id }),
     rpc('v2_my_equipment_reports', { organization_id: ctx.organization_id }),
   ]);
-  myKit = Array.isArray(myKit) ? myKit : [];
-  myReports = Array.isArray(myReports) ? myReports : [];
-  renderMyKit();
-  renderMyReports();
-  renderReportItemOptions();
+  myKit = Array.isArray(k) ? k : [];
+  myReports = Array.isArray(r) ? r : [];
+  pintaCoach();
 }
-
-function renderMyKit() {
-  const box = $('myKitList');
-  box.innerHTML = '';
-  $('myKitEmpty').classList.toggle('hidden', myKit.length > 0);
-  const photoEntries = [];
-  myKit.forEach((k) => {
-    const card = document.createElement('article');
-    card.className = 'kit-card';
-    const photoPath = (k.unit_photo_thumb_path || k.unit_photo_path) || (k.item_photo_thumb_path || k.item_photo_path);
-    card.innerHTML = `<div class="kit-row">
-        <div class="photo-box small" data-photo-for="mykit-${k.id}">${photoPath ? '' : (k.item_name || '?').slice(0, 1)}</div>
-        <div><strong>${esc(k.item_name)}</strong><span>${k.unit_code ? esc(k.unit_code) : `${Number(k.quantity || 0)} unidad${Number(k.quantity) === 1 ? '' : 'es'}`} · desde ${esc(fmtDate(k.assigned_at))}</span></div>
-      </div>`;
-    box.appendChild(card);
-    photoEntries.push({ boxEl: card.querySelector(`[data-photo-for="mykit-${k.id}"]`), path: photoPath, alt: k.item_name });
-  });
-  hydratePhotosBatch(photoEntries);
+const fotoKit = (k) => k.unit_photo_thumb_path || k.unit_photo_path || k.item_photo_thumb_path || k.item_photo_path || null;
+function pintaCoach() {
+  $('utResumen').textContent = myKit.length ? `${plural(myKit.reduce((s, k) => s + Number(k.quantity || 0), 0), 'pieza', 'piezas')} a tu cargo` : 'No tienes material a tu cargo';
+  $('utPanel').innerHTML = `
+    <div class="ut-grid">${myKit.map((k) => `<button type="button" class="ut-card" data-kit="${esc(k.id)}">${foto(fotoKit(k), k.item_name)}
+      <span class="ut-card-txt"><strong>${esc(k.item_name)}</strong><span class="ut-card-num">${k.unit_code ? esc(k.unit_code) : `<b>${Number(k.quantity || 0)}</b> contigo`}</span><small>Toca si algo pasó</small></span></button>`).join('')}
+      <button type="button" class="ut-card nueva" id="utPedir"><span class="ut-mas">+</span><strong>Pedir material</strong></button></div>
+    ${myReports.length ? `<h2 class="ut-subtitulo">Mis reportes</h2><div class="ut-reportes">${myReports.map((r) => tarjetaReporte(r, false)).join('')}</div>` : ''}`;
+  $('utPanel').querySelectorAll('[data-kit]').forEach((b) => b.addEventListener('click', () => reportar(myKit.find((k) => k.id === b.dataset.kit))));
+  $('utPedir').addEventListener('click', () => pedirMaterial());
+  firmaFotos($('utPanel'));
 }
-
-function renderReportItemOptions() {
-  const sel = $('reportItem');
-  sel.innerHTML = '<option value="">Selecciona…</option>';
-  myKit.forEach((k) => {
-    const o = document.createElement('option');
-    o.value = JSON.stringify({ itemId: k.equipment_item_id, unitId: k.equipment_unit_id || null });
-    o.textContent = `${k.item_name}${k.unit_code ? ` · ${k.unit_code}` : ''}`;
-    sel.appendChild(o);
-  });
+function reportar(k) {
+  const cuerpo = abreHoja(k.item_name, `
+    <p class="ut-paso">¿Qué pasó?</p>
+    <div class="ut-motivos">
+      ${[['danado', 'Se dañó'], ['roto', 'Se rompió'], ['perdido', 'Se perdió'], ['faltante', 'Me falta'], ['reposicion', 'Necesito reposición']].map(([t, l]) =>
+        `<button type="button" class="ut-opcion grande" data-tipo="${t}"><strong>${l}</strong></button>`).join('')}
+    </div>`);
+  cuerpo.querySelectorAll('[data-tipo]').forEach((b) => b.addEventListener('click', () => detalleReporte(k, b.dataset.tipo)));
 }
-
-function renderMyReports() {
-  const box = $('myReportsList');
-  box.innerHTML = '';
-  $('myReportsEmpty').classList.toggle('hidden', myReports.length > 0);
-  myReports.forEach((r) => {
-    const card = document.createElement('article');
-    card.className = `report-card status-${r.status}`;
-    card.innerHTML = `
-      <div class="report-head">
-        <div><strong>${esc(r.item_name || 'Solicitud general')}</strong><span class="report-type-badge">${REPORT_TYPE_LABEL[r.report_type] || r.report_type}</span></div>
-        <span class="report-status-badge status-${r.status}">${REPORT_STATUS_LABEL[r.status] || r.status}</span>
-      </div>
-      <div class="report-body">
-        ${r.reason ? `<p>${esc(r.reason)}</p>` : ''}
-        <small class="muted">${esc(fmtDate(r.created_at))}</small>
-        ${r.resolution_note ? `<small class="muted">Respuesta: ${esc(r.resolution_note)}</small>` : ''}
-      </div>`;
-    box.appendChild(card);
+function detalleReporte(k, tipo, libre = false) {
+  let cantidad = 1, archivo = null;
+  const cuerpo = abreHoja(libre ? 'Pedir material' : `${TIPO[tipo]} · ${k.item_name}`, `
+    <form id="rForm" class="ut-form">
+      ${libre ? '<label class="ut-campo"><span>¿Qué necesitas?</span><input id="rQue" required maxlength="160" placeholder="2 conos, un peto talla M…"></label>' : ''}
+      <div class="ut-campo"><span>Cuántos</span><div class="ut-ajuste"><button type="button" data-rq="-1" aria-label="Uno menos">&minus;</button><output id="rCantidad">1</output><button type="button" data-rq="1" aria-label="Uno más">+</button></div></div>
+      <label class="ut-campo"><span>Cuéntanos <small>opcional</small></span><input id="rMotivo" maxlength="300" placeholder="${libre ? 'Para el entrenamiento de T10' : 'Se ponchó en el entrenamiento'}"></label>
+      <label class="ut-subefoto chica"><span>Agregar foto <small>opcional</small></span><input type="file" accept="image/*" id="rFoto"></label>
+      <p class="ut-error" id="rError" role="alert"></p>
+      <button type="submit" class="ut-btn primario" id="rEnviar">Enviar</button>
+    </form>`, { atras: libre ? null : () => reportar(k) });
+  cuerpo.querySelectorAll('[data-rq]').forEach((b) => b.addEventListener('click', () => { cantidad = Math.max(1, cantidad + Number(b.dataset.rq)); $('rCantidad').textContent = cantidad; }));
+  $('rFoto').addEventListener('change', (e) => { archivo = e.target.files?.[0] || null; });
+  $('rForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('rEnviar'); btn.disabled = true; $('rError').textContent = '';
+    try {
+      let f = {};
+      if (archivo) { const up = await uploadPhoto(`organizations/${ctx.organization_id}/equipment/reports/reporte-${Date.now()}`, archivo); f = { photo_path: up.path, photo_thumb_path: up.thumbPath, photo_bucket: PHOTO_BUCKET }; }
+      const motivo = $('rMotivo').value.trim();
+      await rpc('v2_report_equipment_issue', {
+        organization_id: ctx.organization_id, item_id: libre ? null : k.equipment_item_id, unit_id: libre ? null : (k.equipment_unit_id || null),
+        report_type: tipo, quantity: cantidad, reason: libre ? [$('rQue').value.trim(), motivo].filter(Boolean).join(' — ') : (motivo || null),
+        photo_path: f.photo_path || null, photo_bucket: f.photo_bucket || null, comment: null, photo_thumb_path: f.photo_thumb_path || null,
+      });
+      cierraHoja(); await loadCoach(); aviso('Enviado. Administración lo va a revisar.');
+    } catch (err) { $('rError').textContent = friendly(err); btn.disabled = false; }
   });
 }
-
-function openReportForm(preset) {
-  currentReportPreset = preset;
-  $('reportForm').classList.remove('hidden');
-  const isFreeRequest = preset === 'material_adicional';
-  $('reportItemField').classList.toggle('hidden', isFreeRequest);
-  $('reportFreeTextField').classList.toggle('hidden', !isFreeRequest);
-  $('reportTypeField').classList.toggle('hidden', preset !== 'problema');
-  if (preset === 'reposicion') $('reportType').value = 'faltante';
-  if (preset === 'problema') $('reportType').value = 'danado';
-  $('reportForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-async function saveReport(e) {
-  e.preventDefault();
-  msg('reportMessage');
-  const btn = $('saveReport');
-  btn.disabled = true;
-  try {
-    let itemId = null, unitId = null;
-    const isFreeRequest = currentReportPreset === 'material_adicional';
-    if (!isFreeRequest) {
-      const sel = $('reportItem').value;
-      if (!sel) throw new Error('Selecciona un artículo de tu kit.');
-      const parsed = JSON.parse(sel);
-      itemId = parsed.itemId; unitId = parsed.unitId;
-    }
-    const reportType = currentReportPreset === 'reposicion' ? 'reposicion' : (currentReportPreset === 'material_adicional' ? 'material_adicional' : $('reportType').value);
-    const reasonBase = $('reportReason').value.trim();
-    const freeText = $('reportFreeText').value.trim();
-    const reason = isFreeRequest ? [freeText, reasonBase].filter(Boolean).join(' — ') : reasonBase;
-    if (isFreeRequest && !freeText) throw new Error('Escribe qué material necesitas.');
-
-    let photoPath = null, photoBucket = null, photoThumbPath = null;
-    if (reportPhotoFile) {
-      const uploaded = await uploadPhoto(`organizations/${ctx.organization_id}/equipment/reports/reporte-${Date.now()}`, reportPhotoFile);
-      photoPath = uploaded.path;
-      photoThumbPath = uploaded.thumbPath;
-      photoBucket = PHOTO_BUCKET;
-    }
-    await rpc('v2_report_equipment_issue', {
-      organization_id: ctx.organization_id, item_id: itemId, unit_id: unitId, report_type: reportType,
-      quantity: Number($('reportQuantity').value || 1), reason: reason || null,
-      photo_path: photoPath, photo_bucket: photoBucket, comment: $('reportComment').value.trim() || null, photo_thumb_path: photoThumbPath,
-    });
-    msg('reportMessage', 'Reporte enviado. Administración lo va a revisar.', 'success');
-    e.target.reset();
-    reportPhotoFile = null;
-    $('reportForm').classList.add('hidden');
-    await loadCoach();
-  } catch (err) { msg('reportMessage', friendly(err)); }
-  finally { btn.disabled = false; }
-}
-
-function bindCoachEvents() {
-  document.querySelectorAll('.report-trigger').forEach((btn) => btn.addEventListener('click', () => openReportForm(btn.dataset.preset)));
-  $('cancelReport').addEventListener('click', () => { $('reportForm').classList.add('hidden'); $('reportForm').reset(); });
-  $('reportForm').addEventListener('submit', saveReport);
-  $('reportPhotoInput').addEventListener('change', (e) => { reportPhotoFile = e.target.files?.[0] || null; });
-}
+function pedirMaterial() { detalleReporte({}, 'material_adicional', true); }
 
 boot().catch((e) => { $('deniedText').textContent = friendly(e); show('deniedView'); });

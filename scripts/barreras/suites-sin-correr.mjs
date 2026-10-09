@@ -110,7 +110,10 @@ export default function comprobar() {
   // Sube a 28 por qa-humo-pedidos-por-revisar.mjs. Vigila que el link de la
   // tienda diga cómo pagar y que Pedidos avise y confirme por WhatsApp. Es
   // pintura sobre v2_orders_to_review y v2_public_payment_info.
-  const MAX_EXCLUIDAS = 28;
+  // Sube a 29 por qa-humo-utileria.mjs. Vigila la Utilería rediseñada (qué
+  // tenemos, quién lo tiene, reportes; entregar en tres toques) y que ajustar
+  // la cantidad no borre la foto. Es pintura sobre v2_equipment_*.
+  const MAX_EXCLUIDAS = 29;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

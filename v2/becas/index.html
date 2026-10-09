@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07191e">
+<title>Becas · TannerOS</title>
+<link rel="stylesheet" href="/v2/styles.css">
+<link rel="stylesheet" href="/v2/becas/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="stylesheet" href="/icons.css?v=20260907a">
+<link rel="stylesheet" href="/polish.css?v=20260907a">
+</head>
+<body>
+<main class="shell">
+  <section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Becas</h2><p class="muted">Abriendo el padrón…</p></section>
+  <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted">Las becas sólo las ven Presidencia y Dirección.</p><a class="secondary nav-link" href="/v2">Volver</a></section>
+
+  <section id="view" class="hidden app-wrap bc">
+    <header class="topbar">
+      <div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName">Tannery City FC</strong></div></div>
+      <div class="top-actions"><a class="secondary mini nav-link" href="/v2">Dirección</a><span id="roleBadge" class="role-badge"></span></div>
+    </header>
+
+    <!-- La cancha: cuántos becados hay y cómo van, de un vistazo. -->
+    <section class="bc-cancha">
+      <p class="bc-dia" id="bcPeriodo">Octubre</p>
+      <h1>Becas</h1>
+      <div class="bc-marcador">
+        <div><b id="mTotal">0</b><span>Becados</span></div>
+        <div><b id="mPct">—</b><span>Asistencia</span></div>
+        <div><b id="mTipos">0 · 0</b><span>Total · Parcial</span></div>
+      </div>
+    </section>
+
+    <div id="bcPeriodos" class="bc-periodos" role="group" aria-label="Periodo"></div>
+
+    <!-- Lo que hay que atender. -->
+    <div id="bcFocos" class="bc-focos"></div>
+
+    <article id="bcSolicitudes" class="bc-carta hidden">
+      <div class="bc-carta-cab"><h2>Solicitudes de beca</h2><span>Las mandó la familia desde su portal</span></div>
+      <div id="bcSolicitudesLista" class="bc-solicitudes"></div>
+    </article>
+
+    <div class="bc-herr">
+      <label class="bc-buscar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="bcBuscar" type="search" placeholder="Buscar becado" autocomplete="off"></label>
+      <button type="button" id="bcCsv" class="secondary mini">Exportar</button>
+    </div>
+    <nav id="bcFiltros" class="bc-filtros" aria-label="Filtrar becados"></nav>
+
+    <section id="bcLista" class="bc-lista" aria-live="polite"></section>
+    <p id="bcVacio" class="bc-vacio hidden">Ningún becado coincide.</p>
+    <div id="bcMensaje" class="inline-message hidden"></div>
+  </section>
+</main>
+
+<!-- El expediente de la beca. -->
+<div id="bcFondo" class="bc-fondo hidden">
+  <section class="bc-hoja" role="dialog" aria-modal="true" aria-labelledby="bcHojaNombre">
+    <div class="bc-asa" aria-hidden="true"></div>
+    <button type="button" id="bcCerrar" class="bc-cerrar" aria-label="Cerrar">&times;</button>
+    <div id="bcHoja"></div>
+  </section>
+</div>
+
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/becas/app.js"></script>
+</body>
+</html>

@@ -116,7 +116,10 @@ export default function comprobar() {
   // Sube a 30 por qa-humo-asistencia-lista.mjs. Vigila pasar lista en tres
   // toques: todos presentes de entrada, tocar a los que faltaron, opciones
   // con toque largo y mis categorías primero. Es pintura sobre v2_attendance_*.
-  const MAX_EXCLUIDAS = 30;
+  // Sube a 31 por qa-humo-becas.mjs. Vigila el portal de becados: que sólo
+  // lo abran Presidencia y Dirección, el orden de lo que hay que atender y
+  // el mensaje a la familia. Es pintura sobre v2_scholarship_portal.
+  const MAX_EXCLUIDAS = 31;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

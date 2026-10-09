@@ -39,7 +39,8 @@ const ICONS={
   moneyIn:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/>',
   moneyOut:'<path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/>',
   chat:'<path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5Z"/>',
-  book:'<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5V4.5Z"/><path d="M4 19a2.5 2.5 0 0 1 2.5-2.5H20"/>'
+  book:'<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5V4.5Z"/><path d="M4 19a2.5 2.5 0 0 1 2.5-2.5H20"/>',
+  star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>'
 };
 export const shellIcon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]||ICONS.home}</svg>`;
 
@@ -54,6 +55,8 @@ export const navItems=[
   {code:'contabilidad',label:'Contabilidad',href:'/contabilidad/',group:'finance',icon:'ledger'},
   {code:'jugadores',label:'Jugadores',href:'/jugadores/',group:'club',icon:'users'},
   {code:'asistencia',label:'Asistencia',href:'/asistencia/',group:'club',icon:'check'},
+  // Becas no es un módulo: lo ve quien ve Dirección (Presidencia, 09/10/2026).
+  {code:'becas',label:'Becas',href:'/becas/',group:'club',icon:'star',lee:['direccion']},
   {code:'convocatoria',label:'Convocatoria',href:'/convocatoria/',group:'club',icon:'list',aliases:['callups']},
   {code:'calendario',label:'Calendario',href:'/calendario/',group:'main',icon:'calendar'},
   {code:'centro_tanner',label:'Centro Tanner',href:'/admin/centro-tanner/',group:'main',icon:'book'},
@@ -75,7 +78,7 @@ const groupLabels={main:'',club:'Club',finance:'Finanzas',ops:'Operación',admin
 export async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 export function navigationMap(rows=[]){return new Map((rows||[]).map(r=>[r.module_code,r]));}
 export function moduleAccess(rows,code,write=false){const row=navigationMap(rows).get(code);return Boolean(row?.enabled&&(write?row.can_write:row.can_read));}
-function itemReadable(rows,item){if(item.always)return true;return [item.code,...(item.aliases||[])].some(code=>moduleAccess(rows,code,false));}
+function itemReadable(rows,item){if(item.always)return true;return [item.code,...(item.aliases||[]),...(item.lee||[])].some(code=>moduleAccess(rows,code,false));}
 function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active);}
 export function setShellSearchItems(items=[]){window.__tosSearchExtras=Array.isArray(items)?items:[];}
 

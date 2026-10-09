@@ -15,6 +15,7 @@ const routeContract={
   '/mensajes/':'v2/mensajes/index.html',
   '/jugadores/':'v2/jugadores/index.html',
   '/asistencia/':'v2/asistencia/index.html',
+  '/becas/':'v2/becas/index.html',
   '/convocatoria/':'v2/convocatoria/index.html',
   '/calendario/':'v2/calendario/index.html',
   '/operacion/academias/':'v2/academias/index.html',

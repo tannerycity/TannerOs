@@ -47,6 +47,7 @@
     {"source":"/jugadores","destination":"/v2/jugadores/index.html"},{"source":"/jugadores/","destination":"/v2/jugadores/index.html"},
     {"source":"/asistencia","destination":"/v2/asistencia/index.html"},{"source":"/asistencia/","destination":"/v2/asistencia/index.html"},
     {"source":"/becas","destination":"/v2/becas/index.html"},{"source":"/becas/","destination":"/v2/becas/index.html"},
+    {"source":"/captura","destination":"/v2/captura/index.html"},{"source":"/captura/","destination":"/v2/captura/index.html"},
     {"source":"/convocatoria","destination":"/v2/convocatoria/index.html"},{"source":"/convocatoria/","destination":"/v2/convocatoria/index.html"},
     {"source":"/calendario","destination":"/v2/calendario/index.html"},{"source":"/calendario/","destination":"/v2/calendario/index.html"},
     {"source":"/prospectos","destination":"/v2/prospectos/index.html"},{"source":"/prospectos/","destination":"/v2/prospectos/index.html"},

@@ -18,7 +18,8 @@ const revisa = (ok, msg) => { n++; if (!ok) fallos.push(msg); };
 
 const INFO = {
   transfer: { bank: 'Banregio / Hey Banco', clabe: '1672 1000 0079 567650', holder: 'Proyecto Leyenda SA de CV' },
-  methods: ['Transferencia', 'Efectivo', 'Tarjeta']
+  methods: ['Transferencia', 'Efectivo', 'Tarjeta'],
+  delivery: '3 a 4 semanas'
 };
 const PEDIDO = { folio: 'PED-2026-00031', customer_name: 'ana sofía ávila', customer_phone: '+52 477 123 4567', total: 1450 };
 const PIEZAS = [
@@ -43,6 +44,7 @@ revisa(msg.includes('- 2 x Par de calcetas · talla Universal'), 'cantidad cuand
 revisa(/Total: \$1,450\.00/.test(msg), 'total en pesos');
 revisa(msg.includes('CLABE: 167210000079567650') && msg.includes('Referencia: PED-2026-00031'), 'datos para pagar dentro del mensaje');
 revisa(msg.includes('comprobante'), 'pide el comprobante');
+revisa(msg.includes('Entrega estimada: 3 a 4 semanas.'), 'dice el tiempo de entrega');
 const sinFirma = mensajeConfirmacion({ order: PEDIDO, items: [], info: INFO, club: 'Tannery City FC', yo: '' });
 revisa(sinFirma.startsWith('Hola Ana, te escribimos de Tannery City FC.'), 'sin nombre del remitente, habla el club');
 

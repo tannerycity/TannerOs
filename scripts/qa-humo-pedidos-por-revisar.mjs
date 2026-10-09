@@ -18,6 +18,10 @@
  *   7. "Confirmar por WhatsApp" abre el chat de la FAMILIA con el pedido, las
  *      tallas, la CLABE y la firma de quien lo manda, y lo marca revisado.
  *   8. Un pedido ya revisado no muestra la sección.
+ *   9. (D) El número pedido se revisa: si es de otro niño se dice en rojo; si
+ *      está libre y el Tanner no tiene, se le asigna en un toque.
+ *  10. El link ofrece "¿Ya eres familia Tanner? Entrar" hacia la tienda del
+ *      portal; quien no tiene cuenta compra ahí mismo.
  *
  * Hermética: nada sale de 127.0.0.1.
  */
@@ -86,7 +90,7 @@ const CLIENTE = (pagoFalla) => `
   const DET=${JSON.stringify(Object.fromEntries(PEDIDOS.map(o => [o.id, detalle(o.id)])))};
   window.__rpc=[]; window.__abiertas=[];
   window.open=(u)=>{window.__abiertas.push(u);return null;};
-  let revisados=new Set();
+  let revisados=new Set(),asignados=new Set();
   export function createClient(){return{
     auth:{getSession:async()=>({data:{session:{user:{id:'u1'},access_token:'x'}}}),
       onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
@@ -104,6 +108,12 @@ const CLIENTE = (pagoFalla) => `
       if(n==='v2_order_detail')return ok(DET[p.order_id]);
       if(n==='v2_mark_order_reviewed'){revisados.add(p.order_id);return ok({orderId:p.order_id});}
       if(n==='v2_warranties')return ok([]);
+      if(n==='v2_order_number_check')return ok(asignados.has('t1')
+        ?{tanners:[{id:'t1',firstName:'Leo',category:'T10',jersey:'7'}],avisos:[{itemId:'i1',numero:'7',nivel:'ok',playerId:'t1',texto:'#7 es el número de Leo en el club.'}]}
+        :{tanners:[{id:'t1',firstName:'Leo',category:'T10',jersey:null}],avisos:[
+          {itemId:'i1',numero:'7',nivel:'ok',playerId:'t1',asignable:true,texto:'El #7 está libre en T10 y Leo aún no tiene número.'},
+          {itemId:'i2',numero:'14',nivel:'mal',playerId:'t1',texto:'El #14 ya es de Erick García en T10. Pídele a la familia otro número.'}]});
+      if(n==='v2_assign_jersey'){asignados.add(p.player_id);return ok({changed:true});}
       return ok(null);}};}`;
 
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
@@ -141,6 +151,8 @@ async function pideCalcetas(pg) {
 /* ===== LINK PÚBLICO ===== */
 {
   const { pg, errs } = await abre('/pedido/');
+  await pg.waitForSelector('.ya-familia', { timeout:8000 }).catch(() => {});
+  revisa('10. "¿Ya eres familia Tanner?" lleva a la tienda del portal', (await pg.getAttribute('.ya-familia', 'href').catch(() => null)) === '/familias/?tab=tienda');
   await pideCalcetas(pg);
   const texto = await pg.textContent('#content');
   revisa('1. se ve la CLABE completa', texto.includes('167210000079567650'), texto.slice(0, 400));
@@ -180,6 +192,14 @@ async function pideCalcetas(pg) {
   await pg.click('.order-row[data-order-id="o-nuevo"]');
   await pg.waitForSelector('#drawer:not(.hidden)', { timeout:5000 }).catch(() => {});
   revisa('7. el pedido nuevo abre con su sección de revisar', await pg.isVisible('#reviewSection'));
+  await pg.waitForSelector('#reviewNumeros .review-num', { timeout:4000 }).catch(() => {});
+  const nums = await pg.$$eval('#reviewNumeros .review-num', e => e.map(x => [x.className.split(' ')[1], x.innerText]));
+  revisa('9. el número ocupado sale en rojo y dice de quién es', nums.some(([c, t]) => c === 'mal' && /El #14 ya es de Erick García/.test(t)), JSON.stringify(nums));
+  revisa('9. el libre trae botón para asignárselo', await pg.isVisible('#reviewNumeros [data-asigna="t1"][data-num="7"]'));
+  await pg.click('#reviewNumeros [data-asigna="t1"]');
+  await pg.waitForFunction(() => /es el número de Leo/.test(document.querySelector('#reviewNumeros')?.innerText || ''), null, { timeout:4000 }).catch(() => {});
+  const asig = await pg.evaluate(() => window.__rpc.filter(c => c.n === 'v2_assign_jersey').map(c => [c.p.player_id, c.p.number]));
+  revisa('9. un toque lo asigna y se vuelve a revisar', JSON.stringify(asig) === '[["t1","7"]]' && /#7 es el número de Leo/.test(await pg.innerText('#reviewNumeros')), JSON.stringify(asig));
   await pg.click('#confirmWhatsApp');
   await pg.waitForTimeout(500);
   const abiertas = await pg.evaluate(() => window.__abiertas);

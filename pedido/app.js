@@ -147,7 +147,12 @@ function renderTienda() {
     return;
   }
 
-  $('content').innerHTML = `<div class="eyebrow">TIENDA TANNER</div>
+  /* Dos caminos (Presidencia, 09/10/2026): la familia con cuenta entra y ya
+     trae sus datos y su Tanner; quien no tiene cuenta compra aquí mismo. */
+  $('content').innerHTML = `<a class="ya-familia" href="/familias/?tab=tienda">
+      <span><strong>¿Ya eres familia Tanner?</strong><small>Entra y tus datos y tu Tanner ya van cargados.</small></span>
+      <b>Entrar</b></a>
+    <div class="eyebrow">TIENDA TANNER · SIN CUENTA</div>
     <h2>El uniforme del club</h2>
     <p class="muted">Elige lo que quieres, con su talla. Al confirmar te contactamos por WhatsApp para el pago y la entrega.</p>
     ${kits.length ? `<div class="fam-kits">${kits.map(k => tarjetaKit(k, eligiendoKit[k.id] || {})).join('')}</div>` : ''}

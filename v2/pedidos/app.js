@@ -344,7 +344,27 @@ async function openOrder(o){
   $('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');
 }
 function reviewMsg(t='',type='error'){const e=$('reviewMessage');if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}
-function renderReview(d){const sec=$('reviewSection');if(!sec)return;const pendiente=porRevisar.has(d.id);sec.classList.toggle('hidden',!pendiente);reviewMsg();if(!pendiente)return;const tel=ligaWhatsApp(d.customer_phone);$('confirmWhatsApp').disabled=!tel||!canWrite;$('markReviewed').disabled=!canWrite;if(!tel)reviewMsg('Este pedido no trae teléfono: confírmalo por otro medio y márcalo revisado.');else if(!canWrite)reviewMsg('Tu rol puede ver la Tienda pero no confirmar pedidos.');}
+function renderReview(d){const sec=$('reviewSection');if(!sec)return;const pendiente=porRevisar.has(d.id);sec.classList.toggle('hidden',!pendiente);reviewMsg();if(!pendiente)return;const tel=ligaWhatsApp(d.customer_phone);$('confirmWhatsApp').disabled=!tel||!canWrite;$('markReviewed').disabled=!canWrite;if(!tel)reviewMsg('Este pedido no trae teléfono: confírmalo por otro medio y márcalo revisado.');else if(!canWrite)reviewMsg('Tu rol puede ver la Tienda pero no confirmar pedidos.');revisaNumeros(d);}
+/* D (Presidencia, 09/10/2026): el número que pidió la familia se revisa antes
+   de confirmar. El servidor busca al Tanner (por el pedido o por el teléfono
+   del tutor) y dice si el número es suyo, es de otro niño de su categoría o
+   está libre; si está libre y el Tanner no tiene, se le asigna en un toque. */
+const NIVEL_NUM={ok:'ok',atencion:'atencion',mal:'mal'};
+let numerosSeq=0;
+async function revisaNumeros(d){
+  const ul=$('reviewNumeros');if(!ul)return;const seq=++numerosSeq;
+  ul.classList.add('hidden');ul.innerHTML='';
+  let r=null;try{r=await rpc('v2_order_number_check',{organization_id:ctx.organization_id,order_id:d.id});}catch{return;}
+  if(seq!==numerosSeq||current?.order?.id!==d.id)return;
+  const avisos=Array.isArray(r?.avisos)?r.avisos:[];if(!avisos.length)return;
+  const tanner=id=>(r.tanners||[]).find(t=>t.id===id);
+  ul.innerHTML=avisos.map(a=>{const t=tanner(a.playerId);const asignar=a.asignable&&canWrite&&t&&!t.jersey;
+    return `<li class="review-num ${NIVEL_NUM[a.nivel]||'atencion'}"><span>${esc(a.texto)}</span>${asignar?`<button type="button" class="secondary mini" data-asigna="${esc(a.playerId)}" data-num="${esc(a.numero)}">Asignar #${esc(a.numero)} a ${esc(t.firstName||'')}</button>`:''}</li>`;}).join('');
+  ul.classList.remove('hidden');
+  ul.querySelectorAll('[data-asigna]').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;
+    try{await rpc('v2_assign_jersey',{organization_id:ctx.organization_id,player_id:b.dataset.asigna,number:b.dataset.num});revisaNumeros(d);}
+    catch(e){b.disabled=false;reviewMsg(e.message||'No se pudo asignar el número.');}}));
+}
 async function markReviewed(){if(!current||!canWrite)return;const id=current.order.id;try{await rpc('v2_mark_order_reviewed',{organization_id:ctx.organization_id,order_id:id});porRevisar.delete(id);await refreshCurrent(id);msg('Pedido confirmado.','success');}catch(e){reviewMsg(e.message||'No se pudo marcar como revisado.');}}
 /* La ventana de WhatsApp se abre en el mismo toque (si no, el navegador del
    teléfono la bloquea) y después se marca revisado. */

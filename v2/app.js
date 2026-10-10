@@ -1,4 +1,5 @@
 import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon} from '/v2/shell.js';
+import { instalaVocabulario } from '/v2/vocabulario.js';
 import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
@@ -356,6 +357,8 @@ async function loadAuthenticatedApp(){
       showView('pendingView');document.body.classList.remove('tos-body');return;
     }
     ctx=rows[0];navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});resetHomeState();
+    // Inicio no pasa por branding-auto: aquí se instala cómo le dice el club a sus jugadores.
+    rpc('v2_branding',{organization_id:ctx.organization_id}).then(b=>instalaVocabulario(b?.playerNoun)).catch(()=>{});
     showView('appView');document.body.classList.add('tos-body');
     renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
     renderCumpleStrip().catch(error=>console.warn('cumpleaños',error));

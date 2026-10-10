@@ -31,6 +31,7 @@
  */
 import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
+import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, aceptaPersonalizacion,
@@ -556,6 +557,7 @@ try {
   ]);
   if (oferta.status !== 'fulfilled') throw oferta.reason;
   if (club.status === 'fulfilled') clubNombre = String(club.value?.brand || club.value?.organizationName || '').trim();
+  if (club.status === 'fulfilled') instalaVocabulario(club.value?.playerNoun);
   document.querySelectorAll('[data-club-nombre]').forEach(el => { el.textContent = clubNombre; });
   // Las ligas propias (Centro Tanner, privacidad, familias) se llevan el club.
   new MutationObserver(() => propagaClub()).observe(document.body, { childList: true, subtree: true });

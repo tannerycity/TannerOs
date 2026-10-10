@@ -1,5 +1,6 @@
 import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga, conClub, propagaClub } from '/v2/club-publico.js';
+import { instalaVocabulario } from '/v2/vocabulario.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
 // De qué club es este Centro: ?club=<slug>; sin él, Tannery (v2/club-publico.js).
@@ -193,6 +194,7 @@ function route() {
 try {
   const ctx = await rpc('v2_public_context', { club_key: CLUB_KEY });
   clubNombre = String(ctx?.brand || ctx?.organizationName || '').trim();
+  instalaVocabulario(ctx?.playerNoun);
   // "Tannery City Park" es el complejo de Tannery; los demás clubes ven
   // "Instalaciones" para lo mismo.
   if (ctx?.slug && ctx.slug !== 'tannery-city-fc') {

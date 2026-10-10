@@ -1,4 +1,5 @@
 import {supabase,rpc,money,$} from '/v2/shell.js';
+import { instalaVocabulario } from '/v2/vocabulario.js';
 import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 // El mismo criterio que usa el staff, para que un papa y Presidencia nunca
 // vean dos porcentajes distintos del mismo Tanner.
@@ -837,7 +838,7 @@ async function boot(){
     $('contactEmailField')?.classList.toggle('hidden',user?.app_metadata?.login_type!=='username');
     show('passwordView');return;
   }
-  try{state.home=await rpc('v2_portal_home');}
+  try{state.home=await rpc('v2_portal_home');instalaVocabulario(state.home?.organization?.playerNoun);}
   catch(error){
     // Una cuenta de staff que abre el portal por error no debe quedarse en blanco.
     show('loginView');msg('loginMessage',friendly(error));

@@ -59,7 +59,7 @@ function renderReadiness(data){
 }
 
 function renderReadinessFallback(){
-  $('readinessPercent').textContent='—';$('setupProgress').textContent='Entra a Preparar el club para revisar el avance.';
+  $('readinessPercent').textContent='—';$('setupProgress').textContent='Entra a Primeros pasos para revisar el avance.';
   $('nextPanel').dataset.state='attention';$('nextTitle').textContent='Revisa la preparación del club';
   $('nextDetail').textContent='Tu checklist conserva todos los puntos necesarios para operar.';
   $('nextAction').href='/admin/onboarding/';$('nextAction').textContent='Ver preparación';$('nextAction').classList.remove('hidden');

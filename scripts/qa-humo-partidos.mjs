@@ -54,6 +54,7 @@ async function abre({ escribe = true } = {}) {
         return { canWrite: escribe, match: { ...m, goals: s?.goals || [], saved },
           roster: plantel.map(pl => { const x = s?.players.find(y => y.playerId === pl.playerId); return { ...pl, called: x ? x.called : false, tiempo: x?.tiempo || null, yellow: x?.yellow || 0, red: x?.red || 0 }; }) };
       },
+      v2_archive_match: prm => { const i = partidos.findIndex(x => x.id === prm.match_id); if (i >= 0) partidos.splice(i, 1); window.__archivados = (window.__archivados || []).concat(prm.match_id); return null; },
       v2_match_stats: () => ({ record: { played: 3, won: 2, drawn: 1, lost: 0, goalsFor: 9, goalsAgainst: 3 },
         byCategory: [{ category: 'T10', played: 3, won: 2, drawn: 1, lost: 0, goalsFor: 9, goalsAgainst: 3 }],
         players: [
@@ -151,6 +152,32 @@ const estados = p => p.$$eval('#ppEstampas .pp-estado', e => e.map(x => x.textCo
   revisa('[lista] el partido ya sale en resultados con 2-1', /2-1/.test((await p.innerText('#ptJugados')).replace(/\s/g, '')));
   revisa('[sin desborde] nada se sale a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
 
+  // Editar datos: el rival y la fecha, sin perder goles ni jugadores.
+  await p.click('#ptJugados .pt-partido-fila');
+  await p.waitForSelector('#ptPartido:not(.hidden)');
+  await p.click('#ppMenu');
+  await p.click('#mnEditar');
+  revisa('[editar] el formulario llega con los datos del partido', (await p.inputValue('#nvRival')) === 'Atlético Azteca' && await p.$eval('#nvTipo [data-v="Amistoso"]', b => b.classList.contains('activo')));
+  await p.fill('#nvRival', 'Atlético Azteca B');
+  await p.click('#nvSede [data-v="visita"]');
+  await p.click('#nvCrear');
+  await p.waitForFunction(() => /actualizados/.test(document.getElementById('ppMensaje').textContent), null, { timeout: 4000 });
+  const ge = await p.evaluate(() => window.__guardados.at(-1));
+  revisa('[editar] se guarda el nuevo rival y la sede', ge.opponent === 'Atlético Azteca B' && ge.venue === 'visita', JSON.stringify({ o: ge.opponent, v: ge.venue }));
+  revisa('[editar] sin perder goles, jugadores ni resultado', ge.goals.length === 2 && ge.goalsAgainst === 1 && ge.status === 'completed' && ge.players.filter(x => x.called).length === 3, JSON.stringify({ g: ge.goals.length, a: ge.goalsAgainst, s: ge.status }));
+  revisa('[editar] el título ya dice el nuevo rival', /Atlético Azteca B/i.test(await p.textContent('#ppTitulo')));
+
+  // Eliminar: pide confirmación; si se cancela, no pasa nada.
+  await p.click('#ppMenu');
+  p.once('dialog', d => d.dismiss());
+  await p.click('#mnEliminar');
+  await p.waitForTimeout(150);
+  revisa('[eliminar] si se cancela, no se elimina', !(await p.evaluate(() => (window.__archivados || []).length)));
+  p.once('dialog', d => d.accept());
+  await p.click('#mnEliminar');
+  await p.waitForFunction(() => /Partido eliminado/.test(document.getElementById('ptMensaje').textContent), null, { timeout: 4000 });
+  revisa('[eliminar] se archiva y sale de la lista', (await p.evaluate(() => window.__archivados.length)) === 1 && !/Azteca B/.test(await p.innerText('#ptLista')) && await p.isHidden('#ptPartido'));
+
   // Estadísticas
   await p.click('#tabStats');
   await p.waitForFunction(() => document.getElementById('stJugados').textContent === '3');
@@ -170,6 +197,7 @@ const estados = p => p.$$eval('#ppEstampas .pp-estado', e => e.map(x => x.textCo
   await p.click('#ptJugados .pt-partido-fila');
   await p.waitForSelector('#ptPartido:not(.hidden)');
   revisa('[lectura] sin + Gol ni Terminar', await p.isHidden('#ppGol') && await p.isHidden('#ppTerminar'));
+  revisa('[lectura] sin menú para editar o eliminar', await p.isHidden('#ppMenu'));
   revisa('[lectura] las estampas no se tocan', await p.$eval('#ppEstampas .pp-toque', b => b.disabled).catch(() => true));
   await p.close();
 }

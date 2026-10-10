@@ -91,22 +91,28 @@ function abreHoja(titulo, html) {
 }
 function cierraHoja() { $('hjFondo').classList.add('hidden'); $('hjHoja').classList.add('hidden'); }
 
-function nuevoPartido() {
+/* El formulario de datos del partido: el mismo para crear y para editar. */
+function formularioPartido(previo) {
+  const editar = Boolean(previo);
   const cats = [...(tablero?.categories || [])].sort((a, b) => Number(b.mine) - Number(a.mine));
   const mias = cats.filter(c => c.mine);
-  const sel = { category: mias.length === 1 ? mias[0].name : '', tournament: TIPOS[0], venue: 'local' };
-  abreHoja('Nuevo partido', `
+  const tipoPrevio = previo?.tournament || '';
+  const esOtra = editar && tipoPrevio && !TIPOS.includes(tipoPrevio);
+  const sel = editar
+    ? { category: previo.category || '', tournament: esOtra ? '__otra' : (tipoPrevio || TIPOS[0]), venue: previo.venue || 'local' }
+    : { category: mias.length === 1 ? mias[0].name : '', tournament: TIPOS[0], venue: 'local' };
+  abreHoja(editar ? 'Editar partido' : 'Nuevo partido', `
     <p class="hj-et">Categoría</p><div class="hj-chips" id="nvCat">${cats.map(c => `<button type="button" data-v="${esc(c.name)}">${esc(c.name)}</button>`).join('')}</div>
-    <label class="hj-campo">Contra quién<input id="nvRival" list="nvRivales" maxlength="80" placeholder="Nombre del rival" autocomplete="off"></label>
+    <label class="hj-campo">Contra quién<input id="nvRival" list="nvRivales" maxlength="80" placeholder="Nombre del rival" autocomplete="off" value="${esc(previo?.opponent || '')}"></label>
     <datalist id="nvRivales">${(tablero?.opponents || []).map(o => `<option value="${esc(o)}">`).join('')}</datalist>
     <p class="hj-et">Tipo de partido</p><div class="hj-chips" id="nvTipo">${TIPOS.map(t => `<button type="button" data-v="${esc(t)}">${esc(t)}</button>`).join('')}<button type="button" data-v="__otra">Otra</button></div>
-    <input id="nvOtra" class="hj-otra hidden" maxlength="60" placeholder="¿Cuál?">
+    <input id="nvOtra" class="hj-otra${esOtra ? '' : ' hidden'}" maxlength="60" placeholder="¿Cuál?" value="${esc(esOtra ? tipoPrevio : '')}">
     <div class="hj-dos">
       <div><p class="hj-et">Dónde</p><div class="hj-chips" id="nvSede"><button type="button" data-v="local">Local</button><button type="button" data-v="visita">Visita</button></div></div>
-      <label class="hj-campo">Fecha<input id="nvFecha" type="date" value="${hoyIso()}"></label>
+      <label class="hj-campo">Fecha<input id="nvFecha" type="date" value="${esc(previo?.date || hoyIso())}"></label>
     </div>
     <div id="nvMsg" class="inline-message hidden"></div>
-    <button type="button" id="nvCrear" class="pt-terminar-hoja">Crear partido</button>`);
+    <button type="button" id="nvCrear" class="pt-terminar-hoja">${editar ? 'Guardar cambios' : 'Crear partido'}</button>`);
   const marca = (box, v) => $(box).querySelectorAll('[data-v]').forEach(b => b.classList.toggle('activo', b.dataset.v === v));
   marca('nvCat', sel.category); marca('nvTipo', sel.tournament); marca('nvSede', sel.venue);
   $('nvCat').onclick = e => { const b = e.target.closest('[data-v]'); if (b) { sel.category = b.dataset.v; marca('nvCat', sel.category); } };
@@ -116,13 +122,57 @@ function nuevoPartido() {
     const rival = $('nvRival').value.trim(), tipo = sel.tournament === '__otra' ? $('nvOtra').value.trim() : sel.tournament;
     if (!sel.category) { msg('nvMsg', 'Elige la categoría.'); return; }
     if (rival.length < 2) { msg('nvMsg', 'Escribe contra quién juegan.'); return; }
+    const datos = { date: $('nvFecha').value || hoyIso(), category: sel.category, opponent: rival, tournament: tipo || null, venue: sel.venue };
+    if (editar) { await guardaDatos(datos); return; }
     $('nvCrear').disabled = true; $('nvCrear').textContent = 'Creando…';
     try {
-      const id = await rpc('v2_save_match_sheet', { organization_id: ctx.organization_id, sheet: {
-        date: $('nvFecha').value || hoyIso(), category: sel.category, opponent: rival, tournament: tipo || null,
-        venue: sel.venue, status: 'scheduled', goalsAgainst: 0, goals: [], players: [] } });
+      const id = await rpc('v2_save_match_sheet', { organization_id: ctx.organization_id, sheet: { ...datos, status: 'scheduled', goalsAgainst: 0, goals: [], players: [] } });
       cierraHoja(); await recarga(); await abrePartido(id);
     } catch (e) { msg('nvMsg', amable(e)); $('nvCrear').disabled = false; $('nvCrear').textContent = 'Crear partido'; }
+  };
+}
+const nuevoPartido = () => formularioPartido(null);
+
+/* Editar los datos de un partido ya creado. Cambiar de categoría deja la
+   convocatoria y los goles en blanco: eran de otros Tanners. */
+async function guardaDatos(datos) {
+  const cambiaCat = String(datos.category).toLowerCase() !== String(P.partido.category).toLowerCase();
+  const conAlgo = P.goles.length || P.plantel.some(p => p.called) && P.partido.saved;
+  if (cambiaCat && conAlgo && !window.confirm(`Al cambiar a ${datos.category} se borran los convocados y los goles de este partido. ¿Seguir?`)) return;
+  const btn = $('nvCrear'); btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const partido = { ...P.partido, ...datos };
+    const plantel = cambiaCat ? P.plantel.map(p => ({ ...p, called: false })) : P.plantel;
+    const goles = cambiaCat ? [] : P.goles;
+    const sheet = hojaParaGuardar({ partido, plantel, goles, golesContra: cambiaCat ? 0 : P.golesContra, estado: P.partido.status });
+    // Si el partido nunca se ha guardado con convocados, no se manda la lista:
+    // así no se guarda una convocatoria que nadie ha revisado.
+    if (!P.partido.saved && !cambiaCat) sheet.players = [];
+    await rpc('v2_save_match_sheet', { organization_id: ctx.organization_id, sheet });
+    cierraHoja();
+    await recarga();
+    await abrePartido(P.partido.id);
+    msg('ppMensaje', 'Datos del partido actualizados.', 'success');
+  } catch (e) { msg('nvMsg', amable(e)); btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+}
+
+/* "···" del partido: editar datos o eliminarlo. */
+function menuPartido() {
+  if (!P?.canWrite) return;
+  abreHoja(`${P.partido.category} vs ${P.partido.opponent}`, `
+    <button type="button" id="mnEditar" class="hj-accion">Editar datos del partido<small>Rival, tipo, local o visita, fecha y categoría</small></button>
+    <button type="button" id="mnEliminar" class="hj-accion hj-peligro">Eliminar partido<small>Se quita de la lista y de las estadísticas</small></button>
+    <button type="button" id="mnCancelar" class="secondary hj-listo">Cancelar</button>`);
+  $('mnEditar').onclick = () => formularioPartido(P.partido);
+  $('mnCancelar').onclick = cierraHoja;
+  $('mnEliminar').onclick = async () => {
+    const m = P.partido;
+    if (!window.confirm(`¿Eliminar ${m.category} vs ${m.opponent} (${fechaCorta(m.date)})? Se quita de la lista y de las estadísticas.`)) return;
+    try {
+      await rpc('v2_archive_match', { organization_id: ctx.organization_id, match_id: m.id });
+      cierraHoja(); cierraPartido(true); await recarga();
+      msg('ptMensaje', `Partido eliminado: ${m.category} vs ${m.opponent}.`, 'success');
+    } catch (e) { cierraHoja(); msg('ppMensaje', amable(e)); }
   };
 }
 
@@ -138,7 +188,7 @@ async function abrePartido(id) {
   $('ppTitulo').textContent = `${m.category} vs ${m.opponent}`;
   $('ppMeta').textContent = [fechaCorta(m.date), m.tournament, m.venue === 'local' ? 'Local' : m.venue === 'visita' ? 'Visita' : null].filter(Boolean).join(' · ');
   $('ppRival').textContent = m.opponent;
-  ['ppGol', 'ppGAmas', 'ppGAmenos', 'ppGuardar', 'ppTerminar'].forEach(x => $(x).classList.toggle('hidden', !P.canWrite));
+  ['ppGol', 'ppGAmas', 'ppGAmenos', 'ppGuardar', 'ppTerminar', 'ppMenu'].forEach(x => $(x).classList.toggle('hidden', !P.canWrite));
   $('ppHerr').classList.toggle('hidden', !P.canWrite);
   msg('ppMensaje');
   $('ptFondo').classList.remove('hidden'); $('ptPartido').classList.remove('hidden'); $('ptPartido').setAttribute('aria-hidden', 'false');
@@ -330,6 +380,7 @@ $('tabPartidos').addEventListener('click', () => cambiaTab('partidos'));
 $('tabStats').addEventListener('click', () => cambiaTab('stats'));
 $('ptNuevo').addEventListener('click', nuevoPartido);
 $('ppCerrar').addEventListener('click', () => cierraPartido());
+$('ppMenu').addEventListener('click', menuPartido);
 $('ptFondo').addEventListener('click', () => cierraPartido());
 $('ppTabConv').addEventListener('click', () => { P.vista = 'conv'; pintaPartido(); });
 $('ppTabJuego').addEventListener('click', () => { P.vista = 'juego'; pintaPartido(); });

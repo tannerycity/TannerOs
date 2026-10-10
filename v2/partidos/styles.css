@@ -177,3 +177,9 @@
   .pt-cancha h1{font-size:30px}
 }
 .drawer-open{overflow:hidden}
+.pp-acciones{display:flex;gap:8px;flex:0 0 auto}
+.pp-menu{display:flex;align-items:center;justify-content:center;gap:3px}
+.pp-menu i{width:4px;height:4px;border-radius:50%;background:#fff}
+.hj-accion{appearance:none;border:1.5px solid var(--line);background:#f7f9f8;border-radius:14px;padding:12px 14px;text-align:left;font-weight:900;font-size:15px;color:var(--ink);cursor:pointer;display:grid;gap:2px}
+.hj-accion small{font-size:12px;font-weight:650;color:var(--muted)}
+.hj-peligro{color:#a32920;border-color:#f1d3d0;background:#fff8f7}

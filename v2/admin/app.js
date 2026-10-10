@@ -1,4 +1,5 @@
 import {createClient} from '/v2/supabase-client.js';
+import {textoDelPlan} from '/v2/admin/plan.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -64,6 +65,16 @@ function renderReadinessFallback(){
   $('nextAction').href='/admin/onboarding/';$('nextAction').textContent='Ver preparación';$('nextAction').classList.remove('hidden');
 }
 
+// Tu plan: sólo para clubes con plan de venta (Tannery tiene uno interno).
+function renderPlan(p){
+  if(!p||!p.forSale)return;
+  const t=textoDelPlan(p);
+  $('planName').textContent=p.plan||'Plan';$('planPrice').textContent=t.precio;$('planUso').textContent=t.texto;
+  $('planBar').style.width=`${t.barra}%`;$('planCard').dataset.tono=t.tono;
+  $('planDocs').textContent=t.docs;$('planDocs').classList.toggle('hidden',!t.docs);
+  $('planCard').classList.remove('hidden');
+}
+
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
   const contexts=await rpc('v2_my_context');
@@ -74,6 +85,7 @@ async function boot(){
   const allowed=new Set(modules.filter(module=>module.enabled&&module.can_read).map(module=>module.module_code));
   renderSettings(allowed,await soyDePlataforma());$('usersDoor').classList.toggle('hidden',!allowed.has('usuarios'));
   try{renderReadiness(await rpc('v2_onboarding_readiness',{organization_id:ctx.organization_id}));}catch{renderReadinessFallback();}
+  try{renderPlan(await rpc('v2_my_plan',{organization_id:ctx.organization_id}));}catch(_){}
   show('view');
 }
 

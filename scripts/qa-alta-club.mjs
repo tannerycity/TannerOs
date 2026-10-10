@@ -1,7 +1,8 @@
 // Alta de un club (v2/admin/clubes/alta.js), sin navegador.
 import assert from 'node:assert/strict';
-import { PASOS, CATEGORIAS_SUGERIDAS, slugDe, slugValido, faltantes, datosParaAlta, mensajeBienvenida, ingresoMensual }
+import { PASOS, CATEGORIAS_SUGERIDAS, slugDe, slugValido, faltantes, datosParaAlta, mensajeBienvenida }
   from '../v2/admin/clubes/alta.js';
+import { ingresoMensual } from '../v2/admin/plan.js';
 
 let fallos = 0, corridas = 0;
 function prueba(nombre, fn) { corridas++; try { fn(); } catch (e) { fallos++; console.error(` - ${nombre}: ${e.message}`); } }

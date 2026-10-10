@@ -72,10 +72,3 @@ export function mensajeBienvenida({ club, dueno, correo, producto = 'TannerOS', 
 }
 
 // Ingreso mensual estimado de los clubes que pagan. Fundador = 50% el primer año.
-export function ingresoMensual(clubes, planes) {
-  const precio = new Map((planes || []).map(p => [p.code, Number(p.priceMxn || 0)]));
-  return (clubes || []).reduce((s, c) => {
-    if (!precio.has(c.planCode)) return s;
-    return s + precio.get(c.planCode) * (c.founder ? 0.5 : 1);
-  }, 0);
-}

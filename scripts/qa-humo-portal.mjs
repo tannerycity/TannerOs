@@ -33,15 +33,19 @@ async function abre({ admin = true, ancho = 390 } = {}) {
   await p.addInitScript(({ admin }) => {
     window.__llamadas = [];
     const planes = [
-      { code: 'cantera', name: 'Cantera', priceMxn: 990, maxPlayers: 50, modules: 14, description: 'Lo básico' },
+      { code: 'cantera', name: 'Cantera', priceMxn: 990, maxPlayers: 50, extraPlayerMxn: 15, modules: 14, description: 'Lo básico' },
       { code: 'primera', name: 'Primera', priceMxn: 1990, maxPlayers: 150, modules: 22, description: 'Todo Cantera y más' },
       { code: 'seleccion', name: 'Selección', priceMxn: 3490, maxPlayers: null, modules: 27, description: 'Todo' }];
     const estado = { product: { name: 'TannerOS', tagline: 'El sistema operativo de tu club' }, plans: planes,
-      clubs: [{ id: 'o1', slug: 'tannery-city-fc', name: 'Tannery City FC', city: 'León', planCode: 'internal_full', plan: 'Tannery Internal Full', players: 64, users: 9, categories: 5, colors: { primary: '#184159', secondary: '#247C8F' }, lastActivity: new Date().toISOString() }] };
+      clubs: [{ id: 'o1', slug: 'tannery-city-fc', name: 'Tannery City FC', city: 'León', planCode: 'internal_full', plan: 'Tannery Internal Full', players: 64, users: 9, categories: 5, colors: { primary: '#184159', secondary: '#247C8F' }, lastActivity: new Date().toISOString() },
+        // Un club Cantera que ya pasó su límite (53 de 50) y no ha completado su aviso.
+        { id: 'o2', slug: 'halcones', name: 'Halcones FC', city: 'Silao', planCode: 'cantera', plan: 'Cantera', players: 53, users: 2, categories: 2, docsPending: 1, colors: { primary: '#222222', secondary: '#555555' }, lastActivity: new Date().toISOString() }] };
     const R = {
       v2_my_context: () => [{ user_id: 'u1', display_name: 'Mich', organization_id: 'o1', organization_name: 'Tannery City FC', role: 'Presidencia', is_owner: true }],
       v2_my_navigation: () => ['admin', 'inicio'].map(c => ({ module_code: c, enabled: true, can_read: true, can_write: true })),
       v2_am_i_platform_admin: () => admin,
+      // "Tu plan" en Administración: un Cantera con 53 de 50 y el aviso por completar.
+      v2_my_plan: () => ({ plan: 'Cantera', planCode: 'cantera', forSale: window.__planDeVenta !== false, priceMxn: 990, founder: false, maxPlayers: 50, activePlayers: 53, extraPlayers: 3, extraPlayerMxn: 15, docsPending: 1 }),
       v2_platform_board: () => JSON.parse(JSON.stringify(estado)),
       v2_set_product_name: prm => { estado.product = { name: prm.name, tagline: prm.tagline }; return null; },
       v2_provision_club: prm => {
@@ -77,8 +81,11 @@ const llamada = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n === 
 {
   const p = await abre();
   revisa('[tablero] el nombre del producto', (await p.textContent('#pfProducto')) === 'TannerOS');
-  revisa('[tablero] clubes y jugadores', (await p.textContent('#kClubes')) === '1' && (await p.textContent('#kJugadores')) === '64');
-  revisa('[tablero] Tannery City no cuenta como ingreso (plan interno)', /\$0/.test(await p.textContent('#kIngreso')), await p.textContent('#kIngreso'));
+  revisa('[tablero] clubes y jugadores', (await p.textContent('#kClubes')) === '2' && (await p.textContent('#kJugadores')) === '117');
+  revisa('[tablero] Tannery City no cuenta como ingreso; el Cantera con 3 extras sí ($990 + $45)', /\$1,035/.test(await p.textContent('#kIngreso')), await p.textContent('#kIngreso'));
+  const halcones = await p.innerText('#pfClubes');
+  revisa('[tablero] el club que pasó su límite dice cuántos extras y cuánto', /53\/50 jugadores · \+3 extra \(\$45\)/.test(halcones), halcones);
+  revisa('[tablero] y que le falta completar su aviso', /1 documento por completar/.test(halcones));
   revisa('[tablero] los tres planes con su precio', (await p.$$('#pfPlanes .pf-plancard')).length === 3 && /\$1,990/.test(await p.innerText('#pfPlanes')));
 
   // Alta
@@ -135,8 +142,8 @@ const llamada = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n === 
   revisa('[bienvenida] botón de WhatsApp al dueño con lada', /^https:\/\/wa\.me\/524771234567\?text=/.test(await p.getAttribute('.az-listo .pf-cta', 'href') || ''));
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/portal-alta-lista.png') });
   await p.click('#azSig');
-  revisa('[tablero] el club nuevo ya sale, con su dueño pendiente', (await p.textContent('#kClubes')) === '2' && /Dueño sin entrar: juan@leonnorte\.mx/.test(await p.innerText('#pfClubes')) && (await p.textContent('#kPendientes')) === '1');
-  revisa('[tablero] el ingreso estimado cuenta al fundador a mitad', /\$995/.test(await p.textContent('#kIngreso')), await p.textContent('#kIngreso'));
+  revisa('[tablero] el club nuevo ya sale, con su dueño pendiente', (await p.textContent('#kClubes')) === '3' && /Dueño sin entrar: juan@leonnorte\.mx/.test(await p.innerText('#pfClubes')) && (await p.textContent('#kPendientes')) === '1');
+  revisa('[tablero] el ingreso estimado cuenta al fundador a mitad', /\$2,030/.test(await p.textContent('#kIngreso')), await p.textContent('#kIngreso'));
   revisa('[sin desborde] nada se sale a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
 
   // Nombre del producto
@@ -146,6 +153,22 @@ const llamada = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n === 
   await p.waitForFunction(() => document.getElementById('pfProducto').textContent === 'Cancha OS', null, { timeout: 4000 });
   revisa('[producto] se cambia el nombre sin tocar código', (await llamada(p, 'v2_set_product_name')).name === 'Cancha OS' && (await p.textContent('#pfLema')) === 'Tu club, en orden');
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/portal.png'), fullPage: true });
+
+  // Tu plan, en Administración del club
+  await p.goto('http://127.0.0.1:4807/v2/admin/', { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('#planCard:not(.hidden)', { timeout: 5000 }).catch(() => {});
+  const plan = await p.evaluate(() => ({ visible: !document.getElementById('planCard').classList.contains('hidden'),
+    nombre: document.getElementById('planName').textContent, uso: document.getElementById('planUso').textContent,
+    tono: document.getElementById('planCard').dataset.tono, docs: document.getElementById('planDocs'), }))
+    .then(x => ({ ...x, docs: undefined }));
+  const docs = await p.$eval('#planDocs', a => ({ texto: a.textContent, href: a.getAttribute('href'), oculto: a.classList.contains('hidden') }));
+  revisa('[tu plan] el dueño ve su plan y su uso', plan.visible && plan.nombre === 'Cantera' && /Los 3 de más se cobran a \$15 cada uno \(\$45 al mes\)/.test(plan.uso) && plan.tono === 'extra', JSON.stringify(plan));
+  revisa('[tu plan] y lo que le falta del aviso, con liga a Centro Tanner', !docs.oculto && /domicilio y tu correo/.test(docs.texto) && docs.href === '/admin/centro-tanner/', JSON.stringify(docs));
+  await p.evaluate(() => { window.__planDeVenta = false; });
+  await p.addInitScript(() => { window.__planDeVenta = false; });
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('#view:not(.hidden)', { timeout: 5000 }).catch(() => {});
+  revisa('[tu plan] un plan interno (Tannery) no enseña la tarjeta', await p.$eval('#planCard', e => e.classList.contains('hidden')));
   await p.close();
 }
 

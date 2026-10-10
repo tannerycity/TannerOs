@@ -30,6 +30,7 @@
  * producto sin foto sale con el escudo del club, no con un recuadro gris.
  */
 import { createClient } from '/v2/supabase-client.js';
+import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, aceptaPersonalizacion,
@@ -42,7 +43,9 @@ import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposD
   from '/pedido/catalogo.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
-const CLUB_KEY = '1850TC1850';
+// De qué club es esta tienda: ?club=<slug>; sin él, Tannery (v2/club-publico.js).
+const CLUB_KEY = llaveDeLiga();
+let clubNombre = '';
 const PRIVACY_NOTICE_VERSION = '2026-08-19-v1';
 const $ = id => document.getElementById(id);
 const regions = new Intl.DisplayNames(['es-MX', 'es'], { type: 'region' });
@@ -232,7 +235,7 @@ function tarjeta({ tipo, item }) {
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
   const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
-  document.title = activa ? `${etiquetaDe(activa)} · Tienda Tanner` : 'Tienda Tanner · Tannery City';
+  document.title = activa ? `${etiquetaDe(activa)} · Tienda Tanner` : (clubNombre ? `Tienda · ${clubNombre}` : 'Tienda');
   if (!secciones.length) {
     $('content').innerHTML = `<div class="empty-state"><h2>La tienda está vacía</h2>
       <p class="muted">Todavía no hay nada publicado. Escríbenos y te decimos qué sigue.</p></div>`;
@@ -242,7 +245,7 @@ function renderTienda(clave = '') {
      y su Tanner; quien no tiene cuenta compra aquí mismo. */
   $('content').innerHTML = `
     <section class="st-hero">
-      <p class="st-eyebrow">Tannery City F.C.</p>
+      <p class="st-eyebrow">${esc(clubNombre)}</p>
       <h1>${activa ? esc(etiquetaDe(activa)) : 'Tienda'}</h1>
       <p>${activa ? '' : 'El uniforme oficial del club. '}Pídelo desde tu celular${pagoInfo?.delivery ? ` y recíbelo en ${esc(pagoInfo.delivery)}` : ''}.</p>
     </section>
@@ -429,7 +432,7 @@ function renderCheckout() {
       <label class="span-2">Correo<input id="customerEmail" type="email" autocomplete="email" maxlength="254"></label>
       <label class="span-2">Comentarios<textarea id="orderNotes" rows="2" maxlength="500" placeholder="Algo que debamos considerar"></textarea></label>
       <div class="privacy-box span-2"><details><summary>Ver aviso de privacidad</summary>
-        <p>Tannery City FC usa tus datos para administrar el pedido, pago y entrega. Puedes ejercer tus derechos escribiendo a <strong>tannery.city.1850@gmail.com</strong>.</p></details>
+        <p>${esc(clubNombre || 'El club')} usa tus datos para administrar el pedido, pago y entrega. Cómo ejercer tus derechos está en el <a href="/aviso-de-privacidad/">aviso de privacidad</a>.</p></details>
         <label class="check consent-line"><input id="orderDataConsent" type="checkbox" required>
         <span>Autorizo el tratamiento de mis datos para gestionar este pedido. <b>*</b></span></label>
         <div class="privacy-version">Aviso de privacidad ${PRIVACY_NOTICE_VERSION}</div></div>
@@ -546,11 +549,17 @@ $('stCarrito').addEventListener('click', () => {
 cablea();
 try {
   // El catálogo manda; cómo pagar es un extra que no detiene la tienda.
-  const [oferta, pago] = await Promise.allSettled([
+  const [oferta, pago, club] = await Promise.allSettled([
     rpc('v2_public_offerings', { club_key: CLUB_KEY }),
-    rpc('v2_public_payment_info', { club_key: CLUB_KEY })
+    rpc('v2_public_payment_info', { club_key: CLUB_KEY }),
+    rpc('v2_public_context', { club_key: CLUB_KEY })
   ]);
   if (oferta.status !== 'fulfilled') throw oferta.reason;
+  if (club.status === 'fulfilled') clubNombre = String(club.value?.brand || club.value?.organizationName || '').trim();
+  document.querySelectorAll('[data-club-nombre]').forEach(el => { el.textContent = clubNombre; });
+  // Las ligas propias (Centro Tanner, privacidad, familias) se llevan el club.
+  new MutationObserver(() => propagaClub()).observe(document.body, { childList: true, subtree: true });
+  propagaClub();
   pagoInfo = pago.status === 'fulfilled' ? pago.value : null;
   catalogo = normalizaOfertaPublica(oferta.value);
   secciones = seccionesDeTienda(catalogo);

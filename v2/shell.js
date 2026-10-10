@@ -1,4 +1,5 @@
 import {createClient} from '/v2/supabase-client.js';
+import { ligaPublica } from '/v2/club-publico.js';
 
 import { clearPhotoCache } from '/v2/photo-cache.js';
 import {busca,filasEnOrden,trozosResaltados,TIPOS,llaveDeCache,cacheVigente,empaquetaCache} from '/v2/buscador.js';
@@ -495,7 +496,7 @@ function ensureBackButton(){
    No se pinta donde la pantalla ya es esa acción en grande (Taquilla,
    Estacionamiento, levantar pedido), ni para cuentas de familia. */
 const ACCIONES_RAPIDAS={
-  registrar:{label:'Registrar jugador',sub:'Formulario de nuevo ingreso',href:'/registro/jugadores/',icon:'userPlus',modulos:['prospectos','jugadores'],escribe:true},
+  registrar:{label:'Registrar jugador',sub:'Formulario de nuevo ingreso',href:'/registro/jugadores/',publica:true,icon:'userPlus',modulos:['prospectos','jugadores'],escribe:true},
   captacion:{label:'Fichajes',sub:'Los que quieren entrar al club',href:'/prospectos/',icon:'target',modulos:['prospectos']},
   cobrar:{label:'Cobrar',sub:'Entra dinero al club',href:'/taquilla/?action=cobrar',icon:'moneyIn',modulos:['taquilla','cobranza'],escribe:true},
   pagar:{label:'Pagar',sub:'Sale dinero del club',href:'/taquilla/?action=pagar',icon:'moneyOut',modulos:['taquilla','contabilidad'],escribe:true},
@@ -521,7 +522,8 @@ const ACCIONES_POR_ROL={
 const RUTAS_SIN_BOTON=['/taquilla','/estacionamiento','/captura','/v2/captura','/v2/taquilla','/v2/estacionamiento'];
 export function accionesRapidas(ctx,navigation){
   const rol=ctx?.is_owner?'Presidencia':ctx?.role;
-  return (ACCIONES_POR_ROL[rol]||[]).map(k=>({clave:k,...ACCIONES_RAPIDAS[k]})).filter(a=>a.siempre||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe))));
+  // El registro es página pública: su liga lleva el club de quien la abre.
+  return (ACCIONES_POR_ROL[rol]||[]).map(k=>({clave:k,...ACCIONES_RAPIDAS[k]})).map(a=>a.publica?{...a,href:ligaPublica(a.href,ctx,{},'')}:a).filter(a=>a.siempre||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe))));
 }
 function cierraAcciones(){document.body.classList.remove('tos-fab-open');$('tosFab')?.setAttribute('aria-expanded','false');}
 function ensureQuickFab(ctx,navigation){

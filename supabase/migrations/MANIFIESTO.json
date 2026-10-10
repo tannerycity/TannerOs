@@ -1,8 +1,8 @@
 {
-  "migraciones": 451,
-  "bytes": 2498100,
-  "huella": "29dca9844631995e6a0af11efe1c6dd1",
+  "migraciones": 452,
+  "bytes": 2499864,
+  "huella": "8e74d820b961d9fbc2ee779c80d03941",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261010161119_l3_portal_de_plataforma_alta_de_clubes.sql",
+  "ultima": "20261010173120_m3_ligas_publicas_por_club.sql",
   "verificadoContraLaBase": "2026-10-10"
 }

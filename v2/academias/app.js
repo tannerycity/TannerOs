@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { ligaPublica } from '/v2/club-publico.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
@@ -19,7 +20,7 @@ function asInt(v){const n=asNum(v);return n==null?null:Math.trunc(n);}
 function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function dateFmt(v){if(!v)return '—';const d=new Date(`${String(v).slice(0,10)}T12:00:00`);return Number.isNaN(d.getTime())?'—':longDate.format(d);}
 function slugify(v){return String(v||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,120);}
-function publicUrl(a=currentAcademy){return a?`${location.origin}/academias/?academia=${encodeURIComponent(a.slug)}`:`${location.origin}/academias/`;}
+function publicUrl(a=currentAcademy){return ligaPublica('/academias/',ctx,a?{academia:a.slug}:{});}
 function toast(text){let el=document.getElementById('academyToast');if(!el){el=document.createElement('div');el.id='academyToast';el.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:220;background:#07191e;color:#fff;padding:11px 15px;border-radius:12px;font:800 12px Inter,system-ui;box-shadow:0 12px 32px rgba(0,0,0,.25)';document.body.appendChild(el);}el.textContent=text;el.classList.remove('hidden');clearTimeout(el._timer);el._timer=setTimeout(()=>el.classList.add('hidden'),2300);}
 async function copyText(text,success='Link copiado'){try{await navigator.clipboard.writeText(text);toast(success);}catch{await tosPrompt({kicker:'ENLACE',title:'Copia el enlace',value:text,maxlength:400,confirmText:'Listo'});}}
 

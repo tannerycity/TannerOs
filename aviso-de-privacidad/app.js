@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { llaveDeLiga } from '/v2/club-publico.js';
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
 const $ = (id) => document.getElementById(id);
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -12,7 +13,7 @@ function renderBody(text) {
 }
 (async () => {
   try {
-    const { data, error } = await supabase.rpc('v2_public_centro_tanner_document', { club_key: '1850TC1850', doc_code: 'privacidad' });
+    const { data, error } = await supabase.rpc('v2_public_centro_tanner_document', { club_key: llaveDeLiga(), doc_code: 'privacidad' });
     if (error) throw error;
     $('avisoVersion').textContent = data.version;
     $('avisoFecha').textContent = fmtDate(data.effectiveDate);

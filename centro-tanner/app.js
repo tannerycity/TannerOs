@@ -1,7 +1,10 @@
 import { createClient } from '/v2/supabase-client.js';
+import { llaveDeLiga, conClub, propagaClub } from '/v2/club-publico.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
-const CLUB_KEY = '1850TC1850';
+// De qué club es este Centro: ?club=<slug>; sin él, Tannery (v2/club-publico.js).
+const CLUB_KEY = llaveDeLiga();
+let clubNombre = '';
 const $ = (id) => document.getElementById(id);
 
 const CATEGORY_LABELS = {
@@ -12,7 +15,7 @@ const CATEGORY_LABELS = {
   tanner_os: 'Tanner OS', estacionamiento: 'Estacionamiento', tannery_city_park: 'Tannery City Park',
   privacidad: 'Privacidad e imagen', faq: 'Preguntas frecuentes'
 };
-const DOC_LABELS = { reglamento: 'Reglamento Tannery City', privacidad: 'Aviso de privacidad', uso_de_imagen: 'Uso de fotos y video', visoria: 'Términos para visorías' };
+const DOC_LABELS = { reglamento: 'Reglamento', privacidad: 'Aviso de privacidad', uso_de_imagen: 'Uso de fotos y video', visoria: 'Términos para visorías' };
 const THEME_GROUPS = [
   { label: 'Pagos', categories: ['mensualidades', 'becas'] },
   { label: 'Entrenamientos y fútbol', categories: ['entrenamientos', 'asistencia', 'partidos', 'jugadores', 'baby_tanners'] },
@@ -43,12 +46,12 @@ function injectFaqSchema(items) {
 function crumb(parts) { return `<nav class="ct-breadcrumb">${parts.map((p, i) => i < parts.length - 1 ? `<a href="${p.href}">${esc(p.label)}</a> / ` : esc(p.label)).join('')}</nav>`; }
 
 async function renderHome() {
-  setMeta('Centro Tanner', 'Todo lo que necesitas saber sobre Tannery City: reglamento, pagos, becas, seguridad y preguntas frecuentes.');
+  setMeta('Centro Tanner', `Todo lo que necesitas saber sobre ${clubNombre}: reglamento, pagos, becas, seguridad y preguntas frecuentes.`);
   render(`
     <section class="ct-hero">
-      <div class="ct-hero-eyebrow">TANNERY CITY</div>
+      <div class="ct-hero-eyebrow">${esc(clubNombre.toUpperCase())}</div>
       <h1>Centro Tanner</h1>
-      <p>Todo lo que necesitas saber sobre Tannery City.</p>
+      <p>Todo lo que necesitas saber sobre ${esc(clubNombre)}.</p>
     </section>
     <div class="ct-search">
       <div class="ct-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span>
@@ -70,7 +73,7 @@ async function renderHome() {
   document.querySelectorAll('.ct-theme-grid a').forEach((a) => a.addEventListener('click', (e) => {
     e.preventDefault();
     const cats = JSON.parse(a.dataset.group);
-    history.pushState({}, '', `/centro-tanner/tema/${cats.join(',')}`);
+    history.pushState({}, '', conClub(`/centro-tanner/tema/${cats.join(',')}`));
     route();
   }));
 
@@ -115,7 +118,7 @@ function wireSearch() {
 async function renderTheme(categoriesParam) {
   const cats = categoriesParam.split(',').filter(Boolean);
   const label = THEME_GROUPS.find((g) => g.categories.join(',') === cats.join(','))?.label || CATEGORY_LABELS[cats[0]] || 'Tema';
-  setMeta(label, `Políticas de Tannery City sobre ${label.toLowerCase()}.`);
+  setMeta(label, `Políticas de ${clubNombre} sobre ${label.toLowerCase()}.`);
   render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { label }])}<h1>${esc(label)}</h1><div id="ctThemeList" class="ct-doc-list"><div class="ct-loading">Cargando…</div></div>`);
   try {
     const lists = await Promise.all(cats.map((c) => rpc('v2_public_centro_tanner_category', { club_key: CLUB_KEY, category_code: c }).catch(() => [])));
@@ -153,7 +156,7 @@ async function renderDocument(code) {
   render('<div class="ct-loading">Cargando…</div>');
   try {
     const d = await rpc('v2_public_centro_tanner_document', { club_key: CLUB_KEY, doc_code: code });
-    setMeta(d.title, `Versión vigente de ${d.title} de Tannery City.`);
+    setMeta(d.title, `Versión vigente de ${d.title} de ${clubNombre}.`);
     render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { label: d.title }])}
       <h1>${esc(d.title)}</h1>
       <p class="ct-doc-meta">Versión ${esc(d.version)} · Vigente desde ${esc(fmtDate(d.effectiveDate))}${d.organizationLegalName ? ` · ${esc(d.organizationLegalName)}` : ''}</p>
@@ -164,7 +167,7 @@ async function renderDocument(code) {
 }
 
 async function renderChangelog() {
-  setMeta('Historial de cambios', 'Historial de versiones del Reglamento, políticas y avisos de Tannery City.');
+  setMeta('Historial de cambios', `Historial de versiones del Reglamento, políticas y avisos de ${clubNombre}.`);
   render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { label: 'Cambios' }])}<h1>Historial de cambios</h1><div id="ctChanges"><div class="ct-loading">Cargando…</div></div>`);
   try {
     const changes = await rpc('v2_public_centro_tanner_changelog', { club_key: CLUB_KEY });
@@ -185,6 +188,21 @@ function route() {
   render('<div class="ct-empty"><h1>Página no disponible</h1><a href="/centro-tanner/">Volver a Centro Tanner</a></div>');
 }
 
+// El club primero: su nombre va en títulos y textos. Las ligas internas se
+// llevan ?club= para que navegar no regrese a nadie a Tannery.
+try {
+  const ctx = await rpc('v2_public_context', { club_key: CLUB_KEY });
+  clubNombre = String(ctx?.brand || ctx?.organizationName || '').trim();
+  // "Tannery City Park" es el complejo de Tannery; los demás clubes ven
+  // "Instalaciones" para lo mismo.
+  if (ctx?.slug && ctx.slug !== 'tannery-city-fc') {
+    CATEGORY_LABELS.tannery_city_park = 'Instalaciones';
+    THEME_GROUPS.forEach(g => { if (g.categories.includes('tannery_city_park')) g.label = 'Instalaciones'; });
+  }
+} catch { clubNombre = ''; }
+if (clubNombre) DOC_LABELS.reglamento = `Reglamento ${clubNombre}`;
+new MutationObserver(() => propagaClub($('ctContent'))).observe($('ctContent'), { childList: true, subtree: true });
+propagaClub();
 window.addEventListener('popstate', route);
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href^="/centro-tanner"]');

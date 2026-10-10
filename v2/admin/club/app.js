@@ -40,3 +40,29 @@ $('clubForm').addEventListener('submit',async e=>{
   finally{btn.disabled=!canWrite;}
 });
 await cargaClub();
+
+// Datos para que te paguen: banco, CLABE y titular. Los usan los mensajes de
+// cobro y la tienda (paymentInstructions). La CLABE se valida aquí (dígito
+// verificador) y otra vez en el servidor.
+export function clabeValida(v){const d=String(v||'').replace(/\D/g,'');if(d.length!==18)return false;const w=[3,7,1];let s=0;for(let i=0;i<17;i++)s+=(Number(d[i])*w[i%3])%10;return (10-(s%10))%10===Number(d[17]);}
+function payMsg(text='',type='error'){const el=$('payMessage');el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
+async function cargaPago(){
+  const cfg=await rpc('v2_club_config',{organization_id:org});const pi=cfg?.paymentInstructions||{};
+  $('payBank').value=pi.transfer?.bank||'';$('payClabe').value=pi.transfer?.clabe||'';$('payHolder').value=pi.transfer?.holder||'';
+  const metodos=new Set(pi.methods||[]);document.querySelectorAll('.pay-metodos input').forEach(c=>{c.checked=metodos.has(c.value);});
+  if(!canWrite){[...$('payForm').elements].forEach(el=>{el.disabled=true;});$('savePay').textContent='Solo lectura';}
+}
+$('payForm').addEventListener('submit',async e=>{
+  e.preventDefault();if(!canWrite)return;payMsg();
+  const clabe=$('payClabe').value.replace(/\D/g,''),bank=$('payBank').value.trim(),holder=$('payHolder').value.trim();
+  const methods=[...document.querySelectorAll('.pay-metodos input:checked')].map(c=>c.value);
+  if(clabe&&!clabeValida(clabe)){payMsg('Esa CLABE no es válida: revisa los 18 dígitos.');return;}
+  if(clabe&&(!bank||!holder)){payMsg('Con la CLABE van el banco y el titular de la cuenta.');return;}
+  const btn=$('savePay');btn.disabled=true;
+  try{await rpc('v2_update_payment_info',{organization_id:org,info:{bank,clabe,holder,methods}});await cargaPago();payMsg('Datos de pago guardados.','success');}
+  catch(err){payMsg(err.message||'No se pudo guardar.');}
+  finally{btn.disabled=!canWrite;}
+});
+await cargaPago();
+if(location.hash==='#cobro')$('cobro')?.scrollIntoView({block:'start'});
+

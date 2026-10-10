@@ -1,3 +1,4 @@
+import {instalaVocabulario} from '/v2/vocabulario.js';
 const SUPABASE_URL='https://pacnegivzgxpanphrnwp.supabase.co';
 export const BRANDING_BUCKET='tanneros-branding';
 
@@ -41,6 +42,8 @@ export function applyBranding(raw,{organizationId}={}){
   document.querySelectorAll('[data-brand-name]').forEach(el=>el.textContent=brand.brand);document.querySelectorAll('[data-brand-product]').forEach(el=>el.textContent=brand.product);document.querySelectorAll('[data-brand-tagline]').forEach(el=>el.textContent=brand.tagline||'');document.querySelectorAll('.tos-brand strong').forEach(el=>el.textContent=brand.product);
   document.querySelectorAll('.brand-lockup .eyebrow').forEach(el=>{if(/TANNERY CITY|CLUB|ORGANIZACI/i.test(el.textContent||''))el.textContent=brand.brand.toUpperCase();});
   const titleParts=document.title.split('·').map(x=>x.trim()).filter(Boolean),page=titleParts.length>1?titleParts[0]:'';document.title=page?`${page} · ${brand.appName}`:brand.appName;
+  // Cómo le dice el club a sus jugadores ("Tanner" en Tannery): ver vocabulario.js.
+  instalaVocabulario(raw?.playerNoun);
   window.__tosBranding=brand;window.dispatchEvent(new CustomEvent('tanneros:branding',{detail:brand}));return brand;
 }
 

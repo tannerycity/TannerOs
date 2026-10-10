@@ -198,7 +198,7 @@ async function siguiente() {
 
 function listo(r) {
   const producto = tablero?.product?.name || 'TannerOS';
-  const texto = mensajeBienvenida({ club: r.name, dueno: r.ownerName, correo: r.ownerEmail, producto, url: location.origin });
+  const texto = mensajeBienvenida({ club: r.name, dueno: r.ownerName, correo: r.ownerEmail, producto, url: `${location.origin}/?club=${encodeURIComponent(r.slug)}&alta=1` });
   const wa = ligaWhatsApp(r.ownerPhone, texto);
   $('azPasoTxt').textContent = 'Listo';
   $('azTitulo').textContent = `${r.name} quedó creado`;

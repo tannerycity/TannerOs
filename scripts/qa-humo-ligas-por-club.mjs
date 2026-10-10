@@ -12,6 +12,10 @@
  *   4. Sin ?club= sigue siendo Tannery: los QR impresos no se rompen.
  *   5. Un club que no existe lo dice y no enseña el formulario: nadie se
  *      registra en otro club por error.
+ *   6. El club habla con SU palabra para los jugadores ("Jugador", no
+ *      "Tanner"), también en lo que sale por WhatsApp.
+ *   7. La entrada con ?club=&alta=1 enseña el nombre del club, sin el
+ *      escudo de Tannery, y abre "Tengo invitación".
  *
  * Se espía la llamada RPC: lo que importa es A QUIÉN se le pregunta.
  */
@@ -33,8 +37,8 @@ await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}`;
 
 const CLUBES = {
-  '1850TC1850': { organizationId:'o-tc', organizationName:'Tannery City FC', brand:'Tannery City', slug:'tannery-city-fc' },
-  'leon-norte': { organizationId:'o-leon', organizationName:'Club León Norte', brand:'León Norte', slug:'leon-norte' }
+  '1850TC1850': { organizationId:'o-tc', organizationName:'Tannery City FC', brand:'Tannery City', slug:'tannery-city-fc', playerNoun:{ singular:'Tanner', plural:'Tanners' }, categories:['Mini Baby Tanner','Baby Tanner','T8','T10','T12'] },
+  'leon-norte': { organizationId:'o-leon', organizationName:'Club León Norte', brand:'León Norte', slug:'leon-norte', playerNoun:{ singular:'Jugador', plural:'Jugadores' }, categories:['Sub-8','Sub-10'] }
 };
 const llamadas = [];
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
@@ -78,6 +82,15 @@ const textoReg = await pg.evaluate(() => document.body.innerText);
 revisa('[registro] dice el nombre del club', /LEÓN NORTE/i.test(textoReg));
 revisa('[registro] no dice Tannery en ningún lado', !/Tannery/i.test(textoReg), textoReg.match(/.{0,40}Tannery.{0,40}/i)?.[0]);
 revisa('[registro] el título de la pestaña es del club', /León Norte/.test(await pg.title()), await pg.title());
+const catsLeon = await pg.$$eval('#category option', os => os.map(o => o.textContent));
+revisa('[registro] ofrece las categorías del club', JSON.stringify(catsLeon) === JSON.stringify(['Por definir','Sub-8','Sub-10']), JSON.stringify(catsLeon));
+revisa('[registro] habla de jugadores, no de Tanners', !/\bTanners?\b/.test(textoReg) && /jugador/i.test(textoReg), textoReg.match(/.{0,40}\bTanners?\b.{0,40}/)?.[0]);
+const waLiga = await pg.evaluate(() => {
+  const a = document.createElement('a'); a.href = 'https://wa.me/524771112233?text=' + encodeURIComponent('Hola, su Tanner Leo'); document.body.appendChild(a);
+  let visto = ''; a.addEventListener('click', e => { visto = a.href; e.preventDefault(); }); a.click(); a.remove();
+  return new URL(visto).searchParams.get('text');
+});
+revisa('[registro] lo que sale por WhatsApp también dice jugador', waLiga === 'Hola, su jugador Leo', waLiga);
 const ligasReg = await pg.$$eval('a[href^="/"]', as => as.map(a => a.getAttribute('href')));
 revisa('[registro] Centro Tanner y privacidad se llevan el club', ligasReg.length > 0 && ligasReg.every(h => /club=leon-norte/.test(h)), ligasReg.join(' '));
 
@@ -88,6 +101,11 @@ await pg.waitForSelector('#regForm', { timeout: 5000 });
 revisa('[QR viejo] sin club pregunta por Tannery', llaves('v2_public_context')[0] === '1850TC1850');
 const ligasTc = await pg.$$eval('a[href^="/"]', as => as.map(a => a.getAttribute('href')));
 revisa('[QR viejo] las ligas de Tannery no cambian', ligasTc.every(h => !/club=/.test(h)), ligasTc.join(' '));
+
+const textoTc = await pg.evaluate(() => document.body.innerText);
+const catsTc = await pg.$$eval('#category option', os => os.map(o => o.textContent));
+revisa('[QR viejo] Tannery conserva sus categorías', catsTc.includes('Mini Baby Tanner') && catsTc.includes('T12'), JSON.stringify(catsTc));
+revisa('[QR viejo] Tannery sigue diciendo Tanner', /\bTanner\b/.test(textoTc));
 
 /* ===== Club que no existe ===== */
 limpia();
@@ -123,9 +141,44 @@ await pg.goto(BASE + '/aviso-de-privacidad/?club=leon-norte', { waitUntil:'netwo
 await pg.waitForTimeout(300);
 revisa('[privacidad] el aviso es el de León Norte', llaves('v2_public_centro_tanner_document')[0] === 'leon-norte');
 
+/* ===== La capa de vocabulario por sí sola (la usan todas las pantallas) ===== */
+await pg.goto(BASE + '/aviso-de-privacidad/', { waitUntil:'networkidle' });
+const capa = await pg.evaluate(async () => {
+  const abiertas = [];
+  window.open = url => { abiertas.push(url); return null; };
+  document.body.insertAdjacentHTML('beforeend', '<section id="qaVoc"><h2>Tanners activos</h2><input id="qaIn" placeholder="Buscar Tanner" value="Tanner escrito"><p data-sin-vocabulario>Tanner Smith</p><span>Tanner010</span></section>');
+  document.title = 'Ficha Tanner';
+  const { instalaVocabulario } = await import('/v2/vocabulario.js');
+  instalaVocabulario({ singular: 'Jugador', plural: 'Jugadores' });
+  document.getElementById('qaVoc').insertAdjacentHTML('beforeend', '<p id="qaTarde">Cobrar al Tanner</p>');
+  await new Promise(r => setTimeout(r, 50));
+  window.open('https://wa.me/1?text=' + encodeURIComponent('Hola, su Tanner'));
+  return { h2: document.querySelector('#qaVoc h2').textContent, ph: document.getElementById('qaIn').placeholder,
+    valor: document.getElementById('qaIn').value, marcado: document.querySelector('[data-sin-vocabulario]').textContent,
+    codigo: document.querySelector('#qaVoc span').textContent, tarde: document.getElementById('qaTarde').textContent,
+    titulo: document.title, wa: new URL(abiertas[0]).searchParams.get('text') };
+});
+revisa('[capa] cambia texto, placeholder y título', capa.h2 === 'Jugadores activos' && capa.ph === 'Buscar jugador' && capa.titulo === 'Ficha jugador', JSON.stringify(capa));
+revisa('[capa] lo que aparece después también', capa.tarde === 'Cobrar al jugador', capa.tarde);
+revisa('[capa] no toca lo escrito, lo marcado ni los códigos', capa.valor === 'Tanner escrito' && capa.marcado === 'Tanner Smith' && capa.codigo === 'Tanner010', JSON.stringify(capa));
+revisa('[capa] la ventana a WhatsApp sale traducida', capa.wa === 'Hola, su jugador', capa.wa);
+
+/* ===== Entrada del dueño de un club nuevo ===== */
+limpia();
+await pg.goto(BASE + '/?club=leon-norte&alta=1', { waitUntil:'networkidle' });
+await pg.waitForTimeout(400);
+revisa('[entrada] pregunta por León Norte', llaves('v2_public_context')[0] === 'leon-norte', JSON.stringify(llamadas.map(c => c.n)));
+revisa('[entrada] enseña el nombre del club', (await pg.$eval('.tc-club-nombre', e => e.textContent).catch(() => '')) === 'León Norte');
+revisa('[entrada] sin escudo ni firma de Tannery', (await pg.$('.tc-escudo')) === null && (await pg.$('.tc-wordmark')) === null);
+revisa('[entrada] la bajada es del club', /León Norte/.test(await pg.$eval('.tc-bajada', e => e.textContent).catch(() => '')));
+revisa('[entrada] abre "Tengo invitación"', await pg.$eval('#signUpTab', e => e.classList.contains('active')).catch(() => false));
+await pg.goto(BASE + '/', { waitUntil:'networkidle' });
+await pg.waitForTimeout(300);
+revisa('[entrada] sin club sigue siendo Tannery', (await pg.$('.tc-wordmark')) !== null && (await pg.$('.tc-club-nombre')) === null);
+
 revisa('sin errores de consola', errs.length === 0, errs.join('\n   '));
 await nav.close(); srv.close();
 console.log(fallos
   ? `Ligas por club humo FAILED · ${fallos} de ${corridas}`
-  : `Ligas por club humo OK · ${corridas} revisiones: registro, tienda, Centro Tanner y privacidad preguntan por su club; los QR viejos siguen en Tannery`);
+  : `Ligas por club humo OK · ${corridas} revisiones: registro, tienda, Centro Tanner y privacidad preguntan por su club; vocabulario del club, entrada del dueño y los QR viejos siguen en Tannery`);
 process.exit(fallos ? 1 : 0);

@@ -122,7 +122,11 @@ export default function comprobar() {
   // Sube a 32 por qa-humo-partidos.mjs. Vigila capturar un partido en pocos
   // toques: convocados, quién jugó, goles con asistencia y estadísticas. Es
   // pintura sobre v2_match_board, v2_match_sheet y v2_save_match_sheet.
-  const MAX_EXCLUIDAS = 32;
+  // Sube a 33 por qa-humo-portal.mjs. Vigila el portal de la plataforma:
+  // que sólo lo abra el admin, el tablero de clubes y el alta en cinco pasos
+  // con mensaje de bienvenida. Es pintura sobre v2_platform_board y
+  // v2_provision_club.
+  const MAX_EXCLUIDAS = 33;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

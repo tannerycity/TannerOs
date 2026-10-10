@@ -1,4 +1,5 @@
 import {bootstrapProtectedShell,rpc,$,setShellHealth} from '/v2/shell.js';
+import { ligaPublica } from '/v2/club-publico.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import {createClient} from '/v2/supabase-client.js';
 
@@ -338,7 +339,7 @@ function sugerencia(){
 }
 
 async function compartir(){
-  const url=`${location.origin}/academias/?academia=${encodeURIComponent(state.data.academy.slug)}`;
+  const url=ligaPublica('/academias/',ctx,{academia:state.data.academy.slug});
   try{
     if(navigator.share){await navigator.share({title:state.data.academy.name,url});return;}
     await navigator.clipboard.writeText(url);

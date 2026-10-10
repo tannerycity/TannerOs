@@ -1,4 +1,5 @@
 import {createClient} from '/v2/supabase-client.js';
+import { ligaPublica } from '/v2/club-publico.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
@@ -256,6 +257,8 @@ async function boot(){
   const contexts=await rpc('v2_my_context');
   if(!contexts?.length){$('deniedText').textContent='Tu llave todavía no pertenece a un club.';show('deniedView');return;}
   const ctx=contexts[0];orgId=ctx.organization_id;
+  // "Ver público" abre el Centro de ESTE club, no el de Tannery.
+  document.querySelectorAll('a[href="/centro-tanner/"]').forEach(el=>{el.href=ligaPublica('/centro-tanner/',ctx,{},'');});
   const modules=await rpc('v2_my_navigation',{organization_id:orgId});
   const mod=modules.find(m=>m.module_code==='centro_tanner');
   if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu llave no abre Centro Tanner.';show('deniedView');return;}

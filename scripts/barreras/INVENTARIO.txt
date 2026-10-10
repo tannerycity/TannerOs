@@ -20,3 +20,4 @@ label-que-se-traga-el-click.mjs
 formulario-publico-sin-sesion.mjs
 funcion-interna-cerrada-a-anon.mjs
 club-sin-nombre-fijo.mjs
+club-sin-llave-fija.mjs

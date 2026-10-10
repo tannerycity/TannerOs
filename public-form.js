@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { llaveDeLiga, LLAVE_POR_OMISION, propagaClub } from '/v2/club-publico.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { renderWelcomeCard } from '/welcome-card.js';
 import { puedeCompartirse, motivoSinCompartir } from '/credencial.js';
@@ -18,7 +19,12 @@ import { encodeVariant, FULL_MAX_BYTES, THUMB_MAX_SIDE, THUMB_MAX_BYTES, UPLOAD_
  * Presidencia— sube la foto por el mismo camino que ya funciona. Es el mismo
  * patrón que v2/qa usa para su anonClient. */
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
-const CLUB_KEY='1850TC1850';
+// De qué club es esta liga: ?club=<slug>; sin él, Tannery (ver v2/club-publico.js).
+const CLUB_KEY=llaveDeLiga();
+const ES_TANNERY=CLUB_KEY===LLAVE_POR_OMISION||CLUB_KEY==='tannery-city-fc';
+// El nombre del club se conoce al cargar el contexto público.
+let clubNombre='';
+const CLUB=()=>clubNombre||'el club';
 const PHOTO_BUCKET='tanneros-prospect-photos';
 const PRIVACY_NOTICE_VERSION='2026-08-19-v1';
 const $=id=>document.getElementById(id);
@@ -37,14 +43,14 @@ let pendingUploadedPath=null;
 let pendingUploadedThumb=null;
 
 const registrationCampaigns={
-  '/registro/porteros':{code:'captacion_porteros_2026',registrationType:'goalkeeper',pageTitle:'Captación de Porteros',eyebrow:'CAPTACIÓN TANNERY CITY',heading:'Buscamos porteros',intro:'Llena los datos de tu hijo/a y el club te contactará para agendar su proceso de captación.'},
-  '/registro/jugadores':{code:'captacion_jugadores_2026',registrationType:'player',pageTitle:'Captación de Jugadores',eyebrow:'CAPTACIÓN TANNERY CITY',heading:'Buscamos jugadores',intro:'Llena los datos de tu hijo/a y el club te contactará para agendar su proceso de captación.'},
-  '/registro/scouting':{code:'scouting_externo_2026',registrationType:'general',pageTitle:'Registro de Talento',eyebrow:'SCOUTING TANNERY CITY',heading:'Registra un talento',intro:'Registra los datos del jugador para que el equipo de Scouting pueda dar seguimiento a su perfil y proceso de visoría.'}
+  '/registro/porteros':{code:'captacion_porteros_2026',registrationType:'goalkeeper',pageTitle:'Captación de Porteros',eyebrow:'CAPTACIÓN',heading:'Buscamos porteros',intro:'Llena los datos de tu hijo/a y el club te contactará para agendar su proceso de captación.'},
+  '/registro/jugadores':{code:'captacion_jugadores_2026',registrationType:'player',pageTitle:'Captación de Jugadores',eyebrow:'CAPTACIÓN',heading:'Buscamos jugadores',intro:'Llena los datos de tu hijo/a y el club te contactará para agendar su proceso de captación.'},
+  '/registro/scouting':{code:'scouting_externo_2026',registrationType:'general',pageTitle:'Registro de Talento',eyebrow:'SCOUTING',heading:'Registra un talento',intro:'Registra los datos del jugador para que el equipo de Scouting pueda dar seguimiento a su perfil y proceso de visoría.'}
 };
 
 const countryPriority=['MX','US','AR'];
 const phonePlaceholders={MX:'477 123 4567',US:'210 555 1234',CA:'416 555 1234',AR:'11 2345 6789',ES:'612 345 678'};
-function setTitle(t){$('pageTitle').textContent=t;document.title=`${t} · Tannery City`;}
+function setTitle(t){$('pageTitle').textContent=t;document.title=clubNombre?`${t} · ${clubNombre}`:t;}
 function show(html){$('loading').classList.add('hidden');$('content').classList.remove('hidden');$('content').innerHTML=html;}
 function escapePublic(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function publicDate(v){if(!v)return '';const d=new Date(`${String(v).slice(0,10)}T12:00:00`);return Number.isNaN(d.getTime())?'':new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'long',year:'numeric'}).format(d);}
@@ -129,7 +135,7 @@ async function preparePhoto(file){
 async function showRegistrationSuccess(cardData){
   const nombre=escapePublic(cardData.firstName||'tu jugador');
   const comparte=puedeCompartirse(cardData);
-  show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>¡Bienvenido a la familia Tanner!</h2><p>Tu registro y tu foto quedaron guardados de forma segura. Administración de Tannery City se pondrá en contacto contigo.</p>
+  show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>¡Bienvenido a la familia Tanner!</h2><p>Tu registro y tu foto quedaron guardados de forma segura. Administración de ${escapePublic(CLUB())} se pondrá en contacto contigo.</p>
     <div class="wc-wrap">
       <p id="wcStatus" class="wc-status">Generando tu credencial…</p>
       <div id="wcPreview" class="wc-preview hidden"><img id="wcImage" alt="Credencial Tanner de ${nombre}"></div>
@@ -180,13 +186,13 @@ async function showRegistrationSuccess(cardData){
       try{
         const file=new File([blob],nombreArchivo,{type:'image/png'});
         if(navigator.canShare&&navigator.canShare({files:[file]})){
-          await navigator.share({files:[file],title:'Tannery City FC',text:'¡Nuevo Tanner en camino! #WeAreTanners'});
+          await navigator.share({files:[file],title:CLUB(),text:`¡Nuevo Tanner en camino!${ES_TANNERY?' #WeAreTanners':''}`});
           return;
         }
       }catch(err){if(err?.name==='AbortError')return;}
       let waBase='https://wa.me/?text=';
       try{const ctx=await getPublicContext();if(ctx?.whatsappNumber)waBase=`https://wa.me/${ctx.whatsappNumber}?text=`;}catch{}
-      window.open(`${waBase}${encodeURIComponent('¡Nuevo Tanner en camino! #WeAreTanners')}`,'_blank','noopener');
+      window.open(`${waBase}${encodeURIComponent(`¡Nuevo Tanner en camino!${ES_TANNERY?' #WeAreTanners':''}`)}`,'_blank','noopener');
     });
   }catch(err){
     $('wcSocialTitle').textContent='No pudimos generar la tarjeta para compartir.';
@@ -194,7 +200,7 @@ async function showRegistrationSuccess(cardData){
 }
 
 function registrationForm(campaign){
-  const eyebrow=campaign?.eyebrow||'ÚNETE A TANNERY CITY';
+  const eyebrow=`${campaign?.eyebrow||'ÚNETE A'} ${CLUB().toUpperCase()}`;
   const heading=campaign?.heading||'Registro Tanner';
   const intro=campaign?.intro||'Un solo registro para comenzar. Dinos si viene como jugador, portero o a una academia y nuestro equipo dará seguimiento desde TannerOS.';
   const preset=campaign?.registrationType||'';
@@ -220,7 +226,7 @@ async function renderProgramas(){
   if(!programs?.length){show(`<div class="empty-state"><div class="eyebrow">PROGRAMAS</div><h2>Este registro no está disponible</h2><p class="muted">El evento pudo cerrar su registro o completar el cupo. Escríbenos para más información.</p></div>`);return;}
   if(directSlug&&programs.length===1){show(`<div id="programFormWrap"></div>`);renderProgramForm(programs[0].slug,programs[0]);return;}
   const cards=programs.map(p=>{const price=Number(p.fee)>0?money.format(Number(p.fee)):Number(p.feeWeekly)>0?`${money.format(Number(p.feeWeekly))} por semana`:'Gratuito';const meta=[p.startsOn?publicDate(p.startsOn):null,p.location,p.category].filter(Boolean).join(' · ');return `<article class="program-card public-program-card"><div class="eyebrow">${escapePublic(p.type||'Programa')}</div><h3>${escapePublic(p.name)}</h3>${meta?`<p class="program-public-meta">${escapePublic(meta)}</p>`:''}<p>${escapePublic(p.description||'')}</p><div class="program-public-facts"><strong>${escapePublic(price)}</strong>${p.ageMin!=null||p.ageMax!=null?`<small>Edades: ${p.ageMin??'—'} a ${p.ageMax??'—'} años</small>`:''}</div><button class="primary enroll" data-slug="${escapePublic(p.slug)}">Inscribirme</button></article>`;}).join('');
-  show(`<div class="eyebrow">PROGRAMAS Y EVENTOS</div><h2>Inscripciones abiertas</h2><p class="muted">Elige la actividad y registra al participante. Recibirás confirmación de Tannery City.</p><div class="programs">${cards}</div><div id="programFormWrap"></div>`);
+  show(`<div class="eyebrow">PROGRAMAS Y EVENTOS</div><h2>Inscripciones abiertas</h2><p class="muted">Elige la actividad y registra al participante. Recibirás confirmación de ${escapePublic(CLUB())}.</p><div class="programs">${cards}</div><div id="programFormWrap"></div>`);
   document.querySelectorAll('.enroll').forEach(btn=>btn.addEventListener('click',()=>renderProgramForm(btn.dataset.slug,programs.find(p=>p.slug===btn.dataset.slug))));
 }
 
@@ -239,15 +245,15 @@ function renderProgramForm(slug,p){
       const phone=requirePhone('pfPhone'),emergencyPhone=requirePhone('pfEmergencyPhone');const at=acceptedAt();let prepared=null;if(photoRequired){btn.textContent='Preparando foto…';prepared=await preparePhoto(selectedPhotoFile);}
       btn.textContent='Guardando inscripción…';const result=await rpc('v2_public_program_enroll_enhanced',{club_key:CLUB_KEY,program_slug:slug,first_name:$('pfFirst').value.trim(),last_name:$('pfLast').value.trim(),phone,email:$('pfEmail').value.trim()||null,birth_date:$('pfBirth').value,consent:{dataAccepted:$('programDataConsent').checked,imageAccepted:$('programImageConsent').checked,participationAccepted:$('pfParticipation').checked,fitnessAccepted:$('pfFitness').checked,rulesAccepted:$('pfRules').checked,privacyNoticeVersion:PRIVACY_NOTICE_VERSION,acceptedAt:at,source:'public-web'},metadata:{guardianName:$('pfGuardian').value.trim(),residence:$('pfResidence').value.trim(),position:$('pfPosition').value.trim()||null,dominantFoot:$('pfDominantFoot').value||null,currentTeam:$('pfCurrentTeam').value.trim()||null,experience:$('pfExperience').value.trim()||null,emergencyContact:$('pfEmergencyContact').value.trim(),emergencyPhone,emergencyRelation:$('pfEmergencyRelation').value.trim(),medicalSummary:$('pfMedicalSummary').value.trim(),sourceChannel:$('pfSource').value}});
       if(result?.photoRequired&&prepared){btn.textContent='Subiendo foto…';const context=await getPublicContext();const photoPath=`organizations/${context.organizationId}/programs/${result.programId}/${result.id}/profile.${prepared.ext}`;const {error}=await supabase.storage.from(PHOTO_BUCKET).upload(photoPath,prepared.blob,{contentType:prepared.mime,cacheControl: UPLOAD_CACHE_CONTROL,upsert:false});if(error)throw error;btn.textContent='Finalizando…';await rpc('v2_public_attach_program_photo',{club_key:CLUB_KEY,enrollment_id:result.id,photo_path:photoPath});}
-      const wait=result?.status==='waitlisted';show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>${wait?'Registro en lista de espera':'Inscripción recibida'}</h2><p>${wait?'El cupo está completo. Tannery City te contactará si se libera un lugar.':'Tus datos quedaron vinculados al evento. Tannery City te contactará por WhatsApp para confirmar los siguientes pasos.'}</p><div class="folio">${escapePublic(result?.program||p?.name||'Tannery City')}</div></div>`);
+      const wait=result?.status==='waitlisted';show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>${wait?'Registro en lista de espera':'Inscripción recibida'}</h2><p>${wait?`El cupo está completo. ${escapePublic(CLUB())} te contactará si se libera un lugar.`:`Tus datos quedaron vinculados al evento. ${escapePublic(CLUB())} te contactará por WhatsApp para confirmar los siguientes pasos.`}</p><div class="folio">${escapePublic(result?.program||p?.name||'Tannery City')}</div></div>`);
     }catch(err){msg(err.message||'No se pudo enviar la inscripción.');btn.disabled=false;btn.textContent='Enviar inscripción';}
   });
 }
 
 async function renderAcademias(){
-  setTitle('Academias Tannery City');
+  setTitle(`Academias ${CLUB()}`);
   const slug=new URLSearchParams(location.search).get('academia');
-  if(!slug){show(`<div class="empty-state"><div class="eyebrow">ACADEMIAS</div><h2>Falta el enlace de la academia</h2><p class="muted">Pide a Tannery City el link directo de la academia a la que te quieres inscribir.</p></div>`);return;}
+  if(!slug){show(`<div class="empty-state"><div class="eyebrow">ACADEMIAS</div><h2>Falta el enlace de la academia</h2><p class="muted">Pide a ${escapePublic(CLUB())} el link directo de la academia a la que te quieres inscribir.</p></div>`);return;}
   let academy;
   try{academy=await rpc('v2_public_academy_info',{club_key:CLUB_KEY,slug});}
   catch{show(`<div class="empty-state"><div class="eyebrow">ACADEMIAS</div><h2>Este registro no está disponible</h2><p class="muted">La academia pudo cerrar su inscripción o el link ya no es válido. Escríbenos para más información.</p></div>`);return;}
@@ -265,9 +271,20 @@ async function renderAcademias(){
     try{
       const phone=requirePhone('afPhone');btn.textContent='Enviando…';
       const result=await rpc('v2_public_register_enhanced',{club_key:CLUB_KEY,first_name:$('afFirst').value.trim(),last_name:$('afLast').value.trim(),birth_date:$('afBirth').value,phone,email:$('afEmail').value.trim()||null,guardian_name:$('afGuardian').value.trim(),category_interest:academy.name,source_campaign:`academia:${slug}`,source_channel:$('afSource').value,registration_type:'general',purpose:'Inscripción a la academia',dominant_foot:$('afDominantFoot').value,school_name:$('afSchool').value.trim(),referral_name:$('afReferralName').value.trim()||null,public_message:null,privacy_notice_version:PRIVACY_NOTICE_VERSION,data_consent:$('afregDataConsent').checked,image_consent:$('afregImageConsent').checked});
-      show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>Inscripción recibida</h2><p>Tannery City te contactará por WhatsApp para confirmar tu lugar en <b>${escapePublic(academy.name)}</b> y los detalles de cobro.</p>${result?.folio?`<div class="folio">${escapePublic(result.folio)}</div>`:''}</div>`);
+      show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>Inscripción recibida</h2><p>${escapePublic(CLUB())} te contactará por WhatsApp para confirmar tu lugar en <b>${escapePublic(academy.name)}</b> y los detalles de cobro.</p>${result?.folio?`<div class="folio">${escapePublic(result.folio)}</div>`:''}</div>`);
     }catch(err){msg(err.message||'No se pudo enviar la inscripción.');btn.disabled=false;btn.textContent='Enviar inscripción';}
   });
 }
 
-try{if(path==='/registro'||registrationCampaigns[path])await renderRegistro(registrationCampaigns[path]||null);else if(path==='/pedido')await renderPedido();else if(path==='/programas')await renderProgramas();else if(path==='/academias')await renderAcademias();else show('<div class="empty-state"><h2>Ruta no disponible</h2></div>');}catch(err){show(`<div class="empty-state"><h2>No pudimos cargar esta página</h2><p class="muted">${err.message||'Intenta nuevamente.'}</p></div>`);}
+// Primero el club: su nombre va en el encabezado y en cada mensaje. Si la liga
+// trae un club que no existe, se dice aquí y no se registra a nadie en otro.
+async function pintaClub(){
+  const ctx=await getPublicContext();
+  clubNombre=String(ctx?.brand||ctx?.organizationName||'').trim();
+  document.querySelectorAll('.brand .eyebrow').forEach(el=>{el.textContent=String(ctx?.organizationName||clubNombre).toUpperCase();});
+}
+let clubListo=true;
+try{await pintaClub();}catch(err){clubListo=false;show(`<div class="empty-state"><h2>No encontramos este club</h2><p class="muted">Revisa la liga que te compartieron o pídela de nuevo al club.</p></div>`);}
+// Las ligas propias (Centro Tanner, privacidad) se llevan el club.
+new MutationObserver(()=>propagaClub()).observe(document.body,{childList:true,subtree:true});propagaClub();
+if(clubListo)try{if(path==='/registro'||registrationCampaigns[path])await renderRegistro(registrationCampaigns[path]||null);else if(path==='/pedido')await renderPedido();else if(path==='/programas')await renderProgramas();else if(path==='/academias')await renderAcademias();else show('<div class="empty-state"><h2>Ruta no disponible</h2></div>');}catch(err){show(`<div class="empty-state"><h2>No pudimos cargar esta página</h2><p class="muted">${err.message||'Intenta nuevamente.'}</p></div>`);}

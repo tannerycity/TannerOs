@@ -126,7 +126,10 @@ export default function comprobar() {
   // que sólo lo abra el admin, el tablero de clubes y el alta en cinco pasos
   // con mensaje de bienvenida. Es pintura sobre v2_platform_board y
   // v2_provision_club.
-  const MAX_EXCLUIDAS = 33;
+  // Sube a 34 por qa-humo-ligas-por-club.mjs. Vigila que registro, tienda,
+  // Centro Tanner y privacidad pregunten por el club de la liga (?club=) y
+  // que los QR viejos sigan en Tannery. Es pintura sobre v2_public_context.
+  const MAX_EXCLUIDAS = 34;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

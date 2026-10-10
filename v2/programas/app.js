@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { ligaPublica } from '/v2/club-publico.js';
 import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrl } from '/v2/photo-cache.js';
 
@@ -35,7 +36,7 @@ function participantName(e){return [e?.firstName,e?.lastName].filter(Boolean).jo
 function activeEnrollments(programId){return enrollments.filter(e=>e.programId===programId&&!['cancelled'].includes(e.status));}
 function attendanceFor(enrollmentId,date=$('attendanceDate')?.value||today()){return attendance.find(a=>a.enrollmentId===enrollmentId&&String(a.attendanceDate||'').slice(0,10)===date);}
 function expectedFee(p){if(Number(p?.fee)>0)return Number(p.fee);if(Number(p?.feeWeekly)>0&&Number(p?.weeks)>0)return Number(p.feeWeekly)*Number(p.weeks);return 0;}
-function publicUrl(p=currentProgram){return p?`${location.origin}/programas/?program=${encodeURIComponent(p.slug)}`:`${location.origin}/programas/`;}
+function publicUrl(p=currentProgram){return ligaPublica('/programas/',ctx,p?{program:p.slug}:{});}
 function isPublic(p){return Boolean(p?.publicRegistrationEnabled)&&['published','active'].includes(p.status);}
 function paymentDue(e){return ['pending','partial'].includes(e.paymentStatus);}
 function nextProgram(){return programs.filter(p=>!closedStatuses.has(p.status)&&p.startsOn&&p.startsOn>=today()).sort((a,b)=>String(a.startsOn).localeCompare(String(b.startsOn)))[0]||null;}

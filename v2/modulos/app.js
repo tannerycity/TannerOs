@@ -23,7 +23,7 @@ async function boot(){
   const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
   const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return;}
   const ctx=rows[0],mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;
+  $('orgName').textContent=ctx.organization_name||'';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;
   const grid=$('moduleGrid');grid.innerHTML='';
   mods.filter(m=>m.enabled&&m.can_read).forEach(m=>{const meta=routes[m.module_code]||{name:m.module_code,desc:'Módulo habilitado.',href:null};const card=document.createElement(meta.href?'a':'article');card.className=`module-card ${meta.href?'available':'coming'}`;if(meta.href)card.href=meta.href;card.innerHTML=`<div><strong>${meta.name}</strong><p>${meta.desc}</p></div><span>${meta.href?'Abrir':'Próximamente'}</span>`;grid.appendChild(card);});
   $('loading').classList.add('hidden');$('view').classList.remove('hidden');

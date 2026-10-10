@@ -16,6 +16,7 @@
  * El servidor (j3) guarda todo de un golpe: v2_save_match_sheet.
  */
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub, nombreCorto } from '/v2/club.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { TIPOS, TIEMPOS, jugo, siguienteTiempo, resultado, cuentaPorJugador, participaEnGoles,
          preparaPlantel, hojaParaGuardar, goleadores, juegaPoco, sinJugar } from '/v2/partidos/partido.js';
@@ -50,7 +51,9 @@ async function boot() {
   const rows = await rpc('v2_my_context');
   if (!rows?.length) { show('deniedView'); return; }
   ctx = rows[0];
-  $('orgName').textContent = ctx.organization_name || 'Tannery City FC';
+  $('orgName').textContent = ctx.organization_name||'';
+  $('ptClub').textContent = nombreDelClub(ctx);
+  $('ppNosotros').textContent = nombreCorto(ctx);
   $('roleBadge').textContent = ctx.is_owner ? 'Presidencia' : ctx.role;
   try { tablero = await rpc('v2_match_board', { organization_id: ctx.organization_id }); }
   catch (e) { show('deniedView'); return; }

@@ -1,4 +1,5 @@
 import {supabase,bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,shellIcon} from '/v2/shell.js';
+import { nombreDelClub } from '/v2/club.js';
 import {getSignedPhotoUrl} from '/v2/photo-cache.js';
 
 // El shell valida el módulo activo, pero un estado de cuenta lo abre tanto
@@ -68,7 +69,7 @@ function balanceBlock(data){
   const acciones=[];
   if(saldo>0&&can('taquilla',true))acciones.push(`<a class="tan-btn" data-kind="pay" href="/taquilla/?action=cobrar&player=${encodeURIComponent(p.id)}&amount=${Math.round(saldo)}&name=${encodeURIComponent([p.first_name,p.last_name].filter(Boolean).join(' '))}">Cobrar ${money.format(saldo)}</a>`);
   if(saldo>0&&tel){
-    const msg=encodeURIComponent(`Hola, le recordamos el pago pendiente de ${[p.first_name,p.last_name].filter(Boolean).join(' ')} en Tannery City por ${money.format(saldo)}. ¡Gracias!`);
+    const msg=encodeURIComponent(`Hola, le recordamos el pago pendiente de ${[p.first_name,p.last_name].filter(Boolean).join(' ')} en ${nombreDelClub(ctx)} por ${money.format(saldo)}. ¡Gracias!`);
     acciones.push(`<a class="tan-btn" data-kind="wa" target="_blank" rel="noopener" href="https://wa.me/${String(tel).replace(/\D/g,'')}?text=${msg}">WhatsApp</a>`);
   }
   if(data.canAdjust){
@@ -224,7 +225,7 @@ async function generaPdf(data){
   const p=data.player||{},s=data.summary||{};
   const nombre=[p.first_name,p.last_name].filter(Boolean).join(' ');
   const pesos=v=>money.format(Number(v||0));
-  const club=ctx.organization_name||'Tannery City FC';
+  const club=ctx.organization_name||'';
   const hoy=new Intl.DateTimeFormat('es-MX',{dateStyle:'long'}).format(new Date());
   const salto=n=>{if(y+n>alto-m-20){doc.addPage();y=m;}};
   doc.setFillColor(5,55,70);doc.rect(0,0,ancho,74,'F');
@@ -283,8 +284,8 @@ function textoWhatsapp(data){
   const pendientes=(data.ledger||[]).filter(x=>x.kind==='charge'&&Number(x.charge_balance||0)>0)
     .map(x=>`• ${x.subtype==='other'?(x.concept||'Otro cargo'):`${chargeLabel(x.subtype)}${x.period?` ${fmtDate(x.period).replace(/^\d+ /,'')}`:''}`}: ${money.format(Number(x.charge_balance))}`);
   return saldo>0
-    ?`Hola, le compartimos el estado de cuenta de ${nombre} en ${ctx.organization_name||'Tannery City'}.\n\nSaldo pendiente: ${money.format(saldo)}\n${pendientes.join('\n')}\n\nCualquier duda, aquí estamos. Gracias.`
-    :`Hola, le compartimos el estado de cuenta de ${nombre} en ${ctx.organization_name||'Tannery City'}. Está al corriente. Gracias por su puntualidad.`;
+    ?`Hola, le compartimos el estado de cuenta de ${nombre} en ${ctx.organization_name||'el club'}.\n\nSaldo pendiente: ${money.format(saldo)}\n${pendientes.join('\n')}\n\nCualquier duda, aquí estamos. Gracias.`
+    :`Hola, le compartimos el estado de cuenta de ${nombre} en ${ctx.organization_name||'el club'}. Está al corriente. Gracias por su puntualidad.`;
 }
 document.addEventListener('click',async e=>{
   const b=e.target.closest?.('[data-enviar-edo]');if(!b||!ultimo)return;

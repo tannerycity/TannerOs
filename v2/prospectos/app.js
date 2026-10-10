@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrls, getSignedPhotoUrl, getRawSignedPhotoUrl, forgetPhoto } from '/v2/photo-cache.js';
 import { elegirDorsal, tableroDorsales, libresDe, pintaChipsDorsal } from '/v2/dorsal.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, UPLOAD_CACHE_CONTROL } from '/v2/image-encode.js';
@@ -58,7 +59,7 @@ function nombrePropio(v){return String(v||'').trim().split(/\s+/)[0].toLocaleLow
 function mensajeSeguimiento(p,paso){
   const tutor=nombrePropio(p.guardian_name),nino=nombrePropio(p.first_name)||'tu hijo',yo=nombrePropio(ctx?.display_name);
   const ella=p.sex==='F',lo=ella?'la':'lo',inv=ella?'invitada':'invitado';
-  const hola=`Hola${tutor?` ${tutor}`:''}, ${yo?`soy ${yo} de Tannery City FC`:'te escribimos de Tannery City FC'}.`;
+  const hola=`Hola${tutor?` ${tutor}`:''}, ${yo?`soy ${yo} de ${nombreDelClub(ctx)}`:`te escribimos de ${nombreDelClub(ctx)}`}.`;
   const cat=p.category_interest?` en ${p.category_interest}`:'';
   const inscripcion=/inscrip/i.test(p.purpose||'');
   const muestra=/muestra/i.test(p.purpose||'');
@@ -114,7 +115,7 @@ async function boot(){
   ctx.canScoutingRead=Boolean(scoutingMod?.enabled&&scoutingMod?.can_read);
   ctx.canScoutingWrite=Boolean(scoutingMod?.enabled&&scoutingMod?.can_write);
   ctx.canPlayersWrite=Boolean(playersMod?.enabled&&playersMod?.can_write);
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';
+  $('orgName').textContent=ctx.organization_name||'';
   $('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;
   await Promise.all([loadProspects(),loadCategories()]);
   show('prospectsView');

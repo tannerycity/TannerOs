@@ -1,4 +1,5 @@
 import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon} from '/v2/shell.js';
+import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
 
@@ -351,7 +352,7 @@ async function loadAuthenticatedApp(){
     if(user.app_metadata?.must_change_password){showView('forcePasswordView');document.body.classList.remove('tos-body');return;}
     const rows=await rpc('v2_my_context');
     if(!rows?.length){
-      $('pendingText').textContent=`La cuenta ${user.email||'actual'} ya existe. Falta vincularla a Tannery City.`;
+      $('pendingText').textContent=`La cuenta ${user.email||'actual'} ya existe. Falta vincularla a un club.`;
       showView('pendingView');document.body.classList.remove('tos-body');return;
     }
     ctx=rows[0];navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});resetHomeState();
@@ -545,7 +546,7 @@ async function renderCumpleStrip(){
   const yoHoy=deHoy.some(soyYo);
   const otrosHoy=deHoy.filter(p=>!soyYo(p));
   let html='';
-  if(yoHoy)html+=`<div class="tcs-mine"><span class="tcs-ico">${CUMPLE_ICONO}</span><div><strong>Feliz cumpleaños, ${esc(firstName())}.</strong><small>Todo Tannery City te felicita hoy.</small></div></div>`;
+  if(yoHoy)html+=`<div class="tcs-mine"><span class="tcs-ico">${CUMPLE_ICONO}</span><div><strong>Feliz cumpleaños, ${esc(firstName())}.</strong><small>Todo ${esc(nombreDelClub(ctx))} te felicita hoy.</small></div></div>`;
   if(otrosHoy.length||proximos.length){
     const titulo=otrosHoy.length
       ?(otrosHoy.length===1?'Hoy es su cumpleaños':`Hoy hay ${otrosHoy.length} cumpleaños`)

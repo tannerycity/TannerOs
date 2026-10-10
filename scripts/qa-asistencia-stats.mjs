@@ -234,7 +234,7 @@ prueba('un becado sin racha pero bajo de asistencia recibe sus números', () => 
 });
 
 prueba('sin nombre del tutor el saludo no queda roto', () => {
-  assert.match(mensajeDeFaltas({ tanner: 'Leo', faltas: 4 }), /^Hola, te escribimos de Tannery City\./);
+  assert.match(mensajeDeFaltas({ tanner: 'Leo', faltas: 4 }), /^Hola, te escribimos de el club\./);
 });
 
 if (fallos) { console.error(`Asistencia stats QA FAILED · ${fallos} de ${corridas}`); process.exit(1); }

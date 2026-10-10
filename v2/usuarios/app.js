@@ -1,4 +1,5 @@
 import {createClient} from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -117,13 +118,13 @@ async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
   if(!session){location.href='/';return;}
   const contexts=await rpc('v2_my_context');
-  if(!contexts?.length){$('deniedText').textContent='Tu cuenta no está vinculada a Tannery City.';show('deniedView');return;}
+  if(!contexts?.length){$('deniedText').textContent='Tu cuenta no está vinculada a ningún club.';show('deniedView');return;}
   ctx=contexts[0];
   const modules=await rpc('v2_my_modules',{organization_id:ctx.organization_id});
   const access=modules.find(module=>module.module_code==='users');
   if(!access?.enabled||!access?.can_read){$('deniedText').textContent='Tu llave no abre Usuarios.';show('deniedView');return;}
   canWrite=Boolean(access.can_write);
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';
+  $('orgName').textContent=ctx.organization_name||'';
   $('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Integrante');
   $('openCreateUser').disabled=!canWrite;
   await load();show('view');
@@ -487,11 +488,11 @@ function showCredentialResult(result,displayName,portal='staff'){
     $('credentialHelp').textContent='Entrégale estos datos ahora. La contraseña temporal sólo se muestra una vez.';
     $('credentialRows').innerHTML=`<div class="credential-row"><span>${loginLabel}</span><strong>${safe(login)}</strong></div><div class="credential-row"><span>Contraseña temporal</span><code>${safe(result.temporary_password)}</code></div>`;
     $('copyCredential').classList.remove('hidden');
-    lastCredentialText=`Bienvenido a Tannery City\nTu llave está lista.\n\n${loginLabel}: ${login}\nContraseña temporal: ${result.temporary_password}\nEntrar: ${url}\n\nAl entrar crearás tu propia contraseña.`;
+    lastCredentialText=`Bienvenido a ${nombreDelClub(ctx)}\nTu llave está lista.\n\n${loginLabel}: ${login}\nContraseña temporal: ${result.temporary_password}\nEntrar: ${url}\n\nAl entrar crearás tu propia contraseña.`;
   }else if(result.invitation_link){
     $('credentialTitle').textContent=`${displayName} está por entrar al club`;$('credentialHelp').textContent='Comparte esta invitación de forma privada.';
     $('credentialRows').innerHTML=`<div class="credential-row"><span>Correo</span><strong>${safe(result.email)}</strong></div><div class="credential-row"><span>Enlace privado</span><code>${safe(result.invitation_link)}</code></div>`;
-    $('copyCredential').classList.remove('hidden');lastCredentialText=`Bienvenido a Tannery City\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;
+    $('copyCredential').classList.remove('hidden');lastCredentialText=`Bienvenido a ${nombreDelClub(ctx)}\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;
   }else{
     $('credentialTitle').textContent=`Invitamos a ${displayName} al club`;$('credentialHelp').textContent=`La llave va en camino a ${result.email}. Puede revisar también Spam o No deseado.`;
     $('credentialRows').innerHTML=`<div class="credential-row"><span>Correo enviado</span><strong>${safe(result.email)}</strong></div>`;
@@ -667,7 +668,7 @@ async function resetPersonPassword(){
   }catch(error){message('profileMessage',friendly(error));}
 }
 async function resendInvite(email,roleCode){
-  try{const result=await invokeStaff({action:'send_email_invite',email,role_code:roleCode});await load();if(result.email_sent)await tosAlert({kicker:'LLAVES',title:'Invitación enviada',message:`Le llegó a ${email}.`});else if(result.invitation_link){lastCredentialText=`Bienvenido a Tannery City\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;await copyCredential();alert('El enlace privado quedó copiado.');}}
+  try{const result=await invokeStaff({action:'send_email_invite',email,role_code:roleCode});await load();if(result.email_sent)await tosAlert({kicker:'LLAVES',title:'Invitación enviada',message:`Le llegó a ${email}.`});else if(result.invitation_link){lastCredentialText=`Bienvenido a ${nombreDelClub(ctx)}\nCrea tu llave de TannerOS aquí:\n${result.invitation_link}`;await copyCredential();alert('El enlace privado quedó copiado.');}}
   catch(error){await tosAlert({kicker:'LLAVES',title:'No se pudo reenviar',message:friendly(error)});}
 }
 async function revokeInvite(id){

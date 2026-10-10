@@ -46,7 +46,7 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   const cobrMod=mods.find(m=>m.module_code==='billing'),contaMod=mods.find(m=>m.module_code==='accounting');
   canMoney=!!(cobrMod?.enabled&&cobrMod?.can_read)||!!(contaMod?.enabled&&contaMod?.can_read);
   applyFamilyLock();acotarFechaNacimiento();
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();sinNum=montaSinNumero({contenedor:$('sinNumero'),rpc,organizationId:ctx.organization_id,jugadores:()=>players,puedeEscribir:canWrite,alTerminar:()=>loadPlayers()});signPlayerPhotos(players).then(()=>renderList());
+  $('orgName').textContent=ctx.organization_name||'';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();sinNum=montaSinNumero({contenedor:$('sinNumero'),rpc,organizationId:ctx.organization_id,jugadores:()=>players,puedeEscribir:canWrite,alTerminar:()=>loadPlayers()});signPlayerPhotos(players).then(()=>renderList());
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
   loadBajasPendientes();
   loadCobertura();
@@ -818,7 +818,7 @@ async function exportaNoPublicables(btn){
     doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(7,25,30);
     doc.text('Tanners que NO pueden salir en publicidad',margen,y);y+=17;
     doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,118,123);
-    doc.text(`${ctx.organization_name||'Tannery City FC'} · ${hoyLargo}`,margen,y);y+=12;
+    doc.text(`${ctx.organization_name||''} · ${hoyLargo}`,margen,y);y+=12;
     doc.text(`${cuenta.noPublicables} de ${cuenta.total} Tanners activos. Sólo ${cuenta.autoriza} tiene${cuenta.autoriza===1?'':'n'} autorización.`,margen,y);y+=12;
     doc.setTextColor(163,41,32);
     doc.setFont('helvetica','bold');

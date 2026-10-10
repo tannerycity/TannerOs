@@ -191,7 +191,10 @@ Deno.serve(async(req:Request)=>{
       const existing=(userPage.users||[]).find(candidate=>String(candidate.email||"").toLowerCase()===email);
       const displayName=String(body.display_name||existing?.user_metadata?.display_name||email.split("@")[0]).trim();
       if(displayName.length<2||displayName.length>120)return json({error:"Valid display name required"},400);
-      const invitationData={display_name:displayName,role_label:role,organization_name:"Tannery City FC",brand_name:"Tannery City"};
+      // El nombre del club sale del contexto del que invita: TannerOS lo usan
+      // varios clubes y el correo de invitacion debe decir el suyo.
+      const clubName=String(context?.organization_name||"").trim()||"tu club";
+      const invitationData={display_name:displayName,role_label:role,organization_name:clubName,brand_name:clubName};
       if(existing?.email_confirmed_at)return json({error:"Email already registered"},409);
       const {data:invitationId,error:recordError}=await userClient.rpc("v2_create_invitation",{organization_id:organizationId,email,role_code:roleCode});
       if(recordError)throw recordError;

@@ -28,7 +28,7 @@ async function boot(){
   const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a una organización.';show('deniedView');return;}
   ctx=rows[0];const modules=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=modules.find(m=>m.module_code==='academies');
   if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Academias.';show('deniedView');return;}
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Miembro');
+  $('orgName').textContent=ctx.organization_name||'';$('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Miembro');
   $('convertStartsOn').value=today();$('paymentDate').value=today();
   await load();show('view');
 }

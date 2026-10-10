@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,canWrite=false,calendarItems=[],players=[],playersById={},items=[],filter='all',selectedDay='';
@@ -39,7 +40,7 @@ async function boot(){
   const mod=mods.find(m=>m.module_code==='calendar');
   if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso al calendario.';show('deniedView');return;}
   canWrite=!!mod.can_write;
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';
+  $('orgName').textContent=ctx.organization_name||'';
   $('roleBadge').textContent=ctx.is_owner?'Presidencia':ctx.role;
   $('addEventButton').classList.toggle('hidden',!canWrite);
   $('month').value=monthValue();
@@ -132,6 +133,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('eventModal').cl
 $('eventNotify')?.addEventListener('change',toggleAudienceFields);
 $('eventAudienceType')?.addEventListener('change',toggleAudienceFields);
 document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;selectedDay='';document.querySelectorAll('[data-filter]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderMonthGrid();renderRail();}));
-$('copyGreeting')?.addEventListener('click',async e=>{const name=e.currentTarget.dataset.name||'Tanner',text=`Feliz cumpleaños, ${name}. Todo Tannery City te desea un gran día.`;await navigator.clipboard.writeText(text);e.currentTarget.textContent='Mensaje copiado';setTimeout(()=>e.currentTarget.textContent='Copiar felicitación',1800);});
+$('copyGreeting')?.addEventListener('click',async e=>{const name=e.currentTarget.dataset.name||'Tanner',text=`Feliz cumpleaños, ${name}. Todo ${nombreDelClub(ctx)} te desea un gran día.`;await navigator.clipboard.writeText(text);e.currentTarget.textContent='Mensaje copiado';setTimeout(()=>e.currentTarget.textContent='Copiar felicitación',1800);});
 
 boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});

@@ -675,7 +675,7 @@ async function exportaCortePdf(){
     doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(7,25,30);
     doc.text('Corte de caja',margen,y);y+=17;
     doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,118,123);
-    doc.text(`${ctx.organization_name||'Tannery City FC'} · día de operación ${fecha}`,margen,y);y+=12;
+    doc.text(`${ctx.organization_name||''} · día de operación ${fecha}`,margen,y);y+=12;
     doc.text(`Generado el ${hoy}`,margen,y);y+=18;
 
     // Resumen. Es lo que alguien mira primero cuando le entregan el papel.
@@ -1380,7 +1380,7 @@ async function exportaMontosPdf(){
       doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(7,25,30);
       doc.text('Reporte de montos de cobro',margen,y);y+=17;
       doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,118,123);
-      doc.text(`${ctx.organization_name||'Tannery City FC'} · generado el ${hoy}`,margen,y);y+=12;
+      doc.text(`${ctx.organization_name||''} · generado el ${hoy}`,margen,y);y+=12;
       doc.text(textoDeFiltros({...f,periodo:$('montosPeriod').value},catalogo),margen,y,{maxWidth:ancho-margen*2});y+=12;
       // Marca de uso interno: este papel trae montos de becas del club.
       doc.setTextColor(163,41,32);

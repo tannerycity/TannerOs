@@ -70,7 +70,7 @@ async function boot(){
   if(!contexts?.length){$('deniedText').textContent='Tu llave todavía no pertenece a un club.';show('deniedView');return;}
   const ctx=contexts[0],modules=await rpc('v2_my_navigation',{organization_id:ctx.organization_id}),admin=modules.find(module=>module.module_code==='admin');
   if(!admin?.enabled||!admin?.can_read){$('deniedText').textContent='Tu llave no abre el Club House.';show('deniedView');return;}
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Integrante');
+  $('orgName').textContent=ctx.organization_name||'';$('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Integrante');
   const allowed=new Set(modules.filter(module=>module.enabled&&module.can_read).map(module=>module.module_code));
   renderSettings(allowed,await soyDePlataforma());$('usersDoor').classList.toggle('hidden',!allowed.has('usuarios'));
   try{renderReadiness(await rpc('v2_onboarding_readiness',{organization_id:ctx.organization_id}));}catch{renderReadinessFallback();}

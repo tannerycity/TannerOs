@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrl } from '/v2/photo-cache.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
@@ -46,7 +47,7 @@ async function boot(){
   const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a una organización.';show('deniedView');return;}
   ctx=rows[0];const modules=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=modules.find(m=>m.module_code==='programs');
   if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Programas y Eventos.';show('deniedView');return;}
-  canWrite=Boolean(mod.can_write);$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Miembro');$('newProgram').classList.toggle('hidden',!canWrite);
+  canWrite=Boolean(mod.can_write);$('orgName').textContent=ctx.organization_name||'';$('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Miembro');$('newProgram').classList.toggle('hidden',!canWrite);
   $('attendanceDate').value=today();$('paymentDate').value=today();$('quickBirthDate').max=today();
   await load();show('view');
 }
@@ -138,7 +139,7 @@ function openEnrollment(id){
   const photo=meta.photoPath&&canSensitive?`<img data-photo-path="${safe(meta.photoPath)}" alt="Foto de ${safe(participantName(e))}">`:'<span class="tos-icon tos-icon-user" aria-hidden="true"></span>';
   const profile=[['Nacimiento',e.birthDate?dateFmt(e.birthDate):'—'],['Edad',a==null?'—':`${a} años`],['Posición',meta.position||'—'],['Pierna',meta.dominantFoot||'—'],['Residencia',meta.residence||'—'],['Equipo actual',meta.currentTeam||'—']];$('enrollmentProfile').innerHTML=`<div class="profile-hero"><div class="profile-photo">${photo}</div><div class="profile-copy">${profile.map(([k,v])=>`<div><span>${safe(k)}</span><strong>${safe(v)}</strong></div>`).join('')}</div></div>`;
   const facts=[['Tutor',meta.guardianName],['WhatsApp',e.phone],['Correo',e.email],['Emergencia',meta.emergencyContact],['Tel. emergencia',meta.emergencyPhone],['Información médica',meta.medicalSummary],['Experiencia',meta.experience],['Registro',e.createdAt?new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(new Date(e.createdAt)):null],canMoneyRead?['Pagado',money.format(Number(e.paidAmount||0))]:null,canMoneyRead?['Saldo',money.format(Number(e.balance||0))]:null].filter(Boolean).filter(([,v])=>v!=null&&String(v).trim()!=='');$('enrollmentFacts').innerHTML=facts.map(([k,v])=>`<div><span>${safe(k)}</span><strong>${safe(v)}</strong></div>`).join('');
-  const digits=String(e.phone||'').replace(/\D/g,'');$('enrollmentWhatsapp').classList.toggle('hidden',!digits);$('enrollmentWhatsapp').href=digits?`https://wa.me/${digits}?text=${encodeURIComponent(`Hola, te escribimos de Tannery City sobre ${currentProgram.name}.`)}`:'#';message('enrollmentMessage');$('enrollmentBackdrop').classList.remove('hidden');$('enrollmentModal').classList.remove('hidden');$('enrollmentModal').setAttribute('aria-hidden','false');loadVisiblePhotos();
+  const digits=String(e.phone||'').replace(/\D/g,'');$('enrollmentWhatsapp').classList.toggle('hidden',!digits);$('enrollmentWhatsapp').href=digits?`https://wa.me/${digits}?text=${encodeURIComponent(`Hola, te escribimos de ${nombreDelClub(ctx)} sobre ${currentProgram.name}.`)}`:'#';message('enrollmentMessage');$('enrollmentBackdrop').classList.remove('hidden');$('enrollmentModal').classList.remove('hidden');$('enrollmentModal').setAttribute('aria-hidden','false');loadVisiblePhotos();
 }
 function closeEnrollment(){currentEnrollment=null;$('enrollmentBackdrop').classList.add('hidden');$('enrollmentModal').classList.add('hidden');$('enrollmentModal').setAttribute('aria-hidden','true');message('enrollmentMessage');}
 async function saveEnrollment(){if(!currentEnrollment||!canWrite)return;const btn=$('saveEnrollment');btn.disabled=true;try{await rpc('v2_update_program_enrollment_status',{organization_id:ctx.organization_id,enrollment_id:currentEnrollment.id,status:$('enrollmentStatus').value,notes:$('enrollmentNote').value.trim()||null});await load();closeEnrollment();toast('Participante actualizado');}catch(e){message('enrollmentMessage',e.message||'No se pudo actualizar.');}finally{btn.disabled=false;}}

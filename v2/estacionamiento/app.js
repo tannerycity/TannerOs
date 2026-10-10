@@ -1,4 +1,5 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth} from '/v2/shell.js';
+import { nombreDelClub } from '/v2/club.js';
 
 // Estacionamiento como app de caseta. Pedido del club (05/10/2026): que
 // cualquiera de administración, sin saber de tecnología, dé un gafete en tres
@@ -54,7 +55,7 @@ function hojaImpresa(lista,etiqueta,season){
   const bloques=grupos.map(([t,f])=>`<h2>${esc(TIPO[t])} <small>${f.length} ${f.length===1?'gafete':'gafetes'}</small></h2><table class="park-print-table"><thead><tr><th>Placas</th><th>Vehículo</th><th>Portador</th><th>Folio</th><th>Estado</th></tr></thead><tbody>${
     f.map(p=>`<tr><td class="pp-plate">${esc(p.plate||'—')}</td><td>${esc(p.vehicle||'—')}</td><td>${esc(nombreDe(p))}${p.category?`<small> · ${esc(p.category)}</small>`:''}${p.guardian?`<br><small>tutor: ${esc(p.guardian)}</small>`:''}</td><td>${esc(p.folio||'—')}</td><td>${esc(ESTADO[p.status]||p.status||'')}${p.is_courtesy?' · cortesía':''}</td></tr>`).join('')
   }</tbody></table>`).join('');
-  return `<header class="park-print-head"><div><strong>Tannery City · Gafetes de estacionamiento</strong><small>${esc(etiqueta)}${season?` · temporada ${esc(String(season))}`:''}</small></div><div class="park-print-meta"><small>${esc(hoy)}</small><small>${lista.length} ${lista.length===1?'gafete':'gafetes'} en la lista</small></div></header>${
+  return `<header class="park-print-head"><div><strong>${esc(nombreDelClub(ctx))} · Gafetes de estacionamiento</strong><small>${esc(etiqueta)}${season?` · temporada ${esc(String(season))}`:''}</small></div><div class="park-print-meta"><small>${esc(hoy)}</small><small>${lista.length} ${lista.length===1?'gafete':'gafetes'} en la lista</small></div></header>${
     bloques||'<p class="park-print-empty">No hay gafetes en esta lista.</p>'
   }<footer class="park-print-foot">El gafete es personal e intransferible: solo entra el vehículo con estas placas. Si las placas no coinciden con la lista, no se autoriza el acceso.</footer>`;
 }

@@ -105,3 +105,7 @@
   .az-pasos li{font-size:9.5px}
   .pf-hero h1{font-size:28px}
 }
+
+/* Uso del plan: cerca del límite y con jugadores extra. */
+.pf-club-datos .pf-cerca{color:var(--pf-aten)}
+.pf-club-datos .pf-extra{color:#b4532a}

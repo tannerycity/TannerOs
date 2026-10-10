@@ -21,3 +21,16 @@
 .care-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 17px 17px}.care-grid article{padding:13px;border:1px solid #e2e9e7;border-radius:15px;background:#fff}.care-grid strong{font-size:12px}.care-grid p{margin:5px 0 0;color:#6d7f83;font-size:11px;line-height:1.45}
 @media(max-width:900px){.setup-grid{grid-template-columns:1fr}.setup-card{min-height:155px}.care-grid{grid-template-columns:1fr}}
 @media(max-width:640px){.admin-page{padding:12px 10px 34px}.admin-topbar{padding-bottom:14px}.top-actions .nav-link{display:none}.admin-hero{align-items:flex-start;padding:24px 20px;border-radius:23px}.admin-hero h1{font-size:36px}.admin-hero p{font-size:13px}.readiness-ring{width:82px;height:82px;border-radius:27px}.readiness-ring strong{font-size:23px}.next-panel{grid-template-columns:auto minmax(0,1fr);padding:15px}.next-action{grid-column:1/-1;width:100%}.section-heading{display:block}.section-heading p{margin-top:5px}.setup-card{min-height:140px;border-radius:20px}.settings-copy small{white-space:normal}.care-card{border-radius:18px}}
+
+/* Tu plan */
+.plan-card{border-radius:20px;padding:18px;background:#fff;border:1px solid rgba(7,25,30,.08);display:grid;gap:10px;margin:0 0 18px}
+.plan-cab{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.plan-cab h2{margin:2px 0 0;font-size:22px}
+.plan-cab b{font-size:15px}
+.plan-barra{height:10px;border-radius:999px;background:rgba(7,25,30,.08);overflow:hidden}
+.plan-barra i{display:block;height:100%;border-radius:inherit;background:#16a36f;transition:width .3s}
+.plan-card[data-tono="cerca"] .plan-barra i{background:#d49a1c}
+.plan-card[data-tono="extra"] .plan-barra i{background:#b4532a}
+.plan-uso{margin:0;color:#3b4b50;font-size:14px;line-height:1.45}
+.plan-docs{font-weight:800;font-size:14px;color:#b4532a;text-decoration:none}
+.plan-docs:hover{text-decoration:underline}

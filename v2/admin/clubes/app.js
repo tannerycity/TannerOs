@@ -14,7 +14,8 @@
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth } from '/v2/shell.js';
 import { ligaWhatsApp } from '/v2/pedido-mensajes.js';
-import { PASOS, CATEGORIAS_SUGERIDAS, slugDe, faltantes, datosParaAlta, mensajeBienvenida, ingresoMensual } from '/v2/admin/clubes/alta.js';
+import { PASOS, CATEGORIAS_SUGERIDAS, slugDe, faltantes, datosParaAlta, mensajeBienvenida } from '/v2/admin/clubes/alta.js';
+import { ingresoMensual, usoDelPlan } from '/v2/admin/plan.js';
 
 const boot = await bootstrapProtectedShell({ active: 'admin', title: 'Portal' });
 if (!boot) throw new Error('No access');
@@ -50,12 +51,18 @@ function pinta() {
   $('kJugadores').textContent = clubes.reduce((s, c) => s + Number(c.players || 0), 0);
   $('kIngreso').textContent = dinero(ingresoMensual(clubes, t.plans));
   $('kPendientes').textContent = clubes.filter(c => c.ownerPending).length;
+  const planDe = new Map((t.plans || []).map(pl => [pl.code, pl]));
   $('pfClubes').innerHTML = clubes.map(c => {
     const p = c.colors?.primary || '#012A3A', s = c.colors?.secondary || '#087D8E';
+    const uso = usoDelPlan(c.players, planDe.get(c.planCode));
+    const jugadores = uso.max == null ? `<b>${uso.activos}</b> jugadores`
+      : `<b class="${uso.extra ? 'pf-extra' : uso.cerca ? 'pf-cerca' : ''}">${uso.activos}/${uso.max}</b> jugadores${uso.extra ? ` · +${uso.extra} extra (${dinero(uso.extraMxn)})` : ''}`;
+    const docs = Number(c.docsPending || 0);
     return `<article class="pf-club">
       <span class="pf-escudo" style="background:linear-gradient(150deg,${esc(p)},${esc(s)})">${esc(iniciales(c.name))}</span>
       <div class="pf-club-txt"><strong>${esc(c.name)}</strong><small>${esc([c.city, `/${c.slug}`].filter(Boolean).join(' · '))}</small>
-        <span class="pf-club-datos"><b>${Number(c.players || 0)}</b> jugadores · <b>${Number(c.users || 0)}</b> usuarios · <b>${Number(c.categories || 0)}</b> categorías</span>
+        <span class="pf-club-datos">${jugadores} · <b>${Number(c.users || 0)}</b> usuarios · <b>${Number(c.categories || 0)}</b> categorías</span>
+        ${docs ? `<span class="pf-pend">${docs === 1 ? '1 documento' : `${docs} documentos`} por completar (domicilio y contacto del aviso de privacidad)</span>` : ''}
         ${c.ownerPending ? `<span class="pf-pend">Dueño sin entrar: ${esc(c.ownerPending)}</span>` : `<span class="pf-act">${esc(cuando(c.lastActivity))}</span>`}
       </div>
       <span class="pf-plan pf-plan-${esc(c.planCode || 'x')}">${esc(c.plan || 'Sin plan')}${c.founder ? '<i>Fundador</i>' : ''}</span>

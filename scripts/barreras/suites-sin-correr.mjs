@@ -129,7 +129,10 @@ export default function comprobar() {
   // Sube a 34 por qa-humo-ligas-por-club.mjs. Vigila que registro, tienda,
   // Centro Tanner y privacidad pregunten por el club de la liga (?club=) y
   // que los QR viejos sigan en Tannery. Es pintura sobre v2_public_context.
-  const MAX_EXCLUIDAS = 34;
+  // Sube a 35 por qa-humo-importar.mjs. Vigila importar jugadores desde
+  // Excel: columnas detectadas, revisión sin guardar e importar las mismas
+  // filas. Es pintura sobre v2_import_players.
+  const MAX_EXCLUIDAS = 35;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

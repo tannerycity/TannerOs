@@ -130,7 +130,8 @@ const fullRouteMatrix=[
   ['audit','Historial del club','/admin/auditoria/','admin'],['branding','Identidad del club','/admin/branding/','admin'],['club-settings','Datos del club','/admin/club/','admin'],
   ['onboarding','Preparación del club','/admin/onboarding/','admin'],
   ['photos','Fotos del padrón','/admin/fotos/','admin'],
-  ['clubs','Clubes','/admin/clubes/','admin']
+  ['clubs','Clubes','/admin/clubes/','admin'],
+  ['playersImport','Importar jugadores','/jugadores/importar/','players']
 ];
 function fullTests(){return [
   ...fullRouteMatrix.map(item=>routeTest(item[0],item[1],item[2],item[3])),

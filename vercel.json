@@ -35,6 +35,8 @@
     {"source":"/v2/admin/fotos","destination":"/admin/fotos/","permanent":false},
     {"source":"/v2/admin/fotos/","destination":"/admin/fotos/","permanent":false},
     {"source":"/v2/admin/clubes","destination":"/admin/clubes/","permanent":false},
+    {"source":"/v2/jugadores/importar","destination":"/jugadores/importar/","permanent":false},
+    {"source":"/v2/jugadores/importar/","destination":"/jugadores/importar/","permanent":false},
     {"source":"/v2/admin/clubes/","destination":"/admin/clubes/","permanent":false},
     {"source":"/v2/admin/club","destination":"/admin/club/","permanent":false},
     {"source":"/v2/admin/club/","destination":"/admin/club/","permanent":false},
@@ -82,6 +84,7 @@
     {"source":"/admin/branding","destination":"/v2/admin/branding/index.html"},{"source":"/admin/branding/","destination":"/v2/admin/branding/index.html"},
     {"source":"/admin/fotos","destination":"/v2/admin/fotos/index.html"},{"source":"/admin/fotos/","destination":"/v2/admin/fotos/index.html"},
     {"source":"/admin/clubes","destination":"/v2/admin/clubes/index.html"},{"source":"/admin/clubes/","destination":"/v2/admin/clubes/index.html"},
+    {"source":"/jugadores/importar","destination":"/v2/jugadores/importar/index.html"},{"source":"/jugadores/importar/","destination":"/v2/jugadores/importar/index.html"},
     {"source":"/admin/club","destination":"/v2/admin/club/index.html"},{"source":"/admin/club/","destination":"/v2/admin/club/index.html"},
     {"source":"/admin/onboarding","destination":"/v2/admin/onboarding/index.html"},{"source":"/admin/onboarding/","destination":"/v2/admin/onboarding/index.html"}
   ],

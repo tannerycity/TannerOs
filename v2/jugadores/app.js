@@ -47,6 +47,8 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   canMoney=!!(cobrMod?.enabled&&cobrMod?.can_read)||!!(contaMod?.enabled&&contaMod?.can_read);
   applyFamilyLock();acotarFechaNacimiento();
   $('orgName').textContent=ctx.organization_name||'';$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;$('saveProfile').disabled=!canWrite;$('categoryDate').value=today();[players,categories]=await Promise.all([rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_player_categories',{organization_id:ctx.organization_id})]);players=players||[];categories=categories||[];renderFiltros();renderCategories();renderList();sinNum=montaSinNumero({contenedor:$('sinNumero'),rpc,organizationId:ctx.organization_id,jugadores:()=>players,puedeEscribir:canWrite,alTerminar:()=>loadPlayers()});signPlayerPhotos(players).then(()=>renderList());
+  // Importar la lista de Excel: quien puede dar de alta jugadores.
+  $('importRoster')?.classList.toggle('hidden',!canWrite);
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
   loadBajasPendientes();
   loadCobertura();
@@ -647,7 +649,7 @@ function exportarBecasCsv(){
   const cell=v=>{const t=String(v??'');return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
   const csv='\ufeff'+[header,...rows].map(r=>r.map(cell).join(',')).join('\r\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-  const a=document.createElement('a');a.href=url;a.download=`tannery-city-becas-${today()}.csv`;
+  const a=document.createElement('a');a.href=url;a.download=`${ctx?.organization_slug||"club"}-becas-${today()}.csv`;
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
@@ -1158,7 +1160,7 @@ function exportRosterCsv(){
   const csv='﻿'+[header,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`tannery-city-jugadores-${today()}.csv`;document.body.appendChild(a);a.click();a.remove();
+  const a=document.createElement('a');a.href=url;a.download=`${ctx?.organization_slug||"club"}-jugadores-${today()}.csv`;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 function openFreeNums(cat){

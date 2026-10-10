@@ -42,7 +42,8 @@ const routeContract={
   '/admin/club/':'v2/admin/club/index.html',
   '/admin/onboarding/':'v2/admin/onboarding/index.html',
   '/admin/fotos/':'v2/admin/fotos/index.html',
-  '/admin/clubes/':'v2/admin/clubes/index.html'
+  '/admin/clubes/':'v2/admin/clubes/index.html',
+  '/jugadores/importar/':'v2/jugadores/importar/index.html'
 };
 const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
 for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta archivo crítico: ${file}`);

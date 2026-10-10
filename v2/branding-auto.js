@@ -11,6 +11,7 @@ const FINAL_ROUTES=[
   ['/porteros/','academias','Porteros'],
   ['/deportivo/','club','Rendimiento deportivo'],
   ['/convocatoria/','convocatoria','Convocatoria'],
+  ['/jugadores/importar/','jugadores','Importar jugadores'],
   ['/jugadores/','jugadores','Jugadores'],
   ['/asistencia/','asistencia','Asistencia'],
   ['/becas/','becas','Becas'],
@@ -43,7 +44,9 @@ function canonicalPath(pathname=location.pathname){
   return path;
 }
 function canonicalHref(value){
-  if(!value||value.startsWith('#')||value.startsWith('mailto:')||value.startsWith('tel:')||value.startsWith('javascript:'))return value;
+  // blob: y data: son descargas armadas en la página (plantillas, CSV): su
+  // "ruta" no es una ruta del sitio y reescribirla rompe la descarga.
+  if(!value||value.startsWith('#')||value.startsWith('mailto:')||value.startsWith('tel:')||value.startsWith('javascript:')||value.startsWith('blob:')||value.startsWith('data:'))return value;
   try{const u=new URL(value,location.origin);if(u.origin!==location.origin)return value;const p=canonicalPath(u.pathname);return `${p}${u.search}${u.hash}`;}catch{return value;}
 }
 function meta(){const path=canonicalPath(location.pathname),normalized=path==='/'?'/':(path.endsWith('/')?path:`${path}/`),row=FINAL_ROUTES.find(([prefix])=>normalized.startsWith(prefix));return row?{active:row[1],title:row[2]}:{active:'inicio',title:'TannerOS'};}

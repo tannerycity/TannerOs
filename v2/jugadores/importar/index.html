@@ -1,0 +1,48 @@
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#184159"><title>Importar jugadores · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"><link rel="stylesheet" href="/v2/jugadores/importar/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body class="tos-body"><div class="tos-layout"><aside class="tos-sidebar"><div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div></aside><div id="shellNavBackdrop" class="tos-nav-backdrop"></div><div class="tos-main"><header class="tos-topbar"><div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">Importar jugadores</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health"><i></i><span>Importar</span></span><span id="shellRole" class="tos-role">Rol</span></div></header><main class="tos-content im-page">
+<section id="imDenied" class="tos-panel hidden"><h2>Esta pantalla no es para tu cuenta</h2><p class="im-muted">Importar jugadores lo hace quien puede dar de alta jugadores en el club.</p><a class="im-sec" href="/jugadores/">Volver a Jugadores</a></section>
+<div id="im" class="im hidden">
+  <header class="im-hero">
+    <div><p class="im-eyebrow">Jugadores</p><h1>Importar desde Excel</h1><p class="im-lema">Trae tu lista completa en un paso. Antes de guardar te enseñamos qué va a pasar con cada fila.</p></div>
+    <ol class="im-pasos" aria-label="Pasos"><li data-paso="1" class="activo">Tu lista</li><li data-paso="2">Columnas</li><li data-paso="3">Revisar</li><li data-paso="4">Listo</li></ol>
+  </header>
+
+  <!-- 1. La lista: pegada o en archivo -->
+  <section id="imPaso1" class="im-card">
+    <h2>1. Trae tu lista</h2>
+    <p class="im-muted">Copia las celdas en Excel o Google Sheets (con los encabezados) y pégalas aquí, o sube el archivo.</p>
+    <textarea id="imPegar" rows="8" placeholder="Pega aquí tu lista de Excel…" aria-label="Lista pegada desde Excel"></textarea>
+    <div class="im-acciones">
+      <label class="im-archivo"><input id="imArchivo" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt"><span>Subir archivo (.xlsx o .csv)</span></label>
+      <a id="imPlantilla" class="im-link" href="#" download="plantilla-jugadores.csv">Descargar plantilla</a>
+      <button id="imLeer" class="im-cta" type="button">Continuar</button>
+    </div>
+    <p id="imMsg1" class="im-msg hidden" role="alert"></p>
+  </section>
+
+  <!-- 2. Columnas: lo que detectamos, corregible -->
+  <section id="imPaso2" class="im-card hidden">
+    <h2>2. ¿Qué es cada columna?</h2>
+    <p class="im-muted">Lo detectamos por los encabezados. Si algo no cuadra, cámbialo.</p>
+    <div id="imMapa" class="im-mapa"></div>
+    <div id="imMuestra" class="im-muestra"></div>
+    <div class="im-acciones"><button id="imAtras2" class="im-sec" type="button">Atrás</button><button id="imRevisar" class="im-cta" type="button">Revisar</button></div>
+    <p id="imMsg2" class="im-msg hidden" role="alert"></p>
+  </section>
+
+  <!-- 3. Revisión: lo que hará el servidor con cada fila, sin guardar -->
+  <section id="imPaso3" class="im-card hidden">
+    <h2>3. Revisa antes de guardar</h2>
+    <div id="imResumen" class="im-resumen"></div>
+    <div id="imFilas" class="im-filas"></div>
+    <div class="im-acciones"><button id="imAtras3" class="im-sec" type="button">Atrás</button><button id="imGuardar" class="im-cta" type="button">Importar</button></div>
+    <p id="imMsg3" class="im-msg hidden" role="alert"></p>
+  </section>
+
+  <!-- 4. Listo -->
+  <section id="imPaso4" class="im-card im-listo hidden">
+    <h2 id="imListoTitulo">Listo</h2>
+    <p id="imListoTexto" class="im-muted"></p>
+    <div class="im-acciones"><a class="im-cta" href="/jugadores/">Ver jugadores</a><button id="imOtra" class="im-sec" type="button">Importar otra lista</button></div>
+  </section>
+</div>
+</main></div></div><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/jugadores/importar/app.js"></script></body></html>

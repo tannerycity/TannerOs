@@ -1,8 +1,8 @@
 {
-  "migraciones": 450,
-  "bytes": 2482323,
-  "huella": "843946ecf75cb417768edfdcf6ca3822",
+  "migraciones": 451,
+  "bytes": 2498100,
+  "huella": "29dca9844631995e6a0af11efe1c6dd1",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261010150023_k3_eliminar_partido.sql",
+  "ultima": "20261010161119_l3_portal_de_plataforma_alta_de_clubes.sql",
   "verificadoContraLaBase": "2026-10-10"
 }

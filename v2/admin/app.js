@@ -19,7 +19,7 @@ const settings=[
 // solo aparece para quien administra la plataforma. Mientras la migracion de
 // supabase/propuestas/F1_alta_de_un_club.sql no este aplicada, la RPC no
 // existe y el renglon simplemente no sale.
-const plataforma={module:'admin',name:'Clubes',detail:'Da de alta un club nuevo y revisa los que ya existen.',href:'/admin/clubes/',symbol:'CL'};
+const plataforma={module:'admin',name:'Portal de la plataforma',detail:'Da de alta clubes, revisa sus planes y cambia el nombre del producto.',href:'/admin/clubes/',symbol:'PF'};
 async function soyDePlataforma(){
   try{return Boolean(await rpc('v2_am_i_platform_admin'));}catch(_){return false;}
 }

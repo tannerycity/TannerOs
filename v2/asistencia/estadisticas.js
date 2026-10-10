@@ -212,7 +212,7 @@ function primerNombre(v) {
 }
 
 export function mensajeDeFaltas({ tanner = '', tutor = '', categoria = '', faltas = 0, pct = null,
-                                  asistio = 0, marcadas = 0, club = 'Tannery City' } = {}) {
+                                  asistio = 0, marcadas = 0, club = 'el club' } = {}) {
   const hola = primerNombre(tutor);
   const nino = primerNombre(tanner) || 'tu Tanner';
   const cat = String(categoria || '').trim();

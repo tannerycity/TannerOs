@@ -1,4 +1,4 @@
-/* ===== Ficha Tanner, estilo Apple y modo Tannery City =====
+/* ===== Ficha Tanner, estilo Apple y modo club =====
 
    Pedido de Presidencia (06/10/2026): la ficha tenía toda la información
    abierta a la vez (la carta FIFA a media pantalla, cinco botones, permisos,
@@ -21,6 +21,7 @@
      · Familia completa (hermanos en el club), línea de tiempo, beca visible y
        documentos con avance y aviso por WhatsApp. */
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
@@ -102,7 +103,7 @@ function pintaAcciones(){
   const p=F.player,acc=[];
   const boton=(tipo,label,attrs,principal=false)=>`<${attrs.href?'a':'button'} class="ficha-accion${principal?' principal':''}" ${attrs.href?`href="${esc(attrs.href)}"${attrs.blank?' target="_blank" rel="noopener"':''}`:'type="button"'} ${attrs.extra||''}><span>${svg(tipo,22)}</span>${label}</${attrs.href?'a':'button'}>`;
   if(tel){
-    const msg=encodeURIComponent(`Hola${g?.name?` ${String(g.name).split(' ')[0]}`:''}, le escribimos de Tannery City sobre ${p.firstName||'su Tanner'}.`);
+    const msg=encodeURIComponent(`Hola${g?.name?` ${String(g.name).split(' ')[0]}`:''}, le escribimos de ${nombreDelClub(perms?.ctx)} sobre ${p.firstName||'su Tanner'}.`);
     acc.push(boton('wa','WhatsApp',{href:`https://wa.me/${tel}?text=${msg}`,blank:true}));
     acc.push(boton('tel','Llamar',{href:`tel:+${tel}`}));
   }else{
@@ -237,7 +238,7 @@ function pintaDocs(){
   const box=$('docsProgreso');if(!box||!F?.docs)return;
   const {total,entregados,nombres}=F.docs;
   const g=tutorPrincipal(),tel=telefono(g);
-  const msg=encodeURIComponent(`Hola, para completar el expediente de ${F.player.firstName||'su Tanner'} en Tannery City nos falta: ${nombres.join(', ')}. ¿Nos lo pueden compartir? Gracias.`);
+  const msg=encodeURIComponent(`Hola, para completar el expediente de ${F.player.firstName||'su Tanner'} en ${nombreDelClub(perms?.ctx)} nos falta: ${nombres.join(', ')}. ¿Nos lo pueden compartir? Gracias.`);
   box.innerHTML=`<div class="docs-barra"><span style="width:${total?Math.round(entregados/total*100):0}%"></span></div>
     <div class="docs-linea"><strong>${entregados} de ${total} entregados</strong>${nombres.length&&tel?`<a class="docs-wa" href="https://wa.me/${tel}?text=${msg}" target="_blank" rel="noopener">${svg('wa',16)} Pedir por WhatsApp</a>`:''}</div>`;
   box.hidden=!total;
@@ -250,7 +251,7 @@ function abrirPermisos(){
   if(!box.querySelector('.consent-wa')){
     const g=tutorPrincipal(),tel=telefono(g);
     if(tel){
-      const msg=encodeURIComponent(`Hola, en Tannery City queremos compartir fotos y videos de ${F?.player?.firstName||'su Tanner'} en redes del club. ¿Nos autoriza el uso de su imagen? Puede responder "Sí autorizo". Gracias.`);
+      const msg=encodeURIComponent(`Hola, en ${nombreDelClub(perms?.ctx)} queremos compartir fotos y videos de ${F?.player?.firstName||'su Tanner'} en redes del club. ¿Nos autoriza el uso de su imagen? Puede responder "Sí autorizo". Gracias.`);
       box.insertAdjacentHTML('afterbegin',`<a class="consent-wa" href="https://wa.me/${tel}?text=${msg}" target="_blank" rel="noopener">${svg('wa',16)} Pedir el permiso por WhatsApp</a>`);
     }
   }

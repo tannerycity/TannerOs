@@ -168,7 +168,7 @@ async function boot() {
   const mod = mods.find((m) => m.module_code === 'equipment');
   if (!mod?.enabled || !mod?.can_read) { $('deniedText').textContent = 'Tu rol no tiene acceso a Utilería.'; show('deniedView'); return; }
   canWrite = !!mod.can_write;
-  $('orgName').textContent = ctx.organization_name || 'Tannery City FC';
+  $('orgName').textContent = ctx.organization_name||'';
   $('roleBadge').textContent = ctx.is_owner ? 'Presidencia' : ctx.role;
   bindHoja();
   if (canWrite) {

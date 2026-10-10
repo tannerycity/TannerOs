@@ -125,6 +125,8 @@ const estados = p => p.$$eval('#ppEstampas .pp-estado', e => e.map(x => x.textCo
   await p.click('#hjCuerpo .hj-caras [data-p="p1"]');
   await p.click('#ppGol'); await p.click('#hjCuerpo .hj-caras [data-p="p0"]'); await p.click('#hjCuerpo .hj-sin');
   await p.click('#ppGAmas');
+  revisa('[marcador] el nombre corto del club, no uno fijo', (await p.textContent('#ppNosotros')) === 'Tannery'
+    && (await p.textContent('#ptClub')) === 'Tannery City FC');
   revisa('[marcador] Tannery 2, rival 1', (await p.textContent('#ppGF')) === '2' && (await p.textContent('#ppGA')) === '1');
   const chips = (await p.innerText('#ppGoles')).replace(/\s+/g, ' ');
   revisa('[marcador] los goles dicen quién y quién asistió', /Damián asist\. Dario/i.test(chips), chips);

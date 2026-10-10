@@ -2,7 +2,7 @@ const SUPABASE_URL='https://pacnegivzgxpanphrnwp.supabase.co';
 export const BRANDING_BUCKET='tanneros-branding';
 
 const defaults={
-  brand:'Tannery City',product:'TannerOS',appName:'TannerOS',tagline:'To our city. To our family. To our Tanners.',
+  brand:'',product:'TannerOS',appName:'TannerOS',tagline:'',
   colors:{primary:'#012A3A',secondary:'#087D8E',accent:'#C6AC5C',background:'#F5F3EB'},
   assets:{logo:null,logoDark:null,mark:null,appIcon180:null,appIcon192:null,appIcon512:null,splash:null}
 };

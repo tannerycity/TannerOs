@@ -81,7 +81,7 @@ async function boot(){
   const mod=modules.find(m=>m.module_code==='scouting');
   if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso al módulo de Scouting.';show('deniedView');return;}
   canWrite=Boolean(mod.can_write);
-  $('orgName').textContent=ctx.organization_name||'Tannery City FC';
+  $('orgName').textContent=ctx.organization_name||'';
   $('roleBadge').textContent=ctx.is_owner?'Propietario':(ctx.role||'Miembro');
   $('newScout').classList.toggle('hidden',!canWrite);
   await load();

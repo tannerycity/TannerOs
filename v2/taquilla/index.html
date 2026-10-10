@@ -174,7 +174,7 @@
         <label>Método<select id="collectMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
         <label>Quién paga<select id="collectPayerType"><option value="guardian">Familia / tutor</option><option value="sponsor">Patrocinador</option><option value="player">Jugador</option><option value="organization">Club</option><option value="other">Otro</option></select></label>
         <label class="wide">Nombre del pagador<input id="collectPayerName" type="text" placeholder="Opcional salvo patrocinador"></label>
-        <label class="wide">¿Quién de Tannery cobró?<input id="collectCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"><small class="campo-nota">El iPad y Presidencia son cuentas compartidas: sin esto no se sabe quién recibió el dinero.</small></label>
+        <label class="wide">¿Quién cobró?<input id="collectCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"><small class="campo-nota">El iPad y Presidencia son cuentas compartidas: sin esto no se sabe quién recibió el dinero.</small></label>
         <label class="wide">Referencia<input id="collectReference" type="text" placeholder="Transferencia, terminal, nota..."></label><label>Monto esperado <span class="opt">· opcional</span><input id="collectExpected" type="number" min="0" step="1" placeholder="Lo que tocaba cobrar"></label><label class="wide">Observaciones <span class="opt">· opcional</span><input id="collectObservations" type="text" maxlength="300" placeholder="Quedó a deber, pagó la abuela, etc."></label><label class="wide cashier-check hidden" id="collectApproveWrap"><input id="collectApprove" type="checkbox"><span>Registrar y aprobar en el mismo paso<small>Queda en el historial que lo aprobaste tú al registrarlo.</small></span></label>
       </div>
       <!-- Tienda: los uniformes se mandan a hacer y se aceptan anticipos. El
@@ -191,7 +191,7 @@
           <div class="tienda-atajos"><button type="button" data-parte="1">Todo</button><button type="button" data-parte="0.5">Mitad</button></div>
           <label>Fecha<input id="tiendaDate" type="date"></label>
           <label>Método<select id="tiendaMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
-          <label class="wide">¿Quién de Tannery cobró?<input id="tiendaCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"></label>
+          <label class="wide">¿Quién cobró?<input id="tiendaCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"></label>
           <label class="wide">Referencia <span class="opt">· opcional</span><input id="tiendaReference" type="text" placeholder="Transferencia, terminal, nota..."></label>
         </div>
       </div>
@@ -208,7 +208,7 @@
         <div id="gafeteCobro" class="wide cashier-form-grid tienda-cobro hidden">
           <p class="wide gafete-monto" id="gafeteMonto"></p>
           <label>Método<select id="gafeteMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option></select></label>
-          <label>¿Quién de Tannery cobró?<input id="gafeteCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"></label>
+          <label>¿Quién cobró?<input id="gafeteCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"></label>
           <label class="wide">Referencia <span class="opt">· opcional</span><input id="gafeteReference" type="text" placeholder="Transferencia, terminal, nota..."></label>
         </div>
       </div>
@@ -241,7 +241,7 @@
       <label class="wide cat-other hidden" id="expenseCategoryOtherWrap">Especifica la categoría<input id="expenseCategoryOther" type="text" placeholder="Escribe la categoría"></label>
       <label class="wide">Concepto<input id="expenseConcept" type="text" placeholder="Qué se pagó" required></label>
       <label>A quién<input id="expenseWho" type="text" placeholder="Proveedor / persona"></label>
-      <label>¿Quién de Tannery pagó?<input id="expensePaidBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"></label>
+      <label>¿Quién pagó?<input id="expensePaidBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"></label>
       <label>Referencia<input id="expenseReference" type="text" placeholder="Opcional"></label>
       <div id="expenseMessage" class="cashier-message hidden wide"></div>
       <button id="saveExpense" class="cashier-submit expense wide" type="submit">Registrar pago</button>

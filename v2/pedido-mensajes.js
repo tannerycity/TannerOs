@@ -54,7 +54,7 @@ function lineaDePieza(i) {
 
 /* Lo que se le manda a la familia al confirmar su pedido. Siempre dice quién
    escribe: así lo pidió Presidencia para todos los mensajes del club. */
-export function mensajeConfirmacion({ order, items = [], info, club = 'Tannery City', yo = '' }) {
+export function mensajeConfirmacion({ order, items = [], info, club = 'el club', yo = '' }) {
   const hola = primerNombre(order?.customer_name);
   const quien = primerNombre(yo);
   const pago = datosDePago(info, order?.folio);

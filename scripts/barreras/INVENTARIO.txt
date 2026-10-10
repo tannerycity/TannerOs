@@ -19,3 +19,4 @@ suites-sin-correr.mjs
 label-que-se-traga-el-click.mjs
 formulario-publico-sin-sesion.mjs
 funcion-interna-cerrada-a-anon.mjs
+club-sin-nombre-fijo.mjs

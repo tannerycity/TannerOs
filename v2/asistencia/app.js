@@ -32,7 +32,7 @@ function friendly(e){const text=String(e?.message||e||'No pudimos completar la a
    categorías del profe van primero; si no tiene ninguna asignada, ve todas. */
 let detallesEditados=false;
 
-async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),attendance=mods?.find(m=>m.module_code==='attendance');if(!attendance?.enabled||!attendance?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Asistencia.';show('deniedView');return;}ctx.canWrite=Boolean(attendance.can_write);$('orgName').textContent=ctx.organization_name||'Tannery City FC';$('roleBadge').textContent=ctx.is_owner?'Presidencia':ctx.role;$('allPresent').classList.toggle('hidden',!ctx.canWrite);$('saveAttendance').classList.toggle('hidden',!ctx.canWrite);await Promise.all([loadCategories(),loadSessions()]);show('attendanceView');}
+async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),attendance=mods?.find(m=>m.module_code==='attendance');if(!attendance?.enabled||!attendance?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Asistencia.';show('deniedView');return;}ctx.canWrite=Boolean(attendance.can_write);$('orgName').textContent=ctx.organization_name||'';$('roleBadge').textContent=ctx.is_owner?'Presidencia':ctx.role;$('allPresent').classList.toggle('hidden',!ctx.canWrite);$('saveAttendance').classList.toggle('hidden',!ctx.canWrite);await Promise.all([loadCategories(),loadSessions()]);show('attendanceView');}
 
 async function loadCategories(){
   categories=await rpc('v2_attendance_categories',{organization_id:ctx.organization_id})||[];
@@ -527,7 +527,7 @@ function pintarTendencia(semanas){
 /* Botón de WhatsApp con el mensaje listo, firmado por el club. Sólo sale
    cuando el servidor manda el teléfono, y sólo lo manda a quien administra. */
 function botonFamilia(t,{faltas,pct,asistio,marcadas}){
-  const liga=ligaWhatsApp(t.phone,mensajeDeFaltas({tanner:t.name,tutor:t.guardianName,categoria:t.categoryName,faltas,pct,asistio,marcadas,club:ctx?.organization_name||'Tannery City'}));
+  const liga=ligaWhatsApp(t.phone,mensajeDeFaltas({tanner:t.name,tutor:t.guardianName,categoria:t.categoryName,faltas,pct,asistio,marcadas,club:ctx?.organization_name||'el club'}));
   return liga?`<a class="as-familia" href="${esc(liga)}" target="_blank" rel="noopener">Escribir a la familia</a>`:'';
 }
 const sello='<span class="as-sello">Becado</span>';

@@ -43,7 +43,7 @@ async function boot() {
   if (!rows?.length) { show('deniedView'); return; }
   ctx = rows[0];
   if (!(await rpc('v2_can_see_scholarships', { organization_id: ctx.organization_id }))) { show('deniedView'); return; }
-  $('orgName').textContent = ctx.organization_name || 'Tannery City FC';
+  $('orgName').textContent = ctx.organization_name||'';
   $('roleBadge').textContent = ctx.is_owner ? 'Presidencia' : ctx.role;
   pintaPeriodos(); pintaFiltros();
   show('view');
@@ -145,7 +145,7 @@ function abreFicha(id) {
   if (!b) return;
   const c = cumplimiento(b.pct), v = vencimiento(b.daysLeft), t = tipoDe(b.type), cu = cuantoCubre(b);
   const liga = ligaWhatsApp(b.phone, mensajeDeFaltas({ tanner: b.name, tutor: b.guardianName, categoria: b.categoryName,
-    faltas: b.streak, pct: b.pct, asistio: b.attended, marcadas: b.marked, club: ctx?.organization_name || 'Tannery City' }));
+    faltas: b.streak, pct: b.pct, asistio: b.attended, marcadas: b.marked, club: ctx?.organization_name||'el club' }));
   const dato = (k, val, extra = '') => `<div class="bc-dato${extra}"><span>${k}</span><b>${val}</b></div>`;
   $('bcHoja').innerHTML = `
     <div class="bc-hoja-quien">${cara(b)}<div><h2 id="bcHojaNombre">${esc(b.name)}</h2><p>${esc([b.code, b.categoryName].filter(Boolean).join(' · '))}</p></div></div>

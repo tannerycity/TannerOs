@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
@@ -37,7 +38,7 @@ const STAGE_PROBABILITY = { radar: 10, contacted: 25, talking: 40, agreement: 60
 const STALE_DAYS_THRESHOLD = 21;
 const ASSET_CATEGORIES = {
   digital: 'Digital',
-  park: 'Tannery City Park',
+  park: 'Instalaciones del club',
   uniforms: 'Uniformes',
   sports: 'Deportivo',
   content: 'Contenido',
@@ -253,7 +254,7 @@ function buildWhatsAppLink(sponsor, detail) {
   const digits = String(sponsor.phone).replace(/\D/g, '');
   if (!digits) return null;
   const greeting = sponsor.contactName ? 'Hola ' + sponsor.contactName : 'Hola';
-  const message = greeting + ', te escribo de Tannery City FC para dar seguimiento: ' + (detail || 'nuestra relación de patrocinio') + '.';
+  const message = greeting + ', te escribo de ' + nombreDelClub(ctx) + ' para dar seguimiento: ' + (detail || 'nuestra relación de patrocinio') + '.';
   return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(message);
 }
 function formatMxPhoneDisplay(digits) {
@@ -311,7 +312,7 @@ async function boot() {
     return;
   }
   canWrite = Boolean(moduleAccess.can_write);
-  $('orgName').textContent = ctx.organization_name || 'Tannery City FC';
+  $('orgName').textContent = ctx.organization_name||'';
   $('roleBadge').textContent = ctx.is_owner ? 'Presidencia' : ctx.role;
   writeControls();
   renderBeneficiaries();
@@ -1529,7 +1530,7 @@ async function exportSponsorKit() {
 
     doc.setFillColor(7, 25, 30); doc.rect(0, 0, pageWidth, 66, 'F');
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(17);
-    doc.text('Tannery City FC', margin, 30);
+    doc.text(nombreDelClub(ctx), margin, 30);
     doc.setFontSize(11); doc.setFont('helvetica', 'normal');
     doc.text('Kit de patrocinio · ' + sponsor.name, margin, 48);
     y = 92;

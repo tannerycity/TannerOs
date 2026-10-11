@@ -1,0 +1,462 @@
+{
+ "banco": "baby",
+ "version": "1.0",
+ "tareas": [
+  {
+   "nombre": "Semáforo Tanner",
+   "mundo": "movimiento",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Moverse, frenar y arrancar con control del cuerpo.",
+   "montaje": "Todos libres en un espacio seguro. Sin balón al inicio; después puede entrar balón.",
+   "juega": "Verde: avanza. Amarillo: lento. Rojo: frena y queda estable. Cambiar direcciones y formas de desplazarse.",
+   "dile": [
+    "Verde: voy. Rojo: freno."
+   ],
+   "observa": "Frena sin caerse, vuelve a arrancar, escucha una señal simple.",
+   "mas_facil": "Menos señales y más espacio.",
+   "mas_dificil": "Agregar balón o señales visuales.",
+   "espacio": null,
+   "adapta": "3-4: caminar/correr. 5-6: cambios de dirección y balón.",
+   "video": "Mostrar reacción a señal, frenado y nueva salida.",
+   "codigo": "B01"
+  },
+  {
+   "nombre": "Islas Tanner",
+   "mundo": "movimiento",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Explorar espacio, orientación y cambios de dirección.",
+   "montaje": "Aros o cuadrados como islas distribuidas.",
+   "juega": "Los niños se mueven por el mar y, a una señal, encuentran una isla libre sin chocar.",
+   "dile": [
+    "Busca una isla libre."
+   ],
+   "observa": "Mira alrededor, evita choques, cambia camino.",
+   "mas_facil": "Más islas y espacio.",
+   "mas_dificil": "Menos islas o entrar con balón.",
+   "espacio": null,
+   "adapta": "3-4: llegar a cualquier isla. 5-6: color/forma indicada.",
+   "video": "Plano abierto mostrando búsqueda de espacio.",
+   "codigo": "B02"
+  },
+  {
+   "nombre": "Frena y Sal",
+   "mundo": "movimiento",
+   "edad_min": 4,
+   "edad_max": 6,
+   "buscamos": "Aprender a desacelerar y volver a arrancar.",
+   "montaje": "Carriles muy cortos con una referencia de frenado.",
+   "juega": "Corre hasta la referencia, frena controlado y sale hacia otro lado.",
+   "dile": [
+    "Frena fuerte. Cambia. Sal."
+   ],
+   "observa": "Pasos cortos al frenar, equilibrio y nueva aceleración.",
+   "mas_facil": "Menor velocidad.",
+   "mas_dificil": "Señal de salida aleatoria o balón.",
+   "espacio": null,
+   "adapta": "3-4: versión caminando/corriendo suave. 5-6: más velocidad.",
+   "video": "Toma lateral de frenado y cambio.",
+   "codigo": "B03"
+  },
+  {
+   "nombre": "Salta y Aterriza",
+   "mundo": "movimiento",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Saltar y caer de forma estable y segura.",
+   "montaje": "Líneas, aros o pequeñas marcas en el piso.",
+   "juega": "Saltar dentro/fuera, adelante/lado y caer con control.",
+   "dile": [
+    "Salta. Cae suave."
+   ],
+   "observa": "Rodillas flexionadas, equilibrio y seguridad.",
+   "mas_facil": "Saltos pequeños con dos pies.",
+   "mas_dificil": "Direcciones variadas o recibir balón después.",
+   "espacio": null,
+   "adapta": "No usar alturas grandes.",
+   "video": "Primer plano de aterrizaje estable.",
+   "codigo": "B04"
+  },
+  {
+   "nombre": "Caigo y Sigo",
+   "mundo": "movimiento",
+   "edad_min": 4,
+   "edad_max": 6,
+   "buscamos": "Perder el miedo a caer y volver a participar.",
+   "montaje": "Zona segura, césped y tareas simples de caída controlada.",
+   "juega": "Desde posiciones bajas, practicar caer, levantarse y volver a una acción sencilla.",
+   "dile": [
+    "Caes. Te levantas. Sigues."
+   ],
+   "observa": "Apoyo de manos seguro, levantarse sin drama, volver al juego.",
+   "mas_facil": "Desde sentado/rodillas.",
+   "mas_dificil": "Después de levantarse, correr por balón.",
+   "espacio": null,
+   "adapta": "Siempre progresivo y supervisado.",
+   "video": "Mostrar caída controlada, levantarse y seguir.",
+   "codigo": "B05"
+  },
+  {
+   "nombre": "Persigue la Sombra",
+   "mundo": "movimiento",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Coordinar el cuerpo siguiendo cambios de dirección de otro niño.",
+   "montaje": "Parejas con espacio suficiente.",
+   "juega": "Uno guía y el otro sigue como sombra. Cambian cada 20-30 s.",
+   "dile": [
+    "Síguelo sin chocarlo."
+   ],
+   "observa": "Atención, coordinación, respeto de espacio.",
+   "mas_facil": "Profesor guía al grupo.",
+   "mas_dificil": "Con balón para el guía 5-6.",
+   "espacio": null,
+   "adapta": "3-4: movimientos simples. 5-6: cambios de ritmo.",
+   "video": "Pareja moviéndose con diversión y control.",
+   "codigo": "B06"
+  },
+  {
+   "nombre": "Pelota Viajera",
+   "mundo": "balon",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Disfrutar mover la pelota en distintas direcciones.",
+   "montaje": "Cada niño con balón. Espacio amplio y seguro.",
+   "juega": "Empuja la pelota, síguela, deténla, llévala a otro lugar.",
+   "dile": [
+    "Haz que tu pelota viaje."
+   ],
+   "observa": "Contacto frecuente, curiosidad y control progresivo.",
+   "mas_facil": "Sin consignas técnicas.",
+   "mas_dificil": "Agregar puertas/colores.",
+   "espacio": null,
+   "adapta": "3-4: libertad. 5-6: cambios de pie y dirección.",
+   "video": "Mostrar muchos niños con balón y sin filas.",
+   "codigo": "B07"
+  },
+  {
+   "nombre": "El Balón me Sigue",
+   "mundo": "balon",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Mantener la pelota cerca mientras se desplaza.",
+   "montaje": "Todos con balón en un espacio marcado.",
+   "juega": "Conducir sin que la pelota se aleje demasiado; parar cuando el profe cambia la señal.",
+   "dile": [
+    "Que no se te escape."
+   ],
+   "observa": "Toques adecuados, mirada ocasional arriba, frenado.",
+   "mas_facil": "Más espacio y ritmo lento.",
+   "mas_dificil": "Menos espacio o tráfico.",
+   "espacio": null,
+   "adapta": "5-6 puede usar ambas piernas de forma natural.",
+   "video": "Detalle de control cercano.",
+   "codigo": "B08"
+  },
+  {
+   "nombre": "Casas de Color",
+   "mundo": "balon",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Conducir hacia un objetivo visible y reconocer espacio.",
+   "montaje": "Puertas/casas de colores alrededor.",
+   "juega": "El profe nombra o muestra un color; cada niño lleva su balón a una casa de ese color.",
+   "dile": [
+    "Lleva tu pelota a una casa."
+   ],
+   "observa": "Conducción con intención y elección de ruta.",
+   "mas_facil": "Una sola casa grande.",
+   "mas_dificil": "Varias casas del mismo color para elegir.",
+   "espacio": null,
+   "adapta": "3-4: color simple. 5-6: color cambia durante recorrido.",
+   "video": "Plano abierto con rutas diferentes.",
+   "codigo": "B09"
+  },
+  {
+   "nombre": "Gira y Escapa",
+   "mundo": "balon",
+   "edad_min": 4,
+   "edad_max": 6,
+   "buscamos": "Descubrir giros sencillos con balón.",
+   "montaje": "Cada niño con balón y una línea/referencia.",
+   "juega": "Llegar a la referencia, girar como quiera y salir a otro lado.",
+   "dile": [
+    "Gira y vete."
+   ],
+   "observa": "Mantiene balón cerca y acelera tras girar.",
+   "mas_facil": "Giro libre sin velocidad.",
+   "mas_dificil": "Señal visual que indique salida.",
+   "espacio": null,
+   "adapta": "No exigir gesto técnico único.",
+   "video": "Mostrar 2-3 soluciones distintas.",
+   "codigo": "B10"
+  },
+  {
+   "nombre": "Protege tu Pelota",
+   "mundo": "balon",
+   "edad_min": 4,
+   "edad_max": 6,
+   "buscamos": "Empezar a usar cuerpo y balón frente a oposición suave.",
+   "montaje": "Parejas. Un niño con balón, otro intenta tocarlo con pie de forma controlada.",
+   "juega": "El poseedor mantiene la pelota y cambia de dirección; rotaciones muy cortas.",
+   "dile": [
+    "Cuida tu pelota."
+   ],
+   "observa": "Cuerpo entre rival y balón, equilibrio y juego seguro.",
+   "mas_facil": "Defensor solo acompaña.",
+   "mas_dificil": "Defensor intenta recuperar.",
+   "espacio": null,
+   "adapta": "Contacto ligero, sin empujar.",
+   "video": "Captar protección y sonrisa/juego.",
+   "codigo": "B11"
+  },
+  {
+   "nombre": "Empuja al Gol",
+   "mundo": "balon",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Relacionar conducción con el objetivo de hacer gol.",
+   "montaje": "Miniporterías distribuidas. Cada niño con balón o grupos muy pequeños.",
+   "juega": "Conducir hacia una portería y empujar/rematar para marcar. Buscar otra portería después.",
+   "dile": [
+    "Lleva la pelota al gol."
+   ],
+   "observa": "Intención, control y alegría al finalizar.",
+   "mas_facil": "Porterías grandes y cercanas.",
+   "mas_dificil": "Elegir entre dos porterías o defensor sombra.",
+   "espacio": null,
+   "adapta": "5-6 puede mirar portería antes de tirar.",
+   "video": "Conducción + gol + búsqueda de nueva meta.",
+   "codigo": "B12"
+  },
+  {
+   "nombre": "Encuentra la Portería",
+   "mundo": "juego",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Reconocer hacia dónde atacar.",
+   "montaje": "2v2/3v3 con dos porterías claras.",
+   "juega": "Partido simple. El profe solo recuerda cuál es la portería que atacan.",
+   "dile": [
+    "¿Dónde está tu gol?"
+   ],
+   "observa": "Orientación, participación y búsqueda de portería.",
+   "mas_facil": "1v1/2v2.",
+   "mas_dificil": "3v3 con reinicios rápidos.",
+   "espacio": null,
+   "adapta": "Muy pocas reglas.",
+   "video": "Plano abierto mostrando orientación hacia meta.",
+   "codigo": "B13"
+  },
+  {
+   "nombre": "Roba y Marca",
+   "mundo": "juego",
+   "edad_min": 4,
+   "edad_max": 6,
+   "buscamos": "Descubrir que sin balón podemos recuperarlo y después atacar.",
+   "montaje": "1v1 o 2v2 hacia miniporterías.",
+   "juega": "Si recuperas, inmediatamente puedes ir a marcar.",
+   "dile": [
+    "Recupera y ve al gol."
+   ],
+   "observa": "Cambio ataque-defensa, valentía y continuidad.",
+   "mas_facil": "1v1 con mucho espacio.",
+   "mas_dificil": "2v2 y transición libre.",
+   "espacio": null,
+   "adapta": "Sin explicaciones tácticas.",
+   "video": "Robo sencillo seguido de ataque.",
+   "codigo": "B14"
+  },
+  {
+   "nombre": "Dos Caminos",
+   "mundo": "juego",
+   "edad_min": 4,
+   "edad_max": 6,
+   "buscamos": "Elegir entre dos rutas hacia el gol.",
+   "montaje": "Dos puertas/porterías pequeñas disponibles para atacar.",
+   "juega": "El niño con balón elige una de dos salidas o metas.",
+   "dile": [
+    "¿Por dónde quieres ir?"
+   ],
+   "observa": "Mirada, decisión simple, cambio de ruta.",
+   "mas_facil": "Puertas grandes sin rival.",
+   "mas_dificil": "Agregar defensor suave.",
+   "espacio": null,
+   "adapta": "3-4 puede hacerse sin rival.",
+   "video": "Mostrar elección diferente entre repeticiones.",
+   "codigo": "B15"
+  },
+  {
+   "nombre": "Puertas Mágicas",
+   "mundo": "juego",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Jugar con balón buscando espacios.",
+   "montaje": "Varias puertas de conos dentro del campo.",
+   "juega": "1v1/2v2/3v3. Punto al cruzar una puerta con balón controlado.",
+   "dile": [
+    "Busca una puerta libre."
+   ],
+   "observa": "Exploración, conducción y no amontonarse.",
+   "mas_facil": "Más puertas.",
+   "mas_dificil": "Menos puertas o rival activo.",
+   "espacio": null,
+   "adapta": "En 3-4 usar sin marcador si hace falta.",
+   "video": "Plano abierto para ver puertas libres.",
+   "codigo": "B16"
+  },
+  {
+   "nombre": "Gol y Vuelve",
+   "mundo": "juego",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Aprender a reengancharse después de marcar o perder una jugada.",
+   "montaje": "Partido pequeño con balones de reposición.",
+   "juega": "Después de gol o balón fuera, el juego vuelve a empezar rápido.",
+   "dile": [
+    "Gol. Vuelve a jugar."
+   ],
+   "observa": "No quedarse celebrando/desconectado, volver al juego con alegría.",
+   "mas_facil": "Reinicios guiados.",
+   "mas_dificil": "Niños ayudan a reiniciar.",
+   "espacio": null,
+   "adapta": "Celebrar sí; desconectarse no.",
+   "video": "Gol, celebración breve y regreso.",
+   "codigo": "B17"
+  },
+  {
+   "nombre": "Partidito Vivo",
+   "mundo": "juego",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Vivir fútbol libre con la menor intervención posible.",
+   "montaje": "1v1, 2v2 o 3v3; porterías adaptadas.",
+   "juega": "Jugar. El profe interviene poco y observa. Reinicios simples y rápidos.",
+   "dile": [
+    "Juega. Inténtalo. Otra vez."
+   ],
+   "observa": "Participación, alegría, balón, orientación básica y convivencia.",
+   "mas_facil": "Menos jugadores y espacio amplio.",
+   "mas_dificil": "3v3, más continuidad y decisiones.",
+   "espacio": null,
+   "adapta": "Debe aparecer prácticamente todas las sesiones cuando sea posible.",
+   "video": "Video emocional: juego real, niños resolviendo solos.",
+   "codigo": "B18"
+  },
+  {
+   "nombre": "Saludo Tanner",
+   "mundo": "convivencia",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Crear seguridad, pertenencia y hábito de reconocer a los demás.",
+   "montaje": "Ritual corto de llegada o inicio.",
+   "juega": "Cada niño saluda al profe y a uno o dos compañeros; puede incluir nombre y choque de manos.",
+   "dile": [
+    "Hola, soy Tanner."
+   ],
+   "observa": "Contacto respetuoso, decir nombre, mirar y participar.",
+   "mas_facil": "Solo saludo al profe.",
+   "mas_dificil": "Niño presenta a compañero.",
+   "espacio": null,
+   "adapta": "Debe durar pocos minutos.",
+   "video": "Mostrar ritual natural, no actuación rígida.",
+   "codigo": "B19"
+  },
+  {
+   "nombre": "Mi Turno, Tu Turno",
+   "mundo": "convivencia",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Aprender a esperar brevemente y respetar turnos sin crear filas largas.",
+   "montaje": "Parejas o tríos con un balón/tarea corta.",
+   "juega": "Uno realiza acción corta, entrega/cede el balón al siguiente y vuelve a participar rápido.",
+   "dile": [
+    "Ahora tú. Después yo."
+   ],
+   "observa": "Respeto, transición rápida y paciencia breve.",
+   "mas_facil": "Parejas.",
+   "mas_dificil": "Tríos y elección de siguiente compañero.",
+   "espacio": null,
+   "adapta": "No convertirlo en espera prolongada.",
+   "video": "Mostrar cambio fluido de turno.",
+   "codigo": "B20"
+  },
+  {
+   "nombre": "Te Ayudo",
+   "mundo": "convivencia",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Descubrir que un compañero también puede ayudar.",
+   "montaje": "Parejas con misión sencilla: transportar balones, pasar por puertas, recoger material.",
+   "juega": "Resolver juntos una tarea simple con pelota o material.",
+   "dile": [
+    "Hazlo con tu compañero."
+   ],
+   "observa": "Cooperación, comunicación simple, no arrebatar.",
+   "mas_facil": "Tarea muy simple y corta.",
+   "mas_dificil": "Agregar decisión de cómo resolver.",
+   "espacio": null,
+   "adapta": "No buscar táctica; buscar convivencia.",
+   "video": "Pareja resolviendo junta.",
+   "codigo": "B21"
+  },
+  {
+   "nombre": "Cuido mi Balón",
+   "mundo": "convivencia",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Crear responsabilidad por material y pertenencias.",
+   "montaje": "Cada niño identifica su balón/material al inicio o cierre.",
+   "juega": "Al terminar una parte, lleva su balón al lugar indicado y vuelve al grupo.",
+   "dile": [
+    "Cuida lo que usamos."
+   ],
+   "observa": "Orden, cuidado, autonomía progresiva.",
+   "mas_facil": "Profesor acompaña físicamente.",
+   "mas_dificil": "Niños ayudan a organizar estación.",
+   "espacio": null,
+   "adapta": "Convertir en rutina, no castigo.",
+   "video": "Mostrar al niño guardando material con orgullo.",
+   "codigo": "B22"
+  },
+  {
+   "nombre": "Celebramos Juntos",
+   "mundo": "convivencia",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Aprender a celebrar sin burlarse ni excluir.",
+   "montaje": "Integrado a partiditos o finalizaciones.",
+   "juega": "Después de gol/éxito, celebración corta con compañeros y volver a jugar.",
+   "dile": [
+    "El gol lo celebra el equipo."
+   ],
+   "observa": "Alegría, inclusión, respeto al rival.",
+   "mas_facil": "Celebración guiada.",
+   "mas_dificil": "Niños crean celebración breve del equipo.",
+   "espacio": null,
+   "adapta": "Nunca humillar o festejar frente a la cara del rival.",
+   "video": "Captar celebración colectiva positiva.",
+   "codigo": "B23"
+  },
+  {
+   "nombre": "Ordenamos Juntos",
+   "mundo": "convivencia",
+   "edad_min": 3,
+   "edad_max": 6,
+   "buscamos": "Cerrar con responsabilidad y sentido de equipo.",
+   "montaje": "Material disperso de forma segura al terminar.",
+   "juega": "Todos ayudan 1-2 minutos a juntar balones/conos y dejar el espacio listo.",
+   "dile": [
+    "Todos ayudamos."
+   ],
+   "observa": "Participación, cuidado y cierre tranquilo.",
+   "mas_facil": "Cada uno recoge una cosa.",
+   "mas_dificil": "Pequeños equipos por tipo de material.",
+   "espacio": null,
+   "adapta": "No usar como castigo.",
+   "video": "Mostrar cierre colectivo y saludo final.",
+   "codigo": "B24"
+  }
+ ]
+}

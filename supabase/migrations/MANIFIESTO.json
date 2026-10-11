@@ -1,8 +1,8 @@
 {
-  "migraciones": 463,
-  "bytes": 2553935,
-  "huella": "0c3d56fbc2e109a6e1b2e4b9d6e2661d",
+  "migraciones": 464,
+  "bytes": 2557144,
+  "huella": "145fb2cfc29f9a7d4079b3e25f982d8f",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261010195529_x3_primeros_pasos_y_datos_para_cobrar.sql",
-  "verificadoContraLaBase": "2026-10-10"
+  "ultima": "20261011205303_a4_formacion_modulos_y_direccion_deportiva.sql",
+  "verificadoContraLaBase": "2026-10-11"
 }

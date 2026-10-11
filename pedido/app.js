@@ -39,6 +39,7 @@ import { preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, acepta
   from '/v2/tienda.js';
 import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe }
   from '/pedido/catalogo.js';
@@ -61,6 +62,8 @@ let carrito = {};
 // Cómo pagar, el WhatsApp del club y el tiempo de entrega. Si no carga, la
 // tienda funciona igual: sólo faltan esos textos.
 let pagoInfo = null;
+// Colores del club para la vista previa de la playera; si no llegan, los de siempre.
+let coloresClub = {};
 // Fotos ya firmadas en esta visita: ruta -> url.
 const fotos = new Map();
 
@@ -202,8 +205,14 @@ function infoDeCompra() {
     <li><b>Pago</b><span>Por ${esc(pago)}. Te damos los datos al confirmar.</span></li>
     <li><b>Confirmación</b><span>Te escribimos por WhatsApp para revisar tallas y entrega.</span></li></ul>`;
 }
-function bloquePersonaliza(e) {
+function vistaPrevia(e, nombreProducto) {
+  return mockupJersey({ nombre: e.nombre, numero: e.numero,
+    colores: coloresDePlayera({ nombreProducto, primario: coloresClub.primary, acento: coloresClub.accent }) });
+}
+function bloquePersonaliza(e, nombreProducto = '') {
   return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Personalízalo</h2><span>Opcional</span></div>
+    <figure class="st-mockup" id="stMockup" data-producto="${esc(nombreProducto)}">${vistaPrevia(e, nombreProducto)}
+      <figcaption>Así se verá la espalda</figcaption></figure>
     <div class="st-perso">
       <label><span>Nombre en la espalda</span><input data-campo="nombre" maxlength="20" autocomplete="off" autocapitalize="characters" value="${esc(e.nombre || '')}" placeholder="LEO"></label>
       <label class="num"><span>Número</span><input data-campo="numero" inputmode="numeric" maxlength="3" autocomplete="off" value="${esc(e.numero || '')}" placeholder="10"></label>
@@ -283,7 +292,7 @@ function renderProducto(id) {
           <div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}</span></div>
           ${unica ? `<p class="st-unica">Talla ${esc(unica)}: le queda a todos.</p>` : botonesTalla(tallas, e.talla, 'data-talla')}
         </section>
-        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e) : ''}
+        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name) : ''}
         <section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
           <div class="st-cantidad"><button type="button" data-cantidad="-1" aria-label="Uno menos">&minus;</button>
           <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>
@@ -326,7 +335,7 @@ function renderKit(id) {
               ${r.unica || !r.tallas.length ? '' : `<div class="st-tallas fila">${tallasDePieza(r.tallas, e.tier).map(t =>
                 `<button type="button" class="st-talla${elegida === t ? ' activa' : ''}" data-pieza-talla="${esc(t)}" aria-pressed="${elegida === t}">${esc(t)}</button>`).join('')}</div>`}
             </li>`; }).join('')}</ul></section>
-        ${bloquePersonaliza(e)}
+        ${bloquePersonaliza(e, k.name)}
         ${infoDeCompra()}
       </div>
     </article>
@@ -375,6 +384,12 @@ function cablea() {
     if (!campo || !ficha) return;
     const e = eligiendo[ficha] || eligiendoKit[ficha];
     if (e) e[campo] = ev.target.value;
+    // La playera se redibuja con cada letra.
+    const fig = $('stMockup');
+    if (e && fig && (campo === 'nombre' || campo === 'numero')) {
+      fig.querySelector('svg')?.remove();
+      fig.insertAdjacentHTML('afterbegin', vistaPrevia(e, fig.dataset.producto || ''));
+    }
   });
 }
 
@@ -558,6 +573,17 @@ try {
   if (oferta.status !== 'fulfilled') throw oferta.reason;
   if (club.status === 'fulfilled') clubNombre = String(club.value?.brand || club.value?.organizationName || '').trim();
   if (club.status === 'fulfilled') instalaVocabulario(club.value?.playerNoun);
+  // Los colores sólo visten la vista previa: si fallan, la tienda sigue.
+  if (club.status === 'fulfilled' && club.value?.organizationId) {
+    rpc('v2_public_branding_by_org', { organization_id: club.value.organizationId })
+      .then(b => {
+        coloresClub = b?.colors || {};
+        const fig = $('stMockup');
+        if (fig) { const ficha = document.querySelector('[data-ficha]')?.dataset.ficha;
+          const e = eligiendo[ficha] || eligiendoKit[ficha] || {};
+          fig.querySelector('svg')?.remove(); fig.insertAdjacentHTML('afterbegin', vistaPrevia(e, fig.dataset.producto || '')); }
+      }).catch(() => {});
+  }
   document.querySelectorAll('[data-club-nombre]').forEach(el => { el.textContent = clubNombre; });
   // Las ligas propias (Centro Tanner, privacidad, familias) se llevan el club.
   new MutationObserver(() => propagaClub()).observe(document.body, { childList: true, subtree: true });

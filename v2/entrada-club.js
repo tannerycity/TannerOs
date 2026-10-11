@@ -5,7 +5,7 @@
    El nombre sale de v2_public_context, que cualquiera puede leer: es el mismo
    dato que muestra el registro público del club. */
 import { createClient } from '/v2/supabase-client.js';
-import { clubDeLaLiga } from '/v2/club-publico.js';
+import { clubDeLaLiga, propagaClub } from '/v2/club-publico.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
 const q = sel => document.querySelector(sel);
@@ -32,6 +32,8 @@ async function pinta() {
     };
     abre();
   }
+  // Las salidas para familias llevan el club: su tienda, no la de Tannery.
+  propagaClub(document.querySelector('.tc-familias') || undefined);
   if (!club || club === 'tannery-city-fc') return;
   let ctx = null;
   try {

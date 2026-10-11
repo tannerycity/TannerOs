@@ -132,7 +132,10 @@ export default function comprobar() {
   // Sube a 35 por qa-humo-importar.mjs. Vigila importar jugadores desde
   // Excel: columnas detectadas, revisión sin guardar e importar las mismas
   // filas. Es pintura sobre v2_import_players.
-  const MAX_EXCLUIDAS = 35;
+  // Sube a 36 por qa-humo-fichajes-origen.mjs. Vigila Fichajes con los más
+  // recientes arriba, filtros que no se salen a 390px y "¿Cómo nos
+  // conocieron?" (quién recomienda). Es pintura sobre v2_prospects.
+  const MAX_EXCLUIDAS = 36;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

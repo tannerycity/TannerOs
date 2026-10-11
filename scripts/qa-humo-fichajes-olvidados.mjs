@@ -91,9 +91,14 @@ const filas = p => p.$$eval('#prospectList .prospect-row', r => r.map(x => x.inn
   const chips = await p.$$eval('#attentionSummary .attention-chip', b => b.map(x => x.textContent.replace(/\s+/g,' ').trim()));
   revisa('[resumen] Atención (computadora) también lo trae', chips[0] === 'Olvidados +7 días1', JSON.stringify(chips));
   const f = await filas(p);
-  revisa('[lista] el olvidado sale primero', /LIONEL andrés Olvidado/.test(f[0]||''), JSON.stringify(f));
+  // Desde el 11/10/2026 la lista abre con los más recientes arriba; el orden
+  // por urgencia (olvidados primero) queda en "Por atender".
+  revisa('[orden] por omisión, el último que se registró va arriba', /Sofía Inscripción/.test(f[0]||'') && /Se registró ayer/.test(f[0]||''), JSON.stringify(f));
+  await p.click('#ordenLista [data-orden="atender"]');
+  const fa = await filas(p);
+  revisa('[lista] en "Por atender" el olvidado sale primero', /LIONEL andrés Olvidado/.test(fa[0]||''), JSON.stringify(fa));
   revisa('[mensajes] la lista dice cuántos mensajes lleva', f.some(x => /Mateo Reciente/.test(x) && /Mensaje 1 de 3/.test(x)) && f.some(x => /Tres Mensajes/.test(x) && /3 mensajes sin respuesta/.test(x)), JSON.stringify(f));
-  revisa('[lista] con "Olvidado · 12 días"', /Olvidado · 12 días/.test(f[0]||''), f[0]);
+  revisa('[lista] con "Olvidado · 12 días"', /Olvidado · 12 días/.test(fa[0]||''), fa[0]);
   revisa('[lista] el reciente no dice olvidado', f.some(x => /Mateo Reciente/.test(x) && !/Olvidado/.test(x)), JSON.stringify(f));
   await p.click('.campaign-kpis .kpi-card:first-child');
   const g = await filas(p);

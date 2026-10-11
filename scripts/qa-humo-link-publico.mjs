@@ -86,6 +86,8 @@ await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200,
       await window.__anota(n, JSON.parse(JSON.stringify(p)));
       if(n==='v2_public_offerings')return{data:${JSON.stringify(OFERTA)},error:null};
       if(n==='v2_public_payment_info')return{data:${JSON.stringify(PAGO)},error:null};
+      if(n==='v2_public_context')return{data:{organizationId:'org-qa',brand:'Club QA'},error:null};
+      if(n==='v2_public_branding_by_org')return{data:{colors:{primary:'#184159',accent:'#9A9169'}},error:null};
       if(n==='v2_public_cart_order')return{data:{id:'o-qa',folio:'PED-QA-1',total:3500+699*2},error:null};
       return {data:null,error:null};}};}` }));
 // Sin salida a internet, el import de esm.sh se cuelga y la página nunca arranca.
@@ -145,9 +147,20 @@ revisa('sin talla no se agrega, y se dice ahí mismo', /Elige la talla/.test(awa
 revisa('y la sección de talla se marca', (await pg.$('#stBloqueTalla.falta')) !== null);
 await pg.click('[data-talla="10"]');
 revisa('la talla elegida queda marcada', (await pg.getAttribute('[data-talla="10"]', 'aria-pressed')) === 'true');
+const mock = sel => pg.$eval(`#stMockup [data-mockup="${sel}"]`, t => ({ txt: t.textContent, op: t.getAttribute('opacity'), fill: t.getAttribute('fill'), len: t.getAttribute('textLength') }));
+revisa('la vista previa sale vacía, con "TU NOMBRE" tenue', (await mock('nombre')).txt === 'TU NOMBRE' && (await mock('nombre')).op === '0.38');
+revisa('la playera va en el color del club', (await pg.getAttribute('#stMockup svg path', 'fill')) === '#184159', await pg.getAttribute('#stMockup svg path', 'fill'));
+await pg.type('[data-campo="nombre"]', 'leo');
+revisa('el nombre aparece mientras se escribe, en mayúsculas', (await mock('nombre')).txt === 'LEO' && (await mock('nombre')).op === '1', JSON.stringify(await mock('nombre')));
+revisa('y el estampado en el acento del club', (await mock('nombre')).fill === '#9A9169');
+await pg.fill('[data-campo="nombre"]', 'MAXIMILIANO JR');
+revisa('un nombre largo se ajusta a la espalda', (await mock('nombre')).len === '118');
 await pg.fill('[data-campo="nombre"]', 'LEO');
 await pg.fill('[data-campo="numero"]', '7');
+revisa('el número también', (await mock('numero')).txt === '7');
 await pg.click('[data-cantidad="1"]');
+if (process.env.QA_FOTO) await pg.locator('.st-bloque', { has: pg.locator('#stMockup') }).screenshot({ path: process.env.QA_FOTO });
+revisa('la vista previa sobrevive al repintado', (await mock('nombre')).txt === 'LEO' && (await mock('numero')).txt === '7');
 revisa('la cantidad sube y el botón dice el total', /\$1,398/.test(await pg.innerText('#stAgregar')), await pg.innerText('#stAgregar'));
 await pg.click('#stAgregar');
 revisa('agregado: el carrito de arriba cuenta 2', (await badge()) === '2', await badge());
@@ -172,6 +185,7 @@ for (let i = 0; i < 5; i++) {
 }
 await pg.fill('[data-campo="nombre"]', 'MAURICIO');
 await pg.fill('[data-campo="numero"]', '10');
+revisa('el kit también enseña la vista previa', (await mock('nombre')).txt === 'MAURICIO' && (await mock('numero')).txt === '10');
 await cabe('la ficha del kit');
 await pg.click('#stAgregar');
 revisa('el kit completo se agrega', (await badge()) === '3', await badge());
@@ -212,8 +226,10 @@ revisa('y el carrito queda vacío', (await badge()) === '0');
 await pg.goto(BASE + '/pedido/#/p/p-black');
 await pg.waitForSelector('[data-talla="M"]');
 await pg.click('[data-talla="M"]'); await pg.click('#stAgregar');
+revisa('la Black Edition se ve negra', (await pg.getAttribute('#stMockup svg path', 'fill').catch(() => null)) === '#141414');
 await pg.goto(BASE + '/pedido/#/p/p-calceta');
 await pg.waitForSelector('#stAgregar');
+revisa('lo que no se personaliza no enseña playera', (await pg.$('#stMockup')) === null);
 revisa('la pieza de talla única no pide talla', /Talla Universal/.test(await pg.innerText('.st-pdp')));
 await pg.click('#stAgregar');
 await pg.goto(BASE + '/pedido/#/pedido');

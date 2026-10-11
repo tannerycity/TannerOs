@@ -86,3 +86,54 @@ select.pill-source{display:none}
 .num-sugeridos button{border:1px solid #cfe0dc;background:#f3f9f7;color:#0b3d4a;border-radius:999px;padding:5px 11px;font-weight:800;cursor:pointer}
 .num-sugeridos button.activo{background:#0b3d4a;color:#f2e6bd;border-color:#0b3d4a}
 .campo-num{display:grid;gap:6px;align-content:start;min-width:0}
+
+/* ===== Auditoría 11/10/2026: filtros que no se salen, orden y origen ===== */
+/* Los grupos de chips bajan de renglón en vez de empujar la pantalla de lado
+   (Prioridad medía 484px en un teléfono de 390). */
+.campaign-filters{box-sizing:border-box;max-width:100%}
+.campaign-filters .filter-block{min-width:0;max-width:100%}
+.campaign-filters .pill-group{display:flex;flex-wrap:wrap;gap:6px;padding:0;background:transparent;max-width:100%}
+.campaign-filters .pill-group button{flex:0 0 auto;width:auto;border:1px solid #d7e1de;background:#fff;padding:8px 12px;font:700 13px/1 inherit;color:#36494e;border-radius:999px}
+.campaign-filters .pill-group button.active{border-color:#07191e;background:#07191e;color:#fff;box-shadow:none}
+.campaign-filters .filter-label{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#6d7f84}
+@media(max-width:760px){
+  .campaign-filters.open{display:grid;grid-template-columns:1fr 1fr;gap:14px 10px;padding:14px}
+  .campaign-filters .filter-block:not(.select-block){grid-column:1/-1}
+  .campaign-filters .select-block:last-of-type{grid-column:1/-1}
+  .campaign-filters .pill-select{width:100%;padding:10px 30px 10px 12px;font-size:13px}
+  .campaign-filters .filter-clear{grid-column:1/-1;justify-self:center}
+}
+
+/* Orden de la lista */
+.orden-lista{display:inline-flex;gap:3px;padding:3px;margin-top:8px;background:#eef2f1;border-radius:999px}
+.orden-lista button{border:0;background:transparent;border-radius:999px;padding:7px 12px;font:800 12px/1 inherit;color:#4c6167;cursor:pointer}
+.orden-lista button.active{background:#fff;color:#07191e;box-shadow:0 2px 6px rgba(7,25,30,.12)}
+.registro-hoy{color:#0c7f93;font-weight:800}
+
+/* ¿Cómo nos conocieron? */
+.origen-card{display:grid;gap:12px;margin-bottom:14px}
+.origen-cab{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.origen-cab h2{margin:2px 0 0;font-size:20px}
+.origen-tabs{display:inline-flex;gap:3px;padding:3px;background:#eef2f1;border-radius:999px;justify-self:start}
+.origen-tabs button{border:0;background:transparent;border-radius:999px;padding:8px 14px;font:800 12.5px/1 inherit;color:#4c6167;cursor:pointer}
+.origen-tabs button.active{background:#07191e;color:#fff}
+.origen-barras{display:grid;gap:4px}
+.origen-fila{display:grid;grid-template-columns:minmax(0,9.5em) 1fr auto;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:8px 6px;border-radius:10px;text-align:left;cursor:pointer;font:inherit;color:#07191e}
+.origen-fila:hover,.origen-fila:focus-visible{background:#f1f6f5}
+.origen-fila.activa{background:#e6f2f1;outline:2px solid #0c7f93;outline-offset:-2px}
+.origen-nombre{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.origen-pista{height:10px;border-radius:999px;background:transparent;overflow:hidden}
+.origen-pista i{display:block;height:100%;border-radius:0 4px 4px 0;background:#0c7f93}
+.origen-fila.sin-nombre .origen-nombre{color:#6d7f84;font-style:italic}
+.origen-fila.sin-nombre .origen-pista i{background:#9fb3b7}
+.origen-num{display:flex;flex-direction:column;align-items:flex-end;min-width:3.4em}
+.origen-num b{font-size:15px}
+.origen-num small{font-size:11px;color:#2c7a4f;font-weight:700;white-space:nowrap}
+.origen-mas{justify-self:start;border:0;background:none;color:#0c7f93;font:800 13px/1 inherit;cursor:pointer;padding:4px 0}
+.origen-nota{margin:0}
+.origen-chip{display:inline-flex;align-items:center;gap:8px;margin:0 0 10px;border:1px solid #0c7f93;background:#e6f2f1;color:#075d6c;border-radius:999px;padding:8px 12px;font:800 13px/1 inherit;cursor:pointer;max-width:100%}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:560px){.origen-fila{grid-template-columns:minmax(0,7.5em) 1fr auto;gap:8px}}
+
+/* En el teléfono las cuatro pestañas caben en 2x2: ninguna se esconde a la derecha. */
+@media(max-width:560px){.pipeline-tabs{display:grid;grid-template-columns:1fr 1fr;overflow:visible}.pipeline-tab{justify-content:space-between}}

@@ -52,7 +52,8 @@ const moduleLabels={
   scouting:'Scouting',prospectos:'Fichajes',cursosVerano:'Programas y Eventos',taquilla:'Taquilla',
   cobranza:'Cobranza',contabilidad:'Contabilidad',patrocinadores:'Patrocinios',tienda:'Tienda',
   utileria:'Utilería',usuarios:'Usuarios',qa:'QA',admin:'Administración',estacionamiento:'Estacionamiento',
-  catalogo:'Catálogo',commerce_finance:'Rentabilidad de Tienda'
+  catalogo:'Catálogo',commerce_finance:'Rentabilidad de Tienda',
+  formacion:'Formación',formacion_direccion:'Dirección Deportiva'
 };
 // 'commerce_finance' (Rentabilidad de Tienda) estaba escondida aquí, y por eso
 // nadie podía quitársela a una persona: enseña márgenes y costos de la tienda.

@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { porMedio, porRecomendador, recomendoA } from '/v2/prospectos/origen.js';
 import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrls, getSignedPhotoUrl, getRawSignedPhotoUrl, forgetPhoto } from '/v2/photo-cache.js';
 import { elegirDorsal, tableroDorsales, libresDe, pintaChipsDorsal } from '/v2/dorsal.js';
@@ -35,6 +36,19 @@ function show(id){['loadingView','deniedView','prospectsView'].forEach(v=>$(v)?.
 function msg(id,text='',type='error'){const el=$(id);if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
 function toast(text){const el=$('prospectToast');if(!el)return;el.textContent=text;el.classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('visible'),3200);}
 async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
+// Orden de la lista: por defecto los últimos que se registraron arriba
+// (Presidencia, 11/10/2026). "Por atender" es el orden de antes: olvidados,
+// sin contactar, vencidos y próximos.
+let orden=(()=>{try{return localStorage.getItem('fichajesOrden')==='atender'?'atender':'recientes';}catch{return 'recientes';}})();
+// Filtro que viene de tocar una barra de "¿Cómo nos conocieron?".
+let origenFiltro=null,origenVista='persona',origenTodos=false;
+function haceCuanto(v){
+  if(!v)return '';const min=Math.max(0,Math.round((Date.now()-new Date(v).getTime())/60000));
+  if(min<60)return min<=1?'hace un momento':`hace ${min} min`;
+  const h=Math.round(min/60);if(h<24)return `hace ${h} h`;
+  const d=Math.round(h/24);if(d===1)return 'ayer';if(d<7)return `hace ${d} días`;
+  return '';
+}
 function fmtDate(v){if(!v)return '—';return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium'}).format(new Date(v));}
 function fmtDateTime(v){if(!v)return '—';return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v));}
 function localDateTimeValue(v){const d=v?new Date(v):new Date();const z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;}
@@ -200,9 +214,9 @@ function populateFilterOptions(){
   const keepCampaign=campaign.value,keepSource=source.value;
   const campaigns=[...new Set(prospects.map(p=>p.source_campaign).filter(Boolean))].sort((a,b)=>campaignName(a).localeCompare(campaignName(b),'es-MX'));
   const sources=[...new Set(prospects.map(p=>p.source_channel||p.source).filter(Boolean))].sort((a,b)=>sourceName(a).localeCompare(sourceName(b),'es-MX'));
-  campaign.innerHTML='<option value="">Todas las campañas</option>';
+  campaign.innerHTML='<option value="">Todas</option>';
   for(const c of campaigns){const o=document.createElement('option');o.value=c;o.textContent=campaignName(c);campaign.appendChild(o);}
-  source.innerHTML='<option value="">Todos los orígenes</option>';
+  source.innerHTML='<option value="">Todos</option>';
   for(const s of sources){const o=document.createElement('option');o.value=s;o.textContent=sourceName(s);source.appendChild(o);}
   if(campaigns.includes(keepCampaign))campaign.value=keepCampaign;
   if(sources.includes(keepSource))source.value=keepSource;
@@ -210,7 +224,13 @@ function populateFilterOptions(){
 
 function baseScoped(){
   const type=$('typeFilter').value,campaign=$('campaignFilter').value,source=$('sourceFilter').value;
-  return prospects.filter(p=>(!type||p.registration_type===type)&&(!campaign||p.source_campaign===campaign)&&(!source||(p.source_channel||p.source)===source));
+  return prospects.filter(p=>(!type||p.registration_type===type)&&(!campaign||p.source_campaign===campaign)&&(!source||(p.source_channel||p.source)===source)&&cumpleOrigen(p));
+}
+function cumpleOrigen(p){
+  if(!origenFiltro)return true;
+  if(origenFiltro.tipo==='persona')return recomendoA(p,origenFiltro.grupo);
+  const k=String(p.source_channel||p.source||'').trim();
+  return origenFiltro.grupo.valor?k.toLowerCase()===origenFiltro.grupo.valor.toLowerCase():!k;
 }
 function setActiveView(view){
   activeView=view;
@@ -424,6 +444,42 @@ function renderAttentionSummary(rows){
   for(const [label,count,value] of items){const b=document.createElement('button');b.type='button';b.className=`attention-chip ${count?'hot':''}`;b.innerHTML=`<span>${label}</span><strong>${count}</strong>`;b.addEventListener('click',()=>{setActiveView('pipeline');$('urgencyFilter').value=value;applyFilters();});box.appendChild(b);}
 }
 
+// ¿Cómo nos conocieron? Barras horizontales de mayor a menor, un solo color,
+// con el número escrito al lado. Tocar una barra filtra la lista.
+function renderOrigen(){
+  const box=$('origenBarras');if(!box)return;
+  document.querySelectorAll('.origen-tabs button').forEach(b=>{const on=b.dataset.origen===origenVista;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));});
+  const grupos=origenVista==='persona'?porRecomendador(prospects):porMedio(prospects);
+  const recom=origenVista==='persona'?grupos.filter(g=>!g.sinNombre).reduce((n,g)=>n+g.total,0):0;
+  $('origenTotal').textContent=origenVista==='persona'?`${recom} con nombre de quien recomendó`:`${prospects.length} registros`;
+  const visibles=origenTodos?grupos:grupos.slice(0,6);
+  const max=Math.max(1,...grupos.map(g=>g.total));
+  box.innerHTML=visibles.length?visibles.map((g,i)=>{
+    const activo=origenFiltro&&origenFiltro.tipo===origenVista&&origenFiltro.grupo.clave===g.clave&&Boolean(origenFiltro.grupo.sinNombre)===Boolean(g.sinNombre);
+    return `<button type="button" role="listitem" class="origen-fila${activo?' activa':''}${g.sinNombre?' sin-nombre':''}" data-i="${i}" title="${safeHtml(g.nombre)}: ${g.total} registro${g.total===1?'':'s'}, ${g.fichados} fichado${g.fichados===1?'':'s'}">
+      <span class="origen-nombre">${safeHtml(g.nombre)}</span>
+      <span class="origen-pista"><i style="width:${Math.max(3,Math.round(g.total/max*100))}%"></i></span>
+      <span class="origen-num"><b>${g.total}</b>${g.fichados?`<small>${g.fichados} fichado${g.fichados===1?'':'s'}</small>`:''}</span></button>`;
+  }).join(''):'<p class="muted tiny">Todavía no hay registros con recomendación.</p>';
+  box.querySelectorAll('.origen-fila').forEach(b=>b.addEventListener('click',()=>{
+    const g=visibles[Number(b.dataset.i)];
+    const mismo=origenFiltro&&origenFiltro.tipo===origenVista&&origenFiltro.grupo.clave===g.clave&&Boolean(origenFiltro.grupo.sinNombre)===Boolean(g.sinNombre);
+    origenFiltro=mismo?null:{tipo:origenVista,grupo:g};
+    if(origenFiltro)setActiveView('all');
+    applyFilters();
+    if(origenFiltro)$('prospectList')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }));
+  $('origenMas').classList.toggle('hidden',grupos.length<=6);
+  $('origenMas').textContent=origenTodos?'Ver menos':`Ver todos (${grupos.length})`;
+}
+function pintaFiltroOrigen(){
+  document.querySelectorAll('#ordenLista button').forEach(b=>b.classList.toggle('active',b.dataset.orden===orden));
+  let chip=$('origenChip');
+  if(!origenFiltro){chip?.remove();return;}
+  if(!chip){chip=document.createElement('button');chip.type='button';chip.id='origenChip';chip.className='origen-chip';$('prospectList').before(chip);chip.addEventListener('click',()=>{origenFiltro=null;applyFilters();});}
+  chip.innerHTML=`${origenFiltro.tipo==='persona'?(origenFiltro.grupo.sinNombre?'Recomendación sin nombre':'Recomendó: '+safeHtml(origenFiltro.grupo.nombre)):'Medio: '+safeHtml(origenFiltro.grupo.nombre)} <span aria-hidden="true">×</span><span class="sr-only">Quitar filtro</span>`;
+}
+
 const EMPTY_MESSAGES={pipeline:'Sin pendientes: no hay prospectos activos con estos filtros.',converted:'Aún no hay convertidos con estos filtros.',lost:'Nadie marcado como "No continúa" con estos filtros.',all:'No hay prospectos con estos filtros.'};
 function applyFilters(){
   const status=$('statusFilter').value,q=$('searchProspect').value.trim().toLocaleLowerCase('es-MX'),urgency=$('urgencyFilter').value;
@@ -440,6 +496,7 @@ function applyFilters(){
     return hay.includes(q);
   });
   filtered.sort((a,b)=>{
+    if(orden==='recientes')return new Date(b.created_at||0)-new Date(a.created_at||0);
     const score=p=>forgotten(p)?-1:needsContact(p)?0:overdue(p)?1:upcoming(p)?2:3;
     const s=score(a)-score(b);if(s)return s;
     const an=a.next_action_at?new Date(a.next_action_at).getTime():Infinity;
@@ -447,7 +504,7 @@ function applyFilters(){
     if(an!==bn)return an-bn;
     return new Date(b.created_at||0)-new Date(a.created_at||0);
   });
-  renderKpis();renderList();updateTabCounts();
+  renderKpis();renderList();updateTabCounts();renderOrigen();pintaFiltroOrigen();
   if(viewMode==='list'){
     $('resultCount').textContent=`${filtered.length} resultado${filtered.length===1?'':'s'}`;
     $('prospectEmpty').textContent=EMPTY_MESSAGES[activeView]||EMPTY_MESSAGES.all;
@@ -491,7 +548,7 @@ function renderList(){
     main.append(strong,sporting,contact,badges);
     const meta=document.createElement('div');meta.className='prospect-meta';
     const pipe=document.createElement('span');pipe.className=`pipeline ${p.status}`;pipe.textContent=statusLabel[p.status]||p.status;
-    const small=document.createElement('small');small.textContent=p.next_action_at?`Siguiente: ${fmtDateTime(p.next_action_at)}`:`Alta: ${fmtDate(p.created_at)}`;
+    const small=document.createElement('small');const reg=haceCuanto(p.created_at);small.textContent=[reg?`Se registró ${reg}`:`Alta: ${fmtDate(p.created_at)}`,p.next_action_at?`Siguiente: ${fmtDateTime(p.next_action_at)}`:''].filter(Boolean).join(' · ');if(reg&&Date.now()-new Date(p.created_at).getTime()<86400000)small.classList.add('registro-hoy');
     meta.append(pipe,small);
     clickArea.append(photo,main,meta);clickArea.addEventListener('click',()=>openProspect(p));
     const actions=document.createElement('div');actions.className='lead-actions';
@@ -689,7 +746,10 @@ document.querySelectorAll('.pill-group button').forEach(b=>{
   });
 });
 $('searchProspect').addEventListener('input',applyFilters);
-$('clearFilters').addEventListener('click',()=>{for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';setActiveView('pipeline');applyFilters();});
+document.querySelectorAll('#ordenLista button').forEach(b=>b.addEventListener('click',()=>{orden=b.dataset.orden;try{localStorage.setItem('fichajesOrden',orden);}catch{}applyFilters();}));
+document.querySelectorAll('.origen-tabs button').forEach(b=>b.addEventListener('click',()=>{origenVista=b.dataset.origen;origenTodos=false;renderOrigen();}));
+$('origenMas').addEventListener('click',()=>{origenTodos=!origenTodos;renderOrigen();});
+$('clearFilters').addEventListener('click',()=>{origenFiltro=null;for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';setActiveView('pipeline');applyFilters();});
 document.querySelectorAll('.pipeline-tab').forEach(btn=>btn.addEventListener('click',()=>{setActiveView(btn.dataset.view);applyFilters();}));
 $('viewList').addEventListener('click',()=>setViewMode('list'));
 $('viewKanban').addEventListener('click',()=>setViewMode('kanban'));

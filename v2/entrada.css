@@ -129,6 +129,14 @@
 :is(.tc-entrada,.tc-cristal) .message{border-radius:12px!important;border:1px solid rgba(255,255,255,.12)!important;background:rgba(192,54,44,.16)!important;color:#ffd9d3!important}
 :is(.tc-entrada,.tc-cristal) .message[data-type="success"]{background:rgba(74,222,128,.14)!important;color:#d5ffe4!important}
 
+/* Las familias que caen aquí buscando la tienda tienen salida sin cuenta. */
+.tc-familias{grid-column:1/-1;justify-self:center;width:100%;max-width:440px;margin:4px 0 0;padding:16px 18px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--tc-tenue);font-size:14px;line-height:1.45}
+.tc-familias p{margin:0 0 10px}
+.tc-familias strong{color:var(--tc-crema)}
+.tc-familias div{display:flex;flex-wrap:wrap;gap:8px}
+.tc-familias a{flex:1 1 auto;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border-radius:99px;border:1px solid rgba(198,172,92,.45);color:var(--tc-oro);font-weight:700;text-decoration:none;white-space:nowrap}
+.tc-familias a[data-familia="tienda"]{background:var(--tc-oro);border-color:var(--tc-oro);color:#0b2a33}
+.tc-familias a:hover{border-color:var(--tc-oro)}
 .tc-pie{grid-column:1/-1;justify-self:center;margin:8px 0 0;font-size:12px;color:rgba(244,239,226,.42);letter-spacing:.02em}
 
 /* Acceso pendiente y crear contraseña: mismo cristal y el escudo arriba. */

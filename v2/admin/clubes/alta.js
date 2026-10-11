@@ -66,7 +66,7 @@ export function mensajeBienvenida({ club, dueno, correo, producto = 'TannerOS', 
     `2. Crea tu cuenta con este correo: ${correo}`,
     '3. Al entrar ya eres Presidencia de tu club.',
     '',
-    'Lo primero: sube tu escudo en Marca y apariencia, invita a tus profes en Usuarios y carga a tus jugadores.',
+    'Al entrar, ve a Administración → Primeros pasos: en 6 pasos dejas tu club listo (escudo, aviso de privacidad, cuotas, datos de pago, tu lista de Excel y tu equipo).',
     'Cualquier duda, aquí estamos.'
   ].join('\n');
 }

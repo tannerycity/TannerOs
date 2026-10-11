@@ -172,9 +172,17 @@ revisa('[entrada] enseña el nombre del club', (await pg.$eval('.tc-club-nombre'
 revisa('[entrada] sin escudo ni firma de Tannery', (await pg.$('.tc-escudo')) === null && (await pg.$('.tc-wordmark')) === null);
 revisa('[entrada] la bajada es del club', /León Norte/.test(await pg.$eval('.tc-bajada', e => e.textContent).catch(() => '')));
 revisa('[entrada] abre "Tengo invitación"', await pg.$eval('#signUpTab', e => e.classList.contains('active')).catch(() => false));
+const salidas = await pg.$$eval('.tc-familias a', a => a.map(x => x.getAttribute('href')));
+revisa('[entrada] las familias tienen salida a tienda, registro y portal de SU club',
+  JSON.stringify(salidas) === JSON.stringify(['/pedido/?club=leon-norte', '/registro/?club=leon-norte', '/familias/?club=leon-norte']), JSON.stringify(salidas));
 await pg.goto(BASE + '/', { waitUntil:'networkidle' });
 await pg.waitForTimeout(300);
 revisa('[entrada] sin club sigue siendo Tannery', (await pg.$('.tc-wordmark')) !== null && (await pg.$('.tc-club-nombre')) === null);
+revisa('[entrada] sin club, la tienda es la de Tannery', (await pg.getAttribute('.tc-familias a[data-familia="tienda"]', 'href')) === '/pedido/');
+await pg.setViewportSize({ width: 390, height: 844 });
+revisa('[entrada] el botón de tienda se ve en el teléfono y nada se sale', await pg.isVisible('.tc-familias a[data-familia="tienda"]')
+  && await pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+if (process.env.QA_FOTO) await pg.screenshot({ path: process.env.QA_FOTO, fullPage: true });
 
 revisa('sin errores de consola', errs.length === 0, errs.join('\n   '));
 await nav.close(); srv.close();

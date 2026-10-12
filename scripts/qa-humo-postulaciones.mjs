@@ -107,7 +107,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
 
 { // convocatoria cerrada
   const p = await abre('/trabaja/', { cerrada: true });
-  await p.waitForSelector('.empty-state', { timeout: 6000 }).catch(() => {});
+  await p.waitForSelector('.un-titulo', { timeout: 6000 }).catch(() => {});
   revisa('[cerrada] dice que no hay vacantes y no hay formulario', /no hay vacantes/i.test(await p.textContent('#content')) && !(await p.$('#tjForm')));
   await p.close();
 }
@@ -144,7 +144,9 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   const p = await abre('/v2/candidatos/', { rol: 'Taquilla' });
   await p.waitForTimeout(1200);
   // El shell manda a la entrada y la pantalla corta con "No access": es lo esperado.
-  for (let i = errores.length - 1; i >= 0; i--) if (errores[i] === 'pageerror: No access') errores.splice(i, 1);
+  // Chromium además aborta la transición entre páginas (v2/experience.css) de
+  // esa redirección; sólo aquí, donde la redirección es lo que se prueba.
+  for (let i = errores.length - 1; i >= 0; i--) if (errores[i] === 'pageerror: No access' || /^pageerror: Transition was aborted/.test(errores[i])) errores.splice(i, 1);
   revisa('[acceso] sin Usuarios ni Dirección deportiva no entra', !(await p.$('.cand')) && !/candidatos/.test(new URL(p.url()).pathname), p.url());
   await p.close();
 }

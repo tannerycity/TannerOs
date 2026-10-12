@@ -62,3 +62,4 @@ qa-product-ui.mjs
 qa-humo-pedidos-por-revisar.mjs
 qa-humo-utileria.mjs
 qa-humo-fichajes-origen.mjs
+qa-humo-formacion.mjs

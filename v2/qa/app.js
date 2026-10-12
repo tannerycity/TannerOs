@@ -129,6 +129,7 @@ const fullRouteMatrix=[
   ['goalkeepers','Porteros','/porteros/','sport'],['production','Producción','/produccion/','commerce'],['programs-v2','Programas y eventos','/operacion/programas/','programs'],
   ['audit','Historial del club','/admin/auditoria/','admin'],['branding','Identidad del club','/admin/branding/','admin'],['club-settings','Datos del club','/admin/club/','admin'],
   ['onboarding','Preparación del club','/admin/onboarding/','admin'],
+  ['formacion','Formación','/formacion/','formacion'],
   ['photos','Fotos del padrón','/admin/fotos/','admin'],
   ['clubs','Clubes','/admin/clubes/','admin'],
   ['playersImport','Importar jugadores','/jugadores/importar/','players']

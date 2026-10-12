@@ -77,7 +77,7 @@ const BASE='http://localhost:'+s.address().port;
 const NAV=['inicio','club','direccion','finanzas','taquilla','tanner','jugadores','asistencia',
   'convocatoria','calendario','academias','prospectos','scouting','pedidos','catalogo','utileria',
   'patrocinadores','contabilidad','usuarios','admin','qa','modulos','deportivo','porteros',
-  'produccion','programas','estacionamiento','familias','captura']
+  'produccion','programas','estacionamiento','familias','captura','formacion','formacion_direccion']
   .map((c,i)=>({module_code:c,module_name:c,can_read:true,can_write:true,enabled:true,customized:false,sort_order:i*10}));
 const MOD=['sponsors','equipment','prospects','players','programs','catalog','scouting','admin','calendar','attendance','tanner','store','pos']
   .map(c=>({module_code:c,enabled:true,can_read:true,can_write:true}));

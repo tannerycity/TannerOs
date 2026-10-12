@@ -41,6 +41,7 @@ const routeContract={
   '/admin/branding/':'v2/admin/branding/index.html',
   '/admin/club/':'v2/admin/club/index.html',
   '/admin/onboarding/':'v2/admin/onboarding/index.html',
+  '/formacion/':'v2/formacion/index.html',
   '/admin/fotos/':'v2/admin/fotos/index.html',
   '/admin/clubes/':'v2/admin/clubes/index.html',
   '/jugadores/importar/':'v2/jugadores/importar/index.html'

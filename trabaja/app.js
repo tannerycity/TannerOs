@@ -33,15 +33,17 @@ export function postulacionDelFormulario(f) {
   if (!(f.positions || []).length) faltan.push('al menos un puesto');
   if (!f.photo) faltan.push('tu foto');
   else if (!/^image\//.test(f.photo.type || '')) faltan.push('una foto (JPG o PNG)');
+  if (!f.antecedentes) faltan.push('aceptar lo de la carta de no antecedentes penales');
   if (!f.consent) faltan.push('aceptar el aviso de privacidad');
   const cv = f.cv || null;
+  if (!cv) faltan.push('tu CV');
   if (cv && cv.size > CV_MAX) faltan.push('un CV de menos de 10 MB');
   if (cv && !/^(application\/pdf|image\/(jpeg|png|webp))$/.test(cv.type || '')) faltan.push('el CV en PDF o foto (JPG, PNG)');
   return { faltan, datos: {
     fullName: String(f.fullName || '').trim().replace(/\s+/g, ' '), phone: telefono, email: String(f.email || '').trim() || null,
     age: f.age ? Number(f.age) : null, city: String(f.city || '').trim() || null, positions: f.positions || [],
     experience: f.experience || null, studies: String(f.studies || '').trim() || null, availability: f.availability || [],
-    about: String(f.about || '').trim() || null, consent: { dataAccepted: !!f.consent, privacyNoticeVersion: AVISO } } };
+    about: String(f.about || '').trim() || null, consent: { dataAccepted: !!f.consent, backgroundCheck: !!f.antecedentes, privacyNoticeVersion: AVISO } } };
 }
 export const extensionDelCv = tipo => ({ 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[tipo] || null);
 
@@ -75,7 +77,7 @@ function pinta(c) {
     <h1 class="un-titulo">¿Quieres formar <em>campeones?</em></h1>
     ${c.intro ? `<p class="un-sub">${esc(c.intro)}</p>` : ''}
     <a class="un-cta" href="#ficha">Postúlate ahora</a>
-    <span class="un-cta-nota">3 minutos · Sube tu CV aquí mismo</span>
+    <span class="un-cta-nota">3 minutos · Ten a la mano tu CV y una foto</span>
     <p class="un-hilo">Únete al staff</p>
   </header>
   <main class="un-main tj-convocatoria">
@@ -106,7 +108,8 @@ function pinta(c) {
       </div>
       <div class="un-bloque"><h3><i>3</i>Tu foto y tu CV</h3>
         <label class="span-2 un-foto" id="tjFotoCaja"><input id="tjFoto" type="file" accept="image/*"><span class="un-foto-marco" id="tjFotoVista" aria-hidden="true"></span><span><b id="tjFotoTexto">Sube tu foto *</b><small>De frente y con buena luz. Así te reconocemos en la entrevista.</small></span></label>
-        <label class="span-2 un-cv" id="tjCvCaja"><input id="tjCv" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"><span class="un-cv-icono" aria-hidden="true"></span><span><b id="tjCvTexto">Sube tu CV</b><small>PDF o foto · opcional. Si no tienes, cuéntanos arriba.</small></span></label>
+        <label class="span-2 un-cv" id="tjCvCaja"><input id="tjCv" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"><span class="un-cv-icono" aria-hidden="true"></span><span><b id="tjCvTexto">Sube tu CV *</b><small>PDF o foto de tu CV.</small></span></label>
+        <label class="un-check span-2 un-check-importante"><input id="tjAntecedentes" type="checkbox"><span><b>Importante:</b> entiendo que, si me contratan, debo presentar mi <b>carta de no antecedentes penales</b> antes de empezar. Trabajamos con niños.</span></label>
         <label class="un-check span-2"><input id="tjAviso" type="checkbox"><span>Acepto que ${esc(c.club)} use mis datos y mi foto para este proceso de selección, según su <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a> (sección 10).</span></label>
         <div id="formMessage" class="message hidden span-2" role="alert"></div>
         <button id="tjEnviar" class="un-cta un-enviar span-2" type="submit">Enviar mi ficha</button>
@@ -124,7 +127,7 @@ function pinta(c) {
   });
   $('tjCv').addEventListener('change', () => {
     const f = $('tjCv').files?.[0];
-    $('tjCvTexto').textContent = f ? f.name : 'Sube tu CV';
+    $('tjCvTexto').textContent = f ? f.name : 'Sube tu CV *';
     $('tjCvCaja').classList.toggle('listo', !!f);
   });
 }
@@ -161,7 +164,7 @@ async function envia(e) {
   const marcados = n => [...document.querySelectorAll(`input[name="${n}"]:checked`)].map(x => x.value);
   const { faltan, datos } = postulacionDelFormulario({ fullName: $('tjNombre').value, phone: $('tjTel').value, email: $('tjCorreo').value, age: $('tjEdad').value,
     city: $('tjCiudad').value, positions: marcados('tjPuesto'), experience: $('tjExp').value, studies: $('tjEstudios').value,
-    availability: marcados('tjDisp'), about: $('tjAcerca').value, consent: $('tjAviso').checked, cv: $('tjCv').files?.[0] || null, photo: $('tjFoto').files?.[0] || null });
+    availability: marcados('tjDisp'), about: $('tjAcerca').value, consent: $('tjAviso').checked, antecedentes: $('tjAntecedentes').checked, cv: $('tjCv').files?.[0] || null, photo: $('tjFoto').files?.[0] || null });
   if (faltan.length) { msg(`Falta ${faltan.join(', ')}.`); return; }
   const btn = $('tjEnviar'); btn.disabled = true; btn.textContent = 'Enviando…';
   try {

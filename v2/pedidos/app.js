@@ -339,9 +339,40 @@ async function openOrder(o){
   const items=$('itemList');items.innerHTML=renderItems(current.items||[],d);
   items.querySelectorAll('.save-item').forEach(b=>b.addEventListener('click',()=>saveItem(b.closest('[data-item-id]'))));
   renderReview(d);
+  pintaJugadorDelPedido(d);
   renderProfitability();renderPaymentPlan(d);renderPayments(d);renderReadiness();renderStateActions(d);renderWarranty(d);
   renderBusinessMetrics(orders.filter(vigente));render();msg();collapseDrawerSections();
   $('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');
+}
+/* ¿De qué niño es? (Presidencia, 11/10/2026: "que pidan sin cuenta y ya
+   después nosotros se lo apuntamos a su hijo"). Sugiere por el teléfono del
+   tutor, el nombre del jersey y el apellido; se liga en un toque. */
+let jugadorBusca=0;
+async function pintaJugadorDelPedido(d,q=''){
+  const box=$('orderPlayer');if(!box)return;const id=d.id,turno=++jugadorBusca;
+  if(!q)box.innerHTML='<p class="muted op-cargando">Buscando de quién es…</p>';
+  let r;try{r=await rpc('v2_order_player',{organization_id:ctx.organization_id,order_id:id,query:q||null});}catch{r=null;}
+  if(!r){box.innerHTML='';return;}
+  if(turno!==jugadorBusca||current?.order?.id!==id)return;
+  const puede=r.canWrite&&canWrite;
+  const opcion=s=>`<li><span><b>${esc(s.name)}</b><small>${esc([s.category,s.reason].filter(Boolean).join(' · '))}</small></span>${puede?`<button type="button" class="secondary mini" data-liga="${esc(s.id)}">Ligar</button>`:''}</li>`;
+  if(r.linked&&!q){
+    box.innerHTML=`<div class="op-ligado"><span>Para <b>${esc(r.linked.name)}</b>${r.linked.category?` · ${esc(r.linked.category)}`:''}</span>${puede?'<button type="button" class="op-link" data-cambia>Cambiar</button>':''}</div><div class="op-cambio hidden"></div>`;
+    box.querySelector('[data-cambia]')?.addEventListener('click',()=>{const c=box.querySelector('.op-cambio');c.classList.remove('hidden');c.innerHTML=buscador();cablea(box,d);});
+    return;
+  }
+  const sug=r.suggestions||[];
+  box.innerHTML=`<div class="op-sin"><b>Sin niño ligado</b><span>${q?'Resultados':sug.length?'¿Es alguno de ellos?':'No encontramos a quién es por el teléfono ni por el nombre.'}</span></div>
+    ${sug.length?`<ul class="op-sugerencias">${sug.map(opcion).join('')}</ul>`:''}${puede?buscador(q):''}`;
+  cablea(box,d);
+  function buscador(v=''){return `<input class="op-buscar" type="search" placeholder="Buscar al niño por nombre" value="${esc(v)}" autocomplete="off">`;}
+}
+function cablea(box,d){
+  const inp=box.querySelector('.op-buscar');let t=0;
+  inp?.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>pintaJugadorDelPedido(d,inp.value.trim()),250);});
+  box.onclick=async e=>{const b=e.target.closest('[data-liga]');if(!b)return;b.disabled=true;
+    try{await rpc('v2_link_order_player',{organization_id:ctx.organization_id,order_id:d.id,player_id:b.dataset.liga});msg('Pedido ligado al niño.','success');await pintaJugadorDelPedido(d);}
+    catch(err){b.disabled=false;msg(err.message||'No se pudo ligar.');}};
 }
 function reviewMsg(t='',type='error'){const e=$('reviewMessage');if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}
 function renderReview(d){const sec=$('reviewSection');if(!sec)return;const pendiente=porRevisar.has(d.id);sec.classList.toggle('hidden',!pendiente);reviewMsg();if(!pendiente)return;const tel=ligaWhatsApp(d.customer_phone);$('confirmWhatsApp').disabled=!tel||!canWrite;$('markReviewed').disabled=!canWrite;if(!tel)reviewMsg('Este pedido no trae teléfono: confírmalo por otro medio y márcalo revisado.');else if(!canWrite)reviewMsg('Tu rol puede ver la Tienda pero no confirmar pedidos.');revisaNumeros(d);}

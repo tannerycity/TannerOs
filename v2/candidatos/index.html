@@ -1,7 +1,18 @@
 <!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#184159"><title>Candidatos · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"><link rel="stylesheet" href="/v2/candidatos/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body class="tos-body"><div class="tos-layout"><aside class="tos-sidebar"><div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div></aside><div id="shellNavBackdrop" class="tos-nav-backdrop"></div><div class="tos-main"><header class="tos-topbar"><div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">Candidatos</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health"><i></i><span>Candidatos</span></span><span id="shellRole" class="tos-role">Rol</span></div></header><main class="tos-content cand-page">
-<section class="tos-welcome"><div class="eyebrow">STAFF</div><h1>Candidatos</h1><p>Quienes se postularon para trabajar en el club, con su CV. Escríbeles, agenda la entrevista y lleva el registro aquí.</p></section>
-<section class="cand-liga tos-panel"><div><strong>Liga para postularse</strong><span id="candLiga">—</span><small>Ponla en tu flyer o como código QR.</small></div><div class="cand-liga-btns"><button type="button" id="candCopiar" class="secondary">Copiar liga</button><a id="candCompartir" class="secondary" target="_blank" rel="noopener">Compartir por WhatsApp</a></div></section>
-<section class="cand-kpis" id="candKpis"></section>
+<section class="cand-hero">
+  <div class="cand-hero-txt">
+    <p class="cand-eyebrow">Mercado de fichajes · Staff</p>
+    <h1>Candidatos</h1>
+    <p>Los formadores que quieren unirse al club. Escríbeles, agenda su entrevista y llévalos hasta la cancha.</p>
+    <div class="cand-kpis" id="candKpis"></div>
+  </div>
+  <aside class="cand-liga">
+    <canvas id="candQr" width="132" height="132" aria-label="Código QR de la convocatoria"></canvas>
+    <div class="cand-liga-txt"><small>Liga para tu flyer</small><strong id="candLiga">—</strong>
+      <div class="cand-liga-btns"><button type="button" id="candCopiar">Copiar</button><a id="candCompartir" target="_blank" rel="noopener">WhatsApp</a><button type="button" id="candQrBajar">Bajar QR</button></div>
+    </div>
+  </aside>
+</section>
 <div class="cand-filtros" role="tablist" aria-label="Filtrar por estado" id="candFiltros"></div>
 <div id="candLista" class="cand-lista"></div>
 <div id="candMensaje" class="inline-message hidden"></div>

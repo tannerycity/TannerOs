@@ -880,7 +880,8 @@ async function signPlayerPhotos(list){
 // mirando la plantilla y solo se despliegan los cortes de esa faceta.
 let fCat='';
 let facet='plantilla';
-const CAT_ORDEN=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];
+// Categorías 2026-27 (12/10/2026). Mini Baby y T8 al final: sólo las traen jugadores inactivos.
+const CAT_ORDEN=['Baby Tanner','T6','T10','T12','Mini Baby Tanner','T8'];
 const FACETAS=[
   {key:'plantilla', label:'Plantilla'},
   {key:'expediente',label:'Expediente', gate:true},

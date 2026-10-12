@@ -308,7 +308,7 @@ function mountPhotoUi(){
         <label>Lugar de visoría<input id="editObservedLocation" type="text" maxlength="160" placeholder="Cancha, torneo o escuela"></label>
       </div>
       <datalist id="scoutingPositions"><option value="Portero"><option value="Lateral"><option value="Defensa central"><option value="Mediocentro"><option value="Extremo"><option value="Delantero"></datalist>
-      <datalist id="scoutingCategories"><option value="Baby Tanners"><option value="T6"><option value="T8"><option value="T10"><option value="T12"><option value="Juvenil"></datalist>
+      <datalist id="scoutingCategories"><option value="Baby Tanners"><option value="T6"><option value="T10"><option value="T12"><option value="Juvenil"></datalist>
       <datalist id="scoutingFeet"><option value="Derecho"><option value="Izquierdo"><option value="Ambos"></datalist>
       <div class="editor-block"><div class="editor-block-title"><strong>Los cuatro pilares</strong><small>Toca otra vez una calificación para dejarla pendiente.</small></div><div class="quick-scores edit-scores">
         <article><div><strong>Técnica</strong><small class="score-reading">Sin evaluar</small></div><div class="score-buttons" data-edit-score-group="editTechnicalScore"><button type="button" data-edit-score="2">1</button><button type="button" data-edit-score="4">2</button><button type="button" data-edit-score="6">3</button><button type="button" data-edit-score="8">4</button><button type="button" data-edit-score="10">5</button><input id="editTechnicalScore" type="hidden"></div></article>

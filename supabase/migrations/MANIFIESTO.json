@@ -1,8 +1,8 @@
 {
-  "migraciones": 466,
-  "bytes": 2611716,
-  "huella": "3210dfe35e88a915d547efb271d495f3",
+  "migraciones": 467,
+  "bytes": 2616750,
+  "huella": "3e6a71556972bba511aa4f64d85a02e2",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261011211723_c4_formacion_carga_bancos_tannery.sql",
-  "verificadoContraLaBase": "2026-10-11"
+  "ultima": "20261012001241_d4_categorias_2026_27_tannery.sql",
+  "verificadoContraLaBase": "2026-10-12"
 }

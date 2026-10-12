@@ -32,7 +32,11 @@ const srv = http.createServer((q, r) => {
 });
 await new Promise(r => srv.listen(4742, r));
 
-const AHORA = Date.now(), hace = m => new Date(AHORA - m * 60e3).toISOString();
+// El reloj de la página se fija a mediodía de hoy: con Date.now() a secas, la
+// prueba fallaba entre las 00:00 y las 00:30 (el primer mensaje, de hace 30
+// minutos, caía en "Ayer" y el separador ya no decía "Hoy").
+const MEDIODIA = new Date(); MEDIODIA.setUTCHours(12, 0, 0, 0);
+const AHORA = MEDIODIA.getTime(), hace = m => new Date(AHORA - m * 60e3).toISOString();
 const ME = 'u-mich', ZUL = 'u-zul', BRANDON = 'u-brandon';
 const INBOX = {
   me:{ userId:ME, name:'Mich', role:'Presidencia', presidency:true },
@@ -90,6 +94,7 @@ let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 async function abre({ viewport = { width:390, height:844 }, falla = false, ruta = '/v2/mensajes/' } = {}) {
   const pg = await nav.newPage({ viewport, hasTouch:true, isMobile:viewport.width < 600 });
+  await pg.clock.setFixedTime(AHORA);
   const errs = [];
   pg.on('pageerror', e => errs.push(e.message));
   await pg.route('**/v2/shell.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:shell(falla) }));

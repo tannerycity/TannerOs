@@ -38,3 +38,15 @@ Dos reglas que no hay que romper:
 
 Las tablas que sí viven en `public` (`profiles`, `organization_memberships`) sí
 se pueden tocar con `admin.from(...)`.
+
+## demo-login
+
+La demo pública (`/demo/`): entra con un toque como Presidencia, Dirección
+deportiva, Formador, Taquilla, Contabilidad o Familia a uno de los dos clubes
+demo (con datos / recién dado de alta). Sin contraseña.
+
+- Se despliega **sin verificación de JWT**: la usa quien todavía no tiene
+  cuenta. Sólo abre sesión en las cuentas fijas `demo.<perfil>.<variante>@example.com`.
+- Los clubes demo son de solo lectura (migración o4): el candado de la base
+  frena cualquier escritura del staff, y `v2_my_modules` no da `can_write`,
+  así que `staff-access` tampoco crea ni invita cuentas desde una demo.

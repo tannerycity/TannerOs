@@ -1,0 +1,26 @@
+:root{--dm-fondo:#0f2733;--dm-tarjeta:#16384a;--dm-borde:rgba(255,255,255,.12);--dm-crema:#f5f3eb;--dm-tenue:#a9bcc2;--dm-acento:#e0b23a;--dm-verde:#2e9d7b}
+*{box-sizing:border-box}
+html,body{margin:0}
+.dm-body{min-height:100vh;background:radial-gradient(120% 80% at 50% 0%,#1d4a5e 0%,var(--dm-fondo) 60%);color:var(--dm-crema);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.dm{max-width:760px;margin:0 auto;padding:32px 16px 40px;display:grid;gap:18px}
+.dm-cab h1{margin:4px 0 6px;font-size:clamp(28px,6vw,40px);line-height:1.1;font-weight:900;letter-spacing:-.01em}
+.dm-eyebrow{margin:0;font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--dm-acento)}
+.dm-lema{margin:0;color:var(--dm-tenue);max-width:560px}
+.dm-variantes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.dm-variante{display:grid;gap:4px;text-align:left;padding:14px 16px;border-radius:16px;border:2px solid var(--dm-borde);background:rgba(255,255,255,.04);color:inherit;font:inherit;cursor:pointer}
+.dm-variante strong{font-size:16px;font-weight:900}
+.dm-variante span{font-size:14px;color:var(--dm-tenue)}
+.dm-variante.activa{border-color:var(--dm-acento);background:rgba(224,178,58,.1)}
+.dm-variante:focus-visible,.dm-perfil:focus-visible{outline:3px solid var(--dm-acento);outline-offset:2px}
+.dm-perfiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.dm-perfil{display:grid;gap:4px;text-align:left;padding:16px;border-radius:16px;border:1px solid var(--dm-borde);background:var(--dm-tarjeta);color:inherit;font:inherit;cursor:pointer;min-height:96px;transition:transform .12s ease,border-color .12s ease}
+.dm-perfil b{font-size:17px;font-weight:900}
+.dm-perfil b::after{content:" →";color:var(--dm-acento)}
+.dm-perfil span{font-size:14px;color:var(--dm-tenue)}
+.dm-perfil:hover:not(:disabled){transform:translateY(-1px);border-color:var(--dm-verde)}
+.dm-perfil:disabled{opacity:.45;cursor:not-allowed}
+.dm-msg{margin:0;padding:10px 14px;border-radius:12px;background:#5a1f1a;color:#ffe3de;font-weight:700}
+.dm-msg[data-type="info"]{background:rgba(255,255,255,.08);color:var(--dm-crema)}
+.dm-pie{margin:6px 0 0;color:var(--dm-tenue);font-size:14px}
+.dm-pie a{color:var(--dm-crema);font-weight:800}
+.hidden{display:none!important}

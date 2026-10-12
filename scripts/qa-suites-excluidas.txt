@@ -48,6 +48,7 @@ qa-humo-ligas-por-club.mjs
 qa-humo-importar.mjs
 qa-humo-primeros-pasos.mjs
 qa-humo-numeros.mjs
+qa-humo-demo.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

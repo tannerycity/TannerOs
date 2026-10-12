@@ -1,8 +1,8 @@
 {
-  "migraciones": 479,
-  "bytes": 2737343,
-  "huella": "61982f34e79fcd817d6b14fe5ba55331",
+  "migraciones": 483,
+  "bytes": 2749062,
+  "huella": "89970806af0501d87acfcec94e2675ae",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261012030111_n4_cobro_mensual_ciclo_diario.sql",
+  "ultima": "20261012032725_r4_demo_inicio_del_staff.sql",
   "verificadoContraLaBase": "2026-10-12"
 }

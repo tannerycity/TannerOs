@@ -42,6 +42,9 @@ const MIA = { weekStart: SEMANA, deadline: '2026-12-07T04:00:00Z', settings: { t
   ses('s2', 'T6', 'c6', 't6', '2026-12-09T23:00:00Z', '2026-12-10T00:00:00Z'),
   ses('s3', 'T10', 'c10', 't10', '2026-12-08T23:00:00Z', '2026-12-09T00:30:00Z', null, null)
 ] };
+const HOY = { today: '2026-12-07', sessions: [ { sessionId: 'h1', categoryId: 'c6', category: 'T6', stage: 't6', startsAt: '2026-12-07T23:00:00Z', endsAt: '2026-12-08T00:00:00Z', status: 'scheduled', closure: null,
+  week: { primary: '1v1', behavior: 'Que se atrevan a encarar' },
+  plan: { status: 'ready', challenge: '1v1', items: [{ block: 'calentar', text: 'Calentamiento con balón' }, { block: 'tarea', taskId: 't06', difficulty: 'base' }, { block: 'jugar', text: 'Juego libre' }] } } ] };
 const DIR = { weekStart: SEMANA, publishBy: '2026-12-05T04:00:00Z', deadline: '2026-12-07T04:00:00Z', categories: [
   { categoryId: 'cb', category: 'Baby Tanner', stage: 'baby_3_4', usesChallenges: false, coachId: 'u2', week: null, sessions: 2, ready: 0 },
   { categoryId: 'c6', category: 'T6', stage: 't6', usesChallenges: true, coachId: 'u2', week: null, sessions: 2, ready: 1 },
@@ -57,9 +60,9 @@ async function abre({ direccion }) {
   const p = await nav.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(`console: ${m.text()}`); });
-  await p.addInitScript(({ direccion, CATALOGO, MIA, DIR }) => {
+  await p.addInitScript(({ direccion, CATALOGO, MIA, DIR, HOY }) => {
     window.__llamadas = [];
-    const mia = JSON.parse(JSON.stringify(MIA));
+    const mia = JSON.parse(JSON.stringify(MIA)), hoy = JSON.parse(JSON.stringify(HOY));
     const mods = ['inicio', 'formacion', ...(direccion ? ['formacion_direccion'] : [])];
     const R = {
       v2_my_context: () => [{ user_id: 'u2', display_name: 'Max', organization_id: 'o1', organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: direccion ? 'Operaciones' : 'Formadores', is_owner: false }],
@@ -68,6 +71,8 @@ async function abre({ direccion }) {
       v2_my_planning: () => mia,
       v2_direction_week: () => DIR,
       v2_save_training_weeks: () => 2,
+      v2_my_today: () => hoy,
+      v2_close_session: prm => { const s = hoy.sessions.find(x => x.sessionId === prm.session_id); s.closure = prm.closure; s.closureNote = prm.note; s.status = 'completed'; return { closure: prm.closure }; },
       v2_save_session_plan: prm => { const s = mia.sessions.find(x => x.sessionId === prm.session_id); s.plan = { status: prm.plan.ready ? 'ready' : 'draft', challenge: prm.plan.challenge, items: prm.plan.items }; return { status: s.plan.status }; }
     };
     window.__fakeSupabase = {
@@ -76,7 +81,7 @@ async function abre({ direccion }) {
       from: () => ({ select() { return this; }, eq() { return this; }, then(r) { return Promise.resolve({ data: [], error: null }).then(r); } }),
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
-  }, { direccion, CATALOGO, MIA, DIR });
+  }, { direccion, CATALOGO, MIA, DIR, HOY });
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export function clearPhotoCache(){}' }));
@@ -122,6 +127,31 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   revisa('[sesión] sin Reto publicado pide objetivo', /aún no publica/.test(await p.textContent('.fm-reto-card')));
   revisa('[sesión] 90 min: dos tareas y juego', (await p.$$('.fm-bloque')).length === 4);
   await cabe(p, 'hoja de sesión');
+  await p.click('#fmHoja [data-cerrar]');
+  // HOY · Modo Cancha · Cierre
+  const hoyTxt = await p.textContent('[data-hoy="h1"]');
+  revisa('[hoy] en 10 segundos: categoría, Reto, qué buscamos y la frase', /HOY · T6/.test(hoyTxt) && /RETO: 1V1/.test(hoyTxt) && /Hoy buscamos: Que se atrevan a encarar/.test(hoyTxt) && /“Gánale a tu rival.”/.test(hoyTxt), hoyTxt);
+  await p.click('[data-hoy="h1"]');
+  await p.waitForSelector('#fmHoja.fm-cancha .fm-cancha-paso');
+  revisa('[cancha] empieza en el calentamiento, con la lista a la mano', /Calentamiento con balón/.test(await p.textContent('.fm-cancha-paso h3')) && (await p.getAttribute('#fmHojaPie a', 'href')) === '/asistencia/');
+  await p.click('#fmSiguiente');
+  revisa('[cancha] la tarea: nombre, DILE y 2–3 observables', (await p.textContent('.fm-cancha-paso h3')) === 'Cruza la Línea' && /Gánale a tu rival/.test(await p.textContent('.fm-dile'))
+    && (await p.$$('.fm-observa li')).length >= 2 && (await p.$$('.fm-observa li')).length <= 3, await p.textContent('.fm-cancha-paso'));
+  revisa('[cancha] hay reloj', /^\d+:\d\d$/.test(await p.textContent('#fmReloj')));
+  await cabe(p, 'modo cancha');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-cancha.png' });
+  await p.click('#fmSiguiente'); await p.click('#fmSiguiente');
+  await p.waitForSelector('.fm-cierre');
+  revisa('[cierre] pregunta por lo que buscábamos', /¿Apareció lo que buscábamos\?/.test(await p.textContent('.fm-cierre')) && /Que se atrevan a encarar/.test(await p.textContent('.fm-cierre b')));
+  revisa('[cierre] tres respuestas: Sí, A veces, Todavía no', JSON.stringify(await p.$$eval('[data-cierre]', b => b.map(x => x.textContent))) === '["Sí","A veces","Todavía no"]');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-cierre.png' });
+  await p.fill('#fmNota', 'Les costó mirar antes');
+  await p.click('[data-cierre="a_veces"]');
+  await p.waitForSelector('#fmHoja', { state: 'hidden' });
+  const cierre = (await llamadas(p, 'v2_close_session'))[0]?.prm;
+  revisa('[cierre] un toque y se guarda, con su nota', cierre?.session_id === 'h1' && cierre.closure === 'a_veces' && cierre.note === 'Les costó mirar antes', JSON.stringify(cierre));
+  await p.waitForFunction(() => /Cerrada · A veces/.test(document.querySelector('[data-hoy="h1"]')?.textContent || ''));
+  revisa('[hoy] queda "Cerrada · A veces"', true);
   await p.close();
 }
 

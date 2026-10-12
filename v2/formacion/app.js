@@ -20,14 +20,15 @@ const esDireccion = moduleAccess(navigation, 'formacion_direccion', true);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let catalogo = { concepts: [], tasks: [] }, semana = null, tab = esDireccion ? 'semana' : 'sesiones', tz = 'America/Mexico_City';
-let dataDir = null, dataMia = null, borrador = {}, filtroBanco = '';
+let dataDir = null, dataMia = null, dataHoy = null, borrador = {}, filtroBanco = '';
 
 const concepto = (kind, code) => catalogo.concepts.find(c => c.kind === kind && c.code === code);
 const nombreReto = code => concepto('reto', code)?.name || concepto('mundo_baby', code)?.name || code || '';
 const tarea = id => catalogo.tasks.find(t => t.id === id);
 const esBabyEtapa = etapa => String(etapa || '').startsWith('baby');
 const fecha = (iso, op) => new Intl.DateTimeFormat('es-MX', { timeZone: tz, ...op }).format(new Date(iso));
-const dia = iso => fecha(iso, { weekday: 'short', day: 'numeric' }).replace('.', '');
+const mayus = t => t ? t[0].toLocaleUpperCase('es-MX') + t.slice(1) : t;
+const dia = iso => mayus(fecha(iso, { weekday: 'short', day: 'numeric' }).replace('.', ''));
 const hora = iso => fecha(iso, { hour: '2-digit', minute: '2-digit', hour12: false });
 const masDias = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const rangoSemana = ymd => {
@@ -117,7 +118,7 @@ function pintaSesiones() {
       <span class="fm-ses-txt"><b>${esc(s.category)}</b><small>${esc(hora(s.startsAt))}–${esc(hora(s.endsAt))}${reto ? ` · ${esc(nombreReto(reto))}` : ''}</small></span>
       <span class="fm-pill ${lista ? 'ok' : 'pendiente'}">${lista ? 'Lista' : 'Pendiente'}</span></button>`;
   }).join('');
-  return `<section class="fm-hero ${r.completa ? 'completa' : ''}"><span>PRÓXIMA SEMANA · ${esc(rangoSemana(d.weekStart))}</span>
+  return `${pintaHoy()}<section class="fm-hero ${r.completa ? 'completa' : ''}"><span>PRÓXIMA SEMANA · ${esc(rangoSemana(d.weekStart))}</span>
       <h1>${r.total ? (r.completa ? 'Próxima semana — lista' : `${r.total} ${r.total === 1 ? 'sesión' : 'sesiones'} · ${r.listas} ${r.listas === 1 ? 'lista' : 'listas'} · ${r.pendientes} ${r.pendientes === 1 ? 'pendiente' : 'pendientes'}`) : 'Sin sesiones esa semana'}</h1>
       <p>Corte: ${esc(fecha(d.deadline, { weekday: 'long', day: 'numeric', month: 'short' }))} a las ${esc(hora(d.deadline))}.</p>
       ${r.pendientes ? '<button type="button" id="fmTerminar" class="fm-cta">Terminar planeación</button>' : ''}</section>
@@ -192,6 +193,69 @@ function hojaSesion(s) {
   $('fmConfirmar').onclick = () => guarda(true);
 }
 
+/* ---------- HOY · Modo Cancha · Cierre ----------
+   "El profe debe entender qué enseñar hoy en menos de 10 segundos" y cerrar
+   en menos de 20. Modo Cancha: tarea, tiempo, DILE y 2–3 OBSERVA, Siguiente.
+   Cierre: ¿Apareció lo que buscábamos? Sí / A veces / Todavía no. */
+const CIERRE = { si: 'Sí', a_veces: 'A veces', todavia_no: 'Todavía no' };
+function pintaHoy() {
+  const hoy = (dataHoy?.sessions || []);
+  if (!hoy.length) return '';
+  return hoy.map(s => {
+    const reto = s.plan?.challenge || s.week?.primary, busca = s.week?.behavior || s.plan?.objective;
+    const frase = (s.plan?.items || []).map(i => tarea(i.taskId)).find(t => t?.dile?.length)?.dile[0];
+    return `<button type="button" class="fm-hoy${s.closure ? ' cerrada' : ''}" data-hoy="${esc(s.sessionId)}">
+      <span class="fm-hoy-eti">HOY · ${esc(s.category)} · ${esc(hora(s.startsAt))}</span>
+      <b>${reto ? `${esBabyEtapa(s.stage) ? 'MUNDO' : 'RETO'}: ${esc(nombreReto(reto))}` : 'Sin Reto'}</b>
+      ${busca ? `<span>Hoy buscamos: ${esc(busca)}</span>` : ''}${frase ? `<span class="fm-hoy-frase">“${esc(frase)}”</span>` : ''}
+      <span class="fm-hoy-cta">${s.closure ? `Cerrada · ${esc(CIERRE[s.closure])}` : s.plan ? 'Ver mi sesión' : 'Sin plan · Cerrar al terminar'}</span></button>`;
+  }).join('');
+}
+let reloj = null, wakeLock = null;
+async function modoCancha(s) {
+  const pasos = (s.plan?.items || []).map(i => ({ ...i, t: tarea(i.taskId) }));
+  let paso = 0, inicio = Date.now();
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { wakeLock = null; }
+  const observables = t => String(t?.observa || '').split(/,\s*|\s+y\s+/).map(x => mayus(x.trim())).filter(Boolean).slice(0, 3);
+  const pinta = () => {
+    const p = pasos[paso];
+    $('fmHoja').classList.add('fm-cancha');
+    if (!p) return cierre();
+    abreHoja(`${s.category} · ${paso + 1} de ${pasos.length}`, `
+      <div class="fm-cancha-paso"><span>${esc(String(p.block || '').replace(/\d$/, '').toUpperCase() || 'TAREA')}</span>
+        <h3>${esc(p.t?.name || p.text || '')}</h3>
+        <p class="fm-reloj" id="fmReloj">0:00</p>
+        ${p.t?.dile?.length ? `<p class="fm-dile">${p.t.dile.map(f => `“${esc(f)}”`).join('<br>')}</p>` : ''}
+        ${p.t ? `<ul class="fm-observa">${observables(p.t).map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
+        ${p.t ? `<div class="fm-tarea-mas"><button type="button" data-ver="facil">Más fácil</button><button type="button" data-ver="dificil">Más difícil</button></div>
+          <p class="fm-tarea-extra hidden" data-extra="facil">${esc(p.t.easier || '')}</p><p class="fm-tarea-extra hidden" data-extra="dificil">${esc(p.t.harder || '')}</p>` : ''}
+      </div>`,
+      `${paso ? '<button type="button" class="secondary" id="fmAtras">Atrás</button>' : '<a class="secondary fm-btn-link" href="/asistencia/">Pasar lista</a>'}<button type="button" class="primary" id="fmSiguiente">${paso === pasos.length - 1 ? 'Terminar' : 'Siguiente'}</button>`);
+    inicio = Date.now(); clearInterval(reloj);
+    reloj = setInterval(() => { const sgs = Math.floor((Date.now() - inicio) / 1000), r = $('fmReloj'); if (r) r.textContent = `${Math.floor(sgs / 60)}:${String(sgs % 60).padStart(2, '0')}`; }, 1000);
+    $('fmHojaCuerpo').onclick = e => { const v = e.target.closest('[data-ver]'); if (v) $('fmHojaCuerpo').querySelector(`[data-extra="${v.dataset.ver}"]`).classList.toggle('hidden'); };
+    $('fmSiguiente').onclick = () => { paso++; pinta(); };
+    if ($('fmAtras')) $('fmAtras').onclick = () => { paso--; pinta(); };
+  };
+  const cierre = () => {
+    clearInterval(reloj);
+    const busca = s.week?.behavior || s.plan?.objective || (s.plan?.challenge ? nombreReto(s.plan.challenge) : 'lo que trabajamos');
+    abreHoja(`${s.category} · Cierre`, `<div class="fm-cierre"><p>¿Apareció lo que buscábamos?</p><b>${esc(busca)}</b>
+        <div class="fm-cierre-ops">${Object.entries(CIERRE).map(([k, l]) => `<button type="button" data-cierre="${k}" class="${s.closure === k ? 'activa' : ''}">${l}</button>`).join('')}</div>
+        <label class="fm-campo">Nota (opcional)<input id="fmNota" maxlength="200" value="${esc(s.closureNote || '')}" placeholder="Algo que quieras recordar"></label>
+        <p id="fmFalta" class="fm-falta"></p></div>`, '');
+    $('fmHojaCuerpo').onclick = async e => {
+      const b = e.target.closest('[data-cierre]'); if (!b) return;
+      $('fmHojaCuerpo').querySelectorAll('[data-cierre]').forEach(x => { x.disabled = true; });
+      try {
+        await rpc('v2_close_session', { organization_id: org, session_id: s.sessionId, closure: b.dataset.cierre, note: $('fmNota').value.trim() || null });
+        cierraHoja(); aviso('Sesión cerrada. ¡Gracias, profe!'); await carga();
+      } catch (err) { $('fmFalta').textContent = errorDe(err); $('fmHojaCuerpo').querySelectorAll('[data-cierre]').forEach(x => { x.disabled = false; }); }
+    };
+  };
+  pinta();
+}
+
 /* ---------- Banco ---------- */
 function pintaBanco() {
   const grupos = [...catalogo.concepts.filter(c => c.kind === 'reto'), ...catalogo.concepts.filter(c => c.kind === 'mundo_baby').map(c => ({ ...c, baby: true }))];
@@ -213,7 +277,7 @@ function pintaBanco() {
 
 /* ---------- Hoja inferior ---------- */
 function abreHoja(titulo, cuerpo, pie) { $('fmHojaTitulo').textContent = titulo; $('fmHojaCuerpo').innerHTML = cuerpo; $('fmHojaPie').innerHTML = pie || ''; $('fmHoja').classList.remove('hidden'); document.body.classList.add('fm-sin-scroll'); }
-function cierraHoja() { $('fmHoja').classList.add('hidden'); $('fmHojaCuerpo').onclick = null; document.body.classList.remove('fm-sin-scroll'); }
+function cierraHoja() { clearInterval(reloj); try { wakeLock?.release(); } catch {} wakeLock = null; $('fmHoja').classList.remove('fm-cancha'); $('fmHoja').classList.add('hidden'); $('fmHojaCuerpo').onclick = null; document.body.classList.remove('fm-sin-scroll'); }
 $('fmHoja').addEventListener('click', e => { if (e.target.id === 'fmHoja' || e.target.closest('[data-cerrar]')) cierraHoja(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cierraHoja(); });
 
@@ -227,6 +291,7 @@ function pinta() {
 $('fmVista').addEventListener('click', e => {
   const cat = e.target.closest('[data-cat]'); if (cat) { hojaReto(dataDir.categories.find(c => c.categoryId === cat.dataset.cat)); return; }
   if (e.target.closest('#fmPublicar')) { publica(); return; }
+  const hoy = e.target.closest('[data-hoy]'); if (hoy) { modoCancha(dataHoy.sessions.find(s => s.sessionId === hoy.dataset.hoy)); return; }
   const ses = e.target.closest('[data-ses]'); if (ses) { hojaSesion(dataMia.sessions.find(s => s.sessionId === ses.dataset.ses)); return; }
   if (e.target.closest('#fmTerminar')) { const p = dataMia.sessions.find(s => s.plan?.status !== 'ready'); if (p) hojaSesion(p); return; }
   const f = e.target.closest('[data-filtro]'); if (f) { filtroBanco = f.dataset.filtro; pinta(); return; }
@@ -235,11 +300,12 @@ $('fmVista').addEventListener('click', e => {
 
 async function carga() {
   try {
-    const [mia, dir] = await Promise.all([
+    const [mia, dir, hoy] = await Promise.all([
       rpc('v2_my_planning', { organization_id: org, week_start: semana }),
-      esDireccion ? rpc('v2_direction_week', { organization_id: org, week_start: semana }) : Promise.resolve(null)
+      esDireccion ? rpc('v2_direction_week', { organization_id: org, week_start: semana }) : Promise.resolve(null),
+      rpc('v2_my_today', { organization_id: org }).catch(() => null)
     ]);
-    dataMia = mia; dataDir = dir; tz = mia?.settings?.tz || tz; semana = mia?.weekStart || semana;
+    dataMia = mia; dataDir = dir; dataHoy = hoy; tz = mia?.settings?.tz || tz; semana = mia?.weekStart || semana;
     const r = resumenSemana(mia?.sessions || []);
     setShellHealth(esDireccion
       ? { state: (dir?.categories || []).every(c => c.week?.status === 'published') ? 'ok' : 'attention', label: 'Semana Tanner' }

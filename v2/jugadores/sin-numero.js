@@ -12,7 +12,8 @@
  */
 import { elegirDorsal, tableroDorsales, libresDe, pintaChipsDorsal, estilos } from '/v2/dorsal.js';
 
-const ORDEN = ['Mini Baby Tanner', 'Baby Tanner', 'T8', 'T10', 'T12'];
+// Categorías 2026-27 (12/10/2026); Mini Baby y T8 quedan para jugadores inactivos.
+const ORDEN = ['Baby Tanner', 'T6', 'T10', 'T12', 'Mini Baby Tanner', 'T8'];
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const nombre = p => [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || 'Sin nombre';
 const iniciales = p => nombre(p).split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase();

@@ -72,9 +72,12 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   const p = await abre('/trabaja/');
   await p.waitForSelector('#tjForm', { timeout: 6000 });
   if (process.env.QA_CAPTURA) await p.screenshot({ path: process.env.QA_CAPTURA, fullPage: true });
+  if (process.env.QA_CAPTURA) await p.screenshot({ path: process.env.QA_CAPTURA.replace('.png', '-portada.png') });
   const conv = await p.innerText('.tj-convocatoria');
   revisa('[convocatoria] puestos, requisitos y qué ofrece', /Formador Baby Tanners/.test(conv) && /Mayor de edad/.test(conv) && /Contrato de 1 año/.test(conv), conv);
-  revisa('[convocatoria] el nombre del club arriba', (await p.textContent('#clubName')) === 'TANNERY CITY FC');
+  revisa('[convocatoria] el club y su escudo arriba', /Tannery City FC/.test(await p.textContent('.un-club')) && !!(await p.$('.un-escudo img[src="/brand/crest-gold.png"]')));
+  revisa('[convocatoria] lo que ofrece, una tarjeta por cosa', (await p.$$('.un-ofrece li')).length === 6, String((await p.$$('.un-ofrece li')).length));
+  revisa('[convocatoria] el botón lleva a la ficha', (await p.getAttribute('.un-hero .un-cta', 'href')) === '#ficha');
   await p.click('#tjEnviar');
   revisa('[validación] sin lo mínimo no se manda y dice qué falta', /nombre completo/.test(await p.textContent('#formMessage')) && /al menos un puesto/.test(await p.textContent('#formMessage')) && (await llamadas(p, 'v2_public_apply_staff')).length === 0);
   await p.fill('#tjNombre', '  Ana   Ruiz Soto '); await p.fill('#tjTel', '477 111 2233'); await p.fill('#tjEdad', '22');
@@ -94,6 +97,9 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   revisa('[CV] se sube a la ruta de su postulación, sin pisar', sube?.ruta === `organizations/${ORG}/staff/0a0a0a0a-1111-4222-8333-444455556666/cv.pdf` && sube.tipo === 'application/pdf' && !sube.upsert, JSON.stringify(sube));
   revisa('[CV] y se liga con su nombre', liga?.cv_path === sube?.ruta && liga.cv_name === 'CV Ana.pdf', JSON.stringify(liga));
   const ok = await p.innerText('.success');
+  if (process.env.QA_CAPTURA) { await p.waitForTimeout(700); await p.screenshot({ path: process.env.QA_CAPTURA.replace('.png', '-final.png'), fullPage: true }); }
+  revisa('[fin] credencial de solicitud con su posición', /Solicitud de fichaje/i.test(ok) && /Formador Baby Tanners/i.test(ok) && /#WeAreTanners/i.test(ok), ok);
+  revisa('[fin] invita a compartir la convocatoria', /^https:\/\/wa\.me\/\?text=.*unete%3Fclub%3Dtannery-city-fc/.test(await p.getAttribute('.un-comparte', 'href')));
   revisa('[fin] gracias con su nombre y folio', /Gracias, Ana/.test(ok) && /ST-2026-0003/.test(ok) && /4771112233/.test(ok), ok);
   revisa('[sin desborde] /trabaja/ cabe a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
   await p.close();
@@ -110,9 +116,11 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   const p = await abre('/v2/candidatos/');
   await p.waitForSelector('.cand', { timeout: 6000 });
   revisa('[lista] arranca en activas: sólo la nueva', (await p.$$('.cand')).length === 1 && /Ana Ruiz Soto/.test(await p.textContent('.cand')));
-  revisa('[lista] los conteos por estado', (await p.innerText('#candKpis')).replace(/\s+/g, ' ').includes('1 Nueva'));
+  revisa('[lista] los conteos por estado', /1\s*Nueva/i.test(await p.innerText('#candKpis')), await p.innerText('#candKpis'));
+  revisa('[liga] el QR del flyer se dibuja', await p.$eval('#candQr', c => c.width === 264 && !c.classList.contains('hidden')));
+  if (process.env.QA_CAPTURA) await p.screenshot({ path: process.env.QA_CAPTURA.replace('.png', '-candidatos.png'), fullPage: true });
   revisa('[liga] la liga para el flyer es la del club', /\/unete\?club=tannery-city-fc$/.test(await p.textContent('#candLiga')));
-  const wa = await p.getAttribute('.cand a.primary', 'href');
+  const wa = await p.getAttribute('.cand a.cand-wa', 'href');
   revisa('[WhatsApp] con lada y el mensaje armado', /^https:\/\/wa\.me\/524771112233\?text=/.test(wa) && /Hola Ana, te escribimos de Tannery City FC/.test(decodeURIComponent(wa)) && /ST-2026-0002/.test(decodeURIComponent(wa)), wa);
   const [popup] = await Promise.all([p.waitForEvent('popup', { timeout: 5000 }).catch(() => null), p.click('[data-cv]')]);
   await popup?.waitForURL(u => !String(u).startsWith('about:'), { timeout: 5000 }).catch(() => {});

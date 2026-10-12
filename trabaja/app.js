@@ -42,37 +42,81 @@ export function postulacionDelFormulario(f) {
 }
 export const extensionDelCv = tipo => ({ 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[tipo] || null);
 
+// Los "puestos" pueden traer la edad entre paréntesis: se separa para la tarjeta.
+export function partePuesto(p) {
+  const m = String(p || '').match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  return m ? { nombre: m[1], detalle: m[2] } : { nombre: String(p || ''), detalle: '' };
+}
+// "Contrato · bonos · uniformes" → una tarjeta por cosa.
+export const listaDeOferta = t => String(t || '').split(/\s*[·•\n]\s*/).map(x => x.trim()).filter(Boolean);
+
+let club = { nombre: '', slug: '', tannery: false, colores: {} };
+const iniciales = n => String(n || '').split(/\s+/).filter(w => w.length > 2).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'FC';
+const escudo = () => club.tannery ? '<img src="/brand/crest-gold.png" alt="">' : `<span class="un-iniciales">${esc(iniciales(club.nombre))}</span>`;
+const hashtag = () => club.tannery ? '#WeAreTanners' : esc(club.nombre);
+
 function pinta(c) {
-  $('clubName').textContent = String(c.club || '').toUpperCase();
   document.title = `Únete al staff · ${c.club}`;
-  if (!c.open) { show(`<div class="empty-state"><h2>Por ahora no hay vacantes</h2><p class="muted">${esc(c.club)} no tiene la convocatoria abierta. Vuelve pronto.</p></div>`); return; }
+  if (!c.open) {
+    show(`<header class="un-hero"><div class="un-escudo">${escudo()}</div><p class="un-club">${esc(c.club)}</p>
+      <h1 class="un-titulo">Por ahora <em>no hay vacantes</em></h1><p class="un-sub">La convocatoria de ${esc(c.club)} está cerrada. Vuelve pronto.</p></header>
+      <div class="empty-state hidden"></div>`);
+    return;
+  }
   const chips = (lista, nombre) => lista.map((x, i) => `<label class="tj-chip"><input type="checkbox" name="${nombre}" value="${esc(x)}" id="${nombre}${i}"><span>${esc(x)}</span></label>`).join('');
+  const oferta = listaDeOferta(c.offer);
   show(`
-    <div class="tj-convocatoria">
-      ${c.intro ? `<p class="tj-intro">${esc(c.intro)}</p>` : ''}
-      <div class="tj-bloque"><h3>Buscamos</h3><ul>${c.positions.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>
-      ${c.requirements?.length ? `<div class="tj-bloque"><h3>Lo que pedimos</h3><ul>${c.requirements.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
-      ${c.offer ? `<div class="tj-bloque tj-ofrece"><h3>Lo que ofrecemos</h3><p>${esc(c.offer)}</p></div>` : ''}
-    </div>
-    <h2>Postúlate en 3 minutos</h2><p class="muted">Sube tu CV aquí mismo. Te escribimos por WhatsApp para la entrevista.</p>
-    <form id="tjForm" class="form-grid" novalidate>
-      <label class="span-2">Nombre completo *<input id="tjNombre" maxlength="120" autocomplete="name" required></label>
-      <label>WhatsApp *<input id="tjTel" inputmode="tel" maxlength="20" placeholder="477 123 4567" autocomplete="tel" required></label>
-      <label>Correo<input id="tjCorreo" type="email" maxlength="254" autocomplete="email"></label>
-      <label>Edad<input id="tjEdad" type="number" min="16" max="80" inputmode="numeric"></label>
-      <label>Colonia o ciudad<input id="tjCiudad" maxlength="80"></label>
-      <fieldset class="span-2 tj-grupo"><legend>¿Qué puesto te interesa? *</legend><div class="tj-chips">${chips(c.positions, 'tjPuesto')}</div></fieldset>
-      <label>Experiencia con niños<select id="tjExp"><option value="">Elige…</option>${EXPERIENCIA.map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
-      <label>Licencia, curso o carrera<input id="tjEstudios" maxlength="300" placeholder="Ej. Licencia C, Ciencias del Deporte"></label>
-      <fieldset class="span-2 tj-grupo"><legend>¿Cuándo puedes?</legend><div class="tj-chips">${chips(DISPONIBILIDAD, 'tjDisp')}</div></fieldset>
-      <label class="span-2">Cuéntanos de ti<textarea id="tjAcerca" maxlength="1200" placeholder="Dónde has entrenado, con qué edades, por qué te interesa…"></textarea></label>
-      <label class="span-2 tj-cv">Tu CV (PDF o foto, opcional)<input id="tjCv" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"><small>Si no tienes, cuéntanos tu experiencia arriba.</small></label>
-      <label class="check span-2"><input id="tjAviso" type="checkbox"><span>Acepto que ${esc(c.club)} use mis datos para este proceso de selección, según su <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a>.</span></label>
-      <div id="formMessage" class="message hidden span-2"></div>
-      <button id="tjEnviar" class="primary span-2" type="submit">Enviar postulación</button>
-    </form>`);
+  <header class="un-hero">
+    <div class="un-escudo">${escudo()}</div>
+    <p class="un-club">${esc(c.club)}${club.tannery ? ' · León, Gto.' : ''}</p>
+    <h1 class="un-titulo">¿Quieres formar <em>campeones?</em></h1>
+    ${c.intro ? `<p class="un-sub">${esc(c.intro)}</p>` : ''}
+    <a class="un-cta" href="#ficha">Postúlate ahora</a>
+    <span class="un-cta-nota">3 minutos · Sube tu CV aquí mismo</span>
+    <p class="un-hilo">Únete al staff</p>
+  </header>
+  <main class="un-main tj-convocatoria">
+    <section class="un-sec"><p class="un-eyebrow">Convocatoria abierta</p><h2 class="un-h2">Buscamos</h2>
+      <div class="un-posiciones">${c.positions.map((p, i) => { const x = partePuesto(p); return `<article class="un-pos"><b>${String(i + 1).padStart(2, '0')}</b><span>${esc(x.nombre)}${x.detalle ? `<small>${esc(x.detalle)}</small>` : ''}</span></article>`; }).join('')}</div>
+    </section>
+    ${oferta.length ? `<section class="un-sec"><p class="un-eyebrow">Por qué ${esc(c.club)}</p><h2 class="un-h2">Lo que te ofrecemos</h2><ul class="un-ofrece">${oferta.map(o => `<li>${esc(o)}</li>`).join('')}</ul></section>` : ''}
+    ${c.requirements?.length ? `<section class="un-sec"><p class="un-eyebrow">Tu perfil</p><h2 class="un-h2">Lo que buscamos en ti</h2><ul class="un-pide">${c.requirements.map(r => `<li>${esc(r)}</li>`).join('')}</ul></section>` : ''}
+    <section class="un-sec"><p class="un-eyebrow">Así de simple</p><h2 class="un-h2">El proceso</h2>
+      <div class="un-proceso"><div class="un-paso"><b>Postúlate</b><small>3 minutos, con tu CV</small></div><div class="un-paso"><b>Te llamamos</b><small>Por WhatsApp</small></div>
+      <div class="un-paso"><b>Entrevista</b><small>Conoces el club</small></div><div class="un-paso"><b>A la cancha</b><small>Prueba con un grupo</small></div></div>
+    </section>
+    <section class="un-sec un-ficha" id="ficha"><p class="un-eyebrow">Ficha de postulación</p><h2 class="un-h2">Tu ficha</h2><p class="un-ficha-sub">Lo que pongas aquí lo lee directamente quien contrata.</p>
+    <form id="tjForm" novalidate>
+      <div class="un-bloque"><h3><i>1</i>Tus datos</h3>
+        <label class="span-2">Nombre completo *<input id="tjNombre" maxlength="120" autocomplete="name" required></label>
+        <label>WhatsApp *<input id="tjTel" inputmode="tel" maxlength="20" placeholder="477 123 4567" autocomplete="tel" required></label>
+        <label>Correo<input id="tjCorreo" type="email" maxlength="254" autocomplete="email"></label>
+        <label>Edad<input id="tjEdad" type="number" min="16" max="80" inputmode="numeric"></label>
+        <label>Colonia o ciudad<input id="tjCiudad" maxlength="80"></label>
+      </div>
+      <div class="un-bloque"><h3><i>2</i>Tu perfil</h3>
+        <fieldset class="span-2 tj-grupo"><legend>¿Qué puesto te interesa? *</legend><div class="tj-chips">${chips(c.positions, 'tjPuesto')}</div></fieldset>
+        <label>Experiencia con niños<select id="tjExp"><option value="">Elige…</option>${EXPERIENCIA.map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
+        <label>Licencia, curso o carrera<input id="tjEstudios" maxlength="300" placeholder="Ej. Licencia C, Ciencias del Deporte"></label>
+        <fieldset class="span-2 tj-grupo"><legend>¿Cuándo puedes?</legend><div class="tj-chips">${chips(DISPONIBILIDAD, 'tjDisp')}</div></fieldset>
+        <label class="span-2">Cuéntanos de ti<textarea id="tjAcerca" maxlength="1200" placeholder="Dónde has entrenado, con qué edades y por qué quieres estar aquí…"></textarea></label>
+      </div>
+      <div class="un-bloque"><h3><i>3</i>Tu CV</h3>
+        <label class="span-2 un-cv" id="tjCvCaja"><input id="tjCv" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"><span class="un-cv-icono" aria-hidden="true"></span><span><b id="tjCvTexto">Sube tu CV</b><small>PDF o foto · opcional. Si no tienes, cuéntanos arriba.</small></span></label>
+        <label class="un-check span-2"><input id="tjAviso" type="checkbox"><span>Acepto que ${esc(c.club)} use mis datos para este proceso de selección, según su <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a>.</span></label>
+        <div id="formMessage" class="message hidden span-2" role="alert"></div>
+        <button id="tjEnviar" class="un-cta un-enviar span-2" type="submit">Enviar mi ficha</button>
+      </div>
+    </form></section>
+  </main>
+  <footer class="un-pie"><b>${club.tannery ? 'Curtimos campeones del mundo' : esc(c.club)}</b>${club.tannery ? '#WeAreTanners · ' : ''}<a href="/aviso-de-privacidad/">Privacidad</a> · TannerOS</footer>`);
   propagaClub();
   $('tjForm').addEventListener('submit', envia);
+  $('tjCv').addEventListener('change', () => {
+    const f = $('tjCv').files?.[0];
+    $('tjCvTexto').textContent = f ? f.name : 'Sube tu CV';
+    $('tjCvCaja').classList.toggle('listo', !!f);
+  });
 }
 
 let orgId = null;
@@ -101,17 +145,47 @@ async function envia(e) {
       try {
         const path = await subeCv(r.applicationId, cv);
         await rpc('v2_public_attach_staff_cv', { club_key: CLUB_KEY, application_id: r.applicationId, cv_path: path, cv_name: cv.name });
-      } catch (_) { avisoCv = '<p class="muted">Tu postulación quedó, pero el CV no se pudo subir. Mándalo por WhatsApp cuando te escribamos.</p>'; }
+      } catch (_) { avisoCv = 'Tu postulación quedó, pero el CV no se pudo subir. Mándalo por WhatsApp cuando te escribamos.'; }
     }
-    show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>¡Gracias, ${esc(datos.fullName.split(' ')[0])}!</h2>
-      <p>Recibimos tu postulación. Te escribimos por WhatsApp al ${esc(datos.phone)} para los siguientes pasos.</p>${avisoCv}<div class="folio">${esc(r.folio)}</div></div>`);
+    const primerNombre = datos.fullName.split(' ')[0];
+    const liga = `${location.origin}/unete${club.slug ? `?club=${encodeURIComponent(club.slug)}` : ''}`;
+    const comparte = `https://wa.me/?text=${encodeURIComponent(`Me postulé como formador en ${club.nombre}. Si te interesa, aquí está la convocatoria: ${liga}`)}`;
+    show(`<section class="success">
+      <h1 class="un-ok-titulo">Ficha <em>recibida</em></h1>
+      <p class="un-ok-sub">Gracias, ${esc(primerNombre)}. Tu postulación ya está en manos de quien contrata en ${esc(club.nombre)}.</p>
+      <article class="un-cred">
+        <div class="un-cred-cab">${escudo()}<p>${esc(club.nombre)}</p><span class="un-cred-cinta">Solicitud de fichaje</span></div>
+        <div class="un-cred-cuerpo">
+          <div><p class="un-cred-et">Candidato</p><p class="un-cred-nombre">${esc(datos.fullName)}</p></div>
+          <div><p class="un-cred-et">Posición</p><div class="un-cred-pos">${datos.positions.map(p => `<span>${esc(partePuesto(p).nombre)}</span>`).join('')}</div></div>
+          <div class="un-cred-fila"><div><p class="un-cred-et">Folio</p><b class="folio">${esc(r.folio)}</b></div><div><p class="un-cred-et">WhatsApp</p><b>${esc(datos.phone)}</b></div></div>
+        </div>
+        <div class="un-cred-pie">${hashtag()}</div>
+      </article>
+      ${avisoCv ? `<p class="un-ok-nota">${avisoCv}</p>` : ''}
+      <div class="un-sigue"><h3>Qué sigue</h3><ol><li>Revisamos tu ficha${cv && !avisoCv ? ' y tu CV' : ''}.</li><li>Te escribimos por WhatsApp al ${esc(datos.phone)}.</li><li>Entrevista y prueba en cancha.</li></ol></div>
+      <a class="un-comparte" href="${esc(comparte)}" target="_blank" rel="noopener">¿Conoces a otro formador? Compártele la convocatoria</a>
+      <p class="un-ok-hash">${club.tannery ? 'Curtimos campeones del mundo' : ''}</p>
+    </section>`);
+    scrollTo(0, 0);
   } catch (err) { msg(err.message || 'No se pudo enviar. Intenta de nuevo.'); btn.disabled = false; btn.textContent = 'Enviar postulación'; }
 }
 
 try {
   const [convocatoria, ctx] = await Promise.all([rpc('v2_public_staff_call', { club_key: CLUB_KEY }), rpc('v2_public_context', { club_key: CLUB_KEY })]);
   orgId = ctx?.organizationId || null;
+  club = { nombre: convocatoria.club, slug: ctx?.slug || '', tannery: (ctx?.slug || '') === 'tannery-city-fc', colores: {} };
+  // Otros clubes: sus colores en lugar del azul noche y dorado de Tannery.
+  if (!club.tannery && orgId) {
+    try {
+      const b = await rpc('v2_public_branding_by_org', { organization_id: orgId });
+      const col = b?.colors || {}, raiz = document.documentElement.style, hex = v => /^#[0-9a-f]{6}$/i.test(v || '');
+      if (hex(col.primary)) raiz.setProperty('--club-1', col.primary);
+      if (hex(col.secondary)) raiz.setProperty('--club-2', col.secondary);
+      if (hex(col.accent)) raiz.setProperty('--club-acento', col.accent);
+    } catch (_) { /* sin colores: se queda la paleta de base */ }
+  }
   pinta(convocatoria);
 } catch (_) {
-  show('<div class="empty-state"><h2>No encontramos este club</h2><p class="muted">Revisa la liga que te compartieron.</p></div>');
+  show('<header class="un-hero"><h1 class="un-titulo">No encontramos <em>este club</em></h1><p class="un-sub">Revisa la liga que te compartieron.</p></header><div class="empty-state hidden"></div>');
 }

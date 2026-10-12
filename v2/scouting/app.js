@@ -62,10 +62,30 @@ async function loadPhotos(){
   const rows=await rpc('v2_scouting_photos',{organization_id:ctx.organization_id})||[];
   const byId=new Map(rows.map(x=>[x.report_id,x]));
   reports.forEach(r=>{const row=byId.get(r.id);r.photo_path=row?.photo_path||null;r.photo_thumb_path=row?.photo_thumb_path||null;r.photo_url=null;r.photo_thumb_url=null;});
-  const paths=[...new Set(reports.map(r=>r.photo_thumb_path).filter(Boolean))];
+  // Las fotos subidas antes del 28/08/2026 no tienen miniatura: para esas la
+  // lista usa la foto completa, si no se quedaban sin cara.
+  const miniatura=r=>r.photo_thumb_path||r.photo_path;
+  const paths=[...new Set(reports.map(miniatura).filter(Boolean))];
   if(!paths.length)return;
   const map=await getSignedPhotoUrls(supabase,PHOTO_BUCKET,paths);
-  reports.forEach(r=>{r.photo_thumb_url=(r.photo_thumb_path&&map[r.photo_thumb_path])||null;});
+  reports.forEach(r=>{r.photo_thumb_url=(miniatura(r)&&map[miniatura(r)])||null;});
+}
+// Repara una sola vez las fotos sin miniatura: con la foto ya firmada se hace
+// la miniatura aquí mismo, se sube junto al original y se guarda. Después la
+// lista vuelve a pedir sólo miniaturas. Sin permiso de escritura, no se toca.
+async function reparaMiniaturas(){
+  if(!canWrite)return;
+  for(const r of reports.filter(x=>x.photo_path&&!x.photo_thumb_path&&x.photo_thumb_url)){
+    try{
+      const blob=await fetch(r.photo_thumb_url).then(res=>{if(!res.ok)throw new Error('foto');return res.blob();});
+      const img=await loadImage(blob),thumb=await encodeVariant(img,THUMB_MAX_SIDE,.75,THUMB_MAX_BYTES);
+      const thumbPath=r.photo_path.replace(/\.[a-z0-9]+$/i,`-thumb.${thumb.ext}`);
+      const {error}=await supabase.storage.from(PHOTO_BUCKET).upload(thumbPath,thumb.blob,{contentType:thumb.mime,cacheControl:UPLOAD_CACHE_CONTROL,upsert:false});
+      if(error&&!/exists|duplicate/i.test(error.message||''))throw error;
+      await rpc('v2_set_scouting_photo',{organization_id:ctx.organization_id,report_id:r.id,photo_path:r.photo_path,photo_thumb_path:thumbPath});
+      r.photo_thumb_path=thumbPath;
+    }catch(_){/* Se intenta otra vez la próxima que se abra. La lista ya muestra la foto. */}
+  }
 }
 function setPhotoPreview(file){pendingPhoto=file||null;if(pendingPreviewUrl)URL.revokeObjectURL(pendingPreviewUrl);pendingPreviewUrl=file?URL.createObjectURL(file):null;const box=$('scoutPhotoPreview');box.innerHTML=pendingPreviewUrl?`<img src="${safe(pendingPreviewUrl)}" alt="Vista previa del jugador">`:'<span class="tos-icon tos-icon-camera" aria-hidden="true"></span><strong>Agregar foto</strong><small>Cámara o galería</small>';}
 async function renderDetailPhoto(r){const box=$('detailPhoto');if(!box)return;if(!r.photo_url&&r.photo_path){try{r.photo_url=await getSignedPhotoUrl(supabase,PHOTO_BUCKET,r.photo_path);}catch{r.photo_url=null;}}box.innerHTML=r.photo_url?`<img src="${safe(r.photo_url)}" alt="Foto de ${safe(r.observed_name||'jugador')}">`:`<span>${safe(initials(r.observed_name))}</span>`;$('changeScoutPhoto').classList.toggle('hidden',!canWrite);}
@@ -95,6 +115,7 @@ async function load(){
   await loadPhotos();
   renderKpis();
   renderList();
+  reparaMiniaturas();
 }
 
 function renderKpis(){

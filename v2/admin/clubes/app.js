@@ -9,6 +9,8 @@
  *     mensualidad, cobro y dueño. El servidor crea todo en una transacción
  *     (v2_provision_club, l3) y el dueño recibe un WhatsApp para entrar.
  *   · El nombre del producto todavía no está decidido: se cambia aquí.
+ *   · Club demo para vender (y3): un club con datos de ejemplo para enseñarlo
+ *     sin tocar los de Tannery. No cuenta en clubes, jugadores ni ingreso.
  *
  * Sólo el administrador de plataforma entra (v2_am_i_platform_admin).
  */
@@ -45,12 +47,13 @@ async function carga() {
 
 function pinta() {
   const t = tablero, clubes = t.clubs || [];
+  const reales = clubes.filter(c => !c.demo);
   $('pfProducto').textContent = t.product?.name || 'TannerOS';
   $('pfLema').textContent = t.product?.tagline || '';
-  $('kClubes').textContent = clubes.length;
-  $('kJugadores').textContent = clubes.reduce((s, c) => s + Number(c.players || 0), 0);
-  $('kIngreso').textContent = dinero(ingresoMensual(clubes, t.plans));
-  $('kPendientes').textContent = clubes.filter(c => c.ownerPending).length;
+  $('kClubes').textContent = reales.length;
+  $('kJugadores').textContent = reales.reduce((s, c) => s + Number(c.players || 0), 0);
+  $('kIngreso').textContent = dinero(ingresoMensual(reales, t.plans));
+  $('kPendientes').textContent = reales.filter(c => c.ownerPending).length;
   const planDe = new Map((t.plans || []).map(pl => [pl.code, pl]));
   $('pfClubes').innerHTML = clubes.map(c => {
     const p = c.colors?.primary || '#012A3A', s = c.colors?.secondary || '#087D8E';
@@ -58,9 +61,9 @@ function pinta() {
     const jugadores = uso.max == null ? `<b>${uso.activos}</b> jugadores`
       : `<b class="${uso.extra ? 'pf-extra' : uso.cerca ? 'pf-cerca' : ''}">${uso.activos}/${uso.max}</b> jugadores${uso.extra ? ` · +${uso.extra} extra (${dinero(uso.extraMxn)})` : ''}`;
     const docs = Number(c.docsPending || 0);
-    return `<article class="pf-club">
+    return `<article class="pf-club${c.demo ? ' pf-club-demo' : ''}">
       <span class="pf-escudo" style="background:linear-gradient(150deg,${esc(p)},${esc(s)})">${esc(iniciales(c.name))}</span>
-      <div class="pf-club-txt"><strong>${esc(c.name)}</strong><small>${esc([c.city, `/${c.slug}`].filter(Boolean).join(' · '))}</small>
+      <div class="pf-club-txt"><strong>${esc(c.name)}${c.demo ? '<em class="pf-demo">Demo</em>' : ''}</strong><small>${esc([c.city, `/${c.slug}`].filter(Boolean).join(' · '))}</small>
         <span class="pf-club-datos">${jugadores} · <b>${Number(c.users || 0)}</b> usuarios · <b>${Number(c.categories || 0)}</b> categorías</span>
         ${docs ? `<span class="pf-pend">${docs === 1 ? '1 documento' : `${docs} documentos`} por completar (domicilio y contacto del aviso de privacidad)</span>` : ''}
         ${c.ownerPending ? `<span class="pf-pend">Dueño sin entrar: ${esc(c.ownerPending)}</span>` : `<span class="pf-act">${esc(cuando(c.lastActivity))}</span>`}
@@ -72,7 +75,7 @@ function pinta() {
     <strong>${esc(p.name)}</strong><b>${dinero(p.priceMxn)}<small>/mes</small></b>
     <span>${p.maxPlayers ? `Hasta ${Number(p.maxPlayers)} jugadores` : 'Jugadores ilimitados'} · ${Number(p.modules)} módulos</span>
     <p>${esc(p.description || '')}</p></article>`).join('');
-  setShellHealth({ state: 'ok', label: `${clubes.length} club${clubes.length === 1 ? '' : 'es'}` });
+  setShellHealth({ state: 'ok', label: `${reales.length} club${reales.length === 1 ? '' : 'es'}` });
 }
 
 // === Nombre del producto ===
@@ -86,6 +89,23 @@ $('pfRenombrar').addEventListener('click', async () => {
     tablero = await rpc('v2_platform_board'); pinta();
     msg('pfMensaje', `El producto ahora se llama ${tablero.product?.name}.`, 'success');
   } catch (e) { msg('pfMensaje', amable(e)); }
+});
+
+// === Club demo para vender ===
+const correoValido = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+$('pfDemo').addEventListener('click', async () => {
+  const correo = window.prompt('¿Con qué correo entras a la demo? Quedarás como dueño del club demo.', '');
+  if (correo === null) return;
+  const limpio = correo.trim().toLowerCase();
+  if (!correoValido(limpio)) { msg('pfMensaje', 'Escribe un correo válido.'); return; }
+  const btn = $('pfDemo'); btn.disabled = true; btn.textContent = 'Creando demo…';
+  try {
+    const r = await rpc('v2_create_demo_club', { owner_email: limpio });
+    tablero = await rpc('v2_platform_board'); pinta();
+    const n = r?.datos?.jugadores;
+    msg('pfMensaje', `Listo: ${r.name}${n ? ` con ${n} jugadores de ejemplo` : ''}. Entra con ${limpio} en ${location.origin}/?club=${r.slug}`, 'success');
+  } catch (e) { msg('pfMensaje', amable(e)); }
+  finally { btn.disabled = false; btn.textContent = 'Crear demo'; }
 });
 
 // === Alta en 5 pasos ===

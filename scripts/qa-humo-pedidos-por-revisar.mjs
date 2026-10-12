@@ -20,6 +20,8 @@
  *   8. Un pedido ya revisado no muestra la sección.
  *   9. (D) El número pedido se revisa: si es de otro niño se dice en rojo; si
  *      está libre y el Tanner no tiene, se le asigna en un toque.
+ *  11. Un pedido sin niño sugiere de quién es (teléfono del tutor, nombre
+ *      del jersey) y se liga en un toque; también se puede buscar.
  *  10. El link ofrece "¿Ya eres familia Tanner? Entrar" hacia la tienda del
  *      portal; quien no tiene cuenta compra ahí mismo.
  *
@@ -90,7 +92,7 @@ const CLIENTE = (pagoFalla) => `
   const DET=${JSON.stringify(Object.fromEntries(PEDIDOS.map(o => [o.id, detalle(o.id)])))};
   window.__rpc=[]; window.__abiertas=[];
   window.open=(u)=>{window.__abiertas.push(u);return null;};
-  let revisados=new Set(),asignados=new Set();
+  let revisados=new Set(),asignados=new Set(),ligado=null;
   export function createClient(){return{
     auth:{getSession:async()=>({data:{session:{user:{id:'u1'},access_token:'x'}}}),
       onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
@@ -114,6 +116,10 @@ const CLIENTE = (pagoFalla) => `
           {itemId:'i1',numero:'7',nivel:'ok',playerId:'t1',asignable:true,texto:'El #7 está libre en T10 y Leo aún no tiene número.'},
           {itemId:'i2',numero:'14',nivel:'mal',playerId:'t1',texto:'El #14 ya es de Erick García en T10. Pídele a la familia otro número.'}]});
       if(n==='v2_assign_jersey'){asignados.add(p.player_id);return ok({changed:true});}
+      if(n==='v2_order_player'){const L={t1:{id:'t1',name:'Leo Ávila',category:'T10'},t9:{id:'t9',name:'Leonardo Ruiz',category:'T6'}};
+        if(p.query)return ok({linked:ligado?L[ligado]:null,canWrite:true,suggestions:[L.t9]});
+        return ok({linked:ligado?L[ligado]:null,canWrite:true,suggestions:ligado?[]:[{...L.t1,reason:'mismo teléfono que su tutor · nombre del jersey'}]});}
+      if(n==='v2_link_order_player'){ligado=p.player_id;return ok(null);}
       return ok(null);}};}`;
 
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
@@ -204,6 +210,19 @@ async function pideCalcetas(pg) {
   await pg.waitForFunction(() => /es el número de Leo/.test(document.querySelector('#reviewNumeros')?.innerText || ''), null, { timeout:4000 }).catch(() => {});
   const asig = await pg.evaluate(() => window.__rpc.filter(c => c.n === 'v2_assign_jersey').map(c => [c.p.player_id, c.p.number]));
   revisa('9. un toque lo asigna y se vuelve a revisar', JSON.stringify(asig) === '[["t1","7"]]' && /#7 es el número de Leo/.test(await pg.innerText('#reviewNumeros')), JSON.stringify(asig));
+  // 11. ¿De qué niño es? La tienda pública no pide cuenta.
+  await pg.waitForSelector('#orderPlayer .op-sugerencias li', { timeout:4000 }).catch(() => {});
+  revisa('11. sin niño ligado lo dice y sugiere por teléfono y jersey', /Sin niño ligado/.test(await pg.innerText('#orderPlayer'))
+    && /Leo Ávila/.test(await pg.innerText('#orderPlayer')) && /mismo teléfono/.test(await pg.innerText('#orderPlayer')), await pg.innerText('#orderPlayer').catch(() => ''));
+  await pg.fill('#orderPlayer .op-buscar', 'Leon');
+  await pg.waitForFunction(() => /Leonardo Ruiz/.test(document.querySelector('#orderPlayer')?.innerText || ''), null, { timeout:4000 }).catch(() => {});
+  revisa('11. se puede buscar a otro niño', /Leonardo Ruiz/.test(await pg.innerText('#orderPlayer')));
+  await pg.fill('#orderPlayer .op-buscar', '');
+  await pg.waitForFunction(() => /Leo Ávila/.test(document.querySelector('#orderPlayer')?.innerText || ''), null, { timeout:4000 }).catch(() => {});
+  await pg.click('#orderPlayer [data-liga="t1"]');
+  await pg.waitForFunction(() => /Para Leo Ávila/.test(document.querySelector('#orderPlayer')?.innerText || ''), null, { timeout:4000 }).catch(() => {});
+  const liga = await pg.evaluate(() => window.__rpc.filter(c => c.n === 'v2_link_order_player').map(c => [c.p.order_id, c.p.player_id]));
+  revisa('11. un toque lo liga y queda "Para Leo Ávila · T10"', JSON.stringify(liga) === '[["o-nuevo","t1"]]' && /Para Leo Ávila · T10/.test(await pg.innerText('#orderPlayer')), JSON.stringify(liga));
   await pg.click('#confirmWhatsApp');
   await pg.waitForTimeout(500);
   const abiertas = await pg.evaluate(() => window.__abiertas);

@@ -35,3 +35,15 @@
 .review-num.ok{background:#eaf6ee;color:#1e6b3c}
 .review-num.atencion{background:#fbf3e2;color:#8a6413}
 .review-num.mal{background:#fdecea;color:#a92a21}
+/* ¿De qué niño es el pedido? */
+.order-player{margin-top:12px;display:grid;gap:8px}
+.op-ligado{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#ddf5e5;color:#0b5e30;border-radius:12px;padding:10px 12px;font-size:14px}
+.op-sin{display:grid;gap:2px;background:#fff2ce;color:#6b4f07;border-radius:12px;padding:10px 12px;font-size:13px}
+.op-sin b{font-size:14px}
+.op-sugerencias{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.op-sugerencias li{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--tos-line,#dfe3e3);border-radius:12px;padding:8px 10px}
+.op-sugerencias li span{display:grid;min-width:0}
+.op-sugerencias small{color:#6f7c81;font-size:12px}
+.op-buscar{min-height:42px;border:1.5px solid var(--tos-line,#dfe3e3);border-radius:12px;padding:0 12px;font:inherit;font-size:16px;width:100%;box-sizing:border-box}
+.op-link{border:0;background:transparent;color:#1d6b80;font:inherit;font-weight:800;cursor:pointer}
+.op-cambio{display:grid;gap:6px}

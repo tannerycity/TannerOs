@@ -37,11 +37,11 @@ async function abre(ruta, opts = {}) {
     window.__llamadas = [];
     const apps = [
       { id: 'a1', folio: 'ST-2026-0002', fullName: 'Ana Ruiz Soto', phone: '4771112233', age: 22, city: 'León', positions: ['Formador Baby Tanners (3–6 años)'], experience: '1 a 2 años', studies: 'Ciencias del Deporte', availability: ['Lunes a jueves por la tarde'], about: 'Entrené en escuela de fútbol.', cvPath: `organizations/${ORG}/staff/a1/cv.pdf`, status: 'nueva', notes: null, createdAt: '2026-10-12T15:00:00Z' },
-      { id: 'a2', folio: 'ST-2026-0001', fullName: 'Luis Pérez', phone: '4774445566', positions: ['Formador Tanners (T8–T15)'], availability: [], cvPath: null, status: 'contratado', notes: 'Empieza el lunes', createdAt: '2026-10-10T15:00:00Z' }];
+      { id: 'a2', folio: 'ST-2026-0001', fullName: 'Luis Pérez', phone: '4774445566', positions: ['Formador Tanners (T6–T12)'], availability: [], cvPath: null, status: 'contratado', notes: 'Empieza el lunes', createdAt: '2026-10-10T15:00:00Z' }];
     const R = {
       v2_public_context: () => ({ organizationId: ORG, organizationName: 'Tannery City FC', slug: 'tannery-city-fc' }),
-      v2_public_staff_call: () => ({ club: 'Tannery City FC', open: opts.cerrada ? false : true, intro: 'Buscamos formadores.', positions: ['Formador Baby Tanners (3–6 años)', 'Formador Tanners (T8–T15)'],
-        requirements: ['Experiencia con niños', 'Mayor de edad'], offer: 'Contrato de 1 año mínimo · bonos · uniformes' }),
+      v2_public_staff_call: () => ({ club: 'Tannery City FC', open: opts.cerrada ? false : true, intro: 'En Tannery City formamos personas antes que futbolistas. Buscamos formadores con hambre de crecer: aquí trabajas con metodología propia, acompañamiento y un club que invierte en su staff.', positions: ['Formador Baby Tanners (3–6 años)', 'Formador Tanners (T6–T12)'],
+        requirements: ['Experiencia con niños', 'Licencia o curso de entrenador', 'Estudiante o egresado de Ciencias del Deporte', 'Disponibilidad lunes a jueves por la tarde', 'Disponibilidad sábados (partidos)', 'Mayor de edad'], offer: 'Contrato de 1 año mínimo · Bonos por desempeño · Uniformes oficiales · Capacitación en la Metodología Tannery · Capacitaciones externas · Crecimiento dentro del club' }),
       v2_public_apply_staff: () => ({ applicationId: '0a0a0a0a-1111-4222-8333-444455556666', folio: 'ST-2026-0003' }),
       v2_public_attach_staff_cv: () => true,
       v2_my_context: () => [{ user_id: 'u1', display_name: 'Mich', organization_id: ORG, organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: opts.rol || 'Presidencia', is_owner: true }],
@@ -111,7 +111,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.waitForSelector('.cand', { timeout: 6000 });
   revisa('[lista] arranca en activas: sólo la nueva', (await p.$$('.cand')).length === 1 && /Ana Ruiz Soto/.test(await p.textContent('.cand')));
   revisa('[lista] los conteos por estado', (await p.innerText('#candKpis')).replace(/\s+/g, ' ').includes('1 Nueva'));
-  revisa('[liga] la liga para el flyer es la del club', /\/trabaja\/\?club=tannery-city-fc$/.test(await p.textContent('#candLiga')));
+  revisa('[liga] la liga para el flyer es la del club', /\/unete\?club=tannery-city-fc$/.test(await p.textContent('#candLiga')));
   const wa = await p.getAttribute('.cand a.primary', 'href');
   revisa('[WhatsApp] con lada y el mensaje armado', /^https:\/\/wa\.me\/524771112233\?text=/.test(wa) && /Hola Ana, te escribimos de Tannery City FC/.test(decodeURIComponent(wa)) && /ST-2026-0002/.test(decodeURIComponent(wa)), wa);
   const [popup] = await Promise.all([p.waitForEvent('popup', { timeout: 5000 }).catch(() => null), p.click('[data-cv]')]);
@@ -139,6 +139,12 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   for (let i = errores.length - 1; i >= 0; i--) if (errores[i] === 'pageerror: No access') errores.splice(i, 1);
   revisa('[acceso] sin Usuarios ni Dirección deportiva no entra', !(await p.$('.cand')) && !/candidatos/.test(new URL(p.url()).pathname), p.url());
   await p.close();
+}
+
+{ // La liga corta del flyer
+  const v = JSON.parse(fs.readFileSync(path.join(RAIZ, 'vercel.json'), 'utf8'));
+  const r = (v.redirects || []).filter(x => /^\/unete\/?$/.test(x.source));
+  revisa('[liga] /unete y /unete/ llevan a /trabaja/', r.length === 2 && r.every(x => x.destination === '/trabaja/'), JSON.stringify(r));
 }
 
 await nav.close(); srv.close();

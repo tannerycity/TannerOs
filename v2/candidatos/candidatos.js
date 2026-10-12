@@ -48,7 +48,8 @@ export const MENSAJES = {
   contacto: (c, club) => `Hola ${nombre(c)}, te escribimos de ${club}. Recibimos tu postulación (${c.folio}) para ${puestos(c)}. Nos gustaría conocerte: ¿qué día y hora te queda bien para una entrevista esta semana?`,
   entrevista: (c, club, cuando) => `Hola ${nombre(c)}, quedó tu entrevista con ${club} el ${cuando}. Te esperamos. Si algo cambia, avísanos por aquí.`,
   prueba: (c, club) => `Hola ${nombre(c)}, gracias por la entrevista. Nos gustaría verte en la cancha con uno de nuestros grupos. ¿Qué día de esta semana puedes venir a una prueba?`,
-  contratado: (c, club) => `${nombre(c)}, ¡bienvenido al staff de ${club}! En breve te mandamos tu acceso a TannerOS y los detalles para empezar.`,
+  contratado: (c, club) => `${nombre(c)}, ¡bienvenido al staff de ${club}! Antes de empezar necesitamos tu carta de no antecedentes penales; mándanos una foto o PDF por aquí. En breve te mandamos tu acceso a TannerOS y los detalles para empezar.`,
+  carta: (c, club) => `Hola ${nombre(c)}, para completar tu alta en ${club} nos falta tu carta de no antecedentes penales. ¿Nos la mandas por aquí en foto o PDF? Gracias.`,
   gracias: (c, club) => `Hola ${nombre(c)}, gracias por tu interés en ${club} y por tu tiempo. Por ahora seguimos con otros perfiles, pero guardamos tus datos para próximas vacantes. ¡Mucho éxito!`
 };
 
@@ -68,8 +69,9 @@ export function siguientePaso(c) {
     case 'prueba': return { texto: '¿Cómo le fue en la cancha?', acciones: [
       { clave: 'contrata', label: 'Contratar', estado: 'contratado', mensaje: 'contratado', principal: true },
       { clave: 'descarta', label: 'No sigue', estado: 'descartado', mensaje: 'gracias' }] };
-    case 'contratado': return { texto: 'Ya es del staff. Dale su acceso a TannerOS.', acciones: [
-      { clave: 'acceso', label: 'Dar acceso a TannerOS', liga: '/usuarios/', principal: true }] };
+    case 'contratado': return { texto: 'Pídele su carta de no antecedentes penales antes de que empiece y dale su acceso a TannerOS.', acciones: [
+      { clave: 'carta', label: 'Pedirle la carta por WhatsApp', mensaje: 'carta', principal: true },
+      { clave: 'acceso', label: 'Dar acceso a TannerOS', liga: '/usuarios/' }] };
     case 'descartado': return { texto: 'No siguió en el proceso. Queda en tu banco de profes.', acciones: [
       { clave: 'reactiva', label: 'Reactivar', estado: 'revision' }] };
     default: return { texto: '', acciones: [] };

@@ -88,7 +88,10 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.click('label[for="tjPuesto0"], #tjPuesto0 + span');
   await p.click('#tjDisp0 + span');
   await p.selectOption('#tjExp', '1 a 2 años');
+  await p.click('#tjEnviar');
+  revisa('[validación] sin CV ni lo de la carta de antecedentes no se manda', /tu CV/.test(await p.textContent('#formMessage')) && /carta de no antecedentes penales/.test(await p.textContent('#formMessage')) && (await llamadas(p, 'v2_public_apply_staff')).length === 0, await p.textContent('#formMessage'));
   await p.setInputFiles('#tjCv', { name: 'CV Ana.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 hola') });
+  await p.check('#tjAntecedentes');
   await p.click('#tjEnviar');
   revisa('[validación] sin foto ni aviso no se manda', /tu foto/.test(await p.textContent('#formMessage')) && /aviso de privacidad/.test(await p.textContent('#formMessage')));
   await p.setInputFiles('#tjFoto', { name: 'ana.png', mimeType: 'image/png', buffer: PNG });
@@ -98,7 +101,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.waitForSelector('.success', { timeout: 6000 }).catch(() => {});
   const alta = (await llamadas(p, 'v2_public_apply_staff'))[0]?.application;
   revisa('[envío] datos limpios al servidor', alta?.fullName === 'Ana Ruiz Soto' && alta.phone === '4771112233' && alta.age === 22 && JSON.stringify(alta.positions) === '["Formador Baby Tanners (3–6 años)"]'
-    && JSON.stringify(alta.availability) === '["Lunes a jueves por la tarde"]' && alta.experience === '1 a 2 años' && alta.consent?.dataAccepted === true, JSON.stringify(alta));
+    && JSON.stringify(alta.availability) === '["Lunes a jueves por la tarde"]' && alta.experience === '1 a 2 años' && alta.consent?.dataAccepted === true && alta.consent?.backgroundCheck === true, JSON.stringify(alta));
   const subidas = await llamadas(p, 'upload'), sube = subidas.find(x => /\/cv\./.test(x.ruta)), liga = (await llamadas(p, 'v2_public_attach_staff_cv'))[0];
   const fotos = subidas.filter(x => /\/foto/.test(x.ruta)), ligaFoto = (await llamadas(p, 'v2_public_attach_staff_photo'))[0];
   revisa('[foto] se sube chica, en dos tamaños, a la ruta de su postulación', fotos.length === 2 && fotos.some(x => /\/0a0a0a0a-1111-4222-8333-444455556666\/foto\.(webp|jpg)$/.test(x.ruta)) && fotos.some(x => /foto-thumb\.(webp|jpg)$/.test(x.ruta)) && fotos.every(x => /^image\/(webp|jpeg)$/.test(x.tipo) && !x.upsert), JSON.stringify(fotos));
@@ -169,6 +172,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.fill('#candBuscar', '');
   await p.click('[data-filtro="contratado"]');
   revisa('[filtro] contratados muestra a Luis, sin CV y con su siguiente paso', (await p.$$('.cand')).length === 1 && /Sin CV/.test(await p.textContent('.cand')) && /Dar acceso a TannerOS/.test(await p.textContent('.cand')));
+  revisa('[contratado] lo primero es pedirle la carta de no antecedentes penales', /carta de no antecedentes penales/.test(await p.textContent('.cand .cand-paso p')) && /Pedirle la carta/.test(await p.textContent('.cand .cand-paso-btn.principal')));
   revisa('[sin desborde] /candidatos/ cabe a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
   await p.close();
 }

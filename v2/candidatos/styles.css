@@ -1,0 +1,36 @@
+.cand-page{display:grid;gap:14px}
+.cand-liga{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.cand-liga>div:first-child{display:grid;gap:2px;min-width:0}
+.cand-liga span{font-weight:800;overflow-wrap:anywhere;color:#0a3540}
+.cand-liga small{color:#6f8185}
+.cand-liga-btns{display:flex;gap:8px;flex-wrap:wrap}
+.cand-liga-btns a,.cand-liga-btns button{text-decoration:none}
+.cand-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.cand-kpis article{background:#fff;border:1px solid var(--line,#dfe7e5);border-radius:16px;padding:12px;display:grid;gap:2px}
+.cand-kpis b{font-size:26px;font-weight:950}
+.cand-kpis span{font-size:12px;font-weight:800;color:#5c7076}
+.cand-filtros{display:flex;gap:8px;flex-wrap:wrap}
+.cand-filtros button{border:1px solid #cedbd8;background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-weight:800;font-size:13px;cursor:pointer;color:#2b3d42}
+.cand-filtros button.activo{background:#07191e;border-color:#07191e;color:#fff}
+.cand-lista{display:grid;gap:10px}
+.cand{background:#fff;border:1px solid var(--line,#dfe7e5);border-radius:18px;padding:14px;display:grid;gap:8px}
+.cand header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.cand header div{display:grid;min-width:0}
+.cand header strong{font-size:16px;font-weight:900}
+.cand header small{color:#6f8185}
+.cand-estado{font-size:12px;font-weight:900;border-radius:999px;padding:4px 10px;white-space:nowrap;background:#eef2f1;color:#3e555b}
+.cand-nueva{background:#fdf2dc;color:#8a6410}.cand-revision{background:#e3eef6;color:#1d4a6b}.cand-entrevista{background:#efe6fb;color:#5a2e91}
+.cand-contratado{background:#e4f6e9;color:#11773c}.cand-descartado{background:#f3eeee;color:#7a5a55}
+.cand-puestos{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.cand-puestos span{background:#f4f7f6;border-radius:999px;padding:4px 10px;font-size:12.5px;font-weight:800}
+.cand-datos{margin:0;font-size:14px;color:#2b3d42}
+.cand details summary{cursor:pointer;font-weight:800;font-size:14px}
+.cand details p{margin:6px 0 0;white-space:pre-wrap;line-height:1.45}
+.cand-acciones{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cand-acciones a{text-decoration:none}
+.cand-acciones select{padding:9px 10px;border-radius:10px;border:1px solid #cedbd8;font:inherit;font-weight:700}
+.cand-sin-cv{font-size:13px;color:#8a999c;font-weight:700}
+.cand-nota{display:grid;gap:4px;font-size:12px;font-weight:800;color:#42575d}
+.cand-nota textarea{font:inherit;font-size:14px;border:1px solid #cedbd8;border-radius:10px;padding:8px 10px;resize:vertical}
+.cand-vacio{color:#6f8185;text-align:center;padding:24px 8px}
+@media(max-width:640px){.cand-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}

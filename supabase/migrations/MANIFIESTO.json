@@ -1,8 +1,8 @@
 {
-  "migraciones": 484,
-  "bytes": 2753689,
-  "huella": "93f717cc72c2bbe1b558b893f0f5db05",
+  "migraciones": 486,
+  "bytes": 2773913,
+  "huella": "655864b644330f832ca905922f2a1ff6",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261012171425_s4_indicaciones_al_registrarse.sql",
+  "ultima": "20261012175728_u4_postulaciones_aviso_a_presidencia.sql",
   "verificadoContraLaBase": "2026-10-12"
 }

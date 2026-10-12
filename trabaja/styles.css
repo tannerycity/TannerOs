@@ -1,0 +1,18 @@
+/* Trabaja con nosotros: la convocatoria arriba, el formulario abajo. */
+.tj-convocatoria{display:grid;gap:12px;margin-bottom:22px}
+.tj-intro{margin:0;font-size:16px;line-height:1.5;color:#10252b;font-weight:600}
+.tj-bloque{background:#f6f9f8;border:1px solid #dfe8e6;border-radius:16px;padding:14px 16px}
+.tj-bloque h3{margin:0 0 8px;font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.tj-bloque ul{margin:0;padding-left:18px;display:grid;gap:5px;line-height:1.45}
+.tj-bloque p{margin:0;line-height:1.5}
+.tj-ofrece{background:#fdf8ea;border-color:#efdfae}
+.tj-ofrece h3{color:#8a6410}
+.tj-grupo{border:0;margin:0;padding:0;display:grid;gap:8px}
+.tj-grupo legend{font-size:12px;font-weight:800;color:#42575d;padding:0;margin-bottom:6px}
+.tj-chips{display:flex;flex-wrap:wrap;gap:8px}
+.tj-chip{display:inline-flex;cursor:pointer}
+.tj-chip input{position:absolute;opacity:0;pointer-events:none}
+.tj-chip span{display:inline-block;padding:10px 14px;border-radius:999px;border:1px solid #cedbd8;background:#fff;font-size:14px;font-weight:700;color:#2b3d42}
+.tj-chip input:checked+span{background:#07191e;border-color:#07191e;color:#fff}
+.tj-chip input:focus-visible+span{outline:3px solid rgba(5,108,127,.35);outline-offset:2px}
+.tj-cv small{font-weight:600;color:#718388}

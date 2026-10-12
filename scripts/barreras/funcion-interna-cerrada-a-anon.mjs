@@ -24,10 +24,15 @@ export default function comprobar() {
     if (archivo.slice(0, 14) < DESDE) continue;
     const sql = fs.readFileSync(`${dir}/${archivo}`, 'utf8').replace(/--[^\n]*/g, '');
     const creadas = [...sql.matchAll(/create\s+(?:or\s+replace\s+)?function\s+public\.([a-z0-9_]+)\s*\(/gi)].map(m => m[1].toLowerCase());
+    // Un revoke puede cerrar varias funciones a la vez:
+    //   revoke all on function public.a(uuid), public.b(uuid, text) from public, anon;
+    // Cuenta cada public.<nombre>( que aparezca en la lista de uno de esos revoke.
+    const cerradas = new Set();
+    for (const m of sql.matchAll(/revoke\s+(?:all|execute)(?:\s+privileges)?\s+on\s+function\s+([^;]*?)\s+from\s+public\s*,\s*anon/gi))
+      for (const f of m[1].matchAll(/public\.([a-z0-9_]+)\s*\(/gi)) cerradas.add(f[1].toLowerCase());
     for (const nombre of new Set(creadas)) {
       if (nombre.startsWith('v2_public')) continue;
-      const cerrada = new RegExp(`revoke\\s+(?:all|execute)(?:\\s+privileges)?\\s+on\\s+function\\s+public\\.${nombre}\\s*\\([^;]*\\)\\s+from\\s+public\\s*,\\s*anon`, 'i');
-      if (!cerrada.test(sql))
+      if (!cerradas.has(nombre))
         errors.push(`Seguridad: ${archivo} crea public.${nombre} y no se la quita a public y anon. `
           + `Agrega: revoke all on function public.${nombre}(...) from public, anon;`);
     }

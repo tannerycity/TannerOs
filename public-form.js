@@ -3,6 +3,7 @@ import { llaveDeLiga, LLAVE_POR_OMISION, propagaClub } from '/v2/club-publico.js
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { renderWelcomeCard } from '/welcome-card.js';
+import { bloqueDeIndicaciones } from '/v2/indicaciones.js';
 import { puedeCompartirse, motivoSinCompartir } from '/credencial.js';
 import { encodeVariant, FULL_MAX_BYTES, THUMB_MAX_SIDE, THUMB_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
@@ -139,6 +140,7 @@ async function showRegistrationSuccess(cardData){
   const nombre=escapePublic(cardData.firstName||'tu jugador');
   const comparte=puedeCompartirse(cardData);
   show(`<div class="success"><div class="success-mark"><span class="tos-icon tos-icon-check" aria-hidden="true"></span></div><h2>¡Bienvenido a la familia Tanner!</h2><p>Tu registro y tu foto quedaron guardados de forma segura. Administración de ${escapePublic(CLUB())} se pondrá en contacto contigo.</p>
+    ${bloqueDeIndicaciones(publicContext?.registrationNotes)}
     <div class="wc-wrap">
       <p id="wcStatus" class="wc-status">Generando tu credencial…</p>
       <div id="wcPreview" class="wc-preview hidden"><img id="wcImage" alt="Credencial Tanner de ${nombre}"></div>

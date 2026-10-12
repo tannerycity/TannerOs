@@ -549,5 +549,16 @@ export function renderShell({ctx,navigation,active='inicio',title='Inicio',searc
   renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'el club';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
   if(ctx){ensureBellMarkup();wireBell(ctx,navigation);ensureQuickFab(ctx,navigation);}
 }
-export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});return {ctx,navigation,map:navigationMap(navigation)};}
+// Solo lectura (j4–n4): el club debe su mensualidad o es una demo. La base ya
+// no deja guardar; aquí sólo se avisa arriba de cada pantalla, sin esperar.
+const SOLO_LECTURA={pago:'Tu club está en solo lectura por un pago pendiente de la mensualidad. Puedes ver todo; para guardar cambios, que Presidencia registre el pago.',demo:'Estás en una demo: puedes ver todo, pero los cambios no se guardan.'};
+export function avisoSoloLectura(organizationId){
+  rpc('v2_my_access_mode',{organization_id:organizationId}).then(m=>{
+    if(m?.mode!=='solo_lectura'||document.getElementById('tosSoloLectura'))return;
+    const main=document.querySelector('.tos-content');if(!main)return;
+    const d=document.createElement('div');d.id='tosSoloLectura';d.className='tos-solo-lectura';d.dataset.reason=m.reason||'';d.setAttribute('role','status');
+    d.textContent=SOLO_LECTURA[m.reason]||SOLO_LECTURA.pago;main.prepend(d);
+  }).catch(()=>{});
+}
+export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

@@ -111,3 +111,17 @@
 /* Uso del plan: cerca del límite y con jugadores extra. */
 .pf-club-datos .pf-cerca{color:var(--pf-aten)}
 .pf-club-datos .pf-extra{color:#b4532a}
+.pf-bloque-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pf-cobro-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;align-items:end}
+.pf-cobro-form label{display:grid;gap:4px;font-size:12px;font-weight:900;color:#3e555b}
+.pf-cobro-form input{min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:15px}
+.pf-cobros{display:grid;gap:8px}
+.pf-cobro{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;background:#fff;border:1px solid var(--line);border-left:5px solid #c9d6d3;border-radius:14px;padding:10px 12px}
+.pf-cobro div{display:grid;min-width:0}.pf-cobro strong{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pf-cobro small{color:#5c7076}
+.pf-cobro>b{font-size:17px;font-weight:950;text-align:right}
+.pf-cobro-estado{font-size:12.5px;font-weight:900}
+.pf-cobro button{justify-self:end}
+.pf-cobro-ok{border-left-color:#1f9d5b}.pf-cobro-ok .pf-cobro-estado{color:#11773c}
+.pf-cobro-aviso{border-left-color:#d49a1c}.pf-cobro-aviso .pf-cobro-estado{color:#8a6410}
+.pf-cobro-tarde{border-left-color:#b4532a}.pf-cobro-tarde .pf-cobro-estado{color:#9a4220}
+.pf-cobro-bloqueo{border-left-color:#9b2c1f;background:#fdf3f1}.pf-cobro-bloqueo .pf-cobro-estado{color:#9b2c1f}

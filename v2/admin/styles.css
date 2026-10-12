@@ -34,3 +34,11 @@
 .plan-uso{margin:0;color:#3b4b50;font-size:14px;line-height:1.45}
 .plan-docs{font-weight:800;font-size:14px;color:#b4532a;text-decoration:none}
 .plan-docs:hover{text-decoration:underline}
+.plan-cobro{border-radius:14px;padding:12px 14px;background:#eef6f1;border:1px solid #cfe6d8;display:grid;gap:4px}
+.plan-cobro strong{font-size:15px;font-weight:900}
+.plan-cobro p{margin:0;font-size:14px;line-height:1.4}
+.plan-cobro-pagar{font-weight:800}
+.plan-cobro[data-tono="aviso"]{background:#fdf6e3;border-color:#f0dfae}
+.plan-cobro[data-tono="tarde"]{background:#fdeee6;border-color:#f2c9b3}
+.plan-cobro[data-tono="bloqueo"]{background:#fbe6e3;border-color:#e9a99f}
+.plan-cobro[data-tono="bloqueo"] strong{color:#9b2c1f}

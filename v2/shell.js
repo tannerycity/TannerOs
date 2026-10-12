@@ -64,6 +64,9 @@ export const navItems=[
   {code:'calendario',label:'Calendario',href:'/calendario/',group:'main',icon:'calendar'},
   {code:'centro_tanner',label:'Centro Tanner',href:'/admin/centro-tanner/',group:'main',icon:'book'},
   {code:'academias',label:'Academias',href:'/operacion/academias/',group:'club',icon:'academy'},
+  // Formación (Metodología Tannery, 12/10/2026): el Formador planea su semana;
+  // Dirección Deportiva publica la Semana Tanner. Lo ve quien tiene cualquiera de los dos.
+  {code:'formacion',label:'Formación',href:'/formacion/',group:'club',icon:'book',lee:['formacion_direccion']},
   {code:'prospectos',label:'Fichajes',href:'/prospectos/',group:'club',icon:'target'},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},

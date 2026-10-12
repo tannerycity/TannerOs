@@ -57,7 +57,8 @@ function pintaInicio(){
 /* La lista de esa categoría para el día elegido, si ya existe. */
 function listaDelDia(categoryId){
   const dia=$('sessionDate').value;
-  return sessions.filter(s=>s.category_id===categoryId&&s.starts_at&&isoLocalDate(new Date(s.starts_at))===dia)
+  // Una sesión cancelada (lluvia, partido en su lugar) no es la lista del día.
+  return sessions.filter(s=>s.category_id===categoryId&&s.status!=='cancelled'&&s.starts_at&&isoLocalDate(new Date(s.starts_at))===dia)
     .sort((a,b)=>String(b.starts_at).localeCompare(String(a.starts_at)))[0]||null;
 }
 

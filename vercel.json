@@ -41,6 +41,8 @@
     {"source":"/v2/admin/clubes/","destination":"/admin/clubes/","permanent":false},
     {"source":"/v2/admin/club","destination":"/admin/club/","permanent":false},
     {"source":"/v2/admin/club/","destination":"/admin/club/","permanent":false},
+    {"source":"/v2/formacion","destination":"/formacion/","permanent":false},
+    {"source":"/v2/formacion/","destination":"/formacion/","permanent":false},
     {"source":"/v2/admin/onboarding","destination":"/admin/onboarding/","permanent":false},
     {"source":"/v2/admin/onboarding/","destination":"/admin/onboarding/","permanent":false},
     {"source":"/centro-tanner/privacidad","destination":"/centro-tanner/documento/privacidad","permanent":false}
@@ -87,6 +89,7 @@
     {"source":"/admin/clubes","destination":"/v2/admin/clubes/index.html"},{"source":"/admin/clubes/","destination":"/v2/admin/clubes/index.html"},
     {"source":"/jugadores/importar","destination":"/v2/jugadores/importar/index.html"},{"source":"/jugadores/importar/","destination":"/v2/jugadores/importar/index.html"},
     {"source":"/admin/club","destination":"/v2/admin/club/index.html"},{"source":"/admin/club/","destination":"/v2/admin/club/index.html"},
+    {"source":"/formacion","destination":"/v2/formacion/index.html"},{"source":"/formacion/","destination":"/v2/formacion/index.html"},
     {"source":"/admin/onboarding","destination":"/v2/admin/onboarding/index.html"},{"source":"/admin/onboarding/","destination":"/v2/admin/onboarding/index.html"}
   ],
   "headers": [

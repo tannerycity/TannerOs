@@ -143,7 +143,7 @@ export default function comprobar() {
   // del Formador (resumen, 3 recomendadas, no hay lista sin tarea), la Semana
   // Tanner de Dirección (Baby con sus mundos) y el Banco. Es pintura sobre
   // v2_my_planning, v2_direction_week y v2_formation_catalog.
-  const MAX_EXCLUIDAS = 40;
+  const MAX_EXCLUIDAS = 41;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

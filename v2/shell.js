@@ -68,6 +68,9 @@ export const navItems=[
   // Dirección Deportiva publica la Semana Tanner. Lo ve quien tiene cualquiera de los dos.
   {code:'formacion',label:'Formación',href:'/formacion/',group:'club',icon:'book',lee:['formacion_direccion']},
   {code:'prospectos',label:'Fichajes',href:'/prospectos/',group:'club',icon:'target'},
+  // Candidatos a staff (12/10/2026): las postulaciones de /trabaja/. No es
+  // módulo: la ve quien contrata (Usuarios o Dirección deportiva).
+  {code:'candidatos',label:'Candidatos',href:'/candidatos/',group:'club',icon:'briefcase',lee:['usuarios','formacion_direccion']},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
   {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
@@ -84,6 +87,9 @@ const groupLabels={main:'',club:'Club',finance:'Finanzas',ops:'Operación',admin
 export async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 export function navigationMap(rows=[]){return new Map((rows||[]).map(r=>[r.module_code,r]));}
 export function moduleAccess(rows,code,write=false){const row=navigationMap(rows).get(code);return Boolean(row?.enabled&&(write?row.can_write:row.can_read));}
+// Una pantalla que no es módulo (Candidatos, Becas…) se abre con los módulos
+// que su entrada del menú dice que la leen.
+function puedeEntrar(rows,active){if(moduleAccess(rows,active,false))return true;const item=navItems.find(x=>x.code===active);return Boolean(item&&!item.always&&itemReadable(rows,item));}
 function itemReadable(rows,item){if(item.always)return true;return [item.code,...(item.aliases||[]),...(item.lee||[])].some(code=>moduleAccess(rows,code,false));}
 function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active);}
 export function setShellSearchItems(items=[]){window.__tosSearchExtras=Array.isArray(items)?items:[];}
@@ -560,5 +566,5 @@ export function avisoSoloLectura(organizationId){
     d.textContent=SOLO_LECTURA[m.reason]||SOLO_LECTURA.pago;main.prepend(d);
   }).catch(()=>{});
 }
-export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&!moduleAccess(navigation,active,false)){location.href='/';return null;}renderShell({ctx,navigation,active,title});avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
+export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&!puedeEntrar(navigation,active)){location.href='/';return null;}renderShell({ctx,navigation,active,title});avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

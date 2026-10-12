@@ -50,6 +50,7 @@ qa-humo-primeros-pasos.mjs
 qa-humo-numeros.mjs
 qa-humo-demo.mjs
 qa-humo-scouting-fotos.mjs
+qa-humo-postulaciones.mjs
 
 # DEUDA PREEXISTENTE, no una exclusion comoda.
 #

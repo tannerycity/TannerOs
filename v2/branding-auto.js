@@ -8,6 +8,7 @@ const FINAL_ROUTES=[
   ['/admin/club/','admin','Configuración del club'],
   ['/admin/onboarding/','admin','Primeros pasos'],
   ['/formacion/','formacion','Formación'],
+  ['/candidatos/','candidatos','Candidatos'],
   ['/produccion/','tienda','Producción'],
   ['/porteros/','academias','Porteros'],
   ['/deportivo/','club','Rendimiento deportivo'],

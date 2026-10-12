@@ -97,6 +97,7 @@ function coreTests(){return [
   routeTest('home','Inicio',routes.home,'home'),
   routeTest('registro','Registro general','/registro/','public',{contains:'/public-form.js'}),
   routeTest('pedido','Pedido público','/pedido/','public',{contains:'/public-form.js'}),
+  routeTest('trabaja','Trabaja con nosotros','/trabaja/','public',{contains:'/trabaja/app.js'}),
   routeTest('demo','Demo pública con perfiles','/demo/','public',{contains:'/demo/app.js'}),
   routeTest('programas','Registro a programas','/programas/','public',{contains:'/public-form.js'}),
   {key:'integrity.snapshot',name:'Integridad del club',category:'Datos',module:'platform',run:async()=>{integrity=await rpc('v2_qa_integrity',{organization_id:ctx.organization_id});assert(integrity,'No se recibió el estado de integridad');return {detail:'La fotografía de integridad está disponible.'};}},
@@ -131,6 +132,7 @@ const fullRouteMatrix=[
   ['audit','Historial del club','/admin/auditoria/','admin'],['branding','Identidad del club','/admin/branding/','admin'],['club-settings','Datos del club','/admin/club/','admin'],
   ['onboarding','Preparación del club','/admin/onboarding/','admin'],
   ['formacion','Formación','/formacion/','formacion'],
+  ['candidatos','Candidatos a staff','/candidatos/','usuarios'],
   ['photos','Fotos del padrón','/admin/fotos/','admin'],
   ['clubs','Clubes','/admin/clubes/','admin'],
   ['playersImport','Importar jugadores','/jugadores/importar/','players']

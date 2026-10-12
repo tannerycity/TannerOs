@@ -18,6 +18,20 @@
   </section>
 
   <section class="pf-bloque"><h2>Clubes</h2><div id="pfClubes" class="pf-clubes"></div></section>
+  <section class="pf-bloque" aria-labelledby="pfCobrosTitulo">
+    <div class="pf-bloque-cab"><h2 id="pfCobrosTitulo">Cobros a clubes</h2><button type="button" id="pfCobroAjustes" class="pf-sec">Datos de cobro</button></div>
+    <p id="pfCobroReglas" class="clubes-muted"></p>
+    <form id="pfCobroForm" class="pf-cobro-form hidden">
+      <label>Banco<input id="cbBanco" autocomplete="off"></label>
+      <label>CLABE<input id="cbClabe" inputmode="numeric" autocomplete="off" placeholder="18 dígitos"></label>
+      <label>Titular<input id="cbTitular" autocomplete="off"></label>
+      <label>Vence el día<input id="cbVence" type="number" min="1" max="27"></label>
+      <label>Recargo<input id="cbRecargo" type="number" min="0" step="10"></label>
+      <label>Solo lectura desde el día<input id="cbSoloLectura" type="number" min="2" max="28"></label>
+      <button type="submit" class="pf-cta">Guardar</button>
+    </form>
+    <div id="pfCobros" class="pf-cobros"></div>
+  </section>
   <section class="pf-bloque"><h2>Planes</h2><div id="pfPlanes" class="pf-planes"></div></section>
   <div id="pfMensaje" class="inline-message hidden"></div>
 </div>

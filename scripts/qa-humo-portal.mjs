@@ -36,6 +36,10 @@ async function abre({ admin = true, ancho = 390 } = {}) {
       { code: 'cantera', name: 'Cantera', priceMxn: 990, maxPlayers: 50, extraPlayerMxn: 15, modules: 14, description: 'Lo básico' },
       { code: 'primera', name: 'Primera', priceMxn: 1990, maxPlayers: 150, modules: 22, description: 'Todo Cantera y más' },
       { code: 'seleccion', name: 'Selección', priceMxn: 3490, maxPlayers: null, modules: 27, description: 'Todo' }];
+    const cobros = { settings: { dueDay: 5, lateFeeMxn: 100, readOnlyDay: 15, bank: null, clabe: null, holder: null }, invoices: [
+      { id: 'i1', organizationId: 'o2', club: 'Halcones FC', period: '2026-11-01', status: 'pending', total: 1135, lateFeeMxn: 100, dueDate: '2026-11-05', readOnlyDate: '2026-11-15', readOnly: true },
+      { id: 'i2', organizationId: 'o3', club: 'Club Norte', period: '2026-11-01', status: 'pending', total: 990, lateFeeMxn: 0, dueDate: '2099-11-05', readOnlyDate: '2099-11-15', readOnly: false },
+      { id: 'i3', organizationId: 'o4', club: 'Club Sur', period: '2026-10-01', status: 'paid', total: 495, lateFeeMxn: 0, dueDate: '2026-10-05', readOnlyDate: '2026-10-15', paidAt: '2026-10-03T10:00:00Z' }] };
     const estado = { product: { name: 'TannerOS', tagline: 'El sistema operativo de tu club' }, plans: planes,
       clubs: [{ id: 'o1', slug: 'tannery-city-fc', name: 'Tannery City FC', city: 'León', planCode: 'internal_full', plan: 'Tannery Internal Full', players: 64, users: 9, categories: 5, colors: { primary: '#184159', secondary: '#247C8F' }, lastActivity: new Date().toISOString() },
         // Un club Cantera que ya pasó su límite (53 de 50) y no ha completado su aviso.
@@ -47,6 +51,11 @@ async function abre({ admin = true, ancho = 390 } = {}) {
       // "Tu plan" en Administración: un Cantera con 53 de 50 y el aviso por completar.
       v2_my_plan: () => ({ plan: 'Cantera', planCode: 'cantera', forSale: window.__planDeVenta !== false, priceMxn: 990, founder: false, maxPlayers: 50, activePlayers: 53, extraPlayers: 3, extraPlayerMxn: 15, docsPending: 1 }),
       v2_platform_board: () => JSON.parse(JSON.stringify(estado)),
+      v2_platform_invoices: () => JSON.parse(JSON.stringify(cobros)),
+      v2_record_club_payment: prm => { const c = cobros.invoices.find(x => x.id === prm.invoice_id); c.status = 'paid'; c.paidAt = '2026-11-16T12:00:00Z'; if (prm.waive_late_fee) { c.total -= c.lateFeeMxn; c.lateFeeMxn = 0; } c.readOnly = false; return { invoiceId: c.id, total: c.total, readOnly: false }; },
+      v2_update_platform_billing: prm => { cobros.settings = { ...prm.settings }; return cobros.settings; },
+      v2_my_access_mode: () => window.__modo || { mode: 'normal' },
+      v2_my_club_invoice: () => window.__cobroClub || null,
       v2_create_demo_club: prm => {
         estado.clubs.push({ id: 'o9', slug: 'demo-halcones', name: 'Halcones FC (demo)', city: 'León, Gto.', planCode: 'seleccion', plan: 'Selección', demo: true,
           players: 48, users: 1, categories: 4, colors: { primary: '#1B2A41', secondary: '#2E7D5B' }, ownerPending: prm.owner_email });
@@ -177,6 +186,62 @@ const llamada = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n === 
   await p.close();
 }
 
+{ // Cobros a clubes: estados, registrar pago (perdonando el recargo) y datos de cobro.
+  const p = await abre();
+  await p.waitForSelector('#pfCobros .pf-cobro', { timeout: 5000 });
+  const filas = await p.$$eval('#pfCobros .pf-cobro', a => a.map(x => [x.className.replace('pf-cobro ', ''), x.querySelector('.pf-cobro-estado').textContent, !!x.querySelector('[data-pagar]')]));
+  revisa('[cobros] cada estado con su color', JSON.stringify(filas.map(f => f[0])) === '["pf-cobro-bloqueo","pf-cobro-aviso","pf-cobro-ok"]', JSON.stringify(filas));
+  revisa('[cobros] dice qué pasa y cuándo', filas[0][1] === 'Solo lectura' && filas[1][1] === 'Vence el 05/11' && /Pagado 03\/10/.test(filas[2][1]), JSON.stringify(filas));
+  revisa('[cobros] sólo lo pendiente se puede registrar', filas[0][2] && filas[1][2] && !filas[2][2]);
+  revisa('[cobros] el total por cobrar', /\$2,125 por cobrar/.test(await p.textContent('#pfCobrosTitulo')), await p.textContent('#pfCobrosTitulo'));
+  revisa('[cobros] avisa que falta la CLABE', /Falta tu CLABE/.test(await p.textContent('#pfCobroReglas')));
+  const respuestas = ['SPEI 4455', true];
+  p.on('dialog', d => { const r = respuestas.shift(); d.type() === 'confirm' ? (r ? d.accept() : d.dismiss()) : d.accept(r); });
+  await p.click('[data-pagar="i1"]');
+  await p.waitForFunction(() => /registrado/.test(document.getElementById('pfMensaje').textContent), null, { timeout: 4000 }).catch(() => {});
+  const pago = await llamada(p, 'v2_record_club_payment');
+  revisa('[cobros] registra el pago con su referencia y perdonando el recargo', pago?.invoice_id === 'i1' && pago.reference === 'SPEI 4455' && pago.waive_late_fee === true, JSON.stringify(pago));
+  revisa('[cobros] y se ve pagado', /\$1,035/.test(await p.textContent('#pfMensaje')) && await p.$eval('[data-id="i1"]', e => e.classList.contains('pf-cobro-ok')));
+  await p.click('#pfCobroAjustes');
+  await p.fill('#cbBanco', 'BBVA'); await p.fill('#cbTitular', 'Michel E.');
+  await p.fill('#cbClabe', '0121 8000 1234'); await p.click('#pfCobroForm button[type=submit]');
+  revisa('[cobros] una CLABE corta no llega al servidor', /18 dígitos/.test(await p.textContent('#pfMensaje')) && !(await llamada(p, 'v2_update_platform_billing')));
+  await p.fill('#cbClabe', '0121 8000 1234 5678 90'); await p.fill('#cbSoloLectura', '4'); await p.click('#pfCobroForm button[type=submit]');
+  revisa('[cobros] solo lectura antes del vencimiento no pasa', /después del vencimiento/.test(await p.textContent('#pfMensaje')));
+  await p.fill('#cbSoloLectura', '12'); await p.fill('#cbRecargo', '150'); await p.click('#pfCobroForm button[type=submit]');
+  await p.waitForFunction(() => /guardados/.test(document.getElementById('pfMensaje').textContent), null, { timeout: 4000 }).catch(() => {});
+  const cfg = (await llamada(p, 'v2_update_platform_billing'))?.settings;
+  revisa('[cobros] guarda CLABE limpia y reglas', cfg?.clabe === '012180001234567890' && cfg.bank === 'BBVA' && cfg.lateFeeMxn === 150 && cfg.readOnlyDay === 12 && cfg.dueDay === 5, JSON.stringify(cfg));
+  revisa('[cobros] y las reglas nuevas se leen', /\$150 de recargo; desde el día 12/.test(await p.textContent('#pfCobroReglas')) && !/Falta tu CLABE/.test(await p.textContent('#pfCobroReglas')));
+  revisa('[sin desborde] los cobros caben a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
+  await p.close();
+}
+
+{ // Club en solo lectura: aviso arriba en cualquier pantalla y su cobro en Administración.
+  const p = await abre();
+  revisa('[solo lectura] un club al corriente no ve aviso', !(await p.$('#tosSoloLectura')));
+  await p.addInitScript(() => {
+    window.__modo = { mode: 'solo_lectura', reason: 'pago' };
+    window.__cobroClub = { id: 'i1', period: '2026-11-01', status: 'pending', total: 1135, lateFeeMxn: 100, dueDate: '2026-11-05', readOnlyDate: '2026-11-15', readOnly: true,
+      payTo: { bank: 'BBVA', clabe: '012180001234567890', holder: 'Michel E.' } };
+  });
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('#tosSoloLectura', { timeout: 5000 }).catch(() => {});
+  const aviso = await p.$eval('#tosSoloLectura', e => ({ t: e.textContent, r: e.dataset.reason, primero: e.parentElement.firstElementChild === e })).catch(() => null);
+  revisa('[solo lectura] aviso arriba de la pantalla, diciendo por qué', aviso?.primero && aviso.r === 'pago' && /pago pendiente de la mensualidad/.test(aviso.t), JSON.stringify(aviso));
+  await p.goto('http://127.0.0.1:4807/v2/admin/', { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('#planCobro:not(.hidden)', { timeout: 5000 }).catch(() => {});
+  const cobro = await p.evaluate(() => ({ tono: document.getElementById('planCobro').dataset.tono, t: document.getElementById('planCobroTitulo').textContent,
+    d: document.getElementById('planCobroDetalle').textContent, pagar: document.getElementById('planCobroPagar').textContent, oculto: document.getElementById('planCobro').classList.contains('hidden') }));
+  revisa('[tu plan] el club ve que está en solo lectura y cuánto debe', !cobro.oculto && cobro.tono === 'bloqueo' && /solo lectura/.test(cobro.t) && /\$1,135/.test(cobro.d), JSON.stringify(cobro));
+  revisa('[tu plan] y a dónde pagar', /CLABE 0121 8000 1234 5678 90 \(BBVA\) a nombre de Michel E\./.test(cobro.pagar), cobro.pagar);
+  await p.addInitScript(() => { window.__modo = { mode: 'solo_lectura', reason: 'demo' }; });
+  await p.goto('http://127.0.0.1:4807/v2/admin/clubes/', { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('#tosSoloLectura', { timeout: 5000 }).catch(() => {});
+  revisa('[demo] la demo avisa que no se guarda', /Estás en una demo/.test(await p.textContent('#tosSoloLectura').catch(() => '')));
+  await p.close();
+}
+
 { // Club demo para vender: sale marcado y no cuenta en clubes, jugadores ni ingreso.
   const p = await abre();
   const respuestas = ['correo-malo', ' Mich@TannerOS.MX '];
@@ -199,4 +264,4 @@ let mal = 0;
 for (const r of revisiones) if (!r.ok) { mal++; console.error(` - ${r.nombre}${r.detalle ? ' :: ' + r.detalle : ''}`); }
 if (errores.length) { console.error('ERRORES DEL NAVEGADOR:'); errores.forEach(e => console.error('   ' + e)); }
 if (mal || errores.length) { console.error(`Portal humo FAILED · ${mal} de ${revisiones.length}, ${errores.length} errores`); process.exit(1); }
-console.log(`Portal humo OK · ${revisiones.length} revisiones: acceso, tablero, alta en 5 pasos, datos al servidor, bienvenida, nombre del producto y club demo`);
+console.log(`Portal humo OK · ${revisiones.length} revisiones: acceso, tablero, alta en 5 pasos, datos al servidor, bienvenida, nombre del producto, club demo, cobros y solo lectura`);

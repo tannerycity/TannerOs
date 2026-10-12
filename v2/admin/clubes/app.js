@@ -43,7 +43,72 @@ async function carga() {
   tablero = await rpc('v2_platform_board');
   $('pf').classList.remove('hidden');
   pinta();
+  await cargaCobros();
 }
+
+// === Cobros a clubes (j4–n4) ===
+// El día 1 se emite la mensualidad; vence el 5; del 6 lleva recargo; el día de
+// solo lectura el staff del club ya no guarda. Aquí se registra el pago.
+let cobros = null;
+const ddmm = iso => { const [, m, d] = String(iso || '').slice(0, 10).split('-'); return d && m ? `${d}/${m}` : ''; };
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const hoyLocal = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date());
+function estadoDelCobro(c) {
+  if (c.status === 'paid') return { clase: 'ok', texto: `Pagado ${ddmm(c.paidAt)}` };
+  if (c.readOnly) return { clase: 'bloqueo', texto: 'Solo lectura' };
+  if (Number(c.lateFeeMxn) > 0) return { clase: 'tarde', texto: `Con recargo · solo lectura el ${ddmm(c.readOnlyDate)}` };
+  return { clase: 'aviso', texto: hoyLocal() === String(c.dueDate) ? 'Vence hoy' : `Vence el ${ddmm(c.dueDate)}` };
+}
+async function cargaCobros() {
+  try { cobros = await rpc('v2_platform_invoices'); } catch (e) { cobros = null; msg('pfMensaje', amable(e)); return; }
+  pintaCobros();
+}
+function pintaCobros() {
+  const cfg = cobros?.settings || {}, lista = cobros?.invoices || [];
+  $('pfCobroReglas').textContent = `Vence el día ${cfg.dueDay ?? 5}; después lleva ${dinero(cfg.lateFeeMxn ?? 100)} de recargo; desde el día ${cfg.readOnlyDay ?? 15} sin pago, el club queda en solo lectura.`
+    + (cfg.clabe ? '' : ' Falta tu CLABE: los clubes no sabrán a dónde pagar.');
+  const pendiente = lista.filter(c => c.status === 'pending').reduce((s, c) => s + Number(c.total || 0), 0);
+  $('pfCobrosTitulo').textContent = pendiente ? `Cobros a clubes · ${dinero(pendiente)} por cobrar` : 'Cobros a clubes';
+  $('pfCobros').innerHTML = lista.map(c => {
+    const e = estadoDelCobro(c), mes = MESES[Number(String(c.period).slice(5, 7)) - 1] || '';
+    return `<article class="pf-cobro pf-cobro-${e.clase}" data-id="${esc(c.id)}">
+      <div><strong>${esc(c.club)}</strong><small>${esc(mes)} ${esc(String(c.period).slice(0, 4))}${Number(c.lateFeeMxn) > 0 ? ` · incluye ${dinero(c.lateFeeMxn)} de recargo` : ''}</small></div>
+      <b>${dinero(c.total)}</b><span class="pf-cobro-estado">${esc(e.texto)}</span>
+      ${c.status === 'pending' ? `<button type="button" class="pf-sec" data-pagar="${esc(c.id)}">Registrar pago</button>` : ''}
+    </article>`;
+  }).join('') || '<p class="clubes-muted">Todavía no hay cobros. Se emiten el día 1 de cada mes a los clubes que pagan (no a Tannery ni a las demos).</p>';
+}
+$('pfCobros').addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-pagar]'); if (!b) return;
+  const c = (cobros?.invoices || []).find(x => x.id === b.dataset.pagar); if (!c) return;
+  const ref = window.prompt(`Pago de ${c.club}: ${dinero(c.total)}. Referencia o folio (opcional)`, '');
+  if (ref === null) return;
+  const perdona = Number(c.lateFeeMxn) > 0 && window.confirm(`¿Perdonar el recargo de ${dinero(c.lateFeeMxn)}? Aceptar = sí, Cancelar = cobrarlo.`);
+  b.disabled = true;
+  try {
+    const r = await rpc('v2_record_club_payment', { invoice_id: c.id, method: 'Transferencia', reference: ref, waive_late_fee: perdona });
+    msg('pfMensaje', `Pago de ${c.club} registrado: ${dinero(r?.total)}.${r?.readOnly ? ' Todavía debe otro mes y sigue en solo lectura.' : ''}`, 'success');
+    await cargaCobros();
+  } catch (e) { msg('pfMensaje', amable(e)); b.disabled = false; }
+});
+$('pfCobroAjustes').addEventListener('click', () => {
+  const f = $('pfCobroForm'), cfg = cobros?.settings || {};
+  if (f.classList.toggle('hidden')) return;
+  $('cbBanco').value = cfg.bank || ''; $('cbClabe').value = cfg.clabe || ''; $('cbTitular').value = cfg.holder || '';
+  $('cbVence').value = cfg.dueDay ?? 5; $('cbRecargo').value = cfg.lateFeeMxn ?? 100; $('cbSoloLectura').value = cfg.readOnlyDay ?? 15;
+});
+$('pfCobroForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const clabe = $('cbClabe').value.replace(/\D/g, '');
+  if (clabe && clabe.length !== 18) { msg('pfMensaje', 'La CLABE lleva 18 dígitos.'); return; }
+  if (Number($('cbSoloLectura').value) <= Number($('cbVence').value)) { msg('pfMensaje', 'El día de solo lectura va después del vencimiento.'); return; }
+  try {
+    const v = await rpc('v2_update_platform_billing', { settings: { bank: $('cbBanco').value, clabe, holder: $('cbTitular').value,
+      dueDay: Number($('cbVence').value), lateFeeMxn: Number($('cbRecargo').value), readOnlyDay: Number($('cbSoloLectura').value) } });
+    cobros = { ...(cobros || {}), settings: v || cobros?.settings }; pintaCobros();
+    $('pfCobroForm').classList.add('hidden'); msg('pfMensaje', 'Datos de cobro guardados.', 'success');
+  } catch (e) { msg('pfMensaje', amable(e)); }
+});
 
 function pinta() {
   const t = tablero, clubes = t.clubs || [];

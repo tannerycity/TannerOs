@@ -1,5 +1,5 @@
 import {createClient} from '/v2/supabase-client.js';
-import {textoDelPlan} from '/v2/admin/plan.js';
+import {textoDelPlan,textoDelCobro} from '/v2/admin/plan.js';
 
 const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
@@ -75,6 +75,14 @@ function renderPlan(p){
   $('planCard').classList.remove('hidden');
 }
 
+// La mensualidad del mes con TannerOS: cuánto, para cuándo y a dónde pagar.
+function renderCobro(c){
+  const t=textoDelCobro(c);if(!t)return;
+  $('planCobro').dataset.tono=t.tono;$('planCobroTitulo').textContent=t.titulo;$('planCobroDetalle').textContent=t.detalle;
+  $('planCobroPagar').textContent=t.pagarA;$('planCobroPagar').classList.toggle('hidden',!t.pagarA);
+  $('planCobro').classList.remove('hidden');
+}
+
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return;}
   const contexts=await rpc('v2_my_context');
@@ -86,6 +94,7 @@ async function boot(){
   renderSettings(allowed,await soyDePlataforma());$('usersDoor').classList.toggle('hidden',!allowed.has('usuarios'));
   try{renderReadiness(await rpc('v2_onboarding_readiness',{organization_id:ctx.organization_id}));}catch{renderReadinessFallback();}
   try{renderPlan(await rpc('v2_my_plan',{organization_id:ctx.organization_id}));}catch(_){}
+  try{renderCobro(await rpc('v2_my_club_invoice',{organization_id:ctx.organization_id}));}catch(_){}
   show('view');
 }
 

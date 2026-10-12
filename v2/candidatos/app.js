@@ -22,7 +22,8 @@ function msg(t = '', tipo = 'error') { const e = $('candMensaje'); e.textContent
 
 let lista = [], filtro = 'activas';
 
-const liga = ligaPublica('/trabaja/', ctx);
+// La liga corta del flyer: /unete (vercel.json la manda a /trabaja/).
+const liga = ligaPublica('/unete', ctx);
 $('candLiga').textContent = liga;
 $('candCompartir').href = `https://wa.me/?text=${encodeURIComponent(`¿Te interesa ser formador en ${club}? Postúlate aquí: ${liga}`)}`;
 $('candCopiar').addEventListener('click', async () => {

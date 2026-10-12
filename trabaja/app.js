@@ -44,7 +44,7 @@ export const extensionDelCv = tipo => ({ 'application/pdf': 'pdf', 'image/jpeg':
 
 function pinta(c) {
   $('clubName').textContent = String(c.club || '').toUpperCase();
-  document.title = `Trabaja con nosotros · ${c.club}`;
+  document.title = `Únete al staff · ${c.club}`;
   if (!c.open) { show(`<div class="empty-state"><h2>Por ahora no hay vacantes</h2><p class="muted">${esc(c.club)} no tiene la convocatoria abierta. Vuelve pronto.</p></div>`); return; }
   const chips = (lista, nombre) => lista.map((x, i) => `<label class="tj-chip"><input type="checkbox" name="${nombre}" value="${esc(x)}" id="${nombre}${i}"><span>${esc(x)}</span></label>`).join('');
   show(`
@@ -54,7 +54,7 @@ function pinta(c) {
       ${c.requirements?.length ? `<div class="tj-bloque"><h3>Lo que pedimos</h3><ul>${c.requirements.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
       ${c.offer ? `<div class="tj-bloque tj-ofrece"><h3>Lo que ofrecemos</h3><p>${esc(c.offer)}</p></div>` : ''}
     </div>
-    <h2>Postúlate</h2><p class="muted">Llénalo en 3 minutos. Te escribimos por WhatsApp.</p>
+    <h2>Postúlate en 3 minutos</h2><p class="muted">Sube tu CV aquí mismo. Te escribimos por WhatsApp para la entrevista.</p>
     <form id="tjForm" class="form-grid" novalidate>
       <label class="span-2">Nombre completo *<input id="tjNombre" maxlength="120" autocomplete="name" required></label>
       <label>WhatsApp *<input id="tjTel" inputmode="tel" maxlength="20" placeholder="477 123 4567" autocomplete="tel" required></label>

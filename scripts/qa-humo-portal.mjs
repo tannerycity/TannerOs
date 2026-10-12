@@ -47,6 +47,11 @@ async function abre({ admin = true, ancho = 390 } = {}) {
       // "Tu plan" en Administración: un Cantera con 53 de 50 y el aviso por completar.
       v2_my_plan: () => ({ plan: 'Cantera', planCode: 'cantera', forSale: window.__planDeVenta !== false, priceMxn: 990, founder: false, maxPlayers: 50, activePlayers: 53, extraPlayers: 3, extraPlayerMxn: 15, docsPending: 1 }),
       v2_platform_board: () => JSON.parse(JSON.stringify(estado)),
+      v2_create_demo_club: prm => {
+        estado.clubs.push({ id: 'o9', slug: 'demo-halcones', name: 'Halcones FC (demo)', city: 'León, Gto.', planCode: 'seleccion', plan: 'Selección', demo: true,
+          players: 48, users: 1, categories: 4, colors: { primary: '#1B2A41', secondary: '#2E7D5B' }, ownerPending: prm.owner_email });
+        return { organizationId: 'o9', slug: 'demo-halcones', name: 'Halcones FC (demo)', demo: true, datos: { jugadores: 48 } };
+      },
       v2_set_product_name: prm => { estado.product = { name: prm.name, tagline: prm.tagline }; return null; },
       v2_provision_club: prm => {
         const c = prm.club;
@@ -172,9 +177,26 @@ const llamada = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n === 
   await p.close();
 }
 
+{ // Club demo para vender: sale marcado y no cuenta en clubes, jugadores ni ingreso.
+  const p = await abre();
+  const respuestas = ['correo-malo', ' Mich@TannerOS.MX '];
+  p.on('dialog', d => d.accept(respuestas.shift()));
+  await p.click('#pfDemo');
+  revisa('[demo] un correo mal escrito no llega al servidor', /correo válido/.test(await p.textContent('#pfMensaje')) && !(await llamada(p, 'v2_create_demo_club')));
+  await p.click('#pfDemo');
+  await p.waitForFunction(() => /Listo/.test(document.getElementById('pfMensaje').textContent), null, { timeout: 4000 }).catch(() => {});
+  revisa('[demo] se crea con el correo limpio', (await llamada(p, 'v2_create_demo_club'))?.owner_email === 'mich@tanneros.mx');
+  revisa('[demo] dice con qué entrar', /48 jugadores de ejemplo/.test(await p.textContent('#pfMensaje')) && /\?club=demo-halcones/.test(await p.textContent('#pfMensaje')), await p.textContent('#pfMensaje'));
+  revisa('[demo] sale en la lista marcado como Demo', await p.$eval('#pfClubes', e => !!e.querySelector('.pf-club-demo .pf-demo')));
+  revisa('[demo] no cuenta en clubes, jugadores, pendientes ni ingreso', (await p.textContent('#kClubes')) === '2' && (await p.textContent('#kJugadores')) === '117'
+    && (await p.textContent('#kPendientes')) === '0' && /\$1,035/.test(await p.textContent('#kIngreso')));
+  revisa('[sin desborde] con la demo, nada se sale a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
+  await p.close();
+}
+
 await nav.close(); srv.close();
 let mal = 0;
 for (const r of revisiones) if (!r.ok) { mal++; console.error(` - ${r.nombre}${r.detalle ? ' :: ' + r.detalle : ''}`); }
 if (errores.length) { console.error('ERRORES DEL NAVEGADOR:'); errores.forEach(e => console.error('   ' + e)); }
 if (mal || errores.length) { console.error(`Portal humo FAILED · ${mal} de ${revisiones.length}, ${errores.length} errores`); process.exit(1); }
-console.log(`Portal humo OK · ${revisiones.length} revisiones: acceso, tablero, alta en 5 pasos, datos al servidor, bienvenida y nombre del producto`);
+console.log(`Portal humo OK · ${revisiones.length} revisiones: acceso, tablero, alta en 5 pasos, datos al servidor, bienvenida, nombre del producto y club demo`);

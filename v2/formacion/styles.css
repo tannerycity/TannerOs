@@ -36,9 +36,9 @@
 .fm-hoja{position:fixed;inset:0;z-index:80;background:rgba(7,25,30,.45);display:flex;align-items:flex-end;justify-content:center}
 .fm-hoja-caja{background:#fff;width:100%;max-width:640px;max-height:92vh;border-radius:22px 22px 0 0;display:flex;flex-direction:column}
 .fm-hoja-caja>header{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--tos-line,#dfe3e3)}
-.fm-hoja-caja h2{margin:0;font-size:16px;text-transform:capitalize}
+.fm-hoja-caja h2{margin:0;font-size:16px}
 .fm-cerrar{width:36px;height:36px;border-radius:50%;border:0;background:#eef1f1;font-size:22px;line-height:1;cursor:pointer}
-#fmHojaCuerpo{overflow:auto;padding:14px 16px;display:grid;gap:12px}
+#fmHojaCuerpo{flex:1;align-content:start;overflow:auto;padding:14px 16px;display:grid;gap:12px}
 #fmHojaPie{display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--tos-line,#dfe3e3)}
 #fmHojaPie button{flex:1;min-height:48px}
 body.fm-sin-scroll{overflow:hidden}
@@ -82,4 +82,31 @@ body.fm-sin-scroll{overflow:hidden}
 .fm-tarea-extra{margin:8px 0 0;font-size:13px;color:#3f5157}.fm-tarea-extra p{margin:4px 0}
 .fm-aviso{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:90;background:#0b3d5c;color:#fff;padding:12px 18px;border-radius:14px;font-weight:800;max-width:90vw}
 .fm-aviso[data-tipo="error"]{background:#b42f25}
+body.fm-sin-scroll .fm-aviso{bottom:96px}
 @media(min-width:700px){.fm-hoja{align-items:center}.fm-hoja-caja{border-radius:22px}}
+
+/* HOY y Modo Cancha: letra grande, pocas palabras, el teléfono en la bolsa. */
+.fm-hoy{display:grid;gap:4px;width:100%;text-align:left;border:0;border-radius:20px;padding:18px;margin-bottom:12px;background:var(--tos-gold,#c6ac5c);color:#07191e;font:inherit;cursor:pointer}
+.fm-hoy.cerrada{background:#ddf5e5;color:#0b5e30}
+.fm-hoy-eti{font-size:11px;font-weight:950;letter-spacing:.08em}
+.fm-hoy b{font-size:24px}
+.fm-hoy-frase{font-weight:800}
+.fm-hoy-cta{margin-top:6px;font-weight:950;text-transform:uppercase;letter-spacing:.04em;font-size:14px}
+.fm-hoja.fm-cancha .fm-hoja-caja{max-width:none;height:100%;max-height:none;border-radius:0}
+.fm-cancha-paso{display:grid;gap:10px;text-align:center;padding-top:8px}
+.fm-cancha-paso>span{font-size:12px;font-weight:950;letter-spacing:.1em;color:#4b7b86}
+.fm-cancha-paso h3{margin:0;font-size:30px;line-height:1.15}
+.fm-reloj{margin:0;font-size:44px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--tos-ink,#0b3d5c)}
+.fm-dile{margin:0;font-size:22px;font-weight:800;line-height:1.35}
+.fm-observa{list-style:none;margin:0;padding:0;display:grid;gap:6px;text-align:left}
+.fm-observa li{background:#eef1f1;border-radius:12px;padding:10px 12px;font-size:16px}
+.fm-btn-link{display:flex;align-items:center;justify-content:center;flex:1;min-height:48px;text-decoration:none}
+.fm-cierre{display:grid;gap:14px;text-align:center;padding-top:10px}
+.fm-cierre p{margin:0;font-size:16px;color:#56656b}
+.fm-cierre>b{font-size:22px}
+.fm-cierre-ops{display:grid;gap:10px}
+.fm-cierre-ops button{min-height:64px;border-radius:16px;border:2px solid var(--tos-line,#dfe3e3);background:#fff;font:inherit;font-size:20px;font-weight:900;cursor:pointer}
+.fm-cierre-ops button[data-cierre="si"]{border-color:#9fd9b4}
+.fm-cierre-ops button[data-cierre="a_veces"]{border-color:#f0d68a}
+.fm-cierre-ops button[data-cierre="todavia_no"]{border-color:#f1b3ac}
+.fm-cierre-ops button.activa{background:#eaf2f4}

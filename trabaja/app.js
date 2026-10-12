@@ -15,7 +15,7 @@ import { encodeAmbas, UPLOAD_CACHE_CONTROL } from '/v2/image-encode.js';
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
   { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 const CLUB_KEY = llaveDeLiga();
-const BUCKET = 'tanneros-private', CV_MAX = 10 * 1024 * 1024, AVISO = '2026-08-19-v1';
+const BUCKET = 'tanneros-private', CV_MAX = 10 * 1024 * 1024, AVISO = '2026-10-12-v2';
 const DISPONIBILIDAD = ['Lunes a jueves por la tarde', 'Sábados (partidos)', 'Fines de semana completos'];
 const EXPERIENCIA = ['Sin experiencia todavía', 'Menos de 1 año', '1 a 2 años', '3 a 5 años', 'Más de 5 años'];
 const $ = id => document.getElementById(id);
@@ -107,7 +107,7 @@ function pinta(c) {
       <div class="un-bloque"><h3><i>3</i>Tu foto y tu CV</h3>
         <label class="span-2 un-foto" id="tjFotoCaja"><input id="tjFoto" type="file" accept="image/*"><span class="un-foto-marco" id="tjFotoVista" aria-hidden="true"></span><span><b id="tjFotoTexto">Sube tu foto *</b><small>De frente y con buena luz. Así te reconocemos en la entrevista.</small></span></label>
         <label class="span-2 un-cv" id="tjCvCaja"><input id="tjCv" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"><span class="un-cv-icono" aria-hidden="true"></span><span><b id="tjCvTexto">Sube tu CV</b><small>PDF o foto · opcional. Si no tienes, cuéntanos arriba.</small></span></label>
-        <label class="un-check span-2"><input id="tjAviso" type="checkbox"><span>Acepto que ${esc(c.club)} use mis datos para este proceso de selección, según su <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a>.</span></label>
+        <label class="un-check span-2"><input id="tjAviso" type="checkbox"><span>Acepto que ${esc(c.club)} use mis datos y mi foto para este proceso de selección, según su <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a> (sección 10).</span></label>
         <div id="formMessage" class="message hidden span-2" role="alert"></div>
         <button id="tjEnviar" class="un-cta un-enviar span-2" type="submit">Enviar mi ficha</button>
       </div>

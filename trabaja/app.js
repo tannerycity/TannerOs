@@ -10,6 +10,7 @@
  */
 import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
+import { encodeAmbas, UPLOAD_CACHE_CONTROL } from '/v2/image-encode.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
   { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
@@ -30,6 +31,8 @@ export function postulacionDelFormulario(f) {
   if (String(f.fullName || '').trim().length < 3) faltan.push('tu nombre completo');
   if (telefono.length < 10) faltan.push('tu WhatsApp (10 dígitos)');
   if (!(f.positions || []).length) faltan.push('al menos un puesto');
+  if (!f.photo) faltan.push('tu foto');
+  else if (!/^image\//.test(f.photo.type || '')) faltan.push('una foto (JPG o PNG)');
   if (!f.consent) faltan.push('aceptar el aviso de privacidad');
   const cv = f.cv || null;
   if (cv && cv.size > CV_MAX) faltan.push('un CV de menos de 10 MB');
@@ -101,7 +104,8 @@ function pinta(c) {
         <fieldset class="span-2 tj-grupo"><legend>¿Cuándo puedes?</legend><div class="tj-chips">${chips(DISPONIBILIDAD, 'tjDisp')}</div></fieldset>
         <label class="span-2">Cuéntanos de ti<textarea id="tjAcerca" maxlength="1200" placeholder="Dónde has entrenado, con qué edades y por qué quieres estar aquí…"></textarea></label>
       </div>
-      <div class="un-bloque"><h3><i>3</i>Tu CV</h3>
+      <div class="un-bloque"><h3><i>3</i>Tu foto y tu CV</h3>
+        <label class="span-2 un-foto" id="tjFotoCaja"><input id="tjFoto" type="file" accept="image/*"><span class="un-foto-marco" id="tjFotoVista" aria-hidden="true"></span><span><b id="tjFotoTexto">Sube tu foto *</b><small>De frente y con buena luz. Así te reconocemos en la entrevista.</small></span></label>
         <label class="span-2 un-cv" id="tjCvCaja"><input id="tjCv" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"><span class="un-cv-icono" aria-hidden="true"></span><span><b id="tjCvTexto">Sube tu CV</b><small>PDF o foto · opcional. Si no tienes, cuéntanos arriba.</small></span></label>
         <label class="un-check span-2"><input id="tjAviso" type="checkbox"><span>Acepto que ${esc(c.club)} use mis datos para este proceso de selección, según su <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a>.</span></label>
         <div id="formMessage" class="message hidden span-2" role="alert"></div>
@@ -112,6 +116,12 @@ function pinta(c) {
   <footer class="un-pie"><b>${club.tannery ? 'Curtimos campeones del mundo' : esc(c.club)}</b>${club.tannery ? '#WeAreTanners · ' : ''}<a href="/aviso-de-privacidad/">Privacidad</a> · TannerOS</footer>`);
   propagaClub();
   $('tjForm').addEventListener('submit', envia);
+  $('tjFoto').addEventListener('change', () => {
+    const f = $('tjFoto').files?.[0];
+    $('tjFotoTexto').textContent = f ? 'Foto lista' : 'Sube tu foto *';
+    $('tjFotoCaja').classList.toggle('listo', !!f);
+    $('tjFotoVista').style.backgroundImage = f ? `url("${URL.createObjectURL(f)}")` : '';
+  });
   $('tjCv').addEventListener('change', () => {
     const f = $('tjCv').files?.[0];
     $('tjCvTexto').textContent = f ? f.name : 'Sube tu CV';
@@ -129,17 +139,39 @@ async function subeCv(applicationId, archivo) {
   return path;
 }
 
+// La foto se achica en el celular antes de subir: grande (1200 px) para verla
+// y miniatura (260 px) para las listas. Así el egress no se dispara.
+function cargaImagen(archivo) {
+  return new Promise((ok, mal) => { const url = URL.createObjectURL(archivo), img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); ok(img); }; img.onerror = () => { URL.revokeObjectURL(url); mal(new Error('foto')); }; img.src = url; });
+}
+async function subeFoto(applicationId, archivo) {
+  if (!orgId) throw new Error('foto');
+  const { full, thumb } = await encodeAmbas(await cargaImagen(archivo));
+  const base = `organizations/${orgId}/staff/${applicationId}/`;
+  const path = `${base}foto.${full.ext}`, thumbPath = `${base}foto-thumb.${thumb.ext}`;
+  const sube = (ruta, v) => supabase.storage.from(BUCKET).upload(ruta, v.blob, { contentType: v.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
+  const [a, b] = await Promise.all([sube(path, full), sube(thumbPath, thumb)]);
+  if (a.error) throw a.error;
+  await rpc('v2_public_attach_staff_photo', { club_key: CLUB_KEY, application_id: applicationId, photo_path: path, photo_thumb_path: b.error ? null : thumbPath });
+}
+
 async function envia(e) {
   e.preventDefault(); msg();
   const marcados = n => [...document.querySelectorAll(`input[name="${n}"]:checked`)].map(x => x.value);
   const { faltan, datos } = postulacionDelFormulario({ fullName: $('tjNombre').value, phone: $('tjTel').value, email: $('tjCorreo').value, age: $('tjEdad').value,
     city: $('tjCiudad').value, positions: marcados('tjPuesto'), experience: $('tjExp').value, studies: $('tjEstudios').value,
-    availability: marcados('tjDisp'), about: $('tjAcerca').value, consent: $('tjAviso').checked, cv: $('tjCv').files?.[0] || null });
+    availability: marcados('tjDisp'), about: $('tjAcerca').value, consent: $('tjAviso').checked, cv: $('tjCv').files?.[0] || null, photo: $('tjFoto').files?.[0] || null });
   if (faltan.length) { msg(`Falta ${faltan.join(', ')}.`); return; }
   const btn = $('tjEnviar'); btn.disabled = true; btn.textContent = 'Enviando…';
   try {
     const r = await rpc('v2_public_apply_staff', { club_key: CLUB_KEY, application: datos });
-    let avisoCv = '';
+    let avisoCv = '', avisoFoto = '';
+    const foto = $('tjFoto').files?.[0];
+    if (foto && !r.duplicate) {
+      try { await subeFoto(r.applicationId, foto); }
+      catch (_) { avisoFoto = 'Tu foto no se pudo subir; tráela a la entrevista. '; }
+    }
     const cv = $('tjCv').files?.[0];
     if (cv && !r.duplicate) {
       try {
@@ -148,6 +180,7 @@ async function envia(e) {
       } catch (_) { avisoCv = 'Tu postulación quedó, pero el CV no se pudo subir. Mándalo por WhatsApp cuando te escribamos.'; }
     }
     const primerNombre = datos.fullName.split(' ')[0];
+    const fotoUrl = foto && !avisoFoto ? URL.createObjectURL(foto) : '';
     const liga = `${location.origin}/unete${club.slug ? `?club=${encodeURIComponent(club.slug)}` : ''}`;
     const comparte = `https://wa.me/?text=${encodeURIComponent(`Me postulé como formador en ${club.nombre}. Si te interesa, aquí está la convocatoria: ${liga}`)}`;
     show(`<section class="success">
@@ -156,13 +189,13 @@ async function envia(e) {
       <article class="un-cred">
         <div class="un-cred-cab">${escudo()}<p>${esc(club.nombre)}</p><span class="un-cred-cinta">Solicitud de fichaje</span></div>
         <div class="un-cred-cuerpo">
-          <div><p class="un-cred-et">Candidato</p><p class="un-cred-nombre">${esc(datos.fullName)}</p></div>
+          <div class="un-cred-quien">${fotoUrl ? `<img src="${esc(fotoUrl)}" alt="">` : ''}<div><p class="un-cred-et">Candidato</p><p class="un-cred-nombre">${esc(datos.fullName)}</p></div></div>
           <div><p class="un-cred-et">Posición</p><div class="un-cred-pos">${datos.positions.map(p => `<span>${esc(partePuesto(p).nombre)}</span>`).join('')}</div></div>
           <div class="un-cred-fila"><div><p class="un-cred-et">Folio</p><b class="folio">${esc(r.folio)}</b></div><div><p class="un-cred-et">WhatsApp</p><b>${esc(datos.phone)}</b></div></div>
         </div>
         <div class="un-cred-pie">${hashtag()}</div>
       </article>
-      ${avisoCv ? `<p class="un-ok-nota">${avisoCv}</p>` : ''}
+      ${avisoCv || avisoFoto ? `<p class="un-ok-nota">${esc(avisoFoto + avisoCv)}</p>` : ''}
       <div class="un-sigue"><h3>Qué sigue</h3><ol><li>Revisamos tu ficha${cv && !avisoCv ? ' y tu CV' : ''}.</li><li>Te escribimos por WhatsApp al ${esc(datos.phone)}.</li><li>Entrevista y prueba en cancha.</li></ol></div>
       <a class="un-comparte" href="${esc(comparte)}" target="_blank" rel="noopener">¿Conoces a otro formador? Compártele la convocatoria</a>
       <p class="un-ok-hash">${club.tannery ? 'Curtimos campeones del mundo' : ''}</p>

@@ -1,4 +1,5 @@
 import {bootstrapProtectedShell,rpc,$,moduleAccess,setShellHealth} from '/v2/shell.js';
+import {indicacionesDeTexto,problemaConIndicaciones} from '/v2/indicaciones.js';
 const boot=await bootstrapProtectedShell({active:'admin',title:'Configuración del club'});if(!boot)throw new Error('No access');
 const {ctx,navigation}=boot,org=ctx.organization_id,canWrite=moduleAccess(navigation,'admin',true);let current=null;
 function msg(text='',type='error'){const el=$('orgMessage');el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
@@ -64,5 +65,25 @@ $('payForm').addEventListener('submit',async e=>{
   finally{btn.disabled=!canWrite;}
 });
 await cargaPago();
+
+// Indicaciones al registrarse (s4): lo que la familia lee al terminar su
+// registro (uniforme, calzado…). Una por renglón; el servidor guarda hasta 6.
+function notesMsg(text='',type='error'){const el=$('notesMessage');el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
+async function cargaIndicaciones(){
+  const notas=await rpc('v2_registration_notes',{organization_id:org});
+  $('notesInput').value=(Array.isArray(notas)?notas:[]).join('\n');
+  if(!canWrite){$('notesInput').disabled=true;$('saveNotes').disabled=true;$('saveNotes').textContent='Solo lectura';}
+}
+$('notesForm').addEventListener('submit',async e=>{
+  e.preventDefault();if(!canWrite)return;notesMsg();
+  const notas=indicacionesDeTexto($('notesInput').value),problema=problemaConIndicaciones(notas);
+  if(problema){notesMsg(problema);return;}
+  const btn=$('saveNotes');btn.disabled=true;
+  try{await rpc('v2_update_registration_notes',{organization_id:org,notes:notas});await cargaIndicaciones();notesMsg('Indicaciones guardadas. Ya salen al terminar el registro.','success');}
+  catch(err){notesMsg(err.message||'No se pudo guardar.');}
+  finally{btn.disabled=!canWrite;}
+});
+try{await cargaIndicaciones();}catch(_){}
 if(location.hash==='#cobro')$('cobro')?.scrollIntoView({block:'start'});
+if(location.hash==='#indicaciones')$('indicaciones')?.scrollIntoView({block:'start'});
 

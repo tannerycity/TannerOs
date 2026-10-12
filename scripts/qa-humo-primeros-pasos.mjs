@@ -33,12 +33,15 @@ async function abre(ruta, { pasos } = {}) {
   await p.addInitScript(({ pasos }) => {
     window.__llamadas = [];
     let pago = { methods: ['Efectivo'] };
+    let notas = ['Uniforme: playera negra, short negro y medias blancas.', 'Calzado: multitacos, no tachones.'];
     const R = {
       v2_my_context: () => [{ user_id: 'u1', display_name: 'Ana', organization_id: 'o9', organization_name: 'Halcones FC', organization_slug: 'halcones', role: 'Presidencia', is_owner: true }],
       v2_my_navigation: () => ['admin', 'inicio', 'jugadores'].map(c => ({ module_code: c, enabled: true, can_read: true, can_write: true })),
       v2_onboarding_readiness: () => pasos,
       v2_organization_settings: () => ({ name: 'Halcones FC', timezone: 'America/Mexico_City', locale: 'es-MX', currency: 'MXN' }),
       v2_club_config: () => ({ name: 'Halcones FC', whatsapp: '524771112233', passwordPrefix: 'HF', storeUrl: null, paymentInstructions: pago }),
+      v2_registration_notes: () => notas,
+      v2_update_registration_notes: prm => { notas = prm.notes.slice(0, 6); return notas; },
       v2_update_payment_info: prm => { pago = { methods: prm.info.methods, transfer: { bank: prm.info.bank, clabe: prm.info.clabe, holder: prm.info.holder } }; return {}; }
     };
     window.__fakeSupabase = {
@@ -101,6 +104,13 @@ const PASOS = { percent: 17, ready: 1, total: 6, checks: [
   revisa('[cobro] una buena se guarda con banco, titular y métodos', g.length === 1 && g[0].prm.info.clabe === '167210000079567650' && g[0].prm.info.bank === 'Banregio'
     && g[0].prm.info.holder === 'Halcones AC' && JSON.stringify(g[0].prm.info.methods) === '["Transferencia","Efectivo"]', JSON.stringify(g));
   revisa('[cobro] y lo vuelve a mostrar', (await p.inputValue('#payClabe')) === '167210000079567650');
+  revisa('[indicaciones] carga las del club, una por renglón', (await p.inputValue('#notesInput')) === 'Uniforme: playera negra, short negro y medias blancas.\nCalzado: multitacos, no tachones.');
+  await p.fill('#notesInput', '1\n2\n3\n4\n5\n6\n7'); await p.click('#saveNotes');
+  revisa('[indicaciones] más de 6 no llegan al servidor', /hasta 6/.test(await p.textContent('#notesMessage')) && (await llamadas(p, 'v2_update_registration_notes')).length === 0);
+  await p.fill('#notesInput', '  Playera negra y short negro  \n\nMultitacos, no tachones\n'); await p.click('#saveNotes');
+  await p.waitForFunction(() => /guardadas/.test(document.getElementById('notesMessage').textContent), null, { timeout: 4000 }).catch(() => {});
+  const ind = await llamadas(p, 'v2_update_registration_notes');
+  revisa('[indicaciones] se guardan limpias y en orden', ind.length === 1 && JSON.stringify(ind[0].prm.notes) === '["Playera negra y short negro","Multitacos, no tachones"]', JSON.stringify(ind));
   revisa('[sin desborde] el formulario cabe a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
   await p.close();
 }

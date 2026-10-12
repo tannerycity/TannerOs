@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f2733" />
+  <title>Prueba TannerOS · Demo</title>
+  <meta name="description" content="Entra a un club de ejemplo y mira TannerOS como Presidencia, Dirección deportiva, Formador, Taquilla, Contabilidad o Familia. Sin registrarte." />
+  <link rel="stylesheet" href="/demo/styles.css" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png">
+</head>
+<body class="dm-body">
+  <main class="dm">
+    <header class="dm-cab">
+      <p class="dm-eyebrow">Demo · sin registrarte</p>
+      <h1>Mira TannerOS por dentro</h1>
+      <p class="dm-lema">Elige el club y entra con un toque como cualquier persona del club. Puedes ver todo; nada de lo que hagas se guarda.</p>
+    </header>
+
+    <section class="dm-variantes" role="radiogroup" aria-label="Qué club quieres ver">
+      <button type="button" class="dm-variante activa" data-variante="datos" role="radio" aria-checked="true">
+        <strong>Club en marcha</strong><span>Halcones FC: 40 jugadores, pagos, entrenamientos y partidos de ejemplo.</span>
+      </button>
+      <button type="button" class="dm-variante" data-variante="vacio" role="radio" aria-checked="false">
+        <strong>Club recién dado de alta</strong><span>Sin datos todavía: así se ve el primer día, con sus primeros pasos.</span>
+      </button>
+    </section>
+
+    <section class="dm-perfiles" aria-label="Entrar como">
+      <button type="button" class="dm-perfil" data-perfil="presidencia"><b>Presidencia</b><span>Todo el club: dinero, jugadores, equipo y ajustes.</span></button>
+      <button type="button" class="dm-perfil" data-perfil="direccion"><b>Dirección deportiva</b><span>Categorías, horarios, planeación y asistencia.</span></button>
+      <button type="button" class="dm-perfil" data-perfil="formador"><b>Formador</b><span>Su semana, la sesión de hoy en la cancha y su lista.</span></button>
+      <button type="button" class="dm-perfil" data-perfil="taquilla"><b>Taquilla</b><span>Cobrar mensualidades y tienda en ventanilla.</span></button>
+      <button type="button" class="dm-perfil" data-perfil="contabilidad"><b>Contabilidad</b><span>Ingresos, gastos y conciliación.</span></button>
+      <button type="button" class="dm-perfil" data-perfil="familia"><b>Familia</b><span>Lo que ve mamá o papá: pagos, avisos y su hijo.</span></button>
+    </section>
+
+    <p id="dmMsg" class="dm-msg hidden" role="status"></p>
+    <p class="dm-pie">¿Ya tienes club en TannerOS? <a href="/">Entra con tu cuenta</a></p>
+  </main>
+  <script type="module" src="/demo/app.js"></script>
+</body>
+</html>

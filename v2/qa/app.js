@@ -97,6 +97,7 @@ function coreTests(){return [
   routeTest('home','Inicio',routes.home,'home'),
   routeTest('registro','Registro general','/registro/','public',{contains:'/public-form.js'}),
   routeTest('pedido','Pedido público','/pedido/','public',{contains:'/public-form.js'}),
+  routeTest('demo','Demo pública con perfiles','/demo/','public',{contains:'/demo/app.js'}),
   routeTest('programas','Registro a programas','/programas/','public',{contains:'/public-form.js'}),
   {key:'integrity.snapshot',name:'Integridad del club',category:'Datos',module:'platform',run:async()=>{integrity=await rpc('v2_qa_integrity',{organization_id:ctx.organization_id});assert(integrity,'No se recibió el estado de integridad');return {detail:'La fotografía de integridad está disponible.'};}},
   {key:'migration.financial-drift',name:'Movimientos financieros completos',category:'Datos',module:'finance',run:async()=>{integrity=integrity||await rpc('v2_qa_integrity',{organization_id:ctx.organization_id});const count=Number(integrity.legacyFinancialDrift||0);assert(count===0,count+' movimiento(s) financiero(s) sin relación completa');return {detail:'Todos los movimientos están relacionados.'};}}

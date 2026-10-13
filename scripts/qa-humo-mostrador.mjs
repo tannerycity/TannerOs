@@ -121,6 +121,17 @@ revisa('y viaja con su player_id, para que entre a su estado de cuenta',
   llamadas[0]?.p?.player_id==='t1', JSON.stringify(llamadas[0]?.p?.player_id));
 revisa('sale la confirmación con su folio',
   await pg.isVisible('#confirmView') && /PED-/.test(await pg.textContent('#confirmFolio')));
+// ¿Cobras ahora? (13/10/2026): sin ir a Taquilla.
+revisa('al crear pregunta si se cobra ahora, por todo', await pg.isVisible('#cobroAhora') && /Cobrar \$699\.00/.test(await pg.textContent('#cobroOk')), await pg.textContent('#cobroOk').catch(()=>''));
+await pg.click('#cobroMetodo [data-metodo="transfer"]');
+await pg.click('#cobroCuanto [data-cuanto="mitad"]');
+revisa('anticipo 50% y transferencia piden su referencia', /Cobrar \$349\.50/.test(await pg.textContent('#cobroOk')) && await pg.isVisible('#cobroRef'));
+await pg.fill('#cobroRef','SPEI 123');
+await pg.click('#cobroOk');
+await pg.waitForTimeout(300);
+const cobros=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_post_order_payment_at_cashier').map(x=>x.p));
+revisa('cobra con método, monto, referencia y quién cobró', cobros.length===1&&cobros[0].order_id==='o-1'&&cobros[0].amount===349.5&&cobros[0].method==='transfer'&&cobros[0].reference==='SPEI 123', JSON.stringify(cobros));
+revisa('y dice cuánto queda debiendo', /Queda debiendo \$349\.50/.test(await pg.textContent('#cobroMsg')), await pg.textContent('#cobroMsg'));
 // Cliente externo
 await pg.click('#confirmNew');
 await pg.waitForTimeout(300);

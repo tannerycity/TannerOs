@@ -257,6 +257,20 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   await pg.fill('#orderSearch', '');
 
   if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/lista.png`, fullPage: true });
+  // 17. Quién me debe: una tarjeta por persona, con WhatsApp ya escrito y Cobrar.
+  await pg.click('#tSeg [data-f="__cobrar"]');
+  const deuda = (await pg.textContent('.deuda-total').catch(() => '')).replace(/\s+/g, ' ');
+  revisa('17. arriba dice cuánto te deben', /Te deben\s*\$1,450\.00/.test(deuda) && /1 persona · 1 pedido/.test(deuda), deuda);
+  const deudor = (await pg.textContent('.deudor').catch(() => '')).replace(/\s+/g, ' ');
+  revisa('17. la tarjeta dice quién, quién pidió y cuánto', /Leo Ávila/.test(deudor) && /Pidió Ana Sofía Ávila/.test(deudor) && /\$1,450\.00/.test(deudor), deudor);
+  const wa = decodeURIComponent(String(await pg.getAttribute('.deudor-wa', 'href').catch(() => '')));
+  revisa('17. el recordatorio va a la familia con folio, saldo y CLABE', wa.startsWith('https://wa.me/524771234567') && /PED-2026-00031/.test(wa) && /\$1,450\.00/.test(wa) && /167210000079567650/.test(wa), wa.slice(0, 260));
+  if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/deben.png` });
+  await pg.click('.deudor-cobrar');
+  await pg.waitForSelector('#drawer:not(.hidden)', { timeout:5000 }).catch(() => {});
+  revisa('17. Cobrar abre el pedido para cobrarlo', await pg.isVisible('#paymentSection'));
+  await pg.click('#closeDrawer');
+  await pg.click('#tSeg [data-f=""]');
   await pg.click(`${fila('o-nuevo')} .order-who`);
   await pg.waitForSelector('#drawer:not(.hidden) #orderResumen .t-res-quien', { timeout:5000 }).catch(() => {});
   revisa('3 clics: tocar la fila abre el pedido', await pg.isVisible('#drawer'));

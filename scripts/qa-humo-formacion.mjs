@@ -56,13 +56,14 @@ const revisiones = [], errores = [];
 const revisa = (n, ok, d = '') => revisiones.push({ nombre: n, ok, detalle: d });
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 
-async function abre({ direccion }) {
+async function abre({ direccion, vacio = false }) {
   const p = await nav.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(`console: ${m.text()}`); });
-  await p.addInitScript(({ direccion, CATALOGO, MIA, DIR, HOY }) => {
+  await p.addInitScript(({ direccion, vacio, CATALOGO, MIA, DIR, HOY }) => {
     window.__llamadas = [];
     const mia = JSON.parse(JSON.stringify(MIA)), hoy = JSON.parse(JSON.stringify(HOY));
+    if (vacio) { mia.sessions = []; mia.settings = { ...mia.settings, inicio: '2026-12-14' }; hoy.sessions = []; }
     const mods = ['inicio', 'formacion', ...(direccion ? ['formacion_direccion'] : [])];
     const R = {
       v2_my_context: () => [{ user_id: 'u2', display_name: 'Max', organization_id: 'o1', organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: direccion ? 'Operaciones' : 'Formadores', is_owner: false }],
@@ -85,7 +86,7 @@ async function abre({ direccion }) {
       from: () => ({ select() { return this; }, eq() { return this; }, then(r) { return Promise.resolve({ data: [], error: null }).then(r); } }),
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
-  }, { direccion, CATALOGO, MIA, DIR, HOY });
+  }, { direccion, vacio, CATALOGO, MIA, DIR, HOY });
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export function clearPhotoCache(){}' }));
@@ -264,6 +265,50 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   revisa('[carta] "Agregar a mi sesión" la pone en la tarea libre', /Balón Vivo/.test(elegida), elegida);
   await p.click('[data-cerrar]');
   await cabe(p, 'banco');
+  await p.close();
+}
+
+{ // Práctica guiada (13/10/2026): un ejemplo para aprender a planear, sin guardar nada.
+  const p = await abre({ direccion: false, vacio: true });
+  await p.waitForSelector('.fm-practica-card', { timeout: 6000 });
+  const card = await p.textContent('.fm-practica-card');
+  revisa('[práctica] sin sesiones dice cuándo arranca y ofrece practicar', /Formación arranca el 14 de diciembre/.test(card) && /Practicar cómo se planea/.test(card), card.slice(0, 160));
+  const acciones = await p.evaluate(() => (window.tosAccionesDePantalla || []).map(a => a.label));
+  revisa('[botón +] Formación trae sus propias acciones', acciones.includes('Practicar cómo se planea') && acciones.includes('Álbum de jugadas'), JSON.stringify(acciones));
+  await p.click('[data-practica]');
+  await p.waitForSelector('.fm-pr-reto');
+  revisa('[práctica] paso 1: el Reto de la semana', /PASO 1 DE 5/.test(await p.textContent('#fmHojaCuerpo')) && /1V1/i.test(await p.textContent('.fm-pr-reto')));
+  revisa('[práctica] no dice "demo"', !/demo/i.test(await p.textContent('#fmHoja')));
+  await p.click('[data-pr-sig]');
+  revisa('[práctica] paso 2: las 3 partes y cuál eliges tú', (await p.$$('.fm-pr-partes > div')).length === 3 && /Esto eliges tú/.test(await p.textContent('.fm-pr-partes')));
+  await p.click('[data-pr-sig]');
+  revisa('[práctica] paso 3: 3 jugadas recomendadas', (await p.$$('[data-pr-tarea]')).length === 3);
+  revisa('[práctica] no avanza sin elegir', await p.isDisabled('[data-pr-sig]'));
+  await p.click('[data-pr-tarea] >> nth=0');
+  const elegida = await p.textContent('[data-pr-tarea].activa b');
+  await p.click('[data-pr-sig]');
+  revisa('[práctica] paso 4: ajusta la jugada elegida', (await p.textContent('.fm-pregunta')) === elegida);
+  await p.click('[data-pr-dif="facil"]');
+  revisa('[práctica] Más fácil explica qué cambia', /Más fácil:/.test(await p.textContent('.fm-modo')));
+  await p.click('[data-pr-sig]');
+  revisa('[práctica] paso 5: el resumen con su jugada', (await p.textContent('.fm-pr-resumen')).includes(elegida) && /Más fácil/.test(await p.textContent('.fm-pr-resumen')));
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-practica.png' });
+  await p.click('[data-pr-sig]');
+  revisa('[práctica] termina con "¡Así se planea!"', /Así se planea/.test(await p.textContent('.fm-pr-fin')));
+  const guardo = (await p.evaluate(() => window.__llamadas.filter(x => /save|close|publish|remove/.test(x.n)).length));
+  revisa('[práctica] no guardó nada', guardo === 0, String(guardo));
+  await p.click('#fmHojaPie [data-cerrar]');
+  await cabe(p, 'práctica');
+  await p.close();
+}
+{ // Con sesiones: el aviso "¿Primera vez?" una vez, y se puede quitar.
+  const p = await abre({ direccion: false });
+  await p.waitForSelector('.fm-practica-banner', { timeout: 6000 });
+  revisa('[práctica] con sesiones, aviso discreto "¿Primera vez?"', /Primera vez/.test(await p.textContent('.fm-practica-banner')));
+  await p.click('[data-practica-cierra]');
+  revisa('[práctica] "Ya sé cómo" lo quita', (await p.$('.fm-practica-banner')) === null);
+  const acc = await p.evaluate(() => (window.tosAccionesDePantalla || []).map(a => a.label));
+  revisa('[botón +] con pendientes, lo primero es planear su sesión', acc[0] === 'Planear mi sesión', JSON.stringify(acc));
   await p.close();
 }
 

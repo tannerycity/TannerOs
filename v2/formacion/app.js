@@ -204,7 +204,76 @@ function pintaSesiones() {
       <p>Corte: ${esc(fecha(d.deadline, { weekday: 'long', day: 'numeric', month: 'short' }))} a las ${esc(hora(d.deadline))}.</p>
       ${r.pendientes ? '<button type="button" id="fmTerminar" class="fm-cta">Terminar planeación</button>' : ''}</section>
     ${ses.length ? pintaPasosFormador(ses) : ''}
-    ${ses.length ? `<div class="fm-lista">${tarjetas}</div>` : `<p class="fm-vacio">${esDireccion ? 'No hay sesiones de esa semana.' : 'No tienes sesiones asignadas esa semana. Si deberías tenerlas, avísale a Dirección.'}</p>`}`;
+    ${ses.length ? `${bannerPractica()}<div class="fm-lista">${tarjetas}</div>` : vacioConPractica(d)}`;
+}
+
+/* ---------- Práctica guiada (13/10/2026) ----------
+   "Que haya un ejemplo, como un onboarding para que el formador sepa cómo,
+   un demo pero sin decirle demo." Cinco pantallas con una sesión de ejemplo:
+   el Reto, las partes de la sesión, elegir la jugada, ajustarla y dejarla
+   lista. No guarda nada ni avisa a nadie. */
+const inicioFormacion = () => dataMia?.settings?.inicio || null;
+function vacioConPractica(d) {
+  const ini = inicioFormacion();
+  const antes = ini && d?.weekStart && d.weekStart < ini;
+  return `<section class="fm-practica-card">
+      <span class="fm-practica-eti">${antes ? 'MUY PRONTO' : 'SIN SESIONES ESTA SEMANA'}</span>
+      <h2>${antes ? `Formación arranca el ${esc(fecha(ini + 'T12:00:00Z', { day: 'numeric', month: 'long' }))}` : (esDireccion ? 'No hay sesiones de esa semana' : 'No tienes sesiones esa semana')}</h2>
+      <p>${antes ? 'Tus sesiones aparecen solas con el horario de cada categoría. Mientras, practica cómo se planea una: toma 1 minuto y no se guarda nada.'
+        : esDireccion ? 'Las sesiones salen del horario de cada categoría. Mientras, puedes ver cómo planea un Formador.' : 'Si deberías tenerlas, avísale a Dirección. Mientras, practica cómo se planea una sesión.'}</p>
+      <button type="button" class="fm-practica-btn" data-practica>Practicar cómo se planea · 1 min</button></section>`;
+}
+function bannerPractica() {
+  let visto = false; try { visto = localStorage.getItem('tos:fm:practica') === '1'; } catch {}
+  if (visto) return '';
+  return `<div class="fm-practica-banner"><span><b>¿Primera vez?</b> Practica cómo se planea en 1 minuto.</span><button type="button" data-practica>Practicar</button><button type="button" class="fm-x" data-practica-cierra aria-label="Ya sé cómo">×</button></div>`;
+}
+function practica() {
+  try { localStorage.setItem('tos:fm:practica', '1'); } catch {}
+  const reto = catalogo.concepts.find(c => c.kind === 'reto' && c.code === '1v1') || catalogo.concepts.find(c => c.kind === 'reto');
+  const recos = recomienda({ tareas: catalogo.tasks, etapa: 't10', reto: reto?.code, bloque: { escalon: 0 }, indiceSesion: 0, totalSesiones: 2 });
+  const st = { paso: 1, tarea: null, dif: 'base', esp: 'completo' };
+  const TOTAL = 5;
+  const dots = () => `<div class="fm-pr-dots" aria-hidden="true">${Array.from({ length: TOTAL }, (_, i) => `<i class="${i + 1 <= st.paso ? 'on' : ''}"></i>`).join('')}</div>`;
+  const tip = t => `<p class="fm-pr-tip"><span class="fm-pr-ico" aria-hidden="true">i</span><span>${t}</span></p>`;
+  const t = () => st.tarea ? catalogo.tasks.find(x => x.id === st.tarea) : null;
+  const pantallas = {
+    1: () => `${dots()}<p class="fm-paso-eti">PASO 1 DE 5 · EL RETO</p><h3 class="fm-pregunta">Cada semana tiene un Reto</h3>
+      <div class="fm-pr-reto"><span>RETO DE LA SEMANA</span><b>${esc(reto?.name || '1V1')}</b><p>${esc(reto?.question || '')}</p><p class="fm-conducta">Buscamos: que se atrevan a encarar</p></div>
+      ${tip('Dirección decide el <b>qué</b> (el Reto). Tú decides el <b>cómo</b>: la jugada que vas a poner en la cancha.')}`,
+    2: () => `${dots()}<p class="fm-paso-eti">PASO 2 DE 5 · TU SESIÓN</p><h3 class="fm-pregunta">Una sesión de 60 minutos tiene 3 partes</h3>
+      <div class="fm-pr-partes"><div class="ya"><b>Calentar</b><small>Ya viene puesto</small><i style="flex:15"></i></div><div class="tu"><b>Tu jugada</b><small>Esto eliges tú</small><i style="flex:30"></i></div><div class="ya"><b>Jugar</b><small>Ya viene puesto</small><i style="flex:15"></i></div></div>
+      ${tip('Sólo eliges <b>una</b> cosa: la jugada del centro. Calentar y jugar ya vienen listos (en 90 minutos son dos jugadas).')}`,
+    3: () => `${dots()}<p class="fm-paso-eti">PASO 3 DE 5 · ELIGE TU JUGADA</p><h3 class="fm-pregunta">Te recomendamos 3. Toca una.</h3>
+      <div class="fm-pr-recos">${recos.map(x => `<button type="button" data-pr-tarea="${esc(x.id)}" class="${st.tarea === x.id ? 'activa' : ''}"><b>${esc(x.name)}</b><small>${esc(x.buscamos || '')}</small></button>`).join('')}</div>
+      ${tip('Están ordenadas para el Reto y para el día de la semana. Si quieres otra, en tu sesión real tienes <b>Ver más</b> y el <b>Álbum de jugadas</b>.')}`,
+    4: () => `${dots()}<p class="fm-paso-eti">PASO 4 DE 5 · AJÚSTALA A TU GRUPO</p><h3 class="fm-pregunta">${esc(t()?.name || 'Tu jugada')}</h3>
+      <div class="fm-toggles"><span role="group" aria-label="Dificultad">${[['facil', 'Más fácil'], ['base', 'Base'], ['dificil', 'Más difícil']].map(([k, l]) => `<button type="button" data-pr-dif="${k}" class="${st.dif === k ? 'activa' : ''}">${l}</button>`).join('')}</span>
+        <span role="group" aria-label="Espacio">${[['completo', 'Completo'], ['reducido', 'Reducido']].map(([k, l]) => `<button type="button" data-pr-esp="${k}" class="${st.esp === k ? 'activa' : ''}">${l}</button>`).join('')}</span></div>
+      <p class="fm-modo">${st.dif === 'facil' ? `<b>Más fácil:</b> ${esc(t()?.easier || '')}` : st.dif === 'dificil' ? `<b>Más difícil:</b> ${esc(t()?.harder || '')}` : `<b>Cómo se juega:</b> ${esc(t()?.juega || '')}`}</p>
+      ${tip('¿Tu grupo va adelantado o le está costando? Súbele o bájale. No hay respuesta mala: <b>tú conoces a tus Tanners</b>.')}`,
+    5: () => `${dots()}<p class="fm-paso-eti">PASO 5 DE 5 · DÉJALA LISTA</p><h3 class="fm-pregunta">Así queda tu sesión</h3>
+      <ol class="fm-pr-resumen"><li><span>15 min</span><b>Calentar</b></li><li class="tu"><span>30 min</span><b>${esc(t()?.name || '')}</b><small>${{ facil: 'Más fácil', base: 'Base', dificil: 'Más difícil' }[st.dif]} · ${st.esp === 'completo' ? 'Espacio completo' : 'Espacio reducido'}</small></li><li><span>15 min</span><b>Jugar</b></li></ol>
+      ${tip('Toca <b>Confirmar lista</b> y listo. El día de la sesión, abre <b>Modo Cancha</b>: te dice qué decirles y qué observar.')}`,
+    6: () => `<div class="fm-pr-fin"><div class="fm-pr-check" aria-hidden="true">✓</div><h3>¡Así se planea!</h3>
+      <p>Reto → tu jugada → ajustarla → lista. Con tus sesiones reales son los mismos pasos: <b>3 toques por sesión</b>.</p>
+      <p class="fm-ayuda">Esta fue una práctica: no se guardó nada.</p></div>`
+  };
+  const pie = () => st.paso === 6
+    ? `<button type="button" class="secondary" data-pr-album>Ver el Álbum</button><button type="button" class="primary" data-cerrar>Ir a mis sesiones</button>`
+    : `${st.paso > 1 ? '<button type="button" class="secondary" data-pr-atras>Atrás</button>' : ''}<button type="button" class="primary" data-pr-sig${st.paso === 3 && !st.tarea ? ' disabled' : ''}>${st.paso === 5 ? 'Confirmar lista' : 'Siguiente'}</button>`;
+  const repinta = () => { $('fmHojaCuerpo').innerHTML = pantallas[st.paso](); $('fmHojaPie').innerHTML = pie(); };
+  abreHoja('Práctica · Tu primera sesión', pantallas[1](), pie());
+  $('fmHoja').classList.add('fm-hoja-practica');
+  $('fmHoja').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.prTarea) { st.tarea = b.dataset.prTarea; repinta(); return; }
+    if (b.dataset.prDif) { st.dif = b.dataset.prDif; repinta(); return; }
+    if (b.dataset.prEsp) { st.esp = b.dataset.prEsp; repinta(); return; }
+    if (b.hasAttribute('data-pr-sig')) { if (st.paso === 3 && !st.tarea) return; st.paso++; repinta(); return; }
+    if (b.hasAttribute('data-pr-atras')) { st.paso = Math.max(1, st.paso - 1); repinta(); return; }
+    if (b.hasAttribute('data-pr-album')) { cierraHoja(); tab = 'banco'; pinta(); }
+  };
 }
 
 /* Los pasos del Formador (13/10/2026): el mismo camino claro que la Semana
@@ -429,12 +498,24 @@ function eligeSesion(t, mias) {
 
 /* ---------- Hoja inferior ---------- */
 function abreHoja(titulo, cuerpo, pie) { $('fmHojaTitulo').textContent = titulo; $('fmHojaCuerpo').innerHTML = cuerpo; $('fmHojaPie').innerHTML = pie || ''; $('fmHoja').classList.remove('hidden'); document.body.classList.add('fm-sin-scroll'); }
-function cierraHoja() { $('fmHoja').onclick = null; clearInterval(reloj); try { wakeLock?.release(); } catch {} wakeLock = null; $('fmHoja').classList.remove('fm-cancha'); $('fmHoja').classList.add('hidden'); $('fmHojaCuerpo').onclick = null; document.body.classList.remove('fm-sin-scroll'); }
+function cierraHoja() { $('fmHoja').onclick = null; $('fmHoja').classList.remove('fm-hoja-practica'); clearInterval(reloj); try { wakeLock?.release(); } catch {} wakeLock = null; $('fmHoja').classList.remove('fm-cancha'); $('fmHoja').classList.add('hidden'); $('fmHojaCuerpo').onclick = null; document.body.classList.remove('fm-sin-scroll'); }
 $('fmHoja').addEventListener('click', e => { if (e.target.id === 'fmHoja' || e.target.closest('[data-cerrar]')) cierraHoja(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cierraHoja(); });
 
 /* ---------- Pintar y cargar ---------- */
+/* El botón flotante en Formación (13/10/2026): primero lo de esta pantalla. */
+function accionesDeFormacion() {
+  const pend = (dataMia?.sessions || []).find(x => x.plan?.status !== 'ready');
+  window.tosAccionesDePantalla = [
+    pend ? { label: 'Planear mi sesión', sub: `${pend.category} · ${dia(pend.startsAt)}`, icon: 'check', run: () => hojaSesion(pend) } : null,
+    esDireccion ? { label: 'Semana Tanner', sub: 'Elegir y publicar los Retos', icon: 'calendar', run: () => { tab = 'semana'; pinta(); } } : null,
+    { label: 'Practicar cómo se planea', sub: '1 minuto, no se guarda nada', icon: 'spark', run: practica },
+    { label: 'Álbum de jugadas', sub: 'Las 60 jugadas por mundo y nivel', icon: 'book', run: () => { tab = 'banco'; pinta(); } }
+  ].filter(Boolean);
+  window.dispatchEvent(new Event('tos:acciones'));
+}
 function pinta() {
+  accionesDeFormacion();
   pintaTabs();
   $('fmSemana').textContent = semana ? rangoSemana(semana) : 'Próxima semana';
   const v = $('fmVista');
@@ -448,6 +529,8 @@ $('fmVista').addEventListener('click', e => {
   const hoy = e.target.closest('[data-hoy]'); if (hoy) { modoCancha(dataHoy.sessions.find(s => s.sessionId === hoy.dataset.hoy)); return; }
   const ses = e.target.closest('[data-ses]'); if (ses) { hojaSesion(dataMia.sessions.find(s => s.sessionId === ses.dataset.ses)); return; }
   if (e.target.closest('#fmTerminar')) { const p = dataMia.sessions.find(s => s.plan?.status !== 'ready'); if (p) hojaSesion(p); return; }
+  if (e.target.closest('[data-practica]')) { practica(); return; }
+  if (e.target.closest('[data-practica-cierra]')) { try { localStorage.setItem('tos:fm:practica', '1'); } catch {} pinta(); return; }
   const bn = e.target.closest('[data-banco]'); if (bn) { album.banco = bn.dataset.banco; album.mundo = ''; album.nivel = 0; pinta(); return; }
   const mu = e.target.closest('[data-mundo]'); if (mu) { album.mundo = mu.dataset.mundo; pinta(); return; }
   const ni = e.target.closest('[data-nivel]'); if (ni) { album.nivel = +ni.dataset.nivel; pinta(); return; }

@@ -145,7 +145,8 @@ export default function comprobar() {
   // v2_my_planning, v2_direction_week y v2_formation_catalog.
   // Sube a 42 por qa-humo-tienda-tablero.mjs: la Tienda en tres toques
   // (jugador, piezas con manga y número por confirmar en la fila).
-  const MAX_EXCLUIDAS = 42;
+  // Sube a 43 por qa-humo-staff.mjs: el organigrama, la ficha y quién ve qué.
+  const MAX_EXCLUIDAS = 43;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

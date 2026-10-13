@@ -43,6 +43,7 @@ const routeContract={
   '/admin/onboarding/':'v2/admin/onboarding/index.html',
   '/formacion/':'v2/formacion/index.html',
   '/candidatos/':'v2/candidatos/index.html',
+  '/staff/':'v2/staff/index.html',
   '/admin/fotos/':'v2/admin/fotos/index.html',
   '/admin/clubes/':'v2/admin/clubes/index.html',
   '/jugadores/importar/':'v2/jugadores/importar/index.html'
@@ -136,8 +137,11 @@ const IMAGEN_DE_PREVIEW='brand/og-registro.jpg';
    con su propia politica (private.branding_storage_org_id). */
 const CARPETAS_DE_STORAGE=['players','guardians','billing','accounting','academies','attendance','programs','commerce','prospects','scouting','sponsors','equipment','admin'];
 const CARPETAS_DE_OTRO_BUCKET=['branding'];
+// Carpetas con su PROPIA politica, que no pasa por storage_module_code:
+// 'staff' (postulaciones y fichas del staff: t4 y f5, tanneros_staff_photo_insert).
+const CARPETAS_CON_POLITICA_PROPIA=['staff'];
 {
-  const permitidas=new Set([...CARPETAS_DE_STORAGE,...CARPETAS_DE_OTRO_BUCKET]);
+  const permitidas=new Set([...CARPETAS_DE_STORAGE,...CARPETAS_DE_OTRO_BUCKET,...CARPETAS_CON_POLITICA_PROPIA]);
   // Toda forma de armar la ruta que se usa hoy: plantilla y concatenacion.
   const patrones=[/organizations\/\$\{[^}]*\}\/([a-zA-Z0-9_-]+)/g,
                   /'organizations\/'\s*\+\s*[^+]+\+\s*'\/([a-zA-Z0-9_-]+)/g];

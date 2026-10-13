@@ -133,6 +133,7 @@ const fullRouteMatrix=[
   ['onboarding','Preparación del club','/admin/onboarding/','admin'],
   ['formacion','Formación','/formacion/','formacion'],
   ['candidatos','Candidatos a staff','/candidatos/','usuarios'],
+  ['staff','Staff y organigrama','/staff/','inicio'],
   ['photos','Fotos del padrón','/admin/fotos/','admin'],
   ['clubs','Clubes','/admin/clubes/','admin'],
   ['playersImport','Importar jugadores','/jugadores/importar/','players']

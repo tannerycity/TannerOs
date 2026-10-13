@@ -500,14 +500,33 @@ async function renderProgreso(){
   const evs=d.evaluations||[];
   const valoraciones=evs.length?evs.map(evaluacionBlock).join('')
     : `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Sus profes todavía no capturan una valoración. Aquí la vas a ver en cuanto la hagan.</p></section>`;
-  $('famBody').innerHTML=hero+tarjetaDelMes(p)+valoraciones+listaAsistencia;
+  $('famBody').innerHTML=hero+'<div id="famStaff"></div>'+tarjetaDelMes(p)+valoraciones+listaAsistencia;
   cargarMesDeAsistencia(p);
+  pintaStaffDelHijo(p);
   // La foto llega firmada aparte, igual que en Cuenta.
   if(!p._photo&&p.photo_thumb_path){
     const url=await signPhoto(p);
     if(url){p._photo=url;const box=document.querySelector(`[data-profile-photo="${CSS.escape(String(p.id))}"]`);
       if(box)box.innerHTML=`<img src="${esc(url)}" alt="Foto de ${esc(nombre)}">`;}
   }
+}
+
+/* Sus profes (13/10/2026, "que los papás vean cuál es su entrenador"): los
+   formadores de su categoría y Dirección deportiva, con foto, nombre y puesto.
+   Sin teléfono: así lo decidió Presidencia. */
+async function pintaStaffDelHijo(p){
+  const box=document.getElementById('famStaff');if(!box)return;
+  if(!state.staff){try{state.staff=await rpc('v2_portal_staff')||[];}catch(e){state.staff=[];}}
+  const cat=String(p.category||'').trim().toLowerCase();
+  const suyos=(state.staff||[]).filter(s=>s.level==='direccion'||(s.categories||[]).some(c=>String(c).trim().toLowerCase()===cat))
+    .sort((a,b)=>(a.level==='formador'?0:1)-(b.level==='formador'?0:1));
+  if(!suyos.length||document.getElementById('famStaff')!==box)return;
+  box.innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Sus profes</h2><span>${suyos.length}</span></div><div class="fam-staff">${suyos.map(s=>
+    `<div class="fam-staff-p"><span class="fam-staff-cara" data-staff-foto="${esc(s.photoThumbPath||'')}">${esc(String(s.fullName||'').split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase())}</span><span><strong>${esc(s.fullName)}</strong><small>${esc(s.title||'')}</small></span></div>`).join('')}</div></section>`;
+  const rutas=suyos.map(s=>s.photoThumbPath).filter(Boolean);
+  if(!rutas.length)return;
+  try{const urls=await getSignedPhotoUrls(supabase,'tanneros-private',rutas)||{};
+    box.querySelectorAll('[data-staff-foto]').forEach(el=>{const u=urls[el.dataset.staffFoto];if(u)el.innerHTML=`<img src="${esc(u)}" alt="">`;});}catch(e){/* se quedan las iniciales */}
 }
 
 /* ---------- Tienda ----------

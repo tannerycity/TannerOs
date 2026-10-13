@@ -72,7 +72,12 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
     ];
     const RESP = { v2_portal_home: HOME, v2_portal_progress: PROGRESS,
       v2_portal_statement: STATEMENT,
-      v2_portal_calendar: [], v2_portal_catalog: CATALOGO, v2_portal_parking: { passes:[] } };
+      v2_portal_calendar: [], v2_portal_catalog: CATALOGO, v2_portal_parking: { passes:[] },
+      // Sus profes (13/10/2026): la de su categoría, Dirección, y una de otra categoría que no debe salir.
+      v2_portal_staff: [
+        { id:'s1', fullName:'Ana Ruiz', title:'Formadora T10', level:'formador', photoThumbPath:null, categories:['T10'] },
+        { id:'s2', fullName:'Brandon Andrade', title:'Director deportivo', level:'direccion', photoThumbPath:null, categories:[] },
+        { id:'s3', fullName:'Otro Profe', title:'Formador T6', level:'formador', photoThumbPath:null, categories:['T6'] }] };
     export const supabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}),
              getUser:async()=>({data:{user:{app_metadata:{}}}}),
@@ -139,6 +144,10 @@ await pagina.click('.fam-nav-item[data-tab="progreso"]');
 await pagina.waitForSelector('#famMesCard', { timeout: 6000 });
 await pagina.waitForFunction(() => !/Cargando/.test(document.getElementById('famMesBody')?.textContent || 'Cargando'), { timeout: 6000 });
 
+await pagina.waitForSelector('#famStaff .fam-staff-p', { timeout: 4000 }).catch(() => {});
+const profes = await pagina.$$eval('#famStaff .fam-staff-p strong', e => e.map(x => x.textContent));
+revisa('"Sus profes": su formadora y Dirección, no la de otra categoría', JSON.stringify(profes) === '["Ana Ruiz","Brandon Andrade"]', JSON.stringify(profes));
+revisa('"Sus profes" sin teléfono', !/\d{10}/.test(await pagina.textContent('#famStaff').catch(() => '')));
 const mes = (await pagina.textContent('#famMesCard')).replace(/\s+/g, ' ');
 revisa('la tarjeta dice de qué mes habla', /Septiembre de 2026/.test(mes), mes.slice(0, 90));
 revisa('muestra el porcentaje del mes', /60%/.test(mes), mes.slice(0, 160));

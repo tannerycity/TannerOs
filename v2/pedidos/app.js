@@ -90,11 +90,11 @@ function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('p
 async function load(){const [lista,revisar,tab]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({}))]);orders=lista||[];tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
 /* Los filtros de arriba (segmentos tipo iOS). Cada uno trae su cuenta: los
    números que antes vivían en tarjetas aparte ahora dicen a dónde ir. */
-const SEGMENTOS=[{f:'',t:'Todos'},{f:'__atender',t:'Por atender'},{f:'__cobrar',t:'Por cobrar'},{f:'in_production',t:'En producción'},{f:'ready',t:'Listos'}];
+const SEGMENTOS=[{f:'',t:'Todos'},{f:'__atender',t:'Por atender'},{f:'__cobrar',t:'Quién me debe'},{f:'in_production',t:'En producción'},{f:'ready',t:'Listos'}];
 function porAtender(o){return vigente(o)&&(porRevisar.has(o.id)||numeroPorConfirmar(o));}
-function cuentaDe(f){const v=orders.filter(vigente);if(f==='__atender')return v.filter(porAtender).length;if(f==='__cobrar')return v.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length;if(!f)return v.length;return v.filter(o=>o.status===f).length;}
+function cuentaDe(f){const v=orders.filter(vigente);if(f==='__atender')return v.filter(porAtender).length;if(f==='__cobrar')return v.filter(o=>saldoDe(o)>0.005).length;if(!f)return v.length;return v.filter(o=>o.status===f).length;}
 function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$('statusFilter').value;seg.innerHTML=SEGMENTOS.map(s=>{const n=cuentaDe(s.f);return `<button type="button" role="tab" data-f="${s.f}" aria-selected="${actual===s.f}" class="${actual===s.f?'activo':''}${s.f==='__atender'&&n?' alerta':''}">${esc(s.t)}<i>${n}</i></button>`;}).join('');const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('__atender');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${a?` · ${a} por atender`:' · todo al día'}`;}}
-function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();const pasa=o=>{if(status==='__review')return porRevisar.has(o.id);if(status==='__numero')return numeroPorConfirmar(o)&&vigente(o);if(status==='__atender')return porAtender(o);if(status==='__cobrar')return vigente(o)&&['pending_payment','partial_payment'].includes(o.status);return !status||o.status===status;};return orders.filter(o=>pasa(o)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${tablero[o.id]?.attendedName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
+function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();const pasa=o=>{if(status==='__review')return porRevisar.has(o.id);if(status==='__numero')return numeroPorConfirmar(o)&&vigente(o);if(status==='__atender')return porAtender(o);if(status==='__cobrar')return vigente(o)&&saldoDe(o)>0.005;return !status||o.status===status;};return orders.filter(o=>pasa(o)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${tablero[o.id]?.attendedName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
 function renderKpis(){const rows=orders.filter(vigente);const pon=(id,n)=>{const e=$(id);if(e)e.textContent=n;};pon('kpiOrders',rows.length);pon('kpiPending',rows.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length);pon('kpiProduction',rows.filter(o=>o.status==='in_production').length);pon('kpiReady',rows.filter(o=>o.status==='ready').length);}
 function textoMangaCorto(m){return m==='larga'?'Larga':m==='corta'?'Corta':'';}
 const esJersey=d=>/jersey|playera|uniforme/i.test(d||'');
@@ -113,12 +113,41 @@ function barraNumero(o){
   if(conf)return `<div class="order-num ok"><span>Número ${esc(txt)} confirmado</span>${canWrite?`<button type="button" class="t-link" data-num-deshacer="${esc(o.id)}">Deshacer</button>`:''}</div>`;
   return `<div class="order-num pendiente"><span>Número ${esc(txt)} por confirmar</span>${canWrite?`<button type="button" class="t-pill-btn" data-num-confirma="${esc(o.id)}">Confirmar número</button>`:''}</div>`;
 }
-function render(){const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
+function render(){const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').textContent='No hay pedidos aquí.';if($('statusFilter').value==='__cobrar'){renderDeudores(rows);return;}$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
     const atendio=quienAtendio(t);
     b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${balance!=null&&balance>0?` · saldo ${money.format(balance)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b><span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span></div>${barraNumero(o)}`;
     b.addEventListener('click',ev=>{const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
     b.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
     list.appendChild(b);});}
+/* Quién me debe (13/10/2026, "y después saber quién me debe"): una tarjeta
+   por persona con lo que debe, de cuántos pedidos y desde cuándo; WhatsApp
+   con el recordatorio ya escrito y Cobrar, que abre el pedido más viejo. */
+const saldoDe=o=>Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));
+function renderDeudores(rows){
+  const list=$('orderList'),grupos=new Map();
+  rows.filter(o=>saldoDe(o)>0.005).forEach(o=>{
+    const t=tablero[o.id]||{},llave=t.playerName?`j:${t.playerName}`:o.customer_phone?`t:${String(o.customer_phone).replace(/\D/g,'')}`:`n:${o.customer_name}`;
+    const g=grupos.get(llave)||{nombre:t.playerName||o.customer_name||'Sin nombre',pidio:t.playerName?o.customer_name:null,tel:o.customer_phone,pedidos:[],debe:0};
+    g.pedidos.push(o);g.debe+=saldoDe(o);if(!g.tel&&o.customer_phone)g.tel=o.customer_phone;grupos.set(llave,g);
+  });
+  const lista=[...grupos.values()].sort((a,b)=>b.debe-a.debe);
+  const total=lista.reduce((n,g)=>n+g.debe,0),pedidos=lista.reduce((n,g)=>n+g.pedidos.length,0);
+  $('empty').classList.toggle('hidden',lista.length>0);
+  if(!lista.length){$('empty').textContent='Nadie te debe. Todo cobrado.';return;}
+  const pago=clubCfg?.paymentInstructions?.transfer||{},club=clubCfg?.name||ctx.organization_name||'el club';
+  const dias=o=>Math.max(0,Math.round((Date.now()-new Date(o.created_at).getTime())/864e5));
+  list.innerHTML=`<div class="deuda-total"><span>Te deben</span><strong>${money.format(total)}</strong><small>${lista.length} ${lista.length===1?'persona':'personas'} · ${pedidos} ${pedidos===1?'pedido':'pedidos'}</small></div>`
+    +lista.map((g,k)=>{
+      const viejo=g.pedidos.reduce((a,o)=>new Date(o.created_at)<new Date(a.created_at)?o:a),d=dias(viejo);
+      const folios=g.pedidos.map(o=>o.folio).join(', ');
+      const texto=`Hola${g.pidio?` ${String(g.pidio).split(' ')[0]}`:''}, te escribimos de ${club}. Tienes pendiente ${money.format(g.debe)} del pedido ${folios}${g.pidio?` de ${g.nombre}`:''}.`
+        +(pago.clabe?` Puedes transferir a ${pago.bank||'la cuenta del club'}, CLABE ${pago.clabe}${pago.holder?`, a nombre de ${pago.holder}`:''}, con el folio como referencia.`:'')+' También en Taquilla. ¡Gracias!';
+      const wa=ligaWhatsApp(g.tel,texto);
+      return `<article class="deudor"><span class="t-avatar" aria-hidden="true">${esc(iniciales(g.nombre))}</span><div class="deudor-main"><strong>${esc(g.nombre)}</strong><span>${g.pidio?`Pidió ${esc(g.pidio)} · `:''}${g.pedidos.length} ${g.pedidos.length===1?'pedido':'pedidos'} · ${d===0?'hoy':d===1?'desde ayer':`hace ${d} días`}</span></div><b class="deudor-monto${d>=14?' tarde':''}">${money.format(g.debe)}</b>
+        <div class="deudor-acc">${wa?`<a class="deudor-wa" href="${esc(wa)}" target="_blank" rel="noopener">${WA_ICON} Recordar</a>`:'<span class="muted">Sin teléfono</span>'}<button type="button" class="deudor-cobrar" data-deudor="${k}">Cobrar</button></div></article>`;
+    }).join('');
+  list.querySelectorAll('[data-deudor]').forEach(b=>b.addEventListener('click',()=>{const g=lista[Number(b.dataset.deudor)];const o=g.pedidos.reduce((a,x)=>new Date(x.created_at)<new Date(a.created_at)?x:a);openOrder(o).then(()=>$('paymentSection')?.scrollIntoView({behavior:'smooth',block:'start'}));}));
+}
 /* Confirmar el número desde la lista, sin abrir el pedido: un toque. */
 async function confirmaNumero(o,confirmar,btn){
   btn.disabled=true;

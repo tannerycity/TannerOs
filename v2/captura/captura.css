@@ -167,3 +167,15 @@
 .pick-card-foto .pick-datos strong{font-size:14px;line-height:1.25}
 .pick-card-foto .pick-datos span{display:none}
 @media(max-width:620px){.pick-grid{grid-template-columns:1fr 1fr}}
+
+/* ¿Cobras ahora? (13/10/2026) */
+.cobro-ahora{display:grid;gap:10px;margin:14px 0 6px;padding:16px;border-radius:18px;background:#f2f8f4;text-align:left}
+.cobro-ahora h3{margin:0;font-size:18px}
+.cobro-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:12px;background:#e3ece7}
+.cobro-seg button{min-height:42px;border:0;border-radius:9px;background:transparent;font:inherit;font-weight:700;font-size:14px;color:#3c4e52;cursor:pointer}
+.cobro-seg button.activo{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
+.cobro-monto{border:1px solid #cedbd8;border-radius:12px;min-height:46px;padding:0 14px;font:inherit;font-size:17px}
+.cobro-ok{min-height:52px;border:0;border-radius:999px;background:#169b4b;color:#fff;font:inherit;font-weight:800;font-size:17px;cursor:pointer}
+.cobro-ok:disabled{background:#9fb0b3}
+.cobro-ok.hecho{background:#1e6b3c}
+.cobro-msg{margin:0;font-weight:700;color:#1e5b33;min-height:1em}

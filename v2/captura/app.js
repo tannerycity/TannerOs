@@ -466,6 +466,7 @@ async function createOrder(){
     const ver=$('confirmOpenLink');if(ver)ver.className=DESDE_TAQUILLA?'secondary':'primary';
     $('confirmFolio').textContent=result.folio;
     $('confirmTotal').textContent=money.format(Number(result.total||0));
+    preparaCobro(result,p);
     $('captureView').classList.add('hidden');
     $('confirmView').classList.remove('hidden');
   }catch(e){createMsg(e.message||'No se pudo crear el pedido.');}
@@ -473,7 +474,54 @@ async function createOrder(){
 }
 $('createOrder').addEventListener('click',createOrder);
 
+/* ¿Cobras ahora? (13/10/2026, "segundo, cobrarlo"). Mismo registro de pagos
+   que Taquilla, con quién cobró: la caja del día cuadra igual. */
+let cobro=null;
+function eligeEn(id,attr,valor){$(id).querySelectorAll(`[${attr}]`).forEach(b=>{const on=b.getAttribute(attr)===valor;b.classList.toggle('activo',on);b.setAttribute('aria-checked',String(on));});}
+function montoCobro(){
+  if(!cobro)return 0;
+  const cuanto=$('cobroCuanto').querySelector('.activo')?.dataset.cuanto||'todo';
+  if(cuanto==='mitad')return Math.round(cobro.total*50)/100;
+  if(cuanto==='otro')return Math.min(cobro.total,Math.max(0,Number($('cobroMonto').value||0)));
+  return cobro.total;
+}
+function pintaCobro(){
+  const m=montoCobro(),metodo=$('cobroMetodo').querySelector('.activo')?.dataset.metodo;
+  $('cobroMonto').classList.toggle('hidden',$('cobroCuanto').querySelector('.activo')?.dataset.cuanto!=='otro');
+  $('cobroRef').classList.toggle('hidden',metodo!=='transfer');
+  $('cobroOk').textContent=m>0?`Cobrar ${money.format(m)}`:'Escribe cuánto';
+  $('cobroOk').disabled=!(m>0);
+}
+function preparaCobro(result,tanner){
+  const caja=$('cobroAhora');if(!caja)return;
+  cobro={id:result.id,folio:result.folio,total:Number(result.total||0),payer:tanner?null:($('custName').value.trim()||null)};
+  // Desde Taquilla el cobro se hace allá, con su caja abierta.
+  caja.classList.toggle('hidden',DESDE_TAQUILLA||!(cobro.total>0));
+  eligeEn('cobroMetodo','data-metodo','cash');eligeEn('cobroCuanto','data-cuanto','todo');
+  $('cobroMonto').value='';$('cobroRef').value='';$('cobroMsg').textContent='';$('cobroOk').classList.remove('hecho');
+  pintaCobro();
+}
+$('cobroMetodo')?.addEventListener('click',e=>{const b=e.target.closest('[data-metodo]');if(!b)return;eligeEn('cobroMetodo','data-metodo',b.dataset.metodo);pintaCobro();});
+$('cobroCuanto')?.addEventListener('click',e=>{const b=e.target.closest('[data-cuanto]');if(!b)return;eligeEn('cobroCuanto','data-cuanto',b.dataset.cuanto);pintaCobro();if(b.dataset.cuanto==='otro')$('cobroMonto').focus();});
+$('cobroMonto')?.addEventListener('input',pintaCobro);
+$('cobroOk')?.addEventListener('click',async()=>{
+  const m=montoCobro();if(!cobro||!(m>0))return;
+  const btn=$('cobroOk');btn.disabled=true;$('cobroMsg').textContent='';
+  try{
+    await rpc('v2_post_order_payment_at_cashier',{organization_id:ctx.organization_id,order_id:cobro.id,amount:m,
+      payment_date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Mexico_City'}),
+      method:$('cobroMetodo').querySelector('.activo')?.dataset.metodo||'cash',reference:$('cobroRef').value.trim()||null,
+      payer_type:'guardian',payer_name:cobro.payer,collected_by_name:ctx.display_name||null,
+      idempotency_key:`captura-${cobro.id}-${Math.round(m*100)}`});
+    const resta=Math.max(0,Math.round((cobro.total-m)*100)/100);
+    $('cobroMsg').textContent=resta>0?`Cobrado ${money.format(m)}. Queda debiendo ${money.format(resta)}.`:`Cobrado ${money.format(m)}. Pedido pagado.`;
+    btn.textContent='Cobrado';btn.classList.add('hecho');
+    $('cobroAhora').querySelectorAll('.cobro-seg button,#cobroMonto,#cobroRef').forEach(x=>x.disabled=true);
+  }catch(e){$('cobroMsg').textContent=e.message||'No se pudo cobrar.';btn.disabled=false;}
+});
+
 function resetCapture(){
+  $('cobroAhora')?.querySelectorAll('.cobro-seg button,#cobroMonto,#cobroRef').forEach(x=>x.disabled=false);
   cart=[];$('custName').value='';$('custPhone').value='';$('custEmail').value='';$('orderNotes').value='';
   tannerId='';const selT=$('capPlayer');if(selT)selT.value='';
   if(externo)modoExterno(false);else pintaQuien();

@@ -15,6 +15,24 @@
     <div class="confirm-icon">✓</div>
     <h2>Pedido creado</h2>
     <p class="muted">Folio <strong id="confirmFolio">—</strong> · Total <strong id="confirmTotal">—</strong></p>
+    <!-- ¿Cobras ahora? (13/10/2026): cobrar sin ir a otra pantalla. -->
+    <div id="cobroAhora" class="cobro-ahora hidden">
+      <h3>¿Cobras ahora?</h3>
+      <div class="cobro-seg" id="cobroMetodo" role="radiogroup" aria-label="Cómo paga">
+        <button type="button" data-metodo="cash" class="activo" aria-checked="true" role="radio">Efectivo</button>
+        <button type="button" data-metodo="transfer" aria-checked="false" role="radio">Transferencia</button>
+        <button type="button" data-metodo="card" aria-checked="false" role="radio">Tarjeta</button>
+      </div>
+      <div class="cobro-seg" id="cobroCuanto" role="radiogroup" aria-label="Cuánto">
+        <button type="button" data-cuanto="todo" class="activo" aria-checked="true" role="radio">Todo</button>
+        <button type="button" data-cuanto="mitad" aria-checked="false" role="radio">Anticipo 50%</button>
+        <button type="button" data-cuanto="otro" aria-checked="false" role="radio">Otra cantidad</button>
+      </div>
+      <input id="cobroMonto" class="cobro-monto hidden" type="number" min="1" step="0.01" inputmode="decimal" placeholder="$0" aria-label="Cuánto cobras">
+      <input id="cobroRef" class="cobro-monto hidden" type="text" maxlength="120" placeholder="Referencia de la transferencia (opcional)" aria-label="Referencia">
+      <button id="cobroOk" class="cobro-ok" type="button">Cobrar</button>
+      <p id="cobroMsg" class="cobro-msg" role="status"></p>
+    </div>
     <div class="confirm-actions">
       <a id="confirmCobrar" class="primary hidden" href="/taquilla/">Cobrar anticipo en Taquilla</a><a id="confirmOpenLink" class="secondary" href="/v2/pedidos/">Ver en Pedidos</a>
       <button id="confirmNew" class="secondary" type="button">Capturar otro pedido</button>

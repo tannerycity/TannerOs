@@ -251,3 +251,6 @@ body[style*="overflow: hidden"]:not(.tos-fab-open) .tos-fab,.tos-nav-open .tos-f
 a.tos-bell-link{display:block;color:inherit;text-decoration:none}a.tos-bell-link:hover{border-color:var(--tos-teal)}
 .tos-solo-lectura{margin:0 0 14px;padding:10px 14px;border-radius:12px;background:#fbe6e3;border:1px solid #e9a99f;color:#7a2318;font-weight:800;font-size:14px;line-height:1.4}
 .tos-solo-lectura[data-reason="demo"]{background:#fdf2dc;border-color:#f0dfae;color:#6b4e0c}
+/* Botón +: lo de esta pantalla primero (13/10/2026). */
+.tos-fab-title.sep{margin-top:12px;padding-top:10px;border-top:1px solid var(--tos-line,#e3e8e7)}
+.tos-fab-item.aqui .tos-fab-ico{background:#169b4b;color:#fff}

@@ -535,18 +535,52 @@ export function accionesRapidas(ctx,navigation){
   return (ACCIONES_POR_ROL[rol]||[]).map(k=>({clave:k,...ACCIONES_RAPIDAS[k]})).map(a=>a.publica?{...a,href:ligaPublica(a.href,ctx,{},'')}:a).filter(a=>a.siempre||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe))));
 }
 function cierraAcciones(){document.body.classList.remove('tos-fab-open');$('tosFab')?.setAttribute('aria-expanded','false');}
+/* Lo de ESTA pantalla primero (13/10/2026): "que tenga dos, tres funciones de
+   esa pantalla y ya después las generales". Cada pantalla publica sus
+   acciones con setAccionesDePantalla([...]) —o window.tosAccionesDePantalla y
+   el evento 'tos:acciones'— porque branding-auto carga el shell con otra URL y
+   un import directo sería otra copia del módulo. Una acción trae label, sub,
+   icon y href o run (una función de la pantalla). Las pantallas que no
+   publican nada usan las de ACCIONES_POR_RUTA. */
+const ACCIONES_POR_RUTA=[
+  ['/catalogo',[{label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',href:'/catalogo/?nuevo=producto',icon:'plus'},{label:'Nuevo kit',sub:'Junta piezas con su precio',href:'/catalogo/?nuevo=kit',icon:'bag'}]],
+  ['/pedidos',[{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',href:'/captura/',icon:'bag'},{label:'Producción',sub:'Cortes y hoja para el proveedor',href:'/produccion/',icon:'list'}]],
+  ['/calendario',[{label:'Nuevo evento',sub:'Partido, torneo o junta',href:'/calendario/?action=evento',icon:'plus'}]],
+  ['/candidatos',[{label:'Compartir la convocatoria',sub:'Liga y QR para el flyer',href:'#candLiga',icon:'chat'}]]
+];
+export function setAccionesDePantalla(lista){window.tosAccionesDePantalla=Array.isArray(lista)?lista:[];window.dispatchEvent(new Event('tos:acciones'));}
+function accionesDeEstaPantalla(){
+  if(Array.isArray(window.tosAccionesDePantalla))return window.tosAccionesDePantalla;
+  const ruta=location.pathname.replace(/^\/v2/,'');
+  return (ACCIONES_POR_RUTA.find(([r])=>ruta===r||ruta.startsWith(r+'/'))||[])[1]||[];
+}
+function pintaMenuFab(menu,ctx,navigation){
+  const aqui=accionesDeEstaPantalla(),dest=new Set(aqui.map(a=>a.href).filter(Boolean));
+  const generales=accionesRapidas(ctx,navigation).filter(a=>!dest.has(a.href)&&location.pathname.replace(/^\/v2/,'')!==a.href.split('?')[0]);
+  const item=(a,k,tipo)=>`<a class="tos-fab-item${tipo==='aqui'?' aqui':''}" href="${escBell(a.href||'#')}" data-accion="${escBell(a.clave||`${tipo}-${k}`)}"${a.run?` data-run="${k}"`:''}><span class="tos-fab-ico">${shellIcon(a.icon||'plus')}</span><span><strong>${escBell(a.label)}</strong>${a.sub?`<small>${escBell(a.sub)}</small>`:''}</span></a>`;
+  menu.innerHTML=`<div class="tos-fab-grab" aria-hidden="true"></div>`
+    +(aqui.length?`<p class="tos-fab-title">En esta pantalla</p>${aqui.map((a,k)=>item(a,k,'aqui')).join('')}`:'')
+    +(generales.length?`<p class="tos-fab-title${aqui.length?' sep':''}">${aqui.length?'Generales':'Acciones rápidas'}</p>${generales.map((a,k)=>item(a,k,'gen')).join('')}`:'');
+  return aqui.length+generales.length;
+}
 function ensureQuickFab(ctx,navigation){
   $('tosFab')?.remove();$('tosFabMenu')?.remove();$('tosFabBackdrop')?.remove();
   if(RUTAS_SIN_BOTON.some(r=>location.pathname===r||location.pathname.startsWith(r+'/')))return;
-  const acciones=accionesRapidas(ctx,navigation);if(!acciones.length)return;
   const fondo=document.createElement('div');fondo.id='tosFabBackdrop';fondo.className='tos-fab-backdrop';
   const menu=document.createElement('nav');menu.id='tosFabMenu';menu.className='tos-fab-menu';menu.setAttribute('aria-label','Acciones rápidas');
-  menu.innerHTML=`<div class="tos-fab-grab" aria-hidden="true"></div><p class="tos-fab-title">Acciones rápidas</p>`+acciones.map(a=>`<a class="tos-fab-item" href="${a.href}" data-accion="${a.clave}"><span class="tos-fab-ico">${shellIcon(a.icon)}</span><span><strong>${escBell(a.label)}</strong><small>${escBell(a.sub)}</small></span></a>`).join('');
   const boton=document.createElement('button');boton.id='tosFab';boton.type='button';boton.className='tos-fab';boton.setAttribute('aria-label','Acciones rápidas');boton.setAttribute('aria-expanded','false');boton.setAttribute('aria-controls','tosFabMenu');boton.innerHTML=shellIcon('plus');
-  boton.addEventListener('click',()=>{const abierto=document.body.classList.toggle('tos-fab-open');boton.setAttribute('aria-expanded',String(abierto));if(abierto)menu.querySelector('a')?.focus({preventScroll:true});});
+  const repinta=()=>{const n=pintaMenuFab(menu,ctx,navigation);boton.hidden=!n;if(!n)cierraAcciones();};
+  boton.addEventListener('click',()=>{repinta();const abierto=document.body.classList.toggle('tos-fab-open');boton.setAttribute('aria-expanded',String(abierto));if(abierto)menu.querySelector('a')?.focus({preventScroll:true});});
   fondo.addEventListener('click',cierraAcciones);
-  menu.addEventListener('click',e=>{if(e.target.closest('a'))cierraAcciones();});
+  menu.addEventListener('click',e=>{
+    const a=e.target.closest('a');if(!a)return;
+    const k=a.dataset.run;
+    if(k!=null){e.preventDefault();cierraAcciones();try{accionesDeEstaPantalla()[Number(k)]?.run?.();}catch(err){console.error(err);}return;}
+    cierraAcciones();
+  });
   if(!document.documentElement.dataset.tosFabKeys){document.documentElement.dataset.tosFabKeys='1';document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('tos-fab-open')){cierraAcciones();$('tosFab')?.focus();}});}
+  window.addEventListener('tos:acciones',repinta);
+  repinta();
   document.body.append(fondo,menu,boton);
 }
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){

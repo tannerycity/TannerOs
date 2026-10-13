@@ -25,18 +25,19 @@ export const IMAGEN = {
     queHacer: null
   },
   no_autoriza: {
-    etiqueta: 'No autoriza su imagen',
-    corto: 'No autoriza',
+    etiqueta: 'Los papás no autorizan fotos',
+    corto: 'No autoriza fotos',
     icono: '⦸',
     nivel: 'bajo',
     publicable: false,
     queHacer: 'La familia ya decidió que no. No se le vuelve a preguntar.'
   },
   sin_preguntar: {
-    etiqueta: 'Falta pedir la firma',
-    // "No firmado": así lo dice el club. "Falta firma" se leía como un
-    // trámite a medias, y es exactamente lo contrario: nunca se preguntó.
-    corto: 'No firmado',
+    etiqueta: 'Papás sin firmar el permiso de fotos',
+    // "Sin permiso de fotos" (13/10/2026): "No firmado" no decía QUÉ falta.
+    // Se dice en lenguaje de club: el niño todavía no tiene permiso de salir
+    // en fotos porque sus papás no han firmado.
+    corto: 'Sin permiso de fotos',
     icono: '!',
     nivel: 'atencion',
     publicable: false,

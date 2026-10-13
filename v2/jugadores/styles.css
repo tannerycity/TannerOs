@@ -164,7 +164,8 @@
 .jcard::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,26,32,.12) 0%,rgba(3,26,32,.02) 38%,rgba(3,26,32,.86) 100%)}
 .jcard-cat{position:absolute;top:10px;left:10px;z-index:2;background:#c6ac5c;color:#0b1418;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;padding:4px 8px;border-radius:7px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jcard-num{position:absolute;top:6px;right:12px;z-index:2;color:#fff;font-size:34px;font-weight:900;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,.45)}
-.jcard-dot{position:absolute;top:46px;right:14px;z-index:2;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+/* El punto de estado se quitó (13/10/2026): "no dejes los botones como si fuera un sistema". */
+.jcard-dot-retirado{position:absolute;top:46px;right:14px;z-index:2;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
 .jcard-dot.review{background:#e0483b}
 .jcard-dot.ok{background:#3fae6a}
 /* La marca verde va en los POCOS que sí pueden salir en publicidad (hoy 5 de
@@ -649,3 +650,13 @@ body:has(.profile-panel.open) .tos-fab{display:none}
   #profileView .profile-overview{grid-template-columns:120px minmax(0,1fr)}
   #profileView .ficha-avatar{width:120px;height:120px}
 }
+
+/* Sello de permiso de fotos (13/10/2026): estilo tarjeta de jugador. */
+.jcard-pub{top:42px!important;gap:5px!important;padding:4px 8px 4px 7px!important;border-radius:6px!important;font-size:10px!important;font-weight:700!important;letter-spacing:.01em!important;
+  background:rgba(7,25,30,.55)!important;color:#fff!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:none!important;border-left:3px solid #3fae6a}
+.jcard-pub svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.jcard-pub.img-sin_preguntar{border-left-color:#f2b33d;color:#ffe2a6!important}
+.jcard-pub.img-no_autoriza{border-left-color:#ff6b5e;color:#ffd0cb!important}
+.jcard-pub.img-autoriza{opacity:.8}
+.jcard-pub{max-width:calc(100% - 20px);text-align:left;line-height:1.15!important;align-items:center}
+.jcard-pub svg{flex:0 0 12px}

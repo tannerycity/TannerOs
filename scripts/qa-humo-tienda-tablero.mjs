@@ -308,7 +308,47 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   revisa('ventas: vendido, cobrado, lo que más sale y por dónde entra',
     /2,996/.test(html) && /1,498/.test(html) && /2 piezas/.test(html) && /1 kit</.test(html) && /Mostrador/.test(html), html.slice(0, 200));
   revisa('ventas: ni costo ni utilidad', !/[Cc]osto|[Uu]tilidad|[Mm]argen/.test(html));
+  // Quién compró y quién vendió (13/10/2026).
+  const sales = [
+    { id:'a', folio:'PED-1', date:'2026-10-12', source:'internal_capture', player:'Maximiliano Aguirre', buyer:'Luis Aguirre', seller:'Zul', total:1498, paid:0, items:['Jersey "Black Edition"'] },
+    { id:'b', folio:'FAM-1', date:'2026-10-13', source:'portal_familias', player:'Leo Ruiz', buyer:'Ana Ruiz', seller:null, total:1299, paid:1299, items:['Kit Training'] }];
+  const conVentas = f => v.pintaVentas({ byDay:[], top:[], byChannel:[], sales }, money, f);
+  const todo = conVentas('');
+  revisa('ventas: la lista dice jugador, papá y quién atendió', /Maximiliano Aguirre/.test(todo) && /Papá o mamá: Luis Aguirre/.test(todo) && /Atendió: Zul/.test(todo), todo.slice(-900));
+  revisa('ventas: lo del portal dice que lo pidió en línea, y si debe o ya pagó', /Lo pidió en línea/.test(todo) && /Debe \$1,498/.test(todo) && /Pagado/.test(todo));
+  revisa('ventas: tocar un día deja sólo las de ese día', /Maximiliano/.test(conVentas('dia:2026-10-12')) && !/Leo Ruiz/.test(conVentas('dia:2026-10-12')));
+  revisa('ventas: tocar un producto deja a quien lo compró', /Leo Ruiz/.test(conVentas('que:Kit Training')) && !/Maximiliano/.test(conVentas('que:Kit Training')));
+  revisa('ventas: tocar un canal también', v.filtraVentas(sales, 'canal:portal_familias').length === 1 && v.tituloDeFiltro('canal:portal_familias') === 'Portal de familias');
   revisa('ventas: lo escrito no se cuela como HTML', !/<img/.test(v.pintaVentas({ top:[{ name:'<img src=x>', units:1, total:1 }], byDay:[] }, money)));
+}
+
+/* ===== Ventas en el navegador: tocar un día filtra y tocar una venta abre el pedido ===== */
+{
+  const pg = await nav.newPage({ viewport:{ width:390, height:844 } });
+  const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  await pg.goto(BASE + '/v2/pedidos/tienda.css');
+  await pg.setContent(`<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${BASE}/v2/styles.css"><link rel="stylesheet" href="${BASE}/v2/pedidos/tienda.css"></head><body>
+  <script type="module">
+  import { abreVentas } from '${BASE}/v2/pedidos/ventas.js';
+  const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'});
+  const D = { weekStart:'2026-10-12', weekEnd:'2026-10-18', sold:2797, collected:1299, orders:2, avgTicket:1398.5, previous:{sold:0},
+    byDay:[{date:'2026-10-12',total:1498},{date:'2026-10-13',total:1299},...[14,15,16,17,18].map(d=>({date:'2026-10-'+d,total:0}))],
+    top:[{name:'Kit Training',kit:true,units:1,total:1299}], byChannel:[{source:'internal_capture',orders:1,total:1498}],
+    sales:[{id:'a',folio:'PED-1',date:'2026-10-12',source:'internal_capture',player:'Maximiliano',buyer:'Luis',seller:'Zul',total:1498,paid:0,items:['Jersey']},
+           {id:'b',folio:'FAM-1',date:'2026-10-13',source:'portal_familias',player:'Leo',buyer:'Ana',seller:null,total:1299,paid:1299,items:['Kit Training']}] };
+  window.__abierto = null;
+  abreVentas({ rpc: async () => D, organizationId:'o1', money, alAbrirPedido: id => { window.__abierto = id; } });
+  </script></body></html>`);
+  await pg.waitForSelector('.v-dia', { timeout:5000 });
+  await pg.click('.v-dia >> nth=0'); await pg.waitForTimeout(800);
+  const quienes = await pg.$$eval('.v-venta b', n => n.map(x => x.textContent));
+  revisa('ventas: tocar el lunes deja sólo quien compró el lunes', JSON.stringify(quienes) === '["Maximiliano"]', JSON.stringify(quienes));
+  await pg.click('.v-top [data-filtro]'); await pg.waitForTimeout(800);
+  revisa('ventas: tocar "Kit Training" deja a quien lo compró', JSON.stringify(await pg.$$eval('.v-venta b', n => n.map(x => x.textContent))) === '["Leo"]');
+  await pg.click('.v-venta'); await pg.waitForTimeout(200);
+  revisa('ventas: tocar la venta abre el pedido y cierra la hoja', (await pg.evaluate(() => window.__abierto)) === 'b' && await pg.isHidden('.v-hoja'));
+  revisa('ventas: sin errores en la hoja', !errs.length, errs.join(' | '));
+  await pg.close();
 }
 
 /* ===== tienda.js: la manga en la línea y en la llave ===== */

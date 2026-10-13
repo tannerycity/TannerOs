@@ -79,7 +79,7 @@ function vigente(o){return !['cancelled','refunded'].includes(o.status);}
    "Sin acceso" después de haber dado el clic. */
 // Ventas de la semana (13/10/2026): sólo Presidencia (la base también lo exige).
 function veVentas(){return !!ctx&&(ctx.role==='Presidencia'||!!ctx.is_owner);}
-function verVentas(){abreVentas({rpc,organizationId:ctx.organization_id,money});}
+function verVentas(){abreVentas({rpc,organizationId:ctx.organization_id,money,alAbrirPedido:id=>{const o=orders.find(x=>x.id===id);if(o)openOrder(o);}});}
 function aplicaAccesos(){
   $('ventasAction')?.classList.toggle('hidden',!veVentas());
   const apaga=(el,motivo)=>{if(!el)return;el.classList.add('is-off');el.removeAttribute('href');el.title=motivo;el.setAttribute('aria-disabled','true');const sm=el.querySelector('small');if(sm)sm.textContent=motivo;};

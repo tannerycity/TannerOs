@@ -95,3 +95,43 @@ export function pasosDeSemana(cats = [], borr = {}) {
   return { pasos, actual, n, conReto, sinPublicar, publicadas };
 }
 
+
+/* ---- Álbum de jugadas (13/10/2026) ----
+   El Banco como un videojuego: cada Reto es un MUNDO con su color, la escalera
+   es el NIVEL (1 Sin rival → 4 En juego) y cada tarea es una CARTA con su
+   misión y su grito para los niños. */
+export const MUNDOS = {
+  balon: '#0a84ff', '1v1': '#ff453a', jugar_juntos: '#30d158', cancha: '#64d2ff', ventaja: '#bf5af2',
+  avanzar: '#ff9f0a', gol: '#ffd60a', defender: '#5e5ce6', reaccionar: '#ff375f',
+  // Baby
+  movimiento: '#34c759', juego: '#ff9f0a', convivencia: '#af52de'
+};
+export const colorDeMundo = (code, bank) => (bank === 'baby' && code === 'balon') ? '#5ac8fa' : (MUNDOS[code] || '#8e8e93');
+export const NIVEL_NUM = { sin_rival: 1, con_rival: 2, con_decision: 3, en_juego: 4 };
+export function filtraAlbum(tareas = [], { banco = 'tanner', mundo = '', nivel = 0, busca = '' } = {}) {
+  const q = String(busca || '').trim().toLocaleLowerCase('es-MX').normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const sinAcento = v => String(v || '').toLocaleLowerCase('es-MX').normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return tareas.filter(t => t.bank === banco
+    && (!mundo || t.primary === mundo)
+    && (!nivel || NIVEL_NUM[t.level] === Number(nivel))
+    && (!q || sinAcento(`${t.name} ${t.buscamos} ${t.juega} ${(t.dile || []).join(' ')}`).includes(q)))
+    .sort((a, b) => String(a.primary).localeCompare(String(b.primary)) || (NIVEL_NUM[a.level] || 0) - (NIVEL_NUM[b.level] || 0) || String(a.code).localeCompare(String(b.code)));
+}
+
+/* Los pasos del Formador: mismo lenguaje que la Semana Tanner de Dirección. */
+const BLOQUES_BASE = ['calentar', 'llegada', 'jugar'];
+export function pasosDelFormador(sesiones = []) {
+  const n = sesiones.length;
+  const conReto = sesiones.filter(s => s.week?.primary || s.plan?.challenge || s.plan?.objective).length;
+  const conJugada = sesiones.filter(s => (s.plan?.items || []).some(i => !BLOQUES_BASE.includes(i.block) && (i.taskId || String(i.text || '').trim()))).length;
+  const listas = sesiones.filter(s => s.plan?.status === 'ready').length;
+  const pasos = [
+    { n: 1, titulo: 'Mira el Reto de la semana', detalle: conReto === n ? 'Ya lo tienes' : `${conReto} de ${n}`, hecho: n > 0 && conReto === n },
+    { n: 2, titulo: 'Elige tus jugadas', detalle: `${conJugada} de ${n} sesiones`, hecho: n > 0 && conJugada === n },
+    { n: 3, titulo: 'Confirma cada sesión', detalle: `${listas} de ${n} listas`, hecho: n > 0 && listas === n },
+    { n: 4, titulo: 'Dala en cancha', detalle: 'Modo Cancha, el día', hecho: false, info: true },
+    { n: 5, titulo: 'Cierra: ¿apareció?', detalle: 'Un toque al terminar', hecho: false, info: true }
+  ];
+  const actual = pasos.find(p => !p.hecho && !p.info)?.n || 4;
+  return { pasos, actual, n, listas };
+}

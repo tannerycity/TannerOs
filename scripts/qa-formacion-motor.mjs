@@ -1,6 +1,6 @@
 /* El motor de recomendación y las reglas de "lista" de Formación. */
 import fs from 'node:fs';
-import { recomienda, bloquesDeSesion, nivelObjetivo, faltaParaLista, resumenSemana, pasosDeSemana } from '../v2/formacion/motor.js';
+import { recomienda, bloquesDeSesion, nivelObjetivo, faltaParaLista, resumenSemana, pasosDeSemana, filtraAlbum, pasosDelFormador, colorDeMundo } from '../v2/formacion/motor.js';
 
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d ? `\n   ${d}` : ''}`); } };
@@ -50,6 +50,18 @@ revisa('"3 sesiones · 2 listas · 1 pendiente"', JSON.stringify(resumenSemana([
   revisa('todo publicado: semana lista', st4.actual === 6 && st4.publicadas === 1);
   const st5 = pasosDeSemana([{ categoryId: 'a', week: { primary: 'gol', behavior: 'x', status: 'published' } }], { a: { primary: 'gol', behavior: 'z' } });
   revisa('editar una publicada la regresa a "por revisar"', st5.sinPublicar === 1 && st5.actual === 4);
+}
+// Álbum de jugadas y pasos del Formador (13/10/2026).
+{
+  const T = [{ id: 'a', bank: 'tanner', primary: 'gol', level: 'en_juego', code: '02', name: 'Remate', buscamos: 'Definir' },
+             { id: 'b', bank: 'tanner', primary: 'gol', level: 'sin_rival', code: '01', name: 'Tiro Ágil', buscamos: 'Golpear' },
+             { id: 'c', bank: 'baby', primary: 'juego', level: null, code: '01', name: 'Pío', buscamos: 'Jugar' }];
+  revisa('álbum: por banco y ordenado de nivel 1 a 4', filtraAlbum(T, { banco: 'tanner' }).map(t => t.id).join() === 'b,a');
+  revisa('álbum: buscar sin acentos', filtraAlbum(T, { banco: 'tanner', busca: 'agil' }).length === 1);
+  revisa('álbum: por nivel', filtraAlbum(T, { banco: 'tanner', nivel: 4 }).map(t => t.id).join() === 'a');
+  revisa('álbum: cada mundo tiene su color', colorDeMundo('gol') !== colorDeMundo('1v1') && colorDeMundo('balon', 'baby') !== colorDeMundo('balon'));
+  const st = pasosDelFormador([{ week: { primary: 'gol' }, plan: { status: 'ready', items: [{ block: 'tarea', taskId: 'x' }] } }, { week: null, plan: { items: [{ block: 'calentar', text: 'Calentar' }] } }]);
+  revisa('formador: calentar solo no cuenta como jugada; sigue el paso 1', st.actual === 1 && st.pasos[1].detalle === '1 de 2 sesiones' && st.pasos[2].detalle === '1 de 2 listas');
 }
 console.log(fallos ? `Motor de Formación FAILED · ${fallos} de ${corridas}` : `Motor de Formación OK · ${corridas} revisiones: 3 recomendaciones, escalera, Baby aparte y reglas de lista`);
 process.exit(fallos ? 1 : 0);

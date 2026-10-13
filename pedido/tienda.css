@@ -140,6 +140,7 @@
 .st-bloque-cab span { font-size: 14px; color: var(--st-muted); font-weight: 500; }
 .st-grupo { margin: 12px 0 8px; font-size: 13px; font-weight: 600; color: var(--st-muted); }
 .st-grupo:first-of-type { margin-top: 0; }
+.st-manga-tit { margin: 12px 0 8px; font-size: 13px; font-weight: 600; color: var(--st-muted); }
 /* Seis por fila: Niño (6 a 16) y Adulto (XS a XXL) caben cada uno en una. */
 .st-tallas { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px; }
 .st-talla {

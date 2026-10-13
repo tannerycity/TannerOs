@@ -66,3 +66,4 @@ qa-humo-pedidos-por-revisar.mjs
 qa-humo-utileria.mjs
 qa-humo-fichajes-origen.mjs
 qa-humo-formacion.mjs
+qa-humo-tienda-tablero.mjs

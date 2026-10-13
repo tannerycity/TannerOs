@@ -1,8 +1,8 @@
 {
-  "migraciones": 490,
-  "bytes": 2788877,
-  "huella": "f431dd3e8ce4a4581ecb257b5b3b5563",
+  "migraciones": 492,
+  "bytes": 2797754,
+  "huella": "a24c9689e1a83fb7e77b5245cd7a78bb",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261012204330_y4_postulacion_carta_antecedentes.sql",
-  "verificadoContraLaBase": "2026-10-12"
+  "ultima": "20261013004505_a5_tienda_manga_y_tablero_de_pedidos.sql",
+  "verificadoContraLaBase": "2026-10-13"
 }

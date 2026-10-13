@@ -67,6 +67,12 @@
   padding:11px 12px;font:inherit;font-size:15px;min-height:44px;color:#20363c;width:100%}
 .fam-pers input:focus{outline:none;border-color:var(--fam-ink,var(--vit-ink))}
 
+/* Manga corta o larga */
+.fam-manga{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.fam-manga button{min-height:40px;border:1px solid var(--fam-line,var(--vit-line));border-radius:11px;
+  background:#fff;color:#20363c;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.fam-manga button.activa{background:var(--fam-ink,var(--vit-ink));border-color:var(--fam-ink,var(--vit-ink));color:#fff}
+
 /* El motivo se pinta junto al botón que se tocó, no en una alerta que tapa
    lo que la familia estaba viendo. */
 .fam-aviso{display:block;margin-top:8px;font-size:12.5px;font-weight:800;color:#a4352b}

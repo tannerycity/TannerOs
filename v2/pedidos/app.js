@@ -5,7 +5,11 @@ const $=id=>document.getElementById(id);let ctx=null,orders=[],current=null,canW
 /* Pedidos que llegaron por el link o el portal y nadie ha confirmado todavía
    (a3_pedidos_por_revisar). clubCfg trae el nombre del club y cómo pagar, para
    el mensaje de WhatsApp. */
-let porRevisar=new Set(),clubCfg=null;const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let porRevisar=new Set(),clubCfg=null;
+/* El tablero (a5): por pedido, de qué niño es, qué piezas lleva con talla,
+   manga, nombre y número, y si el número ya se confirmó. Es lo que se ve en la
+   lista sin abrir nada. */
+let tablero={};const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DIACRITICS_RE=new RegExp(String.fromCharCode(91)+String.fromCharCode(0x300)+'-'+String.fromCharCode(0x36f)+String.fromCharCode(93),'g');
 const labels={draft:'Borrador',pending_payment:'Pendiente pago',partial_payment:'Pago parcial',paid:'Pagado',in_production:'En producción',ready:'Listo',delivered:'Entregado',cancelled:'Cancelado',refunded:'Reembolsado'};
 const payerLabels={guardian:'Familia / tutor',sponsor:'Patrocinador',player:'Jugador',organization:'Club',other:'Otro'};
@@ -88,11 +92,37 @@ function aplicaAccesos(){
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=!!(financeMod?.enabled&&financeMod?.can_read);document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();}
 /* El aviso de "Pedido nuevo" (campana y push) trae ?pedido=<id>: se abre directo. */
 function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');const o=id&&orders.find(x=>x.id===id);if(o)openOrder(o);}
-async function load(){const [lista,revisar]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[])]);orders=lista||[];porRevisar=new Set(Array.isArray(revisar)?revisar:[]);render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
+async function load(){const [lista,revisar,tab]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({}))]);orders=lista||[];tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
 function renderReviewBanner(){const b=$('reviewBanner');if(!b)return;const n=orders.filter(o=>porRevisar.has(o.id)).length;const viendo=$('statusFilter').value==='__review';b.classList.toggle('hidden',n===0);b.textContent=viendo?`Viendo ${n} ${n===1?'pedido':'pedidos'} por revisar · Ver todos`:`${n} ${n===1?'pedido nuevo':'pedidos nuevos'} por revisar · Ver`;}
-function filteredOrders(){const status=$('statusFilter').value,review=status==='__review',q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();return orders.filter(o=>(review?porRevisar.has(o.id):(!status||o.status===status))&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
+function filteredOrders(){const status=$('statusFilter').value,review=status==='__review',porNumero=status==='__numero',q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();return orders.filter(o=>(review?porRevisar.has(o.id):porNumero?(numeroPorConfirmar(o)&&vigente(o)):(!status||o.status===status))&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
 function renderKpis(){const rows=orders.filter(vigente);$('kpiOrders').textContent=rows.length;$('kpiPending').textContent=rows.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length;$('kpiProduction').textContent=rows.filter(o=>o.status==='in_production').length;$('kpiReady').textContent=rows.filter(o=>o.status==='ready').length;}
-function render(){const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,b=document.createElement('button');b.type='button';b.dataset.orderId=o.id;b.className='order-row';b.innerHTML=`<div><strong>${esc(o.folio)}</strong><span>${esc(o.customer_name)} · ${fmt(o.created_at)}</span><small>${Number(o.item_count||0)} pieza(s)${balance!=null&&balance>0?` · saldo ${money.format(balance)}`:''}</small></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b><span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span></div>`;b.addEventListener('click',()=>openOrder(o));list.appendChild(b);});}
+function textoMangaCorto(m){return m==='larga'?'Larga':m==='corta'?'Corta':'';}
+/* Los números que pidió el pedido, sin repetir. */
+function numerosDe(o){return [...new Set((tablero[o.id]?.items||[]).map(i=>String(i.numero||'').trim()).filter(Boolean))];}
+function numeroPorConfirmar(o){return numerosDe(o).length>0&&!tablero[o.id]?.numberConfirmed;}
+/* Una pieza en una línea: "Jersey · T8 · Manga larga · RUIZ #10". */
+function lineaDePieza(i){const partes=[i.talla?`T${i.talla}`:null,i.manga==='larga'?'Manga larga':i.manga==='corta'?'Manga corta':null,[i.nombre,i.numero?`#${i.numero}`:null].filter(Boolean).join(' ')||null].filter(Boolean);return `<li${i.manga==='larga'?' class="es-larga"':''}><b>${Number(i.quantity||1)>1?`${Number(i.quantity)}× `:''}${esc(i.description||'Pieza')}</b>${partes.length?` · ${esc(partes.join(' · '))}`:''}</li>`;}
+function barraNumero(o){
+  const nums=numerosDe(o);if(!nums.length)return '';
+  const conf=tablero[o.id]?.numberConfirmed,txt=nums.map(n=>`#${n}`).join(', ');
+  if(conf)return `<div class="order-num ok"><span>Número ${esc(txt)} confirmado</span>${canWrite?`<button type="button" class="link-toggle" data-num-deshacer="${esc(o.id)}">Deshacer</button>`:''}</div>`;
+  return `<div class="order-num pendiente"><span>Número ${esc(txt)} por confirmar</span>${canWrite&&vigente(o)?`<button type="button" class="primary mini" data-num-confirma="${esc(o.id)}">Confirmar número</button>`:''}</div>`;
+}
+function render(){const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row';b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
+    b.innerHTML=`<div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName?`<span>${esc(t.playerCategory||'')}${t.playerCategory&&t.playerJersey?' · ':''}${t.playerJersey?`dorsal #${esc(t.playerJersey)}`:''}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió: ${esc(o.customer_name||'—')} · `:''}${esc(o.folio||'')} · ${fmt(o.created_at)}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${balance!=null&&balance>0?`<small>Saldo ${money.format(balance)}</small>`:''}</div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b><span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span></div>${barraNumero(o)}`;
+    b.addEventListener('click',ev=>{const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
+    b.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
+    list.appendChild(b);});}
+/* Confirmar el número desde la lista, sin abrir el pedido: un toque. */
+async function confirmaNumero(o,confirmar,btn){
+  btn.disabled=true;
+  try{
+    await rpc('v2_confirm_order_number',{organization_id:ctx.organization_id,order_id:o.id,confirmed:confirmar});
+    const t=tablero[o.id]||(tablero[o.id]={items:[]});
+    t.numberConfirmed=confirmar?{numeros:numerosDe(o),at:new Date().toISOString()}:null;
+    render();msg(confirmar?`Número confirmado en ${o.folio||'el pedido'}.`:'Se quitó la confirmación del número.','success');
+  }catch(e){btn.disabled=false;msg(e.message||'No se pudo confirmar el número.');}
+}
 async function fetchDetail(order){try{const d=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:order.id});details.set(order.id,d);return d;}catch{return null;}}
 async function loadBusinessMetrics(){if(!canViewFinance)return;const run=++metricsRun,rows=orders.filter(vigente);$('metricsStatus').textContent='Calculando…';for(let i=0;i<rows.length;i+=8){const batch=rows.slice(i,i+8).filter(o=>!details.has(o.id));if(batch.length)await Promise.all(batch.map(fetchDetail));if(run!==metricsRun)return;}if(run!==metricsRun)return;renderBusinessMetrics(rows);render();}
 function renderBusinessMetrics(rows){let sales=0,collected=0,receivable=0,cost=0,knownSales=0,profit=0,complete=0,resolved=0;rows.forEach(o=>{sales+=Number(o.total||0);const d=details.get(o.id);if(!d)return;resolved++;collected+=Number(d.paidAmount||0);receivable+=Math.max(0,Number(d.balance||0));if(d.costComplete){complete++;cost+=Number(d.costTotal||0);knownSales+=Number(d.order?.total??o.total??0);profit+=Number(d.grossProfitExpected||0);}});$('bizSales').textContent=money.format(sales);$('bizCollected').textContent=money.format(collected);$('bizReceivable').textContent=money.format(receivable);$('bizCost').textContent=complete?money.format(cost):'Pendiente';$('bizProfit').textContent=complete?money.format(profit):'Pendiente';$('bizProfit').dataset.state=profit<0?'negative':'normal';$('bizMargin').textContent=complete&&knownSales>0?`${(profit/knownSales*100).toFixed(0)}%`:'—';$('costCoverage').textContent=`${complete}/${rows.length} pedido(s) con costo completo`;const incomplete=rows.length-complete,failed=rows.length-resolved;$('metricsStatus').textContent=failed?'Lectura parcial':incomplete?`${incomplete} sin costo completo`:'Costos completos';$('metricsStatus').dataset.state=failed?'attention':incomplete?'attention':'ok';}
@@ -256,7 +286,7 @@ async function deliverWarranty(id){
 function itemEditor(i,d){
   const a=i.attributes||{},editable=canManage&&['draft','pending_payment','partial_payment','paid'].includes(d.status);
   const talla=a.talla||a.size||'',nombre=a.nombrePers||a.personalizationName||'',numero=a.numero||a.number||'';
-  const chips=[itemChip('Talla',talla),itemChip('Nombre',nombre),itemChip('Número',numero)].filter(Boolean).join('');
+  const chips=[itemChip('Talla',talla),itemChip('Manga',textoMangaCorto(a.manga)),itemChip('Nombre',nombre),itemChip('Número',numero)].filter(Boolean).join('');
   const complete=itemComplete(i),lineTotal=Number(i.quantity||0)*Number(i.unitPrice||0);
   return `<article class="item-row ${editable?'editable':''}" data-item-id="${esc(i.id)}">
     <div class="item-summary">
@@ -283,7 +313,7 @@ function kitLabel(i){const a=i.attributes||{};return a.bundleName||a.esPaquete||
 function kitPieceRow(i,d){
   const a=i.attributes||{},editable=canManage&&['draft','pending_payment','partial_payment','paid'].includes(d.status);
   const talla=a.talla||a.size||'',nombre=a.nombrePers||a.personalizationName||'',numero=a.numero||a.number||'';
-  const chips=[itemChip('Talla',talla),itemChip('Nombre',nombre),itemChip('Número',numero)].filter(Boolean).join('');
+  const chips=[itemChip('Talla',talla),itemChip('Manga',textoMangaCorto(a.manga)),itemChip('Nombre',nombre),itemChip('Número',numero)].filter(Boolean).join('');
   const complete=itemComplete(i);
   return `<div class="kit-piece" data-item-id="${esc(i.id)}">
     <div class="kit-piece-head"><span>${esc(i.description)}</span><span class="item-badge ${complete?'ok':'warn'}">${complete?'Completo':'Falta info'}</span></div>

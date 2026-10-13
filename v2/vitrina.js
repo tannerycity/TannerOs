@@ -27,7 +27,7 @@
 import {
   tallasDe, tallaUnica, aceptaPersonalizacion,
   ESCALA_NINOS, ESCALA_ADULTOS,
-  ranurasDeKit, precioDeKit, tiersDeKit
+  ranurasDeKit, precioDeKit, tiersDeKit, textoManga
 } from '/v2/tienda.js';
 
 export const esc = v => String(v ?? '').replace(/[&<>"']/g,
@@ -105,6 +105,7 @@ export function tarjetaProducto(p, elec = {}) {
   const pers = (aceptaPersonalizacion(p) && hayTalla)
     ? `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-pnombre="${esc(p.id)}" value="${esc(elec.nombre || '')}">`
       + `<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-pnumero="${esc(p.id)}" value="${esc(elec.numero || '')}"></div>`
+      + selectorManga('data-pmanga', p.id, elec.manga)
     : '';
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
   return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong>`
@@ -141,7 +142,8 @@ export function tarjetaKit(k, elec = {}) {
   }).join('');
 
   const pers = `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-knombre="${esc(k.id)}" value="${esc(elec.nombre || '')}">`
-    + `<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-knumero="${esc(k.id)}" value="${esc(elec.numero || '')}"></div>`;
+    + `<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-knumero="${esc(k.id)}" value="${esc(elec.numero || '')}"></div>`
+    + selectorManga('data-kmanga', k.id, elec.manga);
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
 
   return `<article class="fam-kit"><div class="fam-kit-head"><span class="fam-kit-tag">EL UNIFORME COMPLETO</span>`
@@ -151,8 +153,16 @@ export function tarjetaKit(k, elec = {}) {
     + `<button type="button" class="fam-add" data-addkit="${esc(k.id)}">Agregar el kit</button></article>`;
 }
 
+/* Manga corta o larga: dos botones, corta por omisión. */
+export function selectorManga(atributo, id, elegida) {
+  const m = elegida === 'larga' ? 'larga' : 'corta';
+  return `<div class="fam-manga" ${atributo}="${esc(id)}" role="group" aria-label="Manga">`
+    + ['corta', 'larga'].map(v => `<button type="button" data-m="${v}" class="${m === v ? 'activa' : ''}" aria-pressed="${m === v}">Manga ${v}</button>`).join('')
+    + '</div>';
+}
+
 export function lineaDelCarrito(llave, l) {
-  const detalle = [l.talla, l.personalizationName, l.numero ? `#${l.numero}` : null].filter(Boolean).join(' · ');
+  const detalle = [l.talla, textoManga(l.manga), l.personalizationName, l.numero ? `#${l.numero}` : null].filter(Boolean).join(' · ');
   return `<div class="fam-mov"><span><strong>${esc(l.nombreProducto)}${l.cantidad > 1 ? ` ×${l.cantidad}` : ''}</strong>`
     + `<span>${esc(detalle || 'Sin detalle')}</span></span>`
     + `<span class="fam-linea-fin"><b>${dinero.format(Number(l.total || 0))}</b>`

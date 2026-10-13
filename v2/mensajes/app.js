@@ -122,12 +122,22 @@ function pintaItems(){
     +(areas.length?`<p class="ms-sec">Áreas del club</p>${areas.map(fila).join('')}`:'')
     +(!lista.length?`<div class="ms-vacio">${q?'Nada con ese nombre.':'Sin chats todavía.'}</div>`:'');
 }
+/* A quién iba el aviso. Los personales iguales llegan juntos (d5): "Para ti,
+   Brandon y Emmanuel" en una sola tarjeta, no una por persona. */
+function paraQuien(a){
+  if(a.audienceType==='club')return 'Todo el club';
+  if(a.audienceType==='role')return a.audienceValue||'';
+  const yo=state.inbox?.me?.userId;
+  const nombres=(a.recipients||[{userId:a.audienceValue}]).map(r=>r.userId===yo?'ti':(r.name||(state.inbox?.people||[]).find(p=>p.userId===r.userId)?.name||'alguien del club'));
+  const lista=nombres.length>1?`${nombres.slice(0,-1).join(', ')} y ${nombres[nombres.length-1]}`:nombres[0]||'';
+  return `Para ${lista}`;
+}
 function pintaAvisos(box){
   const d=state.avisos;
   if(!d){box.innerHTML='<div class="ms-vacio">Cargando avisos…</div>';return;}
   const lista=d.avisos||[];
   box.innerHTML=(d.canPublish?`<button type="button" class="ms-aviso-nuevo" id="msAvisoNuevo">＋ Nuevo aviso para el club</button>`:'')
-    +(lista.length?lista.map(a=>`<article class="ms-aviso${a.unread?' unread':''}"><header><strong>${esc(a.title)}</strong><time>${esc(cuando(a.publishedAt))}</time></header>${a.body?`<p>${texto(a.body)}</p>`:''}<footer><span>${esc(a.author||'')} · ${a.audienceType==='club'?'Todo el club':a.audienceType==='role'?esc(a.audienceValue):`Para ${esc((state.inbox?.people||[]).find(p=>p.userId===a.audienceValue)?.name||'ti')}`}</span>${a.reach?`<b class="ms-visto" title="Personas que ya lo vieron">Visto por ${a.reach.seen} de ${a.reach.total}</b>`:''}</footer></article>`).join('')
+    +(lista.length?lista.map(a=>`<article class="ms-aviso${a.unread?' unread':''}"><header><strong>${esc(a.title)}</strong><time>${esc(cuando(a.publishedAt))}</time></header>${a.body?`<p>${texto(a.body)}</p>`:''}<footer><span>${esc(a.author||'')} · ${esc(paraQuien(a))}</span>${a.reach?`<b class="ms-visto" title="Personas que ya lo vieron">Visto por ${a.reach.seen} de ${a.reach.total}</b>`:''}</footer></article>`).join('')
       :`<div class="ms-vacio">${esc(d.error||'Sin avisos. Cuando Presidencia publique uno, aparece aquí.')}</div>`);
   $('msAvisoNuevo')?.addEventListener('click',hojaAviso);
 }

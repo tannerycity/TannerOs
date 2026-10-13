@@ -1,8 +1,8 @@
 {
-  "migraciones": 493,
-  "bytes": 2806973,
-  "huella": "2a1f6f3dccc793807ab4ecf86cc955b5",
+  "migraciones": 494,
+  "bytes": 2810561,
+  "huella": "726d69433a246e9b6e27162a0912556c",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261013011315_c5_tienda_atendio_manga_y_notas.sql",
+  "ultima": "20261013013358_d5_avisos_agrupados.sql",
   "verificadoContraLaBase": "2026-10-13"
 }

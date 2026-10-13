@@ -1,7 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
-import { ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA, CATEGORIAS, categoriaCanonica, ordenaTallas, textoHasta } from '/v2/tienda.js';
+import { ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA, CATEGORIAS, categoriaCanonica, ordenaTallas, textoHasta, aceptaPersonalizacion } from '/v2/tienda.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -449,6 +449,7 @@ $('pCatChips')?.addEventListener('click',e=>{
   if(tallasAuto&&TALLAS_DE[catElegida]){tallasElegidas=TALLAS_DE[catElegida]==='unica'?[TALLA_UNICA]:[...ESCALA_CLUB];pintaTallas();}
   if(catElegida==='__otro')setTimeout(()=>$('pCategory').focus(),0);
   pintaCategoria();
+  if(!persTocado&&$('pPers')?.dataset.fijo==='')$('pPers').checked=persAuto();
 });
 function categoriaDelFormulario(){
   if(catElegida==='__otro')return $('pCategory').value.trim()||null;
@@ -534,6 +535,7 @@ function openProductDrawer(p){
   tallasAuto=!tallasElegidas.length;
   pintaCategoria();pintaTallas();
   $('pActive').checked=p?p.active:true;
+  persTocado=false;pintaPers(p);
   $('pArchiveToggle').classList.toggle('hidden',!p);
   $('pArchiveToggle').textContent=p?.archived?'Restaurar producto':'Archivar producto';
   photoFile=null;photoCleared=false;
@@ -542,6 +544,18 @@ function openProductDrawer(p){
   recomputeProductPreview();
   openDrawer();
 }
+/* "Lleva nombre y número": mientras nadie lo toque, sigue al nombre y la
+   categoría (un jersey sí, unas calcetas no); en cuanto Presidencia lo toca,
+   manda su decisión y se guarda en el producto. */
+let persTocado=false;
+function persAuto(){return aceptaPersonalizacion({category:categoriaDelFormulario()||'',name:$('pName').value});}
+function pintaPers(p){
+  const fijo=typeof p?.personalizable==='boolean'?p.personalizable:null;
+  $('pPers').checked=fijo??persAuto();
+  $('pPers').dataset.fijo=fijo==null?'':String(fijo);
+}
+$('pPers')?.addEventListener('change',()=>{persTocado=true;});
+$('pName')?.addEventListener('input',()=>{if(!persTocado&&$('pPers').dataset.fijo==='')$('pPers').checked=persAuto();});
 /* El margen en "—" es un renglon que ocupa lugar para decir que no sabe. Se
    muestra cuando puede decir un numero, y si no, no esta. */
 function recomputeProductPreview(){
@@ -581,6 +595,11 @@ async function saveProduct(){
     // no puede decir "no se pudo guardar el producto": seria mentira, y quien
     // la lea va a volver a teclear un precio que ya estaba bien.
     guardado=true;
+    if(persTocado){
+      await load();
+      const prodP=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);
+      if(prodP)await rpc('v2_set_product_personalizable',{organization_id:ctx.organization_id,product_id:prodP.id,value:$('pPers').checked});
+    }
     if(photoFile||photoCleared){
       await load();
       const prod=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);

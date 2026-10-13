@@ -73,6 +73,10 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
     const RESP = { v2_portal_home: HOME, v2_portal_progress: PROGRESS,
       v2_portal_statement: STATEMENT,
       v2_portal_calendar: [], v2_portal_catalog: CATALOGO, v2_portal_parking: { passes:[] },
+      // Comprar otra vez (13/10/2026): un jersey que sigue y una pieza que ya no.
+      v2_portal_last_order: { folio:'FAM-QA-0', createdAt:'2026-01-10T12:00:00Z', items:[
+        { productId:'prod-jersey', quantity:1, talla:'12', nombre:'MATI', numero:'9', manga:'larga' },
+        { productId:'prod-ya-no', quantity:1, talla:'M' }] },
       // Sus profes (13/10/2026): la de su categoría, Dirección, y una de otra categoría que no debe salir.
       v2_portal_staff: [
         { id:'s1', fullName:'Ana Ruiz', title:'Formadora T10', level:'formador', photoThumbPath:null, categories:['T10'] },
@@ -375,6 +379,18 @@ await pagina.goto('http://127.0.0.1:4601/v2/familias/?tab=tienda', { waitUntil: 
 await pagina.waitForSelector('#appView:not(.hidden)', { timeout: 8000 });
 revisa('?tab=tienda abre el portal en la Tienda',
   await pagina.getAttribute('.fam-nav-item[data-tab="tienda"]', 'aria-current') === 'page');
+// Comprar otra vez: la tarjeta con lo de la vez pasada, el aviso de talla y
+// lo que ya no se vende; un toque lo deja en el carrito con nombre y manga.
+await pagina.waitForSelector('[data-otravez]', { timeout: 6000 });
+const otraVez = await pagina.textContent('.fam-otravez');
+revisa('"Comprar otra vez" enseña lo de la vez pasada con su precio de hoy', /Jersey/.test(otraVez) && /12/.test(otraVez) && /699/.test(otraVez), otraVez);
+revisa('avisa que la talla merece revisarse a los 8 meses', /hace 8 meses/.test(otraVez), otraVez);
+revisa('y dice lo que ya no está en la tienda', /ya no está en la tienda/.test(otraVez), otraVez);
+await pagina.click('[data-otravez]');
+await pagina.waitForSelector('#famCart', { timeout: 4000 });
+const carritoOtraVez = await pagina.textContent('#famBody');
+revisa('un toque y queda en el carrito, con nombre y manga', /MATI/.test(carritoOtraVez) && /larga/i.test(carritoOtraVez), carritoOtraVez.slice(0, 300));
+revisa('con el carrito lleno la tarjeta se quita', (await pagina.$$('[data-otravez]')).length === 0);
 await pagina.goto('http://127.0.0.1:4601/v2/familias/?tab=inventada', { waitUntil: 'networkidle' });
 await pagina.waitForSelector('#appView:not(.hidden)', { timeout: 8000 });
 revisa('un ?tab= desconocido abre en Cuenta',

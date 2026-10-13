@@ -8,6 +8,8 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 const JERSEY_RE=/jersey|uniforme|playera/i;
+// La casilla "Lleva nombre y número" del catálogo manda; sin tocar, decide el nombre.
+const llevaNombre=p=>typeof p?.personalizable==='boolean'?p.personalizable:JERSEY_RE.test(p?.name||'');
 
 let ctx=null,canWrite=false,bundles=[],products=[],cart=[],tanners=[],tannerId='',externo=false;
 let picking=null;
@@ -374,7 +376,8 @@ function openProductDrawer(p){
   $('pfNumber').value=t?.jersey_number?String(t.jersey_number):'';
   pistaNumero('pf');
   pintaTallas(p);
-  $('pfPersonalization').classList.toggle('hidden',!JERSEY_RE.test(p.name));
+  $('pfPersonalization').classList.toggle('hidden',!llevaNombre(p)&&!JERSEY_RE.test(p.name||''));
+  $('pfPersonalization').classList.toggle('solo-manga',!llevaNombre(p));
   openDrawer();
 }
 /* Manga corta o larga del jersey (13/10/2026): dos botones, corta por omisión. */
@@ -386,8 +389,8 @@ function addProductToCart(){
   const talla=tallaElegida();
   const qty=Math.max(1,Math.min(20,Number($('pfQty').value)||1));
   if(!talla){drawerMsg('Elige la talla.');return;}
-  const isJersey=JERSEY_RE.test(p.name);
-  const name=isJersey?$('pfName').value.trim():'',number=isJersey?$('pfNumber').value.trim():'',sleeve=isJersey?mangaDe('pf'):null;
+  const isJersey=llevaNombre(p);
+  const name=isJersey?$('pfName').value.trim():'',number=isJersey?$('pfNumber').value.trim():'',sleeve=JERSEY_RE.test(p.name||'')?mangaDe('pf'):null;
   cart.push({
     kind:'product',productId:p.id,talla,quantity:qty,personalizationName:name||null,number:number||null,sleeve,
     total:Number(p.price||0)*qty,

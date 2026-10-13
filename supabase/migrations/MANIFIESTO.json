@@ -1,8 +1,8 @@
 {
-  "migraciones": 505,
-  "bytes": 2864638,
-  "huella": "735159698a835e84890b6f8a07a744a7",
+  "migraciones": 506,
+  "bytes": 2866684,
+  "huella": "f9c631540f5587b944dd3bdab97a7530",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261013162531_b5_staff_eliminar_candidato_y_guardar_ficha.sql",
+  "ultima": "20261013171612_h5f_corte_toma_costo_del_catalogo.sql",
   "verificadoContraLaBase": "2026-10-13"
 }

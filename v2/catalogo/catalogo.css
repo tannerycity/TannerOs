@@ -172,3 +172,29 @@
 .field-grid .span-2{grid-column:1/-1}
 @media(max-width:620px){.cat-head h1{font-size:30px}.cat-head-acc{width:100%}.cat-head-acc button{flex:1}}
 .cat-head-acc button{border:0;cursor:pointer;font:inherit;font-weight:700}
+
+/* Costos (13/10/2026): sólo aquí. */
+.cat-seg{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
+.costos-cab h2{margin:0;font-size:20px}
+.costos-cab p{margin:4px 0 14px;font-size:13.5px}
+.costos-sub{margin:18px 0 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#7a8a8e}
+.costos-tabla{display:grid;gap:1px;border-radius:14px;overflow:hidden;background:#e3e8e7}
+.costo-fila{display:grid;grid-template-columns:1fr 120px 90px;gap:10px;align-items:center;padding:10px 12px;background:#fff}
+.costo-nombre{display:grid;min-width:0}
+.costo-nombre b{font-size:14.5px;line-height:1.25}
+.costo-nombre small{font-size:12px;color:#6b7c80}
+.costo-input{display:grid;gap:2px;font-size:11px;font-weight:700;color:#7a8a8e}
+.costo-input input{min-height:40px;border:1px solid #cedbd8;border-radius:10px;padding:0 10px;font:inherit;font-size:15px;width:100%}
+.costo-total{font-size:13.5px;color:#3c4e52}
+.costo-total em{font-style:normal;color:#a92a21;font-weight:700;font-size:12.5px}
+.costo-margen{display:grid;text-align:right;font-weight:800;font-size:15px;color:#3c4e52}
+.costo-margen small{font-weight:600;font-size:11.5px;color:#7a8a8e}
+.costo-margen.bien{color:#1e6b3c}.costo-margen.medio{color:#8a5c00}.costo-margen.bajo{color:#a92a21}
+.costos-negocio .negocio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.negocio-grid div{padding:12px;border-radius:14px;background:#f5f7f7;display:grid;gap:2px}
+.negocio-grid span{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#7a8a8e}
+.negocio-grid b{font-size:18px;color:#07191e}
+.negocio-grid .clave{background:#07191e}.negocio-grid .clave span{color:rgba(255,255,255,.7)}.negocio-grid .clave b{color:#fff}
+.negocio-nota{font-size:12.5px;margin:8px 0 0}
+@media(max-width:620px){.costo-fila{grid-template-columns:1fr 96px 72px}.costos-negocio .negocio-grid{grid-template-columns:1fr 1fr}}
+.campo-ayuda{display:block;margin-top:6px;font-size:12px;color:#6b7c80}

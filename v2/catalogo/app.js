@@ -78,7 +78,8 @@ async function load(){
 function renderPendientes(){
   const vivos=products.filter(p=>!p.archived&&p.active);
   const faltas=[];
-  const sinCosto=canFinance?vivos.filter(p=>p.cost==null).length:0;
+  // El costo ya no se dice aquí: vive en la pestaña Costos (13/10/2026).
+  const sinCosto=0;
   const sinFoto=vivos.filter(p=>!p.photoThumbPath&&!p.photoPath).length;
   // El costo primero: sin el, el margen de los kits es una cuenta incompleta.
   if(sinCosto)faltas.push(`${sinCosto} sin costo`);
@@ -98,8 +99,6 @@ function bundleCard(b){
   if(b.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!b.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   if(!b.componentsResolved)chips.push('<span class="cat-chip warn">Pieza sin resolver</span>');
-  if(canFinance&&b.costComplete)chips.push(`<span class="cat-chip">Costo ${money.format(Number(b.costTotal||0))}</span>`);
-  else if(canFinance)chips.push('<span class="cat-chip warn">Costo incompleto</span>');
   /* Los dos precios van UNO ENCIMA DEL OTRO, no en un solo renglon.
      Juntos —"Adulto $3,500.00 · Niño $2,350.00"— son 33 caracteres en negritas
      que a 390px no caben, y la columna del precio no encoge: se le encimaba al
@@ -112,7 +111,6 @@ function bundleCard(b){
   // decirlo: un precio sin etiqueta se lee como precio de adulto.
   if(adulto&&nino)bajoPrecio.push(`Niño ${money.format(nino)}`);
   else if(!adulto&&nino)bajoPrecio.push('Sólo niño');
-  if(canFinance&&b.marginAdultPercent!=null)bajoPrecio.push(`Margen ${pct(b.marginAdultPercent)}`);
   btn.innerHTML=`<span class="cat-thumb">${ICONS.kit}</span><span class="cat-body"><strong class="cat-title">${esc(b.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${esc(precio)}</strong>${bajoPrecio.map(t=>`<small class="cat-sub">${esc(t)}</small>`).join('')}</span>`;
   if(canManage)btn.addEventListener('click',()=>openBundleDrawer(b));
   else btn.disabled=true;
@@ -128,10 +126,9 @@ function productCard(p){
   if(p.category)chips.push(`<span class="cat-chip">${esc(p.category)}</span>`);
   if(p.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!p.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
-  if(canFinance&&p.cost==null)chips.push('<span class="cat-chip warn">Sin costo</span>');
   // En qué kits va: así se ve de un vistazo que el jersey suelto es el mismo.
   bundles.filter(b=>!b.archived&&(b.components||[]).some(c=>c.productId===p.id)).forEach(b=>chips.push(`<span class="cat-chip kit">En ${esc(b.name)}</span>`));
-  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong>${canFinance&&p.marginPercent!=null?`<small class="cat-sub">Margen ${pct(p.marginPercent)}</small>`:''}</span>`;
+  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong></span>`;
   if(canManage)btn.addEventListener('click',()=>openProductDrawer(p));
   else btn.disabled=true;
   return btn;
@@ -147,6 +144,11 @@ function pintaCabecera(){
   document.querySelectorAll('.cat-seg [data-ver]').forEach(b=>{const on=b.dataset.ver===ver;b.classList.toggle('activo',on);b.setAttribute('aria-selected',String(on));});
   $('productsPanel')?.classList.toggle('hidden',ver!=='productos');
   $('bundlesPanel')?.classList.toggle('hidden',ver!=='kits');
+  $('costosPanel')?.classList.toggle('hidden',ver!=='costos');
+  $('catTabCostos')?.classList.toggle('hidden',!canFinance);
+  // Buscar y "pendientes" son de productos y kits, no de costos.
+  $('catBuscar')?.classList.toggle('hidden',ver==='costos');
+  $('pendientes')?.classList.toggle('hidden',ver==='costos'||!$('pendientes').textContent);
 }
 function renderBundles(){
   pintaCabecera();
@@ -266,11 +268,12 @@ function recomputeBundlePreview(){
   // entera aparece cuando el costo de todas las piezas esta capturado; si
   // falta uno, en su lugar va una frase que SI acciona.
   const priceAdult=Number($('bPriceAdult').value||0),priceKid=Number($('bPriceKid').value||0);
-  const puede=canFinance&&complete&&draft.components.length>0;
+  // Costo y margen viven en la pestaña Costos (13/10/2026): aquí nunca.
+  const puede=false;
   $('bMargenCaja')?.classList.toggle('hidden',!puede);
   const aviso=$('bSinCosto');
   if(aviso){
-    const falta=canFinance&&draft.components.length>0&&!complete;
+    const falta=false;
     aviso.classList.toggle('hidden',!falta);
     if(falta)aviso.textContent='Falta el costo de alguna pieza, por eso no se puede calcular el margen.';
   }
@@ -473,6 +476,34 @@ document.querySelectorAll('[data-escala]').forEach(b=>b.addEventListener('click'
   pintaTallas();
 }));
 
+/* ---------- En qué kits va el producto ----------
+   Ligar desde la pieza, no sólo desde el kit: "voy a agregar un producto y que
+   lo pueda ligar a que sea ya un kit". Un toque mete o saca la pieza del kit y
+   se guarda al momento; el kit conserva todo lo demás. */
+function pintaKitsDelProducto(p){
+  const box=$('pKits'),campo=$('pKitsCampo');if(!box||!campo)return;
+  const kits=bundles.filter(b=>!b.archived);
+  campo.classList.toggle('hidden',!p||!kits.length);
+  if(!p)return;
+  box.innerHTML=kits.map(b=>{const en=(b.components||[]).some(c=>c.productId===p.id);
+    return `<button type="button" class="chip${en?' on':''}" data-kit-liga="${esc(b.id)}" aria-pressed="${en}">${en?'✓ ':''}${esc(b.name)}</button>`;}).join('');
+}
+$('pKits')?.addEventListener('click',async e=>{
+  const btn=e.target.closest('[data-kit-liga]');if(!btn||!draft?.id)return;
+  const b=bundles.find(x=>x.id===btn.dataset.kitLiga),pid=draft.id;if(!b)return;
+  const en=(b.components||[]).some(c=>c.productId===pid);
+  const piezas=en?(b.components||[]).filter(c=>c.productId!==pid):[...(b.components||[]),{productId:pid,qty:1}];
+  if(!piezas.length){drawerMsg('Un kit necesita al menos una pieza: agrega otra antes de sacar ésta.');return;}
+  btn.disabled=true;
+  try{
+    await rpc('v2_upsert_bundle',{organization_id:ctx.organization_id,id:b.id,name:b.name,description:b.description??null,
+      price_adult:b.priceAdult||null,price_kid:b.priceKid||null,components:piezas.map(c=>({productId:c.productId,qty:c.qty||1})),
+      active:!!b.active,valid_until:b.validUntil??null,notes:b.notes??null});
+    b.components=piezas;pintaKitsDelProducto(products.find(x=>x.id===pid));renderBundles();renderProducts();
+    drawerMsg(en?`Se sacó de ${b.name}.`:`Ahora va en ${b.name}.`,'success');
+  }catch(err){btn.disabled=false;drawerMsg(err.message||'No se pudo actualizar el kit.');}
+});
+
 /* ---------- Drawer: producto ---------- */
 function openProductDrawer(p){
   draft={mode:'product',id:p?.id||null,components:[]};
@@ -498,6 +529,7 @@ function openProductDrawer(p){
   $('pArchiveToggle').textContent=p?.archived?'Restaurar producto':'Archivar producto';
   photoFile=null;photoCleared=false;
   pintaFotoGuardada(p);
+  pintaKitsDelProducto(p);
   recomputeProductPreview();
   openDrawer();
 }
@@ -505,7 +537,7 @@ function openProductDrawer(p){
    muestra cuando puede decir un numero, y si no, no esta. */
 function recomputeProductPreview(){
   const price=Number($('pPrice').value||0),cost=$('pCost').value===''?null:Number($('pCost').value);
-  const puede=canFinance&&price>0&&cost!=null;
+  const puede=false; // el margen se ve en la pestaña Costos
   $('pMargenCaja')?.classList.toggle('hidden',!puede);
   if(puede)$('pMarginPreview').textContent=pct((price-cost)/price*100);
 }
@@ -590,7 +622,67 @@ $('pArchiveToggle')?.addEventListener('click',toggleProductArchive);
 $('newBundleBtn')?.addEventListener('click',()=>openBundleDrawer(null));
 $('newProductBtn')?.addEventListener('click',()=>openProductDrawer(null));
 $('showArchived')?.addEventListener('change',e=>{showArchived=e.target.checked;renderBundles();renderProducts();});
-document.querySelector('.cat-seg')?.addEventListener('click',e=>{const b=e.target.closest('[data-ver]');if(!b)return;ver=b.dataset.ver;pintaCabecera();});
+document.querySelector('.cat-seg')?.addEventListener('click',e=>{const b=e.target.closest('[data-ver]');if(!b)return;if(b.dataset.ver==='costos'&&!canFinance)return;ver=b.dataset.ver;pintaCabecera();if(ver==='costos')renderCostos();});
+
+/* ---------- Costos (13/10/2026) ----------
+   "Los costos no quiero que le salgan a nadie... que tenga una pestañita para
+   ver los costos". Aquí se captura el costo de cada pieza, se ve el margen de
+   productos y kits, y la utilidad de la Tienda. En ningún otro lado. */
+const margenDe=(precio,costo)=>precio>0&&costo!=null?(precio-costo)/precio*100:null;
+const tonoMargen=m=>m==null?'':m<20?'bajo':m<40?'medio':'bien';
+function costoDeKit(b){
+  let costo=0,falta=[];
+  (b.components||[]).forEach(c=>{const p=products.find(x=>x.id===c.productId);if(!p||p.cost==null)falta.push(p?.name||'pieza');else costo+=Number(p.cost)*Number(c.qty||1);});
+  return {costo,falta};
+}
+function renderCostos(){
+  if(!canFinance)return;
+  const vivos=products.filter(p=>!p.archived);
+  $('costosProductos').innerHTML=vivos.map(p=>{const m=margenDe(Number(p.price||0),p.cost==null?null:Number(p.cost));
+    return `<div class="costo-fila" data-cid="${esc(p.id)}"><span class="costo-nombre"><b>${esc(p.name)}</b><small>Precio ${money.format(Number(p.price||0))}</small></span>
+      <label class="costo-input"><span>Costo</span><input type="number" min="0" step="0.01" inputmode="decimal" value="${p.cost??''}" placeholder="—" data-costo="${esc(p.id)}"${canManage?'':' disabled'}></label>
+      <span class="costo-margen ${tonoMargen(m)}">${m==null?'Sin costo':`${pct(m)}`}<small>${m==null?'':`ganas ${money.format(Number(p.price||0)-Number(p.cost||0))}`}</small></span></div>`;}).join('')||'<p class="muted">Sin productos.</p>';
+  $('costosKits').innerHTML=bundles.filter(b=>!b.archived).map(b=>{const {costo,falta}=costoDeKit(b);const pa=Number(b.priceAdult||0),pk=Number(b.priceKid||0);
+    const ma=falta.length?null:margenDe(pa,costo),mk=falta.length?null:margenDe(pk,costo);
+    return `<div class="costo-fila kit"><span class="costo-nombre"><b>${esc(b.name)}</b><small>${pa?`Adulto ${money.format(pa)}`:''}${pk?` · Niño ${money.format(pk)}`:''}</small></span>
+      <span class="costo-total">${falta.length?`<em>Falta costo de ${esc(falta[0])}${falta.length>1?` y ${falta.length-1} más`:''}</em>`:`Costo ${money.format(costo)}`}</span>
+      <span class="costo-margen ${tonoMargen(ma)}">${ma==null?'—':pct(ma)}<small>${mk!=null?`niño ${pct(mk)}`:ma!=null?'adulto':''}</small></span></div>`;}).join('')||'<p class="muted">Sin kits.</p>';
+  pintaNegocio();
+}
+$('costosProductos')?.addEventListener('change',async e=>{
+  const inp=e.target.closest('[data-costo]');if(!inp||!canManage)return;
+  const p=products.find(x=>x.id===inp.dataset.costo);if(!p)return;
+  const valor=inp.value===''?null:Number(inp.value);
+  if(valor!=null&&(!(valor>=0)))return;
+  inp.disabled=true;
+  try{
+    await rpc('v2_upsert_product',{organization_id:ctx.organization_id,id:p.id,name:p.name,sku:p.sku||null,category:p.category||null,price:Number(p.price||0),cost:valor,sizes:Array.isArray(p.sizes)?p.sizes:[],active:!!p.active,description:p.description??null,lead_days:p.leadDays??null});
+    p.cost=valor;renderCostos();
+  }catch(err){inp.disabled=false;alert(err.message||'No se pudo guardar el costo.');}
+});
+/* La utilidad de la Tienda: lo que estaba arriba de Pedidos, ahora aquí. */
+let negocio=null,negocioCorrida=0;
+async function pintaNegocio(){
+  const box=$('costosNegocio');if(!box)return;
+  if(negocio){box.innerHTML=negocio;return;}
+  box.innerHTML='<p class="muted">Calculando la utilidad…</p>';
+  const corrida=++negocioCorrida;
+  try{
+    const ordenes=((await rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}))||[]).filter(o=>!['cancelled','refunded'].includes(o.status));
+    let venta=0,cobrado=0,porCobrar=0,costo=0,utilidad=0,ventaConCosto=0,completos=0;
+    for(let i=0;i<ordenes.length;i+=8){
+      const lote=await Promise.all(ordenes.slice(i,i+8).map(o=>rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id}).catch(()=>null)));
+      if(corrida!==negocioCorrida)return;
+      lote.forEach((d,k)=>{const o=ordenes[i+k];venta+=Number(o.total||0);if(!d)return;cobrado+=Number(d.paidAmount||0);porCobrar+=Math.max(0,Number(d.balance||0));
+        if(d.costComplete){completos++;costo+=Number(d.costTotal||0);utilidad+=Number(d.grossProfitExpected||0);ventaConCosto+=Number(d.order?.total??o.total??0);}});
+    }
+    const margen=ventaConCosto>0?utilidad/ventaConCosto*100:null;
+    negocio=`<div class="negocio-grid"><div><span>Venta</span><b>${money.format(venta)}</b></div><div><span>Cobrado</span><b>${money.format(cobrado)}</b></div><div><span>Por cobrar</span><b>${money.format(porCobrar)}</b></div>
+      <div><span>Costo</span><b>${completos?money.format(costo):'—'}</b></div><div class="clave"><span>Utilidad</span><b>${completos?money.format(utilidad):'—'}</b></div><div><span>Margen</span><b>${margen==null?'—':pct(margen)}</b></div></div>
+      <p class="muted negocio-nota">${completos}/${ordenes.length} pedidos con costo completo. Sin cancelados ni reembolsados.</p>`;
+    box.innerHTML=negocio;
+  }catch(err){box.innerHTML=`<p class="muted">No se pudo calcular: ${esc(err.message||'')}</p>`;}
+}
 $('catBuscar')?.addEventListener('input',e=>{busca=e.target.value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();renderBundles();renderProducts();});
 /* El botón + de abajo: lo de esta pantalla primero. */
 function accionesDelCatalogo(){

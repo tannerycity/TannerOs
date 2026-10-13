@@ -203,15 +203,9 @@ revisa('archivar dejo de ser hermano de Guardar',
   && (await pg.$eval('#pArchiveToggle',n=>n.className)).includes('accion-menor'),
   await pg.$eval('#pArchiveToggle',n=>n.className));
 
-// El margen solo aparece cuando puede decir un numero.
-revisa('sin costo capturado no hay renglon de margen en "—"',
-  await pg.isHidden('#pMargenCaja'));
-await pg.fill('#pCost','400');
-await pg.waitForTimeout(150);
-revisa('al capturar el costo, el margen aparece con su numero',
-  await pg.isVisible('#pMargenCaja')
-  && /%/.test(await pg.textContent('#pMarginPreview')),
-  await pg.textContent('#pMarginPreview'));
+// Costo y margen ya no se ven en la ficha (13/10/2026): viven en Costos.
+revisa('la ficha del producto no muestra costo ni margen',
+  (await pg.getAttribute('#pCost','type'))==='hidden' && await pg.isHidden('#pMargenCaja'));
 
 // El kit perdio los dos campos que nadie lleno nunca.
 await pg.click('#closeDrawer');
@@ -270,6 +264,27 @@ await pg.click('#pSave');
 await pg.waitForTimeout(300);
 const alta=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_product').map(x=>x.p).pop());
 revisa('se guarda con categoría, precio y sus doce tallas', alta?.name==='Jersey Portero'&&alta?.category==='jersey'&&alta?.price===899&&alta?.sizes?.length===12, JSON.stringify(alta));
+// Costos (13/10/2026): sólo en su pestaña, con margen y el costo editable.
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
+revisa('las tarjetas no dicen costo ni margen', !/Margen|Costo|Sin costo/.test(await pg.textContent('#productList')+await pg.textContent('#bundleList')));
+await pg.click('#catTabCostos');
+await pg.waitForSelector('#costosProductos .costo-fila',{timeout:4000}).catch(()=>{});
+revisa('la pestaña Costos lista los productos con su costo', (await pg.$$('#costosProductos .costo-fila')).length===4);
+await pg.fill('[data-costo="p4"]','80');
+await pg.dispatchEvent('[data-costo="p4"]','change');
+await pg.waitForTimeout(300);
+const conCosto=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_product').map(x=>x.p).pop());
+revisa('capturar el costo lo guarda sin tocar lo demás', conCosto?.id==='p4'&&conCosto?.cost===80&&conCosto?.price===200&&conCosto?.name==='Par de calcetas', JSON.stringify(conCosto));
+revisa('y el margen sale solo', /60%/.test(await pg.textContent('.costo-fila[data-cid="p4"] .costo-margen')), await pg.textContent('.costo-fila[data-cid="p4"] .costo-margen'));
+revisa('el kit dice qué pieza no tiene costo', /Falta costo de/.test(await pg.textContent('#costosKits')), await pg.textContent('#costosKits'));
+// Ligar a kits desde la pieza.
+await pg.click('.cat-seg [data-ver="productos"]');
+await pg.click('#productList .catalog-card[data-pid="p3"], #productList .catalog-card >> nth=2').catch(()=>{});
+await pg.waitForSelector('#pKits [data-kit-liga]',{timeout:4000}).catch(()=>{});
+await pg.click('#pKits [data-kit-liga="b1"]');
+await pg.waitForTimeout(300);
+const liga=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_bundle').map(x=>x.p).pop());
+revisa('desde la pieza se mete al kit en un toque, conservando lo demás', liga?.id==='b1'&&liga?.components?.length===2&&liga?.price_adult===1740, JSON.stringify(liga));
 revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 revisa('sin scroll horizontal en un teléfono',
   await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));

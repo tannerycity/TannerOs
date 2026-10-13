@@ -48,7 +48,7 @@ const HOY = { today: '2026-12-07', sessions: [ { sessionId: 'h1', categoryId: 'c
 const DIR = { weekStart: SEMANA, publishBy: '2026-12-05T04:00:00Z', deadline: '2026-12-07T04:00:00Z', categories: [
   { categoryId: 'cb', category: 'Baby Tanner', stage: 'baby_3_4', usesChallenges: false, coachId: 'u2', week: null, sessions: 2, ready: 0 },
   { categoryId: 'c6', category: 'T6', stage: 't6', usesChallenges: true, coachId: 'u2', week: null, sessions: 2, ready: 1 },
-  { categoryId: 'c10', category: 'T10', stage: 't10', usesChallenges: true, coachId: null, week: { primary: 'gol', status: 'published' }, sessions: 3, ready: 0 },
+  { categoryId: 'c10', category: 'T10', stage: 't10', usesChallenges: true, coachId: null, week: { primary: 'gol', status: 'published', behavior: 'hola', lastBy: 'Mich', updatedAt: '2026-12-01T18:00:00Z' }, sessions: 3, ready: 0 },
   { categoryId: 'c12', category: 'T12', stage: 't12', usesChallenges: true, coachId: 'u3', week: null, sessions: 3, ready: 3 }
 ] };
 
@@ -71,6 +71,10 @@ async function abre({ direccion }) {
       v2_my_planning: () => mia,
       v2_direction_week: () => DIR,
       v2_save_training_weeks: () => 2,
+      v2_remove_training_week: prm => ({ id: 'w10', removed: true }),
+      v2_training_week_history: () => [
+        { at: '2026-12-01T18:00:00Z', action: 'editada', by: 'Mich', before: { primary: 'gol', behavior: 'hola' }, after: { primary: 'gol', behavior: 'Que tiren a portería' } },
+        { at: '2026-11-30T18:00:00Z', action: 'publicada', by: 'Brandon', before: null, after: { primary: 'gol', behavior: 'hola' } }],
       v2_my_today: () => hoy,
       v2_close_session: prm => { const s = hoy.sessions.find(x => x.sessionId === prm.session_id); s.closure = prm.closure; s.closureNote = prm.note; s.status = 'completed'; return { closure: prm.closure }; },
       v2_save_session_plan: prm => { const s = mia.sessions.find(x => x.sessionId === prm.session_id); s.plan = { status: prm.plan.ready ? 'ready' : 'draft', challenge: prm.plan.challenge, items: prm.plan.items }; return { status: s.plan.status }; }
@@ -155,33 +159,69 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.close();
 }
 
-{ // Dirección
+{ // Dirección: la Semana Tanner en 5 pasos (13/10/2026)
   const p = await abre({ direccion: true });
-  await p.waitForSelector('.fm-cat', { timeout: 6000 });
+  await p.waitForSelector('.fm-cat2', { timeout: 6000 });
   revisa('[dirección] abre en la Semana', (await p.textContent('#fmTabs .activa')) === 'Semana');
-  revisa('[dirección] dice qué falta', /Falta Baby Tanner, T6, T12/.test(await p.textContent('.fm-hero h1')), await p.textContent('.fm-hero h1'));
-  const pills = await p.$$eval('.fm-cat', c => c.map(x => [...x.querySelectorAll('.fm-pill')].map(y => y.textContent).join('|')));
-  revisa('[dirección] planeación por categoría: Lista / Pendiente / Sin Formador', pills[1].endsWith('Pendiente 1') && pills[2] === 'Publicada|Sin Formador' && pills[3].endsWith('Lista'), JSON.stringify(pills));
-  await p.click('[data-cat="cb"]');
+  const pasos = await p.$$eval('.fm-pasos li', l => l.map(x => [x.className, x.querySelector('b').textContent, x.querySelector('small').textContent]));
+  revisa('[pasos] los 5 pasos, con el 1 hecho y el 2 en curso', pasos.length === 5 && pasos[0][0] === 'hecho' && pasos[1][0] === 'actual' && pasos[1][2] === '1 de 4'
+    && pasos.map(x => x[1]).join('|') === 'Elige la semana|Ponle Reto a cada categoría|Di qué quieres ver en la cancha|Revisa tu semana|Publica', JSON.stringify(pasos));
+  revisa('[pasos] el título dice el paso que sigue', /Paso 2: Ponle Reto a cada categoría/.test(await p.textContent('.fm-hero2 h1')), await p.textContent('.fm-hero2 h1'));
+  const pies = await p.$$eval('.fm-cat2 footer small', s => s.map(x => x.textContent));
+  revisa('[dirección] cada categoría dice cómo va su Formador', /1\/2 sesiones listas/.test(pies[1]) && /Sin Formador asignado/.test(pies[2]) && /3\/3/.test(pies[3]), JSON.stringify(pies));
+  revisa('[trazabilidad] la tarjeta dice quién la tocó al último', /Último cambio: Mich/.test(pies[2]), pies[2]);
+  revisa('[editar] la publicada trae Editar y Quitar a la mano', !!(await p.$('[data-catcard="c10"] [data-quitar="c10"]')) && /Editar/.test(await p.textContent('[data-catcard="c10"] footer')));
+  // Baby: paso 1 Reto, paso 2 qué queremos ver.
+  await p.click('[data-catcard="cb"] .fm-cat2-elegir');
   await p.waitForSelector('.fm-grid-retos');
   const babyOps = await p.$$eval('[data-reto]', b => b.map(x => x.dataset.reto));
   revisa('[dirección] Baby elige entre los 4 mundos, nunca los 9 Retos', JSON.stringify(babyOps) === '["movimiento","balon","juego","convivencia"]', JSON.stringify(babyOps));
+  await p.click('[data-reto="movimiento"]');
+  await p.waitForSelector('#fmConducta');
+  revisa('[hoja] al elegir pasa sola al paso 2: qué quieres ver', /PASO 2 DE 2/.test(await p.textContent('#fmHojaCuerpo')) && /¿Qué quieres ver en la cancha\?/.test(await p.textContent('#fmHojaCuerpo')));
   revisa('[dirección] Baby no tiene secundario', (await p.$('#fmSec')) === null);
-  await p.click('[data-reto="movimiento"]'); await p.fill('#fmConducta', 'Que frenen sin caerse'); await p.click('#fmGuardaReto');
-  await p.click('[data-cat="c6"]');
+  await p.click('[data-ejemplo]');
+  revisa('[hoja] un ejemplo llena la frase de un toque', (await p.inputValue('#fmConducta')) === 'Que frenen sin caerse');
+  await p.click('#fmGuardaReto');
+  // T6 con secundario.
+  await p.click('[data-catcard="c6"] .fm-cat2-elegir');
   await p.waitForSelector('.fm-grid-retos');
   revisa('[dirección] T6 elige entre los 9 Retos', (await p.$$('[data-reto]')).length === 9);
-  await p.click('[data-reto="1v1"]'); await p.selectOption('#fmSec', '1v1'); await p.click('#fmGuardaReto');
-  revisa('[dirección] el secundario no puede ser el mismo Reto', /no puede ser el mismo/.test(await p.textContent('#fmAviso')));
-  await p.selectOption('#fmSec', 'avanzar'); await p.click('#fmGuardaReto');
+  await p.click('[data-reto="1v1"]');
+  await p.click('.fm-mas summary');
+  const secs = await p.$$eval('#fmSec option', o => o.map(x => x.value));
+  revisa('[dirección] el secundario no ofrece el mismo Reto', !secs.includes('1v1') && secs.length === 9, JSON.stringify(secs));
+  await p.selectOption('#fmSec', 'avanzar'); await p.fill('#fmConducta', 'Que se atrevan a encarar'); await p.click('#fmGuardaReto');
+  // Editar la publicada: ve el historial y la corrige.
+  await p.click('[data-catcard="c10"] .fm-cat2-reto');
+  await p.waitForSelector('#fmHistoria li');
+  const hist = await p.textContent('#fmHistoria');
+  revisa('[trazabilidad] el historial dice quién, qué hizo y el antes', /Mich/.test(hist) && /la cambió/.test(hist) && /Antes: Gol · “hola”/.test(hist) && /Brandon/.test(hist) && /la publicó/.test(hist), hist);
+  await p.fill('#fmConducta', 'Que tiren a portería'); await p.click('#fmGuardaReto');
+  revisa('[editar] la corregida dice "Cambios sin publicar"', /Cambios sin publicar/.test(await p.textContent('[data-catcard="c10"] header')));
   await cabe(p, 'dirección');
-  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-direccion.png' });
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-direccion.png', fullPage: true });
+  // Paso 4: revisar. Paso 5: publicar.
+  revisa('[pasos] el botón dice cuántas se publican', /Revisar y publicar \(3\)/.test(await p.textContent('#fmRevisar')), await p.textContent('#fmRevisar'));
+  await p.click('#fmRevisar');
+  await p.waitForSelector('.fm-revisa');
+  const rev = await p.$$eval('.fm-revisa li', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
+  revisa('[revisar] la semana completa antes de publicar', rev.length === 4 && /T12\s*Sin Reto/.test(rev[3]) && /Se publica/.test(rev[0]), JSON.stringify(rev));
   await p.click('#fmPublicar');
   await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_save_training_weeks'));
   const pub = (await llamadas(p, 'v2_save_training_weeks'))[0].prm;
   const por = Object.fromEntries(pub.weeks.map(w => [w.categoryId, w]));
-  revisa('[dirección] publica lo elegido (y lo ya publicado)', pub.publish === true && por.cb?.primary === 'movimiento' && por.cb?.behavior === 'Que frenen sin caerse'
-    && por.c6?.primary === '1v1' && por.c6?.secondary === 'avanzar' && por.c10?.primary === 'gol' && !por.c12 && pub.weeks.every(w => w.weekStart === '2026-12-07'), JSON.stringify(pub));
+  revisa('[publicar] publica lo nuevo y lo corregido, sin re-publicar lo intacto', pub.publish === true && por.cb?.primary === 'movimiento' && por.cb?.behavior === 'Que frenen sin caerse'
+    && por.c6?.primary === '1v1' && por.c6?.secondary === 'avanzar' && por.c10?.behavior === 'Que tiren a portería' && !por.c12 && pub.weeks.every(w => w.weekStart === '2026-12-07'), JSON.stringify(pub));
+  // Quitar con confirmación.
+  await p.waitForSelector('#fmHoja', { state: 'hidden' });
+  await p.click('[data-catcard="c10"] [data-quitar]');
+  await p.waitForSelector('.tosdlg-ok');
+  revisa('[quitar] pregunta antes y avisa que queda en el historial', /historial/.test(await p.textContent('.tosdlg-ok').then(() => p.evaluate(() => document.body.textContent))));
+  await p.click('.tosdlg-ok');
+  await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_remove_training_week'));
+  const q = (await llamadas(p, 'v2_remove_training_week'))[0].prm;
+  revisa('[quitar] quita el Reto de esa categoría y esa semana', q.category_id === 'c10' && q.week_start === '2026-12-07', JSON.stringify(q));
   // Banco
   await p.click('[data-tab="banco"]');
   await p.waitForSelector('.fm-tarea');

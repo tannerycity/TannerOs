@@ -297,3 +297,40 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-pr-fin p{margin:0;font-size:15px;line-height:1.45;color:#2b4146;max-width:34ch}
 @keyframes fm-pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.fm-pr-check{animation:none}}
+
+/* ---------- Botones de juego (13/10/2026) ----------
+   "Que sea como videojuego, que no parezca sistema": Fácil, Normal y Difícil
+   como botones de consola (verde, amarillo, rojo) y el espacio como una
+   canchita que se ve, no como un selector. */
+.fm-ajustes{display:grid;gap:8px;margin-top:10px}
+.fm-ajuste-tit{margin:6px 0 0;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7a8a8e}
+.fm-juego{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:2px}
+.fm-juego.dos{grid-template-columns:1fr 1fr;margin-top:10px}
+.fm-jbtn{position:relative;display:grid;gap:2px;justify-items:center;align-content:center;min-height:72px;padding:12px 8px 14px;border:0;border-radius:18px;color:#fff;font:inherit;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.25);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -4px 0 rgba(0,0,0,.18),0 6px 14px rgba(0,0,0,.12);transition:transform .14s cubic-bezier(.2,.8,.2,1.2),filter .2s,opacity .2s,box-shadow .2s;filter:saturate(.55) brightness(1.05);opacity:.78;-webkit-tap-highlight-color:transparent}
+.fm-jbtn::before{content:"";position:absolute;inset:3px 6px auto;height:42%;border-radius:15px 15px 40% 40%;background:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0));pointer-events:none}
+.fm-jbtn b{font-size:20px;font-weight:900;letter-spacing:-.01em;line-height:1.1}
+.fm-jbtn small{font-size:11.5px;font-weight:700;opacity:.92}
+.fm-jbtn-facil{background:linear-gradient(180deg,#63de7f,#28a948)}
+.fm-jbtn-base{background:linear-gradient(180deg,#ffdc55,#f0a500);color:#3a2a00;text-shadow:0 1px 0 rgba(255,255,255,.35)}
+.fm-jbtn-dificil{background:linear-gradient(180deg,#ff7d55,#dc3b25)}
+.fm-jbtn.activa{filter:none;opacity:1;transform:translateY(-2px) scale(1.04);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -4px 0 rgba(0,0,0,.18),0 0 0 3px #fff,0 0 0 5px #0b2a33,0 12px 24px rgba(0,0,0,.22)}
+.fm-jbtn:hover{opacity:1}
+.fm-jbtn:active{transform:translateY(1px) scale(.97);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -1px 0 rgba(0,0,0,.18),0 2px 6px rgba(0,0,0,.12)}
+.fm-jbtn:focus-visible,.fm-ebtn:focus-visible{outline:3px solid #0a84ff;outline-offset:3px}
+
+.fm-espacio{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:2px}
+.fm-ebtn{display:grid;gap:2px;justify-items:center;padding:10px 8px 12px;border:2px solid transparent;border-radius:18px;background:#f2f5f4;color:#16303a;font:inherit;cursor:pointer;transition:transform .14s,border-color .2s,background .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent}
+.fm-ebtn svg{width:100%;max-width:120px;height:auto;margin-bottom:4px;border-radius:10px;background:linear-gradient(180deg,#9fd8a4,#7cc483);filter:grayscale(.7);opacity:.7;transition:filter .2s,opacity .2s}
+.fm-ebtn svg rect,.fm-ebtn svg path,.fm-ebtn svg circle{fill:none;stroke:#fff;stroke-width:2;stroke-linejoin:round}
+.fm-ebtn svg .fuera{stroke-dasharray:3 3;opacity:.55}
+.fm-ebtn b{font-size:15px;font-weight:800}
+.fm-ebtn small{font-size:12px;color:#5d6f74;font-weight:600}
+.fm-ebtn.activa{background:#fff;border-color:#2fb24f;box-shadow:0 8px 20px rgba(47,178,79,.18);transform:translateY(-1px)}
+.fm-ebtn.activa svg{filter:none;opacity:1;background:linear-gradient(180deg,#4cc463,#2e9e48)}
+.fm-ebtn:active{transform:scale(.97)}
+
+.fm-modo-facil{background:#e9f8ee;color:#1d5b31}
+.fm-modo-dificil{background:#fdece8;color:#8f2a1a}
+.fm-modo-base{background:#fff6d9;color:#5a4300}
+@media (max-width:420px){.fm-jbtn{min-height:64px;padding:10px 4px 12px;border-radius:16px}.fm-jbtn b{font-size:17px}.fm-jbtn small{font-size:10.5px}.fm-juego,.fm-espacio{gap:8px}}
+@media (prefers-reduced-motion:reduce){.fm-jbtn,.fm-ebtn{transition:none}.fm-jbtn.activa{transform:none}}

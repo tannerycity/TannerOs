@@ -289,9 +289,13 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.click('[data-pr-sig]');
   revisa('[práctica] paso 4: ajusta la jugada elegida', (await p.textContent('.fm-pregunta')) === elegida);
   await p.click('[data-pr-dif="facil"]');
-  revisa('[práctica] Más fácil explica qué cambia', /Más fácil:/.test(await p.textContent('.fm-modo')));
+  revisa('[práctica] botones de juego: Fácil, Normal y Difícil', (await p.$$eval('.fm-juego .fm-jbtn b', bs => bs.map(b => b.textContent).join('|'))) === 'Fácil|Normal|Difícil');
+  revisa('[práctica] el espacio es una canchita que se ve', (await p.$$('.fm-espacio .fm-ebtn svg')).length === 2);
+  revisa('[práctica] el elegido queda marcado', await p.getAttribute('[data-pr-dif="facil"]', 'aria-checked') === 'true');
+  revisa('[práctica] Fácil explica qué cambia', /Fácil:/.test(await p.textContent('.fm-modo')));
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-juego.png' });
   await p.click('[data-pr-sig]');
-  revisa('[práctica] paso 5: el resumen con su jugada', (await p.textContent('.fm-pr-resumen')).includes(elegida) && /Más fácil/.test(await p.textContent('.fm-pr-resumen')));
+  revisa('[práctica] paso 5: el resumen con su jugada', (await p.textContent('.fm-pr-resumen')).includes(elegida) && /Fácil/.test(await p.textContent('.fm-pr-resumen')));
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-practica.png' });
   await p.click('[data-pr-sig]');
   revisa('[práctica] termina con "¡Así se planea!"', /Así se planea/.test(await p.textContent('.fm-pr-fin')));

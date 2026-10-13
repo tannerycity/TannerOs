@@ -217,6 +217,8 @@ function bloquePersonaliza(e, nombreProducto = '') {
       <label><span>Nombre en la espalda</span><input data-campo="nombre" maxlength="20" autocomplete="off" autocapitalize="characters" value="${esc(e.nombre || '')}" placeholder="LEO"></label>
       <label class="num"><span>Número</span><input data-campo="numero" inputmode="numeric" maxlength="3" autocomplete="off" value="${esc(e.numero || '')}" placeholder="10"></label>
     </div>
+    <p class="st-manga-tit">Manga</p>
+    <div class="st-tallas st-manga">${['corta', 'larga'].map(m => `<button type="button" class="st-talla${(e.manga || 'corta') === m ? ' activa' : ''}" data-manga="${m}" aria-pressed="${(e.manga || 'corta') === m}">${m === 'larga' ? 'Larga' : 'Corta'}</button>`).join('')}</div>
     <p class="st-nota">Lo estampado es personal: no tiene cambio.</p></section>`;
 }
 function barraAgregar(texto, motivo) {
@@ -366,6 +368,12 @@ function cablea() {
     if (talla && ficha) { const e = eligiendo[ficha]; e.talla = talla.dataset.talla; e.motivo = null; e.falta = null; repinta(renderProducto, ficha); return; }
     const cant = t.closest('[data-cantidad]');
     if (cant && ficha) { const e = eligiendo[ficha]; e.cantidad = Math.max(1, Math.min(20, (e.cantidad || 1) + Number(cant.dataset.cantidad))); repinta(renderProducto, ficha); return; }
+    const manga = t.closest('[data-manga]');
+    if (manga && ficha) {
+      const e = esKit ? eligiendoKit[ficha] : eligiendo[ficha];
+      e.manga = manga.dataset.manga;
+      repinta(esKit ? renderKit : renderProducto, ficha); return;
+    }
     const tier = t.closest('[data-tier]');
     if (tier && ficha) { const e = eligiendoKit[ficha]; e.tier = tier.dataset.tier; e.motivo = null; e.falta = null; repinta(renderKit, ficha); return; }
     const pieza = t.closest('[data-pieza-talla]');
@@ -404,7 +412,7 @@ function agregaProducto(id) {
   const p = (catalogo.products || []).find(x => String(x.id) === String(id));
   if (!p) return;
   const e = eligiendo[id];
-  const r = preparaLinea(p, { talla: e.talla, cantidad: e.cantidad || 1, nombre: e.nombre, numero: e.numero });
+  const r = preparaLinea(p, { talla: e.talla, cantidad: e.cantidad || 1, nombre: e.nombre, numero: e.numero, manga: e.manga });
   if (!r.ok) { falla(e, r, renderProducto, id); return; }
   carrito = agregaAlCarrito(carrito, r.linea);
   eligiendo[id] = { cantidad: 1 };
@@ -416,7 +424,7 @@ function agregaKit(id) {
   const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
   if (!k) return;
   const e = eligiendoKit[id];
-  const r = preparaKit(k, { tier: e.tier, tallas: e.tallas || {}, nombre: e.nombre, numero: e.numero });
+  const r = preparaKit(k, { tier: e.tier, tallas: e.tallas || {}, nombre: e.nombre, numero: e.numero, manga: e.manga });
   if (!r.ok) { falla(e, r, renderKit, id); return; }
   carrito = agregaAlCarrito(carrito, r.linea);
   eligiendoKit[id] = { tallas: {}, tier: e.tier };
@@ -507,10 +515,10 @@ async function submit(e) {
   // El mismo formato de línea que el portal de familias (portal_place_order).
   const items = Object.values(carrito).map(l => l.kind === 'bundle'
     ? { kind: 'bundle', bundleId: l.bundleId, tier: l.tier,
-        personalizationName: l.personalizationName || null, number: l.numero || null,
+        personalizationName: l.personalizationName || null, number: l.numero || null, sleeve: l.manga || null,
         pieces: (l.piezas || []).map(pz => ({ productId: pz.productId, talla: pz.talla || null })) }
     : { kind: 'product', productId: l.productId, quantity: l.cantidad || 1, talla: l.talla || null,
-        personalizationName: l.personalizationName || null, number: l.numero || null });
+        personalizationName: l.personalizationName || null, number: l.numero || null, sleeve: l.manga || null });
   try {
     const result = await rpc('v2_public_cart_order', { ...comun, items });
     carrito = {};

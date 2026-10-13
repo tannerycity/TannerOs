@@ -80,6 +80,16 @@ export function cantidadValida(v) {
   return Math.min(n, 20);
 }
 
+/* La manga del jersey: corta salvo que pidan larga. El proveedor corta
+   distinto cada una, así que viaja en el pedido y se ve en el admin. */
+export function mangaValida(m) {
+  return String(m || '').trim().toLowerCase() === 'larga' ? 'larga' : 'corta';
+}
+
+export function textoManga(m) {
+  return m === 'larga' ? 'Manga larga' : m === 'corta' ? 'Manga corta' : '';
+}
+
 /* ---- ¿Se puede agregar? ----
 
    Devuelve la línea lista, o el motivo por el que todavía no. El motivo se
@@ -99,6 +109,7 @@ export function preparaLinea(producto, opciones = {}) {
   const nombre = personaliza ? nombreValido(opciones.nombre) : null;
   const numeroCrudo = String(opciones.numero ?? '').trim();
   const numero = personaliza ? numeroValido(numeroCrudo) : null;
+  const manga = personaliza ? mangaValida(opciones.manga) : null;
 
   // Un número que no es número se dice, en vez de estamparse mal o perderse
   // en silencio.
@@ -111,7 +122,7 @@ export function preparaLinea(producto, opciones = {}) {
     linea: {
       productId: producto.id, nombreProducto: producto.name || 'Producto',
       talla, cantidad,
-      personalizationName: nombre, numero,
+      personalizationName: nombre, numero, manga,
       precioUnitario: Number(producto.price || 0),
       total: Number(producto.price || 0) * cantidad
     }
@@ -124,7 +135,7 @@ export function preparaLinea(producto, opciones = {}) {
    con cantidad dos: el proveedor corta por talla. Y dos con el mismo nombre y
    número distinto también, porque son dos hermanos. */
 export function llaveDeLinea(l) {
-  return [l.productId, l.talla || '', l.personalizationName || '', l.numero || ''].join('|');
+  return [l.productId, l.talla || '', l.personalizationName || '', l.numero || '', l.manga || ''].join('|');
 }
 
 export function agregaAlCarrito(carrito, linea) {
@@ -325,6 +336,7 @@ export function preparaKit(kit, opciones = {}) {
   const nombre = nombreValido(opciones.nombre);
   const numeroCrudo = String(opciones.numero ?? '').trim();
   const numero = numeroValido(numeroCrudo);
+  const manga = mangaValida(opciones.manga);
   if (numeroCrudo && !numero) {
     return { ok: false, motivo: 'El número va de 1 a 3 dígitos.', falta: 'numero' };
   }
@@ -335,7 +347,7 @@ export function preparaKit(kit, opciones = {}) {
       kind: 'bundle',
       bundleId: kit.id, nombreProducto: kit.name || 'Kit', tier,
       piezas, cantidad: 1,
-      personalizationName: nombre, numero,
+      personalizationName: nombre, numero, manga,
       precioUnitario: precio, total: precio
     }
   };
@@ -349,7 +361,7 @@ export function preparaKit(kit, opciones = {}) {
 export function llaveDeKit(l) {
   return ['kit', l.bundleId, l.tier,
     (l.piezas || []).map(p => `${p.productId}:${p.talla || ''}`).join(','),
-    l.personalizationName || '', l.numero || ''].join('|');
+    l.personalizationName || '', l.numero || '', l.manga || ''].join('|');
 }
 
 /* Una sola llave para el carrito, sea pieza o kit: quien agrega no tiene por

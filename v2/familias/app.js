@@ -553,10 +553,10 @@ async function checkout(){
    * que el club tenga UN solo formato de pedido y no dos. */
   const items=lineas.map(l=>l.kind==='bundle'
     ? {kind:'bundle',bundleId:l.bundleId,tier:l.tier,
-       personalizationName:l.personalizationName||null,number:l.numero||null,
+       personalizationName:l.personalizationName||null,number:l.numero||null,sleeve:l.manga||null,
        pieces:(l.piezas||[]).map(p=>({productId:p.productId,talla:p.talla||null}))}
     : {kind:'product',productId:l.productId,quantity:l.cantidad,talla:l.talla||null,
-       personalizationName:l.personalizationName||null,number:l.numero||null,
+       personalizationName:l.personalizationName||null,number:l.numero||null,sleeve:l.manga||null,
        // La llave vieja tambien, por si el despliegue de la base va detras.
        product_id:l.productId,size:l.talla||null});
   const notas=null;
@@ -694,6 +694,13 @@ async function renderTienda(){
   cuerpo.querySelectorAll('[data-knombre]').forEach(i=>i.addEventListener('input',e=>{
     const id=e.target.dataset.knombre;eligiendoKit[id]={...(eligiendoKit[id]||{}),nombre:e.target.value};
   }));
+  // Manga: se marca y se repinta, igual que la talla.
+  cuerpo.querySelectorAll('[data-pmanga],[data-kmanga]').forEach(caja=>caja.addEventListener('click',e=>{
+    const b=e.target.closest('[data-m]');if(!b)return;
+    if(caja.dataset.kmanga){const id=caja.dataset.kmanga;eligiendoKit[id]={...(eligiendoKit[id]||{}),manga:b.dataset.m};}
+    else{const id=caja.dataset.pmanga;eligiendo[id]={...(eligiendo[id]||{}),manga:b.dataset.m};}
+    renderTienda();
+  }));
   cuerpo.querySelectorAll('[data-knumero]').forEach(i=>i.addEventListener('input',e=>{
     const id=e.target.dataset.knumero;eligiendoKit[id]={...(eligiendoKit[id]||{}),numero:e.target.value};
   }));
@@ -703,7 +710,7 @@ async function renderTienda(){
     const id=b.dataset.addkit;
     const kit=kits.find(k=>String(k.id)===String(id));
     const elec=eligiendoKit[id]||{};
-    const r=preparaKit(kit,{tier:elec.tier,tallas:elec.tallas,nombre:elec.nombre,numero:elec.numero});
+    const r=preparaKit(kit,{tier:elec.tier,tallas:elec.tallas,nombre:elec.nombre,numero:elec.numero,manga:elec.manga});
     if(!r.ok){
       // El aviso se pinta en la tarjeta que se toco, no en una alerta encima:
       // una alerta tapa justo lo que hay que corregir.

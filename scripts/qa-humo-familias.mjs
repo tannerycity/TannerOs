@@ -302,8 +302,8 @@ await pagina.fill('[data-pnumero="prod-jersey"]', '11');
 await pagina.click('[data-add="prod-jersey"]');
 await pagina.waitForSelector('#famCart', { timeout: 6000 });
 const carrito = (await pagina.textContent('#famBody')).replace(/\s+/g, ' ');
-revisa('el renglón dice talla, nombre y número',
-  /14 · Matías · #11/.test(carrito), carrito.slice(0, 400));
+revisa('el renglón dice talla, manga, nombre y número',
+  /14 · Manga corta · Matías · #11/.test(carrito), carrito.slice(0, 400));
 revisa('la barra del carrito dice para quién es el pedido',
   /para /.test(await pagina.textContent('#famCart')), await pagina.textContent('#famCart'));
 

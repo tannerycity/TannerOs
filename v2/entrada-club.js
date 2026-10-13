@@ -12,7 +12,7 @@ const q = sel => document.querySelector(sel);
 
 export function textosDeEntrada(nombre) {
   return {
-    bajada: `Jugadores, cobros, tienda y entrenamientos de ${nombre}, en un solo lugar.`,
+    bajada: `Bienvenido a ${nombre}. ¿A dónde vas hoy?`,
     pie: `TannerOS · el sistema de ${nombre}`,
     titulo: `TannerOS · ${nombre}`
   };
@@ -54,6 +54,7 @@ async function pinta() {
     h.textContent = nombre;
     firma.replaceWith(h);
   }
+  if (q('.tc-titular')) q('.tc-titular').textContent = 'Bienvenido.';
   if (q('.tc-bajada')) q('.tc-bajada').textContent = t.bajada;
   if (q('.tc-pie')) q('.tc-pie').textContent = t.pie;
   document.title = t.titulo;

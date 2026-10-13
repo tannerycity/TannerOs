@@ -174,3 +174,85 @@ body:has(.tc-cristal:not(.hidden)){background:linear-gradient(160deg,#0b2a33,#06
 /* Club de la liga (?club=): su nombre ocupa el lugar del escudo y la firma. */
 .tc-club-nombre{margin:0;font-family:'Barlow Condensed',Inter,sans-serif;font-weight:800;font-size:clamp(34px,5vw,52px);line-height:1;letter-spacing:.02em;text-transform:uppercase;color:var(--tc-oro)}
 @media (max-width:720px){.tc-club-nombre{font-size:30px}}
+
+/* ==== Las puertas del club (13/10/2026) ====
+   "Más Apple, otro azulito de fondo, y un botón para Staff, Familias, Tienda
+   y registrar un niño". Una sola columna centrada, azul marino profundo con
+   luz arriba, tipografía del sistema y puertas grandes de un toque. El login
+   de staff sube sólo cuando se toca Staff. */
+/* Los "foquitos" se quedan (13/10/2026: "siento que eso hace que no se vea tan
+   chido"): luces de fondo, diagonales, escudo de agua y brillo dorado, ahora
+   sobre el azul nuevo. */
+.tc-entrada{
+  --tc-azul-hoy:#0a1d33;
+  background:radial-gradient(900px 520px at 50% -6%,rgba(80,150,230,.42) 0%,transparent 62%),
+             radial-gradient(700px 520px at 100% 100%,rgba(200,173,98,.14) 0%,transparent 60%),
+             radial-gradient(120% 70% at 50% 0%,#1d4a78 0%,#0f2c4c 45%,#0a1d33 100%)!important;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;
+}
+.tc-escudo{filter:drop-shadow(0 0 28px rgba(200,173,98,.45)) drop-shadow(0 14px 30px rgba(200,173,98,.25))!important}
+.tc-puerta.principal{box-shadow:0 14px 40px rgba(80,150,230,.35)}
+.tc-escena{grid-template-columns:1fr!important;justify-items:center;gap:22px!important;width:min(440px,100%)!important}
+.tc-marca{justify-items:center!important;text-align:center;gap:10px!important}
+.tc-escudo{width:64px!important}
+.tc-wordmark{width:140px!important}
+.tc-titular{
+  margin-top:14px!important;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif!important;
+  font-weight:700!important;font-size:30px!important;line-height:1.15!important;letter-spacing:-.02em!important;text-transform:none!important;color:#fff!important;
+}
+.tc-bajada{display:block!important;margin:0!important;color:rgba(255,255,255,.62)!important;font-size:15px!important}
+
+/* Las puertas */
+.tc-puertas{display:grid!important;gap:12px;max-width:none!important;padding:0!important;margin:0!important;border:0!important;background:none!important}
+.tc-puerta{
+  display:flex!important;align-items:center;gap:14px;width:100%;min-height:76px;padding:14px 16px!important;
+  border-radius:20px!important;border:1px solid rgba(255,255,255,.10)!important;
+  background:rgba(255,255,255,.08)!important;color:#fff!important;text-decoration:none;text-align:left;
+  font:inherit;cursor:pointer;white-space:normal!important;justify-content:flex-start!important;
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  transition:transform .15s ease,background .2s ease;
+}
+.tc-puerta:hover{background:rgba(255,255,255,.12)!important}
+.tc-puerta:active{transform:scale(.985)}
+.tc-puerta:focus-visible,.tc-trabaja:focus-visible{outline:2px solid #64a8ff;outline-offset:3px}
+.tc-puerta.principal{background:#fff!important;color:#0a1d33!important;border-color:#fff!important}
+.tc-puerta.principal:hover{background:#f2f5f9!important}
+.tc-icono{flex:0 0 46px;width:46px;height:46px;border-radius:13px;display:grid;place-items:center}
+.tc-icono svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tc-icono-portal{background:#0a84ff;color:#fff}
+.tc-icono-tienda{background:#c9a96e;color:#0a1d33}
+.tc-icono-registro{background:#30d158;color:#0a1d33}
+.tc-icono-staff{background:rgba(255,255,255,.14);color:#fff}
+.tc-puerta-txt{flex:1;display:grid;gap:2px;min-width:0}
+.tc-puerta-txt b{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.tc-puerta-txt small{font-size:13.5px;opacity:.68;line-height:1.3}
+.tc-chevron{opacity:.45;font-size:24px;line-height:1}
+.tc-trabaja{
+  display:flex!important;align-items:center;justify-content:space-between!important;gap:12px;margin-top:4px;padding:12px 16px!important;
+  border-radius:16px!important;border:1px dashed rgba(255,255,255,.18)!important;background:none!important;
+  color:rgba(255,255,255,.82)!important;text-decoration:none;white-space:normal!important;min-height:0!important;
+}
+.tc-trabaja span{display:grid;gap:1px}
+.tc-trabaja b{font-size:14.5px;font-weight:600}
+.tc-trabaja small{font-size:12.5px;opacity:.65}
+.tc-trabaja:hover{border-color:rgba(255,255,255,.35)!important}
+
+/* El login de staff: sólo cuando se toca Staff. */
+.tc-entrada:not(.ver-staff) .auth-card{display:none!important}
+.tc-entrada.ver-staff .tc-puertas{display:none!important}
+.tc-entrada.ver-staff .tc-titular,.tc-entrada.ver-staff .tc-bajada{display:none!important}
+:is(.tc-entrada,.tc-cristal) .auth-card{justify-self:center!important}
+.tc-volver{border:0;background:none;color:#64a8ff;font:inherit;font-size:15px;font-weight:600;padding:0 0 6px;cursor:pointer}
+/* Adiós al foquito verde: la etiqueta queda limpia. */
+:is(.tc-entrada,.tc-cristal) .preview-pill::before{display:none!important}
+:is(.tc-entrada,.tc-cristal) .preview-pill{background:rgba(255,255,255,.10)!important;color:rgba(255,255,255,.8)!important;border-color:rgba(255,255,255,.14)!important;letter-spacing:.06em}
+:is(.tc-entrada,.tc-cristal) input:focus{border-color:#0a84ff!important;box-shadow:0 0 0 4px rgba(10,132,255,.25)!important}
+:is(.tc-entrada,.tc-cristal) input:-webkit-autofill{-webkit-box-shadow:0 0 0 1000px #13304f inset}
+body:has(.tc-cristal:not(.hidden)){background:radial-gradient(120% 70% at 50% 0%,#1d4a78 0%,#0f2c4c 45%,#0a1d33 100%) fixed}
+.tc-pie{color:rgba(255,255,255,.5)!important;font-size:13px!important}
+.tc-pie .tc-hashtag{display:inline!important;font:inherit;letter-spacing:.04em;color:inherit}
+.tc-pie a{color:rgba(255,255,255,.78);text-decoration:none;font-weight:600}
+.tc-pie a:hover{color:#fff}
+@media (max-width:860px){.tc-titular{font-size:28px!important}}
+.tc-puerta-txt small,.tc-trabaja small{font-weight:400!important}
+.tc-puerta-txt b,.tc-trabaja b{font-weight:600!important}

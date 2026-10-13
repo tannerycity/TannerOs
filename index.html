@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b2a33">
+  <meta name="theme-color" content="#0a1d33">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TannerOS">
@@ -22,13 +22,21 @@
     <header class="tc-marca">
       <img class="tc-escudo" src="/brand/crest-gold.png" alt="" width="112" height="112">
       <img class="tc-wordmark" src="/brand/wordmark-gold.png" alt="Tannery City" width="210" height="90">
-      <span class="tc-filete" aria-hidden="true"></span>
-      <h1 class="tc-titular">El vestidor<br><span>del club.</span></h1>
-      <p class="tc-bajada">Jugadores, cobros, tienda y entrenamientos de Tannery City, en un solo lugar.</p>
-      <p class="tc-hashtag">#WEARETANNERS</p>
+      <h1 class="tc-titular">Bienvenido a casa,<br>Tanner.</h1>
+      <p class="tc-bajada">¿A dónde vas hoy?</p>
     </header>
+    <!-- Las puertas del club (13/10/2026): "que cuando todo el mundo se meta a app.tannerycity.com
+         haya un botón para Staff, Familia, Tienda, registrar un niño... un clic para ir a esa sección". -->
+    <nav class="tc-familias tc-puertas" aria-label="¿A dónde vas?">
+      <a class="tc-puerta principal" href="/familias/" data-familia="portal"><span class="tc-icono tc-icono-portal" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3.5 19c.6-3.2 3-5 5.5-5s4.9 1.8 5.5 5"/><path d="M14.8 14.6c2.6-.4 5 1 5.7 4.4"/></svg></span><span class="tc-puerta-txt"><b>Familias</b><small>Pagos, asistencia y progreso de tu Tanner</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
+      <a class="tc-puerta" href="/pedido/" data-familia="tienda"><span class="tc-icono tc-icono-tienda" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 4 4 6.5 5.5 10 7 9.4V20h10V9.4l1.5.6L20 6.5 16 4c-.6 1.4-2.2 2.3-4 2.3S8.6 5.4 8 4Z"/></svg></span><span class="tc-puerta-txt"><b>Tienda</b><small>Jerseys, kits y uniformes oficiales</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
+      <a class="tc-puerta" href="/registro/" data-familia="registro"><span class="tc-icono tc-icono-registro" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg></span><span class="tc-puerta-txt"><b>Inscribe a tu hijo</b><small>Clase muestra y registro en 3 minutos</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
+      <button class="tc-puerta" type="button" id="abreStaff" data-puerta="staff"><span class="tc-icono tc-icono-staff" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg></span><span class="tc-puerta-txt"><b>Staff</b><small>Acceso del equipo del club</small></span><span class="tc-chevron" aria-hidden="true">›</span></button>
+      <a class="tc-trabaja" href="/trabaja/" data-familia="trabaja"><span><b>¿Quieres trabajar en Tannery?</b><small>Manda tu solicitud y tu CV</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
+    </nav>
     <div class="auth-card">
-      <div class="preview-pill">TannerOS · Staff</div>
+      <button type="button" class="tc-volver" id="cierraStaff" aria-label="Regresar al inicio">‹ Inicio</button>
+      <div class="preview-pill">Staff</div>
       <h2>Entra al vestidor.</h2>
       <p class="muted">Acceso sólo para el staff del club. Si eres nuevo, Presidencia te invita primero.</p>
       <div class="tabs"><button id="signInTab" class="tab active" type="button">Entrar</button><button id="signUpTab" class="tab" type="button">Tengo invitación</button></div>
@@ -41,12 +49,7 @@
       <div id="authMessage" class="message hidden"></div>
       <button id="resendConfirmation" class="secondary hidden" type="button">Reenviar correo de confirmación</button>
     </div>
-    <nav class="tc-familias" aria-label="Para familias">
-      <p><strong>¿Eres familia del club?</strong> La tienda y la inscripción no piden cuenta.</p>
-      <div><a href="/pedido/" data-familia="tienda">Tienda</a><a href="/registro/" data-familia="registro">Inscribir a un jugador</a><a href="/familias/" data-familia="portal">Portal de familias</a></div>
-    </nav>
-    <p class="tc-demo"><a href="/demo/">¿Quieres ver cómo funciona? Entra a la demo</a></p>
-    <p class="tc-pie">TannerOS · el sistema de Tannery City</p>
+    <p class="tc-pie"><span class="tc-hashtag">#WEARETANNERS</span> · <a href="/demo/">Ver demo</a></p>
     </div>
   </section>
   <section id="pendingView" class="hidden center-card tc-cristal"><div class="brand-mark small">T</div><h2>Acceso pendiente</h2><p id="pendingText" class="muted">Tu cuenta existe, pero todavía no tiene una invitación activa para este club.</p><button id="refreshAccess" class="primary" type="button">Actualizar acceso</button><button id="pendingSignOut" class="secondary" type="button">Cerrar sesión</button></section>
@@ -62,6 +65,7 @@
   </section>
 </main>
 <script type="module" src="/v2/app.js?v=20261005a"></script>
+<script type="module" src="/v2/entrada-puertas.js"></script>
 <script type="module" src="/v2/entrada-club.js"></script>
 </body>
 </html>

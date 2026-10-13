@@ -34,7 +34,7 @@ import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
-import { textoHasta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, aceptaPersonalizacion,
+import { textoHasta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, aceptaPersonalizacion, llevaManga,
          tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
   from '/v2/tienda.js';
 import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
@@ -221,6 +221,11 @@ function bloquePersonaliza(e, nombreProducto = '') {
     <div class="st-tallas st-manga">${['corta', 'larga'].map(m => `<button type="button" class="st-talla${(e.manga || 'corta') === m ? ' activa' : ''}" data-manga="${m}" aria-pressed="${(e.manga || 'corta') === m}">${m === 'larga' ? 'Larga' : 'Corta'}</button>`).join('')}</div>
     <p class="st-nota">Lo estampado es personal: no tiene cambio.</p></section>`;
 }
+// Jersey con "Lleva nombre y número" apagado: sólo la manga.
+function bloqueManga(e) {
+  return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Manga</h2></div>
+    <div class="st-tallas st-manga">${['corta', 'larga'].map(m => `<button type="button" class="st-talla${(e.manga || 'corta') === m ? ' activa' : ''}" data-manga="${m}" aria-pressed="${(e.manga || 'corta') === m}">${m === 'larga' ? 'Larga' : 'Corta'}</button>`).join('')}</div></section>`;
+}
 function barraAgregar(texto, motivo) {
   return `<div class="st-agregar"><p class="st-motivo" role="alert">${esc(motivo || '')}</p>
     <button type="button" id="stAgregar" class="st-cta">${esc(texto)}</button></div>`;
@@ -295,7 +300,7 @@ function renderProducto(id) {
           <div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}</span></div>
           ${unica ? `<p class="st-unica">Talla ${esc(unica)}: le queda a todos.</p>` : botonesTalla(tallas, e.talla, 'data-talla')}
         </section>
-        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name) : ''}
+        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name) : llevaManga(p) ? bloqueManga(e) : ''}
         <section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
           <div class="st-cantidad"><button type="button" data-cantidad="-1" aria-label="Uno menos">&minus;</button>
           <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>

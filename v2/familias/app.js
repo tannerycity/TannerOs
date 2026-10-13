@@ -7,7 +7,7 @@ import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.
 import {conOferta, kitConOferta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
         piezasDelCarrito, acomodaVitrina, tallasDe, tallaUnica,
         aceptaPersonalizacion, preparaKit, ranurasDeKit, tiersDeKit,
-        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS} from '/v2/tienda.js';
+        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS, armaRecompra, mesesDesde} from '/v2/tienda.js';
 /* El dibujo de la tienda ya no vive aqui: lo comparten esta pantalla y el link
    publico de compra. Ver el encabezado de /v2/vitrina.js. */
 import {inicialesDe, filaDeTalla, tarjetaProducto as dibujaProducto,
@@ -34,7 +34,7 @@ const orderLabel=t=>ORDER_LABEL[t]||'';
 // ?tab=tienda abre directo en la Tienda: es a donde manda el link público de
 // compra a la familia que ya tiene cuenta ("Ya soy familia Tanner").
 const TAB_INICIAL=(()=>{const t=new URLSearchParams(location.search).get('tab');return ['cuenta','calendario','progreso','tienda','gafete'].includes(t)?t:'cuenta';})();
-const state={home:null,playerId:'',tab:TAB_INICIAL,statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null};
+const state={home:null,playerId:'',tab:TAB_INICIAL,statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
 
 function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -642,6 +642,24 @@ async function renderTienda(){
   const productos=(Array.isArray(datos)?datos:(datos?.products||[])).map(conOferta);
   const kits=(Array.isArray(datos)?[]:(datos?.bundles||[])).map(kitConOferta);
   const rows=acomodaVitrina(productos);
+  // Comprar otra vez (13/10/2026): el último pedido de este Tanner.
+  const jugador=currentPlayer();
+  if(jugador&&!(jugador.id in state.ultimoPedido)){
+    try{state.ultimoPedido[jugador.id]=await rpc('v2_portal_last_order',{player_id:jugador.id});}catch(e){state.ultimoPedido[jugador.id]=null;}
+  }
+  const ultimo=jugador?state.ultimoPedido[jugador.id]:null;
+  const otraVez=armaRecompra(ultimo,productos,kits);
+  const bloqueOtraVez=(ultimo&&otraVez.lineas.length)
+    ? (()=>{const piezas=otraVez.lineas.reduce((n,l)=>n+(l.kind==='bundle'?1:Number(l.cantidad||1)),0);
+        const total=totalDelCarrito(otraVez.lineas.reduce((c,l)=>agregaAlCarrito(c,l),{}));
+        const meses=mesesDesde(ultimo.createdAt);
+        const quePide=otraVez.lineas.slice(0,3).map(l=>[l.nombreProducto,l.talla||(l.piezas||[]).map(x=>x.talla).filter(Boolean)[0]].filter(Boolean).join(' · ')).join(', ');
+        return `<section class="fam-card fam-otravez"><div class="fam-card-head"><h2>Comprar otra vez</h2><span>${piezas} pieza${piezas===1?'':'s'}</span></div>`
+          +`<p class="fam-otravez-que">${esc(quePide)}${otraVez.lineas.length>3?'…':''}</p>`
+          +(meses>=6?`<p class="fam-otravez-aviso">Tu último pedido fue hace ${meses} meses: revisa que la talla le siga quedando.</p>`:'')
+          +(otraVez.faltan.length?`<p class="fam-otravez-aviso">${esc(otraVez.faltan.join(' · '))}</p>`:'')
+          +`<button type="button" class="fam-otravez-btn" data-otravez>Pedir lo mismo · ${money.format(total)}</button></section>`;})()
+    : '';
   if(!rows.length&&!kits.length){$('famBody').innerHTML='<div class="fam-empty">Todavía no hay productos publicados.</div>';return;}
   const tienda=String(state.home?.organization?.storeUrl||'');
   const irALaTienda=/^https:\/\//i.test(tienda)
@@ -660,7 +678,7 @@ async function renderTienda(){
     : '';
   const cuenta=[kits.length?`${kits.length} kit${kits.length>1?'s':''}`:null,
                 rows.length?`${rows.length} piezas`:null].filter(Boolean).join(' · ');
-  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${esc(cuenta)}</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p>${irALaTienda}</section>${resumen}${bloqueKits}${tituloPiezas}<div class="fam-prods">${rows.map(tarjetaProducto).join('')}</div>`;
+  $('famBody').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tienda del club</h2><span>${esc(cuenta)}</span></div><p class="fam-muted" style="margin:0;font-size:12.5px">Aparta lo que necesites y el club te confirma disponibilidad y forma de pago.</p>${irALaTienda}</section>${resumen}${enCarrito.length?'':bloqueOtraVez}${bloqueKits}${tituloPiezas}<div class="fam-prods">${rows.map(tarjetaProducto).join('')}</div>`;
   pintaFotos(rows);
   const cuerpo=$('famBody');
 
@@ -725,6 +743,11 @@ async function renderTienda(){
     const id=e.target.dataset.knumero;eligiendoKit[id]={...(eligiendoKit[id]||{}),numero:e.target.value};
   }));
 
+  // Comprar otra vez: todo al carrito de un toque; el papá revisa y aparta.
+  cuerpo.querySelector('[data-otravez]')?.addEventListener('click',()=>{
+    for(const l of otraVez.lineas)state.cart=agregaAlCarrito(state.cart,l);
+    renderCartBar();renderTienda();window.scrollTo({top:0,behavior:'smooth'});
+  });
   // ¿Lo conviertes en kit? Abre el kit ya lleno, en su tarjeta.
   cuerpo.querySelectorAll('[data-convierte]').forEach(b=>b.addEventListener('click',()=>{
     const x=sugerenciasDeKit(state.cart,kits).find(v=>v.llave===b.dataset.convierte&&String(v.kit.id)===b.dataset.kitId);if(!x)return;

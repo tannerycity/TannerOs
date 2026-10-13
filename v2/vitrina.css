@@ -176,3 +176,8 @@
 .fam-sugiere.ahorro{background:#eaf6ee;border-color:#bfe3cb;color:#1e5b33}
 .fam-price s{color:#8a979a;font-weight:600;font-size:.85em}
 .fam-oferta{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:#ffe9c7;color:#8a4b00;font-size:11.5px;font-weight:800;font-style:normal}
+/* Comprar otra vez (13/10/2026). */
+.fam-otravez{border:1px solid #d6ebe0;background:#f3faf6}
+.fam-otravez-que{margin:2px 0 0;font-size:14px;color:#2b4146;line-height:1.4}
+.fam-otravez-aviso{margin:8px 0 0;padding:8px 10px;border-radius:10px;background:#fff8e6;color:#6b4e08;font-size:12.5px;line-height:1.4}
+.fam-otravez-btn{width:100%;min-height:46px;margin-top:10px;border:0;border-radius:999px;background:#169b4b;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}

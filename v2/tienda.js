@@ -57,8 +57,18 @@ export function tallaUnica(producto) {
    opcionales y quien no los quiere los deja en blanco. No ofrecerlos donde
    sí aplican sí lo hace: la familia no tiene cómo pedir lo que quiere. */
 const PERSONALIZABLE = /\b(jersey|playera|uniforme|conjunto|kit)\b/i;
+/* Desde el 13/10/2026 Presidencia lo fija por producto con la casilla "Lleva
+   nombre y número" del catálogo: "no todos los jerseys o productos van a
+   llevar eso". Si nadie la ha tocado (null), decide el nombre como siempre. */
 export function aceptaPersonalizacion(producto) {
+  if (typeof producto?.personalizable === 'boolean') return producto.personalizable;
   return PERSONALIZABLE.test(`${producto?.category || ''} ${producto?.name || ''}`);
+}
+/* La manga es de la prenda, no del estampado: un jersey sin nombre igual
+   es corta o larga. Misma regla que el servidor (h5b). */
+const PRENDA_CON_MANGA = /jersey|uniforme|playera/i;
+export function llevaManga(producto) {
+  return PRENDA_CON_MANGA.test(producto?.name || '');
 }
 export function numeroValido(v) {
   const s = String(v ?? '').trim();
@@ -109,7 +119,7 @@ export function preparaLinea(producto, opciones = {}) {
   const nombre = personaliza ? nombreValido(opciones.nombre) : null;
   const numeroCrudo = String(opciones.numero ?? '').trim();
   const numero = personaliza ? numeroValido(numeroCrudo) : null;
-  const manga = personaliza ? mangaValida(opciones.manga) : null;
+  const manga = (personaliza || llevaManga(producto)) ? mangaValida(opciones.manga) : null;
 
   // Un número que no es número se dice, en vez de estamparse mal o perderse
   // en silencio.
@@ -516,4 +526,58 @@ const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 's
 export function textoHasta(fecha) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(fecha || ''));
   return m ? `Hasta el ${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]}` : '';
+}
+
+/* ---- Comprar otra vez (13/10/2026) ----
+ * Del último pedido del Tanner (v2_portal_last_order) a líneas de carrito,
+ * con el catálogo de HOY: precio vigente, oferta incluida. Lo que ya no se
+ * vende, o la talla que ya no existe, se dice en `faltan` en vez de perderse
+ * en silencio. Las piezas de un kit se vuelven a juntar en su kit. */
+export function armaRecompra(pedido, productos = [], kits = []) {
+  const items = Array.isArray(pedido?.items) ? pedido.items : [];
+  const lineas = [], faltan = [];
+  const porId = new Map(productos.map(p => [String(p.id), p]));
+  const kitPorId = new Map(kits.map(k => [String(k.id), k]));
+  const sueltas = items.filter(i => !i.bundleId);
+  for (const i of sueltas) {
+    const p = porId.get(String(i.productId));
+    if (!p) { faltan.push('Una pieza que ya no está en la tienda'); continue; }
+    const r = preparaLinea(p, { talla: i.talla, cantidad: i.quantity, nombre: i.nombre, numero: i.numero, manga: i.manga });
+    if (r.ok) lineas.push(r.linea); else faltan.push(`${p.name}: ${r.motivo}`);
+  }
+  // Un pedido puede traer el mismo kit dos veces (dos hermanos): se arma kit
+  // por kit, tomando para cada ranura la primera pieza libre de ese producto.
+  // El nombre sólo viaja en el jersey, así que no sirve para separar kits.
+  const grupos = new Map();
+  for (const i of items.filter(i => i.bundleId)) {
+    const llave = `${i.bundleId}|${i.bundleTier || ''}`;
+    if (!grupos.has(llave)) grupos.set(llave, []);
+    grupos.get(llave).push(i);
+  }
+  for (const piezas of grupos.values()) {
+    const base = piezas[0];
+    const kit = kitPorId.get(String(base.bundleId));
+    if (!kit) { faltan.push('Un kit que ya no está en la tienda'); continue; }
+    const tier = /ni/i.test(base.bundleTier || '') ? 'Niño' : /adul/i.test(base.bundleTier || '') ? 'Adulto' : undefined;
+    const usadas = new Set();
+    for (let vuelta = 0; vuelta < 20 && usadas.size < piezas.length; vuelta++) {
+      const tallas = {}, deEste = [];
+      for (const ranura of ranurasDeKit(kit)) {
+        const k = piezas.findIndex((x, n) => !usadas.has(n) && String(x.productId) === String(ranura.productId));
+        if (k >= 0) { usadas.add(k); deEste.push(piezas[k]); if (piezas[k].talla) tallas[ranura.id] = piezas[k].talla; }
+      }
+      if (!deEste.length) break;
+      const con = deEste.find(x => x.nombre || x.numero) || {};
+      const manga = (deEste.find(x => x.manga) || {}).manga;
+      const r = preparaKit(kit, { tier, tallas, nombre: con.nombre, numero: con.numero, manga });
+      if (r.ok) lineas.push(r.linea); else faltan.push(`${kit.name}: ${r.motivo}`);
+    }
+  }
+  return { lineas, faltan };
+}
+/* Meses desde el último pedido: a partir de 6, la talla merece una revisada. */
+export function mesesDesde(fecha, hoy = new Date()) {
+  const f = new Date(fecha);
+  if (Number.isNaN(f.getTime())) return 0;
+  return Math.max(0, (hoy.getFullYear() - f.getFullYear()) * 12 + (hoy.getMonth() - f.getMonth()));
 }

@@ -25,7 +25,7 @@
  * se puede probar sin abrir un navegador.
  */
 import {
-  tallasDe, tallaUnica, aceptaPersonalizacion,
+  tallasDe, tallaUnica, aceptaPersonalizacion, llevaManga,
   ESCALA_NINOS, ESCALA_ADULTOS,
   ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta
 } from '/v2/tienda.js';
@@ -106,7 +106,7 @@ export function tarjetaProducto(p, elec = {}) {
     ? `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-pnombre="${esc(p.id)}" value="${esc(elec.nombre || '')}">`
       + `<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-pnumero="${esc(p.id)}" value="${esc(elec.numero || '')}"></div>`
       + selectorManga('data-pmanga', p.id, elec.manga)
-    : '';
+    : (llevaManga(p) && hayTalla) ? selectorManga('data-pmanga', p.id, elec.manga) : '';
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
   return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong>`
     + `<span class="fam-price">${p.precioAntes ? `<s>${dinero.format(p.precioAntes)}</s> ` : ''}${dinero.format(Number(p.price || 0))}</span>`

@@ -9,7 +9,7 @@ import {
   quitaDelCarrito, totalDelCarrito, piezasDelCarrito, acomodaVitrina, ordenDeVitrina,
   ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA,
   CATEGORIAS, categoriaCanonica, ordenaTallas,
-  ranurasDeKit, tiersDeKit, precioDeKit, preparaKit, llaveDeKit, llaveDeCarrito,
+  ranurasDeKit, tiersDeKit, precioDeKit, preparaKit, llaveDeKit, llaveDeCarrito, armaRecompra, mesesDesde,
   TIER_ADULTO, TIER_NINO
 } from '../v2/tienda.js';
 import { tipoDePieza } from '../v2/produccion/hoja.js';
@@ -75,6 +75,15 @@ revisa('un kit acepta nombre y número, que es donde más se piden',
   aceptaPersonalizacion({category:'kit', name:'Kit Tanner Completo'}));
 revisa('la categoría vieja "Jersey / Playera" también',
   aceptaPersonalizacion({category:'Jersey / Playera', name:'x'}));
+// La casilla del catálogo manda sobre el nombre (13/10/2026).
+revisa('un jersey con la casilla apagada no pide nombre', !aceptaPersonalizacion({...JERSEY, personalizable:false}));
+revisa('unas calcetas con la casilla prendida sí', aceptaPersonalizacion({...CALCETAS, personalizable:true}));
+revisa('sin tocar la casilla decide el nombre', aceptaPersonalizacion({...JERSEY, personalizable:null}));
+{
+  const r = preparaLinea({...JERSEY, personalizable:false}, { talla: JERSEY.sizes?.[0], nombre: 'Leo', numero: '7', manga: 'larga' });
+  revisa('jersey sin estampado: no guarda nombre ni número, pero sí la manga',
+    r.ok && r.linea.personalizationName === null && r.linea.numero === null && r.linea.manga === 'larga', JSON.stringify(r));
+}
 
 revisa('el dorsal acepta de 1 a 3 dígitos',
   numeroValido('7') === '7' && numeroValido('43') === '43' && numeroValido('100') === '100');
@@ -246,6 +255,23 @@ const KIT = {
   ]
 };
 
+/* Comprar otra vez (13/10/2026): las piezas del kit vuelven a su kit, cada
+   short con su talla, y el nombre y la manga se conservan. */
+{
+  const ped = { createdAt:'2026-01-10', items:[
+    { productId:'j1', talla:'12', nombre:'MATI', numero:'9', manga:'larga', bundleId:'b1', bundleTier:'Niño' },
+    { productId:'s1', talla:'12', bundleId:'b1', bundleTier:'Niño' },
+    { productId:'s1', talla:'14', bundleId:'b1', bundleTier:'Niño' },
+    { productId:'c1', talla:'Universal', bundleId:'b1', bundleTier:'Niño' },
+    { productId:'c1', talla:'Universal', bundleId:'b1', bundleTier:'Niño' }] };
+  const r = armaRecompra(ped, [], [KIT]);
+  const l = r.lineas[0] || {};
+  revisa('recompra: el kit se vuelve a armar completo, con sus dos tallas de short',
+    r.lineas.length === 1 && l.kind === 'bundle' && l.tier === 'Niño' && l.personalizationName === 'MATI' && l.manga === 'larga'
+    && JSON.stringify(l.piezas.filter(x => x.productId === 's1').map(x => x.talla)) === '["12","14"]', JSON.stringify(r));
+  revisa('recompra: lo que ya no se vende se dice', armaRecompra({ items:[{ productId:'zz', talla:'M' }] }, [], []).faltan.length === 1);
+  revisa('recompra: meses desde el último pedido', mesesDesde('2026-01-10', new Date('2026-09-15')) === 8);
+}
 /* Si el kit trae DOS shorts, se preguntan DOS tallas y no una: son para dos
    personas, o dos tallas del mismo Tanner que crece. */
 {

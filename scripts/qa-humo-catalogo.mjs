@@ -257,6 +257,10 @@ await pg.click('#pCatChips [data-cat="socks"]');
 revisa('calcetas: talla única sola', JSON.stringify(await pg.$$eval('#pSizeChips .chip.on',n=>n.map(x=>x.textContent.trim())))==='["Universal"]');
 await pg.click('#pCatChips [data-cat="jersey"]');
 revisa('jersey: la escala del club sola', (await pg.$$eval('#pSizeChips .chip.on',n=>n.length))===12);
+revisa('un jersey prende solo "Lleva nombre y número"', await pg.isChecked('#pPers'));
+await pg.click('#pCatChips [data-cat="socks"]');
+revisa('unas calcetas lo apagan', !(await pg.isChecked('#pPers')));
+await pg.click('#pCatChips [data-cat="jersey"]');
 await pg.fill('#pName','Jersey Portero');
 await pg.fill('#pPrice','899');
 if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/alta.png`});
@@ -277,6 +281,17 @@ const conCosto=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_pro
 revisa('capturar el costo lo guarda sin tocar lo demás', conCosto?.id==='p4'&&conCosto?.cost===80&&conCosto?.price===200&&conCosto?.name==='Par de calcetas', JSON.stringify(conCosto));
 revisa('y el margen sale solo', /60%/.test(await pg.textContent('.costo-fila[data-cid="p4"] .costo-margen')), await pg.textContent('.costo-fila[data-cid="p4"] .costo-margen'));
 revisa('el kit dice qué pieza no tiene costo', /Falta costo de/.test(await pg.textContent('#costosKits')), await pg.textContent('#costosKits'));
+// "Lleva nombre y número" (13/10/2026): se prende a mano y se guarda.
+await pg.click('.cat-seg [data-ver="productos"]');
+await pg.click('#productList .catalog-card:has-text("Par de calcetas")');
+await pg.waitForSelector('#productForm:not(.hidden)',{timeout:4000});
+revisa('las calcetas llegan con la casilla apagada', !(await pg.isChecked('#pPers')));
+await pg.click('.switch-fila');
+await pg.click('#pSave');
+await pg.waitForTimeout(400);
+const pers=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_set_product_personalizable').map(x=>x.p).pop());
+revisa('prenderla guarda la decisión en el producto', pers?.product_id==='p4'&&pers?.value===true, JSON.stringify(pers));
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
 // Ligar a kits desde la pieza.
 await pg.click('.cat-seg [data-ver="productos"]');
 await pg.click('#productList .catalog-card[data-pid="p3"], #productList .catalog-card >> nth=2').catch(()=>{});

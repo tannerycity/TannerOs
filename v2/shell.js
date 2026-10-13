@@ -215,14 +215,21 @@ async function markAnnouncementsSeen(ctx){
   }catch{/* silencioso */}
 }
 async function loadAnnouncements(ctx){
+  const gen=window.__tosPulso?.gen;
   try{
     const rows=await rpc('v2_my_announcements',{organization_id:ctx.organization_id});
+    // Si mientras tanto cambió la sesión, esta lista ya no es de quien está viendo.
+    if(window.__tosPulso&&window.__tosPulso.gen!==gen)return;
     const list=Array.isArray(rows)?rows:[];
     const list_el=$('tosBellList'),empty=$('tosBellEmpty'),badge=$('tosBellBadge');
     if(!list_el)return;
     const unread=list.filter(a=>a.unread).length;
-    badge.textContent=String(unread);
-    badge.classList.toggle('hidden',unread===0);
+    // El globito es del pulso (chats + avisos). La lista sólo lo pone mientras
+    // el pulso no ha contestado: así no gana la carrera con un número menor.
+    if(window.__tosPulso?.total==null){
+      badge.textContent=String(unread);
+      badge.classList.toggle('hidden',unread===0);
+    }else consultaPulso(ctx,{deRegreso:true}); // p. ej. tras publicar un aviso; respeta el mínimo de 15 s
     empty.classList.toggle('hidden',list.length>0);
     list_el.innerHTML=list.slice(0,20).map(a=>`
       ${a.source==='order'&&a.sourceId?`<a class="tos-bell-item tos-bell-link ${a.unread?'unread':''}" href="/pedidos/?pedido=${encodeURIComponent(a.sourceId)}">`:`<article class="tos-bell-item ${a.unread?'unread':''}">`}
@@ -275,28 +282,60 @@ function wireBell(ctx,navigation){
     $('tosBellCompose').dataset.tosWired='1';
     $('tosBellCompose').addEventListener('click',openCompose);
   }
+  pulsoMensajes(ctx); // primero: si cambió la sesión, apaga lo anterior antes de pedir los avisos
   loadAnnouncements(ctx);
   wirePush(ctx);
-  pulsoMensajes(ctx);
 }
-// El globito de la campana cuenta chats y avisos sin leer. Se refresca cada
-// 30 s y al volver a la pestaña; si la función no existe todavía, se queda
-// con la cuenta de avisos de siempre.
-let pulsoTimer=null;
-async function pulsoMensajes(ctx){
-  const pinta=async()=>{
-    try{
-      const p=await rpc('v2_chat_pulse',{organization_id:ctx.organization_id});
-      const badge=$('tosBellBadge');if(!badge||!p)return;
-      const n=Number(p.total||0);
-      badge.textContent=n>99?'99+':String(n);badge.classList.toggle('hidden',n===0);
-      window.dispatchEvent(new CustomEvent('tos:pulso',{detail:p}));
-    }catch{/* silencioso */}
-  };
-  await pinta();
-  if(pulsoTimer)return;
-  pulsoTimer=setInterval(()=>{if(document.visibilityState==='visible')pinta();},30000);
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pinta();});
+// El globito de la campana cuenta chats y avisos sin leer (v2_chat_pulse).
+// Un solo poller por pestaña, guardado en window.__tosPulso para que lo
+// compartan las dos copias de este módulo (branding-auto importa
+// shell.js?v=…). Reglas (auditoría del 13/10/2026):
+//   · llave = organización + usuario: si cambia, se apaga lo anterior y una
+//     respuesta tardía del contexto viejo ya no toca la campana (generación).
+//   · una sola petición en vuelo; volver a la pestaña consulta como mucho
+//     cada 15 s; cada 30 s mientras está visible; oculta, no consulta.
+//   · si falla, espera el doble (hasta 5 min); un acierto o volver la red
+//     regresa a 30 s.
+const PULSO_MS=30000,PULSO_REGRESO_MS=15000,PULSO_MAX_MS=300000;
+const pulso=()=>window.__tosPulso||(window.__tosPulso={llave:'',gen:0,timer:null,enVuelo:null,ultimo:0,espera:PULSO_MS,quita:null,total:null,reprograma:null});
+// Apaga el pulso de la sesión actual (cerrar sesión, cambiar de cuenta o de club).
+export function detenPulso(){
+  const s=window.__tosPulso;if(!s)return;
+  s.gen++;clearTimeout(s.timer);s.timer=null;s.quita?.();s.quita=null;s.reprograma=null;s.enVuelo=null;s.llave='';s.ultimo=0;s.espera=PULSO_MS;s.total=null;
+  const badge=$('tosBellBadge');if(badge){badge.textContent='0';badge.classList.add('hidden');}
+}
+function consultaPulso(ctx,{deRegreso=false}={}){
+  const s=pulso(),gen=s.gen;
+  if(s.enVuelo)return s.enVuelo;
+  if(deRegreso&&Date.now()-s.ultimo<PULSO_REGRESO_MS)return Promise.resolve();
+  s.ultimo=Date.now();
+  s.enVuelo=rpc('v2_chat_pulse',{organization_id:ctx.organization_id}).then(p=>{
+    if(gen!==s.gen)return; // respuesta de otra sesión: se descarta
+    const veniaEsperando=s.espera>PULSO_MS;s.espera=PULSO_MS;if(veniaEsperando)s.reprograma?.();
+    const badge=$('tosBellBadge');if(!badge||!p)return;
+    const n=Number(p.total||0);s.total=n;
+    badge.textContent=n>99?'99+':String(n);badge.classList.toggle('hidden',n===0);
+    window.dispatchEvent(new CustomEvent('tos:pulso',{detail:p}));
+  }).catch(()=>{if(gen===s.gen)s.espera=Math.min(s.espera*2,PULSO_MAX_MS);})
+    .finally(()=>{if(gen===s.gen)s.enVuelo=null;});
+  return s.enVuelo;
+}
+function pulsoMensajes(ctx){
+  const llave=`${ctx.organization_id}:${ctx.user_id||''}`,s=pulso();
+  if(s.llave===llave&&s.quita){consultaPulso(ctx);return;}
+  detenPulso();
+  s.llave=llave;const gen=s.gen;
+  const ciclo=()=>{clearTimeout(s.timer);s.timer=setTimeout(async()=>{
+    if(gen!==s.gen)return;
+    if(document.visibilityState==='visible')await consultaPulso(ctx);
+    if(gen===s.gen)ciclo();
+  },s.espera);};
+  const alVolver=()=>{if(document.visibilityState==='visible')consultaPulso(ctx,{deRegreso:true});};
+  const enLinea=()=>{s.espera=PULSO_MS;s.ultimo=0;ciclo();consultaPulso(ctx);};
+  document.addEventListener('visibilitychange',alVolver);window.addEventListener('online',enLinea);
+  s.quita=()=>{document.removeEventListener('visibilitychange',alVolver);window.removeEventListener('online',enLinea);};
+  s.reprograma=ciclo;
+  consultaPulso(ctx);ciclo();
 }
 
 function ensureProductionCss(){if(document.getElementById('tosProductionCss'))return;const link=document.createElement('link');link.id='tosProductionCss';link.rel='stylesheet';link.href='/v2/production.css?v=20260907b';document.head.appendChild(link);}

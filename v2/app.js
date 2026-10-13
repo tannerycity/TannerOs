@@ -1,4 +1,4 @@
-import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon} from '/v2/shell.js';
+import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon,detenPulso} from '/v2/shell.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
@@ -607,6 +607,7 @@ else{
   else showView('authView');
   supabase.auth.onAuthStateChange(event=>{
     if(event==='SIGNED_OUT'){
+      detenPulso(); // sin sesión no se pregunta por la campana
       ctx=null;navigation=[];loadGeneration++;resetHomeState();showView('authView');document.body.classList.remove('tos-body');
     }else if(event==='SIGNED_IN'&&!ctx){setTimeout(()=>loadAuthenticatedApp().catch(console.error),0);}
   });

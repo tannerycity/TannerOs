@@ -71,6 +71,8 @@ export const navItems=[
   // Candidatos a staff (12/10/2026): las postulaciones de /trabaja/. No es
   // módulo: la ve quien contrata (Usuarios o Dirección deportiva).
   {code:'candidatos',label:'Candidatos',href:'/candidatos/',group:'club',icon:'briefcase',lee:['usuarios','formacion_direccion']},
+  // Staff y organigrama (13/10/2026): lo ve todo el staff (decisión de Presidencia).
+  {code:'staff',label:'Staff',href:'/staff/',group:'club',icon:'users',always:true},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
   {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
@@ -600,5 +602,5 @@ export function avisoSoloLectura(organizationId){
     d.textContent=SOLO_LECTURA[m.reason]||SOLO_LECTURA.pago;main.prepend(d);
   }).catch(()=>{});
 }
-export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&!puedeEntrar(navigation,active)){location.href='/';return null;}renderShell({ctx,navigation,active,title});avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
+export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&active!=='staff'&&!puedeEntrar(navigation,active)){location.href='/';return null;}renderShell({ctx,navigation,active,title});avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

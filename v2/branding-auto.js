@@ -9,6 +9,7 @@ const FINAL_ROUTES=[
   ['/admin/onboarding/','admin','Primeros pasos'],
   ['/formacion/','formacion','Formación'],
   ['/candidatos/','candidatos','Candidatos'],
+  ['/staff/','staff','Staff'],
   ['/produccion/','tienda','Producción'],
   ['/porteros/','academias','Porteros'],
   ['/deportivo/','club','Rendimiento deportivo'],

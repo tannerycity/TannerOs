@@ -1,0 +1,67 @@
+/* Staff y organigrama (13/10/2026): título, Organigrama | Lista y tarjetas
+   con cara, nombre, puesto y categorías. La ficha sube desde abajo. */
+.st-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin:6px 0 16px}
+.st-head h1{margin:0;font-size:34px;letter-spacing:-.02em;color:#07191e}
+.st-sub{margin:4px 0 0;font-size:15px;color:#6b7c80}
+.st-btn{min-height:44px;padding:0 18px;border:0;border-radius:999px;background:#169b4b;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+.st-btn.grande{width:100%;min-height:52px;font-size:16px}
+.st-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:#eceff0;margin-bottom:12px}
+.st-seg button{min-height:40px;border:0;border-radius:10px;background:transparent;font:inherit;font-weight:700;font-size:15px;color:#3c4e52;cursor:pointer}
+.st-seg button.activo{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
+.st-avisos{display:grid;gap:8px;margin-bottom:12px}
+.st-aviso{margin:0;padding:10px 14px;border-radius:12px;background:#fff8e6;color:#6b4e08;font-size:14px;font-weight:600}
+.st-aviso.rojo{background:#fdecea;color:#a92a21}
+.st-org{display:grid;gap:18px}
+.st-nivel h2{margin:0 0 8px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#7a8a8e}
+.st-nivel h2 i{font-style:normal;margin-left:4px;color:#a4b0b3}
+.st-nivel-gente{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.st-presidencia .st-nivel-gente,.st-direccion .st-nivel-gente{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.st-tarjeta{position:relative;display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border:0;border-radius:18px;background:#fff;box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.05);text-align:left;font:inherit;color:inherit;cursor:pointer}
+.st-tarjeta:hover{box-shadow:0 4px 14px rgba(7,25,30,.08),0 0 0 1px rgba(7,25,30,.06)}
+.st-tarjeta.baja{opacity:.55}
+.st-cara{flex:0 0 52px;width:52px;height:52px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#0c3a46,#1f6f7d);color:#fff;font-weight:800;font-size:17px}
+.st-cara img{width:100%;height:100%;object-fit:cover}
+.st-cara.grande{flex-basis:84px;width:84px;height:84px;font-size:26px}
+.st-tarjeta-txt{display:grid;gap:2px;min-width:0}
+.st-tarjeta-txt strong{font-size:16px;color:#07191e}
+.st-tarjeta-txt small{font-size:13px;color:#5d6f73}
+.st-cats{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.st-cat{padding:2px 8px;border-radius:999px;background:#e8f2f3;color:#1f5f6b;font-size:12px;font-weight:700}
+.st-alerta{position:absolute;top:8px;right:10px;padding:2px 8px;border-radius:999px;background:#fdecea;color:#a92a21;font-size:11px;font-style:normal;font-weight:800}
+.st-alerta.gris{background:#eef0ef;color:#6b7c80}
+.st-lista{display:grid;gap:8px}
+.st-vacio{display:grid;gap:6px;justify-items:center;padding:40px 16px;border-radius:20px;background:#f5f7f7;color:#5d6f73;text-align:center}
+.st-vacio b{font-size:18px;color:#07191e}
+.st-sinficha{margin-top:22px;padding:16px;border-radius:18px;background:#f5f7f7}
+.st-sinficha h2{margin:0;font-size:17px}
+.st-sinficha p{margin:4px 0 10px;font-size:14px;color:#5d6f73}
+.st-sin{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.st-sin-btn{display:grid;grid-template-columns:1fr auto;gap:0 8px;align-items:center;padding:10px 12px;border:0;border-radius:14px;background:#fff;text-align:left;font:inherit;cursor:pointer}
+.st-sin-btn b{font-size:14.5px}
+.st-sin-btn small{grid-column:1;font-size:12px;color:#6b7c80}
+.st-sin-btn span{grid-row:1/3;grid-column:2;color:#169b4b;font-weight:800;font-size:14px}
+/* La ficha */
+.st-fondo{position:fixed;inset:0;z-index:200;background:rgba(7,25,30,.4)}
+.st-hoja{position:fixed;z-index:210;left:50%;bottom:0;transform:translateX(-50%);width:min(560px,100vw);max-height:92dvh;overflow:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom));border-radius:22px 22px 0 0;background:#fff;box-shadow:0 -10px 40px rgba(7,25,30,.2)}
+.st-hoja header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.st-hoja h2{margin:0;font-size:20px}
+.st-cerrar{width:36px;height:36px;border:0;border-radius:50%;background:#eceff0;font-size:16px;cursor:pointer}
+.st-ficha-cab{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.st-ficha-cab strong{display:block;font-size:19px}
+.st-ficha-cab span{font-size:14px;color:#5d6f73}
+.st-foto-btn{display:grid;justify-items:center;gap:4px;cursor:pointer}
+.st-foto-btn small{font-size:11.5px;font-weight:700;color:#0a7d8c}
+.st-dato{display:grid;gap:4px;margin:10px 0;font-size:14px}
+.st-dato b{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#7a8a8e}
+.st-form{display:grid;gap:12px}
+.st-form label,.st-campo{display:grid;gap:6px;font-size:13px;font-weight:700;color:#50676b}
+.st-form input,.st-form select{min-height:44px;border:1px solid #cedbd8;border-radius:12px;padding:0 12px;font:inherit;font-size:15px;color:#07191e;background:#fff}
+.st-chips{display:flex;flex-wrap:wrap;gap:6px}
+.st-chip{min-height:38px;padding:0 14px;border:1px solid #cedbd8;border-radius:999px;background:#fff;font:inherit;font-weight:700;font-size:14px;color:#3c4e52;cursor:pointer}
+.st-chip.activo{background:#07191e;border-color:#07191e;color:#fff}
+.st-vence{max-width:200px}
+.st-check{display:flex!important;align-items:center;gap:10px;font-weight:600!important}
+.st-check input{min-height:auto;width:20px;height:20px}
+.st-form-msg{margin:0;color:#a92a21;font-weight:700;font-size:14px;min-height:1em}
+.st-baja{border:0;background:none;color:#a92a21;font:inherit;font-weight:700;padding:8px;cursor:pointer}
+@media(max-width:620px){.st-head h1{font-size:30px}.st-nivel-gente{grid-template-columns:1fr}}

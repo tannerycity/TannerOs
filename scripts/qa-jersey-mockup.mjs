@@ -14,7 +14,7 @@ function revisa(nombre, ok, detalle) {
 const club = coloresDePlayera({ primario: '#184159', acento: '#9A9169' });
 revisa('la playera va en el color del club y el estampado en su acento', club.cuerpo === '#184159' && club.texto === '#9A9169', JSON.stringify(club));
 const negra = coloresDePlayera({ nombreProducto: 'Jersey "Black Edition"', primario: '#184159', acento: '#9A9169' });
-revisa('"Black Edition" se pinta negra', negra.cuerpo === '#141414', JSON.stringify(negra));
+revisa('"Black Edition" se pinta negra', negra.cuerpo === '#1F1A19' && negra.estilo === 'black', JSON.stringify(negra));
 const blanca = coloresDePlayera({ nombreProducto: 'Jersey Blanco', primario: '#184159', acento: '#F4E9C0' });
 revisa('si el acento no se lee sobre blanco, el estampado va oscuro', blanca.cuerpo === '#F4F4F2' && blanca.texto === '#111111', JSON.stringify(blanca));
 const roto = coloresDePlayera({ primario: 'rojo', acento: null });
@@ -24,11 +24,23 @@ revisa('el nombre va en mayúsculas, sin espacios de sobra, máx. 20', limpiaNom
 revisa('el número sólo dígitos, máx. 3', limpiaNumero('1a0') === '10' && limpiaNumero('12345') === '123');
 
 const vacia = mockupJersey({});
-revisa('sin datos enseña "TU NOMBRE" y "10" tenues', /TU NOMBRE/.test(vacia) && (vacia.match(/opacity="0.38"/g) || []).length === 2);
+revisa('sin datos enseña "TU NOMBRE" y "10" tenues', /TU NOMBRE/.test(vacia) && (vacia.match(/opacity="0.4"/g) || []).length === 2);
 const larga = mockupJersey({ nombre: 'Maximiliano', numero: '7' });
-revisa('un nombre largo se comprime a la espalda', /textLength="118"/.test(larga));
+revisa('un nombre largo se comprime a la espalda', /textLength="104"/.test(larga));
 revisa('uno corto no se comprime', !/textLength/.test(mockupJersey({ nombre: 'Leo' })));
-revisa('el número de 3 cifras baja de tamaño', /font-size="62"/.test(mockupJersey({ numero: '100' })));
+revisa('el número de 3 cifras baja de tamaño', /font-size="70"/.test(mockupJersey({ numero: '100' })));
+// El Lechuguilla real (13/10/2026): rayas verde agua, escudo, "WE ARE TANNERS"
+// y el estampado en verde militar.
+const lech = coloresDePlayera({ nombreProducto: 'Jersey "Lechuguilla Edition"' });
+const svgL = mockupJersey({ nombre: 'Gianluca', numero: '10', colores: lech });
+revisa('el Lechuguilla sale con su diseño: rayas, escudo y "WE ARE TANNERS"', lech.estilo === 'lechuguilla' && /<pattern/.test(svgL) && /crest-navy\.png/.test(svgL) && /WE ARE TANNERS/.test(svgL));
+revisa('y el nombre y número en verde militar', (svgL.match(/fill="#2F4A35"/g) || []).length >= 2);
+// Pink Cantera, Wet Blue y Black Edition (13/10/2026), con su diseño y mangas.
+for (const [prod, estilo, texto, marca] of [['Jersey "Pink Cantera"', 'pink', '#FFFFFF', /DISONANTE/], ['Jersey "Wet Blue" - Home Edition', 'wetblue', '#1F3A52', /PROYECTO/], ['Jersey "Black Edition"', 'black', '#C9A96E', /WE ARE TANNERS/]]) {
+  const col = coloresDePlayera({ nombreProducto: prod });
+  const svg = mockupJersey({ nombre: 'Leo', numero: '7', colores: col });
+  revisa(`${prod} sale con su diseño y el estampado en ${texto}`, col.estilo === estilo && marca.test(svg) && (svg.match(new RegExp(`fill="${texto}"`, 'g')) || []).length >= 2, JSON.stringify(col));
+}
 const malo = mockupJersey({ nombre: '<img src=x onerror=alert(1)>' });
 revisa('lo que se escribe no se cuela como HTML', !/<img/.test(malo) && /&lt;IMG/.test(malo));
 

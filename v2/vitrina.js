@@ -27,7 +27,7 @@
 import {
   tallasDe, tallaUnica, aceptaPersonalizacion,
   ESCALA_NINOS, ESCALA_ADULTOS,
-  ranurasDeKit, precioDeKit, tiersDeKit, textoManga
+  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta
 } from '/v2/tienda.js';
 
 export const esc = v => String(v ?? '').replace(/[&<>"']/g,
@@ -109,7 +109,8 @@ export function tarjetaProducto(p, elec = {}) {
     : '';
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
   return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong>`
-    + `<span class="fam-price">${dinero.format(Number(p.price || 0))}</span>`
+    + `<span class="fam-price">${p.precioAntes ? `<s>${dinero.format(p.precioAntes)}</s> ` : ''}${dinero.format(Number(p.price || 0))}</span>`
+    + (p.ofertaHasta ? `<span class="fam-oferta">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</span>` : '')
     + `${p.description ? `<p>${esc(p.description)}</p>` : ''}${chips}${pers}${aviso}`
     + `<button type="button" class="fam-add" data-add="${esc(p.id)}">Agregar</button></article>`;
 }
@@ -147,7 +148,7 @@ export function tarjetaKit(k, elec = {}) {
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
 
   return `<article class="fam-kit" data-kitcard="${esc(k.id)}">${elec.reemplaza ? '<p class="fam-convierte">Convirtiendo tu jersey en este kit: revisa las tallas y agrégalo.</p>' : ''}<div class="fam-kit-head"><span class="fam-kit-tag">EL UNIFORME COMPLETO</span>`
-    + `<strong>${esc(k.name)}</strong><span class="fam-price">${dinero.format(precio)}</span></div>`
+    + `<strong>${esc(k.name)}</strong><span class="fam-price">${k.antesAdulto || k.antesNino ? '<em class="fam-oferta">Oferta</em> ' : ''}${dinero.format(precio)}</span></div>`
     + `${k.description ? `<p>${esc(k.description)}</p>` : ''}${quien}`
     + `<div class="fam-piezas">${piezas}</div>${pers}${aviso}`
     + `<button type="button" class="fam-add" data-addkit="${esc(k.id)}">Agregar el kit</button></article>`;
@@ -195,6 +196,7 @@ export function normalizaOfertaPublica(oferta) {
       description: b.description || null,
       price_adult: Number(b.priceAdult ?? b.price_adult ?? 0),
       price_kid: Number(b.priceKid ?? b.price_kid ?? 0),
+      oferta: b.oferta || null,
       pieces: (b.components || b.pieces || []).map(c => ({
         product_id: c.productId ?? c.product_id,
         // El pedido público se manda con el id legacy de la pieza, que es lo
@@ -209,5 +211,5 @@ export function normalizaOfertaPublica(oferta) {
         photoBucket: c.photoBucket ?? null
       }))
     }));
-  return { products: productos, bundles: kits };
+  return { products: productos.map(conOferta), bundles: kits.map(kitConOferta) };
 }

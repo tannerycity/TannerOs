@@ -198,3 +198,26 @@
 .negocio-nota{font-size:12.5px;margin:8px 0 0}
 @media(max-width:620px){.costo-fila{grid-template-columns:1fr 96px 72px}.costos-negocio .negocio-grid{grid-template-columns:1fr 1fr}}
 .campo-ayuda{display:block;margin-top:6px;font-size:12px;color:#6b7c80}
+
+/* Ofertas (13/10/2026) */
+.ofertas-cab{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px}
+.ofertas-cab .t-btn{border:0;cursor:pointer;font:inherit;font-weight:800}
+.ofertas-lista{display:grid;gap:8px}
+.oferta{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:14px;border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(7,25,30,.06)}
+.oferta.vencida,.oferta.terminada{opacity:.55}
+.oferta-main{display:grid;min-width:0}
+.oferta-main strong{font-size:15.5px}
+.oferta-main span{font-size:13.5px;color:#3c4e52}
+.oferta-main small{font-size:12px;color:#7a8a8e;font-weight:700}
+.oferta.activa .oferta-main small{color:#1e6b3c}
+.oferta-valor{font-size:18px;color:#8a4b00}
+.oferta-fin{grid-column:1/-1;justify-self:start;border:0;background:none;color:#a92a21;font:inherit;font-weight:700;padding:4px 0;cursor:pointer}
+.ofertas-vacio{display:grid;gap:4px;justify-items:center;padding:32px 16px;border-radius:18px;background:#f5f7f7;color:#5d6f73;text-align:center}
+.ofertas-vacio b{font-size:17px;color:#07191e}
+.of-select{width:100%;min-height:44px;margin-top:8px;border:1px solid #cedbd8;border-radius:12px;padding:0 12px;font:inherit;font-size:15px;background:#fff}
+.of-nombre{display:grid;gap:6px;font-size:13px;font-weight:700;color:#50676b;margin:4px 0 8px}
+.of-nombre input{min-height:44px;border:1px solid #cedbd8;border-radius:12px;padding:0 12px;font:inherit;font-size:15px}
+.of-vista{margin:6px 0 10px;padding:10px 12px;border-radius:12px;background:#fff8e6;color:#4f3b06;font-size:14px}
+.of-vista:empty{display:none}
+.of-vista s{color:#8a979a}
+.poner-oferta{width:100%;min-height:44px;margin:4px 0 10px;border:1px dashed #e0b25e;border-radius:12px;background:#fffaf0;color:#8a4b00;font:inherit;font-weight:800;cursor:pointer}

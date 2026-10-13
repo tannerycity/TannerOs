@@ -181,6 +181,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   revisa('1. se marca larga', (await pg.getAttribute('[data-manga="larga"]', 'aria-pressed')) === 'true');
   await pg.fill('[data-campo="nombre"]', 'LEO');
   await pg.fill('[data-campo="numero"]', '7');
+  if (process.env.SHOTS) { await pg.waitForTimeout(300); await (await pg.$('#stMockup')).screenshot({ path: `${process.env.SHOTS}/mockup.png` }); }
   await pg.click('#stAgregar');
   await pg.click('#stCarrito');
   await pg.waitForSelector('#orderForm', { timeout:5000 });

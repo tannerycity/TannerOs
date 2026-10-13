@@ -1,3 +1,6 @@
+/* Tipografía de dorsal para la vista previa del jersey (13/10/2026): Anton,
+   licencia SIL Open Font License, servida desde el sitio (la CSP no deja fuentes externas). */
+@font-face { font-family: 'Anton'; font-weight: 400; font-display: swap; src: url('/fonts/anton-latin.woff2') format('woff2'); }
 /* Tienda Tanner (09/10/2026): la tienda en línea del club.
  *
  * Criterio: el producto es el protagonista. Fondo blanco, fotos sobre gris
@@ -242,3 +245,7 @@
 .st-convierte { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #fff8e6; color: #4f3b06; font-size: 14px; font-weight: 600; }
 .st-sugiere-kit.ahorro { background: #eaf6ee; border-color: #bfe3cb; }
 .st-sugiere-kit.ahorro span { color: #1e5b33; }
+.st-precio s { color: var(--st-muted); font-weight: 500; font-size: .85em; }
+.st-pdp-precio s { color: var(--st-muted); font-weight: 500; font-size: .7em; }
+.st-oferta { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 999px; background: #ffe9c7; color: #8a4b00; font-size: 11.5px; font-weight: 800; }
+.st-oferta.grande { font-size: 13px; padding: 4px 10px; }

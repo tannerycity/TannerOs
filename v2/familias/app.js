@@ -4,7 +4,7 @@ import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-
 // El mismo criterio que usa el staff, para que un papa y Presidencia nunca
 // vean dos porcentajes distintos del mismo Tanner.
 import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.js';
-import {sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
+import {conOferta, kitConOferta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
         piezasDelCarrito, acomodaVitrina, tallasDe, tallaUnica,
         aceptaPersonalizacion, preparaKit, ranurasDeKit, tiersDeKit,
         precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS} from '/v2/tienda.js';
@@ -638,8 +638,9 @@ async function renderTienda(){
    * llegaban al portal. Se aceptan LAS DOS para que a quien tenga la pagina
    * abierta en el momento del despliegue no se le rompa la tienda. */
   const datos=state.catalog;
-  const productos=Array.isArray(datos)?datos:(datos?.products||[]);
-  const kits=Array.isArray(datos)?[]:(datos?.bundles||[]);
+  // Ofertas (g5): el precio de oferta como precio, y el de antes para tacharlo.
+  const productos=(Array.isArray(datos)?datos:(datos?.products||[])).map(conOferta);
+  const kits=(Array.isArray(datos)?[]:(datos?.bundles||[])).map(kitConOferta);
   const rows=acomodaVitrina(productos);
   if(!rows.length&&!kits.length){$('famBody').innerHTML='<div class="fam-empty">Todavía no hay productos publicados.</div>';return;}
   const tienda=String(state.home?.organization?.storeUrl||'');

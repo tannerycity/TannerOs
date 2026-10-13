@@ -9,7 +9,7 @@
 
   <header class="cat-head"><div><h1>Catálogo</h1><p id="catResumen" class="cat-sub">Cargando…</p></div>
     <div class="cat-head-acc"><button id="newBundleBtn" class="t-btn-sec hidden" type="button">+ Kit</button><button id="newProductBtn" class="t-btn hidden" type="button">+ Producto</button></div></header>
-  <div class="cat-seg" role="tablist" aria-label="Ver"><button type="button" role="tab" data-ver="productos" class="activo" aria-selected="true">Productos <i id="catNumProd">0</i></button><button type="button" role="tab" data-ver="kits" aria-selected="false">Kits <i id="catNumKits">0</i></button><button type="button" role="tab" data-ver="costos" aria-selected="false" id="catTabCostos" class="hidden">Costos</button></div>
+  <div class="cat-seg" role="tablist" aria-label="Ver"><button type="button" role="tab" data-ver="productos" class="activo" aria-selected="true">Productos <i id="catNumProd">0</i></button><button type="button" role="tab" data-ver="kits" aria-selected="false">Kits <i id="catNumKits">0</i></button><button type="button" role="tab" data-ver="ofertas" aria-selected="false" id="catTabOfertas" class="hidden">Ofertas <i id="catNumOfertas"></i></button><button type="button" role="tab" data-ver="costos" aria-selected="false" id="catTabCostos" class="hidden">Costos</button></div>
   <input id="catBuscar" class="cat-buscar" type="search" placeholder="Buscar producto o kit…" aria-label="Buscar">
 
   <p id="pendientes" class="pendientes hidden"></p>
@@ -18,6 +18,13 @@
     <div class="panel-head"><div><div class="eyebrow">KITS</div><h2>Paquetes configurados</h2><p class="muted">Lo que se vende como una sola pieza (jersey + short + calcetas, etc.). Esto es lo que ve quien registra un pedido.</p></div></div>
     <div id="bundleList" class="catalog-list"></div>
     <div id="bundleEmpty" class="empty hidden">Todavía no hay kits configurados.</div>
+  </section>
+
+  <!-- Ofertas (13/10/2026): precio especial o % con fecha de fin; la base
+  cobra la oferta en la tienda, el portal y el mostrador, y al vencer se va sola. -->
+  <section class="panel hidden" id="ofertasPanel">
+    <div class="costos-cab ofertas-cab"><div><h2>Ofertas</h2><p class="muted">Precio especial o descuento con fecha de fin. Se aplica sola en la tienda, el portal y el mostrador.</p></div><button type="button" id="nuevaOferta" class="t-btn">+ Oferta</button></div>
+    <div id="ofertasLista" class="ofertas-lista"></div>
   </section>
 
   <!-- Costos (13/10/2026): costo, margen y utilidad viven SÓLO aquí, y sólo
@@ -71,6 +78,25 @@
     <button id="bArchiveToggle" class="accion-menor" type="button"></button>
   </div>
 
+  <div id="promoForm" class="hidden">
+    <div class="campo-toques"><span class="campo-titulo">¿A qué?</span>
+      <div class="chips" id="ofQue"><button type="button" class="chip on" data-que="product">Un producto</button><button type="button" class="chip" data-que="bundle">Un kit</button><button type="button" class="chip" data-que="category">Una categoría</button><button type="button" class="chip" data-que="todo">Toda la tienda</button></div>
+      <select id="ofCual" class="of-select"></select>
+    </div>
+    <div class="campo-toques"><span class="campo-titulo">¿Cómo?</span>
+      <div class="chips" id="ofComo"><button type="button" class="chip on" data-como="precio">Precio especial</button><button type="button" class="chip" data-como="porcentaje">% de descuento</button></div>
+      <div class="field-grid"><label><span id="ofValorTit">Precio de oferta</span><input id="ofValor" type="number" min="1" step="0.01" inputmode="decimal" placeholder="$0"></label>
+        <label id="ofNinoCampo" class="hidden"><span>Precio niño</span><input id="ofNino" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Opcional"></label></div>
+    </div>
+    <div class="campo-toques"><span class="campo-titulo">¿Hasta cuándo?</span>
+      <div class="chips" id="ofHasta"><button type="button" class="chip" data-hasta="domingo">Este domingo</button><button type="button" class="chip on" data-hasta="7">7 días</button><button type="button" class="chip" data-hasta="mes">Fin de mes</button><button type="button" class="chip" data-hasta="otra">Otra fecha</button></div>
+      <input id="ofFecha" type="date" class="of-select hidden">
+    </div>
+    <label class="of-nombre"><span>Nombre</span><input id="ofNombre" maxlength="80" placeholder="Ej. Buen Fin, Regreso a clases"></label>
+    <p id="ofVista" class="of-vista"></p>
+    <div class="drawer-actions"><button id="ofGuardar" class="primary" type="button">Poner en oferta</button></div>
+  </div>
+
   <div id="productForm" class="hidden">
     <!-- Alta en orden de mostrador (13/10/2026, "¿quieres registrar un
     producto? así, así, bien fácil"): la foto, qué es, nombre y precio. Las
@@ -115,6 +141,7 @@
       <div id="pKits" class="chips"></div>
       <small class="campo-ayuda" id="pKitsAyuda">Toca un kit para meter o sacar esta pieza. Se guarda al momento.</small>
     </div>
+    <button type="button" id="pPonerOferta" class="poner-oferta hidden">Poner en oferta</button>
     <details class="mas-opciones">
       <summary>Más opciones</summary>
       <div class="field-grid">

@@ -68,3 +68,4 @@ qa-humo-fichajes-origen.mjs
 qa-humo-formacion.mjs
 qa-humo-tienda-tablero.mjs
 qa-humo-staff.mjs
+qa-humo-pulso.mjs

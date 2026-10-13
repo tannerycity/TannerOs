@@ -238,6 +238,10 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.click('[data-mundo="1v1"]');
   const nombres = await p.$$eval('.fm-carta b', h => h.map(x => x.textContent));
   revisa('[álbum] filtrar por mundo, de nivel 1 a 4', nombres.length === 4 && nombres.includes('Engaña y Sal') && nombres.includes('Duelos que dan Gol'), JSON.stringify(nombres));
+  revisa('[álbum] cada mundo trae su ícono', await p.$$eval('.fm-mundos [data-mundo]:not([data-mundo=""])', bs => bs.length > 0 && bs.every(b => b.querySelector('.fm-mico svg'))));
+  revisa('[álbum] cada carta lleva el ícono de su mundo', await p.$$eval('.fm-carta', c => c.every(x => x.querySelector('.fm-carta-banda .fm-mico svg path, .fm-carta-banda .fm-mico svg circle'))));
+  revisa('[álbum] el mundo elegido se pinta arriba con su ícono', await p.isVisible('.fm-album-hero.con-mundo > .fm-mico'));
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-mundo.png' });
   const niveles = await p.$$eval('.fm-carta', c => c.map(x => x.querySelectorAll('.fm-nivel i.on').length));
   revisa('[álbum] cada carta dice su nivel con barras, ordenadas', JSON.stringify(niveles) === '[1,2,3,4]', JSON.stringify(niveles));
   await p.click('[data-nivel="2"]');

@@ -448,13 +448,30 @@ async function modoCancha(s) {
    escalera es el NIVEL (1 Sin rival → 4 En juego) y cada tarea es una CARTA
    con su misión y su grito para los niños. Tocar la carta la abre; desde ahí
    va directo a la sesión. Video y foto: próximamente. */
+// Cada mundo con su ícono (13/10/2026): que el niño reconozca el Reto de un
+// vistazo, como el escudo de un mundo en un videojuego. Trazo blanco sobre su color.
+const ICONO_MUNDO = {
+  balon: '<circle cx="12" cy="12" r="9"/><path d="M12 8.2l3.4 2.4-1.3 4h-4.2l-1.3-4zM12 3v5.2M20.6 9.6l-5.2 1M17.3 19.3l-3.2-4.7M6.7 19.3l3.2-4.7M3.4 9.6l5.2 1"/>',
+  '1v1': '<circle cx="7" cy="7" r="2.6"/><circle cx="17" cy="7" r="2.6"/><path d="M2.5 20c0-4 2-6.5 4.5-6.5S11.5 16 11.5 20M12.5 20c0-4 2-6.5 4.5-6.5s4.5 2.5 4.5 6.5"/>',
+  jugar_juntos: '<circle cx="12" cy="5" r="2.3"/><circle cx="5" cy="18" r="2.3"/><circle cx="19" cy="18" r="2.3"/><path d="M7.4 18h9.2M6.2 15.9l4.6-8.8M17.8 15.9l-4.6-8.8"/>',
+  cancha: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14M3 9.5h3v5H3M21 9.5h-3v5h3"/><circle cx="12" cy="12" r="2.4"/>',
+  ventaja: '<path d="M5 13l7-7 7 7M5 19l7-7 7 7"/>',
+  avanzar: '<path d="M4 12h15M13 6l6 6-6 6"/>',
+  gol: '<path d="M3 19V6h18v13"/><path d="M3 10.5h18M3 15h18M8 6v13M12 6v13M16 6v13" stroke-width="1.2"/>',
+  defender: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>',
+  reaccionar: '<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/>',
+  movimiento: '<path d="M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
+  juego: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  convivencia: '<path d="M12 20s-7.5-4.5-7.5-10.2A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.5 2.6C19.5 15.5 12 20 12 20z"/>'
+};
+const iconoMundo = code => `<span class="fm-mico" aria-hidden="true"><svg viewBox="0 0 24 24">${ICONO_MUNDO[code] || '<circle cx="12" cy="12" r="5"/>'}</svg></span>`;
 const NIVEL_TXT = ['', 'Sin rival', 'Con rival', 'Con decisión', 'En juego'];
 const usadasEnMiSemana = () => new Set((dataMia?.sessions || []).flatMap(x => (x.plan?.items || []).map(i => i.taskId)).filter(Boolean));
 const barras = n => `<span class="fm-nivel" aria-label="Nivel ${n} de 4">${[1, 2, 3, 4].map(k => `<i class="${k <= n ? 'on' : ''}"></i>`).join('')}</span>`;
 function cartaMini(t, usadas) {
   const n = NIVEL_NUM[t.level] || 0, color = colorDeMundo(t.primary, t.bank);
   return `<button type="button" class="fm-carta" data-carta="${esc(t.id)}" style="--mundo:${color}">
-    <span class="fm-carta-banda"><span>${esc(nombreReto(t.primary))}</span>${n ? barras(n) : '<span class="fm-nivel-baby">Baby</span>'}</span>
+    <span class="fm-carta-banda"><span class="fm-carta-mundo">${iconoMundo(t.primary)}<span>${esc(nombreReto(t.primary))}</span></span>${n ? barras(n) : '<span class="fm-nivel-baby">Baby</span>'}</span>
     <span class="fm-carta-cuerpo"><b>${esc(t.name)}</b>
       <small class="fm-carta-mision">${esc(t.buscamos || '')}</small>
       ${t.dile?.[0] ? `<em class="fm-carta-grito">“${esc(t.dile[0])}”</em>` : ''}</span>
@@ -471,14 +488,14 @@ function pintaBanco() {
   const total = catalogo.tasks.filter(t => t.bank === album.banco).length;
   const usadas = usadasEnMiSemana();
   const mundo = mundos.find(m => m.code === album.mundo);
-  return `<section class="fm-album-hero"><span>ÁLBUM DE JUGADAS</span><h1>${total} jugadas · ${mundos.length} mundos</h1>
+  return `<section class="fm-album-hero${mundo ? ' con-mundo' : ''}"${mundo ? ` style="--mundo:${colorDeMundo(mundo.code, album.banco)}"` : ''}>${mundo ? iconoMundo(mundo.code) : ''}<span>ÁLBUM DE JUGADAS</span><h1>${total} jugadas · ${mundos.length} mundos</h1>
       <p>${mundo ? `${esc(mundo.name)}: ${esc(mundo.question || mundo.phrase || '')}` : 'Elige un mundo, sube de nivel y toca una carta para llevarla a tu sesión.'}</p>
       ${usadas.size ? `<p class="fm-album-uso">Esta semana usas ${usadas.size} ${usadas.size === 1 ? 'jugada' : 'jugadas'}</p>` : ''}</section>
     <div class="fm-album-filtros">
       <div class="fm-seg" role="group" aria-label="Banco"><button type="button" data-banco="tanner" class="${album.banco === 'tanner' ? 'activa' : ''}">Tanner</button><button type="button" data-banco="baby" class="${album.banco === 'baby' ? 'activa' : ''}">Baby</button></div>
       <input type="search" id="fmBusca" placeholder="Buscar jugada…" value="${esc(album.busca)}" aria-label="Buscar jugada">
     </div>
-    <nav class="fm-mundos" aria-label="Mundos"><button type="button" data-mundo=""${!album.mundo ? ' class="activa"' : ''}>Todos</button>${mundos.map(m => `<button type="button" data-mundo="${esc(m.code)}" style="--mundo:${colorDeMundo(m.code, album.banco)}"${album.mundo === m.code ? ' class="activa"' : ''}><i></i>${esc(m.name)}</button>`).join('')}</nav>
+    <nav class="fm-mundos" aria-label="Mundos"><button type="button" data-mundo=""${!album.mundo ? ' class="activa"' : ''}>Todos</button>${mundos.map(m => `<button type="button" data-mundo="${esc(m.code)}" style="--mundo:${colorDeMundo(m.code, album.banco)}"${album.mundo === m.code ? ' class="activa"' : ''}>${iconoMundo(m.code)}${esc(m.name)}</button>`).join('')}</nav>
     ${album.banco === 'tanner' ? `<div class="fm-seg fm-niveles" role="group" aria-label="Nivel">${[0, 1, 2, 3, 4].map(n => `<button type="button" data-nivel="${n}" class="${Number(album.nivel) === n ? 'activa' : ''}">${n ? `${n} · ${NIVEL_TXT[n]}` : 'Todos los niveles'}</button>`).join('')}</div>` : ''}
     <div class="fm-album" id="fmAlbum">${gridAlbum()}</div>`;
 }
@@ -487,7 +504,7 @@ function hojaCarta(t) {
   const n = NIVEL_NUM[t.level] || 0, color = colorDeMundo(t.primary, t.bank);
   const mias = (dataMia?.sessions || []).filter(x => (t.bank === 'baby') === esBabyEtapa(x.stage) && (!(t.stages || []).length || !x.stage || t.stages.includes(x.stage)));
   abreHoja(t.name, `<div class="fm-carta-grande" style="--mundo:${color}">
-      <div class="fm-carta-banda"><span>${esc(nombreReto(t.primary))}</span>${n ? `${barras(n)}<small>Nivel ${n} · ${esc(NIVEL_TXT[n])}</small>` : '<small>Banco Baby</small>'}</div>
+      <div class="fm-carta-banda"><span class="fm-carta-mundo">${iconoMundo(t.primary)}<span>${esc(nombreReto(t.primary))}</span></span>${n ? `${barras(n)}<small>Nivel ${n} · ${esc(NIVEL_TXT[n])}</small>` : '<small>Banco Baby</small>'}</div>
       <section><h4>Misión</h4><p>${esc(t.buscamos || '')}</p></section>
       ${t.dile?.length ? `<section class="fm-grito"><h4>Grito para los niños</h4>${t.dile.map(f => `<p>“${esc(f)}”</p>`).join('')}</section>` : ''}
       <section><h4>Cómo se juega</h4><p>${esc(t.juega || '')}</p></section>

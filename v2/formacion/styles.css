@@ -206,7 +206,8 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-mundos{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 10px}
 .fm-mundos::-webkit-scrollbar{display:none}
 .fm-mundos button{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border:1.5px solid #e1e6e7;background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;font-weight:700;color:#2b4146;cursor:pointer}
-.fm-mundos button i{width:10px;height:10px;border-radius:50%;background:var(--mundo,#8e8e93)}
+.fm-mundos button .fm-mico{width:24px;height:24px;margin-left:-6px;background:var(--mundo,#8e8e93);color:#fff}
+.fm-mundos button .fm-mico svg{width:15px;height:15px}
 .fm-mundos button.activa{background:#07191e;border-color:#07191e;color:#fff}
 .fm-album{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
 .fm-carta{display:grid;grid-template-rows:auto 1fr auto;text-align:left;border:0;padding:0;border-radius:20px;overflow:hidden;background:#fff;font:inherit;color:inherit;cursor:pointer;
@@ -334,3 +335,21 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-modo-base{background:#fff6d9;color:#5a4300}
 @media (max-width:420px){.fm-jbtn{min-height:64px;padding:10px 4px 12px;border-radius:16px}.fm-jbtn b{font-size:17px}.fm-jbtn small{font-size:10.5px}.fm-juego,.fm-espacio{gap:8px}}
 @media (prefers-reduced-motion:reduce){.fm-jbtn,.fm-ebtn{transition:none}.fm-jbtn.activa{transform:none}}
+
+/* ---------- Íconos de mundo (13/10/2026) ----------
+   Cada Reto con su escudo: balón, duelo, pase, cancha, ventaja, avanzar,
+   gol, defender y reaccionar. Trazo blanco sobre el color del mundo. */
+.fm-mico{display:inline-grid;place-items:center;flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.24);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+.fm-mico svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fm-carta-mundo{display:inline-flex;align-items:center;gap:7px;min-width:0}
+.fm-carta-mundo>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fm-carta-grande .fm-mico{width:34px;height:34px}
+.fm-carta-grande .fm-mico svg{width:20px;height:20px}
+.fm-carta-grande .fm-carta-mundo{gap:10px}
+.fm-mundos button.activa .fm-mico{box-shadow:0 0 0 2px #fff}
+.fm-album-hero.con-mundo{position:relative;overflow:hidden;padding-right:96px;background:radial-gradient(420px 200px at 100% 0%,rgba(255,255,255,.25),transparent 60%),linear-gradient(135deg,var(--mundo),#0f2c4c 140%)}
+.fm-album-hero.con-mundo>span{color:#fff;opacity:.85}
+.fm-album-hero.con-mundo p{color:#fff}
+.fm-album-hero.con-mundo>.fm-mico{position:absolute;right:18px;top:50%;width:66px;height:66px;transform:translateY(-50%) rotate(-8deg);background:rgba(255,255,255,.2);color:#fff;animation:fm-pop .35s cubic-bezier(.2,.8,.2,1.4) both}
+.fm-album-hero.con-mundo>.fm-mico svg{width:38px;height:38px;stroke-width:1.8}
+@media (prefers-reduced-motion:reduce){.fm-album-hero.con-mundo>.fm-mico{animation:none}}

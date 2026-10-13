@@ -65,17 +65,18 @@ const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/op
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 
-async function abre(puedeEscribir) {
+async function abre(puedeEscribir, gente = null) {
   const pg = await nav.newPage({ viewport:{ width:390, height:844 } });
   const errs = [];
   pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
-  await pg.addInitScript(({ ITEMS, ASIGN, COACHES, REPORTS, KIT, puedeEscribir }) => {
+  await pg.addInitScript(({ ITEMS, ASIGN, COACHES, REPORTS, KIT, puedeEscribir, gente }) => {
     const R = {
       v2_my_context:[{ user_id:'u1', display_name:'Zul', organization_id:'o1', organization_name:'Tannery City FC', role: puedeEscribir ? 'Operaciones' : 'Formadores', is_owner:false }],
       v2_my_modules:[{ module_code:'equipment', enabled:true, can_read:true, can_write:puedeEscribir }],
       v2_equipment_items:ITEMS, v2_equipment_assignments:ASIGN, v2_equipment_coaches:COACHES, v2_equipment_reports:REPORTS,
       v2_equipment_inventory_value:[{ category:'Balones', units:19, estimated_value:5400 }],
-      v2_my_equipment_kit:KIT, v2_my_equipment_reports:[REPORTS[0]], v2_equipment_history:[], v2_equipment_units:[]
+      v2_my_equipment_kit:KIT, v2_my_equipment_reports:[REPORTS[0]], v2_equipment_history:[], v2_equipment_units:[],
+      ...(gente ? { v2_equipment_people:gente, v2_quick_add_staff:{ staffId:'s-nuevo', name:'Juan Ruiz' } } : {})
     };
     window.__llamadas = [];
     window.tosConfirm = async () => true;
@@ -87,7 +88,7 @@ async function abre(puedeEscribir) {
       storage:{ from:()=>({ createSignedUrls:async(ps)=>({ data:ps.map(p=>({ path:p, signedUrl:'/qa-foto/'+encodeURIComponent(p) })), error:null }), createSignedUrl:async()=>({data:null}) }) },
       channel:()=>({ on(){return this;}, subscribe(){return this;} }), removeChannel(){}
     };
-  }, { ITEMS, ASIGN, COACHES, REPORTS, KIT, puedeEscribir });
+  }, { ITEMS, ASIGN, COACHES, REPORTS, KIT, puedeEscribir, gente });
   await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await pg.goto(`${BASE}/v2/utileria/`, { waitUntil:'domcontentloaded' });
@@ -232,6 +233,47 @@ const cabe = async (pg, donde) => revisa(`${donde}: nada se sale a 390px`, await
   revisa('9. pedir material va sin artículo', pedido?.item_id === null && pedido?.report_type === 'material_adicional' && /2 petos talla M/.test(pedido?.reason || ''), JSON.stringify(pedido));
   await cabe(pg, 'mi utilería');
   revisa('profe sin errores', errs.length === 0, errs.join('\n'));
+  await pg.close();
+}
+
+/* ===== ¿A QUIÉN? con Staff y alta rápida (13/10/2026) ===== */
+{
+  const GENTE = { canAddStaff:true, people:[
+    { tipo:'cuenta', userId:'u-ana', staffId:null, name:'Ana Formadora', title:null },
+    { tipo:'ficha', userId:null, staffId:'s1', name:'Beto Portero', title:'Formador' },
+    { tipo:'otro', userId:null, staffId:null, name:'Papá de Mateo', title:null }] };
+  const { pg, errs } = await abre(true, GENTE);
+  await pg.waitForSelector('.ut-card[data-item]', { timeout:6000 });
+  await pg.click('#utEntregar');
+  await pg.click('[data-eitem="b4"]');
+  await pg.waitForSelector('.ut-persona');
+  const nombres = await pg.$$eval('.ut-persona strong', s => s.map(x => x.textContent));
+  revisa('7. "¿A quién?" junta cuentas, fichas de Staff y nombres usados', JSON.stringify(nombres) === '["Ana Formadora","Beto Portero","Papá de Mateo","Nuevo profe"]', JSON.stringify(nombres));
+  await pg.click('#eNuevoProfe');
+  await pg.fill('#eAltaNombre', 'Juan Ruiz');
+  await pg.fill('#eAltaTel', '477 123 4567');
+  await pg.click('[data-nivel="coordinacion"]');
+  await pg.click('#eAlta [type=submit]');
+  await pg.waitForSelector('#eConfirmar', { timeout:4000 }).catch(() => {});
+  const alta = await llamadas(pg, 'v2_quick_add_staff');
+  revisa('7. "+ Nuevo profe" guarda la ficha con nombre, WhatsApp y puesto', alta.length === 1 && alta[0].full_name === 'Juan Ruiz' && alta[0].phone === '477 123 4567' && alta[0].level === 'coordinacion', JSON.stringify(alta));
+  revisa('7. y sigue directo a confirmar la entrega para él', /para Juan Ruiz/.test(await pg.innerText('.ut-resumen-entrega').catch(() => '')));
+  await pg.click('#eConfirmar');
+  await pg.waitForTimeout(300);
+  const asig = await llamadas(pg, 'v2_assign_equipment');
+  revisa('7. la entrega va a su nombre', asig[0]?.assigned_to_label === 'Juan Ruiz', JSON.stringify(asig));
+  revisa('7. sin errores', errs.length === 0, errs.join('\n'));
+  await pg.close();
+}
+{
+  // Formadores (sin permiso de escribir) ni siquiera llegan a entregar; con
+  // permiso pero sin ser Operaciones/Presidencia, no sale el botón.
+  const { pg } = await abre(true, { canAddStaff:false, people:[{ tipo:'cuenta', userId:'u-ana', name:'Ana Formadora' }] });
+  await pg.waitForSelector('.ut-card[data-item]', { timeout:6000 });
+  await pg.click('#utEntregar');
+  await pg.click('[data-eitem="b4"]');
+  await pg.waitForSelector('.ut-persona');
+  revisa('7. sin ser Operaciones o Presidencia no sale "Nuevo profe"', !(await pg.$('#eNuevoProfe')));
   await pg.close();
 }
 

@@ -42,13 +42,9 @@
       <label class="inline-check-label"><input id="bActive" type="checkbox"> Se vende en la tienda</label>
     </div>
 
-    <div class="drawer-subhead">Piezas del kit</div>
+    <div class="drawer-subhead">Piezas del kit <small>Toca para meter o sacar; usa el mismo producto que se vende suelto</small></div>
     <div id="bComponents" class="component-list"></div>
-    <div class="component-picker">
-      <select id="bAddProduct"></select>
-      <input id="bAddQty" type="number" min="1" max="20" step="1" value="1">
-      <button id="bAddBtn" class="secondary mini" type="button">Agregar pieza</button>
-    </div>
+    <p id="bResumen" class="kit-resumen hidden"></p>
 
     <p id="bSinCosto" class="pendientes hidden"></p>
     <div id="bMargenCaja" class="margin-preview hidden">

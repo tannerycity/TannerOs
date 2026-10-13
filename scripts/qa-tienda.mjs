@@ -378,6 +378,23 @@ revisa('un kit sin precio no se vende',
   const k = Object.keys(dos)[0];
   const menos = T.quitaUnaPieza(dos, k);
   revisa('convertir uno de dos deja el otro', menos[k].cantidad === 1 && menos[k].total === 699, JSON.stringify(menos));
+  // Los kits del club traen DOS jerseys (Training = Black + Lechuguilla).
+  const tr2 = { id:'kt', name:'Kit Training', price_adult:1500, price_kid:1299, pieces:[
+    { product_id:'black', name:'Jersey Black', sizes:['10','M'] }, { product_id:'lech', name:'Jersey Lechuguilla', sizes:['10','M'] },
+    { product_id:'short', name:'Short', sizes:['10','M'] }] };
+  const P = (id, n) => ({ id, name:n, price:799, sizes:['10','M'] });
+  let c2 = {};
+  c2 = T.agregaAlCarrito(c2, T.preparaLinea(P('black', 'Jersey Black'), { talla:'M', nombre:'PORTERO', numero:'1' }).linea);
+  c2 = T.agregaAlCarrito(c2, T.preparaLinea(P('lech', 'Jersey Lechuguilla'), { talla:'M', nombre:'PORTERO', numero:'1' }).linea);
+  const s2 = T.sugerenciasDeKit(c2, [tr2]);
+  revisa('los dos jerseys de una persona son UN kit que reemplaza a los dos', s2.length === 1 && s2[0].llaves.length === 2, JSON.stringify(s2.map(x => x.llaves)));
+  revisa('y dice cuánto se ahorra', s2[0].diferencia === -98 && /Te ahorras \$98/.test(T.textoSugerencia(s2[0])), T.textoSugerencia(s2[0]));
+  revisa('el texto nombra los dos jerseys y lo que se suma', T.textoSugerencia(s2[0]).startsWith('Tus Jersey Black y Jersey Lechuguilla + short = Kit Training'), T.textoSugerencia(s2[0]));
+  let c3 = {};
+  c3 = T.agregaAlCarrito(c3, T.preparaLinea(P('black', 'Jersey Black'), { talla:'M', nombre:'ANA' }).linea);
+  c3 = T.agregaAlCarrito(c3, T.preparaLinea(P('lech', 'Jersey Lechuguilla'), { talla:'10', nombre:'LUIS' }).linea);
+  const s3 = T.sugerenciasDeKit(c3, [tr2]);
+  revisa('jerseys de dos personas distintas no se mezclan en un kit', s3.length === 2 && s3.every(x => x.llaves.length === 1), JSON.stringify(s3.map(x => x.llaves)));
   revisa('convertir el único quita el renglón', Object.keys(T.quitaUnaPieza(menos, k)).length === 0);
 }
 

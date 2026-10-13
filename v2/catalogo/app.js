@@ -89,7 +89,8 @@ function bundleCard(b){
   const btn=document.createElement('button');
   btn.type='button';
   btn.className='catalog-card'+(b.archived?' archived':'');
-  const chips=[`<span class="cat-chip">${b.components.length} pieza(s)</span>`];
+  const nombres=(b.components||[]).map(c=>{const p=products.find(x=>x.id===c.productId);return p?`${c.qty>1?`${c.qty}× `:''}${p.name.replace(/^Jersey\s+/i,'').replace(/"/g,'')}`:null;}).filter(Boolean);
+  const chips=nombres.length?nombres.map(n=>`<span class="cat-chip">${esc(n)}</span>`):[`<span class="cat-chip">${b.components.length} pieza(s)</span>`];
   if(b.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!b.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   if(!b.componentsResolved)chips.push('<span class="cat-chip warn">Pieza sin resolver</span>');
@@ -124,6 +125,8 @@ function productCard(p){
   if(p.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!p.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   if(canFinance&&p.cost==null)chips.push('<span class="cat-chip warn">Sin costo</span>');
+  // En qué kits va: así se ve de un vistazo que el jersey suelto es el mismo.
+  bundles.filter(b=>!b.archived&&(b.components||[]).some(c=>c.productId===p.id)).forEach(b=>chips.push(`<span class="cat-chip kit">En ${esc(b.name)}</span>`));
   btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong>${canFinance&&p.marginPercent!=null?`<small class="cat-sub">Margen ${pct(p.marginPercent)}</small>`:''}</span>`;
   if(canManage)btn.addEventListener('click',()=>openProductDrawer(p));
   else btn.disabled=true;
@@ -190,38 +193,53 @@ function openBundleDrawer(b){
   $('bPriceAdult').value=b?.priceAdult??'';
   $('bPriceKid').value=b?.priceKid??'';
   $('bActive').checked=b?b.active:true;
-  const addSel=$('bAddProduct');
-  addSel.innerHTML=products.filter(p=>!p.archived).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.sku?' · '+esc(p.sku):''}</option>`).join('')||'<option value="">Sin productos disponibles</option>';
-  $('bAddQty').value=1;
   $('bArchiveToggle').classList.toggle('hidden',!b);
   $('bArchiveToggle').textContent=b?.archived?'Restaurar kit':'Archivar kit';
   renderComponents();
   openDrawer();
 }
+/* Las piezas del kit (13/10/2026, "¿cómo ligo el mismo jersey? más fácil").
+
+   Antes: un select, un número y "Agregar pieza", y el kit sólo decía los
+   nombres que ya llevaba. Ahora es la lista de productos del club, uno por
+   renglón: se toca para meterlo o sacarlo, y con − / + se dice cuántos. Es el
+   MISMO producto que se vende suelto (no una copia), y por eso la tienda puede
+   ofrecer "conviértelo en kit". */
 function renderComponents(){
   const wrap=$('bComponents');
-  if(!draft.components.length){wrap.innerHTML='<p class="muted mini-empty">Agrega al menos una pieza.</p>';recomputeBundlePreview();return;}
-  wrap.innerHTML=draft.components.map(c=>{
-    const p=products.find(x=>x.id===c.productId);
-    const name=p?p.name:'(producto no encontrado)';
-    const priceInfo=canFinance&&p?`<small class="cat-sub">${p.cost!=null?money.format(p.cost)+' c/u':'sin costo'}</small>`:'';
-    return `<div class="component-row" data-pid="${esc(c.productId)}"><span class="component-name">${esc(name)}${priceInfo}</span><input type="number" class="component-qty" min="1" max="20" step="1" value="${c.qty}"><button class="secondary mini component-remove" type="button">Quitar</button></div>`;
-  }).join('');
-  wrap.querySelectorAll('.component-row').forEach(row=>{
+  const vivos=products.filter(p=>!p.archived||draft.components.some(c=>c.productId===p.id));
+  const orden=['jersey','shorts','socks'];
+  vivos.sort((a,b)=>{const ia=orden.indexOf(a.category),ib=orden.indexOf(b.category);return (ia<0?9:ia)-(ib<0?9:ib)||String(a.name).localeCompare(String(b.name),'es');});
+  const huerfanas=draft.components.filter(c=>!products.some(p=>p.id===c.productId));
+  wrap.innerHTML=vivos.map(p=>{
+    const c=draft.components.find(x=>x.productId===p.id),en=!!c;
+    return `<div class="kit-pieza${en?' en':''}" data-pid="${esc(p.id)}">
+      <button type="button" class="kit-pieza-toca" aria-pressed="${en}"><span class="kit-check" aria-hidden="true">${en?'✓':''}</span><span class="kit-pieza-nombre"><b>${esc(p.name)}</b><small>${money.format(Number(p.price||0))} suelto</small></span></button>
+      ${en?`<span class="kit-qty"><button type="button" data-q="-1" aria-label="Uno menos">−</button><b>${c.qty}</b><button type="button" data-q="1" aria-label="Uno más">+</button></span>`:''}
+    </div>`;
+  }).join('')+huerfanas.map(c=>`<div class="kit-pieza en huerfana" data-pid="${esc(c.productId)}"><button type="button" class="kit-pieza-toca" aria-pressed="true"><span class="kit-check">!</span><span class="kit-pieza-nombre"><b>Pieza que ya no existe</b><small>Tócala para quitarla</small></span></button></div>`).join('')
+    ||'<p class="muted mini-empty">Primero da de alta los productos.</p>';
+  wrap.querySelectorAll('.kit-pieza').forEach(row=>{
     const pid=row.dataset.pid;
-    row.querySelector('.component-qty').addEventListener('input',e=>{
-      const q=Math.max(1,Math.min(20,Number(e.target.value)||1));
-      const c=draft.components.find(x=>x.productId===pid);if(c)c.qty=q;
-      recomputeBundlePreview();
-    });
-    row.querySelector('.component-remove').addEventListener('click',()=>{
-      draft.components=draft.components.filter(x=>x.productId!==pid);
+    row.querySelector('.kit-pieza-toca').addEventListener('click',()=>{
+      const i=draft.components.findIndex(x=>x.productId===pid);
+      if(i>=0)draft.components.splice(i,1);else draft.components.push({productId:pid,qty:1});
       renderComponents();
     });
+    row.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>{
+      const c=draft.components.find(x=>x.productId===pid);if(!c)return;
+      c.qty=Math.max(1,Math.min(20,c.qty+Number(b.dataset.q)));renderComponents();
+    }));
   });
   recomputeBundlePreview();
 }
 function recomputeBundlePreview(){
+  // Por separado vs. en kit: es lo que convence en el mostrador.
+  const sueltos=draft.components.reduce((n,c)=>{const p=products.find(x=>x.id===c.productId);return n+(p?Number(p.price||0)*c.qty:0);},0);
+  const pa=Number($('bPriceAdult').value||0),res=$('bResumen');
+  if(res){res.classList.toggle('hidden',!draft.components.length);
+    const piezas=draft.components.reduce((n,c)=>n+c.qty,0);
+    res.innerHTML=draft.components.length?`<b>${piezas} pieza${piezas===1?'':'s'}</b> · por separado ${money.format(sueltos)}${pa>0&&sueltos>pa?` · <em>en kit se ahorran ${money.format(sueltos-pa)}</em>`:''}`:'';}
   let cost=0,complete=true;
   draft.components.forEach(c=>{
     const p=products.find(x=>x.id===c.productId);
@@ -244,14 +262,6 @@ function recomputeBundlePreview(){
   $('bMarginAdultPreview').textContent=priceAdult>0?pct((priceAdult-cost)/priceAdult*100):'—';
   $('bMarginKidPreview').textContent=priceKid>0?pct((priceKid-cost)/priceKid*100):'—';
 }
-$('bAddBtn')?.addEventListener('click',()=>{
-  const pid=$('bAddProduct').value;if(!pid)return;
-  const qty=Math.max(1,Math.min(20,Number($('bAddQty').value)||1));
-  const existing=draft.components.find(c=>c.productId===pid);
-  if(existing)existing.qty=Math.min(20,existing.qty+qty);
-  else draft.components.push({productId:pid,qty});
-  renderComponents();
-});
 ['bPriceAdult','bPriceKid'].forEach(id=>$(id)?.addEventListener('input',recomputeBundlePreview));
 async function saveBundle(){
   const name=$('bName').value.trim();

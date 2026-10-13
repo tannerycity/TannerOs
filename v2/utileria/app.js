@@ -46,6 +46,7 @@ let canWrite = false;
 let items = [];
 let assignments = [];
 let coaches = [];
+let gente = null; // v2_equipment_people (e5): profes con cuenta, fichas de Staff y nombres usados
 let reports = [];
 let valor = [];
 let myKit = [];
@@ -196,18 +197,20 @@ function bindHoja() {
    ADMINISTRACIÓN
    ========================================================= */
 async function loadAdmin() {
-  const [i, a, c, r, v] = await Promise.all([
+  const [i, a, c, r, v, g] = await Promise.all([
     rpc('v2_equipment_items', { organization_id: ctx.organization_id }),
     rpc('v2_equipment_assignments', { organization_id: ctx.organization_id, active_only: true }),
     rpc('v2_equipment_coaches', { organization_id: ctx.organization_id }),
     rpc('v2_equipment_reports', { organization_id: ctx.organization_id }),
     rpc('v2_equipment_inventory_value', { organization_id: ctx.organization_id }).catch(() => []),
+    rpc('v2_equipment_people', { organization_id: ctx.organization_id }).catch(() => null),
   ]);
   items = Array.isArray(i) ? i : [];
   assignments = Array.isArray(a) ? a : [];
   coaches = Array.isArray(c) ? c : [];
   reports = Array.isArray(r) ? r : [];
   valor = Array.isArray(v) ? v : [];
+  gente = g && Array.isArray(g.people) ? g : null;
   pintaResumen();
 }
 const activos = () => items.filter((i) => !esBaja(i));
@@ -504,18 +507,43 @@ async function pasoPieza(item, desde) {
 }
 function pasoQuien(item, unidad, desde) {
   // Quien ya trae material sale primero: a esa persona se le entrega más seguido.
-  const conMaterial = new Set(assignments.map((a) => a.assigned_to_user_id).filter(Boolean));
-  const lista = [...coaches].sort((a, b) => (conMaterial.has(b.user_id) - conMaterial.has(a.user_id)) || String(a.display_name).localeCompare(String(b.display_name), 'es-MX'));
+  const conMaterial = new Set(assignments.map((a) => a.assigned_to_user_id || `n:${String(a.assigned_to_label || '').trim().toLowerCase()}`).filter(Boolean));
+  const base = gente ? gente.people.map((p) => ({ id: p.userId || null, nombre: p.name, sub: p.tipo === 'otro' ? 'Usado antes' : (p.title || '') }))
+    : coaches.map((c) => ({ id: c.user_id, nombre: c.display_name, sub: '' }));
+  const trae = (p) => conMaterial.has(p.id || `n:${String(p.nombre || '').trim().toLowerCase()}`);
+  const lista = base.sort((a, b) => (trae(b) - trae(a)) || String(a.nombre).localeCompare(String(b.nombre), 'es-MX'));
+  const puedeAlta = !!gente?.canAddStaff;
+  const siguiente = (persona) => entregar({ item, unidad, persona, desde: () => pasoQuien(item, unidad, desde) });
   const cuerpo = abreHoja('¿A quién?', `
     <p class="ut-paso">Paso 2 de 3 · ${esc(unidad ? `${item.name} ${unidad.code}` : item.name)}</p>
-    <div class="ut-personas">${lista.map((c) => `<button type="button" class="ut-persona" data-coach="${esc(c.user_id)}" data-nombre="${esc(c.display_name)}">
-      <span class="ut-avatar grande">${esc(iniciales(c.display_name))}</span><strong>${esc(c.display_name || 'Sin nombre')}</strong></button>`).join('')}</div>
-    <form class="ut-linea" id="eOtro"><input maxlength="120" placeholder="Otra persona (escribe su nombre)" aria-label="Otra persona"><button type="submit" class="ut-btn chico">Usar</button></form>`, { atras: desde });
-  cuerpo.querySelectorAll('[data-coach]').forEach((b) => b.addEventListener('click', () =>
-    entregar({ item, unidad, persona: { id: b.dataset.coach, nombre: b.dataset.nombre }, desde: () => pasoQuien(item, unidad, desde) })));
+    <div class="ut-personas">${lista.map((p, k) => `<button type="button" class="ut-persona" data-k="${k}"${p.id ? ` data-coach="${esc(p.id)}"` : ''}>
+      <span class="ut-avatar grande">${esc(iniciales(p.nombre))}</span><strong>${esc(p.nombre || 'Sin nombre')}</strong>${p.sub ? `<small>${esc(p.sub)}</small>` : ''}</button>`).join('')}
+      ${puedeAlta ? '<button type="button" class="ut-persona ut-nuevo-profe" id="eNuevoProfe"><span class="ut-avatar grande">+</span><strong>Nuevo profe</strong><small>Se guarda en Staff</small></button>' : ''}</div>
+    <form class="ut-alta hidden" id="eAlta">
+      <label class="ut-campo"><span>Nombre</span><input id="eAltaNombre" required minlength="2" maxlength="120" placeholder="Juan Ruiz" autocomplete="off"></label>
+      <label class="ut-campo"><span>WhatsApp <small>opcional</small></span><input id="eAltaTel" inputmode="tel" maxlength="20" placeholder="477 123 4567" autocomplete="off"></label>
+      <div class="ut-campo"><span>Puesto</span><div class="ut-chips" role="radiogroup" aria-label="Puesto">${[['formador', 'Formador'], ['coordinacion', 'Coordinación'], ['operacion', 'Operación']].map(([v, t], k) => `<button type="button" class="ut-chip${k === 0 ? ' activa' : ''}" role="radio" aria-checked="${k === 0}" data-nivel="${v}">${t}</button>`).join('')}</div></div>
+      <p class="ut-nota" id="eAltaMsg" role="alert"></p>
+      <button type="submit" class="ut-btn">Guardar y entregar</button>
+    </form>
+    <form class="ut-linea" id="eOtro"><input maxlength="120" placeholder="Otra persona, sólo esta vez" aria-label="Otra persona"><button type="submit" class="ut-btn chico">Usar</button></form>`, { atras: desde });
+  cuerpo.querySelectorAll('[data-k]').forEach((b) => b.addEventListener('click', () => siguiente(lista[Number(b.dataset.k)])));
+  $('eNuevoProfe')?.addEventListener('click', () => { $('eAlta').classList.remove('hidden'); $('eNuevoProfe').classList.add('activo'); $('eAltaNombre').focus(); });
+  cuerpo.querySelectorAll('[data-nivel]').forEach((b) => b.addEventListener('click', () => cuerpo.querySelectorAll('[data-nivel]').forEach((x) => { const on = x === b; x.classList.toggle('activa', on); x.setAttribute('aria-checked', String(on)); })));
+  $('eAlta')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('[type=submit]'); btn.disabled = true; $('eAltaMsg').textContent = '';
+    try {
+      const r = await rpc('v2_quick_add_staff', { organization_id: ctx.organization_id, full_name: $('eAltaNombre').value.trim(),
+        phone: $('eAltaTel').value.trim() || null, level: cuerpo.querySelector('[data-nivel].activa')?.dataset.nivel || 'formador' });
+      const nombre = r?.name || $('eAltaNombre').value.trim();
+      if (gente && !gente.people.some((p) => p.staffId === r?.staffId)) gente.people.push({ tipo: 'ficha', userId: null, staffId: r?.staffId, name: nombre, title: 'Formador' });
+      siguiente({ id: null, nombre });
+    } catch (err) { $('eAltaMsg').textContent = err.message || 'No se pudo guardar.'; btn.disabled = false; }
+  });
   $('eOtro').addEventListener('submit', (e) => {
     e.preventDefault(); const n = e.target.querySelector('input').value.trim(); if (!n) return;
-    entregar({ item, unidad, persona: { id: null, nombre: n }, desde: () => pasoQuien(item, unidad, desde) });
+    siguiente({ id: null, nombre: n });
   });
 }
 function pasoConfirma(item, unidad, persona, desde) {

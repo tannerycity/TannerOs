@@ -240,3 +240,5 @@
 .st-sugiere-kit span { font-size: 14px; color: #4f3b06; line-height: 1.4; }
 .st-sugiere-btn { min-height: 44px; border: 0; border-radius: 999px; background: #07191e; color: #fff; font: inherit; font-weight: 800; font-size: 15px; cursor: pointer; }
 .st-convierte { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #fff8e6; color: #4f3b06; font-size: 14px; font-weight: 600; }
+.st-sugiere-kit.ahorro { background: #eaf6ee; border-color: #bfe3cb; }
+.st-sugiere-kit.ahorro span { color: #1e5b33; }

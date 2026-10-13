@@ -34,7 +34,7 @@ import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
-import { sugerenciasDeKit, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, aceptaPersonalizacion,
+import { sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, aceptaPersonalizacion,
          tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
   from '/v2/tienda.js';
 import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
@@ -321,7 +321,7 @@ function renderKit(id) {
     <article class="st-pdp" data-ficha="${esc(k.id)}">
       ${medioKit(k, 'grande')}
       <div class="st-pdp-info">
-        ${e.reemplaza ? '<p class="st-convierte">Convirtiendo tu jersey en kit: revisa las tallas y agrega. El jersey suelto se quita del pedido.</p>' : ''}
+        ${e.reemplaza ? '<p class="st-convierte">Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.</p>' : ''}
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
         <h1>${esc(k.name)}</h1>
         <p class="st-pdp-precio">${e.tier ? money.format(precioDeKit(k, e.tier)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}</p>
@@ -428,12 +428,12 @@ function agregaKit(id) {
   const r = preparaKit(k, { tier: e.tier, tallas: e.tallas || {}, nombre: e.nombre, numero: e.numero, manga: e.manga });
   if (!r.ok) { falla(e, r, renderKit, id); return; }
   // Convertir: el jersey suelto deja el carrito y se vuelve al pedido.
-  const reemplaza = e.reemplaza && carrito[e.reemplaza] ? e.reemplaza : null;
-  if (reemplaza) carrito = quitaUnaPieza(carrito, reemplaza);
+  const reemplaza = (Array.isArray(e.reemplaza) ? e.reemplaza : e.reemplaza ? [e.reemplaza] : []).filter(k => carrito[k]);
+  for (const k of reemplaza) carrito = quitaUnaPieza(carrito, k);
   carrito = agregaAlCarrito(carrito, r.linea);
   eligiendoKit[id] = { tallas: {}, tier: e.tier };
   actualizaCarrito();
-  if (reemplaza) { location.hash = '#/pedido'; setTimeout(() => aviso(`Listo: ahora es ${k.name}`, true), 60); return; }
+  if (reemplaza.length) { location.hash = '#/pedido'; setTimeout(() => aviso(`Listo: ahora es ${k.name}`, true), 60); return; }
   repinta(renderKit, id);
   aviso(`Agregado · ${k.name}, ${r.linea.tier.toLocaleLowerCase('es-MX')}`, true);
 }
@@ -450,15 +450,15 @@ function resumen() {
 function sugiereKits() {
   const s = sugerenciasDeKit(carrito, catalogo.bundles || []);
   if (!s.length) return '';
-  return `<section class="st-sugiere" aria-label="Conviértelo en kit">${s.map(x => `<article class="st-sugiere-kit">
-      <div><strong>${esc(x.linea.nombreProducto)}${x.linea.personalizationName ? ` · ${esc(x.linea.personalizationName)}` : ''}${x.linea.numero ? ` #${esc(x.linea.numero)}` : ''}</strong>
-      <span>Viene en el <b>${esc(x.kit.name)}</b> con ${esc(x.incluye.join(', ').toLocaleLowerCase('es-MX'))} por ${money.format(x.precio)}${x.diferencia > 0 ? ` (${money.format(x.diferencia)} más)` : ''}.</span></div>
+  return `<section class="st-sugiere" aria-label="Conviértelo en kit">${s.map(x => `<article class="st-sugiere-kit${x.diferencia < 0 ? ' ahorro' : ''}">
+      <div><strong>${x.linea.personalizationName ? `${esc(x.linea.personalizationName)}${x.linea.numero ? ` #${esc(x.linea.numero)}` : ''}` : 'Arma el kit'}</strong>
+      <span>${esc(textoSugerencia(x, n => money.format(n)))}</span></div>
       <button type="button" class="st-sugiere-btn" data-convierte="${esc(x.llave)}" data-kit-id="${esc(x.kit.id)}">Convertir en kit</button></article>`).join('')}</section>`;
 }
 function convierteEnKit(llave, kitId) {
   const x = sugerenciasDeKit(carrito, catalogo.bundles || []).find(v => v.llave === llave && String(v.kit.id) === String(kitId));
   if (!x) return;
-  eligiendoKit[x.kit.id] = { ...x.opciones, tallas: { ...x.opciones.tallas }, reemplaza: llave };
+  eligiendoKit[x.kit.id] = { ...x.opciones, tallas: { ...x.opciones.tallas }, reemplaza: x.llaves };
   location.hash = `#/k/${encodeURIComponent(x.kit.id)}`;
 }
 

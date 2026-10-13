@@ -188,7 +188,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   revisa('2. el carrito dice Manga larga', carrito.includes('Manga larga'), carrito.replace(/\s+/g, ' ').slice(0, 300));
   // 16. ¿Lo conviertes en kit?
   const sug = (await pg.textContent('.st-sugiere').catch(() => '')).replace(/\s+/g, ' ');
-  revisa('16. el jersey suelto sugiere su kit, con qué incluye y cuánto más', /Kit Training/.test(sug) && /short, calcetas/.test(sug) && /\$1,100\.00/.test(sug) && /\$250\.00 más/.test(sug), sug);
+  revisa('16. el jersey suelto sugiere su kit, con qué incluye y cuánto más', /Kit Training/.test(sug) && /short y calcetas/.test(sug) && /\$1,100\.00/.test(sug) && /\$250\.00 más/.test(sug), sug);
   await pg.click('[data-convierte]');
   await pg.waitForSelector('.st-convierte', { timeout:4000 }).catch(() => {});
   const lleno = await pg.$$eval('.st-pieza .st-pieza-cab span', ss => ss.map(x => x.textContent));

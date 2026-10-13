@@ -386,38 +386,91 @@ function tierPorTalla(kit, talla) {
   return ESCALA_NINOS.includes(String(talla || '')) ? TIER_NINO : TIER_ADULTO;
 }
 
+const esJerseySuelto = l => !!l && l.kind !== 'bundle' && !!l.productId
+  && (!!l.manga || PERSONALIZABLE.test(l.nombreProducto || ''));
+
+/* Arma la sugerencia de UN kit a partir de un jersey ancla y los demás
+   jerseys sueltos que llenan otras ranuras del mismo kit (los kits del club
+   traen dos jerseys: Training = Black + Lechuguilla). Para no mezclar
+   personas, el compañero tiene que llevar el mismo nombre en la espalda. */
+function sugerenciaDe(kit, ancla, libres) {
+  const ranuras = ranurasDeKit(kit);
+  if (ranuras.length < 2) return null;
+  const tomadas = new Map(); // ranura.id -> [llave, linea]
+  const usar = (llave, l) => {
+    const r = ranuras.find(x => String(x.productId) === String(l.productId) && !tomadas.has(x.id));
+    if (!r) return false;
+    tomadas.set(r.id, [llave, l]); return true;
+  };
+  if (!usar(ancla[0], ancla[1])) return null;
+  const quien = String(ancla[1].personalizationName || '').trim().toLowerCase();
+  for (const [llave, l] of libres) {
+    if (llave === ancla[0]) continue;
+    if (String(l.personalizationName || '').trim().toLowerCase() !== quien) continue;
+    usar(llave, l);
+  }
+  const talla = ancla[1].talla;
+  const tier = tierPorTalla(kit, talla);
+  const precio = precioDeKit(kit, tier);
+  if (!(precio > 0)) return null;
+  const tallas = {};
+  for (const r of ranuras) {
+    if (r.unica) continue;
+    const t = tomadas.get(r.id);
+    if (t) { if (t[1].talla) tallas[r.id] = t[1].talla; continue; }
+    // Lo que falta (el short, el otro jersey), en la misma talla si existe.
+    if (talla && r.tallas.includes(talla)) tallas[r.id] = talla;
+  }
+  const cubiertas = [...tomadas.values()];
+  const sueltos = cubiertas.reduce((n, [, l]) => n + Number(l.precioUnitario || 0), 0);
+  const a = ancla[1];
+  return {
+    kit, tier, precio, sueltos,
+    diferencia: Math.round((precio - sueltos) * 100) / 100,
+    llaves: cubiertas.map(([k]) => k),
+    cubre: cubiertas.map(([, l]) => l.nombreProducto),
+    incluye: ranuras.filter(r => !tomadas.has(r.id)).map(r => r.nombre),
+    opciones: { tier, tallas, nombre: a.personalizationName || '', numero: a.numero || '', manga: a.manga || 'corta' }
+  };
+}
+
 export function kitParaLinea(linea, kits = []) {
-  if (!linea || linea.kind === 'bundle' || !linea.productId) return null;
-  // Sólo el jersey: las calcetas sueltas no se "convierten" en un kit.
-  if (!linea.manga && !PERSONALIZABLE.test(linea.nombreProducto || '')) return null;
+  if (!esJerseySuelto(linea)) return null;
   for (const kit of Array.isArray(kits) ? kits : []) {
-    const ranuras = ranurasDeKit(kit);
-    const suya = ranuras.find(r => String(r.productId) === String(linea.productId));
-    if (!suya || ranuras.length < 2) continue;
-    const tier = tierPorTalla(kit, linea.talla);
-    const precio = precioDeKit(kit, tier);
-    if (!(precio > 0)) continue;
-    const tallas = {};
-    for (const r of ranuras) {
-      if (r.unica) continue;
-      if (r.id === suya.id) { if (linea.talla) tallas[r.id] = linea.talla; continue; }
-      // El short en la misma talla que el jersey, si existe; si no, se elige.
-      if (linea.talla && r.tallas.includes(linea.talla)) tallas[r.id] = linea.talla;
-    }
-    return {
-      kit, tier, precio,
-      diferencia: Math.round((precio - Number(linea.precioUnitario || 0)) * 100) / 100,
-      incluye: ranuras.filter(r => r.id !== suya.id).map(r => r.nombre),
-      opciones: { tier, tallas, nombre: linea.personalizationName || '', numero: linea.numero || '', manga: linea.manga || 'corta' }
-    };
+    const s = sugerenciaDe(kit, ['ancla', linea], []);
+    if (s) return s;
   }
   return null;
 }
 
+/* Una sugerencia por kit y por persona: si en el carrito están el Black y el
+   Lechuguilla de LEO, es UN Kit Training que reemplaza a los dos, y casi
+   siempre sale más barato que sueltos. */
 export function sugerenciasDeKit(carrito = {}, kits = []) {
-  return Object.entries(carrito || {})
-    .map(([llave, linea]) => { const s = kitParaLinea(linea, kits); return s ? { llave, linea, ...s } : null; })
-    .filter(Boolean);
+  const libres = Object.entries(carrito || {}).filter(([, l]) => esJerseySuelto(l));
+  const usadas = new Set(), out = [];
+  for (const ancla of libres) {
+    if (usadas.has(ancla[0])) continue;
+    const resto = libres.filter(([k]) => !usadas.has(k));
+    for (const kit of Array.isArray(kits) ? kits : []) {
+      const s = sugerenciaDe(kit, ancla, resto);
+      if (!s) continue;
+      s.llaves.forEach(k => usadas.add(k));
+      out.push({ llave: ancla[0], linea: ancla[1], ...s });
+      break;
+    }
+  }
+  return out;
+}
+
+/* El texto de la sugerencia, igual en la tienda, el portal y el mostrador. */
+export function textoSugerencia(s, formato = n => `$${n}`) {
+  const lista = xs => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}` : (xs[0] || '');
+  const extra = s.incluye.length ? ` + ${lista(s.incluye).toLocaleLowerCase('es-MX')}` : '';
+  const cuenta = s.diferencia < 0 ? `Te ahorras ${formato(-s.diferencia)}.` : s.diferencia > 0 ? `Sólo ${formato(s.diferencia)} más.` : 'Al mismo precio.';
+  return s.cubre.length > 1
+    ? `Tus ${lista(s.cubre)}${extra} = ${s.kit.name} por ${formato(s.precio)}. ${cuenta}`
+    : `Tu ${s.cubre[0]} viene en el ${s.kit.name}${extra} por ${formato(s.precio)}. ${cuenta}`;
 }
 
 /* Al convertir, el jersey suelto deja el carrito: una pieza menos, o el

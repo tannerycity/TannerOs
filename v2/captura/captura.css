@@ -129,3 +129,4 @@
 /* ¿Lo conviertes en kit? (13/10/2026) */
 .cart-sugiere{display:grid;gap:8px;margin:-2px 0 8px;padding:10px 12px;border-radius:12px;background:#fff8e6;border:1px solid #f1dfae;font-size:13px;color:#4f3b06;line-height:1.4}
 .cart-sugiere-btn{justify-self:start;min-height:38px;padding:0 14px;border:0;border-radius:999px;background:#07191e;color:#fff;font:inherit;font-weight:800;cursor:pointer}
+.cart-sugiere.ahorro{background:#eaf6ee;border-color:#bfe3cb;color:#1e5b33}

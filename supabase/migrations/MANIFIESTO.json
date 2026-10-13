@@ -1,8 +1,8 @@
 {
-  "migraciones": 502,
-  "bytes": 2846501,
-  "huella": "c448300d906b0c0b99ea3a7840a88b12",
+  "migraciones": 503,
+  "bytes": 2851081,
+  "huella": "ba166276be3ae23b20a672f73748bdcc",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261013140216_h5c_portal_comprar_otra_vez.sql",
+  "ultima": "20261013140629_h5d_ventas_de_la_semana.sql",
   "verificadoContraLaBase": "2026-10-13"
 }

@@ -229,6 +229,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   const barra = await pg.textContent(`${fila('o-nuevo')} .order-num`).catch(() => '');
   revisa('6. dice "Número #7 por confirmar"', /Número #7 por confirmar/.test(barra), barra);
   revisa('6. el pedido sin número no trae barra', (await pg.$(`${fila('o-viejo')} .order-num`)) === null);
+  revisa('Ventas de la semana no se le enseña a Operaciones', await pg.isHidden('#ventasAction'));
 
   const segs = await pg.$$eval('#tSeg [data-f]', bs => bs.map(b => [b.dataset.f, b.querySelector('i').textContent]));
   revisa('12. los filtros traen su cuenta', JSON.stringify(segs) === JSON.stringify([['','2'],['__atender','1'],['__cobrar','1'],['in_production','0'],['ready','0']]), JSON.stringify(segs));
@@ -291,6 +292,23 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   revisa('nada se sale a 390px', !(await pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
   revisa('admin sin errores', errs.length === 0, errs.join('\n'));
   await pg.close();
+}
+
+/* ===== Ventas de la semana (13/10/2026) ===== */
+{
+  const v = await import(path.join(RAIZ, 'v2/pedidos/ventas.js'));
+  const money = new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN' });
+  revisa('ventas: +50% contra la semana pasada', v.textoComparacion(1500, 1000) === '+50% vs. la semana pasada');
+  revisa('ventas: sin venta la semana pasada se dice en palabras', v.textoComparacion(1500, 0) === 'La semana pasada no hubo ventas');
+  revisa('ventas: los canales con su nombre', v.nombreDeCanal('internal_capture') === 'Mostrador' && v.nombreDeCanal('portal_familias') === 'Portal de familias');
+  const html = v.pintaVentas({ weekStart:'2026-10-12', weekEnd:'2026-10-18', sold:2996, collected:1498, orders:2, avgTicket:1498,
+    previous:{ sold:0 }, byDay:[{ date:'2026-10-12', total:2996 }, ...[13,14,15,16,17,18].map(d => ({ date:`2026-10-${d}`, total:0 }))],
+    top:[{ name:'Jersey "Black Edition"', kit:false, units:2, total:1598 }, { name:'Kit Training', kit:true, units:1, total:1299 }],
+    byChannel:[{ source:'internal_capture', orders:2, total:2996 }] }, money);
+  revisa('ventas: vendido, cobrado, lo que más sale y por dónde entra',
+    /2,996/.test(html) && /1,498/.test(html) && /2 piezas/.test(html) && /1 kit</.test(html) && /Mostrador/.test(html), html.slice(0, 200));
+  revisa('ventas: ni costo ni utilidad', !/[Cc]osto|[Uu]tilidad|[Mm]argen/.test(html));
+  revisa('ventas: lo escrito no se cuela como HTML', !/<img/.test(v.pintaVentas({ top:[{ name:'<img src=x>', units:1, total:1 }], byDay:[] }, money)));
 }
 
 /* ===== tienda.js: la manga en la línea y en la llave ===== */

@@ -29,6 +29,12 @@ const larga = mockupJersey({ nombre: 'Maximiliano', numero: '7' });
 revisa('un nombre largo se comprime a la espalda', /textLength="104"/.test(larga));
 revisa('uno corto no se comprime', !/textLength/.test(mockupJersey({ nombre: 'Leo' })));
 revisa('el número de 3 cifras baja de tamaño', /font-size="70"/.test(mockupJersey({ numero: '100' })));
+// El Lechuguilla real (13/10/2026): rayas verde agua, escudo, "WE ARE TANNERS"
+// y el estampado en verde militar.
+const lech = coloresDePlayera({ nombreProducto: 'Jersey "Lechuguilla Edition"' });
+const svgL = mockupJersey({ nombre: 'Gianluca', numero: '10', colores: lech });
+revisa('el Lechuguilla sale con su diseño: rayas, escudo y "WE ARE TANNERS"', lech.estilo === 'lechuguilla' && /<pattern/.test(svgL) && /crest-navy\.png/.test(svgL) && /WE ARE TANNERS/.test(svgL));
+revisa('y el nombre y número en verde militar', (svgL.match(/fill="#2F4A35"/g) || []).length >= 2);
 const malo = mockupJersey({ nombre: '<img src=x onerror=alert(1)>' });
 revisa('lo que se escribe no se cuela como HTML', !/<img/.test(malo) && /&lt;IMG/.test(malo));
 

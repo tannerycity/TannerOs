@@ -7,10 +7,9 @@
     <div class="top-actions"><a class="secondary mini nav-link" href="/v2/pedidos/">Pedidos</a><a class="secondary mini nav-link" href="/v2/catalogo/">Catálogo</a><span id="roleBadge" class="role-badge"></span></div>
   </header>
 
-  <section class="hero">
-    <div><div class="eyebrow">COMERCIO · CAPTURA</div><h1>Levantar pedido</h1><p class="muted">Elige el kit o producto, llena tallas y nombre, agrégalo — sin Excel, sin screenshot.</p></div>
-    <span class="health"><i></i> Catálogo actualizado</span>
-  </section>
+  <!-- Levantar pedido rápido (13/10/2026): para quién, qué lleva y una barra
+  fija con el total y Crear pedido, siempre a la vista. -->
+  <header class="cap-head"><h1>Nuevo pedido</h1></header>
 
   <section id="confirmView" class="panel confirm-panel hidden">
     <div class="confirm-icon">✓</div>
@@ -23,13 +22,13 @@
   </section>
 
   <section id="captureView">
-    <section class="panel">
-      <div class="panel-head"><div><div class="eyebrow">1 · PARA QUIÉN</div><h2>¿De quién es el pedido?</h2><p class="muted">Elige al Tanner y sus datos salen solos. Si no es del club, captúralo a mano.</p></div></div>
-      <label class="cap-tanner"><span>Tanner</span>
+    <section class="panel cap-panel">
+      <h2 class="cap-titulo">¿Para quién?</h2>
+      <label class="cap-tanner"><span class="sr-only">Tanner</span>
         <select id="capPlayer" data-smart-search data-search-placeholder="Escribe el nombre del Tanner"></select>
       </label>
       <div id="capPlayerCard" class="cap-quien hidden"></div>
-      <button id="capExterno" class="secondary mini" type="button">No es del club, capturar a mano</button>
+      <button id="capExterno" class="cap-link" type="button">No es del club: capturar a mano</button>
       <div id="capManual" class="field-grid hidden">
         <label><span>Nombre</span><input id="custName" type="text" maxlength="160" placeholder="Nombre del papá/mamá o cliente"></label>
         <label><span>Teléfono (WhatsApp)</span><input id="custPhone" type="tel" maxlength="20" placeholder="10 dígitos"></label>
@@ -37,27 +36,28 @@
       </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-head"><div><div class="eyebrow">2 · KITS</div><h2>Agrega piezas</h2><p class="muted">Un kit por jugador. Puedes agregar el mismo kit varias veces para varios hermanos.</p></div></div>
+    <section class="panel cap-panel">
+      <h2 class="cap-titulo">¿Qué lleva?</h2>
+      <p class="cap-sub">Kits</p>
       <div id="bundleGrid" class="pick-grid"></div>
       <div id="bundleEmpty" class="empty hidden">No hay kits activos en el catálogo.</div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head"><div><div class="eyebrow">PRODUCTOS SUELTOS</div><h2>O una pieza individual</h2></div></div>
+      <p class="cap-sub">Piezas sueltas</p>
       <div id="productGrid" class="pick-grid"></div>
       <div id="productEmpty" class="empty hidden">No hay productos activos en el catálogo.</div>
     </section>
 
-    <section class="panel">
-      <div class="panel-head"><div><div class="eyebrow">3 · RESUMEN</div><h2>Lo que lleva este pedido</h2></div></div>
+    <section class="panel cap-panel" id="capResumen">
+      <h2 class="cap-titulo">Lo que lleva</h2>
       <div id="cartList" class="cart-list"></div>
-      <div id="cartEmpty" class="empty">Todavía no agregas ninguna pieza.</div>
-      <div class="cart-total"><span>Total</span><strong id="cartTotal">$0.00</strong></div>
-      <label class="notes-label"><span>Notas del pedido</span><textarea id="orderNotes" rows="2" maxlength="500" placeholder="Opcional"></textarea></label>
+      <div id="cartEmpty" class="empty">Toca un kit o una pieza para agregarla.</div>
+      <label class="notes-label"><span>Notas del pedido</span><textarea id="orderNotes" rows="2" maxlength="500" placeholder="Ej. Las dos de manga larga"></textarea></label>
       <div id="createMessage" class="inline-message hidden"></div>
-      <button id="createOrder" class="primary full" type="button">Crear pedido</button>
     </section>
+
+    <div class="cap-barra" id="capBarra">
+      <button type="button" class="cap-barra-ver" id="capVerResumen"><b id="capPiezas">Sin piezas</b><strong id="cartTotal">$0.00</strong></button>
+      <button id="createOrder" class="cap-barra-crear" type="button">Crear pedido</button>
+    </div>
   </section>
 </section>
 </main>

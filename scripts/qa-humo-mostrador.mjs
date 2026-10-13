@@ -83,6 +83,7 @@ revisa('el jersey ofrece manga, corta por omisión',
 await pg.click('#pfManga [data-m="larga"]');
 await pg.click('#pfAdd');
 await pg.waitForTimeout(250);
+if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/mostrador2.png`});
 await pg.evaluate(()=>document.getElementById('backdrop').click());
 // ¿Lo conviertes en kit? Un jersey suelto lo pregunta.
 const sug1=(await pg.textContent('.cart-sugiere').catch(()=>'')).replace(/\s+/g,' ');

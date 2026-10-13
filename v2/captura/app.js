@@ -57,9 +57,10 @@ async function load(){
 }
 
 function bundleCard(b){
-  const btn=document.createElement('button');btn.type='button';btn.className='pick-card';
-  const priceLine=[b.priceAdult?`Adulto ${money.format(Number(b.priceAdult))}`:null,b.priceKid?`Niño ${money.format(Number(b.priceKid))}`:null].filter(Boolean).join(' · ');
-  btn.innerHTML=`<strong>${esc(b.name)}</strong><span>${b.components.length} pieza(s)</span><b>${esc(priceLine)}</b>`;
+  const btn=document.createElement('button');btn.type='button';btn.className='pick-card pick-kit';btn.dataset.bid=b.id;
+  const precio=b.priceKid&&b.priceAdult?`${money.format(Number(b.priceKid))} – ${money.format(Number(b.priceAdult))}`:money.format(Number(b.priceAdult||b.priceKid||0));
+  const piezas=(b.components||[]).map(c=>String(c.name||'').replace(/^Jersey\s+/i,'').replace(/"/g,'').split(' - ')[0]).filter(Boolean);
+  btn.innerHTML=`<strong>${esc(b.name)}</strong><span>${esc(piezas.join(' · ')||`${b.components.length} pieza(s)`)}</span><b>${esc(precio)}</b><i class="pick-cuenta" hidden></i>`;
   btn.addEventListener('click',()=>openBundleDrawer(b));
   return btn;
 }
@@ -74,7 +75,7 @@ function bundleCard(b){
    encima cuando llega. Un producto sin foto se queda con su monograma y la
    tienda sigue sirviendo — no se rompe por un dato que falta. */
 function productCard(p){
-  const btn=document.createElement('button');btn.type='button';btn.className='pick-card pick-card-foto';
+  const btn=document.createElement('button');btn.type='button';btn.className='pick-card pick-card-foto';btn.dataset.pid=p.id;
   const iniciales=String(p.name||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'T';
   const foto=p.photoThumbPath||p.photoPath;
   const attr=foto?` data-photo-path="${esc(foto)}" data-photo-bucket="${esc(p.photoBucket||'tanneros-private')}"`:'';
@@ -82,7 +83,7 @@ function productCard(p){
   btn.innerHTML=`<span class="pick-foto"${attr}><b aria-hidden="true">${esc(iniciales)}</b></span>`
     +`<span class="pick-datos"><strong>${esc(p.name)}</strong>`
     +`<span>${esc(p.category||'Producto')}${tallas?` · ${tallas} tallas`:''}</span>`
-    +`<b>${money.format(Number(p.price||0))}</b></span>`;
+    +`<b>${money.format(Number(p.price||0))}</b></span><i class="pick-cuenta" hidden></i>`;
   btn.addEventListener('click',()=>openProductDrawer(p));
   return btn;
 }
@@ -392,6 +393,8 @@ function addProductToCart(){
   });
   renderCart();
   drawerMsg('Agregado al pedido.','success');
+  // Una pieza suelta se agrega y se vuelve a la cuadrícula: un toque menos.
+  closeDrawerFn();avisoBarra(`Agregado: ${p.name}`);
   $('pfTallas')?.querySelectorAll('.talla-chip.activa').forEach(x=>x.classList.remove('activa'));
   $('pfTalla').value='';$('pfQty').value=1;$('pfName').value='';$('pfNumber').value='';reiniciaManga('pf');
 }
@@ -399,6 +402,9 @@ $('pfAdd').addEventListener('click',addProductToCart);
 $('pfPickNumber').addEventListener('click',()=>elegirNumero('pf'));
 $('bfPickNumber').addEventListener('click',()=>elegirNumero('bf'));
 
+let avisoBarraT=0;
+function avisoBarra(t){const b=$('capPiezas');if(!b)return;const antes=b.textContent;b.textContent=t;$('capBarra')?.classList.add('flash');clearTimeout(avisoBarraT);avisoBarraT=setTimeout(()=>{$('capBarra')?.classList.remove('flash');renderCart();},1400);}
+$('capVerResumen')?.addEventListener('click',()=>$('capResumen')?.scrollIntoView({behavior:'smooth',block:'start'}));
 function openDrawer(){$('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');}
 function closeDrawerFn(){$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');picking=null;}
 $('closeDrawer').addEventListener('click',closeDrawerFn);
@@ -423,6 +429,14 @@ function renderCart(){
     list.appendChild(sug);
   });
   $('cartTotal').textContent=money.format(cart.reduce((s,i)=>s+i.total,0));
+  // La barra de abajo y el contador en cada tarjeta: se ve qué ya va.
+  const piezas=cart.reduce((n,i)=>n+(i.kind==='bundle'?1:Number(i.quantity||1)),0);
+  if($('capPiezas'))$('capPiezas').textContent=piezas?`${piezas} ${piezas===1?'pieza':'piezas'}`:'Sin piezas';
+  $('capBarra')?.classList.toggle('lleno',piezas>0);
+  document.querySelectorAll('.pick-card[data-pid],.pick-card[data-bid]').forEach(t=>{
+    const n=cart.filter(i=>t.dataset.pid?String(i.productId)===t.dataset.pid&&i.kind==='product':String(i.bundleId)===t.dataset.bid).reduce((k,i)=>k+(i.kind==='bundle'?1:Number(i.quantity||1)),0);
+    const b=t.querySelector('.pick-cuenta');if(b){b.hidden=!n;b.textContent=`×${n}`;}
+  });
 }
 
 /* ---------- Crear pedido ---------- */

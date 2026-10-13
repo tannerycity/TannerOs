@@ -1,0 +1,110 @@
+/* Tienda (13/10/2026): "sentimos que está súper difícil de entenderlo...
+   hagámoslo Apple". Un título, los filtros con su cuenta, la lista limpia y el
+   dinero plegado. Gris de sistema, una sola tinta, y el color sólo para lo
+   que pide atención: número por confirmar, manga larga, la nota. */
+.app-wrap>.hero,.app-wrap>.store-actions,.app-wrap>.store-status-kpis{display:none}
+
+.t-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin:6px 0 18px}
+.t-head h1{margin:0;font-size:34px;line-height:1.1;letter-spacing:-.02em;color:#07191e}
+.t-sub{margin:4px 0 0;font-size:15px;color:#6b7c80}
+.t-head-acc{display:flex;flex-wrap:wrap;gap:8px}
+.t-btn,.t-btn-sec{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 16px;border-radius:999px;font:inherit;font-size:14.5px;font-weight:700;text-decoration:none;white-space:nowrap}
+.t-btn{background:#169b4b;color:#fff}
+.t-btn:hover{background:#12843f}
+.t-btn-sec{background:#eef2f1;color:#07191e}
+.t-btn-sec:hover{background:#e3e9e7}
+.t-btn.is-off,.t-btn-sec.is-off{opacity:.45;pointer-events:none}
+
+.t-lista{background:transparent}
+/* Segmentos tipo iOS, con la cuenta dentro. */
+.t-seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:#eceff0;overflow-x:auto;scrollbar-width:none}
+.t-seg::-webkit-scrollbar{display:none}
+.t-seg button{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:0 14px;border:0;border-radius:10px;background:transparent;color:#3c4e52;font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.t-seg button i{font-style:normal;font-size:12px;font-weight:800;color:#7a8a8e;background:rgba(7,25,30,.06);border-radius:999px;padding:1px 7px;min-width:22px}
+.t-seg button.activo{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12),0 1px 1px rgba(7,25,30,.04)}
+.t-seg button.alerta i{background:#ff9f0a;color:#fff}
+.t-seg.mini{display:inline-flex;padding:3px;border-radius:10px;flex:0 0 auto}
+.t-seg.mini button{min-height:32px;padding:0 12px;font-size:13px;flex:0 0 auto}
+.t-seg.mini button.activo{background:#07191e;color:#fff}
+
+.t-busca{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0 14px}
+.t-busca input,.t-busca select{border:0;background:#eceff0;border-radius:12px;padding:0 14px;min-height:42px;font:inherit;font-size:15px;color:#07191e}
+.t-busca input:focus,.t-busca select:focus{outline:2px solid #0a84ff;outline-offset:0;background:#fff}
+.t-busca select{padding-right:30px;max-width:180px}
+
+/* La fila: avatar, quién, qué y cuánto. */
+.order-list{gap:10px}
+.order-row{display:grid!important;grid-template-columns:auto 1fr auto;gap:4px 14px;align-items:start;padding:16px;border:0!important;border-radius:18px;background:#fff;box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.05);cursor:pointer;transition:box-shadow .15s,transform .15s}
+.order-row:hover{background:#fff!important;box-shadow:0 4px 14px rgba(7,25,30,.08),0 0 0 1px rgba(7,25,30,.06)}
+.order-row:active{transform:scale(.995)}
+.order-row.apagado{opacity:.6}
+.order-row .t-avatar,.t-avatar{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#0c3a46,#1f6f7d);color:#fff!important;font-size:15px!important;font-weight:800;letter-spacing:.02em}
+.t-avatar.grande{width:54px;height:54px;font-size:19px}
+.order-main{display:grid;gap:3px;min-width:0}
+.order-who{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px}
+.order-who strong{font-size:17px;font-weight:700;color:#07191e;letter-spacing:-.01em}
+.order-who span{font-size:12.5px!important;font-weight:700;color:#1f6f7d!important}
+.order-pidio{font-size:13.5px!important;color:#4d5f63!important}
+.order-items{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:5px}
+.order-items li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:14px;color:#2b4146;line-height:1.35}
+.order-items li>span{font-size:14px!important;color:#2b4146!important}
+.order-items li b{font-weight:600;color:#07191e}
+.order-items li.mas{color:#7a8a8e;font-size:12.5px}
+.t-manga{font-style:normal;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:999px;background:#eef2f1;color:#3c4e52;white-space:nowrap}
+.t-manga.larga{background:#ffe9c7;color:#8a4b00}
+.t-manga.falta{background:#fdecea;color:#a92a21}
+.t-obs{flex-basis:100%;font-size:12.5px!important;color:#6b7c80!important;font-style:italic}
+.t-nota{margin:8px 0 2px;padding:9px 12px;border-radius:12px;background:#fff8e6;color:#4f3b06;font-size:13.5px;line-height:1.4;white-space:pre-line}
+.t-nota b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#8a6413;margin-bottom:2px}
+.t-meta{font-size:12px!important;color:#8a979a!important;margin-top:4px}
+.order-row>.order-right{display:grid;justify-items:end;align-content:start;gap:6px;text-align:right}
+.order-right b{font-size:16px;color:#07191e}
+.order-row>.order-num{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:9px 12px;border-radius:12px;font-size:13.5px;font-weight:700}
+.order-num.pendiente{background:#fff4df;color:#8a5c00}
+.order-num.ok{background:#e8f6ec;color:#1e6b3c}
+.order-num span{font-size:13.5px!important;color:inherit!important}
+.t-pill-btn{min-height:34px;padding:0 14px;border:0;border-radius:999px;background:#ff9f0a;color:#fff;font:inherit;font-size:13.5px;font-weight:800;cursor:pointer}
+.t-link{border:0;background:none;color:#0a84ff;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;padding:4px}
+
+/* El dinero, plegado al final. */
+.t-negocio{margin-top:22px;border-radius:18px;background:#fff;box-shadow:0 0 0 1px rgba(7,25,30,.05);padding:4px 16px}
+.t-negocio>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;cursor:pointer;list-style:none;font-weight:700;font-size:16px;color:#07191e}
+.t-negocio>summary::-webkit-details-marker{display:none}
+.t-negocio>summary::after{content:'›';font-size:22px;color:#a4b0b3;transform:rotate(90deg);transition:transform .15s}
+.t-negocio[open]>summary::after{transform:rotate(-90deg)}
+.t-negocio>summary .safe-pill{margin-left:auto}
+.t-negocio[open]{padding-bottom:16px}
+
+/* El resumen del detalle. */
+.t-resumen{display:grid;gap:12px;margin:4px 0 14px;padding:16px;border-radius:18px;background:#f5f7f7}
+.t-resumen:empty{display:none}
+.t-res-quien{display:flex;align-items:center;gap:12px}
+.t-res-quien strong{display:block;font-size:20px;letter-spacing:-.01em;color:#07191e}
+.t-res-quien span{font-size:14px;color:#4d5f63}
+.t-res-datos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
+.t-res-datos div{background:#fff;border-radius:12px;padding:9px 12px}
+.t-res-datos dt{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#7a8a8e}
+.t-res-datos dd{margin:3px 0 0;font-size:14.5px;font-weight:600;color:#07191e}
+.t-res-datos select{width:100%;border:0;background:#eceff0;border-radius:9px;min-height:36px;padding:0 8px;font:inherit;font-size:14px;color:#07191e}
+.t-res-piezas{list-style:none;margin:0;padding:0;display:grid;gap:1px;border-radius:12px;overflow:hidden;background:#e3e8e7}
+.t-res-piezas li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;background:#fff;padding:11px 12px}
+.t-res-piezas li>div{display:grid;gap:2px;min-width:0}
+.t-res-piezas b{font-size:14.5px;font-weight:600;color:#07191e}
+.t-res-piezas span{font-size:13px;color:#5d6f73}
+.t-resumen .order-num{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border-radius:12px;font-size:13.5px;font-weight:700}
+
+@media(max-width:620px){
+  .t-head h1{font-size:30px}
+  .t-head-acc{width:100%}
+  .t-head-acc .t-btn{flex:1}
+  .t-busca{grid-template-columns:1fr}
+  .t-busca select{max-width:none}
+  .order-row{grid-template-columns:auto 1fr;padding:14px}
+  .order-row>.t-avatar{grid-column:1;grid-row:1}
+  .order-row>.order-main{grid-column:2;grid-row:1}
+  .order-row>.order-right{grid-column:2;grid-row:2;display:flex;flex-wrap:wrap;align-items:center;gap:8px;text-align:left;justify-items:start}
+  .order-row>.order-num{grid-row:3}
+  .order-row .t-avatar{width:36px;height:36px;font-size:13px!important}
+  .t-seg:not(.mini) button{flex:0 0 auto;padding:0 12px}
+  .t-res-datos{grid-template-columns:1fr}
+}

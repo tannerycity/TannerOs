@@ -151,6 +151,15 @@ revisa('una pieza sin categoría no se cuela como jersey',
 revisa('pero sí aparece en la hoja, con su talla en comentarios',
   /Algo suelto M/.test(sinProducto[0].renglones[0].comentarios || ''), JSON.stringify(sinProducto));
 
+/* ---- Manga y nota del pedido (13/10/2026) ---- */
+const conManga = hojaPorModelo([{ itemId:'m1', description:'Jersey Home', productName:'Jersey Home', categoria:'jersey',
+  talla:'14', nombrePers:'MAX', numero:'13', manga:'larga', orderNotes:'Las dos de manga larga\n\nincluye un short talla 14', quantity:1 }]);
+const fm = filaDeHoja(conManga[0].renglones[0], 0);
+revisa('la manga larga sale en su columna y en mayúsculas', fm.manga === 'LARGA', JSON.stringify(fm));
+revisa('la nota del pedido llega a comentarios, en una línea', fm.comentarios === 'Nota: Las dos de manga larga incluye un short talla 14', fm.comentarios);
+const sinManga = filaDeHoja(hojaPorModelo([{ itemId:'m2', description:'Jersey Home', productName:'Jersey Home', categoria:'jersey', talla:'10', quantity:1 }])[0].renglones[0], 0);
+revisa('sin manga se ve la casilla vacía', sinManga.manga === '—', JSON.stringify(sinManga));
+
 revisa('el archivo se llama por el folio del corte',
   nombreDeArchivoHoja('PED-CORTE-01') === 'hoja-de-produccion-PED-CORTE-01.pdf');
 revisa('un folio con caracteres raros no arma un nombre inválido',

@@ -110,7 +110,7 @@ export function hojaPorModelo(items = []) {
     if (!grupo._filas.has(llave)) {
       grupo._filas.set(llave, {
         nombre: p.nombrePers || null, numero: p.numero || null,
-        tallaJersey: null, tallaShort: null,
+        tallaJersey: null, tallaShort: null, manga: null,
         producto: nombre, comentarios: [], cantidad: 0
       });
     }
@@ -121,10 +121,15 @@ export function hojaPorModelo(items = []) {
     grupo.piezas += Number(p.quantity || 1);
 
     if (tipo === 'jersey') fila.tallaJersey = p.talla || fila.tallaJersey;
+    // La manga es del jersey; el proveedor la corta distinto (13/10/2026).
+    if (p.manga && !fila.manga) fila.manga = p.manga;
     else if (tipo === 'short') fila.tallaShort = p.talla || fila.tallaShort;
     else if (p.talla) fila.comentarios.push(`${nombre} ${p.talla}`);
     if (p.obs) fila.comentarios.push(p.obs);
     if (p.tipo) fila.comentarios.push(p.tipo);
+    // La nota del pedido viaja a la hoja: ahí el club escribe cosas como
+    // "Las dos de manga larga" y antes se quedaba en la pantalla.
+    if (p.orderNotes) fila.comentarios.push(`Nota: ${String(p.orderNotes).replace(/\s+/g, ' ').trim()}`);
 
     // Y ahora lo que venía con él en el kit.
     if (p.kitKey && acompanantes.has(p.kitKey)) {
@@ -170,6 +175,7 @@ export function filaDeHoja(fila, indice) {
     numero: fila.numero ? String(fila.numero) : '—',
     tallaJersey: fila.tallaJersey || '—',
     tallaShort: fila.tallaShort || '—',
+    manga: fila.manga === 'larga' ? 'LARGA' : fila.manga === 'corta' ? 'Corta' : '—',
     producto: fila.producto || '—',
     comentarios: fila.comentarios || '',
     status: ''
@@ -182,9 +188,10 @@ export const COLUMNAS_HOJA = [
   { clave: 'numero',      titulo: 'NÚMERO',      ancho: 52 },
   { clave: 'tallaJersey', titulo: 'TALLA PLAYERA', ancho: 62 },
   { clave: 'tallaShort',  titulo: 'TALLA SHORT',   ancho: 56 },
-  { clave: 'producto',    titulo: 'PRODUCTO',    ancho: 150 },
-  { clave: 'comentarios', titulo: 'COMENTARIOS', ancho: 112 },
-  { clave: 'status',      titulo: 'STATUS',      ancho: 60 }
+  { clave: 'manga',       titulo: 'MANGA',       ancho: 46 },
+  { clave: 'producto',    titulo: 'PRODUCTO',    ancho: 140 },
+  { clave: 'comentarios', titulo: 'COMENTARIOS', ancho: 172 },
+  { clave: 'status',      titulo: 'STATUS',      ancho: 50 }
 ];
 
 /* Cuántas piezas cortar de cada talla, por modelo. Es el resumen que el

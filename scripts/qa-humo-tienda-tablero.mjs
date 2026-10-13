@@ -18,6 +18,13 @@
  *   7. El filtro "Número por confirmar" deja sólo esos pedidos.
  *   8. Se busca por nombre del jugador.
  *   9. El detalle trae el chip de Manga.
+ *  10. Se dice cómo llegó (en línea, portal, mostrador) y quién lo atendió.
+ *  11. La nota del pedido se ve en la fila.
+ *  12. Los filtros de arriba traen su cuenta; "Por atender" junta lo nuevo
+ *      y los números por confirmar.
+ *  13. El detalle abre con un resumen: jugador, quién pidió, cómo llegó, nota.
+ *  14. La manga de cada jersey se corrige en un toque.
+ *  15. Se elige quién del club atendió el pedido (ayudó Zul, ayudó Mich).
  *
  * Hermética: nada sale de 127.0.0.1.
  */
@@ -44,9 +51,12 @@ const OFERTA = { products:[{ id:'p-jersey', name:'Jersey Home', price:850, sizes
 // a5: el tablero que la lista pinta sin abrir el pedido.
 const TABLERO = {
   'o-nuevo':{ playerName:'Leo Ávila', playerCategory:'T10', playerJersey:'7', numberConfirmed:null,
-    items:[{ description:'Jersey Home', quantity:1, talla:'10', manga:'larga', nombre:'LEO', numero:'7', kit:null },
-           { description:'Par de calcetas', quantity:1, talla:'Universal', manga:null, nombre:null, numero:null, kit:null }] },
-  'o-viejo':{ playerName:null, items:[{ description:'Hoodie', quantity:1, talla:'L', manga:null, nombre:null, numero:null, kit:null }] }
+    source:'public_form', notes:'Las dos de manga larga', attendedBy:null, attendedName:null, attendedManual:false,
+    items:[{ id:'i1', description:'Jersey Home', quantity:1, talla:'10', manga:'larga', nombre:'LEO', numero:'7', kit:null },
+           { id:'i2', description:'Jersey Away', quantity:1, talla:'10', manga:null, nombre:'LEO', numero:'7', kit:null },
+           { id:'i3', description:'Par de calcetas', quantity:1, talla:'Universal', manga:null, nombre:null, numero:null, kit:null }] },
+  'o-viejo':{ playerName:null, source:'internal_capture', attendedBy:'u-zul', attendedName:'Zul', attendedManual:false,
+    items:[{ id:'i9', description:'Hoodie', quantity:1, talla:'L', manga:null, nombre:null, numero:null, kit:null }] }
 };
 
 const PEDIDOS = [
@@ -109,6 +119,9 @@ const CLIENTE = (pagoFalla) => `
       if(n==='v2_club_config')return ok({name:'Tannery City FC',whatsapp:'524792651338',paymentInstructions:${JSON.stringify({ transfer:PAGO.transfer, methods:PAGO.methods })}});
       if(n==='v2_orders')return ok(PEDIDOS);
       if(n==='v2_orders_board')return ok(TAB);
+      if(n==='v2_order_staff')return ok([{userId:'u-zul',name:'Zul'},{userId:'u-mich',name:'Mich'}]);
+      if(n==='v2_set_order_item_sleeve'){for(const t of Object.values(TAB))for(const i of t.items)if(i.id===p.order_item_id)i.manga=p.manga;return ok({manga:p.manga});}
+      if(n==='v2_set_order_attendant'){TAB[p.order_id].attendedBy=p.user_id;TAB[p.order_id].attendedManual=!!p.user_id;return ok({});}
       if(n==='v2_confirm_order_number'){TAB[p.order_id].numberConfirmed=p.confirmed?{numeros:['7']}:null;return ok({ok:true});}
       if(n==='v2_orders_to_review')return ok(['o-nuevo'].filter(x=>!revisados.has(x)));
       if(n==='v2_order_detail')return ok(DET[p.order_id]);
@@ -131,7 +144,7 @@ let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 
 async function abre(ruta, { pagoFalla = false } = {}) {
-  const pg = await nav.newPage({ viewport:{ width:390, height:844 } });
+  const pg = await nav.newPage({ viewport:{ width:Number(process.env.ANCHO || 390), height:844 } });
   const errs = [];
   pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
   await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
@@ -177,7 +190,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   await pg.close();
 }
 
-/* ===== 3-9. ADMIN ===== */
+/* ===== 3-12. ADMIN ===== */
 {
   const { pg, errs } = await abre('/v2/pedidos/');
   await pg.waitForSelector('#orderList .order-row .order-items', { timeout:8000 }).catch(() => {});
@@ -185,19 +198,26 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   const quien = await pg.textContent(`${fila('o-nuevo')} .order-who strong`).catch(() => '');
   revisa('3. el jugador va grande', quien === 'Leo Ávila', quien);
   const pidio = await pg.textContent(`${fila('o-nuevo')} .order-pidio`).catch(() => '');
-  revisa('3. y abajo quién lo pidió', /^Pidió: Ana Sofía Ávila/.test(pidio), pidio);
+  revisa('3. y abajo quién lo pidió y cómo llegó', pidio === 'Pidió Ana Sofía Ávila · Compró en línea', pidio);
   const viejo = await pg.textContent(`${fila('o-viejo')} .order-who strong`).catch(() => '');
   revisa('4. sin jugador, la fila dice quién pidió', viejo === 'Abuelo Pérez', viejo);
-  const piezas = await pg.$$eval(`${fila('o-nuevo')} .order-items li`, ls => ls.map(l => l.innerText));
-  revisa('5. las piezas se leen en la fila con manga larga y número', piezas[0] === 'Jersey Home · T10 · Manga larga · LEO #7' && piezas.length === 2, JSON.stringify(piezas));
+  revisa('10. el del mostrador dice quién lo levantó', /Lo levantó Zul/.test(await pg.textContent(`${fila('o-viejo')} .order-pidio`).catch(() => '')));
+  const piezas = await pg.$$eval(`${fila('o-nuevo')} .order-items li`, ls => ls.map(l => l.innerText.replace(/\s+/g, ' ').trim()));
+  revisa('5. las piezas se leen en la fila con manga y número', piezas[0] === 'Jersey Home · Talla 10 · LEO #7 Manga larga' && piezas.length === 3, JSON.stringify(piezas));
+  revisa('5. un jersey sin manga lo dice en rojo', /Manga sin definir/.test(piezas[1] || '') && !!(await pg.$(`${fila('o-nuevo')} .t-manga.falta`)), JSON.stringify(piezas));
+  revisa('11. la nota del pedido se ve en la fila', /Las dos de manga larga/.test(await pg.textContent(`${fila('o-nuevo')} .t-nota`).catch(() => '')));
   const barra = await pg.textContent(`${fila('o-nuevo')} .order-num`).catch(() => '');
   revisa('6. dice "Número #7 por confirmar"', /Número #7 por confirmar/.test(barra), barra);
   revisa('6. el pedido sin número no trae barra', (await pg.$(`${fila('o-viejo')} .order-num`)) === null);
 
-  await pg.selectOption('#statusFilter', '__numero');
+  const segs = await pg.$$eval('#tSeg [data-f]', bs => bs.map(b => [b.dataset.f, b.querySelector('i').textContent]));
+  revisa('12. los filtros traen su cuenta', JSON.stringify(segs) === JSON.stringify([['','2'],['__atender','1'],['__cobrar','1'],['in_production','0'],['ready','0']]), JSON.stringify(segs));
+  await pg.click('#tSeg [data-f="__atender"]');
   const solo = await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId));
-  revisa('7. el filtro deja sólo los de número por confirmar', JSON.stringify(solo) === '["o-nuevo"]', JSON.stringify(solo));
-  await pg.selectOption('#statusFilter', '');
+  revisa('7. "Por atender" deja sólo lo pendiente', JSON.stringify(solo) === '["o-nuevo"]', JSON.stringify(solo));
+  await pg.selectOption('#statusFilter', '__numero');
+  revisa('7. el filtro "Número por confirmar" sigue', JSON.stringify(await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId))) === '["o-nuevo"]');
+  await pg.click('#tSeg [data-f=""]');
 
   await pg.click(`${fila('o-nuevo')} [data-num-confirma]`);
   await pg.waitForSelector(`${fila('o-nuevo')} .order-num.ok`, { timeout:4000 }).catch(() => {});
@@ -211,16 +231,30 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   revisa('6. y se puede deshacer', JSON.stringify(des) === '[true,false]', JSON.stringify(des));
 
   await pg.fill('#orderSearch', 'leo avila');
-  await pg.dispatchEvent('#orderSearch', 'input');
   const busca = await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId));
   revisa('8. se busca por el nombre del jugador', JSON.stringify(busca) === '["o-nuevo"]', JSON.stringify(busca));
+  await pg.fill('#orderSearch', 'zul');
+  revisa('8. y por quién lo atendió', JSON.stringify(await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId))) === '["o-viejo"]');
   await pg.fill('#orderSearch', '');
-  await pg.dispatchEvent('#orderSearch', 'input');
 
+  if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/lista.png`, fullPage: true });
   await pg.click(`${fila('o-nuevo')} .order-who`);
-  await pg.waitForSelector('#drawer:not(.hidden)', { timeout:5000 }).catch(() => {});
+  await pg.waitForSelector('#drawer:not(.hidden) #orderResumen .t-res-quien', { timeout:5000 }).catch(() => {});
   revisa('3 clics: tocar la fila abre el pedido', await pg.isVisible('#drawer'));
-  revisa('9. el detalle trae el chip de Manga', /Manga: Larga/.test(await pg.innerText('#drawer').catch(() => '')));
+  const res = (await pg.innerText('#orderResumen').catch(() => '')).replace(/\s+/g, ' ');
+  revisa('13. el detalle abre con quién, cómo llegó y la nota', /Leo Ávila/.test(res) && /Pidió Ana Sofía Ávila/.test(res) && /Compró en línea/.test(res) && /Las dos de manga larga/.test(res), res);
+  revisa('9. el detalle trae el chip de Manga', /Manga: Larga/.test(await pg.innerText('#itemList').catch(() => '')));
+  await pg.click('#orderResumen [data-manga-item="i2"][data-m="larga"]');
+  await pg.waitForSelector('#orderResumen [data-manga-item="i2"][data-m="larga"].activo', { timeout:4000 }).catch(() => {});
+  const mangas = await pg.evaluate(() => window.__rpc.filter(c => c.n === 'v2_set_order_item_sleeve').map(c => [c.p.order_item_id, c.p.manga]));
+  revisa('14. la manga se corrige en un toque', JSON.stringify(mangas) === '[["i2","larga"]]', JSON.stringify(mangas));
+  await pg.selectOption('#tAtendio', 'u-mich');
+  await pg.waitForFunction(() => window.__rpc.some(c => c.n === 'v2_set_order_attendant'), null, { timeout:4000 }).catch(() => {});
+  const at = await pg.evaluate(() => window.__rpc.filter(c => c.n === 'v2_set_order_attendant').map(c => [c.p.order_id, c.p.user_id]));
+  revisa('15. se marca quién del club lo atendió', JSON.stringify(at) === '[["o-nuevo","u-mich"]]', JSON.stringify(at));
+  revisa('15. y la fila lo dice', /atendió Mich/.test(await pg.textContent(`${fila('o-nuevo')} .order-pidio`).catch(() => '')));
+  if (process.env.SHOTS) { await pg.evaluate(() => { document.getElementById('drawer').scrollTop = 0; }); await pg.screenshot({ path: `${process.env.SHOTS}/detalle.png` }); }
+  revisa('nada se sale a 390px', !(await pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
   revisa('admin sin errores', errs.length === 0, errs.join('\n'));
   await pg.close();
 }

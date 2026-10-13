@@ -119,3 +119,9 @@
 .num-pista.ok{color:#1d7a54}
 .num-pista.mal{color:#b13d34}
 .campo-num{display:grid;gap:6px;align-content:start;min-width:0}
+/* Manga del jersey (13/10/2026): corta o larga, a lo ancho del bloque. */
+.campo-manga{grid-column:1/-1;display:grid;gap:6px}
+.campo-manga>span{font-size:12px;font-weight:800;color:#50676b}
+.manga-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;background:#eceff0}
+.manga-seg button{min-height:40px;border:0;border-radius:9px;background:transparent;font:inherit;font-weight:700;color:#3c4e52;cursor:pointer}
+.manga-seg button.activa{background:#07191e;color:#fff}

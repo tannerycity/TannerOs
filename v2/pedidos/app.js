@@ -77,39 +77,42 @@ function vigente(o){return !['cancelled','refunded'].includes(o.status);}
    la Tienda ve las tarjetas apagadas con el motivo, en vez de toparse con un
    "Sin acceso" después de haber dado el clic. */
 function aplicaAccesos(){
-  const nuevo=$('newOrderAction'),prod=$('productionAction');
-  if(nuevo&&!canWrite){
-    nuevo.classList.add('is-off');
-    nuevo.querySelector('small').textContent='Tu rol no puede levantar pedidos';
-    nuevo.removeAttribute('href');
-  }
-  if(prod&&!canManage){
-    prod.classList.add('is-off');
-    prod.querySelector('small').textContent='Sólo quien administra la Tienda';
-    prod.removeAttribute('href');
-  }
+  const apaga=(el,motivo)=>{if(!el)return;el.classList.add('is-off');el.removeAttribute('href');el.title=motivo;el.setAttribute('aria-disabled','true');const sm=el.querySelector('small');if(sm)sm.textContent=motivo;};
+  if(!canWrite)apaga($('newOrderAction'),'Tu rol no puede levantar pedidos');
+  if(!canManage)apaga($('productionAction'),'Sólo quien administra la Tienda');
 }
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=!!(financeMod?.enabled&&financeMod?.can_read);document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();}
 /* El aviso de "Pedido nuevo" (campana y push) trae ?pedido=<id>: se abre directo. */
 function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');const o=id&&orders.find(x=>x.id===id);if(o)openOrder(o);}
 async function load(){const [lista,revisar,tab]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({}))]);orders=lista||[];tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
-function renderReviewBanner(){const b=$('reviewBanner');if(!b)return;const n=orders.filter(o=>porRevisar.has(o.id)).length;const viendo=$('statusFilter').value==='__review';b.classList.toggle('hidden',n===0);b.textContent=viendo?`Viendo ${n} ${n===1?'pedido':'pedidos'} por revisar · Ver todos`:`${n} ${n===1?'pedido nuevo':'pedidos nuevos'} por revisar · Ver`;}
-function filteredOrders(){const status=$('statusFilter').value,review=status==='__review',porNumero=status==='__numero',q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();return orders.filter(o=>(review?porRevisar.has(o.id):porNumero?(numeroPorConfirmar(o)&&vigente(o)):(!status||o.status===status))&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
-function renderKpis(){const rows=orders.filter(vigente);$('kpiOrders').textContent=rows.length;$('kpiPending').textContent=rows.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length;$('kpiProduction').textContent=rows.filter(o=>o.status==='in_production').length;$('kpiReady').textContent=rows.filter(o=>o.status==='ready').length;}
+/* Los filtros de arriba (segmentos tipo iOS). Cada uno trae su cuenta: los
+   números que antes vivían en tarjetas aparte ahora dicen a dónde ir. */
+const SEGMENTOS=[{f:'',t:'Todos'},{f:'__atender',t:'Por atender'},{f:'__cobrar',t:'Por cobrar'},{f:'in_production',t:'En producción'},{f:'ready',t:'Listos'}];
+function porAtender(o){return vigente(o)&&(porRevisar.has(o.id)||numeroPorConfirmar(o));}
+function cuentaDe(f){const v=orders.filter(vigente);if(f==='__atender')return v.filter(porAtender).length;if(f==='__cobrar')return v.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length;if(!f)return v.length;return v.filter(o=>o.status===f).length;}
+function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$('statusFilter').value;seg.innerHTML=SEGMENTOS.map(s=>{const n=cuentaDe(s.f);return `<button type="button" role="tab" data-f="${s.f}" aria-selected="${actual===s.f}" class="${actual===s.f?'activo':''}${s.f==='__atender'&&n?' alerta':''}">${esc(s.t)}<i>${n}</i></button>`;}).join('');const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('__atender');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${a?` · ${a} por atender`:' · todo al día'}`;}}
+function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();const pasa=o=>{if(status==='__review')return porRevisar.has(o.id);if(status==='__numero')return numeroPorConfirmar(o)&&vigente(o);if(status==='__atender')return porAtender(o);if(status==='__cobrar')return vigente(o)&&['pending_payment','partial_payment'].includes(o.status);return !status||o.status===status;};return orders.filter(o=>pasa(o)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${tablero[o.id]?.attendedName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
+function renderKpis(){const rows=orders.filter(vigente);const pon=(id,n)=>{const e=$(id);if(e)e.textContent=n;};pon('kpiOrders',rows.length);pon('kpiPending',rows.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length);pon('kpiProduction',rows.filter(o=>o.status==='in_production').length);pon('kpiReady',rows.filter(o=>o.status==='ready').length);}
 function textoMangaCorto(m){return m==='larga'?'Larga':m==='corta'?'Corta':'';}
+const esJersey=d=>/jersey|playera|uniforme/i.test(d||'');
+const iniciales=n=>String(n||'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
+/* Cómo llegó el pedido y quién del club lo atendió, en palabras. */
+const ORIGEN={public_form:'Compró en línea',portal_familias:'Compró desde su portal',internal_capture:'Se levantó en el club',legacy_import:'Del sistema anterior'};
+function quienAtendio(t){const como=ORIGEN[t?.source]||'';const quien=t?.attendedName;if(t?.source==='internal_capture')return quien?`Lo levantó ${quien}`:como;return [como,quien?`atendió ${quien}`:null].filter(Boolean).join(' · ');}
 /* Los números que pidió el pedido, sin repetir. */
 function numerosDe(o){return [...new Set((tablero[o.id]?.items||[]).map(i=>String(i.numero||'').trim()).filter(Boolean))];}
 function numeroPorConfirmar(o){return numerosDe(o).length>0&&!tablero[o.id]?.numberConfirmed;}
-/* Una pieza en una línea: "Jersey · T8 · Manga larga · RUIZ #10". */
-function lineaDePieza(i){const partes=[i.talla?`T${i.talla}`:null,i.manga==='larga'?'Manga larga':i.manga==='corta'?'Manga corta':null,[i.nombre,i.numero?`#${i.numero}`:null].filter(Boolean).join(' ')||null].filter(Boolean);return `<li${i.manga==='larga'?' class="es-larga"':''}><b>${Number(i.quantity||1)>1?`${Number(i.quantity)}× `:''}${esc(i.description||'Pieza')}</b>${partes.length?` · ${esc(partes.join(' · '))}`:''}</li>`;}
+/* Una pieza en una línea: "Jersey · T8 · LEO #10" y la manga como etiqueta. */
+function lineaDePieza(i){const partes=[i.talla?`Talla ${i.talla}`:null,[i.nombre,i.numero?`#${i.numero}`:null].filter(Boolean).join(' ')||null].filter(Boolean);const manga=i.manga?`<em class="t-manga ${i.manga==='larga'?'larga':''}">Manga ${esc(i.manga)}</em>`:esJersey(i.description)?'<em class="t-manga falta">Manga sin definir</em>':'';return `<li><span><b>${Number(i.quantity||1)>1?`${Number(i.quantity)}× `:''}${esc(i.description||'Pieza')}</b>${partes.length?` · ${esc(partes.join(' · '))}`:''}</span>${manga}${i.obs?`<small class="t-obs">${esc(i.obs)}</small>`:''}</li>`;}
 function barraNumero(o){
-  const nums=numerosDe(o);if(!nums.length)return '';
+  const nums=numerosDe(o);if(!nums.length||!vigente(o))return '';
   const conf=tablero[o.id]?.numberConfirmed,txt=nums.map(n=>`#${n}`).join(', ');
-  if(conf)return `<div class="order-num ok"><span>Número ${esc(txt)} confirmado</span>${canWrite?`<button type="button" class="link-toggle" data-num-deshacer="${esc(o.id)}">Deshacer</button>`:''}</div>`;
-  return `<div class="order-num pendiente"><span>Número ${esc(txt)} por confirmar</span>${canWrite&&vigente(o)?`<button type="button" class="primary mini" data-num-confirma="${esc(o.id)}">Confirmar número</button>`:''}</div>`;
+  if(conf)return `<div class="order-num ok"><span>Número ${esc(txt)} confirmado</span>${canWrite?`<button type="button" class="t-link" data-num-deshacer="${esc(o.id)}">Deshacer</button>`:''}</div>`;
+  return `<div class="order-num pendiente"><span>Número ${esc(txt)} por confirmar</span>${canWrite?`<button type="button" class="t-pill-btn" data-num-confirma="${esc(o.id)}">Confirmar número</button>`:''}</div>`;
 }
-function render(){const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row';b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
-    b.innerHTML=`<div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName?`<span>${esc(t.playerCategory||'')}${t.playerCategory&&t.playerJersey?' · ':''}${t.playerJersey?`dorsal #${esc(t.playerJersey)}`:''}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió: ${esc(o.customer_name||'—')} · `:''}${esc(o.folio||'')} · ${fmt(o.created_at)}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${balance!=null&&balance>0?`<small>Saldo ${money.format(balance)}</small>`:''}</div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b><span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span></div>${barraNumero(o)}`;
+function render(){const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
+    const atendio=quienAtendio(t);
+    b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${balance!=null&&balance>0?` · saldo ${money.format(balance)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b><span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span></div>${barraNumero(o)}`;
     b.addEventListener('click',ev=>{const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
     b.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
     list.appendChild(b);});}
@@ -120,8 +123,42 @@ async function confirmaNumero(o,confirmar,btn){
     await rpc('v2_confirm_order_number',{organization_id:ctx.organization_id,order_id:o.id,confirmed:confirmar});
     const t=tablero[o.id]||(tablero[o.id]={items:[]});
     t.numberConfirmed=confirmar?{numeros:numerosDe(o),at:new Date().toISOString()}:null;
-    render();msg(confirmar?`Número confirmado en ${o.folio||'el pedido'}.`:'Se quitó la confirmación del número.','success');
+    render();renderReviewBanner();if(current?.order?.id===o.id)pintaResumen();msg(confirmar?`Número confirmado en ${o.folio||'el pedido'}.`:'Se quitó la confirmación del número.','success');
   }catch(e){btn.disabled=false;msg(e.message||'No se pudo confirmar el número.');}
+}
+/* El resumen arriba del detalle: de quién es, quién lo pidió y quién lo
+   atendió, la nota, y cada jersey con su manga para corregirla en un toque. */
+let staffDelClub=null;
+async function pintaResumen(){
+  const box=$('orderResumen');if(!box||!current)return;
+  const d=current.order,t=tablero[d.id]||{},items=t.items||[],editable=canWrite&&['draft','pending_payment','partial_payment','paid'].includes(d.status);
+  const quien=t.playerName||d.customer_name||'Sin nombre';
+  if(canWrite&&!staffDelClub){try{staffDelClub=await rpc('v2_order_staff',{organization_id:ctx.organization_id})||[];}catch{staffDelClub=[];}}
+  const opciones=(staffDelClub||[]).map(s=>`<option value="${esc(s.userId)}" ${s.userId===t.attendedBy?'selected':''}>${esc(s.name)}</option>`).join('');
+  const piezas=items.map(i=>{const jersey=esJersey(i.description);const m=i.manga;
+    const control=jersey?(editable?`<div class="t-seg mini" role="group" aria-label="Manga">${['corta','larga'].map(v=>`<button type="button" data-manga-item="${esc(i.id)}" data-m="${v}" class="${m===v?'activo':''}" aria-pressed="${m===v}">${v==='larga'?'Larga':'Corta'}</button>`).join('')}</div>`:`<em class="t-manga ${m==='larga'?'larga':m?'':'falta'}">${m?`Manga ${esc(m)}`:'Manga sin definir'}</em>`):'';
+    return `<li><div><b>${esc(i.description||'Pieza')}</b><span>${esc([i.talla?`Talla ${i.talla}`:null,i.nombre,i.numero?`#${i.numero}`:null].filter(Boolean).join(' · ')||'Sin variante')}</span>${i.obs?`<small class="t-obs">${esc(i.obs)}</small>`:''}</div>${control}</li>`;}).join('');
+  box.innerHTML=`<div class="t-res-quien"><span class="t-avatar grande" aria-hidden="true">${esc(iniciales(quien))}</span><div><strong>${esc(quien)}</strong><span>${t.playerName?`Pidió ${esc(d.customer_name||'—')}`:'Sin jugador ligado'}${t.playerCategory?` · ${esc(t.playerCategory)}`:''}</span></div></div>
+    <dl class="t-res-datos"><div><dt>Cómo llegó</dt><dd>${esc(ORIGEN[t.source]||'—')}</dd></div><div><dt>Atendió</dt><dd>${canWrite?`<select id="tAtendio" aria-label="Quién del club atendió"><option value="">${t.attendedName&&!t.attendedManual?`${esc(t.attendedName)} (automático)`:'Nadie todavía'}</option>${opciones}</select>`:esc(t.attendedName||'—')}</dd></div></dl>
+    ${t.notes?`<p class="t-nota"><b>Nota del pedido</b>${esc(t.notes)}</p>`:''}
+    ${piezas?`<ul class="t-res-piezas">${piezas}</ul>`:''}
+    ${barraNumero(d)}`;
+  if(canWrite){const sel=$('tAtendio');if(sel&&t.attendedManual)sel.value=t.attendedBy||'';}
+}
+async function cambiaManga(itemId,manga,btn){
+  btn.disabled=true;
+  try{await rpc('v2_set_order_item_sleeve',{organization_id:ctx.organization_id,order_item_id:itemId,manga});
+    const t=tablero[current.order.id];const it=(t?.items||[]).find(x=>x.id===itemId);if(it)it.manga=manga;
+    const di=(current.items||[]).find(x=>x.id===itemId);if(di)di.attributes={...(di.attributes||{}),manga};
+    pintaResumen();render();msg(`Manga ${manga} guardada.`,'success');}
+  catch(e){btn.disabled=false;msg(e.message||'No se pudo guardar la manga.');}
+}
+async function cambiaAtendio(userId){
+  try{await rpc('v2_set_order_attendant',{organization_id:ctx.organization_id,order_id:current.order.id,user_id:userId||null});
+    const t=tablero[current.order.id]||(tablero[current.order.id]={items:[]});const s=(staffDelClub||[]).find(x=>x.userId===userId);
+    t.attendedManual=!!userId;if(userId){t.attendedBy=userId;t.attendedName=s?.name||t.attendedName;}
+    render();msg(userId?`Quedó: lo atendió ${s?.name||'esa persona'}.`:'Se quitó quién lo atendió.','success');}
+  catch(e){msg(e.message||'No se pudo guardar quién lo atendió.');}
 }
 async function fetchDetail(order){try{const d=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:order.id});details.set(order.id,d);return d;}catch{return null;}}
 async function loadBusinessMetrics(){if(!canViewFinance)return;const run=++metricsRun,rows=orders.filter(vigente);$('metricsStatus').textContent='Calculando…';for(let i=0;i<rows.length;i+=8){const batch=rows.slice(i,i+8).filter(o=>!details.has(o.id));if(batch.length)await Promise.all(batch.map(fetchDetail));if(run!==metricsRun)return;}if(run!==metricsRun)return;renderBusinessMetrics(rows);render();}
@@ -369,6 +406,7 @@ async function openOrder(o){
   const items=$('itemList');items.innerHTML=renderItems(current.items||[],d);
   items.querySelectorAll('.save-item').forEach(b=>b.addEventListener('click',()=>saveItem(b.closest('[data-item-id]'))));
   renderReview(d);
+  pintaResumen();
   pintaJugadorDelPedido(d);
   renderProfitability();renderPaymentPlan(d);renderPayments(d);renderReadiness();renderStateActions(d);renderWarranty(d);
   renderBusinessMetrics(orders.filter(vigente));render();msg();collapseDrawerSections();
@@ -435,7 +473,7 @@ async function saveItem(row){if(!current||!canManage||!row)return;const orderId=
 async function postPayment(){if(!current||!canWrite)return;const d=current.order,amount=Number($('paymentAmount').value||0),balance=Number(current.balance||0),payerType=$('paymentPayerType').value,payerName=$('paymentPayer').value.trim();if(!Number.isFinite(amount)||amount<=0){payMsg('Captura un monto mayor a cero.');return;}if(amount>balance+0.005){payMsg(`El pago excede el saldo de ${money.format(balance)}.`);return;}if(payerType==='sponsor'&&!payerName){payMsg('Indica el nombre del patrocinador.');return;}const btn=$('savePayment');btn.disabled=true;payMsg();try{await rpc('v2_post_order_payment_attributed',{organization_id:ctx.organization_id,order_id:d.id,amount,payment_date:$('paymentDate').value||new Date().toISOString().slice(0,10),method:$('paymentMethod').value||'other',reference:$('paymentReference').value.trim()||null,payer_type:payerType,payer_name:payerName||d.customer_name||null,idempotency_key:`order-${d.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`});await refreshCurrent(d.id);payMsg('Pago registrado con pagador y estado actualizado.','success');}catch(e){payMsg(e.message||'No se pudo registrar el pago.');}finally{btn.disabled=!canWrite;}}
 function setupToggle(btnId,wrapId){const btn=$(btnId),wrap=$(wrapId);if(!btn||!wrap)return;btn.addEventListener('click',()=>{const nowHidden=wrap.classList.toggle('hidden');btn.setAttribute('aria-expanded',String(!nowHidden));btn.classList.toggle('open',!nowHidden);});}
 setupToggle('togglePaymentHistory','paymentHistoryWrap');setupToggle('toggleFullDetail','fullDetail');
-$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);$('confirmWhatsApp')?.addEventListener('click',confirmWhatsApp);$('markReviewed')?.addEventListener('click',markReviewed);$('reviewBanner')?.addEventListener('click',()=>{const f=$('statusFilter');f.value=f.value==='__review'?'':'__review';render();renderReviewBanner();});$('statusFilter').addEventListener('change',renderReviewBanner);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
+$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('tSeg')?.addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;$('statusFilter').value=b.dataset.f;render();renderReviewBanner();});$('orderResumen')?.addEventListener('click',e=>{const m=e.target.closest('[data-manga-item]');if(m){cambiaManga(m.dataset.mangaItem,m.dataset.m,m);return;}const c=e.target.closest('[data-num-confirma],[data-num-deshacer]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,!!c.dataset.numConfirma,c);}});$('orderResumen')?.addEventListener('change',e=>{if(e.target.id==='tAtendio')cambiaAtendio(e.target.value);});$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);$('confirmWhatsApp')?.addEventListener('click',confirmWhatsApp);$('markReviewed')?.addEventListener('click',markReviewed);$('statusFilter').addEventListener('change',renderReviewBanner);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
 // === Eliminar pedido — solo Presidencia (agregado) ===
 (function(){
   function inject(){

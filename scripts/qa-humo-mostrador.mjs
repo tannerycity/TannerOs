@@ -73,6 +73,10 @@ revisa('el jersey se propone con el nombre del Tanner',
   (await pg.inputValue('#pfName'))==='Dario Montalvo Díaz', await pg.inputValue('#pfName'));
 revisa('y con su dorsal', (await pg.inputValue('#pfNumber'))==='7', await pg.inputValue('#pfNumber'));
 await pg.click('.talla-chip[data-talla="12"]');
+// Manga (13/10/2026): corta por omisión; aquí se pide larga.
+revisa('el jersey ofrece manga, corta por omisión',
+  (await pg.getAttribute('#pfManga [data-m="corta"]','aria-pressed'))==='true');
+await pg.click('#pfManga [data-m="larga"]');
 await pg.click('#pfAdd');
 await pg.waitForTimeout(250);
 await pg.evaluate(()=>document.getElementById('backdrop').click());
@@ -82,6 +86,8 @@ await pg.waitForTimeout(500);
 const llamadas=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_create_internal_order'));
 revisa('elegir al Tanner BASTA: el pedido se crea sin teclear cliente',
   llamadas.length===1 && !llamadas[0]?.p?.customer_name, JSON.stringify(llamadas[0]?.p));
+revisa('la manga larga viaja en la línea',
+  llamadas[0]?.p?.lines?.[0]?.sleeve==='larga', JSON.stringify(llamadas[0]?.p?.lines));
 revisa('y viaja con su player_id, para que entre a su estado de cuenta',
   llamadas[0]?.p?.player_id==='t1', JSON.stringify(llamadas[0]?.p?.player_id));
 revisa('sale la confirmación con su folio',

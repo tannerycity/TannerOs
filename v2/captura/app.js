@@ -258,16 +258,16 @@ function addBundleToCart(){
   const missing=picking.slots.some(s=>!s.talla.trim());
   if(missing){drawerMsg('Falta la talla de alguna pieza.');return;}
   const total=tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid);
-  const name=$('bfName').value.trim(),number=$('bfNumber').value.trim();
+  const name=$('bfName').value.trim(),number=$('bfNumber').value.trim(),sleeve=mangaDe('bf');
   cart.push({
-    kind:'bundle',bundleId:b.id,bundleName:b.name,tier,personalizationName:name||null,number:number||null,
+    kind:'bundle',bundleId:b.id,bundleName:b.name,tier,personalizationName:name||null,number:number||null,sleeve,
     pieces:picking.slots.map(s=>({productId:s.productId,talla:s.talla.trim()})),
     total,
-    label:`${b.name} (${tier})${name?` — ${name}${number?' #'+number:''}`:''}`
+    label:`${b.name} (${tier}) · manga ${sleeve}${name?` — ${name}${number?' #'+number:''}`:''}`
   });
   renderCart();
   drawerMsg(`Agregado. Puedes agregar otro ${b.name} para otro hermano, o cerrar.`,'success');
-  $('bfName').value='';$('bfNumber').value='';
+  $('bfName').value='';$('bfNumber').value='';reiniciaManga('bf');
   picking.slots=bundleSlots(b);
   renderBundlePieces();
 }
@@ -326,22 +326,26 @@ function openProductDrawer(p){
   $('pfPersonalization').classList.toggle('hidden',!JERSEY_RE.test(p.name));
   openDrawer();
 }
+/* Manga corta o larga del jersey (13/10/2026): dos botones, corta por omisión. */
+function mangaDe(pre){return $(`${pre}Manga`)?.querySelector('.activa')?.dataset.m==='larga'?'larga':'corta';}
+function reiniciaManga(pre){$(`${pre}Manga`)?.querySelectorAll('[data-m]').forEach(b=>{const on=b.dataset.m==='corta';b.classList.toggle('activa',on);b.setAttribute('aria-pressed',String(on));});}
+['bf','pf'].forEach(pre=>$(`${pre}Manga`)?.addEventListener('click',e=>{const b=e.target.closest('[data-m]');if(!b)return;$(`${pre}Manga`).querySelectorAll('[data-m]').forEach(x=>{const on=x===b;x.classList.toggle('activa',on);x.setAttribute('aria-pressed',String(on));});}));
 function addProductToCart(){
   const p=picking.product;
   const talla=tallaElegida();
   const qty=Math.max(1,Math.min(20,Number($('pfQty').value)||1));
   if(!talla){drawerMsg('Elige la talla.');return;}
   const isJersey=JERSEY_RE.test(p.name);
-  const name=isJersey?$('pfName').value.trim():'',number=isJersey?$('pfNumber').value.trim():'';
+  const name=isJersey?$('pfName').value.trim():'',number=isJersey?$('pfNumber').value.trim():'',sleeve=isJersey?mangaDe('pf'):null;
   cart.push({
-    kind:'product',productId:p.id,talla,quantity:qty,personalizationName:name||null,number:number||null,
+    kind:'product',productId:p.id,talla,quantity:qty,personalizationName:name||null,number:number||null,sleeve,
     total:Number(p.price||0)*qty,
-    label:`${p.name} · ${talla}${qty>1?` ×${qty}`:''}${name?` — ${name}${number?' #'+number:''}`:''}`
+    label:`${p.name} · ${talla}${qty>1?` ×${qty}`:''}${sleeve?` · manga ${sleeve}`:''}${name?` — ${name}${number?' #'+number:''}`:''}`
   });
   renderCart();
   drawerMsg('Agregado al pedido.','success');
   $('pfTallas')?.querySelectorAll('.talla-chip.activa').forEach(x=>x.classList.remove('activa'));
-  $('pfTalla').value='';$('pfQty').value=1;$('pfName').value='';$('pfNumber').value='';
+  $('pfTalla').value='';$('pfQty').value=1;$('pfName').value='';$('pfNumber').value='';reiniciaManga('pf');
 }
 $('pfAdd').addEventListener('click',addProductToCart);
 $('pfPickNumber').addEventListener('click',()=>elegirNumero('pf'));
@@ -378,8 +382,8 @@ async function createOrder(){
   }
   if(!cart.length){createMsg('Agrega al menos una pieza al pedido.');return;}
   const lines=cart.map(item=>item.kind==='bundle'
-    ?{kind:'bundle',bundleId:item.bundleId,tier:item.tier,personalizationName:item.personalizationName,number:item.number,pieces:item.pieces}
-    :{kind:'product',productId:item.productId,talla:item.talla,quantity:item.quantity,personalizationName:item.personalizationName,number:item.number});
+    ?{kind:'bundle',bundleId:item.bundleId,tier:item.tier,personalizationName:item.personalizationName,number:item.number,sleeve:item.sleeve||null,pieces:item.pieces}
+    :{kind:'product',productId:item.productId,talla:item.talla,quantity:item.quantity,personalizationName:item.personalizationName,number:item.number,sleeve:item.sleeve||null});
   const btn=$('createOrder');btn.disabled=true;createMsg();
   try{
     const result=await rpc('v2_create_internal_order',{organization_id:ctx.organization_id,customer_name:name||null,customer_phone:phone||null,customer_email:email||null,notes:$('orderNotes').value.trim()||null,lines,player_id:p?p.id:null});

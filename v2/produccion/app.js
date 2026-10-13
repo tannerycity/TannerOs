@@ -202,17 +202,21 @@ async function exportaHojaPdf(){
       cabecera();
       let rayado=false;
       g.renglones.forEach((r,i)=>{
-        if(y+14>alto-margen-24){doc.addPage();y=margen;cabecera();rayado=false;}
         const f=filaDeHoja(r,i);
-        if(rayado){doc.setFillColor(247,250,249);doc.rect(margen,y-9,ancho-margen*2,13,'F');}
+        // Los comentarios (y la nota del pedido) se leen completos: el renglón
+        // crece lo que haga falta en vez de cortarlos en la primera línea.
+        const celdas=COLUMNAS_HOJA.map(c=>c.clave==='status'?['']:(c.clave==='comentarios'?doc.splitTextToSize(String(f[c.clave]??''),c.ancho-6):[doc.splitTextToSize(String(f[c.clave]??''),c.ancho-6)[0]||'']));
+        const lineas=Math.max(1,...celdas.map(x=>x.length)),altoFila=4+lineas*9;
+        if(y+altoFila>alto-margen-24){doc.addPage();y=margen;cabecera();rayado=false;}
+        if(rayado){doc.setFillColor(247,250,249);doc.rect(margen,y-9,ancho-margen*2,altoFila,'F');}
         rayado=!rayado;
         let x=margen+4;
-        for(const c of COLUMNAS_HOJA){
-          const bruto=c.clave==='status'?'':String(f[c.clave]??'');
-          doc.text(doc.splitTextToSize(bruto,c.ancho-6)[0]||'',x,y);
+        COLUMNAS_HOJA.forEach((c,k)=>{
+          if(c.clave==='manga'&&f.manga==='LARGA'){doc.setFont('helvetica','bold');doc.text(celdas[k],x,y);doc.setFont('helvetica','normal');}
+          else doc.text(celdas[k],x,y);
           x+=c.ancho;
-        }
-        y+=13;
+        });
+        y+=altoFila;
       });
       y+=6;
     }

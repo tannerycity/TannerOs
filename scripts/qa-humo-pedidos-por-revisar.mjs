@@ -191,13 +191,14 @@ async function pideCalcetas(pg) {
 {
   const { pg, errs } = await abre('/v2/pedidos/');
   await pg.waitForSelector('#orderList .order-row', { timeout:8000 }).catch(() => {});
-  const banner = await pg.textContent('#reviewBanner').catch(() => '');
-  revisa('4. arriba dice cuántos hay por revisar', await pg.isVisible('#reviewBanner') && /1 pedido nuevo por revisar/.test(banner), banner);
+  // Desde el rediseño (13/10/2026) el aviso es el filtro "Por atender", con su cuenta.
+  const cuenta = await pg.textContent('#tSeg [data-f="__atender"] i').catch(() => '');
+  revisa('4. arriba dice cuántos hay por atender', cuenta === '1' && /1 por atender/.test(await pg.textContent('#tResumen').catch(() => '')), cuenta);
   const etiquetas = await pg.$$eval('.order-row', rs => rs.map(r => [r.dataset.orderId, !!r.querySelector('.order-review-tag')]));
   revisa('5. el nuevo trae etiqueta y el viejo no', JSON.stringify(etiquetas) === JSON.stringify([['o-nuevo', true], ['o-viejo', false]]), JSON.stringify(etiquetas));
-  await pg.click('#reviewBanner');
+  await pg.click('#tSeg [data-f="__atender"]');
   const filas = await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId));
-  revisa('4. el aviso filtra sólo los por revisar', JSON.stringify(filas) === '["o-nuevo"]', JSON.stringify(filas));
+  revisa('4. el filtro deja sólo los por atender', JSON.stringify(filas) === '["o-nuevo"]', JSON.stringify(filas));
 
   await pg.click('.order-row[data-order-id="o-nuevo"]');
   await pg.waitForSelector('#drawer:not(.hidden)', { timeout:5000 }).catch(() => {});
@@ -234,7 +235,7 @@ async function pideCalcetas(pg) {
   revisa('7. con la CLABE y el folio como referencia', m.includes('CLABE: 167210000079567650') && m.includes('Referencia: PED-2026-00031'), m);
   const marcado = await pg.evaluate(() => window.__rpc.filter(c => c.n === 'v2_mark_order_reviewed').map(c => c.p.order_id));
   revisa('7. y lo marca revisado', JSON.stringify(marcado) === '["o-nuevo"]', JSON.stringify(marcado));
-  revisa('7. ya no queda por revisar', !(await pg.isVisible('#reviewSection')) && !(await pg.isVisible('#reviewBanner')));
+  revisa('7. ya no queda por revisar', !(await pg.isVisible('#reviewSection')) && (await pg.textContent('#tSeg [data-f="__atender"] i').catch(() => '')) !== '1');
   revisa('Pedidos sin errores', errs.length === 0, errs.join('\n'));
   await pg.close();
 }

@@ -128,6 +128,7 @@ revisa('al ver archivados aparecen, y con su foto',
   && (await pg.$$eval('#productList .cat-thumb img',n=>n.length))===4);
 
 revisa('abrir un producto sigue funcionando', await (async()=>{
+  await pg.click('.cat-seg [data-ver="productos"]');
   await pg.click('#productList .catalog-card');
   await pg.waitForSelector('#productForm:not(.hidden)',{timeout:5000});
   return (await pg.inputValue('#pName')).length>0;
@@ -153,7 +154,8 @@ revisa('la linea de pendientes dice lo que falta capturar',
   /sin costo|sin foto/.test(pend), pend);
 
 // El formulario de producto
-await pg.click('#productList .catalog-card');
+await pg.click('.cat-seg [data-ver="productos"]');
+  await pg.click('#productList .catalog-card');
 await pg.waitForSelector('#productForm:not(.hidden)',{timeout:5000});
 revisa('la categoria ya no se teclea: se toca',
   (await pg.$$eval('#pCatChips .chip',n=>n.length))===6,
@@ -213,6 +215,7 @@ revisa('al capturar el costo, el margen aparece con su numero',
 
 // El kit perdio los dos campos que nadie lleno nunca.
 await pg.click('#closeDrawer');
+await pg.click('.cat-seg [data-ver="kits"]');
 await pg.click('#bundleList .catalog-card');
 await pg.waitForSelector('#bundleForm:not(.hidden)',{timeout:5000});
 revisa('el kit ya no pide descripcion', (await pg.$$('#bDescription')).length===0);
@@ -222,6 +225,7 @@ revisa('pero sigue pidiendo precio de nino, que si se usa en los tres kits',
 await pg.click('#closeDrawer');
 
 // Piezas del kit (13/10/2026): la lista de productos para tocar, con − / +.
+await pg.click('.cat-seg [data-ver="kits"]');
 await pg.click('#bundleList .catalog-card');
 await pg.waitForSelector('#bComponents .kit-pieza',{timeout:5000});
 const piezasKit=(await pg.$$eval('#bComponents .kit-pieza-nombre b',bs=>bs.map(b=>b.textContent))).join('|');
@@ -242,6 +246,30 @@ revisa('guarda las piezas con su cantidad',JSON.stringify(guardado[0])==='[{"pro
 if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
 revisa('el jersey dice en qué kit va', /En Kit Tanner - Completo/.test(await pg.textContent('#productList')));
 
+// Alta de producto (13/10/2026, "bien fácil"): foto, qué es, nombre, precio;
+// las tallas se prenden solas según lo que es.
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
+if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/catalogo.png`});
+revisa('arriba: Productos | Kits con su cuenta', /Productos\s*4/.test(await pg.textContent('.cat-seg'))&&/Kits\s*1/.test(await pg.textContent('.cat-seg')), await pg.textContent('.cat-seg'));
+await pg.fill('#catBuscar','calcetas');
+revisa('el buscador filtra', (await pg.$$eval('#productList .catalog-card',n=>n.length))===1);
+await pg.fill('#catBuscar','');
+await pg.click('#newProductBtn');
+await pg.waitForSelector('#productForm:not(.hidden)',{timeout:5000});
+const orden=await pg.$$eval('#productForm > *',n=>n.map(x=>x.id||x.className).slice(0,3));
+revisa('el alta empieza por la foto y "¿Qué es?"', orden[0].includes('foto-primero')&&orden[1].includes('campo-toques'), JSON.stringify(orden));
+revisa('SKU y "se vende" van guardados en Más opciones', await pg.isHidden('#pSku'));
+await pg.click('#pCatChips [data-cat="socks"]');
+revisa('calcetas: talla única sola', JSON.stringify(await pg.$$eval('#pSizeChips .chip.on',n=>n.map(x=>x.textContent.trim())))==='["Universal"]');
+await pg.click('#pCatChips [data-cat="jersey"]');
+revisa('jersey: la escala del club sola', (await pg.$$eval('#pSizeChips .chip.on',n=>n.length))===12);
+await pg.fill('#pName','Jersey Portero');
+await pg.fill('#pPrice','899');
+if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/alta.png`});
+await pg.click('#pSave');
+await pg.waitForTimeout(300);
+const alta=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_product').map(x=>x.p).pop());
+revisa('se guarda con categoría, precio y sus doce tallas', alta?.name==='Jersey Portero'&&alta?.category==='jersey'&&alta?.price===899&&alta?.sizes?.length===12, JSON.stringify(alta));
 revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 revisa('sin scroll horizontal en un teléfono',
   await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));

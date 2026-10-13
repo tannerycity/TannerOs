@@ -151,6 +151,17 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
   await p.click('#tosFab'); await p.waitForTimeout(260);
   await p.mouse.click(30, 200); await p.waitForTimeout(260);
   revisa('[Presidencia] tocar el fondo lo cierra', await p.isHidden('#tosFabMenu'));
+  // Lo de esta pantalla primero (13/10/2026): una pantalla publica sus
+  // acciones y salen arriba; las generales siguen debajo.
+  await p.evaluate(() => { window.__corrio = 0; window.tosAccionesDePantalla = [{ label:'Nuevo producto', sub:'Foto, nombre y precio', run:() => { window.__corrio++; } }, { label:'Nuevo kit', href:'/catalogo/?nuevo=kit' }]; window.dispatchEvent(new Event('tos:acciones')); });
+  await p.click('#tosFab'); await p.waitForTimeout(260);
+  const titulos = await p.$$eval('#tosFabMenu .tos-fab-title', e => e.map(x => x.textContent.trim()));
+  const todas = await p.$$eval('#tosFabMenu .tos-fab-item strong', e => e.map(x => x.textContent.trim()));
+  revisa('[Presidencia] el botón + trae primero lo de esta pantalla y luego las generales',
+    JSON.stringify(titulos) === '["En esta pantalla","Generales"]' && todas[0] === 'Nuevo producto' && todas[1] === 'Nuevo kit' && todas.length === 2 + ROLES.Presidencia.espera.length, JSON.stringify([titulos, todas]));
+  await p.click('#tosFabMenu .tos-fab-item.aqui');
+  await p.waitForTimeout(200);
+  revisa('[Presidencia] tocar una acción de la pantalla la corre ahí mismo y cierra el menú', await p.evaluate(() => window.__corrio) === 1 && await p.isHidden('#tosFabMenu'));
   const scroll = await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
   revisa('[Presidencia] sin scroll horizontal', scroll);
   await p.close();

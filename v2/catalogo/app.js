@@ -50,6 +50,10 @@ async function boot(){
   $('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;
   await load();
   show('view');
+  window.tosAccionesDePantalla=accionesDelCatalogo();window.dispatchEvent(new Event('tos:acciones'));
+  const nuevo=new URLSearchParams(location.search).get('nuevo');
+  if(canManage&&nuevo==='producto')openProductDrawer(null);
+  if(canManage&&nuevo==='kit'){ver='kits';pintaCabecera();openBundleDrawer(null);}
 }
 
 async function load(){
@@ -133,15 +137,28 @@ function productCard(p){
   return btn;
 }
 
+/* Arriba (13/10/2026): Productos | Kits con su cuenta, y un buscador. */
+let ver='productos',busca='';
+const coincide=t=>!busca||String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(busca);
+function pintaCabecera(){
+  const np=products.filter(p=>!p.archived).length,nk=bundles.filter(b=>!b.archived).length;
+  if($('catNumProd'))$('catNumProd').textContent=np;if($('catNumKits'))$('catNumKits').textContent=nk;
+  if($('catResumen'))$('catResumen').textContent=`${np} producto${np===1?'':'s'} · ${nk} kit${nk===1?'':'s'}`;
+  document.querySelectorAll('.cat-seg [data-ver]').forEach(b=>{const on=b.dataset.ver===ver;b.classList.toggle('activo',on);b.setAttribute('aria-selected',String(on));});
+  $('productsPanel')?.classList.toggle('hidden',ver!=='productos');
+  $('bundlesPanel')?.classList.toggle('hidden',ver!=='kits');
+}
 function renderBundles(){
+  pintaCabecera();
   const list=$('bundleList');list.innerHTML='';
-  const rows=bundles.filter(b=>showArchived||!b.archived);
+  const rows=bundles.filter(b=>(showArchived||!b.archived)&&coincide(b.name));
   $('bundleEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(b=>list.appendChild(bundleCard(b)));
 }
 function renderProducts(){
+  pintaCabecera();
   const list=$('productList');list.innerHTML='';
-  const rows=products.filter(p=>showArchived||!p.archived);
+  const rows=products.filter(p=>(showArchived||!p.archived)&&coincide(`${p.name} ${p.sku||''}`));
   $('productEmpty').classList.toggle('hidden',rows.length>0);
   rows.forEach(p=>list.appendChild(productCard(p)));
   firmaMiniaturas(rows);
@@ -412,9 +429,14 @@ function pintaCategoria(){
     +`<button type="button" class="chip${catElegida==='__otro'?' on':''}" data-cat="__otro">Otro</button>`;
   $('pCategory').classList.toggle('hidden',catElegida!=='__otro');
 }
+// Las tallas se prenden solas según lo que es, mientras no se hayan tocado:
+// un jersey o un short lleva la escala del club; las calcetas, talla única.
+let tallasAuto=true;
+const TALLAS_DE={jersey:'club',shorts:'club',outerwear:'club',pants:'club',socks:'unica'};
 $('pCatChips')?.addEventListener('click',e=>{
   const b=e.target.closest('[data-cat]');if(!b)return;
   catElegida=b.dataset.cat;
+  if(tallasAuto&&TALLAS_DE[catElegida]){tallasElegidas=TALLAS_DE[catElegida]==='unica'?[TALLA_UNICA]:[...ESCALA_CLUB];pintaTallas();}
   if(catElegida==='__otro')setTimeout(()=>$('pCategory').focus(),0);
   pintaCategoria();
 });
@@ -443,7 +465,7 @@ $('pSizeChips')?.addEventListener('click',e=>{
 });
 // Capturar doce tallas a mano, producto por producto, es donde se abandona.
 document.querySelectorAll('[data-escala]').forEach(b=>b.addEventListener('click',()=>{
-  const cual=b.dataset.escala;
+  const cual=b.dataset.escala;tallasAuto=false;
   tallasElegidas = cual==='club'?[...ESCALA_CLUB]
     : cual==='ninos'?[...ESCALA_NINOS]
     : cual==='adultos'?[...ESCALA_ADULTOS]
@@ -469,6 +491,7 @@ function openProductDrawer(p){
   catElegida=canon||(p?.category?'__otro':null);
   $('pCategory').value=canon?'':(p?.category||'');
   tallasElegidas=ordenaTallas(Array.isArray(p?.sizes)?p.sizes.map(x=>String(x).trim()).filter(Boolean):[]);
+  tallasAuto=!tallasElegidas.length;
   pintaCategoria();pintaTallas();
   $('pActive').checked=p?p.active:true;
   $('pArchiveToggle').classList.toggle('hidden',!p);
@@ -567,5 +590,13 @@ $('pArchiveToggle')?.addEventListener('click',toggleProductArchive);
 $('newBundleBtn')?.addEventListener('click',()=>openBundleDrawer(null));
 $('newProductBtn')?.addEventListener('click',()=>openProductDrawer(null));
 $('showArchived')?.addEventListener('change',e=>{showArchived=e.target.checked;renderBundles();renderProducts();});
+document.querySelector('.cat-seg')?.addEventListener('click',e=>{const b=e.target.closest('[data-ver]');if(!b)return;ver=b.dataset.ver;pintaCabecera();});
+$('catBuscar')?.addEventListener('input',e=>{busca=e.target.value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();renderBundles();renderProducts();});
+/* El botón + de abajo: lo de esta pantalla primero. */
+function accionesDelCatalogo(){
+  if(!canManage)return [];
+  return [{label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',icon:'plus',run:()=>{ver='productos';pintaCabecera();openProductDrawer(null);}},
+          {label:'Nuevo kit',sub:'Junta piezas con su precio',icon:'bag',run:()=>{ver='kits';pintaCabecera();openBundleDrawer(null);}}];
+}
 
 boot().catch(err=>{console.error(err);$('deniedText').textContent='No se pudo cargar el catálogo.';show('deniedView');});

@@ -176,6 +176,11 @@ async function boot() {
     $('utSeg').classList.remove('hidden');
     $('utEntregar').classList.remove('hidden');
     $('utEntregar').addEventListener('click', () => entregar());
+    // El botón + de abajo: lo de esta pantalla primero (13/10/2026).
+    window.tosAccionesDePantalla = [
+      { label: 'Entregar', sub: 'Qué, a quién y listo', icon: 'plus', run: () => entregar() },
+      { label: 'Nuevo artículo', sub: 'Balones, conos, petos…', icon: 'bag', run: () => formArticulo(null) }];
+    window.dispatchEvent(new Event('tos:acciones'));
     await loadAdmin();
     window.addEventListener('hashchange', ruta);
     ruta();

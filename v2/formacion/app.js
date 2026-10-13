@@ -11,7 +11,7 @@
  * y en /v2/formacion/motor.js.
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth, moduleAccess } from '/v2/shell.js';
-import { recomienda, bloquesDeSesion, faltaParaLista, resumenSemana } from '/v2/formacion/motor.js';
+import { recomienda, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana } from '/v2/formacion/motor.js?v=20261013a';
 
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
 if (!boot) throw new Error('No access');
@@ -49,61 +49,141 @@ $('fmTabs').addEventListener('click', e => { const b = e.target.closest('[data-t
 $('fmPrev').addEventListener('click', () => { semana = masDias(semana, -7); carga(); });
 $('fmNext').addEventListener('click', () => { semana = masDias(semana, 7); carga(); });
 
-/* ---------- Dirección: Semana Tanner ---------- */
+/* ---------- Dirección: Semana Tanner en 5 pasos (13/10/2026) ----------
+   "Imagínate que eres un entrenador que no sabe de tecnología": la semana se
+   arma en cinco pasos que siempre se ven, cada categoría dice qué le falta y
+   se puede editar o quitar lo que salió mal. Todo cambio queda en el
+   historial (quién y cuándo) para Presidencia y Dirección. */
+const semanaDe = c => borrador[c.categoryId] || c.week || null;
+const haceCuanto = iso => {
+  if (!iso) return '';
+  const min = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return `hace ${min} min`;
+  if (min < 60 * 24) return `hace ${Math.round(min / 60)} h`;
+  return fecha(iso, { day: 'numeric', month: 'short' });
+};
 function pintaSemana() {
   const d = dataDir; if (!d) return '';
   const cats = d.categories || [];
-  const filas = cats.map(c => {
-    const w = borrador[c.categoryId] || c.week || null;
-    const publicada = c.week?.status === 'published' && !borrador[c.categoryId];
-    const plan = !c.sessions ? 'Sin sesiones' : !c.coachId ? 'Sin Formador' : c.ready >= c.sessions ? 'Lista' : `Pendiente ${c.sessions - c.ready}`;
-    const estadoPlan = plan === 'Lista' ? 'ok' : plan.startsWith('Pendiente') ? 'pendiente' : 'gris';
-    return `<button type="button" class="fm-cat" data-cat="${esc(c.categoryId)}">
-      <span class="fm-cat-izq"><span class="fm-cat-nom">${esc(c.category)}</span>
-        <span class="fm-cat-reto">${w?.primary ? `<b>${esc(nombreReto(w.primary))}${w.secondary ? ` · ${esc(nombreReto(w.secondary))}` : ''}</b>${w.behavior ? `<small>${esc(w.behavior)}</small>` : ''}` : `<em>Elegir ${c.usesChallenges ? 'Reto' : 'mundo'}</em>`}</span></span>
-      <span class="fm-cat-der"><span class="fm-pill ${publicada ? 'ok' : w?.primary ? 'borrador' : 'gris'}">${publicada ? 'Publicada' : w?.primary ? 'Sin publicar' : 'Por elegir'}</span>
-        <span class="fm-pill ${estadoPlan}" title="Planeación de los Formadores">${esc(plan)}</span></span></button>`;
+  const st = pasosDeSemana(cats, borrador);
+  const pasos = `<ol class="fm-pasos" aria-label="Tu semana en 5 pasos">${st.pasos.map(p => `<li class="${p.hecho ? 'hecho' : p.n === st.actual ? 'actual' : ''}">
+      <span class="fm-paso-n" aria-hidden="true">${p.hecho ? '✓' : p.n}</span><span class="fm-paso-txt"><b>${esc(p.titulo)}</b><small>${esc(p.detalle)}</small></span></li>`).join('')}</ol>`;
+  const tarjetas = cats.map(c => {
+    const w = semanaDe(c), cambiada = !!borrador[c.categoryId];
+    const publicada = c.week?.status === 'published' && !cambiada;
+    const estado = !w?.primary ? ['gris', 'Sin Reto'] : publicada ? ['ok', 'Publicada'] : cambiada && c.week ? ['borrador', 'Cambios sin publicar'] : ['borrador', 'Sin publicar'];
+    const plan = !c.sessions ? 'Sin sesiones esa semana' : !c.coachId ? 'Sin Formador asignado' : c.ready >= c.sessions ? `Formador: ${c.sessions}/${c.sessions} sesiones listas` : `Formador: ${c.ready}/${c.sessions} sesiones listas`;
+    return `<article class="fm-cat2" data-catcard="${esc(c.categoryId)}">
+      <header><span class="fm-cat2-nom">${esc(c.category)}</span><span class="fm-pill ${estado[0]}">${esc(estado[1])}</span></header>
+      ${w?.primary ? `<button type="button" class="fm-cat2-reto" data-cat="${esc(c.categoryId)}"><span class="fm-cat2-eti">${c.usesChallenges ? 'RETO' : 'MUNDO'}</span>
+          <b>${esc(nombreReto(w.primary))}${w.secondary ? `<i> + ${esc(nombreReto(w.secondary))}</i>` : ''}</b>
+          ${String(w.behavior || '').trim() ? `<span class="fm-cat2-ver">Queremos ver: ${esc(w.behavior)}</span>` : '<span class="fm-cat2-falta">Falta decir qué quieres ver en la cancha</span>'}</button>`
+        : `<button type="button" class="fm-cat2-elegir" data-cat="${esc(c.categoryId)}">+ Elegir ${c.usesChallenges ? 'Reto' : 'mundo'}</button>`}
+      <footer><small>${esc(plan)}${c.week?.lastBy ? ` · Último cambio: ${esc(c.week.lastBy)}, ${esc(haceCuanto(c.week.updatedAt))}` : ''}</small>
+        ${w?.primary ? `<span class="fm-cat2-acc"><button type="button" class="fm-link" data-cat="${esc(c.categoryId)}">Editar</button>${c.week ? `<button type="button" class="fm-link rojo" data-quitar="${esc(c.categoryId)}">Quitar</button>` : `<button type="button" class="fm-link rojo" data-descarta="${esc(c.categoryId)}">Descartar</button>`}</span>` : ''}</footer>
+    </article>`;
   }).join('');
-  const porPublicar = cats.filter(c => (borrador[c.categoryId] || c.week)?.primary && (borrador[c.categoryId] || c.week?.status !== 'published')).length;
-  const faltan = cats.filter(c => !(borrador[c.categoryId] || c.week)?.primary).map(c => c.category);
-  return `<section class="fm-hero"><span>SEMANA TANNER · ${esc(rangoSemana(d.weekStart))}</span>
-      <h1>${faltan.length ? `Falta ${esc(faltan.join(', '))}` : porPublicar ? 'Lista para publicar' : 'Semana publicada'}</h1>
-      <p>Publica a más tardar el ${esc(fecha(d.publishBy, { weekday: 'long', day: 'numeric', month: 'short' }))} a las ${esc(hora(d.publishBy))}. Los Formadores cierran su planeación el ${esc(fecha(d.deadline, { weekday: 'long' }))} a las ${esc(hora(d.deadline))}.</p></section>
-    ${cats.length ? `<div class="fm-lista">${filas}</div>` : '<p class="fm-vacio">Ninguna categoría tiene horario esa semana.</p>'}
-    <div class="fm-acciones"><button type="button" id="fmPublicar" class="primary"${porPublicar ? '' : ' disabled'}>Publicar semana${porPublicar ? ` (${porPublicar})` : ''}</button></div>`;
+  const cta = st.sinPublicar
+    ? `<button type="button" id="fmRevisar" class="primary">Revisar y publicar (${st.sinPublicar})</button>`
+    : st.n && st.publicadas === st.n ? '<p class="fm-listo">Semana publicada. Tus Formadores ya la ven.</p>'
+      : `<button type="button" class="primary" disabled>Elige los Retos para publicar</button>`;
+  return `<section class="fm-hero2"><span>SEMANA TANNER · ${esc(rangoSemana(d.weekStart))}</span>
+      <h1>${st.n ? (st.actual <= 5 ? `Paso ${st.actual}: ${esc(st.pasos[st.actual - 1].titulo)}` : 'Tu semana está lista') : 'Sin categorías esa semana'}</h1>
+      <p>Publica a más tardar el ${esc(fecha(d.publishBy, { weekday: 'long', day: 'numeric', month: 'short' }))}, ${esc(hora(d.publishBy))}. Los Formadores cierran su planeación el ${esc(fecha(d.deadline, { weekday: 'long' }))}, ${esc(hora(d.deadline))}.</p></section>
+    ${st.n ? pasos : ''}
+    ${cats.length ? `<div class="fm-cats2">${tarjetas}</div>` : '<p class="fm-vacio">Ninguna categoría tiene horario esa semana.</p>'}
+    <div class="fm-acciones">${cta}</div>`;
 }
 
+/* La hoja de una categoría: dos pasos (Reto y qué quieres ver), y abajo el
+   historial y "Quitar". */
 function hojaReto(c) {
-  const w = borrador[c.categoryId] || c.week || {};
+  const w = { ...(semanaDe(c) || {}) };
   const kind = c.usesChallenges ? 'reto' : 'mundo_baby';
   const opciones = catalogo.concepts.filter(x => x.kind === kind);
-  abreHoja(`${c.category} · ${rangoSemana(dataDir.weekStart)}`, `
-    <p class="fm-ayuda">${c.usesChallenges ? 'El Reto vive toda la semana. Tú decides el QUÉ; el Formador, el CÓMO.' : 'Baby no usa los 9 Retos: elige su mundo de la semana.'}</p>
-    <div class="fm-grid-retos" role="radiogroup">${opciones.map(o => `<button type="button" role="radio" data-reto="${esc(o.code)}" aria-checked="${w.primary === o.code}" class="${w.primary === o.code ? 'activa' : ''}"><b>${esc(o.name)}</b><small>${esc(o.question || o.phrase || '')}</small></button>`).join('')}</div>
-    ${c.usesChallenges ? `<label class="fm-campo">Reto secundario (opcional)<select id="fmSec"><option value="">Ninguno</option>${opciones.map(o => `<option value="${esc(o.code)}"${w.secondary === o.code ? ' selected' : ''}>${esc(o.name)}</option>`).join('')}</select></label>` : ''}
-    <label class="fm-campo">Esta semana queremos que aparezca…<input id="fmConducta" maxlength="140" value="${esc(w.behavior || '')}" placeholder="${c.usesChallenges ? 'Que se atrevan a encarar cuando hay espacio' : 'Que frenen sin caerse'}"></label>`,
-    `<button type="button" class="primary" id="fmGuardaReto">Listo</button>`);
-  let elegido = w.primary || '';
-  $('fmHojaCuerpo').querySelector('.fm-grid-retos').addEventListener('click', e => {
-    const b = e.target.closest('[data-reto]'); if (!b) return; elegido = b.dataset.reto;
-    $('fmHojaCuerpo').querySelectorAll('[data-reto]').forEach(x => { const on = x === b; x.classList.toggle('activa', on); x.setAttribute('aria-checked', on); });
-  });
-  $('fmGuardaReto').addEventListener('click', () => {
-    if (!elegido) { aviso('Elige el Reto', 'error'); return; }
-    const sec = $('fmSec')?.value || null;
-    if (sec && sec === elegido) { aviso('El secundario no puede ser el mismo Reto', 'error'); return; }
-    borrador[c.categoryId] = { primary: elegido, secondary: sec, behavior: $('fmConducta').value.trim() };
-    cierraHoja(); pinta();
-  });
+  let paso = w.primary ? 2 : 1;
+  const ejemplos = c.usesChallenges ? ['Que se atrevan a encarar', 'Que levanten la cabeza antes de pasar', 'Que presionen rápido al perderla'] : ['Que frenen sin caerse', 'Que conduzcan con la pelota cerca', 'Que se diviertan compartiendo'];
+  const titulo = `${c.category} · ${rangoSemana(dataDir.weekStart)}`;
+  const cuerpo = () => paso === 1
+    ? `<p class="fm-paso-eti">PASO 1 DE 2</p><h3 class="fm-pregunta">¿Qué ${c.usesChallenges ? 'Reto' : 'mundo'} trabajamos esta semana?</h3>
+       <p class="fm-ayuda">${c.usesChallenges ? 'El Reto vive toda la semana. Tú decides el QUÉ; el Formador, el CÓMO.' : 'Baby no usa los 9 Retos: elige su mundo de la semana.'}</p>
+       <div class="fm-grid-retos" role="radiogroup">${opciones.map(o => `<button type="button" role="radio" data-reto="${esc(o.code)}" aria-checked="${w.primary === o.code}" class="${w.primary === o.code ? 'activa' : ''}"><b>${esc(o.name)}</b><small>${esc(o.question || o.phrase || '')}</small></button>`).join('')}</div>`
+    : `<p class="fm-paso-eti">PASO 2 DE 2</p><button type="button" class="fm-elegido" data-paso="1"><span>${c.usesChallenges ? 'RETO' : 'MUNDO'}</span><b>${esc(nombreReto(w.primary))}</b><small>Cambiar</small></button>
+       <h3 class="fm-pregunta">¿Qué quieres ver en la cancha?</h3>
+       <label class="fm-campo"><span class="sr">Lo que queremos ver</span><input id="fmConducta" maxlength="140" value="${esc(w.behavior || '')}" placeholder="${esc(ejemplos[0])}"></label>
+       <div class="fm-ejemplos">${ejemplos.map(x => `<button type="button" data-ejemplo="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+       ${c.usesChallenges ? `<details class="fm-mas"${w.secondary ? ' open' : ''}><summary>Agregar Reto secundario (opcional)</summary><select id="fmSec"><option value="">Ninguno</option>${opciones.filter(o => o.code !== w.primary).map(o => `<option value="${esc(o.code)}"${w.secondary === o.code ? ' selected' : ''}>${esc(o.name)}</option>`).join('')}</select></details>` : ''}
+       <section class="fm-historia" id="fmHistoria"><h4>Historial</h4><p class="fm-ayuda">Cargando…</p></section>
+       ${c.week ? `<button type="button" class="fm-quitar" data-quitar="${esc(c.categoryId)}">Quitar el ${c.usesChallenges ? 'Reto' : 'mundo'} de esta semana</button>` : ''}`;
+  const pie = () => paso === 1 ? '' : `<button type="button" class="secondary" data-paso="1">Atrás</button><button type="button" class="primary" id="fmGuardaReto">Listo</button>`;
+  const repinta = () => { $('fmHojaCuerpo').innerHTML = cuerpo(); $('fmHojaPie').innerHTML = pie(); if (paso === 2) cargaHistoria(c); };
+  abreHoja(titulo, cuerpo(), pie());
+  if (paso === 2) cargaHistoria(c);
+  $('fmHoja').onclick = e => {
+    if (e.target.id === 'fmHoja' || e.target.closest('[data-cerrar]')) return;
+    const r = e.target.closest('[data-reto]');
+    if (r) { w.primary = r.dataset.reto; if (w.secondary === w.primary) w.secondary = ''; paso = 2; repinta(); return; }
+    const p = e.target.closest('[data-paso]');
+    if (p) { w.behavior = $('fmConducta')?.value ?? w.behavior; w.secondary = $('fmSec')?.value ?? w.secondary; paso = +p.dataset.paso; repinta(); return; }
+    const ej = e.target.closest('[data-ejemplo]');
+    if (ej) { $('fmConducta').value = ej.dataset.ejemplo; $('fmConducta').focus(); return; }
+    if (e.target.closest('#fmGuardaReto')) {
+      const sec = $('fmSec')?.value || null;
+      if (sec && sec === w.primary) { aviso('El secundario no puede ser el mismo Reto', 'error'); return; }
+      borrador[c.categoryId] = { primary: w.primary, secondary: sec, behavior: $('fmConducta').value.trim() };
+      cierraHoja(); pinta(); aviso('Listo. Falta publicar para que lo vea el Formador.');
+      return;
+    }
+    const q = e.target.closest('[data-quitar]');
+    if (q) quita(c);
+  };
+}
+
+const ACCIONES = { creada: 'La guardó', guardada: 'La guardó', publicada: 'La publicó', editada: 'La cambió', quitada: 'La quitó' };
+async function cargaHistoria(c) {
+  const caja = $('fmHistoria'); if (!caja) return;
+  try {
+    const h = await rpc('v2_training_week_history', { organization_id: org, category_id: c.categoryId, week_start: dataDir.weekStart }) || [];
+    if (!$('fmHistoria')) return;
+    const desc = x => x ? `${nombreReto(x.primary)}${x.secondary ? ' + ' + nombreReto(x.secondary) : ''}${x.behavior ? ` · “${x.behavior}”` : ''}` : '';
+    $('fmHistoria').innerHTML = `<h4>Historial</h4>${h.length ? `<ol>${h.map(x => `<li><b>${esc(x.by)}</b> ${esc((ACCIONES[x.action] || 'La cambió').toLowerCase())} <time>${esc(haceCuanto(x.at))}</time>
+        ${x.action === 'editada' && x.before ? `<small>Antes: ${esc(desc(x.before))}</small>` : ''}${x.after ? `<small>${x.action === 'editada' ? 'Ahora' : 'Quedó'}: ${esc(desc(x.after))}</small>` : x.before ? `<small>Tenía: ${esc(desc(x.before))}</small>` : ''}</li>`).join('')}</ol>` : '<p class="fm-ayuda">Sin cambios todavía.</p>'}`;
+  } catch { if ($('fmHistoria')) $('fmHistoria').innerHTML = '<h4>Historial</h4><p class="fm-ayuda">El historial lo ven Presidencia y Dirección.</p>'; }
+}
+
+async function quita(c) {
+  const pregunta = { kicker: 'QUITAR', title: `¿Quitar el ${c.usesChallenges ? 'Reto' : 'mundo'} de ${c.category}?`, message: 'El Formador deja de verlo. Queda en el historial quién lo quitó y cuándo.', confirmText: 'Sí, quitar', cancelText: 'Cancelar', danger: true };
+  const ok = window.tosConfirm ? await window.tosConfirm(pregunta) : confirm(pregunta.title);
+  if (!ok) return;
+  try {
+    await rpc('v2_remove_training_week', { organization_id: org, category_id: c.categoryId, week_start: dataDir.weekStart });
+    delete borrador[c.categoryId]; cierraHoja(); aviso(`Se quitó el Reto de ${c.category}`); await carga();
+  } catch (e) { aviso(errorDe(e), 'error'); }
+}
+
+// Paso 4: revisar todo junto antes de publicar. Paso 5: publicar.
+function hojaRevisar() {
+  const cats = (dataDir?.categories || []);
+  const filas = cats.map(c => {
+    const w = semanaDe(c), cambia = !!borrador[c.categoryId] || (w?.primary && c.week?.status !== 'published');
+    return `<li class="${w?.primary ? '' : 'falta'}"><b>${esc(c.category)}</b><span>${w?.primary ? `${esc(nombreReto(w.primary))}${w.secondary ? ' + ' + esc(nombreReto(w.secondary)) : ''}` : 'Sin Reto'}</span>
+      <small>${w?.primary ? (String(w.behavior || '').trim() ? `Queremos ver: ${esc(w.behavior)}` : 'Sin “qué queremos ver”') : 'No se publica'}</small>
+      <em class="fm-pill ${cambia ? 'borrador' : w?.primary ? 'ok' : 'gris'}">${cambia ? 'Se publica' : w?.primary ? 'Ya publicada' : '—'}</em></li>`;
+  }).join('');
+  abreHoja(`Paso 4 · Revisa tu semana · ${rangoSemana(dataDir.weekStart)}`, `<ul class="fm-revisa">${filas}</ul>
+    <p class="fm-ayuda">Al publicar (paso 5), cada Formador ve el Reto de su categoría y planea sus sesiones antes del ${esc(fecha(dataDir.deadline, { weekday: 'long' }))}, ${esc(hora(dataDir.deadline))}.</p>`,
+    `<button type="button" class="secondary" data-cerrar>Seguir editando</button><button type="button" class="primary" id="fmPublicar">Publicar semana</button>`);
+  $('fmHoja').onclick = e => { if (e.target.closest('#fmPublicar')) publica(); };
 }
 
 async function publica() {
-  const cats = (dataDir?.categories || []).filter(c => (borrador[c.categoryId] || c.week)?.primary);
-  const weeks = cats.map(c => { const w = borrador[c.categoryId] || c.week; return { categoryId: c.categoryId, weekStart: dataDir.weekStart, primary: w.primary, secondary: w.secondary || '', behavior: w.behavior || '' }; });
+  const cats = (dataDir?.categories || []).filter(c => semanaDe(c)?.primary && (borrador[c.categoryId] || c.week?.status !== 'published'));
+  const weeks = cats.map(c => { const w = semanaDe(c); return { categoryId: c.categoryId, weekStart: dataDir.weekStart, primary: w.primary, secondary: w.secondary || '', behavior: w.behavior || '' }; });
   if (!weeks.length) return;
-  const b = $('fmPublicar'); b.disabled = true; b.textContent = 'Publicando…';
-  try { await rpc('v2_save_training_weeks', { organization_id: org, weeks, publish: true }); borrador = {}; aviso('Semana publicada: los Formadores ya la ven'); await carga(); }
-  catch (e) { aviso(errorDe(e), 'error'); b.disabled = false; b.textContent = 'Publicar semana'; }
+  const b = $('fmPublicar'); if (b) { b.disabled = true; b.textContent = 'Publicando…'; }
+  try { await rpc('v2_save_training_weeks', { organization_id: org, weeks, publish: true }); borrador = {}; cierraHoja(); aviso('Semana publicada: los Formadores ya la ven'); await carga(); }
+  catch (e) { aviso(errorDe(e), 'error'); if (b) { b.disabled = false; b.textContent = 'Publicar semana'; } }
 }
 
 /* ---------- Formador: próxima semana ---------- */
@@ -277,7 +357,7 @@ function pintaBanco() {
 
 /* ---------- Hoja inferior ---------- */
 function abreHoja(titulo, cuerpo, pie) { $('fmHojaTitulo').textContent = titulo; $('fmHojaCuerpo').innerHTML = cuerpo; $('fmHojaPie').innerHTML = pie || ''; $('fmHoja').classList.remove('hidden'); document.body.classList.add('fm-sin-scroll'); }
-function cierraHoja() { clearInterval(reloj); try { wakeLock?.release(); } catch {} wakeLock = null; $('fmHoja').classList.remove('fm-cancha'); $('fmHoja').classList.add('hidden'); $('fmHojaCuerpo').onclick = null; document.body.classList.remove('fm-sin-scroll'); }
+function cierraHoja() { $('fmHoja').onclick = null; clearInterval(reloj); try { wakeLock?.release(); } catch {} wakeLock = null; $('fmHoja').classList.remove('fm-cancha'); $('fmHoja').classList.add('hidden'); $('fmHojaCuerpo').onclick = null; document.body.classList.remove('fm-sin-scroll'); }
 $('fmHoja').addEventListener('click', e => { if (e.target.id === 'fmHoja' || e.target.closest('[data-cerrar]')) cierraHoja(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cierraHoja(); });
 
@@ -290,7 +370,9 @@ function pinta() {
 }
 $('fmVista').addEventListener('click', e => {
   const cat = e.target.closest('[data-cat]'); if (cat) { hojaReto(dataDir.categories.find(c => c.categoryId === cat.dataset.cat)); return; }
-  if (e.target.closest('#fmPublicar')) { publica(); return; }
+  const qu = e.target.closest('[data-quitar]'); if (qu) { quita(dataDir.categories.find(c => c.categoryId === qu.dataset.quitar)); return; }
+  const de = e.target.closest('[data-descarta]'); if (de) { delete borrador[de.dataset.descarta]; pinta(); return; }
+  if (e.target.closest('#fmRevisar')) { hojaRevisar(); return; }
   const hoy = e.target.closest('[data-hoy]'); if (hoy) { modoCancha(dataHoy.sessions.find(s => s.sessionId === hoy.dataset.hoy)); return; }
   const ses = e.target.closest('[data-ses]'); if (ses) { hojaSesion(dataMia.sessions.find(s => s.sessionId === ses.dataset.ses)); return; }
   if (e.target.closest('#fmTerminar')) { const p = dataMia.sessions.find(s => s.plan?.status !== 'ready'); if (p) hojaSesion(p); return; }

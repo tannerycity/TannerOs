@@ -1,6 +1,6 @@
 /* El motor de recomendación y las reglas de "lista" de Formación. */
 import fs from 'node:fs';
-import { recomienda, bloquesDeSesion, nivelObjetivo, faltaParaLista, resumenSemana } from '../v2/formacion/motor.js';
+import { recomienda, bloquesDeSesion, nivelObjetivo, faltaParaLista, resumenSemana, pasosDeSemana } from '../v2/formacion/motor.js';
 
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d ? `\n   ${d}` : ''}`); } };
@@ -37,5 +37,19 @@ revisa('lista necesita Reto u objetivo y una tarea', faltaParaLista({}).length =
 revisa('un objetivo escrito sirve si no hay Reto', faltaParaLista({ objetivo: 'Perder el miedo al balón', items: [{ text: 'Partido' }] }).length === 0);
 revisa('"3 sesiones · 2 listas · 1 pendiente"', JSON.stringify(resumenSemana([{ plan: { status: 'ready' } }, { plan: { status: 'ready' } }, { plan: null }])) === '{"total":3,"listas":2,"pendientes":1,"completa":false}');
 
+// La Semana Tanner en 5 pasos (13/10/2026).
+{
+  const cats = [{ categoryId: 'a', week: { primary: 'gol', behavior: 'x', status: 'published' } }, { categoryId: 'b', week: null }];
+  const st = pasosDeSemana(cats, {});
+  revisa('5 pasos: falta el Reto de una categoría, va en el paso 2', st.pasos.length === 5 && st.actual === 2 && st.pasos[1].detalle === '1 de 2');
+  const st2 = pasosDeSemana(cats, { b: { primary: '1v1', behavior: '' } });
+  revisa('con todos los Retos, sigue decir qué queremos ver', st2.actual === 3 && st2.sinPublicar === 1);
+  const st3 = pasosDeSemana(cats, { b: { primary: '1v1', behavior: 'y' } });
+  revisa('con todo, falta revisar y publicar', st3.actual === 4);
+  const st4 = pasosDeSemana([{ categoryId: 'a', week: { primary: 'gol', behavior: 'x', status: 'published' } }], {});
+  revisa('todo publicado: semana lista', st4.actual === 6 && st4.publicadas === 1);
+  const st5 = pasosDeSemana([{ categoryId: 'a', week: { primary: 'gol', behavior: 'x', status: 'published' } }], { a: { primary: 'gol', behavior: 'z' } });
+  revisa('editar una publicada la regresa a "por revisar"', st5.sinPublicar === 1 && st5.actual === 4);
+}
 console.log(fallos ? `Motor de Formación FAILED · ${fallos} de ${corridas}` : `Motor de Formación OK · ${corridas} revisiones: 3 recomendaciones, escalera, Baby aparte y reglas de lista`);
 process.exit(fallos ? 1 : 0);

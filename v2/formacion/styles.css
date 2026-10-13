@@ -110,3 +110,78 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-cierre-ops button[data-cierre="a_veces"]{border-color:#f0d68a}
 .fm-cierre-ops button[data-cierre="todavia_no"]{border-color:#f1b3ac}
 .fm-cierre-ops button.activa{background:#eaf2f4}
+
+/* ==== Semana Tanner en 5 pasos (13/10/2026) ====
+   Estilo Apple: título grande, los pasos siempre a la vista, una tarjeta
+   por categoría con lo que le falta y "Editar · Quitar" a la mano. */
+.fm-page{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
+.fm-hero2{padding:22px 22px 20px;border-radius:24px;margin-bottom:14px;color:#fff;
+  background:radial-gradient(600px 260px at 15% -10%,rgba(100,170,240,.35),transparent 60%),linear-gradient(135deg,#0f2c4c,#164e61)}
+.fm-hero2>span{font-size:11px;letter-spacing:.09em;font-weight:800;color:#a8d7df}
+.fm-hero2 h1{margin:6px 0;font-size:26px;line-height:1.15;letter-spacing:-.02em;font-weight:700}
+.fm-hero2 p{margin:0;color:#d4e4ea;font-size:13.5px;line-height:1.45}
+.fm-pasos{list-style:none;margin:0 0 14px;padding:6px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:#fff;border-radius:20px;box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.05)}
+.fm-pasos li{display:grid;gap:6px;justify-items:center;text-align:center;padding:10px 6px;border-radius:14px;color:#7a8a8e}
+.fm-paso-n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#eef1f1;font-weight:800;font-size:14px}
+.fm-paso-txt{display:grid;gap:2px}
+.fm-paso-txt b{font-size:12.5px;font-weight:700;line-height:1.25;color:#3c4e52}
+.fm-paso-txt small{font-size:11.5px}
+.fm-pasos li.hecho .fm-paso-n{background:#34c759;color:#fff}
+.fm-pasos li.actual{background:#eef6ff}
+.fm-pasos li.actual .fm-paso-n{background:#0a84ff;color:#fff;box-shadow:0 0 0 4px rgba(10,132,255,.18)}
+.fm-pasos li.actual b{color:#07191e}
+.fm-cats2{display:grid;gap:10px}
+.fm-cat2{display:grid;gap:10px;padding:14px 16px;border-radius:20px;background:#fff;box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.05)}
+.fm-cat2>header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.fm-cat2-nom{font-size:18px;font-weight:700;letter-spacing:-.01em;color:#07191e}
+.fm-cat2-reto{display:grid;gap:3px;width:100%;text-align:left;border:0;border-radius:14px;background:#f2f6f8;padding:12px 14px;font:inherit;color:inherit;cursor:pointer}
+.fm-cat2-reto:hover{background:#e9f0f3}
+.fm-cat2-eti{font-size:10.5px;font-weight:800;letter-spacing:.09em;color:#4b7b86}
+.fm-cat2-reto b{font-size:17px;color:#0b3d5c}
+.fm-cat2-reto b i{font-style:normal;font-weight:600;color:#4b7b86}
+.fm-cat2-ver{font-size:14px;color:#2b4146}
+.fm-cat2-falta{font-size:13.5px;font-weight:700;color:#8a5c00}
+.fm-cat2-elegir{min-height:52px;border:1.5px dashed #b9cdd3;border-radius:14px;background:#fafcfc;color:#0a6dd6;font:inherit;font-size:15.5px;font-weight:700;cursor:pointer}
+.fm-cat2-elegir:hover{border-color:#0a84ff;background:#f2f8ff}
+.fm-cat2>footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
+.fm-cat2>footer small{font-size:12.5px;color:#6f7c81}
+.fm-cat2-acc{display:flex;gap:14px}
+.fm-link.rojo{color:#c0392b}
+.fm-listo{margin:0;padding:14px;border-radius:16px;background:#e8f6ec;color:#1e6b3c;font-weight:700;text-align:center}
+.fm-acciones .primary:disabled{opacity:.55}
+/* La hoja de la categoría */
+.fm-paso-eti{margin:0;font-size:11px;font-weight:800;letter-spacing:.09em;color:#0a84ff}
+.fm-pregunta{margin:0;font-size:21px;line-height:1.25;letter-spacing:-.01em;color:#07191e}
+.fm-elegido{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;border:0;border-radius:14px;background:#f2f6f8;padding:12px 14px;font:inherit;text-align:left;cursor:pointer}
+.fm-elegido span{font-size:10.5px;font-weight:800;letter-spacing:.09em;color:#4b7b86}
+.fm-elegido b{font-size:16px;color:#0b3d5c}
+.fm-elegido small{color:#0a84ff;font-weight:700}
+.fm-ejemplos{display:flex;flex-wrap:wrap;gap:6px}
+.fm-ejemplos button{border:0;border-radius:999px;background:#eef1f1;padding:8px 12px;font:inherit;font-size:13px;color:#3c4e52;cursor:pointer}
+.fm-ejemplos button:hover{background:#e3e8e8}
+.fm-mas summary{cursor:pointer;color:#1d6b80;font-weight:700;font-size:14px}
+.fm-mas select{margin-top:8px;width:100%;min-height:46px;border:1.5px solid var(--tos-line,#dfe3e3);border-radius:12px;padding:0 10px;font:inherit}
+.fm-historia{border-top:1px solid var(--tos-line,#dfe3e3);padding-top:12px}
+.fm-historia h4{margin:0 0 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#7a8a8e}
+.fm-historia ol{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.fm-historia li{display:grid;gap:2px;font-size:13.5px;color:#2b4146}
+.fm-historia time{color:#7a8a8e}
+.fm-historia small{color:#6f7c81;font-size:12.5px}
+.fm-quitar{border:0;border-radius:14px;background:#fdecea;color:#a92a21;min-height:46px;font:inherit;font-weight:700;cursor:pointer}
+.fm-revisa{list-style:none;margin:0;padding:0;display:grid;gap:1px;border-radius:16px;overflow:hidden;background:#e3e8e7}
+.fm-revisa li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:12px 14px;background:#fff}
+.fm-revisa li b{font-size:15.5px;color:#07191e}
+.fm-revisa li span{grid-column:1;font-size:14px;color:#0b3d5c;font-weight:600}
+.fm-revisa li small{grid-column:1;font-size:12.5px;color:#6f7c81}
+.fm-revisa li em{grid-column:2;grid-row:1/4;align-self:center;font-style:normal}
+.fm-revisa li.falta span{color:#8a5c00}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:700px){
+  .fm-pasos{grid-template-columns:1fr;gap:2px}
+  .fm-pasos li{grid-template-columns:auto 1fr;justify-items:start;text-align:left;padding:8px 10px}
+  .fm-paso-n{width:26px;height:26px;font-size:13px}
+  .fm-paso-txt{grid-template-columns:1fr auto;align-items:baseline;width:100%}
+  .fm-pasos li:not(.actual):not(.hecho) .fm-paso-txt small{opacity:.8}
+  .fm-hero2 h1{font-size:22px}
+}
+.fm-aviso{bottom:100px!important}

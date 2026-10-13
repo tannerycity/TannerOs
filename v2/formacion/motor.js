@@ -74,3 +74,24 @@ export function resumenSemana(sesiones = []) {
   const total = sesiones.length, listas = sesiones.filter(s => s.plan?.status === 'ready').length;
   return { total, listas, pendientes: total - listas, completa: total > 0 && listas === total };
 }
+
+/* La Semana Tanner en 5 pasos (13/10/2026): qué paso sigue y cuánto falta.
+   borr = cambios sin publicar por categoría. */
+export function pasosDeSemana(cats = [], borr = {}) {
+  const w = c => borr[c.categoryId] || c.week || null;
+  const n = cats.length;
+  const conReto = cats.filter(c => w(c)?.primary).length;
+  const conConducta = cats.filter(c => String(w(c)?.behavior || '').trim()).length;
+  const sinPublicar = cats.filter(c => w(c)?.primary && (borr[c.categoryId] || c.week?.status !== 'published')).length;
+  const publicadas = cats.filter(c => c.week?.status === 'published' && !borr[c.categoryId]).length;
+  const pasos = [
+    { n: 1, titulo: 'Elige la semana', detalle: 'Con las flechas de arriba', hecho: true },
+    { n: 2, titulo: 'Ponle Reto a cada categoría', detalle: `${conReto} de ${n}`, hecho: n > 0 && conReto === n },
+    { n: 3, titulo: 'Di qué quieres ver en la cancha', detalle: `${conConducta} de ${n}`, hecho: n > 0 && conConducta === n },
+    { n: 4, titulo: 'Revisa tu semana', detalle: sinPublicar ? `${sinPublicar} por revisar` : 'Todo revisado', hecho: n > 0 && conReto === n && !sinPublicar },
+    { n: 5, titulo: 'Publica', detalle: publicadas === n && n ? 'Tus Formadores ya la ven' : `${publicadas} de ${n} publicadas`, hecho: n > 0 && publicadas === n }
+  ];
+  const actual = pasos.find(p => !p.hecho)?.n || 6;
+  return { pasos, actual, n, conReto, sinPublicar, publicadas };
+}
+

@@ -173,3 +173,4 @@
 .fam-sugiere{display:grid;gap:8px;margin-top:10px;padding:12px;border-radius:14px;background:#fff8e6;border:1px solid #f1dfae;font-size:13.5px;color:#4f3b06;line-height:1.4}
 .fam-sugiere button{justify-self:start;min-height:40px;padding:0 16px;border:0;border-radius:999px;background:var(--fam-ink,var(--vit-ink));color:#fff;font:inherit;font-weight:800;cursor:pointer}
 .fam-convierte{margin:0 0 8px;padding:9px 11px;border-radius:11px;background:#fff8e6;color:#4f3b06;font-size:13px;font-weight:700}
+.fam-sugiere.ahorro{background:#eaf6ee;border-color:#bfe3cb;color:#1e5b33}

@@ -24,10 +24,11 @@ const srv=http.createServer((q,r)=>{let p=decodeURIComponent(q.url.split('?')[0]
   r.writeHead(200,{'content-type':T[path.extname(f)]||'application/octet-stream'});r.end(fs.readFileSync(f));});
 await new Promise(r=>srv.listen(4696,r));
 const TALLAS=["6","8","10","12","14","16","XS","S","M","L","XL","XXL"];
-const CAT={products:[{id:'p1',name:'Jersey "Wet Blue" - Home Edition',category:'jersey',price:699,active:true,archived:false,sizes:TALLAS,photoPath:null}],
+const CAT={products:[{id:'p1',name:'Jersey "Wet Blue" - Home Edition',category:'jersey',price:699,active:true,archived:false,sizes:TALLAS,photoPath:null},
+  {id:'p3',name:'Jersey "Pink Cantera" - Away Edition',category:'jersey',price:699,active:true,archived:false,sizes:TALLAS,photoPath:null}],
   // El Kit Training trae el mismo jersey: el mostrador ofrece convertirlo (13/10/2026).
   bundles:[{id:'b1',name:'Kit Training',active:true,archived:false,componentsResolved:true,priceAdult:1300,priceKid:1100,
-    components:[{productId:'p1',name:'Jersey "Wet Blue" - Home Edition',qty:1},{productId:'p2',name:'Short Training',qty:1}]}]};
+    components:[{productId:'p1',name:'Jersey "Wet Blue" - Home Edition',qty:1},{productId:'p3',name:'Jersey "Pink Cantera" - Away Edition',qty:1},{productId:'p2',name:'Short Training',qty:1}]}]};
 const JUG=[{id:'t1',first_name:'Dario',last_name:'Montalvo Díaz',category:'T10',jersey_number:7,status:'active'},
            {id:'t2',first_name:'Erick',last_name:'García Medina',category:'T10',jersey_number:null,status:'active'},
            {id:'t3',first_name:'Baja',last_name:'Ejemplo',category:'T8',status:'withdrawn'}];
@@ -83,20 +84,30 @@ await pg.click('#pfManga [data-m="larga"]');
 await pg.click('#pfAdd');
 await pg.waitForTimeout(250);
 await pg.evaluate(()=>document.getElementById('backdrop').click());
-// ¿Lo conviertes en kit? El jersey suelto lo pregunta y el kit abre lleno.
-const sug=(await pg.textContent('.cart-sugiere').catch(()=>'')).replace(/\s+/g,' ');
+// ¿Lo conviertes en kit? Un jersey suelto lo pregunta.
+const sug1=(await pg.textContent('.cart-sugiere').catch(()=>'')).replace(/\s+/g,' ');
 revisa('el jersey suelto sugiere su kit con lo que incluye y cuánto más',
-  /Kit Training/.test(sug)&&/short training/.test(sug)&&/\$1,100\.00/.test(sug)&&/\$401\.00 más/.test(sug),sug);
+  /Kit Training/.test(sug1)&&/short training/.test(sug1)&&/\$1,100\.00/.test(sug1)&&/\$401\.00 más/.test(sug1),sug1);
+// El segundo jersey del mismo kit, para la misma persona: es UN kit.
+await pg.click('.pick-card-foto >> nth=1');
+await pg.waitForSelector('#pfTallas:not(.hidden)',{timeout:6000});
+await pg.click('.talla-chip[data-talla="12"]');
+await pg.click('#pfAdd');
+await pg.waitForTimeout(250);
+await pg.evaluate(()=>document.getElementById('backdrop').click());
+const sugs=await pg.$$eval('.cart-sugiere',xs=>xs.map(x=>x.textContent.replace(/\s+/g,' ')));
+revisa('los dos jerseys se juntan en una sugerencia y dice cuánto se ahorra',
+  sugs.length===1&&/Tus .*Wet Blue.* y .*Pink Cantera.* \+ short training = Kit Training/.test(sugs[0])&&/Te ahorras \$298\.00/.test(sugs[0]),JSON.stringify(sugs));
 await pg.click('.cart-sugiere-btn');
 await pg.waitForTimeout(200);
 const tallasKit=await pg.$$eval('#bfPieces .bf-talla',xs=>xs.map(x=>x.value));
-revisa('el kit abre con jersey y short en talla 12, nombre y manga larga',
-  JSON.stringify(tallasKit)==='["12","12"]'&&(await pg.inputValue('#bfName'))==='Dario Montalvo Díaz'&&(await pg.getAttribute('#bfManga [data-m="larga"]','aria-pressed'))==='true',JSON.stringify(tallasKit));
+revisa('el kit abre con los dos jerseys y el short en talla 12, nombre y manga larga',
+  JSON.stringify(tallasKit)==='["12","12","12"]'&&(await pg.inputValue('#bfName'))==='Dario Montalvo Díaz'&&(await pg.getAttribute('#bfManga [data-m="larga"]','aria-pressed'))==='true',JSON.stringify(tallasKit));
 await pg.click('#bfAdd');
 await pg.waitForTimeout(200);
 await pg.evaluate(()=>document.getElementById('backdrop').click());
 const renglones=await pg.$$eval('#cartList .cart-row span',xs=>xs.map(x=>x.textContent));
-revisa('el jersey suelto se cambió por el kit',renglones.length===1&&/Kit Training \(Niño\)/.test(renglones[0])&&!(await pg.$('.cart-sugiere')),JSON.stringify(renglones));
+revisa('los dos jerseys sueltos se cambiaron por el kit',renglones.length===1&&/Kit Training \(Niño\)/.test(renglones[0])&&!(await pg.$('.cart-sugiere')),JSON.stringify(renglones));
 // Crear el pedido SIN teclear cliente
 await pg.click('#createOrder');
 await pg.waitForTimeout(500);

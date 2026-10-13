@@ -41,7 +41,7 @@ const CAT={products:[
   // Un archivado con foto: no debe aparecer mientras no se pidan los archivados.
   {id:'p5',name:'Producto legacy',category:null,price:0,active:false,archived:true,sizes:[],
    photoPath:RUTA('p5'),photoThumbPath:RUTA('p5')+'-thumb',photoBucket:'tanneros-private'}
-],bundles:[{id:'b1',name:'Kit Tanner - Completo',priceAdult:1740,active:true,archived:false,components:[],costComplete:false,componentsResolved:true}]};
+],bundles:[{id:'b1',name:'Kit Tanner - Completo',priceAdult:1740,active:true,archived:false,components:[{productId:'p1',qty:1}],costComplete:false,componentsResolved:true}]};
 
 const stub=`
  export function createClient(){return{
@@ -220,6 +220,27 @@ revisa('ni fecha de vigencia', (await pg.$$('#bValidUntil')).length===0);
 revisa('pero sigue pidiendo precio de nino, que si se usa en los tres kits',
   await pg.isVisible('#bPriceKid'));
 await pg.click('#closeDrawer');
+
+// Piezas del kit (13/10/2026): la lista de productos para tocar, con − / +.
+await pg.click('#bundleList .catalog-card');
+await pg.waitForSelector('#bComponents .kit-pieza',{timeout:5000});
+const piezasKit=(await pg.$$eval('#bComponents .kit-pieza-nombre b',bs=>bs.map(b=>b.textContent))).join('|');
+revisa('el kit lista los productos del club para tocar, sin el archivado',
+  piezasKit==='Jersey "Black Edition"|Jersey "Lechuguilla Edition"|Jersey "Wet Blue" - Home Edition|Par de calcetas',piezasKit);
+revisa('el jersey que ya lleva sale marcado', await pg.getAttribute('.kit-pieza[data-pid="p1"] .kit-pieza-toca','aria-pressed')==='true');
+await pg.click('.kit-pieza[data-pid="p2"] .kit-pieza-toca');
+await pg.click('.kit-pieza[data-pid="p4"] .kit-pieza-toca');
+await pg.click('.kit-pieza[data-pid="p4"] [data-q="1"]');
+if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/kit.png`});
+const resumen=(await pg.textContent('#bResumen')).replace(/\s+/g,' ');
+revisa('dice cuántas piezas, cuánto cuestan sueltas y cuánto se ahorra en kit',
+  /4 piezas/.test(resumen)&&/por separado \$1,998\.00/.test(resumen)&&/ahorran \$258\.00/.test(resumen),resumen);
+await pg.click('#bSave');
+await pg.waitForTimeout(300);
+const guardado=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_bundle').map(x=>x.p.components));
+revisa('guarda las piezas con su cantidad',JSON.stringify(guardado[0])==='[{"productId":"p1","qty":1},{"productId":"p2","qty":1},{"productId":"p4","qty":2}]',JSON.stringify(guardado));
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
+revisa('el jersey dice en qué kit va', /En Kit Tanner - Completo/.test(await pg.textContent('#productList')));
 
 revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 revisa('sin scroll horizontal en un teléfono',

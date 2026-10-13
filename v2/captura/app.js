@@ -219,34 +219,45 @@ $('capPlayer')?.addEventListener('change',e=>{
 /* ---------- ¿Lo conviertes en kit? ---------- */
 const ES_NINO=t=>['6','8','10','12','14','16'].includes(String(t||'').trim());
 function precioKitCaptura(b,tier){return tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid||0);}
-function kitDeLinea(item){
-  if(!item||item.kind!=='product'||!JERSEY_RE.test(item.label||''))return null;
-  for(const b of bundles){
-    const comps=b.components||[];
-    if(comps.length+comps.reduce((n,c)=>n+Math.max(0,(c.qty||1)-1),0)<2)continue;
-    const suya=comps.find(c=>String(c.productId)===String(item.productId));
-    if(!suya)continue;
-    const tier=!b.priceKid?'Adulto':!b.priceAdult?'Niño':(ES_NINO(item.talla)?'Niño':'Adulto');
-    if(!(precioKitCaptura(b,tier)>0))continue;
-    return {bundle:b,tier,suya,incluye:comps.filter(c=>c!==suya).map(c=>c.name)};
+const esJerseyCap=it=>it&&it.kind==='product'&&JERSEY_RE.test(it.label||'');
+const quienEs=it=>String(it?.personalizationName||'').trim().toLowerCase();
+const listaY=xs=>xs.length>1?`${xs.slice(0,-1).join(', ')} y ${xs[xs.length-1]}`:(xs[0]||'');
+function sugerenciasCaptura(){
+  const usados=new Set(),out=[];
+  for(const it of cart){
+    if(usados.has(it)||!esJerseyCap(it))continue;
+    for(const b of bundles){
+      const slots=bundleSlots(b);if(slots.length<2)continue;
+      const tomadas=new Map();
+      const usar=o=>{const i=slots.findIndex((x,k)=>String(x.productId)===String(o.productId)&&!tomadas.has(k));if(i<0)return false;tomadas.set(i,o);return true;};
+      if(!usar(it))continue;
+      for(const o of cart)if(o!==it&&!usados.has(o)&&esJerseyCap(o)&&quienEs(o)===quienEs(it))usar(o);
+      const tier=!b.priceKid?'Adulto':!b.priceAdult?'Niño':(ES_NINO(it.talla)?'Niño':'Adulto');
+      const precio=precioKitCaptura(b,tier);if(!(precio>0))continue;
+      const items=[...tomadas.values()];
+      const sueltos=items.reduce((n,o)=>n+Number(o.total||0)/Math.max(1,o.quantity||1),0),dif=Math.round((precio-sueltos)*100)/100;
+      const cubre=items.map(o=>o.label.split(' · ')[0]),incluye=slots.filter((x,k)=>!tomadas.has(k)).map(x=>x.name);
+      const extra=incluye.length?` + ${listaY(incluye).toLocaleLowerCase('es-MX')}`:'';
+      const cuenta=dif<0?`Te ahorras ${money.format(-dif)}.`:dif>0?`Sólo ${money.format(dif)} más.`:'Al mismo precio.';
+      const texto=items.length>1?`Tus ${listaY(cubre)}${extra} = ${b.name} por ${money.format(precio)}. ${cuenta}`:`Tu ${cubre[0]} viene en el ${b.name}${extra} por ${money.format(precio)}. ${cuenta}`;
+      items.forEach(o=>usados.add(o));
+      out.push({bundle:b,tier,ancla:it,tomadas,items,dif,texto});
+      break;
+    }
   }
-  return null;
+  return out;
 }
-function convierteEnKit(idx,k){
-  const item=cart[idx];if(!item)return;
+function convierteEnKit(k){
+  const it=k.ancla;
   openBundleDrawer(k.bundle);
-  picking.tier=k.tier;picking.reemplaza=item;
+  picking.tier=k.tier;picking.reemplaza=k.items;
   document.querySelectorAll('.tier-btn').forEach(b=>b.classList.toggle('active',b.dataset.tier===k.tier));
-  // El jersey en su talla; el short en la misma; lo demás se elige.
-  let usado=false;
-  picking.slots.forEach(s=>{
-    if(!usado&&String(s.productId)===String(item.productId)){s.talla=item.talla||'';usado=true;}
-    else if(/short/i.test(s.name||''))s.talla=item.talla||'';
-  });
-  $('bfName').value=item.personalizationName||$('bfName').value;$('bfNumber').value=item.number||$('bfNumber').value;
-  $(`bfManga`)?.querySelectorAll('[data-m]').forEach(b=>{const on=b.dataset.m===(item.sleeve||'corta');b.classList.toggle('activa',on);b.setAttribute('aria-pressed',String(on));});
+  // Cada jersey en su talla; lo demás en la misma talla, las calcetas únicas.
+  picking.slots.forEach((s,i)=>{const o=k.tomadas.get(i);s.talla=o?(o.talla||''):/calcet|media/i.test(s.name||'')?'Universal':(it.talla||'');});
+  $('bfName').value=it.personalizationName||$('bfName').value;$('bfNumber').value=it.number||$('bfNumber').value;
+  $('bfManga')?.querySelectorAll('[data-m]').forEach(b=>{const on=b.dataset.m===(it.sleeve||'corta');b.classList.toggle('activa',on);b.setAttribute('aria-pressed',String(on));});
   renderBundlePieces();
-  drawerMsg('Convirtiendo el jersey en kit: revisa las tallas y agrega. El jersey suelto se quita del pedido.','success');
+  drawerMsg('Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.','success');
 }
 
 /* ---------- Drawer: kit ---------- */
@@ -299,10 +310,11 @@ function addBundleToCart(){
     label:`${b.name} (${tier}) · manga ${sleeve}${name?` — ${name}${number?' #'+number:''}`:''}`
   });
   // Convertir: el jersey suelto deja el pedido (una pieza, o el renglón).
-  const viejo=picking.reemplaza;picking.reemplaza=null;
-  if(viejo){const i=cart.indexOf(viejo);if(i>=0){if((viejo.quantity||1)>1){const u=viejo.total/viejo.quantity;viejo.quantity-=1;viejo.total=u*viejo.quantity;viejo.label=viejo.label.replace(/ ×\d+/,viejo.quantity>1?` ×${viejo.quantity}`:'');}else cart.splice(i,1);}}
+  const viejos=picking.reemplaza||[];picking.reemplaza=null;
+  for(const viejo of viejos){const i=cart.indexOf(viejo);if(i<0)continue;if((viejo.quantity||1)>1){const u=viejo.total/viejo.quantity;viejo.quantity-=1;viejo.total=u*viejo.quantity;viejo.label=viejo.label.replace(/ ×\d+/,viejo.quantity>1?` ×${viejo.quantity}`:'');}else cart.splice(i,1);}
+  const viejo=viejos.length>0;
   renderCart();
-  drawerMsg(viejo?`Listo: el jersey ahora es ${b.name}.`:`Agregado. Puedes agregar otro ${b.name} para otro hermano, o cerrar.`,'success');
+  drawerMsg(viejo?`Listo: ahora es ${b.name}.`:`Agregado. Puedes agregar otro ${b.name} para otro hermano, o cerrar.`,'success');
   $('bfName').value='';$('bfNumber').value='';reiniciaManga('bf');
   picking.slots=bundleSlots(b);
   renderBundlePieces();
@@ -401,16 +413,14 @@ function renderCart(){
     row.innerHTML=`<span>${esc(item.label)}</span><b>${money.format(item.total)}</b><button type="button" class="cart-remove" data-idx="${idx}">✕</button>`;
     row.querySelector('.cart-remove').addEventListener('click',()=>{cart.splice(idx,1);renderCart();});
     list.appendChild(row);
-    // ¿Lo conviertes en kit? (13/10/2026): un jersey suelto que también viene
-    // en un kit lo dice, con lo que incluye y cuánto más cuesta.
-    const k=kitDeLinea(item);
-    if(k){
-      const sug=document.createElement('div');sug.className='cart-sugiere';
-      const precio=precioKitCaptura(k.bundle,k.tier),dif=precio-Number(item.total||0)/Math.max(1,item.quantity||1);
-      sug.innerHTML=`<span>Viene en el <b>${esc(k.bundle.name)}</b> con ${esc(k.incluye.join(', ').toLocaleLowerCase('es-MX'))} por ${money.format(precio)}${dif>0?` (${money.format(dif)} más)`:''}.</span><button type="button" class="cart-sugiere-btn">Convertir en kit</button>`;
-      sug.querySelector('button').addEventListener('click',()=>convierteEnKit(idx,k));
-      list.appendChild(sug);
-    }
+  });
+  // ¿Lo conviertes en kit? (13/10/2026): los jerseys sueltos que vienen en un
+  // kit lo dicen; los dos jerseys de una misma persona se juntan en un kit.
+  sugerenciasCaptura().forEach(k=>{
+    const sug=document.createElement('div');sug.className='cart-sugiere'+(k.dif<0?' ahorro':'');
+    sug.innerHTML=`<span>${esc(k.texto)}</span><button type="button" class="cart-sugiere-btn">Convertir en kit</button>`;
+    sug.querySelector('button').addEventListener('click',()=>convierteEnKit(k));
+    list.appendChild(sug);
   });
   $('cartTotal').textContent=money.format(cart.reduce((s,i)=>s+i.total,0));
 }

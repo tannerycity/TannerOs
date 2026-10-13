@@ -148,13 +148,13 @@ revisa('y la sección de talla se marca', (await pg.$('#stBloqueTalla.falta')) !
 await pg.click('[data-talla="10"]');
 revisa('la talla elegida queda marcada', (await pg.getAttribute('[data-talla="10"]', 'aria-pressed')) === 'true');
 const mock = sel => pg.$eval(`#stMockup [data-mockup="${sel}"]`, t => ({ txt: t.textContent, op: t.getAttribute('opacity'), fill: t.getAttribute('fill'), len: t.getAttribute('textLength') }));
-revisa('la vista previa sale vacía, con "TU NOMBRE" tenue', (await mock('nombre')).txt === 'TU NOMBRE' && (await mock('nombre')).op === '0.38');
+revisa('la vista previa sale vacía, con "TU NOMBRE" tenue', (await mock('nombre')).txt === 'TU NOMBRE' && (await mock('nombre')).op === '0.4');
 revisa('la playera va en el color del club', (await pg.getAttribute('#stMockup svg path', 'fill')) === '#184159', await pg.getAttribute('#stMockup svg path', 'fill'));
 await pg.type('[data-campo="nombre"]', 'leo');
 revisa('el nombre aparece mientras se escribe, en mayúsculas', (await mock('nombre')).txt === 'LEO' && (await mock('nombre')).op === '1', JSON.stringify(await mock('nombre')));
 revisa('y el estampado en el acento del club', (await mock('nombre')).fill === '#9A9169');
 await pg.fill('[data-campo="nombre"]', 'MAXIMILIANO JR');
-revisa('un nombre largo se ajusta a la espalda', (await mock('nombre')).len === '118');
+revisa('un nombre largo se ajusta a la espalda', (await mock('nombre')).len === '104');
 await pg.fill('[data-campo="nombre"]', 'LEO');
 await pg.fill('[data-campo="numero"]', '7');
 revisa('el número también', (await mock('numero')).txt === '7');

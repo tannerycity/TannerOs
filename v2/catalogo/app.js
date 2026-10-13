@@ -1,14 +1,14 @@
 import { createClient } from '/v2/supabase-client.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
-import { ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA, CATEGORIAS, categoriaCanonica, ordenaTallas } from '/v2/tienda.js';
+import { ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA, CATEGORIAS, categoriaCanonica, ordenaTallas, textoHasta } from '/v2/tienda.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 const pct=v=>v==null?'—':`${Number(v).toFixed(0)}%`;
 
-let ctx=null,canManage=false,canFinance=true,products=[],bundles=[],showArchived=false;
+let ctx=null,canManage=false,canFinance=true,products=[],bundles=[],showArchived=false,ofertas=[];
 let draft=null; // {mode:'bundle'|'product', id:string|null, components:[{productId,qty}]}
 
 const ICONS={
@@ -60,6 +60,7 @@ async function load(){
   const data=await rpc('v2_catalog',{organization_id:ctx.organization_id});
   products=data?.products||[];
   bundles=data?.bundles||[];
+  ofertas=canManage?((await rpc('v2_promotions',{organization_id:ctx.organization_id}).catch(()=>[]))||[]):[];
   renderPendientes();
   renderBundles();
   renderProducts();
@@ -145,10 +146,15 @@ function pintaCabecera(){
   $('productsPanel')?.classList.toggle('hidden',ver!=='productos');
   $('bundlesPanel')?.classList.toggle('hidden',ver!=='kits');
   $('costosPanel')?.classList.toggle('hidden',ver!=='costos');
+  $('ofertasPanel')?.classList.toggle('hidden',ver!=='ofertas');
+  $('catTabOfertas')?.classList.toggle('hidden',!canManage);
+  const activas=ofertas.filter(o=>o.estado==='activa').length;
+  if($('catNumOfertas'))$('catNumOfertas').textContent=activas||'';
+  if(ver==='ofertas')renderOfertas();
   $('catTabCostos')?.classList.toggle('hidden',!canFinance);
   // Buscar y "pendientes" son de productos y kits, no de costos.
-  $('catBuscar')?.classList.toggle('hidden',ver==='costos');
-  $('pendientes')?.classList.toggle('hidden',ver==='costos'||!$('pendientes').textContent);
+  $('catBuscar')?.classList.toggle('hidden',ver==='costos'||ver==='ofertas');
+  $('pendientes')?.classList.toggle('hidden',ver==='costos'||ver==='ofertas'||!$('pendientes').textContent);
 }
 function renderBundles(){
   pintaCabecera();
@@ -208,6 +214,7 @@ function openBundleDrawer(b){
   $('drawerTitle').textContent=b?b.name:'Nuevo kit';
   $('bundleForm').classList.remove('hidden');
   $('productForm').classList.add('hidden');
+  $('promoForm')?.classList.add('hidden');
   $('bName').value=b?.name||'';
   $('bPriceAdult').value=b?.priceAdult??'';
   $('bPriceKid').value=b?.priceKid??'';
@@ -512,6 +519,8 @@ function openProductDrawer(p){
   $('drawerTitle').textContent=p?p.name:'Nuevo producto';
   $('productForm').classList.remove('hidden');
   $('bundleForm').classList.add('hidden');
+  $('promoForm')?.classList.add('hidden');
+  $('pPonerOferta')?.classList.toggle('hidden',!p||!canManage);
   $('pName').value=p?.name||'';
   $('pSku').value=p?.sku||'';
   $('pPrice').value=p?.price??'';
@@ -624,6 +633,99 @@ $('newProductBtn')?.addEventListener('click',()=>openProductDrawer(null));
 $('showArchived')?.addEventListener('change',e=>{showArchived=e.target.checked;renderBundles();renderProducts();});
 document.querySelector('.cat-seg')?.addEventListener('click',e=>{const b=e.target.closest('[data-ver]');if(!b)return;if(b.dataset.ver==='costos'&&!canFinance)return;ver=b.dataset.ver;pintaCabecera();if(ver==='costos')renderCostos();});
 
+/* ---------- Ofertas (13/10/2026) ----------
+   "Que sea bien fácil ponerles promociones." ¿A qué? ¿Cómo? ¿Hasta cuándo?
+   y listo: la base cobra la oferta en todos lados y al vencer se va sola. */
+const ETQ_ESTADO={activa:'Activa',programada:'Programada',vencida:'Vencida',terminada:'Terminada'};
+function textoValor(o){return o.kind==='porcentaje'?`−${Number(o.value)}%`:money.format(Number(o.value))+(o.valueKid?` · niño ${money.format(Number(o.valueKid))}`:'');}
+function renderOfertas(){
+  const box=$('ofertasLista');if(!box)return;
+  box.innerHTML=ofertas.map(o=>`<article class="oferta ${o.estado}"><div class="oferta-main"><strong>${esc(o.name)}</strong><span>${esc(o.targetName||'')}</span>
+      <small>${esc(ETQ_ESTADO[o.estado]||o.estado)}${o.estado==='activa'||o.estado==='programada'?` · ${esc(textoHasta(o.endsOn))}`:''}</small></div>
+      <b class="oferta-valor">${esc(textoValor(o))}</b>
+      ${o.estado==='activa'||o.estado==='programada'?`<button type="button" class="oferta-fin" data-termina="${esc(o.id)}">Terminar</button>`:''}</article>`).join('')
+    ||'<div class="ofertas-vacio"><b>Sin ofertas</b>Toca "+ Oferta": eliges qué, cuánto y hasta cuándo.</div>';
+}
+const hoyMx=()=>new Date(new Date().toLocaleString('en-US',{timeZone:'America/Mexico_City'}));
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function fechaDe(clave){
+  const d=hoyMx();
+  if(clave==='domingo'){d.setDate(d.getDate()+((7-d.getDay())%7));return ymd(d);}
+  if(clave==='mes')return ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
+  if(clave==='otra')return $('ofFecha').value||'';
+  d.setDate(d.getDate()+7);return ymd(d);
+}
+const elegido=id=>$(id)?.querySelector('.chip.on');
+function marcaChip(id,b){$(id).querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===b));}
+function pintaCual(){
+  const que=elegido('ofQue')?.dataset.que,sel=$('ofCual');
+  const op=que==='product'?products.filter(p=>!p.archived).map(p=>[p.id,`${p.name} · ${money.format(Number(p.price||0))}`])
+    :que==='bundle'?bundles.filter(b=>!b.archived).map(b=>[b.id,`${b.name} · ${money.format(Number(b.priceAdult||0))}`])
+    :que==='category'?CATEGORIAS.filter(c=>products.some(p=>!p.archived&&categoriaCanonica(p.category)===c.valor)).map(c=>[c.valor,c.etiqueta]):[];
+  sel.classList.toggle('hidden',que==='todo');
+  sel.innerHTML=op.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join('');
+  if(draft?.preId){sel.value=draft.preId;draft.preId=null;}
+  // Para toda la tienda sólo hay porcentaje.
+  const precioBtn=$('ofComo').querySelector('[data-como="precio"]');
+  precioBtn.disabled=que==='todo';
+  if(que==='todo')marcaChip('ofComo',$('ofComo').querySelector('[data-como="porcentaje"]'));
+  pintaVista();
+}
+function pintaVista(){
+  const que=elegido('ofQue')?.dataset.que,como=elegido('ofComo')?.dataset.como,v=Number($('ofValor').value||0),id=$('ofCual').value;
+  $('ofValorTit').textContent=como==='porcentaje'?'Descuento (%)':que==='bundle'?'Precio adulto de oferta':'Precio de oferta';
+  $('ofNinoCampo').classList.toggle('hidden',!(que==='bundle'&&como==='precio'));
+  $('ofFecha').classList.toggle('hidden',elegido('ofHasta')?.dataset.hasta!=='otra');
+  let base=null,nombre='';
+  if(que==='product'){const p=products.find(x=>x.id===id);base=Number(p?.price||0);nombre=p?.name||'';}
+  if(que==='bundle'){const b=bundles.find(x=>x.id===id);base=Number(b?.priceAdult||0);nombre=b?.name||'';}
+  const nuevo=base&&v>0?(como==='porcentaje'?base*(1-v/100):v):null;
+  const hasta=fechaDe(elegido('ofHasta')?.dataset.hasta);
+  $('ofVista').innerHTML=nuevo!=null?`${esc(nombre)}: <s>${money.format(base)}</s> → <b>${money.format(nuevo)}</b>${hasta?` · ${esc(textoHasta(hasta))}`:''}`
+    :(v>0&&como==='porcentaje'?`−${v}% en ${que==='todo'?'toda la tienda':'la categoría'}${hasta?` · ${esc(textoHasta(hasta))}`:''}`:'');
+}
+function abreOferta(pre={}){
+  draft={mode:'promo',preId:pre.id||null};
+  drawerMsg();
+  $('drawerKicker').textContent='OFERTA';$('drawerTitle').textContent='Nueva oferta';
+  $('bundleForm').classList.add('hidden');$('productForm').classList.add('hidden');$('promoForm').classList.remove('hidden');
+  marcaChip('ofQue',$('ofQue').querySelector(`[data-que="${pre.que||'product'}"]`));
+  marcaChip('ofComo',$('ofComo').querySelector('[data-como="precio"]'));
+  marcaChip('ofHasta',$('ofHasta').querySelector('[data-hasta="7"]'));
+  $('ofValor').value='';$('ofNino').value='';$('ofNombre').value='';$('ofFecha').value='';
+  pintaCual();openDrawer();
+}
+['ofQue','ofComo','ofHasta'].forEach(id=>$(id)?.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b||b.disabled)return;marcaChip(id,b);id==='ofQue'?pintaCual():pintaVista();}));
+['ofCual','ofValor','ofFecha'].forEach(id=>$(id)?.addEventListener('input',pintaVista));
+$('ofCual')?.addEventListener('change',pintaVista);
+$('nuevaOferta')?.addEventListener('click',()=>abreOferta());
+$('pPonerOferta')?.addEventListener('click',()=>{const id=draft?.id;if(id)abreOferta({que:'product',id});});
+$('ofGuardar')?.addEventListener('click',async()=>{
+  const que=elegido('ofQue')?.dataset.que,como=elegido('ofComo')?.dataset.como,valor=Number($('ofValor').value||0),hasta=fechaDe(elegido('ofHasta')?.dataset.hasta);
+  if(!(valor>0)){drawerMsg(como==='porcentaje'?'Escribe el % de descuento.':'Escribe el precio de oferta.');return;}
+  if(como==='porcentaje'&&valor>=100){drawerMsg('El descuento va de 1 a 99%.');return;}
+  if(!hasta){drawerMsg('Elige hasta cuándo.');return;}
+  const id=$('ofCual').value;
+  if(que==='product'){const p=products.find(x=>x.id===id);if(como==='precio'&&p&&valor>=Number(p.price)){drawerMsg('El precio de oferta tiene que ser menor que el normal.');return;}}
+  const cual=que==='todo'?'Toda la tienda':$('ofCual').selectedOptions[0]?.textContent.split(' · ')[0]||'';
+  const nombre=$('ofNombre').value.trim()||`Oferta ${cual}`.slice(0,80);
+  const btn=$('ofGuardar');btn.disabled=true;
+  try{
+    await rpc('v2_save_promotion',{organization_id:ctx.organization_id,promotion:{name:nombre,kind:como,targetType:que,
+      targetId:que==='product'||que==='bundle'?id:null,category:que==='category'?id:null,value:valor,valueKid:Number($('ofNino').value||0)||null,endsOn:hasta}});
+    await load();closeDrawerFn();ver='ofertas';pintaCabecera();
+  }catch(e){drawerMsg(e.message||'No se pudo guardar la oferta.');}
+  finally{btn.disabled=false;}
+});
+$('ofertasLista')?.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-termina]');if(!b)return;
+  const o=ofertas.find(x=>x.id===b.dataset.termina);
+  if(window.tosConfirm&&!(await window.tosConfirm({kicker:'OFERTA',title:`¿Terminar "${o?.name||'la oferta'}"?`,message:'Regresa el precio normal desde ya.',confirmText:'Sí, terminar',cancelText:'Cancelar'})))return;
+  b.disabled=true;
+  try{await rpc('v2_end_promotion',{organization_id:ctx.organization_id,promotion_id:b.dataset.termina});await load();pintaCabecera();}
+  catch(err){b.disabled=false;alert(err.message||'No se pudo terminar.');}
+});
+
 /* ---------- Costos (13/10/2026) ----------
    "Los costos no quiero que le salgan a nadie... que tenga una pestañita para
    ver los costos". Aquí se captura el costo de cada pieza, se ve el margen de
@@ -688,7 +790,8 @@ $('catBuscar')?.addEventListener('input',e=>{busca=e.target.value.trim().normali
 function accionesDelCatalogo(){
   if(!canManage)return [];
   return [{label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',icon:'plus',run:()=>{ver='productos';pintaCabecera();openProductDrawer(null);}},
-          {label:'Nuevo kit',sub:'Junta piezas con su precio',icon:'bag',run:()=>{ver='kits';pintaCabecera();openBundleDrawer(null);}}];
+          {label:'Nuevo kit',sub:'Junta piezas con su precio',icon:'bag',run:()=>{ver='kits';pintaCabecera();openBundleDrawer(null);}},
+          {label:'Nueva oferta',sub:'Precio especial con fecha',icon:'star',run:()=>{ver='ofertas';pintaCabecera();abreOferta();}}];
 }
 
 boot().catch(err=>{console.error(err);$('deniedText').textContent='No se pudo cargar el catálogo.';show('deniedView');});

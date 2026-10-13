@@ -484,3 +484,36 @@ export function quitaUnaPieza(carrito, llave) {
   }
   return quitaDelCarrito(carrito, llave);
 }
+
+/* ---- Ofertas (g5, 13/10/2026) ----
+
+   La base manda la oferta vigente junto al producto o kit ('oferta'), y es la
+   base la que cobra ese precio. Aquí sólo se pone el precio de oferta como
+   precio, y se guarda el de antes para tacharlo: así el carrito suma lo mismo
+   que va a cobrar el servidor. */
+export function conOferta(p) {
+  const o = p?.oferta, precio = Number(o?.price);
+  if (!o || !(precio > 0) || !(precio < Number(p.price || 0))) return p;
+  return { ...p, price: precio, precioAntes: Number(p.price), ofertaHasta: o.endsOn || null, ofertaNombre: o.name || null };
+}
+export function kitConOferta(k) {
+  const o = k?.oferta;
+  if (!o) return k;
+  const out = { ...k, ofertaHasta: o.endsOn || null, ofertaNombre: o.name || null };
+  const pone = (llaveSnake, llaveCamel, nuevo) => {
+    if (!(Number(nuevo) > 0)) return;
+    const antes = Number(k[llaveSnake] ?? k[llaveCamel] ?? 0);
+    if (!(Number(nuevo) < antes)) return;
+    if (llaveSnake in k) out[llaveSnake] = Number(nuevo);
+    if (llaveCamel in k) out[llaveCamel] = Number(nuevo);
+    out[llaveSnake === 'price_adult' ? 'antesAdulto' : 'antesNino'] = antes;
+  };
+  pone('price_adult', 'priceAdult', o.priceAdult);
+  pone('price_kid', 'priceKid', o.priceKid);
+  return out;
+}
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+export function textoHasta(fecha) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(fecha || ''));
+  return m ? `Hasta el ${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]}` : '';
+}

@@ -1,6 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import '/v2/smart-select.js';
+import { conOferta, kitConOferta } from '/v2/tienda.js';
 import { elegirDorsal, tableroDorsales, libresDe, pintaChipsDorsal } from '/v2/dorsal.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
@@ -50,8 +51,9 @@ async function load(){
   pintaTanners();
   const pre=URLQ.get('tanner');
   if(pre&&tanners.some(p=>String(p.id)===String(pre))){tannerId=pre;const sel=$('capPlayer');if(sel)sel.value=pre;pintaQuien();}
-  bundles=(data?.bundles||[]).filter(b=>b.active&&!b.archived&&b.componentsResolved);
-  products=(data?.products||[]).filter(p=>p.active&&!p.archived);
+  // Ofertas (g5): el mostrador cobra lo mismo que la tienda.
+  bundles=(data?.bundles||[]).filter(b=>b.active&&!b.archived&&b.componentsResolved).map(kitConOferta);
+  products=(data?.products||[]).filter(p=>p.active&&!p.archived).map(conOferta);
   renderBundleGrid();
   renderProductGrid();
 }
@@ -60,7 +62,7 @@ function bundleCard(b){
   const btn=document.createElement('button');btn.type='button';btn.className='pick-card pick-kit';btn.dataset.bid=b.id;
   const precio=b.priceKid&&b.priceAdult?`${money.format(Number(b.priceKid))} – ${money.format(Number(b.priceAdult))}`:money.format(Number(b.priceAdult||b.priceKid||0));
   const piezas=(b.components||[]).map(c=>String(c.name||'').replace(/^Jersey\s+/i,'').replace(/"/g,'').split(' - ')[0]).filter(Boolean);
-  btn.innerHTML=`<strong>${esc(b.name)}</strong><span>${esc(piezas.join(' · ')||`${b.components.length} pieza(s)`)}</span><b>${esc(precio)}</b><i class="pick-cuenta" hidden></i>`;
+  btn.innerHTML=`<strong>${esc(b.name)}</strong><span>${esc(piezas.join(' · ')||`${b.components.length} pieza(s)`)}</span><b>${esc(precio)}</b>${b.ofertaHasta?'<em class="pick-oferta">Oferta</em>':''}<i class="pick-cuenta" hidden></i>`;
   btn.addEventListener('click',()=>openBundleDrawer(b));
   return btn;
 }
@@ -83,7 +85,7 @@ function productCard(p){
   btn.innerHTML=`<span class="pick-foto"${attr}><b aria-hidden="true">${esc(iniciales)}</b></span>`
     +`<span class="pick-datos"><strong>${esc(p.name)}</strong>`
     +`<span>${esc(p.category||'Producto')}${tallas?` · ${tallas} tallas`:''}</span>`
-    +`<b>${money.format(Number(p.price||0))}</b></span><i class="pick-cuenta" hidden></i>`;
+    +`<b>${p.precioAntes?`<s>${money.format(p.precioAntes)}</s> `:''}${money.format(Number(p.price||0))}</b>${p.ofertaHasta?'<em class="pick-oferta">Oferta</em>':''}</span><i class="pick-cuenta" hidden></i>`;
   btn.addEventListener('click',()=>openProductDrawer(p));
   return btn;
 }

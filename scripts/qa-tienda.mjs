@@ -398,6 +398,22 @@ revisa('un kit sin precio no se vende',
   revisa('convertir el único quita el renglón', Object.keys(T.quitaUnaPieza(menos, k)).length === 0);
 }
 
+/* ---- Ofertas (g5, 13/10/2026) ---- */
+{
+  const T = await import('../v2/tienda.js');
+  const p = T.conOferta({ id:'j', name:'Jersey Black', price:799, oferta:{ price:599, before:799, endsOn:'2026-10-31', name:'Buen Fin' } });
+  revisa('la oferta se vuelve el precio y el de antes se guarda para tacharlo', p.price === 599 && p.precioAntes === 799 && p.ofertaHasta === '2026-10-31', JSON.stringify(p));
+  const linea = T.preparaLinea(p, { talla:'M', cantidad:2 }).linea;
+  revisa('el carrito suma con el precio de oferta', linea.total === 1198, JSON.stringify(linea));
+  revisa('una "oferta" que no baja el precio se ignora', T.conOferta({ id:'x', price:500, oferta:{ price:600 } }).price === 500);
+  revisa('sin oferta no cambia nada', T.conOferta({ id:'y', price:500 }).price === 500);
+  const k = T.kitConOferta({ id:'k', price_adult:1500, price_kid:1299, oferta:{ priceAdult:1350, priceKid:1169.1, endsOn:'2026-12-31' } });
+  revisa('el kit trae su oferta de adulto y de niño', k.price_adult === 1350 && k.price_kid === 1169.1 && k.antesAdulto === 1500 && k.antesNino === 1299, JSON.stringify(k));
+  const kc = T.kitConOferta({ id:'k', priceAdult:1500, priceKid:1299, oferta:{ priceAdult:1350, priceKid:null } });
+  revisa('el kit del mostrador (priceAdult) también', kc.priceAdult === 1350 && kc.priceKid === 1299, JSON.stringify(kc));
+  revisa('"Hasta el 31 oct"', T.textoHasta('2026-10-31') === 'Hasta el 31 oct', T.textoHasta('2026-10-31'));
+}
+
 console.log(fallos
   ? `Tienda QA FAILED · ${fallos} de ${corridas}`
   : `Tienda QA OK · ${corridas} casos, incluidos el jersey talla 6 y el kit que la familia no podía comprar`);

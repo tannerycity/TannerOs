@@ -285,6 +285,28 @@ await pg.click('#pKits [data-kit-liga="b1"]');
 await pg.waitForTimeout(300);
 const liga=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_bundle').map(x=>x.p).pop());
 revisa('desde la pieza se mete al kit en un toque, conservando lo demás', liga?.id==='b1'&&liga?.components?.length===2&&liga?.price_adult===1740, JSON.stringify(liga));
+// Ofertas (13/10/2026): ¿a qué?, ¿cómo?, ¿hasta cuándo? y listo.
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
+await pg.click('#catTabOfertas');
+revisa('la pestaña Ofertas arranca vacía y dice cómo', /Sin ofertas/.test(await pg.textContent('#ofertasLista')));
+await pg.click('#nuevaOferta');
+await pg.waitForSelector('#promoForm:not(.hidden)',{timeout:4000}).catch(()=>{});
+await pg.selectOption('#ofCual','p1');
+await pg.fill('#ofValor','599');
+const vista=(await pg.textContent('#ofVista')).replace(/\s+/g,' ');
+revisa('la vista previa dice antes y después', /\$799\.00/.test(vista)&&/\$599\.00/.test(vista)&&/Hasta el/.test(vista), vista);
+await pg.fill('#ofNombre','Buen Fin');
+await pg.click('#ofGuardar');
+await pg.waitForTimeout(300);
+const oferta=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_save_promotion').map(x=>x.p.promotion).pop());
+revisa('guarda la oferta: producto, precio, nombre y fecha de fin', oferta?.targetType==='product'&&oferta?.targetId==='p1'&&oferta?.kind==='precio'&&oferta?.value===599&&oferta?.name==='Buen Fin'&&/^\d{4}-\d{2}-\d{2}$/.test(oferta?.endsOn||''), JSON.stringify(oferta));
+await pg.click('#nuevaOferta');
+await pg.click('#ofQue [data-que="todo"]');
+revisa('para toda la tienda sólo hay porcentaje', await pg.isDisabled('#ofComo [data-como="precio"]'));
+await pg.fill('#ofValor','150');
+await pg.click('#ofGuardar');
+revisa('un descuento de 100% o más no pasa', /de 1 a 99%/.test(await pg.textContent('#drawerMessage')));
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
 revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 revisa('sin scroll horizontal en un teléfono',
   await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));

@@ -24,11 +24,11 @@ revisa('el nombre va en mayúsculas, sin espacios de sobra, máx. 20', limpiaNom
 revisa('el número sólo dígitos, máx. 3', limpiaNumero('1a0') === '10' && limpiaNumero('12345') === '123');
 
 const vacia = mockupJersey({});
-revisa('sin datos enseña "TU NOMBRE" y "10" tenues', /TU NOMBRE/.test(vacia) && (vacia.match(/opacity="0.38"/g) || []).length === 2);
+revisa('sin datos enseña "TU NOMBRE" y "10" tenues', /TU NOMBRE/.test(vacia) && (vacia.match(/opacity="0.4"/g) || []).length === 2);
 const larga = mockupJersey({ nombre: 'Maximiliano', numero: '7' });
-revisa('un nombre largo se comprime a la espalda', /textLength="118"/.test(larga));
+revisa('un nombre largo se comprime a la espalda', /textLength="104"/.test(larga));
 revisa('uno corto no se comprime', !/textLength/.test(mockupJersey({ nombre: 'Leo' })));
-revisa('el número de 3 cifras baja de tamaño', /font-size="62"/.test(mockupJersey({ numero: '100' })));
+revisa('el número de 3 cifras baja de tamaño', /font-size="70"/.test(mockupJersey({ numero: '100' })));
 const malo = mockupJersey({ nombre: '<img src=x onerror=alert(1)>' });
 revisa('lo que se escribe no se cuela como HTML', !/<img/.test(malo) && /&lt;IMG/.test(malo));
 

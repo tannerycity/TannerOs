@@ -110,8 +110,8 @@ const FILTROS=[
   // Las dos prohíben publicar, pero al que dijo que no no se le vuelve a
   // preguntar y a los 55 hay que pedirles la firma. Con un solo chip el club no
   // podía ver esa diferencia, y son 55 permisos sobre la mesa.
-  {key:'noautoriza',label:'No autoriza su imagen', tono:'danger',imagen:true,test:p=>estadoDeImagen(p).clave==='no_autoriza'},
-  {key:'sinfirma',  label:'No firmado',            tono:'warn',  imagen:true,test:p=>estadoDeImagen(p).clave==='sin_preguntar'}
+  {key:'noautoriza',label:'No autoriza fotos', tono:'danger',imagen:true,test:p=>estadoDeImagen(p).clave==='no_autoriza'},
+  {key:'sinfirma',  label:'Sin permiso de fotos',  tono:'warn',  imagen:true,test:p=>estadoDeImagen(p).clave==='sin_preguntar'}
 ];
 // Desglose de becas: para dar seguimiento no basta saber que hay 20 becados,
 // hay que poder ver de golpe cuántas son totales y cuántas las paga alguien más.
@@ -965,13 +965,13 @@ function renderFacetBody(){
     // es la mayoría del club sin poder salir en ninguna foto.
     const aviso=img.sin_preguntar
       ?`<button type="button" class="fchip img-aviso" data-filtro="stat:sinfirma"><i aria-hidden="true">!</i>`+
-        `<span><b>${img.sin_preguntar} de ${img.total} Tanners no han firmado sus consentimientos.</b> `+
-        `Hasta que firmen no se publica su imagen. Toca para verlos.</span></button>`
+        `<span><b>${img.sin_preguntar} de ${img.total} Tanners no tienen permiso de fotos.</b> `+
+        `Sus papás no han firmado: hasta que firmen, no salen en publicaciones. Toca para verlos.</span></button>`
       :`<p class="facet-nota">Todos los Tanners activos ya respondieron sobre su imagen.</p>`;
     html=aviso+
       chip(fStat==='puedesalir','stat:puedesalir','✓ Puede salir',img.autoriza,' ok')+
-      chip(fStat==='noautoriza','stat:noautoriza','⦸ No autoriza',img.no_autoriza,' danger')+
-      chip(fStat==='sinfirma','stat:sinfirma','! No firmado',img.sin_preguntar,' warn')+
+      chip(fStat==='noautoriza','stat:noautoriza','⦸ No autoriza fotos',img.no_autoriza,' danger')+
+      chip(fStat==='sinfirma','stat:sinfirma','! Sin permiso de fotos',img.sin_preguntar,' warn')+
       `<span class="fchip-sep"></span>`+
       `<button type="button" class="fchip fchip-link" data-filtro="pdf:nopublicables">`+
         `<span>No publicables · PDF</span><b>${img.noPublicables}</b></button>`;

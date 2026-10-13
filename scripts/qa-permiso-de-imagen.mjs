@@ -109,8 +109,8 @@ prueba('una versión de aviso en blanco no cuenta como que se preguntó', () => 
 // === El candado sobre la foto ===
 
 prueba('el candado sale en los dos casos que no se publican', () => {
-  assert.equal(candadoDeFoto(dijoNo).corto, 'No autoriza');
-  assert.equal(candadoDeFoto(nadieLePregunto).corto, 'No firmado');
+  assert.equal(candadoDeFoto(dijoNo).corto, 'No autoriza fotos');
+  assert.equal(candadoDeFoto(nadieLePregunto).corto, 'Sin permiso de fotos');
   assert.equal(candadoDeFoto(dijoNo).icono, '⦸');
 });
 
@@ -145,13 +145,13 @@ prueba('la fila lleva nombre completo: sin nombres la lista no sirve', () => {
   const f = filaDeNoPublicable(dijoNo);
   assert.equal(f.name, 'Iker Joan Flores');
   assert.equal(f.categoria, 'T12');
-  assert.equal(f.motivo, 'No autoriza su imagen');
+  assert.equal(f.motivo, 'Los papás no autorizan fotos');
   assert.equal(f.foto, 'Sí');
 });
 
 prueba('la fila distingue al que ni foto tiene', () => {
   assert.equal(filaDeNoPublicable(sinFotoNiFirma).foto, 'No');
-  assert.equal(filaDeNoPublicable(sinFotoNiFirma).motivo, 'Falta pedir la firma');
+  assert.equal(filaDeNoPublicable(sinFotoNiFirma).motivo, 'Papás sin firmar el permiso de fotos');
 });
 
 prueba('la lista NO lleva nada que redes no deba ver', () => {

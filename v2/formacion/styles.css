@@ -249,3 +249,51 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 @media(max-width:520px){.fm-album{grid-template-columns:1fr 1fr;gap:10px}.fm-carta-cuerpo b{font-size:15px}.fm-carta-grito{display:none}.fm-album-hero h1{font-size:22px}.fm-media{grid-template-columns:1fr}}
 .fm-carta-pie{flex-wrap:wrap}
 .fm-media-ico svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}.fm-media-ico svg path:only-child{fill:#fff}
+
+/* ==== Práctica guiada (13/10/2026): un ejemplo para aprender a planear ==== */
+.fm-practica-card{display:grid;gap:8px;padding:22px;border-radius:24px;color:#fff;margin-top:4px;
+  background:radial-gradient(500px 220px at 90% -20%,rgba(255,214,10,.3),transparent 60%),linear-gradient(135deg,#0f2c4c,#164e61)}
+.fm-practica-eti{font-size:11px;letter-spacing:.1em;font-weight:800;color:#ffd60a}
+.fm-practica-card h2{margin:0;font-size:22px;letter-spacing:-.01em}
+.fm-practica-card p{margin:0;color:#d6e4ea;font-size:14.5px;line-height:1.45}
+.fm-practica-btn{margin-top:8px;min-height:52px;border:0;border-radius:16px;background:#fff;color:#0f2c4c;font:inherit;font-size:16px;font-weight:800;cursor:pointer}
+.fm-practica-btn:hover{background:#f2f6f8}
+.fm-practica-banner{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;margin-bottom:10px;border-radius:16px;background:#eef6ff;color:#0b3d5c;font-size:14px}
+.fm-practica-banner span{flex:1}
+.fm-practica-banner button[data-practica]{border:0;border-radius:999px;background:#0a84ff;color:#fff;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
+.fm-x{border:0;background:transparent;font-size:20px;line-height:1;color:#5d7177;cursor:pointer;padding:4px 6px}
+.fm-pr-dots{display:flex;gap:6px;justify-content:center}
+.fm-pr-dots i{width:22px;height:5px;border-radius:999px;background:#e3e8e8}
+.fm-pr-dots i.on{background:#0a84ff}
+.fm-pr-tip{display:flex;gap:10px;align-items:flex-start;margin:0;padding:12px 14px;border-radius:14px;background:#fff8e6;color:#4f3b06;font-size:14px;line-height:1.45}
+.fm-pr-tip>.fm-pr-ico{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#ffd60a;color:#1c1446;font-weight:800;font-style:italic;font-size:13px}
+.fm-pr-reto{display:grid;gap:4px;padding:16px;border-radius:18px;background:linear-gradient(135deg,#ff453a,#c7273b);color:#fff}
+.fm-pr-reto span{font-size:11px;letter-spacing:.1em;font-weight:800;opacity:.9}
+.fm-pr-reto b{font-size:28px;letter-spacing:-.01em}
+.fm-pr-reto p{margin:0;font-size:14.5px;opacity:.95}
+.fm-pr-reto .fm-conducta{margin-top:4px;font-weight:700}
+.fm-pr-partes{display:grid;gap:8px}
+.fm-pr-partes div{display:grid;grid-template-columns:110px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;padding:12px 14px;border-radius:14px;background:#f5f7f7}
+.fm-pr-partes div b{font-size:15.5px;color:#07191e}
+.fm-pr-partes div small{grid-column:1;font-size:12.5px;color:#6b7c80}
+.fm-pr-partes div i{grid-column:2;grid-row:1/3;display:block;height:10px;border-radius:999px;background:#c9d4d6}
+.fm-pr-partes div.tu{background:#eef6ff;box-shadow:0 0 0 2px #0a84ff inset}
+.fm-pr-partes div.tu i{background:#0a84ff}
+.fm-pr-partes div.tu small{color:#0a6dd6;font-weight:700}
+.fm-pr-recos{display:grid;gap:8px}
+.fm-pr-recos button{display:grid;gap:3px;text-align:left;padding:14px 16px;border-radius:16px;border:1.5px solid #e1e6e7;background:#fff;font:inherit;cursor:pointer}
+.fm-pr-recos button b{font-size:16px;color:#07191e}
+.fm-pr-recos button small{font-size:13px;color:#5d6f73;line-height:1.35}
+.fm-pr-recos button.activa{border-color:#0a84ff;background:#eef6ff;box-shadow:0 0 0 3px rgba(10,132,255,.15)}
+.fm-pr-resumen{list-style:none;margin:0;padding:0;display:grid;gap:1px;border-radius:16px;overflow:hidden;background:#e3e8e7}
+.fm-pr-resumen li{display:grid;grid-template-columns:64px 1fr;gap:2px 10px;padding:12px 14px;background:#fff}
+.fm-pr-resumen li span{grid-row:1/3;font-size:12.5px;font-weight:700;color:#7a8a8e;align-self:center}
+.fm-pr-resumen li b{font-size:15.5px;color:#07191e}
+.fm-pr-resumen li small{font-size:12.5px;color:#0a6dd6;font-weight:700}
+.fm-pr-resumen li.tu{background:#eef6ff}
+.fm-pr-fin{display:grid;gap:10px;justify-items:center;text-align:center;padding:18px 6px}
+.fm-pr-check{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:#34c759;color:#fff;font-size:36px;font-weight:800;box-shadow:0 10px 30px rgba(52,199,89,.35);animation:fm-pop .4s cubic-bezier(.2,.8,.2,1.4) both}
+.fm-pr-fin h3{margin:4px 0 0;font-size:24px;letter-spacing:-.01em}
+.fm-pr-fin p{margin:0;font-size:15px;line-height:1.45;color:#2b4146;max-width:34ch}
+@keyframes fm-pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.fm-pr-check{animation:none}}

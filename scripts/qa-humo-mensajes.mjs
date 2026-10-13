@@ -67,7 +67,11 @@ const HILOS = {
       { id:'a2', senderId:ME, senderName:'Mich', body:'Mañana llegan 20 balones', at:hace(60), mine:true } ] }
 };
 const AVISOS = { canPublish:true, avisos:[ { id:'v1', title:'El sábado no hay entrenamiento', body:'Por el torneo.', author:'Mich',
-  audienceType:'club', publishedAt:hace(200), unread:false, reach:{ total:10, seen:3 } } ] };
+  audienceType:'club', publishedAt:hace(200), unread:false, reach:{ total:10, seen:3 } },
+  // d5: el aviso personal que llegó a tres juntos es UNA tarjeta.
+  { id:'v2', title:'Nueva postulación de staff', body:'Oscar · Formador', author:'TannerOS', audienceType:'users', audienceValue:null,
+    recipients:[{ userId:ME, name:'Presidencia' }, { userId:'u-brandon', name:'Brandon Andrade' }, { userId:'u-emma', name:'Emmanuel' }],
+    publishedAt:hace(100), unread:true, reach:{ total:3, seen:1 } } ] };
 
 const shell = (falla) => `
   window.__rpc = []; window.__fallaEnvio = ${falla ? 1 : 0};
@@ -184,6 +188,8 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   const { pg } = await abre();
   await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(300);
   revisa('el aviso dice cuántos lo han visto', /Visto por 3 de 10/.test(await pg.textContent('.ms-aviso')));
+  const post = await pg.$$eval('.ms-aviso', as => as.filter(a => /postulación/.test(a.textContent)).map(a => a.querySelector('footer').innerText));
+  revisa('el aviso para varios sale una vez y dice para quiénes', post.length === 1 && /Para ti, Brandon Andrade y Emmanuel/.test(post[0]) && /Visto por 1 de 3/.test(post[0]), JSON.stringify(post));
   revisa('abrir Avisos los marca como vistos', (await llamadas(pg, 'v2_mark_announcements_seen')).length === 1);
   await cap(pg, 'avisos');
   await pg.click('#msAvisoNuevo'); await pg.waitForTimeout(150);

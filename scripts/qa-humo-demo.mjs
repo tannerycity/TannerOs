@@ -7,7 +7,7 @@
 //     se guarda la sesión y se entra a donde dice el servidor;
 //   · en el club nuevo no hay familias: el botón no se puede tocar;
 //   · si el servidor falla se dice por qué y se puede volver a intentar;
-//   · la entrada del staff enlaza a la demo; nada se sale a 390px.
+//   · por ahora la entrada NO enlaza a la demo (13/10/2026); la demo sigue en /demo/; nada se sale a 390px.
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 
@@ -99,7 +99,7 @@ async function abre(ruta, { falla = false } = {}) {
 
 {
   const html = fs.readFileSync(path.join(RAIZ, 'index.html'), 'utf8') + fs.readFileSync(path.join(RAIZ, 'v2/index.html'), 'utf8');
-  revisa('[entrada] la entrada del staff enlaza a la demo', (html.match(/href="\/demo\/"/g) || []).length === 2);
+  revisa('[entrada] por ahora la entrada no enlaza a la demo', !/href="\/demo\//.test(html));
 }
 
 await nav.close(); srv.close();

@@ -210,7 +210,10 @@ function pintaPaso() {
     $('aSlug').addEventListener('blur', e => { e.target.value = d.slug; });
     $('aCiudad').addEventListener('input', e => { d.city = e.target.value; });
     [['aC1', 'primary'], ['aC2', 'secondary'], ['aC3', 'accent']].forEach(([id, k]) => $(id).addEventListener('input', e => { d.colors[k] = e.target.value; vista(); }));
-    vista(); setTimeout(() => $('aNombre').focus(), 50);
+    vista();
+    // El cursor va al nombre sólo si nadie se movió a otro campo: si no, lo que
+    // se escribe en Ciudad caía en el nombre ("León NorteLeón", 13/10/2026).
+    setTimeout(() => { const a = document.activeElement; if (!a || a === document.body) $('aNombre')?.focus(); }, 50);
   } else if (paso === 1) {
     c.innerHTML = `<div class="az-planes">${(tablero.plans || []).map(p => `<button type="button" class="az-plan${d.planCode === p.code ? ' activo' : ''}" data-plan="${esc(p.code)}">
         <strong>${esc(p.name)}</strong><b>${dinero(p.priceMxn)}<small>/mes</small></b>

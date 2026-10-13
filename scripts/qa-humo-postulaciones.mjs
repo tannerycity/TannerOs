@@ -50,11 +50,13 @@ async function abre(ruta, opts = {}) {
       v2_my_context: () => [{ user_id: 'u1', display_name: 'Mich', organization_id: ORG, organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: opts.rol || 'Presidencia', is_owner: true }],
       v2_my_navigation: () => (opts.rol === 'Taquilla' ? ['taquilla', 'inicio'] : ['usuarios', 'inicio', 'jugadores']).map(c => ({ module_code: c, enabled: true, can_read: true, can_write: true })),
       v2_staff_applications: () => { if (opts.rol === 'Taquilla') throw new Error('Not authorized'); return JSON.parse(JSON.stringify(apps)); },
+      v2_delete_staff_application: prm => { const i = apps.findIndex(x => x.id === prm.application_id); const a = apps.splice(i, 1)[0]; return { id: a.id, paths: [a.cvPath, a.photoThumbPath].filter(Boolean) }; },
       v2_update_staff_application: prm => { const a = apps.find(x => x.id === prm.application_id); if (prm.status) a.status = prm.status; if (prm.notes !== null) a.notes = prm.notes; a.updatedAt = new Date().toISOString(); return { id: a.id, status: a.status, notes: a.notes, updatedAt: a.updatedAt }; }
     };
     const store = {
       upload: async (ruta, archivo, o) => { window.__llamadas.push({ n: 'upload', prm: { ruta, tipo: o?.contentType, upsert: !!o?.upsert } }); return { data: { path: ruta }, error: null }; },
       createSignedUrls: async ps => ({ data: ps.map(x => ({ path: x, signedUrl: `${BASE}/firmada/${encodeURIComponent(x)}`, error: null })), error: null }),
+      remove: async ps => { window.__llamadas.push({ n: 'remove', prm: ps }); return { data: [], error: null }; },
       createSignedUrl: async x => ({ data: { signedUrl: `${BASE}/firmada/${encodeURIComponent(x)}` }, error: null })
     };
     window.__fakeSupabase = {
@@ -170,7 +172,18 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.fill('#candBuscar', 'luis');
   revisa('[banco] buscar encuentra a Luis', (await p.$$('.cand')).length === 1 && /Luis Pérez/.test(await p.textContent('.cand')));
   await p.fill('#candBuscar', '');
+  // Eliminar (b5): escondido en "Cambiar estado a mano"; borra renglón y archivos.
+  const borrada = '.cand[data-id="a3"]';
+  await p.click('[data-filtro="todos"]').catch(() => {});
+  await p.click(`${borrada} .cand-mas summary`);
+  p.once('dialog', d => d.accept());
+  await p.evaluate(() => { window.tosConfirm = async () => true; });
+  await p.click(`${borrada} [data-elimina]`);
+  await p.waitForFunction(() => !document.querySelector('.cand[data-id="a3"]'), null, { timeout: 4000 }).catch(() => {});
+  const borra = await llamadas(p, 'v2_delete_staff_application');
+  revisa('[eliminar] borra la postulación y la quita de la lista', JSON.stringify(borra) === JSON.stringify([{ organization_id: ORG, application_id: 'a3' }]) && !(await p.$(borrada)), JSON.stringify(borra));
   await p.click('[data-filtro="contratado"]');
+  revisa('[eliminar] un contratado no trae el botón', !(await p.$('.cand [data-elimina]')));
   revisa('[filtro] contratados muestra a Luis, sin CV y con su siguiente paso', (await p.$$('.cand')).length === 1 && /Sin CV/.test(await p.textContent('.cand')) && /Dar acceso a TannerOS/.test(await p.textContent('.cand')));
   revisa('[contratado] lo primero es pedirle la carta de no antecedentes penales', /carta de no antecedentes penales/.test(await p.textContent('.cand .cand-paso p')) && /Pedirle la carta/.test(await p.textContent('.cand .cand-paso-btn.principal')));
   revisa('[sin desborde] /candidatos/ cabe a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));

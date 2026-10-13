@@ -99,7 +99,8 @@ function pinta() {
         ${c.cvPath ? `<button type="button" data-cv="${esc(c.cvPath)}">Ver CV</button>` : '<span class="cand-sin-cv">Sin CV</span>'}
       </div>
       <label class="cand-nota">Notas<textarea data-nota rows="2" maxlength="1000" placeholder="Ej. Muy buena actitud, tiene licencia C">${esc(c.notes || '')}</textarea></label>
-      <details class="cand-mas"><summary>Cambiar estado a mano</summary><label class="cand-mover">Mover a<select data-estado aria-label="Estado de ${esc(c.fullName)}">${ESTADOS.map(e => `<option value="${e.code}" ${e.code === c.status ? 'selected' : ''}>${esc(e.label)}</option>`).join('')}</select></label></details>
+      <details class="cand-mas"><summary>Cambiar estado a mano</summary><label class="cand-mover">Mover a<select data-estado aria-label="Estado de ${esc(c.fullName)}">${ESTADOS.map(e => `<option value="${e.code}" ${e.code === c.status ? 'selected' : ''}>${esc(e.label)}</option>`).join('')}</select></label>
+        ${c.status === 'contratado' ? '' : '<button type="button" class="cand-eliminar" data-elimina>Eliminar candidato</button><small class="cand-eliminar-nota">Se borra con su CV y su foto. Para quien no siguió, mejor Descartado: queda en el historial.</small>'}</details>
     </article>`;
   }).join('') || (busqueda ? '<p class="cand-vacio"><b>Sin resultados</b>Nadie coincide con tu búsqueda.</p>'
     : filtro === 'activas' ? '<p class="cand-vacio"><b>Todo al día</b>No hay candidatos esperando. Comparte la liga o el QR de arriba para recibir más.</p>'
@@ -114,6 +115,21 @@ async function carga() {
   // Las caras: sólo miniaturas, por el caché compartido.
   const rutas = lista.map(c => c.photoThumbPath).filter(Boolean);
   if (rutas.length) { try { fotos = await getSignedPhotoUrls(supabase, 'tanneros-private', rutas) || {}; pinta(); } catch (_) { /* se quedan las iniciales */ } }
+}
+
+/* Eliminar (b5): para pruebas, duplicados o cuando el candidato pide que se
+   borren sus datos. Borra el renglón y luego sus archivos. */
+async function elimina(c) {
+  const pregunta = { kicker: 'ELIMINAR', title: `¿Eliminar a ${c.fullName}?`, message: 'Se borra su postulación con su CV y su foto. No se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', danger: true };
+  const ok = window.tosConfirm ? await window.tosConfirm(pregunta) : confirm(pregunta.title);
+  if (!ok) return;
+  try {
+    const r = await rpc('v2_delete_staff_application', { organization_id: org, application_id: c.id });
+    const rutas = Array.isArray(r?.paths) ? r.paths : [];
+    if (rutas.length) { try { await supabase.storage.from('tanneros-private').remove(rutas); } catch (_) { /* el renglón ya no está */ } }
+    lista = lista.filter(x => x.id !== c.id);
+    msg(`${c.fullName} se eliminó.`, 'success'); pinta();
+  } catch (e) { msg(e.message || 'No se pudo eliminar.'); }
 }
 
 async function guarda(id, cambios) {
@@ -158,6 +174,7 @@ $('candLista').addEventListener('click', async e => {
     await guarda(c.id, { status: 'entrevista', notes: notaConEntrevista(c.notes, cuando) });
     return;
   }
+  if (e.target.closest('[data-elimina]') && c) { await elimina(c); return; }
   const b = e.target.closest('[data-cv]'); if (!b) return;
   // La ventana se abre en el mismo toque; si se abriera después de firmar,
   // el celular la bloquea como ventana emergente.

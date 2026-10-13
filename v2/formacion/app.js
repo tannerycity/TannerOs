@@ -11,7 +11,7 @@
  * y en /v2/formacion/motor.js.
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth, moduleAccess } from '/v2/shell.js';
-import { recomienda, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana } from '/v2/formacion/motor.js?v=20261013a';
+import { recomienda, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador } from '/v2/formacion/motor.js?v=20261013b';
 
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
 if (!boot) throw new Error('No access');
@@ -20,7 +20,8 @@ const esDireccion = moduleAccess(navigation, 'formacion_direccion', true);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let catalogo = { concepts: [], tasks: [] }, semana = null, tab = esDireccion ? 'semana' : 'sesiones', tz = 'America/Mexico_City';
-let dataDir = null, dataMia = null, dataHoy = null, borrador = {}, filtroBanco = '';
+let dataDir = null, dataMia = null, dataHoy = null, borrador = {};
+const album = { banco: 'tanner', mundo: '', nivel: 0, busca: '' };
 
 const concepto = (kind, code) => catalogo.concepts.find(c => c.kind === kind && c.code === code);
 const nombreReto = code => concepto('reto', code)?.name || concepto('mundo_baby', code)?.name || code || '';
@@ -202,10 +203,19 @@ function pintaSesiones() {
       <h1>${r.total ? (r.completa ? 'Próxima semana — lista' : `${r.total} ${r.total === 1 ? 'sesión' : 'sesiones'} · ${r.listas} ${r.listas === 1 ? 'lista' : 'listas'} · ${r.pendientes} ${r.pendientes === 1 ? 'pendiente' : 'pendientes'}`) : 'Sin sesiones esa semana'}</h1>
       <p>Corte: ${esc(fecha(d.deadline, { weekday: 'long', day: 'numeric', month: 'short' }))} a las ${esc(hora(d.deadline))}.</p>
       ${r.pendientes ? '<button type="button" id="fmTerminar" class="fm-cta">Terminar planeación</button>' : ''}</section>
+    ${ses.length ? pintaPasosFormador(ses) : ''}
     ${ses.length ? `<div class="fm-lista">${tarjetas}</div>` : `<p class="fm-vacio">${esDireccion ? 'No hay sesiones de esa semana.' : 'No tienes sesiones asignadas esa semana. Si deberías tenerlas, avísale a Dirección.'}</p>`}`;
 }
 
-function hojaSesion(s) {
+/* Los pasos del Formador (13/10/2026): el mismo camino claro que la Semana
+   Tanner de Dirección. Los dos últimos pasos pasan en la cancha. */
+function pintaPasosFormador(ses) {
+  const st = pasosDelFormador(ses);
+  return `<ol class="fm-pasos" aria-label="Tu semana en 5 pasos">${st.pasos.map(p => `<li class="${p.hecho ? 'hecho' : p.n === st.actual ? 'actual' : p.info ? 'info' : ''}">
+    <span class="fm-paso-n" aria-hidden="true">${p.hecho ? '✓' : p.n}</span><span class="fm-paso-txt"><b>${esc(p.titulo)}</b><small>${esc(p.detalle)}</small></span></li>`).join('')}</ol>`;
+}
+
+function hojaSesion(s, pre = '') {
   const ses = dataMia.sessions, indice = ses.filter(x => x.categoryId === s.categoryId).findIndex(x => x.sessionId === s.sessionId);
   const total = ses.filter(x => x.categoryId === s.categoryId).length;
   const minutos = (new Date(s.endsAt) - new Date(s.startsAt)) / 60000, esBaby = esBabyEtapa(s.stage);
@@ -218,6 +228,12 @@ function hojaSesion(s) {
     const base = b.juego ? (esBaby ? 'Partiditos 1v1, 2v2 o 3v3' : 'Juego libre') : b.principal ? '' : (esBaby ? 'Llegada activa con balón' : 'Calentamiento con balón');
     return { block: b.key, taskId: p?.taskId || '', text: p?.text || base, difficulty: p?.difficulty || 'base', space: p?.space || 'completo' };
   });
+  // Desde el Álbum: la jugada entra en la primera tarea libre (o en la primera tarea).
+  if (pre) {
+    const libres = bloques.map((b, i) => b.principal && !sel[i].taskId && !sel[i].text ? i : -1).filter(i => i >= 0);
+    const i = libres.length ? libres[0] : bloques.findIndex(b => b.principal);
+    if (i >= 0) { sel[i].taskId = pre; sel[i].text = ''; }
+  }
   const recos = b => recomienda({ tareas: catalogo.tasks, etapa: s.stage, esBaby, reto, secundario: s.week?.secondary, bloque: b, indiceSesion: indice, totalSesiones: total, usos });
   const todas = () => catalogo.tasks.filter(t => t.bank === (esBaby ? 'baby' : 'tanner') && (!s.stage || (t.stages || []).includes(s.stage)));
   const textoItem = it => it.taskId ? esc(tarea(it.taskId)?.name || 'Tarea') : esc(it.text || '');
@@ -336,23 +352,79 @@ async function modoCancha(s) {
   pinta();
 }
 
-/* ---------- Banco ---------- */
+/* ---------- Álbum de jugadas (13/10/2026) ----------
+   "Que sea fácil ver el banco y ponerlo, más dinámico, como gamification que
+   entiendan todos." Como un videojuego: cada Reto es un MUNDO con su color, la
+   escalera es el NIVEL (1 Sin rival → 4 En juego) y cada tarea es una CARTA
+   con su misión y su grito para los niños. Tocar la carta la abre; desde ahí
+   va directo a la sesión. Video y foto: próximamente. */
+const NIVEL_TXT = ['', 'Sin rival', 'Con rival', 'Con decisión', 'En juego'];
+const usadasEnMiSemana = () => new Set((dataMia?.sessions || []).flatMap(x => (x.plan?.items || []).map(i => i.taskId)).filter(Boolean));
+const barras = n => `<span class="fm-nivel" aria-label="Nivel ${n} de 4">${[1, 2, 3, 4].map(k => `<i class="${k <= n ? 'on' : ''}"></i>`).join('')}</span>`;
+function cartaMini(t, usadas) {
+  const n = NIVEL_NUM[t.level] || 0, color = colorDeMundo(t.primary, t.bank);
+  return `<button type="button" class="fm-carta" data-carta="${esc(t.id)}" style="--mundo:${color}">
+    <span class="fm-carta-banda"><span>${esc(nombreReto(t.primary))}</span>${n ? barras(n) : '<span class="fm-nivel-baby">Baby</span>'}</span>
+    <span class="fm-carta-cuerpo"><b>${esc(t.name)}</b>
+      <small class="fm-carta-mision">${esc(t.buscamos || '')}</small>
+      ${t.dile?.[0] ? `<em class="fm-carta-grito">“${esc(t.dile[0])}”</em>` : ''}</span>
+    <span class="fm-carta-pie">${n ? `Nivel ${n} · ${esc(NIVEL_TXT[n])}` : esc(t.bank === 'baby' ? 'Banco Baby' : '')}${usadas.has(t.id) ? '<i class="fm-carta-usada">En tu semana</i>' : ''}</span>
+  </button>`;
+}
+function gridAlbum() {
+  const lista = filtraAlbum(catalogo.tasks, album), usadas = usadasEnMiSemana();
+  return lista.length ? lista.map(t => cartaMini(t, usadas)).join('') : '<p class="fm-vacio">No hay jugadas con ese filtro.</p>';
+}
 function pintaBanco() {
-  const grupos = [...catalogo.concepts.filter(c => c.kind === 'reto'), ...catalogo.concepts.filter(c => c.kind === 'mundo_baby').map(c => ({ ...c, baby: true }))];
-  const lista = catalogo.tasks.filter(t => !filtroBanco || `${t.bank}:${t.primary}` === filtroBanco);
-  return `<nav class="fm-chips"><button type="button" data-filtro=""${!filtroBanco ? ' class="activa"' : ''}>Todo</button>${grupos.map(g => {
-      const k = `${g.baby ? 'baby' : 'tanner'}:${g.code}`;
-      return `<button type="button" data-filtro="${esc(k)}"${filtroBanco === k ? ' class="activa"' : ''}>${g.baby ? 'Baby · ' : ''}${esc(g.name)}</button>`;
-    }).join('')}</nav>
-    <div class="fm-banco">${lista.map(t => `<article class="fm-tarea" data-tarea="${esc(t.id)}">
-      <header><span>${t.bank === 'baby' ? 'BABY · ' : ''}${esc(nombreReto(t.primary))}${t.level ? ' · ' + esc(concepto('nivel', t.level)?.name || '') : ''}</span><h3>${esc(t.name)}</h3></header>
-      <dl><dt>Buscamos</dt><dd>${esc(t.buscamos)}</dd><dt>Juega</dt><dd>${esc(t.juega)}</dd>
-      <dt>Dile</dt><dd>${(t.dile || []).map(f => `“${esc(f)}”`).join(' ')}</dd><dt>Observa</dt><dd>${esc(t.observa)}</dd></dl>
-      <div class="fm-tarea-mas"><button type="button" data-ver="facil">Más fácil</button><button type="button" data-ver="dificil">Más difícil</button><button type="button" data-ver="detalle">Detalles</button></div>
-      <p class="fm-tarea-extra hidden" data-extra="facil">${esc(t.easier || '')}</p>
-      <p class="fm-tarea-extra hidden" data-extra="dificil">${esc(t.harder || '')}</p>
-      <div class="fm-tarea-extra hidden" data-extra="detalle">${t.montaje ? `<p><b>Montaje:</b> ${esc(t.montaje)}</p>` : ''}${t.space ? `<p><b>Espacio:</b> ${esc(t.space)}</p>` : ''}${t.adapta ? `<p><b>Adapta:</b> ${esc(t.adapta)}</p>` : ''}${t.videoGuide ? `<p><b>Video:</b> ${esc(t.videoGuide)}</p>` : ''}</div>
-    </article>`).join('')}</div>`;
+  const kind = album.banco === 'baby' ? 'mundo_baby' : 'reto';
+  const mundos = catalogo.concepts.filter(c => c.kind === kind);
+  const total = catalogo.tasks.filter(t => t.bank === album.banco).length;
+  const usadas = usadasEnMiSemana();
+  const mundo = mundos.find(m => m.code === album.mundo);
+  return `<section class="fm-album-hero"><span>ÁLBUM DE JUGADAS</span><h1>${total} jugadas · ${mundos.length} mundos</h1>
+      <p>${mundo ? `${esc(mundo.name)}: ${esc(mundo.question || mundo.phrase || '')}` : 'Elige un mundo, sube de nivel y toca una carta para llevarla a tu sesión.'}</p>
+      ${usadas.size ? `<p class="fm-album-uso">Esta semana usas ${usadas.size} ${usadas.size === 1 ? 'jugada' : 'jugadas'}</p>` : ''}</section>
+    <div class="fm-album-filtros">
+      <div class="fm-seg" role="group" aria-label="Banco"><button type="button" data-banco="tanner" class="${album.banco === 'tanner' ? 'activa' : ''}">Tanner</button><button type="button" data-banco="baby" class="${album.banco === 'baby' ? 'activa' : ''}">Baby</button></div>
+      <input type="search" id="fmBusca" placeholder="Buscar jugada…" value="${esc(album.busca)}" aria-label="Buscar jugada">
+    </div>
+    <nav class="fm-mundos" aria-label="Mundos"><button type="button" data-mundo=""${!album.mundo ? ' class="activa"' : ''}>Todos</button>${mundos.map(m => `<button type="button" data-mundo="${esc(m.code)}" style="--mundo:${colorDeMundo(m.code, album.banco)}"${album.mundo === m.code ? ' class="activa"' : ''}><i></i>${esc(m.name)}</button>`).join('')}</nav>
+    ${album.banco === 'tanner' ? `<div class="fm-seg fm-niveles" role="group" aria-label="Nivel">${[0, 1, 2, 3, 4].map(n => `<button type="button" data-nivel="${n}" class="${Number(album.nivel) === n ? 'activa' : ''}">${n ? `${n} · ${NIVEL_TXT[n]}` : 'Todos los niveles'}</button>`).join('')}</div>` : ''}
+    <div class="fm-album" id="fmAlbum">${gridAlbum()}</div>`;
+}
+
+function hojaCarta(t) {
+  const n = NIVEL_NUM[t.level] || 0, color = colorDeMundo(t.primary, t.bank);
+  const mias = (dataMia?.sessions || []).filter(x => (t.bank === 'baby') === esBabyEtapa(x.stage) && (!(t.stages || []).length || !x.stage || t.stages.includes(x.stage)));
+  abreHoja(t.name, `<div class="fm-carta-grande" style="--mundo:${color}">
+      <div class="fm-carta-banda"><span>${esc(nombreReto(t.primary))}</span>${n ? `${barras(n)}<small>Nivel ${n} · ${esc(NIVEL_TXT[n])}</small>` : '<small>Banco Baby</small>'}</div>
+      <section><h4>Misión</h4><p>${esc(t.buscamos || '')}</p></section>
+      ${t.dile?.length ? `<section class="fm-grito"><h4>Grito para los niños</h4>${t.dile.map(f => `<p>“${esc(f)}”</p>`).join('')}</section>` : ''}
+      <section><h4>Cómo se juega</h4><p>${esc(t.juega || '')}</p></section>
+      ${t.montaje ? `<section><h4>Montaje</h4><p>${esc(t.montaje)}</p></section>` : ''}
+      ${t.observa ? `<section><h4>Observa</h4><p>${esc(t.observa)}</p></section>` : ''}
+      <div class="fm-powerups"><button type="button" data-modo="facil">Modo fácil</button><button type="button" data-modo="dificil">Modo difícil</button></div>
+      <p class="fm-modo hidden" data-ver-modo="facil"><b>Modo fácil:</b> ${esc(t.easier || '')}</p>
+      <p class="fm-modo hidden" data-ver-modo="dificil"><b>Modo difícil:</b> ${esc(t.harder || '')}</p>
+      ${t.space ? `<p class="fm-ayuda"><b>Espacio:</b> ${esc(t.space)}</p>` : ''}${t.adapta ? `<p class="fm-ayuda"><b>Adapta:</b> ${esc(t.adapta)}</p>` : ''}
+      <div class="fm-media"><button type="button" data-media="video"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></span><span><b>Ver video</b><small>Próximamente</small></span></button>
+        <button type="button" data-media="foto"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><circle cx="9" cy="10.5" r="1.8"/><path d="m20.5 16-5-4.5-7.5 7"/></svg></span><span><b>Ver foto del montaje</b><small>Próximamente</small></span></button></div>
+      <p class="fm-media-nota hidden" id="fmMediaNota">${t.videoGuide ? `Así se verá: ${esc(t.videoGuide)}` : 'Muy pronto verás aquí el video y la foto de esta jugada.'}</p>
+    </div>`,
+    mias.length ? `<button type="button" class="secondary" data-cerrar>Cerrar</button><button type="button" class="primary" id="fmAgregar">Agregar a mi sesión</button>` : `<button type="button" class="secondary" data-cerrar>Cerrar</button>`);
+  $('fmHoja').onclick = e => {
+    const m = e.target.closest('[data-modo]');
+    if (m) { const p = $('fmHojaCuerpo').querySelector(`[data-ver-modo="${m.dataset.modo}"]`); p.classList.toggle('hidden'); m.classList.toggle('activa', !p.classList.contains('hidden')); return; }
+    if (e.target.closest('[data-media]')) { $('fmMediaNota').classList.remove('hidden'); return; }
+    if (e.target.closest('#fmAgregar')) { eligeSesion(t, mias); }
+  };
+}
+function eligeSesion(t, mias) {
+  if (mias.length === 1) { cierraHoja(); hojaSesion(mias[0], t.id); return; }
+  abreHoja(`¿A qué sesión va “${t.name}”?`, `<div class="fm-lista">${mias.map(x => `<button type="button" class="fm-ses${x.plan?.status === 'ready' ? ' lista' : ''}" data-va="${esc(x.sessionId)}">
+      <span class="fm-ses-dia">${esc(dia(x.startsAt))}</span><span class="fm-ses-txt"><b>${esc(x.category)}</b><small>${esc(hora(x.startsAt))}–${esc(hora(x.endsAt))}</small></span>
+      <span class="fm-pill ${x.plan?.status === 'ready' ? 'ok' : 'pendiente'}">${x.plan?.status === 'ready' ? 'Lista' : 'Pendiente'}</span></button>`).join('')}</div>`, '<button type="button" class="secondary" data-cerrar>Cancelar</button>');
+  $('fmHoja').onclick = e => { const b = e.target.closest('[data-va]'); if (!b) return; const ses = mias.find(x => x.sessionId === b.dataset.va); cierraHoja(); hojaSesion(ses, t.id); };
 }
 
 /* ---------- Hoja inferior ---------- */
@@ -376,9 +448,13 @@ $('fmVista').addEventListener('click', e => {
   const hoy = e.target.closest('[data-hoy]'); if (hoy) { modoCancha(dataHoy.sessions.find(s => s.sessionId === hoy.dataset.hoy)); return; }
   const ses = e.target.closest('[data-ses]'); if (ses) { hojaSesion(dataMia.sessions.find(s => s.sessionId === ses.dataset.ses)); return; }
   if (e.target.closest('#fmTerminar')) { const p = dataMia.sessions.find(s => s.plan?.status !== 'ready'); if (p) hojaSesion(p); return; }
-  const f = e.target.closest('[data-filtro]'); if (f) { filtroBanco = f.dataset.filtro; pinta(); return; }
-  const ver = e.target.closest('[data-ver]'); if (ver) { ver.closest('.fm-tarea').querySelector(`[data-extra="${ver.dataset.ver}"]`).classList.toggle('hidden'); }
+  const bn = e.target.closest('[data-banco]'); if (bn) { album.banco = bn.dataset.banco; album.mundo = ''; album.nivel = 0; pinta(); return; }
+  const mu = e.target.closest('[data-mundo]'); if (mu) { album.mundo = mu.dataset.mundo; pinta(); return; }
+  const ni = e.target.closest('[data-nivel]'); if (ni) { album.nivel = +ni.dataset.nivel; pinta(); return; }
+  const ca = e.target.closest('[data-carta]'); if (ca) { hojaCarta(catalogo.tasks.find(t => t.id === ca.dataset.carta)); return; }
 });
+// Buscar sin perder el teclado: sólo se repinta la cuadrícula.
+$('fmVista').addEventListener('input', e => { if (e.target.id !== 'fmBusca') return; album.busca = e.target.value; const g = $('fmAlbum'); if (g) g.innerHTML = gridAlbum(); });
 
 async function carga() {
   try {
@@ -398,3 +474,5 @@ async function carga() {
 
 catalogo = await rpc('v2_formation_catalog', { organization_id: org }).catch(() => ({ concepts: [], tasks: [] }));
 await carga();
+// Si todas sus sesiones son de Baby, el Álbum abre en Baby.
+if ((dataMia?.sessions || []).length && dataMia.sessions.every(x => esBabyEtapa(x.stage))) album.banco = 'baby';

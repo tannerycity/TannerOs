@@ -185,3 +185,67 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
   .fm-hero2 h1{font-size:22px}
 }
 .fm-aviso{bottom:100px!important}
+
+/* ==== Álbum de jugadas (13/10/2026) ====
+   Como un videojuego: mundos de colores, niveles con barras y cartas que se
+   abren. Claro para el profe y para los niños. */
+.fm-album-hero{padding:20px 22px;border-radius:24px;margin-bottom:12px;color:#fff;
+  background:radial-gradient(500px 220px at 85% -20%,rgba(255,214,10,.35),transparent 60%),radial-gradient(500px 240px at 0% 120%,rgba(10,132,255,.35),transparent 60%),linear-gradient(135deg,#0f2c4c,#1c1446)}
+.fm-album-hero>span{font-size:11px;letter-spacing:.12em;font-weight:800;color:#ffd60a}
+.fm-album-hero h1{margin:6px 0 4px;font-size:26px;letter-spacing:-.02em;font-weight:800}
+.fm-album-hero p{margin:0;color:#d6e0f0;font-size:14px;line-height:1.45}
+.fm-album-hero .fm-album-uso{margin-top:10px;display:inline-block;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-weight:700;font-size:13px}
+.fm-album-filtros{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.fm-album-filtros input{flex:1;min-width:0;min-height:42px;border:0;border-radius:12px;background:#eceff0;padding:0 14px;font:inherit;font-size:15px}
+.fm-album-filtros input:focus{outline:2px solid #0a84ff;background:#fff}
+.fm-seg{display:inline-flex;gap:3px;padding:3px;border-radius:12px;background:#eceff0}
+.fm-seg button{border:0;background:transparent;border-radius:9px;padding:8px 14px;font:inherit;font-size:14px;font-weight:700;color:#3c4e52;cursor:pointer;white-space:nowrap}
+.fm-seg button.activa{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
+.fm-niveles{display:flex;overflow-x:auto;scrollbar-width:none;margin-bottom:12px;max-width:100%}
+.fm-niveles::-webkit-scrollbar{display:none}
+.fm-mundos{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 10px}
+.fm-mundos::-webkit-scrollbar{display:none}
+.fm-mundos button{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border:1.5px solid #e1e6e7;background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;font-weight:700;color:#2b4146;cursor:pointer}
+.fm-mundos button i{width:10px;height:10px;border-radius:50%;background:var(--mundo,#8e8e93)}
+.fm-mundos button.activa{background:#07191e;border-color:#07191e;color:#fff}
+.fm-album{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.fm-carta{display:grid;grid-template-rows:auto 1fr auto;text-align:left;border:0;padding:0;border-radius:20px;overflow:hidden;background:#fff;font:inherit;color:inherit;cursor:pointer;
+  box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.05);transition:transform .15s ease,box-shadow .2s ease}
+.fm-carta:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(7,25,30,.12),0 0 0 2px var(--mundo)}
+.fm-carta:active{transform:scale(.98)}
+.fm-carta-banda{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:var(--mundo);color:#fff;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.fm-nivel{display:inline-flex;gap:3px;align-items:flex-end}
+.fm-nivel i{display:block;width:6px;border-radius:2px;background:rgba(255,255,255,.35)}
+.fm-nivel i:nth-child(1){height:6px}.fm-nivel i:nth-child(2){height:9px}.fm-nivel i:nth-child(3){height:12px}.fm-nivel i:nth-child(4){height:15px}
+.fm-nivel i.on{background:#fff}
+.fm-nivel-baby{font-size:11px;opacity:.9}
+.fm-carta-cuerpo{display:grid;gap:6px;align-content:start;padding:12px 14px}
+.fm-carta-cuerpo b{font-size:17px;line-height:1.2;color:#07191e;letter-spacing:-.01em}
+.fm-carta-mision{font-size:13px;color:#4d5f63;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.fm-carta-grito{font-style:normal;font-size:13px;font-weight:700;color:#07191e;background:color-mix(in srgb,var(--mundo) 14%,#fff);border-radius:10px;padding:7px 10px}
+.fm-carta-pie{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 14px 12px;font-size:12px;font-weight:700;color:#7a8a8e}
+.fm-carta-usada{font-style:normal;background:#e8f6ec;color:#1e6b3c;border-radius:999px;padding:2px 8px}
+/* La carta abierta */
+.fm-carta-grande{display:grid;gap:12px}
+.fm-carta-grande .fm-carta-banda{border-radius:16px;padding:14px 16px;font-size:14px}
+.fm-carta-grande .fm-carta-banda small{margin-left:auto;font-size:12px;opacity:.95}
+.fm-carta-grande .fm-nivel i{width:8px}.fm-carta-grande .fm-nivel i:nth-child(4){height:18px}
+.fm-carta-grande section h4{margin:0 0 4px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7a8a8e}
+.fm-carta-grande section p{margin:0;font-size:15px;line-height:1.45;color:#1f3338}
+.fm-grito{padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--mundo) 12%,#fff)}
+.fm-grito p{font-size:17px!important;font-weight:800;color:#07191e!important}
+.fm-powerups{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fm-powerups button{min-height:46px;border-radius:14px;border:1.5px solid #e1e6e7;background:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+.fm-powerups button[data-modo="facil"].activa{background:#e8f6ec;border-color:#34c759;color:#1e6b3c}
+.fm-powerups button[data-modo="dificil"].activa{background:#fdecea;border-color:#ff453a;color:#a92a21}
+.fm-modo{margin:0;padding:10px 12px;border-radius:12px;background:#f5f7f7;font-size:14.5px;line-height:1.4}
+.fm-media{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fm-media button{display:flex;align-items:center;gap:10px;text-align:left;min-height:60px;border:0;border-radius:14px;background:#0f2c4c;color:#fff;padding:10px 12px;font:inherit;cursor:pointer}
+.fm-media-ico{display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:50%;background:rgba(255,255,255,.16);font-size:14px}
+.fm-media b{display:block;font-size:14px}
+.fm-media small{display:inline-block;margin-top:2px;padding:1px 8px;border-radius:999px;background:#ffd60a;color:#1c1446;font-size:11px;font-weight:800}
+.fm-media-nota{margin:0;font-size:13.5px;color:#4d5f63;background:#f5f7f7;border-radius:12px;padding:10px 12px}
+.fm-pasos li.info{opacity:.75}
+@media(max-width:520px){.fm-album{grid-template-columns:1fr 1fr;gap:10px}.fm-carta-cuerpo b{font-size:15px}.fm-carta-grito{display:none}.fm-album-hero h1{font-size:22px}.fm-media{grid-template-columns:1fr}}
+.fm-carta-pie{flex-wrap:wrap}
+.fm-media-ico svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}.fm-media-ico svg path:only-child{fill:#fff}

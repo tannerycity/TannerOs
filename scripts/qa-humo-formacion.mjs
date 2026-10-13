@@ -7,7 +7,7 @@
 //     no ve la pestaña de Dirección;
 //   · Dirección: Semana Tanner por categoría; Baby elige entre los 4 mundos
 //     (nunca los 9 Retos); publica las categorías elegidas;
-//   · Banco: filtra por Reto y despliega Más fácil;
+//   · Álbum: cartas por mundo y nivel, modos, video próximamente y agregar a la sesión;
 //   · nada se sale a 390px.
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -102,6 +102,10 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   revisa('[formador] no ve la Semana Tanner de Dirección', JSON.stringify(tabs) === '["Próxima semana","Banco"]', JSON.stringify(tabs));
   revisa('[formador] "3 sesiones · 1 lista · 2 pendientes"', (await p.textContent('.fm-hero h1')) === '3 sesiones · 1 lista · 2 pendientes', await p.textContent('.fm-hero h1'));
   revisa('[formador] dice la semana', /7–13 dic/.test(await p.textContent('.fm-hero > span')), await p.textContent('.fm-hero > span'));
+  // Los pasos del Formador (13/10/2026): mismo camino que Dirección.
+  const pasosF = await p.$$eval('.fm-pasos li', l => l.map(x => [x.className, x.querySelector('b').textContent, x.querySelector('small').textContent]));
+  revisa('[formador] sus 5 pasos: Reto, jugadas, confirmar, cancha y cierre', pasosF.length === 5 && pasosF[1][1] === 'Elige tus jugadas' && pasosF[1][2] === '1 de 3 sesiones'
+    && pasosF[0][2] === '2 de 3' && pasosF[2][2] === '1 de 3 listas' && pasosF[3][0] === 'info', JSON.stringify(pasosF));
   await cabe(p, 'formador');
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-formador.png' });
   await p.click('#fmTerminar');
@@ -222,15 +226,43 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_remove_training_week'));
   const q = (await llamadas(p, 'v2_remove_training_week'))[0].prm;
   revisa('[quitar] quita el Reto de esa categoría y esa semana', q.category_id === 'c10' && q.week_start === '2026-12-07', JSON.stringify(q));
-  // Banco
+  // Álbum de jugadas (13/10/2026): cartas por mundo y nivel.
   await p.click('[data-tab="banco"]');
-  await p.waitForSelector('.fm-tarea');
-  revisa('[banco] 60 tareas: 36 Tanner y 24 Baby', (await p.$$('.fm-tarea')).length === 60);
-  await p.click('[data-filtro="tanner:1v1"]');
-  const nombres = await p.$$eval('.fm-tarea h3', h => h.map(x => x.textContent));
-  revisa('[banco] filtrar por Reto', JSON.stringify(nombres) === '["Engaña y Sal","Cruza la Línea","Dos Salidas","Duelos que dan Gol"]', JSON.stringify(nombres));
-  await p.click('.fm-tarea:first-child [data-ver="facil"]');
-  revisa('[banco] Más fácil se despliega', await p.isVisible('.fm-tarea:first-child [data-extra="facil"]') && /baja velocidad/.test(await p.textContent('.fm-tarea:first-child [data-extra="facil"]')));
+  await p.waitForSelector('.fm-carta');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-album.png' });
+  revisa('[álbum] 36 cartas Tanner', (await p.$$('.fm-carta')).length === 36 && /36 jugadas · 9 mundos/.test(await p.textContent('.fm-album-hero h1')));
+  await p.click('[data-banco="baby"]');
+  revisa('[álbum] 24 cartas Baby con sus 4 mundos', (await p.$$('.fm-carta')).length === 24 && (await p.$$('[data-mundo]')).length === 5);
+  await p.click('[data-banco="tanner"]');
+  await p.click('[data-mundo="1v1"]');
+  const nombres = await p.$$eval('.fm-carta b', h => h.map(x => x.textContent));
+  revisa('[álbum] filtrar por mundo, de nivel 1 a 4', nombres.length === 4 && nombres.includes('Engaña y Sal') && nombres.includes('Duelos que dan Gol'), JSON.stringify(nombres));
+  const niveles = await p.$$eval('.fm-carta', c => c.map(x => x.querySelectorAll('.fm-nivel i.on').length));
+  revisa('[álbum] cada carta dice su nivel con barras, ordenadas', JSON.stringify(niveles) === '[1,2,3,4]', JSON.stringify(niveles));
+  await p.click('[data-nivel="2"]');
+  revisa('[álbum] filtrar por nivel', (await p.$$('.fm-carta')).length === 1);
+  await p.click('[data-nivel="0"]'); await p.click('[data-mundo=""]');
+  await p.fill('#fmBusca', 'duelo');
+  revisa('[álbum] buscar sin acentos ni mayúsculas, sin perder el teclado', (await p.$$('.fm-carta')).length >= 1 && await p.evaluate(() => document.activeElement?.id === 'fmBusca'));
+  await p.fill('#fmBusca', '');
+  await p.click('[data-mundo="balon"]');
+  await p.click('.fm-carta >> nth=0');
+  await p.waitForSelector('.fm-carta-grande');
+  const carta = await p.textContent('.fm-carta-grande');
+  revisa('[carta] misión, grito para los niños y cómo se juega', /Misión/.test(carta) && /Grito para los niños/.test(carta) && /Cómo se juega/.test(carta), carta.slice(0, 200));
+  await p.click('[data-modo="facil"]');
+  revisa('[carta] Modo fácil se despliega', await p.isVisible('[data-ver-modo="facil"]'));
+  revisa('[carta] video y foto marcados "Próximamente"', (await p.$$eval('.fm-media small', s => s.map(x => x.textContent))).join('|') === 'Próximamente|Próximamente');
+  await p.click('[data-media="video"]');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-carta.png' });
+  revisa('[carta] el video dice cómo se verá', /Así se verá/.test(await p.textContent('#fmMediaNota')));
+  await p.click('#fmAgregar');
+  await p.waitForSelector('[data-va]');
+  await p.click('[data-va="s2"]');
+  await p.waitForSelector('.fm-bloque');
+  const elegida = await p.textContent('.fm-bloque[data-i="1"] .fm-elegida').catch(() => '');
+  revisa('[carta] "Agregar a mi sesión" la pone en la tarea libre', /Balón Vivo/.test(elegida), elegida);
+  await p.click('[data-cerrar]');
   await cabe(p, 'banco');
   await p.close();
 }

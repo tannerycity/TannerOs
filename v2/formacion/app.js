@@ -207,6 +207,29 @@ function pintaSesiones() {
     ${ses.length ? `${bannerPractica()}<div class="fm-lista">${tarjetas}</div>` : vacioConPractica(d)}`;
 }
 
+/* ---------- Botones de juego (13/10/2026) ----------
+   "Que sea como videojuego... que cualquier persona que sepa de fútbol pueda
+   hacerlo." Dificultad como en un juego (Fácil verde, Normal amarillo, Difícil
+   rojo) y el espacio con su cancha dibujada. Los valores no cambian (facil /
+   base / dificil, completo / reducido); sólo cómo se ven y se dicen. */
+const NIVELES_JUEGO = [['facil', 'Fácil', '¿Les cuesta?'], ['base', 'Normal', 'Como viene'], ['dificil', 'Difícil', '¿Ya les sale?']];
+const NOMBRE_NIVEL = { facil: 'Fácil', base: 'Normal', dificil: 'Difícil' };
+const ESPACIOS = [['completo', 'Cancha completa', 'Más correr y decidir'], ['reducido', 'Cancha chica', 'Más toques y duelos']];
+const NOMBRE_ESPACIO = { completo: 'Cancha completa', reducido: 'Cancha chica' };
+const CANCHA = {
+  completo: '<svg viewBox="0 0 64 40" aria-hidden="true"><rect x="3" y="3" width="58" height="34" rx="3"/><path d="M32 3v34"/><circle cx="32" cy="20" r="6"/><path d="M3 13h8v14H3M61 13h-8v14h8"/></svg>',
+  reducido: '<svg viewBox="0 0 64 40" aria-hidden="true"><rect x="3" y="3" width="58" height="34" rx="3" class="fuera"/><rect x="16" y="9" width="32" height="22" rx="2"/><path d="M32 9v22M16 16h4v8h-4M48 16h-4v8h4"/></svg>'
+};
+function botonesDificultad(attr, actual) {
+  return `<div class="fm-juego" role="radiogroup" aria-label="Dificultad">${NIVELES_JUEGO.map(([k, l, sub]) =>
+    `<button type="button" role="radio" aria-checked="${actual === k}" class="fm-jbtn fm-jbtn-${k}${actual === k ? ' activa' : ''}" ${attr(k)}><b>${l}</b><small>${sub}</small></button>`).join('')}</div>`;
+}
+function botonesEspacio(attr, actual) {
+  return `<div class="fm-espacio" role="radiogroup" aria-label="Espacio">${ESPACIOS.map(([k, l, sub]) =>
+    `<button type="button" role="radio" aria-checked="${actual === k}" class="fm-ebtn${actual === k ? ' activa' : ''}" ${attr(k)}>${CANCHA[k]}<b>${l}</b><small>${sub}</small></button>`).join('')}</div>`;
+}
+const ajustes = (attrDif, dif, attrEsp, esp) => `<div class="fm-ajustes"><p class="fm-ajuste-tit">Dificultad</p>${botonesDificultad(attrDif, dif)}<p class="fm-ajuste-tit">Espacio</p>${botonesEspacio(attrEsp, esp)}</div>`;
+
 /* ---------- Práctica guiada (13/10/2026) ----------
    "Que haya un ejemplo, como un onboarding para que el formador sepa cómo,
    un demo pero sin decirle demo." Cinco pantallas con una sesión de ejemplo:
@@ -248,12 +271,11 @@ function practica() {
       <div class="fm-pr-recos">${recos.map(x => `<button type="button" data-pr-tarea="${esc(x.id)}" class="${st.tarea === x.id ? 'activa' : ''}"><b>${esc(x.name)}</b><small>${esc(x.buscamos || '')}</small></button>`).join('')}</div>
       ${tip('Están ordenadas para el Reto y para el día de la semana. Si quieres otra, en tu sesión real tienes <b>Ver más</b> y el <b>Álbum de jugadas</b>.')}`,
     4: () => `${dots()}<p class="fm-paso-eti">PASO 4 DE 5 · AJÚSTALA A TU GRUPO</p><h3 class="fm-pregunta">${esc(t()?.name || 'Tu jugada')}</h3>
-      <div class="fm-toggles"><span role="group" aria-label="Dificultad">${[['facil', 'Más fácil'], ['base', 'Base'], ['dificil', 'Más difícil']].map(([k, l]) => `<button type="button" data-pr-dif="${k}" class="${st.dif === k ? 'activa' : ''}">${l}</button>`).join('')}</span>
-        <span role="group" aria-label="Espacio">${[['completo', 'Completo'], ['reducido', 'Reducido']].map(([k, l]) => `<button type="button" data-pr-esp="${k}" class="${st.esp === k ? 'activa' : ''}">${l}</button>`).join('')}</span></div>
-      <p class="fm-modo">${st.dif === 'facil' ? `<b>Más fácil:</b> ${esc(t()?.easier || '')}` : st.dif === 'dificil' ? `<b>Más difícil:</b> ${esc(t()?.harder || '')}` : `<b>Cómo se juega:</b> ${esc(t()?.juega || '')}`}</p>
+      ${ajustes(k => `data-pr-dif="${k}"`, st.dif, k => `data-pr-esp="${k}"`, st.esp)}
+      <p class="fm-modo fm-modo-${st.dif}">${st.dif === 'facil' ? `<b>Fácil:</b> ${esc(t()?.easier || '')}` : st.dif === 'dificil' ? `<b>Difícil:</b> ${esc(t()?.harder || '')}` : `<b>Normal:</b> ${esc(t()?.juega || '')}`}</p>
       ${tip('¿Tu grupo va adelantado o le está costando? Súbele o bájale. No hay respuesta mala: <b>tú conoces a tus Tanners</b>.')}`,
     5: () => `${dots()}<p class="fm-paso-eti">PASO 5 DE 5 · DÉJALA LISTA</p><h3 class="fm-pregunta">Así queda tu sesión</h3>
-      <ol class="fm-pr-resumen"><li><span>15 min</span><b>Calentar</b></li><li class="tu"><span>30 min</span><b>${esc(t()?.name || '')}</b><small>${{ facil: 'Más fácil', base: 'Base', dificil: 'Más difícil' }[st.dif]} · ${st.esp === 'completo' ? 'Espacio completo' : 'Espacio reducido'}</small></li><li><span>15 min</span><b>Jugar</b></li></ol>
+      <ol class="fm-pr-resumen"><li><span>15 min</span><b>Calentar</b></li><li class="tu"><span>30 min</span><b>${esc(t()?.name || '')}</b><small>${NOMBRE_NIVEL[st.dif]} · ${NOMBRE_ESPACIO[st.esp]}</small></li><li><span>15 min</span><b>Jugar</b></li></ol>
       ${tip('Toca <b>Confirmar lista</b> y listo. El día de la sesión, abre <b>Modo Cancha</b>: te dice qué decirles y qué observar.')}`,
     6: () => `<div class="fm-pr-fin"><div class="fm-pr-check" aria-hidden="true">✓</div><h3>¡Así se planea!</h3>
       <p>Reto → tu jugada → ajustarla → lista. Con tus sesiones reales son los mismos pasos: <b>3 toques por sesión</b>.</p>
@@ -316,8 +338,7 @@ function hojaSesion(s, pre = '') {
         ${it.taskId || it.text ? `<p class="fm-elegida">${textoItem(it)}${it.taskId ? `<small>${esc(tarea(it.taskId)?.buscamos || '')}</small>` : ''}</p>`
           : `<div class="fm-recos">${recos(b).map(t => `<button type="button" data-elige="${i}" data-task="${esc(t.id)}"><b>${esc(t.name)}</b><small>${esc(t.buscamos)}</small></button>`).join('')}
              <button type="button" class="fm-link" data-mas="${i}">Ver más</button><button type="button" class="fm-link" data-escribe="${i}">Escribir otra</button></div>`}
-        ${b.principal && (it.taskId || it.text) ? `<div class="fm-toggles"><span role="group" aria-label="Dificultad">${['facil', 'base', 'dificil'].map(x => `<button type="button" data-dif="${i}" data-v="${x}" class="${it.difficulty === x ? 'activa' : ''}">${{ facil: 'Más fácil', base: 'Base', dificil: 'Más difícil' }[x]}</button>`).join('')}</span>
-          <span role="group" aria-label="Espacio">${['completo', 'reducido'].map(x => `<button type="button" data-esp="${i}" data-v="${x}" class="${it.space === x ? 'activa' : ''}">${x === 'completo' ? 'Completo' : 'Reducido'}</button>`).join('')}</span></div>` : ''}
+        ${b.principal && (it.taskId || it.text) ? ajustes(k => `data-dif="${i}" data-v="${k}"`, it.difficulty, k => `data-esp="${i}" data-v="${k}"`, it.space) : ''}
       </section>`;
     }).join('')}
     <p id="fmFalta" class="fm-falta"></p>`;
@@ -392,7 +413,7 @@ async function modoCancha(s) {
         <p class="fm-reloj" id="fmReloj">0:00</p>
         ${p.t?.dile?.length ? `<p class="fm-dile">${p.t.dile.map(f => `“${esc(f)}”`).join('<br>')}</p>` : ''}
         ${p.t ? `<ul class="fm-observa">${observables(p.t).map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
-        ${p.t ? `<div class="fm-tarea-mas"><button type="button" data-ver="facil">Más fácil</button><button type="button" data-ver="dificil">Más difícil</button></div>
+        ${p.t ? `<div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-ver="facil"><b>Fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-ver="dificil"><b>Difícil</b><small>¿Ya les sale?</small></button></div>
           <p class="fm-tarea-extra hidden" data-extra="facil">${esc(p.t.easier || '')}</p><p class="fm-tarea-extra hidden" data-extra="dificil">${esc(p.t.harder || '')}</p>` : ''}
       </div>`,
       `${paso ? '<button type="button" class="secondary" id="fmAtras">Atrás</button>' : '<a class="secondary fm-btn-link" href="/asistencia/">Pasar lista</a>'}<button type="button" class="primary" id="fmSiguiente">${paso === pasos.length - 1 ? 'Terminar' : 'Siguiente'}</button>`);
@@ -472,9 +493,9 @@ function hojaCarta(t) {
       <section><h4>Cómo se juega</h4><p>${esc(t.juega || '')}</p></section>
       ${t.montaje ? `<section><h4>Montaje</h4><p>${esc(t.montaje)}</p></section>` : ''}
       ${t.observa ? `<section><h4>Observa</h4><p>${esc(t.observa)}</p></section>` : ''}
-      <div class="fm-powerups"><button type="button" data-modo="facil">Modo fácil</button><button type="button" data-modo="dificil">Modo difícil</button></div>
-      <p class="fm-modo hidden" data-ver-modo="facil"><b>Modo fácil:</b> ${esc(t.easier || '')}</p>
-      <p class="fm-modo hidden" data-ver-modo="dificil"><b>Modo difícil:</b> ${esc(t.harder || '')}</p>
+      <div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-modo="facil"><b>Fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-modo="dificil"><b>Difícil</b><small>¿Ya les sale?</small></button></div>
+      <p class="fm-modo fm-modo-facil hidden" data-ver-modo="facil"><b>Fácil:</b> ${esc(t.easier || '')}</p>
+      <p class="fm-modo fm-modo-dificil hidden" data-ver-modo="dificil"><b>Difícil:</b> ${esc(t.harder || '')}</p>
       ${t.space ? `<p class="fm-ayuda"><b>Espacio:</b> ${esc(t.space)}</p>` : ''}${t.adapta ? `<p class="fm-ayuda"><b>Adapta:</b> ${esc(t.adapta)}</p>` : ''}
       <div class="fm-media"><button type="button" data-media="video"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></span><span><b>Ver video</b><small>Próximamente</small></span></button>
         <button type="button" data-media="foto"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><circle cx="9" cy="10.5" r="1.8"/><path d="m20.5 16-5-4.5-7.5 7"/></svg></span><span><b>Ver foto del montaje</b><small>Próximamente</small></span></button></div>

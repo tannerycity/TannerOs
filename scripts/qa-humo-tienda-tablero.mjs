@@ -25,6 +25,8 @@
  *  13. El detalle abre con un resumen: jugador, quién pidió, cómo llegó, nota.
  *  14. La manga de cada jersey se corrige en un toque.
  *  15. Se elige quién del club atendió el pedido (ayudó Zul, ayudó Mich).
+ *  16. Un jersey suelto que viene en un kit pregunta si se convierte: el kit
+ *      abre lleno y reemplaza al jersey.
  *
  * Hermética: nada sale de 127.0.0.1.
  */
@@ -47,7 +49,12 @@ const BASE = `http://127.0.0.1:${srv.address().port}`;
 
 const PAGO = { transfer:{ bank:'Banregio / Hey Banco', clabe:'167210000079567650', holder:'Proyecto Leyenda SA de CV' },
   methods:['Transferencia','Efectivo','Tarjeta'], whatsapp:'524792651338' };
-const OFERTA = { products:[{ id:'p-jersey', name:'Jersey Home', price:850, sizes:['8','10'], product_type:'jersey' }], bundles:[] };
+const OFERTA = { products:[{ id:'p-jersey', name:'Jersey Home', price:850, sizes:['8','10'], product_type:'jersey' }],
+  // Kit Training (13/10/2026): trae el mismo jersey, short y calcetas.
+  bundles:[{ id:'k-train', name:'Kit Training', priceAdult:1300, priceKid:1100, available:true, components:[
+    { productId:'p-jersey', name:'Jersey Home', sizes:['8','10'], qty:1, category:'jersey' },
+    { productId:'p-short', name:'Short', sizes:['8','10'], qty:1, category:'shorts' },
+    { productId:'p-calceta', name:'Calcetas', sizes:['Universal'], qty:1, category:'socks' }] }] };
 // a5: el tablero que la lista pinta sin abrir el pedido.
 const TABLERO = {
   'o-nuevo':{ playerName:'Leo Ávila', playerCategory:'T10', playerJersey:'7', numberConfirmed:null,
@@ -179,13 +186,25 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   await pg.waitForSelector('#orderForm', { timeout:5000 });
   const carrito = await pg.textContent('#content');
   revisa('2. el carrito dice Manga larga', carrito.includes('Manga larga'), carrito.replace(/\s+/g, ' ').slice(0, 300));
+  // 16. ¿Lo conviertes en kit?
+  const sug = (await pg.textContent('.st-sugiere').catch(() => '')).replace(/\s+/g, ' ');
+  revisa('16. el jersey suelto sugiere su kit, con qué incluye y cuánto más', /Kit Training/.test(sug) && /short, calcetas/.test(sug) && /\$1,100\.00/.test(sug) && /\$250\.00 más/.test(sug), sug);
+  await pg.click('[data-convierte]');
+  await pg.waitForSelector('.st-convierte', { timeout:4000 }).catch(() => {});
+  const lleno = await pg.$$eval('.st-pieza .st-pieza-cab span', ss => ss.map(x => x.textContent));
+  revisa('16. el kit abre lleno: jersey y short en talla 10, calcetas únicas', JSON.stringify(lleno) === '["Talla 10","Talla 10","Talla Universal"]', JSON.stringify(lleno));
+  revisa('16. con su nombre, número y manga', (await pg.inputValue('[data-campo="nombre"]')) === 'LEO' && (await pg.getAttribute('[data-manga="larga"]', 'aria-pressed')) === 'true');
+  await pg.click('#stAgregar');
+  await pg.waitForSelector('#orderForm', { timeout:5000 }).catch(() => {});
+  const ahora = (await pg.textContent('#resumenCarrito').catch(() => '')).replace(/\s+/g, ' ');
+  revisa('16. el jersey suelto se cambió por el kit', /Kit Training/.test(ahora) && !/Jersey Home \$/.test(ahora) && /\$1,100\.00/.test(ahora) && !(await pg.$('.st-sugiere')), ahora);
   await pg.fill('#customerName', 'Ana Ávila');
   await pg.fill('#customerPhone', '4771234567');
   await pg.check('#orderDataConsent');
   await pg.click('#submitOrder');
   await pg.waitForSelector('.success', { timeout:5000 }).catch(() => {});
   const items = await pg.evaluate(() => (window.__rpc.find(c => c.n === 'v2_public_cart_order')?.p.items) || []);
-  revisa('2. el pedido manda sleeve "larga" con nombre y número', items.length === 1 && items[0].sleeve === 'larga' && items[0].personalizationName === 'LEO' && items[0].number === '7', JSON.stringify(items));
+  revisa('2. el pedido manda el kit con sleeve "larga", nombre y número', items.length === 1 && items[0].kind === 'bundle' && items[0].sleeve === 'larga' && items[0].personalizationName === 'LEO' && items[0].number === '7', JSON.stringify(items));
   revisa('tienda sin errores', errs.length === 0, errs.join('\n'));
   await pg.close();
 }

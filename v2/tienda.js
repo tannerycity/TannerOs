@@ -369,3 +369,65 @@ export function llaveDeKit(l) {
 export function llaveDeCarrito(l) {
   return l?.kind === 'bundle' ? llaveDeKit(l) : llaveDeLinea(l);
 }
+
+/* ---- ¿Lo conviertes en kit? (13/10/2026) ----
+
+   "Los porteros me piden dos uniformes distintos, uno del kit entrenamiento y
+   otro del kit game... si pido dos jerseys, que pregunte si quieren el kit,
+   que les incluye un short, y si lo quieres convertir".
+
+   Para un jersey suelto del carrito: el kit que lo trae, a qué precio y qué
+   más incluye, con el kit ya lleno (talla del jersey, nombre, número, manga y
+   las demás piezas en la misma talla cuando existe). Quien compra sólo
+   confirma. */
+function tierPorTalla(kit, talla) {
+  const tiers = tiersDeKit(kit);
+  if (tiers.length === 1) return tiers[0];
+  return ESCALA_NINOS.includes(String(talla || '')) ? TIER_NINO : TIER_ADULTO;
+}
+
+export function kitParaLinea(linea, kits = []) {
+  if (!linea || linea.kind === 'bundle' || !linea.productId) return null;
+  // Sólo el jersey: las calcetas sueltas no se "convierten" en un kit.
+  if (!linea.manga && !PERSONALIZABLE.test(linea.nombreProducto || '')) return null;
+  for (const kit of Array.isArray(kits) ? kits : []) {
+    const ranuras = ranurasDeKit(kit);
+    const suya = ranuras.find(r => String(r.productId) === String(linea.productId));
+    if (!suya || ranuras.length < 2) continue;
+    const tier = tierPorTalla(kit, linea.talla);
+    const precio = precioDeKit(kit, tier);
+    if (!(precio > 0)) continue;
+    const tallas = {};
+    for (const r of ranuras) {
+      if (r.unica) continue;
+      if (r.id === suya.id) { if (linea.talla) tallas[r.id] = linea.talla; continue; }
+      // El short en la misma talla que el jersey, si existe; si no, se elige.
+      if (linea.talla && r.tallas.includes(linea.talla)) tallas[r.id] = linea.talla;
+    }
+    return {
+      kit, tier, precio,
+      diferencia: Math.round((precio - Number(linea.precioUnitario || 0)) * 100) / 100,
+      incluye: ranuras.filter(r => r.id !== suya.id).map(r => r.nombre),
+      opciones: { tier, tallas, nombre: linea.personalizationName || '', numero: linea.numero || '', manga: linea.manga || 'corta' }
+    };
+  }
+  return null;
+}
+
+export function sugerenciasDeKit(carrito = {}, kits = []) {
+  return Object.entries(carrito || {})
+    .map(([llave, linea]) => { const s = kitParaLinea(linea, kits); return s ? { llave, linea, ...s } : null; })
+    .filter(Boolean);
+}
+
+/* Al convertir, el jersey suelto deja el carrito: una pieza menos, o el
+   renglón entero si era la única. */
+export function quitaUnaPieza(carrito, llave) {
+  const l = carrito?.[llave];
+  if (!l) return carrito;
+  if (Number(l.cantidad || 1) > 1) {
+    const cantidad = Number(l.cantidad) - 1;
+    return { ...carrito, [llave]: { ...l, cantidad, total: Number(l.precioUnitario || 0) * cantidad } };
+  }
+  return quitaDelCarrito(carrito, llave);
+}

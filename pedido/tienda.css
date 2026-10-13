@@ -232,3 +232,11 @@
   .st-media img, .st-card .st-media, .st-aviso { transition: none; }
 }
 .st-aviso[hidden] { display: none; }
+
+/* ¿Lo conviertes en kit? (13/10/2026) */
+.st-sugiere { display: grid; gap: 10px; margin: 14px 0 6px; }
+.st-sugiere-kit { display: grid; gap: 10px; padding: 14px; border-radius: 16px; background: #fff8e6; border: 1px solid #f1dfae; }
+.st-sugiere-kit strong { display: block; font-size: 15px; color: #07191e; }
+.st-sugiere-kit span { font-size: 14px; color: #4f3b06; line-height: 1.4; }
+.st-sugiere-btn { min-height: 44px; border: 0; border-radius: 999px; background: #07191e; color: #fff; font: inherit; font-weight: 800; font-size: 15px; cursor: pointer; }
+.st-convierte { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #fff8e6; color: #4f3b06; font-size: 14px; font-weight: 600; }

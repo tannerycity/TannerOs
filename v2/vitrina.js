@@ -146,7 +146,7 @@ export function tarjetaKit(k, elec = {}) {
     + selectorManga('data-kmanga', k.id, elec.manga);
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
 
-  return `<article class="fam-kit"><div class="fam-kit-head"><span class="fam-kit-tag">EL UNIFORME COMPLETO</span>`
+  return `<article class="fam-kit" data-kitcard="${esc(k.id)}">${elec.reemplaza ? '<p class="fam-convierte">Convirtiendo tu jersey en este kit: revisa las tallas y agrégalo.</p>' : ''}<div class="fam-kit-head"><span class="fam-kit-tag">EL UNIFORME COMPLETO</span>`
     + `<strong>${esc(k.name)}</strong><span class="fam-price">${dinero.format(precio)}</span></div>`
     + `${k.description ? `<p>${esc(k.description)}</p>` : ''}${quien}`
     + `<div class="fam-piezas">${piezas}</div>${pers}${aviso}`

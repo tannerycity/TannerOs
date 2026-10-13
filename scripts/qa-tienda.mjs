@@ -347,6 +347,40 @@ revisa('un kit sin precio no se vende',
     Object.keys(agregaAlCarrito(carrito, a)).length === 2);
 }
 
+/* ---- ¿Lo conviertes en kit? (13/10/2026): los porteros piden un jersey
+   del kit entrenamiento y otro del kit game ---- */
+{
+  const T = await import('../v2/tienda.js');
+  const train = { id:'k-train', name:'Kit Training', price_adult:1100, price_kid:950, pieces:[
+    { product_id:'j-train', name:'Jersey Training', sizes:['10','12','M','L'] },
+    { product_id:'s', name:'Short', sizes:['10','12','M','L'] },
+    { product_id:'c', name:'Calcetas', sizes:['Universal'] }] };
+  const game = { id:'k-game', name:'Kit Game', price_adult:1300, pieces:[
+    { product_id:'j-game', name:'Jersey Game', sizes:['M','L'] }, { product_id:'s', name:'Short', sizes:['M','L'] }] };
+  const jt = T.preparaLinea({ id:'j-train', name:'Jersey Training', price:699, sizes:['10','12','M','L'] }, { talla:'L', nombre:'PORTERO', numero:'1', manga:'larga' }).linea;
+  const jg = T.preparaLinea({ id:'j-game', name:'Jersey Game', price:799, sizes:['M','L'] }, { talla:'L', nombre:'PORTERO', numero:'1' }).linea;
+  const calceta = T.preparaLinea({ id:'c', name:'Calcetas', price:150, sizes:['Universal'] }, {}).linea;
+  let c = T.agregaAlCarrito(T.agregaAlCarrito(T.agregaAlCarrito({}, jt), jg), calceta);
+  const sug = T.sugerenciasDeKit(c, [train, game]);
+  revisa('dos jerseys de kits distintos: dos sugerencias, cada una con su kit',
+    sug.length === 2 && sug.map(x => x.kit.id).sort().join() === 'k-game,k-train', JSON.stringify(sug.map(x => x.kit.id)));
+  const st = sug.find(x => x.kit.id === 'k-train');
+  revisa('dice qué más incluye y cuánto más cuesta', st.incluye.join() === 'Short,Calcetas' && st.precio === 1100 && st.diferencia === 401, JSON.stringify(st));
+  revisa('talla de adulto, precio de adulto', st.tier === 'Adulto');
+  revisa('el kit sale lleno: jersey y short en su talla, nombre, número y manga',
+    st.opciones.tallas['j-train#0'] === 'L' && st.opciones.tallas['s#0'] === 'L' && st.opciones.nombre === 'PORTERO' && st.opciones.numero === '1' && st.opciones.manga === 'larga', JSON.stringify(st.opciones));
+  const r = T.preparaKit(train, st.opciones);
+  revisa('y se puede agregar sin tocar nada más', r.ok && r.linea.manga === 'larga', JSON.stringify(r));
+  revisa('lo que no es jersey de un kit no sugiere nada', !T.kitParaLinea(calceta, [game]));
+  const nino = T.kitParaLinea(T.preparaLinea({ id:'j-train', name:'Jersey Training', price:699, sizes:['10'] }, { talla:'10' }).linea, [train]);
+  revisa('talla de niño, precio de niño', nino.tier === 'Niño' && nino.precio === 950, JSON.stringify(nino));
+  const dos = T.agregaAlCarrito({}, { ...jt, cantidad:2, total:1398 });
+  const k = Object.keys(dos)[0];
+  const menos = T.quitaUnaPieza(dos, k);
+  revisa('convertir uno de dos deja el otro', menos[k].cantidad === 1 && menos[k].total === 699, JSON.stringify(menos));
+  revisa('convertir el único quita el renglón', Object.keys(T.quitaUnaPieza(menos, k)).length === 0);
+}
+
 console.log(fallos
   ? `Tienda QA FAILED · ${fallos} de ${corridas}`
   : `Tienda QA OK · ${corridas} casos, incluidos el jersey talla 6 y el kit que la familia no podía comprar`);

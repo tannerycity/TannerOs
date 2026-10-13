@@ -4,7 +4,7 @@ import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-
 // El mismo criterio que usa el staff, para que un papa y Presidencia nunca
 // vean dos porcentajes distintos del mismo Tanner.
 import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.js';
-import {preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
+import {sugerenciasDeKit, quitaUnaPieza, preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
         piezasDelCarrito, acomodaVitrina, tallasDe, tallaUnica,
         aceptaPersonalizacion, preparaKit, ranurasDeKit, tiersDeKit,
         precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS} from '/v2/tienda.js';
@@ -628,7 +628,7 @@ async function renderTienda(){
     ? `<a class="fam-store" href="${esc(tienda)}" target="_blank" rel="noopener">Ver toda la tienda del club</a>`:'';
   const enCarrito=Object.entries(state.cart);
   const resumen=enCarrito.length
-    ? `<section class="fam-card"><div class="fam-card-head"><h2>Tu pedido</h2><span>${piezasDelCarrito(state.cart)}</span></div>${enCarrito.map(([k,l])=>lineaDelCarrito(k,l)).join('')}</section>`
+    ? `<section class="fam-card"><div class="fam-card-head"><h2>Tu pedido</h2><span>${piezasDelCarrito(state.cart)}</span></div>${enCarrito.map(([k,l])=>lineaDelCarrito(k,l)).join('')}${sugerenciasDeKit(state.cart,kits).map(x=>`<div class="fam-sugiere"><span>Tu ${esc(x.linea.nombreProducto)} viene en el <b>${esc(x.kit.name)}</b> con ${esc(x.incluye.join(', ').toLocaleLowerCase('es-MX'))} por ${money.format(x.precio)}${x.diferencia>0?` (${money.format(x.diferencia)} más)`:''}.</span><button type="button" data-convierte="${esc(x.llave)}" data-kit-id="${esc(x.kit.id)}">Convertir en kit</button></div>`).join('')}</section>`
     : '';
   // El kit primero y en grande: es lo que la familia viene a comprar. Las
   // piezas sueltas despues, para quien ya tiene el uniforme y le falta algo.
@@ -705,6 +705,13 @@ async function renderTienda(){
     const id=e.target.dataset.knumero;eligiendoKit[id]={...(eligiendoKit[id]||{}),numero:e.target.value};
   }));
 
+  // ¿Lo conviertes en kit? Abre el kit ya lleno, en su tarjeta.
+  cuerpo.querySelectorAll('[data-convierte]').forEach(b=>b.addEventListener('click',()=>{
+    const x=sugerenciasDeKit(state.cart,kits).find(v=>v.llave===b.dataset.convierte&&String(v.kit.id)===b.dataset.kitId);if(!x)return;
+    eligiendoKit[x.kit.id]={...x.opciones,tallas:{...x.opciones.tallas},reemplaza:x.llave};
+    renderTienda();
+    document.querySelector(`[data-kitcard="${CSS.escape(String(x.kit.id))}"]`)?.scrollIntoView({behavior:'smooth',block:'center'});
+  }));
   // Agregar el kit.
   cuerpo.querySelectorAll('[data-addkit]').forEach(b=>b.addEventListener('click',()=>{
     const id=b.dataset.addkit;
@@ -717,6 +724,8 @@ async function renderTienda(){
       eligiendoKit[id]={...elec,motivo:r.motivo,abierto:r.falta&&r.falta!=='tier'&&r.falta!=='numero'?r.falta:elec.abierto};
       renderTienda();return;
     }
+    // Convertir: el jersey suelto deja el carrito.
+    if(elec.reemplaza&&state.cart[elec.reemplaza])state.cart=quitaUnaPieza(state.cart,elec.reemplaza);
     state.cart=agregaAlCarrito(state.cart,r.linea);
     eligiendoKit[id]={};
     renderCartBar();renderTienda();

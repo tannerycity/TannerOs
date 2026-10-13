@@ -216,6 +216,39 @@ $('capPlayer')?.addEventListener('change',e=>{
   createMsg();
 });
 
+/* ---------- ¿Lo conviertes en kit? ---------- */
+const ES_NINO=t=>['6','8','10','12','14','16'].includes(String(t||'').trim());
+function precioKitCaptura(b,tier){return tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid||0);}
+function kitDeLinea(item){
+  if(!item||item.kind!=='product'||!JERSEY_RE.test(item.label||''))return null;
+  for(const b of bundles){
+    const comps=b.components||[];
+    if(comps.length+comps.reduce((n,c)=>n+Math.max(0,(c.qty||1)-1),0)<2)continue;
+    const suya=comps.find(c=>String(c.productId)===String(item.productId));
+    if(!suya)continue;
+    const tier=!b.priceKid?'Adulto':!b.priceAdult?'Niño':(ES_NINO(item.talla)?'Niño':'Adulto');
+    if(!(precioKitCaptura(b,tier)>0))continue;
+    return {bundle:b,tier,suya,incluye:comps.filter(c=>c!==suya).map(c=>c.name)};
+  }
+  return null;
+}
+function convierteEnKit(idx,k){
+  const item=cart[idx];if(!item)return;
+  openBundleDrawer(k.bundle);
+  picking.tier=k.tier;picking.reemplaza=item;
+  document.querySelectorAll('.tier-btn').forEach(b=>b.classList.toggle('active',b.dataset.tier===k.tier));
+  // El jersey en su talla; el short en la misma; lo demás se elige.
+  let usado=false;
+  picking.slots.forEach(s=>{
+    if(!usado&&String(s.productId)===String(item.productId)){s.talla=item.talla||'';usado=true;}
+    else if(/short/i.test(s.name||''))s.talla=item.talla||'';
+  });
+  $('bfName').value=item.personalizationName||$('bfName').value;$('bfNumber').value=item.number||$('bfNumber').value;
+  $(`bfManga`)?.querySelectorAll('[data-m]').forEach(b=>{const on=b.dataset.m===(item.sleeve||'corta');b.classList.toggle('activa',on);b.setAttribute('aria-pressed',String(on));});
+  renderBundlePieces();
+  drawerMsg('Convirtiendo el jersey en kit: revisa las tallas y agrega. El jersey suelto se quita del pedido.','success');
+}
+
 /* ---------- Drawer: kit ---------- */
 function bundleSlots(b){
   // Expande cada componente por su qty en "slots" individuales (una talla por unidad,
@@ -265,8 +298,11 @@ function addBundleToCart(){
     total,
     label:`${b.name} (${tier}) · manga ${sleeve}${name?` — ${name}${number?' #'+number:''}`:''}`
   });
+  // Convertir: el jersey suelto deja el pedido (una pieza, o el renglón).
+  const viejo=picking.reemplaza;picking.reemplaza=null;
+  if(viejo){const i=cart.indexOf(viejo);if(i>=0){if((viejo.quantity||1)>1){const u=viejo.total/viejo.quantity;viejo.quantity-=1;viejo.total=u*viejo.quantity;viejo.label=viejo.label.replace(/ ×\d+/,viejo.quantity>1?` ×${viejo.quantity}`:'');}else cart.splice(i,1);}}
   renderCart();
-  drawerMsg(`Agregado. Puedes agregar otro ${b.name} para otro hermano, o cerrar.`,'success');
+  drawerMsg(viejo?`Listo: el jersey ahora es ${b.name}.`:`Agregado. Puedes agregar otro ${b.name} para otro hermano, o cerrar.`,'success');
   $('bfName').value='';$('bfNumber').value='';reiniciaManga('bf');
   picking.slots=bundleSlots(b);
   renderBundlePieces();
@@ -365,6 +401,16 @@ function renderCart(){
     row.innerHTML=`<span>${esc(item.label)}</span><b>${money.format(item.total)}</b><button type="button" class="cart-remove" data-idx="${idx}">✕</button>`;
     row.querySelector('.cart-remove').addEventListener('click',()=>{cart.splice(idx,1);renderCart();});
     list.appendChild(row);
+    // ¿Lo conviertes en kit? (13/10/2026): un jersey suelto que también viene
+    // en un kit lo dice, con lo que incluye y cuánto más cuesta.
+    const k=kitDeLinea(item);
+    if(k){
+      const sug=document.createElement('div');sug.className='cart-sugiere';
+      const precio=precioKitCaptura(k.bundle,k.tier),dif=precio-Number(item.total||0)/Math.max(1,item.quantity||1);
+      sug.innerHTML=`<span>Viene en el <b>${esc(k.bundle.name)}</b> con ${esc(k.incluye.join(', ').toLocaleLowerCase('es-MX'))} por ${money.format(precio)}${dif>0?` (${money.format(dif)} más)`:''}.</span><button type="button" class="cart-sugiere-btn">Convertir en kit</button>`;
+      sug.querySelector('button').addEventListener('click',()=>convierteEnKit(idx,k));
+      list.appendChild(sug);
+    }
   });
   $('cartTotal').textContent=money.format(cart.reduce((s,i)=>s+i.total,0));
 }

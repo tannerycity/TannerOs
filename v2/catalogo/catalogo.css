@@ -260,3 +260,29 @@
 .kit-pool-cab{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;color:var(--ink)}
 .kit-pool-ops{display:flex;flex-wrap:wrap;gap:8px}
 .kit-pool-nota{margin:0;font-size:12px}
+
+/* El kit como receta (14/10/2026): tarjeta en vivo arriba y tres pasos. */
+.kit-vista{display:grid;gap:4px;padding:16px 18px;border-radius:20px;margin-bottom:14px;color:#fff;background:radial-gradient(400px 160px at 100% 0%,rgba(255,255,255,.18),transparent 60%),linear-gradient(135deg,#0b3d5c,#07191e)}
+.kit-vista-tag{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9fd8e4}
+.kit-vista strong{font-size:22px;letter-spacing:-.01em}
+.kit-vista p{margin:0}
+.kit-vista-frase{font-size:15px;font-weight:700}
+.kit-vista-frase i{font-style:normal;opacity:.6;margin:0 2px}
+.kit-vista-ops{font-size:12.5px;color:#cfe3ea}
+.kit-vista-precio{font-size:14px;color:#e8f1f4}
+.kit-paso{display:flex;align-items:baseline;gap:8px;margin:18px 0 8px}
+.kit-paso b{font-size:16px;color:#07191e}
+.kit-paso small{font-size:12.5px;color:#6b7c80}
+.kit-paso-n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#07191e;color:#fff;font-size:12px;font-weight:800;align-self:center}
+.kit-pieza .kit-pieza-nombre{flex:1;padding:6px 8px}
+.kit-quita{width:30px;height:30px;border:0;border-radius:50%;background:transparent;color:#6b7c80;font-size:20px;line-height:1;cursor:pointer}
+.kit-agregar{width:100%;margin-top:8px;min-height:44px;border:1.5px dashed #b9c6c4;border-radius:14px;background:#fff;color:#0b3d5c;font:inherit;font-weight:800;cursor:pointer}
+.kit-elegir-lista{margin-top:8px}
+.kit-elegir{display:flex;align-items:center;gap:10px;width:100%;border:0;border-radius:14px;background:#f5f7f7;padding:6px 12px 6px 4px;font:inherit;text-align:left;cursor:pointer}
+.kit-mas{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#169b4b;color:#fff;font-weight:800;font-size:18px}
+.kit-pool{margin-top:10px}
+.kit-pool-cab{justify-content:flex-start;gap:10px;font-size:15px}
+.kit-pool-grupo{display:grid;gap:6px}
+.kit-pool-tit{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7a8a8e}
+.kit-pool-nota.falta{color:#b4261b;font-weight:700}
+.kit-se-vende{margin-top:14px}

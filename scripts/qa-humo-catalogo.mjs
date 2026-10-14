@@ -225,13 +225,19 @@ await pg.click('#closeDrawer');
 await pg.click('.cat-seg [data-ver="kits"]');
 await pg.click('#bundleList .catalog-card');
 await pg.waitForSelector('#bComponents .kit-pieza',{timeout:5000});
+// El kit como receta (14/10/2026): "Siempre incluye" enseña sólo lo que trae;
+// lo demás, tras "+ Agregar pieza".
 const piezasKit=(await pg.$$eval('#bComponents .kit-pieza-nombre b',bs=>bs.map(b=>b.textContent))).join('|');
-revisa('el kit lista los productos del club para tocar, sin el archivado',
-  piezasKit==='Jersey "Black Edition"|Jersey "Lechuguilla Edition"|Jersey "Wet Blue" - Home Edition|Par de calcetas',piezasKit);
-revisa('el jersey que ya lleva sale marcado', await pg.getAttribute('.kit-pieza[data-pid="p1"] .kit-pieza-toca','aria-pressed')==='true');
-await pg.click('.kit-pieza[data-pid="p2"] .kit-pieza-toca');
-await pg.click('.kit-pieza[data-pid="p4"] .kit-pieza-toca');
+revisa('"Siempre incluye" enseña sólo lo que el kit trae', piezasKit==='Jersey "Black Edition"',piezasKit);
+revisa('arriba, el kit en una frase con su precio', /Black Edition/.test(await pg.textContent('#bVista'))&&/Adulto \$1,740/.test(await pg.textContent('#bVista')), await pg.textContent('#bVista'));
+revisa('la lista para agregar empieza cerrada en un kit que ya existe', await pg.isHidden('#bCatalogoFijas'));
+await pg.click('#bAgregarFija');
+const paraAgregar=(await pg.$$eval('#bCatalogoFijas .kit-pieza-nombre b',bs=>bs.map(b=>b.textContent))).join('|');
+revisa('"+ Agregar pieza" ofrece lo que falta, sin el archivado', paraAgregar==='Jersey "Lechuguilla Edition"|Jersey "Wet Blue" - Home Edition|Par de calcetas',paraAgregar);
+await pg.click('#bCatalogoFijas [data-agrega="p2"]');
+await pg.click('#bCatalogoFijas [data-agrega="p4"]');
 await pg.click('.kit-pieza[data-pid="p4"] [data-q="1"]');
+revisa('la frase de arriba se arma sola', /Black Edition \+ Lechuguilla Edition \+ 2 Par de calcetas/.test((await pg.textContent('#bVista')).replace(/\s+/g,' ')), await pg.textContent('#bVista'));
 if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/kit.png`});
 const resumen=(await pg.textContent('#bResumen')).replace(/\s+/g,' ');
 revisa('dice cuántas piezas, cuánto cuestan sueltas y cuánto se ahorra en kit',
@@ -354,15 +360,19 @@ await pg.waitForSelector('#bundleForm:not(.hidden)',{timeout:4000});
 await pg.fill('#bName','Kit Dúo');
 await pg.fill('#bPriceAdult','1500');
 await pg.fill('#bPriceKid','1299');
-await pg.click('#bComponents .kit-pieza[data-pid="p4"] .kit-pieza-toca');
+await pg.click('#bCatalogoFijas [data-agrega="p4"]');
+revisa('[dúo] "El papá escoge" empieza apagado', await pg.isHidden('#bPool'));
+await pg.click('.switch-fila[for="bPoolOn"]');
+revisa('[dúo] prendido: "Escoge 2 de estas" con los jerseys primero', /Escoge\s*−?\s*2\s*\+?\s*de estas/.test((await pg.textContent('#bPool')).replace(/\s+/g,' ')) && (await pg.textContent('#bPool .kit-pool-tit'))==='Jerseys', (await pg.textContent('#bPool')).replace(/\s+/g,' '));
 revisa('[dúo] la pieza fija no sale como opción a elegir', (await pg.$('#bPool [data-pool-pid="p4"]'))===null);
 await pg.click('#bPool [data-pool-pid="p1"]');
 await pg.click('#bSave');
 revisa('[dúo] con una sola opción no se guarda', /al menos 2 opciones/.test(await pg.textContent('#drawerMessage')), await pg.textContent('#drawerMessage'));
 await pg.click('#bPool [data-pool-pid="p2"]');
 await pg.click('#bPool [data-pool-pid="p3"]');
-revisa('[dúo] dice cuántas elige entre cuántas', /elige 2 entre 3/.test(await pg.textContent('#bPool')), await pg.textContent('#bPool'));
+revisa('[dúo] dice cuántas elige entre cuántas', /escoge 2 entre 3/.test(await pg.textContent('#bPool')), await pg.textContent('#bPool'));
 if(process.env.SHOTS)await pg.locator('#drawer').screenshot({path:`${process.env.SHOTS}/kit-duo.png`});
+if(process.env.SHOTS){await pg.$eval('#drawer',d=>d.scrollTop=0);await pg.screenshot({path:`${process.env.SHOTS}/kit-duo-arriba.png`});}
 await pg.click('#bSave');
 await pg.waitForTimeout(300);
 const duo=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_bundle').map(x=>x.p).pop());

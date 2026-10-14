@@ -217,7 +217,7 @@ async function firmaMiniaturas(rows){
 function openBundleDrawer(b){
   const pool=(b?.components||[]).find(c=>Array.isArray(c.pool));
   draft={mode:'bundle',id:b?.id||null,components:(b?.components||[]).filter(c=>!Array.isArray(c.pool)).map(c=>({productId:c.productId,qty:c.qty})),
-    pool:{ids:pool?pool.pool.map(String):[],qty:pool?.qty||2,name:pool?.poolName||'Jersey a elegir'}};
+    pool:{on:!!pool,ids:pool?pool.pool.map(String):[],qty:pool?.qty||2,name:pool?.poolName||'Jersey a elegir'}};
   drawerMsg();
   $('drawerKicker').textContent='KIT';
   $('drawerTitle').textContent=b?b.name:'Nuevo kit';
@@ -230,6 +230,8 @@ function openBundleDrawer(b){
   $('bActive').checked=b?b.active:true;
   $('bArchiveToggle').classList.toggle('hidden',!b);
   $('bArchiveToggle').textContent=b?.archived?'Restaurar kit':'Archivar kit';
+  // Un kit nuevo abre con la lista para agregar; uno existente, cerrada.
+  $('bCatalogoFijas').classList.toggle('hidden',!!b);$('bAgregarFija').textContent=b?'+ Agregar pieza':'Listo';
   renderComponents();
   openDrawer();
 }
@@ -242,43 +244,59 @@ function openBundleDrawer(b){
    ofrecer "conviértelo en kit". */
 function renderComponents(){
   const wrap=$('bComponents');
-  const vivos=products.filter(p=>!p.archived||draft.components.some(c=>c.productId===p.id));
   const orden=['jersey','shorts','socks'];
-  vivos.sort((a,b)=>{const ia=orden.indexOf(a.category),ib=orden.indexOf(b.category);return (ia<0?9:ia)-(ib<0?9:ib)||String(a.name).localeCompare(String(b.name),'es');});
-  const huerfanas=draft.components.filter(c=>!products.some(p=>p.id===c.productId));
-  wrap.innerHTML=vivos.map(p=>{
-    const c=draft.components.find(x=>x.productId===p.id),en=!!c;
-    return `<div class="kit-pieza${en?' en':''}" data-pid="${esc(p.id)}">
-      <button type="button" class="kit-pieza-toca" aria-pressed="${en}"><span class="kit-check" aria-hidden="true">${en?'✓':''}</span><span class="kit-pieza-nombre"><b>${esc(p.name)}</b><small>${money.format(Number(p.price||0))} suelto</small></span></button>
-      ${en?`<span class="kit-qty"><button type="button" data-q="-1" aria-label="Uno menos">−</button><b>${c.qty}</b><button type="button" data-q="1" aria-label="Uno más">+</button></span>`:''}
-    </div>`;
-  }).join('')+huerfanas.map(c=>`<div class="kit-pieza en huerfana" data-pid="${esc(c.productId)}"><button type="button" class="kit-pieza-toca" aria-pressed="true"><span class="kit-check">!</span><span class="kit-pieza-nombre"><b>Pieza que ya no existe</b><small>Tócala para quitarla</small></span></button></div>`).join('')
-    ||'<p class="muted mini-empty">Primero da de alta los productos.</p>';
-  wrap.querySelectorAll('.kit-pieza').forEach(row=>{
-    const pid=row.dataset.pid;
-    row.querySelector('.kit-pieza-toca').addEventListener('click',()=>{
-      const i=draft.components.findIndex(x=>x.productId===pid);
-      if(i>=0)draft.components.splice(i,1);else{draft.components.push({productId:pid,qty:1});draft.pool.ids=draft.pool.ids.filter(x=>x!==pid);}
-      renderComponents();
-    });
-    row.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>{
-      const c=draft.components.find(x=>x.productId===pid);if(!c)return;
-      c.qty=Math.max(1,Math.min(20,c.qty+Number(b.dataset.q)));renderComponents();
-    }));
-  });
+  const ordena=xs=>xs.sort((a,b)=>{const ia=orden.indexOf(a.category),ib=orden.indexOf(b.category);return (ia<0?9:ia)-(ib<0?9:ib)||String(a.name).localeCompare(String(b.name),'es');});
+  // Paso 2: sólo lo que el kit trae; lo demás vive tras "+ Agregar pieza".
+  wrap.innerHTML=draft.components.map(c=>{
+    const p=products.find(x=>x.id===c.productId);
+    if(!p)return `<div class="kit-pieza en huerfana" data-pid="${esc(c.productId)}"><span class="kit-pieza-nombre"><b>Pieza que ya no existe</b><small>Quítala</small></span><button type="button" class="kit-quita" data-quita aria-label="Quitar">×</button></div>`;
+    return `<div class="kit-pieza en" data-pid="${esc(p.id)}"><span class="kit-pieza-nombre"><b>${esc(p.name)}</b><small>${money.format(Number(p.price||0))} suelto</small></span>
+      <span class="kit-qty"><button type="button" data-q="-1" aria-label="Uno menos">−</button><b>${c.qty}</b><button type="button" data-q="1" aria-label="Uno más">+</button></span>
+      <button type="button" class="kit-quita" data-quita aria-label="Quitar ${esc(p.name)}">×</button></div>`;
+  }).join('')||'<p class="muted mini-empty">Todavía nada. Toca "+ Agregar pieza".</p>';
+  const enPool=new Set(draft.pool?.on?draft.pool.ids:[]);
+  const libres=ordena(products.filter(p=>!p.archived&&!draft.components.some(c=>c.productId===p.id)&&!enPool.has(p.id)));
+  $('bCatalogoFijas').innerHTML=libres.map(p=>`<button type="button" class="kit-elegir" data-agrega="${esc(p.id)}"><span class="kit-pieza-nombre"><b>${esc(p.name)}</b><small>${money.format(Number(p.price||0))} suelto</small></span><span class="kit-mas">+</span></button>`).join('')||'<p class="muted mini-empty">Ya están todas.</p>';
   renderPool();
   recomputeBundlePreview();
 }
-/* Las piezas a elegir: cuántas y entre cuáles. Una pieza fija no puede ser
-   también a elegir (el servidor lo rechaza igual). */
+$('bComponents')?.addEventListener('click',e=>{
+  const row=e.target.closest('[data-pid]');if(!row||!draft)return;
+  const pid=row.dataset.pid,c=draft.components.find(x=>x.productId===pid);
+  if(e.target.closest('[data-quita]')){draft.components=draft.components.filter(x=>x.productId!==pid);renderComponents();return;}
+  const q=e.target.closest('[data-q]');
+  if(q&&c){c.qty=Math.max(1,Math.min(20,c.qty+Number(q.dataset.q)));renderComponents();}
+});
+$('bAgregarFija')?.addEventListener('click',()=>{
+  const l=$('bCatalogoFijas'),abre=l.classList.contains('hidden');
+  l.classList.toggle('hidden',!abre);$('bAgregarFija').textContent=abre?'Listo':'+ Agregar pieza';
+});
+$('bCatalogoFijas')?.addEventListener('click',e=>{
+  const b=e.target.closest('[data-agrega]');if(!b||!draft)return;
+  draft.components.push({productId:b.dataset.agrega,qty:1});
+  draft.pool.ids=draft.pool.ids.filter(x=>x!==b.dataset.agrega);
+  renderComponents();
+});
+/* Paso 3: el papá escoge. Las opciones van por categoría, jerseys primero;
+   una pieza fija no puede ser también a elegir (el servidor lo rechaza igual). */
+const NOMBRE_CAT={jersey:'Jerseys',shorts:'Shorts',socks:'Calcetas',hoodie:'Sudaderas',pants:'Pants'};
 function renderPool(){
   const box=$('bPool');if(!box||!draft?.pool)return;
-  const fijos=new Set(draft.components.map(c=>c.productId)),pool=draft.pool;
+  const pool=draft.pool;
+  $('bPoolOn').checked=!!pool.on;
+  box.classList.toggle('hidden',!pool.on);
+  if(!pool.on)return;
+  const fijos=new Set(draft.components.map(c=>c.productId));
   const candidatos=products.filter(p=>!p.archived&&!fijos.has(p.id));
-  box.innerHTML=`<div class="kit-pool-cab"><span>Cuántas elige</span><span class="kit-qty"><button type="button" data-pool-q="-1" aria-label="Una menos">−</button><b>${pool.qty}</b><button type="button" data-pool-q="1" aria-label="Una más">+</button></span></div>
-    <div class="chips kit-pool-ops">${candidatos.map(p=>{const on=pool.ids.includes(p.id);return `<button type="button" class="chip${on?' on':''}" data-pool-pid="${esc(p.id)}" aria-pressed="${on}">${on?'✓ ':''}${esc(p.name.replace(/^Jersey\s+/i,'').replace(/"/g,''))}</button>`;}).join('')}</div>
-    <p class="muted kit-pool-nota">${pool.ids.length>=2?`El papá elige ${pool.qty} entre ${pool.ids.length} opciones.`:pool.ids.length===1?'Marca al menos 2 opciones.':'Sin piezas a elegir.'}</p>`;
+  const grupos=new Map();
+  for(const p of candidatos){const k=p.category||'otro';if(!grupos.has(k))grupos.set(k,[]);grupos.get(k).push(p);}
+  const orden=[...grupos.keys()].sort((a,b)=>(b==='jersey')-(a==='jersey')||String(NOMBRE_CAT[a]||'Otros').localeCompare(NOMBRE_CAT[b]||'Otros','es'));
+  const corto=n=>String(n).replace(/^Jersey\s+/i,'').replace(/"/g,'').replace(/\s+-\s+.*$/,'').replace(/\s+Edition$/i,'');
+  box.innerHTML=`<div class="kit-pool-cab"><span>Escoge</span><span class="kit-qty"><button type="button" data-pool-q="-1" aria-label="Una menos">−</button><b>${pool.qty}</b><button type="button" data-pool-q="1" aria-label="Una más">+</button></span><span>de estas:</span></div>
+    ${orden.map(k=>`<div class="kit-pool-grupo"><span class="kit-pool-tit">${esc(NOMBRE_CAT[k]||'Otros')}</span><div class="chips kit-pool-ops">${grupos.get(k).map(p=>{const on=pool.ids.includes(p.id);return `<button type="button" class="chip${on?' on':''}" data-pool-pid="${esc(p.id)}" aria-pressed="${on}">${on?'✓ ':''}${esc(corto(p.name))}</button>`;}).join('')}</div></div>`).join('')}
+    <p class="kit-pool-nota${pool.ids.length===1?' falta':''}">${pool.ids.length>=2?`El papá escoge ${pool.qty} entre ${pool.ids.length} opciones. Puede repetir.`:pool.ids.length===1?'Marca al menos 2 opciones.':'Marca las opciones que puede escoger.'}</p>`;
 }
+$('bPoolOn')?.addEventListener('change',()=>{if(!draft?.pool)return;draft.pool.on=$('bPoolOn').checked;if(draft.pool.on&&!draft.pool.qty)draft.pool.qty=2;renderComponents();});
 $('bPool')?.addEventListener('click',e=>{
   if(!draft?.pool)return;
   const q=e.target.closest('[data-pool-q]');
@@ -286,14 +304,32 @@ $('bPool')?.addEventListener('click',e=>{
   const b=e.target.closest('[data-pool-pid]');if(!b)return;
   const id=b.dataset.poolPid,i=draft.pool.ids.indexOf(id);
   if(i>=0)draft.pool.ids.splice(i,1);else draft.pool.ids.push(id);
-  renderPool();recomputeBundlePreview();
+  renderComponents();
 });
+/* La tarjeta de arriba: el kit dicho en una frase, como lo va a ver la familia. */
+function pintaVistaKit(){
+  const v=$('bVista');if(!v||!draft)return;
+  const nombre=$('bName').value.trim()||'Tu kit';
+  const corto=n=>String(n).replace(/^Jersey\s+/i,'').replace(/"/g,'').replace(/\s+-\s+.*$/,'');
+  const fijas=draft.components.map(c=>{const p=products.find(x=>x.id===c.productId);return p?`${c.qty>1?`${c.qty} `:''}${corto(p.name)}`:null;}).filter(Boolean);
+  const pool=draft.pool?.on&&draft.pool.ids.length>=2?draft.pool:null;
+  const catPool=pool?(()=>{const cs=[...new Set(pool.ids.map(id=>products.find(p=>p.id===id)?.category))];return cs.length===1&&cs[0]==='jersey'?(pool.qty===1?'jersey':'jerseys'):(pool.qty===1?'pieza':'piezas');})():'';
+  const partes=[...fijas,...(pool?[`${pool.qty} ${catPool} a elegir`]:[])];
+  const pa=Number($('bPriceAdult').value||0),pk=Number($('bPriceKid').value||0);
+  const opciones=pool?pool.ids.map(id=>products.find(p=>p.id===id)).filter(Boolean).map(p=>corto(p.name)):[];
+  v.innerHTML=`<span class="kit-vista-tag">Así se ve en la tienda</span><strong>${esc(nombre)}</strong>
+    <p class="kit-vista-frase">${partes.length?partes.map(esc).join(' <i>+</i> '):'Agrega las piezas abajo'}</p>
+    ${opciones.length?`<p class="kit-vista-ops">A elegir: ${esc(opciones.join(', '))}</p>`:''}
+    <p class="kit-vista-precio">${pa?`Adulto <b>${esc(money.format(pa))}</b>`:''}${pa&&pk?' · ':''}${pk?`Niño <b>${esc(money.format(pk))}</b>`:''}${!pa&&!pk?'Sin precio todavía':''}</p>`;
+}
+['bName','bPriceAdult','bPriceKid'].forEach(id=>$(id)?.addEventListener('input',pintaVistaKit));
 const componentesDelDraft=()=>[...draft.components.map(c=>({productId:c.productId,qty:c.qty})),
-  ...(draft.pool?.ids.length>=2?[{pool:draft.pool.ids,qty:draft.pool.qty,name:draft.pool.name}]:[])];
+  ...(draft.pool?.on&&draft.pool.ids.length>=2?[{pool:draft.pool.ids,qty:draft.pool.qty,name:draft.pool.name}]:[])];
 function recomputeBundlePreview(){
   // Por separado vs. en kit: es lo que convence en el mostrador.
-  const opcion=Math.max(0,...(draft.pool?.ids||[]).map(id=>Number(products.find(x=>x.id===id)?.price||0)));
-  const enPool=draft.pool?.ids.length>=2?draft.pool.qty:0;
+  pintaVistaKit();
+  const opcion=Math.max(0,...(draft.pool?.on?draft.pool.ids:[]).map(id=>Number(products.find(x=>x.id===id)?.price||0)));
+  const enPool=draft.pool?.on&&draft.pool.ids.length>=2?draft.pool.qty:0;
   const sueltos=draft.components.reduce((n,c)=>{const p=products.find(x=>x.id===c.productId);return n+(p?Number(p.price||0)*c.qty:0);},0)+opcion*enPool;
   const pa=Number($('bPriceAdult').value||0),res=$('bResumen');
   if(res){res.classList.toggle('hidden',!draft.components.length&&!enPool);
@@ -328,7 +364,7 @@ async function saveBundle(){
   if(name.length<2){drawerMsg('El nombre del kit es obligatorio.');return;}
   const priceAdult=Number($('bPriceAdult').value||0),priceKid=Number($('bPriceKid').value||0);
   if(priceAdult<=0&&priceKid<=0){drawerMsg('Captura al menos un precio (adulto o niño).');return;}
-  if(draft.pool?.ids.length===1){drawerMsg('Una pieza a elegir necesita al menos 2 opciones.');return;}
+  if(draft.pool?.on&&draft.pool.ids.length<2){drawerMsg('En "El papá escoge" marca al menos 2 opciones, o apágalo.');return;}
   if(!componentesDelDraft().length){drawerMsg('El kit necesita al menos una pieza.');return;}
   const current=draft.id?bundles.find(b=>b.id===draft.id):null;
   const btn=$('bSave');btn.disabled=true;

@@ -27,7 +27,7 @@
 import {
   tallasDe, tallaUnica, aceptaPersonalizacion, llevaManga,
   ESCALA_NINOS, ESCALA_ADULTOS,
-  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta, conOpcionesDeKit, ranuraElegida, nombreCorto
+  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta, conOpcionesDeKit, ranuraElegida, nombreCorto, precioDeEtiqueta, precioNinoDe, precioDeProducto
 } from '/v2/tienda.js';
 
 export const esc = v => String(v ?? '').replace(/[&<>"']/g,
@@ -109,7 +109,8 @@ export function tarjetaProducto(p, elec = {}) {
     : (llevaManga(p) && hayTalla) ? selectorManga('data-pmanga', p.id, elec.manga) : '';
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
   return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong>`
-    + `<span class="fam-price">${p.precioAntes ? `<s>${dinero.format(p.precioAntes)}</s> ` : ''}${dinero.format(Number(p.price || 0))}</span>`
+    + `<span class="fam-price">${p.precioAntes ? `<s>${dinero.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? 'Desde ' : ''}${dinero.format(et.monto)}`)(precioDeEtiqueta(p, unica || elec.talla))}</span>`
+    + (precioNinoDe(p) && !(unica || elec.talla) ? `<span class="fam-precios-nino">Niño ${dinero.format(precioDeProducto(p, '10'))} · Adulto ${dinero.format(Number(p.price || 0))}</span>` : '')
     + (p.ofertaHasta ? `<span class="fam-oferta">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</span>` : '')
     + `${p.description ? `<p>${esc(p.description)}</p>` : ''}${chips}${pers}${aviso}`
     + `<button type="button" class="fam-add" data-add="${esc(p.id)}">Agregar</button></article>`;

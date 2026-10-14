@@ -34,7 +34,11 @@ async function abre({ escribe = true } = {}) {
   p.on('console', m => { if (m.type() === 'error') errores.push(`console: ${m.text()}`); });
   await p.addInitScript(({ escribe }) => {
     const plantel = ['Damián López', 'Dario Montalvo', 'Iker Ramírez', 'Mateo Hernández'].map((n, i) => ({ playerId: 'p' + i, name: n, code: 'T0' + i, number: String(i + 7), thumb: i === 0 ? 't0-thumb.webp' : null, bucket: 'tanneros-private' }));
-    const partidos = [{ id: 'm0', date: '2026-09-20', category: 'T10', opponent: 'Chivas Cantera', tournament: 'Liga Fit León', venue: 'visita', status: 'completed', goalsFor: 2, goalsAgainst: 2, called: 4, played: 4 }];
+    const partidos = [{ id: 'm0', date: '2026-09-20', category: 'T10', opponent: 'Chivas Cantera', tournament: 'Liga Fit León', venue: 'visita', status: 'completed', goalsFor: 2, goalsAgainst: 2, called: 4, played: 4 },
+      // Una categoría sin niños activos (14/10/2026, el partido de Brandon).
+      { id: 'mb', date: '2026-10-13', category: 'Mini Baby Tanner', opponent: 'MLK', tournament: 'Copa', venue: 'local', status: 'completed', goalsFor: 0, goalsAgainst: 0, called: 0, played: 0 }];
+    const invitables = [{ playerId: 'b1', name: 'Leo Baby', category: 'Baby Tanner', number: '3' }, { playerId: 'b2', name: 'Ana Baby', category: 'Baby Tanner', number: '5' },
+      { playerId: 'p0', name: 'Damián López', category: 'T10', number: '7' }];
     const hojas = {};
     window.__guardados = [];
     const R = {
@@ -52,8 +56,11 @@ async function abre({ escribe = true } = {}) {
         const m = partidos.find(x => x.id === prm.match_id), s = hojas[prm.match_id];
         const saved = Boolean(s && s.players.length);
         return { canWrite: escribe, match: { ...m, goals: s?.goals || [], saved },
-          roster: plantel.map(pl => { const x = s?.players.find(y => y.playerId === pl.playerId); return { ...pl, called: x ? x.called : false, tiempo: x?.tiempo || null, yellow: x?.yellow || 0, red: x?.red || 0 }; }) };
+          roster: m.category === 'Mini Baby Tanner'
+            ? (s?.players || []).map(x => ({ ...invitables.find(i => i.playerId === x.playerId), categoryName: invitables.find(i => i.playerId === x.playerId)?.category, invitado: true, called: x.called, tiempo: x.tiempo }))
+            : plantel.map(pl => { const x = s?.players.find(y => y.playerId === pl.playerId); return { ...pl, called: x ? x.called : false, tiempo: x?.tiempo || null, yellow: x?.yellow || 0, red: x?.red || 0 }; }) };
       },
+      v2_match_invitables: () => invitables,
       v2_archive_match: prm => { const i = partidos.findIndex(x => x.id === prm.match_id); if (i >= 0) partidos.splice(i, 1); window.__archivados = (window.__archivados || []).concat(prm.match_id); return null; },
       v2_match_stats: () => ({ record: { played: 3, won: 2, drawn: 1, lost: 0, goalsFor: 9, goalsAgainst: 3 },
         byCategory: [{ category: 'T10', played: 3, won: 2, drawn: 1, lost: 0, goalsFor: 9, goalsAgainst: 3 }],
@@ -189,6 +196,39 @@ const estados = p => p.$$eval('#ppEstampas .pp-estado', e => e.map(x => x.textCo
   revisa('[stats] juegan poco: Dario, 0 de 2 con medio tiempo', /Dario Montalvo.*0\/2/.test((await p.innerText('#stPoco')).replace(/\s+/g, ' ')));
   revisa('[stats] sin jugar: Iker', /Iker Ramírez/.test(await p.innerText('#stSin')));
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/partidos-estadisticas.png'), fullPage: true });
+  await p.close();
+}
+
+// Invitar de otra categoría (14/10/2026): Mini Baby Tanner sin niños.
+{
+  const p = await abre();
+  await p.click('.pt-partido-fila:has-text("MLK")');
+  await p.waitForSelector('#ptPartido:not(.hidden)');
+  revisa('[invitar] sin niños en la categoría, lo dice y ofrece agregar', /no tiene niños activos/.test(await p.textContent('#ppEstampas')) && await p.isVisible('[data-invitar]'));
+  await p.click('[data-invitar]');
+  await p.waitForSelector('#invLista .inv-fila');
+  revisa('[invitar] salen los niños del club con su categoría', (await p.$$('#invLista .inv-fila')).length === 3 && /Baby Tanner/.test(await p.textContent('#invLista')));
+  await p.click('#invCats [data-cat="Baby Tanner"]');
+  revisa('[invitar] filtrar por categoría', (await p.$$('#invLista .inv-fila')).length === 2);
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-invitar.png' });
+  await p.fill('#invBusca', 'leo');
+  revisa('[invitar] buscar por nombre', (await p.$$('#invLista .inv-fila')).length === 1);
+  await p.click('#invLista [data-inv="b1"]');
+  revisa('[invitar] un toque lo convoca', /Convocado/.test(await p.textContent('#invLista [data-inv="b1"]')));
+  await p.fill('#invBusca', '');
+  await p.click('#invLista [data-inv="b2"]');
+  await p.click('#invListo');
+  revisa('[invitar] quedan en la hoja con su categoría', (await p.$$('#ppEstampas .pp-estampa')).length === 2 && /De Baby Tanner/.test(await p.textContent('#ppEstampas')));
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-invitados.png' });
+  revisa('[invitar] y el contador sube', (await p.textContent('#ppNConv')) === '2');
+  await p.click('#ppInvitar');
+  await p.waitForSelector('#invLista .inv-fila');
+  revisa('[invitar] el botón "+ De otra categoría" también abre la lista', (await p.$$('#invLista .inv-fila.va')).length === 2);
+  await p.click('#invListo');
+  await p.click('#ppTerminar');
+  await p.waitForTimeout(300);
+  const g = await p.evaluate(() => window.__guardados.pop());
+  revisa('[invitar] se guardan los invitados como convocados', g?.players?.filter(x => x.called).map(x => x.playerId).sort().join() === 'b1,b2', JSON.stringify(g?.players));
   await p.close();
 }
 

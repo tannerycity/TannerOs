@@ -243,13 +243,16 @@ function pintaEstampas() {
     return `<article class="pp-estampa st-${esc(estado)}">
       <button type="button" class="pp-toque" data-id="${esc(p.playerId)}"${P.canWrite ? '' : ' disabled'}>
         <span class="pp-cara">${u ? `<img src="${esc(u)}" alt="" loading="lazy">` : `<span>${esc(iniciales(p.name))}</span>`}${p.number ? `<em>${esc(p.number)}</em>` : ''}</span>
-        <span class="pp-nombre"><strong>${esc(primerNombre(p.name))}</strong><small>${esc(String(p.name).split(/\s+/)[1] || '')}</small></span>
+        <span class="pp-nombre"><strong>${esc(primerNombre(p.name))}</strong><small>${esc(String(p.name).split(/\s+/)[1] || '')}</small>${p.invitado && p.categoryName ? `<span class="pp-de">De ${esc(p.categoryName)}</span>` : ''}</span>
         ${extras ? `<span class="pp-extras">${esc(extras)}</span>` : ''}
         <span class="pp-estado">${esc(etq)}</span>
       </button>
       ${P.canWrite && P.vista === 'juego' ? `<button type="button" class="pp-mas" data-mas="${esc(p.playerId)}" aria-label="Más opciones de ${esc(p.name)}"><i></i><i></i><i></i></button>` : ''}
     </article>`;
-  }).join('') || '<p class="pt-vacio">Nadie convocado todavía.</p>';
+  }).join('') || (P.canWrite && !P.plantel.length
+    ? `<div class="pp-vacio-cat"><p><b>${esc(P.partido.category)}</b> no tiene niños activos.</p><p>Agrega a los que van a jugar, de cualquier categoría.</p><button type="button" class="pp-invitar-grande" data-invitar>+ Agregar niños</button></div>`
+    : '<p class="pt-vacio">Nadie convocado todavía.</p>');
+  $('ppEstampas').querySelector('[data-invitar]')?.addEventListener('click', invitar);
   $('ppEstampas').querySelectorAll('.pp-toque').forEach(b => b.addEventListener('click', () => tocaJugador(b.dataset.id)));
   $('ppEstampas').querySelectorAll('[data-mas]').forEach(b => b.addEventListener('click', () => opcionesJugador(b.dataset.mas)));
 }
@@ -269,6 +272,55 @@ function tocaJugador(id) {
   try { navigator.vibrate?.(8); } catch {}
   cambia();
 }
+
+/* Invitar niños de otra categoría (14/10/2026): "de repente subimos niños de
+   una categoría a otra; que sea bien fácil agregarlos". Buscar o filtrar por
+   categoría, y un toque lo convoca. Cuenta asistencia, goles y asistencias
+   igual que los demás. */
+let invitables = null, invFiltro = { cat: '', busca: '' };
+async function invitar() {
+  if (!P?.canWrite) return;
+  if (!invitables) {
+    try { invitables = await rpc('v2_match_invitables', { organization_id: ctx.organization_id }) || []; }
+    catch (e) { msg('ppMensaje', amable(e)); return; }
+  }
+  invFiltro = { cat: '', busca: '' };
+  abreHoja('Agregar niños', `
+    <input id="invBusca" type="search" class="inv-busca" placeholder="Buscar por nombre o número" autocomplete="off">
+    <div id="invCats" class="inv-cats"></div>
+    <div id="invLista" class="inv-lista"></div>
+    <button type="button" id="invListo" class="hj-listo pp-terminar">Listo</button>`);
+  const cats = [...new Set(invitables.map(x => x.category).filter(Boolean))]
+    .sort((a, b) => (b === P.partido.category) - (a === P.partido.category) || a.localeCompare(b, 'es'));
+  $('invCats').innerHTML = ['', ...cats].map(c => `<button type="button" data-cat="${esc(c)}">${esc(c || 'Todas')}</button>`).join('');
+  $('invCats').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (!b) return; invFiltro.cat = b.dataset.cat; pintaInvitables(); });
+  $('invBusca').addEventListener('input', e => { invFiltro.busca = e.target.value; pintaInvitables(); });
+  $('invLista').addEventListener('click', e => {
+    const b = e.target.closest('[data-inv]'); if (!b) return;
+    const x = invitables.find(i => i.playerId === b.dataset.inv); if (!x) return;
+    const ya = P.plantel.find(p => p.playerId === x.playerId);
+    if (ya) { if (!ya.called) { ya.called = true; ya.tiempo = ya.tiempo || 'medio'; } }
+    else P.plantel.push({ ...x, categoryName: x.category, invitado: x.category !== P.partido.category, called: true, tiempo: 'medio', yellow: 0, red: 0 });
+    cambia(); pintaInvitables();
+    firmaCaras(P.plantel).then(() => P && pintaEstampas());
+  });
+  $('invListo').addEventListener('click', cierraHoja);
+  pintaInvitables();
+}
+function pintaInvitables() {
+  const sinAcento = v => String(v || '').toLocaleLowerCase('es-MX').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const q = sinAcento(invFiltro.busca).trim();
+  $('invCats').querySelectorAll('[data-cat]').forEach(b => b.classList.toggle('activo', b.dataset.cat === invFiltro.cat));
+  const lista = invitables.filter(x => (!invFiltro.cat || x.category === invFiltro.cat)
+    && (!q || sinAcento(x.name).includes(q) || String(x.number || '') === q));
+  $('invLista').innerHTML = lista.slice(0, 80).map(x => {
+    const va = P.plantel.some(p => p.playerId === x.playerId && p.called);
+    return `<button type="button" class="inv-fila${va ? ' va' : ''}" data-inv="${esc(x.playerId)}"${va ? ' disabled' : ''}>
+      <span class="inv-cara">${esc(iniciales(x.name))}</span><span class="inv-txt"><b>${esc(x.name)}</b><small>${esc(x.category || 'Sin categoría')}${x.number ? ` · #${esc(x.number)}` : ''}</small></span>
+      <span class="inv-estado">${va ? 'Convocado' : 'Agregar'}</span></button>`;
+  }).join('') || '<p class="pt-vacio">Nadie con ese filtro.</p>';
+}
+$('ppInvitar')?.addEventListener('click', invitar);
 
 function opcionesJugador(id) {
   const p = P.plantel.find(x => x.playerId === id); if (!p) return;

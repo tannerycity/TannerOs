@@ -183,3 +183,26 @@
 .hj-accion{appearance:none;border:1.5px solid var(--line);background:#f7f9f8;border-radius:14px;padding:12px 14px;text-align:left;font-weight:900;font-size:15px;color:var(--ink);cursor:pointer;display:grid;gap:2px}
 .hj-accion small{font-size:12px;font-weight:650;color:var(--muted)}
 .hj-peligro{color:#a32920;border-color:#f1d3d0;background:#fff8f7}
+
+/* Invitar de otra categoría (14/10/2026) */
+.pp-herr .pp-invitar{margin-left:auto;background:#e8f6ec;border-color:#bfe5c9;color:#1e6b3c}
+.pp-de{display:inline-block;margin-top:2px;padding:1px 6px;border-radius:999px;background:#eef3ff;color:#2f5bd3;font-size:9.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pp-vacio-cat{grid-column:1/-1;display:grid;gap:4px;justify-items:center;text-align:center;padding:28px 16px;color:var(--muted)}
+.pp-vacio-cat p{margin:0;font-size:14px}
+.pp-vacio-cat b{color:var(--ink)}
+.pp-invitar-grande{margin-top:10px;border:0;border-radius:14px;padding:14px 22px;background:#1f9d55;color:#fff;font:inherit;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 8px 20px rgba(31,157,85,.25)}
+.inv-busca{width:100%;min-height:44px;border:0;border-radius:12px;background:#eceff0;padding:0 14px;font:inherit;font-size:15px;box-sizing:border-box}
+.inv-cats{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:10px 0}
+.inv-cats::-webkit-scrollbar{display:none}
+.inv-cats button{flex:0 0 auto;border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font:inherit;font-weight:800;font-size:13px;cursor:pointer}
+.inv-cats button.activo{background:#07191e;border-color:#07191e;color:#fff}
+.inv-lista{display:grid;gap:6px;max-height:52vh;overflow-y:auto}
+.inv-fila{display:flex;align-items:center;gap:10px;border:0;background:#f7f9f8;border-radius:14px;padding:8px 10px;font:inherit;text-align:left;cursor:pointer}
+.inv-fila.va{opacity:.6;cursor:default}
+.inv-cara{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#dfe8e6;font-weight:900;font-size:13px;flex:0 0 auto}
+.inv-txt{display:grid;flex:1;min-width:0}
+.inv-txt b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-txt small{font-size:12px;color:var(--muted)}
+.inv-estado{font-size:12px;font-weight:900;color:#1f9d55}
+.inv-fila.va .inv-estado{color:var(--muted)}
+.hj-listo.pp-terminar{width:100%;margin-top:12px}

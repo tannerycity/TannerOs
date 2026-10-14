@@ -101,17 +101,12 @@
     <!-- Alta en orden de mostrador (13/10/2026, "¿quieres registrar un
     producto? así, así, bien fácil"): la foto, qué es, nombre y precio. Las
     tallas se prenden solas según lo que es; lo raro va en "Más opciones". -->
-    <div class="photo-field foto-primero">
-      <label id="pPhotoBox" class="photo-box" for="pPhotoInput"><span>Toca para<br>agregar foto</span></label>
-      <div class="photo-copy">
-        <strong>Foto</strong>
-        <p>Es lo que ven las familias en la tienda. Cuadrada se ve mejor.</p>
-        <div class="photo-actions">
-          <label class="secondary" for="pPhotoInput">Elegir foto</label>
-          <input id="pPhotoInput" type="file" accept="image/*" hidden>
-          <button id="pPhotoClear" class="secondary" type="button" hidden>Quitar foto</button>
-        </div>
-      </div>
+    <!-- Varias fotos (14/10/2026): la primera es la portada. -->
+    <div class="fotos-campo">
+      <div class="fotos-cab"><strong>Fotos</strong><span id="pFotosCuenta"></span></div>
+      <p>La primera es la portada: es lo que ven primero las familias. Toca otra para ponerla de portada.</p>
+      <div id="pFotos" class="fotos-tira"></div>
+      <input id="pPhotoInput" type="file" accept="image/*" multiple hidden>
     </div>
     <div class="campo-toques">
       <span class="campo-titulo">¿Qué es?</span>

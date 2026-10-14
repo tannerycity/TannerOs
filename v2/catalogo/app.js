@@ -8,7 +8,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 const pct=v=>v==null?'—':`${Number(v).toFixed(0)}%`;
 
-let ctx=null,canManage=false,canFinance=true,products=[],bundles=[],showArchived=false,ofertas=[];
+let ctx=null,canManage=false,canPromos=false,canFinance=true,products=[],bundles=[],showArchived=false,ofertas=[];
 let draft=null; // {mode:'bundle'|'product', id:string|null, components:[{productId,qty}]}
 
 const ICONS={
@@ -42,8 +42,11 @@ async function boot(){
   if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Catálogo.';show('deniedView');return;}
   const financeMod=mods.find(m=>m.module_code==='commerce_finance');
   canFinance=!!(financeMod?.enabled&&financeMod?.can_read);
-  // Presidencia es la única que puede crear/editar el catálogo (lo exige también el backend).
-  canManage=ctx.role==='Presidencia';
+  // Editan el catálogo Presidencia y quien tenga el ajuste especial de Catálogo
+  // (14/10/2026: Zul). Lo decide el servidor, el mismo que lo exige al guardar.
+  // Las promociones siguen siendo sólo de Presidencia.
+  canPromos=ctx.role==='Presidencia';
+  canManage=canPromos||!!(await rpc('v2_can_edit_catalog',{organization_id:ctx.organization_id}).catch(()=>false));
   $('newBundleBtn').classList.toggle('hidden',!canManage);
   $('newProductBtn').classList.toggle('hidden',!canManage);
   $('orgName').textContent=ctx.organization_name;
@@ -60,7 +63,7 @@ async function load(){
   const data=await rpc('v2_catalog',{organization_id:ctx.organization_id});
   products=data?.products||[];
   bundles=data?.bundles||[];
-  ofertas=canManage?((await rpc('v2_promotions',{organization_id:ctx.organization_id}).catch(()=>[]))||[]):[];
+  ofertas=canPromos?((await rpc('v2_promotions',{organization_id:ctx.organization_id}).catch(()=>[]))||[]):[];
   renderPendientes();
   renderBundles();
   renderProducts();
@@ -147,7 +150,7 @@ function pintaCabecera(){
   $('bundlesPanel')?.classList.toggle('hidden',ver!=='kits');
   $('costosPanel')?.classList.toggle('hidden',ver!=='costos');
   $('ofertasPanel')?.classList.toggle('hidden',ver!=='ofertas');
-  $('catTabOfertas')?.classList.toggle('hidden',!canManage);
+  $('catTabOfertas')?.classList.toggle('hidden',!canPromos);
   const activas=ofertas.filter(o=>o.estado==='activa').length;
   if($('catNumOfertas'))$('catNumOfertas').textContent=activas||'';
   if(ver==='ofertas')renderOfertas();
@@ -347,7 +350,11 @@ const PHOTO_BUCKET='tanneros-private';
    private.storage_module_code o las fotos se pierden en silencio. La regla de
    scripts/qa-static.mjs vigila exactamente eso. */
 const CARPETA_MODULO='commerce';
-let photoFile=null,photoCleared=false,photoSeq=0;
+/* Varias fotos (14/10/2026): "que los productos pudieran tener una o más
+   fotos". La tira guarda el orden; la primera es la portada. Una foto ya
+   guardada trae su ruta; una nueva trae el archivo y se sube al guardar. */
+const MAX_FOTOS=8;
+let fotosEdit=[],fotosTocadas=false,photoSeq=0;
 function loadImageFile(file){
   return new Promise((resolve,reject)=>{
     const url=URL.createObjectURL(file),img=new Image();
@@ -381,38 +388,64 @@ async function uploadPhoto(prefix,file){
   }
   return {path,thumbPath};
 }
-function pintaFotoLocal(url,alt){
-  const box=$('pPhotoBox');if(!box)return;
-  box.innerHTML=url?`<img src="${esc(url)}" alt="${esc(alt||'Producto')}">`:'<span>Sin foto</span>';
-  $('pPhotoClear').hidden=!url;
+function pintaFotos(){
+  const tira=$('pFotos');if(!tira)return;
+  const alt=$('pName')?.value||'Producto';
+  tira.innerHTML=fotosEdit.map((f,i)=>`<div class="foto-item${i===0?' portada':''}">
+      <button type="button" class="foto-ver" data-portada="${i}" aria-label="${i===0?'Portada':'Poner de portada'}">${f.url?`<img src="${esc(f.url)}" alt="${esc(alt)}">`:'<span class="foto-cargando"></span>'}</button>
+      ${i===0?'<span class="foto-tag">Portada</span>':''}
+      <button type="button" class="foto-quita" data-quita="${i}" aria-label="Quitar foto">&times;</button></div>`).join('')
+    +(fotosEdit.length<MAX_FOTOS?`<label class="foto-agregar" for="pPhotoInput"><span aria-hidden="true">+</span><small>${fotosEdit.length?'Agregar':'Agregar foto'}</small></label>`:'');
+  const c=$('pFotosCuenta');if(c)c.textContent=fotosEdit.length?`${fotosEdit.length} de ${MAX_FOTOS}`:'';
+}
+function fotosDelProducto(p){
+  const lista=Array.isArray(p?.photos)&&p.photos.length?p.photos:(p?.photoPath?[{path:p.photoPath,thumbPath:p.photoThumbPath||p.photoPath}]:[]);
+  return lista.filter(f=>f?.path).map(f=>({path:f.path,thumbPath:f.thumbPath||f.path,url:''}));
 }
 async function pintaFotoGuardada(p){
-  // El drawer es detalle abierto por intención, así que puede usar el original;
-  // se prefiere la miniatura porque la caja mide 96px. La firma pasa por el
-  // caché compartido (docs/MEDIA_EGRESS_ARCHITECTURE.md).
-  const seq=++photoSeq,path=p?.photoThumbPath||p?.photoPath;
-  pintaFotoLocal('',p?.name);
-  if(!path)return;
+  // El drawer firma miniaturas (la tira mide 76px), en lote y por el caché
+  // compartido (docs/MEDIA_EGRESS_ARCHITECTURE.md).
+  const seq=++photoSeq;
+  fotosEdit=fotosDelProducto(p);fotosTocadas=false;pintaFotos();
+  if(!fotosEdit.length)return;
   try{
-    const url=await getSignedPhotoUrl(supabase,p.photoBucket||PHOTO_BUCKET,path);
-    if(!url)return;
-    if(seq===photoSeq)pintaFotoLocal(url,p.name);
+    const mapa=await getSignedPhotoUrls(supabase,p.photoBucket||PHOTO_BUCKET,fotosEdit.map(f=>f.thumbPath));
+    if(seq!==photoSeq)return;
+    fotosEdit.forEach(f=>{if(!f.file)f.url=mapa?.[f.thumbPath]||'';});
+    pintaFotos();
   }catch(e){/* la foto es opcional: no rompe el drawer */}
 }
 $('pPhotoInput')?.addEventListener('change',async e=>{
-  const file=e.target.files?.[0];e.target.value='';
-  if(!file)return;
-  try{
-    await preparePhotoFile(file);           // valida antes de prometerle nada al usuario
-    photoFile=file;photoCleared=false;
-    pintaFotoLocal(URL.createObjectURL(file),$('pName').value);
-    drawerMsg('La foto se sube al guardar el producto.','success');
-  }catch(err){drawerMsg(err.message||'No pudimos usar esa foto.');}
+  const files=[...(e.target.files||[])];e.target.value='';
+  if(!files.length)return;
+  const lugar=MAX_FOTOS-fotosEdit.length;
+  for(const file of files.slice(0,lugar)){
+    try{
+      await preparePhotoFile(file);           // valida antes de prometerle nada al usuario
+      fotosEdit.push({file,url:URL.createObjectURL(file)});fotosTocadas=true;
+    }catch(err){drawerMsg(err.message||'No pudimos usar esa foto.');return;}
+  }
+  pintaFotos();
+  drawerMsg(files.length>lugar?`Caben ${MAX_FOTOS} fotos por producto: entraron ${lugar}.`:'Las fotos se suben al guardar el producto.','success');
 });
-$('pPhotoClear')?.addEventListener('click',()=>{
-  photoFile=null;photoCleared=true;pintaFotoLocal('');
-  drawerMsg('La foto se quita al guardar el producto.','success');
+$('pFotos')?.addEventListener('click',e=>{
+  const q=e.target.closest('[data-quita]');
+  if(q){fotosEdit.splice(Number(q.dataset.quita),1);fotosTocadas=true;pintaFotos();drawerMsg('La foto se quita al guardar el producto.','success');return;}
+  const v=e.target.closest('[data-portada]');
+  if(v&&Number(v.dataset.portada)>0){const [f]=fotosEdit.splice(Number(v.dataset.portada),1);fotosEdit.unshift(f);fotosTocadas=true;pintaFotos();drawerMsg('Lista la nueva portada. Se guarda con el producto.','success');}
 });
+// Sube las nuevas (en orden) y devuelve la lista final para el servidor.
+async function subeFotos(prodId){
+  const lista=[];
+  for(const f of fotosEdit){
+    if(f.file){
+      const subida=await uploadPhoto(`organizations/${ctx.organization_id}/${CARPETA_MODULO}/products/${prodId}/foto`,f.file);
+      Object.assign(f,{path:subida.path,thumbPath:subida.thumbPath,file:null});
+    }
+    lista.push({path:f.path,thumbPath:f.thumbPath});
+  }
+  return lista;
+}
 
 
 /* ---- Lo que se toca en vez de teclearse ----
@@ -521,7 +554,7 @@ function openProductDrawer(p){
   $('productForm').classList.remove('hidden');
   $('bundleForm').classList.add('hidden');
   $('promoForm')?.classList.add('hidden');
-  $('pPonerOferta')?.classList.toggle('hidden',!p||!canManage);
+  $('pPonerOferta')?.classList.toggle('hidden',!p||!canPromos);
   $('pName').value=p?.name||'';
   $('pSku').value=p?.sku||'';
   $('pPrice').value=p?.price??'';
@@ -538,7 +571,6 @@ function openProductDrawer(p){
   persTocado=false;pintaPers(p);
   $('pArchiveToggle').classList.toggle('hidden',!p);
   $('pArchiveToggle').textContent=p?.archived?'Restaurar producto':'Archivar producto';
-  photoFile=null;photoCleared=false;
   pintaFotoGuardada(p);
   pintaKitsDelProducto(p);
   recomputeProductPreview();
@@ -600,27 +632,26 @@ async function saveProduct(){
       const prodP=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);
       if(prodP)await rpc('v2_set_product_personalizable',{organization_id:ctx.organization_id,product_id:prodP.id,value:$('pPers').checked});
     }
-    if(photoFile||photoCleared){
+    if(fotosTocadas){
       await load();
       const prod=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);
       // Sin producto reencontrado la foto se perdia en silencio y el papa veia
       // la tienda sin imagen sin que nadie le hubiera dicho nada.
-      if(!prod)throw new Error('No pudimos ligarle la foto. Abre el producto otra vez y vuelve a elegirla.');
-      {
-        if(photoCleared&&!photoFile){
-          await rpc('v2_set_product_photo',{organization_id:ctx.organization_id,product_id:prod.id,photo_path:null,photo_thumb_path:null,photo_bucket:null});
-        }else{
-          const subida=await uploadPhoto(`organizations/${ctx.organization_id}/${CARPETA_MODULO}/products/${prod.id}/foto`,photoFile);
-          await rpc('v2_set_product_photo',{organization_id:ctx.organization_id,product_id:prod.id,photo_path:subida.path,photo_thumb_path:subida.thumbPath,photo_bucket:PHOTO_BUCKET});
-        }
-      }
+      if(!prod)throw new Error('No pudimos ligarle las fotos. Abre el producto otra vez y vuelve a elegirlas.');
+      const antes=fotosDelProducto(prod);
+      const lista=await subeFotos(prod.id);
+      await rpc('v2_set_product_photos',{organization_id:ctx.organization_id,product_id:prod.id,photos:lista});
+      // Lo que se quitó se borra del bucket: una foto que nadie ve es basura.
+      const quedan=new Set(lista.flatMap(f=>[f.path,f.thumbPath]));
+      const fuera=antes.flatMap(f=>[f.path,f.thumbPath]).filter(r=>r&&!quedan.has(r));
+      if(fuera.length)supabase.storage.from(PHOTO_BUCKET).remove(fuera).catch(()=>{});
     }
     await load();
     closeDrawerFn();
   }catch(e){
     const detalle=e?.message||'';
     drawerMsg(guardado
-      ? `Los datos del producto SI se guardaron. La foto no: ${detalle||'Storage la rechazo.'}`
+      ? `Los datos del producto SI se guardaron. Las fotos no: ${detalle||'Storage las rechazo.'}`
       : (detalle||'No se pudo guardar el producto.'));
     if(guardado)await load();   // que la lista muestre lo que si quedo
   }
@@ -810,7 +841,7 @@ function accionesDelCatalogo(){
   if(!canManage)return [];
   return [{label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',icon:'plus',run:()=>{ver='productos';pintaCabecera();openProductDrawer(null);}},
           {label:'Nuevo kit',sub:'Junta piezas con su precio',icon:'bag',run:()=>{ver='kits';pintaCabecera();openBundleDrawer(null);}},
-          {label:'Nueva oferta',sub:'Precio especial con fecha',icon:'star',run:()=>{ver='ofertas';pintaCabecera();abreOferta();}}];
+          ...(canPromos?[{label:'Nueva oferta',sub:'Precio especial con fecha',icon:'star',run:()=>{ver='ofertas';pintaCabecera();abreOferta();}}]:[])];
 }
 
 boot().catch(err=>{console.error(err);$('deniedText').textContent='No se pudo cargar el catálogo.';show('deniedView');});

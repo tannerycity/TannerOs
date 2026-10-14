@@ -43,7 +43,7 @@ const CAT={products:[
    photoPath:RUTA('p5'),photoThumbPath:RUTA('p5')+'-thumb',photoBucket:'tanneros-private'}
 ],bundles:[{id:'b1',name:'Kit Tanner - Completo',priceAdult:1740,active:true,archived:false,components:[{productId:'p1',qty:1}],costComplete:false,componentsResolved:true}]};
 
-const stub=`
+const stubPara=(rol='Presidencia',puede=true)=>`
  export function createClient(){return{
   auth:{getSession:async()=>({data:{session:{user:{id:'u1'}}}}),getUser:async()=>({data:{user:{app_metadata:{}}}}),signOut:async()=>({}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
   storage:{from:(b)=>({
@@ -52,11 +52,14 @@ const stub=`
     createSignedUrls:async(paths)=>{window.__firmados=(window.__firmados||[]).concat(paths);
       return {data:paths.map(p=>({path:p,signedUrl:'/icon.svg?firmada='+encodeURIComponent(p)})),error:null};},
     createSignedUrl:async(p)=>{window.__firmados=(window.__firmados||[]).concat([p]);
-      return {data:{signedUrl:'/icon.svg?firmada='+encodeURIComponent(p)},error:null};}
+      return {data:{signedUrl:'/icon.svg?firmada='+encodeURIComponent(p)},error:null};},
+    upload:async(p)=>{window.__subidas=(window.__subidas||[]).concat([p]);return {data:{path:p},error:null};},
+    remove:async(ps)=>{window.__borrados=(window.__borrados||[]).concat(ps);return {data:[],error:null};}
   })},
   rpc:async(n,p={})=>{
     window.__rpc=window.__rpc||[];window.__rpc.push({n,p});
-    if(n==='v2_my_context')return{data:[{organization_id:'o1',organization_name:'Tannery City FC',role:'Presidencia',is_owner:true}],error:null};
+    if(n==='v2_my_context')return{data:[{organization_id:'o1',organization_name:'Tannery City FC',role:'${rol}',is_owner:${rol==='Presidencia'}}],error:null};
+    if(n==='v2_can_edit_catalog')return{data:${puede},error:null};
     if(n==='v2_my_modules')return{data:[{module_code:'catalogo',enabled:true,can_read:true,can_write:true},{module_code:'commerce_finance',enabled:true,can_read:true,can_write:true}],error:null};
     if(n==='v2_catalog')return{data:${JSON.stringify(CAT)},error:null};
     return {data:[],error:null};}};}`;
@@ -65,7 +68,7 @@ const nav=await chromium.launch({executablePath:process.env.CHROME_PATH||'/opt/p
 const pg=await nav.newPage({viewport:{width:390,height:844}});
 const errs=[];pg.on('pageerror',e=>errs.push('pageerror: '+e.message));
 pg.on('console',m=>{const u=m.location()?.url||'';if(m.type()==='error'&&!/esm\.sh|favicon/.test(m.text()+u))errs.push('console: '+m.text());});
-await pg.route('**/v2/supabase-client.js',r=>r.fulfill({status:200,contentType:'text/javascript',body:stub}));
+await pg.route('**/v2/supabase-client.js',r=>r.fulfill({status:200,contentType:'text/javascript',body:stubPara()}));
 await pg.route('**/v2/branding-auto.js',r=>r.fulfill({status:200,contentType:'text/javascript',body:''}));
 await pg.goto('http://127.0.0.1:4698/v2/catalogo/',{waitUntil:'networkidle'});
 await pg.waitForSelector('#productList .catalog-card',{timeout:8000});
@@ -251,7 +254,7 @@ await pg.fill('#catBuscar','');
 await pg.click('#newProductBtn');
 await pg.waitForSelector('#productForm:not(.hidden)',{timeout:5000});
 const orden=await pg.$$eval('#productForm > *',n=>n.map(x=>x.id||x.className).slice(0,3));
-revisa('el alta empieza por la foto y "¿Qué es?"', orden[0].includes('foto-primero')&&orden[1].includes('campo-toques'), JSON.stringify(orden));
+revisa('el alta empieza por las fotos y "¿Qué es?"', orden[0].includes('fotos-campo')&&orden[1].includes('campo-toques'), JSON.stringify(orden));
 revisa('SKU y "se vende" van guardados en Más opciones', await pg.isHidden('#pSku'));
 await pg.click('#pCatChips [data-cat="socks"]');
 revisa('calcetas: talla única sola', JSON.stringify(await pg.$$eval('#pSizeChips .chip.on',n=>n.map(x=>x.textContent.trim())))==='["Universal"]');
@@ -322,10 +325,43 @@ await pg.fill('#ofValor','150');
 await pg.click('#ofGuardar');
 revisa('un descuento de 100% o más no pasa', /de 1 a 99%/.test(await pg.textContent('#drawerMessage')));
 if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
+// Varias fotos (14/10/2026): la primera es la portada.
+await pg.click('.cat-seg [data-ver="productos"]');
+await pg.click('#productList .catalog-card:has-text("Black Edition")');
+await pg.waitForSelector('#productForm:not(.hidden)',{timeout:4000});
+await pg.waitForSelector('#pFotos .foto-item img',{timeout:4000}).catch(()=>{});
+revisa('[fotos] el producto abre con su foto de portada', (await pg.$$('#pFotos .foto-item')).length===1 && await pg.isVisible('#pFotos .foto-item.portada .foto-tag'));
+await pg.setInputFiles('#pPhotoInput',[path.join(RAIZ,'icon-180.png'),path.join(RAIZ,'brand/crest-navy.png')]);
+await pg.waitForFunction(()=>document.querySelectorAll('#pFotos .foto-item').length===3,{timeout:4000}).catch(()=>{});
+revisa('[fotos] se agregan varias de un jalón', (await pg.$$('#pFotos .foto-item')).length===3 && /3 de 8/.test(await pg.textContent('#pFotosCuenta')));
+await pg.click('#pFotos [data-portada="1"]');
+revisa('[fotos] tocar otra la vuelve portada', (await pg.$$eval('#pFotos .foto-item',n=>n.findIndex(x=>x.classList.contains('portada'))))===0 && /blob:/.test(await pg.getAttribute('#pFotos .foto-item.portada img','src')));
+if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/fotos.png`});
+await pg.click('#pFotos [data-quita="1"]');
+revisa('[fotos] la equis la quita', (await pg.$$('#pFotos .foto-item')).length===2);
+await pg.click('#pSave');
+await pg.waitForTimeout(600);
+const fotosG=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_set_product_photos').map(x=>x.p).pop());
+const subidas=await pg.evaluate(()=>window.__subidas||[]);
+revisa('[fotos] se guardan en orden: la nueva de portada y la otra nueva detrás', fotosG?.product_id==='p1'&&fotosG?.photos?.length===2&&fotosG.photos[0].path===subidas[0]&&/products\/p1\/foto-\d+\./.test(fotosG.photos[0].path)&&fotosG.photos[1].path===subidas[2], JSON.stringify({fotosG,subidas}));
+const borrados=await pg.evaluate(()=>window.__borrados||[]);
+revisa('[fotos] la que se quitó se borra del bucket', borrados.includes(RUTA('p1'))&&borrados.includes(RUTA('p1')+'-thumb'), JSON.stringify(borrados));
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
 revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 revisa('sin scroll horizontal en un teléfono',
   await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
 
+// Quién edita (14/10/2026): Presidencia y quien tenga el ajuste especial (Zul).
+for(const [rol,puede,edita] of [['Operaciones',true,true],['Operaciones',false,false]]){
+  const pz=await nav.newPage({viewport:{width:390,height:844}});
+  await pz.route('**/v2/supabase-client.js',r=>r.fulfill({status:200,contentType:'text/javascript',body:stubPara(rol,puede)}));
+  await pz.route('**/v2/branding-auto.js',r=>r.fulfill({status:200,contentType:'text/javascript',body:''}));
+  await pz.goto('http://127.0.0.1:4698/v2/catalogo/',{waitUntil:'networkidle'});
+  await pz.waitForSelector('#productList .catalog-card',{timeout:8000});
+  revisa(`[permiso] ${rol} ${puede?'con':'sin'} ajuste especial ${edita?'sí':'no'} edita`, (await pz.isVisible('#newProductBtn'))===edita);
+  if(edita)revisa('[permiso] pero las ofertas siguen siendo de Presidencia', await pz.isHidden('#catTabOfertas'));
+  await pz.close();
+}
 await nav.close(); srv.close();
 console.log(fallos
   ? `Catálogo humo FAILED · ${fallos} de ${corridas}`

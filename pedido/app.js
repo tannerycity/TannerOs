@@ -146,6 +146,28 @@ function medioProducto(p, completa = false) {
   const ruta = completa ? (p.photoPath || p.photoThumbPath) : (p.photoThumbPath || p.photoPath);
   return medio(ruta, p.photoBucket, p.name);
 }
+/* Varias fotos (14/10/2026): en la ficha se deslizan como en el App Store,
+   con puntitos abajo. Con una sola foto se ve igual que siempre. */
+function fotosDeProducto(p) {
+  const l = Array.isArray(p.photos) ? p.photos.filter(f => f && f.path) : [];
+  return l.length ? l : (p.photoPath || p.photoThumbPath ? [{ path: p.photoPath || p.photoThumbPath, thumbPath: p.photoThumbPath }] : []);
+}
+function galeria(p, actual = 0) {
+  const l = fotosDeProducto(p);
+  if (l.length < 2) return medioProducto(p, true);
+  return `<div class="st-galeria" aria-roledescription="carrusel" aria-label="Fotos de ${esc(p.name)}">
+    <div class="st-galeria-pista">${l.map((f, i) => `<div class="st-galeria-foto" aria-label="Foto ${i + 1} de ${l.length}">${medio(f.path, p.photoBucket, `${p.name}, foto ${i + 1}`)}</div>`).join('')}</div>
+    <div class="st-puntos">${l.map((_, i) => `<button type="button" data-foto-i="${i}" aria-label="Ver foto ${i + 1}"${i === actual ? ' aria-current="true"' : ''}></button>`).join('')}</div></div>`;
+}
+// La ficha se repinta entera en cada toque: la galería recuerda en qué foto iba.
+function cableaGaleria(e) {
+  const g = $('content').querySelector('.st-galeria'); if (!g) return;
+  const pista = g.querySelector('.st-galeria-pista'), puntos = [...g.querySelectorAll('[data-foto-i]')];
+  const marca = i => puntos.forEach((b, k) => k === i ? b.setAttribute('aria-current', 'true') : b.removeAttribute('aria-current'));
+  pista.scrollLeft = (e.foto || 0) * pista.clientWidth;
+  pista.addEventListener('scroll', () => { const i = Math.round(pista.scrollLeft / Math.max(1, pista.clientWidth)); if (i !== e.foto) { e.foto = i; marca(i); } }, { passive: true });
+  puntos.forEach((b, i) => b.addEventListener('click', ev => { ev.stopPropagation(); pista.scrollTo({ left: i * pista.clientWidth, behavior: 'smooth' }); }));
+}
 function medioKit(k, clase = '') {
   const f = fotosDeKit(k);
   if (!f.length) return medio(null, null, k.name, `kit ${clase}`.trim());
@@ -206,7 +228,7 @@ function infoDeCompra() {
     <li><b>Confirmación</b><span>Te escribimos por WhatsApp para revisar tallas y entrega.</span></li></ul>`;
 }
 function vistaPrevia(e, nombreProducto) {
-  return mockupJersey({ nombre: e.nombre, numero: e.numero,
+  return mockupJersey({ nombre: e.nombre, numero: e.numero, mangaLarga: e.manga === 'larga',
     colores: coloresDePlayera({ nombreProducto, primario: coloresClub.primary, acento: coloresClub.accent }) });
 }
 function bloquePersonaliza(e, nombreProducto = '') {
@@ -289,7 +311,7 @@ function renderProducto(id) {
   $('content').innerHTML = `
     <a class="st-volver" href="#/c/${esc(cat)}">‹ ${esc(etiquetaDe(cat))}</a>
     <article class="st-pdp" data-ficha="${esc(p.id)}">
-      ${medioProducto(p, true)}
+      ${galeria(p, e.foto || 0)}
       <div class="st-pdp-info">
         <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
         <h1>${esc(p.name)}</h1>
@@ -309,6 +331,7 @@ function renderProducto(id) {
     </article>
     ${barraAgregar(`Agregar al pedido · ${money.format(Number(p.price || 0) * e.cantidad)}`, e.motivo)}`;
   pintaBarra(false);
+  cableaGaleria(e);
   firmaFotos($('content'));
 }
 

@@ -114,7 +114,34 @@ function estiloLechuguilla({ id, c, letras, n, num, vacioN, vacioNum }) {
   <text x="100" y="194" text-anchor="middle" font-family="'Anton','Arial Narrow',sans-serif" font-size="9" letter-spacing="2.2" fill="${c.ribete}">WE ARE TANNERS</text>
 </svg>`;
 }
-export function mockupJersey({ nombre = '', numero = '', colores, fondo = '' } = {}) {
+/* Manga larga (14/10/2026): "si le pones manga larga, que se vea como se verá
+   al final; sólo es extenderle el puño". La manga corta sigue igual y debajo
+   le sale el antebrazo con el color de la manga de cada diseño; el puño se
+   baja a la muñeca. */
+const PUNO_CORTO = 'd="M199 82 L170 94 M1 82 L30 94"';
+const BRAZO_IZQ = 'M2 78 L31 90 L28 178 L7 176 Z', BRAZO_DER = 'M198 78 L169 90 L172 178 L193 176 Z';
+function mangaDe(estilo, id, c) {
+  return ({
+    pink: ['#BF8F96', '#16354B', 7], wetblue: ['#267B8E', '#1F3A52', 5], black: ['#1F1A19', '#A59264', 7],
+    lechuguilla: [`url(#${id}r)`, '#3E9C8B', 4]
+  })[estilo] || [c.cuerpo, c.ribete, 4.5];
+}
+function alargaMangas(svg, [tela, puno, grosor]) {
+  const i = svg.indexOf('<path d="M70 10 C82 18 118 18 130 10 L168 24');
+  if (i < 0) return svg;
+  const brazos = `<g data-mockup="manga-larga"><path d="${BRAZO_IZQ}" fill="${tela}"/><path d="${BRAZO_DER}" fill="${tela}"/>
+  <path d="${BRAZO_IZQ} ${BRAZO_DER}" fill="rgba(0,0,0,.10)" stroke="rgba(0,0,0,.25)" stroke-width="1.2"/>
+  <path d="M7 174 L28 176 M193 174 L172 176" stroke="${puno}" stroke-width="${grosor}" stroke-linecap="butt"/></g>`;
+  return (svg.slice(0, i) + brazos + svg.slice(i)).replace(PUNO_CORTO, 'd="M0 0"');
+}
+
+export function mockupJersey({ nombre = '', numero = '', colores, fondo = '', mangaLarga = false } = {}) {
+  const c0 = colores || coloresDePlayera();
+  if (mangaLarga && !(fondo && !c0.estilo)) {
+    const svg = mockupJersey({ nombre, numero, colores: c0, fondo });
+    const id = (svg.match(/id="(jm\d+)[a-z]"/) || [])[1] || '';
+    return alargaMangas(svg, mangaDe(c0.estilo, id, c0)).replace('class="jersey-mockup', 'class="jersey-mockup larga');
+  }
   const c = colores || coloresDePlayera();
   const id = `jm${++mockupN}`;
   const n = limpiaNombre(nombre), num = limpiaNumero(numero);

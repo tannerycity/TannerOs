@@ -7,7 +7,7 @@ import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.
 import {conOferta, kitConOferta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
         piezasDelCarrito, acomodaVitrina, tallasDe, tallaUnica,
         aceptaPersonalizacion, preparaKit, ranurasDeKit, tiersDeKit,
-        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS, armaRecompra, mesesDesde} from '/v2/tienda.js';
+        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS, armaRecompra, mesesDesde, conOpcionesDeKit, ranuraElegida} from '/v2/tienda.js';
 /* El dibujo de la tienda ya no vive aqui: lo comparten esta pantalla y el link
    publico de compra. Ver el encabezado de /v2/vitrina.js. */
 import {inicialesDe, filaDeTalla, tarjetaProducto as dibujaProducto,
@@ -640,7 +640,8 @@ async function renderTienda(){
   const datos=state.catalog;
   // Ofertas (g5): el precio de oferta como precio, y el de antes para tacharlo.
   const productos=(Array.isArray(datos)?datos:(datos?.products||[])).map(conOferta);
-  const kits=(Array.isArray(datos)?[]:(datos?.bundles||[])).map(kitConOferta);
+  const kits=(Array.isArray(datos)?[]:(datos?.bundles||[])).map(k=>conOpcionesDeKit(kitConOferta(k),productos));
+  state.kitsVisibles=kits;
   const rows=acomodaVitrina(productos);
   // Comprar otra vez (13/10/2026): el último pedido de este Tanner.
   const jugador=currentPlayer();
@@ -703,6 +704,20 @@ async function renderTienda(){
     renderTienda();
   }));
 
+  // Kit Dúo: cuál jersey va en cada espacio a elegir. Si la talla que traía
+  // no existe en el nuevo, se borra.
+  cuerpo.querySelectorAll('[data-elige]').forEach(caja=>caja.addEventListener('click',e=>{
+    const b=e.target.closest('[data-pid]');if(!b)return;
+    const [kitId,ranura]=caja.dataset.elige.split('::');
+    const prev=eligiendoKit[kitId]||{};
+    const elegidos={...(prev.elegidos||{}),[ranura]:b.dataset.pid};
+    const kit=(state.kitsVisibles||[]).find(x=>String(x.id)===kitId);
+    const nueva=kit?ranuraElegida(ranurasDeKit(kit).find(x=>x.id===ranura),elegidos):null;
+    const tallas={...(prev.tallas||{})};
+    if(tallas[ranura]&&!(nueva?.tallas||[]).includes(tallas[ranura]))delete tallas[ranura];
+    eligiendoKit[kitId]={...prev,elegidos,tallas,abierto:ranura,motivo:null};
+    renderTienda();
+  }));
   cuerpo.querySelectorAll('[data-tallas]').forEach(caja=>caja.addEventListener('click',e=>{
     const b=e.target.closest('.fam-talla');if(!b)return;
     const ref=caja.dataset.tallas, talla=b.dataset.talla;
@@ -760,7 +775,7 @@ async function renderTienda(){
     const id=b.dataset.addkit;
     const kit=kits.find(k=>String(k.id)===String(id));
     const elec=eligiendoKit[id]||{};
-    const r=preparaKit(kit,{tier:elec.tier,tallas:elec.tallas,nombre:elec.nombre,numero:elec.numero,manga:elec.manga});
+    const r=preparaKit(kit,{tier:elec.tier,tallas:elec.tallas,elegidos:elec.elegidos,nombre:elec.nombre,numero:elec.numero,manga:elec.manga});
     if(!r.ok){
       // El aviso se pinta en la tarjeta que se toco, no en una alerta encima:
       // una alerta tapa justo lo que hay que corregir.

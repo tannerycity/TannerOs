@@ -260,3 +260,8 @@
 .st-puntos button[aria-current] { width: 20px; background: var(--st-ink, #111); }
 @media (min-width: 720px) { .st-galeria { position: sticky; top: 76px; margin: 0; } }
 @media (prefers-reduced-motion: reduce) { .st-puntos button { transition: none; } }
+
+/* ---- Kit Dúo (14/10/2026): la pieza a elegir, primero cuál y luego su talla ---- */
+.st-pieza.elige .st-pieza-cab span { color: var(--st-ink); font-weight: 700; }
+.st-opciones .st-talla { min-width: 0; padding: 0 14px; }
+.st-cambia { margin-left: 6px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--st-soft); color: var(--st-ink-2); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }

@@ -347,6 +347,27 @@ revisa('[fotos] se guardan en orden: la nueva de portada y la otra nueva detrás
 const borrados=await pg.evaluate(()=>window.__borrados||[]);
 revisa('[fotos] la que se quitó se borra del bucket', borrados.includes(RUTA('p1'))&&borrados.includes(RUTA('p1')+'-thumb'), JSON.stringify(borrados));
 if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
+// Kit con piezas a elegir (14/10/2026, Kit Dúo): short fijo + 2 jerseys a elegir.
+await pg.click('.cat-seg [data-ver="kits"]').catch(()=>{});
+await pg.click('#newBundleBtn');
+await pg.waitForSelector('#bundleForm:not(.hidden)',{timeout:4000});
+await pg.fill('#bName','Kit Dúo');
+await pg.fill('#bPriceAdult','1500');
+await pg.fill('#bPriceKid','1299');
+await pg.click('#bComponents .kit-pieza[data-pid="p4"] .kit-pieza-toca');
+revisa('[dúo] la pieza fija no sale como opción a elegir', (await pg.$('#bPool [data-pool-pid="p4"]'))===null);
+await pg.click('#bPool [data-pool-pid="p1"]');
+await pg.click('#bSave');
+revisa('[dúo] con una sola opción no se guarda', /al menos 2 opciones/.test(await pg.textContent('#drawerMessage')), await pg.textContent('#drawerMessage'));
+await pg.click('#bPool [data-pool-pid="p2"]');
+await pg.click('#bPool [data-pool-pid="p3"]');
+revisa('[dúo] dice cuántas elige entre cuántas', /elige 2 entre 3/.test(await pg.textContent('#bPool')), await pg.textContent('#bPool'));
+if(process.env.SHOTS)await pg.locator('#drawer').screenshot({path:`${process.env.SHOTS}/kit-duo.png`});
+await pg.click('#bSave');
+await pg.waitForTimeout(300);
+const duo=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_bundle').map(x=>x.p).pop());
+revisa('[dúo] se guarda la pieza fija y las 2 a elegir con sus opciones', duo?.name==='Kit Dúo'&&JSON.stringify(duo.components)===JSON.stringify([{productId:'p4',qty:1},{pool:['p1','p2','p3'],qty:2,name:'Jersey a elegir'}]), JSON.stringify(duo?.components));
+if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
 revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 revisa('sin scroll horizontal en un teléfono',
   await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));

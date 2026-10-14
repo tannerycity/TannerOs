@@ -10,6 +10,10 @@ const pct=v=>v==null?'—':`${Number(v).toFixed(0)}%`;
 
 let ctx=null,canManage=false,canPromos=false,canFinance=true,products=[],bundles=[],showArchived=false,ofertas=[];
 let draft=null; // {mode:'bundle'|'product', id:string|null, components:[{productId,qty}]}
+// Una pieza de kit puede ser fija o "a elegir" (pool, Kit Dúo 14/10/2026).
+// Lo que se manda al guardar conserva las dos formas.
+const piezaAEnviar=c=>Array.isArray(c.pool)?{pool:c.pool,qty:c.qty||1,name:c.poolName||c.name||'Pieza a elegir'}:{productId:c.productId,qty:c.qty||1};
+const kitIncluye=(b,pid)=>(b.components||[]).some(c=>Array.isArray(c.pool)?c.pool.includes(pid):c.productId===pid);
 
 const ICONS={
   kit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h7v7H4V8Zm9 0h7v7h-7V8Z"/></svg>',
@@ -98,7 +102,7 @@ function bundleCard(b){
   const btn=document.createElement('button');
   btn.type='button';
   btn.className='catalog-card'+(b.archived?' archived':'');
-  const nombres=(b.components||[]).map(c=>{const p=products.find(x=>x.id===c.productId);return p?`${c.qty>1?`${c.qty}× `:''}${p.name.replace(/^Jersey\s+/i,'').replace(/"/g,'')}`:null;}).filter(Boolean);
+  const nombres=(b.components||[]).map(c=>{if(Array.isArray(c.pool))return `${c.qty}× ${(c.poolName||'a elegir').toLocaleLowerCase('es-MX')}`;const p=products.find(x=>x.id===c.productId);return p?`${c.qty>1?`${c.qty}× `:''}${p.name.replace(/^Jersey\s+/i,'').replace(/"/g,'')}`:null;}).filter(Boolean);
   const chips=nombres.length?nombres.map(n=>`<span class="cat-chip">${esc(n)}</span>`):[`<span class="cat-chip">${b.components.length} pieza(s)</span>`];
   if(b.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!b.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
@@ -131,7 +135,7 @@ function productCard(p){
   if(p.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!p.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   // En qué kits va: así se ve de un vistazo que el jersey suelto es el mismo.
-  bundles.filter(b=>!b.archived&&(b.components||[]).some(c=>c.productId===p.id)).forEach(b=>chips.push(`<span class="cat-chip kit">En ${esc(b.name)}</span>`));
+  bundles.filter(b=>!b.archived&&kitIncluye(b,p.id)).forEach(b=>chips.push(`<span class="cat-chip kit">En ${esc(b.name)}</span>`));
   btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong></span>`;
   if(canManage)btn.addEventListener('click',()=>openProductDrawer(p));
   else btn.disabled=true;
@@ -211,7 +215,9 @@ async function firmaMiniaturas(rows){
 
 /* ---------- Drawer: kit ---------- */
 function openBundleDrawer(b){
-  draft={mode:'bundle',id:b?.id||null,components:(b?.components||[]).map(c=>({productId:c.productId,qty:c.qty}))};
+  const pool=(b?.components||[]).find(c=>Array.isArray(c.pool));
+  draft={mode:'bundle',id:b?.id||null,components:(b?.components||[]).filter(c=>!Array.isArray(c.pool)).map(c=>({productId:c.productId,qty:c.qty})),
+    pool:{ids:pool?pool.pool.map(String):[],qty:pool?.qty||2,name:pool?.poolName||'Jersey a elegir'}};
   drawerMsg();
   $('drawerKicker').textContent='KIT';
   $('drawerTitle').textContent=b?b.name:'Nuevo kit';
@@ -252,7 +258,7 @@ function renderComponents(){
     const pid=row.dataset.pid;
     row.querySelector('.kit-pieza-toca').addEventListener('click',()=>{
       const i=draft.components.findIndex(x=>x.productId===pid);
-      if(i>=0)draft.components.splice(i,1);else draft.components.push({productId:pid,qty:1});
+      if(i>=0)draft.components.splice(i,1);else{draft.components.push({productId:pid,qty:1});draft.pool.ids=draft.pool.ids.filter(x=>x!==pid);}
       renderComponents();
     });
     row.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>{
@@ -260,15 +266,39 @@ function renderComponents(){
       c.qty=Math.max(1,Math.min(20,c.qty+Number(b.dataset.q)));renderComponents();
     }));
   });
+  renderPool();
   recomputeBundlePreview();
 }
+/* Las piezas a elegir: cuántas y entre cuáles. Una pieza fija no puede ser
+   también a elegir (el servidor lo rechaza igual). */
+function renderPool(){
+  const box=$('bPool');if(!box||!draft?.pool)return;
+  const fijos=new Set(draft.components.map(c=>c.productId)),pool=draft.pool;
+  const candidatos=products.filter(p=>!p.archived&&!fijos.has(p.id));
+  box.innerHTML=`<div class="kit-pool-cab"><span>Cuántas elige</span><span class="kit-qty"><button type="button" data-pool-q="-1" aria-label="Una menos">−</button><b>${pool.qty}</b><button type="button" data-pool-q="1" aria-label="Una más">+</button></span></div>
+    <div class="chips kit-pool-ops">${candidatos.map(p=>{const on=pool.ids.includes(p.id);return `<button type="button" class="chip${on?' on':''}" data-pool-pid="${esc(p.id)}" aria-pressed="${on}">${on?'✓ ':''}${esc(p.name.replace(/^Jersey\s+/i,'').replace(/"/g,''))}</button>`;}).join('')}</div>
+    <p class="muted kit-pool-nota">${pool.ids.length>=2?`El papá elige ${pool.qty} entre ${pool.ids.length} opciones.`:pool.ids.length===1?'Marca al menos 2 opciones.':'Sin piezas a elegir.'}</p>`;
+}
+$('bPool')?.addEventListener('click',e=>{
+  if(!draft?.pool)return;
+  const q=e.target.closest('[data-pool-q]');
+  if(q){draft.pool.qty=Math.max(1,Math.min(6,draft.pool.qty+Number(q.dataset.poolQ)));renderPool();recomputeBundlePreview();return;}
+  const b=e.target.closest('[data-pool-pid]');if(!b)return;
+  const id=b.dataset.poolPid,i=draft.pool.ids.indexOf(id);
+  if(i>=0)draft.pool.ids.splice(i,1);else draft.pool.ids.push(id);
+  renderPool();recomputeBundlePreview();
+});
+const componentesDelDraft=()=>[...draft.components.map(c=>({productId:c.productId,qty:c.qty})),
+  ...(draft.pool?.ids.length>=2?[{pool:draft.pool.ids,qty:draft.pool.qty,name:draft.pool.name}]:[])];
 function recomputeBundlePreview(){
   // Por separado vs. en kit: es lo que convence en el mostrador.
-  const sueltos=draft.components.reduce((n,c)=>{const p=products.find(x=>x.id===c.productId);return n+(p?Number(p.price||0)*c.qty:0);},0);
+  const opcion=Math.max(0,...(draft.pool?.ids||[]).map(id=>Number(products.find(x=>x.id===id)?.price||0)));
+  const enPool=draft.pool?.ids.length>=2?draft.pool.qty:0;
+  const sueltos=draft.components.reduce((n,c)=>{const p=products.find(x=>x.id===c.productId);return n+(p?Number(p.price||0)*c.qty:0);},0)+opcion*enPool;
   const pa=Number($('bPriceAdult').value||0),res=$('bResumen');
-  if(res){res.classList.toggle('hidden',!draft.components.length);
-    const piezas=draft.components.reduce((n,c)=>n+c.qty,0);
-    res.innerHTML=draft.components.length?`<b>${piezas} pieza${piezas===1?'':'s'}</b> · por separado ${money.format(sueltos)}${pa>0&&sueltos>pa?` · <em>en kit se ahorran ${money.format(sueltos-pa)}</em>`:''}`:'';}
+  if(res){res.classList.toggle('hidden',!draft.components.length&&!enPool);
+    const piezas=draft.components.reduce((n,c)=>n+c.qty,0)+enPool;
+    res.innerHTML=draft.components.length||enPool?`<b>${piezas} pieza${piezas===1?'':'s'}</b> · por separado ${money.format(sueltos)}${pa>0&&sueltos>pa?` · <em>en kit se ahorran ${enPool?'hasta ':''}${money.format(sueltos-pa)}</em>`:''}`:'';}
   let cost=0,complete=true;
   draft.components.forEach(c=>{
     const p=products.find(x=>x.id===c.productId);
@@ -298,7 +328,8 @@ async function saveBundle(){
   if(name.length<2){drawerMsg('El nombre del kit es obligatorio.');return;}
   const priceAdult=Number($('bPriceAdult').value||0),priceKid=Number($('bPriceKid').value||0);
   if(priceAdult<=0&&priceKid<=0){drawerMsg('Captura al menos un precio (adulto o niño).');return;}
-  if(!draft.components.length){drawerMsg('El kit necesita al menos una pieza.');return;}
+  if(draft.pool?.ids.length===1){drawerMsg('Una pieza a elegir necesita al menos 2 opciones.');return;}
+  if(!componentesDelDraft().length){drawerMsg('El kit necesita al menos una pieza.');return;}
   const current=draft.id?bundles.find(b=>b.id===draft.id):null;
   const btn=$('bSave');btn.disabled=true;
   try{
@@ -309,7 +340,7 @@ async function saveBundle(){
       description:current?.description??null,   // ya no se edita aqui: se conserva
       price_adult:priceAdult||null,
       price_kid:priceKid||null,
-      components:draft.components.map(c=>({productId:c.productId,qty:c.qty})),
+      components:componentesDelDraft(),
       active:$('bActive').checked,
       valid_until:current?.validUntil??null,    // idem
       notes:current?.notes??null
@@ -526,19 +557,22 @@ function pintaKitsDelProducto(p){
   const kits=bundles.filter(b=>!b.archived);
   campo.classList.toggle('hidden',!p||!kits.length);
   if(!p)return;
-  box.innerHTML=kits.map(b=>{const en=(b.components||[]).some(c=>c.productId===p.id);
+  box.innerHTML=kits.map(b=>{const en=kitIncluye(b,p.id);
     return `<button type="button" class="chip${en?' on':''}" data-kit-liga="${esc(b.id)}" aria-pressed="${en}">${en?'✓ ':''}${esc(b.name)}</button>`;}).join('');
 }
 $('pKits')?.addEventListener('click',async e=>{
   const btn=e.target.closest('[data-kit-liga]');if(!btn||!draft?.id)return;
   const b=bundles.find(x=>x.id===btn.dataset.kitLiga),pid=draft.id;if(!b)return;
-  const en=(b.components||[]).some(c=>c.productId===pid);
-  const piezas=en?(b.components||[]).filter(c=>c.productId!==pid):[...(b.components||[]),{productId:pid,qty:1}];
+  const en=kitIncluye(b,pid);
+  // En un kit con piezas a elegir, sacar una opción la quita de la lista.
+  const piezas=en?(b.components||[]).map(c=>Array.isArray(c.pool)?{...c,pool:c.pool.filter(x=>x!==pid)}:c).filter(c=>Array.isArray(c.pool)?true:c.productId!==pid)
+    :[...(b.components||[]),{productId:pid,qty:1}];
+  if(piezas.some(c=>Array.isArray(c.pool)&&c.pool.length<2)){drawerMsg('Las piezas a elegir necesitan al menos 2 opciones: abre el kit para cambiarlas.');return;}
   if(!piezas.length){drawerMsg('Un kit necesita al menos una pieza: agrega otra antes de sacar ésta.');return;}
   btn.disabled=true;
   try{
     await rpc('v2_upsert_bundle',{organization_id:ctx.organization_id,id:b.id,name:b.name,description:b.description??null,
-      price_adult:b.priceAdult||null,price_kid:b.priceKid||null,components:piezas.map(c=>({productId:c.productId,qty:c.qty||1})),
+      price_adult:b.priceAdult||null,price_kid:b.priceKid||null,components:piezas.map(piezaAEnviar),
       active:!!b.active,valid_until:b.validUntil??null,notes:b.notes??null});
     b.components=piezas;pintaKitsDelProducto(products.find(x=>x.id===pid));renderBundles();renderProducts();
     drawerMsg(en?`Se sacó de ${b.name}.`:`Ahora va en ${b.name}.`,'success');

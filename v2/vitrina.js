@@ -27,7 +27,7 @@
 import {
   tallasDe, tallaUnica, aceptaPersonalizacion, llevaManga,
   ESCALA_NINOS, ESCALA_ADULTOS,
-  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta
+  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta, conOpcionesDeKit, ranuraElegida, nombreCorto
 } from '/v2/tienda.js';
 
 export const esc = v => String(v ?? '').replace(/[&<>"']/g,
@@ -135,7 +135,17 @@ export function tarjetaKit(k, elec = {}) {
         `<button type="button" class="fam-talla${tier === t ? ' activa' : ''}" data-quien="${esc(t)}">${esc(t)} ${dinero.format(precioDeKit(k, t))}</button>`).join('')}</div>`
     : '';
 
-  const piezas = ranuras.map(r => {
+  const piezas = ranuras.map(r0 => {
+    // Pieza a elegir (Kit Dúo): primero cuál, luego su talla.
+    const r = ranuraElegida(r0, elec.elegidos);
+    if (r0.pool) {
+      const cual = `<div class="fam-elige" data-elige="${esc(k.id)}::${esc(r0.id)}">${(r0.opciones || []).map(o => {
+        const id = String(o.id ?? o.product_id);
+        return `<button type="button" class="fam-talla${r.productId === id ? ' activa' : ''}" data-pid="${esc(id)}" aria-pressed="${r.productId === id}">${esc(nombreCorto(o.name))}</button>`;
+      }).join('')}</div>`;
+      return `<div class="fam-pieza fam-pieza-elige"><span>${esc(r.nombre)}${r.elegido ? ` · <b>${esc(nombreCorto(r.elegido.name))}</b>` : ''}</span>${cual}`
+        + (r.elegido && r.tallas.length && !r.unica ? filaDeTalla(`${k.id}::${r.id}`, r.tallas, tallasElegidas[r.id], elec.abierto === r.id) : '') + `</div>`;
+    }
     if (r.unica) return `<div class="fam-pieza"><span>${esc(r.nombre)}</span><em>Talla ${esc(r.unica)}</em></div>`;
     if (!r.tallas.length) return `<div class="fam-pieza"><span>${esc(r.nombre)}</span><em>Incluido</em></div>`;
     return `<div class="fam-pieza"><span>${esc(r.nombre)}</span>`
@@ -163,7 +173,10 @@ export function selectorManga(atributo, id, elegida) {
 }
 
 export function lineaDelCarrito(llave, l) {
-  const detalle = [l.talla, textoManga(l.manga), l.personalizationName, l.numero ? `#${l.numero}` : null].filter(Boolean).join(' · ');
+  // Un kit con piezas a elegir (Kit Dúo) dice cuáles se eligieron.
+  const eligio = l.kind === 'bundle' && l.conEleccion
+    ? (l.piezas || []).map(p => `${nombreCorto(p.nombre)}${p.talla ? ` ${p.talla}` : ''}`).join(', ') : null;
+  const detalle = [eligio, l.talla, textoManga(l.manga), l.personalizationName, l.numero ? `#${l.numero}` : null].filter(Boolean).join(' · ');
   return `<div class="fam-mov"><span><strong>${esc(l.nombreProducto)}${l.cantidad > 1 ? ` ×${l.cantidad}` : ''}</strong>`
     + `<span>${esc(detalle || 'Sin detalle')}</span></span>`
     + `<span class="fam-linea-fin"><b>${dinero.format(Number(l.total || 0))}</b>`
@@ -203,6 +216,8 @@ export function normalizaOfertaPublica(oferta) {
         // que v2_public_bundle_order espera; se conserva para no perderlo.
         legacy_product_id: c.legacyProductId ?? c.legacy_product_id ?? null,
         name: c.name,
+        pool: Array.isArray(c.pool) ? c.pool : null,
+        poolName: c.poolName ?? c.pool_name ?? null,
         sizes: c.sizes || [],
         qty: Math.max(1, Math.min(20, Number(c.qty) || 1)),
         // Con qué foto se ve el kit en la tienda pública (e3).
@@ -211,5 +226,6 @@ export function normalizaOfertaPublica(oferta) {
         photoBucket: c.photoBucket ?? null
       }))
     }));
-  return { products: productos.map(conOferta), bundles: kits.map(kitConOferta) };
+  const vendibles = productos.map(conOferta);
+  return { products: vendibles, bundles: kits.map(k => conOpcionesDeKit(kitConOferta(k), vendibles)) };
 }

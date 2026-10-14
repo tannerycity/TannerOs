@@ -1,7 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import '/v2/smart-select.js';
-import { conOferta, kitConOferta } from '/v2/tienda.js';
+import { conOferta, kitConOferta, nombreCorto } from '/v2/tienda.js';
 import { gruposDeTallas } from '/pedido/catalogo.js';
 // Tallas de niño de la escala del club: si todo el kit va en estas, es precio Niño.
 const TALLAS_NINO=new Set(['2','4','6','8','10','12','14','16']);
@@ -66,7 +66,7 @@ async function load(){
 function bundleCard(b){
   const btn=document.createElement('button');btn.type='button';btn.className='pick-card pick-kit';btn.dataset.bid=b.id;
   const precio=b.priceKid&&b.priceAdult?`${money.format(Number(b.priceKid))} – ${money.format(Number(b.priceAdult))}`:money.format(Number(b.priceAdult||b.priceKid||0));
-  const piezas=(b.components||[]).map(c=>String(c.name||'').replace(/^Jersey\s+/i,'').replace(/"/g,'').split(' - ')[0]).filter(Boolean);
+  const piezas=(b.components||[]).map(c=>Array.isArray(c.pool)?`${c.qty}× ${String(c.poolName||'a elegir').toLocaleLowerCase('es-MX')}`:String(c.name||'').replace(/^Jersey\s+/i,'').replace(/"/g,'').split(' - ')[0]).filter(Boolean);
   btn.innerHTML=`<strong>${esc(b.name)}</strong><span>${esc(piezas.join(' · ')||`${b.components.length} pieza(s)`)}</span><b>${esc(precio)}</b>${b.ofertaHasta?'<em class="pick-oferta">Oferta</em>':''}<i class="pick-cuenta" hidden></i>`;
   btn.addEventListener('click',()=>openBundleDrawer(b));
   return btn;
@@ -237,14 +237,14 @@ function sugerenciasCaptura(){
     for(const b of bundles){
       const slots=bundleSlots(b);if(slots.length<2)continue;
       const tomadas=new Map();
-      const usar=o=>{const i=slots.findIndex((x,k)=>String(x.productId)===String(o.productId)&&!tomadas.has(k));if(i<0)return false;tomadas.set(i,o);return true;};
+      const usar=o=>{let i=slots.findIndex((x,k)=>!x.pool&&String(x.productId)===String(o.productId)&&!tomadas.has(k));if(i<0)i=slots.findIndex((x,k)=>x.pool&&x.pool.includes(String(o.productId))&&!tomadas.has(k));if(i<0)return false;tomadas.set(i,o);return true;};
       if(!usar(it))continue;
       for(const o of cart)if(o!==it&&!usados.has(o)&&esJerseyCap(o)&&quienEs(o)===quienEs(it))usar(o);
       const tier=!b.priceKid?'Adulto':!b.priceAdult?'Niño':(ES_NINO(it.talla)?'Niño':'Adulto');
       const precio=precioKitCaptura(b,tier);if(!(precio>0))continue;
       const items=[...tomadas.values()];
       const sueltos=items.reduce((n,o)=>n+Number(o.total||0)/Math.max(1,o.quantity||1),0),dif=Math.round((precio-sueltos)*100)/100;
-      const cubre=items.map(o=>o.label.split(' · ')[0]),incluye=slots.filter((x,k)=>!tomadas.has(k)).map(x=>x.name);
+      const cubre=items.map(o=>o.label.split(' · ')[0]),incluye=slots.filter((x,k)=>!tomadas.has(k)).map(x=>x.pool?`otro ${String(x.base).toLocaleLowerCase('es-MX')}`:x.name);
       const extra=incluye.length?` + ${listaY(incluye).toLocaleLowerCase('es-MX')}`:'';
       const cuenta=dif<0?`Te ahorras ${money.format(-dif)}.`:dif>0?`Sólo ${money.format(dif)} más.`:'Al mismo precio.';
       const texto=items.length>1?`Tus ${listaY(cubre)}${extra} = ${b.name} por ${money.format(precio)}. ${cuenta}`:`Tu ${cubre[0]} viene en el ${b.name}${extra} por ${money.format(precio)}. ${cuenta}`;
@@ -261,7 +261,7 @@ function convierteEnKit(k){
   picking.tier=k.tier;picking.reemplaza=k.items;
   document.querySelectorAll('.tier-btn').forEach(b=>b.classList.toggle('active',b.dataset.tier===k.tier));
   // Cada jersey en su talla; lo demás en la misma talla, las calcetas únicas.
-  picking.slots.forEach((s,i)=>{const o=k.tomadas.get(i);s.talla=o?(o.talla||''):/calcet|media/i.test(s.name||'')?'Universal':(it.talla||'');});
+  picking.slots.forEach((s,i)=>{const o=k.tomadas.get(i);if(o&&s.pool)s.productId=String(o.productId);if(s.pool&&!s.productId){s.talla='';return;}s.talla=o?(o.talla||''):/calcet|media/i.test(s.name||'')?'Universal':(it.talla||'');});
   $('bfName').value=it.personalizationName||$('bfName').value;$('bfNumber').value=it.number||$('bfNumber').value;
   $('bfManga')?.querySelectorAll('[data-m]').forEach(b=>{const on=b.dataset.m===(it.sleeve||'corta');b.classList.toggle('activa',on);b.setAttribute('aria-pressed',String(on));});
   renderBundlePieces();
@@ -273,7 +273,11 @@ function bundleSlots(b){
   // Expande cada componente por su qty en "slots" individuales (una talla por unidad,
   // igual que espera v2_create_internal_order).
   const slots=[];
-  b.components.forEach(c=>{for(let i=0;i<c.qty;i++)slots.push({productId:c.productId,name:c.name,talla:''});});
+  // Kit Dúo (14/10/2026): una pieza a elegir no trae producto hasta que se elige.
+  b.components.forEach(c=>{
+    const pool=Array.isArray(c.pool)&&c.pool.length?c.pool.map(String):null,base=pool?(c.poolName||'Pieza a elegir'):c.name;
+    for(let i=0;i<c.qty;i++)slots.push(pool?{productId:null,pool,name:c.qty>1?`${base} ${i+1}`:base,base,talla:''}:{productId:c.productId,name:c.name,talla:''});
+  });
   return slots;
 }
 function openBundleDrawer(b){
@@ -309,11 +313,15 @@ function tallasDePieza(s){
 function renderBundlePieces(){
   picking.slots.forEach(s=>{const t=tallasDePieza(s);if(t.length===1&&!s.talla)s.talla=t[0];if(t.length&&s.talla&&!t.includes(s.talla))s.talla='';});
   $('bfPieces').innerHTML=picking.slots.map((s,i)=>{
+    // Pieza a elegir: primero cuál (botones con las opciones), luego su talla.
+    const opciones=s.pool?s.pool.map(id=>products.find(p=>String(p.id)===id)).filter(Boolean):[];
+    const cual=s.pool?`<div class="tallas-chips pieza-opciones">${opciones.map(o=>`<button type="button" class="talla-chip${String(s.productId)===String(o.id)?' activa':''}" data-elige="${i}" data-pid="${esc(o.id)}" aria-pressed="${String(s.productId)===String(o.id)}">${esc(nombreCorto(o.name))}</button>`).join('')}</div>`:'';
+    if(s.pool&&!s.productId)return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">Elige cuál</b></span>${cual}</div>`;
     const t=tallasDePieza(s);
     if(!t.length)return `<div class="component-row"><span class="component-name">${esc(s.name)}</span><input class="bf-talla" data-idx="${i}" type="text" maxlength="40" placeholder="Talla" value="${esc(s.talla)}"></div>`;
     const g=gruposDeTallas(t),primero=picking.tier==='Niño'?'Niño':'Adulto';
     const orden=[...g.filter(x=>x.etiqueta===primero),...g.filter(x=>x.etiqueta!==primero)];
-    return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">${s.talla?esc(s.talla):''}</b></span>
+    return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">${s.talla?esc(s.talla):''}</b></span>${cual}
       ${orden.map(x=>`${x.etiqueta&&orden.length>1?`<small class="pieza-grupo">${esc(x.etiqueta)}</small>`:''}<div class="tallas-chips">${x.tallas.map(v=>`<button type="button" class="talla-chip${s.talla===v?' activa':''}" data-pieza="${i}" data-talla="${esc(v)}" aria-pressed="${s.talla===v}">${esc(v)}</button>`).join('')}</div>`).join('')}</div>`;
   }).join('');
   $('bfPieces').querySelectorAll('.bf-talla').forEach(inp=>inp.addEventListener('input',e=>{picking.slots[Number(e.target.dataset.idx)].talla=e.target.value;}));
@@ -338,6 +346,12 @@ function ajustaTier(){
   return true;
 }
 $('bfPieces').addEventListener('click',e=>{
+  const el=e.target.closest?.('[data-elige]');
+  if(el&&picking?.kind==='bundle'){
+    const s=picking.slots[Number(el.dataset.elige)];s.productId=el.dataset.pid;
+    if(s.talla&&!tallasDePieza(s).includes(s.talla))s.talla='';
+    renderBundlePieces();drawerMsg();return;
+  }
   const b=e.target.closest?.('[data-pieza]');if(!b||!picking||picking.kind!=='bundle')return;
   picking.slots[Number(b.dataset.pieza)].talla=b.dataset.talla;
   const cambio=ajustaTier();
@@ -351,6 +365,8 @@ document.querySelectorAll('.tier-btn').forEach(btn=>btn.addEventListener('click'
 }));
 function addBundleToCart(){
   const b=picking.bundle,tier=picking.tier;
+  const sinElegir=picking.slots.find(s=>s.pool&&!s.productId);
+  if(sinElegir){drawerMsg(`Elige ${sinElegir.name.replace(/^\w/,c=>c.toLowerCase())}.`);return;}
   const missing=picking.slots.some(s=>!s.talla.trim());
   if(missing){drawerMsg('Falta la talla de alguna pieza.');return;}
   // Lo que se tecleó a mano (piezas sin tallas en catálogo) también cuenta.

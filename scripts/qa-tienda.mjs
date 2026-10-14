@@ -424,6 +424,41 @@ revisa('un kit sin precio no se vende',
   revisa('convertir el único quita el renglón', Object.keys(T.quitaUnaPieza(menos, k)).length === 0);
 }
 
+/* ---- Kit Dúo (14/10/2026): "2 jerseys, los que quieras, + short" ---- */
+{
+  const T = await import('../v2/tienda.js');
+  const J = (id, n) => ({ id, name:n, price: id === 'black' || id === 'lech' ? 799 : 699, sizes:['10','12','M','L'] });
+  const prods = [J('wb', 'Jersey "Wet Blue" - Home Edition'), J('lech', 'Jersey "Lechuguilla Edition"'), J('pink', 'Jersey "Pink Cantera" - Away Edition'), J('black', 'Jersey "Black Edition"'),
+    { id:'short', name:'Short', price:350, sizes:['10','12','M','L'] }, { id:'cabra', name:'Japanese Cabra Edition', price:500, sizes:['M'] }];
+  const duo0 = { id:'duo', name:'Kit Dúo', price_adult:1500, price_kid:1299, pieces:[
+    { product_id:'short', name:'Short', sizes:['10','12','M','L'], qty:1 },
+    { product_id:'lech', name:'Jersey Lechuguilla', qty:2, pool:['wb','lech','pink','black'], poolName:'Jersey a elegir' }] };
+  const duo = T.conOpcionesDeKit(duo0, prods);
+  const ran = T.ranurasDeKit(duo);
+  revisa('[dúo] el kit pide short + 2 jerseys a elegir', ran.length === 3 && ran.filter(r => r.pool).length === 2 && ran[1].nombre === 'Jersey a elegir 1', JSON.stringify(ran.map(r => r.nombre)));
+  revisa('[dúo] las opciones son sólo los 4 jerseys', ran[1].opciones.map(o => o.id).join() === 'wb,lech,pink,black');
+  const sinElegir = T.preparaKit(duo, { tier:'Niño', tallas:{ 'short#0':'12' } });
+  revisa('[dúo] sin elegir el jersey no se agrega y dice cuál falta', !sinElegir.ok && sinElegir.falta === 'elige1#0' && /jersey a elegir 1/i.test(sinElegir.motivo), JSON.stringify(sinElegir));
+  const ok = T.preparaKit(duo, { tier:'Niño', elegidos:{ 'elige1#0':'pink', 'elige1#1':'black' }, tallas:{ 'short#0':'12', 'elige1#0':'12', 'elige1#1':'12' }, nombre:'LEO', numero:'9' });
+  revisa('[dúo] Pink + Black + short a precio Niño', ok.ok && ok.linea.total === 1299 && ok.linea.piezas.map(p => p.productId).join() === 'short,pink,black', JSON.stringify(ok));
+  const dos = T.preparaKit(duo, { tier:'Adulto', elegidos:{ 'elige1#0':'black', 'elige1#1':'black' }, tallas:{ 'short#0':'M', 'elige1#0':'M', 'elige1#1':'L' } });
+  revisa('[dúo] dos del mismo jersey también valen', dos.ok && dos.linea.piezas.filter(p => p.productId === 'black').length === 2);
+  const ajeno = T.preparaKit(duo, { tier:'Adulto', elegidos:{ 'elige1#0':'cabra', 'elige1#1':'black' }, tallas:{ 'short#0':'M', 'elige1#0':'M', 'elige1#1':'L' } });
+  revisa('[dúo] lo que no está en la lista no cuenta', !ajeno.ok && ajeno.falta === 'elige1#0');
+  // La sugerencia: un jersey suelto, y dos.
+  const L = (id, talla) => T.preparaLinea(prods.find(p => p.id === id), { talla, nombre:'LEO', numero:'9' }).linea;
+  const uno = T.kitParaLinea(L('pink', '12'), [duo]);
+  revisa('[dúo] un jersey suelto: "+ short y otro jersey a elegir"', uno && /Kit Dúo \+ short y otro jersey a elegir por \$1299/.test(T.textoSugerencia(uno)) && uno.tier === 'Niño', uno && T.textoSugerencia(uno));
+  let c = T.agregaAlCarrito(T.agregaAlCarrito({}, L('pink', 'M')), L('wb', 'M'));
+  const s = T.sugerenciasDeKit(c, [duo]);
+  revisa('[dúo] dos jerseys cualesquiera: UN Kit Dúo que reemplaza a los dos', s.length === 1 && s[0].llaves.length === 2 && s[0].diferencia === 102 && /Tus .*Pink.* y .*Wet Blue.* \+ short = Kit Dúo/.test(T.textoSugerencia(s[0])), JSON.stringify(s.map(x => [x.llaves, x.diferencia, T.textoSugerencia(x)])));
+  const lleno = T.preparaKit(duo, s[0].opciones);
+  revisa('[dúo] y convertir lo deja listo: los dos jerseys elegidos con su talla y el short', lleno.ok && lleno.linea.piezas.map(p => `${p.productId}:${p.talla}`).sort().join() === 'pink:M,short:M,wb:M', JSON.stringify(lleno));
+  revisa('[dúo] nombre corto para botones', T.nombreCorto('Jersey "Wet Blue" - Home Edition') === 'Wet Blue' && T.nombreCorto('Jersey "Lechuguilla Edition"') === 'Lechuguilla');
+  const re = T.armaRecompra({ items:[{ bundleId:'duo', bundleTier:'Niño', productId:'short', talla:'12' }, { bundleId:'duo', bundleTier:'Niño', productId:'pink', talla:'12', nombre:'LEO' }, { bundleId:'duo', bundleTier:'Niño', productId:'black', talla:'12', nombre:'LEO' }] }, prods, [duo]);
+  revisa('[dúo] comprar otra vez arma el mismo Dúo', re.lineas.length === 1 && re.lineas[0].piezas.map(p => p.productId).sort().join() === 'black,pink,short', JSON.stringify(re));
+}
+
 /* ---- Ofertas (g5, 13/10/2026) ---- */
 {
   const T = await import('../v2/tienda.js');

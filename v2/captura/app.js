@@ -2,6 +2,9 @@ import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import '/v2/smart-select.js';
 import { conOferta, kitConOferta } from '/v2/tienda.js';
+import { gruposDeTallas } from '/pedido/catalogo.js';
+// Tallas de niño de la escala del club: si todo el kit va en estas, es precio Niño.
+const TALLAS_NINO=new Set(['2','4','6','8','10','12','14','16']);
 import { elegirDorsal, tableroDorsales, libresDe, pintaChipsDorsal } from '/v2/dorsal.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
@@ -293,19 +296,65 @@ function openBundleDrawer(b){
   renderBundlePieces();
   openDrawer();
 }
+/* La talla de cada pieza del kit se toca, no se teclea (14/10/2026: "que la
+   escojan de lo que hay, porque pueden escoger una que no hay"). Salen las
+   tallas que esa pieza tiene en el catálogo, primero las del grupo del kit
+   (Niño o Adulto). Una pieza de talla única se elige sola. Sólo si la pieza
+   no tiene tallas capturadas queda el campo de texto, para no bloquear la
+   venta por un dato de catálogo que falta. */
+function tallasDePieza(s){
+  const p=products.find(x=>String(x.id)===String(s.productId));
+  return Array.isArray(p?.sizes)?p.sizes.map(x=>String(x).trim()).filter(Boolean):[];
+}
 function renderBundlePieces(){
-  $('bfPieces').innerHTML=picking.slots.map((s,i)=>`<div class="component-row"><span class="component-name">${esc(s.name)}</span><input class="bf-talla" data-idx="${i}" type="text" maxlength="40" placeholder="Talla" value="${esc(s.talla)}"></div>`).join('');
+  picking.slots.forEach(s=>{const t=tallasDePieza(s);if(t.length===1&&!s.talla)s.talla=t[0];if(t.length&&s.talla&&!t.includes(s.talla))s.talla='';});
+  $('bfPieces').innerHTML=picking.slots.map((s,i)=>{
+    const t=tallasDePieza(s);
+    if(!t.length)return `<div class="component-row"><span class="component-name">${esc(s.name)}</span><input class="bf-talla" data-idx="${i}" type="text" maxlength="40" placeholder="Talla" value="${esc(s.talla)}"></div>`;
+    const g=gruposDeTallas(t),primero=picking.tier==='Niño'?'Niño':'Adulto';
+    const orden=[...g.filter(x=>x.etiqueta===primero),...g.filter(x=>x.etiqueta!==primero)];
+    return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">${s.talla?esc(s.talla):''}</b></span>
+      ${orden.map(x=>`${x.etiqueta&&orden.length>1?`<small class="pieza-grupo">${esc(x.etiqueta)}</small>`:''}<div class="tallas-chips">${x.tallas.map(v=>`<button type="button" class="talla-chip${s.talla===v?' activa':''}" data-pieza="${i}" data-talla="${esc(v)}" aria-pressed="${s.talla===v}">${esc(v)}</button>`).join('')}</div>`).join('')}</div>`;
+  }).join('');
   $('bfPieces').querySelectorAll('.bf-talla').forEach(inp=>inp.addEventListener('input',e=>{picking.slots[Number(e.target.dataset.idx)].talla=e.target.value;}));
 }
+/* El precio sigue a las tallas (14/10/2026): un kit de Valentina (T12, talla
+   16) salió a precio Adulto, $201 más, porque el kit abría en Adulto y nadie
+   lo cambió. Si todas las tallas elegidas son de niño es Niño; si hay una de
+   adulto, Adulto. Se dice en voz alta cuando cambia. */
+function tierPorTallas(){
+  const b=picking.bundle,elegidas=picking.slots.map(s=>String(s.talla||'').trim()).filter(Boolean);
+  const conEscala=elegidas.filter(t=>TALLAS_NINO.has(t)||/^(XXS|XS|S|M|L|XL|XXL|XXXL)$/i.test(t));
+  if(!conEscala.length)return null;
+  const tier=conEscala.every(t=>TALLAS_NINO.has(t))?'Niño':'Adulto';
+  return (tier==='Niño'&&!b.priceKid)||(tier==='Adulto'&&!b.priceAdult)?null:tier;
+}
+function ajustaTier(){
+  const t=tierPorTallas();
+  if(!t||t===picking.tier)return false;
+  picking.tier=t;
+  document.querySelectorAll('.tier-btn').forEach(x=>x.classList.toggle('active',x.dataset.tier===t));
+  drawerMsg(t==='Niño'?'Las tallas son de niño: queda a precio Niño.':'Hay una talla de adulto: queda a precio Adulto.','success');
+  return true;
+}
+$('bfPieces').addEventListener('click',e=>{
+  const b=e.target.closest?.('[data-pieza]');if(!b||!picking||picking.kind!=='bundle')return;
+  picking.slots[Number(b.dataset.pieza)].talla=b.dataset.talla;
+  const cambio=ajustaTier();
+  renderBundlePieces();if(!cambio)drawerMsg();
+});
 document.querySelectorAll('.tier-btn').forEach(btn=>btn.addEventListener('click',()=>{
   if(btn.disabled||!picking||picking.kind!=='bundle')return;
   picking.tier=btn.dataset.tier;
   document.querySelectorAll('.tier-btn').forEach(b=>b.classList.toggle('active',b===btn));
+  renderBundlePieces();
 }));
 function addBundleToCart(){
   const b=picking.bundle,tier=picking.tier;
   const missing=picking.slots.some(s=>!s.talla.trim());
   if(missing){drawerMsg('Falta la talla de alguna pieza.');return;}
+  // Lo que se tecleó a mano (piezas sin tallas en catálogo) también cuenta.
+  if(ajustaTier()){renderBundlePieces();return;}
   const total=tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid);
   const name=$('bfName').value.trim(),number=$('bfNumber').value.trim(),sleeve=mangaDe('bf');
   cart.push({

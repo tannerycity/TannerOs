@@ -41,6 +41,18 @@ for (const [prod, estilo, texto, marca] of [['Jersey "Pink Cantera"', 'pink', '#
   const svg = mockupJersey({ nombre: 'Leo', numero: '7', colores: col });
   revisa(`${prod} sale con su diseño y el estampado en ${texto}`, col.estilo === estilo && marca.test(svg) && (svg.match(new RegExp(`fill="${texto}"`, 'g')) || []).length >= 2, JSON.stringify(col));
 }
+// Manga larga (14/10/2026): en todos los diseños le sale el antebrazo y el
+// puño baja a la muñeca; la corta queda como estaba.
+for (const prod of ['Jersey "Lechuguilla Edition"', 'Jersey "Pink Cantera"', 'Jersey "Wet Blue" - Home Edition', 'Jersey "Black Edition"', 'Jersey entrenamiento']) {
+  const col = coloresDePlayera({ nombreProducto: prod });
+  const corta = mockupJersey({ nombre: 'Zul', numero: '12', colores: col });
+  const largaM = mockupJersey({ nombre: 'Zul', numero: '12', colores: col, mangaLarga: true });
+  revisa(`${prod}: manga larga con antebrazo y puño en la muñeca`, /data-mockup="manga-larga"/.test(largaM) && /M7 174 L28 176/.test(largaM) && !/M1 82 L30 94/.test(largaM) && /jersey-mockup larga/.test(largaM));
+  revisa(`${prod}: la corta no cambia`, !/manga-larga/.test(corta) && (col.estilo === 'wetblue' || /M1 82 L30 94/.test(corta)));
+  revisa(`${prod}: con manga larga sigue el nombre y el número`, /ZUL/.test(largaM) && />12</.test(largaM));
+}
+const lechL = mockupJersey({ colores: coloresDePlayera({ nombreProducto: 'Lechuguilla' }), mangaLarga: true });
+revisa('la manga larga del Lechuguilla lleva sus rayas', /fill="url\(#jm\d+r\)"/.test(lechL.split('manga-larga')[1] || ''));
 const malo = mockupJersey({ nombre: '<img src=x onerror=alert(1)>' });
 revisa('lo que se escribe no se cuela como HTML', !/<img/.test(malo) && /&lt;IMG/.test(malo));
 

@@ -49,7 +49,8 @@ const foto = id => ({ photoPath: `org/products/${id}/foto.webp`, photoThumbPath:
 const OFERTA = {
   products: [
     { id:'p-jersey', name:'Jersey "Wet Blue" - Home Edition', price:699, sizes:TALLAS, category:'jersey', ...foto('p-jersey') },
-    { id:'p-black', name:'Jersey "Black Edition"', price:799, sizes:TALLAS, category:'jersey', ...foto('p-black') },
+    { id:'p-black', name:'Jersey "Black Edition"', price:799, sizes:TALLAS, category:'jersey', ...foto('p-black'),
+      photos: [1, 2, 3].map(n => ({ path: `org/products/p-black/foto-${n}.webp`, thumbPath: `org/products/p-black/foto-${n}-thumb.webp` })) },
     { id:'p-hoodie', name:'Hoodie / Chamarra', price:999, sizes:TALLAS, category:'outerwear' },
     { id:'p-short', name:'Short', price:350, sizes:TALLAS, category:'shorts' },
     { id:'p-calceta', name:'Par de calcetas', price:200, sizes:['Universal'], category:'socks' }
@@ -225,6 +226,18 @@ revisa('y el carrito queda vacío', (await badge()) === '0');
 /* ===== 7. Quitar renglones ===== */
 await pg.goto(BASE + '/pedido/#/p/p-black');
 await pg.waitForSelector('[data-talla="M"]');
+// Varias fotos (14/10/2026): se deslizan, con puntitos, y no se pierde la que se veía al repintar.
+revisa('[galería] con 3 fotos la ficha se desliza con 3 puntitos', (await pg.$$('.st-galeria-foto')).length === 3 && (await pg.$$('.st-puntos button')).length === 3);
+await pg.click('.st-puntos button >> nth=2');
+await pg.waitForTimeout(700);
+revisa('[galería] tocar un puntito lleva a esa foto', (await pg.getAttribute('.st-puntos button >> nth=2', 'aria-current')) === 'true');
+// Manga larga (14/10/2026): la vista previa le extiende la manga hasta el puño.
+await pg.click('[data-manga="larga"]');
+if (process.env.QA_FOTO) await pg.locator('.st-galeria').screenshot({ path: process.env.QA_FOTO.replace(/\.png$/, '-galeria.png') });
+revisa('[manga] con manga larga la playera la enseña larga', (await pg.$('#stMockup [data-mockup="manga-larga"]')) !== null);
+revisa('[galería] y la galería sigue en la foto 3 tras repintar', (await pg.getAttribute('.st-puntos button >> nth=2', 'aria-current')) === 'true');
+await pg.click('[data-manga="corta"]');
+revisa('[manga] y corta otra vez', (await pg.$('#stMockup [data-mockup="manga-larga"]')) === null);
 await pg.click('[data-talla="M"]'); await pg.click('#stAgregar');
 revisa('la Black Edition se ve negra', (await pg.getAttribute('#stMockup svg path', 'fill').catch(() => null)) === '#1F1A19');
 await pg.goto(BASE + '/pedido/#/p/p-calceta');

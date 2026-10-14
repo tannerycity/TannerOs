@@ -393,6 +393,14 @@ await pg.waitForTimeout(400);
 const nino=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_set_product_price_kid').map(x=>x.p).pop());
 revisa('[niño] se guarda el precio de niño del producto', nino?.product_id==='p2'&&nino?.price_kid===599, JSON.stringify(nino));
 if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
+// Manga larga con cargo (14/10/2026): se fija arriba de los productos.
+await pg.click('.cat-seg [data-ver="productos"]');
+revisa('[manga] arriba de los productos: "Manga larga + $"', await pg.isVisible('#recargoManga'));
+await pg.fill('#recargoManga','50');
+await pg.dispatchEvent('#recargoManga','change');
+await pg.waitForTimeout(300);
+const rec=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_set_recargo_manga').map(x=>x.p).pop());
+revisa('[manga] guardar el cargo', rec?.monto===50, JSON.stringify(rec));
 revisa('sin errores de consola', errs.length===0, errs.join('\n   '));
 revisa('sin scroll horizontal en un teléfono',
   await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));

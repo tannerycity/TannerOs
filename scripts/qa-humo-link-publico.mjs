@@ -257,7 +257,7 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
 
 /* ===== Kit Dúo (14/10/2026): "2 jerseys, los que quieras, + short" ===== */
 {
-  const OFERTA2 = { products: OFERTA.products.map(p => p.id === 'p-black' ? { ...p, priceKid: 599 } : p), bundles: [{ id:'k-duo', name:'Kit Dúo', priceAdult:1500, priceKid:1299, available:true, components:[
+  const OFERTA2 = { recargoMangaLarga: 50, products: OFERTA.products.map(p => p.id === 'p-black' ? { ...p, priceKid: 599 } : p), bundles: [{ id:'k-duo', name:'Kit Dúo', priceAdult:1500, priceKid:1299, available:true, components:[
     { productId:'p-short', name:'Short', sizes:TALLAS, qty:1, pool:null },
     { productId:'p-jersey', name:'Jersey "Wet Blue" - Home Edition', sizes:TALLAS, qty:2, pool:['p-jersey','p-black'], poolName:'Jersey a elegir' }] }] };
   const p2 = await nav.newPage({ viewport:{ width:390, height:844 } });
@@ -285,6 +285,18 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   await p2.click('.st-pieza.elige >> nth=0 >> [data-pieza-elige="p-jersey"]');
   revisa('[dúo] elegido el jersey, salen sus tallas', (await p2.$$('[data-ranura="elige1#0"] [data-pieza-talla]')).length === 12 && /Black/.test(await p2.textContent('[data-ranura="elige1#0"] strong')));
   for (const r of ['elige1#0', 'elige1#1']) await p2.click(`[data-ranura="${r}"] [data-pieza-talla="12"]`);
+  // Manga por jersey con cargo (14/10/2026).
+  revisa('[manga] cada jersey del kit trae su manga, con "+$50" en larga', (await p2.$$('[data-ranura="elige1#0"] [data-pieza-manga]')).length === 2 && /Larga\s*\+\$50/.test(await p2.textContent('[data-ranura="elige1#0"] [data-pieza-manga="larga"]')) && (await p2.$('[data-ranura="p-short#0"] [data-pieza-manga]')) === null);
+  await p2.click('[data-ranura="elige1#0"] [data-pieza-manga="larga"]');
+  revisa('[manga] el precio del kit sube $50 y lo dice', /\$1,349\.00/.test(await p2.textContent('#stAgregar')) && /1 manga larga/.test(await p2.textContent('.st-pdp-precio')), await p2.textContent('#stAgregar'));
+  revisa('[manga] la manga general del kit ya no sale', (await p2.$('.st-manga-tit')) === null);
+  // La espalda de cada jersey elegido, con su diseño y su manga (14/10/2026).
+  const espaldas = await p2.$$eval('#stMockup .st-mockup-uno', xs => xs.map(x => [x.querySelector('span').firstChild.textContent, !!x.querySelector('[data-mockup="manga-larga"]')]));
+  revisa('[vista] una playera por jersey elegido: Black de manga larga y Wet Blue corta', JSON.stringify(espaldas) === '[["Black",true],["Wet Blue",false]]', JSON.stringify(espaldas));
+  revisa('[vista] cada una con su diseño (Black negro)', (await p2.getAttribute('#stMockup .st-mockup-uno >> nth=0 >> svg path >> nth=1', 'fill').catch(() => '')) === '#1F1A19' || /#1F1A19/.test(await p2.innerHTML('#stMockup .st-mockup-uno >> nth=0')));
+  await p2.fill('[data-campo="nombre"]', 'MICHEL');
+  revisa('[vista] el nombre se escribe en las dos', (await p2.$$eval('#stMockup [data-mockup="nombre"]', xs => xs.map(x => x.textContent))).join() === 'MICHEL,MICHEL');
+  if (process.env.QA_FOTO) await p2.locator('#stMockup').screenshot({ path: process.env.QA_FOTO.replace(/\.png$/, '-espaldas.png') });
   if (process.env.QA_FOTO) await p2.locator('.st-incluye').screenshot({ path: process.env.QA_FOTO.replace(/\.png$/, '-duo.png') });
   await p2.click('#stAgregar');
   await p2.waitForTimeout(300);
@@ -292,7 +304,7 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   await p2.goto(BASE + '/pedido/#/pedido');
   await p2.waitForSelector('#resumenCarrito', { timeout:4000 }).catch(() => {});
   const resumenDuo = (await p2.textContent('#resumenCarrito').catch(() => '')).replace(/\s+/g, ' ');
-  revisa('[dúo] con el Black, el Wet Blue y el short, a precio Niño', /Kit Dúo/.test(resumenDuo) && /1,299/.test(resumenDuo) && /Black/.test(resumenDuo) && /Wet Blue/.test(resumenDuo) && /Short/.test(resumenDuo), resumenDuo);
+  revisa('[dúo] con el Black, el Wet Blue y el short, a precio Niño', /Kit Dúo/.test(resumenDuo) && /1,349/.test(resumenDuo) && /Black 12 manga larga/.test(resumenDuo) && /Black/.test(resumenDuo) && /Wet Blue/.test(resumenDuo) && /Short/.test(resumenDuo), resumenDuo);
   // Precio de niño (14/10/2026): el Black cuesta $599 en tallas de niño.
   await p2.goto(BASE + '/pedido/#/c/jersey');
   await p2.waitForSelector('[data-prod="p-black"]', { timeout:4000 });

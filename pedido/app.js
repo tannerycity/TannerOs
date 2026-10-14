@@ -34,7 +34,7 @@ import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
-import { textoHasta, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
+import { textoHasta, recargoDe, llevaManga as tieneManga, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
          tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
   from '/v2/tienda.js';
 import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
@@ -227,26 +227,51 @@ function infoDeCompra() {
     <li><b>Pago</b><span>Por ${esc(pago)}. Te damos los datos al confirmar.</span></li>
     <li><b>Confirmación</b><span>Te escribimos por WhatsApp para revisar tallas y entrega.</span></li></ul>`;
 }
+/* La vista previa del kit (14/10/2026): "si le pones manga larga, ver la manga
+   larga de cada uno de los jerseys y del color que es". Una playera por jersey
+   elegido, con su diseño y su manga; sin jersey elegido, la genérica. */
+function mockupsDeKit(k, e) {
+  const jerseys = ranurasDeKit(k).map(r0 => ranuraElegida(r0, e.elegidos))
+    .filter(r => (!r.pool || r.elegido) && tieneManga(r.producto || { name: r.nombre }));
+  if (!jerseys.length) return vistaPrevia(e, k.name);
+  return `<div class="st-mockup-varios n${Math.min(jerseys.length, 4)}">${jerseys.map(r => {
+    const nombre = r.producto?.name || r.nombre, manga = (e.mangas || {})[r.id] || e.manga || 'corta';
+    return `<div class="st-mockup-uno">${mockupJersey({ nombre: e.nombre, numero: e.numero, mangaLarga: manga === 'larga',
+      colores: coloresDePlayera({ nombreProducto: nombre, primario: coloresClub.primary, acento: coloresClub.accent }) })}
+      <span>${esc(nombreCorto(nombre))}<small>Manga ${esc(manga)}</small></span></div>`;
+  }).join('')}</div>`;
+}
+function contenidoMockup(e, fig) {
+  const k = fig?.dataset.kit && (catalogo.bundles || []).find(x => String(x.id) === fig.dataset.kit);
+  return k ? mockupsDeKit(k, e) : vistaPrevia(e, fig?.dataset.producto || '');
+}
+function repintaMockup(e) {
+  const fig = $('stMockup'), cuerpo = fig?.querySelector('.st-mockup-cuerpo');
+  if (cuerpo) cuerpo.innerHTML = contenidoMockup(e, fig);
+}
 function vistaPrevia(e, nombreProducto) {
   return mockupJersey({ nombre: e.nombre, numero: e.numero, mangaLarga: e.manga === 'larga',
     colores: coloresDePlayera({ nombreProducto, primario: coloresClub.primary, acento: coloresClub.accent }) });
 }
-function bloquePersonaliza(e, nombreProducto = '') {
+/* "Larga +$50": el cargo de manga larga se dice en el botón (14/10/2026). */
+const etiquetaManga = (m, r) => m === 'larga' ? `Larga${r > 0 ? ` <small>+${money.format(r)}</small>` : ''}` : 'Corta';
+function botonesManga(e, r, attr = 'data-manga', valor = e.manga) {
+  return `<div class="st-tallas st-manga">${['corta', 'larga'].map(m => `<button type="button" class="st-talla${(valor || 'corta') === m ? ' activa' : ''}" ${attr}="${m}" aria-pressed="${(valor || 'corta') === m}">${etiquetaManga(m, r)}</button>`).join('')}</div>`;
+}
+function bloquePersonaliza(e, nombreProducto = '', r = 0, conManga = true, kit = null) {
   return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Personalízalo</h2><span>Opcional</span></div>
-    <figure class="st-mockup" id="stMockup" data-producto="${esc(nombreProducto)}">${vistaPrevia(e, nombreProducto)}
-      <figcaption>Así se verá la espalda</figcaption></figure>
+    <figure class="st-mockup${kit ? ' kit' : ''}" id="stMockup" data-producto="${esc(nombreProducto)}"${kit ? ` data-kit="${esc(kit.id)}"` : ''}><div class="st-mockup-cuerpo">${kit ? mockupsDeKit(kit, e) : vistaPrevia(e, nombreProducto)}</div>
+      <figcaption>${kit ? 'Así se verá la espalda de cada jersey' : 'Así se verá la espalda'}</figcaption></figure>
     <div class="st-perso">
       <label><span>Nombre en la espalda</span><input data-campo="nombre" maxlength="20" autocomplete="off" autocapitalize="characters" value="${esc(e.nombre || '')}" placeholder="LEO"></label>
       <label class="num"><span>Número</span><input data-campo="numero" inputmode="numeric" maxlength="3" autocomplete="off" value="${esc(e.numero || '')}" placeholder="10"></label>
     </div>
-    <p class="st-manga-tit">Manga</p>
-    <div class="st-tallas st-manga">${['corta', 'larga'].map(m => `<button type="button" class="st-talla${(e.manga || 'corta') === m ? ' activa' : ''}" data-manga="${m}" aria-pressed="${(e.manga || 'corta') === m}">${m === 'larga' ? 'Larga' : 'Corta'}</button>`).join('')}</div>
+    ${conManga ? `<p class="st-manga-tit">Manga</p>${botonesManga(e, r)}` : ''}
     <p class="st-nota">Lo estampado es personal: no tiene cambio.</p></section>`;
 }
 // Jersey con "Lleva nombre y número" apagado: sólo la manga.
-function bloqueManga(e) {
-  return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Manga</h2></div>
-    <div class="st-tallas st-manga">${['corta', 'larga'].map(m => `<button type="button" class="st-talla${(e.manga || 'corta') === m ? ' activa' : ''}" data-manga="${m}" aria-pressed="${(e.manga || 'corta') === m}">${m === 'larga' ? 'Larga' : 'Corta'}</button>`).join('')}</div></section>`;
+function bloqueManga(e, r = 0) {
+  return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Manga</h2></div>${botonesManga(e, r)}</section>`;
 }
 function barraAgregar(texto, motivo) {
   return `<div class="st-agregar"><p class="st-motivo" role="alert">${esc(motivo || '')}</p>
@@ -323,20 +348,25 @@ function renderProducto(id) {
           <div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}</span></div>
           ${unica ? `<p class="st-unica">Talla ${esc(unica)}: le queda a todos.</p>` : botonesTalla(tallas, e.talla, 'data-talla')}
         </section>
-        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name) : llevaManga(p) ? bloqueManga(e) : ''}
+        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name, recargoDe(p)) : llevaManga(p) ? bloqueManga(e, recargoDe(p)) : ''}
         <section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
           <div class="st-cantidad"><button type="button" data-cantidad="-1" aria-label="Uno menos">&minus;</button>
           <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>
         ${infoDeCompra()}
       </div>
     </article>
-    ${barraAgregar(`Agregar al pedido · ${money.format(precioDeProducto(p, e.talla || unica) * e.cantidad)}`, e.motivo)}`;
+    ${barraAgregar(`Agregar al pedido · ${money.format((precioDeProducto(p, e.talla || unica) + (e.manga === 'larga' && llevaManga(p) ? recargoDe(p) : 0)) * e.cantidad)}`, e.motivo)}`;
   pintaBarra(false);
   cableaGaleria(e);
   firmaFotos($('content'));
 }
 
 /* ---------- La ficha de un kit ---------- */
+// Cuántos jerseys del kit van de manga larga (para el precio que se ve).
+function largasDeKit(k, e) {
+  return ranurasDeKit(k).map(r0 => ranuraElegida(r0, e.elegidos))
+    .filter(r => tieneManga(r.producto || { name: r.nombre }) && ((e.mangas || {})[r.id] || e.manga) === 'larga').length;
+}
 function renderKit(id) {
   const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
   if (!k) { location.replace('#/'); return; }
@@ -354,7 +384,7 @@ function renderKit(id) {
         ${e.reemplaza ? '<p class="st-convierte">Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.</p>' : ''}
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
         <h1>${esc(k.name)}</h1>
-        <p class="st-pdp-precio">${e.tier ? money.format(precioDeKit(k, e.tier)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}</p>
+        <p class="st-pdp-precio">${e.tier ? money.format(precioDeKit(k, e.tier) + largasDeKit(k, e) * recargoDe(k)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}${e.tier && largasDeKit(k, e) && recargoDe(k) ? ` <small class="st-recargo">incluye ${largasDeKit(k, e)} manga larga</small>` : ''}</p>
         ${k.description ? `<p class="st-desc">${esc(k.description)}</p>` : ''}
         ${tiers.length > 1 ? `<section class="st-bloque${e.falta === 'tier' ? ' falta' : ''}" id="stBloqueTier"><div class="st-bloque-cab"><h2>¿Para quién es?</h2></div>
           <div class="st-segmento" role="radiogroup" aria-label="Para quién es">${tiers.map(t => `<button type="button" role="radio" aria-checked="${e.tier === t}" data-tier="${esc(t)}"${e.tier === t ? ' class="activa"' : ''}>
@@ -372,12 +402,13 @@ function renderKit(id) {
                 <strong>${r0.pool ? `${esc(nombreCorto(r.elegido.name))} <button type="button" class="st-cambia" data-pieza-cambia="1">Cambiar</button>` : esc(r.nombre)}</strong><span class="${elegida ? 'ok' : ''}">${elegida ? `Talla ${esc(elegida)}` : 'Elige talla'}</span></div>
               ${r.unica || !r.tallas.length ? '' : `<div class="st-tallas fila">${tallasDePieza(r.tallas, e.tier).map(t =>
                 `<button type="button" class="st-talla${elegida === t ? ' activa' : ''}" data-pieza-talla="${esc(t)}" aria-pressed="${elegida === t}">${esc(t)}</button>`).join('')}</div>`}
+              ${tieneManga(r.producto || { name: r.nombre }) ? `<div class="st-pieza-manga">${botonesManga(e, recargoDe(k), 'data-pieza-manga', (e.mangas || {})[r.id] || e.manga)}</div>` : ''}
             </li>`; }).join('')}</ul></section>
-        ${bloquePersonaliza(e, k.name)}
+        ${bloquePersonaliza(e, k.name, recargoDe(k), false, k)}
         ${infoDeCompra()}
       </div>
     </article>
-    ${barraAgregar(`Agregar al pedido${e.tier ? ` · ${money.format(precioDeKit(k, e.tier))}` : ''}`, e.motivo)}`;
+    ${barraAgregar(`Agregar al pedido${e.tier ? ` · ${money.format(precioDeKit(k, e.tier) + largasDeKit(k, e) * recargoDe(k))}` : ''}`, e.motivo)}`;
   pintaBarra(false);
   firmaFotos($('content'));
 }
@@ -412,6 +443,12 @@ function cablea() {
     }
     const tier = t.closest('[data-tier]');
     if (tier && ficha) { const e = eligiendoKit[ficha]; e.tier = tier.dataset.tier; e.motivo = null; e.falta = null; repinta(renderKit, ficha); return; }
+    const pm = t.closest('[data-pieza-manga]');
+    if (pm && ficha) {
+      const e = eligiendoKit[ficha], r = pm.closest('[data-ranura]').dataset.ranura;
+      e.mangas = { ...(e.mangas || {}), [r]: pm.dataset.piezaManga };
+      repinta(renderKit, ficha); return;
+    }
     const elige = t.closest('[data-pieza-elige]'), cambia = t.closest('[data-pieza-cambia]');
     if ((elige || cambia) && ficha) {
       const e = eligiendoKit[ficha], r = (elige || cambia).closest('[data-ranura]').dataset.ranura;
@@ -442,11 +479,7 @@ function cablea() {
     const e = eligiendo[ficha] || eligiendoKit[ficha];
     if (e) e[campo] = ev.target.value;
     // La playera se redibuja con cada letra.
-    const fig = $('stMockup');
-    if (e && fig && (campo === 'nombre' || campo === 'numero')) {
-      fig.querySelector('svg')?.remove();
-      fig.insertAdjacentHTML('afterbegin', vistaPrevia(e, fig.dataset.producto || ''));
-    }
+    if (e && (campo === 'nombre' || campo === 'numero')) repintaMockup(e);
   });
 }
 
@@ -473,7 +506,7 @@ function agregaKit(id) {
   const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
   if (!k) return;
   const e = eligiendoKit[id];
-  const r = preparaKit(k, { tier: e.tier, tallas: e.tallas || {}, elegidos: e.elegidos || {}, nombre: e.nombre, numero: e.numero, manga: e.manga });
+  const r = preparaKit(k, { tier: e.tier, tallas: e.tallas || {}, elegidos: e.elegidos || {}, mangas: e.mangas || {}, nombre: e.nombre, numero: e.numero, manga: e.manga });
   if (!r.ok) { falla(e, r, renderKit, id); return; }
   // Convertir: el jersey suelto deja el carrito y se vuelve al pedido.
   const reemplaza = (Array.isArray(e.reemplaza) ? e.reemplaza : e.reemplaza ? [e.reemplaza] : []).filter(k => carrito[k]);
@@ -587,7 +620,7 @@ async function submit(e) {
   const items = Object.values(carrito).map(l => l.kind === 'bundle'
     ? { kind: 'bundle', bundleId: l.bundleId, tier: l.tier,
         personalizationName: l.personalizationName || null, number: l.numero || null, sleeve: l.manga || null,
-        pieces: (l.piezas || []).map(pz => ({ productId: pz.productId, talla: pz.talla || null })) }
+        pieces: (l.piezas || []).map(pz => ({ productId: pz.productId, talla: pz.talla || null, ...(pz.manga ? { sleeve: pz.manga } : {}) })) }
     : { kind: 'product', productId: l.productId, quantity: l.cantidad || 1, talla: l.talla || null,
         personalizationName: l.personalizationName || null, number: l.numero || null, sleeve: l.manga || null });
   try {
@@ -657,10 +690,8 @@ try {
     rpc('v2_public_branding_by_org', { organization_id: club.value.organizationId })
       .then(b => {
         coloresClub = b?.colors || {};
-        const fig = $('stMockup');
-        if (fig) { const ficha = document.querySelector('[data-ficha]')?.dataset.ficha;
-          const e = eligiendo[ficha] || eligiendoKit[ficha] || {};
-          fig.querySelector('svg')?.remove(); fig.insertAdjacentHTML('afterbegin', vistaPrevia(e, fig.dataset.producto || '')); }
+        const ficha = document.querySelector('[data-ficha]')?.dataset.ficha;
+        repintaMockup(eligiendo[ficha] || eligiendoKit[ficha] || {});
       }).catch(() => {});
   }
   document.querySelectorAll('[data-club-nombre]').forEach(el => { el.textContent = clubNombre; });

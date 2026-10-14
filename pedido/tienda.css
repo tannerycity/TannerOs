@@ -267,3 +267,21 @@
 .st-cambia { margin-left: 6px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--st-soft); color: var(--st-ink-2); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 /* Precio de niño (14/10/2026): los dos precios mientras no hay talla. */
 .st-precios-nino { margin: 4px 0 0; font-size: 14px; color: var(--st-ink-2); font-weight: 600; }
+/* Manga por jersey en el kit (14/10/2026) */
+.st-pieza-manga { margin-top: 8px; }
+.st-pieza-manga .st-manga { margin: 0; }
+.st-manga small, .st-recargo { font-size: .8em; font-weight: 600; color: var(--st-ink-2); }
+.st-pieza-manga::before { content: 'Manga'; display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: var(--st-muted); letter-spacing: .02em; }
+.st-pieza-manga .st-manga { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--st-soft); }
+.st-pieza-manga .st-talla { width: 100%; min-height: 44px; border: 0; border-radius: 11px; background: transparent; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.st-pieza-manga .st-talla.activa { background: #fff; color: var(--st-ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.st-manga .st-talla small { font-size: 12px; font-weight: 700; color: #1e8a4c; }
+.st-manga .st-talla.activa small { color: #1e8a4c; }
+/* La espalda de cada jersey del kit (14/10/2026) */
+.st-mockup-varios { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.st-mockup-varios.n1 { grid-template-columns: minmax(0, 260px); justify-content: center; }
+.st-mockup-uno { display: grid; justify-items: center; gap: 4px; }
+.st-mockup-uno .jersey-mockup { width: 100%; height: auto; }
+.st-mockup-uno span { display: grid; justify-items: center; font-size: 13px; font-weight: 700; color: var(--st-ink); }
+.st-mockup-uno small { font-size: 11.5px; font-weight: 600; color: var(--st-muted); }
+.st-mockup-cuerpo { width: 100%; display: grid; place-items: center; }

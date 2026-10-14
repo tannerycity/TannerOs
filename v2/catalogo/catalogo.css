@@ -286,3 +286,12 @@
 .kit-pool-tit{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7a8a8e}
 .kit-pool-nota.falta{color:#b4261b;font-weight:700}
 .kit-se-vende{margin-top:14px}
+
+/* Manga larga con cargo (14/10/2026) */
+.recargo-manga{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:#f5f7f7;margin-bottom:12px;transition:box-shadow .3s}
+.recargo-manga span:first-child{display:grid;gap:2px}
+.recargo-manga b{font-size:15px;color:#07191e}
+.recargo-manga small{font-size:12.5px;color:#6b7c80}
+.recargo-campo{display:inline-flex;align-items:center;gap:4px;font-weight:800;color:#07191e}
+.recargo-campo input{width:80px;min-height:40px;border:0;border-radius:10px;background:#fff;padding:0 10px;font:inherit;font-weight:800;text-align:right}
+.recargo-manga.guardado{box-shadow:inset 0 0 0 2px #169b4b}

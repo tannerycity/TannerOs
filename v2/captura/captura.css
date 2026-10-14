@@ -190,3 +190,6 @@
 .pieza-elegida{color:#087d8e;font-weight:800}
 .pieza-grupo{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8a8e;margin-top:2px}
 .pieza-tallas .tallas-chips{margin-top:0}
+/* Manga por jersey dentro del kit (14/10/2026) */
+.pieza-manga{margin-top:2px}
+.pieza-manga button{font-size:13px}

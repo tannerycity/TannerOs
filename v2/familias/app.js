@@ -7,7 +7,7 @@ import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.
 import {conOferta, kitConOferta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
         piezasDelCarrito, acomodaVitrina, tallasDe, tallaUnica,
         aceptaPersonalizacion, preparaKit, ranurasDeKit, tiersDeKit,
-        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS, armaRecompra, mesesDesde, conOpcionesDeKit, ranuraElegida} from '/v2/tienda.js';
+        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS, armaRecompra, mesesDesde, conOpcionesDeKit, ranuraElegida, conRecargo} from '/v2/tienda.js';
 /* El dibujo de la tienda ya no vive aqui: lo comparten esta pantalla y el link
    publico de compra. Ver el encabezado de /v2/vitrina.js. */
 import {inicialesDe, filaDeTalla, tarjetaProducto as dibujaProducto,
@@ -573,7 +573,7 @@ async function checkout(){
   const items=lineas.map(l=>l.kind==='bundle'
     ? {kind:'bundle',bundleId:l.bundleId,tier:l.tier,
        personalizationName:l.personalizationName||null,number:l.numero||null,sleeve:l.manga||null,
-       pieces:(l.piezas||[]).map(p=>({productId:p.productId,talla:p.talla||null}))}
+       pieces:(l.piezas||[]).map(p=>({productId:p.productId,talla:p.talla||null,...(p.manga?{sleeve:p.manga}:{})}))}
     : {kind:'product',productId:l.productId,quantity:l.cantidad,talla:l.talla||null,
        personalizationName:l.personalizationName||null,number:l.numero||null,sleeve:l.manga||null,
        // La llave vieja tambien, por si el despliegue de la base va detras.
@@ -639,8 +639,9 @@ async function renderTienda(){
    * abierta en el momento del despliegue no se le rompa la tienda. */
   const datos=state.catalog;
   // Ofertas (g5): el precio de oferta como precio, y el de antes para tacharlo.
-  const productos=(Array.isArray(datos)?datos:(datos?.products||[])).map(conOferta);
-  const kits=(Array.isArray(datos)?[]:(datos?.bundles||[])).map(k=>conOpcionesDeKit(kitConOferta(k),productos));
+  const conR=conRecargo({products:(Array.isArray(datos)?datos:(datos?.products||[])).map(conOferta),bundles:Array.isArray(datos)?[]:(datos?.bundles||[])},datos?.recargoMangaLarga);
+  const productos=conR.products;
+  const kits=conR.bundles.map(k=>conOpcionesDeKit(kitConOferta(k),productos));
   state.kitsVisibles=kits;
   const rows=acomodaVitrina(productos);
   // Comprar otra vez (13/10/2026): el último pedido de este Tanner.
@@ -748,9 +749,10 @@ async function renderTienda(){
     const id=e.target.dataset.knombre;eligiendoKit[id]={...(eligiendoKit[id]||{}),nombre:e.target.value};
   }));
   // Manga: se marca y se repinta, igual que la talla.
-  cuerpo.querySelectorAll('[data-pmanga],[data-kmanga]').forEach(caja=>caja.addEventListener('click',e=>{
+  cuerpo.querySelectorAll('[data-pmanga],[data-kmanga],[data-kpmanga]').forEach(caja=>caja.addEventListener('click',e=>{
     const b=e.target.closest('[data-m]');if(!b)return;
-    if(caja.dataset.kmanga){const id=caja.dataset.kmanga;eligiendoKit[id]={...(eligiendoKit[id]||{}),manga:b.dataset.m};}
+    if(caja.dataset.kpmanga){const [id,r]=caja.dataset.kpmanga.split('::');const prev=eligiendoKit[id]||{};eligiendoKit[id]={...prev,mangas:{...(prev.mangas||{}),[r]:b.dataset.m}};}
+    else if(caja.dataset.kmanga){const id=caja.dataset.kmanga;eligiendoKit[id]={...(eligiendoKit[id]||{}),manga:b.dataset.m};}
     else{const id=caja.dataset.pmanga;eligiendo[id]={...(eligiendo[id]||{}),manga:b.dataset.m};}
     renderTienda();
   }));
@@ -775,7 +777,7 @@ async function renderTienda(){
     const id=b.dataset.addkit;
     const kit=kits.find(k=>String(k.id)===String(id));
     const elec=eligiendoKit[id]||{};
-    const r=preparaKit(kit,{tier:elec.tier,tallas:elec.tallas,elegidos:elec.elegidos,nombre:elec.nombre,numero:elec.numero,manga:elec.manga});
+    const r=preparaKit(kit,{tier:elec.tier,tallas:elec.tallas,elegidos:elec.elegidos,mangas:elec.mangas,nombre:elec.nombre,numero:elec.numero,manga:elec.manga});
     if(!r.ok){
       // El aviso se pinta en la tarjeta que se toco, no en una alerta encima:
       // una alerta tapa justo lo que hay que corregir.

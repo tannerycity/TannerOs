@@ -70,6 +70,19 @@ const PRENDA_CON_MANGA = /jersey|uniforme|playera/i;
 export function llevaManga(producto) {
   return PRENDA_CON_MANGA.test(producto?.name || '');
 }
+/* Manga larga con cargo (14/10/2026: "se paga 50 pesos más por ser de manga
+   larga"). El cargo lo fija el club y viaja con el catálogo (recargoManga en
+   cada producto y kit). Igual que private.aplica_recargo_manga. */
+export const recargoDe = x => Math.max(0, Number(x?.recargoManga || 0));
+export function textoRecargo(r, fmt = n => `$${n}`) { return r > 0 ? `+${fmt(r)}` : ''; }
+/* Le pone el cargo del club a productos y kits (lo hace quien carga el catálogo). */
+export function conRecargo(catalogo, recargo) {
+  const r = Math.max(0, Number(recargo || 0));
+  if (!r) return catalogo;
+  return { ...catalogo,
+    products: (catalogo.products || []).map(p => ({ ...p, recargoManga: r })),
+    bundles: (catalogo.bundles || []).map(k => ({ ...k, recargoManga: r })) };
+}
 export function numeroValido(v) {
   const s = String(v ?? '').trim();
   if (!s) return null;
@@ -152,8 +165,8 @@ export function preparaLinea(producto, opciones = {}) {
       productId: producto.id, nombreProducto: producto.name || 'Producto',
       talla, cantidad,
       personalizationName: nombre, numero, manga,
-      precioUnitario: precioDeProducto(producto, talla),
-      total: precioDeProducto(producto, talla) * cantidad
+      precioUnitario: precioDeProducto(producto, talla) + (manga === 'larga' ? recargoDe(producto) : 0),
+      total: (precioDeProducto(producto, talla) + (manga === 'larga' ? recargoDe(producto) : 0)) * cantidad
     }
   };
 }
@@ -391,13 +404,19 @@ export function preparaKit(kit, opciones = {}) {
     if (!talla && r.tallas.length) {
       return { ok: false, motivo: `Elige la talla de ${r.nombre}.`, falta: r.id };
     }
-    piezas.push({ productId: r.productId, talla: talla || null, nombre: r.elegido ? nombreCorto(r.elegido.name) : r.nombre });
+    // Manga por jersey (14/10/2026): cada jersey del kit puede ir de manga
+    // larga o corta; sin elegir, la del kit.
+    const conManga = llevaManga(r.producto || { name: r.nombre });
+    const mangaPieza = conManga ? mangaValida(opciones.mangas?.[r.id] || opciones.manga) : null;
+    piezas.push({ productId: r.productId, talla: talla || null, nombre: r.elegido ? nombreCorto(r.elegido.name) : r.nombre, ...(mangaPieza ? { manga: mangaPieza } : {}) });
   }
 
   const nombre = nombreValido(opciones.nombre);
   const numeroCrudo = String(opciones.numero ?? '').trim();
   const numero = numeroValido(numeroCrudo);
   const manga = mangaValida(opciones.manga);
+  const largas = piezas.filter(p => p.manga === 'larga').length;
+  const total = precio + largas * recargoDe(kit);
   if (numeroCrudo && !numero) {
     return { ok: false, motivo: 'El número va de 1 a 3 dígitos.', falta: 'numero' };
   }
@@ -409,7 +428,7 @@ export function preparaKit(kit, opciones = {}) {
       bundleId: kit.id, nombreProducto: kit.name || 'Kit', tier,
       piezas, cantidad: 1, conEleccion: ranuras.some(r => r.pool) || undefined,
       personalizationName: nombre, numero, manga,
-      precioUnitario: precio, total: precio
+      precioUnitario: total, total, largas: largas || undefined
     }
   };
 }
@@ -421,7 +440,7 @@ export function preparaKit(kit, opciones = {}) {
    suelta lleva la suya. */
 export function llaveDeKit(l) {
   return ['kit', l.bundleId, l.tier,
-    (l.piezas || []).map(p => `${p.productId}:${p.talla || ''}`).join(','),
+    (l.piezas || []).map(p => `${p.productId}:${p.talla || ''}${p.manga ? `:${p.manga}` : ''}`).join(','),
     l.personalizationName || '', l.numero || '', l.manga || ''].join('|');
 }
 
@@ -473,12 +492,13 @@ function sugerenciaDe(kit, ancla, libres) {
   }
   const talla = ancla[1].talla;
   const tier = tierPorTalla(kit, talla);
-  const precio = precioDeKit(kit, tier);
+  let precio = precioDeKit(kit, tier);
   if (!(precio > 0)) return null;
-  const tallas = {}, elegidos = {};
+  const tallas = {}, elegidos = {}, mangas = {};
   for (const r of ranuras) {
     const t = tomadas.get(r.id);
     if (t && r.pool) elegidos[r.id] = String(t[1].productId);
+    if (t && t[1].manga) mangas[r.id] = t[1].manga;
     if (r.unica) continue;
     if (t) { if (t[1].talla) tallas[r.id] = t[1].talla; continue; }
     // Lo que falta (el short, el otro jersey), en la misma talla si existe.
@@ -486,6 +506,8 @@ function sugerenciaDe(kit, ancla, libres) {
   }
   const cubiertas = [...tomadas.values()];
   const sueltos = cubiertas.reduce((n, [, l]) => n + Number(l.precioUnitario || 0), 0);
+  // Los jerseys de manga larga llevan su cargo también dentro del kit.
+  precio += cubiertas.filter(([, l]) => l.manga === 'larga').length * recargoDe(kit);
   const a = ancla[1];
   return {
     kit, tier, precio, sueltos,
@@ -494,7 +516,7 @@ function sugerenciaDe(kit, ancla, libres) {
     cubre: cubiertas.map(([, l]) => l.nombreProducto),
     // "+ otro jersey a elegir y short": la pieza a elegir no tiene nombre propio.
     incluye: ranuras.filter(r => !tomadas.has(r.id)).map(r => r.pool ? `otro ${String(r.base || r.nombre).toLocaleLowerCase('es-MX')}` : r.nombre),
-    opciones: { tier, tallas, elegidos, nombre: a.personalizationName || '', numero: a.numero || '', manga: a.manga || 'corta' }
+    opciones: { tier, tallas, elegidos, mangas, nombre: a.personalizationName || '', numero: a.numero || '', manga: a.manga || 'corta' }
   };
 }
 
@@ -615,16 +637,16 @@ export function armaRecompra(pedido, productos = [], kits = []) {
     const tier = /ni/i.test(base.bundleTier || '') ? 'Niño' : /adul/i.test(base.bundleTier || '') ? 'Adulto' : undefined;
     const usadas = new Set();
     for (let vuelta = 0; vuelta < 20 && usadas.size < piezas.length; vuelta++) {
-      const tallas = {}, elegidos = {}, deEste = [];
+      const tallas = {}, elegidos = {}, mangas = {}, deEste = [];
       for (const ranura of ranurasDeKit(kit)) {
         const vale = x => ranura.pool ? ranura.pool.includes(String(x.productId)) : String(x.productId) === String(ranura.productId);
         const k = piezas.findIndex((x, n) => !usadas.has(n) && vale(x));
-        if (k >= 0) { usadas.add(k); deEste.push(piezas[k]); if (ranura.pool) elegidos[ranura.id] = String(piezas[k].productId); if (piezas[k].talla) tallas[ranura.id] = piezas[k].talla; }
+        if (k >= 0) { usadas.add(k); deEste.push(piezas[k]); if (ranura.pool) elegidos[ranura.id] = String(piezas[k].productId); if (piezas[k].talla) tallas[ranura.id] = piezas[k].talla; if (piezas[k].manga) mangas[ranura.id] = piezas[k].manga; }
       }
       if (!deEste.length) break;
       const con = deEste.find(x => x.nombre || x.numero) || {};
       const manga = (deEste.find(x => x.manga) || {}).manga;
-      const r = preparaKit(kit, { tier, tallas, elegidos, nombre: con.nombre, numero: con.numero, manga });
+      const r = preparaKit(kit, { tier, tallas, elegidos, mangas, nombre: con.nombre, numero: con.numero, manga });
       if (r.ok) lineas.push(r.linea); else faltan.push(`${kit.name}: ${r.motivo}`);
     }
   }

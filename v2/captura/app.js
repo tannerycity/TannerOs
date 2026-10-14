@@ -14,7 +14,7 @@ const JERSEY_RE=/jersey|uniforme|playera/i;
 // La casilla "Lleva nombre y número" del catálogo manda; sin tocar, decide el nombre.
 const llevaNombre=p=>typeof p?.personalizable==='boolean'?p.personalizable:JERSEY_RE.test(p?.name||'');
 
-let ctx=null,canWrite=false,bundles=[],products=[],cart=[],tanners=[],tannerId='',externo=false;
+let ctx=null,canWrite=false,recargoManga=0,bundles=[],products=[],cart=[],tanners=[],tannerId='',externo=false;
 let picking=null;
 /* Viniendo de Taquilla (/v2/captura/?desde=taquilla&tanner=…): el Tanner ya
    viene elegido y, al crear el pedido, el siguiente paso es cobrar el
@@ -57,10 +57,13 @@ async function load(){
   const pre=URLQ.get('tanner');
   if(pre&&tanners.some(p=>String(p.id)===String(pre))){tannerId=pre;const sel=$('capPlayer');if(sel)sel.value=pre;pintaQuien();}
   // Ofertas (g5): el mostrador cobra lo mismo que la tienda.
+  // Manga larga con cargo (14/10/2026): el cargo del club viaja con el catálogo.
+  recargoManga=Math.max(0,Number(data?.recargoMangaLarga||0));
   bundles=(data?.bundles||[]).filter(b=>b.active&&!b.archived&&b.componentsResolved).map(kitConOferta);
   products=(data?.products||[]).filter(p=>p.active&&!p.archived).map(conOferta);
   renderBundleGrid();
   renderProductGrid();
+  if(recargoManga)$('pfManga')?.querySelector('[data-m="larga"]')?.replaceChildren(`Larga +${money.format(recargoManga)}`);
 }
 
 function bundleCard(b){
@@ -261,7 +264,7 @@ function convierteEnKit(k){
   picking.tier=k.tier;picking.reemplaza=k.items;
   document.querySelectorAll('.tier-btn').forEach(b=>b.classList.toggle('active',b.dataset.tier===k.tier));
   // Cada jersey en su talla; lo demás en la misma talla, las calcetas únicas.
-  picking.slots.forEach((s,i)=>{const o=k.tomadas.get(i);if(o&&s.pool)s.productId=String(o.productId);if(s.pool&&!s.productId){s.talla='';return;}s.talla=o?(o.talla||''):/calcet|media/i.test(s.name||'')?'Universal':(it.talla||'');});
+  picking.slots.forEach((s,i)=>{const o=k.tomadas.get(i);if(o&&s.pool)s.productId=String(o.productId);if(o?.sleeve)s.manga=o.sleeve;if(s.pool&&!s.productId){s.talla='';return;}s.talla=o?(o.talla||''):/calcet|media/i.test(s.name||'')?'Universal':(it.talla||'');});
   $('bfName').value=it.personalizationName||$('bfName').value;$('bfNumber').value=it.number||$('bfNumber').value;
   $('bfManga')?.querySelectorAll('[data-m]').forEach(b=>{const on=b.dataset.m===(it.sleeve||'corta');b.classList.toggle('activa',on);b.setAttribute('aria-pressed',String(on));});
   renderBundlePieces();
@@ -269,6 +272,13 @@ function convierteEnKit(k){
 }
 
 /* ---------- Drawer: kit ---------- */
+// El botón del kit dice el total con el cargo de manga larga.
+function pintaTotalKit(){
+  if(!picking||picking.kind!=='bundle')return;
+  const b=picking.bundle,base=picking.tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid||0);
+  const largas=picking.slots.filter(s=>s.manga==='larga'&&JERSEY_RE.test(products.find(x=>String(x.id)===String(s.productId))?.name||'')).length;
+  $('bfAdd').textContent=`Agregar al pedido · ${money.format(base+largas*recargoManga)}`;
+}
 function bundleSlots(b){
   // Expande cada componente por su qty en "slots" individuales (una talla por unidad,
   // igual que espera v2_create_internal_order).
@@ -276,7 +286,7 @@ function bundleSlots(b){
   // Kit Dúo (14/10/2026): una pieza a elegir no trae producto hasta que se elige.
   b.components.forEach(c=>{
     const pool=Array.isArray(c.pool)&&c.pool.length?c.pool.map(String):null,base=pool?(c.poolName||'Pieza a elegir'):c.name;
-    for(let i=0;i<c.qty;i++)slots.push(pool?{productId:null,pool,name:c.qty>1?`${base} ${i+1}`:base,base,talla:''}:{productId:c.productId,name:c.name,talla:''});
+    for(let i=0;i<c.qty;i++)slots.push(pool?{productId:null,pool,name:c.qty>1?`${base} ${i+1}`:base,base,talla:'',manga:'corta'}:{productId:c.productId,name:c.name,talla:'',manga:'corta'});
   });
   return slots;
 }
@@ -321,10 +331,16 @@ function renderBundlePieces(){
     if(!t.length)return `<div class="component-row"><span class="component-name">${esc(s.name)}</span><input class="bf-talla" data-idx="${i}" type="text" maxlength="40" placeholder="Talla" value="${esc(s.talla)}"></div>`;
     const g=gruposDeTallas(t),primero=picking.tier==='Niño'?'Niño':'Adulto';
     const orden=[...g.filter(x=>x.etiqueta===primero),...g.filter(x=>x.etiqueta!==primero)];
-    return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">${s.talla?esc(s.talla):''}</b></span>${cual}
+    // Manga por jersey (14/10/2026): uno de manga larga y otro no, con su cargo.
+    const prod=products.find(x=>String(x.id)===String(s.productId));
+    const mangaSeg=prod&&JERSEY_RE.test(prod.name||'')?`<div class="manga-seg pieza-manga" data-manga-slot="${i}" role="group" aria-label="Manga">${['corta','larga'].map(m=>`<button type="button" data-m="${m}" class="${(s.manga||'corta')===m?'activa':''}" aria-pressed="${(s.manga||'corta')===m}">${m==='larga'?`Larga${recargoManga?` +${money.format(recargoManga)}`:''}`:'Corta'}</button>`).join('')}</div>`:'';
+    return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">${s.talla?esc(s.talla):''}</b></span>${cual}${mangaSeg}
       ${orden.map(x=>`${x.etiqueta&&orden.length>1?`<small class="pieza-grupo">${esc(x.etiqueta)}</small>`:''}<div class="tallas-chips">${x.tallas.map(v=>`<button type="button" class="talla-chip${s.talla===v?' activa':''}" data-pieza="${i}" data-talla="${esc(v)}" aria-pressed="${s.talla===v}">${esc(v)}</button>`).join('')}</div>`).join('')}</div>`;
   }).join('');
   $('bfPieces').querySelectorAll('.bf-talla').forEach(inp=>inp.addEventListener('input',e=>{picking.slots[Number(e.target.dataset.idx)].talla=e.target.value;}));
+  // La manga ya va por jersey: la general del kit se esconde.
+  $('bfManga')?.closest('.campo-manga')?.classList.add('hidden');
+  pintaTotalKit();
 }
 /* El precio sigue a las tallas (14/10/2026): un kit de Valentina (T12, talla
    16) salió a precio Adulto, $201 más, porque el kit abría en Adulto y nadie
@@ -346,6 +362,8 @@ function ajustaTier(){
   return true;
 }
 $('bfPieces').addEventListener('click',e=>{
+  const mg=e.target.closest?.('[data-manga-slot] [data-m]');
+  if(mg&&picking?.kind==='bundle'){picking.slots[Number(mg.closest('[data-manga-slot]').dataset.mangaSlot)].manga=mg.dataset.m;renderBundlePieces();pintaTotalKit();return;}
   const el=e.target.closest?.('[data-elige]');
   if(el&&picking?.kind==='bundle'){
     const s=picking.slots[Number(el.dataset.elige)];s.productId=el.dataset.pid;
@@ -371,13 +389,14 @@ function addBundleToCart(){
   if(missing){drawerMsg('Falta la talla de alguna pieza.');return;}
   // Lo que se tecleó a mano (piezas sin tallas en catálogo) también cuenta.
   if(ajustaTier()){renderBundlePieces();return;}
-  const total=tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid);
-  const name=$('bfName').value.trim(),number=$('bfNumber').value.trim(),sleeve=mangaDe('bf');
+  const largas=picking.slots.filter(s=>s.manga==='larga'&&JERSEY_RE.test(products.find(x=>String(x.id)===String(s.productId))?.name||'')).length;
+  const total=(tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid))+largas*recargoManga;
+  const name=$('bfName').value.trim(),number=$('bfNumber').value.trim(),sleeve=largas?'larga':'corta';
   cart.push({
     kind:'bundle',bundleId:b.id,bundleName:b.name,tier,personalizationName:name||null,number:number||null,sleeve,
-    pieces:picking.slots.map(s=>({productId:s.productId,talla:s.talla.trim()})),
+    pieces:picking.slots.map(s=>({productId:s.productId,talla:s.talla.trim(),...(JERSEY_RE.test(products.find(x=>String(x.id)===String(s.productId))?.name||'')?{sleeve:s.manga||'corta'}:{})})),
     total,
-    label:`${b.name} (${tier}) · manga ${sleeve}${name?` — ${name}${number?' #'+number:''}`:''}`
+    label:`${b.name} (${tier})${largas?` · ${largas} manga larga`:''}${name?` — ${name}${number?' #'+number:''}`:''}`
   });
   // Convertir: el jersey suelto deja el pedido (una pieza, o el renglón).
   const viejos=picking.reemplaza||[];picking.reemplaza=null;
@@ -458,7 +477,7 @@ function addProductToCart(){
   const name=isJersey?$('pfName').value.trim():'',number=isJersey?$('pfNumber').value.trim():'',sleeve=JERSEY_RE.test(p.name||'')?mangaDe('pf'):null;
   cart.push({
     kind:'product',productId:p.id,talla,quantity:qty,personalizationName:name||null,number:number||null,sleeve,
-    total:precioDeProducto(p,talla)*qty,
+    total:(precioDeProducto(p,talla)+(sleeve==='larga'?recargoManga:0))*qty,
     label:`${p.name} · ${talla}${qty>1?` ×${qty}`:''}${sleeve?` · manga ${sleeve}`:''}${name?` — ${name}${number?' #'+number:''}`:''}`
   });
   renderCart();

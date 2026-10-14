@@ -53,7 +53,7 @@ async function nueva() {
     window.removeEventListener = (t, ...a) => { if (t === 'online') window.__escuchas.online--; return remW(t, ...a); };
     addW('tos:pulso', e => window.__eventos.push(e.detail));
     const respuesta = (n, prm) => {
-      if (n === 'v2_chat_pulse') return { chats: prm.organization_id === 'orgA' ? 4 : 1, avisos: prm.organization_id === 'orgA' ? 3 : 1, total: prm.organization_id === 'orgA' ? 7 : 2, lastAt: null };
+      if (n === 'v2_chat_pulse') return { chats: prm.organization_id === 'orgA' ? 4 : 1, avisos: prm.organization_id === 'orgA' ? 3 : 1, total: prm.organization_id === 'orgA' ? 7 : 2 };
       if (n === 'v2_my_announcements') return [{ id: prm.organization_id, title: `Aviso de ${prm.organization_id}`, unread: true, publishedAt: '2026-10-13T11:00:00Z' }];
       return [];
     };

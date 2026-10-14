@@ -101,7 +101,16 @@ revisa('los dos jerseys se juntan en una sugerencia y dice cuánto se ahorra',
   sugs.length===1&&/Tus .*Wet Blue.* y .*Pink Cantera.* \+ short training = Kit Training/.test(sugs[0])&&/Te ahorras \$298\.00/.test(sugs[0]),JSON.stringify(sugs));
 await pg.click('.cart-sugiere-btn');
 await pg.waitForTimeout(200);
-const tallasKit=await pg.$$eval('#bfPieces .bf-talla',xs=>xs.map(x=>x.value));
+const tallasKit=await pg.$$eval('#bfPieces .component-row',rs=>rs.map(r=>r.querySelector('.bf-talla')?.value??r.querySelector('.talla-chip.activa')?.dataset.talla??''));
+// La talla de cada pieza se toca (14/10/2026): sólo salen las que hay en el catálogo.
+revisa('las piezas del catálogo se eligen con botones, no se teclean', (await pg.$$('#bfPieces .pieza-tallas')).length===2 && (await pg.$$('#bfPieces .pieza-tallas .bf-talla')).length===0);
+revisa('y sólo con las tallas que existen, Niño primero en un kit de Niño', (await pg.$$eval('#bfPieces .pieza-tallas >> nth=0',r=>[...r[0].querySelectorAll('.talla-chip')].map(b=>b.dataset.talla))).join(',')===TALLAS.join(',') && /Niño/.test(await pg.textContent('#bfPieces .pieza-grupo')));
+await pg.click('#bfPieces [data-pieza="0"][data-talla="M"]');
+revisa('tocar una talla la marca y la escribe junto a la pieza', (await pg.getAttribute('#bfPieces [data-pieza="0"][data-talla="M"]','aria-pressed'))==='true' && (await pg.textContent('#bfPieces .pieza-tallas >> nth=0 >> .pieza-elegida'))==='M');
+revisa('[precio] una talla de adulto pasa el kit a precio Adulto', /Adulto/.test(await pg.textContent('.tier-btn.active')) && /precio Adulto/.test(await pg.textContent('#drawerMessage')));
+await pg.click('#bfPieces [data-pieza="0"][data-talla="12"]');
+revisa('[precio] todas de niño lo regresan a precio Niño', /Niño/.test(await pg.textContent('.tier-btn.active')) && /precio Niño/.test(await pg.textContent('#drawerMessage')));
+if(process.env.SHOTS)await pg.locator('#drawer').screenshot({path:`${process.env.SHOTS}/kit-tallas.png`});
 revisa('el kit abre con los dos jerseys y el short en talla 12, nombre y manga larga',
   JSON.stringify(tallasKit)==='["12","12","12"]'&&(await pg.inputValue('#bfName'))==='Dario Montalvo Díaz'&&(await pg.getAttribute('#bfManga [data-m="larga"]','aria-pressed'))==='true',JSON.stringify(tallasKit));
 await pg.click('#bfAdd');

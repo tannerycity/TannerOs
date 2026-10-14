@@ -54,19 +54,34 @@
   <div id="drawerMessage" class="inline-message hidden"></div>
 
   <div id="bundleForm" class="hidden">
+    <!-- El kit como una receta (14/10/2026, "se me sigue haciendo complicado"):
+         arriba se lee el kit en una frase; abajo se arma en tres pasos. -->
+    <div id="bVista" class="kit-vista"></div>
+
+    <div class="kit-paso"><span class="kit-paso-n">1</span><b>Nombre y precio</b></div>
     <div class="field-grid">
-      <label><span>Nombre del kit</span><input id="bName" type="text" maxlength="120" placeholder="Ej. Kit Tanner - Completo"></label>
-      <label><span>Precio adulto</span><input id="bPriceAdult" type="number" min="0" step="0.01"></label>
-      <label><span>Precio niño</span><input id="bPriceKid" type="number" min="0" step="0.01" placeholder="Opcional"></label>
-      <label class="inline-check-label"><input id="bActive" type="checkbox"> Se vende en la tienda</label>
+      <label class="span-2"><span>Nombre del kit</span><input id="bName" type="text" maxlength="120" placeholder="Ej. Kit Dúo"></label>
+      <label><span>Precio adulto</span><input id="bPriceAdult" type="number" min="0" step="0.01" inputmode="decimal" placeholder="$0"></label>
+      <label><span>Precio niño</span><input id="bPriceKid" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Opcional"></label>
     </div>
 
-    <div class="drawer-subhead">Piezas del kit <small>Toca para meter o sacar; usa el mismo producto que se vende suelto</small></div>
+    <div class="kit-paso"><span class="kit-paso-n">2</span><b>Siempre incluye</b><small>Lo que trae el kit, sí o sí</small></div>
     <div id="bComponents" class="component-list"></div>
-    <!-- Piezas a elegir (14/10/2026, Kit Dúo): el papá escoge cuáles. -->
-    <div class="drawer-subhead">Piezas a elegir <small>Opcional. Para kits como el Dúo: el papá escoge cuáles entre las que marques</small></div>
-    <div id="bPool" class="kit-pool"></div>
+    <button type="button" id="bAgregarFija" class="kit-agregar">+ Agregar pieza</button>
+    <div id="bCatalogoFijas" class="component-list kit-elegir-lista hidden"></div>
+
+    <div class="kit-paso"><span class="kit-paso-n">3</span><b>El papá escoge</b><small>Opcional</small></div>
+    <label class="switch-fila" for="bPoolOn">
+      <span><b>El papá escoge algunas piezas</b><small>Ej. Kit Dúo: 2 jerseys, los que quiera, de una lista.</small></span>
+      <input id="bPoolOn" type="checkbox" role="switch">
+    </label>
+    <div id="bPool" class="kit-pool hidden"></div>
     <p id="bResumen" class="kit-resumen hidden"></p>
+
+    <label class="switch-fila kit-se-vende" for="bActive">
+      <span><b>Se vende en la tienda</b><small>Apágalo para esconderlo sin borrarlo.</small></span>
+      <input id="bActive" type="checkbox" role="switch">
+    </label>
 
     <p id="bSinCosto" class="pendientes hidden"></p>
     <div id="bMargenCaja" class="margin-preview hidden">
@@ -116,6 +131,11 @@
       <div id="pCatChips" class="chips"></div>
       <input id="pCategory" type="text" maxlength="60" class="chips-otro hidden" placeholder="Escríbelo">
     </div>
+    <!-- Precio de niño (14/10/2026): va antes de los precios, "para ponerle el costo antes". -->
+    <label class="switch-fila" for="pKid">
+      <span><b>Tiene precio de niño</b><small>Las tallas de niño (6 a 16) cobran otro precio. Apágalo si cuesta igual para todos.</small></span>
+      <input id="pKid" type="checkbox" role="switch">
+    </label>
     <div class="field-grid">
       <label class="span-2"><span>Nombre</span><input id="pName" type="text" maxlength="160" placeholder="Ej. Jersey Black Edition"></label>
       <label><span id="pPriceTit">Precio de venta</span><input id="pPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="$0"></label>
@@ -136,11 +156,6 @@
     </div>
     <!-- "Lleva nombre y número" (13/10/2026): no todos los jerseys o productos
          llevan personalización; esto prende o apaga la vista previa y los campos. -->
-    <!-- Precio de niño (14/10/2026): tallas 6 a 16 cobran éste. -->
-    <label class="switch-fila" for="pKid">
-      <span><b>Tiene precio de niño</b><small>Las tallas de niño (6 a 16) cobran otro precio. Apágalo si cuesta igual para todos.</small></span>
-      <input id="pKid" type="checkbox" role="switch">
-    </label>
     <label class="switch-fila" for="pPers">
       <span><b>Lleva nombre y número</b><small id="pPersAyuda">La familia lo escribe y ve la vista previa de la playera.</small></span>
       <input id="pPers" type="checkbox" role="switch">

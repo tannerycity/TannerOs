@@ -185,3 +185,4 @@
 /* Kit Dúo (14/10/2026): la pieza a elegir enseña sus opciones como botones. */
 .fam-pieza-elige{display:grid;gap:8px}
 .fam-elige{display:flex;flex-wrap:wrap;gap:7px}
+.fam-precios-nino{display:block;font-size:12.5px;font-weight:600;color:var(--vit-muted,#6e7b80)}

@@ -1,8 +1,8 @@
 {
-  "migraciones": 511,
-  "bytes": 2898837,
-  "huella": "8b062c1b0c783117ae9421c8b1a4def9",
+  "migraciones": 513,
+  "bytes": 2905154,
+  "huella": "d59c81d7c4b24a5de5d8daff12568c16",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261014015553_h7_kit_con_piezas_a_elegir.sql",
+  "ultima": "20261014021502_h8b_precio_de_nino_en_lecturas.sql",
   "verificadoContraLaBase": "2026-10-14"
 }

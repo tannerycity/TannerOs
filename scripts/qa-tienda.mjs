@@ -459,6 +459,19 @@ revisa('un kit sin precio no se vende',
   revisa('[dúo] comprar otra vez arma el mismo Dúo', re.lineas.length === 1 && re.lineas[0].piezas.map(p => p.productId).sort().join() === 'black,pink,short', JSON.stringify(re));
 }
 
+/* ---- Precio de niño (14/10/2026) ---- */
+{
+  const T = await import('../v2/tienda.js');
+  const pink = { id:'pink', name:'Jersey Pink', price:799, price_kid:599, sizes:['10','12','M','L'] };
+  revisa('[niño] talla de niño cobra el precio de niño', T.preparaLinea(pink, { talla:'12' }).linea.precioUnitario === 599);
+  revisa('[niño] talla de adulto cobra el de adulto', T.preparaLinea(pink, { talla:'M', cantidad:2 }).linea.total === 1598);
+  revisa('[niño] sin precio de niño, un solo precio', T.preparaLinea({ ...pink, price_kid:null }, { talla:'12' }).linea.precioUnitario === 799);
+  const oferta = T.conOferta({ ...pink, oferta:{ price:549, endsOn:'2026-10-31' } });
+  revisa('[niño] con oferta, lo que más convenga, sin sumar', T.precioDeProducto(oferta, '12') === 549 && T.precioDeProducto(oferta, 'M') === 549);
+  revisa('[niño] la etiqueta dice "Desde" el de niño', JSON.stringify(T.precioDeEtiqueta(pink)) === '{"desde":true,"monto":599}' && T.precioDeEtiqueta(pink, 'L').monto === 799);
+  revisa('[niño] acepta priceKid en camello', T.precioDeProducto({ price:799, priceKid:650 }, '8') === 650);
+}
+
 /* ---- Ofertas (g5, 13/10/2026) ---- */
 {
   const T = await import('../v2/tienda.js');

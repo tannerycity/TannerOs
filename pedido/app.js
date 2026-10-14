@@ -34,7 +34,7 @@ import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
-import { textoHasta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
+import { textoHasta, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
          tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
   from '/v2/tienda.js';
 import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
@@ -269,7 +269,7 @@ function tarjeta({ tipo, item }) {
   }
   return `<a class="st-card" href="#/p/${esc(item.id)}" data-prod="${esc(item.id)}">${medioProducto(item)}
     <div class="st-card-txt">${aceptaPersonalizacion(item) ? '<span class="st-tag">Personalizable</span>' : ''}
-    <strong>${esc(item.name)}</strong><span class="st-precio">${item.precioAntes ? `<s>${money.format(item.precioAntes)}</s> ` : ''}${money.format(Number(item.price || 0))}</span>${item.ofertaHasta ? `<span class="st-oferta">${esc(textoHasta(item.ofertaHasta))}</span>` : ''}</div></a>`;
+    <strong>${esc(item.name)}</strong><span class="st-precio">${item.precioAntes ? `<s>${money.format(item.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(item))}</span>${item.ofertaHasta ? `<span class="st-oferta">${esc(textoHasta(item.ofertaHasta))}</span>` : ''}</div></a>`;
 }
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
@@ -315,7 +315,8 @@ function renderProducto(id) {
       <div class="st-pdp-info">
         <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
         <h1>${esc(p.name)}</h1>
-        <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${money.format(Number(p.price || 0))}</p>
+        <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p, e.talla || unica))}</p>
+        ${precioNinoDe(p) && !(e.talla || unica) ? `<p class="st-precios-nino">Niño (6 a 16) ${money.format(precioDeProducto(p, '10'))} · Adulto ${money.format(Number(p.price || 0))}</p>` : ''}
         ${p.ofertaHasta ? `<p class="st-oferta grande">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</p>` : ''}
         ${p.description ? `<p class="st-desc">${esc(p.description)}</p>` : ''}
         <section class="st-bloque${e.falta === 'talla' ? ' falta' : ''}" id="stBloqueTalla">
@@ -329,7 +330,7 @@ function renderProducto(id) {
         ${infoDeCompra()}
       </div>
     </article>
-    ${barraAgregar(`Agregar al pedido · ${money.format(Number(p.price || 0) * e.cantidad)}`, e.motivo)}`;
+    ${barraAgregar(`Agregar al pedido · ${money.format(precioDeProducto(p, e.talla || unica) * e.cantidad)}`, e.motivo)}`;
   pintaBarra(false);
   cableaGaleria(e);
   firmaFotos($('content'));

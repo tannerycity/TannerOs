@@ -136,7 +136,7 @@ function productCard(p){
   else if(!p.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   // En qué kits va: así se ve de un vistazo que el jersey suelto es el mismo.
   bundles.filter(b=>!b.archived&&kitIncluye(b,p.id)).forEach(b=>chips.push(`<span class="cat-chip kit">En ${esc(b.name)}</span>`));
-  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong></span>`;
+  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong>${Number(p.priceKid||0)>0?`<small class="cat-sub">Niño ${esc(money.format(Number(p.priceKid)))}</small>`:''}</span>`;
   if(canManage)btn.addEventListener('click',()=>openProductDrawer(p));
   else btn.disabled=true;
   return btn;
@@ -592,6 +592,7 @@ function openProductDrawer(p){
   $('pName').value=p?.name||'';
   $('pSku').value=p?.sku||'';
   $('pPrice').value=p?.price??'';
+  $('pKid').checked=Number(p?.priceKid||0)>0;$('pPriceKid').value=p?.priceKid??'';pintaPrecioNino();
   $('pCost').value=p?.cost??'';
   // Una categoria vieja se traduce a su boton en vez de mandarla a "Otro": si
   // no, abrir un producto migrado parece que no tuviera categoria.
@@ -631,6 +632,14 @@ function recomputeProductPreview(){
   if(puede)$('pMarginPreview').textContent=pct((price-cost)/price*100);
 }
 ['pPrice','pCost'].forEach(id=>$(id)?.addEventListener('input',recomputeProductPreview));
+/* Precio de niño (14/10/2026): la casilla enseña el segundo precio y el
+   primero pasa a decir "Precio adulto". */
+function pintaPrecioNino(){
+  const on=$('pKid')?.checked;
+  $('pPriceKidCampo')?.classList.toggle('hidden',!on);
+  const t=$('pPriceTit');if(t)t.textContent=on?'Precio adulto':'Precio de venta';
+}
+$('pKid')?.addEventListener('change',()=>{pintaPrecioNino();if($('pKid').checked)$('pPriceKid').focus();});
 async function saveProduct(){
   const name=$('pName').value.trim();
   if(name.length<2){drawerMsg('El nombre del producto es obligatorio.');return;}
@@ -638,6 +647,8 @@ async function saveProduct(){
   if(price==null||price<0){drawerMsg('El precio debe ser mayor o igual a 0.');return;}
   const cost=$('pCost').value===''?null:Number($('pCost').value);
   if(cost!=null&&cost<0){drawerMsg('El costo no puede ser negativo.');return;}
+  const priceKid=$('pKid').checked?Number($('pPriceKid').value||0):null;
+  if($('pKid').checked&&!(priceKid>0)){drawerMsg('Escribe el precio de niño, o apaga la casilla.');$('pPriceKid').focus();return;}
   const sizes=[...tallasElegidas];
   const current=draft.id?products.find(x=>x.id===draft.id):null;
   const btn=$('pSave');btn.disabled=true;
@@ -661,6 +672,12 @@ async function saveProduct(){
     // no puede decir "no se pudo guardar el producto": seria mentira, y quien
     // la lea va a volver a teclear un precio que ya estaba bien.
     guardado=true;
+    const antesNino=current?(Number(current.priceKid||0)||null):null;
+    if(priceKid!==antesNino){
+      await load();
+      const prodK=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);
+      if(prodK)await rpc('v2_set_product_price_kid',{organization_id:ctx.organization_id,product_id:prodK.id,price_kid:priceKid});
+    }
     if(persTocado){
       await load();
       const prodP=draft.id?products.find(x=>x.id===draft.id):products.find(x=>x.name===name);

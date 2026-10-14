@@ -1,7 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import '/v2/smart-select.js';
-import { conOferta, kitConOferta, nombreCorto } from '/v2/tienda.js';
+import { conOferta, kitConOferta, nombreCorto, precioDeProducto, precioNinoDe } from '/v2/tienda.js';
 import { gruposDeTallas } from '/pedido/catalogo.js';
 // Tallas de niño de la escala del club: si todo el kit va en estas, es precio Niño.
 const TALLAS_NINO=new Set(['2','4','6','8','10','12','14','16']);
@@ -90,7 +90,7 @@ function productCard(p){
   btn.innerHTML=`<span class="pick-foto"${attr}><b aria-hidden="true">${esc(iniciales)}</b></span>`
     +`<span class="pick-datos"><strong>${esc(p.name)}</strong>`
     +`<span>${esc(p.category||'Producto')}${tallas?` · ${tallas} tallas`:''}</span>`
-    +`<b>${p.precioAntes?`<s>${money.format(p.precioAntes)}</s> `:''}${money.format(Number(p.price||0))}</b>${p.ofertaHasta?'<em class="pick-oferta">Oferta</em>':''}</span><i class="pick-cuenta" hidden></i>`;
+    +`<b>${p.precioAntes?`<s>${money.format(p.precioAntes)}</s> `:''}${precioNinoDe(p)?`${money.format(precioDeProducto(p,'10'))} – `:''}${money.format(Number(p.price||0))}</b>${p.ofertaHasta?'<em class="pick-oferta">Oferta</em>':''}</span><i class="pick-cuenta" hidden></i>`;
   btn.addEventListener('click',()=>openProductDrawer(p));
   return btn;
 }
@@ -458,7 +458,7 @@ function addProductToCart(){
   const name=isJersey?$('pfName').value.trim():'',number=isJersey?$('pfNumber').value.trim():'',sleeve=JERSEY_RE.test(p.name||'')?mangaDe('pf'):null;
   cart.push({
     kind:'product',productId:p.id,talla,quantity:qty,personalizationName:name||null,number:number||null,sleeve,
-    total:Number(p.price||0)*qty,
+    total:precioDeProducto(p,talla)*qty,
     label:`${p.name} · ${talla}${qty>1?` ×${qty}`:''}${sleeve?` · manga ${sleeve}`:''}${name?` — ${name}${number?' #'+number:''}`:''}`
   });
   renderCart();

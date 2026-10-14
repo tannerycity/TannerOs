@@ -105,6 +105,25 @@ export function textoManga(m) {
    Devuelve la línea lista, o el motivo por el que todavía no. El motivo se
    escribe para leerse en la pantalla tal cual: quien compra no tiene por qué
    traducir un código de error. */
+/* Precio de niño (14/10/2026): un producto puede tener precio de niño; las
+   tallas de niño (2 a 16) cobran ése. Con oferta, lo que más le convenga a la
+   familia: no se suman ("uno u otro"). Igual que private.precio_producto. */
+const TALLAS_NINO = ['2', '4', '6', '8', '10', '12', '14', '16'];
+export function precioNinoDe(producto) {
+  const n = Number(producto?.price_kid ?? producto?.priceKid ?? 0);
+  return n > 0 ? n : null;
+}
+export function precioDeProducto(producto, talla) {
+  const base = Number(producto?.price || 0), nino = precioNinoDe(producto);
+  return nino && TALLAS_NINO.includes(String(talla ?? '').trim()) ? Math.min(nino, base) : base;
+}
+/* Lo que dice la etiqueta antes de elegir talla: "Desde $599" si hay precio de niño. */
+export function precioDeEtiqueta(producto, talla) {
+  if (talla) return { desde: false, monto: precioDeProducto(producto, talla) };
+  const nino = precioNinoDe(producto), base = Number(producto?.price || 0);
+  return nino && nino < base ? { desde: true, monto: nino } : { desde: false, monto: base };
+}
+
 export function preparaLinea(producto, opciones = {}) {
   if (!producto?.id) return { ok: false, motivo: 'Ese producto ya no está disponible.' };
 
@@ -133,8 +152,8 @@ export function preparaLinea(producto, opciones = {}) {
       productId: producto.id, nombreProducto: producto.name || 'Producto',
       talla, cantidad,
       personalizationName: nombre, numero, manga,
-      precioUnitario: Number(producto.price || 0),
-      total: Number(producto.price || 0) * cantidad
+      precioUnitario: precioDeProducto(producto, talla),
+      total: precioDeProducto(producto, talla) * cantidad
     }
   };
 }

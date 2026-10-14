@@ -257,7 +257,7 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
 
 /* ===== Kit Dúo (14/10/2026): "2 jerseys, los que quieras, + short" ===== */
 {
-  const OFERTA2 = { products: OFERTA.products, bundles: [{ id:'k-duo', name:'Kit Dúo', priceAdult:1500, priceKid:1299, available:true, components:[
+  const OFERTA2 = { products: OFERTA.products.map(p => p.id === 'p-black' ? { ...p, priceKid: 599 } : p), bundles: [{ id:'k-duo', name:'Kit Dúo', priceAdult:1500, priceKid:1299, available:true, components:[
     { productId:'p-short', name:'Short', sizes:TALLAS, qty:1, pool:null },
     { productId:'p-jersey', name:'Jersey "Wet Blue" - Home Edition', sizes:TALLAS, qty:2, pool:['p-jersey','p-black'], poolName:'Jersey a elegir' }] }] };
   const p2 = await nav.newPage({ viewport:{ width:390, height:844 } });
@@ -293,6 +293,17 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   await p2.waitForSelector('#resumenCarrito', { timeout:4000 }).catch(() => {});
   const resumenDuo = (await p2.textContent('#resumenCarrito').catch(() => '')).replace(/\s+/g, ' ');
   revisa('[dúo] con el Black, el Wet Blue y el short, a precio Niño', /Kit Dúo/.test(resumenDuo) && /1,299/.test(resumenDuo) && /Black/.test(resumenDuo) && /Wet Blue/.test(resumenDuo) && /Short/.test(resumenDuo), resumenDuo);
+  // Precio de niño (14/10/2026): el Black cuesta $599 en tallas de niño.
+  await p2.goto(BASE + '/pedido/#/c/jersey');
+  await p2.waitForSelector('[data-prod="p-black"]', { timeout:4000 });
+  revisa('[niño] la tarjeta dice "Desde $599"', /Desde\s*\$599/.test(await p2.textContent('[data-prod="p-black"] .st-precio')), await p2.textContent('[data-prod="p-black"] .st-precio'));
+  await p2.goto(BASE + '/pedido/#/p/p-black');
+  await p2.waitForSelector('[data-talla="12"]', { timeout:4000 });
+  revisa('[niño] la ficha dice los dos precios', /Niño \(6 a 16\) \$599\.00 · Adulto \$799\.00/.test(await p2.textContent('.st-precios-nino')));
+  await p2.click('[data-talla="12"]');
+  revisa('[niño] talla 12 cobra $599', /\$599\.00/.test(await p2.textContent('#stAgregar')) && /\$599/.test(await p2.textContent('.st-pdp-precio')));
+  await p2.click('[data-talla="M"]');
+  revisa('[niño] talla M cobra $799', /\$799\.00/.test(await p2.textContent('#stAgregar')));
   await p2.close();
 }
 

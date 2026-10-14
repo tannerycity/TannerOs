@@ -81,7 +81,10 @@ export function fotosPorFirmar(productos = [], { completas = false } = {}) {
    cuatro. Un kit no tiene foto propia; se ve con sus prendas. */
 export function fotosDeKit(kit) {
   const vistas = new Set(), fotos = [];
-  for (const p of kit?.pieces || []) {
+  // Una pieza a elegir (Kit Dúo) se ve con sus opciones, no con una sola.
+  const piezas = (kit?.pieces || []).flatMap(p => Array.isArray(p.opciones) && p.opciones.length
+    ? p.opciones.map(o => ({ photoThumbPath: o.photoThumbPath, photoBucket: o.photoBucket, name: o.name })) : [p]);
+  for (const p of piezas) {
     const ruta = p.photoThumbPath;
     if (!ruta || vistas.has(ruta)) continue;
     vistas.add(ruta);

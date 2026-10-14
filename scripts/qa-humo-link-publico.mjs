@@ -255,6 +255,47 @@ await pg.click('#resumenCarrito [data-quita]');
 await pg.waitForTimeout(300);
 revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')) === null && (await pg.$('.st-card')) !== null);
 
+/* ===== Kit Dúo (14/10/2026): "2 jerseys, los que quieras, + short" ===== */
+{
+  const OFERTA2 = { products: OFERTA.products, bundles: [{ id:'k-duo', name:'Kit Dúo', priceAdult:1500, priceKid:1299, available:true, components:[
+    { productId:'p-short', name:'Short', sizes:TALLAS, qty:1, pool:null },
+    { productId:'p-jersey', name:'Jersey "Wet Blue" - Home Edition', sizes:TALLAS, qty:2, pool:['p-jersey','p-black'], poolName:'Jersey a elegir' }] }] };
+  const p2 = await nav.newPage({ viewport:{ width:390, height:844 } });
+  p2.on('pageerror', e => errs.push('duo: ' + e.message));
+  await p2.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
+  await p2.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v}}' }));
+  await p2.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+    export function createClient(){return{
+      auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+      storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/qa-foto/x'})),error:null})})},
+      rpc:async(n,p={})=>{
+        if(n==='v2_public_offerings')return{data:${JSON.stringify(OFERTA2)},error:null};
+        if(n==='v2_public_payment_info')return{data:${JSON.stringify(PAGO)},error:null};
+        if(n==='v2_public_context')return{data:{organizationId:'org-qa',brand:'Club QA'},error:null};
+        return {data:null,error:null};}};}` }));
+  await p2.goto(BASE + '/pedido/#/k/k-duo');
+  await p2.waitForSelector('.st-pieza', { timeout:5000 });
+  revisa('[dúo] la ficha pide el short y 2 jerseys a elegir', (await p2.$$('.st-pieza')).length === 3 && (await p2.$$('.st-pieza.elige')).length === 2);
+  revisa('[dúo] cada espacio enseña sólo las opciones del kit', JSON.stringify(await p2.$$eval('.st-pieza.elige >> nth=0', x => [...x[0].querySelectorAll('[data-pieza-elige]')].map(b => b.textContent))) === '["Wet Blue","Black"]');
+  await p2.click('[data-tier="Niño"]');
+  await p2.click('[data-ranura="p-short#0"] [data-pieza-talla="12"]');
+  await p2.click('#stAgregar');
+  revisa('[dúo] sin elegir el jersey no se agrega y dice qué falta', /Elige jersey a elegir/i.test(await p2.innerText('.st-motivo')), await p2.innerText('.st-motivo'));
+  await p2.click('.st-pieza.elige >> nth=0 >> [data-pieza-elige="p-black"]');
+  await p2.click('.st-pieza.elige >> nth=0 >> [data-pieza-elige="p-jersey"]');
+  revisa('[dúo] elegido el jersey, salen sus tallas', (await p2.$$('[data-ranura="elige1#0"] [data-pieza-talla]')).length === 12 && /Black/.test(await p2.textContent('[data-ranura="elige1#0"] strong')));
+  for (const r of ['elige1#0', 'elige1#1']) await p2.click(`[data-ranura="${r}"] [data-pieza-talla="12"]`);
+  if (process.env.QA_FOTO) await p2.locator('.st-incluye').screenshot({ path: process.env.QA_FOTO.replace(/\.png$/, '-duo.png') });
+  await p2.click('#stAgregar');
+  await p2.waitForTimeout(300);
+  revisa('[dúo] se agrega al pedido', (await p2.$eval('#stCarritoN', b => b.hidden ? '0' : b.textContent)) === '1');
+  await p2.goto(BASE + '/pedido/#/pedido');
+  await p2.waitForSelector('#resumenCarrito', { timeout:4000 }).catch(() => {});
+  const resumenDuo = (await p2.textContent('#resumenCarrito').catch(() => '')).replace(/\s+/g, ' ');
+  revisa('[dúo] con el Black, el Wet Blue y el short, a precio Niño', /Kit Dúo/.test(resumenDuo) && /1,299/.test(resumenDuo) && /Black/.test(resumenDuo) && /Wet Blue/.test(resumenDuo) && /Short/.test(resumenDuo), resumenDuo);
+  await p2.close();
+}
+
 revisa('sin errores de consola', errs.length === 0, errs.join('\n   '));
 await nav.close(); srv.close();
 console.log(fallos

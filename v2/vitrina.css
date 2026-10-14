@@ -181,3 +181,7 @@
 .fam-otravez-que{margin:2px 0 0;font-size:14px;color:#2b4146;line-height:1.4}
 .fam-otravez-aviso{margin:8px 0 0;padding:8px 10px;border-radius:10px;background:#fff8e6;color:#6b4e08;font-size:12.5px;line-height:1.4}
 .fam-otravez-btn{width:100%;min-height:46px;margin-top:10px;border:0;border-radius:999px;background:#169b4b;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+
+/* Kit Dúo (14/10/2026): la pieza a elegir enseña sus opciones como botones. */
+.fam-pieza-elige{display:grid;gap:8px}
+.fam-elige{display:flex;flex-wrap:wrap;gap:7px}

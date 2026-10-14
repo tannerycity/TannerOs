@@ -34,7 +34,7 @@ import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
-import { textoHasta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, precioDeKit, aceptaPersonalizacion, llevaManga,
+import { textoHasta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
          tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
   from '/v2/tienda.js';
 import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
@@ -359,11 +359,16 @@ function renderKit(id) {
           <div class="st-segmento" role="radiogroup" aria-label="Para quién es">${tiers.map(t => `<button type="button" role="radio" aria-checked="${e.tier === t}" data-tier="${esc(t)}"${e.tier === t ? ' class="activa"' : ''}>
             <strong>${esc(t)}</strong><small>${money.format(precioDeKit(k, t))}</small></button>`).join('')}</div></section>` : ''}
         <section class="st-bloque"><div class="st-bloque-cab"><h2>Incluye</h2><span>Elige la talla de cada pieza</span></div>
-          <ul class="st-incluye">${ranuras.map(r => {
+          <ul class="st-incluye">${ranuras.map(r0 => {
+            // Pieza a elegir (Kit Dúo, 14/10/2026): primero cuál, luego su talla.
+            const r = ranuraElegida(r0, e.elegidos);
+            if (r0.pool && !r.elegido) return `<li class="st-pieza elige${e.falta === r0.id ? ' falta' : ''}" data-ranura="${esc(r0.id)}">
+              <div class="st-pieza-cab">${medio(null, null, r0.nombre, 'mini')}<strong>${esc(r0.nombre)}</strong><span>Elige cuál</span></div>
+              <div class="st-tallas fila st-opciones">${(r0.opciones || []).map(o => `<button type="button" class="st-talla" data-pieza-elige="${esc(String(o.id ?? o.product_id))}">${esc(nombreCorto(o.name))}</button>`).join('')}</div></li>`;
             const elegida = r.unica || e.tallas[r.id] || '';
             return `<li class="st-pieza${e.falta === r.id ? ' falta' : ''}" data-ranura="${esc(r.id)}">
               <div class="st-pieza-cab">${medio(r.producto?.photoThumbPath, r.producto?.photoBucket, r.nombre, 'mini')}
-                <strong>${esc(r.nombre)}</strong><span class="${elegida ? 'ok' : ''}">${elegida ? `Talla ${esc(elegida)}` : 'Elige talla'}</span></div>
+                <strong>${r0.pool ? `${esc(nombreCorto(r.elegido.name))} <button type="button" class="st-cambia" data-pieza-cambia="1">Cambiar</button>` : esc(r.nombre)}</strong><span class="${elegida ? 'ok' : ''}">${elegida ? `Talla ${esc(elegida)}` : 'Elige talla'}</span></div>
               ${r.unica || !r.tallas.length ? '' : `<div class="st-tallas fila">${tallasDePieza(r.tallas, e.tier).map(t =>
                 `<button type="button" class="st-talla${elegida === t ? ' activa' : ''}" data-pieza-talla="${esc(t)}" aria-pressed="${elegida === t}">${esc(t)}</button>`).join('')}</div>`}
             </li>`; }).join('')}</ul></section>
@@ -406,6 +411,19 @@ function cablea() {
     }
     const tier = t.closest('[data-tier]');
     if (tier && ficha) { const e = eligiendoKit[ficha]; e.tier = tier.dataset.tier; e.motivo = null; e.falta = null; repinta(renderKit, ficha); return; }
+    const elige = t.closest('[data-pieza-elige]'), cambia = t.closest('[data-pieza-cambia]');
+    if ((elige || cambia) && ficha) {
+      const e = eligiendoKit[ficha], r = (elige || cambia).closest('[data-ranura]').dataset.ranura;
+      const elegidos = { ...(e.elegidos || {}) };
+      if (elige) elegidos[r] = elige.dataset.piezaElige; else delete elegidos[r];
+      const kit = (catalogo.bundles || []).find(x => String(x.id) === ficha);
+      const nueva = ranuraElegida(ranurasDeKit(kit).find(x => x.id === r), elegidos);
+      const tallas = { ...(e.tallas || {}) };
+      if (tallas[r] && !(nueva.tallas || []).includes(tallas[r])) delete tallas[r];
+      Object.assign(e, { elegidos, tallas });
+      if (e.falta === r) { e.falta = null; e.motivo = null; }
+      repinta(renderKit, ficha); return;
+    }
     const pieza = t.closest('[data-pieza-talla]');
     if (pieza && ficha) {
       const e = eligiendoKit[ficha], r = pieza.closest('[data-ranura]').dataset.ranura;
@@ -454,7 +472,7 @@ function agregaKit(id) {
   const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
   if (!k) return;
   const e = eligiendoKit[id];
-  const r = preparaKit(k, { tier: e.tier, tallas: e.tallas || {}, nombre: e.nombre, numero: e.numero, manga: e.manga });
+  const r = preparaKit(k, { tier: e.tier, tallas: e.tallas || {}, elegidos: e.elegidos || {}, nombre: e.nombre, numero: e.numero, manga: e.manga });
   if (!r.ok) { falla(e, r, renderKit, id); return; }
   // Convertir: el jersey suelto deja el carrito y se vuelve al pedido.
   const reemplaza = (Array.isArray(e.reemplaza) ? e.reemplaza : e.reemplaza ? [e.reemplaza] : []).filter(k => carrito[k]);

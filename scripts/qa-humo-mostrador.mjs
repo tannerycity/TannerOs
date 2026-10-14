@@ -28,7 +28,10 @@ const CAT={products:[{id:'p1',name:'Jersey "Wet Blue" - Home Edition',category:'
   {id:'p3',name:'Jersey "Pink Cantera" - Away Edition',category:'jersey',price:699,active:true,archived:false,sizes:TALLAS,photoPath:null}],
   // El Kit Training trae el mismo jersey: el mostrador ofrece convertirlo (13/10/2026).
   bundles:[{id:'b1',name:'Kit Training',active:true,archived:false,componentsResolved:true,priceAdult:1300,priceKid:1100,
-    components:[{productId:'p1',name:'Jersey "Wet Blue" - Home Edition',qty:1},{productId:'p3',name:'Jersey "Pink Cantera" - Away Edition',qty:1},{productId:'p2',name:'Short Training',qty:1}]}]};
+    components:[{productId:'p1',name:'Jersey "Wet Blue" - Home Edition',qty:1},{productId:'p3',name:'Jersey "Pink Cantera" - Away Edition',qty:1},{productId:'p2',name:'Short Training',qty:1}]},
+    // Kit Dúo (14/10/2026): 2 jerseys a elegir + short.
+    {id:'b2',name:'Kit Dúo',active:true,archived:false,componentsResolved:true,priceAdult:1500,priceKid:1299,
+    components:[{productId:'p2',name:'Short Training',qty:1},{productId:'p1',name:'Jersey "Wet Blue" - Home Edition',qty:2,pool:['p1','p3'],poolName:'Jersey a elegir'}]}]};
 const JUG=[{id:'t1',first_name:'Dario',last_name:'Montalvo Díaz',category:'T10',jersey_number:7,status:'active'},
            {id:'t2',first_name:'Erick',last_name:'García Medina',category:'T10',jersey_number:null,status:'active'},
            {id:'t3',first_name:'Baja',last_name:'Ejemplo',category:'T8',status:'withdrawn'}];
@@ -141,6 +144,29 @@ await pg.waitForTimeout(300);
 const cobros=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_post_order_payment_at_cashier').map(x=>x.p));
 revisa('cobra con método, monto, referencia y quién cobró', cobros.length===1&&cobros[0].order_id==='o-1'&&cobros[0].amount===349.5&&cobros[0].method==='transfer'&&cobros[0].reference==='SPEI 123', JSON.stringify(cobros));
 revisa('y dice cuánto queda debiendo', /Queda debiendo \$349\.50/.test(await pg.textContent('#cobroMsg')), await pg.textContent('#cobroMsg'));
+// Kit Dúo en el mostrador: elegir los dos jerseys y sus tallas.
+await pg.click('#confirmNew');
+await pg.waitForTimeout(300);
+await pg.click('.pick-kit[data-bid="b2"]');
+await pg.waitForSelector('#bundleForm:not(.hidden)',{timeout:4000});
+revisa('[dúo] la tarjeta dice "2× jersey a elegir"', /2× jersey a elegir/.test(await pg.textContent('.pick-kit[data-bid="b2"]')));
+revisa('[dúo] cada espacio enseña las opciones del kit', (await pg.$$('#bfPieces [data-elige="1"]')).length===2 && (await pg.$$('#bfPieces [data-elige="2"]')).length===2);
+await pg.click('#bfAdd');
+revisa('[dúo] sin elegir no se agrega y dice cuál falta', /Elige jersey a elegir 1/.test(await pg.textContent('#drawerMessage')), await pg.textContent('#drawerMessage'));
+await pg.click('#bfPieces [data-elige="1"][data-pid="p3"]');
+await pg.click('#bfPieces [data-elige="2"][data-pid="p3"]');
+for(const i of [1,2])await pg.click(`#bfPieces [data-pieza="${i}"][data-talla="10"]`);
+await pg.fill('#bfPieces .bf-talla','10');
+await pg.click('#bfAdd');
+await pg.waitForTimeout(200);
+await pg.evaluate(()=>document.getElementById('backdrop').click());
+const duoRen=await pg.$$eval('#cartList .cart-row span',xs=>xs.map(x=>x.textContent));
+revisa('[dúo] se agrega a precio Niño con las tallas de niño', duoRen.length===1&&/Kit Dúo \(Niño\)/.test(duoRen[0]), JSON.stringify(duoRen));
+if(await pg.isVisible('#capPlayer'))await pg.selectOption('#capPlayer','t1');
+await pg.click('#createOrder');
+await pg.waitForTimeout(500);
+const duoPed=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_create_internal_order').pop()?.p?.lines?.[0]);
+revisa('[dúo] el pedido viaja con los dos Pink elegidos y el short', duoPed?.bundleId==='b2'&&duoPed?.pieces?.map(x=>x.productId).sort().join()==='p2,p3,p3', JSON.stringify(duoPed));
 // Cliente externo
 await pg.click('#confirmNew');
 await pg.waitForTimeout(300);

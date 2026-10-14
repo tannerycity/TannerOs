@@ -278,10 +278,19 @@ export function categoriaCanonica(texto) {
 export function ranurasDeKit(kit) {
   const piezas = Array.isArray(kit?.pieces) ? kit.pieces : [];
   const ranuras = [];
-  for (const pieza of piezas) {
+  piezas.forEach((pieza, k) => {
     const veces = Math.max(1, Math.min(20, Number(pieza?.qty) || 1));
+    // Pieza a elegir (Kit Dúo, 14/10/2026): "2 jerseys, los que quieras".
+    // La ranura no trae producto: lo trae lo que se elija entre sus opciones.
+    const pool = Array.isArray(pieza?.pool) && pieza.pool.length ? pieza.pool.map(String) : null;
+    const nombre = pool ? (pieza.poolName || pieza.pool_name || 'Pieza a elegir') : pieza.name;
     for (let i = 0; i < veces; i++) {
-      ranuras.push({
+      ranuras.push(pool ? {
+        id: `elige${k}#${i}`, pool, productId: null, base: nombre,
+        nombre: veces > 1 ? `${nombre} ${i + 1}` : nombre,
+        opciones: Array.isArray(pieza.opciones) ? pieza.opciones : [],
+        producto: null, tallas: [], unica: null
+      } : {
         id: `${pieza.product_id}#${i}`,
         productId: pieza.product_id,
         nombre: veces > 1 ? `${pieza.name} ${i + 1}` : pieza.name,
@@ -292,8 +301,29 @@ export function ranurasDeKit(kit) {
         unica: tallaUnica(pieza)
       });
     }
-  }
+  });
   return ranuras;
+}
+/* La ranura a elegir ya con su producto: de ahí salen sus tallas. */
+export function ranuraElegida(r, elegidos = {}) {
+  if (!r?.pool) return r;
+  const id = elegidos?.[r.id];
+  const p = id && r.pool.includes(String(id)) ? (r.opciones || []).find(o => String(o.id ?? o.product_id) === String(id)) : null;
+  if (!p) return r;
+  return { ...r, productId: String(p.id ?? p.product_id), producto: p, elegido: p, tallas: tallasDe(p), unica: tallaUnica(p) };
+}
+/* "Jersey "Wet Blue" - Home Edition" -> "Wet Blue": para botones chicos. */
+export function nombreCorto(n) {
+  const t = String(n || '').replace(/^jersey\s+/i, '').replace(/["“”]/g, '').split(' - ')[0].replace(/\s+edition$/i, '').trim();
+  return t || String(n || '');
+}
+/* Las opciones de cada pieza a elegir salen del catálogo de la tienda: sólo
+   las que se venden hoy. */
+export function conOpcionesDeKit(kit, productos = []) {
+  if (!Array.isArray(kit?.pieces) || !kit.pieces.some(p => Array.isArray(p?.pool))) return kit;
+  const porId = new Map(productos.map(p => [String(p.id ?? p.product_id), p]));
+  return { ...kit, pieces: kit.pieces.map(p => Array.isArray(p?.pool)
+    ? { ...p, opciones: p.pool.map(id => porId.get(String(id))).filter(Boolean) } : p) };
 }
 
 export const TIER_ADULTO = 'Adulto';
@@ -332,7 +362,9 @@ export function preparaKit(kit, opciones = {}) {
 
   const elegidas = opciones.tallas || {};
   const piezas = [];
-  for (const r of ranuras) {
+  for (const r0 of ranuras) {
+    const r = ranuraElegida(r0, opciones.elegidos);
+    if (r.pool && !r.productId) return { ok: false, motivo: `Elige ${r.nombre.replace(/^\w/, c => c.toLowerCase())}.`, falta: r.id };
     const talla = r.unica || tallaValida(r.producto, elegidas[r.id]);
     // Una pieza sin catálogo de tallas viaja sin talla; una CON catálogo y sin
     // elegir no pasa. Un kit a medias es un pedido que el proveedor no puede
@@ -340,7 +372,7 @@ export function preparaKit(kit, opciones = {}) {
     if (!talla && r.tallas.length) {
       return { ok: false, motivo: `Elige la talla de ${r.nombre}.`, falta: r.id };
     }
-    piezas.push({ productId: r.productId, talla: talla || null, nombre: r.nombre });
+    piezas.push({ productId: r.productId, talla: talla || null, nombre: r.elegido ? nombreCorto(r.elegido.name) : r.nombre });
   }
 
   const nombre = nombreValido(opciones.nombre);
@@ -356,7 +388,7 @@ export function preparaKit(kit, opciones = {}) {
     linea: {
       kind: 'bundle',
       bundleId: kit.id, nombreProducto: kit.name || 'Kit', tier,
-      piezas, cantidad: 1,
+      piezas, cantidad: 1, conEleccion: ranuras.some(r => r.pool) || undefined,
       personalizationName: nombre, numero, manga,
       precioUnitario: precio, total: precio
     }
@@ -408,7 +440,8 @@ function sugerenciaDe(kit, ancla, libres) {
   if (ranuras.length < 2) return null;
   const tomadas = new Map(); // ranura.id -> [llave, linea]
   const usar = (llave, l) => {
-    const r = ranuras.find(x => String(x.productId) === String(l.productId) && !tomadas.has(x.id));
+    const r = ranuras.find(x => !x.pool && String(x.productId) === String(l.productId) && !tomadas.has(x.id))
+      || ranuras.find(x => x.pool && x.pool.includes(String(l.productId)) && !tomadas.has(x.id));
     if (!r) return false;
     tomadas.set(r.id, [llave, l]); return true;
   };
@@ -423,10 +456,11 @@ function sugerenciaDe(kit, ancla, libres) {
   const tier = tierPorTalla(kit, talla);
   const precio = precioDeKit(kit, tier);
   if (!(precio > 0)) return null;
-  const tallas = {};
+  const tallas = {}, elegidos = {};
   for (const r of ranuras) {
-    if (r.unica) continue;
     const t = tomadas.get(r.id);
+    if (t && r.pool) elegidos[r.id] = String(t[1].productId);
+    if (r.unica) continue;
     if (t) { if (t[1].talla) tallas[r.id] = t[1].talla; continue; }
     // Lo que falta (el short, el otro jersey), en la misma talla si existe.
     if (talla && r.tallas.includes(talla)) tallas[r.id] = talla;
@@ -439,8 +473,9 @@ function sugerenciaDe(kit, ancla, libres) {
     diferencia: Math.round((precio - sueltos) * 100) / 100,
     llaves: cubiertas.map(([k]) => k),
     cubre: cubiertas.map(([, l]) => l.nombreProducto),
-    incluye: ranuras.filter(r => !tomadas.has(r.id)).map(r => r.nombre),
-    opciones: { tier, tallas, nombre: a.personalizationName || '', numero: a.numero || '', manga: a.manga || 'corta' }
+    // "+ otro jersey a elegir y short": la pieza a elegir no tiene nombre propio.
+    incluye: ranuras.filter(r => !tomadas.has(r.id)).map(r => r.pool ? `otro ${String(r.base || r.nombre).toLocaleLowerCase('es-MX')}` : r.nombre),
+    opciones: { tier, tallas, elegidos, nombre: a.personalizationName || '', numero: a.numero || '', manga: a.manga || 'corta' }
   };
 }
 
@@ -561,15 +596,16 @@ export function armaRecompra(pedido, productos = [], kits = []) {
     const tier = /ni/i.test(base.bundleTier || '') ? 'Niño' : /adul/i.test(base.bundleTier || '') ? 'Adulto' : undefined;
     const usadas = new Set();
     for (let vuelta = 0; vuelta < 20 && usadas.size < piezas.length; vuelta++) {
-      const tallas = {}, deEste = [];
+      const tallas = {}, elegidos = {}, deEste = [];
       for (const ranura of ranurasDeKit(kit)) {
-        const k = piezas.findIndex((x, n) => !usadas.has(n) && String(x.productId) === String(ranura.productId));
-        if (k >= 0) { usadas.add(k); deEste.push(piezas[k]); if (piezas[k].talla) tallas[ranura.id] = piezas[k].talla; }
+        const vale = x => ranura.pool ? ranura.pool.includes(String(x.productId)) : String(x.productId) === String(ranura.productId);
+        const k = piezas.findIndex((x, n) => !usadas.has(n) && vale(x));
+        if (k >= 0) { usadas.add(k); deEste.push(piezas[k]); if (ranura.pool) elegidos[ranura.id] = String(piezas[k].productId); if (piezas[k].talla) tallas[ranura.id] = piezas[k].talla; }
       }
       if (!deEste.length) break;
       const con = deEste.find(x => x.nombre || x.numero) || {};
       const manga = (deEste.find(x => x.manga) || {}).manga;
-      const r = preparaKit(kit, { tier, tallas, nombre: con.nombre, numero: con.numero, manga });
+      const r = preparaKit(kit, { tier, tallas, elegidos, nombre: con.nombre, numero: con.numero, manga });
       if (r.ok) lineas.push(r.linea); else faltan.push(`${kit.name}: ${r.motivo}`);
     }
   }

@@ -67,6 +67,8 @@ async function load(){
   const data=await rpc('v2_catalog',{organization_id:ctx.organization_id});
   products=data?.products||[];
   bundles=data?.bundles||[];
+  $('recargoMangaCaja')?.classList.toggle('hidden',!canManage);
+  if($('recargoManga')&&document.activeElement!==$('recargoManga'))$('recargoManga').value=Number(data?.recargoMangaLarga||0)||'';
   ofertas=canPromos?((await rpc('v2_promotions',{organization_id:ctx.organization_id}).catch(()=>[]))||[]):[];
   renderPendientes();
   renderBundles();
@@ -676,6 +678,11 @@ function pintaPrecioNino(){
   const t=$('pPriceTit');if(t)t.textContent=on?'Precio adulto':'Precio de venta';
 }
 $('pKid')?.addEventListener('change',()=>{pintaPrecioNino();if($('pKid').checked)$('pPriceKid').focus();});
+$('recargoManga')?.addEventListener('change',async e=>{
+  const monto=Math.max(0,Math.round(Number(e.target.value||0)));
+  try{await rpc('v2_set_recargo_manga',{organization_id:ctx.organization_id,monto});e.target.value=monto||'';e.target.closest('.recargo-manga').classList.add('guardado');setTimeout(()=>e.target.closest('.recargo-manga')?.classList.remove('guardado'),1500);}
+  catch(err){alert(err.message||'No se pudo guardar el cargo.');}
+});
 async function saveProduct(){
   const name=$('pName').value.trim();
   if(name.length<2){drawerMsg('El nombre del producto es obligatorio.');return;}

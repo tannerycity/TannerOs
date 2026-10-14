@@ -156,6 +156,8 @@ revisa('[dúo] sin elegir no se agrega y dice cuál falta', /Elige jersey a eleg
 await pg.click('#bfPieces [data-elige="1"][data-pid="p3"]');
 await pg.click('#bfPieces [data-elige="2"][data-pid="p3"]');
 for(const i of [1,2])await pg.click(`#bfPieces [data-pieza="${i}"][data-talla="10"]`);
+revisa('[manga] cada jersey del kit trae su manga; el short no', (await pg.$$('#bfPieces [data-manga-slot]')).length===2 && await pg.isHidden('#bfManga'));
+await pg.click('#bfPieces [data-manga-slot="1"] [data-m="larga"]');
 await pg.fill('#bfPieces .bf-talla','10');
 await pg.click('#bfAdd');
 await pg.waitForTimeout(200);
@@ -167,6 +169,7 @@ await pg.click('#createOrder');
 await pg.waitForTimeout(500);
 const duoPed=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_create_internal_order').pop()?.p?.lines?.[0]);
 revisa('[dúo] el pedido viaja con los dos Pink elegidos y el short', duoPed?.bundleId==='b2'&&duoPed?.pieces?.map(x=>x.productId).sort().join()==='p2,p3,p3', JSON.stringify(duoPed));
+revisa('[manga] uno de manga larga y otro corta, y el short sin manga', JSON.stringify(duoPed?.pieces?.map(x=>x.sleeve||'-'))==='["-","larga","corta"]', JSON.stringify(duoPed?.pieces));
 // Cliente externo
 await pg.click('#confirmNew');
 await pg.waitForTimeout(300);

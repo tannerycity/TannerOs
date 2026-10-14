@@ -194,7 +194,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   await pg.waitForSelector('.st-convierte', { timeout:4000 }).catch(() => {});
   const lleno = await pg.$$eval('.st-pieza .st-pieza-cab span', ss => ss.map(x => x.textContent));
   revisa('16. el kit abre lleno: jersey y short en talla 10, calcetas únicas', JSON.stringify(lleno) === '["Talla 10","Talla 10","Talla Universal"]', JSON.stringify(lleno));
-  revisa('16. con su nombre, número y manga', (await pg.inputValue('[data-campo="nombre"]')) === 'LEO' && (await pg.getAttribute('[data-manga="larga"]', 'aria-pressed')) === 'true');
+  revisa('16. con su nombre, número y manga', (await pg.inputValue('[data-campo="nombre"]')) === 'LEO' && (await pg.getAttribute('.st-pieza [data-pieza-manga="larga"]', 'aria-pressed')) === 'true');
   await pg.click('#stAgregar');
   await pg.waitForSelector('#orderForm', { timeout:5000 }).catch(() => {});
   const ahora = (await pg.textContent('#resumenCarrito').catch(() => '')).replace(/\s+/g, ' ');

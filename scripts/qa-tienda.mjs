@@ -472,6 +472,28 @@ revisa('un kit sin precio no se vende',
   revisa('[niño] acepta priceKid en camello', T.precioDeProducto({ price:799, priceKid:650 }, '8') === 650);
 }
 
+/* ---- Manga larga con cargo y manga por jersey (14/10/2026) ---- */
+{
+  const T = await import('../v2/tienda.js');
+  const J = id => ({ id, name:`Jersey ${id}`, price:799, price_kid:599, sizes:['12','M'], recargoManga:50 });
+  const cat = T.conRecargo({ products:[J('pink'), J('black'), { id:'short', name:'Short', price:350, sizes:['12','M'] }],
+    bundles:[{ id:'duo', name:'Kit Dúo', price_adult:1500, price_kid:1299, pieces:[{ product_id:'short', name:'Short', sizes:['12','M'] },
+      { product_id:'pink', name:'Jersey pink', qty:2, pool:['pink','black'], poolName:'Jersey a elegir' }] }] }, 50);
+  const duo = T.conOpcionesDeKit(cat.bundles[0], cat.products);
+  revisa('[manga] el cargo del club llega a productos y kits', T.recargoDe(cat.products[2]) === 50 && T.recargoDe(duo) === 50);
+  const suelto = T.preparaLinea(cat.products[0], { talla:'M', manga:'larga', cantidad:2 }).linea;
+  revisa('[manga] jersey suelto de manga larga: precio + $50', suelto.precioUnitario === 849 && suelto.total === 1698, JSON.stringify(suelto));
+  revisa('[manga] corta, sin cargo', T.preparaLinea(cat.products[0], { talla:'M', manga:'corta' }).linea.precioUnitario === 799);
+  const k = T.preparaKit(duo, { tier:'Niño', elegidos:{ 'elige1#0':'pink', 'elige1#1':'black' }, tallas:{ 'short#0':'12', 'elige1#0':'12', 'elige1#1':'12' }, mangas:{ 'elige1#0':'larga' } });
+  revisa('[manga] en el kit, un jersey largo y otro corto: $1,299 + $50', k.ok && k.linea.total === 1349 && k.linea.largas === 1, JSON.stringify(k));
+  revisa('[manga] cada jersey lleva su manga; el short ninguna', JSON.stringify(k.linea.piezas.map(p => p.manga || '-')) === '["-","larga","corta"]', JSON.stringify(k.linea.piezas));
+  const k2 = T.preparaKit(duo, { tier:'Niño', elegidos:{ 'elige1#0':'pink', 'elige1#1':'black' }, tallas:{ 'short#0':'12', 'elige1#0':'12', 'elige1#1':'12' }, mangas:{ 'elige1#1':'larga' } });
+  revisa('[manga] distinta manga, distinto renglón', T.llaveDeKit(k.linea) !== T.llaveDeKit(k2.linea));
+  const c = T.agregaAlCarrito(T.agregaAlCarrito({}, T.preparaLinea(cat.products[0], { talla:'M', manga:'larga' }).linea), T.preparaLinea(cat.products[1], { talla:'M' }).linea);
+  const sug = T.sugerenciasDeKit(c, [duo])[0];
+  revisa('[manga] al convertir, el jersey largo sigue largo y el kit cobra su cargo', sug && sug.opciones.mangas['elige1#0'] === 'larga' && sug.precio === 1550 && T.preparaKit(duo, sug.opciones).linea.total === 1550, JSON.stringify(sug && [sug.opciones, sug.precio]));
+}
+
 /* ---- Ofertas (g5, 13/10/2026) ---- */
 {
   const T = await import('../v2/tienda.js');

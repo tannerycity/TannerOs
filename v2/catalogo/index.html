@@ -42,6 +42,11 @@
     <div class="panel-head"><div><div class="eyebrow">PRODUCTOS</div><h2>Catálogo de piezas</h2><p class="muted">Las prendas sueltas que después se combinan en los kits.</p></div>
       <div class="panel-head-actions"><label class="inline-check"><input type="checkbox" id="showArchived"> Ver archivados</label></div>
     </div>
+    <!-- Manga larga con cargo (14/10/2026): "se paga 50 pesos más por ser de manga larga". -->
+    <label id="recargoMangaCaja" class="recargo-manga hidden" for="recargoManga">
+      <span><b>Manga larga</b><small>Se suma a cada jersey de manga larga, suelto o en kit.</small></span>
+      <span class="recargo-campo">+ $<input id="recargoManga" type="number" min="0" max="5000" step="1" inputmode="numeric" placeholder="0"></span>
+    </label>
     <div id="productList" class="catalog-list"></div>
     <div id="productEmpty" class="empty hidden">Sin productos que mostrar.</div>
   </section>

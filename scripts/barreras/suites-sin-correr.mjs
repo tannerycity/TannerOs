@@ -148,7 +148,9 @@ export default function comprobar() {
   // Sube a 43 por qa-humo-staff.mjs: el organigrama, la ficha y quién ve qué.
   // Sube a 44 por qa-humo-pulso.mjs: el pulso de la campana (v2_chat_pulse),
   // un solo poller por sesión, respuestas tardías descartadas y reconexión.
-  const MAX_EXCLUIDAS = 44;
+  // Sube a 45 por qa-humo-encuesta.mjs: la encuesta pública de experiencia
+  // (quién contesta, calificaciones, NPS, contacto con consentimiento).
+  const MAX_EXCLUIDAS = 45;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

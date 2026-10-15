@@ -39,8 +39,8 @@ async function abre(ruta, opts = {}) {
   await p.addInitScript(({ opts, ORG }) => {
     window.__llamadas = []; let fallos = opts.falla || 0;
     const R = {
-      v2_public_context: () => ({ organizationId: ORG, organizationName: 'Tannery City FC', slug: 'tannery-city-fc' }),
-      v2_public_survey: prm => prm.survey === 'leon-oct26' ? { found: true, title: 'Visita del Club León', visitorClub: 'Club León', open: !opts.cerrada } : { found: false, open: true },
+      v2_public_context: () => ({ organizationId: ORG, organizationName: 'Tannery City FC', slug: 'tannery-city-fc', categories: ['Baby Tanner', 'T6', 'T10', 'T12'] }),
+      v2_public_survey: prm => prm.survey === 'leon-oct26' ? { found: true, title: 'Visita del Club León', visitorClub: 'Club León', open: !opts.cerrada } : prm.survey === 'comunidad' ? { found: true, title: 'Experiencia Tannery City', visitorClub: null, open: true } : { found: false, open: true },
       v2_public_submit_survey: () => { if (fallos-- > 0) throw new Error('Demasiados intentos, espera un momento'); return { ok: true, id: 'x' }; }
     };
     window.__fakeSupabase = {
@@ -110,18 +110,28 @@ const nota = (p, tema, v) => p.click(`[data-tema="${tema}"] input[value="${v}"] 
   await p.close();
 }
 
-{ // Papá Tanner, sin contacto, y el servidor falla una vez
+{ // Comunidad: papá Tanner con dos hijos, sin contacto, y el servidor falla una vez
   const p = await abre('/encuesta/', { falla: 1 });
+  revisa('[comunidad] sin ?e= es la de comunidad', /Experiencia Tannery City/i.test(await p.locator('.en-club').innerText()));
+  revisa('[comunidad] categorías escondidas hasta elegir Tanner', !(await p.locator('#enCatCaja').isVisible()));
   await p.click('.en-carta:nth-child(1)');
-  revisa('[tanner] no pide club', !(await p.locator('#enClubCaja').isVisible()));
+  revisa('[tanner] no pide club y sí categoría', !(await p.locator('#enClubCaja').isVisible()) && await p.locator('#enCatCaja').isVisible());
+  revisa('[tanner] las categorías del club', (await p.locator('#enCatCaja .en-chip').allInnerTexts()).join(',') === 'Baby Tanner,T6,T10,T12');
   await p.click('.en-n:has(input[value="3"])');
+  await p.click('#enEnviar');
+  revisa('[tanner] sin categoría no se manda', (await envios(p)).length === 0 && /categoría de tu hijo/.test(await p.locator('#formMessage').innerText()));
+  await p.click('#enCatCaja .en-chip:has(input[value="Baby Tanner"])');
+  await p.click('#enCatCaja .en-chip:has(input[value="T10"])');
+  await p.click('.en-chip:has(input[value="partidos"])');
+  await p.click('.en-chip:has(input[value="entrenamientos"])');
   await p.click('#enEnviar');
   await p.waitForFunction(() => !document.getElementById('enEnviar')?.disabled, null, { timeout: 4000 });
   revisa('[error] se muestra y deja reintentar', /Demasiados intentos/.test(await p.locator('#formMessage').innerText()) && /^enviar encuesta$/i.test(await p.locator('#enEnviar').innerText()));
   await p.click('#enEnviar');
   await p.waitForSelector('.en-gracias', { timeout: 4000 }).catch(() => {});
   const r = (await envios(p)).at(-1)?.response || {};
-  revisa('[tanner] encuesta general, sin club ni contacto', r.survey === 'general' && r.respondent === 'tanner' && r.club === null && r.contactName === null && r.contactPhone === null && r.consent?.contact === false, JSON.stringify(r));
+  revisa('[tanner] categorías y a qué vino', JSON.stringify(r.categories) === '["Baby Tanner","T10"]' && JSON.stringify(r.visit) === '["entrenamientos","partidos"]', JSON.stringify(r));
+  revisa('[tanner] encuesta de comunidad, sin club ni contacto', r.survey === 'comunidad' && r.respondent === 'tanner' && r.club === null && r.contactName === null && r.contactPhone === null && r.consent?.contact === false, JSON.stringify(r));
   revisa('[tanner] sólo NPS cuenta como respuesta', r.nps === 3 && JSON.stringify(r.ratings) === '{}', JSON.stringify(r));
   revisa('[gracias] tras reintentar', await p.locator('.en-gracias').isVisible());
   await p.close();
@@ -137,6 +147,7 @@ const nota = (p, tema, v) => p.click(`[data-tema="${tema}"] input[value="${v}"] 
   await p.waitForSelector('.en-gracias', { timeout: 4000 }).catch(() => {});
   const r = (await envios(p)).at(-1)?.response || {};
   revisa('[slug] el evento se limpia', r.survey === 'leonoct' && r.respondent === 'otro', JSON.stringify(r));
+  revisa('[otro] no manda categorías', JSON.stringify(r.categories) === '[]' && JSON.stringify(r.visit) === '[]', JSON.stringify(r));
   await p.close();
 }
 
@@ -152,7 +163,9 @@ const RES = {
   npsPorTipo: { tanner: { n: 4, promotores: 3, detractores: 0 }, visitante: { n: 1, promotores: 0, detractores: 1 } },
   comentarios: [
     { tipo: 'visitante', club: 'Club León', gusto: 'La cancha', mejorar: 'Más baños', nps: 6, fecha: '2026-10-15T18:00:00Z', contacto: 'Pedro', telefono: '4771234567' },
-    { tipo: 'tanner', club: null, gusto: 'El ambiente', mejorar: null, nps: 10, fecha: '2026-10-15T17:00:00Z', contacto: null, telefono: null }]
+    { tipo: 'tanner', categorias: ['Baby Tanner'], club: null, gusto: 'El ambiente', mejorar: null, nps: 10, fecha: '2026-10-15T17:00:00Z', contacto: null, telefono: null }],
+  porCategoria: [{ categoria: 'Baby Tanner', n: 3, promedio: 4.6, npsN: 3, promotores: 3, detractores: 0 }, { categoria: 'T6', n: 1, promedio: 3.2, npsN: 1, promotores: 0, detractores: 1 }],
+  porVisita: { partidos: 4, entrenamientos: 2 }
 };
 async function abrePanel(opts = {}) {
   const p = await nav.newPage({ viewport: { width: opts.ancho || 1280, height: 900 } });
@@ -192,7 +205,7 @@ const llamadasPanel = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.
   revisa('[panel] dos encuestas en la lista, la primera elegida', (await p.locator('.enc-tarjeta').count()) === 2 && /León/i.test(await p.locator('.enc-tarjeta.activa').innerText()));
   revisa('[panel] la liga lleva el evento y el club', /\/encuesta\/\?club=tannery-city-fc&e=leon-oct26/.test(await p.locator('.enc-liga strong').innerText()), await p.locator('.enc-liga strong').innerText());
   revisa('[panel] KPIs: 6 respuestas y NPS +40', /6/.test(await p.locator('.enc-kpis article').first().innerText()) && /\+40/.test(await p.locator('.enc-kpis').innerText()));
-  const filas = await p.locator('.enc-fila-cab span').allInnerTexts();
+  const filas = await p.locator('.enc-panel', { hasText: 'Calificación por tema' }).locator('.enc-fila-cab span').allInnerTexts();
   revisa('[gráfica] temas ordenados de mejor a peor, sin votos al final', filas[0] === 'Ambiente general' && filas.indexOf('Baños') < filas.indexOf('Seguridad para los niños') && filas.length === 9, filas.join(' | '));
   revisa('[gráfica] baños: barra Tanner 4.0 y visitantes 2.0', await p.locator('.enc-fila', { hasText: 'Baños' }).locator('.enc-barra b').allInnerTexts().then(v => v.join(',') === '4.0,2.0'));
   revisa('[gráfica] leyenda con los dos tipos', (await p.locator('.enc-leyenda span').allInnerTexts()).join(',') === 'Tanner,Visitantes');
@@ -204,6 +217,12 @@ const llamadasPanel = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.
   revisa('[comentarios] dos y el contacto con WhatsApp', (await p.locator('.enc-com').count()) === 2 && /wa\.me\/524771234567/.test(await p.locator('.enc-wa').getAttribute('href')));
   await p.click('[data-com="visitante"]');
   revisa('[comentarios] filtro por visitantes', (await p.locator('.enc-com').count()) === 1);
+  await p.click('[data-com="tanner"]');
+  revisa('[comentarios] el de Tanner dice su categoría', /Baby Tanner/.test(await p.locator('.enc-com .enc-chip').innerText()));
+  const cats = p.locator('.enc-panel', { hasText: 'Por categoría' });
+  revisa('[categoría] Baby Tanner fuerte y T6 a atender', /4.6 · Fuerte/.test(await cats.locator('.enc-fila').nth(0).innerText()) && /3.2 · Atender/.test(await cats.locator('.enc-fila').nth(1).innerText()));
+  revisa('[categoría] respuestas y NPS por categoría', /3 respuestas · NPS \+100/.test(await cats.locator('.enc-fila').nth(0).innerText()), await cats.locator('.enc-fila').nth(0).innerText());
+  revisa('[visita] a qué vinieron, en orden', /Entrenamientos 2[\s\S]*Partidos 4/.test(await p.locator('.enc-visita').innerText()), await p.locator('.enc-visita').innerText());
   revisa('[tabla] la tabla tiene los 9 temas', (await p.locator('.enc-tabla tbody tr').count()) === 9);
   await p.click('#encAbrir');
   await p.waitForFunction(() => /abrir/i.test(document.getElementById('encAbrir')?.textContent || ''), null, { timeout: 3000 }).catch(() => {});

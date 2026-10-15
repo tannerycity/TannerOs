@@ -1,6 +1,6 @@
 // Encuestas: las cuentas de los resultados (v2/encuestas/encuestas.js), sin navegador.
 import assert from 'node:assert/strict';
-import { TEMAS, ESCALA, nps, semaforo, resumen, mensajeDeEncuesta, csvDeComentarios, etiquetaTema } from '../v2/encuestas/encuestas.js';
+import { TEMAS, ESCALA, VISITAS, ENCUESTA_COMUNIDAD, nps, semaforo, resumen, mensajeDeEncuesta, csvDeComentarios, etiquetaTema } from '../v2/encuestas/encuestas.js';
 
 let fallos = 0, corridas = 0;
 function prueba(nombre, fn) { corridas++; try { fn(); } catch (e) { fallos++; console.error(` - ${nombre}: ${e.message}`); } }
@@ -11,6 +11,11 @@ prueba('los 9 temas son los que valida la base', () => {
   assert.deepEqual(TEMAS.filter(t => t.opcional).map(t => t.k), ['estacionamiento', 'banos', 'tienda']);
   assert.equal(ESCALA.length, 5);
   assert.equal(etiquetaTema('banos'), 'Baños');
+});
+
+prueba('a qué vino y la encuesta de comunidad', () => {
+  assert.deepEqual(VISITAS.map(v => v.k), ['entrenamientos', 'partidos', 'torneos', 'eventos']);
+  assert.equal(ENCUESTA_COMUNIDAD, 'comunidad');
 });
 
 prueba('NPS: % promotores menos % detractores; sin respuestas es null', () => {
@@ -82,10 +87,10 @@ prueba('mensaje de WhatsApp con el evento y la liga', () => {
 });
 
 prueba('CSV: comillas escapadas y una fila por respuesta', () => {
-  const csv = csvDeComentarios([{ fecha: '2026-10-15', tipo: 'visitante', club: 'Club León', nps: 9, gusto: 'La "cancha"', mejorar: 'Baños, más', contacto: null, telefono: null }]);
+  const csv = csvDeComentarios([{ fecha: '2026-10-15', tipo: 'tanner', categorias: ['Baby Tanner', 'T6'], club: null, nps: 9, gusto: 'La "cancha"', mejorar: 'Baños, más', contacto: null, telefono: null }]);
   const [cab, fila] = csv.split('\n');
-  assert.equal(cab, 'fecha,tipo,club,nps,lo_que_gusto,que_mejorar,contacto,telefono');
-  assert.equal(fila, '"2026-10-15","visitante","Club León","9","La ""cancha""","Baños, más","",""');
+  assert.equal(cab, 'fecha,tipo,categoria,club,nps,lo_que_gusto,que_mejorar,contacto,telefono');
+  assert.equal(fila, '"2026-10-15","tanner","Baby Tanner / T6","","9","La ""cancha""","Baños, más","",""');
 });
 
 if (fallos) { console.error(`Encuestas QA FAILED · ${fallos} de ${corridas}`); process.exit(1); }

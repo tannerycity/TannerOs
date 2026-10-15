@@ -12,7 +12,7 @@
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth } from '/v2/shell.js';
 import { ligaPublica } from '/v2/club-publico.js';
-import { TIPOS, resumen, semaforo, etiquetaTema, mensajeDeEncuesta, csvDeComentarios } from '/v2/encuestas/encuestas.js';
+import { TIPOS, VISITAS, ENCUESTA_COMUNIDAD, resumen, semaforo, nps, mensajeDeEncuesta, csvDeComentarios } from '/v2/encuestas/encuestas.js';
 
 const boot = await bootstrapProtectedShell({ active: 'encuestas', title: 'Encuestas' });
 if (!boot) throw new Error('No access');
@@ -26,7 +26,8 @@ const COLOR = { tanner: '#1f6fa3', visitante: '#b8791f', otro: '#8a5aa8' };
 const nombreTipo = k => TIPOS.find(x => x.k === k)?.t || k;
 const pide = new URLSearchParams(location.search);
 let encuestas = [], elegida = pide.get('e') || '', resultado = null, filtroCom = 'todos';
-const liga = slug => ligaPublica('/encuesta/', ctx, { e: slug });
+// La de comunidad es la liga corta, sin ?e=.
+const liga = slug => ligaPublica('/encuesta/', ctx, slug === ENCUESTA_COMUNIDAD ? {} : { e: slug });
 
 async function pintaQr(canvas, texto, lado) {
   const { default: qrcode } = await import('/vendor/qrcode.mjs');
@@ -73,6 +74,18 @@ function barraNps(x, nombre) {
     <div class="enc-nps-barra">${seg(d, 'det', 'Detractores (0 a 6)')}${seg(pa, 'pas', 'Pasivos (7 y 8)')}${seg(p, 'pro', 'Promotores (9 y 10)')}</div></div>`;
 }
 
+// Por categoría (Baby Tanner, T6...): cuántos contestaron, su promedio y su NPS.
+// Una sola serie: un solo color; el semáforo lleva palabra.
+function porCategoria(lista) {
+  if (!lista?.length) return '';
+  return `<section class="enc-panel"><h2>Por categoría</h2><p class="enc-ayuda">Papás Tanner según la categoría de su hijo. Quien tiene hijos en dos categorías cuenta en las dos.</p>
+    <div class="enc-barras">${lista.map(c => {
+      const s = semaforo(c.promedio), score = nps({ n: c.npsN, promotores: c.promotores, detractores: c.detractores });
+      return `<div class="enc-fila"><div class="enc-fila-cab"><span>${esc(c.categoria)} <small class="enc-n">${c.n} ${c.n === 1 ? 'respuesta' : 'respuestas'}${score == null ? '' : ` · NPS ${score > 0 ? '+' : ''}${score}`}</small></span>${s ? `<em class="enc-sem ${s.k}">${uno(c.promedio)} · ${s.t}</em>` : ''}</div>
+        ${c.promedio == null ? '<p class="enc-sin">Sin calificaciones</p>' : `<div class="enc-barra" tabindex="0" data-tip="${esc(c.categoria)}: ${uno(c.promedio)} de 5 en promedio"><span class="enc-barra-pista"><span style="width:${(c.promedio / 5) * 100}%;background:${COLOR.tanner}"></span></span><b>${uno(c.promedio)}</b></div>`}</div>`;
+    }).join('')}</div></section>`;
+}
+
 function conclusiones(r) {
   const item = t => `<li><b>${esc(t.t)}</b><span>${uno(t.promedio)} de 5 · ${t.n} ${t.n === 1 ? 'voto' : 'votos'}</span></li>`;
   const brecha = b => `<li><b>${esc(b.t)}</b><span>Tanner ${uno(b.porTipo.tanner.promedio)} · Visitantes ${uno(b.porTipo.visitante.promedio)}</span></li>`;
@@ -88,7 +101,7 @@ function comentarios(lista) {
   const tabs = ['todos', ...new Set(lista.map(c => c.tipo))].map(k => `<button type="button" data-com="${k}" class="${filtroCom === k ? 'activo' : ''}">${k === 'todos' ? 'Todos' : esc(nombreTipo(k))}<i>${k === 'todos' ? lista.length : lista.filter(c => c.tipo === k).length}</i></button>`).join('');
   return `<div class="enc-com-cab"><div class="enc-com-tabs">${tabs}</div>${lista.length ? '<button type="button" id="encCsv" class="enc-link">Descargar CSV</button>' : ''}</div>
     <div class="enc-coms">${vis.length ? vis.map(c => `<article class="enc-com">
-      <header><span class="enc-chip" style="--c:${COLOR[c.tipo] || '#5c6a63'}">${esc(nombreTipo(c.tipo))}${c.club ? ` · ${esc(c.club)}` : ''}</span>${c.nps != null ? `<span class="enc-com-nps">NPS ${c.nps}</span>` : ''}<time>${esc(fecha(c.fecha))}</time></header>
+      <header><span class="enc-chip" style="--c:${COLOR[c.tipo] || '#5c6a63'}">${esc(nombreTipo(c.tipo))}${c.club ? ` · ${esc(c.club)}` : ''}${(c.categorias || []).length ? ` · ${esc(c.categorias.join(', '))}` : ''}</span>${c.nps != null ? `<span class="enc-com-nps">NPS ${c.nps}</span>` : ''}<time>${esc(fecha(c.fecha))}</time></header>
       ${c.gusto ? `<p><small>Le gustó</small>${esc(c.gusto)}</p>` : ''}
       ${c.mejorar ? `<p><small>Mejoraría</small>${esc(c.mejorar)}</p>` : ''}
       ${c.telefono ? `<a class="enc-wa" target="_blank" rel="noopener" href="https://wa.me/52${esc(String(c.telefono).replace(/\D/g, '').slice(-10))}?text=${encodeURIComponent(`Hola${c.contacto ? ` ${c.contacto}` : ''}, gracias por tu comentario en la encuesta de ${club}.`)}">Pidió que lo contacten${c.contacto ? `: ${esc(c.contacto)}` : ''}</a>` : ''}
@@ -117,12 +130,14 @@ function pintaDetalle() {
     ${kpi(r.general == null ? '—' : uno(r.general), 'Promedio general')}
     ${kpi(r.nps.score == null ? '—' : `${r.nps.score > 0 ? '+' : ''}${r.nps.score}`, 'NPS')}
   </div>
+  ${Object.keys(resultado.porVisita || {}).length ? `<p class="enc-visita"><b>Vinieron a:</b> ${VISITAS.filter(v => resultado.porVisita[v.k]).map(v => `<span>${esc(v.t)} <i>${resultado.porVisita[v.k]}</i></span>`).join('')}</p>` : ''}
   ${r.total < 20 ? `<p class="enc-aviso">Con ${r.total} ${r.total === 1 ? 'respuesta' : 'respuestas'} todavía es temprano: con menos de 20 por grupo, una sola opinión mueve mucho el promedio.</p>` : ''}
   ${conclusiones(r)}
   <section class="enc-panel"><h2>Calificación por tema</h2><p class="enc-ayuda">Promedio de 1 (muy mal) a 5 (excelente). Toca una barra para ver cuántos votaron.</p>${graficaTemas(r)}
     <details class="enc-tabla"><summary>Ver como tabla</summary><table><thead><tr><th>Tema</th><th>General</th>${r.tipos.map(k => `<th>${esc(nombreTipo(k))}</th>`).join('')}<th>Votos</th></tr></thead>
       <tbody>${r.temas.map(t => `<tr><td>${esc(t.t)}</td><td>${uno(t.promedio)}</td>${r.tipos.map(k => `<td>${uno(t.porTipo[k]?.promedio)}</td>`).join('')}<td>${t.n}</td></tr>`).join('')}</tbody></table></details>
   </section>
+  ${porCategoria(resultado.porCategoria)}
   <section class="enc-panel"><h2>¿Nos recomendarían?</h2><p class="enc-ayuda">NPS: % de promotores (9 y 10) menos % de detractores (0 a 6). Arriba de +50 es excelente.</p>
     <div class="enc-nps-ley"><span><i class="det"></i>Detractores 0–6</span><span><i class="pas"></i>Pasivos 7–8</span><span><i class="pro"></i>Promotores 9–10</span></div>
     ${barraNps(r.nps, 'Todos')}${r.tipos.length > 1 ? r.tipos.map(k => barraNps(r.npsPorTipo[k], nombreTipo(k))).join('') : ''}

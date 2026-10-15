@@ -8,12 +8,21 @@ export const TEMAS = [
   { k: 'estacionamiento', t: 'Estacionamiento', opcional: true },
   { k: 'banos', t: 'Baños', opcional: true },
   { k: 'tienda', t: 'Tienda Tanner', opcional: true },
-  { k: 'partido', t: 'Organización del partido' },
+  { k: 'partido', t: 'Organización de partidos y eventos' },
   { k: 'papas', t: 'Actitud de los papás en la tribuna' },
   { k: 'staff', t: 'Atención del staff' },
   { k: 'seguridad', t: 'Seguridad para los niños' }
 ];
 export const ESCALA = ['Muy mal', 'Mal', 'Regular', 'Bien', 'Excelente'];
+// A qué vino (lo mismo que private.survey_visit_keys()).
+export const VISITAS = [
+  { k: 'entrenamientos', t: 'Entrenamientos' },
+  { k: 'partidos', t: 'Partidos' },
+  { k: 'torneos', t: 'Torneos' },
+  { k: 'eventos', t: 'Eventos' }
+];
+// La encuesta de toda la comunidad: /encuesta/ sin ?e= (15/10/2026).
+export const ENCUESTA_COMUNIDAD = 'comunidad';
 export const TIPOS = [
   { k: 'tanner', t: 'Tanner' },
   { k: 'visitante', t: 'Visitantes' },
@@ -70,6 +79,6 @@ export const mensajeDeEncuesta = (club, titulo, liga) =>
 // Comentarios para el CSV: una fila por respuesta con texto.
 export function csvDeComentarios(lista) {
   const c = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const filas = (lista || []).map(x => [x.fecha, x.tipo, x.club, x.nps, x.gusto, x.mejorar, x.contacto, x.telefono].map(c).join(','));
-  return ['fecha,tipo,club,nps,lo_que_gusto,que_mejorar,contacto,telefono', ...filas].join('\n');
+  const filas = (lista || []).map(x => [x.fecha, x.tipo, (x.categorias || []).join(' / '), x.club, x.nps, x.gusto, x.mejorar, x.contacto, x.telefono].map(c).join(','));
+  return ['fecha,tipo,categoria,club,nps,lo_que_gusto,que_mejorar,contacto,telefono', ...filas].join('\n');
 }

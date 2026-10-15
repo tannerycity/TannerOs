@@ -47,6 +47,11 @@
 .enc-kpis article.tipo{border-top:4px solid var(--c)}
 .enc-kpis b{display:block;font-size:38px;line-height:1;color:var(--tinta)}
 .enc-kpis span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gris)}
+.enc-visita{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0;font-size:13px;color:var(--gris)}
+.enc-visita b{color:var(--tinta)}
+.enc-visita span{padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--linea);font-weight:700;color:var(--tinta)}
+.enc-visita i{font-style:normal;margin-left:4px;color:var(--gris)}
+.enc-n{font-weight:600;font-size:12px;color:var(--gris)}
 .enc-aviso{margin:0;padding:10px 14px;border-radius:12px;background:#fbf3df;color:#6b5314;font-size:13.5px;line-height:1.4}
 
 .enc-concl{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}

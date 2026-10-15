@@ -41,6 +41,15 @@ body.en{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-
 .en-carta input,.en-nota input,.en-n input{position:absolute;opacity:0;pointer-events:none}
 .en-carta:has(input:focus-visible),.en-nota:has(input:focus-visible),.en-n:has(input:focus-visible){outline:3px solid var(--oro);outline-offset:2px}
 
+.en-grupo{border:0;margin:14px 0 0;padding:0;min-width:0}
+.en-grupo legend{padding:0;margin-bottom:6px;font-weight:800;font-size:15px}
+.en-grupo .en-ayuda{margin:0 0 10px}
+.en-chips{display:flex;flex-wrap:wrap;gap:8px}
+.en-chip{position:relative;cursor:pointer}
+.en-chip input{position:absolute;opacity:0;pointer-events:none}
+.en-chip span{display:inline-flex;align-items:center;min-height:42px;padding:9px 16px;border-radius:999px;border:1.5px solid var(--linea);background:var(--crema);font-weight:700;font-size:14.5px;transition:background .15s,color .15s,border-color .15s}
+.en-chip:has(input:checked) span{background:var(--noche);border-color:var(--noche);color:var(--oro-claro)}
+.en-chip:has(input:focus-visible) span{outline:3px solid var(--oro);outline-offset:2px}
 .en-campo{display:grid;gap:6px;margin-top:12px;font-size:14px;font-weight:600}
 .en-campo input,.en-campo textarea{font:inherit;font-weight:400;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid var(--linea);background:#fff;color:var(--tinta);width:100%}
 .en-campo textarea{min-height:88px;resize:vertical}

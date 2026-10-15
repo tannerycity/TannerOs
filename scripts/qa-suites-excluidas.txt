@@ -44,6 +44,7 @@ qa-humo-asistencia-lista.mjs
 qa-humo-becas.mjs
 qa-humo-partidos.mjs
 qa-humo-portal.mjs
+qa-humo-encuesta.mjs
 qa-humo-ligas-por-club.mjs
 qa-humo-importar.mjs
 qa-humo-primeros-pasos.mjs

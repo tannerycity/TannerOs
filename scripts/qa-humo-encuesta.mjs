@@ -178,8 +178,8 @@ async function abrePanel(opts = {}) {
       { slug: 'torneo-relampago', title: 'Torneo relámpago', visitorClub: null, open: true, registrada: true, total: 0, tanner: 0, visitante: 0, nps: null, ultima: null }];
     const R = {
       v2_my_context: () => [{ user_id: 'u1', display_name: 'Mich', organization_id: ORG, organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: opts.rol || 'Presidencia', is_owner: !opts.rol }],
-      v2_my_navigation: () => (opts.rol ? ['inicio', 'direccion'] : ['inicio', 'direccion', 'usuarios']).map(c => ({ module_code: c, enabled: true, can_read: true, can_write: true })),
-      v2_surveys: () => { if (opts.rol) throw new Error('Sólo Presidencia ve las encuestas'); return JSON.parse(JSON.stringify(lista)); },
+      v2_my_navigation: () => (opts.permiso ? ['inicio', 'encuestas'] : opts.rol ? ['inicio', 'direccion'] : ['inicio', 'direccion', 'usuarios']).map(c => ({ module_code: c, enabled: true, can_read: true, can_write: true })),
+      v2_surveys: () => { if (opts.rol && !opts.permiso) throw new Error('No tienes permiso para ver las encuestas'); return JSON.parse(JSON.stringify(lista)); },
       v2_survey_results: prm => prm.survey === 'leon-oct26' ? JSON.parse(JSON.stringify(RES)) : { total: 0, porTipo: {}, temas: [], nps: { n: 0, promotores: 0, detractores: 0 }, npsPorTipo: {}, comentarios: [] },
       v2_create_survey: prm => { const slug = 'partido-vs-atlas'; lista.unshift({ slug, title: prm.title, visitorClub: prm.visitor_club, open: true, registrada: true, total: 0, tanner: 0, visitante: 0, nps: null, ultima: null }); return { id: 'n', slug }; },
       v2_set_survey_open: prm => { lista.find(x => x.slug === prm.survey).open = prm.open; return { slug: prm.survey, open: prm.open }; }
@@ -245,6 +245,14 @@ const llamadasPanel = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.
   revisa('[nueva] manda nombre y club', c?.title === 'Partido vs Atlas' && c?.visitor_club === 'Atlas', JSON.stringify(c));
   revisa('[nueva] queda elegida con su liga', /e=partido-vs-atlas/.test(await p.locator('.enc-liga strong').innerText()) && await p.locator('#encNueva').isHidden());
   revisa('[sin desborde] /encuestas/ cabe a 390px', !(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
+  await p.close();
+}
+
+{ // Con el permiso personal de Encuestas (Zul, Operaciones) entra y ve resultados
+  const p = await abrePanel({ rol: 'Operaciones', permiso: true });
+  await p.waitForSelector('.enc-barras', { timeout: 6000 }).catch(() => {});
+  revisa('[permiso] Operaciones con Encuestas entra y ve resultados', (await p.locator('.enc-tarjeta').count()) === 2 && await p.locator('.enc-barras').first().isVisible() && await p.locator('#encDenied').isHidden());
+  revisa('[permiso] Encuestas aparece en su menú', (await p.locator('#sidebarNav a[href="/encuestas/"]').count()) === 1);
   await p.close();
 }
 

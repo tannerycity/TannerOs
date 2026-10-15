@@ -8,7 +8,8 @@
  * nombre y el club visitante, y sale su liga y su QR (/encuesta/?e=slug).
  * Abajo, los resultados de la elegida: promedio por tema (Tanner contra
  * visitantes), NPS, lo más fuerte, lo que hay que atender y los comentarios.
- * Sólo Presidencia (v2_surveys / v2_survey_results lo exigen en la base).
+ * Presidencia, o quien tenga el permiso de Encuestas (h14): leer = ver y
+ * compartir; escribir = crear, cerrar y abrir. La base lo exige en cada RPC.
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth } from '/v2/shell.js';
 import { ligaPublica } from '/v2/club-publico.js';

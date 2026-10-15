@@ -74,7 +74,8 @@ export const navItems=[
   // Staff y organigrama (13/10/2026): lo ve todo el staff (decisión de Presidencia).
   {code:'staff',label:'Staff',href:'/staff/',group:'club',icon:'users',always:true},
   // Encuestas (15/10/2026): cómo se la pasan papás y visitantes en cada evento.
-  // No es módulo: los resultados los ve Presidencia (quien ve Dirección).
+  // Desde h14 es módulo: Presidencia siempre; a otra persona se le da en
+  // Usuarios > persona > Encuestas (así se le dio a Zul).
   {code:'encuestas',label:'Encuestas',href:'/encuestas/',group:'club',icon:'chat',lee:['direccion']},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},

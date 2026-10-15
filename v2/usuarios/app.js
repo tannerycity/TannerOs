@@ -53,7 +53,7 @@ const moduleLabels={
   cobranza:'Cobranza',contabilidad:'Contabilidad',patrocinadores:'Patrocinios',tienda:'Tienda',
   utileria:'Utilería',usuarios:'Usuarios',qa:'QA',admin:'Administración',estacionamiento:'Estacionamiento',
   catalogo:'Catálogo',commerce_finance:'Rentabilidad de Tienda',
-  formacion:'Formación',formacion_direccion:'Dirección Deportiva'
+  formacion:'Formación',formacion_direccion:'Dirección Deportiva',encuestas:'Encuestas'
 };
 // 'commerce_finance' (Rentabilidad de Tienda) estaba escondida aquí, y por eso
 // nadie podía quitársela a una persona: enseña márgenes y costos de la tienda.

@@ -1,0 +1,20 @@
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#184159"><title>Encuestas · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"><link rel="stylesheet" href="/v2/encuestas/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body class="tos-body"><div class="tos-layout"><aside class="tos-sidebar"><div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div></aside><div id="shellNavBackdrop" class="tos-nav-backdrop"></div><div class="tos-main"><header class="tos-topbar"><div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">Encuestas</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health"><i></i><span>Encuestas</span></span><span id="shellRole" class="tos-role">Rol</span></div></header><main class="tos-content enc-page">
+<section class="enc-hero">
+  <div>
+    <p class="enc-eyebrow">La voz de la tribuna</p>
+    <h1>Encuestas</h1>
+    <p>Cómo se la pasan papás Tanner y visitantes en cada evento. Crea una encuesta, comparte su liga o su QR y aquí ves los resultados en vivo.</p>
+  </div>
+  <button type="button" class="enc-nueva-btn" id="encNuevaBtn">Nueva encuesta</button>
+</section>
+<form id="encNueva" class="enc-nueva hidden" autocomplete="off">
+  <h2>Nueva encuesta</h2>
+  <label>Nombre del evento<input id="encTitulo" maxlength="120" placeholder="Ej. Partido vs Club León" required></label>
+  <label>Club visitante <small>(opcional)</small><input id="encVisita" maxlength="80" placeholder="Ej. Club León"></label>
+  <div class="enc-nueva-btns"><button type="submit" id="encCrear">Crear y sacar liga</button><button type="button" id="encCancelar" class="sec">Cancelar</button></div>
+</form>
+<div id="encLista" class="enc-lista" role="tablist" aria-label="Encuestas"></div>
+<div id="encDetalle" class="enc-detalle"></div>
+<div id="encMensaje" class="inline-message hidden"></div>
+<section id="encDenied" class="tos-panel hidden"><h2>Esta pantalla no es para tu cuenta</h2><p>Los resultados de las encuestas los ve Presidencia.</p></section>
+</main></div></div><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/encuestas/app.js"></script></body></html>

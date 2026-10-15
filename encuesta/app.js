@@ -5,12 +5,15 @@
  * partido, actitud de los papás... y luego hacer gráficas y analizarlo."
  *
  * Pública y anónima. Cada evento lleva su liga: /encuesta/?e=leon-oct26 (el
- * slug se guarda como "survey") y &vs=Club%20León llena el club visitante.
+ * slug se guarda como "survey"). Presidencia da de alta cada encuesta en
+ * /encuestas/ con su nombre y el club visitante (v2_public_survey); &vs= en la
+ * liga lo puede cambiar. Una encuesta cerrada ya no recibe respuestas.
  * La respuesta entra por v2_public_submit_survey; los resultados sólo los ve
  * Presidencia (v2_survey_results).
  */
 import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga } from '/v2/club-publico.js';
+import { TEMAS, ESCALA } from '/v2/encuestas/encuestas.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
   { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
@@ -22,24 +25,11 @@ const rpc = async (n, p) => { const { data, error } = await supabase.rpc(n, p); 
 const show = html => { $('loading').classList.add('hidden'); const c = $('content'); c.innerHTML = html; c.classList.remove('hidden'); };
 function msg(t = '') { const e = $('formMessage'); if (!e) return; e.textContent = t; e.classList.toggle('hidden', !t); }
 
-// Lo que se califica. "opcional": se puede marcar "No lo usé".
-export const TEMAS = [
-  { k: 'ambiente', t: 'Ambiente general' },
-  { k: 'instalaciones', t: 'Instalaciones y cancha' },
-  { k: 'estacionamiento', t: 'Estacionamiento', opcional: true },
-  { k: 'banos', t: 'Baños', opcional: true },
-  { k: 'tienda', t: 'Tienda Tanner', opcional: true },
-  { k: 'partido', t: 'Organización del partido' },
-  { k: 'papas', t: 'Actitud de los papás en la tribuna' },
-  { k: 'staff', t: 'Atención del staff' },
-  { k: 'seguridad', t: 'Seguridad para los niños' }
-];
-export const ESCALA = ['Muy mal', 'Mal', 'Regular', 'Bien', 'Excelente'];
-
 const params = new URLSearchParams(location.search);
 export const slugDeEncuesta = v => (String(v || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 60)) || 'general';
 const ENCUESTA = slugDeEncuesta(params.get('e'));
-const VISITANTE = String(params.get('vs') || '').trim().slice(0, 80);
+let VISITANTE = String(params.get('vs') || '').trim().slice(0, 80);
+let TITULO = '';
 
 // Lo que se manda: limpio y con lo mínimo obligatorio. Exportado para probarlo.
 export function respuestaDelFormulario(f) {
@@ -74,7 +64,7 @@ function pinta() {
   show(`
   <header class="en-hero">
     <div class="en-escudo">${escudo()}</div>
-    <p class="en-club">${esc(club.nombre)}</p>
+    <p class="en-club">${esc(club.nombre)}${TITULO ? ` · ${esc(TITULO)}` : ''}</p>
     <h1 class="en-titulo">¿Cómo te la <em>pasaste?</em></h1>
     <p class="en-sub">1 minuto. Es anónima. Lo que nos digas lo lee directamente la Presidencia del club.</p>
   </header>
@@ -141,7 +131,12 @@ try {
   const ctx = await rpc('v2_public_context', { club_key: CLUB_KEY });
   club = { nombre: ctx?.organizationName || 'Tannery City', tannery: (ctx?.slug || '') === 'tannery-city-fc' };
   document.title = `¿Cómo te la pasaste? · ${club.nombre}`;
-  pinta();
+  const info = await rpc('v2_public_survey', { club_key: CLUB_KEY, survey: ENCUESTA }).catch(() => null);
+  if (info?.found) { TITULO = info.title || ''; VISITANTE = VISITANTE || String(info.visitorClub || ''); }
+  if (info && info.open === false) {
+    show(`<header class="en-hero"><div class="en-escudo">${escudo()}</div><p class="en-club">${esc(club.nombre)}${TITULO ? ` · ${esc(TITULO)}` : ''}</p>
+      <h1 class="en-titulo">Esta encuesta <em>ya cerró</em></h1><p class="en-sub">Gracias por tu interés. Nos vemos en la cancha.</p></header>`);
+  } else pinta();
 } catch (_) {
   show('<header class="en-hero"><h1 class="en-titulo">No encontramos <em>este club</em></h1><p class="en-sub">Revisa la liga que te compartieron.</p></header>');
 }

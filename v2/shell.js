@@ -73,6 +73,9 @@ export const navItems=[
   {code:'candidatos',label:'Candidatos',href:'/candidatos/',group:'club',icon:'briefcase',lee:['usuarios','formacion_direccion']},
   // Staff y organigrama (13/10/2026): lo ve todo el staff (decisión de Presidencia).
   {code:'staff',label:'Staff',href:'/staff/',group:'club',icon:'users',always:true},
+  // Encuestas (15/10/2026): cómo se la pasan papás y visitantes en cada evento.
+  // No es módulo: los resultados los ve Presidencia (quien ve Dirección).
+  {code:'encuestas',label:'Encuestas',href:'/encuestas/',group:'club',icon:'chat',lee:['direccion']},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
   {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
@@ -587,7 +590,8 @@ const ACCIONES_POR_RUTA=[
   ['/catalogo',[{label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',href:'/catalogo/?nuevo=producto',icon:'plus'},{label:'Nuevo kit',sub:'Junta piezas con su precio',href:'/catalogo/?nuevo=kit',icon:'bag'}]],
   ['/pedidos',[{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',href:'/captura/',icon:'bag'},{label:'Producción',sub:'Cortes y hoja para el proveedor',href:'/produccion/',icon:'list'}]],
   ['/calendario',[{label:'Nuevo evento',sub:'Partido, torneo o junta',href:'/calendario/?action=evento',icon:'plus'}]],
-  ['/candidatos',[{label:'Compartir la convocatoria',sub:'Liga y QR para el flyer',href:'#candLiga',icon:'chat'}]]
+  ['/candidatos',[{label:'Compartir la convocatoria',sub:'Liga y QR para el flyer',href:'#candLiga',icon:'chat'}]],
+  ['/encuestas',[{label:'Nueva encuesta',sub:'Liga y QR para el evento',href:'/encuestas/?nueva=1',icon:'chat'}]]
 ];
 export function setAccionesDePantalla(lista){window.tosAccionesDePantalla=Array.isArray(lista)?lista:[];window.dispatchEvent(new Event('tos:acciones'));}
 function accionesDeEstaPantalla(){

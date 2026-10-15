@@ -1,8 +1,8 @@
 {
-  "migraciones": 516,
-  "bytes": 2918934,
-  "huella": "117eae244f209423476b5cf16d7577b1",
+  "migraciones": 518,
+  "bytes": 2927536,
+  "huella": "de3788cb4efa52d4348ef10b7eb26be5",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261014033246_h10_manga_larga_con_cargo_y_por_jersey.sql",
-  "verificadoContraLaBase": "2026-10-14"
+  "ultima": "20261015020501_h11b_encuesta_resultados_sin_agregados_anidados.sql",
+  "verificadoContraLaBase": "2026-10-15"
 }

@@ -48,7 +48,7 @@ const routeContract={
   '/admin/clubes/':'v2/admin/clubes/index.html',
   '/jugadores/importar/':'v2/jugadores/importar/index.html'
 };
-const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','demo/index.html','demo/app.js','demo/styles.css','trabaja/index.html','trabaja/app.js','trabaja/styles.css','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
+const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','demo/index.html','demo/app.js','demo/styles.css','trabaja/index.html','trabaja/app.js','trabaja/styles.css','encuesta/index.html','encuesta/app.js','encuesta/styles.css','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
 for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta archivo crítico: ${file}`);
 
 /* === Ninguna pantalla vive sólo detrás de la barra escondida ===

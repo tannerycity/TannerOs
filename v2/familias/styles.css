@@ -269,3 +269,42 @@
 .fam-staff-cara img{width:100%;height:100%;object-fit:cover}
 .fam-staff-p strong{display:block;font-size:15px}
 .fam-staff-p small{font-size:12.5px;color:var(--fam-muted,#6b7c80)}
+
+/* Entrar sin que nadie dicte contraseñas (18/10/2026): login con teléfono,
+   invitación por liga, ayuda para recuperar e instalar como app. */
+.fam-auth{background:radial-gradient(120% 70% at 50% 0%,#0f2b32 0%,#07191e 55%,var(--fam-bg) 55.2%)}
+.fam-auth-card{box-shadow:0 24px 60px rgba(7,25,30,.18)}
+.fam-auth-escudo{width:72px;height:72px;margin:-62px auto 6px;display:grid;place-items:center}
+.fam-auth-escudo img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.3))}
+.fam-auth-club{margin:0!important;text-align:center;font-size:11px!important;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--fam-gold)}
+.fam-auth-card h1{text-align:center;margin-top:6px}
+.fam-auth-card>p.fam-muted{text-align:center}
+.fam-campo{display:grid;gap:6px;font-size:12.5px;font-weight:600;color:var(--fam-muted)}
+.fam-pass{position:relative;display:block}
+.fam-pass input{width:100%;padding-right:78px}
+.fam-ver{position:absolute;right:6px;top:50%;transform:translateY(-50%);min-height:36px;padding:0 12px;border:0;border-radius:9px;background:var(--fam-bg);color:var(--fam-ink);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.fam-hint{font-weight:500;color:var(--fam-muted)}
+.fam-olvide{display:flex;margin:6px auto 0;font-weight:700}
+.fam-ayuda{display:grid;gap:8px;margin-top:8px;padding:14px;border-radius:14px;background:#f3f7f6;border:1px solid var(--fam-line)}
+.fam-ayuda b{font-size:14px}
+.fam-ayuda p{margin:0!important}
+.fam-auth-pie{margin:16px 0 0!important;padding-top:14px;border-top:1px solid var(--fam-line);font-size:12.5px!important;color:var(--fam-muted);text-align:center}
+.fam-auth-pie b{color:var(--fam-ink)}
+.fam-auth-pie a{color:var(--fam-teal);font-weight:800}
+.fam-inv-hijos{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.fam-inv-hijos li{display:grid;justify-items:center;gap:1px;padding:10px 16px;border-radius:14px;background:linear-gradient(145deg,#0f2b32,#07191e);color:#fff;min-width:110px}
+.fam-inv-hijos b{font-size:15px}
+.fam-inv-hijos span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--fam-gold)}
+.fam-inv-usuario{display:grid;gap:2px;justify-items:center;margin:0 0 16px;padding:12px;border-radius:14px;background:#fbf6e6;border:1px dashed #e1cb7e;text-align:center}
+.fam-inv-usuario small{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a6413}
+.fam-inv-usuario b{font-size:22px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.fam-inv-usuario span{font-size:12px;color:var(--fam-muted)}
+.fam-auth-card .fam-wa{margin-top:10px;justify-content:center}
+.fam-instalar{max-width:760px;margin:12px auto 0;padding:0 16px}
+.fam-instalar-in{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-radius:16px;background:linear-gradient(135deg,#0f2b32,#07191e);color:#fff}
+.fam-instalar-ico{flex:0 0 36px;height:36px;border-radius:10px;background:url('/icon-192.png') center/cover}
+.fam-instalar-in span{display:grid;flex:1;gap:1px}
+.fam-instalar-in b{font-size:14px}
+.fam-instalar-in small{font-size:12px;color:rgba(255,255,255,.75)}
+.fam-instalar-in button{border:0;border-radius:10px;padding:9px 14px;background:var(--fam-gold);color:#07191e;font:inherit;font-weight:800;font-size:13px;cursor:pointer}
+.fam-instalar-in .fam-instalar-x{background:transparent;color:rgba(255,255,255,.7);font-size:20px;padding:4px 8px}

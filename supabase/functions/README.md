@@ -39,6 +39,19 @@ Dos reglas que no hay que romper:
 Las tablas que sí viven en `public` (`profiles`, `organization_memberships`) sí
 se pueden tocar con `admin.from(...)`.
 
+## family-access
+
+Portal de familias, fase 1 (18/10/2026): la familia abre la liga que el club le
+mandó por WhatsApp (`/familias/#i=<token>`), elige su contraseña y entra. Su
+usuario es su teléfono a 10 dígitos (`<tel>@familias.tanneros.invalid`). Con la
+misma liga, quien ya tenía cuenta elige una contraseña nueva.
+
+- Se despliega **sin verificación de JWT**: la usa quien todavía no tiene cuenta.
+  Lo que autoriza es el token: `v2_family_invite_resolve` y `_consume` sólo los
+  puede llamar la llave de servicio; el token se guarda como hash, vence en 14
+  días y sirve una vez.
+- Las ligas las crea el staff en `/invitaciones/` (`v2_family_invite_link`).
+
 ## demo-login
 
 La demo pública (`/demo/`): entra con un toque como Presidencia, Dirección

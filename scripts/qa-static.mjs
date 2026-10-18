@@ -44,6 +44,7 @@ const routeContract={
   '/formacion/':'v2/formacion/index.html',
   '/candidatos/':'v2/candidatos/index.html',
   '/staff/':'v2/staff/index.html',
+  '/invitaciones/':'v2/invitaciones/index.html',
   '/encuestas/':'v2/encuestas/index.html',
   '/admin/fotos/':'v2/admin/fotos/index.html',
   '/admin/clubes/':'v2/admin/clubes/index.html',

@@ -44,6 +44,7 @@
     {"source":"/v2/admin/club/","destination":"/admin/club/","permanent":false},
     {"source":"/v2/candidatos","destination":"/candidatos/","permanent":false},
     {"source":"/v2/staff","destination":"/staff/","permanent":false},
+    {"source":"/v2/invitaciones","destination":"/invitaciones/","permanent":false},{"source":"/v2/invitaciones/","destination":"/invitaciones/","permanent":false},
     {"source":"/v2/encuestas","destination":"/encuestas/","permanent":false},{"source":"/v2/encuestas/","destination":"/encuestas/","permanent":false},
     {"source":"/v2/staff/","destination":"/staff/","permanent":false},
     {"source":"/v2/candidatos/","destination":"/candidatos/","permanent":false},
@@ -95,7 +96,7 @@
     {"source":"/admin/clubes","destination":"/v2/admin/clubes/index.html"},{"source":"/admin/clubes/","destination":"/v2/admin/clubes/index.html"},
     {"source":"/jugadores/importar","destination":"/v2/jugadores/importar/index.html"},{"source":"/jugadores/importar/","destination":"/v2/jugadores/importar/index.html"},
     {"source":"/admin/club","destination":"/v2/admin/club/index.html"},{"source":"/admin/club/","destination":"/v2/admin/club/index.html"},
-    {"source":"/candidatos","destination":"/v2/candidatos/index.html"},{"source":"/candidatos/","destination":"/v2/candidatos/index.html"},{"source":"/staff","destination":"/v2/staff/index.html"},{"source":"/encuestas","destination":"/v2/encuestas/index.html"},{"source":"/encuestas/","destination":"/v2/encuestas/index.html"},{"source":"/staff/","destination":"/v2/staff/index.html"},
+    {"source":"/candidatos","destination":"/v2/candidatos/index.html"},{"source":"/candidatos/","destination":"/v2/candidatos/index.html"},{"source":"/staff","destination":"/v2/staff/index.html"},{"source":"/invitaciones","destination":"/v2/invitaciones/index.html"},{"source":"/invitaciones/","destination":"/v2/invitaciones/index.html"},{"source":"/encuestas","destination":"/v2/encuestas/index.html"},{"source":"/encuestas/","destination":"/v2/encuestas/index.html"},{"source":"/staff/","destination":"/v2/staff/index.html"},
     {"source":"/formacion","destination":"/v2/formacion/index.html"},{"source":"/formacion/","destination":"/v2/formacion/index.html"},
     {"source":"/admin/onboarding","destination":"/v2/admin/onboarding/index.html"},{"source":"/admin/onboarding/","destination":"/v2/admin/onboarding/index.html"}
   ],

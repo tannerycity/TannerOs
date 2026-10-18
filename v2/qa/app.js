@@ -134,6 +134,7 @@ const fullRouteMatrix=[
   ['formacion','Formación','/formacion/','formacion'],
   ['candidatos','Candidatos a staff','/candidatos/','usuarios'],
   ['staff','Staff y organigrama','/staff/','inicio'],
+  ['invitaciones','Familias en el portal','/invitaciones/','usuarios'],
   ['encuestas','Encuestas de experiencia','/encuestas/','direccion'],
   ['photos','Fotos del padrón','/admin/fotos/','admin'],
   ['clubs','Clubes','/admin/clubes/','admin'],

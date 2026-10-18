@@ -34,6 +34,7 @@ async function abre(ruta, opts = {}) {
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(`console: ${m.text()}`); });
   await p.addInitScript(({ opts, ORG, TOKEN }) => {
+    if (opts.conSesion) sessionStorage.setItem('__sesion', '1');
     const guarda = (n, prm) => { const l = JSON.parse(sessionStorage.getItem('__llamadas') || '[]'); l.push({ n, prm }); sessionStorage.setItem('__llamadas', JSON.stringify(l)); };
     window.__abiertas = [];
     window.open = () => { const w = { closed: false, location: { set href(v) { window.__abiertas.push(v); } }, close() { this.closed = true; } }; return w; };
@@ -50,9 +51,13 @@ async function abre(ruta, opts = {}) {
       v2_family_invite_link: prm => { const t = tutores.find(x => x.id === prm.guardian_id); return { token: TOKEN, purpose: t.tieneCuenta ? 'reset' : 'invite', telefono: t.telefono, usuario: t.usuario || t.telefono }; },
       v2_public_context: () => ({ organizationId: ORG, organizationName: 'Tannery City FC', slug: 'tannery-city-fc', whatsappNumber: '524792651338' }),
       v2_public_family_invite: () => opts.usada ? { valid: false, reason: 'used' } : { valid: true, purpose: 'invite', primerNombre: 'Adriana Elizabeth Sánchez Alvarado', club: 'Tannery City FC', usuario: '4773979631', hijos: [{ primerNombre: 'Adrian Mateo', categoria: 'T6' }, { primerNombre: 'Jorge Alfonso', categoria: 'T10' }] },
-      v2_portal_home: () => ({ organization: { name: 'Tannery City FC', whatsapp: '524792651338' }, players: [{ id: 'p1', first_name: 'Jorge', last_name: 'Sánchez', category: 'T10' }] }),
-      v2_portal_statement: () => ({ summary: { balance: 0 }, ledger: [] }),
-      v2_portal_paperwork: () => ({})
+      v2_portal_home: () => ({ guardian: { name: 'Adriana Elizabeth Sánchez' }, organization: { name: 'Tannery City FC', whatsapp: '524792651338' }, players: [{ id: 'p1', first_name: 'Jorge Alfonso', last_name: 'Sánchez', category: 'T10', jersey_number: '9' }] }),
+      v2_portal_statement: () => ({ summary: { balance: opts.debe ? 1250 : 0 }, ledger: [], documents: [] }),
+      v2_portal_paperwork: () => opts.debe ? { image_consent: { status: 'sin_preguntar' }, consents: [{ code: 'reglamento', title: 'Reglamento del club', body: 'Texto', required: true, accepted_at: null }] } : {},
+      v2_portal_avisos: () => [{ id: 'a1', title: 'No hay entrenamiento el lunes', body: 'Por el puente.', categoria: 'T10', author: 'Mich', publishedAt: new Date().toISOString(), unread: true },
+                               { id: 'a2', title: 'Foto oficial', body: null, author: 'Mich', publishedAt: '2026-10-01T12:00:00Z', unread: false }],
+      v2_portal_calendar: () => { const m = new Date(); m.setDate(m.getDate() + 1); m.setHours(17, 0, 0, 0); return [{ kind: 'session', title: 'Entrenamiento T10', starts_at: m.toISOString(), location: 'Cancha 1', category: 'T10' }]; },
+      v2_portal_parking: () => ({ price: 500, season: 2026, passes: [] })
     };
     const sesion = () => sessionStorage.getItem('__sesion') ? { user: { id: 'u9', app_metadata: {} } } : (opts.staff ? { user: { id: 'u1' } } : null);
     window.__fakeSupabase = {
@@ -166,9 +171,43 @@ const cabe = p => p.evaluate(() => document.documentElement.scrollWidth <= inner
   await p.close();
 }
 
+{ // Fase 2: Inicio con pendientes, avisos y lo próximo
+  const p = await abre('/v2/familias/index.html', { conSesion: true, debe: true });
+  await p.waitForSelector('.fam-pendientes', { timeout: 8000 });
+  if (process.env.QA_CAPTURA) await p.screenshot({ path: process.env.QA_CAPTURA.replace(/\.png$/, '-inicio.png'), fullPage: true });
+  revisa('[inicio] abre en Inicio y saluda a la tutora', await p.getAttribute('.fam-nav-item[data-tab="inicio"]', 'aria-current') === 'page' && /Adriana/.test(await p.textContent('.fam-inicio-hero')));
+  revisa('[inicio] su hijo con categoría y número', /Jorge/.test(await p.textContent('.fam-hijo')) && /T10 · #9/.test(await p.textContent('.fam-hijo')));
+  const pend = await p.$$eval('.fam-pend', b => b.map(x => x.dataset.tipo));
+  revisa('[inicio] pendientes en orden: pagar, firmar, fotos', JSON.stringify(pend) === '["pago","firma","fotos"]', JSON.stringify(pend));
+  revisa('[inicio] el pago dice cuánto', /\$1,250\.00/.test(await p.textContent('.fam-pend[data-tipo="pago"]')));
+  revisa('[inicio] lo próximo: mañana, con lugar', /Mañana/.test(await p.textContent('.fam-prox')) && /Cancha 1/.test(await p.textContent('.fam-prox')));
+  revisa('[avisos] el nuevo se marca y dice su categoría', /Nuevo/.test(await p.textContent('.fam-aviso-item.nuevo')) && /Para T10/.test(await p.textContent('.fam-aviso-item.nuevo')));
+  await p.waitForTimeout(300);
+  revisa('[avisos] abrir Inicio los marca como vistos', (await llamadas(p, 'v2_portal_avisos_vistos')).length === 1);
+  revisa('[push] ofrece activar los avisos en el celular', await p.isVisible('.fam-push [data-push]'));
+  revisa('[inicio] cabe a 390px', await cabe(p));
+  await p.click('.fam-pend[data-tipo="pago"]');
+  await p.waitForSelector('#famSaldo', { timeout: 4000 }).catch(() => {});
+  revisa('[pendiente] "Ver cómo pagar" lleva a Cuenta, a su saldo', await p.getAttribute('.fam-nav-item[data-tab="cuenta"]', 'aria-current') === 'page' && await p.isVisible('#famSaldo'));
+  await p.click('.fam-nav-item[data-tab="club"]');
+  await p.waitForSelector('.fam-seg', { timeout: 4000 });
+  revisa('[club] el calendario trae el entrenamiento', /Entrenamiento T10/.test(await p.textContent('#famBody')));
+  await p.click('[data-club="gafete"]');
+  await p.waitForSelector('#gafeteForm', { timeout: 4000 }).catch(() => {});
+  revisa('[club] Estacionamiento en la misma pestaña', await p.isVisible('#gafeteForm') && await p.getAttribute('[data-club="gafete"]', 'aria-selected') === 'true');
+  await p.close();
+}
+
+{ // Al día: sin pendientes lo dice
+  const p = await abre('/v2/familias/index.html', { conSesion: true });
+  await p.waitForSelector('.fam-pendientes', { timeout: 8000 });
+  revisa('[inicio] sin pendientes dice "Todo al día"', /Todo al día/.test(await p.textContent('.fam-pendientes')) && (await p.locator('.fam-pend').count()) === 0);
+  await p.close();
+}
+
 await nav.close(); srv.close();
 let mal = 0;
 for (const r of revisiones) if (!r.ok) { mal++; console.error(` - ${r.nombre}${r.detalle ? ' :: ' + r.detalle : ''}`); }
 if (errores.length) { console.error('ERRORES DEL NAVEGADOR:'); errores.forEach(e => console.error('   ' + e)); }
 if (mal || errores.length) { console.error(`Invitaciones humo FAILED · ${mal} de ${revisiones.length}, ${errores.length} errores`); process.exit(1); }
-console.log(`Invitaciones humo OK · ${revisiones.length} revisiones: invitar por WhatsApp, envío rápido, entrar con el teléfono, olvidé mi contraseña y la liga de invitación`);
+console.log(`Invitaciones humo OK · ${revisiones.length} revisiones: invitar por WhatsApp, envío rápido, entrar con el teléfono, olvidé mi contraseña la liga de invitación e Inicio con pendientes y avisos`);

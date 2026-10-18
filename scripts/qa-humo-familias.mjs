@@ -113,6 +113,8 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
       }
       return RESP[name] ?? null;
     }
+    export const PUSH_PUBLIC_KEY = 'x';
+    export function urlBase64ToUint8Array(){ return new Uint8Array(); }
     export const shellIcon = () => '';
     export const navItems = [];
     export function navigationMap(){ return new Map(); }
@@ -413,8 +415,14 @@ revisa('se agrega de un toque y la tarjeta lo dice', /3 piezas \(S, 2 L\)/.test(
 revisa('y el carrito trae el short en dos tallas', /Short/.test(await pagina.textContent('#famBody')));
 await pagina.goto('http://127.0.0.1:4601/v2/familias/?tab=inventada', { waitUntil: 'networkidle' });
 await pagina.waitForSelector('#appView:not(.hidden)', { timeout: 8000 });
-revisa('un ?tab= desconocido abre en Cuenta',
-  await pagina.getAttribute('.fam-nav-item[data-tab="cuenta"]', 'aria-current') === 'page');
+// Desde la fase 2 (18/10/2026) el portal abre en Inicio.
+revisa('un ?tab= desconocido abre en Inicio',
+  await pagina.getAttribute('.fam-nav-item[data-tab="inicio"]', 'aria-current') === 'page');
+await pagina.goto('http://127.0.0.1:4601/v2/familias/?tab=gafete', { waitUntil: 'networkidle' });
+await pagina.waitForSelector('.fam-seg', { timeout: 8000 }).catch(() => {});
+revisa('la liga vieja ?tab=gafete abre Club en Estacionamiento',
+  await pagina.getAttribute('.fam-nav-item[data-tab="club"]', 'aria-current') === 'page'
+  && await pagina.getAttribute('[data-club="gafete"]', 'aria-selected') === 'true');
 
 await navegador.close();
 server.close();

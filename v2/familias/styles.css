@@ -381,3 +381,4 @@
 .fam-acceso-fila input{flex:1;min-width:0}
 .fam-btn.fam-btn-sm{width:auto;padding:0 16px;min-height:44px;margin:0}
 .fam-acceso-nota{margin:14px 0 0;font-size:12.5px;color:var(--fam-muted, #6b777c)}
+.fam-opcional{font-weight:500;color:var(--fam-muted, #6b777c)}

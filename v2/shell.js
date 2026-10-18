@@ -85,6 +85,9 @@ export const navItems=[
   {code:'estacionamiento',label:'Estacionamiento',href:'/estacionamiento/',group:'ops',icon:'car'},
   {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'ops',icon:'briefcase'},
   {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin',icon:'userCog'},
+  // Familias en el portal (18/10/2026): invitar por WhatsApp con liga personal.
+  // No es módulo: la ve quien maneja Usuarios (y Presidencia).
+  {code:'invitaciones',label:'Familias en el portal',href:'/invitaciones/',group:'admin',icon:'users',lee:['usuarios']},
   {code:'admin',label:'Administración',href:'/admin/',group:'admin',icon:'settings'},
   {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug'}
 ];

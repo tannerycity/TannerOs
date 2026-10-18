@@ -1,17 +1,29 @@
-<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Familias</title><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"><link rel="stylesheet" href="/v2/familias/styles.css?v=20260923a"><link rel="stylesheet" href="/v2/vitrina.css?v=20261013a"></head><body class="fam-body">
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07191e"><title>Familias</title><link rel="manifest" href="/v2/familias/manifest.webmanifest"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Familias"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"><link rel="stylesheet" href="/v2/familias/styles.css?v=20260923a"><link rel="stylesheet" href="/v2/vitrina.css?v=20261013a"></head><body class="fam-body">
 
 <section id="loginView" class="fam-auth hidden">
   <div class="fam-auth-card">
-    <div class="fam-mark">T</div>
-    <h1>Portal de familias</h1>
-    <p class="fam-muted">Entra con el usuario o correo y la contraseña que te dio el club.</p>
+    <div class="fam-auth-escudo" data-escudo><span class="fam-mark">T</span></div>
+    <p class="fam-auth-club" data-club>Portal de familias</p>
+    <h1>Entra a tu portal</h1>
+    <p class="fam-muted">Pagos, asistencia, cómo va tu Tanner, la tienda y los avisos del club.</p>
     <form id="loginForm">
-      <label>Usuario o correo<input id="email" type="text" inputmode="email" autocomplete="username" required></label>
-      <label>Contraseña<input id="password" type="password" autocomplete="current-password" required></label>
+      <label>Tu teléfono o usuario<input id="email" type="text" autocomplete="username" placeholder="477 123 4567" autocapitalize="off" spellcheck="false" required></label>
+      <div class="fam-campo"><label for="password">Contraseña</label><span class="fam-pass"><input id="password" type="password" autocomplete="current-password" required><button type="button" class="fam-ver" data-ver="password" aria-label="Ver contraseña">Ver</button></span></div>
       <button id="loginSubmit" class="fam-btn" type="submit">Entrar</button>
       <div id="loginMessage" class="fam-message hidden"></div>
     </form>
+    <button id="olvide" class="fam-link fam-olvide" type="button">¿Olvidaste tu contraseña?</button>
+    <div id="ayudaAcceso" class="fam-ayuda hidden">
+      <b>Te mandamos una liga nueva</b>
+      <p>Escríbele al club por WhatsApp: te manda una liga para elegir una contraseña nueva. Tu usuario sigue siendo tu teléfono.</p>
+      <a id="ayudaWa" class="fam-wa" target="_blank" rel="noopener">Pedir mi liga por WhatsApp</a>
+    </div>
+    <p class="fam-auth-pie"><b>¿Primera vez?</b> El club te manda por WhatsApp tu liga para crear tu contraseña. <a id="pideLiga" target="_blank" rel="noopener">Pedirla</a></p>
   </div>
+</section>
+
+<section id="inviteView" class="fam-auth hidden">
+  <div class="fam-auth-card" id="inviteCard"><p class="fam-muted">Abriendo tu invitación…</p></div>
 </section>
 
 <section id="passwordView" class="fam-auth hidden">
@@ -20,8 +32,8 @@
     <h1>Elige tu contraseña</h1>
     <p class="fam-muted">Por seguridad, cambia la contraseña temporal antes de continuar.</p>
     <form id="passwordForm">
-      <label>Nueva contraseña<input id="newPassword" type="password" minlength="10" autocomplete="new-password" required></label>
-      <label>Confirmar<input id="confirmPassword" type="password" minlength="10" autocomplete="new-password" required></label>
+      <label>Nueva contraseña<input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></label>
+      <label>Confirmar<input id="confirmPassword" type="password" minlength="8" autocomplete="new-password" required></label>
       <label id="contactEmailField" class="hidden">Tu correo <span class="fam-optional">(opcional)</span>
         <input id="contactEmail" type="email" inputmode="email" autocomplete="email" placeholder="tucorreo@ejemplo.com">
         <small class="fam-hint">Para mandarte tu estado de cuenta y avisos del club. Sigues entrando con tu usuario.</small>
@@ -40,6 +52,7 @@
     </div>
     <div id="playerTabs" class="fam-tabs"></div>
   </header>
+  <div id="famInstalar" class="fam-instalar hidden" role="region" aria-label="Instalar la app"></div>
   <main id="famBody" class="fam-main"><div class="fam-empty">Cargando…</div></main>
   <nav class="fam-nav">
     <button class="fam-nav-item" data-tab="cuenta" type="button" aria-current="page"><span class="fam-nav-ico" data-i="wallet"></span>Cuenta</button>

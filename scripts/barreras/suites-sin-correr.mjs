@@ -150,7 +150,9 @@ export default function comprobar() {
   // un solo poller por sesión, respuestas tardías descartadas y reconexión.
   // Sube a 45 por qa-humo-encuesta.mjs: la encuesta pública de experiencia
   // (quién contesta, calificaciones, NPS, contacto con consentimiento).
-  const MAX_EXCLUIDAS = 45;
+  // Sube a 46 por qa-humo-invitaciones.mjs: invitar familias por WhatsApp,
+  // entrar con el teléfono y la liga de invitación del portal.
+  const MAX_EXCLUIDAS = 46;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

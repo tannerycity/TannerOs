@@ -1,5 +1,7 @@
 import {supabase,rpc,money,$} from '/v2/shell.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
+import { llaveDeLiga } from '/v2/club-publico.js';
+import { correoDeEntrada, tokenDeLiga, primeraPalabra, conEspacios } from '/v2/invitaciones/invitaciones.js';
 import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 // El mismo criterio que usa el staff, para que un papa y Presidencia nunca
 // vean dos porcentajes distintos del mismo Tanner.
@@ -37,14 +39,14 @@ const orderLabel=t=>ORDER_LABEL[t]||'';
 const TAB_INICIAL=(()=>{const t=new URLSearchParams(location.search).get('tab');return ['cuenta','calendario','progreso','tienda','gafete'].includes(t)?t:'cuenta';})();
 const state={home:null,playerId:'',tab:TAB_INICIAL,statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
 
-function show(id){['loginView','passwordView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
+function show(id){['loginView','passwordView','inviteView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
   const box=$(id);if(!box)return;
   box.textContent=text;box.dataset.type=type;box.classList.toggle('hidden',!text);
 }
 function friendly(error){
   const raw=String(error?.message||error||'Ocurrió un error.');
-  if(/invalid login credentials/i.test(raw))return 'Correo o contraseña incorrectos.';
+  if(/invalid login credentials/i.test(raw))return 'Teléfono, usuario o contraseña incorrectos. Si no la recuerdas, toca "¿Olvidaste tu contraseña?".';
   if(/portal access required/i.test(raw))return 'Tu cuenta todavía no está ligada a un Tanner. Avísale al club.';
   if(/not authorized/i.test(raw))return 'No tienes acceso a esa información.';
   if(/failed to fetch|network/i.test(raw))return 'No pudimos conectar. Revisa tu señal e intenta de nuevo.';
@@ -79,14 +81,9 @@ async function signPhoto(p){
 }
 
 /* ---------- Acceso ---------- */
-// El club le da a la familia un usuario (no todos tienen correo). Se traduce al
-// correo interno con el que vive la cuenta. Mismo truco que ya usa el staff,
-// pero con dominio propio: son dos padrones y no deben chocar.
-function loginEmail(value){
-  const dato=String(value||'').trim().toLowerCase();
-  if(dato.includes('@'))return dato;
-  return `${dato.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_')}@familias.tanneros.invalid`;
-}
+/* Se entra con el teléfono (las cuentas nuevas, 18/10/2026), con el usuario
+   que dio el club o con el correo. Ver correoDeEntrada en /v2/invitaciones. */
+const loginEmail=correoDeEntrada;
 
 async function handleLogin(event){
   event.preventDefault();msg('loginMessage');
@@ -103,7 +100,7 @@ async function handleLogin(event){
 async function handlePassword(event){
   event.preventDefault();msg('passwordMessage');
   const a=$('newPassword').value,b=$('confirmPassword').value;
-  if(a.length<10){msg('passwordMessage','Usa al menos 10 caracteres.');return;}
+  if(a.length<8){msg('passwordMessage','Usa al menos 8 caracteres.');return;}
   if(a!==b){msg('passwordMessage','Las contraseñas no coinciden.');return;}
   const btn=$('passwordSubmit');btn.disabled=true;btn.textContent='Guardando…';
   // Sólo se lee si de verdad se le pidió: un campo oculto con valor viejo no
@@ -924,6 +921,7 @@ function paint(){
 }
 
 async function boot(){
+  if(TOKEN){await muestraInvitacion();return;}
   const {data:{session}}=await supabase.auth.getSession();
   if(!session){show('loginView');return;}
   const {data:{user}}=await supabase.auth.getUser();
@@ -941,6 +939,7 @@ async function boot(){
     return;
   }
   show('appView');
+  ofreceInstalar();
   const org=state.home?.organization?.name;
   if(org)$('orgName').textContent=org;
   const players=state.home?.players||[];
@@ -955,6 +954,108 @@ async function boot(){
     if(face&&player._photo)face.innerHTML=`<img src="${esc(player._photo)}" alt="Foto de ${esc([player.first_name,player.last_name].filter(Boolean).join(' '))}">`;
   }
 }
+
+/* ---------- Entrar sin que nadie dicte contraseñas (18/10/2026) ----------
+   El club manda por WhatsApp una liga personal (/familias/#i=<token>): la
+   familia ve de quién es tutora, elige su contraseña y entra. Su usuario es su
+   teléfono. La misma liga sirve para recuperar la contraseña. */
+const TOKEN=tokenDeLiga(location.hash);
+let clubPublico=null;
+async function cargaClub(){
+  if(clubPublico)return clubPublico;
+  try{clubPublico=await rpc('v2_public_context',{club_key:llaveDeLiga()})||{};}catch(e){clubPublico={};}
+  const nombre=clubPublico.organizationName||clubPublico.brand||'';
+  document.querySelectorAll('[data-club]').forEach(el=>{if(nombre)el.textContent=nombre;});
+  if(clubPublico.slug==='tannery-city-fc')document.querySelectorAll('[data-escudo]').forEach(el=>{el.innerHTML='<img src="/brand/crest-gold.png" alt="">';});
+  return clubPublico;
+}
+const waClub=texto=>{const n=String(clubPublico?.whatsappNumber||'').replace(/\D/g,'');return n.length>=11?`https://wa.me/${n}?text=${encodeURIComponent(texto)}`:'';};
+function pintaAyudaAcceso(){
+  const tel=String($('email')?.value||'').trim();
+  const pedir=waClub(`Hola, soy familia del club. Necesito mi liga para entrar al portal de familias.${tel?` Mi teléfono es ${tel}.`:''}`);
+  const olvide=waClub(`Hola, olvidé mi contraseña del portal de familias.${tel?` Mi teléfono es ${tel}.`:''} ¿Me mandan una liga nueva?`);
+  const a=$('pideLiga');if(a){a.href=pedir||'#';a.classList.toggle('hidden',!pedir);}
+  const b=$('ayudaWa');if(b){b.href=olvide||'#';b.classList.toggle('hidden',!olvide);}
+}
+async function muestraInvitacion(){
+  show('inviteView');
+  const card=$('inviteCard');
+  await cargaClub();
+  let inv=null;
+  try{inv=await rpc('v2_public_family_invite',{token:TOKEN});}catch(e){inv={valid:false,reason:'error'};}
+  const escudo=clubPublico?.slug==='tannery-city-fc'?'<img src="/brand/crest-gold.png" alt="">':'<span class="fam-mark">T</span>';
+  if(!inv?.valid){
+    const usada=inv?.reason==='used';
+    const pedir=waClub('Hola, mi liga del portal de familias ya no funciona. ¿Me mandan una nueva?');
+    card.innerHTML=`<div class="fam-auth-escudo">${escudo}</div>
+      <h1>${usada?'Esta liga ya se usó':'Esta liga ya no funciona'}</h1>
+      <p class="fam-muted">${usada?'Si ya creaste tu contraseña, entra con tu teléfono y tu contraseña.':'Las ligas sirven una sola vez y duran 14 días. Pídele al club una nueva.'}</p>
+      <button type="button" class="fam-btn" data-ir-entrar>Ir a entrar</button>
+      ${pedir?`<a class="fam-wa" href="${esc(pedir)}" target="_blank" rel="noopener">Pedir una liga nueva</a>`:''}`;
+    card.querySelector('[data-ir-entrar]').addEventListener('click',()=>{history.replaceState(null,'',location.pathname+location.search);location.reload();});
+    return;
+  }
+  const nueva=inv.purpose!=='reset';
+  const hijos=(inv.hijos||[]).map(h=>`<li><b>${esc(primeraPalabra(h.primerNombre))}</b><span>${esc(h.categoria||'')}</span></li>`).join('');
+  card.innerHTML=`<div class="fam-auth-escudo">${escudo}</div>
+    <p class="fam-auth-club">${esc(inv.club||'')}</p>
+    <h1>Hola, ${esc(primeraPalabra(inv.primerNombre)||'familia')}</h1>
+    <p class="fam-muted">${nueva?'Ya tienes tu lugar en el portal de familias.':'Elige una contraseña nueva para tu portal.'}</p>
+    ${hijos?`<ul class="fam-inv-hijos">${hijos}</ul>`:''}
+    <div class="fam-inv-usuario"><small>Tu usuario</small><b>${esc(conEspacios(inv.usuario||''))}</b><span>${/^\d{10}$/.test(inv.usuario||'')?'Es tu teléfono: con él entras siempre.':'Con él entras siempre.'}</span></div>
+    <form id="inviteForm">
+      <div class="fam-campo"><label for="invPass">${nueva?'Crea tu contraseña':'Contraseña nueva'}</label><span class="fam-pass"><input id="invPass" type="password" minlength="8" autocomplete="new-password" required><button type="button" class="fam-ver" data-ver="invPass" aria-label="Ver contraseña">Ver</button></span><small class="fam-hint">Al menos 8 caracteres.</small></div>
+      <label>Escríbela otra vez<input id="invPass2" type="password" minlength="8" autocomplete="new-password" required></label>
+      <input type="text" name="username" autocomplete="username" value="${esc(inv.usuario||'')}" hidden>
+      <button id="invSubmit" class="fam-btn" type="submit">${nueva?'Crear contraseña y entrar':'Guardar y entrar'}</button>
+      <div id="invMessage" class="fam-message hidden"></div>
+    </form>`;
+  $('inviteForm').addEventListener('submit',async e=>{
+    e.preventDefault();msg('invMessage');
+    const a=$('invPass').value,b=$('invPass2').value;
+    if(a.length<8){msg('invMessage','Usa al menos 8 caracteres.');return;}
+    if(a!==b){msg('invMessage','Las contraseñas no coinciden.');return;}
+    const btn=$('invSubmit');btn.disabled=true;btn.textContent='Preparando tu portal…';
+    try{
+      const {data,error}=await supabase.functions.invoke('family-access',{body:{action:'claim',token:TOKEN,password:a}});
+      if(error){let m='';try{m=(await error.context.json())?.error;}catch(_){}throw new Error(m||'No se pudo completar. Intenta de nuevo.');}
+      if(!data?.ok)throw new Error(data?.error||'No se pudo completar. Intenta de nuevo.');
+      await supabase.auth.signOut({scope:'local'}).catch(()=>{});
+      const {error:loginError}=await supabase.auth.signInWithPassword({email:data.login,password:a});
+      if(loginError)throw loginError;
+      history.replaceState(null,'',location.pathname+location.search);
+      location.reload();
+    }catch(error){msg('invMessage',friendly(error));btn.disabled=false;btn.textContent=nueva?'Crear contraseña y entrar':'Guardar y entrar';}
+  });
+}
+
+/* Instalar como app: en Android sale el botón del sistema; en iPhone se
+   explica (Compartir > Agregar a inicio). Se puede cerrar y no vuelve. */
+let avisoInstalar=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();avisoInstalar=e;ofreceInstalar();});
+function ofreceInstalar(){
+  const box=$('famInstalar');if(!box||$('appView').classList.contains('hidden'))return;
+  const instalada=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  let cerrado=false;try{cerrado=localStorage.getItem('fam-instalar-cerrado')==='1';}catch(_){}
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!/crios|fxios/i.test(navigator.userAgent);
+  if(instalada||cerrado||(!avisoInstalar&&!ios)){box.classList.add('hidden');return;}
+  box.innerHTML=`<div class="fam-instalar-in"><span class="fam-instalar-ico" aria-hidden="true"></span>
+    <span><b>Tenla a un toque</b><small>${avisoInstalar?'Instálala en tu celular como una app.':'Toca Compartir y luego "Agregar a inicio".'}</small></span>
+    ${avisoInstalar?'<button type="button" data-instalar>Instalar</button>':''}
+    <button type="button" class="fam-instalar-x" data-instalar-no aria-label="Cerrar">&times;</button></div>`;
+  box.classList.remove('hidden');
+  box.querySelector('[data-instalar]')?.addEventListener('click',async()=>{try{await avisoInstalar.prompt();await avisoInstalar.userChoice;}catch(_){}avisoInstalar=null;box.classList.add('hidden');});
+  box.querySelector('[data-instalar-no]').addEventListener('click',()=>{try{localStorage.setItem('fam-instalar-cerrado','1');}catch(_){}box.classList.add('hidden');});
+}
+
+document.addEventListener('click',e=>{
+  const v=e.target.closest('[data-ver]');if(!v)return;
+  const i=document.getElementById(v.dataset.ver);if(!i)return;
+  const ver=i.type==='password';i.type=ver?'text':'password';v.textContent=ver?'Ocultar':'Ver';
+});
+$('olvide')?.addEventListener('click',()=>{pintaAyudaAcceso();$('ayudaAcceso').classList.toggle('hidden');});
+$('email')?.addEventListener('change',pintaAyudaAcceso);
+cargaClub().then(pintaAyudaAcceso);
 
 $('loginForm')?.addEventListener('submit',handleLogin);
 $('passwordForm')?.addEventListener('submit',handlePassword);

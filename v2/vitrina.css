@@ -186,3 +186,12 @@
 .fam-pieza-elige{display:grid;gap:8px}
 .fam-elige{display:flex;flex-wrap:wrap;gap:7px}
 .fam-precios-nino{display:block;font-size:12.5px;font-weight:600;color:var(--vit-muted,#6e7b80)}
+
+/* Varias tallas a la vez y "Agregar otro" (18/10/2026). */
+.fam-varias{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.fam-varias li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 6px 6px 12px;border-radius:12px;background:#f3f5f4}
+.fam-varias b{font-size:13.5px;color:#12313a}
+.fam-cant{display:inline-flex;align-items:center;gap:2px}
+.fam-cant button{width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:#12313a;font-size:18px;font-weight:700;cursor:pointer}
+.fam-cant output{min-width:24px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums}
+.fam-recien{display:block;margin-top:8px;padding:8px 10px;border-radius:10px;background:#e8f4ec;color:#1d5c38;font-size:12.5px;line-height:1.35}

@@ -171,6 +171,34 @@ export function preparaLinea(producto, opciones = {}) {
   };
 }
 
+/* Varias tallas a la vez (18/10/2026): "se meten a pedir la Japanese y dicen,
+   yo quiero una chica y una grande". Sólo piezas sin estampado y con más de
+   una talla: lo estampado es personal y se arma una por una. */
+export function admiteVariasTallas(producto) {
+  return !!producto?.id && !aceptaPersonalizacion(producto) && !tallaUnica(producto) && tallasDe(producto).length > 1;
+}
+// {talla: cantidad} -> una línea por talla, en el orden del catálogo.
+export function preparaLineasPorTalla(producto, opciones = {}) {
+  const cantidades = opciones.cantidades || {};
+  const tallas = tallasDe(producto).filter(t => Number(cantidades[t]) > 0);
+  if (!tallas.length) return { ok: false, motivo: 'Elige al menos una talla.', falta: 'talla' };
+  const lineas = [];
+  for (const talla of tallas) {
+    const r = preparaLinea(producto, { talla, cantidad: cantidades[talla], manga: opciones.manga });
+    if (!r.ok) return r;
+    lineas.push(r.linea);
+  }
+  return { ok: true, lineas, piezas: lineas.reduce((s, l) => s + l.cantidad, 0), total: lineas.reduce((s, l) => s + l.total, 0) };
+}
+// Tocar una talla la agrega con 1 o la quita; los botones − y + mueven la cantidad.
+export function cambiaCantidadDeTalla(cantidades = {}, talla, delta = null) {
+  const copia = { ...cantidades };
+  const actual = Number(copia[talla]) || 0;
+  const nueva = delta === null ? (actual ? 0 : 1) : Math.max(0, Math.min(20, actual + Number(delta)));
+  if (nueva) copia[talla] = nueva; else delete copia[talla];
+  return copia;
+}
+
 /* La llave de una línea del carrito.
 
    Dos jerseys del mismo modelo en tallas distintas son dos renglones, no uno

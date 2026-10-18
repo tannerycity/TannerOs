@@ -319,6 +319,59 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   await p2.close();
 }
 
+/* ===== Varias tallas a la vez y "Agregar otro" (18/10/2026) =====
+   "Se meten a pedir la Japanese y dicen, yo quiero una chica y una grande." */
+{
+  const p3 = await nav.newPage({ viewport:{ width:390, height:844 } });
+  p3.on('pageerror', e => errs.push('varias: ' + e.message));
+  await p3.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
+  await p3.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v}}' }));
+  await p3.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+    export function createClient(){return{
+      auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+      storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/qa-foto/x'})),error:null})})},
+      rpc:async(n,p={})=>{
+        if(n==='v2_public_offerings')return{data:${JSON.stringify(OFERTA)},error:null};
+        if(n==='v2_public_payment_info')return{data:${JSON.stringify(PAGO)},error:null};
+        if(n==='v2_public_context')return{data:{organizationId:'org-qa',brand:'Club QA'},error:null};
+        return {data:null,error:null};}};}` }));
+  const n3 = () => p3.$eval('#stCarritoN', b => b.hidden ? '0' : b.textContent);
+  await p3.goto(BASE + '/pedido/#/p/p-short');
+  await p3.waitForSelector('[data-talla="S"]', { timeout:5000 });
+  revisa('[varias] una pieza sin estampado dice "Elige una o varias" y no pide cantidad aparte', /Elige una o varias/.test(await p3.textContent('#stBloqueTalla')) && (await p3.$('[data-cantidad]')) === null);
+  await p3.click('#stAgregar');
+  revisa('[varias] sin talla no se agrega', /Elige al menos una talla/.test(await p3.innerText('.st-motivo')) && (await n3()) === '0');
+  await p3.click('[data-talla="S"]'); await p3.click('[data-talla="L"]');
+  await p3.click('[data-varia="L"] [data-varia-cant="1"]');
+  if (process.env.QA_FOTO_VARIAS) await p3.locator('#stBloqueTalla').screenshot({ path: process.env.QA_FOTO_VARIAS });
+  revisa('[varias] dos tallas marcadas, una fila por talla', (await p3.$$('.st-varias li')).length === 2 && (await p3.getAttribute('[data-talla="S"]', 'aria-pressed')) === 'true');
+  revisa('[varias] la L dice ×2 y el botón suma 3 piezas', /×2/.test(await p3.textContent('[data-talla="L"]')) && /Agregar 3 piezas · \$1,050\.00/.test(await p3.innerText('#stAgregar')), await p3.innerText('#stAgregar'));
+  await p3.click('[data-talla="S"]');
+  revisa('[varias] tocar otra vez una talla la quita', (await p3.$$('.st-varias li')).length === 1 && /Agregar 2 piezas · \$700\.00/.test(await p3.innerText('#stAgregar')));
+  await p3.click('[data-talla="S"]');
+  await p3.click('#stAgregar');
+  revisa('[varias] se agregan las 3 piezas de un toque', (await n3()) === '3', await n3());
+  revisa('[otro] queda dicho arriba qué se agregó', /3 piezas · S, 2 L/.test(await p3.textContent('.st-recien')), await p3.textContent('.st-recien').catch(() => ''));
+  revisa('[varias] y las tallas quedan limpias para otra', (await p3.$$('.st-varias li')).length === 0);
+  await p3.goto(BASE + '/pedido/#/pedido');
+  await p3.waitForSelector('#resumenCarrito', { timeout:4000 }).catch(() => {});
+  const res3 = (await p3.textContent('#resumenCarrito').catch(() => '')).replace(/\s+/g, ' ');
+  revisa('[varias] el pedido trae un renglón por talla', /Short/.test(res3) && /\$1,050/.test(res3), res3);
+  // "Agregar otro" después de un jersey personalizado: el del hermano.
+  await p3.goto(BASE + '/pedido/#/p/p-jersey');
+  await p3.waitForSelector('[data-talla="10"]', { timeout:4000 });
+  revisa('[varias] el jersey personalizable sigue con una talla a la vez', (await p3.$('[data-cantidad]')) !== null && (await p3.$('.st-varias')) === null);
+  await p3.click('[data-talla="10"]');
+  await p3.fill('[data-campo="nombre"]', 'LEO'); await p3.fill('[data-campo="numero"]', '7');
+  await p3.click('#stAgregar');
+  revisa('[otro] el jersey agregado se dice con nombre y talla', /LEO 7 · talla 10/.test(await p3.textContent('.st-recien')), await p3.textContent('.st-recien').catch(() => ''));
+  if (process.env.QA_FOTO_VARIAS) await p3.locator('.st-recien').screenshot({ path: process.env.QA_FOTO_VARIAS.replace(/\.png$/, '-otro.png') });
+  await p3.click('[data-otro]');
+  revisa('[otro] "Agregar otro" deja la ficha lista para el siguiente', (await p3.$('.st-recien')) === null && (await p3.inputValue('[data-campo="nombre"]')) === '');
+  revisa('[varias] nada se sale a 390px', await p3.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+  await p3.close();
+}
+
 revisa('sin errores de consola', errs.length === 0, errs.join('\n   '));
 await nav.close(); srv.close();
 console.log(fallos

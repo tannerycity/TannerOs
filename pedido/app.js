@@ -35,7 +35,8 @@ import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { textoHasta, recargoDe, llevaManga as tieneManga, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
-         tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito }
+         tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito,
+         admiteVariasTallas, preparaLineasPorTalla, cambiaCantidadDeTalla }
   from '/v2/tienda.js';
 import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
@@ -283,6 +284,30 @@ function botonesTalla(tallas, elegida, atributo) {
     + '</div>').join('');
 }
 
+/* Varias tallas a la vez (18/10/2026): cada talla tocada queda marcada con su
+   cantidad, y abajo una fila por talla con − y +. */
+function botonesTallaVarias(tallas, cantidades) {
+  return gruposDeTallas(tallas).map(g => `${g.etiqueta ? `<p class="st-grupo">${g.etiqueta}</p>` : ''}<div class="st-tallas">`
+    + g.tallas.map(t => { const n = Number(cantidades[t]) || 0;
+      return `<button type="button" class="st-talla${n ? ' activa' : ''}" data-talla="${esc(t)}" aria-pressed="${n > 0}">${esc(t)}${n > 1 ? `<small class="st-talla-n">×${n}</small>` : ''}</button>`; }).join('')
+    + '</div>').join('');
+}
+function filasDeVarias(p, cantidades, manga) {
+  const elegidas = tallasDe(p).filter(t => Number(cantidades[t]) > 0);
+  if (!elegidas.length) return '';
+  const extra = manga === 'larga' && llevaManga(p) ? recargoDe(p) : 0;
+  return `<ul class="st-varias">${elegidas.map(t => `<li data-varia="${esc(t)}"><span><b>Talla ${esc(t)}</b><small>${money.format(precioDeProducto(p, t) + extra)} c/u</small></span>
+    <div class="st-cantidad mini"><button type="button" data-varia-cant="-1" aria-label="Una menos de talla ${esc(t)}">&minus;</button><output>${cantidades[t]}</output>
+    <button type="button" data-varia-cant="1" aria-label="Una más de talla ${esc(t)}">+</button></div></li>`).join('')}</ul>`;
+}
+/* "Agregar otro" (18/10/2026): lo agregado se queda dicho arriba, con el
+   camino para armar otro (el jersey del hermano) o ir al pedido. */
+function recienAgregado(e) {
+  if (!e.recien) return '';
+  return `<div class="st-recien" role="status"><p><b>Listo, va en tu pedido</b><span>${esc(e.recien)}</span></p>
+    <div class="st-recien-acciones"><button type="button" data-otro>Agregar otro</button><a href="#/pedido">Ver pedido</a></div></div>`;
+}
+
 /* ---------- La tienda (PLP) ---------- */
 function tarjeta({ tipo, item }) {
   if (tipo === 'kit') {
@@ -332,12 +357,16 @@ function renderProducto(id) {
   if (!p) { location.replace('#/'); return; }
   const e = (eligiendo[p.id] ||= { cantidad: 1 });
   const cat = categoriaDe(p), unica = tallaUnica(p), tallas = tallasDe(p);
+  const varias = admiteVariasTallas(p), cants = e.cantidades || {};
+  const extraManga = e.manga === 'larga' && llevaManga(p) ? recargoDe(p) : 0;
+  const multi = varias ? preparaLineasPorTalla(p, { cantidades: cants, manga: e.manga }) : null;
   document.title = `${p.name} · Tienda Tanner`;
   $('content').innerHTML = `
     <a class="st-volver" href="#/c/${esc(cat)}">‹ ${esc(etiquetaDe(cat))}</a>
     <article class="st-pdp" data-ficha="${esc(p.id)}">
       ${galeria(p, e.foto || 0)}
       <div class="st-pdp-info">
+        ${recienAgregado(e)}
         <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
         <h1>${esc(p.name)}</h1>
         <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p, e.talla || unica))}</p>
@@ -345,17 +374,20 @@ function renderProducto(id) {
         ${p.ofertaHasta ? `<p class="st-oferta grande">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</p>` : ''}
         ${p.description ? `<p class="st-desc">${esc(p.description)}</p>` : ''}
         <section class="st-bloque${e.falta === 'talla' ? ' falta' : ''}" id="stBloqueTalla">
-          <div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}</span></div>
-          ${unica ? `<p class="st-unica">Talla ${esc(unica)}: le queda a todos.</p>` : botonesTalla(tallas, e.talla, 'data-talla')}
+          ${varias ? `<div class="st-bloque-cab"><h2>Tallas</h2><span>Elige una o varias</span></div>
+          ${botonesTallaVarias(tallas, cants)}${filasDeVarias(p, cants, e.manga)}` : `<div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}</span></div>
+          ${unica ? `<p class="st-unica">Talla ${esc(unica)}: le queda a todos.</p>` : botonesTalla(tallas, e.talla, 'data-talla')}`}
         </section>
         ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name, recargoDe(p)) : llevaManga(p) ? bloqueManga(e, recargoDe(p)) : ''}
-        <section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
+        ${varias ? '' : `<section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
           <div class="st-cantidad"><button type="button" data-cantidad="-1" aria-label="Uno menos">&minus;</button>
-          <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>
+          <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>`}
         ${infoDeCompra()}
       </div>
     </article>
-    ${barraAgregar(`Agregar al pedido · ${money.format((precioDeProducto(p, e.talla || unica) + (e.manga === 'larga' && llevaManga(p) ? recargoDe(p) : 0)) * e.cantidad)}`, e.motivo)}`;
+    ${barraAgregar(varias
+      ? (multi.ok ? `Agregar ${multi.piezas} ${multi.piezas === 1 ? 'pieza' : 'piezas'} · ${money.format(multi.total)}` : 'Agregar al pedido')
+      : `Agregar al pedido · ${money.format((precioDeProducto(p, e.talla || unica) + extraManga) * e.cantidad)}`, e.motivo)}`;
   pintaBarra(false);
   cableaGaleria(e);
   firmaFotos($('content'));
@@ -381,6 +413,7 @@ function renderKit(id) {
     <article class="st-pdp" data-ficha="${esc(k.id)}">
       ${medioKit(k, 'grande')}
       <div class="st-pdp-info">
+        ${recienAgregado(e)}
         ${e.reemplaza ? '<p class="st-convierte">Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.</p>' : ''}
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
         <h1>${esc(k.name)}</h1>
@@ -432,7 +465,25 @@ function cablea() {
     const esKit = !!(ficha && (catalogo.bundles || []).some(k => String(k.id) === ficha));
     const t = ev.target;
     const talla = t.closest('[data-talla]');
-    if (talla && ficha) { const e = eligiendo[ficha]; e.talla = talla.dataset.talla; e.motivo = null; e.falta = null; repinta(renderProducto, ficha); return; }
+    if (talla && ficha) {
+      const e = eligiendo[ficha], p = (catalogo.products || []).find(x => String(x.id) === ficha);
+      if (admiteVariasTallas(p)) e.cantidades = cambiaCantidadDeTalla(e.cantidades, talla.dataset.talla);
+      else e.talla = talla.dataset.talla;
+      e.motivo = null; e.falta = null; e.recien = null; repinta(renderProducto, ficha); return;
+    }
+    const varia = t.closest('[data-varia-cant]');
+    if (varia && ficha) {
+      const e = eligiendo[ficha];
+      e.cantidades = cambiaCantidadDeTalla(e.cantidades, varia.closest('[data-varia]').dataset.varia, Number(varia.dataset.variaCant));
+      repinta(renderProducto, ficha); return;
+    }
+    if (t.closest('[data-otro]') && ficha) {
+      const e = esKit ? eligiendoKit[ficha] : eligiendo[ficha];
+      e.recien = null;
+      repinta(esKit ? renderKit : renderProducto, ficha);
+      (esKit ? document.querySelector('[data-ranura]') : $('stBloqueTalla'))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     const cant = t.closest('[data-cantidad]');
     if (cant && ficha) { const e = eligiendo[ficha]; e.cantidad = Math.max(1, Math.min(20, (e.cantidad || 1) + Number(cant.dataset.cantidad))); repinta(renderProducto, ficha); return; }
     const manga = t.closest('[data-manga]');
@@ -494,10 +545,22 @@ function agregaProducto(id) {
   const p = (catalogo.products || []).find(x => String(x.id) === String(id));
   if (!p) return;
   const e = eligiendo[id];
+  if (admiteVariasTallas(p)) {
+    const m = preparaLineasPorTalla(p, { cantidades: e.cantidades, manga: e.manga });
+    if (!m.ok) { falla(e, m, renderProducto, id); return; }
+    for (const l of m.lineas) carrito = agregaAlCarrito(carrito, l);
+    const texto = `${m.piezas} ${m.piezas === 1 ? 'pieza' : 'piezas'} · ${m.lineas.map(l => `${l.cantidad > 1 ? `${l.cantidad} ` : ''}${l.talla}`).join(', ')}`;
+    eligiendo[id] = { cantidad: 1, recien: texto };
+    actualizaCarrito();
+    repinta(renderProducto, id);
+    aviso(`Agregado · ${texto}`, true);
+    return;
+  }
   const r = preparaLinea(p, { talla: e.talla, cantidad: e.cantidad || 1, nombre: e.nombre, numero: e.numero, manga: e.manga });
   if (!r.ok) { falla(e, r, renderProducto, id); return; }
   carrito = agregaAlCarrito(carrito, r.linea);
-  eligiendo[id] = { cantidad: 1 };
+  const l = r.linea, quien = [l.personalizationName, l.numero].filter(Boolean).join(' ');
+  eligiendo[id] = { cantidad: 1, recien: [quien, l.talla && `talla ${l.talla}`, l.manga === 'larga' && 'manga larga', l.cantidad > 1 && `${l.cantidad} piezas`].filter(Boolean).join(' · ') || p.name };
   actualizaCarrito();
   repinta(renderProducto, id);
   aviso(`Agregado${r.linea.talla ? ` · talla ${r.linea.talla}` : ''}${r.linea.cantidad > 1 ? ` · ${r.linea.cantidad} piezas` : ''}`, true);
@@ -512,7 +575,8 @@ function agregaKit(id) {
   const reemplaza = (Array.isArray(e.reemplaza) ? e.reemplaza : e.reemplaza ? [e.reemplaza] : []).filter(k => carrito[k]);
   for (const k of reemplaza) carrito = quitaUnaPieza(carrito, k);
   carrito = agregaAlCarrito(carrito, r.linea);
-  eligiendoKit[id] = { tallas: {}, tier: e.tier };
+  eligiendoKit[id] = { tallas: {}, tier: e.tier,
+    recien: [k.name, [r.linea.personalizationName, r.linea.numero].filter(Boolean).join(' '), r.linea.tier.toLocaleLowerCase('es-MX')].filter(Boolean).join(' · ') };
   actualizaCarrito();
   if (reemplaza.length) { location.hash = '#/pedido'; setTimeout(() => aviso(`Listo: ahora es ${k.name}`, true), 60); return; }
   repinta(renderKit, id);

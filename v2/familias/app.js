@@ -7,7 +7,8 @@ import {etiquetaDeEstado, estadoDeAsistencia} from '/v2/asistencia/estadisticas.
 import {conOferta, kitConOferta, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, agregaAlCarrito, quitaDelCarrito, totalDelCarrito,
         piezasDelCarrito, acomodaVitrina, tallasDe, tallaUnica,
         aceptaPersonalizacion, preparaKit, ranurasDeKit, tiersDeKit,
-        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS, armaRecompra, mesesDesde, conOpcionesDeKit, ranuraElegida, conRecargo} from '/v2/tienda.js';
+        precioDeKit, llaveDeCarrito, ESCALA_NINOS, ESCALA_ADULTOS, armaRecompra, mesesDesde, conOpcionesDeKit, ranuraElegida, conRecargo,
+        admiteVariasTallas, preparaLineasPorTalla, cambiaCantidadDeTalla} from '/v2/tienda.js';
 /* El dibujo de la tienda ya no vive aqui: lo comparten esta pantalla y el link
    publico de compra. Ver el encabezado de /v2/vitrina.js. */
 import {inicialesDe, filaDeTalla, tarjetaProducto as dibujaProducto,
@@ -732,8 +733,16 @@ async function renderTienda(){
       eligiendoKit[kitId]={...prev,tallas,abierto:null,motivo:null};
     }else{
       const prev=eligiendo[ref]||{};
-      eligiendo[ref]={...prev,talla:prev.talla===talla?null:talla,abierto:false,motivo:null};
+      // Varias tallas: el panel se queda abierto para marcar otra.
+      if(admiteVariasTallas(rows.find(x=>String(x.id)===String(ref))))eligiendo[ref]={...prev,cantidades:cambiaCantidadDeTalla(prev.cantidades,talla),abierto:true,motivo:null,recien:null};
+      else eligiendo[ref]={...prev,talla:prev.talla===talla?null:talla,abierto:false,motivo:null,recien:null};
     }
+    renderTienda();
+  }));
+  cuerpo.querySelectorAll('[data-vcant]').forEach(b=>b.addEventListener('click',()=>{
+    const [id,talla,delta]=b.dataset.vcant.split('::');
+    const prev=eligiendo[id]||{};
+    eligiendo[id]={...prev,cantidades:cambiaCantidadDeTalla(prev.cantidades,talla,Number(delta)),motivo:null};
     renderTienda();
   }));
 
@@ -801,6 +810,14 @@ async function renderTienda(){
   cuerpo.querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{
     const id=btn.dataset.add,prod=rows.find(x=>String(x.id)===String(id));
     if(!prod)return;
+    if(admiteVariasTallas(prod)){
+      const m=preparaLineasPorTalla(prod,eligiendo[id]||{});
+      if(!m.ok){eligiendo[id]={...(eligiendo[id]||{}),motivo:m.motivo,abierto:true};renderTienda();return;}
+      for(const l of m.lineas)state.cart=agregaAlCarrito(state.cart,l);
+      eligiendo[id]={recien:`${m.piezas} ${m.piezas===1?'pieza':'piezas'} (${m.lineas.map(l=>`${l.cantidad>1?`${l.cantidad} `:''}${l.talla}`).join(', ')})`};
+      renderTienda();
+      return;
+    }
     const r=preparaLinea(prod,eligiendo[id]||{});
     if(!r.ok){
       // El motivo se pinta en la tarjeta, junto al botón que se tocó, no en
@@ -810,7 +827,8 @@ async function renderTienda(){
       return;
     }
     state.cart=agregaAlCarrito(state.cart,r.linea);
-    eligiendo[id]={};
+    const l=r.linea;
+    eligiendo[id]={recien:[[l.personalizationName,l.numero].filter(Boolean).join(' '),l.talla&&`talla ${l.talla}`,l.manga==='larga'&&'manga larga'].filter(Boolean).join(' · ')||prod.name};
     renderTienda();
   }));
   cuerpo.querySelectorAll('[data-quita]').forEach(b=>b.addEventListener('click',()=>{

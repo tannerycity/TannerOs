@@ -154,8 +154,13 @@ const cabe = p => p.evaluate(() => document.documentElement.scrollWidth <= inner
   await p.click('#invSubmit');
   revisa('[invitación] si no coinciden, lo dice', /no coinciden/.test(await p.textContent('#invMessage')) && (await llamadas(p, 'fn:family-access')).length === 0);
   await p.fill('#invPass2', 'Tanner2026');
+  await p.fill('#invCorreo', 'adriana@');
+  await p.click('#invSubmit');
+  revisa('[invitación] un correo incompleto no envía', (await llamadas(p, 'fn:family-access')).length === 0);
+  await p.fill('#invCorreo', ' Adriana@Correo.mx ');
   await p.click('#invSubmit');
   await p.waitForSelector('#appView:not(.hidden)', { timeout: 8000 }).catch(() => {});
+  revisa('[invitación] guarda su correo (opcional) al entrar', (await llamadas(p, 'v2_save_my_contact_email'))[0]?.email === 'adriana@correo.mx', JSON.stringify(await llamadas(p, 'v2_save_my_contact_email')));
   const fn = (await llamadas(p, 'fn:family-access'))[0] || {};
   revisa('[invitación] manda el token y la contraseña', fn.action === 'claim' && fn.token === TOKEN && fn.password === 'Tanner2026', JSON.stringify(fn));
   revisa('[invitación] entra con el usuario que le dieron', (await llamadas(p, 'signIn')).at(-1)?.email === '4773979631@familias.tanneros.invalid');

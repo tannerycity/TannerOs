@@ -1184,6 +1184,7 @@ async function muestraInvitacion(){
     <form id="inviteForm">
       <div class="fam-campo"><label for="invPass">${nueva?'Crea tu contraseña':'Contraseña nueva'}</label><span class="fam-pass"><input id="invPass" type="password" minlength="8" autocomplete="new-password" required><button type="button" class="fam-ver" data-ver="invPass" aria-label="Ver contraseña">Ver</button></span><small class="fam-hint">Al menos 8 caracteres.</small></div>
       <label>Escríbela otra vez<input id="invPass2" type="password" minlength="8" autocomplete="new-password" required></label>
+      <div class="fam-campo"><label for="invCorreo">Tu correo <span class="fam-opcional">(opcional)</span></label><input id="invCorreo" type="email" autocomplete="email" placeholder="tu@correo.com"><small class="fam-hint">Para entrar también con él y recibir tus recibos.</small></div>
       <input type="text" name="username" autocomplete="username" value="${esc(inv.usuario||'')}" hidden>
       <button id="invSubmit" class="fam-btn" type="submit">${nueva?'Crear contraseña y entrar':'Guardar y entrar'}</button>
       <div id="invMessage" class="fam-message hidden"></div>
@@ -1193,6 +1194,8 @@ async function muestraInvitacion(){
     const a=$('invPass').value,b=$('invPass2').value;
     if(a.length<8){msg('invMessage','Usa al menos 8 caracteres.');return;}
     if(a!==b){msg('invMessage','Las contraseñas no coinciden.');return;}
+    const correo=($('invCorreo')?.value||'').trim().toLowerCase();
+    if(correo&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)){msg('invMessage','Revisa tu correo, parece incompleto. Si no tienes, déjalo vacío.');return;}
     const btn=$('invSubmit');btn.disabled=true;btn.textContent='Preparando tu portal…';
     try{
       const {data,error}=await supabase.functions.invoke('family-access',{body:{action:'claim',token:TOKEN,password:a}});
@@ -1201,6 +1204,8 @@ async function muestraInvitacion(){
       await supabase.auth.signOut({scope:'local'}).catch(()=>{});
       const {error:loginError}=await supabase.auth.signInWithPassword({email:data.login,password:a});
       if(loginError)throw loginError;
+      // El correo es opcional: si no se guarda, la familia entra igual.
+      if(correo){try{await rpc('v2_save_my_contact_email',{email:correo});}catch(e){console.warn('correo de contacto',e);}}
       history.replaceState(null,'',location.pathname+location.search);
       location.reload();
     }catch(error){msg('invMessage',friendly(error));btn.disabled=false;btn.textContent=nueva?'Crear contraseña y entrar':'Guardar y entrar';}

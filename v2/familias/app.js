@@ -1,4 +1,5 @@
-import {supabase,rpc,money,$} from '/v2/shell.js';
+import {supabase,rpc,money,$,PUSH_PUBLIC_KEY,urlBase64ToUint8Array} from '/v2/shell.js';
+import { pendientesDe, proximoEvento, cuandoEs, saludo, avisosSinLeer } from '/v2/familias/inicio.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { llaveDeLiga } from '/v2/club-publico.js';
 import { correoDeEntrada, tokenDeLiga, primeraPalabra, conEspacios } from '/v2/invitaciones/invitaciones.js';
@@ -36,8 +37,11 @@ const ORDER_LABEL={draft:'Por confirmar',pending:'Apartado',confirmed:'Confirmad
 const orderLabel=t=>ORDER_LABEL[t]||'';
 // ?tab=tienda abre directo en la Tienda: es a donde manda el link público de
 // compra a la familia que ya tiene cuenta ("Ya soy familia Tanner").
-const TAB_INICIAL=(()=>{const t=new URLSearchParams(location.search).get('tab');return ['cuenta','calendario','progreso','tienda','gafete'].includes(t)?t:'cuenta';})();
-const state={home:null,playerId:'',tab:TAB_INICIAL,statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
+// Fase 2 (18/10/2026): Inicio es la primera pantalla; Calendario y Gafete
+// viven juntos en "Club". Las ligas viejas (?tab=calendario|gafete) siguen.
+const TAB_PEDIDA=new URLSearchParams(location.search).get('tab');
+const TAB_INICIAL=['inicio','cuenta','progreso','tienda','club'].includes(TAB_PEDIDA)?TAB_PEDIDA:['calendario','gafete'].includes(TAB_PEDIDA)?'club':'inicio';
+const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
 
 function show(id){['loginView','passwordView','inviteView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -182,7 +186,7 @@ function balanceBlock(st){
     : aFavor>0?'Se aplicará automáticamente a tu próximo cargo':'No tienes nada pendiente. ¡Gracias!';
   const partes=(s.by_type||[]).map(t=>
     `<div class="fam-chip-val"><span>${esc(chargeLabel(t.type))}</span><b>${money.format(Number(t.pending||0))}</b></div>`).join('');
-  return `<section class="fam-balance" data-state="${estado}"><span>${titulo}</span><strong>${cifra}</strong><small>${esc(sub)}</small>${partes?`<div class="fam-split">${partes}</div>`:''}</section>`;
+  return `<section class="fam-balance" id="famSaldo" data-state="${estado}"><span>${titulo}</span><strong>${cifra}</strong><small>${esc(sub)}</small>${partes?`<div class="fam-split">${partes}</div>`:''}</section>`;
 }
 
 function monthsBlock(st){
@@ -248,7 +252,7 @@ function docsBlock(st){
   const boton=waBoton(
     `Hola, soy familia de ${nombreDe(currentPlayer())}. Les mando ${nombres.join(' y ')}.`,
     nombres.length===1?'Mandar este documento al club':'Mandar estos documentos al club');
-  return `<section class="fam-card"><div class="fam-card-head"><h2>Documentos por entregar</h2><span>faltan ${faltan.length} de ${docs.length}</span></div>${rows}${boton}</section>`;
+  return `<section class="fam-card" id="famDocs"><div class="fam-card-head"><h2>Documentos por entregar</h2><span>faltan ${faltan.length} de ${docs.length}</span></div>${rows}${boton}</section>`;
 }
 
 /* ---------- Papeles del club ---------- */
@@ -273,7 +277,7 @@ function imagenBlock(pw){
   const si=img.status==='autoriza';
 
   if(!decidido){
-    return `<section class="fam-card fam-imagen pendiente">
+    return `<section class="fam-card fam-imagen pendiente" id="famFotos">
       <div class="fam-card-head"><h2>¿Podemos publicar sus fotos?</h2><span>falta tu respuesta</span></div>
       <p class="fam-doc-body">${esc(doc?.body||'El club usa fotos y video de los entrenamientos y partidos en sus redes, su página y su publicidad. Tú decides si tu hijo o hija puede aparecer.')}</p>
       <p class="fam-imagen-nota">Decir que no <b>no afecta su inscripción</b> ni nada de lo que el club le da. Puedes cambiar de opinión cuando quieras.</p>
@@ -283,7 +287,7 @@ function imagenBlock(pw){
       </div>
     </section>`;
   }
-  return `<section class="fam-card fam-imagen ${si?'si':'no'}">
+  return `<section class="fam-card fam-imagen ${si?'si':'no'}" id="famFotos">
     <div class="fam-card-head"><h2>Fotos y publicidad</h2><span>${si?'autorizado':'no autorizado'}</span></div>
     <p class="fam-imagen-estado"><i aria-hidden="true">${si?'✓':'⦸'}</i>
       ${si?'Sí puede aparecer en las redes y la publicidad del club.':'No aparece en las redes ni en la publicidad del club.'}
@@ -320,7 +324,7 @@ function consentsBlock(pw){
   const nota=faltan?`falta${faltan===1?'':'n'} ${faltan} por firmar`
     :cambiados?`${cambiados} se actualiz${cambiados===1?'ó':'aron'}`
     :'todo en orden';
-  return `<section class="fam-card"><div class="fam-card-head"><h2>Papeles del club</h2><span>${nota}</span></div>${filas}</section>`;
+  return `<section class="fam-card" id="famPapeles"><div class="fam-card-head"><h2>Papeles del club</h2><span>${nota}</span></div>${filas}</section>`;
 }
 
 // La beca: o se ve la que ya tiene, o se pide explicando por qué.
@@ -913,11 +917,122 @@ function paint(){
   document.querySelectorAll('.fam-nav-item').forEach(b=>
     b.setAttribute('aria-current',b.dataset.tab===state.tab?'page':'false'));
   document.getElementById('famCart')?.remove();
-  if(state.tab==='calendario')renderCalendario();
-  else if(state.tab==='progreso')renderProgreso();
-  else if(state.tab==='tienda')renderTienda();
-  else if(state.tab==='gafete')renderGafete();
-  else renderCuenta();
+  if(state.tab==='inicio')return renderInicio();
+  if(state.tab==='club')return renderClub();
+  if(state.tab==='progreso')return renderProgreso();
+  if(state.tab==='tienda')return renderTienda();
+  return renderCuenta();
+}
+// Ir a una pestaña y, si se pide, a una sección de ella (los pendientes de Inicio).
+async function irA(tab,ancla,playerId){
+  if(playerId&&playerId!==state.playerId){state.playerId=playerId;renderTabs();}
+  state.tab=tab;window.scrollTo(0,0);await paint();
+  if(ancla){const el=document.getElementById(ancla);if(el){el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('fam-resalta');setTimeout(()=>el.classList.remove('fam-resalta'),1800);}}
+}
+
+/* ---------- Inicio (fase 2, 18/10/2026) ----------
+   "Tiene que ser bien fácil hacer todo." Lo primero: qué tiene que hacer la
+   familia (pagar, firmar, la foto, documentos), los avisos del club, lo
+   próximo y sus hijos. Cada pendiente lleva directo a donde se resuelve. */
+async function cargaAvisos(){
+  try{state.avisos=await rpc('v2_portal_avisos')||[];}catch(e){state.avisos=state.avisos||[];}
+  pintaGloboAvisos();
+  return state.avisos;
+}
+function pintaGloboAvisos(){
+  const n=avisosSinLeer(state.avisos),b=document.querySelector('.fam-nav-item[data-tab="inicio"] .fam-nav-globo');
+  if(b){b.textContent=String(n);b.classList.toggle('hidden',!n);}
+}
+async function renderInicio(){
+  const players=state.home?.players||[];
+  const body=$('famBody');
+  if(!state.inicioListo)body.innerHTML='<div class="fam-empty">Cargando tu inicio…</div>';
+  const desde=new Date(),hasta=new Date();hasta.setDate(hasta.getDate()+60);
+  await Promise.all([
+    state.avisos?Promise.resolve():cargaAvisos(),
+    state.calendar?Promise.resolve():rpc('v2_portal_calendar',{from_at:desde.toISOString(),to_at:hasta.toISOString()}).then(r=>{state.calendar=r||[];}).catch(()=>{state.calendar=[];}),
+    ...players.map(p=>state.statements[p.id]?null:rpc('v2_portal_statement',{player_id:p.id}).then(r=>{state.statements[p.id]=r;}).catch(()=>{})),
+    ...players.map(p=>state.paperwork[p.id]?null:rpc('v2_portal_paperwork',{player_id:p.id}).then(r=>{state.paperwork[p.id]=r||{};}).catch(()=>{state.paperwork[p.id]={};}))
+  ]);
+  if(state.tab!=='inicio')return;
+  state.inicioListo=true;
+  const tutor=String(state.home?.guardian?.name||'').trim().split(/\s+/)[0];
+  const pend=pendientesDe(players,state.statements,state.paperwork);
+  const prox=proximoEvento(state.calendar);
+  const avisos=state.avisos||[];
+  const ICO={pago:'wallet',firma:'pen',fotos:'camera',docs:'doc'};
+  const pendHtml=pend.length
+    ? pend.map((x,i)=>`<button type="button" class="fam-pend" data-pend="${i}" data-tipo="${x.tipo}"><span class="fam-pend-ico" data-i="${ICO[x.tipo]}" aria-hidden="true"></span><span class="fam-pend-txt"><strong>${esc(x.titulo)}</strong>${x.monto?`<b>${money.format(x.monto)}</b>`:x.detalle?`<small>${esc(x.detalle)}</small>`:''}</span><span class="fam-pend-cta">${esc(x.accion)}</span></button>`).join('')
+    : '<div class="fam-alldia"><span aria-hidden="true"></span><div><strong>Todo al día</strong><small>No tienes nada pendiente con el club. ¡Gracias!</small></div></div>';
+  const avisosHtml=avisos.length
+    ? avisos.slice(0,state.verTodosAvisos?30:3).map(a=>`<article class="fam-aviso-item${a.unread?' nuevo':''}"><header><strong>${esc(a.title)}</strong>${a.unread?'<span class="fam-nuevo">Nuevo</span>':''}</header>${a.body?`<p>${esc(a.body)}</p>`:''}<small>${esc([a.categoria&&`Para ${a.categoria}`,a.author,a.publishedAt&&new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(new Date(a.publishedAt)).replace('.','')].filter(Boolean).join(' · '))}</small></article>`).join('')
+      +(avisos.length>3&&!state.verTodosAvisos?`<button type="button" class="fam-link fam-ver-todos" data-ver-avisos>Ver los ${avisos.length} avisos</button>`:'')
+    : '<p class="fam-muted fam-sin">Cuando el club publique un aviso, aquí lo ves (y en tu celular si activas los avisos).</p>';
+  const hijos=players.map(p=>`<button type="button" class="fam-hijo" data-hijo="${esc(p.id)}"><span class="fam-hijo-cara" data-profile-photo="${esc(p.id)}">${p._photo?`<img src="${esc(p._photo)}" alt="">`:esc(initials(p))}</span><span><strong>${esc(String(p.first_name||'').trim().split(/\s+/)[0]||'Tanner')}</strong><small>${esc([p.category,p.jersey_number&&`#${p.jersey_number}`].filter(Boolean).join(' · '))}</small></span><i aria-hidden="true">›</i></button>`).join('');
+  body.innerHTML=`
+    <section class="fam-inicio-hero">
+      <p>${esc(saludo())}${tutor?`, ${esc(tutor)}`:''}</p>
+      <h1>${esc(state.home?.organization?.name||'Tu club')}</h1>
+      <div class="fam-hijos">${hijos}</div>
+    </section>
+    <div id="famPush"></div>
+    <section class="fam-card fam-pendientes"><div class="fam-card-head"><h2>Pendientes</h2><span>${pend.length?`${pend.length} por hacer`:'al día'}</span></div>${pendHtml}</section>
+    ${prox?`<section class="fam-card fam-prox"><div class="fam-card-head"><h2>Lo próximo</h2><button type="button" class="fam-link" data-ir-club>Ver calendario</button></div>
+      <div class="fam-prox-ev"><span class="fam-prox-cuando">${esc(cuandoEs(prox.starts_at))}</span><strong>${esc(prox.title||'Entrenamiento')}</strong><small>${esc([prox.location,prox.category].filter(Boolean).join(' · '))}</small></div></section>`:''}
+    <section class="fam-card fam-avisos" id="famAvisos"><div class="fam-card-head"><h2>Avisos del club</h2><span>${avisosSinLeer(avisos)?`${avisosSinLeer(avisos)} nuevo${avisosSinLeer(avisos)===1?'':'s'}`:''}</span></div>${avisosHtml}</section>`;
+  body.querySelectorAll('[data-pend]').forEach(b=>b.addEventListener('click',()=>{const x=pend[Number(b.dataset.pend)];irA(x.tab,x.ancla,x.player);}));
+  body.querySelectorAll('[data-hijo]').forEach(b=>b.addEventListener('click',()=>irA('progreso',null,b.dataset.hijo)));
+  body.querySelector('[data-ir-club]')?.addEventListener('click',()=>{state.clubSub='calendario';irA('club');});
+  body.querySelector('[data-ver-avisos]')?.addEventListener('click',()=>{state.verTodosAvisos=true;renderInicio();});
+  pintaPush();
+  // Vistos: el globo se apaga, pero en esta pantalla siguen marcados como nuevos.
+  if(avisosSinLeer(avisos))rpc('v2_portal_avisos_vistos').then(()=>{state.avisos=avisos.map(a=>({...a,unread:false}));pintaGloboAvisos();}).catch(()=>{});
+}
+
+/* Avisos en el celular: se pide permiso sólo cuando la familia toca el botón.
+   En iPhone sólo funcionan con la app agregada a la pantalla de inicio. */
+async function suscripcionActual(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))return null;
+  const reg=await navigator.serviceWorker.getRegistration('/');
+  return reg?await reg.pushManager.getSubscription():null;
+}
+async function pintaPush(){
+  const box=$('famPush');if(!box)return;
+  const soporta='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const instalada=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  if(!soporta&&!(ios&&!instalada)){box.innerHTML='';return;}
+  if(soporta&&Notification.permission==='denied'){box.innerHTML='';return;}
+  let ya=null;try{ya=await suscripcionActual();}catch(_){}
+  if(ya){box.innerHTML='';return;}
+  if(ios&&!instalada){
+    box.innerHTML='<div class="fam-push"><span class="fam-push-ico" aria-hidden="true"></span><div><strong>Recibe los avisos en tu celular</strong><small>En iPhone, primero agrega la app a tu inicio: toca Compartir y luego "Agregar a inicio". Ábrela desde ahí y activa los avisos.</small></div></div>';
+    return;
+  }
+  box.innerHTML='<div class="fam-push"><span class="fam-push-ico" aria-hidden="true"></span><div><strong>Recibe los avisos en tu celular</strong><small>Te avisamos de entrenamientos, partidos y pagos.</small></div><button type="button" data-push>Activar</button></div>';
+  box.querySelector('[data-push]').addEventListener('click',async e=>{
+    const btn=e.currentTarget;btn.disabled=true;btn.textContent='Activando…';
+    try{
+      const reg=await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const permiso=await Notification.requestPermission();
+      if(permiso!=='granted'){box.innerHTML='';return;}
+      const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(PUSH_PUBLIC_KEY)});
+      const j=sub.toJSON();
+      await rpc('v2_portal_save_push_subscription',{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth,p_user_agent:navigator.userAgent});
+      box.innerHTML='<div class="fam-push listo"><span class="fam-push-ico" aria-hidden="true"></span><div><strong>Listo, avisos activados</strong><small>Te llegarán aunque no tengas el portal abierto.</small></div></div>';
+    }catch(err){console.warn('avisos',err);btn.disabled=false;btn.textContent='Activar';}
+  });
+}
+
+/* ---------- Club: calendario y estacionamiento ---------- */
+async function renderClub(){
+  if(state.clubSub==='gafete')await renderGafete(); else await renderCalendario();
+  if(state.tab!=='club')return;
+  $('famBody').insertAdjacentHTML('afterbegin',`<div class="fam-seg" role="tablist" aria-label="Club">
+    <button type="button" role="tab" data-club="calendario" aria-selected="${state.clubSub==='calendario'}">Calendario</button>
+    <button type="button" role="tab" data-club="gafete" aria-selected="${state.clubSub==='gafete'}">Estacionamiento</button></div>`);
+  $('famBody').querySelectorAll('[data-club]').forEach(b=>b.addEventListener('click',()=>{state.clubSub=b.dataset.club;renderClub();}));
 }
 
 async function boot(){
@@ -940,6 +1055,7 @@ async function boot(){
   }
   show('appView');
   ofreceInstalar();
+  if(state.tab!=='inicio')cargaAvisos();
   const org=state.home?.organization?.name;
   if(org)$('orgName').textContent=org;
   const players=state.home?.players||[];

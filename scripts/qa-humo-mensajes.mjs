@@ -71,7 +71,11 @@ const AVISOS = { canPublish:true, avisos:[ { id:'v1', title:'El sábado no hay e
   // d5: el aviso personal que llegó a tres juntos es UNA tarjeta.
   { id:'v2', title:'Nueva postulación de staff', body:'Oscar · Formador', author:'TannerOS', audienceType:'users', audienceValue:null,
     recipients:[{ userId:ME, name:'Presidencia' }, { userId:'u-brandon', name:'Brandon Andrade' }, { userId:'u-emma', name:'Emmanuel' }],
-    publishedAt:hace(100), unread:true, reach:{ total:3, seen:1 } } ] };
+    publishedAt:hace(100), unread:true, reach:{ total:3, seen:1 } },
+  // Fase 2 del portal (18/10/2026): avisos a familias, con su alcance en familias.
+  { id:'v3', title:'Foto oficial el sábado', body:null, author:'Mich', audienceType:'categoria', audienceValue:'T10',
+    publishedAt:hace(50), unread:false, reach:{ total:12, seen:5, familias:true } } ],
+  categorias:['Baby Tanner','T10','T12'] };
 
 const shell = (falla) => `
   window.__rpc = []; window.__fallaEnvio = ${falla ? 1 : 0};
@@ -205,6 +209,23 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
   const uno = (await llamadas(pg, 'v2_publish_announcement'))[1] || {};
   revisa('publicar un aviso a UNA persona', uno.audience_type === 'user' && uno.audience_value === 'u-brandon', JSON.stringify(uno));
+  // Avisos a familias: todas o por categoría, y su alcance se cuenta en familias.
+  const fam = await pg.$$eval('.ms-aviso', as => as.filter(a => /Foto oficial/.test(a.textContent)).map(a => a.querySelector('footer').innerText));
+  revisa('el aviso a familias dice a quién y cuántas familias lo vieron', fam.length === 1 && /Familias de T10/.test(fam[0]) && /Visto por 5 de 12 familias/.test(fam[0]), JSON.stringify(fam));
+  await pg.click('#msNuevo'); await pg.waitForTimeout(150);
+  revisa('"Para" ofrece todas las familias y cada categoría', await pg.$$eval('#msAvPara option', o => o.map(x => x.value)).then(v => v.includes('familias') && v.includes('categoria:T10') && v.includes('categoria:Baby Tanner')));
+  await pg.fill('#msAvTitulo', 'No hay entrenamiento el lunes');
+  await pg.selectOption('#msAvPara', 'categoria:Baby Tanner');
+  revisa('al elegir familias explica que llega a su portal y celular', /portal/.test(await pg.textContent('#msAvHint')));
+  await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
+  const cat = (await llamadas(pg, 'v2_publish_announcement'))[2] || {};
+  revisa('publicar a las familias de una categoría', cat.audience_type === 'categoria' && cat.audience_value === 'Baby Tanner', JSON.stringify(cat));
+  await pg.click('#msNuevo'); await pg.waitForTimeout(150);
+  await pg.fill('#msAvTitulo', 'Torneo de fin de año');
+  await pg.selectOption('#msAvPara', 'familias');
+  await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
+  const todas = (await llamadas(pg, 'v2_publish_announcement'))[3] || {};
+  revisa('publicar a todas las familias', todas.audience_type === 'familias' && todas.audience_value === null, JSON.stringify(todas));
   await pg.close();
 }
 

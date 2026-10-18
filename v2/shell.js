@@ -104,10 +104,10 @@ function itemActive(item,active){return item.code===active||(item.aliases||[]).i
 export function setShellSearchItems(items=[]){window.__tosSearchExtras=Array.isArray(items)?items:[];}
 
 /* ---------- Mensajes / notificaciones push ---------- */
-const PUSH_PUBLIC_KEY='BDtFwZWNPYPy3-puGg1Q18Bs_hLfVI4tkA1m2cZqqa3h5Dl-Cf-81Iv3gR44saaQmof-Ri3o2oZ7LZe1cKTfnaQ';
+export const PUSH_PUBLIC_KEY='BDtFwZWNPYPy3-puGg1Q18Bs_hLfVI4tkA1m2cZqqa3h5Dl-Cf-81Iv3gR44saaQmof-Ri3o2oZ7LZe1cKTfnaQ';
 const ROLE_OPTIONS=['Presidencia','Marketing','Taquilla','Contabilidad','Scouting','Operaciones'];
 function escBell(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function urlBase64ToUint8Array(base64){
+export function urlBase64ToUint8Array(base64){
   const padding='='.repeat((4-base64.length%4)%4);
   const base64Safe=(base64+padding).replace(/-/g,'+').replace(/_/g,'/');
   const raw=atob(base64Safe);

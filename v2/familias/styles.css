@@ -373,3 +373,11 @@
 .fam-seg button[aria-selected="true"]{background:#fff;color:var(--fam-ink);box-shadow:0 2px 8px rgba(7,25,30,.1)}
 .fam-resalta{animation:famResalta 1.8s ease}
 @keyframes famResalta{0%,40%{box-shadow:0 0 0 3px rgba(198,172,92,.8)}100%{box-shadow:0 0 0 0 rgba(198,172,92,0)}}
+
+/* Tu acceso (Cuenta): con qué entra la familia y su correo. */
+.fam-acceso-txt{margin:4px 0 12px;font-size:14px;line-height:1.5}
+.fam-acceso-form label{display:block;font-size:12.5px;font-weight:700;margin-bottom:6px}
+.fam-acceso-fila{display:flex;gap:8px}
+.fam-acceso-fila input{flex:1;min-width:0}
+.fam-btn.fam-btn-sm{width:auto;padding:0 16px;min-height:44px;margin:0}
+.fam-acceso-nota{margin:14px 0 0;font-size:12.5px;color:var(--fam-muted, #6b777c)}

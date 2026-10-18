@@ -27,7 +27,8 @@
 import {
   tallasDe, tallaUnica, aceptaPersonalizacion, llevaManga,
   ESCALA_NINOS, ESCALA_ADULTOS,
-  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta, conOpcionesDeKit, ranuraElegida, nombreCorto, precioDeEtiqueta, precioNinoDe, precioDeProducto, conRecargo, recargoDe
+  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta, conOpcionesDeKit, ranuraElegida, nombreCorto, precioDeEtiqueta, precioNinoDe, precioDeProducto, conRecargo, recargoDe,
+  admiteVariasTallas, preparaLineasPorTalla
 } from '/v2/tienda.js';
 
 export const esc = v => String(v ?? '').replace(/[&<>"']/g,
@@ -89,6 +90,24 @@ export function filaDeTalla(id, tallas, elegida, abierto) {
   return cabeza + `<div class="fam-tallas" data-tallas="${esc(id)}">${cuerpo}</div>`;
 }
 
+/* Varias tallas a la vez (18/10/2026): "una chica y una grande" de la misma
+   playera. Las tallas se marcan (una o varias) y cada una lleva su − y +.
+   Las filas con cantidad se ven aunque el panel esté cerrado. */
+export function filaDeVariasTallas(id, tallas, cantidades = {}, abierto) {
+  if (!tallas.length) return '';
+  const elegidas = tallas.filter(t => Number(cantidades[t]) > 0);
+  const resumen = elegidas.map(t => `${cantidades[t] > 1 ? `${cantidades[t]} ` : ''}${t}`).join(', ');
+  const cabeza = elegidas.length
+    ? `<button type="button" class="fam-talla-sel" data-abre="${esc(id)}"><b>Tallas ${esc(resumen)}</b><span>${abierto ? 'listo' : 'cambiar'}</span></button>`
+    : `<button type="button" class="fam-talla-sel vacia" data-abre="${esc(id)}"><b>Elige tallas</b><span>una o varias</span></button>`;
+  const chip = t => `<button type="button" class="fam-talla${cantidades[t] > 0 ? ' activa' : ''}" data-talla="${esc(t)}" aria-pressed="${cantidades[t] > 0}">${esc(t)}</button>`;
+  const panel = abierto ? `<div class="fam-tallas" data-tallas="${esc(id)}"><div class="fam-fila">${tallas.map(chip).join('')}</div></div>` : '';
+  const filas = elegidas.length ? `<ul class="fam-varias">${elegidas.map(t => `<li><b>Talla ${esc(t)}</b><span class="fam-cant">`
+    + `<button type="button" data-vcant="${esc(id)}::${esc(t)}::-1" aria-label="Una menos de talla ${esc(t)}">&minus;</button><output>${cantidades[t]}</output>`
+    + `<button type="button" data-vcant="${esc(id)}::${esc(t)}::1" aria-label="Una más de talla ${esc(t)}">+</button></span></li>`).join('')}</ul>` : '';
+  return cabeza + panel + filas;
+}
+
 /* La tarjeta de una pieza suelta. `elec` es lo que esta pantalla lleva elegido
    para ESTE producto: {talla, abierto, nombre, numero, motivo}. */
 export function tarjetaProducto(p, elec = {}) {
@@ -96,24 +115,30 @@ export function tarjetaProducto(p, elec = {}) {
   const foto = `<span class="fam-shot" data-shot="${esc(p.id)}"><i class="fam-iniciales">${esc(inicialesDe(p.name))}</i></span>`;
   // Una talla unica no se ofrece: obligar a tocar "Universal" es un toque que
   // no informa. Se dice, y ya.
+  const varias = admiteVariasTallas(p);
+  const multi = varias ? preparaLineasPorTalla(p, { cantidades: elec.cantidades, manga: elec.manga }) : null;
   const chips = unica
     ? `<span class="fam-talla-unica">Talla ${esc(unica)}</span>`
+    : varias ? filaDeVariasTallas(p.id, tallas, elec.cantidades, elec.abierto)
     : filaDeTalla(p.id, tallas, elec.talla, elec.abierto);
   // El nombre y el numero solo aparecen cuando ya hay talla: pedirlos antes
   // llena la tarjeta de campos que todavia no sirven de nada.
-  const hayTalla = Boolean(unica || elec.talla);
+  const hayTalla = Boolean(unica || elec.talla || multi?.ok);
   const pers = (aceptaPersonalizacion(p) && hayTalla)
     ? `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-pnombre="${esc(p.id)}" value="${esc(elec.nombre || '')}">`
       + `<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-pnumero="${esc(p.id)}" value="${esc(elec.numero || '')}"></div>`
       + selectorManga('data-pmanga', p.id, elec.manga, recargoDe(p))
     : (llevaManga(p) && hayTalla) ? selectorManga('data-pmanga', p.id, elec.manga, recargoDe(p)) : '';
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
+  // "Agregar otro" (18/10/2026): lo agregado se dice en la tarjeta, que ya
+  // quedó lista para armar otro (el jersey del hermano).
+  const recien = elec.recien ? `<span class="fam-recien" role="status"><b>Agregado:</b> ${esc(elec.recien)}. ${aceptaPersonalizacion(p) ? 'Arma otro aquí mismo.' : ''}</span>` : '';
   return `<article class="fam-prod">${foto}<strong>${esc(p.name)}</strong>`
     + `<span class="fam-price">${p.precioAntes ? `<s>${dinero.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? 'Desde ' : ''}${dinero.format(et.monto)}`)(precioDeEtiqueta(p, unica || elec.talla))}</span>`
     + (precioNinoDe(p) && !(unica || elec.talla) ? `<span class="fam-precios-nino">Niño ${dinero.format(precioDeProducto(p, '10'))} · Adulto ${dinero.format(Number(p.price || 0))}</span>` : '')
     + (p.ofertaHasta ? `<span class="fam-oferta">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</span>` : '')
-    + `${p.description ? `<p>${esc(p.description)}</p>` : ''}${chips}${pers}${aviso}`
-    + `<button type="button" class="fam-add" data-add="${esc(p.id)}">Agregar</button></article>`;
+    + `${p.description ? `<p>${esc(p.description)}</p>` : ''}${recien}${chips}${pers}${aviso}`
+    + `<button type="button" class="fam-add" data-add="${esc(p.id)}">${multi?.ok ? `Agregar ${multi.piezas} ${multi.piezas === 1 ? 'pieza' : 'piezas'} · ${dinero.format(multi.total)}` : 'Agregar'}</button></article>`;
 }
 
 /* La tarjeta del kit.

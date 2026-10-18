@@ -65,6 +65,8 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
     const CATALOGO = [
       { id:'prod-jersey', name:'Jersey "Wet Blue" - Home Edition', category:'jersey',
         price:699, sizes:TALLAS, photo_thumb_path:null, photo_bucket:null, description:null },
+      { id:'prod-short', name:'Short', category:'shorts',
+        price:350, sizes:TALLAS, photo_thumb_path:null, photo_bucket:null, description:null },
       { id:'prod-calcetas', name:'Par de calcetas', category:'socks',
         price:200, sizes:['Universal'], photo_thumb_path:null, photo_bucket:null, description:null },
       { id:'prod-kit', name:'Kit Tanner Completo', category:'kit',
@@ -391,6 +393,24 @@ await pagina.waitForSelector('#famCart', { timeout: 4000 });
 const carritoOtraVez = await pagina.textContent('#famBody');
 revisa('un toque y queda en el carrito, con nombre y manga', /MATI/.test(carritoOtraVez) && /larga/i.test(carritoOtraVez), carritoOtraVez.slice(0, 300));
 revisa('con el carrito lleno la tarjeta se quita', (await pagina.$$('[data-otravez]')).length === 0);
+
+// Varias tallas a la vez (18/10/2026): "una chica y una grande" del short.
+await pagina.click('[data-abre="prod-short"]');
+await pagina.waitForTimeout(150);
+revisa('una pieza sin estampado dice "Elige tallas · una o varias"', /Elige tallas/.test(await pagina.textContent('[data-abre="prod-short"]')));
+await pagina.click('[data-tallas="prod-short"] [data-talla="S"]');
+await pagina.waitForTimeout(100);
+await pagina.click('[data-tallas="prod-short"] [data-talla="L"]');
+await pagina.waitForTimeout(100);
+revisa('el panel se queda abierto y marca las dos', (await pagina.$$('[data-tallas="prod-short"] .fam-talla.activa')).length === 2);
+await pagina.click('[data-vcant="prod-short::L::1"]');
+await pagina.waitForTimeout(100);
+revisa('cada talla con su cantidad y el botón suma todo', /Agregar 3 piezas · \$1,050\.00/.test(await pagina.textContent('[data-add="prod-short"]')), await pagina.textContent('[data-add="prod-short"]'));
+// Clic directo: Playwright espera "estable" un botón que no se mueve (medido 3 veces igual).
+await pagina.$eval('[data-add="prod-short"]', b => b.click());
+await pagina.waitForTimeout(200);
+revisa('se agrega de un toque y la tarjeta lo dice', /3 piezas \(S, 2 L\)/.test(await pagina.textContent('.fam-recien')), await pagina.textContent('.fam-recien').catch(() => ''));
+revisa('y el carrito trae el short en dos tallas', /Short/.test(await pagina.textContent('#famBody')));
 await pagina.goto('http://127.0.0.1:4601/v2/familias/?tab=inventada', { waitUntil: 'networkidle' });
 await pagina.waitForSelector('#appView:not(.hidden)', { timeout: 8000 });
 revisa('un ?tab= desconocido abre en Cuenta',

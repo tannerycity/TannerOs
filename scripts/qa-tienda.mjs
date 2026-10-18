@@ -10,7 +10,7 @@ import {
   ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA,
   CATEGORIAS, categoriaCanonica, ordenaTallas,
   ranurasDeKit, tiersDeKit, precioDeKit, preparaKit, llaveDeKit, llaveDeCarrito, armaRecompra, mesesDesde,
-  TIER_ADULTO, TIER_NINO
+  TIER_ADULTO, TIER_NINO, admiteVariasTallas, preparaLineasPorTalla, cambiaCantidadDeTalla
 } from '../v2/tienda.js';
 import { tipoDePieza } from '../v2/produccion/hoja.js';
 
@@ -508,6 +508,28 @@ revisa('un kit sin precio no se vende',
   const kc = T.kitConOferta({ id:'k', priceAdult:1500, priceKid:1299, oferta:{ priceAdult:1350, priceKid:null } });
   revisa('el kit del mostrador (priceAdult) también', kc.priceAdult === 1350 && kc.priceKid === 1299, JSON.stringify(kc));
   revisa('"Hasta el 31 oct"', T.textoHasta('2026-10-31') === 'Hasta el 31 oct', T.textoHasta('2026-10-31'));
+}
+
+/* Varias tallas a la vez (18/10/2026): "una chica y una grande" de la Japanese. */
+{
+  const TEE = { id:'tee', name:'The Tanner Oversized Tee', category:'Oversized', price:550, sizes:['S','M','L','XL'], personalizable:false };
+  const SHORT_NINO = { id:'sh', name:'Short', category:'shorts', price:350, price_kid:300, sizes:['10','12','M'] };
+  revisa('varias tallas: sí para la playera y el short; no para el jersey ni talla única',
+    admiteVariasTallas(TEE) && admiteVariasTallas(SHORT_NINO) && !admiteVariasTallas(JERSEY) && !admiteVariasTallas(CALCETAS));
+  revisa('varias tallas: sin ninguna, dice qué falta', preparaLineasPorTalla(TEE, { cantidades:{} }).falta === 'talla');
+  const m = preparaLineasPorTalla(TEE, { cantidades:{ L:2, S:1, XXL:3 } });
+  revisa('varias tallas: una línea por talla, en el orden del catálogo, sin tallas que no existen',
+    m.ok && JSON.stringify(m.lineas.map(l => [l.talla, l.cantidad])) === '[["S",1],["L",2]]', JSON.stringify(m.lineas));
+  revisa('varias tallas: piezas y total', m.piezas === 3 && m.total === 1650, `${m.piezas} ${m.total}`);
+  const k = preparaLineasPorTalla(SHORT_NINO, { cantidades:{ '12':1, M:1 } });
+  revisa('varias tallas: cada talla con su precio (niño y adulto)', k.total === 650 && k.lineas[0].precioUnitario === 300, JSON.stringify(k.lineas));
+  revisa('varias tallas: al carrito son dos renglones', Object.keys(k.lineas.reduce((c, l) => agregaAlCarrito(c, l), {})).length === 2);
+  let c = cambiaCantidadDeTalla({}, 'M');
+  revisa('tocar una talla la marca con 1', JSON.stringify(c) === '{"M":1}');
+  c = cambiaCantidadDeTalla(c, 'M', 1); c = cambiaCantidadDeTalla(c, 'M', 30);
+  revisa('el + no pasa de 20', c.M === 20, JSON.stringify(c));
+  revisa('el − hasta 0 la quita', JSON.stringify(cambiaCantidadDeTalla({ M:1 }, 'M', -1)) === '{}');
+  revisa('tocarla otra vez la quita', JSON.stringify(cambiaCantidadDeTalla({ M:3, S:1 }, 'M')) === '{"S":1}');
 }
 
 console.log(fallos

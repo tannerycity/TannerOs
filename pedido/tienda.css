@@ -285,3 +285,21 @@
 .st-mockup-uno span { display: grid; justify-items: center; font-size: 13px; font-weight: 700; color: var(--st-ink); }
 .st-mockup-uno small { font-size: 11.5px; font-weight: 600; color: var(--st-muted); }
 .st-mockup-cuerpo { width: 100%; display: grid; place-items: center; }
+
+/* Varias tallas a la vez y "Agregar otro" (18/10/2026). */
+.st-talla-n { margin-left: 4px; font-size: 11px; font-weight: 800; opacity: .8; }
+.st-varias { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.st-varias li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--st-soft); }
+.st-varias li span { display: grid; gap: 2px; }
+.st-varias li b { font-size: 15px; }
+.st-varias li small { font-size: 12.5px; color: var(--st-muted); }
+.st-cantidad.mini button { width: 36px; height: 36px; }
+.st-cantidad.mini output { min-width: 28px; }
+.st-recien { display: grid; gap: 10px; margin: 0 0 16px; padding: 14px 16px; border-radius: 16px; background: #e8f4ec; border: 1px solid #cfe6d7; }
+.st-recien p { margin: 0; display: grid; gap: 2px; }
+.st-recien b { color: var(--st-ok); font-size: 15px; }
+.st-recien span { font-size: 14px; color: var(--st-ink-2); }
+.st-recien-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.st-recien-acciones button, .st-recien-acciones a { flex: 1 1 140px; min-height: 42px; display: grid; place-items: center; border-radius: 12px; font: inherit; font-weight: 700; font-size: 14px; text-decoration: none; cursor: pointer; }
+.st-recien-acciones button { border: 0; background: var(--st-ink); color: #fff; }
+.st-recien-acciones a { border: 1px solid var(--st-line); background: #fff; color: var(--st-ink); }

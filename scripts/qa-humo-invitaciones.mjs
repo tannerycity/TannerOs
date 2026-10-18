@@ -51,7 +51,9 @@ async function abre(ruta, opts = {}) {
       v2_family_invite_link: prm => { const t = tutores.find(x => x.id === prm.guardian_id); return { token: TOKEN, purpose: t.tieneCuenta ? 'reset' : 'invite', telefono: t.telefono, usuario: t.usuario || t.telefono }; },
       v2_public_context: () => ({ organizationId: ORG, organizationName: 'Tannery City FC', slug: 'tannery-city-fc', whatsappNumber: '524792651338' }),
       v2_public_family_invite: () => opts.usada ? { valid: false, reason: 'used' } : { valid: true, purpose: 'invite', primerNombre: 'Adriana Elizabeth Sánchez Alvarado', club: 'Tannery City FC', usuario: '4773979631', hijos: [{ primerNombre: 'Adrian Mateo', categoria: 'T6' }, { primerNombre: 'Jorge Alfonso', categoria: 'T10' }] },
-      v2_portal_home: () => ({ guardian: { name: 'Adriana Elizabeth Sánchez' }, organization: { name: 'Tannery City FC', whatsapp: '524792651338' }, players: [{ id: 'p1', first_name: 'Jorge Alfonso', last_name: 'Sánchez', category: 'T10', jersey_number: '9' }] }),
+      v2_public_family_login: prm => ({ login: prm.contrasena === 'Buena-1850' ? '4773979631@familias.tanneros.invalid' : null }),
+      v2_save_my_contact_email: prm => ({ ok: true, email: prm.email }),
+      v2_portal_home: () => { if (opts.caido && !window.__reintento) throw new Error('Failed to fetch'); return { guardian: { name: 'Adriana Elizabeth Sánchez', phone: '+524773979631', email: null }, organization: { name: 'Tannery City FC', whatsapp: '524792651338' }, players: [{ id: 'p1', first_name: 'Jorge Alfonso', last_name: 'Sánchez', category: 'T10', jersey_number: '9' }] }; },
       v2_portal_statement: () => ({ summary: { balance: opts.debe ? 1250 : 0 }, ledger: [], documents: [] }),
       v2_portal_paperwork: () => opts.debe ? { image_consent: { status: 'sin_preguntar' }, consents: [{ code: 'reglamento', title: 'Reglamento del club', body: 'Texto', required: true, accepted_at: null }] } : {},
       v2_portal_avisos: () => [{ id: 'a1', title: 'No hay entrenamiento el lunes', body: 'Por el puente.', categoria: 'T10', author: 'Mich', publishedAt: new Date().toISOString(), unread: true },
@@ -125,7 +127,7 @@ const cabe = p => p.evaluate(() => document.documentElement.scrollWidth <= inner
   await p.waitForSelector('#loginView:not(.hidden)', { timeout: 6000 });
   await p.waitForFunction(() => /Tannery City FC/.test(document.querySelector('[data-club]')?.textContent || ''), null, { timeout: 4000 }).catch(() => {});
   if (process.env.QA_CAPTURA) await p.screenshot({ path: process.env.QA_CAPTURA.replace(/\.png$/, '-login.png'), fullPage: true });
-  revisa('[login] dice el club y pide "Tu teléfono o usuario"', /Tannery City FC/.test(await p.textContent('#loginView')) && /Tu teléfono o usuario/.test(await p.textContent('#loginForm')));
+  revisa('[login] dice el club y pide "Tu teléfono o correo"', /Tannery City FC/.test(await p.textContent('#loginView')) && /Tu teléfono o correo/.test(await p.textContent("#loginForm")));
   await p.fill('#email', '477 123 4567'); await p.fill('#password', 'mala');
   await p.click('[data-ver="password"]');
   revisa('[login] "Ver" enseña la contraseña', (await p.getAttribute('#password', 'type')) === 'text');
@@ -171,6 +173,38 @@ const cabe = p => p.evaluate(() => document.documentElement.scrollWidth <= inner
   await p.close();
 }
 
+{ // Entrar con el correo: el servidor dice con qué cuenta (sólo si la contraseña es buena)
+  const p = await abre('/v2/familias/index.html');
+  await p.waitForSelector('#loginView:not(.hidden)', { timeout: 6000 });
+  await p.fill('#email', ' Adriana@Correo.mx '); await p.fill('#password', 'Buena-1850');
+  await p.click('#loginSubmit');
+  await p.waitForSelector('#appView:not(.hidden)', { timeout: 6000 }).catch(() => {});
+  revisa('[correo] pregunta al servidor con lo que escribió', (await llamadas(p, 'v2_public_family_login'))[0]?.identificador === ' Adriana@Correo.mx ');
+  revisa('[correo] entra con la cuenta que le corresponde', (await llamadas(p, 'signIn'))[0]?.email === '4773979631@familias.tanneros.invalid', JSON.stringify(await llamadas(p, 'signIn')));
+  revisa('[correo] cae en su portal', await p.isVisible('#appView'));
+  await p.close();
+}
+
+{ // Sin señal: la sesión no se cierra, se reintenta
+  const p = await abre('/v2/familias/index.html', { conSesion: true, caido: true });
+  await p.waitForSelector('#famReintentar', { timeout: 6000 }).catch(() => {});
+  revisa('[sin señal] dice que la sesión sigue abierta', /Tu sesión sigue abierta/.test(await p.textContent('#famBody')) && !(await p.isVisible('#loginView')));
+  revisa('[sin señal] no cierra la sesión', await p.evaluate(() => !!sessionStorage.getItem('__sesion')));
+  await p.close();
+}
+
+{ // Cuenta: Tu acceso, con qué entra y su correo
+  const p = await abre('/v2/familias/index.html?tab=cuenta', { conSesion: true });
+  await p.waitForSelector('#famAcceso', { timeout: 8000 });
+  revisa('[acceso] dice que entra con su teléfono', /477 397 9631/.test(await p.textContent('#famAcceso')));
+  revisa('[acceso] explica cuánto dura la sesión', /hasta que toques\s*Salir/.test(await p.textContent('#famAcceso')));
+  await p.fill('#famCorreo', 'Adriana@Correo.mx'); await p.click('#famCorreoGuardar');
+  await p.waitForFunction(() => /adriana@correo\.mx/.test(document.querySelector('#famAcceso')?.textContent || ''), null, { timeout: 4000 }).catch(() => {});
+  revisa('[acceso] guarda el correo y ya entra con él', (await llamadas(p, 'v2_save_my_contact_email'))[0]?.email === 'adriana@correo.mx' && /tu correo\s*adriana@correo\.mx/.test(await p.textContent('#famAcceso')) && /Listo/.test(await p.textContent('#famCorreoMsg')));
+  revisa('[acceso] cabe a 390px', await cabe(p));
+  await p.close();
+}
+
 { // Fase 2: Inicio con pendientes, avisos y lo próximo
   const p = await abre('/v2/familias/index.html', { conSesion: true, debe: true });
   await p.waitForSelector('.fam-pendientes', { timeout: 8000 });
@@ -210,4 +244,4 @@ let mal = 0;
 for (const r of revisiones) if (!r.ok) { mal++; console.error(` - ${r.nombre}${r.detalle ? ' :: ' + r.detalle : ''}`); }
 if (errores.length) { console.error('ERRORES DEL NAVEGADOR:'); errores.forEach(e => console.error('   ' + e)); }
 if (mal || errores.length) { console.error(`Invitaciones humo FAILED · ${mal} de ${revisiones.length}, ${errores.length} errores`); process.exit(1); }
-console.log(`Invitaciones humo OK · ${revisiones.length} revisiones: invitar por WhatsApp, envío rápido, entrar con el teléfono, olvidé mi contraseña la liga de invitación e Inicio con pendientes y avisos`);
+console.log(`Invitaciones humo OK · ${revisiones.length} revisiones: invitar por WhatsApp, envío rápido, entrar con el teléfono o el correo, sin señal sin cerrar sesión, Tu acceso, olvidé mi contraseña, la liga de invitación e Inicio con pendientes y avisos`);

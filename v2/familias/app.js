@@ -50,7 +50,7 @@ function msg(id,text='',type='error'){
 }
 function friendly(error){
   const raw=String(error?.message||error||'Ocurrió un error.');
-  if(/invalid login credentials/i.test(raw))return 'Teléfono, usuario o contraseña incorrectos. Si no la recuerdas, toca "¿Olvidaste tu contraseña?".';
+  if(/invalid login credentials/i.test(raw))return 'Teléfono, correo o contraseña incorrectos. Si no la recuerdas, toca "¿Olvidaste tu contraseña?".';
   if(/portal access required/i.test(raw))return 'Tu cuenta todavía no está ligada a un Tanner. Avísale al club.';
   if(/not authorized/i.test(raw))return 'No tienes acceso a esa información.';
   if(/failed to fetch|network/i.test(raw))return 'No pudimos conectar. Revisa tu señal e intenta de nuevo.';
@@ -89,11 +89,24 @@ async function signPhoto(p){
    que dio el club o con el correo. Ver correoDeEntrada en /v2/invitaciones. */
 const loginEmail=correoDeEntrada;
 
+/* Con qué correo vive la cuenta: el servidor lo dice sólo si la contraseña
+   es correcta (v2_public_family_login, h17). Así entra con su teléfono o con
+   su correo aunque la cuenta se haya creado con otro dato. Si no lo resuelve
+   (contraseña mala, sin red, usuario viejo), se intenta como antes. */
+async function correoDeLaCuenta(dato,password){
+  try{
+    const {data,error}=await supabase.rpc('v2_public_family_login',{identificador:dato,contrasena:password});
+    if(!error&&data?.login)return data.login;
+  }catch(_){}
+  return loginEmail(dato);
+}
+
 async function handleLogin(event){
   event.preventDefault();msg('loginMessage');
-  const email=loginEmail($('email').value),password=$('password').value;
+  const password=$('password').value;
   const btn=$('loginSubmit');btn.disabled=true;btn.textContent='Entrando…';
   try{
+    const email=await correoDeLaCuenta($('email').value,password);
     const {error}=await supabase.auth.signInWithPassword({email,password});
     if(error)throw error;
     await boot();
@@ -327,6 +340,39 @@ function consentsBlock(pw){
   return `<section class="fam-card" id="famPapeles"><div class="fam-card-head"><h2>Papeles del club</h2><span>${nota}</span></div>${filas}</section>`;
 }
 
+/* Tu acceso: con qué entra la familia (teléfono o correo) y cuánto dura la
+   sesión. El correo es opcional; con él también entra (h17). */
+function accesoBlock(){
+  const g=state.home?.guardian||{};
+  const tel=String(g.phone||'').replace(/\D/g,'').slice(-10);
+  const correo=String(g.email||'').trim();
+  const formas=[tel.length===10?`tu teléfono <strong>${esc(conEspacios(tel))}</strong>`:'',correo?`tu correo <strong>${esc(correo)}</strong>`:''].filter(Boolean).join(' o ');
+  return `<section class="fam-card" id="famAcceso"><div class="fam-card-head"><h2>Tu acceso</h2><span>${correo?'teléfono y correo':'agrega tu correo'}</span></div>
+    <p class="fam-acceso-txt">${formas?`Entras con ${formas}, y tu contraseña.`:'Entras con el usuario que te dio el club.'}</p>
+    <form id="famCorreoForm" class="fam-acceso-form">
+      <label for="famCorreo">${correo?'Cambiar mi correo':'Mi correo (opcional)'}</label>
+      <span class="fam-acceso-fila"><input id="famCorreo" type="email" autocomplete="email" placeholder="tu@correo.com" value="${esc(correo)}"><button type="submit" class="fam-btn fam-btn-sm" id="famCorreoGuardar">Guardar</button></span>
+      <small class="fam-hint">Con él también puedes entrar, y ahí te llegan recibos.</small>
+      <div id="famCorreoMsg" class="fam-message hidden"></div>
+    </form>
+    <p class="fam-acceso-nota">Tu sesión se queda abierta en este celular hasta que toques <b>Salir</b>.</p></section>`;
+}
+
+function cableaAcceso(){
+  $('famCorreoForm')?.addEventListener('submit',async e=>{
+    e.preventDefault();msg('famCorreoMsg');
+    const correo=$('famCorreo').value.trim().toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)){msg('famCorreoMsg','Revisa tu correo, parece incompleto.');return;}
+    const btn=$('famCorreoGuardar');btn.disabled=true;btn.textContent='Guardando…';
+    try{
+      const r=await rpc('v2_save_my_contact_email',{email:correo});
+      if(state.home?.guardian)state.home.guardian.email=r?.email||correo;
+      await renderCuenta();
+      msg('famCorreoMsg','Listo. Ya puedes entrar también con tu correo.','success');
+    }catch(error){msg('famCorreoMsg',friendly(error));btn.disabled=false;btn.textContent='Guardar';}
+  });
+}
+
 // La beca: o se ve la que ya tiene, o se pide explicando por qué.
 function benefitBlock(pw){
   const b=pw?.benefit,r=pw?.benefit_request;
@@ -365,8 +411,8 @@ async function renderCuenta(){
     catch(error){console.warn('papeleo',error);state.paperwork[p.id]={};}
   }
   const st=state.statements[p.id],pw=state.paperwork[p.id];
-  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}`;
-  cableaTramites(p);
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
+  cableaTramites(p);cableaAcceso();
 }
 
 function cableaTramites(p){
@@ -1035,6 +1081,19 @@ async function renderClub(){
   $('famBody').querySelectorAll('[data-club]').forEach(b=>b.addEventListener('click',()=>{state.clubSub=b.dataset.club;renderClub();}));
 }
 
+/* Sólo se cierra la sesión cuando el servidor dice que esta cuenta no es de
+   una familia; un error de red o de tiempo no es motivo para sacarla. */
+function esDeAcceso(error){
+  const raw=String(error?.message||error||'');
+  return /portal access required|not authorized|jwt|permission denied/i.test(raw);
+}
+function sinConexion(error){
+  console.warn('portal sin conexión',error);
+  show('appView');
+  $('famBody').innerHTML=`<div class="fam-empty"><b>No pudimos conectar con el club.</b><p>Tu sesión sigue abierta. Revisa tu internet y vuelve a intentar.</p><button type="button" class="fam-btn" id="famReintentar">Reintentar</button></div>`;
+  $('famReintentar')?.addEventListener('click',()=>location.reload());
+}
+
 async function boot(){
   if(TOKEN){await muestraInvitacion();return;}
   const {data:{session}}=await supabase.auth.getSession();
@@ -1047,6 +1106,9 @@ async function boot(){
   }
   try{state.home=await rpc('v2_portal_home');instalaVocabulario(state.home?.organization?.playerNoun);}
   catch(error){
+    // Sin señal o el servidor tardó: la sesión sigue buena. Antes se cerraba
+    // aquí y la familia sentía que "se le salía"; ahora se reintenta.
+    if(!esDeAcceso(error)){sinConexion(error);return;}
     // Una cuenta de staff que abre el portal por error no debe quedarse en blanco.
     show('loginView');msg('loginMessage',friendly(error));
     await clearPhotoCache();

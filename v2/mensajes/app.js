@@ -83,7 +83,7 @@ function amable(e){
 function pintaLista(){
   const app=$('msBody');
   if(!app.querySelector('.ms-list')){
-    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="chats">Chats</button><button type="button" role="tab" data-tab="avisos">Avisos</button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
+    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="chats">Chats<b class="ms-tab-n" id="msNChats" hidden></b></button><button type="button" role="tab" data-tab="avisos">Avisos<b class="ms-tab-n" id="msNAvisos" hidden></b></button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
     app.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>cambiaTab(b.dataset.tab)));
     $('msNuevo').addEventListener('click',()=>state.tab==='avisos'?hojaAviso():hojaNuevo());
     $('msBusca').addEventListener('input',e=>{state.busca=e.target.value;pintaItems();});
@@ -92,6 +92,7 @@ function pintaLista(){
     });
   }
   app.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===state.tab)));
+  pintaConteos();
   $('msNuevo').setAttribute('aria-label',state.tab==='avisos'?'Nuevo aviso':'Nuevo chat');
   $('msNuevo').classList.toggle('hidden',state.tab==='avisos'&&!state.avisos?.canPublish);
   $('msBusca').closest('.ms-search').classList.toggle('hidden',state.tab==='avisos');
@@ -122,6 +123,28 @@ function pintaItems(){
     +(areas.length?`<p class="ms-sec">Áreas del club</p>${areas.map(fila).join('')}`:'')
     +(!lista.length?`<div class="ms-vacio">${q?'Nada con ese nombre.':'Sin chats todavía.'}</div>`:'');
 }
+/* De dónde viene lo nuevo (19/10/2026): "algunos son avisos y otros son
+   chats… luego no sabes de dónde vienen". Cada pestaña lleva su globito azul
+   con lo que tiene sin leer; la campana abre la pestaña donde está lo nuevo.
+   Los números salen de lo que ya está en pantalla y, si aún no se carga, del
+   pulso de la campana (v2_chat_pulse trae chats y avisos por separado). */
+let pulsoConteos={chats:0,avisos:0};
+function conteos(){
+  const chats=state.inbox?(state.inbox.threads||[]).reduce((n,t)=>n+Number(t.unread||0),0):Number(pulsoConteos.chats||0);
+  const avisos=state.avisos?(state.avisos.avisos||[]).filter(a=>a.unread).length:Number(pulsoConteos.avisos||0);
+  return {chats,avisos};
+}
+function pintaConteos(){
+  const c=conteos();
+  for(const [id,n,etq] of [['msNChats',c.chats,'chats'],['msNAvisos',c.avisos,'avisos']]){
+    const el=$(id);if(!el)continue;
+    el.hidden=!n;el.textContent=n>99?'99+':String(n);
+    el.closest('[data-tab]')?.setAttribute('aria-label',n?`${etq==='chats'?'Chats':'Avisos'}, ${n} sin leer`:(etq==='chats'?'Chats':'Avisos'));
+  }
+}
+// La pestaña donde está lo nuevo: chats primero (alguien espera respuesta).
+function pestanaConNuevo(){const c=conteos();return c.chats?'chats':c.avisos?'avisos':state.tab;}
+
 /* A quién iba el aviso. Los personales iguales llegan juntos (d5): "Para ti,
    Brandon y Emmanuel" en una sola tarjeta, no una por persona. */
 function paraQuien(a){
@@ -142,12 +165,23 @@ function pintaAvisos(box){
   box.innerHTML=(d.canPublish?`<button type="button" class="ms-aviso-nuevo" id="msAvisoNuevo">＋ Nuevo aviso para el club</button>`:'')
     +(lista.length?lista.map(a=>`<article class="ms-aviso${a.unread?' unread':''}"><header><strong>${esc(a.title)}</strong><time>${esc(cuando(a.publishedAt))}</time></header>${a.body?`<p>${texto(a.body)}</p>`:''}<footer><span>${esc(a.author||'')} · ${esc(paraQuien(a))}</span>${a.reach?`<b class="ms-visto" title="${a.reach.familias?'Familias que ya lo vieron en su portal':'Personas que ya lo vieron'}">Visto por ${a.reach.seen} de ${a.reach.total}${a.reach.familias?` ${a.reach.total===1?'familia':'familias'}`:''}</b>`:''}</footer></article>`).join('')
       :`<div class="ms-vacio">${esc(d.error||'Sin avisos. Cuando Presidencia publique uno, aparece aquí.')}</div>`);
+  pintaConteos();
   $('msAvisoNuevo')?.addEventListener('click',hojaAviso);
 }
+let avisosPorMarcar=false;
+async function marcaAvisosVistos(){
+  if(!avisosPorMarcar)return;avisosPorMarcar=false;
+  try{await rpc('v2_mark_announcements_seen',{organization_id:org});}catch(_){return;}
+  (state.avisos?.avisos||[]).forEach(a=>{a.unread=false;});pintaConteos();
+}
+addEventListener('pagehide',()=>{if(avisosPorMarcar)rpc('v2_mark_announcements_seen',{organization_id:org}).catch(()=>{});});
 function cambiaTab(tab){
+  if(state.tab==='avisos'&&tab!=='avisos')marcaAvisosVistos();
   state.tab=tab;pintaLista();
   if(tab==='avisos'){
-    cargaAvisos().then(()=>rpc('v2_mark_announcements_seen',{organization_id:org}).catch(()=>{}));
+    // Se marcan vistos al salir de la pestaña, no al entrar: así el que era
+    // nuevo se ve resaltado mientras lo lees, y el globito se apaga después.
+    cargaAvisos().then(()=>{avisosPorMarcar=true;});
   }
 }
 
@@ -320,7 +354,8 @@ function avisoPara(elige){
   if(op){sel.value=op.value;sel.dispatchEvent(new Event('change'));}
   (op&&op.value.startsWith('categoria:')?sel:$('msAvTitulo'))?.focus();
 }
-cargaAvisos().then(()=>{
+const avisosListos=cargaAvisos();
+avisosListos.then(()=>{
   const puede=!!state.avisos?.canPublish;
   setAccionesDePantalla([
     ...(puede?[{clave:'aviso-familias',label:'Aviso a todas las familias',sub:'Les llega al portal y al celular',icon:'chat',run:()=>avisoPara(o=>o.value==='familias')},
@@ -330,7 +365,14 @@ cargaAvisos().then(()=>{
 });
 setShellHealth({state:'ok',label:'Vestidor'});
 const pedido=new URLSearchParams(location.search).get('chat');
+{const t=new URLSearchParams(location.search).get('tab');
+ if(t==='avisos'||t==='chats')cambiaTab(t);
+ else if(!pedido)avisosListos.then(()=>{if(state.tab==='chats'&&!conteos().chats&&conteos().avisos)cambiaTab('avisos');else pintaConteos();});}
 if(pedido&&(state.inbox?.threads||[]).some(t=>t.id===pedido))abreChat(pedido);
 state.inboxTimer=setInterval(()=>{if(document.visibilityState==='visible')cargaInbox();},12000);
-window.addEventListener('tos:campana',()=>{$('msBody').dataset.view='list';cambiaTab('avisos');});
-window.addEventListener('tos:pulso',()=>{if(state.tab==='chats')cargaInbox();});
+// La campana abre la pestaña donde está lo nuevo (antes, siempre Avisos).
+window.addEventListener('tos:campana',()=>{$('msBody').dataset.view='list';cambiaTab(pestanaConNuevo());});
+window.addEventListener('tos:pulso',e=>{pulsoConteos={chats:Number(e.detail?.chats||0),avisos:Number(e.detail?.avisos||0)};
+  if(state.tab==='chats')cargaInbox();
+  if(Number(e.detail?.avisos||0)>conteos().avisos&&state.tab!=='avisos')cargaAvisos();
+  pintaConteos();});

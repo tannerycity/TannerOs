@@ -393,16 +393,18 @@ prueba('[recientes] son de cada persona y se borran al salir con el resto del bu
   assert.notEqual(llaveDeRecientes('org', 'a'), llaveDeRecientes('org', 'b'));
   assert.ok(llaveDeRecientes('org', 'a').startsWith('tos:buscador:'));
 });
-prueba('[rendimiento] 5,000 filas responden en menos de 60 ms', () => {
-  const muchos = []; for (let i = 0; i < 2500; i++) muchos.push({ id: String(i), name: `Nombre${i} Apellido${i % 97}`, category: `T${i % 14}`, phones: '+52477' + (1000000 + i), guardians: `Tutor${i} Uno` });
-  const grande = armaIndice([desdeTanners(muchos)]);
-  // La mejor de 5 tandas: el costo del buscador, no el de la máquina ocupada
-  // (con dos tandas de pruebas y navegadores en paralelo, el promedio de una
-  // sola tanda brincaba de 45 a 70 ms sin que el buscador cambiara).
-  const tandas = [];
-  for (let t = 0; t < 5; t++) { const t0 = performance.now(); for (let k = 0; k < 10; k++) busca(grande, 'apelido12'); tandas.push((performance.now() - t0) / 10); }
-  const ms = Math.min(...tandas);
-  assert.ok(ms < 60, `tardó ${ms.toFixed(1)} ms (tandas: ${tandas.map(x => x.toFixed(0)).join(', ')})`);
+prueba('[rendimiento] crece en proporción a las filas (sin algoritmos cuadráticos)', () => {
+  // Un límite fijo en milisegundos fallaba según la máquina (el mismo código
+  // dio 32 ms en un contenedor y 86 en otro), y compararlo contra una
+  // búsqueda de 2 ms era puro ruido. Lo que sí se puede exigir en cualquier
+  // máquina: con el doble de filas, cerca del doble de tiempo (lineal). Si
+  // alguien mete algo cuadrático, con el doble tardaría cuatro veces más.
+  const indice = (n) => { const m = []; for (let i = 0; i < n; i++) m.push({ id: String(i), name: `Nombre${i} Apellido${i % 97}`, category: `T${i % 14}`, phones: '+52477' + (1000000 + i), guardians: `Tutor${i} Uno` }); return armaIndice([desdeTanners(m)]); };
+  const mejor = (g) => { busca(g, 'apelido12'); const t = []; for (let r = 0; r < 7; r++) { const t0 = performance.now(); for (let k = 0; k < 5; k++) busca(g, 'apelido12'); t.push((performance.now() - t0) / 5); } return Math.min(...t); };
+  const chico = mejor(indice(1250)), grande = mejor(indice(2500));
+  assert.ok(grande / chico < 3, `con el doble de filas tardó ${(grande / chico).toFixed(1)} veces más (${chico.toFixed(1)} → ${grande.toFixed(1)} ms)`);
+  // Y un tope generoso por si la máquina entera es lentísima: 5,000 filas.
+  assert.ok(grande < 400, `5,000 filas tardaron ${grande.toFixed(1)} ms`);
 });
 
 if (fallos) { console.error(`Buscador QA FAILED · ${fallos} de ${corridas}`); process.exit(1); }

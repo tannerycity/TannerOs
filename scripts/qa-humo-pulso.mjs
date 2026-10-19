@@ -112,7 +112,7 @@ const globito = p => p.evaluate(() => { const b = document.getElementById('tosBe
   revisa('[dedupe] y después sigue en 2 por minuto (sin intervalos acumulados)', n >= 19 && n <= 21, `${n} en 10 min`);
   const esc = await p.evaluate(() => window.__escuchas);
   revisa('[listeners] un solo listener de visibilidad y uno de red', esc.visibilitychange === 1 && esc.online === 1, JSON.stringify(esc));
-  revisa('[global] sólo window.__tosPulso para el pulso', await p.evaluate(() => typeof window.__tosPulso === 'object' && Object.keys(window.__tosPulso).sort().join() === 'enVuelo,espera,gen,llave,quita,reprograma,timer,total,ultimo'));
+  revisa('[global] sólo window.__tosPulso para el pulso', await p.evaluate(() => typeof window.__tosPulso === 'object' && Object.keys(window.__tosPulso).sort().join() === 'detalle,enVuelo,espera,gen,llave,quita,reprograma,timer,total,ultimo'));
   await p.close();
 }
 { // Cambiar de cuenta (y de club) sin recargar, con respuestas tardías del contexto viejo.

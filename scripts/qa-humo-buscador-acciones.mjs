@@ -54,6 +54,9 @@ async function abre(rol, ruta = '/', ancho = 1280) {
       v2_my_navigation: cfg.nav,
       v2_search_index: INDICE,
       v2_birthdays: { today: '2026-10-19', myBirthDate: '1990-01-01', people: [] },
+      v2_my_modules: cfg.nav.map(n => ({ ...n, module_code: n.module_code === 'asistencia' ? 'attendance' : n.module_code })),
+      v2_attendance_categories: [{ category_id: 'c1', name: 'T10', players: 22 }],
+      v2_attendance_sessions: [],
       v2_chat_inbox: { threads: [], people: [{ id:'u-zul', name:'Zul', role:'Operaciones' }] },
       v2_avisos: { avisos: [], canPublish: true, categorias: ['T6', 'T10'] },
       v2_parking_passes: { season:2026, price:200, prices:{tanner:200,vip:200}, summary:{requested:1,approved:0,issued:0,por_cobrar:0}, passes:[
@@ -169,7 +172,7 @@ async function busca(pg, q) { await pg.fill('#shellSearch', q); await pg.waitFor
    iOS desenfoca esa franja. Con la franja simulada (47px, como un iPhone), los
    botones de la barra tienen que quedar debajo y con aire, la página sin el
    margen de 8px del navegador y el buscador a todo lo ancho. */
-for (const ruta of ['/', '/v2/estacionamiento/']) {
+for (const ruta of ['/', '/v2/estacionamiento/', '/v2/asistencia/']) {
   const pg = await abre('Presidencia', ruta, 390);
   const cdp = await pg.context().newCDPSession(pg);
   let simulado = true;
@@ -177,11 +180,19 @@ for (const ruta of ['/', '/v2/estacionamiento/']) {
   await pg.waitForTimeout(500);
   const m = await pg.evaluate(() => {
     const b = document.getElementById('shellMenuToggle').getBoundingClientRect(), inp = document.getElementById('shellSearch').getBoundingClientRect(), box = document.querySelector('.tos-search-box').getBoundingClientRect();
-    return { boton: Math.round(b.top), margen: getComputedStyle(document.body).marginTop, buscador: Math.round(inp.width / box.width * 100) };
+    // Pantallas viejas (barra fija): lo primero de la pantalla no puede quedar debajo de la barra.
+    const barra = document.querySelector('.tos-topbar').getBoundingClientRect().bottom;
+    // Sólo aplica a las pantallas viejas (barra fija, body.tos-unified-shell);
+    // en las nuevas la barra va dentro del flujo y no puede tapar nada.
+    const fija = document.body.classList.contains('tos-unified-shell');
+    const primero = fija ? [...document.querySelectorAll('main.shell *')].find(e => e.getClientRects().length && getComputedStyle(e).display !== 'none' && e.offsetHeight > 20 && !e.closest('.tos-topbar')) : null;
+    return { boton: Math.round(b.top), margen: getComputedStyle(document.body).marginTop, buscador: Math.round(inp.width / box.width * 100),
+      fija, tapado: primero ? Math.round(barra - primero.getBoundingClientRect().top) : 0, que: primero?.className || primero?.tagName || null };
   });
   if (simulado) revisa(`[aire ${ruta}] los botones de arriba quedan debajo de la hora, con aire`, m.boton >= 47 + 10, JSON.stringify(m));
   revisa(`[aire ${ruta}] sin el margen de 8px del navegador`, m.margen === '0px', JSON.stringify(m));
   revisa(`[aire ${ruta}] el buscador ocupa todo su ancho`, m.buscador >= 80, JSON.stringify(m));
+  revisa(`[aire ${ruta}] la barra no tapa el inicio de la pantalla`, m.tapado <= 0, JSON.stringify(m)); if (process.env.DEPURA) console.log(ruta, JSON.stringify(m));
   await pg.close();
 }
 

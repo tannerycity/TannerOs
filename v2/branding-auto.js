@@ -87,6 +87,13 @@ function buildFrame(){
   const backdrop=document.createElement('div');backdrop.id='shellNavBackdrop';backdrop.className='tos-nav-backdrop tos-experience-backdrop';
   const header=document.createElement('header');header.id='tosUnifiedTopbar';header.className='tos-topbar tos-experience-topbar';header.innerHTML='<div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button" aria-label="Abrir menú"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">TannerOS</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS..." autocomplete="off"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health" data-state="ok"><i></i><span>Todo en orden</span></span><span id="shellRole" class="tos-role">Rol</span></div>';
   document.body.prepend(header);document.body.prepend(backdrop);document.body.prepend(aside);
+  // La barra aquí es fija: el contenido deja arriba lo que la barra MIDE de
+  // verdad, no un número fijo. Con 126px fijos, en iPhone (franja de la hora +
+  // aire, 19/10/2026) la barra tapaba el inicio de la pantalla: la fecha de
+  // Asistencia quedaba escondida.
+  const mide=()=>document.documentElement.style.setProperty('--tos-barra',`${Math.ceil(header.getBoundingClientRect().height)}px`);
+  mide();
+  try{new ResizeObserver(mide).observe(header,{box:'border-box'});}catch(e){addEventListener('resize',mide);}
 }
 function installObserver(){if(document.documentElement.dataset.tosNormalizeObserver==='1')return;document.documentElement.dataset.tosNormalizeObserver='1';const observer=new MutationObserver(mutations=>mutations.forEach(m=>m.addedNodes.forEach(node=>{if(node.nodeType===Node.ELEMENT_NODE||node.nodeType===Node.TEXT_NODE)normalizeNode(node);})));observer.observe(document.body,{childList:true,subtree:true});}
 async function boot(){

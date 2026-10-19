@@ -1,7 +1,12 @@
 /* Partidos · mismo lenguaje que Asistencia: la cancha arriba, un marcador de
    estadio y estampas para los Tanners. */
 .pt,.pt-partido,.pt-hoja{--oro:#d6c27d;--ok:#16a36f;--mal:#d0453f;--aten:#d49a1c;--gris:#6d8389}
-.pt{display:grid;gap:12px;padding-bottom:90px}
+.pt{display:grid;gap:12px;padding-bottom:90px;grid-template-columns:minmax(0,1fr)}
+/* La fila de categorías se desliza; sin esto su ancho estiraba toda la
+   columna y en iPhone se cortaban el encabezado y las pestañas (19/10/2026,
+   con las 6 categorías reales). Nada de la página puede pedir más que la
+   pantalla. */
+.pt>*,.pt section,.pt-chips{min-width:0}
 .pt-cancha{position:relative;overflow:hidden;border-radius:24px;padding:20px 18px;color:#fff;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
   background:
     radial-gradient(circle at 50% 120%,transparent 0 58px,rgba(255,255,255,.1) 59px 61px,transparent 62px),
@@ -206,3 +211,5 @@
 .inv-estado{font-size:12px;font-weight:900;color:#1f9d55}
 .inv-fila.va .inv-estado{color:var(--muted)}
 .hj-listo.pp-terminar{width:100%;margin-top:12px}
+/* Estadísticas: cada bloque con su aire (iban pegados). */
+#ptStats:not(.hidden){display:grid;gap:10px}

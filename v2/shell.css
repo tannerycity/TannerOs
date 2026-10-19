@@ -259,3 +259,28 @@ a.tos-bell-link{display:block;color:inherit;text-decoration:none}a.tos-bell-link
 .tos-res-ico[data-tipo="accion"]{background:#fbefd2}
 .tos-res-ico[data-tipo="accion"]::before{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 5v14M5 12h14' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E")}
 .tos-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Sin el margen de 8px que pone el navegador: en las pantallas que no cargan
+   /v2/styles.css (Estacionamiento, Mensajes…) la barra de arriba quedaba con
+   un borde alrededor y el buscador recortado. */
+body.tos-body,body:has(>.tos-layout){margin:0}
+
+/* ===== Aire arriba en iPhone (19/10/2026) =====
+   La app instalada dibuja hasta debajo de la hora y la batería
+   (viewport-fit=cover, barra translúcida), pero la barra de arriba empezaba en
+   top:0 con 10px: el botón de atrás, el menú y el título quedaban pegados a la
+   hora, y iOS desenfoca a propósito lo que queda en esa franja, por eso se
+   veían borrosos. La barra ahora reserva la franja del sistema
+   (safe-area-inset-top) y su propio aire; con fondo sólido, la franja de la
+   hora toma el color de la barra. En compu safe-area vale 0: no cambia nada. */
+.tos-topbar{height:auto;min-height:calc(76px + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px);background:rgba(250,250,248,.98)!important}
+.tos-sidebar{padding-top:calc(24px + env(safe-area-inset-top,0px))}
+@media(max-width:820px){
+  .tos-topbar{min-height:0;padding:calc(env(safe-area-inset-top,0px) + 12px) max(14px,env(safe-area-inset-right,0px)) 12px max(14px,env(safe-area-inset-left,0px));row-gap:10px}
+  .tos-search-wrap{margin-top:0}
+  .tos-sidebar{padding-top:calc(18px + env(safe-area-inset-top,0px))}
+  .tos-content{padding-top:20px}
+}
+/* El buscador ocupa todo su ancho en todas las pantallas (en algunas el
+   campo medía su ancho por defecto y cortaba "Busca un Tanner, papá o acción"). */
+.tos-search-box input{flex:1 1 auto;width:100%}

@@ -10,6 +10,7 @@
 // sin decir por qué aparecía, así que parecía que no la había encontrado.
 
 export const TIPOS = {
+  accion:       { etiqueta: 'Acciones',       orden: 0, icono: 'plus' },
   tanner:       { etiqueta: 'Tanners',        orden: 1, icono: 'player' },
   tutor:        { etiqueta: 'Papás y tutores', orden: 2, icono: 'family' },
   prospecto:    { etiqueta: 'Prospectos',     orden: 3, icono: 'search' },
@@ -19,11 +20,21 @@ export const TIPOS = {
   modulo:       { etiqueta: 'Ir a',           orden: 7, icono: 'arrow' },
 };
 
+// Memo: el mismo nombre se normaliza en cada tecla; con miles de filas eso
+// era la mitad del tiempo de una búsqueda.
+const MEMO = new Map(), MEMO_MAX = 50000;
+const memo = (mapa, llave, fn) => {
+  let v = mapa.get(llave);
+  if (v === undefined) { if (mapa.size > MEMO_MAX) mapa.clear(); v = fn(); mapa.set(llave, v); }
+  return v;
+};
 export function normaliza(texto) {
-  return String(texto ?? '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().trim();
+  const crudo = String(texto ?? '');
+  return memo(MEMO, crudo, () => crudo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim());
 }
+const INICIOS = new Map(), PALABRAS = new Map();
+const inicioDePalabra = (termino) => memo(INICIOS, termino, () => new RegExp(`(^|[\\s·,.\\-/])${termino.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+const palabrasDe = (t) => memo(PALABRAS, t, () => t.split(/[\s·,.\-/()#]+/).filter(Boolean));
 
 // Un número escrito por alguien que busca un teléfono.
 //
@@ -31,6 +42,41 @@ export function normaliza(texto) {
 // León, así que "477" hacía match con TODOS y llenaba la lista de ruido. Quien
 // busca un teléfono trae los últimos dígitos o el número completo, no la lada.
 export const MIN_DIGITOS_TELEFONO = 4;
+
+// Los teléfonos llegan como +52 477…, 477…, o 521 477…: se comparan los
+// últimos 10 dígitos de cada uno, nunca todos pegados (antes "+52 477 174
+// 8014" no encontraba a quien lo tenía guardado sin lada).
+export function telefonosDe(texto) {
+  return String(texto ?? '').split(/[,;/]|\s(?=\+)/)
+    .map((t) => t.replace(/\D/g, '')).filter((d) => d.length >= 7)
+    .map((d) => (d.length > 10 ? d.slice(-10) : d));
+}
+const digitosDeConsulta = (q) => { const d = String(q ?? '').replace(/\D/g, ''); return d.length > 10 ? d.slice(-10) : d; };
+
+// Distancia de edición (con transposición): "rodirgo" está a 1 de "rodrigo".
+// Se corta en cuanto pasa del máximo, así que cuesta casi nada.
+export function distancia(a, b, max = 2) {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const m = a.length, n = b.length;
+  let prev2 = null, prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    let minFila = i;
+    for (let j = 1; j <= n; j++) {
+      const costo = a[i - 1] === b[j - 1] ? 0 : 1;
+      let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + costo);
+      if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev2[j - 2] + 1);
+      cur[j] = v; if (v < minFila) minFila = v;
+    }
+    if (minFila > max) return max + 1;
+    prev2 = prev; prev = cur;
+  }
+  return prev[n];
+}
+// Cuántos errores de dedo se perdonan según lo largo de la palabra: con
+// palabras cortas un error ya es otra palabra ("ana" / "ama").
+export const toleranciaPara = (termino) => (termino.length >= 8 ? 2 : termino.length >= 4 ? 1 : 0);
 
 export function esBusquedaDeTelefono(q) {
   const digitos = String(q ?? '').replace(/\D/g, '');
@@ -47,8 +93,18 @@ function puntuaTexto(texto, termino) {
   if (t === termino) return 100;
   if (t.startsWith(termino)) return 90;
   // Inicio de cualquier palabra: encuentra "Torres" en "Rodrigo Torres Anda".
-  if (new RegExp(`(^|[\\s·,.\\-/])${termino.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(t)) return 80;
+  if (inicioDePalabra(termino).test(t)) return 80;
   if (t.includes(termino)) return 55;
+  // Error de dedo: "rodirgo" → Rodrigo, "gianlcua" → Gianluca. Vale menos que
+  // cualquier coincidencia exacta, así que nunca le gana a lo bien escrito.
+  const tol = toleranciaPara(termino);
+  if (tol) {
+    for (const palabra of palabrasDe(t)) {
+      if (distancia(palabra, termino, tol) <= tol) return 40;
+      // Lo que va escribiendo, con un error: "rodri" → "rodrigo".
+      if (termino.length >= 5 && palabra.length > termino.length && distancia(palabra.slice(0, termino.length), termino, 1) <= 1) return 35;
+    }
+  }
   return 0;
 }
 
@@ -62,7 +118,7 @@ export function puntuaFila(fila, q) {
   if (!terminos.length) return 0;
 
   const buscandoTelefono = esBusquedaDeTelefono(q);
-  const digitosQ = String(q ?? '').replace(/\D/g, '');
+  const digitosQ = digitosDeConsulta(q);
 
   let total = 0;
   for (const termino of terminos) {
@@ -74,8 +130,9 @@ export function puntuaFila(fila, q) {
     // verdad. Si no, "8" (un dorsal) pescaría cualquier teléfono que lo tenga.
     let enTelefono = 0;
     if (buscandoTelefono && fila.telefono) {
-      const d = String(fila.telefono).replace(/\D/g, '');
-      if (d && d.includes(digitosQ)) enTelefono = d.endsWith(digitosQ) ? 85 : 50;
+      for (const d of telefonosDe(fila.telefono)) {
+        if (d.includes(digitosQ)) enTelefono = Math.max(enTelefono, d.endsWith(digitosQ) ? 85 : 50);
+      }
     }
 
     const mejor = Math.max(enNombre, enSub, enClaves, enTelefono);
@@ -98,9 +155,18 @@ export const MAX_TOTAL = 20;
 
 // El resultado que la UI pinta: un "mejor resultado" arriba y el resto
 // agrupado por tipo, como Spotlight.
+// Con una sola letra todo coincide y la lista es ruido; un número sí vale
+// (un dorsal).
+export const MIN_LETRAS = 2;
+export function esConsultaCorta(q) {
+  const c = normaliza(q);
+  return !!c && c.length < MIN_LETRAS && !/\d/.test(c);
+}
+
 export function busca(indice, q, { maxPorSeccion = MAX_POR_SECCION, maxTotal = MAX_TOTAL } = {}) {
   const consulta = String(q ?? '').trim();
   if (!consulta) return { mejor: null, secciones: [], total: 0 };
+  if (esConsultaCorta(consulta)) return { mejor: null, secciones: [], total: 0, corta: true };
 
   const conPuntaje = [];
   for (const fila of indice || []) {
@@ -135,6 +201,16 @@ export function filasEnOrden(resultado) {
   for (const seccion of resultado?.secciones || []) filas.push(...seccion.filas);
   return filas;
 }
+
+// Lo último que la persona abrió desde el buscador, sin repetidos y con lo
+// más reciente primero. Se guarda la fila, no lo que tecleó.
+export const MAX_RECIENTES = 5;
+export function agregaReciente(lista, fila, max = MAX_RECIENTES) {
+  if (!fila || !fila.titulo || !fila.href) return (lista || []).slice(0, max);
+  const nueva = { tipo: fila.tipo, titulo: fila.titulo, subtitulo: fila.subtitulo || '', href: fila.href };
+  return [nueva, ...(lista || []).filter((r) => !(r.href === nueva.href && r.titulo === nueva.titulo))].slice(0, max);
+}
+export const llaveDeRecientes = (organizationId, userId) => `${PREFIJO_CACHE}recientes:${organizationId || 'sin-org'}:${userId || 'sin-usuario'}`;
 
 // Parte el título para que la UI resalte lo que la persona escribió, sin
 // inyectar HTML: devuelve trozos y quién va resaltado.

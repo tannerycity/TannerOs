@@ -28,7 +28,9 @@ export function desdeTanners(indice) {
     filas.push({
       tipo: 'tanner',
       titulo: tanner,
-      subtitulo: [p.jersey ? '#' + p.jersey : '', p.pos || ''].filter(Boolean).join(' · ') || 'Tanner',
+      // La categoría va primero: es como el club piensa a sus Tanners ("los
+      // de T10") y es lo que hace que buscar "T10" los encuentre.
+      subtitulo: [p.category || '', p.jersey ? '#' + p.jersey : '', p.pos || ''].filter(Boolean).join(' · ') || 'Tanner',
       href,
       telefono: p.phones || '',
     });
@@ -102,13 +104,49 @@ export function desdeUsuarios(usuarios) {
   }));
 }
 
+// Cómo le dice la gente a cada pantalla. Sin esto, "cobrar" o "gafete" no
+// encontraban nada aunque Taquilla y Estacionamiento estuvieran ahí.
+export const SINONIMOS = {
+  taquilla: ['cobrar', 'cobro', 'caja', 'pagos', 'pago', 'mensualidad', 'cuota'],
+  contabilidad: ['gastos', 'egresos', 'ingresos', 'conciliar', 'cuentas'],
+  finanzas: ['dinero', 'ingresos', 'adeudos', 'morosos'],
+  estacionamiento: ['gafete', 'gafetes', 'placas', 'parking', 'carro', 'caseta'],
+  jugadores: ['tanners', 'ninos', 'plantel', 'expediente', 'alumnos'],
+  asistencia: ['lista', 'faltas', 'pasar lista'],
+  partidos: ['convocatoria', 'resultados', 'goles', 'juego'],
+  mensajes: ['avisos', 'aviso', 'chat', 'comunicado'],
+  prospectos: ['prospectos', 'registro', 'inscripcion', 'nuevos'],
+  scouting: ['visoria', 'visorias', 'talentos'],
+  tienda: ['pedidos', 'uniformes', 'jersey', 'playera', 'ventas'],
+  catalogo: ['productos', 'precios', 'kits'],
+  utileria: ['balones', 'conos', 'material', 'inventario'],
+  becas: ['beca', 'apoyo', 'descuento'],
+  calendario: ['eventos', 'agenda', 'torneo'],
+  usuarios: ['staff', 'accesos', 'contrasena', 'permisos'],
+  invitaciones: ['familias', 'portal', 'invitar', 'papas'],
+  patrocinadores: ['marcas', 'sponsors', 'patrocinio'],
+  encuestas: ['encuesta', 'opinion', 'nps'],
+};
+
 export function desdeModulos(navItems) {
   return (navItems || []).map((m) => ({
     tipo: 'modulo',
     titulo: m.label,
     subtitulo: 'Abrir la pantalla',
     href: m.href,
-    claves: [m.code].filter(Boolean),
+    claves: [m.code, ...(SINONIMOS[m.code] || [])].filter(Boolean),
+  }));
+}
+
+// Las acciones del botón flotante también se buscan: "nuevo gafete",
+// "cobrar", "aviso a familias". Llegan ya filtradas por permiso.
+export function desdeAcciones(acciones) {
+  return (acciones || []).filter((a) => a && a.label && a.href).map((a) => ({
+    tipo: 'accion',
+    titulo: a.label,
+    subtitulo: [a.pantalla, a.sub].filter(Boolean).join(' · ') || 'Acción',
+    href: a.href,
+    claves: (a.claves || []).filter(Boolean),
   }));
 }
 

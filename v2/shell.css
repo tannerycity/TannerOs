@@ -254,3 +254,8 @@ a.tos-bell-link{display:block;color:inherit;text-decoration:none}a.tos-bell-link
 /* Botón +: lo de esta pantalla primero (13/10/2026). */
 .tos-fab-title.sep{margin-top:12px;padding-top:10px;border-top:1px solid var(--tos-line,#e3e8e7)}
 .tos-fab-item.aqui .tos-fab-ico{background:#169b4b;color:#fff}
+
+/* Buscador v2 (19/10/2026): acciones como resultado y texto sólo para lectores de pantalla. */
+.tos-res-ico[data-tipo="accion"]{background:#fbefd2}
+.tos-res-ico[data-tipo="accion"]::before{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 5v14M5 12h14' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E")}
+.tos-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

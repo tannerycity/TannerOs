@@ -71,3 +71,4 @@ qa-humo-formacion.mjs
 qa-humo-tienda-tablero.mjs
 qa-humo-staff.mjs
 qa-humo-pulso.mjs
+qa-humo-buscador-acciones.mjs

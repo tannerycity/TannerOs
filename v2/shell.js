@@ -2,8 +2,8 @@ import {createClient} from '/v2/supabase-client.js';
 import { ligaPublica } from '/v2/club-publico.js';
 
 import { clearPhotoCache } from '/v2/photo-cache.js';
-import {busca,filasEnOrden,trozosResaltados,TIPOS,llaveDeCache,cacheVigente,empaquetaCache,borraCacheDelBuscador} from '/v2/buscador.js';
-import {FUENTES,desdeModulos,armaIndice} from '/v2/buscador-fuentes.js';
+import {busca,filasEnOrden,trozosResaltados,TIPOS,llaveDeCache,cacheVigente,empaquetaCache,borraCacheDelBuscador,agregaReciente,llaveDeRecientes,MIN_LETRAS} from '/v2/buscador.js';
+import {FUENTES,desdeModulos,desdeAcciones,armaIndice} from '/v2/buscador-fuentes.js';
 export const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
   'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
@@ -386,31 +386,67 @@ function wireSearch(navigation,ctx){
   const input=$('shellSearch'),results=$('shellSearchResults');
   if(!input||!results||input.dataset.tosSearchWired==='1')return;
   input.dataset.tosSearchWired='1';
+  // Un solo texto en todas las pantallas (había seis, y varias prometían
+  // "categoría, evento" que no funcionaba). Y lo que necesita un lector de
+  // pantalla para saber que es un buscador con lista de resultados.
+  input.placeholder='Busca un Tanner, papá o acción';
+  input.setAttribute('aria-label','Buscar en TannerOS: Tanners, papás, teléfonos, categorías, pantallas o acciones');
+  input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');
+  input.setAttribute('aria-expanded','false');input.setAttribute('aria-controls','shellSearchResults');
+  results.setAttribute('role','listbox');results.setAttribute('aria-label','Resultados de la búsqueda');
+  let estado=$('shellSearchEstado');
+  if(!estado){estado=document.createElement('span');estado.id='shellSearchEstado';estado.className='tos-sr';estado.setAttribute('aria-live','polite');results.after(estado);}
+  const anuncia=t=>{if(estado.textContent!==t)estado.textContent=t;};
 
   // El indice se arma una sola vez y solo cuando alguien toca el buscador.
   // Antes se pedia en CADA carga de pagina aunque nadie lo usara.
   let indice=null,cargando=false,promesa=null,resaltado=-1,ultimoResultado=null;
   const modulos=()=>desdeModulos(navItems.filter(item=>itemReadable(navigation,item)));
+  const acciones=()=>desdeAcciones(accionesBuscables(ctx,navigation));
+  const base0=()=>armaIndice([acciones(),modulos()]);
+  // Lo que la persona abrió desde aquí. sessionStorage y con el prefijo del
+  // buscador: se va al cerrar la pestaña o al salir (trae nombres de familias).
+  const llaveRec=llaveDeRecientes(ctx?.organization_id,ctx?.user_id);
+  const leeRecientes=()=>{try{return JSON.parse(sessionStorage.getItem(llaveRec)||'[]')||[];}catch(e){return [];}};
+  const guardaReciente=f=>{try{sessionStorage.setItem(llaveRec,JSON.stringify(agregaReciente(leeRecientes(),f)));}catch(e){/* modo privado */}};
+  let filasVacio=[];
 
   const ensureIndex=()=>{
     if(promesa)return promesa;
     cargando=true;pinta();
     promesa=cargaIndiceUniversal(ctx,navigation).then(filas=>{
-      indice=armaIndice([filas,modulos()]);cargando=false;pinta();
-    }).catch(()=>{indice=armaIndice([modulos()]);cargando=false;pinta();});
+      indice=armaIndice([acciones(),filas,modulos()]);cargando=false;pinta();
+    }).catch(()=>{indice=base0();cargando=false;pinta();});
     return promesa;
   };
 
-  const cerrar=()=>{results.classList.add('hidden');results.innerHTML='';resaltado=-1;};
+  const cerrar=()=>{results.classList.add('hidden');results.innerHTML='';resaltado=-1;filasVacio=[];input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');};
+  const abre=()=>{results.classList.remove('hidden');input.setAttribute('aria-expanded','true');};
+  const marcaActiva=()=>{const a=results.querySelector('.tos-res.activa');if(a){input.setAttribute('aria-activedescendant',a.id);a.scrollIntoView({block:'nearest'});}else input.removeAttribute('aria-activedescendant');};
+  // Sin escribir nada: lo reciente y lo que se suele hacer en esta pantalla.
+  const pintaVacio=()=>{
+    const rec=leeRecientes();
+    const sug=[...accionesDeEstaPantalla(ctx,navigation),...accionesRapidas(ctx,navigation)].filter(a=>a.href&&!a.href.startsWith('#')||a.clic)
+      .slice(0,3).map(a=>({tipo:'accion',titulo:a.label,subtitulo:a.sub||'Acción',href:a.clic?`${rutaSinV2().replace(/\/$/,'')}/?accion=${encodeURIComponent(a.clave)}`:a.href}));
+    filasVacio=[...rec,...sug];
+    if(!filasVacio.length){cerrar();return;}
+    let i=0;
+    const f=x=>{const idx=i++;return `<a class="tos-res${idx===resaltado?' activa':''}" id="tosRes${idx}" role="option" aria-selected="${idx===resaltado}" href="${escBell(x.href)}" data-i="${idx}"><span class="tos-res-ico" data-tipo="${escBell(x.tipo)}" aria-hidden="true"></span><span class="tos-res-txt"><strong>${escBell(x.titulo)}</strong><small>${escBell(x.subtitulo||'')}</small></span></a>`;};
+    results.innerHTML=(rec.length?`<div class="tos-res-grupo" role="group" aria-label="Recientes"><div class="tos-res-titulo">Recientes</div>${rec.map(f).join('')}</div>`:'')
+      +(sug.length?`<div class="tos-res-grupo" role="group" aria-label="Sugerencias"><div class="tos-res-titulo">Para hacer aquí</div>${sug.map(f).join('')}</div>`:'');
+    abre();marcaActiva();anuncia(rec.length?`${rec.length} recientes`:'Sugerencias');
+  };
+  const filasVisibles=()=>String(input.value||'').trim()?filasEnOrden(ultimoResultado):filasVacio;
 
   const pinta=()=>{
     const q=String(input.value||'').trim();
-    if(!q){cerrar();return;}
-    results.classList.remove('hidden');
+    if(!q){if(document.activeElement===input)pintaVacio();else cerrar();return;}
+    abre();
     // Mientras carga se busca en lo que ya hay (las pantallas), para que el
     // buscador responda desde la primera tecla en vez de quedarse en blanco.
-    const base=indice||armaIndice([modulos()]);
+    const base=indice||base0();
     const r=busca(base,q);
+    if(r.corta){ultimoResultado=r;results.innerHTML=`<div class="tos-buscando">Escribe al menos ${MIN_LETRAS} letras</div>`;anuncia('Escribe al menos dos letras');return;}
     ultimoResultado=r;
     const filas=filasEnOrden(r);
     if(resaltado>=filas.length)resaltado=filas.length-1;
@@ -418,7 +454,8 @@ function wireSearch(navigation,ctx){
     if(!filas.length){
       results.innerHTML=cargando
         ?'<div class="tos-buscando">Buscando en todo el club…</div>'
-        :`<div class="tos-sin-resultados"><strong>Nada con “${escBell(q)}”</strong><span>Prueba con el nombre de un Tanner, de un papá, de un artículo de utilería o de una pantalla.</span></div>`;
+        :`<div class="tos-sin-resultados"><strong>Nada con “${escBell(q)}”</strong><span>Prueba con el nombre de un Tanner o de un papá, un teléfono, una categoría (T10) o lo que quieres hacer (cobrar, gafete).</span></div>`;
+      anuncia(cargando?'Buscando':'Sin resultados');
       return;
     }
     let i=0;
@@ -426,7 +463,7 @@ function wireSearch(navigation,ctx){
       const idx=i++;
       const titulo=trozosResaltados(f.titulo,q)
         .map(t=>t.resaltado?`<mark>${escBell(t.texto)}</mark>`:escBell(t.texto)).join('');
-      return `<a class="tos-res ${clase}${idx===resaltado?' activa':''}" href="${escBell(f.href||'#')}" data-i="${idx}">`
+      return `<a class="tos-res ${clase}${idx===resaltado?' activa':''}" id="tosRes${idx}" role="option" aria-selected="${idx===resaltado}" href="${escBell(f.href||'#')}" data-i="${idx}">`
         +`<span class="tos-res-ico" data-tipo="${escBell(f.tipo)}" aria-hidden="true"></span>`
         +`<span class="tos-res-txt"><strong>${titulo}</strong><small>${escBell(f.subtitulo||'')}</small></span></a>`;
     };
@@ -440,11 +477,12 @@ function wireSearch(navigation,ctx){
     else if(fuentesDelBuscadorCaidas().length)
       html+=`<div class="tos-buscador-roto">Faltan resultados: ${fuentesDelBuscadorCaidas().length===1?'una parte del buscador no respondió':'varias partes del buscador no respondieron'}. Vuelve a entrar; si sigue igual, avísale a quien lleva el sistema.</div>`;
     results.innerHTML=html;
-    results.querySelector('.tos-res.activa')?.scrollIntoView({block:'nearest'});
+    marcaActiva();
+    anuncia(`${r.total} ${r.total===1?'resultado':'resultados'}`);
   };
 
   const mover=(paso)=>{
-    const filas=filasEnOrden(ultimoResultado);
+    const filas=filasVisibles();
     if(!filas.length)return;
     resaltado=(resaltado+paso+filas.length+1)%(filas.length+1);
     if(resaltado===filas.length)resaltado=paso>0?0:filas.length-1;
@@ -459,10 +497,15 @@ function wireSearch(navigation,ctx){
     if(event.key==='ArrowUp'){event.preventDefault();mover(-1);return;}
     if(event.key==='Escape'){input.value='';cerrar();input.blur();return;}
     if(event.key==='Enter'){
-      const filas=filasEnOrden(ultimoResultado);
+      const filas=filasVisibles();
       const destino=filas[resaltado>=0?resaltado:0];
-      if(destino&&destino.href){event.preventDefault();location.href=destino.href;}
+      if(destino&&destino.href){event.preventDefault();guardaReciente(destino);location.href=destino.href;}
     }
+  });
+  // Lo que se abre con el dedo o el mouse también queda en Recientes.
+  results.addEventListener('click',event=>{
+    const a=event.target.closest?.('.tos-res');if(!a)return;
+    const f=filasVisibles()[Number(a.dataset.i)];if(f)guardaReciente(f);
   });
   results.addEventListener('pointermove',event=>{
     const a=event.target.closest?.('.tos-res');if(!a)return;
@@ -580,7 +623,8 @@ const ACCIONES_POR_ROL={
   Academia:['miAcademia','mensaje'],
   Scouting:['registrar','scouting','captacion']
 };
-const RUTAS_SIN_BOTON=['/taquilla','/estacionamiento','/captura','/v2/captura','/v2/taquilla','/v2/estacionamiento'];
+// Estacionamiento ya tiene botón (19/10/2026): Nuevo gafete y Pendientes.
+const RUTAS_SIN_BOTON=['/taquilla','/captura','/v2/captura','/v2/taquilla'];
 export function accionesRapidas(ctx,navigation){
   const rol=ctx?.is_owner?'Presidencia':ctx?.role;
   // El registro es página pública: su liga lleva el club de quien la abre.
@@ -594,23 +638,95 @@ function cierraAcciones(){document.body.classList.remove('tos-fab-open');$('tosF
    un import directo sería otra copia del módulo. Una acción trae label, sub,
    icon y href o run (una función de la pantalla). Las pantallas que no
    publican nada usan las de ACCIONES_POR_RUTA. */
+/* Acciones por pantalla (19/10/2026, elegidas una por una con Presidencia).
+   `clic` presiona el botón real de la pantalla; `href` lleva a otra. Cada una
+   pide el permiso de la pantalla que toca (`modulos`, `escribe`), así que el
+   botón nunca enseña algo que la persona no puede hacer.
+   Desde el buscador, una acción con `clic` se abre como <ruta>?accion=<clave>:
+   sólo se ejecutan claves de esta lista, así que una liga no puede presionar
+   cualquier botón (Eliminar, por ejemplo). */
+const TAQ={modulos:['taquilla','contabilidad'],escribe:true};
 const ACCIONES_POR_RUTA=[
-  ['/catalogo',[{label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',href:'/catalogo/?nuevo=producto',icon:'plus'},{label:'Nuevo kit',sub:'Junta piezas con su precio',href:'/catalogo/?nuevo=kit',icon:'bag'}]],
-  ['/pedidos',[{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',href:'/captura/',icon:'bag'},{label:'Producción',sub:'Cortes y hoja para el proveedor',href:'/produccion/',icon:'list'}]],
-  ['/calendario',[{label:'Nuevo evento',sub:'Partido, torneo o junta',href:'/calendario/?action=evento',icon:'plus'}]],
-  ['/candidatos',[{label:'Compartir la convocatoria',sub:'Liga y QR para el flyer',href:'#candLiga',icon:'chat'}]],
-  ['/encuestas',[{label:'Nueva encuesta',sub:'Liga y QR para el evento',href:'/encuestas/?nueva=1',icon:'chat'}]]
+  ['/catalogo',[{clave:'nuevo-producto',label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',href:'/catalogo/?nuevo=producto',icon:'plus',claves:['producto','alta']},{clave:'nuevo-kit',label:'Nuevo kit',sub:'Junta piezas con su precio',href:'/catalogo/?nuevo=kit',icon:'bag',claves:['kit','paquete']}]],
+  ['/pedidos',[{clave:'nuevo-pedido',label:'Nuevo pedido',sub:'Levantarlo en el mostrador',href:'/captura/',icon:'bag',claves:['venta','vender','uniforme']},{clave:'produccion',label:'Producción',sub:'Cortes y hoja para el proveedor',href:'/produccion/',icon:'list',claves:['proveedor','corte']}]],
+  ['/calendario',[{clave:'nuevo-evento',label:'Nuevo evento',sub:'Partido, torneo o junta',href:'/calendario/?action=evento',icon:'plus',claves:['evento','junta','torneo']}]],
+  ['/candidatos',[{clave:'compartir-convocatoria',label:'Compartir la convocatoria',sub:'Liga y QR para el flyer',href:'#candLiga',icon:'chat'}]],
+  ['/encuestas',[{clave:'nueva-encuesta',label:'Nueva encuesta',sub:'Liga y QR para el evento',href:'/encuestas/?nueva=1',icon:'chat',claves:['encuesta','opinion']}]],
+  ['/jugadores',[{clave:'registrar',label:'Registrar jugador',sub:'Formulario de nuevo ingreso',href:'/registro/jugadores/',publica:true,icon:'userPlus',modulos:['prospectos','jugadores'],escribe:true,claves:['alta','inscribir','nuevo jugador','nuevo tanner']}]],
+  ['/asistencia',[{clave:'pasar-lista',label:'Pasar lista de hoy',sub:'El entrenamiento de hoy',clic:'#tabCapture',icon:'check',modulos:['asistencia'],escribe:true,claves:['lista','asistencia','tomar lista']}]],
+  ['/partidos',[{clave:'nuevo-partido',label:'Nuevo partido',sub:'Rival, fecha y convocados',clic:'#ptNuevo',icon:'plus',claves:['partido','convocatoria','juego']},{clave:'registrar-resultado',label:'Registrar resultado',sub:'El próximo partido: goles y quién jugó',clic:'#ptProximos .pt-partido-fila',icon:'list',claves:['resultado','marcador','goles']}]],
+  ['/contabilidad',[{clave:'cobrar',label:'Cobrar',sub:'Entra dinero al club',href:'/taquilla/?action=cobrar',icon:'moneyIn',...TAQ,claves:['cobro','pago','mensualidad']},{clave:'gasto',label:'Registrar gasto',sub:'Sale dinero del club',href:'/taquilla/?action=pagar',icon:'moneyOut',...TAQ,claves:['gasto','egreso','pagar']},{clave:'conciliar',label:'Por conciliar',sub:'Cobros por validar',href:'/taquilla/?ver=concilia',icon:'check',modulos:['taquilla','contabilidad'],claves:['conciliar','transferencias','comprobantes']},{clave:'corte',label:'Corte del día',sub:'Caja: movimientos y corte',href:'/taquilla/?ver=caja',icon:'ledger',modulos:['taquilla','contabilidad'],claves:['corte','caja']}]],
+  ['/prospectos',[{clave:'nuevo-prospecto',label:'Nuevo prospecto',sub:'Formulario de nuevo ingreso',href:'/registro/jugadores/',publica:true,icon:'userPlus',modulos:['prospectos'],claves:['prospecto','fichaje','registro']}]],
+  ['/usuarios',[{clave:'invitar-staff',label:'Invitar usuario del staff',sub:'Darle su llave y su rol',clic:'#openCreateUser',icon:'userPlus',modulos:['usuarios'],escribe:true,claves:['usuario','staff','acceso','alta']},{clave:'invitar-familias',label:'Invitar a las familias que faltan',sub:'Por WhatsApp, una por una',href:'/invitaciones/?accion=invitar-familias',icon:'chat',modulos:['usuarios'],escribe:true,claves:['invitar','familias','portal']},{clave:'liga-contrasena',label:'Mandar liga de contraseña',sub:'Para una familia que la olvidó',href:'/invitaciones/?accion=liga-contrasena',icon:'chat',modulos:['usuarios'],escribe:true,claves:['contrasena','olvido','password']}]],
+  ['/invitaciones',[{clave:'invitar-familias',label:'Invitar a las familias que faltan',sub:'Por WhatsApp, una por una',clic:'#invRapido',icon:'chat',modulos:['usuarios'],escribe:true,claves:['invitar','familias','portal']},{clave:'liga-contrasena',label:'Mandar liga de contraseña',sub:'Familias que ya tienen cuenta',clic:'[data-filtro="cuenta"]',icon:'chat',modulos:['usuarios'],escribe:true,claves:['contrasena','olvido','password']},{clave:'invitar-staff',label:'Invitar usuario del staff',sub:'Darle su llave y su rol',href:'/usuarios/?accion=invitar-staff',icon:'userPlus',modulos:['usuarios'],escribe:true,claves:['usuario','staff','acceso']}]],
+  ['/becas',[{clave:'solicitudes-beca',label:'Solicitudes por revisar',sub:'Las que pidieron las familias',clic:'[data-ir="solicitudes"]',icon:'check',modulos:['becas'],claves:['beca','solicitud','apoyo']}]],
+  ['/patrocinadores',[{clave:'nuevo-patrocinador',label:'Nuevo patrocinador',sub:'Dar de alta una marca',clic:'#newSponsorButton',icon:'plus',modulos:['patrocinadores'],escribe:true,claves:['marca','sponsor','patrocinio']}]],
+  // Mensajes publica estas mismas claves con su propia función (abre el aviso
+  // con el destinatario ya elegido); aquí se declaran para que se puedan buscar.
+  ['/mensajes',[{clave:'aviso-familias',label:'Aviso a todas las familias',sub:'Les llega al portal y al celular',enPantalla:true,icon:'chat',claves:['aviso','familias','comunicado','papas']},{clave:'aviso-categoria',label:'Aviso a una categoría',sub:'Sólo a las familias de esa categoría',enPantalla:true,icon:'chat',claves:['aviso','categoria','equipo']},{clave:'mensaje-staff',label:'Mensaje al staff',sub:'Un chat con alguien del club',enPantalla:true,icon:'chat',claves:['chat','mensaje','staff','equipo']}]],
+  ['/estacionamiento',[{clave:'nuevo-gafete',label:'Nuevo gafete',sub:'Agregar, cobrar y entregar',clic:'#pkNuevo',icon:'car',modulos:['estacionamiento'],escribe:true,claves:['gafete','placas','estacionamiento']},{clave:'gafetes-pendientes',label:'Gafetes pendientes',sub:'Lo que pidieron desde el portal',clic:'[data-tab="pendientes"]',icon:'list',modulos:['estacionamiento'],claves:['pendientes','solicitudes']}]]
 ];
+// Finanzas comparte las de Contabilidad.
+ACCIONES_POR_RUTA.push(['/finanzas',ACCIONES_POR_RUTA.find(([r])=>r==='/contabilidad')[1]]);
 export function setAccionesDePantalla(lista){window.tosAccionesDePantalla=Array.isArray(lista)?lista:[];window.dispatchEvent(new Event('tos:acciones'));}
-function accionesDeEstaPantalla(){
+const rutaSinV2=(p=location.pathname)=>p.replace(/^\/v2/,'');
+const accionesDeRuta=ruta=>(ACCIONES_POR_RUTA.find(([r])=>ruta===r||ruta.startsWith(r+'/'))||[])[1]||[];
+const puedeAccion=(a,navigation)=>!a.modulos||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe)));
+// Un `clic` sólo se ofrece si el botón está en pantalla y visible: si la
+// pantalla lo escondió (sin permiso, sin partidos próximos), no se promete.
+function botonVisible(sel){try{const el=document.querySelector(sel);return !!el&&!el.disabled&&!el.closest('.hidden,[hidden]')&&el.getClientRects().length>0;}catch(e){return false;}}
+const conLiga=(a,ctx)=>a.publica?{...a,href:ligaPublica(a.href,ctx,{},'')}:a;
+function accionesDeEstaPantalla(ctx,navigation){
   if(Array.isArray(window.tosAccionesDePantalla))return window.tosAccionesDePantalla;
-  const ruta=location.pathname.replace(/^\/v2/,'');
-  return (ACCIONES_POR_RUTA.find(([r])=>ruta===r||ruta.startsWith(r+'/'))||[])[1]||[];
+  return accionesDeRuta(rutaSinV2()).filter(a=>!a.enPantalla).filter(a=>puedeAccion(a,navigation)).filter(a=>!a.clic||botonVisible(a.clic)).map(a=>conLiga(a,ctx));
+}
+function ejecutaAccion(a){
+  if(typeof a?.run==='function'){a.run();return true;}
+  if(a?.clic){const el=document.querySelector(a.clic);if(el){el.click();el.scrollIntoView?.({block:'nearest',behavior:'smooth'});return true;}}
+  return false;
+}
+// Todas las acciones que esta persona puede hacer, para el buscador: las de
+// cada pantalla que puede abrir y las generales. Las de `clic` abren la
+// pantalla con ?accion=<clave>.
+export function accionesBuscables(ctx,navigation){
+  const vistas=new Set(),fuera=[];
+  const legible=ruta=>navItems.some(item=>(item.href||'').replace(/\/$/,'')===ruta&&itemReadable(navigation,item));
+  for(const [ruta,lista] of ACCIONES_POR_RUTA){
+    if(!legible(ruta))continue;
+    const pantalla=navItems.find(item=>(item.href||'').replace(/\/$/,'')===ruta)?.label||'';
+    for(const a of lista){
+      if(!puedeAccion(a,navigation))continue;
+      const href=a.clic||a.enPantalla?`${ruta}/?accion=${encodeURIComponent(a.clave)}`:conLiga(a,ctx).href;
+      if(!href||href.startsWith('#')||vistas.has(a.label+href))continue;
+      vistas.add(a.label+href);fuera.push({...a,href,pantalla});
+    }
+  }
+  for(const [clave,a] of Object.entries(ACCIONES_RAPIDAS)){
+    if(!(a.siempre||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe)))))continue;
+    const x=conLiga({clave,...a},ctx);
+    if(fuera.some(f=>f.label===x.label))continue;
+    fuera.push({...x,pantalla:'Acción rápida'});
+  }
+  return fuera;
+}
+// /taquilla/?accion=... no aplica (Taquilla tiene sus propios parámetros):
+// esto sólo corre claves de ACCIONES_POR_RUTA o de setAccionesDePantalla.
+function accionDeLiga(ctx,navigation){
+  let clave=null;
+  try{const u=new URL(location.href);clave=u.searchParams.get('accion');if(!clave)return;
+    u.searchParams.delete('accion');history.replaceState(null,'',u.pathname+u.search+u.hash);}catch(e){return;}
+  const inicio=Date.now();
+  const intenta=()=>{
+    const a=accionesDeEstaPantalla(ctx,navigation).find(x=>x.clave===clave);
+    if(a&&ejecutaAccion(a))return;
+    if(Date.now()-inicio<8000)setTimeout(intenta,250);
+  };
+  intenta();
 }
 function pintaMenuFab(menu,ctx,navigation){
-  const aqui=accionesDeEstaPantalla(),dest=new Set(aqui.map(a=>a.href).filter(Boolean));
+  const aqui=accionesDeEstaPantalla(ctx,navigation),dest=new Set(aqui.map(a=>a.href).filter(Boolean));
   const generales=accionesRapidas(ctx,navigation).filter(a=>!dest.has(a.href)&&location.pathname.replace(/^\/v2/,'')!==a.href.split('?')[0]);
-  const item=(a,k,tipo)=>`<a class="tos-fab-item${tipo==='aqui'?' aqui':''}" href="${escBell(a.href||'#')}" data-accion="${escBell(a.clave||`${tipo}-${k}`)}"${a.run?` data-run="${k}"`:''}><span class="tos-fab-ico">${shellIcon(a.icon||'plus')}</span><span><strong>${escBell(a.label)}</strong>${a.sub?`<small>${escBell(a.sub)}</small>`:''}</span></a>`;
+  const item=(a,k,tipo)=>`<a class="tos-fab-item${tipo==='aqui'?' aqui':''}" href="${escBell(a.href||'#')}" data-accion="${escBell(a.clave||`${tipo}-${k}`)}"${tipo==='aqui'&&(a.run||a.clic)?` data-run="${k}"`:''}><span class="tos-fab-ico">${shellIcon(a.icon||'plus')}</span><span><strong>${escBell(a.label)}</strong>${a.sub?`<small>${escBell(a.sub)}</small>`:''}</span></a>`;
   menu.innerHTML=`<div class="tos-fab-grab" aria-hidden="true"></div>`
     +(aqui.length?`<p class="tos-fab-title">En esta pantalla</p>${aqui.map((a,k)=>item(a,k,'aqui')).join('')}`:'')
     +(generales.length?`<p class="tos-fab-title${aqui.length?' sep':''}">${aqui.length?'Generales':'Acciones rápidas'}</p>${generales.map((a,k)=>item(a,k,'gen')).join('')}`:'');
@@ -628,19 +744,22 @@ function ensureQuickFab(ctx,navigation){
   menu.addEventListener('click',e=>{
     const a=e.target.closest('a');if(!a)return;
     const k=a.dataset.run;
-    if(k!=null){e.preventDefault();cierraAcciones();try{accionesDeEstaPantalla()[Number(k)]?.run?.();}catch(err){console.error(err);}return;}
+    if(k!=null){e.preventDefault();cierraAcciones();try{ejecutaAccion(accionesDeEstaPantalla(ctx,navigation)[Number(k)]);}catch(err){console.error(err);}return;}
     cierraAcciones();
   });
   if(!document.documentElement.dataset.tosFabKeys){document.documentElement.dataset.tosFabKeys='1';document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('tos-fab-open')){cierraAcciones();$('tosFab')?.focus();}});}
   window.addEventListener('tos:acciones',repinta);
   repinta();
+  // Los botones de la pantalla aparecen cuando la pantalla termina de cargar:
+  // se vuelve a contar para no esconder el botón por llegar antes que ellos.
+  setTimeout(repinta,1200);
   document.body.append(fondo,menu,boton);
 }
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
   const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
   renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'el club';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{borraCacheDelBuscador();await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
-  if(ctx){ensureBellMarkup();wireBell(ctx,navigation);ensureQuickFab(ctx,navigation);}
+  if(ctx){ensureBellMarkup();wireBell(ctx,navigation);ensureQuickFab(ctx,navigation);accionDeLiga(ctx,navigation);}
 }
 // Solo lectura (j4–n4): el club debe su mensualidad o es una demo. La base ya
 // no deja guardar; aquí sólo se avisa arriba de cada pantalla, sin esperar.

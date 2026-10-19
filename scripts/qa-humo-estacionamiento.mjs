@@ -126,6 +126,29 @@ const llamada = (pg, n) => pg.evaluate(n => window.__rpc.filter(c => c.name === 
   await pg.close();
 }
 
+/* ===== LA CASETA DICE SÍ, TODAVÍA NO O NO (auditoría 19/10/2026) ===== */
+{
+  const { pg, errs } = await abre();
+  const ver = async placa => { await pg.fill('#pkBusca', placa); await pg.waitForTimeout(150); return (await pg.$eval('.pk-verdict', e => e.className + ' | ' + e.innerText).catch(() => '')).replace(/\s+/g, ' '); };
+  const si = await ver('gto 123 a');
+  revisa('placa con gafete entregado: "Puede pasar" en verde', /pk-verdict ok/.test(si) && /Puede pasar/.test(si) && /Matías Campos Rizo/.test(si) && /TC001/.test(si), si);
+  const espera = await ver('JAL555B');
+  revisa('placa que lo pidió pero no ha pagado: "Todavía no tiene gafete"', /pk-verdict wait/.test(espera) && /Todavía no tiene gafete/.test(espera), espera);
+  const no = await ver('QRO-900-C');
+  revisa('placa con gafete cancelado: "No autorizar"', /pk-verdict no/.test(no) && /No autorizar/.test(no) && /cancelado/.test(no), no);
+  const parcial = await ver('GTO');
+  revisa('con media placa no hay veredicto, sólo resultados', parcial === '', parcial);
+  await pg.fill('#pkBusca', 'MEX-111-Z'); await pg.waitForTimeout(150);
+  revisa('placa que no está: dice que no tiene gafete y ofrece dárselo', /MEX-111-Z no tiene gafete/.test(await pg.textContent('.pk-nohit')) && await pg.isVisible('[data-nuevo-placa]'));
+  const sombra = await pg.$eval('#pkBusca', e => getComputedStyle(e).boxShadow + ' ' + getComputedStyle(e).borderTopWidth);
+  revisa('el buscador no se ve como caja dentro de otra caja', /^none 0px$/.test(sombra), sombra);
+  await pg.fill('#pkBusca', '');
+  const verTodos = await pg.$eval('[data-tab="pendientes"].pk-link', b => b.getBoundingClientRect().height);
+  revisa('"Ver todos" se puede tocar con el dedo (44px)', verTodos >= 44, String(verTodos));
+  revisa('sin errores de consola (caseta)', errs.length === 0, errs.join(' | '));
+  await pg.close();
+}
+
 /* ===== SIN COSTO SÓLO CON MOTIVO; PERSONA QUE NO ES TANNER ===== */
 {
   const { pg } = await abre();

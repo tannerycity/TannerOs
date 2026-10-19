@@ -40,7 +40,9 @@ const ICON={
   cuenta:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 11h5"/>',
   bolsa:'<path d="M6 8h12l1 13H5L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
   chevron:'<path d="m9 18 6-6-6-6"/>',
-  carta:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6"/><path d="M9 12h6"/>'
+  carta:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6"/><path d="M9 12h6"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  lupa:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>'
 };
 const svg=(n,size=20)=>`<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 
@@ -88,7 +90,8 @@ function pintaAvatar(){
   const img=$('photoBox')?.querySelector('img');
   const ini=[F.player.firstName,F.player.lastName].filter(Boolean).map(s=>String(s).trim()[0]||'').join('').toUpperCase().slice(0,2)||'T';
   vista()?.classList.toggle('ficha-sin-foto',!img?.src);
-  btn.innerHTML=(img?.src?`<img src="${esc(img.src)}" alt="">`:`<span>${esc(ini)}</span>`)+`<i aria-hidden="true">${svg('carta',13)}</i>`;
+  btn.innerHTML=(img?.src?`<img src="${esc(img.src)}" alt="">`:`<span>${esc(ini)}</span>`)+`<i aria-hidden="true">${svg(img?.src?'lupa':'carta',13)}</i>`;
+  btn.setAttribute('aria-label',img?.src?'Ver la foto en grande':'Abrir Carta Tanner');
 }
 function pintaChips(){
   const box=$('fichaChips');if(!box||!F)return;
@@ -119,6 +122,50 @@ function pintaAcciones(){
 }
 
 /* ---------- Carta Tanner (se abre al tocar la foto) ---------- */
+/* La foto en grande (19/10/2026): "cuando le dé clic a la foto, que se haga
+   grande", para guardarla y hacer la felicitación. Tocar la foto la abre
+   completa, sin recortar; "Guardar foto" la manda al carrete (en iPhone, con
+   la hoja de compartir) y la Carta sigue a un toque. Sin foto, se abre la
+   Carta como antes. */
+function fotoGrande(){const img=$('photoBox')?.querySelector('img');return img?.src?img:null;}
+function nombreDeArchivo(){return `${[F?.player?.firstName,F?.player?.lastName].filter(Boolean).join(' ').trim()||'Tanner'}.jpg`.replace(/[\\/:*?"<>|]+/g,'');}
+function abrirFoto(){
+  const img=fotoGrande();if(!img){abrirCarta();return;}
+  let v=$('fichaFotoVisor');
+  if(!v){
+    document.body.insertAdjacentHTML('beforeend',`<div id="fichaFotoVisor" class="ficha-visor" role="dialog" aria-modal="true" aria-label="Foto del Tanner" hidden>
+      <button type="button" class="ficha-visor-cerrar" data-visor-cerrar aria-label="Cerrar">${svg('x',18)}</button>
+      <img id="fichaVisorImg" alt="">
+      <div class="ficha-visor-acciones"><button type="button" class="ficha-visor-btn principal" data-visor-guardar>Guardar foto</button><button type="button" class="ficha-visor-btn" data-visor-carta>Ver Carta Tanner</button></div>
+      <p id="fichaVisorNota" class="ficha-visor-nota" hidden></p></div>`);
+    v=$('fichaFotoVisor');
+    v.addEventListener('click',async e=>{
+      if(e.target===v||e.target.closest('[data-visor-cerrar]')){cerrarFoto();return;}
+      if(e.target.closest('[data-visor-carta]')){cerrarFoto();abrirCarta();return;}
+      if(e.target.closest('[data-visor-guardar]'))await guardarFoto(e.target.closest('[data-visor-guardar]'));
+    });
+    // En captura y sin dejar pasar: Escape cierra SÓLO la foto, no la ficha.
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('fichaFotoVisor')?.hidden){e.preventDefault();e.stopImmediatePropagation();cerrarFoto();}},true);
+  }
+  $('fichaVisorImg').src=img.src;$('fichaVisorImg').alt=img.alt||'Foto del Tanner';
+  $('fichaVisorNota').hidden=true;v.hidden=false;document.body.classList.add('ficha-visor-abierto');
+  v.querySelector('[data-visor-cerrar]').focus({preventScroll:true});
+}
+function cerrarFoto(){const v=$('fichaFotoVisor');if(v)v.hidden=true;document.body.classList.remove('ficha-visor-abierto');$('fichaAvatar')?.focus({preventScroll:true});}
+async function guardarFoto(btn){
+  const src=$('fichaVisorImg')?.src,nota=$('fichaVisorNota');if(!src)return;
+  const antes=btn.textContent;btn.disabled=true;btn.textContent='Preparando…';
+  try{
+    const blob=await (await fetch(src)).blob();
+    const archivo=new File([blob],nombreDeArchivo(),{type:blob.type||'image/jpeg'});
+    // iPhone: la hoja de compartir trae "Guardar imagen" (y WhatsApp, Claude…).
+    if(navigator.canShare?.({files:[archivo]})){await navigator.share({files:[archivo]}).catch(()=>{});}
+    else{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=archivo.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}
+  }catch(err){
+    // Sin red o el navegador no deja: se puede guardar dejando el dedo encima.
+    if(nota){nota.textContent='Deja el dedo sobre la foto y elige "Guardar imagen".';nota.hidden=false;}
+  }finally{btn.disabled=false;btn.textContent=antes;}
+}
 function abrirCarta(){vista()?.classList.add('ficha-carta');const f=$('fichaCartaFondo');if(f)f.hidden=false;}
 function cerrarCarta(){vista()?.classList.remove('ficha-carta');const f=$('fichaCartaFondo');if(f)f.hidden=true;}
 
@@ -325,7 +372,8 @@ document.addEventListener('click',e=>{
   if(t.matches('[data-ficha-evaluar]')){e.preventDefault();cerrarMas();irA('deportivo',()=>$('openEvaluation')?.click());return;}
   if(t.matches('[data-ficha-mas]')){abrirMas();return;}
   if(t.matches('[data-ficha-cerrar-mas]')){cerrarMas();return;}
-  if(t.matches('[data-ficha-carta],#fichaAvatar')){cerrarMas();abrirCarta();return;}
+  if(t.matches('#fichaAvatar')){cerrarMas();abrirFoto();return;}
+  if(t.matches('[data-ficha-carta]')){cerrarMas();abrirCarta();return;}
   if(t.matches('#fichaCartaFondo')){cerrarCarta();return;}
   if(t.matches('[data-ficha-foto]')){
     // Abre la caja de foto (tomarla con la cámara o elegir archivo) en lugar

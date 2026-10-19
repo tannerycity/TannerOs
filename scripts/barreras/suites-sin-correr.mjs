@@ -154,7 +154,9 @@ export default function comprobar() {
   // entrar con el teléfono y la liga de invitación del portal.
   // Sube a 47 por qa-humo-buscador-acciones.mjs: buscador v2 (errores de dedo,
   // T10, +52, acciones, recientes) y botón flotante por pantalla.
-  const MAX_EXCLUIDAS = 47;
+  // Sube a 48 por qa-humo-calendario.mjs: la cara del cumpleañero a la vista
+  // y tocar un día para agregar con la fecha puesta.
+  const MAX_EXCLUIDAS = 48;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

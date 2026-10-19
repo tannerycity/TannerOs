@@ -660,3 +660,16 @@ body:has(.profile-panel.open) .tos-fab{display:none}
 .jcard-pub.img-autoriza{opacity:.8}
 .jcard-pub{max-width:calc(100% - 20px);text-align:left;line-height:1.15!important;align-items:center}
 .jcard-pub svg{flex:0 0 12px}
+
+/* La foto en grande (19/10/2026): completa, sin recortar, para guardarla. */
+.ficha-visor{position:fixed;inset:0;z-index:1400;background:rgba(3,14,18,.94);display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;justify-items:center;gap:12px;padding:max(14px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom))}
+.ficha-visor[hidden]{display:none}
+.ficha-visor-cerrar{justify-self:end;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;cursor:pointer}
+.ficha-visor img{max-width:100%;max-height:100%;object-fit:contain;border-radius:14px;align-self:center;-webkit-touch-callout:default;user-select:auto}
+.ficha-visor-acciones{display:flex;gap:10px;width:min(420px,100%)}
+.ficha-visor-btn{flex:1;min-height:48px;border-radius:14px;border:1px solid rgba(255,255,255,.28);background:transparent;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+.ficha-visor-btn.principal{background:#c6ac5c;border-color:#c6ac5c;color:#032f3b}
+.ficha-visor-btn:disabled{opacity:.6}
+.ficha-visor-nota{margin:0;color:#e9dcae;font-size:13px;text-align:center}
+.ficha-visor-nota[hidden]{display:none}
+body.ficha-visor-abierto{overflow:hidden}

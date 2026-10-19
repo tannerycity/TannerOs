@@ -81,20 +81,29 @@ function renderSpotlight(){
   $('upcomingBirthdays').innerHTML=upcoming.slice(today.length?1:0).map(x=>`<a href="/v2/jugadores/?player=${encodeURIComponent(x.player.id)}">${avatarHtml(x.player,'sm')}<span><strong>${esc(nameOf(x.player))}</strong><small>${x.days===0?'Hoy':x.days===1?'Mañana':x.date.toLocaleDateString('es-MX',{day:'numeric',month:'short'})}</small></span></a>`).join('');
 }
 
-function renderMonthGrid(){const {year,month}=monthBounds(),first=new Date(year,month-1,1),days=new Date(year,month,0).getDate(),offset=(first.getDay()+6)%7,todayKey=dayKey(new Date()),box=$('monthGrid');box.innerHTML='';['L','M','M','J','V','S','D'].forEach(x=>{const h=document.createElement('span');h.className='weekday';h.textContent=x;box.appendChild(h);});for(let i=0;i<offset;i++){const blank=document.createElement('span');blank.className='day blank';box.appendChild(blank);}for(let n=1;n<=days;n++){const d=new Date(year,month-1,n),key=dayKey(d),dayItems=items.filter(x=>dayKey(new Date(x.startsAt))===key),button=document.createElement('button');button.type='button';button.className=`day${key===todayKey?' today':''}${key===selectedDay?' selected':''}`;button.setAttribute('aria-label',`${n} de ${first.toLocaleDateString('es-MX',{month:'long'})}, ${dayItems.length} actividades`);button.innerHTML=`<b>${n}</b><span class="day-dots">${[...new Set(dayItems.map(x=>x.source))].slice(0,4).map(s=>`<i class="dot-${esc(s)}"></i>`).join('')}</span>`;button.onclick=()=>{selectedDay=selectedDay===key?'':key;renderMonthGrid();renderRail();};box.appendChild(button);}}
+function renderMonthGrid(){const {year,month}=monthBounds(),first=new Date(year,month-1,1),days=new Date(year,month,0).getDate(),offset=(first.getDay()+6)%7,todayKey=dayKey(new Date()),box=$('monthGrid');box.innerHTML='';['L','M','M','J','V','S','D'].forEach(x=>{const h=document.createElement('span');h.className='weekday';h.textContent=x;box.appendChild(h);});for(let i=0;i<offset;i++){const blank=document.createElement('span');blank.className='day blank';box.appendChild(blank);}for(let n=1;n<=days;n++){const d=new Date(year,month-1,n),key=dayKey(d),dayItems=items.filter(x=>dayKey(new Date(x.startsAt))===key),button=document.createElement('button');button.type='button';button.className=`day${key===todayKey?' today':''}${key===selectedDay?' selected':''}`;button.setAttribute('aria-label',`${n} de ${first.toLocaleDateString('es-MX',{month:'long'})}, ${dayItems.length} actividades`);button.innerHTML=`<b>${n}</b><span class="day-dots">${[...new Set(dayItems.map(x=>x.source))].slice(0,4).map(s=>`<i class="dot-${esc(s)}"></i>`).join('')}</span>`;button.onclick=()=>{selectedDay=selectedDay===key?'':key;renderMonthGrid();renderRail();if(selectedDay&&matchMedia('(max-width:900px)').matches)$('agendaTitle')?.closest('.rail-panel')?.scrollIntoView({behavior:'smooth',block:'start'});};box.appendChild(button);}}
 
+/* Tocar un día (19/10/2026): "si hay que agregar algo al calendario, que se
+   pueda uno meter". El día elegido enseña su agenda en lista y un botón para
+   agregar YA en esa fecha; la tarjeta del cumpleaños lleva la foto arriba y el
+   texto debajo, para no taparle la cara al Tanner. */
 function renderRail(){
   const rows=visibleItems(),box=$('agendaRail');box.innerHTML='';
+  box.classList.toggle('dia',!!selectedDay);
   $('empty').classList.toggle('hidden',rows.length>0);
-  $('agendaTitle').textContent=selectedDay?new Date(`${selectedDay}T12:00:00`).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):'Lo que sigue este mes';
+  $('empty').textContent=selectedDay?(canWrite?'Nada este día. Toca "+ Agregar" para poner algo.':'Nada este día.'):'No hay actividades con este filtro.';
+  const fechaDia=selectedDay?new Date(`${selectedDay}T12:00:00`):null;
+  $('agendaKicker').textContent=selectedDay?'EL DÍA':'LO QUE SIGUE';
+  $('agendaTitle').textContent=fechaDia?fechaDia.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):'Lo que sigue este mes';
+  const add=$('addOnDay');
+  if(add){add.classList.toggle('hidden',!(selectedDay&&canWrite));if(fechaDia)add.textContent=`+ Agregar el ${fechaDia.toLocaleDateString('es-MX',{day:'numeric',month:'short'}).replace('.','')}`;}
   rows.forEach(x=>{
     const d=new Date(x.startsAt),meta=itemMeta(x.source),photoUrl=x.source==='birthday'&&x.player&&x.player._photoUrl,dateLabel=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}),when=x.allDay?'Todo el día':d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
     const el=document.createElement(x.player?'a':'article');
     el.className=`rail-card source-${x.source}${photoUrl?' has-photo':''}`;
     if(x.player)el.href=`/v2/jugadores/?player=${encodeURIComponent(x.player.id)}`;
     if(photoUrl){
-      el.style.backgroundImage=`url('${photoUrl.replace(/'/g,'%27')}')`;
-      el.innerHTML=`<span class="rail-date on-photo">${esc(dateLabel)}</span><div class="rail-scrim"><strong>${esc(x.title||'Actividad')}</strong><span>${esc(x.detail||'')}</span></div>`;
+      el.innerHTML=`<span class="rail-foto" style="background-image:url('${photoUrl.replace(/'/g,'%27')}')"><span class="rail-date on-photo">${esc(dateLabel)}</span></span><span class="rail-pie"><strong>${esc(x.title||'Actividad')}</strong><small>${esc(x.detail||'')}</small></span>`;
     }else{
       el.innerHTML=`<div class="rail-icon"><span class="tos-icon ${meta.icon}" aria-hidden="true"></span><span class="source-chip">${esc(meta.label)}</span></div><span class="rail-date">${esc(dateLabel)}${x.allDay?'':' · '+esc(when)}</span><strong>${esc(x.title||'Actividad')}</strong>${x.location?`<span class="rail-loc">${esc(x.location)}</span>`:''}${x.detail?`<small>${esc(x.detail)}</small>`:''}`;
     }
@@ -102,7 +111,10 @@ function renderRail(){
   });
 }
 
-function openEventModal(){$('eventModal').classList.remove('hidden');toggleAudienceFields();setTimeout(()=>$('eventTitle').focus(),30);}
+function openEventModal(dia=''){$('eventModal').classList.remove('hidden');
+  // Desde un día: la fecha ya viene puesta, a las 6 de la tarde (la hora de
+  // entrenamiento); sólo falta escribir qué es.
+  if(dia&&$('eventDate'))$('eventDate').value=`${dia}T18:00`;toggleAudienceFields();setTimeout(()=>$('eventTitle').focus(),30);}
 function closeEventModal(){$('eventModal').classList.add('hidden');$('eventForm').reset();msg('eventMessage');toggleAudienceFields();}
 function toggleAudienceFields(){const on=$('eventNotify').checked;$('audienceRow').classList.toggle('hidden',!on);const role=$('eventAudienceType').value==='role';$('eventAudienceRole').closest('label').classList.toggle('hidden',!role);}
 
@@ -126,7 +138,8 @@ $('month')?.addEventListener('change',load);
 $('prevMonth')?.addEventListener('click',()=>shiftMonth(-1));
 $('nextMonth')?.addEventListener('click',()=>shiftMonth(1));
 $('todayButton')?.addEventListener('click',()=>{$('month').value=monthValue();load();});
-$('addEventButton')?.addEventListener('click',openEventModal);
+$('addEventButton')?.addEventListener('click',()=>openEventModal());
+$('addOnDay')?.addEventListener('click',()=>openEventModal(selectedDay));
 $('closeEventModal')?.addEventListener('click',closeEventModal);
 $('eventModal')?.addEventListener('click',e=>{if(e.target.id==='eventModal')closeEventModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('eventModal').classList.contains('hidden'))closeEventModal();});

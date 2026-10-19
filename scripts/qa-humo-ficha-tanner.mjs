@@ -122,8 +122,18 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   revisa('[foto] no tapa los botones de acción', !vertical.tapa, JSON.stringify(vertical));
   revisa('[foto] marco cuadrado con esquinas redondeadas, no círculo', vertical.radio !== '50%', JSON.stringify(vertical));
   revisa('[pres] la carta FIFA no ocupa la pantalla', await p.isHidden('#tannerCard'));
+  // La foto en grande (19/10/2026): "que se haga grande" para guardarla y
+  // hacer la felicitación. Tocar la foto la abre completa, sin recortar.
   await p.click('#fichaAvatar');
-  revisa('[pres] tocar la foto abre la Carta Tanner', await visible(p, '#tannerCard'));
+  await p.waitForSelector('#fichaFotoVisor:not([hidden])', { timeout: 3000 }).catch(() => {});
+  const visor = await p.evaluate(() => { const i = document.getElementById('fichaVisorImg'), b = document.querySelector('#photoBox img');
+    return { abierto: !document.getElementById('fichaFotoVisor').hidden, misma: !!i && !!b && i.src === b.src, ajuste: i && getComputedStyle(i).objectFit, carta: !document.getElementById('tannerCard') || getComputedStyle(document.getElementById('tannerCard')).display === 'none' || document.getElementById('tannerCard').offsetParent === null }; });
+  revisa('[foto] tocar la foto la abre en grande (la original, sin recortar)', visor.abierto && visor.misma && visor.ajuste === 'contain', JSON.stringify(visor));
+  revisa('[foto] el visor trae "Guardar foto" y la Carta a un toque', await visible(p, '[data-visor-guardar]') && await visible(p, '[data-visor-carta]'));
+  await p.keyboard.press('Escape');
+  revisa('[foto] Escape cierra la foto', await p.isHidden('#fichaFotoVisor'));
+  await p.click('#fichaAvatar'); await p.click('[data-visor-carta]');
+  revisa('[pres] desde la foto se abre la Carta Tanner', await visible(p, '#tannerCard'));
   await p.keyboard.press('Escape');
   revisa('[pres] Escape cierra la carta', await p.isHidden('#tannerCard'));
   const beca = await texto(p, '#fichaBeca');

@@ -253,6 +253,22 @@ revisa('el jersey dice en qué kit va', /En Kit Tanner - Completo/.test(await pg
 // las tallas se prenden solas según lo que es.
 if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
 if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/catalogo.png`});
+// Diseño de tienda (19/10/2026, captura de iPhone: "no se ve bien").
+{
+  if(!(await pg.isVisible('#productsPanel')))await pg.click('.cat-seg [data-ver="productos"]');
+  await pg.waitForTimeout(200);
+  const d=await pg.evaluate(()=>({doc:document.documentElement.scrollWidth,w:innerWidth,
+    tabs:[...document.querySelectorAll('.cat-seg button:not(.hidden)')].filter(b=>b.scrollWidth>b.clientWidth+1).map(b=>b.innerText),
+    panel:getComputedStyle(document.getElementById('productsPanel')).backgroundColor,
+    sw:(r=>[Math.round(r.width),Math.round(r.height)])(document.getElementById('showArchived').getBoundingClientRect()),
+    meta:[...document.querySelectorAll('#productList .cat-meta')].map(e=>e.textContent),
+    chips:[...document.querySelectorAll('#productList .cat-chip')].map(e=>e.textContent).filter(t=>!/^(Archivado|Inactivo)$/.test(t))}));
+  revisa('[diseño] nada se sale a 390px y ninguna pestaña se corta',d.doc<=d.w+1&&!d.tabs.length,JSON.stringify(d));
+  revisa('[diseño] la lista no va dentro de otra tarjeta',/rgba\(0, 0, 0, 0\)|transparent/.test(d.panel),d.panel);
+  revisa('[diseño] "Archivados" es un interruptor, no una casilla grande',d.sw[0]===40&&d.sw[1]===24,JSON.stringify(d.sw));
+  revisa('[diseño] la categoría se lee en español ("socks" → Calcetas)',d.meta.some(t=>/^Calcetas/.test(t))&&!d.meta.some(t=>/socks/i.test(t)),JSON.stringify(d.meta));
+  revisa('[diseño] sin pastillas de clave ni categoría: sólo de estado',d.chips.length===0,JSON.stringify(d.chips));
+}
 revisa('arriba: Productos | Kits con su cuenta', /Productos\s*4/.test(await pg.textContent('.cat-seg'))&&/Kits\s*1/.test(await pg.textContent('.cat-seg')), await pg.textContent('.cat-seg'));
 await pg.fill('#catBuscar','calcetas');
 revisa('el buscador filtra', (await pg.$$eval('#productList .catalog-card',n=>n.length))===1);

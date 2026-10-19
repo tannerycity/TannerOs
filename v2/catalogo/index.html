@@ -15,7 +15,7 @@
   <p id="pendientes" class="pendientes hidden"></p>
 
   <section class="panel hidden" id="bundlesPanel">
-    <div class="panel-head"><div><div class="eyebrow">KITS</div><h2>Paquetes configurados</h2><p class="muted">Lo que se vende como una sola pieza (jersey + short + calcetas, etc.). Esto es lo que ve quien registra un pedido.</p></div></div>
+    <p class="cat-lista-ayuda">Lo que se vende como una sola pieza (jersey + short + calcetas). Es lo que ve quien levanta un pedido.</p>
     <div id="bundleList" class="catalog-list"></div>
     <div id="bundleEmpty" class="empty hidden">Todavía no hay kits configurados.</div>
   </section>
@@ -39,16 +39,18 @@
   </section>
 
   <section class="panel" id="productsPanel">
-    <div class="panel-head"><div><div class="eyebrow">PRODUCTOS</div><h2>Catálogo de piezas</h2><p class="muted">Las prendas sueltas que después se combinan en los kits.</p></div>
-      <div class="panel-head-actions"><label class="inline-check"><input type="checkbox" id="showArchived"> Ver archivados</label></div>
-    </div>
-    <!-- Manga larga con cargo (14/10/2026): "se paga 50 pesos más por ser de manga larga". -->
-    <label id="recargoMangaCaja" class="recargo-manga hidden" for="recargoManga">
-      <span><b>Manga larga</b><small>Se suma a cada jersey de manga larga, suelto o en kit.</small></span>
-      <span class="recargo-campo">+ $<input id="recargoManga" type="number" min="0" max="5000" step="1" inputmode="numeric" placeholder="0"></span>
-    </label>
+    <!-- Diseño de tienda (19/10/2026): la lista va directo, sin una tarjeta
+         dentro de otra; "Ver archivados" es un interruptor chico y la manga
+         larga, un ajuste al final (no un renglón más entre los productos). -->
+    <div class="cat-lista-cab"><span>Piezas sueltas que se combinan en los kits</span><label class="cat-switch"><input type="checkbox" id="showArchived" role="switch">Archivados</label></div>
     <div id="productList" class="catalog-list"></div>
     <div id="productEmpty" class="empty hidden">Sin productos que mostrar.</div>
+    <!-- Manga larga con cargo (14/10/2026): "se paga 50 pesos más por ser de manga larga". -->
+    <p class="cat-ajustes-titulo">Ajustes de precio</p>
+    <label id="recargoMangaCaja" class="recargo-manga hidden" for="recargoManga">
+      <span><b>Manga larga</b><small>Se suma a cada jersey de manga larga, suelto o en kit.</small></span>
+      <span class="recargo-campo"><span aria-hidden="true">+$</span><input id="recargoManga" type="number" min="0" max="5000" step="1" inputmode="numeric" placeholder="0" aria-label="Recargo por manga larga, en pesos"></span>
+    </label>
   </section>
 </section>
 </main>

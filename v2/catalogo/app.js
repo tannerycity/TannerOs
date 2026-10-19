@@ -105,7 +105,11 @@ function bundleCard(b){
   btn.type='button';
   btn.className='catalog-card'+(b.archived?' archived':'');
   const nombres=(b.components||[]).map(c=>{if(Array.isArray(c.pool))return `${c.qty}× ${(c.poolName||'a elegir').toLocaleLowerCase('es-MX')}`;const p=products.find(x=>x.id===c.productId);return p?`${c.qty>1?`${c.qty}× `:''}${p.name.replace(/^Jersey\s+/i,'').replace(/"/g,'')}`:null;}).filter(Boolean);
-  const chips=nombres.length?nombres.map(n=>`<span class="cat-chip">${esc(n)}</span>`):[`<span class="cat-chip">${b.components.length} pieza(s)</span>`];
+  // Diseño de tienda (19/10/2026): lo que trae el kit se lee en una línea
+  // ("Black Edition + Short + 2× calcetas"); las etiquetas quedan sólo para
+  // el estado, que es lo que tiene que llamar la atención.
+  const piezas=nombres.length?nombres.join(' + '):`${b.components.length} pieza${b.components.length===1?'':'s'}`;
+  const chips=[];
   if(b.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!b.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   if(!b.componentsResolved)chips.push('<span class="cat-chip warn">Pieza sin resolver</span>');
@@ -121,7 +125,7 @@ function bundleCard(b){
   // decirlo: un precio sin etiqueta se lee como precio de adulto.
   if(adulto&&nino)bajoPrecio.push(`Niño ${money.format(nino)}`);
   else if(!adulto&&nino)bajoPrecio.push('Sólo niño');
-  btn.innerHTML=`<span class="cat-thumb">${ICONS.kit}</span><span class="cat-body"><strong class="cat-title">${esc(b.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${esc(precio)}</strong>${bajoPrecio.map(t=>`<small class="cat-sub">${esc(t)}</small>`).join('')}</span>`;
+  btn.innerHTML=`<span class="cat-thumb">${ICONS.kit}</span><span class="cat-body"><strong class="cat-title">${esc(b.name)}</strong><span class="cat-meta">${esc(piezas)}</span>${chips.length?`<span class="cat-chips">${chips.join('')}</span>`:''}</span><span class="cat-price-col"><strong class="cat-price">${esc(precio)}</strong>${bajoPrecio.map(t=>`<small class="cat-sub">${esc(t)}</small>`).join('')}</span>`;
   if(canManage)btn.addEventListener('click',()=>openBundleDrawer(b));
   else btn.disabled=true;
   return btn;
@@ -131,14 +135,18 @@ function productCard(p){
   const btn=document.createElement('button');
   btn.type='button';
   btn.className='catalog-card'+(p.archived?' archived':'');
+  // Diseño de tienda (19/10/2026): una línea gris con qué es y su clave, una
+  // línea verde con los kits donde va, y etiquetas sólo para el estado. Antes
+  // eran 4 o 5 pastillas del mismo peso y nada destacaba.
+  // La categoría en español aunque esté guardada en inglés ("socks" → Calcetas).
+  const canon=categoriaCanonica(p.category),etiqueta=CATEGORIAS.find(c=>c.valor===canon)?.etiqueta||(p.category?String(p.category).charAt(0).toLocaleUpperCase('es-MX')+String(p.category).slice(1):'');
+  const meta=[etiqueta,p.sku||''].filter(Boolean).join(' · ');
   const chips=[];
-  if(p.sku)chips.push(`<span class="cat-chip">${esc(p.sku)}</span>`);
-  if(p.category)chips.push(`<span class="cat-chip">${esc(p.category)}</span>`);
   if(p.archived)chips.push('<span class="cat-chip archived">Archivado</span>');
   else if(!p.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   // En qué kits va: así se ve de un vistazo que el jersey suelto es el mismo.
-  bundles.filter(b=>!b.archived&&kitIncluye(b,p.id)).forEach(b=>chips.push(`<span class="cat-chip kit">En ${esc(b.name)}</span>`));
-  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong><span class="cat-chips">${chips.join('')}</span></span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong>${Number(p.priceKid||0)>0?`<small class="cat-sub">Niño ${esc(money.format(Number(p.priceKid)))}</small>`:''}</span>`;
+  const kits=bundles.filter(b=>!b.archived&&kitIncluye(b,p.id)).map(b=>b.name);
+  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong>${meta?`<span class="cat-meta">${esc(meta)}</span>`:''}${kits.length?`<span class="cat-kits">En ${esc(kits.join(' · '))}</span>`:''}${chips.length?`<span class="cat-chips">${chips.join('')}</span>`:''}</span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong>${Number(p.priceKid||0)>0?`<small class="cat-sub">Niño ${esc(money.format(Number(p.priceKid)))}</small>`:''}</span>`;
   if(canManage)btn.addEventListener('click',()=>openProductDrawer(p));
   else btn.disabled=true;
   return btn;

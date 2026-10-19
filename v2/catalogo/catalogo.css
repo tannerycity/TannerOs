@@ -295,3 +295,68 @@
 .recargo-campo{display:inline-flex;align-items:center;gap:4px;font-weight:800;color:#07191e}
 .recargo-campo input{width:80px;min-height:40px;border:0;border-radius:10px;background:#fff;padding:0 10px;font:inherit;font-weight:800;text-align:right}
 .recargo-manga.guardado{box-shadow:inset 0 0 0 2px #169b4b}
+
+/* ===== Diseño de tienda (19/10/2026) =====
+   "Está todo lo necesario, pero no se ve bien". Como un admin de e-commerce:
+   la lista es la protagonista, una sola tarjeta con renglones; cada renglón
+   con foto grande, nombre en tinta, una línea gris (qué es y su clave), una
+   verde (en qué kits va) y el precio a la derecha. Etiquetas sólo para el
+   estado. Lo demás (ayudas, ajustes) baja de volumen. */
+.cat-head{margin:2px 0 14px;align-items:center}
+.cat-head h1{font-size:26px}
+.cat-sub{margin:2px 0 0;font-size:13.5px;color:#6b7c80}
+.cat-head-acc button{min-height:44px;border-radius:12px;padding:0 16px;font-size:15px}
+@media(max-width:620px){.cat-head h1{font-size:24px}}
+
+/* Pestañas: el número junto al nombre, nunca en otra línea; cada pestaña
+   mide lo que su texto pide ("Productos 9" no cabe en un cuarto exacto). */
+.cat-seg{display:flex}
+.cat-seg button{flex:1 1 auto;white-space:nowrap;min-height:40px;font-size:14px;padding:0 8px}
+@media(max-width:400px){.cat-seg button{font-size:13px;padding:0 6px}}
+.cat-seg button i{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:rgba(7,25,30,.07);font-size:11.5px;line-height:16px;margin-left:5px}
+.cat-seg button.activo i{background:#07191e;color:#fff}
+.cat-seg button i:empty{display:none}
+
+/* Buscador con su lupa, como el del resto de TannerOS. */
+.cat-buscar{padding-left:40px;background:#eceff0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a8a8e' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m16 16 4 4'/%3E%3C/svg%3E") no-repeat 13px center/18px;font-size:16px}
+
+/* Sin tarjeta dentro de tarjeta: el panel de la lista se vuelve transparente. */
+#productsPanel,#bundlesPanel{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+.cat-lista-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 2px 8px}
+.cat-lista-cab>span,.cat-lista-ayuda{font-size:12.5px;color:#6b7c80;margin:2px 2px 8px}
+.cat-lista-cab>span{margin:0}
+
+/* "Archivados" como interruptor chico, no una casilla enorme. */
+.cat-switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#3c4e52;cursor:pointer;white-space:nowrap;min-height:44px}
+.cat-switch input{appearance:none;-webkit-appearance:none;margin:0;flex:0 0 auto;width:40px;height:24px;min-height:0!important;padding:0;border:0!important;border-radius:999px!important;cursor:pointer;
+  background:radial-gradient(circle at 12px 12px,#fff 0 9px,transparent 9.5px),#d5dcdd;transition:background .2s;box-shadow:inset 0 0 0 1px rgba(7,25,30,.06)}
+.cat-switch input:checked{background:radial-gradient(circle at 28px 12px,#fff 0 9px,transparent 9.5px),#169b4b}
+.cat-switch input:focus,.cat-switch input:focus-visible{box-shadow:0 0 0 3px rgba(10,132,255,.35)!important;outline:0}
+
+/* La lista: una tarjeta, renglones separados por una línea fina. */
+.catalog-list{gap:0;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 1px 3px rgba(7,25,30,.04)}
+.catalog-list:empty{display:none}
+.catalog-card{border:0;border-radius:0;border-bottom:1px solid #edf0ef;padding:12px 14px;gap:14px;color:#07191e;align-items:center;min-height:84px}
+.catalog-card:last-child{border-bottom:0}
+.catalog-card:hover{border-color:#edf0ef;background:#f8faf9}
+.catalog-card:active{background:#f1f5f4}
+.cat-thumb{width:64px;height:64px;border-radius:14px;background:#f1f4f3;color:#8a9a9e}
+.cat-thumb svg{width:26px;height:26px}
+.cat-body{gap:3px}
+.cat-title{font-size:15px;font-weight:800;line-height:1.25;color:#07191e;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.cat-meta{font-size:12.5px;color:#6b7c80;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-kits{font-size:12px;font-weight:700;color:#1f7a3f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-chips{margin-top:3px}
+.cat-price-col{gap:1px}
+.cat-price{font-size:16px;font-weight:850;color:#07191e;font-variant-numeric:tabular-nums}
+.cat-sub{font-size:12px;font-variant-numeric:tabular-nums}
+
+/* Ajustes al final, discretos. */
+.cat-ajustes-titulo{margin:22px 4px 8px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8a8e}
+.cat-ajustes-titulo:has(+ .recargo-manga.hidden){display:none}
+.recargo-manga{background:#fff;border:1px solid var(--line);border-radius:16px}
+.recargo-campo{white-space:nowrap;background:#f1f4f3;border-radius:12px;padding-left:10px}
+.recargo-campo input{background:transparent;width:64px;font-size:16px}
+
+/* El botón flotante no tapa el último precio. */
+#view{padding-bottom:110px}

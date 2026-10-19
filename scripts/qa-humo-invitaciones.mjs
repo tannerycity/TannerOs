@@ -53,7 +53,7 @@ async function abre(ruta, opts = {}) {
       v2_public_family_invite: () => opts.usada ? { valid: false, reason: 'used' } : { valid: true, purpose: 'invite', primerNombre: 'Adriana Elizabeth Sánchez Alvarado', club: 'Tannery City FC', usuario: '4773979631', hijos: [{ primerNombre: 'Adrian Mateo', categoria: 'T6' }, { primerNombre: 'Jorge Alfonso', categoria: 'T10' }] },
       v2_public_family_login: prm => ({ login: prm.contrasena === 'Buena-1850' ? '4773979631@familias.tanneros.invalid' : null }),
       v2_save_my_contact_email: prm => ({ ok: true, email: prm.email }),
-      v2_portal_home: () => { if (opts.caido && !window.__reintento) throw new Error('Failed to fetch'); return { guardian: { name: 'Adriana Elizabeth Sánchez', phone: '+524773979631', email: null }, organization: { name: 'Tannery City FC', whatsapp: '524792651338' }, players: [{ id: 'p1', first_name: 'Jorge Alfonso', last_name: 'Sánchez', category: 'T10', jersey_number: '9' }] }; },
+      v2_portal_home: () => { if (opts.caido && !window.__reintento) throw new Error('Failed to fetch'); return { guardian: { name: 'Adriana Elizabeth Sánchez', phone: '+524773979631', email: null }, organization: { name: 'Tannery City FC', whatsapp: '524792651338', transfer: { bank: 'Banregio / Hey Banco', clabe: '167210000079567650', holder: 'Proyecto Leyenda SA de CV' } }, players: [{ id: 'p1', first_name: 'Jorge Alfonso', last_name: 'Sánchez', category: 'T10', jersey_number: '9' }] }; },
       v2_portal_statement: () => ({ summary: { balance: opts.debe ? 1250 : 0 }, ledger: [], documents: [] }),
       v2_portal_paperwork: () => opts.debe ? { image_consent: { status: 'sin_preguntar' }, consents: [{ code: 'reglamento', title: 'Reglamento del club', body: 'Texto', required: true, accepted_at: null }] } : {},
       v2_portal_avisos: () => [{ id: 'a1', title: 'No hay entrenamiento el lunes', body: 'Por el puente.', categoria: 'T10', author: 'Mich', publishedAt: new Date().toISOString(), unread: true },
@@ -228,6 +228,14 @@ const cabe = p => p.evaluate(() => document.documentElement.scrollWidth <= inner
   await p.click('.fam-pend[data-tipo="pago"]');
   await p.waitForSelector('#famSaldo', { timeout: 4000 }).catch(() => {});
   revisa('[pendiente] "Ver cómo pagar" lleva a Cuenta, a su saldo', await p.getAttribute('.fam-nav-item[data-tab="cuenta"]', 'aria-current') === 'page' && await p.isVisible('#famSaldo'));
+  await p.waitForSelector('#famComoPagar', { timeout: 4000 }).catch(() => {});
+  revisa('[pagar] enseña banco, CLABE en bloques y a nombre de quién', /1672 1000 0079 5676 50/.test(await p.textContent('#famComoPagar')) && /Banregio/.test(await p.textContent('#famComoPagar')) && /Proyecto Leyenda/.test(await p.textContent('#famComoPagar')));
+  const waPago = decodeURIComponent(await p.getAttribute('#famComoPagar .fam-btn-wa', 'href') || '');
+  revisa('[pagar] el comprobante va por WhatsApp con el mensaje escrito', waPago.startsWith('https://wa.me/524792651338?text=') && /Hola, soy Adriana, de la familia de Jorge \(T10\)\. Te mando el comprobante de mi pago por \$1,250\.00/.test(waPago), waPago);
+  await p.evaluate(() => { navigator.clipboard.writeText = async t => { window.__copiado = t; }; });
+  await p.click('[data-copiar-clabe]');
+  revisa('[pagar] "Copiar" copia la CLABE sin espacios', await p.evaluate(() => window.__copiado) === '167210000079567650' && /Copiada/.test(await p.textContent('[data-copiar-clabe]')));
+  revisa('[pagar] cabe a 390px', await cabe(p));
   await p.click('.fam-nav-item[data-tab="club"]');
   await p.waitForSelector('.fam-seg', { timeout: 4000 });
   revisa('[club] el calendario trae el entrenamiento', /Entrenamiento T10/.test(await p.textContent('#famBody')));
@@ -240,6 +248,7 @@ const cabe = p => p.evaluate(() => document.documentElement.scrollWidth <= inner
 { // Al día: sin pendientes lo dice
   const p = await abre('/v2/familias/index.html', { conSesion: true });
   await p.waitForSelector('.fam-pendientes', { timeout: 8000 });
+  revisa('[inicio] el saludo es el título y el club va una sola vez', /Adriana/.test(await p.textContent('.fam-inicio-hero h1')) && /Tannery City FC/.test(await p.textContent('.fam-inicio-hero p')));
   revisa('[inicio] sin pendientes dice "Todo al día"', /Todo al día/.test(await p.textContent('.fam-pendientes')) && (await p.locator('.fam-pend').count()) === 0);
   await p.close();
 }

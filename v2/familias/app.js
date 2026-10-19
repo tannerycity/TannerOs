@@ -188,6 +188,36 @@ function playerProfileBlock(p){
       'Mandarle mis datos al club'):''}
   </section>`;
 }
+/* Cómo pagar (19/10/2026). Los pagos siguen por WhatsApp (Presidencia): el
+   portal dice a dónde transferir y arma el mensaje para mandar el comprobante. */
+const clabeConEspacios=c=>String(c||'').replace(/(\d{4})(?=\d)/g,'$1 ');
+function mensajeDeComprobante(p,saldo){
+  const tutor=String(state.home?.guardian?.name||'').trim().split(/\s+/)[0];
+  const hijo=[String(p?.first_name||'').trim().split(/\s+/)[0],p?.category&&`(${p.category})`].filter(Boolean).join(' ');
+  return `Hola, soy ${tutor||'de la familia'}${hijo?`, de la familia de ${hijo}`:''}. Te mando el comprobante de mi pago${saldo>0?` por ${money.format(saldo)}`:''}.`;
+}
+function comoPagarBlock(p,saldo){
+  const org=state.home?.organization||{},t=org.transfer||{};
+  const wa=org.whatsapp?`https://wa.me/${org.whatsapp}?text=${encodeURIComponent(mensajeDeComprobante(p,saldo))}`:'';
+  const datos=t.clabe?`<div class="fam-pago-datos">
+      ${t.bank?`<div><small>Banco</small><b>${esc(t.bank)}</b></div>`:''}
+      <div class="fam-pago-clabe"><span><small>CLABE</small><b>${esc(clabeConEspacios(t.clabe))}</b></span><button type="button" class="fam-copiar" data-copiar-clabe="${esc(t.clabe)}">Copiar</button></div>
+      ${t.holder?`<div><small>A nombre de</small><b>${esc(t.holder)}</b></div>`:''}
+    </div>`:'<p class="fam-pago-txt">Escríbenos y te decimos cómo pagar.</p>';
+  return `<section class="fam-card fam-pago" id="famComoPagar"><div class="fam-card-head"><h2>Cómo pagar</h2><span>2 pasos</span></div>
+    <ol class="fam-pago-pasos"><li>${t.clabe?'Transfiere a esta cuenta':'Pregúntanos los datos'}</li><li>Mándanos tu comprobante por WhatsApp</li></ol>
+    ${datos}
+    ${wa?`<a class="fam-btn fam-btn-wa" href="${esc(wa)}" target="_blank" rel="noopener">Mandar mi comprobante por WhatsApp</a>`:''}
+    <small class="fam-hint">El club lo registra y tu saldo se actualiza aquí.</small></section>`;
+}
+function cableaComoPagar(){
+  document.querySelectorAll('[data-copiar-clabe]').forEach(b=>b.addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(b.dataset.copiarClabe);b.textContent='¡Copiada!';}
+    catch(_){b.textContent='Mantén presionado para copiar';}
+    setTimeout(()=>{b.textContent='Copiar';},2200);
+  }));
+}
+
 function balanceBlock(st){
   const s=st.summary||{};
   const saldo=Number(s.balance||0),aFavor=Number(s.credit_available||0);
@@ -195,7 +225,7 @@ function balanceBlock(st){
   const titulo=saldo>0?'Tu saldo pendiente':aFavor>0?'Tienes saldo a favor':'Estás al corriente';
   const cifra=money.format(saldo>0?saldo:aFavor);
   const sub=saldo>0
-    ? (s.oldest_due?`Lo más antiguo desde el ${fmtDate(s.oldest_due)}`:'Puedes pagar en el club')
+    ? (s.oldest_due?`Lo más antiguo desde el ${fmtDate(s.oldest_due)}`:'Abajo te decimos cómo pagar')
     : aFavor>0?'Se aplicará automáticamente a tu próximo cargo':'No tienes nada pendiente. ¡Gracias!';
   const partes=(s.by_type||[]).map(t=>
     `<div class="fam-chip-val"><span>${esc(chargeLabel(t.type))}</span><b>${money.format(Number(t.pending||0))}</b></div>`).join('');
@@ -391,6 +421,7 @@ function benefitBlock(pw){
     ? `<p class="fam-muted" style="margin:0 0 10px;font-size:12.5px">Tu solicitud anterior no procedió${r.note?`: ${esc(r.note)}`:'.'} Puedes volver a pedirla.</p>`:'';
   return `<section class="fam-card"><div class="fam-card-head"><h2>Beca</h2></div>${previa}
     <details class="fam-doc"><summary><span><strong>Solicitar una beca</strong><span>Cuéntanos tu situación y el club la revisa</span></span><i class="fam-doc-mark" data-ok="0" aria-hidden="true"></i></summary>
+      <label for="benefitReason" class="fam-sr">Por qué necesitas la beca</label>
       <textarea id="benefitReason" class="fam-textarea" rows="4" maxlength="2000" placeholder="Cuéntanos por qué la necesitas. Entre más claro, mejor puede ayudarte el club."></textarea>
       <div id="benefitMessage" class="fam-message hidden"></div>
       <button id="benefitSend" class="fam-btn" type="button">Enviar solicitud</button>
@@ -411,8 +442,9 @@ async function renderCuenta(){
     catch(error){console.warn('papeleo',error);state.paperwork[p.id]={};}
   }
   const st=state.statements[p.id],pw=state.paperwork[p.id];
-  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
-  cableaTramites(p);cableaAcceso();
+  const saldo=Number(st.summary?.balance||0);
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${saldo>0.004?comoPagarBlock(p,saldo):''}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
+  cableaTramites(p);cableaAcceso();cableaComoPagar();
 }
 
 function cableaTramites(p){
@@ -528,6 +560,7 @@ async function renderProgreso(){
     <span class="fam-hero-photo" data-profile-photo="${esc(p.id)}">${p._photo?`<img src="${esc(p._photo)}" alt="Foto de ${esc(nombre)}">`:esc(initials(p))}</span>
     <h2>${esc(nombre)}</h2>
     <p>${esc([p.category,p.position,p.jersey_number&&`#${p.jersey_number}`].filter(Boolean).join(' · ')||'Tanner')}</p>
+    <small class="fam-hero-nota">En toda la temporada</small>
     <div class="fam-stats" style="width:100%">
       <div class="fam-stat" data-tone="${pct==null?'':pct>=80?'ok':'warn'}"><b>${pct==null?'—':`${pct}%`}</b><span>ASISTENCIA</span></div>
       <div class="fam-stat"><b>${Number(a.present||0)}</b><span>PRESENTE</span></div>
@@ -548,7 +581,9 @@ async function renderProgreso(){
   const evs=d.evaluations||[];
   const valoraciones=evs.length?evs.map(evaluacionBlock).join('')
     : `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Sus profes todavía no capturan una valoración. Aquí la vas a ver en cuanto la hagan.</p></section>`;
-  $('famBody').innerHTML=hero+'<div id="famStaff"></div>'+tarjetaDelMes(p)+valoraciones+listaAsistencia;
+  // La lista de entrenamientos ya vive en "Asistencia del mes" (con meses
+  // para atrás); repetirla abajo enseñaba otro porcentaje y confundía.
+  $('famBody').innerHTML=hero+'<div id="famStaff"></div>'+tarjetaDelMes(p)+valoraciones+(recientes?'':listaAsistencia);
   cargarMesDeAsistencia(p);
   pintaStaffDelHijo(p);
   // La foto llega firmada aparte, igual que en Cuenta.
@@ -1017,8 +1052,8 @@ async function renderInicio(){
   const hijos=players.map(p=>`<button type="button" class="fam-hijo" data-hijo="${esc(p.id)}"><span class="fam-hijo-cara" data-profile-photo="${esc(p.id)}">${p._photo?`<img src="${esc(p._photo)}" alt="">`:esc(initials(p))}</span><span><strong>${esc(String(p.first_name||'').trim().split(/\s+/)[0]||'Tanner')}</strong><small>${esc([p.category,p.jersey_number&&`#${p.jersey_number}`].filter(Boolean).join(' · '))}</small></span><i aria-hidden="true">›</i></button>`).join('');
   body.innerHTML=`
     <section class="fam-inicio-hero">
-      <p>${esc(saludo())}${tutor?`, ${esc(tutor)}`:''}</p>
-      <h1>${esc(state.home?.organization?.name||'Tu club')}</h1>
+      <p>${esc(state.home?.organization?.name||'Tu club')}</p>
+      <h1>${esc(saludo())}${tutor?`, ${esc(tutor)}`:''}</h1>
       <div class="fam-hijos">${hijos}</div>
     </section>
     <div id="famPush"></div>

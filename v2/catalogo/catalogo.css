@@ -360,3 +360,33 @@
 
 /* El botón flotante no tapa el último precio. */
 #view{padding-bottom:110px}
+
+/* Costos: niño y adulto (19/10/2026). El de niño va primero y grande cuando
+   el producto tiene los dos precios; el de adulto, chico debajo. */
+.costo-fila{grid-template-columns:minmax(0,1fr) 104px minmax(118px,auto)}
+.costo-margen{display:grid;gap:4px;justify-items:end}
+.costo-tipo{display:grid;justify-items:end;line-height:1.15;color:#3c4e52}
+.costo-tipo i{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8a8e}
+.costo-tipo b{font-size:13px}
+.costo-tipo small{font-size:11px;font-weight:600;color:#7a8a8e}
+.costo-tipo.principal b{font-size:17px}
+.costo-tipo.bien b{color:#1e6b3c}.costo-tipo.medio b{color:#8a5c00}.costo-tipo.bajo b{color:#a92a21}
+.costo-real{font-size:11px;font-weight:700;color:#3c4e52;text-align:right;padding:2px 7px;border-radius:999px;background:#f1f4f3}
+.costo-real.bien b{color:#1e6b3c}.costo-real.medio b{color:#8a5c00}.costo-real.bajo b{color:#a92a21}
+.negocio-mezcla{margin:10px 0 0;padding:10px 12px;border-radius:12px;background:#eef6f1;font-size:13px;color:#1f3d2b}
+@media(max-width:620px){.costo-fila{grid-template-columns:minmax(0,1fr) 84px minmax(104px,auto)}}
+/* En el teléfono, dos niveles: el nombre a todo lo ancho y abajo el costo
+   (izquierda) contra lo que deja (derecha). En tres columnas el nombre quedaba
+   de 90px y se le encimaba "Costo". */
+@media(max-width:620px){
+  .costo-fila{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"nombre nombre" "costo margen";row-gap:8px;align-items:end}
+  .costo-fila .costo-nombre{grid-area:nombre}
+  .costo-fila .costo-input,.costo-fila .costo-total{grid-area:costo;justify-self:start}
+  .costo-fila .costo-margen{grid-area:margen}
+  .costo-fila .costo-input input{width:110px}
+  .costo-fila .costo-total{font-weight:700;align-self:center}
+}
+/* Niño y adulto lado a lado; el "real" debajo de los dos. */
+.costo-margen{grid-auto-flow:row;grid-template-columns:repeat(2,auto);column-gap:14px;justify-content:end}
+.costo-margen>.costo-tipo:only-of-type{grid-column:1/-1}
+.costo-margen .costo-real{grid-column:1/-1;justify-self:end}

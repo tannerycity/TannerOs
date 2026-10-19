@@ -177,16 +177,25 @@ export function trozosResaltados(texto, q) {
 // teléfonos de familias del club. Al cerrar la pestaña se va, y no queda
 // rastro en un equipo compartido como la iPad de la banca.
 
-export const CACHE_VERSION = 1;
+// LA LLAVE ES DE LA PERSONA, NO DEL CLUB (auditoría 19/10/2026). Antes era
+// sólo del club y "Salir" no la borraba: en la iPad de la banca, un profe que
+// entraba después de Presidencia en la misma pestaña recibía el índice de
+// Presidencia (teléfonos de familias, prospectos, patrocinadores) durante 10
+// minutos. Ahora la llave lleva el usuario, el paquete dice de quién es y se
+// borra al salir. La versión subió para que ningún caché viejo se reuse.
+export const CACHE_VERSION = 2;
 export const CACHE_TTL_MS = 10 * 60 * 1000;   // 10 minutos
+export const PREFIJO_CACHE = 'tos:buscador:';
 
-export function llaveDeCache(organizationId) {
-  return `tos:buscador:v${CACHE_VERSION}:${organizationId || 'sin-org'}`;
+export function llaveDeCache(organizationId, userId) {
+  return `${PREFIJO_CACHE}v${CACHE_VERSION}:${organizationId || 'sin-org'}:${userId || 'sin-usuario'}`;
 }
 
-export function cacheVigente(guardado, ahora = Date.now()) {
+export function cacheVigente(guardado, ahora = Date.now(), dueno = null) {
   if (!guardado || typeof guardado !== 'object') return false;
   if (guardado.version !== CACHE_VERSION) return false;
+  // Sin dueño no se reusa: un caché que no sabe de quién es no se le da a nadie.
+  if (!dueno || guardado.dueno !== dueno) return false;
   if (!Array.isArray(guardado.filas) || !guardado.filas.length) return false;
   const edad = ahora - Number(guardado.guardadoEn || 0);
   return edad >= 0 && edad < CACHE_TTL_MS;
@@ -195,6 +204,18 @@ export function cacheVigente(guardado, ahora = Date.now()) {
 // `caidas` viaja con el índice a propósito: si una fuente no respondió al
 // armarlo, el aviso tiene que sobrevivir al caché. Si no, la primera búsqueda
 // avisa y las siguientes —servidas de sessionStorage— se callan.
-export function empaquetaCache(filas, ahora = Date.now(), caidas = []) {
-  return { version: CACHE_VERSION, guardadoEn: ahora, filas, caidas };
+export function empaquetaCache(filas, ahora = Date.now(), caidas = [], dueno = null) {
+  return { version: CACHE_VERSION, guardadoEn: ahora, dueno, filas, caidas };
+}
+
+// Al salir se va todo lo del buscador, de cualquier versión, club o persona.
+export function borraCacheDelBuscador(storage) {
+  try {
+    const s = storage || globalThis.sessionStorage;
+    if (!s) return 0;
+    const llaves = [];
+    for (let i = 0; i < s.length; i++) { const k = s.key(i); if (k && k.startsWith(PREFIJO_CACHE)) llaves.push(k); }
+    llaves.forEach((k) => s.removeItem(k));
+    return llaves.length;
+  } catch (_) { return 0; }   // modo privado: no hay nada que borrar
 }

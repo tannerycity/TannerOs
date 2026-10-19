@@ -72,6 +72,22 @@ async function load(){
 /* ---------- Piezas ---------- */
 const placa=(v,grande=false)=>`<span class="pk-plate${grande?' big':''}">${esc(v||'SIN PLACAS')}</span>`;
 const vigente=p=>['issued','approved'].includes(p.status);
+
+/* El veredicto de la caseta (auditoría 19/10/2026). Antes la placa salía como
+   una tarjeta más y "vigente" incluía los autorizados SIN entregar: quien no
+   había pagado se veía igual que quien sí. Ahora, si la placa coincide
+   completa, la respuesta va arriba y en grande: puede pasar, todavía no, o no. */
+const TERMINAL=['rejected','revoked','lost','expired'];
+function veredicto(nq,lista){
+  if(nq.length<5)return '';
+  const exactos=lista.filter(p=>normPlaca(p.plate)===nq);
+  if(!exactos.length)return '';
+  const p=exactos.find(x=>x.status==='issued')||exactos.find(x=>['requested','approved'].includes(x.status))||exactos[0];
+  const quien=[nombreDe(p),p.folio].filter(Boolean).map(esc).join(' · ');
+  if(p.status==='issued')return `<div class="pk-verdict ok" role="status"><span class="pk-verdict-ico" aria-hidden="true">✓</span><div><strong>Puede pasar</strong><small>${quien}${p.is_courtesy?' · sin costo':''}</small></div></div>`;
+  if(!TERMINAL.includes(p.status))return `<div class="pk-verdict wait" role="status"><span class="pk-verdict-ico" aria-hidden="true">!</span><div><strong>Todavía no tiene gafete</strong><small>${quien} · falta cobrar y entregar</small></div></div>`;
+  return `<div class="pk-verdict no" role="status"><span class="pk-verdict-ico" aria-hidden="true">✕</span><div><strong>No autorizar</strong><small>${quien} · gafete ${esc((ESTADO[p.status]||p.status).toLowerCase())}</small></div></div>`;
+}
 function tarjeta(p,{accion=true}={}){
   const saldo=Number(p.balance||0);
   const sub=[p.holder_kind!=='familia'&&PORTADOR[p.holder_kind],p.category,p.vehicle,p.folio].filter(Boolean).join(' · ');
@@ -92,7 +108,7 @@ function vistaCaseta(){
     const hits=pases().filter(p=>(nq.length>=2&&normPlaca(p.plate).includes(nq))
       ||[nombreDe(p),p.guardian,p.folio].filter(Boolean).some(v=>String(v).toLowerCase().includes(lq)))
       .sort((a,b)=>Number(vigente(b))-Number(vigente(a)));
-    resultados=hits.length?`<div class="pk-list">${hits.slice(0,8).map(p=>tarjeta(p)).join('')}</div>`
+    resultados=hits.length?`${veredicto(nq,hits)}<div class="pk-list">${hits.slice(0,8).map(p=>tarjeta(p)).join('')}</div>`
       :`<div class="pk-nohit"><span class="pk-x" aria-hidden="true">✕</span><div><strong>${nq.length>=5?`${esc(q.toUpperCase())} no tiene gafete`:'Sin resultados'}</strong><small>${nq.length>=5?'Ese vehículo no está en el padrón de esta temporada.':'Prueba con la placa o el nombre.'}</small></div>${puedeEscribir?`<button class="pk-go" type="button" data-nuevo-placa="${esc(q.toUpperCase())}">Darle gafete</button>`:''}</div>`;
   }
   return `<section class="pk-caseta"><div class="pk-col"><label class="pk-search"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="pkBusca" type="search" inputmode="search" autocomplete="off" autocapitalize="characters" placeholder="Placa o nombre" value="${esc(state.caseta)}" aria-label="Buscar placa o nombre"></label>${resultados}${puedeEscribir?`<button id="pkNuevo" class="pk-primary" type="button"><span aria-hidden="true">＋</span> Nuevo gafete</button>`:''}<p class="pk-hoy">Hoy: <b>${hoy.length}</b> ${hoy.length===1?'gafete entregado':'gafetes entregados'} · Temporada ${esc(String(state.data?.season||''))}</p></div><div class="pk-col">${pend.length?`<div class="pk-section-head"><h2>Pendientes</h2><button class="pk-link" type="button" data-tab="pendientes">Ver todos</button></div><div class="pk-list">${pend.slice(0,4).map(p=>tarjeta(p)).join('')}</div>`:`<div class="pk-calm"><span aria-hidden="true">✓</span><strong>Nada pendiente</strong><small>Cuando una familia pida gafete desde el portal, aparece aquí.</small></div>`}</div></section>`;
@@ -308,6 +324,7 @@ async function verHistorial(id){
   let d;
   try{d=await rpc('v2_parking_pass_detail',{organization_id:ctx.organization_id,pass_id:id});}
   catch(error){$('parkDrawerBody').innerHTML=`<div class="tos-empty">${esc(String(error?.message||error))}</div>`;return;}
+  if(!d){$('parkDrawerBody').innerHTML='<div class="tos-empty">No encontramos este gafete. Recarga la página.</div>';return;}
   $('parkDrawerTitle').textContent='Detalle del gafete';
   const saldo=Number(d.balance||0),nombre=nombreDe(d);
   const datos=[['Portador',nombre],['Tutor',d.guardian],['Vehículo',d.vehicle],['Tipo',TIPO[d.pass_type]],['Folio',d.folio],

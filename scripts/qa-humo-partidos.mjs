@@ -43,7 +43,9 @@ async function abre({ escribe = true } = {}) {
     window.__guardados = [];
     const R = {
       v2_my_context: () => [{ organization_id: 'o1', organization_name: 'Tannery City FC', role: 'Formadores', is_owner: false }],
-      v2_match_board: () => ({ canWrite: escribe, categories: [{ name: 'T10', mine: true, players: 4 }, { name: 'T12', mine: false, players: 9 }], opponents: ['Chivas Cantera'], matches: partidos }),
+      v2_match_board: () => ({ canWrite: escribe, // Las 6 categorías reales del club: con dos, la fila cabía y el desborde
+      // de iPhone (19/10/2026) no se veía en esta prueba.
+      categories: [{ name: 'T10', mine: true, players: 4 }, { name: 'T12', mine: false, players: 9 }, { name: 'Mini Baby Tanner', mine: false, players: 0 }, { name: 'Baby Tanner', mine: false, players: 18 }, { name: 'T6', mine: false, players: 16 }, { name: 'T8', mine: false, players: 0 }], opponents: ['Chivas Cantera'], matches: partidos }),
       v2_save_match_sheet: prm => {
         const s = prm.sheet; window.__guardados.push(JSON.parse(JSON.stringify(s)));
         const id = s.id || 'm' + (partidos.length);
@@ -195,6 +197,11 @@ const estados = p => p.$$eval('#ppEstampas .pp-estado', e => e.map(x => x.textCo
   revisa('[stats] goleadores de más a menos', gol.indexOf('Damián') < gol.indexOf('Dario') && /5/.test(gol), gol);
   revisa('[stats] juegan poco: Dario, 0 de 2 con medio tiempo', /Dario Montalvo.*0\/2/.test((await p.innerText('#stPoco')).replace(/\s+/g, ' ')));
   revisa('[stats] sin jugar: Iker', /Iker Ramírez/.test(await p.innerText('#stSin')));
+  // En iPhone la fila de categorías estiraba toda la página: el encabezado,
+  // las pestañas y el marcador se cortaban a la derecha.
+  const sale = await p.evaluate(() => ({ doc: document.documentElement.scrollWidth, cancha: Math.round(document.querySelector('.pt-cancha').getBoundingClientRect().right), w: innerWidth }));
+  revisa('[stats] con 6 categorías nada se sale a 390px', sale.doc <= sale.w + 1 && sale.cancha <= sale.w, JSON.stringify(sale));
+  revisa('[stats] la fila de categorías se desliza dentro de la pantalla', await p.$eval('#stCats', e => e.scrollWidth > e.clientWidth && e.getBoundingClientRect().right <= innerWidth + 1));
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/partidos-estadisticas.png'), fullPage: true });
   await p.close();
 }

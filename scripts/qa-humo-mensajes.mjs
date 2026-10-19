@@ -191,11 +191,27 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
 /* ===== AVISOS ===== */
 {
   const { pg } = await abre();
+  // De dónde viene lo nuevo (19/10/2026): cada pestaña con su globito azul.
+  await pg.waitForTimeout(300);
+  const globos = await pg.evaluate(() => ({ chats: document.getElementById('msNChats')?.hidden ? '' : document.getElementById('msNChats')?.textContent,
+    avisos: document.getElementById('msNAvisos')?.hidden ? '' : document.getElementById('msNAvisos')?.textContent,
+    color: getComputedStyle(document.getElementById('msNChats')).backgroundColor }));
+  revisa('[origen] Chats dice cuántos mensajes sin leer (2) y Avisos cuántos avisos (1)', globos.chats === '2' && globos.avisos === '1', JSON.stringify(globos));
+  revisa('[origen] el globito es azul', globos.color === 'rgb(10, 132, 255)', globos.color);
+  await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(300);
+  const nuevo = await pg.$$eval('.ms-aviso.unread', as => as.map(a => a.textContent));
+  revisa('[origen] el aviso nuevo se ve resaltado mientras lo lees', nuevo.length === 1 && /postulación/.test(nuevo[0]), JSON.stringify(nuevo));
+  revisa('[origen] no se marca visto al entrar (si no, el resaltado se apaga antes de leerlo)', (await llamadas(pg, 'v2_mark_announcements_seen')).length === 0);
+  await pg.click('[data-tab="chats"]'); await pg.waitForTimeout(300);
+  revisa('salir de Avisos los marca como vistos y apaga su globito', (await llamadas(pg, 'v2_mark_announcements_seen')).length === 1 && await pg.isHidden('#msNAvisos'));
+  // La campana lleva a donde está lo nuevo: con chats sin leer, a Chats.
+  await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(150);
+  await pg.evaluate(() => window.dispatchEvent(new CustomEvent('tos:campana'))); await pg.waitForTimeout(250);
+  revisa('[origen] la campana abre la pestaña donde está lo nuevo (Chats)', await pg.getAttribute('[data-tab="chats"]', 'aria-selected') === 'true');
   await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(300);
   revisa('el aviso dice cuántos lo han visto', /Visto por 3 de 10/.test(await pg.textContent('.ms-aviso')));
   const post = await pg.$$eval('.ms-aviso', as => as.filter(a => /postulación/.test(a.textContent)).map(a => a.querySelector('footer').innerText));
   revisa('el aviso para varios sale una vez y dice para quiénes', post.length === 1 && /Para ti, Brandon Andrade y Emmanuel/.test(post[0]) && /Visto por 1 de 3/.test(post[0]), JSON.stringify(post));
-  revisa('abrir Avisos los marca como vistos', (await llamadas(pg, 'v2_mark_announcements_seen')).length === 1);
   await cap(pg, 'avisos');
   await pg.click('#msAvisoNuevo'); await pg.waitForTimeout(150);
   await pg.fill('#msAvTitulo', 'Junta de staff');

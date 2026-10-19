@@ -159,7 +159,8 @@ function ensureBellMarkup(){
   document.getElementById('tosBellButton').addEventListener('click',()=>{
     // Desde el Vestidor (05/10/2026) la campana abre Mensajes: chats y avisos
     // viven en una sola pantalla, no en un panel encima de lo que estás viendo.
-    if(!location.pathname.startsWith('/mensajes')&&!location.pathname.startsWith('/v2/mensajes')){location.href='/mensajes/';return;}
+    // Directo a donde está lo nuevo (19/10/2026): chats primero, luego avisos.
+    if(!location.pathname.startsWith('/mensajes')&&!location.pathname.startsWith('/v2/mensajes')){const p=window.__tosPulso?.detalle||{};location.href=Number(p.chats||0)?'/mensajes/?tab=chats':Number(p.avisos||0)?'/mensajes/?tab=avisos':'/mensajes/';return;}
     window.dispatchEvent(new CustomEvent('tos:campana'));
     return;
     const panel=document.getElementById('tosBellPanel');
@@ -308,11 +309,12 @@ function wireBell(ctx,navigation){
 //   · si falla, espera el doble (hasta 5 min); un acierto o volver la red
 //     regresa a 30 s.
 const PULSO_MS=30000,PULSO_REGRESO_MS=15000,PULSO_MAX_MS=300000;
-const pulso=()=>window.__tosPulso||(window.__tosPulso={llave:'',gen:0,timer:null,enVuelo:null,ultimo:0,espera:PULSO_MS,quita:null,total:null,reprograma:null});
+// detalle: el último {chats, avisos, total}, para que la campana abra la pestaña de lo nuevo.
+const pulso=()=>window.__tosPulso||(window.__tosPulso={llave:'',gen:0,timer:null,enVuelo:null,ultimo:0,espera:PULSO_MS,quita:null,total:null,detalle:null,reprograma:null});
 // Apaga el pulso de la sesión actual (cerrar sesión, cambiar de cuenta o de club).
 export function detenPulso(){
   const s=window.__tosPulso;if(!s)return;
-  s.gen++;clearTimeout(s.timer);s.timer=null;s.quita?.();s.quita=null;s.reprograma=null;s.enVuelo=null;s.llave='';s.ultimo=0;s.espera=PULSO_MS;s.total=null;
+  s.gen++;clearTimeout(s.timer);s.timer=null;s.quita?.();s.quita=null;s.reprograma=null;s.enVuelo=null;s.llave='';s.ultimo=0;s.espera=PULSO_MS;s.total=null;s.detalle=null;
   const badge=$('tosBellBadge');if(badge){badge.textContent='0';badge.classList.add('hidden');}
 }
 function consultaPulso(ctx,{deRegreso=false}={}){
@@ -324,7 +326,7 @@ function consultaPulso(ctx,{deRegreso=false}={}){
     if(gen!==s.gen)return; // respuesta de otra sesión: se descarta
     const veniaEsperando=s.espera>PULSO_MS;s.espera=PULSO_MS;if(veniaEsperando)s.reprograma?.();
     const badge=$('tosBellBadge');if(!badge||!p)return;
-    const n=Number(p.total||0);s.total=n;
+    const n=Number(p.total||0);s.total=n;s.detalle=p;
     badge.textContent=n>99?'99+':String(n);badge.classList.toggle('hidden',n===0);
     window.dispatchEvent(new CustomEvent('tos:pulso',{detail:p}));
   }).catch(()=>{if(gen===s.gen)s.espera=Math.min(s.espera*2,PULSO_MAX_MS);})

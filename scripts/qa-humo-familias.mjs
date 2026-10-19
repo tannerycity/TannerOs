@@ -170,6 +170,11 @@ revisa('un retardo se ve como "Llegó tarde", no como "Faltó"', /Llegó tarde/.
 revisa('una justificada se ve identificada como tal', /Falta justificada/.test(mes), mes.slice(0, 400));
 
 const recientes = (await pagina.textContent('#famBody')).replace(/\s+/g, ' ');
+// Auditoría 19/10/2026: dos porcentajes distintos en la misma pantalla confundían.
+revisa('el resumen de arriba dice que es de toda la temporada (y sólo él)', (recientes.match(/En toda la temporada/g) || []).length === 1 && !/En toda la temporada/.test(mes));
+revisa('la lista de entrenamientos no se repite abajo', !/Últimos entrenamientos/.test(recientes));
+const flecha = await pagina.$eval('#famMesNav [data-mes="prev"]', b => { const r = b.getBoundingClientRect(); return Math.min(r.width, r.height); });
+revisa('las flechas del mes se pueden tocar con el dedo (44px)', flecha >= 44, String(flecha));
 revisa('la lista de últimos entrenamientos ya no llama "Faltó" a un retardo',
   !/Entrenamiento 20 de sep[^|]*Faltó/.test(recientes) && /Llegó tarde/.test(recientes), recientes.slice(0, 200));
 

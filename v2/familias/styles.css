@@ -239,7 +239,7 @@
    debajo de su objetivo se veía igual que uno a dos puntos de lograrlo. */
 .fam-stat[data-tone="bad"] b{color:var(--fam-danger)}
 .fam-mes-nav{display:inline-flex;align-items:center;gap:8px;font-size:12.5px}
-.fam-mes-nav button{border:1px solid var(--fam-line);background:#fff;border-radius:999px;width:26px;height:26px;line-height:1;font-size:15px;font-weight:900;color:var(--fam-teal);cursor:pointer;padding:0}
+.fam-mes-nav button{flex:none;border:1px solid var(--fam-line);background:#fff;border-radius:999px;width:44px;height:44px;line-height:1;font-size:15px;font-weight:900;color:var(--fam-teal);cursor:pointer;padding:0}
 .fam-mes-nav button:active{background:var(--fam-bg)}
 .fam-mes-nav b{min-width:96px;text-align:center;font-weight:900;color:var(--fam-ink)}
 .fam-aviso{margin-top:12px;background:#fdf2dc;border:1px solid #f0dcb0;border-radius:12px;padding:10px 12px;font-size:12.5px;color:#7a5a12;line-height:1.45}
@@ -365,6 +365,7 @@
 .fam-push.listo{background:#e8f4ec;border-color:#cfe6d7}
 .fam-push-ico{flex:0 0 36px;height:36px;border-radius:12px;background:var(--fam-teal);-webkit-mask:var(--fam-i-bell) center/24px no-repeat;mask:var(--fam-i-bell) center/24px no-repeat}
 .fam-push div{display:grid;flex:1;gap:2px}
+.fam-push [data-push]{min-height:44px}
 .fam-push strong{font-size:14px}
 .fam-push small{font-size:12px;color:var(--fam-muted);line-height:1.35}
 .fam-push button{flex:0 0 auto;border:0;border-radius:11px;padding:10px 14px;background:var(--fam-teal);color:#fff;font:inherit;font-weight:800;font-size:13px;cursor:pointer}
@@ -378,7 +379,22 @@
 .fam-acceso-txt{margin:4px 0 12px;font-size:14px;line-height:1.5}
 .fam-acceso-form label{display:block;font-size:12.5px;font-weight:700;margin-bottom:6px}
 .fam-acceso-fila{display:flex;gap:8px}
-.fam-acceso-fila input{flex:1;min-width:0}
+.fam-acceso-fila input{flex:1;min-width:0;min-height:48px;padding:12px 13px;border:1px solid var(--fam-line);border-radius:12px;font:inherit;font-size:16px;background:#fff;color:var(--fam-ink)}
 .fam-btn.fam-btn-sm{width:auto;padding:0 16px;min-height:44px;margin:0}
 .fam-acceso-nota{margin:14px 0 0;font-size:12.5px;color:var(--fam-muted, #6b777c)}
 .fam-opcional{font-weight:500;color:var(--fam-muted, #6b777c)}
+
+/* Cómo pagar (Cuenta): CLABE para copiar y comprobante por WhatsApp. */
+.fam-pago-pasos{margin:2px 0 12px;padding-left:20px;font-size:14px;line-height:1.6}
+.fam-pago-datos{display:grid;gap:8px;margin-bottom:14px}
+.fam-pago-datos>div{display:flex;flex-direction:column;background:var(--fam-bg, #f5f3ec);border-radius:12px;padding:10px 12px}
+.fam-pago-datos small{font-size:12px;font-weight:700;color:var(--fam-muted, #6b777c)}
+.fam-pago-datos b{font-size:15px}
+.fam-pago-clabe{flex-direction:row!important;align-items:center;justify-content:space-between;gap:10px}
+.fam-pago-clabe span{display:flex;flex-direction:column}
+.fam-pago-clabe b{font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.fam-copiar{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--fam-line);background:#fff;font:inherit;font-weight:800;color:var(--fam-teal);cursor:pointer}
+.fam-pago-txt{margin:0 0 14px;font-size:14px}
+.fam-btn.fam-btn-wa{display:flex;align-items:center;justify-content:center;text-decoration:none;background:#25d366;color:#06301a;margin-bottom:8px}
+.fam-hero-nota{display:block;margin:4px 0 8px;font-size:12px;font-weight:700;color:var(--fam-muted, #6b777c)}
+.fam-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

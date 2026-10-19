@@ -1,8 +1,8 @@
 {
-  "migraciones": 524,
-  "bytes": 2974041,
-  "huella": "0c46e94601cc1998c653ced997605e99",
+  "migraciones": 525,
+  "bytes": 2976849,
+  "huella": "913f3e9bd5af55d152574697733bbb99",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261018220702_h17_familias_entran_con_telefono_o_correo.sql",
-  "verificadoContraLaBase": "2026-10-18"
+  "ultima": "20261019023314_h18_portal_datos_para_transferir.sql",
+  "verificadoContraLaBase": "2026-10-19"
 }

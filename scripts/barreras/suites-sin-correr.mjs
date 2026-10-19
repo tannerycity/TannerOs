@@ -152,7 +152,9 @@ export default function comprobar() {
   // (quién contesta, calificaciones, NPS, contacto con consentimiento).
   // Sube a 46 por qa-humo-invitaciones.mjs: invitar familias por WhatsApp,
   // entrar con el teléfono y la liga de invitación del portal.
-  const MAX_EXCLUIDAS = 46;
+  // Sube a 47 por qa-humo-buscador-acciones.mjs: buscador v2 (errores de dedo,
+  // T10, +52, acciones, recientes) y botón flotante por pantalla.
+  const MAX_EXCLUIDAS = 47;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

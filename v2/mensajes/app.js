@@ -1,4 +1,4 @@
-import {bootstrapProtectedShell,rpc,$,setShellHealth} from '/v2/shell.js';
+import {bootstrapProtectedShell,rpc,$,setShellHealth,setAccionesDePantalla} from '/v2/shell.js';
 
 // Vestidor: los mensajes internos del club. Pedido de Presidencia
 // (05/10/2026): "estilo WhatsApp, con rediseño Apple, que nos ayuden a
@@ -311,7 +311,23 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')cierraHoja();});
 
 /* ---------- Arranque ---------- */
 await cargaInbox();
-cargaAvisos();
+// Botón flotante (19/10/2026): el aviso ya abre con el destinatario elegido.
+// Los avisos sólo se ofrecen a quien puede publicarlos.
+function avisoPara(elige){
+  hojaAviso();
+  const sel=$('msAvPara');if(!sel)return;
+  const op=[...sel.options].find(elige);
+  if(op){sel.value=op.value;sel.dispatchEvent(new Event('change'));}
+  (op&&op.value.startsWith('categoria:')?sel:$('msAvTitulo'))?.focus();
+}
+cargaAvisos().then(()=>{
+  const puede=!!state.avisos?.canPublish;
+  setAccionesDePantalla([
+    ...(puede?[{clave:'aviso-familias',label:'Aviso a todas las familias',sub:'Les llega al portal y al celular',icon:'chat',run:()=>avisoPara(o=>o.value==='familias')},
+               {clave:'aviso-categoria',label:'Aviso a una categoría',sub:'Sólo a las familias de esa categoría',icon:'chat',run:()=>avisoPara(o=>o.value.startsWith('categoria:'))}]:[]),
+    {clave:'mensaje-staff',label:'Mensaje al staff',sub:'Un chat con alguien del club',icon:'chat',run:hojaNuevo}
+  ]);
+});
 setShellHealth({state:'ok',label:'Vestidor'});
 const pedido=new URLSearchParams(location.search).get('chat');
 if(pedido&&(state.inbox?.threads||[]).some(t=>t.id===pedido))abreChat(pedido);

@@ -150,7 +150,9 @@ const filas = p => p.$$eval('#prospectList .prospect-row', r => r.map(x => x.inn
   await p.click('#closeProspect');
   await p.click('#tosFab');
   const acciones = await p.$$eval('#tosFabMenu .tos-fab-item strong', s => s.map(x => x.textContent));
-  revisa('[fab] Operaciones tiene "Registrar jugador" primero', acciones[0] === 'Registrar jugador', JSON.stringify(acciones));
+  // Desde 19/10/2026 Fichajes trae su propia acción: "Nuevo prospecto" (la
+  // misma liga del formulario), y la general repetida ya no sale dos veces.
+  revisa('[fab] en Fichajes, "Nuevo prospecto" va primero y no se repite el formulario', acciones[0] === 'Nuevo prospecto' && !acciones.includes('Registrar jugador'), JSON.stringify(acciones));
   await p.close();
 }
 {

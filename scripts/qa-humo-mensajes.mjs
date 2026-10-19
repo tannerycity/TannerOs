@@ -94,6 +94,7 @@ const shell = (falla) => `
     return null;
   }
   export function setShellHealth(){}
+  export function setAccionesDePantalla(l){ window.__accionesPantalla = l; }
   export async function bootstrapProtectedShell(){ return { ctx:{ organization_id:'o1', role:'Presidencia' }, navigation:[] }; }
 `;
 

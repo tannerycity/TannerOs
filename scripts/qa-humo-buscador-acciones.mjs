@@ -164,6 +164,27 @@ async function busca(pg, q) { await pg.fill('#shellSearch', q); await pg.waitFor
   await pg2.close();
 }
 
+/* ===== AIRE ARRIBA EN IPHONE (19/10/2026) =====
+   "La aplicación se queda hasta arriba": la barra quedaba pegada a la hora y
+   iOS desenfoca esa franja. Con la franja simulada (47px, como un iPhone), los
+   botones de la barra tienen que quedar debajo y con aire, la página sin el
+   margen de 8px del navegador y el buscador a todo lo ancho. */
+for (const ruta of ['/', '/v2/estacionamiento/']) {
+  const pg = await abre('Presidencia', ruta, 390);
+  const cdp = await pg.context().newCDPSession(pg);
+  let simulado = true;
+  try { await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 47, bottom: 34 } }); } catch (e) { simulado = false; }
+  await pg.waitForTimeout(500);
+  const m = await pg.evaluate(() => {
+    const b = document.getElementById('shellMenuToggle').getBoundingClientRect(), inp = document.getElementById('shellSearch').getBoundingClientRect(), box = document.querySelector('.tos-search-box').getBoundingClientRect();
+    return { boton: Math.round(b.top), margen: getComputedStyle(document.body).marginTop, buscador: Math.round(inp.width / box.width * 100) };
+  });
+  if (simulado) revisa(`[aire ${ruta}] los botones de arriba quedan debajo de la hora, con aire`, m.boton >= 47 + 10, JSON.stringify(m));
+  revisa(`[aire ${ruta}] sin el margen de 8px del navegador`, m.margen === '0px', JSON.stringify(m));
+  revisa(`[aire ${ruta}] el buscador ocupa todo su ancho`, m.buscador >= 80, JSON.stringify(m));
+  await pg.close();
+}
+
 /* ===== CADA `clic` EXISTE EN SU PANTALLA =====
    Si alguien renombra un botón, la acción dejaría de aparecer sin avisar
    (el shell no ofrece botones que no ve). Esto lo detecta antes. */

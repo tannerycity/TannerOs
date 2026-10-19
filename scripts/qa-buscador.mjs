@@ -5,7 +5,7 @@
 // "balones" no devolvía nada, y "477" devolvía a todo el mundo.
 import assert from 'node:assert/strict';
 import { busca, puntuaFila, normaliza, trozosResaltados, filasEnOrden, esBusquedaDeTelefono,
-         cacheVigente, empaquetaCache, llaveDeCache, CACHE_TTL_MS, CACHE_VERSION }
+         cacheVigente, empaquetaCache, llaveDeCache, borraCacheDelBuscador, CACHE_TTL_MS, CACHE_VERSION }
   from '../v2/buscador.js';
 import { desdeTanners, desdeUtileria, desdeModulos, desdeProspectos, desdeUsuarios, armaIndice }
   from '../v2/buscador-fuentes.js';
@@ -232,9 +232,9 @@ prueba('un papá que además es del club SÍ sigue saliendo dos veces', () => {
    sesión avisaría y las siguientes volverían a callarse. */
 
 prueba('el caché se lleva qué fuentes no respondieron', () => {
-  const g = empaquetaCache(INDICE, 1000, ['v2_search_index']);
+  const g = empaquetaCache(INDICE, 1000, ['v2_search_index'], 'u1');
   assert.deepEqual(g.caidas, ['v2_search_index']);
-  assert.equal(cacheVigente(g, 1000), true);
+  assert.equal(cacheVigente(g, 1000, 'u1'), true);
 });
 
 prueba('sin fuentes caídas el caché queda limpio, no indefinido', () => {
@@ -242,21 +242,21 @@ prueba('sin fuentes caídas el caché queda limpio, no indefinido', () => {
 });
 
 prueba('el caché se reusa mientras esté fresco', () => {
-  const guardado = empaquetaCache(INDICE, 1000);
-  assert.equal(cacheVigente(guardado, 1000), true);
-  assert.equal(cacheVigente(guardado, 1000 + CACHE_TTL_MS - 1), true);
+  const guardado = empaquetaCache(INDICE, 1000, [], 'u1');
+  assert.equal(cacheVigente(guardado, 1000, 'u1'), true);
+  assert.equal(cacheVigente(guardado, 1000 + CACHE_TTL_MS - 1, 'u1'), true);
 });
 
 prueba('y se descarta cuando caduca', () => {
-  const guardado = empaquetaCache(INDICE, 1000);
-  assert.equal(cacheVigente(guardado, 1000 + CACHE_TTL_MS + 1), false);
+  const guardado = empaquetaCache(INDICE, 1000, [], 'u1');
+  assert.equal(cacheVigente(guardado, 1000 + CACHE_TTL_MS + 1, 'u1'), false);
 });
 
 prueba('un caché de otra versión no se usa', () => {
   // Si cambia la forma de las filas, el caché viejo rompería el buscador
   // en silencio en vez de simplemente volver a pedirlo.
-  const viejo = { ...empaquetaCache(INDICE), version: CACHE_VERSION - 1 };
-  assert.equal(cacheVigente(viejo), false);
+  const viejo = { ...empaquetaCache(INDICE, Date.now(), [], 'u1'), version: CACHE_VERSION - 1 };
+  assert.equal(cacheVigente(viejo, Date.now(), 'u1'), false);
 });
 
 prueba('un caché corrupto o vacío no se usa', () => {
@@ -267,7 +267,32 @@ prueba('un caché corrupto o vacío no se usa', () => {
 });
 
 prueba('cada club tiene su propio caché', () => {
-  assert.notEqual(llaveDeCache('org-a'), llaveDeCache('org-b'));
+  assert.notEqual(llaveDeCache('org-a', 'u1'), llaveDeCache('org-b', 'u1'));
+});
+
+/* EL DEFECTO DE SEGURIDAD (auditoría 19/10/2026). En la iPad de la banca,
+   Presidencia sale, un profe entra en la misma pestaña y su buscador le servía
+   el índice de Presidencia: teléfonos de familias, prospectos y patrocinadores. */
+prueba('cada persona del mismo club tiene su propio caché', () => {
+  assert.notEqual(llaveDeCache('org-a', 'presidencia'), llaveDeCache('org-a', 'profe'));
+});
+
+prueba('el caché de otra persona no se usa aunque esté fresco', () => {
+  const dePresidencia = empaquetaCache(INDICE, 1000, [], 'presidencia');
+  assert.equal(cacheVigente(dePresidencia, 1000, 'presidencia'), true);
+  assert.equal(cacheVigente(dePresidencia, 1000, 'profe'), false);
+});
+
+prueba('un caché sin dueño no se le da a nadie', () => {
+  assert.equal(cacheVigente(empaquetaCache(INDICE, 1000), 1000, 'u1'), false);
+  assert.equal(cacheVigente(empaquetaCache(INDICE, 1000, [], 'u1'), 1000), false);
+});
+
+prueba('al salir se borra todo lo del buscador y nada más', () => {
+  const datos = new Map([[llaveDeCache('org-a', 'presidencia'), 'x'], ['tos:buscador:v1:org-a', 'viejo'], ['tos:return:/jugadores/', '/'], ['otra', '1']]);
+  const s = { get length() { return datos.size; }, key: (i) => [...datos.keys()][i] ?? null, removeItem: (k) => datos.delete(k) };
+  assert.equal(borraCacheDelBuscador(s), 2);
+  assert.deepEqual([...datos.keys()].sort(), ['otra', 'tos:return:/jugadores/']);
 });
 
 prueba('el índice guardado pesa una fracción de lo que se pidió', () => {

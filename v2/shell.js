@@ -2,13 +2,17 @@ import {createClient} from '/v2/supabase-client.js';
 import { ligaPublica } from '/v2/club-publico.js';
 
 import { clearPhotoCache } from '/v2/photo-cache.js';
-import {busca,filasEnOrden,trozosResaltados,TIPOS,llaveDeCache,cacheVigente,empaquetaCache} from '/v2/buscador.js';
+import {busca,filasEnOrden,trozosResaltados,TIPOS,llaveDeCache,cacheVigente,empaquetaCache,borraCacheDelBuscador} from '/v2/buscador.js';
 import {FUENTES,desdeModulos,armaIndice} from '/v2/buscador-fuentes.js';
 export const supabase=createClient(
   'https://pacnegivzgxpanphrnwp.supabase.co',
   'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
   {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}
 );
+// Cualquier salida (el botón, otra pestaña o una sesión que caducó) borra el
+// índice del buscador: trae teléfonos de familias y no debe sobrevivir a quien
+// lo pidió.
+try{supabase.auth.onAuthStateChange(evento=>{if(evento==='SIGNED_OUT')borraCacheDelBuscador();});}catch(_){/* cliente sin eventos */}
 export const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 export const $=id=>document.getElementById(id);
 
@@ -505,13 +509,13 @@ export function fuentesDelBuscadorCaidas(){ return fuentesCaidas.slice(); }
 
 async function cargaIndiceUniversal(ctx,navigation){
   if(!ctx||!ctx.organization_id)return [];
-  const llave=llaveDeCache(ctx.organization_id);
+  const llave=llaveDeCache(ctx.organization_id,ctx.user_id);
   // Una pestana abierta toda la tarde arma el indice una sola vez.
   try{
     const crudo=sessionStorage.getItem(llave);
     // Un índice cacheado se sirve como bueno: si la vez pasada falló una
     // fuente, el aviso se perdería. Se guarda junto con las filas.
-    if(crudo){const guardado=JSON.parse(crudo);if(cacheVigente(guardado)){fuentesCaidas=guardado.caidas||[];return guardado.filas;}}
+    if(crudo){const guardado=JSON.parse(crudo);if(cacheVigente(guardado,Date.now(),ctx.user_id)){fuentesCaidas=guardado.caidas||[];return guardado.filas;}}
   }catch(e){/* modo privado o storage lleno: se pide y ya */}
 
   const permitidas=FUENTES.filter(f=>!f.modulo||navItems.some(item=>item.code===f.modulo&&itemReadable(navigation,item)));
@@ -538,7 +542,7 @@ async function cargaIndiceUniversal(ctx,navigation){
   }));
   fuentesCaidas=caidas;
   const filas=partes.flat();
-  try{sessionStorage.setItem(llave,JSON.stringify(empaquetaCache(filas,Date.now(),caidas)));}catch(e){/* sin cache, funciona igual */}
+  try{sessionStorage.setItem(llave,JSON.stringify(empaquetaCache(filas,Date.now(),caidas,ctx.user_id)));}catch(e){/* sin cache, funciona igual */}
   return filas;
 }
 
@@ -635,7 +639,7 @@ function ensureQuickFab(ctx,navigation){
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
   const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
-  renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'el club';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
+  renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'el club';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{borraCacheDelBuscador();await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
   if(ctx){ensureBellMarkup();wireBell(ctx,navigation);ensureQuickFab(ctx,navigation);}
 }
 // Solo lectura (j4–n4): el club debe su mensualidad o es una demo. La base ya

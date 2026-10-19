@@ -2,6 +2,7 @@ import { createClient } from '/v2/supabase-client.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA, CATEGORIAS, categoriaCanonica, ordenaTallas, textoHasta, aceptaPersonalizacion } from '/v2/tienda.js';
+import { margenesDe, mezclaDeVentas, margenPonderado } from '/v2/catalogo/costos.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -882,25 +883,37 @@ $('ofertasLista')?.addEventListener('click',async e=>{
    "Los costos no quiero que le salgan a nadie... que tenga una pestañita para
    ver los costos". Aquí se captura el costo de cada pieza, se ve el margen de
    productos y kits, y la utilidad de la Tienda. En ningún otro lado. */
-const margenDe=(precio,costo)=>precio>0&&costo!=null?(precio-costo)/precio*100:null;
 const tonoMargen=m=>m==null?'':m<20?'bajo':m<40?'medio':'bien';
 function costoDeKit(b){
   let costo=0,falta=[];
   (b.components||[]).forEach(c=>{const p=products.find(x=>x.id===c.productId);if(!p||p.cost==null)falta.push(p?.name||'pieza');else costo+=Number(p.cost)*Number(c.qty||1);});
   return {costo,falta};
 }
+/* Niño y adulto (19/10/2026): "lo que más compran es el kit de niño, pero
+   tú me das la utilidad del adulto". Cada fila dice lo que deja cada uno, con
+   el de niño primero cuando existe, y —cuando ya hay ventas— el margen real
+   con la mezcla que se vende. El costo es el mismo para los dos. */
+let mezcla=null;
+const lineaMargen=(etq,x,clase='')=>x?`<span class="costo-tipo ${clase} ${tonoMargen(x.margen)}"><i>${etq}</i><b>${pct(x.margen)}</b><small>ganas ${money.format(x.ganas)}</small></span>`:'';
+function bloqueMargenes(m){
+  const real=margenPonderado(m,mezcla?.nino??null);
+  return `<span class="costo-margen">${lineaMargen(m.nino&&m.adulto?'Niño':'',m.nino||m.adulto,'principal')}${m.nino&&m.adulto?lineaMargen('Adulto',m.adulto):''}${real!=null&&m.nino&&m.adulto?`<span class="costo-real ${tonoMargen(real)}">Real con tus ventas: <b>${pct(real)}</b></span>`:''}</span>`;
+}
 function renderCostos(){
   if(!canFinance)return;
   const vivos=products.filter(p=>!p.archived);
-  $('costosProductos').innerHTML=vivos.map(p=>{const m=margenDe(Number(p.price||0),p.cost==null?null:Number(p.cost));
-    return `<div class="costo-fila" data-cid="${esc(p.id)}"><span class="costo-nombre"><b>${esc(p.name)}</b><small>Precio ${money.format(Number(p.price||0))}</small></span>
+  $('costosProductos').innerHTML=vivos.map(p=>{const costo=p.cost==null?null:Number(p.cost);
+    const m=margenesDe({precioAdulto:p.price,precioNino:p.priceKid,costo});
+    const precios=Number(p.priceKid||0)>0?`Adulto ${money.format(Number(p.price||0))} · Niño ${money.format(Number(p.priceKid))}`:`Precio ${money.format(Number(p.price||0))}`;
+    return `<div class="costo-fila" data-cid="${esc(p.id)}"><span class="costo-nombre"><b>${esc(p.name)}</b><small>${precios}</small></span>
       <label class="costo-input"><span>Costo</span><input type="number" min="0" step="0.01" inputmode="decimal" value="${p.cost??''}" placeholder="—" data-costo="${esc(p.id)}"${canManage?'':' disabled'}></label>
-      <span class="costo-margen ${tonoMargen(m)}">${m==null?'Sin costo':`${pct(m)}`}<small>${m==null?'':`ganas ${money.format(Number(p.price||0)-Number(p.cost||0))}`}</small></span></div>`;}).join('')||'<p class="muted">Sin productos.</p>';
-  $('costosKits').innerHTML=bundles.filter(b=>!b.archived).map(b=>{const {costo,falta}=costoDeKit(b);const pa=Number(b.priceAdult||0),pk=Number(b.priceKid||0);
-    const ma=falta.length?null:margenDe(pa,costo),mk=falta.length?null:margenDe(pk,costo);
-    return `<div class="costo-fila kit"><span class="costo-nombre"><b>${esc(b.name)}</b><small>${pa?`Adulto ${money.format(pa)}`:''}${pk?` · Niño ${money.format(pk)}`:''}</small></span>
+      ${costo==null?'<span class="costo-margen"><span class="costo-tipo principal"><b>Sin costo</b></span></span>':bloqueMargenes(m)}</div>`;}).join('')||'<p class="muted">Sin productos.</p>';
+  $('costosKits').innerHTML=bundles.filter(b=>!b.archived).map(b=>{const {costo,falta}=costoDeKit(b);
+    const m=falta.length?{adulto:null,nino:null}:margenesDe({precioAdulto:b.priceAdult,precioNino:b.priceKid,costo});
+    const pa=Number(b.priceAdult||0),pk=Number(b.priceKid||0);
+    return `<div class="costo-fila kit" data-kid="${esc(b.id)}"><span class="costo-nombre"><b>${esc(b.name)}</b><small>${[pa&&`Adulto ${money.format(pa)}`,pk&&`Niño ${money.format(pk)}`].filter(Boolean).join(' · ')}</small></span>
       <span class="costo-total">${falta.length?`<em>Falta costo de ${esc(falta[0])}${falta.length>1?` y ${falta.length-1} más`:''}</em>`:`Costo ${money.format(costo)}`}</span>
-      <span class="costo-margen ${tonoMargen(ma)}">${ma==null?'—':pct(ma)}<small>${mk!=null?`niño ${pct(mk)}`:ma!=null?'adulto':''}</small></span></div>`;}).join('')||'<p class="muted">Sin kits.</p>';
+      ${falta.length?'<span class="costo-margen"><span class="costo-tipo principal"><b>—</b></span></span>':bloqueMargenes(m)}</div>`;}).join('')||'<p class="muted">Sin kits.</p>';
   pintaNegocio();
 }
 $('costosProductos')?.addEventListener('change',async e=>{
@@ -923,18 +936,24 @@ async function pintaNegocio(){
   const corrida=++negocioCorrida;
   try{
     const ordenes=((await rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}))||[]).filter(o=>!['cancelled','refunded'].includes(o.status));
-    let venta=0,cobrado=0,porCobrar=0,costo=0,utilidad=0,ventaConCosto=0,completos=0;
+    let venta=0,cobrado=0,porCobrar=0,costo=0,utilidad=0,ventaConCosto=0,completos=0;const lineas=[];
     for(let i=0;i<ordenes.length;i+=8){
       const lote=await Promise.all(ordenes.slice(i,i+8).map(o=>rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id}).catch(()=>null)));
       if(corrida!==negocioCorrida)return;
-      lote.forEach((d,k)=>{const o=ordenes[i+k];venta+=Number(o.total||0);if(!d)return;cobrado+=Number(d.paidAmount||0);porCobrar+=Math.max(0,Number(d.balance||0));
+      lote.forEach((d,k)=>{const o=ordenes[i+k];venta+=Number(o.total||0);if(!d)return;lineas.push(...(d.items||[]));cobrado+=Number(d.paidAmount||0);porCobrar+=Math.max(0,Number(d.balance||0));
         if(d.costComplete){completos++;costo+=Number(d.costTotal||0);utilidad+=Number(d.grossProfitExpected||0);ventaConCosto+=Number(d.order?.total??o.total??0);}});
     }
     const margen=ventaConCosto>0?utilidad/ventaConCosto*100:null;
+    const porId=Object.fromEntries(products.map(p=>[p.id,p]));
+    const mz=mezclaDeVentas(lineas,porId);
+    mezcla=mz.nino==null?null:mz;
     negocio=`<div class="negocio-grid"><div><span>Venta</span><b>${money.format(venta)}</b></div><div><span>Cobrado</span><b>${money.format(cobrado)}</b></div><div><span>Por cobrar</span><b>${money.format(porCobrar)}</b></div>
       <div><span>Costo</span><b>${completos?money.format(costo):'—'}</b></div><div class="clave"><span>Utilidad</span><b>${completos?money.format(utilidad):'—'}</b></div><div><span>Margen</span><b>${margen==null?'—':pct(margen)}</b></div></div>
+      ${mezcla?`<p class="negocio-mezcla"><b>${Math.round(mezcla.nino*100)}% de lo que vendes es de niño</b> (${mezcla.piezas} pieza${mezcla.piezas===1?'':'s'} con precio de niño y de adulto). Con eso sale el "Real con tus ventas" de cada fila.</p>`:'<p class="negocio-mezcla">Todavía no hay ventas con precio de niño y de adulto: cuando las haya, cada fila dirá su margen real.</p>'}
       <p class="muted negocio-nota">${completos}/${ordenes.length} pedidos con costo completo. Sin cancelados ni reembolsados.</p>`;
     box.innerHTML=negocio;
+    // Con la mezcla ya calculada, las filas pueden decir su margen real.
+    if(mezcla)renderCostos();
   }catch(err){box.innerHTML=`<p class="muted">No se pudo calcular: ${esc(err.message||'')}</p>`;}
 }
 $('catBuscar')?.addEventListener('input',e=>{busca=e.target.value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();renderBundles();renderProducts();});

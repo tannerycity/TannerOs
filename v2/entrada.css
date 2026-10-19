@@ -256,3 +256,13 @@ body:has(.tc-cristal:not(.hidden)){background:radial-gradient(120% 70% at 50% 0%
 @media (max-width:860px){.tc-titular{font-size:28px!important}}
 .tc-puerta-txt small,.tc-trabaja small{font-weight:400!important}
 .tc-puerta-txt b,.tc-trabaja b{font-weight:600!important}
+
+/* La orilla de arriba en iPhone (19/10/2026). iOS pinta la franja de la hora
+   (y su difuminado) con el fondo de la PÁGINA, no con el de esta sección; la
+   página era gris claro (#f6f6f4) y en la entrada se veía una niebla gris
+   sobre el azul. Mientras la entrada está a la vista, la página entera es azul
+   noche, igual que theme-color. */
+html:has(.tc-entrada:not(.hidden)),
+html:has(.tc-entrada:not(.hidden)) body{background:#0a1d33!important}
+/* Y el escudo con aire bajo la hora, no pegado al borde de la franja. */
+.tc-entrada{padding-top:calc(env(safe-area-inset-top,0px) + 24px)!important;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px)!important}

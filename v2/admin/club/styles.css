@@ -3,3 +3,9 @@
 .pay-metodos{border:1px solid rgba(7,25,30,.12);border-radius:14px;padding:10px 12px;display:flex;gap:14px;flex-wrap:wrap;margin:0}
 .pay-metodos legend{font-size:13px;font-weight:800;padding:0 4px}
 .pay-metodos label{display:flex;gap:6px;align-items:center;font-weight:700}
+
+/* Costos públicos (h22) */
+.costos-grupo{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:0;padding:12px;border:1px solid #e2e8ea;border-radius:14px}
+.costos-grupo legend{padding:0 6px;font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#506169}
+.costos-check{grid-column:1/-1;display:flex!important;flex-direction:row!important;align-items:flex-start;gap:10px;font-weight:600}
+.costos-check input{width:20px;height:20px;min-height:0;flex:0 0 auto;margin-top:2px}

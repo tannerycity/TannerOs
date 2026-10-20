@@ -84,6 +84,34 @@ $('notesForm').addEventListener('submit',async e=>{
   finally{btn.disabled=!canWrite;}
 });
 try{await cargaIndicaciones();}catch(_){}
+
+// Costos públicos (h22, 20/10/2026): "¿dónde puedo editar los costos?". Lo
+// que se guarda aquí sale en /costos al momento; lo vacío usa el valor de
+// costos/tarifas.js, que es también lo que se ve en el formulario.
+const CAMPOS_COSTOS=[['cBaby1','baby','mensualidad1d'],['cBaby2','baby','mensualidad2d'],['cBabyIns','baby','inscripcion'],['cTanner','tanner','mensualidad'],['cTannerIns','tanner','inscripcion'],
+  ['cP_t1','paquetes','t1'],['cP_t2','paquetes','t2'],['cP_t3','paquetes','t3'],['cP_b2','paquetes','b2'],['cP_t1b1','paquetes','t1b1']];
+function costosMsg(text='',type='error'){const el=$('costosMessage');el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
+async function cargaCostos(){
+  const [{TARIFAS,aplicaPrecios},guardados]=await Promise.all([import('/costos/tarifas.js'),rpc('v2_public_prices',{organization_id:org})]);
+  const t=aplicaPrecios(TARIFAS,guardados),b=t.categorias.baby,tn=t.categorias.tanner,paq=k=>t.paquetes.lista.find(x=>x.clave===k)?.mensualidad??'';
+  const val={cBaby1:b.modalidades.find(m=>m.clave==='1d').mensualidad,cBaby2:b.modalidades.find(m=>m.clave==='2d').mensualidad,cBabyIns:b.inscripcion,
+    cTanner:tn.modalidades[0].mensualidad,cTannerIns:tn.inscripcion,cP_t1:paq('t1'),cP_t2:paq('t2'),cP_t3:paq('t3'),cP_b2:paq('b2'),cP_t1b1:paq('t1b1')};
+  for(const [id,v] of Object.entries(val))$(id).value=v;
+  $('cIncluye').value=t.incluyeInscripcion;$('cPaqOk').checked=!!t.paquetes.confirmado;
+  if(!canWrite){[...$('costosForm').elements].forEach(el=>{el.disabled=true;});$('saveCostos').textContent='Solo lectura';}
+}
+$('costosForm').addEventListener('submit',async e=>{
+  e.preventDefault();if(!canWrite)return;costosMsg();
+  const valores={confirmado:$('cPaqOk').checked,incluye:$('cIncluye').value};CAMPOS_COSTOS.forEach(([id])=>{valores[id]=$(id).value;});
+  const {preciosDelFormulario}=await import('/costos/tarifas.js');
+  const r=preciosDelFormulario(valores,CAMPOS_COSTOS);if(r.error){costosMsg(r.error);return;}
+  const btn=$('saveCostos');btn.disabled=true;
+  try{await rpc('v2_update_public_prices',{organization_id:org,prices:r.precios});await cargaCostos();costosMsg('Costos guardados. Ya salen en /costos.','success');}
+  catch(err){costosMsg(err.message||'No se pudo guardar.');}
+  finally{btn.disabled=!canWrite;}
+});
+try{await cargaCostos();}catch(_){costosMsg('No se pudieron cargar los costos. Recarga la página.');}
+if(location.hash==='#costos')$('costos')?.scrollIntoView({block:'start'});
 if(location.hash==='#cobro')$('cobro')?.scrollIntoView({block:'start'});
 if(location.hash==='#indicaciones')$('indicaciones')?.scrollIntoView({block:'start'});
 

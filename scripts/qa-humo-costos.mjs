@@ -29,13 +29,16 @@ let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d !== undefined ? `\n   ${typeof d === 'string' ? d : JSON.stringify(d)}` : ''}`); } };
 const cap = async (pg, n) => { if (process.env.QA_CAPTURA) await pg.screenshot({ path: process.env.QA_CAPTURA.replace('.png', `-${n}.png`), fullPage: true }); };
 
-async function abre(viewport = { width: 390, height: 844 }) {
+// precios: lo que contesta v2_public_costos (null = nada guardado); 'cae' = sin red.
+async function abre(viewport = { width: 390, height: 844 }, precios = null) {
   const ctx = await nav.newContext({ viewport, hasTouch: true, isMobile: viewport.width < 600, permissions: ['clipboard-read', 'clipboard-write'] });
   const pg = await ctx.newPage();
   const errs = [], ajenas = [];
   pg.on('pageerror', e => errs.push(e.message));
   pg.on('console', m => { if (m.type() === 'error' && !/favicon|404/.test(m.text())) errs.push(m.text()); });
   pg.on('request', q => { if (!q.url().startsWith(BASE)) ajenas.push(q.url()); });
+  await pg.route('**/rest/v1/rpc/v2_public_costos', r => precios === 'cae' ? r.abort()
+    : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(precios) }));
   await pg.goto(`${BASE}/costos/`, { waitUntil: 'networkidle' });
   return { pg, ctx, errs, ajenas };
 }
@@ -47,7 +50,7 @@ const elige = (pg, name, value) => pg.click(`label.co-op:has(> input[name="${nam
 {
   const { pg, ctx, errs, ajenas } = await abre();
   revisa('/costos abre sin sesión y se ve la página', await pg.isVisible('.co-titulo') && !(await pg.isVisible('#cargando')));
-  revisa('no le pide nada a ningún servidor de fuera (ni Supabase)', ajenas.length === 0, ajenas);
+  revisa('sólo pregunta los precios públicos (una llamada, sin sesión)', ajenas.length === 1 && /\/rest\/v1\/rpc\/v2_public_costos$/.test(ajenas[0]), ajenas);
   const precios = await pg.textContent('.co-planes');
   const esperados = ['$400', '$550', '$800', '$1,000'];
   revisa('los precios de la configuración aparecen en las tarjetas', esperados.every(x => precios.includes(x)) && /3 a 6 años/.test(precios) && /6 a 12 años/.test(precios), precios);
@@ -128,6 +131,24 @@ const elige = (pg, name, value) => pg.click(`label.co-op:has(> input[name="${nam
   revisa('regresar a 1 hijo quita a los demás', (await pg.$$eval('.co-hijo', h => h.length)) === 1 && await total(pg) === '$1,800', await total(pg));
   await cap(pg, 'tres');
   revisa('sin errores de consola (varios hijos)', errs.length === 0, errs);
+  await ctx.close();
+}
+
+/* ===== Precios editados en Club (h22) y red caída ===== */
+{
+  const { pg, ctx, errs } = await abre(undefined, { tanner: { mensualidad: 850, inscripcion: 1200 }, baby: { mensualidad1d: 450 }, paquetes: { confirmado: true, t2: 1600 } });
+  const precios = await pg.textContent('.co-planes');
+  revisa('[editables] la página enseña los precios guardados en Club', /\$850/.test(precios) && /\$1,200/.test(precios) && /\$450/.test(precios) && /\$550/.test(precios), precios);
+  revisa('[editables] con paquetes confirmados ya no dice "Por confirmar"', !(await pg.isVisible('#coPaqAviso')) && (await pg.$$eval('.co-tabla .co-pill', p => p.length)) === 0);
+  await elige(pg, 'coN', '2'); await elige(pg, 'coCat0', 'tanner'); await elige(pg, 'coCat1', 'tanner'); await elige(pg, 'coNueva', 'no');
+  revisa('[editables] la calculadora cobra el paquete confirmado ($1,600)', await total(pg) === '$1,600', await total(pg));
+  revisa('[editables] sin errores', errs.length === 0, errs);
+  await ctx.close();
+}
+{
+  const { pg, ctx, errs } = await abre(undefined, 'cae');
+  revisa('[sin red] la página sale igual con los precios del archivo', await pg.isVisible('.co-titulo') && /\$800/.test(await pg.textContent('.co-planes')));
+  revisa('[sin red] sin errores en la página', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).length === 0, errs);
   await ctx.close();
 }
 

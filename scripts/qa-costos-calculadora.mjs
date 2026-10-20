@@ -13,7 +13,7 @@
  *   · que ningún precio esté escrito fuera de la configuración central.
  */
 import fs from 'node:fs';
-import { TARIFAS } from '../costos/tarifas.js';
+import { TARIFAS, aplicaPrecios, preciosDelFormulario } from '../costos/tarifas.js';
 import { cotiza, dinero, semanasACobrar, proporcional, paqueteDe, leeFecha, textoCotizacion, ligaWhatsApp } from '../costos/calculo.js';
 
 let fallos = 0, corridas = 0;
@@ -123,6 +123,29 @@ for (const f of ['costos/app.js', 'costos/calculo.js']) {
   revisa(`${f} no escribe precios a mano`, sueltos.length === 0, sueltos);
 }
 revisa('cada categoría y paquete sale de la configuración', Object.keys(T.categorias).join() === 'baby,tanner' && T.paquetes.lista.length === 5 && T.paquetes.confirmado === false);
+
+/* Precios editados en Club › Costos públicos (h22) */
+{
+  const g = { baby: { mensualidad1d: 450, mensualidad2d: 600, inscripcion: 1100 }, tanner: { mensualidad: 850, inscripcion: 1200 },
+    paquetes: { confirmado: true, t2: 1600 }, incluyeInscripcion: 'Seguro, gafete y playera' };
+  const t = aplicaPrecios(T, g);
+  revisa('lo guardado pisa precios, inscripción, paquetes y lo que incluye',
+    t.categorias.baby.modalidades[0].mensualidad === 450 && t.categorias.baby.modalidades[1].mensualidad === 600 && t.categorias.baby.inscripcion === 1100
+    && t.categorias.tanner.modalidades[0].mensualidad === 850 && t.categorias.tanner.inscripcion === 1200
+    && t.paquetes.confirmado === true && t.paquetes.lista.find(x => x.clave === 't2').mensualidad === 1600 && t.incluyeInscripcion === 'Seguro, gafete y playera');
+  revisa('lo que no se guardó se queda como en el archivo', t.paquetes.lista.find(x => x.clave === 't3').mensualidad === 2000);
+  revisa('no toca la configuración original', T.categorias.tanner.modalidades[0].mensualidad === 800 && T.paquetes.confirmado === false);
+  revisa('la calculadora usa los precios guardados', cotiza({ hijos: [TAN], nuevaInscripcion: false }, t).primerPago === 850);
+  revisa('con paquete confirmado desde Club, 2 Tanners cobran $1,600', cotiza({ hijos: [TAN, TAN], nuevaInscripcion: false }, t).mensualidadRegular === 1600);
+  const raro = aplicaPrecios(T, { baby: { mensualidad1d: -5, mensualidad2d: '700', inscripcion: 1.5 }, tanner: { mensualidad: 200000 }, paquetes: { confirmado: 'si', t1: null } });
+  revisa('un dato mal guardado (negativo, texto, decimales, gigante) se ignora', raro.categorias.baby.modalidades[0].mensualidad === 400 && raro.categorias.baby.modalidades[1].mensualidad === 550
+    && raro.categorias.baby.inscripcion === 1000 && raro.categorias.tanner.modalidades[0].mensualidad === 800 && raro.paquetes.confirmado === false);
+  revisa('sin nada guardado (null) quedan los del archivo', JSON.stringify(aplicaPrecios(T, null)) === JSON.stringify(T));
+  const CAMPOS = [['a', 'baby', 'mensualidad1d'], ['b', 'tanner', 'mensualidad'], ['c', 'paquetes', 't2']];
+  const f = preciosDelFormulario({ a: '450', b: ' 850 ', c: '', confirmado: true, incluye: '  Seguro  ' }, CAMPOS);
+  revisa('el formulario manda pesos enteros y deja fuera lo vacío', JSON.stringify(f.precios) === JSON.stringify({ baby: { mensualidad1d: 450 }, tanner: { mensualidad: 850 }, paquetes: { confirmado: true }, incluyeInscripcion: 'Seguro' }), f);
+  revisa('el formulario rechaza decimales y negativos', !!preciosDelFormulario({ a: '450.5' }, CAMPOS).error && !!preciosDelFormulario({ b: '-1' }, CAMPOS).error && !!preciosDelFormulario({ c: 'mil' }, CAMPOS).error);
+}
 
 console.log(fallos ? `Costos calculadora FAILED · ${fallos} de ${corridas}` : `Costos calculadora OK · ${corridas} revisiones`);
 process.exit(fallos ? 1 : 0);

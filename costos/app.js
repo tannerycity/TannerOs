@@ -2,12 +2,12 @@
  * Pública, sin sesión y sin pedirle nada al servidor: los precios viven en
  * costos/tarifas.js y las cuentas en costos/calculo.js. Esta capa sólo pinta
  * y escucha. */
-import { TARIFAS } from '/costos/tarifas.js';
+import { TARIFAS, aplicaPrecios } from '/costos/tarifas.js';
 import { cotiza, dinero, textoCotizacion, ligaWhatsApp, fechaLarga, fechaCorta, mesDe, mesSiguiente, leeFecha } from '/costos/calculo.js';
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-const T = TARIFAS, CAT = T.categorias;
+let T = TARIFAS, CAT = T.categorias;
 
 const hoyISO = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 const estado = { n: 0, hijos: [], fecha: hoyISO(), nueva: null };
@@ -146,4 +146,18 @@ function pinta() {
   $('coFecha').addEventListener('input', e => { estado.fecha = e.target.value; pintaResultado(); });
   $('cargando').classList.add('hidden'); $('contenido').classList.remove('hidden');
 }
+/* Los precios que Presidencia edita en Club › Costos públicos (h22). Una
+   sola llamada, pública y sin sesión; si tarda o falla, se quedan los de
+   costos/tarifas.js y la página sale igual. */
+const SUPABASE = 'https://pacnegivzgxpanphrnwp.supabase.co';
+const LLAVE_PUBLICA = 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG';
+async function preciosGuardados() {
+  const corta = new AbortController(), t = setTimeout(() => corta.abort(), 3500);
+  try {
+    const r = await fetch(`${SUPABASE}/rest/v1/rpc/v2_public_costos`, { method: 'POST', signal: corta.signal,
+      headers: { 'content-type': 'application/json', apikey: LLAVE_PUBLICA }, body: JSON.stringify({ club_key: 'tannery-city-fc' }) });
+    return r.ok ? await r.json() : null;
+  } catch (_) { return null; } finally { clearTimeout(t); }
+}
+T = aplicaPrecios(TARIFAS, await preciosGuardados()); CAT = T.categorias;
 pinta();

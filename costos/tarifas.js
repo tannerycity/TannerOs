@@ -72,3 +72,39 @@ export const TARIFAS = {
   notaProporcional: 'Importante: el pago proporcional es únicamente para alumnos de nuevo ingreso, en su primer mes. Si tu hijo ya está inscrito, pagas la mensualidad completa que acordaste al inscribirte, aunque asista a menos clases en el mes.',
   nota: 'Los importes son informativos y están sujetos a validación por la administración de Tannery City.'
 };
+
+/* Precios editados en Club › Costos públicos (h22): pisan a los de arriba.
+   Sólo se toma lo que viene bien (pesos enteros de 0 a 100,000); lo demás se
+   queda como está aquí. Así un dato mal guardado nunca rompe /costos. */
+const peso = v => (Number.isInteger(v) && v >= 0 && v <= 100000 ? v : null);
+export function aplicaPrecios(base, p) {
+  const t = JSON.parse(JSON.stringify(base));
+  if (!p || typeof p !== 'object') return t;
+  const pon = (obj, key, v) => { const n = peso(v); if (n != null) obj[key] = n; };
+  const baby = t.categorias.baby, tanner = t.categorias.tanner;
+  pon(baby.modalidades.find(m => m.clave === '1d'), 'mensualidad', p.baby?.mensualidad1d);
+  pon(baby.modalidades.find(m => m.clave === '2d'), 'mensualidad', p.baby?.mensualidad2d);
+  pon(baby, 'inscripcion', p.baby?.inscripcion);
+  pon(tanner.modalidades[0], 'mensualidad', p.tanner?.mensualidad);
+  pon(tanner, 'inscripcion', p.tanner?.inscripcion);
+  if (p.paquetes && typeof p.paquetes === 'object') {
+    if (typeof p.paquetes.confirmado === 'boolean') t.paquetes.confirmado = p.paquetes.confirmado;
+    t.paquetes.lista.forEach(x => pon(x, 'mensualidad', p.paquetes[x.clave]));
+  }
+  if (typeof p.incluyeInscripcion === 'string' && p.incluyeInscripcion.trim()) t.incluyeInscripcion = p.incluyeInscripcion.trim().slice(0, 120);
+  return t;
+}
+
+// El formulario de Club › Costos públicos → lo que se guarda. Vacío = se usa
+// el valor de este archivo. campos: [[id, grupo, clave], ...].
+export function preciosDelFormulario(valores, campos) {
+  const out = { baby: {}, tanner: {}, paquetes: { confirmado: !!valores.confirmado }, incluyeInscripcion: String(valores.incluye || '').trim() };
+  for (const [id, grupo, clave] of campos) {
+    const v = String(valores[id] ?? '').trim();
+    if (v === '') continue;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0 || n > 100000) return { error: 'Los precios van en pesos enteros, de 0 a 100,000.' };
+    out[grupo][clave] = n;
+  }
+  return { precios: out };
+}

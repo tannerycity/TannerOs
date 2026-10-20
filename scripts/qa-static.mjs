@@ -141,7 +141,8 @@ const CARPETAS_DE_STORAGE=['players','guardians','billing','accounting','academi
 const CARPETAS_DE_OTRO_BUCKET=['branding'];
 // Carpetas con su PROPIA politica, que no pasa por storage_module_code:
 // 'staff' (postulaciones y fichas del staff: t4 y f5, tanneros_staff_photo_insert).
-const CARPETAS_CON_POLITICA_PROPIA=['staff'];
+// 'chat' (fotos y archivos del vestidor: h20, tanneros_chat_file_insert; sube quien está en el chat).
+const CARPETAS_CON_POLITICA_PROPIA=['staff','chat'];
 {
   const permitidas=new Set([...CARPETAS_DE_STORAGE,...CARPETAS_DE_OTRO_BUCKET,...CARPETAS_CON_POLITICA_PROPIA]);
   // Toda forma de armar la ruta que se usa hoy: plantilla y concatenacion.

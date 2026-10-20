@@ -174,5 +174,17 @@ revisa('el nombre de la opción', nombreOpcion({ dias: 1 }) === '1 día por sema
   revisa('dos categorías con el mismo nombre no chocan', (() => { const f = JSON.parse(JSON.stringify(F)); f.categorias[1].nombre = 'Baby Tanners'; delete f.categorias[0].clave; const x = preciosDelFormulario(f).precios; return x && x.categorias[0].clave !== x.categorias[1].clave; })());
 }
 
+/* Editor estilo Apple (v2/admin/club/costos.js): lo que se arma solo */
+{
+  const { leeEdades, textoEdades, nombrePaquete, singular, porClaseDe } = await import('../v2/admin/club/costos.js');
+  revisa('edades guardadas como texto se leen al carrusel', JSON.stringify(leeEdades('De 6 a 12 años')) === '{"edadMin":6,"edadMax":12}' && JSON.stringify(leeEdades('5 años')) === '{"edadMin":5,"edadMax":5}');
+  revisa('edades fuera de rango o raras quedan dentro del carrusel (3 a 18)', JSON.stringify(leeEdades('De 1 a 40')) === '{"edadMin":3,"edadMax":18}' && JSON.stringify(leeEdades('')) === '{"edadMin":6,"edadMax":12}');
+  revisa('el texto de edades', textoEdades(6, 12) === 'De 6 a 12 años' && textoEdades(5, 5) === '5 años');
+  const C = [{ nombre: 'Baby Tanners' }, { nombre: 'Tanners' }, { nombre: 'Mayores' }];
+  revisa('el nombre del paquete sale solo, en singular si es uno', nombrePaquete({ 0: 1, 1: 2 }, C) === '1 Baby Tanner + 2 Tanners' && nombrePaquete({ 2: 1 }, C) === '1 Mayor' && nombrePaquete({}, C) === '');
+  revisa('singular', singular('Porteros') === 'Portero' && singular('Sub-15') === 'Sub-15' && singular('Tanners') === 'Tanner');
+  revisa('precio por clase del editor', porClaseDe(2, '550') === 69 && porClaseDe(3, '') === null);
+}
+
 console.log(fallos ? `Costos calculadora FAILED · ${fallos} de ${corridas}` : `Costos calculadora OK · ${corridas} revisiones`);
 process.exit(fallos ? 1 : 0);

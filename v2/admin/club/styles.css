@@ -4,22 +4,84 @@
 .pay-metodos legend{font-size:13px;font-weight:800;padding:0 4px}
 .pay-metodos label{display:flex;gap:6px;align-items:center;font-weight:700}
 
-/* Costos públicos (h22-h23) */
-.costos-cats{display:grid;gap:14px}
-.costos-grupo{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:0;padding:12px;border:1px solid #e2e8ea;border-radius:14px;min-width:0}
-.costos-grupo legend{padding:0 6px;font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#506169}
-.costos-ops{grid-column:1/-1;display:grid;gap:8px}
-.costos-op,.costos-paq{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;align-items:end;padding:10px;border-radius:12px;background:#f6f8f8}
-.costos-op-n{grid-column:1/-1;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#087d8e}
-.costos-clase{align-self:center;font-weight:700;color:#1e7a45}
-.costos-paqs{grid-template-columns:1fr}
-#costosPaqs{display:grid;gap:8px}
-.costos-paq-nombre{grid-column:1/-1}
-.costos-fila{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
-.costos-add{min-height:44px;padding:0 16px;border:1px dashed #9cc7cc;border-radius:12px;background:#f2f9f9;color:#087d8e;font:inherit;font-weight:800;cursor:pointer;justify-self:start}
-.costos-quita{min-height:44px;padding:0 14px;border:1px solid #e7b9b4;border-radius:12px;background:#fff;color:#a92a21;font:inherit;font-weight:700;cursor:pointer}
-.costos-check{grid-column:1/-1;display:flex!important;flex-direction:row!important;align-items:flex-start;gap:10px;font-weight:600}
-.costos-check input{width:20px;height:20px;min-height:0;flex:0 0 auto;margin-top:2px}
-/* polish.css pinta todo botón lleno; aquí Quitar es secundario y Agregar, punteado. */
-.org-form .costos-quita{background:#fff!important;color:#a92a21!important;border:1px solid #e7b9b4!important;box-shadow:none!important}
-.org-form .costos-add{background:#f2f9f9!important;color:#087d8e!important;border:1px dashed #9cc7cc!important;box-shadow:none!important}
+/* Costos estilo Apple (20/10/2026): lista como Ajustes, hojas desde abajo,
+   carruseles para edades y días, − / + para paquetes. Lo de polish.css se
+   pisa con !important porque pinta todo botón e input igual. */
+.ap{--ap-azul:#0a84ff;--ap-gris:#8e8e93;--ap-linea:#e5e5ea;--ap-fondo:#f2f2f7}
+.ap-sec{margin:18px 4px 6px;font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--ap-gris)}
+.ap-lista{display:grid;overflow:hidden;border-radius:14px;background:#fff;border:1px solid var(--ap-linea)}
+.ap .ap-fila{display:flex!important;align-items:center;gap:12px;width:100%;min-height:60px!important;padding:10px 16px!important;border:0!important;border-bottom:1px solid var(--ap-linea)!important;border-radius:0!important;background:#fff!important;color:#1c1c1e!important;box-shadow:none!important;font:inherit;text-align:left;cursor:pointer}
+.ap .ap-fila:last-child{border-bottom:0!important}
+.ap .ap-fila:active{background:#ececf1!important}
+.ap-fila-txt{flex:1;display:grid;gap:2px;min-width:0}
+.ap-fila-txt b{font-size:17px;font-weight:600}
+.ap-fila-txt small{font-size:14px;color:var(--ap-gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ap-chev{font-size:24px;color:#c7c7cc;line-height:1}
+.ap .ap-agrega{color:var(--ap-azul)!important;font-weight:600;font-size:17px}
+.ap-mas{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--ap-azul);color:#fff;font-size:20px;line-height:1;font-weight:500}
+.ap-vacio{margin:0;padding:16px;color:var(--ap-gris);font-size:15px}
+.ap-switch{display:flex;align-items:center;gap:12px;margin-top:10px;padding:12px 16px;border-radius:14px;background:#fff;border:1px solid var(--ap-linea);cursor:pointer}
+.ap-switch span{flex:1;display:grid;gap:2px}
+.ap-switch b{font-size:16px;font-weight:600}
+.ap-switch small{font-size:13px;color:var(--ap-gris);line-height:1.35}
+.ap .ap-switch input{position:absolute;opacity:0;width:1px;height:1px;min-height:0!important}
+.ap-switch i{position:relative;flex:0 0 51px;height:31px;border-radius:999px;background:#e9e9eb;transition:background .2s}
+.ap-switch i::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:transform .2s}
+.ap-switch input:checked+i{background:#34c759}
+.ap-switch input:checked+i::after{transform:translateX(20px)}
+.ap-switch input:focus-visible+i{outline:3px solid var(--ap-azul);outline-offset:2px}
+.ap-campo-lista{display:flex;align-items:center;gap:12px;padding:6px 16px}
+.ap-campo-lista span{font-size:16px;color:#1c1c1e}
+.ap .ap-campo-lista input{flex:1;min-width:0;border:0!important;box-shadow:none!important;text-align:right;font-size:16px;background:transparent!important;padding:10px 0!important}
+.ap-pie{margin:10px 4px 0;font-size:13px;color:var(--ap-gris)}
+.ap .ap-guardar{width:100%;min-height:52px!important;margin-top:14px;border:0!important;border-radius:14px!important;background:var(--ap-azul)!important;color:#fff!important;font:inherit;font-size:17px;font-weight:600;cursor:pointer}
+.ap .ap-guardar:disabled{background:#d1d1d6!important;color:#fff!important;cursor:default}
+/* La hoja */
+.ap-capa{position:fixed;inset:0;z-index:120}
+.ap-capa.hidden{display:none}
+.ap-fondo{position:absolute;inset:0;background:rgba(0,0,0,.35)}
+.ap-hoja{position:absolute;left:0;right:0;bottom:0;max-height:92dvh;display:flex;flex-direction:column;border-radius:16px 16px 0 0;background:var(--ap-fondo);animation:apSube .28s cubic-bezier(.2,.8,.2,1)}
+@media (min-width:760px){.ap-hoja{left:50%;right:auto;bottom:auto;top:50%;width:min(520px,92vw);max-height:86vh;border-radius:16px;transform:translate(-50%,-50%);animation:none}}
+@keyframes apSube{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.ap-hoja{animation:none}}
+.ap-hoja-cab{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px 12px 8px;border-bottom:1px solid var(--ap-linea)}
+.ap-hoja-cab h3{margin:0;font-size:17px;font-weight:600;text-align:center}
+.ap-hoja-cab .ap-link:last-child{justify-self:end}
+.ap .ap-link{min-height:44px!important;padding:0 6px!important;border:0!important;background:none!important;box-shadow:none!important;color:var(--ap-azul)!important;font:inherit;font-size:17px;cursor:pointer;justify-self:start}
+.ap .ap-link.fuerte{font-weight:600}
+.ap .ap-link.rojo{color:#ff3b30!important;font-size:15px}
+.ap-hoja-cuerpo{overflow:auto;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 20px);display:grid;gap:14px;-webkit-overflow-scrolling:touch}
+.ap-campo{display:grid;gap:6px}
+.ap-campo>span,.ap-etq{font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--ap-gris)}
+.ap .ap-campo input{width:100%;min-height:50px!important;padding:12px 14px!important;border:0!important;border-radius:12px!important;background:#fff!important;box-shadow:none!important;font:inherit;font-size:18px!important;color:#1c1c1e}
+.ap-dinero{position:relative}
+.ap-dinero i{position:absolute;left:14px;bottom:13px;font-style:normal;font-size:18px;color:var(--ap-gris);pointer-events:none}
+.ap .ap-dinero input{padding-left:30px!important;font-weight:600}
+.ap-bloque{display:grid;gap:8px;padding:12px;border-radius:14px;background:#fff}
+.ap-edad{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:6px}
+.ap-edad small,.ap-opcion>small{font-size:14px;color:var(--ap-gris)}
+.ap-carrusel{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.ap-carrusel::-webkit-scrollbar{display:none}
+.ap .ap-num{flex:0 0 auto;scroll-snap-align:center;min-width:48px!important;min-height:48px!important;padding:0 10px!important;border:0!important;border-radius:999px!important;background:var(--ap-fondo)!important;color:#1c1c1e!important;box-shadow:none!important;font:inherit;font-size:18px;font-weight:600;cursor:pointer}
+.ap .ap-num.on{background:var(--ap-azul)!important;color:#fff!important}
+.ap-nota{margin:0;font-size:15px;font-weight:600;color:#248a3d}
+.ap-opcion{display:grid;gap:6px;padding:10px;border-radius:12px;background:var(--ap-fondo)}
+.ap-op-cab{display:flex;align-items:center;justify-content:space-between}
+.ap-op-cab b{font-size:15px}
+.ap .ap-opcion .ap-campo input{background:#fff!important}
+.ap .ap-borrar{min-height:50px!important;border:0!important;border-radius:12px!important;background:#fff!important;box-shadow:none!important;color:#ff3b30!important;font:inherit;font-size:17px;cursor:pointer}
+.ap-stepper{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;border-bottom:1px solid var(--ap-linea)}
+.ap-stepper:last-of-type{border-bottom:0}
+.ap-stepper>span:first-child{font-size:17px}
+.ap-step-ctl{display:flex;align-items:center;gap:14px}
+.ap-step-ctl b{min-width:22px;text-align:center;font-size:20px}
+.ap .ap-step{width:44px;height:44px;min-height:44px!important;padding:0!important;border:0!important;border-radius:50%!important;background:var(--ap-fondo)!important;color:var(--ap-azul)!important;box-shadow:none!important;font-size:24px;line-height:1;cursor:pointer}
+.ap .ap-step:disabled{color:#c7c7cc!important;cursor:default}
+.ap-error{margin:0 16px 12px;padding:10px 12px;border-radius:12px;background:#ffecec;color:#c4251c;font-weight:600;font-size:15px}
+.ap-error.hidden{display:none}
+
+/* La hoja con fondo propio: los estilos generales de <section> la dejaban transparente. */
+.ap .ap-hoja{background:#f2f2f7!important;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+.ap .ap-hoja-cab{background:#f8f8fb;border-radius:16px 16px 0 0}
+.ap .ap-fondo{background:rgba(0,0,0,.4)!important}
+.ap-carrusel{position:relative}

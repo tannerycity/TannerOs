@@ -22,8 +22,9 @@ const srv = http.createServer((q, r) => {
   if (!f.startsWith(RAIZ) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end('no'); return; }
   r.writeHead(200, { 'content-type': TIPOS[path.extname(f)] || 'application/octet-stream' }); r.end(fs.readFileSync(f));
 });
-await new Promise(r => srv.listen(4761, r));
-const BASE = 'http://127.0.0.1:4761';
+// Puerto libre al azar: con uno fijo chocaba con otra suite corriendo a la vez.
+await new Promise(r => srv.listen(0, '127.0.0.1', r));
+const BASE = `http://127.0.0.1:${srv.address().port}`;
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d !== undefined ? `\n   ${typeof d === 'string' ? d : JSON.stringify(d)}` : ''}`); } };

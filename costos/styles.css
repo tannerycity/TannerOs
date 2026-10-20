@@ -114,3 +114,8 @@ body.co{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-
 .co-copiado{margin:10px 0 0;text-align:center;font-weight:700;color:var(--oro-claro)}
 .co-pie{margin:4px 0 0;text-align:center;color:var(--gris);font-size:14px;line-height:1.6}
 .co-pie a{color:var(--tinta);font-weight:800}
+
+/* Importante (20/10/2026): el proporcional es sólo para nuevo ingreso. */
+.co-importante{margin:12px 0 0;padding:12px 14px;border-radius:14px;border-left:4px solid var(--oro);background:rgba(233,209,156,.14);color:#fff;font-size:14px;line-height:1.5}
+.co-importante.claro{margin-top:14px;background:#fdf6e6;color:#5c4300;border-left-color:#c8ae62}
+.co-plan th small,.co-plan td small{display:block;margin-top:2px;font:600 12px Inter,sans-serif;color:var(--gris);text-transform:none;letter-spacing:0}

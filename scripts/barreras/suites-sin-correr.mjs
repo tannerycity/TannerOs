@@ -160,7 +160,9 @@ export default function comprobar() {
   // en la franja de la hora y con aire bajo ella.
   // Sube a 50 por qa-humo-costos.mjs: /costos público, calculadora de 1 a 3
   // hijos, copiar la cotización y WhatsApp, en celular.
-  const MAX_EXCLUIDAS = 50;
+  // Sube a 51 por qa-humo-costos-editor.mjs: Club › Costos públicos
+  // (categorías, opciones por días, precio por clase y paquetes).
+  const MAX_EXCLUIDAS = 51;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

@@ -75,3 +75,4 @@ qa-humo-buscador-acciones.mjs
 qa-humo-calendario.mjs
 qa-humo-entrada.mjs
 qa-humo-costos.mjs
+qa-humo-costos-editor.mjs

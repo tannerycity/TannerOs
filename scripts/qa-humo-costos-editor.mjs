@@ -11,7 +11,7 @@
 //   4. Guardar manda la lista limpia (claves, pesos enteros) a la base.
 //   5. Un error (8 días) se dice en palabras y no se manda nada.
 //   6. Quitar una categoría recorre las cantidades de los paquetes.
-//   7. Sin permiso de escribir: todo en solo lectura.
+//   7. Sólo Presidencia: los demás ni ven la sección (la base también lo exige).
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 
@@ -32,14 +32,14 @@ const revisa = (n, ok, d = '') => revisiones.push({ nombre: n, ok, detalle: type
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 const ORG = 'o-tannery';
 
-async function abre({ escribe = true } = {}) {
+async function abre({ escribe = true, rol = 'Presidencia' } = {}) {
   const p = await nav.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(`console: ${m.text()}`); });
-  await p.addInitScript(({ escribe, ORG }) => {
+  await p.addInitScript(({ escribe, ORG, rol }) => {
     window.__llamadas = [];
     const R = {
-      v2_my_context: () => [{ user_id:'u1', display_name:'Mich', organization_id:ORG, organization_name:'Tannery City FC', role:'Presidencia', is_owner:true }],
+      v2_my_context: () => [{ user_id:'u1', display_name:'Mich', organization_id:ORG, organization_name:'Tannery City FC', role:rol, is_owner:rol === 'Presidencia' }],
       v2_my_navigation: () => ['inicio', 'admin'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:escribe })),
       v2_organization_settings: () => ({ name:'Tannery City FC', slug:'tannery-city-fc', currency:'MXN', locale:'es-MX', timezone:'America/Mexico_City' }),
       v2_club_config: () => ({ paymentInstructions:{} }),
@@ -55,11 +55,11 @@ async function abre({ escribe = true } = {}) {
       storage: { from: () => ({ createSignedUrls: async ps => ({ data: ps.map(x => ({ path: x, signedUrl: null, error: null })), error: null }) }) },
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
-  }, { escribe, ORG });
+  }, { escribe, ORG, rol });
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.goto(BASE + '/v2/admin/club/#costos', { waitUntil: 'domcontentloaded' });
-  await p.waitForSelector('#costosCats [data-abre-cat]', { timeout: 8000 }).catch(() => {});
+  await p.waitForSelector(rol === 'Presidencia' ? '#costosCats [data-abre-cat]' : '#orgForm', { timeout: 8000 }).catch(() => {});
   return p;
 }
 const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n === n).map(x => x.prm), n);
@@ -137,11 +137,11 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.close();
 }
 
-{ // 7. sin permiso de escribir
-  const p = await abre({ escribe: false });
-  revisa('7. sin permiso: no hay "Agregar" y Guardar dice "Solo lectura"', !(await p.$('#costosAddCat')) && (await p.textContent('#saveCostos')) === 'Solo lectura' && await p.isDisabled('#cPaqOk'));
-  await p.click('[data-abre-cat="1"]');
-  revisa('7. se puede ver una categoría pero no cambiarla', await p.isDisabled('#hNombre') && !(await p.$('#apListo')) && await p.isDisabled('[data-carrusel="edadMin"] .ap-num'));
+{ // 7. Sólo Presidencia (h24): Operaciones con permiso de admin ni ve la sección
+  const p = await abre({ rol: 'Operaciones' });
+  await p.waitForTimeout(500);
+  revisa('7. quien no es Presidencia no ve "Costos" en Club', !(await p.$('#costos')) && await p.isVisible('#orgForm'));
+  revisa('7. ni le pide los costos a la base', (await llamadas(p, 'v2_public_prices')).length === 0);
   await p.close();
 }
 

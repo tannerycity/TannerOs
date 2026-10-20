@@ -86,8 +86,11 @@ $('notesForm').addEventListener('submit',async e=>{
 try{await cargaIndicaciones();}catch(_){}
 
 // Costos (h22-h23, 20/10/2026): editor estilo Apple en su propio módulo.
-try{const {montaCostos}=await import('/v2/admin/club/costos.js');await montaCostos({rpc,org,canWrite,$})();}
-catch(_){const el=$('costosMessage');el.textContent='No se pudieron cargar los costos. Recarga la página.';el.classList.remove('hidden');}
+// Sólo Presidencia ve y edita los costos (h24); la base también lo exige.
+// Los demás ni ven la sección: la calculadora pública /costos sigue para todos.
+if(ctx.role!=='Presidencia'){$('costos')?.remove();}
+else{try{const {montaCostos}=await import('/v2/admin/club/costos.js');await montaCostos({rpc,org,canWrite,$})();}
+catch(_){const el=$('costosMessage');el.textContent='No se pudieron cargar los costos. Recarga la página.';el.classList.remove('hidden');}}
 if(location.hash==='#costos')$('costos')?.scrollIntoView({block:'start'});
 if(location.hash==='#cobro')$('cobro')?.scrollIntoView({block:'start'});
 if(location.hash==='#indicaciones')$('indicaciones')?.scrollIntoView({block:'start'});

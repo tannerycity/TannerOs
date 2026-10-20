@@ -16,6 +16,7 @@ import { encodeAmbas, UPLOAD_CACHE_CONTROL } from '/v2/image-encode.js';
 const boot = await bootstrapProtectedShell({ active: 'staff', title: 'Staff' });
 if (!boot) throw new Error('No access');
 const ctx = boot.ctx, org = ctx.organization_id;
+const esPresidencia = ctx.role === 'Presidencia';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const iniciales = n => String(n || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 function msg(t = '', tipo = 'error') { const e = $('stMensaje'); e.textContent = t; e.dataset.type = tipo; e.classList.toggle('hidden', !t); }
@@ -40,7 +41,7 @@ async function carga() {
 
 const cara = (m, clase = '') => `<span class="st-cara ${clase}" aria-hidden="true">${fotos[m.photoThumbPath] ? `<img src="${esc(fotos[m.photoThumbPath])}" alt="">` : esc(iniciales(m.fullName))}</span>`;
 const cats = m => (m.categories || []).map(c => `<span class="st-cat">${esc(c.name)}</span>`).join('');
-const cartaPendiente = m => datos.canEdit && m.level === 'formador' && m.backgroundCheck !== 'entregada';
+const cartaPendiente = m => datos.canEdit && m.active && m.level === 'formador' && m.backgroundCheck !== 'entregada';
 
 function tarjeta(m) {
   return `<button type="button" class="st-tarjeta${m.active ? '' : ' baja'}" data-id="${esc(m.id)}">${cara(m)}
@@ -120,6 +121,8 @@ function verFicha(m) {
       <p id="fMsg" class="st-form-msg" role="alert"></p>
       <button type="submit" class="st-btn grande">Guardar</button>
       <button type="button" id="fBaja" class="st-baja">${m.active ? 'Dar de baja' : 'Reactivar'}</button>
+      ${!m.active && esPresidencia ? `<button type="button" id="fEliminar" class="st-eliminar">Eliminar del staff</button>
+      <small class="st-eliminar-nota">${m.hasAccount ? 'Se borra su ficha y ya no podrá entrar a TannerOS.' : 'Se borra su ficha del organigrama.'} No se puede deshacer.</small>` : ''}
     </form>`);
   const marca = (id, attr) => $(id).addEventListener('click', e => { const b = e.target.closest(`[${attr}]`); if (!b) return;
     if (attr === 'data-cat') { b.classList.toggle('activo'); return; }
@@ -133,7 +136,25 @@ function verFicha(m) {
     phone: $('fTel').value.trim(), backgroundCheck: $('fCarta').querySelector('.activo')?.dataset.carta || 'pendiente',
     backgroundValidUntil: $('fVence').value || null, showToFamilies: $('fFamilias').checked }); });
   $('fBaja').addEventListener('click', () => guarda(m, { active: !m.active }));
+  $('fEliminar')?.addEventListener('click', () => elimina(m));
   $('fFoto').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) subeFoto(m, f); });
+}
+
+/* Eliminar a quien ya se dio de baja (h21, 20/10/2026): sólo Presidencia.
+   Borra la ficha y, si tiene cuenta, le quita el acceso al club (como en
+   Usuarios). Después se suelta su foto de Storage. */
+async function elimina(m) {
+  const ok = await window.tosConfirm?.({ kicker: 'STAFF', title: `¿Eliminar a ${m.fullName}?`,
+    message: m.hasAccount ? 'Se borra su ficha y su foto, y ya no podrá entrar a TannerOS. No se puede deshacer.' : 'Se borra su ficha y su foto. No se puede deshacer.',
+    confirmText: 'Sí, eliminar', danger: true });
+  if (!ok) return;
+  const out = $('fMsg'); if (out) out.textContent = '';
+  try {
+    const r = await rpc('v2_delete_staff_member', { organization_id: org, member_id: m.id });
+    const rutas = (r?.files || []).filter(Boolean);
+    if (rutas.length) { try { await supabase.storage.from(BUCKET).remove(rutas); } catch (_) { /* la ficha ya no está */ } }
+    cierraHoja(); msg(`${m.fullName} ya no está en el staff${r?.accessRemoved ? ' y su cuenta quedó sin acceso' : ''}.`, 'success'); await carga();
+  } catch (e) { if (out) out.textContent = e.message || 'No se pudo eliminar.'; }
 }
 
 async function guarda(m, cambios) {

@@ -60,13 +60,14 @@ async function abre(opts = {}) {
       v2_my_navigation: () => ['inicio', 'jugadores'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true })),
       v2_staff_board: () => tablero,
       v2_save_staff_member: () => { if (opts.sinGuardar) throw new Error('Could not find the function public.v2_save_staff_member'); return { id:'s-x' }; },
-      v2_quick_add_staff: prm => ({ staffId:'s-nuevo', name: prm.full_name })
+      v2_quick_add_staff: prm => ({ staffId:'s-nuevo', name: prm.full_name }),
+      v2_delete_staff_member: () => ({ accessRemoved:true, files:['organizations/o/staff/s-baja/foto-1.webp'] })
     };
     window.__fakeSupabase = {
       auth: { getSession: async () => ({ data: { session: { user: { id:'u1' } } } }), getUser: async () => ({ data: { user: { id:'u1' } } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
       rpc: async (n, prm) => { window.__llamadas.push({ n, prm: JSON.parse(JSON.stringify(prm || {})) }); try { return { data: R[n] ? R[n](prm) : null, error: null }; } catch (e) { return { data: null, error: { message: e.message } }; } },
       from: () => ({ select() { return this; }, eq() { return this; }, then(r) { return Promise.resolve({ data: [], error: null }).then(r); } }),
-      storage: { from: () => ({ createSignedUrls: async ps => ({ data: ps.map(x => ({ path: x, signedUrl: null, error: null })), error: null }), upload: async () => ({ data: {}, error: null }) }) },
+      storage: { from: () => ({ createSignedUrls: async ps => ({ data: ps.map(x => ({ path: x, signedUrl: null, error: null })), error: null }), upload: async () => ({ data: {}, error: null }), remove: async ps => { (window.__borrados = window.__borrados || []).push(...ps); return { data: [], error: null }; } }) },
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
   }, { opts, ORG, tablero: TABLERO(!!opts.editor) });
@@ -125,6 +126,29 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   const conCuenta = (await llamadas(p, 'v2_save_staff_member')).map(x => x.member).find(m => m.userId);
   revisa('7. un toque lo agrega con su cuenta y su puesto', conCuenta?.userId === 'u-zul' && conCuenta?.level === 'operacion', JSON.stringify(conCuenta));
   revisa('9. nada se sale a 390px', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  await p.close();
+}
+
+{ // 10. Eliminar a quien ya se dio de baja (h21): sólo Presidencia y sólo una baja
+  const p = await abre({ editor: true });
+  await p.click('.st-seg [data-ver="lista"]');
+  revisa('10. una baja ya no marca "Carta pendiente"', !/Carta pendiente/.test(await p.innerText('#stLista .st-tarjeta[data-id="s-baja"]')));
+  await p.click('#stLista .st-tarjeta[data-id="s-ana"]');
+  await p.waitForSelector('#fFicha', { timeout: 4000 }).catch(() => {});
+  revisa('10. alguien activo no tiene "Eliminar"', !(await p.$('#fEliminar')));
+  await p.click('#stCerrar');
+  await p.click('#stLista .st-tarjeta[data-id="s-baja"]');
+  await p.waitForSelector('#fEliminar', { timeout: 4000 }).catch(() => {});
+  revisa('10. la baja sí tiene "Eliminar del staff" y avisa que no se deshace', await p.isVisible('#fEliminar') && /No se puede deshacer/.test(await p.textContent('.st-eliminar-nota')));
+  await p.evaluate(() => { window.__pregunta = null; window.tosConfirm = async q => { window.__pregunta = q; return false; }; });
+  await p.click('#fEliminar'); await p.waitForTimeout(200);
+  revisa('10. pregunta antes y, si dices que no, no borra nada', /Carlos Baja/.test(await p.evaluate(() => window.__pregunta?.title || '')) && (await llamadas(p, 'v2_delete_staff_member')).length === 0);
+  await p.evaluate(() => { window.tosConfirm = async () => true; });
+  await p.click('#fEliminar'); await p.waitForTimeout(300);
+  const del = (await llamadas(p, 'v2_delete_staff_member'))[0] || {};
+  revisa('10. si confirmas, elimina esa ficha', del.member_id === 's-baja' && del.organization_id === ORG, JSON.stringify(del));
+  revisa('10. y suelta su foto de Storage', JSON.stringify(await p.evaluate(() => window.__borrados || [])) === '["organizations/o/staff/s-baja/foto-1.webp"]');
+  revisa('10. cierra la hoja y dice que ya no tiene acceso', await p.isHidden('#stHoja') && /ya no está en el staff y su cuenta quedó sin acceso/.test(await p.textContent('#stMensaje')));
   await p.close();
 }
 

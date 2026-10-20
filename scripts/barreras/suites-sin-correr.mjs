@@ -158,7 +158,9 @@ export default function comprobar() {
   // y tocar un día para agregar con la fecha puesta.
   // Sube a 49 por qa-humo-entrada.mjs: la entrada en iPhone, sin niebla gris
   // en la franja de la hora y con aire bajo ella.
-  const MAX_EXCLUIDAS = 49;
+  // Sube a 50 por qa-humo-costos.mjs: /costos público, calculadora de 1 a 3
+  // hijos, copiar la cotización y WhatsApp, en celular.
+  const MAX_EXCLUIDAS = 50;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

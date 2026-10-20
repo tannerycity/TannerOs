@@ -173,6 +173,7 @@ revisa('[entrada] sin escudo ni firma de Tannery', (await pg.$('.tc-escudo')) ==
 revisa('[entrada] la bajada es del club', /León Norte/.test(await pg.$eval('.tc-bajada', e => e.textContent).catch(() => '')));
 revisa('[entrada] abre "Tengo invitación"', await pg.$eval('#signUpTab', e => e.classList.contains('active')).catch(() => false));
 const salidas = await pg.$$eval('.tc-familias a', a => a.map(x => x.getAttribute('href')));
+revisa('[entrada] otro club no ve la puerta de Costos (son precios de Tannery)', !salidas.some(h => h.startsWith('/costos')), JSON.stringify(salidas));
 revisa('[entrada] las puertas llevan a portal, tienda, registro y bolsa de trabajo de SU club',
   JSON.stringify(salidas) === JSON.stringify(['/familias/?club=leon-norte', '/pedido/?club=leon-norte', '/registro/?club=leon-norte', '/trabaja/?club=leon-norte']), JSON.stringify(salidas));
 revisa('[entrada] con ?alta=1 el login de staff ya está abierto', await pg.isVisible('#authForm') && !(await pg.isVisible('.tc-puertas')));
@@ -183,9 +184,11 @@ revisa('[entrada] sin club, la tienda es la de Tannery', (await pg.getAttribute(
 await pg.setViewportSize({ width: 390, height: 844 });
 revisa('[entrada] el botón de tienda se ve en el teléfono y nada se sale', await pg.isVisible('.tc-familias a[data-familia="tienda"]')
   && await pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-// Las puertas (13/10/2026): cuatro puertas grandes y el login sólo al tocar Staff.
-revisa('[puertas] Familias, Tienda, Inscribe y Staff, en ese orden',
-  JSON.stringify(await pg.$$eval('.tc-puerta b', b => b.map(x => x.textContent))) === JSON.stringify(['Familias', 'Tienda', 'Inscribe a tu hijo', 'Staff']));
+// Las puertas (13/10/2026): puertas grandes y el login sólo al tocar Staff.
+// Costos (20/10/2026): precios y calculadora públicos, antes de Staff.
+revisa('[puertas] Familias, Tienda, Inscribe, Costos y Staff, en ese orden',
+  JSON.stringify(await pg.$$eval('.tc-puerta b', b => b.map(x => x.textContent))) === JSON.stringify(['Familias', 'Tienda', 'Inscribe a tu hijo', 'Costos', 'Staff']));
+revisa('[puertas] Costos lleva a /costos/ sin pedir sesión', (await pg.getAttribute('.tc-familias a[data-familia="costos"]', 'href')) === '/costos/');
 revisa('[puertas] el login no se ve hasta tocar Staff', !(await pg.isVisible('#authForm')));
 revisa('[puertas] "¿Quieres trabajar en Tannery?" lleva a la bolsa de trabajo', (await pg.getAttribute('.tc-trabaja', 'href')) === '/trabaja/');
 revisa('[puertas] sin el foquito verde', (await pg.$eval('.preview-pill', e => getComputedStyle(e, '::before').display)) === 'none');

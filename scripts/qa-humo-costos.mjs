@@ -84,9 +84,9 @@ const elige = (pg, name, value) => pg.click(`label.co-op:has(> input[name="${nam
   await pg.fill('#coFecha', '2026-10-19');
   await elige(pg, 'coCat0', 'baby');
   revisa('al cambiar a Baby pide los días y no deja un total viejo', !(await pg.$('#coTotal')) && await pg.isVisible('[name="coMod0"]'));
-  await elige(pg, 'coMod0', '1d');
+  await elige(pg, 'coMod0', 'baby-1');
   const uno = await total(pg);
-  await elige(pg, 'coMod0', '2d');
+  await elige(pg, 'coMod0', 'baby-2');
   const dos = await total(pg);
   revisa('Baby 1 día $1,200 y 2 días $1,275 (550 x 2/4 = 275)', uno === '$1,200' && dos === '$1,275', [uno, dos]);
 
@@ -119,10 +119,10 @@ const elige = (pg, name, value) => pg.click(`label.co-op:has(> input[name="${nam
   revisa('2 Tanners: sin paquete confirmado se cobra $1,600 + 2 inscripciones = $3,600', await total(pg) === '$3,600', await total(pg));
   revisa('y enseña el paquete de $1,500 como "por confirmar", sin sumarlo', /2 Tanners: \$1,500 al mes, por confirmar/.test(await pg.textContent('[data-paquete="referencia"]')));
   revisa('se marca como estimación', /Estimación/.test(await pg.textContent('.co-nota')));
-  await elige(pg, 'coCat1', 'baby'); await elige(pg, 'coMod1', '2d');
+  await elige(pg, 'coCat1', 'baby'); await elige(pg, 'coMod1', 'baby-2');
   revisa('Tanner + Baby: referencia de $1,200', /1 Tanner \+ 1 Baby Tanner: \$1,200/.test(await pg.textContent('[data-paquete="referencia"]')));
   await elige(pg, 'coN', '3');
-  revisa('al pasar a 3 se conservan los dos primeros', (await pg.isChecked('[name="coCat0"][value="tanner"]')) && (await pg.isChecked('[name="coMod1"][value="2d"]')));
+  revisa('al pasar a 3 se conservan los dos primeros', (await pg.isChecked('[name="coCat0"][value="tanner"]')) && (await pg.isChecked('[name="coMod1"][value="baby-2"]')));
   revisa('el tercero sin categoría: no hay total', !(await pg.$('#coTotal')));
   await elige(pg, 'coCat2', 'tanner');
   revisa('2 Tanners + 1 Baby: "Solicitar cotización"', /solicitar cotización/i.test(await pg.textContent('[data-paquete="sin_tarifa"]')));
@@ -136,9 +136,17 @@ const elige = (pg, name, value) => pg.click(`label.co-op:has(> input[name="${nam
 
 /* ===== Precios editados en Club (h22) y red caída ===== */
 {
-  const { pg, ctx, errs } = await abre(undefined, { tanner: { mensualidad: 850, inscripcion: 1200 }, baby: { mensualidad1d: 450 }, paquetes: { confirmado: true, t2: 1600 } });
+  const { pg, ctx, errs } = await abre(undefined, { categorias: [
+      { clave: 'baby', nombre: 'Baby Tanners', edades: 'De 3 a 6 años', inscripcion: 1000, opciones: [{ clave: 'baby-1', dias: 1, mensualidad: 450 }, { clave: 'baby-2', dias: 2, mensualidad: 550 }] },
+      { clave: 'tanner', nombre: 'Tanners', edades: 'De 6 a 12 años', inscripcion: 1200, opciones: [{ clave: 'tanner-3', dias: 3, mensualidad: 850 }] },
+      { clave: 'porteros', nombre: 'Porteros', edades: 'De 8 a 14 años', inscripcion: 500, opciones: [{ clave: 'porteros-1', dias: 1, mensualidad: 300 }] }],
+    paquetes: { confirmado: true, lista: [{ clave: 'paq-1', nombre: '2 Tanners', cantidades: { tanner: 2 }, mensualidad: 1600 }] } });
   const precios = await pg.textContent('.co-planes');
   revisa('[editables] la página enseña los precios guardados en Club', /\$850/.test(precios) && /\$1,200/.test(precios) && /\$450/.test(precios) && /\$550/.test(precios), precios);
+  revisa('[editables] una categoría nueva (Porteros) sale con su precio por clase', /Porteros/.test(precios) && /\$300/.test(precios) && /\$75 por clase/.test(precios), precios);
+  revisa('[editables] cada opción dice días y precio por clase (Tanners 3 días: $71)', /3 días por semana/.test(precios) && /\$71 por clase/.test(precios));
+  await elige(pg, 'coN', '1');
+  revisa('[editables] en la calculadora se puede elegir Porteros', (await pg.$$eval('[name="coCat0"]', i => i.map(x => x.value))).join() === 'baby,tanner,porteros');
   revisa('[editables] con paquetes confirmados ya no dice "Por confirmar"', !(await pg.isVisible('#coPaqAviso')) && (await pg.$$eval('.co-tabla .co-pill', p => p.length)) === 0);
   await elige(pg, 'coN', '2'); await elige(pg, 'coCat0', 'tanner'); await elige(pg, 'coCat1', 'tanner'); await elige(pg, 'coNueva', 'no');
   revisa('[editables] la calculadora cobra el paquete confirmado ($1,600)', await total(pg) === '$1,600', await total(pg));
@@ -155,7 +163,7 @@ const elige = (pg, name, value) => pg.click(`label.co-op:has(> input[name="${nam
 /* ===== Celular chico y escritorio ===== */
 for (const vp of [{ width: 320, height: 640 }, { width: 1280, height: 900 }]) {
   const { pg, ctx, errs } = await abre(vp);
-  await elige(pg, 'coN', '2'); await elige(pg, 'coCat0', 'baby'); await elige(pg, 'coMod0', '1d'); await elige(pg, 'coCat1', 'tanner'); await elige(pg, 'coNueva', 'si');
+  await elige(pg, 'coN', '2'); await elige(pg, 'coCat0', 'baby'); await elige(pg, 'coMod0', 'baby-1'); await elige(pg, 'coCat1', 'tanner'); await elige(pg, 'coNueva', 'si');
   const ancho = await pg.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   revisa(`sin scroll de lado a ${vp.width}px`, ancho <= 0, `sobran ${ancho}px`);
   revisa(`a ${vp.width}px el total se ve`, await pg.isVisible('#coTotal'));

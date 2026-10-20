@@ -85,26 +85,75 @@ $('notesForm').addEventListener('submit',async e=>{
 });
 try{await cargaIndicaciones();}catch(_){}
 
-// Costos públicos (h22, 20/10/2026): "¿dónde puedo editar los costos?". Lo
-// que se guarda aquí sale en /costos al momento; lo vacío usa el valor de
-// costos/tarifas.js, que es también lo que se ve en el formulario.
-const CAMPOS_COSTOS=[['cBaby1','baby','mensualidad1d'],['cBaby2','baby','mensualidad2d'],['cBabyIns','baby','inscripcion'],['cTanner','tanner','mensualidad'],['cTannerIns','tanner','inscripcion'],
-  ['cP_t1','paquetes','t1'],['cP_t2','paquetes','t2'],['cP_t3','paquetes','t3'],['cP_b2','paquetes','b2'],['cP_t1b1','paquetes','t1b1']];
+// Costos públicos (h22-h23, 20/10/2026): "¿dónde puedo editar los costos?"
+// y "como opción 1, opción 2: cuántos días y el costo". Categorías con sus
+// opciones y paquetes, todo con + Agregar. Lo que se guarda sale en /costos
+// al momento. El precio por clase sólo se muestra: mensualidad ÷ 4 ÷ días.
+let costos=null;
+const escC=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pesoC=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(n);
 function costosMsg(text='',type='error'){const el=$('costosMessage');el.textContent=text;el.dataset.type=type;el.classList.toggle('hidden',!text);}
+function porClaseTxt(o){const d=Number(o.dias),m=Number(o.mensualidad);return Number.isInteger(d)&&d>0&&String(o.mensualidad).trim()!==''&&m>=0?`= ${pesoC(Math.round(m/(d*4)))} por clase`:'';}
+function pintaCostos(){
+  const c=costos,ro=!canWrite?' disabled':'';
+  $('costosCats').innerHTML=c.categorias.map((cat,i)=>`<fieldset class="costos-grupo costos-cat" data-cat="${i}"><legend>Categoría ${i+1}</legend>
+    <label>Nombre<input data-f="nombre" maxlength="60" value="${escC(cat.nombre)}" placeholder="Tanners"${ro}></label>
+    <label>Edades<input data-f="edades" maxlength="60" value="${escC(cat.edades)}" placeholder="De 6 a 12 años"${ro}></label>
+    <label>Inscripción<input data-f="inscripcion" type="number" inputmode="numeric" min="0" step="1" value="${escC(cat.inscripcion)}" placeholder="1000"${ro}></label>
+    <div class="costos-ops">${cat.opciones.map((o,j)=>`<div class="costos-op" data-op="${j}"><span class="costos-op-n">Opción ${j+1}</span>
+      <label>Días por semana<input data-o="dias" type="number" inputmode="numeric" min="1" max="7" step="1" value="${escC(o.dias)}"${ro}></label>
+      <label>Precio al mes<input data-o="mensualidad" type="number" inputmode="numeric" min="0" step="1" value="${escC(o.mensualidad)}"${ro}></label>
+      <small class="costos-clase" data-clase>${porClaseTxt(o)}</small>
+      ${canWrite&&cat.opciones.length>1?`<button type="button" class="costos-quita" data-quita-op="${j}" aria-label="Quitar opción ${j+1}">Quitar</button>`:''}</div>`).join('')}</div>
+    ${canWrite?`<div class="costos-fila"><button type="button" class="costos-add" data-add-op>+ Agregar opción</button>${c.categorias.length>1?'<button type="button" class="costos-quita" data-quita-cat>Quitar categoría</button>':''}</div>`:''}
+  </fieldset>`).join('');
+  $('costosPaqs').innerHTML=c.paquetes.lista.map((x,k)=>`<div class="costos-paq" data-paq="${k}">
+    <label class="costos-paq-nombre">Nombre<input data-p="nombre" maxlength="60" value="${escC(x.nombre)}" placeholder="2 Tanners"${ro}></label>
+    ${c.categorias.map((cat,i)=>`<label class="costos-paq-n">${escC(cat.nombre||`Categoría ${i+1}`)}<input data-pc="${i}" type="number" inputmode="numeric" min="0" max="5" step="1" value="${escC(x.cantidades[i]??'')}" placeholder="0"${ro}></label>`).join('')}
+    <label>Precio al mes<input data-p="mensualidad" type="number" inputmode="numeric" min="0" step="1" value="${escC(x.mensualidad)}"${ro}></label>
+    ${canWrite?`<button type="button" class="costos-quita" data-quita-paq aria-label="Quitar paquete ${k+1}">Quitar</button>`:''}</div>`).join('')||'<p class="org-muted">Sin paquetes.</p>';
+  $('cIncluye').value=c.incluye;$('cPaqOk').checked=!!c.paquetes.confirmado;
+  if(!canWrite){['costosAddCat','costosAddPaq','cIncluye','cPaqOk'].forEach(id=>{$(id).disabled=true;});$('saveCostos').disabled=true;$('saveCostos').textContent='Solo lectura';}
+}
+$('costosForm').addEventListener('input',e=>{
+  const t=e.target,cat=t.closest('[data-cat]'),op=t.closest('[data-op]'),paq=t.closest('[data-paq]');
+  if(t.id==='cIncluye'){costos.incluye=t.value;return;}
+  if(t.id==='cPaqOk'){costos.paquetes.confirmado=t.checked;return;}
+  if(op&&t.dataset.o){const o=costos.categorias[+cat.dataset.cat].opciones[+op.dataset.op];o[t.dataset.o]=t.value;op.querySelector('[data-clase]').textContent=porClaseTxt(o);return;}
+  if(cat&&t.dataset.f){costos.categorias[+cat.dataset.cat][t.dataset.f]=t.value;
+    if(t.dataset.f==='nombre')document.querySelectorAll(`[data-pc="${cat.dataset.cat}"]`).forEach(inp=>{inp.parentElement.firstChild.textContent=t.value||`Categoría ${+cat.dataset.cat+1}`;});return;}
+  if(paq){const x=costos.paquetes.lista[+paq.dataset.paq];if(t.dataset.p)x[t.dataset.p]=t.value;else if(t.dataset.pc!=null)x.cantidades[t.dataset.pc]=t.value;}
+});
+$('costosForm').addEventListener('change',e=>{if(e.target.id==='cPaqOk')costos.paquetes.confirmado=e.target.checked;});
+$('costosForm').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||b.type==='submit'||!canWrite)return;
+  const cat=b.closest('[data-cat]'),i=cat?+cat.dataset.cat:-1;
+  if(b.id==='costosAddCat'){if(costos.categorias.length>=8){costosMsg('Hasta 8 categorías.');return;}costos.categorias.push({nombre:'',edades:'',inscripcion:'',opciones:[{dias:'',mensualidad:''}]});}
+  else if(b.id==='costosAddPaq'){if(costos.paquetes.lista.length>=12){costosMsg('Hasta 12 paquetes.');return;}costos.paquetes.lista.push({nombre:'',cantidades:{},mensualidad:''});}
+  else if(b.hasAttribute('data-add-op')){if(costos.categorias[i].opciones.length>=6){costosMsg('Hasta 6 opciones por categoría.');return;}costos.categorias[i].opciones.push({dias:'',mensualidad:''});}
+  else if(b.dataset.quitaOp!=null)costos.categorias[i].opciones.splice(+b.dataset.quitaOp,1);
+  else if(b.hasAttribute('data-quita-cat')){
+    costos.categorias.splice(i,1);
+    // Los paquetes cuentan por posición de categoría: se recorren las que siguen.
+    costos.paquetes.lista.forEach(x=>{const n={};for(const [k,v] of Object.entries(x.cantidades)){if(+k<i)n[k]=v;else if(+k>i)n[+k-1]=v;}x.cantidades=n;});
+  }
+  else if(b.hasAttribute('data-quita-paq'))costos.paquetes.lista.splice(+b.closest('[data-paq]').dataset.paq,1);
+  else return;
+  costosMsg();pintaCostos();
+});
 async function cargaCostos(){
   const [{TARIFAS,aplicaPrecios},guardados]=await Promise.all([import('/costos/tarifas.js'),rpc('v2_public_prices',{organization_id:org})]);
-  const t=aplicaPrecios(TARIFAS,guardados),b=t.categorias.baby,tn=t.categorias.tanner,paq=k=>t.paquetes.lista.find(x=>x.clave===k)?.mensualidad??'';
-  const val={cBaby1:b.modalidades.find(m=>m.clave==='1d').mensualidad,cBaby2:b.modalidades.find(m=>m.clave==='2d').mensualidad,cBabyIns:b.inscripcion,
-    cTanner:tn.modalidades[0].mensualidad,cTannerIns:tn.inscripcion,cP_t1:paq('t1'),cP_t2:paq('t2'),cP_t3:paq('t3'),cP_b2:paq('b2'),cP_t1b1:paq('t1b1')};
-  for(const [id,v] of Object.entries(val))$(id).value=v;
-  $('cIncluye').value=t.incluyeInscripcion;$('cPaqOk').checked=!!t.paquetes.confirmado;
-  if(!canWrite){[...$('costosForm').elements].forEach(el=>{el.disabled=true;});$('saveCostos').textContent='Solo lectura';}
+  const t=aplicaPrecios(TARIFAS,guardados);
+  costos={categorias:t.categorias.map(c=>({clave:c.clave,nombre:c.nombre,edades:c.edades,inscripcion:String(c.inscripcion),opciones:c.opciones.map(o=>({dias:String(o.dias),mensualidad:String(o.mensualidad)}))})),
+    paquetes:{confirmado:!!t.paquetes.confirmado,lista:t.paquetes.lista.map(x=>({nombre:x.nombre,mensualidad:String(x.mensualidad),
+      cantidades:Object.fromEntries(Object.entries(x.cantidades).map(([k,n])=>[t.categorias.findIndex(c=>c.clave===k),String(n)]).filter(([i])=>i>=0))}))},
+    incluye:t.incluyeInscripcion};
+  pintaCostos();
 }
 $('costosForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!canWrite)return;costosMsg();
-  const valores={confirmado:$('cPaqOk').checked,incluye:$('cIncluye').value};CAMPOS_COSTOS.forEach(([id])=>{valores[id]=$(id).value;});
   const {preciosDelFormulario}=await import('/costos/tarifas.js');
-  const r=preciosDelFormulario(valores,CAMPOS_COSTOS);if(r.error){costosMsg(r.error);return;}
+  const r=preciosDelFormulario(costos);if(r.error){costosMsg(r.error);return;}
   const btn=$('saveCostos');btn.disabled=true;
   try{await rpc('v2_update_public_prices',{organization_id:org,prices:r.precios});await cargaCostos();costosMsg('Costos guardados. Ya salen en /costos.','success');}
   catch(err){costosMsg(err.message||'No se pudo guardar.');}

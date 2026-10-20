@@ -4,8 +4,22 @@
 .pay-metodos legend{font-size:13px;font-weight:800;padding:0 4px}
 .pay-metodos label{display:flex;gap:6px;align-items:center;font-weight:700}
 
-/* Costos públicos (h22) */
-.costos-grupo{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:0;padding:12px;border:1px solid #e2e8ea;border-radius:14px}
+/* Costos públicos (h22-h23) */
+.costos-cats{display:grid;gap:14px}
+.costos-grupo{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:0;padding:12px;border:1px solid #e2e8ea;border-radius:14px;min-width:0}
 .costos-grupo legend{padding:0 6px;font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#506169}
+.costos-ops{grid-column:1/-1;display:grid;gap:8px}
+.costos-op,.costos-paq{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;align-items:end;padding:10px;border-radius:12px;background:#f6f8f8}
+.costos-op-n{grid-column:1/-1;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#087d8e}
+.costos-clase{align-self:center;font-weight:700;color:#1e7a45}
+.costos-paqs{grid-template-columns:1fr}
+#costosPaqs{display:grid;gap:8px}
+.costos-paq-nombre{grid-column:1/-1}
+.costos-fila{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+.costos-add{min-height:44px;padding:0 16px;border:1px dashed #9cc7cc;border-radius:12px;background:#f2f9f9;color:#087d8e;font:inherit;font-weight:800;cursor:pointer;justify-self:start}
+.costos-quita{min-height:44px;padding:0 14px;border:1px solid #e7b9b4;border-radius:12px;background:#fff;color:#a92a21;font:inherit;font-weight:700;cursor:pointer}
 .costos-check{grid-column:1/-1;display:flex!important;flex-direction:row!important;align-items:flex-start;gap:10px;font-weight:600}
 .costos-check input{width:20px;height:20px;min-height:0;flex:0 0 auto;margin-top:2px}
+/* polish.css pinta todo botón lleno; aquí Quitar es secundario y Agregar, punteado. */
+.org-form .costos-quita{background:#fff!important;color:#a92a21!important;border:1px solid #e7b9b4!important;box-shadow:none!important}
+.org-form .costos-add{background:#f2f9f9!important;color:#087d8e!important;border:1px dashed #9cc7cc!important;box-shadow:none!important}

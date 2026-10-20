@@ -10,6 +10,8 @@
  * Pruebas: scripts/qa-costos-calculadora.mjs.
  */
 
+import { nombreOpcion, porClase } from './tarifas.js';
+
 const peso = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 export const dinero = n => peso.format(Math.round(Number(n) || 0));
 
@@ -38,30 +40,29 @@ export function proporcional(mensualidad, dia, prorrateo) {
   return Math.round(mensualidad * semanasACobrar(dia, prorrateo) / prorrateo.base);
 }
 
+// La categoría y la opción (días por semana) que eligió la familia.
 export function modalidadDe(hijo, tarifas) {
-  const cat = tarifas.categorias[hijo?.categoria];
+  const cat = tarifas.categorias.find(c => c.clave === hijo?.categoria);
   if (!cat) return null;
-  const mod = cat.modalidades.length === 1 ? cat.modalidades[0] : cat.modalidades.find(m => m.clave === hijo.modalidad);
-  return mod ? { categoria: cat, modalidad: mod } : null;
+  const op = cat.opciones.length === 1 ? cat.opciones[0] : cat.opciones.find(o => o.clave === hijo.opcion);
+  return op ? { categoria: cat, opcion: op } : null;
 }
 
-/* El paquete familiar de esta combinación:
-     no_aplica   un solo hijo (no hay paquete que aplicar);
-     aplica      existe, está confirmado y la modalidad coincide: se cobra;
-     referencia  existe pero falta confirmarlo (o no dice la modalidad Baby):
-                 se enseña, no se cobra;
+/* El paquete familiar de esta combinación (cuántos alumnos de cada categoría):
+     no_aplica   un solo hijo, o el paquete no sale más barato que sin él;
+     aplica      existe, está confirmado y conviene: se cobra;
+     referencia  existe pero falta confirmarlo: se enseña, no se cobra;
      sin_tarifa  no existe para esta combinación: "Solicitar cotización". */
-export function paqueteDe(hijos, tarifas) {
+export function paqueteDe(hijos, tarifas, sumaIndividual = Infinity) {
   if (hijos.length < 2) return { estado: 'no_aplica', paquete: null };
-  const tanner = hijos.filter(h => h.categoria === 'tanner').length;
-  const baby = hijos.filter(h => h.categoria === 'baby').length;
-  const paquete = tarifas.paquetes.lista.find(p => p.tanner === tanner && p.baby === baby) || null;
+  const cuenta = {};
+  hijos.forEach(h => { cuenta[h.categoria] = (cuenta[h.categoria] || 0) + 1; });
+  const igual = p => { const k = new Set([...Object.keys(p.cantidades), ...Object.keys(cuenta)]);
+    return [...k].every(c => (p.cantidades[c] || 0) === (cuenta[c] || 0)); };
+  const paquete = tarifas.paquetes.lista.find(igual) || null;
   if (!paquete) return { estado: 'sin_tarifa', paquete: null };
-  const modalidadOk = !paquete.baby || (paquete.babyModalidad != null &&
-    hijos.filter(h => h.categoria === 'baby').every(h => h.modalidad === paquete.babyModalidad));
-  if (!tarifas.paquetes.confirmado || !modalidadOk) {
-    return { estado: 'referencia', paquete, motivo: !tarifas.paquetes.confirmado ? 'por_confirmar' : 'modalidad' };
-  }
+  if (paquete.mensualidad >= sumaIndividual) return { estado: 'no_aplica', paquete: null, motivo: 'no_conviene' };
+  if (!tarifas.paquetes.confirmado) return { estado: 'referencia', paquete, motivo: 'por_confirmar' };
   return { estado: 'aplica', paquete };
 }
 
@@ -73,9 +74,9 @@ export function cotiza({ hijos = [], fechaIngreso, nuevaInscripcion } = {}, tari
   const detalle = [];
   for (const [i, h] of hijos.entries()) {
     const m = modalidadDe(h, tarifas);
-    if (!m) return { error: h?.categoria === 'baby' ? `Elige cuántos días por semana va el hijo ${i + 1}.` : `Elige la categoría del hijo ${i + 1}.` };
-    detalle.push({ n: i + 1, categoria: m.categoria.nombre, modalidad: m.categoria.modalidades.length > 1 ? m.modalidad.nombre : null,
-      mensualidad: m.modalidad.mensualidad, inscripcion: m.categoria.inscripcion });
+    if (!m) return { error: tarifas.categorias.some(c => c.clave === h?.categoria) ? `Elige cuántos días por semana va el hijo ${i + 1}.` : `Elige la categoría del hijo ${i + 1}.` };
+    detalle.push({ n: i + 1, categoria: m.categoria.nombre, modalidad: nombreOpcion(m.opcion), dias: m.opcion.dias,
+      mensualidad: m.opcion.mensualidad, porClase: porClase(m.opcion), inscripcion: m.categoria.inscripcion });
   }
   if (typeof nuevaInscripcion !== 'boolean') return { error: 'Dinos si es de nuevo ingreso o si ya está inscrito.' };
   // El proporcional es SÓLO para nuevo ingreso (Presidencia, 20/10/2026): quien
@@ -85,7 +86,7 @@ export function cotiza({ hijos = [], fechaIngreso, nuevaInscripcion } = {}, tari
   if (nuevaInscripcion && !f) return { error: 'Elige la fecha de ingreso.' };
   const semanas = f ? semanasACobrar(f.dia, pr) : pr.base;
   const sumaIndividual = detalle.reduce((s, d) => s + d.mensualidad, 0);
-  const paq = paqueteDe(hijos, tarifas);
+  const paq = paqueteDe(hijos, tarifas, sumaIndividual);
   const mensualidadRegular = paq.estado === 'aplica' ? paq.paquete.mensualidad : sumaIndividual;
 
   const parte = m => Math.round(m * semanas / pr.base);
@@ -109,7 +110,7 @@ export function textoCotizacion(c, tarifas) {
   const l = [];
   l.push('Mi cotización Tannery City');
   l.push(c.nuevaInscripcion ? `Nuevo ingreso. Fecha de ingreso: ${fechaCorta(c.fecha)}` : 'Alumno ya inscrito');
-  c.detalle.forEach(d => l.push(`Hijo ${d.n}: ${d.categoria}${d.modalidad ? `, ${d.modalidad}` : ''} (${dinero(d.mensualidad)} al mes)`));
+  c.detalle.forEach(d => l.push(`Hijo ${d.n}: ${d.categoria}, ${d.modalidad} (${dinero(d.mensualidad)} al mes)`));
   l.push('');
   l.push(c.fecha ? `Mensualidad de ${mesDe(c.fecha)}${c.completo ? '' : ` (${c.semanas} de ${c.base} semanas)`}: ${dinero(c.proporcionalIndividual)}`
     : `Mensualidad completa: ${dinero(c.proporcionalIndividual)}`);

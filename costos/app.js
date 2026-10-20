@@ -2,7 +2,7 @@
  * Pública, sin sesión y sin pedirle nada al servidor: los precios viven en
  * costos/tarifas.js y las cuentas en costos/calculo.js. Esta capa sólo pinta
  * y escucha. */
-import { TARIFAS, aplicaPrecios } from '/costos/tarifas.js';
+import { TARIFAS, aplicaPrecios, nombreOpcion, porClase } from '/costos/tarifas.js';
 import { cotiza, dinero, textoCotizacion, ligaWhatsApp, fechaLarga, fechaCorta, mesDe, mesSiguiente, leeFecha } from '/costos/calculo.js';
 
 const $ = id => document.getElementById(id);
@@ -11,12 +11,14 @@ let T = TARIFAS, CAT = T.categorias;
 
 const hoyISO = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 const estado = { n: 0, hijos: [], fecha: hoyISO(), nueva: null };
-const ajustaHijos = n => { estado.n = n; estado.hijos = Array.from({ length: n }, (_, i) => estado.hijos[i] || { categoria: null, modalidad: null }); };
+const ajustaHijos = n => { estado.n = n; estado.hijos = Array.from({ length: n }, (_, i) => estado.hijos[i] || { categoria: null, opcion: null }); };
+const catDe = clave => CAT.find(c => c.clave === clave);
 
 /* ---------- Precios ---------- */
+// Cada opción: días por semana, mensualidad y el precio por clase (calculado).
 function tarjetaCategoria(c) {
-  const filas = c.modalidades.map(m => `<tr><th scope="row">${esc(c.modalidades.length > 1 ? `Mensualidad, ${m.nombre}` : 'Mensualidad')}</th><td>${dinero(m.mensualidad)}</td></tr>`).join('');
-  return `<article class="co-plan" data-plan="${c.clave}"><header><h3 class="cond">${esc(c.nombre)}</h3><small>${esc(c.edades)}</small></header>
+  const filas = c.opciones.map(o => `<tr><th scope="row">${esc(nombreOpcion(o))}<small>${dinero(porClase(o))} por clase</small></th><td>${dinero(o.mensualidad)}<small>al mes</small></td></tr>`).join('');
+  return `<article class="co-plan" data-plan="${esc(c.clave)}"><header><h3 class="cond">${esc(c.nombre)}</h3><small>${esc(c.edades)}</small></header>
     <table><tbody>${filas}<tr class="co-insc"><th scope="row">Inscripción</th><td>${dinero(c.inscripcion)}</td></tr></tbody></table>
     <p class="co-incluye">La inscripción incluye ${esc(T.incluyeInscripcion.toLowerCase())}.</p></article>`;
 }
@@ -35,11 +37,11 @@ function pintaHijos() {
   const box = $('coHijos');
   if (!estado.n) { box.innerHTML = ''; return; }
   box.innerHTML = estado.hijos.map((h, i) => {
-    const baby = CAT.baby, tanner = CAT.tanner;
-    const mods = h.categoria === 'baby' ? `<fieldset class="co-sub"><legend>¿Cuántos días por semana?</legend><div class="co-ops dos">${baby.modalidades.map(m => opcion(`coMod${i}`, m.clave, m.nombre, `${dinero(m.mensualidad)} al mes`, h.modalidad === m.clave)).join('')}</div></fieldset>` : '';
+    const cat = catDe(h.categoria);
+    const mods = cat && cat.opciones.length > 1 ? `<fieldset class="co-sub"><legend>¿Cuántos días por semana?</legend><div class="co-ops dos">${cat.opciones.map(o => opcion(`coMod${i}`, o.clave, nombreOpcion(o), `${dinero(o.mensualidad)} al mes · ${dinero(porClase(o))} por clase`, h.opcion === o.clave)).join('')}</div></fieldset>` : '';
+    const sub = c => [c.edades, c.opciones.length === 1 ? `${nombreOpcion(c.opciones[0])} · ${dinero(c.opciones[0].mensualidad)} al mes` : ''].filter(Boolean).join(' · ');
     return `<fieldset class="co-hijo" data-hijo="${i}"><legend>${estado.n > 1 ? `Hijo ${i + 1}` : 'Tu hijo'}</legend><div class="co-ops dos">
-      ${opcion(`coCat${i}`, 'baby', baby.nombre, baby.edades, h.categoria === 'baby')}
-      ${opcion(`coCat${i}`, 'tanner', tanner.nombre, `${tanner.edades} · ${dinero(tanner.modalidades[0].mensualidad)} al mes`, h.categoria === 'tanner')}
+      ${CAT.map(c => opcion(`coCat${i}`, esc(c.clave), esc(c.nombre), esc(sub(c)), h.categoria === c.clave)).join('')}
     </div>${mods}</fieldset>`;
   }).join('');
 }
@@ -51,7 +53,7 @@ function calculadora() {
       <fieldset class="co-paso"><legend><i>1</i>¿Cuántos hijos quieres inscribir?</legend><div class="co-ops tres">${nums.map(n => opcion('coN', n, n === 1 ? '1 hijo' : `${n} hijos`, '', estado.n === n)).join('')}</div></fieldset>
       <fieldset class="co-paso" id="coPaso2"><legend><i>2</i>Elige la categoría</legend><div id="coHijos"><p class="co-pista">Primero dinos cuántos hijos.</p></div></fieldset>
       <fieldset class="co-paso"><legend><i>3</i>¿Es de nuevo ingreso?</legend><div class="co-ops dos">
-        ${opcion('coNueva', 'si', 'Sí, nuevo ingreso', `Primer mes proporcional + inscripción de ${dinero(CAT.tanner.inscripcion)} por alumno`, estado.nueva === true)}
+        ${opcion('coNueva', 'si', 'Sí, nuevo ingreso', `Primer mes proporcional + inscripción${new Set(CAT.map(c => c.inscripcion)).size === 1 ? ` de ${dinero(CAT[0].inscripcion)}` : ''} por alumno`, estado.nueva === true)}
         ${opcion('coNueva', 'no', 'No, ya está inscrito', 'Mensualidad completa', estado.nueva === false)}
       </div></fieldset>
       <div class="co-paso${estado.nueva === true ? '' : ' hidden'}" id="coPasoFecha"><label class="co-fecha" for="coFecha"><span class="co-leyenda"><i>4</i>Fecha de ingreso</span><input id="coFecha" type="date" value="${estado.fecha}" required></label><p class="co-pista" id="coFechaTxt"></p></div>
@@ -81,7 +83,7 @@ function pintaResultado() {
     : c.paquete.estado === 'sin_tarifa'
       ? `<p class="co-nota-paq" data-paquete="sin_tarifa"><b>Paquete familiar: solicitar cotización.</b> Esta combinación no tiene paquete publicado; abajo está el precio sin paquete.</p>` : '';
   box.innerHTML = `<article class="co-cotiza"><header><p class="co-eyebrow">Tu cotización Tannery City</p><p class="co-fecha-r">${c.fecha ? `Nuevo ingreso · fecha de ingreso: <b>${fechaCorta(c.fecha)}</b>` : '<b>Alumno ya inscrito</b>'}</p></header>
-    <ul class="co-hijos-r">${c.detalle.map(d => `<li><span>${estado.n > 1 ? `Hijo ${d.n}: ` : ''}${esc(d.categoria)}${d.modalidad ? `, ${esc(d.modalidad)}` : ''}</span><b>${dinero(d.mensualidad)}/mes</b></li>`).join('')}</ul>
+    <ul class="co-hijos-r">${c.detalle.map(d => `<li><span>${estado.n > 1 ? `Hijo ${d.n}: ` : ''}${esc(d.categoria)}, ${esc(d.modalidad)}</span><b>${dinero(d.mensualidad)}/mes</b></li>`).join('')}</ul>
     ${paq}
     <table class="co-desglose"><thead><tr><th scope="col">Concepto</th><th scope="col">Importe</th></tr></thead><tbody>
     ${filas.map(([a, b, v]) => `<tr><th scope="row">${esc(a)}<small>${esc(b)}</small></th><td>${v}</td></tr>`).join('')}
@@ -119,7 +121,7 @@ function pinta() {
       <a class="co-cta cond" href="#calculadora">Calcular mi pago</a></header>
     <main class="co-main">
       <section class="co-sec" aria-labelledby="coPreciosT"><p class="co-eyebrow">Mensualidades</p><h2 id="coPreciosT" class="co-h2 cond">Precios</h2>
-        <div class="co-planes">${Object.values(CAT).map(tarjetaCategoria).join('')}</div>
+        <div class="co-planes">${CAT.map(tarjetaCategoria).join('')}</div>
         <p class="co-importante claro" id="coImportante">${esc(T.notaProporcional)}</p></section>
       ${tablaPaquetes()}
       ${calculadora()}
@@ -131,14 +133,14 @@ function pinta() {
     const t = e.target, name = t.name || '';
     if (name === 'coN') { ajustaHijos(Number(t.value)); pintaHijos(); }
     else if (name.startsWith('coCat')) {
-      const h = estado.hijos[Number(name.slice(5))];
-      h.categoria = t.value; h.modalidad = t.value === 'baby' ? h.modalidad : null;
+      const h = estado.hijos[Number(name.slice(5))], cat = catDe(t.value);
+      // Con una sola opción ya está elegida; con varias, se piden los días.
+      h.categoria = t.value; h.opcion = cat?.opciones.length === 1 ? cat.opciones[0].clave : (cat?.opciones.some(o => o.clave === h.opcion) ? h.opcion : null);
       pintaHijos();
-      // Al elegir Baby, el foco va a los días: el siguiente paso obvio.
-      if (t.value === 'baby') form.querySelector(`[name="coMod${name.slice(5)}"]`)?.focus();
+      if (cat?.opciones.length > 1) form.querySelector(`[name="coMod${name.slice(5)}"]`)?.focus();
       else form.querySelector(`[name="${name}"][value="${t.value}"]`)?.focus();
     }
-    else if (name.startsWith('coMod')) estado.hijos[Number(name.slice(5))].modalidad = t.value;
+    else if (name.startsWith('coMod')) estado.hijos[Number(name.slice(5))].opcion = t.value;
     else if (name === 'coNueva') estado.nueva = t.value === 'si';
     pintaResultado();
   });

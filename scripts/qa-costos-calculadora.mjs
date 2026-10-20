@@ -6,21 +6,21 @@
  *     cobra TannerOS (app.prorated_monthly_fee);
  *   · uno, dos y tres hijos; Baby 1 y 2 días; Baby + Tanner;
  *   · paquetes: por confirmar (no se cobran), confirmados (sí), sin tarifa
- *     ("Solicitar cotización") y Baby sin modalidad definida;
+ *     ("Solicitar cotización") y paquetes que salen más caros que sin paquete;
  *   · inscripción nueva contra alumno ya inscrito;
  *   · errores: nada de números si falta una respuesta;
  *   · moneda mexicana, texto para copiar y liga de WhatsApp;
  *   · que ningún precio esté escrito fuera de la configuración central.
  */
 import fs from 'node:fs';
-import { TARIFAS, aplicaPrecios, preciosDelFormulario } from '../costos/tarifas.js';
+import { TARIFAS, aplicaPrecios, preciosDelFormulario, porClase, nombreOpcion } from '../costos/tarifas.js';
 import { cotiza, dinero, semanasACobrar, proporcional, paqueteDe, leeFecha, textoCotizacion, ligaWhatsApp } from '../costos/calculo.js';
 
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle !== undefined ? `\n   ${JSON.stringify(detalle)}` : ''}`); } };
 const T = TARIFAS;
 const conPaquetes = { ...T, paquetes: { ...T.paquetes, confirmado: true } };
-const TAN = { categoria: 'tanner' }, B1 = { categoria: 'baby', modalidad: '1d' }, B2 = { categoria: 'baby', modalidad: '2d' };
+const TAN = { categoria: 'tanner' }, B1 = { categoria: 'baby', opcion: 'baby-1' }, B2 = { categoria: 'baby', opcion: 'baby-2' };
 const q = (hijos, fecha, nueva = true, t = T) => cotiza({ hijos, fechaIngreso: fecha, nuevaInscripcion: nueva }, t);
 
 /* Prorrateo: la regla de TannerOS */
@@ -86,9 +86,11 @@ revisa('se redondea al peso (550 x 3/4 = 412.5 → 413)', proporcional(550, 10, 
   const t3 = q([TAN, TAN, TAN], '2026-10-01', false, conPaquetes);
   revisa('confirmado: 3 Tanners $2,000 sin inscripción', t3.primerPago === 2000 && t3.ajusteFamiliar === -400, t3);
   const mix = q([TAN, B2], '2026-10-01', true, conPaquetes);
-  revisa('aunque se confirme, un paquete con Baby sin modalidad definida no se cobra', mix.paquete.estado === 'referencia' && mix.paquete.motivo === 'modalidad' && mix.mensualidadRegular === 1350, mix.paquete);
-  const def = { ...conPaquetes, paquetes: { ...conPaquetes.paquetes, lista: conPaquetes.paquetes.lista.map(p => p.clave === 't1b1' ? { ...p, babyModalidad: '1d' } : p) } };
-  revisa('con modalidad definida (1 día) sí se cobra si coincide', paqueteDe([TAN, B1], def).estado === 'aplica' && paqueteDe([TAN, B2], def).estado === 'referencia');
+  revisa('confirmado: Tanner + Baby 2 días ($1,350 sin paquete) cobra el paquete de $1,200', mix.paquete.estado === 'aplica' && mix.mensualidadRegular === 1200, mix.paquete);
+  // Un paquete nunca cobra más que sin paquete (antes había que adivinar los días de Baby).
+  revisa('Tanner + Baby 1 día ($1,200 sin paquete): el paquete no conviene y no se ofrece', paqueteDe([TAN, B1], conPaquetes, 1200).estado === 'no_aplica' && q([TAN, B1], '2026-10-01', false, conPaquetes).mensualidadRegular === 1200);
+  revisa('2 Baby de 1 día ($800) no pagan el paquete de $1,000', q([B1, B1], '2026-10-01', false, conPaquetes).mensualidadRegular === 800 && q([B1, B1], '2026-10-01', false, conPaquetes).paquete.estado === 'no_aplica');
+  revisa('2 Baby de 2 días ($1,100) sí bajan a $1,000', q([B2, B2], '2026-10-01', false, conPaquetes).mensualidadRegular === 1000);
   revisa('no se suma ningún descuento que no esté en la configuración', q([TAN, TAN], '2026-10-01', true, T).ajusteFamiliar === 0);
 }
 
@@ -104,10 +106,10 @@ revisa('fecha basura', leeFecha('19/10/2026') === null && leeFecha('2026-13-01')
 /* Moneda, texto y WhatsApp */
 revisa('moneda mexicana sin centavos', dinero(1800) === '$1,800' && dinero(0) === '$0' && dinero(-50) === '-$50' && dinero(12345) === '$12,345', [dinero(1800), dinero(-50)]);
 {
-  const c = q([TAN, B1], '2026-10-19');
+  const c = q([TAN, B2], '2026-10-19');
   const txt = textoCotizacion(c, T);
-  revisa('el texto para copiar trae fecha, hijos, conceptos y totales', /19\/10\/2026/.test(txt) && /Hijo 1: Tanners/.test(txt) && /Hijo 2: Baby Tanners, 1 día por semana/.test(txt)
-    && /Inscripción \(2 alumnos\): \$2,000/.test(txt) && /Total del primer pago: \$2,600 MXN/.test(txt) && /noviembre 2026: \$1,200 MXN/.test(txt) && /por confirmar/.test(txt) && /Estimación/.test(txt), txt);
+  revisa('el texto para copiar trae fecha, hijos, conceptos y totales', /19\/10\/2026/.test(txt) && /Hijo 1: Tanners, 3 días por semana/.test(txt) && /Hijo 2: Baby Tanners, 2 días por semana/.test(txt)
+    && /Inscripción \(2 alumnos\): \$2,000/.test(txt) && /Total del primer pago: \$2,675 MXN/.test(txt) && /noviembre 2026: \$1,350 MXN/.test(txt) && /por confirmar/.test(txt) && /Estimación/.test(txt), txt);
   const wa = ligaWhatsApp(txt, T, 2);
   revisa('WhatsApp al número del club con la cotización incluida', wa.startsWith('https://wa.me/524792651338?text=') && decodeURIComponent(wa.split('text=')[1]).includes('Total del primer pago') && /mis hijos/.test(decodeURIComponent(wa)), wa.slice(0, 80));
   const txtYa = textoCotizacion(q([TAN], '', false), T);
@@ -122,29 +124,54 @@ for (const f of ['costos/app.js', 'costos/calculo.js']) {
   const sueltos = [...src.matchAll(/(?<![\w.])(400|550|800|1000|1200|1500|2000)(?![\w.])/g)].map(m => m[1]);
   revisa(`${f} no escribe precios a mano`, sueltos.length === 0, sueltos);
 }
-revisa('cada categoría y paquete sale de la configuración', Object.keys(T.categorias).join() === 'baby,tanner' && T.paquetes.lista.length === 5 && T.paquetes.confirmado === false);
+revisa('cada categoría y paquete sale de la configuración', T.categorias.map(c => c.clave).join() === 'baby,tanner' && T.paquetes.lista.length === 5 && T.paquetes.confirmado === false);
+revisa('precio por clase: mensualidad ÷ 4 semanas ÷ días', porClase({ dias: 1, mensualidad: 400 }) === 100 && porClase({ dias: 2, mensualidad: 550 }) === 69 && porClase({ dias: 3, mensualidad: 800 }) === 67);
+revisa('el nombre de la opción', nombreOpcion({ dias: 1 }) === '1 día por semana' && nombreOpcion({ dias: 3 }) === '3 días por semana');
 
-/* Precios editados en Club › Costos públicos (h22) */
+/* Precios editados en Club › Costos públicos (h22-h23): listas */
 {
-  const g = { baby: { mensualidad1d: 450, mensualidad2d: 600, inscripcion: 1100 }, tanner: { mensualidad: 850, inscripcion: 1200 },
-    paquetes: { confirmado: true, t2: 1600 }, incluyeInscripcion: 'Seguro, gafete y playera' };
+  const g = { categorias: [
+      { clave: 'baby', nombre: 'Baby Tanners', edades: '3 a 6', inscripcion: 1100, opciones: [{ clave: 'baby-1', dias: 1, mensualidad: 450 }] },
+      { clave: 'porteros', nombre: 'Porteros', edades: '', inscripcion: 500, opciones: [{ clave: 'porteros-1', dias: 1, mensualidad: 300 }, { clave: 'porteros-2', dias: 2, mensualidad: 500 }] }],
+    paquetes: { confirmado: true, lista: [{ clave: 'paq-1', nombre: '2 Porteros', cantidades: { porteros: 2 }, mensualidad: 500 }] }, incluyeInscripcion: 'Seguro y playera' };
   const t = aplicaPrecios(T, g);
-  revisa('lo guardado pisa precios, inscripción, paquetes y lo que incluye',
-    t.categorias.baby.modalidades[0].mensualidad === 450 && t.categorias.baby.modalidades[1].mensualidad === 600 && t.categorias.baby.inscripcion === 1100
-    && t.categorias.tanner.modalidades[0].mensualidad === 850 && t.categorias.tanner.inscripcion === 1200
-    && t.paquetes.confirmado === true && t.paquetes.lista.find(x => x.clave === 't2').mensualidad === 1600 && t.incluyeInscripcion === 'Seguro, gafete y playera');
-  revisa('lo que no se guardó se queda como en el archivo', t.paquetes.lista.find(x => x.clave === 't3').mensualidad === 2000);
-  revisa('no toca la configuración original', T.categorias.tanner.modalidades[0].mensualidad === 800 && T.paquetes.confirmado === false);
-  revisa('la calculadora usa los precios guardados', cotiza({ hijos: [TAN], nuevaInscripcion: false }, t).primerPago === 850);
-  revisa('con paquete confirmado desde Club, 2 Tanners cobran $1,600', cotiza({ hijos: [TAN, TAN], nuevaInscripcion: false }, t).mensualidadRegular === 1600);
-  const raro = aplicaPrecios(T, { baby: { mensualidad1d: -5, mensualidad2d: '700', inscripcion: 1.5 }, tanner: { mensualidad: 200000 }, paquetes: { confirmado: 'si', t1: null } });
-  revisa('un dato mal guardado (negativo, texto, decimales, gigante) se ignora', raro.categorias.baby.modalidades[0].mensualidad === 400 && raro.categorias.baby.modalidades[1].mensualidad === 550
-    && raro.categorias.baby.inscripcion === 1000 && raro.categorias.tanner.modalidades[0].mensualidad === 800 && raro.paquetes.confirmado === false);
-  revisa('sin nada guardado (null) quedan los del archivo', JSON.stringify(aplicaPrecios(T, null)) === JSON.stringify(T));
-  const CAMPOS = [['a', 'baby', 'mensualidad1d'], ['b', 'tanner', 'mensualidad'], ['c', 'paquetes', 't2']];
-  const f = preciosDelFormulario({ a: '450', b: ' 850 ', c: '', confirmado: true, incluye: '  Seguro  ' }, CAMPOS);
-  revisa('el formulario manda pesos enteros y deja fuera lo vacío', JSON.stringify(f.precios) === JSON.stringify({ baby: { mensualidad1d: 450 }, tanner: { mensualidad: 850 }, paquetes: { confirmado: true }, incluyeInscripcion: 'Seguro' }), f);
-  revisa('el formulario rechaza decimales y negativos', !!preciosDelFormulario({ a: '450.5' }, CAMPOS).error && !!preciosDelFormulario({ b: '-1' }, CAMPOS).error && !!preciosDelFormulario({ c: 'mil' }, CAMPOS).error);
+  revisa('lo guardado reemplaza categorías, opciones, paquetes y lo que incluye',
+    t.categorias.map(c => c.clave).join() === 'baby,porteros' && t.categorias[1].opciones.length === 2 && t.categorias[0].inscripcion === 1100
+    && t.paquetes.lista.length === 1 && t.paquetes.confirmado === true && t.incluyeInscripcion === 'Seguro y playera');
+  revisa('no toca la configuración original', T.categorias[1].opciones[0].mensualidad === 800 && T.paquetes.confirmado === false);
+  revisa('la calculadora usa una categoría nueva (Porteros 2 días)', cotiza({ hijos: [{ categoria: 'porteros', opcion: 'porteros-2' }], nuevaInscripcion: false }, t).primerPago === 500);
+  revisa('y su paquete confirmado (2 Porteros de 1 día: $600 → $500)', cotiza({ hijos: [{ categoria: 'porteros', opcion: 'porteros-1' }, { categoria: 'porteros', opcion: 'porteros-1' }], nuevaInscripcion: false }, t).mensualidadRegular === 500);
+  const raro = aplicaPrecios(T, { categorias: [
+      { clave: 'x', nombre: 'Sin opciones válidas', inscripcion: 100, opciones: [{ dias: 9, mensualidad: 10 }, { dias: 2, mensualidad: -1 }] },
+      { clave: 'y', nombre: '', inscripcion: 100, opciones: [{ dias: 1, mensualidad: 10 }] },
+      { clave: 'z', nombre: 'Buena', inscripcion: 1.5, opciones: [{ dias: 1, mensualidad: 10 }] }],
+    paquetes: { confirmado: 'si', lista: [{ nombre: 'Fantasma', cantidades: { nadie: 2 }, mensualidad: 10 }] } });
+  revisa('si nada de lo guardado sirve, quedan las categorías del archivo', JSON.stringify(raro.categorias) === JSON.stringify(T.categorias) && raro.paquetes.confirmado === false);
+  revisa('un paquete de una categoría que no existe se descarta', raro.paquetes.lista.length === 0);
+  revisa('sin nada guardado (null) queda todo igual', JSON.stringify(aplicaPrecios(T, null)) === JSON.stringify(T));
+
+  // El formulario del editor (números como texto, cantidades por posición de categoría).
+  const F = { categorias: [
+      { clave: 'baby', nombre: ' Baby Tanners ', edades: '3 a 6', inscripcion: '1000', opciones: [{ dias: '1', mensualidad: '400' }, { dias: '', mensualidad: '' }, { dias: '2', mensualidad: '550' }] },
+      { nombre: 'Porteros Élite', edades: '', inscripcion: '500', opciones: [{ dias: '1', mensualidad: '300' }] }],
+    paquetes: { confirmado: true, lista: [{ nombre: '2 Baby', cantidades: { 0: '2', 1: '' }, mensualidad: '1000' }, { nombre: '', cantidades: {}, mensualidad: '' }] }, incluye: ' Seguro ' };
+  const r = preciosDelFormulario(F);
+  revisa('el editor arma categorías con clave, opciones (sin renglones vacíos) y paquetes por clave',
+    !r.error && r.precios.categorias[0].clave === 'baby' && r.precios.categorias[0].nombre === 'Baby Tanners' && r.precios.categorias[0].opciones.length === 2
+    && r.precios.categorias[1].clave === 'porteros-elite' && r.precios.categorias[1].opciones[0].clave === 'porteros-elite-1'
+    && JSON.stringify(r.precios.paquetes.lista[0].cantidades) === '{"baby":2}' && r.precios.paquetes.lista.length === 1 && r.precios.incluyeInscripcion === 'Seguro', r);
+  revisa('lo que arma el editor, la página lo usa tal cual', aplicaPrecios(T, r.precios).categorias[1].nombre === 'Porteros Élite');
+  const mal = (cambio, re) => { const f = JSON.parse(JSON.stringify(F)); cambio(f); const e = preciosDelFormulario(f).error || ''; return re.test(e) ? true : e; };
+  revisa('sin nombre de categoría', mal(f => { f.categorias[1].nombre = ''; }, /nombre a la categoría 2/));
+  revisa('inscripción con decimales', mal(f => { f.categorias[0].inscripcion = '10.5'; }, /inscripción de Baby Tanners/));
+  revisa('8 días por semana', mal(f => { f.categorias[0].opciones[0].dias = '8'; }, /de 1 a 7/));
+  revisa('dos opciones con los mismos días', mal(f => { f.categorias[0].opciones[2].dias = '1'; }, /dos opciones de 1 día/));
+  revisa('opción con días pero sin precio', mal(f => { f.categorias[0].opciones[0].mensualidad = ''; }, /mensualidad va en pesos/));
+  revisa('categoría sin opciones', mal(f => { f.categorias[1].opciones = [{ dias: '', mensualidad: '' }]; }, /al menos una opción/));
+  revisa('paquete sin alumnos', mal(f => { f.paquetes.lista[0].cantidades = { 0: '0' }; }, /cuántos alumnos/));
+  revisa('paquete con 6 de una categoría', mal(f => { f.paquetes.lista[0].cantidades = { 0: '6' }; }, /de 0 a 5/));
+  revisa('sin categorías', /al menos una categoría/.test(preciosDelFormulario({ categorias: [] }).error || ''));
+  revisa('dos categorías con el mismo nombre no chocan', (() => { const f = JSON.parse(JSON.stringify(F)); f.categorias[1].nombre = 'Baby Tanners'; delete f.categorias[0].clave; const x = preciosDelFormulario(f).precios; return x && x.categorias[0].clave !== x.categorias[1].clave; })());
 }
 
 console.log(fallos ? `Costos calculadora FAILED · ${fallos} de ${corridas}` : `Costos calculadora OK · ${corridas} revisiones`);

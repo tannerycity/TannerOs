@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#07191e" />
+  <title>Costos · Tannery City</title>
+  <meta name="description" content="Mensualidades de la Academia Tannery City en León, Gto. Calcula cuánto pagarás por inscribir a tus hijos, sin registrarte." />
+  <meta property="og:title" content="Costos Tannery City" />
+  <meta property="og:description" content="Consulta las mensualidades y calcula tu primer pago en segundos." />
+  <meta property="og:url" content="https://app.tannerycity.com/costos" />
+  <meta property="og:image" content="https://app.tannerycity.com/brand/og-registro.jpg" />
+  <link rel="preload" href="/fonts/barlow-condensed-800.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/costos/styles.css" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png">
+</head>
+<body class="co">
+  <div id="cargando" class="co-cargando" role="status"><span></span>Cargando costos…</div>
+  <div id="falla" class="co-falla hidden" role="alert"><b>No pudimos cargar la calculadora.</b><span>Revisa tu conexión y vuelve a intentar, o escríbenos por WhatsApp al 479 265 1338.</span><a href="/costos/">Reintentar</a></div>
+  <div id="contenido" class="hidden"></div>
+  <script src="/costos/arranque.js"></script>
+  <script type="module" src="/costos/app.js"></script>
+</body>
+</html>

@@ -77,18 +77,20 @@ export function cotiza({ hijos = [], fechaIngreso, nuevaInscripcion } = {}, tari
     detalle.push({ n: i + 1, categoria: m.categoria.nombre, modalidad: m.categoria.modalidades.length > 1 ? m.modalidad.nombre : null,
       mensualidad: m.modalidad.mensualidad, inscripcion: m.categoria.inscripcion });
   }
-  const f = leeFecha(fechaIngreso);
-  if (!f) return { error: 'Elige la fecha de ingreso.' };
-  if (typeof nuevaInscripcion !== 'boolean') return { error: 'Dinos si es una inscripción nueva.' };
-
+  if (typeof nuevaInscripcion !== 'boolean') return { error: 'Dinos si es de nuevo ingreso o si ya está inscrito.' };
+  // El proporcional es SÓLO para nuevo ingreso (Presidencia, 20/10/2026): quien
+  // ya está inscrito paga su mensualidad completa, venga a las clases que venga.
   const pr = tarifas.prorrateo;
-  const semanas = semanasACobrar(f.dia, pr);
+  const f = nuevaInscripcion ? leeFecha(fechaIngreso) : null;
+  if (nuevaInscripcion && !f) return { error: 'Elige la fecha de ingreso.' };
+  const semanas = f ? semanasACobrar(f.dia, pr) : pr.base;
   const sumaIndividual = detalle.reduce((s, d) => s + d.mensualidad, 0);
   const paq = paqueteDe(hijos, tarifas);
   const mensualidadRegular = paq.estado === 'aplica' ? paq.paquete.mensualidad : sumaIndividual;
 
-  const proporcionalIndividual = proporcional(sumaIndividual, f.dia, pr);
-  const ajusteFamiliar = paq.estado === 'aplica' ? proporcional(paq.paquete.mensualidad, f.dia, pr) - proporcionalIndividual : 0;
+  const parte = m => Math.round(m * semanas / pr.base);
+  const proporcionalIndividual = parte(sumaIndividual);
+  const ajusteFamiliar = paq.estado === 'aplica' ? parte(paq.paquete.mensualidad) - proporcionalIndividual : 0;
   const inscripcion = nuevaInscripcion ? detalle.reduce((s, d) => s + d.inscripcion, 0) : 0;
   const primerPago = proporcionalIndividual + ajusteFamiliar + inscripcion;
 
@@ -106,17 +108,23 @@ export function cotiza({ hijos = [], fechaIngreso, nuevaInscripcion } = {}, tari
 export function textoCotizacion(c, tarifas) {
   const l = [];
   l.push('Mi cotización Tannery City');
-  l.push(`Fecha de ingreso: ${fechaCorta(c.fecha)}`);
+  l.push(c.nuevaInscripcion ? `Nuevo ingreso. Fecha de ingreso: ${fechaCorta(c.fecha)}` : 'Alumno ya inscrito');
   c.detalle.forEach(d => l.push(`Hijo ${d.n}: ${d.categoria}${d.modalidad ? `, ${d.modalidad}` : ''} (${dinero(d.mensualidad)} al mes)`));
   l.push('');
-  l.push(`Mensualidad de ${mesDe(c.fecha)}${c.completo ? '' : ` (${c.semanas} de ${c.base} semanas)`}: ${dinero(c.proporcionalIndividual)}`);
+  l.push(c.fecha ? `Mensualidad de ${mesDe(c.fecha)}${c.completo ? '' : ` (${c.semanas} de ${c.base} semanas)`}: ${dinero(c.proporcionalIndividual)}`
+    : `Mensualidad completa: ${dinero(c.proporcionalIndividual)}`);
   if (c.nuevaInscripcion) l.push(`Inscripción (${c.detalle.length === 1 ? '1 alumno' : `${c.detalle.length} alumnos`}): ${dinero(c.inscripcion)}`);
   if (c.paquete.estado === 'aplica') l.push(`Ajuste familiar (${c.paquete.paquete.nombre}): ${dinero(c.ajusteFamiliar)}`);
   if (c.paquete.estado === 'referencia') l.push(`Paquete familiar ${c.paquete.paquete.nombre}: ${dinero(c.paquete.paquete.mensualidad)} al mes, por confirmar`);
   if (c.paquete.estado === 'sin_tarifa') l.push('Paquete familiar: solicitar cotización');
-  l.push(`Total del primer pago: ${dinero(c.primerPago)} ${tarifas.moneda}`);
-  l.push(`Mensualidad regular desde ${mesSiguiente(c.fecha)}: ${dinero(c.mensualidadRegular)} ${tarifas.moneda}`);
+  if (c.fecha) {
+    l.push(`Total del primer pago: ${dinero(c.primerPago)} ${tarifas.moneda}`);
+    l.push(`Mensualidad regular desde ${mesSiguiente(c.fecha)}: ${dinero(c.mensualidadRegular)} ${tarifas.moneda}`);
+  } else {
+    l.push(`Total a pagar cada mes: ${dinero(c.primerPago)} ${tarifas.moneda}`);
+  }
   l.push('');
+  l.push(tarifas.notaProporcional);
   l.push(c.estimacion ? `Estimación. ${tarifas.nota}` : tarifas.nota);
   return l.join('\n');
 }

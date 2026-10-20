@@ -50,11 +50,11 @@ function calculadora() {
     <form id="coForm" novalidate>
       <fieldset class="co-paso"><legend><i>1</i>¿Cuántos hijos quieres inscribir?</legend><div class="co-ops tres">${nums.map(n => opcion('coN', n, n === 1 ? '1 hijo' : `${n} hijos`, '', estado.n === n)).join('')}</div></fieldset>
       <fieldset class="co-paso" id="coPaso2"><legend><i>2</i>Elige la categoría</legend><div id="coHijos"><p class="co-pista">Primero dinos cuántos hijos.</p></div></fieldset>
-      <div class="co-paso"><label class="co-fecha" for="coFecha"><span class="co-leyenda"><i>3</i>Fecha de ingreso</span><input id="coFecha" type="date" value="${estado.fecha}" required></label><p class="co-pista" id="coFechaTxt"></p></div>
-      <fieldset class="co-paso"><legend><i>4</i>¿Es una inscripción nueva?</legend><div class="co-ops dos">
-        ${opcion('coNueva', 'si', 'Sí, primera inscripción', `Se suma la inscripción de ${dinero(CAT.tanner.inscripcion)} por alumno`, estado.nueva === true)}
-        ${opcion('coNueva', 'no', 'No, ya estoy inscrito', 'Sólo la mensualidad', estado.nueva === false)}
+      <fieldset class="co-paso"><legend><i>3</i>¿Es de nuevo ingreso?</legend><div class="co-ops dos">
+        ${opcion('coNueva', 'si', 'Sí, nuevo ingreso', `Primer mes proporcional + inscripción de ${dinero(CAT.tanner.inscripcion)} por alumno`, estado.nueva === true)}
+        ${opcion('coNueva', 'no', 'No, ya está inscrito', 'Mensualidad completa', estado.nueva === false)}
       </div></fieldset>
+      <div class="co-paso${estado.nueva === true ? '' : ' hidden'}" id="coPasoFecha"><label class="co-fecha" for="coFecha"><span class="co-leyenda"><i>4</i>Fecha de ingreso</span><input id="coFecha" type="date" value="${estado.fecha}" required></label><p class="co-pista" id="coFechaTxt"></p></div>
     </form>
     <div id="coResultado" class="co-resultado" aria-live="polite"></div>
   </section>`;
@@ -63,6 +63,8 @@ function pintaResultado() {
   const box = $('coResultado');
   const f = leeFecha(estado.fecha);
   $('coFechaTxt').textContent = f ? `Ingreso: ${fechaLarga(f)}` : '';
+  // La fecha sólo importa en nuevo ingreso: quien ya está inscrito paga el mes completo.
+  $('coPasoFecha').classList.toggle('hidden', estado.nueva !== true);
   const c = cotiza({ hijos: estado.hijos, fechaIngreso: estado.fecha, nuevaInscripcion: estado.nueva ?? undefined }, T);
   if (c.error) {
     // Sin todas las respuestas no hay números: nada de totales de ejemplo.
@@ -70,20 +72,22 @@ function pintaResultado() {
     return;
   }
   const filas = [];
-  filas.push([`Mensualidad de ${mesDe(c.fecha)}`, c.completo ? 'Mes completo' : `Proporcional: ${c.semanas} de ${c.base} semanas`, dinero(c.proporcionalIndividual)]);
+  filas.push(c.fecha ? [`Mensualidad de ${mesDe(c.fecha)}`, c.completo ? 'Mes completo' : `Proporcional: ${c.semanas} de ${c.base} semanas`, dinero(c.proporcionalIndividual)]
+    : ['Mensualidad', 'Completa, la que acordaste al inscribirte', dinero(c.proporcionalIndividual)]);
   if (c.nuevaInscripcion) filas.push([`Inscripción`, `${c.detalle.length === 1 ? '1 alumno' : `${c.detalle.length} alumnos`} · incluye ${T.incluyeInscripcion.toLowerCase()}`, dinero(c.inscripcion)]);
   if (c.paquete.estado === 'aplica') filas.push(['Ajuste familiar', c.paquete.paquete.nombre, dinero(c.ajusteFamiliar)]);
   const paq = c.paquete.estado === 'referencia'
     ? `<p class="co-nota-paq" data-paquete="referencia"><b>Paquete familiar ${esc(c.paquete.paquete.nombre)}: ${dinero(c.paquete.paquete.mensualidad)} al mes, por confirmar.</b> No está sumado: la administración te confirma si aplica.</p>`
     : c.paquete.estado === 'sin_tarifa'
       ? `<p class="co-nota-paq" data-paquete="sin_tarifa"><b>Paquete familiar: solicitar cotización.</b> Esta combinación no tiene paquete publicado; abajo está el precio sin paquete.</p>` : '';
-  box.innerHTML = `<article class="co-cotiza"><header><p class="co-eyebrow">Tu cotización Tannery City</p><p class="co-fecha-r">Fecha de ingreso: <b>${fechaCorta(c.fecha)}</b></p></header>
+  box.innerHTML = `<article class="co-cotiza"><header><p class="co-eyebrow">Tu cotización Tannery City</p><p class="co-fecha-r">${c.fecha ? `Nuevo ingreso · fecha de ingreso: <b>${fechaCorta(c.fecha)}</b>` : '<b>Alumno ya inscrito</b>'}</p></header>
     <ul class="co-hijos-r">${c.detalle.map(d => `<li><span>${estado.n > 1 ? `Hijo ${d.n}: ` : ''}${esc(d.categoria)}${d.modalidad ? `, ${esc(d.modalidad)}` : ''}</span><b>${dinero(d.mensualidad)}/mes</b></li>`).join('')}</ul>
     ${paq}
     <table class="co-desglose"><thead><tr><th scope="col">Concepto</th><th scope="col">Importe</th></tr></thead><tbody>
     ${filas.map(([a, b, v]) => `<tr><th scope="row">${esc(a)}<small>${esc(b)}</small></th><td>${v}</td></tr>`).join('')}
-    </tbody><tfoot><tr><th scope="row">Total del primer pago</th><td id="coTotal">${dinero(c.primerPago)}</td></tr></tfoot></table>
-    <p class="co-regular">Tu mensualidad regular a partir de ${esc(mesSiguiente(c.fecha))}: <b id="coRegular">${dinero(c.mensualidadRegular)} ${T.moneda}</b></p>
+    </tbody><tfoot><tr><th scope="row">${c.fecha ? 'Total del primer pago' : 'Total a pagar cada mes'}</th><td id="coTotal">${dinero(c.primerPago)}</td></tr></tfoot></table>
+    ${c.fecha ? `<p class="co-regular">Tu mensualidad regular a partir de ${esc(mesSiguiente(c.fecha))}: <b id="coRegular">${dinero(c.mensualidadRegular)} ${T.moneda}</b></p>` : ''}
+    <p class="co-importante" data-importante>${esc(T.notaProporcional)}</p>
     <p class="co-nota">${c.estimacion ? '<b>Estimación.</b> ' : ''}${esc(T.nota)}</p>
     <div class="co-acciones"><button type="button" class="co-btn" id="coCopiar">Copiar mi cotización</button><a class="co-btn wa" id="coWhats" href="${esc(ligaWhatsApp(textoCotizacion(c, T), T, c.detalle.length))}" target="_blank" rel="noopener">Solicitar información por WhatsApp</a></div>
     <p class="co-copiado hidden" id="coCopiado" role="status">Cotización copiada.</p>
@@ -115,7 +119,8 @@ function pinta() {
       <a class="co-cta cond" href="#calculadora">Calcular mi pago</a></header>
     <main class="co-main">
       <section class="co-sec" aria-labelledby="coPreciosT"><p class="co-eyebrow">Mensualidades</p><h2 id="coPreciosT" class="co-h2 cond">Precios</h2>
-        <div class="co-planes">${Object.values(CAT).map(tarjetaCategoria).join('')}</div></section>
+        <div class="co-planes">${Object.values(CAT).map(tarjetaCategoria).join('')}</div>
+        <p class="co-importante claro" id="coImportante">${esc(T.notaProporcional)}</p></section>
       ${tablaPaquetes()}
       ${calculadora()}
       <p class="co-pie">¿Dudas? Escríbenos por WhatsApp al <a href="https://wa.me/${T.whatsapp.numero}" target="_blank" rel="noopener">${T.whatsapp.visible}</a>. <a href="/registro/">Inscribe a tu hijo</a></p>

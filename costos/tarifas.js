@@ -62,9 +62,13 @@ export const TARIFAS = {
       { hastaDia: 21, semanas: 2 },
       { hastaDia: 31, semanas: 1 }
     ],
-    base: 4
+    base: 4,
+    // Sólo para nuevo ingreso: quien ya está inscrito paga su mensualidad
+    // completa aunque asista a menos clases (Presidencia, 20/10/2026).
+    soloNuevoIngreso: true
   },
 
   maxHijos: 3,
+  notaProporcional: 'Importante: el pago proporcional es únicamente para alumnos de nuevo ingreso, en su primer mes. Si tu hijo ya está inscrito, pagas la mensualidad completa que acordaste al inscribirte, aunque asista a menos clases en el mes.',
   nota: 'Los importes son informativos y están sujetos a validación por la administración de Tannery City.'
 };

@@ -49,8 +49,12 @@ revisa('se redondea al peso (550 x 3/4 = 412.5 → 413)', proporcional(550, 10, 
   revisa('febrero bisiesto, día 29: existe y es 1 semana', q([TAN], '2028-02-29').semanas === 1);
   revisa('29 de febrero en año no bisiesto: fecha inválida', !!q([TAN], '2027-02-29').error);
   revisa('31 de noviembre: fecha inválida', !!q([TAN], '2026-11-31').error);
+  // El proporcional es SÓLO para nuevo ingreso (Presidencia, 20/10/2026).
   const ya = q([TAN], '2026-10-19', false);
-  revisa('alumno ya inscrito: sin inscripción', ya.inscripcion === 0 && ya.primerPago === 400, ya);
+  revisa('ya inscrito: mensualidad completa aunque la fecha sea el 19, sin inscripción', ya.inscripcion === 0 && ya.primerPago === 800 && ya.semanas === 4 && ya.fecha === null, ya);
+  revisa('ya inscrito: no pide fecha', !q([TAN], '', false).error && q([TAN], '', false).primerPago === 800);
+  revisa('ya inscrito el día 31: también completa', q([B2], '2026-10-31', false).primerPago === 550);
+  revisa('nuevo ingreso sin fecha: la pide', /fecha/.test(q([TAN], '', true).error || ''));
   revisa('Baby 1 día: $400 al mes', q([B1], '2026-10-01').mensualidadRegular === 400);
   revisa('Baby 2 días: $550 al mes', q([B2], '2026-10-01').mensualidadRegular === 550);
   revisa('cambiar de 1 a 2 días cambia el total', q([B1], '2026-10-19').primerPago !== q([B2], '2026-10-19').primerPago);
@@ -92,8 +96,8 @@ revisa('se redondea al peso (550 x 3/4 = 412.5 → 413)', proporcional(550, 10, 
 revisa('sin hijos', !!cotiza({ hijos: [], fechaIngreso: '2026-10-01', nuevaInscripcion: true }, T).error);
 revisa('sin categoría', /categoría/.test(q([{ categoria: null }], '2026-10-01').error || ''));
 revisa('Baby sin días', /días por semana/.test(q([{ categoria: 'baby' }], '2026-10-01').error || ''));
-revisa('sin fecha', /fecha/.test(q([TAN], '').error || ''));
-revisa('sin decir si es nueva', /inscripción nueva/.test(cotiza({ hijos: [TAN], fechaIngreso: '2026-10-01' }, T).error || ''));
+revisa('sin fecha (nuevo ingreso)', /fecha/.test(q([TAN], '').error || ''));
+revisa('sin decir si es nuevo ingreso', /nuevo ingreso/.test(cotiza({ hijos: [TAN], fechaIngreso: '2026-10-01' }, T).error || ''));
 revisa('4 hijos: fuera de la calculadora', /hasta 3/.test(q([TAN, TAN, TAN, TAN], '2026-10-01').error || ''));
 revisa('fecha basura', leeFecha('19/10/2026') === null && leeFecha('2026-13-01') === null);
 
@@ -106,6 +110,9 @@ revisa('moneda mexicana sin centavos', dinero(1800) === '$1,800' && dinero(0) ==
     && /Inscripción \(2 alumnos\): \$2,000/.test(txt) && /Total del primer pago: \$2,600 MXN/.test(txt) && /noviembre 2026: \$1,200 MXN/.test(txt) && /por confirmar/.test(txt) && /Estimación/.test(txt), txt);
   const wa = ligaWhatsApp(txt, T, 2);
   revisa('WhatsApp al número del club con la cotización incluida', wa.startsWith('https://wa.me/524792651338?text=') && decodeURIComponent(wa.split('text=')[1]).includes('Total del primer pago') && /mis hijos/.test(decodeURIComponent(wa)), wa.slice(0, 80));
+  const txtYa = textoCotizacion(q([TAN], '', false), T);
+  revisa('el texto de un alumno inscrito dice mensualidad completa y la nota de nuevo ingreso', /Alumno ya inscrito/.test(txtYa) && /Total a pagar cada mes: \$800 MXN/.test(txtYa) && /únicamente para alumnos de nuevo ingreso/.test(txtYa), txtYa);
+  revisa('la cotización de nuevo ingreso también lleva la nota', /únicamente para alumnos de nuevo ingreso/.test(txt));
   revisa('un hijo: "mi hijo"', /a mi hijo en/.test(decodeURIComponent(ligaWhatsApp('x', T, 1))));
 }
 

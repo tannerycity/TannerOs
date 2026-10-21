@@ -155,6 +155,7 @@
 .cap-barra-crear{min-height:50px;padding:0 22px;border:0;border-radius:999px;background:#9fb0b3;color:#fff;font:inherit;font-weight:800;font-size:16px;cursor:pointer}
 .cap-barra.lleno .cap-barra-crear{background:#169b4b}
 .cap-barra.flash .cap-barra-ver b{color:#169b4b}
+.cap-barra.teclado{display:none}
 /* Con el menú lateral fijo, la barra empieza donde termina el menú. */
 .tos-unified-shell .cap-barra{left:278px}
 @media(max-width:1050px){.tos-unified-shell .cap-barra{left:235px}}

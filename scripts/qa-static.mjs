@@ -50,7 +50,7 @@ const routeContract={
   '/admin/clubes/':'v2/admin/clubes/index.html',
   '/jugadores/importar/':'v2/jugadores/importar/index.html'
 };
-const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','demo/index.html','demo/app.js','demo/styles.css','trabaja/index.html','trabaja/app.js','trabaja/styles.css','encuesta/index.html','encuesta/app.js','encuesta/styles.css','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
+const required=['index.html','v2/index.html','v2/app.js','v2/shell.js','v2/production.css','public-form.js','public-form.css','vercel.json',...Object.values(routeContract),'registro/index.html','registro/scouting/index.html','pedido/index.html','demo/index.html','demo/app.js','demo/styles.css','trabaja/index.html','trabaja/app.js','trabaja/styles.css','costos/index.html','costos/app.js','costos/styles.css','costos/tarifas.js','costos/calculo.js','costos/arranque.js','encuesta/index.html','encuesta/app.js','encuesta/styles.css','programas/index.html','academias/index.html','centro-tanner/index.html','centro-tanner/app.js','centro-tanner/styles.css','aviso-de-privacidad/index.html','aviso-de-privacidad/app.js','v2/admin/centro-tanner/index.html','v2/admin/centro-tanner/app.js'];
 for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta archivo crítico: ${file}`);
 
 /* === Ninguna pantalla vive sólo detrás de la barra escondida ===
@@ -141,7 +141,8 @@ const CARPETAS_DE_STORAGE=['players','guardians','billing','accounting','academi
 const CARPETAS_DE_OTRO_BUCKET=['branding'];
 // Carpetas con su PROPIA politica, que no pasa por storage_module_code:
 // 'staff' (postulaciones y fichas del staff: t4 y f5, tanneros_staff_photo_insert).
-const CARPETAS_CON_POLITICA_PROPIA=['staff'];
+// 'chat' (fotos y archivos del vestidor: h20, tanneros_chat_file_insert; sube quien está en el chat).
+const CARPETAS_CON_POLITICA_PROPIA=['staff','chat'];
 {
   const permitidas=new Set([...CARPETAS_DE_STORAGE,...CARPETAS_DE_OTRO_BUCKET,...CARPETAS_CON_POLITICA_PROPIA]);
   // Toda forma de armar la ruta que se usa hoy: plantilla y concatenacion.

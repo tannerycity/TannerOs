@@ -116,3 +116,58 @@
 .tan-cambios .tan-section-head span{color:#8a5a12}
 .tan-motivo{display:block;margin-top:3px;font-style:italic;color:#5c6f74;font-size:12px}
 .tan-mov[data-kind="cambio"] .tan-dot{background:#f7f0dc;color:#8a6413}
+
+/* Un mes que se debe es un botón: se toca y abre el cobro de ese mes. */
+button.tan-mes{font:inherit;cursor:pointer;color:inherit;transition:transform .12s ease,box-shadow .12s ease}
+button.tan-mes:hover{box-shadow:0 6px 16px -8px rgba(3,47,59,.35)}
+button.tan-mes:active{transform:scale(.97)}
+button.tan-btn{font:inherit;font-weight:600;font-size:14px;cursor:pointer}
+
+/* Acuerdo de pago: cuánto lleva, cada pago y el que sigue. */
+.tan-acuerdo{border-color:#cfe2e5}
+.tan-acuerdo[data-tono="mal"]{border-color:#f0d0ca;background:#fffaf9}
+.tan-acuerdo[data-tono="bien"]{border-color:#cfe8da;background:#f8fcf9}
+.tan-barra{height:8px;border-radius:99px;background:#e8edec;overflow:hidden;margin-top:10px}
+.tan-barra i{display:block;height:100%;border-radius:99px;background:#087d8e}
+.tan-acuerdo[data-tono="mal"] .tan-barra i{background:#bd2e22}
+.tan-acuerdo[data-tono="bien"] .tan-barra i{background:#1e8a4c}
+.tan-acuerdo-sub{margin:10px 0 0;font-size:13.5px;font-weight:600;color:#0d2730}
+.tan-acuerdo[data-tono="mal"] .tan-acuerdo-sub{color:#a9372b}
+.tan-pagos{list-style:none;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px -2px 0;padding:2px}
+.tan-pagos::-webkit-scrollbar{display:none}
+.tan-pagos li{flex:0 0 96px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:14px;border:1px solid #e2e7e5;background:#f7f9f8}
+.tan-pagos li span{font-size:11.5px;font-weight:600;color:#6f7d82}
+.tan-pagos li b{font-size:15px;font-variant-numeric:tabular-nums;color:#0d2730}
+.tan-pagos li small{font-size:10.5px;font-weight:700;color:#8b979c}
+.tan-pagos li[data-state="paid"]{background:#f2faf5;border-color:#cfe8da}
+.tan-pagos li[data-state="paid"] small{color:#3f7d5b}
+.tan-pagos li[data-state="late"]{background:#fdf1ef;border-color:#f0d0ca}
+.tan-pagos li[data-state="late"] b,.tan-pagos li[data-state="late"] small{color:#bd2e22}
+.tan-acuerdo-nota{margin:10px 0 0;font-size:13px;color:#4a6870;font-style:italic}
+.tan-acuerdo-quien{display:block;margin-top:8px;font-size:11.5px;color:#8b979c}
+
+/* Seguimiento: anotar en un toque y ver lo que ya se habló. */
+.tan-nota-form{display:grid;gap:8px;margin:10px 0 4px}
+.tan-nota-fila{display:flex;gap:8px}
+.tan-nota-fila input{flex:1;min-width:0;min-height:44px;border:1px solid #d6dfdd;border-radius:12px;padding:0 12px;font:inherit;font-size:14px}
+.tan-nota-fila .tan-btn{flex:0 0 auto}
+.tan-nota .tan-mov-body strong{font-weight:600}
+.tan-nota[data-kind="agreement"] .tan-dot{background:#e3f1f3;color:#05505d}
+.tan-nota[data-kind="whatsapp"] .tan-dot{background:#e4f6e9;color:#11773c}
+.tan-nota-vacia{margin:8px 0 0;font-size:13px;color:#8b979c}
+
+/* Hoja del acuerdo y de los mensajes. */
+.pres-seg.cb-seg2{grid-template-columns:1fr 1fr}
+.cb-dos{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.cb-stepper{display:flex;align-items:center;justify-content:space-between;min-height:46px;border:1px solid #d6dfdd;border-radius:12px;padding:0 6px;background:#fff}
+.cb-stepper button{width:36px;height:36px;border:0;border-radius:10px;background:#eef2f1;font:inherit;font-size:18px;font-weight:800;color:#0d2730;cursor:pointer}
+.cb-stepper b{font-size:17px;color:#0d2730}
+.cb-filas{display:grid;gap:7px}
+.cb-fila{display:grid;grid-template-columns:64px 1fr 120px;align-items:center;gap:8px}
+.cb-fila>span:first-child{font-size:12px;font-weight:700;color:#354f55}
+.cb-mensajes{display:grid;gap:8px}
+.cb-mensaje{display:grid;gap:4px;text-align:left;border:1px solid #d6dfdd;border-radius:14px;padding:12px 14px;background:#fff;font:inherit;cursor:pointer}
+.cb-mensaje strong{font-size:14px;color:#0d2730}
+.cb-mensaje span{font-size:12.5px;line-height:1.4;color:#5c6f74;white-space:pre-line}
+.cb-mensaje:hover{border-color:#25D366;background:#f5fcf7}
+@media (max-width:420px){.cb-fila{grid-template-columns:52px 1fr 104px}}

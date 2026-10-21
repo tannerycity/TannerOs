@@ -74,3 +74,7 @@ qa-humo-pulso.mjs
 qa-humo-buscador-acciones.mjs
 qa-humo-calendario.mjs
 qa-humo-entrada.mjs
+qa-humo-costos.mjs
+qa-humo-costos-editor.mjs
+qa-humo-cobro-desglose.mjs
+qa-humo-acuerdos.mjs

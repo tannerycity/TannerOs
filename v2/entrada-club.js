@@ -35,6 +35,8 @@ async function pinta() {
   // Las salidas para familias llevan el club: su tienda, no la de Tannery.
   propagaClub(document.querySelector('.tc-familias') || undefined);
   if (!club || club === 'tannery-city-fc') return;
+  // /costos tiene los precios de Tannery: en la entrada de otro club no va.
+  q('.tc-familias [data-familia="costos"]')?.remove();
   let ctx = null;
   try {
     const { data, error } = await supabase.rpc('v2_public_context', { club_key: club });

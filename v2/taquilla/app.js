@@ -8,6 +8,7 @@ import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
 import {estadoDe,validacionDe,accionesPara,requiereMotivo,diferenciaDe,
         filtra as filtraConcilia,lineaDeHistorial,pendientesReales}
   from '/v2/taquilla/conciliacion.js';
+import {abrirCobro,esCuentaCompartida} from '/v2/cobro/hoja.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
@@ -51,6 +52,7 @@ function resetCollectForm(){
   $('collectForm').reset();
   $('collectPlayer').value='';$('collectPlayerSearch').value='';
   $('collectPorQue')?.classList.add('hidden');
+  $('playerFields')?.classList.add('solo-busca');
   $('collectPlayerClear')?.classList.add('hidden');$('collectPlayerResults')?.classList.add('hidden');$('collectPlayerResults').innerHTML='';
   $('collectDate').value=isoToday();
   $('generalPlayer').value='';$('generalPlayerSearch').value='';
@@ -101,7 +103,13 @@ function renderMethods(){
 // quien usa el aparato, no datos de familias, y el chiste es justo que
 // sobreviva a cerrar la pestaña.
 const RECUERDA_QUIEN='tos:taquilla:quien';
+// Con cuenta personal, quién cobró o quién pagó es el usuario: no se escribe
+// (antes se tecleaba y salían "Michel", "Michel Enriquez" o hasta "Pago en
+// Transferencia"). Sólo una cuenta compartida (iPad, Presidencia) lo pregunta.
+const cuentaPersonal=!esCuentaCompartida(ctx)&&Boolean((ctx.display_name||'').trim());
+if(cuentaPersonal)['collectCollectedBy','expensePaidBy','tiendaCollectedBy','gafeteCollectedBy'].forEach(id=>$(id)?.closest('label')?.classList.add('hidden'));
 function quienDelClub(id){
+  if(cuentaPersonal)return ctx.display_name.trim();
   const v=($(id)?.value||'').trim();
   if(v){try{localStorage.setItem(RECUERDA_QUIEN,v);}catch(e){/* modo privado */}}
   return v||null;
@@ -199,6 +207,7 @@ async function renderCollections(){
     .filter(p=>!q||normSearch(p.player_name).includes(q))
     .filter(p=>{
       if(collectionsFilter==='all')return true;
+      if(collectionsFilter==='agreement')return acuerdos.has(p.player_id);
       const pending=playerReceivables(p.player_id).length>0;
       return collectionsFilter==='pending'?pending:!pending;
     })
@@ -225,7 +234,7 @@ async function renderCollections(){
     return `<div class="collections-row">
       <span class="collections-face"${photoAttrs}><b aria-hidden="true">${esc(initials)}</b></span>
       <a class="collections-info collections-edo" href="/tanner/?id=${encodeURIComponent(p.player_id)}" title="Ver su historial de pagos"><strong>${esc(p.player_name)}</strong><span class="collections-concept">${esc(concept)} · <u>Ver historial</u></span></a>
-      <div class="collections-status"><span class="status-pill ${isPending?'pending':'current'}">${isPending?'Pendiente':'Al corriente'}</span><small class="collections-last">${esc(fmtLastPayment(p.last_payment_date))}</small></div>
+      <div class="collections-status"><span class="status-pill ${isPending?'pending':'current'}">${isPending?'Pendiente':'Al corriente'}</span>${acuerdoChip(p.player_id)}<small class="collections-last">${esc(fmtLastPayment(p.last_payment_date))}</small></div>
       ${canCashWrite?`<button type="button" class="collections-collect" data-quick-collect="${esc(p.player_id)}" data-name="${esc(p.player_name||'')}" data-amount="${amount>0?amount:''}">Registrar</button>`:''}
     </div>`;
   }).join('');
@@ -274,11 +283,59 @@ function renderReconcile(){
 async function load(){
   snapshot=await rpc('v2_cashier_snapshot',{organization_id:org,business_date:$('businessDate').value||isoToday()});
   render();
+  cargaPulsoCaja();
 }
+// Junto a "¿A quién le cobras?": a quién esperamos hoy (pagos de acuerdo que
+// tocan hoy, pronto o vencidos) y mi corte de hoy (lo que cobré y pagué, por
+// método; sin fondo de caja, el efectivo a entregar es cobrado − pagado).
+async function cargaPulsoCaja(){
+  if(!canCashWrite)return;
+  const [corte,esperamos]=await Promise.all([
+    safe(rpc('v2_my_cash_day',{organization_id:org,business_date:isoToday()}),null),
+    safe(rpc('v2_expected_today',{organization_id:org}),[])
+  ]);
+  pintaEsperamos(Array.isArray(esperamos)?esperamos:[]);
+  pintaCorte(corte);
+}
+function pintaEsperamos(lista){
+  const el=$('hoyEsperamos');if(!el)return;
+  el.classList.toggle('hidden',!lista.length);
+  if(!lista.length){el.innerHTML='';return;}
+  const hoy=isoToday();
+  const cuando=a=>a.state==='broken'?'vencido':a.due===hoy?'hoy':new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric'}).format(new Date(`${a.due}T12:00:00`)).replace('.','');
+  el.innerHTML=`<span class="hoy-titulo">Hoy esperamos</span><div class="hoy-chips">${lista.map(a=>
+    `<button type="button" class="hoy-chip" data-state="${esc(a.state)}" data-cobra="${esc(a.playerId)}" data-name="${esc(a.name)}"><b>${esc(String(a.name).split(/\s+/).slice(0,2).join(' '))}</b><span>${money.format(Number(a.amount||0))} · ${esc(cuando(a))}</span></button>`).join('')}</div>`;
+}
+function pintaCorte(c){
+  const el=$('miCorte');if(!el)return;
+  const filas=c?.rows||[];
+  el.classList.remove('hidden');
+  if(!filas.length){el.innerHTML='<span class="hoy-titulo">Mi corte de hoy</span><p class="mi-corte-vacio">Hoy no has cobrado nada todavía.</p>';return;}
+  const porQuien=new Map();
+  for(const f of filas){const q=porQuien.get(f.who)||{in:{},out:{}};q[f.kind][f.method]=(q[f.kind][f.method]||0)+Number(f.total||0);porQuien.set(f.who,q);}
+  el.innerHTML=`<span class="hoy-titulo">Mi corte de hoy</span>${[...porQuien.entries()].map(([quien,q])=>{
+    const cobrado=Object.values(q.in).reduce((a,b)=>a+b,0);
+    const metodos=Object.entries(q.in).map(([m,v])=>`${methodLabel(m).toLowerCase()} ${money.format(v)}`).join(' · ');
+    const entrega=(q.in.cash||0)-(q.out.cash||0);
+    return `<div class="mi-corte-fila"><div><b>${esc(quien)}</b><span>Cobró ${money.format(cobrado)}${metodos?` · ${esc(metodos)}`:''}${q.out.cash?` · pagó ${money.format(q.out.cash)} en efectivo`:''}</span></div><strong title="Efectivo a entregar">${money.format(entrega)}<small>efectivo a entregar</small></strong></div>`;
+  }).join('')}`;
+}
+document.addEventListener('click',e=>{const b=e.target.closest?.('[data-cobra]');if(b)cobraA(b.dataset.cobra,b.dataset.name);});
 async function loadPlayers(){
   if(!moduleAccess(navigation,'cobranza',false))return;
   try{billingPlayers=await rpc('v2_billing_players',{organization_id:org});}catch(e){console.warn('billing players',e);billingPlayers=[];}
+  // Los acuerdos de pago vigentes (activo o incumplido), uno por Tanner. Si
+  // no cargan, la lista se ve igual que antes.
+  const lista=await safe(rpc('v2_agreements_overview',{organization_id:org}),[]);
+  acuerdos=new Map((Array.isArray(lista)?lista:[]).map(a=>[a.playerId,a]));
 
+}
+let acuerdos=new Map();
+const fechaCorta=iso=>new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'}).format(new Date(`${String(iso).slice(0,10)}T12:00:00`)).replace('.','');
+function acuerdoChip(playerId){
+  const a=acuerdos.get(playerId);if(!a)return '';
+  const txt=a.state==='broken'?'Acuerdo incumplido':`Acuerdo · ${a.nextDue?`${fechaCorta(a.nextDue)} ${money.format(Number(a.nextAmount||0))}`:'al día'}`;
+  return `<small class="collections-acuerdo" data-state="${esc(a.state)}">${esc(txt)}</small>`;
 }
 const BILLING_ENGINE_START='2026-09-01';
 // Los adeudos abiertos se siguen cargando: el buscador de cobro los muestra
@@ -288,14 +345,17 @@ async function loadReceivables(){
   const recv=await safe(rpc('v2_open_receivables',{organization_id:org}),[]);
   receivables=Array.isArray(recv)?recv:[];
 }
-function quickCollect(playerId,name,amount){
-  if(!canCashWrite)return;
-  resetCollectForm();
-  $('collectPlayer').value=playerId;$('collectPlayerSearch').value=name||'';
-  if(name)$('collectPlayerClear')?.classList.remove('hidden');
-  if(amount)$('collectAmount').value=amount;
-  modal('collectModal',true);
+// Un solo camino para cobrarle a un Tanner: su hoja de cobro, con lo que
+// debe ya elegido, sus hermanos a un toque y quién cobra tomado del usuario.
+// Lo usan "¿A quién le cobras?", COBRAR, Cobranza y los enlaces de otros
+// módulos (?action=cobrar&player=…).
+function cobraA(playerId,nombre){
+  if(!canCashWrite||!playerId)return;
+  closeModals();
+  abrirCobro({rpc,org,playerId,nombre,preseleccion:'todo',quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),
+    alTerminar:async()=>{await Promise.all([load(),loadReceivables()]);renderCollections();cargaConcilia(true);}});
 }
+function quickCollect(playerId,name){cobraA(playerId,name);}
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-quick-collect]');if(b)quickCollect(b.dataset.quickCollect,b.dataset.name,b.dataset.amount);});
 
 /* ¿Quién registró este movimiento, de verdad?
@@ -343,7 +403,7 @@ function setCollectMode(mode){
   $('tiendaFields').classList.toggle('hidden',mode!=='tienda');
   $('gafeteFields')?.classList.toggle('hidden',mode!=='gafete');
   $('saveCollect').textContent=mode==='player'?'Registrar cobro':mode==='tienda'?'Cobrar pedido':mode==='gafete'?textoGafete():'Registrar ingreso';
-  $('saveCollect').classList.toggle('hidden',(mode==='tienda'&&!$('tiendaOrder').value)||(mode==='gafete'&&!gafeteListo()));
+  $('saveCollect').classList.toggle('hidden',(mode==='player'&&!$('collectSponsorMode')?.checked)||(mode==='tienda'&&!$('tiendaOrder').value)||(mode==='gafete'&&!gafeteListo()));
   $('cashierHelp').textContent=mode==='tienda'
     ?'El cobro queda ligado al pedido: se ve en Pedidos, en el estado de cuenta de la familia y en la caja del día.'
     :mode==='gafete'?'Se cobra, se le da folio y queda entregado en un solo paso. Si no tiene costo (patrocinio, staff), dalo desde Estacionamiento.'
@@ -597,7 +657,7 @@ async function postExpense(){
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
     const okDbl=await confirmDoubleCheck({title:'Confirma el pago',message:`Vas a registrar un pago de ${money.format(amount)} a ${who||concept} · ${category} · ${methodLabel($('expenseMethod').value)}. ¿Es correcto?`,confirmText:'Sí, pagar'});
     if(!okDbl){btn.disabled=false;return;}
-    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:$('expenseReference').value.trim()||null,concept,metadata:who?{who}: {},supplier_name:who||null,paid_by_name:quienDelClub('expensePaidBy'),idempotency_key:key('cashier-expense')});
+    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:null,concept,metadata:who?{who}: {},supplier_name:who||null,paid_by_name:quienDelClub('expensePaidBy'),idempotency_key:key('cashier-expense')});
     closeModals();await load();
   }catch(e){message('expenseMessage',e.message||'No se pudo registrar el egreso.');}finally{btn.disabled=false;}
 }
@@ -806,7 +866,8 @@ $('collectForm').addEventListener('submit',e=>{e.preventDefault();postCollect();
 $('printClose').addEventListener('click',exportaCortePdf);$('countedCash')?.addEventListener('input',renderReconcile);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 const _params=new URLSearchParams(location.search);const action=_params.get('action');
-if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);
+if(action==='cobrar'&&canCashWrite&&_params.get('player'))setTimeout(()=>cobraA(_params.get('player'),decodeURIComponent(_params.get('name')||'')),150);
+else if(action==='cobrar'&&canCashWrite)setTimeout(()=>{modal('collectModal',true);try{const pid=_params.get('player'),amt=_params.get('amount'),pnm=_params.get('name');if(pid){if(typeof setCollectMode==='function')setCollectMode('player');const hp=$('collectPlayer');if(hp)hp.value=pid;const sp=$('collectPlayerSearch');if(sp&&pnm)sp.value=decodeURIComponent(pnm);const cc=$('collectPlayerClear');if(cc)cc.classList.remove('hidden');}if(amt&&$('collectAmount'))$('collectAmount').value=amt;}catch(e){}},150);
 if(action==='pagar'&&canPayWrite)setTimeout(()=>{modal('expenseModal',true);},150);
 let collectionsSearchTimer=null;
 $('collectionsSearch')?.addEventListener('input',()=>{
@@ -927,10 +988,28 @@ $('tiendaPlayerSearch')?.addEventListener('input',()=>{if(!$('tiendaPlayerSearch
 // Taquilla no tenga que hacer la cuenta a mano ni se le olvide el recargo.
 tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','collectPlayerResults','collectPlayerClear',(pl)=>{
   pintaPorQueEsteMonto(pl);
+  // Salvo un patrocinador, elegir al Tanner abre su hoja de cobro.
+  if(pl&&!$('collectSponsorMode')?.checked){cobraA(pl.player_id,pl.player_name);return;}
   if(!pl||$('collectAmount').value)return;
   const pendiente=(receivables||[]).filter(r=>r.player_id===pl.player_id).reduce((sum,r)=>sum+Number(r.balance_due||0),0);
   const sugerido=pendiente>0?pendiente:Number(pl.base_monthly_fee||0);
   $('collectAmount').value=sugerido>0?Math.round(sugerido):'';
+},fuenteTienda);
+
+// Patrocinador: el único caso que sigue con el formulario de siempre.
+$('collectSponsorMode')?.addEventListener('change',e=>{
+  const on=e.target.checked;
+  $('playerFields').classList.toggle('solo-busca',!on);
+  $('saveCollect').classList.toggle('hidden',!on);
+  if(on)$('collectPayerType').value='sponsor';
+});
+// "¿A quién le cobras?": lo primero de la pantalla.
+$('cobroRapido')?.classList.toggle('hidden',!canCashWrite);
+if(canCashWrite)cargaJugadoresTienda();
+tannerSearchInit('rapidoBox','rapidoSearch','rapidoPlayer','rapidoResults','rapidoClear',pl=>{
+  if(!pl)return;
+  $('rapidoSearch').value='';$('rapidoPlayer').value='';$('rapidoClear')?.classList.add('hidden');
+  cobraA(pl.player_id,pl.player_name);
 },fuenteTienda);
 
 /* Por qué ese monto, dentro del cobro.

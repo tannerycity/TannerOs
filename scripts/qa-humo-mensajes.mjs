@@ -16,6 +16,16 @@
  *   · "Nuevo chat" → elegir a alguien → abre el 1 a 1;
  *   · Avisos: "Visto por N de M", marcar como vistos y publicar a un rol;
  *   · en iPad, lista y conversación lado a lado.
+ *
+ * Mensajería pro (h20, 19/10/2026), "dale a todos":
+ *   · responder citando y @mencionar en un chat de área (con sugerencias);
+ *   · editar sólo lo propio dentro de 15 minutos, y eliminar para todos;
+ *   · fijar un mensaje (barra arriba) y buscar dentro del chat;
+ *   · mandar una foto: sube a organizations/<org>/chat/<hilo>/<uuid>.<ext>
+ *     y se manda con esa ruta; un .exe se rechaza sin subir nada;
+ *   · respuestas rápidas: sugeridas, guardar una y usarla con "/";
+ *   · silenciar: el chat silenciado no cuenta en el globito, salvo menciones;
+ *   · avisos: "Enterado", quién falta, fijar y programar.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -47,7 +57,10 @@ const INBOX = {
     { id:'area-ops', kind:'area', areaRole:'Operaciones', title:'Operaciones', unread:0,
       last:{ body:'Mañana llegan 20 balones', senderName:'Mich', mine:true, at:hace(60) } },
     { id:'area-club', kind:'area', areaRole:'*', title:'Todo el club', unread:0, last:null },
-    { id:'area-taq', kind:'area', areaRole:'Taquilla', title:'Taquilla', unread:0, last:null }
+    { id:'area-taq', kind:'area', areaRole:'Taquilla', title:'Taquilla', unread:0, last:null },
+    // h20: silenciado con 4 sin leer, de los cuales 1 te menciona.
+    { id:'dm-emma', kind:'direct', title:'Emmanuel', otherRole:'Academia', unread:4, mentions:1, muted:true,
+      last:{ body:'Vamos con todo', senderName:'Emmanuel', mine:false, at:hace(240) } }
   ]
 };
 const HILOS = {
@@ -66,8 +79,14 @@ const HILOS = {
       { id:'a1', senderId:BRANDON, senderName:'Brandon Ruiz', body:'¿Quién abre el sábado?', at:hace(90), mine:false },
       { id:'a2', senderId:ME, senderName:'Mich', body:'Mañana llegan 20 balones', at:hace(60), mine:true } ] }
 };
-const AVISOS = { canPublish:true, avisos:[ { id:'v1', title:'El sábado no hay entrenamiento', body:'Por el torneo.', author:'Mich',
-  audienceType:'club', publishedAt:hace(200), unread:false, reach:{ total:10, seen:3 } },
+const AVISOS = { canPublish:true, avisos:[
+  // h20: programado (sólo lo ve quien lo maneja) y uno que me toca confirmar.
+  { id:'v4', title:'Foto de equipo', body:null, author:'Mich', audienceType:'club', publishedAt:hace(-600), scheduledFor:hace(-600),
+    unread:false, canManage:true, reach:null },
+  { id:'v5', title:'Junta el lunes 9:00', body:'Traigan su reporte.', author:'Zul Díaz', audienceType:'club', publishedAt:hace(150),
+    unread:false, canAck:true, acked:false },
+  { id:'v1', title:'El sábado no hay entrenamiento', body:'Por el torneo.', author:'Mich', canManage:true,
+  audienceType:'club', publishedAt:hace(200), unread:false, reach:{ total:10, seen:3, acked:2 } },
   // d5: el aviso personal que llegó a tres juntos es UNA tarjeta.
   { id:'v2', title:'Nueva postulación de staff', body:'Oscar · Formador', author:'TannerOS', audienceType:'users', audienceValue:null,
     recipients:[{ userId:ME, name:'Presidencia' }, { userId:'u-brandon', name:'Brandon Andrade' }, { userId:'u-emma', name:'Emmanuel' }],
@@ -78,16 +97,41 @@ const AVISOS = { canPublish:true, avisos:[ { id:'v1', title:'El sábado no hay e
   categorias:['Baby Tanner','T10','T12'] };
 
 const shell = (falla) => `
-  window.__rpc = []; window.__fallaEnvio = ${falla ? 1 : 0};
-  export const supabase = {};
+  window.__rpc = []; window.__fallaEnvio = ${falla ? 1 : 0}; window.__subidas = []; window.__pin = null; window.__mios = [];
+  window.__alertas = []; window.tosAlert = async a => { window.__alertas.push(a); }; window.tosConfirm = async () => true;
+  const PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  export const supabase = { storage: { from: () => ({
+    upload: async (path, blob, opts) => { window.__subidas.push({ path, type: opts?.contentType, size: blob?.size }); return { data:{ path }, error:null }; },
+    createSignedUrls: async paths => ({ data: paths.map(path => ({ path, signedUrl: PIXEL })), error:null }) }) } };
   export const $ = id => document.getElementById(id);
   export async function rpc(name, params={}){
     window.__rpc.push({name, params});
     if(name==='v2_chat_inbox') return JSON.parse(JSON.stringify(${JSON.stringify(INBOX)}));
-    if(name==='v2_chat_thread') return JSON.parse(JSON.stringify((${JSON.stringify(HILOS)})[params.thread_id] || {thread:{id:params.thread_id,kind:'direct',title:'Brandon Ruiz',members:[]},messages:[]}));
-    if(name==='v2_chat_send'){
+    if(name==='v2_chat_thread'){
+      const h = JSON.parse(JSON.stringify((${JSON.stringify(HILOS)})[params.thread_id] || {thread:{id:params.thread_id,kind:'direct',title:'Brandon Ruiz',members:[]},messages:[]}));
+      h.messages.push(...window.__mios.filter(m => m.threadId === params.thread_id));
+      h.messages.forEach(m => { if ((window.__borrados || []).includes(m.id)) Object.assign(m, { deleted:true, body:'', attachment:null }); });
+      if (window.__pin && window.__pin.thread === params.thread_id) h.thread.pinned = h.messages.find(m => m.id === window.__pin.id) || null;
+      if (window.__mudo) h.thread.mutedUntil = window.__mudo;
+      return h;
+    }
+    if(name==='v2_chat_edit') return { id:params.message_id, senderId:'${ME}', senderName:'Mich', body:params.body, at:new Date().toISOString(), mine:true, editedAt:new Date().toISOString() };
+    if(name==='v2_chat_delete'){ (window.__borrados = window.__borrados || []).push(params.message_id); return null; }
+    if(name==='v2_chat_pin'){ window.__pin = params.message_id ? { thread:params.thread_id, id:params.message_id } : null; return null; }
+    if(name==='v2_chat_mute'){ window.__mudo = params.until; return null; }
+    if(name==='v2_chat_search') return [{ id:'a2', senderId:'${ME}', senderName:'Mich', body:'Mañana llegan 20 balones', at:new Date(Date.now()-3600e3).toISOString(), mine:true }];
+    if(name==='v2_chat_quick_replies') return window.__rapidas || [];
+    if(name==='v2_chat_quick_reply_save'){ window.__rapidas = [{ id:'q1', shortcut:params.shortcut, body:params.body }]; return 'q1'; }
+    if(name==='v2_aviso_detalle') return [{ name:'Brandon Ruiz', role:'Operaciones', seenAt:null, ackAt:null },
+      { name:'Zul Díaz', role:'Operaciones', seenAt:new Date().toISOString(), ackAt:null },
+      { name:'Emmanuel', role:'Academia', seenAt:new Date().toISOString(), ackAt:new Date().toISOString() }];
+    if(name==='v2_chat_enviar'){
       if(window.__fallaEnvio>0){ window.__fallaEnvio--; throw new Error('Failed to fetch'); }
-      return { id:'nuevo-'+params.client_key, senderId:'${ME}', senderName:'Mich', body:params.body.trim(), at:new Date().toISOString(), mine:true };
+      const m = { id:'nuevo-'+params.client_key, senderId:'${ME}', senderName:'Mich', body:params.body.trim(), at:new Date().toISOString(), mine:true,
+        attachment: params.attachment ? { ...params.attachment, kind:String(params.attachment.mime).startsWith('image/') ? 'image' : 'file' } : null,
+        mentions: params.mentions || [], replyTo: params.reply_to ? { id:params.reply_to, senderName:'Brandon Ruiz', body:'¿Quién abre el sábado?' } : null };
+      window.__mios.push({ ...m, threadId: params.thread_id, mine:true });
+      return m;
     }
     if(name==='v2_chat_open_direct') return 'dm-brandon';
     if(name==='v2_avisos') return ${JSON.stringify(AVISOS)};
@@ -141,7 +185,7 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   revisa('al escribir se prende', !(await pg.isDisabled('#msEnviar')));
   await cap(pg, 'chat');
   await pg.click('#msEnviar'); await pg.waitForTimeout(300);
-  const env = await llamadas(pg, 'v2_chat_send');
+  const env = await llamadas(pg, 'v2_chat_enviar');
   revisa('envía al chat abierto, con llave', env.length === 1 && env[0].thread_id === 'dm-zul' && String(env[0].client_key || '').length >= 8, JSON.stringify(env));
   const ultimo = await pg.$$eval('.ms-row.mine .ms-text', e => e.at(-1)?.textContent);
   revisa('la burbuja nueva aparece con el texto recortado', ultimo === 'Perfecto, mañana los repartimos', ultimo);
@@ -159,7 +203,7 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   await pg.fill('#msTexto', 'Hola'); await pg.click('#msEnviar'); await pg.waitForTimeout(300);
   revisa('si no se envía, lo dice y ofrece reintentar', await pg.isVisible('.ms-retry') && /Reintentar/.test(await pg.textContent('.ms-retry')));
   await pg.click('.ms-retry'); await pg.waitForTimeout(300);
-  const env = await llamadas(pg, 'v2_chat_send');
+  const env = await llamadas(pg, 'v2_chat_enviar');
   revisa('el reintento usa la MISMA llave (no se duplica)', env.length === 2 && env[0].client_key === env[1].client_key, JSON.stringify(env));
   revisa('y ya no queda en rojo', !(await pg.isVisible('.ms-retry')));
   await pg.close();
@@ -196,7 +240,8 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   const globos = await pg.evaluate(() => ({ chats: document.getElementById('msNChats')?.hidden ? '' : document.getElementById('msNChats')?.textContent,
     avisos: document.getElementById('msNAvisos')?.hidden ? '' : document.getElementById('msNAvisos')?.textContent,
     color: getComputedStyle(document.getElementById('msNChats')).backgroundColor }));
-  revisa('[origen] Chats dice cuántos mensajes sin leer (2) y Avisos cuántos avisos (1)', globos.chats === '2' && globos.avisos === '1', JSON.stringify(globos));
+  // El chat silenciado (4 sin leer) sólo suma su mención: 2 + 1 = 3.
+  revisa('[origen] Chats cuenta lo no leído sin lo silenciado, salvo menciones (3), y Avisos (1)', globos.chats === '3' && globos.avisos === '1', JSON.stringify(globos));
   revisa('[origen] el globito es azul', globos.color === 'rgb(10, 132, 255)', globos.color);
   await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(300);
   const nuevo = await pg.$$eval('.ms-aviso.unread', as => as.map(a => a.textContent));
@@ -209,7 +254,7 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   await pg.evaluate(() => window.dispatchEvent(new CustomEvent('tos:campana'))); await pg.waitForTimeout(250);
   revisa('[origen] la campana abre la pestaña donde está lo nuevo (Chats)', await pg.getAttribute('[data-tab="chats"]', 'aria-selected') === 'true');
   await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(300);
-  revisa('el aviso dice cuántos lo han visto', /Visto por 3 de 10/.test(await pg.textContent('.ms-aviso')));
+  revisa('el aviso dice cuántos lo han visto', /Visto por 3 de 10 · 2 enterados/.test(await pg.textContent('[data-aviso="v1"]')));
   const post = await pg.$$eval('.ms-aviso', as => as.filter(a => /postulación/.test(a.textContent)).map(a => a.querySelector('footer').innerText));
   revisa('el aviso para varios sale una vez y dice para quiénes', post.length === 1 && /Para ti, Brandon Andrade y Emmanuel/.test(post[0]) && /Visto por 1 de 3/.test(post[0]), JSON.stringify(post));
   await cap(pg, 'avisos');
@@ -243,6 +288,157 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
   const todas = (await llamadas(pg, 'v2_publish_announcement'))[3] || {};
   revisa('publicar a todas las familias', todas.audience_type === 'familias' && todas.audience_value === null, JSON.stringify(todas));
+  await pg.close();
+}
+
+/* ===== MENSAJERÍA PRO (h20): citar, mencionar, editar, borrar, fijar, buscar ===== */
+{
+  const { pg, errs } = await abre();
+  const lista = await pg.$eval('[data-thread="dm-emma"]', e => ({ mudo: !!e.querySelector('.ms-muted'), at: !!e.querySelector('.ms-at'),
+    gris: getComputedStyle(e.querySelector('.ms-count')).backgroundColor }));
+  // Con una mención pendiente el contador se queda azul; sin ella iría en gris.
+  revisa('[pro] el chat silenciado lleva su campana tachada, la @ de la mención y el contador azul por la mención',
+    lista.mudo && lista.at && lista.gris === 'rgb(10, 132, 255)', JSON.stringify(lista));
+
+  await pg.click('[data-thread="area-ops"]'); await pg.waitForTimeout(300);
+  // Responder citando: tocar la burbuja de Brandon.
+  await pg.click('[data-msg="a1"]'); await pg.waitForTimeout(150);
+  const ops = await pg.$$eval('.ms-acciones [data-op]', b => b.map(x => x.dataset.op));
+  revisa('[pro] el mensaje de otro se puede responder, copiar y fijar, pero no editar ni borrar',
+    ops.includes('responder') && ops.includes('fijar') && !ops.includes('editar') && !ops.includes('borrar'), JSON.stringify(ops));
+  await pg.click('[data-op="responder"]'); await pg.waitForTimeout(100);
+  revisa('[pro] arriba de la caja dice a quién respondes', /Respondiendo a Brandon Ruiz/.test(await pg.textContent('#msContexto')));
+  // @mencionar con sugerencias.
+  await pg.click('#msTexto'); await pg.keyboard.type('Yo abro, @bra');
+  await pg.waitForTimeout(150);
+  const sug = await pg.$$eval('#msSugiere [role=option]', b => b.map(x => x.innerText));
+  revisa('[pro] al escribir @bra sugiere a Brandon', sug.length === 1 && /Brandon Ruiz/.test(sug[0]), JSON.stringify(sug));
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(100);
+  revisa('[pro] Enter elige la sugerencia (no envía) y deja "@Brandon Ruiz "', await pg.inputValue('#msTexto') === 'Yo abro, @Brandon Ruiz ' &&
+    (await llamadas(pg, 'v2_chat_enviar')).length === 0, await pg.inputValue('#msTexto'));
+  await pg.keyboard.type('nos vemos'); await pg.click('#msEnviar'); await pg.waitForTimeout(300);
+  const env = (await llamadas(pg, 'v2_chat_enviar'))[0] || {};
+  revisa('[pro] se manda citando el mensaje y con la mención', env.reply_to === 'a1' && JSON.stringify(env.mentions) === JSON.stringify([BRANDON]), JSON.stringify(env));
+  const burbuja = await pg.$$eval('.ms-row.mine .ms-bubble', b => { const x = b.at(-1); return { cita: x.querySelector('.ms-quote')?.innerText, men: x.querySelector('.ms-mention')?.textContent }; });
+  revisa('[pro] la burbuja enseña la cita y la mención resaltada', /Brandon Ruiz/.test(burbuja.cita || '') && burbuja.men === '@Brandon Ruiz', JSON.stringify(burbuja));
+  revisa('[pro] después de mandar, ya no dice "Respondiendo"', (await pg.textContent('#msContexto')).trim() === '');
+
+  // Editar: el viejo (hace 60 min) ya no; el recién mandado sí.
+  await pg.click('[data-msg="a2"]'); await pg.waitForTimeout(150);
+  const viejo = await pg.$$eval('.ms-acciones [data-op]', b => b.map(x => x.dataset.op));
+  revisa('[pro] un mensaje mío de hace una hora se borra pero ya no se edita', viejo.includes('borrar') && !viejo.includes('editar'), JSON.stringify(viejo));
+  await pg.click('[data-cerrar]');
+  const nuevoId = env.client_key ? 'nuevo-' + env.client_key : '';
+  await pg.click(`[data-msg="${nuevoId}"] .ms-text`); await pg.waitForTimeout(150);
+  await pg.click('[data-op="editar"]'); await pg.waitForTimeout(100);
+  revisa('[pro] al editar, la caja trae el texto y avisa los 15 minutos', /Editando/.test(await pg.textContent('#msContexto')) && /nos vemos/.test(await pg.inputValue('#msTexto')));
+  await pg.fill('#msTexto', 'Yo abro, @Brandon Ruiz a las 8'); await pg.click('#msEnviar'); await pg.waitForTimeout(300);
+  const ed = (await llamadas(pg, 'v2_chat_edit'))[0] || {};
+  revisa('[pro] editar manda el texto nuevo a ese mensaje, sin enviar otro', ed.message_id === nuevoId && /a las 8/.test(ed.body) && (await llamadas(pg, 'v2_chat_enviar')).length === 1, JSON.stringify(ed));
+  revisa('[pro] y la burbuja dice "Editado"', /Editado/.test(await pg.textContent(`#msg-${nuevoId}`)));
+
+  // Fijar.
+  await pg.click('[data-msg="a1"]'); await pg.waitForTimeout(150);
+  await pg.click('[data-op="fijar"]'); await pg.waitForTimeout(300);
+  revisa('[pro] fijar manda el mensaje y aparece la barra arriba', (await llamadas(pg, 'v2_chat_pin'))[0]?.message_id === 'a1' && /Quién abre el sábado/.test(await pg.textContent('#msPin')));
+  await pg.click('[data-desfijar]'); await pg.waitForTimeout(300);
+  revisa('[pro] la X quita el fijado', (await llamadas(pg, 'v2_chat_pin'))[1]?.message_id === null && (await pg.textContent('#msPin')).trim() === '');
+
+  // Eliminar para todos.
+  await pg.click('[data-msg="a2"]'); await pg.waitForTimeout(150);
+  await pg.click('[data-op="borrar"]'); await pg.waitForTimeout(300);
+  revisa('[pro] eliminar pregunta, borra y deja "Se eliminó este mensaje"', (await llamadas(pg, 'v2_chat_delete'))[0]?.message_id === 'a2' && /Se eliminó este mensaje/.test(await pg.textContent('#msMsgs')));
+
+  // Buscar dentro.
+  await pg.click('#msLupa'); await pg.fill('#msBuscaHilo', 'balones'); await pg.waitForTimeout(500);
+  revisa('[pro] buscar dentro del chat pregunta al servidor y enseña lo que encontró', (await llamadas(pg, 'v2_chat_search'))[0]?.q === 'balones' && /20 balones/.test(await pg.textContent('#msHallazgos')));
+
+  // Silenciar.
+  await pg.click('#msSilencio'); await pg.waitForTimeout(150);
+  await pg.click('[data-silencio="8h"]'); await pg.waitForTimeout(200);
+  const mute = (await llamadas(pg, 'v2_chat_mute'))[0] || {};
+  const horas = (new Date(mute.until) - AHORA) / 3600e3;
+  revisa('[pro] silenciar 8 horas manda la hora correcta y lo dice en el encabezado', Math.abs(horas - 8) < .01 && /silenciado/.test(await pg.textContent('#msInfo')), JSON.stringify(mute));
+  await cap(pg, 'pro-chat');
+  revisa('[pro] sin errores de consola', errs.length === 0, errs.join(' | '));
+  await pg.close();
+}
+
+/* ===== FOTOS Y ARCHIVOS + RESPUESTAS RÁPIDAS ===== */
+{
+  const { pg, errs } = await abre();
+  await pg.click('[data-thread="area-ops"]'); await pg.waitForTimeout(300);
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR42mNk+M9QzwAEjDAGACCDAv8cI7IoAAAAAElFTkSuQmCC', 'base64');
+  await pg.setInputFiles('#msArchivo', { name:'cancha.png', mimeType:'image/png', buffer:png }); await pg.waitForTimeout(800);
+  const sub = await pg.evaluate(() => window.__subidas);
+  const env = (await llamadas(pg, 'v2_chat_enviar')).at(-1) || {};
+  revisa('[archivo] la foto sube a la carpeta del chat con nombre que no se adivina',
+    sub.length === 1 && /^organizations\/o1\/chat\/area-ops\/[0-9a-f-]{36}\.(webp|jpg|png)$/.test(sub[0].path), JSON.stringify(sub));
+  revisa('[archivo] y se manda con esa misma ruta, su nombre y sin texto', env.attachment?.path === sub[0]?.path && env.attachment?.name === 'cancha.png' && env.body === '', JSON.stringify(env));
+  revisa('[archivo] la burbuja enseña la foto', await pg.$$eval('.ms-row.mine .ms-foto img', i => i.length >= 1));
+  await pg.setInputFiles('#msArchivo', { name:'virus.exe', mimeType:'application/octet-stream', buffer:Buffer.from('MZ') }); await pg.waitForTimeout(300);
+  const al = await pg.evaluate(() => window.__alertas.map(a => a.message));
+  revisa('[archivo] un .exe se rechaza con explicación y no sube nada', (await pg.evaluate(() => window.__subidas.length)) === 1 && al.some(m => /tipo de archivo/.test(m)), JSON.stringify(al));
+
+  // Respuestas rápidas.
+  await pg.click('#msRapidas'); await pg.waitForTimeout(250);
+  revisa('[rápidas] sin guardadas, ofrece sugeridas', /enterado/.test(await pg.textContent('#msListaRapidas')));
+  await pg.click('[data-guarda="0"]'); await pg.waitForTimeout(100);
+  revisa('[rápidas] "Guardar" llena el formulario con esa respuesta', await pg.inputValue('#msRapAtajo') === 'enterado');
+  await pg.fill('#msRapAtajo', 'con espacio');
+  await pg.click('#msRapidaForm button[type=submit]'); await pg.waitForTimeout(150);
+  revisa('[rápidas] un atajo con espacios se rechaza antes de mandar', await pg.isVisible('#msRapError') && (await llamadas(pg, 'v2_chat_quick_reply_save')).length === 0);
+  await pg.fill('#msRapAtajo', '/Enterado');
+  await pg.click('#msRapidaForm button[type=submit]'); await pg.waitForTimeout(300);
+  const qr = (await llamadas(pg, 'v2_chat_quick_reply_save'))[0] || {};
+  revisa('[rápidas] se guarda en minúsculas y sin la diagonal', qr.shortcut === 'enterado' && qr.body === 'Enterado, gracias.', JSON.stringify(qr));
+  await pg.click('[data-cerrar]');
+  await pg.click('#msTexto'); await pg.keyboard.type('/ent'); await pg.waitForTimeout(250);
+  revisa('[rápidas] "/ent" en la caja la sugiere', /Enterado, gracias/.test(await pg.textContent('#msSugiere')));
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(100);
+  revisa('[rápidas] elegirla pone el texto completo', await pg.inputValue('#msTexto') === 'Enterado, gracias.');
+  revisa('[archivo/rápidas] sin errores de consola', errs.length === 0, errs.join(' | '));
+  await pg.close();
+}
+
+/* ===== AVISOS PRO: Enterado, quién falta, fijar y programar ===== */
+{
+  const { pg, errs } = await abre();
+  await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(300);
+  revisa('[avisos] el programado dice cuándo sale', /Sale/.test(await pg.textContent('[data-aviso="v4"]')));
+  revisa('[avisos] al que me toca confirmar le sale "Enterado"', await pg.isVisible('[data-ack="v5"]'));
+  await pg.click('[data-ack="v5"]'); await pg.waitForTimeout(250);
+  revisa('[avisos] tocar "Enterado" lo confirma y queda marcado', (await llamadas(pg, 'v2_aviso_enterado'))[0]?.aviso_id === 'v5' &&
+    !(await pg.isVisible('[data-ack="v5"]')) && /Enterado/.test(await pg.textContent('[data-aviso="v5"] .ms-acked')));
+  await pg.click('[data-detalle="v1"]'); await pg.waitForTimeout(250);
+  const grupos = await pg.$$eval('.ms-grupo h3', h => h.map(x => x.textContent.replace(/\s+/g, ' ')));
+  revisa('[avisos] el autor ve quién falta, quién lo vio y quién dijo Enterado', grupos.length === 3 && /Faltan 1/.test(grupos[0]) && /Enterados 1/.test(grupos[2]), JSON.stringify(grupos));
+  await pg.click('[data-cerrar]');
+  await pg.click('[data-gestion="v1"]'); await pg.waitForTimeout(150);
+  await pg.click('[data-op="fijar"]'); await pg.waitForTimeout(250);
+  revisa('[avisos] fijar un aviso lo manda arriba', JSON.stringify((await llamadas(pg, 'v2_aviso_fijar'))[0]) === JSON.stringify({ organization_id:'o1', aviso_id:'v1', fijo:true }));
+  await pg.click('[data-gestion="v4"]'); await pg.waitForTimeout(150);
+  await pg.click('[data-op="cancelar"]'); await pg.waitForTimeout(250);
+  revisa('[avisos] un programado se puede cancelar', (await llamadas(pg, 'v2_aviso_cancelar'))[0]?.aviso_id === 'v4');
+  // Programar.
+  await pg.click('#msAvisoNuevo'); await pg.waitForTimeout(150);
+  await pg.fill('#msAvTitulo', 'Entrenamiento a las 7');
+  revisa('[programar] la fecha no aparece si es "Ahora"', !(await pg.isVisible('#msAvFecha')));
+  await pg.check('[name=msAvCuando][value=programar]'); await pg.waitForTimeout(100);
+  revisa('[programar] al elegir "Programar" aparece la fecha y el botón cambia', await pg.isVisible('#msAvFecha') && /Programar aviso/.test(await pg.textContent('#msAvisoForm button[type=submit]')));
+  const pronto = await pg.evaluate(() => { const d = new Date(Date.now() + 60e3), p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; });
+  await pg.fill('#msAvFecha', pronto);
+  await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(200);
+  revisa('[programar] dentro de 1 minuto se rechaza', /5 minutos/.test(await pg.textContent('#msAvError')) && (await llamadas(pg, 'v2_publish_announcement')).length === 0);
+  const manana = await pg.evaluate(() => { const d = new Date(Date.now() + 864e5); d.setHours(7, 0, 0, 0); const p = n => String(n).padStart(2, '0');
+    return { local:`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T07:00`, iso:d.toISOString() }; });
+  await pg.fill('#msAvFecha', manana.local);
+  await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
+  const prog = (await llamadas(pg, 'v2_publish_announcement'))[0] || {};
+  revisa('[programar] se publica con la hora elegida', prog.starts_at === manana.iso && prog.title === 'Entrenamiento a las 7', JSON.stringify(prog));
+  await cap(pg, 'pro-avisos');
+  revisa('[avisos pro] sin errores de consola', errs.length === 0, errs.join(' | '));
   await pg.close();
 }
 

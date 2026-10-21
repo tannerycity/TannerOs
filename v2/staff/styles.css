@@ -64,4 +64,6 @@
 .st-check input{min-height:auto;width:20px;height:20px}
 .st-form-msg{margin:0;color:#a92a21;font-weight:700;font-size:14px;min-height:1em}
 .st-baja{border:0;background:none;color:#a92a21;font:inherit;font-weight:700;padding:8px;cursor:pointer}
+.st-eliminar{min-height:48px;margin-top:6px;border:1px solid #e7b9b4;border-radius:12px;background:#fdecea;color:#a92a21;font:inherit;font-weight:800;cursor:pointer}
+.st-eliminar-nota{display:block;text-align:center;font-size:12.5px;color:#7a5450}
 @media(max-width:620px){.st-head h1{font-size:30px}.st-nivel-gente{grid-template-columns:1fr}}

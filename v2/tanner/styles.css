@@ -116,3 +116,9 @@
 .tan-cambios .tan-section-head span{color:#8a5a12}
 .tan-motivo{display:block;margin-top:3px;font-style:italic;color:#5c6f74;font-size:12px}
 .tan-mov[data-kind="cambio"] .tan-dot{background:#f7f0dc;color:#8a6413}
+
+/* Un mes que se debe es un botón: se toca y abre el cobro de ese mes. */
+button.tan-mes{font:inherit;cursor:pointer;color:inherit;transition:transform .12s ease,box-shadow .12s ease}
+button.tan-mes:hover{box-shadow:0 6px 16px -8px rgba(3,47,59,.35)}
+button.tan-mes:active{transform:scale(.97)}
+button.tan-btn{font:inherit;font-weight:600;font-size:14px;cursor:pointer}

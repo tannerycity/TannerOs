@@ -162,7 +162,9 @@ export default function comprobar() {
   // hijos, copiar la cotización y WhatsApp, en celular.
   // Sube a 51 por qa-humo-costos-editor.mjs: Club › Costos públicos
   // (categorías, opciones por días, precio por clase y paquetes).
-  const MAX_EXCLUIDAS = 51;
+  // Sube a 52 por qa-humo-cobro-desglose.mjs: un solo cobro con varios
+  // conceptos y dos métodos, desde el estado de cuenta y desde Taquilla.
+  const MAX_EXCLUIDAS = 52;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

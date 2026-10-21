@@ -224,6 +224,20 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   await pg.close();
 }
 
+/* ===== LA LIGA ?action=cobrar ABRE EL INICIO COMPLETO =====
+   Presidencia (21/10/2026, captura de /taquilla/?action=cobrar): la ventana
+   abría sin las tarjetas y con "Registrar cobro": no se podía cobrar un
+   jersey ni a alguien que no está en el sistema. */
+{
+  const { pg, errs } = await abre(true, '/v2/taquilla/?action=cobrar');
+  await pg.waitForSelector('#collectModal:not(.hidden)', { timeout:5000 }).catch(() => {});
+  revisa('?action=cobrar abre en "¿Qué vas a cobrar?"', await pg.$eval('#collectModal', m => m.classList.contains('en-inicio')).catch(() => false));
+  revisa('con las tarjetas Tienda y Otro ingreso a la vista', (await pg.isVisible('#tabTienda')) && (await pg.isVisible('#collectModal [data-mode="general"]')));
+  revisa('y sin el botón suelto de Registrar cobro', !(await pg.isVisible('#saveCollect')));
+  revisa('sin errores de consola (liga)', errs.length === 0, errs.join(' | '));
+  await pg.close();
+}
+
 /* ===== ESTACIONAMIENTO: "en Taquilla se puede cobrar todo" ===== */
 {
   const { pg, errs } = await abre(true);

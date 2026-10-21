@@ -40,6 +40,26 @@
 .cobro-recibo{list-style:none;margin:6px 0 4px;padding:0;width:100%;display:grid;gap:4px}
 .cobro-recibo li{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-radius:10px;background:#f6f8f7;font-size:13.5px}
 .cobro-recibo b{font-variant-numeric:tabular-nums}
-.cobro-wa{display:flex;align-items:center;justify-content:center;width:100%;background:#25D366;text-decoration:none}
+.cobro-wa{display:flex;align-items:center;justify-content:center;width:100%;background:#25D366!important;text-decoration:none}
 .cobro-listo{width:100%;min-height:46px;border:1px solid #d6dfdd;border-radius:14px;background:#fff;font:inherit;font-size:15px;font-weight:700;color:#0d2730;cursor:pointer}
 @media (max-width:420px){.cobro-dos{grid-template-columns:1fr}.cobro-linea-top .cobro-peso{flex-basis:112px}}
+
+/* El último toque ya dice cómo pagó: dos botones grandes. */
+.cobro-pagar{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.cobro-pagar-btn{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:62px!important;padding:8px 10px!important}
+.cobro-pagar-btn small{font-size:12px;font-weight:700;opacity:.85}
+.cobro-pagar-btn span{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+.cobro-pagar-btn[data-pagar="transfer"]{background:#087d8e!important}
+.cobro-menos{justify-self:center;font-size:12.5px}
+.cobro-mas{padding:12px;border-radius:14px;background:#f6f8f7;border:1px solid #e2e7e5}
+/* Quién cobra (sólo en cuentas compartidas). */
+.cobro-cobra{margin:0;font-size:13px;color:#4a6870}
+.cobro-cobra b{color:#0d2730}
+.cobro-quien{padding:12px;border-radius:14px;background:#fdf8ec;border:1px solid #eddfba}
+.cobro-quien-fila{display:flex;gap:8px}
+.cobro-quien-fila input{flex:1;min-width:0}
+.cobro-quien-fila .cobro-listo{width:auto;padding:0 18px}
+/* Hermanos en el mismo cobro. */
+.cobro-quien-es{display:block;margin-top:4px;font-size:12.5px;font-weight:800;color:#05505d}
+.cobro-hermanos .cobro-chip{border-style:dashed;border-color:#087d8e;color:#05505d}
+.cobro-hermanos .cobro-chip i{font-size:11px;font-weight:700;color:#6b7a80}

@@ -1,8 +1,8 @@
 {
-  "migraciones": 544,
-  "bytes": 3097955,
-  "huella": "9f9641ea6e3242ed31f95efc2a32b37d",
+  "migraciones": 546,
+  "bytes": 3136214,
+  "huella": "d5cfd0636a43b0d96fc6065571f76e99",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261021133809_h27_acuerdo_familia_y_cobranza.sql",
+  "ultima": "20261021143544_h29_taquilla_central.sql",
   "verificadoContraLaBase": "2026-10-21"
 }

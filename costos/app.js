@@ -6,6 +6,14 @@ import { TARIFAS, aplicaPrecios, nombreOpcion, porClase } from '/costos/tarifas.
 import { cotiza, dinero, textoCotizacion, ligaWhatsApp, fechaLarga, fechaCorta, mesDe, mesSiguiente, leeFecha } from '/costos/calculo.js';
 
 const $ = id => document.getElementById(id);
+// Modo staff (?para=familia, 21/10/2026): "a veces no estoy o no está quien
+// dice los costos". Cualquiera del club cotiza aquí y se lo manda al papá por
+// WhatsApp con el link de registro. No se guarda nada: si el papá se inscribe,
+// entra por el registro de siempre.
+const STAFF = new URLSearchParams(location.search).get('para') === 'familia';
+const registroUrl = () => `${location.origin}/registro/`;
+const telPapa = () => { const n = String($('coTelPapa')?.value || '').replace(/\D/g, ''); return n.length === 10 ? `52${n}` : n.length === 12 ? n : ''; };
+const ligaAlPapa = texto => `https://wa.me/${telPapa()}?text=${encodeURIComponent(`Hola, te comparto la cotización de Tannery City.\n\n${texto}\n\nPara inscribirlo: ${registroUrl()}`)}`;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 let T = TARIFAS, CAT = T.categorias;
 
@@ -92,10 +100,21 @@ function pintaResultado() {
     ${c.recargo ? `<div class="co-recargo" data-recargo><b>Si pagas después del día ${T.recargo.diaLimite}</b><span>Mensualidad ${dinero(c.mensualidadRegular)} + recargo ${dinero(c.recargo)}${c.detalle.length > 1 ? ` (${dinero(T.recargo.monto)} por cada hijo)` : ''}</span><strong id="coConRecargo">${dinero(c.mensualidadConRecargo)}</strong></div>` : ''}
     <p class="co-importante" data-importante>${esc(T.notaProporcional)}</p>
     <p class="co-nota">${c.estimacion ? '<b>Estimación.</b> ' : ''}${esc(T.nota)}</p>
-    <div class="co-acciones"><button type="button" class="co-btn" id="coCopiar">Copiar mi cotización</button><a class="co-btn wa" id="coWhats" href="${esc(ligaWhatsApp(textoCotizacion(c, T), T, c.detalle.length))}" target="_blank" rel="noopener">Solicitar información por WhatsApp</a></div>
+    ${STAFF
+      ? `<div class="co-acciones co-staff"><label class="co-tel">WhatsApp del papá<input id="coTelPapa" type="tel" inputmode="tel" autocomplete="off" placeholder="477 123 4567" value="${esc(estado.tel || '')}"></label>
+          <a class="co-btn wa" id="coWhats" href="#" target="_blank" rel="noopener" aria-disabled="true">Mandar al papá</a><button type="button" class="co-btn" id="coCopiar">Copiar</button></div>
+          <p class="co-nota">Se manda con el link de registro. No se guarda nada.</p>`
+      : `<div class="co-acciones"><button type="button" class="co-btn" id="coCopiar">Copiar mi cotización</button><a class="co-btn wa" id="coWhats" href="${esc(ligaWhatsApp(textoCotizacion(c, T), T, c.detalle.length))}" target="_blank" rel="noopener">Solicitar información por WhatsApp</a></div>`}
     <p class="co-copiado hidden" id="coCopiado" role="status">Cotización copiada.</p>
   </article>`;
-  $('coCopiar').addEventListener('click', () => copia(textoCotizacion(c, T)));
+  $('coCopiar').addEventListener('click', () => copia(STAFF ? `${textoCotizacion(c, T)}\n\nPara inscribirlo: ${registroUrl()}` : textoCotizacion(c, T)));
+  if (STAFF) {
+    const texto = textoCotizacion(c, T), wa = $('coWhats');
+    const listo = () => { const ok = Boolean(telPapa()); wa.setAttribute('aria-disabled', String(!ok)); wa.href = ok ? ligaAlPapa(texto) : '#'; };
+    $('coTelPapa').addEventListener('input', e => { estado.tel = e.target.value; listo(); });
+    wa.addEventListener('click', e => { if (!telPapa()) { e.preventDefault(); $('coTelPapa').focus(); } });
+    listo();
+  }
 }
 async function copia(texto) {
   let ok = false;
@@ -115,10 +134,10 @@ async function copia(texto) {
 
 /* ---------- Página ---------- */
 function pinta() {
-  $('contenido').innerHTML = `<header class="co-hero"><a class="co-volver" href="/">‹ Inicio</a>
+  $('contenido').innerHTML = `<header class="co-hero"><a class="co-volver" href="${STAFF ? '/taquilla/' : '/'}">${STAFF ? '‹ Taquilla' : '‹ Inicio'}</a>
       <img class="co-escudo" src="/brand/crest-gold.png" alt="" width="84" height="84">
       <p class="co-club">TANNERY CITY F.C.</p><h1 class="co-titulo cond">Costos <em>de la Academia</em></h1>
-      <p class="co-bajada">Consulta las mensualidades y calcula cuánto pagarás por tu inscripción.</p>
+      <p class="co-bajada">${STAFF ? 'Cotiza para una familia y mándaselo por WhatsApp con el link de registro.' : 'Consulta las mensualidades y calcula cuánto pagarás por tu inscripción.'}</p>
       <a class="co-cta cond" href="#calculadora">Calcular mi pago</a></header>
     <main class="co-main">
       <section class="co-sec" aria-labelledby="coPreciosT"><p class="co-eyebrow">Mensualidades</p><h2 id="coPreciosT" class="co-h2 cond">Precios</h2>

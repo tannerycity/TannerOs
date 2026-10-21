@@ -31,7 +31,7 @@ const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` 
 const cap = async (pg, n) => { if (process.env.QA_CAPTURA) await pg.screenshot({ path: process.env.QA_CAPTURA.replace('.png', `-${n}.png`), fullPage: true }); };
 
 // precios: lo que contesta v2_public_costos (null = nada guardado); 'cae' = sin red.
-async function abre(viewport = { width: 390, height: 844 }, precios = null) {
+async function abre(viewport = { width: 390, height: 844 }, precios = null, ruta = '/costos/') {
   const ctx = await nav.newContext({ viewport, hasTouch: true, isMobile: viewport.width < 600, permissions: ['clipboard-read', 'clipboard-write'] });
   const pg = await ctx.newPage();
   const errs = [], ajenas = [];
@@ -40,7 +40,7 @@ async function abre(viewport = { width: 390, height: 844 }, precios = null) {
   pg.on('request', q => { if (!q.url().startsWith(BASE)) ajenas.push(q.url()); });
   await pg.route('**/rest/v1/rpc/v2_public_costos', r => precios === 'cae' ? r.abort()
     : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(precios) }));
-  await pg.goto(`${BASE}/costos/`, { waitUntil: 'networkidle' });
+  await pg.goto(`${BASE}${ruta}`, { waitUntil: 'networkidle' });
   return { pg, ctx, errs, ajenas };
 }
 const total = pg => pg.textContent('#coTotal').catch(() => null);
@@ -176,6 +176,24 @@ const elige = (pg, name, value) => pg.click(`label.co-op:has(> input[name="${nam
   const { pg, ctx, errs } = await abre(undefined, 'cae');
   revisa('[sin red] la página sale igual con los precios del archivo', await pg.isVisible('.co-titulo') && /\$800/.test(await pg.textContent('.co-planes')));
   revisa('[sin red] sin errores en la página', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).length === 0, errs);
+  await ctx.close();
+}
+
+/* ===== Modo staff: cotizar a una familia (21/10/2026) =====
+   "A veces no estoy o no está quien dice los costos": cualquiera del club
+   cotiza y se lo manda al papá con el link de registro. No se guarda nada. */
+{
+  const { pg, ctx, errs, ajenas } = await abre(undefined, null, '/costos/?para=familia');
+  revisa('[staff] regresa a Taquilla', (await pg.getAttribute('.co-volver', 'href')) === '/taquilla/' && /Taquilla/.test(await pg.textContent('.co-volver')));
+  await elige(pg, 'coN', '1'); await elige(pg, 'coCat0', 'tanner'); await elige(pg, 'coNueva', 'si');
+  await pg.waitForSelector('#coTelPapa');
+  revisa('[staff] sin número del papá no se puede mandar', (await pg.getAttribute('#coWhats', 'aria-disabled')) === 'true');
+  await pg.fill('#coTelPapa', '477 123 4567');
+  const wa = await pg.getAttribute('#coWhats', 'href');
+  revisa('[staff] se manda al WhatsApp del papá, no al del club', wa.startsWith('https://wa.me/524771234567?text=') && !wa.includes('524792651338'), wa.slice(0, 60));
+  revisa('[staff] el mensaje lleva la cotización y el link de registro', /Total%20del%20primer%20pago/.test(wa) && /%2Fregistro%2F/.test(wa), wa.slice(0, 200));
+  revisa('[staff] no le pide nada más al servidor (no se guarda)', ajenas.length === 1, ajenas);
+  revisa('[staff] sin errores', errs.length === 0, errs);
   await ctx.close();
 }
 

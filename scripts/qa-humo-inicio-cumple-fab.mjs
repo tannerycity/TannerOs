@@ -40,11 +40,11 @@ const GENTE = [
 const nav = (mods) => mods.map(([c, w]) => ({ module_code:c, enabled:true, can_read:true, can_write:w }));
 const ROLES = {
   Presidencia: { yo:'u-mich', nav: nav([['jugadores',true],['prospectos',true],['taquilla',true],['cobranza',true],['contabilidad',true],['tienda',true],['estacionamiento',true]]),
-                 espera:['Registrar jugador','Fichajes','Cobrar','Pagar','Tienda','Gafete de estacionamiento'] },
+                 espera:['Registrar jugador','Fichajes','Cobrar','Pagar','Tienda','Gafete de estacionamiento','Cotizar'] },
   Taquilla:    { yo:'u-ipad', nav: nav([['taquilla',true],['cobranza',true]]),
-                 espera:['Cobrar','Pagar'] },
+                 espera:['Cobrar','Pagar','Cotizar'] },
   Formadores:  { yo:'u-profe', nav: nav([['asistencia',true],['convocatoria',false],['jugadores',false]]),
-                 espera:['Pasar asistencia','Partido','Mensaje'] }
+                 espera:['Pasar asistencia','Partido','Mensaje','Cotizar'] }
 };
 
 const revisiones = []; const errores = [];
@@ -138,7 +138,7 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
   revisa('[Presidencia] el botón abre el menú', await p.isVisible('#tosFabMenu'));
   revisa('[Presidencia] aria-expanded dice que está abierto', await p.getAttribute('#tosFab', 'aria-expanded') === 'true');
   const acciones = await p.$$eval('#tosFabMenu .tos-fab-item strong', els => els.map(e => e.textContent.trim()));
-  revisa('[Presidencia] trae sus 6 acciones en orden', JSON.stringify(acciones) === JSON.stringify(ROLES.Presidencia.espera), JSON.stringify(acciones));
+  revisa('[Presidencia] trae sus 7 acciones en orden (Cotizar, 21/10/2026)', JSON.stringify(acciones) === JSON.stringify(ROLES.Presidencia.espera), JSON.stringify(acciones));
   const hrefs = await p.$$eval('#tosFabMenu .tos-fab-item', els => els.map(e => e.getAttribute('href')));
   revisa('[Presidencia] cobrar y pagar van a Taquilla con la acción abierta', hrefs.includes('/taquilla/?action=cobrar') && hrefs.includes('/taquilla/?action=pagar'));
   revisa('[Presidencia] gafete abre la hoja de nuevo gafete', hrefs.includes('/estacionamiento/?nuevo=1'));

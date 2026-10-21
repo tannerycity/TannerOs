@@ -168,11 +168,10 @@
 
   <div id="modalBackdrop" class="cashier-modal-backdrop hidden"></div>
   <section id="collectModal" class="cashier-modal hidden" role="dialog" aria-modal="true" aria-labelledby="collectTitle">
-    <div class="cashier-modal-head"><div><span>ENTRADA</span><h2 id="collectTitle">Registrar cobro</h2></div><button type="button" data-close>×</button></div>
-    <div class="cashier-tabs"><button type="button" class="active" data-mode="player">Tanner / mensualidad</button><button type="button" data-mode="tienda" id="tabTienda">Tienda / uniformes</button><button type="button" data-mode="gafete" id="tabGafete">Estacionamiento</button><button type="button" data-mode="general">Otro ingreso</button></div>
+    <div class="cashier-modal-head"><button type="button" id="collectVolver" class="cobrar-volver hidden" aria-label="Volver a ¿qué vas a cobrar?">‹</button><div><span>ENTRADA</span><h2 id="collectTitle">¿Qué vas a cobrar?</h2></div><button type="button" data-close>×</button></div>
     <form id="collectForm" class="cashier-form">
       <div id="playerFields" class="cashier-form-grid solo-busca">
-        <div class="tsearch wide" id="collectPlayerBox"><span class="tsearch-label">Tanner</span><div class="tsearch-field"><input type="text" id="collectPlayerSearch" placeholder="Escribe cualquier nombre del Tanner…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="collectPlayerClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="collectPlayerResults"></div></div><input type="hidden" id="collectPlayer" value=""></div>
+        <div class="tsearch wide" id="collectPlayerBox"><span class="tsearch-label">Un Tanner <small>mensualidad, inscripción, uniforme y hermanos</small></span><div class="tsearch-field"><input type="text" id="collectPlayerSearch" placeholder="Escribe su nombre…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="collectPlayerClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="collectPlayerResults"></div></div><input type="hidden" id="collectPlayer" value=""></div>
         <label>Monto<input id="collectAmount" type="number" min="1" step="1" inputmode="numeric"></label>
         <!-- Aquí se contesta, sin salir del cobro, la pregunta que obligaba a
              abrir otra pantalla: por qué ese monto y no la tarifa de lista. -->
@@ -185,6 +184,14 @@
         <label class="wide">¿Quién cobró?<input id="collectCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"><small class="campo-nota">El iPad y Presidencia son cuentas compartidas: sin esto no se sabe quién recibió el dinero.</small></label>
         <label class="wide">Referencia<input id="collectReference" type="text" placeholder="Transferencia, terminal, nota..."></label><label>Monto esperado <span class="opt">· opcional</span><input id="collectExpected" type="number" min="0" step="1" placeholder="Lo que tocaba cobrar"></label><label class="wide">Observaciones <span class="opt">· opcional</span><input id="collectObservations" type="text" maxlength="300" placeholder="Quedó a deber, pagó la abuela, etc."></label><label class="wide cashier-check hidden" id="collectApproveWrap"><input id="collectApprove" type="checkbox"><span>Registrar y aprobar en el mismo paso<small>Queda en el historial que lo aprobaste tú al registrarlo.</small></span></label>
       </div>
+      <!-- Lo demás que entra a la caja, en tarjetas (21/10/2026): antes eran
+           pestañas que se cortaban en el teléfono. Un Tanner se busca arriba. -->
+      <div class="cashier-tabs cobrar-opciones" role="group" aria-label="Otras entradas">
+        <button type="button" data-mode="tienda" id="tabTienda"><span class="cobrar-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></span><span class="cobrar-txt"><b>Tienda</b><small>Uniformes, pedidos y anticipos</small></span></button>
+        <button type="button" data-mode="gafete" id="tabGafete"><span class="cobrar-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M4 16h16v3H4z"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/></svg></span><span class="cobrar-txt"><b>Estacionamiento</b><small>Gafete y pase</small></span></button>
+        <button type="button" data-mode="general"><span class="cobrar-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="cobrar-txt"><b>Otro ingreso</b><small>Renta, torneo, patrocinio…</small></span></button>
+      </div>
+      <button type="button" class="cobrar-patrocinio" id="collectSponsorLink">¿Una mensualidad que paga un patrocinador?</button>
       <!-- Tienda: los uniformes se mandan a hacer y se aceptan anticipos. El
            cobro se liga al pedido para que queden talla, nombre, saldo y
            entrega. Antes se cobraban como "Otro ingreso · Uniforme" y el

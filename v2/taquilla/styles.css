@@ -338,10 +338,29 @@ a.collections-edo{color:inherit;text-decoration:none;min-width:0}
 a.collections-edo:hover strong{color:var(--tos-teal,#087d8e)}
 a.collections-edo u{text-decoration:none;color:var(--tos-teal,#087d8e);font-weight:700}
 
-/* Entrada a la hoja de cobro con desglose (varios conceptos o dos métodos). */
-.collect-desglose{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;border:1px dashed #087d8e;background:#eef7f8;border-radius:13px;padding:11px 13px;cursor:pointer;color:#05505d;font:inherit}
-.collect-desglose strong{font-size:13.5px;font-weight:900}
-.collect-desglose small{font-size:11.5px;font-weight:700;color:#4a6870}
+/* "¿A quién le cobras?": lo primero de Taquilla. */
+.cobro-rapido{margin:14px 0 16px;padding:16px;border-radius:20px;background:#fff;border:1px solid var(--tos-line,#dedbd0);box-shadow:0 10px 26px -18px rgba(3,47,59,.35)}
+.cobro-rapido .tsearch-label{font-size:15px;font-weight:900;color:#0d2730}
+.cobro-rapido .tsearch-field input{min-height:52px;font-size:17px}
+/* En la pestaña Tanner sólo se busca: elegirlo abre su hoja de cobro. El
+   formulario de siempre queda para un patrocinador. */
+#playerFields.solo-busca>*:not(#collectPlayerBox):not(.collect-patrocinio){display:none!important}
 /* Acuerdo de pago vigente en la lista de Cobranza. */
 .collections-acuerdo{display:inline-block;margin-top:4px;border-radius:999px;padding:3px 8px;font-size:10.5px;font-weight:900;background:#e3f1f3;color:#05505d}
 .collections-acuerdo[data-state="broken"]{background:#ffe9e6;color:#a32920}
+/* Hoy esperamos y Mi corte de hoy, bajo el buscador. */
+.hoy-esperamos,.mi-corte{margin-top:12px;padding-top:12px;border-top:1px solid #eeeae0}
+.hoy-titulo{display:block;font-size:12px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.04em}
+.hoy-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-top:8px;padding-bottom:2px}
+.hoy-chips::-webkit-scrollbar{display:none}
+.hoy-chip{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid #cfe2e5;background:#eef7f8;border-radius:14px;padding:8px 12px;font:inherit;cursor:pointer;text-align:left}
+.hoy-chip b{font-size:13px;color:#0d2730}
+.hoy-chip span{font-size:12px;font-weight:800;color:#05505d}
+.hoy-chip[data-state="broken"]{background:#fff1ef;border-color:#f0d0ca}
+.hoy-chip[data-state="broken"] span{color:#a32920}
+.mi-corte-fila{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
+.mi-corte-fila b{display:block;font-size:13.5px;color:#0d2730}
+.mi-corte-fila span{display:block;font-size:12px;font-weight:700;color:#5f7076}
+.mi-corte-fila strong{display:flex;flex-direction:column;align-items:flex-end;font-size:18px;color:#11773c;font-variant-numeric:tabular-nums}
+.mi-corte-fila strong small{font-size:10.5px;font-weight:800;color:#5f7076}
+.mi-corte-vacio{margin:6px 0 0;font-size:12.5px;color:#8b979c}

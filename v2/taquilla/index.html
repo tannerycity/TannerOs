@@ -28,7 +28,13 @@
           <div><span class="cashier-eyebrow">OPERACIÓN DE CAJA</span><h1>Taquilla</h1><p>Cobra, consulta movimientos y cierra caja sin duplicar la contabilidad.</p></div>
           <div class="cashier-head-actions"><label>Fecha<input id="businessDate" type="date"></label><button id="printClose" class="cashier-secondary" type="button">Corte de caja · PDF</button><p id="cutMessage" class="cashier-message hidden"></p></div>
         </section>
-
+        <!-- Lo que más se hace en Taquilla, primero: escribir el nombre y
+             cobrar. Abre la hoja con lo que debe ya elegido (3 toques). -->
+        <section id="cobroRapido" class="cobro-rapido hidden">
+          <div class="tsearch wide" id="rapidoBox"><span class="tsearch-label">¿A quién le cobras?</span><div class="tsearch-field"><input type="text" id="rapidoSearch" placeholder="Escribe el nombre del Tanner…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="rapidoClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="rapidoResults"></div></div><input type="hidden" id="rapidoPlayer" value=""></div>
+          <div id="hoyEsperamos" class="hoy-esperamos hidden"></div>
+          <div id="miCorte" class="mi-corte hidden"></div>
+        </section>
         <section class="cashier-actions">
           <button id="openCollect" class="cashier-action collect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg><strong>COBRAR</strong><small>Entra dinero al club</small></button>
           <button id="openExpense" class="cashier-action expense" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/></svg><strong>PAGAR</strong><small id="paySubtitle">Sale dinero del club</small></button>
@@ -164,17 +170,15 @@
     <div class="cashier-modal-head"><div><span>ENTRADA</span><h2 id="collectTitle">Registrar cobro</h2></div><button type="button" data-close>×</button></div>
     <div class="cashier-tabs"><button type="button" class="active" data-mode="player">Tanner / mensualidad</button><button type="button" data-mode="tienda" id="tabTienda">Tienda / uniformes</button><button type="button" data-mode="gafete" id="tabGafete">Estacionamiento</button><button type="button" data-mode="general">Otro ingreso</button></div>
     <form id="collectForm" class="cashier-form">
-      <div id="playerFields" class="cashier-form-grid">
+      <div id="playerFields" class="cashier-form-grid solo-busca">
         <div class="tsearch wide" id="collectPlayerBox"><span class="tsearch-label">Tanner</span><div class="tsearch-field"><input type="text" id="collectPlayerSearch" placeholder="Escribe cualquier nombre del Tanner…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="collectPlayerClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="collectPlayerResults"></div></div><input type="hidden" id="collectPlayer" value=""></div>
         <label>Monto<input id="collectAmount" type="number" min="1" step="1" inputmode="numeric"></label>
         <!-- Aquí se contesta, sin salir del cobro, la pregunta que obligaba a
              abrir otra pantalla: por qué ese monto y no la tarifa de lista. -->
         <p id="collectPorQue" class="collect-porque wide hidden"></p>
-        <!-- Un pago con varios conceptos (inscripción + mensualidad + uniforme +
-             arbitraje) o con dos métodos se cobra de una vez en la hoja de cobro. -->
-        <button type="button" id="collectDesglose" class="collect-desglose wide hidden"><strong>Paga varios conceptos</strong><small>Inscripción, uniforme, arbitraje o con dos métodos: todo en un solo cobro</small></button>
+        <label class="wide cashier-check collect-patrocinio"><input id="collectSponsorMode" type="checkbox"><span>Lo paga un patrocinador<small>Para todo lo demás, elegir al Tanner abre su hoja de cobro: mensualidad, inscripción, uniforme y hermanos en un solo cobro.</small></span></label>
         <label>Fecha<input id="collectDate" type="date"></label>
-        <label>Método<select id="collectMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
+        <label>Método<select id="collectMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option></select></label>
         <label>Quién paga<select id="collectPayerType"><option value="guardian">Familia / tutor</option><option value="sponsor">Patrocinador</option><option value="player">Jugador</option><option value="organization">Club</option><option value="other">Otro</option></select></label>
         <label class="wide">Nombre del pagador<input id="collectPayerName" type="text" placeholder="Opcional salvo patrocinador"></label>
         <label class="wide">¿Quién cobró?<input id="collectCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"><small class="campo-nota">El iPad y Presidencia son cuentas compartidas: sin esto no se sabe quién recibió el dinero.</small></label>
@@ -193,7 +197,7 @@
           <label>Monto<input id="tiendaAmount" type="number" min="1" step="1" inputmode="numeric"></label>
           <div class="tienda-atajos"><button type="button" data-parte="1">Todo</button><button type="button" data-parte="0.5">Mitad</button></div>
           <label>Fecha<input id="tiendaDate" type="date"></label>
-          <label>Método<select id="tiendaMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
+          <label>Método<select id="tiendaMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option></select></label>
           <label class="wide">¿Quién cobró?<input id="tiendaCollectedBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"></label>
           <label class="wide">Referencia <span class="opt">· opcional</span><input id="tiendaReference" type="text" placeholder="Transferencia, terminal, nota..."></label>
         </div>
@@ -219,8 +223,8 @@
         <div class="tsearch wide" id="generalPlayerBox"><span class="tsearch-label">Ligar a Tanner <span class="opt">· opcional, para trazabilidad</span></span><div class="tsearch-field"><input type="text" id="generalPlayerSearch" placeholder="Escribe cualquier nombre del Tanner…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="generalPlayerClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="generalPlayerResults"></div></div><input type="hidden" id="generalPlayer" value=""></div>
         <label>Monto<input id="generalAmount" type="number" min="1" step="1" inputmode="numeric"></label>
         <label>Fecha<input id="generalDate" type="date"></label>
-        <label>Método<select id="generalMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
-        <label>Categoría<select id="generalCategory"><option value="">Selecciona…</option><option>Academia · Academia de porteros</option><option>Inscripción</option><option>Uniforme</option><option>Tienda</option><option>Torneo</option><option>Arbitraje</option><option>Renta de cancha</option><option>Estacionamiento</option><option>Patrocinio</option><option>Curso de Verano</option><option value="__otra__">Otra…</option></select></label>
+        <label>Método<select id="generalMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option></select></label>
+        <label>Categoría<select id="generalCategory"><option value="">Selecciona…</option><option>Academia · Academia de porteros</option><option>Uniforme</option><option>Tienda</option><option>Torneo</option><option>Arbitraje</option><option>Renta de cancha</option><option>Estacionamiento</option><option>Patrocinio</option><option>Curso de Verano</option><option value="__otra__">Otra…</option></select></label>
         <label class="wide cat-other hidden" id="generalCategoryOtherWrap">Especifica la categoría<input id="generalCategoryOther" type="text" placeholder="Escribe la categoría"></label>
         <p id="generalGafeteAviso" class="wide tienda-aviso hidden">El gafete se cobra en la pestaña <b>Estacionamiento</b>: así queda pagado, con folio y entregado. <button type="button" id="irAGafete">Cobrarlo ahí</button></p>
         <p id="generalTiendaAviso" class="wide tienda-aviso hidden">¿Es de un pedido de uniforme? Cóbralo en <button type="button" id="irATienda">Tienda / uniformes</button> para que queden la talla, el saldo del anticipo y la entrega.</p>
@@ -239,13 +243,12 @@
     <form id="expenseForm" class="cashier-form cashier-form-grid">
       <label>Monto<input id="expenseAmount" type="number" min="1" step="1" inputmode="numeric" required></label>
       <label>Fecha<input id="expenseDate" type="date" required></label>
-      <label>Método<select id="expenseMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
+      <label>Método<select id="expenseMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option></select></label>
       <label>Categoría<select id="expenseCategory" required><option value="">Selecciona…</option><option>Nómina profesores</option><option>Profesor de porteros</option><option>Árbitros</option><option>Renta cancha</option><option>Marketing</option><option>Merchandising</option><option>Mantenimiento</option><option>Servicios</option><option>Utilería</option><option>Proveedor</option><option>Premios</option><option>Comisiones bancarias</option><option>Comisiones por captación</option><option value="__otra__">Otra…</option></select></label>
       <label class="wide cat-other hidden" id="expenseCategoryOtherWrap">Especifica la categoría<input id="expenseCategoryOther" type="text" placeholder="Escribe la categoría"></label>
       <label class="wide">Concepto<input id="expenseConcept" type="text" placeholder="Qué se pagó" required></label>
       <label>A quién<input id="expenseWho" type="text" placeholder="Proveedor / persona"></label>
       <label>¿Quién pagó?<input id="expensePaidBy" type="text" list="staffSugerencias" placeholder="Tu nombre" autocomplete="off"></label>
-      <label>Referencia<input id="expenseReference" type="text" placeholder="Opcional"></label>
       <div id="expenseMessage" class="cashier-message hidden wide"></div>
       <button id="saveExpense" class="cashier-submit expense wide" type="submit">Registrar pago</button>
       <p class="cashier-help wide">Vas a confirmar el pago antes de publicarlo. Cada movimiento queda registrado con tu usuario.</p>

@@ -1,7 +1,7 @@
 import {supabase,bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,shellIcon} from '/v2/shell.js';
 import { nombreDelClub } from '/v2/club.js';
 import {getSignedPhotoUrl} from '/v2/photo-cache.js';
-import {abrirCobro,folioTexto} from '/v2/cobro/hoja.js';
+import {abrirCobro,folioTexto,esCuentaCompartida} from '/v2/cobro/hoja.js';
 import {montaCobranza} from '/v2/tanner/cobranza.js';
 
 // El shell valida el módulo activo, pero un estado de cuenta lo abre tanto
@@ -401,6 +401,7 @@ document.addEventListener('click',e=>{
   const p=ultimo.player||{};
   abrirCobro({rpc,org:ctx.organization_id,playerId,nombre:[p.first_name,p.last_name].filter(Boolean).join(' '),
     telefono:(p.guardians||[]).find(g=>g.phone)?.phone||'',nacimiento:p.birth_date,preseleccion:b.dataset.cobrar||null,
+    quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),
     alTerminar:()=>render()});
 });
 const llave=()=>(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`);

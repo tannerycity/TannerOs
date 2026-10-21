@@ -211,3 +211,7 @@
   .payment-row-main{flex-direction:column;align-items:flex-start;gap:8px;}
   .payment-row-side{flex-direction:row;align-items:center;width:100%;justify-content:space-between;}
 }
+
+/* Cobro único (21/10/2026): un botón grande que abre la hoja de Taquilla. */
+.cobro-unico{display:grid;gap:8px;justify-items:center}
+.cobro-unico #cobrarPedido{width:100%;min-height:52px;font-size:17px}

@@ -441,6 +441,8 @@ export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', na
     principal().col = col;
     if (!col.canCollect) s.fallo = 'Tu usuario puede ver la cuenta, pero no cobrar.';
     for (const c of opcionesDe(principal()).cargos) if (preseleccion === 'todo' || (preseleccion && c.period === preseleccion)) agrega(c);
+    // Desde un pedido de Tienda (21/10/2026): 'o:<id>' deja ese pedido ya elegido.
+    for (const o of opcionesDe(principal()).pedidos) if (preseleccion === o.key) agrega(o);
   }
   pinta();
   setTimeout(() => document.querySelector('#cobroBody [data-chip], #cobroBody #cobroQuienNuevo')?.focus(), 60);

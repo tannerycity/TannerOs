@@ -1,12 +1,15 @@
 import { createClient } from '/v2/supabase-client.js';
 import { mensajeConfirmacion, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { abreVentas } from '/v2/pedidos/ventas.js';
+import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,orders=[],current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();
 /* Pedidos que llegaron por el link o el portal y nadie ha confirmado todavía
    (a3_pedidos_por_revisar). clubCfg trae el nombre del club y cómo pagar, para
    el mensaje de WhatsApp. */
 let porRevisar=new Set(),clubCfg=null;
+/* Cobro único: quien cobra en Taquilla cobra el pedido con la misma hoja. */
+let cobraConHoja=false,otroPagador=false;
 /* El tablero (a5): por pedido, de qué niño es, qué piezas lleva con talla,
    manga, nombre y número, y si el número ya se confirmó. Es lo que se ve en la
    lista sin abrir nada. */
@@ -86,7 +89,7 @@ function aplicaAccesos(){
   if(!canWrite)apaga($('newOrderAction'),'Tu rol no puede levantar pedidos');
   if(!canManage)apaga($('productionAction'),'Sólo quien administra la Tienda');
 }
-async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=false;/* Costo y utilidad viven SÓLO en Catálogo › Costos (13/10/2026). */void financeMod;document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();$('ventasAction')?.addEventListener('click',verVentas);
+async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;cobraConHoja=mods.some(m=>['taquilla','billing'].includes(m.module_code)&&m.enabled&&m.can_write);canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=false;/* Costo y utilidad viven SÓLO en Catálogo › Costos (13/10/2026). */void financeMod;document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();$('ventasAction')?.addEventListener('click',verVentas);
   // El botón + de abajo: lo de la Tienda primero (13/10/2026).
   window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,{label:'Por atender',sub:'Nuevos y números por confirmar',icon:'check',run:()=>{$('statusFilter').value='__atender';render();renderReviewBanner();$('orderList')?.scrollIntoView({behavior:'smooth',block:'start'});}},canManage?{label:'Producción',sub:'Cortes y hoja para el proveedor',icon:'list',href:'/produccion/'}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
   window.dispatchEvent(new Event('tos:acciones'));}
@@ -221,9 +224,22 @@ function renderPayments(d){
     hist.appendChild(row);
   });
   const open=['pending_payment','partial_payment','in_production','ready'].includes(d.status)&&balance>0;const canPay=open&&canWrite;
-  $('paymentForm').classList.toggle('hidden',!canPay);$('paymentClosedNote').classList.toggle('hidden',canPay);
+  current.canPay=canPay;pintaCobro();$('paymentClosedNote').classList.toggle('hidden',canPay);
   if(canPay){$('paymentAmount').value=balance.toFixed(2);$('paymentAmount').max=balance.toFixed(2);$('paymentDate').value=new Date().toISOString().slice(0,10);$('paymentPayerType').value='guardian';$('paymentPayer').value=d.customer_name||'';}
   payMsg();
+}
+/* El pedido de un niño se cobra con la hoja de Taquilla; sin niño ligado, o si lo
+   paga un patrocinador, con el formulario de siempre. */
+function pintaCobro(){
+  const c=current;if(!c)return;const nino=c.linked,hoja=c.canPay&&cobraConHoja&&!!nino&&!otroPagador;
+  $('cobroUnico').classList.toggle('hidden',!hoja);
+  $('paymentForm').classList.toggle('hidden',!c.canPay||hoja);
+  if(hoja)$('cobrarPedido').textContent=`Cobrar ${money.format(Number(c.balance||0))}`;
+}
+function cobrarConHoja(){
+  const c=current;if(!c?.linked)return;const id=c.order.id;
+  abrirCobro({rpc,org:ctx.organization_id,playerId:c.linked.id,nombre:c.linked.name,telefono:c.order.customer_phone||'',
+    preseleccion:`o:${id}`,quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),alTerminar:()=>refreshCurrent(id)});
 }
 async function correctPayment(paymentId,row){
   const reason=row.querySelector('.correct-reason').value.trim();
@@ -429,7 +445,7 @@ function renderItems(items,d){
 }
 function collapseDrawerSections(){['paymentHistoryWrap','fullDetail'].forEach(id=>$(id)?.classList.add('hidden'));['togglePaymentHistory','toggleFullDetail'].forEach(id=>{const b=$(id);if(!b)return;b.setAttribute('aria-expanded','false');b.classList.remove('open');});}
 async function openOrder(o){
-  current=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,current);
+  current=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,current);otroPagador=false;
   const d=current.order;
   $('orderFolio').textContent=d.folio;
   $('orderMeta').textContent=fmt(d.created_at);
@@ -459,6 +475,7 @@ async function pintaJugadorDelPedido(d,q=''){
   let r;try{r=await rpc('v2_order_player',{organization_id:ctx.organization_id,order_id:id,query:q||null});}catch{r=null;}
   if(!r){box.innerHTML='';return;}
   if(turno!==jugadorBusca||current?.order?.id!==id)return;
+  if(!q){current.linked=r.linked||null;pintaCobro();}
   const puede=r.canWrite&&canWrite;
   const opcion=s=>`<li><span><b>${esc(s.name)}</b><small>${esc([s.category,s.reason].filter(Boolean).join(' · '))}</small></span>${puede?`<button type="button" class="secondary mini" data-liga="${esc(s.id)}">Ligar</button>`:''}</li>`;
   if(r.linked&&!q){
@@ -510,7 +527,7 @@ async function saveItem(row){if(!current||!canManage||!row)return;const orderId=
 async function postPayment(){if(!current||!canWrite)return;const d=current.order,amount=Number($('paymentAmount').value||0),balance=Number(current.balance||0),payerType=$('paymentPayerType').value,payerName=$('paymentPayer').value.trim();if(!Number.isFinite(amount)||amount<=0){payMsg('Captura un monto mayor a cero.');return;}if(amount>balance+0.005){payMsg(`El pago excede el saldo de ${money.format(balance)}.`);return;}if(payerType==='sponsor'&&!payerName){payMsg('Indica el nombre del patrocinador.');return;}const btn=$('savePayment');btn.disabled=true;payMsg();try{await rpc('v2_post_order_payment_attributed',{organization_id:ctx.organization_id,order_id:d.id,amount,payment_date:$('paymentDate').value||new Date().toISOString().slice(0,10),method:$('paymentMethod').value||'other',reference:$('paymentReference').value.trim()||null,payer_type:payerType,payer_name:payerName||d.customer_name||null,idempotency_key:`order-${d.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`});await refreshCurrent(d.id);payMsg('Pago registrado con pagador y estado actualizado.','success');}catch(e){payMsg(e.message||'No se pudo registrar el pago.');}finally{btn.disabled=!canWrite;}}
 function setupToggle(btnId,wrapId){const btn=$(btnId),wrap=$(wrapId);if(!btn||!wrap)return;btn.addEventListener('click',()=>{const nowHidden=wrap.classList.toggle('hidden');btn.setAttribute('aria-expanded',String(!nowHidden));btn.classList.toggle('open',!nowHidden);});}
 setupToggle('togglePaymentHistory','paymentHistoryWrap');setupToggle('toggleFullDetail','fullDetail');
-$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('tSeg')?.addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;$('statusFilter').value=b.dataset.f;render();renderReviewBanner();});$('orderResumen')?.addEventListener('click',e=>{const m=e.target.closest('[data-manga-item]');if(m){cambiaManga(m.dataset.mangaItem,m.dataset.m,m);return;}const c=e.target.closest('[data-num-confirma],[data-num-deshacer]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,!!c.dataset.numConfirma,c);}});$('orderResumen')?.addEventListener('change',e=>{if(e.target.id==='tAtendio')cambiaAtendio(e.target.value);});$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);$('confirmWhatsApp')?.addEventListener('click',confirmWhatsApp);$('markReviewed')?.addEventListener('click',markReviewed);$('statusFilter').addEventListener('change',renderReviewBanner);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
+$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('tSeg')?.addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;$('statusFilter').value=b.dataset.f;render();renderReviewBanner();});$('orderResumen')?.addEventListener('click',e=>{const m=e.target.closest('[data-manga-item]');if(m){cambiaManga(m.dataset.mangaItem,m.dataset.m,m);return;}const c=e.target.closest('[data-num-confirma],[data-num-deshacer]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,!!c.dataset.numConfirma,c);}});$('orderResumen')?.addEventListener('change',e=>{if(e.target.id==='tAtendio')cambiaAtendio(e.target.value);});$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);$('cobrarPedido').addEventListener('click',cobrarConHoja);$('otroPagador').addEventListener('click',()=>{otroPagador=true;pintaCobro();});$('confirmWhatsApp')?.addEventListener('click',confirmWhatsApp);$('markReviewed')?.addEventListener('click',markReviewed);$('statusFilter').addEventListener('change',renderReviewBanner);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
 // === Eliminar pedido — solo Presidencia (agregado) ===
 (function(){
   function inject(){

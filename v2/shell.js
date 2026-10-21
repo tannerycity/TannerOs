@@ -49,54 +49,58 @@ const ICONS={
 };
 export const shellIcon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]||ICONS.home}</svg>`;
 
+/* Menú por secciones (21/10/2026, "hagámoslo Apple"): de ~29 entradas a ~12.
+   Una pantalla con dentroDe vive dentro de su sección: en el menú sale debajo
+   de ella sólo cuando estás ahí, y arriba de la pantalla salen las pestañas de
+   la sección. Si la persona no ve la sección, la pantalla sale suelta como
+   antes. Nada cambia de permisos: dentroDe sólo acomoda. */
 export const navItems=[
-  {code:'inicio',label:'Inicio',href:'/',group:'main',icon:'home'},
+  {code:'inicio',label:'Inicio',href:'/',group:'main',icon:'home',always:true},
   // Mensajes es de todos: cualquier miembro activo platica con su área y con el club.
   {code:'mensajes',label:'Mensajes',href:'/mensajes/',group:'main',icon:'chat',always:true},
-  {code:'club',label:'Club',href:'/club/',group:'main',icon:'shield'},
-  {code:'direccion',label:'Dirección',href:'/direccion/',group:'main',icon:'chart'},
-  {code:'finanzas',label:'Finanzas',href:'/finanzas/',group:'main',icon:'wallet',aliases:['cobranza']},
+  {code:'club',label:'Club',href:'/club/',group:'main',icon:'shield',dentroDe:'inicio'},
+  {code:'direccion',label:'Dirección',href:'/direccion/',group:'main',icon:'chart',dentroDe:'inicio'},
   {code:'taquilla',label:'Taquilla',href:'/taquilla/',group:'finance',icon:'cashier'},
-  {code:'contabilidad',label:'Contabilidad',href:'/contabilidad/',group:'finance',icon:'ledger'},
+  {code:'contabilidad',label:'Contabilidad',href:'/contabilidad/',group:'finance',icon:'ledger',dentroDe:'finanzas'},
+  {code:'finanzas',label:'Finanzas',href:'/finanzas/',group:'finance',icon:'wallet',aliases:['cobranza']},
   {code:'jugadores',label:'Jugadores',href:'/jugadores/',group:'club',icon:'users'},
-  {code:'asistencia',label:'Asistencia',href:'/asistencia/',group:'club',icon:'check'},
+  {code:'asistencia',label:'Asistencia',href:'/asistencia/',group:'club',icon:'check',dentroDe:'jugadores'},
   // Becas no es un módulo: lo ve quien ve Dirección (Presidencia, 09/10/2026).
-  {code:'becas',label:'Becas',href:'/becas/',group:'club',icon:'star',lee:['direccion']},
+  {code:'becas',label:'Becas',href:'/becas/',group:'club',icon:'star',lee:['direccion'],dentroDe:'jugadores'},
   // Partidos (09/10/2026) reemplaza a Convocatoria en el menú: la convocatoria
   // es el primer paso del partido. Lo ve quien ve Convocatoria.
   {code:'partidos',label:'Partidos',href:'/partidos/',group:'club',icon:'shield',lee:['convocatoria','callups']},
-  {code:'calendario',label:'Calendario',href:'/calendario/',group:'main',icon:'calendar'},
-  {code:'centro_tanner',label:'Centro Tanner',href:'/admin/centro-tanner/',group:'main',icon:'book'},
-  {code:'academias',label:'Academias',href:'/operacion/academias/',group:'club',icon:'academy'},
+  {code:'calendario',label:'Calendario',href:'/calendario/',group:'club',icon:'calendar',dentroDe:'partidos'},
+  {code:'centro_tanner',label:'Centro Tanner',href:'/admin/centro-tanner/',group:'club',icon:'book',dentroDe:'formacion'},
+  {code:'academias',label:'Academias',href:'/operacion/academias/',group:'club',icon:'academy',dentroDe:'formacion'},
   // Formación (Metodología Tannery, 12/10/2026): el Formador planea su semana;
   // Dirección Deportiva publica la Semana Tanner. Lo ve quien tiene cualquiera de los dos.
   {code:'formacion',label:'Formación',href:'/formacion/',group:'club',icon:'book',lee:['formacion_direccion']},
   {code:'prospectos',label:'Fichajes',href:'/prospectos/',group:'club',icon:'target'},
   // Candidatos a staff (12/10/2026): las postulaciones de /trabaja/. No es
   // módulo: la ve quien contrata (Usuarios o Dirección deportiva).
-  {code:'candidatos',label:'Candidatos',href:'/candidatos/',group:'club',icon:'briefcase',lee:['usuarios','formacion_direccion']},
+  {code:'candidatos',label:'Candidatos',href:'/candidatos/',group:'club',icon:'briefcase',lee:['usuarios','formacion_direccion'],dentroDe:'staff'},
   // Staff y organigrama (13/10/2026): lo ve todo el staff (decisión de Presidencia).
   {code:'staff',label:'Staff',href:'/staff/',group:'club',icon:'users',always:true},
   // Encuestas (15/10/2026): cómo se la pasan papás y visitantes en cada evento.
   // Desde h14 es módulo: Presidencia siempre; a otra persona se le da en
   // Usuarios > persona > Encuestas (así se le dio a Zul).
-  {code:'encuestas',label:'Encuestas',href:'/encuestas/',group:'club',icon:'chat',lee:['direccion']},
-  {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
-  {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
-  {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag',activoEn:['catalogo']},
+  {code:'encuestas',label:'Encuestas',href:'/encuestas/',group:'club',icon:'chat',lee:['direccion'],dentroDe:'inicio'},
+  {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search',dentroDe:'prospectos'},
+  {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark',dentroDe:'formacion'},
+  {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
   // Tienda unificada (21/10/2026): Pedidos, Nuevo pedido y Catálogo son
-  // pestañas de una sola Tienda. Catálogo sigue aquí para dar el acceso, pero
-  // no sale en el menú si la persona ya ve Tienda (dentroDe).
+  // pestañas de una sola Tienda.
   {code:'catalogo',label:'Catálogo',href:'/catalogo/',group:'ops',icon:'box',aliases:['tienda'],dentroDe:'tienda'},
   {code:'utileria',label:'Utilería',href:'/utileria/',group:'ops',icon:'box'},
-  {code:'estacionamiento',label:'Estacionamiento',href:'/estacionamiento/',group:'ops',icon:'car'},
-  {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'ops',icon:'briefcase'},
-  {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin',icon:'userCog'},
+  {code:'estacionamiento',label:'Estacionamiento',href:'/estacionamiento/',group:'finance',icon:'car',dentroDe:'taquilla'},
+  {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'finance',icon:'briefcase',dentroDe:'finanzas'},
+  {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin',icon:'userCog',dentroDe:'admin'},
   // Familias en el portal (18/10/2026): invitar por WhatsApp con liga personal.
   // No es módulo: la ve quien maneja Usuarios (y Presidencia).
-  {code:'invitaciones',label:'Familias en el portal',href:'/invitaciones/',group:'admin',icon:'users',lee:['usuarios']},
+  {code:'invitaciones',label:'Familias en el portal',href:'/invitaciones/',group:'admin',icon:'users',lee:['usuarios'],dentroDe:'admin'},
   {code:'admin',label:'Administración',href:'/admin/',group:'admin',icon:'settings'},
-  {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug'}
+  {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug',dentroDe:'admin'}
 ];
 const groupLabels={main:'',club:'Club',finance:'Finanzas',ops:'Operación',admin:'Administración'};
 
@@ -107,8 +111,13 @@ export function moduleAccess(rows,code,write=false){const row=navigationMap(rows
 // que su entrada del menú dice que la leen.
 function puedeEntrar(rows,active){if(moduleAccess(rows,active,false))return true;const item=navItems.find(x=>x.code===active);return Boolean(item&&!item.always&&itemReadable(rows,item));}
 function itemReadable(rows,item){if(item.always)return true;return [item.code,...(item.aliases||[]),...(item.lee||[])].some(code=>moduleAccess(rows,code,false));}
-function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active)||(item.activoEn||[]).includes(active);}
-function itemEnMenu(rows,item){if(!itemReadable(rows,item))return false;const padre=item.dentroDe&&navItems.find(x=>x.code===item.dentroDe);return !(padre&&itemReadable(rows,padre));}
+function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active);}
+const padreDe=item=>item?.dentroDe?navItems.find(x=>x.code===item.dentroDe):null;
+function itemEnMenu(rows,item,fuera=new Set()){if(!itemReadable(rows,item))return false;const padre=padreDe(item);return !(padre&&itemReadable(rows,padre)&&!fuera.has(padre.code));}
+const hijosDe=(rows,item)=>navItems.filter(x=>x.dentroDe===item.code&&itemReadable(rows,x));
+// La sección donde estás: la pantalla misma o la sección que la contiene.
+function seccionDe(rows,active){const item=navItems.find(x=>itemActive(x,active));if(!item)return null;const padre=padreDe(item);return padre&&itemReadable(rows,padre)?padre:item;}
+export function seccionVisible(rows,active){const sec=seccionDe(rows,active);if(!sec)return [];const miembros=[sec,...hijosDe(rows,sec)].filter(x=>itemReadable(rows,x));return miembros.length>1?miembros:[];}
 export function setShellSearchItems(items=[]){window.__tosSearchExtras=Array.isArray(items)?items:[];}
 
 /* ---------- Mensajes / notificaciones push ---------- */
@@ -369,12 +378,15 @@ function destinoAcademias(navigation,item){
 }
 function renderNavigation(nav,navigation,active,role){
   if(!nav)return;nav.innerHTML='';
+  const sec=seccionDe(navigation,active);
+  const liga=(item,sub=false)=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item${sub?' tos-nav-sub':''} ${itemActive(item,active)||(!sub&&sec?.code===item.code)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));return a;};
+  // Cada sección con sus pantallas debajo, sólo la sección donde estás.
+  const pinta=(section,item)=>{section.appendChild(liga(item));if(sec?.code===item.code)hijosDe(navigation,item).forEach(h=>section.appendChild(liga(h,true)));};
   const simple=SIMPLE_SIDEBAR_ROLES[role];
   if(simple){
     const exclude=new Set(simple.exclude||[]);
-    const items=navItems.filter(item=>itemEnMenu(navigation,item)&&!exclude.has(item.code));
     const section=document.createElement('div');section.className='tos-nav-section tos-nav-section-simple';
-    items.forEach(item=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
+    navItems.filter(item=>itemEnMenu(navigation,item,exclude)&&!exclude.has(item.code)).forEach(item=>pinta(section,item));
     nav.appendChild(section);
     return;
   }
@@ -382,9 +394,20 @@ function renderNavigation(nav,navigation,active,role){
     const items=navItems.filter(item=>item.group===group&&itemEnMenu(navigation,item));if(!items.length)return;
     const section=document.createElement('div');section.className=`tos-nav-section tos-nav-section-${group}`;
     if(groupLabels[group]){const title=document.createElement('div');title.className='tos-nav-section-label';title.textContent=groupLabels[group];section.appendChild(title);}
-    items.forEach(item=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
+    items.forEach(item=>pinta(section,item));
     nav.appendChild(section);
   });
+}
+// Pestañas de la sección arriba de la pantalla (Jugadores · Asistencia · Becas).
+// La Tienda trae las suyas (con Nuevo pedido), así que ahí no se ponen.
+function pintaPestanasSeccion(navigation,active){
+  document.getElementById('tosSeccion')?.remove();
+  const miembros=seccionVisible(navigation,active);
+  if(!miembros.length||document.querySelector('.tienda-tabs'))return;
+  const destino=document.querySelector('.tos-main>.tos-content')||document.querySelector('main.tos-content')||document.querySelector('main .app-wrap');if(!destino)return;
+  const nav=document.createElement('nav');nav.id='tosSeccion';nav.className='tos-seccion';nav.setAttribute('aria-label',miembros[0].label);
+  nav.innerHTML=miembros.map(it=>`<a href="${destinoAcademias(navigation,it)}"${itemActive(it,active)?' aria-current="page"':''}>${it.code==='inicio'?'Resumen':it.label}</a>`).join('');
+  destino.prepend(nav);
 }
 function wireMobileNav(){if(document.documentElement.dataset.tosMobileNavWired==='1')return;document.documentElement.dataset.tosMobileNavWired='1';$('shellMenuToggle')?.addEventListener('click',()=>document.body.classList.toggle('tos-nav-open'));$('shellNavBackdrop')?.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));}
 function wireRouteMemory(){if(document.documentElement.dataset.tosRouteMemoryWired==='1')return;document.documentElement.dataset.tosRouteMemoryWired='1';document.addEventListener('click',event=>{const link=event.target.closest?.('a[href]');if(!link||event.defaultPrevented||link.target==='_blank')return;try{const target=new URL(link.href,location.origin),here=new URL(location.href);if(target.origin!==location.origin||target.pathname===here.pathname&&target.search===here.search)return;sessionStorage.setItem(`tos:return:${target.pathname}`,here.pathname+here.search+here.hash);}catch{}},{capture:true});}
@@ -768,7 +791,7 @@ function ensureQuickFab(ctx,navigation){
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
   const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
-  renderNavigation($('sidebarNav'),navigation,active,role);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'el club';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{borraCacheDelBuscador();await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
+  renderNavigation($('sidebarNav'),navigation,active,role);pintaPestanasSeccion(navigation,active);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'el club';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{borraCacheDelBuscador();await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
   if(ctx){ensureBellMarkup();wireBell(ctx,navigation);ensureQuickFab(ctx,navigation);accionDeLiga(ctx,navigation);}
 }
 // Solo lectura (j4–n4): el club debe su mensualidad o es una demo. La base ya

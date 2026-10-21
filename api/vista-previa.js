@@ -11,6 +11,7 @@ const SLUG = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
 const PAGINAS = {
   registro:        { ruta: '/registro/',      titulo: c => `Únete a ${c} · Registro`, texto: c => `Registra a tu hijo o hija en ${c} en menos de dos minutos.` },
+  tienda:          { ruta: '/tienda/',        titulo: c => `Tienda ${c}`, texto: c => `Uniformes y artículos oficiales de ${c}. Pide desde tu celular.` },
   pedido:          { ruta: '/pedido/',        titulo: c => `Tienda ${c}`, texto: c => `Uniformes y artículos oficiales de ${c}. Pide desde tu celular.` },
   programas:       { ruta: '/programas/',     titulo: c => `Programas y eventos · ${c}`, texto: c => `Inscríbete a los programas y eventos de ${c}.` },
   academias:       { ruta: '/academias/',     titulo: c => `Academias ${c}`, texto: c => `Encuentra tu academia de ${c} e inscríbete.` },

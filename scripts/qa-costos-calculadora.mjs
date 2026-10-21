@@ -19,7 +19,8 @@ import { cotiza, dinero, semanasACobrar, proporcional, paqueteDe, leeFecha, text
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle !== undefined ? `\n   ${JSON.stringify(detalle)}` : ''}`); } };
 const T = TARIFAS;
-const conPaquetes = { ...T, paquetes: { ...T.paquetes, confirmado: true } };
+// Los paquetes oficiales ya vienen confirmados; esta variante prueba el modo "por confirmar".
+const sinConfirmar = { ...T, paquetes: { ...T.paquetes, confirmado: false } };
 const TAN = { categoria: 'tanner' }, B1 = { categoria: 'baby', opcion: 'baby-1' }, B2 = { categoria: 'baby', opcion: 'baby-2' };
 const q = (hijos, fecha, nueva = true, t = T) => cotiza({ hijos, fechaIngreso: fecha, nuevaInscripcion: nueva }, t);
 
@@ -39,9 +40,10 @@ revisa('se redondea al peso (550 x 3/4 = 412.5 → 413)', proporcional(550, 10, 
 /* Un alumno */
 {
   const c = q([TAN], '2026-10-01');
-  revisa('Tanner nuevo el día 1: mes completo + inscripción = $1,800', c.proporcionalIndividual === 800 && c.inscripcion === 1000 && c.primerPago === 1800 && c.mensualidadRegular === 800 && c.completo, c);
+  revisa('Tanner nuevo el día 1: mes completo + inscripción = $1,600 (cartel: inscripción $800)', c.proporcionalIndividual === 800 && c.inscripcion === 800 && c.primerPago === 1600 && c.mensualidadRegular === 800 && c.completo, c);
   const d = q([TAN], '2026-10-19');
-  revisa('Tanner nuevo el día 19: 2 de 4 semanas ($400) + $1,000 = $1,400', d.semanas === 2 && d.proporcionalIndividual === 400 && d.primerPago === 1400, d);
+  revisa('Tanner nuevo el día 19: 2 de 4 semanas ($400) + $800 = $1,200', d.semanas === 2 && d.proporcionalIndividual === 400 && d.primerPago === 1200, d);
+  revisa('Baby nuevo: inscripción $500 (cartel)', q([B1], '2026-10-01').inscripcion === 500);
   const e = q([TAN], '2026-10-31');
   revisa('el último día de un mes de 31: 1 semana ($200)', e.semanas === 1 && e.proporcionalIndividual === 200, e);
   revisa('mes de 30 días, día 30: 1 semana', q([TAN], '2026-11-30').semanas === 1);
@@ -62,36 +64,42 @@ revisa('se redondea al peso (550 x 3/4 = 412.5 → 413)', proporcional(550, 10, 
   revisa('un solo hijo con regla confirmada no es estimación', q([TAN], '2026-10-01').estimacion === false);
 }
 
-/* Varios hijos: los paquetes por confirmar NO se cobran */
+/* Costos oficiales del cartel (21/10/2026): paquetes confirmados */
 {
   const c = q([TAN, TAN], '2026-10-01');
-  revisa('2 Tanners con paquetes sin confirmar: se cobra sin paquete ($1,600) y se enseña $1,500 de referencia',
-    c.mensualidadRegular === 1600 && c.ajusteFamiliar === 0 && c.paquete.estado === 'referencia' && c.paquete.paquete.mensualidad === 1500 && c.estimacion, c.paquete);
-  revisa('2 Tanners nuevos: dos inscripciones', c.inscripcion === 2000 && c.primerPago === 3600, c);
-  const t3 = q([TAN, TAN, TAN], '2026-10-19');
-  revisa('3 Tanners: paquete de referencia $2,000 y cobro sin paquete', t3.paquete.paquete?.mensualidad === 2000 && t3.mensualidadRegular === 2400 && t3.proporcionalIndividual === 1200 && t3.inscripcion === 3000, t3);
-  const mix = q([TAN, B2], '2026-10-01');
-  revisa('Baby + Tanner: referencia del paquete de $1,200', mix.paquete.estado === 'referencia' && mix.paquete.paquete.mensualidad === 1200 && mix.mensualidadRegular === 1350, mix);
-  const sin = q([TAN, TAN, B1], '2026-10-01');
-  revisa('2 Tanners + 1 Baby no tiene paquete: "Solicitar cotización"', sin.paquete.estado === 'sin_tarifa' && sin.estimacion && sin.mensualidadRegular === 2000, sin.paquete);
-  revisa('3 Baby no tiene paquete', q([B1, B1, B2], '2026-10-01').paquete.estado === 'sin_tarifa');
+  revisa('2 Tanners = $1,500 (cartel) y dos inscripciones de $800', c.paquete.estado === 'aplica' && c.mensualidadRegular === 1500 && c.inscripcion === 1600 && c.primerPago === 3100, c);
+  revisa('3 Tanners = $2,000', q([TAN, TAN, TAN], '2026-10-01', false).mensualidadRegular === 2000);
+  revisa('1 Tanner + 1 Baby = $1,200 (ejemplo del cartel)', q([TAN, B2], '2026-10-01', false).mensualidadRegular === 1200 && q([TAN, B1], '2026-10-01', false).mensualidadRegular === 1200);
+  revisa('2 Tanners + 1 Baby = $1,900 (ejemplo del cartel)', q([TAN, TAN, B1], '2026-10-01', false).mensualidadRegular === 1900);
+  revisa('2 Baby Tanners = $800 (ejemplo del cartel), aunque vayan 2 días', q([B2, B2], '2026-10-01', false).mensualidadRegular === 800 && q([B1, B1], '2026-10-01', false).mensualidadRegular === 800);
+  revisa('la regla del mixto cubre lo que el cartel no lista: 1 Tanner + 2 Baby = $1,600 y 3 Baby = $1,200',
+    q([TAN, B1, B2], '2026-10-01', false).mensualidadRegular === 1600 && q([B1, B2, B2], '2026-10-01', false).mensualidadRegular === 1200);
+  revisa('inscripciones mezcladas: Tanner $800 + Baby $500', q([TAN, B1], '2026-10-01').inscripcion === 1300);
+  const d19 = q([TAN, TAN], '2026-10-19');
+  revisa('el paquete también se prorratea: 2 Tanners el día 19 = $750 + $1,600', d19.proporcionalIndividual + d19.ajusteFamiliar === 750 && d19.primerPago === 2350, d19);
+  revisa('con costos oficiales ya no es estimación', c.estimacion === false && q([TAN, TAN, B1], '2026-10-01').estimacion === false);
+  revisa('1 Tanner no es paquete: $800 sin ajuste', q([TAN], '2026-10-01', false).paquete.estado === 'no_aplica' && q([TAN], '2026-10-01', false).mensualidadRegular === 800);
 }
 
-/* Si la administración confirma los paquetes */
+/* Si un club deja sus paquetes "por confirmar" */
 {
-  const c = q([TAN, TAN], '2026-10-19', true, conPaquetes);
-  revisa('confirmado: 2 Tanners cuestan $1,500 y el ajuste sale proporcional (-$50 el día 19)',
-    c.paquete.estado === 'aplica' && c.mensualidadRegular === 1500 && c.ajusteFamiliar === -50 && c.primerPago === 800 - 50 + 2000, c);
-  revisa('confirmado y sin otros pendientes: deja de ser estimación', c.estimacion === false);
-  const t3 = q([TAN, TAN, TAN], '2026-10-01', false, conPaquetes);
-  revisa('confirmado: 3 Tanners $2,000 sin inscripción', t3.primerPago === 2000 && t3.ajusteFamiliar === -400, t3);
-  const mix = q([TAN, B2], '2026-10-01', true, conPaquetes);
-  revisa('confirmado: Tanner + Baby 2 días ($1,350 sin paquete) cobra el paquete de $1,200', mix.paquete.estado === 'aplica' && mix.mensualidadRegular === 1200, mix.paquete);
-  // Un paquete nunca cobra más que sin paquete (antes había que adivinar los días de Baby).
-  revisa('Tanner + Baby 1 día ($1,200 sin paquete): el paquete no conviene y no se ofrece', paqueteDe([TAN, B1], conPaquetes, 1200).estado === 'no_aplica' && q([TAN, B1], '2026-10-01', false, conPaquetes).mensualidadRegular === 1200);
-  revisa('2 Baby de 1 día ($800) no pagan el paquete de $1,000', q([B1, B1], '2026-10-01', false, conPaquetes).mensualidadRegular === 800 && q([B1, B1], '2026-10-01', false, conPaquetes).paquete.estado === 'no_aplica');
-  revisa('2 Baby de 2 días ($1,100) sí bajan a $1,000', q([B2, B2], '2026-10-01', false, conPaquetes).mensualidadRegular === 1000);
-  revisa('no se suma ningún descuento que no esté en la configuración', q([TAN, TAN], '2026-10-01', true, T).ajusteFamiliar === 0);
+  const c = q([TAN, TAN], '2026-10-01', true, sinConfirmar);
+  revisa('por confirmar: 2 Tanners se cobran sin paquete ($1,600) y se enseña $1,500 de referencia',
+    c.mensualidadRegular === 1600 && c.ajusteFamiliar === 0 && c.paquete.estado === 'referencia' && c.paquete.paquete.mensualidad === 1500 && c.estimacion, c.paquete);
+  revisa('por confirmar: no se suma ningún descuento', q([TAN, TAN, B1], '2026-10-01', true, sinConfirmar).ajusteFamiliar === 0);
+  const sinLista = { ...T, paquetes: { confirmado: true, lista: T.paquetes.lista.filter(x => x.clave !== 'p-t2b1') } };
+  revisa('una combinación sin paquete: "Solicitar cotización"', q([TAN, TAN, B1], '2026-10-01', true, sinLista).paquete.estado === 'sin_tarifa' && q([TAN, TAN, B1], '2026-10-01', true, sinLista).estimacion);
+  // Un paquete nunca cobra más que sin paquete.
+  const caro = { ...T, paquetes: { confirmado: true, lista: [{ clave: 'x', nombre: '2 Baby', cantidades: { baby: 2 }, mensualidad: 1000 }] } };
+  revisa('un paquete más caro que sin paquete no se ofrece (2 Baby de 1 día: $800 < $1,000)', paqueteDe([B1, B1], caro, 800).estado === 'no_aplica' && q([B1, B1], '2026-10-01', false, caro).mensualidadRegular === 800);
+}
+
+/* Recargo por pago tardío (cartel: después del día 5, $100) */
+{
+  revisa('1 hijo: $800 + $100 = $900 si paga después del día 5', q([TAN], '2026-10-01', false).recargo === 100 && q([TAN], '2026-10-01', false).mensualidadConRecargo === 900);
+  revisa('el recargo es por cada mensualidad: 2 Tanners $1,500 + $200 = $1,700', q([TAN, TAN], '2026-10-01', false).recargo === 200 && q([TAN, TAN], '2026-10-01', false).mensualidadConRecargo === 1700);
+  revisa('sin recargo configurado, no se inventa', q([TAN], '2026-10-01', false, { ...T, recargo: null }).recargo === 0);
+  revisa('el día límite y el monto salen de la configuración', T.recargo.diaLimite === 5 && T.recargo.monto === 100 && T.recargo.primerMes === false);
 }
 
 /* Sin todas las respuestas, no hay números */
@@ -109,7 +117,9 @@ revisa('moneda mexicana sin centavos', dinero(1800) === '$1,800' && dinero(0) ==
   const c = q([TAN, B2], '2026-10-19');
   const txt = textoCotizacion(c, T);
   revisa('el texto para copiar trae fecha, hijos, conceptos y totales', /19\/10\/2026/.test(txt) && /Hijo 1: Tanners, 3 días por semana/.test(txt) && /Hijo 2: Baby Tanners, 2 días por semana/.test(txt)
-    && /Inscripción \(2 alumnos\): \$2,000/.test(txt) && /Total del primer pago: \$2,675 MXN/.test(txt) && /noviembre 2026: \$1,350 MXN/.test(txt) && /por confirmar/.test(txt) && /Estimación/.test(txt), txt);
+    && /Inscripción \(2 alumnos\): \$1,300/.test(txt) && /Ajuste familiar \(1 Tanner \+ 1 Baby Tanner\): -\$75/.test(txt) && /Total del primer pago: \$1,900 MXN/.test(txt)
+    && /noviembre 2026: \$1,200 MXN/.test(txt) && /Si pagas después del día 5: \+\$200 de recargo, \$1,400 MXN/.test(txt) && !/Estimación/.test(txt), txt);
+  revisa('con paquete por confirmar, el texto lo dice y es estimación', /por confirmar/.test(textoCotizacion(q([TAN, B2], '2026-10-19', true, sinConfirmar), T)) && /Estimación/.test(textoCotizacion(q([TAN, B2], '2026-10-19', true, sinConfirmar), T)));
   const wa = ligaWhatsApp(txt, T, 2);
   revisa('WhatsApp al número del club con la cotización incluida', wa.startsWith('https://wa.me/524792651338?text=') && decodeURIComponent(wa.split('text=')[1]).includes('Total del primer pago') && /mis hijos/.test(decodeURIComponent(wa)), wa.slice(0, 80));
   const txtYa = textoCotizacion(q([TAN], '', false), T);
@@ -124,7 +134,7 @@ for (const f of ['costos/app.js', 'costos/calculo.js']) {
   const sueltos = [...src.matchAll(/(?<![\w.])(400|550|800|1000|1200|1500|2000)(?![\w.])/g)].map(m => m[1]);
   revisa(`${f} no escribe precios a mano`, sueltos.length === 0, sueltos);
 }
-revisa('cada categoría y paquete sale de la configuración', T.categorias.map(c => c.clave).join() === 'baby,tanner' && T.paquetes.lista.length === 5 && T.paquetes.confirmado === false);
+revisa('cada categoría y paquete sale de la configuración', T.categorias.map(c => c.clave).join() === 'tanner,baby' && T.paquetes.lista.length === 7 && T.paquetes.confirmado === true && T.incluyeInscripcion === '');
 revisa('precio por clase: mensualidad ÷ 4 semanas ÷ días', porClase({ dias: 1, mensualidad: 400 }) === 100 && porClase({ dias: 2, mensualidad: 550 }) === 69 && porClase({ dias: 3, mensualidad: 800 }) === 67);
 revisa('el nombre de la opción', nombreOpcion({ dias: 1 }) === '1 día por semana' && nombreOpcion({ dias: 3 }) === '3 días por semana');
 
@@ -138,7 +148,7 @@ revisa('el nombre de la opción', nombreOpcion({ dias: 1 }) === '1 día por sema
   revisa('lo guardado reemplaza categorías, opciones, paquetes y lo que incluye',
     t.categorias.map(c => c.clave).join() === 'baby,porteros' && t.categorias[1].opciones.length === 2 && t.categorias[0].inscripcion === 1100
     && t.paquetes.lista.length === 1 && t.paquetes.confirmado === true && t.incluyeInscripcion === 'Seguro y playera');
-  revisa('no toca la configuración original', T.categorias[1].opciones[0].mensualidad === 800 && T.paquetes.confirmado === false);
+  revisa('no toca la configuración original', T.categorias[0].opciones[0].mensualidad === 800 && T.categorias[1].inscripcion === 500 && T.paquetes.lista.length === 7);
   revisa('la calculadora usa una categoría nueva (Porteros 2 días)', cotiza({ hijos: [{ categoria: 'porteros', opcion: 'porteros-2' }], nuevaInscripcion: false }, t).primerPago === 500);
   revisa('y su paquete confirmado (2 Porteros de 1 día: $600 → $500)', cotiza({ hijos: [{ categoria: 'porteros', opcion: 'porteros-1' }, { categoria: 'porteros', opcion: 'porteros-1' }], nuevaInscripcion: false }, t).mensualidadRegular === 500);
   const raro = aplicaPrecios(T, { categorias: [
@@ -146,7 +156,7 @@ revisa('el nombre de la opción', nombreOpcion({ dias: 1 }) === '1 día por sema
       { clave: 'y', nombre: '', inscripcion: 100, opciones: [{ dias: 1, mensualidad: 10 }] },
       { clave: 'z', nombre: 'Buena', inscripcion: 1.5, opciones: [{ dias: 1, mensualidad: 10 }] }],
     paquetes: { confirmado: 'si', lista: [{ nombre: 'Fantasma', cantidades: { nadie: 2 }, mensualidad: 10 }] } });
-  revisa('si nada de lo guardado sirve, quedan las categorías del archivo', JSON.stringify(raro.categorias) === JSON.stringify(T.categorias) && raro.paquetes.confirmado === false);
+  revisa('si nada de lo guardado sirve, quedan las categorías del archivo', JSON.stringify(raro.categorias) === JSON.stringify(T.categorias) && raro.paquetes.confirmado === T.paquetes.confirmado);
   revisa('un paquete de una categoría que no existe se descarta', raro.paquetes.lista.length === 0);
   revisa('sin nada guardado (null) queda todo igual', JSON.stringify(aplicaPrecios(T, null)) === JSON.stringify(T));
 

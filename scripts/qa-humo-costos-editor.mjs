@@ -67,13 +67,14 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
 { // Presidencia edita, estilo Apple
   const p = await abre();
   const filas = await p.$$eval('#costosCats [data-abre-cat]', b => b.map(x => x.innerText.replace(/\s+/g, ' ').trim()));
-  revisa('1. la lista dice todo en un renglón: Baby (2 opciones, desde $400) y Tanners (6 a 12 años · 3 días · $800)',
-    filas.length === 2 && /Baby Tanners De 3 a 6 años · 2 opciones · desde \$400/.test(filas[0]) && /Tanners De 6 a 12 años · 3 días · \$800/.test(filas[1]), filas);
+  revisa('1. la lista dice todo en un renglón: Tanners (6 a 12 años · 3 días · $800) y Baby (2 opciones, desde $400)',
+    filas.length === 2 && /^Tanners De 6 a 12 años · 3 días · \$800/.test(filas[0]) && /Baby Tanners De 3 a 6 años · 2 opciones · desde \$400/.test(filas[1]), filas);
+  revisa('1. los paquetes oficiales vienen confirmados (switch encendido)', await p.isChecked('#cPaqOk'));
   revisa('1. "Guardar" empieza apagado: no hay cambios', await p.isDisabled('#saveCostos') && (await p.textContent('#saveCostos')) === 'Sin cambios');
   revisa('1. los paquetes se leen solos ("2 Tanners · $1,500 al mes")', /2 Tanners\s*\$1,500 al mes/.test(await p.innerText('#costosPaqs')));
 
   // 2. abrir Tanners: carrusel de edades y días, precio por clase al escribir
-  await p.click('[data-abre-cat="1"]');
+  await p.click('[data-abre-cat="0"]');
   revisa('2. tocar el renglón abre la hoja con el nombre', await p.isVisible('.ap-hoja') && (await p.inputValue('#hNombre')) === 'Tanners');
   revisa('2. las edades vienen marcadas en el carrusel (6 y 12)', (await p.getAttribute('[data-carrusel="edadMin"] .on', 'data-v')) === '6' && (await p.getAttribute('[data-carrusel="edadMax"] .on', 'data-v')) === '12');
   await p.click('[data-carrusel="edadMin"] [data-v="7"]');
@@ -89,7 +90,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.fill('[data-precio="1"]', '600');
   revisa('2. el precio por clase sale solo ($75)', (await p.textContent('[data-clase="1"]')) === '$75 por clase');
   await p.click('#apListo');
-  revisa('2. "Listo" cierra la hoja y el renglón ya dice 2 opciones', !(await p.isVisible('.ap-hoja')) && /2 opciones · desde \$600/.test(await p.innerText('[data-abre-cat="1"]')));
+  revisa('2. "Listo" cierra la hoja y el renglón ya dice 2 opciones', !(await p.isVisible('.ap-hoja')) && /2 opciones · desde \$600/.test(await p.innerText('[data-abre-cat="0"]')));
   revisa('2. y ya se puede guardar', !(await p.isDisabled('#saveCostos')) && (await p.textContent('#saveCostos')) === 'Guardar cambios');
 
   // 3. agregar categoría Porteros
@@ -107,13 +108,14 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   // 4. paquete con − / +
   await p.click('#costosAddPaq');
   const steppers = await p.$$eval('.ap-stepper > span:first-child', s => s.map(x => x.textContent));
-  revisa('4. el paquete pregunta cuántos de cada categoría', JSON.stringify(steppers) === '["Baby Tanners","Tanners","Porteros"]', steppers);
+  revisa('4. el paquete pregunta cuántos de cada categoría', JSON.stringify(steppers) === '["Tanners","Baby Tanners","Porteros"]', steppers);
   revisa('4. "−" empieza apagado (no hay menos de 0)', await p.isDisabled('[data-menos="2"]'));
   await p.click('[data-mas="2"]'); await p.click('[data-mas="2"]');
   revisa('4. el nombre del paquete se arma solo ("2 Porteros")', /2 Porteros/.test(await p.textContent('.ap-hoja .ap-nota')));
   await p.fill('#hPaqPrecio', '500');
   await p.click('#apListo');
-  await p.click('#cPaqOk', { force: true });
+  // El switch ya viene encendido (paquetes oficiales): se apaga y se vuelve a prender.
+  await p.click('#cPaqOk', { force: true }); await p.click('#cPaqOk', { force: true });
 
   // 5. guardar
   await p.click('#saveCostos'); await p.waitForTimeout(400);
@@ -126,10 +128,10 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   revisa('5. avisa que ya sale en /costos y "Guardar" se apaga', /Ya salen en \/costos/.test(await p.textContent('#costosMessage')) && await p.isDisabled('#saveCostos'));
 
   // 6. eliminar Baby: los paquetes se recorren y los que eran sólo de Baby se van
-  await p.click('[data-abre-cat="0"]');
+  await p.click('[data-abre-cat="1"]');
   await p.click('#hBorrar');
   const paqs = await p.$$eval('#costosPaqs [data-abre-paq] b', b => b.map(x => x.textContent));
-  revisa('6. al eliminar Baby, se van los paquetes que lo llevaban y los demás siguen bien', JSON.stringify(paqs) === JSON.stringify(['1 Tanner', '2 Tanners', '3 Tanners', '2 Porteros']), paqs);
+  revisa('6. al eliminar Baby, se van los paquetes que lo llevaban y los demás siguen bien', JSON.stringify(paqs) === JSON.stringify(['2 Tanners', '3 Tanners', '2 Porteros']), paqs);
   await p.keyboard.press('Escape');
   revisa('9. nada se sale a 390px', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await p.click('[data-abre-cat="0"]');

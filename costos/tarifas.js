@@ -13,33 +13,46 @@
  * Lo de este archivo es lo que sale si el club no ha guardado nada.
  */
 export const TARIFAS = {
-  version: '2026-10-20',
+  version: '2026-10-21',
   moneda: 'MXN',
   whatsapp: { numero: '524792651338', visible: '479 265 1338' },
 
   categorias: [
-    { clave: 'baby', nombre: 'Baby Tanners', edades: 'De 3 a 6 años', inscripcion: 1000,
-      opciones: [{ clave: 'baby-1', dias: 1, mensualidad: 400 }, { clave: 'baby-2', dias: 2, mensualidad: 550 }] },
+    // Costos oficiales del cartel del club (Presidencia, 21/10/2026). Tanners
+    // primero, como en el cartel: así se leen los paquetes ("1 Tanner + 1 Baby").
     // T10 y T12 entrenan martes, miércoles y jueves (horarios del club, 12/10/2026).
-    { clave: 'tanner', nombre: 'Tanners', edades: 'De 6 a 12 años', inscripcion: 1000,
-      opciones: [{ clave: 'tanner-3', dias: 3, mensualidad: 800 }] }
+    { clave: 'tanner', nombre: 'Tanners', edades: 'De 6 a 12 años', inscripcion: 800,
+      opciones: [{ clave: 'tanner-3', dias: 3, mensualidad: 800 }] },
+    { clave: 'baby', nombre: 'Baby Tanners', edades: 'De 3 a 6 años', inscripcion: 500,
+      opciones: [{ clave: 'baby-1', dias: 1, mensualidad: 400 }, { clave: 'baby-2', dias: 2, mensualidad: 550 }] }
   ],
-  incluyeInscripcion: 'Seguro anual y gafete',
+  // Qué incluye la inscripción: vacío hasta que Presidencia lo confirme (no se enseña).
+  incluyeInscripcion: '',
 
-  /* Paquetes familiares: tarifas históricas. Mientras `confirmado` sea false,
-     la calculadora NO los cobra: los enseña como referencia "por confirmar".
-     Una combinación que no está aquí no tiene paquete: "Solicitar cotización".
-     Un paquete nunca cobra más que la suma sin paquete. */
+  /* Paquetes familiares, del cartel oficial (21/10/2026): Tanners 2 = $1,500
+     y 3 = $2,000; "Paquete mixto: tarifa de Tanners + $400 por cada Baby
+     Tanner" (1+1 = $1,200, 2+1 = $1,900, 2 Baby = $800). Las combinaciones de
+     hasta 3 hijos que la regla cubre y el cartel no lista salen de la misma
+     regla (1 Tanner + 2 Baby = $1,600; 3 Baby = $1,200).
+     Si `confirmado` fuera false, la calculadora los enseñaría "por confirmar"
+     sin cobrarlos. Un paquete nunca cobra más que la suma sin paquete. */
   paquetes: {
-    confirmado: false,
+    confirmado: true,
     lista: [
-      { clave: 'p-t1', nombre: '1 Tanner', cantidades: { tanner: 1 }, mensualidad: 800 },
       { clave: 'p-t2', nombre: '2 Tanners', cantidades: { tanner: 2 }, mensualidad: 1500 },
       { clave: 'p-t3', nombre: '3 Tanners', cantidades: { tanner: 3 }, mensualidad: 2000 },
-      { clave: 'p-b2', nombre: '2 Baby Tanners', cantidades: { baby: 2 }, mensualidad: 1000 },
-      { clave: 'p-t1b1', nombre: '1 Tanner + 1 Baby Tanner', cantidades: { tanner: 1, baby: 1 }, mensualidad: 1200 }
+      { clave: 'p-t1b1', nombre: '1 Tanner + 1 Baby Tanner', cantidades: { tanner: 1, baby: 1 }, mensualidad: 1200 },
+      { clave: 'p-t2b1', nombre: '2 Tanners + 1 Baby Tanner', cantidades: { tanner: 2, baby: 1 }, mensualidad: 1900 },
+      { clave: 'p-t1b2', nombre: '1 Tanner + 2 Baby Tanners', cantidades: { tanner: 1, baby: 2 }, mensualidad: 1600 },
+      { clave: 'p-b2', nombre: '2 Baby Tanners', cantidades: { baby: 2 }, mensualidad: 800 },
+      { clave: 'p-b3', nombre: '3 Baby Tanners', cantidades: { baby: 3 }, mensualidad: 1200 }
     ]
   },
+
+  /* Recargo por pago tardío: la política de cobro del club (billing_policies:
+     vence el día 5, $100). TannerOS lo carga por cada mensualidad vencida, o
+     sea por cada hijo, y nunca al primer mes (first_month_late_fee_enabled). */
+  recargo: { monto: 100, diaLimite: 5, porAlumno: true, primerMes: false },
 
   /* Primer mes proporcional: la MISMA regla que cobra TannerOS
      (app.prorated_monthly_fee, método weekly_quarters, regla BILL-003

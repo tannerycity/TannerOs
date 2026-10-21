@@ -40,9 +40,10 @@ const num = v => { const n = Number(String(v ?? '').replace(/[^\d.]/g, '')); ret
 const primerNombre = n => String(n || '').trim().split(/\s+/)[0] || '';
 
 // Una cuenta que usan varias personas no dice quién cobró: el iPad de
-// taquilla o la cuenta de Presidencia. Ahí se pregunta una vez por aparato.
+// taquilla. Ahí se pregunta una vez por aparato. La cuenta de Presidencia la
+// usa una sola persona (Presidencia, 21/10/2026): no se le pregunta.
 export function esCuentaCompartida(ctx) {
-  return ctx?.role === 'Taquilla' || /^(ipad|presidencia|taquilla|caja)$/i.test(String(ctx?.display_name || '').trim());
+  return ctx?.role === 'Taquilla' || /^(ipad|taquilla|caja)$/i.test(String(ctx?.display_name || '').trim());
 }
 
 let s = null;
@@ -185,7 +186,10 @@ function quienHtml() {
   if (s.quien && !s.cambiaQuien) return `<p class="cobro-cobra">Cobra <b>${esc(s.quien)}</b> <button type="button" class="cobro-link" data-cambia-quien>Cambiar</button></p>`;
   let vistos = [];
   try { vistos = JSON.parse(leeLocal(NOMBRES) || '[]'); } catch { vistos = []; }
-  const lista = [...new Set([...(s.nombresSugeridos || []), ...vistos])].filter(Boolean).slice(0, 8);
+  // Sólo los nombres que ya se eligieron en este aparato. Los del historial
+  // tecleado traían basura ("Pago en Transferencia", "Michel" y "Michel
+  // Enriquez" como dos personas): era el error que esto vino a quitar.
+  const lista = [...new Set(vistos)].filter(Boolean).slice(0, 8);
   return `<div class="cobro-bloque cobro-quien"><span class="cobro-titulo">¿Quién está cobrando? <small>esta cuenta la usan varias personas</small></span>
     ${lista.length ? `<div class="cobro-chips">${lista.map(n => `<button type="button" class="cobro-chip" data-quien="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}
     <div class="cobro-quien-fila"><input type="text" id="cobroQuienNuevo" maxlength="60" autocomplete="off" placeholder="Tu nombre"><button type="button" class="cobro-listo" data-quien-listo>Listo</button></div></div>`;
@@ -409,15 +413,14 @@ async function envia(metodo) {
 //   preseleccion: 'todo' (lo que debe), 'YYYY-MM' (ese mes) o nada.
 //   quien: el nombre del usuario (cuenta personal). compartida: si la cuenta
 //   la usan varias personas, se pregunta quién cobra (una vez por aparato).
-//   nombresSugeridos: nombres del club para elegir con un toque.
 //   alTerminar(hecho): corre al cerrar, sólo si se cobró.
 export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', nacimiento = null, preseleccion = null, alTerminar = null,
-  quien = '', compartida = false, nombresSugeridos = [] }) {
+  quien = '', compartida = false }) {
   asegura();
   s = { rpc, org, playerId, nombre: nombre || 'este Tanner', telefono, alTerminar, cargando: true, fallo: '',
     cuentas: new Map([[playerId, { id: playerId, nombre: nombre || 'este Tanner', nacimiento, col: null }]]), familia: [], sel: new Map(),
     mas: false, metodo: 'cash', metodo2: 'transfer', dos: false, monto1: '', ref: '', fecha: hoyLocal(), obs: '',
-    compartida, quien: compartida ? leeLocal(QUIEN) : String(quien || '').trim(), cambiaQuien: false, nombresSugeridos,
+    compartida, quien: compartida ? leeLocal(QUIEN) : String(quien || '').trim(), cambiaQuien: false,
     llave: llave(), enviando: false, error: '', hecho: null };
   const yo = s;
   pinta();

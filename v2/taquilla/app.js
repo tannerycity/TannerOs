@@ -349,14 +349,10 @@ async function loadReceivables(){
 // debe ya elegido, sus hermanos a un toque y quién cobra tomado del usuario.
 // Lo usan "¿A quién le cobras?", COBRAR, Cobranza y los enlaces de otros
 // módulos (?action=cobrar&player=…).
-function nombresDelClub(){
-  return [...new Set((snapshot?.movements||[]).filter(m=>m.registeredBy&&!m.registeredByIsAccount).map(m=>m.registeredBy))].sort();
-}
 function cobraA(playerId,nombre){
   if(!canCashWrite||!playerId)return;
   closeModals();
   abrirCobro({rpc,org,playerId,nombre,preseleccion:'todo',quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),
-    nombresSugeridos:nombresDelClub(),
     alTerminar:async()=>{await Promise.all([load(),loadReceivables()]);renderCollections();cargaConcilia(true);}});
 }
 function quickCollect(playerId,name){cobraA(playerId,name);}

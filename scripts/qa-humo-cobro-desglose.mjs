@@ -227,6 +227,7 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   await p.click('.tan-balance [data-cobrar]');
   await p.waitForSelector(hoja, { timeout:5000 });
   revisa('[compartida] pregunta quién está cobrando', await p.isVisible('#cobroQuienNuevo'));
+  revisa('[compartida] no sugiere nombres tecleados en el historial', !(await p.$('[data-quien]')));
   await p.click('[data-pagar="cash"]');
   revisa('[compartida] sin elegir quién cobra no se manda', (await llamadas(p, 'v2_collect_ticket')).length === 0 && /quién está cobrando/.test(await texto(p, '.pres-error')));
   await p.fill('#cobroQuienNuevo', 'Crespo');
@@ -241,6 +242,20 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   await p.click('.tan-balance [data-cobrar]');
   await p.waitForSelector(hoja, { timeout:5000 });
   revisa('[compartida] el aparato lo recuerda: ya no pregunta', !(await p.$('#cobroQuienNuevo')) && /Cobra Crespo/.test(await texto(p, '.cobro-cobra')));
+  await p.close();
+}
+
+/* ---------- La cuenta de Presidencia la usa una sola persona ---------- */
+{
+  const p = await abre(true, '/v2/tanner/?id=p1', 390, { display_name:'Presidencia', role:'Presidencia' });
+  await p.waitForSelector('.tan-balance [data-cobrar]', { timeout:8000 });
+  await p.click('.tan-balance [data-cobrar]');
+  await p.waitForSelector(hoja, { timeout:5000 });
+  revisa('[presidencia] no pregunta quién cobra', !(await p.$('#cobroQuienNuevo')) && !(await p.$('.cobro-cobra')));
+  await p.click('[data-pagar="cash"]'); await p.waitForSelector('.pres-error', { timeout:4000 });
+  await p.click('[data-pagar="cash"]');
+  await p.waitForSelector('.cobro-hecho', { timeout:4000 });
+  revisa('[presidencia] el cobro queda a nombre de la cuenta', (await llamadas(p, 'v2_collect_ticket')).at(-1).params.collected_by_name === 'Presidencia');
   await p.close();
 }
 

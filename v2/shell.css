@@ -284,3 +284,15 @@ body.tos-body,body:has(>.tos-layout){margin:0}
 /* El buscador ocupa todo su ancho en todas las pantallas (en algunas el
    campo medía su ancho por defecto y cortaba "Busca un Tanner, papá o acción"). */
 .tos-search-box input{flex:1 1 auto;width:100%}
+
+/* Menú por secciones (21/10/2026): las pantallas de la sección donde estás
+   salen debajo de ella, y arriba de la pantalla como pestañas. */
+.tos-nav-item.tos-nav-sub{margin-left:22px;padding:8px 12px;font-size:13px;font-weight:700;color:#bcd3d6}
+.tos-nav-item.tos-nav-sub .tos-nav-icon{transform:scale(.82);opacity:.8}
+.tos-nav-item.tos-nav-sub.active{background:rgba(255,255,255,.1);color:#fff}
+.tos-nav-item.tos-nav-sub.active:before{display:none}
+.tos-seccion{display:flex;gap:4px;width:max-content;max-width:100%;margin:0 0 14px;padding:4px;border-radius:14px;background:#eef2f1;overflow-x:auto;scrollbar-width:none}
+.tos-seccion::-webkit-scrollbar{display:none}
+.tos-seccion a{flex:0 0 auto;display:inline-flex;align-items:center;min-height:36px;padding:0 15px;border-radius:10px;font-size:14px;font-weight:700;color:#4a6870;text-decoration:none;white-space:nowrap}
+.tos-seccion a:hover{color:#07191e}
+.tos-seccion a[aria-current="page"]{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}

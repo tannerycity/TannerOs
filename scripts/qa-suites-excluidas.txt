@@ -78,3 +78,5 @@ qa-humo-costos.mjs
 qa-humo-costos-editor.mjs
 qa-humo-cobro-desglose.mjs
 qa-humo-acuerdos.mjs
+qa-humo-pedido-cobro-unico.mjs
+qa-humo-menu-secciones.mjs

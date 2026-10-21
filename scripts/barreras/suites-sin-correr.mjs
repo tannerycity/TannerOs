@@ -166,7 +166,11 @@ export default function comprobar() {
   // conceptos y dos métodos, desde el estado de cuenta y desde Taquilla.
   // Sube a 53 por qa-humo-acuerdos.mjs: acuerdos de pago, seguimiento y
   // mensajes de WhatsApp dentro del estado de cuenta.
-  const MAX_EXCLUIDAS = 53;
+  // Sube a 54 por qa-humo-pedido-cobro-unico.mjs: el pedido de Tienda se
+  // cobra con la misma hoja de Taquilla.
+  // Sube a 55 por qa-humo-menu-secciones.mjs: el menú por secciones y sus
+  // pestañas, montando el shell real.
+  const MAX_EXCLUIDAS = 55;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

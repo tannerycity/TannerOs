@@ -68,3 +68,12 @@
 .order-num.pendiente{background:#fff4df;color:#8a5c00}
 .order-num.ok{background:#eaf6ee;color:#1e6b3c}
 .order-num button{min-height:36px}
+
+/* Tienda unificada (21/10/2026): Pedidos · Nuevo pedido · Catálogo arriba de
+   las tres pantallas, como pestañas de una sola Tienda. */
+.tienda-tabs{display:flex;gap:4px;width:max-content;max-width:100%;margin:4px 0 14px;padding:4px;border-radius:14px;background:#eef2f1;overflow-x:auto}
+.tienda-tabs a{flex:0 0 auto;display:inline-flex;align-items:center;min-height:38px;padding:0 16px;border-radius:10px;font-size:14.5px;font-weight:700;color:#4a6870;text-decoration:none;white-space:nowrap}
+.tienda-tabs a:hover{color:#07191e}
+.tienda-tabs a[aria-current="page"]{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
+.tienda-tabs a.is-off{opacity:.45;pointer-events:none}
+@media(max-width:520px){.tienda-tabs{width:100%}.tienda-tabs a{flex:1;justify-content:center;padding:0 10px;font-size:14px}}

@@ -83,8 +83,11 @@ export const navItems=[
   {code:'encuestas',label:'Encuestas',href:'/encuestas/',group:'club',icon:'chat',lee:['direccion']},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark'},
-  {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
-  {code:'catalogo',label:'Catálogo',href:'/catalogo/',group:'ops',icon:'box',aliases:['tienda']},
+  {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag',activoEn:['catalogo']},
+  // Tienda unificada (21/10/2026): Pedidos, Nuevo pedido y Catálogo son
+  // pestañas de una sola Tienda. Catálogo sigue aquí para dar el acceso, pero
+  // no sale en el menú si la persona ya ve Tienda (dentroDe).
+  {code:'catalogo',label:'Catálogo',href:'/catalogo/',group:'ops',icon:'box',aliases:['tienda'],dentroDe:'tienda'},
   {code:'utileria',label:'Utilería',href:'/utileria/',group:'ops',icon:'box'},
   {code:'estacionamiento',label:'Estacionamiento',href:'/estacionamiento/',group:'ops',icon:'car'},
   {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'ops',icon:'briefcase'},
@@ -104,7 +107,8 @@ export function moduleAccess(rows,code,write=false){const row=navigationMap(rows
 // que su entrada del menú dice que la leen.
 function puedeEntrar(rows,active){if(moduleAccess(rows,active,false))return true;const item=navItems.find(x=>x.code===active);return Boolean(item&&!item.always&&itemReadable(rows,item));}
 function itemReadable(rows,item){if(item.always)return true;return [item.code,...(item.aliases||[]),...(item.lee||[])].some(code=>moduleAccess(rows,code,false));}
-function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active);}
+function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active)||(item.activoEn||[]).includes(active);}
+function itemEnMenu(rows,item){if(!itemReadable(rows,item))return false;const padre=item.dentroDe&&navItems.find(x=>x.code===item.dentroDe);return !(padre&&itemReadable(rows,padre));}
 export function setShellSearchItems(items=[]){window.__tosSearchExtras=Array.isArray(items)?items:[];}
 
 /* ---------- Mensajes / notificaciones push ---------- */
@@ -368,14 +372,14 @@ function renderNavigation(nav,navigation,active,role){
   const simple=SIMPLE_SIDEBAR_ROLES[role];
   if(simple){
     const exclude=new Set(simple.exclude||[]);
-    const items=navItems.filter(item=>itemReadable(navigation,item)&&!exclude.has(item.code));
+    const items=navItems.filter(item=>itemEnMenu(navigation,item)&&!exclude.has(item.code));
     const section=document.createElement('div');section.className='tos-nav-section tos-nav-section-simple';
     items.forEach(item=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});
     nav.appendChild(section);
     return;
   }
   ['main','club','finance','ops','admin'].forEach(group=>{
-    const items=navItems.filter(item=>item.group===group&&itemReadable(navigation,item));if(!items.length)return;
+    const items=navItems.filter(item=>item.group===group&&itemEnMenu(navigation,item));if(!items.length)return;
     const section=document.createElement('div');section.className=`tos-nav-section tos-nav-section-${group}`;
     if(groupLabels[group]){const title=document.createElement('div');title.className='tos-nav-section-label';title.textContent=groupLabels[group];section.appendChild(title);}
     items.forEach(item=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item ${itemActive(item,active)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));section.appendChild(a);});

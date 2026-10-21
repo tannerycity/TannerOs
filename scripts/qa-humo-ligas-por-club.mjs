@@ -175,12 +175,12 @@ revisa('[entrada] abre "Tengo invitación"', await pg.$eval('#signUpTab', e => e
 const salidas = await pg.$$eval('.tc-familias a', a => a.map(x => x.getAttribute('href')));
 revisa('[entrada] otro club no ve la puerta de Costos (son precios de Tannery)', !salidas.some(h => h.startsWith('/costos')), JSON.stringify(salidas));
 revisa('[entrada] las puertas llevan a portal, tienda, registro y bolsa de trabajo de SU club',
-  JSON.stringify(salidas) === JSON.stringify(['/familias/?club=leon-norte', '/pedido/?club=leon-norte', '/registro/?club=leon-norte', '/trabaja/?club=leon-norte']), JSON.stringify(salidas));
+  JSON.stringify(salidas) === JSON.stringify(['/familias/?club=leon-norte', '/tienda/?club=leon-norte', '/registro/?club=leon-norte', '/trabaja/?club=leon-norte']), JSON.stringify(salidas));
 revisa('[entrada] con ?alta=1 el login de staff ya está abierto', await pg.isVisible('#authForm') && !(await pg.isVisible('.tc-puertas')));
 await pg.goto(BASE + '/', { waitUntil:'networkidle' });
 await pg.waitForTimeout(300);
 revisa('[entrada] sin club sigue siendo Tannery', (await pg.$('.tc-wordmark')) !== null && (await pg.$('.tc-club-nombre')) === null);
-revisa('[entrada] sin club, la tienda es la de Tannery', (await pg.getAttribute('.tc-familias a[data-familia="tienda"]', 'href')) === '/pedido/');
+revisa('[entrada] sin club, la tienda es la de Tannery', (await pg.getAttribute('.tc-familias a[data-familia="tienda"]', 'href')) === '/tienda/');
 await pg.setViewportSize({ width: 390, height: 844 });
 revisa('[entrada] el botón de tienda se ve en el teléfono y nada se sale', await pg.isVisible('.tc-familias a[data-familia="tienda"]')
   && await pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));

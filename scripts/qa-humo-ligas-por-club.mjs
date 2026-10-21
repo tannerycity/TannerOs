@@ -185,10 +185,11 @@ await pg.setViewportSize({ width: 390, height: 844 });
 revisa('[entrada] el botón de tienda se ve en el teléfono y nada se sale', await pg.isVisible('.tc-familias a[data-familia="tienda"]')
   && await pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 // Las puertas (13/10/2026): puertas grandes y el login sólo al tocar Staff.
-// Costos (20/10/2026): precios y calculadora públicos, antes de Staff.
-revisa('[puertas] Familias, Tienda, Inscribe, Costos y Staff, en ese orden',
-  JSON.stringify(await pg.$$eval('.tc-puerta b', b => b.map(x => x.textContent))) === JSON.stringify(['Familias', 'Tienda', 'Inscribe a tu hijo', 'Costos', 'Staff']));
-revisa('[puertas] Costos lleva a /costos/ sin pedir sesión', (await pg.getAttribute('.tc-familias a[data-familia="costos"]', 'href')) === '/costos/');
+// Costos (20/10/2026) sigue en /costos/, pero Presidencia pidió que aún no
+// salga en la entrada (21/10/2026).
+revisa('[puertas] Familias, Tienda, Inscribe y Staff, en ese orden',
+  JSON.stringify(await pg.$$eval('.tc-puerta b', b => b.map(x => x.textContent))) === JSON.stringify(['Familias', 'Tienda', 'Inscribe a tu hijo', 'Staff']));
+revisa('[puertas] Costos aún no sale en la entrada', !(await pg.$('.tc-familias a[data-familia="costos"]')));
 revisa('[puertas] el login no se ve hasta tocar Staff', !(await pg.isVisible('#authForm')));
 revisa('[puertas] "¿Quieres trabajar en Tannery?" lleva a la bolsa de trabajo', (await pg.getAttribute('.tc-trabaja', 'href')) === '/trabaja/');
 revisa('[puertas] sin el foquito verde', (await pg.$eval('.preview-pill', e => getComputedStyle(e, '::before').display)) === 'none');

@@ -22,6 +22,7 @@
        documentos con avance y aviso por WhatsApp. */
 import { createClient } from '/v2/supabase-client.js';
 import { nombreDelClub } from '/v2/club.js';
+import { relacion, telefonoBonito } from '/v2/contacto.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
@@ -274,7 +275,7 @@ function pintaHistoria(){
 function pintaFamilia(){
   const box=$('fichaFamilia');if(!box||!F)return;
   const g=F.guardians||[];
-  const tutores=g.map(t=>{const tel=telefono(t);return `<div class="ficha-fila fija"><i class="teal"></i><span><strong>${esc(t.name||'Tutor')}</strong><small>${esc([t.relationship,t.isPrimary?'principal':'',t.receivesBilling?'paga la mensualidad':''].filter(Boolean).join(' · '))}</small></span>${tel?`<a class="ficha-mini" href="https://wa.me/${tel}" target="_blank" rel="noopener" aria-label="WhatsApp a ${esc(t.name||'tutor')}">${svg('wa',18)}</a><a class="ficha-mini" href="tel:+${tel}" aria-label="Llamar a ${esc(t.name||'tutor')}">${svg('tel',18)}</a>`:''}</div>`;}).join('');
+  const tutores=g.map(t=>{const tel=telefono(t);return `<div class="ficha-fila fija"><i class="teal"></i><span><strong>${esc(t.name||'Tutor')}</strong><small>${esc([relacion(t.relationship),t.isPrimary?'principal':'',t.receivesBilling?'paga la mensualidad':'',telefonoBonito(t.phone)].filter(Boolean).join(' · '))}</small></span>${tel?`<a class="ficha-mini" href="https://wa.me/${tel}" target="_blank" rel="noopener" aria-label="WhatsApp a ${esc(t.name||'tutor')}">${svg('wa',18)}</a><a class="ficha-mini" href="tel:+${tel}" aria-label="Llamar a ${esc(t.name||'tutor')}">${svg('tel',18)}</a>`:''}</div>`;}).join('');
   const hermanos=(F.hermanos||[]).map(h=>`<a class="ficha-fila" href="/jugadores/?player=${encodeURIComponent(h.id)}"><i class="oro"></i><span><strong>${esc(h.name)}</strong><small>${esc(h.category||'Sin categoría')}${h.status!=='active'?' · baja':''}</small></span>${svg('chevron',16)}</a>`).join('');
   box.innerHTML=`<div class="ficha-card"><h3>TUTORES</h3>${tutores||'<p class="ficha-vacio">Sin tutor registrado. Agrégalo abajo.</p>'}</div>
     <div class="ficha-card"><h3>HERMANOS EN EL CLUB</h3>${hermanos||'<p class="ficha-vacio">No tiene hermanos registrados en el club.</p>'}</div>`;

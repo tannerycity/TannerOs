@@ -186,6 +186,12 @@ revisa('pero sin nombre no se crea, y lo dice',
 const desborde=await pg.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
 revisa('no hay scroll horizontal en iPhone',!desborde);
 
+// iPhone (21/10/2026): con el teclado abierto la barra fija se quedaba a media
+// pantalla, encima de las piezas. Mientras se escribe, se esconde.
+await pg.click('#orderNotes');await pg.waitForTimeout(100);
+revisa('al escribir (teclado abierto) la barra de abajo se esconde',!(await pg.isVisible('#capBarra')));
+await pg.evaluate(()=>document.activeElement.blur());await pg.waitForTimeout(150);
+revisa('al cerrar el teclado la barra vuelve abajo',await pg.isVisible('#capBarra')&&await pg.evaluate(()=>Math.abs(document.getElementById('capBarra').getBoundingClientRect().bottom-innerHeight)<2));
 await nav.close();srv.close();
 if(errs.length){console.error('Errores de consola:');errs.forEach(e=>console.error('  '+e));}
 console.log(fallos||errs.length

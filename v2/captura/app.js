@@ -492,6 +492,12 @@ $('pfPickNumber').addEventListener('click',()=>elegirNumero('pf'));
 $('bfPickNumber').addEventListener('click',()=>elegirNumero('bf'));
 
 let avisoBarraT=0;
+/* iPhone (21/10/2026): con el teclado abierto, Safari deja la barra fija a
+   media pantalla, encima de las piezas. Mientras se escribe, la barra se
+   esconde; al cerrar el teclado vuelve abajo. */
+const esCampoDeTexto=el=>Boolean(el)&&(el.tagName==='TEXTAREA'||el.tagName==='SELECT'||(el.tagName==='INPUT'&&!['checkbox','radio','button','submit'].includes(el.type)));
+document.addEventListener('focusin',e=>{if(esCampoDeTexto(e.target))$('capBarra')?.classList.add('teclado');});
+document.addEventListener('focusout',()=>setTimeout(()=>{if(!esCampoDeTexto(document.activeElement))$('capBarra')?.classList.remove('teclado');},60));
 function avisoBarra(t){const b=$('capPiezas');if(!b)return;const antes=b.textContent;b.textContent=t;$('capBarra')?.classList.add('flash');clearTimeout(avisoBarraT);avisoBarraT=setTimeout(()=>{$('capBarra')?.classList.remove('flash');renderCart();},1400);}
 $('capVerResumen')?.addEventListener('click',()=>$('capResumen')?.scrollIntoView({behavior:'smooth',block:'start'}));
 function openDrawer(){$('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');}

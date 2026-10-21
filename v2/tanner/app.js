@@ -1,6 +1,7 @@
 import {supabase,bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,shellIcon} from '/v2/shell.js';
 import { nombreDelClub } from '/v2/club.js';
 import {getSignedPhotoUrl} from '/v2/photo-cache.js';
+import {abrirCobro,folioTexto} from '/v2/cobro/hoja.js';
 
 // El shell valida el módulo activo, pero un estado de cuenta lo abre tanto
 // Cobranza como Contabilidad. Se entra con 'inicio' (que el shell exceptúa) y
@@ -11,8 +12,12 @@ const {ctx,navigation}=boot;
 const can=(code,write=false)=>moduleAccess(navigation,code,write);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const playerId=new URLSearchParams(location.search).get('id');
+// Lo que hace falta para cobrar aquí (cargos con id, pedidos, folios). Si no
+// carga, la pantalla sigue siendo el estado de cuenta de siempre.
+let cobro=null;
+const puedeCobrar=()=>!!cobro?.canCollect;
 
-const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',parking_pass:'Gafete',other:'Otro cargo'};
+const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',registration:'Inscripción',uniform:'Uniforme',parking_pass:'Gafete',other:'Otro cargo'};
 const DOC_LABEL={birth_certificate:'Acta de nacimiento',curp:'CURP',studies:'Constancia de estudios',photo:'Fotografía',id:'Identificación'};
 const STATUS_LABEL={active:'Activo',withdrawn:'Baja',paused:'En pausa',archived:'Archivado'};
 const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';
@@ -67,7 +72,9 @@ function balanceBlock(data){
 
   const tel=(data.player?.guardians||[]).find(g=>g.phone)?.phone||'';
   const acciones=[];
-  if(saldo>0&&can('taquilla',true))acciones.push(`<a class="tan-btn" data-kind="pay" href="/taquilla/?action=cobrar&player=${encodeURIComponent(p.id)}&amount=${Math.round(saldo)}&name=${encodeURIComponent([p.first_name,p.last_name].filter(Boolean).join(' '))}">Cobrar ${money.format(saldo)}</a>`);
+  // Se cobra aquí mismo, sin ir a Taquilla: la hoja propone todo lo que debe
+  // y se quita o se agrega lo que de verdad paga (inscripción, arbitraje...).
+  if(puedeCobrar())acciones.push(`<button type="button" class="tan-btn" data-kind="pay" data-cobrar="${saldo>0?'todo':''}">${saldo>0?`Cobrar ${money.format(saldo)}`:'Cobrar'}</button>`);
   if(saldo>0&&tel){
     const msg=encodeURIComponent(`Hola, le recordamos el pago pendiente de ${[p.first_name,p.last_name].filter(Boolean).join(' ')} en ${nombreDelClub(ctx)} por ${money.format(saldo)}. ¡Gracias!`);
     acciones.push(`<a class="tan-btn" data-kind="wa" target="_blank" rel="noopener" href="https://wa.me/${String(tel).replace(/\D/g,'')}?text=${msg}">WhatsApp</a>`);
@@ -123,6 +130,8 @@ function monthsBlock(data){
     const pie=!debe?'Pagado':vencido?'Vencido':'Por vencer';
     const cifra=debe?money.format(f.saldo):money.format(f.cargado);
     const titulo=debe?`Debe ${money.format(f.saldo)} de ${[...new Set(f.conceptos.sort((a,b)=>b.v-a.v).map(c=>c.l))].join(' y ').toLowerCase()||'mensualidad'}`:`Pagado · ${money.format(f.cargado)}`;
+    // Un mes que se debe se toca y abre el cobro con ese mes ya elegido.
+    if(debe&&puedeCobrar())return `<button type="button" class="tan-mes" data-state="${estado}" data-cobrar="${esc(f.key)}" title="${esc(titulo)} · tocar para cobrar"><span class="tan-mes-nom">${esc(nombre(f.key))}</span><b>${cifra}</b><span class="tan-mes-pie">${pie}</span>${f.key.slice(0,4)!==String(new Date().getFullYear())?`<small>${esc(f.key.slice(0,4))}</small>`:''}</button>`;
     return `<div class="tan-mes" data-state="${estado}" title="${esc(titulo)}"><span class="tan-mes-nom">${esc(nombre(f.key))}</span><b>${cifra}</b><span class="tan-mes-pie">${pie}</span>${f.key.slice(0,4)!==String(new Date().getFullYear())?`<small>${esc(f.key.slice(0,4))}</small>`:''}</div>`;
   }).join('');
   const resumen=conSaldo.length
@@ -131,6 +140,13 @@ function monthsBlock(data){
   return `<section class="tan-section"><div class="tan-section-head"><h2>Por mes</h2><span>${esc(resumen)}</span></div><div class="tan-meses">${cards}</div></section>`;
 }
 
+// Un pago que se cobró junto con otros (inscripción + mensualidad...) lleva
+// el folio del cobro: así se sabe que fue un solo dinero.
+function folioDe(m){
+  const t=cobro?.tickets?.[m.id||m.ref_id];
+  if(!t)return '';
+  return ` · Folio ${esc(folioTexto(t.folio))}${Number(t.parts)>1?` (${t.parts} partes)`:''}`;
+}
 function ledgerBlock(data){
   const rows=(data.ledger||[]).filter(m=>m.kind!=='payment'||m.status==='posted');
   if(!rows.length)return '';
@@ -139,7 +155,7 @@ function ledgerBlock(data){
     const titulo=cargo?`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`:'Pago recibido';
     const detalle=cargo
       ? `${fmtDate(m.date)}${m.charge_balance>0?` · quedan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`
-      : `${fmtDate(m.date)}${m.method?` · ${esc(METODO_PAGO[m.method]||m.method)}`:''}${m.reference&&m.reference!==METODO_PAGO[m.method]?` · ${esc(m.reference)}`:''}`;
+      : `${fmtDate(m.date)}${m.method?` · ${esc(METODO_PAGO[m.method]||m.method)}`:''}${m.reference&&m.reference!==METODO_PAGO[m.method]?` · ${esc(m.reference)}`:''}${folioDe(m)}`;
     // En un historial de pagos, "quién lo cobró" es la mitad del dato. El club
     // encontró un movimiento que decía "Pagó: Michel" y lo había capturado la
     // cuenta iPad; aquí no se repite ese error: el nombre tecleado no se
@@ -340,7 +356,10 @@ async function render(){
   if(!playerId){$('tannerBody').innerHTML='<div class="tos-empty">Falta indicar el Tanner.</div>';return;}
   let data;
   try{
-    data=await rpc('v2_player_account_statement',{organization_id:ctx.organization_id,player_id:playerId});
+    [data,cobro]=await Promise.all([
+      rpc('v2_player_account_statement',{organization_id:ctx.organization_id,player_id:playerId}),
+      rpc('v2_player_collection',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null)
+    ]);
   }catch(error){
     console.warn('estado de cuenta',error);
     $('tannerBody').innerHTML='<div class="tos-empty">No pudimos abrir el estado de cuenta. Revisa tus permisos o vuelve a intentar.</div>';
@@ -377,6 +396,13 @@ async function render(){
    La llave de idempotencia se crea al abrir la hoja y se reusa si se reintenta:
    un doble toque o una red lenta no duplican nada. */
 let ultimo=null,hoja=null;
+document.addEventListener('click',e=>{
+  const b=e.target.closest?.('[data-cobrar]');if(!b||!ultimo)return;
+  const p=ultimo.player||{};
+  abrirCobro({rpc,org:ctx.organization_id,playerId,nombre:[p.first_name,p.last_name].filter(Boolean).join(' '),
+    telefono:(p.guardians||[]).find(g=>g.phone)?.phone||'',nacimiento:p.birth_date,preseleccion:b.dataset.cobrar||null,
+    alTerminar:()=>render()});
+});
 const llave=()=>(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`);
 const TIPOS_AJUSTE=[['discount','Descuento'],['waiver','Condonación'],['correction','Corrección']];
 function cargosAbiertos(){

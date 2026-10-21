@@ -8,6 +8,7 @@ import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
 import {estadoDe,validacionDe,accionesPara,requiereMotivo,diferenciaDe,
         filtra as filtraConcilia,lineaDeHistorial,pendientesReales}
   from '/v2/taquilla/conciliacion.js';
+import {abrirCobro} from '/v2/cobro/hoja.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
@@ -50,7 +51,7 @@ function closeModals(){document.querySelectorAll('.cashier-modal').forEach(el=>e
 function resetCollectForm(){
   $('collectForm').reset();
   $('collectPlayer').value='';$('collectPlayerSearch').value='';
-  $('collectPorQue')?.classList.add('hidden');
+  $('collectPorQue')?.classList.add('hidden');$('collectDesglose')?.classList.add('hidden');
   $('collectPlayerClear')?.classList.add('hidden');$('collectPlayerResults')?.classList.add('hidden');$('collectPlayerResults').innerHTML='';
   $('collectDate').value=isoToday();
   $('generalPlayer').value='';$('generalPlayerSearch').value='';
@@ -293,6 +294,7 @@ function quickCollect(playerId,name,amount){
   resetCollectForm();
   $('collectPlayer').value=playerId;$('collectPlayerSearch').value=name||'';
   if(name)$('collectPlayerClear')?.classList.remove('hidden');
+  $('collectDesglose')?.classList.toggle('hidden',!playerId);
   if(amount)$('collectAmount').value=amount;
   modal('collectModal',true);
 }
@@ -927,11 +929,22 @@ $('tiendaPlayerSearch')?.addEventListener('input',()=>{if(!$('tiendaPlayerSearch
 // Taquilla no tenga que hacer la cuenta a mano ni se le olvide el recargo.
 tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','collectPlayerResults','collectPlayerClear',(pl)=>{
   pintaPorQueEsteMonto(pl);
+  $('collectDesglose')?.classList.toggle('hidden',!pl);
   if(!pl||$('collectAmount').value)return;
   const pendiente=(receivables||[]).filter(r=>r.player_id===pl.player_id).reduce((sum,r)=>sum+Number(r.balance_due||0),0);
   const sugerido=pendiente>0?pendiente:Number(pl.base_monthly_fee||0);
   $('collectAmount').value=sugerido>0?Math.round(sugerido):'';
 },fuenteTienda);
+
+// Varios conceptos en un solo cobro: se cierra el modal y se abre la hoja de
+// cobro del Tanner elegido (la misma del estado de cuenta).
+$('collectDesglose')?.addEventListener('click',()=>{
+  const playerId=$('collectPlayer').value,nombre=$('collectPlayerSearch').value.trim();
+  if(!playerId)return;
+  closeModals();
+  abrirCobro({rpc,org,playerId,nombre,preseleccion:'todo',
+    alTerminar:async()=>{await Promise.all([load(),loadReceivables()]);renderCollections();cargaConcilia(true);}});
+});
 
 /* Por qué ese monto, dentro del cobro.
    Antes había que abrir "CUÁNTO COBRAR", buscar al Tanner otra vez y regresar.

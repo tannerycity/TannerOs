@@ -337,3 +337,8 @@
 a.collections-edo{color:inherit;text-decoration:none;min-width:0}
 a.collections-edo:hover strong{color:var(--tos-teal,#087d8e)}
 a.collections-edo u{text-decoration:none;color:var(--tos-teal,#087d8e);font-weight:700}
+
+/* Entrada a la hoja de cobro con desglose (varios conceptos o dos métodos). */
+.collect-desglose{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;border:1px dashed #087d8e;background:#eef7f8;border-radius:13px;padding:11px 13px;cursor:pointer;color:#05505d;font:inherit}
+.collect-desglose strong{font-size:13.5px;font-weight:900}
+.collect-desglose small{font-size:11.5px;font-weight:700;color:#4a6870}

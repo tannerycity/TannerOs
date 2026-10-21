@@ -98,6 +98,13 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
         return params.from_date.startsWith('2026-09') ? MES : MES_VACIO;
       }
       if(name==='v2_portal_paperwork') return PAPERWORK;
+      // Acuerdo de pago (21/10/2026): la familia lo ve y toca "Enterado".
+      if(name==='v2_portal_agreement') return { id:'ac1', state:'active', total:1600, paid:600, note:'Paga en quincenas',
+        acknowledgedAt: window.__enterado || null,
+        installments:[{ seq:1, due:'2026-10-26', amount:600, state:'paid' }, { seq:2, due:'2026-11-10', amount:1000, state:'pending' }],
+        next:{ seq:2, due:'2026-11-10', amount:1000 } };
+      if(name==='v2_portal_acknowledge_agreement'){ window.__enterado = '2026-10-21T18:00:00Z'; window.__enterados = (window.__enterados||0) + 1;
+        return { ok:true, acknowledgedAt: window.__enterado }; }
       if(name==='v2_portal_decide_image_consent'){
         window.__decisiones.push(params);
         PAPERWORK = { ...PAPERWORK, image_consent:{
@@ -207,6 +214,16 @@ revisa('sólo pide la asistencia de su propio Tanner',
    "sí", guardada igual, y que la familia pueda cambiar de opinión después. */
 await pagina.click('.fam-nav-item[data-tab="cuenta"]');
 await pagina.waitForSelector('.fam-imagen', { timeout: 6000 });
+
+/* Acuerdo de pago (21/10/2026): "que lo puedan ver y haya registro". */
+const acuerdo = (await pagina.textContent('.fam-acuerdo')).replace(/\s+/g, ' ');
+revisa('[acuerdo] la familia ve su acuerdo con lo que lleva', /Tu acuerdo de pago/.test(acuerdo) && /\$600\.00 de \$1,600\.00/.test(acuerdo), acuerdo.slice(0, 160));
+revisa('[acuerdo] dice el próximo pago y que no hay recargo si cumple', /10 de noviembre/.test(acuerdo) && /no se cobra recargo/.test(acuerdo), acuerdo.slice(0, 260));
+revisa('[acuerdo] cada pago con su estado', JSON.stringify(await pagina.$$eval('.fam-pagos li', els => els.map(e => e.dataset.state))) === JSON.stringify(['paid','pending']));
+await pagina.click('#acuerdoEnterado');
+await pagina.waitForSelector('.fam-acuerdo-visto', { timeout: 4000 });
+revisa('[acuerdo] "Enterado" queda registrado y lo dice', await pagina.evaluate(() => window.__enterados) === 1 && /Lo viste el 21 de octubre/.test(await pagina.textContent('.fam-acuerdo-visto')));
+revisa('[acuerdo] ya no vuelve a pedir "Enterado"', !(await pagina.$('#acuerdoEnterado')));
 const tarjeta = (await pagina.textContent('.fam-imagen')).replace(/\s+/g, ' ');
 revisa('se le pregunta por las fotos, no se asume', /¿Podemos publicar sus fotos\?/.test(tarjeta), tarjeta.slice(0, 160));
 revisa('dice que decir que no no afecta la inscripción',

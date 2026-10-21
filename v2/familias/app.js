@@ -22,7 +22,7 @@ import {inicialesDe, filaDeTalla, tarjetaProducto as dibujaProducto,
 // Todo lo que se muestra viene de los RPC v2_portal_*, que resuelven al tutor
 // por auth.uid() y nunca confían en un id que mande esta página.
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',uniform:'Uniforme',
+const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',registration:'Inscripción',uniform:'Uniforme',
   parking_pass:'Gafete',other:'Otro cargo'};
 const chargeLabel=t=>CHARGE_LABEL[t]||'Cargo';
 // De qué fue cada pago. El portal mostraba todos los cargos pero sólo los
@@ -41,7 +41,7 @@ const orderLabel=t=>ORDER_LABEL[t]||'';
 // viven juntos en "Club". Las ligas viejas (?tab=calendario|gafete) siguen.
 const TAB_PEDIDA=new URLSearchParams(location.search).get('tab');
 const TAB_INICIAL=['inicio','cuenta','progreso','tienda','club'].includes(TAB_PEDIDA)?TAB_PEDIDA:['calendario','gafete'].includes(TAB_PEDIDA)?'club':'inicio';
-const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
+const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},acuerdos:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
 
 function show(id){['loginView','passwordView','inviteView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -441,10 +441,48 @@ async function renderCuenta(){
     try{state.paperwork[p.id]=await rpc('v2_portal_paperwork',{player_id:p.id});}
     catch(error){console.warn('papeleo',error);state.paperwork[p.id]={};}
   }
+  // El acuerdo de pago (si lo hay) tampoco bloquea la cuenta.
+  if(!(p.id in state.acuerdos)){
+    try{state.acuerdos[p.id]=await rpc('v2_portal_agreement',{player_id:p.id});}
+    catch(error){console.warn('acuerdo',error);state.acuerdos[p.id]=null;}
+  }
   const st=state.statements[p.id],pw=state.paperwork[p.id];
   const saldo=Number(st.summary?.balance||0);
-  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${saldo>0.004?comoPagarBlock(p,saldo):''}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
-  cableaTramites(p);cableaAcceso();cableaComoPagar();
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${acuerdoBlock(state.acuerdos[p.id])}${saldo>0.004?comoPagarBlock(p,saldo):''}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
+  cableaTramites(p);cableaAcceso();cableaComoPagar();cableaAcuerdo(p);
+}
+
+/* El acuerdo de pago que pactó el club. La familia lo ve con sus fechas y
+   toca "Enterado": queda registrado una vez, con la fecha, y el club lo ve en
+   su seguimiento (pedido de Presidencia, 21/10/2026). */
+const fechaCorta=iso=>new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'long'}).format(new Date(`${String(iso).slice(0,10)}T12:00:00`));
+function acuerdoBlock(a){
+  if(!a||!['active','broken','fulfilled'].includes(a.state))return '';
+  const titulo={active:'Tu acuerdo de pago',broken:'Tu acuerdo tiene un pago vencido',fulfilled:'¡Cumpliste tu acuerdo!'}[a.state];
+  const pct=Number(a.total)>0?Math.min(100,Math.round(Number(a.paid)/Number(a.total)*100)):0;
+  const sub=a.state==='fulfilled'?'Gracias por ponerte al corriente.'
+    :a.state==='broken'?`El pago de ${money.format(Number(a.next?.amount||0))} del ${fechaCorta(a.next?.due)} quedó pendiente. Al no cumplir el acuerdo vuelve a aplicar el recargo.`
+    :`Tu próximo pago: ${money.format(Number(a.next?.amount||0))} el ${fechaCorta(a.next?.due)}. Mientras cumplas, no se cobra recargo.`;
+  const pagos=(a.installments||[]).map(i=>`<li data-state="${esc(a.state==='fulfilled'?'paid':i.state)}"><span>${esc(fechaCorta(i.due))}</span><b>${money.format(Number(i.amount))}</b><small>${a.state==='fulfilled'||i.state==='paid'?'Pagado':i.state==='late'?'Vencido':'Pendiente'}</small></li>`).join('');
+  const visto=a.acknowledgedAt
+    ?`<p class="fam-acuerdo-visto">Lo viste el ${esc(fechaCorta(a.acknowledgedAt))}.</p>`
+    :a.state==='fulfilled'?'':`<button type="button" class="fam-btn" id="acuerdoEnterado" data-acuerdo="${esc(a.id)}">Enterado</button><div id="acuerdoMensaje" class="fam-message hidden"></div>`;
+  return `<section class="fam-card fam-acuerdo" data-state="${esc(a.state)}"><div class="fam-card-head"><h2>${esc(titulo)}</h2><span>${money.format(Number(a.paid))} de ${money.format(Number(a.total))}</span></div>
+    <div class="fam-barra"><i style="width:${pct}%"></i></div><p class="fam-acuerdo-sub">${esc(sub)}</p><ol class="fam-pagos">${pagos}</ol>
+    ${a.note?`<p class="fam-muted fam-acuerdo-nota">${esc(a.note)}</p>`:''}${visto}</section>`;
+}
+function cableaAcuerdo(p){
+  const b=$('acuerdoEnterado');if(!b)return;
+  b.addEventListener('click',async()=>{
+    b.disabled=true;
+    try{
+      const r=await rpc('v2_portal_acknowledge_agreement',{agreement_id:b.dataset.acuerdo});
+      state.acuerdos[p.id]={...state.acuerdos[p.id],acknowledgedAt:r?.acknowledgedAt||new Date().toISOString()};
+      renderCuenta();
+    }catch(error){
+      b.disabled=false;const m=$('acuerdoMensaje');if(m){m.textContent=friendly(error);m.classList.remove('hidden');}
+    }
+  });
 }
 
 function cableaTramites(p){

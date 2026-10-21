@@ -164,7 +164,9 @@ export default function comprobar() {
   // (categorías, opciones por días, precio por clase y paquetes).
   // Sube a 52 por qa-humo-cobro-desglose.mjs: un solo cobro con varios
   // conceptos y dos métodos, desde el estado de cuenta y desde Taquilla.
-  const MAX_EXCLUIDAS = 52;
+  // Sube a 53 por qa-humo-acuerdos.mjs: acuerdos de pago, seguimiento y
+  // mensajes de WhatsApp dentro del estado de cuenta.
+  const MAX_EXCLUIDAS = 53;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

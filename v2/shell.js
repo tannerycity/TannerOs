@@ -614,23 +614,27 @@ const ACCIONES_RAPIDAS={
   convocatoria:{label:'Partido',sub:'Convocados, goles y quién jugó',href:'/partidos/',icon:'list',modulos:['convocatoria','callups']},
   miAcademia:{label:'Tomar asistencia',sub:'Mi academia',href:'/mi-academia/',icon:'check',siempre:true},
   scouting:{label:'Scouting',sub:'Visorías y prospectos',href:'/scouting/',icon:'search',modulos:['scouting']},
-  mensaje:{label:'Mensaje',sub:'Escribir al equipo',href:'/mensajes/',icon:'chat',siempre:true}
+  mensaje:{label:'Mensaje',sub:'Escribir al equipo',href:'/mensajes/',icon:'chat',siempre:true},
+  // Cualquiera del club cotiza a una familia nueva (21/10/2026): los precios
+  // de Costos son de Tannery, así que en otro club no sale.
+  cotizar:{label:'Cotizar',sub:'Cuánto paga una familia nueva',href:'/costos/?para=familia',icon:'wallet',siempre:true,soloTannery:true}
 };
 const ACCIONES_POR_ROL={
-  Presidencia:['registrar','captacion','cobrar','pagar','tienda','gafete'],
-  Operaciones:['registrar','cobrar','pagar','gafete','tienda','captacion','mensaje'],
-  Contabilidad:['cobrar','pagar','conciliar','caja'],
-  Taquilla:['cobrar','pagar','gafete','tienda'],
-  Formadores:['asistencia','convocatoria','mensaje'],
-  Academia:['miAcademia','mensaje'],
-  Scouting:['registrar','scouting','captacion']
+  Presidencia:['registrar','captacion','cobrar','pagar','tienda','gafete','cotizar'],
+  Operaciones:['registrar','cobrar','pagar','gafete','tienda','captacion','mensaje','cotizar'],
+  Contabilidad:['cobrar','pagar','conciliar','caja','cotizar'],
+  Taquilla:['cobrar','pagar','gafete','tienda','cotizar'],
+  Formadores:['asistencia','convocatoria','mensaje','cotizar'],
+  Academia:['miAcademia','mensaje','cotizar'],
+  Scouting:['registrar','scouting','captacion','cotizar']
 };
 // Estacionamiento ya tiene botón (19/10/2026): Nuevo gafete y Pendientes.
 const RUTAS_SIN_BOTON=['/taquilla','/captura','/v2/captura','/v2/taquilla'];
 export function accionesRapidas(ctx,navigation){
   const rol=ctx?.is_owner?'Presidencia':ctx?.role;
   // El registro es página pública: su liga lleva el club de quien la abre.
-  return (ACCIONES_POR_ROL[rol]||[]).map(k=>({clave:k,...ACCIONES_RAPIDAS[k]})).map(a=>a.publica?{...a,href:ligaPublica(a.href,ctx,{},'')}:a).filter(a=>a.siempre||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe))));
+  return (ACCIONES_POR_ROL[rol]||[]).map(k=>({clave:k,...ACCIONES_RAPIDAS[k]})).map(a=>a.publica?{...a,href:ligaPublica(a.href,ctx,{},'')}:a).filter(a=>a.siempre||a.modulos.some(m=>moduleAccess(navigation,m,Boolean(a.escribe))))
+    .filter(a=>!a.soloTannery||!ctx?.organization_slug||ctx.organization_slug==='tannery-city-fc');
 }
 function cierraAcciones(){document.body.classList.remove('tos-fab-open');$('tosFab')?.setAttribute('aria-expanded','false');}
 /* Lo de ESTA pantalla primero (13/10/2026): "que tenga dos, tres funciones de

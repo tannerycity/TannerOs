@@ -94,12 +94,16 @@ export function cotiza({ hijos = [], fechaIngreso, nuevaInscripcion } = {}, tari
   const ajusteFamiliar = paq.estado === 'aplica' ? parte(paq.paquete.mensualidad) - proporcionalIndividual : 0;
   const inscripcion = nuevaInscripcion ? detalle.reduce((s, d) => s + d.inscripcion, 0) : 0;
   const primerPago = proporcionalIndividual + ajusteFamiliar + inscripcion;
+  const rec = tarifas.recargo;
+  const recargo = rec ? rec.monto * (rec.porAlumno ? hijos.length : 1) : 0;
 
   return {
     fecha: f, semanas, base: pr.base, completo: semanas === pr.base,
     detalle, sumaIndividual, paquete: paq,
     proporcionalIndividual, ajusteFamiliar, inscripcion, nuevaInscripcion,
     primerPago, mensualidadRegular,
+    // Si se paga después del día límite: recargo por cada mensualidad (hijo).
+    recargo, mensualidadConRecargo: mensualidadRegular + recargo,
     // Es estimación si alguna regla que la sostiene no está confirmada.
     estimacion: !pr.confirmado || paq.estado === 'referencia' || paq.estado === 'sin_tarifa'
   };
@@ -124,6 +128,7 @@ export function textoCotizacion(c, tarifas) {
   } else {
     l.push(`Total a pagar cada mes: ${dinero(c.primerPago)} ${tarifas.moneda}`);
   }
+  if (c.recargo) l.push(`Si pagas después del día ${tarifas.recargo.diaLimite}: +${dinero(c.recargo)} de recargo, ${dinero(c.mensualidadConRecargo)} ${tarifas.moneda}`);
   l.push('');
   l.push(tarifas.notaProporcional);
   l.push(c.estimacion ? `Estimación. ${tarifas.nota}` : tarifas.nota);

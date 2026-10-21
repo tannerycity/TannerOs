@@ -119,3 +119,10 @@ body.co{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-
 .co-importante{margin:12px 0 0;padding:12px 14px;border-radius:14px;border-left:4px solid var(--oro);background:rgba(233,209,156,.14);color:#fff;font-size:14px;line-height:1.5}
 .co-importante.claro{margin-top:14px;background:#fdf6e6;color:#5c4300;border-left-color:#c8ae62}
 .co-plan th small,.co-plan td small{display:block;margin-top:2px;font:600 12px Inter,sans-serif;color:var(--gris);text-transform:none;letter-spacing:0}
+
+/* Recargo por pago tardío (21/10/2026): nota roja junto a precios y simulación en la cotización. */
+.co-importante.claro.rojo{background:#fdecea;color:#7a2018;border-left-color:#d1453b}
+.co-recargo{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;margin:12px 0 0;padding:12px 14px;border-radius:14px;background:rgba(209,69,59,.16);border:1px solid rgba(255,150,140,.35)}
+.co-recargo b{font-size:14px;color:#ffb4ab}
+.co-recargo span{grid-column:1;font-size:13px;color:rgba(255,255,255,.75)}
+.co-recargo strong{grid-column:2;grid-row:1/3;font:800 26px 'Barlow Condensed',sans-serif;color:#ffb4ab}

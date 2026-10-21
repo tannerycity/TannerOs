@@ -20,7 +20,7 @@ function tarjetaCategoria(c) {
   const filas = c.opciones.map(o => `<tr><th scope="row">${esc(nombreOpcion(o))}<small>${dinero(porClase(o))} por clase</small></th><td>${dinero(o.mensualidad)}<small>al mes</small></td></tr>`).join('');
   return `<article class="co-plan" data-plan="${esc(c.clave)}"><header><h3 class="cond">${esc(c.nombre)}</h3><small>${esc(c.edades)}</small></header>
     <table><tbody>${filas}<tr class="co-insc"><th scope="row">Inscripción</th><td>${dinero(c.inscripcion)}</td></tr></tbody></table>
-    <p class="co-incluye">La inscripción incluye ${esc(T.incluyeInscripcion.toLowerCase())}.</p></article>`;
+    ${T.incluyeInscripcion ? `<p class="co-incluye">La inscripción incluye ${esc(T.incluyeInscripcion.toLowerCase())}.</p>` : ''}</article>`;
 }
 function tablaPaquetes() {
   const p = T.paquetes;
@@ -76,7 +76,7 @@ function pintaResultado() {
   const filas = [];
   filas.push(c.fecha ? [`Mensualidad de ${mesDe(c.fecha)}`, c.completo ? 'Mes completo' : `Proporcional: ${c.semanas} de ${c.base} semanas`, dinero(c.proporcionalIndividual)]
     : ['Mensualidad', 'Completa, la que acordaste al inscribirte', dinero(c.proporcionalIndividual)]);
-  if (c.nuevaInscripcion) filas.push([`Inscripción`, `${c.detalle.length === 1 ? '1 alumno' : `${c.detalle.length} alumnos`} · incluye ${T.incluyeInscripcion.toLowerCase()}`, dinero(c.inscripcion)]);
+  if (c.nuevaInscripcion) filas.push([`Inscripción`, `${c.detalle.length === 1 ? '1 alumno' : `${c.detalle.length} alumnos`}${T.incluyeInscripcion ? ` · incluye ${T.incluyeInscripcion.toLowerCase()}` : ''}`, dinero(c.inscripcion)]);
   if (c.paquete.estado === 'aplica') filas.push(['Ajuste familiar', c.paquete.paquete.nombre, dinero(c.ajusteFamiliar)]);
   const paq = c.paquete.estado === 'referencia'
     ? `<p class="co-nota-paq" data-paquete="referencia"><b>Paquete familiar ${esc(c.paquete.paquete.nombre)}: ${dinero(c.paquete.paquete.mensualidad)} al mes, por confirmar.</b> No está sumado: la administración te confirma si aplica.</p>`
@@ -89,6 +89,7 @@ function pintaResultado() {
     ${filas.map(([a, b, v]) => `<tr><th scope="row">${esc(a)}<small>${esc(b)}</small></th><td>${v}</td></tr>`).join('')}
     </tbody><tfoot><tr><th scope="row">${c.fecha ? 'Total del primer pago' : 'Total a pagar cada mes'}</th><td id="coTotal">${dinero(c.primerPago)}</td></tr></tfoot></table>
     ${c.fecha ? `<p class="co-regular">Tu mensualidad regular a partir de ${esc(mesSiguiente(c.fecha))}: <b id="coRegular">${dinero(c.mensualidadRegular)} ${T.moneda}</b></p>` : ''}
+    ${c.recargo ? `<div class="co-recargo" data-recargo><b>Si pagas después del día ${T.recargo.diaLimite}</b><span>Mensualidad ${dinero(c.mensualidadRegular)} + recargo ${dinero(c.recargo)}${c.detalle.length > 1 ? ` (${dinero(T.recargo.monto)} por cada hijo)` : ''}</span><strong id="coConRecargo">${dinero(c.mensualidadConRecargo)}</strong></div>` : ''}
     <p class="co-importante" data-importante>${esc(T.notaProporcional)}</p>
     <p class="co-nota">${c.estimacion ? '<b>Estimación.</b> ' : ''}${esc(T.nota)}</p>
     <div class="co-acciones"><button type="button" class="co-btn" id="coCopiar">Copiar mi cotización</button><a class="co-btn wa" id="coWhats" href="${esc(ligaWhatsApp(textoCotizacion(c, T), T, c.detalle.length))}" target="_blank" rel="noopener">Solicitar información por WhatsApp</a></div>
@@ -122,7 +123,8 @@ function pinta() {
     <main class="co-main">
       <section class="co-sec" aria-labelledby="coPreciosT"><p class="co-eyebrow">Mensualidades</p><h2 id="coPreciosT" class="co-h2 cond">Precios</h2>
         <div class="co-planes">${CAT.map(tarjetaCategoria).join('')}</div>
-        <p class="co-importante claro" id="coImportante">${esc(T.notaProporcional)}</p></section>
+        <p class="co-importante claro" id="coImportante">${esc(T.notaProporcional)}</p>
+        ${T.recargo ? `<p class="co-importante claro rojo" id="coRecargoNota"><b>Importante:</b> paga a más tardar el día ${T.recargo.diaLimite} de cada mes. Después del día ${T.recargo.diaLimite} se cobra un recargo de ${dinero(T.recargo.monto)}${T.recargo.porAlumno ? ' por cada mensualidad' : ''}.</p>` : ''}</section>
       ${tablaPaquetes()}
       ${calculadora()}
       <p class="co-pie">¿Dudas? Escríbenos por WhatsApp al <a href="https://wa.me/${T.whatsapp.numero}" target="_blank" rel="noopener">${T.whatsapp.visible}</a>. <a href="/registro/">Inscribe a tu hijo</a></p>

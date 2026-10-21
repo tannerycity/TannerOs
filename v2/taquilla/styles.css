@@ -367,3 +367,28 @@ a.collections-edo u{text-decoration:none;color:var(--tos-teal,#087d8e);font-weig
 /* Cotizar a una familia nueva (la calculadora de Costos en modo staff). */
 .cotizar-link{display:block;margin-top:10px;font-size:13px;font-weight:700;color:#4a6870;text-decoration:none}
 .cotizar-link b{color:#087d8e;text-decoration:underline;text-underline-offset:3px}
+/* COBRAR: "¿Qué vas a cobrar?" con el buscador arriba y tarjetas debajo. */
+.cobrar-volver{flex:0 0 auto;margin-right:10px;width:36px!important;height:36px!important;font-size:22px!important;line-height:1}
+.cobrar-volver:hover{transform:none!important}
+.cashier-modal-head>div{flex:1}
+#collectModal #collectPlayerBox .tsearch-label{font-size:14px;font-weight:900;color:#0d2730}
+#collectModal #collectPlayerBox .tsearch-label small{display:block;text-transform:none;letter-spacing:0;margin-top:2px;font-size:12px;font-weight:700;color:#6b7a80}
+#collectModal #collectPlayerSearch{min-height:52px;font-size:17px}
+.cobrar-opciones{display:grid!important;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0 4px;overflow:visible!important}
+.cobrar-opciones button{display:flex!important;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:1px solid var(--tos-line,#dedbd0)!important;background:#fff!important;border-radius:18px!important;padding:14px!important;color:#0d2730!important;cursor:pointer;min-height:112px;transition:transform .12s ease,box-shadow .12s ease}
+.cobrar-opciones button:hover{box-shadow:0 10px 24px -14px rgba(3,47,59,.4)}
+.cobrar-opciones button:active{transform:scale(.97)}
+.cobrar-opciones button.hidden{display:none!important}
+.cobrar-opciones b{font-size:15px;font-weight:900}
+.cobrar-opciones small{font-size:12px;font-weight:700;color:#6b7a80;line-height:1.3}
+.cobrar-ico{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:#eef7f8;color:#087d8e;margin-bottom:4px}
+.cobrar-ico svg{width:20px;height:20px}
+#tabTienda .cobrar-ico{background:#fbf3e3;color:#9a6a12}
+#tabGafete .cobrar-ico{background:#eef0fb;color:#3d4fa8}
+.cobrar-patrocinio{display:block;margin:12px auto 0;border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:#6b7a80;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+/* En el inicio no hay botón de enviar ni ayuda; fuera del inicio no hay tarjetas. */
+#collectModal.en-inicio #saveCollect,#collectModal.en-inicio #cashierHelp{display:none!important}
+#collectModal:not(.en-inicio) .cobrar-opciones,#collectModal:not(.en-inicio) .cobrar-patrocinio{display:none!important}
+.collect-patrocinio{display:none!important}
+.cobrar-txt{display:flex;flex-direction:column;gap:2px}
+@media(max-width:560px){.cobrar-opciones{grid-template-columns:1fr;gap:8px}.cobrar-opciones button{flex-direction:row!important;align-items:center!important;min-height:0;gap:12px;padding:12px 14px!important}.cobrar-opciones button .cobrar-ico{margin:0;flex:0 0 38px}}

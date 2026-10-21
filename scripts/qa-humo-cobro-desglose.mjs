@@ -76,7 +76,7 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
     window.__llamadas = []; window.__fallaCobro = 1;
     window.tosConfirm = async () => { window.__confirmos = (window.__confirmos || 0) + 1; return true; };
     window.open = (u) => { window.__abierto = u; return null; };
-    const m = ['cobranza','contabilidad','taquilla','jugadores','finanzas'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true }));
+    const m = ['cobranza','contabilidad','taquilla','jugadores','finanzas','tienda','estacionamiento'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true }));
     const R = { v2_my_context:[{ user_id:'u1', display_name:usuario.display_name, organization_id:'o1', organization_name:'Tannery City FC', role:usuario.role, is_owner:true }],
                 v2_my_navigation:m, v2_player_account_statement:estado, v2_player_change_history:[],
                 v2_player_family:[{ id:'p2', name:'Sofía Santos', birthDate:'2019-05-01', balance:400 }],
@@ -296,7 +296,15 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   revisa('[taquilla] el buscador queda limpio para el siguiente', await p.inputValue('#rapidoSearch') === '');
 
   await p.click('#openCollect');
-  revisa('[taquilla] COBRAR › Tanner sólo pide el nombre', await p.isVisible('#collectPlayerSearch') && !(await p.isVisible('#collectAmount')) && !(await p.isVisible('#saveCollect')));
+  revisa('[taquilla] COBRAR abre "¿Qué vas a cobrar?": buscar al Tanner y tarjetas, sin botón de enviar', await p.isVisible('#collectPlayerSearch') && /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle'))
+    && !(await p.isVisible('#collectAmount')) && !(await p.isVisible('#saveCollect')) && !(await p.isVisible('#collectVolver')));
+  await p.setViewportSize({ width:390, height:844 }); await p.waitForTimeout(250); await foto(p, 'cobrar-inicio'); await p.setViewportSize({ width:1280, height:844 });
+  const tarjetas = await p.$$eval('.cobrar-opciones button', bs => bs.filter(b => b.offsetParent).map(b => b.querySelector('b').textContent));
+  revisa('[taquilla] tarjetas: Tienda, Estacionamiento y Otro ingreso', JSON.stringify(tarjetas) === JSON.stringify(['Tienda','Estacionamiento','Otro ingreso']), JSON.stringify(tarjetas));
+  await p.click('.cobrar-opciones [data-mode="general"]');
+  revisa('[taquilla] una tarjeta abre su formulario con título y "‹"', /Otro ingreso/.test(await texto(p, '#collectTitle')) && await p.isVisible('#collectVolver') && await p.isVisible('#generalAmount') && !(await p.isVisible('.cobrar-opciones')));
+  await p.click('#collectVolver');
+  revisa('[taquilla] "‹" regresa a ¿Qué vas a cobrar?', /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle')) && await p.isVisible('.cobrar-opciones'));
   revisa('[taquilla] sin campos que nadie usaba: método "Otro" e "Inscripción" en otro ingreso', !(await p.$('#collectMethod option[value="other"]')) && !(await p.$$eval('#generalCategory option', os => os.some(o => o.textContent === 'Inscripción'))));
   await p.fill('#collectPlayerSearch', 'Liam');
   await p.click('#collectPlayerResults .tsearch-opt');
@@ -305,7 +313,7 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   await p.click('#cobroBody [data-cobro-cerrar]');
 
   await p.click('#openCollect');
-  await p.check('#collectSponsorMode');
+  await p.click('#collectSponsorLink');
   revisa('[taquilla] patrocinador: vuelve el formulario de siempre', await p.isVisible('#collectAmount') && await p.isVisible('#saveCollect') && await p.inputValue('#collectPayerType') === 'sponsor');
   revisa('[taquilla] cuenta personal: no se escribe quién cobró', !(await p.isVisible('#collectCollectedBy')));
   await p.click('#collectModal [data-close]');

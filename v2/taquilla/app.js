@@ -395,10 +395,18 @@ document.addEventListener('click',async e=>{
     message('movementsMessage',friendlyMontos(err));
   }finally{ b.disabled=false;b.textContent=antes; }
 });
+// COBRAR (21/10/2026): primero "¿Qué vas a cobrar?" —buscar al Tanner o una
+// tarjeta (Tienda, Estacionamiento, Otro ingreso)— y al entrar a una, "‹"
+// regresa. El patrocinador es una liga discreta: casi nunca pasa.
+const TITULO_COBRO={player:'Lo paga un patrocinador',tienda:'Tienda',gafete:'Estacionamiento',general:'Otro ingreso'};
 function setCollectMode(mode){
   if(mode==='tienda'&&!canTienda)mode='player';
   if(mode==='gafete'&&!canGafete)mode='player';
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  const enInicio=mode==='player'&&!$('collectSponsorMode')?.checked;
+  $('collectModal')?.classList.toggle('en-inicio',enInicio);
+  $('collectVolver')?.classList.toggle('hidden',enInicio);
+  if($('collectTitle'))$('collectTitle').textContent=enInicio?'¿Qué vas a cobrar?':TITULO_COBRO[mode];
   $('playerFields').classList.toggle('hidden',mode!=='player');$('generalFields').classList.toggle('hidden',mode!=='general');
   $('tiendaFields').classList.toggle('hidden',mode!=='tienda');
   $('gafeteFields')?.classList.toggle('hidden',mode!=='gafete');
@@ -1002,7 +1010,10 @@ $('collectSponsorMode')?.addEventListener('change',e=>{
   $('playerFields').classList.toggle('solo-busca',!on);
   $('saveCollect').classList.toggle('hidden',!on);
   if(on)$('collectPayerType').value='sponsor';
+  setCollectMode('player');
 });
+$('collectSponsorLink')?.addEventListener('click',()=>{const c=$('collectSponsorMode');c.checked=true;c.dispatchEvent(new Event('change'));$('collectPlayerSearch')?.focus();});
+$('collectVolver')?.addEventListener('click',()=>{const c=$('collectSponsorMode');if(c.checked){c.checked=false;c.dispatchEvent(new Event('change'));}setCollectMode('player');$('collectPlayerSearch')?.focus();});
 // "¿A quién le cobras?": lo primero de la pantalla.
 $('cobroRapido')?.classList.toggle('hidden',!canCashWrite);
 if(canCashWrite)cargaJugadoresTienda();

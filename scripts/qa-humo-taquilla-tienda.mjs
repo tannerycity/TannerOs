@@ -216,7 +216,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   revisa('y no ofrece Tanners dados de baja', (await pg.$$('#tiendaPlayerResults .tsearch-opt')).length === 0);
   // Y la mensualidad: desde i2 Operaciones cobra mensualidades con permiso de
   // Taquilla, así que su buscador tampoco puede salir vacío.
-  await pg.click('.cashier-tabs [data-mode="player"]');
+  await pg.click('#collectVolver');
   await pg.fill('#collectPlayerSearch', 'matias'); await pg.waitForTimeout(200);
   revisa('sin Cobranza, el buscador de mensualidad también encuentra al Tanner',
     (await pg.$$('#collectPlayerResults .tsearch-opt')).length === 1);

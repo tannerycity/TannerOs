@@ -200,6 +200,7 @@ async function renderCollections(){
     .filter(p=>!q||normSearch(p.player_name).includes(q))
     .filter(p=>{
       if(collectionsFilter==='all')return true;
+      if(collectionsFilter==='agreement')return acuerdos.has(p.player_id);
       const pending=playerReceivables(p.player_id).length>0;
       return collectionsFilter==='pending'?pending:!pending;
     })
@@ -226,7 +227,7 @@ async function renderCollections(){
     return `<div class="collections-row">
       <span class="collections-face"${photoAttrs}><b aria-hidden="true">${esc(initials)}</b></span>
       <a class="collections-info collections-edo" href="/tanner/?id=${encodeURIComponent(p.player_id)}" title="Ver su historial de pagos"><strong>${esc(p.player_name)}</strong><span class="collections-concept">${esc(concept)} · <u>Ver historial</u></span></a>
-      <div class="collections-status"><span class="status-pill ${isPending?'pending':'current'}">${isPending?'Pendiente':'Al corriente'}</span><small class="collections-last">${esc(fmtLastPayment(p.last_payment_date))}</small></div>
+      <div class="collections-status"><span class="status-pill ${isPending?'pending':'current'}">${isPending?'Pendiente':'Al corriente'}</span>${acuerdoChip(p.player_id)}<small class="collections-last">${esc(fmtLastPayment(p.last_payment_date))}</small></div>
       ${canCashWrite?`<button type="button" class="collections-collect" data-quick-collect="${esc(p.player_id)}" data-name="${esc(p.player_name||'')}" data-amount="${amount>0?amount:''}">Registrar</button>`:''}
     </div>`;
   }).join('');
@@ -279,7 +280,18 @@ async function load(){
 async function loadPlayers(){
   if(!moduleAccess(navigation,'cobranza',false))return;
   try{billingPlayers=await rpc('v2_billing_players',{organization_id:org});}catch(e){console.warn('billing players',e);billingPlayers=[];}
+  // Los acuerdos de pago vigentes (activo o incumplido), uno por Tanner. Si
+  // no cargan, la lista se ve igual que antes.
+  const lista=await safe(rpc('v2_agreements_overview',{organization_id:org}),[]);
+  acuerdos=new Map((Array.isArray(lista)?lista:[]).map(a=>[a.playerId,a]));
 
+}
+let acuerdos=new Map();
+const fechaCorta=iso=>new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'}).format(new Date(`${String(iso).slice(0,10)}T12:00:00`)).replace('.','');
+function acuerdoChip(playerId){
+  const a=acuerdos.get(playerId);if(!a)return '';
+  const txt=a.state==='broken'?'Acuerdo incumplido':`Acuerdo · ${a.nextDue?`${fechaCorta(a.nextDue)} ${money.format(Number(a.nextAmount||0))}`:'al día'}`;
+  return `<small class="collections-acuerdo" data-state="${esc(a.state)}">${esc(txt)}</small>`;
 }
 const BILLING_ENGINE_START='2026-09-01';
 // Los adeudos abiertos se siguen cargando: el buscador de cobro los muestra

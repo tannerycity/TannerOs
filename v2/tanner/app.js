@@ -2,6 +2,7 @@ import {supabase,bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth
 import { nombreDelClub } from '/v2/club.js';
 import {getSignedPhotoUrl} from '/v2/photo-cache.js';
 import {abrirCobro,folioTexto} from '/v2/cobro/hoja.js';
+import {montaCobranza} from '/v2/tanner/cobranza.js';
 
 // El shell valida el módulo activo, pero un estado de cuenta lo abre tanto
 // Cobranza como Contabilidad. Se entra con 'inicio' (que el shell exceptúa) y
@@ -16,6 +17,8 @@ const playerId=new URLSearchParams(location.search).get('id');
 // carga, la pantalla sigue siendo el estado de cuenta de siempre.
 let cobro=null;
 const puedeCobrar=()=>!!cobro?.canCollect;
+const cobranza=montaCobranza({rpc,org:ctx.organization_id,playerId,money,esc,shellIcon,
+  datos:()=>({estado:ultimo,cobro}),recarga:()=>render(),avisar:t=>avisar(t),club:()=>nombreDelClub(ctx)});
 
 const CHARGE_LABEL={monthly_fee:'Mensualidad',late_fee:'Recargo',academy_fee:'Academia',registration:'Inscripción',uniform:'Uniforme',parking_pass:'Gafete',other:'Otro cargo'};
 const DOC_LABEL={birth_certificate:'Acta de nacimiento',curp:'CURP',studies:'Constancia de estudios',photo:'Fotografía',id:'Identificación'};
@@ -70,15 +73,12 @@ function balanceBlock(data){
     ? `${(s.by_type||[]).length} concepto${(s.by_type||[]).length===1?'':'s'}${s.oldest_due?` · el más antiguo desde ${fmtDate(s.oldest_due)}`:''}`
     : aFavor>0?'Pagado por adelantado, se aplicará al próximo cargo':'Todo al corriente';
 
-  const tel=(data.player?.guardians||[]).find(g=>g.phone)?.phone||'';
   const acciones=[];
   // Se cobra aquí mismo, sin ir a Taquilla: la hoja propone todo lo que debe
   // y se quita o se agrega lo que de verdad paga (inscripción, arbitraje...).
   if(puedeCobrar())acciones.push(`<button type="button" class="tan-btn" data-kind="pay" data-cobrar="${saldo>0?'todo':''}">${saldo>0?`Cobrar ${money.format(saldo)}`:'Cobrar'}</button>`);
-  if(saldo>0&&tel){
-    const msg=encodeURIComponent(`Hola, le recordamos el pago pendiente de ${[p.first_name,p.last_name].filter(Boolean).join(' ')} en ${nombreDelClub(ctx)} por ${money.format(saldo)}. ¡Gracias!`);
-    acciones.push(`<a class="tan-btn" data-kind="wa" target="_blank" rel="noopener" href="https://wa.me/${String(tel).replace(/\D/g,'')}?text=${msg}">WhatsApp</a>`);
-  }
+  // WhatsApp (mensajes listos) y Acuerdo de pago: ver cobranza.js.
+  acciones.push(...cobranza.acciones());
   if(data.canAdjust){
     if(saldo>0)acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="ajustar">Ajustar saldo</button>`);
     acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="cargo">Agregar cargo</button>`);
@@ -375,7 +375,7 @@ async function render(){
   // Se pinta sin foto y la foto entra después: la URL firmada no debe retrasar
   // el dato, que es a lo que la persona vino.
   const paint=url=>{
-    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${monthsBlock(data)}${ledgerBlock(data)}${cambiosBlock()}<div class="tan-grid">${docsBlock(data)}${extrasBlock(data)}</div>`;
+    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${cobranza.acuerdoBlock()}${monthsBlock(data)}${cobranza.seguimientoBlock()}${ledgerBlock(data)}${cambiosBlock()}<div class="tan-grid">${docsBlock(data)}${extrasBlock(data)}</div>`;
   };
   paint('');
   cargaCambios(paint,p);

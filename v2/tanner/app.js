@@ -3,6 +3,7 @@ import { nombreDelClub } from '/v2/club.js';
 import {getSignedPhotoUrl} from '/v2/photo-cache.js';
 import {abrirCobro,folioTexto,esCuentaCompartida} from '/v2/cobro/hoja.js';
 import {montaCobranza} from '/v2/tanner/cobranza.js';
+import {relacion,telefonoBonito,telefonoWa} from '/v2/contacto.js';
 
 // El shell valida el módulo activo, pero un estado de cuenta lo abre tanto
 // Cobranza como Contabilidad. Se entra con 'inicio' (que el shell exceptúa) y
@@ -346,9 +347,16 @@ function extrasBlock(data){
     rows.push({t:`Pedido ${o.folio||''}`.trim(),d:`${money.format(Number(o.total||0))} · ${falta>0?`faltan ${money.format(falta)}`:'pagado'}`});
   });
   (data.other_payments||[]).forEach(x=>rows.push({t:x.concept||'Otro pago',d:`${money.format(Number(x.amount||0))} · ${fmtDate(x.date)}`}));
-  (p.guardians||[]).forEach(g=>rows.push({t:g.name,d:[g.relationship,g.phone].filter(Boolean).join(' · ')}));
-  if(!rows.length)return '';
-  const html=rows.map(r=>`<div class="tan-row"><span><strong>${esc(r.t)}</strong></span><span class="tan-state">${esc(r.d)}</span></div>`).join('');
+  if(!rows.length&&!(p.guardians||[]).length)return '';
+  const html=rows.map(r=>`<div class="tan-row"><span><strong>${esc(r.t)}</strong></span><span class="tan-state">${esc(r.d)}</span></div>`).join('')
+    // El contacto se lee como lo dice la gente ("Tutor · 477 919 8191") y se
+    // usa con un toque: WhatsApp o llamar.
+    +(p.guardians||[]).map(g=>{
+      const tel=telefonoWa(g.phone);
+      const quien=[relacion(g.relationship),g.primary?'principal':''].filter(Boolean).join(' · '),fono=telefonoBonito(g.phone);
+      const sub=[quien&&esc(quien),fono&&`<span class="tan-tel">${esc(fono)}</span>`].filter(Boolean).join(' · ');
+      return `<div class="tan-row tan-contacto"><span><strong>${esc(g.name||'Tutor')}</strong>${sub?`<small>${sub}</small>`:''}</span>${tel?`<span class="tan-contacto-acciones"><a class="tan-pill" data-kind="wa" href="https://wa.me/${esc(tel)}" target="_blank" rel="noopener" aria-label="WhatsApp a ${esc(g.name||'tutor')}">WhatsApp</a><a class="tan-pill" href="tel:+${esc(tel)}" aria-label="Llamar a ${esc(g.name||'tutor')}">Llamar</a></span>`:'<span class="tan-state">Sin teléfono</span>'}</div>`;
+    }).join('');
   return `<section class="tan-section"><div class="tan-section-head"><h2>Cuota, apoyos y contacto</h2></div><div class="tan-rows">${html}</div></section>`;
 }
 

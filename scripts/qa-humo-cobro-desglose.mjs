@@ -38,7 +38,7 @@ const PUERTO = srv.address().port;
 const ESTADO = {
   canAdjust: true,
   player: { id:'p1', first_name:'Liam', last_name:'Santos', status:'active', category:'T12', birth_date:'2014-03-02',
-            guardians:[{ name:'Mamá', phone:'4771234567', primary:true }] },
+            guardians:[{ name:'Víctor Mejía', relationship:'guardian', phone:'+524771234567', primary:true }] },
   summary: { balance: 1100, paid_total: 500, credit_available: 0, credit_held: 0, by_type:[{type:'monthly_fee',pending:1000},{type:'late_fee',pending:100}] },
   ledger: [
     { id:'c-rec', date:'2026-10-06', kind:'charge', subtype:'late_fee', amount:100, charge_balance:100, period:'2026-10-01', running_balance:1100 },
@@ -122,6 +122,10 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   const meses = await p.$$eval('.tan-meses [data-cobrar]', els => els.map(e => e.dataset.cobrar));
   revisa('[cuenta] los meses que se deben son botones; el pagado no', JSON.stringify(meses) === JSON.stringify(['2026-10','2026-08']), JSON.stringify(meses));
   await foto(p, 'cuenta');
+  await p.$eval('.tan-contacto', e => e.scrollIntoView({ block:'center' })); await foto(p, 'contacto');
+  const contacto = await texto(p, '.tan-contacto');
+  revisa('[contacto] el tutor se lee "Tutor · principal · 477 123 4567", sin "guardian"', /Tutor · principal · 477 123 4567/.test(contacto) && !/guardian|\+52/.test(contacto), contacto);
+  revisa('[contacto] WhatsApp y Llamar con un toque', await p.getAttribute('.tan-contacto [data-kind="wa"]', 'href') === 'https://wa.me/524771234567' && await p.getAttribute('.tan-contacto a[href^="tel:"]', 'href') === 'tel:+524771234567');
   revisa('[cuenta] el pago cobrado junto con otros lleva su folio', /Folio C-0007 \(2 partes\)/.test(await texto(p, '.tan-ledger')));
 
   await p.click('.tan-balance [data-cobrar]');

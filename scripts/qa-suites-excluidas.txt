@@ -80,3 +80,4 @@ qa-humo-cobro-desglose.mjs
 qa-humo-acuerdos.mjs
 qa-humo-pedido-cobro-unico.mjs
 qa-humo-menu-secciones.mjs
+qa-humo-pedido-con-motivo.mjs

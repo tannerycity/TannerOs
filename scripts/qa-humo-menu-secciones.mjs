@@ -92,7 +92,7 @@ async function menu(rol, active, opts = '') {
   const st = await menu('Presidencia', 'candidatos');
   revisa('Staff trae Candidatos', JSON.stringify(st.tabs) === '["Staff","Candidatos"]', JSON.stringify(st.tabs));
   const ad = await menu('Presidencia', 'usuarios');
-  revisa('Administración trae Usuarios, Familias en el portal y QA', JSON.stringify(ad.tabs) === '["Administración","Usuarios","Familias en el portal","QA"]', JSON.stringify(ad.tabs));
+  revisa('Administración trae Usuarios, Familias en el portal, Cambios y QA', JSON.stringify(ad.tabs) === '["Administración","Usuarios","Familias en el portal","Cambios","QA"]', JSON.stringify(ad.tabs));
 }
 {
   const m = await menu('Formadores', 'asistencia');

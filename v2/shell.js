@@ -102,6 +102,8 @@ export const navItems=[
   // No es módulo: la ve quien maneja Usuarios (y Presidencia).
   {code:'invitaciones',label:'Familias en el portal',href:'/invitaciones/',group:'admin',icon:'users',lee:['usuarios'],dentroDe:'admin'},
   {code:'admin',label:'Administración',href:'/admin/',group:'admin',icon:'settings'},
+  // Cambios (22/10/2026): la bitácora de correcciones que revisa Presidencia.
+  {code:'cambios',label:'Cambios',href:'/cambios/',group:'admin',icon:'list',lee:['admin'],dentroDe:'admin'},
   {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug',dentroDe:'admin'}
 ];
 const groupLabels={main:'',club:'Club',finance:'Finanzas',ops:'Operación',admin:'Administración'};

@@ -13,6 +13,11 @@
 // migracion nueva que cree una funcion en public que NO sea un formulario
 // publico (v2_public_*) tiene que quitarsela a public y anon en el mismo
 // archivo. Las migraciones anteriores a z2 ya quedaron corregidas en la base.
+//
+// O en la migracion que sigue (22/10/2026): un archivo aplicado no se edita
+// (su texto tiene que ser identico a lo que corrio en la base). Si el cierre
+// se hizo dentro de un ciclo (format('revoke ...')), la siguiente migracion
+// lo deja escrito y cuenta.
 import fs from 'node:fs';
 
 const DESDE = '20261008132336';
@@ -20,16 +25,20 @@ const DESDE = '20261008132336';
 export default function comprobar() {
   const errors = [];
   const dir = 'supabase/migrations';
-  for (const archivo of fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) {
+  const archivos = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
+  const textoDe = archivo => fs.readFileSync(`${dir}/${archivo}`, 'utf8').replace(/--[^\n]*/g, '');
+  for (const [i, archivo] of archivos.entries()) {
     if (archivo.slice(0, 14) < DESDE) continue;
-    const sql = fs.readFileSync(`${dir}/${archivo}`, 'utf8').replace(/--[^\n]*/g, '');
+    const sql = textoDe(archivo);
     const creadas = [...sql.matchAll(/create\s+(?:or\s+replace\s+)?function\s+public\.([a-z0-9_]+)\s*\(/gi)].map(m => m[1].toLowerCase());
     // Un revoke puede cerrar varias funciones a la vez:
     //   revoke all on function public.a(uuid), public.b(uuid, text) from public, anon;
     // Cuenta cada public.<nombre>( que aparezca en la lista de uno de esos revoke.
     const cerradas = new Set();
-    for (const m of sql.matchAll(/revoke\s+(?:all|execute)(?:\s+privileges)?\s+on\s+function\s+([^;]*?)\s+from\s+public\s*,\s*anon/gi))
-      for (const f of m[1].matchAll(/public\.([a-z0-9_]+)\s*\(/gi)) cerradas.add(f[1].toLowerCase());
+    const siguiente = archivos[i + 1] ? textoDe(archivos[i + 1]) : '';
+    for (const texto of [sql, siguiente])
+      for (const m of texto.matchAll(/revoke\s+(?:all|execute)(?:\s+privileges)?\s+on\s+function\s+([^;]*?)\s+from\s+public\s*,\s*anon/gi))
+        for (const f of m[1].matchAll(/public\.([a-z0-9_]+)\s*\(/gi)) cerradas.add(f[1].toLowerCase());
     for (const nombre of new Set(creadas)) {
       if (nombre.startsWith('v2_public')) continue;
       if (!cerradas.has(nombre))

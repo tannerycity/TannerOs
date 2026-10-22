@@ -297,10 +297,11 @@ function openBundleDrawer(b){
   $('drawerTitle').textContent=b.name;
   $('bundleForm').classList.remove('hidden');
   $('productForm').classList.add('hidden');
-  // El nombre y el número se proponen desde el expediente, igual que en una
-  // prenda suelta: el kit es justo lo que más se pide y salía vacío.
+  // El número se propone desde el expediente. El nombre NO (22/10/2026): en la
+  // espalda va exactamente lo que pidió la familia; proponer el nombre completo
+  // del Tanner mandó "Valentina Gomez Perales" al proveedor. Vacío = sólo número.
   const tk=tannerElegido();
-  $('bfName').value=tk?nombreDeTanner(tk):'';$('bfNumber').value=tk?.jersey_number?String(tk.jersey_number):'';
+  $('bfName').value='';$('bfNumber').value=tk?.jersey_number?String(tk.jersey_number):'';
   pistaNumero('bf');
   document.querySelectorAll('.tier-btn').forEach(btn=>{
     const t=btn.dataset.tier;
@@ -451,12 +452,10 @@ function openProductDrawer(p){
   $('productForm').classList.remove('hidden');
   $('bundleForm').classList.add('hidden');
   $('pfTalla').value='';$('pfQty').value=1;
-  // El nombre y el dorsal se proponen desde el expediente del Tanner. No se
-  // imponen: se pueden borrar. Pero teclearlos con la familia enfrente es
-  // justo donde se cuela el error de dedo, y una playera mal estampada no se
-  // devuelve.
+  // El dorsal se propone desde el expediente del Tanner. El nombre no: va tal
+  // cual lo pidió la familia, y vacío significa que sólo lleva número.
   const t=tannerElegido();
-  $('pfName').value=t?nombreDeTanner(t):'';
+  $('pfName').value='';
   $('pfNumber').value=t?.jersey_number?String(t.jersey_number):'';
   pistaNumero('pf');
   pintaTallas(p);

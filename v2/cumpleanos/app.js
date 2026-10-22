@@ -7,6 +7,7 @@
  * el staff, no las cuentas de familia.
  */
 import { createClient } from '/v2/supabase-client.js';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { MESES, filtra, porMes, categorias, diaTexto, queCumple, csv } from '/v2/cumpleanos/cumpleanos.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
@@ -50,15 +51,37 @@ function pinta() {
     $('cuMes').innerHTML = `<h2>${MESES[mes]} ${anio} <span>${lista.length}</span></h2>`
       + (lista.length ? `<ul class="cu-lista">${lista.map(p => {
         const d = String(p.day).slice(0, 10), pasado = esteAnio && d < hoy;
-        return `<li class="${d === hoy ? 'es-hoy' : ''}${pasado ? ' ya-paso' : ''}"><span class="cu-dia">${esc(diaTexto(d))}</span>
+        // Jugador: con su foto y la fila abre su ficha.
+        const iniciales = String(p.name || '').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase();
+        const cara = `<span class="cu-foto" data-path="${esc(p.photoPath || '')}" data-bucket="${esc(p.photoBucket || '')}">${esc(iniciales)}</span>`;
+        const dentro = `<span class="cu-dia">${esc(diaTexto(d))}</span>${cara}
           <span class="cu-quien"><b>${esc(p.name)}</b><small>${esc(queCumple(p))}</small></span>
-          <span class="cu-tipo" data-kind="${esc(p.kind)}">${p.kind === 'player' ? 'Jugador' : 'Staff'}</span>${d === hoy ? '<em>Hoy</em>' : ''}</li>`;
+          <span class="cu-tipo" data-kind="${esc(p.kind)}">${p.kind === 'player' ? 'Jugador' : 'Staff'}</span>${d === hoy ? '<em>Hoy</em>' : ''}`;
+        return `<li class="${d === hoy ? 'es-hoy' : ''}${pasado ? ' ya-paso' : ''}">${p.kind === 'player' && p.id
+          ? `<a class="cu-fila" href="/v2/jugadores/?player=${encodeURIComponent(p.id)}" aria-label="Ver la ficha de ${esc(p.name)}">${dentro}<span class="cu-ir" aria-hidden="true">›</span></a>`
+          : `<div class="cu-fila">${dentro}</div>`}</li>`;
       }).join('')}</ul>` : '<p class="cu-vacio">Nadie cumple este mes.</p>');
+    pintaFotos();
   }
   const f = datos?.missing || {}, faltan = Number(f.staff || 0) + Number(f.players || 0);
   $('cuFaltan').classList.toggle('hidden', !faltan);
   if (faltan) $('cuFaltan').textContent = `Faltan ${[f.players ? `${f.players} jugador${f.players === 1 ? '' : 'es'}` : '', f.staff ? `${f.staff} del staff` : ''].filter(Boolean).join(' y ')} sin fecha de nacimiento: no salen aquí.`;
   guardaUrl();
+}
+
+// Las fotos llegan después: primero la lista, luego cada cara en su lugar.
+async function pintaFotos() {
+  const cajas = [...document.querySelectorAll('#cuMes .cu-foto[data-path]:not([data-path=""])')];
+  const porBucket = {};
+  cajas.forEach(c => (porBucket[c.dataset.bucket || 'tanneros-private'] ||= []).push(c.dataset.path));
+  for (const [bucket, paths] of Object.entries(porBucket)) {
+    let urls = {};
+    try { urls = (await getSignedPhotoUrls(supabase, bucket, [...new Set(paths)])) || {}; } catch { continue; }
+    cajas.filter(c => (c.dataset.bucket || 'tanneros-private') === bucket && urls[c.dataset.path]).forEach(c => {
+      const img = new Image(); img.alt = ''; img.loading = 'lazy'; img.src = urls[c.dataset.path];
+      img.onload = () => { c.textContent = ''; c.appendChild(img); };
+    });
+  }
 }
 
 async function carga() {

@@ -172,7 +172,9 @@ export default function comprobar() {
   // pestañas, montando el shell real.
   // Sube a 56 por qa-humo-pedido-con-motivo.mjs: un pedido pagado se cambia
   // con motivo y se corrige con bitácora.
-  const MAX_EXCLUIDAS = 56;
+  // Sube a 57 por qa-humo-pedido-etapas.mjs: el pedido por etapas, el corte
+  // del viernes con su PDF, Ya llegó y regresar un paso.
+  const MAX_EXCLUIDAS = 57;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

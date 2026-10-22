@@ -214,6 +214,8 @@ async function abre(ruta, { pagoFalla = false } = {}) {
 {
   const { pg, errs } = await abre('/v2/pedidos/');
   await pg.waitForSelector('#orderList .order-row .order-items', { timeout:8000 }).catch(() => {});
+  // Abre en la etapa que pide algo (22/10/2026); aquí se revisa todo.
+  await pg.click('#tSeg [data-f=""]').catch(() => {});
   const fila = s => `.order-row[data-order-id="${s}"]`;
   const quien = await pg.textContent(`${fila('o-nuevo')} .order-who strong`).catch(() => '');
   revisa('3. el jugador va grande', quien === 'Leo Ávila', quien);
@@ -232,10 +234,11 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   revisa('Ventas de la semana no se le enseña a Operaciones', await pg.isHidden('#ventasAction'));
 
   const segs = await pg.$$eval('#tSeg [data-f]', bs => bs.map(b => [b.dataset.f, b.querySelector('i').textContent]));
-  revisa('12. los filtros traen su cuenta', JSON.stringify(segs) === JSON.stringify([['','2'],['__atender','1'],['__cobrar','1'],['in_production','0'],['ready','0']]), JSON.stringify(segs));
-  await pg.click('#tSeg [data-f="__atender"]');
+  // Desde el pedido por etapas (22/10/2026) las pestañas son las etapas.
+  revisa('12. los filtros traen su cuenta', JSON.stringify(segs) === JSON.stringify([['@por_validar','1'],['__cobrar','1'],['@para_proveedor','1'],['@con_proveedor','0'],['@para_entregar','0'],['@entregado','0'],['','2']]), JSON.stringify(segs));
+  await pg.click('#tSeg [data-f="@por_validar"]');
   const solo = await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId));
-  revisa('7. "Por atender" deja sólo lo pendiente', JSON.stringify(solo) === '["o-nuevo"]', JSON.stringify(solo));
+  revisa('7. "Por validar" deja sólo lo pendiente', JSON.stringify(solo) === '["o-nuevo"]', JSON.stringify(solo));
   await pg.selectOption('#statusFilter', '__numero');
   revisa('7. el filtro "Número por confirmar" sigue', JSON.stringify(await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId))) === '["o-nuevo"]');
   await pg.click('#tSeg [data-f=""]');

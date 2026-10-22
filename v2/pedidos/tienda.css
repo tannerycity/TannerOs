@@ -194,3 +194,22 @@
 /* Pedido con pagos: la manga se ve fija y "Cambiar" pide el motivo (22/10/2026). */
 .t-manga-fija{display:inline-flex;align-items:center;gap:8px}
 .t-link{border:0;background:none;padding:0;font:inherit;font-size:12.5px;font-weight:800;color:#087d8e;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+/* El pedido por etapas (22/10/2026): lo que se hace en cada etapa va arriba
+   de la lista, y dentro del pedido lo que sigue. */
+.t-etapa{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:14px 16px;border-radius:18px;background:#f2fafb;border:1px solid #cfe6ea}
+.t-etapa-txt{display:grid;gap:3px;min-width:0;flex:1}
+.t-etapa-txt b{font-size:15px;color:#07191e}
+.t-etapa-txt span{font-size:13px;color:#4a6870;line-height:1.4}
+.t-etapa .t-btn{border:0;cursor:pointer;min-height:46px;padding:0 20px;font-size:15px}
+.t-cortes{display:grid;gap:8px;width:100%}
+.t-corte{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:14px;background:#fff;border:1px solid #e2e7e5}
+.t-corte>div:first-child{display:grid;gap:2px}
+.t-corte b{font-size:14.5px;color:#07191e}
+.t-corte span{font-size:12.5px;color:#6b7a80}
+.t-corte-acc{display:flex;gap:8px}
+.t-corte-acc button{border:0;cursor:pointer}
+.paso-acciones{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+.paso-acciones .t-btn{border:0;cursor:pointer;flex:1;min-height:46px}
+.paso-acciones .t-btn.wa{background:#25D366}
+.paso-acciones .t-link{flex-basis:100%;text-align:center}
+@media(max-width:560px){.t-etapa .t-btn{width:100%}}

@@ -2,12 +2,24 @@ import { createClient } from '/v2/supabase-client.js';
 import { mensajeConfirmacion, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { abreVentas } from '/v2/pedidos/ventas.js';
 import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
+import { hojaPdf, nombreDelPdf, compartePdf } from '/v2/produccion/pdf.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,orders=[],current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();
 /* Pedidos que llegaron por el link o el portal y nadie ha confirmado todavía
    (a3_pedidos_por_revisar). clubCfg trae el nombre del club y cómo pagar, para
    el mensaje de WhatsApp. */
 let porRevisar=new Set(),clubCfg=null;
+/* El pedido por etapas (22/10/2026, h34). Presidencia: "compran + llega a
+   TannerOS + validamos la info y el número + los viernes se envían al
+   proveedor + nos los entrega + se entregan al cliente". Cada pestaña es una
+   etapa y arriba de la lista va lo que se hace en ella: mandar el corte del
+   viernes con su PDF para WhatsApp, recibirlo, entregar. */
+let etapas={};
+const ETAPAS=[{k:'por_validar',t:'Por validar'},{k:'por_cobrar',t:'Por cobrar'},{k:'para_proveedor',t:'Para el proveedor'},{k:'con_proveedor',t:'Con el proveedor'},{k:'para_entregar',t:'Para entregar'},{k:'entregado',t:'Entregados'}];
+// Si la base no contestó la etapa, se calcula con lo que ya hay.
+function etapaDe(o){const e=etapas[o.id]?.stage;if(e)return e;
+  if(!vigente(o))return 'cerrado';if(o.status==='delivered')return 'entregado';if(o.status==='ready')return 'para_entregar';if(o.status==='in_production')return 'con_proveedor';
+  if(porAtender(o))return 'por_validar';if(saldoDe(o)>0.005||!['paid','partial_payment'].includes(o.status))return 'por_cobrar';return 'para_proveedor';}
 /* Cobro único: quien cobra en Taquilla cobra el pedido con la misma hoja. */
 let cobraConHoja=false,otroPagador=false;
 /* El tablero (a5): por pedido, de qué niño es, qué piezas lleva con talla,
@@ -95,14 +107,15 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   window.dispatchEvent(new Event('tos:acciones'));}
 /* El aviso de "Pedido nuevo" (campana y push) trae ?pedido=<id>: se abre directo. */
 function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');const o=id&&orders.find(x=>x.id===id);if(o)openOrder(o);}
-async function load(){const [lista,revisar,tab]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({}))]);orders=lista||[];tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
+async function load(){const [lista,revisar,tab,pipe]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_orders_pipeline',{organization_id:ctx.organization_id}).catch(()=>({}))]);orders=lista||[];etapas=(pipe&&typeof pipe==='object')?pipe:{};tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);eligeEtapaInicial();render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
 /* Los filtros de arriba (segmentos tipo iOS). Cada uno trae su cuenta: los
    números que antes vivían en tarjetas aparte ahora dicen a dónde ir. */
-const SEGMENTOS=[{f:'',t:'Todos'},{f:'__atender',t:'Por atender'},{f:'__cobrar',t:'Quién me debe'},{f:'in_production',t:'En producción'},{f:'ready',t:'Listos'}];
+// "Por cobrar" es Quién me debe: una tarjeta por familia con su WhatsApp.
+const SEGMENTOS=[...ETAPAS.map(e=>e.k==='por_cobrar'?{f:'__cobrar',t:e.t}:{f:'@'+e.k,t:e.t}),{f:'',t:'Todos'}];
 function porAtender(o){return vigente(o)&&(porRevisar.has(o.id)||numeroPorConfirmar(o));}
-function cuentaDe(f){const v=orders.filter(vigente);if(f==='__atender')return v.filter(porAtender).length;if(f==='__cobrar')return v.filter(o=>saldoDe(o)>0.005).length;if(!f)return v.length;return v.filter(o=>o.status===f).length;}
-function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$('statusFilter').value;seg.innerHTML=SEGMENTOS.map(s=>{const n=cuentaDe(s.f);return `<button type="button" role="tab" data-f="${s.f}" aria-selected="${actual===s.f}" class="${actual===s.f?'activo':''}${s.f==='__atender'&&n?' alerta':''}">${esc(s.t)}<i>${n}</i></button>`;}).join('');const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('__atender');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${a?` · ${a} por atender`:' · todo al día'}`;}}
-function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();const pasa=o=>{if(status==='__review')return porRevisar.has(o.id);if(status==='__numero')return numeroPorConfirmar(o)&&vigente(o);if(status==='__atender')return porAtender(o);if(status==='__cobrar')return vigente(o)&&saldoDe(o)>0.005;return !status||o.status===status;};return orders.filter(o=>pasa(o)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${tablero[o.id]?.attendedName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
+function cuentaDe(f){const v=orders.filter(vigente);if(f.startsWith('@'))return v.filter(o=>etapaDe(o)===f.slice(1)).length;if(f==='__atender')return v.filter(porAtender).length;if(f==='__cobrar')return v.filter(o=>saldoDe(o)>0.005).length;if(!f)return v.length;return v.filter(o=>o.status===f).length;}
+function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$('statusFilter').value;seg.innerHTML=SEGMENTOS.map(s=>{const n=cuentaDe(s.f);return `<button type="button" role="tab" data-f="${s.f}" aria-selected="${actual===s.f}" class="${actual===s.f?'activo':''}${(s.f==='__atender'||s.f==='@por_validar')&&n?' alerta':''}">${esc(s.t)}<i>${n}</i></button>`;}).join('');const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('__atender');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${a?` · ${a} por validar`:' · todo al día'}`;}}
+function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();const pasa=o=>{if(status.startsWith('@'))return etapaDe(o)===status.slice(1);if(status==='__review')return porRevisar.has(o.id);if(status==='__numero')return numeroPorConfirmar(o)&&vigente(o);if(status==='__atender')return porAtender(o);if(status==='__cobrar')return vigente(o)&&saldoDe(o)>0.005;return !status||o.status===status;};return orders.filter(o=>pasa(o)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${tablero[o.id]?.attendedName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
 function renderKpis(){const rows=orders.filter(vigente);const pon=(id,n)=>{const e=$(id);if(e)e.textContent=n;};pon('kpiOrders',rows.length);pon('kpiPending',rows.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length);pon('kpiProduction',rows.filter(o=>o.status==='in_production').length);pon('kpiReady',rows.filter(o=>o.status==='ready').length);}
 function textoMangaCorto(m){return m==='larga'?'Larga':m==='corta'?'Corta':'';}
 const esJersey=d=>/jersey|playera|uniforme/i.test(d||'');
@@ -121,7 +134,7 @@ function barraNumero(o){
   if(conf)return `<div class="order-num ok"><span>Número ${esc(txt)} confirmado</span>${canWrite?`<button type="button" class="t-link" data-num-deshacer="${esc(o.id)}">Deshacer</button>`:''}</div>`;
   return `<div class="order-num pendiente"><span>Número ${esc(txt)} por confirmar</span>${canWrite?`<button type="button" class="t-pill-btn" data-num-confirma="${esc(o.id)}">Confirmar número</button>`:''}</div>`;
 }
-function render(){const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').textContent='No hay pedidos aquí.';if($('statusFilter').value==='__cobrar'){renderDeudores(rows);return;}$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
+function render(){pintaEtapa();const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').textContent='No hay pedidos aquí.';if($('statusFilter').value==='__cobrar'){renderDeudores(rows);return;}$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
     const atendio=quienAtendio(t);
     const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b><span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span></div>${barraNumero(o)}`;
     b.addEventListener('click',ev=>{const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
@@ -188,6 +201,95 @@ async function pintaResumen(){
 /* Pedido con pagos (22/10/2026): ya no se cambia de un toque. "Que deba
    ponerse en editar y que diga por qué se cambió": se edita con motivo y
    queda en la bitácora de Presidencia (v2_edit_order_item). */
+/* La primera vez abre en la etapa que pide algo: validar, mandar al
+   proveedor, recibir o entregar. Si nada pide, en Todos. */
+let etapaElegida=false;
+function eligeEtapaInicial(){
+  if(etapaElegida||new URLSearchParams(location.search).get('pedido'))return;etapaElegida=true;
+  const k=['@por_validar','@para_proveedor','@para_entregar','@con_proveedor'].find(k=>cuentaDe(k)>0);
+  if(k)$('statusFilter').value=k;
+}
+const fechaCorta=v=>v?new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short'}).format(new Date(String(v).length<=10?`${v}T12:00:00`:v)).replace('.',''):'';
+// Lo que se hace en cada etapa, arriba de la lista.
+function pintaEtapa(){
+  const box=$('tEtapa');if(!box)return;const f=$('statusFilter').value,k=f.startsWith('@')?f.slice(1):'';
+  const lista=orders.filter(o=>vigente(o)&&etapaDe(o)===k);let html='';
+  if(k==='por_validar'&&lista.length)html=`<div class="t-etapa-txt"><b>Revisa tallas, nombre y número</b><span>Abre cada pedido y confírmalo con la familia. Cuando esté completo y pagado, pasa solo a "Para el proveedor".</span></div>`;
+  else if(k==='para_proveedor'&&lista.length){
+    const piezas=lista.reduce((n,o)=>n+Number(o.item_count||0),0);
+    html=`<div class="t-etapa-txt"><b>Corte del viernes · ${lista.length} ${lista.length===1?'pedido':'pedidos'} · ${piezas} piezas</b><span>Validados y pagados. Al mandarlos se arma el PDF para el proveedor y se comparte por WhatsApp.</span></div>${canManage?'<button type="button" class="t-btn" data-mandar>Mandar al proveedor</button>':''}`;
+  }else if(k==='con_proveedor'&&lista.length){
+    const cortes=new Map();
+    lista.forEach(o=>{const b=etapas[o.id]?.batch;const key=b?.id||'sin';if(!cortes.has(key))cortes.set(key,{b,n:0});cortes.get(key).n++;});
+    html=`<div class="t-cortes">${[...cortes.values()].map(c=>c.b?`<div class="t-corte"><div><b>Corte ${esc(c.b.folio)}</b><span>${c.n} ${c.n===1?'pedido':'pedidos'} · enviado ${esc(fechaCorta(c.b.submittedOn))}</span></div><div class="t-corte-acc"><button type="button" class="t-btn-sec" data-pdf="${esc(c.b.id)}">PDF</button>${canManage?`<button type="button" class="t-btn" data-llego="${esc(c.b.id)}">Ya llegó</button>`:''}</div></div>`:`<div class="t-corte"><div><b>Sin corte</b><span>${c.n} marcado${c.n===1?'':'s'} a mano en producción. Si fue por error, ábrelo y toca "Regresar un paso".</span></div></div>`).join('')}</div>`;
+  }else if(k==='para_entregar'&&lista.length)html=`<div class="t-etapa-txt"><b>Ya están en la tienda</b><span>Avisa a la familia por WhatsApp desde el pedido y márcalo entregado cuando se lo lleven.</span></div>`;
+  box.innerHTML=html;box.classList.toggle('hidden',!html);
+}
+async function mandarAlProveedor(btn){
+  const lista=orders.filter(o=>vigente(o)&&etapaDe(o)==='para_proveedor');if(!lista.length)return;
+  let proveedor='';try{proveedor=localStorage.getItem('tos-proveedor')||'';}catch{}
+  const nombre=await window.tosPrompt({kicker:'CORTE DEL VIERNES',title:`Mandar ${lista.length} ${lista.length===1?'pedido':'pedidos'} al proveedor`,message:'Pasan a "Con el proveedor" y se arma el PDF para mandarlo por WhatsApp.',placeholder:'Proveedor',value:proveedor,required:true,requiredText:'Escribe el nombre del proveedor.',confirmText:'Mandar y armar PDF',maxlength:80});
+  if(!nombre)return;
+  try{localStorage.setItem('tos-proveedor',nombre);}catch{}
+  btn.disabled=true;btn.textContent='Armando el corte…';
+  try{
+    const r=await rpc('v2_create_production_batch',{organization_id:ctx.organization_id,order_ids:lista.map(o=>o.id),supplier_name:nombre,notes:null});
+    const batchId=r?.id||r?.batchId||r?.batch_id||r;
+    await load();
+    await compartirCorte(batchId,true);
+  }catch(e){await window.tosAlert({kicker:'CORTE DEL VIERNES',title:'No se pudo mandar',message:e.message||String(e)});btn.disabled=false;btn.textContent='Mandar al proveedor';}
+}
+async function compartirCorte(batchId,recien){
+  try{
+    const sheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:batchId});
+    const doc=await hojaPdf({sheet,orgName:ctx.organization_name});
+    const nombre=nombreDelPdf(sheet),texto=`Hoja de producción ${sheet?.batch?.folio||''} · ${ctx.organization_name||''}`;
+    // Compartir necesita un toque fresco (el teléfono no deja compartir
+    // después de esperar a la base y al PDF): por eso se pregunta aquí.
+    const ok=await window.tosConfirm({kicker:recien?'CORTE LISTO':'PDF DEL CORTE',title:recien?`Corte ${sheet?.batch?.folio||''} enviado`:`Corte ${sheet?.batch?.folio||''}`,message:recien?'Ya está en "Con el proveedor". ¿Compartimos el PDF por WhatsApp?':'El PDF está listo para mandarlo al proveedor.',confirmText:'Compartir PDF',cancelText:recien?'Después':'Cerrar'});
+    if(!ok)return;
+    const como=await compartePdf(doc,nombre,texto);
+    if(como==='descargado')await window.tosAlert({kicker:'PDF',title:'PDF descargado',message:'Desde la compu se descarga: adjúntalo en WhatsApp Business. En el teléfono se abre directo para compartir.'});
+  }catch(e){await window.tosAlert({kicker:'PDF',title:'No se pudo armar el PDF',message:e.message||String(e)});}
+}
+async function yaLlego(batchId,btn){
+  const ok=await window.tosConfirm({kicker:'LLEGÓ EL CORTE',title:'¿Ya llegó a la tienda?',message:'Sus pedidos pasan a "Para entregar" para avisar a cada familia.',confirmText:'Sí, ya llegó'});
+  if(!ok)return;btn.disabled=true;
+  try{await rpc('v2_receive_production_batch',{organization_id:ctx.organization_id,batch_id:batchId});$('statusFilter').value='@para_entregar';await load();}
+  catch(e){btn.disabled=false;await window.tosAlert({kicker:'LLEGÓ EL CORTE',title:'No se pudo marcar',message:e.message||String(e)});}
+}
+$('tEtapa')?.addEventListener('click',e=>{
+  const m=e.target.closest('[data-mandar]');if(m){mandarAlProveedor(m);return;}
+  const p=e.target.closest('[data-pdf]');if(p){p.disabled=true;compartirCorte(p.dataset.pdf,false).finally(()=>{p.disabled=false;});return;}
+  const l=e.target.closest('[data-llego]');if(l)yaLlego(l.dataset.llego,l);
+});
+/* Lo que sigue con este pedido, a la vista (22/10/2026). "Regresar un paso"
+   pide el motivo y queda en la bitácora: es lo que faltó cuando se marcó
+   Listo para sacar el PDF del proveedor. */
+function pintaPaso(){
+  const box=$('pasoAcciones');if(!box||!current)return;const d=current.order,b=etapas[d.id]?.batch;
+  const atras=canManage&&(d.status==='delivered'||d.status==='ready'||(d.status==='in_production'&&!(b&&b.status==='submitted')));
+  const wa=d.status==='ready'&&canWrite&&waLink(d.customer_phone);
+  const entrega=d.status==='ready'&&canManage;
+  box.innerHTML=`${wa?'<button type="button" class="t-btn wa" data-paso="avisar">Avisar que ya llegó</button>':''}${entrega?'<button type="button" class="t-btn" data-paso="entregar">Entregado</button>':''}${atras?'<button type="button" class="t-link" data-paso="atras">Regresar un paso</button>':''}`;
+  box.classList.toggle('hidden',!box.innerHTML);
+}
+async function accionPaso(k,btn){
+  const d=current?.order;if(!d)return;
+  if(k==='avisar'){
+    const quien=tablero[d.id]?.playerName||'tu pedido';
+    const texto=`Hola, ya llegó el pedido ${d.folio} de ${quien} a la tienda de ${clubCfg?.name||ctx.organization_name||'el club'}. Puedes pasar por él cuando gustes.`;
+    window.open(`${waLink(d.customer_phone)}?text=${encodeURIComponent(texto)}`,'_blank','noopener');return;
+  }
+  if(k==='entregar'){await changeStatus('delivered','Marcar entregado');return;}
+  if(k==='atras'){
+    const motivo=await window.tosPrompt({kicker:'REGRESAR UN PASO',title:`Regresar ${d.folio}`,message:'Queda en la bitácora con tu nombre.',placeholder:'¿Por qué? Ej. lo marcamos listo por error',required:true,requiredText:'Escribe el motivo.',confirmText:'Regresar',maxlength:200});
+    if(!motivo)return;btn.disabled=true;
+    try{const r=await rpc('v2_order_step_back',{organization_id:ctx.organization_id,order_id:d.id,reason:motivo});await refreshCurrent(d.id);msg(`Regresó a "${labels[r?.to]||r?.to||'el paso anterior'}".`,'success');}
+    catch(e){btn.disabled=false;msg(e.message||'No se pudo regresar.');}
+  }
+}
+$('pasoAcciones')?.addEventListener('click',e=>{const b=e.target.closest('[data-paso]');if(b)accionPaso(b.dataset.paso,b);});
 function muestraZona(){const z=$('dangerZone');if(z)z.style.display=canCorrect?'':'none';}
 const tienePagos=()=>!!current&&Number(current.order?.total||0)-Number(current.balance||0)>0.004;
 async function editaConMotivo(itemId,cambios,titulo){
@@ -469,7 +571,7 @@ async function openOrder(o){
   $('orderMeta').textContent=fmt(d.created_at);
   $('orderTotal').textContent=money.format(Number(d.total||0));
   $('orderStatusLabel').className='order-status '+esc(d.status);$('orderStatusLabel').textContent=labels[d.status]||d.status;
-  renderTracker(d.status,Number(current.balance||0)<=0.005);
+  renderTracker(d.status,Number(current.balance||0)<=0.005);pintaPaso();
   $('customerName').textContent=d.customer_name||'Sin nombre';
   const wa=waLink(d.customer_phone);
   const contactBits=[d.customer_phone,d.customer_email].filter(Boolean).map(v=>`<span>${esc(v)}</span>`).join('<span class="dot">·</span>');

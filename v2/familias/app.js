@@ -700,6 +700,9 @@ async function checkout(){
        // La llave vieja tambien, por si el despliegue de la base va detras.
        product_id:l.productId,size:l.talla||null});
   const notas=null;
+  // Plazo para recoger (22/10/2026): se acepta antes de apartar.
+  const plazo=await tosConfirm({kicker:'TIENDA',title:'Antes de apartar',message:'Tienes 30 días para recoger tu pedido a partir de que te avisemos que llegó. Después de ese plazo el club ya no se hace responsable de la prenda.',confirmText:'Entendido, apartar',cancelText:'Regresar'});
+  if(!plazo)return;
   const btn=document.getElementById('famCheckout');btn.disabled=true;btn.textContent='Enviando…';
   try{
     const res=await rpc('v2_portal_place_order',{player_id:p.id,items,notes:notas});

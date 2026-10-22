@@ -325,3 +325,6 @@
 .st-sigue h3 { margin: 0; font-size: 18px; }
 .st-sigue .st-pasos { margin-top: 12px; }
 .st-sigue-portal { display: block; margin-top: 14px; text-align: center; font-weight: 700; color: var(--st-gold); }
+/* Plazo para recoger (22/10/2026). */
+.st-plazo { padding: 12px 14px; border-radius: 14px; background: #fff7e8; border: 1px solid #f0dcb0; }
+.st-sigue-plazo { margin: 14px 0 0; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.1); font-size: 13.5px; line-height: 1.45; color: #fff; }

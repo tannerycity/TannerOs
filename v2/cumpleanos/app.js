@@ -63,7 +63,7 @@ function pinta() {
 
 async function carga() {
   $('cuResumen').textContent = 'Cargando…';
-  try { datos = await rpc('v2_birthdays_year', { organization_id: ctx.organization_id, year: anio }); }
+  try { datos = (await rpc('v2_birthdays_year', { organization_id: ctx.organization_id, year: anio })) || { people: [], missing: {} }; }
   catch (e) { if (/Not authorized/i.test(e.message || '')) { muestra('deniedView'); return; } datos = { people: [], missing: {} }; $('cuResumen').textContent = 'No se pudieron cargar los cumpleaños.'; }
   const sel = $('cuCategoria'), antes = sel.value;
   sel.innerHTML = '<option value="">Todas las categorías</option>' + categorias(datos.people).map(c => `<option>${esc(c)}</option>`).join('');

@@ -10,7 +10,7 @@
  * ahí salió que las categorías vienen en DOS convenciones conviviendo, que un
  * kit puede traer cuatro jerseys distintos, y que el short viaja sin nombre.
  */
-import { hojaPorModelo, tipoDePieza, filaDeHoja, resumenDeTallas, nombreDeArchivoHoja }
+import { hojaPorModelo, tipoDePieza, filaDeHoja, resumenDeTallas, nombreDeArchivoHoja, hojaPorProducto, ordenDeTalla }
   from '../v2/produccion/hoja.js';
 
 let fallos = 0, corridas = 0;
@@ -164,6 +164,32 @@ revisa('el archivo se llama por el folio del corte',
   nombreDeArchivoHoja('PED-CORTE-01') === 'hoja-de-produccion-PED-CORTE-01.pdf');
 revisa('un folio con caracteres raros no arma un nombre inválido',
   nombreDeArchivoHoja('A/B C#1') === 'hoja-de-produccion-A-B-C-1.pdf', nombreDeArchivoHoja('A/B C#1'));
+
+/* La hoja por prenda (22/10/2026), con el corte COR-2026-0001 tal como está
+   en la base: dos pedidos de kit, cada uno con dos playeras y un short. La
+   hoja vieja colgaba el short a cada playera y lo contaba dos veces. */
+{
+  const k = (folio, desc, cat, talla, num, nom, manga, kit) => ({ itemId: `${folio}${desc}`, orderFolio: folio, description: desc, productName: desc,
+    categoria: cat, quantity: 1, talla, numero: num, nombrePers: nom, manga, kitKey: kit, photoPath: `fotos/${desc}.webp`, photoBucket: 'tanneros-private' });
+  const corte = [
+    k('PED-6', 'Jersey "Black Edition"', 'jersey', '16', '15', 'Valentina Gomez Perales', 'corta', 'a'),
+    k('PED-6', 'Jersey "Lechuguilla Edition"', 'jersey', '16', '15', 'Valentina Gomez Perales', 'corta', 'a'),
+    k('PED-6', 'Short', 'shorts', '16', null, null, null, 'a'),
+    k('PED-8', 'Jersey "Black Edition"', 'jersey', '10', '17', 'JULIÁN', 'corta', 'b'),
+    k('PED-8', 'Jersey "Lechuguilla Edition"', 'jersey', '10', '17', 'JULIÁN', 'larga', 'b'),
+    k('PED-8', 'Short', 'shorts', '10', null, null, null, 'b')];
+  const h = hojaPorProducto(corte);
+  revisa('por prenda: playeras primero, luego el short', JSON.stringify(h.productos.map(p => p.nombre)) === JSON.stringify(['Jersey "Black Edition"', 'Jersey "Lechuguilla Edition"', 'Short']), JSON.stringify(h.productos.map(p => p.nombre)));
+  const short = h.productos.find(p => p.nombre === 'Short');
+  revisa('el short se cuenta una vez por pedido: 2, no 4', short.piezas === 2 && JSON.stringify(short.tallas) === '[{"talla":"10","cantidad":1},{"talla":"16","cantidad":1}]', JSON.stringify(short));
+  revisa('el short no trae dorsales', short.dorsales.length === 0);
+  const lechu = h.productos.find(p => p.nombre === 'Jersey "Lechuguilla Edition"');
+  revisa('cada playera trae sus dorsales en orden de talla', JSON.stringify(lechu.dorsales.map(d => [d.talla, d.numero, d.nombre])) === '[["10","17","JULIÁN"],["16","15","Valentina Gomez Perales"]]', JSON.stringify(lechu.dorsales));
+  revisa('y cuenta las de manga larga', lechu.largas === 1);
+  revisa('el corte suma 6 piezas en tallas 10 y 16', h.total === 6 && JSON.stringify(h.tallas) === '["10","16"]', JSON.stringify(h));
+  revisa('cada prenda trae su foto del catálogo', h.productos.every(p => p.foto?.path && p.foto.bucket === 'tanneros-private'));
+  revisa('las tallas se ordenan como en la tienda', JSON.stringify(['M', '16', 'CH', '8', 'G', '10', 'Unica'].sort(ordenDeTalla)) === '["8","10","16","CH","M","G","Unica"]', JSON.stringify(['M', '16', 'CH', '8', 'G', '10', 'Unica'].sort(ordenDeTalla)));
+}
 
 console.log(fallos
   ? `Hoja de producción QA FAILED · ${fallos} de ${corridas}`

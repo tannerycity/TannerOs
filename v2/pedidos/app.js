@@ -278,7 +278,7 @@ async function accionPaso(k,btn){
   const d=current?.order;if(!d)return;
   if(k==='avisar'){
     const quien=tablero[d.id]?.playerName||'tu pedido';
-    const texto=`Hola, ya llegó el pedido ${d.folio} de ${quien} a la tienda de ${clubCfg?.name||ctx.organization_name||'el club'}. Puedes pasar por él cuando gustes.`;
+    const texto=`Hola, ya llegó el pedido ${d.folio} de ${quien} a la tienda de ${clubCfg?.name||ctx.organization_name||'el club'}. Puedes pasar por él cuando gustes. Recuerda que tienes 30 días para recogerlo; después el club ya no se hace responsable de la prenda.`;
     window.open(`${waLink(d.customer_phone)}?text=${encodeURIComponent(texto)}`,'_blank','noopener');return;
   }
   if(k==='entregar'){await changeStatus('delivered','Marcar entregado');return;}

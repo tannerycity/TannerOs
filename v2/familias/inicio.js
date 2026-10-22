@@ -66,7 +66,7 @@ export function avanceDePedido(p = {}) {
     case 'por_cobrar': return { paso: 1, titulo: falta > 0 ? `Falta pagar ${pesos.format(falta)}` : 'Falta tu pago', detalle: 'En cuanto quede pagado entra al siguiente envío al proveedor (los viernes).', pagar: true };
     case 'para_proveedor': return { paso: 1, titulo: 'Listo para producción', detalle: 'Sale con el proveedor el próximo viernes.' };
     case 'con_proveedor': return { paso: 2, titulo: 'En producción', detalle: 'El proveedor ya lo está haciendo. Te avisamos cuando llegue.' };
-    case 'para_entregar': return { paso: 3, titulo: '¡Ya llegó! Pasa por él', detalle: 'Está en la tienda del club.' };
+    case 'para_entregar': return { paso: 3, titulo: '¡Ya llegó! Pasa por él', detalle: 'Está en la tienda del club. Tienes 30 días para recogerlo; después el club ya no se hace responsable de la prenda.' };
     case 'entregado': return { paso: 4, titulo: 'Entregado', detalle: 'Que lo disfrute en la cancha.' };
     default: return { paso: 0, titulo: 'Recibido', detalle: '' };
   }

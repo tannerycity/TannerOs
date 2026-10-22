@@ -202,6 +202,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   await pg.fill('#customerName', 'Ana Ávila');
   await pg.fill('#customerPhone', '4771234567');
   await pg.check('#orderDataConsent');
+  await pg.check('#orderPickup').catch(() => {});
   await pg.click('#submitOrder');
   await pg.waitForSelector('.success', { timeout:5000 }).catch(() => {});
   const items = await pg.evaluate(() => (window.__rpc.find(c => c.n === 'v2_public_cart_order')?.p.items) || []);

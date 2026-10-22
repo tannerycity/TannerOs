@@ -321,13 +321,17 @@ function tarjeta({ tipo, item }) {
     <div class="st-card-txt">${aceptaPersonalizacion(item) ? '<span class="st-tag">Personalizable</span>' : ''}
     <strong>${esc(item.name)}</strong><span class="st-precio">${item.precioAntes ? `<s>${money.format(item.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(item))}</span>${item.ofertaHasta ? `<span class="st-oferta">${esc(textoHasta(item.ofertaHasta))}</span>` : ''}</div></a>`;
 }
+/* Plazo para recoger (22/10/2026). Presidencia: "tienen un mes para pasar
+   por su uniforme; si no, ya no nos hacemos responsables". Se acepta al
+   comprar y se recuerda al avisar que llegó. */
+const DIAS_PARA_RECOGER = 30;
 /* Así funciona (22/10/2026): el papá sabe desde el principio qué sigue, sin
    preguntar por WhatsApp. Son los pasos reales de la Tienda del club. */
 const PASOS_TIENDA = `<ol class="st-pasos" aria-label="Así funciona">
   <li><b>1</b><span><strong>Pide y paga</strong><small>Aquí mismo, con nombre y número</small></span></li>
   <li><b>2</b><span><strong>Lo revisamos</strong><small>Tallas, nombre y número</small></span></li>
   <li><b>3</b><span><strong>Se hace</strong><small>Sale al proveedor los viernes</small></span></li>
-  <li><b>4</b><span><strong>Te avisamos</strong><small>Cuando llegue a la tienda</small></span></li></ol>`;
+  <li><b>4</b><span><strong>Te avisamos</strong><small>Tienes ${DIAS_PARA_RECOGER} días para recogerlo</small></span></li></ol>`;
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
   const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
@@ -635,6 +639,8 @@ function renderCheckout() {
         <label class="check consent-line"><input id="orderDataConsent" type="checkbox" required>
         <span>Autorizo el tratamiento de mis datos para gestionar este pedido. <b>*</b></span></label>
         <div class="privacy-version">Aviso de privacidad ${PRIVACY_NOTICE_VERSION}</div></div>
+      <label class="check consent-line st-plazo span-2"><input id="orderPickup" type="checkbox" required>
+        <span>Entiendo que tengo <b>${DIAS_PARA_RECOGER} días</b> para recoger mi pedido a partir de que me avisen que llegó. Después de ese plazo el club ya no se hace responsable de la prenda. <b>*</b></span></label>
       <div id="formMessage" class="message hidden span-2"></div>
       <button id="submitOrder" class="primary span-2 st-cta" type="submit">Confirmar pedido</button>
     </form>`;
@@ -676,11 +682,12 @@ async function submit(e) {
   e.preventDefault();
   setMessage();
   if (!$('orderDataConsent').checked) return setMessage('Necesitamos tu autorización de datos para gestionar el pedido.');
+  if (!$('orderPickup').checked) return setMessage(`Confirma que tienes ${DIAS_PARA_RECOGER} días para recoger tu pedido.`);
   const btn = $('submitOrder');
   let phone;
   try { phone = validatePhone(true); } catch (err) { return setMessage(err.message); }
   btn.disabled = true; btn.textContent = 'Guardando…';
-  const consent = { dataAccepted: true, privacyNoticeVersion: PRIVACY_NOTICE_VERSION, acceptedAt: acceptedAt(), source: 'public-web' };
+  const consent = { dataAccepted: true, privacyNoticeVersion: PRIVACY_NOTICE_VERSION, acceptedAt: acceptedAt(), source: 'public-web', pickupDays: DIAS_PARA_RECOGER, pickupAccepted: true };
   const comun = {
     club_key: CLUB_KEY,
     customer_name: $('customerName').value.trim(),
@@ -736,6 +743,7 @@ function renderListo(result, nombre) {
     <section class="st-sigue" aria-label="Así sigue tu pedido">
       <h3>Así sigue tu pedido</h3>
       ${PASOS_TIENDA}
+      <p class="st-sigue-plazo">Importante: tienes <b>${DIAS_PARA_RECOGER} días</b> para recoger tu pedido desde que te avisemos que llegó. Después de ese plazo el club ya no se hace responsable de la prenda.</p>
       <a class="st-sigue-portal" href="/familias/">Síguelo paso a paso en tu portal de familia</a>
     </section>`;
   $('content').querySelector('[data-copiar]')?.addEventListener('click', async e => {

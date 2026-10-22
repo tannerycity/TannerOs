@@ -363,6 +363,10 @@ revisa('un dorsal inválido no se agrega, y lo explica',
 
 // Y lo que se manda al servidor lleva la talla que la familia eligió.
 await pagina.click('#famCheckout');
+// Plazo para recoger (22/10/2026): antes de apartar se avisa y se acepta.
+await pagina.waitForSelector('.tosdlg-ok', { timeout: 4000 }).catch(() => {});
+revisa('antes de apartar avisa los 30 días para recoger', /30 días para recoger/.test(await pagina.textContent('.tosdlg-msg').catch(() => '')));
+await pagina.click('.tosdlg-ok');
 await pagina.waitForTimeout(600);
 const pedidosTienda = await pagina.evaluate(() => window.__pedidos);
 revisa('se manda un solo pedido', pedidosTienda.length === 1, JSON.stringify(pedidosTienda));

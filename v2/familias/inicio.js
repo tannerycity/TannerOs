@@ -53,3 +53,25 @@ export function saludo(ahora = new Date()) {
 }
 
 export const avisosSinLeer = (avisos = []) => (avisos || []).filter(a => a.unread).length;
+
+/* Mi pedido (22/10/2026): en qué paso va el pedido de su hijo, con las etapas
+   de la Tienda (v2_portal_orders). "Que todo el mundo disfrute hacer sus
+   pedidos y sean orgullosos Tanners". */
+export const PASOS_PEDIDO = ['Recibido', 'Confirmado', 'Con el proveedor', 'Listo', 'Entregado'];
+export function avanceDePedido(p = {}) {
+  const falta = Math.max(0, Number(p.total || 0) - Number(p.paid || 0));
+  const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 });
+  switch (p.stage) {
+    case 'por_validar': return { paso: 0, titulo: 'Lo estamos revisando', detalle: 'Confirmamos tallas, nombre y número. Si falta algo te escribimos.' };
+    case 'por_cobrar': return { paso: 1, titulo: falta > 0 ? `Falta pagar ${pesos.format(falta)}` : 'Falta tu pago', detalle: 'En cuanto quede pagado entra al siguiente envío al proveedor (los viernes).', pagar: true };
+    case 'para_proveedor': return { paso: 1, titulo: 'Listo para producción', detalle: 'Sale con el proveedor el próximo viernes.' };
+    case 'con_proveedor': return { paso: 2, titulo: 'En producción', detalle: 'El proveedor ya lo está haciendo. Te avisamos cuando llegue.' };
+    case 'para_entregar': return { paso: 3, titulo: '¡Ya llegó! Pasa por él', detalle: 'Está en la tienda del club.' };
+    case 'entregado': return { paso: 4, titulo: 'Entregado', detalle: 'Que lo disfrute en la cancha.' };
+    default: return { paso: 0, titulo: 'Recibido', detalle: '' };
+  }
+}
+export function piezaTexto(i = {}) {
+  const extra = [i.talla ? `Talla ${i.talla}` : null, i.manga === 'larga' ? 'manga larga' : null, i.nombre, i.numero ? `#${i.numero}` : null].filter(Boolean).join(' · ');
+  return `${Number(i.quantity || 1) > 1 ? `${i.quantity} × ` : ''}${i.description || 'Pieza'}${extra ? ` · ${extra}` : ''}`;
+}

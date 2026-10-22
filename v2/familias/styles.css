@@ -422,3 +422,24 @@
 .fam-acuerdo-nota{margin:0 0 12px;font-size:13px;font-style:italic}
 .fam-acuerdo .fam-btn{width:100%}
 .fam-acuerdo-visto{margin:0;font-size:13px;font-weight:700;color:#3f7d5b}
+
+/* Mi pedido (22/10/2026): el paso en que va cada pedido. */
+.fam-pedidos{display:grid;gap:12px}
+.fam-pedido{display:grid;gap:10px;padding:14px;border-radius:16px;background:#f6f9f9;border:1px solid #e2eaea}
+.fam-pedido header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.fam-pedido header strong{font-size:16px;color:#07191e}
+.fam-pedido header small{font-size:12.5px;color:#6b7a80}
+.fam-pedido[data-paso="3"]{background:#eaf7ef;border-color:#bfe3cb}
+.fam-pedido[data-paso="3"] header strong{color:#087c3a}
+.fam-pasos{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);position:relative}
+.fam-pasos li{display:grid;justify-items:center;gap:6px;text-align:center;position:relative}
+.fam-pasos li::before{content:"";position:absolute;top:8px;left:-50%;width:100%;height:3px;background:#d8e2e2;z-index:0}
+.fam-pasos li:first-child::before{display:none}
+.fam-pasos li.hecho::before,.fam-pasos li.actual::before{background:var(--fam-teal,#087d8e)}
+.fam-pasos span{position:relative;z-index:1;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid #d8e2e2}
+.fam-pasos li.hecho span{background:var(--fam-teal,#087d8e);border-color:var(--fam-teal,#087d8e)}
+.fam-pasos li.actual span{border-color:var(--fam-teal,#087d8e);box-shadow:0 0 0 4px rgba(8,125,142,.18)}
+.fam-pasos em{font-style:normal;font-size:11px;font-weight:700;color:#6b7a80;line-height:1.2}
+.fam-pasos li.actual em{color:#07191e}
+.fam-pedido-txt{margin:0;font-size:13.5px;color:#354f55}
+.fam-pedido-piezas{margin:0;padding-left:18px;font-size:13px;color:#4a6870;display:grid;gap:2px}

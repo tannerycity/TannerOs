@@ -75,6 +75,9 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
     const RESP = { v2_portal_home: HOME, v2_portal_progress: PROGRESS,
       v2_portal_statement: STATEMENT,
       v2_portal_calendar: [], v2_portal_catalog: CATALOGO, v2_portal_parking: { passes:[] },
+      // Mi pedido (22/10/2026): ya llegó a la tienda.
+      v2_portal_orders: [{ id:'o1', folio:'PED-2026-00008', total:1299, paid:1299, stage:'para_entregar', items:[
+        { description:'Jersey Lechuguilla', quantity:1, talla:'10', nombre:'JULIÁN', numero:'17', manga:'corta' }] }],
       // Comprar otra vez (13/10/2026): un jersey que sigue y una pieza que ya no.
       v2_portal_last_order: { folio:'FAM-QA-0', createdAt:'2026-01-10T12:00:00Z', items:[
         { productId:'prod-jersey', quantity:1, talla:'12', nombre:'MATI', numero:'9', manga:'larga' },
@@ -440,6 +443,11 @@ await pagina.waitForSelector('#appView:not(.hidden)', { timeout: 8000 });
 // Desde la fase 2 (18/10/2026) el portal abre en Inicio.
 revisa('un ?tab= desconocido abre en Inicio',
   await pagina.getAttribute('.fam-nav-item[data-tab="inicio"]', 'aria-current') === 'page');
+await pagina.waitForSelector('.fam-pedido', { timeout: 5000 }).catch(() => {});
+const miPedido = (await pagina.textContent('.fam-pedido').catch(() => '')).replace(/\s+/g, ' ');
+revisa('Inicio dice en qué paso va el pedido', /¡Ya llegó! Pasa por él/.test(miPedido) && /PED-2026-00008/.test(miPedido) && /JULIÁN · #17/.test(miPedido), miPedido);
+revisa('y marca el paso actual', await pagina.textContent('.fam-pasos [aria-current="step"] em').catch(() => '') === 'Listo');
+if (process.env.SHOTS) await (await pagina.$('.fam-pedidos')).screenshot({ path: `${process.env.SHOTS}/mi-pedido.png` });
 await pagina.goto('http://127.0.0.1:4601/v2/familias/?tab=gafete', { waitUntil: 'networkidle' });
 await pagina.waitForSelector('.fam-seg', { timeout: 8000 }).catch(() => {});
 revisa('la liga vieja ?tab=gafete abre Club en Estacionamiento',

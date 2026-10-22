@@ -1,5 +1,5 @@
 import {supabase,rpc,money,$,PUSH_PUBLIC_KEY,urlBase64ToUint8Array} from '/v2/shell.js';
-import { pendientesDe, proximoEvento, cuandoEs, saludo, avisosSinLeer } from '/v2/familias/inicio.js';
+import { pendientesDe, proximoEvento, cuandoEs, saludo, avisosSinLeer, PASOS_PEDIDO, avanceDePedido, piezaTexto } from '/v2/familias/inicio.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { llaveDeLiga } from '/v2/club-publico.js';
 import { correoDeEntrada, tokenDeLiga, primeraPalabra, conEspacios } from '/v2/invitaciones/invitaciones.js';
@@ -1062,6 +1062,19 @@ function pintaGloboAvisos(){
   const n=avisosSinLeer(state.avisos),b=document.querySelector('.fam-nav-item[data-tab="inicio"] .fam-nav-globo');
   if(b){b.textContent=String(n);b.classList.toggle('hidden',!n);}
 }
+/* Mi pedido (22/10/2026): cada pedido de sus hijos con el paso en que va. */
+function misPedidosBlock(players){
+  const filas=players.flatMap(p=>((state.pedidos||{})[p.id]||[]).map(o=>({p,o})));
+  if(!filas.length)return '';
+  return `<section class="fam-card fam-pedidos"><div class="fam-card-head"><h2>${filas.length===1?'Tu pedido':'Tus pedidos'}</h2><span>Tienda del club</span></div>${filas.map(({p,o})=>{
+    const a=avanceDePedido(o);
+    return `<article class="fam-pedido" data-paso="${a.paso}"><header><strong>${esc(a.titulo)}</strong><small>${esc(o.folio||'')} · ${esc(String(p.first_name||'').split(/\s+/)[0])}</small></header>
+      <ol class="fam-pasos" aria-label="Avance del pedido">${PASOS_PEDIDO.map((t,i)=>`<li class="${i<a.paso?'hecho':i===a.paso?'actual':''}"${i===a.paso?' aria-current="step"':''}><span aria-hidden="true"></span><em>${esc(t)}</em></li>`).join('')}</ol>
+      ${a.detalle?`<p class="fam-pedido-txt">${esc(a.detalle)}</p>`:''}
+      <ul class="fam-pedido-piezas">${(o.items||[]).map(i=>`<li>${esc(piezaTexto(i))}</li>`).join('')}</ul>
+      ${a.pagar?`<button type="button" class="fam-btn" data-pagar-pedido="${esc(p.id)}">Ver cómo pagar</button>`:''}</article>`;
+  }).join('')}</section>`;
+}
 async function renderInicio(){
   const players=state.home?.players||[];
   const body=$('famBody');
@@ -1071,7 +1084,8 @@ async function renderInicio(){
     state.avisos?Promise.resolve():cargaAvisos(),
     state.calendar?Promise.resolve():rpc('v2_portal_calendar',{from_at:desde.toISOString(),to_at:hasta.toISOString()}).then(r=>{state.calendar=r||[];}).catch(()=>{state.calendar=[];}),
     ...players.map(p=>state.statements[p.id]?null:rpc('v2_portal_statement',{player_id:p.id}).then(r=>{state.statements[p.id]=r;}).catch(()=>{})),
-    ...players.map(p=>state.paperwork[p.id]?null:rpc('v2_portal_paperwork',{player_id:p.id}).then(r=>{state.paperwork[p.id]=r||{};}).catch(()=>{state.paperwork[p.id]={};}))
+    ...players.map(p=>state.paperwork[p.id]?null:rpc('v2_portal_paperwork',{player_id:p.id}).then(r=>{state.paperwork[p.id]=r||{};}).catch(()=>{state.paperwork[p.id]={};})),
+    ...players.map(p=>(state.pedidos||={})[p.id]?null:rpc('v2_portal_orders',{player_id:p.id}).then(r=>{state.pedidos[p.id]=Array.isArray(r)?r:[];}).catch(()=>{state.pedidos[p.id]=[];}))
   ]);
   if(state.tab!=='inicio')return;
   state.inicioListo=true;
@@ -1095,12 +1109,14 @@ async function renderInicio(){
       <div class="fam-hijos">${hijos}</div>
     </section>
     <div id="famPush"></div>
+    ${misPedidosBlock(players)}
     <section class="fam-card fam-pendientes"><div class="fam-card-head"><h2>Pendientes</h2><span>${pend.length?`${pend.length} por hacer`:'al día'}</span></div>${pendHtml}</section>
     ${prox?`<section class="fam-card fam-prox"><div class="fam-card-head"><h2>Lo próximo</h2><button type="button" class="fam-link" data-ir-club>Ver calendario</button></div>
       <div class="fam-prox-ev"><span class="fam-prox-cuando">${esc(cuandoEs(prox.starts_at))}</span><strong>${esc(prox.title||'Entrenamiento')}</strong><small>${esc([prox.location,prox.category].filter(Boolean).join(' · '))}</small></div></section>`:''}
     <section class="fam-card fam-avisos" id="famAvisos"><div class="fam-card-head"><h2>Avisos del club</h2><span>${avisosSinLeer(avisos)?`${avisosSinLeer(avisos)} nuevo${avisosSinLeer(avisos)===1?'':'s'}`:''}</span></div>${avisosHtml}</section>`;
   body.querySelectorAll('[data-pend]').forEach(b=>b.addEventListener('click',()=>{const x=pend[Number(b.dataset.pend)];irA(x.tab,x.ancla,x.player);}));
   body.querySelectorAll('[data-hijo]').forEach(b=>b.addEventListener('click',()=>irA('progreso',null,b.dataset.hijo)));
+  body.querySelectorAll('[data-pagar-pedido]').forEach(b=>b.addEventListener('click',()=>irA('cuenta',null,b.dataset.pagarPedido)));
   body.querySelector('[data-ir-club]')?.addEventListener('click',()=>{state.clubSub='calendario';irA('club');});
   body.querySelector('[data-ver-avisos]')?.addEventListener('click',()=>{state.verTodosAvisos=true;renderInicio();});
   pintaPush();

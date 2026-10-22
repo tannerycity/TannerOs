@@ -381,6 +381,10 @@ async function loadHomeData(generation){
   if(can('prospectos')||can('scouting'))jobs.push(rpcSafe('v2_prospects',{organization_id:org,status_filter:null},[]).then(v=>state.prospects=Array.isArray(v)?v:[]));
   if(can('calendario'))jobs.push(rpcSafe('v2_calendar',{organization_id:org,from_at:now,to_at:week},[]).then(v=>state.calendar=Array.isArray(v)?v:[]));
   if(can('tienda'))jobs.push(rpcSafe('v2_orders',{organization_id:org,status_filter:null},[]).then(v=>state.orders=Array.isArray(v)?v:[]));
+  // Cambios por revisar (22/10/2026): lo que se corrigió con motivo (h32) le
+  // aparece a Presidencia aquí, para no tener que ir a buscar la bitácora.
+  state.cambios=0;
+  if(ctx.is_owner||ctx.role==='Presidencia')jobs.push(rpcSafe('v2_change_log',{organization_id:org,pending_only:true},null).then(v=>state.cambios=Number(v?.pending||0)));
   await Promise.allSettled(jobs);
   if(generation===loadGeneration)renderHome();
 }
@@ -427,6 +431,7 @@ function actionHref(item){
 }
 function renderAttention(){
   const items=(Array.isArray(state.actionCenter?.items)?state.actionCenter.items:[]).filter(actionAllowed);
+  if(state.cambios>0)items.unshift({code:'changes_review',priority:'attention',title:state.cambios===1?'Un cambio por revisar':'Cambios por revisar',count:state.cambios,detail:'Correcciones en pedidos y cobros, con su motivo',href:'/cambios/'});
   if(!items.length){
     $('attentionList').innerHTML='<article class="tos-alert good"><span class="tos-alert-tag">Bien</span><b>Todo en orden</b><small>No hay pendientes visibles para tus módulos.</small></article>';
     setShellHealth({state:'ok',label:'Todo en orden'});return;

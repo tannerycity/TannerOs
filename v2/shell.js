@@ -82,6 +82,8 @@ export const navItems=[
   {code:'candidatos',label:'Candidatos',href:'/candidatos/',group:'club',icon:'briefcase',lee:['usuarios','formacion_direccion'],dentroDe:'staff'},
   // Staff y organigrama (13/10/2026): lo ve todo el staff (decisión de Presidencia).
   {code:'staff',label:'Staff',href:'/staff/',group:'club',icon:'users',always:true},
+  // Cumpleaños del año (21/10/2026): para planear; lo ve todo el staff.
+  {code:'cumpleanos',label:'Cumpleaños',href:'/cumpleanos/',group:'main',icon:'star',always:true,dentroDe:'inicio'},
   // Encuestas (15/10/2026): cómo se la pasan papás y visitantes en cada evento.
   // Desde h14 es módulo: Presidencia siempre; a otra persona se le da en
   // Usuarios > persona > Encuestas (así se le dio a Zul).

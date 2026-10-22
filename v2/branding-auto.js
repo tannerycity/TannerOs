@@ -19,6 +19,7 @@ const FINAL_ROUTES=[
   ['/asistencia/','asistencia','Asistencia'],
   ['/becas/','becas','Becas'],
   ['/cambios/','cambios','Cambios'],
+  ['/cumpleanos/','cumpleanos','Cumpleaños'],
   ['/partidos/','partidos','Partidos'],
   ['/calendario/','calendario','Calendario'],
   ['/operacion/academias/','academias','Academias'],

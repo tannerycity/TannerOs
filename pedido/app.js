@@ -321,6 +321,13 @@ function tarjeta({ tipo, item }) {
     <div class="st-card-txt">${aceptaPersonalizacion(item) ? '<span class="st-tag">Personalizable</span>' : ''}
     <strong>${esc(item.name)}</strong><span class="st-precio">${item.precioAntes ? `<s>${money.format(item.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(item))}</span>${item.ofertaHasta ? `<span class="st-oferta">${esc(textoHasta(item.ofertaHasta))}</span>` : ''}</div></a>`;
 }
+/* Así funciona (22/10/2026): el papá sabe desde el principio qué sigue, sin
+   preguntar por WhatsApp. Son los pasos reales de la Tienda del club. */
+const PASOS_TIENDA = `<ol class="st-pasos" aria-label="Así funciona">
+  <li><b>1</b><span><strong>Pide y paga</strong><small>Aquí mismo, con nombre y número</small></span></li>
+  <li><b>2</b><span><strong>Lo revisamos</strong><small>Tallas, nombre y número</small></span></li>
+  <li><b>3</b><span><strong>Se hace</strong><small>Sale al proveedor los viernes</small></span></li>
+  <li><b>4</b><span><strong>Te avisamos</strong><small>Cuando llegue a la tienda</small></span></li></ol>`;
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
   const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
@@ -333,10 +340,12 @@ function renderTienda(clave = '') {
   /* Dos caminos (09/10/2026): la familia con cuenta entra y ya trae sus datos
      y su Tanner; quien no tiene cuenta compra aquí mismo. */
   $('content').innerHTML = `
-    <section class="st-hero">
+    <section class="st-hero${activa ? '' : ' portada'}">
+      ${activa ? '' : '<img class="st-hero-escudo" src="/brand/crest-navy.png" alt="" width="120" height="120">'}
       <p class="st-eyebrow">${esc(clubNombre)}</p>
-      <h1>${activa ? esc(etiquetaDe(activa)) : 'Tienda'}</h1>
-      <p>${activa ? '' : 'El uniforme oficial del club. '}Pídelo desde tu celular${pagoInfo?.delivery ? ` y recíbelo en ${esc(pagoInfo.delivery)}` : ''}.</p>
+      <h1>${activa ? esc(etiquetaDe(activa)) : 'Tienda oficial'}</h1>
+      <p>${activa ? '' : 'El uniforme que se usa con orgullo. '}Pídelo desde tu celular${pagoInfo?.delivery ? ` y recíbelo en ${esc(pagoInfo.delivery)}` : ''}.</p>
+      ${activa ? '' : PASOS_TIENDA}
     </section>
     <nav class="st-cats" aria-label="Categorías">
       <a href="#/"${activa ? '' : ' class="activa" aria-current="page"'}>Todo</a>
@@ -723,7 +732,12 @@ function renderListo(result, nombre) {
     </section>` : ''}
     ${wa ? `<a class="primary pago-wa" href="${esc(wa)}" target="_blank" rel="noopener">Enviar comprobante por WhatsApp</a>
       <p class="muted pago-nota">Al pagar, adjunta la foto o captura del comprobante en el chat.</p>`
-      : '<p class="muted pago-nota">Te contactamos por WhatsApp para confirmar tu pedido.</p>'}`;
+      : '<p class="muted pago-nota">Te contactamos por WhatsApp para confirmar tu pedido.</p>'}
+    <section class="st-sigue" aria-label="Así sigue tu pedido">
+      <h3>Así sigue tu pedido</h3>
+      ${PASOS_TIENDA}
+      <a class="st-sigue-portal" href="/familias/">Síguelo paso a paso en tu portal de familia</a>
+    </section>`;
   $('content').querySelector('[data-copiar]')?.addEventListener('click', async e => {
     const b = e.currentTarget;
     try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiada'; }

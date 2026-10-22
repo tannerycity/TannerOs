@@ -206,9 +206,16 @@ await pg.click('#submitOrder');
 await pg.waitForTimeout(300);
 revisa('6. sin autorizar el tratamiento de datos, NO se manda', !llamadas.some(c => c.n === 'v2_public_cart_order'));
 await pg.check('#orderDataConsent');
+// Plazo para recoger (22/10/2026): sin aceptar los 30 días, tampoco se manda.
+revisa('el pedido dice los 30 días para recoger', /30 días/.test(await pg.textContent('.st-plazo').catch(() => '')));
+await pg.click('#submitOrder');
+await pg.waitForTimeout(300);
+revisa('sin aceptar el plazo para recoger, NO se manda', !llamadas.some(c => c.n === 'v2_public_cart_order'));
+await pg.check('#orderPickup');
 await pg.click('#submitOrder');
 await pg.waitForTimeout(600);
 const envios = llamadas.filter(c => c.n === 'v2_public_cart_order');
+revisa('y el pedido guarda que aceptó el plazo', envios[0]?.p?.consent?.pickupAccepted === true && envios[0]?.p?.consent?.pickupDays === 30, JSON.stringify(envios[0]?.p?.consent));
 revisa('todo va en UNA llamada', envios.length === 1, JSON.stringify(llamadas.map(c => c.n)));
 const items = envios[0]?.p?.items || [];
 const kit = items.find(x => x.kind === 'bundle'), pieza = items.find(x => x.kind === 'product');

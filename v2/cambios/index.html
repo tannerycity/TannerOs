@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07191e">
+<title>Cambios · TannerOS</title>
+<link rel="stylesheet" href="/v2/styles.css">
+<link rel="stylesheet" href="/v2/cambios/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="stylesheet" href="/icons.css?v=20260907a">
+<link rel="stylesheet" href="/polish.css?v=20260907a">
+</head>
+<body>
+<main class="shell">
+  <section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Cambios</h2><p class="muted">Abriendo la bitácora…</p></section>
+  <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted">La bitácora de cambios la revisa Presidencia.</p><a class="secondary nav-link" href="/">Volver</a></section>
+
+  <!-- Cambios (22/10/2026): lo que se corrigió en pedidos y cobros, quién lo
+  hizo, antes y después y por qué. Presidencia lo revisa y lo marca. -->
+  <section id="view" class="hidden app-wrap ca">
+    <header class="topbar">
+      <div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName"></strong></div></div>
+      <div class="top-actions"><a class="secondary mini nav-link" href="/">Inicio</a></div>
+    </header>
+    <header class="ca-cab">
+      <div><h1>Cambios</h1><p id="caResumen" class="ca-sub">Cargando…</p></div>
+      <button type="button" id="caTodo" class="t-btn hidden">Marcar todo como revisado</button>
+    </header>
+    <div class="ca-seg" id="caVer" role="group" aria-label="Ver">
+      <button type="button" data-ver="pendientes" aria-pressed="true">Por revisar</button>
+      <button type="button" data-ver="todos" aria-pressed="false">Todos</button>
+    </div>
+    <section id="caLista" class="ca-lista" aria-live="polite"></section>
+    <p id="caVacio" class="ca-vacio hidden">Nada por revisar. Todo en orden.</p>
+    <div id="caMensaje" class="inline-message hidden"></div>
+  </section>
+</main>
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/cambios/app.js"></script>
+</body>
+</html>

@@ -14,6 +14,9 @@ const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
 const {ctx,navigation}=boot;
 const org=ctx.organization_id;
+// Corregir pedidos y cobros (h32): Presidencia o quien tenga el permiso personal.
+let puedeCorregir=ctx.role==='Presidencia';
+rpc('v2_can_correct',{organization_id:ctx.organization_id}).then(v=>{if(!!v!==puedeCorregir){puedeCorregir=!!v;try{renderMovements?.();}catch{}}}).catch(()=>{});
 // Íconos de línea para la conciliación (regla del club: sin emojis).
 const ICONO_BANCO='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 4l9 6"/><path d="M5 10v8"/><path d="M10 10v8"/><path d="M14 10v8"/><path d="M19 10v8"/><path d="M3 20h18"/></svg>';
 const ICONO_EFECTIVO='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4"/><path d="M18 10v4"/></svg>';
@@ -132,7 +135,7 @@ function llenaSugerencias(){
 function renderMovements(){
   const status=$('movementStatus').value,rows=(snapshot?.movements||[]).filter(m=>status==='all'||m.status===status),body=$('movementRows');body.innerHTML='';
   $('movementsEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const ebtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="edit-move" data-edit="'+esc(m.id)+'">Editar</button>'):'';const vbtn=(m.status==='posted'&&ctx.role==='Presidencia')?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';
+  rows.forEach(m=>{const income=m.type==='income',tr=document.createElement('tr');tr.className=m.status!=='posted'?'is-void':'';const vtan=income&&m.playerId,vk=vtan?'refund':(income?'void-income':'void-expense'),vlabel=vtan?'Reembolsar':'Borrar';const corrige=m.status==='posted'&&(ctx.role==='Presidencia'||(income&&puedeCorregir));const ebtn=corrige?('<button class="edit-move" data-edit="'+esc(m.id)+'">Editar</button>'):'';const vbtn=corrige?('<button class="void-income'+(vtan?' is-refund':'')+'" data-void="'+esc(m.id)+'" data-kind="'+vk+'" data-amt="'+Number(m.amount||0)+'" data-method="'+esc(m.method||'')+'" data-sum="'+esc((income?'Cobro':'Pago')+' · '+(m.category||'—')+' · '+money.format(Number(m.amount||0)))+'">'+vlabel+'</button>'):'';
     const payerDiffers=m.playerName&&m.who&&m.who!=='—'&&m.who!==m.playerName;
     // Quién del club entregó el pago. Es un dato distinto de "a quién se le
     // pagó": en un egreso, m.who es el profe que cobró y esto es quien le
@@ -1055,6 +1058,7 @@ function openEditMove(m){
   $('editWho').value=(m.who&&m.who!=='—')?m.who:'';
   $('editPlayerBox').classList.toggle('hidden',!income);
   if(income){$('editPlayer').value=m.playerId||'';$('editPlayerSearch').value=m.playerId?(m.playerName||''):'';$('editPlayerClear').classList.toggle('hidden',!m.playerId);}
+  $('editReason').value='';
   $('editMessage').classList.add('hidden');
   $('editModal').classList.remove('hidden');$('modalBackdrop').classList.remove('hidden');
 }
@@ -1063,10 +1067,12 @@ async function saveEditMove(){
   if(!pendingEdit)return;const m=pendingEdit,income=m.type==='income',msg=$('editMessage');
   const amount=Math.round(Number($('editAmount').value));
   if(!Number.isFinite(amount)||amount<=0){msg.textContent='El monto debe ser mayor a cero.';msg.classList.remove('hidden');return;}
+  const motivo=$('editReason').value.trim();
+  if(income&&motivo.length<3){msg.textContent='Escribe el motivo del cambio (queda en la bitácora).';msg.classList.remove('hidden');$('editReason').focus();return;}
   const btn=$('editSave');btn.disabled=true;
   try{
     if(income){
-      await rpc('v2_update_payment',{organization_id:org,payment_id:m.id,amount,method:$('editMethod').value,category:$('editCategory').value.trim(),concept:$('editConcept').value.trim(),payer_name:$('editWho').value.trim()||null,payment_date:$('editDate').value||null,reference:m.reference||null,player_id:$('editPlayer').value||null});
+      await rpc('v2_update_payment',{organization_id:org,payment_id:m.id,amount,method:$('editMethod').value,category:$('editCategory').value.trim(),concept:$('editConcept').value.trim(),payer_name:$('editWho').value.trim()||null,payment_date:$('editDate').value||null,reference:m.reference||null,player_id:$('editPlayer').value||null,reason:motivo});
     }else{
       await rpc('v2_update_expense',{organization_id:org,expense_id:m.id,amount,method:$('editMethod').value,category:$('editCategory').value.trim(),concept:$('editConcept').value.trim(),supplier_name:$('editWho').value.trim()||null,expense_date:$('editDate').value||null,reference:m.reference||null});
     }

@@ -89,7 +89,7 @@ function aplicaAccesos(){
   if(!canWrite)apaga($('newOrderAction'),'Tu rol no puede levantar pedidos');
   if(!canManage)apaga($('productionAction'),'Sólo quien administra la Tienda');
 }
-async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;cobraConHoja=mods.some(m=>['taquilla','billing'].includes(m.module_code)&&m.enabled&&m.can_write);canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia';const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=false;/* Costo y utilidad viven SÓLO en Catálogo › Costos (13/10/2026). */void financeMod;document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();$('ventasAction')?.addEventListener('click',verVentas);
+async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;cobraConHoja=mods.some(m=>['taquilla','billing'].includes(m.module_code)&&m.enabled&&m.can_write);canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia'||!!ctx.is_owner;rpc('v2_can_correct',{organization_id:ctx.organization_id}).then(v=>{canCorrect=!!v;muestraZona();}).catch(()=>{});const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=false;/* Costo y utilidad viven SÓLO en Catálogo › Costos (13/10/2026). */void financeMod;document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();$('ventasAction')?.addEventListener('click',verVentas);
   // El botón + de abajo: lo de la Tienda primero (13/10/2026).
   window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,{label:'Por atender',sub:'Nuevos y números por confirmar',icon:'check',run:()=>{$('statusFilter').value='__atender';render();renderReviewBanner();$('orderList')?.scrollIntoView({behavior:'smooth',block:'start'});}},canManage?{label:'Producción',sub:'Cortes y hoja para el proveedor',icon:'list',href:'/produccion/'}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
   window.dispatchEvent(new Event('tos:acciones'));}
@@ -176,7 +176,7 @@ async function pintaResumen(){
   if(canWrite&&!staffDelClub){try{staffDelClub=await rpc('v2_order_staff',{organization_id:ctx.organization_id})||[];}catch{staffDelClub=[];}}
   const opciones=(staffDelClub||[]).map(s=>`<option value="${esc(s.userId)}" ${s.userId===t.attendedBy?'selected':''}>${esc(s.name)}</option>`).join('');
   const piezas=items.map(i=>{const jersey=esJersey(i.description);const m=i.manga;
-    const control=jersey?(editable?`<div class="t-seg mini" role="group" aria-label="Manga">${['corta','larga'].map(v=>`<button type="button" data-manga-item="${esc(i.id)}" data-m="${v}" class="${m===v?'activo':''}" aria-pressed="${m===v}">${v==='larga'?'Larga':'Corta'}</button>`).join('')}</div>`:`<em class="t-manga ${m==='larga'?'larga':m?'':'falta'}">${m?`Manga ${esc(m)}`:'Manga sin definir'}</em>`):'';
+    const control=jersey?(editable&&tienePagos()?`<span class="t-manga-fija"><em class="t-manga ${m==='larga'?'larga':m?'':'falta'}">${m?`Manga ${esc(m)}`:'Manga sin definir'}</em><button type="button" class="t-link" data-manga-item="${esc(i.id)}" data-m="${m==='larga'?'corta':'larga'}">Cambiar</button></span>`:editable?`<div class="t-seg mini" role="group" aria-label="Manga">${['corta','larga'].map(v=>`<button type="button" data-manga-item="${esc(i.id)}" data-m="${v}" class="${m===v?'activo':''}" aria-pressed="${m===v}">${v==='larga'?'Larga':'Corta'}</button>`).join('')}</div>`:`<em class="t-manga ${m==='larga'?'larga':m?'':'falta'}">${m?`Manga ${esc(m)}`:'Manga sin definir'}</em>`):'';
     return `<li><div><b>${esc(i.description||'Pieza')}</b><span>${esc([i.talla?`Talla ${i.talla}`:null,i.nombre,i.numero?`#${i.numero}`:null].filter(Boolean).join(' · ')||'Sin variante')}</span>${i.obs?`<small class="t-obs">${esc(i.obs)}</small>`:''}</div>${control}</li>`;}).join('');
   box.innerHTML=`<div class="t-res-quien"><span class="t-avatar grande" aria-hidden="true">${esc(iniciales(quien))}</span><div><strong>${esc(quien)}</strong><span>${t.playerName?`Pidió ${esc(d.customer_name||'—')}`:'Sin jugador ligado'}${t.playerCategory?` · ${esc(t.playerCategory)}`:''}</span></div></div>
     <dl class="t-res-datos"><div><dt>Cómo llegó</dt><dd>${esc(ORIGEN[t.source]||'—')}</dd></div><div><dt>Atendió</dt><dd>${canWrite?`<select id="tAtendio" aria-label="Quién del club atendió"><option value="">${t.attendedName&&!t.attendedManual?`${esc(t.attendedName)} (automático)`:'Nadie todavía'}</option>${opciones}</select>`:esc(t.attendedName||'—')}</dd></div></dl>
@@ -185,7 +185,25 @@ async function pintaResumen(){
     ${barraNumero(d)}`;
   if(canWrite){const sel=$('tAtendio');if(sel&&t.attendedManual)sel.value=t.attendedBy||'';}
 }
+/* Pedido con pagos (22/10/2026): ya no se cambia de un toque. "Que deba
+   ponerse en editar y que diga por qué se cambió": se edita con motivo y
+   queda en la bitácora de Presidencia (v2_edit_order_item). */
+function muestraZona(){const z=$('dangerZone');if(z)z.style.display=canCorrect?'':'none';}
+const tienePagos=()=>!!current&&Number(current.order?.total||0)-Number(current.balance||0)>0.004;
+async function editaConMotivo(itemId,cambios,titulo){
+  const motivo=await window.tosPrompt({kicker:'PEDIDO PAGADO',title:titulo,message:'Este pedido ya tiene pagos. El cambio queda en la bitácora con tu nombre.',placeholder:'¿Por qué se cambia? Ej. la mamá pidió manga larga',required:true,requiredText:'Escribe el motivo.',confirmText:'Guardar cambio',maxlength:200});
+  if(!motivo)return false;
+  const di=(current.items||[]).find(x=>x.id===itemId),a=di?.attributes||{};
+  const base={size:a.talla||a.size||null,manga:a.manga||null,personalization_name:a.nombrePers||a.personalizationName||null,number:a.numero||a.number||null,notes:a.obs||null};
+  await rpc('v2_edit_order_item',{organization_id:ctx.organization_id,order_item_id:itemId,...base,...cambios,reason:motivo});
+  return true;
+}
 async function cambiaManga(itemId,manga,btn){
+  if(tienePagos()){
+    try{if(await editaConMotivo(itemId,{manga},`Cambiar a manga ${manga}`)){await refreshCurrent(current.order.id);msg(`Manga ${manga} guardada con su motivo.`,'success');}}
+    catch(e){msg(e.message||'No se pudo guardar la manga.');}
+    return;
+  }
   btn.disabled=true;
   try{await rpc('v2_set_order_item_sleeve',{organization_id:ctx.organization_id,order_item_id:itemId,manga});
     const t=tablero[current.order.id];const it=(t?.items||[]).find(x=>x.id===itemId);if(it)it.manga=manga;
@@ -523,7 +541,11 @@ async function markReviewed(){if(!current||!canWrite)return;const id=current.ord
    teléfono la bloquea) y después se marca revisado. */
 function confirmWhatsApp(){if(!current||!canWrite)return;const d=current.order;const texto=mensajeConfirmacion({order:d,items:current.items||[],info:clubCfg?.paymentInstructions,club:clubCfg?.name||ctx.organization_name||'el club',yo:ctx.display_name});const url=ligaWhatsApp(d.customer_phone,texto);if(!url)return;window.open(url,'_blank','noopener');markReviewed();}
 function close(){current=null;$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');msg();payMsg();}async function refreshCurrent(orderId){details.delete(orderId);await load();const o=orders.find(x=>x.id===orderId);if(o)await openOrder(o);else close();}
-async function saveItem(row){if(!current||!canManage||!row)return;const orderId=current.order.id,btn=row.querySelector('.save-item');btn.disabled=true;try{await rpc('v2_update_order_item_fulfillment',{organization_id:ctx.organization_id,order_item_id:row.dataset.itemId,size:row.querySelector('.item-size').value.trim()||null,personalization_name:row.querySelector('.item-name').value.trim()||null,number:row.querySelector('.item-number').value.trim()||null,notes:row.querySelector('.item-note').value.trim()||null});await refreshCurrent(orderId);msg('Datos de pieza actualizados y readiness recalculado.','success');}catch(e){msg(e.message||'No se pudo actualizar la pieza.');btn.disabled=false;}}
+async function saveItem(row){if(!current||!canManage||!row)return;
+  if(tienePagos()){const v=c=>row.querySelector(c).value.trim()||null;
+    try{if(await editaConMotivo(row.dataset.itemId,{size:v('.item-size'),personalization_name:v('.item-name'),number:v('.item-number'),notes:v('.item-note')},'Guardar cambio de la pieza')){await refreshCurrent(current.order.id);msg('Pieza actualizada con su motivo.','success');}}
+    catch(e){msg(e.message||'No se pudo actualizar la pieza.');}
+    return;}const orderId=current.order.id,btn=row.querySelector('.save-item');btn.disabled=true;try{await rpc('v2_update_order_item_fulfillment',{organization_id:ctx.organization_id,order_item_id:row.dataset.itemId,size:row.querySelector('.item-size').value.trim()||null,personalization_name:row.querySelector('.item-name').value.trim()||null,number:row.querySelector('.item-number').value.trim()||null,notes:row.querySelector('.item-note').value.trim()||null});await refreshCurrent(orderId);msg('Datos de pieza actualizados y readiness recalculado.','success');}catch(e){msg(e.message||'No se pudo actualizar la pieza.');btn.disabled=false;}}
 async function postPayment(){if(!current||!canWrite)return;const d=current.order,amount=Number($('paymentAmount').value||0),balance=Number(current.balance||0),payerType=$('paymentPayerType').value,payerName=$('paymentPayer').value.trim();if(!Number.isFinite(amount)||amount<=0){payMsg('Captura un monto mayor a cero.');return;}if(amount>balance+0.005){payMsg(`El pago excede el saldo de ${money.format(balance)}.`);return;}if(payerType==='sponsor'&&!payerName){payMsg('Indica el nombre del patrocinador.');return;}const btn=$('savePayment');btn.disabled=true;payMsg();try{await rpc('v2_post_order_payment_attributed',{organization_id:ctx.organization_id,order_id:d.id,amount,payment_date:$('paymentDate').value||new Date().toISOString().slice(0,10),method:$('paymentMethod').value||'other',reference:$('paymentReference').value.trim()||null,payer_type:payerType,payer_name:payerName||d.customer_name||null,idempotency_key:`order-${d.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`});await refreshCurrent(d.id);payMsg('Pago registrado con pagador y estado actualizado.','success');}catch(e){payMsg(e.message||'No se pudo registrar el pago.');}finally{btn.disabled=!canWrite;}}
 function setupToggle(btnId,wrapId){const btn=$(btnId),wrap=$(wrapId);if(!btn||!wrap)return;btn.addEventListener('click',()=>{const nowHidden=wrap.classList.toggle('hidden');btn.setAttribute('aria-expanded',String(!nowHidden));btn.classList.toggle('open',!nowHidden);});}
 setupToggle('togglePaymentHistory','paymentHistoryWrap');setupToggle('toggleFullDetail','fullDetail');
@@ -534,18 +556,18 @@ $('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').va
     var drawer=$('drawer'); if(!drawer||$('dangerZone'))return;
     var sec=document.createElement('section');
     sec.className='drawer-section'; sec.id='dangerZone'; sec.style.display='none';
-    sec.innerHTML='<div class="eyebrow">ZONA DE PRESIDENCIA</div><h3>Eliminar pedido</h3>'
-      +'<p class="muted state-help">Quita el pedido de la lista. Solo Presidencia. Si tiene pagos registrados, primero cancélalo o reembólsalo.</p>'
+    sec.innerHTML='<div class="eyebrow">CORRECCIONES</div><h3>Eliminar pedido</h3>'
+      +'<p class="muted state-help">Quita el pedido de la lista. Pide el motivo y queda en la bitácora de Presidencia. Si tiene pagos registrados, primero cancélalo o reembólsalo.</p>'
       +'<button id="deleteOrder" type="button" style="color:#fff;background:#C0362C;border:1px solid #C0362C;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer">Eliminar pedido</button>'
       +'<div id="deleteMessage" class="inline-message hidden" style="margin-top:8px"></div>';
     drawer.appendChild(sec);
     $('deleteOrder').addEventListener('click', async function(){
       if(!current) return;
-      var ok = await confirmAction({kicker:'ZONA DE PRESIDENCIA',title:'Eliminar pedido',message:'Esto quita el pedido de la lista. Solo Presidencia puede hacerlo.',confirmText:'Sí, eliminar',danger:true});
-      if(!ok) return;
+      var motivo = await window.tosPrompt({kicker:'CORRECCIONES',title:'Eliminar pedido',message:'Esto quita el pedido de la lista y queda en la bitácora con tu nombre.',placeholder:'¿Por qué se elimina?',required:true,requiredText:'Escribe el motivo.',confirmText:'Sí, eliminar',danger:true,maxlength:200});
+      if(!motivo) return;
       var b=$('deleteOrder'); b.disabled=true;
       try{
-        await rpc('v2_delete_order',{organization_id:ctx.organization_id, order_id:current.order.id});
+        await rpc('v2_delete_order',{organization_id:ctx.organization_id, order_id:current.order.id, reason:motivo});
         close(); await load();
       }catch(e){
         var m=$('deleteMessage'); m.textContent=(e&&e.message)||'No se pudo eliminar el pedido'; m.classList.remove('hidden');
@@ -555,7 +577,7 @@ $('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').va
   var t=setInterval(function(){
     if(typeof ctx!=='undefined' && ctx){
       inject();
-      if(ctx.role==='Presidencia'){ var z=$('dangerZone'); if(z) z.style.display=''; }
+      muestraZona();
       clearInterval(t);
     }
   },300);

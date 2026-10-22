@@ -170,7 +170,9 @@ export default function comprobar() {
   // cobra con la misma hoja de Taquilla.
   // Sube a 55 por qa-humo-menu-secciones.mjs: el menú por secciones y sus
   // pestañas, montando el shell real.
-  const MAX_EXCLUIDAS = 55;
+  // Sube a 56 por qa-humo-pedido-con-motivo.mjs: un pedido pagado se cambia
+  // con motivo y se corrige con bitácora.
+  const MAX_EXCLUIDAS = 56;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

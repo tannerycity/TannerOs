@@ -82,3 +82,4 @@ qa-humo-pedido-cobro-unico.mjs
 qa-humo-menu-secciones.mjs
 qa-humo-pedido-con-motivo.mjs
 qa-humo-pedido-etapas.mjs
+qa-humo-ideas.mjs

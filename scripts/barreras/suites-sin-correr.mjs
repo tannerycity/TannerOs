@@ -174,7 +174,9 @@ export default function comprobar() {
   // con motivo y se corrige con bitácora.
   // Sube a 57 por qa-humo-pedido-etapas.mjs: el pedido por etapas, el corte
   // del viernes con su PDF, Ya llegó y regresar un paso.
-  const MAX_EXCLUIDAS = 57;
+  // Sube a 58 por qa-humo-ideas.mjs: el banco de ideas (columnas,
+  // agregar rápido, hoja, arrastrar y archivar).
+  const MAX_EXCLUIDAS = 58;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

@@ -16,6 +16,7 @@ const routeContract={
   '/jugadores/':'v2/jugadores/index.html',
   '/asistencia/':'v2/asistencia/index.html',
   '/becas/':'v2/becas/index.html',
+  '/ideas/':'v2/ideas/index.html',
   '/cambios/':'v2/cambios/index.html',
   '/cumpleanos/':'v2/cumpleanos/index.html',
   '/partidos/':'v2/partidos/index.html',

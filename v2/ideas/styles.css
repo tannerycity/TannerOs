@@ -1,0 +1,83 @@
+/* Banco de ideas (22/10/2026): tablero tipo Notion, estilo kanban. */
+.id-cab{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin:6px 0 14px}
+.id-cab h1{margin:0;font-size:32px;letter-spacing:-.02em;color:#07191e}
+.id-sub{margin:4px 0 0;font-size:14px;color:#5c6f74}
+.id-btn{border:0;border-radius:999px;min-height:44px;padding:0 18px;background:#087d8e;color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.id-btn:disabled{opacity:.6}
+.id-herr{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px}
+.id-seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:#eef2f1}
+.id-seg button{border:0;background:none;border-radius:10px;padding:8px 14px;font:inherit;font-size:14px;font-weight:700;color:#4a6870;cursor:pointer}
+.id-seg button[aria-pressed="true"]{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
+.id-herr select{min-height:40px;border-radius:12px;border:1px solid #d6dfdd;padding:0 10px;font:inherit;font-size:14px;background:#fff}
+.id-buscar{display:flex;align-items:center;gap:6px;flex:1;min-width:160px;border:1px solid #d6dfdd;border-radius:12px;padding:0 10px;background:#fff}
+.id-buscar input{border:0;outline:0;flex:1;min-height:38px;font:inherit;font-size:14px;background:none}
+
+.id-tablero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
+.id-col{display:grid;gap:8px;padding:10px;border-radius:18px;background:#eef2f1;min-height:160px;transition:background .15s}
+.id-col.sobre{background:#dcecef;box-shadow:inset 0 0 0 2px #087d8e}
+.id-col>header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:4px 4px 2px}
+.id-col h2{margin:0;font-size:15px;color:#07191e}
+.id-col header small{font-size:11.5px;color:#6b7a80}
+.id-col header>span{font-size:12px;font-weight:800;color:#4a6870;background:#fff;border-radius:999px;padding:2px 9px}
+.id-col[data-col="doing"] header>span{background:#087d8e;color:#fff}
+.id-col[data-col="done"] header>span{background:#1d7a46;color:#fff}
+.id-lista{display:grid;gap:8px;min-height:20px}
+.id-vacia{margin:0;padding:10px;text-align:center;font-size:12.5px;color:#8b979c}
+.id-carta{display:grid;gap:7px;padding:11px 12px;border-radius:14px;background:#fff;border:1px solid #e2e7e5;box-shadow:0 1px 2px rgba(7,25,30,.05);cursor:grab;text-align:left}
+.id-carta:hover{box-shadow:0 8px 20px -12px rgba(3,47,59,.45)}
+.id-carta:focus-visible{outline:2px solid #087d8e;outline-offset:2px}
+.id-carta.alta{border-left:4px solid #b13d34}
+.id-carta.arrastrando{opacity:.4}
+.id-carta strong{font-size:14px;line-height:1.35;color:#07191e;word-break:break-word}
+.id-area{justify-self:start;font-size:11px;font-weight:800;border-radius:999px;padding:2px 9px;color:var(--tono);background:color-mix(in srgb,var(--tono) 12%,#fff)}
+.id-carta-pie{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.id-carta-pie:empty{display:none}
+.id-fecha,.id-check,.id-prio{font-size:11.5px;font-weight:700;border-radius:8px;padding:2px 7px;background:#f1f4f3;color:#4a6870}
+.id-fecha.pronto{background:#fff3dc;color:#9a6a12}
+.id-fecha.vencida{background:#fdecea;color:#a92a21}
+.id-check.completo{background:#e4f4ea;color:#087c3a}
+.id-prio{background:#fdecea;color:#a92a21}
+.id-quien{margin-left:auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#053746;color:#fff;font-size:10.5px;font-weight:800}
+.id-rapida input{width:100%;border:0;border-radius:12px;padding:10px 12px;background:transparent;font:inherit;font-size:13.5px;color:#07191e}
+.id-rapida input:focus{background:#fff;outline:2px solid #087d8e}
+
+.id-fondo{position:fixed;inset:0;background:rgba(6,20,24,.5);z-index:9990}
+.id-hoja{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(620px,94vw);max-height:90vh;overflow:auto;z-index:9991;background:#fff;border-radius:22px;padding:18px 20px 16px;display:grid;gap:12px;box-shadow:0 30px 80px rgba(4,15,18,.4)}
+.id-hoja-cab{display:flex;align-items:center;justify-content:space-between}
+.id-hoja-cab span{font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#6b7a80}
+.id-cerrar{width:34px;height:34px;border:0;border-radius:50%;background:#eef2f1;font-size:20px;cursor:pointer}
+.id-titulo{width:100%;border:0;resize:none;font:inherit;font-size:24px;font-weight:800;color:#07191e;outline:0;padding:0;min-height:34px;field-sizing:content}
+.id-cols{flex-wrap:wrap}
+.id-props{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.id-props label,.id-notas{display:grid;gap:4px;font-size:12px;font-weight:700;color:#6b7a80}
+.id-props input,.id-props select,.id-notas textarea{border:1px solid #d6dfdd;border-radius:12px;padding:9px 11px;font:inherit;font-size:14px;color:#07191e;background:#fff}
+.id-notas textarea{resize:vertical;min-height:96px;line-height:1.45}
+.id-pend h3{margin:0 0 6px;font-size:13px;color:#354f55}
+.id-pend ul{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:4px}
+.id-pend li{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:#f6f8f7}
+.id-pend li label{flex:1;display:flex;align-items:center;gap:8px;font-size:14px;color:#07191e}
+.id-pend li input:checked+span{text-decoration:line-through;color:#8b979c}
+.id-pend li button{border:0;background:none;font-size:18px;color:#8b979c;cursor:pointer}
+.id-pend-nuevo input{width:100%;border:1px dashed #cdd8d6;border-radius:10px;padding:8px 10px;font:inherit;font-size:14px}
+.id-hoja-msg{margin:0;padding:8px 10px;border-radius:10px;background:#fdecea;color:#a92a21;font-size:13px}
+.id-hoja-pie{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.id-link{border:0;background:none;padding:0;font:inherit;font-size:14px;font-weight:700;color:#a92a21;cursor:pointer}
+.id-hoja-meta{margin:0;font-size:12px;color:#8b979c}
+
+@media(max-width:900px){
+  .id-tablero{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;margin:0 -12px;padding:0 12px 8px}
+  .id-col{flex:0 0 82%;scroll-snap-align:start}
+}
+@media(max-width:560px){.id-props{grid-template-columns:1fr}.id-hoja{top:auto;bottom:0;left:0;transform:none;width:100%;max-height:92vh;border-radius:22px 22px 0 0}}
+/* polish.css estira campos y casillas a todo lo ancho: aquí no. */
+.id-herr{display:grid;grid-template-columns:auto auto 1fr}
+.id-herr select{width:auto!important;min-width:170px}
+.id-buscar input{width:100%!important;border:0!important;box-shadow:none!important;padding:0!important}
+.id-titulo{font-size:24px!important;font-weight:800!important;border:0!important;box-shadow:none!important;padding:0!important;background:none!important}
+.id-cols{display:grid!important;grid-template-columns:repeat(4,1fr)}
+.id-cols button{padding:8px 6px!important;font-size:13px!important}
+.id-pend li label{justify-content:flex-start;text-align:left}
+.id-pend li input[type="checkbox"]{width:20px!important;height:20px!important;min-height:0!important;flex:0 0 20px;margin:0;accent-color:#087d8e}
+.id-pend li span{flex:1}
+.id-rapida input{min-height:0!important;box-shadow:none!important}
+@media(max-width:560px){.id-herr{grid-template-columns:auto 1fr}.id-buscar{grid-column:1/-1}}

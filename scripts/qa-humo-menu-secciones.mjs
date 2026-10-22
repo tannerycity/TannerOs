@@ -77,8 +77,9 @@ async function menu(rol, active, opts = '') {
 
 {
   const m = await menu('Presidencia', 'asistencia');
-  const espera = ['Inicio','Mensajes','Jugadores','Partidos','Formación','Fichajes','Staff','Taquilla','Finanzas','Tienda','Utilería','Administración'];
-  revisa('1. Presidencia ve 12 secciones, no ~29 entradas', JSON.stringify(m.arriba) === JSON.stringify(espera), JSON.stringify(m.arriba));
+  // Marketing (22/10/2026): Patrocinadores e Ideas tienen su sección.
+  const espera = ['Inicio','Mensajes','Jugadores','Partidos','Formación','Fichajes','Staff','Taquilla','Finanzas','Patrocinadores','Ideas','Tienda','Utilería','Administración'];
+  revisa('1. Presidencia ve 14 entradas por sección, no ~29', JSON.stringify(m.arriba) === JSON.stringify(espera), JSON.stringify(m.arriba));
   revisa('2. en Asistencia, Jugadores queda marcada', m.activa.includes('Jugadores') && m.activa.includes('Asistencia'), JSON.stringify(m.activa));
   revisa('2. y debajo sólo sus pantallas', JSON.stringify(m.sub) === '["Asistencia","Becas"]', JSON.stringify(m.sub));
   revisa('3. pestañas de la sección arriba', JSON.stringify(m.tabs) === '["Jugadores","Asistencia","Becas"]' && m.actual === 'Asistencia', JSON.stringify(m));

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07191e">
+<title>Ideas · TannerOS</title>
+<link rel="stylesheet" href="/v2/styles.css">
+<link rel="stylesheet" href="/v2/ideas/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="stylesheet" href="/icons.css?v=20260907a">
+<link rel="stylesheet" href="/polish.css?v=20260907a">
+</head>
+<body>
+<main class="shell">
+  <section id="loadingView" class="center-card"><div class="brand-mark small">T</div><h2>Ideas</h2><p class="muted">Abriendo el tablero…</p></section>
+  <section id="deniedView" class="center-card hidden"><div class="brand-mark small">T</div><h2>Sin acceso</h2><p id="deniedText" class="muted">El banco de ideas es del staff del club.</p><a class="secondary nav-link" href="/">Volver</a></section>
+
+  <!-- Banco de ideas (22/10/2026): tablero tipo Notion, estilo kanban, para
+  darle seguimiento a lo que se nos ocurre hasta que queda hecho. -->
+  <section id="view" class="hidden app-wrap id">
+    <header class="topbar">
+      <div class="brand-lockup compact"><div class="brand-mark small">T</div><div><div class="eyebrow">TANNEROS</div><strong id="orgName"></strong></div></div>
+      <div class="top-actions"><a class="secondary mini nav-link" href="/">Inicio</a></div>
+    </header>
+    <header class="id-cab">
+      <div><h1>Ideas</h1><p id="idResumen" class="id-sub">Cargando…</p></div>
+      <button type="button" id="idNueva" class="id-btn">+ Nueva idea</button>
+    </header>
+    <div class="id-herr">
+      <div class="id-seg" id="idQuien" role="group" aria-label="Quiénes">
+        <button type="button" data-mias="0" aria-pressed="true">Todas</button>
+        <button type="button" data-mias="1" aria-pressed="false">Mías</button>
+      </div>
+      <select id="idArea" aria-label="Área"><option value="">Todas las áreas</option></select>
+      <label class="id-buscar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="idBuscar" type="search" placeholder="Buscar" autocomplete="off"></label>
+    </div>
+    <section id="idTablero" class="id-tablero" aria-label="Tablero"></section>
+    <div id="idMensaje" class="inline-message hidden"></div>
+  </section>
+</main>
+
+<div id="idFondo" class="id-fondo hidden"></div>
+<section id="idHoja" class="id-hoja hidden" role="dialog" aria-modal="true" aria-label="Idea"></section>
+
+<script type="module" src="/v2/tos-dialog.js"></script>
+<script type="module" src="/v2/branding-auto.js"></script>
+<script type="module" src="/v2/ideas/app.js"></script>
+</body>
+</html>

@@ -40,6 +40,7 @@ const ICONS={
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 20.9V21h-4v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/>',
   bug:'<path d="M8 2h8"/><rect x="6" y="5" width="12" height="15" rx="6"/><path d="M3 9h3"/><path d="M18 9h3"/><path d="M3 15h3"/><path d="M18 15h3"/>',
   plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+  bulb:'<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z"/>',
   userPlus:'<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M19 8v6"/><path d="M16 11h6"/>',
   moneyIn:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/>',
   moneyOut:'<path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/>',
@@ -96,7 +97,10 @@ export const navItems=[
   {code:'catalogo',label:'Catálogo',href:'/catalogo/',group:'ops',icon:'box',aliases:['tienda'],dentroDe:'tienda'},
   {code:'utileria',label:'Utilería',href:'/utileria/',group:'ops',icon:'box'},
   {code:'estacionamiento',label:'Estacionamiento',href:'/estacionamiento/',group:'finance',icon:'car',dentroDe:'taquilla'},
-  {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'finance',icon:'briefcase',dentroDe:'finanzas'},
+  // Marketing (22/10/2026): Patrocinadores y el banco de Ideas, juntos.
+  {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'marketing',icon:'briefcase'},
+  // Ideas: tablero tipo kanban para darle seguimiento; lo ve todo el staff.
+  {code:'ideas',label:'Ideas',href:'/ideas/',group:'marketing',icon:'bulb',always:true},
   {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin',icon:'userCog',dentroDe:'admin'},
   // Familias en el portal (18/10/2026): invitar por WhatsApp con liga personal.
   // No es módulo: la ve quien maneja Usuarios (y Presidencia).
@@ -106,7 +110,7 @@ export const navItems=[
   {code:'cambios',label:'Cambios',href:'/cambios/',group:'admin',icon:'list',lee:['admin'],dentroDe:'admin'},
   {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug',dentroDe:'admin'}
 ];
-const groupLabels={main:'',club:'Club',finance:'Finanzas',ops:'Operación',admin:'Administración'};
+const groupLabels={main:'',club:'Club',finance:'Finanzas',marketing:'Marketing',ops:'Operación',admin:'Administración'};
 
 export async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 export function navigationMap(rows=[]){return new Map((rows||[]).map(r=>[r.module_code,r]));}
@@ -394,7 +398,7 @@ function renderNavigation(nav,navigation,active,role){
     nav.appendChild(section);
     return;
   }
-  ['main','club','finance','ops','admin'].forEach(group=>{
+  ['main','club','finance','marketing','ops','admin'].forEach(group=>{
     const items=navItems.filter(item=>item.group===group&&itemEnMenu(navigation,item));if(!items.length)return;
     const section=document.createElement('div');section.className=`tos-nav-section tos-nav-section-${group}`;
     if(groupLabels[group]){const title=document.createElement('div');title.className='tos-nav-section-label';title.textContent=groupLabels[group];section.appendChild(title);}

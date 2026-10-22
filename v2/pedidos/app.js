@@ -71,7 +71,7 @@ const ICONS={
 function itemThumb(i){const d=(i.description||'').toLowerCase();if(/jersey|playera|uniforme/.test(d))return ICONS.jersey;if(/short|pant/.test(d))return ICONS.shorts;if(/calcet|media|sock/.test(d))return ICONS.socks;if(/conjunto|kit|combo/.test(d))return ICONS.kit;if(/chamarra|sudadera|jacket|outerwear/.test(d))return ICONS.jacket;return ICONS.default;}
 /* Mismo criterio que private.order_readiness en el backend: talla siempre requerida;
    nombre y número solo si la descripción suena a jersey/uniforme/playera. */
-function itemComplete(i){const a=i.attributes||{},d=i.description||'';const jerseyish=/jersey|uniforme|playera/i.test(d);const hasSize=!!String(a.talla||a.size||'').trim();const hasName=!!String(a.nombrePers||a.personalizationName||'').trim();const hasNumber=!!String(a.numero||a.number||'').trim();if(!hasSize)return false;if(jerseyish&&(!hasName||!hasNumber))return false;return true;}
+function itemComplete(i){const a=i.attributes||{},d=i.description||'';const jerseyish=/jersey|uniforme|playera/i.test(d);const hasSize=!!String(a.talla||a.size||'').trim();const hasNumber=!!String(a.numero||a.number||'').trim();if(!hasSize)return false;if(jerseyish&&!hasNumber)return false;return true;}
 function itemChip(label,value){return value?`<span class="item-chip">${esc(label)}: ${esc(value)}</span>`:'';}
 /* Transiciones reales que valida el backend (private.command_update_order_status).
    OJO: pending_payment/partial_payment también admiten saltar a "paid" manualmente,

@@ -93,7 +93,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   const p = await abre('/v2/captura/?tanner=p1');
   await p.waitForSelector('#bundleGrid .pick-card', { timeout:8000 });
   await p.click('#bundleGrid .pick-card');
-  revisa('[kit] propone el nombre del Tanner', (await p.inputValue('#bfName')) === 'Mateo Sin Número', await p.inputValue('#bfName'));
+  revisa('[kit] no inventa el nombre de la espalda', (await p.inputValue('#bfName')) === '', await p.inputValue('#bfName'));
   revisa('[kit] avisa que aún no tiene número', /Aún no tiene número/.test(await p.innerText('#bfNumberHint')));
   await p.click('#bfPickNumber');
   await p.waitForSelector('.dorsal-sug', { timeout:4000 });

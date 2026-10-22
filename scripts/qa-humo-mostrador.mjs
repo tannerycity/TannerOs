@@ -76,8 +76,10 @@ revisa('y dice que el pedido entra a su estado de cuenta',
 await pg.click('.pick-card-foto');
 await pg.waitForSelector('#pfTallas:not(.hidden)',{timeout:6000});
 // El detalle que evita la pérdida: lo que se estampa no se teclea.
-revisa('el jersey se propone con el nombre del Tanner',
-  (await pg.inputValue('#pfName'))==='Dario Montalvo Díaz', await pg.inputValue('#pfName'));
+// El nombre NO se propone (22/10/2026): va tal cual lo pidieron.
+revisa('el jersey no inventa el nombre de la espalda',
+  (await pg.inputValue('#pfName'))==='', await pg.inputValue('#pfName'));
+await pg.fill('#pfName','DARIO');
 revisa('y con su dorsal', (await pg.inputValue('#pfNumber'))==='7', await pg.inputValue('#pfNumber'));
 await pg.click('.talla-chip[data-talla="12"]');
 // Manga (13/10/2026): corta por omisión; aquí se pide larga.
@@ -95,6 +97,7 @@ revisa('el jersey suelto sugiere su kit con lo que incluye y cuánto más',
 // El segundo jersey del mismo kit, para la misma persona: es UN kit.
 await pg.click('.pick-card-foto >> nth=1');
 await pg.waitForSelector('#pfTallas:not(.hidden)',{timeout:6000});
+await pg.fill('#pfName','DARIO');
 await pg.click('.talla-chip[data-talla="12"]');
 await pg.click('#pfAdd');
 await pg.waitForTimeout(250);
@@ -115,7 +118,7 @@ await pg.click('#bfPieces [data-pieza="0"][data-talla="12"]');
 revisa('[precio] todas de niño lo regresan a precio Niño', /Niño/.test(await pg.textContent('.tier-btn.active')) && /precio Niño/.test(await pg.textContent('#drawerMessage')));
 if(process.env.SHOTS)await pg.locator('#drawer').screenshot({path:`${process.env.SHOTS}/kit-tallas.png`});
 revisa('el kit abre con los dos jerseys y el short en talla 12, nombre y manga larga',
-  JSON.stringify(tallasKit)==='["12","12","12"]'&&(await pg.inputValue('#bfName'))==='Dario Montalvo Díaz'&&(await pg.getAttribute('#bfManga [data-m="larga"]','aria-pressed'))==='true',JSON.stringify(tallasKit));
+  JSON.stringify(tallasKit)==='["12","12","12"]'&&(await pg.inputValue('#bfName'))==='DARIO'&&(await pg.getAttribute('#bfManga [data-m="larga"]','aria-pressed'))==='true',JSON.stringify(tallasKit));
 await pg.click('#bfAdd');
 await pg.waitForTimeout(200);
 await pg.evaluate(()=>document.getElementById('backdrop').click());

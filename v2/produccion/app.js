@@ -1,7 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { hojaPorModelo, filaDeHoja, resumenDeTallas, COLUMNAS_HOJA, nombreDeArchivoHoja }
   from '/v2/produccion/hoja.js';
-import { hojaPdf, nombreDelPdf } from '/v2/produccion/pdf.js';
+import { hojaPdf, nombreDelPdf, cargaFotos } from '/v2/produccion/pdf.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id),money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'});let ctx=null,batches=[],warranties=[],paidOrders=[],deliveredOrders=[],currentOrderDetail=null,currentFinance=null,currentSheet=null,hojaVista='modelo',commerceRead=false,canWrite=false,accountingRead=false,accountingWrite=false;
 const batchStatus={submitted:'Enviado',received:'Recibido',closed:'Cerrado',cancelled:'Cancelado'},warrantyStatus={opened:'Abierta',in_replacement:'En reposición',ready:'Lista',delivered:'Entregada',cancelled:'Cancelada'},payerLabel={guardian:'Familia',sponsor:'Sponsor',player:'Jugador',organization:'Club',other:'Otro'};
@@ -163,7 +163,8 @@ async function exportaHojaPdf(){
   const btn=$('printSheet'),antes=btn.textContent;
   btn.disabled=true;btn.textContent='Generando…';
   try{
-    const doc=await hojaPdf({sheet:currentSheet,orgName:ctx.organization_name});
+    const fotos=await cargaFotos(supabase,currentSheet).catch(()=>({}));
+    const doc=await hojaPdf({sheet:currentSheet,orgName:ctx.organization_name,fotos});
     doc.save(nombreDelPdf(currentSheet));
   }catch(e){
     // Nunca en silencio: si jsPDF no carga, la pantalla lo dice.

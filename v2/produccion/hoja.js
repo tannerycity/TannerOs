@@ -214,3 +214,49 @@ export function resumenDeTallas(grupo) {
 export function nombreDeArchivoHoja(folio) {
   return `hoja-de-produccion-${String(folio || 'corte').replace(/[^\w-]+/g, '-')}.pdf`;
 }
+
+/* La hoja por prenda (22/10/2026), para el PDF que se lleva al proveedor.
+
+   Presidencia: "estaría más interesante que saliera la playera y salieran
+   los pedidos que hay de esa playera... los shorts que están ahí no son los
+   correctos". La hoja por modelo colgaba el short del kit a cada playera, y
+   en un kit de dos playeras lo contaba dos veces. Aquí cada prenda es su
+   propia sección y cada pieza se cuenta una vez:
+
+     - las que llevan nombre o número salen como dorsales (quién, número,
+       talla, manga), que es lo que el pespuntador estampa;
+     - las demás (short, calcetas) sólo se cuentan por talla.
+
+   Devuelve { productos, tallas, total }: productos en orden (playeras,
+   shorts, calcetas, lo demás); tallas = todas las del corte, en orden. */
+const ORDEN_TIPO = { jersey: 0, short: 1, calcetas: 2, otra: 3 };
+const ORDEN_LETRAS = ['XCH', 'XS', 'CH', 'S', 'M', 'G', 'L', 'XG', 'XL', 'XXG', 'XXL', 'UNICA', 'UNIVERSAL'];
+export function ordenDeTalla(a, b) {
+  const na = Number(a), nb = Number(b), ea = Number.isFinite(na) && String(a).trim() !== '', eb = Number.isFinite(nb) && String(b).trim() !== '';
+  if (ea && eb) return na - nb;
+  if (ea !== eb) return ea ? -1 : 1;
+  const ia = ORDEN_LETRAS.indexOf(normaliza(a).toUpperCase().replace(/ /g, '')), ib = ORDEN_LETRAS.indexOf(normaliza(b).toUpperCase().replace(/ /g, ''));
+  if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  return String(a).localeCompare(String(b), 'es', { numeric: true });
+}
+export function hojaPorProducto(items = []) {
+  const prendas = new Map();
+  for (const p of Array.isArray(items) ? items : []) {
+    const nombre = nombreDeModelo(p);
+    if (!prendas.has(nombre)) prendas.set(nombre, { nombre, tipo: tipoDePieza(p.categoria), foto: null, piezas: 0, _tallas: new Map(), dorsales: [] });
+    const g = prendas.get(nombre);
+    if (!g.foto && p.photoPath) g.foto = { path: p.photoPath, bucket: p.photoBucket || 'tanneros-private' };
+    const cantidad = Number(p.quantity || 1), talla = String(p.talla || '').trim() || 'Sin talla';
+    g.piezas += cantidad;
+    g._tallas.set(talla, (g._tallas.get(talla) || 0) + cantidad);
+    if (p.nombrePers || p.numero) g.dorsales.push({ nombre: p.nombrePers || '', numero: p.numero || '', talla, manga: p.manga || null,
+      cantidad, folio: p.orderFolio || '', cliente: p.customerName || '', nota: [p.obs, p.orderNotes].filter(Boolean).join(' · ') });
+  }
+  const todas = new Set();
+  const productos = [...prendas.values()].map(g => {
+    const tallas = [...g._tallas.entries()].sort((a, b) => ordenDeTalla(a[0], b[0])).map(([talla, cantidad]) => { todas.add(talla); return { talla, cantidad }; });
+    const dorsales = g.dorsales.sort((a, b) => ordenDeTalla(a.talla, b.talla) || (Number(a.numero) || 999) - (Number(b.numero) || 999) || a.nombre.localeCompare(b.nombre, 'es'));
+    return { nombre: g.nombre, tipo: g.tipo, foto: g.foto, piezas: g.piezas, tallas, dorsales, largas: dorsales.filter(d => d.manga === 'larga').length };
+  }).sort((a, b) => ORDEN_TIPO[a.tipo] - ORDEN_TIPO[b.tipo] || a.nombre.localeCompare(b.nombre, 'es'));
+  return { productos, tallas: [...todas].sort(ordenDeTalla), total: productos.reduce((n, p) => n + p.piezas, 0) };
+}

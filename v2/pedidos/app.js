@@ -2,7 +2,7 @@ import { createClient } from '/v2/supabase-client.js';
 import { mensajeConfirmacion, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { abreVentas } from '/v2/pedidos/ventas.js';
 import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
-import { hojaPdf, nombreDelPdf, compartePdf } from '/v2/produccion/pdf.js';
+import { hojaPdf, nombreDelPdf, compartePdf, cargaFotos } from '/v2/produccion/pdf.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,orders=[],current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();
 /* Pedidos que llegaron por el link o el portal y nadie ha confirmado todavía
@@ -242,7 +242,8 @@ async function mandarAlProveedor(btn){
 async function compartirCorte(batchId,recien){
   try{
     const sheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:batchId});
-    const doc=await hojaPdf({sheet,orgName:ctx.organization_name});
+    const fotos=await cargaFotos(supabase,sheet).catch(()=>({}));
+    const doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos});
     const nombre=nombreDelPdf(sheet),texto=`Hoja de producción ${sheet?.batch?.folio||''} · ${ctx.organization_name||''}`;
     // Compartir necesita un toque fresco (el teléfono no deja compartir
     // después de esperar a la base y al PDF): por eso se pregunta aquí.

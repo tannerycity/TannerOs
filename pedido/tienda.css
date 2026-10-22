@@ -303,3 +303,25 @@
 .st-recien-acciones button, .st-recien-acciones a { flex: 1 1 140px; min-height: 42px; display: grid; place-items: center; border-radius: 12px; font: inherit; font-weight: 700; font-size: 14px; text-decoration: none; cursor: pointer; }
 .st-recien-acciones button { border: 0; background: var(--st-ink); color: #fff; }
 .st-recien-acciones a { border: 1px solid var(--st-line); background: #fff; color: var(--st-ink); }
+
+/* Portada con identidad del club (22/10/2026): "que todo el mundo disfrute
+   hacer sus pedidos y sean orgullosos Tanners". Banda del color del club con
+   el escudo de marca de agua, y Así funciona en cuatro pasos. */
+.st-hero.portada { position: relative; overflow: hidden; margin: 14px -4px 0; padding: 28px 22px 22px; border-radius: 24px;
+  background: linear-gradient(140deg, var(--st-brand) 0%, #0f5566 100%); color: #fff; }
+.st-hero.portada .st-eyebrow { color: var(--st-gold); }
+.st-hero.portada h1 { color: #fff; }
+.st-hero.portada > p { margin: 10px 0 0; max-width: 520px; font-size: 16.5px; line-height: 1.45; color: rgba(255,255,255,.86); }
+.st-hero-escudo { position: absolute; right: -22px; top: -14px; width: 150px; height: auto; opacity: .1; filter: brightness(0) invert(1); pointer-events: none; }
+.st-pasos { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.st-pasos li { display: flex; gap: 9px; align-items: flex-start; padding: 10px; border-radius: 14px; background: rgba(255,255,255,.1); }
+.st-pasos b { flex: 0 0 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--st-gold); color: var(--st-brand); font-size: 13px; font-weight: 800; }
+.st-pasos span { display: grid; gap: 1px; min-width: 0; }
+.st-pasos strong { font-size: 13.5px; }
+.st-pasos small { font-size: 11.5px; line-height: 1.3; opacity: .8; }
+@media (max-width: 700px) { .st-pasos { grid-template-columns: 1fr 1fr; } }
+/* Así sigue tu pedido, en la pantalla de Pedido recibido. */
+.st-sigue { margin: 22px 0 0; padding: 18px; border-radius: 20px; background: var(--st-brand); color: #fff; }
+.st-sigue h3 { margin: 0; font-size: 18px; }
+.st-sigue .st-pasos { margin-top: 12px; }
+.st-sigue-portal { display: block; margin-top: 14px; text-align: center; font-weight: 700; color: var(--st-gold); }

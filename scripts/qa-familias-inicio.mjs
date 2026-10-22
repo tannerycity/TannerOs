@@ -1,6 +1,6 @@
 // Inicio del portal de familias: las reglas (v2/familias/inicio.js), sin navegador.
 import assert from 'node:assert/strict';
-import { pendientesDe, proximoEvento, cuandoEs, saludo, avisosSinLeer } from '../v2/familias/inicio.js';
+import { pendientesDe, proximoEvento, cuandoEs, saludo, avisosSinLeer, PASOS_PEDIDO, avanceDePedido, piezaTexto } from '../v2/familias/inicio.js';
 
 let fallos = 0, corridas = 0;
 function prueba(nombre, fn) { corridas++; try { fn(); } catch (e) { fallos++; console.error(` - ${nombre}: ${e.message}`); } }
@@ -61,5 +61,23 @@ prueba('saludo según la hora y avisos sin leer', () => {
   assert.equal(avisosSinLeer(null), 0);
 });
 
+// Mi pedido (22/10/2026): el papá ve en qué paso va el pedido de su hijo.
+prueba('mi pedido: cinco pasos, del recibido al entregado', () => {
+  assert.deepEqual(PASOS_PEDIDO, ['Recibido', 'Confirmado', 'Con el proveedor', 'Listo', 'Entregado']);
+  assert.equal(avanceDePedido({ stage: 'por_validar' }).paso, 0);
+  assert.equal(avanceDePedido({ stage: 'para_proveedor' }).paso, 1);
+  assert.equal(avanceDePedido({ stage: 'con_proveedor' }).paso, 2);
+  assert.equal(avanceDePedido({ stage: 'para_entregar' }).titulo, '¡Ya llegó! Pasa por él');
+  assert.equal(avanceDePedido({ stage: 'entregado' }).paso, 4);
+});
+prueba('mi pedido: si falta pagar dice cuánto y ofrece pagar', () => {
+  const a = avanceDePedido({ stage: 'por_cobrar', total: 1299, paid: 500 });
+  assert.equal(a.titulo, 'Falta pagar $799.00'); assert.equal(a.pagar, true);
+});
+prueba('mi pedido: cada pieza se lee como la pidió', () => {
+  assert.equal(piezaTexto({ description: 'Jersey Home', talla: '10', manga: 'larga', nombre: 'JULIÁN', numero: '17', quantity: 1 }), 'Jersey Home · Talla 10 · manga larga · JULIÁN · #17');
+  assert.equal(piezaTexto({ description: 'Calcetas', quantity: 2 }), '2 × Calcetas');
+});
+
 if (fallos) { console.error(`Inicio familias QA FAILED · ${fallos} de ${corridas}`); process.exit(1); }
-console.log(`Inicio familias QA OK · ${corridas} casos: pendientes, lo próximo, cuándo es, saludo y avisos sin leer`);
+console.log(`Inicio familias QA OK · ${corridas} casos: pendientes, lo próximo, cuándo es, saludo, avisos sin leer y mi pedido`);

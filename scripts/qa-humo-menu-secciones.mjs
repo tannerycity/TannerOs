@@ -86,7 +86,7 @@ async function menu(rol, active, opts = '') {
 }
 {
   const m = await menu('Presidencia', 'inicio');
-  revisa('Inicio: Resumen, Dirección, Club y Encuestas', JSON.stringify(m.tabs) === '["Resumen","Club","Dirección","Encuestas"]' && m.actual === 'Resumen', JSON.stringify(m.tabs));
+  revisa('Inicio: Resumen, Club, Dirección, Cumpleaños y Encuestas', JSON.stringify(m.tabs) === '["Resumen","Club","Dirección","Cumpleaños","Encuestas"]' && m.actual === 'Resumen', JSON.stringify(m.tabs));
   const s = await menu('Presidencia', 'scouting');
   revisa('Fichajes trae Scouting', JSON.stringify(s.tabs) === '["Fichajes","Scouting"]' && s.actual === 'Scouting' && s.activa.includes('Fichajes'), JSON.stringify(s));
   const st = await menu('Presidencia', 'candidatos');

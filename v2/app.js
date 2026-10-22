@@ -555,7 +555,7 @@ async function renderCumpleStrip(){
       ?(otrosHoy.length===1?'Hoy es su cumpleaños':`Hoy hay ${otrosHoy.length} cumpleaños`)
       :'Cumpleaños';
     const nota=otrosHoy.length?'No olvides felicitarlos.':`Próximos 30 días · ${proximos.length}`;
-    html+=`<div class="tcs-head"><span class="tcs-ico">${CUMPLE_ICONO}</span><strong>${esc(titulo)}</strong><small>${esc(nota)}</small></div>`;
+    html+=`<div class="tcs-head"><span class="tcs-ico">${CUMPLE_ICONO}</span><strong>${esc(titulo)}</strong><small>${esc(nota)}</small><a class="tcs-todos" href="/cumpleanos/">Ver todos</a></div>`;
     html+=`<div class="tcs-rail">${otrosHoy.map(ficha).join('')}${proximos.map(ficha).join('')}</div>`;
   }
   if(preguntar){

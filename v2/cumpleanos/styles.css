@@ -1,0 +1,40 @@
+/* Cumpleaños (21/10/2026). */
+.cu-cab{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin:6px 0 14px}
+.cu-cab h1{margin:0;font-size:32px;letter-spacing:-.02em;color:#07191e}
+.cu-sub{margin:4px 0 0;font-size:14px;color:#5c6f74}
+.cu-anio{display:flex;align-items:center;gap:6px;background:#eef2f1;border-radius:14px;padding:4px}
+.cu-anio button{width:36px;height:36px;border:0;border-radius:10px;background:#fff;font:inherit;font-size:20px;font-weight:800;color:#07191e;cursor:pointer}
+.cu-anio strong{min-width:56px;text-align:center;font-size:17px;font-variant-numeric:tabular-nums}
+.cu-herr{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.cu-seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:#eef2f1}
+.cu-seg button{border:0;background:none;border-radius:10px;padding:8px 14px;font:inherit;font-size:14px;font-weight:700;color:#4a6870;cursor:pointer}
+.cu-seg button[aria-pressed="true"]{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
+.cu-herr select{min-height:40px;border-radius:12px;border:1px solid #d6dfdd;padding:0 10px;font:inherit;font-size:14px;background:#fff}
+.cu-buscar{display:flex;align-items:center;gap:6px;flex:1;min-width:160px;border:1px solid #d6dfdd;border-radius:12px;padding:0 10px;background:#fff}
+.cu-buscar input{border:0;outline:0;flex:1;min-height:38px;font:inherit;font-size:14px;background:none}
+.cu-faltan{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#fdf8ec;border:1px solid #eddfba;font-size:13px;color:#6e5a1f}
+.cu-meses{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.cu-mes-carta{display:grid;gap:4px;text-align:left;padding:14px;border-radius:18px;border:1px solid #e2e7e5;background:#fff;font:inherit;cursor:pointer;min-height:112px;align-content:start}
+.cu-mes-carta:hover{box-shadow:0 10px 24px -16px rgba(3,47,59,.45)}
+.cu-mes-carta.es-hoy{border-color:#087d8e;box-shadow:0 0 0 2px rgba(8,125,142,.18)}
+.cu-mes-nombre{font-size:13px;font-weight:800;color:#354f55;text-transform:uppercase;letter-spacing:.04em}
+.cu-mes-carta b{font-size:30px;letter-spacing:-.03em;color:#07191e;font-variant-numeric:tabular-nums}
+.cu-mes-carta small{font-size:12.5px;color:#6b7a80;line-height:1.35}
+.cu-volver button{border:0;background:none;padding:4px 0 10px;font:inherit;font-size:15px;font-weight:700;color:#087d8e;cursor:pointer}
+.cu-mes h2{display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:24px;color:#07191e}
+.cu-mes h2 span{font-size:13px;font-weight:800;color:#05505d;background:#e3f1f3;border-radius:999px;padding:3px 10px}
+.cu-lista{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.cu-lista li{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:14px;background:#fff;border:1px solid #e2e7e5}
+.cu-lista li.ya-paso{opacity:.55}
+.cu-lista li.es-hoy{border-color:#087d8e;background:#f2fafb}
+.cu-dia{flex:0 0 60px;font-weight:800;font-size:14px;color:#05505d;font-variant-numeric:tabular-nums}
+.cu-quien{flex:1;display:grid;min-width:0}
+.cu-quien b{font-size:14.5px;color:#07191e}
+.cu-quien small{font-size:12.5px;color:#6b7a80}
+.cu-tipo{font-size:11.5px;font-weight:800;border-radius:999px;padding:3px 9px;background:#eef2f1;color:#4a6870}
+.cu-tipo[data-kind="staff"]{background:#fbf3e3;color:#9a6a12}
+.cu-lista em{font-style:normal;font-size:11.5px;font-weight:800;color:#fff;background:#087d8e;border-radius:999px;padding:3px 9px}
+.cu-vacio{color:#6b7a80;text-align:center;padding:24px}
+@media(max-width:760px){.cu-meses{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:420px){.cu-mes-carta{min-height:96px;padding:12px}.cu-mes-carta b{font-size:26px}.cu-tipo{display:none}}
+@media print{.cu-herr,.cu-volver,.cu-anio,.tos-seccion{display:none!important}.cu-mes-carta,.cu-lista li{break-inside:avoid}}

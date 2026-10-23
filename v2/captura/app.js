@@ -26,8 +26,14 @@ let ultimoPedido=null; // {kind:'bundle', bundle} | {kind:'product', product}
 
 function show(id){['loadingView','deniedView','view'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 async function rpc(n,p={}){const {data,error}=await supabase.rpc(n,p);if(error)throw error;return data;}
-function createMsg(t='',type='error'){const e=$('createMessage');e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}
-function drawerMsg(t='',type='error'){const e=$('drawerMessage');if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);}
+// El aviso sale junto a lo que falta y a la vista (23/10/2026): "Crear pedido"
+// parecía no hacer nada porque el aviso quedaba hasta abajo, fuera de pantalla.
+function createMsg(t='',type='error',junto=null){
+  const e=$('createMessage');e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);
+  const ancla=junto||$('orderNotes').closest('label');if(ancla&&ancla.nextElementSibling!==e)ancla.after(e);
+  if(t&&type==='error')e.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function drawerMsg(t='',type='error'){const e=$('drawerMessage');if(!e)return;e.textContent=t;e.dataset.type=type;e.classList.toggle('hidden',!t);if(t&&type==='error')e.scrollIntoView({behavior:'smooth',block:'nearest'});}
 
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -218,7 +224,7 @@ function modoExterno(on,motivo){
   if(btn)btn.textContent=externo?'Es un Tanner del club':'No es del club, capturar a mano';
   if(externo){tannerId='';const s=$('capPlayer');if(s)s.value='';}
   pintaQuien();
-  if(motivo)createMsg(motivo,'error');
+  if(motivo)createMsg(motivo,'error',$('capManual'));
 }
 $('capExterno')?.addEventListener('click',()=>modoExterno(!externo));
 $('capPlayer')?.addEventListener('change',e=>{
@@ -327,15 +333,18 @@ function renderBundlePieces(){
     // Pieza a elegir: primero cuál (botones con las opciones), luego su talla.
     const opciones=s.pool?s.pool.map(id=>products.find(p=>String(p.id)===id)).filter(Boolean):[];
     const cual=s.pool?`<div class="tallas-chips pieza-opciones">${opciones.map(o=>`<button type="button" class="talla-chip${String(s.productId)===String(o.id)?' activa':''}" data-elige="${i}" data-pid="${esc(o.id)}" aria-pressed="${String(s.productId)===String(o.id)}">${esc(nombreCorto(o.name))}</button>`).join('')}</div>`:'';
-    if(s.pool&&!s.productId)return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">Elige cuál</b></span>${cual}</div>`;
-    const t=tallasDePieza(s);
+    // Sin modelo elegido, las tallas ya se ven (23/10/2026): Zul no encontraba
+    // Adulto/Niño porque salían hasta tocar el jersey. Se toman de las opciones.
+    const sinModelo=s.pool&&!s.productId;
+    const t=sinModelo?[...new Set(opciones.flatMap(o=>Array.isArray(o.sizes)?o.sizes.map(x=>String(x).trim()).filter(Boolean):[]))]:tallasDePieza(s);
+    if(sinModelo&&!t.length)return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">Elige cuál</b></span>${cual}</div>`;
     if(!t.length)return `<div class="component-row"><span class="component-name">${esc(s.name)}</span><input class="bf-talla" data-idx="${i}" type="text" maxlength="40" placeholder="Talla" value="${esc(s.talla)}"></div>`;
     const g=gruposDeTallas(t),primero=picking.tier==='Niño'?'Niño':'Adulto';
     const orden=[...g.filter(x=>x.etiqueta===primero),...g.filter(x=>x.etiqueta!==primero)];
     // Manga por jersey (14/10/2026): uno de manga larga y otro no, con su cargo.
-    const prod=products.find(x=>String(x.id)===String(s.productId));
+    const prod=products.find(x=>String(x.id)===String(s.productId))||(sinModelo?opciones[0]:null);
     const mangaSeg=prod&&JERSEY_RE.test(prod.name||'')?`<div class="manga-seg pieza-manga" data-manga-slot="${i}" role="group" aria-label="Manga">${['corta','larga'].map(m=>`<button type="button" data-m="${m}" class="${(s.manga||'corta')===m?'activa':''}" aria-pressed="${(s.manga||'corta')===m}">${m==='larga'?`Larga${recargoManga?` +${money.format(recargoManga)}`:''}`:'Corta'}</button>`).join('')}</div>`:'';
-    return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">${s.talla?esc(s.talla):''}</b></span>${cual}${mangaSeg}
+    return `<div class="component-row pieza-tallas" data-idx="${i}"><span class="component-name">${esc(s.name)}<b class="pieza-elegida">${sinModelo?(s.talla?`${esc(s.talla)} · elige cuál`:'Elige cuál'):(s.talla?esc(s.talla):'')}</b></span>${cual}${mangaSeg}
       ${orden.map(x=>`${x.etiqueta&&orden.length>1?`<small class="pieza-grupo">${esc(x.etiqueta)}</small>`:''}<div class="tallas-chips">${x.tallas.map(v=>`<button type="button" class="talla-chip${s.talla===v?' activa':''}" data-pieza="${i}" data-talla="${esc(v)}" aria-pressed="${s.talla===v}">${esc(v)}</button>`).join('')}</div>`).join('')}</div>`;
   }).join('');
   $('bfPieces').querySelectorAll('.bf-talla').forEach(inp=>inp.addEventListener('input',e=>{picking.slots[Number(e.target.dataset.idx)].talla=e.target.value;}));
@@ -539,10 +548,10 @@ async function createOrder(){
   const name=$('custName').value.trim(),phone=$('custPhone').value.trim(),email=$('custEmail').value.trim();
   // Con un Tanner elegido, el servidor completa nombre y teléfono desde su
   // expediente: aquí no se exige teclear lo que el club ya sabe.
-  if(!p&&!externo){createMsg('Elige al Tanner, o captura los datos a mano si no es del club.');return;}
+  if(!p&&!externo){createMsg('Elige al Tanner, o captura los datos a mano si no es del club.','error',$('capExterno'));return;}
   if(externo){
-    if(name.length<2){createMsg('Captura el nombre del cliente.');return;}
-    if(!phone){createMsg('Captura el teléfono.');return;}
+    if(name.length<2){createMsg('Captura el nombre del cliente.','error',$('capManual'));return;}
+    if(!phone){createMsg('Captura el teléfono.','error',$('capManual'));return;}
   }
   if(!cart.length){createMsg('Agrega al menos una pieza al pedido.');return;}
   const lines=cart.map(item=>item.kind==='bundle'

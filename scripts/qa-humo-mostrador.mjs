@@ -156,9 +156,12 @@ revisa('[dúo] la tarjeta dice "2× jersey a elegir"', /2× jersey a elegir/.tes
 revisa('[dúo] cada espacio enseña las opciones del kit', (await pg.$$('#bfPieces [data-elige="1"]')).length===2 && (await pg.$$('#bfPieces [data-elige="2"]')).length===2);
 await pg.click('#bfAdd');
 revisa('[dúo] sin elegir no se agrega y dice cuál falta', /Elige jersey a elegir 1/.test(await pg.textContent('#drawerMessage')), await pg.textContent('#drawerMessage'));
+// Las tallas (Adulto y Niño) se ven antes de elegir el modelo (23/10/2026).
+revisa('[dúo] las tallas de cada jersey se ven sin haber elegido modelo', (await pg.$$('#bfPieces [data-pieza="1"][data-talla="10"]')).length===1 && (await pg.$$('#bfPieces [data-pieza="2"][data-talla="10"]')).length===1);
+for(const i of [1,2])await pg.click(`#bfPieces [data-pieza="${i}"][data-talla="10"]`);
 await pg.click('#bfPieces [data-elige="1"][data-pid="p3"]');
 await pg.click('#bfPieces [data-elige="2"][data-pid="p3"]');
-for(const i of [1,2])await pg.click(`#bfPieces [data-pieza="${i}"][data-talla="10"]`);
+revisa('[dúo] la talla tocada primero se queda al elegir el modelo', (await pg.getAttribute('#bfPieces [data-pieza="1"][data-talla="10"]','aria-pressed'))==='true');
 revisa('[manga] cada jersey del kit trae su manga; el short no', (await pg.$$('#bfPieces [data-manga-slot]')).length===2 && await pg.isHidden('#bfManga'));
 await pg.click('#bfPieces [data-manga-slot="1"] [data-m="larga"]');
 await pg.fill('#bfPieces .bf-talla','10');
@@ -167,6 +170,12 @@ await pg.waitForTimeout(200);
 await pg.evaluate(()=>document.getElementById('backdrop').click());
 const duoRen=await pg.$$eval('#cartList .cart-row span',xs=>xs.map(x=>x.textContent));
 revisa('[dúo] se agrega a precio Niño con las tallas de niño', duoRen.length===1&&/Kit Dúo \(Niño\)/.test(duoRen[0]), JSON.stringify(duoRen));
+if(!(await pg.inputValue('#capPlayer').catch(()=>'x'))){
+  await pg.click('#createOrder');
+  revisa('[crear] sin Tanner avisa junto a "¿Para quién?", no hasta abajo',
+    /Elige al Tanner/.test(await pg.textContent('#createMessage')) && await pg.evaluate(()=>document.getElementById('capExterno').nextElementSibling?.id==='createMessage'),
+    await pg.textContent('#createMessage'));
+}
 if(await pg.isVisible('#capPlayer'))await pg.selectOption('#capPlayer','t1');
 await pg.click('#createOrder');
 await pg.waitForTimeout(500);

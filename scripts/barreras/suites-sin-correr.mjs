@@ -178,7 +178,9 @@ export default function comprobar() {
   // agregar rápido, hoja, arrastrar y archivar).
   // Sube a 59 por qa-humo-activo-foto.mjs: el Activo Tanner con foto desde el
   // alta, comprimida y ligada al activo.
-  const MAX_EXCLUIDAS = 59;
+  // Sube a 60 por qa-humo-patrocinios-hoy.mjs: Patrocinios en dos minutos
+  // (marcador, Hoy toca, tablero por marca y palomear desde la ficha).
+  const MAX_EXCLUIDAS = 60;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

@@ -333,3 +333,66 @@
   .drawer-nav button{padding:8px;font-size:10px}
   .agreement-counts{display:grid;grid-template-columns:1fr 1fr}
 }
+
+/* Patrocinios en dos minutos (23/10/2026): marcador, Hoy toca y tablero por marca. */
+.pt-marcador{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 14px}
+.pt-marcador article{background:#fff;border:1px solid #e2e9e7;border-radius:18px;padding:14px 16px;display:grid;gap:2px}
+.pt-marcador span{font-size:12px;font-weight:800;color:#5c7076}
+.pt-marcador strong{font-size:28px;letter-spacing:-.02em;color:#07191e;font-variant-numeric:tabular-nums}
+.pt-marcador small{font-size:12px;color:#6b7a80}
+.pt-marcador .pt-cobrar strong{color:#b0451f}
+.pt-marcador .pt-debemos strong{color:#9a6a12}
+.pt-marcador .ok strong{color:#1d7a46}
+.pt-hoy{margin-bottom:14px}
+.pt-hoy-lista{display:grid;gap:6px}
+.pt-aviso{display:flex;align-items:center;gap:8px;border-radius:14px;background:#f7faf9;padding:2px 8px 2px 4px}
+.pt-aviso-main{flex:1;min-width:0;border:0;background:none;text-align:left;display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 6px;cursor:pointer;color:#10252b;font:inherit}
+.pt-aviso-punto{width:10px;height:10px;border-radius:50%;background:#9fb0b4}
+.pt-aviso.nivel-alta .pt-aviso-punto{background:#c2410c;box-shadow:0 0 0 4px rgba(194,65,12,.14)}
+.pt-aviso.nivel-media .pt-aviso-punto{background:#d39b2a}
+.pt-aviso-txt{display:grid;gap:1px;min-width:0}
+.pt-aviso-txt strong{font-size:14px}
+.pt-aviso-txt span{font-size:13px;color:#4a6168;overflow-wrap:anywhere}
+.pt-aviso-ir{font-size:12px;font-weight:800;color:#087d8e;white-space:nowrap}
+.pt-link{border:0;background:none;padding:10px 4px 0;font:inherit;font-size:14px;font-weight:800;color:#087d8e;cursor:pointer}
+.pt-tablero-wrap{margin-bottom:24px}
+.pt-tablero-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:6px;margin:0 2px 10px}
+.pt-tablero-head h2{margin:0}
+.pt-tablero{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.pt-marca{display:grid;gap:10px;text-align:left;padding:14px;border-radius:18px;background:#fff;border:1px solid #e2e9e7;cursor:pointer;font:inherit;color:#10252b;box-shadow:0 1px 2px rgba(7,25,30,.04)}
+.pt-marca:hover{box-shadow:0 10px 24px -16px rgba(3,47,59,.5)}
+.pt-marca:focus-visible{outline:2px solid #087d8e;outline-offset:2px}
+.pt-marca.urge{border-left:4px solid #c2410c}
+.pt-marca-top{display:flex;align-items:center;gap:10px}
+.pt-marca-nombre{flex:1;min-width:0;display:grid}
+.pt-marca-nombre strong{font-size:15.5px;overflow-wrap:anywhere}
+.pt-marca-nombre small{font-size:12px;color:#6b7a80}
+.pt-barra{display:grid;gap:4px}
+.pt-barra-txt{display:flex;justify-content:space-between;font-size:12.5px;color:#4a6168}
+.pt-barra-txt b{color:#10252b;font-variant-numeric:tabular-nums}
+.pt-barra-fondo{height:7px;border-radius:999px;background:#edf2f1;overflow:hidden}
+.pt-barra-fondo i{display:block;height:100%;border-radius:999px;background:#087d8e}
+.pt-marca-dinero{font-size:13px;font-weight:800;color:#1d7a46}
+.pt-marca-dinero.falta{color:#b0451f}
+.pt-marca-meta{font-size:12.5px;color:#5c7076}
+.pt-marca-meta.atrasado{color:#b0451f;font-weight:700}
+.pt-marca-avisos{justify-self:start;font-size:11.5px;font-weight:800;border-radius:999px;padding:3px 9px;background:#fff1e6;color:#9a3d12}
+.pt-marca-avisos.ok{background:#e4f4ea;color:#1d7a46}
+.pt-datos{margin:10px 0;border:1px solid #e2e9e7;border-radius:14px;background:#fff}
+.pt-datos summary{cursor:pointer;padding:12px 14px;font-size:13.5px;font-weight:800;color:#31525c}
+.pt-datos .drawer-summary-card{margin:0;border:0;box-shadow:none}
+.pt-check{display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer}
+.pt-check input{width:20px!important;height:20px!important;min-height:0!important;flex:0 0 20px;margin:0;accent-color:#087d8e}
+@media(max-width:900px){.pt-marcador{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){
+  .pt-marcador strong{font-size:22px}
+  .pt-marcador article{padding:12px}
+  .pt-aviso-main{grid-template-columns:10px minmax(0,1fr)}
+  .pt-aviso-ir{grid-column:2}
+  .pt-tablero{grid-template-columns:1fr}
+}
+.pt-marca-dinero.neutro{color:#5c7076}
+.pt-hoy .panel-head{flex-wrap:nowrap;align-items:center}
+.pt-hoy .count-badge{flex:0 0 auto;width:auto;min-width:32px}
+.sponsorship-hero .hero-primary{color:#fff!important}
+.pt-hoy .panel-head{display:flex!important;justify-content:space-between!important;text-align:left!important;gap:10px}

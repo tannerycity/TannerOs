@@ -83,3 +83,4 @@ qa-humo-menu-secciones.mjs
 qa-humo-pedido-con-motivo.mjs
 qa-humo-pedido-etapas.mjs
 qa-humo-ideas.mjs
+qa-humo-activo-foto.mjs

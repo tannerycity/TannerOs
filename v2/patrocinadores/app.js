@@ -1,6 +1,6 @@
 import { createClient } from '/v2/supabase-client.js';
 import { nombreDelClub } from '/v2/club.js';
-import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
@@ -410,9 +410,22 @@ async function hydrateEvidenceThumbs() {
   });
 }
 
+// Al dar de alta todavía no hay id: la foto espera y se sube al guardar.
+let pendingAssetPhoto = null;
+function holdAssetPhoto(file) {
+  if (!file) return;
+  if (file.type && !String(file.type).startsWith('image/')) { message('assetPhotoMessage', 'Selecciona una imagen válida.'); return; }
+  pendingAssetPhoto = file;
+  const url = URL.createObjectURL(file);
+  $('assetPhotoBox').innerHTML = '<img src="' + url + '" alt="">';
+  $('assetPhotoAction').textContent = 'Cambiar foto';
+  message('assetPhotoMessage', 'Se sube comprimida al guardar.', 'success');
+}
+
 async function uploadAssetPhoto(file) {
   const assetId = $('assetId').value;
-  if (!canWrite || !assetId || !file) return;
+  if (!canWrite || !file) return false;
+  if (!assetId) { holdAssetPhoto(file); return true; }
   message('assetPhotoMessage');
   $('assetPhotoMessage').textContent = 'Subiendo…';
   $('assetPhotoMessage').dataset.type = 'success';
@@ -457,8 +470,10 @@ async function uploadAssetPhoto(file) {
     const url = await signedUrl(updated.photoBucket, updated.photoPath);
     if (url) $('assetPhotoBox').innerHTML = '<img src="' + url + '" alt="">';
     message('assetPhotoMessage', 'Foto actualizada.', 'success');
+    return true;
   } catch (error) {
     message('assetPhotoMessage', friendly(error));
+    return false;
   }
 }
 
@@ -1303,7 +1318,9 @@ function resetAssetForm() {
   $('assetModalTitle').textContent = 'Agregar Activo Tanner';
   $('saveAsset').textContent = 'Guardar activo';
   $('archiveAsset').classList.add('hidden');
-  $('assetPhotoSection').classList.add('hidden');
+  pendingAssetPhoto = null;
+  $('assetPhotoSection').classList.remove('hidden');
+  $('assetPhotoAction').textContent = 'Agregar foto';
   $('assetPhotoBox').innerHTML = '<span>Sin foto</span>';
   message('assetMessage');
   message('assetPhotoMessage');
@@ -1322,8 +1339,8 @@ function openAssetForm(asset = null) {
     $('assetModalTitle').textContent = 'Editar Activo Tanner';
     $('saveAsset').textContent = 'Guardar cambios';
     $('archiveAsset').classList.remove('hidden');
-    $('assetPhotoSection').classList.remove('hidden');
     if (asset.photoPath) {
+      $('assetPhotoAction').textContent = 'Cambiar foto';
       signedUrl(asset.photoBucket, asset.photoPath).then((url) => {
         if (url) $('assetPhotoBox').innerHTML = '<img src="' + url + '" alt="">';
       }).catch(() => {});
@@ -1338,7 +1355,7 @@ async function saveAsset(event) {
   const button = $('saveAsset');
   button.disabled = true;
   try {
-    await rpc('v2_upsert_sponsor_asset_admin', {
+    const id = await rpc('v2_upsert_sponsor_asset_admin', {
       organization_id: ctx.organization_id,
       asset_id: $('assetId').value || null,
       name: $('assetName').value.trim(),
@@ -1347,6 +1364,15 @@ async function saveAsset(event) {
       description: $('assetDescription').value.trim() || null,
       availability: $('assetAvailability').value,
     });
+    if (pendingAssetPhoto && id) {
+      // El activo ya existe: si la foto falla, queda abierto como edición para reintentar.
+      const file = pendingAssetPhoto;
+      pendingAssetPhoto = null;
+      $('assetId').value = id;
+      $('assetModalTitle').textContent = 'Editar Activo Tanner';
+      $('saveAsset').textContent = 'Guardar cambios';
+      if (!(await uploadAssetPhoto(file))) { await load(); return; }
+    }
     closeModal();
     await load();
     switchView('assets');

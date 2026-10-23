@@ -176,7 +176,9 @@ export default function comprobar() {
   // del viernes con su PDF, Ya llegó y regresar un paso.
   // Sube a 58 por qa-humo-ideas.mjs: el banco de ideas (columnas,
   // agregar rápido, hoja, arrastrar y archivar).
-  const MAX_EXCLUIDAS = 58;
+  // Sube a 59 por qa-humo-activo-foto.mjs: el Activo Tanner con foto desde el
+  // alta, comprimida y ligada al activo.
+  const MAX_EXCLUIDAS = 59;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

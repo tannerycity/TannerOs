@@ -1,6 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { saludDeMarca, hoyToca, marcador, ordenTablero } from '/v2/patrocinadores/tablero.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
@@ -530,118 +531,105 @@ async function deleteEvidence(evidenceId, bucket, path) {
 }
 
 function render() {
-  renderKpis();
   renderSummary();
   renderRoute();
-  renderBrands();
   renderAssets();
   if (selectedSponsorId && !$('brandDrawer').classList.contains('hidden')) renderBrandDrawer();
   writeControls();
 }
 
-function renderKpis() {
-  const activeAgreements = agreements.filter((agreement) => agreement.status === 'active');
-  const receivedValue = activeAgreements.reduce((total, agreement) => {
-    const inKindItems = itemsForAgreement(agreement.id).filter((item) => item.direction === 'receive' && item.type !== 'money');
-    const inKindReceived = inKindItems.filter((item) => item.fulfilled).reduce((sum, item) => sum + Number(item.estimatedValue || 0), 0);
-    const moneyReceived = Math.min(paidTotalForAgreement(agreement.id), Number(agreement.monetaryValue || 0));
-    return total + inKindReceived + moneyReceived;
-  }, 0);
-  const renewals = activeAgreements.filter((agreement) => {
-    const days = dayDiff(agreement.endsOn);
-    return days !== null && days <= 45;
-  });
-  const weightedValue = sponsors.reduce((total, sponsor) => {
-    const stage = normalizeStage(sponsor.stage, sponsor.status);
-    if (stage === 'lost' || stage === 'finished') return total;
-    const probability = STAGE_PROBABILITY[stage] ?? 0;
-    return total + (Number(sponsor.potentialValue || 0) * probability / 100);
-  }, 0);
-  $('kpiActiveAgreements').textContent = activeAgreements.length;
-  $('kpiReceivedValue').textContent = money.format(receivedValue);
-  $('kpiPlaying').textContent = sponsors.filter(isOpenSponsor).length;
-  $('kpiClosing').textContent = sponsors.filter((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === 'closing').length;
-  $('kpiRenewals').textContent = renewals.length;
-  $('kpiWeighted').textContent = money.format(weightedValue);
+const hoyIso = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+function saludes() {
+  const hoy = hoyIso();
+  return sponsors.map((sponsor) => saludDeMarca(sponsor, { agreements, items: agreementItems, payments, hoy, etapa: normalizeStage(sponsor.stage, sponsor.status) }));
+}
+let verTodoHoy = false;
+const HOY_VISIBLES = 6;
+const ACCION_TEXTO = { seguimiento: 'Registrar avance', pagos: 'Registrar pago', acuerdo: 'Ver acuerdo', compromisos: 'Palomear', editar: 'Definir paso' };
+
+// Desde "Hoy toca", cada aviso lleva directo a donde se resuelve.
+function resolverAviso(sponsorId, accion) {
+  if (accion === 'editar' && canWrite) { openSponsorForm(sponsorById(sponsorId)); return; }
+  openBrand(sponsorId);
+  if (accion === 'pagos') {
+    const conValor = agreementsForSponsor(sponsorId).filter((a) => a.status !== 'cancelled')
+      .sort((a, b) => (b.status === 'active') - (a.status === 'active') || Number(b.monetaryValue || 0) - Number(a.monetaryValue || 0))[0];
+    switchDrawerView('brand-agreement');
+    if (conValor && canWrite) openPaymentsModal(conValor.id);
+  } else if (accion === 'acuerdo') switchDrawerView('brand-agreement');
+  else if (accion === 'compromisos') switchDrawerView('brand-assets');
+  else if (accion === 'seguimiento') { switchDrawerView('brand-followup'); if (canWrite) openMovementForm(); }
 }
 
-function buildNextItems() {
-  const next = [];
-  sponsors.forEach((sponsor) => {
-    const stage = normalizeStage(sponsor.stage, sponsor.status);
-    if (['lost', 'finished'].includes(stage)) return;
-    if (sponsor.nextAction && sponsor.nextActionAt) {
-      next.push({
-        sponsorId: sponsor.id,
-        title: sponsor.name,
-        detail: sponsor.nextAction,
-        meta: timingLabel(sponsor.nextActionAt),
-        date: dateValue(sponsor.nextActionAt)?.getTime() || Number.MAX_SAFE_INTEGER,
-        urgent: (dayDiff(sponsor.nextActionAt) ?? 99) <= 0,
-      });
-    } else if (stage !== 'active') {
-      next.push({
-        sponsorId: sponsor.id,
-        title: sponsor.name,
-        detail: 'Sin seguimiento',
-        meta: 'Define el próximo movimiento',
-        date: Date.now() + 86400000,
-        urgent: true,
-      });
-    }
-  });
-  agreements
-    .filter((agreement) => agreement.status === 'active' && dayDiff(agreement.endsOn) !== null && dayDiff(agreement.endsOn) <= 60)
-    .forEach((agreement) => {
-      const sponsor = sponsorById(agreement.sponsorId);
-      if (!sponsor) return;
-      next.push({
-        sponsorId: sponsor.id,
-        title: sponsor.name,
-        detail: 'Renovar acuerdo',
-        meta: timingLabel(agreement.endsOn, true),
-        date: dateValue(agreement.endsOn)?.getTime() || Number.MAX_SAFE_INTEGER,
-        urgent: (dayDiff(agreement.endsOn) ?? 99) <= 15,
-      });
-    });
-  return next.sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.date - b.date).slice(0, 10);
+function barra(etiqueta, c) {
+  const pct = c.total ? Math.round(c.hechos / c.total * 100) : 0;
+  return '<span class="pt-barra"><span class="pt-barra-txt"><span>' + esc(etiqueta) + '</span><b>' + (c.total ? c.hechos + ' de ' + c.total : '—') + '</b></span>' +
+    '<span class="pt-barra-fondo"><i style="width:' + pct + '%"></i></span></span>';
 }
 
 function renderSummary() {
-  const next = buildNextItems();
-  $('nextCount').textContent = next.length;
-  $('nextEmpty').classList.toggle('hidden', next.length > 0);
-  $('nextList').innerHTML = next.map((item) => {
-    const sponsor = sponsorById(item.sponsorId);
-    const waLink = buildWhatsAppLink(sponsor, item.detail);
-    return '<div class="next-item ' + (item.urgent ? 'urgent' : '') + '">' +
-      '<button class="next-item-main" data-sponsor-id="' + esc(item.sponsorId) + '" type="button">' +
-        '<span class="next-marker"></span>' +
-        '<span class="next-copy"><strong>' + esc(item.title) + '</strong><span>' + esc(item.detail) + '</span></span>' +
-        '<span class="next-time">' + esc(item.meta) + '</span>' +
+  const salud = saludes();
+  const m = marcador(salud);
+  $('ptMarcas').textContent = m.marcas;
+  const abiertas = sponsors.filter(isOpenSponsor).length;
+  $('ptMarcasSub').textContent = abiertas ? abiertas + ' más en plática' : 'ninguna en plática';
+  $('ptValor').textContent = money.format(m.valor);
+  $('ptValorSub').textContent = m.porRecibir ? 'recibido ' + m.recibido + ' de ' + m.porRecibir + ' en especie y dinero' : 'sin compromisos capturados';
+  $('ptPorCobrar').textContent = money.format(m.porCobrar);
+  $('ptCobradoSub').textContent = 'cobrado ' + money.format(m.cobrado);
+  $('ptDebemos').textContent = m.debemos;
+  document.querySelector('.pt-cobrar')?.classList.toggle('ok', m.porCobrar === 0);
+  document.querySelector('.pt-debemos')?.classList.toggle('ok', m.debemos === 0);
+
+  const lista = hoyToca(salud);
+  const visibles = verTodoHoy ? lista : lista.slice(0, HOY_VISIBLES);
+  $('nextCount').textContent = lista.length;
+  $('nextEmpty').classList.toggle('hidden', lista.length > 0);
+  $('ptVerTodo').classList.toggle('hidden', lista.length <= HOY_VISIBLES);
+  $('ptVerTodo').textContent = verTodoHoy ? 'Ver menos' : 'Ver los ' + lista.length;
+  $('nextList').innerHTML = visibles.map((a) => {
+    const sponsor = sponsorById(a.marcaId);
+    const wa = a.accion === 'seguimiento' || a.accion === 'pagos' ? buildWhatsAppLink(sponsor, a.texto.split(' · ')[0]) : null;
+    return '<div class="pt-aviso nivel-' + esc(a.nivel) + '">' +
+      '<button class="pt-aviso-main" data-sponsor-id="' + esc(a.marcaId) + '" data-accion="' + esc(a.accion) + '" type="button">' +
+        '<span class="pt-aviso-punto"></span>' +
+        '<span class="pt-aviso-txt"><strong>' + esc(a.marca) + '</strong><span>' + esc(a.texto) + '</span></span>' +
+        '<span class="pt-aviso-ir">' + esc(ACCION_TEXTO[a.accion] || 'Abrir') + '</span>' +
       '</button>' +
-      (waLink ? '<a class="next-wa-btn" href="' + esc(waLink) + '" target="_blank" rel="noopener">WhatsApp</a>' : '') +
+      (wa ? '<a class="next-wa-btn" href="' + esc(wa) + '" target="_blank" rel="noopener">WhatsApp</a>' : '') +
     '</div>';
   }).join('');
-  bindSponsorOpeners($('nextList'));
+  $('nextList').querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', () => resolverAviso(b.dataset.sponsorId, b.dataset.accion)));
 
-  const activeIds = [...new Set(agreements.filter((agreement) => agreement.status === 'active').map((agreement) => agreement.sponsorId))];
-  const activeSponsors = activeIds.map(sponsorById).filter(Boolean);
-  $('activeEmpty').classList.toggle('hidden', activeSponsors.length > 0);
-  $('activeList').innerHTML = activeSponsors.map((sponsor) => {
-    const active = agreementsForSponsor(sponsor.id).filter((agreement) => agreement.status === 'active');
-    const nearestEnd = active.map((agreement) => agreement.endsOn).filter(Boolean).sort()[0];
-    return '<button class="compact-brand" data-sponsor-id="' + esc(sponsor.id) + '" type="button">' +
-      '<span class="brand-monogram small-monogram">' + esc(String(sponsor.name || 'T').charAt(0).toUpperCase()) + '</span>' +
-      '<span><strong>' + esc(sponsor.name) + '</strong><small>' + esc(RELATIONSHIPS[normalizeRelation(sponsor.relationshipType)]) + '</small></span>' +
-      '<span class="compact-brand-meta">' + (nearestEnd ? 'Hasta ' + esc(shortDate(nearestEnd)) : active.length + ' activo(s)') + '</span>' +
+  const tablero = ordenTablero(salud);
+  $('activeEmpty').classList.toggle('hidden', tablero.length > 0);
+  $('ptTablero').innerHTML = tablero.map((h) => {
+    const sponsor = sponsorById(h.id);
+    const alta = h.avisos.find((a) => a.nivel === 'alta');
+    // Sólo a las marcas con nosotros se les cobra; a las demás, su propuesta.
+    const sinAcuerdo = !h.valor && !h.recibimos.total && !h.damos.total;
+    const dineroTxt = sinAcuerdo ? 'Sin acuerdo todavía'
+      : !h.conNosotros ? (h.valor ? 'Propuesta de ' + money.format(h.valor) : 'Propuesta de intercambio')
+      : h.valor ? (h.porCobrar ? 'Falta cobrar ' + money.format(h.porCobrar) + ' de ' + money.format(h.valor) : 'Cobrado completo · ' + money.format(h.valor))
+      : 'Intercambio en especie';
+    const paso = sponsor?.nextAction ? sponsor.nextAction + (sponsor.nextActionAt ? ' · ' + timingLabel(sponsor.nextActionAt) : '') : (h.conNosotros ? '' : 'Sin siguiente paso');
+    return '<button class="pt-marca' + (alta ? ' urge' : '') + '" data-sponsor-id="' + esc(h.id) + '" type="button">' +
+      '<span class="pt-marca-top"><span class="brand-monogram small-monogram">' + esc(String(h.nombre || 'T').charAt(0).toUpperCase()) + '</span>' +
+        '<span class="pt-marca-nombre"><strong>' + esc(h.nombre) + '</strong><small>' + esc(RELATIONSHIPS[normalizeRelation(sponsor?.relationshipType)] || '') + '</small></span>' +
+        '<span class="stage-chip stage-' + esc(h.etapa) + '">' + esc(stageLabel(h.etapa)) + '</span></span>' +
+      barra('Nos dan', h.recibimos) + barra('Les damos', h.damos) +
+      '<span class="pt-marca-dinero' + (h.porCobrar ? ' falta' : '') + (sinAcuerdo || !h.conNosotros ? ' neutro' : '') + '">' + esc(dineroTxt) + '</span>' +
+      (h.finActivo ? '<span class="pt-marca-meta">Vigente hasta ' + esc(shortDate(h.finActivo)) + '</span>' : '') +
+      (paso ? '<span class="pt-marca-meta' + (alta?.tipo === 'atrasado' ? ' atrasado' : '') + '">Sigue: ' + esc(paso) + '</span>' : '') +
+      (h.avisos.length ? '<span class="pt-marca-avisos">' + h.avisos.length + ' ' + (h.avisos.length === 1 ? 'pendiente' : 'pendientes') + '</span>' : '<span class="pt-marca-avisos ok">Al día</span>') +
     '</button>';
   }).join('');
-  bindSponsorOpeners($('activeList'));
+  bindSponsorOpeners($('ptTablero'));
 }
 
 function renderRoute() {
-  const stageOptions = [['all', 'Todas'], ...STAGES];
+  // Sólo las etapas que tienen marcas (y la elegida): diez botones vacíos estorban.
+  const stageOptions = [['all', 'Todas'], ...STAGES.filter(([code]) => code === selectedStage || sponsors.some((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === code))];
   $('stageRail').innerHTML = stageOptions.map(([code, label]) => {
     const count = code === 'all' ? sponsors.length : sponsors.filter((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === code).length;
     return '<button class="' + (selectedStage === code ? 'active' : '') + '" data-stage="' + code + '" type="button"><span>' + esc(label) + '</span><b>' + count + '</b></button>';
@@ -652,7 +640,10 @@ function renderRoute() {
       renderRoute();
     });
   });
-  const filtered = selectedStage === 'all' ? sponsors : sponsors.filter((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === selectedStage);
+  const term = $('brandSearch').value.trim().toLowerCase();
+  const filtered = (selectedStage === 'all' ? sponsors : sponsors.filter((sponsor) => normalizeStage(sponsor.stage, sponsor.status) === selectedStage))
+    .filter((sponsor) => !term || [sponsor.name, sponsor.contactName, sponsor.email, RELATIONSHIPS[normalizeRelation(sponsor.relationshipType)]]
+      .some((value) => String(value || '').toLowerCase().includes(term)));
   $('routeResultCount').textContent = filtered.length + ' marca' + (filtered.length === 1 ? '' : 's');
   $('routeEmpty').classList.toggle('hidden', filtered.length > 0);
   $('routeList').innerHTML = filtered.map(brandCard).join('');
@@ -674,19 +665,6 @@ function brandCard(sponsor) {
     '<span class="brand-card-next"><small>Próximo movimiento</small><strong class="' + (next === 'Sin seguimiento' ? 'missing' : '') + '">' + esc(next) + '</strong></span>' +
     '<span class="brand-card-foot"><span>' + (sponsor.contactName ? esc(sponsor.contactName) : 'Sin contacto') + '</span><b>' + (sponsor.potentialValue != null ? money.format(Number(sponsor.potentialValue)) : '—') + '</b></span>' +
   '</button>';
-}
-
-function renderBrands() {
-  const term = $('brandSearch').value.trim().toLowerCase();
-  const filtered = sponsors.filter((sponsor) => [
-    sponsor.name,
-    sponsor.contactName,
-    sponsor.email,
-    RELATIONSHIPS[normalizeRelation(sponsor.relationshipType)],
-  ].some((value) => String(value || '').toLowerCase().includes(term)));
-  $('brandEmpty').classList.toggle('hidden', filtered.length > 0);
-  $('brandList').innerHTML = filtered.map(brandCard).join('');
-  bindSponsorOpeners($('brandList'));
 }
 
 function renderAssets() {
@@ -718,7 +696,7 @@ function switchView(view) {
   document.querySelectorAll('.module-nav [data-view]').forEach((button) => {
     button.classList.toggle('active', button.dataset.view === view);
   });
-  ['summary', 'route', 'brands', 'assets'].forEach((name) => {
+  ['summary', 'route', 'assets'].forEach((name) => {
     $(name + 'View').classList.toggle('hidden', name !== view);
   });
 }
@@ -801,6 +779,11 @@ function renderBrandSummary(sponsor) {
     ? '<strong>' + esc(sponsor.nextAction) + '</strong><span>' + esc(longDate(sponsor.nextActionAt)) + ' · ' + esc(timingLabel(sponsor.nextActionAt)) + '</span>'
     : '<strong>Sin seguimiento</strong><span>Esta marca necesita próximo movimiento y fecha.</span>';
   $('brandSummaryBody').innerHTML =
+    '<section class="next-action-card ' + (sponsor.nextAction && sponsor.nextActionAt ? '' : 'missing') + '">' +
+      '<div><span>Lo que sigue</span>' + nextText + '</div>' +
+      '<div class="contact-links">' + contactLinks(sponsor) + '</div>' +
+    '</section>' +
+    '<details class="pt-datos"><summary>Datos de la marca · ' + esc(sponsor.contactName || 'sin contacto') + '</summary>' +
     '<section class="drawer-summary-card">' +
       '<div class="summary-field"><span>Tipo</span><strong>' + esc(RELATIONSHIPS[relation]) + '</strong></div>' +
       '<div class="summary-field"><span>Estado</span><strong>' + esc(stageLabel(sponsor.stage, sponsor.status)) + '</strong></div>' +
@@ -809,11 +792,7 @@ function renderBrandSummary(sponsor) {
       '<div class="summary-field"><span>Teléfono</span><strong>' + esc(sponsor.phone || '—') + '</strong></div>' +
       '<div class="summary-field"><span>Email</span><strong>' + esc(sponsor.email || '—') + '</strong></div>' +
       '<div class="summary-field"><span>Responsable</span><strong>' + esc(sponsor.ownerName || 'Sin asignar') + '</strong></div>' +
-    '</section>' +
-    '<section class="next-action-card ' + (sponsor.nextAction && sponsor.nextActionAt ? '' : 'missing') + '">' +
-      '<div><span>Próximo movimiento</span>' + nextText + '</div>' +
-      '<div class="contact-links">' + contactLinks(sponsor) + '</div>' +
-    '</section>' +
+    '</section></details>' +
     (sponsor.notes ? '<section class="notes-card"><span>Nota</span><p>' + esc(sponsor.notes) + '</p></section>' : '') +
     (sponsor.lostReason ? '<section class="notes-card lost-reason-card"><span>Motivo de pérdida</span><p>' + esc(sponsor.lostReason) + '</p></section>' : '');
 }
@@ -835,16 +814,19 @@ function renderExchangeSummary(sponsor) {
     return '<div class="exchange-summary-group">' +
       '<div class="exchange-summary-head"><h4>' + esc(title) + '</h4><span>' + done + '/' + groupItems.length + ' cumplido(s)</span></div>' +
       '<ul class="exchange-summary-list">' + groupItems.map((item) => (
-        '<li class="' + (item.fulfilled ? 'fulfilled' : 'pending') + '"><span>' + esc(item.description) + '</span><b>' + (item.fulfilled ? 'Entregado' : 'Pendiente') + '</b></li>'
+        '<li class="' + (item.fulfilled ? 'fulfilled' : 'pending') + '"><label class="pt-check">' +
+          '<input class="fulfillment-toggle" data-item-id="' + esc(item.id) + '" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + ' ' + (canWrite ? '' : 'disabled') + '>' +
+          '<span>' + esc(item.description) + '</span></label><b>' + (item.fulfilled ? 'Entregado' : 'Pendiente') + '</b></li>'
       )).join('') + '</ul>' +
     '</div>';
   }
   box.innerHTML = '<section class="exchange-summary-card">' +
-    '<div class="drawer-section-head"><div><div class="eyebrow">A CAMBIO</div><h3>Qué nos da / qué le damos</h3></div>' +
-    '<button class="secondary mini exchange-summary-detail" type="button">Ver detalle</button></div>' +
+    '<div class="drawer-section-head"><div><div class="eyebrow">A CAMBIO</div><h3>Qué nos da / qué le damos</h3><p class="muted tiny">Palomea lo que ya se entregó.</p></div>' +
+    '<button class="secondary mini exchange-summary-detail" type="button">Evidencias</button></div>' +
     group('receive', 'Qué nos da') + group('give', 'Qué le damos') +
   '</section>';
   box.querySelector('.exchange-summary-detail')?.addEventListener('click', () => switchDrawerView('brand-assets'));
+  box.querySelectorAll('.fulfillment-toggle').forEach((input) => input.addEventListener('change', () => setFulfillment(input)));
 }
 
 async function loadFundedPlayers(sponsorId) {
@@ -1658,7 +1640,8 @@ $('newAgreementButton').addEventListener('click', () => openAgreementForm());
 $('newMovementButton').addEventListener('click', openMovementForm);
 $('addReceivedItem').addEventListener('click', () => addItemRow('receive'));
 $('addGivenItem').addEventListener('click', () => addItemRow('give'));
-$('brandSearch').addEventListener('input', renderBrands);
+$('brandSearch').addEventListener('input', renderRoute);
+$('ptVerTodo').addEventListener('click', () => { verTodoHoy = !verTodoHoy; renderSummary(); });
 $('sponsorForm').addEventListener('submit', saveSponsor);
 $('agreementForm').addEventListener('submit', saveAgreement);
 $('assetForm').addEventListener('submit', saveAsset);

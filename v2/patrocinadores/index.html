@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07191e">
   <title>Patrocinios · TannerOS</title>
   <link rel="stylesheet" href="/v2/styles.css">
-  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261006a">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261023a">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <link rel="stylesheet" href="/icons.css?v=20260907a">
@@ -41,83 +41,66 @@
 
     <section class="hero sponsorship-hero">
       <div>
-        <div class="eyebrow">RELACIONES QUE HACEN CRECER AL CLUB</div>
+        <div class="eyebrow">MARKETING · PATROCINIOS</div>
         <h1>Patrocinios</h1>
-        <p class="muted">Patrocinios, alianzas, intercambios y beneficios en un solo lugar.</p>
+        <p class="muted">Qué nos da cada marca, qué le debemos y qué toca hoy.</p>
       </div>
       <button id="newSponsorButton" class="primary hero-primary write-only" type="button">+ Nueva marca</button>
     </section>
 
-    <section class="kpis sponsorship-kpis" aria-label="Indicadores de patrocinios">
-      <article><span>Acuerdos activos</span><strong id="kpiActiveAgreements">0</strong></article>
-      <article><span>Valor recibido</span><strong id="kpiReceivedValue">$0</strong></article>
-      <article><span>Marcas en juego</span><strong id="kpiPlaying">0</strong></article>
-      <article><span>Por cerrar</span><strong id="kpiClosing">0</strong></article>
-      <article><span>Por renovar</span><strong id="kpiRenewals">0</strong></article>
-      <article><span>Valor ponderado del pipeline</span><strong id="kpiWeighted">$0</strong></article>
-    </section>
-
     <nav class="module-nav" aria-label="Secciones de Patrocinios">
-      <button class="active" data-view="summary" type="button">Resumen</button>
-      <button data-view="route" type="button">Ruta de marcas</button>
-      <button data-view="brands" type="button">Marcas y aliados</button>
+      <button class="active" data-view="summary" type="button">Hoy</button>
+      <button data-view="route" type="button">Marcas</button>
       <button data-view="assets" type="button">Activos Tanner</button>
     </nav>
 
     <section id="summaryView" class="module-view">
-      <div class="summary-grid">
-        <article class="panel next-panel">
-          <div class="panel-head">
-            <div><div class="eyebrow">PRIORIDAD COMERCIAL</div><h2>Lo que sigue</h2></div>
-            <span id="nextCount" class="count-badge">0</span>
-          </div>
-          <div id="nextList" class="next-list"></div>
-          <div id="nextEmpty" class="empty-state hidden">
-            <strong>Todo está al día</strong>
-            <span>Las próximas acciones y renovaciones aparecerán aquí.</span>
-          </div>
-        </article>
+      <section class="pt-marcador" aria-label="Cómo vamos">
+        <article><span>Marcas con nosotros</span><strong id="ptMarcas">0</strong><small id="ptMarcasSub"></small></article>
+        <article><span>Valor de los acuerdos</span><strong id="ptValor">$0</strong><small id="ptValorSub"></small></article>
+        <article class="pt-cobrar"><span>Falta cobrar</span><strong id="ptPorCobrar">$0</strong><small id="ptCobradoSub"></small></article>
+        <article class="pt-debemos"><span>Les debemos</span><strong id="ptDebemos">0</strong><small>compromisos por entregar</small></article>
+      </section>
 
-        <article class="panel active-panel">
-          <div class="panel-head">
-            <div><div class="eyebrow">RELACIONES VIGENTES</div><h2>Acuerdos activos</h2></div>
-          </div>
-          <div id="activeList" class="compact-brand-list"></div>
-          <div id="activeEmpty" class="empty-state hidden">
-            <strong>Aún no hay acuerdos activos</strong>
-            <span>Cuando una relación llegue a Activo se mostrará aquí.</span>
-          </div>
-        </article>
-      </div>
+      <article class="panel pt-hoy">
+        <div class="panel-head">
+          <div><div class="eyebrow">LO QUE SIGUE</div><h2>Hoy toca</h2></div>
+          <span id="nextCount" class="count-badge">0</span>
+        </div>
+        <div id="nextList" class="pt-hoy-lista"></div>
+        <button id="ptVerTodo" class="pt-link hidden" type="button">Ver todo</button>
+        <div id="nextEmpty" class="empty-state hidden">
+          <strong>Todo está al día</strong>
+          <span>Nada atrasado, nada por cobrar y ningún compromiso pendiente.</span>
+        </div>
+      </article>
+
+      <section class="pt-tablero-wrap">
+        <div class="pt-tablero-head"><div><div class="eyebrow">CÓMO VAMOS CON CADA MARCA</div><h2>Tus marcas</h2></div>
+          <small class="muted">Toca una marca para ver todo y palomear lo que ya se entregó.</small></div>
+        <div id="ptTablero" class="pt-tablero"></div>
+        <div id="activeEmpty" class="empty-state hidden">
+          <strong>Aún no hay marcas</strong>
+          <span>Registra la primera relación comercial del club.</span>
+          <button class="primary write-only open-new-sponsor" type="button">Nueva marca</button>
+        </div>
+      </section>
     </section>
 
     <section id="routeView" class="module-view hidden">
       <article class="panel">
-        <div class="panel-head route-head">
-          <div><div class="eyebrow">RUTA COMERCIAL</div><h2>¿En qué momento está cada marca?</h2></div>
-          <span id="routeResultCount" class="muted tiny"></span>
-        </div>
-        <div id="stageRail" class="stage-rail" aria-label="Filtrar por etapa"></div>
-        <div id="routeList" class="brand-grid"></div>
-        <div id="routeEmpty" class="empty-state hidden">
-          <strong>No hay marcas en esta etapa</strong>
-          <span>Elige otra etapa o registra una nueva marca.</span>
-        </div>
-      </article>
-    </section>
-
-    <section id="brandsView" class="module-view hidden">
-      <article class="panel">
         <div class="panel-head brands-head">
-          <div><div class="eyebrow">DIRECTORIO COMERCIAL</div><h2>Marcas y aliados</h2></div>
+          <div><div class="eyebrow">TODAS LAS MARCAS</div><h2>¿En qué momento está cada marca?</h2></div>
           <label class="search-field" aria-label="Buscar marcas">
-            <input id="brandSearch" type="search" placeholder="Buscar marca, contacto o tipo…">
+            <input id="brandSearch" type="search" placeholder="Buscar marca o contacto…">
           </label>
         </div>
-        <div id="brandList" class="brand-grid"></div>
-        <div id="brandEmpty" class="empty-state hidden">
-          <strong>Aún no hay marcas</strong>
-          <span>Registra la primera relación comercial del club.</span>
+        <div id="stageRail" class="stage-rail" aria-label="Filtrar por etapa"></div>
+        <span id="routeResultCount" class="muted tiny"></span>
+        <div id="routeList" class="brand-grid"></div>
+        <div id="routeEmpty" class="empty-state hidden">
+          <strong>No hay marcas aquí</strong>
+          <span>Elige otra etapa, cambia la búsqueda o registra una nueva marca.</span>
           <button class="primary write-only open-new-sponsor" type="button">Nueva marca</button>
         </div>
       </article>
@@ -168,7 +151,7 @@
   <nav class="drawer-nav" aria-label="Ficha de marca">
     <button class="active" data-drawer-view="brand-summary" type="button">Resumen</button>
     <button data-drawer-view="brand-agreement" type="button">Acuerdo</button>
-    <button data-drawer-view="brand-assets" type="button">Activos</button>
+    <button data-drawer-view="brand-assets" type="button">Compromisos</button>
     <button data-drawer-view="brand-followup" type="button">Seguimiento</button>
   </nav>
 
@@ -369,6 +352,6 @@
 </section>
 
 <script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/patrocinadores/app.js?v=20261005a"></script>
+<script type="module" src="/v2/patrocinadores/app.js?v=20261023a"></script>
 </body>
 </html>

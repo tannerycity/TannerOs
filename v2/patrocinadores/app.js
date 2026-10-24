@@ -1,6 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { datosDelReporte, reportePdf, nombreDelReporte } from '/v2/patrocinadores/reporte.js';
 import { saludDeMarca, hoyToca, marcador, ordenTablero } from '/v2/patrocinadores/tablero.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
@@ -1507,6 +1508,53 @@ async function imageToDataUrl(url) {
   });
 }
 
+// Las fotos del reporte, en JPEG y a un tamaño que no infle el PDF.
+async function fotoJpeg(url, lado = 1000) {
+  const img = await new Promise((resolve, reject) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => resolve(i); i.onerror = reject; i.src = url; });
+  const r = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * r); c.height = Math.round(img.naturalHeight * r);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return { data: c.toDataURL('image/jpeg', .82), w: c.width, h: c.height };
+}
+
+/* Reporte para el patrocinador (24/10/2026): "Esto hicimos por tu marca",
+   con las evidencias. Se arma aquí y se comparte por WhatsApp. */
+async function sponsorReport() {
+  const sponsor = sponsorById(selectedSponsorId);
+  if (!sponsor) return;
+  const button = $('sponsorReportButton'), original = button.textContent;
+  button.disabled = true; button.textContent = 'Armando…';
+  try {
+    const hoy = hoyIso();
+    const datos = datosDelReporte({ sponsor, agreements, items: agreementItems, evidence: itemEvidence, becados: fundedPlayers, hoy });
+    if (!datos.total && !datos.recibido.length && !datos.becados.length) {
+      await tosAlert({ kicker: 'PATROCINIOS', title: 'Todavía no hay qué reportar', message: 'Captura en el acuerdo lo que le damos a la marca y palomea lo entregado. Con eso se arma el reporte.' });
+      return;
+    }
+    const fotos = {};
+    const evidencias = datos.hechos.flatMap((h) => h.fotos).slice(0, 24);
+    await Promise.all(evidencias.map(async (ev) => {
+      try { const url = await signedUrl(ev.photoBucket, ev.photoPath); if (url) fotos[ev.photoPath] = await fotoJpeg(url); } catch { /* sin esa foto: el compromiso sale en lista */ }
+    }));
+    const doc = await reportePdf({ datos, club: nombreDelClub(ctx), fotos });
+    const nombre = nombreDelReporte(sponsor.name, hoy);
+    // Compartir necesita un toque nuevo: armar el PDF tarda y el navegador lo olvida.
+    const ok = await tosConfirm({ kicker: 'PATROCINIOS', title: 'Reporte listo',
+      message: datos.cumplidos + ' de ' + datos.total + ' compromisos cumplidos · ' + datos.fotos + ' fotos. Mándaselo a ' + (sponsor.contactName || sponsor.name) + ' por WhatsApp.',
+      confirmText: 'Compartir', cancelText: 'Cerrar' });
+    if (!ok) return;
+    const archivo = new File([doc.output('blob')], nombre, { type: 'application/pdf' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [archivo] })) { await navigator.share({ files: [archivo], title: nombre, text: 'Reporte de patrocinio · ' + sponsor.name }); return; }
+    } catch (e) { if (e?.name === 'AbortError') return; }
+    doc.save(nombre);
+  } catch (error) {
+    await tosAlert({ kicker: 'PATROCINIOS', title: 'No pudimos armar el reporte', message: friendly(error) });
+  } finally {
+    button.disabled = false; button.textContent = original;
+  }
+}
+
 async function exportSponsorKit() {
   const sponsor = sponsorById(selectedSponsorId);
   if (!sponsor) return;
@@ -1660,6 +1708,7 @@ $('evidenceUploadInput').addEventListener('change', (event) => {
 $('sponsorStage').addEventListener('change', () => toggleLostReasonField($('sponsorStage').value));
 bindPhoneMask($('sponsorPhone'));
 $('exportSponsorKit').addEventListener('click', exportSponsorKit);
+$('sponsorReportButton').addEventListener('click', sponsorReport);
 $('linkFundedPlayerButton').addEventListener('click', openFundingModal);
 $('fundingForm').addEventListener('submit', saveFunding);
 $('fundingPlayerSearch').addEventListener('input', () => {

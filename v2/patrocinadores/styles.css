@@ -395,6 +395,7 @@
 .pt-hoy .panel-head{flex-wrap:nowrap;align-items:center}
 .pt-hoy .count-badge{flex:0 0 auto;width:auto;min-width:32px}
 .pt-hoy .panel-head{display:flex!important;justify-content:space-between!important;text-align:left!important;gap:10px}
+.pt-reporte-btn{background:linear-gradient(135deg,#e2c977,#c6ac5c)!important;color:#07191e!important;font-weight:900!important;border:0!important}
 /* Nueva marca (24/10/2026): el botón que vende, a la vista. Dorado Tanner, grande. */
 .sponsorship-hero .pt-cta{display:inline-flex!important;align-items:center;justify-content:center;gap:12px;min-height:58px!important;padding:0 26px 0 12px!important;border-radius:999px!important;
   background:linear-gradient(135deg,#e2c977,#c6ac5c 55%,#a88c3c)!important;color:#07191e!important;font-size:17px!important;font-weight:900!important;letter-spacing:-.01em;

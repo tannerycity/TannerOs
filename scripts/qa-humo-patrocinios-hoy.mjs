@@ -9,6 +9,7 @@
  *   4. En la ficha se palomea lo entregado sin cambiar de pestaña.
  *   5. "Marcas" junta etapas y búsqueda; sólo salen etapas con marcas.
  *   6. En el celular no se sale la página.
+ *   7. El reporte para la marca se arma y se comparte.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -61,6 +62,11 @@ const FAKE = `
       if(n==='v2_set_sponsor_item_fulfillment'){const i=D.agreementItems.find(x=>x.id===p.item_id);if(i)i.fulfilled=p.fulfilled;return ok(true);}
       if(n==='v2_sponsor_funded_players'||n==='v2_club_people'||n==='v2_billing_players')return ok([]);
       return ok(null);}}}`;
+// jsPDF de mentira: guarda lo que se escribe para revisar el reporte.
+const JSPDF = `export class jsPDF{constructor(){window.__pdf=[];this.internal={pageSize:{getWidth:()=>612,getHeight:()=>792},getNumberOfPages:()=>1};}
+  text(t){window.__pdf.push([].concat(t).join(' '));}getTextWidth(t){return String(t).length*6;}splitTextToSize(t){return [String(t)];}
+  output(){return new Blob(['%PDF'],{type:'application/pdf'});}save(n){window.__guardado=n;}}
+  for(const m of ['addPage','addImage','setFont','setFontSize','setTextColor','setFillColor','setDrawColor','setLineWidth','rect','roundedRect','circle','line','setPage'])jsPDF.prototype[m]=function(){};`;
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d ? `\n   ${d}` : ''}`); } };
@@ -70,6 +76,7 @@ async function abre(ancho) {
   await pg.route(/^https?:\/\/(?!127)/, r => r.abort());
   await pg.route('**/v2/supabase-client.js', r => r.fulfill({ contentType:'text/javascript', body:FAKE }));
   await pg.route('**/v2/branding-auto.js', r => r.fulfill({ contentType:'text/javascript', body:'' }));
+  await pg.route(/esm\.sh\/jspdf/, r => r.fulfill({ contentType:'text/javascript', body:JSPDF }));
   await pg.goto(`${BASE}/patrocinadores/`, { waitUntil:'networkidle' });
   await pg.waitForSelector('#view:not(.hidden)', { timeout:8000 });
   return { pg, errs };
@@ -107,6 +114,17 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   const r = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_set_sponsor_item_fulfillment').pop()?.p);
   revisa('4. palomear manda el cumplimiento', r?.item_id === 'i6' && r?.fulfilled === true, JSON.stringify(r));
   revisa('4. y el marcador baja a 1 compromiso', await txt(pg, '#ptDebemos') === '1', await txt(pg, '#ptDebemos'));
+  // Reporte para la marca (24/10/2026): se arma y ofrece compartir.
+  await pg.click('#sponsorReportButton');
+  await pg.waitForFunction(() => /Reporte listo/.test(document.body.innerText), null, { timeout:6000 }).catch(() => {});
+  const pdf = await pg.evaluate(() => (window.__pdf || []).join(' | '));
+  revisa('7. el reporte trae la marca y lo entregado', /Tremor/.test(pdf) && /Entregado/.test(pdf) && /Presencia en jerseys/.test(pdf), pdf.slice(0, 300));
+  revisa('7. y nunca dice Pendiente', !/Pendiente/.test(pdf), pdf);
+  revisa('7. pide un toque para compartir', /Reporte listo/.test(await pg.evaluate(() => document.body.innerText)));
+  await pg.evaluate(() => { navigator.canShare = undefined; });
+  await pg.click('.tosdlg-btn:not(.tosdlg-cancel)');
+  await pg.waitForTimeout(200);
+  revisa('7. sin compartir nativo, lo descarga con su nombre', await pg.evaluate(() => window.__guardado) === 'Reporte-Tremor-' + new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) + '.pdf', await pg.evaluate(() => window.__guardado));
   await pg.keyboard.press('Escape');
   await pg.click('.module-nav [data-view="route"]');
   const etapas = await pg.$$eval('#stageRail [data-stage]', xs => xs.map(x => x.dataset.stage));

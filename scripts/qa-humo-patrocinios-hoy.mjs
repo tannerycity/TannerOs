@@ -10,6 +10,8 @@
  *   5. "Marcas" junta etapas y búsqueda; sólo salen etapas con marcas.
  *   6. En el celular no se sale la página.
  *   7. El reporte para la marca se arma y se comparte.
+ *   8. Palomear ofrece la foto; "Lo que sigue" trae acciones a un toque.
+ *   9. Acuerdos: el vigente arriba, borradores plegados; editor compacto.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -110,10 +112,18 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   await pg.waitForSelector('#brandDrawer:not(.hidden)');
   revisa('4. la ficha abre con lo que sigue y lo que nos dan / les damos', await pg.isVisible('#brandExchangeSummary .fulfillment-toggle') && /Lo que sigue/.test(await txt(pg, '#brandSummaryBody')));
   await pg.check('#brandExchangeSummary .fulfillment-toggle[data-item-id="i6"]');
-  await pg.waitForTimeout(250);
+  await pg.waitForFunction(() => /Le subes una foto/.test(document.body.innerText), null, { timeout:4000 }).catch(() => {});
+  revisa('8. al entregar algo a la marca, ofrece subir la foto', /Le subes una foto/.test(await pg.evaluate(() => document.body.innerText)));
+  await pg.click('.tosdlg-cancel');
+  await pg.waitForTimeout(150);
+  revisa('8. y el renglón queda con su botón "+ Foto"', (await pg.$$('#brandExchangeSummary [data-foto-item="i6"]')).length === 1);
   const r = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_set_sponsor_item_fulfillment').pop()?.p);
   revisa('4. palomear manda el cumplimiento', r?.item_id === 'i6' && r?.fulfilled === true, JSON.stringify(r));
   revisa('4. y el marcador baja a 1 compromiso', await txt(pg, '#ptDebemos') === '1', await txt(pg, '#ptDebemos'));
+  revisa('8. "Lo que sigue" trae acciones a un toque', await pg.isVisible('#brandSummaryBody [data-rapida="avance"]'));
+  await pg.click('#brandSummaryBody [data-rapida="avance"]');
+  revisa('8. "Definir qué sigue" abre el registro de avance', await pg.isVisible('#movementModal'));
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
   // Reporte para la marca (24/10/2026): se arma y ofrece compartir.
   await pg.click('#sponsorReportButton');
   await pg.waitForFunction(() => /Reporte listo/.test(document.body.innerText), null, { timeout:6000 }).catch(() => {});
@@ -125,7 +135,15 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   await pg.click('.tosdlg-btn:not(.tosdlg-cancel)');
   await pg.waitForTimeout(200);
   revisa('7. sin compartir nativo, lo descarga con su nombre', await pg.evaluate(() => window.__guardado) === 'Reporte-Tremor-' + new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) + '.pdf', await pg.evaluate(() => window.__guardado));
-  await pg.keyboard.press('Escape');
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
+  await pg.click('#ptTablero .pt-marca[data-sponsor-id="s-trapo"]');
+  await pg.click('[data-drawer-view="brand-agreement"]');
+  revisa('9. acuerdos: el vigente y los borradores plegados', (await pg.$$('#brandAgreementList .agreement-card')).length === 1 && /Ver 2 acuerdos más/.test(await txt(pg, '#brandAgreementList')), await txt(pg, '#brandAgreementList'));
+  await pg.click('.pt-mas-acuerdos');
+  revisa('9. y se despliegan al tocar', (await pg.$$('#brandAgreementList .agreement-card')).length === 3);
+  await pg.click('.edit-agreement-button >> nth=0');
+  revisa('9. cada elemento del acuerdo es compacto: qué es, arriba', (await pg.$$('#agreementModal .item-editor-head .item-description')).length >= 1 && (await pg.$$('#agreementModal .pt-item-mas')).length >= 1);
+  await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
   await pg.click('.module-nav [data-view="route"]');
   const etapas = await pg.$$eval('#stageRail [data-stage]', xs => xs.map(x => x.dataset.stage));
   revisa('5. sólo las etapas con marcas', JSON.stringify(etapas) === '["all","talking","active","paused"]', JSON.stringify(etapas));

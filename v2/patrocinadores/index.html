@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07191e">
   <title>Patrocinios · TannerOS</title>
   <link rel="stylesheet" href="/v2/styles.css">
-  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261024b">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261024c">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <link rel="stylesheet" href="/icons.css?v=20260907a">
@@ -143,7 +143,6 @@
     </div>
     <div class="drawer-actions">
       <button id="sponsorReportButton" class="kit-btn pt-reporte-btn" type="button">Reporte para la marca</button>
-      <button id="exportSponsorKit" class="ghost-btn" type="button">Kit interno</button>
       <button id="editSponsorButton" class="ghost-btn write-only" type="button">Editar</button>
       <button id="closeBrandDrawer" class="drawer-close-btn" type="button" aria-label="Cerrar ficha">✕</button>
     </div>
@@ -165,8 +164,9 @@
         <button id="linkFundedPlayerButton" class="secondary mini write-only" type="button">+ Vincular jugador</button>
       </div>
       <div id="fundedPlayersList" class="funded-players-list"></div>
-      <div id="fundedPlayersEmpty" class="empty-state hidden"><strong>Sin jugadores becados</strong><span>Vincula un Tanner para mostrar aquí el impacto real de este patrocinio.</span></div>
+      <div id="fundedPlayersEmpty" class="pt-vacio-mini hidden">Vincula a un Tanner que entrene gracias a esta marca: sale en el reporte como su impacto.</div>
     </div>
+    <button id="exportSponsorKit" class="pt-link pt-kit" type="button">Descargar kit interno (con pendientes)</button>
   </section>
 
   <section id="brandAgreementPanel" class="drawer-panel hidden">
@@ -353,6 +353,6 @@
 </section>
 
 <script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/patrocinadores/app.js?v=20261024b"></script>
+<script type="module" src="/v2/patrocinadores/app.js?v=20261024c"></script>
 </body>
 </html>

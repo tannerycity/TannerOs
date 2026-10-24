@@ -405,3 +405,20 @@
 .sponsorship-hero .pt-cta:focus-visible{outline:3px solid #07191e;outline-offset:3px}
 .pt-cta-mas{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#07191e;color:#e2c977;font-size:24px;font-weight:700;line-height:1}
 @media(max-width:680px){.sponsorship-hero .pt-cta{width:100%;min-height:60px!important}}
+/* Ficha más ágil (24/10/2026). */
+.pt-acciones{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.pt-accion{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid #cfe0dc;background:#fff;color:#0b3d4a;font:inherit;font-size:13.5px;font-weight:800;text-decoration:none;cursor:pointer}
+.pt-accion.fuerte{background:#0b3d4a;border-color:#0b3d4a;color:#fff}
+.pt-accion.wa{background:#e9f7ef;border-color:#cdebd9;color:#1f8a5c}
+.pt-foto{flex:0 0 auto;border:1px dashed #c6ac5c;background:#fffaf0;color:#8a6d1f;border-radius:999px;padding:5px 11px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.pt-foto.con{border-style:solid;background:#e4f4ea;border-color:#bfe3cc;color:#1d7a46}
+.pt-vacio-mini{font-size:13px;color:#6b7a80;padding:10px 2px}
+.pt-kit{display:block;margin:6px auto 18px;font-size:13px;color:#6b7a80}
+.pt-mas-acuerdos{display:block;margin:4px 0 0}
+.item-editor-head .item-description{flex:1;min-width:0;border:0!important;border-bottom:1px solid #dfe7e5!important;border-radius:0!important;padding:6px 2px!important;background:transparent!important;font-size:15px!important;font-weight:800;color:#07191e;box-shadow:none!important}
+.item-editor-head .item-description:focus{border-bottom-color:#087d8e!important}
+.pt-item-fila{grid-template-columns:1.4fr .8fr 1fr!important}
+.pt-item-mas{margin-top:8px}
+.pt-item-mas summary{cursor:pointer;font-size:12px;font-weight:800;color:#087d8e;padding:4px 0}
+.pt-item-mas .item-editor-grid{margin-top:6px}
+@media(max-width:560px){.pt-item-fila{grid-template-columns:1fr 1fr!important}.pt-item-fila label:first-child{grid-column:1/-1}.pt-accion{flex:1 1 auto}}

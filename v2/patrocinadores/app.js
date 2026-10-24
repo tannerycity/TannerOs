@@ -558,7 +558,7 @@ function resolverAviso(sponsorId, accion) {
     switchDrawerView('brand-agreement');
     if (conValor && canWrite) openPaymentsModal(conValor.id);
   } else if (accion === 'acuerdo') switchDrawerView('brand-agreement');
-  else if (accion === 'compromisos') switchDrawerView('brand-assets');
+  else if (accion === 'compromisos') { switchDrawerView('brand-summary'); $('brandExchangeSummary').scrollIntoView({ block: 'start' }); }
   else if (accion === 'seguimiento') { switchDrawerView('brand-followup'); if (canWrite) openMovementForm(); }
 }
 
@@ -706,6 +706,7 @@ function openBrand(id) {
   if (!sponsorById(id)) return;
   selectedSponsorId = id;
   fundedPlayers = [];
+  verTodosAcuerdos = false;
   switchDrawerView('brand-summary');
   renderBrandDrawer();
   $('brandDrawer').classList.remove('hidden');
@@ -774,6 +775,26 @@ function contactLinks(sponsor) {
   return links.join('<span>·</span>');
 }
 
+// Lo que Zul hace más seguido, a un toque y sin cambiar de pestaña.
+function accionesRapidas(sponsor) {
+  const wa = buildWhatsAppLink(sponsor, sponsor.nextAction || '');
+  const conValor = agreementsForSponsor(sponsor.id).some((a) => a.status !== 'cancelled' && Number(a.monetaryValue || 0) > 0);
+  return '<div class="pt-acciones">' +
+    (canWrite ? '<button type="button" class="pt-accion fuerte" data-rapida="avance">' + (sponsor.nextAction ? 'Ya lo hice' : 'Definir qué sigue') + '</button>' : '') +
+    (wa ? '<a class="pt-accion wa" href="' + esc(wa) + '" target="_blank" rel="noopener">WhatsApp</a>' : '') +
+    (canWrite && conValor ? '<button type="button" class="pt-accion" data-rapida="pago">Registrar pago</button>' : '') +
+    (sponsor.email ? '<a class="pt-accion" href="mailto:' + esc(sponsor.email) + '">Email</a>' : '') +
+  '</div>';
+}
+function bindAccionesRapidas() {
+  $('brandSummaryBody').querySelector('[data-rapida="avance"]')?.addEventListener('click', openMovementForm);
+  $('brandSummaryBody').querySelector('[data-rapida="pago"]')?.addEventListener('click', () => {
+    const a = agreementsForSponsor(selectedSponsorId).filter((x) => x.status !== 'cancelled')
+      .sort((x, y) => (y.status === 'active') - (x.status === 'active') || Number(y.monetaryValue || 0) - Number(x.monetaryValue || 0))[0];
+    if (a) openPaymentsModal(a.id);
+  });
+}
+
 function renderBrandSummary(sponsor) {
   const relation = normalizeRelation(sponsor.relationshipType);
   const nextText = sponsor.nextAction && sponsor.nextActionAt
@@ -782,7 +803,7 @@ function renderBrandSummary(sponsor) {
   $('brandSummaryBody').innerHTML =
     '<section class="next-action-card ' + (sponsor.nextAction && sponsor.nextActionAt ? '' : 'missing') + '">' +
       '<div><span>Lo que sigue</span>' + nextText + '</div>' +
-      '<div class="contact-links">' + contactLinks(sponsor) + '</div>' +
+      accionesRapidas(sponsor) +
     '</section>' +
     '<details class="pt-datos"><summary>Datos de la marca · ' + esc(sponsor.contactName || 'sin contacto') + '</summary>' +
     '<section class="drawer-summary-card">' +
@@ -796,6 +817,14 @@ function renderBrandSummary(sponsor) {
     '</section></details>' +
     (sponsor.notes ? '<section class="notes-card"><span>Nota</span><p>' + esc(sponsor.notes) + '</p></section>' : '') +
     (sponsor.lostReason ? '<section class="notes-card lost-reason-card"><span>Motivo de pérdida</span><p>' + esc(sponsor.lostReason) + '</p></section>' : '');
+  bindAccionesRapidas();
+}
+
+function fotoDeItem(item) {
+  const n = evidenceForItem(item.id).length;
+  if (item.direction !== 'give' || !item.fulfilled) return '<b>' + (item.fulfilled ? 'Recibido' : 'Pendiente') + '</b>';
+  if (!canWrite) return '<b>' + (n ? n + ' foto' + (n === 1 ? '' : 's') : 'Entregado') + '</b>';
+  return '<button type="button" class="pt-foto' + (n ? ' con' : '') + '" data-foto-item="' + esc(item.id) + '">' + (n ? n + ' foto' + (n === 1 ? '' : 's') + ' · +' : '+ Foto') + '</button>';
 }
 
 function renderExchangeSummary(sponsor) {
@@ -816,18 +845,25 @@ function renderExchangeSummary(sponsor) {
       '<div class="exchange-summary-head"><h4>' + esc(title) + '</h4><span>' + done + '/' + groupItems.length + ' cumplido(s)</span></div>' +
       '<ul class="exchange-summary-list">' + groupItems.map((item) => (
         '<li class="' + (item.fulfilled ? 'fulfilled' : 'pending') + '"><label class="pt-check">' +
-          '<input class="fulfillment-toggle" data-item-id="' + esc(item.id) + '" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + ' ' + (canWrite ? '' : 'disabled') + '>' +
-          '<span>' + esc(item.description) + '</span></label><b>' + (item.fulfilled ? 'Entregado' : 'Pendiente') + '</b></li>'
+          '<input class="fulfillment-toggle" data-item-id="' + esc(item.id) + '" data-direction="' + esc(item.direction) + '" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + ' ' + (canWrite ? '' : 'disabled') + '>' +
+          '<span>' + esc(item.description) + '</span></label>' + fotoDeItem(item) + '</li>'
       )).join('') + '</ul>' +
     '</div>';
   }
   box.innerHTML = '<section class="exchange-summary-card">' +
-    '<div class="drawer-section-head"><div><div class="eyebrow">A CAMBIO</div><h3>Qué nos da / qué le damos</h3><p class="muted tiny">Palomea lo que ya se entregó.</p></div>' +
-    '<button class="secondary mini exchange-summary-detail" type="button">Evidencias</button></div>' +
+    '<div class="drawer-section-head"><div><div class="eyebrow">A CAMBIO</div><h3>Qué nos da / qué le damos</h3><p class="muted tiny">Palomea lo entregado y súbele foto: sale en el reporte.</p></div></div>' +
     group('receive', 'Qué nos da') + group('give', 'Qué le damos') +
   '</section>';
-  box.querySelector('.exchange-summary-detail')?.addEventListener('click', () => switchDrawerView('brand-assets'));
-  box.querySelectorAll('.fulfillment-toggle').forEach((input) => input.addEventListener('change', () => setFulfillment(input)));
+  box.querySelectorAll('.fulfillment-toggle').forEach((input) => input.addEventListener('change', async () => {
+    const entregado = input.checked, id = input.dataset.itemId, damos = input.dataset.direction === 'give';
+    await setFulfillment(input);
+    // Lo que le damos a la marca vale el doble con foto: se ofrece al momento.
+    if (entregado && damos && canWrite && !evidenceForItem(id).length && agreementItems.find((i) => i.id === id)?.fulfilled) {
+      const ok = await tosConfirm({ kicker: 'PATROCINIOS', title: '¿Le subes una foto?', message: 'La foto de lo entregado sale en el reporte para la marca. Es lo que más convence para renovar.', confirmText: 'Subir foto', cancelText: 'Después' });
+      if (ok) { evidenceTargetItemId = id; $('evidenceUploadInput').click(); }
+    }
+  }));
+  box.querySelectorAll('[data-foto-item]').forEach((b) => b.addEventListener('click', () => { evidenceTargetItemId = b.dataset.fotoItem; $('evidenceUploadInput').click(); }));
 }
 
 async function loadFundedPlayers(sponsorId) {
@@ -906,8 +942,13 @@ async function saveFunding(event) {
   }
 }
 
+let verTodosAcuerdos = false;
 function renderBrandAgreements(sponsor) {
-  const sponsorAgreements = agreementsForSponsor(sponsor.id);
+  // El vigente arriba; borradores repetidos, finalizados y cancelados, plegados.
+  const orden = { active: 0, draft: 1, completed: 2, cancelled: 3 };
+  const todos = [...agreementsForSponsor(sponsor.id)].sort((a, b) => (orden[a.status] ?? 9) - (orden[b.status] ?? 9)
+    || itemsForAgreement(b.id).length - itemsForAgreement(a.id).length);
+  const sponsorAgreements = verTodosAcuerdos ? todos : todos.slice(0, 1);
   $('brandAgreementEmpty').classList.toggle('hidden', sponsorAgreements.length > 0);
   $('brandAgreementList').innerHTML = sponsorAgreements.map((agreement) => {
     const received = itemsForAgreement(agreement.id).filter((item) => item.direction === 'receive');
@@ -934,6 +975,12 @@ function renderBrandAgreements(sponsor) {
       (canWrite ? '<button class="secondary mini edit-agreement-button" data-agreement-id="' + esc(agreement.id) + '" type="button">Editar acuerdo</button>' : '') +
     '</article>';
   }).join('');
+  const ocultos = todos.length - sponsorAgreements.length;
+  if (todos.length > 1) {
+    $('brandAgreementList').insertAdjacentHTML('beforeend', '<button type="button" class="pt-link pt-mas-acuerdos">' +
+      (verTodosAcuerdos ? 'Ver sólo el principal' : 'Ver ' + ocultos + ' acuerdo' + (ocultos === 1 ? '' : 's') + ' más (borradores e historial)') + '</button>');
+    $('brandAgreementList').querySelector('.pt-mas-acuerdos').addEventListener('click', () => { verTodosAcuerdos = !verTodosAcuerdos; renderBrandAgreements(sponsor); });
+  }
   $('brandAgreementList').querySelectorAll('[data-agreement-id]').forEach((button) => {
     button.addEventListener('click', () => openAgreementForm(agreements.find((agreement) => agreement.id === button.dataset.agreementId)));
   });
@@ -1204,15 +1251,18 @@ function addItemRow(direction, item = {}) {
   row.className = 'item-editor';
   const defaultType = item.type || (direction === 'receive' ? 'money' : 'advertising');
   row.innerHTML =
-    '<div class="item-editor-head"><strong>Elemento</strong><button class="remove-item" type="button" aria-label="Quitar elemento">Quitar</button></div>' +
-    '<div class="item-editor-grid">' +
+    // Compacto (24/10/2026): qué es, en grande; tipo, cuánto y unidad en un renglón; valor y activo plegados.
+    '<div class="item-editor-head"><input class="item-description" maxlength="500" required value="' + esc(item.description || '') + '" placeholder="' + (direction === 'receive' ? '¿Qué nos dan? Ej. 30 jerseys' : '¿Qué les damos? Ej. Lona en la cancha 1') + '" aria-label="Descripción">' +
+      '<button class="remove-item" type="button" aria-label="Quitar elemento">Quitar</button></div>' +
+    '<div class="item-editor-grid pt-item-fila">' +
       '<label>Tipo<select class="item-type">' + typeOptions(direction, defaultType) + '</select></label>' +
-      '<label class="item-description-label">Descripción<input class="item-description" maxlength="500" required value="' + esc(item.description || '') + '" placeholder="' + (direction === 'receive' ? 'Ej. 30 jerseys' : 'Ej. Reel mensual') + '"></label>' +
-      '<label>Cantidad <span class="optional">opcional</span><input class="item-quantity" type="number" min="0" step="0.01" value="' + (item.quantity ?? '') + '" inputmode="decimal"></label>' +
-      '<label>Unidad <span class="optional">opcional</span><input class="item-unit" maxlength="60" value="' + esc(item.unit || '') + '" placeholder="piezas, meses…"></label>' +
-      '<label>Valor estimado <span class="optional">opcional</span><input class="item-value" type="number" min="0" step="0.01" value="' + (item.estimatedValue ?? '') + '" inputmode="decimal"></label>' +
-      (direction === 'give' ? '<label>Activo Tanner <span class="optional">opcional</span><select class="item-asset">' + assetOptions(item.assetId || '') + '</select></label>' : '') +
+      '<label>Cantidad<input class="item-quantity" type="number" min="0" step="0.01" value="' + (item.quantity ?? '') + '" inputmode="decimal" placeholder="—"></label>' +
+      '<label>Unidad<input class="item-unit" maxlength="60" value="' + esc(item.unit || '') + '" placeholder="piezas"></label>' +
     '</div>' +
+    '<details class="pt-item-mas"' + (item.estimatedValue != null || item.assetId ? ' open' : '') + '><summary>Valor' + (direction === 'give' ? ' y activo Tanner' : '') + '</summary><div class="item-editor-grid">' +
+      '<label>Valor estimado<input class="item-value" type="number" min="0" step="0.01" value="' + (item.estimatedValue ?? '') + '" inputmode="decimal" placeholder="$"></label>' +
+      (direction === 'give' ? '<label>Activo Tanner<select class="item-asset">' + assetOptions(item.assetId || '') + '</select></label>' : '') +
+    '</div></details>' +
     '<label class="item-done"><input class="item-fulfilled" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + '><span>' +
     (direction === 'receive' ? 'Ya lo recibimos' : 'Ya lo entregamos') + '</span></label>';
   row.querySelector('.remove-item').addEventListener('click', () => row.remove());

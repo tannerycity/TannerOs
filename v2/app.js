@@ -1,6 +1,7 @@
 import {supabase,rpc,money,$,renderShell,moduleAccess,setShellSearchItems,setShellHealth,shellIcon,detenPulso} from '/v2/shell.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { nombreDelClub } from '/v2/club.js';
+import { avisosDeIdeas, claveVistas } from '/v2/ideas/ideas.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
 
@@ -389,6 +390,13 @@ async function loadHomeData(generation){
   // Patrocinios, con cuántas marcas activas hay. El reporte con fotos ayuda a renovar.
   state.reporteMarcas=0;
   if(can('patrocinadores',true)&&new Date().getDate()<=7)jobs.push(rpcSafe('v2_sponsors',{organization_id:org},[]).then(v=>state.reporteMarcas=(Array.isArray(v)?v:[]).filter(x=>(x.stage||x.status)==='active').length));
+  // Ideas a mi cargo (25/10/2026): las vencidas, las que vencen en 3 días y
+  // las que alguien más me asignó y no he abierto en el tablero.
+  state.ideas=null;
+  if(ctx.role!=='Tanner')jobs.push(rpcSafe('v2_ideas',{organization_id:org},null).then(v=>{
+    if(!v?.me)return;let vistas=[];try{vistas=JSON.parse(localStorage.getItem(claveVistas(v.me))||'[]');}catch{vistas=[];}
+    const d=new Date(),hoy=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    state.ideas=avisosDeIdeas(v.ideas,v.me,hoy,vistas);}));
   await Promise.allSettled(jobs);
   if(generation===loadGeneration)renderHome();
 }
@@ -435,6 +443,10 @@ function actionHref(item){
 }
 function renderAttention(){
   const items=(Array.isArray(state.actionCenter?.items)?state.actionCenter.items:[]).filter(actionAllowed);
+  const ideas=state.ideas,cuales=l=>l.slice(0,2).map(i=>i.title).join(', ')+(l.length>2?'…':'');
+  if(ideas?.pronto.length)items.unshift({code:'ideas_soon',priority:'info',title:ideas.pronto.length===1?'Una idea tuya vence pronto':'Ideas tuyas que vencen pronto',count:ideas.pronto.length,detail:cuales(ideas.pronto),href:'/ideas/?mias=1'});
+  if(ideas?.nuevas.length)items.unshift({code:'ideas_new',priority:'attention',title:ideas.nuevas.length===1?'Te asignaron una idea':'Te asignaron ideas',count:ideas.nuevas.length,detail:cuales(ideas.nuevas),href:'/ideas/?mias=1'});
+  if(ideas?.vencidas.length)items.unshift({code:'ideas_overdue',priority:'attention',title:ideas.vencidas.length===1?'Una idea tuya ya venció':'Ideas tuyas vencidas',count:ideas.vencidas.length,detail:cuales(ideas.vencidas),href:'/ideas/?mias=1'});
   if(state.reporteMarcas>0)items.unshift({code:'sponsor_report',priority:'attention',title:'Manda el reporte del mes a tus marcas',count:state.reporteMarcas,detail:'Abre cada marca y toca "Reporte para la marca": lo entregado, con fotos',href:'/patrocinadores/'});
   if(state.cambios>0)items.unshift({code:'changes_review',priority:'attention',title:state.cambios===1?'Un cambio por revisar':'Cambios por revisar',count:state.cambios,detail:'Correcciones en pedidos y cobros, con su motivo',href:'/cambios/'});
   if(!items.length){

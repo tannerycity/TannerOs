@@ -32,7 +32,7 @@ const BASE = `http://127.0.0.1:${srv.address().port}`;
 const it = (id, ag, direction, type, description, fulfilled, estimatedValue = null) => ({ id, agreementId: ag, direction, type, description, fulfilled, estimatedValue });
 const DATOS = {
   sponsors: [
-    { id:'s-trapo', name:'Don Trapo', stage:'active', status:'active', relationshipType:'sponsorship', phone:'+524772408403', contactName:'Luis Escobedo', nextAction:'Cobro de la segunda parte', nextActionAt:'2020-08-11T18:00:00Z', ownerName:'Zul' },
+    { id:'s-trapo', name:'Don Trapo', stage:'active', status:'active', relationshipType:'sponsorship', phone:'+524772408403', contactName:'Luis Escobedo', nextAction:'Cobro de la segunda parte', nextActionAt:'2020-08-11T18:00:00Z', ownerName:'Zul', logoPath:null },
     { id:'s-tremor', name:'Tremor', stage:'active', status:'active', relationshipType:'sponsorship', ownerName:'Zul' },
     { id:'s-dis', name:'Disonante', stage:'paused', status:'negotiation', relationshipType:'sponsorship', contactName:'Felipe Serdio' },
     { id:'s-cafe', name:'Café Central', stage:'talking', status:'negotiation', relationshipType:'exchange' },
@@ -75,11 +75,13 @@ const DATOS = {
 const FAKE = `
   window.__rpc=[];const D=${JSON.stringify(DATOS)};
   export function createClient(){return{auth:{getSession:async()=>({data:{session:{user:{id:'u-zul'}}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
-    storage:{from:()=>({createSignedUrls:async()=>({data:[],error:null}),createSignedUrl:async()=>({data:null,error:null})})},
+    storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/logo-prueba.png',error:null})),error:null}),createSignedUrl:async(p)=>({data:{signedUrl:'/logo-prueba.png'},error:null}),
+      upload:async(p)=>{window.__subidas=(window.__subidas||[]).concat(p);return{data:{path:p},error:null};},remove:async()=>({data:[],error:null})})},
     rpc:async(n,p={})=>{window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});const ok=d=>({data:d,error:null});
       if(n==='v2_my_context')return ok([{organization_id:'o1',organization_name:'Tannery City FC',role:'Operaciones'}]);
       if(n==='v2_my_modules')return ok([{module_code:'sponsors',enabled:true,can_read:true,can_write:true}]);
       if(n==='v2_sponsor_admin')return ok(D);
+      if(n==='v2_set_sponsor_logo')return ok({id:p.sponsor_id,logoPath:p.logo_path,logoBucket:'tanneros-private'});
       if(n==='v2_set_sponsor_item_fulfillment'){const i=D.agreementItems.find(x=>x.id===p.item_id);if(i)i.fulfilled=p.fulfilled;return ok(true);}
       if(n==='v2_sponsor_funded_players'||n==='v2_club_people'||n==='v2_billing_players')return ok([]);
       return ok(null);}}}`;
@@ -88,6 +90,8 @@ const JSPDF = `export class jsPDF{constructor(){window.__pdf=[];this.internal={p
   text(t){window.__pdf.push([].concat(t).join(' '));}getTextWidth(t){return String(t).length*6;}splitTextToSize(t){return [String(t)];}
   output(){return new Blob(['%PDF'],{type:'application/pdf'});}save(n){window.__guardado=n;}}
   for(const m of ['addPage','addImage','setFont','setFontSize','setTextColor','setFillColor','setDrawColor','setLineWidth','rect','roundedRect','circle','line','setPage'])jsPDF.prototype[m]=function(){};`;
+// Un PNG de 2x1 de verdad, para que el navegador lo pueda leer y reescalar.
+const LOGO = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGP4z8DwHwQZGBgAJPYE/BVNiDwAAAAASUVORK5CYII=', 'base64');
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d ? `\n   ${d}` : ''}`); } };
@@ -96,6 +100,7 @@ async function abre(ancho) {
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
   await pg.route(/^https?:\/\/(?!127)/, r => r.abort());
   await pg.route('**/v2/supabase-client.js', r => r.fulfill({ contentType:'text/javascript', body:FAKE }));
+  await pg.route('**/logo-prueba.png', r => r.fulfill({ contentType:'image/png', body:LOGO }));
   await pg.route('**/v2/branding-auto.js', r => r.fulfill({ contentType:'text/javascript', body:'' }));
   await pg.route(/esm\.sh\/jspdf/, r => r.fulfill({ contentType:'text/javascript', body:JSPDF }));
   await pg.goto(`${BASE}/patrocinadores/`, { waitUntil:'networkidle' });
@@ -225,6 +230,17 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   revisa('16. asignar entra en Les damos de su acuerdo sin perder lo demás', asg?.agreement_id === 'a-tremor' && nuevoU && !nuevoU.id && asg.given_items.filter(i => i.id).map(i => i.id).join() === 'i6,i7,i8', JSON.stringify(asg));
   const occ = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_upsert_sponsor_asset_admin').pop()?.p);
   revisa('16. y el lugar queda ocupado', occ?.asset_id === 'u2' && occ?.availability === 'occupied', JSON.stringify(occ));
+  await pg.click('.close-workspace-modal').catch(() => {}); await pg.keyboard.press('Escape');
+  await pg.click('#uniformMap [data-lugar="u1"]');
+  await pg.waitForSelector('#spotModal:not(.hidden)', { timeout:3000 });
+  revisa('17. el lugar ocupado ofrece subir el logo de la marca', /Subir logo de Don Trapo/.test(await txt(pg, '#spotBody')));
+  await pg.setInputFiles('[data-logo-sube="s-trapo"]', { name:'logo.png', mimeType:'image/png', buffer:LOGO });
+  await pg.waitForFunction(() => window.__rpc.some(x => x.n === 'v2_set_sponsor_logo'), null, { timeout:5000 }).catch(() => {});
+  const lg = await pg.evaluate(() => ({ p: window.__rpc.filter(x => x.n === 'v2_set_sponsor_logo').pop()?.p, up: window.__subidas || [] }));
+  revisa('17. el logo se sube a la carpeta de la marca y se guarda', lg.p?.sponsor_id === 's-trapo' && /^organizations\/o1\/sponsors\/logos\/s-trapo\/logo-\d+\.(webp|png)$/.test(lg.p?.logo_path || '') && lg.up.includes(lg.p?.logo_path), JSON.stringify(lg));
+  await pg.waitForSelector('#uniformMap .pt-lugar.con-logo img[src]', { timeout:3000 }).catch(() => {});
+  revisa('17. en la playera se ve el logo, no el nombre', !!(await pg.$('#uniformMap [data-lugar="u1"].con-logo img[src]')), await pg.innerHTML('#uniformMap .frente').catch(() => ''));
+  await pg.click('#spotModal .close-workspace-modal').catch(() => {});
   await pg.click('.module-nav [data-view="audience"]');
   const aud = await txt(pg, '#audienceList');
   revisa('14. audiencia por entidad y red con validación', /Tannery City FC/.test(aud) && /Instagram/.test(aud) && /CONFIRMADO/.test(aud) && /APROXIMADO/.test(aud) && /Sin datos todavía/.test(aud), aud);

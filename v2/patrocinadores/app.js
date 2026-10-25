@@ -902,11 +902,65 @@ function renderUniform() {
       dibujo() +
       aqui.map((a) => {
         const l = LUGARES[a.externalRef], marcas = quienTiene(a), ocupado = marcas.length || a.availability === 'occupied';
-        return '<button type="button" class="pt-lugar' + (ocupado ? ' ocupado' : '') + '" data-lugar="' + esc(a.id) + '" style="left:' + l.x + '%;top:' + l.y + '%;min-width:' + l.w + '%;max-width:' + (vista === 'frente' && l.w < 20 ? 30 : 52) + '%;min-height:' + l.h + '%">' +
+        const logo = marcas.find((m) => m.logoPath);
+        const pos = 'left:' + l.x + '%;top:' + l.y + '%;';
+        // Con logo, el logo va estampado en la tela; sin logo, su nombre en un parche.
+        if (logo) return '<button type="button" class="pt-lugar ocupado con-logo" data-lugar="' + esc(a.id) + '" aria-label="' + esc(a.name + ': ' + logo.name) + '" title="' + esc(logo.name) + '" style="' + pos + 'width:' + l.w + '%;height:' + (l.h * 1.5) + '%">' +
+          '<img data-logo-for="' + esc(logo.id) + '" alt=""></button>';
+        return '<button type="button" class="pt-lugar' + (ocupado ? ' ocupado' : '') + '" data-lugar="' + esc(a.id) + '" style="' + pos + 'min-width:' + l.w + '%;max-width:' + (vista === 'frente' && l.w < 20 ? 30 : 52) + '%;min-height:' + l.h + '%">' +
           '<b>' + esc(ocupado ? (marcas[0]?.name || 'Ocupado') : precio(a)) + '</b>' +
           '<small>' + esc(ocupado ? 'Ocupado' : 'Disponible') + '</small></button>';
       }).join('') + '</div></figure>';
   }).join('');
+  pintaLogos(box);
+}
+/* Logos de las marcas (h43): PNG/WebP con su transparencia, para que en la
+   playera se vea el logo y no un cuadro blanco. */
+// El botón sale cuando la base ya regresa logoPath (h43 aplicada); antes no.
+const hayLogos = () => sponsors.some((s) => Object.prototype.hasOwnProperty.call(s, 'logoPath'));
+const LOGO_MAX_SIDE = 600, LOGO_MAX_BYTES = 300 * 1024;
+async function pintaLogos(root) {
+  const imgs = [...root.querySelectorAll('img[data-logo-for]')];
+  if (!imgs.length) return;
+  const paths = imgs.map((img) => sponsorById(img.dataset.logoFor)?.logoPath).filter(Boolean);
+  const map = await signedUrls(PHOTO_BUCKET, paths).catch(() => ({}));
+  imgs.forEach((img) => { const url = map[sponsorById(img.dataset.logoFor)?.logoPath]; if (url) img.src = url; });
+}
+async function prepareLogo(file) {
+  if (!file) throw new Error('Selecciona el logo.');
+  if (file.type && !/^image\/(png|webp|jpeg)$/.test(file.type)) throw new Error('Sube el logo en PNG (mejor con fondo transparente), WebP o JPG.');
+  const img = await loadImageFile(file);
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  if (!w || !h) throw new Error('No pudimos leer ese logo.');
+  const r = Math.min(1, LOGO_MAX_SIDE / Math.max(w, h));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * r); canvas.height = Math.round(h * r);
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  const toBlob = (type, q) => new Promise((res) => canvas.toBlob(res, type, q));
+  let blob = await toBlob('image/webp', .9);
+  if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/png');
+  if (!blob) throw new Error('Tu navegador no pudo preparar el logo.');
+  if (blob.size > LOGO_MAX_BYTES) throw new Error('El logo pesa mucho. Prueba con uno más chico.');
+  return { blob, mime: blob.type, ext: blob.type === 'image/webp' ? 'webp' : 'png' };
+}
+async function subeLogo(sponsorId, file) {
+  const m = sponsorById(sponsorId); if (!m) return;
+  message('spotMessage', 'Subiendo el logo…', 'success');
+  let path = null;
+  try {
+    const prepared = await prepareLogo(file);
+    path = 'organizations/' + ctx.organization_id + '/sponsors/logos/' + sponsorId + '/logo-' + Date.now() + '.' + prepared.ext;
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.blob, { contentType: prepared.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
+    if (error) throw error;
+    const r = await rpc('v2_set_sponsor_logo', { organization_id: ctx.organization_id, sponsor_id: sponsorId, logo_path: path });
+    m.logoPath = r?.logoPath || path; m.logoBucket = PHOTO_BUCKET;
+    renderUniform();
+    openSpot(spotAssetId);
+    message('spotMessage', 'Listo: el logo de ' + m.name + ' ya está en el uniforme.', 'success');
+  } catch (error) {
+    if (path) supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {});
+    message('spotMessage', friendly(error) || 'No se pudo subir el logo.');
+  }
 }
 let spotAssetId = null;
 function openSpot(assetId) {
@@ -916,8 +970,12 @@ function openSpot(assetId) {
   $('spotTitle').textContent = a.name;
   $('spotSub').textContent = (a.price != null ? money.format(Number(a.price)) + (a.unit ? ' por ' + a.unit : '') : 'Por cotizar') + ' · ' + (PRECIO_ESTADO[a.priceStatus] || '');
   $('spotBody').innerHTML = ocupado
-    ? '<p class="pt-spot-quien">Lo tiene ' + (marcas.length ? marcas.map((m) => '<button type="button" class="pt-link" data-spot-marca="' + esc(m.id) + '">' + esc(m.name) + '</button>').join(', ') : 'una marca (marcado como ocupado)') + '.</p>'
+    ? '<p class="pt-spot-quien">Lo tiene ' + (marcas.length ? marcas.map((m) => '<button type="button" class="pt-link" data-spot-marca="' + esc(m.id) + '">' + esc(m.name) + '</button>').join(', ') : 'una marca (marcado como ocupado)') + '.</p>' +
+      marcas.map((m) => '<div class="pt-logo-fila"><span class="pt-logo-caja">' + (m.logoPath ? '<img data-logo-for="' + esc(m.id) + '" alt="Logo de ' + esc(m.name) + '">' : '<em>Sin logo</em>') + '</span>' +
+        (canWrite && hayLogos() ? '<label class="secondary pt-logo-subir">' + (m.logoPath ? 'Cambiar logo' : 'Subir logo de ' + esc(m.name)) + '<input type="file" accept="image/png,image/webp,image/jpeg" data-logo-sube="' + esc(m.id) + '" hidden></label>' : '') + '</div>').join('') +
+      (canWrite && hayLogos() && marcas.length ? '<small class="muted">Mejor en PNG con fondo transparente: así se ve estampado en la playera.</small>' : '')
     : '<p class="pt-spot-quien libre">Disponible.</p>';
+  pintaLogos($('spotBody'));
   const sel = $('spotSponsor');
   sel.innerHTML = '<option value="">Elige la marca…</option>' + sponsors.filter((x) => !['lost', 'finished'].includes(normalizeStage(x.stage, x.status)))
     .map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('');
@@ -2143,6 +2201,7 @@ $('proposalMake').addEventListener('click', armarPropuesta);
 $('uniformMap').addEventListener('click', (e) => { const b = e.target.closest('[data-lugar]'); if (b) openSpot(b.dataset.lugar); });
 $('spotForm').addEventListener('submit', asignaLugar);
 $('spotBody').addEventListener('click', (e) => { const b = e.target.closest('[data-spot-marca]'); if (b) { closeModal(); openBrand(b.dataset.spotMarca); } });
+$('spotBody').addEventListener('change', (e) => { const f = e.target.closest('[data-logo-sube]'); if (f?.files?.[0]) subeLogo(f.dataset.logoSube, f.files[0]); });
 $('spotEdit').addEventListener('click', () => { const a = assetById(spotAssetId); closeModal(); if (a) openAssetForm(a); });
 $('spotProposal').addEventListener('click', () => { const id = spotAssetId; closeModal(); switchView('assets'); priceListOpen = false; proposalMode = true; proposalPick.add(id); pintaPropuestaBarra(); renderAssets(); });
 $('priceListButton').addEventListener('click', () => { priceListOpen = !priceListOpen; if (priceListOpen) { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); } renderAssets(); });

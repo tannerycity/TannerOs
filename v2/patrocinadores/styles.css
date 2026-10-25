@@ -504,3 +504,11 @@
 .pt-spot-quien.libre{color:#1d7a46}
 .pt-spot-acc{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:12px}
 @media(max-width:760px){.pt-uni-mapa{grid-template-columns:1fr 1fr;gap:6px;padding:12px 4px}.pt-lugar b{font-size:10.5px}.pt-lugar small{display:none}}
+.pt-lugar.con-logo{background:transparent;box-shadow:none;border:0;padding:0}
+.pt-lugar.con-logo:hover{background:rgba(255,255,255,.12)}
+.pt-lugar.con-logo img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 .5px .5px rgba(0,0,0,.25))}
+.pt-logo-fila{display:flex;align-items:center;gap:12px;margin:0 0 8px}
+.pt-logo-caja{display:grid;place-items:center;width:96px;height:56px;border-radius:10px;background:#c9959c;overflow:hidden;flex:none}
+.pt-logo-caja img{max-width:86%;max-height:80%;object-fit:contain}
+.pt-logo-caja em{font-size:11px;color:#fff;font-style:normal;font-weight:700}
+.pt-logo-subir{cursor:pointer;display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:12px;font-weight:800}

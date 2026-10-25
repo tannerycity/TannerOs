@@ -9,7 +9,7 @@
  * responsable o Presidencia.
  */
 import { createClient } from '/v2/supabase-client.js';
-import { COLUMNAS, AREAS, PRIORIDADES, filtra, porColumna, posicionEntre, vence, progreso, tonoDeArea, iniciales } from '/v2/ideas/ideas.js';
+import { COLUMNAS, AREAS, PRIORIDADES, filtra, porColumna, posicionEntre, vence, progreso, tonoDeArea, iniciales, claveVistas } from '/v2/ideas/ideas.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
   { auth: { persistSession: true, autoRefreshToken: true } });
@@ -171,7 +171,12 @@ async function boot() {
   ctx = filas[0];
   $('orgName').textContent = ctx.organization_name || '';
   if (ctx.role === 'Tanner') { muestra('deniedView'); return; }
-  cablea(); muestra('view'); await carga();
+  const params = new URLSearchParams(location.search);
+  cablea(); muestra('view');
+  if (params.get('mias') === '1') { mias = true; $('idQuien').querySelectorAll('[data-mias]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mias === '1'))); }
+  await carga();
+  // Lo que ya me asignaron queda visto: Inicio deja de avisarlo.
+  try { if (datos.me) localStorage.setItem(claveVistas(datos.me), JSON.stringify(datos.ideas.filter(i => i.ownerId === datos.me).map(i => i.id))); } catch { /* sin almacenamiento */ }
   const abrir = new URLSearchParams(location.search).get('idea');
   if (abrir) { const i = datos.ideas.find(x => x.id === abrir); if (i) abre(i); }
 }

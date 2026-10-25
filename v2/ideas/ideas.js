@@ -61,3 +61,18 @@ export function tonoDeArea(area) {
 }
 
 export const iniciales = n => String(n || '').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase() || '·';
+
+// Avisos en Inicio (25/10/2026, "sí hazlo"): lo que tengo a cargo y vence, y
+// lo que alguien más me asignó y no he visto. "Visto" = estaba en la lista de
+// ids que guardó el tablero la última vez que lo abrí.
+export function avisosDeIdeas(ideas, me, hoy, vistas = []) {
+  if (!me) return { vencidas: [], pronto: [], nuevas: [] };
+  const mias = (ideas || []).filter(i => i.ownerId === me && i.status !== 'done' && i.status !== 'archived');
+  const visto = new Set(vistas || []);
+  return {
+    vencidas: mias.filter(i => vence(i.dueDate, hoy, i.status) === 'vencida'),
+    pronto: mias.filter(i => vence(i.dueDate, hoy, i.status) === 'pronto'),
+    nuevas: mias.filter(i => i.createdBy !== me && !visto.has(i.id)),
+  };
+}
+export const claveVistas = me => `tos-ideas-vistas:${me}`;

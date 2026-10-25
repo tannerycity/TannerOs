@@ -737,7 +737,45 @@ function renderAssets() {
     });
   });
   hydrateAssetPhotos();
+  renderPriceList();
 }
+/* Lista de precios (25/10/2026): Presidencia quiere "dónde editar y cambiar"
+   los precios. Una tabla con todos los activos del filtro: precio y estado, y
+   se guarda renglón por renglón. Sólo lo "Aprobado" sale en propuestas. */
+let priceListOpen = false;
+function renderPriceList() {
+  const box = $('priceList'); if (!box) return;
+  box.classList.toggle('hidden', !priceListOpen);
+  $('assetList').classList.toggle('hidden', priceListOpen);
+  $('priceListButton').textContent = priceListOpen ? 'Ver tarjetas' : 'Lista de precios';
+  if (!priceListOpen) return;
+  const lista = filtraActivos();
+  box.innerHTML = '<p class="muted tiny">Cambia el precio o el estado y toca Guardar. Sólo lo <b>Aprobado</b> sale en las propuestas; lo demás dice "A cotizar".</p>' +
+    '<div class="pt-precios-tabla" role="table">' + lista.map((a) => (
+    '<div class="pt-precio-fila" role="row" data-precio-id="' + esc(a.id) + '">' +
+      '<span class="pt-precio-nom"><b>' + esc(a.name) + '</b><small>' + esc([ENTIDADES[a.entity], a.channel, a.unit].filter(Boolean).join(' · ')) + '</small></span>' +
+      '<label class="pt-precio-val"><span class="sr-only">Precio</span><input type="number" min="0" step="50" inputmode="decimal" value="' + (a.price ?? '') + '" placeholder="$" data-campo="price"></label>' +
+      '<label class="pt-precio-est"><span class="sr-only">Estado</span><select data-campo="status">' +
+        Object.entries(PRECIO_ESTADO).map(([k, t]) => '<option value="' + k + '"' + (a.priceStatus === k ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></label>' +
+      '<button type="button" class="secondary mini" data-guardar-precio>Guardar</button>' +
+    '</div>')).join('') + '</div>';
+}
+async function guardaPrecio(fila) {
+  const a = assetById(fila.dataset.precioId); if (!a) return;
+  const precio = fila.querySelector('[data-campo="price"]').value, estado = fila.querySelector('[data-campo="status"]').value;
+  if (estado === 'aprobado' && precio === '') { await tosAlert({ kicker: 'PRECIOS', title: 'Falta el precio', message: 'Para aprobarlo, escribe el precio.' }); return; }
+  const b = fila.querySelector('[data-guardar-precio]'); b.disabled = true; b.textContent = 'Guardando…';
+  try {
+    await rpc('v2_upsert_sponsor_asset_admin', { organization_id: ctx.organization_id, asset_id: a.id, name: a.name, category: a.category,
+      price: precio === '' ? null : Number(precio), description: a.description || null, availability: a.availability || 'available',
+      entity: a.entity || null, channel: a.channel || null, unit: a.unit || null, family: a.family || null, validation: a.validation || null,
+      internal_notes: a.internalNotes || null, price_status: estado });
+    await load();
+    const nueva = document.querySelector('[data-precio-id="' + CSS.escape(a.id) + '"] [data-guardar-precio]');
+    if (nueva) { nueva.textContent = 'Guardado'; setTimeout(() => { nueva.textContent = 'Guardar'; }, 1500); }
+  } catch (error) { b.disabled = false; b.textContent = 'Guardar'; await tosAlert({ kicker: 'PRECIOS', title: 'No se pudo guardar', message: friendly(error) }); }
+}
+
 function pintaPropuestaBarra() {
   $('proposalBar').classList.toggle('hidden', !proposalMode);
   $('proposalButton').classList.toggle('hidden', proposalMode);
@@ -1988,6 +2026,8 @@ $('assetFilters').addEventListener('click', (e) => { const b = e.target.closest(
 $('proposalButton').addEventListener('click', () => { proposalMode = true; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
 $('proposalCancel').addEventListener('click', () => { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
 $('proposalMake').addEventListener('click', armarPropuesta);
+$('priceListButton').addEventListener('click', () => { priceListOpen = !priceListOpen; if (priceListOpen) { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); } renderAssets(); });
+$('priceList').addEventListener('click', (e) => { const b = e.target.closest('[data-guardar-precio]'); if (b) guardaPrecio(b.closest('[data-precio-id]')); });
 $('sponsorReportButton').addEventListener('click', sponsorReport);
 $('linkFundedPlayerButton').addEventListener('click', openFundingModal);
 $('fundingForm').addEventListener('submit', saveFunding);

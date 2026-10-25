@@ -183,6 +183,15 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   const filtros = await pg.$$eval('#assetFilters [data-filtro]', xs => xs.map(x => x.dataset.filtro));
   revisa('12. activos con filtros por entidad, físicos y paquetes', JSON.stringify(filtros) === '["all","TC","TCP","fisicos","paquetes"]', JSON.stringify(filtros));
   revisa('12. el precio interno dice su estado', /\$3,000\/mes · propuesta/.test(await txt(pg, '#assetList')) && /Por cotizar/.test(await txt(pg, '#assetList')));
+  await pg.click('#priceListButton');
+  revisa('15. lista de precios: todos los activos en una tabla', (await pg.$$('#priceList [data-precio-id]')).length === 3 && await pg.isHidden('#assetList'));
+  await pg.fill('#priceList [data-precio-id="as2"] [data-campo="price"]', '2000');
+  await pg.selectOption('#priceList [data-precio-id="as2"] [data-campo="status"]', 'aprobado');
+  await pg.click('#priceList [data-precio-id="as2"] [data-guardar-precio]');
+  await pg.waitForTimeout(300);
+  const pr = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_upsert_sponsor_asset_admin').pop()?.p);
+  revisa('15. guardar cambia precio y estado sin tocar lo demás', pr?.asset_id === 'as2' && pr?.price === 2000 && pr?.price_status === 'aprobado' && pr?.entity === 'TCP' && pr?.unit === 'espacio', JSON.stringify(pr));
+  await pg.click('#priceListButton');
   await pg.click('#proposalButton');
   await pg.click('#assetList [data-asset-id="as1"]');
   await pg.click('#assetList [data-asset-id="as3"]');

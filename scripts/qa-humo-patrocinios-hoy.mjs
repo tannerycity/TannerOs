@@ -53,11 +53,15 @@ const DATOS = {
     it('i6','a-tremor','give','jersey','Presencia en jerseys',false),
     { ...it('i7','a-tremor','give','social','Publicaciones en redes',false), quantity:20, deliveredQuantity:7, frequency:'anual', externalRef:'OBL-006' },
     { ...it('i8','a-tremor','give','other','Paquete audiovisual $8,000',false), auditStatus:'venta_aparte', externalRef:'OBL-014' },
+    { ...it('i9','a-trapo','give','jersey','Logo en pecho del uniforme oficial',true), assetId:'u1' },
   ],
   payments: [{ id:'p1', agreementId:'a-trapo', amount:7500, paidOn: new Date().toISOString().slice(0, 7) + '-02' }],
   assets: [
     { id:'as1', name:'Reel Instagram', category:'content', entity:'TC', channel:'Instagram', unit:'reel', family:'Contenido', validation:'CONFIGURABLE', price:2500, priceStatus:'aprobado', availability:'available', description:'Video vertical con marca', internalNotes:'NOTA SECRETA DEL CONTRATO' },
     { id:'as2', name:'Frente Españita 1', category:'park', entity:'TCP', channel:'Presencial', unit:'espacio', family:'Espacio físico', validation:'PENDIENTE', price:null, priceStatus:'por_cotizar', availability:'available', description:'Espacio físico' },
+    { id:'u1', name:'Logo en pecho', category:'uniforms', entity:'TC', channel:'Jersey oficial', unit:'temporada', family:'Uniforme', externalRef:'TC-JER-PECHO', price:20000, priceStatus:'propuesta', availability:'occupied', description:'Logo' },
+    { id:'u2', name:'Logo en manga derecha', category:'uniforms', entity:'TC', channel:'Jersey oficial', unit:'temporada', family:'Uniforme', externalRef:'TC-JER-MANGA-DER', price:7500, priceStatus:'propuesta', availability:'available', description:'Logo' },
+    { id:'u3', name:'Logo en short izquierdo', category:'uniforms', entity:'TC', channel:'Short oficial', unit:'temporada', family:'Uniforme', externalRef:'TC-JER-SHORT-IZQ', price:5000, priceStatus:'propuesta', availability:'available', description:'Logo' },
     { id:'as3', name:'Paquete Tanner Local', category:'other', entity:'AMBOS', channel:'Multicanal', unit:'por mes', family:'Paquete', validation:'PROPUESTO', price:3000, priceStatus:'propuesta', availability:'available', description:'Paquete físico + digital' },
   ],
   socialMetrics: [
@@ -184,7 +188,7 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   revisa('12. activos con filtros por entidad, físicos y paquetes', JSON.stringify(filtros) === '["all","TC","TCP","fisicos","paquetes"]', JSON.stringify(filtros));
   revisa('12. el precio interno dice su estado', /\$3,000\/mes · propuesta/.test(await txt(pg, '#assetList')) && /Por cotizar/.test(await txt(pg, '#assetList')));
   await pg.click('#priceListButton');
-  revisa('15. lista de precios: todos los activos en una tabla', (await pg.$$('#priceList [data-precio-id]')).length === 3 && await pg.isHidden('#assetList'));
+  revisa('15. lista de precios: todos los activos en una tabla', (await pg.$$('#priceList [data-precio-id]')).length === 6 && await pg.isHidden('#assetList'));
   await pg.fill('#priceList [data-precio-id="as2"] [data-campo="price"]', '2000');
   await pg.selectOption('#priceList [data-precio-id="as2"] [data-campo="status"]', 'aprobado');
   await pg.click('#priceList [data-precio-id="as2"] [data-guardar-precio]');
@@ -206,6 +210,21 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   revisa('13. nunca salen las notas internas', !/NOTA SECRETA/.test(prop));
   revisa('13. la audiencia va con su periodo y fuente, sin sumar', /Reproducciones/.test(prop) && /aprox\. 49,800/.test(prop) && /Meta Business Suite/.test(prop), prop);
   await pg.click('.tosdlg-cancel'); await pg.waitForTimeout(150);
+  await pg.click('.module-nav [data-view="uniform"]');
+  const resumen = await txt(pg, '#uniformSummary');
+  revisa('16. uniforme: vendido y disponible por temporada', /\$20,000 vendido/.test(resumen) && /\$12,500 disponible/.test(resumen) && /precios en propuesta/.test(resumen), resumen);
+  revisa('16. cada lugar en su vista, con la marca que lo tiene', (await pg.$$('#uniformMap .pt-lugar')).length === 3 && /Don Trapo/.test(await txt(pg, '#uniformMap .frente')) && /\$5,000/.test(await txt(pg, '#uniformMap .short')), await txt(pg, '#uniformMap'));
+  await pg.click('#uniformMap [data-lugar="u2"]');
+  await pg.waitForSelector('#spotModal:not(.hidden)', { timeout:3000 });
+  revisa('16. un lugar libre dice Disponible', /Disponible/.test(await txt(pg, '#spotBody')));
+  await pg.selectOption('#spotSponsor', 's-tremor');
+  await pg.click('#spotAssign');
+  await pg.waitForTimeout(400);
+  const asg = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_save_sponsor_agreement').pop()?.p);
+  const nuevoU = asg?.given_items?.find(i => i.assetId === 'u2');
+  revisa('16. asignar entra en Les damos de su acuerdo sin perder lo demás', asg?.agreement_id === 'a-tremor' && nuevoU && !nuevoU.id && asg.given_items.filter(i => i.id).map(i => i.id).join() === 'i6,i7,i8', JSON.stringify(asg));
+  const occ = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_upsert_sponsor_asset_admin').pop()?.p);
+  revisa('16. y el lugar queda ocupado', occ?.asset_id === 'u2' && occ?.availability === 'occupied', JSON.stringify(occ));
   await pg.click('.module-nav [data-view="audience"]');
   const aud = await txt(pg, '#audienceList');
   revisa('14. audiencia por entidad y red con validación', /Tannery City FC/.test(aud) && /Instagram/.test(aud) && /CONFIRMADO/.test(aud) && /APROXIMADO/.test(aud) && /Sin datos todavía/.test(aud), aud);

@@ -543,6 +543,7 @@ function render() {
   renderSummary();
   renderRoute();
   renderAudience();
+  renderUniform();
   renderAssets();
   if (selectedSponsorId && !$('brandDrawer').classList.contains('hidden')) renderBrandDrawer();
   writeControls();
@@ -837,6 +838,91 @@ function renderAudience() {
     ? '<article class="pt-red pt-red-sin"><header><h3>Sin datos todavía</h3></header><ul>' + socialAccounts.filter((a) => !ult.some((m) => m.entity === a.entity && m.channel === a.platform))
       .map((a) => '<li><span class="pt-met-k">' + esc((ENTIDADES[a.entity] || a.entity) + ' · ' + a.platform) + '</span><small>' + esc([a.baseline, a.pending].filter(Boolean).join(' · ')) + '</small></li>').join('') + '</ul></article>' : '');
 }
+/* Mapa del uniforme (25/10/2026): Presidencia quiere ver los patrocinadores
+   en el jersey. Cada lugar es un activo (familia Uniforme, external_ref
+   TC-JER-*); quién lo tiene sale de los entregables ligados a ese activo. */
+const LUGARES = {
+  'TC-JER-MANGA-DER': { vista: 'frente', x: 17, y: 25, w: 13, h: 8 },
+  'TC-JER-MANGA-IZQ': { vista: 'frente', x: 83, y: 25, w: 13, h: 8 },
+  'TC-JER-PECHO': { vista: 'frente', x: 50, y: 47, w: 36, h: 10 },
+  'TC-JER-ESPALDA-SUP': { vista: 'espalda', x: 50, y: 20, w: 46, h: 8 },
+  'TC-JER-ESPALDA-INF': { vista: 'espalda', x: 50, y: 84, w: 38, h: 9 },
+  'TC-JER-SHORT-DER': { vista: 'short', x: 27, y: 62, w: 22, h: 18 },
+  'TC-JER-SHORT-IZQ': { vista: 'short', x: 73, y: 62, w: 22, h: 18 },
+};
+const PLAYERA = '<path d="M62 12 L84 4 Q100 22 116 4 L138 12 L192 44 L172 84 L150 72 L150 214 L50 214 L50 72 L28 84 L8 44 Z" />';
+const SHORT = '<path d="M28 8 L172 8 L188 112 L112 112 L100 52 L88 112 L12 112 Z" />';
+const VISTAS = [['frente', 'Frente', PLAYERA, '0 0 200 220'], ['espalda', 'Espalda', PLAYERA, '0 0 200 220'], ['short', 'Short', SHORT, '0 0 200 120']];
+function quienTiene(asset) {
+  const vivos = new Set(agreements.filter((a) => a.status !== 'cancelled').map((a) => a.id));
+  const ids = [...new Set(agreementItems.filter((i) => i.assetId === asset.id && vivos.has(i.agreementId) && i.auditStatus !== 'venta_aparte')
+    .map((i) => agreements.find((a) => a.id === i.agreementId)?.sponsorId).filter(Boolean))];
+  return ids.map(sponsorById).filter(Boolean);
+}
+function renderUniform() {
+  const box = $('uniformMap'); if (!box) return;
+  const lugares = assets.filter((a) => a.family === 'Uniforme' && LUGARES[a.externalRef]);
+  $('uniformEmpty').classList.toggle('hidden', lugares.length > 0);
+  const precio = (a) => a.price != null ? money.format(Number(a.price)) : 'Por cotizar';
+  let vendido = 0, libre = 0;
+  lugares.forEach((a) => { const n = Number(a.price || 0); if (quienTiene(a).length || a.availability === 'occupied') vendido += n; else libre += n; });
+  $('uniformSummary').innerHTML = lugares.length ? '<span><b>' + money.format(vendido) + '</b> vendido</span><span><b>' + money.format(libre) + '</b> disponible</span><span class="muted">' +
+    esc(lugares[0].unit ? 'precios por ' + lugares[0].unit : '') + (lugares.some((a) => a.priceStatus !== 'aprobado') ? ' · precios en propuesta' : '') + '</span>' : '';
+  box.innerHTML = VISTAS.map(([vista, titulo, forma, viewBox]) => {
+    const aqui = lugares.filter((a) => LUGARES[a.externalRef].vista === vista);
+    return '<figure class="pt-uni-pieza ' + vista + '"><figcaption>' + titulo + '</figcaption><div class="pt-uni-lienzo">' +
+      '<svg viewBox="' + viewBox + '" aria-hidden="true">' + forma + '</svg>' +
+      aqui.map((a) => {
+        const l = LUGARES[a.externalRef], marcas = quienTiene(a), ocupado = marcas.length || a.availability === 'occupied';
+        return '<button type="button" class="pt-lugar' + (ocupado ? ' ocupado' : '') + '" data-lugar="' + esc(a.id) + '" style="left:' + l.x + '%;top:' + l.y + '%;min-width:' + l.w + '%;max-width:48%;min-height:' + l.h + '%">' +
+          '<b>' + esc(ocupado ? (marcas[0]?.name || 'Ocupado') : precio(a)) + '</b>' +
+          '<small>' + esc(ocupado ? 'Ocupado' : 'Disponible') + '</small></button>';
+      }).join('') + '</div></figure>';
+  }).join('');
+}
+let spotAssetId = null;
+function openSpot(assetId) {
+  const a = assetById(assetId); if (!a) return;
+  spotAssetId = a.id;
+  const marcas = quienTiene(a), ocupado = marcas.length || a.availability === 'occupied';
+  $('spotTitle').textContent = a.name;
+  $('spotSub').textContent = (a.price != null ? money.format(Number(a.price)) + (a.unit ? ' por ' + a.unit : '') : 'Por cotizar') + ' · ' + (PRECIO_ESTADO[a.priceStatus] || '');
+  $('spotBody').innerHTML = ocupado
+    ? '<p class="pt-spot-quien">Lo tiene ' + (marcas.length ? marcas.map((m) => '<button type="button" class="pt-link" data-spot-marca="' + esc(m.id) + '">' + esc(m.name) + '</button>').join(', ') : 'una marca (marcado como ocupado)') + '.</p>'
+    : '<p class="pt-spot-quien libre">Disponible.</p>';
+  const sel = $('spotSponsor');
+  sel.innerHTML = '<option value="">Elige la marca…</option>' + sponsors.filter((x) => !['lost', 'finished'].includes(normalizeStage(x.stage, x.status)))
+    .map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('');
+  $('spotForm').classList.toggle('hidden', !canWrite);
+  message('spotMessage');
+  openModal('spotModal');
+}
+// Asignar un lugar: entra como "Les damos" en el acuerdo principal de la marca
+// (el vigente o su borrador más completo); si no tiene, se le abre un borrador.
+async function asignaLugar(event) {
+  event.preventDefault();
+  const a = assetById(spotAssetId), sponsorId = $('spotSponsor').value;
+  if (!a) return;
+  if (!sponsorId) { message('spotMessage', 'Elige la marca.'); return; }
+  const b = $('spotAssign'); b.disabled = true;
+  const principal = agreementsForSponsor(sponsorId).filter((x) => x.status !== 'cancelled')
+    .sort((x, y) => (y.status === 'active') - (x.status === 'active') || itemsForAgreement(y.id).length - itemsForAgreement(x.id).length)[0];
+  const items = principal ? itemsForAgreement(principal.id) : [];
+  const comoItem = (i) => ({ id: i.id, type: i.type, description: i.description, quantity: i.quantity ?? null, unit: i.unit || null, estimatedValue: i.estimatedValue ?? null, assetId: i.assetId || null, fulfilled: !!i.fulfilled });
+  const nuevo = { type: 'jersey', description: a.name + ' del uniforme oficial', quantity: 1, unit: a.unit || null, estimatedValue: null, assetId: a.id, fulfilled: false };
+  try {
+    await rpc('v2_save_sponsor_agreement', { organization_id: ctx.organization_id, agreement_id: principal?.id || null, sponsor_id: sponsorId,
+      starts_on: principal?.startsOn || null, ends_on: principal?.endsOn || null, agreement_value: principal?.monetaryValue ?? null, status: principal?.status || 'draft',
+      notes: principal?.notes || null, benefit: principal?.benefit || null, discount_percent: principal?.discountPercent ?? null, beneficiaries: principal?.beneficiaries || [],
+      redemption_instructions: principal?.redemptionInstructions || null,
+      received_items: items.filter((i) => i.direction === 'receive').map(comoItem), given_items: [...items.filter((i) => i.direction === 'give').map(comoItem), nuevo] });
+    await rpc('v2_upsert_sponsor_asset_admin', { organization_id: ctx.organization_id, asset_id: a.id, name: a.name, category: a.category, price: a.price ?? null,
+      description: a.description || null, availability: 'occupied', entity: a.entity || null, channel: a.channel || null, unit: a.unit || null, family: a.family || null,
+      validation: a.validation || null, internal_notes: a.internalNotes || null, price_status: a.priceStatus || 'por_cotizar' });
+    closeModal(); await load(); switchView('uniform');
+  } catch (error) { message('spotMessage', friendly(error)); } finally { b.disabled = false; }
+}
+
 function openMetricForm() {
   if (!canWrite) return;
   $('metricForm').reset(); $('metricEnd').value = hoyIso(); message('metricMessage');
@@ -865,7 +951,7 @@ function switchView(view) {
   document.querySelectorAll('.module-nav [data-view]').forEach((button) => {
     button.classList.toggle('active', button.dataset.view === view);
   });
-  ['summary', 'route', 'assets', 'audience'].forEach((name) => {
+  ['summary', 'route', 'assets', 'uniform', 'audience'].forEach((name) => {
     $(name + 'View').classList.toggle('hidden', name !== view);
   });
 }
@@ -2026,6 +2112,11 @@ $('assetFilters').addEventListener('click', (e) => { const b = e.target.closest(
 $('proposalButton').addEventListener('click', () => { proposalMode = true; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
 $('proposalCancel').addEventListener('click', () => { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
 $('proposalMake').addEventListener('click', armarPropuesta);
+$('uniformMap').addEventListener('click', (e) => { const b = e.target.closest('[data-lugar]'); if (b) openSpot(b.dataset.lugar); });
+$('spotForm').addEventListener('submit', asignaLugar);
+$('spotBody').addEventListener('click', (e) => { const b = e.target.closest('[data-spot-marca]'); if (b) { closeModal(); openBrand(b.dataset.spotMarca); } });
+$('spotEdit').addEventListener('click', () => { const a = assetById(spotAssetId); closeModal(); if (a) openAssetForm(a); });
+$('spotProposal').addEventListener('click', () => { const id = spotAssetId; closeModal(); switchView('assets'); priceListOpen = false; proposalMode = true; proposalPick.add(id); pintaPropuestaBarra(); renderAssets(); });
 $('priceListButton').addEventListener('click', () => { priceListOpen = !priceListOpen; if (priceListOpen) { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); } renderAssets(); });
 $('priceList').addEventListener('click', (e) => { const b = e.target.closest('[data-guardar-precio]'); if (b) guardaPrecio(b.closest('[data-precio-id]')); });
 $('sponsorReportButton').addEventListener('click', sponsorReport);

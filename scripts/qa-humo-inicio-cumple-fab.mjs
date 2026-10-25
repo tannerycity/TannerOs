@@ -39,7 +39,7 @@ const GENTE = [
 ];
 const nav = (mods) => mods.map(([c, w]) => ({ module_code:c, enabled:true, can_read:true, can_write:w }));
 const ROLES = {
-  Presidencia: { yo:'u-mich', nav: nav([['jugadores',true],['prospectos',true],['taquilla',true],['cobranza',true],['contabilidad',true],['tienda',true],['estacionamiento',true]]),
+  Presidencia: { yo:'u-mich', nav: nav([['jugadores',true],['prospectos',true],['taquilla',true],['cobranza',true],['contabilidad',true],['tienda',true],['estacionamiento',true],['patrocinadores',true]]),
                  espera:['Registrar jugador','Fichajes','Cobrar','Pagar','Tienda','Gafete de estacionamiento','Cotizar'] },
   Taquilla:    { yo:'u-ipad', nav: nav([['taquilla',true],['cobranza',true]]),
                  espera:['Cobrar','Pagar','Cotizar'] },
@@ -63,6 +63,7 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
       v2_my_navigation: cfg.nav,
       v2_birthdays: { today: HOY, myBirthDate: miFecha, people: gente },
       v2_set_my_birthday: { ok: true },
+      v2_sponsor_quotes: { quotes: [{ id: 'q1', approvalStatus: 'pending', status: 'draft' }, { id: 'q2', approvalStatus: 'pending', status: 'accepted' }] },
       // Ideas (25/10/2026): una mía vencida y una que otro me asignó.
       v2_ideas: { me: cfg.yo, ideas: [
         { id: 'i-v', title: 'Video del torneo', status: 'todo', ownerId: cfg.yo, createdBy: cfg.yo, dueDate: '2000-01-01' },
@@ -102,6 +103,7 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
   await p.waitForFunction(() => /Ideas tuyas|Una idea tuya/.test(document.querySelector('#attentionList')?.textContent || ''), null, { timeout: 4000 }).catch(() => {});
   const pend = (await p.textContent('#attentionList').catch(() => '')) || '';
   revisa('[Ideas] avisa la idea vencida y la que me asignaron', /Una idea tuya ya venció/.test(pend) && /Video del torneo/.test(pend) && /Te asignaron una idea/.test(pend) && /Lona de Kine VFX/.test(pend) && !/De otra persona/.test(pend), pend.slice(0, 300));
+  revisa('[Patrocinios] Presidencia ve los descuentos por autorizar', /Un descuento por autorizar/.test(pend) && !!(await p.$('#attentionList a[href="/patrocinadores/?vista=cotizaciones"]')), pend.slice(0, 300));
   revisa('[Ideas] llevan a mis ideas', await p.$$eval('#attentionList a[href="/ideas/?mias=1"]', xs => xs.length) === 2);
   revisa('[Presidencia] la franja sale', await p.isVisible('#cumpleStrip'));
   const orden = await p.evaluate(() => {

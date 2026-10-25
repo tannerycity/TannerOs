@@ -40,7 +40,11 @@ export function precioPublico(a) {
   return `$${Math.round(Number(a.price)).toLocaleString('es-MX')}${a.unit === 'por mes' ? ' al mes' : a.unit ? ` por ${a.unit}` : ''}`;
 }
 
-export function datosDePropuesta({ marca, activos = [], metricas = [], hoy, entidades = ENTIDAD }) {
+// Con cotización (h44): cada espacio va con el precio cotizado y al final la
+// inversión con subtotal, descuento, total y vigencia. Sin cotización, la
+// propuesta de siempre: sólo precios aprobados.
+const pesos = (n) => '$' + Math.round(Number(n || 0)).toLocaleString('es-MX');
+export function datosDePropuesta({ marca, activos = [], metricas = [], hoy, entidades = ENTIDAD, cotizacion = null }) {
   const E = { ...ENTIDAD, ...entidades };
   const enUso = new Set(activos.flatMap(a => a.entity === 'AMBOS' ? ['TC', 'TCP'] : [a.entity]).filter(Boolean));
   const audiencia = ultimasMetricas(metricas)
@@ -49,11 +53,23 @@ export function datosDePropuesta({ marca, activos = [], metricas = [], hoy, enti
       valor: `${m.validation === 'APROXIMADO' ? 'aprox. ' : ''}${Number(m.value).toLocaleString('es-MX')}${m.unit === 'porcentaje' ? '%' : ''}`,
       periodo: [m.window, m.periodStart ? `${fechaCorta(m.periodStart)} – ${fechaCorta(m.periodEnd)}` : `al ${fechaCorta(m.periodEnd)}`].filter(Boolean).join(' · '),
       fuente: m.source }));
+  const linea = (a) => cotizacion?.items?.find((i) => i.assetId === a.id);
+  const precioDe = (a) => {
+    const l = linea(a); if (!l) return precioPublico(a);
+    const q = Number(l.quantity || 1);
+    return pesos(Number(l.unitPrice) * q) + (q > 1 ? ' (' + q + ' x ' + pesos(l.unitPrice) + ')' : '') + (a.unit && q === 1 ? ' por ' + a.unit : '');
+  };
   return {
     marca, fecha: fechaLarga(hoy),
     activos: activos.map(a => ({ id: a.id, nombre: a.name, entidad: E[a.entity] || '', canal: [a.channel, a.unit].filter(Boolean).join(' · '),
-      descripcion: a.description || '', precio: precioPublico(a) })),
+      descripcion: a.description || '', precio: precioDe(a) })),
     audiencia,
+    inversion: cotizacion ? {
+      folio: cotizacion.folio || '',
+      lineas: (cotizacion.items || []).map((i) => ({ nombre: i.description, cantidad: Number(i.quantity || 1), importe: pesos(Number(i.unitPrice) * Number(i.quantity || 1)) })),
+      subtotal: pesos(cotizacion.subtotal), descuento: Number(cotizacion.discountAmount) > 0 ? '-' + pesos(cotizacion.discountAmount) : '',
+      total: pesos(cotizacion.total), vigencia: cotizacion.validUntil ? fechaLarga(cotizacion.validUntil) : '',
+    } : null,
   };
 }
 
@@ -62,8 +78,8 @@ export function nombreDePropuesta(marca, hoy) {
   return `Propuesta-${limpio}-${String(hoy).slice(0, 10)}.pdf`;
 }
 
-export async function propuestaPdf({ marca, club, activos, metricas, fotos = {}, hoy, entidades, jsPDF = null }) {
-  const datos = datosDePropuesta({ marca, activos, metricas, hoy, entidades });
+export async function propuestaPdf({ marca, club, activos, metricas, fotos = {}, hoy, entidades, cotizacion = null, jsPDF = null }) {
+  const datos = datosDePropuesta({ marca, activos, metricas, hoy, entidades, cotizacion });
   const Doc = jsPDF || (await import('https://esm.sh/jspdf@2.5.2')).jsPDF;
   const doc = new Doc({ unit: 'pt', format: 'letter' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 44;
@@ -75,7 +91,7 @@ export async function propuestaPdf({ marca, club, activos, metricas, fotos = {},
   doc.setFillColor(...C.marca); doc.rect(0, 0, W, 300, 'F');
   doc.setFillColor(...C.oro); doc.rect(0, 300, W, 6, 'F');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...C.oro); doc.text(String(club || '').toUpperCase(), M, 62);
-  doc.setFontSize(14); doc.setTextColor(...C.blanco); doc.text('Propuesta de patrocinio para', M, 112);
+  doc.setFontSize(14); doc.setTextColor(...C.blanco); doc.text(datos.inversion ? 'Cotización ' + datos.inversion.folio + ' para' : 'Propuesta de patrocinio para', M, 112);
   let t = 42; doc.setFontSize(t); while (t > 22 && doc.getTextWidth(datos.marca) > W - 2 * M) { t -= 2; doc.setFontSize(t); }
   doc.text(doc.splitTextToSize(datos.marca, W - 2 * M).slice(0, 2), M, 164);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(220, 232, 234);
@@ -122,6 +138,27 @@ export async function propuestaPdf({ marca, club, activos, metricas, fotos = {},
       doc.setDrawColor(...C.linea); doc.line(M, y + 17, W - M, y + 17);
       y += 26;
     });
+  }
+
+  /* Inversión (sólo con cotización) */
+  if (datos.inversion) {
+    const inv = datos.inversion;
+    nueva();
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...C.oro); doc.text('COTIZACIÓN ' + inv.folio, M, y);
+    doc.setFontSize(20); doc.setTextColor(...C.tinta); doc.text('Tu inversión', M, y + 24); y += 50;
+    inv.lineas.forEach((l) => {
+      cabe(26);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...C.tinta);
+      doc.text(doc.splitTextToSize((l.cantidad > 1 ? l.cantidad + ' x ' : '') + l.nombre, W - 2 * M - 120)[0], M, y);
+      doc.setFont('helvetica', 'bold'); doc.text(l.importe, W - M, y, { align: 'right' });
+      doc.setDrawColor(...C.linea); doc.line(M, y + 8, W - M, y + 8); y += 24;
+    });
+    cabe(110); y += 6;
+    const fila = (t, v, grande = false) => { doc.setFont('helvetica', grande ? 'bold' : 'normal'); doc.setFontSize(grande ? 16 : 11); doc.setTextColor(...(grande ? C.marca : C.gris)); doc.text(t, W - M - 160, y); doc.text(v, W - M, y, { align: 'right' }); y += grande ? 26 : 18; };
+    fila('Subtotal', inv.subtotal);
+    if (inv.descuento) fila('Descuento', inv.descuento);
+    fila('Total', inv.total, true);
+    if (inv.vigencia) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...C.gris); doc.text('Precios válidos hasta el ' + inv.vigencia + '. No incluyen IVA.', M, y); y += 14; }
   }
 
   /* Cierre */

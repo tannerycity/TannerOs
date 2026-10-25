@@ -14,6 +14,10 @@
  *   9. Acuerdos: el vigente arriba, borradores plegados; editor compacto.
  *  10-14. Meta en efectivo, seguimiento de entregables, venta aparte, descartar
  *      borrador, activos con filtros, propuesta sin precios internos y audiencia.
+ *  18-22. (25/10/2026, "súper ultra mega sencillo") Vender abre primero: catálogo
+ *      por categorías y carrito; cotizar con tope de 10%; enviar la cotización en
+ *      PDF; editar pagos, métricas y seguimiento; archivar y recuperar marcas;
+ *      liberar un lugar del uniforme.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -70,14 +74,24 @@ const DATOS = {
   ],
   socialAccounts: [{ id:'c1', entity:'TC', platform:'TikTok', baseline:'Sin métricas reportadas', pending:'No inventar perfil' }],
   cashGoalMonthly: 30000,
-  movements: [], itemEvidence: [],
+  movements: [{ id:'mv1', sponsorId:'s-tremor', type:'call', result:'Llamé para la sesión de fotos', occurredAt:'2026-10-20T18:00:00Z' }], itemEvidence: [],
+  archivedSponsors: [{ id:'s-vieja', name:'Marca Vieja', archivedAt:'2026-09-01T12:00:00Z' }],
+  isPresidency: false,
 };
+const QUOTES = [{ id:'q1', folio:'COT-2026-001', sponsorId:'s-tremor', sponsorName:'Tremor', status:'draft', approvalStatus:'none', subtotal:11800, discountAmount:0, discountPct:0, total:11800,
+  validUntil:'2026-11-24', createdByName:'Zul', items:[{ assetId:'as1', description:'Reel Instagram', unitPrice:2500, quantity:1, unit:'reel' },
+  { assetId:'u2', description:'Logo en manga derecha', unitPrice:7500, quantity:1, unit:'temporada' }, { assetId:'as2', description:'Frente Españita 1', unitPrice:1800, quantity:1, unit:'espacio' }] }];
 const FAKE = `
   window.__rpc=[];const D=${JSON.stringify(DATOS)};
   export function createClient(){return{auth:{getSession:async()=>({data:{session:{user:{id:'u-zul'}}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
     storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/logo-prueba.png',error:null})),error:null}),createSignedUrl:async(p)=>({data:{signedUrl:'/logo-prueba.png'},error:null}),
       upload:async(p)=>{window.__subidas=(window.__subidas||[]).concat(p);return{data:{path:p},error:null};},remove:async()=>({data:[],error:null})})},
     rpc:async(n,p={})=>{window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});const ok=d=>({data:d,error:null});
+      const Q=window.__q||(window.__q=${JSON.stringify(QUOTES)});
+      if(n==='v2_sponsor_quotes')return ok({discountCapPct:10,isPresidency:false,quotes:Q});
+      if(n==='v2_save_sponsor_quote'){const sub=p.items.reduce((a,i)=>a+i.unitPrice*i.quantity,0);const d=p.discount_type==='pct'?sub*p.discount_value/100:(p.discount_value||0);const pct=Math.round(d/sub*10000)/100;
+        const q={id:'q'+(Q.length+1),folio:'COT-2026-00'+(Q.length+1),sponsorId:p.sponsor_id,sponsorName:p.prospect_name||'Marca',prospectName:p.prospect_name,status:'draft',approvalStatus:pct>10?'pending':'none',subtotal:sub,discountType:p.discount_type,discountValue:p.discount_value,discountAmount:d,discountPct:pct,total:sub-d,items:p.items};Q.unshift(q);return ok(q);}
+      if(n==='v2_set_sponsor_quote_status'){const q=Q.find(x=>x.id===p.quote_id);q.status=p.status;return ok(q);}
       if(n==='v2_my_context')return ok([{organization_id:'o1',organization_name:'Tannery City FC',role:'Operaciones'}]);
       if(n==='v2_my_modules')return ok([{module_code:'sponsors',enabled:true,can_read:true,can_write:true}]);
       if(n==='v2_sponsor_admin')return ok(D);
@@ -111,6 +125,15 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
 
 {
   const { pg, errs } = await abre(1280);
+  revisa('18. abre en Vender: el catálogo, no la administración', await pg.isVisible('#assetsView') && await pg.isHidden('#summaryView') && /Vender/.test(await txt(pg, '.module-nav .active')), await txt(pg, '.module-nav .active'));
+  const filtros = await pg.$$eval('#assetFilters [data-filtro]', xs => xs.map(x => x.dataset.filtro));
+  revisa('18. cinco categorías: uniforme, complejo, redes, eventos y paquetes', JSON.stringify(filtros) === '["all","uniforms","park","digital","sports","other"]', JSON.stringify(filtros));
+  revisa('18. contenido se cuenta en Redes y contenido', /Redes y contenido 1/.test(await txt(pg, '#assetFilters')), await txt(pg, '#assetFilters'));
+  revisa('18. cada tarjeta con su precio y su botón de agregar', /\$2,500 por reel/.test(await txt(pg, '#assetList')) && /\$3,000\/mes · propuesta/.test(await txt(pg, '#assetList')) && (await pg.$$('#assetList [data-carrito]')).length === 5, await txt(pg, '#assetList'));
+  revisa('18. sin foto, la tarjeta invita a subirla', (await pg.$$('#assetList .pt-prod-sinfoto')).length === 6 && /\+ Foto/.test(await txt(pg, '#assetList .pt-prod-sinfoto')));
+  revisa('18. lo ocupado no se puede agregar', await pg.isDisabled('#assetList [data-asset-id="u1"] .pt-agregar'));
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/patrocinios-vender.png`, fullPage:true });
+  await pg.click('.module-nav [data-view="summary"]');
   if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/patrocinios-hoy.png`, fullPage:true });
   revisa('1. efectivo del mes contra la meta de $30,000', await txt(pg, '#ptEfectivo') === '$7,500' && /meta \$30,000 · faltan \$22,500/.test(await txt(pg, '#ptEfectivoSub')), await txt(pg, '#ptEfectivoSub'));
   revisa('1. la especie va aparte y no cuenta para la meta', await txt(pg, '#ptEspecie') === '1 de 2' && /no cuenta para la meta/.test(await txt(pg, '#ptEspecieSub')), await txt(pg, '#ptEspecie'));
@@ -131,6 +154,13 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   await pg.click('#nextList .pt-aviso-main:has-text("Falta cobrar")');
   await pg.waitForTimeout(200);
   revisa('2. "Registrar pago" abre los pagos de esa marca', await pg.isVisible('#paymentsModal') && await pg.isVisible('#brandDrawer'));
+  await pg.click('#paymentList .edit-payment-button');
+  revisa('21. editar un pago llena el formulario', await pg.inputValue('#paymentAmount') === '7500' && /Guardar cambios/.test(await txt(pg, '#savePayment')));
+  await pg.fill('#paymentAmount', '8000');
+  await pg.click('#savePayment');
+  await pg.waitForTimeout(300);
+  const ep = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_update_sponsor_payment').pop()?.p);
+  revisa('21. y guarda la corrección del mismo pago', ep?.payment_id === 'p1' && ep?.amount === 8000, JSON.stringify(ep));
   await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
   // Palomear desde la ficha.
   await pg.click('#ptTablero .pt-marca[data-sponsor-id="s-tremor"]');
@@ -151,8 +181,11 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   await pg.click('#brandExchangeSummary [data-track-item="i7"]');
   await pg.waitForSelector('#trackModal:not(.hidden)', { timeout:3000 });
   await pg.waitForFunction(() => document.getElementById('trackItemId').value === 'i7');
+  // Se espera a que el modal termine de abrir (foco incluido) antes de escribir.
+  await pg.waitForTimeout(250);
   await pg.fill('#trackDelivered', '8');
   await pg.fill('#trackUrl', 'https://instagram.com/p/abc');
+  await pg.waitForFunction(() => document.getElementById('trackUrl').value === 'https://instagram.com/p/abc', null, { timeout:2000 }).catch(() => {});
   const antes = await pg.evaluate(() => [document.getElementById('trackUrl').value, document.getElementById('trackDelivered').value]);
   await pg.click('#saveTrack');
   await pg.waitForTimeout(300);
@@ -162,6 +195,14 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   await pg.click('#brandSummaryBody [data-rapida="avance"]');
   revisa('8. "Definir qué sigue" abre el registro de avance', await pg.isVisible('#movementModal'));
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
+  await pg.click('[data-drawer-view="brand-followup"]');
+  await pg.click('#movementList [data-mov-anula="mv1"]');
+  await pg.waitForSelector('.tosdlg', { timeout:3000 });
+  await pg.click('.tosdlg-btn:not(.tosdlg-cancel)');
+  await pg.waitForTimeout(250);
+  const mv = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_update_sponsor_movement').pop()?.p);
+  revisa('21. un seguimiento capturado por error se anula', mv?.movement_id === 'mv1' && mv?.voided === true, JSON.stringify(mv));
+  await pg.click('[data-drawer-view="brand-summary"]');
   // Reporte para la marca (24/10/2026): se arma y ofrece compartir.
   await pg.click('#sponsorReportButton');
   await pg.waitForFunction(() => /Reporte listo/.test(document.body.innerText), null, { timeout:6000 }).catch(() => {});
@@ -189,9 +230,6 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   revisa('9. cada elemento del acuerdo es compacto: qué es, arriba', (await pg.$$('#agreementModal .item-editor-head .item-description')).length >= 1 && (await pg.$$('#agreementModal .pt-item-mas')).length >= 1);
   await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
   await pg.click('.module-nav [data-view="assets"]');
-  const filtros = await pg.$$eval('#assetFilters [data-filtro]', xs => xs.map(x => x.dataset.filtro));
-  revisa('12. activos con filtros por entidad, físicos y paquetes', JSON.stringify(filtros) === '["all","TC","TCP","fisicos","paquetes"]', JSON.stringify(filtros));
-  revisa('12. el precio interno dice su estado', /\$3,000\/mes · propuesta/.test(await txt(pg, '#assetList')) && /Por cotizar/.test(await txt(pg, '#assetList')));
   await pg.click('#priceListButton');
   revisa('15. lista de precios: todos los activos en una tabla', (await pg.$$('#priceList [data-precio-id]')).length === 6 && await pg.isHidden('#assetList'));
   await pg.fill('#priceList [data-precio-id="as2"] [data-campo="price"]', '2000');
@@ -201,21 +239,46 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   const pr = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_upsert_sponsor_asset_admin').pop()?.p);
   revisa('15. guardar cambia precio y estado sin tocar lo demás', pr?.asset_id === 'as2' && pr?.price === 2000 && pr?.price_status === 'aprobado' && pr?.entity === 'TCP' && pr?.unit === 'espacio', JSON.stringify(pr));
   await pg.click('#priceListButton');
-  await pg.click('#proposalButton');
-  await pg.click('#assetList [data-asset-id="as1"]');
-  await pg.click('#assetList [data-asset-id="as3"]');
-  revisa('13. propuesta: se eligen activos', /2 activos elegidos/.test(await txt(pg, '#proposalCount')));
-  await pg.click('#proposalMake');
-  await pg.waitForSelector('.tosdlg-field', { timeout:3000 });
-  await pg.fill('.tosdlg-field', 'Ferretería del Centro');
+  // Carrito y cotización.
+  await pg.click('#assetList [data-carrito="as1"]');
+  await pg.click('#assetList [data-carrito="as3"]');
+  revisa('19. el carrito suma lo agregado', await pg.isVisible('#cartBar') && /2 espacios/.test(await txt(pg, '#cartCount')) && /\$5,500/.test(await txt(pg, '#cartTotal')), await txt(pg, '#cartBar'));
+  revisa('19. la tarjeta agregada se marca', /Agregado/.test(await txt(pg, '#assetList [data-asset-id="as1"] .pt-agregar')));
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/patrocinios-carrito.png` });
+  await pg.click('#cartQuote');
+  await pg.waitForSelector('#quoteModal:not(.hidden)', { timeout:3000 });
+  await pg.selectOption('#quoteSponsor', '__nueva');
+  await pg.fill('#quoteProspect', 'Ferretería del Centro');
+  await pg.fill('#quoteLines [data-linea="0"] [data-campo="quantity"]', '4');
+  revisa('19. cambiar la cantidad recalcula', /Total \$13,000/.test(await txt(pg, '#quoteTotals')), await txt(pg, '#quoteTotals'));
+  revisa('19. Zul no cambia el precio del catálogo', (await pg.$$('#quoteLines [data-campo="unitPrice"]')).length === 0);
+  await pg.fill('#quoteDiscount', '15');
+  revisa('19. arriba del 10% avisa que autoriza Presidencia', await pg.isVisible('#quoteWarn') && /Presidencia tiene que autorizarla/.test(await txt(pg, '#quoteWarn')) && /Total \$11,050/.test(await txt(pg, '#quoteTotals')), await txt(pg, '#quoteWarn'));
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/patrocinios-cotizar.png` });
+  await pg.click('#saveQuote');
+  await pg.waitForFunction(() => /falta autorización/.test(document.body.innerText), null, { timeout:4000 }).catch(() => {});
+  const sq = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_save_sponsor_quote').pop()?.p);
+  revisa('19. guarda marca nueva, renglones y descuento', sq?.sponsor_id === null && sq?.prospect_name === 'Ferretería del Centro' && sq?.discount_type === 'pct' && sq?.discount_value === 15
+    && sq?.items?.length === 2 && sq.items[0].quantity === 4 && sq.items[0].assetId === 'as1', JSON.stringify(sq));
+  revisa('19. y avisa que falta la autorización', /falta autorización/.test(await pg.evaluate(() => document.body.innerText)));
+  await pg.click('.tosdlg-btn'); await pg.waitForTimeout(150);
+  revisa('20. queda en Cotizaciones como Por autorizar, sin enviar', await pg.isVisible('#quotesView') && /Por autorizar/.test(await txt(pg, '#quoteList .pt-cot:first-child')) && !(await pg.$('#quoteList .pt-cot:first-child [data-cot-accion="enviar"]')), await txt(pg, '#quoteList'));
+  revisa('20. el badge cuenta lo que espera a Presidencia', await txt(pg, '#quotesBadge') === '1');
+  revisa('19. el carrito se vacía al guardar', await pg.isHidden('#cartBar'));
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/patrocinios-cotizaciones.png`, fullPage:true });
+  await pg.click('#quoteList [data-cot="q1"] [data-cot-accion="enviar"]');
+  await pg.waitForFunction(() => /PDF listo/.test(document.body.innerText), null, { timeout:6000 }).catch(() => {});
+  const cpdf = await pg.evaluate(() => (window.__pdf || []).join(' | '));
+  revisa('20. el PDF lleva folio, cada precio cotizado y la inversión', /Cotización COT-2026-001/.test(cpdf) && /Tu inversión/.test(cpdf) && /\$7,500 por temporada/.test(cpdf) && /Total/.test(cpdf) && /\$11,800/.test(cpdf), cpdf.slice(0, 500));
+  revisa('13. nunca salen las notas internas', !/NOTA SECRETA/.test(cpdf));
+  revisa('13. la audiencia va con su periodo y fuente, sin sumar', /Reproducciones/.test(cpdf) && /aprox\. 49,800/.test(cpdf) && /Meta Business Suite/.test(cpdf), cpdf);
+  await pg.evaluate(() => { navigator.canShare = undefined; });
   await pg.click('.tosdlg-btn:not(.tosdlg-cancel)');
-  await pg.waitForFunction(() => /Propuesta lista/.test(document.body.innerText), null, { timeout:6000 }).catch(() => {});
-  const prop = await pg.evaluate(() => (window.__pdf || []).join(' | '));
-  revisa('13. sólo sale el precio aprobado; lo demás "A cotizar"', /\$2,500 por reel/.test(prop) && /A cotizar/.test(prop) && !/3,000/.test(prop), prop.slice(0, 400));
-  revisa('13. nunca salen las notas internas', !/NOTA SECRETA/.test(prop));
-  revisa('13. la audiencia va con su periodo y fuente, sin sumar', /Reproducciones/.test(prop) && /aprox\. 49,800/.test(prop) && /Meta Business Suite/.test(prop), prop);
-  await pg.click('.tosdlg-cancel'); await pg.waitForTimeout(150);
-  await pg.click('.module-nav [data-view="uniform"]');
+  await pg.waitForTimeout(300);
+  const st = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_set_sponsor_quote_status').pop()?.p);
+  revisa('20. al compartir queda Enviada', st?.quote_id === 'q1' && st?.status === 'sent' && /^Cotizacion-COT-2026-001-Tremor/.test(await pg.evaluate(() => window.__guardado) || ''), JSON.stringify(st) + ' ' + await pg.evaluate(() => window.__guardado));
+  await pg.click('.module-nav [data-view="assets"]');
+  await pg.click('#assetFilters [data-filtro="uniforms"]');
   const resumen = await txt(pg, '#uniformSummary');
   revisa('16. uniforme: vendido y disponible por temporada', /\$20,000 vendido/.test(resumen) && /\$12,500 disponible/.test(resumen) && /precios en propuesta/.test(resumen), resumen);
   revisa('16. cada lugar en su vista (el short va con el frente), con la marca que lo tiene', (await pg.$$('#uniformMap .pt-lugar')).length === 3 && /Don Trapo/.test(await txt(pg, '#uniformMap .frente')) && (await pg.$$('#uniformMap .pt-uni-pieza')).length === 2 && /\$5,000/.test(await txt(pg, '#uniformMap .frente')), await txt(pg, '#uniformMap'));
@@ -240,11 +303,40 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   revisa('17. el logo se sube a la carpeta de la marca y se guarda', lg.p?.sponsor_id === 's-trapo' && /^organizations\/o1\/sponsors\/logos\/s-trapo\/logo-\d+\.(webp|png)$/.test(lg.p?.logo_path || '') && lg.up.includes(lg.p?.logo_path), JSON.stringify(lg));
   await pg.waitForSelector('#uniformMap .pt-lugar.con-logo img[src]', { timeout:3000 }).catch(() => {});
   revisa('17. en la playera se ve el logo, no el nombre', !!(await pg.$('#uniformMap [data-lugar="u1"].con-logo img[src]')), await pg.innerHTML('#uniformMap .frente').catch(() => ''));
-  await pg.click('#spotModal .close-workspace-modal').catch(() => {});
-  await pg.click('.module-nav [data-view="audience"]');
+  revisa('22. el lugar ocupado se puede liberar', await pg.isVisible('#spotFree'));
+  await pg.click('#spotFree');
+  await pg.waitForSelector('.tosdlg', { timeout:3000 });
+  await pg.click('.tosdlg-btn:not(.tosdlg-cancel)');
+  await pg.waitForTimeout(400);
+  const lib = await pg.evaluate(() => ({ a: window.__rpc.filter(x => x.n === 'v2_save_sponsor_agreement').pop()?.p, u: window.__rpc.filter(x => x.n === 'v2_upsert_sponsor_asset_admin').pop()?.p }));
+  revisa('22. liberar quita el lugar del acuerdo y lo deja disponible', lib.a?.agreement_id === 'a-trapo' && !lib.a.given_items.some(i => i.assetId === 'u1') && lib.u?.asset_id === 'u1' && lib.u?.availability === 'available', JSON.stringify(lib));
+  await pg.click('#audienceButton');
   const aud = await txt(pg, '#audienceList');
   revisa('14. audiencia por entidad y red con validación', /Tannery City FC/.test(aud) && /Instagram/.test(aud) && /CONFIRMADO/.test(aud) && /APROXIMADO/.test(aud) && /Sin datos todavía/.test(aud), aud);
-  await pg.click('.module-nav [data-view="route"]');
+  await pg.click('#audienceList [data-metrica="m1"]');
+  revisa('21. corregir un dato abre con sus valores y no deja cambiar la red', await pg.inputValue('#metricValue') === '146981' && await pg.isDisabled('#metricChannel') && await pg.isVisible('#voidMetric'));
+  await pg.fill('#metricValue', '150000');
+  await pg.click('#saveMetric');
+  await pg.waitForTimeout(300);
+  const um = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_update_social_metric').pop()?.p);
+  revisa('21. y se guarda sobre el mismo dato', um?.metric_id === 'm1' && um?.value === 150000 && um?.voided === false, JSON.stringify(um));
+  await pg.click('.module-nav [data-view="summary"]');
+  revisa('5. Marcas junta lo de hoy y la lista completa', await pg.isVisible('#summaryView') && await pg.isVisible('#routeView'));
+  revisa('22. las archivadas se pueden recuperar', await pg.isVisible('#archivedBox') && /Marca Vieja/.test(await txt(pg, '#archivedList')));
+  await pg.click('#archivedBox summary');
+  await pg.click('#archivedList [data-recupera="s-vieja"]');
+  await pg.waitForTimeout(250);
+  const rc = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_set_sponsor_archived').pop()?.p);
+  revisa('22. recuperar la regresa', rc?.sponsor_id === 's-vieja' && rc?.archived === false, JSON.stringify(rc));
+  await pg.click('#ptTablero .pt-marca[data-sponsor-id="s-cafe"]');
+  await pg.waitForSelector('#brandDrawer:not(.hidden)');
+  revisa('22. la ficha ofrece archivar; quitar del todo sólo Presidencia', await pg.isVisible('#brandSummaryBody [data-marca-archiva]') && !(await pg.$('#brandSummaryBody [data-marca-quita]')));
+  await pg.click('#brandSummaryBody [data-marca-archiva]');
+  await pg.waitForSelector('.tosdlg', { timeout:3000 });
+  await pg.click('.tosdlg-btn:not(.tosdlg-cancel)');
+  await pg.waitForTimeout(250);
+  const ar = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_set_sponsor_archived').pop()?.p);
+  revisa('22. archivar una marca', ar?.sponsor_id === 's-cafe' && ar?.archived === true, JSON.stringify(ar));
   const etapas = await pg.$$eval('#stageRail [data-stage]', xs => xs.map(x => x.dataset.stage));
   revisa('5. sólo las etapas con marcas', JSON.stringify(etapas) === '["all","talking","active","paused"]', JSON.stringify(etapas));
   await pg.fill('#brandSearch', 'felipe');
@@ -257,8 +349,12 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/patrocinios-hoy-cel.png`, fullPage:true });
   const ancho = await pg.evaluate(() => document.documentElement.scrollWidth);
   revisa('6. en el celular no se sale la página', ancho <= 390, String(ancho));
+  await pg.click('#assetList [data-carrito="as1"]');
+  const barra = await pg.evaluate(() => { const r = document.getElementById('cartBar').getBoundingClientRect(); return { l: r.left, r: r.right, w: document.documentElement.scrollWidth }; });
+  revisa('19. en el celular el carrito cabe en la pantalla', barra.l >= 0 && barra.r <= 390 && barra.w <= 390, JSON.stringify(barra));
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/patrocinios-vender-cel.png`, fullPage:true });
   revisa('sin errores en celular', errs.length === 0, errs.join(' | '));
 }
 await nav.close(); srv.close();
 if (fallos) { console.error(`Patrocinios Hoy humo: ${fallos} de ${corridas} fallaron`); process.exit(1); }
-console.log(`Patrocinios Hoy humo OK · ${corridas} revisiones: marcador, Hoy toca, tablero por marca, palomear y Marcas`);
+console.log(`Patrocinios humo OK · ${corridas} revisiones: Vender con carrito, cotizar con tope, Marcas, editar y archivar`);

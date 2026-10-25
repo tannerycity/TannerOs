@@ -390,6 +390,10 @@ async function loadHomeData(generation){
   // Patrocinios, con cuántas marcas activas hay. El reporte con fotos ayuda a renovar.
   state.reporteMarcas=0;
   if(can('patrocinadores',true)&&new Date().getDate()<=7)jobs.push(rpcSafe('v2_sponsors',{organization_id:org},[]).then(v=>state.reporteMarcas=(Array.isArray(v)?v:[]).filter(x=>(x.stage||x.status)==='active').length));
+  // Descuentos por autorizar (h44): cotizaciones de Patrocinios arriba del
+  // tope (10%) esperan a Presidencia; sin su sí no se pueden enviar.
+  state.descuentos=0;
+  if((ctx.is_owner||ctx.role==='Presidencia')&&can('patrocinadores'))jobs.push(rpcSafe('v2_sponsor_quotes',{organization_id:org},null).then(v=>state.descuentos=(Array.isArray(v?.quotes)?v.quotes:[]).filter(q=>q.approvalStatus==='pending'&&q.status!=='accepted').length));
   // Ideas a mi cargo (25/10/2026): las vencidas, las que vencen en 3 días y
   // las que alguien más me asignó y no he abierto en el tablero.
   state.ideas=null;
@@ -447,6 +451,7 @@ function renderAttention(){
   if(ideas?.pronto.length)items.unshift({code:'ideas_soon',priority:'info',title:ideas.pronto.length===1?'Una idea tuya vence pronto':'Ideas tuyas que vencen pronto',count:ideas.pronto.length,detail:cuales(ideas.pronto),href:'/ideas/?mias=1'});
   if(ideas?.nuevas.length)items.unshift({code:'ideas_new',priority:'attention',title:ideas.nuevas.length===1?'Te asignaron una idea':'Te asignaron ideas',count:ideas.nuevas.length,detail:cuales(ideas.nuevas),href:'/ideas/?mias=1'});
   if(ideas?.vencidas.length)items.unshift({code:'ideas_overdue',priority:'attention',title:ideas.vencidas.length===1?'Una idea tuya ya venció':'Ideas tuyas vencidas',count:ideas.vencidas.length,detail:cuales(ideas.vencidas),href:'/ideas/?mias=1'});
+  if(state.descuentos>0)items.unshift({code:'quotes_approval',priority:'attention',title:state.descuentos===1?'Un descuento por autorizar':'Descuentos por autorizar',count:state.descuentos,detail:'Cotizaciones de patrocinio arriba del tope: sin tu sí no se pueden enviar',href:'/patrocinadores/?vista=cotizaciones'});
   if(state.reporteMarcas>0)items.unshift({code:'sponsor_report',priority:'attention',title:'Manda el reporte del mes a tus marcas',count:state.reporteMarcas,detail:'Abre cada marca y toca "Reporte para la marca": lo entregado, con fotos',href:'/patrocinadores/'});
   if(state.cambios>0)items.unshift({code:'changes_review',priority:'attention',title:state.cambios===1?'Un cambio por revisar':'Cambios por revisar',count:state.cambios,detail:'Correcciones en pedidos y cobros, con su motivo',href:'/cambios/'});
   if(!items.length){

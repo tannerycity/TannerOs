@@ -4,6 +4,7 @@ import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { datosDelReporte, reportePdf, nombreDelReporte } from '/v2/patrocinadores/reporte.js';
 import { saludDeMarca, hoyToca, marcador, ordenTablero, efectivoDelMes, especieRecibida } from '/v2/patrocinadores/tablero.js';
 import { propuestaPdf, nombreDePropuesta, ultimasMetricas, ETIQUETA_METRICA } from '/v2/patrocinadores/propuesta.js';
+import { CATEGORIAS, categoriaDe, nombreCategoria, filtraCatalogo, renglonDe, totales, accionesDe, FILTROS_COT, filtraCotizaciones, mensajeWhatsApp } from '/v2/patrocinadores/cotizar.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
@@ -40,12 +41,12 @@ const AGREEMENT_STATUSES = { draft: 'Borrador', active: 'Activo', completed: 'Fi
 const STAGE_PROBABILITY = { radar: 10, contacted: 25, talking: 40, agreement: 60, closing: 80, active: 100, paused: 15, lost: 0, finished: 100 };
 const STALE_DAYS_THRESHOLD = 21;
 const ASSET_CATEGORIES = {
-  digital: 'Digital',
-  park: 'Instalaciones del club',
-  uniforms: 'Uniformes',
-  sports: 'Deportivo',
-  content: 'Contenido',
-  other: 'Otros',
+  uniforms: 'Uniforme',
+  park: 'Complejo',
+  digital: 'Redes y contenido',
+  content: 'Redes y contenido',
+  sports: 'Eventos y transmisiones',
+  other: 'Paquetes',
 };
 const ASSET_AVAILABILITY = { available: 'Disponible', partial: 'Parcial', occupied: 'Ocupado' };
 const MOVEMENT_TYPES = { call: 'Llamada', whatsapp: 'WhatsApp', email: 'Email', meeting: 'Reunión', note: 'Nota' };
@@ -66,6 +67,17 @@ let payments = [];
 let socialAccounts = [];
 let socialMetrics = [];
 let cashGoal = 30000;
+// Vender y cotizar (h44).
+let quotes = [];
+let quoteCap = 10;
+let isPresidency = false;
+let archivedSponsors = [];
+let carrito = [];
+let editingQuote = null;
+let quoteFilter = 'all';
+let descTipo = 'pct';
+let editingPaymentId = null;
+let editingMetricId = null;
 let evidenceTargetItemId = null;
 let paymentsAgreementId = null;
 let billingPlayers = [];
@@ -74,7 +86,7 @@ const PHOTO_BUCKET = 'tanneros-private';
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 let selectedSponsorId = null;
 let selectedStage = 'all';
-let currentView = 'summary';
+let currentView = 'assets';
 let drawerView = 'brand-summary';
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -147,6 +159,20 @@ function friendly(error) {
     'Payment amount must be greater than zero': 'El monto del pago debe ser mayor a cero.',
     'Invalid payment method': 'Selecciona un método de pago válido.',
     'Payment not found': 'No encontramos ese pago.',
+    'Only presidency can remove sponsors': 'Sólo Presidencia puede quitar una marca. Puedes archivarla.',
+    'Sponsor has agreements': 'Esta marca tiene acuerdos: archívala en lugar de quitarla.',
+    'Sponsor has payments': 'Esta marca tiene pagos registrados: archívala en lugar de quitarla.',
+    'Sponsor not found': 'No encontramos esa marca.',
+    'Quote needs a brand': 'Elige la marca o escribe su nombre.',
+    'Quote needs items': 'Agrega al menos un espacio a la cotización.',
+    'Quote item needs a description': 'Cada espacio necesita su nombre.',
+    'Quote already accepted': 'Esa cotización ya fue aceptada y es un acuerdo.',
+    'Discount needs presidency approval': 'El descuento pasa del tope: Presidencia tiene que autorizarlo primero.',
+    'Only presidency can approve discounts': 'Sólo Presidencia autoriza descuentos.',
+    'Quote not found': 'No encontramos esa cotización.',
+    'Movement not found': 'No encontramos ese movimiento.',
+    'Metric not found': 'No encontramos ese dato.',
+    'Evidence not found': 'No encontramos esa evidencia.',
   };
   return labels[text] || text;
 }
@@ -324,6 +350,8 @@ async function boot() {
   nombraEntidades();
   renderBeneficiaries();
   await load();
+  const vista = new URLSearchParams(location.search).get('vista');
+  switchView(vista === 'cotizaciones' ? 'quotes' : vista === 'marcas' ? 'summary' : 'assets');
   show('view');
 }
 
@@ -350,7 +378,14 @@ async function loadPeople() {
 
 async function load() {
   loadPeople();
-  const data = await rpc('v2_sponsor_admin', { organization_id: ctx.organization_id });
+  const [data, cot] = await Promise.all([
+    rpc('v2_sponsor_admin', { organization_id: ctx.organization_id }),
+    rpc('v2_sponsor_quotes', { organization_id: ctx.organization_id }).catch(() => null),
+  ]);
+  quotes = Array.isArray(cot?.quotes) ? cot.quotes : [];
+  quoteCap = Number(cot?.discountCapPct ?? 10);
+  isPresidency = Boolean(data?.isPresidency ?? cot?.isPresidency ?? ctx.is_owner);
+  archivedSponsors = Array.isArray(data?.archivedSponsors) ? data.archivedSponsors : [];
   sponsors = Array.isArray(data?.sponsors) ? data.sponsors : [];
   agreements = Array.isArray(data?.agreements) ? data.agreements : [];
   assets = Array.isArray(data?.assets) ? data.assets : [];
@@ -545,6 +580,8 @@ function render() {
   renderAudience();
   renderUniform();
   renderAssets();
+  renderQuotes();
+  renderCart();
   if (selectedSponsorId && !$('brandDrawer').classList.contains('hidden')) renderBrandDrawer();
   writeControls();
 }
@@ -665,6 +702,10 @@ function renderRoute() {
   $('routeEmpty').classList.toggle('hidden', filtered.length > 0);
   $('routeList').innerHTML = filtered.map(brandCard).join('');
   bindSponsorOpeners($('routeList'));
+  $('archivedBox').classList.toggle('hidden', !archivedSponsors.length);
+  $('archivedCount').textContent = archivedSponsors.length;
+  $('archivedList').innerHTML = archivedSponsors.map((x) => '<div class="pt-archivada"><span><b>' + esc(x.name) + '</b><small>archivada ' + esc(shortDate(x.archivedAt)) + '</small></span>' +
+    (canWrite ? '<button type="button" class="secondary mini" data-recupera="' + esc(x.id) + '">Recuperar</button>' : '') + '</div>').join('');
 }
 
 function brandCard(sponsor) {
@@ -696,50 +737,233 @@ function nombraEntidades() {
 }
 const PRECIO_ESTADO = { por_cotizar: 'Por cotizar', propuesta: 'Propuesta', aprobado: 'Aprobado' };
 let assetFilter = 'all';
-let proposalMode = false;
-const proposalPick = new Set();
-function filtraActivos() {
-  if (assetFilter === 'all') return assets;
-  if (assetFilter === 'paquetes') return assets.filter((a) => a.family === 'Paquete');
-  if (assetFilter === 'fisicos') return assets.filter((a) => a.family === 'Espacio físico' || a.category === 'park' || a.category === 'uniforms');
-  return assets.filter((a) => a.entity === assetFilter && a.family !== 'Paquete');
-}
 function precioInterno(a) {
   if (a.price == null || a.price === '') return PRECIO_ESTADO[a.priceStatus] || 'Por cotizar';
-  return money.format(Number(a.price)) + (a.unit === 'por mes' ? '/mes' : '') + (a.priceStatus === 'aprobado' ? '' : ' · ' + (PRECIO_ESTADO[a.priceStatus] || '').toLowerCase());
+  return money.format(Number(a.price)) + (a.unit === 'por mes' ? '/mes' : a.unit ? (/^por /.test(a.unit) ? ' ' : ' por ') + a.unit : '') + (a.priceStatus === 'aprobado' ? '' : ' · ' + (PRECIO_ESTADO[a.priceStatus] || '').toLowerCase());
+}
+/* VENDER (25/10/2026). Presidencia: "súper ultra mega sencillo para que
+   cotice, para que vea, para que suba fotos, para vender". Cinco categorías
+   con foto y precio; "+ Agregar" llena el carrito y "Cotizar" arma la
+   cotización. El uniforme es una categoría más, con su mapa arriba. */
+const enCarrito = (id) => carrito.some((l) => l.assetId === id);
+function tarjetaDeActivo(asset) {
+  const ocupado = asset.availability === 'occupied', dentro = enCarrito(asset.id);
+  const sub = [asset.family, asset.channel].filter(Boolean).join(' · ') || nombreCategoria(categoriaDe(asset));
+  const foto = asset.photoPath ? '<span class="pt-prod-img" data-photo-for="' + esc(asset.id) + '"></span>'
+    : '<span class="pt-prod-sinfoto">' + (canWrite ? '+ Foto' : 'Sin foto') + '</span>';
+  return '<article class="pt-prod' + (ocupado ? ' ocupado' : '') + (dentro ? ' en-carrito' : '') + '" data-asset-id="' + esc(asset.id) + '">' +
+    '<button class="pt-prod-foto" type="button" data-abrir-activo="' + esc(asset.id) + '" aria-label="' + esc((canWrite ? 'Editar ' : 'Ver ') + asset.name) + '">' + foto + '</button>' +
+    '<div class="pt-prod-cuerpo">' +
+      '<small class="pt-prod-sub">' + esc(sub) + '</small>' +
+      '<strong class="pt-prod-nom">' + esc(asset.name) + '</strong>' +
+      '<span class="pt-prod-precio">' + esc(precioInterno(asset)) + '</span>' +
+      '<span class="pt-prod-pie"><i class="availability ' + esc(asset.availability || 'available') + '">' + esc(ASSET_AVAILABILITY[asset.availability] || 'Disponible') + '</i>' +
+        (ocupado && !dentro ? '<button type="button" class="pt-agregar" disabled>Ocupado</button>'
+          : '<button type="button" class="pt-agregar' + (dentro ? ' dentro' : '') + '" data-carrito="' + esc(asset.id) + '">' + (dentro ? 'Agregado' : '+ Agregar') + '</button>') +
+      '</span>' +
+    '</div>' +
+  '</article>';
 }
 function renderAssets() {
-  const cuenta = (f) => { const prev = assetFilter; assetFilter = f; const n = filtraActivos().length; assetFilter = prev; return n; };
-  const filtros = [['all', 'Todos'], ['TC', ENTIDADES.TC], ['TCP', ENTIDADES.TCP], ['fisicos', 'Espacios físicos'], ['paquetes', 'Paquetes']];
-  $('assetFilters').innerHTML = filtros.filter(([k]) => k === 'all' || cuenta(k)).map(([k, t]) =>
+  const q = $('assetSearch')?.value || '';
+  const cuenta = (k) => filtraCatalogo(assets, { categoria: k, q }).length;
+  $('assetFilters').innerHTML = [{ k: 'all', t: 'Todo' }, ...CATEGORIAS].map(({ k, t }) =>
     '<button type="button" data-filtro="' + k + '" aria-pressed="' + (assetFilter === k) + '">' + esc(t) + ' <b>' + cuenta(k) + '</b></button>').join('');
-  const lista = filtraActivos();
+  const lista = filtraCatalogo(assets, { categoria: assetFilter, q });
   $('assetEmpty').classList.toggle('hidden', assets.length > 0);
-  const grupos = new Map();
-  lista.forEach((a) => { const g = (a.family === 'Paquete' ? 'Paquetes' : (ENTIDADES[a.entity] || 'Sin entidad') + ' · ' + (a.family || ASSET_CATEGORIES[a.category] || 'Otros')); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(a); });
-  $('assetList').innerHTML = [...grupos.entries()].map(([g, l]) => '<h3 class="pt-grupo">' + esc(g) + ' <span>' + l.length + '</span></h3>' + l.map((asset) => (
-    '<button class="asset-card' + (proposalMode && proposalPick.has(asset.id) ? ' elegido' : '') + '" data-asset-id="' + esc(asset.id) + '" type="button">' +
-      (proposalMode ? '<span class="pt-elige" aria-hidden="true">' + (proposalPick.has(asset.id) ? 'Elegido' : 'Elegir') + '</span>' : '') +
-      (asset.photoPath ? '<span class="asset-photo" data-photo-for="' + esc(asset.id) + '"></span>' : '') +
-      '<span class="asset-category">' + esc([asset.channel, asset.unit].filter(Boolean).join(' · ') || ASSET_CATEGORIES[asset.category] || 'Otros') + '</span>' +
-      '<strong>' + esc(asset.name) + '</strong>' +
-      '<span class="asset-description">' + esc(asset.description || 'Sin descripción') + '</span>' +
-      (asset.validation ? '<span class="pt-valida ' + esc(String(asset.validation).split(' ')[0].toLowerCase()) + '">' + esc(asset.validation) + '</span>' : '') +
-      '<span class="asset-foot"><b>' + esc(precioInterno(asset)) + '</b>' +
-      '<i class="availability ' + esc(asset.availability || 'available') + '">' + esc(ASSET_AVAILABILITY[asset.availability] || asset.availability || 'Disponible') + '</i></span>' +
-    '</button>'
-  )).join('')).join('');
-  $('assetList').querySelectorAll('[data-asset-id]').forEach((button) => {
-    button.addEventListener('click', () => {
-      if (!proposalMode) { openAssetForm(assetById(button.dataset.assetId)); return; }
-      const id = button.dataset.assetId;
-      if (proposalPick.has(id)) proposalPick.delete(id); else proposalPick.add(id);
-      pintaPropuestaBarra(); renderAssets();
-    });
-  });
+  $('uniformBlock').classList.toggle('hidden', assetFilter !== 'uniforms' || priceListOpen);
+  const grupos = assetFilter === 'all' ? CATEGORIAS.map((c) => [c.t, lista.filter((a) => categoriaDe(a) === c.k)]).filter(([, l]) => l.length) : [[null, lista]];
+  $('assetList').innerHTML = grupos.map(([titulo, l]) => (titulo ? '<h3 class="pt-grupo">' + esc(titulo) + ' <span>' + l.length + '</span></h3>' : '') +
+    '<div class="pt-prod-grid">' + l.map(tarjetaDeActivo).join('') + '</div>').join('') +
+    (assets.length && !lista.length ? '<p class="muted pt-sin-res">Nada con esa búsqueda.</p>' : '');
   hydrateAssetPhotos();
   renderPriceList();
 }
+function toggleCarrito(assetId) {
+  const a = assetById(assetId); if (!a) return;
+  if (enCarrito(assetId)) carrito = carrito.filter((l) => l.assetId !== assetId);
+  else carrito.push(renglonDe(a));
+  renderAssets(); renderCart();
+}
+function renderCart() {
+  const bar = $('cartBar'); if (!bar) return;
+  const visible = currentView === 'assets' && carrito.length > 0 && canWrite;
+  bar.classList.toggle('hidden', !visible);
+  document.body.classList.toggle('pt-con-carrito', visible);
+  if (!visible) return;
+  const t = totales(carrito, {}, quoteCap);
+  $('cartCount').textContent = (editingQuote ? editingQuote.folio + ' · ' : '') + carrito.length + ' ' + (carrito.length === 1 ? 'espacio' : 'espacios');
+  $('cartTotal').textContent = money.format(t.subtotal) + (carrito.some((l) => l.sinPrecio && !l.unitPrice) ? ' + por cotizar' : '');
+  $('cartQuote').textContent = editingQuote ? 'Seguir con la cotización' : 'Cotizar';
+}
+
+/* La cotización: marca, cantidades, descuento con tope y vigencia. El tope
+   lo cuida también el servidor (h44). Cambiar precios del catálogo sólo lo
+   hace Presidencia; lo que no tiene precio se escribe aquí. */
+const masDias = (d) => { const f = new Date(Date.now() - new Date().getTimezoneOffset() * 60000 + d * 86400000); return f.toISOString().slice(0, 10); };
+function openQuoteForm() {
+  if (!canWrite) return;
+  if (!carrito.length) { switchView('assets'); return; }
+  const q = editingQuote;
+  $('quoteTitle').textContent = q ? 'Editar ' + q.folio : 'Nueva cotización';
+  $('quoteSub').textContent = q && q.status === 'sent' ? 'Al guardar regresa a borrador hasta que la vuelvas a enviar.' : '';
+  const vivas = sponsors.filter((x) => !['lost', 'finished'].includes(normalizeStage(x.stage, x.status)));
+  $('quoteSponsor').innerHTML = '<option value="">Elige la marca…</option>' + vivas.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('') +
+    '<option value="__nueva">+ Marca nueva…</option>';
+  $('quoteSponsor').value = q?.sponsorId && sponsorById(q.sponsorId) ? q.sponsorId : q?.prospectName ? '__nueva' : (selectedSponsorId && sponsorById(selectedSponsorId) ? selectedSponsorId : '');
+  $('quoteProspect').value = q?.sponsorId ? '' : q?.prospectName || '';
+  $('quoteProspectField').classList.toggle('hidden', $('quoteSponsor').value !== '__nueva');
+  descTipo = q?.discountType || 'pct';
+  $('quoteDiscount').value = q?.discountValue ?? '';
+  $('quoteValid').value = q?.validUntil || masDias(30);
+  $('quoteNotes').value = q?.notes || '';
+  message('quoteMessage');
+  pintaLineas();
+  openModal('quoteModal');
+}
+function pintaLineas() {
+  $('quoteLines').innerHTML = carrito.map((l, i) => {
+    const editable = isPresidency || l.sinPrecio;
+    return '<div class="pt-cot-linea" data-linea="' + i + '">' +
+      '<span class="pt-cot-nom"><b>' + esc(l.description) + '</b>' + (l.unit ? '<small>' + esc(/^por /.test(l.unit) ? l.unit : 'por ' + l.unit) + '</small>' : '') + '</span>' +
+      '<label class="pt-cot-q"><span class="sr-only">Cantidad</span><input type="number" min="1" step="1" inputmode="numeric" value="' + esc(l.quantity) + '" data-campo="quantity"></label>' +
+      (editable ? '<label class="pt-cot-p"><span class="sr-only">Precio</span><input type="number" min="0" step="50" inputmode="decimal" value="' + (l.unitPrice || '') + '" placeholder="Precio" data-campo="unitPrice"></label>'
+        : '<span class="pt-cot-p">' + money.format(l.unitPrice) + '</span>') +
+      '<b class="pt-cot-imp">' + money.format(l.unitPrice * l.quantity) + '</b>' +
+      '<button type="button" class="pt-cot-quita" data-quita="' + i + '" aria-label="Quitar ' + esc(l.description) + '">&times;</button>' +
+    '</div>';
+  }).join('');
+  document.querySelectorAll('.pt-seg [data-desc]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.desc === descTipo)));
+  recalcula();
+}
+function recalcula() {
+  const t = totales(carrito, { tipo: $('quoteDiscount').value ? descTipo : null, valor: $('quoteDiscount').value }, quoteCap);
+  $('quoteTotals').innerHTML = '<span>Subtotal <b>' + money.format(t.subtotal) + '</b></span>' +
+    (t.descuento ? '<span>Descuento <b>-' + money.format(t.descuento) + ' (' + t.pct + '%)</b></span>' : '') +
+    '<span class="pt-cot-total-final">Total <b>' + money.format(t.total) + '</b></span>';
+  const w = $('quoteWarn');
+  w.classList.toggle('hidden', !t.pideAutorizacion);
+  w.textContent = !t.pideAutorizacion ? '' : isPresidency
+    ? 'Pasa del tope de ' + quoteCap + '%: como Presidencia, queda autorizada al guardar.'
+    : 'Pasa del tope de ' + quoteCap + '% (es ' + t.pct + '%). Se guarda y Presidencia tiene que autorizarla antes de enviarla.';
+  w.classList.toggle('presidencia', isPresidency);
+  carrito.forEach((l, i) => { const imp = document.querySelector('[data-linea="' + i + '"] .pt-cot-imp'); if (imp) imp.textContent = money.format(l.unitPrice * l.quantity); });
+}
+async function saveQuote(event) {
+  event.preventDefault(); message('quoteMessage');
+  const sel = $('quoteSponsor').value, nueva = sel === '__nueva';
+  if (!sel) { message('quoteMessage', 'Elige la marca.'); return; }
+  if (nueva && $('quoteProspect').value.trim().length < 2) { message('quoteMessage', 'Escribe el nombre de la marca nueva.'); return; }
+  const sinPrecio = carrito.filter((l) => !(Number(l.unitPrice) > 0));
+  if (sinPrecio.length) { message('quoteMessage', 'Ponle precio a: ' + sinPrecio.map((l) => l.description).join(', ') + '.'); return; }
+  const b = $('saveQuote'); b.disabled = true; b.textContent = 'Guardando…';
+  try {
+    const q = await rpc('v2_save_sponsor_quote', { organization_id: ctx.organization_id, quote_id: editingQuote?.id || null,
+      sponsor_id: nueva ? null : sel, prospect_name: nueva ? $('quoteProspect').value.trim() : null,
+      discount_type: $('quoteDiscount').value ? descTipo : null, discount_value: $('quoteDiscount').value ? Number($('quoteDiscount').value) : null,
+      notes: $('quoteNotes').value.trim() || null, valid_until: $('quoteValid').value || null,
+      items: carrito.map((l) => ({ assetId: l.assetId || null, description: l.description, unitPrice: Number(l.unitPrice), quantity: Number(l.quantity), unit: l.unit || null })) });
+    carrito = []; editingQuote = null;
+    closeModal(); await load(); quoteFilter = 'all'; switchView('quotes');
+    if (q?.approvalStatus === 'pending') {
+      await tosAlert({ kicker: 'COTIZACIÓN ' + q.folio, title: 'Guardada · falta autorización', message: 'El descuento es de ' + q.discountPct + '%. Presidencia la autoriza y luego ya la puedes enviar. Le sale en su Inicio.' });
+    } else if (q) {
+      const ok = await tosConfirm({ kicker: 'COTIZACIÓN ' + q.folio, title: 'Lista: ' + money.format(q.total), message: '¿Se la mandas ya a ' + (q.sponsorName || 'la marca') + '? Sale en PDF con fotos, precios y total.', confirmText: 'Enviar PDF', cancelText: 'Después' });
+      if (ok) await enviarCotizacion(q, true);
+    }
+  } catch (error) { message('quoteMessage', friendly(error)); }
+  finally { b.disabled = false; b.textContent = 'Guardar cotización'; }
+}
+// El PDF de la cotización: los espacios con su foto y precio, y la inversión.
+// Se comparte (WhatsApp en el teléfono) y queda como Enviada.
+async function enviarCotizacion(q, marcar) {
+  try {
+    const activos = q.items.map((i) => assetById(i.assetId)).filter(Boolean);
+    const fotos = {};
+    await Promise.all(activos.filter((a) => a.photoPath).map(async (a) => {
+      try { const url = await signedUrl(a.photoBucket, a.photoPath); if (url) fotos[a.id] = await fotoJpeg(url, 900); } catch { /* sin foto: va el nombre */ }
+    }));
+    const hoy = hoyIso();
+    const doc = await propuestaPdf({ marca: q.sponsorName || 'Marca', club: nombreDelClub(ctx), entidades: ENTIDADES, activos, metricas: socialMetrics, fotos, hoy, cotizacion: q });
+    const nombre = nombreDePropuesta(q.sponsorName, hoy).replace(/^Propuesta-/, 'Cotizacion-' + q.folio + '-');
+    // Compartir necesita un toque nuevo: armar el PDF tarda y el navegador lo olvida.
+    const ok = await tosConfirm({ kicker: 'COTIZACIÓN ' + q.folio, title: 'PDF listo', message: 'Compártelo por WhatsApp con ' + (sponsorById(q.sponsorId)?.contactName || q.sponsorName || 'la marca') + '.', confirmText: 'Compartir', cancelText: 'Cerrar' });
+    if (!ok) return;
+    const archivo = new File([doc.output('blob')], nombre, { type: 'application/pdf' });
+    let compartido = false;
+    try { if (navigator.canShare && navigator.canShare({ files: [archivo] })) { await navigator.share({ files: [archivo], title: nombre, text: mensajeWhatsApp(q, nombreDelClub(ctx)) }); compartido = true; } } catch (e) { if (e?.name === 'AbortError') return; }
+    if (!compartido) doc.save(nombre);
+    if (marcar && q.status !== 'sent') { await rpc('v2_set_sponsor_quote_status', { organization_id: ctx.organization_id, quote_id: q.id, status: 'sent' }); await load(); }
+  } catch (error) {
+    await tosAlert({ kicker: 'COTIZACIÓN', title: 'No se pudo enviar', message: friendly(error) });
+  }
+}
+
+/* COTIZACIONES: de borrador a aceptada. Al aceptarse nace el acuerdo con todo
+   lo cotizado (h44) y se abre la ficha de la marca. */
+const dineroCorto = (n) => money.format(Number(n || 0));
+function renderQuotes() {
+  const box = $('quoteList'); if (!box) return;
+  const porAutorizar = filtraCotizaciones(quotes, 'pending').length;
+  $('quotesBadge').textContent = porAutorizar;
+  $('quotesBadge').classList.toggle('hidden', !porAutorizar);
+  $('quoteCapText').textContent = quoteCap + '%';
+  $('quoteFilters').innerHTML = FILTROS_COT.filter((f) => f.k === 'all' || f.k === quoteFilter || filtraCotizaciones(quotes, f.k).length).map((f) =>
+    '<button type="button" data-cot-filtro="' + f.k + '" aria-pressed="' + (quoteFilter === f.k) + '">' + esc(f.t) + ' <b>' + filtraCotizaciones(quotes, f.k).length + '</b></button>').join('');
+  const lista = filtraCotizaciones(quotes, quoteFilter);
+  $('quoteEmpty').classList.toggle('hidden', lista.length > 0);
+  const TXT = { enviar: 'Enviar PDF', reenviar: 'Reenviar PDF', editar: 'Editar', archivar: 'Archivar', autorizar: 'Autorizar descuento', noAutorizar: 'No autorizar',
+    acepto: 'Aceptó', noAcepto: 'No aceptó', borrador: 'Regresar a borrador', verMarca: 'Ver la marca' };
+  const FUERTE = new Set(['enviar', 'autorizar', 'acepto', 'verMarca']);
+  box.innerHTML = lista.map((q) => {
+    const { etiqueta, tono, acciones } = accionesDe(q, { esPresidencia: isPresidency, puedeEscribir: canWrite });
+    const resumen = q.items.slice(0, 3).map((i) => (Number(i.quantity) > 1 ? i.quantity + ' x ' : '') + i.description).join(', ') + (q.items.length > 3 ? '…' : '');
+    return '<article class="pt-cot ' + esc(tono) + '" data-cot="' + esc(q.id) + '">' +
+      '<header><span class="pt-cot-folio">' + esc(q.folio) + '</span><span class="pt-cot-chip ' + esc(tono) + '">' + esc(etiqueta) + '</span></header>' +
+      '<strong class="pt-cot-marca">' + esc(q.sponsorName || 'Marca') + '</strong>' +
+      '<small class="pt-cot-res">' + esc(resumen) + '</small>' +
+      '<div class="pt-cot-dinero"><b>' + dineroCorto(q.total) + '</b>' + (Number(q.discountAmount) > 0 ? '<small>con ' + esc(q.discountPct) + '% de descuento (' + dineroCorto(q.discountAmount) + ')</small>' : '<small>sin descuento</small>') + '</div>' +
+      '<small class="pt-cot-meta">' + esc([q.createdByName ? 'Hizo ' + q.createdByName : null, q.sentAt ? 'enviada ' + shortDate(q.sentAt) : null, q.validUntil ? 'válida al ' + shortDate(q.validUntil) : null].filter(Boolean).join(' · ')) + '</small>' +
+      (q.approvalStatus === 'approved' && Number(q.discountPct) > quoteCap ? '<small class="pt-cot-ok">Descuento autorizado por ' + esc(q.approvedByName || 'Presidencia') + '</small>' : '') +
+      (q.approvalStatus === 'rejected' ? '<small class="pt-cot-no">Presidencia no autorizó el descuento' + (q.approvalNote ? ': ' + esc(q.approvalNote) : '') + '. Bájalo y guárdala otra vez.</small>' : '') +
+      (q.approvalStatus === 'pending' && !isPresidency ? '<small class="pt-cot-espera">Esperando a Presidencia.</small>' : '') +
+      (acciones.length ? '<div class="pt-cot-acc">' + acciones.map((k) => '<button type="button" class="' + (FUERTE.has(k) ? 'primary' : k === 'archivar' || k === 'noAutorizar' || k === 'noAcepto' ? 'pt-link peligro' : 'secondary') + ' mini" data-cot-accion="' + k + '">' + esc(TXT[k] || k) + '</button>').join('') + '</div>' : '') +
+    '</article>';
+  }).join('');
+}
+async function accionCotizacion(id, accion) {
+  const q = quotes.find((x) => x.id === id); if (!q) return;
+  const org = ctx.organization_id;
+  const estado = async (status) => { await rpc('v2_set_sponsor_quote_status', { organization_id: org, quote_id: q.id, status }); await load(); };
+  try {
+    if (accion === 'enviar' || accion === 'reenviar') await enviarCotizacion(q, accion === 'enviar');
+    else if (accion === 'editar') {
+      editingQuote = q; descTipo = q.discountType || 'pct';
+      carrito = q.items.map((i) => ({ assetId: i.assetId || null, description: i.description, unit: i.unit || null, unitPrice: Number(i.unitPrice), quantity: Number(i.quantity), sinPrecio: false }));
+      openQuoteForm();
+    } else if (accion === 'archivar') {
+      if (await tosConfirm({ kicker: q.folio, title: '¿Archivar esta cotización?', message: 'Deja de verse en la lista. No afecta a la marca.', confirmText: 'Sí, archivar', danger: true })) {
+        await rpc('v2_archive_sponsor_quote', { organization_id: org, quote_id: q.id }); await load();
+      }
+    } else if (accion === 'autorizar') {
+      await rpc('v2_decide_sponsor_quote_discount', { organization_id: org, quote_id: q.id, approve: true, note: null }); await load();
+    } else if (accion === 'noAutorizar') {
+      const motivo = await tosPrompt({ kicker: q.folio, title: '¿Por qué no?', message: 'Se le avisa a quien la hizo para que baje el descuento.', placeholder: 'Ej. Máximo 10% en el pecho', confirmText: 'No autorizar', maxlength: 200 });
+      if (motivo === null || motivo === undefined) return;
+      await rpc('v2_decide_sponsor_quote_discount', { organization_id: org, quote_id: q.id, approve: false, note: motivo || null }); await load();
+    } else if (accion === 'acepto') {
+      if (!(await tosConfirm({ kicker: q.folio, title: '¡Cerramos! ¿La marca aceptó?', message: 'Se crea su acuerdo con todo lo cotizado (' + dineroCorto(q.total) + ') y lo del uniforme queda ocupado. Luego ponle fechas.', confirmText: 'Sí, aceptó' }))) return;
+      const r = await rpc('v2_set_sponsor_quote_status', { organization_id: org, quote_id: q.id, status: 'accepted' });
+      await load();
+      if (r?.sponsorId) { openBrand(r.sponsorId); switchDrawerView('brand-agreement'); }
+    } else if (accion === 'noAcepto') await estado('rejected');
+    else if (accion === 'borrador') await estado('draft');
+    else if (accion === 'verMarca' && q.sponsorId) openBrand(q.sponsorId);
+  } catch (error) {
+    await tosAlert({ kicker: q.folio, title: 'No se pudo', message: friendly(error) });
+  }
+}
+
 /* Lista de precios (25/10/2026): Presidencia quiere "dónde editar y cambiar"
    los precios. Una tabla con todos los activos del filtro: precio y estado, y
    se guarda renglón por renglón. Sólo lo "Aprobado" sale en propuestas. */
@@ -750,7 +974,7 @@ function renderPriceList() {
   $('assetList').classList.toggle('hidden', priceListOpen);
   $('priceListButton').textContent = priceListOpen ? 'Ver tarjetas' : 'Lista de precios';
   if (!priceListOpen) return;
-  const lista = filtraActivos();
+  const lista = filtraCatalogo(assets, { categoria: assetFilter, q: $('assetSearch')?.value || '' });
   box.innerHTML = '<p class="muted tiny">Cambia el precio o el estado y toca Guardar. Sólo lo <b>Aprobado</b> sale en las propuestas; lo demás dice "A cotizar".</p>' +
     '<div class="pt-precios-tabla" role="table">' + lista.map((a) => (
     '<div class="pt-precio-fila" role="row" data-precio-id="' + esc(a.id) + '">' +
@@ -777,43 +1001,6 @@ async function guardaPrecio(fila) {
   } catch (error) { b.disabled = false; b.textContent = 'Guardar'; await tosAlert({ kicker: 'PRECIOS', title: 'No se pudo guardar', message: friendly(error) }); }
 }
 
-function pintaPropuestaBarra() {
-  $('proposalBar').classList.toggle('hidden', !proposalMode);
-  $('proposalButton').classList.toggle('hidden', proposalMode);
-  $('proposalCount').textContent = proposalPick.size ? proposalPick.size + ' ' + (proposalPick.size === 1 ? 'activo elegido' : 'activos elegidos') : 'Toca los activos que van en la propuesta';
-  $('proposalMake').disabled = !proposalPick.size;
-}
-
-/* Propuesta en un clic (25/10/2026): los activos elegidos, con foto, y la
-   audiencia con su periodo y fuente. Sólo enseña precios APROBADOS; lo demás
-   sale "A cotizar". Las notas internas nunca salen. */
-async function armarPropuesta() {
-  const elegidos = assets.filter((a) => proposalPick.has(a.id));
-  if (!elegidos.length) return;
-  const marca = await tosPrompt({ kicker: 'PROPUESTA', title: '¿Para qué marca es?', message: 'Sale en la portada de la propuesta.', placeholder: 'Ej. Ferretería del Centro', required: true, requiredText: 'Escribe la marca.', confirmText: 'Armar PDF', maxlength: 80 });
-  if (!marca) return;
-  const b = $('proposalMake'); b.disabled = true; b.textContent = 'Armando…';
-  try {
-    const fotos = {};
-    await Promise.all(elegidos.filter((a) => a.photoPath).map(async (a) => {
-      try { const url = await signedUrl(a.photoBucket, a.photoPath); if (url) fotos[a.id] = await fotoJpeg(url, 900); } catch { /* sin foto: va el nombre */ }
-    }));
-    const hoy = hoyIso();
-    const doc = await propuestaPdf({ marca, club: nombreDelClub(ctx), entidades: ENTIDADES, activos: elegidos, metricas: socialMetrics, fotos, hoy });
-    const nombre = nombreDePropuesta(marca, hoy);
-    const ok = await tosConfirm({ kicker: 'PROPUESTA', title: 'Propuesta lista', message: elegidos.length + ' activos para ' + marca + '. Los precios sin aprobar salen como "A cotizar".', confirmText: 'Compartir', cancelText: 'Cerrar' });
-    if (ok) {
-      const archivo = new File([doc.output('blob')], nombre, { type: 'application/pdf' });
-      let compartido = false;
-      try { if (navigator.canShare && navigator.canShare({ files: [archivo] })) { await navigator.share({ files: [archivo], title: nombre }); compartido = true; } } catch (e) { if (e?.name === 'AbortError') compartido = true; }
-      if (!compartido) doc.save(nombre);
-    }
-    proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); renderAssets();
-  } catch (error) {
-    await tosAlert({ kicker: 'PROPUESTA', title: 'No se pudo armar', message: friendly(error) });
-  } finally { b.disabled = !proposalPick.size; b.textContent = 'Armar PDF'; }
-}
-
 /* Audiencia (25/10/2026): la última foto de cada métrica por entidad y red.
    Nunca se suman redes ni se mezclan visualizaciones con personas. */
 function renderAudience() {
@@ -832,7 +1019,8 @@ function renderAudience() {
         '<b>' + esc(Number(m.value).toLocaleString('es-MX')) + (m.unit === 'porcentaje' ? '%' : '') + '</b>' +
         '<small>' + esc([m.unit !== 'porcentaje' ? m.unit : null, m.window, (m.periodStart ? fecha(m.periodStart) + ' – ' : 'al ') + fecha(m.periodEnd)].filter(Boolean).join(' · ')) + '</small>' +
         '<i class="pt-valida ' + esc(String(m.validation).toLowerCase()) + '">' + esc(m.validation) + '</i>' +
-        '<small class="pt-met-f">' + esc(m.source) + (m.notes ? ' · ' + esc(m.notes) : '') + '</small></li>').join('') +
+        '<small class="pt-met-f">' + esc(m.source) + (m.notes ? ' · ' + esc(m.notes) : '') + '</small>' +
+        (canWrite ? '<button type="button" class="pt-link pt-met-edita" data-metrica="' + esc(m.id) + '">Editar</button>' : '') + '</li>').join('') +
       '</ul></article>';
   }).join('') + (socialAccounts.filter((a) => !ult.some((m) => m.entity === a.entity && m.channel === a.platform)).length
     ? '<article class="pt-red pt-red-sin"><header><h3>Sin datos todavía</h3></header><ul>' + socialAccounts.filter((a) => !ult.some((m) => m.entity === a.entity && m.channel === a.platform))
@@ -962,6 +1150,42 @@ async function subeLogo(sponsorId, file) {
     message('spotMessage', friendly(error) || 'No se pudo subir el logo.');
   }
 }
+// Quita un activo de "Les damos" de los acuerdos vivos (de ciertas marcas o de todas).
+const comoItemDeAcuerdo = (i) => ({ id: i.id, type: i.type, description: i.description, quantity: i.quantity ?? null, unit: i.unit || null, estimatedValue: i.estimatedValue ?? null, assetId: i.assetId || null, fulfilled: !!i.fulfilled });
+async function quitaDeAcuerdos(assetId, sponsorIds = null) {
+  const vivos = agreements.filter((x) => x.status !== 'cancelled' && (!sponsorIds || sponsorIds.includes(x.sponsorId)) && itemsForAgreement(x.id).some((i) => i.assetId === assetId));
+  for (const ag of vivos) {
+    const items = itemsForAgreement(ag.id);
+    await rpc('v2_save_sponsor_agreement', { organization_id: ctx.organization_id, agreement_id: ag.id, sponsor_id: ag.sponsorId,
+      starts_on: ag.startsOn || null, ends_on: ag.endsOn || null, agreement_value: ag.monetaryValue ?? null, status: ag.status,
+      notes: ag.notes || null, benefit: ag.benefit || null, discount_percent: ag.discountPercent ?? null, beneficiaries: ag.beneficiaries || [],
+      redemption_instructions: ag.redemptionInstructions || null,
+      received_items: items.filter((i) => i.direction === 'receive').map(comoItemDeAcuerdo),
+      given_items: items.filter((i) => i.direction === 'give' && i.assetId !== assetId).map(comoItemDeAcuerdo) });
+  }
+}
+async function guardaDisponibilidad(a, availability) {
+  await rpc('v2_upsert_sponsor_asset_admin', { organization_id: ctx.organization_id, asset_id: a.id, name: a.name, category: a.category, price: a.price ?? null,
+    description: a.description || null, availability, entity: a.entity || null, channel: a.channel || null, unit: a.unit || null, family: a.family || null,
+    validation: a.validation || null, internal_notes: a.internalNotes || null, price_status: a.priceStatus || 'por_cotizar' });
+}
+async function liberaLugar() {
+  const a = assetById(spotAssetId); if (!a) return;
+  const marcas = quienTiene(a);
+  if (!(await tosConfirm({ kicker: 'UNIFORME', title: '¿Liberar ' + a.name.toLowerCase() + '?',
+    message: (marcas.length ? 'Se quita de lo que le damos a ' + marcas.map((m) => m.name).join(', ') + '. ' : '') + 'El lugar queda disponible para venderse.',
+    confirmText: 'Sí, liberar', danger: true }))) return;
+  const b = $('spotFree'); b.disabled = true;
+  try { await quitaDeAcuerdos(a.id); await guardaDisponibilidad(a, 'available'); closeModal(); await load(); }
+  catch (error) { message('spotMessage', friendly(error)); }
+  finally { b.disabled = false; }
+}
+async function quitaLogo(sponsorId) {
+  const m = sponsorById(sponsorId); if (!m) return;
+  if (!(await tosConfirm({ kicker: 'LOGO', title: '¿Quitar el logo de ' + m.name + '?', message: 'En el uniforme vuelve a salir su nombre.', confirmText: 'Sí, quitar', danger: true }))) return;
+  try { await rpc('v2_set_sponsor_logo', { organization_id: ctx.organization_id, sponsor_id: sponsorId, logo_path: null }); m.logoPath = null; renderUniform(); openSpot(spotAssetId); }
+  catch (error) { message('spotMessage', friendly(error)); }
+}
 let spotAssetId = null;
 function openSpot(assetId) {
   const a = assetById(assetId); if (!a) return;
@@ -972,7 +1196,8 @@ function openSpot(assetId) {
   $('spotBody').innerHTML = ocupado
     ? '<p class="pt-spot-quien">Lo tiene ' + (marcas.length ? marcas.map((m) => '<button type="button" class="pt-link" data-spot-marca="' + esc(m.id) + '">' + esc(m.name) + '</button>').join(', ') : 'una marca (marcado como ocupado)') + '.</p>' +
       marcas.map((m) => '<div class="pt-logo-fila"><span class="pt-logo-caja">' + (m.logoPath ? '<img data-logo-for="' + esc(m.id) + '" alt="Logo de ' + esc(m.name) + '">' : '<em>Sin logo</em>') + '</span>' +
-        (canWrite && hayLogos() ? '<label class="secondary pt-logo-subir">' + (m.logoPath ? 'Cambiar logo' : 'Subir logo de ' + esc(m.name)) + '<input type="file" accept="image/png,image/webp,image/jpeg" data-logo-sube="' + esc(m.id) + '" hidden></label>' : '') + '</div>').join('') +
+        (canWrite && hayLogos() ? '<label class="secondary pt-logo-subir">' + (m.logoPath ? 'Cambiar logo' : 'Subir logo de ' + esc(m.name)) + '<input type="file" accept="image/png,image/webp,image/jpeg" data-logo-sube="' + esc(m.id) + '" hidden></label>' : '') +
+        (canWrite && m.logoPath ? '<button type="button" class="pt-link peligro" data-logo-quita="' + esc(m.id) + '">Quitar logo</button>' : '') + '</div>').join('') +
       (canWrite && hayLogos() && marcas.length ? '<small class="muted">Mejor en PNG con fondo transparente: así se ve estampado en la playera.</small>' : '')
     : '<p class="pt-spot-quien libre">Disponible.</p>';
   pintaLogos($('spotBody'));
@@ -980,6 +1205,10 @@ function openSpot(assetId) {
   sel.innerHTML = '<option value="">Elige la marca…</option>' + sponsors.filter((x) => !['lost', 'finished'].includes(normalizeStage(x.stage, x.status)))
     .map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('');
   $('spotForm').classList.toggle('hidden', !canWrite);
+  $('spotFree').classList.toggle('hidden', !(canWrite && ocupado));
+  $('spotProposal').textContent = enCarrito(a.id) ? 'Ya está en la cotización' : '+ Agregar a la cotización';
+  $('spotProposal').disabled = enCarrito(a.id) || !canWrite;
+  $('spotAssign').textContent = ocupado ? 'Cambiar a esta marca' : 'Asignar este lugar';
   message('spotMessage');
   openModal('spotModal');
 }
@@ -990,6 +1219,12 @@ async function asignaLugar(event) {
   const a = assetById(spotAssetId), sponsorId = $('spotSponsor').value;
   if (!a) return;
   if (!sponsorId) { message('spotMessage', 'Elige la marca.'); return; }
+  // Cambiar de marca = liberar de la anterior y asignar a la nueva.
+  const antes = quienTiene(a).filter((m) => m.id !== sponsorId);
+  if (antes.length) {
+    if (!(await tosConfirm({ kicker: 'UNIFORME', title: '¿Cambiar de marca?', message: 'Se le quita a ' + antes.map((m) => m.name).join(', ') + ' y se le asigna a ' + (sponsorById(sponsorId)?.name || 'la nueva marca') + '.', confirmText: 'Sí, cambiar' }))) return;
+    try { await quitaDeAcuerdos(a.id, antes.map((m) => m.id)); await load(); } catch (error) { message('spotMessage', friendly(error)); return; }
+  }
   const b = $('spotAssign'); b.disabled = true;
   const principal = agreementsForSponsor(sponsorId).filter((x) => x.status !== 'cancelled')
     .sort((x, y) => (y.status === 'active') - (x.status === 'active') || itemsForAgreement(y.id).length - itemsForAgreement(x.id).length)[0];
@@ -1005,20 +1240,45 @@ async function asignaLugar(event) {
     await rpc('v2_upsert_sponsor_asset_admin', { organization_id: ctx.organization_id, asset_id: a.id, name: a.name, category: a.category, price: a.price ?? null,
       description: a.description || null, availability: 'occupied', entity: a.entity || null, channel: a.channel || null, unit: a.unit || null, family: a.family || null,
       validation: a.validation || null, internal_notes: a.internalNotes || null, price_status: a.priceStatus || 'por_cotizar' });
-    closeModal(); await load(); switchView('uniform');
+    closeModal(); await load(); switchView('assets');
   } catch (error) { message('spotMessage', friendly(error)); } finally { b.disabled = false; }
 }
 
-function openMetricForm() {
+function openMetricForm(metricId = null) {
   if (!canWrite) return;
   $('metricForm').reset(); $('metricEnd').value = hoyIso(); message('metricMessage');
+  const m = metricId ? socialMetrics.find((x) => x.id === metricId) : null;
+  editingMetricId = m?.id || null;
+  ['metricEntity', 'metricChannel', 'metricKey'].forEach((id) => { $(id).disabled = Boolean(m); });
+  $('voidMetric').classList.toggle('hidden', !m);
+  $('metricTitle').textContent = m ? 'Corregir dato' : 'Agregar dato de redes';
+  $('saveMetric').textContent = m ? 'Guardar cambios' : 'Guardar dato';
+  if (m) {
+    $('metricEntity').value = m.entity; $('metricChannel').value = m.channel; $('metricKey').value = m.metric;
+    $('metricValue').value = m.value; $('metricUnit').value = m.unit || 'conteo'; $('metricWindow').value = m.window || '';
+    $('metricStart').value = m.periodStart || ''; $('metricEnd').value = m.periodEnd || ''; $('metricSource').value = m.source || '';
+    $('metricValidation').value = m.validation || 'CONFIRMADO'; $('metricNotes').value = m.notes || '';
+  }
   openModal('metricModal');
+}
+async function anulaMetrica() {
+  const m = socialMetrics.find((x) => x.id === editingMetricId); if (!m) return;
+  if (!(await tosConfirm({ kicker: 'AUDIENCIA', title: '¿Anular este dato?', message: 'Deja de usarse en propuestas. Úsalo para lo capturado por error.', confirmText: 'Sí, anular', danger: true }))) return;
+  try {
+    await rpc('v2_update_social_metric', { organization_id: ctx.organization_id, metric_id: m.id, value: m.value, unit: m.unit, window_label: m.window, period_start: m.periodStart,
+      period_end: m.periodEnd, source: m.source, validation: m.validation, notes: m.notes, voided: true });
+    closeModal(); await load(); switchView('audience');
+  } catch (error) { message('metricMessage', friendly(error)); }
 }
 async function saveMetric(event) {
   event.preventDefault(); message('metricMessage');
   const b = $('saveMetric'); b.disabled = true;
   try {
-    await rpc('v2_add_social_metric', { organization_id: ctx.organization_id, entity: $('metricEntity').value, channel: $('metricChannel').value,
+    if (editingMetricId) {
+      await rpc('v2_update_social_metric', { organization_id: ctx.organization_id, metric_id: editingMetricId, value: Number($('metricValue').value), unit: $('metricUnit').value,
+        window_label: $('metricWindow').value.trim() || null, period_start: $('metricStart').value || null, period_end: $('metricEnd').value,
+        source: $('metricSource').value.trim(), validation: $('metricValidation').value, notes: $('metricNotes').value.trim() || null, voided: false });
+    } else await rpc('v2_add_social_metric', { organization_id: ctx.organization_id, entity: $('metricEntity').value, channel: $('metricChannel').value,
       metric: $('metricKey').value.trim(), value: Number($('metricValue').value), unit: $('metricUnit').value, window_label: $('metricWindow').value.trim() || null,
       period_start: $('metricStart').value || null, period_end: $('metricEnd').value, source: $('metricSource').value.trim(),
       validation: $('metricValidation').value, notes: $('metricNotes').value.trim() || null });
@@ -1037,9 +1297,12 @@ function switchView(view) {
   document.querySelectorAll('.module-nav [data-view]').forEach((button) => {
     button.classList.toggle('active', button.dataset.view === view);
   });
-  ['summary', 'route', 'assets', 'uniform', 'audience'].forEach((name) => {
-    $(name + 'View').classList.toggle('hidden', name !== view);
+  // Marcas junta lo de hoy y la lista completa; el uniforme vive en Vender.
+  const visibles = view === 'summary' ? ['summary', 'route'] : [view];
+  ['summary', 'route', 'assets', 'quotes', 'audience'].forEach((name) => {
+    $(name + 'View').classList.toggle('hidden', !visibles.includes(name));
   });
+  renderCart();
 }
 
 function openBrand(id) {
@@ -1126,7 +1389,25 @@ function accionesRapidas(sponsor) {
     (sponsor.email ? '<a class="pt-accion" href="mailto:' + esc(sponsor.email) + '">Email</a>' : '') +
   '</div>';
 }
+async function archivaMarca() {
+  const m = sponsorById(selectedSponsorId); if (!m) return;
+  if (!(await tosConfirm({ kicker: 'PATROCINIOS', title: '¿Archivar ' + m.name + '?', message: 'Deja de salir en Marcas y en Hoy toca. Sus acuerdos y pagos se quedan; la recuperas desde "Archivadas".', confirmText: 'Sí, archivar' }))) return;
+  try { await rpc('v2_set_sponsor_archived', { organization_id: ctx.organization_id, sponsor_id: m.id, archived: true }); closeBrand(); await load(); }
+  catch (error) { await tosAlert({ kicker: 'PATROCINIOS', title: 'No se pudo archivar', message: friendly(error) }); }
+}
+async function quitaMarca() {
+  const m = sponsorById(selectedSponsorId); if (!m) return;
+  if (!(await tosConfirm({ kicker: 'PRESIDENCIA', title: '¿Quitar ' + m.name + ' del todo?', message: 'Sólo para marcas capturadas por error: sin acuerdos ni pagos. No se puede recuperar desde aquí.', confirmText: 'Sí, quitar', danger: true }))) return;
+  try { await rpc('v2_remove_sponsor', { organization_id: ctx.organization_id, sponsor_id: m.id }); closeBrand(); await load(); }
+  catch (error) { await tosAlert({ kicker: 'PATROCINIOS', title: 'No se pudo quitar', message: friendly(error) }); }
+}
+async function recuperaMarca(id) {
+  try { await rpc('v2_set_sponsor_archived', { organization_id: ctx.organization_id, sponsor_id: id, archived: false }); await load(); }
+  catch (error) { await tosAlert({ kicker: 'PATROCINIOS', title: 'No se pudo recuperar', message: friendly(error) }); }
+}
 function bindAccionesRapidas() {
+  $('brandSummaryBody').querySelector('[data-marca-archiva]')?.addEventListener('click', archivaMarca);
+  $('brandSummaryBody').querySelector('[data-marca-quita]')?.addEventListener('click', quitaMarca);
   $('brandSummaryBody').querySelector('[data-rapida="avance"]')?.addEventListener('click', openMovementForm);
   $('brandSummaryBody').querySelector('[data-rapida="pago"]')?.addEventListener('click', () => {
     const a = agreementsForSponsor(selectedSponsorId).filter((x) => x.status !== 'cancelled')
@@ -1156,7 +1437,10 @@ function renderBrandSummary(sponsor) {
       '<div class="summary-field"><span>Responsable</span><strong>' + esc(sponsor.ownerName || 'Sin asignar') + '</strong></div>' +
     '</section></details>' +
     (sponsor.notes ? '<section class="notes-card"><span>Nota</span><p>' + esc(sponsor.notes) + '</p></section>' : '') +
-    (sponsor.lostReason ? '<section class="notes-card lost-reason-card"><span>Motivo de pérdida</span><p>' + esc(sponsor.lostReason) + '</p></section>' : '');
+    (sponsor.lostReason ? '<section class="notes-card lost-reason-card"><span>Motivo de pérdida</span><p>' + esc(sponsor.lostReason) + '</p></section>' : '') +
+    (canWrite ? '<div class="pt-marca-zona"><button type="button" class="secondary mini" data-marca-archiva>Archivar marca</button>' +
+      (isPresidency ? '<button type="button" class="pt-link peligro" data-marca-quita>Quitar marca</button>' : '') +
+      '<small class="muted">Archivada deja de salir en las listas; la recuperas cuando quieras.</small></div>' : '');
   bindAccionesRapidas();
 }
 
@@ -1396,7 +1680,7 @@ function renderCommitments(sponsor) {
         ].filter(Boolean).join(' · ');
         const evidence = evidenceForItem(item.id);
         const thumbs = evidence.map((item2) => (
-          '<span class="evidence-thumb" data-evidence-photo="' + esc(item2.id) + '">' +
+          '<span class="evidence-thumb" data-evidence-photo="' + esc(item2.id) + '"' + (canWrite ? ' data-evidence-note="' + esc(item2.id) + '" role="button" tabindex="0"' : '') + ' title="' + esc(item2.note || (canWrite ? 'Toca para escribir una nota' : '')) + '">' +
             (canWrite ? '<button type="button" class="evidence-delete" data-evidence-id="' + esc(item2.id) + '" data-bucket="' + esc(item2.photoBucket || '') + '" data-path="' + esc(item2.photoPath || '') + '" aria-label="Eliminar evidencia">&times;</button>' : '') +
           '</span>'
         )).join('');
@@ -1424,6 +1708,9 @@ function renderCommitments(sponsor) {
       $('evidenceUploadInput').click();
     });
   });
+  $('commitmentList').querySelectorAll('[data-evidence-note]').forEach((el) => {
+    el.addEventListener('click', (event) => { if (event.target.closest('.evidence-delete')) return; notaEvidencia(el.dataset.evidenceNote); });
+  });
   $('commitmentList').querySelectorAll('.evidence-delete').forEach((button) => {
     button.addEventListener('click', (event) => {
       event.preventDefault();
@@ -1433,6 +1720,17 @@ function renderCommitments(sponsor) {
   hydrateEvidenceThumbs();
 }
 
+function bindMovimientos() {
+  $('movementList').querySelectorAll('[data-mov-edita]').forEach((b) => b.addEventListener('click', () => editaMovimiento(b.dataset.movEdita, false)));
+  $('movementList').querySelectorAll('[data-mov-anula]').forEach((b) => b.addEventListener('click', () => editaMovimiento(b.dataset.movAnula, true)));
+}
+async function notaEvidencia(id) {
+  const ev = itemEvidence.find((x) => x.id === id); if (!ev) return;
+  const nota = await tosPrompt({ kicker: 'EVIDENCIA', title: 'Nota de la foto', message: 'Sale en el reporte para la marca.', value: ev.note || '', placeholder: 'Ej. Lona en la final del 12 de octubre', confirmText: 'Guardar', maxlength: 300 });
+  if (nota === null) return;
+  try { await rpc('v2_update_sponsor_evidence_note', { organization_id: ctx.organization_id, evidence_id: id, note: nota || null }); await load(); }
+  catch (error) { await tosAlert({ kicker: 'EVIDENCIA', title: 'No se pudo guardar', message: friendly(error) }); }
+}
 function renderMovements(sponsor) {
   const sponsorMovements = movements.filter((movement) => movement.sponsorId === sponsor.id);
   $('movementEmpty').classList.toggle('hidden', sponsorMovements.length > 0);
@@ -1442,11 +1740,27 @@ function renderMovements(sponsor) {
         '<div class="timeline-head"><strong>' + esc(MOVEMENT_TYPES[movement.type] || movement.type) + '</strong><time>' + esc(longDate(movement.occurredAt)) + '</time></div>' +
         '<p>' + esc(movement.result) + '</p>' +
         (movement.nextAction ? '<small>Próximo: ' + esc(movement.nextAction) + ' · ' + esc(shortDate(movement.nextActionAt)) + '</small>' : '') +
+        (canWrite ? '<span class="pt-mov-acc"><button type="button" class="pt-link" data-mov-edita="' + esc(movement.id) + '">Editar</button><button type="button" class="pt-link peligro" data-mov-anula="' + esc(movement.id) + '">Anular</button></span>' : '') +
       '</div>' +
     '</article>'
   )).join('');
+  bindMovimientos();
 }
 
+async function editaMovimiento(id, anular) {
+  const m = movements.find((x) => x.id === id); if (!m) return;
+  try {
+    if (anular) {
+      if (!(await tosConfirm({ kicker: 'SEGUIMIENTO', title: '¿Anular este movimiento?', message: 'Deja de verse en el historial. Úsalo para lo capturado por error.', confirmText: 'Sí, anular', danger: true }))) return;
+      await rpc('v2_update_sponsor_movement', { organization_id: ctx.organization_id, movement_id: id, movement_type: m.type, result: m.result, voided: true });
+    } else {
+      const texto = await tosPrompt({ kicker: 'SEGUIMIENTO · ' + (MOVEMENT_TYPES[m.type] || m.type), title: 'Corregir lo que pasó', value: m.result, multiline: true, required: true, requiredText: 'Escribe qué pasó.', confirmText: 'Guardar', maxlength: 2000 });
+      if (texto === null) return;
+      await rpc('v2_update_sponsor_movement', { organization_id: ctx.organization_id, movement_id: id, movement_type: m.type, result: texto, voided: false });
+    }
+    await load();
+  } catch (error) { await tosAlert({ kicker: 'SEGUIMIENTO', title: 'No se pudo', message: friendly(error) }); }
+}
 function openModal(id) {
   document.querySelectorAll('.workspace-modal').forEach((modal) => modal.classList.add('hidden'));
   $(id).classList.remove('hidden');
@@ -1773,6 +2087,7 @@ function resetAssetForm() {
   $('assetPhotoSection').classList.remove('hidden');
   $('assetPhotoAction').textContent = 'Agregar foto';
   $('assetPhotoBox').innerHTML = '<span>Sin foto</span>';
+  $('assetPhotoRemove').classList.add('hidden');
   message('assetMessage');
   message('assetPhotoMessage');
 }
@@ -1783,7 +2098,7 @@ function openAssetForm(asset = null) {
   if (asset) {
     $('assetId').value = asset.id;
     $('assetName').value = asset.name || '';
-    $('assetCategory').value = ASSET_CATEGORIES[asset.category] ? asset.category : 'other';
+    $('assetCategory').value = categoriaDe(asset);
     $('assetAvailability').value = ASSET_AVAILABILITY[asset.availability] ? asset.availability : 'available';
     $('assetPrice').value = asset.price ?? '';
     $('assetEntity').value = asset.entity || 'TC';
@@ -1799,6 +2114,7 @@ function openAssetForm(asset = null) {
     $('archiveAsset').classList.remove('hidden');
     if (asset.photoPath) {
       $('assetPhotoAction').textContent = 'Cambiar foto';
+      $('assetPhotoRemove').classList.remove('hidden');
       signedUrl(asset.photoBucket, asset.photoPath).then((url) => {
         if (url) $('assetPhotoBox').innerHTML = '<img src="' + url + '" alt="">';
       }).catch(() => {});
@@ -1848,6 +2164,12 @@ async function saveAsset(event) {
   }
 }
 
+async function quitaFotoActivo() {
+  const id = $('assetId').value; if (!id) return;
+  if (!(await tosConfirm({ kicker: 'ACTIVO', title: '¿Quitar la foto?', message: 'El activo queda sin foto en el catálogo y en las cotizaciones.', confirmText: 'Sí, quitar', danger: true }))) return;
+  try { await rpc('v2_clear_sponsor_asset_photo', { organization_id: ctx.organization_id, asset_id: id }); await load(); openAssetForm(assetById(id)); }
+  catch (error) { message('assetPhotoMessage', friendly(error)); }
+}
 async function archiveAsset() {
   const id = $('assetId').value;
   if (!id) return;
@@ -1910,6 +2232,7 @@ function openPaymentsModal(agreementId) {
   $('paymentsBrandName').textContent = sponsor?.name || '';
   $('paymentForm').reset();
   $('paymentPaidOn').value = new Date().toISOString().slice(0, 10);
+  editingPaymentId = null; $('savePayment').textContent = 'Registrar pago'; $('paymentCancelEdit').classList.add('hidden');
   message('paymentMessage');
   $('paymentForm').classList.toggle('hidden', !canWrite);
   renderPaymentsModal();
@@ -1931,11 +2254,14 @@ function renderPaymentsModal() {
       '<small>' + esc(shortDate(payment.paidOn)) + (payment.method ? ' · ' + esc(PAYMENT_METHODS[payment.method] || payment.method) : '') +
       (payment.reference ? ' · ' + esc(payment.reference) : '') + '</small>' +
       (payment.note ? '<small class="payment-note">' + esc(payment.note) + '</small>' : '') + '</div>' +
-      (canWrite ? '<button type="button" class="text-danger mini delete-payment-button" data-payment-id="' + esc(payment.id) + '">Eliminar</button>' : '') +
+      (canWrite ? '<span class="pt-pago-acc"><button type="button" class="secondary mini edit-payment-button" data-payment-id="' + esc(payment.id) + '">Editar</button><button type="button" class="text-danger mini delete-payment-button" data-payment-id="' + esc(payment.id) + '">Eliminar</button></span>' : '') +
     '</div>'
   )).join('');
   $('paymentList').querySelectorAll('.delete-payment-button').forEach((button) => {
     button.addEventListener('click', () => deletePayment(button.dataset.paymentId));
+  });
+  $('paymentList').querySelectorAll('.edit-payment-button').forEach((button) => {
+    button.addEventListener('click', () => editaPago(button.dataset.paymentId));
   });
 }
 
@@ -1946,15 +2272,10 @@ async function savePayment(event) {
   const button = $('savePayment');
   button.disabled = true;
   try {
-    await rpc('v2_add_sponsor_agreement_payment', {
-      organization_id: ctx.organization_id,
-      agreement_id: paymentsAgreementId,
-      amount: Number($('paymentAmount').value || 0),
-      paid_on: $('paymentPaidOn').value || null,
-      method: $('paymentMethod').value || null,
-      reference: $('paymentReference').value.trim() || null,
-      note: $('paymentNote').value.trim() || null,
-    });
+    const campos = { amount: Number($('paymentAmount').value || 0), paid_on: $('paymentPaidOn').value || null, method: $('paymentMethod').value || null,
+      reference: $('paymentReference').value.trim() || null, note: $('paymentNote').value.trim() || null };
+    if (editingPaymentId) await rpc('v2_update_sponsor_payment', { organization_id: ctx.organization_id, payment_id: editingPaymentId, ...campos });
+    else await rpc('v2_add_sponsor_agreement_payment', { organization_id: ctx.organization_id, agreement_id: paymentsAgreementId, ...campos });
     await load();
     openPaymentsModal(paymentsAgreementId);
   } catch (error) {
@@ -1964,6 +2285,14 @@ async function savePayment(event) {
   }
 }
 
+function editaPago(id) {
+  const p = payments.find((x) => x.id === id); if (!p) return;
+  editingPaymentId = id;
+  $('paymentAmount').value = p.amount ?? ''; $('paymentPaidOn').value = String(p.paidOn || '').slice(0, 10);
+  $('paymentMethod').value = p.method || ''; $('paymentReference').value = p.reference || ''; $('paymentNote').value = p.note || '';
+  $('savePayment').textContent = 'Guardar cambios'; $('paymentCancelEdit').classList.remove('hidden');
+  $('paymentAmount').focus();
+}
 async function deletePayment(paymentId) {
   if (!canWrite || !paymentId) return;
   const ok = await tosConfirm({ kicker: 'PATROCINIOS', title: '¿Eliminar este pago?',
@@ -2193,18 +2522,53 @@ $('exportSponsorKit').addEventListener('click', exportSponsorKit);
 document.querySelectorAll('.pt-vigencia [data-meses]').forEach((b) => b.addEventListener('click', () => ponVigencia(b.dataset.meses)));
 $('trackForm').addEventListener('submit', saveTrack);
 $('metricForm').addEventListener('submit', saveMetric);
-$('newMetricButton').addEventListener('click', openMetricForm);
+$('newMetricButton').addEventListener('click', () => openMetricForm());
 $('assetFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-filtro]'); if (!b) return; assetFilter = b.dataset.filtro; renderAssets(); });
-$('proposalButton').addEventListener('click', () => { proposalMode = true; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
-$('proposalCancel').addEventListener('click', () => { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
-$('proposalMake').addEventListener('click', armarPropuesta);
+$('assetSearch').addEventListener('input', renderAssets);
+$('assetList').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-carrito]'); if (c) { if (canWrite) toggleCarrito(c.dataset.carrito); return; }
+  const f = e.target.closest('[data-abrir-activo]'); if (f) openAssetForm(assetById(f.dataset.abrirActivo));
+});
+$('cartClear').addEventListener('click', () => { carrito = []; editingQuote = null; renderAssets(); renderCart(); });
+$('cartQuote').addEventListener('click', openQuoteForm);
+$('newQuoteButton').addEventListener('click', () => { if (carrito.length) openQuoteForm(); else { switchView('assets'); tosAlert({ kicker: 'COTIZAR', title: 'Elige los espacios', message: 'Toca + Agregar en lo que le interesa a la marca y luego Cotizar.' }); } });
+$('quoteForm').addEventListener('submit', saveQuote);
+$('quoteSponsor').addEventListener('change', () => { $('quoteProspectField').classList.toggle('hidden', $('quoteSponsor').value !== '__nueva'); if ($('quoteSponsor').value === '__nueva') $('quoteProspect').focus(); });
+$('quoteLines').addEventListener('input', (e) => {
+  const fila = e.target.closest('[data-linea]'); const campo = e.target.dataset.campo; if (!fila || !campo) return;
+  const l = carrito[Number(fila.dataset.linea)]; if (!l) return;
+  l[campo] = campo === 'quantity' ? Math.max(1, Number(e.target.value) || 1) : Math.max(0, Number(e.target.value) || 0);
+  recalcula();
+});
+$('quoteLines').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-quita]'); if (!b) return;
+  carrito.splice(Number(b.dataset.quita), 1);
+  if (!carrito.length) { closeModal(); editingQuote = null; renderAssets(); renderCart(); return; }
+  pintaLineas(); renderAssets();
+});
+document.querySelectorAll('.pt-seg [data-desc]').forEach((b) => b.addEventListener('click', () => { descTipo = b.dataset.desc; pintaLineas(); }));
+$('quoteDiscount').addEventListener('input', recalcula);
+$('quoteAddMore').addEventListener('click', () => { closeModal(); switchView('assets'); });
+$('quoteFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-cot-filtro]'); if (!b) return; quoteFilter = b.dataset.cotFiltro; renderQuotes(); });
+$('quoteList').addEventListener('click', (e) => { const b = e.target.closest('[data-cot-accion]'); if (!b) return; accionCotizacion(b.closest('[data-cot]').dataset.cot, b.dataset.cotAccion); });
+$('audienceButton').addEventListener('click', () => switchView('audience'));
+$('audienceBack').addEventListener('click', () => switchView('assets'));
+$('audienceList').addEventListener('click', (e) => { const b = e.target.closest('[data-metrica]'); if (b) openMetricForm(b.dataset.metrica); });
+$('voidMetric').addEventListener('click', anulaMetrica);
+$('spotFree').addEventListener('click', liberaLugar);
+$('assetPhotoRemove').addEventListener('click', quitaFotoActivo);
+$('paymentCancelEdit').addEventListener('click', () => openPaymentsModal(paymentsAgreementId));
+$('archivedList').addEventListener('click', (e) => { const b = e.target.closest('[data-recupera]'); if (b) recuperaMarca(b.dataset.recupera); });
 $('uniformMap').addEventListener('click', (e) => { const b = e.target.closest('[data-lugar]'); if (b) openSpot(b.dataset.lugar); });
 $('spotForm').addEventListener('submit', asignaLugar);
-$('spotBody').addEventListener('click', (e) => { const b = e.target.closest('[data-spot-marca]'); if (b) { closeModal(); openBrand(b.dataset.spotMarca); } });
+$('spotBody').addEventListener('click', (e) => {
+  const q = e.target.closest('[data-logo-quita]'); if (q) { quitaLogo(q.dataset.logoQuita); return; }
+  const b = e.target.closest('[data-spot-marca]'); if (b) { closeModal(); openBrand(b.dataset.spotMarca); }
+});
 $('spotBody').addEventListener('change', (e) => { const f = e.target.closest('[data-logo-sube]'); if (f?.files?.[0]) subeLogo(f.dataset.logoSube, f.files[0]); });
 $('spotEdit').addEventListener('click', () => { const a = assetById(spotAssetId); closeModal(); if (a) openAssetForm(a); });
-$('spotProposal').addEventListener('click', () => { const id = spotAssetId; closeModal(); switchView('assets'); priceListOpen = false; proposalMode = true; proposalPick.add(id); pintaPropuestaBarra(); renderAssets(); });
-$('priceListButton').addEventListener('click', () => { priceListOpen = !priceListOpen; if (priceListOpen) { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); } renderAssets(); });
+$('spotProposal').addEventListener('click', () => { const a = assetById(spotAssetId); closeModal(); if (a && !enCarrito(a.id)) carrito.push(renglonDe(a)); switchView('assets'); renderAssets(); renderCart(); });
+$('priceListButton').addEventListener('click', () => { priceListOpen = !priceListOpen; renderAssets(); });
 $('priceList').addEventListener('click', (e) => { const b = e.target.closest('[data-guardar-precio]'); if (b) guardaPrecio(b.closest('[data-precio-id]')); });
 $('sponsorReportButton').addEventListener('click', sponsorReport);
 $('linkFundedPlayerButton').addEventListener('click', openFundingModal);

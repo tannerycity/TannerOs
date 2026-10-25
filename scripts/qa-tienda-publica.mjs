@@ -10,7 +10,7 @@
 //   4. Un kit se ve con las fotos de sus piezas (hasta cuatro, sin repetir).
 //   5. Precio de tarjeta: "Desde" el más bajo cuando hay niño y adulto.
 //   6. Tallas en Niño / Adulto / Otras, cada una en su orden.
-import { seccionesDeTienda, categoriaDe, etiquetaDe, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas }
+import { seccionesDeTienda, categoriaDe, etiquetaDe, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, sugerenciasAntesDePagar }
   from '../pedido/catalogo.js';
 
 const fallos = []; let n = 0;
@@ -31,6 +31,13 @@ revisa(etiquetaDe('outerwear') === 'Chamarras' && etiquetaDe('socks') === 'Calce
 // Las categorías reales del club (25/10/2026): "Gorra" y "Oversized" salían tal cual.
 revisa(categoriaDe(P('cap', 'Gorra')) === 'gorras' && etiquetaDe('gorras') === 'Gorras', 'la gorra sale en Gorras');
 revisa(categoriaDe(P('tee', 'Oversized')) === 'casual' && etiquetaDe('casual') === 'Ropa casual', 'la oversized sale en Ropa casual, no en inglés');
+// ¿Le agregas algo más? (25/10/2026)
+const CAT = [P('jersey', 'jersey', { price: 799 }), P('gorra', 'Gorra', { price: 550 }), P('tee', 'Oversized', { price: 550 }), P('beca', 'Proyectos', { name: 'Apoya una beca', price: 200 }),
+  P('calcetas', 'socks', { price: 200 }), P('short', 'shorts', { price: 350 }), P('gratis', 'Gorra', { price: 0 })];
+const sug = sugerenciasAntesDePagar(CAT, { a: { productId: 'gorra' }, b: { bundleId: 'k', piezas: [{ productId: 'short' }] } }, { personaliza: p => p.category === 'jersey' });
+revisa(JSON.stringify(sug.map(p => p.id)) === '["beca","tee","calcetas"]', `sugerencias: proyectos primero, sin lo que ya va (ni dentro de un kit), sin jerseys ni gratis: ${JSON.stringify(sug.map(p => p.id))}`);
+revisa(etiquetaDe(categoriaDe(P('x', 'Proyectos'))) === 'Proyectos del club' && categoriaDe(P('r', 'Rifa')) === 'proyectos', 'Proyectos, rifas y becas salen en Proyectos del club');
+revisa(sugerenciasAntesDePagar(CAT, {}, { max: 2 }).length === 2, 'no más de las que caben');
 revisa(!seccionesDeTienda({ products: [P('a', 'jersey')], bundles: [] }).some(s => s.clave === 'kits'), 'sin kits no hay pestaña de Kits');
 revisa(categoriaDe({ category: 'Hoodie' }) === 'outerwear' && categoriaDe({ category: 'Accesorios' }) === 'accesorios', 'sinónimos de categoría');
 

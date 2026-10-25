@@ -43,7 +43,7 @@ import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
-import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe }
+import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe, sugerenciasAntesDePagar }
   from '/pedido/catalogo.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
@@ -697,6 +697,34 @@ function convierteEnKit(llave, kitId) {
   location.hash = `#/k/${encodeURIComponent(x.kit.id)}`;
 }
 
+/* ¿Le agregas algo más? Justo antes de los datos: ya decidió comprar. Lo de
+   talla única entra con un toque; lo que tiene tallas, con su talla ahí mismo. */
+function extrasAntesDePagar() {
+  const l = sugerenciasAntesDePagar(catalogo.products || [], carrito, { personaliza: aceptaPersonalizacion });
+  if (!l.length) return '';
+  return `<section class="st-extra" aria-label="Agrega algo más"><div class="st-extra-cab"><h2>¿Le agregas algo más?</h2><span>Va en el mismo pedido</span></div>
+    <div class="st-extra-fila">${l.map(p => {
+      const unica = tallaUnica(p), tallas = tallasDe(p);
+      return `<article class="st-extra-card" data-extra="${esc(p.id)}">${medioProducto(p)}
+        <div class="st-extra-txt"><strong>${esc(p.name)}</strong><span class="st-precio">${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p))}</span>
+        ${!unica && tallas.length ? `<label class="st-extra-talla"><span class="sr-only">Talla</span><select data-extra-talla><option value="">Talla</option>${tallas.map(t => `<option>${esc(t)}</option>`).join('')}</select></label>` : ''}
+        <button type="button" class="st-extra-btn" data-extra-agrega>Agregar</button></div></article>`;
+    }).join('')}</div></section>`;
+}
+function agregaExtra(card) {
+  const p = (catalogo.products || []).find(x => String(x.id) === card.dataset.extra);
+  if (!p) return;
+  const sel = card.querySelector('[data-extra-talla]');
+  const r = preparaLinea(p, { talla: sel?.value || null, cantidad: 1 });
+  if (!r.ok) { sel?.classList.add('falta'); sel?.focus(); return; }
+  carrito = agregaAlCarrito(carrito, r.linea);
+  actualizaCarrito();
+  $('resumenCarrito').innerHTML = resumen();
+  $('stExtras').innerHTML = extrasAntesDePagar();
+  firmaFotos($('stExtras'));
+  aviso(`Agregado · ${p.name}${r.linea.talla && !tallaUnica(p) ? ` talla ${r.linea.talla}` : ''}`);
+}
+
 function renderCheckout() {
   if (!piezasDelCarrito(carrito)) { location.replace('#/'); return; }
   pintaBarra(false);
@@ -704,6 +732,7 @@ function renderCheckout() {
   $('content').innerHTML = `<a class="st-volver" href="#/" id="volver">‹ Seguir comprando</a>
     <h1 class="st-titulo">Tu pedido</h1>
     <div id="resumenCarrito">${resumen()}</div>
+    <div id="stExtras">${extrasAntesDePagar()}</div>
     <p class="st-nota">${pagoInfo?.delivery ? `Entrega en ${esc(pagoInfo.delivery)}. ` : ''}Al confirmar ves la CLABE para pagar por transferencia, sin comisión.</p>
     <form id="orderForm" class="form-grid order-form st-form">
       <h2 class="span-2">Tus datos</h2>
@@ -731,8 +760,13 @@ function renderCheckout() {
     actualizaCarrito();
     if (!piezasDelCarrito(carrito)) { location.hash = '#/'; return; }
     $('resumenCarrito').innerHTML = resumen();
+    $('stExtras').innerHTML = extrasAntesDePagar();
+    firmaFotos($('stExtras'));
   };
   $('orderForm').addEventListener('submit', submit);
+  $('stExtras').addEventListener('click', e => { const b = e.target.closest('[data-extra-agrega]'); if (b) agregaExtra(b.closest('[data-extra]')); });
+  $('stExtras').addEventListener('change', e => e.target.closest('[data-extra-talla]')?.classList.remove('falta'));
+  firmaFotos($('stExtras'));
 }
 
 /* ---------- Rutas ---------- */

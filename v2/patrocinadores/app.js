@@ -1249,6 +1249,8 @@ function addItemRow(direction, item = {}) {
   const container = direction === 'receive' ? $('receivedItems') : $('givenItems');
   const row = document.createElement('article');
   row.className = 'item-editor';
+  // Con su id el servidor lo actualiza en su lugar y no se pierden sus fotos (h40).
+  row.dataset.itemId = item.id || '';
   const defaultType = item.type || (direction === 'receive' ? 'money' : 'advertising');
   row.innerHTML =
     // Compacto (24/10/2026): qué es, en grande; tipo, cuánto y unidad en un renglón; valor y activo plegados.
@@ -1281,6 +1283,7 @@ function addItemRow(direction, item = {}) {
 function collectItems(direction) {
   const container = direction === 'receive' ? $('receivedItems') : $('givenItems');
   return [...container.querySelectorAll('.item-editor')].map((row) => ({
+    id: row.dataset.itemId || null,
     type: row.querySelector('.item-type').value,
     description: row.querySelector('.item-description').value.trim(),
     quantity: row.querySelector('.item-quantity').value === '' ? null : Number(row.querySelector('.item-quantity').value),

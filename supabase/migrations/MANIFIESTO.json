@@ -1,7 +1,7 @@
 {
-  "migraciones": 558,
-  "bytes": 3195266,
-  "huella": "c5ab72740ebf24024dd49d95e9fbe14a",
+  "migraciones": 559,
+  "bytes": 3203848,
+  "huella": "125cb77b7ed2fcd8e0f7e4ab2b67106e",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
   "ultima": "20261025182135_h41_numero_confirmado_para_produccion.sql",
   "verificadoContraLaBase": "2026-10-25"

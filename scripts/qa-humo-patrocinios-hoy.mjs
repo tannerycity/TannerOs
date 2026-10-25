@@ -213,7 +213,7 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   await pg.click('.module-nav [data-view="uniform"]');
   const resumen = await txt(pg, '#uniformSummary');
   revisa('16. uniforme: vendido y disponible por temporada', /\$20,000 vendido/.test(resumen) && /\$12,500 disponible/.test(resumen) && /precios en propuesta/.test(resumen), resumen);
-  revisa('16. cada lugar en su vista, con la marca que lo tiene', (await pg.$$('#uniformMap .pt-lugar')).length === 3 && /Don Trapo/.test(await txt(pg, '#uniformMap .frente')) && /\$5,000/.test(await txt(pg, '#uniformMap .short')), await txt(pg, '#uniformMap'));
+  revisa('16. cada lugar en su vista (el short va con el frente), con la marca que lo tiene', (await pg.$$('#uniformMap .pt-lugar')).length === 3 && /Don Trapo/.test(await txt(pg, '#uniformMap .frente')) && (await pg.$$('#uniformMap .pt-uni-pieza')).length === 2 && /\$5,000/.test(await txt(pg, '#uniformMap .frente')), await txt(pg, '#uniformMap'));
   await pg.click('#uniformMap [data-lugar="u2"]');
   await pg.waitForSelector('#spotModal:not(.hidden)', { timeout:3000 });
   revisa('16. un lugar libre dice Disponible', /Disponible/.test(await txt(pg, '#spotBody')));

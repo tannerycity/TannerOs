@@ -842,50 +842,45 @@ function renderAudience() {
    en el jersey. Cada lugar es un activo (familia Uniforme, external_ref
    TC-JER-*); quién lo tiene sale de los entregables ligados a ese activo. */
 const LUGARES = {
-  'TC-JER-MANGA-DER': { vista: 'frente', x: 13, y: 30, w: 16, h: 7 },
-  'TC-JER-MANGA-IZQ': { vista: 'frente', x: 87, y: 30, w: 16, h: 7 },
-  'TC-JER-PECHO': { vista: 'frente', x: 50, y: 45, w: 40, h: 11 },
-  'TC-JER-ESPALDA-SUP': { vista: 'espalda', x: 50, y: 20, w: 44, h: 8 },
-  'TC-JER-ESPALDA-INF': { vista: 'espalda', x: 50, y: 85, w: 40, h: 8 },
-  'TC-JER-SHORT-DER': { vista: 'short', x: 30, y: 62, w: 26, h: 16 },
-  'TC-JER-SHORT-IZQ': { vista: 'short', x: 70, y: 62, w: 26, h: 16 },
+  'TC-JER-MANGA-DER': { vista: 'frente', x: 13, y: 20, w: 16, h: 5 },
+  'TC-JER-MANGA-IZQ': { vista: 'frente', x: 87, y: 20, w: 16, h: 5 },
+  'TC-JER-PECHO': { vista: 'frente', x: 50, y: 34, w: 40, h: 7 },
+  'TC-JER-ESPALDA-SUP': { vista: 'espalda', x: 50, y: 13, w: 44, h: 5 },
+  'TC-JER-ESPALDA-INF': { vista: 'espalda', x: 50, y: 61, w: 40, h: 5 },
+  'TC-JER-SHORT-DER': { vista: 'frente', x: 33, y: 86, w: 24, h: 8 },
+  'TC-JER-SHORT-IZQ': { vista: 'frente', x: 67, y: 86, w: 24, h: 8 },
 };
-/* El uniforme dibujado como la vista previa de la tienda (silueta con cuello,
-   mangas, puños y luz y sombra) en los colores del club, para que se vea
-   como la playera de verdad y no como un contorno. */
-const TELA = { cuerpo: '#012A3A', ribete: '#C6AC5C' };
+/* El uniforme como el mockup de Presidencia (25/10/2026): jersey rosa con
+   vivos verde azulado, cuello en V al frente, y el short negro con puño
+   verde azulado. Cada vista es el uniforme completo (jersey y short abajo). */
+const TELA = { cuerpo: '#C9959C', ribete: '#1C8C99', short: '#1B1C1E' };
 const SILUETA_UNI = 'M70 10 C82 18 118 18 130 10 L168 24 C180 30 188 44 194 62 L199 82 L170 94 L160 70 L161 204 C130 214 70 214 39 204 L40 70 L30 94 L1 82 L6 62 C12 44 20 30 32 24 Z';
 const SHORT_UNI = 'M20 10 L180 10 L192 128 C168 134 132 134 108 128 L100 62 L92 128 C68 134 32 134 8 128 Z';
-const luzUni = (id, forma) => '<defs><linearGradient id="' + id + 'l" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".32"/><stop offset=".22" stop-color="#000" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".06"/><stop offset=".78" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".32"/></linearGradient>' +
-  '<linearGradient id="' + id + 'v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".14"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>' +
-  '<path d="' + forma + '" fill="url(#' + id + 'l)"/><path d="' + forma + '" fill="url(#' + id + 'v)" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>';
-function dibujoPlayera(vista) {
+const luzUni = (id, forma, extra = '') => '<defs><linearGradient id="' + id + 'l" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset=".22" stop-color="#000" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".08"/><stop offset=".78" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>' +
+  '<linearGradient id="' + id + 'v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".18"/></linearGradient></defs>' +
+  '<path d="' + forma + '" fill="url(#' + id + 'l)"' + extra + '/><path d="' + forma + '" fill="url(#' + id + 'v)" stroke="rgba(0,0,0,.28)" stroke-width="1.2"' + extra + '/>';
+function dibujoUniforme(vista) {
   const id = 'uni' + vista, c = TELA;
   const cuello = vista === 'frente'
-    ? '<path d="M70 10 C82 18 118 18 130 10 C120 30 80 30 70 10 Z" fill="#00141c"/><path d="M70 10 C80 30 120 30 130 10" fill="none" stroke="' + c.ribete + '" stroke-width="5" stroke-linecap="round"/><path d="M75 15 C86 31 114 31 125 15" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>'
-    : '<path d="M70 10 C82 18 118 18 130 10" fill="none" stroke="' + c.ribete + '" stroke-width="5" stroke-linecap="round"/>';
-  const extra = vista === 'frente'
-    ? '<path d="M141 52 L153 52 L153 61 C153 66 147 69 147 69 C147 69 141 66 141 61 Z" fill="none" stroke="' + c.ribete + '" stroke-width="1.6"/>'
-    : '<text x="100" y="158" text-anchor="middle" font-family="\'Anton\',\'Bebas Neue\',\'Arial Narrow\',Impact,sans-serif" font-size="78" fill="rgba(255,255,255,.10)">10</text>';
-  return '<svg viewBox="0 0 200 220" aria-hidden="true"><path d="' + SILUETA_UNI + '" fill="' + c.cuerpo + '"/>' +
-    '<path d="M40 72 L46 72 L46 206 L40 204 Z M160 72 L154 72 L154 206 L161 204 Z" fill="' + c.ribete + '" opacity=".55"/>' + luzUni(id, SILUETA_UNI) +
-    '<path d="M32 24 C46 34 52 52 40 70 M168 24 C154 34 148 52 160 70" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1.4"/>' +
-    '<path d="M32 24 C46 34 52 52 40 70 M168 24 C154 34 148 52 160 70" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1" stroke-dasharray="2 2" transform="translate(1.6 0)"/>' +
-    '<path d="M199 82 L170 94 M1 82 L30 94" stroke="' + c.ribete + '" stroke-width="5" stroke-linecap="butt"/>' +
-    '<path d="M58 118 C64 150 62 180 56 206 M144 118 C138 150 140 180 146 206" fill="none" stroke="rgba(0,0,0,.12)" stroke-width="6" stroke-linecap="round"/>' +
-    '<path d="M40 201 C70 210 130 210 161 201" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="1" stroke-dasharray="2 2"/>' +
-    cuello + extra + '</svg>';
+    ? '<path d="M70 10 C82 18 118 18 130 10 L100 38 Z" fill="#f2eeee"/><path d="M70 10 L100 38 L130 10" fill="none" stroke="' + c.ribete + '" stroke-width="6" stroke-linejoin="round"/>' +
+      '<path d="M141 52 L153 52 L153 61 C153 66 147 69 147 69 C147 69 141 66 141 61 Z" fill="none" stroke="' + c.ribete + '" stroke-width="1.8"/><path d="M144 55 L150 55 M147 55 L147 64" stroke="' + c.ribete + '" stroke-width="1.4"/>'
+    : '<path d="M70 10 C82 18 118 18 130 10" fill="none" stroke="' + c.ribete + '" stroke-width="5" stroke-linecap="round"/>' +
+      '<text x="100" y="160" text-anchor="middle" font-family="\'Anton\',\'Bebas Neue\',\'Arial Narrow\',Impact,sans-serif" font-size="74" font-weight="900" fill="rgba(255,255,255,.6)">10</text>';
+  const t = 'transform="translate(35 210) scale(.65)"';
+  const shortPiernas = vista === 'frente' ? '<path d="M100 22 L100 62" stroke="rgba(255,255,255,.12)" stroke-width="1.2"/>' : '';
+  return '<svg viewBox="0 0 200 300" aria-hidden="true">' +
+    '<g ' + t + '><path d="' + SHORT_UNI + '" fill="' + c.short + '"/>' + luzUni(id + 's', SHORT_UNI) +
+    '<path d="M8 128 C32 134 68 134 92 128 L91 118 C68 124 32 124 9 118 Z M192 128 C168 134 132 134 108 128 L109 118 C132 124 168 124 191 118 Z" fill="' + c.ribete + '"/>' +
+    '<path d="M20 10 L180 10 L181 22 L19 22 Z" fill="rgba(255,255,255,.06)" stroke="rgba(0,0,0,.4)" stroke-width="1"/>' + shortPiernas +
+    '<path d="M60 40 C64 70 62 96 58 116 M140 40 C136 70 138 96 142 116" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="6" stroke-linecap="round"/></g>' +
+    '<path d="' + SILUETA_UNI + '" fill="' + c.cuerpo + '"/>' + luzUni(id, SILUETA_UNI) +
+    '<path d="M32 24 C46 34 52 52 40 70 M168 24 C154 34 148 52 160 70" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="1.4"/>' +
+    '<path d="M199 82 L170 94 M1 82 L30 94" stroke="' + c.ribete + '" stroke-width="5.5" stroke-linecap="butt"/>' +
+    '<path d="M39 203 C70 213 130 213 161 203" fill="none" stroke="' + c.ribete + '" stroke-width="4"/>' +
+    '<path d="M58 118 C64 150 62 180 56 200 M144 118 C138 150 140 180 146 200" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="6" stroke-linecap="round"/>' +
+    cuello + '</svg>';
 }
-function dibujoShort() {
-  const c = TELA;
-  return '<svg viewBox="0 0 200 140" aria-hidden="true"><path d="' + SHORT_UNI + '" fill="' + c.cuerpo + '"/>' +
-    '<path d="M8 128 L20 10 L26 10 L15 129 Z M192 128 L180 10 L174 10 L185 129 Z" fill="' + c.ribete + '" opacity=".75"/>' + luzUni('unishort', SHORT_UNI) +
-    '<path d="M20 10 L180 10 L181 24 L19 24 Z" fill="' + c.cuerpo + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/><path d="M19 24 L181 24" stroke="' + c.ribete + '" stroke-width="2"/>' +
-    '<path d="M100 24 L100 62" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/><path d="M96 14 L92 30 M104 14 L108 30" stroke="#f4f4f2" stroke-width="1.4" stroke-linecap="round"/>' +
-    '<path d="M11 121 C34 126 70 126 93 121 M107 121 C130 126 166 126 189 121" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1" stroke-dasharray="2 2"/>' +
-    '<path d="M60 40 C64 70 62 100 58 124 M140 40 C136 70 138 100 142 124" fill="none" stroke="rgba(0,0,0,.14)" stroke-width="6" stroke-linecap="round"/></svg>';
-}
-const VISTAS = [['frente', 'Frente', () => dibujoPlayera('frente')], ['espalda', 'Espalda', () => dibujoPlayera('espalda')], ['short', 'Short', dibujoShort]];
+const VISTAS = [['frente', 'Frente', () => dibujoUniforme('frente')], ['espalda', 'Espalda', () => dibujoUniforme('espalda')]];
 function quienTiene(asset) {
   const vivos = new Set(agreements.filter((a) => a.status !== 'cancelled').map((a) => a.id));
   const ids = [...new Set(agreementItems.filter((i) => i.assetId === asset.id && vivos.has(i.agreementId) && i.auditStatus !== 'venta_aparte')

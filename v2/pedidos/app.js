@@ -176,7 +176,7 @@ async function confirmaNumero(o,confirmar,btn){
     await rpc('v2_confirm_order_number',{organization_id:ctx.organization_id,order_id:o.id,confirmed:confirmar});
     const t=tablero[o.id]||(tablero[o.id]={items:[]});
     t.numberConfirmed=confirmar?{numeros:numerosDe(o),at:new Date().toISOString()}:null;
-    render();renderReviewBanner();if(current?.order?.id===o.id)pintaResumen();msg(confirmar?`Número confirmado en ${o.folio||'el pedido'}.`:'Se quitó la confirmación del número.','success');
+    render();renderReviewBanner();if(current?.order?.id===o.id)await refreshCurrent(o.id);msg(confirmar?`Número confirmado en ${o.folio||'el pedido'}.`:'Se quitó la confirmación del número.','success');
   }catch(e){btn.disabled=false;msg(e.message||'No se pudo confirmar el número.');}
 }
 /* El resumen arriba del detalle: de quién es, quién lo pidió y quién lo
@@ -272,7 +272,8 @@ function pintaPaso(){
   const atras=canManage&&(d.status==='delivered'||d.status==='ready'||(d.status==='in_production'&&!(b&&b.status==='submitted')));
   const wa=d.status==='ready'&&canWrite&&waLink(d.customer_phone);
   const entrega=d.status==='ready'&&canManage;
-  box.innerHTML=`${wa?'<button type="button" class="t-btn wa" data-paso="avisar">Avisar que ya llegó</button>':''}${entrega?'<button type="button" class="t-btn" data-paso="entregar">Entregado</button>':''}${atras?'<button type="button" class="t-link" data-paso="atras">Regresar un paso</button>':''}`;
+  const prov=canWrite&&['paid','partial_payment','in_production'].includes(d.status);
+  box.innerHTML=`${prov?'<button type="button" class="t-btn wa" data-paso="proveedor">WhatsApp al proveedor</button>':''}${wa?'<button type="button" class="t-btn wa" data-paso="avisar">Avisar que ya llegó</button>':''}${entrega?'<button type="button" class="t-btn" data-paso="entregar">Entregado</button>':''}${atras?'<button type="button" class="t-link" data-paso="atras">Regresar un paso</button>':''}`;
   box.classList.toggle('hidden',!box.innerHTML);
 }
 async function accionPaso(k,btn){
@@ -283,6 +284,7 @@ async function accionPaso(k,btn){
     window.open(`${waLink(d.customer_phone)}?text=${encodeURIComponent(texto)}`,'_blank','noopener');return;
   }
   if(k==='entregar'){await changeStatus('delivered','Marcar entregado');return;}
+  if(k==='proveedor'){await waProveedor();return;}
   if(k==='atras'){
     const motivo=await window.tosPrompt({kicker:'REGRESAR UN PASO',title:`Regresar ${d.folio}`,message:'Queda en la bitácora con tu nombre.',placeholder:'¿Por qué? Ej. lo marcamos listo por error',required:true,requiredText:'Escribe el motivo.',confirmText:'Regresar',maxlength:200});
     if(!motivo)return;btn.disabled=true;
@@ -291,6 +293,44 @@ async function accionPaso(k,btn){
   }
 }
 $('pasoAcciones')?.addEventListener('click',e=>{const b=e.target.closest('[data-paso]');if(b)accionPaso(b.dataset.paso,b);});
+/* WhatsApp al proveedor (25/10/2026): el pedido escrito tal cual va a la
+   prenda. Nunca sale con el número sin confirmar. El teléfono del proveedor se
+   recuerda en este equipo. */
+function textoProveedor(){
+  const d=current.order,club=clubCfg?.name||ctx.organization_name||'el club';
+  const lineas=(current.items||[]).map(i=>{const a=i.attributes||{},talla=a.talla||a.size||'',nom=a.nombrePers||a.personalizationName||'',num=a.numero||a.number||'',q=Number(i.quantity||1);
+    return '- '+[`${q>1?`${q} x `:''}${i.description||'Pieza'}`,talla?`Talla ${talla}`:null,a.manga==='larga'?'MANGA LARGA':a.manga==='corta'?'Manga corta':null,
+      num||nom?`Espalda: ${nom?nom.toUpperCase():'SIN NOMBRE'}${num?` #${num}`:''}`:null,a.obs?`Nota: ${a.obs}`:null].filter(Boolean).join(' | ');});
+  return `Pedido ${d.folio} · ${club}\n\n${lineas.join('\n')}\n\nEn la espalda va exactamente lo que dice aquí. Gracias.`;
+}
+const telProveedor=()=>{try{return localStorage.getItem('tos-proveedor-tel')||'';}catch{return '';}};
+async function cambiaTelProveedor(){
+  const v=await window.tosPrompt({kicker:'PROVEEDOR',title:'WhatsApp del proveedor',message:'Se guarda en este equipo para la próxima.',placeholder:'10 dígitos',value:telProveedor().replace(/^52/,''),required:true,requiredText:'Escribe el número.',confirmText:'Guardar',maxlength:16});
+  if(!v)return '';let t=String(v).replace(/\D/g,'');if(t.length===10)t='52'+t;
+  try{localStorage.setItem('tos-proveedor-tel',t);}catch{}pintaTelProveedor();return t;
+}
+async function waProveedor(){
+  const falta=current?.readiness?.missing||[];
+  if(falta.includes('número sin confirmar')){await window.tosAlert({kicker:'PROVEEDOR',title:'Confirma el número primero',message:'Este pedido trae un número que el club no ha confirmado con la familia. Confírmalo y luego lo mandas.'});return;}
+  const tel=telProveedor()||await cambiaTelProveedor();if(!tel)return;
+  window.open(`https://wa.me/${tel}?text=${encodeURIComponent(textoProveedor())}`,'_blank','noopener');
+}
+function pintaTelProveedor(){const b=$('telProveedor');if(!b)return;const t=telProveedor();b.textContent=t?`WhatsApp del proveedor: ${t.replace(/^52/,'')} · Cambiar`:'Guardar el WhatsApp del proveedor';}
+/* "No está pagado" (25/10/2026): si se marcó un cobro que no llegó, se
+   revierten sus cobros con el motivo, y queda en la bitácora. */
+function pintaNoPagado(){
+  const b=$('noPagado');if(!b)return;const pagos=(current?.payments||[]).filter(p=>p.status==='posted');
+  b.classList.toggle('hidden',!(canCorrect&&pagos.length));
+}
+async function noPagado(){
+  const pagos=(current?.payments||[]).filter(p=>p.status==='posted');if(!pagos.length)return;
+  const total=pagos.reduce((n,p)=>n+Number(p.amount||0),0);
+  const motivo=await window.tosPrompt({kicker:'COBRO',title:'¿No está pagado?',message:`Se quitan ${pagos.length===1?'el cobro':`los ${pagos.length} cobros`} por ${money.format(total)} y el pedido vuelve a "por cobrar". Queda en la bitácora con tu nombre.`,placeholder:'¿Qué pasó? Ej. la transferencia no llegó',required:true,requiredText:'Escribe el motivo.',confirmText:'Sí, no está pagado',danger:true,maxlength:200});
+  if(!motivo)return;const b=$('noPagado');b.disabled=true;
+  try{for(const p of pagos)await rpc('v2_correct_order_payment',{organization_id:ctx.organization_id,payment_id:p.id,reason:motivo});
+    await refreshCurrent(current.order.id);payMsg('Listo: el pedido quedó sin pago. El saldo ya se actualizó.','success');}
+  catch(e){payMsg(e.message||'No se pudo quitar el pago.');b.disabled=false;}
+}
 function muestraZona(){const z=$('dangerZone');if(z)z.style.display=canCorrect?'':'none';}
 const tienePagos=()=>!!current&&Number(current.order?.total||0)-Number(current.balance||0)>0.004;
 async function editaConMotivo(itemId,cambios,titulo){
@@ -345,7 +385,7 @@ function renderPayments(d){
     hist.appendChild(row);
   });
   const open=['pending_payment','partial_payment','in_production','ready'].includes(d.status)&&balance>0;const canPay=open&&canWrite;
-  current.canPay=canPay;pintaCobro();$('paymentClosedNote').classList.toggle('hidden',canPay);
+  current.canPay=canPay;pintaCobro();pintaNoPagado();$('paymentClosedNote').classList.toggle('hidden',canPay);
   if(canPay){$('paymentAmount').value=balance.toFixed(2);$('paymentAmount').max=balance.toFixed(2);$('paymentDate').value=new Date().toISOString().slice(0,10);$('paymentPayerType').value='guardian';$('paymentPayer').value=d.customer_name||'';}
   payMsg();
 }
@@ -374,7 +414,20 @@ async function correctPayment(paymentId,row){
     payMsg('Cobro corregido. El saldo del pedido ya se actualizó.','success');
   }catch(e){payMsg(e.message||'No se pudo corregir el cobro.');btn.disabled=false;}
 }
-function renderReadiness(){const r=current?.readiness||{},box=$('readinessBox');box.dataset.ready=r.ok?'true':'false';$('readinessTitle').textContent=r.ok?'Listo para producción':'Aún no está listo';$('readinessText').textContent=readinessText(r);$('readinessPayment').textContent=`Pago ${Number(r.paidPercent||0).toFixed(0)}% · requerido ${Number(r.effectivePaymentRequirementPercent||100).toFixed(0)}%`;}
+/* Qué falta, en palabras y con su botón (25/10/2026). Sólo antes de mandarlo:
+   ya con el proveedor no hay nada que validar. */
+const FALTA_TXT={'falta talla':'Falta la talla','falta número':'Falta el número','número sin confirmar':'Confirma el número con la familia','pago incompleto':'Falta cobrar','sin piezas':'No tiene piezas'};
+function renderReadiness(){
+  const r=current?.readiness||{},box=$('readinessBox'),d=current?.order;if(!box||!d)return;
+  const antes=['draft','pending_payment','partial_payment','paid'].includes(d.status);
+  box.classList.toggle('hidden',!antes);if(!antes)return;
+  const falta=Array.isArray(r.missing)?r.missing:[],pct=Number(r.effectivePaymentRequirementPercent||100);
+  box.dataset.ready=r.ok?'true':'false';
+  $('readinessTitle').textContent=r.ok?'Listo para el proveedor':'Antes de mandarlo al proveedor';
+  $('readinessText').innerHTML=r.ok?'Pagado, con tallas y número confirmado.'
+    :falta.map(f=>`<span>${esc(f==='pago incompleto'&&pct<100?`Falta el anticipo del ${pct.toFixed(0)}%`:FALTA_TXT[f]||f)}</span>`).join('');
+  $('readinessPayment').innerHTML=falta.includes('número sin confirmar')&&canWrite?`<button type="button" class="t-pill-btn" data-num-confirma="${esc(d.id)}">Confirmar número</button>`:`Pagado ${Number(r.paidPercent||0).toFixed(0)}%`;
+}
 /* Plan de pago por pedido: por defecto exige 100% antes de producción; Presidencia/Comercio
    puede bajarlo (ej. 50% anticipo) mientras el pedido no haya entrado a producción todavía.
    El saldo restante siempre se puede seguir cobrando en COBRANZA, y "Marcar entregado" exige
@@ -428,7 +481,8 @@ function renderStateActions(d){
     const p=document.createElement('p');p.className='muted state-help';p.textContent=`Aún no se puede enviar a producción: ${readinessText(current.readiness)}.`;wrap.appendChild(p);
   }
   if(danger){const b=document.createElement('button');b.type='button';b.className='danger status-btn';b.textContent=danger.label;b.addEventListener('click',()=>changeStatus(danger.to,danger.label,true));wrap.appendChild(b);}
-  if(!wrap.children.length){wrap.innerHTML='<p class="muted state-help">Este pedido ya no tiene más movimientos de estado.</p>';}
+  // Sin movimientos no se enseña nada: el paso ya lo dice el tracker.
+  $('statusSection')?.classList.toggle('hidden',!wrap.children.length);
 }
 async function changeStatus(newStatus,label,danger){
   if(!current||!canManage)return;
@@ -564,7 +618,7 @@ function renderItems(items,d){
   });
   return html.join('');
 }
-function collapseDrawerSections(){['paymentHistoryWrap','fullDetail'].forEach(id=>$(id)?.classList.add('hidden'));['togglePaymentHistory','toggleFullDetail'].forEach(id=>{const b=$(id);if(!b)return;b.setAttribute('aria-expanded','false');b.classList.remove('open');});}
+function collapseDrawerSections(){['paymentHistoryWrap'].forEach(id=>$(id)?.classList.add('hidden'));if($('masDetalles'))$('masDetalles').open=false;['togglePaymentHistory'].forEach(id=>{const b=$(id);if(!b)return;b.setAttribute('aria-expanded','false');b.classList.remove('open');});}
 async function openOrder(o){
   current=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,current);otroPagador=false;
   const d=current.order;
@@ -651,17 +705,17 @@ async function saveItem(row){if(!current||!canManage||!row)return;
     return;}const orderId=current.order.id,btn=row.querySelector('.save-item');btn.disabled=true;try{await rpc('v2_update_order_item_fulfillment',{organization_id:ctx.organization_id,order_item_id:row.dataset.itemId,size:row.querySelector('.item-size').value.trim()||null,personalization_name:row.querySelector('.item-name').value.trim()||null,number:row.querySelector('.item-number').value.trim()||null,notes:row.querySelector('.item-note').value.trim()||null});await refreshCurrent(orderId);msg('Datos de pieza actualizados y readiness recalculado.','success');}catch(e){msg(e.message||'No se pudo actualizar la pieza.');btn.disabled=false;}}
 async function postPayment(){if(!current||!canWrite)return;const d=current.order,amount=Number($('paymentAmount').value||0),balance=Number(current.balance||0),payerType=$('paymentPayerType').value,payerName=$('paymentPayer').value.trim();if(!Number.isFinite(amount)||amount<=0){payMsg('Captura un monto mayor a cero.');return;}if(amount>balance+0.005){payMsg(`El pago excede el saldo de ${money.format(balance)}.`);return;}if(payerType==='sponsor'&&!payerName){payMsg('Indica el nombre del patrocinador.');return;}const btn=$('savePayment');btn.disabled=true;payMsg();try{await rpc('v2_post_order_payment_attributed',{organization_id:ctx.organization_id,order_id:d.id,amount,payment_date:$('paymentDate').value||new Date().toISOString().slice(0,10),method:$('paymentMethod').value||'other',reference:$('paymentReference').value.trim()||null,payer_type:payerType,payer_name:payerName||d.customer_name||null,idempotency_key:`order-${d.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`});await refreshCurrent(d.id);payMsg('Pago registrado con pagador y estado actualizado.','success');}catch(e){payMsg(e.message||'No se pudo registrar el pago.');}finally{btn.disabled=!canWrite;}}
 function setupToggle(btnId,wrapId){const btn=$(btnId),wrap=$(wrapId);if(!btn||!wrap)return;btn.addEventListener('click',()=>{const nowHidden=wrap.classList.toggle('hidden');btn.setAttribute('aria-expanded',String(!nowHidden));btn.classList.toggle('open',!nowHidden);});}
-setupToggle('togglePaymentHistory','paymentHistoryWrap');setupToggle('toggleFullDetail','fullDetail');
-$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('tSeg')?.addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;$('statusFilter').value=b.dataset.f;render();renderReviewBanner();});$('orderResumen')?.addEventListener('click',e=>{const m=e.target.closest('[data-manga-item]');if(m){cambiaManga(m.dataset.mangaItem,m.dataset.m,m);return;}const c=e.target.closest('[data-num-confirma],[data-num-deshacer]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,!!c.dataset.numConfirma,c);}});$('orderResumen')?.addEventListener('change',e=>{if(e.target.id==='tAtendio')cambiaAtendio(e.target.value);});$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);$('cobrarPedido').addEventListener('click',cobrarConHoja);$('otroPagador').addEventListener('click',()=>{otroPagador=true;pintaCobro();});$('confirmWhatsApp')?.addEventListener('click',confirmWhatsApp);$('markReviewed')?.addEventListener('click',markReviewed);$('statusFilter').addEventListener('change',renderReviewBanner);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
+setupToggle('togglePaymentHistory','paymentHistoryWrap');
+$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',render);$('tSeg')?.addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;$('statusFilter').value=b.dataset.f;render();renderReviewBanner();});$('orderResumen')?.addEventListener('click',e=>{const m=e.target.closest('[data-manga-item]');if(m){cambiaManga(m.dataset.mangaItem,m.dataset.m,m);return;}const c=e.target.closest('[data-num-confirma],[data-num-deshacer]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,!!c.dataset.numConfirma,c);}});$('orderResumen')?.addEventListener('change',e=>{if(e.target.id==='tAtendio')cambiaAtendio(e.target.value);});$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);$('noPagado')?.addEventListener('click',noPagado);$('telProveedor')?.addEventListener('click',cambiaTelProveedor);pintaTelProveedor();$('readinessBox')?.addEventListener('click',e=>{const c=e.target.closest('[data-num-confirma]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,true,c);}});$('cobrarPedido').addEventListener('click',cobrarConHoja);$('otroPagador').addEventListener('click',()=>{otroPagador=true;pintaCobro();});$('confirmWhatsApp')?.addEventListener('click',confirmWhatsApp);$('markReviewed')?.addEventListener('click',markReviewed);$('statusFilter').addEventListener('change',renderReviewBanner);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
 // === Eliminar pedido — solo Presidencia (agregado) ===
 (function(){
   function inject(){
-    var drawer=$('drawer'); if(!drawer||$('dangerZone'))return;
+    var drawer=$('masDetalles')||$('drawer'); if(!drawer||$('dangerZone'))return;
     var sec=document.createElement('section');
     sec.className='drawer-section'; sec.id='dangerZone'; sec.style.display='none';
     sec.innerHTML='<div class="eyebrow">CORRECCIONES</div><h3>Eliminar pedido</h3>'
       +'<p class="muted state-help">Quita el pedido de la lista. Pide el motivo y queda en la bitácora de Presidencia. Si tiene pagos registrados, primero cancélalo o reembólsalo.</p>'
-      +'<button id="deleteOrder" type="button" style="color:#fff;background:#C0362C;border:1px solid #C0362C;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer">Eliminar pedido</button>'
+      +'<button id="deleteOrder" type="button" class="t-peligro">Eliminar pedido</button>'
       +'<div id="deleteMessage" class="inline-message hidden" style="margin-top:8px"></div>';
     drawer.appendChild(sec);
     $('deleteOrder').addEventListener('click', async function(){

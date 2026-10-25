@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07191e">
   <title>Patrocinios · TannerOS</title>
   <link rel="stylesheet" href="/v2/styles.css">
-  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261025a">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261025b">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <link rel="stylesheet" href="/icons.css?v=20260907a">
@@ -116,10 +116,12 @@
             <h2>Activos Tanner</h2>
             <p class="muted section-copy">Crea solamente los espacios, contenidos y beneficios que realmente puedas ofrecer.</p>
           </div>
-          <div class="pt-activos-acc"><button id="proposalButton" class="primary pt-propuesta-btn" type="button">Armar propuesta</button><button id="newAssetButton" class="secondary write-only" type="button">+ Agregar activo</button></div>
+          <div class="pt-activos-acc"><button id="proposalButton" class="primary pt-propuesta-btn" type="button">Armar propuesta</button><button id="priceListButton" class="secondary write-only" type="button">Lista de precios</button><button id="newAssetButton" class="secondary write-only" type="button">+ Agregar activo</button></div>
         </div>
         <div id="assetFilters" class="pt-filtros" role="group" aria-label="Filtrar activos"></div>
         <div id="proposalBar" class="pt-propuesta-barra hidden"><span id="proposalCount">Elige los activos de la propuesta</span><button id="proposalCancel" class="secondary mini" type="button">Cancelar</button><button id="proposalMake" class="primary mini" type="button" disabled>Armar PDF</button></div>
+        <!-- Lista de precios (25/10/2026): todos los precios en una tabla, se cambian y se guardan ahí mismo. -->
+        <div id="priceList" class="pt-precios hidden"></div>
         <div id="assetList" class="asset-grid"></div>
         <div id="assetEmpty" class="empty-state asset-empty hidden">
           <div class="empty-icon">T</div>
@@ -412,6 +414,6 @@
 </section>
 
 <script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/patrocinadores/app.js?v=20261025a"></script>
+<script type="module" src="/v2/patrocinadores/app.js?v=20261025b"></script>
 </body>
 </html>

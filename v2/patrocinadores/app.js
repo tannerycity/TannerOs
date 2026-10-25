@@ -842,17 +842,50 @@ function renderAudience() {
    en el jersey. Cada lugar es un activo (familia Uniforme, external_ref
    TC-JER-*); quién lo tiene sale de los entregables ligados a ese activo. */
 const LUGARES = {
-  'TC-JER-MANGA-DER': { vista: 'frente', x: 17, y: 25, w: 13, h: 8 },
-  'TC-JER-MANGA-IZQ': { vista: 'frente', x: 83, y: 25, w: 13, h: 8 },
-  'TC-JER-PECHO': { vista: 'frente', x: 50, y: 47, w: 36, h: 10 },
-  'TC-JER-ESPALDA-SUP': { vista: 'espalda', x: 50, y: 20, w: 46, h: 8 },
-  'TC-JER-ESPALDA-INF': { vista: 'espalda', x: 50, y: 84, w: 38, h: 9 },
-  'TC-JER-SHORT-DER': { vista: 'short', x: 27, y: 62, w: 22, h: 18 },
-  'TC-JER-SHORT-IZQ': { vista: 'short', x: 73, y: 62, w: 22, h: 18 },
+  'TC-JER-MANGA-DER': { vista: 'frente', x: 13, y: 30, w: 16, h: 7 },
+  'TC-JER-MANGA-IZQ': { vista: 'frente', x: 87, y: 30, w: 16, h: 7 },
+  'TC-JER-PECHO': { vista: 'frente', x: 50, y: 45, w: 40, h: 11 },
+  'TC-JER-ESPALDA-SUP': { vista: 'espalda', x: 50, y: 20, w: 44, h: 8 },
+  'TC-JER-ESPALDA-INF': { vista: 'espalda', x: 50, y: 85, w: 40, h: 8 },
+  'TC-JER-SHORT-DER': { vista: 'short', x: 30, y: 62, w: 26, h: 16 },
+  'TC-JER-SHORT-IZQ': { vista: 'short', x: 70, y: 62, w: 26, h: 16 },
 };
-const PLAYERA = '<path d="M62 12 L84 4 Q100 22 116 4 L138 12 L192 44 L172 84 L150 72 L150 214 L50 214 L50 72 L28 84 L8 44 Z" />';
-const SHORT = '<path d="M28 8 L172 8 L188 112 L112 112 L100 52 L88 112 L12 112 Z" />';
-const VISTAS = [['frente', 'Frente', PLAYERA, '0 0 200 220'], ['espalda', 'Espalda', PLAYERA, '0 0 200 220'], ['short', 'Short', SHORT, '0 0 200 120']];
+/* El uniforme dibujado como la vista previa de la tienda (silueta con cuello,
+   mangas, puños y luz y sombra) en los colores del club, para que se vea
+   como la playera de verdad y no como un contorno. */
+const TELA = { cuerpo: '#012A3A', ribete: '#C6AC5C' };
+const SILUETA_UNI = 'M70 10 C82 18 118 18 130 10 L168 24 C180 30 188 44 194 62 L199 82 L170 94 L160 70 L161 204 C130 214 70 214 39 204 L40 70 L30 94 L1 82 L6 62 C12 44 20 30 32 24 Z';
+const SHORT_UNI = 'M20 10 L180 10 L192 128 C168 134 132 134 108 128 L100 62 L92 128 C68 134 32 134 8 128 Z';
+const luzUni = (id, forma) => '<defs><linearGradient id="' + id + 'l" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".32"/><stop offset=".22" stop-color="#000" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".06"/><stop offset=".78" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".32"/></linearGradient>' +
+  '<linearGradient id="' + id + 'v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".14"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>' +
+  '<path d="' + forma + '" fill="url(#' + id + 'l)"/><path d="' + forma + '" fill="url(#' + id + 'v)" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>';
+function dibujoPlayera(vista) {
+  const id = 'uni' + vista, c = TELA;
+  const cuello = vista === 'frente'
+    ? '<path d="M70 10 C82 18 118 18 130 10 C120 30 80 30 70 10 Z" fill="#00141c"/><path d="M70 10 C80 30 120 30 130 10" fill="none" stroke="' + c.ribete + '" stroke-width="5" stroke-linecap="round"/><path d="M75 15 C86 31 114 31 125 15" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>'
+    : '<path d="M70 10 C82 18 118 18 130 10" fill="none" stroke="' + c.ribete + '" stroke-width="5" stroke-linecap="round"/>';
+  const extra = vista === 'frente'
+    ? '<path d="M141 52 L153 52 L153 61 C153 66 147 69 147 69 C147 69 141 66 141 61 Z" fill="none" stroke="' + c.ribete + '" stroke-width="1.6"/>'
+    : '<text x="100" y="158" text-anchor="middle" font-family="\'Anton\',\'Bebas Neue\',\'Arial Narrow\',Impact,sans-serif" font-size="78" fill="rgba(255,255,255,.10)">10</text>';
+  return '<svg viewBox="0 0 200 220" aria-hidden="true"><path d="' + SILUETA_UNI + '" fill="' + c.cuerpo + '"/>' +
+    '<path d="M40 72 L46 72 L46 206 L40 204 Z M160 72 L154 72 L154 206 L161 204 Z" fill="' + c.ribete + '" opacity=".55"/>' + luzUni(id, SILUETA_UNI) +
+    '<path d="M32 24 C46 34 52 52 40 70 M168 24 C154 34 148 52 160 70" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1.4"/>' +
+    '<path d="M32 24 C46 34 52 52 40 70 M168 24 C154 34 148 52 160 70" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1" stroke-dasharray="2 2" transform="translate(1.6 0)"/>' +
+    '<path d="M199 82 L170 94 M1 82 L30 94" stroke="' + c.ribete + '" stroke-width="5" stroke-linecap="butt"/>' +
+    '<path d="M58 118 C64 150 62 180 56 206 M144 118 C138 150 140 180 146 206" fill="none" stroke="rgba(0,0,0,.12)" stroke-width="6" stroke-linecap="round"/>' +
+    '<path d="M40 201 C70 210 130 210 161 201" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="1" stroke-dasharray="2 2"/>' +
+    cuello + extra + '</svg>';
+}
+function dibujoShort() {
+  const c = TELA;
+  return '<svg viewBox="0 0 200 140" aria-hidden="true"><path d="' + SHORT_UNI + '" fill="' + c.cuerpo + '"/>' +
+    '<path d="M8 128 L20 10 L26 10 L15 129 Z M192 128 L180 10 L174 10 L185 129 Z" fill="' + c.ribete + '" opacity=".75"/>' + luzUni('unishort', SHORT_UNI) +
+    '<path d="M20 10 L180 10 L181 24 L19 24 Z" fill="' + c.cuerpo + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/><path d="M19 24 L181 24" stroke="' + c.ribete + '" stroke-width="2"/>' +
+    '<path d="M100 24 L100 62" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/><path d="M96 14 L92 30 M104 14 L108 30" stroke="#f4f4f2" stroke-width="1.4" stroke-linecap="round"/>' +
+    '<path d="M11 121 C34 126 70 126 93 121 M107 121 C130 126 166 126 189 121" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1" stroke-dasharray="2 2"/>' +
+    '<path d="M60 40 C64 70 62 100 58 124 M140 40 C136 70 138 100 142 124" fill="none" stroke="rgba(0,0,0,.14)" stroke-width="6" stroke-linecap="round"/></svg>';
+}
+const VISTAS = [['frente', 'Frente', () => dibujoPlayera('frente')], ['espalda', 'Espalda', () => dibujoPlayera('espalda')], ['short', 'Short', dibujoShort]];
 function quienTiene(asset) {
   const vivos = new Set(agreements.filter((a) => a.status !== 'cancelled').map((a) => a.id));
   const ids = [...new Set(agreementItems.filter((i) => i.assetId === asset.id && vivos.has(i.agreementId) && i.auditStatus !== 'venta_aparte')
@@ -868,13 +901,13 @@ function renderUniform() {
   lugares.forEach((a) => { const n = Number(a.price || 0); if (quienTiene(a).length || a.availability === 'occupied') vendido += n; else libre += n; });
   $('uniformSummary').innerHTML = lugares.length ? '<span><b>' + money.format(vendido) + '</b> vendido</span><span><b>' + money.format(libre) + '</b> disponible</span><span class="muted">' +
     esc(lugares[0].unit ? 'precios por ' + lugares[0].unit : '') + (lugares.some((a) => a.priceStatus !== 'aprobado') ? ' · precios en propuesta' : '') + '</span>' : '';
-  box.innerHTML = VISTAS.map(([vista, titulo, forma, viewBox]) => {
+  box.innerHTML = VISTAS.map(([vista, titulo, dibujo]) => {
     const aqui = lugares.filter((a) => LUGARES[a.externalRef].vista === vista);
     return '<figure class="pt-uni-pieza ' + vista + '"><figcaption>' + titulo + '</figcaption><div class="pt-uni-lienzo">' +
-      '<svg viewBox="' + viewBox + '" aria-hidden="true">' + forma + '</svg>' +
+      dibujo() +
       aqui.map((a) => {
         const l = LUGARES[a.externalRef], marcas = quienTiene(a), ocupado = marcas.length || a.availability === 'occupied';
-        return '<button type="button" class="pt-lugar' + (ocupado ? ' ocupado' : '') + '" data-lugar="' + esc(a.id) + '" style="left:' + l.x + '%;top:' + l.y + '%;min-width:' + l.w + '%;max-width:48%;min-height:' + l.h + '%">' +
+        return '<button type="button" class="pt-lugar' + (ocupado ? ' ocupado' : '') + '" data-lugar="' + esc(a.id) + '" style="left:' + l.x + '%;top:' + l.y + '%;min-width:' + l.w + '%;max-width:' + (vista === 'frente' && l.w < 20 ? 30 : 52) + '%;min-height:' + l.h + '%">' +
           '<b>' + esc(ocupado ? (marcas[0]?.name || 'Ocupado') : precio(a)) + '</b>' +
           '<small>' + esc(ocupado ? 'Ocupado' : 'Disponible') + '</small></button>';
       }).join('') + '</div></figure>';

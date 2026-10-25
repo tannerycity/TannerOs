@@ -34,7 +34,11 @@ import {
 export const esc = v => String(v ?? '').replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export const dinero = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+// Precios sin ".00" cuando son cerrados ($699, no $699.00): se ve más limpio.
+// Con centavos, se dicen.
+const pesosCerrados = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+const pesosConCentavos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+export const dinero = { format: (n) => { const v = Math.round(Number(n || 0) * 100) / 100; return (Number.isInteger(v) ? pesosCerrados : pesosConCentavos).format(v); } };
 
 /* Un producto sin foto no deja un hueco gris: deja sus iniciales. Cuatro de
    los ocho productos del club no tienen foto todavía.

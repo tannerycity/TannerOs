@@ -42,6 +42,7 @@ import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
+import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
 import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe }
   from '/pedido/catalogo.js';
 
@@ -225,7 +226,7 @@ function infoDeCompra() {
   const pago = metodos.length > 1 ? `${metodos.slice(0, -1).join(', ')} o ${metodos.at(-1)}` : (metodos[0] || 'transferencia');
   return `<ul class="st-info">
     ${pagoInfo?.delivery ? `<li><b>Entrega</b><span>En ${esc(pagoInfo.delivery)}. Se produce sobre pedido.</span></li>` : ''}
-    <li><b>Pago</b><span>Por ${esc(pago)}. Te damos los datos al confirmar.</span></li>
+    <li><b>Pago</b><span>Por ${esc(pago)}. La transferencia no tiene comisión: al confirmar ves la CLABE y tu referencia.</span></li>
     <li><b>Confirmación</b><span>Te escribimos por WhatsApp para revisar tallas y entrega.</span></li></ul>`;
 }
 /* La vista previa del kit (14/10/2026): "si le pones manga larga, ver la manga
@@ -387,8 +388,8 @@ function renderProducto(id) {
         ${p.ofertaHasta ? `<p class="st-oferta grande">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</p>` : ''}
         ${p.description ? `<p class="st-desc">${esc(p.description)}</p>` : ''}
         <section class="st-bloque${e.falta === 'talla' ? ' falta' : ''}" id="stBloqueTalla">
-          ${varias ? `<div class="st-bloque-cab"><h2>Tallas</h2><span>Elige una o varias</span></div>
-          ${botonesTallaVarias(tallas, cants)}${filasDeVarias(p, cants, e.manga)}` : `<div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}</span></div>
+          ${varias ? `<div class="st-bloque-cab"><h2>Tallas</h2><span>Elige una o varias${botonGuia(tallas)}</span></div>
+          ${botonesTallaVarias(tallas, cants)}${filasDeVarias(p, cants, e.manga)}` : `<div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}${unica ? '' : botonGuia(tallas)}</span></div>
           ${unica ? `<p class="st-unica">Talla ${esc(unica)}: le queda a todos.</p>` : botonesTalla(tallas, e.talla, 'data-talla')}`}
         </section>
         ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name, recargoDe(p)) : llevaManga(p) ? bloqueManga(e, recargoDe(p)) : ''}
@@ -435,7 +436,8 @@ function renderKit(id) {
         ${tiers.length > 1 ? `<section class="st-bloque${e.falta === 'tier' ? ' falta' : ''}" id="stBloqueTier"><div class="st-bloque-cab"><h2>¿Para quién es?</h2></div>
           <div class="st-segmento" role="radiogroup" aria-label="Para quién es">${tiers.map(t => `<button type="button" role="radio" aria-checked="${e.tier === t}" data-tier="${esc(t)}"${e.tier === t ? ' class="activa"' : ''}>
             <strong>${esc(t)}</strong><small>${money.format(precioDeKit(k, t))}</small></button>`).join('')}</div></section>` : ''}
-        <section class="st-bloque"><div class="st-bloque-cab"><h2>Incluye</h2><span>Elige la talla de cada pieza</span></div>
+        ${bloqueTallaKit(k, e)}
+        <section class="st-bloque"><div class="st-bloque-cab"><h2>Incluye</h2><span>${e.tallaKit ? `Todo talla ${esc(e.tallaKit)} · cambia la que quieras` : 'Elige la talla de cada pieza'}${tallasDelKit(k, e.tier).length > 1 ? botonGuia(tallasDelKit(k, e.tier)) : ''}</span></div>
           <ul class="st-incluye">${ranuras.map(r0 => {
             // Pieza a elegir (Kit Dúo, 14/10/2026): primero cuál, luego su talla.
             const r = ranuraElegida(r0, e.elegidos);
@@ -443,10 +445,12 @@ function renderKit(id) {
               <div class="st-pieza-cab">${medio(null, null, r0.nombre, 'mini')}<strong>${esc(r0.nombre)}</strong><span>Elige cuál</span></div>
               <div class="st-tallas fila st-opciones">${(r0.opciones || []).map(o => `<button type="button" class="st-talla" data-pieza-elige="${esc(String(o.id ?? o.product_id))}">${esc(nombreCorto(o.name))}</button>`).join('')}</div></li>`;
             const elegida = r.unica || e.tallas[r.id] || '';
-            return `<li class="st-pieza${e.falta === r.id ? ' falta' : ''}" data-ranura="${esc(r.id)}">
+            // Con su talla ya puesta, la pieza se pliega: una línea y "Cambiar".
+            const plegada = elegida && !r.unica && !(e.abiertas || {})[r.id];
+            return `<li class="st-pieza${e.falta === r.id ? ' falta' : ''}${plegada ? ' plegada' : ''}" data-ranura="${esc(r.id)}">
               <div class="st-pieza-cab">${medio(r.producto?.photoThumbPath, r.producto?.photoBucket, r.nombre, 'mini')}
-                <strong>${r0.pool ? `${esc(nombreCorto(r.elegido.name))} <button type="button" class="st-cambia" data-pieza-cambia="1">Cambiar</button>` : esc(r.nombre)}</strong><span class="${elegida ? 'ok' : ''}">${elegida ? `Talla ${esc(elegida)}` : 'Elige talla'}</span></div>
-              ${r.unica || !r.tallas.length ? '' : `<div class="st-tallas fila">${tallasDePieza(r.tallas, e.tier).map(t =>
+                <strong>${r0.pool ? `${esc(nombreCorto(r.elegido.name))} <button type="button" class="st-cambia" data-pieza-cambia="1">Cambiar</button>` : esc(r.nombre)}</strong><span class="${elegida ? 'ok' : ''}">${elegida ? `Talla ${esc(elegida)}` : 'Elige talla'}</span>${plegada ? '<button type="button" class="st-cambia st-cambia-talla" data-pieza-abre="1">Cambiar</button>' : ''}</div>
+              ${r.unica || !r.tallas.length || plegada ? '' : `<div class="st-tallas fila">${tallasDePieza(r.tallas, e.tier).map(t =>
                 `<button type="button" class="st-talla${elegida === t ? ' activa' : ''}" data-pieza-talla="${esc(t)}" aria-pressed="${elegida === t}">${esc(t)}</button>`).join('')}</div>`}
               ${tieneManga(r.producto || { name: r.nombre }) ? `<div class="st-pieza-manga">${botonesManga(e, recargoDe(k), 'data-pieza-manga', (e.mangas || {})[r.id] || e.manga)}</div>` : ''}
             </li>`; }).join('')}</ul></section>
@@ -457,6 +461,62 @@ function renderKit(id) {
     ${barraAgregar(`Agregar al pedido${e.tier ? ` · ${money.format(precioDeKit(k, e.tier) + largasDeKit(k, e) * recargoDe(k))}` : ''}`, e.motivo)}`;
   pintaBarra(false);
   firmaFotos($('content'));
+}
+
+/* Guía de tallas (25/10/2026): "¿Qué talla es?" junto a las tallas abre las
+   medidas de niño y/o adulto que tenga la prenda. */
+function botonGuia(tallas) {
+  return tablasPara(tallas).hay ? ' <button type="button" class="st-guia-btn" data-guia>¿Qué talla es?</button>' : '';
+}
+function abreGuia(tallas) {
+  const t = tablasPara(tallas);
+  if (!t.hay) return;
+  const tabla = (titulo, filas, conEdad) => filas.length ? `<h3>${titulo}</h3><table class="st-guia-tabla"><thead><tr><th>Talla</th>${conEdad ? '<th>Edad aprox.</th>' : ''}<th>Pecho</th><th>Largo</th></tr></thead>
+    <tbody>${filas.map(f => `<tr><td><b>${esc(f.talla)}</b></td>${conEdad ? `<td>${esc(f.edad)}</td>` : ''}<td>${f.pecho} cm</td><td>${f.largo} cm</td></tr>`).join('')}</tbody></table>` : '';
+  document.getElementById('stGuia')?.remove();
+  const capa = document.createElement('div');
+  capa.id = 'stGuia'; capa.className = 'st-guia-capa';
+  capa.innerHTML = `<div class="st-guia" role="dialog" aria-modal="true" aria-labelledby="stGuiaTit">
+    <div class="st-guia-cab"><h2 id="stGuiaTit">¿Qué talla es?</h2><button type="button" class="st-guia-cerrar" data-guia-cerrar aria-label="Cerrar">&times;</button></div>
+    <p class="st-guia-como"><b>Cómo medir:</b> con la prenda extendida, <b>pecho</b> de axila a axila y <b>largo</b> del hombro a la orilla.</p>
+    ${tabla('Niño', t.nino, true)}${tabla('Adulto', t.adulto, false)}
+    <p class="st-guia-tip">${esc(CONSEJO_TALLA)}</p>
+    ${MEDIDAS_CONFIRMADAS ? '' : '<p class="st-guia-nota">Medidas aproximadas. Si tienes duda, escríbenos y te ayudamos.</p>'}
+    <button type="button" class="st-cta" data-guia-cerrar>Entendido</button></div>`;
+  document.body.appendChild(capa);
+  const cierra = () => { capa.remove(); document.removeEventListener('keydown', esc_); };
+  const esc_ = ev => { if (ev.key === 'Escape') cierra(); };
+  capa.addEventListener('click', ev => { if (ev.target === capa || ev.target.closest('[data-guia-cerrar]')) cierra(); });
+  document.addEventListener('keydown', esc_);
+  capa.querySelector('.st-guia-cerrar').focus();
+}
+/* Una talla para todo el kit (25/10/2026): casi todas las familias piden la
+   misma talla en todas las piezas. Se elige una vez y se pone en cada pieza
+   que la tenga; luego se cambia la que haga falta. */
+function tallasDelKit(k, tier) {
+  const todas = new Set();
+  ranurasDeKit(k).forEach(r0 => (r0.tallas || []).forEach(t => todas.add(t)));
+  (ranurasDeKit(k).flatMap(r0 => r0.opciones || [])).forEach(o => tallasDe(o).forEach(t => todas.add(t)));
+  const g = gruposDeTallas([...todas]);
+  const tipo = tier === 'Adulto' ? 'Adulto' : tier ? 'Niño' : null;
+  return (tipo && g.some(x => x.etiqueta === tipo) ? g.filter(x => x.etiqueta === tipo) : g).flatMap(x => x.tallas);
+}
+function bloqueTallaKit(k, e) {
+  const conTalla = ranurasDeKit(k).filter(r0 => { const r = ranuraElegida(r0, e.elegidos); return !r.unica && (r.tallas?.length || r0.pool); });
+  const tallas = tallasDelKit(k, e.tier);
+  if (conTalla.length < 2 || tallas.length < 2) return '';
+  return `<section class="st-bloque st-talla-kit"><div class="st-bloque-cab"><h2>Talla para todo el kit</h2><span>Un toque y listo</span></div>
+    <div class="st-tallas">${tallas.map(t => `<button type="button" class="st-talla${e.tallaKit === t ? ' activa' : ''}" data-kit-talla="${esc(t)}" aria-pressed="${e.tallaKit === t}">${esc(t)}</button>`).join('')}</div></section>`;
+}
+function ponTallaKit(k, e, talla) {
+  e.tallaKit = talla;
+  const tallas = { ...(e.tallas || {}) };
+  ranurasDeKit(k).forEach(r0 => {
+    const r = ranuraElegida(r0, e.elegidos);
+    if (!r.unica && (r.tallas || []).includes(talla)) tallas[r.id] = talla;
+  });
+  e.tallas = tallas; e.abiertas = {};
+  if (e.falta && tallas[e.falta]) { e.falta = null; e.motivo = null; }
 }
 
 /* Las tallas de una pieza del kit: primero las del tipo elegido (un kit de
@@ -477,6 +537,15 @@ function cablea() {
     const ficha = raiz.querySelector('[data-ficha]')?.dataset.ficha;
     const esKit = !!(ficha && (catalogo.bundles || []).some(k => String(k.id) === ficha));
     const t = ev.target;
+    if (t.closest('[data-guia]')) {
+      if (esKit) { const k = (catalogo.bundles || []).find(x => String(x.id) === ficha); abreGuia(tallasDelKit(k, eligiendoKit[ficha]?.tier)); }
+      else abreGuia(tallasDe((catalogo.products || []).find(x => String(x.id) === ficha)));
+      return;
+    }
+    const tk = t.closest('[data-kit-talla]');
+    if (tk && ficha) { const k = (catalogo.bundles || []).find(x => String(x.id) === ficha); ponTallaKit(k, eligiendoKit[ficha], tk.dataset.kitTalla); repinta(renderKit, ficha); return; }
+    const abre = t.closest('[data-pieza-abre]');
+    if (abre && ficha) { const e = eligiendoKit[ficha], r = abre.closest('[data-ranura]').dataset.ranura; e.abiertas = { ...(e.abiertas || {}), [r]: true }; repinta(renderKit, ficha); return; }
     const talla = t.closest('[data-talla]');
     if (talla && ficha) {
       const e = eligiendo[ficha], p = (catalogo.products || []).find(x => String(x.id) === ficha);
@@ -506,7 +575,13 @@ function cablea() {
       repinta(esKit ? renderKit : renderProducto, ficha); return;
     }
     const tier = t.closest('[data-tier]');
-    if (tier && ficha) { const e = eligiendoKit[ficha]; e.tier = tier.dataset.tier; e.motivo = null; e.falta = null; repinta(renderKit, ficha); return; }
+    if (tier && ficha) {
+      const e = eligiendoKit[ficha]; e.tier = tier.dataset.tier; e.motivo = null; e.falta = null;
+      // Cambiar de niño a adulto deja de tener sentido la talla de todo el kit.
+      const k = (catalogo.bundles || []).find(x => String(x.id) === ficha);
+      if (e.tallaKit && !tallasDelKit(k, e.tier).includes(e.tallaKit)) { e.tallaKit = null; e.tallas = {}; e.abiertas = {}; }
+      repinta(renderKit, ficha); return;
+    }
     const pm = t.closest('[data-pieza-manga]');
     if (pm && ficha) {
       const e = eligiendoKit[ficha], r = pm.closest('[data-ranura]').dataset.ranura;
@@ -522,6 +597,7 @@ function cablea() {
       const nueva = ranuraElegida(ranurasDeKit(kit).find(x => x.id === r), elegidos);
       const tallas = { ...(e.tallas || {}) };
       if (tallas[r] && !(nueva.tallas || []).includes(tallas[r])) delete tallas[r];
+      if (elige && e.tallaKit && (nueva.tallas || []).includes(e.tallaKit)) tallas[r] = e.tallaKit;
       Object.assign(e, { elegidos, tallas });
       if (e.falta === r) { e.falta = null; e.motivo = null; }
       repinta(renderKit, ficha); return;
@@ -530,6 +606,7 @@ function cablea() {
     if (pieza && ficha) {
       const e = eligiendoKit[ficha], r = pieza.closest('[data-ranura]').dataset.ranura;
       e.tallas = { ...e.tallas, [r]: pieza.dataset.piezaTalla };
+      e.abiertas = { ...(e.abiertas || {}), [r]: false };
       if (e.falta === r) { e.falta = null; e.motivo = null; }
       repinta(renderKit, ficha); return;
     }
@@ -627,7 +704,7 @@ function renderCheckout() {
   $('content').innerHTML = `<a class="st-volver" href="#/" id="volver">‹ Seguir comprando</a>
     <h1 class="st-titulo">Tu pedido</h1>
     <div id="resumenCarrito">${resumen()}</div>
-    ${pagoInfo?.delivery ? `<p class="st-nota">Entrega en ${esc(pagoInfo.delivery)}. Al confirmar te damos los datos para pagar.</p>` : ''}
+    <p class="st-nota">${pagoInfo?.delivery ? `Entrega en ${esc(pagoInfo.delivery)}. ` : ''}Al confirmar ves la CLABE para pagar por transferencia, sin comisión.</p>
     <form id="orderForm" class="form-grid order-form st-form">
       <h2 class="span-2">Tus datos</h2>
       <label class="span-2">Nombre de quien recibe *<input id="customerName" minlength="2" maxlength="120" required autocomplete="name"></label>
@@ -725,7 +802,7 @@ function renderListo(result, nombre) {
   const wa = ligaWhatsApp(pagoInfo?.whatsapp, mensajeComprobante({ folio, total, nombre }));
   const filas = pago.filas.map(([k, v]) => `<div class="pago-fila"><span>${esc(k)}</span>`
     + `<strong${k === 'CLABE' ? ' class="pago-clabe"' : ''}>${esc(v)}</strong>`
-    + `${k === 'CLABE' ? `<button type="button" class="pago-copiar" data-copiar="${esc(v)}">Copiar</button>` : ''}</div>`).join('');
+    + `${k === 'CLABE' || k === 'Referencia' ? `<button type="button" class="pago-copiar" data-copiar="${esc(v)}">Copiar</button>` : ''}</div>`).join('');
   $('content').innerHTML = `<div class="success"><div class="success-mark">
       <span class="tos-icon tos-icon-check" aria-hidden="true"></span></div>
       <h2>Pedido recibido</h2>
@@ -733,7 +810,7 @@ function renderListo(result, nombre) {
       <p><strong>Total:</strong> ${money.format(total)}</p></div>
     ${filas ? `<section class="pago-card" aria-label="Cómo pagar">
       <h3>Cómo pagar</h3>
-      <p class="muted">Transferencia con tu folio como referencia:</p>
+      <p class="muted">Transferencia SPEI, <b>sin comisión</b>. Pon tu folio como referencia o concepto:</p>
       <div class="pago-filas">${filas}</div>
       ${pago.otros ? `<p class="muted pago-otros">${esc(pago.otros)}</p>` : ''}
     </section>` : ''}
@@ -746,11 +823,11 @@ function renderListo(result, nombre) {
       <p class="st-sigue-plazo">Importante: tienes <b>${DIAS_PARA_RECOGER} días</b> para recoger tu pedido desde que te avisemos que llegó. Después de ese plazo el club ya no se hace responsable de la prenda.</p>
       <a class="st-sigue-portal" href="/familias/">Síguelo paso a paso en tu portal de familia</a>
     </section>`;
-  $('content').querySelector('[data-copiar]')?.addEventListener('click', async e => {
+  $('content').querySelectorAll('[data-copiar]').forEach(btn => btn.addEventListener('click', async e => {
     const b = e.currentTarget;
-    try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiada'; }
+    try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiado'; }
     catch { b.textContent = 'Mantén presionado para copiar'; }
-  });
+  }));
   document.title = 'Pedido recibido · Tienda Tanner';
   window.scrollTo(0, 0);
 }

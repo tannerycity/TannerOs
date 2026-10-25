@@ -189,7 +189,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   revisa('2. el carrito dice Manga larga', carrito.includes('Manga larga'), carrito.replace(/\s+/g, ' ').slice(0, 300));
   // 16. ¿Lo conviertes en kit?
   const sug = (await pg.textContent('.st-sugiere').catch(() => '')).replace(/\s+/g, ' ');
-  revisa('16. el jersey suelto sugiere su kit, con qué incluye y cuánto más', /Kit Training/.test(sug) && /short y calcetas/.test(sug) && /\$1,100\.00/.test(sug) && /\$250\.00 más/.test(sug), sug);
+  revisa('16. el jersey suelto sugiere su kit, con qué incluye y cuánto más', /Kit Training/.test(sug) && /short y calcetas/.test(sug) && /\$1,100(?!\.\d)/.test(sug) && /\$250(?!\.\d) más/.test(sug), sug);
   await pg.click('[data-convierte]');
   await pg.waitForSelector('.st-convierte', { timeout:4000 }).catch(() => {});
   const lleno = await pg.$$eval('.st-pieza .st-pieza-cab span', ss => ss.map(x => x.textContent));
@@ -198,7 +198,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   await pg.click('#stAgregar');
   await pg.waitForSelector('#orderForm', { timeout:5000 }).catch(() => {});
   const ahora = (await pg.textContent('#resumenCarrito').catch(() => '')).replace(/\s+/g, ' ');
-  revisa('16. el jersey suelto se cambió por el kit', /Kit Training/.test(ahora) && !/Jersey Home \$/.test(ahora) && /\$1,100\.00/.test(ahora) && !(await pg.$('.st-sugiere')), ahora);
+  revisa('16. el jersey suelto se cambió por el kit', /Kit Training/.test(ahora) && !/Jersey Home \$/.test(ahora) && /\$1,100(?!\.\d)/.test(ahora) && !(await pg.$('.st-sugiere')), ahora);
   await pg.fill('#customerName', 'Ana Ávila');
   await pg.fill('#customerPhone', '4771234567');
   await pg.check('#orderDataConsent');

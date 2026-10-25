@@ -328,3 +328,23 @@
 /* Plazo para recoger (22/10/2026). */
 .st-plazo { padding: 12px 14px; border-radius: 14px; background: #fff7e8; border: 1px solid #f0dcb0; }
 .st-sigue-plazo { margin: 14px 0 0; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.1); font-size: 13.5px; line-height: 1.45; color: #fff; }
+
+/* Guía de tallas (25/10/2026). */
+.st-guia-btn { margin-left: 8px; padding: 0; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 700; color: var(--st-brand); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.st-guia-capa { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: rgba(7, 25, 30, .45); }
+.st-guia { width: min(560px, 100%); max-height: 88vh; overflow: auto; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #fff; box-shadow: 0 -20px 50px rgba(0, 0, 0, .2); }
+@media (min-width: 700px) { .st-guia-capa { align-items: center; } .st-guia { border-radius: 22px; } }
+.st-guia-cab { display: flex; align-items: center; justify-content: space-between; }
+.st-guia-cab h2 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+.st-guia-cerrar { width: 40px; height: 40px; border: 0; border-radius: 12px; background: var(--st-soft); font-size: 24px; line-height: 1; cursor: pointer; }
+.st-guia-como { margin: 10px 0 4px; font-size: 14px; color: var(--st-ink-2); line-height: 1.45; }
+.st-guia h3 { margin: 16px 0 6px; font-size: 15px; }
+.st-guia-tabla { width: 100%; border-collapse: collapse; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.st-guia-tabla th { text-align: left; font-size: 12px; font-weight: 700; color: var(--st-muted); padding: 6px 8px; border-bottom: 1px solid rgba(0, 0, 0, .08); }
+.st-guia-tabla td { padding: 9px 8px; border-bottom: 1px solid rgba(0, 0, 0, .05); }
+.st-guia-tip { margin: 16px 0 8px; padding: 12px 14px; border-radius: 14px; background: #fff7e6; color: #6b4e10; font-size: 14px; font-weight: 600; line-height: 1.45; }
+.st-guia-nota { margin: 0 0 14px; font-size: 12.5px; color: var(--st-muted); }
+/* Talla para todo el kit y piezas plegadas. */
+.st-talla-kit { border: 2px solid var(--st-brand); border-radius: 18px; padding: 14px; }
+.st-cambia-talla { margin-left: 6px; }
+.st-pieza.plegada { padding-bottom: 10px; }

@@ -28,6 +28,9 @@ revisa(JSON.stringify(sec.map(s => s.clave)) === JSON.stringify(['kits', 'jersey
 revisa(sec.find(s => s.clave === 'jersey').items.length === 2, 'un producto sin categoría pero llamado "Jersey" cae en Jerseys');
 revisa(etiquetaDe('mascaras') === 'Máscaras' && etiquetaDe('calcomanias') === 'Calcomanías' && etiquetaDe('termos') === 'Termos', 'etiquetas con acento y las nuevas con mayúscula');
 revisa(etiquetaDe('outerwear') === 'Chamarras' && etiquetaDe('socks') === 'Calcetas', 'nombres en español de las categorías guardadas en inglés');
+// Las categorías reales del club (25/10/2026): "Gorra" y "Oversized" salían tal cual.
+revisa(categoriaDe(P('cap', 'Gorra')) === 'gorras' && etiquetaDe('gorras') === 'Gorras', 'la gorra sale en Gorras');
+revisa(categoriaDe(P('tee', 'Oversized')) === 'casual' && etiquetaDe('casual') === 'Ropa casual', 'la oversized sale en Ropa casual, no en inglés');
 revisa(!seccionesDeTienda({ products: [P('a', 'jersey')], bundles: [] }).some(s => s.clave === 'kits'), 'sin kits no hay pestaña de Kits');
 revisa(categoriaDe({ category: 'Hoodie' }) === 'outerwear' && categoriaDe({ category: 'Accesorios' }) === 'accesorios', 'sinónimos de categoría');
 

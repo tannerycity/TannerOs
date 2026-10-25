@@ -80,7 +80,9 @@ const DATOS = {
 };
 const QUOTES = [{ id:'q1', folio:'COT-2026-001', sponsorId:'s-tremor', sponsorName:'Tremor', status:'draft', approvalStatus:'none', subtotal:11800, discountAmount:0, discountPct:0, total:11800,
   validUntil:'2026-11-24', createdByName:'Zul', items:[{ assetId:'as1', description:'Reel Instagram', unitPrice:2500, quantity:1, unit:'reel' },
-  { assetId:'u2', description:'Logo en manga derecha', unitPrice:7500, quantity:1, unit:'temporada' }, { assetId:'as2', description:'Frente Españita 1', unitPrice:1800, quantity:1, unit:'espacio' }] }];
+  { assetId:'u2', description:'Logo en manga derecha', unitPrice:7500, quantity:1, unit:'temporada' }, { assetId:'as2', description:'Frente Españita 1', unitPrice:1800, quantity:1, unit:'espacio' }] },
+  { id:'q9', folio:'COT-2026-009', sponsorId:'s-dis', sponsorName:'Disonante', status:'sent', approvalStatus:'none', subtotal:5000, discountAmount:0, discountPct:0, total:5000,
+    sentAt:'2020-01-01T12:00:00Z', validUntil:'2099-12-31', items:[{ assetId:'as1', description:'Reel Instagram', unitPrice:2500, quantity:2, unit:'reel' }] }];
 const FAKE = `
   window.__rpc=[];const D=${JSON.stringify(DATOS)};
   export function createClient(){return{auth:{getSession:async()=>({data:{session:{user:{id:'u-zul'}}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
@@ -140,10 +142,11 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   revisa('1. marcas con nosotros: 2 (la pausada y la de plática no)', /2 con nosotros/.test(await txt(pg, '#ptMarcasSub')), await txt(pg, '#ptMarcasSub'));
   revisa('1. falta cobrar lo que no se ha pagado', await txt(pg, '#ptPorCobrar') === '$7,500', await txt(pg, '#ptPorCobrar'));
   revisa('1. les debemos 3 compromisos (la venta aparte no cuenta)', await txt(pg, '#ptDebemos') === '3', await txt(pg, '#ptDebemos'));
-  revisa('2. muestra 6 y deja ver todos', (await pg.$$('#nextList .pt-aviso')).length === 6 && /Ver los 7/.test(await txt(pg, '#ptVerTodo')), await txt(pg, '#ptVerTodo'));
+  revisa('2. muestra 6 y deja ver todos', (await pg.$$('#nextList .pt-aviso')).length === 6 && /Ver los 8/.test(await txt(pg, '#ptVerTodo')), await txt(pg, '#ptVerTodo'));
   await pg.click('#ptVerTodo');
   const avisos = await pg.$$eval('#nextList .pt-aviso', xs => xs.map(x => x.className.match(/nivel-\w+/)[0] + '|' + x.textContent.replace(/\s+/g, ' ')));
   revisa('2. lo atrasado y lo por cobrar salen arriba', /nivel-alta/.test(avisos[0]) && /nivel-alta/.test(avisos[1]) && avisos.slice(0, 2).some(a => /atrasado desde el 11 ago/.test(a)) && avisos.slice(0, 2).some(a => /Falta cobrar \$7,500/.test(a)), JSON.stringify(avisos));
+  revisa('23. la cotización enviada sin respuesta sale en Hoy toca', avisos.some(a => /COT-2026-009 enviada hace \d+ días sin respuesta/.test(a)), JSON.stringify(avisos));
   revisa('2. avisa del borrador y de la marca sin siguiente paso', avisos.some(a => /Tremor.*Borrador/.test(a)) && avisos.some(a => /Café Central.*siguiente paso/.test(a)), JSON.stringify(avisos));
   revisa('2. lo atrasado trae WhatsApp', (await pg.$$('#nextList .pt-aviso.nivel-alta .next-wa-btn')).length >= 1);
   const cartas = await pg.$$eval('#ptTablero .pt-marca', xs => xs.map(x => x.querySelector('strong').textContent));

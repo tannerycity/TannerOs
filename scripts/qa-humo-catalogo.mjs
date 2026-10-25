@@ -288,11 +288,13 @@ revisa('unas calcetas lo apagan', !(await pg.isChecked('#pPers')));
 await pg.click('#pCatChips [data-cat="jersey"]');
 await pg.fill('#pName','Jersey Portero');
 await pg.fill('#pPrice','899');
+await pg.fill('#pDesc','Jersey de portero en tela ligera.');
 if(process.env.SHOTS)await pg.screenshot({path:`${process.env.SHOTS}/alta.png`});
 await pg.click('#pSave');
 await pg.waitForTimeout(300);
 const alta=await pg.evaluate(()=>window.__rpc.filter(x=>x.n==='v2_upsert_product').map(x=>x.p).pop());
 revisa('se guarda con categoría, precio y sus doce tallas', alta?.name==='Jersey Portero'&&alta?.category==='jersey'&&alta?.price===899&&alta?.sizes?.length===12, JSON.stringify(alta));
+revisa('la descripción se escribe aquí y sale en la tienda', alta?.description==='Jersey de portero en tela ligera.', JSON.stringify(alta?.description));
 // Costos (13/10/2026): sólo en su pestaña, con margen y el costo editable.
 if(await pg.isVisible('#drawer'))await pg.click('#closeDrawer');
 revisa('las tarjetas no dicen costo ni margen', !/Margen|Costo|Sin costo/.test(await pg.textContent('#productList')+await pg.textContent('#bundleList')));

@@ -2,7 +2,7 @@
  * Presidencia: cotizar fácil, por categorías, con descuento de hasta 10%; lo
  * que pase de ahí lo autoriza Presidencia. Aquí se prueba la cuenta, las
  * categorías, qué se puede hacer en cada estado y el PDF con la inversión. */
-import { CATEGORIAS, categoriaDe, filtraCatalogo, renglonDe, totales, accionesDe, filtraCotizaciones, mensajeWhatsApp } from '../v2/patrocinadores/cotizar.js';
+import { CATEGORIAS, categoriaDe, filtraCatalogo, renglonDe, totales, accionesDe, filtraCotizaciones, mensajeWhatsApp, avisosDeCotizaciones } from '../v2/patrocinadores/cotizar.js';
 import { datosDePropuesta } from '../v2/patrocinadores/propuesta.js';
 
 let casos = 0, fallos = 0;
@@ -52,6 +52,22 @@ ok('con cotización cada espacio lleva su precio cotizado', d.activos[0].precio 
 ok('la inversión trae subtotal, descuento, total y vigencia', d.inversion.subtotal === '$30,000' && d.inversion.descuento === '-$1,500' && d.inversion.total === '$28,500' && /24 de noviembre/.test(d.inversion.vigencia), d.inversion);
 const sin = datosDePropuesta({ marca: 'X', activos: [{ ...CAT[0], priceStatus: 'propuesta' }], hoy: '2026-10-25' });
 ok('sin cotización sigue la regla: precio sin aprobar dice A cotizar', sin.activos[0].precio === 'A cotizar' && sin.inversion === null);
+
+const Q = [
+  { id: 'a', folio: 'COT-1', sponsorName: 'A', status: 'sent', approvalStatus: 'none', sentAt: '2026-10-18', validUntil: '2026-11-30' },
+  { id: 'b', folio: 'COT-2', sponsorName: 'B', status: 'sent', approvalStatus: 'none', sentAt: '2026-10-24', validUntil: '2026-10-27' },
+  { id: 'c', folio: 'COT-3', sponsorName: 'C', status: 'sent', approvalStatus: 'none', sentAt: '2026-10-24', validUntil: '2026-11-30' },
+  { id: 'd', folio: 'COT-4', sponsorName: 'D', status: 'draft', approvalStatus: 'pending', discountPct: 15 },
+  { id: 'e', folio: 'COT-5', sponsorName: 'E', status: 'accepted', approvalStatus: 'none', sentAt: '2026-10-01' },
+  { id: 'f', folio: 'COT-6', sponsorName: 'F', status: 'sent', approvalStatus: 'none', sentAt: '2026-10-01', validUntil: '2026-10-20' },
+];
+const av = avisosDeCotizaciones(Q, '2026-10-25');
+ok('seguimiento: enviada hace 7 días sin respuesta', av.some(a => a.cotId === 'a' && /hace 7 días/.test(a.texto)), av);
+ok('seguimiento: vence en 2 días es urgente', av.some(a => a.cotId === 'b' && a.nivel === 'alta' && /en 2 días/.test(a.texto)), av);
+ok('seguimiento: recién enviada no molesta', !av.some(a => a.cotId === 'c'));
+ok('seguimiento: aceptada no sale', !av.some(a => a.cotId === 'e'));
+ok('seguimiento: vencida pide renovarla', av.some(a => a.cotId === 'f' && /venció/.test(a.texto)));
+ok('el descuento por autorizar sólo le sale a Presidencia', !av.some(a => a.cotId === 'd') && avisosDeCotizaciones(Q, '2026-10-25', { esPresidencia: true }).some(a => a.cotId === 'd' && /15%/.test(a.texto)));
 
 if (fallos) { console.error(`Cotizar QA: ${fallos} de ${casos} fallaron`); process.exit(1); }
 console.log(`Cotizar QA OK · ${casos} casos: categorías, carrito, tope de 10%, estados y PDF con inversión`);

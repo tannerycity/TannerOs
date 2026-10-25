@@ -16,7 +16,9 @@ export const CATEGORIAS_TIENDA = [
   { clave: 'pants',       etiqueta: 'Pants',       patron: /\b(pants|pantalon)\b/ },
   { clave: 'outerwear',   etiqueta: 'Chamarras',   patron: /\b(outerwear|hoodie|sudadera|chamarra)\b/ },
   { clave: 'socks',       etiqueta: 'Calcetas',    patron: /\b(socks|sock|calceta|calcetas)\b/ },
-  { clave: 'accesorios',  etiqueta: 'Accesorios',  patron: /\b(accesorio|accesorios|accessory|accessories|gorra|termo|mochila|balon)\b/ },
+  { clave: 'gorras',      etiqueta: 'Gorras',      patron: /\b(gorra|gorras|cap|caps)\b/ },
+  { clave: 'casual',      etiqueta: 'Ropa casual', patron: /\b(oversized|tee|camiseta|casual)\b/ },
+  { clave: 'accesorios',  etiqueta: 'Accesorios',  patron: /\b(accesorio|accesorios|accessory|accessories|termo|mochila|balon)\b/ },
   { clave: 'mascaras',    etiqueta: 'Máscaras',    patron: /\b(mascara|mascaras|mask|masks)\b/ },
   { clave: 'calcomanias', etiqueta: 'Calcomanías', patron: /\b(calcomania|calcomanias|sticker|stickers)\b/ }
 ];

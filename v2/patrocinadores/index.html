@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07191e">
   <title>Patrocinios · TannerOS</title>
   <link rel="stylesheet" href="/v2/styles.css">
-  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261024c">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261025a">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <link rel="stylesheet" href="/icons.css?v=20260907a">
@@ -52,12 +52,14 @@
       <button class="active" data-view="summary" type="button">Hoy</button>
       <button data-view="route" type="button">Marcas</button>
       <button data-view="assets" type="button">Activos Tanner</button>
+      <button data-view="audience" type="button">Audiencia</button>
     </nav>
 
     <section id="summaryView" class="module-view">
       <section class="pt-marcador" aria-label="Cómo vamos">
-        <article><span>Marcas con nosotros</span><strong id="ptMarcas">0</strong><small id="ptMarcasSub"></small></article>
-        <article><span>Valor de los acuerdos</span><strong id="ptValor">$0</strong><small id="ptValorSub"></small></article>
+        <!-- Meta 2027 (25/10/2026): efectivo del mes contra $30,000. La especie va aparte y no suma. -->
+        <article class="pt-meta"><span id="ptMetaTitulo">Efectivo del mes</span><strong id="ptEfectivo">$0</strong><small id="ptEfectivoSub"></small><i class="pt-meta-barra"><b id="ptMetaBarra"></b></i></article>
+        <article><span>En especie</span><strong id="ptEspecie">0</strong><small id="ptEspecieSub">no cuenta para la meta</small></article>
         <article class="pt-cobrar"><span>Falta cobrar</span><strong id="ptPorCobrar">$0</strong><small id="ptCobradoSub"></small></article>
         <article class="pt-debemos"><span>Les debemos</span><strong id="ptDebemos">0</strong><small>compromisos por entregar</small></article>
       </section>
@@ -76,7 +78,7 @@
       </article>
 
       <section class="pt-tablero-wrap">
-        <div class="pt-tablero-head"><div><div class="eyebrow">CÓMO VAMOS CON CADA MARCA</div><h2>Tus marcas</h2></div>
+        <div class="pt-tablero-head"><div><div class="eyebrow">CÓMO VAMOS CON CADA MARCA</div><h2>Tus marcas <small id="ptMarcasSub" class="muted"></small></h2></div>
           <small class="muted">Toca una marca para ver todo y palomear lo que ya se entregó.</small></div>
         <div id="ptTablero" class="pt-tablero"></div>
         <div id="activeEmpty" class="empty-state hidden">
@@ -114,8 +116,10 @@
             <h2>Activos Tanner</h2>
             <p class="muted section-copy">Crea solamente los espacios, contenidos y beneficios que realmente puedas ofrecer.</p>
           </div>
-          <button id="newAssetButton" class="secondary write-only" type="button">+ Agregar activo</button>
+          <div class="pt-activos-acc"><button id="proposalButton" class="primary pt-propuesta-btn" type="button">Armar propuesta</button><button id="newAssetButton" class="secondary write-only" type="button">+ Agregar activo</button></div>
         </div>
+        <div id="assetFilters" class="pt-filtros" role="group" aria-label="Filtrar activos"></div>
+        <div id="proposalBar" class="pt-propuesta-barra hidden"><span id="proposalCount">Elige los activos de la propuesta</span><button id="proposalCancel" class="secondary mini" type="button">Cancelar</button><button id="proposalMake" class="primary mini" type="button" disabled>Armar PDF</button></div>
         <div id="assetList" class="asset-grid"></div>
         <div id="assetEmpty" class="empty-state asset-empty hidden">
           <div class="empty-icon">T</div>
@@ -123,6 +127,17 @@
           <span>No precargamos activos. Agrega únicamente lo que el club tenga disponible.</span>
           <button class="primary write-only open-new-asset" type="button">Agregar primer activo</button>
         </div>
+      </article>
+    </section>
+    <section id="audienceView" class="module-view hidden">
+      <article class="panel">
+        <div class="panel-head">
+          <div><div class="eyebrow">LO QUE VEN NUESTRAS REDES</div><h2>Audiencia</h2>
+          <p class="muted section-copy">Cada dato con su red, periodo y fuente. No se suman entre redes: visualizaciones no son personas.</p></div>
+          <button id="newMetricButton" class="secondary write-only" type="button">+ Agregar dato</button>
+        </div>
+        <div id="audienceList" class="pt-audiencia"></div>
+        <div id="audienceEmpty" class="empty-state hidden"><strong>Sin datos de redes</strong><span>Agrega el primer dato con su periodo y su fuente.</span></div>
       </article>
     </section>
   </section>
@@ -240,6 +255,7 @@
       <label>Estado<select id="agreementStatus"><option value="draft">Borrador</option><option value="active">Activo</option><option value="completed">Finalizado</option><option value="cancelled">Cancelado</option></select></label>
       <label>Valor del acuerdo <span class="optional">opcional</span><input id="agreementValue" type="number" min="0" step="0.01" inputmode="decimal"></label>
       <label>Inicio<input id="agreementStart" type="date"></label><label>Fin<input id="agreementEnd" type="date"></label>
+      <div class="pt-vigencia span-2" role="group" aria-label="Vigencia"><span>Vigencia</span><button type="button" data-meses="6">6 meses</button><button type="button" data-meses="12">12 meses</button></div>
     </div>
 
     <section id="benefitFields" class="benefit-fields hidden">
@@ -283,11 +299,54 @@
     <label class="span-2">Nombre<input id="assetName" minlength="2" maxlength="160" required></label>
     <label>Categoría<select id="assetCategory"><option value="digital">Digital</option><option value="park">Instalaciones del club</option><option value="uniforms">Uniformes</option><option value="sports">Deportivo</option><option value="content">Contenido</option><option value="other">Otros</option></select></label>
     <label>Disponibilidad<select id="assetAvailability"><option value="available">Disponible</option><option value="partial">Parcial</option><option value="occupied">Ocupado</option></select></label>
-    <label class="span-2">Precio de referencia <span class="optional">opcional</span><input id="assetPrice" type="number" min="0" step="0.01" inputmode="decimal"></label>
+    <label>Entidad<select id="assetEntity"><option value="TC">Club</option><option value="TCP">Complejo deportivo</option><option value="AMBOS">Ambos</option></select></label>
+    <label>Canal<input id="assetChannel" maxlength="60" placeholder="Instagram, Presencial…"></label>
+    <label>Unidad<input id="assetUnit" maxlength="40" placeholder="reel, publicación, espacio…"></label>
+    <label>Familia<input id="assetFamily" maxlength="60" placeholder="Contenido, Espacio físico…"></label>
+    <label>Precio de referencia <span class="optional">interno</span><input id="assetPrice" type="number" min="0" step="0.01" inputmode="decimal"></label>
+    <label>Estado del precio<select id="assetPriceStatus"><option value="por_cotizar">Por cotizar</option><option value="propuesta">Propuesta (no se publica)</option><option value="aprobado">Aprobado (sale en propuestas)</option></select></label>
+    <label class="span-2">Validación<input id="assetValidation" maxlength="60" placeholder="CONFIRMADO, PROPUESTO, CONDICIONADO…"></label>
+    <label class="span-2">Notas internas <span class="optional">nunca salen a la marca</span><textarea id="assetInternalNotes" rows="2" maxlength="600"></textarea></label>
     <label class="span-2">Descripción <span class="optional">opcional</span><textarea id="assetDescription" rows="3" maxlength="500"></textarea></label>
     <button id="saveAsset" class="primary span-2" type="submit">Guardar activo</button>
     <button id="archiveAsset" class="text-danger span-2 hidden" type="button">Retirar del inventario</button>
     <div id="assetMessage" class="inline-message hidden span-2"></div>
+  </form>
+</section>
+
+<section id="trackModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="trackTitle">
+  <div class="modal-head"><div><div class="eyebrow">SEGUIMIENTO DEL ENTREGABLE</div><h2 id="trackTitle">Entregable</h2><p id="trackSub" class="muted modal-subtitle"></p></div><button class="secondary mini close-workspace-modal" type="button">Cerrar</button></div>
+  <form id="trackForm" class="form-grid">
+    <input id="trackItemId" type="hidden">
+    <label>Entregado<input id="trackDelivered" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+    <label>De<input id="trackTotal" type="text" disabled></label>
+    <label class="span-2">Responsable<select id="trackOwner"><option value="">Sin responsable</option></select></label>
+    <label>Frecuencia<input id="trackFrequency" maxlength="60" placeholder="mensual, por final…"></label>
+    <label>Estado<select id="trackAudit"><option value="">Normal</option><option value="por_auditar">Por auditar contra contrato</option><option value="venta_aparte">Venta aparte (no es del patrocinio)</option></select></label>
+    <label class="span-2">Link de la evidencia <span class="optional">la publicación</span><input id="trackUrl" type="url" maxlength="500" placeholder="https://instagram.com/p/…"></label>
+    <button id="saveTrack" class="primary span-2" type="submit">Guardar</button>
+    <div id="trackMessage" class="inline-message hidden span-2"></div>
+  </form>
+</section>
+
+<section id="metricModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="metricTitle">
+  <div class="modal-head"><div><div class="eyebrow">AUDIENCIA</div><h2 id="metricTitle">Agregar dato de redes</h2></div><button class="secondary mini close-workspace-modal" type="button">Cerrar</button></div>
+  <p class="muted modal-intro">Se guarda como una foto: no reemplaza los datos anteriores.</p>
+  <form id="metricForm" class="form-grid">
+    <label>Entidad<select id="metricEntity"><option value="TC">Club</option><option value="TCP">Complejo deportivo</option></select></label>
+    <label>Red<select id="metricChannel"><option>Instagram</option><option>Facebook</option><option>TikTok</option><option>Sitio web</option><option>WhatsApp</option></select></label>
+    <label>Métrica<input id="metricKey" list="metricKeys" maxlength="60" required placeholder="visualizaciones"></label>
+    <datalist id="metricKeys"><option value="visualizaciones"><option value="alcance"><option value="espectadores"><option value="interacciones"><option value="seguidores_total"><option value="seguimientos_nuevos"><option value="visitas"></datalist>
+    <label>Valor<input id="metricValue" type="number" step="any" required inputmode="decimal"></label>
+    <label>Unidad<select id="metricUnit"><option value="conteo">conteo</option><option value="cuentas">cuentas</option><option value="porcentaje">porcentaje</option><option value="aprox. conteo">aprox. conteo</option><option value="aprox. cuentas">aprox. cuentas</option></select></label>
+    <label>Ventana<input id="metricWindow" maxlength="30" placeholder="28 días"></label>
+    <label>Desde <span class="optional">opcional</span><input id="metricStart" type="date"></label>
+    <label>Corte<input id="metricEnd" type="date" required></label>
+    <label class="span-2">Fuente<input id="metricSource" maxlength="160" required placeholder="Meta Business Suite"></label>
+    <label>Validación<select id="metricValidation"><option value="CONFIRMADO">Confirmado</option><option value="APROXIMADO">Aproximado</option><option value="ESTIMADO">Estimado</option><option value="PENDIENTE">Pendiente</option></select></label>
+    <label>Nota <span class="optional">opcional</span><input id="metricNotes" maxlength="300"></label>
+    <button id="saveMetric" class="primary span-2" type="submit">Guardar dato</button>
+    <div id="metricMessage" class="inline-message hidden span-2"></div>
   </form>
 </section>
 
@@ -353,6 +412,6 @@
 </section>
 
 <script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/patrocinadores/app.js?v=20261024c"></script>
+<script type="module" src="/v2/patrocinadores/app.js?v=20261025a"></script>
 </body>
 </html>

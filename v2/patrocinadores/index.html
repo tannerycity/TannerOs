@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07191e">
   <title>Patrocinios · TannerOS</title>
   <link rel="stylesheet" href="/v2/styles.css">
-  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261025f">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261025g">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <link rel="stylesheet" href="/icons.css?v=20260907a">
@@ -43,20 +43,18 @@
       <div>
         <div class="eyebrow">MARKETING · PATROCINIOS</div>
         <h1>Patrocinios</h1>
-        <p class="muted">Qué nos da cada marca, qué le debemos y qué toca hoy.</p>
+        <p class="muted">Vende, cotiza y cumple: todo en un lugar.</p>
       </div>
       <button id="newSponsorButton" class="primary hero-primary pt-cta write-only" type="button"><span class="pt-cta-mas" aria-hidden="true">+</span><span>Nueva marca</span></button>
     </section>
 
     <nav class="module-nav" aria-label="Secciones de Patrocinios">
-      <button class="active" data-view="summary" type="button">Hoy</button>
-      <button data-view="route" type="button">Marcas</button>
-      <button data-view="assets" type="button">Activos Tanner</button>
-      <button data-view="uniform" type="button">Uniforme</button>
-      <button data-view="audience" type="button">Audiencia</button>
+      <button class="active" data-view="assets" type="button">Vender</button>
+      <button data-view="summary" type="button">Marcas</button>
+      <button data-view="quotes" type="button">Cotizaciones <b id="quotesBadge" class="pt-nav-badge hidden"></b></button>
     </nav>
 
-    <section id="summaryView" class="module-view">
+    <section id="summaryView" class="module-view hidden">
       <section class="pt-marcador" aria-label="Cómo vamos">
         <!-- Meta 2027 (25/10/2026): efectivo del mes contra $30,000. La especie va aparte y no suma. -->
         <article class="pt-meta"><span id="ptMetaTitulo">Efectivo del mes</span><strong id="ptEfectivo">$0</strong><small id="ptEfectivoSub"></small><i class="pt-meta-barra"><b id="ptMetaBarra"></b></i></article>
@@ -101,6 +99,7 @@
         <div id="stageRail" class="stage-rail" aria-label="Filtrar por etapa"></div>
         <span id="routeResultCount" class="muted tiny"></span>
         <div id="routeList" class="brand-grid"></div>
+        <details id="archivedBox" class="pt-archivadas hidden"><summary>Archivadas <b id="archivedCount">0</b></summary><div id="archivedList" class="pt-archivadas-lista"></div></details>
         <div id="routeEmpty" class="empty-state hidden">
           <strong>No hay marcas aquí</strong>
           <span>Elige otra etapa, cambia la búsqueda o registra una nueva marca.</span>
@@ -109,47 +108,60 @@
       </article>
     </section>
 
-    <section id="assetsView" class="module-view hidden">
+    <!-- Vender (25/10/2026): el catálogo por categoría con foto y precio, un
+         carrito y "Cotizar". El uniforme es una categoría más, con su mapa. -->
+    <section id="assetsView" class="module-view">
       <article class="panel">
         <div class="panel-head assets-head">
           <div>
-            <div class="eyebrow">LO QUE TANNERY CITY PUEDE OFRECER</div>
-            <h2>Activos Tanner</h2>
-            <p class="muted section-copy">Crea solamente los espacios, contenidos y beneficios que realmente puedas ofrecer.</p>
+            <div class="eyebrow">CATÁLOGO PARA PATROCINADORES</div>
+            <h2>¿Qué le vendemos?</h2>
+            <p class="muted section-copy">Toca <b>+ Agregar</b> en lo que le interesa a la marca y luego <b>Cotizar</b>.</p>
           </div>
-          <div class="pt-activos-acc"><button id="proposalButton" class="primary pt-propuesta-btn" type="button">Armar propuesta</button><button id="priceListButton" class="secondary write-only" type="button">Lista de precios</button><button id="newAssetButton" class="secondary write-only" type="button">+ Agregar activo</button></div>
+          <div class="pt-activos-acc"><button id="audienceButton" class="secondary" type="button">Audiencia</button><button id="priceListButton" class="secondary write-only" type="button">Lista de precios</button><button id="newAssetButton" class="secondary write-only" type="button">+ Activo</button></div>
         </div>
-        <div id="assetFilters" class="pt-filtros" role="group" aria-label="Filtrar activos"></div>
-        <div id="proposalBar" class="pt-propuesta-barra hidden"><span id="proposalCount">Elige los activos de la propuesta</span><button id="proposalCancel" class="secondary mini" type="button">Cancelar</button><button id="proposalMake" class="primary mini" type="button" disabled>Armar PDF</button></div>
+        <label class="search-field pt-vender-busca" aria-label="Buscar en el catálogo"><input id="assetSearch" type="search" placeholder="Buscar: pecho, reel, lona…"></label>
+        <div id="assetFilters" class="pt-filtros pt-cats" role="group" aria-label="Categorías"></div>
+        <div id="uniformBlock" class="pt-uni-bloque hidden">
+          <div id="uniformSummary" class="pt-uni-resumen"></div>
+          <div id="uniformMap" class="pt-uni-mapa"></div>
+          <p class="muted tiny">Toca un lugar del uniforme para ver quién lo tiene, asignarlo o liberarlo.</p>
+          <div id="uniformEmpty" class="empty-state hidden"><strong>Sin lugares del uniforme</strong><span>Agrega activos en la categoría Uniforme para verlos aquí.</span></div>
+        </div>
         <!-- Lista de precios (25/10/2026): todos los precios en una tabla, se cambian y se guardan ahí mismo. -->
         <div id="priceList" class="pt-precios hidden"></div>
-        <div id="assetList" class="asset-grid"></div>
+        <div id="assetList" class="pt-catalogo"></div>
         <div id="assetEmpty" class="empty-state asset-empty hidden">
           <div class="empty-icon">T</div>
-          <strong>Tu inventario comienza aquí</strong>
-          <span>No precargamos activos. Agrega únicamente lo que el club tenga disponible.</span>
+          <strong>Tu catálogo comienza aquí</strong>
+          <span>Agrega únicamente lo que el club pueda ofrecer, con foto y precio.</span>
           <button class="primary write-only open-new-asset" type="button">Agregar primer activo</button>
         </div>
       </article>
+      <div id="cartBar" class="pt-carrito hidden" role="region" aria-label="Carrito de la cotización">
+        <span class="pt-carrito-txt"><b id="cartCount">0 espacios</b><small id="cartTotal">$0</small></span>
+        <button id="cartClear" class="secondary mini" type="button">Vaciar</button>
+        <button id="cartQuote" class="primary" type="button">Cotizar</button>
+      </div>
     </section>
-    <!-- Mapa del uniforme (25/10/2026): cada lugar del jersey y el short con su
-         precio y la marca que lo tiene; tocarlo lo asigna o lo agrega a una propuesta. -->
-    <section id="uniformView" class="module-view hidden">
+
+    <section id="quotesView" class="module-view hidden">
       <article class="panel">
         <div class="panel-head">
-          <div><div class="eyebrow">PATROCINIOS EN EL UNIFORME</div><h2>Uniforme oficial</h2>
-          <p class="muted section-copy">Toca un lugar para ver quién lo tiene, asignarlo a una marca o agregarlo a una propuesta.</p></div>
+          <div><div class="eyebrow">VENTAS</div><h2>Cotizaciones</h2>
+          <p class="muted section-copy">De borrador a aceptada. Descuentos arriba del <b id="quoteCapText">10%</b> los autoriza Presidencia.</p></div>
+          <button id="newQuoteButton" class="primary write-only" type="button">+ Nueva cotización</button>
         </div>
-        <div id="uniformSummary" class="pt-uni-resumen"></div>
-        <div id="uniformMap" class="pt-uni-mapa"></div>
-        <div id="uniformEmpty" class="empty-state hidden"><strong>Sin lugares del uniforme</strong><span>Agrega activos de la familia "Uniforme" para verlos aquí.</span></div>
+        <div id="quoteFilters" class="pt-filtros" role="group" aria-label="Filtrar cotizaciones"></div>
+        <div id="quoteList" class="pt-cots"></div>
+        <div id="quoteEmpty" class="empty-state hidden"><strong>Sin cotizaciones aquí</strong><span>Ve a Vender, agrega espacios y toca Cotizar.</span></div>
       </article>
     </section>
 
     <section id="audienceView" class="module-view hidden">
       <article class="panel">
         <div class="panel-head">
-          <div><div class="eyebrow">LO QUE VEN NUESTRAS REDES</div><h2>Audiencia</h2>
+          <div><button id="audienceBack" class="pt-link" type="button">&larr; Volver a Vender</button><div class="eyebrow">LO QUE VEN NUESTRAS REDES</div><h2>Audiencia</h2>
           <p class="muted section-copy">Cada dato con su red, periodo y fuente. No se suman entre redes: visualizaciones no son personas.</p></div>
           <button id="newMetricButton" class="secondary write-only" type="button">+ Agregar dato</button>
         </div>
@@ -309,17 +321,18 @@
       <div id="assetPhotoBox" class="photo-box"><span>Sin foto</span></div>
       <div class="photo-actions">
         <button type="button" id="assetPhotoAction" class="secondary mini">Agregar foto</button>
+        <button type="button" id="assetPhotoRemove" class="text-danger mini hidden">Quitar foto</button>
         <input type="file" id="assetPhotoInput" accept="image/*" hidden>
       </div>
       <div id="assetPhotoMessage" class="inline-message hidden"></div>
     </div>
     <label class="span-2">Nombre<input id="assetName" minlength="2" maxlength="160" required></label>
-    <label>Categoría<select id="assetCategory"><option value="digital">Digital</option><option value="park">Instalaciones del club</option><option value="uniforms">Uniformes</option><option value="sports">Deportivo</option><option value="content">Contenido</option><option value="other">Otros</option></select></label>
+    <label>Categoría<select id="assetCategory"><option value="uniforms">Uniforme</option><option value="park">Complejo</option><option value="digital">Redes y contenido</option><option value="sports">Eventos y transmisiones</option><option value="other">Paquetes</option></select></label>
     <label>Disponibilidad<select id="assetAvailability"><option value="available">Disponible</option><option value="partial">Parcial</option><option value="occupied">Ocupado</option></select></label>
     <label>Entidad<select id="assetEntity"><option value="TC">Club</option><option value="TCP">Complejo deportivo</option><option value="AMBOS">Ambos</option></select></label>
     <label>Canal<input id="assetChannel" maxlength="60" placeholder="Instagram, Presencial…"></label>
     <label>Unidad<input id="assetUnit" maxlength="40" placeholder="reel, publicación, espacio…"></label>
-    <label>Familia<input id="assetFamily" maxlength="60" placeholder="Contenido, Espacio físico…"></label>
+    <label>Subcategoría<input id="assetFamily" maxlength="60" placeholder="Video, Lona, Transmisión…"></label>
     <label>Precio de referencia <span class="optional">interno</span><input id="assetPrice" type="number" min="0" step="0.01" inputmode="decimal"></label>
     <label>Estado del precio<select id="assetPriceStatus"><option value="por_cotizar">Por cotizar</option><option value="propuesta">Propuesta (no se publica)</option><option value="aprobado">Aprobado (sale en propuestas)</option></select></label>
     <label class="span-2">Validación<input id="assetValidation" maxlength="60" placeholder="CONFIRMADO, PROPUESTO, CONDICIONADO…"></label>
@@ -339,7 +352,30 @@
     <button id="spotAssign" class="primary span-2" type="submit">Asignar este lugar</button>
     <div id="spotMessage" class="inline-message hidden span-2"></div>
   </form>
-  <div class="pt-spot-acc"><button id="spotProposal" class="secondary" type="button">Agregar a una propuesta</button><button id="spotEdit" class="pt-link" type="button">Editar precio y datos</button></div>
+  <div class="pt-spot-acc"><button id="spotProposal" class="secondary" type="button">+ Agregar a la cotización</button><button id="spotEdit" class="pt-link write-only" type="button">Editar precio y datos</button><button id="spotFree" class="text-danger hidden" type="button">Liberar este lugar</button></div>
+</section>
+
+<section id="quoteModal" class="workspace-modal hidden" role="dialog" aria-modal="true" aria-labelledby="quoteTitle">
+  <div class="modal-head"><div><div class="eyebrow">COTIZACIÓN</div><h2 id="quoteTitle">Nueva cotización</h2><p id="quoteSub" class="muted modal-subtitle"></p></div><button class="secondary mini close-workspace-modal" type="button">Cerrar</button></div>
+  <form id="quoteForm" class="pt-cot-form">
+    <label>¿Para qué marca?<select id="quoteSponsor" required></select></label>
+    <label id="quoteProspectField" class="hidden">Nombre de la marca nueva<input id="quoteProspect" maxlength="160" placeholder="Ej. Ferretería del Centro"></label>
+    <div id="quoteLines" class="pt-cot-lineas"></div>
+    <button type="button" id="quoteAddMore" class="pt-link">+ Agregar más espacios</button>
+    <div class="pt-cot-desc">
+      <span>Descuento</span>
+      <div class="pt-seg" role="group" aria-label="Tipo de descuento"><button type="button" data-desc="pct" aria-pressed="true">%</button><button type="button" data-desc="amount" aria-pressed="false">$</button></div>
+      <input id="quoteDiscount" type="number" min="0" step="1" inputmode="decimal" placeholder="0" aria-label="Descuento">
+    </div>
+    <div id="quoteTotals" class="pt-cot-totales"></div>
+    <div id="quoteWarn" class="pt-cot-aviso hidden"></div>
+    <div class="form-grid">
+      <label>Válida hasta<input id="quoteValid" type="date"></label>
+      <label>Nota <span class="optional">opcional</span><input id="quoteNotes" maxlength="500" placeholder="Ej. Incluye diseño del logo"></label>
+    </div>
+    <button id="saveQuote" class="primary full-button" type="submit">Guardar cotización</button>
+    <div id="quoteMessage" class="inline-message hidden"></div>
+  </form>
 </section>
 
 <section id="trackModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="trackTitle">
@@ -374,6 +410,7 @@
     <label>Validación<select id="metricValidation"><option value="CONFIRMADO">Confirmado</option><option value="APROXIMADO">Aproximado</option><option value="ESTIMADO">Estimado</option><option value="PENDIENTE">Pendiente</option></select></label>
     <label>Nota <span class="optional">opcional</span><input id="metricNotes" maxlength="300"></label>
     <button id="saveMetric" class="primary span-2" type="submit">Guardar dato</button>
+    <button id="voidMetric" class="text-danger span-2 hidden" type="button">Anular este dato</button>
     <div id="metricMessage" class="inline-message hidden span-2"></div>
   </form>
 </section>
@@ -435,11 +472,12 @@
     <label>Referencia <span class="optional">opcional</span><input id="paymentReference" maxlength="120"></label>
     <label class="span-2">Nota <span class="optional">opcional</span><textarea id="paymentNote" rows="2" maxlength="500"></textarea></label>
     <button id="savePayment" class="primary span-2" type="submit">Registrar pago</button>
+    <button id="paymentCancelEdit" class="pt-link span-2 hidden" type="button">Cancelar edición</button>
     <div id="paymentMessage" class="inline-message hidden span-2"></div>
   </form>
 </section>
 
 <script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/patrocinadores/app.js?v=20261025f"></script>
+<script type="module" src="/v2/patrocinadores/app.js?v=20261025g"></script>
 </body>
 </html>

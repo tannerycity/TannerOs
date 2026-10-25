@@ -422,3 +422,55 @@
 .pt-item-mas summary{cursor:pointer;font-size:12px;font-weight:800;color:#087d8e;padding:4px 0}
 .pt-item-mas .item-editor-grid{margin-top:6px}
 @media(max-width:560px){.pt-item-fila{grid-template-columns:1fr 1fr!important}.pt-item-fila label:first-child{grid-column:1/-1}.pt-accion{flex:1 1 auto}}
+/* Activos digitales, audiencia y meta en efectivo (25/10/2026). */
+.pt-meta{position:relative}
+.pt-meta strong{color:#0b3d4a}
+.pt-meta.ok strong{color:#1d7a46}
+.pt-meta-barra{display:block;height:6px;border-radius:999px;background:#edf2f1;margin-top:6px;overflow:hidden}
+.pt-meta-barra b{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#c6ac5c,#1d7a46)}
+.pt-tablero-head h2 small{font-size:13px;font-weight:600}
+.pt-activos-acc{display:flex;flex-wrap:wrap;gap:8px}
+.pt-propuesta-btn{background:linear-gradient(135deg,#e2c977,#c6ac5c)!important;color:#07191e!important;border:0!important;font-weight:900!important}
+.pt-filtros{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.pt-filtros button{border:1px solid #d6e2df;background:#fff;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;font-weight:700;color:#31525c;cursor:pointer}
+.pt-filtros button b{color:#7a8a8f;font-weight:800;margin-left:2px}
+.pt-filtros button[aria-pressed="true"]{background:#0b3d4a;border-color:#0b3d4a;color:#fff}
+.pt-filtros button[aria-pressed="true"] b{color:#e2c977}
+.pt-propuesta-barra{position:sticky;top:8px;z-index:5;display:flex;align-items:center;gap:8px;padding:10px 12px;margin-bottom:12px;border-radius:14px;background:#fffaf0;border:1px solid #ecdcae;box-shadow:0 8px 20px -12px rgba(120,95,30,.5)}
+.pt-propuesta-barra span{flex:1;font-weight:800;color:#6b5414;font-size:13.5px}
+.pt-grupo{grid-column:1/-1;margin:10px 2px 0;font-size:13px;letter-spacing:.02em;color:#31525c;display:flex;gap:8px;align-items:center}
+.pt-grupo span{font-size:11px;font-weight:800;color:#7a8a8f;background:#eef2f1;border-radius:999px;padding:2px 8px}
+.asset-card{position:relative}
+.asset-card.elegido{outline:3px solid #c6ac5c;outline-offset:-1px}
+.pt-elige{position:absolute;top:10px;right:10px;z-index:2;font-size:11px;font-weight:900;border-radius:999px;padding:4px 10px;background:#fff;border:1px solid #d6e2df;color:#31525c}
+.asset-card.elegido .pt-elige{background:#c6ac5c;border-color:#c6ac5c;color:#07191e}
+.pt-valida{justify-self:start;font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.03em;border-radius:999px;padding:2px 8px;background:#eef2f1;color:#4a6168}
+.pt-valida.confirmado{background:#e4f4ea;color:#1d7a46}
+.pt-valida.aproximado,.pt-valida.estimado,.pt-valida.condicionado{background:#fff3dc;color:#9a6a12}
+.pt-valida.propuesto,.pt-valida.pendiente{background:#f1ecfb;color:#5b3d9a}
+.pt-item-det{display:block;font-size:11.5px;color:#6b7a80;font-weight:600;margin-top:2px}
+.pt-auditar{display:inline-block;margin-top:3px;font-style:normal;font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px;background:#f1ecfb;color:#5b3d9a}
+.pt-mas-item{flex:0 0 auto;border:0;background:#eef2f1;border-radius:10px;width:34px;height:30px;font:inherit;font-weight:900;color:#31525c;cursor:pointer;margin-left:6px}
+.pt-aparte{margin:10px 0 0;font-size:12px;color:#7a8a8f}
+.pt-acuerdo-acc{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.pt-descartar{color:#b0451f!important;font-size:13px}
+.pt-vigencia{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pt-vigencia span{font-size:12px;font-weight:800;color:#6b7a80}
+.pt-vigencia button{border:1px solid #cfe0dc;background:#fff;border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:800;color:#0b3d4a;cursor:pointer}
+.pt-audiencia{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.pt-red{border:1px solid #e2e9e7;border-radius:18px;background:#fff;padding:14px 16px}
+.pt-red header{display:grid;gap:2px;margin-bottom:8px}
+.pt-red-ent{font-size:11px;font-weight:900;letter-spacing:.06em;color:#c6ac5c;text-transform:uppercase}
+.pt-red h3{margin:0;font-size:18px}
+.pt-red header small{font-size:12px;color:#6b7a80}
+.pt-red ul{list-style:none;margin:0;padding:0;display:grid}
+.pt-red li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 0;border-top:1px solid #eef2f1}
+.pt-met-k{font-size:13px;font-weight:700;color:#31525c}
+.pt-red li b{font-size:16px;color:#07191e;text-align:right;font-variant-numeric:tabular-nums}
+.pt-red li small{grid-column:1/-1;font-size:11.5px;color:#7a8a8f}
+.pt-red li .pt-valida{grid-column:1/-1}
+.pt-red-sin{background:#f7faf9}
+@media(max-width:560px){.pt-audiencia{grid-template-columns:1fr}.pt-activos-acc{width:100%}.pt-activos-acc button{flex:1}}
+.pt-activos-acc .pt-propuesta-btn{background:linear-gradient(135deg,#e2c977,#c6ac5c)!important;color:#07191e!important}
+#assetList{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+#assetList .asset-card{align-content:start}

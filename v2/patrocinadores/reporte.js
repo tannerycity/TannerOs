@@ -20,7 +20,7 @@ const cantidad = i => (i.quantity != null ? `${Number(i.quantity)} ${i.unit || '
 export function datosDelReporte({ sponsor, agreements = [], items = [], evidence = [], becados = [], hoy }) {
   const acuerdos = agreements.filter(a => a.sponsorId === sponsor.id && a.status !== 'cancelled');
   const ids = new Set(acuerdos.map(a => a.id));
-  const suyos = items.filter(i => ids.has(i.agreementId)).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const suyos = items.filter(i => ids.has(i.agreementId) && i.auditStatus !== 'venta_aparte').sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const fotosDe = id => evidence.filter(e => e.itemId === id && e.photoPath);
   const damos = suyos.filter(i => i.direction === 'give');
   const hechos = damos.filter(i => i.fulfilled).map(i => ({ id: i.id, texto: i.description, detalle: cantidad(i), cuando: i.fulfilledAt ? fechaLarga(i.fulfilledAt) : '', fotos: fotosDe(i.id) }))

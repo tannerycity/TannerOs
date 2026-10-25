@@ -2,7 +2,8 @@ import { createClient } from '/v2/supabase-client.js';
 import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { datosDelReporte, reportePdf, nombreDelReporte } from '/v2/patrocinadores/reporte.js';
-import { saludDeMarca, hoyToca, marcador, ordenTablero } from '/v2/patrocinadores/tablero.js';
+import { saludDeMarca, hoyToca, marcador, ordenTablero, efectivoDelMes, especieRecibida } from '/v2/patrocinadores/tablero.js';
+import { propuestaPdf, nombreDePropuesta, ultimasMetricas, ETIQUETA_METRICA } from '/v2/patrocinadores/propuesta.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
@@ -62,6 +63,9 @@ let agreementItems = [];
 let movements = [];
 let itemEvidence = [];
 let payments = [];
+let socialAccounts = [];
+let socialMetrics = [];
+let cashGoal = 30000;
 let evidenceTargetItemId = null;
 let paymentsAgreementId = null;
 let billingPlayers = [];
@@ -317,6 +321,7 @@ async function boot() {
   $('orgName').textContent = ctx.organization_name||'';
   $('roleBadge').textContent = ctx.is_owner ? 'Presidencia' : ctx.role;
   writeControls();
+  nombraEntidades();
   renderBeneficiaries();
   await load();
   show('view');
@@ -353,6 +358,9 @@ async function load() {
   movements = Array.isArray(data?.movements) ? data.movements : [];
   itemEvidence = Array.isArray(data?.itemEvidence) ? data.itemEvidence : [];
   payments = Array.isArray(data?.payments) ? data.payments : [];
+  socialAccounts = Array.isArray(data?.socialAccounts) ? data.socialAccounts : [];
+  socialMetrics = Array.isArray(data?.socialMetrics) ? data.socialMetrics : [];
+  cashGoal = Number(data?.cashGoalMonthly) || 30000;
   render();
 }
 
@@ -534,6 +542,7 @@ async function deleteEvidence(evidenceId, bucket, path) {
 function render() {
   renderSummary();
   renderRoute();
+  renderAudience();
   renderAssets();
   if (selectedSponsorId && !$('brandDrawer').classList.contains('hidden')) renderBrandDrawer();
   writeControls();
@@ -571,11 +580,17 @@ function barra(etiqueta, c) {
 function renderSummary() {
   const salud = saludes();
   const m = marcador(salud);
-  $('ptMarcas').textContent = m.marcas;
   const abiertas = sponsors.filter(isOpenSponsor).length;
-  $('ptMarcasSub').textContent = abiertas ? abiertas + ' más en plática' : 'ninguna en plática';
-  $('ptValor').textContent = money.format(m.valor);
-  $('ptValorSub').textContent = m.porRecibir ? 'recibido ' + m.recibido + ' de ' + m.porRecibir + ' en especie y dinero' : 'sin compromisos capturados';
+  $('ptMarcasSub').textContent = '· ' + m.marcas + ' con nosotros' + (abiertas ? ', ' + abiertas + ' en plática' : '');
+  const ef = efectivoDelMes(payments, hoyIso(), cashGoal), es = especieRecibida(agreementItems, agreements);
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  $('ptMetaTitulo').textContent = 'Efectivo de ' + MESES[Number(ef.mes.slice(5, 7)) - 1];
+  $('ptEfectivo').textContent = money.format(ef.cobrado);
+  $('ptEfectivoSub').textContent = ef.falta ? 'meta ' + money.format(ef.meta) + ' · faltan ' + money.format(ef.falta) : 'meta ' + money.format(ef.meta) + ' cumplida';
+  $('ptMetaBarra').style.width = ef.pct + '%';
+  document.querySelector('.pt-meta')?.classList.toggle('ok', !ef.falta);
+  $('ptEspecie').textContent = es.recibidos + ' de ' + es.total;
+  $('ptEspecieSub').textContent = (es.valor ? 'valor estimado ' + money.format(es.valor) + ' · ' : '') + 'no cuenta para la meta';
   $('ptPorCobrar').textContent = money.format(m.porCobrar);
   $('ptCobradoSub').textContent = 'cobrado ' + money.format(m.cobrado);
   $('ptDebemos').textContent = m.debemos;
@@ -668,22 +683,137 @@ function brandCard(sponsor) {
   '</button>';
 }
 
+// Activos (25/10/2026): por entidad y familia, con filtros; lo interno (precio
+// sin aprobar, notas) sólo se ve aquí, nunca en lo que recibe la marca.
+// TC es el club y TCP su complejo (Park). El nombre sale del club, nunca fijo.
+const ENTIDADES = { TC: 'Club', TCP: 'Complejo deportivo', AMBOS: 'Club + complejo' };
+function nombraEntidades() {
+  const club = nombreDelClub(ctx);
+  ENTIDADES.TC = club; ENTIDADES.TCP = /city/i.test(club) ? club.replace(/\s*(FC|F\.C\.)\s*$/i, '') + ' Park' : 'Complejo deportivo';
+  ENTIDADES.AMBOS = 'Club + complejo';
+  ['assetEntity', 'metricEntity'].forEach((id) => $(id)?.querySelectorAll('option').forEach((o) => { if (ENTIDADES[o.value]) o.textContent = ENTIDADES[o.value]; }));
+}
+const PRECIO_ESTADO = { por_cotizar: 'Por cotizar', propuesta: 'Propuesta', aprobado: 'Aprobado' };
+let assetFilter = 'all';
+let proposalMode = false;
+const proposalPick = new Set();
+function filtraActivos() {
+  if (assetFilter === 'all') return assets;
+  if (assetFilter === 'paquetes') return assets.filter((a) => a.family === 'Paquete');
+  if (assetFilter === 'fisicos') return assets.filter((a) => a.family === 'Espacio físico' || a.category === 'park' || a.category === 'uniforms');
+  return assets.filter((a) => a.entity === assetFilter && a.family !== 'Paquete');
+}
+function precioInterno(a) {
+  if (a.price == null || a.price === '') return PRECIO_ESTADO[a.priceStatus] || 'Por cotizar';
+  return money.format(Number(a.price)) + (a.unit === 'por mes' ? '/mes' : '') + (a.priceStatus === 'aprobado' ? '' : ' · ' + (PRECIO_ESTADO[a.priceStatus] || '').toLowerCase());
+}
 function renderAssets() {
+  const cuenta = (f) => { const prev = assetFilter; assetFilter = f; const n = filtraActivos().length; assetFilter = prev; return n; };
+  const filtros = [['all', 'Todos'], ['TC', ENTIDADES.TC], ['TCP', ENTIDADES.TCP], ['fisicos', 'Espacios físicos'], ['paquetes', 'Paquetes']];
+  $('assetFilters').innerHTML = filtros.filter(([k]) => k === 'all' || cuenta(k)).map(([k, t]) =>
+    '<button type="button" data-filtro="' + k + '" aria-pressed="' + (assetFilter === k) + '">' + esc(t) + ' <b>' + cuenta(k) + '</b></button>').join('');
+  const lista = filtraActivos();
   $('assetEmpty').classList.toggle('hidden', assets.length > 0);
-  $('assetList').innerHTML = assets.map((asset) => (
-    '<button class="asset-card" data-asset-id="' + esc(asset.id) + '" type="button">' +
-      '<span class="asset-photo" data-photo-for="' + esc(asset.id) + '">' + (asset.photoPath ? '' : 'Sin foto') + '</span>' +
-      '<span class="asset-category">' + esc(ASSET_CATEGORIES[asset.category] || asset.category || 'Otros') + '</span>' +
+  const grupos = new Map();
+  lista.forEach((a) => { const g = (a.family === 'Paquete' ? 'Paquetes' : (ENTIDADES[a.entity] || 'Sin entidad') + ' · ' + (a.family || ASSET_CATEGORIES[a.category] || 'Otros')); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(a); });
+  $('assetList').innerHTML = [...grupos.entries()].map(([g, l]) => '<h3 class="pt-grupo">' + esc(g) + ' <span>' + l.length + '</span></h3>' + l.map((asset) => (
+    '<button class="asset-card' + (proposalMode && proposalPick.has(asset.id) ? ' elegido' : '') + '" data-asset-id="' + esc(asset.id) + '" type="button">' +
+      (proposalMode ? '<span class="pt-elige" aria-hidden="true">' + (proposalPick.has(asset.id) ? 'Elegido' : 'Elegir') + '</span>' : '') +
+      (asset.photoPath ? '<span class="asset-photo" data-photo-for="' + esc(asset.id) + '"></span>' : '') +
+      '<span class="asset-category">' + esc([asset.channel, asset.unit].filter(Boolean).join(' · ') || ASSET_CATEGORIES[asset.category] || 'Otros') + '</span>' +
       '<strong>' + esc(asset.name) + '</strong>' +
       '<span class="asset-description">' + esc(asset.description || 'Sin descripción') + '</span>' +
-      '<span class="asset-foot"><b>' + (asset.price != null ? money.format(Number(asset.price)) : 'Sin precio') + '</b>' +
+      (asset.validation ? '<span class="pt-valida ' + esc(String(asset.validation).split(' ')[0].toLowerCase()) + '">' + esc(asset.validation) + '</span>' : '') +
+      '<span class="asset-foot"><b>' + esc(precioInterno(asset)) + '</b>' +
       '<i class="availability ' + esc(asset.availability || 'available') + '">' + esc(ASSET_AVAILABILITY[asset.availability] || asset.availability || 'Disponible') + '</i></span>' +
     '</button>'
-  )).join('');
+  )).join('')).join('');
   $('assetList').querySelectorAll('[data-asset-id]').forEach((button) => {
-    button.addEventListener('click', () => openAssetForm(assetById(button.dataset.assetId)));
+    button.addEventListener('click', () => {
+      if (!proposalMode) { openAssetForm(assetById(button.dataset.assetId)); return; }
+      const id = button.dataset.assetId;
+      if (proposalPick.has(id)) proposalPick.delete(id); else proposalPick.add(id);
+      pintaPropuestaBarra(); renderAssets();
+    });
   });
   hydrateAssetPhotos();
+}
+function pintaPropuestaBarra() {
+  $('proposalBar').classList.toggle('hidden', !proposalMode);
+  $('proposalButton').classList.toggle('hidden', proposalMode);
+  $('proposalCount').textContent = proposalPick.size ? proposalPick.size + ' ' + (proposalPick.size === 1 ? 'activo elegido' : 'activos elegidos') : 'Toca los activos que van en la propuesta';
+  $('proposalMake').disabled = !proposalPick.size;
+}
+
+/* Propuesta en un clic (25/10/2026): los activos elegidos, con foto, y la
+   audiencia con su periodo y fuente. Sólo enseña precios APROBADOS; lo demás
+   sale "A cotizar". Las notas internas nunca salen. */
+async function armarPropuesta() {
+  const elegidos = assets.filter((a) => proposalPick.has(a.id));
+  if (!elegidos.length) return;
+  const marca = await tosPrompt({ kicker: 'PROPUESTA', title: '¿Para qué marca es?', message: 'Sale en la portada de la propuesta.', placeholder: 'Ej. Ferretería del Centro', required: true, requiredText: 'Escribe la marca.', confirmText: 'Armar PDF', maxlength: 80 });
+  if (!marca) return;
+  const b = $('proposalMake'); b.disabled = true; b.textContent = 'Armando…';
+  try {
+    const fotos = {};
+    await Promise.all(elegidos.filter((a) => a.photoPath).map(async (a) => {
+      try { const url = await signedUrl(a.photoBucket, a.photoPath); if (url) fotos[a.id] = await fotoJpeg(url, 900); } catch { /* sin foto: va el nombre */ }
+    }));
+    const hoy = hoyIso();
+    const doc = await propuestaPdf({ marca, club: nombreDelClub(ctx), entidades: ENTIDADES, activos: elegidos, metricas: socialMetrics, fotos, hoy });
+    const nombre = nombreDePropuesta(marca, hoy);
+    const ok = await tosConfirm({ kicker: 'PROPUESTA', title: 'Propuesta lista', message: elegidos.length + ' activos para ' + marca + '. Los precios sin aprobar salen como "A cotizar".', confirmText: 'Compartir', cancelText: 'Cerrar' });
+    if (ok) {
+      const archivo = new File([doc.output('blob')], nombre, { type: 'application/pdf' });
+      let compartido = false;
+      try { if (navigator.canShare && navigator.canShare({ files: [archivo] })) { await navigator.share({ files: [archivo], title: nombre }); compartido = true; } } catch (e) { if (e?.name === 'AbortError') compartido = true; }
+      if (!compartido) doc.save(nombre);
+    }
+    proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); renderAssets();
+  } catch (error) {
+    await tosAlert({ kicker: 'PROPUESTA', title: 'No se pudo armar', message: friendly(error) });
+  } finally { b.disabled = !proposalPick.size; b.textContent = 'Armar PDF'; }
+}
+
+/* Audiencia (25/10/2026): la última foto de cada métrica por entidad y red.
+   Nunca se suman redes ni se mezclan visualizaciones con personas. */
+function renderAudience() {
+  const box = $('audienceList'); if (!box) return;
+  $('audienceEmpty').classList.toggle('hidden', socialMetrics.length > 0 || socialAccounts.length > 0);
+  const ult = ultimasMetricas(socialMetrics);
+  const bloques = new Map();
+  ult.forEach((m) => { const k = m.entity + '|' + m.channel; if (!bloques.has(k)) bloques.set(k, []); bloques.get(k).push(m); });
+  const fecha = (f) => f ? shortDate(f) : '';
+  box.innerHTML = [...bloques.entries()].map(([k, l]) => {
+    const [ent, red] = k.split('|');
+    const cuenta = socialAccounts.find((a) => a.entity === ent && a.platform === red);
+    return '<article class="pt-red"><header><span class="pt-red-ent">' + esc(ENTIDADES[ent] || ent) + '</span><h3>' + esc(red) + '</h3>' +
+      (cuenta?.baseline ? '<small>' + esc(cuenta.baseline) + '</small>' : '') + '</header><ul>' +
+      l.map((m) => '<li><span class="pt-met-k">' + esc(ETIQUETA_METRICA[m.metric] || m.metric.replace(/_/g, ' ')) + '</span>' +
+        '<b>' + esc(Number(m.value).toLocaleString('es-MX')) + (m.unit === 'porcentaje' ? '%' : '') + '</b>' +
+        '<small>' + esc([m.unit !== 'porcentaje' ? m.unit : null, m.window, (m.periodStart ? fecha(m.periodStart) + ' – ' : 'al ') + fecha(m.periodEnd)].filter(Boolean).join(' · ')) + '</small>' +
+        '<i class="pt-valida ' + esc(String(m.validation).toLowerCase()) + '">' + esc(m.validation) + '</i>' +
+        '<small class="pt-met-f">' + esc(m.source) + (m.notes ? ' · ' + esc(m.notes) : '') + '</small></li>').join('') +
+      '</ul></article>';
+  }).join('') + (socialAccounts.filter((a) => !ult.some((m) => m.entity === a.entity && m.channel === a.platform)).length
+    ? '<article class="pt-red pt-red-sin"><header><h3>Sin datos todavía</h3></header><ul>' + socialAccounts.filter((a) => !ult.some((m) => m.entity === a.entity && m.channel === a.platform))
+      .map((a) => '<li><span class="pt-met-k">' + esc((ENTIDADES[a.entity] || a.entity) + ' · ' + a.platform) + '</span><small>' + esc([a.baseline, a.pending].filter(Boolean).join(' · ')) + '</small></li>').join('') + '</ul></article>' : '');
+}
+function openMetricForm() {
+  if (!canWrite) return;
+  $('metricForm').reset(); $('metricEnd').value = hoyIso(); message('metricMessage');
+  openModal('metricModal');
+}
+async function saveMetric(event) {
+  event.preventDefault(); message('metricMessage');
+  const b = $('saveMetric'); b.disabled = true;
+  try {
+    await rpc('v2_add_social_metric', { organization_id: ctx.organization_id, entity: $('metricEntity').value, channel: $('metricChannel').value,
+      metric: $('metricKey').value.trim(), value: Number($('metricValue').value), unit: $('metricUnit').value, window_label: $('metricWindow').value.trim() || null,
+      period_start: $('metricStart').value || null, period_end: $('metricEnd').value, source: $('metricSource').value.trim(),
+      validation: $('metricValidation').value, notes: $('metricNotes').value.trim() || null });
+    closeModal(); await load(); switchView('audience');
+  } catch (error) { message('metricMessage', friendly(error)); } finally { b.disabled = false; }
 }
 
 function bindSponsorOpeners(container) {
@@ -697,7 +827,7 @@ function switchView(view) {
   document.querySelectorAll('.module-nav [data-view]').forEach((button) => {
     button.classList.toggle('active', button.dataset.view === view);
   });
-  ['summary', 'route', 'assets'].forEach((name) => {
+  ['summary', 'route', 'assets', 'audience'].forEach((name) => {
     $(name + 'View').classList.toggle('hidden', name !== view);
   });
 }
@@ -820,6 +950,13 @@ function renderBrandSummary(sponsor) {
   bindAccionesRapidas();
 }
 
+// Seguimiento del entregable (25/10/2026): 7 de 20, quién lo lleva y si está por auditar.
+function detalleItem(item) {
+  const q = Number(item.quantity || 0), d = Number(item.deliveredQuantity || 0);
+  const partes = [q ? (item.deliveredQuantity != null ? d + ' de ' + q : q + (item.unit ? ' ' + item.unit : '')) : null, item.frequency, item.ownerName].filter(Boolean);
+  return (partes.length ? '<small class="pt-item-det">' + esc(partes.join(' · ')) + '</small>' : '') +
+    (item.auditStatus === 'por_auditar' ? '<em class="pt-auditar">Por auditar</em>' : '');
+}
 function fotoDeItem(item) {
   const n = evidenceForItem(item.id).length;
   if (item.direction !== 'give' || !item.fulfilled) return '<b>' + (item.fulfilled ? 'Recibido' : 'Pendiente') + '</b>';
@@ -838,7 +975,7 @@ function renderExchangeSummary(sponsor) {
     return;
   }
   function group(direction, title) {
-    const groupItems = items.filter((item) => item.direction === direction);
+    const groupItems = items.filter((item) => item.direction === direction && item.auditStatus !== 'venta_aparte');
     if (!groupItems.length) return '';
     const done = groupItems.filter((item) => item.fulfilled).length;
     return '<div class="exchange-summary-group">' +
@@ -846,7 +983,8 @@ function renderExchangeSummary(sponsor) {
       '<ul class="exchange-summary-list">' + groupItems.map((item) => (
         '<li class="' + (item.fulfilled ? 'fulfilled' : 'pending') + '"><label class="pt-check">' +
           '<input class="fulfillment-toggle" data-item-id="' + esc(item.id) + '" data-direction="' + esc(item.direction) + '" type="checkbox" ' + (item.fulfilled ? 'checked' : '') + ' ' + (canWrite ? '' : 'disabled') + '>' +
-          '<span>' + esc(item.description) + '</span></label>' + fotoDeItem(item) + '</li>'
+          '<span>' + esc(item.description) + detalleItem(item) + '</span></label>' + fotoDeItem(item) +
+          (canWrite && item.direction === 'give' ? '<button type="button" class="pt-mas-item" data-track-item="' + esc(item.id) + '" aria-label="Seguimiento de ' + esc(item.description) + '">···</button>' : '') + '</li>'
       )).join('') + '</ul>' +
     '</div>';
   }
@@ -864,6 +1002,39 @@ function renderExchangeSummary(sponsor) {
     }
   }));
   box.querySelectorAll('[data-foto-item]').forEach((b) => b.addEventListener('click', () => { evidenceTargetItemId = b.dataset.fotoItem; $('evidenceUploadInput').click(); }));
+  box.querySelectorAll('[data-track-item]').forEach((b) => b.addEventListener('click', () => openTrackForm(b.dataset.trackItem)));
+  const aparte = items.filter((i) => i.auditStatus === 'venta_aparte');
+  if (aparte.length) box.querySelector('.exchange-summary-card')?.insertAdjacentHTML('beforeend', '<p class="pt-aparte">Fuera del patrocinio (venta aparte): ' + aparte.map((i) => esc(i.description)).join(', ') + '</p>');
+}
+
+async function openTrackForm(itemId) {
+  const item = agreementItems.find((i) => i.id === itemId); if (!item || !canWrite) return;
+  // Primero la gente del club (puede tardar); luego los valores, para no pisar lo que ya se escribió.
+  const people = await loadPeople();
+  const sel = $('trackOwner');
+  sel.innerHTML = '<option value="">Sin responsable</option>' + people.map((p) => '<option value="' + esc(p.userId) + '">' + esc(p.name) + '</option>').join('');
+  if ($('trackItemId').value === item.id && !$('trackModal').classList.contains('hidden')) return;
+  $('trackItemId').value = item.id;
+  $('trackTitle').textContent = item.description;
+  $('trackSub').textContent = item.externalRef ? 'Referencia ' + item.externalRef : '';
+  $('trackDelivered').value = item.deliveredQuantity ?? '';
+  $('trackTotal').value = item.quantity != null ? item.quantity + (item.unit ? ' ' + item.unit : '') : 'Sin cantidad';
+  sel.value = item.ownerUserId || '';
+  $('trackFrequency').value = item.frequency || '';
+  $('trackAudit').value = item.auditStatus || '';
+  $('trackUrl').value = item.evidenceUrl || '';
+  message('trackMessage');
+  openModal('trackModal');
+}
+async function saveTrack(event) {
+  event.preventDefault(); message('trackMessage');
+  const b = $('saveTrack'); b.disabled = true;
+  try {
+    await rpc('v2_set_sponsor_item_tracking', { organization_id: ctx.organization_id, item_id: $('trackItemId').value,
+      owner_user_id: $('trackOwner').value || null, delivered_quantity: $('trackDelivered').value === '' ? null : Number($('trackDelivered').value),
+      frequency: $('trackFrequency').value.trim() || null, audit_status: $('trackAudit').value || null, evidence_url: $('trackUrl').value.trim() || null });
+    closeModal(); await load();
+  } catch (error) { message('trackMessage', friendly(error)); } finally { b.disabled = false; }
 }
 
 async function loadFundedPlayers(sponsorId) {
@@ -972,7 +1143,8 @@ function renderBrandAgreements(sponsor) {
       (agreement.benefit ? '<p class="agreement-benefit">' + esc(agreement.benefit) + (agreement.discountPercent != null ? ' · ' + esc(agreement.discountPercent) + '%' : '') + '</p>' : '') +
       '<div class="agreement-counts"><span><b>' + received.length + '</b> recibimos</span><span><b>' + given.length + '</b> damos</span><span><b>' + progress.done + '/' + progress.total + '</b> cumplidos</span></div>' +
       paymentStatus +
-      (canWrite ? '<button class="secondary mini edit-agreement-button" data-agreement-id="' + esc(agreement.id) + '" type="button">Editar acuerdo</button>' : '') +
+      (canWrite ? '<div class="pt-acuerdo-acc"><button class="secondary mini edit-agreement-button" data-agreement-id="' + esc(agreement.id) + '" type="button">Editar acuerdo</button>' +
+        (agreement.status === 'draft' ? '<button class="pt-link pt-descartar" data-descartar="' + esc(agreement.id) + '" type="button">Descartar borrador</button>' : '') + '</div>' : '') +
     '</article>';
   }).join('');
   const ocultos = todos.length - sponsorAgreements.length;
@@ -981,6 +1153,7 @@ function renderBrandAgreements(sponsor) {
       (verTodosAcuerdos ? 'Ver sólo el principal' : 'Ver ' + ocultos + ' acuerdo' + (ocultos === 1 ? '' : 's') + ' más (borradores e historial)') + '</button>');
     $('brandAgreementList').querySelector('.pt-mas-acuerdos').addEventListener('click', () => { verTodosAcuerdos = !verTodosAcuerdos; renderBrandAgreements(sponsor); });
   }
+  $('brandAgreementList').querySelectorAll('[data-descartar]').forEach((b) => b.addEventListener('click', () => descartarBorrador(b.dataset.descartar)));
   $('brandAgreementList').querySelectorAll('[data-agreement-id]').forEach((button) => {
     button.addEventListener('click', () => openAgreementForm(agreements.find((agreement) => agreement.id === button.dataset.agreementId)));
   });
@@ -1329,6 +1502,36 @@ async function saveAgreement(event) {
   }
 }
 
+/* Descartar un borrador (25/10/2026): pasa a Cancelado con todo y sus
+   elementos y fotos (no se borra nada); deja de contar en Hoy y en el reporte. */
+async function descartarBorrador(agreementId) {
+  const a = agreements.find((x) => x.id === agreementId); if (!a || a.status !== 'draft') return;
+  const items = itemsForAgreement(a.id);
+  const ok = await tosConfirm({ kicker: 'PATROCINIOS', title: '¿Descartar este borrador?',
+    message: items.length ? 'Tiene ' + items.length + ' elementos. Queda como Cancelado (no se borra) y deja de contar.' : 'Queda como Cancelado y deja de contar.',
+    confirmText: 'Sí, descartar', danger: true });
+  if (!ok) return;
+  const comoItem = (i) => ({ id: i.id, type: i.type, description: i.description, quantity: i.quantity ?? null, unit: i.unit || null, estimatedValue: i.estimatedValue ?? null, assetId: i.assetId || null, fulfilled: !!i.fulfilled });
+  try {
+    await rpc('v2_save_sponsor_agreement', { organization_id: ctx.organization_id, agreement_id: a.id, sponsor_id: a.sponsorId,
+      starts_on: a.startsOn || null, ends_on: a.endsOn || null, agreement_value: a.monetaryValue ?? null, status: 'cancelled',
+      notes: a.notes || null, benefit: a.benefit || null, discount_percent: a.discountPercent ?? null, beneficiaries: a.beneficiaries || [],
+      redemption_instructions: a.redemptionInstructions || null,
+      received_items: items.filter((i) => i.direction === 'receive').map(comoItem), given_items: items.filter((i) => i.direction === 'give').map(comoItem) });
+    await load(); switchDrawerView('brand-agreement');
+  } catch (error) { await tosAlert({ kicker: 'PATROCINIOS', title: 'No se pudo descartar', message: friendly(error) }); }
+}
+
+// Vigencia de 6 o 12 meses en un toque: desde el inicio (o desde hoy).
+function ponVigencia(meses) {
+  const ini = $('agreementStart').value || hoyIso();
+  $('agreementStart').value = ini;
+  const [y, m, d] = ini.split('-').map(Number);
+  const fin = new Date(Date.UTC(y, m - 1 + Number(meses), d));
+  fin.setUTCDate(fin.getUTCDate() - 1);
+  $('agreementEnd').value = fin.toISOString().slice(0, 10);
+}
+
 async function setFulfillment(input) {
   input.disabled = true;
   try {
@@ -1351,6 +1554,8 @@ function resetAssetForm() {
   $('assetId').value = '';
   $('assetCategory').value = 'digital';
   $('assetAvailability').value = 'available';
+  $('assetEntity').value = 'TC';
+  $('assetPriceStatus').value = 'por_cotizar';
   $('assetModalTitle').textContent = 'Agregar Activo Tanner';
   $('saveAsset').textContent = 'Guardar activo';
   $('archiveAsset').classList.add('hidden');
@@ -1371,6 +1576,13 @@ function openAssetForm(asset = null) {
     $('assetCategory').value = ASSET_CATEGORIES[asset.category] ? asset.category : 'other';
     $('assetAvailability').value = ASSET_AVAILABILITY[asset.availability] ? asset.availability : 'available';
     $('assetPrice').value = asset.price ?? '';
+    $('assetEntity').value = asset.entity || 'TC';
+    $('assetChannel').value = asset.channel || '';
+    $('assetUnit').value = asset.unit || '';
+    $('assetFamily').value = asset.family || '';
+    $('assetValidation').value = asset.validation || '';
+    $('assetPriceStatus').value = asset.priceStatus || 'por_cotizar';
+    $('assetInternalNotes').value = asset.internalNotes || '';
     $('assetDescription').value = asset.description || '';
     $('assetModalTitle').textContent = 'Editar Activo Tanner';
     $('saveAsset').textContent = 'Guardar cambios';
@@ -1399,6 +1611,13 @@ async function saveAsset(event) {
       price: $('assetPrice').value === '' ? null : Number($('assetPrice').value),
       description: $('assetDescription').value.trim() || null,
       availability: $('assetAvailability').value,
+      entity: $('assetEntity').value,
+      channel: $('assetChannel').value.trim() || null,
+      unit: $('assetUnit').value.trim() || null,
+      family: $('assetFamily').value.trim() || null,
+      validation: $('assetValidation').value.trim() || null,
+      internal_notes: $('assetInternalNotes').value.trim() || null,
+      price_status: $('assetPriceStatus').value,
     });
     if (pendingAssetPhoto && id) {
       // El activo ya existe: si la foto falla, queda abierto como edición para reintentar.
@@ -1761,6 +1980,14 @@ $('evidenceUploadInput').addEventListener('change', (event) => {
 $('sponsorStage').addEventListener('change', () => toggleLostReasonField($('sponsorStage').value));
 bindPhoneMask($('sponsorPhone'));
 $('exportSponsorKit').addEventListener('click', exportSponsorKit);
+document.querySelectorAll('.pt-vigencia [data-meses]').forEach((b) => b.addEventListener('click', () => ponVigencia(b.dataset.meses)));
+$('trackForm').addEventListener('submit', saveTrack);
+$('metricForm').addEventListener('submit', saveMetric);
+$('newMetricButton').addEventListener('click', openMetricForm);
+$('assetFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-filtro]'); if (!b) return; assetFilter = b.dataset.filtro; renderAssets(); });
+$('proposalButton').addEventListener('click', () => { proposalMode = true; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
+$('proposalCancel').addEventListener('click', () => { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
+$('proposalMake').addEventListener('click', armarPropuesta);
 $('sponsorReportButton').addEventListener('click', sponsorReport);
 $('linkFundedPlayerButton').addEventListener('click', openFundingModal);
 $('fundingForm').addEventListener('submit', saveFunding);

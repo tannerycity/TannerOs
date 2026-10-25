@@ -385,6 +385,10 @@ async function loadHomeData(generation){
   // aparece a Presidencia aquí, para no tener que ir a buscar la bitácora.
   state.cambios=0;
   if(ctx.is_owner||ctx.role==='Presidencia')jobs.push(rpcSafe('v2_change_log',{organization_id:org,pending_only:true},null).then(v=>state.cambios=Number(v?.pending||0)));
+  // Reporte del mes a las marcas (25/10/2026): del 1 al 7, a quien lleva
+  // Patrocinios, con cuántas marcas activas hay. El reporte con fotos ayuda a renovar.
+  state.reporteMarcas=0;
+  if(can('patrocinadores',true)&&new Date().getDate()<=7)jobs.push(rpcSafe('v2_sponsors',{organization_id:org},[]).then(v=>state.reporteMarcas=(Array.isArray(v)?v:[]).filter(x=>(x.stage||x.status)==='active').length));
   await Promise.allSettled(jobs);
   if(generation===loadGeneration)renderHome();
 }
@@ -431,6 +435,7 @@ function actionHref(item){
 }
 function renderAttention(){
   const items=(Array.isArray(state.actionCenter?.items)?state.actionCenter.items:[]).filter(actionAllowed);
+  if(state.reporteMarcas>0)items.unshift({code:'sponsor_report',priority:'attention',title:'Manda el reporte del mes a tus marcas',count:state.reporteMarcas,detail:'Abre cada marca y toca "Reporte para la marca": lo entregado, con fotos',href:'/patrocinadores/'});
   if(state.cambios>0)items.unshift({code:'changes_review',priority:'attention',title:state.cambios===1?'Un cambio por revisar':'Cambios por revisar',count:state.cambios,detail:'Correcciones en pedidos y cobros, con su motivo',href:'/cambios/'});
   if(!items.length){
     $('attentionList').innerHTML='<article class="tos-alert good"><span class="tos-alert-tag">Bien</span><b>Todo en orden</b><small>No hay pendientes visibles para tus módulos.</small></article>';

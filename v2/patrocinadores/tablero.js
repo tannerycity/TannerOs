@@ -27,7 +27,8 @@ const dinero = n => '$' + Math.round(Number(n) || 0).toLocaleString('es-MX');
 export function saludDeMarca(marca, { agreements = [], items = [], payments = [], hoy, etapa = marca?.stage } = {}) {
   const acuerdos = agreements.filter(a => a.sponsorId === marca.id && a.status !== 'cancelled');
   const ids = new Set(acuerdos.map(a => a.id));
-  const suyos = items.filter(i => ids.has(i.agreementId));
+  // Lo marcado como venta aparte (ej. el paquete de $8,000 de Muroplaf) no es del patrocinio.
+  const suyos = items.filter(i => ids.has(i.agreementId) && i.auditStatus !== 'venta_aparte');
   const cuenta = dir => {
     const l = suyos.filter(i => i.direction === dir);
     return { hechos: l.filter(i => i.fulfilled).length, total: l.length, pendientes: l.filter(i => !i.fulfilled) };
@@ -65,6 +66,8 @@ export function saludDeMarca(marca, { agreements = [], items = [], payments = []
     if (!activos.length && acuerdos.length) aviso('borrador', 'baja', 'Su acuerdo sigue en Borrador: márcalo Activo con sus fechas', 'acuerdo');
     else if (!acuerdos.length) aviso('sinAcuerdo', 'media', 'Es marca activa pero no tiene acuerdo capturado', 'acuerdo');
   }
+  const porAuditar = suyos.filter(i => i.auditStatus === 'por_auditar').length;
+  if (porAuditar) aviso('auditar', 'baja', `${porAuditar} ${porAuditar === 1 ? 'entregable' : 'entregables'} por auditar contra el contrato`, 'compromisos');
   if (borradores.length > 1) aviso('repetidos', 'baja', `Tiene ${borradores.length} acuerdos en Borrador: deja sólo uno`, 'acuerdo');
 
   return { id: marca.id, nombre: marca.name, etapa, conNosotros, recibimos: { hechos: recibimos.hechos, total: recibimos.total },
@@ -96,4 +99,18 @@ export function ordenTablero(salud) {
   const peso = s => s.avisos.reduce((n, a) => n + (a.nivel === 'alta' ? 100 : a.nivel === 'media' ? 10 : 1), 0);
   return [...salud].filter(s => !CERRADAS.includes(s.etapa))
     .sort((a, b) => Number(b.conNosotros) - Number(a.conNosotros) || peso(b) - peso(a) || a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+// Meta 2027 (Presidencia): efectivo cobrado en el mes contra la meta. La
+// especie NUNCA suma aquí; va aparte, con su valor estimado.
+export function efectivoDelMes(payments, hoy, meta = 30000) {
+  const mes = String(hoy).slice(0, 7);
+  const cobrado = (payments || []).filter(p => String(p.paidOn || '').slice(0, 7) === mes).reduce((n, p) => n + Number(p.amount || 0), 0);
+  return { mes, cobrado, meta: Number(meta) || 0, falta: Math.max(0, (Number(meta) || 0) - cobrado), pct: meta ? Math.min(100, Math.round(cobrado / meta * 100)) : 0 };
+}
+export function especieRecibida(items, agreements) {
+  const vivos = new Set((agreements || []).filter(a => a.status !== 'cancelled').map(a => a.id));
+  const l = (items || []).filter(i => vivos.has(i.agreementId) && i.direction === 'receive' && i.type !== 'money' && i.auditStatus !== 'venta_aparte');
+  const recibidos = l.filter(i => i.fulfilled);
+  return { recibidos: recibidos.length, total: l.length, valor: recibidos.reduce((n, i) => n + Number(i.estimatedValue || 0), 0) };
 }

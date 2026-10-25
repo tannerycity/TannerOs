@@ -180,7 +180,9 @@ export default function comprobar() {
   // alta, comprimida y ligada al activo.
   // Sube a 60 por qa-humo-patrocinios-hoy.mjs: Patrocinios en dos minutos
   // (marcador, Hoy toca, tablero por marca y palomear desde la ficha).
-  const MAX_EXCLUIDAS = 60;
+  // Sube a 61 por qa-humo-pedido-detalle.mjs: el detalle del pedido estilo
+  // Apple (qué falta arriba, WhatsApp al proveedor, No está pagado).
+  const MAX_EXCLUIDAS = 61;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

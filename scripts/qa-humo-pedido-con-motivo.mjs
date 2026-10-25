@@ -176,7 +176,7 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   revisa('3. va por la edición con motivo', e?.reason === 'La mamá pidió manga corta' && e?.manga === 'corta' && e?.order_item_id === 'i1', JSON.stringify(e));
   revisa('3. y nunca por el cambio de un toque', (await llamadas(pg, 'v2_set_order_item_sleeve')).length === 0);
   await pg.waitForSelector('#dangerZone', { state:'attached', timeout:3000 }).catch(() => {});
-  await pg.evaluate(() => document.getElementById('dangerZone')?.scrollIntoView());
+  await pg.evaluate(() => { const d = document.getElementById('masDetalles'); if (d) d.open = true; document.getElementById('dangerZone')?.scrollIntoView(); });
   revisa('4. con permiso de corregir aparece Eliminar', await pg.isVisible('#deleteOrder'));
   await pg.click('#deleteOrder');
   await pg.waitForSelector('.tosdlg-field', { timeout:3000 }).catch(() => {});

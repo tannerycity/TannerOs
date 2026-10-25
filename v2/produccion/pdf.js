@@ -165,7 +165,7 @@ export async function hojaPdf({ sheet, orgName, fotos = {}, jsPDF = null }) {
 
     if (p.dorsales.length) {
       // Tarjetas de dorsal: tres por renglón.
-      const gap = 12, cw = (W - 2 * M - gap * 2) / 3, ch = 196;
+      const gap = 12, cw = (W - 2 * M - gap * 2) / 3, ch = 212;
       p.dorsales.forEach((d, i) => {
         const col = i % 3;
         if (col === 0 && i > 0) y += ch + gap;
@@ -181,9 +181,11 @@ export async function hojaPdf({ sheet, orgName, fotos = {}, jsPDF = null }) {
         if (nombre) { cabe(doc, nombre, jw * .5, 10, 5); doc.text(nombre, jx + jw / 2, jy + jh * .27, { align: 'center' }); }
         if (d.numero) { cabe(doc, String(d.numero), jw * .5, 36, 18); doc.text(String(d.numero), jx + jw / 2, jy + jh * .72, { align: 'center' }); }
         let ty = jy + jh + 20;
-        doc.setTextColor(...C.tinta); doc.setFontSize(14); doc.text(`Talla ${d.talla}`, x + 12, ty);
-        cuadro(doc, x + cw - 24, ty - 10);
-        ty += 15; doc.setFontSize(9.5);
+        // "TALLA" chiquito y la talla grande debajo, como en la portada (25/10/2026).
+        doc.setFontSize(7.5); doc.setTextColor(...C.gris); doc.text('TALLA', x + 12, ty - 6);
+        doc.setTextColor(...C.tinta); doc.setFontSize(22); doc.text(String(d.talla || '—'), x + 12, ty + 14);
+        cuadro(doc, x + cw - 26, ty - 2, 14);
+        ty += 30; doc.setFontSize(9.5);
         if (larga) { doc.setTextColor(...C.alerta); doc.text('MANGA LARGA', x + 12, ty); }
         else { doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gris); doc.text(d.manga === 'corta' ? 'Manga corta' : 'Manga sin indicar', x + 12, ty); }
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...C.gris);

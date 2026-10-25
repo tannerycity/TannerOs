@@ -21,7 +21,10 @@ filtros con su cuenta y la lista. Lo de dinero va plegado al final. -->
     </div>
     <div id="orderTracker"></div>
     <div class="order-hero-balance"><span>Saldo pendiente</span><strong id="orderBalance">—</strong></div>
+    <!-- Detalle estilo Apple (25/10/2026): qué falta y qué sigue, aquí arriba y en una sola tarjeta. -->
+    <div id="readinessBox" class="t-listo"><span class="t-listo-punto" aria-hidden="true"></span><div><strong id="readinessTitle">—</strong><p id="readinessText"></p></div><span id="readinessPayment" class="t-listo-pago"></span></div>
     <div id="pasoAcciones" class="paso-acciones hidden"></div>
+    <div id="statusSection" class="t-estado hidden"><div id="statusActions" class="status-actions"></div><div id="statusMessage" class="inline-message hidden"></div></div>
   </section>
 
   <section id="reviewSection" class="drawer-section review-section hidden" aria-live="polite"><div class="eyebrow">POR REVISAR</div><h3>Pedido nuevo</h3><p class="muted">Revisa tallas, nombre y número, y confírmalo con la familia. El mensaje ya lleva el pedido, el total y cómo pagar.</p><ul id="reviewNumeros" class="review-numeros hidden"></ul><div class="review-actions"><button id="confirmWhatsApp" class="primary" type="button">Confirmar por WhatsApp</button><button id="markReviewed" class="secondary" type="button">Ya lo revisé</button></div><div id="reviewMessage" class="inline-message hidden"></div></section>
@@ -31,12 +34,13 @@ filtros con su cuenta y la lista. Lo de dinero va plegado al final. -->
   <section class="drawer-section"><div class="eyebrow">CLIENTE</div><h3 id="customerName"></h3><div id="customerContact" class="customer-contact"></div><div id="orderPlayer" class="order-player" aria-live="polite"></div></section>
 
   <section class="drawer-section" id="paymentSection">
-    <div class="eyebrow">COBRANZA</div><h3>Registrar cobro</h3>
+    <div class="eyebrow">COBRO</div><h3>Pago</h3>
     <div id="paymentPlanBox" class="payment-plan-box hidden"></div>
     <!-- Cobro único (21/10/2026): si el pedido es de un niño, se cobra con la misma hoja de Taquilla (folio, quién cobró y recibo por WhatsApp). El formulario de abajo queda para patrocinador o cliente sin niño. -->
     <div id="cobroUnico" class="cobro-unico hidden"><button id="cobrarPedido" class="primary payment-save" type="button">Cobrar</button><button id="otroPagador" class="link-toggle" type="button">Lo paga un patrocinador u otra persona</button></div>
     <div id="paymentForm" class="payment-form hidden"><div class="payment-grid"><label><span>Monto</span><input id="paymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label><label><span>Fecha</span><input id="paymentDate" type="date"></label><label><span>Método</span><select id="paymentMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label><label><span>Quién paga</span><select id="paymentPayerType"><option value="guardian">Familia / tutor</option><option value="sponsor">Patrocinador</option><option value="player">Jugador</option><option value="organization">Club</option><option value="other">Otro</option></select></label><label><span>Nombre del pagador</span><input id="paymentPayer" type="text" maxlength="160" placeholder="Nombre de familia, sponsor o persona"></label><label><span>Referencia</span><input id="paymentReference" type="text" maxlength="120" placeholder="Folio / transferencia"></label></div><button id="savePayment" class="primary payment-save" type="button">Registrar pago</button></div>
-    <p id="paymentClosedNote" class="muted state-help hidden">Este pedido no tiene saldo pendiente o no admite más pagos.</p>
+    <p id="paymentClosedNote" class="muted state-help hidden">Pagado completo.</p>
+    <button id="noPagado" class="t-link t-link-peligro hidden" type="button">No está pagado</button>
     <div id="paymentMessage" class="inline-message hidden"></div>
     <button id="togglePaymentHistory" class="link-toggle" type="button" aria-expanded="false">Ver historial de pagos <span class="chev">▾</span></button>
     <div id="paymentHistoryWrap" class="hidden">
@@ -46,12 +50,9 @@ filtros con su cuenta y la lista. Lo de dinero va plegado al final. -->
     </div>
   </section>
 
-  <button id="toggleFullDetail" class="detail-toggle" type="button" aria-expanded="false">Ver producción, negocio y estado del pedido <span class="chev">▾</span></button>
-
-  <div id="fullDetail" class="hidden">
+  <details class="t-mas" id="masDetalles"><summary><span>Más detalles</span><small>Garantía y correcciones</small></summary>
     <section class="drawer-section hidden" id="financeSection"><div class="eyebrow">NEGOCIO</div><h3>Costo y utilidad</h3><div class="drawer-kpis"><article><span>Costo</span><strong id="orderCost">—</strong></article><article><span>Utilidad esperada</span><strong id="orderProfit">—</strong></article></div></section>
-    <section class="drawer-section"><div class="eyebrow">PRODUCCIÓN</div><h3>Validación automática</h3><div id="readinessBox" class="readiness-box"><div><strong id="readinessTitle">Pendiente</strong><p id="readinessText">Validando…</p></div><span id="readinessPayment"></span></div></section>
-    <section class="drawer-section hidden" id="statusSection"><div class="eyebrow">OPERACIÓN</div><h3>Estado del pedido</h3><p class="muted state-help">Producción y "listo" solo se habilitan si el pago y los datos de las prendas están completos.</p><div id="statusActions" class="status-actions"></div><div id="statusMessage" class="inline-message hidden"></div></section>
+    <button id="telProveedor" class="t-mas-fila" type="button">Guardar el WhatsApp del proveedor</button>
     <section class="drawer-section hidden" id="warrantySection"><div class="eyebrow">GARANTÍA</div><h3>Garantía</h3><div id="warrantyBody"></div></section>
-  </div>
+  </details>
 </aside><script type="module" src="/v2/tos-dialog.js"></script><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/pedidos/app.js"></script></body></html>

@@ -32,7 +32,7 @@ const BASE = `http://127.0.0.1:${srv.address().port}`;
 const it = (id, ag, direction, type, description, fulfilled, estimatedValue = null) => ({ id, agreementId: ag, direction, type, description, fulfilled, estimatedValue });
 const DATOS = {
   sponsors: [
-    { id:'s-trapo', name:'Don Trapo', stage:'active', status:'active', relationshipType:'sponsorship', phone:'+524772408403', contactName:'Luis Escobedo', nextAction:'Cobro de la segunda parte', nextActionAt:'2020-08-11T18:00:00Z', ownerName:'Zul' },
+    { id:'s-trapo', name:'Don Trapo', stage:'active', status:'active', relationshipType:'sponsorship', phone:'+524772408403', contactName:'Luis Escobedo', nextAction:'Cobro de la segunda parte', nextActionAt:'2020-08-11T18:00:00Z', ownerName:'Zul', logoPath:null },
     { id:'s-tremor', name:'Tremor', stage:'active', status:'active', relationshipType:'sponsorship', ownerName:'Zul' },
     { id:'s-dis', name:'Disonante', stage:'paused', status:'negotiation', relationshipType:'sponsorship', contactName:'Felipe Serdio' },
     { id:'s-cafe', name:'Café Central', stage:'talking', status:'negotiation', relationshipType:'exchange' },
@@ -53,11 +53,15 @@ const DATOS = {
     it('i6','a-tremor','give','jersey','Presencia en jerseys',false),
     { ...it('i7','a-tremor','give','social','Publicaciones en redes',false), quantity:20, deliveredQuantity:7, frequency:'anual', externalRef:'OBL-006' },
     { ...it('i8','a-tremor','give','other','Paquete audiovisual $8,000',false), auditStatus:'venta_aparte', externalRef:'OBL-014' },
+    { ...it('i9','a-trapo','give','jersey','Logo en pecho del uniforme oficial',true), assetId:'u1' },
   ],
   payments: [{ id:'p1', agreementId:'a-trapo', amount:7500, paidOn: new Date().toISOString().slice(0, 7) + '-02' }],
   assets: [
     { id:'as1', name:'Reel Instagram', category:'content', entity:'TC', channel:'Instagram', unit:'reel', family:'Contenido', validation:'CONFIGURABLE', price:2500, priceStatus:'aprobado', availability:'available', description:'Video vertical con marca', internalNotes:'NOTA SECRETA DEL CONTRATO' },
     { id:'as2', name:'Frente Españita 1', category:'park', entity:'TCP', channel:'Presencial', unit:'espacio', family:'Espacio físico', validation:'PENDIENTE', price:null, priceStatus:'por_cotizar', availability:'available', description:'Espacio físico' },
+    { id:'u1', name:'Logo en pecho', category:'uniforms', entity:'TC', channel:'Jersey oficial', unit:'temporada', family:'Uniforme', externalRef:'TC-JER-PECHO', price:20000, priceStatus:'propuesta', availability:'occupied', description:'Logo' },
+    { id:'u2', name:'Logo en manga derecha', category:'uniforms', entity:'TC', channel:'Jersey oficial', unit:'temporada', family:'Uniforme', externalRef:'TC-JER-MANGA-DER', price:7500, priceStatus:'propuesta', availability:'available', description:'Logo' },
+    { id:'u3', name:'Logo en short izquierdo', category:'uniforms', entity:'TC', channel:'Short oficial', unit:'temporada', family:'Uniforme', externalRef:'TC-JER-SHORT-IZQ', price:5000, priceStatus:'propuesta', availability:'available', description:'Logo' },
     { id:'as3', name:'Paquete Tanner Local', category:'other', entity:'AMBOS', channel:'Multicanal', unit:'por mes', family:'Paquete', validation:'PROPUESTO', price:3000, priceStatus:'propuesta', availability:'available', description:'Paquete físico + digital' },
   ],
   socialMetrics: [
@@ -71,11 +75,13 @@ const DATOS = {
 const FAKE = `
   window.__rpc=[];const D=${JSON.stringify(DATOS)};
   export function createClient(){return{auth:{getSession:async()=>({data:{session:{user:{id:'u-zul'}}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
-    storage:{from:()=>({createSignedUrls:async()=>({data:[],error:null}),createSignedUrl:async()=>({data:null,error:null})})},
+    storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/logo-prueba.png',error:null})),error:null}),createSignedUrl:async(p)=>({data:{signedUrl:'/logo-prueba.png'},error:null}),
+      upload:async(p)=>{window.__subidas=(window.__subidas||[]).concat(p);return{data:{path:p},error:null};},remove:async()=>({data:[],error:null})})},
     rpc:async(n,p={})=>{window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});const ok=d=>({data:d,error:null});
       if(n==='v2_my_context')return ok([{organization_id:'o1',organization_name:'Tannery City FC',role:'Operaciones'}]);
       if(n==='v2_my_modules')return ok([{module_code:'sponsors',enabled:true,can_read:true,can_write:true}]);
       if(n==='v2_sponsor_admin')return ok(D);
+      if(n==='v2_set_sponsor_logo')return ok({id:p.sponsor_id,logoPath:p.logo_path,logoBucket:'tanneros-private'});
       if(n==='v2_set_sponsor_item_fulfillment'){const i=D.agreementItems.find(x=>x.id===p.item_id);if(i)i.fulfilled=p.fulfilled;return ok(true);}
       if(n==='v2_sponsor_funded_players'||n==='v2_club_people'||n==='v2_billing_players')return ok([]);
       return ok(null);}}}`;
@@ -84,6 +90,8 @@ const JSPDF = `export class jsPDF{constructor(){window.__pdf=[];this.internal={p
   text(t){window.__pdf.push([].concat(t).join(' '));}getTextWidth(t){return String(t).length*6;}splitTextToSize(t){return [String(t)];}
   output(){return new Blob(['%PDF'],{type:'application/pdf'});}save(n){window.__guardado=n;}}
   for(const m of ['addPage','addImage','setFont','setFontSize','setTextColor','setFillColor','setDrawColor','setLineWidth','rect','roundedRect','circle','line','setPage'])jsPDF.prototype[m]=function(){};`;
+// Un PNG de 2x1 de verdad, para que el navegador lo pueda leer y reescalar.
+const LOGO = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGP4z8DwHwQZGBgAJPYE/BVNiDwAAAAASUVORK5CYII=', 'base64');
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d ? `\n   ${d}` : ''}`); } };
@@ -92,6 +100,7 @@ async function abre(ancho) {
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
   await pg.route(/^https?:\/\/(?!127)/, r => r.abort());
   await pg.route('**/v2/supabase-client.js', r => r.fulfill({ contentType:'text/javascript', body:FAKE }));
+  await pg.route('**/logo-prueba.png', r => r.fulfill({ contentType:'image/png', body:LOGO }));
   await pg.route('**/v2/branding-auto.js', r => r.fulfill({ contentType:'text/javascript', body:'' }));
   await pg.route(/esm\.sh\/jspdf/, r => r.fulfill({ contentType:'text/javascript', body:JSPDF }));
   await pg.goto(`${BASE}/patrocinadores/`, { waitUntil:'networkidle' });
@@ -184,7 +193,7 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   revisa('12. activos con filtros por entidad, físicos y paquetes', JSON.stringify(filtros) === '["all","TC","TCP","fisicos","paquetes"]', JSON.stringify(filtros));
   revisa('12. el precio interno dice su estado', /\$3,000\/mes · propuesta/.test(await txt(pg, '#assetList')) && /Por cotizar/.test(await txt(pg, '#assetList')));
   await pg.click('#priceListButton');
-  revisa('15. lista de precios: todos los activos en una tabla', (await pg.$$('#priceList [data-precio-id]')).length === 3 && await pg.isHidden('#assetList'));
+  revisa('15. lista de precios: todos los activos en una tabla', (await pg.$$('#priceList [data-precio-id]')).length === 6 && await pg.isHidden('#assetList'));
   await pg.fill('#priceList [data-precio-id="as2"] [data-campo="price"]', '2000');
   await pg.selectOption('#priceList [data-precio-id="as2"] [data-campo="status"]', 'aprobado');
   await pg.click('#priceList [data-precio-id="as2"] [data-guardar-precio]');
@@ -206,6 +215,32 @@ const txt = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' ').
   revisa('13. nunca salen las notas internas', !/NOTA SECRETA/.test(prop));
   revisa('13. la audiencia va con su periodo y fuente, sin sumar', /Reproducciones/.test(prop) && /aprox\. 49,800/.test(prop) && /Meta Business Suite/.test(prop), prop);
   await pg.click('.tosdlg-cancel'); await pg.waitForTimeout(150);
+  await pg.click('.module-nav [data-view="uniform"]');
+  const resumen = await txt(pg, '#uniformSummary');
+  revisa('16. uniforme: vendido y disponible por temporada', /\$20,000 vendido/.test(resumen) && /\$12,500 disponible/.test(resumen) && /precios en propuesta/.test(resumen), resumen);
+  revisa('16. cada lugar en su vista (el short va con el frente), con la marca que lo tiene', (await pg.$$('#uniformMap .pt-lugar')).length === 3 && /Don Trapo/.test(await txt(pg, '#uniformMap .frente')) && (await pg.$$('#uniformMap .pt-uni-pieza')).length === 2 && /\$5,000/.test(await txt(pg, '#uniformMap .frente')), await txt(pg, '#uniformMap'));
+  await pg.click('#uniformMap [data-lugar="u2"]');
+  await pg.waitForSelector('#spotModal:not(.hidden)', { timeout:3000 });
+  revisa('16. un lugar libre dice Disponible', /Disponible/.test(await txt(pg, '#spotBody')));
+  await pg.selectOption('#spotSponsor', 's-tremor');
+  await pg.click('#spotAssign');
+  await pg.waitForTimeout(400);
+  const asg = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_save_sponsor_agreement').pop()?.p);
+  const nuevoU = asg?.given_items?.find(i => i.assetId === 'u2');
+  revisa('16. asignar entra en Les damos de su acuerdo sin perder lo demás', asg?.agreement_id === 'a-tremor' && nuevoU && !nuevoU.id && asg.given_items.filter(i => i.id).map(i => i.id).join() === 'i6,i7,i8', JSON.stringify(asg));
+  const occ = await pg.evaluate(() => window.__rpc.filter(x => x.n === 'v2_upsert_sponsor_asset_admin').pop()?.p);
+  revisa('16. y el lugar queda ocupado', occ?.asset_id === 'u2' && occ?.availability === 'occupied', JSON.stringify(occ));
+  await pg.click('.close-workspace-modal').catch(() => {}); await pg.keyboard.press('Escape');
+  await pg.click('#uniformMap [data-lugar="u1"]');
+  await pg.waitForSelector('#spotModal:not(.hidden)', { timeout:3000 });
+  revisa('17. el lugar ocupado ofrece subir el logo de la marca', /Subir logo de Don Trapo/.test(await txt(pg, '#spotBody')));
+  await pg.setInputFiles('[data-logo-sube="s-trapo"]', { name:'logo.png', mimeType:'image/png', buffer:LOGO });
+  await pg.waitForFunction(() => window.__rpc.some(x => x.n === 'v2_set_sponsor_logo'), null, { timeout:5000 }).catch(() => {});
+  const lg = await pg.evaluate(() => ({ p: window.__rpc.filter(x => x.n === 'v2_set_sponsor_logo').pop()?.p, up: window.__subidas || [] }));
+  revisa('17. el logo se sube a la carpeta de la marca y se guarda', lg.p?.sponsor_id === 's-trapo' && /^organizations\/o1\/sponsors\/logos\/s-trapo\/logo-\d+\.(webp|png)$/.test(lg.p?.logo_path || '') && lg.up.includes(lg.p?.logo_path), JSON.stringify(lg));
+  await pg.waitForSelector('#uniformMap .pt-lugar.con-logo img[src]', { timeout:3000 }).catch(() => {});
+  revisa('17. en la playera se ve el logo, no el nombre', !!(await pg.$('#uniformMap [data-lugar="u1"].con-logo img[src]')), await pg.innerHTML('#uniformMap .frente').catch(() => ''));
+  await pg.click('#spotModal .close-workspace-modal').catch(() => {});
   await pg.click('.module-nav [data-view="audience"]');
   const aud = await txt(pg, '#audienceList');
   revisa('14. audiencia por entidad y red con validación', /Tannery City FC/.test(aud) && /Instagram/.test(aud) && /CONFIRMADO/.test(aud) && /APROXIMADO/.test(aud) && /Sin datos todavía/.test(aud), aud);

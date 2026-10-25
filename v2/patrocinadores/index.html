@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07191e">
   <title>Patrocinios · TannerOS</title>
   <link rel="stylesheet" href="/v2/styles.css">
-  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261025b">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261025f">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <link rel="stylesheet" href="/icons.css?v=20260907a">
@@ -52,6 +52,7 @@
       <button class="active" data-view="summary" type="button">Hoy</button>
       <button data-view="route" type="button">Marcas</button>
       <button data-view="assets" type="button">Activos Tanner</button>
+      <button data-view="uniform" type="button">Uniforme</button>
       <button data-view="audience" type="button">Audiencia</button>
     </nav>
 
@@ -131,6 +132,20 @@
         </div>
       </article>
     </section>
+    <!-- Mapa del uniforme (25/10/2026): cada lugar del jersey y el short con su
+         precio y la marca que lo tiene; tocarlo lo asigna o lo agrega a una propuesta. -->
+    <section id="uniformView" class="module-view hidden">
+      <article class="panel">
+        <div class="panel-head">
+          <div><div class="eyebrow">PATROCINIOS EN EL UNIFORME</div><h2>Uniforme oficial</h2>
+          <p class="muted section-copy">Toca un lugar para ver quién lo tiene, asignarlo a una marca o agregarlo a una propuesta.</p></div>
+        </div>
+        <div id="uniformSummary" class="pt-uni-resumen"></div>
+        <div id="uniformMap" class="pt-uni-mapa"></div>
+        <div id="uniformEmpty" class="empty-state hidden"><strong>Sin lugares del uniforme</strong><span>Agrega activos de la familia "Uniforme" para verlos aquí.</span></div>
+      </article>
+    </section>
+
     <section id="audienceView" class="module-view hidden">
       <article class="panel">
         <div class="panel-head">
@@ -316,6 +331,17 @@
   </form>
 </section>
 
+<section id="spotModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="spotTitle">
+  <div class="modal-head"><div><div class="eyebrow">UNIFORME</div><h2 id="spotTitle">Lugar</h2><p id="spotSub" class="muted modal-subtitle"></p></div><button class="secondary mini close-workspace-modal" type="button">Cerrar</button></div>
+  <div id="spotBody" class="pt-spot"></div>
+  <form id="spotForm" class="form-grid write-only">
+    <label class="span-2">Asignar a una marca<select id="spotSponsor"></select></label>
+    <button id="spotAssign" class="primary span-2" type="submit">Asignar este lugar</button>
+    <div id="spotMessage" class="inline-message hidden span-2"></div>
+  </form>
+  <div class="pt-spot-acc"><button id="spotProposal" class="secondary" type="button">Agregar a una propuesta</button><button id="spotEdit" class="pt-link" type="button">Editar precio y datos</button></div>
+</section>
+
 <section id="trackModal" class="workspace-modal compact-modal hidden" role="dialog" aria-modal="true" aria-labelledby="trackTitle">
   <div class="modal-head"><div><div class="eyebrow">SEGUIMIENTO DEL ENTREGABLE</div><h2 id="trackTitle">Entregable</h2><p id="trackSub" class="muted modal-subtitle"></p></div><button class="secondary mini close-workspace-modal" type="button">Cerrar</button></div>
   <form id="trackForm" class="form-grid">
@@ -414,6 +440,6 @@
 </section>
 
 <script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/patrocinadores/app.js?v=20261025b"></script>
+<script type="module" src="/v2/patrocinadores/app.js?v=20261025f"></script>
 </body>
 </html>

@@ -543,6 +543,7 @@ function render() {
   renderSummary();
   renderRoute();
   renderAudience();
+  renderUniform();
   renderAssets();
   if (selectedSponsorId && !$('brandDrawer').classList.contains('hidden')) renderBrandDrawer();
   writeControls();
@@ -837,6 +838,177 @@ function renderAudience() {
     ? '<article class="pt-red pt-red-sin"><header><h3>Sin datos todavía</h3></header><ul>' + socialAccounts.filter((a) => !ult.some((m) => m.entity === a.entity && m.channel === a.platform))
       .map((a) => '<li><span class="pt-met-k">' + esc((ENTIDADES[a.entity] || a.entity) + ' · ' + a.platform) + '</span><small>' + esc([a.baseline, a.pending].filter(Boolean).join(' · ')) + '</small></li>').join('') + '</ul></article>' : '');
 }
+/* Mapa del uniforme (25/10/2026): Presidencia quiere ver los patrocinadores
+   en el jersey. Cada lugar es un activo (familia Uniforme, external_ref
+   TC-JER-*); quién lo tiene sale de los entregables ligados a ese activo. */
+const LUGARES = {
+  'TC-JER-MANGA-DER': { vista: 'frente', x: 13, y: 20, w: 16, h: 5 },
+  'TC-JER-MANGA-IZQ': { vista: 'frente', x: 87, y: 20, w: 16, h: 5 },
+  'TC-JER-PECHO': { vista: 'frente', x: 50, y: 34, w: 40, h: 7 },
+  'TC-JER-ESPALDA-SUP': { vista: 'espalda', x: 50, y: 13, w: 44, h: 5 },
+  'TC-JER-ESPALDA-INF': { vista: 'espalda', x: 50, y: 61, w: 40, h: 5 },
+  'TC-JER-SHORT-DER': { vista: 'frente', x: 33, y: 86, w: 24, h: 8 },
+  'TC-JER-SHORT-IZQ': { vista: 'frente', x: 67, y: 86, w: 24, h: 8 },
+};
+/* El uniforme como el mockup de Presidencia (25/10/2026): jersey rosa con
+   vivos verde azulado, cuello en V al frente, y el short negro con puño
+   verde azulado. Cada vista es el uniforme completo (jersey y short abajo). */
+const TELA = { cuerpo: '#C9959C', ribete: '#1C8C99', short: '#1B1C1E' };
+const SILUETA_UNI = 'M70 10 C82 18 118 18 130 10 L168 24 C180 30 188 44 194 62 L199 82 L170 94 L160 70 L161 204 C130 214 70 214 39 204 L40 70 L30 94 L1 82 L6 62 C12 44 20 30 32 24 Z';
+const SHORT_UNI = 'M20 10 L180 10 L192 128 C168 134 132 134 108 128 L100 62 L92 128 C68 134 32 134 8 128 Z';
+const luzUni = (id, forma, extra = '') => '<defs><linearGradient id="' + id + 'l" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset=".22" stop-color="#000" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".08"/><stop offset=".78" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>' +
+  '<linearGradient id="' + id + 'v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".18"/></linearGradient></defs>' +
+  '<path d="' + forma + '" fill="url(#' + id + 'l)"' + extra + '/><path d="' + forma + '" fill="url(#' + id + 'v)" stroke="rgba(0,0,0,.28)" stroke-width="1.2"' + extra + '/>';
+function dibujoUniforme(vista) {
+  const id = 'uni' + vista, c = TELA;
+  const cuello = vista === 'frente'
+    ? '<path d="M70 10 C82 18 118 18 130 10 L100 38 Z" fill="#f2eeee"/><path d="M70 10 L100 38 L130 10" fill="none" stroke="' + c.ribete + '" stroke-width="6" stroke-linejoin="round"/>' +
+      '<path d="M141 52 L153 52 L153 61 C153 66 147 69 147 69 C147 69 141 66 141 61 Z" fill="none" stroke="' + c.ribete + '" stroke-width="1.8"/><path d="M144 55 L150 55 M147 55 L147 64" stroke="' + c.ribete + '" stroke-width="1.4"/>'
+    : '<path d="M70 10 C82 18 118 18 130 10" fill="none" stroke="' + c.ribete + '" stroke-width="5" stroke-linecap="round"/>' +
+      '<text x="100" y="160" text-anchor="middle" font-family="\'Anton\',\'Bebas Neue\',\'Arial Narrow\',Impact,sans-serif" font-size="74" font-weight="900" fill="rgba(255,255,255,.6)">10</text>';
+  const t = 'transform="translate(35 210) scale(.65)"';
+  const shortPiernas = vista === 'frente' ? '<path d="M100 22 L100 62" stroke="rgba(255,255,255,.12)" stroke-width="1.2"/>' : '';
+  return '<svg viewBox="0 0 200 300" aria-hidden="true">' +
+    '<g ' + t + '><path d="' + SHORT_UNI + '" fill="' + c.short + '"/>' + luzUni(id + 's', SHORT_UNI) +
+    '<path d="M8 128 C32 134 68 134 92 128 L91 118 C68 124 32 124 9 118 Z M192 128 C168 134 132 134 108 128 L109 118 C132 124 168 124 191 118 Z" fill="' + c.ribete + '"/>' +
+    '<path d="M20 10 L180 10 L181 22 L19 22 Z" fill="rgba(255,255,255,.06)" stroke="rgba(0,0,0,.4)" stroke-width="1"/>' + shortPiernas +
+    '<path d="M60 40 C64 70 62 96 58 116 M140 40 C136 70 138 96 142 116" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="6" stroke-linecap="round"/></g>' +
+    '<path d="' + SILUETA_UNI + '" fill="' + c.cuerpo + '"/>' + luzUni(id, SILUETA_UNI) +
+    '<path d="M32 24 C46 34 52 52 40 70 M168 24 C154 34 148 52 160 70" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="1.4"/>' +
+    '<path d="M199 82 L170 94 M1 82 L30 94" stroke="' + c.ribete + '" stroke-width="5.5" stroke-linecap="butt"/>' +
+    '<path d="M39 203 C70 213 130 213 161 203" fill="none" stroke="' + c.ribete + '" stroke-width="4"/>' +
+    '<path d="M58 118 C64 150 62 180 56 200 M144 118 C138 150 140 180 146 200" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="6" stroke-linecap="round"/>' +
+    cuello + '</svg>';
+}
+const VISTAS = [['frente', 'Frente', () => dibujoUniforme('frente')], ['espalda', 'Espalda', () => dibujoUniforme('espalda')]];
+function quienTiene(asset) {
+  const vivos = new Set(agreements.filter((a) => a.status !== 'cancelled').map((a) => a.id));
+  const ids = [...new Set(agreementItems.filter((i) => i.assetId === asset.id && vivos.has(i.agreementId) && i.auditStatus !== 'venta_aparte')
+    .map((i) => agreements.find((a) => a.id === i.agreementId)?.sponsorId).filter(Boolean))];
+  return ids.map(sponsorById).filter(Boolean);
+}
+function renderUniform() {
+  const box = $('uniformMap'); if (!box) return;
+  const lugares = assets.filter((a) => a.family === 'Uniforme' && LUGARES[a.externalRef]);
+  $('uniformEmpty').classList.toggle('hidden', lugares.length > 0);
+  const precio = (a) => a.price != null ? money.format(Number(a.price)) : 'Por cotizar';
+  let vendido = 0, libre = 0;
+  lugares.forEach((a) => { const n = Number(a.price || 0); if (quienTiene(a).length || a.availability === 'occupied') vendido += n; else libre += n; });
+  $('uniformSummary').innerHTML = lugares.length ? '<span><b>' + money.format(vendido) + '</b> vendido</span><span><b>' + money.format(libre) + '</b> disponible</span><span class="muted">' +
+    esc(lugares[0].unit ? 'precios por ' + lugares[0].unit : '') + (lugares.some((a) => a.priceStatus !== 'aprobado') ? ' · precios en propuesta' : '') + '</span>' : '';
+  box.innerHTML = VISTAS.map(([vista, titulo, dibujo]) => {
+    const aqui = lugares.filter((a) => LUGARES[a.externalRef].vista === vista);
+    return '<figure class="pt-uni-pieza ' + vista + '"><figcaption>' + titulo + '</figcaption><div class="pt-uni-lienzo">' +
+      dibujo() +
+      aqui.map((a) => {
+        const l = LUGARES[a.externalRef], marcas = quienTiene(a), ocupado = marcas.length || a.availability === 'occupied';
+        const logo = marcas.find((m) => m.logoPath);
+        const pos = 'left:' + l.x + '%;top:' + l.y + '%;';
+        // Con logo, el logo va estampado en la tela; sin logo, su nombre en un parche.
+        if (logo) return '<button type="button" class="pt-lugar ocupado con-logo" data-lugar="' + esc(a.id) + '" aria-label="' + esc(a.name + ': ' + logo.name) + '" title="' + esc(logo.name) + '" style="' + pos + 'width:' + l.w + '%;height:' + (l.h * 1.5) + '%">' +
+          '<img data-logo-for="' + esc(logo.id) + '" alt=""></button>';
+        return '<button type="button" class="pt-lugar' + (ocupado ? ' ocupado' : '') + '" data-lugar="' + esc(a.id) + '" style="' + pos + 'min-width:' + l.w + '%;max-width:' + (vista === 'frente' && l.w < 20 ? 30 : 52) + '%;min-height:' + l.h + '%">' +
+          '<b>' + esc(ocupado ? (marcas[0]?.name || 'Ocupado') : precio(a)) + '</b>' +
+          '<small>' + esc(ocupado ? 'Ocupado' : 'Disponible') + '</small></button>';
+      }).join('') + '</div></figure>';
+  }).join('');
+  pintaLogos(box);
+}
+/* Logos de las marcas (h43): PNG/WebP con su transparencia, para que en la
+   playera se vea el logo y no un cuadro blanco. */
+// El botón sale cuando la base ya regresa logoPath (h43 aplicada); antes no.
+const hayLogos = () => sponsors.some((s) => Object.prototype.hasOwnProperty.call(s, 'logoPath'));
+const LOGO_MAX_SIDE = 600, LOGO_MAX_BYTES = 300 * 1024;
+async function pintaLogos(root) {
+  const imgs = [...root.querySelectorAll('img[data-logo-for]')];
+  if (!imgs.length) return;
+  const paths = imgs.map((img) => sponsorById(img.dataset.logoFor)?.logoPath).filter(Boolean);
+  const map = await signedUrls(PHOTO_BUCKET, paths).catch(() => ({}));
+  imgs.forEach((img) => { const url = map[sponsorById(img.dataset.logoFor)?.logoPath]; if (url) img.src = url; });
+}
+async function prepareLogo(file) {
+  if (!file) throw new Error('Selecciona el logo.');
+  if (file.type && !/^image\/(png|webp|jpeg)$/.test(file.type)) throw new Error('Sube el logo en PNG (mejor con fondo transparente), WebP o JPG.');
+  const img = await loadImageFile(file);
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  if (!w || !h) throw new Error('No pudimos leer ese logo.');
+  const r = Math.min(1, LOGO_MAX_SIDE / Math.max(w, h));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * r); canvas.height = Math.round(h * r);
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  const toBlob = (type, q) => new Promise((res) => canvas.toBlob(res, type, q));
+  let blob = await toBlob('image/webp', .9);
+  if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/png');
+  if (!blob) throw new Error('Tu navegador no pudo preparar el logo.');
+  if (blob.size > LOGO_MAX_BYTES) throw new Error('El logo pesa mucho. Prueba con uno más chico.');
+  return { blob, mime: blob.type, ext: blob.type === 'image/webp' ? 'webp' : 'png' };
+}
+async function subeLogo(sponsorId, file) {
+  const m = sponsorById(sponsorId); if (!m) return;
+  message('spotMessage', 'Subiendo el logo…', 'success');
+  let path = null;
+  try {
+    const prepared = await prepareLogo(file);
+    path = 'organizations/' + ctx.organization_id + '/sponsors/logos/' + sponsorId + '/logo-' + Date.now() + '.' + prepared.ext;
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, prepared.blob, { contentType: prepared.mime, cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
+    if (error) throw error;
+    const r = await rpc('v2_set_sponsor_logo', { organization_id: ctx.organization_id, sponsor_id: sponsorId, logo_path: path });
+    m.logoPath = r?.logoPath || path; m.logoBucket = PHOTO_BUCKET;
+    renderUniform();
+    openSpot(spotAssetId);
+    message('spotMessage', 'Listo: el logo de ' + m.name + ' ya está en el uniforme.', 'success');
+  } catch (error) {
+    if (path) supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {});
+    message('spotMessage', friendly(error) || 'No se pudo subir el logo.');
+  }
+}
+let spotAssetId = null;
+function openSpot(assetId) {
+  const a = assetById(assetId); if (!a) return;
+  spotAssetId = a.id;
+  const marcas = quienTiene(a), ocupado = marcas.length || a.availability === 'occupied';
+  $('spotTitle').textContent = a.name;
+  $('spotSub').textContent = (a.price != null ? money.format(Number(a.price)) + (a.unit ? ' por ' + a.unit : '') : 'Por cotizar') + ' · ' + (PRECIO_ESTADO[a.priceStatus] || '');
+  $('spotBody').innerHTML = ocupado
+    ? '<p class="pt-spot-quien">Lo tiene ' + (marcas.length ? marcas.map((m) => '<button type="button" class="pt-link" data-spot-marca="' + esc(m.id) + '">' + esc(m.name) + '</button>').join(', ') : 'una marca (marcado como ocupado)') + '.</p>' +
+      marcas.map((m) => '<div class="pt-logo-fila"><span class="pt-logo-caja">' + (m.logoPath ? '<img data-logo-for="' + esc(m.id) + '" alt="Logo de ' + esc(m.name) + '">' : '<em>Sin logo</em>') + '</span>' +
+        (canWrite && hayLogos() ? '<label class="secondary pt-logo-subir">' + (m.logoPath ? 'Cambiar logo' : 'Subir logo de ' + esc(m.name)) + '<input type="file" accept="image/png,image/webp,image/jpeg" data-logo-sube="' + esc(m.id) + '" hidden></label>' : '') + '</div>').join('') +
+      (canWrite && hayLogos() && marcas.length ? '<small class="muted">Mejor en PNG con fondo transparente: así se ve estampado en la playera.</small>' : '')
+    : '<p class="pt-spot-quien libre">Disponible.</p>';
+  pintaLogos($('spotBody'));
+  const sel = $('spotSponsor');
+  sel.innerHTML = '<option value="">Elige la marca…</option>' + sponsors.filter((x) => !['lost', 'finished'].includes(normalizeStage(x.stage, x.status)))
+    .map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('');
+  $('spotForm').classList.toggle('hidden', !canWrite);
+  message('spotMessage');
+  openModal('spotModal');
+}
+// Asignar un lugar: entra como "Les damos" en el acuerdo principal de la marca
+// (el vigente o su borrador más completo); si no tiene, se le abre un borrador.
+async function asignaLugar(event) {
+  event.preventDefault();
+  const a = assetById(spotAssetId), sponsorId = $('spotSponsor').value;
+  if (!a) return;
+  if (!sponsorId) { message('spotMessage', 'Elige la marca.'); return; }
+  const b = $('spotAssign'); b.disabled = true;
+  const principal = agreementsForSponsor(sponsorId).filter((x) => x.status !== 'cancelled')
+    .sort((x, y) => (y.status === 'active') - (x.status === 'active') || itemsForAgreement(y.id).length - itemsForAgreement(x.id).length)[0];
+  const items = principal ? itemsForAgreement(principal.id) : [];
+  const comoItem = (i) => ({ id: i.id, type: i.type, description: i.description, quantity: i.quantity ?? null, unit: i.unit || null, estimatedValue: i.estimatedValue ?? null, assetId: i.assetId || null, fulfilled: !!i.fulfilled });
+  const nuevo = { type: 'jersey', description: a.name + ' del uniforme oficial', quantity: 1, unit: a.unit || null, estimatedValue: null, assetId: a.id, fulfilled: false };
+  try {
+    await rpc('v2_save_sponsor_agreement', { organization_id: ctx.organization_id, agreement_id: principal?.id || null, sponsor_id: sponsorId,
+      starts_on: principal?.startsOn || null, ends_on: principal?.endsOn || null, agreement_value: principal?.monetaryValue ?? null, status: principal?.status || 'draft',
+      notes: principal?.notes || null, benefit: principal?.benefit || null, discount_percent: principal?.discountPercent ?? null, beneficiaries: principal?.beneficiaries || [],
+      redemption_instructions: principal?.redemptionInstructions || null,
+      received_items: items.filter((i) => i.direction === 'receive').map(comoItem), given_items: [...items.filter((i) => i.direction === 'give').map(comoItem), nuevo] });
+    await rpc('v2_upsert_sponsor_asset_admin', { organization_id: ctx.organization_id, asset_id: a.id, name: a.name, category: a.category, price: a.price ?? null,
+      description: a.description || null, availability: 'occupied', entity: a.entity || null, channel: a.channel || null, unit: a.unit || null, family: a.family || null,
+      validation: a.validation || null, internal_notes: a.internalNotes || null, price_status: a.priceStatus || 'por_cotizar' });
+    closeModal(); await load(); switchView('uniform');
+  } catch (error) { message('spotMessage', friendly(error)); } finally { b.disabled = false; }
+}
+
 function openMetricForm() {
   if (!canWrite) return;
   $('metricForm').reset(); $('metricEnd').value = hoyIso(); message('metricMessage');
@@ -865,7 +1037,7 @@ function switchView(view) {
   document.querySelectorAll('.module-nav [data-view]').forEach((button) => {
     button.classList.toggle('active', button.dataset.view === view);
   });
-  ['summary', 'route', 'assets', 'audience'].forEach((name) => {
+  ['summary', 'route', 'assets', 'uniform', 'audience'].forEach((name) => {
     $(name + 'View').classList.toggle('hidden', name !== view);
   });
 }
@@ -2026,6 +2198,12 @@ $('assetFilters').addEventListener('click', (e) => { const b = e.target.closest(
 $('proposalButton').addEventListener('click', () => { proposalMode = true; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
 $('proposalCancel').addEventListener('click', () => { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); renderAssets(); });
 $('proposalMake').addEventListener('click', armarPropuesta);
+$('uniformMap').addEventListener('click', (e) => { const b = e.target.closest('[data-lugar]'); if (b) openSpot(b.dataset.lugar); });
+$('spotForm').addEventListener('submit', asignaLugar);
+$('spotBody').addEventListener('click', (e) => { const b = e.target.closest('[data-spot-marca]'); if (b) { closeModal(); openBrand(b.dataset.spotMarca); } });
+$('spotBody').addEventListener('change', (e) => { const f = e.target.closest('[data-logo-sube]'); if (f?.files?.[0]) subeLogo(f.dataset.logoSube, f.files[0]); });
+$('spotEdit').addEventListener('click', () => { const a = assetById(spotAssetId); closeModal(); if (a) openAssetForm(a); });
+$('spotProposal').addEventListener('click', () => { const id = spotAssetId; closeModal(); switchView('assets'); priceListOpen = false; proposalMode = true; proposalPick.add(id); pintaPropuestaBarra(); renderAssets(); });
 $('priceListButton').addEventListener('click', () => { priceListOpen = !priceListOpen; if (priceListOpen) { proposalMode = false; proposalPick.clear(); pintaPropuestaBarra(); } renderAssets(); });
 $('priceList').addEventListener('click', (e) => { const b = e.target.closest('[data-guardar-precio]'); if (b) guardaPrecio(b.closest('[data-precio-id]')); });
 $('sponsorReportButton').addEventListener('click', sponsorReport);

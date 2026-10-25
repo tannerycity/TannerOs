@@ -3,7 +3,7 @@
  * (mías, área, búsqueda sin acentos), orden al soltar una tarjeta entre dos,
  * fechas por vencer y avance de pendientes. */
 import assert from 'node:assert/strict';
-import { COLUMNAS, filtra, porColumna, posicionEntre, vence, progreso, tonoDeArea, iniciales } from '../v2/ideas/ideas.js';
+import { COLUMNAS, filtra, porColumna, posicionEntre, vence, progreso, tonoDeArea, iniciales, avisosDeIdeas } from '../v2/ideas/ideas.js';
 
 let corridas = 0, fallos = 0;
 const prueba = (n, f) => { corridas++; try { f(); } catch (e) { fallos++; console.error(` - ${n}: ${e.message}`); } };
@@ -35,6 +35,21 @@ prueba('fechas: vencida, pronto, a tiempo; lo hecho no vence', () => {
 prueba('avance de pendientes', () => assert.deepEqual(progreso([{ done: true }, { done: false }, { done: true }]), { hechos: 2, total: 3 }));
 prueba('cada área su color, siempre el mismo', () => { assert.equal(tonoDeArea('Marketing'), tonoDeArea('Marketing')); assert.notEqual(tonoDeArea('Marketing'), tonoDeArea('Redes')); });
 prueba('iniciales del responsable', () => { assert.equal(iniciales('Zul García'), 'ZG'); assert.equal(iniciales(''), '·'); });
+
+prueba('Inicio: mis vencidas, las que vencen pronto y las que me asignaron sin ver', () => {
+  const l = [
+    { id: 'v', title: 'Vencida', status: 'todo', ownerId: 'zul', createdBy: 'zul', dueDate: '2026-10-20' },
+    { id: 'p', title: 'Pronto', status: 'doing', ownerId: 'zul', createdBy: 'mich', dueDate: '2026-10-26' },
+    { id: 'n', title: 'Nueva', status: 'idea', ownerId: 'zul', createdBy: 'mich' },
+    { id: 'h', title: 'Hecha', status: 'done', ownerId: 'zul', createdBy: 'mich', dueDate: '2026-10-01' },
+    { id: 'o', title: 'De otro', status: 'todo', ownerId: 'mich', createdBy: 'zul', dueDate: '2026-10-01' }
+  ];
+  const a = avisosDeIdeas(l, 'zul', '2026-10-25', ['p']);
+  assert.deepEqual(a.vencidas.map(i => i.id), ['v']);
+  assert.deepEqual(a.pronto.map(i => i.id), ['p']);
+  assert.deepEqual(a.nuevas.map(i => i.id), ['n']);
+  assert.deepEqual(avisosDeIdeas(l, null, '2026-10-25'), { vencidas: [], pronto: [], nuevas: [] });
+});
 
 console.log(fallos ? `Ideas QA FAILED · ${fallos} de ${corridas}` : `Ideas QA OK · ${corridas} casos: columnas, filtros, orden al arrastrar, fechas y pendientes`);
 process.exit(fallos ? 1 : 0);

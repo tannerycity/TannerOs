@@ -62,7 +62,12 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
       v2_my_context: [{ user_id: cfg.yo, display_name: rol === 'Presidencia' ? 'Mich' : 'Zul', organization_id:'o1', organization_name:'Tannery City FC', role: rol, is_owner: rol === 'Presidencia' }],
       v2_my_navigation: cfg.nav,
       v2_birthdays: { today: HOY, myBirthDate: miFecha, people: gente },
-      v2_set_my_birthday: { ok: true }
+      v2_set_my_birthday: { ok: true },
+      // Ideas (25/10/2026): una mía vencida y una que otro me asignó.
+      v2_ideas: { me: cfg.yo, ideas: [
+        { id: 'i-v', title: 'Video del torneo', status: 'todo', ownerId: cfg.yo, createdBy: cfg.yo, dueDate: '2000-01-01' },
+        { id: 'i-n', title: 'Lona de Kine VFX', status: 'idea', ownerId: cfg.yo, createdBy: 'otro' },
+        { id: 'i-o', title: 'De otra persona', status: 'todo', ownerId: 'otro', createdBy: cfg.yo, dueDate: '2000-01-01' }] }
     };
     window.__fakeSupabase = {
       auth: {
@@ -94,6 +99,10 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
 /* ---------- Presidencia en el teléfono ---------- */
 {
   const p = await abre('Presidencia');
+  await p.waitForFunction(() => /Ideas tuyas|Una idea tuya/.test(document.querySelector('#attentionList')?.textContent || ''), null, { timeout: 4000 }).catch(() => {});
+  const pend = (await p.textContent('#attentionList').catch(() => '')) || '';
+  revisa('[Ideas] avisa la idea vencida y la que me asignaron', /Una idea tuya ya venció/.test(pend) && /Video del torneo/.test(pend) && /Te asignaron una idea/.test(pend) && /Lona de Kine VFX/.test(pend) && !/De otra persona/.test(pend), pend.slice(0, 300));
+  revisa('[Ideas] llevan a mis ideas', await p.$$eval('#attentionList a[href="/ideas/?mias=1"]', xs => xs.length) === 2);
   revisa('[Presidencia] la franja sale', await p.isVisible('#cumpleStrip'));
   const orden = await p.evaluate(() => {
     const w = document.querySelector('.tos-welcome'), s = document.getElementById('cumpleStrip');

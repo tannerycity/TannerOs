@@ -10,7 +10,7 @@
 //   4. Un kit se ve con las fotos de sus piezas (hasta cuatro, sin repetir).
 //   5. Precio de tarjeta: "Desde" el más bajo cuando hay niño y adulto.
 //   6. Tallas en Niño / Adulto / Otras, cada una en su orden.
-import { seccionesDeTienda, categoriaDe, etiquetaDe, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas }
+import { seccionesDeTienda, categoriaDe, etiquetaDe, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, sugerenciasAntesDePagar }
   from '../pedido/catalogo.js';
 
 const fallos = []; let n = 0;
@@ -28,6 +28,15 @@ revisa(JSON.stringify(sec.map(s => s.clave)) === JSON.stringify(['kits', 'jersey
 revisa(sec.find(s => s.clave === 'jersey').items.length === 2, 'un producto sin categoría pero llamado "Jersey" cae en Jerseys');
 revisa(etiquetaDe('mascaras') === 'Máscaras' && etiquetaDe('calcomanias') === 'Calcomanías' && etiquetaDe('termos') === 'Termos', 'etiquetas con acento y las nuevas con mayúscula');
 revisa(etiquetaDe('outerwear') === 'Chamarras' && etiquetaDe('socks') === 'Calcetas', 'nombres en español de las categorías guardadas en inglés');
+// Las categorías reales del club (25/10/2026): "Gorra" y "Oversized" salían tal cual.
+revisa(categoriaDe(P('cap', 'Gorra')) === 'gorras' && etiquetaDe('gorras') === 'Gorras', 'la gorra sale en Gorras');
+revisa(categoriaDe(P('tee', 'Oversized')) === 'casual' && etiquetaDe('casual') === 'Ropa casual', 'la oversized sale en Ropa casual, no en inglés');
+// ¿Le agregas algo más? (25/10/2026): productos de la misma tienda.
+const CAT = [P('jersey', 'jersey', { price: 799 }), P('gorra', 'Gorra', { price: 550 }), P('tee', 'Oversized', { price: 550 }),
+  P('calcetas', 'socks', { price: 200 }), P('short', 'shorts', { price: 350 }), P('gratis', 'Gorra', { price: 0 }), P('ya', 'Gorra', { price: 300 })];
+const sug = sugerenciasAntesDePagar(CAT, { a: { productId: 'ya' }, b: { bundleId: 'k', piezas: [{ productId: 'short' }] } });
+revisa(JSON.stringify(sug.map(p => p.id)) === '["gorra","tee","calcetas","jersey"]', `sugerencias de la tienda: impulso primero, jersey al final, sin lo que ya va (ni dentro de un kit) ni gratis: ${JSON.stringify(sug.map(p => p.id))}`);
+revisa(sugerenciasAntesDePagar(CAT, {}, { max: 2 }).length === 2, 'no más de las que caben');
 revisa(!seccionesDeTienda({ products: [P('a', 'jersey')], bundles: [] }).some(s => s.clave === 'kits'), 'sin kits no hay pestaña de Kits');
 revisa(categoriaDe({ category: 'Hoodie' }) === 'outerwear' && categoriaDe({ category: 'Accesorios' }) === 'accesorios', 'sinónimos de categoría');
 

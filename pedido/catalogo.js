@@ -16,7 +16,9 @@ export const CATEGORIAS_TIENDA = [
   { clave: 'pants',       etiqueta: 'Pants',       patron: /\b(pants|pantalon)\b/ },
   { clave: 'outerwear',   etiqueta: 'Chamarras',   patron: /\b(outerwear|hoodie|sudadera|chamarra)\b/ },
   { clave: 'socks',       etiqueta: 'Calcetas',    patron: /\b(socks|sock|calceta|calcetas)\b/ },
-  { clave: 'accesorios',  etiqueta: 'Accesorios',  patron: /\b(accesorio|accesorios|accessory|accessories|gorra|termo|mochila|balon)\b/ },
+  { clave: 'gorras',      etiqueta: 'Gorras',      patron: /\b(gorra|gorras|cap|caps)\b/ },
+  { clave: 'casual',      etiqueta: 'Ropa casual', patron: /\b(oversized|tee|camiseta|casual)\b/ },
+  { clave: 'accesorios',  etiqueta: 'Accesorios',  patron: /\b(accesorio|accesorios|accessory|accessories|termo|mochila|balon)\b/ },
   { clave: 'mascaras',    etiqueta: 'Máscaras',    patron: /\b(mascara|mascaras|mask|masks)\b/ },
   { clave: 'calcomanias', etiqueta: 'Calcomanías', patron: /\b(calcomania|calcomanias|sticker|stickers)\b/ }
 ];
@@ -116,4 +118,21 @@ export function gruposDeTallas(tallas = []) {
   // Si todo cae en un solo grupo, no hace falta título.
   if (grupos.length === 1) grupos[0].etiqueta = '';
   return grupos;
+}
+
+/* ¿Le agregas algo más? (25/10/2026). Presidencia: "de que quieres comprar
+   otro producto extra, que te ofrezca productos de la misma tienda". Antes de
+   pagar, lo de la tienda que todavía no va en el pedido: primero lo de
+   impulso (gorras, ropa casual, accesorios), luego calcetas, shorts y
+   chamarras, y al final los jerseys (esos abren su ficha para la talla, el
+   nombre y el número). Nada de lo que ya va, ni dentro de un kit. */
+const PESO_EXTRA = { gorras: 0, casual: 1, accesorios: 2, socks: 3, calcomanias: 4, mascaras: 5, shorts: 6, outerwear: 7, pants: 8, jersey: 9 };
+export function sugerenciasAntesDePagar(productos = [], carrito = {}, { max = 6 } = {}) {
+  const dentro = new Set(Object.values(carrito || {}).flatMap(l => [l.productId, ...(l.piezas || []).map(pz => pz.productId)])
+    .filter(Boolean).map(String));
+  const peso = p => { const c = categoriaDe(p); return c in PESO_EXTRA ? PESO_EXTRA[c] : 5; };
+  return (productos || [])
+    .filter(p => p && !dentro.has(String(p.id)) && Number(p.price) > 0)
+    .sort((a, b) => peso(a) - peso(b) || Number(a.price) - Number(b.price) || String(a.name).localeCompare(String(b.name), 'es-MX'))
+    .slice(0, max);
 }

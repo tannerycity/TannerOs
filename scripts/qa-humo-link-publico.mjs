@@ -53,7 +53,8 @@ const OFERTA = {
       photos: [1, 2, 3].map(n => ({ path: `org/products/p-black/foto-${n}.webp`, thumbPath: `org/products/p-black/foto-${n}-thumb.webp` })) },
     { id:'p-hoodie', name:'Hoodie / Chamarra', price:999, sizes:TALLAS, category:'outerwear' },
     { id:'p-short', name:'Short', price:350, sizes:TALLAS, category:'shorts' },
-    { id:'p-calceta', name:'Par de calcetas', price:200, sizes:['Universal'], category:'socks' }
+    { id:'p-calceta', name:'Par de calcetas', price:200, sizes:['Universal'], category:'socks' },
+    { id:'p-gorra', name:'The Tanner Cap', price:550, sizes:['Universal'], category:'Gorra' }
   ],
   bundles: [
     { id:'k-completo', name:'Kit Tanner - Completo', priceAdult:3500, priceKid:2350, available:true, components:[
@@ -111,9 +112,9 @@ await pg.goto(BASE + '/pedido/', { waitUntil:'networkidle' });
 await pg.waitForSelector('.st-card', { timeout: 8000 });
 const secciones = await pg.$$eval('.st-seccion', s => s.map(x => x.dataset.seccion));
 revisa('los kits van primero y luego las categorías en su orden',
-  JSON.stringify(secciones) === '["kits","jersey","shorts","outerwear","socks"]', JSON.stringify(secciones));
+  JSON.stringify(secciones) === '["kits","jersey","shorts","outerwear","socks","gorras"]', JSON.stringify(secciones));
 const cats = await pg.$$eval('.st-cats a', a => a.map(x => x.textContent.trim()));
-revisa('las categorías arriba, en español', JSON.stringify(cats) === '["Todo","Kits","Jerseys","Shorts","Chamarras","Calcetas"]', JSON.stringify(cats));
+revisa('las categorías arriba, en español', JSON.stringify(cats) === '["Todo","Kits","Jerseys","Shorts","Chamarras","Calcetas","Gorras"]', JSON.stringify(cats));
 const kits = await pg.$$eval('.st-card.kit strong', s => s.map(x => x.textContent));
 revisa('un kit bloqueado NO se ofrece', kits.length === 2 && !kits.includes('Kit Roto'), JSON.stringify(kits));
 revisa('el kit anuncia "Desde" su precio de niño', /Desde\s*\$2,350/.test(await pg.innerText('[data-kit="k-completo"]')));
@@ -180,6 +181,21 @@ await pg.click('[data-tier="Adulto"]');
 revisa('el precio cambia al de adulto', /\$3,500/.test(await pg.innerText('.st-pdp-precio')));
 await pg.click('#stAgregar');
 revisa('falta una talla: se marca esa pieza', (await pg.$('.st-pieza.falta')) !== null && /Elige la talla de/.test(await pg.innerText('.st-motivo')));
+// Guía de tallas y una talla para todo el kit (25/10/2026).
+revisa('[guía] junto a las tallas del kit sale "¿Qué talla es?"', await pg.isVisible('.st-incluye-cab [data-guia], [data-guia]'));
+await pg.click('[data-guia] >> nth=0');
+await pg.waitForSelector('#stGuia', { timeout: 3000 });
+const guia = await pg.innerText('#stGuia');
+if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-guia-tallas.png` });
+revisa('[guía] con el kit de adulto enseña la tabla de adulto, cómo medir y el consejo', /Adulto/.test(guia) && /XXL/.test(guia) && /axila a axila/.test(guia) && /no tiene cambio/.test(guia) && !/años/.test(guia), guia.slice(0, 300));
+await pg.click('#stGuia [data-guia-cerrar] >> nth=0');
+revisa('[guía] se cierra', (await pg.$('#stGuia')) === null);
+await pg.click('[data-kit-talla="M"]');
+if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-kit-una-talla.png`, fullPage: true });
+const conM = await pg.$$eval('.st-pieza .st-pieza-cab span', s => s.map(x => x.textContent.trim()));
+revisa('[kit] una talla para todo: todas las piezas quedan en M y plegadas', conM.filter(t => t === 'Talla M').length === 3 && (await pg.$$('.st-pieza.plegada')).length === 3 && conM.filter(t => t === 'Talla Universal').length === 2 && (await pg.$$('[data-pieza-talla]')).length === 0, JSON.stringify(conM));
+await pg.click('.st-pieza.plegada >> nth=0 >> [data-pieza-abre]');
+revisa('[kit] "Cambiar" abre sólo esa pieza', (await pg.$$('.st-pieza.plegada')).length === 2 && (await pg.$$('[data-pieza-talla]')).length > 0);
 for (let i = 0; i < 5; i++) {
   const b = await pg.$(`.st-pieza:nth-child(${i + 1}) [data-pieza-talla="M"]`);
   if (b) await b.click();
@@ -200,6 +216,18 @@ await pg.waitForSelector('#orderForm', { timeout: 5000 });
 const renglones = await pg.$$eval('#resumenCarrito .fam-mov', e => e.length);
 revisa('el pedido trae los dos renglones', renglones === 2, String(renglones));
 await cabe('el pedido');
+// ¿Le agregas algo más? (25/10/2026)
+const extras = await pg.$$eval('#stExtras [data-extra]', e => e.map(x => x.dataset.extra));
+revisa('[extra] antes de pagar sugiere lo de la tienda que no va: gorra primero, jersey al final; nada de lo que ya va', JSON.stringify(extras) === '["p-gorra","p-hoodie","p-black"]', JSON.stringify(extras));
+revisa('[extra] el jersey abre su ficha para la talla y el nombre', (await pg.getAttribute('#stExtras [data-extra="p-black"] a', 'href')) === '#/p/p-black');
+if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-agrega-algo-mas.png`, fullPage: true });
+await pg.click('#stExtras [data-extra="p-gorra"] [data-extra-agrega]');
+revisa('[extra] un toque y va en el pedido', /The Tanner Cap/.test(await pg.innerText('#resumenCarrito')) && /\$5,448/.test(await pg.innerText('.carrito-total')) && !(await pg.$('#stExtras [data-extra="p-gorra"]')), await pg.innerText('.carrito-total'));
+await pg.click('#stExtras [data-extra="p-hoodie"] [data-extra-agrega]');
+revisa('[extra] lo que tiene tallas pide la talla ahí mismo', (await pg.$('#stExtras [data-extra="p-hoodie"] select.falta')) !== null && !/Hoodie/.test(await pg.innerText('#resumenCarrito')));
+await pg.selectOption('#stExtras [data-extra="p-hoodie"] select', 'M');
+await pg.click('#stExtras [data-extra="p-hoodie"] [data-extra-agrega]');
+revisa('[extra] con la talla elegida, se agrega', /Hoodie/.test(await pg.innerText('#resumenCarrito')) && /\$6,447/.test(await pg.innerText('.carrito-total')), await pg.innerText('.carrito-total'));
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.fill('#customerPhone', '4771234567');
 await pg.click('#submitOrder');
@@ -228,6 +256,8 @@ revisa('la pieza va con cantidad, talla, nombre y número', pieza?.productId ===
 revisa('con el consentimiento y su versión', envios[0]?.p?.consent?.dataAccepted === true && !!envios[0]?.p?.consent?.privacyNoticeVersion);
 const final = await pg.textContent('#content').catch(() => '');
 revisa('se confirma con su folio y cómo pagar', /PED-QA-1/.test(final) && /167210000079567650/.test(final));
+if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-pago.png`, fullPage: true });
+revisa('el pago no habla de comisiones y se copian CLABE y referencia', !/comisi/i.test(final) && (await pg.$$('#content [data-copiar]')).length === 2, final.slice(0, 400));
 revisa('y el carrito queda vacío', (await badge()) === '0');
 
 /* ===== 7. Quitar renglones ===== */
@@ -295,7 +325,7 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   // Manga por jersey con cargo (14/10/2026).
   revisa('[manga] cada jersey del kit trae su manga, con "+$50" en larga', (await p2.$$('[data-ranura="elige1#0"] [data-pieza-manga]')).length === 2 && /Larga\s*\+\$50/.test(await p2.textContent('[data-ranura="elige1#0"] [data-pieza-manga="larga"]')) && (await p2.$('[data-ranura="p-short#0"] [data-pieza-manga]')) === null);
   await p2.click('[data-ranura="elige1#0"] [data-pieza-manga="larga"]');
-  revisa('[manga] el precio del kit sube $50 y lo dice', /\$1,349\.00/.test(await p2.textContent('#stAgregar')) && /1 manga larga/.test(await p2.textContent('.st-pdp-precio')), await p2.textContent('#stAgregar'));
+  revisa('[manga] el precio del kit sube $50 y lo dice', /\$1,349(?!\.\d)/.test(await p2.textContent('#stAgregar')) && /1 manga larga/.test(await p2.textContent('.st-pdp-precio')), await p2.textContent('#stAgregar'));
   revisa('[manga] la manga general del kit ya no sale', (await p2.$('.st-manga-tit')) === null);
   // La espalda de cada jersey elegido, con su diseño y su manga (14/10/2026).
   const espaldas = await p2.$$eval('#stMockup .st-mockup-uno', xs => xs.map(x => [x.querySelector('span').firstChild.textContent, !!x.querySelector('[data-mockup="manga-larga"]')]));
@@ -318,11 +348,11 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   revisa('[niño] la tarjeta dice "Desde $599"', /Desde\s*\$599/.test(await p2.textContent('[data-prod="p-black"] .st-precio')), await p2.textContent('[data-prod="p-black"] .st-precio'));
   await p2.goto(BASE + '/pedido/#/p/p-black');
   await p2.waitForSelector('[data-talla="12"]', { timeout:4000 });
-  revisa('[niño] la ficha dice los dos precios', /Niño \(6 a 16\) \$599\.00 · Adulto \$799\.00/.test(await p2.textContent('.st-precios-nino')));
+  revisa('[niño] la ficha dice los dos precios', /Niño \(6 a 16\) \$599(?!\.\d) · Adulto \$799(?!\.\d)/.test(await p2.textContent('.st-precios-nino')));
   await p2.click('[data-talla="12"]');
-  revisa('[niño] talla 12 cobra $599', /\$599\.00/.test(await p2.textContent('#stAgregar')) && /\$599/.test(await p2.textContent('.st-pdp-precio')));
+  revisa('[niño] talla 12 cobra $599', /\$599(?!\.\d)/.test(await p2.textContent('#stAgregar')) && /\$599/.test(await p2.textContent('.st-pdp-precio')));
   await p2.click('[data-talla="M"]');
-  revisa('[niño] talla M cobra $799', /\$799\.00/.test(await p2.textContent('#stAgregar')));
+  revisa('[niño] talla M cobra $799', /\$799(?!\.\d)/.test(await p2.textContent('#stAgregar')));
   await p2.close();
 }
 
@@ -352,9 +382,9 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   await p3.click('[data-varia="L"] [data-varia-cant="1"]');
   if (process.env.QA_FOTO_VARIAS) await p3.locator('#stBloqueTalla').screenshot({ path: process.env.QA_FOTO_VARIAS });
   revisa('[varias] dos tallas marcadas, una fila por talla', (await p3.$$('.st-varias li')).length === 2 && (await p3.getAttribute('[data-talla="S"]', 'aria-pressed')) === 'true');
-  revisa('[varias] la L dice ×2 y el botón suma 3 piezas', /×2/.test(await p3.textContent('[data-talla="L"]')) && /Agregar 3 piezas · \$1,050\.00/.test(await p3.innerText('#stAgregar')), await p3.innerText('#stAgregar'));
+  revisa('[varias] la L dice ×2 y el botón suma 3 piezas', /×2/.test(await p3.textContent('[data-talla="L"]')) && /Agregar 3 piezas · \$1,050(?!\.\d)/.test(await p3.innerText('#stAgregar')), await p3.innerText('#stAgregar'));
   await p3.click('[data-talla="S"]');
-  revisa('[varias] tocar otra vez una talla la quita', (await p3.$$('.st-varias li')).length === 1 && /Agregar 2 piezas · \$700\.00/.test(await p3.innerText('#stAgregar')));
+  revisa('[varias] tocar otra vez una talla la quita', (await p3.$$('.st-varias li')).length === 1 && /Agregar 2 piezas · \$700(?!\.\d)/.test(await p3.innerText('#stAgregar')));
   await p3.click('[data-talla="S"]');
   await p3.click('#stAgregar');
   revisa('[varias] se agregan las 3 piezas de un toque', (await n3()) === '3', await n3());

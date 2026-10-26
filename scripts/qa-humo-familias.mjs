@@ -436,7 +436,7 @@ await pagina.waitForTimeout(100);
 revisa('el panel se queda abierto y marca las dos', (await pagina.$$('[data-tallas="prod-short"] .fam-talla.activa')).length === 2);
 await pagina.click('[data-vcant="prod-short::L::1"]');
 await pagina.waitForTimeout(100);
-revisa('cada talla con su cantidad y el botón suma todo', /Agregar 3 piezas · \$1,050\.00/.test(await pagina.textContent('[data-add="prod-short"]')), await pagina.textContent('[data-add="prod-short"]'));
+revisa('cada talla con su cantidad y el botón suma todo', /Agregar 3 piezas · \$1,050(?!\.\d)/.test(await pagina.textContent('[data-add="prod-short"]')), await pagina.textContent('[data-add="prod-short"]'));
 // Clic directo: Playwright espera "estable" un botón que no se mueve (medido 3 veces igual).
 await pagina.$eval('[data-add="prod-short"]', b => b.click());
 await pagina.waitForTimeout(200);

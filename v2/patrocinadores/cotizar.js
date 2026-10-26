@@ -85,3 +85,26 @@ export function mensajeWhatsApp(cot, club) {
     (cot.items || []).length + ' ' + ((cot.items || []).length === 1 ? 'espacio' : 'espacios') + ' por ' + dinero(cot.total) +
     (cot.discountAmount > 0 ? ' (ya con ' + dinero(cot.discountAmount) + ' de descuento)' : '') + '. ¿Lo platicamos?';
 }
+
+/* Seguimiento de cotizaciones (25/10/2026): lo que cierra ventas es volver a
+   escribir. Enviada hace 5 días o más sin respuesta, o que vence en 3 días o
+   menos, sale en "Hoy toca". Lo que espera a Presidencia también. */
+const dias = (a, b) => Math.round((new Date(String(a).slice(0, 10) + 'T12:00:00') - new Date(String(b).slice(0, 10) + 'T12:00:00')) / 86400000);
+export function avisosDeCotizaciones(lista, hoy, { esPresidencia = false } = {}) {
+  const out = [];
+  for (const q of lista || []) {
+    const base = { tipo: 'cotizacion', accion: 'cotizacion', cotId: q.id, marcaId: q.sponsorId || null, marca: q.sponsorName || 'Marca' };
+    if (q.status === 'accepted' || q.status === 'rejected') continue;
+    if (q.approvalStatus === 'pending') {
+      if (esPresidencia) out.push({ ...base, nivel: 'alta', texto: q.folio + ': autoriza el descuento de ' + q.discountPct + '%' });
+      continue;
+    }
+    if (q.status !== 'sent') continue;
+    const vence = q.validUntil ? dias(q.validUntil, hoy) : null;
+    const desde = q.sentAt ? dias(hoy, q.sentAt) : null;
+    if (vence !== null && vence < 0) out.push({ ...base, nivel: 'media', texto: q.folio + ' venció: renuévala o márcala' });
+    else if (vence !== null && vence <= 3) out.push({ ...base, nivel: 'alta', texto: q.folio + ' vence ' + (vence === 0 ? 'hoy' : vence === 1 ? 'mañana' : 'en ' + vence + ' días') + ': escríbele' });
+    else if (desde !== null && desde >= 5) out.push({ ...base, nivel: 'media', texto: q.folio + ' enviada hace ' + desde + ' días sin respuesta: escríbele' });
+  }
+  return out;
+}

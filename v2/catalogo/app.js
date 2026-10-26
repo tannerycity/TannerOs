@@ -95,6 +95,9 @@ function renderPendientes(){
   // El costo primero: sin el, el margen de los kits es una cuenta incompleta.
   if(sinCosto)faltas.push(`${sinCosto} sin costo`);
   if(sinFoto)faltas.push(`${sinFoto} sin foto`);
+  // Sin descripción la ficha no vende: tela, corte y para qué es (25/10/2026).
+  const sinDesc=vivos.filter(p=>!String(p.description||'').trim()).length;
+  if(sinDesc)faltas.push(`${sinDesc} sin descripción`);
   const linea=$('pendientes');
   if(!linea)return;
   linea.textContent=faltas.length?`Te falta capturar: ${faltas.join(' · ')}.`:'';
@@ -637,6 +640,7 @@ function openProductDrawer(p){
   $('promoForm')?.classList.add('hidden');
   $('pPonerOferta')?.classList.toggle('hidden',!p||!canPromos);
   $('pName').value=p?.name||'';
+  if($('pDesc'))$('pDesc').value=p?.description||'';
   $('pSku').value=p?.sku||'';
   $('pPrice').value=p?.price??'';
   $('pKid').checked=Number(p?.priceKid||0)>0;$('pPriceKid').value=p?.priceKid??'';pintaPrecioNino();
@@ -716,7 +720,7 @@ async function saveProduct(){
       cost,
       sizes,
       active:$('pActive').checked,
-      description:current?.description??null,
+      description:$('pDesc')?($('pDesc').value.trim()||null):(current?.description??null),
       lead_days:current?.leadDays??null
     });
     // La foto va despues del upsert: un producto nuevo no tiene id hasta aqui.

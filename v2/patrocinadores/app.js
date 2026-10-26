@@ -4,7 +4,7 @@ import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { datosDelReporte, reportePdf, nombreDelReporte } from '/v2/patrocinadores/reporte.js';
 import { saludDeMarca, hoyToca, marcador, ordenTablero, efectivoDelMes, especieRecibida } from '/v2/patrocinadores/tablero.js';
 import { propuestaPdf, nombreDePropuesta, ultimasMetricas, ETIQUETA_METRICA } from '/v2/patrocinadores/propuesta.js';
-import { CATEGORIAS, categoriaDe, nombreCategoria, filtraCatalogo, renglonDe, totales, accionesDe, FILTROS_COT, filtraCotizaciones, mensajeWhatsApp } from '/v2/patrocinadores/cotizar.js';
+import { CATEGORIAS, categoriaDe, nombreCategoria, filtraCatalogo, renglonDe, totales, accionesDe, FILTROS_COT, filtraCotizaciones, mensajeWhatsApp, avisosDeCotizaciones } from '/v2/patrocinadores/cotizar.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
@@ -593,10 +593,11 @@ function saludes() {
 }
 let verTodoHoy = false;
 const HOY_VISIBLES = 6;
-const ACCION_TEXTO = { seguimiento: 'Registrar avance', pagos: 'Registrar pago', acuerdo: 'Ver acuerdo', compromisos: 'Palomear', editar: 'Definir paso' };
+const ACCION_TEXTO = { seguimiento: 'Registrar avance', pagos: 'Registrar pago', acuerdo: 'Ver acuerdo', compromisos: 'Palomear', editar: 'Definir paso', cotizacion: 'Ver cotización' };
 
 // Desde "Hoy toca", cada aviso lleva directo a donde se resuelve.
 function resolverAviso(sponsorId, accion) {
+  if (accion === 'cotizacion') { quoteFilter = 'all'; switchView('quotes'); renderQuotes(); return; }
   if (accion === 'editar' && canWrite) { openSponsorForm(sponsorById(sponsorId)); return; }
   openBrand(sponsorId);
   if (accion === 'pagos') {
@@ -635,7 +636,10 @@ function renderSummary() {
   document.querySelector('.pt-cobrar')?.classList.toggle('ok', m.porCobrar === 0);
   document.querySelector('.pt-debemos')?.classList.toggle('ok', m.debemos === 0);
 
-  const lista = hoyToca(salud);
+  // Las cotizaciones por seguir van arriba de lo demás de su mismo nivel.
+  const NIV = { alta: 0, media: 1, baja: 2 };
+  const lista = [...avisosDeCotizaciones(quotes, hoyIso(), { esPresidencia: isPresidency }), ...hoyToca(salud)]
+    .sort((a, b) => NIV[a.nivel] - NIV[b.nivel]);
   const visibles = verTodoHoy ? lista : lista.slice(0, HOY_VISIBLES);
   $('nextCount').textContent = lista.length;
   $('nextEmpty').classList.toggle('hidden', lista.length > 0);

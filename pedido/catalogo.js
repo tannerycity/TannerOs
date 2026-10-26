@@ -20,8 +20,7 @@ export const CATEGORIAS_TIENDA = [
   { clave: 'casual',      etiqueta: 'Ropa casual', patron: /\b(oversized|tee|camiseta|casual)\b/ },
   { clave: 'accesorios',  etiqueta: 'Accesorios',  patron: /\b(accesorio|accesorios|accessory|accessories|termo|mochila|balon)\b/ },
   { clave: 'mascaras',    etiqueta: 'Máscaras',    patron: /\b(mascara|mascaras|mask|masks)\b/ },
-  { clave: 'calcomanias', etiqueta: 'Calcomanías', patron: /\b(calcomania|calcomanias|sticker|stickers)\b/ },
-  { clave: 'proyectos',   etiqueta: 'Proyectos del club', patron: /\b(proyecto|proyectos|donativo|donativos|beca|becas|apoyo|rifa|rifas|campamento|campamentos)\b/ }
+  { clave: 'calcomanias', etiqueta: 'Calcomanías', patron: /\b(calcomania|calcomanias|sticker|stickers)\b/ }
 ];
 
 const normal = t => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -121,19 +120,19 @@ export function gruposDeTallas(tallas = []) {
   return grupos;
 }
 
-/* ¿Le agregas algo más? (25/10/2026). Presidencia: "antes de pagar, ¿no
-   quieres agregar una gorra u otra cosa? ... no solamente una gorra,
-   proyectos adicionales". Lo que se agrega de un toque: primero los
-   proyectos del club (beca, rifa, campamento), luego gorras, ropa casual y
-   accesorios. Nunca lo que lleva nombre y número (eso pide su ficha) ni lo
-   que ya va en el pedido. */
-const PESO_EXTRA = { proyectos: 0, gorras: 1, casual: 2, accesorios: 3, socks: 4, calcomanias: 5, mascaras: 6, shorts: 7, outerwear: 8, pants: 9 };
-export function sugerenciasAntesDePagar(productos = [], carrito = {}, { max = 4, personaliza = () => false } = {}) {
+/* ¿Le agregas algo más? (25/10/2026). Presidencia: "de que quieres comprar
+   otro producto extra, que te ofrezca productos de la misma tienda". Antes de
+   pagar, lo de la tienda que todavía no va en el pedido: primero lo de
+   impulso (gorras, ropa casual, accesorios), luego calcetas, shorts y
+   chamarras, y al final los jerseys (esos abren su ficha para la talla, el
+   nombre y el número). Nada de lo que ya va, ni dentro de un kit. */
+const PESO_EXTRA = { gorras: 0, casual: 1, accesorios: 2, socks: 3, calcomanias: 4, mascaras: 5, shorts: 6, outerwear: 7, pants: 8, jersey: 9 };
+export function sugerenciasAntesDePagar(productos = [], carrito = {}, { max = 6 } = {}) {
   const dentro = new Set(Object.values(carrito || {}).flatMap(l => [l.productId, ...(l.piezas || []).map(pz => pz.productId)])
     .filter(Boolean).map(String));
-  const peso = p => { const c = categoriaDe(p); return c in PESO_EXTRA ? PESO_EXTRA[c] : 20; };
+  const peso = p => { const c = categoriaDe(p); return c in PESO_EXTRA ? PESO_EXTRA[c] : 5; };
   return (productos || [])
-    .filter(p => p && !dentro.has(String(p.id)) && !personaliza(p) && categoriaDe(p) !== 'jersey' && Number(p.price) > 0)
+    .filter(p => p && !dentro.has(String(p.id)) && Number(p.price) > 0)
     .sort((a, b) => peso(a) - peso(b) || Number(a.price) - Number(b.price) || String(a.name).localeCompare(String(b.name), 'es-MX'))
     .slice(0, max);
 }

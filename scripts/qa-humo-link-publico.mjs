@@ -54,8 +54,7 @@ const OFERTA = {
     { id:'p-hoodie', name:'Hoodie / Chamarra', price:999, sizes:TALLAS, category:'outerwear' },
     { id:'p-short', name:'Short', price:350, sizes:TALLAS, category:'shorts' },
     { id:'p-calceta', name:'Par de calcetas', price:200, sizes:['Universal'], category:'socks' },
-    { id:'p-gorra', name:'The Tanner Cap', price:550, sizes:['Universal'], category:'Gorra' },
-    { id:'p-beca', name:'Apoya una beca', price:200, sizes:['Universal'], category:'Proyectos' }
+    { id:'p-gorra', name:'The Tanner Cap', price:550, sizes:['Universal'], category:'Gorra' }
   ],
   bundles: [
     { id:'k-completo', name:'Kit Tanner - Completo', priceAdult:3500, priceKid:2350, available:true, components:[
@@ -113,9 +112,9 @@ await pg.goto(BASE + '/pedido/', { waitUntil:'networkidle' });
 await pg.waitForSelector('.st-card', { timeout: 8000 });
 const secciones = await pg.$$eval('.st-seccion', s => s.map(x => x.dataset.seccion));
 revisa('los kits van primero y luego las categorías en su orden',
-  JSON.stringify(secciones) === '["kits","jersey","shorts","outerwear","socks","gorras","proyectos"]', JSON.stringify(secciones));
+  JSON.stringify(secciones) === '["kits","jersey","shorts","outerwear","socks","gorras"]', JSON.stringify(secciones));
 const cats = await pg.$$eval('.st-cats a', a => a.map(x => x.textContent.trim()));
-revisa('las categorías arriba, en español', JSON.stringify(cats) === '["Todo","Kits","Jerseys","Shorts","Chamarras","Calcetas","Gorras","Proyectos del club"]', JSON.stringify(cats));
+revisa('las categorías arriba, en español', JSON.stringify(cats) === '["Todo","Kits","Jerseys","Shorts","Chamarras","Calcetas","Gorras"]', JSON.stringify(cats));
 const kits = await pg.$$eval('.st-card.kit strong', s => s.map(x => x.textContent));
 revisa('un kit bloqueado NO se ofrece', kits.length === 2 && !kits.includes('Kit Roto'), JSON.stringify(kits));
 revisa('el kit anuncia "Desde" su precio de niño', /Desde\s*\$2,350/.test(await pg.innerText('[data-kit="k-completo"]')));
@@ -219,15 +218,16 @@ revisa('el pedido trae los dos renglones', renglones === 2, String(renglones));
 await cabe('el pedido');
 // ¿Le agregas algo más? (25/10/2026)
 const extras = await pg.$$eval('#stExtras [data-extra]', e => e.map(x => x.dataset.extra));
-revisa('[extra] antes de pagar sugiere: proyectos primero, luego gorra y lo demás; nada de lo que ya va', JSON.stringify(extras) === '["p-beca","p-gorra","p-hoodie"]', JSON.stringify(extras));
+revisa('[extra] antes de pagar sugiere lo de la tienda que no va: gorra primero, jersey al final; nada de lo que ya va', JSON.stringify(extras) === '["p-gorra","p-hoodie","p-black"]', JSON.stringify(extras));
+revisa('[extra] el jersey abre su ficha para la talla y el nombre', (await pg.getAttribute('#stExtras [data-extra="p-black"] a', 'href')) === '#/p/p-black');
 if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-agrega-algo-mas.png`, fullPage: true });
-await pg.click('#stExtras [data-extra="p-beca"] [data-extra-agrega]');
-revisa('[extra] un toque y va en el pedido', /Apoya una beca/.test(await pg.innerText('#resumenCarrito')) && /\$5,098/.test(await pg.innerText('.carrito-total')) && !(await pg.$('#stExtras [data-extra="p-beca"]')), await pg.innerText('.carrito-total'));
+await pg.click('#stExtras [data-extra="p-gorra"] [data-extra-agrega]');
+revisa('[extra] un toque y va en el pedido', /The Tanner Cap/.test(await pg.innerText('#resumenCarrito')) && /\$5,448/.test(await pg.innerText('.carrito-total')) && !(await pg.$('#stExtras [data-extra="p-gorra"]')), await pg.innerText('.carrito-total'));
 await pg.click('#stExtras [data-extra="p-hoodie"] [data-extra-agrega]');
 revisa('[extra] lo que tiene tallas pide la talla ahí mismo', (await pg.$('#stExtras [data-extra="p-hoodie"] select.falta')) !== null && !/Hoodie/.test(await pg.innerText('#resumenCarrito')));
 await pg.selectOption('#stExtras [data-extra="p-hoodie"] select', 'M');
 await pg.click('#stExtras [data-extra="p-hoodie"] [data-extra-agrega]');
-revisa('[extra] con la talla elegida, se agrega', /Hoodie/.test(await pg.innerText('#resumenCarrito')) && /\$6,097/.test(await pg.innerText('.carrito-total')), await pg.innerText('.carrito-total'));
+revisa('[extra] con la talla elegida, se agrega', /Hoodie/.test(await pg.innerText('#resumenCarrito')) && /\$6,447/.test(await pg.innerText('.carrito-total')), await pg.innerText('.carrito-total'));
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.fill('#customerPhone', '4771234567');
 await pg.click('#submitOrder');

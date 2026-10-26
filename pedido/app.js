@@ -700,15 +700,16 @@ function convierteEnKit(llave, kitId) {
 /* ¿Le agregas algo más? Justo antes de los datos: ya decidió comprar. Lo de
    talla única entra con un toque; lo que tiene tallas, con su talla ahí mismo. */
 function extrasAntesDePagar() {
-  const l = sugerenciasAntesDePagar(catalogo.products || [], carrito, { personaliza: aceptaPersonalizacion });
+  const l = sugerenciasAntesDePagar(catalogo.products || [], carrito);
   if (!l.length) return '';
   return `<section class="st-extra" aria-label="Agrega algo más"><div class="st-extra-cab"><h2>¿Le agregas algo más?</h2><span>Va en el mismo pedido</span></div>
     <div class="st-extra-fila">${l.map(p => {
-      const unica = tallaUnica(p), tallas = tallasDe(p);
+      const unica = tallaUnica(p), tallas = tallasDe(p), ficha = aceptaPersonalizacion(p);
       return `<article class="st-extra-card" data-extra="${esc(p.id)}">${medioProducto(p)}
         <div class="st-extra-txt"><strong>${esc(p.name)}</strong><span class="st-precio">${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p))}</span>
-        ${!unica && tallas.length ? `<label class="st-extra-talla"><span class="sr-only">Talla</span><select data-extra-talla><option value="">Talla</option>${tallas.map(t => `<option>${esc(t)}</option>`).join('')}</select></label>` : ''}
-        <button type="button" class="st-extra-btn" data-extra-agrega>Agregar</button></div></article>`;
+        ${ficha ? `<a class="st-extra-btn" href="#/p/${esc(p.id)}">Elegir talla y nombre</a>`
+          : `${!unica && tallas.length ? `<label class="st-extra-talla"><span class="sr-only">Talla</span><select data-extra-talla><option value="">Talla</option>${tallas.map(t => `<option>${esc(t)}</option>`).join('')}</select></label>` : ''}
+        <button type="button" class="st-extra-btn" data-extra-agrega>Agregar</button>`}</div></article>`;
     }).join('')}</div></section>`;
 }
 function agregaExtra(card) {

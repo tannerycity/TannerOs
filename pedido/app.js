@@ -161,6 +161,7 @@ function medioProducto(p, completa = false) {
 }
 /* Varias fotos (14/10/2026): en la ficha se deslizan como en el App Store,
    con puntitos abajo. Con una sola foto se ve igual que siempre. */
+function fotoMini(p) { return medio(p.photoThumbPath || p.photoPath, p.photoBucket, p.name, 'st-ag-foto'); }
 function fotosDeProducto(p) {
   const l = Array.isArray(p.photos) ? p.photos.filter(f => f && f.path) : [];
   return l.length ? l : (p.photoPath || p.photoThumbPath ? [{ path: p.photoPath || p.photoThumbPath, thumbPath: p.photoThumbPath }] : []);
@@ -223,9 +224,37 @@ function pintaBarra(visible) {
   bar.querySelector('#verCarrito').addEventListener('click', () => { location.hash = '#/pedido'; });
 }
 let avisoTimer = 0;
+/* "Va en tu pedido" (26/10/2026). Presidencia: "no me gusta como se ve
+   cuando metes cosas al carrito". En vez de una barra negra encima de la
+   foto, una tarjeta como en las tiendas grandes: qué se agregó (foto,
+   detalle y precio) y los dos caminos claros: seguir o ver el pedido. Abajo
+   en el celular, arriba a la derecha en compu. */
+function agregado({ foto = '', titulo, detalle = '', precio = null, otro = false }) {
+  const el = $('stAviso');
+  const n = piezasDelCarrito(carrito), total = totalDelCarrito(carrito);
+  el.innerHTML = `<div class="st-ag" role="dialog" aria-label="Va en tu pedido">
+    <div class="st-ag-cab"><span class="st-ag-ok" aria-hidden="true"><span class="tos-icon tos-icon-check"></span></span><b>Va en tu pedido</b>
+      <button type="button" class="st-ag-x" data-ag-cierra aria-label="Cerrar">&times;</button></div>
+    <div class="st-ag-item">${foto}<div class="st-ag-txt"><strong>${esc(titulo)}</strong>${detalle ? `<span>${esc(detalle)}</span>` : ''}</div>${precio != null ? `<b class="st-ag-precio">${money.format(precio)}</b>` : ''}</div>
+    <div class="st-ag-acc">${otro ? '<button type="button" class="st-ag-sec" data-otro>Agregar otro</button>' : '<button type="button" class="st-ag-sec" data-ag-cierra>Seguir comprando</button>'}
+      <a class="st-ag-ver" href="#/pedido">Ver pedido <small>${n} ${n === 1 ? 'artículo' : 'artículos'} · ${money.format(total)}</small></a></div></div>`;
+  el.classList.add('tarjeta');
+  el.hidden = false; el.classList.remove('sale'); void el.offsetWidth; el.classList.add('entra');
+  firmaFotos(el);
+  programaCierre(7000);
+}
+function programaCierre(ms) {
+  clearTimeout(avisoTimer);
+  avisoTimer = setTimeout(() => {
+    const el = $('stAviso');
+    if (el.matches(':hover') || el.contains(document.activeElement)) { programaCierre(2500); return; }
+    el.classList.remove('entra'); el.classList.add('sale'); setTimeout(() => { el.hidden = true; }, 250);
+  }, ms);
+}
 function aviso(texto, conAccion = false) {
   const el = $('stAviso');
   el.innerHTML = `<span>${esc(texto)}</span>${conAccion ? '<a href="#/pedido">Ver pedido</a>' : ''}`;
+  el.classList.remove('tarjeta');
   el.hidden = false; el.classList.remove('sale'); void el.offsetWidth; el.classList.add('entra');
   clearTimeout(avisoTimer);
   avisoTimer = setTimeout(() => { el.classList.remove('entra'); el.classList.add('sale'); setTimeout(() => { el.hidden = true; }, 250); }, 3200);
@@ -319,13 +348,6 @@ function filasDeVarias(p, cantidades, manga) {
     <div class="st-cantidad mini"><button type="button" data-varia-cant="-1" aria-label="Una menos de talla ${esc(t)}">&minus;</button><output>${cantidades[t]}</output>
     <button type="button" data-varia-cant="1" aria-label="Una más de talla ${esc(t)}">+</button></div></li>`).join('')}</ul>`;
 }
-/* "Agregar otro" (18/10/2026): lo agregado se queda dicho arriba, con el
-   camino para armar otro (el jersey del hermano) o ir al pedido. */
-function recienAgregado(e) {
-  if (!e.recien) return '';
-  return `<div class="st-recien" role="status"><p><b>Listo, va en tu pedido</b><span>${esc(e.recien)}</span></p>
-    <div class="st-recien-acciones"><button type="button" data-otro>Agregar otro</button><a href="#/pedido">Ver pedido</a></div></div>`;
-}
 
 /* ---------- La tienda (PLP) ---------- */
 function tarjeta({ tipo, item }) {
@@ -398,7 +420,6 @@ function renderProducto(id) {
     <article class="st-pdp" data-ficha="${esc(p.id)}">
       ${galeria(p, e.foto || 0)}
       <div class="st-pdp-info">
-        ${recienAgregado(e)}
         <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
         <h1>${esc(p.name)}</h1>
         <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p, e.talla || unica))}</p>
@@ -458,7 +479,6 @@ function renderKit(id) {
     <article class="st-pdp" data-ficha="${esc(k.id)}">
       ${medioKit(k, 'grande')}
       <div class="st-pdp-info">
-        ${recienAgregado(e)}
         ${e.reemplaza ? '<p class="st-convierte">Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.</p>' : ''}
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
         <h1>${esc(k.name)}</h1>
@@ -689,7 +709,7 @@ function agregaProducto(id) {
     eligiendo[id] = { cantidad: 1, recien: texto };
     actualizaCarrito();
     repinta(renderProducto, id);
-    aviso(`Agregado · ${texto}`, true);
+    agregado({ foto: fotoMini(p), titulo: p.name, detalle: texto, precio: m.total });
     return;
   }
   const r = preparaLinea(p, { talla: e.talla, cantidad: e.cantidad || 1, nombre: e.nombre, numero: e.numero, manga: e.manga });
@@ -699,7 +719,8 @@ function agregaProducto(id) {
   eligiendo[id] = { cantidad: 1, recien: [quien, l.talla && `talla ${l.talla}`, l.manga === 'larga' && 'manga larga', l.cantidad > 1 && `${l.cantidad} piezas`].filter(Boolean).join(' · ') || p.name };
   actualizaCarrito();
   repinta(renderProducto, id);
-  aviso(`Agregado${r.linea.talla ? ` · talla ${r.linea.talla}` : ''}${r.linea.cantidad > 1 ? ` · ${r.linea.cantidad} piezas` : ''}`, true);
+  // "Agregar otro" sólo donde tiene sentido: lo que lleva nombre (el del hermano).
+  agregado({ foto: fotoMini(p), titulo: p.name, detalle: eligiendo[id].recien === p.name ? '' : eligiendo[id].recien, precio: l.total, otro: aceptaPersonalizacion(p) });
 }
 function agregaKit(id) {
   const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
@@ -716,7 +737,8 @@ function agregaKit(id) {
   actualizaCarrito();
   if (reemplaza.length) { location.hash = '#/pedido'; setTimeout(() => aviso(`Listo: ahora es ${k.name}`, true), 60); return; }
   repinta(renderKit, id);
-  aviso(`Agregado · ${k.name}, ${r.linea.tier.toLocaleLowerCase('es-MX')}`, true);
+  const quien = [r.linea.personalizationName, r.linea.numero].filter(Boolean).join(' ');
+  agregado({ foto: medioKit(k, 'st-ag-foto'), titulo: k.name, detalle: [r.linea.tier, quien].filter(Boolean).join(' · '), precio: r.linea.total, otro: true });
 }
 
 /* ---------- Confirmar ----------
@@ -780,27 +802,35 @@ function convierteEnKit(llave, kitId) {
   location.hash = `#/k/${encodeURIComponent(x.kit.id)}`;
 }
 
-/* ¿Le agregas algo más? Justo antes de los datos: ya decidió comprar. Lo de
-   talla única entra con un toque; lo que tiene tallas, con su talla ahí mismo. */
+/* ¿Le agregas algo más? Justo antes de los datos: ya decidió comprar.
+   Carrusel (26/10/2026). Presidencia: "se ve distinto porque se ve lo de
+   escoge talla... yo haría un carrusel que se viera más chido". Todas las
+   tarjetas son iguales: foto, nombre, precio y UN botón. Lo de talla única
+   entra de un toque; lo que tiene tallas abre un panel con las tallas como
+   botones grandes; lo que lleva nombre va a su ficha. */
 function extrasAntesDePagar() {
-  const l = sugerenciasAntesDePagar(catalogo.products || [], carrito);
+  const l = sugerenciasAntesDePagar(catalogo.products || [], carrito, { max: 8 });
   if (!l.length) return '';
-  return `<section class="st-extra" aria-label="Agrega algo más"><div class="st-extra-cab"><h2>¿Le agregas algo más?</h2><span>Va en el mismo pedido</span></div>
+  return `<section class="st-extra" aria-label="Agrega algo más"><div class="st-extra-cab"><div><h2>¿Le agregas algo más?</h2><span>Va en el mismo pedido</span></div>
+    ${l.length > 2 ? '<div class="st-extra-flechas"><button type="button" data-extra-mueve="-1" aria-label="Ver anteriores">&lsaquo;</button><button type="button" data-extra-mueve="1" aria-label="Ver siguientes">&rsaquo;</button></div>' : ''}</div>
     <div class="st-extra-fila">${l.map(p => {
-      const unica = tallaUnica(p), tallas = tallasDe(p), ficha = aceptaPersonalizacion(p);
+      const conTallas = !tallaUnica(p) && tallasDe(p).length > 0;
+      const boton = aceptaPersonalizacion(p)
+        ? `<a class="st-extra-btn" href="#/p/${esc(p.id)}">Elegir talla y nombre</a>`
+        : `<button type="button" class="st-extra-btn" data-extra-agrega>${conTallas ? 'Elegir talla' : 'Agregar'}</button>`;
       return `<article class="st-extra-card" data-extra="${esc(p.id)}">${medioProducto(p)}
-        <div class="st-extra-txt"><strong>${esc(p.name)}</strong><span class="st-precio">${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p))}</span>
-        ${ficha ? `<a class="st-extra-btn" href="#/p/${esc(p.id)}">Elegir talla y nombre</a>`
-          : `${!unica && tallas.length ? `<label class="st-extra-talla"><span class="sr-only">Talla</span><select data-extra-talla><option value="">Talla</option>${tallas.map(t => `<option>${esc(t)}</option>`).join('')}</select></label>` : ''}
-        <button type="button" class="st-extra-btn" data-extra-agrega>Agregar</button>`}</div></article>`;
+        <div class="st-extra-txt"><strong>${esc(p.name)}</strong><span class="st-precio">${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p))}</span>${boton}</div></article>`;
     }).join('')}</div></section>`;
 }
 function agregaExtra(card) {
   const p = (catalogo.products || []).find(x => String(x.id) === card.dataset.extra);
   if (!p) return;
-  const sel = card.querySelector('[data-extra-talla]');
-  const r = preparaLinea(p, { talla: sel?.value || null, cantidad: 1 });
-  if (!r.ok) { sel?.classList.add('falta'); sel?.focus(); return; }
+  if (!tallaUnica(p) && tallasDe(p).length) { abreTallaRapida(p); return; }
+  sumaExtra(p, null);
+}
+function sumaExtra(p, talla) {
+  const r = preparaLinea(p, { talla, cantidad: 1 });
+  if (!r.ok) return;
   carrito = agregaAlCarrito(carrito, r.linea);
   actualizaCarrito();
   $('resumenCarrito').innerHTML = resumen();
@@ -808,6 +838,37 @@ function agregaExtra(card) {
   firmaFotos($('stExtras'));
   if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
   aviso(`Agregado · ${p.name}${r.linea.talla && !tallaUnica(p) ? ` talla ${r.linea.talla}` : ''}`);
+}
+// El panel de tallas del carrusel: botones grandes y, si hay tabla, "¿Qué talla es?".
+function abreTallaRapida(p) {
+  document.getElementById('stTallaRapida')?.remove();
+  const tallas = tallasDe(p);
+  const capa = document.createElement('div');
+  capa.id = 'stTallaRapida'; capa.className = 'st-guia-capa';
+  capa.innerHTML = `<div class="st-guia st-talla-rapida" role="dialog" aria-modal="true" aria-labelledby="stTallaTit">
+    <div class="st-guia-cab"><h2 id="stTallaTit">Elige la talla</h2><button type="button" class="st-guia-cerrar" data-tr-cerrar aria-label="Cerrar">&times;</button></div>
+    <div class="st-tr-prod">${medioProducto(p)}<div><strong>${esc(p.name)}</strong><span>${money.format(precioDeEtiqueta(p).monto)}${precioNinoDe(p) ? ' · niño desde ' + money.format(precioNinoDe(p)) : ''}</span></div></div>
+    ${botonesTalla(tallas, null, 'data-talla-rapida')}
+    ${tablasPara(tallas).hay ? '<button type="button" class="st-guia-btn" data-tr-guia>¿Qué talla es?</button>' : ''}</div>`;
+  document.body.appendChild(capa);
+  firmaFotos(capa);
+  const cierra = () => { capa.remove(); document.removeEventListener('keydown', esc_); };
+  const esc_ = ev => { if (ev.key === 'Escape') cierra(); };
+  capa.addEventListener('click', ev => {
+    if (ev.target === capa || ev.target.closest('[data-tr-cerrar]')) { cierra(); return; }
+    if (ev.target.closest('[data-tr-guia]')) { abreGuia(tallas); return; }
+    const t = ev.target.closest('[data-talla-rapida]');
+    if (t) { cierra(); sumaExtra(p, t.dataset.tallaRapida); }
+  });
+  document.addEventListener('keydown', esc_);
+  capa.querySelector('[data-talla-rapida]')?.focus();
+}
+function cableaExtras() {
+  $('stExtras').addEventListener('click', e => {
+    const b = e.target.closest('[data-extra-agrega]'); if (b) { agregaExtra(b.closest('[data-extra]')); return; }
+    const m = e.target.closest('[data-extra-mueve]');
+    if (m) { const fila = $('stExtras').querySelector('.st-extra-fila'); fila?.scrollBy({ left: Number(m.dataset.extraMueve) * fila.clientWidth * 0.8, behavior: 'smooth' }); }
+  });
 }
 
 function renderCheckout() {
@@ -819,7 +880,6 @@ function renderCheckout() {
     <div id="resumenCarrito">${resumen()}</div>
     <div id="stCodigoCaja">${cajaCodigo()}</div>
     <div id="stExtras">${extrasAntesDePagar()}</div>
-    <p class="st-nota">${pagoInfo?.delivery ? `Entrega en ${esc(pagoInfo.delivery)}. ` : ''}Al confirmar ves la CLABE para pagar por transferencia.</p>
     <form id="orderForm" class="form-grid order-form st-form">
       <h2 class="span-2">Tus datos</h2>
       <label class="span-2">Nombre de quien recibe *<input id="customerName" minlength="2" maxlength="120" required autocomplete="name"></label>
@@ -835,7 +895,8 @@ function renderCheckout() {
         <span>Entiendo que tengo <b>${DIAS_PARA_RECOGER} días</b> para recoger mi pedido a partir de que me avisen que llegó. Después de ese plazo el club ya no se hace responsable de la prenda. <b>*</b></span></label>
       <div id="formMessage" class="message hidden span-2"></div>
       <button id="submitOrder" class="primary span-2 st-cta" type="submit">Confirmar pedido</button>
-    </form>`;
+    </form>
+    ${infoDeCompra()}`;
   wirePhone();
   // Quitar un renglón no borra lo que ya se escribió en el formulario.
   $('resumenCarrito').onclick = e => {
@@ -861,8 +922,7 @@ function renderCheckout() {
   // Llegó con la liga del embajador: el código ya va puesto.
   if (codigoEscrito && !codigo) aplicaCodigo(codigoEscrito, { silencio: true });
   else if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
-  $('stExtras').addEventListener('click', e => { const b = e.target.closest('[data-extra-agrega]'); if (b) agregaExtra(b.closest('[data-extra]')); });
-  $('stExtras').addEventListener('change', e => e.target.closest('[data-extra-talla]')?.classList.remove('falta'));
+  cableaExtras();
   firmaFotos($('stExtras'));
 }
 
@@ -1015,6 +1075,16 @@ function renderListo(result, nombre) {
 }
 
 /* ---------- Arranque ---------- */
+// La tarjeta "Va en tu pedido": cerrar, o armar otro (el del hermano).
+$('stAviso').addEventListener('click', e => {
+  const cierra = () => { clearTimeout(avisoTimer); cierraAviso(); };
+  if (e.target.closest('[data-ag-cierra]')) { cierra(); return; }
+  if (e.target.closest('[data-otro]')) {
+    cierra();
+    const esKit = !!document.querySelector('[data-ficha]') && location.hash.startsWith('#/k/');
+    (esKit ? document.querySelector('[data-ranura], #stBloqueTier') : $('stBloqueTalla'))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
 $('stCarrito').addEventListener('click', () => {
   if (piezasDelCarrito(carrito)) location.hash = '#/pedido';
   else aviso('Tu pedido está vacío: agrega algo de la tienda.');

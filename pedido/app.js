@@ -226,7 +226,7 @@ function infoDeCompra() {
   const pago = metodos.length > 1 ? `${metodos.slice(0, -1).join(', ')} o ${metodos.at(-1)}` : (metodos[0] || 'transferencia');
   return `<ul class="st-info">
     ${pagoInfo?.delivery ? `<li><b>Entrega</b><span>En ${esc(pagoInfo.delivery)}. Se produce sobre pedido.</span></li>` : ''}
-    <li><b>Pago</b><span>Por ${esc(pago)}. La transferencia no tiene comisión: al confirmar ves la CLABE y tu referencia.</span></li>
+    <li><b>Pago</b><span>Por ${esc(pago)}. Al confirmar ves la CLABE y tu referencia para transferir.</span></li>
     <li><b>Confirmación</b><span>Te escribimos por WhatsApp para revisar tallas y entrega.</span></li></ul>`;
 }
 /* La vista previa del kit (14/10/2026): "si le pones manga larga, ver la manga
@@ -734,7 +734,7 @@ function renderCheckout() {
     <h1 class="st-titulo">Tu pedido</h1>
     <div id="resumenCarrito">${resumen()}</div>
     <div id="stExtras">${extrasAntesDePagar()}</div>
-    <p class="st-nota">${pagoInfo?.delivery ? `Entrega en ${esc(pagoInfo.delivery)}. ` : ''}Al confirmar ves la CLABE para pagar por transferencia, sin comisión.</p>
+    <p class="st-nota">${pagoInfo?.delivery ? `Entrega en ${esc(pagoInfo.delivery)}. ` : ''}Al confirmar ves la CLABE para pagar por transferencia.</p>
     <form id="orderForm" class="form-grid order-form st-form">
       <h2 class="span-2">Tus datos</h2>
       <label class="span-2">Nombre de quien recibe *<input id="customerName" minlength="2" maxlength="120" required autocomplete="name"></label>
@@ -845,7 +845,7 @@ function renderListo(result, nombre) {
       <p><strong>Total:</strong> ${money.format(total)}</p></div>
     ${filas ? `<section class="pago-card" aria-label="Cómo pagar">
       <h3>Cómo pagar</h3>
-      <p class="muted">Transferencia SPEI, <b>sin comisión</b>. Pon tu folio como referencia o concepto:</p>
+      <p class="muted">Transferencia SPEI. Pon tu folio como referencia o concepto:</p>
       <div class="pago-filas">${filas}</div>
       ${pago.otros ? `<p class="muted pago-otros">${esc(pago.otros)}</p>` : ''}
     </section>` : ''}

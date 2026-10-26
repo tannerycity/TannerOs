@@ -257,7 +257,7 @@ revisa('con el consentimiento y su versión', envios[0]?.p?.consent?.dataAccepte
 const final = await pg.textContent('#content').catch(() => '');
 revisa('se confirma con su folio y cómo pagar', /PED-QA-1/.test(final) && /167210000079567650/.test(final));
 if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-pago.png`, fullPage: true });
-revisa('el pago dice que la transferencia no tiene comisión y se copian CLABE y referencia', /sin comisión/.test(final) && (await pg.$$('#content [data-copiar]')).length === 2, final.slice(0, 400));
+revisa('el pago no habla de comisiones y se copian CLABE y referencia', !/comisi/i.test(final) && (await pg.$$('#content [data-copiar]')).length === 2, final.slice(0, 400));
 revisa('y el carrito queda vacío', (await badge()) === '0');
 
 /* ===== 7. Quitar renglones ===== */

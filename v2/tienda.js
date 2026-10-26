@@ -74,14 +74,21 @@ export function llevaManga(producto) {
    larga"). El cargo lo fija el club y viaja con el catálogo (recargoManga en
    cada producto y kit). Igual que private.aplica_recargo_manga. */
 export const recargoDe = x => Math.max(0, Number(x?.recargoManga || 0));
+/* Nombre y número con cargo (26/10/2026, h45): "yo sería de sí cobrarlo...
+   pero que tenga un botón que lo puedas quitar". Se cobra por cada jersey que
+   lleva nombre o número; con el interruptor apagado el catálogo trae 0.
+   Igual que private.aplica_recargo_personalizacion. */
+export const recargoPersDe = x => Math.max(0, Number(x?.recargoPersonalizacion || 0));
+export const llevaEstampado = o => !!(nombreValido(o?.nombre ?? o?.personalizationName) || numeroValido(o?.numero));
 export function textoRecargo(r, fmt = n => `$${n}`) { return r > 0 ? `+${fmt(r)}` : ''; }
-/* Le pone el cargo del club a productos y kits (lo hace quien carga el catálogo). */
-export function conRecargo(catalogo, recargo) {
-  const r = Math.max(0, Number(recargo || 0));
-  if (!r) return catalogo;
+/* Le pone los cargos del club a productos y kits (lo hace quien carga el catálogo). */
+export function conRecargo(catalogo, recargo, recargoPers = 0) {
+  const r = Math.max(0, Number(recargo || 0)), rp = Math.max(0, Number(recargoPers || 0));
+  if (!r && !rp) return catalogo;
+  const pon = x => ({ ...x, ...(r ? { recargoManga: r } : {}), ...(rp ? { recargoPersonalizacion: rp } : {}) });
   return { ...catalogo,
-    products: (catalogo.products || []).map(p => ({ ...p, recargoManga: r })),
-    bundles: (catalogo.bundles || []).map(k => ({ ...k, recargoManga: r })) };
+    products: (catalogo.products || []).map(pon),
+    bundles: (catalogo.bundles || []).map(pon) };
 }
 export function numeroValido(v) {
   const s = String(v ?? '').trim();
@@ -165,8 +172,11 @@ export function preparaLinea(producto, opciones = {}) {
       productId: producto.id, nombreProducto: producto.name || 'Producto',
       talla, cantidad,
       personalizationName: nombre, numero, manga,
-      precioUnitario: precioDeProducto(producto, talla) + (manga === 'larga' ? recargoDe(producto) : 0),
-      total: (precioDeProducto(producto, talla) + (manga === 'larga' ? recargoDe(producto) : 0)) * cantidad
+      // Lo que costó el nombre y número, por pieza: un código de "nombre y
+      // número gratis" (h46) descuenta justo esto.
+      ...(nombre || numero) && recargoPersDe(producto) ? { recargoPers: recargoPersDe(producto) } : {},
+      precioUnitario: precioDeProducto(producto, talla) + (manga === 'larga' ? recargoDe(producto) : 0) + (nombre || numero ? recargoPersDe(producto) : 0),
+      total: (precioDeProducto(producto, talla) + (manga === 'larga' ? recargoDe(producto) : 0) + (nombre || numero ? recargoPersDe(producto) : 0)) * cantidad
     }
   };
 }
@@ -404,6 +414,21 @@ export function tiersDeKit(kit) {
   return t;
 }
 
+/* Qué piezas del kit llevan el nombre y el número: las mismas que el servidor
+   (la casilla "Lleva nombre y número" o, sin tocar, que sea jersey). */
+function jerseyDeRanura(r) {
+  const p = r?.producto;
+  if (typeof p?.personalizable === 'boolean') return p.personalizable;
+  return /jersey|uniforme|playera/i.test(p?.name || r?.nombre || '');
+}
+export function jerseysDeKit(kit, elegidos) {
+  return ranurasDeKit(kit).map(r0 => ranuraElegida(r0, elegidos)).filter(jerseyDeRanura).length;
+}
+/* Cuánto suma el nombre y número a un kit con lo que lleva escrito. */
+export function extraEstampadoKit(kit, opciones = {}) {
+  return llevaEstampado(opciones) ? jerseysDeKit(kit, opciones.elegidos) * recargoPersDe(kit) : 0;
+}
+
 /* ¿Se puede agregar el kit?
 
    Devuelve la línea lista o el motivo. Igual que preparaLinea: el motivo se
@@ -422,6 +447,7 @@ export function preparaKit(kit, opciones = {}) {
 
   const elegidas = opciones.tallas || {};
   const piezas = [];
+  let jerseys = 0;
   for (const r0 of ranuras) {
     const r = ranuraElegida(r0, opciones.elegidos);
     if (r.pool && !r.productId) return { ok: false, motivo: `Elige ${r.nombre.replace(/^\w/, c => c.toLowerCase())}.`, falta: r.id };
@@ -437,6 +463,7 @@ export function preparaKit(kit, opciones = {}) {
     const conManga = llevaManga(r.producto || { name: r.nombre });
     const mangaPieza = conManga ? mangaValida(opciones.mangas?.[r.id] || opciones.manga) : null;
     piezas.push({ productId: r.productId, talla: talla || null, nombre: r.elegido ? nombreCorto(r.elegido.name) : r.nombre, ...(mangaPieza ? { manga: mangaPieza } : {}) });
+    if (jerseyDeRanura(r)) jerseys++;
   }
 
   const nombre = nombreValido(opciones.nombre);
@@ -444,7 +471,8 @@ export function preparaKit(kit, opciones = {}) {
   const numero = numeroValido(numeroCrudo);
   const manga = mangaValida(opciones.manga);
   const largas = piezas.filter(p => p.manga === 'larga').length;
-  const total = precio + largas * recargoDe(kit);
+  const estampados = nombre || numero ? jerseys : 0;
+  const total = precio + largas * recargoDe(kit) + estampados * recargoPersDe(kit);
   if (numeroCrudo && !numero) {
     return { ok: false, motivo: 'El número va de 1 a 3 dígitos.', falta: 'numero' };
   }
@@ -456,7 +484,8 @@ export function preparaKit(kit, opciones = {}) {
       bundleId: kit.id, nombreProducto: kit.name || 'Kit', tier,
       piezas, cantidad: 1, conEleccion: ranuras.some(r => r.pool) || undefined,
       personalizationName: nombre, numero, manga,
-      precioUnitario: total, total, largas: largas || undefined
+      precioUnitario: total, total, largas: largas || undefined,
+      ...(estampados && recargoPersDe(kit) ? { recargoPers: estampados * recargoPersDe(kit) } : {})
     }
   };
 }
@@ -537,6 +566,8 @@ function sugerenciaDe(kit, ancla, libres) {
   // Los jerseys de manga larga llevan su cargo también dentro del kit.
   precio += cubiertas.filter(([, l]) => l.manga === 'larga').length * recargoDe(kit);
   const a = ancla[1];
+  // Y el nombre y número, en cada jersey del kit que lo lleva.
+  precio += extraEstampadoKit(kit, { nombre: a.personalizationName, numero: a.numero, elegidos });
   return {
     kit, tier, precio, sueltos,
     diferencia: Math.round((precio - sueltos) * 100) / 100,

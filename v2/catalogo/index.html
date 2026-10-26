@@ -11,7 +11,7 @@
 <nav class="tienda-tabs" aria-label="Tienda"><a href="/pedidos/">Pedidos</a><a href="/captura/">Nuevo pedido</a><a href="/catalogo/" aria-current="page">Catálogo</a></nav>
   <header class="cat-head"><div><h1>Catálogo</h1><p id="catResumen" class="cat-sub">Cargando…</p></div>
     <div class="cat-head-acc"><button id="newBundleBtn" class="t-btn-sec hidden" type="button">+ Kit</button><button id="newProductBtn" class="t-btn hidden" type="button">+ Producto</button></div></header>
-  <div class="cat-seg" role="tablist" aria-label="Ver"><button type="button" role="tab" data-ver="productos" class="activo" aria-selected="true">Productos <i id="catNumProd">0</i></button><button type="button" role="tab" data-ver="kits" aria-selected="false">Kits <i id="catNumKits">0</i></button><button type="button" role="tab" data-ver="ofertas" aria-selected="false" id="catTabOfertas" class="hidden">Ofertas <i id="catNumOfertas"></i></button><button type="button" role="tab" data-ver="costos" aria-selected="false" id="catTabCostos" class="hidden">Costos</button></div>
+  <div class="cat-seg" role="tablist" aria-label="Ver"><button type="button" role="tab" data-ver="productos" class="activo" aria-selected="true">Productos <i id="catNumProd">0</i></button><button type="button" role="tab" data-ver="kits" aria-selected="false">Kits <i id="catNumKits">0</i></button><button type="button" role="tab" data-ver="ofertas" aria-selected="false" id="catTabOfertas" class="hidden">Ofertas <i id="catNumOfertas"></i></button><button type="button" role="tab" data-ver="codigos" aria-selected="false" id="catTabCodigos" class="hidden">Códigos <i id="catNumCodigos"></i></button><button type="button" role="tab" data-ver="costos" aria-selected="false" id="catTabCostos" class="hidden">Costos</button></div>
   <input id="catBuscar" class="cat-buscar" type="search" placeholder="Buscar producto o kit…" aria-label="Buscar">
 
   <p id="pendientes" class="pendientes hidden"></p>
@@ -27,6 +27,13 @@
   <section class="panel hidden" id="ofertasPanel">
     <div class="costos-cab ofertas-cab"><div><h2>Ofertas</h2><p class="muted">Precio especial o descuento con fecha de fin. Se aplica sola en la tienda, el portal y el mostrador.</p></div><button type="button" id="nuevaOferta" class="t-btn">+ Oferta</button></div>
     <div id="ofertasLista" class="ofertas-lista"></div>
+  </section>
+
+  <!-- Códigos (26/10/2026, h46): descuento, regalo o nombre y número gratis,
+  con embajador opcional que ve sus ventas y gana un premio. -->
+  <section class="panel hidden" id="codigosPanel">
+    <div class="costos-cab ofertas-cab"><div><h2>Códigos</h2><p class="muted">La familia lo escribe al pagar (o le llega puesto en la liga del embajador). Arriba del 10% de la compra lo autoriza Presidencia.</p></div><button type="button" id="nuevoCodigo" class="t-btn">+ Código</button></div>
+    <div id="codigosLista" class="ofertas-lista"></div>
   </section>
 
   <!-- Costos (13/10/2026): costo, margen y utilidad viven SÓLO aquí, y sólo
@@ -53,6 +60,14 @@
       <span><b>Manga larga</b><small>Se suma a cada jersey de manga larga, suelto o en kit.</small></span>
       <span class="recargo-campo"><span aria-hidden="true">+$</span><input id="recargoManga" type="number" min="0" max="5000" step="1" inputmode="numeric" placeholder="0" aria-label="Recargo por manga larga, en pesos"></span>
     </label>
+    <!-- Nombre y número con cargo (26/10/2026, h45): "que tenga un botón que lo puedas quitar". -->
+    <div id="recargoPersCaja" class="recargo-manga recargo-pers hidden">
+      <span><b>Nombre y número</b><small id="recargoPersNota">Se suma a cada jersey que lleva nombre o número.</small></span>
+      <span class="recargo-pers-ctl">
+        <span class="recargo-campo"><span aria-hidden="true">+$</span><input id="recargoPers" type="number" min="0" max="5000" step="1" inputmode="numeric" placeholder="100" aria-label="Cargo por nombre y número, en pesos"></span>
+        <label class="cat-switch"><input type="checkbox" id="cobraPers" role="switch" aria-label="Cobrar nombre y número"><span id="cobraPersTxt">Gratis</span></label>
+      </span>
+    </div>
   </section>
 </section>
 </main>
@@ -122,6 +137,41 @@
     <label class="of-nombre"><span>Nombre</span><input id="ofNombre" maxlength="80" placeholder="Ej. Buen Fin, Regreso a clases"></label>
     <p id="ofVista" class="of-vista"></p>
     <div class="drawer-actions"><button id="ofGuardar" class="primary" type="button">Poner en oferta</button></div>
+  </div>
+
+  <div id="codeForm" class="hidden">
+    <label class="of-nombre"><span>Código</span><input id="cdCode" maxlength="20" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Ej. CURTIBROTHER"><small class="campo-ayuda">Letras y números, sin espacios. Es lo que escribe la familia.</small></label>
+    <div class="campo-toques"><span class="campo-titulo">¿Qué hace?</span>
+      <div class="chips" id="cdTipo"><button type="button" class="chip on" data-tipo="descuento">Descuento</button><button type="button" class="chip" data-tipo="regalo">Regalo</button><button type="button" class="chip" data-tipo="personalizacion">Nombre y número gratis</button></div>
+      <div id="cdDescuento">
+        <div class="chips" id="cdComo"><button type="button" class="chip on" data-como="pct">% de descuento</button><button type="button" class="chip" data-como="amount">$ de descuento</button></div>
+        <div class="field-grid"><label><span id="cdValorTit">Descuento (%)</span><input id="cdValor" type="number" min="1" step="1" inputmode="decimal" placeholder="10"></label></div>
+      </div>
+      <div id="cdRegaloCaja" class="hidden"><select id="cdRegalo" class="of-select"></select><small class="campo-ayuda">Sólo piezas de talla única: no hay que preguntar talla.</small></div>
+    </div>
+    <div class="field-grid"><label><span>Compra mínima</span><input id="cdMin" type="number" min="0" step="1" inputmode="numeric" placeholder="Sin mínimo"></label>
+      <label><span>Vence</span><input id="cdFin" type="date"></label></div>
+    <div class="field-grid"><label><span>Usos en total</span><input id="cdUsos" type="number" min="1" step="1" inputmode="numeric" placeholder="Sin límite"></label>
+      <label class="cd-una-vez"><span>Una vez por cliente</span><input id="cdUnaVez" type="checkbox" role="switch"></label></div>
+    <details id="cdEmbajador" class="cd-embajador"><summary><b>Embajador</b> <span>Opcional: quién lo comparte y qué gana</span></summary>
+      <div class="field-grid"><label><span>Nombre</span><input id="cdEmbNombre" maxlength="60" placeholder="Ej. Curti"></label>
+        <label><span>WhatsApp</span><input id="cdEmbTel" type="tel" inputmode="tel" maxlength="20" placeholder="10 dígitos"></label></div>
+      <div class="field-grid"><label><span>Premio (% de lo que vende)</span><input id="cdPremio" type="number" min="0" max="30" step="1" inputmode="numeric" placeholder="0"></label>
+        <div class="campo-toques"><span class="campo-titulo">Se le paga en</span><div class="chips" id="cdPremioTipo"><button type="button" class="chip on" data-premio="dinero">Dinero</button><button type="button" class="chip" data-premio="credito">Crédito en tienda</button></div></div></div>
+    </details>
+    <label class="of-nombre"><span>Nota interna</span><input id="cdNota" maxlength="200" placeholder="Ej. Campaña regreso a clases"></label>
+    <p id="cdVista" class="of-vista"></p>
+    <div class="drawer-actions"><button id="cdGuardar" class="primary" type="button">Guardar código</button></div>
+  </div>
+
+  <div id="payForm" class="hidden">
+    <p id="payResumen" class="of-vista"></p>
+    <div class="field-grid"><label><span>¿Cuánto se le pagó?</span><input id="payMonto" type="number" min="1" step="0.01" inputmode="decimal"></label></div>
+    <div class="campo-toques"><span class="campo-titulo">¿Cómo?</span>
+      <div class="chips" id="payComo"><button type="button" class="chip on" data-como="efectivo">Efectivo</button><button type="button" class="chip" data-como="transferencia">Transferencia</button><button type="button" class="chip" data-como="credito">Crédito en tienda</button></div></div>
+    <label class="of-nombre"><span>Nota</span><input id="payNota" maxlength="200" placeholder="Opcional"></label>
+    <div class="drawer-actions"><button id="payGuardar" class="primary" type="button">Anotar pago</button></div>
+    <div id="payHistorial" class="cd-pagos"></div>
   </div>
 
   <div id="productForm" class="hidden">

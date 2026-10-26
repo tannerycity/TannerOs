@@ -167,6 +167,11 @@ revisa('la cantidad sube y el botón dice el total', /\$1,398/.test(await pg.inn
 await pg.click('#stAgregar');
 revisa('agregado: el carrito de arriba cuenta 2', (await badge()) === '2', await badge());
 revisa('y avisa con "Ver pedido"', await pg.isVisible('#stAviso a[href="#/pedido"]'));
+// "Va en tu pedido" (26/10/2026): tarjeta con qué se agregó, su precio y el total.
+const tarjeta = await pg.innerText('#stAviso');
+revisa('[agregado] la tarjeta dice qué, con nombre y talla, y su precio', /Va en tu pedido/.test(tarjeta) && /LEO 7/.test(tarjeta) && /talla 10/.test(tarjeta) && /\$1,398/.test(tarjeta), tarjeta);
+revisa('[agregado] y "Ver pedido" dice cuántos artículos y el total', /2 artículos/.test(tarjeta), tarjeta);
+await pg.click('#stAviso [data-ag-cierra]').catch(() => {});
 await cabe('la ficha de una pieza');
 
 /* ===== 4. La ficha de un kit ===== */
@@ -223,10 +228,13 @@ revisa('[extra] el jersey abre su ficha para la talla y el nombre', (await pg.ge
 if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-agrega-algo-mas.png`, fullPage: true });
 await pg.click('#stExtras [data-extra="p-gorra"] [data-extra-agrega]');
 revisa('[extra] un toque y va en el pedido', /The Tanner Cap/.test(await pg.innerText('#resumenCarrito')) && /\$5,448/.test(await pg.innerText('.carrito-total')) && !(await pg.$('#stExtras [data-extra="p-gorra"]')), await pg.innerText('.carrito-total'));
+revisa('[extra] todas las tarjetas del carrusel miden lo mismo', await pg.$$eval('#stExtras .st-extra-card', c => new Set(c.map(x => Math.round(x.getBoundingClientRect().height))).size === 1));
+revisa('[extra] lo que tiene tallas dice "Elegir talla"', /Elegir talla/.test(await pg.innerText('#stExtras [data-extra="p-hoodie"] [data-extra-agrega]')));
 await pg.click('#stExtras [data-extra="p-hoodie"] [data-extra-agrega]');
-revisa('[extra] lo que tiene tallas pide la talla ahí mismo', (await pg.$('#stExtras [data-extra="p-hoodie"] select.falta')) !== null && !/Hoodie/.test(await pg.innerText('#resumenCarrito')));
-await pg.selectOption('#stExtras [data-extra="p-hoodie"] select', 'M');
-await pg.click('#stExtras [data-extra="p-hoodie"] [data-extra-agrega]');
+await pg.waitForSelector('#stTallaRapida [data-talla-rapida="M"]', { timeout: 3000 });
+revisa('[extra] abre el panel de tallas y todavía no agrega', !/Hoodie/.test(await pg.innerText('#resumenCarrito')));
+await pg.click('#stTallaRapida [data-talla-rapida="M"]');
+await pg.waitForTimeout(150);
 revisa('[extra] con la talla elegida, se agrega', /Hoodie/.test(await pg.innerText('#resumenCarrito')) && /\$6,447/.test(await pg.innerText('.carrito-total')), await pg.innerText('.carrito-total'));
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.fill('#customerPhone', '4771234567');
@@ -388,7 +396,7 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   await p3.click('[data-talla="S"]');
   await p3.click('#stAgregar');
   revisa('[varias] se agregan las 3 piezas de un toque', (await n3()) === '3', await n3());
-  revisa('[otro] queda dicho arriba qué se agregó', /3 piezas · S, 2 L/.test(await p3.textContent('.st-recien')), await p3.textContent('.st-recien').catch(() => ''));
+  revisa('[otro] la tarjeta dice qué se agregó', /3 piezas · S, 2 L/.test(await p3.textContent('#stAviso .st-ag')), await p3.textContent('#stAviso').catch(() => ''));
   revisa('[varias] y las tallas quedan limpias para otra', (await p3.$$('.st-varias li')).length === 0);
   await p3.goto(BASE + '/pedido/#/pedido');
   await p3.waitForSelector('#resumenCarrito', { timeout:4000 }).catch(() => {});
@@ -401,10 +409,10 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   await p3.click('[data-talla="10"]');
   await p3.fill('[data-campo="nombre"]', 'LEO'); await p3.fill('[data-campo="numero"]', '7');
   await p3.click('#stAgregar');
-  revisa('[otro] el jersey agregado se dice con nombre y talla', /LEO 7 · talla 10/.test(await p3.textContent('.st-recien')), await p3.textContent('.st-recien').catch(() => ''));
-  if (process.env.QA_FOTO_VARIAS) await p3.locator('.st-recien').screenshot({ path: process.env.QA_FOTO_VARIAS.replace(/\.png$/, '-otro.png') });
-  await p3.click('[data-otro]');
-  revisa('[otro] "Agregar otro" deja la ficha lista para el siguiente', (await p3.$('.st-recien')) === null && (await p3.inputValue('[data-campo="nombre"]')) === '');
+  revisa('[otro] el jersey agregado se dice con nombre y talla', /LEO 7 · talla 10/.test(await p3.textContent('#stAviso .st-ag')), await p3.textContent('#stAviso').catch(() => ''));
+  if (process.env.QA_FOTO_VARIAS) await p3.locator('#stAviso').screenshot({ path: process.env.QA_FOTO_VARIAS.replace(/\.png$/, '-otro.png') });
+  await p3.click('#stAviso [data-otro]');
+  revisa('[otro] "Agregar otro" cierra la tarjeta y deja la ficha lista para el siguiente', (await p3.isHidden('#stAviso')) && (await p3.inputValue('[data-campo="nombre"]')) === '');
   revisa('[varias] nada se sale a 390px', await p3.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
   await p3.close();
 }

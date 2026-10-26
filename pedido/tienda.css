@@ -234,7 +234,7 @@
 @media (prefers-reduced-motion: reduce) {
   .st-media img, .st-card .st-media, .st-aviso { transition: none; }
 }
-.st-aviso[hidden] { display: none; }
+.st-aviso[hidden] { display: none !important; }
 
 /* ¿Lo conviertes en kit? (13/10/2026) */
 .st-sugiere { display: grid; gap: 10px; margin: 14px 0 6px; }
@@ -295,14 +295,6 @@
 .st-varias li small { font-size: 12.5px; color: var(--st-muted); }
 .st-cantidad.mini button { width: 36px; height: 36px; }
 .st-cantidad.mini output { min-width: 28px; }
-.st-recien { display: grid; gap: 10px; margin: 0 0 16px; padding: 14px 16px; border-radius: 16px; background: #e8f4ec; border: 1px solid #cfe6d7; }
-.st-recien p { margin: 0; display: grid; gap: 2px; }
-.st-recien b { color: var(--st-ok); font-size: 15px; }
-.st-recien span { font-size: 14px; color: var(--st-ink-2); }
-.st-recien-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
-.st-recien-acciones button, .st-recien-acciones a { flex: 1 1 140px; min-height: 42px; display: grid; place-items: center; border-radius: 12px; font: inherit; font-weight: 700; font-size: 14px; text-decoration: none; cursor: pointer; }
-.st-recien-acciones button { border: 0; background: var(--st-ink); color: #fff; }
-.st-recien-acciones a { border: 1px solid var(--st-line); background: #fff; color: var(--st-ink); }
 
 /* Portada con identidad del club (22/10/2026): "que todo el mundo disfrute
    hacer sus pedidos y sean orgullosos Tanners". Banda del color del club con
@@ -354,14 +346,93 @@
 .st-extra-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .st-extra-cab h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
 .st-extra-cab span { font-size: 13px; color: var(--st-muted); }
-.st-extra-fila { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 46%); gap: 12px; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.st-extra-cab > div:first-child { display: grid; gap: 2px; }
+.st-extra-flechas { display: none; gap: 8px; }
+@media (min-width: 700px) { .st-extra-flechas { display: flex; } }
+.st-extra-flechas button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--st-line); background: #fff; font-size: 22px; line-height: 1; color: var(--st-ink); cursor: pointer; }
+/* Carrusel en todos los tamaños: tarjetas del mismo ancho y alto, la siguiente
+   se asoma para que se note que hay más. */
+.st-extra-fila { display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 12px; overflow-x: auto; padding: 2px 2px 10px; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+@media (min-width: 700px) { .st-extra-fila { grid-auto-columns: 210px; gap: 14px; } }
 .st-extra-fila::-webkit-scrollbar { display: none; }
-@media (min-width: 700px) { .st-extra-fila { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; } }
-.st-extra-card { display: grid; grid-template-rows: auto 1fr; border-radius: 18px; background: #fff; border: 1px solid rgba(0, 0, 0, .07); overflow: hidden; scroll-snap-align: start; }
+.st-extra-card { display: flex; flex-direction: column; border-radius: 18px; background: #fff; border: 1px solid rgba(0, 0, 0, .07); overflow: hidden; scroll-snap-align: start; transition: box-shadow .2s ease, transform .2s ease; }
+.st-extra-card:hover { box-shadow: 0 10px 26px rgba(7, 25, 30, .1); transform: translateY(-2px); }
 .st-extra-card .st-media { aspect-ratio: 1 / 1; border-radius: 0; }
-.st-extra-txt { display: grid; gap: 6px; padding: 10px 12px 12px; align-content: start; }
-.st-extra-txt strong { font-size: 14.5px; line-height: 1.25; }
-.st-extra-talla select { width: 100%; min-height: 40px; border-radius: 10px; border: 1px solid rgba(0, 0, 0, .15); padding: 0 10px; font: inherit; font-size: 14px; background: #fff; }
-.st-extra-talla select.falta { border-color: var(--st-bad); box-shadow: 0 0 0 3px rgba(200, 40, 40, .12); }
-.st-extra-btn { display: grid; place-items: center; text-align: center; text-decoration: none; min-height: 40px; border: 0; border-radius: 12px; background: var(--st-ink); color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.st-extra-txt { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; flex: 1; }
+.st-extra-txt strong { font-size: 14.5px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em; }
+.st-extra-txt .st-precio { margin-bottom: 6px; }
+.st-extra-btn { margin-top: auto; display: grid; place-items: center; text-align: center; text-decoration: none; min-height: 42px; padding: 0 10px; border: 0; border-radius: 12px; background: var(--st-ink); color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+/* Panel "Elige la talla" del carrusel. */
+.st-tr-prod { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; margin: 12px 0 14px; }
+.st-tr-prod .st-media { width: 64px; height: 64px; border-radius: 14px; aspect-ratio: auto; }
+.st-tr-prod strong { display: block; font-size: 15px; }
+.st-tr-prod span { font-size: 14px; color: var(--st-ink-2); }
+.st-talla-rapida .st-guia-btn { margin: 14px 0 4px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Códigos (26/10/2026, h46): la caja antes de los datos y la liga del embajador. */
+.carrito-sub, .carrito-desc, .carrito-regalo { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.carrito-desc { color: var(--st-ok); font-weight: 700; }
+.carrito-regalo small { color: var(--st-muted); font-weight: 500; }
+.carrito-regalo strong { color: var(--st-ok); }
+.st-codigo { margin: 14px 0 4px; padding: 14px; border-radius: 18px; background: var(--st-soft); }
+.st-codigo-campo { display: grid; gap: 8px; font-size: 14px; font-weight: 700; }
+.st-codigo-fila { display: flex; gap: 8px; }
+.st-codigo-fila input { flex: 1; min-width: 0; min-height: 46px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, .15); padding: 0 12px; font: inherit; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; background: #fff; }
+.st-codigo-fila button, .st-codigo-quita { min-height: 46px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--st-ink); color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.st-codigo-mal { margin: 8px 0 0; color: var(--st-bad); font-size: 13.5px; font-weight: 600; }
+.st-codigo.aplicado { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #e9f5ee; }
+.st-codigo-ok { display: grid; gap: 2px; margin: 0; font-size: 14px; color: var(--st-ok); }
+.st-codigo-ok b { font-size: 16px; letter-spacing: .06em; color: var(--st-ink); }
+.st-codigo-quita { background: transparent; color: var(--st-ink-2); border: 1px solid rgba(0, 0, 0, .15); min-height: 40px; }
+.st-hero .st-codigo-chip { display: inline-block; margin: 12px 0 0; padding: 8px 12px; border-radius: 999px; background: #e9f5ee; color: var(--st-ok); font-size: 14px; }
+.st-emb { padding: 8px 0 32px; }
+.st-emb h1 { margin: 4px 0 14px; font-size: 28px; letter-spacing: -.02em; }
+.st-emb-cargando { padding: 32px 0; }
+.st-emb-codigo { display: grid; gap: 4px; padding: 18px; border-radius: 20px; background: var(--st-brand); color: #fff; }
+.st-emb-codigo b { font-size: 30px; letter-spacing: .08em; }
+.st-emb-codigo span { font-size: 14.5px; opacity: .9; }
+.st-emb-codigo em { justify-self: start; margin-top: 6px; padding: 4px 10px; border-radius: 999px; font-style: normal; font-size: 12.5px; font-weight: 700; background: rgba(255, 255, 255, .16); }
+.st-emb-codigo em.mal { background: rgba(255, 120, 110, .3); }
+.st-emb-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+.st-emb-tile { display: grid; gap: 2px; padding: 14px; border-radius: 16px; background: #fff; border: 1px solid var(--st-line); }
+.st-emb-tile span { font-size: 12.5px; color: var(--st-muted); font-weight: 600; }
+.st-emb-tile b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.st-emb-tile small { font-size: 12.5px; color: var(--st-ink-2); }
+.st-emb-tile.clave { border-color: var(--st-gold); box-shadow: inset 0 0 0 1px var(--st-gold); }
+.st-emb-acciones { display: grid; gap: 10px; }
+.st-emb-acciones .st-cta { display: grid; place-items: center; text-decoration: none; }
+.st-emb-copia { min-height: 48px; border-radius: 14px; border: 1px solid rgba(0, 0, 0, .15); background: #fff; font: inherit; font-weight: 700; cursor: pointer; overflow-wrap: anywhere; }
+.st-emb-tit { margin: 24px 0 8px; font-size: 18px; }
+.st-emb-lista { list-style: none; margin: 0; padding: 0; }
+.st-emb-lista li { display: grid; grid-template-columns: 70px 1fr auto auto; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--st-line); font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.st-emb-lista em { font-style: normal; font-size: 12.5px; color: var(--st-muted); font-weight: 700; }
+.st-emb-lista em.ok { color: var(--st-ok); }
+.st-emb-lista small { color: var(--st-ok); font-weight: 700; }
+
+/* "Va en tu pedido" (26/10/2026): tarjeta clara con foto, precio y los dos
+   caminos. Abajo en el celular (donde está el pulgar), arriba a la derecha
+   en compu. El aviso corto (sin producto) también es claro. */
+.st-aviso { background: #fff; color: var(--st-ink); border: 1px solid var(--st-line); top: auto; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translate(-50%, 12px); }
+.st-aviso a { color: var(--st-brand); }
+.st-aviso.tarjeta { display: block; padding: 0; width: min(420px, calc(100% - 24px)); border-radius: 20px; box-shadow: 0 24px 60px rgba(7, 25, 30, .28); }
+@media (min-width: 700px) {
+  .st-aviso { top: calc(72px + env(safe-area-inset-top)); bottom: auto; transform: translate(-50%, -12px); }
+  .st-aviso.tarjeta { left: auto; right: 24px; transform: translate(0, -12px); }
+  .st-aviso.tarjeta.entra { transform: translate(0, 0); }
+}
+.st-ag { display: grid; gap: 12px; padding: 14px 16px 16px; }
+.st-ag-cab { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.st-ag-ok { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--st-ok); color: #fff; font-size: 13px; }
+.st-ag-x { margin-left: auto; width: 34px; height: 34px; border: 0; border-radius: 10px; background: var(--st-soft); font-size: 20px; line-height: 1; cursor: pointer; color: var(--st-ink); }
+.st-ag-item { display: grid; grid-template-columns: 60px 1fr auto; gap: 12px; align-items: center; }
+.st-ag-item .st-media.st-ag-foto { width: 60px; height: 60px; aspect-ratio: auto; border-radius: 12px; }
+.st-ag-txt { display: grid; gap: 2px; min-width: 0; }
+.st-ag-txt strong { font-size: 14.5px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-ag-txt span { font-size: 13px; color: var(--st-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-ag-precio { font-size: 15px; font-variant-numeric: tabular-nums; }
+.st-ag-acc { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
+.st-ag-sec, .st-ag-ver { min-height: 48px; display: grid; place-items: center; border-radius: 14px; font: inherit; font-size: 14.5px; font-weight: 700; text-decoration: none; cursor: pointer; text-align: center; }
+.st-ag-sec { border: 1px solid var(--st-line); background: #fff; color: var(--st-ink); }
+.st-aviso .st-ag-ver { background: var(--st-brand); color: #fff; line-height: 1.15; padding: 4px 8px; }
+.st-ag-ver small { display: block; font-size: 12px; font-weight: 600; opacity: .85; }

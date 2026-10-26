@@ -34,7 +34,7 @@ import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
-import { textoHasta, recargoDe, llevaManga as tieneManga, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
+import { textoHasta, recargoDe, recargoPersDe, extraEstampadoKit, jerseysDeKit, llevaEstampado, llevaManga as tieneManga, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
          tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito,
          admiteVariasTallas, preparaLineasPorTalla, cambiaCantidadDeTalla }
   from '/v2/tienda.js';
@@ -43,6 +43,7 @@ import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
+import { normalizaCodigo, codigoValido, descuentoDeCodigo, textoAplicado, ligaDeCompra } from '/v2/codigos.js';
 import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe, sugerenciasAntesDePagar }
   from '/pedido/catalogo.js';
 
@@ -61,6 +62,16 @@ let phoneCountry = 'MX';
 const eligiendo = {};      // productId -> {talla, cantidad, nombre, numero, motivo}
 const eligiendoKit = {};   // kitId -> {tier, tallas:{}, nombre, numero, manga, motivo, falta, reemplaza}
 let carrito = {};
+/* Código de la tienda (26/10/2026, h46). Llega escrito o en la liga del
+   embajador (?codigo=CURTIBROTHER) y se aplica al pagar. */
+let codigo = null;          // lo que respondió v2_public_check_code (ok o con motivo)
+let codigoEscrito = (() => {
+  const enLiga = normalizaCodigo(new URLSearchParams(location.search).get('codigo'));
+  try {
+    if (enLiga) sessionStorage.setItem('tiendaCodigo', enLiga);
+    return enLiga || sessionStorage.getItem('tiendaCodigo') || '';
+  } catch { return enLiga; }
+})();
 // Cómo pagar, el WhatsApp del club y el tiempo de entrega. Si no carga, la
 // tienda funciona igual: sólo faltan esos textos.
 let pagoInfo = null;
@@ -150,6 +161,7 @@ function medioProducto(p, completa = false) {
 }
 /* Varias fotos (14/10/2026): en la ficha se deslizan como en el App Store,
    con puntitos abajo. Con una sola foto se ve igual que siempre. */
+function fotoMini(p) { return medio(p.photoThumbPath || p.photoPath, p.photoBucket, p.name, 'st-ag-foto'); }
 function fotosDeProducto(p) {
   const l = Array.isArray(p.photos) ? p.photos.filter(f => f && f.path) : [];
   return l.length ? l : (p.photoPath || p.photoThumbPath ? [{ path: p.photoPath || p.photoThumbPath, thumbPath: p.photoThumbPath }] : []);
@@ -212,9 +224,37 @@ function pintaBarra(visible) {
   bar.querySelector('#verCarrito').addEventListener('click', () => { location.hash = '#/pedido'; });
 }
 let avisoTimer = 0;
+/* "Va en tu pedido" (26/10/2026). Presidencia: "no me gusta como se ve
+   cuando metes cosas al carrito". En vez de una barra negra encima de la
+   foto, una tarjeta como en las tiendas grandes: qué se agregó (foto,
+   detalle y precio) y los dos caminos claros: seguir o ver el pedido. Abajo
+   en el celular, arriba a la derecha en compu. */
+function agregado({ foto = '', titulo, detalle = '', precio = null, otro = false }) {
+  const el = $('stAviso');
+  const n = piezasDelCarrito(carrito), total = totalDelCarrito(carrito);
+  el.innerHTML = `<div class="st-ag" role="dialog" aria-label="Va en tu pedido">
+    <div class="st-ag-cab"><span class="st-ag-ok" aria-hidden="true"><span class="tos-icon tos-icon-check"></span></span><b>Va en tu pedido</b>
+      <button type="button" class="st-ag-x" data-ag-cierra aria-label="Cerrar">&times;</button></div>
+    <div class="st-ag-item">${foto}<div class="st-ag-txt"><strong>${esc(titulo)}</strong>${detalle ? `<span>${esc(detalle)}</span>` : ''}</div>${precio != null ? `<b class="st-ag-precio">${money.format(precio)}</b>` : ''}</div>
+    <div class="st-ag-acc">${otro ? '<button type="button" class="st-ag-sec" data-otro>Agregar otro</button>' : '<button type="button" class="st-ag-sec" data-ag-cierra>Seguir comprando</button>'}
+      <a class="st-ag-ver" href="#/pedido">Ver pedido <small>${n} ${n === 1 ? 'artículo' : 'artículos'} · ${money.format(total)}</small></a></div></div>`;
+  el.classList.add('tarjeta');
+  el.hidden = false; el.classList.remove('sale'); void el.offsetWidth; el.classList.add('entra');
+  firmaFotos(el);
+  programaCierre(7000);
+}
+function programaCierre(ms) {
+  clearTimeout(avisoTimer);
+  avisoTimer = setTimeout(() => {
+    const el = $('stAviso');
+    if (el.matches(':hover') || el.contains(document.activeElement)) { programaCierre(2500); return; }
+    el.classList.remove('entra'); el.classList.add('sale'); setTimeout(() => { el.hidden = true; }, 250);
+  }, ms);
+}
 function aviso(texto, conAccion = false) {
   const el = $('stAviso');
   el.innerHTML = `<span>${esc(texto)}</span>${conAccion ? '<a href="#/pedido">Ver pedido</a>' : ''}`;
+  el.classList.remove('tarjeta');
   el.hidden = false; el.classList.remove('sale'); void el.offsetWidth; el.classList.add('entra');
   clearTimeout(avisoTimer);
   avisoTimer = setTimeout(() => { el.classList.remove('entra'); el.classList.add('sale'); setTimeout(() => { el.hidden = true; }, 250); }, 3200);
@@ -260,8 +300,15 @@ const etiquetaManga = (m, r) => m === 'larga' ? `Larga${r > 0 ? ` <small>+${mone
 function botonesManga(e, r, attr = 'data-manga', valor = e.manga) {
   return `<div class="st-tallas st-manga">${['corta', 'larga'].map(m => `<button type="button" class="st-talla${(valor || 'corta') === m ? ' activa' : ''}" ${attr}="${m}" aria-pressed="${(valor || 'corta') === m}">${etiquetaManga(m, r)}</button>`).join('')}</div>`;
 }
-function bloquePersonaliza(e, nombreProducto = '', r = 0, conManga = true, kit = null) {
-  return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Personalízalo</h2><span>Opcional</span></div>
+/* "Opcional · +$100" (26/10/2026, h45): el cargo de nombre y número se dice
+   antes de escribirlo; en un kit, por cada jersey que lo lleva. */
+function textoCargoPers(rp, jerseys = 1) {
+  if (!(rp > 0)) return 'Opcional';
+  return jerseys > 1 ? `Opcional · +${money.format(rp)} por jersey (${jerseys})` : `Opcional · +${money.format(rp)}`;
+}
+function bloquePersonaliza(e, nombreProducto = '', r = 0, conManga = true, kit = null, rp = 0) {
+  const jerseys = kit ? jerseysDeKit(kit, e.elegidos) : 1;
+  return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Personalízalo</h2><span class="st-pers-cargo">${esc(textoCargoPers(rp, jerseys))}</span></div>
     <figure class="st-mockup${kit ? ' kit' : ''}" id="stMockup" data-producto="${esc(nombreProducto)}"${kit ? ` data-kit="${esc(kit.id)}"` : ''}><div class="st-mockup-cuerpo">${kit ? mockupsDeKit(kit, e) : vistaPrevia(e, nombreProducto)}</div>
       <figcaption>${kit ? 'Así se verá la espalda de cada jersey' : 'Así se verá la espalda'}</figcaption></figure>
     <div class="st-perso">
@@ -300,13 +347,6 @@ function filasDeVarias(p, cantidades, manga) {
   return `<ul class="st-varias">${elegidas.map(t => `<li data-varia="${esc(t)}"><span><b>Talla ${esc(t)}</b><small>${money.format(precioDeProducto(p, t) + extra)} c/u</small></span>
     <div class="st-cantidad mini"><button type="button" data-varia-cant="-1" aria-label="Una menos de talla ${esc(t)}">&minus;</button><output>${cantidades[t]}</output>
     <button type="button" data-varia-cant="1" aria-label="Una más de talla ${esc(t)}">+</button></div></li>`).join('')}</ul>`;
-}
-/* "Agregar otro" (18/10/2026): lo agregado se queda dicho arriba, con el
-   camino para armar otro (el jersey del hermano) o ir al pedido. */
-function recienAgregado(e) {
-  if (!e.recien) return '';
-  return `<div class="st-recien" role="status"><p><b>Listo, va en tu pedido</b><span>${esc(e.recien)}</span></p>
-    <div class="st-recien-acciones"><button type="button" data-otro>Agregar otro</button><a href="#/pedido">Ver pedido</a></div></div>`;
 }
 
 /* ---------- La tienda (PLP) ---------- */
@@ -351,6 +391,7 @@ function renderTienda(clave = '') {
       <h1>${activa ? esc(etiquetaDe(activa)) : 'Tienda oficial'}</h1>
       <p>${activa ? '' : 'El uniforme que se usa con orgullo. '}Pídelo desde tu celular${pagoInfo?.delivery ? ` y recíbelo en ${esc(pagoInfo.delivery)}` : ''}.</p>
       ${activa ? '' : PASOS_TIENDA}
+      ${codigoEscrito ? `<p class="st-codigo-chip">Código <b>${esc(codigoEscrito)}</b> listo: se aplica al pagar.</p>` : ''}
     </section>
     <nav class="st-cats" aria-label="Categorías">
       <a href="#/"${activa ? '' : ' class="activa" aria-current="page"'}>Todo</a>
@@ -372,7 +413,6 @@ function renderProducto(id) {
   const e = (eligiendo[p.id] ||= { cantidad: 1 });
   const cat = categoriaDe(p), unica = tallaUnica(p), tallas = tallasDe(p);
   const varias = admiteVariasTallas(p), cants = e.cantidades || {};
-  const extraManga = e.manga === 'larga' && llevaManga(p) ? recargoDe(p) : 0;
   const multi = varias ? preparaLineasPorTalla(p, { cantidades: cants, manga: e.manga }) : null;
   document.title = `${p.name} · Tienda Tanner`;
   $('content').innerHTML = `
@@ -380,7 +420,6 @@ function renderProducto(id) {
     <article class="st-pdp" data-ficha="${esc(p.id)}">
       ${galeria(p, e.foto || 0)}
       <div class="st-pdp-info">
-        ${recienAgregado(e)}
         <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
         <h1>${esc(p.name)}</h1>
         <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p, e.talla || unica))}</p>
@@ -392,7 +431,7 @@ function renderProducto(id) {
           ${botonesTallaVarias(tallas, cants)}${filasDeVarias(p, cants, e.manga)}` : `<div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}${unica ? '' : botonGuia(tallas)}</span></div>
           ${unica ? `<p class="st-unica">Talla ${esc(unica)}: le queda a todos.</p>` : botonesTalla(tallas, e.talla, 'data-talla')}`}
         </section>
-        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name, recargoDe(p)) : llevaManga(p) ? bloqueManga(e, recargoDe(p)) : ''}
+        ${aceptaPersonalizacion(p) ? bloquePersonaliza(e, p.name, recargoDe(p), true, null, recargoPersDe(p)) : llevaManga(p) ? bloqueManga(e, recargoDe(p)) : ''}
         ${varias ? '' : `<section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
           <div class="st-cantidad"><button type="button" data-cantidad="-1" aria-label="Uno menos">&minus;</button>
           <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>`}
@@ -401,10 +440,17 @@ function renderProducto(id) {
     </article>
     ${barraAgregar(varias
       ? (multi.ok ? `Agregar ${multi.piezas} ${multi.piezas === 1 ? 'pieza' : 'piezas'} · ${money.format(multi.total)}` : 'Agregar al pedido')
-      : `Agregar al pedido · ${money.format((precioDeProducto(p, e.talla || unica) + extraManga) * e.cantidad)}`, e.motivo)}`;
+      : textoAgregarProducto(p, e), e.motivo)}`;
   pintaBarra(false);
   cableaGaleria(e);
   firmaFotos($('content'));
+}
+
+// El precio de la barra con manga y nombre y número; se repinta al escribir.
+function textoAgregarProducto(p, e) {
+  const extraManga = e.manga === 'larga' && llevaManga(p) ? recargoDe(p) : 0;
+  const extraPers = aceptaPersonalizacion(p) && llevaEstampado(e) ? recargoPersDe(p) : 0;
+  return `Agregar al pedido · ${money.format((precioDeProducto(p, e.talla || tallaUnica(p)) + extraManga + extraPers) * e.cantidad)}`;
 }
 
 /* ---------- La ficha de un kit ---------- */
@@ -412,6 +458,12 @@ function renderProducto(id) {
 function largasDeKit(k, e) {
   return ranurasDeKit(k).map(r0 => ranuraElegida(r0, e.elegidos))
     .filter(r => tieneManga(r.producto || { name: r.nombre }) && ((e.mangas || {})[r.id] || e.manga) === 'larga').length;
+}
+function precioDeFichaKit(k, e) {
+  return precioDeKit(k, e.tier) + largasDeKit(k, e) * recargoDe(k) + extraEstampadoKit(k, e);
+}
+function textoAgregarKit(k, e) {
+  return `Agregar al pedido${e.tier ? ` · ${money.format(precioDeFichaKit(k, e))}` : ''}`;
 }
 function renderKit(id) {
   const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
@@ -427,11 +479,10 @@ function renderKit(id) {
     <article class="st-pdp" data-ficha="${esc(k.id)}">
       ${medioKit(k, 'grande')}
       <div class="st-pdp-info">
-        ${recienAgregado(e)}
         ${e.reemplaza ? '<p class="st-convierte">Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.</p>' : ''}
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
         <h1>${esc(k.name)}</h1>
-        <p class="st-pdp-precio">${e.tier ? money.format(precioDeKit(k, e.tier) + largasDeKit(k, e) * recargoDe(k)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}${e.tier && largasDeKit(k, e) && recargoDe(k) ? ` <small class="st-recargo">incluye ${largasDeKit(k, e)} manga larga</small>` : ''}</p>
+        <p class="st-pdp-precio" id="stPrecioKit">${e.tier ? money.format(precioDeFichaKit(k, e)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}${e.tier && largasDeKit(k, e) && recargoDe(k) ? ` <small class="st-recargo">incluye ${largasDeKit(k, e)} manga larga</small>` : ''}</p>
         ${k.description ? `<p class="st-desc">${esc(k.description)}</p>` : ''}
         ${tiers.length > 1 ? `<section class="st-bloque${e.falta === 'tier' ? ' falta' : ''}" id="stBloqueTier"><div class="st-bloque-cab"><h2>¿Para quién es?</h2></div>
           <div class="st-segmento" role="radiogroup" aria-label="Para quién es">${tiers.map(t => `<button type="button" role="radio" aria-checked="${e.tier === t}" data-tier="${esc(t)}"${e.tier === t ? ' class="activa"' : ''}>
@@ -454,11 +505,11 @@ function renderKit(id) {
                 `<button type="button" class="st-talla${elegida === t ? ' activa' : ''}" data-pieza-talla="${esc(t)}" aria-pressed="${elegida === t}">${esc(t)}</button>`).join('')}</div>`}
               ${tieneManga(r.producto || { name: r.nombre }) ? `<div class="st-pieza-manga">${botonesManga(e, recargoDe(k), 'data-pieza-manga', (e.mangas || {})[r.id] || e.manga)}</div>` : ''}
             </li>`; }).join('')}</ul></section>
-        ${bloquePersonaliza(e, k.name, recargoDe(k), false, k)}
+        ${bloquePersonaliza(e, k.name, recargoDe(k), false, k, recargoPersDe(k))}
         ${infoDeCompra()}
       </div>
     </article>
-    ${barraAgregar(`Agregar al pedido${e.tier ? ` · ${money.format(precioDeKit(k, e.tier) + largasDeKit(k, e) * recargoDe(k))}` : ''}`, e.motivo)}`;
+    ${barraAgregar(textoAgregarKit(k, e), e.motivo)}`;
   pintaBarra(false);
   firmaFotos($('content'));
 }
@@ -620,8 +671,23 @@ function cablea() {
     const e = eligiendo[ficha] || eligiendoKit[ficha];
     if (e) e[campo] = ev.target.value;
     // La playera se redibuja con cada letra.
-    if (e && (campo === 'nombre' || campo === 'numero')) repintaMockup(e);
+    if (e && (campo === 'nombre' || campo === 'numero')) { repintaMockup(e); repintaPrecio(ficha); }
   });
+}
+
+// Con cargo de nombre y número el precio cambia al escribir: sólo el texto,
+// sin repintar la ficha (se perdería el foco del campo).
+function repintaPrecio(ficha) {
+  const p = (catalogo.products || []).find(x => String(x.id) === String(ficha));
+  const k = p ? null : (catalogo.bundles || []).find(x => String(x.id) === String(ficha));
+  const boton = $('stAgregar');
+  if (p && boton && !admiteVariasTallas(p)) boton.textContent = textoAgregarProducto(p, eligiendo[ficha]);
+  if (k && boton) {
+    const e = eligiendoKit[ficha];
+    boton.textContent = textoAgregarKit(k, e);
+    const precio = $('stPrecioKit');
+    if (precio && e.tier) precio.firstChild.textContent = money.format(precioDeFichaKit(k, e));
+  }
 }
 
 function falla(e, r, render, id) {
@@ -643,7 +709,7 @@ function agregaProducto(id) {
     eligiendo[id] = { cantidad: 1, recien: texto };
     actualizaCarrito();
     repinta(renderProducto, id);
-    aviso(`Agregado · ${texto}`, true);
+    agregado({ foto: fotoMini(p), titulo: p.name, detalle: texto, precio: m.total });
     return;
   }
   const r = preparaLinea(p, { talla: e.talla, cantidad: e.cantidad || 1, nombre: e.nombre, numero: e.numero, manga: e.manga });
@@ -653,7 +719,8 @@ function agregaProducto(id) {
   eligiendo[id] = { cantidad: 1, recien: [quien, l.talla && `talla ${l.talla}`, l.manga === 'larga' && 'manga larga', l.cantidad > 1 && `${l.cantidad} piezas`].filter(Boolean).join(' · ') || p.name };
   actualizaCarrito();
   repinta(renderProducto, id);
-  aviso(`Agregado${r.linea.talla ? ` · talla ${r.linea.talla}` : ''}${r.linea.cantidad > 1 ? ` · ${r.linea.cantidad} piezas` : ''}`, true);
+  // "Agregar otro" sólo donde tiene sentido: lo que lleva nombre (el del hermano).
+  agregado({ foto: fotoMini(p), titulo: p.name, detalle: eligiendo[id].recien === p.name ? '' : eligiendo[id].recien, precio: l.total, otro: aceptaPersonalizacion(p) });
 }
 function agregaKit(id) {
   const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
@@ -670,15 +737,53 @@ function agregaKit(id) {
   actualizaCarrito();
   if (reemplaza.length) { location.hash = '#/pedido'; setTimeout(() => aviso(`Listo: ahora es ${k.name}`, true), 60); return; }
   repinta(renderKit, id);
-  aviso(`Agregado · ${k.name}, ${r.linea.tier.toLocaleLowerCase('es-MX')}`, true);
+  const quien = [r.linea.personalizationName, r.linea.numero].filter(Boolean).join(' ');
+  agregado({ foto: medioKit(k, 'st-ag-foto'), titulo: k.name, detalle: [r.linea.tier, quien].filter(Boolean).join(' · '), precio: r.linea.total, otro: true });
 }
 
 /* ---------- Confirmar ----------
  * Aquí sí se piden los datos, y sólo aquí: ya hay algo que comprar. */
 function resumen() {
   const lineas = Object.entries(carrito);
-  return `<section class="carrito-lista">${lineas.map(([k, l]) => lineaDelCarrito(k, l)).join('')}
-    <div class="carrito-total"><span>Total</span><strong>${money.format(totalDelCarrito(carrito))}</strong></div></section>${sugiereKits()}`;
+  const sub = totalDelCarrito(carrito), desc = codigo?.ok ? descuentoDeCodigo(codigo, carrito, sub) : 0;
+  const regalo = codigo?.ok && codigo.kind === 'regalo'
+    ? `<div class="carrito-regalo"><span>${esc(codigo.giftName || 'Regalo')} <small>de regalo · código ${esc(codigo.code)}</small></span><strong>$0</strong></div>` : '';
+  const menos = desc > 0 ? `<div class="carrito-sub"><span>Subtotal</span><span>${money.format(sub)}</span></div>
+    <div class="carrito-desc"><span>Código ${esc(codigo.code)}</span><span>−${money.format(desc)}</span></div>` : '';
+  return `<section class="carrito-lista">${lineas.map(([k, l]) => lineaDelCarrito(k, l)).join('')}${regalo}
+    ${menos}<div class="carrito-total"><span>Total</span><strong>${money.format(Math.max(0, sub - desc))}</strong></div></section>${sugiereKits()}`;
+}
+/* "¿Tienes un código?": se escribe, se valida con el servidor y dice qué hace
+   (o por qué no). Si cambia el carrito se vuelve a validar: la compra mínima
+   puede dejar de cumplirse. */
+function cajaCodigo() {
+  const ok = codigo?.ok;
+  const desc = ok ? descuentoDeCodigo(codigo, carrito) : 0;
+  return `<section class="st-codigo${ok ? ' aplicado' : ''}" aria-label="Código">
+    ${ok ? `<p class="st-codigo-ok"><b>${esc(codigo.code)}</b><span>${esc(textoAplicado(codigo, desc, n => money.format(n)))}</span></p>
+      <button type="button" class="st-codigo-quita" data-codigo-quita>Quitar</button>`
+    : `<label class="st-codigo-campo"><span>¿Tienes un código?</span>
+        <span class="st-codigo-fila"><input id="stCodigo" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" value="${esc(codigoEscrito)}" placeholder="CÓDIGO">
+        <button type="button" data-codigo-aplica>Aplicar</button></span></label>
+      ${codigo && !codigo.ok ? `<p class="st-codigo-mal" role="alert">${esc(codigo.motivo || 'Ese código no se puede usar.')}</p>` : ''}`}
+  </section>`;
+}
+async function aplicaCodigo(texto, { silencio = false } = {}) {
+  const code = normalizaCodigo(texto);
+  codigoEscrito = code;
+  try { code ? sessionStorage.setItem('tiendaCodigo', code) : sessionStorage.removeItem('tiendaCodigo'); } catch {}
+  if (!code) { codigo = null; return pintaCodigo(); }
+  if (!codigoValido(code)) { codigo = { ok: false, motivo: 'Ese código no existe. Revisa cómo se escribe.' }; return pintaCodigo(); }
+  try {
+    codigo = await rpc('v2_public_check_code', { club_key: CLUB_KEY, code, subtotal: totalDelCarrito(carrito) });
+  } catch (err) {
+    codigo = silencio ? null : { ok: false, motivo: /too many/i.test(err?.message || '') ? 'Demasiados intentos. Espera un rato.' : 'No se pudo revisar el código.' };
+  }
+  pintaCodigo();
+}
+function pintaCodigo() {
+  if ($('stCodigoCaja')) $('stCodigoCaja').innerHTML = cajaCodigo();
+  if ($('resumenCarrito')) $('resumenCarrito').innerHTML = resumen();
 }
 /* ¿Lo conviertes en kit? Un jersey suelto que también viene en un kit lo
    dice: qué más incluye y cuánto más cuesta. Convertir abre el kit ya lleno. */
@@ -697,33 +802,73 @@ function convierteEnKit(llave, kitId) {
   location.hash = `#/k/${encodeURIComponent(x.kit.id)}`;
 }
 
-/* ¿Le agregas algo más? Justo antes de los datos: ya decidió comprar. Lo de
-   talla única entra con un toque; lo que tiene tallas, con su talla ahí mismo. */
+/* ¿Le agregas algo más? Justo antes de los datos: ya decidió comprar.
+   Carrusel (26/10/2026). Presidencia: "se ve distinto porque se ve lo de
+   escoge talla... yo haría un carrusel que se viera más chido". Todas las
+   tarjetas son iguales: foto, nombre, precio y UN botón. Lo de talla única
+   entra de un toque; lo que tiene tallas abre un panel con las tallas como
+   botones grandes; lo que lleva nombre va a su ficha. */
 function extrasAntesDePagar() {
-  const l = sugerenciasAntesDePagar(catalogo.products || [], carrito);
+  const l = sugerenciasAntesDePagar(catalogo.products || [], carrito, { max: 8 });
   if (!l.length) return '';
-  return `<section class="st-extra" aria-label="Agrega algo más"><div class="st-extra-cab"><h2>¿Le agregas algo más?</h2><span>Va en el mismo pedido</span></div>
+  return `<section class="st-extra" aria-label="Agrega algo más"><div class="st-extra-cab"><div><h2>¿Le agregas algo más?</h2><span>Va en el mismo pedido</span></div>
+    ${l.length > 2 ? '<div class="st-extra-flechas"><button type="button" data-extra-mueve="-1" aria-label="Ver anteriores">&lsaquo;</button><button type="button" data-extra-mueve="1" aria-label="Ver siguientes">&rsaquo;</button></div>' : ''}</div>
     <div class="st-extra-fila">${l.map(p => {
-      const unica = tallaUnica(p), tallas = tallasDe(p), ficha = aceptaPersonalizacion(p);
+      const conTallas = !tallaUnica(p) && tallasDe(p).length > 0;
+      const boton = aceptaPersonalizacion(p)
+        ? `<a class="st-extra-btn" href="#/p/${esc(p.id)}">Elegir talla y nombre</a>`
+        : `<button type="button" class="st-extra-btn" data-extra-agrega>${conTallas ? 'Elegir talla' : 'Agregar'}</button>`;
       return `<article class="st-extra-card" data-extra="${esc(p.id)}">${medioProducto(p)}
-        <div class="st-extra-txt"><strong>${esc(p.name)}</strong><span class="st-precio">${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p))}</span>
-        ${ficha ? `<a class="st-extra-btn" href="#/p/${esc(p.id)}">Elegir talla y nombre</a>`
-          : `${!unica && tallas.length ? `<label class="st-extra-talla"><span class="sr-only">Talla</span><select data-extra-talla><option value="">Talla</option>${tallas.map(t => `<option>${esc(t)}</option>`).join('')}</select></label>` : ''}
-        <button type="button" class="st-extra-btn" data-extra-agrega>Agregar</button>`}</div></article>`;
+        <div class="st-extra-txt"><strong>${esc(p.name)}</strong><span class="st-precio">${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p))}</span>${boton}</div></article>`;
     }).join('')}</div></section>`;
 }
 function agregaExtra(card) {
   const p = (catalogo.products || []).find(x => String(x.id) === card.dataset.extra);
   if (!p) return;
-  const sel = card.querySelector('[data-extra-talla]');
-  const r = preparaLinea(p, { talla: sel?.value || null, cantidad: 1 });
-  if (!r.ok) { sel?.classList.add('falta'); sel?.focus(); return; }
+  if (!tallaUnica(p) && tallasDe(p).length) { abreTallaRapida(p); return; }
+  sumaExtra(p, null);
+}
+function sumaExtra(p, talla) {
+  const r = preparaLinea(p, { talla, cantidad: 1 });
+  if (!r.ok) return;
   carrito = agregaAlCarrito(carrito, r.linea);
   actualizaCarrito();
   $('resumenCarrito').innerHTML = resumen();
   $('stExtras').innerHTML = extrasAntesDePagar();
   firmaFotos($('stExtras'));
+  if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
   aviso(`Agregado · ${p.name}${r.linea.talla && !tallaUnica(p) ? ` talla ${r.linea.talla}` : ''}`);
+}
+// El panel de tallas del carrusel: botones grandes y, si hay tabla, "¿Qué talla es?".
+function abreTallaRapida(p) {
+  document.getElementById('stTallaRapida')?.remove();
+  const tallas = tallasDe(p);
+  const capa = document.createElement('div');
+  capa.id = 'stTallaRapida'; capa.className = 'st-guia-capa';
+  capa.innerHTML = `<div class="st-guia st-talla-rapida" role="dialog" aria-modal="true" aria-labelledby="stTallaTit">
+    <div class="st-guia-cab"><h2 id="stTallaTit">Elige la talla</h2><button type="button" class="st-guia-cerrar" data-tr-cerrar aria-label="Cerrar">&times;</button></div>
+    <div class="st-tr-prod">${medioProducto(p)}<div><strong>${esc(p.name)}</strong><span>${money.format(precioDeEtiqueta(p).monto)}${precioNinoDe(p) ? ' · niño desde ' + money.format(precioNinoDe(p)) : ''}</span></div></div>
+    ${botonesTalla(tallas, null, 'data-talla-rapida')}
+    ${tablasPara(tallas).hay ? '<button type="button" class="st-guia-btn" data-tr-guia>¿Qué talla es?</button>' : ''}</div>`;
+  document.body.appendChild(capa);
+  firmaFotos(capa);
+  const cierra = () => { capa.remove(); document.removeEventListener('keydown', esc_); };
+  const esc_ = ev => { if (ev.key === 'Escape') cierra(); };
+  capa.addEventListener('click', ev => {
+    if (ev.target === capa || ev.target.closest('[data-tr-cerrar]')) { cierra(); return; }
+    if (ev.target.closest('[data-tr-guia]')) { abreGuia(tallas); return; }
+    const t = ev.target.closest('[data-talla-rapida]');
+    if (t) { cierra(); sumaExtra(p, t.dataset.tallaRapida); }
+  });
+  document.addEventListener('keydown', esc_);
+  capa.querySelector('[data-talla-rapida]')?.focus();
+}
+function cableaExtras() {
+  $('stExtras').addEventListener('click', e => {
+    const b = e.target.closest('[data-extra-agrega]'); if (b) { agregaExtra(b.closest('[data-extra]')); return; }
+    const m = e.target.closest('[data-extra-mueve]');
+    if (m) { const fila = $('stExtras').querySelector('.st-extra-fila'); fila?.scrollBy({ left: Number(m.dataset.extraMueve) * fila.clientWidth * 0.8, behavior: 'smooth' }); }
+  });
 }
 
 function renderCheckout() {
@@ -733,8 +878,8 @@ function renderCheckout() {
   $('content').innerHTML = `<a class="st-volver" href="#/" id="volver">‹ Seguir comprando</a>
     <h1 class="st-titulo">Tu pedido</h1>
     <div id="resumenCarrito">${resumen()}</div>
+    <div id="stCodigoCaja">${cajaCodigo()}</div>
     <div id="stExtras">${extrasAntesDePagar()}</div>
-    <p class="st-nota">${pagoInfo?.delivery ? `Entrega en ${esc(pagoInfo.delivery)}. ` : ''}Al confirmar ves la CLABE para pagar por transferencia.</p>
     <form id="orderForm" class="form-grid order-form st-form">
       <h2 class="span-2">Tus datos</h2>
       <label class="span-2">Nombre de quien recibe *<input id="customerName" minlength="2" maxlength="120" required autocomplete="name"></label>
@@ -750,7 +895,8 @@ function renderCheckout() {
         <span>Entiendo que tengo <b>${DIAS_PARA_RECOGER} días</b> para recoger mi pedido a partir de que me avisen que llegó. Después de ese plazo el club ya no se hace responsable de la prenda. <b>*</b></span></label>
       <div id="formMessage" class="message hidden span-2"></div>
       <button id="submitOrder" class="primary span-2 st-cta" type="submit">Confirmar pedido</button>
-    </form>`;
+    </form>
+    ${infoDeCompra()}`;
   wirePhone();
   // Quitar un renglón no borra lo que ya se escribió en el formulario.
   $('resumenCarrito').onclick = e => {
@@ -763,10 +909,20 @@ function renderCheckout() {
     $('resumenCarrito').innerHTML = resumen();
     $('stExtras').innerHTML = extrasAntesDePagar();
     firmaFotos($('stExtras'));
+    if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
   };
   $('orderForm').addEventListener('submit', submit);
-  $('stExtras').addEventListener('click', e => { const b = e.target.closest('[data-extra-agrega]'); if (b) agregaExtra(b.closest('[data-extra]')); });
-  $('stExtras').addEventListener('change', e => e.target.closest('[data-extra-talla]')?.classList.remove('falta'));
+  $('stCodigoCaja').addEventListener('click', e => {
+    if (e.target.closest('[data-codigo-aplica]')) aplicaCodigo($('stCodigo')?.value);
+    if (e.target.closest('[data-codigo-quita]')) { codigo = null; aplicaCodigo(''); }
+  });
+  $('stCodigoCaja').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.id === 'stCodigo') { e.preventDefault(); aplicaCodigo(e.target.value); }
+  });
+  // Llegó con la liga del embajador: el código ya va puesto.
+  if (codigoEscrito && !codigo) aplicaCodigo(codigoEscrito, { silencio: true });
+  else if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
+  cableaExtras();
   firmaFotos($('stExtras'));
 }
 
@@ -776,7 +932,8 @@ function ruta() {
   const h = location.hash.replace(/^#\/?/, '');
   const [a, b] = h.split('/');
   const cambia = h !== rutaPrevia; rutaPrevia = h;
-  if (a === 'p' && b) renderProducto(decodeURIComponent(b));
+  if (a === 'embajador' && b) renderEmbajador(decodeURIComponent(b));
+  else if (a === 'p' && b) renderProducto(decodeURIComponent(b));
   else if (a === 'k' && b) renderKit(decodeURIComponent(b));
   else if (a === 'pedido') renderCheckout();
   else renderTienda(a === 'c' ? decodeURIComponent(b || '') : '');
@@ -815,9 +972,13 @@ async function submit(e) {
         pieces: (l.piezas || []).map(pz => ({ productId: pz.productId, talla: pz.talla || null, ...(pz.manga ? { sleeve: pz.manga } : {}) })) }
     : { kind: 'product', productId: l.productId, quantity: l.cantidad || 1, talla: l.talla || null,
         personalizationName: l.personalizationName || null, number: l.numero || null, sleeve: l.manga || null });
+  // El código viaja como una línea más; el servidor lo vuelve a validar.
+  if (codigo?.ok) items.push({ kind: 'code', code: codigo.code });
   try {
     const result = await rpc('v2_public_cart_order', { ...comun, items });
     carrito = {};
+    codigo = null; codigoEscrito = '';
+    try { sessionStorage.removeItem('tiendaCodigo'); } catch {}
     actualizaCarrito();
     renderListo(result, comun.customer_name);
   } catch (err) {
@@ -831,6 +992,51 @@ async function submit(e) {
  * se quedaba esperando sin saber a qué cuenta pagar. Ahora sale cómo pagar,
  * con el folio como referencia, y un botón que le manda el comprobante al
  * club por WhatsApp. */
+/* ---------- La liga del embajador (26/10/2026, h46) ----------
+ * "Que vea sus ventas y que gane algo": cuántas compras con su código, cuánto
+ * va y su premio, sin nombres de clientes. Y el botón para compartirlo. */
+async function renderEmbajador(token) {
+  pintaBarra(false);
+  document.title = 'Mis ventas · Tienda Tanner';
+  $('content').innerHTML = '<p class="muted st-emb-cargando">Cargando tus ventas…</p>';
+  let d;
+  try { d = await rpc('v2_public_code_stats', { token }); }
+  catch {
+    $('content').innerHTML = `<div class="empty-state"><h2>Esta liga ya no existe</h2>
+      <p class="muted">Pídele al club tu liga nueva.</p><a class="st-cta" href="#/">Ir a la tienda</a></div>`;
+    return;
+  }
+  const st = d.stats || {}, conPremio = Number(d.rewardPct || 0) > 0;
+  const compra = ligaDeCompra(location.origin, d.code, new URLSearchParams(location.search).get('club') || '');
+  const texto = `Usa mi código ${d.code} en la tienda de ${d.club || 'el club'}: ${d.label}. ${compra}`;
+  const tile = (t, v, sub = '', clase = '') => `<div class="st-emb-tile ${clase}"><span>${esc(t)}</span><b>${esc(v)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+  $('content').innerHTML = `<section class="st-emb">
+    <p class="st-eyebrow">${esc(d.club || '')} · Embajador</p>
+    <h1>${d.ambassador ? `Hola, ${esc(d.ambassador)}` : 'Tus ventas'}</h1>
+    <div class="st-emb-codigo"><b>${esc(d.code)}</b><span>${esc(d.label)}</span>
+      <em class="${d.active ? 'ok' : 'mal'}">${d.active ? 'Activo' : 'Ya no está activo'}${d.active && d.endsOn ? ` · ${esc(textoHasta(d.endsOn))}` : ''}</em></div>
+    <div class="st-emb-tiles">
+      ${tile('Compras pagadas', String(st.paidOrders || 0), money.format(Number(st.sold || 0)))}
+      ${tile('Esperando pago', money.format(Number(st.pendingSales || 0)), 'Cuentan cuando se paguen')}
+      ${conPremio ? tile('Tu premio', money.format(Number(st.rewardEarned || 0)), `${Number(d.rewardPct)}% de lo pagado${d.rewardKind === 'credito' ? ', en crédito' : ''}`, 'clave') : ''}
+      ${conPremio ? tile('Te debemos', money.format(Number(st.rewardOwed || 0)), `Ya te pagamos ${money.format(Number(st.rewardPaid || 0))}`) : ''}
+    </div>
+    <div class="st-emb-acciones">
+      <a class="st-cta" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">Compartir mi código</a>
+      <button type="button" class="st-emb-copia" data-copiar="${esc(compra)}">Copiar mi liga</button>
+    </div>
+    <h2 class="st-emb-tit">Últimas compras</h2>
+    ${(d.recent || []).length ? `<ul class="st-emb-lista">${d.recent.map(x => `<li><span>${esc(new Date(`${x.date}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }))}</span>
+      <b>${money.format(Number(x.total || 0))}</b><em class="${x.paid ? 'ok' : ''}">${x.paid ? 'Pagada' : 'Por pagar'}</em>${conPremio && x.paid ? `<small>+${money.format(Number(x.reward || 0))}</small>` : ''}</li>`).join('')}</ul>`
+      : '<p class="muted">Todavía nadie compra con tu código. Compártelo.</p>'}
+  </section>`;
+  $('content').querySelector('[data-copiar]')?.addEventListener('click', async e => {
+    const b = e.currentTarget;
+    try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiada'; }
+    catch { b.textContent = compra; }
+  });
+}
+
 function renderListo(result, nombre) {
   const folio = result?.folio || '', total = Number(result?.total || 0);
   const pago = datosDePago(pagoInfo, folio);
@@ -842,7 +1048,8 @@ function renderListo(result, nombre) {
       <span class="tos-icon tos-icon-check" aria-hidden="true"></span></div>
       <h2>Pedido recibido</h2>
       ${folio ? `<div class="folio">${esc(folio)}</div>` : ''}
-      <p><strong>Total:</strong> ${money.format(total)}</p></div>
+      <p><strong>Total:</strong> ${money.format(total)}</p>
+      ${Number(result?.discount || 0) > 0 ? `<p class="muted">Ya con ${money.format(Number(result.discount))} de descuento por tu código.</p>` : ''}</div>
     ${filas ? `<section class="pago-card" aria-label="Cómo pagar">
       <h3>Cómo pagar</h3>
       <p class="muted">Transferencia SPEI. Pon tu folio como referencia o concepto:</p>
@@ -868,6 +1075,16 @@ function renderListo(result, nombre) {
 }
 
 /* ---------- Arranque ---------- */
+// La tarjeta "Va en tu pedido": cerrar, o armar otro (el del hermano).
+$('stAviso').addEventListener('click', e => {
+  const cierra = () => { clearTimeout(avisoTimer); cierraAviso(); };
+  if (e.target.closest('[data-ag-cierra]')) { cierra(); return; }
+  if (e.target.closest('[data-otro]')) {
+    cierra();
+    const esKit = !!document.querySelector('[data-ficha]') && location.hash.startsWith('#/k/');
+    (esKit ? document.querySelector('[data-ranura], #stBloqueTier') : $('stBloqueTalla'))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
 $('stCarrito').addEventListener('click', () => {
   if (piezasDelCarrito(carrito)) location.hash = '#/pedido';
   else aviso('Tu pedido está vacío: agrega algo de la tienda.');

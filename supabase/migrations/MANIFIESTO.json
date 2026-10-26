@@ -1,8 +1,8 @@
 {
-  "migraciones": 563,
-  "bytes": 3259091,
-  "huella": "553fe6400733b5ad734cd8bc3738c66a",
+  "migraciones": 565,
+  "bytes": 3297318,
+  "huella": "208ca81ce9506416fe47d7a080b4f3fc",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261025224232_h44b_patrocinios_cierre_explicito.sql",
-  "verificadoContraLaBase": "2026-10-25"
+  "ultima": "20261026220811_h46_codigos_de_tienda.sql",
+  "verificadoContraLaBase": "2026-10-26"
 }

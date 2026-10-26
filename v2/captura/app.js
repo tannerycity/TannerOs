@@ -14,7 +14,7 @@ const JERSEY_RE=/jersey|uniforme|playera/i;
 // La casilla "Lleva nombre y número" del catálogo manda; sin tocar, decide el nombre.
 const llevaNombre=p=>typeof p?.personalizable==='boolean'?p.personalizable:JERSEY_RE.test(p?.name||'');
 
-let ctx=null,canWrite=false,recargoManga=0,bundles=[],products=[],cart=[],tanners=[],tannerId='',externo=false;
+let ctx=null,canWrite=false,recargoManga=0,recargoPers=0,bundles=[],products=[],cart=[],tanners=[],tannerId='',externo=false;
 let picking=null;
 /* Viniendo de Taquilla (/v2/captura/?desde=taquilla&tanner=…): el Tanner ya
    viene elegido y, al crear el pedido, el siguiente paso es cobrar el
@@ -65,6 +65,8 @@ async function load(){
   // Ofertas (g5): el mostrador cobra lo mismo que la tienda.
   // Manga larga con cargo (14/10/2026): el cargo del club viaja con el catálogo.
   recargoManga=Math.max(0,Number(data?.recargoMangaLarga||0));
+  // Nombre y número con cargo (h45): por cada jersey que lo lleva; 0 si está apagado.
+  recargoPers=Math.max(0,Number(data?.recargoPersonalizacion||0));
   bundles=(data?.bundles||[]).filter(b=>b.active&&!b.archived&&b.componentsResolved).map(kitConOferta);
   products=(data?.products||[]).filter(p=>p.active&&!p.archived).map(conOferta);
   renderBundleGrid();
@@ -400,8 +402,9 @@ function addBundleToCart(){
   // Lo que se tecleó a mano (piezas sin tallas en catálogo) también cuenta.
   if(ajustaTier()){renderBundlePieces();return;}
   const largas=picking.slots.filter(s=>s.manga==='larga'&&JERSEY_RE.test(products.find(x=>String(x.id)===String(s.productId))?.name||'')).length;
-  const total=(tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid))+largas*recargoManga;
   const name=$('bfName').value.trim(),number=$('bfNumber').value.trim(),sleeve=largas?'larga':'corta';
+  const estampados=name||number?picking.slots.filter(s=>llevaNombre(products.find(x=>String(x.id)===String(s.productId))||{name:s.name})).length:0;
+  const total=(tier==='Niño'&&b.priceKid?Number(b.priceKid):Number(b.priceAdult||b.priceKid))+largas*recargoManga+estampados*recargoPers;
   cart.push({
     kind:'bundle',bundleId:b.id,bundleName:b.name,tier,personalizationName:name||null,number:number||null,sleeve,
     pieces:picking.slots.map(s=>({productId:s.productId,talla:s.talla.trim(),...(JERSEY_RE.test(products.find(x=>String(x.id)===String(s.productId))?.name||'')?{sleeve:s.manga||'corta'}:{})})),
@@ -485,7 +488,7 @@ function addProductToCart(){
   const name=isJersey?$('pfName').value.trim():'',number=isJersey?$('pfNumber').value.trim():'',sleeve=JERSEY_RE.test(p.name||'')?mangaDe('pf'):null;
   cart.push({
     kind:'product',productId:p.id,talla,quantity:qty,personalizationName:name||null,number:number||null,sleeve,
-    total:(precioDeProducto(p,talla)+(sleeve==='larga'?recargoManga:0))*qty,
+    total:(precioDeProducto(p,talla)+(sleeve==='larga'?recargoManga:0)+(name||number?recargoPers:0))*qty,
     label:`${p.name} · ${talla}${qty>1?` ×${qty}`:''}${sleeve?` · manga ${sleeve}`:''}${name?` — ${name}${number?' #'+number:''}`:''}`
   });
   renderCart();

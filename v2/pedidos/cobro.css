@@ -215,3 +215,5 @@
 /* Cobro único (21/10/2026): un botón grande que abre la hoja de Taquilla. */
 .cobro-unico{display:grid;gap:8px;justify-items:center}
 .cobro-unico #cobrarPedido{width:100%;min-height:52px;font-size:17px}
+/* Código de la tienda (26/10/2026, h46) */
+.order-codigo{margin:6px 0 0;padding:6px 10px;border-radius:10px;background:#e9f5ee;color:#1d7a46;font-size:13px;font-weight:700}

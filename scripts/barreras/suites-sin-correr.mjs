@@ -182,7 +182,9 @@ export default function comprobar() {
   // (marcador, Hoy toca, tablero por marca y palomear desde la ficha).
   // Sube a 61 por qa-humo-pedido-detalle.mjs: el detalle del pedido estilo
   // Apple (qué falta arriba, WhatsApp al proveedor, No está pagado).
-  const MAX_EXCLUIDAS = 61;
+  // Sube a 62 por qa-humo-codigos.mjs: nombre y número con cargo, el código
+  // desde la liga del embajador, su liga de ventas y la pestaña Códigos.
+  const MAX_EXCLUIDAS = 62;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

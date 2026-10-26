@@ -27,7 +27,7 @@
 import {
   tallasDe, tallaUnica, aceptaPersonalizacion, llevaManga,
   ESCALA_NINOS, ESCALA_ADULTOS,
-  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta, conOpcionesDeKit, ranuraElegida, nombreCorto, precioDeEtiqueta, precioNinoDe, precioDeProducto, conRecargo, recargoDe,
+  ranurasDeKit, precioDeKit, tiersDeKit, textoManga, conOferta, kitConOferta, textoHasta, conOpcionesDeKit, ranuraElegida, nombreCorto, precioDeEtiqueta, precioNinoDe, precioDeProducto, conRecargo, recargoDe, recargoPersDe,
   admiteVariasTallas, preparaLineasPorTalla
 } from '/v2/tienda.js';
 
@@ -129,7 +129,7 @@ export function tarjetaProducto(p, elec = {}) {
   // llena la tarjeta de campos que todavia no sirven de nada.
   const hayTalla = Boolean(unica || elec.talla || multi?.ok);
   const pers = (aceptaPersonalizacion(p) && hayTalla)
-    ? `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-pnombre="${esc(p.id)}" value="${esc(elec.nombre || '')}">`
+    ? `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional${recargoPersDe(p) ? `, +${dinero.format(recargoPersDe(p))}` : ''})" data-pnombre="${esc(p.id)}" value="${esc(elec.nombre || '')}">`
       + `<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-pnumero="${esc(p.id)}" value="${esc(elec.numero || '')}"></div>`
       + selectorManga('data-pmanga', p.id, elec.manga, recargoDe(p))
     : (llevaManga(p) && hayTalla) ? selectorManga('data-pmanga', p.id, elec.manga, recargoDe(p)) : '';
@@ -187,7 +187,7 @@ export function tarjetaKit(k, elec = {}) {
       + filaDeTalla(`${k.id}::${r.id}`, r.tallas, tallasElegidas[r.id], elec.abierto === r.id) + mangaDePieza(r) + `</div>`;
   }).join('');
 
-  const pers = `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional)" data-knombre="${esc(k.id)}" value="${esc(elec.nombre || '')}">`
+  const pers = `<div class="fam-pers"><input type="text" maxlength="20" placeholder="Nombre en la espalda (opcional${recargoPersDe(k) ? `, +${dinero.format(recargoPersDe(k))} por jersey` : ''})" data-knombre="${esc(k.id)}" value="${esc(elec.nombre || '')}">`
     + `<input type="text" inputmode="numeric" maxlength="3" placeholder="N°" data-knumero="${esc(k.id)}" value="${esc(elec.numero || '')}"></div>`;
   const aviso = elec.motivo ? `<span class="fam-aviso">${esc(elec.motivo)}</span>` : '';
 
@@ -262,5 +262,5 @@ export function normalizaOfertaPublica(oferta) {
       }))
     }));
   const vendibles = productos.map(conOferta);
-  return conRecargo({ products: vendibles, bundles: kits.map(k => conOpcionesDeKit(kitConOferta(k), vendibles)) }, oferta?.recargoMangaLarga);
+  return conRecargo({ products: vendibles, bundles: kits.map(k => conOpcionesDeKit(kitConOferta(k), vendibles)) }, oferta?.recargoMangaLarga, oferta?.recargoPersonalizacion);
 }

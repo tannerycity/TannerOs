@@ -763,7 +763,7 @@ async function renderTienda(){
    * abierta en el momento del despliegue no se le rompa la tienda. */
   const datos=state.catalog;
   // Ofertas (g5): el precio de oferta como precio, y el de antes para tacharlo.
-  const conR=conRecargo({products:(Array.isArray(datos)?datos:(datos?.products||[])).map(conOferta),bundles:Array.isArray(datos)?[]:(datos?.bundles||[])},datos?.recargoMangaLarga);
+  const conR=conRecargo({products:(Array.isArray(datos)?datos:(datos?.products||[])).map(conOferta),bundles:Array.isArray(datos)?[]:(datos?.bundles||[])},datos?.recargoMangaLarga,datos?.recargoPersonalizacion);
   const productos=conR.products;
   const kits=conR.bundles.map(k=>conOpcionesDeKit(kitConOferta(k),productos));
   state.kitsVisibles=kits;

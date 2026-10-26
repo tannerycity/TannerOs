@@ -295,6 +295,8 @@
 .recargo-campo{display:inline-flex;align-items:center;gap:4px;font-weight:800;color:#07191e}
 .recargo-campo input{width:80px;min-height:40px;border:0;border-radius:10px;background:#fff;padding:0 10px;font:inherit;font-weight:800;text-align:right}
 .recargo-manga.guardado{box-shadow:inset 0 0 0 2px #169b4b}
+.recargo-pers-ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.recargo-pers.apagado .recargo-campo{opacity:.45}
 
 /* ===== Diseño de tienda (19/10/2026) =====
    "Está todo lo necesario, pero no se ve bien". Como un admin de e-commerce:
@@ -390,3 +392,29 @@
 .costo-margen{grid-auto-flow:row;grid-template-columns:repeat(2,auto);column-gap:14px;justify-content:end}
 .costo-margen>.costo-tipo:only-of-type{grid-column:1/-1}
 .costo-margen .costo-real{grid-column:1/-1;justify-self:end}
+
+/* Códigos (26/10/2026, h46) */
+.codigo{display:grid;gap:6px;padding:14px;border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(7,25,30,.06)}
+.codigo.pausado,.codigo.vencido,.codigo.agotado{opacity:.7}
+.codigo-cab{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.codigo-txt{font-size:18px;letter-spacing:.06em;color:#07191e;overflow-wrap:anywhere}
+.codigo-estado{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:#eef1f1;color:#3c4e52;white-space:nowrap}
+.codigo-estado.ok{background:#e3f4ea;color:#1e6b3c}.codigo-estado.info{background:#e6f0f7;color:#1d5a85}.codigo-estado.mal{background:#fbe9e7;color:#a92a21}
+.codigo-que{margin:0;font-size:14px;color:#3c4e52}
+.codigo-emb{margin:0;font-size:13.5px;color:#3c4e52}
+.codigo-nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:4px}
+.codigo-nums span{display:grid;gap:1px;padding:8px 10px;border-radius:12px;background:#f5f7f7;font-size:12px;color:#6b7c80}
+.codigo-nums b{font-size:15px;color:#07191e;font-variant-numeric:tabular-nums}
+.codigo-nums .debe{background:#fff4dc}.codigo-nums .debe b{color:#8a4b00}
+.codigo-acc{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.codigo-acc button{min-height:36px;padding:0 12px;border-radius:10px;border:1px solid rgba(7,25,30,.14);background:#fff;font:inherit;font-size:13px;font-weight:700;color:#07191e;cursor:pointer}
+.codigo-acc .codigo-quita{color:#a92a21;border-color:rgba(169,42,33,.25)}
+.cd-una-vez{display:flex!important;align-items:center;justify-content:space-between;gap:10px}
+.cd-una-vez input{width:auto;min-height:0}
+.cd-embajador{margin:12px 0;padding:12px 14px;border-radius:14px;background:#f5f7f7}
+.cd-embajador summary{cursor:pointer;font-size:14px}
+.cd-embajador summary span{color:#6b7c80;font-size:12.5px}
+.cd-aviso{display:block;margin-top:6px;color:#a92a21;font-weight:700}
+.cd-pagos{margin-top:12px}
+.cd-pago{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(7,25,30,.07);font-size:13.5px}
+.cd-pago button{border:0;background:none;color:#a92a21;font:inherit;font-weight:700;cursor:pointer}

@@ -625,6 +625,10 @@ async function openOrder(o){
   $('orderFolio').textContent=d.folio;
   $('orderMeta').textContent=fmt(d.created_at);
   $('orderTotal').textContent=money.format(Number(d.total||0));
+  // Código de la tienda (h46): con cuál se pidió y cuánto descontó.
+  const conCodigo=Number(d.discount||0)>0||d.store_code_id;
+  $('orderCodigo')?.classList.toggle('hidden',!conCodigo);
+  if(conCodigo&&$('orderCodigo'))$('orderCodigo').textContent=`${d.discount_reason||'Descuento'}${Number(d.discount||0)>0?` · −${money.format(Number(d.discount))} (antes ${money.format(Number(d.subtotal||0))})`:' · con regalo'}`;
   $('orderStatusLabel').className='order-status '+esc(d.status);$('orderStatusLabel').textContent=labels[d.status]||d.status;
   renderTracker(d.status,Number(current.balance||0)<=0.005);pintaPaso();
   $('customerName').textContent=d.customer_name||'Sin nombre';

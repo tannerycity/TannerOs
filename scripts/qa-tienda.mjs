@@ -494,6 +494,32 @@ revisa('un kit sin precio no se vende',
   revisa('[manga] al convertir, el jersey largo sigue largo y el kit cobra su cargo', sug && sug.opciones.mangas['elige1#0'] === 'larga' && sug.precio === 1550 && T.preparaKit(duo, sug.opciones).linea.total === 1550, JSON.stringify(sug && [sug.opciones, sug.precio]));
 }
 
+/* ---- Nombre y número con cargo (26/10/2026, h45) ---- */
+{
+  const T = await import('../v2/tienda.js');
+  const J = id => ({ id, name:`Jersey ${id}`, price:799, price_kid:599, sizes:['12','M'] });
+  const base = { products:[J('pink'), J('black'), { id:'short', name:'Short', price:350, sizes:['12','M'] }],
+    bundles:[{ id:'duo', name:'Kit Dúo', price_adult:1500, price_kid:1299, pieces:[{ product_id:'short', name:'Short', sizes:['12','M'] },
+      { product_id:'pink', name:'Jersey pink', qty:2, pool:['pink','black'], poolName:'Jersey a elegir' }] }] };
+  const cat = T.conRecargo(base, 50, 100);
+  const duo = T.conOpcionesDeKit(cat.bundles[0], cat.products);
+  revisa('[pers] el cargo llega a productos y kits', T.recargoPersDe(cat.products[0]) === 100 && T.recargoPersDe(duo) === 100);
+  revisa('[pers] apagado (0), el catálogo queda igual', T.conRecargo(base, 0, 0) === base);
+  const con = T.preparaLinea(cat.products[0], { talla:'M', nombre:'Leo', cantidad:2 }).linea;
+  revisa('[pers] jersey con nombre: + $100 por pieza', con.precioUnitario === 899 && con.total === 1798, JSON.stringify(con));
+  revisa('[pers] sólo número también cobra', T.preparaLinea(cat.products[0], { talla:'M', numero:'10' }).linea.precioUnitario === 899);
+  revisa('[pers] sin nombre ni número, sin cargo', T.preparaLinea(cat.products[0], { talla:'M', nombre:'  ' }).linea.precioUnitario === 799);
+  revisa('[pers] con manga larga, se suman los dos', T.preparaLinea(cat.products[0], { talla:'M', nombre:'Leo', manga:'larga' }).linea.precioUnitario === 949);
+  revisa('[pers] el short no se cobra (no lleva nombre)', T.preparaLinea(cat.products[2], { talla:'M', nombre:'Leo' }).linea.precioUnitario === 350);
+  const op = { tier:'Niño', elegidos:{ 'elige1#0':'pink', 'elige1#1':'black' }, tallas:{ 'short#0':'12', 'elige1#0':'12', 'elige1#1':'12' } };
+  revisa('[pers] kit con dos jerseys y nombre: $1,299 + 2 x $100', T.preparaKit(duo, { ...op, nombre:'Leo' }).linea.total === 1499);
+  revisa('[pers] kit sin nombre, precio del kit', T.preparaKit(duo, op).linea.total === 1299);
+  revisa('[pers] lo que dice la ficha es lo que cobra el kit', T.extraEstampadoKit(duo, { ...op, numero:'7' }) === 200 && T.extraEstampadoKit(duo, op) === 0);
+  const c = T.agregaAlCarrito(T.agregaAlCarrito({}, T.preparaLinea(cat.products[0], { talla:'M', nombre:'Leo' }).linea), T.preparaLinea(cat.products[1], { talla:'M', nombre:'Leo' }).linea);
+  const sug = T.sugerenciasDeKit(c, [duo])[0];
+  revisa('[pers] al convertir en kit, el nombre se cobra en los dos jerseys', sug && sug.precio === 1700 && sug.sueltos === 1798 && T.preparaKit(duo, sug.opciones).linea.total === 1700, JSON.stringify(sug && [sug.opciones, sug.precio]));
+}
+
 /* ---- Ofertas (g5, 13/10/2026) ---- */
 {
   const T = await import('../v2/tienda.js');

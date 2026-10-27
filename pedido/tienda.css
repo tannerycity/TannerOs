@@ -556,3 +556,25 @@ body.st-sin-scroll { overflow: hidden; }
 .st-mini-pagar { display: grid; place-items: center; text-decoration: none; max-width: none; }
 .st-mini-seguir { min-height: 44px; border: 0; background: none; font: inherit; font-size: 15px; font-weight: 700; color: var(--st-brand); cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .st-mini, .st-mini-capa, .st-carrito.brinca, .st-fav.late svg { transition: none; animation: none; } }
+
+/* ---- El renglón del pedido, como el carrito de Nike (27/10/2026) ----
+   Foto, qué es, cantidad (el menos se vuelve bote con una pieza), corazón y
+   precio. Abajo Subtotal, Entrega y Total. */
+.carrito-lista .fam-mov.st-co-linea { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--st-line); }
+.st-co-linea .st-media.st-mini-foto { width: 76px; height: 76px; aspect-ratio: auto; border-radius: 14px; }
+.st-co-linea-txt { min-width: 0; display: grid; gap: 3px; }
+.st-co-linea-txt strong { font-size: 14.5px; line-height: 1.3; }
+.st-co-linea-txt > span { font-size: 12.5px; color: var(--st-muted); }
+.st-co-linea-acc { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.st-co-linea-precio { font-size: 14.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.st-co-linea .st-fav { position: static; width: 36px; height: 36px; box-shadow: none; border: 1.5px solid var(--st-line); background: #fff; }
+.st-co-linea .st-fav svg { width: 18px; height: 18px; }
+.st-co-cant { border-width: 1.5px; }
+.st-co-cant .st-co-bote { border: 0; }
+.st-co-bote { width: 36px; height: 36px; display: grid; place-items: center; border: 1.5px solid var(--st-line); border-radius: 99px; background: #fff; color: var(--st-ink); cursor: pointer; padding: 0; }
+.st-co-bote svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.st-co-bote:hover { color: #c0392b; }
+.st-co-cuentas { padding-top: 10px; }
+.st-co-entrega small { color: var(--st-muted); font-weight: 500; }
+.st-co-entrega span:last-child { color: var(--st-ok); font-weight: 700; }
+.st-co-resumen .carrito-total { border-top: 1px solid var(--st-line); margin-top: 6px; padding-top: 14px; }

@@ -38,11 +38,12 @@ import { textoHasta, recargoDe, recargoPersDe, extraEstampadoKit, jerseysDeKit, 
          tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito,
          admiteVariasTallas, preparaLineasPorTalla, cambiaCantidadDeTalla }
   from '/v2/tienda.js';
-import { esc, dinero as money, normalizaOfertaPublica, lineaDelCarrito } from '/v2/vitrina.js';
+import { esc, dinero as money, normalizaOfertaPublica } from '/v2/vitrina.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
+import { iniciaMedicion, mide, hayIds, cambiaConsentimiento } from '/v2/medicion.js';
 import { serializaCarrito, restauraCarrito, cambiaCantidadEnCarrito, cambiaCantidad, alternaGuardado, guardadosVivos } from '/pedido/carrito.js';
 import { normalizaCodigo, codigoValido, descuentoDeCodigo, textoAplicado, ligaDeCompra } from '/v2/codigos.js';
 import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe, sugerenciasAntesDePagar }
@@ -382,6 +383,8 @@ function alternaFav(id) {
   });
   if ($('stMini')) pintaMini();
   aviso(on ? 'Guardado para después: lo ves en la bolsita' : 'Quitado de guardados');
+  if (on) { const [t, i] = id.split(':'), x = ((t === 'k' ? catalogo.bundles : catalogo.products) || []).find(y => String(y.id) === i);
+    if (x) mide('guardar', { valor: Number(x.price ?? x.price_adult ?? 0), items: [{ id, nombre: x.name, precio: Number(x.price ?? x.price_adult ?? 0) }] }); }
 }
 
 /* ---------- La bolsita (27/10/2026) ----------
@@ -474,6 +477,10 @@ function trasCambioDeCarrito() {
     if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
   } else if (document.querySelector('.st-seccion')) pintaBarra(true);
 }
+
+// Lo que se le dice a Meta y Google de cada línea (sólo si la persona aceptó).
+const itemDeLinea = l => ({ id: l.kind === 'bundle' ? `k:${l.bundleId}` : `p:${l.productId}`, nombre: l.nombreProducto, precio: Number(l.precioUnitario || 0), cantidad: Number(l.cantidad || 1) });
+const itemsDelCarrito = () => Object.values(carrito).map(itemDeLinea);
 
 /* ---------- La tienda (PLP) ---------- */
 function tarjeta({ tipo, item }) {
@@ -836,6 +843,7 @@ function agregaProducto(id) {
     actualizaCarrito();
     repinta(renderProducto, id);
     agregado({ foto: fotoMini(p), titulo: p.name, detalle: texto, precio: m.total });
+    mide('agregar', { valor: m.total, items: m.lineas.map(itemDeLinea) });
     return;
   }
   const r = preparaLinea(p, { talla: e.talla, cantidad: e.cantidad || 1, nombre: e.nombre, numero: e.numero, manga: e.manga });
@@ -847,6 +855,7 @@ function agregaProducto(id) {
   repinta(renderProducto, id);
   // "Agregar otro" sólo donde tiene sentido: lo que lleva nombre (el del hermano).
   agregado({ foto: fotoMini(p), titulo: p.name, detalle: eligiendo[id].recien === p.name ? '' : eligiendo[id].recien, precio: l.total, otro: aceptaPersonalizacion(p) });
+  mide('agregar', { valor: l.total, items: [itemDeLinea(l)] });
 }
 function agregaKit(id) {
   const k = (catalogo.bundles || []).find(x => String(x.id) === String(id));
@@ -865,19 +874,43 @@ function agregaKit(id) {
   repinta(renderKit, id);
   const quien = [r.linea.personalizationName, r.linea.numero].filter(Boolean).join(' ');
   agregado({ foto: medioKit(k, 'st-ag-foto'), titulo: k.name, detalle: [r.linea.tier, quien].filter(Boolean).join(' · '), precio: r.linea.total, otro: true });
+  mide('agregar', { valor: r.linea.total, items: [itemDeLinea(r.linea)] });
 }
 
 /* ---------- Confirmar ----------
  * Aquí sí se piden los datos, y sólo aquí: ya hay algo que comprar. */
+
+/* El renglón del resumen (27/10/2026). Presidencia, con el carrito de Nike:
+   foto, qué es, cuántos y cuánto. Con una pieza, el menos se vuelve bote de
+   basura (quitar es el mismo gesto); lo personalizado no cambia de cantidad,
+   sólo se quita. El corazón lo guarda para después. */
+const ICONO_BOTE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4.8h6V7M6.5 7l1 12.2h9L17.5 7M10 10.5v5.5M14 10.5v5.5"/></svg>';
+function renglonDelPedido(llave, l) {
+  const eligio = l.kind === 'bundle' && l.conEleccion
+    ? (l.piezas || []).map(x => `${nombreCorto(x.nombre)}${x.talla ? ` ${x.talla}` : ''}${x.manga === 'larga' ? ' manga larga' : ''}`).join(', ') : null;
+  const detalle = [eligio, detalleDeLinea(l)].filter(Boolean).join(' · ');
+  const fav = l.kind === 'bundle' ? `k:${l.bundleId}` : `p:${l.productId}`;
+  const cambia = cambiaCantidad(l), uno = Number(l.cantidad || 1) <= 1;
+  const quita = `<button type="button" class="st-co-bote" data-quita="${esc(llave)}" aria-label="Quitar ${esc(l.nombreProducto)}">${ICONO_BOTE}</button>`;
+  const cantidad = cambia
+    ? `<div class="st-cantidad mini st-co-cant">${uno ? quita : '<button type="button" data-co-cant="-1" aria-label="Uno menos">&minus;</button>'}<output>${l.cantidad}</output><button type="button" data-co-cant="1" aria-label="Uno más">+</button></div>`
+    : quita;
+  return `<div class="fam-mov st-co-linea" data-co-linea="${esc(llave)}">${fotoDeLinea(l)}
+    <div class="st-co-linea-txt"><strong>${esc(l.nombreProducto)}</strong>${detalle ? `<span>${esc(detalle)}</span>` : ''}
+      <div class="st-co-linea-acc">${cantidad}${corazon(fav, l.nombreProducto)}</div></div>
+    <b class="st-co-linea-precio">${money.format(Number(l.total || 0))}</b></div>`;
+}
 function resumen() {
   const lineas = Object.entries(carrito);
   const sub = totalDelCarrito(carrito), desc = codigo?.ok ? descuentoDeCodigo(codigo, carrito, sub) : 0;
   const regalo = codigo?.ok && codigo.kind === 'regalo'
     ? `<div class="carrito-regalo"><span>${esc(codigo.giftName || 'Regalo')} <small>de regalo · código ${esc(codigo.code)}</small></span><strong>$0</strong></div>` : '';
-  const menos = desc > 0 ? `<div class="carrito-sub"><span>Subtotal</span><span>${money.format(sub)}</span></div>
-    <div class="carrito-desc"><span>Código ${esc(codigo.code)}</span><span>−${money.format(desc)}</span></div>` : '';
-  return `<section class="carrito-lista">${lineas.map(([k, l]) => lineaDelCarrito(k, l)).join('')}${regalo}
-    ${menos}<div class="carrito-total"><span>Total</span><strong>${money.format(Math.max(0, sub - desc))}</strong></div></section>${sugiereKits()}`;
+  const n = piezasDelCarrito(carrito);
+  const cuentas = `<div class="st-co-cuentas"><div class="carrito-sub"><span>Subtotal · ${n} ${n === 1 ? 'pieza' : 'piezas'}</span><span>${money.format(sub)}</span></div>
+    ${desc > 0 ? `<div class="carrito-desc"><span>Código ${esc(codigo.code)}</span><span>−${money.format(desc)}</span></div>` : ''}
+    <div class="carrito-sub st-co-entrega"><span>Entrega <small>recoges en el club</small></span><span>Gratis</span></div></div>`;
+  return `<section class="carrito-lista">${lineas.map(([k, l]) => renglonDelPedido(k, l)).join('')}${regalo}
+    ${cuentas}<div class="carrito-total"><span>Total</span><strong>${money.format(Math.max(0, sub - desc))}</strong></div></section>${sugiereKits()}`;
 }
 /* "¿Tienes un código?": se escribe, se valida con el servidor y dice qué hace
    (o por qué no). Si cambia el carrito se vuelve a validar: la compra mínima
@@ -918,7 +951,7 @@ function totalAPagar() {
 }
 function textoConfirmar() { return `Confirmar pedido · ${money.format(totalAPagar())}`; }
 function refrescaResumen() {
-  if ($('resumenCarrito')) $('resumenCarrito').innerHTML = resumen();
+  if ($('resumenCarrito')) { $('resumenCarrito').innerHTML = resumen(); firmaFotos($('resumenCarrito')); }
   const b = $('submitOrder'); if (b && !b.disabled) b.textContent = textoConfirmar();
 }
 /* ¿Lo conviertes en kit? Un jersey suelto que también viene en un kit lo
@@ -970,6 +1003,7 @@ function sumaExtra(p, opciones) {
   if (!r.ok) return r;
   carrito = agregaAlCarrito(carrito, r.linea);
   actualizaCarrito();
+  mide('agregar', { valor: r.linea.total, items: [itemDeLinea(r.linea)] });
   refrescaResumen();
   $('stExtras').innerHTML = extrasAntesDePagar();
   firmaFotos($('stExtras'));
@@ -1084,14 +1118,13 @@ function renderCheckout() {
   $('resumenCarrito').onclick = e => {
     const cv = e.target.closest('[data-convierte]');
     if (cv) { convierteEnKit(cv.dataset.convierte, cv.dataset.kitId); return; }
-    const q = e.target.closest('[data-quita]'); if (!q) return;
-    carrito = quitaDelCarrito(carrito, q.dataset.quita);
+    const f = e.target.closest('[data-fav]'); if (f) { alternaFav(f.dataset.fav); return; }
+    const q = e.target.closest('[data-quita]'), c = e.target.closest('[data-co-cant]');
+    if (q) carrito = quitaDelCarrito(carrito, q.dataset.quita);
+    else if (c) carrito = cambiaCantidadEnCarrito(carrito, c.closest('[data-co-linea]').dataset.coLinea, Number(c.dataset.coCant));
+    else return;
     actualizaCarrito();
-    if (!piezasDelCarrito(carrito)) { location.hash = '#/'; return; }
-    refrescaResumen();
-    $('stExtras').innerHTML = extrasAntesDePagar();
-    firmaFotos($('stExtras'));
-    if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
+    trasCambioDeCarrito();
   };
   $('orderForm').addEventListener('submit', submit);
   $('stCodigoCaja').addEventListener('click', e => {
@@ -1106,6 +1139,7 @@ function renderCheckout() {
   else if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
   cableaExtras();
   firmaFotos($('stExtras'));
+  firmaFotos($('resumenCarrito'));
 }
 
 /* ---------- Rutas ---------- */
@@ -1119,7 +1153,15 @@ function ruta() {
   else if (a === 'k' && b) renderKit(decodeURIComponent(b));
   else if (a === 'pedido') renderCheckout();
   else renderTienda(a === 'c' ? decodeURIComponent(b || '') : '');
-  if (cambia) { window.scrollTo(0, 0); cierraAviso(); cierraMini(); }
+  if (cambia) {
+    window.scrollTo(0, 0); cierraAviso(); cierraMini();
+    // Ver producto e iniciar el pedido: una vez por visita a la página.
+    const p = a === 'p' && (catalogo.products || []).find(x => String(x.id) === decodeURIComponent(b || ''));
+    const k = a === 'k' && (catalogo.bundles || []).find(x => String(x.id) === decodeURIComponent(b || ''));
+    if (p) mide('ver', { valor: Number(p.price || 0), items: [{ id: `p:${p.id}`, nombre: p.name, precio: Number(p.price || 0) }] });
+    if (k) mide('ver', { valor: Number(k.price_adult || 0), items: [{ id: `k:${k.id}`, nombre: k.name, precio: Number(k.price_adult || 0) }] });
+    if (a === 'pedido' && piezasDelCarrito(carrito)) mide('pagar', { valor: totalAPagar(), items: itemsDelCarrito() });
+  }
 }
 function cierraAviso() { clearTimeout(avisoTimer); const el = $('stAviso'); el.classList.remove('entra'); el.hidden = true; }
 
@@ -1162,6 +1204,7 @@ async function submit(e) {
   if (codigo?.ok) items.push({ kind: 'code', code: codigo.code });
   try {
     const result = await rpc('v2_public_cart_order', { ...comun, items });
+    mide('compra', { valor: Number(result?.total || 0), folio: result?.folio, items: itemsDelCarrito() });
     carrito = {};
     codigo = null; codigoEscrito = '';
     try { sessionStorage.removeItem('tiendaCodigo'); } catch {}
@@ -1279,6 +1322,12 @@ document.addEventListener('click', e => {
   e.preventDefault(); e.stopPropagation(); alternaFav(f.dataset.fav);
 }, true);
 cablea();
+// Pixeles de Meta y Google: sólo con permiso, y sólo si Marketing puso los ids.
+iniciaMedicion();
+if (hayIds()) {
+  const pie = document.querySelector('.st-pie');
+  if (pie) { const a = document.createElement('a'); a.href = '#'; a.textContent = 'Cookies'; a.addEventListener('click', e => { e.preventDefault(); cambiaConsentimiento(); }); pie.append(' · ', a); }
+}
 try {
   // El catálogo manda; cómo pagar es un extra que no detiene la tienda.
   const [oferta, pago, club] = await Promise.allSettled([

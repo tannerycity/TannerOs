@@ -1,0 +1,8 @@
+# Lo público del club y de TannerOS se puede indexar; lo interno (staff,
+# portal de familias, funciones) no.
+User-agent: *
+Allow: /
+Disallow: /v2/
+Disallow: /api/
+Disallow: /familias/
+Sitemap: https://app.tannerycity.com/sitemap.xml

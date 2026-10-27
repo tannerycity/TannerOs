@@ -436,3 +436,73 @@
 .st-ag-sec { border: 1px solid var(--st-line); background: #fff; color: var(--st-ink); }
 .st-aviso .st-ag-ver { background: var(--st-brand); color: #fff; line-height: 1.15; padding: 4px 8px; }
 .st-ag-ver small { display: block; font-size: 12px; font-weight: 600; opacity: .85; }
+
+/* ---- El pedido (27/10/2026): dos columnas en compu, una en el celular ----
+   A la izquierda lo que se llena; a la derecha el resumen fijo con el código
+   y el total. Casillas propias (no las del navegador), campos grandes y el
+   total en el botón. */
+.st-co { display: flex; flex-direction: column; gap: 18px; margin-top: 18px; }
+.st-co-lado { display: contents; }
+.st-co-resumen { order: 1; }
+.st-co-main { order: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; }
+.st-co-info { order: 3; }
+.st-co-info .st-info { margin-top: 0; }
+@media (min-width: 960px) {
+  .st-co { display: grid; grid-template-columns: minmax(0, 1fr) 380px; align-items: start; gap: 28px; }
+  .st-co-lado { display: grid; gap: 16px; grid-column: 2; grid-row: 1; position: sticky; top: 84px; }
+  .st-co-main { grid-column: 1; grid-row: 1; }
+}
+.st-co-card { margin: 0; padding: 18px; border-radius: 20px; background: #fff; border: 1px solid var(--st-line); min-width: 0; }
+.st-co-tit { display: grid; gap: 2px; margin: 0 0 14px; padding: 0; font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: var(--st-ink); }
+.st-co-tit small { font-size: 13.5px; font-weight: 500; color: var(--st-muted); letter-spacing: 0; }
+.st-co-resumen .carrito-lista { border: 0; padding: 0; background: none; box-shadow: none; }
+.st-co-resumen .st-codigo { margin: 12px 0 0; }
+.st-co-form { display: grid; gap: 18px; margin: 0; }
+.st-co-campos { display: grid; gap: 14px; }
+.st-co .st-campo, .st-co .phone-widget { display: grid; gap: 6px; font-size: 14px; font-weight: 700; color: var(--st-ink); text-transform: none; letter-spacing: 0; }
+.st-co .phone-label { font-size: 14px; font-weight: 700; color: var(--st-ink); }
+.st-campo em { font-style: normal; font-weight: 500; color: var(--st-muted); }
+.st-co input:not([type="checkbox"]), .st-co textarea, .st-co .phone-control { min-height: 50px; border-radius: 14px; border: 1.5px solid #d5dedc; font-size: 16px; }
+.st-co .phone-control input { min-height: 47px; border: 0; }
+.st-co input:not([type="checkbox"]):focus, .st-co textarea:focus, .st-co .phone-control:focus-within { border-color: var(--st-brand); box-shadow: 0 0 0 3px rgba(11, 61, 74, .12); }
+.st-co-nota summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--st-brand); list-style: none; padding: 4px 0; }
+.st-co-nota summary::-webkit-details-marker { display: none; }
+.st-co-nota summary::before { content: '+ '; }
+.st-co-nota[open] summary::before { content: '− '; }
+.st-co-nota textarea { margin-top: 8px; min-height: 80px; }
+/* Las casillas: grandes, redondeadas y del color del club. */
+.st-acepto { display: grid; gap: 10px; }
+.st-acepto legend { float: left; width: 100%; }
+.st-check { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; padding: 14px; border-radius: 16px; border: 1.5px solid var(--st-line); background: var(--st-soft); font-size: 14.5px; font-weight: 500; line-height: 1.45; color: var(--st-ink-2); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.st-check:hover { border-color: #c9d6d3; }
+.st-check:has(input:checked) { border-color: var(--st-ok); background: #eef8f2; color: var(--st-ink); }
+.st-check input { appearance: none; -webkit-appearance: none; width: 26px; height: 26px; margin: 0; border: 2px solid #9fb1ae; border-radius: 8px; background: #fff; display: grid; place-items: center; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.st-check input::after { content: ''; width: 7px; height: 13px; border: solid #fff; border-width: 0 3px 3px 0; transform: rotate(45deg) translate(-1px, -1px); opacity: 0; }
+.st-check input:checked { background: var(--st-ok); border-color: var(--st-ok); }
+.st-check input:checked::after { opacity: 1; }
+.st-check input:focus-visible { outline: 3px solid rgba(11, 61, 74, .3); outline-offset: 2px; }
+.st-check a { color: var(--st-brand); font-weight: 700; }
+.st-check b { color: var(--st-ink); }
+.st-co .st-plazo { background: var(--st-soft); border-color: var(--st-line); }
+.st-co .st-plazo:has(input:checked) { border-color: var(--st-ok); background: #eef8f2; }
+.st-acepto-version { justify-self: end; font-size: 11px; color: var(--st-muted); }
+.st-falta, .st-co .st-check.st-falta { border-color: var(--st-bad) !important; background: #fdf1ef !important; }
+.st-campo.st-falta input { border-color: var(--st-bad); }
+.st-co-confirmar { max-width: none; min-height: 58px; font-size: 18px; }
+.st-co-seguro { margin: -8px 0 0; text-align: center; font-size: 13px; color: var(--st-muted); }
+@media (max-width: 959px) { .st-co-confirmar { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 5; box-shadow: 0 12px 30px rgba(11, 61, 74, .25); } }
+/* Ajustes finos del pedido y del panel (27/10/2026). */
+.st-co .st-co-campos { grid-template-columns: minmax(0, 1fr) !important; }
+.st-co .st-co-campos > * { grid-column: 1 / -1 !important; width: 100%; }
+.st-co .st-check, .st-co .st-check span { font-weight: 500 !important; font-size: 14.5px; text-transform: none; letter-spacing: 0; }
+.st-co .st-check input[type="checkbox"] { width: 26px !important; height: 26px !important; min-width: 26px; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none; flex: none; }
+.st-co .st-check input[type="checkbox"]:checked { background: var(--st-ok); border-color: var(--st-ok); }
+.st-co-tit + .st-co-campos { margin-top: 4px; }
+.st-talla-rapida { display: grid; gap: 4px; }
+.st-tr-tit { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 16px 0 6px; font-size: 15px; }
+.st-tr-tit span { font-size: 13px; color: var(--st-muted); }
+.st-tr-tit .st-guia-btn { margin: 0; }
+.st-talla-rapida .st-manga { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.st-talla-rapida .st-perso { margin: 0; }
+.st-talla-rapida .st-cta { margin-top: 12px; }
+.st-talla-rapida .st-motivo { margin: 8px 0 0; }

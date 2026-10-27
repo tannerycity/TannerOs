@@ -224,7 +224,14 @@ await cabe('el pedido');
 // ¿Le agregas algo más? (25/10/2026)
 const extras = await pg.$$eval('#stExtras [data-extra]', e => e.map(x => x.dataset.extra));
 revisa('[extra] antes de pagar sugiere lo de la tienda que no va: gorra primero, jersey al final; nada de lo que ya va', JSON.stringify(extras) === '["p-gorra","p-hoodie","p-black"]', JSON.stringify(extras));
-revisa('[extra] el jersey abre su ficha para la talla y el nombre', (await pg.getAttribute('#stExtras [data-extra="p-black"] a', 'href')) === '#/p/p-black');
+// Un solo camino (27/10/2026): el jersey abre el mismo panel que la playera,
+// con talla, nombre, número y manga, sin salir del pedido.
+await pg.click('#stExtras [data-extra="p-black"] [data-extra-agrega]');
+await pg.waitForSelector('#stTallaRapida [data-tr-campo="nombre"]', { timeout: 3000 });
+revisa('[extra] el jersey abre el mismo panel, con nombre y número', /Arma tu jersey/.test(await pg.innerText('#stTallaRapida')) && (await pg.$('#stTallaRapida [data-tr-manga="larga"]')) !== null);
+await pg.click('#stTallaRapida [data-tr-agrega]');
+revisa('[extra] sin talla no agrega y lo dice', /Elige la talla/.test(await pg.innerText('#stTallaRapida .st-motivo')));
+await pg.click('#stTallaRapida [data-tr-cerrar]');
 if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-agrega-algo-mas.png`, fullPage: true });
 await pg.click('#stExtras [data-extra="p-gorra"] [data-extra-agrega]');
 revisa('[extra] un toque y va en el pedido', /The Tanner Cap/.test(await pg.innerText('#resumenCarrito')) && /\$5,448/.test(await pg.innerText('.carrito-total')) && !(await pg.$('#stExtras [data-extra="p-gorra"]')), await pg.innerText('.carrito-total'));
@@ -234,6 +241,8 @@ await pg.click('#stExtras [data-extra="p-hoodie"] [data-extra-agrega]');
 await pg.waitForSelector('#stTallaRapida [data-talla-rapida="M"]', { timeout: 3000 });
 revisa('[extra] abre el panel de tallas y todavía no agrega', !/Hoodie/.test(await pg.innerText('#resumenCarrito')));
 await pg.click('#stTallaRapida [data-talla-rapida="M"]');
+revisa('[extra] la talla elegida se marca y el botón dice el precio', /Agregar · \$999/.test(await pg.innerText('#stTallaRapida [data-tr-agrega]')));
+await pg.click('#stTallaRapida [data-tr-agrega]');
 await pg.waitForTimeout(150);
 revisa('[extra] con la talla elegida, se agrega', /Hoodie/.test(await pg.innerText('#resumenCarrito')) && /\$6,447/.test(await pg.innerText('.carrito-total')), await pg.innerText('.carrito-total'));
 await pg.fill('#customerName', 'Ana Ávila');

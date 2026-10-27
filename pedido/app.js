@@ -284,6 +284,47 @@ function infoDeCompra() {
     <li><b>Pago</b><span>Por ${esc(pago)}. Al confirmar ves la CLABE y tu referencia para transferir.</span></li>
     <li><b>Confirmación</b><span>Te escribimos por WhatsApp para revisar tallas y entrega.</span></li></ul>`;
 }
+/* La ficha ordenada (27/10/2026). Presidencia, viendo la de adidas: "mira
+   como viene acomodado, se ve chido". Arriba sólo lo que decide la compra
+   (foto, precio, talla, nombre); lo demás en renglones que se abren:
+   Descripción, Detalles, Tallas y medidas, Entrega y pago y Cuidados. Todo
+   está, pero no estorba. */
+const CUIDADOS_PRENDA = ['Lávala al revés, con agua fría.', 'Sin cloro ni suavizante: dañan la tela y el estampado.', 'No la planches sobre el nombre, el número ni el escudo.', 'Sécala a la sombra; nada de secadora.'];
+const CUIDADOS_GORRA = ['Límpiala con un trapo húmedo y jabón neutro.', 'No la metas a la lavadora ni a la secadora.', 'Sécala al aire, con su forma, lejos del sol directo.'];
+function renglon(titulo, cuerpo, abierto = false) {
+  return cuerpo ? `<details class="st-renglon"${abierto ? ' open' : ''}><summary>${esc(titulo)}</summary><div class="st-renglon-cuerpo">${cuerpo}</div></details>` : '';
+}
+function tablasDeTallas(tallas) {
+  const t = tablasPara(tallas);
+  if (!t.hay) return '';
+  const tabla = (titulo, filas, conEdad) => filas.length ? `<p class="st-renglon-sub">${titulo}</p><table class="st-guia-tabla"><thead><tr><th>Talla</th>${conEdad ? '<th>Edad</th>' : ''}<th>Pecho</th><th>Largo</th></tr></thead>
+    <tbody>${filas.map(f => `<tr><td><b>${esc(f.talla)}</b></td>${conEdad ? `<td>${esc(f.edad)}</td>` : ''}<td>${f.pecho} cm</td><td>${f.largo} cm</td></tr>`).join('')}</tbody></table>` : '';
+  return `<p>Con la prenda extendida: <b>pecho</b> de axila a axila y <b>largo</b> del hombro a la orilla.</p>${tabla('Niño', t.nino, true)}${tabla('Adulto', t.adulto, false)}
+    <p class="st-guia-tip">${esc(CONSEJO_TALLA)}</p>${MEDIDAS_CONFIRMADAS ? '' : '<p class="st-guia-nota">Medidas aproximadas. Si tienes duda, escríbenos.</p>'}`;
+}
+const listaDe = items => `<ul class="st-renglon-lista">${items.map(x => `<li>${x}</li>`).join('')}</ul>`;
+function renglonesDeFicha(item, { kit = false } = {}) {
+  const cat = kit ? 'kit' : categoriaDe(item);
+  const tallas = kit ? tallasDelKit(item) : tallasDe(item);
+  const unica = !kit && tallaUnica(item);
+  const lleva = kit || aceptaPersonalizacion(item);
+  const detalles = [
+    kit ? `${ranurasDeKit(item).length} piezas: ${ranurasDeKit(item).map(r => esc(r.nombre)).join(', ')}.` : null,
+    unica ? `Talla única (${esc(unica)}): le queda a todos.` : tallas.length ? `Tallas: ${esc(tallas.join(', '))}.` : null,
+    lleva ? `Lleva tu nombre y número en la espalda${recargoPersDe(item) ? ` (+${money.format(recargoPersDe(item))})` : ''}.` : null,
+    (kit || llevaManga(item)) ? `Manga corta o larga${recargoDe(item) ? ` (larga +${money.format(recargoDe(item))})` : ''}.` : null,
+    'Se produce sobre pedido, con el escudo oficial del club.',
+    lleva ? 'Lo estampado es personal: no tiene cambio.' : null,
+  ].filter(Boolean);
+  const cuidados = cat === 'gorras' ? CUIDADOS_GORRA : ['accesorios', 'mascaras', 'calcomanias'].includes(cat) ? null : CUIDADOS_PRENDA;
+  return `<section class="st-renglones" aria-label="Más sobre el producto">
+    ${renglon('Descripción', item.description ? `<p>${esc(item.description)}</p>` : '', true)}
+    ${renglon('Detalles', listaDe(detalles))}
+    ${renglon('Tallas y medidas', tablasDeTallas(tallas))}
+    ${renglon('Entrega y pago', infoDeCompra())}
+    ${renglon('Cuidados', cuidados ? listaDe(cuidados.map(esc)) : '')}
+  </section>`;
+}
 /* La vista previa del kit (14/10/2026): "si le pones manga larga, ver la manga
    larga de cada uno de los jerseys y del color que es". Una playera por jersey
    elegido, con su diseño y su manga; sin jersey elegido, la genérica. */
@@ -558,7 +599,6 @@ function renderProducto(id) {
         <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p, e.talla || unica))}</p>
         ${precioNinoDe(p) && !(e.talla || unica) ? `<p class="st-precios-nino">Niño (6 a 16) ${money.format(precioDeProducto(p, '10'))} · Adulto ${money.format(Number(p.price || 0))}</p>` : ''}
         ${p.ofertaHasta ? `<p class="st-oferta grande">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</p>` : ''}
-        ${p.description ? `<p class="st-desc">${esc(p.description)}</p>` : ''}
         <section class="st-bloque${e.falta === 'talla' ? ' falta' : ''}" id="stBloqueTalla">
           ${varias ? `<div class="st-bloque-cab"><h2>Tallas</h2><span>Elige una o varias${botonGuia(tallas)}</span></div>
           ${botonesTallaVarias(tallas, cants)}${filasDeVarias(p, cants, e.manga)}` : `<div class="st-bloque-cab"><h2>Talla</h2><span>${esc(e.talla || unica || '')}${unica ? '' : botonGuia(tallas)}</span></div>
@@ -568,7 +608,7 @@ function renderProducto(id) {
         ${varias ? '' : `<section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
           <div class="st-cantidad"><button type="button" data-cantidad="-1" aria-label="Uno menos">&minus;</button>
           <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>`}
-        ${infoDeCompra()}
+        ${renglonesDeFicha(p)}
       </div>
     </article>
     ${barraAgregar(varias
@@ -616,7 +656,6 @@ function renderKit(id) {
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
         <div class="st-pdp-tit"><h1>${esc(k.name)}</h1>${corazon(`k:${k.id}`, k.name)}</div>
         <p class="st-pdp-precio" id="stPrecioKit">${e.tier ? money.format(precioDeFichaKit(k, e)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}${e.tier && largasDeKit(k, e) && recargoDe(k) ? ` <small class="st-recargo">incluye ${largasDeKit(k, e)} manga larga</small>` : ''}</p>
-        ${k.description ? `<p class="st-desc">${esc(k.description)}</p>` : ''}
         ${tiers.length > 1 ? `<section class="st-bloque${e.falta === 'tier' ? ' falta' : ''}" id="stBloqueTier"><div class="st-bloque-cab"><h2>¿Para quién es?</h2></div>
           <div class="st-segmento" role="radiogroup" aria-label="Para quién es">${tiers.map(t => `<button type="button" role="radio" aria-checked="${e.tier === t}" data-tier="${esc(t)}"${e.tier === t ? ' class="activa"' : ''}>
             <strong>${esc(t)}</strong><small>${money.format(precioDeKit(k, t))}</small></button>`).join('')}</div></section>` : ''}
@@ -639,7 +678,7 @@ function renderKit(id) {
               ${tieneManga(r.producto || { name: r.nombre }) ? `<div class="st-pieza-manga">${botonesManga(e, recargoDe(k), 'data-pieza-manga', (e.mangas || {})[r.id] || e.manga)}</div>` : ''}
             </li>`; }).join('')}</ul></section>
         ${bloquePersonaliza(e, k.name, recargoDe(k), false, k, recargoPersDe(k))}
-        ${infoDeCompra()}
+        ${renglonesDeFicha(k, { kit: true })}
       </div>
     </article>
     ${barraAgregar(textoAgregarKit(k, e), e.motivo)}`;

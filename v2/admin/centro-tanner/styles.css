@@ -27,3 +27,12 @@
 .ct-msg{font-size:12.5px;padding:9px 11px;border-radius:10px;background:#f7eeee;color:#943c35}
 .ct-msg[data-type="success"]{background:#edf8f2;color:#226b45}
 @media(max-width:640px){.ct-form-grid{grid-template-columns:1fr}}
+
+.ct-preview-frame{margin-top:10px;background:#f4f6f5;border:1px dashed #c8d4d1;border-radius:16px;padding:16px}
+.ct-preview-label{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7b8f92;margin-bottom:10px}
+.ct-preview-frame .ct-policy-card{background:#fff;border:1px solid #e3ebe9;border-radius:18px;padding:20px;box-shadow:none;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.ct-preview-frame .ct-policy-kicker{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#087d8e}
+.ct-preview-frame .ct-policy-title{font-size:22px;font-weight:800;margin:6px 0 12px;letter-spacing:-.01em;color:#0b1418}
+.ct-preview-frame .ct-policy-short{font-size:15px;line-height:1.5;margin:0 0 14px;color:#0b1418}
+.ct-preview-frame .ct-policy-full{white-space:pre-wrap;line-height:1.6;font-size:14px;color:#33403f;padding-top:12px;border-top:1px solid #e3ebe9}
+.ct-preview-frame .ct-policy-meta{margin-top:14px;padding-top:10px;border-top:1px solid #e3ebe9;font-size:12px;color:#6a7b7f}

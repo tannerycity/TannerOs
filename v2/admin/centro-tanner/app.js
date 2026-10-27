@@ -9,7 +9,7 @@ function show(id){['loadingView','deniedView','view'].forEach(view=>$(view)?.cla
 
 const CATEGORIES=['inscripcion','mensualidades','becas','entrenamientos','asistencia','partidos','uniformes','baby_tanners','jugadores','familias','conducta','seguridad','salud','tanner_os','estacionamiento','tannery_city_park','privacidad','faq'];
 
-let orgId=null, canWrite=false, data={policies:[],faqs:[],documents:[],changes:[],searchMisses:[]}, activeTab='policies';
+let orgId=null, canWrite=false, data={policies:[],faqs:[],documents:[],changes:[],searchMisses:[],feedback:[]}, activeTab='policies';
 
 async function loadAll(){ data=await rpc('v2_centro_tanner_admin_list',{organization_id:orgId,status_filter:null}); }
 
@@ -31,11 +31,19 @@ function renderPanel(){
   if(activeTab==='changes')return renderChanges(panel);
   if(activeTab==='acceptance')return renderAcceptance(panel);
   if(activeTab==='misses')return renderMisses(panel);
+  if(activeTab==='feedback')return renderFeedback(panel);
+}
+
+function openNewFaq(prefillQuestion){
+  activeTab='faqs';renderPanel();
+  $('newFaq')?.click();
+  if(prefillQuestion){const q=document.querySelector('#faqForm [name="question"]');if(q)q.value=prefillQuestion;}
 }
 
 /* ---------------- Políticas ---------------- */
 function policyForm(p){
   const id=p?.id||'';
+  const docOptions=data.documents.map(d=>`<option value="${esc(d.code)}" ${p?.consentDocumentCode===d.code?'selected':''}>${esc(d.title)}</option>`).join('');
   return `<form class="ct-form" id="policyForm" data-id="${esc(id)}">
     <div class="ct-form-grid">
       <label>Código<input name="policyCode" value="${esc(p?.policyCode||'')}" required></label>
@@ -50,11 +58,30 @@ function policyForm(p){
     <label>Política completa<textarea name="officialContent" rows="8" required>${esc(p?.officialContent||'')}</textarea></label>
     <label>Palabras clave (separadas por coma)<input name="keywords" value="${esc((p?.keywords||[]).join(', '))}"></label>
     <div class="ct-form-grid">
-      <label class="ct-check"><input type="checkbox" name="requiresAcceptance" ${p?.requiresAcceptance?'checked':''}> Requiere aceptación de familias</label>
+      <label class="ct-check"><input type="checkbox" name="requiresAcceptance" id="reqAcceptCheck" ${p?.requiresAcceptance?'checked':''}> Requiere aceptación de familias</label>
       <label>Fecha de vigencia<input type="date" name="effectiveDate" value="${p?.effectiveDate||''}"></label>
     </div>
-    ${msg('')}<div class="ct-row-actions"><button class="ct-btn primary" type="submit">Guardar borrador</button><button class="ct-btn" type="button" id="policyCancel">Cancelar</button></div>
+    <label id="consentDocWrap" class="${p?.requiresAcceptance?'':'hidden'}">Esta política forma parte de…<select name="consentDocumentCode" id="consentDocSelect" ${p?.requiresAcceptance?'required':''}><option value="">— Elige un documento —</option>${docOptions}</select>
+      <small>La aceptación/firma ya se mide en ese documento (pestaña Aceptaciones); la política solo se anuncia como parte de él.</small>
+    </label>
+    ${msg('')}<div class="ct-row-actions"><button class="ct-btn primary" type="submit">Guardar borrador</button><button class="ct-btn" type="button" id="policyPreview">Vista previa</button><button class="ct-btn" type="button" id="policyCancel">Cancelar</button></div>
+    <div id="policyPreviewWrap"></div>
   </form>`;
+}
+
+function renderPolicyPreview(f){
+  const fd=new FormData(f);
+  const cat=CATEGORY_LABELS[fd.get('category')]||fd.get('category');
+  return `<div class="ct-preview-frame">
+    <div class="ct-preview-label">Así se va a ver en Centro Tanner</div>
+    <article class="ct-policy-card">
+      <div class="ct-policy-kicker">${esc(cat)}</div>
+      <h1 class="ct-policy-title">${esc(fd.get('title')||'(sin título)')}</h1>
+      <p class="ct-policy-short">${esc(fd.get('shortAnswer')||'')}</p>
+      <div class="ct-policy-full">${esc(fd.get('officialContent')||'')}</div>
+      <div class="ct-policy-meta">${fd.get('effectiveDate')?`<span>Vigente desde ${esc(fd.get('effectiveDate'))}</span>`:''}</div>
+    </article>
+  </div>`;
 }
 
 function renderPolicies(panel){
@@ -79,7 +106,13 @@ function renderPolicies(panel){
     $('policyFormWrap').innerHTML=policyForm(p);wirePolicyForm();
   }));
   panel.querySelectorAll('[data-publish]').forEach(btn=>btn.addEventListener('click',async()=>{
-    btn.disabled=true;try{await rpc('v2_centro_tanner_policy_publish',{organization_id:orgId,policy_id:btn.dataset.publish});await loadAll();renderPanel();}catch(e){alert(e.message||'No se pudo publicar.');btn.disabled=false;}
+    btn.disabled=true;
+    try{
+      const p=data.policies.find(x=>x.id===btn.dataset.publish);
+      const res=await rpc('v2_centro_tanner_policy_publish',{organization_id:orgId,policy_id:btn.dataset.publish});
+      await loadAll();renderPanel();
+      promptChangelog(p,res?.version);
+    }catch(e){alert(e.message||'No se pudo publicar.');btn.disabled=false;}
   }));
   panel.querySelectorAll('[data-archive]').forEach(btn=>btn.addEventListener('click',async()=>{
     if(!confirm('¿Archivar esta política? Dejará de verse en el sitio público.'))return;
@@ -88,9 +121,21 @@ function renderPolicies(panel){
 }
 function wirePolicyForm(){
   $('policyCancel').addEventListener('click',()=>{$('policyFormWrap').innerHTML='';});
+  $('reqAcceptCheck').addEventListener('change',e=>{
+    $('consentDocWrap').classList.toggle('hidden',!e.target.checked);
+    $('consentDocSelect').required=e.target.checked;
+    if(!e.target.checked)$('consentDocSelect').value='';
+  });
+  $('policyPreview').addEventListener('click',()=>{
+    $('policyPreviewWrap').innerHTML=renderPolicyPreview($('policyForm'));
+  });
   $('policyForm').addEventListener('submit',async e=>{
     e.preventDefault();const f=e.target,btn=f.querySelector('button[type="submit"]');btn.disabled=true;
     const fd=new FormData(f);
+    const requiresAcceptance=fd.get('requiresAcceptance')==='on';
+    if(requiresAcceptance && !fd.get('consentDocumentCode')){
+      f.insertAdjacentHTML('beforeend',msg('Elige a qué documento pertenece esta política.'));btn.disabled=false;return;
+    }
     try{
       await rpc('v2_centro_tanner_policy_upsert',{
         organization_id:orgId, id:f.dataset.id||null,
@@ -98,8 +143,8 @@ function wirePolicyForm(){
         category:fd.get('category'), scope:fd.get('scope'), short_answer:fd.get('shortAnswer'),
         official_content:fd.get('officialContent'),
         keywords:fd.get('keywords').split(',').map(k=>k.trim()).filter(Boolean),
-        requires_acceptance:fd.get('requiresAcceptance')==='on',
-        consent_document_code:null, effective_date:fd.get('effectiveDate')||null
+        requires_acceptance:requiresAcceptance,
+        consent_document_code:requiresAcceptance?fd.get('consentDocumentCode'):null, effective_date:fd.get('effectiveDate')||null
       });
       $('policyFormWrap').innerHTML='';await loadAll();renderPanel();
     }catch(err){f.insertAdjacentHTML('beforeend',msg(err.message||'No se pudo guardar.'));btn.disabled=false;}
@@ -202,7 +247,7 @@ function changeForm(c){
     <label>Título<input name="title" value="${esc(c?.title||'')}" required></label>
     <label>Descripción<textarea name="description" required>${esc(c?.description||'')}</textarea></label>
     <div class="ct-form-grid">
-      <label>Política relacionada<select name="relatedPolicyId"><option value="">— Ninguna —</option>${data.policies.map(p=>`<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('')}</select></label>
+      <label>Política relacionada<select name="relatedPolicyId"><option value="">— Ninguna —</option>${data.policies.map(p=>`<option value="${esc(p.id)}" ${c?.relatedPolicyId===p.id?'selected':''}>${esc(p.title)}</option>`).join('')}</select></label>
       <label>Estado<select name="status"><option value="published" ${(!c||c.status==='published')?'selected':''}>Publicado</option><option value="draft" ${c?.status==='draft'?'selected':''}>Borrador</option></select></label>
     </div>
     ${msg('')}<div class="ct-row-actions"><button class="ct-btn primary" type="submit">Guardar</button><button class="ct-btn" type="button" id="changeCancel">Cancelar</button></div>
@@ -217,21 +262,29 @@ function renderChanges(panel){
         <div class="ct-row-meta">${esc(c.description)}</div>
       </article>`).join(''):'<div class="ct-empty">Sin cambios registrados.</div>'}`;
   if(!canWrite)return;
-  $('newChange')?.addEventListener('click',()=>{
-    $('changeFormWrap').innerHTML=changeForm(null);
-    $('changeCancel').addEventListener('click',()=>{$('changeFormWrap').innerHTML='';});
-    $('changeForm').addEventListener('submit',async e=>{
-      e.preventDefault();const f=e.target,b=f.querySelector('button[type="submit"]');b.disabled=true;const fd=new FormData(f);
-      try{
-        await rpc('v2_centro_tanner_change_upsert',{
-          organization_id:orgId, id:null, version_label:fd.get('versionLabel'), title:fd.get('title'),
-          description:fd.get('description'), effective_date:fd.get('effectiveDate')||null,
-          status:fd.get('status'), related_policy_id:fd.get('relatedPolicyId')||null, related_document_code:null
-        });
-        $('changeFormWrap').innerHTML='';await loadAll();renderPanel();
-      }catch(err){f.insertAdjacentHTML('beforeend',msg(err.message||'No se pudo guardar.'));b.disabled=false;}
-    });
+  $('newChange')?.addEventListener('click',()=>openChangeForm(null));
+}
+function openChangeForm(prefill){
+  $('changeFormWrap').innerHTML=changeForm(prefill);
+  $('changeCancel').addEventListener('click',()=>{$('changeFormWrap').innerHTML='';});
+  $('changeForm').addEventListener('submit',async e=>{
+    e.preventDefault();const f=e.target,b=f.querySelector('button[type="submit"]');b.disabled=true;const fd=new FormData(f);
+    try{
+      await rpc('v2_centro_tanner_change_upsert',{
+        organization_id:orgId, id:null, version_label:fd.get('versionLabel'), title:fd.get('title'),
+        description:fd.get('description'), effective_date:fd.get('effectiveDate')||null,
+        status:fd.get('status'), related_policy_id:fd.get('relatedPolicyId')||null, related_document_code:null
+      });
+      $('changeFormWrap').innerHTML='';await loadAll();renderPanel();
+    }catch(err){f.insertAdjacentHTML('beforeend',msg(err.message||'No se pudo guardar.'));b.disabled=false;}
   });
+}
+function promptChangelog(p,version){
+  if(!p)return;
+  activeTab='changes';renderPanel();
+  openChangeForm({versionLabel:`v${version||p.version}`,title:p.title,description:p.shortAnswer,status:'published',relatedPolicyId:p.id});
+  const f=$('changeFormWrap');
+  f.insertAdjacentHTML('afterbegin',`<p class="ct-row-meta" style="margin-bottom:6px">Acabas de publicar “${esc(p.title)}”. Prellenamos el cambio — guárdalo o cancélalo si no aplica.</p>`);
 }
 
 /* ---------------- Aceptaciones ---------------- */
@@ -247,9 +300,20 @@ async function renderAcceptance(panel){
 
 /* ---------------- Búsquedas sin resultado ---------------- */
 function renderMisses(panel){
-  panel.innerHTML=data.searchMisses.length?`<table class="ct-table"><thead><tr><th>Búsqueda</th><th>Veces</th></tr></thead><tbody>
-    ${data.searchMisses.map(s=>`<tr><td>${esc(s.query)}</td><td>${esc(s.count)}</td></tr>`).join('')}
+  panel.innerHTML=data.searchMisses.length?`<table class="ct-table"><thead><tr><th>Búsqueda</th><th>Veces</th><th></th></tr></thead><tbody>
+    ${data.searchMisses.map((s,i)=>`<tr><td>${esc(s.query)}</td><td>${esc(s.count)}</td><td>${canWrite?`<button class="ct-btn" data-mkfaq="${i}" type="button">Crear FAQ con esto</button>`:''}</td></tr>`).join('')}
   </tbody></table><p class="ct-row-meta" style="margin-top:10px">Últimos 30 días. Buena fuente para nuevas FAQ.</p>`:'<div class="ct-empty">No hay búsquedas sin resultado recientes.</div>';
+  panel.querySelectorAll('[data-mkfaq]').forEach(btn=>btn.addEventListener('click',()=>{
+    const s=data.searchMisses[Number(btn.dataset.mkfaq)];
+    openNewFaq(s?.query?`¿${s.query[0].toUpperCase()+s.query.slice(1)}?`:'');
+  }));
+}
+
+function renderFeedback(panel){
+  const rows=(data.feedback||[]).filter(f=>f.helpful+f.notHelpful>0);
+  panel.innerHTML=rows.length?`<table class="ct-table"><thead><tr><th>Contenido</th><th>Tipo</th><th>Sí sirvió</th><th>No sirvió</th></tr></thead><tbody>
+    ${rows.map(f=>`<tr><td>${esc(f.title)}</td><td>${f.targetType==='policy'?'Política':'FAQ'}</td><td>${esc(f.helpful)}</td><td>${esc(f.notHelpful)}</td></tr>`).join('')}
+  </tbody></table><p class="ct-row-meta" style="margin-top:10px">Lo que la gente marca como "No sirvió" es la mejor pista de qué política reescribir primero.</p>`:'<div class="ct-empty">Todavía no hay votos de familias en el sitio público.</div>';
 }
 
 async function boot(){

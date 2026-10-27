@@ -134,6 +134,8 @@ async function renderPolicy(slug) {
     const p = await rpc('v2_public_centro_tanner_policy', { club_key: CLUB_KEY, policy_slug: slug });
     setMeta(p.title, p.shortAnswer);
     const catLabel = CATEGORY_LABELS[p.category] || p.category;
+    const consentNote = p.requiresAcceptance && p.consentDocumentCode && DOC_LABELS[p.consentDocumentCode]
+      ? `<p class="ct-consent-note">Esta política forma parte de <a href="/centro-tanner/documento/${esc(p.consentDocumentCode)}">${esc(DOC_LABELS[p.consentDocumentCode])}</a>, que firmas en tu Portal de familia.</p>` : '';
     render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { href: `/centro-tanner/tema/${esc(p.category)}`, label: catLabel }, { label: p.title }])}
       <article class="ct-policy-card">
         <div class="ct-policy-kicker">${esc(catLabel)}</div>
@@ -142,7 +144,9 @@ async function renderPolicy(slug) {
         <button class="ct-policy-toggle" id="ctToggleFull" type="button">Ver política completa →</button>
         <div id="ctFullContent" class="ct-policy-full hidden">${esc(p.officialContent)}</div>
         <div class="ct-policy-meta"><span>Versión ${esc(p.version)}</span>${p.effectiveDate ? `<span>Vigente desde ${esc(fmtDate(p.effectiveDate))}</span>` : ''}${p.policyCode ? `<span>${esc(p.policyCode)}</span>` : ''}</div>
+        ${consentNote}
       </article>
+      ${feedbackWidget('policy', p.id)}
       ${p.relatedFaqs?.length ? `<section class="ct-section"><h2 class="ct-section-title">Preguntas relacionadas</h2><div class="ct-faq-list">${p.relatedFaqs.map((f) => `<details class="ct-faq-item"><summary>${esc(f.question)}</summary><div class="ct-faq-body">${esc(f.answer)}</div></details>`).join('')}</div></section>` : ''}
     `);
     injectFaqSchema(p.relatedFaqs);
@@ -150,7 +154,29 @@ async function renderPolicy(slug) {
       const el = $('ctFullContent'); const open = !el.classList.contains('hidden');
       el.classList.toggle('hidden'); $('ctToggleFull').textContent = open ? 'Ver política completa →' : 'Ocultar política completa ↑';
     });
+    wireFeedback(p.id);
   } catch (err) { render(`<div class="ct-empty"><h1>No encontramos esta política</h1><p>${esc(err.message || '')}</p><a href="/centro-tanner/">Volver a Centro Tanner</a></div>`); }
+}
+
+function feedbackWidget(type, id) {
+  if (!id) return '';
+  return `<div class="ct-feedback" id="ctFeedback" data-type="${esc(type)}" data-id="${esc(id)}">
+    <span class="ct-feedback-q">¿Te sirvió esta información?</span>
+    <div class="ct-feedback-btns">
+      <button type="button" data-helpful="1">Sí</button>
+      <button type="button" data-helpful="0">No</button>
+    </div>
+  </div>`;
+}
+function wireFeedback(id) {
+  const box = $('ctFeedback'); if (!box || !id) return;
+  box.querySelectorAll('[data-helpful]').forEach((btn) => btn.addEventListener('click', async () => {
+    box.querySelectorAll('button').forEach((b) => (b.disabled = true));
+    try {
+      await rpc('v2_public_centro_tanner_feedback', { club_key: CLUB_KEY, target_type: box.dataset.type, target_id: id, helpful: btn.dataset.helpful === '1' });
+      box.innerHTML = '<span class="ct-feedback-thanks">¡Gracias por tu opinión!</span>';
+    } catch { box.innerHTML = '<span class="ct-feedback-thanks">Gracias.</span>'; }
+  }));
 }
 
 async function renderDocument(code) {

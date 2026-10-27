@@ -783,7 +783,17 @@ async function aplicaCodigo(texto, { silencio = false } = {}) {
 }
 function pintaCodigo() {
   if ($('stCodigoCaja')) $('stCodigoCaja').innerHTML = cajaCodigo();
+  refrescaResumen();
+}
+// Lo que se va a pagar, ya con el código.
+function totalAPagar() {
+  const sub = totalDelCarrito(carrito);
+  return Math.max(0, sub - (codigo?.ok ? descuentoDeCodigo(codigo, carrito, sub) : 0));
+}
+function textoConfirmar() { return `Confirmar pedido · ${money.format(totalAPagar())}`; }
+function refrescaResumen() {
   if ($('resumenCarrito')) $('resumenCarrito').innerHTML = resumen();
+  const b = $('submitOrder'); if (b && !b.disabled) b.textContent = textoConfirmar();
 }
 /* ¿Lo conviertes en kit? Un jersey suelto que también viene en un kit lo
    dice: qué más incluye y cuánto más cuesta. Convertir abre el kit ya lleno. */
@@ -814,10 +824,11 @@ function extrasAntesDePagar() {
   return `<section class="st-extra" aria-label="Agrega algo más"><div class="st-extra-cab"><div><h2>¿Le agregas algo más?</h2><span>Va en el mismo pedido</span></div>
     ${l.length > 2 ? '<div class="st-extra-flechas"><button type="button" data-extra-mueve="-1" aria-label="Ver anteriores">&lsaquo;</button><button type="button" data-extra-mueve="1" aria-label="Ver siguientes">&rsaquo;</button></div>' : ''}</div>
     <div class="st-extra-fila">${l.map(p => {
-      const conTallas = !tallaUnica(p) && tallasDe(p).length > 0;
-      const boton = aceptaPersonalizacion(p)
-        ? `<a class="st-extra-btn" href="#/p/${esc(p.id)}">Elegir talla y nombre</a>`
-        : `<button type="button" class="st-extra-btn" data-extra-agrega>${conTallas ? 'Elegir talla' : 'Agregar'}</button>`;
+      // Un solo camino para todo (27/10/2026): "si queremos agregar el de
+      // la cabra te manda a escoger la talla, y en los jerseys no... haz que
+      // sean iguales". Lo que pide algo (talla, nombre) abre el mismo panel.
+      const pide = (!tallaUnica(p) && tallasDe(p).length > 0) || aceptaPersonalizacion(p);
+      const boton = `<button type="button" class="st-extra-btn" data-extra-agrega>${pide ? 'Elegir talla' : 'Agregar'}</button>`;
       return `<article class="st-extra-card" data-extra="${esc(p.id)}">${medioProducto(p)}
         <div class="st-extra-txt"><strong>${esc(p.name)}</strong><span class="st-precio">${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p))}</span>${boton}</div></article>`;
     }).join('')}</div></section>`;
@@ -825,43 +836,71 @@ function extrasAntesDePagar() {
 function agregaExtra(card) {
   const p = (catalogo.products || []).find(x => String(x.id) === card.dataset.extra);
   if (!p) return;
-  if (!tallaUnica(p) && tallasDe(p).length) { abreTallaRapida(p); return; }
-  sumaExtra(p, null);
+  if ((!tallaUnica(p) && tallasDe(p).length) || aceptaPersonalizacion(p)) { abreTallaRapida(p); return; }
+  sumaExtra(p, {});
 }
-function sumaExtra(p, talla) {
-  const r = preparaLinea(p, { talla, cantidad: 1 });
-  if (!r.ok) return;
+function sumaExtra(p, opciones) {
+  const r = preparaLinea(p, { ...opciones, cantidad: 1 });
+  if (!r.ok) return r;
   carrito = agregaAlCarrito(carrito, r.linea);
   actualizaCarrito();
-  $('resumenCarrito').innerHTML = resumen();
+  refrescaResumen();
   $('stExtras').innerHTML = extrasAntesDePagar();
   firmaFotos($('stExtras'));
   if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
   aviso(`Agregado · ${p.name}${r.linea.talla && !tallaUnica(p) ? ` talla ${r.linea.talla}` : ''}`);
+  return r;
 }
-// El panel de tallas del carrusel: botones grandes y, si hay tabla, "¿Qué talla es?".
+/* El panel del carrusel: la talla en botones grandes y, si la prenda lo
+   lleva, nombre, número y manga, con el precio que cambia al elegir. Lo
+   mismo para una playera que para un jersey: un solo camino. */
 function abreTallaRapida(p) {
   document.getElementById('stTallaRapida')?.remove();
-  const tallas = tallasDe(p);
+  const tallas = tallasDe(p), unica = tallaUnica(p), pers = aceptaPersonalizacion(p), manga = llevaManga(p);
+  const e = { talla: unica || null, nombre: '', numero: '', manga: 'corta' };
   const capa = document.createElement('div');
   capa.id = 'stTallaRapida'; capa.className = 'st-guia-capa';
-  capa.innerHTML = `<div class="st-guia st-talla-rapida" role="dialog" aria-modal="true" aria-labelledby="stTallaTit">
-    <div class="st-guia-cab"><h2 id="stTallaTit">Elige la talla</h2><button type="button" class="st-guia-cerrar" data-tr-cerrar aria-label="Cerrar">&times;</button></div>
-    <div class="st-tr-prod">${medioProducto(p)}<div><strong>${esc(p.name)}</strong><span>${money.format(precioDeEtiqueta(p).monto)}${precioNinoDe(p) ? ' · niño desde ' + money.format(precioNinoDe(p)) : ''}</span></div></div>
-    ${botonesTalla(tallas, null, 'data-talla-rapida')}
-    ${tablasPara(tallas).hay ? '<button type="button" class="st-guia-btn" data-tr-guia>¿Qué talla es?</button>' : ''}</div>`;
+  const precio = () => precioDeProducto(p, e.talla || unica) + (manga && e.manga === 'larga' ? recargoDe(p) : 0)
+    + (pers && llevaEstampado(e) ? recargoPersDe(p) : 0);
+  const pinta = () => {
+    capa.innerHTML = `<div class="st-guia st-talla-rapida" role="dialog" aria-modal="true" aria-labelledby="stTallaTit">
+      <div class="st-guia-cab"><h2 id="stTallaTit">${pers ? 'Arma tu jersey' : 'Elige la talla'}</h2><button type="button" class="st-guia-cerrar" data-tr-cerrar aria-label="Cerrar">&times;</button></div>
+      <div class="st-tr-prod">${medioProducto(p)}<div><strong>${esc(p.name)}</strong><span>${precioNinoDe(p) ? `Niño ${money.format(precioDeProducto(p, '10'))} · Adulto ${money.format(Number(p.price || 0))}` : money.format(Number(p.price || 0))}</span></div></div>
+      ${unica ? '' : `<div class="st-tr-tit"><b>Talla</b>${tablasPara(tallas).hay ? '<button type="button" class="st-guia-btn" data-tr-guia>¿Qué talla es?</button>' : ''}</div>
+      ${botonesTalla(tallas, e.talla, 'data-talla-rapida')}`}
+      ${pers ? `<div class="st-tr-tit"><b>Nombre y número</b><span>${esc(recargoPersDe(p) ? `Opcional · +${money.format(recargoPersDe(p))}` : 'Opcional')}</span></div>
+        <div class="st-perso"><label><span>Nombre en la espalda</span><input data-tr-campo="nombre" maxlength="20" autocomplete="off" autocapitalize="characters" value="${esc(e.nombre)}" placeholder="LEO"></label>
+        <label class="num"><span>Número</span><input data-tr-campo="numero" inputmode="numeric" maxlength="3" autocomplete="off" value="${esc(e.numero)}" placeholder="10"></label></div>` : ''}
+      ${manga ? `<div class="st-tr-tit"><b>Manga</b></div>${botonesManga(e, recargoDe(p), 'data-tr-manga')}` : ''}
+      <p class="st-motivo" role="alert">${esc(e.motivo || '')}</p>
+      <button type="button" class="st-cta" data-tr-agrega>${e.talla || unica ? `Agregar · ${money.format(precio())}` : 'Elige la talla'}</button></div>`;
+    firmaFotos(capa);
+  };
+  const precioEnBoton = () => { const b = capa.querySelector('[data-tr-agrega]'); if (b && (e.talla || unica)) b.textContent = `Agregar · ${money.format(precio())}`; };
+  pinta();
   document.body.appendChild(capa);
-  firmaFotos(capa);
   const cierra = () => { capa.remove(); document.removeEventListener('keydown', esc_); };
   const esc_ = ev => { if (ev.key === 'Escape') cierra(); };
   capa.addEventListener('click', ev => {
     if (ev.target === capa || ev.target.closest('[data-tr-cerrar]')) { cierra(); return; }
     if (ev.target.closest('[data-tr-guia]')) { abreGuia(tallas); return; }
     const t = ev.target.closest('[data-talla-rapida]');
-    if (t) { cierra(); sumaExtra(p, t.dataset.tallaRapida); }
+    if (t) { e.talla = t.dataset.tallaRapida; e.motivo = ''; pinta(); return; }
+    const m = ev.target.closest('[data-tr-manga]');
+    if (m) { e.manga = m.dataset.trManga; pinta(); return; }
+    if (ev.target.closest('[data-tr-agrega]')) {
+      if (!e.talla && !unica) { e.motivo = 'Elige la talla.'; pinta(); return; }
+      const r = sumaExtra(p, { talla: e.talla, nombre: e.nombre, numero: e.numero, manga: e.manga });
+      if (r && !r.ok) { e.motivo = r.motivo; pinta(); return; }
+      cierra();
+    }
+  });
+  capa.addEventListener('input', ev => {
+    const c = ev.target.dataset?.trCampo; if (!c) return;
+    e[c] = ev.target.value; precioEnBoton();
   });
   document.addEventListener('keydown', esc_);
-  capa.querySelector('[data-talla-rapida]')?.focus();
+  capa.querySelector('[data-talla-rapida], [data-tr-agrega]')?.focus();
 }
 function cableaExtras() {
   $('stExtras').addEventListener('click', e => {
@@ -875,28 +914,45 @@ function renderCheckout() {
   if (!piezasDelCarrito(carrito)) { location.replace('#/'); return; }
   pintaBarra(false);
   document.title = 'Tu pedido · Tienda Tanner';
+  /* El pedido (27/10/2026). Presidencia: "estos checkbox están horribles...
+     rediséñalo como un experto en UX". En compu, dos columnas: a la
+     izquierda lo que se llena (algo más, tus datos, aceptar) y a la derecha
+     el resumen fijo con el código y el total. En el celular, una sola
+     columna: el resumen arriba y la letra chica hasta abajo. El botón dice
+     el total, para que nadie confirme a ciegas. */
   $('content').innerHTML = `<a class="st-volver" href="#/" id="volver">‹ Seguir comprando</a>
     <h1 class="st-titulo">Tu pedido</h1>
-    <div id="resumenCarrito">${resumen()}</div>
-    <div id="stCodigoCaja">${cajaCodigo()}</div>
-    <div id="stExtras">${extrasAntesDePagar()}</div>
-    <form id="orderForm" class="form-grid order-form st-form">
-      <h2 class="span-2">Tus datos</h2>
-      <label class="span-2">Nombre de quien recibe *<input id="customerName" minlength="2" maxlength="120" required autocomplete="name"></label>
-      ${phoneMarkup()}
-      <label class="span-2">Correo<input id="customerEmail" type="email" autocomplete="email" maxlength="254"></label>
-      <label class="span-2">Comentarios<textarea id="orderNotes" rows="2" maxlength="500" placeholder="Algo que debamos considerar"></textarea></label>
-      <div class="privacy-box span-2"><details><summary>Ver aviso de privacidad</summary>
-        <p>${esc(clubNombre || 'El club')} usa tus datos para administrar el pedido, pago y entrega. Cómo ejercer tus derechos está en el <a href="/aviso-de-privacidad/">aviso de privacidad</a>.</p></details>
-        <label class="check consent-line"><input id="orderDataConsent" type="checkbox" required>
-        <span>Autorizo el tratamiento de mis datos para gestionar este pedido. <b>*</b></span></label>
-        <div class="privacy-version">Aviso de privacidad ${PRIVACY_NOTICE_VERSION}</div></div>
-      <label class="check consent-line st-plazo span-2"><input id="orderPickup" type="checkbox" required>
-        <span>Entiendo que tengo <b>${DIAS_PARA_RECOGER} días</b> para recoger mi pedido a partir de que me avisen que llegó. Después de ese plazo el club ya no se hace responsable de la prenda. <b>*</b></span></label>
-      <div id="formMessage" class="message hidden span-2"></div>
-      <button id="submitOrder" class="primary span-2 st-cta" type="submit">Confirmar pedido</button>
-    </form>
-    ${infoDeCompra()}`;
+    <div class="st-co">
+      <aside class="st-co-lado">
+        <section class="st-co-card st-co-resumen" aria-label="Resumen"><h2 class="st-co-tit">Resumen</h2>
+          <div id="resumenCarrito">${resumen()}</div>
+          <div id="stCodigoCaja">${cajaCodigo()}</div></section>
+        <div class="st-co-info">${infoDeCompra()}</div>
+      </aside>
+      <div class="st-co-main">
+        <div id="stExtras">${extrasAntesDePagar()}</div>
+        <form id="orderForm" class="st-form st-co-form" novalidate>
+          <section class="st-co-card"><h2 class="st-co-tit">Tus datos<small>Te avisamos por WhatsApp cuando esté listo.</small></h2>
+            <div class="st-co-campos">
+              <label class="st-campo"><span>Nombre de quien recibe</span><input id="customerName" minlength="2" maxlength="120" required autocomplete="name" placeholder="Nombre y apellido"></label>
+              ${phoneMarkup()}
+              <label class="st-campo"><span>Correo <em>opcional</em></span><input id="customerEmail" type="email" autocomplete="email" maxlength="254" placeholder="tu@correo.com"></label>
+              <details class="st-co-nota"><summary>Agregar un comentario</summary>
+                <textarea id="orderNotes" rows="2" maxlength="500" placeholder="Algo que debamos saber (opcional)"></textarea></details>
+            </div></section>
+          <fieldset class="st-co-card st-acepto"><legend class="st-co-tit">Antes de confirmar</legend>
+            <label class="st-check"><input id="orderDataConsent" type="checkbox" required>
+              <span>Acepto el <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a>: ${esc(clubNombre || 'el club')} usa mis datos sólo para mi pedido, el pago y la entrega.</span></label>
+            <label class="st-check st-plazo"><input id="orderPickup" type="checkbox" required>
+              <span>Tengo <b>${DIAS_PARA_RECOGER} días</b> para recoger mi pedido desde que me avisen que llegó. Después, el club ya no se hace responsable de la prenda.</span></label>
+            <small class="st-acepto-version">Aviso de privacidad ${PRIVACY_NOTICE_VERSION}</small>
+          </fieldset>
+          <div id="formMessage" class="message hidden"></div>
+          <button id="submitOrder" class="st-cta st-co-confirmar" type="submit">${textoConfirmar()}</button>
+          <p class="st-co-seguro">Al confirmar ves la CLABE y tu referencia para pagar.</p>
+        </form>
+      </div>
+    </div>`;
   wirePhone();
   // Quitar un renglón no borra lo que ya se escribió en el formulario.
   $('resumenCarrito').onclick = e => {
@@ -906,7 +962,7 @@ function renderCheckout() {
     carrito = quitaDelCarrito(carrito, q.dataset.quita);
     actualizaCarrito();
     if (!piezasDelCarrito(carrito)) { location.hash = '#/'; return; }
-    $('resumenCarrito').innerHTML = resumen();
+    refrescaResumen();
     $('stExtras').innerHTML = extrasAntesDePagar();
     firmaFotos($('stExtras'));
     if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
@@ -950,11 +1006,15 @@ function setMessage(t = '', type = 'error') {
 async function submit(e) {
   e.preventDefault();
   setMessage();
-  if (!$('orderDataConsent').checked) return setMessage('Necesitamos tu autorización de datos para gestionar el pedido.');
-  if (!$('orderPickup').checked) return setMessage(`Confirma que tienes ${DIAS_PARA_RECOGER} días para recoger tu pedido.`);
+  // Lo que falta se dice y se señala ahí mismo, en orden de arriba abajo.
+  document.querySelectorAll('.st-falta').forEach(x => x.classList.remove('st-falta'));
+  const falta = (el, t) => { el?.closest('.st-campo, .st-check, .phone-widget')?.classList.add('st-falta'); el?.focus?.({ preventScroll: true }); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return setMessage(t); };
+  if ($('customerName').value.trim().length < 2) return falta($('customerName'), 'Escribe el nombre de quien recibe.');
+  if (!$('orderDataConsent').checked) return falta($('orderDataConsent'), 'Necesitamos tu autorización de datos para gestionar el pedido.');
+  if (!$('orderPickup').checked) return falta($('orderPickup'), `Confirma que tienes ${DIAS_PARA_RECOGER} días para recoger tu pedido.`);
   const btn = $('submitOrder');
   let phone;
-  try { phone = validatePhone(true); } catch (err) { return setMessage(err.message); }
+  try { phone = validatePhone(true); } catch (err) { return falta($('customerPhone'), err.message); }
   btn.disabled = true; btn.textContent = 'Guardando…';
   const consent = { dataAccepted: true, privacyNoticeVersion: PRIVACY_NOTICE_VERSION, acceptedAt: acceptedAt(), source: 'public-web', pickupDays: DIAS_PARA_RECOGER, pickupAccepted: true };
   const comun = {
@@ -983,7 +1043,7 @@ async function submit(e) {
     renderListo(result, comun.customer_name);
   } catch (err) {
     setMessage(err.message || 'No se pudo enviar el pedido.');
-    btn.disabled = false; btn.textContent = 'Confirmar pedido';
+    btn.disabled = false; btn.textContent = textoConfirmar();
   }
 }
 

@@ -43,6 +43,7 @@ import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
+import { serializaCarrito, restauraCarrito, cambiaCantidadEnCarrito, cambiaCantidad, alternaGuardado, guardadosVivos } from '/pedido/carrito.js';
 import { normalizaCodigo, codigoValido, descuentoDeCodigo, textoAplicado, ligaDeCompra } from '/v2/codigos.js';
 import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe, sugerenciasAntesDePagar }
   from '/pedido/catalogo.js';
@@ -206,9 +207,22 @@ async function firmaFotos(raiz) {
 }
 
 /* ---------- Carrito en la cabecera y abajo ---------- */
+// El carrito y los guardados viven en el teléfono (27/10/2026): recargar o
+// volver mañana no los borra. Si el navegador no deja guardar, la tienda
+// funciona igual, sólo no recuerda.
+const LLAVE_CARRITO = `tiendaCarrito:${CLUB_KEY}`, LLAVE_GUARDADOS = `tiendaGuardados:${CLUB_KEY}`;
+const lee = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const escribe = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin memoria */ } };
+let guardados = (() => { try { return JSON.parse(lee(LLAVE_GUARDADOS) || '[]'); } catch { return []; } })();
+let piezasAntes = 0;
 function actualizaCarrito() {
   const n = piezasDelCarrito(carrito), badge = $('stCarritoN');
+  escribe(LLAVE_CARRITO, serializaCarrito(carrito));
   badge.hidden = !n; badge.textContent = String(n);
+  // La bolsita brinca cuando entra algo: se ve a dónde se fue.
+  if (n > piezasAntes) { $('stCarrito').classList.remove('brinca'); void $('stCarrito').offsetWidth; $('stCarrito').classList.add('brinca'); }
+  piezasAntes = n;
+  if ($('stMini')) pintaMini();
   $('stCarrito').setAttribute('aria-label', n ? `Tu pedido, ${n} ${n === 1 ? 'artículo' : 'artículos'}` : 'Tu pedido');
 }
 function pintaBarra(visible) {
@@ -221,7 +235,7 @@ function pintaBarra(visible) {
     + `<small>${n} ${n === 1 ? 'artículo' : 'artículos'} en tu pedido</small></span>`
     + `<button type="button" id="verCarrito">Ver pedido</button>`;
   document.body.appendChild(bar);
-  bar.querySelector('#verCarrito').addEventListener('click', () => { location.hash = '#/pedido'; });
+  bar.querySelector('#verCarrito').addEventListener('click', () => abreMini());
 }
 let avisoTimer = 0;
 /* "Va en tu pedido" (26/10/2026). Presidencia: "no me gusta como se ve
@@ -349,16 +363,128 @@ function filasDeVarias(p, cantidades, manga) {
     <button type="button" data-varia-cant="1" aria-label="Una más de talla ${esc(t)}">+</button></div></li>`).join('')}</ul>`;
 }
 
+/* ---------- Guardados (27/10/2026) ----------
+   "¿Tenemos algún wishlist?": el corazón de cada producto lo guarda para
+   después, en el mismo teléfono; se ven en la bolsita, pestaña Guardados. */
+const ICONO_CORAZON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>';
+function corazon(id, nombre) {
+  const on = guardados.includes(id);
+  return `<button type="button" class="st-fav" data-fav="${esc(id)}" aria-pressed="${on}" aria-label="${on ? 'Quitar de guardados' : 'Guardar para después'}: ${esc(nombre)}">${ICONO_CORAZON}</button>`;
+}
+function alternaFav(id) {
+  guardados = alternaGuardado(guardados, id);
+  escribe(LLAVE_GUARDADOS, JSON.stringify(guardados));
+  const on = guardados.includes(id);
+  document.querySelectorAll(`[data-fav="${CSS.escape(id)}"]`).forEach(b => {
+    b.setAttribute('aria-pressed', String(on));
+    b.setAttribute('aria-label', (on ? 'Quitar de guardados' : 'Guardar para después') + b.getAttribute('aria-label').replace(/^[^:]*/, ''));
+    if (on) { b.classList.remove('late'); void b.offsetWidth; b.classList.add('late'); }
+  });
+  if ($('stMini')) pintaMini();
+  aviso(on ? 'Guardado para después: lo ves en la bolsita' : 'Quitado de guardados');
+}
+
+/* ---------- La bolsita (27/10/2026) ----------
+   "Cuando se agrega el producto al carrito ya no puedo volver a verlo": la
+   bolsita de arriba abre el pedido ahí mismo, sin salir de donde estás. Se
+   cambia la cantidad, se quita, se ve el total y se va a pagar. Abajo en el
+   celular, a la derecha en compu. */
+let miniTab = 'pedido';
+function fotoDeLinea(l) {
+  if (l.kind === 'bundle') { const k = (catalogo.bundles || []).find(x => String(x.id) === String(l.bundleId)); return k ? medioKit(k, 'st-mini-foto') : medio(null, null, l.nombreProducto, 'st-mini-foto'); }
+  const p = (catalogo.products || []).find(x => String(x.id) === String(l.productId));
+  return medio(p?.photoThumbPath || p?.photoPath, p?.photoBucket, l.nombreProducto, 'st-mini-foto');
+}
+function detalleDeLinea(l) {
+  return [l.kind === 'bundle' ? l.tier : (l.talla ? `Talla ${l.talla}` : null), l.manga === 'larga' ? 'Manga larga' : null,
+    [l.personalizationName, l.numero ? `#${l.numero}` : null].filter(Boolean).join(' ') || null].filter(Boolean).join(' · ');
+}
+function pintaMini() {
+  const capa = $('stMini'); if (!capa) return;
+  const lineas = Object.entries(carrito), n = piezasDelCarrito(carrito), g = guardadosVivos(guardados, catalogo);
+  const cuerpo = miniTab === 'guardados'
+    ? (g.length ? `<ul class="st-mini-lista">${g.map(({ tipo, item }) => `<li class="st-mini-linea">
+        <a href="#/${tipo}/${esc(item.id)}" data-mini-ir>${tipo === 'k' ? medioKit(item, 'st-mini-foto') : medio(item.photoThumbPath || item.photoPath, item.photoBucket, item.name, 'st-mini-foto')}</a>
+        <div class="st-mini-txt"><a href="#/${tipo}/${esc(item.id)}" data-mini-ir><strong>${esc(item.name)}</strong></a>
+          <span>${tipo === 'k' ? (pr => `${pr.desde ? 'Desde ' : ''}${money.format(pr.monto)}`)(precioDeTarjeta(item)) : (et => `${et.desde ? 'Desde ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(item))}</span>
+          <div class="st-mini-acc"><a class="st-mini-elegir" href="#/${tipo}/${esc(item.id)}" data-mini-ir>Elegir y agregar</a><button type="button" class="st-mini-quita" data-fav="${esc(`${tipo}:${item.id}`)}">Quitar</button></div></div></li>`).join('')}</ul>`
+      : '<div class="st-mini-vacio"><b>Nada guardado todavía</b><span>Toca el corazón de un producto para guardarlo y comprarlo después.</span></div>')
+    : (lineas.length ? `<ul class="st-mini-lista">${lineas.map(([k, l]) => `<li class="st-mini-linea" data-mini-linea="${esc(k)}">${fotoDeLinea(l)}
+        <div class="st-mini-txt"><strong>${esc(l.nombreProducto)}</strong>${detalleDeLinea(l) ? `<span>${esc(detalleDeLinea(l))}</span>` : ''}
+          <div class="st-mini-acc">${cambiaCantidad(l) ? `<div class="st-cantidad mini"><button type="button" data-mini-cant="-1" aria-label="Uno menos">&minus;</button><output>${l.cantidad}</output><button type="button" data-mini-cant="1" aria-label="Uno más">+</button></div>` : ''}
+          <button type="button" class="st-mini-quita" data-mini-quita>Quitar</button></div></div>
+        <b class="st-mini-precio">${money.format(Number(l.total || 0))}</b></li>`).join('')}</ul>`
+      : `<div class="st-mini-vacio"><b>Tu pedido está vacío</b><span>Agrega algo de la tienda${g.length ? ' o revisa tus guardados' : ''}.</span></div>`);
+  capa.querySelector('.st-mini-cuerpo').innerHTML = cuerpo;
+  capa.querySelector('[data-mini-tab="pedido"]').innerHTML = `Pedido${n ? ` <i>${n}</i>` : ''}`;
+  capa.querySelector('[data-mini-tab="guardados"]').innerHTML = `Guardados${g.length ? ` <i>${g.length}</i>` : ''}`;
+  capa.querySelectorAll('[data-mini-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.miniTab === miniTab)));
+  const pie = capa.querySelector('.st-mini-pie');
+  pie.hidden = miniTab !== 'pedido' || !lineas.length;
+  pie.querySelector('.st-mini-total b').textContent = money.format(totalDelCarrito(carrito));
+  pie.querySelector('[data-mini-pagar]').textContent = `Ir a pagar · ${money.format(totalDelCarrito(carrito))}`;
+  firmaFotos(capa);
+}
+function abreMini(tab = 'pedido') {
+  miniTab = tab;
+  cierraAviso();
+  if (!$('stMini')) {
+    const capa = document.createElement('div');
+    capa.id = 'stMini'; capa.className = 'st-mini-capa';
+    capa.innerHTML = `<aside class="st-mini" role="dialog" aria-modal="true" aria-labelledby="stMiniTit">
+      <header class="st-mini-cab"><h2 id="stMiniTit">Tu pedido</h2><button type="button" class="st-guia-cerrar" data-mini-cierra aria-label="Cerrar">&times;</button></header>
+      <div class="st-mini-tabs" role="tablist"><button type="button" role="tab" data-mini-tab="pedido"></button><button type="button" role="tab" data-mini-tab="guardados"></button></div>
+      <div class="st-mini-cuerpo"></div>
+      <footer class="st-mini-pie"><div class="st-mini-total"><span>Total</span><b></b></div>
+        <a class="st-cta st-mini-pagar" href="#/pedido" data-mini-pagar></a>
+        <button type="button" class="st-mini-seguir" data-mini-cierra>Seguir comprando</button></footer></aside>`;
+    document.body.appendChild(capa);
+    document.body.classList.add('st-sin-scroll');
+    capa.addEventListener('click', ev => {
+      if (ev.target === capa || ev.target.closest('[data-mini-cierra]')) { cierraMini(); return; }
+      if (ev.target.closest('[data-mini-ir], [data-mini-pagar]')) { cierraMini(); return; }
+      const t = ev.target.closest('[data-mini-tab]'); if (t) { miniTab = t.dataset.miniTab; pintaMini(); return; }
+      const f = ev.target.closest('[data-fav]'); if (f) { alternaFav(f.dataset.fav); return; }
+      const linea = ev.target.closest('[data-mini-linea]')?.dataset.miniLinea; if (!linea) return;
+      const c = ev.target.closest('[data-mini-cant]');
+      if (c) carrito = cambiaCantidadEnCarrito(carrito, linea, Number(c.dataset.miniCant));
+      else if (ev.target.closest('[data-mini-quita]')) carrito = quitaDelCarrito(carrito, linea);
+      else return;
+      actualizaCarrito(); trasCambioDeCarrito();
+    });
+    document.addEventListener('keydown', escMini);
+    requestAnimationFrame(() => capa.classList.add('abierta'));
+  }
+  pintaMini();
+  $('stMini').querySelector('[data-mini-cierra]')?.focus();
+}
+function escMini(ev) { if (ev.key === 'Escape') cierraMini(); }
+function cierraMini() {
+  const capa = $('stMini'); if (!capa) return;
+  document.removeEventListener('keydown', escMini);
+  document.body.classList.remove('st-sin-scroll');
+  capa.remove();
+}
+// Si se cambió el carrito desde la bolsita estando en el pedido o en la tienda.
+function trasCambioDeCarrito() {
+  if (location.hash.startsWith('#/pedido')) {
+    if (!piezasDelCarrito(carrito)) { cierraMini(); location.hash = '#/'; return; }
+    refrescaResumen();
+    if ($('stExtras')) { $('stExtras').innerHTML = extrasAntesDePagar(); firmaFotos($('stExtras')); }
+    if (codigo) aplicaCodigo(codigo.code || codigoEscrito, { silencio: true });
+  } else if (document.querySelector('.st-seccion')) pintaBarra(true);
+}
+
 /* ---------- La tienda (PLP) ---------- */
 function tarjeta({ tipo, item }) {
   if (tipo === 'kit') {
     const pr = precioDeTarjeta(item), n = ranurasDeKit(item).length;
-    return `<a class="st-card kit" href="#/k/${esc(item.id)}" data-kit="${esc(item.id)}">${medioKit(item)}
+    return `<a class="st-card kit" href="#/k/${esc(item.id)}" data-kit="${esc(item.id)}">${corazon(`k:${item.id}`, item.name)}${medioKit(item)}
       <div class="st-card-txt"><span class="st-tag">Uniforme completo</span><strong>${esc(item.name)}</strong>
       <span class="st-precio">${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}</span>${item.ofertaHasta ? `<span class="st-oferta">Oferta · ${esc(textoHasta(item.ofertaHasta))}</span>` : ''}
       <span class="st-sub">${n} ${n === 1 ? 'pieza' : 'piezas'}</span></div></a>`;
   }
-  return `<a class="st-card" href="#/p/${esc(item.id)}" data-prod="${esc(item.id)}">${medioProducto(item)}
+  return `<a class="st-card" href="#/p/${esc(item.id)}" data-prod="${esc(item.id)}">${corazon(`p:${item.id}`, item.name)}${medioProducto(item)}
     <div class="st-card-txt">${aceptaPersonalizacion(item) ? '<span class="st-tag">Personalizable</span>' : ''}
     <strong>${esc(item.name)}</strong><span class="st-precio">${item.precioAntes ? `<s>${money.format(item.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(item))}</span>${item.ofertaHasta ? `<span class="st-oferta">${esc(textoHasta(item.ofertaHasta))}</span>` : ''}</div></a>`;
 }
@@ -421,7 +547,7 @@ function renderProducto(id) {
       ${galeria(p, e.foto || 0)}
       <div class="st-pdp-info">
         <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
-        <h1>${esc(p.name)}</h1>
+        <div class="st-pdp-tit"><h1>${esc(p.name)}</h1>${corazon(`p:${p.id}`, p.name)}</div>
         <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p, e.talla || unica))}</p>
         ${precioNinoDe(p) && !(e.talla || unica) ? `<p class="st-precios-nino">Niño (6 a 16) ${money.format(precioDeProducto(p, '10'))} · Adulto ${money.format(Number(p.price || 0))}</p>` : ''}
         ${p.ofertaHasta ? `<p class="st-oferta grande">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</p>` : ''}
@@ -481,7 +607,7 @@ function renderKit(id) {
       <div class="st-pdp-info">
         ${e.reemplaza ? '<p class="st-convierte">Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.</p>' : ''}
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
-        <h1>${esc(k.name)}</h1>
+        <div class="st-pdp-tit"><h1>${esc(k.name)}</h1>${corazon(`k:${k.id}`, k.name)}</div>
         <p class="st-pdp-precio" id="stPrecioKit">${e.tier ? money.format(precioDeFichaKit(k, e)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}${e.tier && largasDeKit(k, e) && recargoDe(k) ? ` <small class="st-recargo">incluye ${largasDeKit(k, e)} manga larga</small>` : ''}</p>
         ${k.description ? `<p class="st-desc">${esc(k.description)}</p>` : ''}
         ${tiers.length > 1 ? `<section class="st-bloque${e.falta === 'tier' ? ' falta' : ''}" id="stBloqueTier"><div class="st-bloque-cab"><h2>¿Para quién es?</h2></div>
@@ -993,7 +1119,7 @@ function ruta() {
   else if (a === 'k' && b) renderKit(decodeURIComponent(b));
   else if (a === 'pedido') renderCheckout();
   else renderTienda(a === 'c' ? decodeURIComponent(b || '') : '');
-  if (cambia) { window.scrollTo(0, 0); cierraAviso(); }
+  if (cambia) { window.scrollTo(0, 0); cierraAviso(); cierraMini(); }
 }
 function cierraAviso() { clearTimeout(avisoTimer); const el = $('stAviso'); el.classList.remove('entra'); el.hidden = true; }
 
@@ -1145,10 +1271,13 @@ $('stAviso').addEventListener('click', e => {
     (esKit ? document.querySelector('[data-ranura], #stBloqueTier') : $('stBloqueTalla'))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 });
-$('stCarrito').addEventListener('click', () => {
-  if (piezasDelCarrito(carrito)) location.hash = '#/pedido';
-  else aviso('Tu pedido está vacío: agrega algo de la tienda.');
-});
+$('stCarrito').addEventListener('click', () => abreMini(piezasDelCarrito(carrito) || !guardados.length ? 'pedido' : 'guardados'));
+// El corazón vive dentro de la tarjeta (que es un enlace): guarda sin abrir la ficha.
+document.addEventListener('click', e => {
+  const f = e.target.closest('[data-fav]');
+  if (!f || f.closest('#stMini')) return;
+  e.preventDefault(); e.stopPropagation(); alternaFav(f.dataset.fav);
+}, true);
 cablea();
 try {
   // El catálogo manda; cómo pagar es un extra que no detiene la tienda.
@@ -1176,6 +1305,10 @@ try {
   pagoInfo = pago.status === 'fulfilled' ? pago.value : null;
   catalogo = normalizaOfertaPublica(oferta.value);
   secciones = seccionesDeTienda(catalogo);
+  // El carrito de la visita anterior, con lo que la tienda todavía vende.
+  carrito = restauraCarrito(lee(LLAVE_CARRITO), catalogo);
+  piezasAntes = piezasDelCarrito(carrito);
+  actualizaCarrito();
   $('loading').classList.add('hidden');
   $('content').classList.remove('hidden');
   window.addEventListener('hashchange', ruta);

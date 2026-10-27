@@ -217,6 +217,10 @@ await pg.goto(BASE + '/pedido/#/');
 await pg.waitForSelector('#carritoBar', { timeout: 4000 });
 revisa('en la tienda, la barra dice el total', /\$4,898/.test(await pg.innerText('#carritoBar')), await pg.innerText('#carritoBar'));
 await pg.click('#verCarrito');
+// La barra abre la bolsita (27/10/2026); de ahí, "Ir a pagar".
+await pg.waitForSelector('#stMini [data-mini-pagar]', { timeout: 3000 });
+revisa('[bolsita] la barra abre el pedido ahí mismo, con el total', /Ir a pagar · \$4,898/.test(await pg.innerText('#stMini')));
+await pg.click('#stMini [data-mini-pagar]');
 await pg.waitForSelector('#orderForm', { timeout: 5000 });
 const renglones = await pg.$$eval('#resumenCarrito .fam-mov', e => e.length);
 revisa('el pedido trae los dos renglones', renglones === 2, String(renglones));

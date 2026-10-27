@@ -506,3 +506,53 @@
 .st-talla-rapida .st-perso { margin: 0; }
 .st-talla-rapida .st-cta { margin-top: 12px; }
 .st-talla-rapida .st-motivo { margin: 8px 0 0; }
+
+/* ---- La bolsita y los guardados (27/10/2026) ---- */
+@keyframes stBrinca { 0% { transform: scale(1); } 35% { transform: scale(1.22); } 70% { transform: scale(.94); } 100% { transform: scale(1); } }
+.st-carrito.brinca { animation: stBrinca .45s ease; }
+.st-card { position: relative; }
+.st-fav { position: absolute; top: 10px; right: 10px; z-index: 2; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .92); box-shadow: 0 4px 14px rgba(7, 25, 30, .14); display: grid; place-items: center; cursor: pointer; color: var(--st-ink); }
+.st-fav svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linejoin: round; }
+.st-fav[aria-pressed="true"] { color: #d23b4c; }
+.st-fav[aria-pressed="true"] svg { fill: currentColor; }
+@keyframes stLate { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 100% { transform: scale(1); } }
+.st-fav.late svg { animation: stLate .35s ease; }
+.st-pdp-tit { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.st-pdp-tit .st-fav { position: static; flex: none; margin-top: 4px; }
+body.st-sin-scroll { overflow: hidden; }
+.st-mini-capa { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; justify-content: center; background: rgba(7, 25, 30, 0); transition: background .25s ease; }
+.st-mini-capa.abierta { background: rgba(7, 25, 30, .45); }
+.st-mini { width: 100%; max-height: 88vh; display: flex; flex-direction: column; background: #fff; border-radius: 24px 24px 0 0; box-shadow: 0 -20px 50px rgba(0, 0, 0, .2); transform: translateY(100%); transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
+.st-mini-capa.abierta .st-mini { transform: none; }
+@media (min-width: 700px) {
+  .st-mini-capa { justify-content: flex-end; align-items: stretch; }
+  .st-mini { width: 420px; max-height: none; height: 100%; border-radius: 24px 0 0 24px; transform: translateX(100%); }
+}
+.st-mini-cab { display: flex; align-items: center; justify-content: space-between; padding: 18px 18px 8px; }
+.st-mini-cab h2 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+.st-mini-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 18px 6px; padding: 4px; border-radius: 14px; background: var(--st-soft); }
+.st-mini-tabs button { min-height: 40px; border: 0; border-radius: 11px; background: transparent; font: inherit; font-size: 14.5px; font-weight: 700; color: var(--st-ink-2); cursor: pointer; }
+.st-mini-tabs button[aria-selected="true"] { background: #fff; color: var(--st-ink); box-shadow: 0 2px 8px rgba(7, 25, 30, .08); }
+.st-mini-tabs i { font-style: normal; display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 4px; padding: 0 6px; border-radius: 99px; background: var(--st-brand); color: #fff; font-size: 11.5px; }
+.st-mini-cuerpo { flex: 1; overflow: auto; padding: 4px 18px 12px; overscroll-behavior: contain; }
+.st-mini-lista { list-style: none; margin: 0; padding: 0; }
+.st-mini-linea { display: grid; grid-template-columns: 72px 1fr auto; gap: 12px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--st-line); }
+.st-mini-linea:last-child { border-bottom: 0; }
+.st-mini-linea .st-media.st-mini-foto { width: 72px; height: 72px; aspect-ratio: auto; border-radius: 14px; }
+.st-mini-txt { display: grid; gap: 3px; min-width: 0; }
+.st-mini-txt a { color: inherit; text-decoration: none; }
+.st-mini-txt strong { font-size: 15px; line-height: 1.25; }
+.st-mini-txt > span { font-size: 13px; color: var(--st-muted); }
+.st-mini-acc { display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+.st-mini-quita { border: 0; background: none; padding: 6px 0; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--st-muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.st-mini-elegir { font-size: 13.5px; font-weight: 800; color: var(--st-brand) !important; text-decoration: underline !important; text-underline-offset: 3px; }
+.st-mini-precio { font-size: 15px; font-variant-numeric: tabular-nums; }
+.st-mini-vacio { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 40px 12px; color: var(--st-muted); font-size: 14px; }
+.st-mini-vacio b { font-size: 17px; color: var(--st-ink); }
+.st-mini-pie { display: grid; gap: 10px; padding: 14px 18px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--st-line); }
+.st-mini-pie[hidden] { display: none; }
+.st-mini-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; }
+.st-mini-total b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.st-mini-pagar { display: grid; place-items: center; text-decoration: none; max-width: none; }
+.st-mini-seguir { min-height: 44px; border: 0; background: none; font: inherit; font-size: 15px; font-weight: 700; color: var(--st-brand); cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .st-mini, .st-mini-capa, .st-carrito.brinca, .st-fav.late svg { transition: none; animation: none; } }

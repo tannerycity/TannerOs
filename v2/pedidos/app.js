@@ -320,15 +320,22 @@ function pintaTelProveedor(){const b=$('telProveedor');if(!b)return;const t=telP
    revierten sus cobros con el motivo, y queda en la bitácora. */
 function pintaNoPagado(){
   const b=$('noPagado');if(!b)return;const pagos=(current?.payments||[]).filter(p=>p.status==='posted');
-  b.classList.toggle('hidden',!(canCorrect&&pagos.length));
+  // Cancelado o reembolsado ya no tiene cobro que corregir (h47).
+  const st=current?.order?.status;
+  b.classList.toggle('hidden',!(canCorrect&&pagos.length&&!['cancelled','refunded','draft'].includes(st)));
 }
 async function noPagado(){
   const pagos=(current?.payments||[]).filter(p=>p.status==='posted');if(!pagos.length)return;
   const total=pagos.reduce((n,p)=>n+Number(p.amount||0),0);
-  const motivo=await window.tosPrompt({kicker:'COBRO',title:'¿No está pagado?',message:`Se quitan ${pagos.length===1?'el cobro':`los ${pagos.length} cobros`} por ${money.format(total)} y el pedido vuelve a "por cobrar". Queda en la bitácora con tu nombre.`,placeholder:'¿Qué pasó? Ej. la transferencia no llegó',required:true,requiredText:'Escribe el motivo.',confirmText:'Sí, no está pagado',danger:true,maxlength:200});
+  /* En producción, listo o entregado (27/10/2026, h47): el uniforme ya se
+     mandó a hacer, así que el pedido se queda en su etapa y sólo queda con
+     saldo por cobrar. Antes aquí salía un error y no había cómo decirlo. */
+  const st=current?.order?.status,avanzado=['in_production','ready','delivered'].includes(st);
+  const queda=avanzado?`El pedido se queda en "${labels[st]||st}" (ya se mandó a hacer) y queda con ${money.format(total)} por cobrar.`:'El pedido vuelve a "por cobrar".';
+  const motivo=await window.tosPrompt({kicker:'COBRO',title:'¿No está pagado?',message:`Se quitan ${pagos.length===1?'el cobro':`los ${pagos.length} cobros`} por ${money.format(total)}. ${queda} Queda en la bitácora con tu nombre.`,placeholder:'¿Qué pasó? Ej. la transferencia no llegó',required:true,requiredText:'Escribe el motivo.',confirmText:'Sí, no está pagado',danger:true,maxlength:200});
   if(!motivo)return;const b=$('noPagado');b.disabled=true;
   try{for(const p of pagos)await rpc('v2_correct_order_payment',{organization_id:ctx.organization_id,payment_id:p.id,reason:motivo});
-    await refreshCurrent(current.order.id);payMsg('Listo: el pedido quedó sin pago. El saldo ya se actualizó.','success');}
+    await refreshCurrent(current.order.id);payMsg(avanzado?`Listo: quedan ${money.format(total)} por cobrar y el pedido sigue en su etapa.`:'Listo: el pedido quedó sin pago. El saldo ya se actualizó.','success');}
   catch(e){payMsg(e.message||'No se pudo quitar el pago.');b.disabled=false;}
 }
 function muestraZona(){const z=$('dangerZone');if(z)z.style.display=canCorrect?'':'none';}

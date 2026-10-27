@@ -229,5 +229,41 @@ prueba('lo que espera a Presidencia son pendientes más aclaraciones', () => {
   assert.equal(pendientesReales(null), 0);
 });
 
+/* ---- Tarjeta visual (26/10/2026): palabras de persona, no de máquina ---- */
+const V = await import('../v2/taquilla/conciliacion.js');
+prueba('el método va en español, con su tipo para el color', () => {
+  assert.equal(V.metodoDe('transfer').t, 'Transferencia');
+  assert.equal(V.metodoDe('Transferencia').k, 'transfer');
+  assert.equal(V.metodoDe('cash').t, 'Efectivo');
+  assert.equal(V.metodoDe('Tarjeta').k, 'card');
+  assert.equal(V.metodoDe('—').t, 'Sin método');
+});
+prueba('el periodo se lee como mes', () => {
+  assert.equal(V.mesDe('2026-10'), 'octubre 2026');
+  assert.equal(V.mesDe('2026-01-05'), 'enero 2026');
+});
+prueba('el día del pago con su nombre', () => {
+  assert.equal(V.fechaCorta('2026-10-21'), 'miércoles 21 oct');
+});
+prueba('la hora del registro en hora de México', () => {
+  assert.equal(V.registradoDe('2026-10-21T23:15:00Z'), '21 oct · 5:15 p.m.');
+  assert.equal(V.registradoDe('2026-10-22T14:05:00Z'), '22 oct · 8:05 a.m.');
+  assert.equal(V.registradoDe(null), '');
+});
+prueba('los grupos dicen Hoy, Ayer o el día', () => {
+  assert.equal(V.diaDe('2026-10-26', '2026-10-26'), 'Hoy');
+  assert.equal(V.diaDe('2026-10-25', '2026-10-26'), 'Ayer');
+  assert.equal(V.diaDe('2026-10-21', '2026-10-26'), 'Miércoles 21 oct');
+  assert.equal(V.diaDe('2025-12-30', '2026-10-26'), 'Martes 30 dic 2025');
+});
+prueba('se agrupa por día de pago, lo más nuevo arriba, con total', () => {
+  const g = V.agrupaPorDia([{ date: '2026-10-20', amount: 500 }, { date: '2026-10-21', amount: 700 }, { date: '2026-10-21', amount: 300 }], '2026-10-21');
+  assert.deepEqual(g.map(x => [x.dia, x.filas.length, x.total]), [['Hoy', 2, 1000], ['Ayer', 1, 500]]);
+});
+prueba('las iniciales del avatar', () => {
+  assert.equal(V.iniciales('Agustín Zamora León'), 'AZ');
+  assert.equal(V.iniciales(''), '·');
+});
+
 if (fallos) { console.error(`Conciliación QA FAILED · ${fallos} de ${corridas}`); process.exit(1); }
 console.log(`Conciliación QA OK · ${corridas} casos, incluidos los 322 pagos que nadie revisó`);

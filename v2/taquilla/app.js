@@ -6,7 +6,7 @@ import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
         COLUMNAS_REPORTE,filaDeReporte,resumenDeReporte,textoDeFiltros,
         nombreDeArchivo} from '/v2/taquilla/montos.js';
 import {estadoDe,validacionDe,accionesPara,requiereMotivo,diferenciaDe,
-        filtra as filtraConcilia,lineaDeHistorial,pendientesReales}
+        filtra as filtraConcilia,lineaDeHistorial,pendientesReales,metodoDe,mesDe,fechaCorta as fechaPago,registradoDe,agrupaPorDia,iniciales}
   from '/v2/taquilla/conciliacion.js';
 import {abrirCobro,esCuentaCompartida} from '/v2/cobro/hoja.js';
 
@@ -1598,7 +1598,10 @@ function pintaConcilia(){
     : {texto:conciliaQuery,estado:conciliaFiltro||undefined};
   const filas=filtraConcilia(todas,f);
 
-  $('conciliaList').innerHTML=filas.map(x=>tarjetaConcilia(x,canApprove)).join('');
+  // Por día de pago, lo más nuevo arriba: "Hoy · 2 cobros · $1,200".
+  $('conciliaList').innerHTML=agrupaPorDia(filas,hoyMexico()).map(g=>
+    `<h3 class="cc-dia"><span>${esc(g.dia)}</span><small>${g.filas.length} ${g.filas.length===1?'cobro':'cobros'} · ${montoConcilia(g.total)}</small></h3>`
+    +g.filas.map(x=>tarjetaConcilia(x,canApprove)).join('')).join('');
   /* "No hay pagos en este estado" con todo en cero se lee como una pantalla
      rota. Si no hay pendientes pero sí hay 242 sin revisar, eso es lo que hay
      que decir, y hacia dónde mandar a quien está mirando. */
@@ -1618,49 +1621,79 @@ function pintaConcilia(){
     b.addEventListener('click',()=>abreAccion(b.dataset.pago,b.dataset.accion)));
 }
 
+/* La tarjeta de conciliación (26/10/2026). Presidencia: "que qué día pagó, a
+   qué hora... bien visual, que sea bien fácil ver quién cobró, quién pagó,
+   qué día". Arriba quién y cuánto (con el método en español); en medio
+   cuatro casillas con lo que se coteja: quién pagó, quién cobró, el día del
+   pago y cuándo se registró (con hora); abajo un botón grande para aprobar
+   y los otros dos al lado. */
+const ICONO_METODO={transfer:ICONO_BANCO,cash:ICONO_EFECTIVO,
+  card:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>',
+  otro:ICONO_EFECTIVO};
+const montoConcilia=n=>{const v=Number(n||0);return Number.isInteger(v)?'$'+v.toLocaleString('es-MX'):money.format(v);};
 function tarjetaConcilia(x,canApprove){
   const e=estadoDe(x);
   const val=validacionDe(x);
   const dif=diferenciaDe(x);
+  const met=metodoDe(x.method);
   const esMio=Boolean(x.registeredByUserId)&&x.registeredByUserId===ctx.user_id;
   const acciones=accionesPara(x,{canApprove,esMio});
+  const quien=x.playerName||x.family||'Cobro general';
 
   const quienCobro=x.registeredBy
     ? (x.registeredByIsAccount
        ? `Desde ${esc(x.registeredBy)} · sin nombre`
        : esc(x.registeredBy))
-    : 'Sin registrar';
+    : '<em class="cc-falta">No se registró</em>';
+  const pagoQuien=x.family&&x.playerName?esc(x.family):(x.family?'El mismo':'<em class="cc-falta">Sin nombre</em>');
 
   const hist=(x.history||[]).map(h=>
-    `<li>${esc(lineaDeHistorial(h))}<small class="h-motivo">${esc(h.at||'')}${h.reason?` · ${esc(h.reason)}`:''}</small></li>`).join('');
+    `<li>${esc(lineaDeHistorial(h))}<small class="h-motivo">${esc(registradoDe(h.at)||h.at||'')}${h.reason?` · ${esc(h.reason)}`:''}</small></li>`).join('');
+  const casilla=(icono,titulo,valor,clase='')=>`<div class="cc-dato${clase?` ${clase}`:''}"><dt><i aria-hidden="true">${icono}</i>${titulo}</dt><dd>${valor}</dd></div>`;
+  const principal=acciones.find(a=>a.clave==='approve'||a.clave==='resubmit');
+  const otras=acciones.filter(a=>a!==principal);
+  const boton=a=>`<button type="button" data-tono="${a.tono}" data-pago="${esc(x.paymentId)}" data-accion="${a.clave}">${esc(a.etiqueta)}</button>`;
 
-  return `<article class="concilia-card" data-estado="${esc(x.status||'')}" data-legacy="${x.legacyApproved?'1':'0'}">
-    <div class="concilia-top">
-      <span class="concilia-quien"><strong>${esc(x.playerName||x.family||'Cobro general')}</strong>
-        <small>${esc(x.concept||'Cobro')} · periodo ${esc(x.period||'—')} · ${esc(x.date||'')}</small></span>
-      <span class="concilia-monto"><b>${money.format(Number(x.amount||0))}</b><span>Recibido</span></span>
+  return `<article class="concilia-card cc" data-estado="${esc(x.status||'')}" data-legacy="${x.legacyApproved?'1':'0'}">
+    <div class="concilia-top cc-cab">
+      <span class="cc-avatar" aria-hidden="true">${esc(iniciales(quien))}</span>
+      <span class="concilia-quien"><strong>${esc(quien)}</strong>
+        <small>${esc(x.concept||'Cobro')} · ${esc(mesDe(x.period)||'—')}</small></span>
+      <span class="concilia-monto"><b>${montoConcilia(x.amount)}</b><span class="cc-metodo" data-k="${met.k}"><i aria-hidden="true">${ICONO_METODO[met.k]||ICONO_EFECTIVO}</i>${esc(met.t)}</span></span>
     </div>
     <div class="concilia-chips">
       ${estadoChip(e)}
-      <span class="est est-neutro"><i aria-hidden="true">${x.validationKind==='banco'?ICONO_BANCO:ICONO_EFECTIVO}</i>${esc(val.etiqueta)}</span>
+      <span class="cc-pista" title="${esc(val.pista||'')}"><i aria-hidden="true">${x.validationKind==='banco'?ICONO_BANCO:ICONO_EFECTIVO}</i>${esc(val.etiqueta)}</span>
     </div>
-    <div class="concilia-datos">
-      <span>Método: <b>${esc(x.method||'—')}</b>${x.reference?` · Ref. <b>${esc(x.reference)}</b>`:''}</span>
-      <span>Cobró: <b>${quienCobro}</b></span>
-      ${x.family&&x.playerName?`<span>Familia: <b>${esc(x.family)}</b></span>`:''}
-      ${x.expectedAmount!=null?`<span>Esperado: <b>${money.format(Number(x.expectedAmount))}</b></span>`:''}
-      ${x.receiptPath?`<span>Comprobante: <b>adjunto</b></span>`:''}
-      ${x.reconciledBy?`<span>Conciliado por: <b>${esc(x.reconciledBy)}</b></span>`:''}
-      ${x.reconciliationReference?`<span>Evidencia: <b>${esc(x.reconciliationReference)}</b></span>`:''}
-    </div>
+    <dl class="concilia-datos cc-datos">
+      ${casilla(ICONO_CC.familia,'Pagó',pagoQuien)}
+      ${casilla(ICONO_CC.cobro,'Cobró',quienCobro)}
+      ${casilla(ICONO_CC.dia,'Día del pago',esc(fechaPago(x.date)||x.date||'—'))}
+      ${casilla(ICONO_CC.hora,'Se registró',esc(registradoDe(x.createdAt)||'—'))}
+      ${x.reference?casilla(ICONO_CC.ref,'Referencia',`<b>${esc(x.reference)}</b>`,'ancho'):''}
+      ${x.expectedAmount!=null?casilla(ICONO_CC.ref,'Esperado',montoConcilia(x.expectedAmount)):''}
+      ${x.receiptPath?casilla(ICONO_CC.ref,'Comprobante','Adjunto'):''}
+      ${x.reconciledBy?casilla(ICONO_CC.ok,'Revisó',`${esc(x.reconciledBy)}${x.reconciledAt?` · ${esc(registradoDe(x.reconciledAt))}`:''}`,'ancho'):''}
+      ${x.reconciliationReference?casilla(ICONO_CC.ref,'Evidencia',esc(x.reconciliationReference),'ancho'):''}
+    </dl>
     ${dif.hay?`<div class="concilia-dif" data-nivel="${dif.nivel}">${esc(dif.texto)} ${money.format(Math.abs(dif.monto))}</div>`:''}
     ${x.observations?`<div class="concilia-obs">${esc(x.observations)}</div>`:''}
     ${x.reconciliationNote?`<div class="concilia-obs">Nota de Presidencia: ${esc(x.reconciliationNote)}</div>`:''}
     ${hist?`<details class="concilia-hist"><summary>Historial (${(x.history||[]).length})</summary><ol>${hist}</ol></details>`:''}
-    ${acciones.length?`<div class="concilia-acciones">${acciones.map(a=>
-      `<button type="button" data-tono="${a.tono}" data-pago="${esc(x.paymentId)}" data-accion="${a.clave}">${esc(a.etiqueta)}</button>`).join('')}</div>`:''}
+    ${acciones.length?`<div class="concilia-acciones cc-acciones">${principal?`<div class="cc-principal">${boton(principal)}</div>`:''}${otras.length?`<div class="cc-otras">${otras.map(boton).join('')}</div>`:''}</div>`:''}
   </article>`;
 }
+const svgCC=d=>`<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONO_CC={
+  familia:svgCC('<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.8 14.2c2.3.2 4 1.8 4.7 4.8"/>'),
+  cobro:svgCC('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.8 3.6-6 7-6s6.2 2.2 7 6"/>'),
+  dia:svgCC('<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+  hora:svgCC('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  ref:svgCC('<path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h6"/>'),
+  ok:svgCC('<path d="M5 12.5l4.5 4.5L19 7.5"/>')
+};
+// Hoy en hora de México, para los encabezados "Hoy" y "Ayer".
+const hoyMexico=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City'}).format(new Date());
 
 const TITULO_ACCION={
   approve:{titulo:'Aprobar el cobro',boton:'Aprobar',motivo:'Comentario (opcional)',placeholder:'Contra qué lo verificaste'},

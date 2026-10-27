@@ -127,3 +127,75 @@ export function pendientesReales(resumen) {
        + Number(resumen?.clarification || 0)
        + Number(resumen?.legacyApproved || 0);
 }
+
+/* ---- Tarjeta visual (26/10/2026) ----
+   Presidencia: "que qué día pagó, a qué hora... que sea bien visual. No es un
+   sistema que estén viendo una máquina, lo ven humanos". Lo que se pinta en
+   palabras de persona: el método en español, el periodo como mes, el día
+   con su nombre y la hora a la que se registró el cobro. */
+const METODOS = {
+  transfer: { t: 'Transferencia', k: 'transfer' }, transferencia: { t: 'Transferencia', k: 'transfer' },
+  cash: { t: 'Efectivo', k: 'cash' }, efectivo: { t: 'Efectivo', k: 'cash' },
+  card: { t: 'Tarjeta', k: 'card' }, tarjeta: { t: 'Tarjeta', k: 'card' },
+};
+export function metodoDe(m) {
+  return METODOS[sinAcentos(m).trim()] || { t: m && m !== '—' ? String(m) : 'Sin método', k: 'otro' };
+}
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+// '2026-10' -> 'octubre 2026'
+export function mesDe(periodo) {
+  const m = /^(\d{4})-(\d{2})/.exec(String(periodo || ''));
+  return m ? `${MESES[Number(m[2]) - 1]} ${m[1]}` : (periodo || '');
+}
+
+const fechaLocal = (ymd) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || '')); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12) : null; };
+const ymdDe = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// '2026-10-21' -> 'martes 21 oct'
+export function fechaCorta(ymd) {
+  const d = fechaLocal(ymd);
+  return d ? `${DIAS[d.getDay()]} ${d.getDate()} ${MES_CORTO[d.getMonth()]}` : '';
+}
+
+/* El encabezado de cada grupo: Hoy, Ayer o el día con su nombre. hoy va en
+   'YYYY-MM-DD' (hora de México) para poder probarlo. */
+export function diaDe(ymd, hoy) {
+  const d = fechaLocal(ymd), h = fechaLocal(hoy);
+  if (!d) return 'Sin fecha';
+  if (h) {
+    const dias = Math.round((h - d) / 86400000);
+    if (dias === 0) return 'Hoy';
+    if (dias === 1) return 'Ayer';
+  }
+  const t = fechaCorta(ymd);
+  return t.charAt(0).toUpperCase() + t.slice(1) + (h && d.getFullYear() !== h.getFullYear() ? ` ${d.getFullYear()}` : '');
+}
+
+// La fecha y la hora en que se registró, en hora de México: '21 oct · 5:15 p.m.'
+export function registradoDe(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = Object.fromEntries(new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', day: 'numeric', month: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+    .formatToParts(d).map(x => [x.type, x.value]));
+  const hora = `${p.hour}:${p.minute} ${String(p.dayPeriod || '').replace(/\s/g, '').toLowerCase().startsWith('p') ? 'p.m.' : 'a.m.'}`;
+  return `${p.day} ${MES_CORTO[Number(p.month) - 1]} · ${hora}`;
+}
+
+// Agrupa por el día en que se pagó, lo más nuevo arriba.
+export function agrupaPorDia(filas, hoy) {
+  const grupos = new Map();
+  [...(filas || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    .forEach(f => { const k = String(f.date || '').slice(0, 10) || 'sin'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(f); });
+  return [...grupos].map(([k, lista]) => ({ dia: k === 'sin' ? 'Sin fecha' : diaDe(k, hoy), fecha: k, filas: lista,
+    total: lista.reduce((s, f) => s + Number(f.amount || 0), 0) }));
+}
+
+export function iniciales(nombre) {
+  const p = String(nombre || '').trim().split(/\s+/).filter(Boolean);
+  return ((p[0]?.[0] || '') + (p.length > 1 ? p[1][0] : '')).toUpperCase() || '·';
+}

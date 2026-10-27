@@ -169,7 +169,10 @@ async function corre(rol) {
   revisa(`[${rol}] muestra la diferencia contra lo esperado`, /-\$50\.00/.test(kpis), kpis.slice(0, 220));
 
   const tarjeta = (await pagina.textContent('.concilia-card')).replace(/\s+/g, ' ');
-  revisa(`[${rol}] la tarjeta dice el periodo`, /periodo 2026-09/.test(tarjeta), tarjeta.slice(0, 160));
+  revisa(`[${rol}] la tarjeta dice el periodo con su mes`, /septiembre 2026/.test(tarjeta), tarjeta.slice(0, 160));
+  revisa(`[${rol}] dice quién pagó, el día y a qué hora se registró`, /Pagó/.test(tarjeta) && /Día del pago/.test(tarjeta) && /Se registró/.test(tarjeta) && /(a|p)\.m\./.test(tarjeta), tarjeta.slice(0, 400));
+  revisa(`[${rol}] el método va en español`, !/\btransfer\b|\bcash\b/.test(tarjeta), tarjeta.slice(0, 300));
+  revisa(`[${rol}] los cobros van agrupados por día`, (await pagina.$$('.cc-dia')).length >= 1);
   revisa(`[${rol}] a una transferencia le llama conciliación bancaria`, /Conciliación bancaria/.test(tarjeta));
   revisa(`[${rol}] señala el faltante`, /Faltaron \$50\.00/.test(tarjeta), tarjeta.slice(0, 300));
   revisa(`[${rol}] no repite el monto en el faltante`, !/Faltaron 50/.test(tarjeta), tarjeta.slice(0, 300));

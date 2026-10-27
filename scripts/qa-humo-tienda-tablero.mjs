@@ -184,6 +184,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   if (process.env.SHOTS) { await pg.waitForTimeout(300); await (await pg.$('#stMockup')).screenshot({ path: `${process.env.SHOTS}/mockup.png` }); }
   await pg.click('#stAgregar');
   await pg.click('#stCarrito');
+  await pg.click('#stMini [data-mini-pagar]');
   await pg.waitForSelector('#orderForm', { timeout:5000 });
   const carrito = await pg.textContent('#content');
   revisa('2. el carrito dice Manga larga', carrito.includes('Manga larga'), carrito.replace(/\s+/g, ' ').slice(0, 300));

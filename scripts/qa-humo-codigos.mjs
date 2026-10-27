@@ -85,6 +85,15 @@ await pg.goto(BASE + '/pedido/?codigo=curti10', { waitUntil:'networkidle' });
 await pg.waitForSelector('.st-card', { timeout: 8000 });
 revisa('la tienda dice que el código ya va', /Código CURTI10 listo/.test(await pg.innerText('.st-hero')), await pg.innerText('.st-hero'));
 
+/* ===== La bolsita y los guardados (27/10/2026) ===== */
+await pg.click('[data-prod="p-gorra"] [data-fav]');
+revisa('[bolsita] el corazón guarda sin abrir la ficha', (await pg.getAttribute('[data-prod="p-gorra"] [data-fav]', 'aria-pressed')) === 'true' && !/#\/p\//.test(pg.url()));
+await pg.click('#stCarrito');
+await pg.waitForSelector('#stMini .st-mini-linea', { timeout: 3000 });
+revisa('[bolsita] con el pedido vacío abre en Guardados', /The Tanner Cap/.test(await pg.innerText('#stMini')) && (await pg.getAttribute('[data-mini-tab="guardados"]', 'aria-selected')) === 'true');
+await pg.click('#stMini [data-mini-cierra]');
+revisa('[bolsita] se cierra', !(await pg.$('#stMini')));
+
 /* ===== 1. Nombre y número con cargo ===== */
 await pg.goto(BASE + '/pedido/?codigo=curti10#/p/p-black');
 await pg.waitForSelector('[data-talla="M"]', { timeout: 4000 });
@@ -99,6 +108,20 @@ revisa('borrarlo regresa el precio', /\$799/.test(await pg.innerText('#stAgregar
 await pg.fill('[data-campo="nombre"]', 'LEO');
 await pg.click('#stAgregar');
 await pg.waitForTimeout(150);
+// La bolsita: el pedido se ve otra vez, la cantidad se cambia ahí mismo y
+// recargar no lo borra.
+await pg.click('#stCarrito');
+await pg.waitForSelector('#stMini [data-mini-linea]', { timeout: 3000 });
+const mini = await pg.innerText('#stMini');
+revisa('[bolsita] enseña lo agregado con su talla y su nombre', /Jersey "Black Edition"/.test(mini) && /Talla M/.test(mini) && /LEO/.test(mini) && /Ir a pagar · \$899/.test(mini), mini);
+await pg.click('#stMini [data-mini-cant="1"]');
+revisa('[bolsita] + suma y el total cambia', /Ir a pagar · \$1,798/.test(await pg.innerText('#stMini')) && (await pg.textContent('#stCarritoN')) === '2');
+await pg.click('#stMini [data-mini-cant="-1"]');
+revisa('[bolsita] − regresa', /Ir a pagar · \$899/.test(await pg.innerText('#stMini')));
+await cabe('la bolsita');
+await pg.click('#stMini [data-mini-cierra]');
+await pg.reload(); await pg.waitForSelector('.st-pdp, .st-card', { timeout: 6000 });
+revisa('[bolsita] recargar no borra el pedido', (await pg.textContent('#stCarritoN')) === '1');
 
 await pg.goto(BASE + '/pedido/?codigo=curti10#/k/k-game');
 await pg.waitForSelector('[data-tier="Adulto"]', { timeout: 4000 });

@@ -150,6 +150,7 @@ async function pideCalcetas(pg) {
   await pg.waitForSelector('#stAgregar', { timeout:4000 });
   await pg.click('#stAgregar');
   await pg.click('#stCarrito');
+  await pg.click('#stMini [data-mini-pagar]');
   await pg.waitForSelector('#orderForm', { timeout:5000 });
   await pg.fill('#customerName', 'Ana Ávila');
   await pg.fill('#customerPhone', '4771234567');

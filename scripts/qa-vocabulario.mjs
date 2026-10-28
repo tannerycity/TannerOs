@@ -72,9 +72,12 @@ await prueba('vista previa: club inválido o inexistente da 404', async () => {
 await prueba('vercel.json: sólo robots con ?club= van a la vista previa', () => {
   const v = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
   const r = v.redirects.filter(x => String(x.destination).startsWith('/api/vista-previa'));
-  assert.equal(r.length, 12); // registro, pedido, tienda (21/10/2026), programas, academias y centro-tanner, con y sin subruta
+  // registro, pedido, tienda (21/10/2026), programas, academias y centro-tanner, con y sin subruta;
+  // y la liga fácil de cada pieza (28/10/2026): /tienda/<nombre>, con club o de Tannery.
+  assert.equal(r.length, 14);
   for (const x of r) {
-    assert.ok(x.has.some(h => h.type === 'query' && h.key === 'club'), x.source);
+    const deTannery = x.destination.includes('pagina=producto&club=tannery-city-fc');
+    assert.ok(deTannery || x.has.some(h => h.type === 'query' && h.key === 'club'), x.source);
     const ua = x.has.find(h => h.type === 'header' && h.key === 'user-agent');
     assert.ok(ua && /WhatsApp/.test(ua.value) && /facebookexternalhit/.test(ua.value), x.source);
     assert.equal(x.permanent, false);

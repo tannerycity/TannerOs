@@ -35,6 +35,8 @@ const FOTO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect 
 const srv = http.createServer((q, r) => {
   let p = decodeURIComponent(q.url.split('?')[0]);
   if (p.startsWith('/qa-foto/')) { r.writeHead(200, { 'content-type':'image/svg+xml' }); r.end(FOTO); return; }
+  // Como vercel.json: la liga fácil /tienda/<nombre> sirve la tienda.
+  if (/^\/tienda\/[^/]+\/?$/.test(p)) p = '/pedido/index.html';
   if (p.endsWith('/')) p += 'index.html';
   const f = path.join(RAIZ, p);
   if (!f.startsWith(RAIZ) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end('no'); return; }
@@ -429,6 +431,21 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   revisa('[varias] nada se sale a 390px', await p3.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
   await p3.close();
 }
+
+/* ===== Ligas fáciles (28/10/2026): /tienda/<nombre> abre la ficha ===== */
+await pg.goto(BASE + '/tienda/the-tanner-cap?utm_source=instagram', { waitUntil:'networkidle' });
+await pg.waitForSelector('.st-pdp', { timeout:6000 }).catch(() => {});
+revisa('[liga] /tienda/the-tanner-cap abre la ficha de la gorra', /The Tanner Cap/.test(await pg.textContent('.st-pdp h1').catch(() => '')), await pg.evaluate(() => location.href));
+revisa('[liga] la barra queda en /tienda/ con su utm', await pg.evaluate(() => location.pathname === '/tienda/' && location.search === '?utm_source=instagram' && location.hash === '#/p/p-gorra'), await pg.evaluate(() => location.href));
+await pg.evaluate(() => { Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }); navigator.clipboard.writeText = async t => { window.__copiado = t; }; });
+await pg.click('.st-pdp [data-compartir]');
+revisa('[liga] Compartir copia la liga fácil de la pieza', (await pg.evaluate(() => window.__copiado)) === `${BASE}/tienda/the-tanner-cap`, await pg.evaluate(() => window.__copiado));
+await pg.goto(BASE + '/tienda/jerseys', { waitUntil:'networkidle' });
+await pg.waitForSelector('.st-card', { timeout:6000 });
+revisa('[liga] /tienda/jerseys abre la categoría', await pg.evaluate(() => location.hash === '#/c/jersey'));
+await pg.goto(BASE + '/tienda/no-existe', { waitUntil:'networkidle' });
+await pg.waitForSelector('.st-card', { timeout:6000 });
+revisa('[liga] una liga que no existe abre la portada, sin error', await pg.evaluate(() => location.pathname === '/tienda/' && location.hash === '#/'));
 
 revisa('sin errores de consola', errs.length === 0, errs.join('\n   '));
 await nav.close(); srv.close();

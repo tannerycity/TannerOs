@@ -4,6 +4,8 @@ import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { ESCALA_NINOS, ESCALA_ADULTOS, ESCALA_CLUB, TALLA_UNICA, CATEGORIAS, categoriaCanonica, ordenaTallas, textoHasta, aceptaPersonalizacion } from '/v2/tienda.js';
 import { margenesDe, mezclaDeVentas, margenPonderado } from '/v2/catalogo/costos.js';
 import { normalizaCodigo, revisaCodigo, ESTADOS as ESTADOS_CODIGO, ligaDeCompra, ligaDelEmbajador, mensajeEmbajador } from '/v2/codigos.js';
+import { textoDestino } from '/pedido/banners.js';
+import { CATEGORIAS_TIENDA, categoriaDe } from '/pedido/catalogo.js';
 import { ligaDe } from '/pedido/ligas.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 const $=id=>document.getElementById(id);
@@ -15,6 +17,7 @@ let ctx=null,canManage=false,canPromos=false,canFinance=true,products=[],bundles
 let draft=null; // {mode:'bundle'|'product', id:string|null, components:[{productId,qty}]}
 let cargoPers={activo:false,monto:100}; // Nombre y número (h45)
 let codigos={codes:[],isPresidency:false,canPay:false}; // Códigos de la tienda (h46)
+let vitrinaAdmin={banners:[]}; // Banners y franja de la tienda (h49)
 // Una pieza de kit puede ser fija o "a elegir" (pool, Kit Dúo 14/10/2026).
 // Lo que se manda al guardar conserva las dos formas.
 const piezaAEnviar=c=>Array.isArray(c.pool)?{pool:c.pool,qty:c.qty||1,name:c.poolName||c.name||'Pieza a elegir'}:{productId:c.productId,qty:c.qty||1};
@@ -77,7 +80,9 @@ async function load(){
   pintaCargoPers(data?.personalizacion);
   ofertas=canPromos?((await rpc('v2_promotions',{organization_id:ctx.organization_id}).catch(()=>[]))||[]):[];
   if(canManage){const r=await rpc('v2_store_codes',{organization_id:ctx.organization_id}).catch(()=>null);
-    codigos={codes:Array.isArray(r?.codes)?r.codes:[],isPresidency:!!r?.isPresidency,canPay:!!r?.canPay};}
+    codigos={codes:Array.isArray(r?.codes)?r.codes:[],isPresidency:!!r?.isPresidency,canPay:!!r?.canPay};
+    const bn=await rpc('v2_store_banners',{organization_id:ctx.organization_id}).catch(()=>null);
+    vitrinaAdmin={banners:Array.isArray(bn?.banners)?bn.banners:[]};}
   renderPendientes();
   renderBundles();
   renderProducts();
@@ -179,14 +184,18 @@ function pintaCabecera(){
   $('catTabCodigos')?.classList.toggle('hidden',!canManage);
   if($('catNumCodigos'))$('catNumCodigos').textContent=codigos.codes.filter(c=>c.estado==='activo').length||'';
   if(ver==='codigos')renderCodigos();
+  $('bannersPanel')?.classList.toggle('hidden',ver!=='banners');
+  $('catTabBanners')?.classList.toggle('hidden',!canManage);
+  if($('catNumBanners'))$('catNumBanners').textContent=vitrinaAdmin.banners.filter(b=>b.estado==='activo'&&b.kind==='banner').length||'';
+  if(ver==='banners')renderBanners();
   $('catTabOfertas')?.classList.toggle('hidden',!canPromos);
   const activas=ofertas.filter(o=>o.estado==='activa').length;
   if($('catNumOfertas'))$('catNumOfertas').textContent=activas||'';
   if(ver==='ofertas')renderOfertas();
   $('catTabCostos')?.classList.toggle('hidden',!canFinance);
   // Buscar y "pendientes" son de productos y kits, no de costos.
-  $('catBuscar')?.classList.toggle('hidden',ver==='costos'||ver==='ofertas'||ver==='codigos');
-  $('pendientes')?.classList.toggle('hidden',ver==='costos'||ver==='ofertas'||ver==='codigos'||!$('pendientes').textContent);
+  $('catBuscar')?.classList.toggle('hidden',ver==='costos'||ver==='ofertas'||ver==='codigos'||ver==='banners');
+  $('pendientes')?.classList.toggle('hidden',ver==='costos'||ver==='ofertas'||ver==='codigos'||ver==='banners'||!$('pendientes').textContent);
 }
 function renderBundles(){
   pintaCabecera();
@@ -840,7 +849,7 @@ async function toggleProductArchive(){
 }
 
 /* ---------- Drawer genérico ---------- */
-function openDrawer(){$('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');}
+function openDrawer(){if(draft?.mode!=='banner')$('bannerForm')?.classList.add('hidden');$('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');}
 function closeDrawerFn(){$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');draft=null;}
 $('closeDrawer')?.addEventListener('click',closeDrawerFn);
 $('backdrop')?.addEventListener('click',closeDrawerFn);
@@ -1167,7 +1176,148 @@ function accionesDelCatalogo(){
   return [{label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',icon:'plus',run:()=>{ver='productos';pintaCabecera();openProductDrawer(null);}},
           {label:'Nuevo kit',sub:'Junta piezas con su precio',icon:'bag',run:()=>{ver='kits';pintaCabecera();openBundleDrawer(null);}},
           ...(canPromos?[{label:'Nueva oferta',sub:'Precio especial con fecha',icon:'star',run:()=>{ver='ofertas';pintaCabecera();abreOferta();}}]:[]),
-          {label:'Nuevo código',sub:'Descuento, regalo o embajador',icon:'star',run:()=>{ver='codigos';pintaCabecera();abreCodigo(null);}}];
+          {label:'Nuevo código',sub:'Descuento, regalo o embajador',icon:'star',run:()=>{ver='codigos';pintaCabecera();abreCodigo(null);}},
+          {label:'Nuevo banner',sub:'Foto grande arriba de la tienda',icon:'star',run:()=>{ver='banners';pintaCabecera();abreBanner(null,'banner');}}];
 }
 
 boot().catch(err=>{console.error(err);$('deniedText').textContent='No se pudo cargar el catálogo.';show('deniedView');});
+
+
+/* ---------- Banners de la tienda (28/10/2026, h49) ----------
+   "Como las páginas de adidas, Puma, Nike": la foto grande de arriba de la
+   tienda. Se sube la foto de celular (la principal) y, si se tiene, la de
+   compu; título, frase y botón van encima en letra real. Con fechas se
+   prende y se apaga solo. La franja es el aviso de una línea de hasta arriba. */
+const fechaCortaBn=f=>f?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'}).format(new Date(`${f}T12:00:00`)).replace('.',''):'';
+function textoFechas(b){
+  if(b.startsOn&&b.endsOn)return ` · del ${fechaCortaBn(b.startsOn)} al ${fechaCortaBn(b.endsOn)}`;
+  if(b.endsOn)return ` · hasta el ${fechaCortaBn(b.endsOn)}`;
+  if(b.startsOn)return ` · desde el ${fechaCortaBn(b.startsOn)}`;
+  return '';
+}
+function renderBanners(){
+  const box=$('bannersLista');if(!box)return;
+  const lista=vitrinaAdmin.banners;
+  box.innerHTML=lista.map(b=>{
+    const e=ESTADOS_CODIGO[b.estado]||{t:b.estado,tono:''},mismos=lista.filter(x=>x.kind===b.kind),pos=mismos.indexOf(b);
+    return `<article class="codigo bn-item ${esc(b.estado)}" data-bn="${esc(b.id)}">
+      ${b.kind==='banner'?`<div class="bn-mini">${b.imagePath?`<img data-bn-foto="${esc(b.imagePath)}" alt="">`:''}</div>`:'<div class="bn-mini franja">Franja</div>'}
+      <div class="bn-info"><div class="codigo-cab"><b class="bn-titulo">${esc(b.title)}</b><span class="codigo-estado ${e.tono}">${esc(e.t)}</span></div>
+        <p class="codigo-que">Abre: ${esc(textoDestino(b,{products,bundles}))}${esc(textoFechas(b))}</p>
+        <div class="codigo-acc"><button type="button" data-bn-acc="editar">Editar</button>
+          ${pos>0?'<button type="button" data-bn-acc="subir">Subir</button>':''}${pos<mismos.length-1?'<button type="button" data-bn-acc="bajar">Bajar</button>':''}
+          <button type="button" data-bn-acc="${b.active?'pausar':'activar'}">${b.active?'Pausar':'Activar'}</button>
+          <button type="button" class="codigo-quita" data-bn-acc="archivar">Archivar</button></div></div></article>`;}).join('')
+    ||'<div class="ofertas-vacio"><b>Sin banners</b>Toca "+ Banner" y sube la foto: es lo primero que ve quien entra a la tienda.</div>';
+  const rutas=[...box.querySelectorAll('img[data-bn-foto]')].map(i=>i.dataset.bnFoto);
+  if(rutas.length)getSignedPhotoUrls(supabase,PHOTO_BUCKET,rutas).then(m=>{box.querySelectorAll('img[data-bn-foto]').forEach(i=>{const u=m?.[i.dataset.bnFoto];if(u)i.src=u;});}).catch(()=>{});
+}
+function opcionesDestino(tipo){
+  if(tipo==='producto')return products.filter(p=>!p.archived&&p.active!==false).map(p=>[p.id,p.name]);
+  if(tipo==='kit')return bundles.filter(b=>!b.archived&&b.active!==false).map(b=>[b.id,b.name]);
+  if(tipo==='categoria'){
+    const hay=new Set(products.filter(p=>!p.archived&&p.active!==false).map(p=>categoriaDe(p)));
+    if(bundles.some(b=>!b.archived))hay.add('kits');
+    return CATEGORIAS_TIENDA.filter(c=>hay.has(c.clave)).map(c=>[c.clave,c.etiqueta]);
+  }
+  return [];
+}
+function pintaDestino(valor){
+  const tipo=elegido('bnDestino')?.dataset.destino||'tienda',sel=$('bnDestinoValor');
+  sel.classList.toggle('hidden',tipo==='tienda');
+  if(tipo==='tienda'){sel.innerHTML='';return;}
+  const ops=opcionesDestino(tipo);
+  sel.innerHTML=ops.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join('')||'<option value="">No hay nada publicado</option>';
+  if(valor&&ops.some(([v])=>String(v)===String(valor)))sel.value=valor;
+}
+async function pintaVistaBanner(){
+  const pon=async(id,file,ruta)=>{
+    const caja=$(id);if(!caja)return;
+    let url=file?URL.createObjectURL(file):'';
+    if(!url&&ruta){try{url=await getSignedPhotoUrl(supabase,PHOTO_BUCKET,ruta);}catch{url='';}}
+    caja.innerHTML=url?`<img src="${esc(url)}" alt="">`:'<span>Sin foto</span>';
+  };
+  await Promise.all([pon('bnVistaMovil',draft?.file,draft?.img),pon('bnVistaCompu',draft?.file2,draft?.img2)]);
+  $('bnQuitaCompu')?.classList.toggle('hidden',!(draft?.file2||draft?.img2));
+}
+function pintaBannerForm(){
+  const franja=elegido('bnTipo')?.dataset.tipo==='franja';
+  $('bnFotos').classList.toggle('hidden',franja);
+  $('bnFraseCaja').classList.toggle('hidden',franja);
+  $('drawerKicker').textContent=franja?'FRANJA':'BANNER';
+  $('bnGuardar').textContent=franja?'Guardar franja':'Guardar banner';
+  $('bnTitulo').placeholder=franja?'Ej. Nombre y número GRATIS con el código TANNER':'Ej. Black Edition ya llegó';
+}
+function abreBanner(b,kind='banner'){
+  draft={mode:'banner',id:b?.id||null,carpeta:b?.id||(crypto.randomUUID?crypto.randomUUID():null),img:b?.imagePath||null,img2:b?.imageDesktopPath||null,file:null,file2:null};
+  drawerMsg();
+  ['bundleForm','productForm','promoForm','codeForm','payForm'].forEach(id=>$(id)?.classList.add('hidden'));$('bannerForm').classList.remove('hidden');
+  $('drawerTitle').textContent=b?b.title:(kind==='franja'?'Nueva franja':'Nuevo banner');
+  marcaChipDe('bnTipo','data-tipo',b?.kind||kind);
+  $('bnTitulo').value=b?.title||'';$('bnFrase').value=b?.subtitle||'';$('bnBoton').value=b?.ctaLabel||'';
+  marcaChipDe('bnDestino','data-destino',b?.targetKind||'tienda');pintaDestino(b?.targetValue);
+  $('bnDesde').value=b?.startsOn||'';$('bnHasta').value=b?.endsOn||'';
+  $('bnFotoMovil').value='';$('bnFotoCompu').value='';
+  pintaBannerForm();pintaVistaBanner();openDrawer();
+}
+// La foto se achica en el teléfono antes de subirla: 1350 px de alto en
+// celular y 1920 de ancho en compu, en WebP. Así carga rápido con datos.
+async function subeFotoBanner(lado,file){
+  if(file.type&&!String(file.type).startsWith('image/'))throw new Error('Elige una imagen (JPG, PNG o WebP).');
+  if(!draft?.carpeta)throw new Error('Este navegador no puede subir la foto. Prueba en otro.');
+  const img=await loadImageFile(file);
+  const enc=await encodeVariant(img,lado==='movil'?1350:1920,0.85,lado==='movil'?460*1024:620*1024);
+  const ruta=`organizations/${ctx.organization_id}/commerce/banners/${draft.carpeta}/${lado}-${Date.now()}.${enc.ext}`;
+  const {error}=await supabase.storage.from(PHOTO_BUCKET).upload(ruta,enc.blob,{contentType:enc.mime,cacheControl:UPLOAD_CACHE_CONTROL,upsert:false});
+  if(error)throw new Error('No se pudo subir la foto. Revisa tu conexión e intenta otra vez.');
+  return ruta;
+}
+['bnTipo','bnDestino'].forEach(id=>$(id)?.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;marcaChip(id,b);id==='bnTipo'?pintaBannerForm():pintaDestino();}));
+$('bnFotoMovil')?.addEventListener('change',e=>{if(draft?.mode!=='banner')return;draft.file=e.target.files?.[0]||null;pintaVistaBanner();});
+$('bnFotoCompu')?.addEventListener('change',e=>{if(draft?.mode!=='banner')return;draft.file2=e.target.files?.[0]||null;pintaVistaBanner();});
+$('bnQuitaCompu')?.addEventListener('click',()=>{if(draft?.mode!=='banner')return;draft.file2=null;draft.img2=null;$('bnFotoCompu').value='';pintaVistaBanner();});
+$('nuevoBanner')?.addEventListener('click',()=>abreBanner(null,'banner'));
+$('nuevaFranja')?.addEventListener('click',()=>abreBanner(null,'franja'));
+$('bnGuardar')?.addEventListener('click',async()=>{
+  if(draft?.mode!=='banner')return;
+  const btn=$('bnGuardar'),antes=btn.textContent;btn.disabled=true;drawerMsg();
+  try{
+    const kind=elegido('bnTipo')?.dataset.tipo||'banner',titulo=$('bnTitulo').value.trim(),destino=elegido('bnDestino')?.dataset.destino||'tienda';
+    const valor=destino==='tienda'?null:($('bnDestinoValor').value||null);
+    if(!titulo)throw new Error('Escribe el título.');
+    if(kind==='banner'&&!draft.file&&!draft.img)throw new Error('Sube la foto para celular.');
+    if(destino!=='tienda'&&!valor)throw new Error('Elige qué abre al tocarlo.');
+    if($('bnDesde').value&&$('bnHasta').value&&$('bnHasta').value<$('bnDesde').value)throw new Error('La fecha de fin va después del inicio.');
+    if(kind==='banner'&&(draft.file||draft.file2)){
+      btn.textContent='Subiendo fotos…';
+      if(draft.file){draft.img=await subeFotoBanner('movil',draft.file);draft.file=null;}
+      if(draft.file2){draft.img2=await subeFotoBanner('compu',draft.file2);draft.file2=null;}
+    }
+    btn.textContent='Guardando…';
+    await rpc('v2_save_store_banner',{organization_id:ctx.organization_id,banner:{id:draft.id,kind,title:titulo,
+      subtitle:kind==='banner'?$('bnFrase').value.trim()||null:null,ctaLabel:$('bnBoton').value.trim()||null,targetKind:destino,targetValue:valor,
+      imagePath:kind==='banner'?draft.img:null,imageDesktopPath:kind==='banner'?draft.img2:null,startsOn:$('bnDesde').value||null,endsOn:$('bnHasta').value||null}});
+    await load();closeDrawerFn();ver='banners';pintaCabecera();
+  }catch(e){drawerMsg(e.message||'No se pudo guardar.');}
+  finally{btn.disabled=false;btn.textContent=antes;}
+});
+$('bannersLista')?.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-bn-acc]');if(!b)return;
+  const bn=vitrinaAdmin.banners.find(x=>x.id===b.closest('[data-bn]')?.dataset.bn);if(!bn)return;
+  const acc=b.dataset.bnAcc;
+  if(acc==='editar')return abreBanner(bn);
+  b.disabled=true;
+  try{
+    if(acc==='subir'||acc==='bajar'){
+      const ids=vitrinaAdmin.banners.filter(x=>x.kind===bn.kind).map(x=>x.id),i=ids.indexOf(bn.id),j=acc==='subir'?i-1:i+1;
+      if(j<0||j>=ids.length)return;
+      [ids[i],ids[j]]=[ids[j],ids[i]];
+      await rpc('v2_order_store_banners',{organization_id:ctx.organization_id,banner_ids:ids});
+    }else{
+      if(acc==='archivar'&&window.tosConfirm&&!(await window.tosConfirm({kicker:'BANNER',title:`¿Archivar "${bn.title}"?`,message:'Deja de salir en la tienda. Lo puedes volver a crear cuando quieras.',confirmText:'Sí, archivar',cancelText:'Cancelar'})))return;
+      await rpc('v2_set_store_banner',{organization_id:ctx.organization_id,banner_id:bn.id,action:acc});
+    }
+    await load();pintaCabecera();
+  }catch(err){alert(err.message||'No se pudo cambiar.');}
+  finally{b.disabled=false;}
+});

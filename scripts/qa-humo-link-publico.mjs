@@ -432,6 +432,53 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   await p3.close();
 }
 
+/* ===== Banners y franja (28/10/2026, h49): "como adidas, Puma, Nike" ===== */
+{
+  const BANNERS = { franja: { id:'f1', title:'Nombre y número GRATIS con el código TANNER', ctaLabel:'Ver gorras', targetKind:'categoria', targetValue:'gorras' },
+    banners: [
+      { id:'b1', title:'Black Edition ya llegó', subtitle:'La que todos quieren.', ctaLabel:'Comprar', targetKind:'producto', targetValue:'p-black', imagePath:'org/banners/b1/movil.webp', imageDesktopPath:null, bucket:'tanneros-private' },
+      { id:'b2', title:'Arma tu kit', subtitle:null, ctaLabel:null, targetKind:'producto', targetValue:'p-ya-no-existe', imagePath:'org/banners/b2/movil.webp', imageDesktopPath:'org/banners/b2/compu.webp', bucket:'tanneros-private' },
+      { id:'b3', title:'Sin foto', targetKind:'tienda', imagePath:null }] };
+  const p4 = await nav.newPage({ viewport:{ width:390, height:844 } });
+  p4.on('pageerror', e => errs.push('banners: ' + e.message));
+  await p4.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
+  await p4.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(){return null}' }));
+  await p4.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+    export function createClient(){return{
+      auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+      storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/qa-foto/'+encodeURIComponent(p)})),error:null})})},
+      rpc:async(n,p={})=>{
+        if(n==='v2_public_offerings')return{data:${JSON.stringify(OFERTA)},error:null};
+        if(n==='v2_public_payment_info')return{data:${JSON.stringify(PAGO)},error:null};
+        if(n==='v2_public_context')return{data:{organizationId:'org-qa',brand:'Club QA'},error:null};
+        if(n==='v2_public_store_banners')return{data:${JSON.stringify(BANNERS)},error:null};
+        return {data:null,error:null};}};}` }));
+  await p4.goto(BASE + '/pedido/', { waitUntil:'networkidle' });
+  await p4.waitForSelector('.st-card', { timeout:8000 });
+  revisa('[banners] la franja de aviso sale arriba y lleva a gorras', /Nombre y número GRATIS/.test(await p4.textContent('.st-franja').catch(() => '')) && (await p4.getAttribute('.st-franja', 'href')) === '#/c/gorras');
+  const bn = await p4.$$eval('.st-bn', els => els.map(e => e.getAttribute('href')));
+  revisa('[banners] salen los dos con foto; el que no tiene foto no', bn.length === 2, JSON.stringify(bn));
+  revisa('[banners] el primero abre la Black Edition; el de una pieza que ya no existe, la portada', bn[0] === '#/p/p-black' && bn[1] === '#/', JSON.stringify(bn));
+  revisa('[banners] título y botón en letra real, encima de la foto', /Black Edition ya llegó/.test(await p4.textContent('.st-bn .st-bn-txt h2')) && /Comprar/.test(await p4.textContent('.st-bn .st-bn-cta')));
+  revisa('[banners] puntos: dos, el primero marcado', (await p4.$$('[data-bn-ir]')).length === 2 && (await p4.getAttribute('[data-bn-ir="0"]', 'aria-current')) === 'true');
+  await p4.click('[data-bn-ir="1"]');
+  await p4.waitForTimeout(900);
+  revisa('[banners] tocar el segundo punto pasa al segundo', (await p4.getAttribute('[data-bn-ir="1"]', 'aria-current')) === 'true' && (await p4.$eval('#stBnPista', e => e.scrollLeft)) > 100);
+  const alto = await p4.$eval('.st-bn', e => { const r = e.getBoundingClientRect(); return Math.round(r.height / r.width * 100); });
+  revisa('[banners] en el celular la foto va 4:5', alto >= 120 && alto <= 130, String(alto));
+  revisa('[banners] nada se sale a 390px', await p4.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+  if (process.env.QA_FOTO_BANNERS) await p4.screenshot({ path: process.env.QA_FOTO_BANNERS });
+  await p4.goto(BASE + '/pedido/#/c/jersey');
+  await p4.waitForTimeout(400);
+  revisa('[banners] en una categoría sale la franja pero no el carrusel', (await p4.$('.st-franja')) !== null && (await p4.$('.st-banners')) === null);
+  await p4.setViewportSize({ width:1280, height:800 });
+  await p4.goto(BASE + '/pedido/#/');
+  await p4.waitForSelector('.st-bn', { timeout:4000 });
+  const compu = await p4.$$eval('.st-bn', els => els.map(e => ({ sin: e.classList.contains('sin-compu'), grid: getComputedStyle(e).display, r: Math.round(e.getBoundingClientRect().width / e.getBoundingClientRect().height * 10) })));
+  revisa('[banners] en compu: a lo ancho (12:5); sin foto de compu, foto a un lado y texto al otro', compu[0].sin && compu[0].grid === 'grid' && !compu[1].sin && compu[1].r === 24, JSON.stringify(compu));
+  if (process.env.QA_FOTO_BANNERS) await p4.screenshot({ path: process.env.QA_FOTO_BANNERS.replace(/\.png$/, '-compu.png') });
+  await p4.close();
+}
 /* ===== Ligas fáciles (28/10/2026): /tienda/<nombre> abre la ficha ===== */
 await pg.goto(BASE + '/tienda/the-tanner-cap?utm_source=instagram', { waitUntil:'networkidle' });
 await pg.waitForSelector('.st-pdp', { timeout:6000 }).catch(() => {});

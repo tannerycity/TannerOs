@@ -43,6 +43,7 @@ import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
+import { bannersParaTienda, destinoDe, CADA_MS } from '/pedido/banners.js';
 import { rutaDeLiga, ligaDe } from '/pedido/ligas.js';
 import { iniciaMedicion, mide, hayIds, cambiaConsentimiento } from '/v2/medicion.js';
 import { serializaCarrito, restauraCarrito, cambiaCantidadEnCarrito, cambiaCantidad, alternaGuardado, guardadosVivos } from '/pedido/carrito.js';
@@ -59,6 +60,7 @@ const $ = id => document.getElementById(id);
 const regions = new Intl.DisplayNames(['es-MX', 'es'], { type: 'region' });
 
 let catalogo = { products: [], bundles: [] };
+let vitrina = { banners: [], franja: null }; // Banners y franja (h49)
 let secciones = [];
 let phoneCountry = 'MX';
 // Lo que se lleva elegido en cada ficha: si se va y regresa, sigue ahí.
@@ -571,6 +573,52 @@ const PASOS_TIENDA = `<ol class="st-pasos" aria-label="Así funciona">
   <li><b>2</b><span><strong>Lo revisamos</strong><small>Tallas, nombre y número</small></span></li>
   <li><b>3</b><span><strong>Se hace</strong><small>Sale al proveedor los viernes</small></span></li>
   <li><b>4</b><span><strong>Te avisamos</strong><small>Tienes ${DIAS_PARA_RECOGER} días para recogerlo</small></span></li></ol>`;
+/* ---------- Banners (28/10/2026, h49) ----------
+   "Como las páginas de adidas, Puma, Nike": arriba de la tienda pasan solos
+   cada 5 segundos; se pueden deslizar con el dedo y se detienen mientras
+   alguien los toca. La foto de celular es la principal; en compu, si hay foto
+   de compu, a lo ancho, y si no, la de celular a un lado con el texto. El
+   texto va encima en letra real, no pegado en la imagen. */
+let carruselTimer = 0;
+function franjaHtml() {
+  const f = vitrina.franja; if (!f?.title) return '';
+  return `<a class="st-franja" href="${esc(destinoDe(f, catalogo))}">${esc(f.title)}${f.ctaLabel ? ` <b>${esc(f.ctaLabel)} ›</b>` : ''}</a>`;
+}
+function carruselHtml() {
+  const lista = bannersParaTienda(vitrina.banners, catalogo).filter(b => fotos.get(b.imagePath));
+  if (!lista.length) return '';
+  return `<section class="st-banners" aria-roledescription="carrusel" aria-label="Lo nuevo de la tienda">
+    <div class="st-bn-pista" id="stBnPista">${lista.map((b, i) => {
+      const compu = b.imageDesktopPath ? fotos.get(b.imageDesktopPath) : '';
+      return `<a class="st-bn${compu ? '' : ' sin-compu'}" href="${esc(b.href)}" aria-roledescription="diapositiva" aria-label="${i + 1} de ${lista.length}: ${esc(b.title)}">
+        <picture>${compu ? `<source media="(min-width: 760px)" srcset="${esc(compu)}">` : ''}<img src="${esc(fotos.get(b.imagePath))}" alt="" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async"></picture>
+        <div class="st-bn-txt"><h2>${esc(b.title)}</h2>${b.subtitle ? `<p>${esc(b.subtitle)}</p>` : ''}<span class="st-bn-cta">${esc(b.ctaLabel || 'Comprar')}</span></div></a>`;
+    }).join('')}</div>
+    ${lista.length > 1 ? `<div class="st-bn-puntos">${lista.map((b, i) => `<button type="button" data-bn-ir="${i}" aria-label="Ver ${i + 1} de ${lista.length}"${i ? '' : ' aria-current="true"'}></button>`).join('')}</div>` : ''}
+  </section>`;
+}
+function armaCarrusel() {
+  clearInterval(carruselTimer);
+  const pista = $('stBnPista'); if (!pista || pista.children.length < 2) return;
+  const total = pista.children.length, puntos = [...document.querySelectorAll('[data-bn-ir]')];
+  let quieto = 0;
+  const actual = () => Math.round(pista.scrollLeft / Math.max(1, pista.clientWidth));
+  const marca = () => { const i = actual(); puntos.forEach((p, j) => (j === i ? p.setAttribute('aria-current', 'true') : p.removeAttribute('aria-current'))); };
+  const ir = i => pista.scrollTo({ left: i * pista.clientWidth, behavior: 'smooth' });
+  pista.addEventListener('scroll', () => requestAnimationFrame(marca), { passive: true });
+  puntos.forEach(p => p.addEventListener('click', () => { quieto = Date.now(); ir(Number(p.dataset.bnIr)); }));
+  // Mientras alguien lo toca o lo mira con el mouse encima, no se mueve solo.
+  ['pointerdown', 'touchstart', 'wheel', 'focusin'].forEach(ev => pista.addEventListener(ev, () => { quieto = Date.now(); }, { passive: true }));
+  pista.addEventListener('mouseenter', () => { quieto = Infinity; });
+  pista.addEventListener('mouseleave', () => { quieto = Date.now(); });
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  carruselTimer = setInterval(() => {
+    if (!pista.isConnected) { clearInterval(carruselTimer); return; }
+    if (document.hidden || Date.now() - quieto < 8000) return;
+    ir((actual() + 1) % total);
+  }, CADA_MS);
+}
+
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
   const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
@@ -582,7 +630,7 @@ function renderTienda(clave = '') {
   }
   /* Dos caminos (09/10/2026): la familia con cuenta entra y ya trae sus datos
      y su Tanner; quien no tiene cuenta compra aquí mismo. */
-  $('content').innerHTML = `
+  $('content').innerHTML = `${franjaHtml()}${activa ? '' : carruselHtml()}
     <section class="st-hero${activa ? '' : ' portada'}">
       ${activa ? '' : '<img class="st-hero-escudo" src="/brand/crest-navy.png" alt="" width="120" height="120">'}
       <p class="st-eyebrow">${esc(clubNombre)}</p>
@@ -1216,6 +1264,7 @@ function ruta() {
   else if (a === 'k' && b) renderKit(decodeURIComponent(b));
   else if (a === 'pedido') renderCheckout();
   else renderTienda(a === 'c' ? decodeURIComponent(b || '') : '');
+  armaCarrusel();
   if (cambia) {
     window.scrollTo(0, 0); cierraAviso(); cierraMini();
     // Ver producto e iniciar el pedido: una vez por visita a la página.
@@ -1398,10 +1447,11 @@ if (hayIds()) {
 }
 try {
   // El catálogo manda; cómo pagar es un extra que no detiene la tienda.
-  const [oferta, pago, club] = await Promise.allSettled([
+  const [oferta, pago, club, banners] = await Promise.allSettled([
     rpc('v2_public_offerings', { club_key: CLUB_KEY }),
     rpc('v2_public_payment_info', { club_key: CLUB_KEY }),
-    rpc('v2_public_context', { club_key: CLUB_KEY })
+    rpc('v2_public_context', { club_key: CLUB_KEY }),
+    rpc('v2_public_store_banners', { club_key: CLUB_KEY })
   ]);
   if (oferta.status !== 'fulfilled') throw oferta.reason;
   if (club.status === 'fulfilled') clubNombre = String(club.value?.brand || club.value?.organizationName || '').trim();
@@ -1422,6 +1472,15 @@ try {
   pagoInfo = pago.status === 'fulfilled' ? pago.value : null;
   catalogo = normalizaOfertaPublica(oferta.value);
   secciones = seccionesDeTienda(catalogo);
+  // Los banners no detienen la tienda: si fallan, la tienda abre sin ellos.
+  if (banners.status === 'fulfilled' && banners.value) {
+    vitrina = { banners: Array.isArray(banners.value.banners) ? banners.value.banners : [], franja: banners.value.franja || null };
+    const rutas = vitrina.banners.flatMap(b => [b.imagePath, b.imageDesktopPath]).filter(r => r && !fotos.has(r));
+    if (rutas.length) {
+      try { for (const [r, u] of Object.entries(await getSignedPhotoUrls(supabase, 'tanneros-private', rutas) || {})) fotos.set(r, u); }
+      catch { /* sin foto, ese banner no sale */ }
+    }
+  }
   // El carrito de la visita anterior, con lo que la tienda todavía vende.
   carrito = restauraCarrito(lee(LLAVE_CARRITO), catalogo);
   piezasAntes = piezasDelCarrito(carrito);

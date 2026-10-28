@@ -594,6 +594,39 @@ body.st-sin-scroll { overflow: hidden; }
 .st-renglon-lista { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .st-renglon-cuerpo .st-guia-tabla { font-size: 14px; }
 
+/* ---- Banners y franja (28/10/2026, h49) ----
+   Celular primero: la foto 4:5 a lo ancho con el texto abajo. En compu, la
+   foto de compu (12:5) con el texto a la izquierda; sin foto de compu, la de
+   celular a un lado y el texto al otro. */
+.st-franja { display: block; margin: 12px -4px 0; padding: 11px 16px; border-radius: 14px; background: var(--st-ink); color: #fff; text-align: center; font-size: 14px; font-weight: 600; line-height: 1.35; text-decoration: none; }
+.st-franja b { color: var(--st-gold); font-weight: 700; white-space: nowrap; }
+.st-banners { position: relative; margin: 14px -4px 0; }
+.st-bn-pista { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: 24px; overscroll-behavior-x: contain; }
+.st-bn-pista::-webkit-scrollbar { display: none; }
+.st-bn { position: relative; flex: 0 0 100%; scroll-snap-align: start; aspect-ratio: 4 / 5; max-height: 80vh; overflow: hidden; background: #0b1418; color: #fff; text-decoration: none; }
+.st-bn picture, .st-bn img { display: block; width: 100%; height: 100%; }
+.st-bn img { object-fit: cover; }
+.st-bn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, .66) 100%); pointer-events: none; }
+.st-bn-txt { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: grid; justify-items: start; gap: 6px; padding: 22px 20px 46px; }
+.st-bn-txt h2 { margin: 0; font-size: 30px; line-height: 1.05; font-weight: 800; letter-spacing: -.02em; text-shadow: 0 2px 14px rgba(0, 0, 0, .35); }
+.st-bn-txt p { margin: 0; max-width: 34ch; font-size: 16px; line-height: 1.35; opacity: .94; }
+.st-bn-cta { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; padding: 0 22px; border-radius: 999px; background: #fff; color: #0b1418; font-size: 15px; font-weight: 700; }
+.st-bn:focus-visible { outline: 3px solid var(--st-gold); outline-offset: -3px; }
+.st-bn-puntos { position: absolute; left: 0; right: 0; bottom: 16px; z-index: 2; display: flex; justify-content: center; gap: 6px; pointer-events: none; }
+.st-bn-puntos button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 99px; background: rgba(255, 255, 255, .55); cursor: pointer; pointer-events: auto; transition: width .25s ease, background .25s ease; }
+.st-bn-puntos button[aria-current] { width: 24px; background: #fff; }
+@media (min-width: 760px) {
+  .st-bn { aspect-ratio: 12 / 5; max-height: none; }
+  .st-bn::after { background: linear-gradient(90deg, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, 0) 62%); }
+  .st-bn-txt { top: 0; right: auto; width: min(50%, 540px); align-content: center; padding: 40px 48px; }
+  .st-bn-txt h2 { font-size: 46px; }
+  .st-bn-txt p { font-size: 18px; }
+  .st-bn.sin-compu { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .st-bn.sin-compu picture { width: auto; height: 100%; aspect-ratio: 4 / 5; }
+  .st-bn.sin-compu::after { display: none; }
+  .st-bn.sin-compu .st-bn-txt { position: static; width: auto; padding: 40px 56px; }
+}
+@media (prefers-reduced-motion: reduce) { .st-bn-pista { scroll-behavior: auto; } .st-bn-puntos button { transition: none; } }
 /* Compartir la pieza (28/10/2026): junto al corazón, la liga fácil. */
 .st-pdp-tit h1 { flex: 1; min-width: 0; }
 .st-pdp-tit .st-compartir svg { fill: none; }

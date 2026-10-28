@@ -16,6 +16,19 @@
 //   · Lo que casi no se usa (otra fecha, nota, referencia, tarjeta, dos
 //     métodos) vive en "Más opciones".
 //
+// Rediseño (28/10/2026). Presidencia: "funciona, pero está bien difícil...
+// debería arrancar con el primer pago, mensualidad tanto, y luego agregar
+// inscripción, otra mensualidad, el uniforme...". Y el caso que no existía:
+// "entra hoy, le cobro $200 de octubre, $800 de inscripción y ya paga
+// noviembre". Ahora:
+//   · Arriba, una sola lista con lo que va en este cobro; cada renglón con su
+//     monto y un botón para quitarlo.
+//   · "+ Agregar" abre todo lo demás, ordenado: lo que debe, mensualidades
+//     (la de este mes con su proporcional y la siguiente por adelantado),
+//     inscripción, arbitraje, otro ingreso, abono y hermanos.
+//   · Una mensualidad que todavía no está en su cuenta nace en el cobro con la
+//     misma llave que el cargo automático (h48): el día 1 no se carga doble.
+//
 // La base hace el reparto en una sola transacción (v2_collect_ticket): o entra
 // todo o nada. Cada parte es el pago de siempre, en la cuenta de su Tanner,
 // ligado por folio: Conciliación y Contabilidad no cambian.
@@ -51,7 +64,7 @@ let s = null;
 function cargaEstilos() {
   if (document.querySelector('link[href^="/v2/cobro/hoja.css"]')) return;
   const l = document.createElement('link');
-  l.rel = 'stylesheet'; l.href = '/v2/cobro/hoja.css?v=20261021b';
+  l.rel = 'stylesheet'; l.href = '/v2/cobro/hoja.css?v=20261028a';
   document.head.appendChild(l);
 }
 
@@ -109,6 +122,40 @@ function inscripcionSugerida(nacimiento) {
   return caben[0] || cats[0];
 }
 
+// La mensualidad que le toca: la de su ficha y, si aún no tiene, la de Costos
+// por su edad (la primera opción de su categoría).
+function mensualidadSugerida(cuenta) {
+  const fija = Number(cuenta.col?.monthly?.fee);
+  if (fija > 0) return fija;
+  const t = aplicaPrecios(TARIFAS, principal()?.col?.prices || null), c = inscripcionSugerida(cuenta.nacimiento);
+  const cat = (t.categorias || []).find(x => x.clave === c?.clave);
+  return Number(cat?.opciones?.[0]?.mensualidad) || 0;
+}
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const mesMas = (ym, k) => { const [a, m] = ym.split('-').map(Number), d = new Date(a, m - 1 + k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+const nombreMes = ym => MESES[Number(ym.slice(5, 7)) - 1] || ym;
+// Las mensualidades que todavía no están en su cuenta: este mes (con su
+// proporcional si entró este mes) y los dos siguientes, por adelantado.
+// Sin el dato de la base (antes de h48) no se ofrecen.
+export function mesesSugeridos(cuenta, hoy = hoyLocal()) {
+  const m = cuenta?.col?.monthly; if (!m) return [];
+  const yaHay = new Set(m.charged || []), base = String(cuenta.col.today || hoy).slice(0, 7), cuota = mensualidadSugerida(cuenta);
+  const out = [];
+  for (let k = 0; k < 3 && out.length < 2; k++) {
+    const ym = mesMas(base, k);
+    if (yaHay.has(ym)) continue;
+    // Si no tiene fecha de inicio, se toma que entra hoy.
+    const inicio = String(m.start || (k === 0 ? (cuenta.col.today || hoy) : '')).slice(0, 10);
+    const dia = inicio.slice(0, 7) === ym ? Number(inicio.slice(8, 10)) : 0;
+    const semanas = dia && (m.proration || 'weekly_quarters') === 'weekly_quarters' ? (dia <= 7 ? 4 : dia <= 14 ? 3 : dia <= 21 ? 2 : 1) : 4;
+    const monto = cuota ? Math.round(cuota * semanas / 4) : null;
+    const detalle = semanas < 4 ? `Proporcional: entró el ${dia} · ${semanas} de 4 semanas` : ym === base ? 'Este mes' : 'Por adelantado';
+    out.push({ key: `m:${cuenta.id}:${ym}`, kind: 'month', player: cuenta.id, period: `${ym}-01`, sugerido: monto, detalle,
+      label: etiqueta(`Mensualidad ${nombreMes(ym)}`, cuenta) });
+  }
+  return out;
+}
+
 const principal = () => s?.cuentas.get(s.playerId);
 const variasCuentas = () => s.cuentas.size > 1;
 const etiqueta = (label, cuenta) => (variasCuentas() ? `${label} · ${primerNombre(cuenta.nombre)}` : label);
@@ -123,7 +170,7 @@ function opcionesDe(cuenta) {
     label: etiqueta(`Uniforme ${o.folio}`, cuenta), max: Number(o.balance) })) : [];
   const reg = !cargos.some(c => c.type === 'registration') && inscripciones().length
     ? [{ key: `reg:${cuenta.id}`, kind: 'registration', player: cuenta.id, nacimiento: cuenta.nacimiento, label: etiqueta('Inscripción', cuenta) }] : [];
-  return { cargos, pedidos, reg };
+  return { cargos, pedidos, reg, meses: mesesSugeridos(cuenta) };
 }
 function extras() {
   const p = s.playerId;
@@ -133,7 +180,7 @@ function extras() {
 }
 function todasLasOpciones() {
   const out = [];
-  for (const c of s.cuentas.values()) { const o = opcionesDe(c); out.push(...o.cargos, ...o.pedidos, ...o.reg); }
+  for (const c of s.cuentas.values()) { const o = opcionesDe(c); out.push(...o.cargos, ...o.pedidos, ...o.meses, ...o.reg); }
   return [...out, ...extras()];
 }
 
@@ -141,6 +188,7 @@ function agrega(o) {
   if (s.sel.has(o.key)) return;
   const item = { ...o };
   if (o.kind === 'charge' || o.kind === 'order') item.amount = o.max;
+  else if (o.kind === 'month') item.amount = o.sugerido ?? '';
   else if (o.kind === 'registration') { const c = inscripcionSugerida(o.nacimiento); item.cat = c?.clave || ''; item.total = c?.precio || ''; item.amount = c?.precio || ''; }
   else item.amount = '';
   s.sel.set(o.key, item);
@@ -155,28 +203,41 @@ function pinta() {
   if (s.cargando) { b.innerHTML = `${cab('Cobrar', s.nombre)}<p class="pres-nota">Cargando lo que debe…</p>`; return; }
   if (s.fallo) { b.innerHTML = `${cab('Cobrar', s.nombre)}<div class="pres-error" role="alert">${esc(s.fallo)}</div>`; return; }
   if (s.hecho) { b.innerHTML = cab('Cobro registrado', nombres()) + hechoHtml(); return; }
-  const chip = o => `<button type="button" class="cobro-chip" data-chip="${esc(o.key)}" aria-pressed="${s.sel.has(o.key)}">${esc(o.label)}${o.max != null ? `<b>${money.format(o.max)}</b>` : '<i aria-hidden="true">+</i>'}</button>`;
-  const bloques = [...s.cuentas.values()].map(c => {
-    const o = opcionesDe(c), debe = [...o.cargos, ...o.pedidos];
-    const titulo = variasCuentas() ? `<span class="cobro-quien-es">${esc(c.nombre)}</span>` : '';
-    const lista = debe.length ? `<div class="cobro-chips">${debe.map(chip).join('')}</div>` : `<p class="cobro-vacio">${variasCuentas() ? `${esc(primerNombre(c.nombre))} no debe nada.` : 'No debe nada. Puedes cobrar inscripción, arbitraje o un adelanto.'}</p>`;
-    return `${titulo}${lista}${o.reg.length && variasCuentas() ? `<div class="cobro-chips cobro-extra">${o.reg.map(chip).join('')}</div>` : ''}`;
-  }).join('');
-  const extraChips = [...(variasCuentas() ? [] : opcionesDe(principal()).reg), ...extras()].map(chip).join('');
-  const hermanos = (s.familia || []).filter(h => !s.cuentas.has(h.id));
-  const familia = hermanos.length ? `<div class="cobro-chips cobro-hermanos">${hermanos.map(h => `<button type="button" class="cobro-chip" data-hermano="${esc(h.id)}">+ ${esc(primerNombre(h.name))}${Number(h.balance) > 0 ? `<b>${money.format(Number(h.balance))}</b>` : '<i aria-hidden="true">hermano</i>'}</button>`).join('')}</div>` : '';
-  const lineas = [...s.sel.values()].map(lineaHtml).join('');
+  const lineas = [...s.sel.values()];
   const t = total();
   const err = s.error ? `<div class="pres-error" role="alert">${esc(s.error)}</div>` : '';
+  const lista = lineas.length ? `<ul class="cobro-va">${lineas.map(lineaHtml).join('')}</ul>`
+    : `<p class="cobro-vacio">${debeAlgo() ? 'Toca Agregar y elige qué paga.' : 'No debe nada. Agrega la mensualidad, la inscripción o lo que vaya a pagar.'}</p>`;
   b.innerHTML = `${cab('Cobrar', nombres())}<form class="pres-form cobro-form" novalidate>
     ${quienHtml()}
-    <div class="cobro-bloque"><span class="cobro-titulo">¿Qué paga? <small>toca para agregar</small></span>${bloques}
-      <div class="cobro-chips cobro-extra">${extraChips}</div>${familia}</div>
-    ${lineas ? `<div class="cobro-lineas">${lineas}</div>` : ''}
-    <div class="cobro-total"><span>Total que recibes</span><strong id="cobroTotal">${money.format(t)}</strong></div>
+    <section class="cobro-bloque" aria-label="Lo que paga"><span class="cobro-titulo">Va en este cobro</span>${lista}
+      <button type="button" class="cobro-agregar" data-agregar aria-expanded="${!!s.panel}"><i aria-hidden="true">+</i> ${lineas.length ? 'Agregar otro concepto' : 'Agregar qué paga'}</button>
+      ${s.panel ? panelHtml() : ''}</section>
+    <div class="cobro-total"><span>Total</span><strong id="cobroTotal">${money.format(t)}</strong></div>
     ${s.mas ? masHtml(t) : ''}
     ${err}${botonesHtml(t)}
   </form>`;
+}
+const debeAlgo = () => [...s.cuentas.values()].some(c => { const o = opcionesDe(c); return o.cargos.length || o.pedidos.length; });
+
+// "+ Agregar": todo lo que se puede cobrar, en el orden en que se piensa.
+// Lo que ya va en el cobro no se repite aquí.
+function panelHtml() {
+  const libre = o => !s.sel.has(o.key);
+  const fila = (o, monto, detalle = '') => `<button type="button" class="cobro-op" data-chip="${esc(o.key)}"><span><strong>${esc(o.label)}</strong>${detalle ? `<small>${esc(detalle)}</small>` : ''}</span>${monto != null && monto !== '' ? `<b>${money.format(monto)}</b>` : '<i aria-hidden="true">›</i>'}</button>`;
+  const grupo = (titulo, filas) => filas.length ? `<div class="cobro-grupo"><span class="cobro-grupo-tit">${esc(titulo)}</span>${filas.join('')}</div>` : '';
+  const cuentas = [...s.cuentas.values()].map(c => ({ c, o: opcionesDe(c) }));
+  const quien = c => (variasCuentas() ? ` · ${primerNombre(c.nombre)}` : '');
+  const debe = cuentas.flatMap(({ c, o }) => [...o.cargos, ...o.pedidos].filter(libre).map(x => fila(x, x.max, x.kind === 'order' ? 'Uniforme pendiente' : `Debe${quien(c)}`)));
+  const meses = cuentas.flatMap(({ o }) => o.meses.filter(libre).map(x => fila(x, x.sugerido, x.detalle)));
+  const otros = [
+    ...cuentas.flatMap(({ o }) => o.reg.filter(libre).map(x => fila(x, inscripcionSugerida(x.nacimiento)?.precio, 'Se carga y se paga hoy'))),
+    ...extras().filter(libre).map(x => fila(x, null, x.kind === 'abono' ? 'Queda a favor para lo que siga' : x.key === 'arb' ? 'Partido o torneo' : 'Torneo, curso, renta…'))
+  ];
+  const hermanos = (s.familia || []).filter(h => !s.cuentas.has(h.id)).map(h => `<button type="button" class="cobro-op" data-hermano="${esc(h.id)}"><span><strong>${esc(h.name)}</strong><small>Agregar a su hermano al mismo cobro</small></span>${Number(h.balance) > 0 ? `<b>${money.format(Number(h.balance))}</b>` : '<i aria-hidden="true">+</i>'}</button>`);
+  return `<div class="cobro-panel" role="group" aria-label="Agregar al cobro">
+    ${grupo('Lo que debe', debe)}${grupo('Mensualidades', meses)}${grupo('Otros conceptos', otros)}${grupo('Hermanos', hermanos)}
+    <button type="button" class="cobro-link cobro-panel-cierra" data-agregar>Cerrar</button></div>`;
 }
 
 // Quién cobra. Con cuenta personal es el usuario y no se pregunta; con una
@@ -197,23 +258,23 @@ function quienHtml() {
 
 function lineaHtml(i) {
   const monto = () => `<span class="cobro-peso"><input type="text" inputmode="decimal" data-monto="${esc(i.key)}" value="${esc(String(i.amount ?? ''))}" placeholder="0" aria-label="Monto de ${esc(i.label)}"></span>`;
-  const quita = `<button type="button" class="cobro-quita" data-quita="${esc(i.key)}" aria-label="Quitar ${esc(i.label)}">×</button>`;
+  const quita = `<button type="button" class="cobro-quita" data-quita="${esc(i.key)}" aria-label="Quitar ${esc(i.label)}"><span aria-hidden="true"></span></button>`;
+  const renglon = (titulo, nota, abajo = '') => `<li class="cobro-linea" data-linea="${esc(i.key)}">${quita}
+    <div class="cobro-linea-txt"><strong>${esc(titulo)}</strong>${nota ? `<small class="cobro-nota">${nota}</small>` : ''}</div>${monto()}${abajo ? `<div class="cobro-linea-mas">${abajo}</div>` : ''}</li>`;
   if (i.kind === 'registration') {
     const cats = inscripciones();
     const elige = cats.length > 1 ? `<div class="cobro-mini">${cats.map(c => `<button type="button" data-cat="${esc(c.clave)}" data-reg="${esc(i.key)}" aria-pressed="${i.cat === c.clave}">${esc(c.nombre)} ${money.format(c.precio)}</button>`).join('')}</div>` : '';
-    const abono = num(i.amount) > 0 && num(i.total) > num(i.amount) ? `<small class="cobro-nota">Queda a deber ${money.format(num(i.total) - num(i.amount))} de inscripción.</small>` : '';
-    return `<div class="cobro-linea" data-linea="${esc(i.key)}"><div class="cobro-linea-top"><strong>${esc(i.label)}</strong>${quita}</div>${elige}
-      <div class="cobro-dos"><label>Precio<span class="cobro-peso"><input type="text" inputmode="decimal" data-total="${esc(i.key)}" value="${esc(String(i.total ?? ''))}" placeholder="0"></span></label>
-      <label>Paga hoy${monto()}</label></div>${abono}</div>`;
+    const abono = num(i.amount) > 0 && num(i.total) > num(i.amount) ? `Queda a deber ${money.format(num(i.total) - num(i.amount))} de inscripción.` : 'Paga completa';
+    return renglon(i.label, esc(abono), `${elige}<label class="cobro-precio">Precio de la inscripción<span class="cobro-peso"><input type="text" inputmode="decimal" data-total="${esc(i.key)}" value="${esc(String(i.total ?? ''))}" placeholder="0"></span></label>`);
   }
   if (i.kind === 'income' && i.key === 'otro') {
     const opts = ['', ...OTROS].map(c => `<option value="${esc(c)}"${c === i.category ? ' selected' : ''}>${c ? esc(c) : 'Elige…'}</option>`).join('');
-    return `<div class="cobro-linea" data-linea="otro"><div class="cobro-linea-top"><strong>Otro ingreso</strong>${quita}</div>
-      <div class="cobro-dos"><label>Categoría<select data-categoria="otro">${opts}</select></label><label>Monto${monto()}</label></div>
-      <label><span>Concepto <span class="cobro-opt">· opcional</span></span><input type="text" data-concepto="otro" maxlength="80" value="${esc(i.concept || '')}" placeholder="Ej. Torneo de Navidad"></label></div>`;
+    return renglon('Otro ingreso', '', `<div class="cobro-dos"><label>Categoría<select data-categoria="otro">${opts}</select></label>
+      <label><span>Concepto <span class="cobro-opt">· opcional</span></span><input type="text" data-concepto="otro" maxlength="80" value="${esc(i.concept || '')}" placeholder="Ej. Torneo de Navidad"></label></div>`);
   }
-  const tope = i.max != null ? `<small class="cobro-nota">Debe ${money.format(i.max)}${num(i.amount) > 0 && num(i.amount) < i.max ? ` · queda ${money.format(i.max - num(i.amount))}` : ''}</small>` : i.kind === 'abono' ? '<small class="cobro-nota">Se aplica a lo más antiguo; si sobra, queda a favor.</small>' : '';
-  return `<div class="cobro-linea" data-linea="${esc(i.key)}"><div class="cobro-linea-top"><strong>${esc(i.label)}</strong>${monto()}${quita}</div>${tope}</div>`;
+  const nota = i.max != null ? `Debe ${money.format(i.max)}${num(i.amount) > 0 && num(i.amount) < i.max ? ` · queda ${money.format(i.max - num(i.amount))}` : ''}`
+    : i.kind === 'month' ? esc(i.detalle || '') : i.kind === 'abono' ? 'Se aplica a lo más antiguo; si sobra, queda a favor.' : '';
+  return renglon(i.label, nota);
 }
 
 // Lo que casi no se usa: otra fecha (17% de los cobros), nota (3%),
@@ -291,12 +352,15 @@ function alClic(e) {
   const t = e.target.closest('button,a'); if (!t || !s) return;
   if (t.matches('[data-cobro-cerrar]')) { if (!s.enviando) cierra(); return; }
   if (s.enviando) return;
+  if (t.hasAttribute('data-agregar')) { s.panel = !s.panel; pinta(); if (s.panel) document.querySelector('#cobroBody .cobro-panel button')?.focus(); return; }
   if (t.dataset.chip) {
     const o = todasLasOpciones().find(x => x.key === t.dataset.chip); if (!o) return;
     if (s.sel.has(o.key)) s.sel.delete(o.key); else agrega(o);
-    s.error = ''; pinta();
-    if (s.sel.has(o.key) && o.max == null) document.querySelector(`[data-linea="${CSS.escape(o.key)}"] input`)?.focus();
-  } else if (t.dataset.hermano) sumaHermano(t.dataset.hermano);
+    s.error = ''; s.panel = false; pinta();
+    // Lo que no trae monto se escribe de una vez.
+    const i = s.sel.get(o.key);
+    if (i && !(num(i.amount) > 0)) document.querySelector(`[data-linea="${CSS.escape(o.key)}"] [data-monto]`)?.focus();
+  } else if (t.dataset.hermano) { s.panel = false; sumaHermano(t.dataset.hermano); }
   else if (t.dataset.quita) { s.sel.delete(t.dataset.quita); pinta(); }
   else if (t.dataset.cat) {
     const c = inscripciones().find(x => x.clave === t.dataset.cat), i = s.sel.get(t.dataset.reg);
@@ -370,6 +434,7 @@ function cuerpo() {
     if (i.kind === 'charge') return { kind: 'charge', player_id: p, charge_id: i.id, amount: a };
     if (i.kind === 'order') return { kind: 'order', player_id: p, order_id: i.id, amount: a };
     if (i.kind === 'registration') return { kind: 'registration', player_id: p, total: num(i.total), amount: a };
+    if (i.kind === 'month') return { kind: 'month', player_id: p, period: i.period, total: a, amount: a };
     if (i.kind === 'income') return { kind: 'income', player_id: p, category: i.category, concept: (i.concept || '').trim() || i.category, amount: a };
     return { kind: 'abono', player_id: p, amount: a };
   });
@@ -419,7 +484,7 @@ export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', na
   asegura();
   s = { rpc, org, playerId, nombre: nombre || 'este Tanner', telefono, alTerminar, cargando: true, fallo: '',
     cuentas: new Map([[playerId, { id: playerId, nombre: nombre || 'este Tanner', nacimiento, col: null }]]), familia: [], sel: new Map(),
-    mas: false, metodo: 'cash', metodo2: 'transfer', dos: false, monto1: '', ref: '', fecha: hoyLocal(), obs: '',
+    mas: false, panel: false, metodo: 'cash', metodo2: 'transfer', dos: false, monto1: '', ref: '', fecha: hoyLocal(), obs: '',
     compartida, quien: compartida ? leeLocal(QUIEN) : String(quien || '').trim(), cambiaQuien: false,
     llave: llave(), enviando: false, error: '', hecho: null };
   const yo = s;
@@ -443,7 +508,13 @@ export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', na
     for (const c of opcionesDe(principal()).cargos) if (preseleccion === 'todo' || (preseleccion && c.period === preseleccion)) agrega(c);
     // Desde un pedido de Tienda (21/10/2026): 'o:<id>' deja ese pedido ya elegido.
     for (const o of opcionesDe(principal()).pedidos) if (preseleccion === o.key) agrega(o);
+    // Arranca con el primer pago: lo más antiguo que debe o, si no debe nada,
+    // la mensualidad que le toca. Lo demás se agrega.
+    if (!s.sel.size && col.canCollect) {
+      const o = opcionesDe(principal()), primero = o.cargos[0] || o.meses[0];
+      if (primero) agrega(primero);
+    }
   }
   pinta();
-  setTimeout(() => document.querySelector('#cobroBody [data-chip], #cobroBody #cobroQuienNuevo')?.focus(), 60);
+  setTimeout(() => document.querySelector('#cobroBody #cobroQuienNuevo, #cobroBody [data-agregar]')?.focus(), 60);
 }

@@ -168,9 +168,10 @@ const visible = (pg, sel) => pg.isVisible(sel).catch(() => false);
   revisa('1. pedido de un niño: botón Cobrar con el saldo', (await visible(pg, '#cobrarPedido')) && /Cobrar \$1,450\.00/.test(await pg.textContent('#cobrarPedido')), await pg.textContent('#cobrarPedido').catch(() => ''));
   revisa('1. y el formulario viejo no se ve', !(await visible(pg, '#paymentForm')));
   await pg.click('#cobrarPedido');
-  await pg.waitForSelector('#cobroSheet:not(.hidden) [data-chip]', { timeout:5000 }).catch(() => {});
-  const chip = await pg.getAttribute('#cobroSheet [data-chip="o:o-nuevo"]', 'aria-pressed').catch(() => null);
-  revisa('2. la hoja abre con el pedido ya elegido', chip === 'true', String(chip));
+  // Rediseño 28/10/2026: lo elegido es un renglón de "Va en este cobro".
+  await pg.waitForSelector('#cobroSheet:not(.hidden) [data-linea]', { timeout:5000 }).catch(() => {});
+  const chip = await pg.$$eval('#cobroSheet [data-linea]', els => els.map(e => e.dataset.linea).join()).catch(() => null);
+  revisa('2. la hoja abre con el pedido ya elegido', chip === 'o:o-nuevo', String(chip));
   const pidio = (await pg.evaluate(() => window.__rpc.filter(r => r.n === 'v2_player_collection').map(r => r.p.player_id))).join();
   revisa('2. y es la cuenta del niño ligado', pidio === 't1', pidio);
   await pg.keyboard.press('Escape');

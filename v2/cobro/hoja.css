@@ -63,3 +63,35 @@
 .cobro-quien-es{display:block;margin-top:4px;font-size:12.5px;font-weight:800;color:#05505d}
 .cobro-hermanos .cobro-chip{border-style:dashed;border-color:#087d8e;color:#05505d}
 .cobro-hermanos .cobro-chip i{font-size:11px;font-weight:700;color:#6b7a80}
+
+/* ---- Rediseño 28/10/2026: una lista y "+ Agregar", como en el iPhone ---- */
+.cobro-titulo{font-size:13px;font-weight:600;color:#6b7a80;text-transform:uppercase;letter-spacing:.04em}
+.cobro-va{list-style:none;margin:0;padding:0;border:1px solid #e3e8e7;border-radius:16px;background:#fff;overflow:hidden}
+.cobro-va .cobro-linea{display:grid;grid-template-columns:auto minmax(0,1fr) 124px;align-items:center;gap:10px;padding:10px 12px 10px 10px;border:0;border-bottom:1px solid #eef1f0;border-radius:0;background:none}
+.cobro-va .cobro-linea:last-child{border-bottom:0}
+.cobro-linea-txt{display:grid;gap:2px;min-width:0}
+.cobro-linea-txt strong{font-size:15.5px;font-weight:600;color:#0d2730;letter-spacing:-.01em}
+.cobro-linea-txt .cobro-nota{font-size:12.5px}
+.cobro-linea-mas{grid-column:2/-1;display:grid;gap:8px;padding-bottom:4px}
+.cobro-precio{display:grid;grid-template-columns:minmax(0,1fr) 124px;align-items:center;gap:10px;font-size:13px;font-weight:600;color:#4a6870}
+/* Quitar: el círculo rojo con menos, como al editar una lista en el iPhone. */
+.cobro-va .cobro-quita{position:relative;flex:none;width:24px;height:24px;border-radius:50%;background:#ff3b30;padding:0}
+.cobro-va .cobro-quita span{position:absolute;left:6px;right:6px;top:50%;height:2px;margin-top:-1px;border-radius:2px;background:#fff}
+.cobro-va .cobro-peso input{min-height:42px;border-radius:11px;background:#f4f6f6;border:1px solid transparent;font-size:17px}
+.cobro-va .cobro-peso input:focus{background:#fff;border-color:#087d8e}
+.cobro-agregar{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;border:1.5px dashed #9cc5cb;border-radius:14px;background:#f3fafb;color:#05505d;font:inherit;font-size:15.5px;font-weight:700;cursor:pointer}
+.cobro-agregar i{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#087d8e;color:#fff;font-style:normal;font-size:18px;line-height:1}
+.cobro-agregar[aria-expanded="true"]{border-style:solid;background:#fff}
+.cobro-panel{display:grid;gap:14px;padding:12px;border-radius:16px;background:#f4f6f6;border:1px solid #e3e8e7}
+.cobro-grupo{display:grid;border-radius:14px;background:#fff;overflow:hidden;border:1px solid #e9edec}
+.cobro-grupo-tit{padding:10px 14px 4px;font-size:12px;font-weight:700;color:#6b7a80;text-transform:uppercase;letter-spacing:.04em}
+.cobro-op{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;padding:8px 14px;border:0;border-top:1px solid #eef1f0;background:#fff;font:inherit;text-align:left;cursor:pointer}
+.cobro-grupo-tit + .cobro-op{border-top:0}
+.cobro-op:active{background:#eef5f6}
+.cobro-op span{display:grid;gap:2px;min-width:0}
+.cobro-op strong{font-size:15px;font-weight:600;color:#0d2730}
+.cobro-op small{font-size:12.5px;color:#6b7a80}
+.cobro-op b{flex:none;font-size:15px;font-weight:700;color:#0d2730;font-variant-numeric:tabular-nums}
+.cobro-op i{flex:none;font-style:normal;font-size:20px;color:#9aa6ab}
+.cobro-panel-cierra{justify-self:center;text-decoration:none}
+@media (max-width:420px){.cobro-va .cobro-linea{grid-template-columns:auto minmax(0,1fr) 108px}.cobro-precio{grid-template-columns:minmax(0,1fr) 108px}}

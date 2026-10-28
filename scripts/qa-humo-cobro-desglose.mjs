@@ -58,8 +58,13 @@ const COBRO = (canCollect) => ({
     { id:'c-pat', type:'monthly_fee', period:'2026-10-01', label:'Mensualidad oct', balance:500, sponsor:true }
   ],
   orders: [{ id:'o1', folio:'PED-0042', total:900, balance:350 }],
-  tickets: { 'pay-1': { folio:7, ticket:'t7', parts:2 } }
+  tickets: { 'pay-1': { folio:7, ticket:'t7', parts:2 } },
+  // h48: su mensualidad y qué meses ya tienen cargo. Noviembre no: se cobra por adelantado.
+  today:'2026-10-28', monthly:{ fee:800, start:'2026-08-01', proration:'weekly_quarters', charged:['2026-08','2026-09','2026-10'] }
 });
+// Un Tanner que entra hoy (28): no debe nada y octubre aún no tiene cargo.
+const COBRO_NUEVO = { canCollect:true, canOrders:true, prices:null, orders:[], tickets:{}, charges:[],
+  today:'2026-10-28', monthly:{ fee:800, start:'2026-10-28', proration:'weekly_quarters', charged:[] } };
 const COBRO_HERMANA = { canCollect:true, canOrders:true, prices:null, orders:[], tickets:{},
   charges: [{ id:'h-oct', type:'monthly_fee', period:'2026-10-01', label:'Mensualidad oct', balance:400, sponsor:false }] };
 
@@ -69,7 +74,7 @@ const foto = async (p, n) => { if (process.env.FOTOS) await p.screenshot({ path:
 const revisa = (n, ok, d = '') => revisiones.push({ nombre:n, ok, detalle:d });
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 
-async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario = { display_name:'Mich', role:'Presidencia' }) {
+async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario = { display_name:'Mich', role:'Presidencia' }, cobroDe = null) {
   const p = await nav.newPage({ viewport:{ width:ancho, height:844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   await p.addInitScript(({ estado, cobro, hermana, usuario }) => {
@@ -102,7 +107,7 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
       from:()=>({ select(){return this;}, eq(){return this;}, order(){return this;}, limit(){return Promise.resolve({data:[],error:null});}, then(r){return Promise.resolve({data:[],error:null}).then(r);} }),
       channel:()=>({ on(){return this;}, subscribe(){return this;} }), removeChannel(){}
     };
-  }, { estado:ESTADO, cobro:COBRO(canCollect), hermana:COBRO_HERMANA, usuario });
+  }, { estado:ESTADO, cobro:cobroDe || COBRO(canCollect), hermana:COBRO_HERMANA, usuario });
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
@@ -113,6 +118,10 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
 const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n === n), n);
 const texto = async (p, sel) => ((await p.textContent(sel)) || '').replace(/\s+/g, ' ');
 const hoja = '#cobroSheet:not(.hidden) .cobro-form';
+// "+ Agregar" abre la lista; de ahí se toca el concepto.
+const abrePanel = async p => { if (!(await p.$('#cobroBody .cobro-panel'))) await p.click('#cobroBody [data-agregar]'); };
+const agrega = async (p, k) => { await abrePanel(p); await p.click(`#cobroBody [data-chip="${k}"]`); };
+const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.dataset.linea));
 
 /* ---------- Estado de cuenta: cobrar aquí mismo ---------- */
 {
@@ -131,24 +140,30 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   await p.click('.tan-balance [data-cobrar]');
   await p.waitForSelector(hoja, { timeout:5000 });
   await p.waitForTimeout(300); await foto(p, 'cobro-hoja-arriba');
-  const elegidos = await p.$$eval('[data-chip][aria-pressed="true"]', els => els.map(e => e.dataset.chip));
+  const elegidos = await lineas(p);
   revisa('[hoja] propone todo lo que debe', JSON.stringify(elegidos) === JSON.stringify(['c:c-ago','c:c-oct','c:c-rec']), JSON.stringify(elegidos));
-  revisa('[hoja] el cargo de patrocinador no se ofrece', !(await p.$('[data-chip="c:c-pat"]')));
+  await abrePanel(p); await foto(p, 'cobro-agregar');
+  revisa('[agregar] el cargo de patrocinador no se ofrece', !(await p.$('[data-chip="c:c-pat"]')) && !(await p.$('[data-linea="c:c-pat"]')));
+  revisa('[agregar] lo que ya va en el cobro no se repite en la lista', !(await p.$('.cobro-panel [data-chip="c:c-oct"]')));
+  const nov = await texto(p, '[data-chip="m:p1:2026-11"]').catch(() => '');
+  revisa('[agregar] ofrece noviembre por adelantado con su mensualidad', /Mensualidad nov/.test(nov) && /Por adelantado/.test(nov) && /\$800\.00/.test(nov), nov);
+  revisa('[agregar] octubre ya tiene cargo: no se ofrece otra vez', !(await p.$('[data-chip="m:p1:2026-10"]')));
   revisa('[hoja] el total arranca en $1,100.00', /\$1,100\.00/.test(await texto(p, '#cobroTotal')));
-  revisa('[hoja] ofrece el uniforme con su saldo', /Uniforme PED-0042\s*\$350\.00/.test(await texto(p, '[data-chip="o:o1"]')));
+  revisa('[hoja] ofrece el uniforme con su saldo', /Uniforme PED-0042.*\$350\.00/.test(await texto(p, '[data-chip="o:o1"]')));
+  await p.click('#cobroBody [data-agregar]');
   revisa('[hoja] no pregunta quién cobra (cuenta personal)', !(await p.$('#cobroQuienNuevo')) && !(await p.$('.cobro-cobra')));
   revisa('[hoja] lo raro está escondido: sin fecha, nota ni referencia a la vista', !(await p.$('#cobroFecha')) && !(await p.$('#cobroObs')) && !(await p.$('#cobroRef')));
   const botones = await p.$$eval('[data-pagar]', els => els.map(e => `${e.dataset.pagar}:${e.textContent.replace(/\s+/g, ' ').trim()}`));
   revisa('[hoja] el último toque dice el método y el total', JSON.stringify(botones) === JSON.stringify(['cash:Efectivo $1,100.00','transfer:Transferencia $1,100.00']), JSON.stringify(botones));
 
   // Inscripción: Liam tiene 12 años, le toca Tanners ($800 en Costos).
-  await p.click('[data-chip="reg:p1"]');
+  await agrega(p, 'reg:p1');
   revisa('[inscripción] propone $800 de Tanners por su edad', await p.inputValue('[data-total="reg:p1"]') === '800' && await p.inputValue('[data-monto="reg:p1"]') === '800');
   await p.click('[data-cat="baby"]');
   revisa('[inscripción] cambiar a Baby Tanners pone $500', await p.inputValue('[data-total="reg:p1"]') === '500');
   await p.click('[data-cat="tanner"]');
   await p.fill('[data-monto="reg:p1"]', '500');
-  await p.click('[data-chip="arb"]');
+  await agrega(p, 'arb');
   revisa('[inscripción] abonar dice cuánto queda a deber', /Queda a deber \$300\.00/.test(await texto(p, '[data-linea="reg:p1"]')));
 
   await p.click('[data-pagar="cash"]');
@@ -163,10 +178,11 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   revisa('[validación] al corregir el monto se quita el aviso', !(await p.$('#cobroBody .pres-error')));
 
   // Hermana: un toque la agrega con lo que debe.
-  revisa('[hermanos] ofrece a la hermana con lo que debe', /Sofía\s*\$400\.00/.test(await texto(p, '[data-hermano="p2"]')));
+  await abrePanel(p);
+  revisa('[hermanos] ofrece a la hermana con lo que debe', /Sofía.*\$400\.00/.test(await texto(p, '[data-hermano="p2"]')));
   await p.click('[data-hermano="p2"]');
-  await p.waitForSelector('[data-chip="c:h-oct"][aria-pressed="true"]', { timeout:4000 });
-  revisa('[hermanos] su mensualidad entra elegida y con su nombre', /Mensualidad oct · Sofía/.test(await texto(p, '[data-chip="c:h-oct"]')) && /Sofía Santos/.test(await texto(p, '#cobroBody')));
+  await p.waitForSelector('[data-linea="c:h-oct"]', { timeout:4000 });
+  revisa('[hermanos] su mensualidad entra elegida y con su nombre', /Mensualidad oct · Sofía/.test(await texto(p, '[data-linea="c:h-oct"]')) && /Sofía Santos/.test(await texto(p, '#cobroBody')));
   revisa('[hermanos] el total ya la incluye: $2,150.00', /\$2,150\.00/.test(await texto(p, '#cobroTotal')));
 
   // Dos métodos: en "Más opciones"
@@ -208,9 +224,9 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   // Tocar un mes abre sólo ese mes, y se cobra en 1 toque más.
   await p.click('.tan-meses [data-cobrar="2026-08"]');
   await p.waitForSelector(hoja, { timeout:5000 });
-  const delMes = await p.$$eval('[data-chip][aria-pressed="true"]', els => els.map(e => e.dataset.chip));
+  const delMes = await lineas(p);
   revisa('[mes] tocar agosto abre el cobro sólo con agosto', JSON.stringify(delMes) === JSON.stringify(['c:c-ago']), JSON.stringify(delMes));
-  await p.click('[data-chip="otro"]');
+  await agrega(p, 'otro');
   await p.fill('[data-monto="otro"]', '200');
   await p.click('[data-pagar="transfer"]');
   revisa('[validación] otro ingreso pide categoría', /categoría/.test(await texto(p, '.pres-error')));
@@ -221,6 +237,33 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   revisa('[mes] un toque en "Transferencia" cobra agosto por transferencia', JSON.stringify(ult.methods) === JSON.stringify([{ method:'transfer', amount:500, reference:null }]), JSON.stringify(ult.methods));
   await p.click('.cobro-listo');
   revisa('[cuenta] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await p.close();
+}
+
+/* ---------- Entra hoy (28/10/2026) ----------
+   "Entra hoy y ya se acaba octubre: le cobro $200 de octubre, $800 de
+   inscripción y ya paga noviembre." Tres toques y un folio. */
+{
+  const p = await abre(true, '/v2/tanner/?id=p1', 390, undefined, COBRO_NUEVO);
+  await p.waitForSelector('.tan-balance [data-cobrar], .tan-balance', { timeout:8000 });
+  await p.evaluate(async () => { const m = await import('/v2/cobro/hoja.js'); m.abrirCobro({ rpc: async (n, a) => (await window.__fakeSupabase.rpc(n, a)).data, org:'o1', playerId:'p1', nombre:'Martín Lozano', nacimiento:'2017-05-01' }); });
+  await p.waitForSelector(hoja, { timeout:5000 });
+  const arranca = await texto(p, '[data-linea="m:p1:2026-10"]').catch(() => '');
+  revisa('[nuevo] arranca con octubre proporcional: entró el 28, 1 de 4 semanas, $200', await p.inputValue('[data-monto="m:p1:2026-10"]').catch(() => '') === '200' && /1 de 4 semanas/.test(arranca), arranca);
+  await agrega(p, 'reg:p1');
+  await agrega(p, 'm:p1:2026-11');
+  revisa('[nuevo] noviembre entra completo, por adelantado', await p.inputValue('[data-monto="m:p1:2026-11"]') === '800');
+  revisa('[nuevo] total $1,800.00 (200 + 800 + 800)', /\$1,800\.00/.test(await texto(p, '#cobroTotal')), await texto(p, '#cobroTotal'));
+  await foto(p, 'cobro-nuevo');
+  const cabe = await p.evaluate(() => document.getElementById('cobroSheet').scrollWidth <= document.getElementById('cobroSheet').clientWidth + 1);
+  revisa('[nuevo] nada se sale a lo ancho', cabe);
+  await p.click('[data-pagar="cash"]');
+  await p.waitForSelector('.cobro-hecho', { timeout:4000 });
+  const it = (await llamadas(p, 'v2_collect_ticket')).at(-1).params.items;
+  revisa('[nuevo] se manda octubre y noviembre como mensualidades nuevas, más la inscripción', JSON.stringify(it) === JSON.stringify([
+    { kind:'month', player_id:'p1', period:'2026-10-01', total:200, amount:200 },
+    { kind:'registration', player_id:'p1', total:800, amount:800 },
+    { kind:'month', player_id:'p1', period:'2026-11-01', total:800, amount:800 }]), JSON.stringify(it));
   await p.close();
 }
 
@@ -291,7 +334,7 @@ const hoja = '#cobroSheet:not(.hidden) .cobro-form';
   await p.fill('#rapidoSearch', 'Liam');
   await p.click('#rapidoResults .tsearch-opt');
   await p.waitForSelector(hoja, { timeout:5000 });
-  revisa('[taquilla] escribir y tocar el nombre abre su hoja con lo que debe', /Liam Santos/.test(await texto(p, '#cobroTitle + p')) && (await p.$$('[data-chip][aria-pressed="true"]')).length === 3);
+  revisa('[taquilla] escribir y tocar el nombre abre su hoja con lo que debe', /Liam Santos/.test(await texto(p, '#cobroTitle + p')) && (await lineas(p)).length === 3);
   await p.click('#cobroBody [data-cobro-cerrar]');
   revisa('[taquilla] el buscador queda limpio para el siguiente', await p.inputValue('#rapidoSearch') === '');
 

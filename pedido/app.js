@@ -44,6 +44,7 @@ import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
 import { bannersParaTienda, destinoDe, CADA_MS } from '/pedido/banners.js';
+import { rutaDeLiga, ligaDe } from '/pedido/ligas.js';
 import { iniciaMedicion, mide, hayIds, cambiaConsentimiento } from '/v2/medicion.js';
 import { serializaCarrito, restauraCarrito, cambiaCantidadEnCarrito, cambiaCantidad, alternaGuardado, guardadosVivos } from '/pedido/carrito.js';
 import { normalizaCodigo, codigoValido, descuentoDeCodigo, textoAplicado, ligaDeCompra } from '/v2/codigos.js';
@@ -415,6 +416,29 @@ function corazon(id, nombre) {
   const on = guardados.includes(id);
   return `<button type="button" class="st-fav" data-fav="${esc(id)}" aria-pressed="${on}" aria-label="${on ? 'Quitar de guardados' : 'Guardar para después'}: ${esc(nombre)}">${ICONO_CORAZON}</button>`;
 }
+/* Compartir (28/10/2026): la liga fácil de la pieza (/tienda/<nombre>). En
+   el celular abre el menú de compartir del teléfono; en compu la copia. */
+const ICONO_COMPARTIR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg>';
+function compartir(id, nombre) {
+  return `<button type="button" class="st-fav st-compartir" data-compartir="${esc(id)}" aria-label="Compartir: ${esc(nombre)}">${ICONO_COMPARTIR}</button>`;
+}
+function ligaDeId(id) {
+  const [t, i] = String(id).split(':');
+  const item = ((t === 'k' ? catalogo.bundles : catalogo.products) || []).find(x => String(x.id) === i);
+  if (!item) return null;
+  const club = new URLSearchParams(location.search).get('club') || '';
+  return { item, url: ligaDe({ tipo: t === 'k' ? 'kit' : 'producto', item }, { origen: location.origin, club }) };
+}
+async function comparte(id) {
+  const l = ligaDeId(id); if (!l) return;
+  const texto = `${l.item.name} · Tienda ${clubNombre || 'Tannery City'}`;
+  try {
+    if (navigator.share) { await navigator.share({ title: texto, url: l.url }); return; }
+  } catch (e) { if (e?.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(l.url); aviso('Liga copiada: pégala donde quieras'); }
+  catch { window.prompt('Copia la liga', l.url); }
+}
+
 function alternaFav(id) {
   guardados = alternaGuardado(guardados, id);
   escribe(LLAVE_GUARDADOS, JSON.stringify(guardados));
@@ -643,7 +667,7 @@ function renderProducto(id) {
       ${galeria(p, e.foto || 0)}
       <div class="st-pdp-info">
         <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
-        <div class="st-pdp-tit"><h1>${esc(p.name)}</h1>${corazon(`p:${p.id}`, p.name)}</div>
+        <div class="st-pdp-tit"><h1>${esc(p.name)}</h1>${compartir(`p:${p.id}`, p.name)}${corazon(`p:${p.id}`, p.name)}</div>
         <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p, e.talla || unica))}</p>
         ${precioNinoDe(p) && !(e.talla || unica) ? `<p class="st-precios-nino">Niño (6 a 16) ${money.format(precioDeProducto(p, '10'))} · Adulto ${money.format(Number(p.price || 0))}</p>` : ''}
         ${p.ofertaHasta ? `<p class="st-oferta grande">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</p>` : ''}
@@ -702,7 +726,7 @@ function renderKit(id) {
       <div class="st-pdp-info">
         ${e.reemplaza ? '<p class="st-convierte">Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.</p>' : ''}
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
-        <div class="st-pdp-tit"><h1>${esc(k.name)}</h1>${corazon(`k:${k.id}`, k.name)}</div>
+        <div class="st-pdp-tit"><h1>${esc(k.name)}</h1>${compartir(`k:${k.id}`, k.name)}${corazon(`k:${k.id}`, k.name)}</div>
         <p class="st-pdp-precio" id="stPrecioKit">${e.tier ? money.format(precioDeFichaKit(k, e)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}${e.tier && largasDeKit(k, e) && recargoDe(k) ? ` <small class="st-recargo">incluye ${largasDeKit(k, e)} manga larga</small>` : ''}</p>
         ${tiers.length > 1 ? `<section class="st-bloque${e.falta === 'tier' ? ' falta' : ''}" id="stBloqueTier"><div class="st-bloque-cab"><h2>¿Para quién es?</h2></div>
           <div class="st-segmento" role="radiogroup" aria-label="Para quién es">${tiers.map(t => `<button type="button" role="radio" aria-checked="${e.tier === t}" data-tier="${esc(t)}"${e.tier === t ? ' class="activa"' : ''}>
@@ -1403,6 +1427,11 @@ $('stAviso').addEventListener('click', e => {
   }
 });
 $('stCarrito').addEventListener('click', () => abreMini(piezasDelCarrito(carrito) || !guardados.length ? 'pedido' : 'guardados'));
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-compartir]');
+  if (!c) return;
+  e.preventDefault(); e.stopPropagation(); comparte(c.dataset.compartir);
+}, true);
 // El corazón vive dentro de la tarjeta (que es un enlace): guarda sin abrir la ficha.
 document.addEventListener('click', e => {
   const f = e.target.closest('[data-fav]');
@@ -1458,6 +1487,11 @@ try {
   actualizaCarrito();
   $('loading').classList.add('hidden');
   $('content').classList.remove('hidden');
+  // Liga fácil (/tienda/gorras, /tienda/kit-temporada): se traduce a la ruta
+  // de siempre y la barra queda en /tienda/ con lo demás (club, utm) igual.
+  if (/^\/tienda\/[^/]+\/?$/.test(location.pathname) && !location.hash.replace(/^#\/?/, '')) {
+    history.replaceState(null, '', `/tienda/${location.search}${rutaDeLiga(location.pathname, catalogo) || '#/'}`);
+  }
   window.addEventListener('hashchange', ruta);
   ruta();
 } catch (err) {

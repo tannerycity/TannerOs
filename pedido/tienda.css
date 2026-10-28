@@ -627,3 +627,6 @@ body.st-sin-scroll { overflow: hidden; }
   .st-bn.sin-compu .st-bn-txt { position: static; width: auto; padding: 40px 56px; }
 }
 @media (prefers-reduced-motion: reduce) { .st-bn-pista { scroll-behavior: auto; } .st-bn-puntos button { transition: none; } }
+/* Compartir la pieza (28/10/2026): junto al corazón, la liga fácil. */
+.st-pdp-tit h1 { flex: 1; min-width: 0; }
+.st-pdp-tit .st-compartir svg { fill: none; }

@@ -441,3 +441,10 @@
 /* Seis pestañas (con Banners) no caben en un renglón del iPhone: en el
    celular van en dos renglones de tres, sin cortarse. */
 @media(max-width:560px){.cat-seg{flex-wrap:wrap}.cat-seg button{flex:1 1 calc(33.333% - 4px)}}
+/* Liga para vender (28/10/2026): la liga fácil de la pieza, lista para Instagram. */
+.cat-compartir{display:grid;gap:8px;padding:12px 14px;border-radius:14px;background:#f1f8f8;border:1px solid #d3e7e8}
+.cat-compartir-tit{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#05505d}
+.cat-compartir-liga{display:block;font:600 14px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;color:#0b1418;word-break:break-all}
+.cat-compartir-acc{display:flex;flex-wrap:wrap;gap:8px}
+.cat-compartir-acc button{min-height:38px;padding:0 14px;border-radius:999px;font-size:13.5px}
+.cat-compartir-nota{color:#8a5a12;font-weight:600}

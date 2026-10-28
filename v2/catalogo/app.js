@@ -6,6 +6,7 @@ import { margenesDe, mezclaDeVentas, margenPonderado } from '/v2/catalogo/costos
 import { normalizaCodigo, revisaCodigo, ESTADOS as ESTADOS_CODIGO, ligaDeCompra, ligaDelEmbajador, mensajeEmbajador } from '/v2/codigos.js';
 import { textoDestino } from '/pedido/banners.js';
 import { CATEGORIAS_TIENDA, categoriaDe } from '/pedido/catalogo.js';
+import { ligaDe } from '/pedido/ligas.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -247,6 +248,29 @@ async function firmaMiniaturas(rows){
 }
 
 /* ---------- Drawer: kit ---------- */
+/* Liga para vender (28/10/2026). Presidencia: "subo la foto de las gorras a
+   Instagram y necesito el link directo para comprar". Cada pieza y cada kit
+   tiene su liga fácil (/tienda/<nombre>); para Instagram y WhatsApp lleva
+   etiqueta para saber qué publicación vendió. */
+function pintaCompartir(id,tipo,item){
+  const box=$(id);if(!box)return;
+  if(!item){box.classList.add('hidden');box.innerHTML='';return;}
+  const vivo=!item.archived&&item.active!==false;
+  const liga=ligaDe({tipo,item},{origen:location.origin}),corta=liga.replace(/^https?:\/\//,'');
+  box.classList.remove('hidden');
+  box.innerHTML=`<span class="cat-compartir-tit">Liga para vender</span>
+    <code class="cat-compartir-liga">${esc(corta)}</code>
+    ${vivo?`<div class="cat-compartir-acc"><button type="button" class="secondary" data-liga="copiar">Copiar</button><button type="button" class="secondary" data-liga="instagram">Para Instagram</button><button type="button" class="secondary" data-liga="whatsapp">WhatsApp</button></div>`
+      :'<small class="cat-compartir-nota">Actívalo para que la liga funcione en la tienda.</small>'}`;
+  box.onclick=async e=>{
+    const b=e.target.closest('[data-liga]');if(!b)return;
+    const canal=b.dataset.liga;
+    if(canal==='whatsapp'){window.open(`https://wa.me/?text=${encodeURIComponent(`${item.name}: ${ligaDe({tipo,item},{origen:location.origin,canal:'whatsapp'})}`)}`,'_blank','noopener');return;}
+    const url=canal==='instagram'?ligaDe({tipo,item},{origen:location.origin,canal:'instagram'}):liga;
+    copia(url,b,'Copiada');
+  };
+}
+
 function openBundleDrawer(b){
   const pool=(b?.components||[]).find(c=>Array.isArray(c.pool));
   draft={mode:'bundle',id:b?.id||null,components:(b?.components||[]).filter(c=>!Array.isArray(c.pool)).map(c=>({productId:c.productId,qty:c.qty})),
@@ -254,6 +278,7 @@ function openBundleDrawer(b){
   drawerMsg();
   $('drawerKicker').textContent='KIT';
   $('drawerTitle').textContent=b?b.name:'Nuevo kit';
+  pintaCompartir('bCompartir','kit',b);
   $('bundleForm').classList.remove('hidden');
   $('productForm').classList.add('hidden');
   $('promoForm')?.classList.add('hidden');$('codeForm')?.classList.add('hidden');$('payForm')?.classList.add('hidden');
@@ -654,6 +679,7 @@ function openProductDrawer(p){
   drawerMsg();
   $('drawerKicker').textContent='PRODUCTO';
   $('drawerTitle').textContent=p?p.name:'Nuevo producto';
+  pintaCompartir('pCompartir','producto',p);
   $('productForm').classList.remove('hidden');
   $('bundleForm').classList.add('hidden');
   $('promoForm')?.classList.add('hidden');$('codeForm')?.classList.add('hidden');$('payForm')?.classList.add('hidden');

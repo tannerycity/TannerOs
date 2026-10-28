@@ -11,7 +11,7 @@
 <nav class="tienda-tabs" aria-label="Tienda"><a href="/pedidos/">Pedidos</a><a href="/captura/">Nuevo pedido</a><a href="/catalogo/" aria-current="page">Catálogo</a></nav>
   <header class="cat-head"><div><h1>Catálogo</h1><p id="catResumen" class="cat-sub">Cargando…</p></div>
     <div class="cat-head-acc"><button id="newBundleBtn" class="t-btn-sec hidden" type="button">+ Kit</button><button id="newProductBtn" class="t-btn hidden" type="button">+ Producto</button></div></header>
-  <div class="cat-seg" role="tablist" aria-label="Ver"><button type="button" role="tab" data-ver="productos" class="activo" aria-selected="true">Productos <i id="catNumProd">0</i></button><button type="button" role="tab" data-ver="kits" aria-selected="false">Kits <i id="catNumKits">0</i></button><button type="button" role="tab" data-ver="ofertas" aria-selected="false" id="catTabOfertas" class="hidden">Ofertas <i id="catNumOfertas"></i></button><button type="button" role="tab" data-ver="codigos" aria-selected="false" id="catTabCodigos" class="hidden">Códigos <i id="catNumCodigos"></i></button><button type="button" role="tab" data-ver="costos" aria-selected="false" id="catTabCostos" class="hidden">Costos</button></div>
+  <div class="cat-seg" role="tablist" aria-label="Ver"><button type="button" role="tab" data-ver="productos" class="activo" aria-selected="true">Productos <i id="catNumProd">0</i></button><button type="button" role="tab" data-ver="kits" aria-selected="false">Kits <i id="catNumKits">0</i></button><button type="button" role="tab" data-ver="ofertas" aria-selected="false" id="catTabOfertas" class="hidden">Ofertas <i id="catNumOfertas"></i></button><button type="button" role="tab" data-ver="codigos" aria-selected="false" id="catTabCodigos" class="hidden">Códigos <i id="catNumCodigos"></i></button><button type="button" role="tab" data-ver="banners" aria-selected="false" id="catTabBanners" class="hidden">Banners <i id="catNumBanners"></i></button><button type="button" role="tab" data-ver="costos" aria-selected="false" id="catTabCostos" class="hidden">Costos</button></div>
   <input id="catBuscar" class="cat-buscar" type="search" placeholder="Buscar producto o kit…" aria-label="Buscar">
 
   <p id="pendientes" class="pendientes hidden"></p>
@@ -34,6 +34,15 @@
   <section class="panel hidden" id="codigosPanel">
     <div class="costos-cab ofertas-cab"><div><h2>Códigos</h2><p class="muted">La familia lo escribe al pagar (o le llega puesto en la liga del embajador). Arriba del 10% de la compra lo autoriza Presidencia.</p></div><button type="button" id="nuevoCodigo" class="t-btn">+ Código</button></div>
     <div id="codigosLista" class="ofertas-lista"></div>
+  </section>
+
+  <!-- Banners (28/10/2026, h49): lo primero que se ve en la tienda. Pasan
+  solos; con fechas se prenden y se apagan solos. La franja es el aviso de
+  una línea de hasta arriba. -->
+  <section class="panel hidden" id="bannersPanel">
+    <div class="costos-cab ofertas-cab"><div><h2>Banners</h2><p class="muted">Lo primero que se ve en la tienda. Pasan solos cada 5 segundos; con fechas se prenden y se apagan solos.</p></div>
+      <div class="bn-nuevos"><button type="button" id="nuevaFranja" class="secondary">+ Franja</button><button type="button" id="nuevoBanner" class="t-btn">+ Banner</button></div></div>
+    <div id="bannersLista" class="ofertas-lista"></div>
   </section>
 
   <!-- Costos (13/10/2026): costo, margen y utilidad viven SÓLO aquí, y sólo
@@ -162,6 +171,27 @@
     <label class="of-nombre"><span>Nota interna</span><input id="cdNota" maxlength="200" placeholder="Ej. Campaña regreso a clases"></label>
     <p id="cdVista" class="of-vista"></p>
     <div class="drawer-actions"><button id="cdGuardar" class="primary" type="button">Guardar código</button></div>
+  </div>
+
+  <div id="bannerForm" class="hidden">
+    <div class="campo-toques"><span class="campo-titulo">¿Qué es?</span>
+      <div class="chips" id="bnTipo"><button type="button" class="chip on" data-tipo="banner">Banner con foto</button><button type="button" class="chip" data-tipo="franja">Franja de aviso</button></div></div>
+    <div id="bnFotos" class="bn-fotos">
+      <div class="bn-foto"><span class="campo-titulo">Foto para celular <small>1080 × 1350 · la principal</small></span><div class="bn-foto-vista movil" id="bnVistaMovil"></div>
+        <input id="bnFotoMovil" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Foto para celular"></div>
+      <div class="bn-foto"><span class="campo-titulo">Foto para compu <small>1920 × 800 · opcional</small></span><div class="bn-foto-vista compu" id="bnVistaCompu"></div>
+        <input id="bnFotoCompu" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Foto para compu"><button type="button" id="bnQuitaCompu" class="bn-quita hidden">Quitar foto de compu</button></div>
+      <small class="campo-ayuda">Deja libre de texto el tercio de abajo (celular) y la mitad izquierda (compu): ahí va el título en letra real.</small>
+    </div>
+    <label class="of-nombre"><span>Título</span><input id="bnTitulo" maxlength="80" placeholder="Ej. Black Edition ya llegó"></label>
+    <label class="of-nombre" id="bnFraseCaja"><span>Frase <small>opcional</small></span><input id="bnFrase" maxlength="140" placeholder="Ej. La jersey que todos quieren. Piezas limitadas."></label>
+    <label class="of-nombre"><span>Botón</span><input id="bnBoton" maxlength="24" placeholder="Comprar"></label>
+    <div class="campo-toques"><span class="campo-titulo">Al tocarlo, abre</span>
+      <div class="chips" id="bnDestino"><button type="button" class="chip on" data-destino="tienda">La tienda</button><button type="button" class="chip" data-destino="producto">Una pieza</button><button type="button" class="chip" data-destino="kit">Un kit</button><button type="button" class="chip" data-destino="categoria">Una categoría</button></div>
+      <select id="bnDestinoValor" class="of-select hidden" aria-label="Cuál"></select></div>
+    <div class="field-grid"><label><span>Desde</span><input id="bnDesde" type="date"></label><label><span>Hasta</span><input id="bnHasta" type="date"></label></div>
+    <small class="campo-ayuda">Sin fechas, queda hasta que lo pauses.</small>
+    <div class="drawer-actions"><button id="bnGuardar" class="primary" type="button">Guardar banner</button></div>
   </div>
 
   <div id="payForm" class="hidden">

@@ -418,3 +418,26 @@
 .cd-pagos{margin-top:12px}
 .cd-pago{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(7,25,30,.07);font-size:13.5px}
 .cd-pago button{border:0;background:none;color:#a92a21;font:inherit;font-weight:700;cursor:pointer}
+
+/* Banners de la tienda (28/10/2026, h49). */
+.bn-nuevos{display:flex;gap:8px;flex-wrap:wrap}
+.bn-item{display:grid;grid-template-columns:72px minmax(0,1fr);gap:14px;align-items:start}
+.bn-mini{width:72px;aspect-ratio:4/5;border-radius:12px;overflow:hidden;background:#e9eeed}
+.bn-mini img{display:block;width:100%;height:100%;object-fit:cover}
+.bn-mini.franja{display:grid;place-items:center;aspect-ratio:auto;height:40px;background:#0b1418;color:#fff;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.bn-info{min-width:0}
+.bn-titulo{font-size:15.5px;line-height:1.25}
+.bn-fotos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:12px;align-items:start}
+.bn-fotos .campo-ayuda{grid-column:1/-1}
+.bn-foto{display:grid;gap:8px;min-width:0}
+.bn-foto small{font-weight:500;color:#7a868b}
+.bn-foto-vista{display:grid;place-items:center;border-radius:14px;overflow:hidden;background:#eef2f1;border:1.5px dashed #c9d6d4;color:#7a868b;font-size:13px}
+.bn-foto-vista.movil{aspect-ratio:4/5}
+.bn-foto-vista.compu{aspect-ratio:12/5}
+.bn-foto-vista img{display:block;width:100%;height:100%;object-fit:cover}
+.bn-foto input[type="file"]{max-width:100%;font-size:13px}
+.bn-quita{justify-self:start;border:0;background:none;padding:0;color:#a03f3c;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+@media (max-width:520px){.bn-fotos{grid-template-columns:minmax(0,1fr)}}
+/* Seis pestañas (con Banners) no caben en un renglón del iPhone: en el
+   celular van en dos renglones de tres, sin cortarse. */
+@media(max-width:560px){.cat-seg{flex-wrap:wrap}.cat-seg button{flex:1 1 calc(33.333% - 4px)}}

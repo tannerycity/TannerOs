@@ -43,6 +43,13 @@ const CAT={products:[
    photoPath:RUTA('p5'),photoThumbPath:RUTA('p5')+'-thumb',photoBucket:'tanneros-private'}
 ],bundles:[{id:'b1',name:'Kit Tanner - Completo',priceAdult:1740,active:true,archived:false,components:[{productId:'p1',qty:1}],costComplete:false,componentsResolved:true}]};
 
+// Banners de la tienda (h49): dos banners con foto y una franja.
+const BANNERS={banners:[
+  {id:'bn1',kind:'banner',title:'Black Edition ya llegó',subtitle:null,ctaLabel:'Comprar',targetKind:'producto',targetValue:'p1',imagePath:'organizations/o1/commerce/banners/11111111-1111-4111-8111-111111111111/movil-1790000000000.webp',imageDesktopPath:null,startsOn:null,endsOn:'2026-11-30',active:true,estado:'activo'},
+  {id:'bn2',kind:'banner',title:'Arma tu kit',subtitle:null,ctaLabel:null,targetKind:'kit',targetValue:'b1',imagePath:'organizations/o1/commerce/banners/22222222-2222-4222-8222-222222222222/movil-1790000000000.webp',imageDesktopPath:null,startsOn:'2026-12-01',endsOn:null,active:true,estado:'programado'},
+  {id:'fr1',kind:'franja',title:'Nombre y número gratis con TANNER',targetKind:'tienda',targetValue:null,imagePath:null,active:true,estado:'activo'}]};
+const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAKCAIAAAAGpYjXAAAAFklEQVR4nGNgYPj/n4GBgYGJAQoYGAA/0QIBmd6vwQAAAABJRU5ErkJggg==','base64');
+
 const stubPara=(rol='Presidencia',puede=true)=>`
  export function createClient(){return{
   auth:{getSession:async()=>({data:{session:{user:{id:'u1'}}}}),getUser:async()=>({data:{user:{app_metadata:{}}}}),signOut:async()=>({}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
@@ -62,6 +69,8 @@ const stubPara=(rol='Presidencia',puede=true)=>`
     if(n==='v2_can_edit_catalog')return{data:${puede},error:null};
     if(n==='v2_my_modules')return{data:[{module_code:'catalogo',enabled:true,can_read:true,can_write:true},{module_code:'commerce_finance',enabled:true,can_read:true,can_write:true}],error:null};
     if(n==='v2_catalog')return{data:${JSON.stringify(CAT)},error:null};
+    if(n==='v2_store_banners')return{data:${JSON.stringify(BANNERS)},error:null};
+    if(n==='v2_save_store_banner')return{data:{id:'nuevo'},error:null};
     return {data:[],error:null};}};}`;
 
 const nav=await chromium.launch({executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome',args:['--no-sandbox']});
@@ -424,6 +433,58 @@ revisa('sin scroll horizontal en un teléfono',
   await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
 
 // Quién edita (14/10/2026): Presidencia y quien tenga el ajuste especial (Zul).
+/* ===== Banners de la tienda (28/10/2026, h49) ===== */
+{
+  await pg.evaluate(()=>{window.tosConfirm=async()=>true;});
+  await pg.click('.cat-seg [data-ver="banners"]');
+  await pg.waitForSelector('#bannersLista .bn-item',{timeout:4000});
+  const items=await pg.$$eval('#bannersLista .bn-item',els=>els.map(e=>e.textContent.replace(/\s+/g,' ')));
+  revisa('[banners] la pestaña enseña los banners y la franja', items.length===3, JSON.stringify(items));
+  revisa('[banners] cada uno dice a dónde lleva y hasta cuándo', /Abre: Jersey "Black Edition" · hasta el 30 nov/.test(items[0])&&/Abre: Kit Tanner - Completo · desde el 1 dic/.test(items[1])&&/Empieza pronto/.test(items[1]), items.slice(0,2).join(' | '));
+  await pg.waitForFunction(()=>!!document.querySelector('#bannersLista img[data-bn-foto]')?.getAttribute('src'),null,{timeout:3000}).catch(()=>{});
+  revisa('[banners] la miniatura usa la foto firmada', !!(await pg.getAttribute('#bannersLista img[data-bn-foto]','src').catch(()=>''))&&(await pg.evaluate(()=>(window.__firmados||[]).some(p=>/commerce\/banners\//.test(p)))));
+  await pg.click('[data-bn="bn1"] [data-bn-acc="bajar"]');
+  await pg.waitForTimeout(200);
+  const orden=(await pg.evaluate(()=>window.__rpc.filter(r=>r.n==='v2_order_store_banners'))).at(-1)?.p;
+  revisa('[banners] "Bajar" cambia el orden sólo entre banners', JSON.stringify(orden?.banner_ids)==='["bn2","bn1"]', JSON.stringify(orden));
+  await pg.click('#nuevoBanner');
+  await pg.waitForSelector('#bannerForm:not(.hidden)',{timeout:3000});
+  revisa('[banners] el formulario pide foto de celular y de compu', await pg.isVisible('#bnFotoMovil')&&await pg.isVisible('#bnFotoCompu')&&(await pg.textContent('#drawerKicker'))==='BANNER');
+  await pg.click('#bnGuardar');
+  revisa('[banners] sin título no se guarda', /título/.test(await pg.textContent('#drawerMsg').catch(()=>'')||await pg.textContent('.catalog-drawer').catch(()=>'')));
+  await pg.fill('#bnTitulo','Gorras nuevas');
+  await pg.click('#bnGuardar');
+  revisa('[banners] sin foto no se guarda', /foto para celular/i.test(await pg.textContent('.catalog-drawer')));
+  await pg.setInputFiles('#bnFotoMovil',{name:'gorra.png',mimeType:'image/png',buffer:PNG});
+  await pg.waitForSelector('#bnVistaMovil img',{timeout:3000});
+  await pg.click('#bnDestino [data-destino="producto"]');
+  const ops=await pg.$$eval('#bnDestinoValor option',os=>os.map(o=>o.value));
+  revisa('[banners] "Una pieza" ofrece las piezas vivas, no las archivadas', JSON.stringify(ops)==='["p1","p2","p3","p4"]', JSON.stringify(ops));
+  await pg.selectOption('#bnDestinoValor','p4');
+  await pg.fill('#bnHasta','2026-12-31');
+  await pg.click('#bnGuardar');
+  await pg.waitForFunction(()=>(window.__rpc||[]).some(r=>r.n==='v2_save_store_banner'),null,{timeout:6000});
+  const g=(await pg.evaluate(()=>window.__rpc.filter(r=>r.n==='v2_save_store_banner'))).at(-1).p.banner;
+  const subidas=await pg.evaluate(()=>window.__subidas||[]);
+  revisa('[banners] la foto se sube a la carpeta de banners del club, ya achicada', /^organizations\/o1\/commerce\/banners\/[0-9a-f-]{36}\/movil-\d{13}\.(webp|jpg)$/.test(g.imagePath||'')&&subidas.includes(g.imagePath), JSON.stringify({p:g.imagePath,subidas}));
+  revisa('[banners] se guarda con su título, destino y fecha', g.kind==='banner'&&g.title==='Gorras nuevas'&&g.targetKind==='producto'&&g.targetValue==='p4'&&g.endsOn==='2026-12-31'&&g.imageDesktopPath===null, JSON.stringify(g));
+  await pg.waitForTimeout(300);
+  await pg.click('#nuevaFranja');
+  revisa('[franja] la franja no pide foto ni frase', await pg.isHidden('#bnFotos')&&await pg.isHidden('#bnFraseCaja')&&(await pg.textContent('#bnGuardar'))==='Guardar franja');
+  await pg.fill('#bnTitulo','Nuevo drop el viernes');
+  await pg.click('#bnDestino [data-destino="categoria"]');
+  revisa('[franja] "Una categoría" ofrece las que tienen piezas', JSON.stringify(await pg.$$eval('#bnDestinoValor option',os=>os.map(o=>o.value)))==='["kits","jersey","socks"]', JSON.stringify(await pg.$$eval('#bnDestinoValor option',os=>os.map(o=>o.value))));
+  await pg.click('#bnGuardar');
+  await pg.waitForTimeout(400);
+  const f=(await pg.evaluate(()=>window.__rpc.filter(r=>r.n==='v2_save_store_banner'))).at(-1).p.banner;
+  revisa('[franja] se guarda sin foto', f.kind==='franja'&&f.imagePath===null&&f.targetKind==='categoria'&&f.targetValue==='kits', JSON.stringify(f));
+  await pg.click('[data-bn="fr1"] [data-bn-acc="archivar"]');
+  await pg.waitForTimeout(200);
+  const ar=(await pg.evaluate(()=>window.__rpc.filter(r=>r.n==='v2_set_store_banner'))).at(-1)?.p;
+  revisa('[banners] archivar (no borrar)', ar?.action==='archivar'&&ar?.banner_id==='fr1', JSON.stringify(ar));
+  revisa('[banners] nada se sale a 390px', await pg.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+}
+
 for(const [rol,puede,edita] of [['Operaciones',true,true],['Operaciones',false,false]]){
   const pz=await nav.newPage({viewport:{width:390,height:844}});
   await pz.route('**/v2/supabase-client.js',r=>r.fulfill({status:200,contentType:'text/javascript',body:stubPara(rol,puede)}));

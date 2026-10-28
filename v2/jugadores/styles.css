@@ -673,3 +673,58 @@ body:has(.profile-panel.open) .tos-fab{display:none}
 .ficha-visor-nota{margin:0;color:#e9dcae;font-size:13px;text-align:center}
 .ficha-visor-nota[hidden]{display:none}
 body.ficha-visor-abierto{overflow:hidden}
+
+/* ===== Ficha Tanner estilo Ajustes del iPhone (28/10/2026) =====
+   Presidencia: "los botones se salen del iPhone... que parezca que alguien
+   que no sabe de sistemas lo puede utilizar". Cada sección es una tarjeta
+   blanca con renglones: el dato a la izquierda y su valor a la derecha, sin
+   cajas. Las fechas ya no se salen (Safari ignora el ancho de un input de
+   fecha si no se le quita su apariencia), las posiciones bajan de renglón
+   en vez de cortarse, y las pestañas son un selector que cabe completo. */
+.ficha-tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,auto);justify-content:stretch;gap:0;overflow:visible;margin:14px 0 8px;padding:3px;border-radius:12px;background:#eceeed;backdrop-filter:none}
+.ficha-tabs button{min-width:0;min-height:36px;padding:0 1px;border:0;border-radius:9px;background:transparent;color:#3a4f57;font-size:12.5px;font-weight:600;letter-spacing:-.025em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ficha-tabs button[aria-selected="true"]{background:#fff;border-color:transparent;color:#0b1418;box-shadow:0 1px 3px rgba(7,25,30,.14),0 0 0 .5px rgba(7,25,30,.06)}
+
+.profile-form{gap:26px}
+.profile-form section{gap:8px;padding:0;border:0}
+.profile-form .section-title{padding:0 4px}
+.profile-form .section-title>span{display:none}
+.profile-form .section-title strong{font-size:19px;font-weight:800;letter-spacing:-.015em;color:#0b1418}
+.profile-form .section-title small{font-size:13px;color:#7a868b}
+.profile-form .form-grid{grid-template-columns:minmax(0,1fr);gap:0;background:#fff;border:1px solid #e6eae9;border-radius:16px;overflow:hidden}
+.profile-form .form-grid>label,.profile-form .form-grid>.campo{display:grid;grid-template-columns:minmax(92px,44%) minmax(0,1fr);align-items:center;column-gap:12px;row-gap:2px;min-height:52px;margin:0;padding:6px 16px;border-bottom:1px solid #eef1f0;font-size:15px;font-weight:500;color:#0b1418;letter-spacing:-.01em}
+.profile-form .form-grid>:last-child{border-bottom:0}
+.profile-form .form-grid .span-2{grid-column:auto}
+.profile-form .campo-etiqueta{font-size:15px;font-weight:500;color:#0b1418;letter-spacing:-.01em}
+.profile-form .form-grid input:not([type="checkbox"]):not([type="hidden"]),.profile-form .form-grid select{width:100%;min-width:0;max-width:100%;margin:0;padding:12px 0;border:0;border-radius:0;background:transparent;box-shadow:none;color:#3d5560;font:inherit;font-size:16px;font-weight:500;text-align:right;outline:none}
+.profile-form .form-grid input::placeholder{color:#a9b4b8}
+.profile-form .form-grid input:focus,.profile-form .form-grid select:focus{color:#0b1418}
+.profile-form .form-grid>label:focus-within,.profile-form .form-grid>.campo:focus-within{background:#f7faf9}
+.profile-form input[type="date"]{-webkit-appearance:none;appearance:none;display:block;min-height:44px;line-height:20px}
+.profile-form input[type="date"]::-webkit-date-and-time-value{text-align:right;margin:0}
+.profile-form .form-grid select{-webkit-appearance:none;appearance:none;text-align-last:right;padding-right:18px;cursor:pointer;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cpath d='M2 6l3-3 3 3M2 10l3 3 3-3' fill='none' stroke='%239aa6ab' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right center/9px 14px}
+.profile-form .field-hint{grid-column:1/-1;min-height:0;margin:0 0 6px;font-size:12.5px;font-weight:500;text-align:right;color:#7a868b}
+.profile-form .field-hint:empty{display:none}
+/* Lo que necesita espacio (posición, alergias, motivo, nombre del tutor) va
+   con su nombre arriba y el valor a todo lo ancho. */
+.profile-form .form-grid>.campo:has(.pos-rail),.profile-form .form-grid>label:has(textarea){grid-template-columns:minmax(0,1fr);padding:12px 16px;row-gap:10px}
+.profile-form .form-grid textarea{width:100%;min-height:72px;padding:10px 12px;border:1px solid #e3e8e7;border-radius:12px;background:#f8faf9;font-size:16px;resize:vertical}
+.profile-form .pos-rail{flex-wrap:wrap;overflow:visible;margin:0;padding:0;-webkit-mask-image:none;mask-image:none}
+.profile-form .pos-chip{min-height:36px;padding:7px 13px;font-size:14px}
+.profile-form .jersey-field{align-items:center;gap:10px;justify-content:flex-end}
+.profile-form .jersey-field input{text-align:right;max-width:60px}
+.profile-form .jersey-pick{flex:none;min-height:32px;padding:0 12px;border:0;border-radius:99px;background:#e9f1f0;color:#0d3f4c;font-size:13px;font-weight:700}
+/* Casillas → interruptores de iPhone. */
+.profile-form .form-grid>.check{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:12px}
+.profile-form .form-grid>.check input{-webkit-appearance:none;appearance:none;flex:none;position:relative;width:51px;height:31px;margin:0;border-radius:99px;background:#e2e5e6;cursor:pointer;transition:background .2s ease}
+.profile-form .form-grid>.check input::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.2);transition:transform .2s ease}
+.profile-form .form-grid>.check input:checked{background:#34c759}
+.profile-form .form-grid>.check input:checked::after{transform:translateX(20px)}
+.profile-form .form-grid>.admission-trail,.profile-form .form-grid>.other-guardians{display:block;margin:0;padding:12px 16px;border-radius:0;background:#f7f9f9;font-size:13px}
+.profile-form .form-grid>.admission-trail.hidden,.profile-form .form-grid>.other-guardians:empty{display:none}
+.admission-trail .admission-origin{display:block}
+.profile-form>section>textarea{width:100%;min-height:96px;padding:14px 16px;border:1px solid #e6eae9;border-radius:16px;background:#fff;font-size:16px}
+/* Guardar siempre a la mano, abajo, como en el iPhone. */
+.profile-form .profile-actions{position:sticky;bottom:0;z-index:5;margin:0 -4px;padding:14px 4px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(rgba(255,255,255,0),#fff 32%)}
+.profile-form .profile-actions .primary{min-height:52px;border-radius:14px;font-size:16px}
+@media (prefers-reduced-motion:reduce){.profile-form .form-grid>.check input,.profile-form .form-grid>.check input::after{transition:none}}

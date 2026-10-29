@@ -1,4 +1,5 @@
 import {createClient} from '/v2/supabase-client.js';
+import {iniciarUsoStaff} from '/v2/analitica-uso.js';
 import { ligaPublica } from '/v2/club-publico.js';
 
 import { clearPhotoCache } from '/v2/photo-cache.js';
@@ -814,5 +815,5 @@ export function avisoSoloLectura(organizationId){
     d.textContent=SOLO_LECTURA[m.reason]||SOLO_LECTURA.pago;main.prepend(d);
   }).catch(()=>{});
 }
-export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&active!=='staff'&&!puedeEntrar(navigation,active)){location.href='/';return null;}renderShell({ctx,navigation,active,title});avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
+export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&active!=='staff'&&!puedeEntrar(navigation,active)){location.href='/';return null;}renderShell({ctx,navigation,active,title});iniciarUsoStaff(ctx.role);avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

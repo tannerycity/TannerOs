@@ -3,12 +3,13 @@
  * Lo que se protege: solo se activan identificadores válidos y tras consentimiento; y cada evento de la tienda llega con el nombre y los datos
  * que Meta y Google esperan, en pesos mexicanos.
  */
-import { hayIds, traduce, MEDICION, iniciaMedicion, mide } from '../v2/medicion.js';
+import { hayIds, traduce, MEDICION, iniciaMedicion, mide, esDominioOficial } from '../v2/medicion.js';
 
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 
 revisa('ids oficiales preparados para tienda pública', MEDICION.metaPixelId === '1477125554314319' && MEDICION.googleTagId === 'G-KJN3NJS2YJ' && hayIds());
+revisa('solo el dominio oficial admite trackers', esDominioOficial('app.tannerycity.com') && !esDominioOficial('localhost') && !esDominioOficial('tanneros.vercel.app') && !esDominioOficial('tcp.tannerycity.com'));
 revisa('un pixel de Meta son sólo números', hayIds({ metaPixelId: '123456789012345' }) && !hayIds({ metaPixelId: 'abc123' }));
 revisa('la etiqueta de Google es G- o AW-', hayIds({ googleTagId: 'G-ABC123XYZ' }) && hayIds({ googleTagId: 'AW-123456789' }) && !hayIds({ googleTagId: 'UA-1234-1' }));
 revisa('sin navegador ni ids, iniciar y medir no truenan', (() => { try { iniciaMedicion(); mide('ver', {}); return true; } catch { return false; } })());

@@ -4,6 +4,7 @@ import { nombreDelClub } from '/v2/club.js';
 import { avisosDeIdeas, claveVistas } from '/v2/ideas/ideas.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
+import {iniciarUsoStaff} from '/v2/analitica-uso.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -362,6 +363,8 @@ async function loadAuthenticatedApp(){
     rpc('v2_branding',{organization_id:ctx.organization_id}).then(b=>instalaVocabulario(b?.playerNoun)).catch(()=>{});
     showView('appView');document.body.classList.add('tos-body');
     renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
+    // Sólo staff identificado: nunca antes de autenticación, nunca familias/Tanner.
+    iniciarUsoStaff(ctx.role,{mostrarConsentimiento:true});
     renderCumpleStrip().catch(error=>console.warn('cumpleaños',error));
     if(ctx.role==='Taquilla'){renderTaquillaHome().catch(error=>console.error('Taquilla home',error));}
     else if(ctx.role==='Academia'){renderAcademiaHome().catch(error=>console.error('Academia home',error));}

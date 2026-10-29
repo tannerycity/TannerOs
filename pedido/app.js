@@ -42,6 +42,7 @@ import { esc, dinero as money, normalizaOfertaPublica } from '/v2/vitrina.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { mockupJersey, coloresDePlayera } from '/v2/jersey-mockup.js';
 import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensajes.js';
+import { lineasDeRecibo, reciboDe, guardaRecibo, buscaRecibo, leeRecibos, llaveRecibos, fechaCorta, textoParaMi, dibujaRecibo, primerNombre } from '/pedido/recibo.js';
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
 import { bannersParaTienda, destinoDe, CADA_MS } from '/pedido/banners.js';
 import { rutaDeLiga, ligaDe } from '/pedido/ligas.js';
@@ -1307,6 +1308,8 @@ function ruta() {
   else if (a === 'p' && b) renderProducto(decodeURIComponent(b));
   else if (a === 'k' && b) renderKit(decodeURIComponent(b));
   else if (a === 'pedido') renderCheckout();
+  else if (a === 'mis-pedidos') renderMisPedidos();
+  else if (a === 'recibo' && b) renderRecibo(decodeURIComponent(b));
   else renderTienda(a === 'c' ? decodeURIComponent(b || '') : '');
   armaCarrusel();
   if (cambia) {
@@ -1373,11 +1376,12 @@ async function submit(e) {
       result = await rpc('v2_public_cart_order', { ...comun, notes: [para, comun.notes].filter(Boolean).join(' · '), items });
     }
     mide('compra', { valor: Number(result?.total || 0), folio: result?.folio, items: itemsDelCarrito() });
+    const lineas = lineasDeRecibo(carrito);
     carrito = {};
     codigo = null; codigoEscrito = '';
     try { sessionStorage.removeItem('tiendaCodigo'); } catch {}
     actualizaCarrito();
-    renderListo(result, comun.customer_name);
+    renderListo(result, comun.customer_name, lineas);
   } catch (err) {
     setMessage(err.message || 'No se pudo enviar el pedido.');
     btn.disabled = false; btn.textContent = textoConfirmar();
@@ -1475,21 +1479,75 @@ function renderVueltaDePago(folio, estado) {
   window.scrollTo(0, 0);
 }
 
-function renderListo(result, nombre) {
-  const folio = result?.folio || '', total = Number(result?.total || 0);
-  const enLinea = !!(pagoInfo?.online && result?.id && folio && total > 0);
-  if (result?.id && folio) escribe(LLAVE_ULTIMO, JSON.stringify({ id: result.id, folio, total }));
+/* ---------- El recibo Tanner (29/10/2026) ----------
+ * Presidencia: "que tengas la opción de descargar la imagen del pedido o que
+ * haya alguna forma de que puedan volver a entrar... que se sienta Tanner".
+ * El recibo se guarda en el teléfono (Mis pedidos, arriba a la derecha), se
+ * baja como imagen con la marca del club o se lo manda uno mismo por
+ * WhatsApp. Sin teléfono ni correo en lo guardado. */
+const LLAVE_RECIBOS = llaveRecibos(CLUB_KEY);
+const misRecibos = () => leeRecibos(lee(LLAVE_RECIBOS));
+function pintaMisPedidos() { const n = misRecibos().length, b = $('stMisPedidos'); if (b) b.hidden = !n; }
+const ligaDelRecibo = folio => `${location.origin}${location.pathname}${location.search}#/recibo/${encodeURIComponent(folio)}`;
+
+function renderListo(result, nombre, lineas = []) {
+  const folio = result?.folio || '';
+  if (result?.id && folio) escribe(LLAVE_ULTIMO, JSON.stringify({ id: result.id, folio, total: Number(result?.total || 0) }));
+  const recibo = reciboDe(result, { nombre, lineas });
+  if (folio) { escribe(LLAVE_RECIBOS, JSON.stringify(guardaRecibo(misRecibos(), recibo))); pintaMisPedidos(); }
+  pintaRecibo(recibo, true);
+}
+function renderRecibo(folio) {
+  pintaBarra(false);
+  const r = buscaRecibo(misRecibos(), folio);
+  if (!r) {
+    $('content').innerHTML = `<div class="empty-state"><h2>Ese pedido no está en este celular</h2>
+      <p class="muted">Los recibos se guardan en el teléfono donde se hizo el pedido. Si tienes cuenta, míralo en tu portal de familia o escríbenos con tu folio.</p>
+      <a class="st-cta" href="/familias/">Ir a mi portal</a><a class="st-volver" href="#/">‹ Ir a la tienda</a></div>`;
+    return;
+  }
+  pintaRecibo(r, false);
+}
+function renderMisPedidos() {
+  pintaBarra(false);
+  const lista = misRecibos();
+  document.title = 'Mis pedidos · Tienda Tanner';
+  $('content').innerHTML = `<section class="st-mis">
+    <p class="st-eyebrow">Tienda Tanner</p><h1 class="st-titulo">Mis pedidos</h1>
+    <p class="muted">Los que hiciste desde este celular. Toca uno para ver tu recibo, cómo pagar y guardarlo como imagen.</p>
+    ${lista.length ? `<ul class="st-mis-lista">${lista.map(r => `<li><a href="#/recibo/${esc(encodeURIComponent(r.folio))}">
+      <span class="st-mis-folio">${esc(r.folio)}</span><span class="st-mis-dato">${esc(fechaCorta(r.fecha))} · ${(r.lineas || []).reduce((a, l) => a + Number(l.cantidad || 1), 0) || ''} ${(r.lineas || []).length ? 'piezas' : ''}</span>
+      <b>${money.format(Number(r.total || 0))}</b></a></li>`).join('')}</ul>`
+      : '<p class="muted">Todavía no hay pedidos guardados en este celular.</p>'}
+    <a class="st-sigue-portal" href="/familias/">¿Tienes cuenta? Sigue tus pedidos paso a paso en tu portal de familia</a>
+    <a class="st-volver" href="#/">‹ Seguir comprando</a></section>`;
+  window.scrollTo(0, 0);
+}
+
+function pintaRecibo(recibo, nuevo) {
+  const { folio, total } = recibo;
+  const enLinea = !!(pagoInfo?.online && recibo.id && folio && total > 0);
   const pago = datosDePago(pagoInfo, folio);
-  const wa = ligaWhatsApp(pagoInfo?.whatsapp, mensajeComprobante({ folio, total, nombre }));
+  const wa = ligaWhatsApp(pagoInfo?.whatsapp, mensajeComprobante({ folio, total, nombre: recibo.nombre }));
   const filas = pago.filas.map(([k, v]) => `<div class="pago-fila"><span>${esc(k)}</span>`
     + `<strong${k === 'CLABE' ? ' class="pago-clabe"' : ''}>${esc(v)}</strong>`
     + `${k === 'CLABE' || k === 'Referencia' ? `<button type="button" class="pago-copiar" data-copiar="${esc(v)}">Copiar</button>` : ''}</div>`).join('');
-  $('content').innerHTML = `<div class="success"><div class="success-mark">
-      <span class="tos-icon tos-icon-check" aria-hidden="true"></span></div>
+  const lineas = recibo.lineas || [];
+  $('content').innerHTML = `<section class="st-recibo">
+    <div class="success st-recibo-hero">
+      <img class="st-recibo-escudo" src="/brand/crest-gold.png" alt="" width="64" height="64">
+      <p class="st-recibo-eyebrow">Tienda Tanner</p>
       <h2>Pedido recibido</h2>
-      ${folio ? `<div class="folio">${esc(folio)}</div>` : ''}
-      <p><strong>Total:</strong> ${money.format(total)}</p>
-      ${Number(result?.discount || 0) > 0 ? `<p class="muted">Ya con ${money.format(Number(result.discount))} de descuento por tu código.</p>` : ''}</div>
+      <p class="st-recibo-gracias">${recibo.nombre ? `Gracias por vestir los colores, ${esc(primerNombre(recibo))}.` : 'Gracias por vestir los colores.'}</p>
+      ${folio ? `<div class="st-boleto"><span>Folio</span><div class="folio">${esc(folio)}</div><small>${esc(fechaCorta(recibo.fecha))}</small></div>` : ''}
+      <p class="st-recibo-total"><strong>Total:</strong> ${money.format(total)}</p>
+      ${Number(recibo.descuento || 0) > 0 ? `<p class="muted">Ya con ${money.format(Number(recibo.descuento))} de descuento por tu código.</p>` : ''}
+    </div>
+    ${folio ? `<div class="st-recibo-guarda">
+      <button type="button" class="st-recibo-btn" data-recibo-imagen><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14"/></svg>Guardar imagen</button>
+      <button type="button" class="st-recibo-btn" data-recibo-whats><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/></svg>Mandármelo por WhatsApp</button>
+      <p class="st-recibo-nota">${nuevo ? 'También quedó guardado en este celular: ábrelo cuando quieras desde <b>Mis pedidos</b>, arriba a la derecha.' : 'Guardado en este celular, en Mis pedidos.'}</p>
+    </div>` : ''}
     ${enLinea ? `<section class="pago-card pago-linea" aria-label="Pagar ahora">
       <h3>Paga ahora y queda confirmado</h3>
       <p class="muted">Tarjeta de crédito o débito, OXXO o tu cuenta de Mercado Pago. Al pagar, tu pedido queda pagado solo: no tienes que mandar comprobante.</p>
@@ -1505,20 +1563,45 @@ function renderListo(result, nombre) {
     ${wa ? `<a class="primary pago-wa" href="${esc(wa)}" target="_blank" rel="noopener">Enviar comprobante por WhatsApp</a>
       <p class="muted pago-nota">Al pagar, adjunta la foto o captura del comprobante en el chat.</p>`
       : '<p class="muted pago-nota">Te contactamos por WhatsApp para confirmar tu pedido.</p>'}
+    ${lineas.length ? `<section class="st-recibo-lineas" aria-label="Lo que pediste"><h3>Lo que pediste</h3>
+      <ul>${lineas.map(l => `<li><span><strong>${l.cantidad > 1 ? `${l.cantidad} × ` : ''}${esc(l.nombre)}</strong>${l.detalle ? `<small>${esc(l.detalle)}</small>` : ''}</span><b>${money.format(l.importe)}</b></li>`).join('')}</ul></section>` : ''}
     <section class="st-sigue" aria-label="Así sigue tu pedido">
       <h3>Así sigue tu pedido</h3>
       ${PASOS_TIENDA}
       <p class="st-sigue-plazo">Importante: tienes <b>${DIAS_PARA_RECOGER} días</b> para recoger tu pedido desde que te avisemos que llegó. Después de ese plazo el club ya no se hace responsable de la prenda.</p>
       <a class="st-sigue-portal" href="/familias/">Síguelo paso a paso en tu portal de familia</a>
-    </section>`;
-  $('pagarEnLinea')?.addEventListener('click', () => pagaEnLinea({ id: result.id, folio }));
+    </section>
+    <footer class="st-lema"><span>Curtimos campeones del mundo</span><b>#WeAreTanners</b></footer>
+  </section>`;
+  $('pagarEnLinea')?.addEventListener('click', () => pagaEnLinea({ id: recibo.id, folio }));
   $('content').querySelectorAll('[data-copiar]').forEach(btn => btn.addEventListener('click', async e => {
     const b = e.currentTarget;
     try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiado'; }
     catch { b.textContent = 'Mantén presionado para copiar'; }
   }));
-  document.title = 'Pedido recibido · Tienda Tanner';
+  $('content').querySelector('[data-recibo-imagen]')?.addEventListener('click', e => guardaImagenRecibo(recibo, pago, e.currentTarget));
+  $('content').querySelector('[data-recibo-whats]')?.addEventListener('click', () => {
+    const texto = textoParaMi({ recibo, pago, liga: ligaDelRecibo(folio), club: clubNombre || 'Tannery City' });
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
+  });
+  document.title = `${nuevo ? 'Pedido recibido' : `Pedido ${folio}`} · Tienda Tanner`;
   window.scrollTo(0, 0);
+}
+/* La imagen del recibo: en el teléfono se comparte (Guardar imagen / Fotos);
+   en la compu, se descarga. */
+async function guardaImagenRecibo(recibo, pago, btn) {
+  const antes = btn.innerHTML; btn.disabled = true; btn.textContent = 'Armando tu recibo…';
+  try {
+    const blob = await dibujaRecibo(recibo, { pago, club: clubNombre || 'Tannery City F.C.' });
+    if (!blob) throw new Error('sin imagen');
+    const archivo = new File([blob], `pedido-${String(recibo.folio).toLowerCase()}.png`, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [archivo] })) {
+      try { await navigator.share({ files: [archivo], title: `Pedido ${recibo.folio}` }); return; } catch (e) { if (e?.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = archivo.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch { alert('No se pudo armar la imagen. Toma una captura de esta pantalla.'); }
+  finally { btn.disabled = false; btn.innerHTML = antes; }
 }
 
 /* ---------- Arranque ---------- */
@@ -1572,6 +1655,7 @@ try {
       }).catch(() => {});
   }
   document.querySelectorAll('[data-club-nombre]').forEach(el => { el.textContent = clubNombre; });
+  pintaMisPedidos();
   // Las ligas propias (Centro Tanner, privacidad, familias) se llevan el club.
   new MutationObserver(() => propagaClub()).observe(document.body, { childList: true, subtree: true });
   propagaClub();

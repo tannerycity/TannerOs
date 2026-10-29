@@ -35,6 +35,8 @@ const FOTO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect 
 const srv = http.createServer((q, r) => {
   let p = decodeURIComponent(q.url.split('?')[0]);
   if (p.startsWith('/qa-foto/')) { r.writeHead(200, { 'content-type':'image/svg+xml' }); r.end(FOTO); return; }
+  // La página de pago de Mercado Pago, de mentira (28/10/2026, h50).
+  if (p.startsWith('/qa-mp/')) { r.writeHead(200, { 'content-type':'text/html' }); r.end('<!doctype html><title>MP</title><p>Mercado Pago</p>'); return; }
   // Como vercel.json: la liga fácil /tienda/<nombre> sirve la tienda.
   if (/^\/tienda\/[^/]+\/?$/.test(p)) p = '/pedido/index.html';
   if (p.endsWith('/')) p += 'index.html';
@@ -71,7 +73,7 @@ const OFERTA = {
   ]
 };
 const PAGO = { transfer:{ bank:'Banregio / Hey Banco', clabe:'167210000079567650', holder:'Proyecto Leyenda SA de CV' },
-  methods:['Transferencia','Efectivo','Tarjeta'], delivery:'3 a 4 semanas', whatsapp:'524792651338' };
+  methods:['Transferencia','Efectivo','Tarjeta'], delivery:'3 a 4 semanas', whatsapp:'524792651338', online:'mercadopago' };
 
 const llamadas = [], firmas = [];
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
@@ -85,6 +87,7 @@ await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
 await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
   export function createClient(){return{
     auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+    functions:{invoke:async(n,o)=>{await window.__anota('fn:'+n, JSON.parse(JSON.stringify(o.body)));return{data:{url:'/qa-mp/checkout'},error:null};}},
     storage:{from:()=>({createSignedUrls:async(ps)=>{await window.__firma(ps);return{data:ps.map(p=>({path:p,signedUrl:'/qa-foto/'+encodeURIComponent(p)})),error:null};}})},
     rpc:async(n,p={})=>{
       await window.__anota(n, JSON.parse(JSON.stringify(p)));
@@ -282,6 +285,23 @@ revisa('se confirma con su folio y cómo pagar', /PED-QA-1/.test(final) && /1672
 if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/tienda-pago.png`, fullPage: true });
 revisa('el pago no habla de comisiones y se copian CLABE y referencia', !/comisi/i.test(final) && (await pg.$$('#content [data-copiar]')).length === 2, final.slice(0, 400));
 revisa('y el carrito queda vacío', (await badge()) === '0');
+// Pago en línea (28/10/2026, h50): si el club cobra en línea, primero "Pagar ahora".
+revisa('[en línea] arriba sale "Pagar $4,898" y la transferencia queda como otra opción', /Pagar \$4,898/.test(await pg.textContent('#pagarEnLinea').catch(() => '')) && /O por transferencia/.test(final), final.slice(0, 300));
+await pg.click('#pagarEnLinea');
+await pg.waitForURL(/\/qa-mp\/checkout/, { timeout:4000 }).catch(() => {});
+const fn = llamadas.filter(c => c.n === 'fn:pago-en-linea');
+revisa('[en línea] abre Mercado Pago con el pedido y su folio', /\/qa-mp\/checkout/.test(pg.url()) && fn[0]?.p?.action === 'crear' && fn[0]?.p?.orderId === 'o-qa' && fn[0]?.p?.folio === 'PED-QA-1', JSON.stringify(fn));
+await pg.goto(BASE + '/pedido/?pago=PED-QA-1&estado=fallo&collection_status=rejected');
+await pg.waitForSelector('.success', { timeout:6000 });
+revisa('[en línea] si el pago no pasó, lo dice y deja reintentar con el mismo pedido', /El pago no se completó/.test(await pg.textContent('.success')) && /Intentar otra vez · \$4,898/.test(await pg.textContent('#pagarEnLinea').catch(() => '')));
+revisa('[en línea] la barra queda limpia, sin los datos de Mercado Pago', await pg.evaluate(() => !/pago=|collection_status/.test(location.search)), await pg.evaluate(() => location.href));
+await pg.click('#pagarEnLinea');
+await pg.waitForURL(/\/qa-mp\/checkout/, { timeout:4000 }).catch(() => {});
+const fn2 = llamadas.filter(c => c.n === 'fn:pago-en-linea');
+revisa('[en línea] el reintento manda el mismo pedido', fn2.length === 2 && fn2[1]?.p?.orderId === 'o-qa' && fn2[1]?.p?.folio === 'PED-QA-1', JSON.stringify(fn2));
+await pg.goto(BASE + '/pedido/?pago=PED-QA-1&estado=ok');
+await pg.waitForSelector('.success', { timeout:6000 });
+revisa('[en línea] pagado: "¡Pago recibido!" sin pedir comprobante', /¡Pago recibido!/.test(await pg.textContent('.success')) && !(await pg.$('#pagarEnLinea')));
 
 /* ===== 7. Quitar renglones ===== */
 await pg.goto(BASE + '/pedido/#/p/p-black');

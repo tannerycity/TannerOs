@@ -1378,8 +1378,51 @@ async function renderEmbajador(token) {
   });
 }
 
+/* ---------- Pago en línea (28/10/2026, h50) ----------
+   "Que me paguen directamente y quede pagado": si el club cobra en línea, el
+   pedido recibido trae "Pagar ahora" (Mercado Pago: tarjeta, OXXO, saldo).
+   Al pagar, Mercado Pago avisa al servidor y el pedido queda pagado solo; la
+   transferencia sigue abajo para quien la prefiera. El último pedido se
+   recuerda en el teléfono para poder reintentar si el pago no pasó. */
+const LLAVE_ULTIMO = `tiendaUltimoPedido:${CLUB_KEY}`;
+async function pagaEnLinea(pedido) {
+  const btn = $('pagarEnLinea'), msg = $('pagoLineaMsg');
+  if (btn) { btn.disabled = true; btn.textContent = 'Abriendo Mercado Pago…'; }
+  if (msg) msg.hidden = true;
+  try {
+    const { data, error } = await supabase.functions.invoke('pago-en-linea', { body: { action: 'crear', orderId: pedido.id, folio: pedido.folio, origen: location.origin } });
+    if (error) { let m = ''; try { m = (await error.context.json())?.error; } catch {} throw new Error(m || 'No se pudo abrir el pago.'); }
+    if (!data?.url) throw new Error(data?.error || 'No se pudo abrir el pago.');
+    location.assign(data.url);
+  } catch (err) {
+    if (msg) { msg.textContent = `${err.message || 'No se pudo abrir el pago.'} También puedes pagar por transferencia.`; msg.hidden = false; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Intentar otra vez'; }
+  }
+}
+// De regreso de Mercado Pago: ?pago=<folio>&estado=ok|pendiente|fallo
+function renderVueltaDePago(folio, estado) {
+  pintaBarra(false);
+  let ultimo = null;
+  try { ultimo = JSON.parse(lee(LLAVE_ULTIMO) || 'null'); } catch { ultimo = null; }
+  const mismo = ultimo?.folio === folio ? ultimo : null;
+  const t = estado === 'ok' ? { h: '¡Pago recibido!', p: `Tu pedido <b>${esc(folio)}</b> quedó pagado. Te avisamos por WhatsApp cuando esté listo para recoger.`, ok: true }
+    : estado === 'pendiente' ? { h: 'Tu pago está en proceso', p: `Si elegiste OXXO, paga tu ficha antes de que venza. En cuanto se acredite, el pedido <b>${esc(folio)}</b> queda pagado solo.`, ok: true }
+    : { h: 'El pago no se completó', p: `No se hizo ningún cargo. Tu pedido <b>${esc(folio)}</b> sigue apartado: intenta otra vez o paga por transferencia.`, ok: false };
+  $('content').innerHTML = `<div class="success${t.ok ? '' : ' pago-fallo'}"><div class="success-mark"><span class="tos-icon tos-icon-${t.ok ? 'check' : 'close'}" aria-hidden="true"></span></div>
+      <h2>${t.h}</h2><p>${t.p}</p></div>
+    ${!t.ok && mismo ? `<section class="pago-card pago-linea"><button type="button" class="primary pago-linea-btn" id="pagarEnLinea">Intentar otra vez · ${money.format(Number(mismo.total || 0))}</button>
+      <p class="pago-linea-msg" id="pagoLineaMsg" role="alert" hidden></p></section>` : ''}
+    <a class="st-sigue-portal" href="/familias/">Síguelo paso a paso en tu portal de familia</a>
+    <a class="st-volver" href="#/">‹ Seguir comprando</a>`;
+  $('pagarEnLinea')?.addEventListener('click', () => pagaEnLinea(mismo));
+  document.title = `${t.h} · Tienda Tanner`;
+  window.scrollTo(0, 0);
+}
+
 function renderListo(result, nombre) {
   const folio = result?.folio || '', total = Number(result?.total || 0);
+  const enLinea = !!(pagoInfo?.online && result?.id && folio && total > 0);
+  if (result?.id && folio) escribe(LLAVE_ULTIMO, JSON.stringify({ id: result.id, folio, total }));
   const pago = datosDePago(pagoInfo, folio);
   const wa = ligaWhatsApp(pagoInfo?.whatsapp, mensajeComprobante({ folio, total, nombre }));
   const filas = pago.filas.map(([k, v]) => `<div class="pago-fila"><span>${esc(k)}</span>`
@@ -1391,8 +1434,14 @@ function renderListo(result, nombre) {
       ${folio ? `<div class="folio">${esc(folio)}</div>` : ''}
       <p><strong>Total:</strong> ${money.format(total)}</p>
       ${Number(result?.discount || 0) > 0 ? `<p class="muted">Ya con ${money.format(Number(result.discount))} de descuento por tu código.</p>` : ''}</div>
+    ${enLinea ? `<section class="pago-card pago-linea" aria-label="Pagar ahora">
+      <h3>Paga ahora y queda confirmado</h3>
+      <p class="muted">Tarjeta de crédito o débito, OXXO o tu cuenta de Mercado Pago. Al pagar, tu pedido queda pagado solo: no tienes que mandar comprobante.</p>
+      <button type="button" class="primary pago-linea-btn" id="pagarEnLinea">Pagar ${money.format(total)}</button>
+      <p class="pago-linea-msg" id="pagoLineaMsg" role="alert" hidden></p>
+    </section>` : ''}
     ${filas ? `<section class="pago-card" aria-label="Cómo pagar">
-      <h3>Cómo pagar</h3>
+      <h3>${enLinea ? 'O por transferencia' : 'Cómo pagar'}</h3>
       <p class="muted">Transferencia SPEI. Pon tu folio como referencia o concepto:</p>
       <div class="pago-filas">${filas}</div>
       ${pago.otros ? `<p class="muted pago-otros">${esc(pago.otros)}</p>` : ''}
@@ -1406,6 +1455,7 @@ function renderListo(result, nombre) {
       <p class="st-sigue-plazo">Importante: tienes <b>${DIAS_PARA_RECOGER} días</b> para recoger tu pedido desde que te avisemos que llegó. Después de ese plazo el club ya no se hace responsable de la prenda.</p>
       <a class="st-sigue-portal" href="/familias/">Síguelo paso a paso en tu portal de familia</a>
     </section>`;
+  $('pagarEnLinea')?.addEventListener('click', () => pagaEnLinea({ id: result.id, folio }));
   $('content').querySelectorAll('[data-copiar]').forEach(btn => btn.addEventListener('click', async e => {
     const b = e.currentTarget;
     try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiado'; }
@@ -1492,8 +1542,19 @@ try {
   if (/^\/tienda\/[^/]+\/?$/.test(location.pathname) && !location.hash.replace(/^#\/?/, '')) {
     history.replaceState(null, '', `/tienda/${location.search}${rutaDeLiga(location.pathname, catalogo) || '#/'}`);
   }
-  window.addEventListener('hashchange', ruta);
-  ruta();
+  // Regreso de Mercado Pago: se enseña cómo quedó y se limpia la barra.
+  const vuelta = new URLSearchParams(location.search);
+  if (vuelta.get('pago')) {
+    const folio = vuelta.get('pago'), estado = vuelta.get('estado') || vuelta.get('collection_status') || '';
+    ['pago', 'estado', 'collection_id', 'collection_status', 'payment_id', 'status', 'external_reference', 'payment_type', 'merchant_order_id', 'preference_id', 'site_id', 'processing_mode', 'merchant_account_id']
+      .forEach(k => vuelta.delete(k));
+    history.replaceState(null, '', `/tienda/${vuelta.toString() ? `?${vuelta}` : ''}#/pagado`);
+    window.addEventListener('hashchange', ruta);
+    renderVueltaDePago(folio, estado === 'approved' ? 'ok' : estado === 'in_process' ? 'pendiente' : estado === 'rejected' ? 'fallo' : estado);
+  } else {
+    window.addEventListener('hashchange', ruta);
+    ruta();
+  }
 } catch (err) {
   $('loading').classList.add('hidden');
   $('content').classList.remove('hidden');

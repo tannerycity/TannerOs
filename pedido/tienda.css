@@ -630,3 +630,9 @@ body.st-sin-scroll { overflow: hidden; }
 /* Compartir la pieza (28/10/2026): junto al corazón, la liga fácil. */
 .st-pdp-tit h1 { flex: 1; min-width: 0; }
 .st-pdp-tit .st-compartir svg { fill: none; }
+
+/* Pago en línea (28/10/2026, h50): "Pagar ahora" arriba, transferencia abajo. */
+.pago-linea { border: 1.5px solid var(--st-ink); }
+.pago-linea-btn { width: 100%; min-height: 54px; margin-top: 10px; border-radius: 14px; font-size: 17px; font-weight: 800; }
+.pago-linea-msg { margin: 10px 0 0; color: #a03f3c; font-size: 14px; font-weight: 600; }
+.success.pago-fallo .success-mark { background: #fbeceb; color: #a03f3c; }

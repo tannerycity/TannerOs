@@ -63,3 +63,20 @@ demo (con datos / recién dado de alta). Sin contraseña.
 - Los clubes demo son de solo lectura (migración o4): el candado de la base
   frena cualquier escritura del staff, y `v2_my_modules` no da `can_write`,
   así que `staff-access` tampoco crea ni invita cuentas desde una demo.
+
+## pago-en-linea
+
+Pago en línea de la tienda con Mercado Pago (h50). La tienda la llama para
+abrir el pago y Mercado Pago le avisa (`?aviso=mp`) cuando un pago cambia.
+
+- **Se despliega sin verificar JWT** (`--no-verify-jwt`): el aviso de Mercado
+  Pago no trae sesión. La seguridad no depende de eso: el aviso se valida con
+  la firma (`MP_WEBHOOK_SECRET`) y el pago **se consulta en la API de Mercado
+  Pago** antes de registrarlo; el cuerpo del aviso nunca se cree.
+- Secretos: `MP_ACCESS_TOKEN` (Access Token de producción) y
+  `MP_WEBHOOK_SECRET` (clave secreta de Webhooks). Sin el token contesta "no
+  configurado" y la tienda sigue con transferencia.
+- Para que la tienda enseñe "Pagar ahora", el club necesita
+  `settings.paymentInstructions.online.enabled = true`.
+- Las funciones de la base que usa (`v2_online_payment_*`) sólo las puede
+  llamar `service_role`.

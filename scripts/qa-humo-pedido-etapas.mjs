@@ -110,7 +110,11 @@ const CLIENTE = (pagoFalla, prod = '') => `
       window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});
       const ok=d=>({data:d,error:null});
       // Producción dentro de la Tienda (29/10/2026): envíos, garantías y dinero.
-      if(PROD){
+      if(PROD==='liga'){
+        if(n==='v2_orders_pipeline')return ok({'o-nuevo':{stage:'para_proveedor',missing:[],linked:true},'o-viejo':{stage:'para_entregar',missing:[],linked:false,tanner:{tipo:'tanner',nombre:'Leo Ávila',categoria:'T10'}},'o-tercero':{stage:'con_proveedor',missing:[],linked:true}});
+        if(n==='v2_order_not_tanner')return ok(null);
+      }
+      if(PROD&&PROD!=='liga'){
         if(n==='v2_my_modules'&&PROD==='conta')return ok([{module_code:'accounting',enabled:true,can_read:true,can_write:true}]);
         if(n==='v2_can_pay_supplier')return ok(PROD==='zul');
         if(n==='v2_production_batches')return ok([
@@ -330,6 +334,31 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   await pg.close();
 }
 
+// De qué Tanner es (29/10/2026, h52): en la lista, con lo que escribió la
+// familia y la sugerencia; un toque lo liga.
+{
+  const { pg, errs } = await abre('/v2/pedidos/', { prod:'liga' });
+  await pg.waitForSelector('#tSeg .t-paso', { timeout:8000 });
+  await pg.click('#tSeg [data-f="@para_entregar"]');
+  await pg.waitForSelector('.order-row[data-order-id="o-viejo"] .t-liga-chip', { timeout:4000 });
+  const caja = (await pg.textContent('.order-row[data-order-id="o-viejo"] .t-liga')).replace(/\s+/g, ' ');
+  if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-liga.png`, fullPage: true });
+  revisa('12. el pedido sin niño pregunta de qué Tanner es, con lo que escribió la familia', /¿De qué Tanner es\?/.test(caja) && /La familia escribió: “?Leo Ávila · T10/.test(caja), caja);
+  revisa('12. y recomienda al niño con el porqué', /Leo Ávila · T10/.test(await pg.textContent('.t-liga-chip')) && /mismo teléfono/.test(await pg.textContent('.t-liga-chip')));
+  revisa('12. el pedido ligado no lo pregunta', !(await pg.$('.order-row[data-order-id="o-nuevo"] .t-liga')));
+  await pg.click('.order-row[data-order-id="o-viejo"] .t-liga-chip');
+  await pg.waitForTimeout(300);
+  const liga = (await llamadas(pg, 'v2_link_order_player'))[0];
+  revisa('12. un toque lo liga, sin abrir el pedido', liga?.order_id === 'o-viejo' && liga?.player_id === 't1' && !(await pg.isVisible('#drawer:not(.hidden)')), JSON.stringify(liga));
+  await pg.click('.order-row[data-order-id="o-viejo"] [data-no-tanner]');
+  await pg.waitForSelector('.tosdlg-ok', { timeout:3000 });
+  await pg.click('.tosdlg-ok');
+  await pg.waitForTimeout(300);
+  revisa('12. "No es para un Tanner" queda registrado', (await llamadas(pg, 'v2_order_not_tanner'))[0]?.order_id === 'o-viejo');
+  revisa('sin errores de página (ligar)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+
 await nav.close(); srv.close();
-console.log(fallos ? `Pedido por etapas humo FAILED · ${fallos} de ${corridas}` : `Pedido por etapas humo OK · ${corridas} revisiones: diagrama de cinco pasos, mandar en un toque con PDF, llegó, entregar desde la lista, regresar un paso, garantías, envíos anteriores y Pagar a Tremor`);
+console.log(fallos ? `Pedido por etapas humo FAILED · ${fallos} de ${corridas}` : `Pedido por etapas humo OK · ${corridas} revisiones: diagrama de cinco pasos, mandar en un toque con PDF, llegó, entregar desde la lista, regresar un paso, garantías, envíos anteriores, Pagar a Tremor y de qué Tanner es`);
 process.exit(fallos ? 1 : 0);

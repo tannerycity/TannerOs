@@ -95,7 +95,8 @@ const SHELL = `
 
 // El cliente de Supabase falso: contesta lo de las dos pantallas y anota
 // cada llamada, que es lo que de verdad se prueba.
-const CLIENTE = (pagoFalla) => `
+const CLIENTE = (pagoFalla, prod = '') => `
+  const PROD=${JSON.stringify(prod)};let pagado=0;
   const PEDIDOS=${JSON.stringify(PEDIDOS)};
   const DET=${JSON.stringify(Object.fromEntries(PEDIDOS.map(o => [o.id, detalle(o.id)])))};
   window.__rpc=[]; window.__abiertas=[];
@@ -108,6 +109,24 @@ const CLIENTE = (pagoFalla) => `
     rpc:async(n,p={})=>{
       window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});
       const ok=d=>({data:d,error:null});
+      // Producción dentro de la Tienda (29/10/2026): envíos, garantías y dinero.
+      if(PROD){
+        if(n==='v2_my_modules'&&PROD==='conta')return ok([{module_code:'accounting',enabled:true,can_read:true,can_write:true}]);
+        if(n==='v2_can_pay_supplier')return ok(PROD==='zul');
+        if(n==='v2_production_batches')return ok([
+          {id:'b1',folio:'C-0002',batch_type:'orders',status:'submitted',supplier_name:'Tremor',order_count:1,warranty_count:0,submitted_on:'2026-10-17',sales_total:1200,cost_total:500},
+          {id:'b0',folio:'C-0001',batch_type:'orders',status:'received',supplier_name:'Tremor',order_count:1,warranty_count:0,submitted_on:'2026-10-10',received_at:'2026-10-14T18:00:00Z',sales_total:699,cost_total:300}]);
+        if(n==='v2_warranties')return ok([
+          {id:'g1',folio:'G-0001',status:'opened',reason:'Número mal impreso',order_id:'o-viejo',item_count:1},
+          {id:'g2',folio:'G-0002',status:'ready',reason:'Talla equivocada',order_id:'o-viejo',item_count:1}]);
+        if(n==='v2_production_batch_finance')return ok({batch:{id:p.batch_id,folio:p.batch_id==='b0'?'C-0001':'C-0002',supplier_name:'Tremor',sales_total:699,cost_total:300},
+          customerCollected:699,supplierPaid:pagado,supplierPayable:300-pagado,grossProfitExpected:399,orders:[],
+          supplierPayments:pagado?[{amount:pagado,date:'2026-10-29',method:'Efectivo'}]:[]});
+        if(n==='v2_post_batch_supplier_payment'){pagado+=p.amount;return ok('e1');}
+        if(n==='v2_create_warranty_replacement_batch')return ok('b9');
+        if(n==='v2_deliver_warranty')return ok(null);
+        if(PROD==='conta'&&['v2_orders','v2_orders_board','v2_orders_pipeline','v2_orders_to_review'].includes(n))return {data:null,error:{message:'Not authorized'}};
+      }
       if(n==='v2_public_offerings')return ok(${JSON.stringify(OFERTA)});
       if(n==='v2_public_payment_info')return ${pagoFalla ? "({data:null,error:{message:'sin red'}})" : `ok(${JSON.stringify(PAGO)})`};
       if(n==='v2_public_cart_order')return ok({id:'o-web',folio:'PED-2026-00032',total:850,items:1});
@@ -146,7 +165,7 @@ const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/op
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
 
-async function abre(ruta, { pagoFalla = false } = {}) {
+async function abre(ruta, { pagoFalla = false, prod = '' } = {}) {
   const pg = await nav.newPage({ viewport:{ width:Number(process.env.ANCHO || 390), height:844 } });
   const errs = [];
   pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
@@ -157,7 +176,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
     export function getCountryCallingCode(c){return c==='MX'?'52':'1'}
     export function parsePhoneNumberFromString(v){const d=String(v).replace(/\\D/g,'');
       return{isValid:()=>d.length>=10,formatInternational:()=>'+52 '+d,number:'+52'+d};}` }));
-  await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:CLIENTE(pagoFalla) }));
+  await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:CLIENTE(pagoFalla, prod) }));
   await pg.route(/\/v2\/shell\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:SHELL }));
   // El PDF real usa jsPDF de internet: aquí sólo se anota qué se compartió.
   await pg.route(/\/v2\/produccion\/pdf\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`export async function hojaPdf({sheet}){return {folio:sheet.batch.folio};}\nexport function nombreDelPdf(s){return 'hoja-'+s.batch.folio+'.pdf';}\nexport async function compartePdf(doc,nombre){window.__compartido=nombre;return 'compartido';}\nexport async function cargaFotos(){return {};}` }));
@@ -239,6 +258,78 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   await pg.close();
 }
 
+// Producción vive en la Tienda (29/10/2026). Presidencia: "no quiero otra
+// pantalla de corte, todo dentro de la administración de tienda". Garantías
+// en Mandar y Entregar, envíos anteriores y el dinero de cada envío con
+// "Pagar a Tremor" (Presidencia, Contabilidad y Zul por permiso).
+{
+  const { pg, errs } = await abre('/v2/pedidos/', { prod:'zul' });
+  await pg.waitForSelector('#tSeg .t-paso', { timeout:8000 });
+  await pg.waitForTimeout(400);
+  const pasos = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
+  revisa('6. la garantía abierta cuenta en Mandar y la lista en Entregar', JSON.stringify(pasos) === JSON.stringify(['Revisar=0','Cobrar=0','Mandar=2','Recibir=1','Entregar=2']), JSON.stringify(pasos));
+  const mandar = (await pg.textContent('#tEtapa')).replace(/\s+/g, ' ');
+  revisa('6. Mandar dice que va la reposición', /Va 1 reposición por garantía/.test(mandar) && /G-0001 · Número mal impreso/.test(mandar), mandar);
+  await pg.fill('#heroProv', 'Tremor');
+  await pg.click('[data-mandar]');
+  await pg.waitForSelector('[data-envio-wa]', { timeout:4000 });
+  const repo = (await llamadas(pg, 'v2_create_warranty_replacement_batch'))[0];
+  revisa('6. un toque manda pedidos y reposición', JSON.stringify(repo?.warranty_ids) === '["g1"]' && repo?.supplier_name === 'Tremor' && (await llamadas(pg, 'v2_create_production_batch')).length === 1, JSON.stringify(repo));
+  revisa('6. Listo lo dice', /Y 1 reposición por garantía/.test(await pg.textContent('#envioHoja')));
+  await pg.click('.envio-link[data-envio-cierra]');
+  await pg.waitForTimeout(200);
+  const recibir = (await pg.textContent('#tEtapa')).replace(/\s+/g, ' ');
+  revisa('7. Recibir enseña el envío con su proveedor', /¿Ya llegó lo de Tremor\?/.test(recibir) && await pg.isVisible('[data-llego="b1"]') && await pg.isVisible('[data-dinero="b1"]'), recibir);
+  await pg.click('[data-historial]');
+  await pg.waitForTimeout(150);
+  revisa('7. envíos anteriores en la misma pantalla', await pg.isVisible('.t-historial [data-dinero="b0"]') && /Llegó el/.test(await pg.textContent('.t-historial')));
+  await pg.click('.t-historial [data-dinero="b0"]');
+  await pg.waitForSelector('#dineroHoja [data-paga]', { timeout:3000 });
+  const hoja = (await pg.textContent('#dineroHoja')).replace(/\s+/g, ' ');
+  if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-dinero.png` });
+  revisa('8. el dinero del envío, en grande', /Falta pagar a Tremor/.test(hoja) && /\$300\.00/.test(hoja) && /Utilidad esperada/.test(hoja), hoja);
+  await pg.click('[data-metodo="Efectivo"]');
+  await pg.click('[data-paga]');
+  await pg.waitForSelector('.tosdlg-ok', { timeout:3000 });
+  revisa('8. pagar pide confirmar', /¿Pagar \$300\.00 a Tremor\?/.test(await pg.textContent('.tosdlg')));
+  await pg.click('.tosdlg-ok');
+  await pg.waitForSelector('.dinero-ok', { timeout:3000 });
+  const pago = (await llamadas(pg, 'v2_post_batch_supplier_payment'))[0];
+  revisa('8. Pagar a Tremor registra el pago', pago?.batch_id === 'b0' && pago?.amount === 300 && pago?.method === 'Efectivo' && /^supplier-/.test(pago?.idempotency_key || ''), JSON.stringify(pago));
+  revisa('8. y dice que ya se le pagó todo', /Ya se le pagó todo a Tremor/.test(await pg.textContent('#dineroHoja')) && !(await pg.$('#dineroHoja [data-paga]')));
+  await pg.click('#dineroHoja [data-dinero-cierra]');
+  await pg.click('#tSeg [data-f="@para_entregar"]');
+  await pg.waitForTimeout(200);
+  revisa('9. la garantía lista se entrega en Entregar', /Garantía G-0002/.test(await pg.textContent('#tEtapa')));
+  await pg.click('[data-garantia-entrega="g2"]');
+  await pg.waitForSelector('.tosdlg-ok', { timeout:3000 });
+  await pg.click('.tosdlg-ok');
+  await pg.waitForTimeout(300);
+  revisa('9. Entregada la registra', (await llamadas(pg, 'v2_deliver_warranty'))[0]?.warranty_id === 'g2');
+  revisa('9. ya no hay botón de Producción', !(await pg.$('#productionAction')) && !(await pg.$('a[href*="/produccion/"]')));
+  revisa('sin errores de página (producción en la Tienda)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+{
+  const { pg, errs } = await abre('/v2/pedidos/', { prod:'sinpago' });
+  await pg.waitForSelector('#tSeg .t-paso', { timeout:8000 });
+  await pg.click('#tSeg [data-f="@con_proveedor"]');
+  await pg.waitForTimeout(200);
+  revisa('10. sin permiso de pagar no aparece Dinero', await pg.isVisible('[data-llego="b1"]') && !(await pg.$('[data-dinero]')));
+  revisa('sin errores de página (sin permiso de pagar)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+{
+  const { pg, errs } = await abre('/v2/pedidos/', { prod:'conta' });
+  await pg.waitForSelector('#tEtapa [data-dinero]', { timeout:8000 });
+  const t = (await pg.textContent('#tEtapa')).replace(/\s+/g, ' ');
+  if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-contabilidad.png`, fullPage: true });
+  revisa('11. Contabilidad ve los envíos y su dinero, sin pedidos', /Envíos al proveedor/.test(t) && (await pg.$$('#tEtapa [data-dinero]')).length === 2 && !(await pg.isVisible('#tSeg')) && !(await pg.$('[data-llego]')), t);
+  revisa('11. sin pedir pedidos', (await llamadas(pg, 'v2_orders')).length === 0);
+  revisa('sin errores de página (Contabilidad)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+
 await nav.close(); srv.close();
-console.log(fallos ? `Pedido por etapas humo FAILED · ${fallos} de ${corridas}` : `Pedido por etapas humo OK · ${corridas} revisiones: diagrama de cinco pasos, mandar en un toque con PDF, llegó, entregar desde la lista y regresar un paso`);
+console.log(fallos ? `Pedido por etapas humo FAILED · ${fallos} de ${corridas}` : `Pedido por etapas humo OK · ${corridas} revisiones: diagrama de cinco pasos, mandar en un toque con PDF, llegó, entregar desde la lista, regresar un paso, garantías, envíos anteriores y Pagar a Tremor`);
 process.exit(fallos ? 1 : 0);

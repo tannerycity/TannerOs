@@ -129,7 +129,9 @@ await pg.click('[data-tier="Adulto"]');
 revisa('el kit dice el cargo por jersey', /\+\$100/.test(await pg.innerText('.st-pers-cargo')));
 const antes = await pg.innerText('#stPrecioKit');
 await pg.fill('[data-campo="numero"]', '7');
-revisa('en el kit, el número suma $100 por su jersey', /\$1,500/.test(antes) && /\$1,600/.test(await pg.innerText('#stPrecioKit')) && /\$1,600/.test(await pg.innerText('#stAgregar')), `${antes} -> ${await pg.innerText('#stPrecioKit')}`);
+// 29/10/2026 ("me salen dos precios"): el precio grande es el del kit, como
+// en la ficha de una pieza; lo que se suma va abajo con el total del botón.
+revisa('en el kit, el número suma $100 por su jersey y lo dice', /\$1,500/.test(antes) && /\$1,500/.test(await pg.innerText('#stPrecioKit')) && /nombre y número \+\$100/.test(await pg.innerText('#stExtrasKit')) && /total \$1,600/.test(await pg.innerText('#stExtrasKit')) && /\$1,600/.test(await pg.innerText('#stAgregar')), `${antes} -> ${await pg.innerText('#stExtrasKit').catch(() => '')}`);
 await cabe('la ficha del kit');
 
 /* ===== 2. El código en el pedido ===== */

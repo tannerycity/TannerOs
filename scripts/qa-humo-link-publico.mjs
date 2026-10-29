@@ -368,7 +368,7 @@ revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')
   // Manga por jersey con cargo (14/10/2026).
   revisa('[manga] cada jersey del kit trae su manga, con "+$50" en larga', (await p2.$$('[data-ranura="elige1#0"] [data-pieza-manga]')).length === 2 && /Larga\s*\+\$50/.test(await p2.textContent('[data-ranura="elige1#0"] [data-pieza-manga="larga"]')) && (await p2.$('[data-ranura="p-short#0"] [data-pieza-manga]')) === null);
   await p2.click('[data-ranura="elige1#0"] [data-pieza-manga="larga"]');
-  revisa('[manga] el precio del kit sube $50 y lo dice', /\$1,349(?!\.\d)/.test(await p2.textContent('#stAgregar')) && /1 manga larga/.test(await p2.textContent('.st-pdp-precio')), await p2.textContent('#stAgregar'));
+  revisa('[manga] el precio del kit sube $50 y lo dice', /\$1,349(?!\.\d)/.test(await p2.textContent('#stAgregar')) && /1 manga larga \+\$50/.test(await p2.textContent('#stExtrasKit')), await p2.textContent('#stAgregar'));
   revisa('[manga] la manga general del kit ya no sale', (await p2.$('.st-manga-tit')) === null);
   // La espalda de cada jersey elegido, con su diseño y su manga (14/10/2026).
   const espaldas = await p2.$$eval('#stMockup .st-mockup-uno', xs => xs.map(x => [x.querySelector('span').firstChild.textContent, !!x.querySelector('[data-mockup="manga-larga"]')]));

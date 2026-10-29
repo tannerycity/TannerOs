@@ -18,6 +18,9 @@ export const MEDICION = {
   googleTagId: 'G-KJN3NJS2YJ',
 };
 
+// Los rastreadores no deben ejecutarse en localhost, pruebas ni previews de Vercel.
+export const esDominioOficial = hostname => hostname === 'app.tannerycity.com';
+const dominioActual = () => typeof location !== 'undefined' && esDominioOficial(location.hostname);
 const LLAVE = 'tannerConsentimiento';
 export const hayIds = (cfg = MEDICION) => /^\d{6,20}$/.test(cfg.metaPixelId || '') || /^(G|AW)-[A-Z0-9]{4,20}$/.test(cfg.googleTagId || '');
 
@@ -42,7 +45,7 @@ const lee = () => { try { return localStorage.getItem(LLAVE); } catch { return n
 const guarda = v => { try { localStorage.setItem(LLAVE, v); } catch { /* sin memoria: se vuelve a preguntar */ } };
 
 function carga(cfg) {
-  if (cargado || typeof document === 'undefined') return;
+  if (cargado || typeof document === 'undefined' || !dominioActual()) return;
   cargado = true;
   if (/^\d{6,20}$/.test(cfg.metaPixelId || '')) {
     const f = window.fbq = function () { f.callMethod ? f.callMethod.apply(f, arguments) : f.queue.push(arguments); };
@@ -78,7 +81,7 @@ const ESTILO = `.tc-consent{position:fixed;left:12px;right:12px;bottom:calc(12px
 .tc-consent button{min-height:44px;border-radius:12px;font:inherit;font-weight:700;cursor:pointer;border:1.5px solid #0b3d4a}
 .tc-consent .si{background:#0b3d4a;color:#fff}.tc-consent .no{background:#fff;color:#0b3d4a}`;
 export function preguntaConsentimiento(cfg = MEDICION) {
-  if (typeof document === 'undefined' || !hayIds(cfg) || document.getElementById('tcConsent')) return;
+  if (typeof document === 'undefined' || !dominioActual() || !hayIds(cfg) || document.getElementById('tcConsent')) return;
   const st = document.createElement('style'); st.textContent = ESTILO; document.head.appendChild(st);
   const barra = document.createElement('section');
   barra.id = 'tcConsent'; barra.className = 'tc-consent'; barra.setAttribute('role', 'dialog'); barra.setAttribute('aria-label', 'Cookies');
@@ -95,7 +98,7 @@ export function preguntaConsentimiento(cfg = MEDICION) {
 /* Se llama al abrir la página. Con "sí" guardado, carga; sin respuesta,
    pregunta; con "no", no hace nada. */
 export function iniciaMedicion(cfg = MEDICION) {
-  if (!hayIds(cfg)) return;
+  if (!dominioActual() || !hayIds(cfg)) return;
   const d = lee();
   if (d === 'si') carga(cfg);
   else if (d !== 'no') preguntaConsentimiento(cfg);

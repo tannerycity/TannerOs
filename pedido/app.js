@@ -80,6 +80,12 @@ let codigoEscrito = (() => {
 // Cómo pagar, el WhatsApp del club y el tiempo de entrega. Si no carga, la
 // tienda funciona igual: sólo faltan esos textos.
 let pagoInfo = null;
+/* Para qué Tanner es (29/10/2026). Presidencia: "¿cómo lo enlazamos al niño
+   para saber si ya compró sus uniformes... si no, le voy a andar cobrando
+   doble?". Obligatorio, con la salida "No es para un Tanner" (abuelos,
+   aficionados). Se escribe con nombre y apellido, aunque sea nuevo o no tenga
+   cuenta: el club lo liga con eso (h52). */
+let paraQuien = 'tanner';
 // Colores del club para la vista previa de la playera; si no llegan, los de siempre.
 let coloresClub = {};
 // Fotos ya firmadas en esta visita: ruta -> url.
@@ -1224,6 +1230,16 @@ function renderCheckout() {
       <div class="st-co-main">
         <div id="stExtras">${extrasAntesDePagar()}</div>
         <form id="orderForm" class="st-form st-co-form" novalidate>
+          <section class="st-co-card" id="stTannerCard"><h2 class="st-co-tit">¿Para qué Tanner es?<small>Así lo ligamos a su cuenta y nunca se cobra doble.</small></h2>
+            <div class="st-segmento st-para" role="radiogroup" aria-label="Para quién es el pedido">
+              ${[['tanner', 'Para un Tanner'], ['no_tanner', 'No es para un Tanner']].map(([k, t]) => `<button type="button" role="radio" data-para="${k}" aria-checked="${paraQuien === k}" class="${paraQuien === k ? 'activa' : ''}"><strong>${t}</strong></button>`).join('')}
+            </div>
+            <div id="stTannerCampos" class="st-co-campos${paraQuien === 'tanner' ? '' : ' hidden'}">
+              <label class="st-campo"><span>Nombre y apellido del Tanner</span><input id="tannerNombre" maxlength="120" autocomplete="off" autocapitalize="words" placeholder="Ej. Leo Ávila"></label>
+              <label class="st-campo"><span>Categoría <em>opcional</em></span><input id="tannerCategoria" maxlength="20" autocomplete="off" placeholder="Ej. T10"></label>
+              <small class="st-tanner-ayuda">¿Es nuevo o todavía no tiene cuenta? Escríbelo igual, nosotros lo ligamos. Si es para hermanos, sepáralos con coma.</small>
+            </div>
+          </section>
           <section class="st-co-card"><h2 class="st-co-tit">Tus datos<small>Te avisamos por WhatsApp cuando esté listo.</small></h2>
             <div class="st-co-campos">
               <label class="st-campo"><span>Nombre de quien recibe</span><input id="customerName" minlength="2" maxlength="120" required autocomplete="name" placeholder="Nombre y apellido"></label>
@@ -1246,6 +1262,13 @@ function renderCheckout() {
       </div>
     </div>`;
   wirePhone();
+  $('stTannerCard').onclick = e => {
+    const b = e.target.closest('[data-para]'); if (!b) return;
+    paraQuien = b.dataset.para;
+    $('stTannerCard').querySelectorAll('[data-para]').forEach(x => { const on = x === b; x.classList.toggle('activa', on); x.setAttribute('aria-checked', String(on)); });
+    $('stTannerCampos').classList.toggle('hidden', paraQuien !== 'tanner');
+    if (paraQuien === 'tanner') $('tannerNombre').focus();
+  };
   // Quitar un renglón no borra lo que ya se escribió en el formulario.
   $('resumenCarrito').onclick = e => {
     const cv = e.target.closest('[data-convierte]');
@@ -1310,6 +1333,8 @@ async function submit(e) {
   // Lo que falta se dice y se señala ahí mismo, en orden de arriba abajo.
   document.querySelectorAll('.st-falta').forEach(x => x.classList.remove('st-falta'));
   const falta = (el, t) => { el?.closest('.st-campo, .st-check, .phone-widget')?.classList.add('st-falta'); el?.focus?.({ preventScroll: true }); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return setMessage(t); };
+  const tannerNombre = ($('tannerNombre')?.value || '').trim().replace(/\s+/g, ' ');
+  if (paraQuien === 'tanner' && !/\S{2,}\s+\S{2,}/.test(tannerNombre)) return falta($('tannerNombre'), 'Escribe nombre y apellido del Tanner (o elige "No es para un Tanner").');
   if ($('customerName').value.trim().length < 2) return falta($('customerName'), 'Escribe el nombre de quien recibe.');
   if (!$('orderDataConsent').checked) return falta($('orderDataConsent'), 'Necesitamos tu autorización de datos para gestionar el pedido.');
   if (!$('orderPickup').checked) return falta($('orderPickup'), `Confirma que tienes ${DIAS_PARA_RECOGER} días para recoger tu pedido.`);
@@ -1336,7 +1361,17 @@ async function submit(e) {
   // El código viaja como una línea más; el servidor lo vuelve a validar.
   if (codigo?.ok) items.push({ kind: 'code', code: codigo.code });
   try {
-    const result = await rpc('v2_public_cart_order', { ...comun, items });
+    const tanner = paraQuien === 'tanner'
+      ? { tipo: 'tanner', nombre: tannerNombre, categoria: ($('tannerCategoria')?.value || '').trim() || null }
+      : { tipo: 'no_tanner' };
+    let result;
+    try { result = await rpc('v2_public_cart_order', { ...comun, items, tanner }); }
+    catch (err) {
+      // Sin h52 la base no conoce "tanner": el nombre va en la nota y se liga a mano.
+      if (!/PGRST202|schema cache|Could not find the function/i.test(`${err?.code || ''} ${err?.message || ''}`)) throw err;
+      const para = tanner.tipo === 'tanner' ? `Para el Tanner: ${tanner.nombre}${tanner.categoria ? ` (${tanner.categoria})` : ''}` : 'No es para un Tanner';
+      result = await rpc('v2_public_cart_order', { ...comun, notes: [para, comun.notes].filter(Boolean).join(' · '), items });
+    }
     mide('compra', { valor: Number(result?.total || 0), folio: result?.folio, items: itemsDelCarrito() });
     carrito = {};
     codigo = null; codigoEscrito = '';

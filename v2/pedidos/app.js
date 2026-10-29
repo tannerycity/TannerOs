@@ -165,10 +165,10 @@ function barraNumero(o){
 }
 function render(){pintaEtapa();const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').textContent='No hay pedidos aquí.';if($('statusFilter').value==='__cobrar'){renderDeudores(rows);return;}$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
     const atendio=quienAtendio(t);
-    const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b>${vigente(o)&&o.status!=='delivered'?(saldo>0.005?`<span class="t-pago debe">Debe ${money.format(saldo)}</span>`:'<span class="t-pago ok">Pagado</span>'):''}${vigente(o)&&['pending_payment','partial_payment','paid'].includes(o.status)?'':`<span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span>`}</div>${barraNumero(o)}${accionesDeFila(o,t)}`;
-    b.addEventListener('click',ev=>{if(ev.target.closest('[data-avisa]')){ev.stopPropagation();return;}const en=ev.target.closest('[data-entregado]');if(en){ev.stopPropagation();entregaDeFila(o,en);return;}const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
+    const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b>${vigente(o)&&o.status!=='delivered'?(saldo>0.005?`<span class="t-pago debe">Debe ${money.format(saldo)}</span>`:'<span class="t-pago ok">Pagado</span>'):''}${vigente(o)&&['pending_payment','partial_payment','paid'].includes(o.status)?'':`<span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span>`}</div>${barraNumero(o)}${cajaDeTanner(o)}${accionesDeFila(o,t)}`;
+    b.addEventListener('click',ev=>{if(ev.target.closest('.t-liga button')){ev.stopPropagation();accionDeLiga(o,ev);return;}if(ev.target.closest('[data-avisa]')){ev.stopPropagation();return;}const en=ev.target.closest('[data-entregado]');if(en){ev.stopPropagation();entregaDeFila(o,en);return;}const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
     b.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
-    list.appendChild(b);});}
+    list.appendChild(b);});cargaSugerencias(rows);}
 /* Quién me debe (13/10/2026, "y después saber quién me debe"): una tarjeta
    por persona con lo que debe, de cuántos pedidos y desde cuándo; WhatsApp
    con el recordatorio ya escrito y Cobrar, que abre el pedido más viejo. */
@@ -261,7 +261,7 @@ const nadaPorHacer=(titulo,sub)=>`<div class="t-ahora vacio"><span class="t-ahor
 function pintaEtapa(){
   const box=$('tEtapa');if(!box)return;const f=$('statusFilter').value,k=f==='__cobrar'?'cobrar':f.startsWith('@')?f.slice(1):'';
   const lista=orders.filter(o=>vigente(o)&&etapaDe(o)===k);let html='';
-  if(k==='por_validar')html=lista.length?ahora('naranja',1,`${lista.length} por revisar`,'Confirma con la familia talla, nombre y número. Ya revisado y pagado, pasa solo a Mandar.','<button type="button" class="t-grande" data-revisa>Revisar ahora</button>'):nadaPorHacer('Nada por revisar','Los pedidos nuevos aparecen aquí.');
+  if(k==='por_validar'){const sinT=lista.filter(sinTanner).length;html=lista.length?ahora('naranja',1,`${lista.length} por revisar`,`${sinT?`${sinT} sin Tanner: toca de quién es en cada pedido. `:''}Confirma con la familia talla, nombre y número. Ya revisado y pagado, pasa solo a Mandar.`,'<button type="button" class="t-grande" data-revisa>Revisar ahora</button>'):nadaPorHacer('Nada por revisar','Los pedidos nuevos aparecen aquí.');}
   else if(k==='cobrar'){const debe=orders.filter(o=>vigente(o)&&saldoDe(o)>0.005),total=debe.reduce((n,o)=>n+saldoDe(o),0);
     html=debe.length?ahora('rojo',2,`Faltan ${money.format(total)}`,`${debe.length} ${debe.length===1?'pedido sin pagar completo':'pedidos sin pagar completo'}. Mándales recordatorio por WhatsApp; al pagar, pasan solos a Mandar.`):nadaPorHacer('Nadie debe','Todo está pagado.');}
   else if(k==='para_proveedor'){const gar=garEn('opened');
@@ -433,6 +433,36 @@ async function entregaGarantia(id,btn){
   if(!ok)return;btn.disabled=true;
   try{await rpc('v2_deliver_warranty',{organization_id:ctx.organization_id,warranty_id:id,notes:null});await load();}
   catch(e){btn.disabled=false;await window.tosAlert({kicker:'GARANTÍA',title:'No se pudo entregar',message:e.message||String(e)});}
+}
+/* De qué Tanner es (29/10/2026, h52). Presidencia: "¿cómo lo enlazamos al
+   niño... si no, le voy a andar cobrando doble?" y "una recomendación para
+   ligarlo". Cada pedido sin niño lo dice en la lista, con lo que escribió la
+   familia y las sugerencias (mismo teléfono, mismo nombre): un toque y queda
+   ligado. Si no es de un Tanner (abuelo, aficionado), se marca. */
+const sugerencias=new Map();
+const sinTanner=o=>{if(!vigente(o)||['delivered'].includes(o.status))return false;const e=etapas[o.id]||{};if(e.tanner?.tipo==='no_tanner')return false;return e.linked===undefined?!tablero[o.id]?.playerName:!e.linked;};
+const escritoPor=o=>{const t=etapas[o.id]?.tanner;if(t?.nombre)return `${t.nombre}${t.categoria?` · ${t.categoria}`:''}`;const m=/Para el Tanner: ([^·]+)/.exec(o.notes||tablero[o.id]?.notes||'');return m?m[1].trim():'';};
+function cajaDeTanner(o){
+  if(!sinTanner(o))return '';const esc2=escritoPor(o),sug=sugerencias.get(o.id);
+  const chips=sug===undefined?'<span class="t-liga-cargando">Buscando a quién se parece…</span>':sug.length?sug.slice(0,3).map(x=>`<button type="button" class="t-liga-chip" data-liga="${esc(x.id)}"${canWrite?'':' disabled'}><b>${esc(x.name)}${x.category?` · ${esc(x.category)}`:''}</b><span>${esc(x.reason||'')}</span></button>`).join(''):'<span class="t-liga-cargando">Sin parecidos. Búscalo a mano.</span>';
+  return `<div class="t-liga"><div class="t-liga-cab"><b>¿De qué Tanner es?</b>${esc2?`<span>La familia escribió: <q>${esc(esc2)}</q></span>`:'<span>Lígalo para que salga en su cuenta y no se cobre doble.</span>'}</div>
+    <div class="t-liga-sug">${chips}</div>
+    ${canWrite?`<div class="t-liga-acc"><button type="button" class="t-link-mini" data-liga-otro>Buscar otro</button><button type="button" class="t-link-mini gris" data-no-tanner>No es para un Tanner</button></div>`:''}</div>`;
+}
+async function cargaSugerencias(rows){
+  const faltan=rows.filter(o=>sinTanner(o)&&!sugerencias.has(o.id)).slice(0,12);if(!faltan.length)return;
+  await Promise.all(faltan.map(async o=>{try{const r=await rpc('v2_order_player',{organization_id:ctx.organization_id,order_id:o.id});sugerencias.set(o.id,Array.isArray(r?.suggestions)?r.suggestions:[]);}catch{sugerencias.set(o.id,[]);}}));
+  faltan.forEach(o=>{const caja=document.querySelector(`.order-row[data-order-id="${CSS.escape(o.id)}"] .t-liga`);if(caja)caja.outerHTML=cajaDeTanner(o);});
+}
+async function accionDeLiga(o,ev){
+  if(!canWrite)return;
+  const chip=ev.target.closest('[data-liga]');
+  if(chip){chip.disabled=true;try{await rpc('v2_link_order_player',{organization_id:ctx.organization_id,order_id:o.id,player_id:chip.dataset.liga});sugerencias.delete(o.id);await load();}catch(e){chip.disabled=false;await window.tosAlert({kicker:'LIGAR',title:'No se pudo ligar',message:e.message||String(e)});}return;}
+  if(ev.target.closest('[data-liga-otro]')){openOrder(o);return;}
+  const nt=ev.target.closest('[data-no-tanner]');
+  if(nt){const ok=await window.tosConfirm({kicker:'NO ES TANNER',title:'¿No es para un Tanner?',message:'Por ejemplo un abuelo o un aficionado. Queda registrado con tu nombre.',confirmText:'Sí, no es Tanner'});if(!ok)return;nt.disabled=true;
+    try{await rpc('v2_order_not_tanner',{organization_id:ctx.organization_id,order_id:o.id,value:true});await load();}
+    catch(e){nt.disabled=false;await window.tosAlert({kicker:'NO ES TANNER',title:'No se pudo marcar',message:/PGRST202|schema cache|Could not find/i.test(`${e?.code||''} ${e?.message||''}`)?'Falta activar esta opción en la base (h52).':(e.message||String(e))});}}
 }
 /* En "Entregar", cada pedido trae sus dos botones a la vista: avisar por
    WhatsApp y Entregado. Sin abrir el pedido (29/10/2026). */

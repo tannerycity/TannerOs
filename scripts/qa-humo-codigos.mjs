@@ -157,6 +157,7 @@ revisa('con Enter también se aplica', /\$809\.10/.test(await pg.innerText('.car
 await cabe('el pedido con código');
 
 /* ===== 4. Viaja al servidor ===== */
+await pg.fill('#tannerNombre', 'Leo Ávila');
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.fill('#customerPhone', '4771234567');
 await pg.check('#orderDataConsent');

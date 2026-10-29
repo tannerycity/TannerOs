@@ -254,8 +254,23 @@ revisa('[extra] la talla elegida se marca y el botón dice el precio', /Agregar 
 await pg.click('#stTallaRapida [data-tr-agrega]');
 await pg.waitForTimeout(150);
 revisa('[extra] con la talla elegida, se agrega', /Hoodie/.test(await pg.innerText('#resumenCarrito')) && /\$6,447/.test(await pg.innerText('.carrito-total')), await pg.innerText('.carrito-total'));
+// Para qué Tanner es (29/10/2026, h52): obligatorio, con nombre y apellido.
+revisa('[tanner] pregunta para qué Tanner es, antes de tus datos', /¿Para qué Tanner es\?/.test(await pg.textContent('#stTannerCard')) && await pg.isVisible('#tannerNombre'));
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.fill('#customerPhone', '4771234567');
+await pg.check('#orderDataConsent');
+await pg.check('#orderPickup');
+await pg.fill('#tannerNombre', 'Leo');
+await pg.click('#submitOrder');
+await pg.waitForTimeout(300);
+revisa('[tanner] sin nombre y apellido, NO se manda', !llamadas.some(c => c.n === 'v2_public_cart_order') && /nombre y apellido del Tanner/.test(await pg.textContent('#formMessage')));
+await pg.click('[data-para="no_tanner"]');
+revisa('[tanner] "No es para un Tanner" esconde el nombre', !(await pg.isVisible('#tannerNombre')) && (await pg.getAttribute('[data-para="no_tanner"]', 'aria-checked')) === 'true');
+await pg.click('[data-para="tanner"]');
+await pg.uncheck('#orderDataConsent');
+await pg.uncheck('#orderPickup');
+await pg.fill('#tannerNombre', 'Leo Ávila');
+await pg.fill('#tannerCategoria', 'T10');
 await pg.click('#submitOrder');
 await pg.waitForTimeout(300);
 revisa('6. sin autorizar el tratamiento de datos, NO se manda', !llamadas.some(c => c.n === 'v2_public_cart_order'));
@@ -271,6 +286,7 @@ await pg.waitForTimeout(600);
 const envios = llamadas.filter(c => c.n === 'v2_public_cart_order');
 revisa('y el pedido guarda que aceptó el plazo', envios[0]?.p?.consent?.pickupAccepted === true && envios[0]?.p?.consent?.pickupDays === 30, JSON.stringify(envios[0]?.p?.consent));
 revisa('todo va en UNA llamada', envios.length === 1, JSON.stringify(llamadas.map(c => c.n)));
+revisa('[tanner] el pedido lleva para qué Tanner es', JSON.stringify(envios[0]?.p?.tanner) === JSON.stringify({ tipo:'tanner', nombre:'Leo Ávila', categoria:'T10' }), JSON.stringify(envios[0]?.p?.tanner));
 const items = envios[0]?.p?.items || [];
 const kit = items.find(x => x.kind === 'bundle'), pieza = items.find(x => x.kind === 'product');
 revisa('el kit va con su tipo y sus 5 piezas con talla', kit?.bundleId === 'k-completo' && kit?.tier === 'Adulto'
@@ -327,6 +343,7 @@ revisa('la pieza de talla única no pide talla', /Talla Universal/.test(await pg
 await pg.click('#stAgregar');
 await pg.goto(BASE + '/pedido/#/pedido');
 await pg.waitForSelector('#orderForm', { timeout: 5000 });
+await pg.fill('#tannerNombre', 'Leo Ávila');
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.click('#resumenCarrito [data-quita]');
 revisa('quitar un renglón deja el otro', (await pg.$$('#resumenCarrito .fam-mov')).length === 1);

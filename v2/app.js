@@ -4,7 +4,7 @@ import { nombreDelClub } from '/v2/club.js';
 import { avisosDeIdeas, claveVistas } from '/v2/ideas/ideas.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
-import {iniciarUsoStaff} from '/v2/analitica-uso.js';
+import {iniciarUsoStaff,descargarAnaliticaAlSalir} from '/v2/analitica-uso.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -637,6 +637,7 @@ else{
   else showView('authView');
   supabase.auth.onAuthStateChange(event=>{
     if(event==='SIGNED_OUT'){
+      descargarAnaliticaAlSalir(); // ninguna etiqueta sobrevive al cierre de sesión del staff
       detenPulso(); // sin sesión no se pregunta por la campana
       ctx=null;navigation=[];loadGeneration++;resetHomeState();showView('authView');document.body.classList.remove('tos-body');
     }else if(event==='SIGNED_IN'&&!ctx){setTimeout(()=>loadAuthenticatedApp().catch(console.error),0);}

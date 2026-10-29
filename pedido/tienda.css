@@ -631,6 +631,11 @@ body.st-sin-scroll { overflow: hidden; }
 .st-pdp-tit h1 { flex: 1; min-width: 0; }
 .st-pdp-tit .st-compartir svg { fill: none; }
 
+/* Pago en línea (28/10/2026, h50): "Pagar ahora" arriba, transferencia abajo. */
+.pago-linea { border: 1.5px solid var(--st-ink); }
+.pago-linea-btn { width: 100%; min-height: 54px; margin-top: 10px; border-radius: 14px; font-size: 17px; font-weight: 800; }
+.pago-linea-msg { margin: 10px 0 0; color: #a03f3c; font-size: 14px; font-weight: 600; }
+.success.pago-fallo .success-mark { background: #fbeceb; color: #a03f3c; }
 /* Qué se suma al precio (29/10/2026): nombre y número, manga larga y el total. */
 .st-extras { margin: -4px 0 0; font-size: 14px; color: var(--st-ink-2); }
 .st-extras b { color: var(--st-ink); }

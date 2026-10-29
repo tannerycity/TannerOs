@@ -669,6 +669,7 @@ function renderProducto(id) {
         <p class="st-eyebrow">${esc(etiquetaDe(cat))}</p>
         <div class="st-pdp-tit"><h1>${esc(p.name)}</h1>${compartir(`p:${p.id}`, p.name)}${corazon(`p:${p.id}`, p.name)}</div>
         <p class="st-pdp-precio">${p.precioAntes ? `<s>${money.format(p.precioAntes)}</s> ` : ''}${(et => `${et.desde ? '<small>Desde</small> ' : ''}${money.format(et.monto)}`)(precioDeEtiqueta(p, e.talla || unica))}</p>
+        <p class="st-extras" id="stExtrasPieza"${notaExtrasPieza(p, e) ? '' : ' hidden'}>${notaExtrasPieza(p, e)}</p>
         ${precioNinoDe(p) && !(e.talla || unica) ? `<p class="st-precios-nino">Niño (6 a 16) ${money.format(precioDeProducto(p, '10'))} · Adulto ${money.format(Number(p.price || 0))}</p>` : ''}
         ${p.ofertaHasta ? `<p class="st-oferta grande">${esc(p.ofertaNombre || 'Oferta')} · ${esc(textoHasta(p.ofertaHasta))}</p>` : ''}
         <section class="st-bloque${e.falta === 'talla' ? ' falta' : ''}" id="stBloqueTalla">
@@ -707,6 +708,23 @@ function largasDeKit(k, e) {
 function precioDeFichaKit(k, e) {
   return precioDeKit(k, e.tier) + largasDeKit(k, e) * recargoDe(k) + extraEstampadoKit(k, e);
 }
+/* Lo que se suma al precio (29/10/2026). Presidencia: "me salen dos precios".
+   El precio grande del kit ya traía el nombre y número (+$100 por jersey) y
+   el botón de "Niño" decía otro: ahora, como en la ficha de una pieza, arriba
+   va el precio del kit y aquí se dice qué se suma y el total, que es lo mismo
+   que dice el botón. */
+function notaExtrasKit(k, e) {
+  if (!e?.tier) return '';
+  const pers = extraEstampadoKit(k, e), largas = largasDeKit(k, e), manga = largas * recargoDe(k);
+  const partes = [pers ? `nombre y número +${money.format(pers)}` : '', manga ? `${largas} manga larga +${money.format(manga)}` : ''].filter(Boolean);
+  return partes.length ? `${esc(partes.join(' · '))} · <b>total ${money.format(precioDeFichaKit(k, e))}</b>` : '';
+}
+function notaExtrasPieza(p, e) {
+  const extraManga = e.manga === 'larga' && llevaManga(p) ? recargoDe(p) : 0;
+  const extraPers = aceptaPersonalizacion(p) && llevaEstampado(e) ? recargoPersDe(p) : 0;
+  const partes = [extraPers ? `nombre y número +${money.format(extraPers)}` : '', extraManga ? `manga larga +${money.format(extraManga)}` : ''].filter(Boolean);
+  return partes.length ? esc(partes.join(' · ')) : '';
+}
 function textoAgregarKit(k, e) {
   return `Agregar al pedido${e.tier ? ` · ${money.format(precioDeFichaKit(k, e))}` : ''}`;
 }
@@ -727,7 +745,8 @@ function renderKit(id) {
         ${e.reemplaza ? '<p class="st-convierte">Convirtiendo en kit: revisa las tallas y agrega. Los jerseys sueltos se quitan del pedido.</p>' : ''}
         <p class="st-eyebrow">Uniforme completo · ${ranuras.length} piezas</p>
         <div class="st-pdp-tit"><h1>${esc(k.name)}</h1>${compartir(`k:${k.id}`, k.name)}${corazon(`k:${k.id}`, k.name)}</div>
-        <p class="st-pdp-precio" id="stPrecioKit">${e.tier ? money.format(precioDeFichaKit(k, e)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}${e.tier && largasDeKit(k, e) && recargoDe(k) ? ` <small class="st-recargo">incluye ${largasDeKit(k, e)} manga larga</small>` : ''}</p>
+        <p class="st-pdp-precio" id="stPrecioKit">${e.tier ? money.format(precioDeKit(k, e.tier)) : `${pr.desde ? '<small>Desde</small> ' : ''}${money.format(pr.monto)}`}</p>
+        <p class="st-extras" id="stExtrasKit"${notaExtrasKit(k, e) ? '' : ' hidden'}>${notaExtrasKit(k, e)}</p>
         ${tiers.length > 1 ? `<section class="st-bloque${e.falta === 'tier' ? ' falta' : ''}" id="stBloqueTier"><div class="st-bloque-cab"><h2>¿Para quién es?</h2></div>
           <div class="st-segmento" role="radiogroup" aria-label="Para quién es">${tiers.map(t => `<button type="button" role="radio" aria-checked="${e.tier === t}" data-tier="${esc(t)}"${e.tier === t ? ' class="activa"' : ''}>
             <strong>${esc(t)}</strong><small>${money.format(precioDeKit(k, t))}</small></button>`).join('')}</div></section>` : ''}
@@ -926,11 +945,13 @@ function repintaPrecio(ficha) {
   const k = p ? null : (catalogo.bundles || []).find(x => String(x.id) === String(ficha));
   const boton = $('stAgregar');
   if (p && boton && !admiteVariasTallas(p)) boton.textContent = textoAgregarProducto(p, eligiendo[ficha]);
+  const notaP = p && $('stExtrasPieza');
+  if (notaP) { notaP.innerHTML = notaExtrasPieza(p, eligiendo[ficha]); notaP.hidden = !notaP.innerHTML; }
   if (k && boton) {
     const e = eligiendoKit[ficha];
     boton.textContent = textoAgregarKit(k, e);
-    const precio = $('stPrecioKit');
-    if (precio && e.tier) precio.firstChild.textContent = money.format(precioDeFichaKit(k, e));
+    const nota = $('stExtrasKit');
+    if (nota) { nota.innerHTML = notaExtrasKit(k, e); nota.hidden = !nota.innerHTML; }
   }
 }
 

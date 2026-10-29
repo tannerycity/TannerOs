@@ -38,7 +38,8 @@ revoke all on table app.visoria_campaigns from public, anon, authenticated;
 
 insert into app.visoria_campaigns(organization_id, slug, title, dates_label, location, starts_on, capacity)
 values ('3776f3a6-8c3d-4f46-bd03-5f1e59deb6f8', 'visoria-noviembre-2026', 'Visoría Tannery City',
-        'Viernes 13 y sábado 14 de noviembre', null, '2026-11-13', 30)
+        'Viernes 13 y sábado 14 de noviembre',
+        'Tannery City Park · Españita 1305, col. Bugambilias, a una cuadra del Estadio León', '2026-11-13', 30)
 on conflict (organization_id, slug) do nothing;
 
 create or replace function private.visoria_inscritos(p_organization_id uuid, p_slug text)
@@ -191,7 +192,6 @@ end $$;
 revoke all on function private.is_visoria_prospect_object(uuid, text) from public, anon;
 grant execute on function private.is_visoria_prospect_object(uuid, text) to authenticated;
 
-drop policy if exists tanneros_prospect_photos_read_as_scout on storage.objects;
 create policy tanneros_prospect_photos_read_as_scout on storage.objects for select to authenticated
 using (bucket_id = 'tanneros-prospect-photos' and private.storage_org_id(name) is not null
        and private.storage_module_code(name) = 'prospects'

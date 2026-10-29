@@ -72,7 +72,8 @@ for(const file of new Set(required))if(!fs.existsSync(file))errors.push(`Falta a
    La regla: un destino al que sólo se llega desde una .topbar no cuenta como
    alcanzable. Tiene que estar además en el contenido de alguna pantalla, en
    el menú lateral o en un hub. */
-const DESTINOS_VIGILADOS=['/v2/captura/','/v2/produccion/','/v2/catalogo/'];
+// /v2/produccion/ ya no es destino (29/10/2026): vive en la Tienda y la liga vieja redirige.
+const DESTINOS_VIGILADOS=['/v2/captura/','/v2/catalogo/'];
 {
   const sinTopbar=texto=>texto.replace(/<header class="topbar">[\s\S]*?<\/header>/g,'');
   const fuentes=[...walk('v2').filter(f=>/\.(js|html)$/i.test(f)),'index.html'];

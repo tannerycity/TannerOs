@@ -4,7 +4,7 @@ import { abreVentas } from '/v2/pedidos/ventas.js';
 import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
 import { hojaPdf, nombreDelPdf, compartePdf, cargaFotos } from '/v2/produccion/pdf.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-const $=id=>document.getElementById(id);let ctx=null,orders=[],current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();
+const $=id=>document.getElementById(id);let ctx=null,orders=[],envios=[],garantias=[],canPagar=false,current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();
 /* Pedidos que llegaron por el link o el portal y nadie ha confirmado todavía
    (a3_pedidos_por_revisar). clubCfg trae el nombre del club y cómo pagar, para
    el mensaje de WhatsApp. */
@@ -99,15 +99,28 @@ function aplicaAccesos(){
   $('ventasAction')?.classList.toggle('hidden',!veVentas());
   const apaga=(el,motivo)=>{if(!el)return;el.classList.add('is-off');el.removeAttribute('href');el.title=motivo;el.setAttribute('aria-disabled','true');const sm=el.querySelector('small');if(sm)sm.textContent=motivo;};
   if(!canWrite)apaga($('newOrderAction'),'Tu rol no puede levantar pedidos');
-  if(!canManage)apaga($('productionAction'),'Sólo quien administra la Tienda');
 }
-async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;cobraConHoja=mods.some(m=>['taquilla','billing'].includes(m.module_code)&&m.enabled&&m.can_write);canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia'||!!ctx.is_owner;rpc('v2_can_correct',{organization_id:ctx.organization_id}).then(v=>{canCorrect=!!v;muestraZona();}).catch(()=>{});const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=false;/* Costo y utilidad viven SÓLO en Catálogo › Costos (13/10/2026). */void financeMod;document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();$('ventasAction')?.addEventListener('click',verVentas);
+/* Contabilidad sin Tienda (29/10/2026): la pantalla de Producción se fue y
+   lo que Contabilidad hacía ahí (ver el dinero de cada envío y pagarle al
+   proveedor) vive aquí. Sin pedidos ni familias: sólo los envíos. */
+let soloDinero=false;
+async function bootSoloDinero(conta){
+  soloDinero=true;canPagar=!!conta.can_write;
+  $('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;
+  document.querySelectorAll('.tienda-tabs,#tSeg,.t-busca,#orderList,#empty,#storeActions').forEach(el=>el.classList.add('hidden'));
+  envios=await rpc('v2_production_batches',{organization_id:ctx.organization_id}).catch(()=>[])||[];
+  $('tResumen').textContent=`${envios.length} ${envios.length===1?'envío':'envíos'} al proveedor`;
+  const box=$('tEtapa');const vivos=envios.filter(e=>e.status!=='cancelled');
+  box.innerHTML=vivos.length?ahora('azul','·','Envíos al proveedor','Toca «Dinero» para ver lo que falta pagar y registrar el pago.',vivos.map(e=>filaEnvio(e,false)).join('')).replace('Paso · de 5','Contabilidad'):nadaPorHacer('Sin envíos','Cuando la Tienda mande algo al proveedor, aparece aquí.');
+  box.classList.remove('hidden');show('view');
+}
+async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){const conta=mods.find(m=>m.module_code==='accounting');if(conta?.enabled&&conta?.can_read){await bootSoloDinero(conta);return;}$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;cobraConHoja=mods.some(m=>['taquilla','billing'].includes(m.module_code)&&m.enabled&&m.can_write);canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia'||!!ctx.is_owner;const contab=mods.find(m=>m.module_code==='accounting');canPagar=!!(contab?.enabled&&contab?.can_write);rpc('v2_can_pay_supplier',{organization_id:ctx.organization_id}).then(v=>{if(v&&!canPagar){canPagar=true;pintaEtapa();}}).catch(()=>{});rpc('v2_can_correct',{organization_id:ctx.organization_id}).then(v=>{canCorrect=!!v;muestraZona();}).catch(()=>{});const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=false;/* Costo y utilidad viven SÓLO en Catálogo › Costos (13/10/2026). */void financeMod;document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();$('ventasAction')?.addEventListener('click',verVentas);
   // El botón + de abajo: lo de la Tienda primero (13/10/2026).
-  window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,{label:'Por atender',sub:'Nuevos y números por confirmar',icon:'check',run:()=>{$('statusFilter').value='__atender';render();renderReviewBanner();$('orderList')?.scrollIntoView({behavior:'smooth',block:'start'});}},canManage?{label:'Producción',sub:'Cortes y hoja para el proveedor',icon:'list',href:'/produccion/'}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
+  window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,{label:'Por atender',sub:'Nuevos y números por confirmar',icon:'check',run:()=>{$('statusFilter').value='__atender';render();renderReviewBanner();$('orderList')?.scrollIntoView({behavior:'smooth',block:'start'});}},canManage?{label:'Mandar al proveedor',sub:'Lo que ya está listo para producir',icon:'list',run:()=>{$('statusFilter').value='@para_proveedor';render();renderReviewBanner();$('tSeg')?.scrollIntoView({behavior:'smooth',block:'start'});}}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
   window.dispatchEvent(new Event('tos:acciones'));}
 /* El aviso de "Pedido nuevo" (campana y push) trae ?pedido=<id>: se abre directo. */
 function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');const o=id&&orders.find(x=>x.id===id);if(o)openOrder(o);}
-async function load(){const [lista,revisar,tab,pipe]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_orders_pipeline',{organization_id:ctx.organization_id}).catch(()=>({}))]);orders=lista||[];etapas=(pipe&&typeof pipe==='object')?pipe:{};tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);eligeEtapaInicial();render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
+async function load(){const [lista,revisar,tab,pipe,env,gar]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_orders_pipeline',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_production_batches',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_warranties',{organization_id:ctx.organization_id,status_filter:null}).catch(()=>[])]);orders=lista||[];envios=Array.isArray(env)?env:[];garantias=Array.isArray(gar)?gar:[];etapas=(pipe&&typeof pipe==='object')?pipe:{};tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);eligeEtapaInicial();render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
 /* Los filtros de arriba (segmentos tipo iOS). Cada uno trae su cuenta: los
    números que antes vivían en tarjetas aparte ahora dicen a dónde ir. */
 // "Por cobrar" es Quién me debe: una tarjeta por familia con su WhatsApp.
@@ -123,9 +136,12 @@ function cuentaDe(f){const v=orders.filter(vigente);if(f.startsWith('@'))return 
    que se usó) y palabras de todos los días. */
 const proveedor=()=>{try{return localStorage.getItem('tos-proveedor')||'';}catch{return '';}};
 const piezasDe=lista=>lista.reduce((n,o)=>n+Number(o.item_count||0),0);
+const garEn=st=>garantias.filter(g=>g.status===st);
+const EXTRA={'@para_proveedor':'opened','@con_proveedor':'in_replacement','@para_entregar':'ready'};
+const cuentaPaso=f=>cuentaDe(f)+(EXTRA[f]?garEn(EXTRA[f]).length:0);
 const PASOS=[{f:'@por_validar',t:'Revisar'},{f:'__cobrar',t:'Cobrar'},{f:'@para_proveedor',t:'Mandar'},{f:'@con_proveedor',t:'Recibir'},{f:'@para_entregar',t:'Entregar'}];
 function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$('statusFilter').value;seg.className='t-flujo';
-  seg.innerHTML=`<ol class="t-pasos">${PASOS.map(p=>{const n=cuentaDe(p.f);return `<li><button type="button" role="tab" data-f="${p.f}" aria-selected="${actual===p.f}" class="t-paso${actual===p.f?' activo':''}${n?' con':''}"><i>${n}</i><b>${p.t}</b></button></li>`;}).join('')}</ol>`
+  seg.innerHTML=`<ol class="t-pasos">${PASOS.map(p=>{const n=cuentaPaso(p.f);return `<li><button type="button" role="tab" data-f="${p.f}" aria-selected="${actual===p.f}" class="t-paso${actual===p.f?' activo':''}${n?' con':''}"><i>${n}</i><b>${p.t}</b></button></li>`;}).join('')}</ol>`
     +`<div class="t-cards-mas">${[['@entregado','Entregados'],['','Todos']].map(([f,t])=>`<button type="button" role="tab" data-f="${f}" aria-selected="${actual===f}" class="${actual===f?'activo':''}">${t} <i>${cuentaDe(f)}</i></button>`).join('')}</div>`;
   const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('@por_validar'),l=cuentaDe('@para_proveedor');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${l?` · ${l} listos para mandar`:''}${a?` · ${a} por revisar`:''}${!a&&!l?' · todo al día':''}`;}}
 function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();const pasa=o=>{if(status.startsWith('@'))return etapaDe(o)===status.slice(1);if(status==='__review')return porRevisar.has(o.id);if(status==='__numero')return numeroPorConfirmar(o)&&vigente(o);if(status==='__atender')return porAtender(o);if(status==='__cobrar')return vigente(o)&&saldoDe(o)>0.005;return !status||o.status===status;};return orders.filter(o=>pasa(o)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${tablero[o.id]?.attendedName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
@@ -219,13 +235,27 @@ async function pintaResumen(){
 let etapaElegida=false;
 function eligeEtapaInicial(){
   if(etapaElegida||new URLSearchParams(location.search).get('pedido'))return;etapaElegida=true;
-  const k=['@por_validar','@para_proveedor','@para_entregar','@con_proveedor'].find(k=>cuentaDe(k)>0);
+  const paso={revisar:'@por_validar',cobrar:'__cobrar',mandar:'@para_proveedor',recibir:'@con_proveedor',entregar:'@para_entregar'}[new URLSearchParams(location.search).get('paso')];
+  if(paso){$('statusFilter').value=paso;return;}
+  const k=['@por_validar','@para_proveedor','@para_entregar','@con_proveedor'].find(k=>cuentaPaso(k)>0);
   if(k)$('statusFilter').value=k;
 }
 const fechaCorta=v=>v?new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short'}).format(new Date(String(v).length<=10?`${v}T12:00:00`:v)).replace('.',''):'';
 // Lo que se hace en cada etapa, arriba de la lista.
 const PALOMITA='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
-let editaProv=false;
+let editaProv=false,verHistorial=false;
+/* Un envío al proveedor: a quién, cuándo, cuántos. "Ya llegó" si va en
+   camino; PDF si son pedidos; "Dinero" sólo para quien paga al proveedor
+   (Presidencia, Contabilidad y a quien se le dé el permiso). */
+function filaEnvio(e,activo){
+  const pedidos=e.batch_type==='orders';
+  const cuantos=pedidos?`${Number(e.order_count||0)} ${Number(e.order_count)===1?'pedido':'pedidos'}`:`${Number(e.warranty_count||0)} ${Number(e.warranty_count)===1?'garantía':'garantías'}`;
+  const cuando=e.status==='submitted'?`Enviado el ${fechaCorta(e.submitted_on)}${activo?'':' · en camino'}`:`Llegó el ${fechaCorta(e.received_at||e.submitted_on)}`;
+  const acc=[activo&&canManage?`<button type="button" class="t-grande azul" data-llego="${esc(e.id)}">Ya llegó</button>`:'',
+    pedidos?`<button type="button" class="t-link-mini" data-pdf="${esc(e.id)}">Ver PDF</button>`:'',
+    canPagar&&pedidos?`<button type="button" class="t-link-mini" data-dinero="${esc(e.id)}">Dinero</button>`:''].filter(Boolean).join('');
+  return `<div class="t-envio${activo?'':' viejo'}"><div><b>${esc(e.supplier_name||'Proveedor')}${pedidos?'':' · reposición'}</b><span>${esc(cuando)} · ${cuantos} · folio ${esc(e.folio||'')}</span></div>${acc?`<div class="t-envio-acc">${acc}</div>`:''}</div>`;
+}
 const ahora=(tono,paso,titulo,sub,resto='')=>`<div class="t-ahora ${tono}"><small>Paso ${paso} de 5</small><h2>${titulo}</h2>${sub?`<p>${sub}</p>`:''}${resto}</div>`;
 const nadaPorHacer=(titulo,sub)=>`<div class="t-ahora vacio"><span class="t-ahora-ok">${PALOMITA}</span><h2>${titulo}</h2><p>${sub}</p></div>`;
 function pintaEtapa(){
@@ -234,20 +264,31 @@ function pintaEtapa(){
   if(k==='por_validar')html=lista.length?ahora('naranja',1,`${lista.length} por revisar`,'Confirma con la familia talla, nombre y número. Ya revisado y pagado, pasa solo a Mandar.','<button type="button" class="t-grande" data-revisa>Revisar ahora</button>'):nadaPorHacer('Nada por revisar','Los pedidos nuevos aparecen aquí.');
   else if(k==='cobrar'){const debe=orders.filter(o=>vigente(o)&&saldoDe(o)>0.005),total=debe.reduce((n,o)=>n+saldoDe(o),0);
     html=debe.length?ahora('rojo',2,`Faltan ${money.format(total)}`,`${debe.length} ${debe.length===1?'pedido sin pagar completo':'pedidos sin pagar completo'}. Mándales recordatorio por WhatsApp; al pagar, pasan solos a Mandar.`):nadaPorHacer('Nadie debe','Todo está pagado.');}
-  else if(k==='para_proveedor'){
-    if(!lista.length)html=nadaPorHacer('Nada por mandar','Cuando un pedido esté revisado y pagado, aparece aquí.');
+  else if(k==='para_proveedor'){const gar=garEn('opened');
+    if(!lista.length&&!gar.length)html=nadaPorHacer('Nada por mandar','Cuando un pedido esté revisado y pagado, aparece aquí.');
     else{const prov=proveedor(),nombres=lista.map(o=>tablero[o.id]?.playerName||o.customer_name||'Sin nombre');
-      const chips=`<ul class="t-chips">${nombres.slice(0,8).map(n=>`<li>${esc(n)}</li>`).join('')}${nombres.length>8?`<li class="mas">+${nombres.length-8}</li>`:''}</ul>`;
+      const chips=nombres.length?`<ul class="t-chips">${nombres.slice(0,8).map(n=>`<li>${esc(n)}</li>`).join('')}${nombres.length>8?`<li class="mas">+${nombres.length-8}</li>`:''}</ul>`:'';
+      const repos=gar.length?`<div class="t-garantias"><b>${gar.length===1?'Va 1 reposición por garantía':`Van ${gar.length} reposiciones por garantía`}</b>${gar.map(g=>`<span>${esc(g.folio)} · ${esc(g.reason||'')}</span>`).join('')}</div>`:'';
       const campo=(!prov||editaProv)?`<label class="t-prov-campo"><span>¿A quién se lo mandas?</span><input id="heroProv" maxlength="80" value="${esc(prov)}" placeholder="Ej. Tremor" autocomplete="off" enterkeyhint="send"></label>`:`<p class="t-prov">Proveedor: <b>${esc(prov)}</b> <button type="button" class="t-link-mini" data-cambia-prov>Cambiar</button></p>`;
-      const boton=canManage?`<button type="button" class="t-grande verde" data-mandar>${prov&&!editaProv?`Mandar a ${esc(prov)}`:'Mandar al proveedor'}</button><p class="t-ahora-pie">Se arma el PDF y lo mandas por WhatsApp.</p>`:'<p class="t-ahora-pie">Sólo quien administra la Tienda puede mandarlo.</p>';
-      html=ahora('verde',3,`${lista.length} ${lista.length===1?'pedido listo':'pedidos listos'} · ${piezasDe(lista)} piezas`,'Todos pagados y revisados.',chips+(canManage?campo:'')+boton);}
+      const boton=canManage?`<button type="button" class="t-grande verde" data-mandar>${prov&&!editaProv?`Mandar a ${esc(prov)}`:'Mandar al proveedor'}</button><p class="t-ahora-pie">${lista.length?'Se arma el PDF y lo mandas por WhatsApp.':'Queda registrado con el proveedor.'}</p>`:'<p class="t-ahora-pie">Sólo quien administra la Tienda puede mandarlo.</p>';
+      const titulo=lista.length?`${lista.length} ${lista.length===1?'pedido listo':'pedidos listos'} · ${piezasDe(lista)} piezas`:`${gar.length} ${gar.length===1?'reposición':'reposiciones'} por garantía`;
+      html=ahora('verde',3,titulo,lista.length?'Todos pagados y revisados.':'Piezas que salieron mal y se vuelven a hacer.',chips+repos+(canManage?campo:'')+boton);}
   }else if(k==='con_proveedor'){
-    if(!lista.length)html=nadaPorHacer('Nada en camino','Lo que mandes al proveedor aparece aquí hasta que llegue.');
-    else{const envios=new Map();
-      lista.forEach(o=>{const b=etapas[o.id]?.batch;const key=b?.id||'sin';if(!envios.has(key))envios.set(key,{b,n:0});envios.get(key).n++;});
-      const filas=[...envios.values()].map(c=>c.b?`<div class="t-envio"><div><b>${esc(c.b.supplierName||'Proveedor')}</b><span>Enviado el ${esc(fechaCorta(c.b.submittedOn))} · ${c.n} ${c.n===1?'pedido':'pedidos'} · folio ${esc(c.b.folio)}</span></div><div class="t-envio-acc">${canManage?`<button type="button" class="t-grande azul" data-llego="${esc(c.b.id)}">Ya llegó</button>`:''}<button type="button" class="t-link-mini" data-pdf="${esc(c.b.id)}">Ver PDF</button></div></div>`:`<div class="t-envio"><div><b>Sin envío</b><span>${c.n} marcado${c.n===1?'':'s'} a mano. Si fue por error, ábrelo y toca "Regresar un paso".</span></div></div>`).join('');
-      html=ahora('azul',4,envios.size===1&&[...envios.values()][0].b?.supplierName?`¿Ya llegó lo de ${esc([...envios.values()][0].b.supplierName)}?`:'¿Ya llegó?','Cuando llegue al club, tócalo. Luego avisas a cada familia.',filas);}
-  }else if(k==='para_entregar')html=lista.length?ahora('oro',5,`${lista.length} ${lista.length===1?'pedido':'pedidos'} en el club`,'Avisa a la familia y márcalo entregado cuando se lo lleve. Los botones están en cada pedido.'):nadaPorHacer('Nada por entregar','Lo que llegue del proveedor aparece aquí.');
+    // Con la lista de envíos (h-producción) se ve cada envío; si no llegó, se arma con los pedidos.
+    let filas='',enCamino=envios.filter(e=>e.status==='submitted');
+    if(!envios.length&&lista.length){const m=new Map();lista.forEach(o=>{const b=etapas[o.id]?.batch;if(b?.id&&!m.has(b.id))m.set(b.id,{id:b.id,folio:b.folio,supplier_name:b.supplierName,submitted_on:b.submittedOn,batch_type:'orders',order_count:lista.filter(x=>etapas[x.id]?.batch?.id===b.id).length,status:'submitted'});});enCamino=[...m.values()];}
+    filas=enCamino.map(e=>filaEnvio(e,true)).join('');
+    const sueltos=lista.filter(o=>!etapas[o.id]?.batch);
+    if(sueltos.length)filas+=`<div class="t-envio"><div><b>Sin envío</b><span>${sueltos.length} marcado${sueltos.length===1?'':'s'} a mano. Si fue por error, ábrelo y toca "Regresar un paso".</span></div></div>`;
+    const viejos=envios.filter(e=>e.status!=='submitted'&&e.status!=='cancelled');
+    const historial=viejos.length?`<button type="button" class="t-historial-btn" data-historial aria-expanded="${verHistorial}">${verHistorial?'Ocultar':'Ver'} envíos anteriores <i>${viejos.length}</i></button>${verHistorial?`<div class="t-historial">${viejos.slice(0,15).map(e=>filaEnvio(e,false)).join('')}</div>`:''}`:'';
+    if(!enCamino.length&&!sueltos.length)html=nadaPorHacer('Nada en camino','Lo que mandes al proveedor aparece aquí hasta que llegue.').replace(/<\/div>$/,`${historial}</div>`);
+    else{const uno=enCamino.length===1&&!sueltos.length?enCamino[0]:null;
+      html=ahora('azul',4,uno?.supplier_name?`¿Ya llegó lo de ${esc(uno.supplier_name)}?`:'¿Ya llegó?','Cuando llegue al club, tócalo. Luego avisas a cada familia.',filas+historial);}
+  }else if(k==='para_entregar'){const gar=garEn('ready');
+    const filasG=gar.map(g=>{const o=orders.find(x=>x.id===g.order_id);return `<div class="t-envio"><div><b>Garantía ${esc(g.folio)}${o?` · ${esc(tablero[o.id]?.playerName||o.customer_name||'')}`:''}</b><span>${esc(g.reason||'')} · ${Number(g.item_count||0)} pieza${Number(g.item_count)===1?'':'s'}</span></div>${canManage?`<div class="t-envio-acc"><button type="button" class="t-grande oro" data-garantia-entrega="${esc(g.id)}">Entregada</button></div>`:''}</div>`;}).join('');
+    const n=lista.length+gar.length;
+    html=n?ahora('oro',5,gar.length?`${n} por entregar`:`${n} ${n===1?'pedido':'pedidos'} en el club`,`${lista.length?'Avisa a la familia y márcalo entregado cuando se lo lleve. Los botones están en cada pedido.':''}${gar.length?`${lista.length?' ':''}Las garantías se entregan aquí.`:''}`,filasG):nadaPorHacer('Nada por entregar','Lo que llegue del proveedor aparece aquí.');}
   box.innerHTML=html;box.classList.toggle('hidden',!html);
   const inp=$('heroProv');if(inp)inp.addEventListener('input',()=>{const b=box.querySelector('[data-mandar]');if(b)b.textContent=inp.value.trim()?`Mandar a ${inp.value.trim()}`:'Mandar al proveedor';});
 }
@@ -259,12 +300,12 @@ function cierraEnvio(){envio=null;$('envioHoja')?.remove();$('envioFondo')?.remo
 function pintaEnvio(){
   const h=$('envioHoja');if(!h||!envio)return;
   const cierra='<button type="button" class="pres-close" data-envio-cierra aria-label="Cerrar">×</button>';
-  if(envio.enviando){h.innerHTML=`<div class="envio-listo"><span class="envio-gira" aria-hidden="true"></span><h2>Mandando a ${esc(envio.prov)}…</h2><p>Armando el PDF con ${envio.lista.length} ${envio.lista.length===1?'pedido':'pedidos'}.</p></div>`;return;}
-  if(envio.listo){const b=envio.listo;
+  if(envio.enviando){h.innerHTML=`<div class="envio-listo"><span class="envio-gira" aria-hidden="true"></span><h2>Mandando a ${esc(envio.prov)}…</h2><p>${envio.lista.length?`Armando el PDF con ${envio.lista.length} ${envio.lista.length===1?'pedido':'pedidos'}.`:'Registrando la reposición.'}</p></div>`;return;}
+  if(envio.listo){const b=envio.listo,ng=envio.gar.length,repo=ng?`${ng===1?'1 reposición':`${ng} reposiciones`} por garantía`:'';
     h.innerHTML=`<div class="envio-tope">${cierra}</div><div class="envio-listo"><div class="envio-palomita">${PALOMITA}</div><h2>Listo, va con ${esc(envio.prov)}</h2>
-        <p>${envio.lista.length===1?'1 pedido':`${envio.lista.length} pedidos`} · ${piezasDe(envio.lista)} piezas · folio <b>${esc(b.folio||'')}</b></p></div>
-      <button type="button" class="pres-primary envio-btn" data-envio-wa>Mandar PDF por WhatsApp</button>
-      <button type="button" class="envio-sec" data-envio-pdf>Descargar PDF</button>
+        <p>${envio.lista.length?`${envio.lista.length===1?'1 pedido':`${envio.lista.length} pedidos`} · ${piezasDe(envio.lista)} piezas · folio <b>${esc(b.folio||'')}</b>`:''}${envio.lista.length&&repo?'<br>':''}${repo?`Y ${repo}`:''}</p></div>
+      ${envio.lista.length?`<button type="button" class="pres-primary envio-btn" data-envio-wa>Mandar PDF por WhatsApp</button>
+      <button type="button" class="envio-sec" data-envio-pdf>Descargar PDF</button>`:''}
       ${envio.error?`<div class="pres-error" role="alert">${esc(envio.error)}</div>`:''}
       <button type="button" class="envio-link" data-envio-cierra>Listo</button>`;
     return;}
@@ -273,11 +314,11 @@ function pintaEnvio(){
     <button type="button" class="envio-link" data-envio-cierra>Cerrar</button>`;
 }
 function mandarAlProveedor(){
-  const lista=orders.filter(o=>vigente(o)&&etapaDe(o)==='para_proveedor');if(!lista.length)return;
+  const lista=orders.filter(o=>vigente(o)&&etapaDe(o)==='para_proveedor'),gar=garEn('opened');if(!lista.length&&!gar.length)return;
   const inp=$('heroProv'),prov=(inp?inp.value:proveedor()).trim();
   if(!prov){inp?.classList.add('falta');inp?.focus();return;}
   try{localStorage.setItem('tos-proveedor',prov);}catch{}editaProv=false;
-  envio={lista,prov,enviando:false,error:'',listo:null,doc:null,nombre:''};
+  envio={lista,gar,prov,enviando:false,error:'',listo:null,doc:null,nombre:''};
   document.body.insertAdjacentHTML('beforeend','<div id="envioFondo" class="pres-backdrop"></div><section id="envioHoja" class="pres-sheet envio-hoja" role="dialog" aria-modal="true" aria-label="Mandar al proveedor"></section>');
   document.body.style.overflow='hidden';
   $('envioFondo').addEventListener('click',()=>{if(!envio?.enviando)cierraEnvio();});
@@ -296,13 +337,16 @@ async function mandaEnvio(){
   envio.enviando=true;envio.error='';pintaEnvio();
   try{
     // Si ya se creó el envío y falló el PDF, no se crea otro.
+    // Las garantías van en su propio envío de reposición; no llevan PDF.
+    if(envio.gar.length&&!envio.repoId){const r=await rpc('v2_create_warranty_replacement_batch',{organization_id:ctx.organization_id,warranty_ids:envio.gar.map(g=>g.id),supplier_name:envio.prov,notes:null});envio.repoId=r?.id||r?.batchId||r?.batch_id||r||true;}
+    if(!envio.lista.length){envio.listo={id:null,folio:''};envio.enviando=false;$('statusFilter').value='@con_proveedor';await load();pintaEnvio();return;}
     if(!envio.batchId){const r=await rpc('v2_create_production_batch',{organization_id:ctx.organization_id,order_ids:envio.lista.map(o=>o.id),supplier_name:envio.prov,notes:null});envio.batchId=r?.id||r?.batchId||r?.batch_id||r;}
     const sheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:envio.batchId});
     const fotos=await cargaFotos(supabase,sheet).catch(()=>({}));
     envio.doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos});envio.nombre=nombreDelPdf(sheet);
     envio.listo={id:envio.batchId,folio:sheet?.batch?.folio||''};envio.enviando=false;
     $('statusFilter').value='@con_proveedor';await load();pintaEnvio();
-  }catch(e){if(!envio)return;envio.enviando=false;envio.error=e.message||String(e);if(envio.batchId)await load().catch(()=>{});pintaEnvio();}
+  }catch(e){if(!envio)return;envio.enviando=false;envio.error=e.message||String(e);if(envio.batchId||envio.repoId)await load().catch(()=>{});pintaEnvio();}
 }
 async function compartirCorte(batchId,recien){
   try{
@@ -328,10 +372,68 @@ $('tEtapa')?.addEventListener('click',e=>{
   const m=e.target.closest('[data-mandar]');if(m){mandarAlProveedor();return;}
   if(e.target.closest('[data-cambia-prov]')){editaProv=true;pintaEtapa();$('heroProv')?.select();return;}
   if(e.target.closest('[data-revisa]')){const o=filteredOrders()[0];if(o)openOrder(o);return;}
+  if(e.target.closest('[data-historial]')){verHistorial=!verHistorial;pintaEtapa();return;}
+  const d=e.target.closest('[data-dinero]');if(d){abreDinero(d.dataset.dinero);return;}
+  const g=e.target.closest('[data-garantia-entrega]');if(g){entregaGarantia(g.dataset.garantiaEntrega,g);return;}
   const p=e.target.closest('[data-pdf]');if(p){p.disabled=true;compartirCorte(p.dataset.pdf,false).finally(()=>{p.disabled=false;});return;}
   const l=e.target.closest('[data-llego]');if(l)yaLlego(l.dataset.llego,l);
 });
 $('tEtapa')?.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='heroProv'){e.preventDefault();mandarAlProveedor();}});
+/* El dinero de un envío (29/10/2026): lo que vivía en Producción › Finanzas.
+   Venta, ya cobrado, costo, pagado al proveedor y lo que falta, en grande; y
+   "Pagar a Tremor" con un botón. Sólo quien paga al proveedor lo ve. */
+let dinero=null;
+function cierraDinero(){dinero=null;$('dineroHoja')?.remove();$('dineroFondo')?.remove();document.body.style.overflow='';}
+async function abreDinero(batchId){
+  if(!canPagar)return;
+  dinero={batchId,f:null,metodo:'Transferencia',error:'',pagando:false,ok:''};
+  document.body.insertAdjacentHTML('beforeend','<div id="dineroFondo" class="pres-backdrop"></div><section id="dineroHoja" class="pres-sheet envio-hoja" role="dialog" aria-modal="true" aria-label="Dinero del envío"><div class="envio-listo"><span class="envio-gira" aria-hidden="true"></span><p>Sacando las cuentas…</p></div></section>');
+  document.body.style.overflow='hidden';
+  $('dineroFondo').addEventListener('click',()=>{if(!dinero?.pagando)cierraDinero();});
+  $('dineroHoja').addEventListener('click',e=>{
+    if(!dinero)return;
+    if(e.target.closest('[data-dinero-cierra]')){if(!dinero.pagando)cierraDinero();return;}
+    const m=e.target.closest('[data-metodo]');if(m){dinero.metodo=m.dataset.metodo;$('dineroHoja').querySelectorAll('[data-metodo]').forEach(b=>b.setAttribute('aria-pressed',String(b===m)));return;}
+    if(e.target.closest('[data-paga]'))pagaProveedor();
+  });
+  try{dinero.f=await rpc('v2_production_batch_finance',{organization_id:ctx.organization_id,batch_id:batchId});}catch(e){if(dinero)dinero.error=e.message||'No se pudieron sacar las cuentas.';}
+  pintaDinero();
+}
+function pintaDinero(){
+  const h=$('dineroHoja');if(!h||!dinero)return;const f=dinero.f,cierra='<button type="button" class="pres-close" data-dinero-cierra aria-label="Cerrar">×</button>';
+  if(!f){h.innerHTML=`<div class="envio-tope">${cierra}</div><div class="pres-error" role="alert">${esc(dinero.error)}</div>`;return;}
+  const b=f.batch||{},prov=b.supplier_name||'el proveedor',porPagar=Math.max(0,Number(f.supplierPayable||0)),m=v=>money.format(Number(v||0));
+  const pagos=(f.supplierPayments||[]).map(p=>`<li><b>${m(p.amount)}</b><span>${esc(fechaCorta(p.date))} · ${esc(p.method||'')}${p.reference?` · ${esc(p.reference)}`:''}</span></li>`).join('');
+  h.innerHTML=`<header class="pres-head"><div><h2>Dinero del envío</h2><p>${esc(prov)} · folio ${esc(b.folio||'')}</p></div>${cierra}</header>
+    <div class="dinero-grande${porPagar>0.005?'':' pagado'}"><span>${porPagar>0.005?`Falta pagar a ${esc(prov)}`:`Ya se le pagó todo a ${esc(prov)}`}</span><strong>${m(porPagar>0.005?porPagar:f.supplierPaid)}</strong></div>
+    <dl class="dinero-datos"><div><dt>Venta</dt><dd>${m(b.sales_total)}</dd></div><div><dt>Ya cobrado</dt><dd>${m(f.customerCollected)}</dd></div><div><dt>Costo</dt><dd>${m(b.cost_total)}</dd></div><div><dt>Utilidad esperada</dt><dd>${m(f.grossProfitExpected)}</dd></div></dl>
+    ${pagos?`<p class="ap-sec">Pagos a ${esc(prov)}</p><ul class="dinero-pagos">${pagos}</ul>`:''}
+    ${porPagar>0.005?`<label class="t-prov-campo"><span>¿Cuánto le pagas?</span><input id="dineroMonto" inputmode="decimal" value="${porPagar.toFixed(2)}" autocomplete="off"></label>
+    <div class="dinero-metodos" role="group" aria-label="Cómo le pagas">${['Transferencia','Efectivo'].map(x=>`<button type="button" data-metodo="${x}" aria-pressed="${dinero.metodo===x}">${x}</button>`).join('')}</div>
+    <button type="button" class="t-grande verde" data-paga${dinero.pagando?' disabled':''}>${dinero.pagando?'Registrando…':`Pagar a ${esc(prov)}`}</button>`:''}
+    ${dinero.error?`<div class="pres-error" role="alert">${esc(dinero.error)}</div>`:''}${dinero.ok?`<p class="dinero-ok">${esc(dinero.ok)}</p>`:''}
+    <p class="envio-nota">Queda en Contabilidad como gasto del envío.</p>`;
+}
+async function pagaProveedor(){
+  if(!dinero?.f||dinero.pagando)return;const porPagar=Number(dinero.f.supplierPayable||0),prov=dinero.f.batch?.supplier_name||'el proveedor';
+  const monto=Number(String($('dineroMonto')?.value||'').replace(/[$,\s]/g,''));
+  if(!Number.isFinite(monto)||monto<=0){dinero.error='Escribe cuánto le pagas.';pintaDinero();return;}
+  if(monto>porPagar+0.005){dinero.error=`No puede ser más de ${money.format(porPagar)}.`;pintaDinero();return;}
+  const ok=await window.tosConfirm({kicker:'PAGAR AL PROVEEDOR',title:`¿Pagar ${money.format(monto)} a ${prov}?`,message:`Por ${dinero.metodo.toLowerCase()}. Queda en Contabilidad con tu nombre.`,confirmText:'Sí, pagar'});
+  if(!ok||!dinero)return;dinero.pagando=true;dinero.error='';dinero.ok='';pintaDinero();
+  try{
+    await rpc('v2_post_batch_supplier_payment',{organization_id:ctx.organization_id,batch_id:dinero.batchId,amount:monto,expense_date:new Date().toISOString().slice(0,10),method:dinero.metodo,reference:null,notes:null,idempotency_key:`supplier-${globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2)}`});
+    dinero.f=await rpc('v2_production_batch_finance',{organization_id:ctx.organization_id,batch_id:dinero.batchId});dinero.ok=`Listo: ${money.format(monto)} pagados a ${prov}.`;
+  }catch(e){dinero.error=e.message||'No se pudo registrar el pago.';}
+  if(dinero){dinero.pagando=false;pintaDinero();}
+}
+async function entregaGarantia(id,btn){
+  const g=garantias.find(x=>x.id===id);
+  const ok=await window.tosConfirm({kicker:'GARANTÍA',title:`¿Ya se entregó la garantía ${g?.folio||''}?`,message:'Queda registrada como entregada.',confirmText:'Sí, entregada'});
+  if(!ok)return;btn.disabled=true;
+  try{await rpc('v2_deliver_warranty',{organization_id:ctx.organization_id,warranty_id:id,notes:null});await load();}
+  catch(e){btn.disabled=false;await window.tosAlert({kicker:'GARANTÍA',title:'No se pudo entregar',message:e.message||String(e)});}
+}
 /* En "Entregar", cada pedido trae sus dos botones a la vista: avisar por
    WhatsApp y Entregado. Sin abrir el pedido (29/10/2026). */
 function ligaAviso(d){const quien=tablero[d.id]?.playerName||'tu pedido';

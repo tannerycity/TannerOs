@@ -294,7 +294,8 @@
 .t-envio>div:first-child{display:grid;gap:2px}
 .t-envio b{font-size:16px;color:#07191e}
 .t-envio span{font-size:13.5px;color:#5d6f73}
-.t-envio-acc{display:grid;gap:4px;justify-items:center}
+.t-envio-acc{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 18px}
+.t-envio-acc .t-grande{flex:1 0 100%}
 
 /* Entregar sin abrir el pedido. */
 .t-fila-acc{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
@@ -358,6 +359,33 @@
   .t-ahora .t-grande,.t-prov-campo{max-width:460px}
   .t-ahora-pie{text-align:left!important}
   .t-envio{grid-template-columns:1fr auto;align-items:center}
-  .t-envio-acc{grid-auto-flow:column;gap:14px}
+  .t-envio-acc .t-grande{flex:0 0 auto}
   .t-envio .t-grande{min-width:200px}
 }
+
+/* Producción dentro de la Tienda (29/10/2026): garantías en el flujo,
+   envíos anteriores y el dinero de cada envío. */
+.t-grande.oro{background:#8a6a00}
+.t-garantias{display:grid;gap:4px;padding:12px 14px;border-radius:14px;background:#fff6e8}
+.t-garantias b{font-size:14px;color:#8a4f00}
+.t-garantias span{font-size:13px;color:#6b5a3e}
+.t-historial-btn{justify-self:center;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border:0;border-radius:999px;background:#f1f4f3;color:#07191e;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.t-historial-btn i{font-style:normal;font-size:12px;font-weight:800;color:#6b7c80}
+.t-historial{display:grid;gap:8px}
+.t-envio.viejo{background:#fafbfb;box-shadow:inset 0 0 0 1px #edf1f0}
+.dinero-grande{display:grid;gap:2px;padding:18px;border-radius:18px;background:#07191e;color:#fff;text-align:center}
+.dinero-grande span{font-size:13.5px;opacity:.8}
+.dinero-grande strong{font-size:34px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.dinero-grande.pagado{background:#e8f8ee;color:#128c4a}
+.dinero-datos{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+.dinero-datos div{padding:12px;border-radius:14px;background:#f6f8f8}
+.dinero-datos dt{font-size:12.5px;color:#6b7c80}
+.dinero-datos dd{margin:2px 0 0;font-size:17px;font-weight:800;color:#07191e;font-variant-numeric:tabular-nums}
+.dinero-pagos{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.dinero-pagos li{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:#f6f8f8;font-size:14px}
+.dinero-pagos span{color:#6b7c80}
+.dinero-metodos{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:14px;background:#eef2f1}
+.dinero-metodos button{min-height:44px;border:0;border-radius:11px;background:transparent;color:#3c4e52;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.dinero-metodos button[aria-pressed="true"]{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
+.dinero-ok{margin:0;padding:10px 12px;border-radius:12px;background:#e8f8ee;color:#128c4a;font-size:14px;font-weight:700;text-align:center}
+.envio-hoja .ap-sec{margin:4px 0 0;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#6b7c80}

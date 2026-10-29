@@ -689,7 +689,7 @@ function cierraAcciones(){document.body.classList.remove('tos-fab-open');$('tosF
 const TAQ={modulos:['taquilla','contabilidad'],escribe:true};
 const ACCIONES_POR_RUTA=[
   ['/catalogo',[{clave:'nuevo-producto',label:'Nuevo producto',sub:'Foto, nombre, precio y tallas',href:'/catalogo/?nuevo=producto',icon:'plus',claves:['producto','alta']},{clave:'nuevo-kit',label:'Nuevo kit',sub:'Junta piezas con su precio',href:'/catalogo/?nuevo=kit',icon:'bag',claves:['kit','paquete']}]],
-  ['/pedidos',[{clave:'nuevo-pedido',label:'Nuevo pedido',sub:'Levantarlo en el mostrador',href:'/captura/',icon:'bag',claves:['venta','vender','uniforme']},{clave:'produccion',label:'Producción',sub:'Cortes y hoja para el proveedor',href:'/produccion/',icon:'list',claves:['proveedor','corte']}]],
+  ['/pedidos',[{clave:'nuevo-pedido',label:'Nuevo pedido',sub:'Levantarlo en el mostrador',href:'/captura/',icon:'bag',claves:['venta','vender','uniforme']}]],
   ['/calendario',[{clave:'nuevo-evento',label:'Nuevo evento',sub:'Partido, torneo o junta',href:'/calendario/?action=evento',icon:'plus',claves:['evento','junta','torneo']}]],
   ['/candidatos',[{clave:'compartir-convocatoria',label:'Compartir la convocatoria',sub:'Liga y QR para el flyer',href:'#candLiga',icon:'chat'}]],
   ['/encuestas',[{clave:'nueva-encuesta',label:'Nueva encuesta',sub:'Liga y QR para el evento',href:'/encuestas/?nueva=1',icon:'chat',claves:['encuesta','opinion']}]],

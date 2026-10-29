@@ -90,6 +90,7 @@ export const navItems=[
   // Usuarios > persona > Encuestas (así se le dio a Zul).
   {code:'encuestas',label:'Encuestas',href:'/encuestas/',group:'club',icon:'chat',lee:['direccion'],dentroDe:'inicio'},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search',dentroDe:'prospectos'},
+  {code:'visorias',label:'Visorías',href:'/visorias/',group:'club',icon:'star',lee:['scouting','prospectos'],dentroDe:'prospectos'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark',dentroDe:'formacion'},
   {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
   // Tienda unificada (21/10/2026): Pedidos, Nuevo pedido y Catálogo son

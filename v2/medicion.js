@@ -5,18 +5,17 @@
  * listo y agrega la línea en el aviso de privacidad".
  *   - Nada se carga sin que la persona diga "Aceptar". Sin respuesta o con
  *     "Solo lo necesario", ni un script de Meta o Google entra a la página.
- *   - Mientras los ids estén vacíos (MEDICION abajo), no hay barra ni nada:
- *     la tienda se ve igual que hoy. Para encenderlo, Marketing pone los ids
- *     y se publica.
+ *   - Los IDs de la tienda pública están preparados en MEDICION.
+ *     Mantener en revisión antes de publicar: consentimiento y privacidad.
  *   - Los eventos (ver producto, agregar, iniciar pedido, compra) se mandan a
  *     los dos con los nombres que cada uno espera.
  * La parte sin DOM (qué evento se manda con qué datos) se prueba con node.
  */
 export const MEDICION = {
   // Pixel de Meta (Administrador de eventos → Orígenes de datos), sólo números.
-  metaPixelId: '',
+  metaPixelId: '1477125554314319',
   // Etiqueta de Google: GA4 ("G-XXXXXXX") o Google Ads ("AW-XXXXXXX").
-  googleTagId: '',
+  googleTagId: 'G-KJN3NJS2YJ',
 };
 
 const LLAVE = 'tannerConsentimiento';

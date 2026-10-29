@@ -15,6 +15,7 @@
  */
 import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga } from '/v2/club-publico.js';
+import { renderWelcomeCard } from '/welcome-card.js';
 import { encodeVariant, FULL_MAX_BYTES, THUMB_MAX_SIDE, THUMB_MAX_BYTES, UPLOAD_CACHE_CONTROL } from '/v2/image-encode.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
@@ -52,42 +53,56 @@ function edad(fecha) {
 }
 const chips = (campo, opciones, valor) => `<div class="vi-chips" role="radiogroup" data-campo="${campo}">${opciones.map(([v, t]) =>
   `<button type="button" role="radio" data-v="${esc(v)}" aria-checked="${valor === v}">${esc(t)}</button>`).join('')}</div>`;
-const campo = (id, label, attrs = '', ayuda = '') => `<label class="vi-campo"><span>${label}</span><input id="${id}" ${attrs}>${ayuda ? `<small>${ayuda}</small>` : ''}</label>`;
+// Lo obligatorio lleva su estrella dorada; lo opcional lo dice (29/10/2026).
+const campo = (id, label, attrs = '', ayuda = '', opcional = /opcional|si la sabes/.test(label)) => `<label class="vi-campo${opcional ? ' opc' : ''}"><span>${label}</span><input id="${id}" ${attrs}>${ayuda ? `<small>${ayuda}</small>` : ''}</label>`;
+const PASOS = ['Tu hijo', 'Su familia', 'Firmar'];
 
 function pinta(html) { $('cargando').classList.add('hidden'); const c = $('contenido'); c.classList.remove('hidden'); c.innerHTML = html; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-function barra() { return `<div class="vi-barra" aria-label="Paso ${paso} de 3">${[1, 2, 3].map(n => `<i class="${n <= paso ? 'hecho' : ''}"></i>`).join('')}</div>`; }
+function barra() {
+  return `<header class="vi-tope"><img src="/brand/crest-gold.png" alt="" class="vi-tope-escudo"><div><small>VISORÍA ${new Date().getFullYear()}</small><b>Paso ${paso} de 3 · ${PASOS[paso - 1]}</b></div></header>
+    <div class="vi-barra" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${n < paso ? 'hecho' : n === paso ? 'actual' : ''}"><span>${PASOS[n - 1]}</span></i>`).join('')}</div>
+    <p class="vi-leyenda"><i class="vi-req">*</i> Todo es obligatorio, salvo lo que dice <em>opcional</em>.</p>`;
+}
 function aviso(t) { const m = $('viAviso'); if (!m) return; m.textContent = t || ''; m.classList.toggle('hidden', !t); if (t) m.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 
-/* ---------- Portada ---------- */
+/* ---------- Portada ----------
+ * Que den ganas de inscribirlo "al mejor equipo del mundo": escudo dorado,
+ * letra del club, fechas, lugar y los lugares que quedan, y un botón. */
 function portada() {
   paso = 0;
   const quedan = info.spotsLeft, cupo = info.capacity, ocupados = cupo ? cupo - quedan : 0;
   const lugar = info.location ? esc(info.location) : 'Te confirmamos el lugar por WhatsApp';
   const cerrado = !info.open;
   pinta(`<section class="vi-portada">
-    <div class="vi-escudo" aria-hidden="true">T</div>
-    <p class="vi-eyebrow">TANNERY CITY F.C.</p>
-    <h1>${esc(info.title || 'Visoría')}</h1>
+    <div class="vi-hero">
+      <img src="/brand/crest-gold.png" alt="" class="vi-hero-escudo">
+      <img src="/brand/wordmark-gold.png" alt="Tannery City" class="vi-hero-marca">
+      <span class="vi-hero-filo" aria-hidden="true"></span>
+      <p class="vi-pastilla">VISORÍA ${new Date().getFullYear()}</p>
+      <h1>Buscamos al próximo Tanner</h1>
+      <p class="vi-hero-sub">Dos días para mostrar lo que sabe frente a nuestros visores.</p>
+    </div>
     <ul class="vi-datos">
-      <li><b>Cuándo</b><span>${esc(info.datesLabel || 'Por confirmar')}</span></li>
-      <li><b>Dónde</b><span>${lugar}</span></li>
-      <li><b>Costo</b><span>Sin costo</span></li>
+      <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><div><b>Cuándo</b><span>${esc(info.datesLabel || 'Por confirmar')}</span></div></li>
+      <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.6"/></svg></span><div><b>Dónde</b><span>${lugar}</span></div></li>
+      <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12 12 20l-8-8V4h8z"/><circle cx="8" cy="8" r="1.5"/></svg></span><div><b>Costo</b><span>Sin costo</span></div></li>
     </ul>
-    ${cupo ? `<div class="vi-cupo"><div><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : 'Cupo lleno') : `Quedan ${quedan} de ${cupo} lugares`}</b></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.round(ocupados / cupo * 100))}%"></i></div></div>` : ''}
+    ${cupo ? `<div class="vi-cupo"><div class="vi-cupo-cab"><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : 'Cupo lleno') : `Quedan ${quedan} de ${cupo} lugares`}</b><span>Cupo limitado</span></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.max(3, Math.round(ocupados / cupo * 100)))}%"></i></div></div>` : ''}
     ${cerrado
       ? `<a class="vi-boton" href="https://wa.me/${WHATSAPP_CLUB}?text=${encodeURIComponent('Hola, me interesa la visoría de Tannery City. ¿Me avisan si se abre un lugar?')}" target="_blank" rel="noopener">Avísame si se abre un lugar</a>`
       : '<button type="button" class="vi-boton" data-empieza>Inscribir a mi hijo</button><p class="vi-pie">Toma 2 minutos. Ten a la mano una foto de tu hijo.</p>'}
     <button type="button" class="vi-link" data-comparte>Compartir con otra familia</button>
+    <footer class="vi-lema"><span>CURTIMOS CAMPEONES DEL MUNDO</span><b>#WeAreTanners</b></footer>
   </section>`);
 }
 
 /* ---------- Paso 1: el niño ---------- */
 function pasoNino() {
   paso = 1; const n = datos.nino, cats = (ctx?.categories || []);
-  pinta(`${barra()}<section class="vi-paso"><p class="vi-eyebrow">PASO 1 DE 3</p><h2>Tu hijo</h2>
+  pinta(`${barra()}<section class="vi-paso"><h2>El próximo Tanner</h2><p class="vi-intro">Cuéntanos de tu hijo. La foto nos ayuda a reconocerlo el día de la visoría.</p>
     <div class="vi-foto">
       <button type="button" class="vi-foto-circulo${fotoUrl ? ' con' : ''}" data-foto aria-label="Foto de tu hijo">${fotoUrl ? `<img src="${fotoUrl}" alt="Foto de tu hijo">` : '<span>+</span>'}</button>
-      <div><b>Foto de tu hijo</b><small>Obligatoria: así lo reconocemos el día de la visoría.</small>
+      <div><b>Foto de tu hijo <i class="vi-req">*</i></b><small>De frente y con buena luz. Así lo reconocemos en la entrada.</small>
         <div class="vi-foto-acc"><button type="button" class="vi-mini" data-camara>Tomar foto</button><button type="button" class="vi-mini" data-galeria>Elegir de la galería</button></div></div>
       <input id="viCamara" class="hidden" type="file" accept="image/*" capture="environment"><input id="viGaleria" class="hidden" type="file" accept="image/*">
     </div>
@@ -95,9 +110,9 @@ function pasoNino() {
     ${campo('viApellidos', 'Apellidos', `autocomplete="off" autocapitalize="words" maxlength="100" value="${esc(n.lastName || '')}"`)}
     ${campo('viNacimiento', 'Fecha de nacimiento', `type="date" max="${new Date().toISOString().slice(0, 10)}" value="${esc(n.birthDate || '')}"`)}
     <div class="vi-grupo"><span>Es</span>${chips('sex', [['M', 'Niño'], ['F', 'Niña']], n.sex)}</div>
-    ${cats.length ? `<label class="vi-campo"><span>Categoría <em>si la sabes</em></span><select id="viCategoria"><option value="">No sé</option>${cats.map(c => `<option${n.category === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
+    ${cats.length ? `<label class="vi-campo opc"><span>Categoría <em>si la sabes</em></span><select id="viCategoria"><option value="">No sé</option>${cats.map(c => `<option${n.category === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
     <div class="vi-grupo"><span>¿Juega de portero?</span>${chips('type', [['player', 'No, de campo'], ['goalkeeper', 'Sí, portero']], n.type)}</div>
-    <div class="vi-grupo${n.type === 'goalkeeper' ? ' hidden' : ''}" id="viPosicionGrupo"><span>Posición</span>${chips('position', [['Defensa', 'Defensa'], ['Medio', 'Medio'], ['Delantero', 'Delantero'], ['No sé', 'No sé']], n.position)}</div>
+    <div class="vi-grupo opc${n.type === 'goalkeeper' ? ' hidden' : ''}" id="viPosicionGrupo"><span>Posición <em>opcional</em></span>${chips('position', [['Defensa', 'Defensa'], ['Medio', 'Medio'], ['Delantero', 'Delantero'], ['No sé', 'No sé']], n.position)}</div>
     <div class="vi-grupo"><span>Pierna buena</span>${chips('foot', [['right', 'Derecha'], ['left', 'Izquierda'], ['both', 'Las dos']], n.foot)}</div>
     ${campo('viEscuela', 'Escuela', `autocomplete="off" maxlength="120" value="${esc(n.school || '')}"`)}
     <div id="viAviso" class="vi-aviso hidden" role="alert"></div>
@@ -125,7 +140,7 @@ function leeNino() {
 /* ---------- Paso 2: papá o mamá ---------- */
 function pasoTutor() {
   paso = 2; const t = datos.tutor, s = datos.salud, em = datos.emergencia;
-  pinta(`${barra()}<section class="vi-paso"><p class="vi-eyebrow">PASO 2 DE 3</p><h2>Papá, mamá o tutor</h2>
+  pinta(`${barra()}<section class="vi-paso"><h2>Su familia</h2><p class="vi-intro">Por aquí te mandamos su pase y cualquier aviso.</p>
     ${campo('viTutor', 'Tu nombre', `autocomplete="name" autocapitalize="words" maxlength="120" value="${esc(t.name || '')}"`)}
     ${campo('viTel', 'Tu WhatsApp', `type="tel" inputmode="tel" autocomplete="tel" maxlength="16" placeholder="477 123 4567" value="${esc(t.phone || '')}"`, 'Por aquí te mandamos el pase y los avisos.')}
     ${campo('viCorreo', 'Correo <em>opcional</em>', `type="email" autocomplete="email" maxlength="160" value="${esc(t.email || '')}"`)}
@@ -135,10 +150,10 @@ function pasoTutor() {
     ${campo('viEmNombre', 'Contacto de emergencia', `autocomplete="off" maxlength="120" placeholder="Nombre" value="${esc(em.nombre || '')}"`)}
     ${campo('viEmTel', 'Su teléfono', `type="tel" inputmode="tel" maxlength="16" placeholder="477 123 4567" value="${esc(em.telefono || '')}"`)}
     <h3 class="vi-sub">Salud <em>opcional</em></h3>
-    ${campo('viAlergias', 'Alergias', `maxlength="300" placeholder="Ninguna" value="${esc(s.alergias || '')}"`)}
-    ${campo('viLesiones', 'Lesiones o condiciones', `maxlength="300" placeholder="Ninguna" value="${esc(s.lesiones || '')}"`)}
-    ${campo('viMedicamentos', 'Medicamentos', `maxlength="300" placeholder="Ninguno" value="${esc(s.medicamentos || '')}"`)}
-    <div class="vi-grupo"><span>Seguro médico</span>${chips('seguro', [['IMSS', 'IMSS'], ['ISSSTE', 'ISSSTE'], ['Privado', 'Privado'], ['Ninguno', 'Ninguno']], s.seguro)}</div>
+    ${campo('viAlergias', 'Alergias', `maxlength="300" placeholder="Ninguna" value="${esc(s.alergias || '')}"`, '', true)}
+    ${campo('viLesiones', 'Lesiones o condiciones', `maxlength="300" placeholder="Ninguna" value="${esc(s.lesiones || '')}"`, '', true)}
+    ${campo('viMedicamentos', 'Medicamentos', `maxlength="300" placeholder="Ninguno" value="${esc(s.medicamentos || '')}"`, '', true)}
+    <div class="vi-grupo opc"><span>Seguro médico <em>opcional</em></span>${chips('seguro', [['IMSS', 'IMSS'], ['ISSSTE', 'ISSSTE'], ['Privado', 'Privado'], ['Ninguno', 'Ninguno']], s.seguro)}</div>
     <div id="viAviso" class="vi-aviso hidden" role="alert"></div>
     <button type="button" class="vi-boton" data-sigue>Siguiente</button>
     <button type="button" class="vi-link" data-atras>Atrás</button></section>`);
@@ -162,14 +177,14 @@ function leeTutor() {
 /* ---------- Paso 3: firmar ---------- */
 function pasoFirma() {
   paso = 3; firmado = false; const doc = info.documents || {}, vis = doc.visoria, img = doc.uso_de_imagen;
-  pinta(`${barra()}<section class="vi-paso"><p class="vi-eyebrow">PASO 3 DE 3</p><h2>Firmar</h2>
+  pinta(`${barra()}<section class="vi-paso"><h2>Firma y listo</h2><p class="vi-intro">Lee los términos, decide sobre las fotos y firma con tu dedo.</p>
     <div class="vi-doc"><b>${esc(vis?.title || 'Términos para visorías')}</b><div class="vi-doc-texto" tabindex="0">${esc(vis?.body || 'Autorizo que mi hijo participe en la visoría.').replace(/\n/g, '<br>')}</div></div>
     <label class="vi-switch"><span><b>${esc(img?.title || 'Uso de fotos y video')}</b><small>Fotos y video de la visoría para redes del club. Puedes decir que no.</small></span><input id="viImagen" type="checkbox" role="switch"${datos.imagen ? ' checked' : ''}><i aria-hidden="true"></i></label>
     ${img?.body ? `<details class="vi-detalle"><summary>Leer uso de fotos y video</summary><p>${esc(img.body).replace(/\n/g, '<br>')}</p></details>` : ''}
-    <div class="vi-firma"><div class="vi-firma-cab"><b>Firma aquí con tu dedo</b><button type="button" class="vi-mini" data-borra>Borrar</button></div>
+    <div class="vi-firma"><div class="vi-firma-cab"><b>Firma aquí con tu dedo <i class="vi-req">*</i></b><button type="button" class="vi-mini" data-borra>Borrar</button></div>
       <canvas id="viLienzo" width="600" height="220" aria-label="Recuadro para firmar"></canvas></div>
     ${campo('viFirmante', 'Nombre de quien firma', `autocomplete="name" autocapitalize="words" maxlength="120" value="${esc(datos.tutor.name || '')}"`)}
-    <label class="vi-check"><input id="viAcepto" type="checkbox"><span>Soy madre, padre o tutor de ${esc(datos.nino.firstName || 'mi hijo')}, acepto los términos de la visoría y el <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a>.</span></label>
+    <label class="vi-check"><input id="viAcepto" type="checkbox" aria-required="true"><span>Soy madre, padre o tutor de ${esc(datos.nino.firstName || 'mi hijo')}, acepto los términos de la visoría y el <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a>.</span></label>
     <div id="viAviso" class="vi-aviso hidden" role="alert"></div>
     <button type="button" class="vi-boton" data-inscribe>Inscribir a ${esc(datos.nino.firstName || 'mi hijo')}</button>
     <button type="button" class="vi-link" data-atras>Atrás</button></section>`);
@@ -227,22 +242,72 @@ async function inscribe(btn) {
   finally { enviando = false; }
 }
 
-/* ---------- Pase ---------- */
-function pase() {
+/* ---------- Pase ----------
+ * Presidencia (29/10/2026): "un formato similar al que cuando se inscriben a
+ * Tannery City... que lo deben compartir al WhatsApp de Tannery City... que lo
+ * tengan que imprimir para saber quién es... su nombre en gigante, su
+ * categoría y años". Es la credencial del club en modo visoría, con QR que
+ * en la puerta abre al niño en TannerOS. */
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const fechaLarga = f => { const [a, m, d] = String(f || '').split('-').map(Number); return a ? `${d} ${MESES[m - 1]} ${a}` : ''; };
+const PIERNA = { right: 'Derecha', left: 'Izquierda', both: 'Las dos' };
+let pasePng = null;
+const nombreDelPase = () => `pase-visoria-${(resultado?.folio || 'tannery').toLowerCase()}.png`;
+function textoParaClub() {
+  const n = datos.nino, r = resultado || {};
+  return `Hola, Tannery City. Inscribí a ${n.firstName} ${n.lastName} a la ${info.title || 'visoría'}.\nFolio: ${r.folio || ''}\nNacimiento: ${fechaLarga(n.birthDate)} (${edad(n.birthDate)} años)${n.category ? `\nCategoría: ${n.category}` : ''}\nTe mando su pase.`;
+}
+async function armaPase() {
+  const n = datos.nino, r = resultado || {}, e = edad(n.birthDate);
+  const lugarCorto = String(info.location || '').split('·')[0].trim() || 'Por confirmar';
+  const { blob } = await renderWelcomeCard({ modo: 'visoria', firstName: n.firstName, lastName: n.lastName, category: n.category || `Nacido en ${String(n.birthDate).slice(0, 4)}`,
+    folio: r.folio, photoUrl: fotoUrl || null,
+    filas: [{ etiqueta: 'Edad', valor: e !== null ? `${e} años` : '' }, { etiqueta: 'Nacimiento', valor: fechaLarga(n.birthDate) },
+      { etiqueta: 'Posición', valor: n.type === 'goalkeeper' ? 'Portero' : (n.position && n.position !== 'No sé' ? n.position : 'Jugador') },
+      { etiqueta: 'Pierna', valor: PIERNA[n.foot] || '' }, { etiqueta: 'Cuándo', valor: 'Vie 13 y Sáb 14 nov' }, { etiqueta: 'Dónde', valor: lugarCorto }] });
+  return blob;
+}
+async function pase() {
   paso = 4; const n = datos.nino, r = resultado || {};
-  const texto = `Inscribí a ${n.firstName} a la ${info.title || 'visoría'} de Tannery City (${info.datesLabel || ''}). Folio ${r.folio || ''}. Sin costo y con cupo limitado: ${location.origin}/visoria`;
   pinta(`<section class="vi-pase">
-    <div class="vi-palomita" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
-    <h1>${r.existing ? `${esc(n.firstName)} ya estaba inscrito` : `¡${esc(n.firstName)} está inscrito!`}</h1>
-    <div class="vi-boleto">
-      ${fotoUrl ? `<img src="${fotoUrl}" alt="">` : ''}
-      <div><small>PASE DE VISORÍA</small><b>${esc(`${n.firstName} ${n.lastName}`)}</b><span>${esc(info.datesLabel || '')}</span></div>
-      <div class="vi-folio"><small>FOLIO</small><b>${esc(r.folio || '')}</b></div>
-    </div>
-    <p class="vi-pie">Muestra este pase en la entrada. Llega 15 minutos antes con ropa deportiva, tenis o tachones y agua.${r.sinFoto ? ' La foto no se subió: tráela el día de la visoría o mándala por WhatsApp.' : ''}</p>
-    <a class="vi-boton verde" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
+    <div class="vi-pase-cab"><div class="vi-palomita" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
+      <h1>${r.existing ? `${esc(n.firstName)} ya estaba inscrito` : `¡${esc(n.firstName)} está inscrito!`}</h1>
+      <p>Folio <b>${esc(r.folio || '')}</b>${r.sinFoto ? ' · La foto no se subió: tráela el día de la visoría.' : ''}</p></div>
+    <div class="vi-pase-img" id="viPaseImg"><span class="vi-cargando-mini">Armando su pase…</span></div>
+    <ol class="vi-pasos-finales">
+      <li><b>Mándalo al WhatsApp de Tannery City</b><span>Así confirmamos su lugar.</span></li>
+      <li><b>Imprímelo y llévalo</b><span>Lo escaneamos en la entrada. Llega 15 minutos antes con ropa deportiva, tenis o tachones y agua.</span></li>
+    </ol>
+    <button type="button" class="vi-boton verde" data-al-club><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Z"/></svg>Mandar pase al WhatsApp de Tannery City</button>
+    <p class="vi-pista">Elige WhatsApp y el chat de Tannery City · 479 265 1338</p>
+    <button type="button" class="vi-boton claro" data-imprime>Imprimir pase</button>
+    <button type="button" class="vi-link" data-guarda>Guardar imagen del pase</button>
     <button type="button" class="vi-link" data-otro>Inscribir a otro hijo</button>
+    <footer class="vi-lema"><span>CURTIMOS CAMPEONES DEL MUNDO</span><b>#WeAreTanners</b></footer>
   </section>`);
+  try {
+    pasePng = await armaPase();
+    const url = URL.createObjectURL(pasePng);
+    $('viPaseImg').innerHTML = `<img src="${url}" alt="Pase de visoría de ${esc(`${n.firstName} ${n.lastName}`)}">`;
+    $('viImprime').innerHTML = `<img src="${url}" alt="">`;
+  } catch { $('viPaseImg').innerHTML = `<div class="vi-pase-respaldo"><small>PASE DE VISORÍA</small><b>${esc(`${n.firstName} ${n.lastName}`)}</b><span>Folio ${esc(r.folio || '')}</span></div>`; }
+}
+function guardaPase() {
+  if (!pasePng) return;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(pasePng); a.download = nombreDelPase(); document.body.appendChild(a); a.click(); a.remove();
+}
+/* Al WhatsApp del club: en el teléfono se comparte la imagen (la familia elige
+   el chat de Tannery City) y además se abre el chat con el texto listo. */
+async function alClub() {
+  const texto = textoParaClub();
+  if (pasePng && navigator.canShare) {
+    const archivo = new File([pasePng], nombreDelPase(), { type: 'image/png' });
+    if (navigator.canShare({ files: [archivo] })) {
+      try { await navigator.share({ files: [archivo], text: texto }); return; } catch (e) { if (e?.name === 'AbortError') return; }
+    }
+  }
+  guardaPase();
+  window.open(`https://wa.me/${WHATSAPP_CLUB}?text=${encodeURIComponent(`${texto}\n(Te adjunto la imagen del pase que se descargó.)`)}`, '_blank', 'noopener');
 }
 
 /* ---------- Navegación ---------- */
@@ -264,7 +329,10 @@ document.addEventListener('click', async e => {
   if (t.closest('[data-atras]')) { if (paso === 1) leeNinoSinValidar(); if (paso === 2) leeTutor(); return [portada, portada, pasoNino, pasoTutor][paso](); }
   if (t.closest('[data-sigue]')) { const falta = paso === 1 ? leeNino() : leeTutor(); if (falta) return aviso(falta); return paso === 1 ? pasoTutor() : pasoFirma(); }
   const ins = t.closest('[data-inscribe]'); if (ins) return inscribe(ins);
-  if (t.closest('[data-otro]')) { datos.nino = { sex: '', type: 'player', position: '', foot: '' }; foto = null; if (fotoUrl) URL.revokeObjectURL(fotoUrl); fotoUrl = ''; resultado = null; await recarga(); return info.open ? pasoNino() : portada(); }
+  if (t.closest('[data-al-club]')) return alClub();
+  if (t.closest('[data-imprime]')) { if (pasePng) window.print(); return; }
+  if (t.closest('[data-guarda]')) return guardaPase();
+  if (t.closest('[data-otro]')) { pasePng = null; datos.nino = { sex: '', type: 'player', position: '', foot: '' }; foto = null; if (fotoUrl) URL.revokeObjectURL(fotoUrl); fotoUrl = ''; resultado = null; await recarga(); return info.open ? pasoNino() : portada(); }
   if (t.closest('[data-comparte]')) {
     const url = `${location.origin}/visoria`, txt = `${info.title || 'Visoría'} de Tannery City · ${info.datesLabel || ''}. Sin costo, cupo limitado.`;
     try { if (navigator.share) { await navigator.share({ title: info.title, text: txt, url }); return; } } catch { return; }

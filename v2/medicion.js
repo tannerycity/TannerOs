@@ -20,14 +20,15 @@ export const MEDICION = {
 
 // Los rastreadores no deben ejecutarse en localhost, pruebas ni previews de Vercel.
 export const esDominioOficial = hostname => hostname === 'app.tannerycity.com';
-const dominioActual = () => typeof location !== 'undefined' && esDominioOficial(location.hostname);
+export const rutaDeTiendaSegura = path => path === '/pedido/' || path === '/tienda/' || /^\/tienda\/[a-z0-9-]+\/?$/.test(path);
+const dominioActual = () => typeof location !== 'undefined' && esDominioOficial(location.hostname) && rutaDeTiendaSegura(location.pathname) && !location.search && !location.hash;
 const LLAVE = 'tannerConsentimiento';
 export const hayIds = (cfg = MEDICION) => /^\d{6,20}$/.test(cfg.metaPixelId || '') || /^(G|AW)-[A-Z0-9]{4,20}$/.test(cfg.googleTagId || '');
 
 /* Cómo se llama cada evento en cada lado. */
 export function traduce(evento, d = {}) {
   const moneda = 'MXN', valor = Math.round(Number(d.valor || 0) * 100) / 100;
-  const items = (d.items || []).map(i => ({ item_id: String(i.id), item_name: i.nombre, price: Number(i.precio || 0), quantity: Number(i.cantidad || 1) }));
+  const items = (d.items || []).map(i => ({ item_id: String(i.id), item_name: String(i.id || '').startsWith('k:') ? 'Kit' : 'Producto', price: Number(i.precio || 0), quantity: Number(i.cantidad || 1) }));
   const ids = items.map(i => i.item_id);
   switch (evento) {
     case 'ver': return { meta: ['ViewContent', { content_ids: ids, content_type: 'product', value: valor, currency: moneda }], google: ['view_item', { currency: moneda, value: valor, items }] };
@@ -53,6 +54,7 @@ function carga(cfg) {
     f.push = f; f.loaded = true; f.version = '2.0'; f.queue = [];
     const s = document.createElement('script'); s.async = true; s.src = 'https://connect.facebook.net/en_US/fbevents.js';
     document.head.appendChild(s);
+    window.fbq('set', 'autoConfig', false, cfg.metaPixelId);
     window.fbq('init', cfg.metaPixelId);
     window.fbq('track', 'PageView');
   }
@@ -62,7 +64,9 @@ function carga(cfg) {
     const s = document.createElement('script'); s.async = true; s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(cfg.googleTagId)}`;
     document.head.appendChild(s);
     window.gtag('js', new Date());
-    window.gtag('config', cfg.googleTagId);
+    const pagina = 'https://app.tannerycity.com/tienda/';
+    window.gtag('config', cfg.googleTagId, { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, cookie_domain: 'app.tannerycity.com', page_location: pagina, page_referrer: '', page_title: 'TannerOS · Tienda' });
+    window.gtag('event', 'page_view', { page_location: pagina, page_referrer: '', page_title: 'TannerOS · Tienda' });
   }
 }
 

@@ -6,11 +6,12 @@
  * "requerimos enviarle el PDF al proveedor todos los viernes... compartirlo
  * por WhatsApp Business... tampoco pudimos regresar el pedido".
  * Lo que se protege:
- *   1. Las pestañas son las etapas, con su cuenta; abre en la que pide algo.
- *   2. "Para el proveedor" dice cuántos pedidos van en el corte del viernes.
- *   3. Mandar pide el proveedor, arma el corte con esos pedidos y ofrece
- *      compartir el PDF.
- *   4. "Con el proveedor" enseña el corte con su PDF y "Ya llegó".
+ *   1. Tarjetas que dicen qué hacer (sin "corte" ni "lote"), con su cuenta;
+ *      abre en la que pide algo.
+ *   2. "Listo para producir" dice lo que se manda, y cada pedido si ya pagó.
+ *   3. "PDF para el proveedor" abre una hoja con lo que va; un botón lo manda
+ *      y ahí mismo ofrece WhatsApp o Descargar PDF (29/10/2026).
+ *   4. Lo enviado dice cuándo, con su PDF y "Ya llegó".
  *   5. Un pedido en la tienda trae Avisar, Entregado y Regresar un paso; regresar pide motivo.
  *
  * Hermética: nada sale de 127.0.0.1.
@@ -170,28 +171,42 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   const { pg, errs } = await abre('/v2/pedidos/');
   await pg.waitForSelector('#tSeg button', { timeout:8000 });
   await pg.waitForTimeout(400);
-  const tabs = await pg.$$eval('#tSeg button', bs => bs.map(b => b.textContent.replace(/\s+/g, ' ').trim()));
-  revisa('1. las pestañas son las etapas con su cuenta', JSON.stringify(tabs) === JSON.stringify(['Por validar0','Por cobrar0','Para el proveedor1','Con el proveedor1','Para entregar1','Entregados0','Todos3']), JSON.stringify(tabs));
+  const tarjetas = await pg.$$eval('#tSeg .t-card', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
+  revisa('1. tarjetas que dicen qué hacer, con su cuenta', JSON.stringify(tarjetas) === JSON.stringify(['Revisar=0','Falta que paguen=0','Listo para producir=1','En producción=1','Para entregar=1']), JSON.stringify(tarjetas));
+  const mas = await pg.$$eval('#tSeg .t-cards-mas button', bs => bs.map(b => b.textContent.replace(/\s+/g, ' ').trim()));
+  revisa('1. Entregados y Todos aparte', JSON.stringify(mas) === JSON.stringify(['Entregados 0','Todos 3']), JSON.stringify(mas));
+  revisa('1. sin palabras internas (corte, lote)', !/corte|lote/i.test(await pg.textContent('#tSeg')));
   revisa('1. abre en la etapa que pide algo', (await pg.inputValue('#statusFilter')) === '@para_proveedor');
   const barra = (await pg.textContent('#tEtapa')).replace(/\s+/g, ' ');
   if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-proveedor.png`, fullPage: true });
-  revisa('2. dice el corte del viernes', /Corte del viernes · 1 pedido · 2 piezas/.test(barra), barra);
+  revisa('2. dice lo que se manda al proveedor', /Esto es lo que se manda al proveedor/.test(barra) && /1 pedido · 2 piezas · todos pagados/.test(barra) && !/corte/i.test(barra), barra);
+  revisa('2. cada pedido dice si ya pagó', (await pg.textContent('.order-row[data-order-id="o-nuevo"]')).includes('Pagado'));
   await pg.click('[data-mandar]');
-  await pg.waitForSelector('.tosdlg-field', { timeout:3000 });
-  await pg.fill('.tosdlg-field', 'Uniformes León');
-  await pg.click('.tosdlg-ok');
-  await pg.waitForSelector('.tosdlg-ok', { timeout:4000 });
-  await pg.waitForTimeout(200);
+  await pg.waitForSelector('#envioHoja .envio-fila', { timeout:3000 });
+  const hoja = (await pg.textContent('#envioHoja')).replace(/\s+/g, ' ');
+  revisa('3. la hoja enseña lo que va, pagado, sin ir a otro lado', (await pg.$$('#envioHoja .envio-fila')).length === 1 && /Pagado/.test(hoja) && /1 pedido · 2 piezas/.test(hoja), hoja);
+  if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-hoja.png` });
+  await pg.click('[data-envio-manda]');
+  revisa('3. sin proveedor no se manda', (await llamadas(pg, 'v2_create_production_batch')).length === 0 && /proveedor/.test(await pg.textContent('#envioHoja .pres-error')));
+  await pg.fill('#envioProv', 'Uniformes León');
+  revisa('3. el botón dice a quién', /Mandar a Uniformes León y armar PDF/.test(await pg.textContent('[data-envio-manda]')));
+  await pg.click('[data-envio-manda]');
+  await pg.waitForSelector('[data-envio-wa]', { timeout:4000 });
   const c = (await llamadas(pg, 'v2_create_production_batch'))[0];
-  revisa('3. arma el corte con esos pedidos y el proveedor', JSON.stringify(c?.order_ids) === '["o-nuevo"]' && c?.supplier_name === 'Uniformes León', JSON.stringify(c));
-  revisa('3. ofrece compartir el PDF', /Compartir PDF/.test(await pg.textContent('.tosdlg-ok')));
-  await pg.click('.tosdlg-ok');
+  revisa('3. manda esos pedidos con su proveedor', JSON.stringify(c?.order_ids) === '["o-nuevo"]' && c?.supplier_name === 'Uniformes León', JSON.stringify(c));
+  revisa('3. ofrece WhatsApp y Descargar PDF', await pg.isVisible('[data-envio-wa]') && await pg.isVisible('[data-envio-pdf]'));
+  if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-listo.png` });
+  await pg.click('[data-envio-wa]');
   await pg.waitForTimeout(300);
-  revisa('3. comparte el PDF del corte', (await pg.evaluate(() => window.__compartido)) === 'hoja-C-0003.pdf');
+  revisa('3. comparte el PDF', (await pg.evaluate(() => window.__compartido)) === 'hoja-C-0003.pdf');
+  await pg.click('.envio-link[data-envio-cierra]');
+  await pg.waitForTimeout(200);
+  revisa('3. la hoja se cierra', !(await pg.$('#envioHoja')));
+  revisa('3. recuerda al proveedor', (await pg.$$eval('#tSeg .t-card b', bs => bs.map(b => b.textContent))).includes('Con Uniformes León'));
   await pg.click('#tSeg [data-f="@con_proveedor"]');
   await pg.waitForTimeout(200);
-  const corte = (await pg.textContent('#tEtapa')).replace(/\s+/g, ' ');
-  revisa('4. Con el proveedor enseña el corte con PDF y Ya llegó', /Corte C-0002/.test(corte) && await pg.isVisible('[data-pdf="b1"]') && await pg.isVisible('[data-llego="b1"]'), corte);
+  const enviado = (await pg.textContent('#tEtapa')).replace(/\s+/g, ' ');
+  revisa('4. lo enviado dice cuándo, con PDF y Ya llegó', /Enviado el/.test(enviado) && /folio C-0002/.test(enviado) && await pg.isVisible('[data-pdf="b1"]') && await pg.isVisible('[data-llego="b1"]'), enviado);
   await pg.click('[data-llego="b1"]');
   await pg.waitForSelector('.tosdlg-ok', { timeout:3000 });
   await pg.click('.tosdlg-ok');
@@ -218,5 +233,5 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
 }
 
 await nav.close(); srv.close();
-console.log(fallos ? `Pedido por etapas humo FAILED · ${fallos} de ${corridas}` : `Pedido por etapas humo OK · ${corridas} revisiones: validar, corte del viernes con PDF, llegó, entregar y regresar un paso`);
+console.log(fallos ? `Pedido por etapas humo FAILED · ${fallos} de ${corridas}` : `Pedido por etapas humo OK · ${corridas} revisiones: validar, hoja para el proveedor con PDF, llegó, entregar y regresar un paso`);
 process.exit(fallos ? 1 : 0);

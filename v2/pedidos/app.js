@@ -114,7 +114,29 @@ async function load(){const [lista,revisar,tab,pipe]=await Promise.all([rpc('v2_
 const SEGMENTOS=[...ETAPAS.map(e=>e.k==='por_cobrar'?{f:'__cobrar',t:e.t}:{f:'@'+e.k,t:e.t}),{f:'',t:'Todos'}];
 function porAtender(o){return vigente(o)&&(porRevisar.has(o.id)||numeroPorConfirmar(o));}
 function cuentaDe(f){const v=orders.filter(vigente);if(f.startsWith('@'))return v.filter(o=>etapaDe(o)===f.slice(1)).length;if(f==='__atender')return v.filter(porAtender).length;if(f==='__cobrar')return v.filter(o=>saldoDe(o)>0.005).length;if(!f)return v.length;return v.filter(o=>o.status===f).length;}
-function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$('statusFilter').value;seg.innerHTML=SEGMENTOS.map(s=>{const n=cuentaDe(s.f);return `<button type="button" role="tab" data-f="${s.f}" aria-selected="${actual===s.f}" class="${actual===s.f?'activo':''}${(s.f==='__atender'||s.f==='@por_validar')&&n?' alerta':''}">${esc(s.t)}<i>${n}</i></button>`;}).join('');const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('__atender');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${a?` · ${a} por validar`:' · todo al día'}`;}}
+/* Tienda fácil (29/10/2026). Presidencia: "Zul no sabe qué es el corte ni
+   los lotes... que vea: estos ya pagaron, este no, esto es lo que le vamos a
+   mandar a producir al proveedor, y un botón para el PDF". En vez de siete
+   pestañas, cinco tarjetas grandes que dicen qué hay que hacer, con su
+   número; tocar una enseña esos pedidos. Sin "corte" ni "lote": el nombre del
+   proveedor (el último que se usó) y palabras de todos los días. */
+const proveedor=()=>{try{return localStorage.getItem('tos-proveedor')||'';}catch{return '';}};
+const alProveedor=()=>proveedor()?`a ${proveedor()}`:'al proveedor';
+const piezasDe=lista=>lista.reduce((n,o)=>n+Number(o.item_count||0),0);
+function tarjetasDeEtapa(){
+  const v=orders.filter(vigente),de=k=>v.filter(o=>etapaDe(o)===k),debe=v.filter(o=>saldoDe(o)>0.005);
+  const nDebe=debe.reduce((n,o)=>n+saldoDe(o),0),listos=de('para_proveedor'),fuera=de('con_proveedor');
+  return [
+    {f:'@por_validar',tono:'naranja',t:'Revisar',n:de('por_validar').length,sub:'Confirma talla, nombre y número'},
+    {f:'__cobrar',tono:'rojo',t:'Falta que paguen',n:debe.length,sub:debe.length?`${money.format(nDebe)} por cobrar`:'Nadie debe'},
+    {f:'@para_proveedor',tono:'verde',t:`Listo para ${proveedor()||'producir'}`,n:listos.length,sub:listos.length?`${piezasDe(listos)} piezas, ya pagadas`:'Nada pendiente'},
+    {f:'@con_proveedor',tono:'azul',t:proveedor()?`Con ${proveedor()}`:'En producción',n:fuera.length,sub:fuera.length?'Avisa cuando lleguen':'Nada en producción'},
+    {f:'@para_entregar',tono:'oro',t:'Para entregar',n:de('para_entregar').length,sub:'Ya están en el club'}];
+}
+function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$('statusFilter').value;seg.className='t-cards';
+  seg.innerHTML=tarjetasDeEtapa().map(c=>`<button type="button" role="tab" data-f="${c.f}" aria-selected="${actual===c.f}" class="t-card ${c.tono}${actual===c.f?' activo':''}${c.n?'':' vacia'}"><i>${c.n}</i><b>${esc(c.t)}</b><span>${esc(c.sub)}</span></button>`).join('')
+    +`<div class="t-cards-mas">${[['@entregado','Entregados'],['','Todos']].map(([f,t])=>`<button type="button" role="tab" data-f="${f}" aria-selected="${actual===f}" class="${actual===f?'activo':''}">${t} <i>${cuentaDe(f)}</i></button>`).join('')}</div>`;
+  const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('@por_validar'),l=cuentaDe('@para_proveedor');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${l?` · ${l} listos para mandar`:''}${a?` · ${a} por revisar`:''}${!a&&!l?' · todo al día':''}`;}}
 function filteredOrders(){const status=$('statusFilter').value,q=$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();const pasa=o=>{if(status.startsWith('@'))return etapaDe(o)===status.slice(1);if(status==='__review')return porRevisar.has(o.id);if(status==='__numero')return numeroPorConfirmar(o)&&vigente(o);if(status==='__atender')return porAtender(o);if(status==='__cobrar')return vigente(o)&&saldoDe(o)>0.005;return !status||o.status===status;};return orders.filter(o=>pasa(o)&&(!q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${tablero[o.id]?.attendedName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q)));}
 function renderKpis(){const rows=orders.filter(vigente);const pon=(id,n)=>{const e=$(id);if(e)e.textContent=n;};pon('kpiOrders',rows.length);pon('kpiPending',rows.filter(o=>['pending_payment','partial_payment'].includes(o.status)).length);pon('kpiProduction',rows.filter(o=>o.status==='in_production').length);pon('kpiReady',rows.filter(o=>o.status==='ready').length);}
 function textoMangaCorto(m){return m==='larga'?'Larga':m==='corta'?'Corta':'';}
@@ -136,7 +158,7 @@ function barraNumero(o){
 }
 function render(){pintaEtapa();const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').textContent='No hay pedidos aquí.';if($('statusFilter').value==='__cobrar'){renderDeudores(rows);return;}$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>{const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
     const atendio=quienAtendio(t);
-    const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b><span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span></div>${barraNumero(o)}`;
+    const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main"><div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b>${vigente(o)&&o.status!=='delivered'?(saldo>0.005?`<span class="t-pago debe">Debe ${money.format(saldo)}</span>`:'<span class="t-pago ok">Pagado</span>'):''}${vigente(o)&&['pending_payment','partial_payment','paid'].includes(o.status)?'':`<span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span>`}</div>${barraNumero(o)}`;
     b.addEventListener('click',ev=>{const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
     b.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
     list.appendChild(b);});}
@@ -214,30 +236,75 @@ const fechaCorta=v=>v?new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'nume
 function pintaEtapa(){
   const box=$('tEtapa');if(!box)return;const f=$('statusFilter').value,k=f.startsWith('@')?f.slice(1):'';
   const lista=orders.filter(o=>vigente(o)&&etapaDe(o)===k);let html='';
-  if(k==='por_validar'&&lista.length)html=`<div class="t-etapa-txt"><b>Revisa tallas, nombre y número</b><span>Abre cada pedido y confírmalo con la familia. Cuando esté completo y pagado, pasa solo a "Para el proveedor".</span></div>`;
+  if(k==='por_validar'&&lista.length)html=`<div class="t-etapa-txt"><b>Revisa tallas, nombre y número</b><span>Abre cada pedido y confírmalo con la familia. Cuando esté revisado y pagado, pasa solo a "Listo para ${esc(proveedor()||'producir')}".</span></div>`;
   else if(k==='para_proveedor'&&lista.length){
     const piezas=lista.reduce((n,o)=>n+Number(o.item_count||0),0);
-    html=`<div class="t-etapa-txt"><b>Corte del viernes · ${lista.length} ${lista.length===1?'pedido':'pedidos'} · ${piezas} piezas</b><span>Validados y pagados. Al mandarlos se arma el PDF para el proveedor y se comparte por WhatsApp.</span></div>${canManage?'<button type="button" class="t-btn" data-mandar>Mandar al proveedor</button>':''}`;
+    html=`<div class="t-etapa-txt"><b>Esto es lo que se manda ${esc(alProveedor())}</b><span>${lista.length} ${lista.length===1?'pedido':'pedidos'} · ${piezas} piezas · todos pagados y revisados.</span></div>${canManage?`<button type="button" class="t-btn" data-mandar>PDF para ${esc(proveedor()||'el proveedor')}</button>`:''}`;
   }else if(k==='con_proveedor'&&lista.length){
     const cortes=new Map();
     lista.forEach(o=>{const b=etapas[o.id]?.batch;const key=b?.id||'sin';if(!cortes.has(key))cortes.set(key,{b,n:0});cortes.get(key).n++;});
-    html=`<div class="t-cortes">${[...cortes.values()].map(c=>c.b?`<div class="t-corte"><div><b>Corte ${esc(c.b.folio)}</b><span>${c.n} ${c.n===1?'pedido':'pedidos'} · enviado ${esc(fechaCorta(c.b.submittedOn))}</span></div><div class="t-corte-acc"><button type="button" class="t-btn-sec" data-pdf="${esc(c.b.id)}">PDF</button>${canManage?`<button type="button" class="t-btn" data-llego="${esc(c.b.id)}">Ya llegó</button>`:''}</div></div>`:`<div class="t-corte"><div><b>Sin corte</b><span>${c.n} marcado${c.n===1?'':'s'} a mano en producción. Si fue por error, ábrelo y toca "Regresar un paso".</span></div></div>`).join('')}</div>`;
+    html=`<div class="t-cortes">${[...cortes.values()].map(c=>c.b?`<div class="t-corte"><div><b>Enviado el ${esc(fechaCorta(c.b.submittedOn))}${c.b.supplierName?` a ${esc(c.b.supplierName)}`:''}</b><span>${c.n} ${c.n===1?'pedido':'pedidos'} · folio ${esc(c.b.folio)}</span></div><div class="t-corte-acc"><button type="button" class="t-btn-sec" data-pdf="${esc(c.b.id)}">PDF</button>${canManage?`<button type="button" class="t-btn" data-llego="${esc(c.b.id)}">Ya llegó</button>`:''}</div></div>`:`<div class="t-corte"><div><b>Sin envío</b><span>${c.n} marcado${c.n===1?'':'s'} a mano en producción. Si fue por error, ábrelo y toca "Regresar un paso".</span></div></div>`).join('')}</div>`;
   }else if(k==='para_entregar'&&lista.length)html=`<div class="t-etapa-txt"><b>Ya están en la tienda</b><span>Avisa a la familia por WhatsApp desde el pedido y márcalo entregado cuando se lo lleven.</span></div>`;
   box.innerHTML=html;box.classList.toggle('hidden',!html);
 }
-async function mandarAlProveedor(btn){
+/* "PDF para el proveedor" (29/10/2026): una hoja con lo que se va a mandar
+   (cada pedido con sus piezas y "Pagado"), el nombre del proveedor y un
+   botón. Al tocarlo pasan a "Con el proveedor" y la misma hoja enseña dos
+   botones grandes: Descargar PDF y Mandar por WhatsApp. Sin ir a otra pantalla. */
+let envio=null;
+function cierraEnvio(){envio=null;$('envioHoja')?.remove();$('envioFondo')?.remove();document.body.style.overflow='';}
+function pintaEnvio(){
+  const h=$('envioHoja');if(!h||!envio)return;
+  const cab=(t,sub)=>`<header class="pres-head"><div><h2>${esc(t)}</h2><p>${esc(sub)}</p></div><button type="button" class="pres-close" data-envio-cierra aria-label="Cerrar">×</button></header>`;
+  if(envio.listo){const b=envio.listo;
+    h.innerHTML=`${cab('Listo',`${envio.lista.length===1?'1 pedido ya está':`${envio.lista.length} pedidos ya están`} con ${envio.prov}`)}
+      <div class="envio-listo"><div class="envio-palomita" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
+        <p>Folio <b>${esc(b.folio||'')}</b> · ${piezasDe(envio.lista)} piezas</p></div>
+      <button type="button" class="pres-primary envio-btn" data-envio-wa>Mandar PDF por WhatsApp</button>
+      <button type="button" class="envio-sec" data-envio-pdf>Descargar PDF</button>
+      ${envio.error?`<div class="pres-error" role="alert">${esc(envio.error)}</div>`:''}
+      <button type="button" class="envio-link" data-envio-cierra>Cerrar</button>`;
+    return;}
+  const filas=envio.lista.map(o=>{const t=tablero[o.id]||{},items=t.items||[];return `<li class="envio-fila"><div class="envio-fila-cab"><b>${esc(t.playerName||o.customer_name||'Sin nombre')}</b><span class="t-pago ok">Pagado</span></div>
+    ${items.length?`<ul class="order-items">${items.map(lineaDePieza).join('')}</ul>`:`<span class="muted">${Number(o.item_count||0)} piezas</span>`}</li>`;}).join('');
+  h.innerHTML=`${cab(`Pedido para ${envio.prov||'el proveedor'}`,`${envio.lista.length} ${envio.lista.length===1?'pedido':'pedidos'} · ${piezasDe(envio.lista)} piezas · todos pagados`)}
+    <label class="envio-prov"><span>Proveedor</span><input id="envioProv" maxlength="80" value="${esc(envio.prov)}" placeholder="Ej. Tremor" autocomplete="off"></label>
+    <ul class="envio-lista">${filas}</ul>
+    ${envio.error?`<div class="pres-error" role="alert">${esc(envio.error)}</div>`:''}
+    <button type="button" class="pres-primary envio-btn" data-envio-manda${envio.enviando?' disabled':''}>${envio.enviando?'Armando el PDF…':`Mandar a ${esc(envio.prov||'producir')} y armar PDF`}</button>
+    <p class="envio-nota">Pasan a "${envio.prov?`Con ${esc(envio.prov)}`:'En producción'}". Si algo no va, ábrelo antes y regrésalo un paso.</p>`;
+}
+function mandarAlProveedor(){
   const lista=orders.filter(o=>vigente(o)&&etapaDe(o)==='para_proveedor');if(!lista.length)return;
-  let proveedor='';try{proveedor=localStorage.getItem('tos-proveedor')||'';}catch{}
-  const nombre=await window.tosPrompt({kicker:'CORTE DEL VIERNES',title:`Mandar ${lista.length} ${lista.length===1?'pedido':'pedidos'} al proveedor`,message:'Pasan a "Con el proveedor" y se arma el PDF para mandarlo por WhatsApp.',placeholder:'Proveedor',value:proveedor,required:true,requiredText:'Escribe el nombre del proveedor.',confirmText:'Mandar y armar PDF',maxlength:80});
-  if(!nombre)return;
-  try{localStorage.setItem('tos-proveedor',nombre);}catch{}
-  btn.disabled=true;btn.textContent='Armando el corte…';
+  envio={lista,prov:proveedor(),enviando:false,error:'',listo:null,doc:null,nombre:''};
+  document.body.insertAdjacentHTML('beforeend','<div id="envioFondo" class="pres-backdrop"></div><section id="envioHoja" class="pres-sheet envio-hoja" role="dialog" aria-modal="true" aria-label="Pedido para el proveedor"></section>');
+  document.body.style.overflow='hidden';
+  $('envioFondo').addEventListener('click',()=>{if(!envio?.enviando)cierraEnvio();});
+  $('envioHoja').addEventListener('input',e=>{if(e.target.id==='envioProv'&&envio){envio.prov=e.target.value.trim();const b=$('envioHoja').querySelector('[data-envio-manda]');if(b)b.textContent=`Mandar a ${envio.prov||'producir'} y armar PDF`;}});
+  $('envioHoja').addEventListener('click',async e=>{
+    if(!envio)return;
+    if(e.target.closest('[data-envio-cierra]')){if(!envio.enviando)cierraEnvio();return;}
+    if(e.target.closest('[data-envio-manda]'))return mandaEnvio();
+    // Compartir necesita un toque fresco: por eso son botones aquí, no después de esperar.
+    if(e.target.closest('[data-envio-wa]')){try{const como=await compartePdf(envio.doc,envio.nombre,`Pedido ${envio.listo?.folio||''} · ${ctx.organization_name||''}`);if(como==='descargado'){envio.error='En la compu se descarga: adjúntalo en WhatsApp Web o Business.';pintaEnvio();}}catch(err){envio.error=err.message||'No se pudo compartir.';pintaEnvio();}return;}
+    if(e.target.closest('[data-envio-pdf]')){envio.doc?.save(envio.nombre);return;}
+  });
+  pintaEnvio();
+}
+async function mandaEnvio(){
+  if(!envio||envio.enviando)return;
+  if(!envio.prov){envio.error='Escribe a quién se lo mandas (el proveedor).';pintaEnvio();$('envioProv')?.focus();return;}
+  try{localStorage.setItem('tos-proveedor',envio.prov);}catch{}
+  envio.enviando=true;envio.error='';pintaEnvio();
   try{
-    const r=await rpc('v2_create_production_batch',{organization_id:ctx.organization_id,order_ids:lista.map(o=>o.id),supplier_name:nombre,notes:null});
+    const r=await rpc('v2_create_production_batch',{organization_id:ctx.organization_id,order_ids:envio.lista.map(o=>o.id),supplier_name:envio.prov,notes:null});
     const batchId=r?.id||r?.batchId||r?.batch_id||r;
-    await load();
-    await compartirCorte(batchId,true);
-  }catch(e){await window.tosAlert({kicker:'CORTE DEL VIERNES',title:'No se pudo mandar',message:e.message||String(e)});btn.disabled=false;btn.textContent='Mandar al proveedor';}
+    const sheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:batchId});
+    const fotos=await cargaFotos(supabase,sheet).catch(()=>({}));
+    envio.doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos});envio.nombre=nombreDelPdf(sheet);
+    envio.listo={id:batchId,folio:sheet?.batch?.folio||''};envio.enviando=false;
+    $('statusFilter').value='@con_proveedor';await load();pintaEnvio();
+  }catch(e){if(!envio)return;envio.enviando=false;envio.error=e.message||String(e);pintaEnvio();}
 }
 async function compartirCorte(batchId,recien){
   try{
@@ -260,7 +327,7 @@ async function yaLlego(batchId,btn){
   catch(e){btn.disabled=false;await window.tosAlert({kicker:'LLEGÓ EL CORTE',title:'No se pudo marcar',message:e.message||String(e)});}
 }
 $('tEtapa')?.addEventListener('click',e=>{
-  const m=e.target.closest('[data-mandar]');if(m){mandarAlProveedor(m);return;}
+  const m=e.target.closest('[data-mandar]');if(m){mandarAlProveedor();return;}
   const p=e.target.closest('[data-pdf]');if(p){p.disabled=true;compartirCorte(p.dataset.pdf,false).finally(()=>{p.disabled=false;});return;}
   const l=e.target.closest('[data-llego]');if(l)yaLlego(l.dataset.llego,l);
 });

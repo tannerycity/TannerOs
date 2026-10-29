@@ -240,3 +240,75 @@
 .t-mas-fila{display:block;width:calc(100% - 24px);margin:0 12px 12px;text-align:left;border:1px solid #e1e7e5;background:#f7faf9;border-radius:12px;padding:12px 14px;font:inherit;font-size:13.5px;font-weight:700;color:#0b3d4a;cursor:pointer}
 .t-peligro{border:0;background:none;color:#c0362c;font:inherit;font-weight:800;padding:8px 0;cursor:pointer}
 @media(max-width:560px){.t-listo{grid-template-columns:10px minmax(0,1fr)}.t-listo-pago{grid-column:2}}
+
+/* Tarjetas de etapa (29/10/2026). Presidencia: "Zul no sabe qué es el corte ni
+   los lotes". En vez de pestañas, cinco tarjetas que dicen qué hacer: revisar,
+   cobrar, mandar a producir, esperar y entregar. El número grande manda. */
+.t-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.t-card{position:relative;display:grid;align-content:start;gap:2px;min-height:104px;padding:14px 14px 12px;border:0;border-radius:18px;background:#fff;color:#07191e;font:inherit;text-align:left;cursor:pointer;box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.06);transition:transform .12s ease,box-shadow .12s ease}
+.t-card:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(7,25,30,.08),0 0 0 1px rgba(7,25,30,.08)}
+.t-card i{font-style:normal;font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--tono)}
+.t-card b{font-size:14.5px;font-weight:700;line-height:1.25}
+.t-card span{font-size:12.5px;color:#6b7c80;line-height:1.3}
+.t-card span:empty{display:none}
+.t-card::before{content:"";position:absolute;left:14px;right:14px;top:0;height:3px;border-radius:0 0 3px 3px;background:var(--tono);opacity:.9}
+.t-card.naranja{--tono:#c26a00;--tono-bg:#fff6e8}
+.t-card.rojo{--tono:#c0352b;--tono-bg:#fdeeec}
+.t-card.verde{--tono:#128c4a;--tono-bg:#e8f8ee}
+.t-card.azul{--tono:#1f5fbf;--tono-bg:#ebf2fd}
+.t-card.oro{--tono:#8a6a00;--tono-bg:#fbf5e2}
+.t-card.activo{background:var(--tono-bg);box-shadow:0 0 0 2px var(--tono)}
+.t-card.vacia{background:#f6f8f8;box-shadow:0 0 0 1px rgba(7,25,30,.05)}
+.t-card.vacia i{color:#a7b3b6}
+.t-card.vacia::before{opacity:.25}
+.t-card.vacia.activo{box-shadow:0 0 0 2px #a7b3b6}
+.t-card:focus-visible{outline:3px solid var(--tono);outline-offset:2px}
+.t-cards-mas{grid-column:1/-1;display:flex;gap:6px;justify-content:flex-end}
+.t-cards-mas button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border:0;border-radius:999px;background:transparent;color:#5d6f73;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+.t-cards-mas button i{font-style:normal;font-size:12px;font-weight:800;color:#7a8a8e}
+.t-cards-mas button.activo{background:#07191e;color:#fff}
+.t-cards-mas button.activo i{color:#cfd8da}
+
+/* Pagado / Debe en cada pedido: lo primero que se pregunta. */
+.t-pago{display:inline-flex;align-items:center;min-height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}
+.t-pago.ok{background:#e8f8ee;color:#128c4a}
+.t-pago.debe{background:#fdeeec;color:#a92a21}
+
+/* Hoja "Pedido para Tremor": ver lo que va, un botón, y el PDF. */
+#envioFondo.pres-backdrop{position:fixed;inset:0;z-index:300;background:rgba(7,25,30,.42)}
+.pres-sheet.envio-hoja{box-sizing:border-box;position:fixed;z-index:310;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,94vw);max-height:90dvh;overflow:auto;display:grid;gap:12px;padding:16px 20px 20px;border-radius:22px;background:#fff;box-shadow:0 30px 80px rgba(7,25,30,.3)}
+.envio-hoja .pres-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.envio-hoja .pres-head h2{margin:0;font-size:22px;letter-spacing:-.01em;color:#07191e}
+.envio-hoja .pres-head p{margin:3px 0 0;font-size:13.5px;color:#6b7c80}
+.envio-hoja .pres-close{width:34px;height:34px;flex:0 0 34px;border:0;border-radius:50%;background:#eef2f1;color:#42575d;font-size:20px;line-height:1;cursor:pointer}
+.envio-hoja .pres-error{padding:10px 12px;border-radius:12px;background:#fdf0ec;color:#9b3a24;font-size:13px;font-weight:600}
+.envio-prov{display:grid;gap:4px}
+.envio-prov span{font-size:12.5px;font-weight:700;color:#5d6f73}
+.envio-prov input{box-sizing:border-box;width:100%;min-height:46px;padding:0 14px;border:1px solid #d7dfe0;border-radius:12px;font:inherit;font-size:16px;font-weight:600;color:#07191e;background:#fff}
+.envio-prov input:focus{outline:none;border-color:#169b4b;box-shadow:0 0 0 3px rgba(22,155,75,.18)}
+.envio-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-height:46dvh;overflow:auto}
+.envio-fila{padding:10px 12px;border-radius:14px;background:#f6f8f8}
+.envio-fila-cab{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.envio-fila-cab b{font-size:15px;color:#07191e;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.envio-fila .order-items{margin:6px 0 0}
+.envio-hoja .envio-btn{width:100%;min-height:52px;border:0;border-radius:14px;background:#169b4b;color:#fff;font:inherit;font-size:16px;font-weight:800;cursor:pointer}
+.envio-hoja .envio-btn:hover{background:#12843f}
+.envio-hoja .envio-btn:disabled{opacity:.55;cursor:progress}
+.envio-sec{width:100%;min-height:48px;border:0;border-radius:14px;background:#eef2f1;color:#07191e;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.envio-link{justify-self:center;border:0;background:none;color:#5d6f73;font:inherit;font-size:14px;font-weight:600;padding:6px 10px;cursor:pointer}
+.envio-nota{margin:0;font-size:12.5px;color:#6b7c80;text-align:center}
+.envio-listo{display:grid;justify-items:center;gap:8px;padding:8px 0 4px;text-align:center}
+.envio-listo p{margin:0;font-size:15px;color:#3c4e52}
+.envio-palomita{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:#e8f8ee;color:#128c4a}
+.envio-palomita svg{width:34px;height:34px}
+
+@media(max-width:860px){
+  .t-cards{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .t-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .t-card{min-height:92px;padding:12px}
+  .t-card i{font-size:26px}
+  .t-cards-mas{justify-content:flex-start}
+  .pres-sheet.envio-hoja{left:0;right:0;top:auto;bottom:0;transform:none;width:auto;max-height:92dvh;border-radius:22px 22px 0 0;padding:14px 16px calc(env(safe-area-inset-bottom) + 18px)}
+}

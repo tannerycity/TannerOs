@@ -106,3 +106,8 @@ export function iniciarUsoStaff(role,{mostrarConsentimiento=false}={}) {
   if(lee()==='si')cargarModulo();
   else if(mostrarConsentimiento&&lee()!=='no')preguntar();
 }
+
+// Evita que una etiqueta ya activada permanezca al cambiar de usuario.
+export function descargarAnaliticaAlSalir() {
+  if (typeof window !== 'undefined' && iniciado) window.location.reload();
+}

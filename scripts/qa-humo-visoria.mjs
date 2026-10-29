@@ -121,6 +121,7 @@ const firma = async pg => {
   const portada = (await pg.textContent('#contenido')).replace(/\s+/g, ' ');
   if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/visoria-portada.png`, fullPage:true });
   revisa('1. la portada dice cuándo, sin costo y cuántos lugares quedan', /Viernes 13 y sábado 14 de noviembre/.test(portada) && /Sin costo/.test(portada) && /Quedan 18 de 30 lugares/.test(portada), portada);
+  revisa('1. la portada avisa que los tachones están prohibidos', /Prohibidos los tachones/.test(portada) && /multitacos o tenis deportivos/.test(portada));
   revisa('1. cabe a 390px', await cabe(pg));
   await pg.click('[data-empieza]');
   await pg.waitForSelector('#viNombre');

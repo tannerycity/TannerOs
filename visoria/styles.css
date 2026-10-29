@@ -36,6 +36,10 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-ico svg{width:22px;height:22px;fill:none;stroke:var(--oro);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .vi-datos b{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--oro-osc)}
 .vi-datos span{font-weight:800;font-size:15.5px}
+.vi-aviso{box-shadow:0 0 0 1.5px #b3261e !important}
+.vi-aviso .vi-ico{background:#b3261e}
+.vi-aviso .vi-ico svg{stroke:#fff}
+.vi-aviso b{color:#b3261e !important}
 .vi-cupo{margin:0 16px;display:grid;gap:8px;padding:14px 16px;border-radius:16px;background:var(--navy);color:#fff}
 .vi-cupo-cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .vi-cupo-cab b{font-family:var(--titulo);font-size:24px;text-transform:uppercase;letter-spacing:.02em}

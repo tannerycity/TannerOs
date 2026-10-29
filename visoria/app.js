@@ -86,6 +86,7 @@ function portada() {
       <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><div><b>Cuándo</b><span>${esc(info.datesLabel || 'Por confirmar')}</span></div></li>
       <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.6"/></svg></span><div><b>Dónde</b><span>${lugar}</span></div></li>
       <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12 12 20l-8-8V4h8z"/><circle cx="8" cy="8" r="1.5"/></svg></span><div><b>Costo</b><span>Sin costo</span></div></li>
+      <li class="vi-aviso"><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></span><div><b>Calzado</b><span>Prohibidos los tachones. Usa multitacos o tenis deportivos.</span></div></li>
     </ul>
     ${cupo ? `<div class="vi-cupo"><div class="vi-cupo-cab"><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : 'Cupo lleno') : `Quedan ${quedan} de ${cupo} lugares`}</b><span>Cupo limitado</span></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.max(3, Math.round(ocupados / cupo * 100)))}%"></i></div></div>` : ''}
     ${cerrado
@@ -276,7 +277,7 @@ async function pase() {
     <div class="vi-pase-img" id="viPaseImg"><span class="vi-cargando-mini">Armando su pase…</span></div>
     <ol class="vi-pasos-finales">
       <li><b>Mándalo al WhatsApp de Tannery City</b><span>Así confirmamos su lugar.</span></li>
-      <li><b>Imprímelo y llévalo</b><span>Lo escaneamos en la entrada. Llega 15 minutos antes con ropa deportiva, tenis o tachones y agua.</span></li>
+      <li><b>Imprímelo y llévalo</b><span>Lo escaneamos en la entrada. Llega 15 minutos antes con ropa deportiva y agua. <b>Prohibidos los tachones</b>: usa multitacos o tenis deportivos.</span></li>
     </ol>
     <button type="button" class="vi-boton verde" data-al-club><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Z"/></svg>Mandar pase al WhatsApp de Tannery City</button>
     <p class="vi-pista">Elige WhatsApp y el chat de Tannery City · 479 265 1338</p>

@@ -486,12 +486,19 @@ export async function renderWelcomeCard(datos = {}) {
     ctx.font = '600 19px Inter';
     ctx.fillStyle = COLORS.muted;
     ctx.textAlign = 'center';
+    if (esVisoria) {
+      ctx.font = '800 21px Inter';
+      ctx.fillStyle = COLORS.navy;
+      ctx.fillText('PROHIBIDOS LOS TACHONES · multitacos o tenis deportivos', W / 2, lastBaseline + 76);
+      ctx.font = '600 19px Inter';
+      ctx.fillStyle = COLORS.muted;
+    }
     ctx.fillText(esVisoria ? 'Muestra este pase en la entrada. Llega 15 minutos antes.'
       : modo === 'redes'
       ? 'Ya es uno de los nuestros.'
       : 'Tu registro quedó autenticado en Tannery City F.C.', W / 2, lastBaseline + 40);
     ctx.textAlign = 'left';
-    cursorTrasBienvenida = lastBaseline + 40;
+    cursorTrasBienvenida = lastBaseline + (esVisoria ? 76 : 40);
     dibujado.bienvenida = true;
   }
 

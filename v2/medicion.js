@@ -47,6 +47,8 @@ const guarda = v => { try { localStorage.setItem(LLAVE, v); } catch { /* sin mem
 
 function carga(cfg) {
   if (cargado || typeof document === 'undefined' || !dominioActual()) return;
+  // Evitar doble carga si otro snippet o GTM ya inicializó etiquetas.
+  if (window.fbq || window.gtag || document.querySelector('script[src*="googletagmanager.com/"],script[src*="fbevents.js"]')) return;
   cargado = true;
   if (/^\d{6,20}$/.test(cfg.metaPixelId || '')) {
     const f = window.fbq = function () { f.callMethod ? f.callMethod.apply(f, arguments) : f.queue.push(arguments); };
@@ -93,8 +95,11 @@ export function preguntaConsentimiento(cfg = MEDICION) {
     <div><button type="button" class="no" data-c="no">Solo lo necesario</button><button type="button" class="si" data-c="si">Aceptar</button></div>`;
   barra.addEventListener('click', e => {
     const b = e.target.closest('[data-c]'); if (!b) return;
-    guarda(b.dataset.c); barra.remove();
-    if (b.dataset.c === 'si') carga(cfg);
+    const previa = lee(), nueva = b.dataset.c;
+    guarda(nueva); barra.remove();
+    if (nueva === 'si') carga(cfg);
+    // Al revocar, recargar para descargar scripts ya activados.
+    if (previa === 'si' && nueva === 'no' && cargado) window.location.reload();
   });
   document.body.appendChild(barra);
 }
@@ -109,6 +114,6 @@ export function iniciaMedicion(cfg = MEDICION) {
 }
 /* "Cookies" en el pie: se puede cambiar la respuesta. */
 export function cambiaConsentimiento(cfg = MEDICION) {
-  try { localStorage.removeItem(LLAVE); } catch { /* */ }
+  // Conservar la decisión anterior hasta que se elija de nuevo para detectar revocación.
   preguntaConsentimiento(cfg);
 }

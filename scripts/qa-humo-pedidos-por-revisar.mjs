@@ -195,9 +195,9 @@ async function pideCalcetas(pg) {
   await pg.waitForSelector('#orderList .order-row', { timeout:8000 }).catch(() => {});
   // Abre en la etapa que pide algo (22/10/2026); aquí se revisa todo.
   await pg.click('#tSeg [data-f=""]').catch(() => {});
-  // Desde el pedido por etapas (22/10/2026) el aviso es la etapa "Por validar", con su cuenta.
+  // Desde el pedido por etapas (22/10/2026) el aviso es la etapa "Por validar", con su cuenta; desde el 29/10 la tarjeta "Revisar".
   const cuenta = await pg.textContent('#tSeg [data-f="@por_validar"] i').catch(() => '');
-  revisa('4. arriba dice cuántos hay por validar', cuenta === '1' && /1 por validar/.test(await pg.textContent('#tResumen').catch(() => '')), cuenta);
+  revisa('4. arriba dice cuántos hay por validar', cuenta === '1' && /1 por revisar/.test(await pg.textContent('#tResumen').catch(() => '')), cuenta);
   const etiquetas = await pg.$$eval('.order-row', rs => rs.map(r => [r.dataset.orderId, !!r.querySelector('.order-review-tag')]));
   revisa('5. el nuevo trae etiqueta y el viejo no', JSON.stringify(etiquetas) === JSON.stringify([['o-nuevo', true], ['o-viejo', false]]), JSON.stringify(etiquetas));
   await pg.click('#tSeg [data-f="@por_validar"]');

@@ -82,7 +82,7 @@ function preguntar() {
   const box = document.createElement('section');
   box.id = 'tos-uso-consentimiento';
   box.className = 'tos-cookies'; box.setAttribute('role','dialog'); box.setAttribute('aria-label','Consentimiento de analítica');
-  box.innerHTML = '<p>¿Nos permites medir de forma opcional las pantallas del staff que se utilizan? Usamos Google Analytics, sin enviar datos de jugadores, familias, usuarios ni contenido de formularios. <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">Aviso de privacidad</a>.</p><div class="tos-cookie-buttons"><button class="tos-cookie-no" type="button" data-uso="no">Solo lo necesario</button><button class="tos-cookie-yes" type="button" data-uso="si">Aceptar</button></div>';
+  box.innerHTML = '<p>¿Nos permites medir de forma opcional las pantallas del staff que se utilizan? Usamos Google Analytics, sin enviar nombres, correos, teléfonos, IDs de jugadores ni contenido de formularios. <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">Aviso de privacidad</a>.</p><div class="tos-cookie-buttons"><button class="tos-cookie-no" type="button" data-uso="no">Solo lo necesario</button><button class="tos-cookie-yes" type="button" data-uso="si">Aceptar</button></div>';
   box.addEventListener('click', e => {
     const b=e.target.closest('button[data-uso]'); if(!b)return;
     const anterior=lee(), nueva=b.dataset.uso;

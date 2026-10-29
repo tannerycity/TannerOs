@@ -147,13 +147,4 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-pasos-finales li::before{content:counter(p);grid-row:span 2;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--navy);color:var(--oro);font:800 18px var(--titulo)}
 .vi-pasos-finales b{font-size:15px}
 .vi-pasos-finales span{font-size:13.5px;color:var(--gris)}
-.vi-imprime{display:none}
-
-@media print{
-  @page{size:auto;margin:10mm}
-  body.vi{background:#fff}
-  body.vi .vi-app{display:none!important}
-  .vi-imprime{display:block!important;text-align:center}
-  .vi-imprime img{max-width:100%;max-height:96vh;width:auto;height:auto}
-}
 @media(max-width:380px){.vi-hero h1{font-size:40px}.vi-paso h2{font-size:34px}.vi-foto{grid-template-columns:86px 1fr}.vi-foto-circulo{width:86px;height:86px}}

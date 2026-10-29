@@ -67,7 +67,7 @@ const NINOS = [
 const SIN_CONTACTO = ['guardian','phone','email','salud','emergencia','signedBy','signedAt'];
 
 const CLIENTE = (modo) => `
-  window.__rpc=[]; window.__subidas=[]; window.__abiertas=[]; window.open=(u)=>{window.__abiertas.push(u);return null;}; window.print=()=>{window.__impreso=true;};
+  window.__rpc=[]; window.__subidas=[]; window.__abiertas=[]; window.open=(u)=>{window.__abiertas.push(u);return null;};
   const MODO=${JSON.stringify(modo)};
   const ninos=${JSON.stringify(NINOS)};
   export function createClient(){return{
@@ -172,15 +172,14 @@ const firma = async pg => {
   revisa('5. el pase trae su folio', /¡Leo está inscrito!/.test(pase) && /TC-2026-00042/.test(pase), pase);
   revisa('5. sube la foto y la liga al registro', (await pg.evaluate(() => window.__subidas)).some(x => /prospects\/p-nuevo\/profile\./.test(x)) && (await llamadas(pg, 'v2_public_attach_prospect_photo'))[0]?.prospect_id === 'p-nuevo');
   await pg.waitForSelector('#viPaseImg img', { timeout:8000 });
-  revisa('5. el pase es la credencial del club en imagen', !!(await pg.$('#viPaseImg img')) && !!(await pg.$('#viImprime img')));
+  revisa('5. el pase es la credencial del club en imagen', !!(await pg.$('#viPaseImg img')));
   if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/visoria-pase.png`, fullPage:true });
   await pg.evaluate(() => { navigator.canShare = () => false; });
   await pg.click('[data-al-club]');
   await pg.waitForTimeout(200);
   const wa = (await pg.evaluate(() => window.__abiertas))[0] || '';
   revisa('5. manda el pase al WhatsApp de Tannery City con su folio', /^https:\/\/wa\.me\/524792651338\?text=/.test(wa) && /TC-2026-00042/.test(decodeURIComponent(wa)) && /Leo/.test(decodeURIComponent(wa)), wa);
-  await pg.click('[data-imprime]');
-  revisa('5. imprimir el pase', await pg.evaluate(() => window.__impreso === true));
+  revisa('5. el pase va en el celular, sin hojas', /Llévalo en tu celular/.test(await pg.textContent('.vi-pase')) && !(await pg.$('[data-imprime]')) && !!(await pg.$('[data-guarda]')));
   revisa('5. el pase cabe a 390px', await cabe(pg));
   revisa('sin errores de página (familia)', !errs.length, errs.join(' | '));
   await pg.close();

@@ -277,12 +277,11 @@ async function pase() {
     <div class="vi-pase-img" id="viPaseImg"><span class="vi-cargando-mini">Armando su pase…</span></div>
     <ol class="vi-pasos-finales">
       <li><b>Mándalo al WhatsApp de Tannery City</b><span>Así confirmamos su lugar.</span></li>
-      <li><b>Imprímelo y llévalo</b><span>Lo escaneamos en la entrada. Llega 15 minutos antes con ropa deportiva y agua. <b>Prohibidos los tachones</b>: usa multitacos o tenis deportivos.</span></li>
+      <li><b>Llévalo en tu celular</b><span>Sin hojas: lo escaneamos desde tu pantalla en la entrada. Llega 15 minutos antes con ropa deportiva y agua. <b>Prohibidos los tachones</b>: usa multitacos o tenis deportivos.</span></li>
     </ol>
     <button type="button" class="vi-boton verde" data-al-club><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Z"/></svg>Mandar pase al WhatsApp de Tannery City</button>
     <p class="vi-pista">Elige WhatsApp y el chat de Tannery City · 479 265 1338</p>
-    <button type="button" class="vi-boton claro" data-imprime>Imprimir pase</button>
-    <button type="button" class="vi-link" data-guarda>Guardar imagen del pase</button>
+    <button type="button" class="vi-boton claro" data-guarda>Guardar pase en mi celular</button>
     <button type="button" class="vi-link" data-otro>Inscribir a otro hijo</button>
     <footer class="vi-lema"><span>CURTIMOS CAMPEONES DEL MUNDO</span><b>#WeAreTanners</b></footer>
   </section>`);
@@ -290,7 +289,6 @@ async function pase() {
     pasePng = await armaPase();
     const url = URL.createObjectURL(pasePng);
     $('viPaseImg').innerHTML = `<img src="${url}" alt="Pase de visoría de ${esc(`${n.firstName} ${n.lastName}`)}">`;
-    $('viImprime').innerHTML = `<img src="${url}" alt="">`;
   } catch { $('viPaseImg').innerHTML = `<div class="vi-pase-respaldo"><small>PASE DE VISORÍA</small><b>${esc(`${n.firstName} ${n.lastName}`)}</b><span>Folio ${esc(r.folio || '')}</span></div>`; }
 }
 function guardaPase() {
@@ -331,7 +329,6 @@ document.addEventListener('click', async e => {
   if (t.closest('[data-sigue]')) { const falta = paso === 1 ? leeNino() : leeTutor(); if (falta) return aviso(falta); return paso === 1 ? pasoTutor() : pasoFirma(); }
   const ins = t.closest('[data-inscribe]'); if (ins) return inscribe(ins);
   if (t.closest('[data-al-club]')) return alClub();
-  if (t.closest('[data-imprime]')) { if (pasePng) window.print(); return; }
   if (t.closest('[data-guarda]')) return guardaPase();
   if (t.closest('[data-otro]')) { pasePng = null; datos.nino = { sex: '', type: 'player', position: '', foot: '' }; foto = null; if (fotoUrl) URL.revokeObjectURL(fotoUrl); fotoUrl = ''; resultado = null; await recarga(); return info.open ? pasoNino() : portada(); }
   if (t.closest('[data-comparte]')) {

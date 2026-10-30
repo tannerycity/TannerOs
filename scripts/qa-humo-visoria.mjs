@@ -67,7 +67,7 @@ const NINOS = [
 const SIN_CONTACTO = ['guardian','phone','email','salud','emergencia','signedBy','signedAt'];
 
 const CLIENTE = (modo) => `
-  window.__rpc=[]; window.__subidas=[];
+  window.__rpc=[]; window.__subidas=[]; window.__abiertas=[]; window.open=(u)=>{window.__abiertas.push(u);return null;};
   const MODO=${JSON.stringify(modo)};
   const ninos=${JSON.stringify(NINOS)};
   export function createClient(){return{
@@ -121,9 +121,11 @@ const firma = async pg => {
   const portada = (await pg.textContent('#contenido')).replace(/\s+/g, ' ');
   if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/visoria-portada.png`, fullPage:true });
   revisa('1. la portada dice cuándo, sin costo y cuántos lugares quedan', /Viernes 13 y sábado 14 de noviembre/.test(portada) && /Sin costo/.test(portada) && /Quedan 18 de 30 lugares/.test(portada), portada);
+  revisa('1. la portada avisa que los tachones están prohibidos', /Prohibidos los tachones/.test(portada) && /multitacos o tenis deportivos/.test(portada));
   revisa('1. cabe a 390px', await cabe(pg));
   await pg.click('[data-empieza]');
   await pg.waitForSelector('#viNombre');
+  revisa('2. dice qué es obligatorio', /Todo es obligatorio, salvo lo que dice opcional/.test(await pg.textContent('.vi-leyenda')) && await pg.evaluate(() => getComputedStyle(document.querySelector('label.vi-campo:not(.opc) > span'), '::after').content.includes('*')) && !!(await pg.$('label.vi-campo.opc')));
   await pg.click('[data-sigue]');
   revisa('2. sin foto no avanza', /Falta la foto/.test(await pg.textContent('#viAviso')));
   await pg.setInputFiles('#viGaleria', { name:'leo.png', mimeType:'image/png', buffer:PNG });
@@ -167,10 +169,17 @@ const firma = async pg => {
   revisa('4. manda la firma en PNG y su nombre', /^data:image\/png;base64,/.test(r.firma?.imagen || '') && r.firma?.nombre === 'Ana Ávila' && r.firma?.acepta === true);
   revisa('4. respeta "no" a fotos para redes', r.image_consent === false);
   const pase = (await pg.textContent('.vi-pase')).replace(/\s+/g, ' ');
-  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/visoria-pase.png`, fullPage:true });
   revisa('5. el pase trae su folio', /¡Leo está inscrito!/.test(pase) && /TC-2026-00042/.test(pase), pase);
   revisa('5. sube la foto y la liga al registro', (await pg.evaluate(() => window.__subidas)).some(x => /prospects\/p-nuevo\/profile\./.test(x)) && (await llamadas(pg, 'v2_public_attach_prospect_photo'))[0]?.prospect_id === 'p-nuevo');
-  revisa('5. WhatsApp para compartir', /wa\.me\/\?text=/.test(await pg.getAttribute('.vi-pase a.vi-boton', 'href')));
+  await pg.waitForSelector('#viPaseImg img', { timeout:8000 });
+  revisa('5. el pase es la credencial del club en imagen', !!(await pg.$('#viPaseImg img')));
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/visoria-pase.png`, fullPage:true });
+  await pg.evaluate(() => { navigator.canShare = () => false; });
+  await pg.click('[data-al-club]');
+  await pg.waitForTimeout(200);
+  const wa = (await pg.evaluate(() => window.__abiertas))[0] || '';
+  revisa('5. manda el pase al WhatsApp de Tannery City con su folio', /^https:\/\/wa\.me\/524792651338\?text=/.test(wa) && /TC-2026-00042/.test(decodeURIComponent(wa)) && /Leo/.test(decodeURIComponent(wa)), wa);
+  revisa('5. el pase va en el celular, sin hojas', /Llévalo en tu celular/.test(await pg.textContent('.vi-pase')) && !(await pg.$('[data-imprime]')) && !!(await pg.$('[data-guarda]')));
   revisa('5. el pase cabe a 390px', await cabe(pg));
   revisa('sin errores de página (familia)', !errs.length, errs.join(' | '));
   await pg.close();

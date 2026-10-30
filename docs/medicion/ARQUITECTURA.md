@@ -36,7 +36,7 @@ navegador en TannerOS (`qa-humo-medicion`) y en TCP (E2E "medición").
 | Capa | Qué mide | Quién | Dónde se guarda | Estado |
 |---|---|---|---|---|
 | GA4 de uso (`v2/analitica-uso.js`) | módulos, navegación, funciones, carga, errores por tipo | staff que acepta, en `app.tannerycity.com` | Google | En código |
-| Conteo propio (h55) | aperturas por día y módulo, usuarios activos día/semana/mes | todo el staff (no Tanner, no familias) | Supabase, agregado; actor = sha256(uid:org:sal) | Pendiente de autorización |
+| Conteo propio (h55) | aperturas por día y módulo, usuarios activos día/semana/mes | todo el staff (no Tanner, no familias) | Supabase, agregado; actor = sha256(uid:org:sal) | Aplicada (30/10/2026) |
 
 Por qué dos capas: GA4 da embudos, dispositivos y tiempos, pero sólo cuenta a quien acepta.
 h55 da el número completo y nunca sale del club. El resumen (`v2_usage_summary`) sólo lo ve

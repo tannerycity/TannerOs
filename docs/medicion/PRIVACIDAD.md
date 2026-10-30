@@ -12,7 +12,7 @@
 | 8 | URL real nunca enviada en áreas privadas | ✔ página sintética | ✔ query filtrado | ✔ | — |
 | 9 | Google Signals apagado | ✔ | — | — | recomendado |
 | 10 | Sin secretos en frontend | ✔ (IDs de medición son públicos por diseño) | ✔ | ✔ | ✔ |
-| 11 | Conteo propio seudónimo y agregado | h55 (pendiente) | — | — | — |
+| 11 | Conteo propio seudónimo y agregado | ✔ h55 (aplicada 30/10/2026) | — | — | — |
 | 12 | Conservación definida | GA4: configurar 14 meses; h55: 13 meses propuesto | GA4 14 meses | GA4 14 meses | GA4 14 meses |
 | 13 | Aviso de privacidad cubre esta medición | **✘ falta** (staff) | ✔ sección 11 (v2, 12/10/2026) | `[ABOGADO]` pendiente | revisar |
 

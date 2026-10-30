@@ -56,7 +56,7 @@ Recomendación: cerrar #357 y #358 **después** de aprobar `medicion-integral`, 
 | tcp-app | `tests/unit/analitica-publica.test.mjs` | 7/7. `test:unit` completo: 110 |
 | tcp-app | E2E `demo.spec.mjs` (incluye "sin aviso no hay petición a Google/Meta") | 54/55. La que falla ("portada corta… toBeInViewport") también falla en `main` sin red (Google Fonts bloqueado); es ambiental. |
 
-Lo que **no** está probado: eventos reales llegando a GA4/Meta (falta acceso a DebugView/Test Events) y la prueba 13 contra Supabase real (h55 no está aplicada).
+Lo que **no** está probado: eventos reales llegando a GA4/Meta (falta acceso a DebugView/Test Events) La prueba 13 sí corrió contra producción el 30/10/2026 (escribe y se revierte): OK.
 
 ## 4. Fallas y riesgos
 
@@ -66,7 +66,7 @@ Lo que **no** está probado: eventos reales llegando a GA4/Meta (falta acceso a 
 | R2 | `purchase` aún no se envía | No hay ingresos en GA4/Meta | Intencional: sólo con pago confirmado. Falta envío desde servidor (webhook MP → GA4 Measurement Protocol / Meta CAPI) con secretos en servidor. |
 | R3 | www en GoDaddy sin control de versiones | Cambios sin revisión ni pruebas | Instalar sólo por GTM con versión publicada y descrita. |
 | R4 | Riesgo de doble conteo si alguien mete GTM en app o tcp | Métricas infladas | Regla: un solo método por sitio ([ARQUITECTURA.md](ARQUITECTURA.md)). |
-| R5 | GA4 sólo cuenta a quien acepta | Subconteo de uso del staff | h55 cuenta a todo el staff, agregado y seudónimo (pendiente de autorización). |
+| R5 | GA4 sólo cuenta a quien acepta | Subconteo de uso del staff | h55 cuenta a todo el staff, agregado y seudónimo (aplicada el 30/10/2026). |
 | R6 | Cambio futuro de menú sin actualizar el catálogo | Módulo nuevo sin medir | `qa-analitica-uso` falla si `navItems` y el catálogo (JS y h55) no coinciden. |
 | R7 | `MAX_EXCLUIDAS` sube a 64 en tres ramas (#359, #360, esta) | Conflicto al fusionar | Resolver al fusionar: el valor final es 63 + nuevas suites de navegador. |
 | R8 | Conservación de h55 | Crecimiento indefinido | Purga a 13 meses propuesta en `supabase/propuestas/uso_purga.sql`; sin aplicar. |
@@ -81,7 +81,7 @@ Lo que **no** está probado: eventos reales llegando a GA4/Meta (falta acceso a 
 
 ## Autorizaciones pendientes
 
-1. Aplicar `supabase/pendientes/h55_uso_de_tanneros.sql`.
+1. ~~Aplicar h55~~ Hecho el 30/10/2026 (`supabase/migrations/20261030013405_h55_uso_de_tanneros.sql`).
 2. Revisión legal de los avisos de privacidad (TannerOS y TCP).
 3. Fusión de `medicion-integral`, tcp-app #12 y #13.
 4. Instalar GTM en www (panel GoDaddy) siguiendo [INSTALACION-WWW-GTM.md](INSTALACION-WWW-GTM.md).

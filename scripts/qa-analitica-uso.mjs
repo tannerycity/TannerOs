@@ -18,7 +18,7 @@ const shell = fs.readFileSync(new URL('../v2/shell.js', import.meta.url), 'utf8'
 const delMenu = [...shell.slice(shell.indexOf('export const navItems=['), shell.indexOf('];', shell.indexOf('export const navItems=['))).matchAll(/\{code:'([^']+)'/g)].map(m => m[1]);
 revisa('el catálogo cubre cada módulo del menú', delMenu.length > 20 && delMenu.every(m => MODULOS.includes(m)), delMenu.filter(m => !MODULOS.includes(m)).join(','));
 revisa('el catálogo de h55 es el mismo que el del navegador', (() => {
-  const sql = fs.readFileSync(new URL('../supabase/pendientes/h55_uso_de_tanneros.sql', import.meta.url), 'utf8');
+  const sql = fs.readFileSync(new URL('../supabase/migrations/20261030013405_h55_uso_de_tanneros.sql', import.meta.url), 'utf8');
   const lista = [...sql.slice(sql.indexOf('select array['), sql.indexOf(']', sql.indexOf('select array['))).matchAll(/'([^']+)'/g)].map(m => m[1]);
   return lista.length === MODULOS.length && MODULOS.every(m => lista.includes(m));
 })());

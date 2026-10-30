@@ -71,8 +71,9 @@ const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/op
 let fallos = 0, corridas = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${String(detalle).slice(0, 400)}` : ''}`); } };
 
-async function contexto({ oficial = true, role = 'Operaciones' } = {}) {
+async function contexto({ oficial = true, role = 'Operaciones', ga4Staff = true } = {}) {
   const ctx = await nav.newContext({ viewport:{ width:390, height:844 } });
+  if (ga4Staff) await ctx.addInitScript(() => { window.__tosUsoGA4Prueba = true; });
   if (oficial) await ctx.addInitScript(() => { window.__tosMedicionHost = 'app.tannerycity.com'; });
   const terceros = [];
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
@@ -148,10 +149,20 @@ const capas = pg => pg.evaluate(() => JSON.stringify({ dl: (window.dataLayer || 
   const ev = c.dl.filter(a => a[0] === 'event');
   revisa('7. carga una vez GA4 de TannerOS; Meta nunca', terceros.filter(u => /gtag\/js\?id=G-KJN3NJS2YJ/.test(u)).length === 1 && !terceros.some(u => /facebook/.test(u)) && await pg.evaluate(() => !window.fbq), terceros.join(' '));
   revisa('7. page_view con página sintética y tanner_module_opened', ev.some(a => a[1] === 'page_view' && a[2].page_location === 'https://app.tannerycity.com/m/visorias') && ev.some(a => a[1] === 'tanner_module_opened' && a[2].module_name === 'visorias'), JSON.stringify(ev));
-  const permitidos = { page_view:['page_location','page_title','page_referrer'], tanner_module_opened:['module_name'], tanner_navigation:['from_module','to_module'], tanner_screen_load:['module_name','load_ms'], tanner_error:['module_name','error_type'], tanner_feature_used:['module_name','feature'] };
+  const permitidos = { page_view:['page_location','page_title','page_referrer'], tanner_module_opened:['module_name'], tanner_navigation:['from_module','to_module'], tanner_page_performance:['module_name','load_ms','catalog_version'], tanner_error_observed:['module_name','error_type','severity','catalog_version'], tanner_feature_used:['module_name','feature','catalog_version'] };
+  permitidos.tanner_module_opened.push('catalog_version'); permitidos.tanner_navigation.push('catalog_version');
   revisa('7. sólo parámetros permitidos y ningún dato de la persona', ev.every(a => permitidos[a[1]] && Object.keys(a[2] || {}).every(k => permitidos[a[1]].includes(k))) && !/Zulema|u1|o1|Operaciones/.test(JSON.stringify(c.dl)), JSON.stringify(c.dl).slice(0, 400));
   revisa('7. "Preferencias de analítica" en el menú para cambiar de opinión', !!(await pg.$('#tosUsoPreferencias')));
   revisa('sin errores de página (staff)', !errs.length, errs.join(' | '));
+  await ctx.close();
+}
+{
+  // Así está producción hoy: el aviso aún no cubre al personal.
+  const { ctx, terceros } = await contexto({ role:'Operaciones', ga4Staff:false });
+  const pg = await ctx.newPage();
+  await pg.goto(BASE + '/v2/visorias/', { waitUntil:'networkidle' }); await pg.waitForTimeout(500);
+  const ping = (await pg.evaluate(() => window.__shellRpc)).filter(x => x.name === 'v2_usage_ping');
+  revisa('9. GA4 del staff apagado: ni barra, ni Google, ni botón; el conteo propio sigue', !(await pg.$('#tosUsoConsentimiento')) && !(await pg.$('#tosUsoPreferencias')) && terceros.length === 0 && ping.length === 1, terceros.join(' '));
   await ctx.close();
 }
 {

@@ -42,8 +42,8 @@ Nada estimado se presenta como observado.
 | Usuarios activos día / semana / mes | h55 `v2_usage_summary` | No disponible (h55 sin aplicar) |
 | Módulos más y menos usados | h55 / GA4 TannerOS | No disponible / Estimado |
 | Acciones clave (cobros, asistencias, pedidos) | GA4 `tanner_feature_used` + Supabase | Observado en Supabase; estimado en GA4 |
-| Tiempo de carga p75 por módulo | GA4 `tanner_screen_load` | Estimado |
-| Errores por módulo | GA4 `tanner_error` | Estimado |
+| Tiempo de carga p75 por módulo | GA4 `tanner_page_performance` | Estimado |
+| Errores por módulo | GA4 `tanner_error_observed` | Estimado |
 
 ## Diseño
 

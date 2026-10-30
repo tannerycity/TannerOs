@@ -20,6 +20,13 @@
  * firmas, expedientes ni montos.
  */
 export const ID_USO = 'G-KJN3NJS2YJ';
+/* La capa de GA4 del staff queda APAGADA hasta que el aviso de privacidad
+ * publique la sección del uso por el personal aprobada por el abogado
+ * (docs/medicion/PRIVACIDAD.md). El conteo propio (h55) sigue: no sale del club.
+ * Para encenderla: true, con el aviso nuevo ya publicado. */
+export const GA4_STAFF_HABILITADO = false;
+/* Versión del catálogo de eventos y parámetros (docs/medicion/EVENTOS.md). */
+export const CATALOGO = 'v2';
 export const HOST_OFICIAL = 'app.tannerycity.com';
 const CLAVE = 'tos_uso_analitica_v1';
 
@@ -46,19 +53,23 @@ export const redondeaMs = ms => Math.max(0, Math.min(60000, Math.round(Number(ms
 /* Lo único que se manda a GA4: cada evento con sus parámetros permitidos. */
 export const PARAMETROS = Object.freeze({
   page_view: ['page_location', 'page_title', 'page_referrer'],
-  tanner_module_opened: ['module_name'],
-  tanner_navigation: ['from_module', 'to_module'],
-  tanner_feature_used: ['module_name', 'feature'],
-  tanner_screen_load: ['module_name', 'load_ms'],
-  tanner_error: ['module_name', 'error_type']
+  tanner_module_opened: ['module_name', 'catalog_version'],
+  tanner_navigation: ['from_module', 'to_module', 'catalog_version'],
+  tanner_feature_used: ['module_name', 'feature', 'catalog_version'],
+  tanner_page_performance: ['module_name', 'load_ms', 'catalog_version'],
+  tanner_error_observed: ['module_name', 'error_type', 'severity', 'catalog_version']
 });
+/* Tipo de error y su gravedad: fijos, nunca el mensaje. */
+export const ERRORES = Object.freeze({ js: 'alta', promesa: 'media', red: 'media' });
 export function limpiaEvento(nombre, params = {}) {
   const permitidos = PARAMETROS[nombre]; if (!permitidos) return null;
   const out = {};
   for (const k of permitidos) if (params[k] !== undefined && params[k] !== null && params[k] !== '') out[k] = params[k];
   for (const k of ['module_name', 'from_module', 'to_module']) if (k in out && !moduloValido(out[k])) return null;
   if ('feature' in out && !funcionValida(out.feature)) return null;
-  if ('error_type' in out && !['js', 'promesa', 'red'].includes(out.error_type)) return null;
+  if ('error_type' in out && !(out.error_type in ERRORES)) return null;
+  if ('severity' in out && !['alta', 'media', 'baja'].includes(out.severity)) return null;
+  if ('catalog_version' in out && out.catalog_version !== CATALOGO) return null;
   if ('load_ms' in out) out.load_ms = redondeaMs(out.load_ms);
   if ('page_location' in out && !out.page_location.startsWith(`https://${HOST_OFICIAL}/m/`)) return null;
   return out;
@@ -68,11 +79,13 @@ export function limpiaEvento(nombre, params = {}) {
 let cargado = false, modulo = null, rpcPing = null, pidioPermiso = false;
 const lee = () => { try { return localStorage.getItem(CLAVE); } catch { return null; } };
 const guarda = v => { try { localStorage.setItem(CLAVE, v); } catch { /* se vuelve a preguntar */ } };
+/* Sólo las pruebas lo encienden sin el aviso nuevo (window.__tosUsoGA4Prueba). */
+const ga4Activo = () => GA4_STAFF_HABILITADO || (typeof window !== 'undefined' && window.__tosUsoGA4Prueba === true);
 const host = () => (typeof window !== 'undefined' && window.__tosMedicionHost) || (typeof location !== 'undefined' ? location.hostname : '');
 
 function manda(nombre, params) {
   if (!cargado || typeof window.gtag !== 'function') return;
-  const p = limpiaEvento(nombre, params); if (!p) return;
+  const p = limpiaEvento(nombre, nombre.startsWith('tanner_') ? { ...params, catalog_version: CATALOGO } : params); if (!p) return;
   try { window.gtag('event', nombre, p); } catch { /* la medición no detiene a nadie */ }
 }
 
@@ -106,11 +119,11 @@ function carga() {
   if (antes && antes !== modulo) manda('tanner_navigation', { from_module: antes, to_module: modulo });
   try {
     const nav = performance.getEntriesByType('navigation')[0];
-    if (nav && nav.domContentLoadedEventEnd > 0) manda('tanner_screen_load', { module_name: modulo, load_ms: nav.domContentLoadedEventEnd });
+    if (nav && nav.domContentLoadedEventEnd > 0) manda('tanner_page_performance', { module_name: modulo, load_ms: nav.domContentLoadedEventEnd });
   } catch { /* */ }
   // Errores: el tipo, no el mensaje (el mensaje puede traer datos).
-  addEventListener('error', () => manda('tanner_error', { module_name: modulo, error_type: 'js' }));
-  addEventListener('unhandledrejection', () => manda('tanner_error', { module_name: modulo, error_type: 'promesa' }));
+  addEventListener('error', () => manda('tanner_error_observed', { module_name: modulo, error_type: 'js', severity: ERRORES.js }));
+  addEventListener('unhandledrejection', () => manda('tanner_error_observed', { module_name: modulo, error_type: 'promesa', severity: ERRORES.promesa }));
 }
 
 const ESTILO = '.tos-cookies{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom));left:12px;right:12px;max-width:520px;margin:auto;background:#fff;color:#07191e;border:1px solid #e3e9e7;border-radius:16px;box-shadow:0 18px 50px rgba(7,25,30,.22);padding:14px 16px;z-index:9999;font:14px/1.45 Inter,system-ui,sans-serif}.tos-cookies p{margin:0 0 10px}.tos-cookies a{color:#0b3d4a;font-weight:700}.tos-cookie-botones{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tos-cookies button{min-height:44px;border:1.5px solid #07191e;border-radius:12px;font:inherit;font-weight:700;cursor:pointer}.tos-cookie-no{background:#fff;color:#07191e}.tos-cookie-si{background:#07191e;color:#fff}.tos-cookie-pref{display:block;margin-top:8px;background:transparent;border:0;color:inherit;opacity:.75;text-decoration:underline;font:12px Inter,system-ui,sans-serif;cursor:pointer}';
@@ -146,6 +159,7 @@ export function iniciarUsoStaff({ role, isOwner = false, modulo: m, organization
     let ya = false; try { ya = sessionStorage.getItem(`tos_ping_${mod}`) === '1'; sessionStorage.setItem(`tos_ping_${mod}`, '1'); } catch { /* */ }
     if (!ya) Promise.resolve().then(() => rpc('v2_usage_ping', { organization_id: organizationId, module: mod })).catch(() => {});
   }
+  if (!ga4Activo()) { if (lee() === 'si') borraCookiesGoogle(); return; }
   if (!hostMedible(host())) return;
   modulo = mod;
   const pie = document.querySelector('.tos-sidebar-bottom');

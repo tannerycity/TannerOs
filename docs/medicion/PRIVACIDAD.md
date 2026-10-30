@@ -29,7 +29,7 @@ cubre la tienda en su sección 11: cookies, Pixel de Meta y etiqueta de Google c
 3. La sección 11 dice "Google Ads"; hoy no se instala Ads. No es incorrecto informar de más,
    pero conviene "y, en su caso, Google Ads".
 
-**No activar la analítica del staff en producción hasta que un abogado apruebe el texto.**
+**La analítica GA4 del staff está APAGADA en producción** (`GA4_STAFF_HABILITADO = false` en `v2/analitica-uso.js`, 30/10/2026) hasta que un abogado apruebe y se publique el texto. Encenderla es cambiar esa constante a `true` con el aviso nuevo ya publicado; la prueba `qa-analitica-uso` lo vigila.
 La tienda ya está cubierta. Propuesta de sección 12 (borrador, `[ABOGADO]`; no se publicó):
 
 > **12. Uso de la plataforma por el personal del club.** Si formas parte del personal y nos

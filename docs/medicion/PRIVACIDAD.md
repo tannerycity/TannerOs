@@ -14,29 +14,36 @@
 | 10 | Sin secretos en frontend | ✔ (IDs de medición son públicos por diseño) | ✔ | ✔ | ✔ |
 | 11 | Conteo propio seudónimo y agregado | h55 (pendiente) | — | — | — |
 | 12 | Conservación definida | GA4: configurar 14 meses; h55: 13 meses propuesto | GA4 14 meses | GA4 14 meses | GA4 14 meses |
-| 13 | Aviso de privacidad menciona cookies y analítica | **✘ falta** | **✘ falta** | `[ABOGADO]` pendiente | revisar |
+| 13 | Aviso de privacidad cubre esta medición | **✘ falta** (staff) | ✔ sección 11 (v2, 12/10/2026) | `[ABOGADO]` pendiente | revisar |
 
 ## Bloqueante: aviso de privacidad de TannerOS
 
-El aviso actual (`aviso-de-privacidad/app.js`) no menciona cookies, analítica ni terceros
-(Google, Meta). **No activar la medición en producción hasta que un abogado revise y apruebe
-el texto.** Propuesta de redacción (borrador, `[ABOGADO]`; no se publicó):
+El aviso vigente (versión 2, 12/10/2026, en `app.consent_documents`, código `privacidad`) ya
+cubre la tienda en su sección 11: cookies, Pixel de Meta y etiqueta de Google con botones
+"Aceptar" / "Solo lo necesario" y cambio desde "Cookies". **Lo que no cubre:**
 
-> **Cookies y tecnologías de medición.** Con tu consentimiento, usamos Google Analytics
-> (Google LLC) para entender cómo se usa la tienda y la plataforma, y Meta Pixel (Meta
-> Platforms) sólo en la tienda pública, para medir la efectividad de nuestros anuncios.
-> No los usamos en el portal de familias ni en ninguna pantalla con datos de jugadores.
-> Puedes aceptar, rechazar o cambiar tu decisión en cualquier momento desde "Cookies" o
-> "Preferencias de analítica". Al retirar tu consentimiento borramos esas cookies de tu
-> navegador. Dichos proveedores pueden tratar datos fuera de México.
->
-> **Uso de la plataforma por el personal.** Contamos de forma agregada qué módulos abre el
-> personal del club, con un identificador seudónimo, para mejorar la herramienta. No
-> registramos qué datos consulta ni a qué jugador corresponden. Conservamos estos conteos
-> 13 meses.
+1. La analítica de uso del personal (GA4 de TannerOS para staff que acepta) y el conteo propio
+   agregado (h55). El aviso habla de familias y postulantes, no del personal en funciones.
+2. La sección 4 ("Con quién los compartimos") no nombra a Google ni a Meta ni la posible
+   transferencia fuera de México (la sección 11 sí los menciona).
+3. La sección 11 dice "Google Ads"; hoy no se instala Ads. No es incorrecto informar de más,
+   pero conviene "y, en su caso, Google Ads".
+
+**No activar la analítica del staff en producción hasta que un abogado apruebe el texto.**
+La tienda ya está cubierta. Propuesta de sección 12 (borrador, `[ABOGADO]`; no se publicó):
+
+> **12. Uso de la plataforma por el personal del club.** Si formas parte del personal y nos
+> das tu permiso con «Aceptar», usamos Google Analytics para entender qué módulos de la
+> plataforma se usan y cómo cargan. Sólo enviamos el nombre del módulo y de la acción (por
+> ejemplo «Taquilla · cobro registrado»), nunca tu nombre, tu correo ni datos de jugadores
+> o familias, y no usamos el Pixel de Meta dentro de la plataforma. Puedes cambiar tu
+> decisión en «Preferencias de analítica».
+> Además contamos dentro de nuestro propio sistema cuántas veces se abre cada módulo por día,
+> con un identificador seudónimo que no revela quién eres, para conocer cuánto se usa la
+> plataforma. Conservamos estos conteos 13 meses.
 
 Puntos para el abogado:
-- Transferencia a Google y Meta (art. 36–37 LFPDPPP) y si requiere mención expresa.
+- Transferencias y remisiones a Google y Meta según la LFPDPPP vigente (publicada en 2025) y si requieren mención o consentimiento expreso.
 - Si el conteo propio del staff (h55) necesita aviso laboral además del aviso general.
 - Plazo de conservación (GA4 14 meses; h55 13 meses).
 

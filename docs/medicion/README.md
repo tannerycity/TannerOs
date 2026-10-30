@@ -62,7 +62,7 @@ Lo que **no** está probado: eventos reales llegando a GA4/Meta (falta acceso a 
 
 | # | Riesgo | Impacto | Mitigación / estado |
 |---|---|---|---|
-| R1 | El aviso de privacidad de TannerOS no menciona cookies ni analítica | Legal (LFPDPPP): no se debe activar sin actualizarlo | Bloqueante. Redacción propuesta en [PRIVACIDAD.md](PRIVACIDAD.md), requiere abogado. |
+| R1 | El aviso de TannerOS (v2) cubre la tienda pero no la analítica del personal ni el conteo h55 | Legal: no activar la analítica del staff sin actualizarlo | Bloqueante para el staff. Sección 12 propuesta en [PRIVACIDAD.md](PRIVACIDAD.md), requiere abogado. |
 | R2 | `purchase` aún no se envía | No hay ingresos en GA4/Meta | Intencional: sólo con pago confirmado. Falta envío desde servidor (webhook MP → GA4 Measurement Protocol / Meta CAPI) con secretos en servidor. |
 | R3 | www en GoDaddy sin control de versiones | Cambios sin revisión ni pruebas | Instalar sólo por GTM con versión publicada y descrita. |
 | R4 | Riesgo de doble conteo si alguien mete GTM en app o tcp | Métricas infladas | Regla: un solo método por sitio ([ARQUITECTURA.md](ARQUITECTURA.md)). |

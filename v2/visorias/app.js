@@ -18,6 +18,7 @@
  * motivo, y queda en la bitácora. El servidor no se la manda a nadie más.
  */
 import { createClient } from '/v2/supabase-client.js';
+import { usaFuncion } from '/v2/analitica-uso.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { nombreDelClub } from '/v2/club.js';
 import { edad, filtra, porAnio, porCanal, PIERNA, DECISIONES, LIGA_PUBLICA, textoParaCompartir,
@@ -403,7 +404,7 @@ async function accionIncidentes(e) {
 /* ---------- Llegada y evaluación (h53) ---------- */
 async function marcaLlegada(x, btn) {
   btn.disabled = true;
-  try { const r = await rpc('v2_visoria_arrival', { organization_id: ctx.organization_id, prospect_id: x.id, value: !x.arrivedAt }); x.arrivedAt = r?.arrivedAt || null; pinta(); }
+  try { const r = await rpc('v2_visoria_arrival', { organization_id: ctx.organization_id, prospect_id: x.id, value: !x.arrivedAt }); x.arrivedAt = r?.arrivedAt || null; if (x.arrivedAt) usaFuncion('llegada_visoria'); pinta(); }
   catch (e) { btn.disabled = false; aviso(e.message || 'No se pudo marcar.'); }
   if (!x.arrivedAt) return;
   if (estadoDe(x) !== 'AUTORIZADO') aviso(`${x.firstName} llegó, pero NO está autorizado para entrar a la cancha: ${(ACCESO[estadoDe(x)] || {}).t}. ${x.access?.reason || ''}`);

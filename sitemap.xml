@@ -8,5 +8,6 @@
   <url><loc>https://app.tannerycity.com/centro-tanner/</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>
   <url><loc>https://app.tannerycity.com/trabaja/</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>
   <url><loc>https://app.tannerycity.com/demo/</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.tannerycity.com/visoria/</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://app.tannerycity.com/aviso-de-privacidad/</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>
 </urlset>

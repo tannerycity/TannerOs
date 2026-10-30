@@ -4,6 +4,7 @@ import { nombreDelClub } from '/v2/club.js';
 import { avisosDeIdeas, claveVistas } from '/v2/ideas/ideas.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
+import {iniciarUsoStaff,apagaAlSalir} from '/v2/analitica-uso.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -362,6 +363,7 @@ async function loadAuthenticatedApp(){
     rpc('v2_branding',{organization_id:ctx.organization_id}).then(b=>instalaVocabulario(b?.playerNoun)).catch(()=>{});
     showView('appView');document.body.classList.add('tos-body');
     renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
+    iniciarUsoStaff({role:ctx.role,isOwner:ctx.is_owner,modulo:'inicio',organizationId:ctx.organization_id,rpc});
     renderCumpleStrip().catch(error=>console.warn('cumpleaños',error));
     if(ctx.role==='Taquilla'){renderTaquillaHome().catch(error=>console.error('Taquilla home',error));}
     else if(ctx.role==='Academia'){renderAcademiaHome().catch(error=>console.error('Academia home',error));}
@@ -634,6 +636,7 @@ else{
   else showView('authView');
   supabase.auth.onAuthStateChange(event=>{
     if(event==='SIGNED_OUT'){
+      apagaAlSalir();
       detenPulso(); // sin sesión no se pregunta por la campana
       ctx=null;navigation=[];loadGeneration++;resetHomeState();showView('authView');document.body.classList.remove('tos-body');
     }else if(event==='SIGNED_IN'&&!ctx){setTimeout(()=>loadAuthenticatedApp().catch(console.error),0);}

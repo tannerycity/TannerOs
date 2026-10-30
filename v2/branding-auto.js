@@ -1,6 +1,7 @@
 import {supabase,rpc,renderShell} from '/v2/shell.js?v=20260821f';
 import {loadAndApplyBranding} from '/v2/branding.js';
 import '/v2/smart-select.js';
+import {iniciarUsoStaff} from '/v2/analitica-uso.js';
 
 const FINAL_ROUTES=[
   ['/admin/auditoria/','admin','Auditoría'],
@@ -110,6 +111,8 @@ async function boot(){
   const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return;}
   const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id}),nativeShell=Boolean(document.querySelector('.tos-layout')),page=meta();
   if(!nativeShell){buildFrame();renderShell({ctx,navigation,active:page.active,title:page.title});}
+  // Analítica de uso (docs/medicion): sólo staff, módulo del menú, con permiso.
+  iniciarUsoStaff({role:ctx.role,isOwner:ctx.is_owner,modulo:page.active,organizationId:ctx.organization_id,rpc});
   try{await loadAndApplyBranding(supabase,ctx.organization_id);}catch(error){console.warn('branding',error);}
   normalizeNode(document);installObserver();
 }

@@ -1,4 +1,5 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,supabase} from '/v2/shell.js';
+import { usaFuncion } from '/v2/analitica-uso.js';
 import {getSignedPhotoUrls} from '/v2/photo-cache.js';
 import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
         motivoDeFila,etiquetaDeMotivo,
@@ -607,6 +608,7 @@ async function postCollect(){
       const esperado=esperadoCrudo===''?null:Number(esperadoCrudo);
       if(esperado!==null&&(!Number.isFinite(esperado)||esperado<0))throw new Error('El monto esperado no puede ser negativo.');
       const idPago=await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,collected_by_name:quienDelClub('collectCollectedBy'),idempotency_key:key('cashier-payment'),expected_amount:esperado,observations:$('collectObservations')?.value.trim()||null});
+      usaFuncion('cobro_registrado');
       // Presidencia puede registrar y aprobar en un paso. Se hace como dos
       // llamadas a proposito: asi el historial guarda el paso por pendiente y
       // queda escrito quien aprobo, en vez de que el pago aparezca aprobado

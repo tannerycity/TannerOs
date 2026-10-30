@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { usaFuncion } from '/v2/analitica-uso.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { PERIODOS, rangoDe, estadoDeAsistencia, metaDe, confianza, tendencia,
          etiquetaDeEstado, desgloseDeFaltas, textoDeContadorOpcional,
@@ -257,6 +258,7 @@ async function saveAttendance(){
   try{
     const payload=marked.map(p=>({player_id:p.player_id,status:statusOf(p),punctuality:statusOf(p)==='late'?'late':null,notes:null}));
     const count=await rpc('v2_save_attendance',{organization_id:ctx.organization_id,session_id:sesionId(currentSession),records:payload});
+    usaFuncion('asistencia_guardada');
     // La lista recargada no trae las caras ya firmadas: se conservan.
     const antes=new Map(currentRoster.map(p=>[p.player_id,p]));
     const nueva=await rpc('v2_attendance_roster',{organization_id:ctx.organization_id,session_id:sesionId(currentSession)})||[];

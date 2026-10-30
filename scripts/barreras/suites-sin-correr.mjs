@@ -190,7 +190,9 @@ export default function comprobar() {
   // (texto íntegro, decisiones, hora, huellas y firma; nunca la salud).
   // Sube a 65 por qa-humo-tienda-recibo.mjs: el recibo Tanner (imagen PNG,
   // WhatsApp a uno mismo y Mis pedidos que se reabre tras recargar).
-  const MAX_EXCLUIDAS = 65;
+  // Sube a 66 por qa-humo-medicion.mjs: Meta y GA4 sólo con permiso, retirar
+  // lo apaga, sin datos personales, staff sin Meta y el rol Tanner fuera.
+  const MAX_EXCLUIDAS = 66;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

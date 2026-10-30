@@ -46,7 +46,7 @@ import { lineasDeRecibo, reciboDe, guardaRecibo, buscaRecibo, leeRecibos, llaveR
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
 import { bannersParaTienda, destinoDe, CADA_MS } from '/pedido/banners.js';
 import { rutaDeLiga, ligaDe } from '/pedido/ligas.js';
-import { iniciaMedicion, mide, hayIds, cambiaConsentimiento } from '/v2/medicion.js';
+import { iniciaMedicion, mide, hayIds, cambiaConsentimiento, aqui as medibleAqui } from '/v2/medicion.js';
 import { serializaCarrito, restauraCarrito, cambiaCantidadEnCarrito, cambiaCantidad, alternaGuardado, guardadosVivos } from '/pedido/carrito.js';
 import { normalizaCodigo, codigoValido, descuentoDeCodigo, textoAplicado, ligaDeCompra } from '/v2/codigos.js';
 import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe, sugerenciasAntesDePagar }
@@ -1630,7 +1630,7 @@ document.addEventListener('click', e => {
 cablea();
 // Pixeles de Meta y Google: sólo con permiso, y sólo si Marketing puso los ids.
 iniciaMedicion();
-if (hayIds()) {
+if (hayIds() && medibleAqui()) {
   const pie = document.querySelector('.st-pie');
   if (pie) { const a = document.createElement('a'); a.href = '#'; a.textContent = 'Cookies'; a.addEventListener('click', e => { e.preventDefault(); cambiaConsentimiento(); }); pie.append(' · ', a); }
 }

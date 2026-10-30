@@ -14,6 +14,7 @@
   <meta property="og:url" content="https://app.tannerycity.com/visoria" />
   <meta property="og:image" content="https://app.tannerycity.com/brand/og-registro.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preload" href="/fonts/barlow-condensed-800.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/visoria/styles.css" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png">
 </head>
@@ -25,6 +26,7 @@
     <div id="cargando" class="vi-cargando" role="status"><span></span>Cargando la visoría…</div>
     <div id="contenido" class="hidden" aria-live="polite"></div>
   </main>
+  <!-- Lo único que sale al imprimir: el pase. -->
   <script type="module" src="/visoria/app.js"></script>
 </body>
 </html>

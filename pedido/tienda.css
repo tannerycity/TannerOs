@@ -644,3 +644,71 @@ body.st-sin-scroll { overflow: hidden; }
 .st-para { margin-bottom: 12px; }
 .st-para button { min-height: 52px; }
 .st-tanner-ayuda { color: var(--st-muted); font-size: 13.5px; line-height: 1.4; }
+
+/* ---- La marca Tanner en la tienda (29/10/2026) ----
+ * Presidencia: "que se sienta Tanner... super minimalista, sigue el brandbook".
+ * Lo mínimo que la vuelve del club: Barlow Condensed en lo que grita, el filo
+ * dorado bajo la cabecera, el lema al pie y el recibo navy con escudo. El
+ * producto sigue siendo el protagonista: fondo blanco y mucho aire. */
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url('/fonts/barlow-condensed-700.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 800; font-display: swap; src: url('/fonts/barlow-condensed-800.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 400; font-display: swap; src: url('/fonts/inter-400.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 600; font-display: swap; src: url('/fonts/inter-600.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 800; font-display: swap; src: url('/fonts/inter-800.woff2') format('woff2'); }
+.st-body { --st-navy: #07191e; --st-oro: #c8ae62; --st-oro-claro: #e9d19c; --st-oro-osc: #a9895a; --st-crema: #f6f2e8; --st-titulo: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif; }
+.st-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: linear-gradient(90deg, transparent, var(--st-oro-osc) 20%, var(--st-oro-claro) 50%, var(--st-oro-osc) 80%, transparent); opacity: .7; }
+.st-marca span { font-family: var(--st-titulo); font-weight: 800; font-size: 21px; letter-spacing: .03em; text-transform: uppercase; }
+.st-head-acc { display: flex; align-items: center; gap: 2px; }
+.st-mis-btn { color: var(--st-ink); }
+.st-mis-btn[hidden] { display: none; }
+.st-mis-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+.st-hero h1, .st-titulo { font-family: var(--st-titulo); font-weight: 800; text-transform: uppercase; letter-spacing: .005em; line-height: .95; }
+.st-seccion-cab h2 { font-family: var(--st-titulo); font-weight: 800; font-size: 28px; text-transform: uppercase; letter-spacing: .01em; }
+.st-pie-lema { margin: 0 0 10px; font-family: var(--st-titulo); font-weight: 800; font-size: 18px; letter-spacing: .04em; color: var(--st-navy); }
+.st-pie-lema span { display: block; font-family: inherit; font-size: 11px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; color: var(--st-oro-osc); }
+
+/* ---- El recibo ---- */
+.st-recibo { max-width: 620px; margin: 0 auto; display: grid; gap: 16px; padding-top: 14px; }
+.st-body .st-recibo-hero { position: relative; overflow: hidden; display: grid; justify-items: center; gap: 6px; padding: 30px 20px 26px; border-radius: 28px; text-align: center;
+  background: radial-gradient(120% 90% at 50% 0%, #14363e 0%, var(--st-navy) 62%); color: #fff; }
+.st-recibo-hero::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(200,174,98,.05) 0 2px, transparent 2px 22px); pointer-events: none; }
+.st-recibo-hero > * { position: relative; z-index: 1; }
+.st-recibo-escudo { width: 56px; height: auto; filter: drop-shadow(0 6px 18px rgba(0,0,0,.35)); }
+.st-recibo-eyebrow { margin: 4px 0 0; font-size: 11.5px; font-weight: 800; letter-spacing: .26em; text-transform: uppercase; color: var(--st-oro-claro); }
+.st-body .st-recibo-hero h2 { margin: 0; font-family: var(--st-titulo); font-weight: 800; font-size: 48px; line-height: .95; text-transform: uppercase; letter-spacing: .01em; color: #fff; }
+.st-recibo-gracias { margin: 2px 0 6px; font-size: 15px; color: #c9d4d6; }
+.st-boleto { position: relative; width: min(100%, 360px); margin-top: 6px; padding: 14px 18px 12px; border-radius: 18px; background: #fffdf8; border: 1.5px solid var(--st-oro); color: var(--st-navy); }
+.st-boleto::before, .st-boleto::after { content: ""; position: absolute; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: var(--st-navy); }
+.st-boleto::before { left: -12px; } .st-boleto::after { right: -12px; }
+.st-boleto > span { display: block; font-size: 11px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; color: var(--st-oro-osc); }
+.st-body .st-boleto .folio { display: block; margin: 2px 0 0; padding: 0; background: none; font-family: var(--st-titulo); font-weight: 800; font-size: 42px; letter-spacing: .02em; color: var(--st-navy); }
+.st-boleto small { display: block; font-size: 12.5px; color: #5c6a63; }
+.st-recibo-total { margin: 8px 0 0; font-size: 17px; color: #fff; }
+.st-recibo-total strong { font-family: var(--st-titulo); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--st-oro-claro); }
+.st-recibo-hero .muted { color: #c9d4d6; }
+.st-recibo-guarda { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.st-recibo-btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 12px; border: 1.5px solid var(--st-navy); border-radius: 16px; background: #fff; color: var(--st-navy); font: 700 14.5px/1.15 inherit; cursor: pointer; }
+.st-recibo-btn:first-child { background: var(--st-navy); color: #fff; }
+.st-recibo-btn svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.st-recibo-btn:disabled { opacity: .6; }
+.st-recibo-nota { grid-column: 1 / -1; margin: 2px 0 0; font-size: 13px; color: var(--st-muted); text-align: center; }
+.st-recibo-lineas { padding: 16px 18px; border-radius: 20px; background: #fff; box-shadow: 0 0 0 1px var(--st-line); }
+.st-recibo-lineas h3, .st-recibo .pago-card h3, .st-recibo .st-sigue h3 { margin: 0 0 8px; font-family: var(--st-titulo); font-weight: 800; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; }
+.st-recibo-lineas ul { list-style: none; margin: 0; padding: 0; }
+.st-recibo-lineas li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--st-line); }
+.st-recibo-lineas li:first-child { border-top: 0; }
+.st-recibo-lineas small { display: block; font-size: 13px; color: var(--st-muted); }
+.st-recibo-lineas b { white-space: nowrap; }
+.st-lema { display: grid; justify-items: center; gap: 2px; padding: 18px; border-radius: 22px; background: var(--st-navy); }
+.st-lema span { color: var(--st-oro); font-size: 11px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+.st-lema b { color: #fff; font-family: var(--st-titulo); font-weight: 800; font-size: 22px; letter-spacing: .06em; }
+
+/* ---- Mis pedidos ---- */
+.st-mis { max-width: 620px; margin: 0 auto; padding-top: 22px; display: grid; gap: 12px; }
+.st-mis-lista { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
+.st-mis-lista a { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 14px 16px; border-radius: 18px; background: #fff; box-shadow: 0 0 0 1px var(--st-line); color: var(--st-ink); text-decoration: none; border-left: 4px solid var(--st-oro); }
+.st-mis-folio { font-family: var(--st-titulo); font-weight: 800; font-size: 24px; letter-spacing: .02em; }
+.st-mis-dato { grid-column: 1; font-size: 13px; color: var(--st-muted); }
+.st-mis-lista b { grid-row: 1 / span 2; grid-column: 2; font-size: 17px; }
+@media (max-width: 380px) { .st-recibo-guarda { grid-template-columns: 1fr; } .st-body .st-recibo-hero h2 { font-size: 42px; } }
+.st-body:has(.st-recibo) .st-pie-lema { display: none; }

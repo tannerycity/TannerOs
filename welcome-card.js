@@ -239,7 +239,13 @@ export async function renderWelcomeCard(datos = {}) {
    *   tanner      la de temporada. La que se mira en la puerta y el dia que
    *               un niño se siente mal: trae dorsal, posicion y lo medico.
    *   redes       la que comparte la familia. Lo minimo, y con candado. */
-  const modo = ['redes', 'tanner'].includes(datos.modo) ? datos.modo : 'credencial';
+  const modo = ['redes', 'tanner', 'visoria'].includes(datos.modo) ? datos.modo : 'credencial';
+  /* visoria (29/10/2026): el pase de la visoría. Presidencia: "un formato
+     similar al de cuando se inscriben a Tannery City... su nombre en gigante,
+     su categoría, años y fecha de nacimiento... que lo tengan que imprimir
+     para saber quién es". Es la credencial con su QR (abre al prospecto en
+     TannerOS en la puerta) y los renglones que manda la visoría. */
+  const esVisoria = modo === 'visoria';
   // El candado vive aqui tambien, no solo en la pantalla: si alguien llama a
   // esta funcion en modo redes sin permiso, no se dibuja nada.
   if (modo === 'redes' && !puedeCompartirse(datos)) {
@@ -254,7 +260,8 @@ export async function renderWelcomeCard(datos = {}) {
    * cuanto alguien mueve un renglon. Esto dice QUE se puso, no DONDE. */
   const dibujado = { modo, franja: 0, qr: null, letraChica: false, sello: false, foto: null, medico: null, bienvenida: false, qrY: null };
   const filasExtra = modo === 'credencial' ? renglonesDeCredencial(datos)
-    : modo === 'tanner' ? renglonesDeTanner(datos) : [];
+    : modo === 'tanner' ? renglonesDeTanner(datos)
+    : esVisoria ? (datos.filas || []).filter(f => f && f.etiqueta && f.valor).slice(0, 6) : [];
   const medico = modo === 'tanner' ? avisoMedico(datos) : null;
   await ensureFonts();
 
@@ -312,6 +319,7 @@ export async function renderWelcomeCard(datos = {}) {
   // badge de estatus
   const badgeText = modo === 'redes' ? `NUEVO TANNER ${new Date().getFullYear()}`
     : modo === 'tanner' ? `TANNER · TEMPORADA ${new Date().getFullYear()}`
+    : esVisoria ? `PASE DE VISORÍA ${new Date().getFullYear()}`
     : `CREDENCIAL DE INGRESO ${new Date().getFullYear()}`;
   const badgeFont = '800 16px Inter';
   const badgeSpacing = 4;
@@ -374,12 +382,14 @@ export async function renderWelcomeCard(datos = {}) {
       cursorY += 52;
     }
   } else {
-    cursorY = drawInfoRow(ctx, { label: 'Nombre', value: `${firstName} ${lastName}`.trim(), x: infoX, width: infoWidth, y: cursorY, valueSize: 50, uppercaseValue: true });
+    cursorY = drawInfoRow(ctx, { label: 'Nombre', value: `${firstName} ${lastName}`.trim(), x: infoX, width: infoWidth, y: cursorY, valueSize: esVisoria ? 64 : 50, uppercaseValue: true });
     cursorY = drawInfoRow(ctx, { label: 'Categoría', value: category || 'Por definir', x: infoX, width: infoWidth, y: cursorY, valueSize: 44 });
   }
   // El folio es un numero interno: en una historia de Instagram no le dice
   // nada a nadie de fuera, y la fecha exacta ubica a un menor sin necesidad.
-  if (modo === 'credencial') {
+  if (esVisoria) {
+    cursorY = drawInfoRow(ctx, { label: 'Folio', value: String(folio || ''), x: infoX, width: infoWidth, y: cursorY, valueSize: 40 });
+  } else if (modo === 'credencial') {
     cursorY = drawInfoRow(ctx, { label: 'Folio · Fecha', value: `${folio || ''} · ${dateStr || ''}`, x: infoX, width: infoWidth, y: cursorY, valueSize: 36 });
   } else if (modo === 'tanner' && datos.code) {
     // Su codigo, no un folio: 'Tanner010' es como lo conoce el club.
@@ -472,15 +482,23 @@ export async function renderWelcomeCard(datos = {}) {
     ctx.moveTo(90, welcomeTop);
     ctx.lineTo(W - 90, welcomeTop);
     ctx.stroke();
-    const lastBaseline = drawCenteredWrapped(ctx, '¡BIENVENIDO A LA FAMILIA TANNER!', W / 2, welcomeTop + 36 + 54, 900, '800 60px "Barlow Condensed"', 66, COLORS.navy);
+    const lastBaseline = drawCenteredWrapped(ctx, esVisoria ? '¡NOS VEMOS EN LA VISORÍA!' : '¡BIENVENIDO A LA FAMILIA TANNER!', W / 2, welcomeTop + 36 + 54, 900, '800 60px "Barlow Condensed"', 66, COLORS.navy);
     ctx.font = '600 19px Inter';
     ctx.fillStyle = COLORS.muted;
     ctx.textAlign = 'center';
-    ctx.fillText(modo === 'redes'
+    if (esVisoria) {
+      ctx.font = '800 21px Inter';
+      ctx.fillStyle = COLORS.navy;
+      ctx.fillText('PROHIBIDOS LOS TACHONES · multitacos o tenis deportivos', W / 2, lastBaseline + 76);
+      ctx.font = '600 19px Inter';
+      ctx.fillStyle = COLORS.muted;
+    }
+    ctx.fillText(esVisoria ? 'Muestra este pase en la entrada. Llega 15 minutos antes.'
+      : modo === 'redes'
       ? 'Ya es uno de los nuestros.'
       : 'Tu registro quedó autenticado en Tannery City F.C.', W / 2, lastBaseline + 40);
     ctx.textAlign = 'left';
-    cursorTrasBienvenida = lastBaseline + 40;
+    cursorTrasBienvenida = lastBaseline + (esVisoria ? 76 : 40);
     dibujado.bienvenida = true;
   }
 
@@ -493,11 +511,11 @@ export async function renderWelcomeCard(datos = {}) {
    * En redes se deja el hueco a proposito. Ese espacio no esta vacio: es donde
    * la mama escribe su texto encima, y donde caen los stickers. Una tarjeta
    * llena de orilla a orilla obliga a taparle algo. */
-  if (modo === 'credencial') {
+  if (modo === 'credencial' || esVisoria) {
     ctx.fillStyle = COLORS.gold;
     ctx.fillRect(W / 2 - 32, 1330, 64, 2);
     drawSpaced(ctx, 'DOCUMENTO GENERADO AUTOMÁTICAMENTE POR TANNEROS', W / 2, 1330 + 38, '600 16px Inter', 0.5, COLORS.fine, 'center');
-    drawSpaced(ctx, 'VÁLIDO COMO COMPROBANTE DE REGISTRO EN TANNERY CITY F.C.', W / 2, 1330 + 66, '600 16px Inter', 0.5, COLORS.fine, 'center');
+    drawSpaced(ctx, esVisoria ? 'VÁLIDO COMO PASE DE VISORÍA EN TANNERY CITY F.C.' : 'VÁLIDO COMO COMPROBANTE DE REGISTRO EN TANNERY CITY F.C.', W / 2, 1330 + 66, '600 16px Inter', 0.5, COLORS.fine, 'center');
     dibujado.letraChica = true;
   }
 
@@ -510,7 +528,7 @@ export async function renderWelcomeCard(datos = {}) {
    *
    * En redes no va: ahi el codigo llevaria a un extraño al expediente de un
    * menor, y ademas nadie escanea una historia de Instagram. */
-  const liga = modo === 'credencial' ? ligaDeBusqueda(folio)
+  const liga = (modo === 'credencial' || esVisoria) ? ligaDeBusqueda(folio)
     : modo === 'tanner' ? ligaDeTanner(datos.code) : null;
   if (liga) {
     // En la de temporada el QR sube: ocupa el aire que dejo la bienvenida, y

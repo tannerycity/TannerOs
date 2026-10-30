@@ -21,7 +21,7 @@ Nada de lo anterior se borra: el registro viejo queda como estaba y cuenta como 
 
 ## 2. Cambios realizados
 
-### Base de datos — `supabase/pendientes/h54_visoria_consentimiento_informado.sql` (sin aplicar)
+### Base de datos — `supabase/migrations/20261030011147_h54_visoria_consentimiento_informado.sql` (aplicada en producción el 30/10/2026; función `visoria-expediente` desplegada)
 - **Módulo `visoria_salud`** (sólo Presidencia): la ficha de salud no la ve Fichajes, ni visores, ni Marketing.
 - **`visoria_campaigns`** + `legal_config` (datos legales del evento) + estado real del seguro (`sin_verificar` / `sin_seguro_verificado` / `con_seguro_verificado`).
 - **`visoria_documents`**: plantillas (consentimiento, aviso, cláusula con/sin seguro) tomadas del machote 01/02 y documentos aprobados por evento. Inmutables por trigger.

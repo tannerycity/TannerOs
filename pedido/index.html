@@ -34,16 +34,21 @@
       <img src="/brand/crest-navy.png" alt="" width="30" height="30">
       <span>Tienda Tanner</span>
     </a>
+    <div class="st-head-acc">
+    <a id="stMisPedidos" class="st-carrito st-mis-btn" href="#/mis-pedidos" aria-label="Mis pedidos" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></svg>
+    </a>
     <button type="button" id="stCarrito" class="st-carrito" aria-label="Tu pedido">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
       <b id="stCarritoN" hidden>0</b>
     </button>
+    </div>
   </header>
   <main class="st-main">
     <div id="loading" class="st-cargando" aria-live="polite">Cargando la tienda…</div>
     <div id="content" class="hidden"></div>
   </main>
-  <footer class="st-pie"><a href="/centro-tanner/">Centro Tanner</a> · <a href="/aviso-de-privacidad/">Privacidad</a> · <span data-club-nombre></span></footer>
+  <footer class="st-pie"><p class="st-pie-lema"><span>Curtimos campeones del mundo</span> #WeAreTanners</p><a href="/centro-tanner/">Centro Tanner</a> · <a href="/aviso-de-privacidad/">Privacidad</a> · <span data-club-nombre></span></footer>
   <div id="stAviso" class="st-aviso" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/pedido/app.js"></script>
 </body>

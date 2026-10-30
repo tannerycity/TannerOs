@@ -89,3 +89,4 @@ qa-humo-pedido-detalle.mjs
 qa-humo-codigos.mjs
 qa-humo-visoria.mjs
 qa-humo-visoria-expediente.mjs
+qa-humo-tienda-recibo.mjs

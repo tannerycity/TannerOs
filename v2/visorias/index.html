@@ -27,6 +27,12 @@
       <div class="top-actions"><a class="secondary mini nav-link" href="/">Inicio</a></div>
     </header>
     <section id="vsCampana" class="vs-campana"></section>
+    <nav class="vs-seg vs-pestanas" role="group" aria-label="Secciones">
+      <button type="button" data-vista="inscritos" aria-pressed="true">Inscritos</button>
+      <button type="button" data-vista="acceso" aria-pressed="false">Acceso</button>
+      <button type="button" data-vista="evento" aria-pressed="false" id="vsTabEvento">Evento</button>
+      <button type="button" data-vista="incidentes" aria-pressed="false">Incidentes</button>
+    </nav>
     <div class="vs-filtros">
       <div class="vs-seg" id="vsVer" role="group" aria-label="Ver">
         <button type="button" data-ver="todos" aria-pressed="true">Todos</button>
@@ -35,8 +41,13 @@
       </div>
       <input id="vsBusca" type="search" placeholder="Buscar nombre, folio o escuela" aria-label="Buscar">
     </div>
-    <section id="vsLista" class="vs-lista" aria-live="polite"></section>
-    <p id="vsVacio" class="vs-vacio hidden"></p>
+    <div id="vsVista_inscritos">
+      <section id="vsLista" class="vs-lista" aria-live="polite"></section>
+      <p id="vsVacio" class="vs-vacio hidden"></p>
+    </div>
+    <section id="vsVista_acceso" class="hidden"><div id="vsAcceso"></div></section>
+    <section id="vsVista_evento" class="hidden"><div id="vsEvento"></div></section>
+    <section id="vsVista_incidentes" class="hidden"><div id="vsIncidentes"></div></section>
     <div id="vsMensaje" class="inline-message hidden"></div>
   </section>
 </main>

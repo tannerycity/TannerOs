@@ -186,9 +186,11 @@ export default function comprobar() {
   // desde la liga del embajador, su liga de ventas y la pestaña Códigos.
   // Sube a 63 por qa-humo-visoria.mjs: la visoría (portada con cupo, tres
   // pasos con foto y firma, pase, tablero del staff y lo que ve un visor).
-  // Sube a 64 por qa-humo-tienda-recibo.mjs: el recibo Tanner (imagen PNG,
+  // Sube a 64 por qa-humo-visoria-expediente.mjs: el PDF del consentimiento
+  // (texto íntegro, decisiones, hora, huellas y firma; nunca la salud).
+  // Sube a 65 por qa-humo-tienda-recibo.mjs: el recibo Tanner (imagen PNG,
   // WhatsApp a uno mismo y Mis pedidos que se reabre tras recargar).
-  const MAX_EXCLUIDAS = 64;
+  const MAX_EXCLUIDAS = 65;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

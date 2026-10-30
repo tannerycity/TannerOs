@@ -146,7 +146,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-save --no-package-lock playwright-core@1.63.0 playwright@1.63.0
+          npm install --no-save --no-package-lock playwright-core@1.63.0 playwright@1.63.0 pdf-lib@1.17.1
           npx playwright install --with-deps chromium
           echo "CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
       - name: Suites de navegador

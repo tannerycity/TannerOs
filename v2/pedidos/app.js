@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { usaFuncion } from '/v2/analitica-uso.js';
 import { mensajeConfirmacion, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { abreVentas } from '/v2/pedidos/ventas.js';
 import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
@@ -340,7 +341,7 @@ async function mandaEnvio(){
     // Las garantías van en su propio envío de reposición; no llevan PDF.
     if(envio.gar.length&&!envio.repoId){const r=await rpc('v2_create_warranty_replacement_batch',{organization_id:ctx.organization_id,warranty_ids:envio.gar.map(g=>g.id),supplier_name:envio.prov,notes:null});envio.repoId=r?.id||r?.batchId||r?.batch_id||r||true;}
     if(!envio.lista.length){envio.listo={id:null,folio:''};envio.enviando=false;$('statusFilter').value='@con_proveedor';await load();pintaEnvio();return;}
-    if(!envio.batchId){const r=await rpc('v2_create_production_batch',{organization_id:ctx.organization_id,order_ids:envio.lista.map(o=>o.id),supplier_name:envio.prov,notes:null});envio.batchId=r?.id||r?.batchId||r?.batch_id||r;}
+    if(!envio.batchId){const r=await rpc('v2_create_production_batch',{organization_id:ctx.organization_id,order_ids:envio.lista.map(o=>o.id),supplier_name:envio.prov,notes:null});envio.batchId=r?.id||r?.batchId||r?.batch_id||r;usaFuncion('pedido_enviado_proveedor');}
     const sheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:envio.batchId});
     const fotos=await cargaFotos(supabase,sheet).catch(()=>({}));
     envio.doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos});envio.nombre=nombreDelPdf(sheet);

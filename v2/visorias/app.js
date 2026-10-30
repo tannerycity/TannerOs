@@ -11,6 +11,7 @@
  *            tiene Fichajes. El servidor no se lo manda a los visores.
  */
 import { createClient } from '/v2/supabase-client.js';
+import { usaFuncion } from '/v2/analitica-uso.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { edad, filtra, porAnio, porCanal, PIERNA, DECISIONES, LIGA_PUBLICA, textoParaCompartir } from '/v2/visorias/visorias.js';
 
@@ -97,7 +98,7 @@ function verDatos(x) {
 
 async function marcaLlegada(x, btn) {
   btn.disabled = true;
-  try { const r = await rpc('v2_visoria_arrival', { organization_id: ctx.organization_id, prospect_id: x.id, value: !x.arrivedAt }); x.arrivedAt = r?.arrivedAt || null; pinta(); }
+  try { const r = await rpc('v2_visoria_arrival', { organization_id: ctx.organization_id, prospect_id: x.id, value: !x.arrivedAt }); x.arrivedAt = r?.arrivedAt || null; if (x.arrivedAt) usaFuncion('llegada_visoria'); pinta(); }
   catch (e) { btn.disabled = false; aviso(e.message || 'No se pudo marcar.'); }
 }
 

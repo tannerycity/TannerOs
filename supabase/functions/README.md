@@ -80,3 +80,11 @@ abrir el pago y Mercado Pago le avisa (`?aviso=mp`) cuando un pago cambia.
   `settings.paymentInstructions.online.enabled = true`.
 - Las funciones de la base que usa (`v2_online_payment_*`) sólo las puede
   llamar `service_role`.
+
+## bi-recolector
+
+Lee una vez al día (pg_cron, h56b) GA4, Search Console y Meta con permisos de
+sólo lectura y guarda agregados en `app.bi_metricas_dia` (h56). Sin JWT: la
+autoriza el encabezado `x-bi-secreto`, que se compara contra el Vault. Secretos
+que carga el dueño: `GOOGLE_SERVICE_ACCOUNT_JSON` y `META_SYSTEM_USER_TOKEN`
+(docs/medicion/PASOS-CREDENCIALES.md). Desplegada el 01/11/2026.

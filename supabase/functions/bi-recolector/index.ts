@@ -5,7 +5,8 @@ import { ga4Trafico, ga4Eventos, EVENTOS_GA4_PEDIDOS, searchConsole, metaAds, me
 // Recolector del tablero ejecutivo, sin Windsor (30/10/2026, h56).
 //
 // Lo llama pg_cron una vez al día (docs/medicion/BI-SIN-WINDSOR.md) con el
-// encabezado x-bi-secreto. Lee con APIs oficiales y permisos de sólo lectura:
+// encabezado x-bi-secreto, que se compara contra el Vault (v2_bi_secreto_ok).
+// Lee con APIs oficiales y permisos de sólo lectura:
 //   - GA4 Data API y Search Console API, con una cuenta de servicio de Google
 //     dada de alta como Lector en cada propiedad (gratis).
 //   - Graph API / Marketing API de Meta, con el token de un usuario del sistema
@@ -15,8 +16,8 @@ import { ga4Trafico, ga4Eventos, EVENTOS_GA4_PEDIDOS, searchConsole, metaAds, me
 // "bloqueada" con su motivo y el tablero la muestra como no disponible.
 // Nunca guarda ni registra tokens, URLs completas, búsquedas ni personas.
 //
-// Secretos (Supabase → Edge Functions → Secrets):
-//   BI_RECOLECTOR_SECRETO, GOOGLE_SERVICE_ACCOUNT_JSON, META_SYSTEM_USER_TOKEN
+// Secretos (Supabase → Edge Functions → Secrets), los carga el dueño:
+//   GOOGLE_SERVICE_ACCOUNT_JSON, META_SYSTEM_USER_TOKEN
 
 const ORG = "3776f3a6-8c3d-4f46-bd03-5f1e59deb6f8";
 const GRAPH = "https://graph.facebook.com/v21.0";
@@ -92,11 +93,14 @@ async function instagram(token: string, c: Cuenta, r: ReturnType<typeof rango>) 
 }
 
 Deno.serve(async (req: Request) => {
-  const secreto = Deno.env.get("BI_RECOLECTOR_SECRETO");
-  if (req.method !== "POST" || !secreto || req.headers.get("x-bi-secreto") !== secreto) return new Response("Not authorized", { status: 401 });
+  // El secreto vive en el Vault de Supabase (h56b): nadie lo copia ni lo pega.
+  const secreto = req.headers.get("x-bi-secreto") || "";
+  if (req.method !== "POST" || secreto.length < 32) return new Response("Not authorized", { status: 401 });
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const { data: valido } = await admin.rpc("v2_bi_secreto_ok", { secreto });
+  if (valido !== true) return new Response("Not authorized", { status: 401 });
   const r = rango(DIAS);
-  const { data: cuentas, error } = await admin.schema("app").from("bi_cuentas").select("fuente,cuenta,negocio").eq("organization_id", ORG).eq("activa", true);
+  const { data: cuentas, error } = await admin.rpc("v2_bi_cuentas", { organization_id: ORG });
   if (error) return new Response(JSON.stringify({ error: "No se pudieron leer las cuentas" }), { status: 500 });
 
   const saTexto = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"), meta = Deno.env.get("META_SYSTEM_USER_TOKEN");

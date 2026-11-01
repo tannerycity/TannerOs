@@ -8,7 +8,7 @@ lee APIs oficiales desde el servidor y guarda sólo agregados en Supabase.
 
 | Dato | Fuente de verdad | Cómo llega | Costo | Permiso necesario | Estado |
 |---|---|---|---|---|---|
-| Prospectos, inscripciones, cobrado (Club) | Base de TannerOS | Directo en `v2_bi_tablero` | $0 | Ya existe | Listo (h56) |
+| Prospectos, inscripciones, cobrado (Club) | Base de TannerOS | Directo en `v2_bi_tablero` | $0 | Ya existe | En producción (h56, 01/11/2026) |
 | Uso de TannerOS (DAU/WAU/MAU) | Base de TannerOS (h55) | `v2_usage_summary` | $0 | Ya existe | En producción |
 | Reservas, torneos, ingresos (TCP) | Base de TCP (otro Supabase) | Vista agregada de TCP | $0 | Acceso a ese proyecto | **Bloqueado: sin acceso** |
 | Sesiones, leads web, WhatsApp, interés de renta | GA4 (561403621, 561548928) | GA4 Data API, diario | $0 | Cuenta de servicio como **Lector** en cada propiedad | Falta crear la cuenta de servicio |
@@ -25,8 +25,8 @@ recolector llama a cualquier dominio que no sea de Google o de Meta.
 ## 2. Diseño técnico
 
 ```
-pg_cron (diario 06:15 CDMX)
-  └─ pg_net POST → Edge Function bi-recolector   (encabezado x-bi-secreto)
+pg_cron (diario 06:15 CDMX, h56b)
+  └─ pg_net POST → Edge Function bi-recolector   (x-bi-secreto, comparado contra el Vault)
         ├─ GA4 Data API ........ cuenta de servicio (analytics.readonly)
         ├─ Search Console API .. cuenta de servicio (webmasters.readonly)
         ├─ Meta Graph/Marketing  token de usuario del sistema (sólo lectura)
@@ -47,7 +47,7 @@ Reglas del diseño:
 - **Sólo agregados.** Nunca URLs completas, búsquedas, nombres de campaña, personas ni ids de usuario. El negocio se decide por dominio (`www`/`app` = club, `tcp` = TCP) o por prefijo de campaña (`CLUB-`/`TCP-`).
 - **Catálogo cerrado** (`private.bi_catalogo` = `CATALOGO` de `normaliza.js`; una prueba verifica que coincidan).
 - **Honestidad.** Si una fuente nunca sincronizó bien, el KPI sale `no_disponible` con valor nulo. Si Meta niega un permiso, la fuente queda `bloqueada` con el motivo, sin el token.
-- **Secretos sólo en el servidor:** `BI_RECOLECTOR_SECRETO`, `GOOGLE_SERVICE_ACCOUNT_JSON` y `META_SYSTEM_USER_TOKEN` en los secretos de Edge Functions; el disparador lee su secreto del Vault de Supabase. Nada en el repositorio ni en el navegador.
+- **Secretos sólo en el servidor:** `GOOGLE_SERVICE_ACCOUNT_JSON` y `META_SYSTEM_USER_TOKEN` en los secretos de Edge Functions (los carga el dueño). El secreto del disparador lo genera h56b dentro del Vault de Supabase y nadie lo ve. Nada en el repositorio, el chat ni el navegador.
 - **Permisos mínimos:** scopes `*.readonly`; en Meta, usuario del sistema con acceso de sólo análisis a los activos del club.
 - **Relectura de 7 días** en cada corrida (las APIs corrigen días recientes); la ingesta hace upsert por día.
 - **Conservación:** 25 meses de métricas y 6 de bitácora (`supabase/propuestas/bi_purga.sql`, sin aplicar).
@@ -91,10 +91,10 @@ análisis para Marketing; el tablero ejecutivo vive en TannerOS.
 
 | Paso | Quién | Depende de |
 |---|---|---|
-| 1. Aprobar y aplicar h56; desplegar `bi-recolector` | Presidencia autoriza; Claude aplica | Autorización |
+| 1. ~~Aprobar y aplicar h56; desplegar `bi-recolector`~~ **Hecho 01/11/2026**: h56 y h56b aplicadas (idénticas al repo), función desplegada, `pg_cron` diario 06:15 CDMX. Primera corrida: las 6 fuentes «bloqueadas» con su motivo; sin secreto responde 401. | Claude | — |
 | 2. Crear la cuenta de servicio de Google y darla de alta como Lector en las 2 propiedades de GA4 y en Search Console | Dueño de las cuentas de Google | — |
 | 3. Crear un usuario del sistema en Meta Business con acceso de análisis a la cuenta de anuncios, las 2 páginas y las 2 cuentas de IG; generar el token | Dueño del Business Manager | Que Meta no pida revisión (si la pide, queda bloqueada y se usan los reportes nativos) |
-| 4. Guardar los 3 secretos y programar `pg_cron`; correr una semana en paralelo y comparar contra Windsor y los paneles nativos (QA-019) | Claude, con los secretos ya cargados por el dueño | Pasos 1 a 3 |
+| 4. El dueño guarda los 2 secretos (`GOOGLE_SERVICE_ACCOUNT_JSON`, `META_SYSTEM_USER_TOKEN`); una semana en paralelo comparando con los paneles nativos (QA-019) | Dueño (secretos) y Claude (comparación) | Pasos 2 y 3 |
 | 5. Construir la pantalla del tablero en TannerOS (Presidencia) | Claude | Paso 4 en verde |
 | 6. Conectar la base de TCP (vista agregada sin datos personales) | Skyrock / dueño | Acceso al proyecto de TCP |
 | 7. Dejar de consultar Windsor | — | Paso 4 validado |

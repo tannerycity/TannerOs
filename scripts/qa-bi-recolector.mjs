@@ -52,7 +52,7 @@ revisa('Seguidores: foto del día; un valor raro no se guarda', fotoSeguidores(9
 const fuga = sinSecretos('400 Invalid OAuth access_token=EAABwzLixnjYBO1234567890abcdef y -----BEGIN PRIVATE KEY-----\nMIIabc\n-----END PRIVATE KEY-----');
 revisa('errores sin tokens ni llaves', !/EAABwz|MIIabc/.test(fuga) && /oculto/.test(fuga), fuga);
 
-const sql = fs.readFileSync(new URL('../supabase/pendientes/h56_bi_sin_windsor.sql', import.meta.url), 'utf8');
+const sql = fs.readFileSync(new URL('../supabase/migrations/20261101195153_h56_bi_sin_windsor.sql', import.meta.url), 'utf8');
 const cat = sql.slice(sql.indexOf('jsonb_build_object(\n    \'ga4\''), sql.indexOf('$$;', sql.indexOf('private.bi_catalogo()')));
 revisa('el catálogo de h56 es el mismo que el de la función', Object.entries(CATALOGO).every(([f, ms]) => new RegExp(`'${f}',\\s*jsonb_build_array\\(${ms.map(x => `'${x}'`).join(',\\s*')}\\)`).test(cat)));
 const fn = fs.readFileSync(new URL('../supabase/functions/bi-recolector/index.ts', import.meta.url), 'utf8');

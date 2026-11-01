@@ -152,6 +152,8 @@ const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; conso
 
 async function abre(ruta, { pagoFalla = false } = {}) {
   const pg = await nav.newPage({ viewport:{ width:Number(process.env.ANCHO || 390), height:844 } });
+  // Estas revisiones son de la vista Por paso (Todos es la vista inicial desde 01/11/2026).
+  await pg.addInitScript(() => { try { localStorage.setItem('tos-pedidos-vista', 'pasos'); } catch {} });
   const errs = [];
   pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
   await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
@@ -331,6 +333,8 @@ async function abre(ruta, { pagoFalla = false } = {}) {
 /* ===== Ventas en el navegador: tocar un día filtra y tocar una venta abre el pedido ===== */
 {
   const pg = await nav.newPage({ viewport:{ width:390, height:844 } });
+  // Estas revisiones son de la vista Por paso (Todos es la vista inicial desde 01/11/2026).
+  await pg.addInitScript(() => { try { localStorage.setItem('tos-pedidos-vista', 'pasos'); } catch {} });
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
   await pg.goto(BASE + '/v2/pedidos/tienda.css');
   await pg.setContent(`<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${BASE}/v2/styles.css"><link rel="stylesheet" href="${BASE}/v2/pedidos/tienda.css"></head><body>

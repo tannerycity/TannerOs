@@ -192,7 +192,9 @@ export default function comprobar() {
   // WhatsApp a uno mismo y Mis pedidos que se reabre tras recargar).
   // Sube a 66 por qa-humo-medicion.mjs: Meta y GA4 sólo con permiso, retirar
   // lo apaga, sin datos personales, staff sin Meta y el rol Tanner fuera.
-  const MAX_EXCLUIDAS = 66;
+  // Sube a 67 por qa-humo-pedidos-todos.mjs: Todos y Por paso a un toque,
+  // una lista agrupada por paso, atrasados y cancelados aparte.
+  const MAX_EXCLUIDAS = 67;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

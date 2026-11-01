@@ -39,7 +39,7 @@ Nada estimado se presenta como observado.
 
 | KPI | Fuente | Estado hoy |
 |---|---|---|
-| Usuarios activos día / semana / mes | h55 `v2_usage_summary` | No disponible (h55 sin aplicar) |
+| Usuarios activos día / semana / mes | h55 `v2_usage_summary` | Observado (h55 aplicada 30/10/2026) |
 | Módulos más y menos usados | h55 / GA4 TannerOS | No disponible / Estimado |
 | Acciones clave (cobros, asistencias, pedidos) | GA4 `tanner_feature_used` + Supabase | Observado en Supabase; estimado en GA4 |
 | Tiempo de carga p75 por módulo | GA4 `tanner_page_performance` | Estimado |
@@ -50,4 +50,4 @@ Nada estimado se presenta como observado.
 - Una página, 4 filas, comparación contra el periodo anterior en cada número.
 - Cada número lleva su etiqueta de estado.
 - Uso de TannerOS: se puede construir dentro de TannerOS (Administración) leyendo `v2_usage_summary`, sin Windsor.
-- Marketing y SEO: Windsor → Looker Studio o la herramienta que elija Presidencia.
+- Marketing y SEO: recolector propio con APIs oficiales de Google y Meta (h56, [BI-SIN-WINDSOR.md](BI-SIN-WINDSOR.md)). Sin Windsor.

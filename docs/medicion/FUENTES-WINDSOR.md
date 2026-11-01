@@ -1,3 +1,5 @@
+> **Reemplazado (30/10/2026):** Presidencia no contrata Windsor. El tablero usa APIs oficiales ([BI-SIN-WINDSOR.md](BI-SIN-WINDSOR.md)). Este archivo queda como inventario histórico de cuentas.
+
 # Fuentes para Windsor.ai
 
 Windsor se conecta desde su panel con OAuth de cada cuenta. **Ningún token va en el código**;

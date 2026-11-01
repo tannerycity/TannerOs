@@ -37,8 +37,7 @@ Después: smoke de https://tcp.tannerycity.com (portada, `/torneo`, `/app`).
 
 ## 5. Windsor
 
-- Plan TRIAL: decidir plan antes de usarlo como fuente del tablero.
-- La llave de API va como secreto de servidor (Supabase), nunca en el navegador ni en el repo.
+No se contrata (Presidencia, 30/10/2026). Reemplazo y pasos de migración: BI-SIN-WINDSOR.md §6.
 
 ## 6. Acceso para el tablero de TCP
 

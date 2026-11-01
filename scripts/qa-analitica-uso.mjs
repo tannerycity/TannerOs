@@ -5,7 +5,7 @@
  *   - Cada evento lleva únicamente sus parámetros permitidos; la "página" es
  *     una ruta sintética por módulo, nunca la URL real.
  *   - Sin navegador no truena. */
-import { ID_USO, MODULOS, FUNCIONES, PARAMETROS, rolMedible, moduloValido, funcionValida, hostMedible, paginaDe, redondeaMs, limpiaEvento, iniciarUsoStaff, usaFuncion } from '../v2/analitica-uso.js';
+import { ID_USO, GA4_STAFF_HABILITADO, CATALOGO, ERRORES, MODULOS, FUNCIONES, PARAMETROS, rolMedible, moduloValido, funcionValida, hostMedible, paginaDe, redondeaMs, limpiaEvento, iniciarUsoStaff, usaFuncion } from '../v2/analitica-uso.js';
 import fs from 'node:fs';
 
 let fallas = 0, n = 0;
@@ -33,8 +33,13 @@ revisa('un módulo inventado tumba el evento', limpiaEvento('tanner_module_opene
 revisa('una función inventada tumba el evento', limpiaEvento('tanner_feature_used', { module_name: 'taquilla', feature: 'cobro a 4771234567' }) === null);
 revisa('una URL real nunca es page_location', limpiaEvento('page_view', { page_location: 'https://app.tannerycity.com/jugadores/?id=123' }) === null
   && limpiaEvento('page_view', { page_location: 'https://app.tannerycity.com/m/jugadores' }).page_location.endsWith('/m/jugadores'));
-revisa('errores por tipo, nunca el mensaje', JSON.stringify(limpiaEvento('tanner_error', { module_name: 'club', error_type: 'js', message: 'Juan no tiene saldo' })) === '{"module_name":"club","error_type":"js"}'
-  && limpiaEvento('tanner_error', { module_name: 'club', error_type: 'Juan' }) === null);
+revisa('errores por tipo y gravedad, nunca el mensaje', JSON.stringify(limpiaEvento('tanner_error_observed', { module_name: 'club', error_type: 'js', severity: 'alta', message: 'Juan no tiene saldo' })) === '{"module_name":"club","error_type":"js","severity":"alta"}'
+  && limpiaEvento('tanner_error_observed', { module_name: 'club', error_type: 'Juan' }) === null
+  && limpiaEvento('tanner_error_observed', { module_name: 'club', error_type: 'js', severity: 'Juan' }) === null);
+revisa('catálogo versionado: otra versión no pasa', limpiaEvento('tanner_module_opened', { module_name: 'club', catalog_version: CATALOGO }).catalog_version === CATALOGO
+  && limpiaEvento('tanner_module_opened', { module_name: 'club', catalog_version: 'v0' }) === null && ERRORES.js === 'alta');
+revisa('nombres de la especificación: tanner_page_performance y tanner_error_observed', 'tanner_page_performance' in PARAMETROS && 'tanner_error_observed' in PARAMETROS && !('tanner_screen_load' in PARAMETROS) && !('tanner_error' in PARAMETROS));
+revisa('GA4 del staff apagado hasta que el aviso cubra al personal', GA4_STAFF_HABILITADO === false);
 revisa('un evento desconocido no sale', limpiaEvento('login', { method: 'x' }) === null);
 revisa('ningún parámetro permitido suena a dato personal', Object.values(PARAMETROS).flat().every(k => !/name$|email|phone|tel|user|player|jugador|nombre|salud|monto|amount/i.test(k) || k === 'module_name'));
 revisa('sin navegador: iniciar y medir no truenan', (() => { try { iniciarUsoStaff({ role: 'Presidencia', modulo: 'club' }); usaFuncion('busqueda'); return true; } catch { return false; } })());

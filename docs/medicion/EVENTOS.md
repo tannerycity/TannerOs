@@ -28,14 +28,16 @@ Separación club / TCP: dimensión `hostname`. Nunca se envían nombre, teléfon
 
 ## Uso de TannerOS (staff → GA4 `G-KJN3NJS2YJ`, sin Meta)
 
+**Apagado en producción** (`GA4_STAFF_HABILITADO = false`) hasta que el aviso de privacidad publique la sección del personal aprobada por el abogado. El conteo propio (h55) sí corre. Catálogo `v2` (30/10/2026): `tanner_screen_load` → `tanner_page_performance`, `tanner_error` → `tanner_error_observed` con `severity`.
+
 | Evento | Cuándo | Parámetros permitidos | Estado |
 |---|---|---|---|
 | `page_view` | abrir un módulo | `page_location` sintético `/m/<modulo>`, `page_title` | C |
-| `tanner_module_opened` | abrir un módulo | `module_name` | C |
-| `tanner_navigation` | pasar de un módulo a otro | `from_module`, `to_module` | C |
-| `tanner_feature_used` | acción clave completada | `module_name`, `feature` | C |
-| `tanner_screen_load` | pantalla lista | `module_name`, `load_ms` (redondeado a 100, tope 60 s) | C |
-| `tanner_error` | error JS / promesa / red | `module_name`, `error_type` | C |
+| `tanner_module_opened` | abrir un módulo | `module_name`, `catalog_version` | C |
+| `tanner_navigation` | pasar de un módulo a otro | `from_module`, `to_module`, `catalog_version` | C |
+| `tanner_feature_used` | acción clave completada | `module_name`, `feature`, `catalog_version` | C |
+| `tanner_page_performance` | pantalla lista | `module_name`, `load_ms` (redondeado a 100, tope 60 s), `catalog_version` | C |
+| `tanner_error_observed` | error JS / promesa / red | `module_name`, `error_type`, `severity` (alta/media/baja), `catalog_version` | C |
 
 ### Funciones instrumentadas (`feature`)
 
@@ -60,6 +62,6 @@ Agregar una función nueva = agregarla a `FUNCIONES` en `v2/analitica-uso.js` y 
 
 | Propiedad | Dimensión (ámbito evento) |
 |---|---|
-| TannerOS | `module_name`, `from_module`, `to_module`, `feature`, `error_type` |
+| TannerOS | `module_name`, `from_module`, `to_module`, `feature`, `error_type`, `severity`, `catalog_version` |
 | TannerOS | métrica `load_ms` (milisegundos) |
 | Marketing | `link_id`, `form_id` |

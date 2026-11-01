@@ -15,6 +15,10 @@ y PR #13 de `tcp-app`.
 | 8 | PRs | sección "PRs" abajo |
 | 9 | Fuentes faltantes | [INSTALACION-WWW-GTM.md](INSTALACION-WWW-GTM.md), [VERIFICACION.md](VERIFICACION.md), [FUENTES-WINDSOR.md](FUENTES-WINDSOR.md) |
 | 10 | Tablero ejecutivo | [TABLERO-EJECUTIVO.md](TABLERO-EJECUTIVO.md) |
+| — | Auditoría 30/10 (Fase 1) | [AUDITORIA-2026-10-30.md](AUDITORIA-2026-10-30.md) |
+| — | Inventario de etiquetas y cookies | [INVENTARIO_ETIQUETAS.md](INVENTARIO_ETIQUETAS.md) |
+| — | Resultados de QA (QA-001 a QA-021) | [QA_RESULTADOS.md](QA_RESULTADOS.md) |
+| — | Operación: lo que requiere a una persona | [OPERACION.md](OPERACION.md) |
 
 ## 1. Auditoría inicial
 

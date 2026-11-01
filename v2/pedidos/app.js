@@ -146,12 +146,12 @@ const PASOS=[{f:'@por_validar',t:'Revisar'},{f:'__cobrar',t:'Cobrar'},{f:'@para_
    el lugar de cada uno, pero también en una sola lista para que no se me vaya
    ninguno". Dos vistas a un toque: Todos (una lista agrupada por paso, cada
    pedido dice dónde va y si ya se tardó) y Por paso (la de siempre). Se
-   recuerda la última que usaste; la primera vez Presidencia abre en Todos y
-   quien opera en Por paso. Cancelados y reembolsados no estorban: van en su
+   recuerda la última que usaste; la primera vez abre en Todos para quien
+   sea (Zul lleva la tienda y así lo pidió). Cancelados y reembolsados no estorban: van en su
    propio filtro. */
 const VISTA_KEY='tos-pedidos-vista';
 let vista='pasos',vistaLista=false,todosF='vivos';
-function vistaInicial(){const q=new URLSearchParams(location.search);if(q.get('paso')||q.get('pedido'))return 'pasos';let g='';try{g=localStorage.getItem(VISTA_KEY)||'';}catch{}if(g==='todos'||g==='pasos')return g;return veVentas()?'todos':'pasos';}
+function vistaInicial(){const q=new URLSearchParams(location.search);if(q.get('paso')||q.get('pedido'))return 'pasos';let g='';try{g=localStorage.getItem(VISTA_KEY)||'';}catch{}if(g==='todos'||g==='pasos')return g;return 'todos';}
 function ponVista(v,guarda=true){vista=v==='todos'?'todos':'pasos';if(guarda){try{localStorage.setItem(VISTA_KEY,vista);}catch{}}}
 // max: días en el paso a partir de los cuales el pedido se marca atrasado.
 const GRUPOS=[{k:'por_validar',t:'Revisar',c:'naranja'},{k:'por_cobrar',t:'Cobrar',c:'rojo',max:7},{k:'para_proveedor',t:'Mandar',c:'verde'},{k:'con_proveedor',t:'Recibir',c:'azul',max:14},{k:'para_entregar',t:'Entregar',c:'oro',max:3},{k:'entregado',t:'Entregados',c:'gris'}];

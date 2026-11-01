@@ -4,8 +4,9 @@
  * división para saber exactamente cuál es el lugar de cada uno, pero también
  * me gustaría ver en una sola lista todos para que no se me vaya ninguno".
  * Lo que se protege:
- *   1. Dos vistas a un toque: Todos y Por paso. Presidencia abre en Todos,
- *      quien opera en Por paso; se recuerda la última; ?paso= manda.
+ *   1. Dos vistas a un toque: Todos y Por paso. La primera vez abre en Todos
+ *      para cualquier rol (quien lleva la tienda); se recuerda la última;
+ *      ?paso= manda.
  *   2. Todos es una sola lista agrupada por paso (Revisar, Cobrar, Mandar,
  *      Recibir, Entregar) con su cuenta, lo más viejo arriba.
  *   3. Cada pedido dice dónde va: etiqueta del paso y cinco puntos.
@@ -189,11 +190,14 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
   await pg.close();
 }
 
-// Quien opera abre en Por paso, igual que siempre.
+// Quien lleva la tienda (Zul, rol Operaciones) también abre en Todos; Por paso
+// queda a un toque y no cambia.
 {
   const { pg, errs } = await abre('/v2/pedidos/', 'Operaciones');
+  revisa('1. quien lleva la tienda abre en Todos', await vistaActiva(pg) === 'todos' && (await grupos(pg)).length === 5);
+  await pg.click('#tVista [data-vista="pasos"]');
+  await pg.waitForTimeout(200);
   const pasos = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
-  revisa('1. quien opera abre en Por paso', await vistaActiva(pg) === 'pasos');
   revisa('6. Por paso no cambia: el diagrama de cinco verbos con su cuenta', JSON.stringify(pasos) === JSON.stringify(['Revisar=1','Cobrar=2','Mandar=1','Recibir=2','Entregar=1']), JSON.stringify(pasos));
   revisa('6. y abre en el paso que pide algo', await pg.$eval('#tSeg .t-paso.activo b', b => b.textContent) === 'Revisar');
   revisa('6. en Por paso no se pintan grupos ni etiquetas de Todos', !(await pg.$('.t-grupo-caja')) && !(await pg.$('.t-donde')));

@@ -19,6 +19,8 @@ y PR #13 de `tcp-app`.
 | — | Inventario de etiquetas y cookies | [INVENTARIO_ETIQUETAS.md](INVENTARIO_ETIQUETAS.md) |
 | — | Resultados de QA (QA-001 a QA-021) | [QA_RESULTADOS.md](QA_RESULTADOS.md) |
 | — | Operación: lo que requiere a una persona | [OPERACION.md](OPERACION.md) |
+| — | Tablero sin Windsor: dependencias, diseño, pruebas y costos | [BI-SIN-WINDSOR.md](BI-SIN-WINDSOR.md) |
+| — | Credenciales de Google y Meta, paso a paso (dueño) | [PASOS-CREDENCIALES.md](PASOS-CREDENCIALES.md) |
 
 ## 1. Auditoría inicial
 

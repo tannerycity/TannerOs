@@ -194,7 +194,9 @@ export default function comprobar() {
   // lo apaga, sin datos personales, staff sin Meta y el rol Tanner fuera.
   // Sube a 67 por qa-humo-pedidos-todos.mjs: Todos y Por paso a un toque,
   // una lista agrupada por paso, atrasados y cancelados aparte.
-  const MAX_EXCLUIDAS = 67;
+  // Sube por qa-humo-metricas.mjs: Métricas de marketing (recomendaciones,
+  // embudo, sin ceros inventados, Zul sin lo cobrado, 390 px).
+  const MAX_EXCLUIDAS = 68;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

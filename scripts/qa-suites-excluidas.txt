@@ -92,3 +92,4 @@ qa-humo-visoria-expediente.mjs
 qa-humo-tienda-recibo.mjs
 qa-humo-medicion.mjs
 qa-humo-pedidos-todos.mjs
+qa-humo-metricas.mjs

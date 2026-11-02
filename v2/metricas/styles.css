@@ -1,0 +1,104 @@
+/* Métricas de marketing (02/11/2026). Paleta de la credencial Tanner, igual que
+   Encuestas: azul noche, dorado, crema. Estados (atención, oportunidad, va bien)
+   siempre con ícono y palabra, nunca sólo color. Las tendencias son líneas
+   delgadas de una sola serie, sin doble eje. */
+@font-face{font-family:'Barlow Condensed';font-weight:800;src:url('/fonts/barlow-condensed-800.woff2') format('woff2');font-display:swap}
+.met-page{--noche:#07191e;--noche2:#0f2b32;--oro:#c8ae62;--oro-claro:#e9d19c;--crema:#f6f2e8;--linea:#e7e1cf;--tinta:#0d2229;--gris:#5c6a63;
+  --bien:#2f7d4a;--bien-f:#e8f4ec;--alerta:#b3412e;--alerta-f:#fbebe7;--opor:#8a5d0c;--opor-f:#fbf3e1;--info:#36566a;--info-f:#eaf1f5;--serie:#1f6fa3;
+  display:grid;gap:16px;min-width:0}
+.met-page h1,.met-page h2{font-family:'Barlow Condensed',Inter,sans-serif;text-transform:uppercase;font-weight:800;letter-spacing:.01em}
+
+/* Encabezado */
+.met-hero{position:relative;overflow:hidden;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding:22px;border-radius:24px;color:#fff;
+  background:radial-gradient(120% 120% at 0% 0%,var(--noche2),var(--noche) 70%)}
+.met-hero::after{content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;background:url('/brand/crest-gold.png') center/contain no-repeat;opacity:.07;pointer-events:none}
+.met-hero>*{position:relative;z-index:1}
+.met-eyebrow{margin:0;font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--oro-claro)}
+.met-hero h1{margin:4px 0 6px;font-size:48px;line-height:.95;color:#fff}
+.met-sub{margin:0;max-width:540px;color:rgba(255,255,255,.78);line-height:1.45}
+.met-controles{display:grid;gap:8px;justify-items:end}
+.met-seg{display:inline-flex;gap:3px;padding:3px;border-radius:12px;background:rgba(255,255,255,.1)}
+.met-seg button{min-height:38px;padding:0 14px;border:0;border-radius:9px;background:transparent;color:rgba(255,255,255,.82);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.met-seg button[aria-pressed="true"]{background:var(--oro-claro);color:var(--noche)}
+.met-seg button:focus-visible{outline:3px solid var(--oro-claro);outline-offset:2px}
+
+/* Bloques */
+.met-bloque{display:grid;gap:10px;min-width:0}
+.met-bloque h2{margin:6px 0 0;font-size:26px;color:var(--tinta)}
+.met-bloque-sub{margin:-6px 0 2px;color:var(--gris);font-size:14px}
+.met-vacio,.met-nota{margin:0;color:var(--gris);font-size:13.5px;line-height:1.45}
+
+/* Para decidir */
+.met-ideas{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.met-idea{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:16px;border-radius:18px;background:#fff;border:1px solid var(--linea);border-left-width:5px}
+.met-idea h3{margin:2px 0 4px;font-size:16px;line-height:1.25;color:var(--tinta)}
+.met-idea p{margin:0;font-size:14px;line-height:1.45;color:#2b3b40}
+.met-idea small{display:block;margin-top:6px;font-size:12px;color:var(--gris)}
+.met-idea .met-idea-tono{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.met-idea-icono{display:grid;place-items:center;width:36px;height:36px;border-radius:50%}
+.met-idea-icono svg{width:20px;height:20px}
+.met-idea.alerta{border-left-color:var(--alerta)}.met-idea.alerta .met-idea-icono{background:var(--alerta-f);color:var(--alerta)}.met-idea.alerta .met-idea-tono{color:var(--alerta)}
+.met-idea.oportunidad{border-left-color:var(--oro)}.met-idea.oportunidad .met-idea-icono{background:var(--opor-f);color:var(--opor)}.met-idea.oportunidad .met-idea-tono{color:var(--opor)}
+.met-idea.bien{border-left-color:var(--bien)}.met-idea.bien .met-idea-icono{background:var(--bien-f);color:var(--bien)}.met-idea.bien .met-idea-tono{color:var(--bien)}
+.met-idea.info{border-left-color:var(--info)}.met-idea.info .met-idea-icono{background:var(--info-f);color:var(--info)}.met-idea.info .met-idea-tono{color:var(--info)}
+
+/* Embudo */
+.met-embudo{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:0;padding:0;list-style:none;counter-reset:paso}
+.met-embudo li{position:relative;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:14px;border-radius:16px;background:#fff;border:1px solid var(--linea)}
+.met-embudo li p{margin:0;font-size:13px;font-weight:700;color:var(--gris)}
+.met-embudo li strong{display:block;margin:2px 0;font-family:'Barlow Condensed',Inter,sans-serif;font-size:32px;line-height:1;color:var(--tinta);font-variant-numeric:tabular-nums}
+.met-embudo li small{display:block;font-size:11.5px;line-height:1.35;color:var(--gris)}
+.met-paso-n{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--noche);color:var(--oro-claro);font-size:13px;font-weight:800}
+.met-embudo li.sin{background:repeating-linear-gradient(135deg,#fff 0 8px,#faf7ef 8px 16px)}
+.met-embudo li.sin strong{font-size:20px;color:var(--gris)}
+.met-embudo li.sin .met-paso-n{background:#d9d3c2;color:var(--tinta)}
+.met-embudo li.corte{border:2px dashed var(--oro)}
+
+/* Indicadores */
+.met-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.met-kpi{display:grid;align-content:start;gap:6px;padding:16px;border-radius:18px;background:#fff;border:1px solid var(--linea);min-width:0}
+.met-kpi header h3{margin:0;font-size:14px;font-weight:700;color:var(--tinta)}
+.met-kpi header p{margin:2px 0 0;font-size:12px;color:var(--gris)}
+.met-valor{font-family:'Barlow Condensed',Inter,sans-serif;font-size:40px;line-height:1;font-weight:800;color:var(--tinta);font-variant-numeric:tabular-nums}
+.met-kpi.sin .met-valor{font-size:22px;color:var(--gris)}
+.met-kpi-nota,.met-kpi-estado{margin:0;font-size:12.5px;color:var(--gris)}
+.met-kpi-estado{color:var(--alerta)}
+.met-cambio{display:inline-flex;align-items:center;gap:3px;justify-self:start;padding:3px 9px;border-radius:999px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.met-cambio svg{width:15px;height:15px}
+.met-cambio small{font-weight:600;opacity:.8}
+.met-cambio.sube{background:var(--bien-f);color:var(--bien)}
+.met-cambio.baja{background:var(--alerta-f);color:var(--alerta)}
+.met-cambio.plano{background:#f1efe8;color:var(--gris)}
+.met-spark{position:relative;color:var(--serie);margin-top:4px;touch-action:pan-y}
+.met-spark svg{display:block;width:100%;height:44px;overflow:visible}
+.met-spark-pie{display:block;margin-top:2px;font-size:11px;color:var(--gris)}
+.met-spark-tip{position:absolute;bottom:100%;transform:translateX(-50%);margin-bottom:4px;padding:3px 8px;border-radius:7px;background:var(--noche);color:#fff;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}
+
+/* Fuentes */
+.met-fuentes{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.met-fuentes li{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"e n" "e d";column-gap:12px;align-items:center;padding:10px 14px;border-radius:14px;background:#fff;border:1px solid var(--linea)}
+.met-fuentes strong{grid-area:n;font-size:14px;color:var(--tinta)}
+.met-fuentes small{grid-area:d;font-size:12px;color:var(--gris);overflow-wrap:anywhere}
+.met-fuente-estado{grid-area:e;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;min-width:118px}
+.met-fuente-estado svg{width:15px;height:15px}
+.met-fuente-estado.ok{background:var(--bien-f);color:var(--bien)}
+.met-fuente-estado.bloqueada,.met-fuente-estado.error{background:var(--alerta-f);color:var(--alerta)}
+.met-fuente-estado.sin_conectar{background:var(--info-f);color:var(--info)}
+
+@media (max-width:640px){
+  .met-hero{padding:18px}
+  .met-hero h1{font-size:40px}
+  .met-controles{justify-items:stretch;width:100%}
+  .met-seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+  .met-kpis{grid-template-columns:1fr 1fr;gap:8px}
+  .met-kpi{padding:12px;border-radius:15px}
+  .met-kpi header h3{font-size:13px}
+  .met-kpi header p,.met-kpi-nota{font-size:11.5px}
+  .met-valor{font-size:30px}
+  .met-kpi.sin .met-valor{font-size:18px}
+  .met-cambio{font-size:12px;padding:3px 7px}
+  .met-cambio small{display:none}
+  .met-embudo{grid-template-columns:1fr 1fr}
+  .met-fuentes li{grid-template-columns:1fr;grid-template-areas:"e" "n" "d";row-gap:4px}
+  .met-fuente-estado{justify-self:start}
+}

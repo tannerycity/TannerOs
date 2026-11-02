@@ -34,7 +34,7 @@ const CLAVE = 'tos_uso_analitica_v1';
 export const MODULOS = Object.freeze(['inicio', 'mensajes', 'club', 'direccion', 'taquilla', 'contabilidad', 'finanzas', 'jugadores',
   'asistencia', 'becas', 'partidos', 'calendario', 'centro_tanner', 'academias', 'formacion', 'prospectos', 'candidatos', 'staff',
   'cumpleanos', 'encuestas', 'scouting', 'visorias', 'cursosVerano', 'tienda', 'catalogo', 'utileria', 'estacionamiento',
-  'patrocinadores', 'ideas', 'usuarios', 'invitaciones', 'admin', 'cambios', 'qa', 'convocatoria']);
+  'patrocinadores', 'metricas', 'ideas', 'usuarios', 'invitaciones', 'admin', 'cambios', 'qa', 'convocatoria']);
 // Lo que se cuenta como "función usada". Sólo nombres fijos, sin datos.
 export const FUNCIONES = Object.freeze(['cobro_registrado', 'asistencia_guardada', 'evaluacion_guardada', 'pedido_enviado_proveedor',
   'pedido_entregado', 'llegada_visoria', 'identidad_verificada', 'aviso_publicado', 'mensaje_enviado', 'busqueda', 'exportar']);

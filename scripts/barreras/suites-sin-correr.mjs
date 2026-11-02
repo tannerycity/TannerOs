@@ -196,7 +196,9 @@ export default function comprobar() {
   // una lista agrupada por paso, atrasados y cancelados aparte.
   // Sube a 68 por qa-humo-banner-www.mjs: banner de cookies de www (denied al
   // inicio, mismo peso, enlace Cookies, revocar borra _ga).
-  const MAX_EXCLUIDAS = 68;
+  // Sube a 69 por qa-humo-metricas.mjs: Métricas de marketing (recomendaciones,
+  // embudo, sin ceros inventados, Zul sin lo cobrado, 390 px).
+  const MAX_EXCLUIDAS = 69;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

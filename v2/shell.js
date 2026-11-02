@@ -100,6 +100,9 @@ export const navItems=[
   {code:'estacionamiento',label:'Estacionamiento',href:'/estacionamiento/',group:'finance',icon:'car',dentroDe:'taquilla'},
   // Marketing (22/10/2026): Patrocinadores y el banco de Ideas, juntos.
   {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'marketing',icon:'briefcase'},
+  // Métricas (02/11/2026, h58): redes, Google, web y prospectos para decidir.
+  // Módulo por persona (Usuarios > persona > Métricas); así se le dio a Zul.
+  {code:'metricas',label:'Métricas',href:'/metricas/',group:'marketing',icon:'chart'},
   // Ideas: tablero tipo kanban para darle seguimiento; lo ve todo el staff.
   {code:'ideas',label:'Ideas',href:'/ideas/',group:'marketing',icon:'bulb',always:true},
   {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin',icon:'userCog',dentroDe:'admin'},

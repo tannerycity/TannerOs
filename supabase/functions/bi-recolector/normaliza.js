@@ -11,7 +11,7 @@ export const CATALOGO = Object.freeze({
   ga4: ['sesiones', 'usuarios', 'leads_web', 'clics_whatsapp', 'interes_reserva', 'vista_registro'],
   search_console: ['clics', 'impresiones', 'posicion_ponderada'],
   meta_ads: ['gasto', 'impresiones', 'alcance', 'clics', 'leads', 'conversaciones'],
-  facebook: ['seguidores', 'impresiones', 'interacciones'],
+  facebook: ['seguidores', 'impresiones', 'interacciones', 'visualizaciones'],
   instagram: ['seguidores', 'alcance', 'nuevos_seguidores'],
   gbp: ['llamadas', 'clics_web', 'indicaciones']
 });
@@ -118,6 +118,30 @@ export function metaInsights(resp, fuente, cuenta, negocio, mapa) {
     const metrica = mapa[serie.name]; if (!metrica) return [];
     return (serie.values || []).map(v => ({ fuente, cuenta, negocio, metrica, dia: diaDeMeta(v.end_time), valor: num(v.value) }));
   }));
+}
+/* Métricas de página (02/11/2026, h57). Meta dio de baja page_impressions y
+ * el error de una métrica tumbaba a las demás. Cada métrica del catálogo trae
+ * sus nombres de la API en orden de preferencia; si Meta retira uno, se anota
+ * y se prueba el siguiente. "impresiones" ya no se pide: visualizaciones no
+ * son impresiones y no se guardan con esa etiqueta. */
+export const METRICAS_PAGINA = Object.freeze({
+  visualizaciones: ['page_media_view'],
+  interacciones: ['page_post_engagements']
+});
+/* pedir(nombreApi) regresa la respuesta de insights o lanza el error de la API.
+ * Una métrica retirada o inválida ("metric") se anota y no tumba las demás;
+ * cualquier otro error (token, permisos, red) sí detiene la fuente. */
+export async function insightsPorMetrica(pedir, fuente, cuenta, negocio, metricas) {
+  const filas = [], fallas = [];
+  for (const [metrica, nombres] of Object.entries(metricas)) {
+    let ok = false, motivo = '';
+    for (const nombre of nombres) {
+      try { filas.push(...metaInsights(await pedir(nombre), fuente, cuenta, negocio, { [nombre]: metrica })); ok = true; break; }
+      catch (e) { motivo = sinSecretos(e?.message); if (!/metric/i.test(motivo)) throw e; }
+    }
+    if (!ok) fallas.push(`${metrica} (${cuenta}): ${motivo}`);
+  }
+  return { filas, fallas };
 }
 /* Seguidores: la API sólo da el total de hoy; se guarda como foto del día. */
 export function fotoSeguidores(total, fuente, cuenta, negocio, hoy) {

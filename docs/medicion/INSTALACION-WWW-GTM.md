@@ -34,7 +34,7 @@ Google Analytics, Etiqueta de Google y Píxel de Meta **vacíos**; GTM conectado
 
 | Etiqueta | Tipo | Activador | Consentimiento |
 |---|---|---|---|
-| GA4 - Etiqueta de Google | Etiqueta de Google `G-H485DE37EF`, con `allow_google_signals=false` y `allow_ad_personalization_signals=false`; "Una vez por página" | **Cookies decididas** (evento personalizado `tc_cookies`) | `analytics_storage` |
+| GA4 - Etiqueta de Google | Etiqueta de Google `G-H485DE37EF`, con `allow_google_signals=false`, `allow_ad_personalization_signals=false` y `cookie_expires=33696000` (390 días, ~13 meses; igual en todos los navegadores); "Una vez por página" | **Cookies decididas** (evento personalizado `tc_cookies`) | `analytics_storage` |
 | GA4 - Evento click_whatsapp | Evento GA4 `click_whatsapp`, sin parámetros propios | **Clic WhatsApp** (Click URL coincide con `wa\.me\|whatsapp\.com`) | `analytics_storage` |
 | `generate_lead` | Pendiente: falta saber cómo confirma el formulario de GoDaddy | — | — |
 | Meta Pixel | **No instalado**. Si se instala: sólo páginas públicas, nunca registro o inscripción | — | `ad_storage` |
@@ -42,9 +42,16 @@ Google Analytics, Etiqueta de Google y Píxel de Meta **vacíos**; GTM conectado
 GA4 no se activa en "Initialization": el consentimiento llega después y GTM no reintenta;
 por eso escucha `tc_cookies`.
 
-Pendiente antes de publicar (auditoría 02/11/2026): URL real del aviso en `AVISO`,
-enlace "Cookies" en el pie de GoDaddy, excepción para páginas de inscripción si existen,
-revisar Medición mejorada del flujo "Sitios Públicos".
+GA4, flujo "Sitios Públicos" (02/11/2026): Medición mejorada sólo con páginas vistas,
+desplazamientos y descargas; ocultar datos con correo y claves de URL
+`tel,telefono,phone,nombre,name,email,correo`. Conservación: eventos 2 meses, usuario
+14 meses desde la última actividad.
+
+Probado en Vista previa el 02/11/2026: GA4 sólo tras "Aceptar"; "Sólo necesarias" lo
+bloquea; revocar borra `_ga*`; enlace "Cookies" del pie reabre el banner. www no tiene
+formularios de menores (las inscripciones van a TannerOS).
+
+Pendiente antes de publicar: aviso aprobado por el abogado y su URL en `AVISO`.
 
 ## 4. Versión y prueba
 

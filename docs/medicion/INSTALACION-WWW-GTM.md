@@ -11,26 +11,40 @@ Todo se hace en los paneles, con una persona con acceso.
 4. Si GoDaddy ofrece su propio banner de cookies, apagarlo y usar uno solo (paso 2).
 5. Publicar el sitio.
 
-## 2. GTM: consentimiento primero
+## 2. GTM: consentimiento primero (lo instalado el 02/11/2026)
 
-| Pieza | Configuración |
+Banner propio, gratis y sin terceros: [www/banner-cookies.html](www/banner-cookies.html)
+(copia versionada; prueba `scripts/qa-humo-banner-www.mjs`). Se descartó CookieYes: su
+liga lleva a una prueba de pago.
+
+| Pieza | Configuración en GTM |
 |---|---|
-| Plantilla de banner | Una CMP de la galería con Consent Mode v2 (p. ej. CookieYes o Cookiebot gratis), o una etiqueta HTML propia que guarde la decisión |
-| Predeterminado | `analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization` = **denied** antes de cualquier etiqueta |
-| Al aceptar | `update` a granted |
-| Botones | "Aceptar" y "Sólo necesarias" con el mismo peso; enlace permanente "Cookies" en pie |
+| Consentimiento | Admin → Configuración del contenedor → "Habilitar la vista general del consentimiento" |
+| Etiqueta `Consentimiento - banner y predeterminado` | HTML personalizado con el banner; activador **Consent Initialization - All Pages**; sin consentimiento adicional |
+| Predeterminado | `analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization` = denied |
+| Decisión | Evento `tc_cookies` (`si` / `no`) al decidir y en cada página si ya se decidió |
+| Enlace permanente | Cualquier enlace a `#cookies` (pie de página de GoDaddy) reabre el banner en la misma página |
+| Revocar | Borra `_ga`, `_ga_*` y `_gid` del dominio y sus padres y recarga |
+
+GoDaddy: banner de cookies propio **apagado**, "Seguimiento avanzado" **apagado**, campos
+Google Analytics, Etiqueta de Google y Píxel de Meta **vacíos**; GTM conectado en
+"Administrador de etiquetas de Google".
 
 ## 3. GTM: etiquetas
 
-| Etiqueta | Tipo | Activador | Requiere consentimiento |
+| Etiqueta | Tipo | Activador | Consentimiento |
 |---|---|---|---|
-| GA4 config | Etiqueta de Google `G-H485DE37EF` | Inicialización – todas las páginas | `analytics_storage` |
-| Meta base | HTML personalizado o plantilla "Facebook Pixel" `1477125554314319` | Todas las páginas | `ad_storage` |
-| `click_whatsapp` | Evento GA4 + Meta `Contact` | Clic en enlace, URL contiene `wa.me` o `api.whatsapp.com` | ambos |
-| `view_registration` | Evento GA4 + Meta `trackCustom ViewRegistration` | Vista de página del formulario de registro / clic en "Inscríbete" | ambos |
-| `generate_lead` | Evento GA4 + Meta `Lead` | Envío de formulario **confirmado** (mensaje de éxito visible) | ambos |
+| GA4 - Etiqueta de Google | Etiqueta de Google `G-H485DE37EF`, con `allow_google_signals=false` y `allow_ad_personalization_signals=false`; "Una vez por página" | **Cookies decididas** (evento personalizado `tc_cookies`) | `analytics_storage` |
+| GA4 - Evento click_whatsapp | Evento GA4 `click_whatsapp`, sin parámetros propios | **Clic WhatsApp** (Click URL coincide con `wa\.me\|whatsapp\.com`) | `analytics_storage` |
+| `generate_lead` | Pendiente: falta saber cómo confirma el formulario de GoDaddy | — | — |
+| Meta Pixel | **No instalado**. Si se instala: sólo páginas públicas, nunca registro o inscripción | — | `ad_storage` |
 
-Parámetros: sólo `link_id` / `form_id` fijos. Nunca variables con texto del formulario.
+GA4 no se activa en "Initialization": el consentimiento llega después y GTM no reintenta;
+por eso escucha `tc_cookies`.
+
+Pendiente antes de publicar (auditoría 02/11/2026): URL real del aviso en `AVISO`,
+enlace "Cookies" en el pie de GoDaddy, excepción para páginas de inscripción si existen,
+revisar Medición mejorada del flujo "Sitios Públicos".
 
 ## 4. Versión y prueba
 

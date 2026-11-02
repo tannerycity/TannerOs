@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { ga4Trafico, ga4Eventos, EVENTOS_GA4_PEDIDOS, searchConsole, metaAds, metaInsights, fotoSeguidores, sinSecretos } from "./normaliza.js";
+import { ga4Trafico, ga4Eventos, EVENTOS_GA4_PEDIDOS, searchConsole, metaAds, metaInsights, fotoSeguidores, sinSecretos, METRICAS_PAGINA, insightsPorMetrica } from "./normaliza.js";
 
 // Recolector del tablero ejecutivo, sin Windsor (30/10/2026, h56).
 //
@@ -10,8 +10,8 @@ import { ga4Trafico, ga4Eventos, EVENTOS_GA4_PEDIDOS, searchConsole, metaAds, me
 //   - GA4 Data API y Search Console API, con una cuenta de servicio de Google
 //     dada de alta como Lector en cada propiedad (gratis).
 //   - Graph API / Marketing API de Meta, con el token de un usuario del sistema
-//     del Business Manager (ads_read, pages_read_engagement, read_insights,
-//     instagram_basic, instagram_manage_insights).
+//     del Business Manager (ads_read, pages_read_engagement, pages_show_list,
+//     read_insights, instagram_basic, instagram_manage_insights).
 // Si falta una credencial o Meta niega un permiso, esa fuente queda
 // "bloqueada" con su motivo y el tablero la muestra como no disponible.
 // Nunca guarda ni registra tokens, URLs completas, búsquedas ni personas.
@@ -76,13 +76,14 @@ async function anuncios(token: string, c: Cuenta, r: ReturnType<typeof rango>) {
     fields: "campaign_name,spend,impressions,reach,clicks,actions,date_start", time_range: JSON.stringify({ since: r.desde, until: r.hasta }) });
   return metaAds(await json(`${GRAPH}/act_${c.cuenta}/insights?${q}`), c.cuenta);
 }
-async function pagina(token: string, c: Cuenta, r: ReturnType<typeof rango>) {
-  // El token de la página sale del token del usuario del sistema.
+async function pagina(token: string, c: Cuenta, r: ReturnType<typeof rango>, avisos: string[]) {
+  // El token de la página sale del token del usuario del sistema. Cada
+  // métrica va por separado: si Meta retira una, las demás siguen (h57).
   const p = await json(`${GRAPH}/${c.cuenta}?fields=access_token,followers_count&access_token=${token}`);
-  const q = new URLSearchParams({ metric: "page_impressions,page_post_engagements", period: "day", since: r.desde, until: r.hoy, access_token: p.access_token });
-  const ins = await json(`${GRAPH}/${c.cuenta}/insights?${q}`);
-  return [...metaInsights(ins, "facebook", c.cuenta, c.negocio, { page_impressions: "impresiones", page_post_engagements: "interacciones" }),
-          ...fotoSeguidores(p.followers_count, "facebook", c.cuenta, c.negocio, r.hoy)];
+  const pedir = (metric: string) => json(`${GRAPH}/${c.cuenta}/insights?${new URLSearchParams({ metric, period: "day", since: r.desde, until: r.hoy, access_token: p.access_token })}`);
+  const { filas, fallas } = await insightsPorMetrica(pedir, "facebook", c.cuenta, c.negocio, METRICAS_PAGINA);
+  avisos.push(...fallas);
+  return [...filas, ...fotoSeguidores(p.followers_count, "facebook", c.cuenta, c.negocio, r.hoy)];
 }
 async function instagram(token: string, c: Cuenta, r: ReturnType<typeof rango>) {
   const u = await json(`${GRAPH}/${c.cuenta}?fields=followers_count&access_token=${token}`);
@@ -111,6 +112,7 @@ Deno.serve(async (req: Request) => {
 
   for (const [fuente, lista] of porFuente) {
     let filas: unknown[] = [], estado = "ok", detalle = "";
+    const avisos: string[] = [];
     try {
       if (fuente === "gbp") { estado = "bloqueada"; detalle = "Business Profile Performance API requiere acceso aprobado por Google; usar el panel nativo."; }
       else if ((fuente === "ga4" || fuente === "search_console") && !saTexto) { estado = "bloqueada"; detalle = "Falta GOOGLE_SERVICE_ACCOUNT_JSON."; }
@@ -121,7 +123,7 @@ Deno.serve(async (req: Request) => {
           if (fuente === "ga4") filas.push(...await ga4(ga4Token ??= await tokenGoogle(sa, "https://www.googleapis.com/auth/analytics.readonly"), c, r));
           if (fuente === "search_console") filas.push(...await gsc(gscToken ??= await tokenGoogle(sa, "https://www.googleapis.com/auth/webmasters.readonly"), c, r));
           if (fuente === "meta_ads") filas.push(...await anuncios(meta!, c, r));
-          if (fuente === "facebook") filas.push(...await pagina(meta!, c, r));
+          if (fuente === "facebook") filas.push(...await pagina(meta!, c, r, avisos));
           if (fuente === "instagram") filas.push(...await instagram(meta!, c, r));
         }
       }
@@ -129,6 +131,8 @@ Deno.serve(async (req: Request) => {
       estado = /\b(400|401|403)\b|permission|permiso/i.test(String((e as Error)?.message)) ? "bloqueada" : "error";
       detalle = sinSecretos((e as Error)?.message); filas = [];
     }
+    // Métricas que Meta ya no da: la fuente sigue "ok" y el detalle dice cuáles.
+    if (estado === "ok" && avisos.length) detalle = sinSecretos(`Sin dato: ${avisos.join(" | ")}`);
     const { data } = await admin.rpc("v2_bi_ingesta", { organization_id: ORG, fuente, estado, filas, desde: r.desde, hasta: r.hasta, detalle: detalle || null });
     resumen[fuente] = { estado, ...(data || {}) };
   }

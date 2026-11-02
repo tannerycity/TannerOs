@@ -3,9 +3,10 @@
  *   - Dominios ajenos, búsquedas, URLs y nombres no se guardan.
  *   - Campañas: CLUB-/TCP- por prefijo; sin prefijo, compartido.
  *   - Nada de tokens ni llaves en lo que se guarda o registra.
- *   - El catálogo es el mismo en la función y en h56. */
+ *   - El catálogo es el mismo en la función y en la última migración que lo define.
+ *   - Facebook (h57): una métrica que Meta retira no tumba a las demás. */
 import fs from 'node:fs';
-import { CATALOGO, negocioDeHost, negocioDeCampana, diaDeMeta, ga4Trafico, ga4Eventos, searchConsole, metaAds, metaInsights, fotoSeguidores, sinSecretos } from '../supabase/functions/bi-recolector/normaliza.js';
+import { CATALOGO, negocioDeHost, negocioDeCampana, diaDeMeta, ga4Trafico, ga4Eventos, searchConsole, metaAds, metaInsights, fotoSeguidores, sinSecretos, METRICAS_PAGINA, insightsPorMetrica } from '../supabase/functions/bi-recolector/normaliza.js';
 
 let fallas = 0, n = 0;
 const revisa = (t, ok, d = '') => { n++; if (!ok) { fallas++; console.error(`MAL ${t}${d ? ` · ${d}` : ''}`); } };
@@ -52,13 +53,36 @@ revisa('Seguidores: foto del día; un valor raro no se guarda', fotoSeguidores(9
 const fuga = sinSecretos('400 Invalid OAuth access_token=EAABwzLixnjYBO1234567890abcdef y -----BEGIN PRIVATE KEY-----\nMIIabc\n-----END PRIVATE KEY-----');
 revisa('errores sin tokens ni llaves', !/EAABwz|MIIabc/.test(fuga) && /oculto/.test(fuga), fuga);
 
-const sql = fs.readFileSync(new URL('../supabase/migrations/20261101195153_h56_bi_sin_windsor.sql', import.meta.url), 'utf8');
+// El catálogo vigente es el de la última migración que redefine private.bi_catalogo().
+const MIG = new URL('../supabase/migrations/', import.meta.url);
+const ultimaCat = fs.readdirSync(MIG).filter(f => /^\d{14}_.*\.sql$/.test(f)).sort()
+  .filter(f => fs.readFileSync(new URL(f, MIG), 'utf8').includes('function private.bi_catalogo()')).at(-1);
+const sql = fs.readFileSync(new URL(ultimaCat, MIG), 'utf8');
 const cat = sql.slice(sql.indexOf('jsonb_build_object(\n    \'ga4\''), sql.indexOf('$$;', sql.indexOf('private.bi_catalogo()')));
 revisa('el catálogo de h56 es el mismo que el de la función', Object.entries(CATALOGO).every(([f, ms]) => new RegExp(`'${f}',\\s*jsonb_build_array\\(${ms.map(x => `'${x}'`).join(',\\s*')}\\)`).test(cat)));
 const fn = fs.readFileSync(new URL('../supabase/functions/bi-recolector/index.ts', import.meta.url), 'utf8');
 revisa('la función exige su secreto y sólo lee (scopes readonly)', /x-bi-secreto/.test(fn) && /analytics\.readonly/.test(fn) && /webmasters\.readonly/.test(fn) && !/analytics\.edit|webmasters"/.test(fn));
 const norm = fs.readFileSync(new URL('../supabase/functions/bi-recolector/normaliza.js', import.meta.url), 'utf8');
 revisa('no llama a Windsor: sólo APIs oficiales de Google y Meta', ![fn, norm].some(x => /windsor\.ai|WINDSOR_/i.test(x)) && (fn.match(/https:\/\/[a-z0-9.]+\.[a-z]+/g) || []).every(u => /googleapis\.com$|graph\.facebook\.com$/.test(u)), (fn.match(/https:\/\/[a-z.]+/g) || []).join(' '));
+
+// Facebook por métrica (h57): Meta dio de baja page_impressions y tumbaba todo.
+const retirada = new Error('400 (#100) The value must be a valid insights metric');
+const vale = (nombre, v) => ({ data: [{ name: nombre, values: [{ value: v, end_time: '2026-10-30T07:00:00+0000' }] }] });
+const pedidos = [];
+const fb = await insightsPorMetrica(async n => { pedidos.push(n); if (n === 'page_media_view') throw retirada; return vale(n, 42); },
+  'facebook', '166989879833376', 'club', METRICAS_PAGINA);
+revisa('Facebook: una métrica retirada no tumba a las demás', bien(fb.filas) && fb.filas.length === 1 && fb.filas[0].metrica === 'interacciones' && fb.filas[0].valor === 42, JSON.stringify(fb));
+revisa('Facebook: la retirada queda anotada con su cuenta, sin secretos', fb.fallas.length === 1 && /visualizaciones \(166989879833376\).*metric/.test(fb.fallas[0]), JSON.stringify(fb.fallas));
+revisa('Facebook: cada métrica se pide por separado', pedidos.length === 2 && pedidos.every(n => !n.includes(',')), pedidos.join(' '));
+const fb2 = await insightsPorMetrica(async n => vale(n, 7), 'facebook', 'x', 'tcp', { visualizaciones: ['nombre_viejo', 'page_media_view'] });
+const fb3 = await insightsPorMetrica(async n => { if (n === 'nombre_viejo') throw retirada; return vale(n, 7); }, 'facebook', 'x', 'tcp', { visualizaciones: ['nombre_viejo', 'page_media_view'] });
+revisa('Facebook: si un nombre se retira, prueba el siguiente', fb2.filas.length === 1 && fb3.filas.length === 1 && fb3.filas[0].metrica === 'visualizaciones' && !fb3.fallas.length, JSON.stringify(fb3));
+let tumba = false;
+try { await insightsPorMetrica(async () => { throw new Error('400 (#190) Error validating access token'); }, 'facebook', 'x', 'club', METRICAS_PAGINA); } catch { tumba = true; }
+revisa('Facebook: un token inválido sí detiene la fuente (no se disfraza de métrica)', tumba);
+revisa('Facebook: ya no pide page_impressions; visualizaciones no se guarda como impresiones',
+  !Object.values(METRICAS_PAGINA).flat().includes('page_impressions') && !('impresiones' in METRICAS_PAGINA) && !/page_impressions/.test(fn));
+revisa('el tablero usa visualizaciones_facebook (h57)', /'visualizaciones_facebook', 'facebook', 'visualizaciones'/.test(sql) && !/'impresiones_facebook'/.test(sql));
 
 console.log(fallas ? `BI recolector: ${fallas} de ${n} fallaron` : `BI recolector OK · ${n} revisiones: APIs oficiales a filas agregadas, por negocio, sin personas ni secretos`);
 process.exit(fallas ? 1 : 0);

@@ -35,7 +35,8 @@ Supabase → proyecto **TannerOs** → Edge Functions → **Secrets** (Manage se
    - Páginas **Tannery City** y **TCP - Tannery City Park**: ver estadísticas.
    - Cuentas de Instagram **tannery_city** y **tannerycitypark**: ver estadísticas.
 5. **Generar nuevo token** → elige la app del paso 2 → caducidad **Nunca** → marca sólo estos permisos:
-   `ads_read`, `pages_read_engagement`, `read_insights`, `instagram_basic`, `instagram_manage_insights`.
+   `ads_read`, `pages_read_engagement`, `pages_show_list`, `read_insights`, `instagram_basic`, `instagram_manage_insights`.
+   Nada de WhatsApp: no hay permiso de sólo lectura y toca conversaciones de familias.
 6. Copia el token y pégalo directo en Supabase → Secrets:
    - Name: `META_SYSTEM_USER_TOKEN`
    - Value: el token.

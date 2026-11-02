@@ -88,3 +88,6 @@ sólo lectura y guarda agregados en `app.bi_metricas_dia` (h56). Sin JWT: la
 autoriza el encabezado `x-bi-secreto`, que se compara contra el Vault. Secretos
 que carga el dueño: `GOOGLE_SERVICE_ACCOUNT_JSON` y `META_SYSTEM_USER_TOKEN`
 (docs/medicion/PASOS-CREDENCIALES.md). Desplegada el 01/11/2026.
+Facebook (h57, 02/11/2026): cada métrica de página va en su propia llamada;
+si Meta retira una, se anota en el detalle de la sincronización y las demás
+siguen. Los nombres vigentes viven en `METRICAS_PAGINA` (normaliza.js).

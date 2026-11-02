@@ -14,7 +14,7 @@ lee APIs oficiales desde el servidor y guarda sólo agregados en Supabase.
 | Sesiones, leads web, WhatsApp, interés de renta | GA4 (561403621, 561548928) | GA4 Data API, diario | $0 | Cuenta de servicio como **Lector** en cada propiedad | Falta crear la cuenta de servicio |
 | Clics e impresiones en Google | Search Console (`sc-domain:tannerycity.com`) | Search Console API, diario | $0 | La misma cuenta de servicio como usuario **restringido** | Falta darla de alta |
 | Gasto, alcance, leads, conversaciones | Meta Ads (act_1253862975729440) | Marketing API `insights`, diario | $0 | Usuario del sistema con `ads_read` | Falta token; **no se asume aprobado** |
-| Seguidores e impresiones de páginas | Facebook (166989879833376, 727296023789322) | Graph API `insights` | $0 | `pages_read_engagement`, `read_insights` | Falta token; **no se asume aprobado** |
+| Seguidores, visualizaciones e interacciones de páginas | Facebook (166989879833376, 727296023789322) | Graph API `insights`, una métrica por llamada (h57) | $0 | `pages_read_engagement`, `pages_show_list`, `read_insights` | Conectado el 02/11/2026. Meta dio de baja `page_impressions`: se usa `page_media_view` (visualizaciones), que no es lo mismo que impresiones |
 | Seguidores y alcance de Instagram | IG (17841462855563889, 17841475095627973) | Graph API `insights` | $0 | `instagram_basic`, `instagram_manage_insights` | Falta token; **no se asume aprobado** |
 | Llamadas e indicaciones en Google Maps | Business Profile | Performance API | $0 | **Acceso aprobado por Google** (solicitud aparte) | Bloqueado; usar el panel nativo |
 | Reportes de GA4 y Search Console | Looker Studio | Conectores nativos de Google | $0 | Los mismos accesos de lectura | Opcional (ver §5) |

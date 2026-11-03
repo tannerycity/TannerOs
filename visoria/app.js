@@ -478,6 +478,16 @@ function textoParaClub() {
   const n = datos.nino, r = resultado || {};
   return `Hola, Tannery City. Inscribí a ${n.firstName} ${n.lastName} a la ${info.title || 'visoría'}.\nFolio: ${r.folio || ''}\nNacimiento: ${fechaLarga(n.birthDate)} (${edad(n.birthDate)} años)${n.category ? `\nCategoría: ${n.category}` : ''}\nTe mando su pase.`;
 }
+/* La fecha del pase sale de la visoría (03/11/2026): estaba escrita a mano y
+ * se quedó en la fecha vieja. "Vie 20 nov · 5 pm" cabe en su celda. */
+function cuandoCorto() {
+  const [a, m, d] = String(info?.startsOn || '').split('-').map(Number);
+  if (!a) return info?.datesLabel || 'Por confirmar';
+  const f = new Date(a, m - 1, d, 12), dia = new Intl.DateTimeFormat('es-MX', { weekday: 'short' }).format(f).replace('.', '');
+  const etiqueta = String(info.datesLabel || ''), h = /(\d{1,2}):(\d{2})/.exec(etiqueta);
+  const hora = h ? ` · ${Number(h[1])}${h[2] !== '00' ? `:${h[2]}` : ''} ${/p\.?\s?m/i.test(etiqueta) ? 'pm' : 'am'}` : '';
+  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${d} ${MESES[m - 1].slice(0, 3)}${hora}`;
+}
 async function armaPase() {
   const n = datos.nino, r = resultado || {}, e = edad(n.birthDate);
   const lugarCorto = String(info.location || '').split('·')[0].trim() || 'Por confirmar';
@@ -485,7 +495,7 @@ async function armaPase() {
     folio: r.folio, photoUrl: fotoUrl || null,
     filas: [{ etiqueta: 'Edad', valor: e !== null ? `${e} años` : '' }, { etiqueta: 'Nacimiento', valor: fechaLarga(n.birthDate) },
       { etiqueta: 'Posición', valor: n.type === 'goalkeeper' ? 'Portero' : (n.position && n.position !== 'No sé' ? n.position : 'Jugador') },
-      { etiqueta: 'Pierna', valor: PIERNA[n.foot] || '' }, { etiqueta: 'Cuándo', valor: 'Vie 13 y Sáb 14 nov' }, { etiqueta: 'Dónde', valor: lugarCorto }] });
+      { etiqueta: 'Pierna', valor: PIERNA[n.foot] || '' }, { etiqueta: 'Cuándo', valor: cuandoCorto() }, { etiqueta: 'Dónde', valor: lugarCorto }] });
   return blob;
 }
 async function armaYMuestraPase() {

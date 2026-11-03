@@ -78,7 +78,41 @@ function pintaLista() {
   $('vsLista').innerHTML = items.map(tarjeta).join('');
   const vacio = $('vsVacio'); vacio.classList.toggle('hidden', items.length > 0);
   vacio.textContent = (datos.items || []).length ? 'Nadie con ese filtro.' : 'Todavía no se inscribe nadie. Comparte la liga.';
+  pintaEspera();
 }
+
+/* Lista de espera (h60, 03/11/2026). Presidencia: "si alguien se da de baja,
+ * nosotros te sumamos... para no dejar ir esos leads". Cupo lleno no rechaza
+ * a nadie: se registra aquí. Sumar le da su lugar y abre WhatsApp con su liga
+ * personal para firmar. Las bajas también se quedan, por si regresan. */
+function pintaEspera() {
+  const box = $('vsEspera'); if (!box) return;
+  const lista = Array.isArray(datos.waitlist) ? datos.waitlist : [];
+  const espera = lista.filter(x => x.status === 'espera'), bajas = lista.filter(x => x.status === 'baja');
+  if (!lista.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  const c = datos.campaign || {}, n = (datos.items || []).length, hay = !c.capacity || n < c.capacity;
+  const fila = x => `<li data-espera-id="${esc(x.id)}"><div><b>${esc(`${x.firstName} ${x.lastName}`)}</b>
+      <small>${esc(x.folio || '')}${edad(x.birthDate) !== null ? ` · ${edad(x.birthDate)} años` : ''}${x.category ? ` · ${esc(x.category)}` : ''} · ${esc(x.guardian || '')}${x.status === 'baja' && x.dropReason ? ` · Baja: ${esc(x.dropReason)}` : ''}</small></div>
+      ${datos.canWrite ? `<button type="button" class="vs-boton${hay ? '' : ' sec'}" data-suma ${hay ? '' : 'disabled title="Cupo lleno: primero da de baja a alguien"'}>Sumar</button>` : ''}</li>`;
+  box.classList.remove('hidden');
+  box.innerHTML = `${espera.length ? `<h2>Lista de espera <i>${espera.length}</i></h2>
+      <p class="vs-sub">${hay ? 'Hay lugar: suma al primero de la lista y se abre WhatsApp con su liga para firmar.' : 'Cupo lleno. Cuando alguien se dé de baja, súmalos en orden.'}</p>
+      <ol class="vs-espera-lista">${espera.map(fila).join('')}</ol>` : ''}
+    ${bajas.length ? `<h2>Bajas <i>${bajas.length}</i></h2><p class="vs-sub">No se pierden: si regresan y hay lugar, súmalos.</p><ol class="vs-espera-lista baja">${bajas.map(fila).join('')}</ol>` : ''}`;
+}
+$('vsEspera')?.addEventListener('click', async e => {
+  const b = e.target.closest('[data-suma]'); if (!b || b.disabled) return;
+  const x = (datos.waitlist || []).find(i => i.id === b.closest('[data-espera-id]')?.dataset.esperaId); if (!x) return;
+  b.disabled = true;
+  try {
+    const r = await rpc('v2_visoria_waitlist_add', { organization_id: ctx.organization_id, prospect_id: x.id });
+    const url = `${LIGA_PUBLICA}/#firmar=${r.token}`, wa = String(r.phone || '').replace(/\D/g, '').replace(/^(\d{10})$/, '52$1');
+    const txt = `Hola ${r.guardian || ''}. ¡Se liberó un lugar! ${r.firstName} ya está inscrito a la visoría de ${nombreDelClub(ctx)}: ${datos.campaign?.datesLabel || ''}. Falta firmar el consentimiento con tu liga personal (no la compartas): ${url}`;
+    if (wa) window.open(`https://wa.me/${wa}?text=${encodeURIComponent(txt)}`, '_blank', 'noopener');
+    aviso(`${x.firstName} ya está inscrito.${wa ? ' Se abrió WhatsApp con su liga.' : ' No tiene WhatsApp: mándale la liga desde su ficha.'}`, 'success');
+    await carga();
+  } catch (err) { b.disabled = false; aviso(err.message || 'No se pudo sumar.'); }
+});
 
 /* La hoja de la puerta. Sólo AUTORIZADO entra; el motivo dice qué falta. */
 function pintaAcceso() {
@@ -157,6 +191,7 @@ function verDatos(x) {
       <button type="button" class="vs-boton sec" data-alerta>${x.alert ? 'Quitar alerta operativa' : 'Poner alerta operativa'}</button>
       ${x.imageConsent ? '<button type="button" class="vs-boton sec" data-quita-imagen>La familia retira el permiso de fotos</button>' : ''}
       ${k ? '<button type="button" class="vs-boton sec rojo" data-anula>Anular consentimiento</button>' : ''}
+      ${datos.canWrite && datos.canSeeContact ? '<button type="button" class="vs-boton sec rojo" data-baja>Dar de baja (libera su lugar)</button>' : ''}
     </div>` : ''}
     ${wa ? `<a class="vs-guarda" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp a ${esc(x.guardian || 'la familia')}</a>` : ''}`;
   h.onclick = e => accionHoja(e, x);
@@ -187,6 +222,11 @@ async function accionHoja(e, x) {
   if (an) {
     const motivo = prompt('¿Por qué se anula? Queda en la bitácora y la familia tendrá que firmar de nuevo.'); if (!motivo || motivo.trim().length < 5) return;
     return corre(an, () => rpc('v2_visoria_invalidate', { organization_id: ctx.organization_id, consent_id: k, reason: motivo.trim() }), 'Consentimiento anulado.');
+  }
+  const bj = t.closest('[data-baja]');
+  if (bj) {
+    const motivo = prompt(`¿Por qué se da de baja ${x.firstName}? Libera su lugar; sus datos se quedan en la lista de bajas.`); if (!motivo || motivo.trim().length < 3) return;
+    return corre(bj, () => rpc('v2_visoria_drop', { organization_id: ctx.organization_id, prospect_id: x.id, reason: motivo.trim() }), `${x.firstName} quedó de baja. Ya hay un lugar: suma a alguien de la lista de espera.`);
   }
   const al = t.closest('[data-alerta]');
   if (al) {

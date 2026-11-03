@@ -57,7 +57,12 @@ const SHELL = `
 
 const TOKEN = 'a'.repeat(48);
 const INFO = (modo) => ({ slug:'visoria-noviembre-2026', title:'Visoría Tannery City', datesLabel:'Viernes 13 y sábado 14 de noviembre', location:null,
-  startsOn:'2026-11-13', capacity:30, spotsLeft: modo === 'lleno' ? 0 : 18, open: modo !== 'lleno', closed:false, signingOpen: modo !== 'cerrada', documents:{} });
+  startsOn:'2026-11-13', capacity:30, spotsLeft: ['lleno','espera'].includes(modo) ? 0 : 18, open: !['lleno','espera'].includes(modo), closed:false,
+  waitlist: modo === 'espera', signingOpen: modo !== 'cerrada', documents:{} });
+// h60: la lista de espera y las bajas que ve el staff.
+const WL = [
+  { id:'w1', folio:'TC-2026-00050', firstName:'Iker', lastName:'Soto', birthDate:'2016-05-01', category:'T10', guardian:'Laura Soto', phone:'4775550001', createdAt:'2026-11-03T10:00:00Z', status:'espera' },
+  { id:'w2', folio:'TC-2026-00044', firstName:'Pablo', lastName:'Ruiz', birthDate:'2014-02-01', category:null, guardian:'Juan Ruiz', phone:'4775550002', createdAt:'2026-11-01T10:00:00Z', status:'baja', dropReason:'Se cambió de ciudad' }];
 const DECL = [
   { key:'accept_participation', required:true, text:'He leído los términos y autorizo la participación del menor. Entiendo los riesgos propios del fútbol.' },
   { key:'ack_no_insurance', required:true, text:'Entiendo que esta visoría no incluye seguro médico ni de accidentes proporcionado por el organizador.' },
@@ -106,9 +111,11 @@ const CLIENTE = (modo) => `
     rpc:async(n,p={})=>{
       window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});
       const ok=d=>({data:d,error:null});
-      if(n==='v2_public_visoria')return ok(MODO==='lleno'?${JSON.stringify(INFO('lleno'))}:MODO==='cerrada'?${JSON.stringify(INFO('cerrada'))}:${JSON.stringify(INFO(''))});
+      if(n==='v2_public_visoria')return ok(MODO==='espera'?${JSON.stringify(INFO('espera'))}:MODO==='lleno'?${JSON.stringify(INFO('lleno'))}:MODO==='cerrada'?${JSON.stringify(INFO('cerrada'))}:${JSON.stringify(INFO(''))});
       if(n==='v2_public_context')return ok({organizationId:'o1',categories:['T8','T10','T12']});
-      if(n==='v2_public_visoria_reserve')return ok({id:'p-nuevo',folio:'TC-2026-00042',existing:false,token:'${TOKEN}'});
+      if(n==='v2_public_visoria_reserve')return ok(MODO==='espera'?{id:'p-espera',folio:'TC-2026-00051',existing:false,token:null,waitlist:true}:{id:'p-nuevo',folio:'TC-2026-00042',existing:false,token:'${TOKEN}'});
+      if(n==='v2_visoria_waitlist_add')return ok({token:'${'c'.repeat(48)}',phone:'4775550001',guardian:'Laura Soto',firstName:'Iker'});
+      if(n==='v2_visoria_drop')return ok({spotsLeft:29});
       if(n==='v2_public_visoria_sign_context')return ok(contexto());
       if(n==='v2_public_visoria_sign'){ if(MODO==='version') return ok({error:'Document version changed'}); firmo=true; return ok({consentId:'k1',status:'pending_artifact',existing:false}); }
       if(n==='v2_public_visoria_media_revoke')return ok({imageConsent:false});
@@ -116,7 +123,7 @@ const CLIENTE = (modo) => `
       if(n==='v2_my_context')return ok([{user_id:'u1',display_name:'Zulema García',organization_id:'o1',organization_name:'Tannery City FC',role:'Operaciones',is_owner:false}]);
       if(n==='v2_visoria_board'){const todo=MODO!=='visor';
         return ok({campaign:{ id:'c1', slug:'visoria-noviembre-2026', title:'Visoría Tannery City', datesLabel:'Viernes 13 y sábado 14 de noviembre', location:null, startsOn:'2026-11-13', capacity:30, open:true, signingOpen:false },
-          canSeeContact:todo,canWrite:true,canHealth:false,canAdmin:todo,items:ninos.map(x=>{const y={...x};if(!todo){${JSON.stringify(SIN_CONTACTO)}.forEach(k=>delete y[k]);y.access={status:y.access.status==='AUTORIZADO'?'AUTORIZADO':'NO_AUTORIZADO'};}return y;})});}
+          canSeeContact:todo,canWrite:true,canHealth:false,canAdmin:todo,waitlist:todo?${JSON.stringify(WL)}:[],items:ninos.map(x=>{const y={...x};if(!todo){${JSON.stringify(SIN_CONTACTO)}.forEach(k=>delete y[k]);y.access={status:y.access.status==='AUTORIZADO'?'AUTORIZADO':'NO_AUTORIZADO'};}return y;})});}
       if(n==='v2_visoria_setup')return ok(${JSON.stringify(SETUP)});
       if(n==='v2_visoria_verify')return ok({status:'signed'});
       if(n==='v2_visoria_sign_link')return ok({token:'${'b'.repeat(48)}',phone:'4779876543',guardian:'Rosa Ruiz',firstName:'Mateo'});
@@ -343,6 +350,28 @@ async function ninoYFamilia(pg) {
   revisa('sin errores de página (lleno)', !errs.length, errs.join(' | '));
   await pg.close();
 }
+// Cupo lleno con lista de espera (h60): la familia no se va, se registra.
+{
+  const { pg, errs } = await abre('/visoria/', 'espera');
+  await pg.waitForSelector('[data-empieza]', { timeout:8000 });
+  const t = await texto(pg, '#contenido');
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/visoria-espera.png`, fullPage:true });
+  revisa('14. cupo lleno: ofrece la lista de espera y promete sumarlos', /Cupo lleno · abrimos lista de espera/.test(t) && /Regístrate en la lista de espera/.test(t) && /Si alguien se da de baja, te sumamos/.test(t), t);
+  revisa('14. la portada ya no dice "dos días"', !/Dos días/.test(t));
+  await ninoYFamilia(pg);
+  revisa('14. son dos pasos: sin salud ni firma', /Paso 2 de 2/.test(await pg.textContent('.vi-tope')));
+  revisa('14. el botón dice lista de espera', /Registrarme en la lista de espera/.test(await pg.textContent('[data-aparta]')));
+  await pg.fill('#viTutor', 'Ana Ávila'); await pg.fill('#viTel', '4771234567'); await pg.click('[data-campo="relationship"] [data-v="madre"]');
+  await pg.click('[data-campo="channel"] [data-v="Instagram"]'); await pg.fill('#viEmNombre', 'Luis Ávila'); await pg.fill('#viEmTel', '4771234500');
+  await pg.click('[data-aparta]');
+  await pg.waitForSelector('.vi-pase', { timeout:8000 });
+  const f = await texto(pg, '.vi-pase');
+  revisa('14. queda en la lista de espera con su folio', /Leo está en la lista de espera/.test(f) && /TC-2026-00051/.test(f) && /te sumamos/.test(f), f);
+  revisa('14. sin liga de firma ni preguntas de salud', !(await pg.$('[data-pregunta]')) && (await llamadas(pg, 'v2_public_visoria_sign_context')).length === 0);
+  revisa('14. cabe a 390px', await cabe(pg));
+  revisa('sin errores de página (espera)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
 // Staff.
 {
   const { pg, errs } = await abre('/v2/visorias/');
@@ -383,6 +412,22 @@ async function ninoYFamilia(pg) {
   revisa('12. Evento dice qué falta para abrir la firma', /La firma está cerrada/.test(ev) && /Organizador jurídico/.test(ev) && /verificar el estado real del seguro/.test(ev) && /aprobación legal/.test(ev), ev);
   revisa('12. tres aprobaciones y la bitácora con los rechazos', (await pg.$$('[data-aprueba]')).length === 3 && /rechazado/.test(ev));
   revisa('12. cabe a 390px', await cabe(pg));
+  // h60: lista de espera, Sumar y Dar de baja.
+  await pg.click('[data-vista="inscritos"]');
+  await pg.waitForSelector('#vsEspera:not(.hidden)', { timeout:3000 }).catch(() => {});
+  const es = await texto(pg, '#vsEspera');
+  revisa('15. se ven la lista de espera y las bajas con su motivo', /Lista de espera 1/.test(es) && /Iker Soto/.test(es) && /Bajas 1/.test(es) && /Se cambió de ciudad/.test(es), es);
+  await pg.click('[data-espera-id="w1"] [data-suma]');
+  await pg.waitForTimeout(300);
+  const s1 = (await llamadas(pg, 'v2_visoria_waitlist_add'))[0] || {};
+  const wa1 = (await pg.evaluate(() => window.__abiertas)).find(u => /wa\.me\/524775550001/.test(u)) || '';
+  revisa('15. Sumar lo inscribe y abre WhatsApp con su liga para firmar', s1.prospect_id === 'w1' && /Se liberó un lugar/.test(decodeURIComponent(wa1)) && /firmar=c{48}/.test(decodeURIComponent(wa1)), `${JSON.stringify(s1)} ${wa1}`);
+  await pg.click('.vs-carta[data-id="v1"] [data-ver-mas]');
+  await pg.waitForSelector('#vsHoja [data-baja]', { timeout:3000 });
+  await pg.click('#vsHoja [data-baja]');
+  await pg.waitForTimeout(300);
+  const b1 = (await llamadas(pg, 'v2_visoria_drop'))[0] || {};
+  revisa('15. Dar de baja pide motivo y libera el lugar', b1.prospect_id === 'v1' && b1.reason === 'Referencia de prueba QA' && /quedó de baja/.test(await pg.textContent('#vsMensaje')), JSON.stringify(b1));
   revisa('sin errores de página (staff)', !errs.length, errs.join(' | '));
   await pg.close();
 }

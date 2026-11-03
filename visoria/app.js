@@ -37,6 +37,8 @@ const UI_VERSION = 'visoria-h54';
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const enEspera = () => !!info?.waitlist && !info?.open;
+const textoAparta = () => enEspera() ? 'Registrarme en la lista de espera' : info.signingOpen ? 'Siguiente' : 'Apartar su lugar';
 async function rpc(n, p = {}) { const { data, error } = await supabase.rpc(n, p); if (error) throw error; return data; }
 
 let info = null, ctx = null, paso = '', foto = null, fotoUrl = '', enviando = false, resultado = null;
@@ -83,7 +85,7 @@ function portada() {
       <span class="vi-hero-filo" aria-hidden="true"></span>
       <p class="vi-pastilla">VISORÍA ${new Date().getFullYear()}</p>
       <h1>Buscamos al próximo Tanner</h1>
-      <p class="vi-hero-sub">Dos días para mostrar lo que sabe frente a nuestros visores.</p>
+      <p class="vi-hero-sub">Su oportunidad de mostrar lo que sabe frente a nuestros visores.</p>
     </div>
     <ul class="vi-datos">
       <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><div><b>Cuándo</b><span>${esc(info.datesLabel || 'Por confirmar')}</span></div></li>
@@ -91,8 +93,10 @@ function portada() {
       <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12 12 20l-8-8V4h8z"/><circle cx="8" cy="8" r="1.5"/></svg></span><div><b>Costo</b><span>Sin costo</span></div></li>
       <li class="vi-dato-alerta"><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></span><div><b>Calzado</b><span>Prohibidos los tachones. Usa multitacos o tenis deportivos.</span></div></li>
     </ul>
-    ${cupo ? `<div class="vi-cupo"><div class="vi-cupo-cab"><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : 'Cupo lleno') : `Quedan ${quedan} de ${cupo} lugares`}</b><span>Cupo limitado</span></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.max(3, Math.round(ocupados / cupo * 100)))}%"></i></div></div>` : ''}
-    ${cerrado
+    ${cupo ? `<div class="vi-cupo"><div class="vi-cupo-cab"><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : enEspera() ? 'Cupo lleno · abrimos lista de espera' : 'Cupo lleno') : `Quedan ${quedan} de ${cupo} lugares`}</b><span>Cupo limitado</span></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.max(3, Math.round(ocupados / cupo * 100)))}%"></i></div></div>` : ''}
+    ${enEspera()
+      ? '<button type="button" class="vi-boton" data-empieza>Regístrate en la lista de espera</button><p class="vi-pie">Si alguien se da de baja, te sumamos y te avisamos por WhatsApp. Toma 2 minutos.</p>'
+      : cerrado
       ? `<a class="vi-boton" href="https://wa.me/${WHATSAPP_CLUB}?text=${encodeURIComponent('Hola, me interesa la visoría de Tannery City. ¿Me avisan si se abre un lugar?')}" target="_blank" rel="noopener">Avísame si se abre un lugar</a>`
       : info.signingOpen
         ? '<button type="button" class="vi-boton" data-empieza>Inscribir a mi hijo</button><p class="vi-pie">Toma 5 minutos: sus datos, salud, autorizaciones y tu firma. Ten a la mano una foto de tu hijo.</p>'
@@ -158,7 +162,7 @@ function pasoFamilia() {
     ${campo('viEmTel', 'Su teléfono', `type="tel" inputmode="tel" maxlength="16" placeholder="477 123 4567" value="${esc(em.telefono || '')}"`)}
     ${campo('viRecoge', '¿Quién más puede recogerlo? <em>opcional</em>', `maxlength="300" placeholder="Nombre y parentesco" value="${esc(datos.recoge || '')}"`)}
     <div id="viAviso" class="vi-aviso hidden" role="alert"></div>
-    <button type="button" class="vi-boton" data-aparta>${info.signingOpen ? 'Siguiente' : 'Apartar su lugar'}</button>
+    <button type="button" class="vi-boton" data-aparta>${textoAparta()}</button>
     <button type="button" class="vi-link" data-atras>Atrás</button></section>`);
 }
 function leeFamilia() {
@@ -207,6 +211,7 @@ async function aparta(btn) {
         await rpc('v2_public_attach_prospect_photo', { club_key: CLUB_KEY, prospect_id: resultado.id, photo_path: `${base}/profile.${f.ext}`, photo_thumb_path: thumb });
       } catch { resultado.sinFoto = true; }
     }
+    if (resultado.waitlist) return enListaDeEspera();
     if (resultado.token) {
       liga = resultado.token;
       history.replaceState(null, '', `${location.pathname}${location.search}#firmar=${liga}`);
@@ -216,8 +221,22 @@ async function aparta(btn) {
     if (firmaCtx?.consent && !firmaCtx.consent.outdated) return listo();
     if (firmaCtx?.signingOpen) { datos.firmante = { name: t.name, relationship: t.relationship, phone: t.phone, email: t.email }; return pasoSalud(); }
     return apartado();
-  } catch (e) { aviso(mensajeDeError(e)); btn.disabled = false; btn.textContent = info.signingOpen ? 'Siguiente' : 'Apartar su lugar'; }
+  } catch (e) { aviso(mensajeDeError(e)); btn.disabled = false; btn.textContent = textoAparta(); }
   finally { enviando = false; }
+}
+
+/* Lista de espera (h60, 03/11/2026). Presidencia: "si llega al límite...
+ * poner un link de regístrate... si alguien se da de baja, nosotros te
+ * sumamos... para no dejar ir esos leads". Cupo lleno no rechaza: registra. */
+function enListaDeEspera() {
+  paso = '';
+  const n = datos.nino, r = resultado || {};
+  pinta(`<section class="vi-pase"><div class="vi-pase-cab"><div class="vi-palomita" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
+    <h1>${esc(n.firstName)} está en la lista de espera</h1><p>Folio <b>${esc(r.folio || '')}</b></p></div>
+    <div class="vi-estado pendiente" role="status"><b>Si alguien se da de baja, te sumamos</b><span>Te avisamos por WhatsApp con tu liga personal para firmar el consentimiento. Por ahora no tienes que hacer nada más.</span></div>
+    <a class="vi-boton verde" href="https://wa.me/${WHATSAPP_CLUB}?text=${encodeURIComponent(`Hola, registré a ${n.firstName} ${n.lastName} en la lista de espera de la visoría (folio ${r.folio || ''}).`)}" target="_blank" rel="noopener">Escribir al club</a>
+    <button type="button" class="vi-link" data-comparte>Compartir con otra familia</button>
+    <footer class="vi-lema"><span>CURTIMOS CAMPEONES DEL MUNDO</span><b>#WeAreTanners</b></footer></section>`);
 }
 
 /* Ya estaba inscrito pero desde otro WhatsApp: no se le da la liga a quien
@@ -523,7 +542,7 @@ document.addEventListener('click', async e => {
   if (t.closest('[data-cierra]') || t.id === 'viFondo') return cierraDocumento();
   const doc = t.closest('[data-doc]'); if (doc) return documento(doc.dataset.doc);
   const des = t.closest('[data-descarga]'); if (des) return descargaDocumento(des.dataset.descarga);
-  if (t.closest('[data-empieza]')) { pasos = info.signingOpen ? ['nino', 'familia', 'salud', 'autoriza', 'firma'] : ['nino', 'familia']; return pasoNino(); }
+  if (t.closest('[data-empieza]')) { pasos = info.signingOpen && !enEspera() ? ['nino', 'familia', 'salud', 'autoriza', 'firma'] : ['nino', 'familia']; return pasoNino(); }
   if (t.closest('[data-a-firmar]')) { pasos = ['salud', 'autoriza', 'firma']; return pasoSalud(); }
   if (t.closest('[data-foto],[data-camara]')) return $('viCamara')?.click();
   if (t.closest('[data-galeria]')) return $('viGaleria')?.click();
@@ -566,7 +585,7 @@ document.addEventListener('click', async e => {
     pasePng = null; datos.nino = { sex: '', type: 'player', position: '', foot: '' }; datos.salud = {}; datos.decisiones = {}; foto = null;
     if (fotoUrl) URL.revokeObjectURL(fotoUrl); fotoUrl = ''; resultado = null; liga = ''; firmaCtx = null; llaveFirma = ''; leidos.clear();
     history.replaceState(null, '', `${location.pathname}${location.search}`);
-    await recarga(); if (!info.open) return portada(); pasos = info.signingOpen ? ['nino', 'familia', 'salud', 'autoriza', 'firma'] : ['nino', 'familia']; return pasoNino();
+    await recarga(); if (!info.open && !enEspera()) return portada(); pasos = info.signingOpen && !enEspera() ? ['nino', 'familia', 'salud', 'autoriza', 'firma'] : ['nino', 'familia']; return pasoNino();
   }
   if (t.closest('[data-comparte]')) {
     const url = `${location.origin}/visoria`, txt = `${info.title || 'Visoría'} de Tannery City · ${info.datesLabel || ''}. Sin costo, cupo limitado.`;

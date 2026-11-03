@@ -69,6 +69,7 @@ function tarjeta(x) {
     <div class="vs-acc">
       ${datos.canWrite ? `<button type="button" class="vs-llego${x.arrivedAt ? ' si' : ''}" data-llego>${x.arrivedAt ? 'Llegó' : 'Marcar llegada'}</button><button type="button" class="vs-evalua" data-evalua>Evaluar</button>` : ''}
       ${datos.canSeeContact ? '<button type="button" class="vs-ver" data-ver-mas>Ver datos y consentimiento</button>' : ''}
+      ${puedeEliminar(x) ? '<button type="button" class="vs-eliminar" data-elimina>Eliminar</button>' : ''}
     </div>
   </article>`;
 }
@@ -192,6 +193,7 @@ function verDatos(x) {
       ${x.imageConsent ? '<button type="button" class="vs-boton sec" data-quita-imagen>La familia retira el permiso de fotos</button>' : ''}
       ${k ? '<button type="button" class="vs-boton sec rojo" data-anula>Anular consentimiento</button>' : ''}
       ${datos.canWrite && datos.canSeeContact ? '<button type="button" class="vs-boton sec rojo" data-baja>Dar de baja (libera su lugar)</button>' : ''}
+      ${puedeEliminar(x) ? '<button type="button" class="vs-boton sec rojo" data-elimina>Eliminar</button>' : ''}
     </div>` : ''}
     ${wa ? `<a class="vs-guarda" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp a ${esc(x.guardian || 'la familia')}</a>` : ''}`;
   h.onclick = e => accionHoja(e, x);
@@ -228,6 +230,10 @@ async function accionHoja(e, x) {
     const motivo = prompt(`¿Por qué se da de baja ${x.firstName}? Libera su lugar; sus datos se quedan en la lista de bajas.`); if (!motivo || motivo.trim().length < 3) return;
     return corre(bj, () => rpc('v2_visoria_drop', { organization_id: ctx.organization_id, prospect_id: x.id, reason: motivo.trim() }), `${x.firstName} quedó de baja. Ya hay un lugar: suma a alguien de la lista de espera.`);
   }
+  /* Eliminar (h61): sólo para pruebas o duplicados; lo que tiene firma,
+   * salud, incidente o evaluación no se borra: se da de baja. */
+  const el = t.closest('[data-elimina]');
+  if (el) { cierraHoja(); return eliminar(x, el); }
   const al = t.closest('[data-alerta]');
   if (al) {
     let nota = null;
@@ -489,12 +495,30 @@ async function guardaEvaluacion() {
   } catch (e) { if (evalua) { evalua.guardando = false; pintaEvaluacion(); } aviso(e.message || 'No se pudo guardar la evaluación.'); }
 }
 
+/* Eliminar en un toque (03/11/2026). Presidencia: "que sea muchísimo más
+ * fácil borrarlo". Botón en la tarjeta; un solo aviso con el motivo ya
+ * escrito ("Registro de prueba"), se cambia si hace falta. Sólo quien
+ * administra y sólo si no ha firmado (lo firmado se da de baja). */
+const puedeEliminar = x => !!datos?.canAdmin && !x.signed && !x.access?.consentId;
+async function eliminar(x, btn) {
+  const motivo = prompt(`Eliminar a ${x.firstName} ${x.lastName}. No se puede deshacer.\n\nMotivo:`, 'Registro de prueba');
+  if (motivo === null) return;
+  if (motivo.trim().length < 3) { aviso('Escribe el motivo (3 letras o más).'); return; }
+  btn.disabled = true;
+  try {
+    await rpc('v2_visoria_delete', { organization_id: ctx.organization_id, prospect_id: x.id, reason: motivo.trim() });
+    datos.items = (datos.items || []).filter(i => i.id !== x.id); pinta();
+    aviso(`${x.firstName} se eliminó de la visoría.`, 'success');
+    carga().catch(() => {});
+  } catch (err) { btn.disabled = false; aviso(err.message || 'No se pudo eliminar.'); }
+}
 const niñoDe = el => (datos.items || []).find(i => i.id === el.closest('[data-id]')?.dataset.id);
 $('vsLista').addEventListener('click', e => {
   const x = niñoDe(e.target); if (!x) return;
   const ll = e.target.closest('[data-llego]'); if (ll) return marcaLlegada(x, ll);
   if (e.target.closest('[data-evalua]')) return abreEvaluacion(x);
   if (e.target.closest('[data-ver-mas]')) return verDatos(x);
+  const el = e.target.closest('[data-elimina]'); if (el) return eliminar(x, el);
 });
 $('vsAcceso').addEventListener('click', e => {
   const f = e.target.closest('[data-acceso]'); if (f) { verAcceso = f.dataset.acceso; return pintaAcceso(); }

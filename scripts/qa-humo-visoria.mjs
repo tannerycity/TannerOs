@@ -116,6 +116,7 @@ const CLIENTE = (modo) => `
       if(n==='v2_public_visoria_reserve')return ok(MODO==='espera'?{id:'p-espera',folio:'TC-2026-00051',existing:false,token:null,waitlist:true}:{id:'p-nuevo',folio:'TC-2026-00042',existing:false,token:'${TOKEN}'});
       if(n==='v2_visoria_waitlist_add')return ok({token:'${'c'.repeat(48)}',phone:'4775550001',guardian:'Laura Soto',firstName:'Iker'});
       if(n==='v2_visoria_drop')return ok({spotsLeft:29});
+      if(n==='v2_visoria_delete'){const i=ninos.findIndex(x=>x.id===p.prospect_id);if(i>=0)ninos.splice(i,1);return ok({deleted:true,folio:'TC-2026-00041'});}
       if(n==='v2_public_visoria_sign_context')return ok(contexto());
       if(n==='v2_public_visoria_sign'){ if(MODO==='version') return ok({error:'Document version changed'}); firmo=true; return ok({consentId:'k1',status:'pending_artifact',existing:false}); }
       if(n==='v2_public_visoria_media_revoke')return ok({imageConsent:false});
@@ -428,6 +429,15 @@ async function ninoYFamilia(pg) {
   await pg.waitForTimeout(300);
   const b1 = (await llamadas(pg, 'v2_visoria_drop'))[0] || {};
   revisa('15. Dar de baja pide motivo y libera el lugar', b1.prospect_id === 'v1' && b1.reason === 'Referencia de prueba QA' && /quedó de baja/.test(await pg.textContent('#vsMensaje')), JSON.stringify(b1));
+  // h61: eliminar en un toque desde la tarjeta, sólo sin firma; motivo ya escrito.
+  revisa('16. la tarjeta sin firma trae Eliminar; la firmada no', !!(await pg.$('.vs-carta[data-id="v2"] [data-elimina]')) && !(await pg.$('.vs-carta[data-id="v1"] [data-elimina]')));
+  await pg.evaluate(() => { window.__prompts = []; window.prompt = (m, d) => { window.__prompts.push({ m, d }); return d; }; });
+  await pg.click('.vs-carta[data-id="v2"] [data-elimina]');
+  await pg.waitForTimeout(300);
+  const e1 = (await llamadas(pg, 'v2_visoria_delete'))[0] || {};
+  const pr = await pg.evaluate(() => window.__prompts[0] || {});
+  revisa('16. un solo aviso con el motivo ya escrito y elimina', pr.d === 'Registro de prueba' && /No se puede deshacer/.test(pr.m) && e1.prospect_id === 'v2' && e1.reason === 'Registro de prueba', JSON.stringify({ pr, e1 }));
+  revisa('16. desaparece de la lista y avisa', !(await pg.$('.vs-carta[data-id="v2"]')) && /se eliminó/.test(await pg.textContent('#vsMensaje')));
   revisa('sin errores de página (staff)', !errs.length, errs.join(' | '));
   await pg.close();
 }

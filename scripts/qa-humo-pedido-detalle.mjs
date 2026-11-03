@@ -59,10 +59,17 @@ const detalle = id => {
     payments: id === 'o-nuevo' ? [{ id:'pay1', amount:1450, status:'posted', paymentDate:'2026-10-25', method:'transfer', payerType:'guardian', payerName:'Ana' }] : [],
     readiness: id === 'o-nuevo' ? { ok:false, missing:['número sin confirmar'], paidPercent:100, effectivePaymentRequirementPercent:100 } : { ok:true, missing:[], paidPercent:100 },
     items: id === 'o-nuevo'
-      ? [{ id:'i1', description:'Jersey "Wet Blue" - Home Edition', quantity:1, unitPrice:1250, attributes:{ talla:'10', manga:'larga', nombrePers:'LEO', numero:'7' } },
+      ? [{ id:'i1', productId:'p-home', description:'Jersey "Wet Blue" - Home Edition', quantity:1, unitPrice:1250, attributes:{ talla:'10', manga:'larga', nombrePers:'LEO', numero:'7' } },
          { id:'i2', description:'Par de calcetas', quantity:1, unitPrice:200, attributes:{ talla:'Universal' } }]
       : [{ id:'i3', description:'Hoodie', quantity:1, unitPrice:699, attributes:{ talla:'L' } }] };
 };
+
+// La foto de cada prenda (02/11/2026): del catálogo, por producto o por nombre.
+const CATALOGO = { products:[
+  { id:'p-home', name:'Jersey Wet Blue', photoThumbPath:'productos/home-mini.jpg', photoPath:'productos/home.jpg', photoBucket:'tanneros-private' },
+  { id:'p-calceta', name:'Par de calcetas', photoThumbPath:null, photoPath:'productos/calcetas.jpg', photoBucket:'tanneros-private' },
+  { id:'p-away', name:'Jersey Away', photoThumbPath:null, photoPath:null, photoBucket:null }], bundles:[] };
+const GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 const SHELL = `
   export const supabase = { auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}),
@@ -92,9 +99,12 @@ const CLIENTE = (pagoFalla, puedeCorregir = true) => `
   window.open=(u)=>{window.__abiertas.push(u);return null;};
   let revisados=new Set(),asignados=new Set(),ligado=null;
   const TAB=${JSON.stringify(TABLERO)};
+  window.__firmas=[];
   export function createClient(){return{
     auth:{getSession:async()=>({data:{session:{user:{id:'u1'},access_token:'x'}}}),
       onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+    storage:{from:b=>({createSignedUrls:async ps=>{window.__firmas.push({b,ps});return{data:ps.map(p=>({path:p,signedUrl:'${GIF}'})),error:null};},
+      createSignedUrl:async p=>({data:{signedUrl:'${GIF}'},error:null})})},
     rpc:async(n,p={})=>{
       window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});
       const ok=d=>({data:d,error:null});
@@ -106,6 +116,7 @@ const CLIENTE = (pagoFalla, puedeCorregir = true) => `
       if(n==='v2_club_config')return ok({name:'Tannery City FC',whatsapp:'524792651338',paymentInstructions:${JSON.stringify({ transfer:PAGO.transfer, methods:PAGO.methods })}});
       if(n==='v2_orders')return ok(PEDIDOS);
       if(n==='v2_orders_board')return ok(TAB);
+      if(n==='v2_catalog')return ok(${JSON.stringify(CATALOGO)});
       if(n==='v2_order_staff')return ok([{userId:'u-zul',name:'Zul'},{userId:'u-mich',name:'Mich'}]);
       if(n==='v2_set_order_item_sleeve'){for(const t of Object.values(TAB))for(const i of t.items)if(i.id===p.order_item_id)i.manga=p.manga;return ok({manga:p.manga});}
       if(n==='v2_set_order_attendant'){TAB[p.order_id].attendedBy=p.user_id;TAB[p.order_id].attendedManual=!!p.user_id;return ok({});}
@@ -162,6 +173,15 @@ const texto = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' '
   await pg.waitForSelector('#drawer:not(.hidden)', { timeout:5000 });
   await pg.waitForTimeout(300);
   if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/pedido-detalle.png`, fullPage:false });
+  await pg.waitForSelector('#orderResumen .t-pieza-foto img', { timeout:4000 }).catch(() => {});
+  await pg.waitForTimeout(200);
+  const fotos = await pg.$$eval('#orderResumen .t-pieza-foto', es => es.map(e => `${e.dataset.fotoItem}:${e.querySelector('img') ? 'foto' : e.querySelector('svg') ? 'icono' : '-'}`));
+  revisa('6. cada pieza trae la foto del catálogo (por producto o por nombre); sin foto, el ícono', JSON.stringify(fotos) === JSON.stringify(['i1:foto','i2:icono','i3:foto']), JSON.stringify(fotos));
+  const firmas = await pg.evaluate(() => window.__firmas);
+  revisa('6. firma la miniatura cuando existe y la foto grande si no hay miniatura, de una vez', firmas.length === 1 && JSON.stringify([...firmas[0].ps].sort()) === JSON.stringify(['productos/calcetas.jpg','productos/home-mini.jpg']), JSON.stringify(firmas));
+  const caja = await pg.$eval('#orderResumen .t-pieza-foto', e => { const r = e.getBoundingClientRect(); return { w:Math.round(r.width), h:Math.round(r.height) }; });
+  const lado = Number(process.env.ANCHO || 390) <= 520 ? 60 : 72;
+  revisa(`6. la foto se ve (cuadro de ${lado} px)`, caja.w === lado && caja.h === lado, JSON.stringify(caja));
   revisa('1. ya no está "Ver producción, negocio y estado"', (await pg.$$('#toggleFullDetail')).length === 0 && !(await pg.evaluate(() => document.getElementById('masDetalles').open)));
   const listo = await texto(pg, '#readinessBox');
   revisa('2. arriba dice qué falta en palabras', /Antes de mandarlo al proveedor/.test(listo) && /Confirma el número con la familia/.test(listo), listo);
@@ -216,4 +236,4 @@ const texto = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' '
 }
 await nav.close(); srv.close();
 if (fallos) { console.error(`Detalle del pedido humo: ${fallos} de ${corridas} fallaron`); process.exit(1); }
-console.log(`Detalle del pedido humo OK · ${corridas} revisiones: qué falta arriba, número confirmado, WhatsApp al proveedor y No está pagado`);
+console.log(`Detalle del pedido humo OK · ${corridas} revisiones: qué falta arriba, número confirmado, WhatsApp al proveedor y No está pagado y la foto de cada prenda`);

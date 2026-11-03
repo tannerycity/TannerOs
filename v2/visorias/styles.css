@@ -141,3 +141,15 @@
   .vs-lista{grid-template-columns:1fr}
   .vs-hoja{left:0;right:0;top:auto;bottom:0;transform:none;width:auto;max-height:92dvh;border-radius:22px 22px 0 0;padding:14px 16px calc(env(safe-area-inset-bottom) + 18px)}
 }
+
+/* Lista de espera y bajas (h60, 03/11/2026). */
+.vs-espera{margin-top:22px;display:grid;gap:8px}
+.vs-espera h2{margin:10px 0 0;font-size:18px;color:#07191e}
+.vs-espera h2 i{font-style:normal;font-size:13px;padding:2px 9px;border-radius:999px;background:#fff3d9;color:#8a5a00;vertical-align:2px}
+.vs-espera .vs-sub{margin:0}
+.vs-espera-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.vs-espera-lista li{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:#fff;box-shadow:0 0 0 1px rgba(7,25,30,.06);border-left:5px solid #e0a43a}
+.vs-espera-lista.baja li{border-left-color:#9aa8ab}
+.vs-espera-lista li div{display:grid;gap:2px;min-width:0}
+.vs-espera-lista li small{color:#5d6f73}
+.vs-espera-lista button:disabled{opacity:.5;cursor:not-allowed}

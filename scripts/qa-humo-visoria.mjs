@@ -116,6 +116,7 @@ const CLIENTE = (modo) => `
       if(n==='v2_public_visoria_reserve')return ok(MODO==='espera'?{id:'p-espera',folio:'TC-2026-00051',existing:false,token:null,waitlist:true}:{id:'p-nuevo',folio:'TC-2026-00042',existing:false,token:'${TOKEN}'});
       if(n==='v2_visoria_waitlist_add')return ok({token:'${'c'.repeat(48)}',phone:'4775550001',guardian:'Laura Soto',firstName:'Iker'});
       if(n==='v2_visoria_drop')return ok({spotsLeft:29});
+      if(n==='v2_visoria_delete')return ok({deleted:true,folio:'TC-2026-00041'});
       if(n==='v2_public_visoria_sign_context')return ok(contexto());
       if(n==='v2_public_visoria_sign'){ if(MODO==='version') return ok({error:'Document version changed'}); firmo=true; return ok({consentId:'k1',status:'pending_artifact',existing:false}); }
       if(n==='v2_public_visoria_media_revoke')return ok({imageConsent:false});
@@ -428,6 +429,18 @@ async function ninoYFamilia(pg) {
   await pg.waitForTimeout(300);
   const b1 = (await llamadas(pg, 'v2_visoria_drop'))[0] || {};
   revisa('15. Dar de baja pide motivo y libera el lugar', b1.prospect_id === 'v1' && b1.reason === 'Referencia de prueba QA' && /quedó de baja/.test(await pg.textContent('#vsMensaje')), JSON.stringify(b1));
+  // h61: eliminar (pruebas o errores) sólo sin consentimiento; con firma, no aparece.
+  await pg.click('.vs-carta[data-id="v2"] [data-ver-mas]');
+  await pg.waitForSelector('#vsHoja [data-elimina]', { timeout:3000 }).catch(() => {});
+  revisa('16. sin consentimiento se puede eliminar', !!(await pg.$('#vsHoja [data-elimina]')));
+  await pg.click('#vsHoja [data-elimina]');
+  await pg.waitForTimeout(300);
+  const e1 = (await llamadas(pg, 'v2_visoria_delete'))[0] || {};
+  revisa('16. eliminar manda el motivo y avisa', e1.prospect_id === 'v2' && e1.reason === 'Referencia de prueba QA' && /se eliminó/.test(await pg.textContent('#vsMensaje')), JSON.stringify(e1));
+  await pg.click('.vs-carta[data-id="v1"] [data-ver-mas]');
+  await pg.waitForSelector('#vsHoja [data-baja]', { timeout:3000 });
+  revisa('16. con consentimiento firmado no aparece Eliminar (sólo baja)', !(await pg.$('#vsHoja [data-elimina]')));
+  await pg.click('#vsHoja [data-cierra]');
   revisa('sin errores de página (staff)', !errs.length, errs.join(' | '));
   await pg.close();
 }

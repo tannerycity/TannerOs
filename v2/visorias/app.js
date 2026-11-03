@@ -192,6 +192,7 @@ function verDatos(x) {
       ${x.imageConsent ? '<button type="button" class="vs-boton sec" data-quita-imagen>La familia retira el permiso de fotos</button>' : ''}
       ${k ? '<button type="button" class="vs-boton sec rojo" data-anula>Anular consentimiento</button>' : ''}
       ${datos.canWrite && datos.canSeeContact ? '<button type="button" class="vs-boton sec rojo" data-baja>Dar de baja (libera su lugar)</button>' : ''}
+      ${datos.canAdmin && !k ? '<button type="button" class="vs-boton sec rojo" data-elimina>Eliminar registro (pruebas o errores)</button>' : ''}
     </div>` : ''}
     ${wa ? `<a class="vs-guarda" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp a ${esc(x.guardian || 'la familia')}</a>` : ''}`;
   h.onclick = e => accionHoja(e, x);
@@ -227,6 +228,14 @@ async function accionHoja(e, x) {
   if (bj) {
     const motivo = prompt(`¿Por qué se da de baja ${x.firstName}? Libera su lugar; sus datos se quedan en la lista de bajas.`); if (!motivo || motivo.trim().length < 3) return;
     return corre(bj, () => rpc('v2_visoria_drop', { organization_id: ctx.organization_id, prospect_id: x.id, reason: motivo.trim() }), `${x.firstName} quedó de baja. Ya hay un lugar: suma a alguien de la lista de espera.`);
+  }
+  /* Eliminar (h61): sólo para pruebas o duplicados; lo que tiene firma,
+   * salud, incidente o evaluación no se borra: se da de baja. */
+  const el = t.closest('[data-elimina]');
+  if (el) {
+    const motivo = prompt(`¿Por qué se elimina ${x.firstName}? (Ej. "registro de prueba", "duplicado de TC-…")`); if (!motivo || motivo.trim().length < 3) return;
+    if (!confirm(`¿Eliminar a ${x.firstName} ${x.lastName}? Se borra el registro y no se puede deshacer. Si sólo ya no va, mejor dalo de baja.`)) return;
+    return corre(el, () => rpc('v2_visoria_delete', { organization_id: ctx.organization_id, prospect_id: x.id, reason: motivo.trim() }), `${x.firstName} se eliminó de la visoría.`);
   }
   const al = t.closest('[data-alerta]');
   if (al) {

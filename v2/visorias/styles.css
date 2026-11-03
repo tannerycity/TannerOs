@@ -28,27 +28,8 @@
 .vs-seg button{min-height:38px;padding:0 14px;border:0;border-radius:10px;background:transparent;color:#3c4e52;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .vs-seg button[aria-pressed="true"]{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
 #vsBusca{flex:1 1 220px;min-height:44px;padding:0 14px;border:0;border-radius:12px;background:#eceff0;font:inherit;font-size:15px}
-.vs-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
-.vs-carta{display:grid;grid-template-columns:76px 1fr;gap:12px;padding:14px;border-radius:18px;background:#fff;box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.05)}
-.vs-carta.llego{box-shadow:0 0 0 2px #169b4b}
-.vs-foto{width:76px;height:76px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#1c4a52;color:#fff;font-weight:800;font-size:22px}
-.vs-foto img{width:100%;height:100%;object-fit:cover}
-.vs-info{display:grid;gap:2px;min-width:0}
-.vs-info b{font-size:16.5px;color:#07191e}
-.vs-info span{font-size:14px;color:#3c4e52}
-.vs-info small{font-size:12.5px;color:#7a8a8e}
-.vs-etiquetas{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
-.vs-etiquetas em{font-style:normal;font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px}
-.vs-etiquetas .ok{background:#e8f8ee;color:#128c4a}
-.vs-etiquetas .falta{background:#fdeeec;color:#a92a21}
-.vs-etiquetas .eval{background:#ebf2fd;color:#1f5fbf}
-.vs-acc{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.vs-acc button{min-height:46px;border:0;border-radius:13px;font:inherit;font-size:15px;font-weight:800;cursor:pointer}
-.vs-llego{background:#eef2f1;color:#07191e}
-.vs-llego.si{background:#169b4b;color:#fff}
-.vs-evalua{background:#07191e;color:#fff}
-.vs-ver{grid-column:1/-1;background:transparent!important;color:#1f5fbf;min-height:36px!important}
-.vs-acc:has(.vs-ver:only-child) .vs-ver{grid-column:1/-1}
+.vs-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,350px),1fr));gap:14px}
+
 .vs-vacio{padding:30px 10px;text-align:center;color:#6b7c80}
 .vs-fondo{position:fixed;inset:0;z-index:300;background:rgba(7,25,30,.42)}
 .vs-hoja{position:fixed;z-index:310;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,94vw);max-height:90dvh;overflow:auto;display:grid;gap:12px;padding:16px 20px 20px;border-radius:22px;background:#fff;box-shadow:0 30px 80px rgba(7,25,30,.3)}
@@ -153,4 +134,58 @@
 .vs-espera-lista li div{display:grid;gap:2px;min-width:0}
 .vs-espera-lista li small{color:#5d6f73}
 .vs-espera-lista button:disabled{opacity:.5;cursor:not-allowed}
-.vs-eliminar{grid-column:1/-1;background:transparent!important;color:#a92a21!important;min-height:36px!important;font-weight:700}
+
+/* La tarjeta del niño, estilo credencial (03/11/2026). */
+@font-face{font-family:'Barlow Condensed';font-weight:800;src:url('/fonts/barlow-condensed-800.woff2') format('woff2');font-display:swap}
+.vs-carta{--noche:#07191e;--noche2:#123540;--oro:#c8ae62;--oro-claro:#e9d19c;--crema:#fbf8f1;
+  display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:var(--crema);
+  box-shadow:0 1px 2px rgba(7,25,30,.08),0 10px 28px -14px rgba(7,25,30,.35),0 0 0 1px rgba(7,25,30,.06);transition:transform .15s ease,box-shadow .15s ease}
+.vs-carta:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(7,25,30,.08),0 16px 34px -14px rgba(7,25,30,.4),0 0 0 1px rgba(7,25,30,.06)}
+.vs-carta.llego{box-shadow:0 0 0 3px #169b4b,0 10px 28px -14px rgba(7,25,30,.35)}
+.vs-carta-cab{position:relative;display:grid;grid-template-columns:84px 1fr;gap:14px;align-items:center;padding:18px 16px 16px;
+  background:radial-gradient(130% 140% at 0% 0%,var(--noche2),var(--noche) 70%);color:#fff;
+  border-bottom:3px solid var(--oro)}
+.vs-carta-cab::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 2px,transparent 2px 14px)}
+.vs-foto{position:relative;z-index:1;width:84px;height:84px;border-radius:50%;overflow:hidden;display:grid;place-items:center;
+  background:#1c4a52;color:var(--oro-claro);font-family:'Barlow Condensed',Inter,sans-serif;font-weight:800;font-size:30px;
+  box-shadow:0 0 0 3px var(--oro),0 0 0 6px rgba(200,174,98,.25)}
+.vs-foto img{width:100%;height:100%;object-fit:cover}
+.vs-cab-txt{position:relative;z-index:1;display:grid;gap:0;min-width:0;padding-right:4px}
+.vs-folio{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--oro-claro)}
+.vs-nombre{font-family:'Barlow Condensed',Inter,sans-serif;font-weight:800;font-size:30px;line-height:1;text-transform:uppercase;letter-spacing:.01em;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vs-apellido{font-size:14.5px;font-weight:600;color:#cfdcdf;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vs-estado{position:relative;z-index:1;grid-column:1/-1;margin:2px 0 0}
+.vs-mini{display:grid;grid-template-columns:repeat(4,1fr);margin:0;border-bottom:1px solid #ece5d2;background:#fff}
+.vs-mini div{padding:11px 8px 10px;text-align:center;min-width:0}
+.vs-mini div+div{border-left:1px solid #ece5d2}
+.vs-mini dt{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9a8650}
+.vs-mini dd{margin:2px 0 0;font-family:'Barlow Condensed',Inter,sans-serif;font-weight:800;font-size:19px;line-height:1.1;color:var(--noche);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vs-pie-carta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 16px 0}
+.vs-escuela{font-size:13px;color:#5c6a63}
+.vs-pie-carta .vs-etiquetas{margin:0}
+.vs-acc{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px 0}
+.vs-acc:empty{display:none}
+.vs-acc button{min-height:46px;border:0;border-radius:13px;font:inherit;font-size:15px;font-weight:800;cursor:pointer}
+.vs-llego{background:#efeadb;color:var(--noche)}
+.vs-llego.si{background:#169b4b;color:#fff}
+.vs-evalua{background:var(--noche);color:#fff}
+.vs-links{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px 8px;margin-top:auto}
+.vs-links button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 10px;border:0;border-radius:10px;background:transparent;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.vs-links svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.vs-ver{color:#1f5fbf}
+.vs-ver:hover{background:#eef3fc}
+.vs-eliminar{color:#a92a21;margin-left:auto}
+.vs-eliminar:hover{background:#fdeeec}
+.vs-links button:focus-visible,.vs-acc button:focus-visible{outline:3px solid var(--oro);outline-offset:2px}
+@media (max-width:420px){.vs-nombre{font-size:26px}.vs-mini dd{font-size:17px}.vs-carta-cab{grid-template-columns:72px 1fr}.vs-foto{width:72px;height:72px}}
+@media (prefers-reduced-motion:reduce){.vs-carta{transition:none}.vs-carta:hover{transform:none}}
+.vs-etiquetas{display:flex;flex-wrap:wrap;gap:4px}
+.vs-etiquetas em{font-style:normal;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:#eef2f1;color:#3c4e52}
+.vs-etiquetas .ok,.vs-etiquetas .acc-ok{background:#e8f8ee;color:#128c4a}
+.vs-etiquetas .falta,.vs-etiquetas .acc-falta{background:#fdeeec;color:#a92a21}
+.vs-etiquetas .acc-aviso{background:#fbf3df;color:#8a5a00}
+.vs-etiquetas .eval{background:#ebf2fd;color:#1f5fbf}
+.vs-estado em{box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+.vs-mini dd{font-size:18px}
+.vs-links button{white-space:nowrap}

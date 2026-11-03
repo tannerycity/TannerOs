@@ -54,23 +54,37 @@ function pintaCampana() {
     ${n ? `<div class="vs-desglose"><div><b>Por año</b>${anios.map(a => `<span>${a.anio} · ${a.n}</span>`).join('')}</div><div><b>Llegaron por</b>${canales.map(a => `<span>${esc(a.canal)} · ${a.n}</span>`).join('')}</div></div>` : ''}`;
 }
 
+/* La tarjeta del niño (03/11/2026). Presidencia: "que se vea una tarjeta
+ * así bien chida... como las tenemos": el estilo de la credencial del club.
+ * Cabecera azul noche con la foto en aro dorado, el nombre en Barlow y el
+ * folio; abajo, sus datos en celdas y los botones de siempre. */
+const ICO_DOC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>';
+const ICO_BOTE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
 function tarjeta(x) {
   const e = edad(x.birthDate), foto = fotos[x.photoThumbPath] || fotos[x.photoPath];
-  const pos = x.type === 'goalkeeper' ? 'Portero' : (x.position || 'Jugador');
+  const pos = x.type === 'goalkeeper' ? 'Portero' : (x.position && x.position !== 'No sé' ? x.position : 'Jugador');
+  const anio = String(x.birthDate || '').slice(0, 4);
+  const celda = (t, v) => `<div><dt>${t}</dt><dd>${esc(v || '—')}</dd></div>`;
+  const extras = `${x.photoPath ? '' : '<em class="falta">Sin foto</em>'}${x.evaluations ? `<em class="eval">${esc(x.verdict || `${x.evaluations} evaluación`)}</em>` : ''}${x.arrivedAt ? `<em class="ok">Llegó ${esc(hora(x.arrivedAt))}</em>` : ''}`;
   return `<article class="vs-carta${x.arrivedAt ? ' llego' : ''}" data-id="${esc(x.id)}">
-    <div class="vs-foto">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : `<span>${esc(iniciales(x))}</span>`}</div>
-    <div class="vs-info">
-      <b>${esc(`${x.firstName} ${x.lastName}`)}</b>
-      <span>${e !== null ? `${e} años · ` : ''}${esc(String(x.birthDate || '').slice(0, 4))}${x.category ? ` · ${esc(x.category)}` : ''}</span>
-      <span>${esc(pos)} · pierna ${esc((PIERNA[x.foot] || '—').toLowerCase())}</span>
-      <small>${esc(x.folio || '')}${x.school ? ` · ${esc(x.school)}` : ''}</small>
-      <div class="vs-etiquetas">${chip(x)}${x.photoPath ? '' : '<em class="falta">Sin foto</em>'}${x.evaluations ? `<em class="eval">${esc(x.verdict || `${x.evaluations} evaluación`)}</em>` : ''}${x.arrivedAt ? `<em class="ok">Llegó ${esc(hora(x.arrivedAt))}</em>` : ''}</div>
-    </div>
+    <header class="vs-carta-cab">
+      <div class="vs-foto">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : `<span>${esc(iniciales(x))}</span>`}</div>
+      <div class="vs-cab-txt">
+        <small class="vs-folio">${esc(x.folio || 'VISORÍA')}</small>
+        <b class="vs-nombre">${esc(x.firstName || '')}</b>
+        <span class="vs-apellido">${esc(x.lastName || '')}</span>
+      </div>
+      <div class="vs-etiquetas vs-estado">${chip(x)}</div>
+    </header>
+    <dl class="vs-mini">${celda('Edad', e !== null ? `${e} años` : '')}${celda(x.category ? 'Categoría' : 'Año', x.category || anio)}${celda('Posición', pos)}${celda('Pierna', PIERNA[x.foot])}</dl>
+    ${x.school || extras ? `<div class="vs-pie-carta">${x.school ? `<span class="vs-escuela">${esc(x.school)}</span>` : ''}<span class="vs-etiquetas">${extras}</span></div>` : ''}
     <div class="vs-acc">
       ${datos.canWrite ? `<button type="button" class="vs-llego${x.arrivedAt ? ' si' : ''}" data-llego>${x.arrivedAt ? 'Llegó' : 'Marcar llegada'}</button><button type="button" class="vs-evalua" data-evalua>Evaluar</button>` : ''}
-      ${datos.canSeeContact ? '<button type="button" class="vs-ver" data-ver-mas>Ver datos y consentimiento</button>' : ''}
-      ${puedeEliminar(x) ? '<button type="button" class="vs-eliminar" data-elimina>Eliminar</button>' : ''}
     </div>
+    ${datos.canSeeContact || puedeEliminar(x) ? `<div class="vs-links">
+      ${datos.canSeeContact ? `<button type="button" class="vs-ver" data-ver-mas>${ICO_DOC}Datos y consentimiento</button>` : ''}
+      ${puedeEliminar(x) ? `<button type="button" class="vs-eliminar" data-elimina aria-label="Eliminar a ${esc(x.firstName || '')}">${ICO_BOTE}Eliminar</button>` : ''}
+    </div>` : ''}
   </article>`;
 }
 

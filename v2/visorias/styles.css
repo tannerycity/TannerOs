@@ -153,3 +153,4 @@
 .vs-espera-lista li div{display:grid;gap:2px;min-width:0}
 .vs-espera-lista li small{color:#5d6f73}
 .vs-espera-lista button:disabled{opacity:.5;cursor:not-allowed}
+.vs-eliminar{grid-column:1/-1;background:transparent!important;color:#a92a21!important;min-height:36px!important;font-weight:700}

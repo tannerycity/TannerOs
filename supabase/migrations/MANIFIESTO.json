@@ -3,6 +3,6 @@
   "bytes": 3569581,
   "huella": "eac1bb4aa66720b22b1810882f889ddd",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261103020000_h61_visoria_eliminar_registro.sql",
+  "ultima": "20261103014657_h61_visoria_eliminar_registro.sql",
   "verificadoContraLaBase": "2026-11-03"
 }

@@ -143,7 +143,10 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
   revisa('3. Entregar es el paso 5', e1.etq === 'Entregar' && e1.puntos === 'hecho,hecho,hecho,hecho,aqui', JSON.stringify(e1));
   revisa('4. Cobrar con 10 días se marca atrasado', /Atrasado · 10 días/.test(c1.tarde), JSON.stringify(c1));
   revisa('4. Cobrar con 2 días no', !(await fila(pg, 'c2')).tarde);
-  revisa('4. con el proveedor desde hace 20 días se marca atrasado', /Atrasado · 20 días/.test((await fila(pg, 'p1')).tarde));
+  // Los días se cuentan desde el mediodía de la fecha del envío (como la pantalla):
+  // a ciertas horas "hace 20 días" son 19 cumplidos. Se compara con la misma regla.
+  const dias20 = Math.floor((Date.now() - new Date(`${dia(20)}T12:00:00`).getTime()) / 864e5);
+  revisa('4. con el proveedor desde hace 20 días se marca atrasado', new RegExp(`Atrasado · ${dias20} días`).test((await fila(pg, 'p1')).tarde) && dias20 > 14, `${dias20} · ${(await fila(pg, 'p1')).tarde}`);
   revisa('4. sin fecha de envío no se marca (mejor callar que asustar)', !(await fila(pg, 'p2')).tarde);
   revisa('4. llegó hace 5 días y no se ha entregado: atrasado', /Atrasado · 5 días/.test(e1.tarde), JSON.stringify(e1));
   revisa('4. Revisar y Mandar no se marcan', !(await fila(pg, 'r1')).tarde && !(await fila(pg, 'm1')).tarde);

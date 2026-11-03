@@ -4,6 +4,7 @@ import { mensajeConfirmacion, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { abreVentas } from '/v2/pedidos/ventas.js';
 import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
 import { hojaPdf, nombreDelPdf, compartePdf, cargaFotos } from '/v2/produccion/pdf.js';
+import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,orders=[],envios=[],garantias=[],canPagar=false,current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();
 /* Pedidos que llegaron por el link o el portal y nadie ha confirmado todavía
@@ -277,13 +278,47 @@ async function pintaResumen(){
   const opciones=(staffDelClub||[]).map(s=>`<option value="${esc(s.userId)}" ${s.userId===t.attendedBy?'selected':''}>${esc(s.name)}</option>`).join('');
   const piezas=items.map(i=>{const jersey=esJersey(i.description);const m=i.manga;
     const control=jersey?(editable&&tienePagos()?`<span class="t-manga-fija"><em class="t-manga ${m==='larga'?'larga':m?'':'falta'}">${m?`Manga ${esc(m)}`:'Manga sin definir'}</em><button type="button" class="t-link" data-manga-item="${esc(i.id)}" data-m="${m==='larga'?'corta':'larga'}">Cambiar</button></span>`:editable?`<div class="t-seg mini" role="group" aria-label="Manga">${['corta','larga'].map(v=>`<button type="button" data-manga-item="${esc(i.id)}" data-m="${v}" class="${m===v?'activo':''}" aria-pressed="${m===v}">${v==='larga'?'Larga':'Corta'}</button>`).join('')}</div>`:`<em class="t-manga ${m==='larga'?'larga':m?'':'falta'}">${m?`Manga ${esc(m)}`:'Manga sin definir'}</em>`):'';
-    return `<li><div><b>${esc(i.description||'Pieza')}</b><span>${esc([i.talla?`Talla ${i.talla}`:null,i.nombre,i.numero?`#${i.numero}`:null].filter(Boolean).join(' · ')||'Sin variante')}</span>${i.obs?`<small class="t-obs">${esc(i.obs)}</small>`:''}</div>${control}</li>`;}).join('');
+    return `<li><span class="t-pieza-foto" data-foto-item="${esc(i.id)}" aria-hidden="true">${itemThumb(i)}</span><div><b>${esc(i.description||'Pieza')}</b><span>${esc([i.talla?`Talla ${i.talla}`:null,i.nombre,i.numero?`#${i.numero}`:null].filter(Boolean).join(' · ')||'Sin variante')}</span>${i.obs?`<small class="t-obs">${esc(i.obs)}</small>`:''}</div>${control}</li>`;}).join('');
   box.innerHTML=`<div class="t-res-quien"><span class="t-avatar grande" aria-hidden="true">${esc(iniciales(quien))}</span><div><strong>${esc(quien)}</strong><span>${t.playerName?`Pidió ${esc(d.customer_name||'—')}`:'Sin jugador ligado'}${t.playerCategory?` · ${esc(t.playerCategory)}`:''}</span></div></div>
     <dl class="t-res-datos"><div><dt>Cómo llegó</dt><dd>${esc(ORIGEN[t.source]||'—')}</dd></div><div><dt>Atendió</dt><dd>${canWrite?`<select id="tAtendio" aria-label="Quién del club atendió"><option value="">${t.attendedName&&!t.attendedManual?`${esc(t.attendedName)} (automático)`:'Nadie todavía'}</option>${opciones}</select>`:esc(t.attendedName||'—')}</dd></div></dl>
     ${t.notes?`<p class="t-nota"><b>Nota del pedido</b>${esc(t.notes)}</p>`:''}
     ${piezas?`<ul class="t-res-piezas">${piezas}</ul>`:''}
     ${barraNumero(d)}`;
   if(canWrite){const sel=$('tAtendio');if(sel&&t.attendedManual)sel.value=t.attendedBy||'';}
+  pintaFotosDePiezas(box,d.id);
+}
+/* La foto de cada prenda en el pedido (02/11/2026). Zul: "que tenga las
+   imágenes de lo que pidieron para que esté más visible". La foto es la del
+   catálogo (la misma que ve la familia al comprar); la pieza se liga por su
+   producto y, si se capturó suelta, por el nombre. Sin foto queda el ícono. */
+let fotosCatalogo=null;
+async function catalogoConFotos(){
+  if(fotosCatalogo)return fotosCatalogo;
+  const porId=new Map(),porNombre=new Map();
+  try{const d=await rpc('v2_catalog',{organization_id:ctx.organization_id});
+    (d?.products||[]).forEach(p=>{const path=p.photoThumbPath||p.photoPath;if(!path)return;const f={bucket:p.photoBucket||'tanneros-private',path,nombre:p.name||''};porId.set(String(p.id),f);if(p.name)porNombre.set(normaNombre(p.name),f);});
+  }catch{/* sin catálogo: se quedan los íconos */}
+  fotosCatalogo={porId,porNombre};return fotosCatalogo;
+}
+const normaNombre=v=>String(v||'').normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+function fotoDePieza(cat,item,detalle){
+  const pid=detalle?.productId;if(pid&&cat.porId.has(String(pid)))return cat.porId.get(String(pid));
+  const n=normaNombre(item.description);if(!n)return null;if(cat.porNombre.has(n))return cat.porNombre.get(n);
+  // "Jersey Black Edition · paquete" empieza con el nombre del producto: gana el nombre más largo.
+  let mejor=null;for(const [k,f] of cat.porNombre)if(k&&n.startsWith(k)&&(!mejor||k.length>mejor.k.length))mejor={k,f};
+  return mejor?.f||null;
+}
+async function pintaFotosDePiezas(box,orderId){
+  const cajas=[...box.querySelectorAll('[data-foto-item]')];if(!cajas.length)return;
+  const cat=await catalogoConFotos();if(current?.order?.id!==orderId)return;
+  const items=tablero[orderId]?.items||[],detalle=new Map((current?.items||[]).map(i=>[String(i.id),i]));
+  const porBucket=new Map();
+  cajas.forEach(el=>{const it=items.find(i=>String(i.id)===el.dataset.fotoItem);const f=it&&fotoDePieza(cat,it,detalle.get(String(it.id)));if(!f)return;el.dataset.path=f.path;el.dataset.bucket=f.bucket;const l=porBucket.get(f.bucket)||[];l.push(f.path);porBucket.set(f.bucket,l);});
+  for(const [bucket,paths] of porBucket){
+    let urls={};try{urls=await getSignedPhotoUrls(supabase,bucket,paths);}catch{continue;}
+    if(current?.order?.id!==orderId)return;
+    cajas.filter(el=>el.dataset.bucket===bucket&&urls[el.dataset.path]).forEach(el=>{const img=new Image();img.alt='';img.decoding='async';img.onload=()=>{el.textContent='';el.append(img);el.classList.add('con-foto');};img.src=urls[el.dataset.path];});
+  }
 }
 /* Pedido con pagos (22/10/2026): ya no se cambia de un toque. "Que deba
    ponerse en editar y que diga por qué se cambió": se edita con motivo y

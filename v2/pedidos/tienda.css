@@ -439,3 +439,16 @@
 .t-puntos i.aqui{background:#07191e;box-shadow:0 0 0 2px #fff,0 0 0 3.5px #07191e}
 .t-tarde{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:800;color:#a92a21}
 .t-tarde svg{width:14px;height:14px;flex:none}
+
+/* Confirmado con la familia y Por pedir (h59, 03/11/2026). */
+.pres-backdrop.conf-fondo{position:fixed;inset:0;z-index:9995;background:rgba(7,25,30,.42)}
+.pres-sheet.envio-hoja.conf-hoja{z-index:9996}
+.conf-ayuda{margin:0;font-size:14px;color:#3c4e52}
+.conf-piezas{margin:0;padding:10px 12px;border-radius:14px;background:#f6f8f8}
+.conf-pago{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13.5px;color:#3c4e52}
+.conf-como{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.conf-como .envio-btn{min-height:56px}
+@media (max-width:420px){.conf-como{grid-template-columns:1fr}}
+.t-chips li.debe{background:#fdeeec;color:#a92a21}
+.t-falta-conf{display:block;width:100%;margin:10px 0 0;padding:10px 12px;border:1px dashed #e0a43a;border-radius:12px;background:#fff8ea;color:#8a5a00;font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
+.t-borrador{margin-top:12px}

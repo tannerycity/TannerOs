@@ -132,7 +132,7 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
   revisa('1. el botón Todos trae la cuenta de vivos (sin entregados ni cancelados)', /^Todos 7\b/.test(tv) && /Por paso/.test(tv), tv);
   revisa('1. en Todos no está el diagrama de pasos ni la tarjeta del paso', !(await pg.$('#tSeg .t-pasos')) && !(await pg.isVisible('#tEtapa')));
   const g = await grupos(pg);
-  revisa('2. grupos en el orden del flujo con su cuenta', JSON.stringify(g) === JSON.stringify(['Revisar=1','Cobrar=2','Mandar=1','Recibir=2','Entregar=1']), JSON.stringify(g));
+  revisa('2. grupos en el orden del flujo con su cuenta', JSON.stringify(g) === JSON.stringify(['Revisar=1','Cobrar=2','Por pedir=1','Recibir=2','Entregar=1']), JSON.stringify(g));
   const todos = await ids(pg);
   revisa('2. cada pedido vivo aparece una vez y ninguno se pierde', todos.length === 7 && new Set(todos).size === 7, JSON.stringify(todos));
   revisa('5. cancelados, reembolsados y entregados no estorban en Vivos', !todos.some(i => ['x1','x2','d1'].includes(i)));
@@ -201,7 +201,7 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
   await pg.click('#tVista [data-vista="pasos"]');
   await pg.waitForTimeout(200);
   const pasos = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
-  revisa('6. Por paso no cambia: el diagrama de cinco verbos con su cuenta', JSON.stringify(pasos) === JSON.stringify(['Revisar=1','Cobrar=2','Mandar=1','Recibir=2','Entregar=1']), JSON.stringify(pasos));
+  revisa('6. Por paso no cambia: el diagrama de cinco verbos con su cuenta', JSON.stringify(pasos) === JSON.stringify(['Revisar=1','Cobrar=2','Por pedir=1','Recibir=2','Entregar=1']), JSON.stringify(pasos));
   revisa('6. y abre en el paso que pide algo', await pg.$eval('#tSeg .t-paso.activo b', b => b.textContent) === 'Revisar');
   revisa('6. en Por paso no se pintan grupos ni etiquetas de Todos', !(await pg.$('.t-grupo-caja')) && !(await pg.$('.t-donde')));
   revisa('sin errores de página (Operaciones)', !errs.length, errs.join(' | '));

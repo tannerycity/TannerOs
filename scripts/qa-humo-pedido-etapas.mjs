@@ -198,7 +198,7 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   await pg.waitForSelector('#tSeg button', { timeout:8000 });
   await pg.waitForTimeout(400);
   const pasos = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
-  revisa('1. el flujo es un diagrama de cinco verbos con su cuenta', JSON.stringify(pasos) === JSON.stringify(['Revisar=0','Cobrar=0','Mandar=1','Recibir=1','Entregar=1']), JSON.stringify(pasos));
+  revisa('1. el flujo es un diagrama de cinco verbos con su cuenta', JSON.stringify(pasos) === JSON.stringify(['Revisar=0','Cobrar=0','Por pedir=1','Recibir=1','Entregar=1']), JSON.stringify(pasos));
   const mas = await pg.$$eval('#tSeg .t-cards-mas button', bs => bs.map(b => b.textContent.replace(/\s+/g, ' ').trim()));
   revisa('1. Entregados y Todos aparte', JSON.stringify(mas) === JSON.stringify(['Entregados 0','Todos 3']), JSON.stringify(mas));
   revisa('1. abre en el paso que pide algo', (await pg.inputValue('#statusFilter')) === '@para_proveedor' && await pg.isVisible('#tSeg [data-f="@para_proveedor"].activo'));
@@ -273,7 +273,7 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   await pg.waitForSelector('#tSeg .t-paso', { timeout:8000 });
   await pg.waitForTimeout(400);
   const pasos = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
-  revisa('6. la garantía abierta cuenta en Mandar y la lista en Entregar', JSON.stringify(pasos) === JSON.stringify(['Revisar=0','Cobrar=0','Mandar=2','Recibir=1','Entregar=2']), JSON.stringify(pasos));
+  revisa('6. la garantía abierta cuenta en Mandar y la lista en Entregar', JSON.stringify(pasos) === JSON.stringify(['Revisar=0','Cobrar=0','Por pedir=2','Recibir=1','Entregar=2']), JSON.stringify(pasos));
   const mandar = (await pg.textContent('#tEtapa')).replace(/\s+/g, ' ');
   revisa('6. Mandar dice que va la reposición', /Va 1 reposición por garantía/.test(mandar) && /G-0001 · Número mal impreso/.test(mandar), mandar);
   await pg.fill('#heroProv', 'Tremor');

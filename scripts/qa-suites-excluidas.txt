@@ -94,3 +94,4 @@ qa-humo-medicion.mjs
 qa-humo-pedidos-todos.mjs
 qa-humo-banner-www.mjs
 qa-humo-metricas.mjs
+qa-humo-por-pedir.mjs

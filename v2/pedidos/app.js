@@ -990,9 +990,9 @@ function kitPieceRow(i,d){
   const a=i.attributes||{},editable=canManage&&['draft','pending_payment','partial_payment','paid'].includes(d.status);
   const talla=a.talla||a.size||'',nombre=a.nombrePers||a.personalizationName||'',numero=a.numero||a.number||'';
   const chips=[itemChip('Talla',talla),itemChip('Manga',textoMangaCorto(a.manga)),itemChip('Nombre',nombre),itemChip('Número',numero)].filter(Boolean).join('');
-  const complete=itemComplete(i);
+  const complete=itemComplete(i),lineTotal=Number(i.quantity||0)*Number(i.unitPrice||0);
   return `<div class="kit-piece" data-item-id="${esc(i.id)}">
-    <div class="kit-piece-head"><span>${esc(i.description)}</span><span class="item-badge ${complete?'ok':'warn'}">${complete?'Completo':'Falta info'}</span></div>
+    <div class="kit-piece-head"><span>${esc(i.description)}</span><b class="kit-piece-price">${money.format(lineTotal)}</b><span class="item-badge ${complete?'ok':'warn'}">${complete?'Completo':'Falta info'}</span></div>
     <div class="item-chips">${chips||'<span class="item-chip muted">Sin variante capturada</span>'}</div>
     ${editable?`<div class="item-editor"><label>Talla / medida<input class="item-size" value="${esc(talla)}" maxlength="40"></label><label>Nombre<input class="item-name" value="${esc(nombre)}" maxlength="80" placeholder="Si aplica"></label><label>Número<input class="item-number" value="${esc(numero)}" maxlength="4" inputmode="numeric" placeholder="Si aplica"></label><label>Observación<input class="item-note" value="${esc(a.obs||'')}" maxlength="200"></label><button class="secondary save-item" type="button">Guardar pieza</button></div>`:''}
   </div>`;

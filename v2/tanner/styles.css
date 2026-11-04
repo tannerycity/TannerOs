@@ -177,3 +177,61 @@ button.tan-btn{font:inherit;font-weight:600;font-size:14px;cursor:pointer}
 .tan-pill{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--tos-line,#dedbd0);background:#fff;font-size:12.5px;font-weight:700;color:#0d2730;text-decoration:none}
 .tan-pill[data-kind="wa"]{background:#25D366;border-color:#25D366;color:#fff}
 .tan-tel{white-space:nowrap}
+
+/* ===== Estilo Ajustes del iPhone (04/11/2026) =====
+   Presidencia: "todo esto estilo Apple... ahorita los botones están como
+   aventados". Arriba la cifra y dos botones; lo demás son renglones
+   agrupados con ícono, texto, valor y flecha. */
+.tan-balance{padding:0;overflow:hidden}
+.tan-balance-top{padding:20px 22px 18px}
+.tan-balance .tan-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.tan-balance .tan-actions .tan-btn{min-height:50px;border-radius:14px;font-size:15px}
+.tan-balance>.tan-lista{border-top:1px solid #eceae2;border-radius:0;box-shadow:none;background:#fbfcfb}
+
+.tan-grupo{margin-top:22px}
+.tan-grupo-tit{margin:0 0 7px 16px;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#7b8a8f}
+.tan-grupo-pie{margin:7px 16px 0;font-size:12.5px;line-height:1.4;color:#8b979c}
+.tan-grupo-pie a{color:#087d8e;font-weight:600;text-decoration:none}
+.tan-lista{background:#fff;border:1px solid var(--tos-line,#dedbd0);border-radius:16px;overflow:hidden}
+.tan-fila{box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;margin:0;border:0;background:transparent;font:inherit;text-align:left;color:#0d2730;text-decoration:none;position:relative}
+.tan-fila+.tan-fila::before{content:"";position:absolute;top:0;left:58px;right:0;height:1px;background:#eceae2}
+button.tan-fila,a.tan-fila{cursor:pointer;transition:background .12s ease}
+button.tan-fila:hover,a.tan-fila:hover{background:#f5f7f6}
+button.tan-fila:active,a.tan-fila:active{background:#eceff0}
+button.tan-fila:disabled{opacity:.55}
+.tan-fila-ico{flex:0 0 30px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;background:#8e9aa0}
+.tan-fila-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tan-fila-ico[data-tono="azul"]{background:#0a84ff}
+.tan-fila-ico[data-tono="verde"]{background:#30b45a}
+.tan-fila-ico[data-tono="naranja"]{background:#ff9500}
+.tan-fila-ico[data-tono="rojo"]{background:#ff3b30}
+.tan-fila-ico[data-tono="morado"]{background:#af52de}
+.tan-fila-txt{flex:1;min-width:0}
+.tan-fila-txt strong{display:block;font-size:15px;font-weight:600;line-height:1.25;letter-spacing:-.01em}
+.tan-fila-txt small{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:#7b8a8f}
+.tan-fila-valor{flex:0 0 auto;font-size:15px;color:#5c6f74;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tan-fila-valor[data-vacio]{color:#a3aeb2}
+.tan-fila[data-cuota] .tan-fila-valor{color:#0d2730;font-weight:600}
+.tan-fila-flecha{flex:0 0 auto;font-size:22px;line-height:1;color:#c3cacc;margin-left:-4px}
+.tan-fila[data-alerta] .tan-fila-txt small{color:#b4443a;font-weight:600}
+.tan-fila .tan-contacto-acciones{flex:0 0 auto}
+
+.tan-grid{align-items:start;margin-top:22px;row-gap:22px}
+.tan-grid>.tan-grupo{margin-top:0}
+.tan-grid:empty{display:none}
+.tan-grid+.tan-section,.tan-grid+.tan-acuerdo{margin-top:22px}
+
+/* Hoja de la mensualidad: lo de hoy, grande. */
+.pres-cuota{display:flex;align-items:baseline;justify-content:space-between;padding:12px 14px;border-radius:14px;background:#f4f6f5}
+.pres-cuota span{font-size:13px;font-weight:600;color:#6f7d82}
+.pres-cuota b{font-size:22px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#0d2730}
+
+@media(max-width:760px){
+  .tan-balance-top{padding:17px 18px 16px}
+  .tan-grid{gap:0}
+  .tan-grid>.tan-grupo+.tan-grupo{margin-top:22px}
+  .tan-fila .tan-contacto-acciones .tan-pill{padding:0 10px}
+}
+/* Los renglones viven dentro de la tarjeta de saldo: no heredan la cifra. */
+.tan-balance .tan-fila-txt strong{font-size:15px;line-height:1.25;margin-top:0;letter-spacing:-.01em;color:#0d2730;font-variant-numeric:normal}
+.tan-balance .tan-fila-txt small{margin-top:2px;font-size:12.5px;color:#7b8a8f}

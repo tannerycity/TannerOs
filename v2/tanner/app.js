@@ -74,19 +74,21 @@ function balanceBlock(data){
     ? `${(s.by_type||[]).length} concepto${(s.by_type||[]).length===1?'':'s'}${s.oldest_due?` · el más antiguo desde ${fmtDate(s.oldest_due)}`:''}`
     : aFavor>0?'Pagado por adelantado, se aplicará al próximo cargo':'Todo al corriente';
 
-  const acciones=[];
-  // Se cobra aquí mismo, sin ir a Taquilla: la hoja propone todo lo que debe
-  // y se quita o se agrega lo que de verdad paga (inscripción, arbitraje...).
-  if(puedeCobrar())acciones.push(`<button type="button" class="tan-btn" data-kind="pay" data-cobrar="${saldo>0?'todo':''}">${saldo>0?`Cobrar ${money.format(saldo)}`:'Cobrar'}</button>`);
-  // WhatsApp (mensajes listos) y Acuerdo de pago: ver cobranza.js.
-  acciones.push(...cobranza.acciones());
+  // Arriba sólo lo que se hace todos los días: cobrar y escribirle a la
+  // familia. Lo demás va en renglones, como Ajustes del iPhone (04/11/2026).
+  const op=cobranza.opciones();
+  const principales=[];
+  if(puedeCobrar())principales.push(`<button type="button" class="tan-btn" data-kind="pay" data-cobrar="${saldo>0?'todo':''}">${saldo>0?`Cobrar ${money.format(saldo)}`:'Cobrar'}</button>`);
+  if(op.whatsapp)principales.push('<button type="button" class="tan-btn" data-kind="wa" data-wa-menu>WhatsApp</button>');
+  const filas=[];
+  if(op.acuerdo)filas.push(fila({icono:'calendar',tono:'azul',titulo:'Acuerdo de pago',sub:'Pagos en partes con fechas',attrs:'data-acuerdo="nuevo"'}));
   if(data.canAdjust){
-    if(saldo>0)acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="ajustar">Ajustar saldo</button>`);
-    acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="cargo">Agregar cargo</button>`);
-    if(saldo>0&&aFavor>0)acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-pres="favor">Aplicar ${money.format(aFavor)} a favor</button>`);
+    if(saldo>0)filas.push(fila({icono:'settings',tono:'naranja',titulo:'Ajustar saldo',sub:'Descuento, condonación o corrección',attrs:'data-pres="ajustar"'}));
+    filas.push(fila({icono:'plus',tono:'morado',titulo:'Agregar cargo',sub:'Torneo, uniforme, viaje…',attrs:'data-pres="cargo"'}));
+    if(saldo>0&&aFavor>0)filas.push(fila({icono:'wallet',tono:'verde',titulo:`Aplicar ${money.format(aFavor)} a favor`,sub:'A sus cargos, del más antiguo',attrs:'data-pres="favor"'}));
   }
-  acciones.push(`<button type="button" class="tan-btn" data-kind="ghost" data-enviar-edo>Enviar estado de cuenta</button>`);
-  if(can('jugadores'))acciones.push(`<a class="tan-btn" data-kind="ghost" href="/jugadores/?player=${encodeURIComponent(p.id)}">Ver ficha</a>`);
+  filas.push(fila({icono:'book',tono:'gris',titulo:'Enviar estado de cuenta',sub:'PDF para la familia',attrs:'data-enviar-edo'}));
+  if(can('jugadores'))filas.push(fila({icono:'users',tono:'gris',titulo:'Ver ficha completa',sub:'Datos, fotos y documentos',href:`/jugadores/?player=${encodeURIComponent(p.id)}`}));
 
   // Explica de dónde sale un saldo que parece no cuadrar tras un cobro.
   const notas=[];
@@ -94,7 +96,7 @@ function balanceBlock(data){
   if(retenido>0)notas.push({t:`${money.format(retenido)} de crédito retenido`,d:'Pago migrado que requiere conciliación manual antes de aplicarse.'});
   const notasHtml=notas.map(n=>`<div class="tan-note"><span class="tan-dot" style="background:#d9e9ec;color:#0c5163">${shellIcon('wallet')}</span><span><strong>${esc(n.t)}</strong><span>${esc(n.d)}</span></span></div>`).join('');
 
-  return `<section class="tan-balance" data-state="${state}"><span>${titulo}</span><strong>${cifra}</strong><small>${esc(sub)}</small>${partes?`<div class="tan-split">${partes}</div>`:''}${acciones.length?`<div class="tan-actions">${acciones.join('')}</div>`:''}${notasHtml}</section>`;
+  return `<section class="tan-balance" data-state="${state}"><div class="tan-balance-top"><span>${titulo}</span><strong>${cifra}</strong><small>${esc(sub)}</small>${partes?`<div class="tan-split">${partes}</div>`:''}${principales.length?`<div class="tan-actions">${principales.join('')}</div>`:''}${notasHtml}</div>${filas.length?`<div class="tan-lista">${filas.join('')}</div>`:''}</section>`;
 }
 
 // Un saldo corriente negativo es dinero a favor del Tanner, no un número roto.
@@ -330,43 +332,102 @@ function docsBlock(data){
   const docs=data.documents||[];
   if(!docs.length)return '';
   const ok=docs.filter(d=>d.received).length;
-  const rows=docs.map(d=>`<div class="tan-row"><span><strong>${esc(docLabel(d.type))}</strong>${d.received&&d.received_at?`<small>Entregado ${esc(fmtDate(d.received_at))}</small>`:''}</span><span class="tan-state" data-ok="${d.received?1:0}">${d.received?'Entregado':'Pendiente'}</span></div>`).join('');
-  return `<section class="tan-section"><div class="tan-section-head"><h2>Documentos</h2><span>${ok} de ${docs.length}</span></div><div class="tan-rows">${rows}</div></section>`;
+  const filas=docs.map(d=>fila({icono:d.received?'check':'list',tono:d.received?'verde':'gris',titulo:docLabel(d.type),
+    sub:d.received&&d.received_at?`Entregado ${fmtDate(d.received_at)}`:'',accion:false,
+    extra:`<span class="tan-state" data-ok="${d.received?1:0}">${d.received?'Entregado':'Pendiente'}</span>`}));
+  return grupo(`Documentos · ${ok} de ${docs.length}`,filas);
 }
 
-function extrasBlock(data){
-  const p=data.player||{},rows=[];
-  if(p.base_monthly_fee!=null)rows.push({t:'Cuota mensual',d:money.format(Number(p.base_monthly_fee||0))});
+/* ===== Renglones estilo Ajustes del iPhone (04/11/2026) =====
+   Presidencia: "siento que ahorita todos los botones están así como
+   aventados... que lleve un flujito". Cada cosa es un renglón: ícono, qué es,
+   una línea que explica, y a la derecha el valor o la flecha. */
+// Un teléfono no se parte en dos renglones.
+const nb=t=>String(t||'').replace(/ /g,'\u00a0');
+const flecha='<span class="tan-fila-flecha" aria-hidden="true">›</span>';
+function fila({icono,tono='gris',titulo,sub='',valor='',attrs='',href='',accion=true,extra='',vacio=false}){
+  const cuerpo=`<span class="tan-fila-ico" data-tono="${tono}">${shellIcon(icono)}</span><span class="tan-fila-txt"><strong>${esc(titulo)}</strong>${sub?`<small>${esc(sub)}</small>`:''}</span>${valor?`<span class="tan-fila-valor"${vacio?' data-vacio':''}>${esc(valor)}</span>`:''}${extra}${accion&&!extra?flecha:''}`;
+  if(href)return `<a class="tan-fila" href="${esc(href)}" ${attrs}>${cuerpo}</a>`;
+  if(accion&&!extra)return `<button type="button" class="tan-fila" ${attrs}>${cuerpo}</button>`;
+  return `<div class="tan-fila" ${attrs}>${cuerpo}</div>`;
+}
+function grupo(titulo,filas,{pie='',clase=''}={}){
+  if(!filas.length)return '';
+  return `<section class="tan-grupo ${clase}"><h2 class="tan-grupo-tit">${esc(titulo)}</h2><div class="tan-lista">${filas.join('')}</div>${pie?`<p class="tan-grupo-pie">${pie}</p>`:''}</section>`;
+}
+const esPresidencia=()=>ctx.role==='Presidencia'||!!ctx.is_owner;
+const fichaUrl=()=>`/jugadores/?player=${encodeURIComponent(playerId)}`;
+
+// Qué tiene contratado: su cuota (se ajusta aquí mismo), academias y apoyos.
+function planesBlock(data){
+  const p=data.player||{},filas=[];
+  if(p.base_monthly_fee!=null||p.is_exempt){
+    const cuota=p.is_exempt?'Exento':`${money.format(Number(p.base_monthly_fee||0))}/mes`;
+    const sub=p.billing_day?`Se carga el día ${p.billing_day} de cada mes`:'Cuota mensual del club';
+    filas.push(esPresidencia()
+      ?fila({icono:'wallet',tono:'azul',titulo:'Mensualidad',sub,valor:cuota,attrs:'data-cuota'})
+      :fila({icono:'wallet',tono:'azul',titulo:'Mensualidad',sub,valor:cuota,accion:false}));
+  }
+  // Academias: las vigentes primero; una que ya terminó dice hasta cuándo.
+  (data.academies||[]).slice().sort((x,y)=>(x.status==='active'?0:1)-(y.status==='active'?0:1)).forEach(a=>{
+    const vigente=a.status==='active'&&!(a.ends_on&&String(a.ends_on).slice(0,10)<new Date().toISOString().slice(0,10));
+    filas.push(fila({icono:'academy',tono:vigente?'morado':'gris',titulo:vigente?'Academia':'Academia (terminó)',
+      sub:vigente?(a.starts_on?`Desde ${fmtDate(a.starts_on)}`:''):(a.ends_on?`Hasta ${fmtDate(a.ends_on)}`:'Ya no está inscrito'),
+      valor:`${money.format(Number(a.fee||0))}/mes`,accion:false}));
+  });
   (p.benefits||[]).forEach(b=>{
     const cubre=b.percentage?`${b.percentage}%`:b.fixed!=null?money.format(Number(b.fixed)):'';
-    rows.push({t:b.source||b.label||'Apoyo',d:[cubre,'de apoyo'].filter(Boolean).join(' ')});
+    filas.push(fila({icono:'star',tono:'verde',titulo:b.source||b.label||'Beca o apoyo',sub:'Beca o apoyo',valor:cubre?`−${cubre}`:'',accion:false}));
   });
-  (data.academies||[]).forEach(a=>rows.push({t:'Academia',d:`${money.format(Number(a.fee||0))} · desde ${fmtDate(a.starts_on)}`}));
   (data.orders||[]).forEach(o=>{
     const falta=Number(o.total||0)-Number(o.paid||0);
-    rows.push({t:`Pedido ${o.folio||''}`.trim(),d:`${money.format(Number(o.total||0))} · ${falta>0?`faltan ${money.format(falta)}`:'pagado'}`});
+    filas.push(fila({icono:'bag',tono:'naranja',titulo:`Pedido ${o.folio||''}`.trim(),sub:falta>0?`Faltan ${money.format(falta)}`:'Pagado',valor:money.format(Number(o.total||0)),accion:false}));
   });
-  (data.other_payments||[]).forEach(x=>rows.push({t:x.concept||'Otro pago',d:`${money.format(Number(x.amount||0))} · ${fmtDate(x.date)}`}));
-  if(!rows.length&&!(p.guardians||[]).length)return '';
-  const html=rows.map(r=>`<div class="tan-row"><span><strong>${esc(r.t)}</strong></span><span class="tan-state">${esc(r.d)}</span></div>`).join('')
-    // El contacto se lee como lo dice la gente ("Tutor · 477 919 8191") y se
-    // usa con un toque: WhatsApp o llamar.
-    +(p.guardians||[]).map(g=>{
-      const tel=telefonoWa(g.phone);
-      const quien=[relacion(g.relationship),g.primary?'principal':''].filter(Boolean).join(' · '),fono=telefonoBonito(g.phone);
-      const sub=[quien&&esc(quien),fono&&`<span class="tan-tel">${esc(fono)}</span>`].filter(Boolean).join(' · ');
-      return `<div class="tan-row tan-contacto"><span><strong>${esc(g.name||'Tutor')}</strong>${sub?`<small>${sub}</small>`:''}</span>${tel?`<span class="tan-contacto-acciones"><a class="tan-pill" data-kind="wa" href="https://wa.me/${esc(tel)}" target="_blank" rel="noopener" aria-label="WhatsApp a ${esc(g.name||'tutor')}">WhatsApp</a><a class="tan-pill" href="tel:+${esc(tel)}" aria-label="Llamar a ${esc(g.name||'tutor')}">Llamar</a></span>`:'<span class="tan-state">Sin teléfono</span>'}</div>`;
-    }).join('');
-  return `<section class="tan-section"><div class="tan-section-head"><h2>Cuota, apoyos y contacto</h2></div><div class="tan-rows">${html}</div></section>`;
+  (data.other_payments||[]).forEach(x=>filas.push(fila({icono:'moneyIn',tono:'gris',titulo:x.concept||'Otro pago',sub:fmtDate(x.date),valor:money.format(Number(x.amount||0)),accion:false})));
+  if(!filas.length)return '';
+  const pie=can('jugadores')?`Academias, becas y apoyos se cambian en la <a href="${esc(fichaUrl())}">ficha</a>.`:'';
+  return grupo('Planes',filas,{pie});
+}
+
+// Salud: lo que el coach necesita a la mano en una emergencia. Viene de la
+// ficha (v2_player_profile, permiso de Jugadores); sin permiso, no se enseña.
+let perfil=null;
+function saludBlock(){
+  const j=perfil?.player;if(!j)return '';
+  const tel=telefonoWa(j.emergencyContactPhone);
+  const llamar=tel?`<span class="tan-contacto-acciones"><a class="tan-pill" data-kind="wa" href="https://wa.me/${esc(tel)}" target="_blank" rel="noopener" aria-label="WhatsApp al contacto de emergencia">WhatsApp</a><a class="tan-pill" href="tel:+${esc(tel)}" aria-label="Llamar al contacto de emergencia">Llamar</a></span>`:'';
+  const alergias=String(j.allergies||'').trim();
+  const filas=[
+    fila({icono:'shield',tono:'rojo',titulo:'Tipo de sangre',valor:j.bloodType||'Sin capturar',vacio:!j.bloodType,accion:false}),
+    fila({icono:'bug',tono:'naranja',titulo:'Alergias y condiciones',sub:alergias||'',valor:alergias?'':'Ninguna registrada',vacio:!alergias,accion:false,attrs:alergias?'data-alerta':''}),
+    fila({icono:'users',tono:'verde',titulo:j.emergencyContactName||'Contacto de emergencia',sub:j.emergencyContactName?['Emergencia',nb(telefonoBonito(j.emergencyContactPhone))].filter(Boolean).join(' · '):'Sin capturar',accion:false,extra:llamar})
+  ];
+  return grupo('Salud',filas,{pie:can('jugadores',true)?`¿Algo cambió? <a href="${esc(fichaUrl())}">Edítalo en la ficha</a>.`:''});
+}
+
+// Familia: el tutor se lee como lo dice la gente ("Tutor · 477 919 8191") y
+// se usa con un toque: WhatsApp o llamar.
+function familiaBlock(data){
+  const gs=data.player?.guardians||[];
+  const filas=gs.map(g=>{
+    const tel=telefonoWa(g.phone);
+    const quien=[relacion(g.relationship),g.primary?'principal':''].filter(Boolean).join(' · '),fono=telefonoBonito(g.phone);
+    const acciones=tel?`<span class="tan-contacto-acciones"><a class="tan-pill" data-kind="wa" href="https://wa.me/${esc(tel)}" target="_blank" rel="noopener" aria-label="WhatsApp a ${esc(g.name||'tutor')}">WhatsApp</a><a class="tan-pill" href="tel:+${esc(tel)}" aria-label="Llamar a ${esc(g.name||'tutor')}">Llamar</a></span>`:'<span class="tan-fila-valor" data-vacio>Sin teléfono</span>';
+    return fila({icono:'userCog',tono:'azul',titulo:g.name||'Tutor',sub:[quien,nb(fono)].filter(Boolean).join(' · '),accion:false,extra:acciones,attrs:'data-contacto'}).replace('class="tan-fila"','class="tan-fila tan-contacto"');
+  });
+  return grupo('Familia',filas);
 }
 
 async function render(){
   if(!playerId){$('tannerBody').innerHTML='<div class="tos-empty">Falta indicar el Tanner.</div>';return;}
   let data;
   try{
-    [data,cobro]=await Promise.all([
+    [data,cobro,perfil]=await Promise.all([
       rpc('v2_player_account_statement',{organization_id:ctx.organization_id,player_id:playerId}),
-      rpc('v2_player_collection',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null)
+      rpc('v2_player_collection',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null),
+      // Salud sale de la ficha: sólo quien puede ver Jugadores. Si falla, la
+      // cuenta se ve igual, sin esa sección.
+      can('jugadores')?rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null):null
     ]);
   }catch(error){
     console.warn('estado de cuenta',error);
@@ -383,7 +444,9 @@ async function render(){
   // Se pinta sin foto y la foto entra después: la URL firmada no debe retrasar
   // el dato, que es a lo que la persona vino.
   const paint=url=>{
-    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${cobranza.acuerdoBlock()}${monthsBlock(data)}${cobranza.seguimientoBlock()}${ledgerBlock(data)}${cambiosBlock()}<div class="tan-grid">${docsBlock(data)}${extrasBlock(data)}</div>`;
+    // Orden (04/11/2026): cuenta, lo que tiene contratado, salud y familia;
+    // después el detalle (meses, seguimiento, movimientos, documentos).
+    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${cobranza.acuerdoBlock()}<div class="tan-grid">${planesBlock(data)}${saludBlock()}${familiaBlock(data)}</div>${monthsBlock(data)}${cobranza.seguimientoBlock()}${ledgerBlock(data)}${cambiosBlock()}${docsBlock(data)}`;
   };
   paint('');
   cargaCambios(paint,p);
@@ -465,6 +528,15 @@ function pintarHoja(){
     html=cab('Corregir pago',`${fmtDate(pago.date)} · ${money.format(Math.abs(Number(pago.amount||0)))}`)+`<form id="presForm" class="pres-form">
       <p class="pres-nota">El pago se revierte y lo que cubría vuelve a quedar pendiente. Sale de la caja del día. Si el dinero sí entró pero se capturó mal, vuelve a registrarlo bien en Taquilla.</p>
       ${motivo}${err}${boton('Revertir este pago')}</form>`;
+  }else if(hoja.tipo==='cuota'){
+    const pl=ultimo?.player||{},actual=Number(pl.base_monthly_fee||0);
+    const nueva=hoja.monto??actual;
+    html=cab('Ajustar mensualidad',nombre)+`<form id="presForm" class="pres-form">
+      <div class="pres-cuota"><span>Hoy paga</span><b>${pl.is_exempt?'Exento':money.format(actual)}</b></div>
+      <label>Nueva mensualidad<input id="presMonto" type="number" inputmode="decimal" min="0" step="1" value="${esc(String(nueva))}"></label>
+      <p class="pres-nota">Cuenta desde la próxima mensualidad. Lo que ya se cargó no cambia: para eso usa <b>Ajustar saldo</b>. Queda como su cuota personal, ya no la de su categoría.</p>
+      <label>¿Por qué paga esto?<textarea id="presMotivo" rows="2" maxlength="300" placeholder="Ej. Hermanos: 10% de descuento acordado con Presidencia">${esc(hoja.motivo||'')}</textarea></label>
+      ${err}${boton('Guardar mensualidad')}</form>`;
   }else if(hoja.tipo==='favor'){
     const favor=Number(ultimo?.summary?.credit_available||0);
     html=cab('Aplicar saldo a favor',nombre)+`<form id="presForm" class="pres-form">
@@ -489,7 +561,9 @@ const ERRORES={
   'Adjustment exceeds outstanding balance':'No se puede quitar más de lo que se debe de ese cargo.',
   'Adjustment reason required':'Escribe el motivo (al menos 5 letras).',
   'Charge has no outstanding balance':'Ese cargo ya no tiene saldo pendiente.',
-  'Amount must be greater than zero':'El monto debe ser mayor a cero.'
+  'Amount must be greater than zero':'El monto debe ser mayor a cero.',
+  'Not authorized':'Sólo Presidencia puede cambiar la mensualidad.',
+  'Billing profile not found':'Este Tanner todavía no tiene cuota registrada. Dale de alta su cuota en Taquilla.'
 };
 const amable=e=>{const m=String(e?.message||e||'');return ERRORES[m]||m.replace(/^.*?:\s*/,'')||'No se pudo guardar. Intenta de nuevo.';};
 async function enviarHoja(ev){
@@ -499,6 +573,8 @@ async function enviarHoja(ev){
   hoja.error='';
   if(hoja.tipo!=='favor'&&motivo.length<5){hoja.error='Escribe el motivo (al menos 5 letras): queda en el registro.';pintarHoja();return;}
   if((hoja.tipo==='ajustar'||hoja.tipo==='cargo')&&!(monto>0)){hoja.error='Escribe un monto mayor a cero.';pintarHoja();return;}
+  if(hoja.tipo==='cuota'&&!(String(hoja.monto??'').trim()!==''&&monto>=0)){hoja.error='Escribe la nueva mensualidad (puede ser 0).';pintarHoja();return;}
+  if(hoja.tipo==='cuota'&&monto===Number(ultimo?.player?.base_monthly_fee||0)&&!ultimo?.player?.is_exempt){hoja.error='Es la misma mensualidad que ya tiene.';pintarHoja();return;}
   if(hoja.tipo==='cargo'&&String(hoja.concepto||'').trim().length<3){hoja.error='Escribe el concepto del cargo.';pintarHoja();return;}
   hoja.enviando=true;pintarHoja();
   const org=ctx.organization_id;let aviso='';
@@ -512,6 +588,10 @@ async function enviarHoja(ev){
     }else if(hoja.tipo==='corregir'){
       await rpc('v2_correct_tanner_payment',{organization_id:org,payment_id:hoja.payment,reason:motivo});
       aviso='Pago revertido. Lo que cubría volvió a quedar pendiente.';
+    }else if(hoja.tipo==='cuota'){
+      // La nota es el "por qué paga lo que paga" que también ve Taquilla.
+      await rpc('v2_set_player_fee_note',{organization_id:org,player_id:playerId,note:motivo,monthly_fee:monto});
+      aviso=`Mensualidad guardada: ${money.format(monto)} al mes.`;
     }else if(hoja.tipo==='favor'){
       const aplicado=await rpc('v2_apply_player_credit',{organization_id:org,player_id:playerId});
       aviso=Number(aplicado)>0?`Se aplicaron ${money.format(Number(aplicado))} del saldo a favor.`:'No había cargos donde aplicar el saldo a favor.';
@@ -533,6 +613,10 @@ document.addEventListener('click',e=>{
   else if(t==='cargo')abrirHoja('cargo');
   else if(t==='corregir')abrirHoja('corregir',{payment:b.dataset.payment});
   else if(t==='favor')abrirHoja('favor');
+});
+document.addEventListener('click',e=>{
+  if(!e.target.closest?.('[data-cuota]')||!ultimo||!esPresidencia())return;
+  abrirHoja('cuota');
 });
 
 await render();

@@ -18,6 +18,11 @@
  *     historial de cambios; sin hoja de compartir, abre WhatsApp con resumen;
  *   · Finanzas: cargo a varios Tanners por categoría, quitando a uno, con el
  *     total antes de guardar; reintentar usa la misma llave.
+ *   · Estilo Apple (04/11/2026): arriba sólo Cobrar y WhatsApp; lo demás en
+ *     renglones. Planes con la mensualidad que Presidencia ajusta ahí mismo
+ *     (con motivo, v2_set_player_fee_note), Salud (sangre, alergias,
+ *     emergencia) y Familia; quien no es Presidencia ve la cuota sin poder
+ *     tocarla.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -34,7 +39,7 @@ await new Promise(r => srv.listen(4781, r));
 
 const ESTADO = (canAdjust) => ({
   canAdjust,
-  player: { id:'p1', first_name:'Adan', last_name:'Ibarra', status:'active', category:'Sub-12', guardians:[{ name:'Mamá', phone:'4771234567', primary:true }] },
+  player: { id:'p1', first_name:'Adan', last_name:'Ibarra', status:'active', category:'Sub-12', base_monthly_fee:800, billing_day:5, benefits:[{ source:'Beca deportiva', percentage:25 }], guardians:[{ name:'Mamá', phone:'4771234567', primary:true }] },
   summary: { balance: 1300, paid_total: 800, credit_available: 200, credit_held: 0, by_type:[{type:'monthly_fee',pending:800},{type:'other',pending:500}] },
   ledger: [
     { id:'c-oct', date:'2026-10-01', kind:'charge', subtype:'monthly_fee', concept:'Mensualidad', amount:800, charge_balance:800, period:'2026-10-01', running_balance:1300 },
@@ -42,17 +47,17 @@ const ESTADO = (canAdjust) => ({
     { id:'pay-1', date:'2026-09-05', kind:'payment', amount:-800, status:'posted', method:'cash', running_balance:0 },
     { id:'c-sep', date:'2026-09-01', kind:'charge', subtype:'monthly_fee', concept:'Mensualidad', amount:800, charge_balance:0, period:'2026-09-01', running_balance:800 }
   ],
-  other_payments: [], documents: [], orders: [], academies: []
+  other_payments: [], documents: [], orders: [], academies: [{ starts_on:'2026-08-01', fee:400, status:'active' }]
 });
 
 const revisiones = [], errores = [];
 const revisa = (n, ok, d = '') => revisiones.push({ nombre:n, ok, detalle:d });
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 
-async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1') {
+async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1', rol = 'Presidencia') {
   const p = await nav.newPage({ viewport:{ width:ancho, height:844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
-  await p.addInitScript(({ estado }) => {
+  await p.addInitScript(({ estado, rol }) => {
     window.__llamadas = []; window.__fallaAjuste = 1;
     const m = ['cobranza','contabilidad','taquilla','jugadores','finanzas'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true }));
     const R = { v2_player_change_history:[
@@ -60,7 +65,8 @@ async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1') {
                   { kind:'charge_added', amount:500, concept:'Torneo', reason:'inscripción', at:'2026-09-20T18:00:00Z', by:'Mich' } ],
                 v2_players:[{ id:'p1', first_name:'Adan', last_name:'Ibarra', category:'Sub-12' },{ id:'p2', first_name:'Beto', last_name:'Ruiz', category:'Sub-12' },{ id:'p3', first_name:'Caro', last_name:'Paz', category:'Sub-14' }],
                 v2_presidency_bulk_charge:{ ok:true, players:1, total:350 },
-                v2_my_context:[{ user_id:'u1', display_name:'Mich', organization_id:'o1', organization_name:'Tannery City FC', role:'Presidencia', is_owner:true }],
+                v2_my_context:[{ user_id:'u1', display_name:'Mich', organization_id:'o1', organization_name:'Tannery City FC', role:rol, is_owner:rol === 'Presidencia' }],
+                v2_player_profile:{ player:{ id:'p1', bloodType:'O+', allergies:'Asma: trae inhalador', emergencyContactName:'Laura Ibarra', emergencyContactPhone:'4779998877' } }, v2_set_player_fee_note:true,
                 v2_my_navigation:m, v2_player_account_statement:estado,
                 v2_presidency_adjust_charge:{ ok:true }, v2_presidency_add_charge:{ ok:true }, v2_correct_tanner_payment:null, v2_apply_player_credit:200 };
     window.__fakeSupabase = {
@@ -72,7 +78,7 @@ async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1') {
       },
       channel:()=>({ on(){return this;}, subscribe(){return this;} }), removeChannel(){}
     };
-  }, { estado:ESTADO(canAdjust) });
+  }, { estado:ESTADO(canAdjust), rol });
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
@@ -202,6 +208,46 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   revisa('[masivo] manda sólo a los elegidos, con concepto, monto y motivo', bc.length === 2 && JSON.stringify(bc[1].params.player_ids) === '["p1"]' && bc[1].params.concept === 'Torneo de Navidad' && bc[1].params.amount === 350 && bc[1].params.reason === 'Torneo de fin de año', JSON.stringify(bc[1]?.params));
   revisa('[masivo] el reintento usa la misma llave', bc.length === 2 && bc[0].params.idempotency_key === bc[1].params.idempotency_key);
   revisa('[masivo] avisa lo que hizo', /Torneo de Navidad a 1 Tanners por \$350\.00/.test(await p.textContent('#presToast')));
+  await p.close();
+}
+
+/* ---------- Estilo Apple: renglones, Planes, Salud y Familia ---------- */
+{
+  const p = await abre(true);
+  if (process.env.SHOTS) await p.screenshot({ path:`${process.env.SHOTS}/tanner-apple.png`, fullPage:true });
+  const grandes = await p.$$eval('.tan-balance .tan-actions .tan-btn', b => b.map(x => x.matches('[data-cobrar],[data-wa-menu]')));
+  revisa('[apple] arriba sólo Cobrar y WhatsApp (botones grandes)', grandes.every(Boolean), JSON.stringify(grandes));
+  revisa('[apple] lo demás son renglones (ajustar, cargo, favor, enviar, ficha)',
+    (await p.$$eval('.tan-balance .tan-lista .tan-fila strong', s => s.map(x => x.textContent))).join('|') === 'Ajustar saldo|Agregar cargo|Aplicar $200.00 a favor|Enviar estado de cuenta|Ver ficha completa');
+  const grupos = await p.$$eval('.tan-grupo-tit', h => h.map(x => x.textContent));
+  revisa('[apple] Planes, Salud y Familia antes de los meses', grupos.slice(0, 3).join() === 'Planes,Salud,Familia', grupos.join());
+  const planes = await p.textContent('.tan-grupo:has(.tan-fila[data-cuota])');
+  revisa('[planes] mensualidad, academia y beca', /Mensualidad/.test(planes) && /\$800\.00\/mes/.test(planes) && /día 5/.test(planes) && /Academia/.test(planes) && /\$400\.00\/mes/.test(planes) && /Beca deportiva/.test(planes) && /−25%/.test(planes), planes);
+  const salud = await p.evaluate(() => [...document.querySelectorAll('.tan-grupo')].find(g => g.querySelector('.tan-grupo-tit').textContent === 'Salud')?.textContent || '');
+  revisa('[salud] sangre, alergias y emergencia', /O\+/.test(salud) && /Asma: trae inhalador/.test(salud) && /Laura Ibarra/.test(salud) && /477\s999\s8877/.test(salud), salud);
+  revisa('[salud] emergencia con WhatsApp y Llamar', await p.getAttribute('.tan-grupo a[aria-label="Llamar al contacto de emergencia"]', 'href') === 'tel:+524779998877');
+  revisa('[apple] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+
+  // Ajustar la mensualidad ahí mismo
+  await p.click('.tan-fila[data-cuota]');
+  await p.waitForSelector('#presSheet:not(.hidden)');
+  revisa('[cuota] la hoja dice cuánto paga hoy', /\$800\.00/.test(await p.textContent('.pres-cuota')) && await p.inputValue('#presMonto') === '800');
+  await p.fill('#presMonto', '650');
+  await p.click('#presForm .pres-primary');
+  revisa('[cuota] sin motivo no se manda', (await llamadas(p, 'v2_set_player_fee_note')).length === 0 && /motivo/i.test(await p.textContent('.pres-error')));
+  await p.fill('#presMotivo', 'Hermanos: descuento acordado');
+  await p.click('#presForm .pres-primary');
+  await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:4000 });
+  const fee = await llamadas(p, 'v2_set_player_fee_note');
+  revisa('[cuota] manda monto y motivo como nota', fee.length === 1 && fee[0].params.monthly_fee === 650 && fee[0].params.note === 'Hermanos: descuento acordado' && fee[0].params.player_id === 'p1', JSON.stringify(fee[0]?.params));
+  revisa('[cuota] avisa y recarga', /\$650\.00 al mes/.test(await p.textContent('#presToast')) && (await llamadas(p, 'v2_player_account_statement')).length === 2);
+  await p.close();
+}
+/* ---------- Quien no es Presidencia ve la cuota, no la cambia ---------- */
+{
+  const p = await abre(true, 390, '/v2/tanner/?id=p1', 'Contabilidad');
+  revisa('[no pres] ve la mensualidad', /\$800\.00\/mes/.test(await p.textContent('.tan-grid')));
+  revisa('[no pres] no puede abrir el ajuste de mensualidad', !(await p.$('[data-cuota]')));
   await p.close();
 }
 

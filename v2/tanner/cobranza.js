@@ -126,6 +126,11 @@ export function montaCobranza(api) {
     if (co?.canAgree && saldo() > 0 && !vigente()) out.push('<button type="button" class="tan-btn" data-kind="ghost" data-acuerdo="nuevo">Acuerdo de pago</button>');
     return out;
   }
+  // Lo mismo, como datos: la pantalla decide cómo se ve (botón o renglón).
+  function opciones() {
+    const co = datos().cobro;
+    return { whatsapp: !!(telefono() && mensajes().length), acuerdo: !!(co?.canAgree && saldo() > 0 && !vigente()) };
+  }
 
   /* ---------- Hoja (acuerdo, mensajes, cancelar) ---------- */
   let h = null;
@@ -278,5 +283,5 @@ export function montaCobranza(api) {
     } catch (err) { btn.disabled = false; avisar(amable(err)); }
   });
 
-  return { acuerdoBlock, seguimientoBlock, acciones };
+  return { acuerdoBlock, seguimientoBlock, acciones, opciones };
 }

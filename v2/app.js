@@ -5,6 +5,7 @@ import { avisosDeIdeas, claveVistas } from '/v2/ideas/ideas.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
 import {iniciarUsoStaff,apagaAlSalir} from '/v2/analitica-uso.js';
+import {entraDirecto,puertasConSesion,puertasSinSesion} from '/v2/entrada-sesion.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -627,18 +628,32 @@ function renderHome(){
 }
 
 const recovery=new URLSearchParams(location.search).get('recovery')==='1'||/type=recovery/i.test(location.hash);
-await retireLegacyCaches();
+/* Nada del arranque espera para siempre (04/11/2026).
+   Presidencia: "cerré la ventana y la volví a abrir y no deja entrar, se queda
+   trabado". En el iPhone, al reabrir, el registro del service worker o leer la
+   sesión guardada a veces no contesta; antes la app los esperaba ANTES de
+   conectar los botones, así que "Staff" no hacía nada. Ahora el service worker
+   va por su lado y la sesión tiene 6 s: si no contesta, se ven las puertas y
+   se entra con contraseña como siempre. */
+const aTiempo=(promesa,ms)=>Promise.race([Promise.resolve(promesa).catch(e=>{console.warn('arranque',e);return null;}),new Promise(r=>setTimeout(()=>r(null),ms))]);
+retireLegacyCaches();
 if(recovery){await renderRecovery();}
 else{
   wireAuth();
-  const {data:{session}}=await supabase.auth.getSession();
-  if(session){try{await loadAuthenticatedApp();}catch(error){console.error(error);showView('authView');setMessage(friendlyError(error));}}
+  const session=(await aTiempo(supabase.auth.getSession(),6000))?.data?.session||null;
+  /* Con sesión: de fuera se ven las puertas y "Staff" entra con un toque;
+     de dentro de la app (o la app instalada, o ?vestidor) entra directo.
+     v2/entrada-sesion.js (04/11/2026). */
+  const alVestidor=async()=>{if(!new URLSearchParams(location.search).has('vestidor'))history.replaceState(null,'',`${location.pathname}?vestidor`);try{await loadAuthenticatedApp();}catch(error){console.error(error);showView('authView');setMessage(friendlyError(error));}};
+  const nombreDeSesion=s=>{const m=s?.user?.user_metadata||{};return String(m.display_name||m.full_name||m.name||'').trim().split(/\s+/)[0]||'';};
+  if(session&&entraDirecto())await alVestidor();
+  else if(session){showView('authView');puertasConSesion({nombre:nombreDeSesion(session),entrar:alVestidor,salir:()=>supabase.auth.signOut()});}
   else showView('authView');
   supabase.auth.onAuthStateChange(event=>{
     if(event==='SIGNED_OUT'){
       apagaAlSalir();
       detenPulso(); // sin sesión no se pregunta por la campana
-      ctx=null;navigation=[];loadGeneration++;resetHomeState();showView('authView');document.body.classList.remove('tos-body');
+      ctx=null;navigation=[];loadGeneration++;resetHomeState();showView('authView');document.body.classList.remove('tos-body');puertasSinSesion();
     }else if(event==='SIGNED_IN'&&!ctx){setTimeout(()=>loadAuthenticatedApp().catch(console.error),0);}
   });
 }

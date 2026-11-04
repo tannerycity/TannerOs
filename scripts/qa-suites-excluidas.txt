@@ -96,3 +96,4 @@ qa-humo-banner-www.mjs
 qa-humo-metricas.mjs
 qa-humo-por-pedir.mjs
 qa-humo-paquetes.mjs
+qa-humo-entrada-sesion.mjs

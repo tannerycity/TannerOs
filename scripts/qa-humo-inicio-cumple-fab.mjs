@@ -90,7 +90,7 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
     body:['export async function getSignedPhotoUrls(_s,b,paths){ window.__firmadas=(window.__firmadas||[]).concat(paths); const m={}; for(const x of paths) m[x]="/icon-512.png"; return m; }','export async function getSignedPhotoUrl(){ return null; }',
           'export async function getRawSignedPhotoUrl(){ return null; }','export async function clearPhotoCache(){}','export function forgetPhoto(){}'].join('\n') }));
   await pagina.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
-  await pagina.goto('http://127.0.0.1:4751/', { waitUntil: 'domcontentloaded' });
+  await pagina.goto('http://127.0.0.1:4751/?vestidor', { waitUntil: 'domcontentloaded' });
   await pagina.waitForSelector('#appView:not(.hidden)', { timeout: 8000 });
   await pagina.waitForFunction(() => window.__llamadas.some(l => l.name === 'v2_birthdays'), null, { timeout: 6000 });
   await pagina.waitForTimeout(250);

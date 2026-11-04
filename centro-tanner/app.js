@@ -61,6 +61,10 @@ async function renderHome() {
       <div id="ctSearchResults" class="ct-search-results hidden"></div>
       <p class="ct-search-hint">Prueba: mensualidad, vacaciones, uniforme, beca, estacionamiento…</p>
     </div>
+    <a class="bk-banner" href="/centro-tanner/becas">
+      <div><span class="bk-banner-eyebrow">MÉRITO + NECESIDAD + COMUNIDAD</span><strong>Becas Tannery City</strong><p>Queremos que el talento, la disciplina y las ganas de crecer encuentren oportunidades.</p></div>
+      <span class="bk-banner-cta">Descubre qué apoyo podría aplicar para ti →</span>
+    </a>
     <section class="ct-section" id="ctFaqSection"><h2 class="ct-section-title">Preguntas frecuentes</h2><div id="ctFaqList" class="ct-faq-list"><div class="ct-loading">Cargando…</div></div></section>
     <section class="ct-section"><h2 class="ct-section-title">Explorar por tema</h2><div id="ctThemeGrid" class="ct-theme-grid"></div></section>
     <section class="ct-section"><h2 class="ct-section-title">Documentos oficiales</h2><div id="ctDocList" class="ct-doc-list"><div class="ct-loading">Cargando…</div></div></section>
@@ -202,11 +206,151 @@ async function renderChangelog() {
   } catch { $('ctChanges').innerHTML = '<p class="ct-empty">No pudimos cargar el historial.</p>'; }
 }
 
+// ---------------------------------------------------------------------------
+// BECAS TANNERY CITY: home con tarjetas, wizard anti-confusión (una pregunta
+// por pantalla, nunca "calificas", siempre un único CTA) y páginas de cada
+// modalidad reutilizando el motor de políticas de arriba (misma fuente,
+// cero contenido duplicado).
+// ---------------------------------------------------------------------------
+const BECAS_MODALIDADES = [
+  { slug: 'apoyo-de-ingreso', titulo: 'Apoyo de Ingreso', frase: 'Soy nuevo y no puedo pagar completo', tag: 'Desde el día 1 · Sin cuota', accion: 'SOLICITAR APOYO' },
+  { slug: 'beca-de-apoyo-familiar', titulo: 'Beca de Apoyo Familiar', frase: 'Ya estoy en el club y tengo problemas económicos', tag: '3+ meses · Cuota $200', accion: 'REVISAR REQUISITOS' },
+  { slug: 'beca-academica', titulo: 'Beca Académica', frase: 'Tengo promedio de 9.0 o más', tag: '3+ meses · Cuota $200', accion: 'REVISAR BECA' },
+  { slug: 'beca-deportiva', titulo: 'Beca Deportiva', frase: 'Destaco por mi rendimiento o potencial', tag: 'Por nominación interna', accion: 'CONOCER CÓMO FUNCIONA' },
+  { slug: 'beca-tanner', titulo: 'Beca Tanner', frase: 'Represento los valores Tanner dentro y fuera de la cancha', tag: 'Por nominación interna', accion: 'CONOCER BECA TANNER' },
+  { slug: 'beca-lealtad-tanner', titulo: 'Beca Lealtad Tanner', frase: 'Llevo 18 meses o más en el club', tag: '18 meses · Cuota $200', accion: 'VALIDAR ANTIGÜEDAD' },
+  { slug: 'curtibrother', titulo: 'Curtibrother', frase: 'Conozco una empresa o persona que podría ayudar', tag: 'Sin cuota', accion: 'PRESENTAR POSIBLE PADRINO' }
+];
+let becasConfig = null;
+async function getBecasConfig() {
+  if (becasConfig) return becasConfig;
+  try { becasConfig = await rpc('v2_public_scholarship_config', { club_key: CLUB_KEY }); }
+  catch { becasConfig = { minPercentage: 10, applicationFee: 200 }; }
+  return becasConfig;
+}
+function becasCard(m) {
+  return `<a class="bk-card" href="/centro-tanner/p/${esc(m.slug)}">
+    <span class="bk-card-badge">${esc(m.titulo[0])}</span>
+    <span class="bk-card-body"><strong>${esc(m.titulo)}</strong><span class="bk-card-frase">“${esc(m.frase)}”</span><span class="bk-card-tag">${esc(m.tag)}</span></span>
+    <span class="bk-card-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span>
+  </a>`;
+}
+async function renderBecasHome() {
+  setMeta('Becas Tannery City', 'Mérito + necesidad + comunidad. Descubre qué beca o apoyo podría aplicar para ti en Tannery City.');
+  const cfg = await getBecasConfig();
+  render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { label: 'Becas' }])}
+    <section class="ct-hero bk-hero">
+      <div class="ct-hero-eyebrow">MÉRITO + NECESIDAD + COMUNIDAD</div>
+      <h1>Becas Tannery City</h1>
+      <p>Queremos que el talento, la disciplina y las ganas de crecer encuentren oportunidades.</p>
+      <div class="bk-hero-ctas">
+        <a class="bk-btn-primary" href="/centro-tanner/becas/wizard">DESCUBRE QUÉ APOYO PODRÍA APLICAR PARA TI</a>
+        <a class="bk-btn-ghost" href="#bkGrid">Ver todas las becas</a>
+      </div>
+    </section>
+    <div class="bk-disclaimer">IMPORTANTE: Las becas y apoyos Tannery City no son automáticos ni permanentes. Cada solicitud o nominación es evaluada individualmente. Tannery City determina la aprobación, porcentaje, duración, cobertura y condiciones de cada apoyo. Los apoyos pueden comenzar desde el ${esc(cfg.minPercentage)}%; Tannery City determina el porcentaje final.</div>
+    <section class="ct-section" id="bkGrid">
+      <h2 class="ct-section-title">Las 7 modalidades</h2>
+      <div class="bk-grid">${BECAS_MODALIDADES.map(becasCard).join('')}</div>
+    </section>
+    <section class="ct-section">
+      <h2 class="ct-section-title">También puedes revisar</h2>
+      <div class="ct-doc-list">
+        <a class="ct-doc-row" href="/centro-tanner/p/tanner-por-tanner"><div><div class="ct-doc-name">Tanner por Tanner</div><div class="ct-doc-meta">Programa de comunidad y reciprocidad</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>
+        <a class="ct-doc-row" href="/centro-tanner/p/cuota-de-evaluacion-de-beca"><div><div class="ct-doc-name">Cuota de evaluación de beca</div><div class="ct-doc-meta">Qué es, a qué aplica y cuándo se exenta</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>
+      </div>
+    </section>
+  `);
+}
+
+const BK_PREGUNTAS = {
+  ingreso: { q: '¿Tu Tanner acaba de ingresar?', opts: [{ t: 'Sí', to: 'ingresoApoyo' }, { t: 'No', to: 'antiguedad' }] },
+  ingresoApoyo: { q: '¿Necesitas apoyo económico para poder comenzar?', opts: [{ t: 'Sí', to: { resultado: 'apoyo-de-ingreso' } }, { t: 'No', to: { info: true } }] },
+  antiguedad: { q: '¿Lleva al menos 3 meses en el club?', opts: [{ t: 'No', to: { corto: true } }, { t: 'Sí', to: 'motivo' }] },
+  motivo: { q: '¿El motivo principal es económico?', opts: [{ t: 'Sí', to: { resultado: 'beca-de-apoyo-familiar' } }, { t: 'No', to: 'promedio' }] },
+  promedio: { q: '¿Tiene promedio escolar mínimo de 9.0?', opts: [{ t: 'Sí', to: { resultado: 'beca-academica', nota: 'Si además representa de forma extraordinaria los valores Tanner, podría ser nominado internamente para Beca Tanner.' } }, { t: 'No', to: 'lealtad' }] },
+  lealtad: { q: '¿Lleva 18 meses continuos en el club?', opts: [{ t: 'Sí', to: { resultado: 'beca-lealtad-tanner' } }, { t: 'No', to: { nominacion: true } }] }
+};
+let wizardStack = [];
+function wizardStart() { wizardStack = ['ingreso']; renderBecasWizardStep(); }
+function wizardGo(to) { wizardStack.push(to); renderBecasWizardStep(); }
+function wizardBack() { wizardStack.pop(); renderBecasWizardStep(); }
+function wizardFrame(inner, { back = true } = {}) {
+  render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { href: '/centro-tanner/becas', label: 'Becas' }, { label: 'Ayúdame a elegir' }])}
+    <section class="bk-wizard">${inner}
+      <div class="bk-wizard-foot">${back ? '<button type="button" class="bk-btn-ghost" id="bkBack">← Regresar</button>' : ''}<a class="bk-btn-ghost" href="/centro-tanner/becas">Ver todas las becas</a></div>
+    </section>`);
+  $('bkBack')?.addEventListener('click', wizardBack);
+}
+async function renderBecasWizardStep() {
+  const step = wizardStack[wizardStack.length - 1];
+  setMeta('Ayúdame a elegir', 'Responde unas preguntas y descubre qué apoyo de Tannery City podría aplicar para ti.');
+  if (!step) {
+    // primera pantalla: elegir una frase o abrir el wizard guiado
+    wizardFrame(`
+      <h1>¿Cuál de estas frases se parece más a tu situación?</h1>
+      <div class="bk-wizard-opts bk-wizard-opts-grid">
+        ${BECAS_MODALIDADES.map((m, i) => `<button type="button" class="bk-wizard-opt" data-pick="${i}">${esc(m.frase)}</button>`).join('')}
+        <button type="button" class="bk-wizard-opt bk-wizard-opt-muted" id="bkNoSe">No sé cuál aplica para mí</button>
+      </div>`, { back: false });
+    document.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => {
+      const m = BECAS_MODALIDADES[Number(b.dataset.pick)];
+      if (m.slug === 'beca-deportiva' || m.slug === 'beca-tanner') return renderWizardResult({ nominacion: true, slugSugerido: m.slug });
+      if (m.slug === 'curtibrother') return renderWizardResult({ resultado: 'curtibrother' });
+      history.pushState({}, '', conClub(`/centro-tanner/p/${m.slug}`)); route();
+    }));
+    $('bkNoSe').addEventListener('click', wizardStart);
+    return;
+  }
+  const node = BK_PREGUNTAS[step];
+  if (!node) return renderWizardResult(step);
+  wizardFrame(`
+    <h1>${esc(node.q)}</h1>
+    <div class="bk-wizard-opts">${node.opts.map((o, i) => `<button type="button" class="bk-wizard-opt" data-opt="${i}">${esc(o.t)}</button>`).join('')}</div>
+  `, { back: wizardStack.length > 1 });
+  document.querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => {
+    const dest = node.opts[Number(b.dataset.opt)].to;
+    if (typeof dest === 'string') return wizardGo(dest);
+    renderWizardResult(dest);
+  }));
+}
+async function renderWizardResult(dest) {
+  if (dest?.info) {
+    wizardFrame(`<h1>Buenas noticias</h1><p class="bk-wizard-copy">Si no necesitas apoyo económico para comenzar, no hay ningún paso adicional por ahora. Si tu situación cambia, aquí vas a encontrar la opción que podría aplicar para ti.</p>
+      <a class="bk-btn-primary" href="/centro-tanner/becas">VER TODAS LAS BECAS</a>`);
+    return;
+  }
+  if (dest?.corto) {
+    wizardFrame(`<h1>Por tu antigüedad, esto podría aplicar</h1>
+      <div class="bk-grid">${becasCard(BECAS_MODALIDADES.find(m => m.slug === 'apoyo-de-ingreso'))}</div>
+      <p class="bk-wizard-copy">Si tu caso es extraordinario, puedes contactar directamente a administración.</p>`);
+    return;
+  }
+  if (dest?.nominacion) {
+    const m = BECAS_MODALIDADES.find(x => x.slug === dest.slugSugerido) || BECAS_MODALIDADES.find(x => x.slug === 'beca-deportiva');
+    wizardFrame(`<h1>Beca Deportiva y Beca Tanner son por nominación interna</h1>
+      <p class="bk-wizard-copy">No necesitas solicitarlas. Las otorga el club por nominación del entrenador, Dirección Deportiva o Presidencia.</p>
+      <div class="bk-grid">${becasCard(m)}</div>`);
+    return;
+  }
+  const slug = dest?.resultado || dest;
+  const m = BECAS_MODALIDADES.find((x) => x.slug === slug);
+  wizardFrame(`
+    <h1>Por tu situación, esta opción podría aplicar para ti</h1>
+    <div class="bk-grid">${m ? becasCard(m) : ''}</div>
+    ${dest?.nota ? `<p class="bk-wizard-copy">${esc(dest.nota)}</p>` : ''}
+    <p class="bk-wizard-fineprint">La aprobación final depende de la evaluación de Tannery City.</p>
+    <a class="bk-btn-primary" href="/centro-tanner/p/${esc(slug)}">VER REQUISITOS Y SIGUIENTE PASO</a>
+  `);
+}
+
 function route() {
   const path = location.pathname.replace(/\/+$/, '') || '/centro-tanner';
   const parts = path.split('/').filter(Boolean); // ['centro-tanner', ...]
   const rest = parts.slice(1);
   if (rest.length === 0) return renderHome();
+  if (rest[0] === 'becas' && rest[1] === 'wizard') { wizardStack = []; return renderBecasWizardStep(); }
+  if (rest[0] === 'becas' && !rest[1]) return renderBecasHome();
   if (rest[0] === 'tema' && rest[1]) return renderTheme(decodeURIComponent(rest[1]));
   if (rest[0] === 'p' && rest[1]) return renderPolicy(decodeURIComponent(rest[1]));
   if (rest[0] === 'documento' && rest[1]) return renderDocument(decodeURIComponent(rest[1]));

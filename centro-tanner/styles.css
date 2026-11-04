@@ -9,6 +9,7 @@
   --ct-muted:#5f6b6d;
   --ct-bg:#fbfbf9;
   --ct-card:#ffffff;
+  --ct-gold:#b8a464;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--ct-bg);color:var(--ct-ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
@@ -101,8 +102,51 @@ a{color:inherit}
 .ct-loading{text-align:center;padding:60px 16px;color:var(--ct-muted)}
 .ct-related{display:grid;gap:8px;margin-top:8px}
 
+/* === Becas Tannery City === */
+.bk-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:22px;padding:20px 22px;border-radius:20px;text-decoration:none;color:#fff;
+  background:linear-gradient(135deg,var(--ct-navy),var(--ct-ink));box-shadow:0 20px 50px rgba(0,69,104,.22)}
+.bk-banner-eyebrow{display:block;font-size:10.5px;font-weight:800;letter-spacing:.12em;color:var(--ct-gold);margin-bottom:4px}
+.bk-banner strong{display:block;font-size:19px;font-weight:800;margin-bottom:4px}
+.bk-banner p{margin:0;font-size:13.5px;color:#dce6ea;max-width:46ch}
+.bk-banner-cta{font-size:13px;font-weight:800;white-space:nowrap;border-bottom:2px solid var(--ct-gold);padding-bottom:2px}
+
+.bk-hero{background:linear-gradient(160deg,var(--ct-navy) 0%,var(--ct-teal) 100%);color:#fff;border-radius:24px;padding:34px 22px 30px;margin-top:10px}
+.bk-hero .ct-hero-eyebrow{color:var(--ct-gold)}
+.bk-hero h1{color:#fff}
+.bk-hero p{color:#e4ecee}
+.bk-hero-ctas{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:20px}
+.bk-btn-primary{display:inline-block;background:var(--ct-gold);color:#1a1a1a;font-weight:800;font-size:13.5px;letter-spacing:.01em;padding:15px 22px;border-radius:14px;text-decoration:none;text-align:center;border:0;cursor:pointer;box-shadow:0 14px 30px rgba(184,164,100,.35)}
+.bk-btn-ghost{display:inline-block;background:transparent;color:inherit;font-weight:700;font-size:13px;padding:10px 6px;text-decoration:none;border:0;cursor:pointer;opacity:.85}
+.bk-hero .bk-btn-ghost{color:#fff;text-decoration:underline}
+
+.bk-disclaimer{margin-top:18px;padding:14px 18px;border-radius:14px;background:#fbf6e9;border:1px solid #ecdfb8;color:#6b5a26;font-size:12.5px;line-height:1.5;font-weight:600}
+
+.bk-grid{display:grid;gap:10px}
+.bk-card{display:flex;align-items:center;gap:14px;background:var(--ct-card);border:1px solid var(--ct-line);border-radius:18px;padding:16px 18px;text-decoration:none;color:inherit;transition:transform .12s,box-shadow .12s}
+.bk-card:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(26,26,26,.08)}
+.bk-card-badge{flex:0 0 auto;width:40px;height:40px;border-radius:12px;background:var(--ct-navy);color:#fff;display:grid;place-items:center;font-weight:900;font-size:16px}
+.bk-card-body{display:grid;gap:3px;min-width:0}
+.bk-card-body strong{font-size:15px;font-weight:800}
+.bk-card-frase{font-size:13px;color:var(--ct-muted);font-style:italic}
+.bk-card-tag{font-size:11px;font-weight:800;letter-spacing:.03em;color:var(--ct-teal);text-transform:uppercase}
+.bk-card-arrow{margin-left:auto;color:var(--ct-muted);flex:0 0 auto}
+
+.bk-wizard{background:var(--ct-card);border:1px solid var(--ct-line);border-radius:22px;padding:28px 22px;margin-top:16px;box-shadow:0 20px 50px rgba(26,26,26,.06)}
+.bk-wizard h1{font-size:21px;font-weight:800;margin:0 0 18px;letter-spacing:-.01em}
+.bk-wizard-opts{display:grid;gap:10px}
+.bk-wizard-opts-grid{gap:10px}
+.bk-wizard-opt{display:block;width:100%;text-align:left;background:#f7f8f6;border:1.5px solid var(--ct-line);border-radius:14px;padding:16px 18px;font-size:14.5px;font-weight:700;color:var(--ct-ink);cursor:pointer}
+.bk-wizard-opt:hover{border-color:var(--ct-teal);background:#eef7f7}
+.bk-wizard-opt-muted{color:var(--ct-muted);font-weight:600;background:transparent;border-style:dashed}
+.bk-wizard-copy{font-size:14.5px;line-height:1.55;color:#33403f;margin:14px 0}
+.bk-wizard-fineprint{font-size:12px;color:var(--ct-muted);margin:14px 0 18px}
+.bk-wizard-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid var(--ct-line)}
+
 @media (max-width:640px){
   .ct-theme-grid{grid-template-columns:repeat(2,1fr)}
   .ct-policy-card,.ct-doc-body-card{padding:20px 16px;border-radius:18px}
   .ct-hero{padding:18px 0 4px}
+  .bk-banner{flex-direction:column;align-items:flex-start}
+  .bk-hero{padding:26px 18px 24px}
+  .bk-wizard{padding:22px 16px}
 }

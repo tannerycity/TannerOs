@@ -20,6 +20,7 @@ const routeContract={
   '/cambios/':'v2/cambios/index.html',
   '/visorias/':'v2/visorias/index.html',
   '/cumpleanos/':'v2/cumpleanos/index.html',
+  '/paquetes/':'v2/paquetes/index.html',
   '/partidos/':'v2/partidos/index.html',
   // Levantar pedido. Los links a /v2/captura/ los reescribe branding-auto a
   // /captura/, que no existía: 404 al levantar pedidos (09/10/2026).

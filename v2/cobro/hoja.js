@@ -259,8 +259,11 @@ function quienHtml() {
 function lineaHtml(i) {
   const monto = () => `<span class="cobro-peso"><input type="text" inputmode="decimal" data-monto="${esc(i.key)}" value="${esc(String(i.amount ?? ''))}" placeholder="0" aria-label="Monto de ${esc(i.label)}"></span>`;
   const quita = `<button type="button" class="cobro-quita" data-quita="${esc(i.key)}" aria-label="Quitar ${esc(i.label)}"><span aria-hidden="true"></span></button>`;
-  const renglon = (titulo, nota, abajo = '') => `<li class="cobro-linea" data-linea="${esc(i.key)}">${quita}
-    <div class="cobro-linea-txt"><strong>${esc(titulo)}</strong>${nota ? `<small class="cobro-nota">${nota}</small>` : ''}</div>${monto()}${abajo ? `<div class="cobro-linea-mas">${abajo}</div>` : ''}</li>`;
+  // El recargo se resalta (no es un cargo normal, para que se note de un
+  // vistazo que es un extra por pago tarde y no un error de captura).
+  const esRecargo = i.type === 'late_fee';
+  const renglon = (titulo, nota, abajo = '') => `<li class="cobro-linea${esRecargo ? ' cobro-linea--recargo' : ''}" data-linea="${esc(i.key)}">${quita}
+    <div class="cobro-linea-txt"><strong>${esc(titulo)}</strong>${esRecargo ? '<span class="cobro-tag-recargo">Cargo extra por atraso</span>' : ''}${nota ? `<small class="cobro-nota">${nota}</small>` : ''}</div>${monto()}${abajo ? `<div class="cobro-linea-mas">${abajo}</div>` : ''}</li>`;
   if (i.kind === 'registration') {
     const cats = inscripciones();
     const elige = cats.length > 1 ? `<div class="cobro-mini">${cats.map(c => `<button type="button" data-cat="${esc(c.clave)}" data-reg="${esc(i.key)}" aria-pressed="${i.cat === c.clave}">${esc(c.nombre)} ${money.format(c.precio)}</button>`).join('')}</div>` : '';
@@ -272,7 +275,9 @@ function lineaHtml(i) {
     return renglon('Otro ingreso', '', `<div class="cobro-dos"><label>Categoría<select data-categoria="otro">${opts}</select></label>
       <label><span>Concepto <span class="cobro-opt">· opcional</span></span><input type="text" data-concepto="otro" maxlength="80" value="${esc(i.concept || '')}" placeholder="Ej. Torneo de Navidad"></label></div>`);
   }
-  const nota = i.max != null ? `Debe ${money.format(i.max)}${num(i.amount) > 0 && num(i.amount) < i.max ? ` · queda ${money.format(i.max - num(i.amount))}` : ''}`
+  // El monto ya se ve en la caja: repetir "Debe $X" cuando paga completo sólo
+  // estorba. Se avisa nada más cuando deja algo pendiente.
+  const nota = i.max != null ? (num(i.amount) > 0 && num(i.amount) < i.max ? `Queda a deber ${money.format(i.max - num(i.amount))}` : '')
     : i.kind === 'month' ? esc(i.detalle || '') : i.kind === 'abono' ? 'Se aplica a lo más antiguo; si sobra, queda a favor.' : '';
   return renglon(i.label, nota);
 }
@@ -280,18 +285,23 @@ function lineaHtml(i) {
 // Lo que casi no se usa: otra fecha (17% de los cobros), nota (3%),
 // referencia, tarjeta (1%) y dos métodos.
 function masHtml(t) {
-  const seg = `<div class="pres-seg" role="radiogroup" aria-label="Método">${METODOS.map(([v, l]) => `<button type="button" role="radio" aria-checked="${s.metodo === v}" data-metodo="${v}">${l}</button>`).join('')}</div>`;
+  const seg = `<div class="pres-seg cobro-metodos" role="radiogroup" aria-label="Método">${METODOS.map(([v, l]) => `<button type="button" role="radio" aria-checked="${s.metodo === v}" data-metodo="${v}">${l}</button>`).join('')}</div>`;
   let dos = '';
   if (s.dos) {
     const m1 = num(s.monto1), resto = Math.max(0, Math.round((t - m1) * 100) / 100);
     dos = `<div class="cobro-dos"><label>En ${esc(nombreMetodo(s.metodo).toLowerCase())}<span class="cobro-peso"><input type="text" inputmode="decimal" id="cobroMonto1" value="${esc(s.monto1)}" placeholder="0"></span></label>
       <label><span>Y el resto, <b id="cobroResto">${money.format(resto)}</b>, en</span><select id="cobroMetodo2">${METODOS.filter(([v]) => v !== s.metodo).map(([v, l]) => `<option value="${v}"${v === s.metodo2 ? ' selected' : ''}>${l}</option>`).join('')}</select></label></div>`;
   }
+  // Lo que se usa siempre (método) va arriba y grande; lo que casi nadie
+  // toca (referencia, fecha, nota) va aparte y más chico, para no competir.
   return `<div class="cobro-bloque cobro-mas"><span class="cobro-titulo">¿Cómo paga?</span>${seg}
-    <button type="button" class="cobro-link" data-dos>${s.dos ? 'Pagó con un solo método' : 'Pagó con dos métodos'}</button>${dos}
-    <label><span>Referencia <span class="cobro-opt">· opcional, el comprobante llega por WhatsApp</span></span><input id="cobroRef" type="text" maxlength="80" value="${esc(s.ref)}" placeholder="Folio SPEI, últimos 4 de la tarjeta…"></label>
-    <div class="cobro-dos"><label>Fecha<input id="cobroFecha" type="date" value="${esc(s.fecha)}" max="${hoyLocal()}"></label>
-      <label><span>Nota <span class="cobro-opt">· opcional</span></span><input id="cobroObs" type="text" maxlength="300" placeholder="Pagó la abuela…" value="${esc(s.obs)}"></label></div></div>`;
+    <button type="button" class="cobro-link" data-dos>${s.dos ? 'Pagó con un solo método' : '+ Pagó con dos métodos'}</button>${dos}
+    <div class="cobro-mas-detalle">
+      <span class="cobro-titulo cobro-titulo--sub">Más detalles · opcional</span>
+      <label><span>Referencia <span class="cobro-opt">· el comprobante llega por WhatsApp</span></span><input id="cobroRef" type="text" maxlength="80" value="${esc(s.ref)}" placeholder="Folio SPEI, últimos 4 de la tarjeta…"></label>
+      <div class="cobro-dos"><label>Fecha<input id="cobroFecha" type="date" value="${esc(s.fecha)}" max="${hoyLocal()}"></label>
+        <label><span>Nota</span><input id="cobroObs" type="text" maxlength="300" placeholder="Pagó la abuela…" value="${esc(s.obs)}"></label></div>
+    </div></div>`;
 }
 
 // El último toque ya dice cómo pagó.

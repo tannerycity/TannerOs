@@ -95,3 +95,19 @@
 .cobro-op i{flex:none;font-style:normal;font-size:20px;color:#9aa6ab}
 .cobro-panel-cierra{justify-self:center;text-decoration:none}
 @media (max-width:420px){.cobro-va .cobro-linea{grid-template-columns:auto minmax(0,1fr) 108px}.cobro-precio{grid-template-columns:minmax(0,1fr) 108px}}
+
+/* ---- Rediseño 04/11/2026: menos ruido, se entiende de un vistazo ---- */
+.cobro-form{gap:18px}
+.cobro-va .cobro-linea{padding:13px 12px 13px 10px;row-gap:3px}
+.cobro-linea-txt strong{line-height:1.25}
+/* Recargo: se resalta en ámbar para que no se confunda con un cargo normal. */
+.cobro-linea--recargo{background:#fdf6ea}
+.cobro-linea--recargo .cobro-linea-txt strong{color:#8a5a12}
+.cobro-linea--recargo .cobro-peso input{color:#8a5a12;background:#fbeed2}
+.cobro-tag-recargo{display:inline-block;font-size:11px;font-weight:700;color:#8a5a12;background:#f6e3b7;border-radius:999px;padding:2px 8px;width:fit-content}
+/* ¿Cómo paga?: el método va grande y siempre a la vista; lo que casi nadie
+   toca (referencia, fecha, nota) queda más chico y separado, para no competir. */
+.cobro-mas{padding:14px;gap:12px}
+.cobro-metodos button{min-height:46px;font-size:14px}
+.cobro-mas-detalle{display:grid;gap:10px;padding-top:10px;border-top:1px dashed #d8dfdd}
+.cobro-titulo--sub{text-transform:none;letter-spacing:0;font-size:11.5px;font-weight:600;color:#9aa6ab}

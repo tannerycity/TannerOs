@@ -174,8 +174,8 @@ revisa('[entrada] la bajada es del club', /León Norte/.test(await pg.$eval('.tc
 revisa('[entrada] abre "Tengo invitación"', await pg.$eval('#signUpTab', e => e.classList.contains('active')).catch(() => false));
 const salidas = await pg.$$eval('.tc-familias a', a => a.map(x => x.getAttribute('href')));
 revisa('[entrada] otro club no ve la puerta de Costos (son precios de Tannery)', !salidas.some(h => h.startsWith('/costos')), JSON.stringify(salidas));
-revisa('[entrada] las puertas llevan a portal, tienda, registro y bolsa de trabajo de SU club',
-  JSON.stringify(salidas) === JSON.stringify(['/familias/?club=leon-norte', '/tienda/?club=leon-norte', '/registro/?club=leon-norte', '/trabaja/?club=leon-norte']), JSON.stringify(salidas));
+revisa('[entrada] las puertas llevan a portal, tienda, registro, Centro Tanner y bolsa de trabajo de SU club',
+  JSON.stringify(salidas) === JSON.stringify(['/familias/?club=leon-norte', '/tienda/?club=leon-norte', '/registro/?club=leon-norte', '/centro-tanner/?club=leon-norte', '/trabaja/?club=leon-norte']), JSON.stringify(salidas));
 revisa('[entrada] con ?alta=1 el login de staff ya está abierto', await pg.isVisible('#authForm') && !(await pg.isVisible('.tc-puertas')));
 await pg.goto(BASE + '/', { waitUntil:'networkidle' });
 await pg.waitForTimeout(300);
@@ -187,8 +187,9 @@ revisa('[entrada] el botón de tienda se ve en el teléfono y nada se sale', awa
 // Las puertas (13/10/2026): puertas grandes y el login sólo al tocar Staff.
 // Costos (20/10/2026) sigue en /costos/, pero Presidencia pidió que aún no
 // salga en la entrada (21/10/2026).
-revisa('[puertas] Familias, Tienda, Inscribe y Staff, en ese orden',
-  JSON.stringify(await pg.$$eval('.tc-puerta b', b => b.map(x => x.textContent))) === JSON.stringify(['Familias', 'Tienda', 'Inscribe a tu hijo', 'Staff']));
+revisa('[puertas] Familias, Tienda, Inscribe, Centro Tanner y Staff, en ese orden',
+  JSON.stringify(await pg.$$eval('.tc-puerta b', b => b.map(x => x.textContent))) === JSON.stringify(['Familias', 'Tienda', 'Inscribe a tu hijo', 'Centro Tanner', 'Staff']));
+revisa('[puertas] Centro Tanner lleva al Centro Tanner', /^\/centro-tanner\/(\?|$)/.test(await pg.getAttribute('.tc-familias a[data-familia="centro"]', 'href') || ''));
 revisa('[puertas] Costos aún no sale en la entrada', !(await pg.$('.tc-familias a[data-familia="costos"]')));
 revisa('[puertas] el login no se ve hasta tocar Staff', !(await pg.isVisible('#authForm')));
 revisa('[puertas] "¿Quieres trabajar en Tannery?" lleva a la bolsa de trabajo', (await pg.getAttribute('.tc-trabaja', 'href')) === '/trabaja/');

@@ -218,6 +218,18 @@ const SOL_FILTROS = [
 ];
 const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const fechaHora = v => v ? new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—';
+const primerNombreSol = n => String(n || '').trim().split(/\s+/)[0] || '';
+// El protocolo pide notificar el resultado por WhatsApp en cada una de las 7
+// modalidades (paso 6 de cada ruta): un toque con el mensaje ya armado.
+function mensajeResultadoSol(d) {
+  const club = nombreDelClub(ctx), nombre = primerNombreSol(d.playerName) || 'tu Tanner';
+  const modalidad = MODALIDADES[d.modality] || 'beca';
+  if (d.status === 'aprobada') {
+    const cubre = (d.decidedCovers || []).map(c => (COBERTURAS.find(x => x[0] === c) || [null, c])[1]).join(', ');
+    return `Hola, le escribimos de ${club} sobre la solicitud de ${modalidad} de ${nombre}.\n\n¡Buenas noticias! Se aprobó: ${pctTexto(d.decidedPercentage)}, a partir del ${fecha(d.decidedStartsOn)}${cubre ? ` (cubre ${cubre})` : ''}.\n\nCualquier duda, quedamos al pendiente.`;
+  }
+  return `Hola, le escribimos de ${club} sobre la solicitud de ${modalidad} de ${nombre}.\n\nPor ahora no fue posible otorgar este apoyo. Si quiere platicarlo, con gusto le explicamos a detalle.`;
+}
 
 let modo = (() => { try { return localStorage.getItem('becasModo') === 'solicitudes' ? 'solicitudes' : 'becados'; } catch { return 'becados'; } })();
 let solicitudes = [], solEstado = 'atender', solBusqueda = '', solCargado = false, solActualId = null, ajustes = null, todosJugadores = null;
@@ -348,6 +360,7 @@ function pintaSolHoja(d) {
     ${cuotaHtml}
     ${avances.length ? `<div class="bc-acciones sol-avances">${avanceHtml}</div>` : ''}
     ${d.status === 'presidencia' ? (ctx.is_owner ? dictamenHtml() : '<p class="bc-vacio">Esperando dictamen de Presidencia.</p>') : ''}
+    ${(d.status === 'aprobada' || d.status === 'no_aprobada') ? (ligaWhatsApp(d.guardianPhone, '') ? `<a class="bc-familia" href="${esc(ligaWhatsApp(d.guardianPhone, mensajeResultadoSol(d)))}" target="_blank" rel="noopener">Notificar resultado por WhatsApp</a>` : '<p class="sol-opt">La familia no tiene teléfono registrado para notificar por WhatsApp.</p>') : ''}
     ${abierta ? '<button type="button" class="sol-link sol-retirar" data-retirar>Retirar esta solicitud</button>' : ''}
     ${(d.events || []).length ? `<div class="bc-dato-ancho"><span class="sol-tit">Seguimiento</span><ul class="sol-timeline">${d.events.map(ev => `<li><b>${esc(EVENTO_TXT[ev.type] || ev.type)}</b><small>${esc(fechaHora(ev.occurredAt))}</small></li>`).join('')}</ul></div>` : ''}`;
 }
@@ -474,7 +487,7 @@ function abreAjustes() {
         <label>Referidos por trimestre <span class="sol-opt">· Tanner por Tanner</span><input type="number" name="referrals_per_quarter" min="0" value="${esc(v('referralsPerQuarter', 2))}" required></label>
         <label>Contactos comerciales <span class="sol-opt">· por trimestre</span><input type="number" name="commercial_contacts_per_quarter" min="0" value="${esc(v('commercialContactsPerQuarter', 1))}" required></label>
       </div>
-      <label>Avisos antes de pausar el beneficio <span class="sol-opt">· Tanner por Tanner</span><input type="number" name="max_warnings" min="0" value="${esc(v('maxWarnings', 2))}" required></label>
+      <label>Advertencias antes de revisión formal <span class="sol-opt">· salvo faltas graves</span><input type="number" name="max_warnings" min="0" value="${esc(v('maxWarnings', 3))}" required></label>
       <button type="submit" class="primary">Guardar ajustes</button>
     </form>
     <div id="cfgMsg" class="inline-message hidden"></div>`;

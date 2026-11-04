@@ -18,6 +18,9 @@
  *      ser "Staff".
  *   5. Sin sesión, todo como siempre.
  *   6. entraDirecto(), probada sola con cada caso.
+ *   7. "Cerré la ventana y la volví a abrir y no deja entrar": si el service
+ *      worker o la sesión guardada no contestan, en segundos se ven las
+ *      puertas y "Staff" abre el login.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -50,12 +53,13 @@ await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}`;
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 
-async function abre(ruta, { sesion = true, referer, instalada = false } = {}) {
+async function abre(ruta, { sesion = true, referer, instalada = false, colgado = false } = {}) {
   const ctx = await nav.newContext({ viewport: { width: 390, height: 844 } });
   const pg = await ctx.newPage();
   const errs = [];
   pg.on('pageerror', e => errs.push(e.message));
-  await pg.addInitScript(({ sesion, instalada }) => {
+  await pg.addInitScript(({ sesion, instalada, colgado }) => {
+    if (colgado && navigator.serviceWorker) { const nunca = () => new Promise(() => {}); navigator.serviceWorker.getRegistrations = nunca; navigator.serviceWorker.register = nunca; }
     window.__salio = false; window.__oyentes = [];
     if (instalada) { const mm = window.matchMedia.bind(window); window.matchMedia = q => /display-mode: standalone/.test(q) ? { matches: true, media: q, addEventListener(){}, removeEventListener(){} } : mm(q); }
     const R = {
@@ -65,15 +69,16 @@ async function abre(ruta, { sesion = true, referer, instalada = false } = {}) {
     let s = sesion ? { user: { id: 'u-mich', user_metadata: { full_name: 'Michel Enríquez' } } } : null;
     window.__fakeSupabase = {
       auth: {
-        getSession: async () => ({ data: { session: s } }),
+        getSession: colgado ? () => new Promise(() => {}) : async () => ({ data: { session: s } }),
         getUser: async () => ({ data: { user: s ? { id: 'u-mich', app_metadata: {} } : null } }),
         onAuthStateChange: (cb) => { window.__oyentes.push(cb); return { data: { subscription: { unsubscribe(){} } } }; },
+        signInWithPassword: async () => { window.__entro = true; return { data: {}, error: null }; },
         signOut: async () => { window.__salio = true; s = null; window.__oyentes.forEach(cb => cb('SIGNED_OUT', null)); return { error: null }; }
       },
       rpc: async (name) => ({ data: R[name] ?? null, error: null }),
       channel: () => ({ on(){ return this; }, subscribe(){ return this; } }), removeChannel(){}
     };
-  }, { sesion, instalada });
+  }, { sesion, instalada, colgado });
   await pg.route('**/v2/supabase-client.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export function createClient(){ return window.__fakeSupabase; }' }));
   await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await pg.goto(BASE + ruta, { waitUntil: 'domcontentloaded', ...(referer ? { referer } : {}) });
@@ -126,6 +131,20 @@ for (const [nombre, ruta, op] of [['?vestidor', '/?vestidor', {}], ['#staff', '/
   await pg.click('#abreStaff');
   revisa('5. "Staff" abre el login', await pg.isVisible('#authForm'));
   revisa('sin errores (sin sesión)', !errs.length, errs.join(' | '));
+  await ctx.close();
+}
+// 7. El iPhone no contesta al reabrir: no se queda trabado.
+{
+  const { ctx, pg, errs } = await abre('/', { colgado: true });
+  await pg.waitForTimeout(6500);
+  revisa('7. con el service worker y la sesión colgados, se ven las puertas', await enPuertas(pg));
+  await pg.click('#abreStaff');
+  revisa('7. y "Staff" abre el login', await pg.isVisible('#authForm'));
+  await pg.fill('#email', 'mich@tannerycity.com'); await pg.fill('#password', 'contrasena-larga');
+  await pg.press('#password', 'Enter');
+  await pg.waitForTimeout(800);
+  revisa('7. y "Entrar" sí intenta entrar (antes se quedaba trabado)', await pg.evaluate(() => window.__entro === true));
+  revisa('sin errores (colgado)', !errs.length, errs.join(' | '));
   await ctx.close();
 }
 await nav.close(); srv.close();

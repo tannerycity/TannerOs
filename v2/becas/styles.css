@@ -180,3 +180,13 @@
 .sol-aviso{font-size:11.5px;color:#8a6410;font-weight:800}
 
 @media(max-width:420px){.sol-dos{grid-template-columns:1fr}}
+
+/* Fondo interno (04/11/2026): techo en % del ingreso proyectado por
+   mensualidades, sólo para becas que paga el club mismo. */
+.fondo-interno{border-color:#e2e7e5}
+.fondo-barra{position:relative;height:10px;border-radius:999px;background:#eef2f1;overflow:hidden}
+.fondo-barra i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--barra,#0e7c6b);transition:width .2s ease}
+.fondo-barra i.fondo-sobre{background:var(--mal,#d0453f)}
+.fondo-texto{margin:0;font-size:13px;color:#42575d}
+.fondo-aviso{color:#a32920}
+.fondo-nota{margin:0;padding:8px 10px;border-radius:10px;background:#f6f8f7}

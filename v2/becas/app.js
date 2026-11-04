@@ -267,7 +267,7 @@ function mensajeResultadoSol(d) {
 }
 
 let modo = (() => { try { return localStorage.getItem('becasModo') === 'solicitudes' ? 'solicitudes' : 'becados'; } catch { return 'becados'; } })();
-let solicitudes = [], solEstado = 'atender', solBusqueda = '', solCargado = false, solActualId = null, ajustes = null, todosJugadores = null;
+let solicitudes = [], solEstado = 'atender', solBusqueda = '', solCargado = false, solActualId = null, ajustes = null, todosJugadores = null, fondo = null;
 
 function setModo(m) {
   modo = m === 'solicitudes' ? 'solicitudes' : 'becados';
@@ -284,9 +284,24 @@ async function cargaSolicitudes() {
     solCargado = true;
   } catch { msg(`No pudimos abrir las solicitudes de Becas ${nombreDelClub(ctx)}.`); return; }
   if (ctx.is_owner && !ajustes) { try { ajustes = await rpc('v2_scholarship_settings_get', { organization_id: ctx.organization_id }); } catch { ajustes = null; } }
+  try { fondo = await rpc('v2_scholarship_internal_fund', { organization_id: ctx.organization_id }); } catch { fondo = null; }
   $('solAjustesBtn').classList.toggle('hidden', !ctx.is_owner);
   $('solNominarBtn').classList.remove('hidden');
-  pintaSolMarcador(); pintaSolEstados(); pintaSolLista();
+  pintaSolMarcador(); pintaSolEstados(); pintaSolLista(); pintaFondo();
+}
+
+// Fondo interno (sección 7): techo en % del ingreso proyectado por
+// mensualidades (precio de lista por categoría), sólo para becas que paga
+// el club mismo — Curtibrother/patrocinio no cuenta aquí.
+function pintaFondo() {
+  const box = $('fondoInterno'); if (!box) return;
+  if (!fondo) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const pct = Number(fondo.usedPct) || 0, sobre = Number(fondo.used) > Number(fondo.capAmount);
+  $('fondoBarraFill').style.width = `${Math.max(2, Math.min(100, pct))}%`;
+  $('fondoBarraFill').classList.toggle('fondo-sobre', sobre);
+  $('fondoSub').textContent = `${esc(fondo.capPct)}% del ingreso proyectado`;
+  $('fondoTexto').innerHTML = `<b>${esc(dinero.format(Number(fondo.used)))}</b> de <b>${esc(dinero.format(Number(fondo.capAmount)))}</b> disponibles para becas internas · ${esc(pct)}%${sobre ? ' <strong class="fondo-aviso">· por encima del tope</strong>' : ''}`;
 }
 
 function pintaSolMarcador() {
@@ -336,8 +351,10 @@ function cierraSolicitud() { $('solFondo').classList.add('hidden'); document.bod
 
 function dictamenHtml() {
   const min = ajustes?.minPercentage ?? 10;
+  const fondoNota = fondo ? `<p class="sol-opt fondo-nota">Fondo interno: ${esc(dinero.format(Number(fondo.used)))} de ${esc(dinero.format(Number(fondo.capAmount)))} (${esc(fondo.usedPct)}%)${Number(fondo.used) > Number(fondo.capAmount) ? ' · ya está por encima del tope' : ''}</p>` : '';
   return `<div class="sol-dictamen">
     <span class="sol-tit">Dictamen de Presidencia</span>
+    ${fondoNota}
     <div class="bc-acciones sol-dictamen-botones">
       <button type="button" class="primary" data-dictamen="aprobar">Aprobar</button>
       <button type="button" class="danger" data-dictamen="no_aprobar">No aprobar</button>
@@ -403,7 +420,8 @@ function pintaSolHoja(d) {
 async function recargaSolActual() {
   const id = solActualId;
   solicitudes = await rpc('v2_scholarship_applications', { organization_id: ctx.organization_id, status_filter: null }) || [];
-  pintaSolMarcador(); pintaSolEstados(); pintaSolLista();
+  try { fondo = await rpc('v2_scholarship_internal_fund', { organization_id: ctx.organization_id }); } catch { /* se queda el valor anterior */ }
+  pintaSolMarcador(); pintaSolEstados(); pintaSolLista(); pintaFondo();
   if (id) pintaSolHoja(await rpc('v2_scholarship_application_detail', { organization_id: ctx.organization_id, id }));
 }
 async function avanzar(nuevoEstado, nota) {

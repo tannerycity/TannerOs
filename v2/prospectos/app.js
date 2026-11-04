@@ -42,6 +42,22 @@ async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,pa
 let orden=(()=>{try{return localStorage.getItem('fichajesOrden')==='atender'?'atender':'recientes';}catch{return 'recientes';}})();
 // Filtro que viene de tocar una barra de "¿Cómo nos conocieron?".
 let origenFiltro=null,origenVista='persona',origenTodos=false;
+// Visoría (04/11/2026): viven en la misma tabla que los fichajes de la
+// academia, pero Presidencia no quiere que se vean mezclados ni se
+// confundan. Pestaña aparte, nunca combinada por default.
+let origenTab=(()=>{try{return localStorage.getItem('fichajesOrigenTab')==='visoria'?'visoria':'academia';}catch{return 'academia';}})();
+function esVisoria(p){return /visor/i.test(p.purpose||'');}
+function prospectsEnTab(){return prospects.filter(p=>origenTab==='visoria'?esVisoria(p):!esVisoria(p));}
+function setOrigenTab(tab){
+  origenTab=tab==='visoria'?'visoria':'academia';
+  try{localStorage.setItem('fichajesOrigenTab',origenTab);}catch{/* sin almacenamiento: no pasa nada */}
+  document.querySelectorAll('.origen-modo-tab').forEach(b=>{const on=b.dataset.origenTab===origenTab;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));});
+  origenFiltro=null;setActiveView('pipeline');applyFilters();
+}
+function updateOrigenTabCounts(){
+  $('tabCountAcademia').textContent=prospects.filter(p=>!esVisoria(p)).length;
+  $('tabCountVisoria').textContent=prospects.filter(esVisoria).length;
+}
 function haceCuanto(v){
   if(!v)return '';const min=Math.max(0,Math.round((Date.now()-new Date(v).getTime())/60000));
   if(min<60)return min<=1?'hace un momento':`hace ${min} min`;
@@ -155,6 +171,7 @@ async function loadProspects(){
   // iniciales "hasta que entraba".
   prospects.forEach(p=>p.photo_url=null);
   populateFilterOptions();
+  updateOrigenTabCounts();
   applyFilters();
   pintaMiniaturas().then(curaMiniaturasFaltantes);
 }
@@ -224,7 +241,7 @@ function populateFilterOptions(){
 
 function baseScoped(){
   const type=$('typeFilter').value,campaign=$('campaignFilter').value,source=$('sourceFilter').value;
-  return prospects.filter(p=>(!type||p.registration_type===type)&&(!campaign||p.source_campaign===campaign)&&(!source||(p.source_channel||p.source)===source)&&cumpleOrigen(p));
+  return prospectsEnTab().filter(p=>(!type||p.registration_type===type)&&(!campaign||p.source_campaign===campaign)&&(!source||(p.source_channel||p.source)===source)&&cumpleOrigen(p));
 }
 function cumpleOrigen(p){
   if(!origenFiltro)return true;
@@ -449,9 +466,10 @@ function renderAttentionSummary(rows){
 function renderOrigen(){
   const box=$('origenBarras');if(!box)return;
   document.querySelectorAll('.origen-tabs button').forEach(b=>{const on=b.dataset.origen===origenVista;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));});
-  const grupos=origenVista==='persona'?porRecomendador(prospects):porMedio(prospects);
+  const base=prospectsEnTab();
+  const grupos=origenVista==='persona'?porRecomendador(base):porMedio(base);
   const recom=origenVista==='persona'?grupos.filter(g=>!g.sinNombre).reduce((n,g)=>n+g.total,0):0;
-  $('origenTotal').textContent=origenVista==='persona'?`${recom} con nombre de quien recomendó`:`${prospects.length} registros`;
+  $('origenTotal').textContent=origenVista==='persona'?`${recom} con nombre de quien recomendó`:`${base.length} registros`;
   const visibles=origenTodos?grupos:grupos.slice(0,6);
   const max=Math.max(1,...grupos.map(g=>g.total));
   box.innerHTML=visibles.length?visibles.map((g,i)=>{
@@ -751,6 +769,11 @@ document.querySelectorAll('.origen-tabs button').forEach(b=>b.addEventListener('
 $('origenMas').addEventListener('click',()=>{origenTodos=!origenTodos;renderOrigen();});
 $('clearFilters').addEventListener('click',()=>{origenFiltro=null;for(const id of ['statusFilter','typeFilter','campaignFilter','sourceFilter','urgencyFilter'])$(id).value='';$('searchProspect').value='';setActiveView('pipeline');applyFilters();});
 document.querySelectorAll('.pipeline-tab').forEach(btn=>btn.addEventListener('click',()=>{setActiveView(btn.dataset.view);applyFilters();}));
+document.querySelectorAll('.origen-modo-tab').forEach(btn=>{
+  btn.classList.toggle('active',btn.dataset.origenTab===origenTab);
+  btn.setAttribute('aria-selected',String(btn.dataset.origenTab===origenTab));
+  btn.addEventListener('click',()=>setOrigenTab(btn.dataset.origenTab));
+});
 $('viewList').addEventListener('click',()=>setViewMode('list'));
 $('viewKanban').addEventListener('click',()=>setViewMode('kanban'));
 document.querySelectorAll('.funnel-stage').forEach(btn=>btn.addEventListener('click',()=>{

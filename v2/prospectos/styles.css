@@ -137,3 +137,15 @@ select.pill-source{display:none}
 
 /* En el teléfono las cuatro pestañas caben en 2x2: ninguna se esconde a la derecha. */
 @media(max-width:560px){.pipeline-tabs{display:grid;grid-template-columns:1fr 1fr;overflow:visible}.pipeline-tab{justify-content:space-between}}
+
+/* Academia vs. Visorías (04/11/2026): dos embudos que viven en la misma
+   tabla pero nunca deben verse mezclados. Pestaña grande, arriba de todo,
+   para que sea obvio en cuál se está antes de ver un solo registro. */
+.origen-modo-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.origen-modo-tab{appearance:none;border:1.5px solid var(--line);background:#fff;color:#4d6267;padding:13px 16px;border-radius:16px;font:900 14px/1.1 inherit;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:border-color .15s ease,background .15s ease,color .15s ease}
+.origen-modo-tab .tab-count{background:#eef3f1;color:inherit;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900}
+.origen-modo-tab.active{border-color:var(--ink);background:linear-gradient(180deg,#0e3038,#07191e);color:#fff}
+.origen-modo-tab.active .tab-count{background:rgba(255,255,255,.18);color:#fff}
+.origen-modo-tab[data-origen-tab="visoria"].active{border-color:var(--gold);background:linear-gradient(180deg,#9d8950,#6e602f)}
+.origen-modo-tab:hover:not(.active){border-color:#c7d3d1}
+@media(max-width:560px){.origen-modo-tab{padding:12px;font-size:12.5px}}

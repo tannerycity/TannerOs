@@ -142,9 +142,11 @@ async function firmaCaras() {
   } catch { /* quedan las iniciales */ }
 }
 
+let fichaActual = null;
 function abreFicha(id) {
   const b = (datos?.rows || []).find(x => x.playerId === id);
   if (!b) return;
+  fichaActual = b;
   const c = cumplimiento(b.pct), v = vencimiento(b.daysLeft), t = tipoDe(b.type), cu = cuantoCubre(b);
   const liga = ligaWhatsApp(b.phone, mensajeDeFaltas({ tanner: b.name, tutor: b.guardianName, categoria: b.categoryName,
     faltas: b.streak, pct: b.pct, asistio: b.attended, marcadas: b.marked, club: ctx?.organization_name||'el club' }));
@@ -167,11 +169,40 @@ function abreFicha(id) {
     <div class="bc-acciones">
       ${liga ? `<a class="bc-familia" href="${esc(liga)}" target="_blank" rel="noopener">Escribir a la familia${b.guardianName ? ` · ${esc(String(b.guardianName).split(/\s+/)[0])}` : ''}</a>` : '<p class="bc-sin-tel">La familia no tiene teléfono registrado.</p>'}
       <a class="secondary bc-expediente" href="/jugadores/?player=${encodeURIComponent(b.playerId)}">Ver expediente y editar beca</a>
+    </div>
+    <div class="bc-cuidado">
+      <div class="bc-cuidado-cab"><span class="sol-tit">Cuidado del beneficio</span>${b.warningsCount ? `<span class="sol-pastilla sol-pastilla-atencion">${b.warningsCount} advertencia${b.warningsCount === 1 ? '' : 's'}</span>` : ''}</div>
+      <div id="bcAdvertenciasLista" class="sol-timeline">Cargando…</div>
+      <div id="bcHojaMsg" class="inline-message hidden"></div>
+      <div class="bc-acciones">
+        <button type="button" class="secondary" data-abre-advertencia>+ Advertencia</button>
+        ${ctx.is_owner ? '<button type="button" class="danger" data-abre-suspender>Suspender / cancelar beca</button>' : ''}
+      </div>
+      <form id="formAdvertencia" class="sol-form hidden">
+        <label>Causa<select name="cause" required>${Object.entries(CAUSAS).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></label>
+        <label>Nota <span class="sol-opt">· opcional</span><textarea name="note" rows="2"></textarea></label>
+        <button type="submit" class="primary">Registrar advertencia</button>
+      </form>
+      ${ctx.is_owner ? `<form id="formSuspender" class="sol-form hidden">
+        <label>Causa<select name="cause" required>${Object.entries(CAUSAS).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></label>
+        <label>Motivo <span class="sol-opt">· mínimo 10 caracteres, queda en el expediente interno</span><textarea name="reason" rows="3" required minlength="10"></textarea></label>
+        <button type="submit" class="danger">Confirmar suspensión/cancelación</button>
+      </form>` : ''}
     </div>`;
   $('bcFondo').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+  cargaAdvertencias(b.benefitId);
 }
-function cierraFicha() { $('bcFondo').classList.add('hidden'); document.body.style.overflow = ''; }
+function cierraFicha() { $('bcFondo').classList.add('hidden'); document.body.style.overflow = ''; fichaActual = null; }
+
+async function cargaAdvertencias(benefitId) {
+  const box = $('bcAdvertenciasLista'); if (!box) return;
+  try {
+    const lista = await rpc('v2_scholarship_benefit_warnings', { organization_id: ctx.organization_id, benefit_id: benefitId }) || [];
+    box.innerHTML = lista.length ? lista.map(w => `<li><b>${esc(CAUSAS[w.cause] || w.cause)}</b><small>${esc(fecha(w.createdAt))}</small>${w.note ? `<span>${esc(w.note)}</span>` : ''}</li>`).join('')
+      : '<p class="bc-vacio">Sin advertencias.</p>';
+  } catch { box.innerHTML = '<p class="bc-vacio">No se pudo cargar.</p>'; }
+}
 
 function exportaCsv() {
   const filas = ordena(datos?.rows || []);
@@ -193,6 +224,10 @@ function exportaCsv() {
 // =====================================================================
 const MODALIDADES = { ingreso: 'Apoyo de Ingreso', apoyo_familiar: 'Beca de Apoyo Familiar', academica: 'Beca Académica',
   deportiva: 'Beca Deportiva', tanner: 'Beca Tanner', lealtad: 'Beca Lealtad Tanner', curtibrother: 'Curtibrother' };
+// Causas de advertencia/suspensión (sección 8 del protocolo): mismas en el
+// beneficio activo (becados) y al cancelarlo.
+const CAUSAS = { falsedad_informacion: 'Falsedad de información', ausentismo: 'Ausentismo', indisciplina_grave: 'Indisciplina grave',
+  incumplimiento_reiterado: 'Incumplimiento reiterado', baja_club: 'Baja del club', otro: 'Otro' };
 const ESTADOS = { borrador: 'Borrador', pendiente_pago: 'Pendiente de pago', pago_recibido: 'Pago recibido', enviada: 'Enviada',
   en_revision_administrativa: 'En revisión', info_pendiente: 'Falta información', en_evaluacion: 'En evaluación',
   comite: 'En comité', presidencia: 'Con Presidencia', aprobada: 'Aprobada', no_aprobada: 'No aprobada', retirada: 'Retirada' };
@@ -201,7 +236,7 @@ const ESTADOS_ABIERTOS = new Set(['borrador', 'pendiente_pago', 'pago_recibido',
 const COBERTURAS = [['mensualidad', 'Mensualidad'], ['inscripcion', 'Inscripción'], ['academia', 'Academia'], ['uniforme', 'Uniforme'], ['arbitraje', 'Arbitraje']];
 const EVENTO_TXT = { ScholarshipApplicationCreated: 'Solicitud enviada', ScholarshipNominated: 'Nominación creada',
   ScholarshipApplicationAdvanced: 'Cambio de etapa', ScholarshipFeePaid: 'Cuota pagada', ScholarshipFeeWaived: 'Cuota exentada',
-  ScholarshipApproved: 'Aprobada', ScholarshipRejected: 'No aprobada' };
+  ScholarshipApproved: 'Aprobada', ScholarshipRejected: 'No aprobada', ScholarshipBenefitSuspended: 'Beca suspendida/cancelada' };
 // Siguiente(s) paso(s) desde cada etapa. "nota" = pide un texto antes de avanzar.
 const AVANCE = {
   enviada: [{ to: 'en_revision_administrativa', texto: 'Mover a revisión' }],
@@ -523,6 +558,31 @@ $('bcBuscar')?.addEventListener('input', e => { busqueda = sinAcentos(e.target.v
 $('bcCsv')?.addEventListener('click', exportaCsv);
 $('bcCerrar')?.addEventListener('click', cierraFicha);
 $('bcFondo')?.addEventListener('click', e => { if (e.target.id === 'bcFondo') cierraFicha(); });
+
+function fichaMsg(t) { const m = $('bcHojaMsg'); if (!m) return; m.textContent = t || ''; m.classList.toggle('hidden', !t); }
+$('bcHoja')?.addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.hasAttribute('data-abre-advertencia')) $('formAdvertencia')?.classList.toggle('hidden');
+  else if (t.hasAttribute('data-abre-suspender')) $('formSuspender')?.classList.toggle('hidden');
+});
+$('bcHoja')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target, fd = new FormData(f);
+  if (f.id === 'formAdvertencia') {
+    if (!fichaActual) return;
+    try {
+      await rpc('v2_scholarship_warning_add', { organization_id: ctx.organization_id, benefit_id: fichaActual.benefitId, cause: fd.get('cause'), note: fd.get('note')?.trim() || null });
+      await carga(); abreFicha(fichaActual.playerId);
+    } catch (err) { fichaMsg(err.message || 'No se pudo registrar la advertencia.'); }
+  } else if (f.id === 'formSuspender') {
+    if (!fichaActual) return;
+    if (!confirm('¿Confirmas suspender/cancelar esta beca? No se puede deshacer.')) return;
+    try {
+      await rpc('v2_scholarship_benefit_suspend', { organization_id: ctx.organization_id, benefit_id: fichaActual.benefitId, cause: fd.get('cause'), reason: fd.get('reason').trim() });
+      cierraFicha(); await carga();
+    } catch (err) { fichaMsg(err.message || 'No se pudo suspender la beca.'); }
+  }
+});
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('bcFondo').classList.contains('hidden')) cierraFicha();

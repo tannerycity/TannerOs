@@ -17,6 +17,7 @@ const CATEGORY_LABELS = {
   privacidad: 'Privacidad e imagen', faq: 'Preguntas frecuentes'
 };
 const DOC_LABELS = { reglamento: 'Reglamento', privacidad: 'Aviso de privacidad', uso_de_imagen: 'Uso de fotos y video', visoria: 'Términos para visorías' };
+let becasNombre = 'Becas Tannery City';
 const THEME_GROUPS = [
   { label: 'Pagos', categories: ['mensualidades', 'becas'] },
   { label: 'Entrenamientos y fútbol', categories: ['entrenamientos', 'asistencia', 'partidos', 'jugadores', 'baby_tanners'] },
@@ -62,7 +63,7 @@ async function renderHome() {
       <p class="ct-search-hint">Prueba: mensualidad, vacaciones, uniforme, beca, estacionamiento…</p>
     </div>
     <a class="bk-banner" href="/centro-tanner/becas">
-      <div><span class="bk-banner-eyebrow">MÉRITO + NECESIDAD + COMUNIDAD</span><strong>Becas Tannery City</strong><p>Queremos que el talento, la disciplina y las ganas de crecer encuentren oportunidades.</p></div>
+      <div><span class="bk-banner-eyebrow">MÉRITO + NECESIDAD + COMUNIDAD</span><strong>${esc(becasNombre)}</strong><p>Queremos que el talento, la disciplina y las ganas de crecer encuentren oportunidades.</p></div>
       <span class="bk-banner-cta">Descubre qué apoyo podría aplicar para ti →</span>
     </a>
     <section class="ct-section" id="ctFaqSection"><h2 class="ct-section-title">Preguntas frecuentes</h2><div id="ctFaqList" class="ct-faq-list"><div class="ct-loading">Cargando…</div></div></section>
@@ -236,19 +237,19 @@ function becasCard(m) {
   </a>`;
 }
 async function renderBecasHome() {
-  setMeta('Becas Tannery City', 'Mérito + necesidad + comunidad. Descubre qué beca o apoyo podría aplicar para ti en Tannery City.');
+  setMeta(becasNombre, `Mérito + necesidad + comunidad. Descubre qué beca o apoyo podría aplicar para ti en ${clubNombre || 'el club'}.`);
   const cfg = await getBecasConfig();
   render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { label: 'Becas' }])}
     <section class="ct-hero bk-hero">
       <div class="ct-hero-eyebrow">MÉRITO + NECESIDAD + COMUNIDAD</div>
-      <h1>Becas Tannery City</h1>
+      <h1>${esc(becasNombre)}</h1>
       <p>Queremos que el talento, la disciplina y las ganas de crecer encuentren oportunidades.</p>
       <div class="bk-hero-ctas">
         <a class="bk-btn-primary" href="/centro-tanner/becas/wizard">DESCUBRE QUÉ APOYO PODRÍA APLICAR PARA TI</a>
         <a class="bk-btn-ghost" href="#bkGrid">Ver todas las becas</a>
       </div>
     </section>
-    <div class="bk-disclaimer">IMPORTANTE: Las becas y apoyos Tannery City no son automáticos ni permanentes. Cada solicitud o nominación es evaluada individualmente. Tannery City determina la aprobación, porcentaje, duración, cobertura y condiciones de cada apoyo. Los apoyos pueden comenzar desde el ${esc(cfg.minPercentage)}%; Tannery City determina el porcentaje final.</div>
+    <div class="bk-disclaimer">IMPORTANTE: Las becas y apoyos de ${esc(becasNombre.replace(/^Becas\s*/, '') || 'el club')} no son automáticos ni permanentes. Cada solicitud o nominación es evaluada individualmente. El club determina la aprobación, porcentaje, duración, cobertura y condiciones de cada apoyo. Los apoyos pueden comenzar desde el ${esc(cfg.minPercentage)}%; el club determina el porcentaje final.</div>
     <section class="ct-section" id="bkGrid">
       <h2 class="ct-section-title">Las 7 modalidades</h2>
       <div class="bk-grid">${BECAS_MODALIDADES.map(becasCard).join('')}</div>
@@ -284,7 +285,7 @@ function wizardFrame(inner, { back = true } = {}) {
 }
 async function renderBecasWizardStep() {
   const step = wizardStack[wizardStack.length - 1];
-  setMeta('Ayúdame a elegir', 'Responde unas preguntas y descubre qué apoyo de Tannery City podría aplicar para ti.');
+  setMeta('Ayúdame a elegir', `Responde unas preguntas y descubre qué apoyo de ${clubNombre || 'el club'} podría aplicar para ti.`);
   if (!step) {
     // primera pantalla: elegir una frase o abrir el wizard guiado
     wizardFrame(`
@@ -339,7 +340,7 @@ async function renderWizardResult(dest) {
     <h1>Por tu situación, esta opción podría aplicar para ti</h1>
     <div class="bk-grid">${m ? becasCard(m) : ''}</div>
     ${dest?.nota ? `<p class="bk-wizard-copy">${esc(dest.nota)}</p>` : ''}
-    <p class="bk-wizard-fineprint">La aprobación final depende de la evaluación de Tannery City.</p>
+    <p class="bk-wizard-fineprint">La aprobación final depende de la evaluación de ${esc(clubNombre || 'el club')}.</p>
     <a class="bk-btn-primary" href="/centro-tanner/p/${esc(slug)}">VER REQUISITOS Y SIGUIENTE PASO</a>
   `);
 }
@@ -366,10 +367,12 @@ try {
   clubNombre = String(ctx?.brand || ctx?.organizationName || '').trim();
   instalaVocabulario(ctx?.playerNoun);
   // "Tannery City Park" es el complejo de Tannery; los demás clubes ven
-  // "Instalaciones" para lo mismo.
+  // "Instalaciones" para lo mismo. "Becas Tannery City" es el nombre del
+  // programa de Tannery; los demás clubes ven "Becas <su club>".
   if (ctx?.slug && ctx.slug !== 'tannery-city-fc') {
     CATEGORY_LABELS.tannery_city_park = 'Instalaciones';
     THEME_GROUPS.forEach(g => { if (g.categories.includes('tannery_city_park')) g.label = 'Instalaciones'; });
+    becasNombre = clubNombre ? `Becas ${clubNombre}` : 'Becas';
   }
 } catch { clubNombre = ''; }
 if (clubNombre) DOC_LABELS.reglamento = `Reglamento ${clubNombre}`;

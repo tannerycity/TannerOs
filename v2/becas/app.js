@@ -12,6 +12,7 @@
  * El aviso mensual (día 1) lo manda la base: private.avisa_becas_del_mes.
  */
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { mensajeDeFaltas, rangoDe, textoUltimaVez } from '/v2/asistencia/estadisticas.js';
@@ -47,6 +48,7 @@ async function boot() {
   $('roleBadge').textContent = ctx.is_owner ? 'Presidencia' : ctx.role;
   pintaPeriodos(); pintaFiltros();
   show('view');
+  setModo(modo);
   await carga();
 }
 
@@ -183,9 +185,336 @@ function exportaCsv() {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+// =====================================================================
+// SOLICITUDES · BECAS TANNERY CITY (04/11/2026). Pipeline de las 7
+// modalidades: nominar/solicitar → revisión → comité → Presidencia dictamina.
+// Vive en la misma pantalla ("un solo lugar para darle seguimiento") pero en
+// su propia pestaña: nunca se mezcla con el padrón de ya-becados de arriba.
+// =====================================================================
+const MODALIDADES = { ingreso: 'Apoyo de Ingreso', apoyo_familiar: 'Beca de Apoyo Familiar', academica: 'Beca Académica',
+  deportiva: 'Beca Deportiva', tanner: 'Beca Tanner', lealtad: 'Beca Lealtad Tanner', curtibrother: 'Curtibrother' };
+const ESTADOS = { borrador: 'Borrador', pendiente_pago: 'Pendiente de pago', pago_recibido: 'Pago recibido', enviada: 'Enviada',
+  en_revision_administrativa: 'En revisión', info_pendiente: 'Falta información', en_evaluacion: 'En evaluación',
+  comite: 'En comité', presidencia: 'Con Presidencia', aprobada: 'Aprobada', no_aprobada: 'No aprobada', retirada: 'Retirada' };
+const ESTADO_NIVEL = { aprobada: 'ok', no_aprobada: 'bajo', retirada: 'sindato', pendiente_pago: 'atencion', info_pendiente: 'atencion', presidencia: 'atencion' };
+const ESTADOS_ABIERTOS = new Set(['borrador', 'pendiente_pago', 'pago_recibido', 'enviada', 'en_revision_administrativa', 'info_pendiente', 'en_evaluacion', 'comite', 'presidencia']);
+const COBERTURAS = [['mensualidad', 'Mensualidad'], ['inscripcion', 'Inscripción'], ['academia', 'Academia'], ['uniforme', 'Uniforme'], ['arbitraje', 'Arbitraje']];
+const EVENTO_TXT = { ScholarshipApplicationCreated: 'Solicitud enviada', ScholarshipNominated: 'Nominación creada',
+  ScholarshipApplicationAdvanced: 'Cambio de etapa', ScholarshipFeePaid: 'Cuota pagada', ScholarshipFeeWaived: 'Cuota exentada',
+  ScholarshipApproved: 'Aprobada', ScholarshipRejected: 'No aprobada' };
+// Siguiente(s) paso(s) desde cada etapa. "nota" = pide un texto antes de avanzar.
+const AVANCE = {
+  enviada: [{ to: 'en_revision_administrativa', texto: 'Mover a revisión' }],
+  en_revision_administrativa: [{ to: 'en_evaluacion', texto: 'Pasar a evaluación' }, { to: 'info_pendiente', texto: 'Pedir información', nota: true }],
+  info_pendiente: [{ to: 'en_revision_administrativa', texto: 'Ya respondió: volver a revisión' }],
+  en_evaluacion: [{ to: 'comite', texto: 'Enviar a comité', nota: true }],
+  comite: [{ to: 'presidencia', texto: 'Enviar a Presidencia', nota: true }],
+};
+const SOL_FILTROS = [
+  { clave: 'atender', etiqueta: 'Por atender', pasa: s => ESTADOS_ABIERTOS.has(s.status) },
+  { clave: 'aprobada', etiqueta: 'Aprobadas', pasa: s => s.status === 'aprobada' },
+  { clave: 'cerrada', etiqueta: 'No aprobadas / retiradas', pasa: s => s.status === 'no_aprobada' || s.status === 'retirada' },
+  { clave: 'todas', etiqueta: 'Todas', pasa: () => true },
+];
+const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const fechaHora = v => v ? new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—';
+
+let modo = (() => { try { return localStorage.getItem('becasModo') === 'solicitudes' ? 'solicitudes' : 'becados'; } catch { return 'becados'; } })();
+let solicitudes = [], solEstado = 'atender', solBusqueda = '', solCargado = false, solActualId = null, ajustes = null, todosJugadores = null;
+
+function setModo(m) {
+  modo = m === 'solicitudes' ? 'solicitudes' : 'becados';
+  try { localStorage.setItem('becasModo', modo); } catch { /* sin almacenamiento: no pasa nada */ }
+  document.querySelectorAll('.bc-modo-btn').forEach(b => { const on = b.dataset.modo === modo; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); });
+  $('bcTabBecados').classList.toggle('hidden', modo !== 'becados');
+  $('bcTabSolicitudes').classList.toggle('hidden', modo !== 'solicitudes');
+  if (modo === 'solicitudes' && !solCargado) cargaSolicitudes();
+}
+
+async function cargaSolicitudes() {
+  try {
+    solicitudes = await rpc('v2_scholarship_applications', { organization_id: ctx.organization_id, status_filter: null }) || [];
+    solCargado = true;
+  } catch { msg(`No pudimos abrir las solicitudes de Becas ${nombreDelClub(ctx)}.`); return; }
+  if (ctx.is_owner && !ajustes) { try { ajustes = await rpc('v2_scholarship_settings_get', { organization_id: ctx.organization_id }); } catch { ajustes = null; } }
+  $('solAjustesBtn').classList.toggle('hidden', !ctx.is_owner);
+  $('solNominarBtn').classList.remove('hidden');
+  pintaSolMarcador(); pintaSolEstados(); pintaSolLista();
+}
+
+function pintaSolMarcador() {
+  $('solTotal').textContent = solicitudes.filter(s => ESTADOS_ABIERTOS.has(s.status)).length;
+  $('solPresidencia').textContent = solicitudes.filter(s => s.status === 'presidencia').length;
+  $('solAprobadas').textContent = solicitudes.filter(s => s.status === 'aprobada').length;
+  const porAtender = solicitudes.filter(s => ESTADOS_ABIERTOS.has(s.status)).length;
+  $('bcSolBadge').textContent = porAtender;
+  $('bcSolBadge').classList.toggle('hidden', !porAtender);
+}
+
+function pintaSolEstados() {
+  $('solEstados').innerHTML = SOL_FILTROS.map(f => `<button type="button" data-f="${f.clave}" class="${f.clave === solEstado ? 'activo' : ''}">${f.etiqueta} <b>${solicitudes.filter(f.pasa).length}</b></button>`).join('');
+  $('solEstados').querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => { solEstado = b.dataset.f; pintaSolEstados(); pintaSolLista(); }));
+}
+
+function pintaSolLista() {
+  const f = SOL_FILTROS.find(x => x.clave === solEstado) || SOL_FILTROS[0];
+  const filas = solicitudes.filter(f.pasa).filter(s => !solBusqueda || sinAcentos(s.playerName).includes(solBusqueda))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  $('solVacio').classList.toggle('hidden', filas.length > 0);
+  $('solLista').innerHTML = filas.map(s => {
+    const nivel = ESTADO_NIVEL[s.status] || '';
+    return `<button type="button" class="bc-fila${nivel ? ` bc-${nivel}` : ''}" data-id="${esc(s.id)}">
+      <span class="bc-cara">${esc(iniciales(s.playerName))}</span>
+      <span class="bc-fila-txt">
+        <strong>${esc(s.playerName)}</strong>
+        <span class="bc-etq"><i class="bc-tipo">${esc(MODALIDADES[s.modality] || s.modality)}</i>${s.category ? `<small>${esc(s.category)}</small>` : ''}</span>
+        <small class="bc-venc">${esc(fecha(s.createdAt))}${s.feeStatus === 'pending' ? ' · cuota pendiente' : ''}</small>
+      </span>
+      <span class="sol-pastilla sol-pastilla-${nivel || 'base'}">${esc(ESTADOS[s.status] || s.status)}</span>
+    </button>`;
+  }).join('');
+  $('solLista').querySelectorAll('[data-id]').forEach(x => x.addEventListener('click', () => abreSolicitud(x.dataset.id)));
+}
+
+function solMsg(t) { const m = $('solHojaMsg'); if (!m) return; m.textContent = t || ''; m.classList.toggle('hidden', !t); }
+
+async function abreSolicitud(id) {
+  solActualId = id;
+  $('solHoja').innerHTML = '<p class="bc-vacio">Abriendo…</p>';
+  $('solFondo').classList.remove('hidden'); document.body.style.overflow = 'hidden';
+  try { pintaSolHoja(await rpc('v2_scholarship_application_detail', { organization_id: ctx.organization_id, id })); }
+  catch (e) { $('solHoja').innerHTML = `<p class="bc-vacio">${esc(e.message || 'No se pudo abrir.')}</p>`; }
+}
+function cierraSolicitud() { $('solFondo').classList.add('hidden'); document.body.style.overflow = ''; solActualId = null; }
+
+function dictamenHtml() {
+  const min = ajustes?.minPercentage ?? 10;
+  return `<div class="sol-dictamen">
+    <span class="sol-tit">Dictamen de Presidencia</span>
+    <div class="bc-acciones sol-dictamen-botones">
+      <button type="button" class="primary" data-dictamen="aprobar">Aprobar</button>
+      <button type="button" class="danger" data-dictamen="no_aprobar">No aprobar</button>
+    </div>
+    <form id="formAprobar" class="sol-form hidden">
+      <label>Porcentaje que otorga ${esc(nombreDelClub(ctx))} <span class="sol-opt">· desde ${min}%</span><input type="number" name="percentage" min="${min}" max="100" step="1" required placeholder="${min}"></label>
+      <div class="sol-dos">
+        <label>Empieza<input type="date" name="starts_on" required value="${hoyISO()}"></label>
+        <label>Duración (meses) <span class="sol-opt">· opcional</span><input type="number" name="duration_months" min="1" max="36"></label>
+      </div>
+      <label>Termina <span class="sol-opt">· opcional, vacío = indefinida</span><input type="date" name="ends_on"></label>
+      <fieldset class="sol-cobertura"><legend>Cubre</legend>${COBERTURAS.map(([v, l]) => `<label class="sol-check"><input type="checkbox" name="covers" value="${v}"> ${esc(l)}</label>`).join('')}</fieldset>
+      <label>Nota <span class="sol-opt">· opcional, queda en el expediente interno</span><textarea name="note" rows="2"></textarea></label>
+      <button type="submit" class="primary">Confirmar aprobación</button>
+    </form>
+    <form id="formNoAprobar" class="sol-form hidden">
+      <label>Motivo <span class="sol-opt">· queda en el expediente interno, la familia no lo ve</span><textarea name="note" rows="3" required minlength="5"></textarea></label>
+      <button type="submit" class="danger">Confirmar que no se aprueba</button>
+    </form>
+  </div>`;
+}
+
+function pintaSolHoja(d) {
+  const abierta = ESTADOS_ABIERTOS.has(d.status);
+  const avances = AVANCE[d.status] || [];
+  const avanceHtml = avances.map(a => a.nota
+    ? `<div class="sol-avance-nota"><button type="button" class="secondary" data-abre-nota="${esc(a.to)}">${esc(a.texto)}</button>
+        <form class="sol-form hidden" data-avanza-form="${esc(a.to)}"><textarea name="note" rows="2" required minlength="5" placeholder="Explica brevemente…"></textarea><button type="submit" class="primary mini">Confirmar</button></form></div>`
+    : `<button type="button" class="secondary" data-avanza="${esc(a.to)}">${esc(a.texto)}</button>`).join('');
+  const cuotaHtml = d.status === 'pendiente_pago' ? `<div class="sol-cuota">
+      <p>Cuota de evaluación: <b>${esc(dinero.format(Number(d.feeAmount || 0)))}</b> <span class="sol-pastilla sol-pastilla-atencion">Pendiente</span></p>
+      <div class="bc-acciones">
+        <button type="button" class="primary" data-pagar-cuota>Marcar pagada</button>
+        ${ctx.is_owner ? '<button type="button" class="secondary" data-exentar-cuota>Exentar · Presidencia</button>' : ''}
+      </div>
+      <form id="formExentar" class="sol-form hidden"><textarea name="reason" rows="2" required minlength="10" placeholder="Motivo de la excepción (mínimo 10 caracteres)…"></textarea><button type="submit" class="danger">Confirmar excepción</button></form>
+    </div>` : '';
+  $('solHoja').innerHTML = `
+    <div id="solHojaMsg" class="inline-message hidden"></div>
+    <div class="bc-hoja-quien"><span class="bc-cara">${esc(iniciales(d.playerName))}</span><div><h2 id="solHojaNombre">${esc(d.playerName)}</h2><p>${esc(MODALIDADES[d.modality] || d.modality)}${d.category ? ` · ${esc(d.category)}` : ''}</p></div></div>
+    <div class="sol-pastilla-grande sol-pastilla-${ESTADO_NIVEL[d.status] || 'base'}">${esc(ESTADOS[d.status] || d.status)}</div>
+    <div class="bc-datos">
+      <div class="bc-dato"><span>Pedida por</span><b>${d.origin === 'family_request' ? 'La familia' : 'El club (nominación)'}</b></div>
+      <div class="bc-dato"><span>Desde</span><b>${esc(fecha(d.createdAt))}</b></div>
+      ${d.reason ? `<div class="bc-dato bc-dato-ancho"><span>Motivo</span><b>${esc(d.reason)}</b></div>` : ''}
+      ${d.evidenceNote ? `<div class="bc-dato bc-dato-ancho"><span>Evidencia / nota</span><b>${esc(d.evidenceNote)}</b></div>` : ''}
+      ${d.infoRequestedNote && d.status === 'info_pendiente' ? `<div class="bc-dato bc-dato-ancho"><span>Qué se pidió</span><b>${esc(d.infoRequestedNote)}</b></div>` : ''}
+      ${d.committeeNote ? `<div class="bc-dato bc-dato-ancho"><span>Nota de comité</span><b>${esc(d.committeeNote)}</b></div>` : ''}
+      ${d.status === 'aprobada' ? `
+        <div class="bc-dato"><span>Porcentaje otorgado</span><b>${esc(pctTexto(d.decidedPercentage))}</b></div>
+        <div class="bc-dato"><span>Vigencia</span><b>${esc(fecha(d.decidedStartsOn))} — ${d.decidedEndsOn ? esc(fecha(d.decidedEndsOn)) : 'indefinida'}</b></div>
+        ${d.decidedCovers?.length ? `<div class="bc-dato bc-dato-ancho"><span>Cubre</span><b>${d.decidedCovers.map(c => esc((COBERTURAS.find(x => x[0] === c) || [null, c])[1])).join(', ')}</b></div>` : ''}` : ''}
+      ${d.status === 'no_aprobada' && d.decisionNote ? `<div class="bc-dato bc-dato-ancho"><span>Motivo</span><b>${esc(d.decisionNote)}</b></div>` : ''}
+    </div>
+    ${cuotaHtml}
+    ${avances.length ? `<div class="bc-acciones sol-avances">${avanceHtml}</div>` : ''}
+    ${d.status === 'presidencia' ? (ctx.is_owner ? dictamenHtml() : '<p class="bc-vacio">Esperando dictamen de Presidencia.</p>') : ''}
+    ${abierta ? '<button type="button" class="sol-link sol-retirar" data-retirar>Retirar esta solicitud</button>' : ''}
+    ${(d.events || []).length ? `<div class="bc-dato-ancho"><span class="sol-tit">Seguimiento</span><ul class="sol-timeline">${d.events.map(ev => `<li><b>${esc(EVENTO_TXT[ev.type] || ev.type)}</b><small>${esc(fechaHora(ev.occurredAt))}</small></li>`).join('')}</ul></div>` : ''}`;
+}
+
+async function recargaSolActual() {
+  const id = solActualId;
+  solicitudes = await rpc('v2_scholarship_applications', { organization_id: ctx.organization_id, status_filter: null }) || [];
+  pintaSolMarcador(); pintaSolEstados(); pintaSolLista();
+  if (id) pintaSolHoja(await rpc('v2_scholarship_application_detail', { organization_id: ctx.organization_id, id }));
+}
+async function avanzar(nuevoEstado, nota) {
+  if (!solActualId) return;
+  try { await rpc('v2_scholarship_application_advance', { organization_id: ctx.organization_id, id: solActualId, new_status: nuevoEstado, note: nota || null }); await recargaSolActual(); }
+  catch (e) { solMsg(e.message || 'No se pudo mover de etapa.'); }
+}
+async function decidir(decision, form) {
+  if (!solActualId) return;
+  const fd = new FormData(form);
+  const covers = [...form.querySelectorAll('[name="covers"]:checked')].map(c => c.value);
+  try {
+    const r = await rpc('v2_scholarship_application_decide', {
+      organization_id: ctx.organization_id, id: solActualId, decision,
+      percentage: decision === 'aprobada' ? Number(fd.get('percentage')) : null,
+      duration_months: decision === 'aprobada' && fd.get('duration_months') ? Number(fd.get('duration_months')) : null,
+      starts_on: decision === 'aprobada' ? fd.get('starts_on') : null,
+      ends_on: decision === 'aprobada' && fd.get('ends_on') ? fd.get('ends_on') : null,
+      covers: decision === 'aprobada' && covers.length ? covers : null,
+      note: fd.get('note')?.trim() || null,
+    });
+    await recargaSolActual();
+    if (r?.capExceeded) solMsg('Se registró, pero ya se pasó el tope de becas al 100% configurado en Ajustes.');
+  } catch (e) { solMsg(e.message || 'No se pudo registrar el dictamen.'); }
+}
+async function marcarPagada() {
+  if (!solActualId) return;
+  try { await rpc('v2_scholarship_fee_mark_paid', { organization_id: ctx.organization_id, id: solActualId }); await recargaSolActual(); }
+  catch (e) { solMsg(e.message || 'No se pudo marcar como pagada.'); }
+}
+async function exentarCuota(motivo) {
+  if (!solActualId) return;
+  try { await rpc('v2_scholarship_fee_waive', { organization_id: ctx.organization_id, id: solActualId, reason: motivo }); await recargaSolActual(); }
+  catch (e) { solMsg(e.message || 'No se pudo exentar la cuota.'); }
+}
+
+$('solHoja')?.addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.avanza) avanzar(t.dataset.avanza, null);
+  else if (t.dataset.abreNota) $('solHoja').querySelector(`[data-avanza-form="${CSS.escape(t.dataset.abreNota)}"]`)?.classList.toggle('hidden');
+  else if (t.hasAttribute('data-retirar')) { if (confirm('¿Retirar esta solicitud? No se puede deshacer.')) avanzar('retirada', null); }
+  else if (t.dataset.dictamen === 'aprobar') { $('formAprobar')?.classList.remove('hidden'); $('formNoAprobar')?.classList.add('hidden'); }
+  else if (t.dataset.dictamen === 'no_aprobar') { $('formNoAprobar')?.classList.remove('hidden'); $('formAprobar')?.classList.add('hidden'); }
+  else if (t.hasAttribute('data-pagar-cuota')) { if (confirm('¿Ya se pagó la cuota de evaluación?')) marcarPagada(); }
+  else if (t.hasAttribute('data-exentar-cuota')) $('formExentar')?.classList.toggle('hidden');
+});
+$('solHoja')?.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target;
+  if (f.dataset.avanzaForm) { avanzar(f.dataset.avanzaForm, f.note.value.trim()); return; }
+  if (f.id === 'formAprobar') { decidir('aprobada', f); return; }
+  if (f.id === 'formNoAprobar') { decidir('no_aprobada', f); return; }
+  if (f.id === 'formExentar') exentarCuota(f.reason.value.trim());
+});
+
+// --- Nominar (Beca Deportiva / Beca Tanner) ---
+function abreNominar() {
+  $('nomHoja').innerHTML = `
+    <h2 id="nomHojaTitulo">Nominar a un Tanner</h2>
+    <p class="muted tiny">Para Beca Deportiva o Beca Tanner. El resto de las modalidades las pide la familia desde su Portal.</p>
+    <label>Buscar Tanner<input type="search" id="nomBuscar" placeholder="Nombre del jugador" autocomplete="off"></label>
+    <div id="nomResultados" class="sol-resultados"></div>
+    <form id="formNominar" class="sol-form hidden">
+      <p>Nominando a <b id="nomElegido"></b></p>
+      <input type="hidden" name="player_id">
+      <label>Modalidad<select name="modality" required><option value="deportiva">Beca Deportiva</option><option value="tanner">Beca Tanner</option></select></label>
+      <label>Nota <span class="sol-opt">· por qué se nomina</span><textarea name="note" rows="3" required minlength="5"></textarea></label>
+      <button type="submit" class="primary">Nominar</button>
+    </form>
+    <div id="nomMsg" class="inline-message hidden"></div>`;
+  $('nomFondo').classList.remove('hidden'); document.body.style.overflow = 'hidden';
+  $('nomBuscar').focus();
+}
+function cierraNominar() { $('nomFondo').classList.add('hidden'); document.body.style.overflow = ''; }
+async function buscaJugadores(q) {
+  if (!todosJugadores) { try { todosJugadores = await rpc('v2_players', { organization_id: ctx.organization_id, status_filter: 'active' }) || []; } catch { todosJugadores = []; } }
+  const qq = sinAcentos(q);
+  const res = qq.length < 2 ? [] : todosJugadores.filter(p => sinAcentos(`${p.first_name} ${p.last_name}`).includes(qq)).slice(0, 8);
+  $('nomResultados').innerHTML = res.map(p => `<button type="button" class="sol-resultado" data-pid="${esc(p.id)}" data-pname="${esc(`${p.first_name} ${p.last_name}`)}">
+    <strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>${p.benefit_active ? '<small class="sol-aviso">Ya tiene un apoyo activo</small>' : ''}</button>`).join('');
+}
+$('nomHoja')?.addEventListener('input', e => { if (e.target.id === 'nomBuscar') buscaJugadores(e.target.value.trim()); });
+$('nomHoja')?.addEventListener('click', e => {
+  const t = e.target.closest('[data-pid]'); if (!t) return;
+  $('formNominar').classList.remove('hidden');
+  $('formNominar').querySelector('[name="player_id"]').value = t.dataset.pid;
+  $('nomElegido').textContent = t.dataset.pname;
+  $('nomResultados').innerHTML = ''; $('nomBuscar').value = t.dataset.pname;
+});
+$('nomHoja')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try {
+    await rpc('v2_scholarship_nominate', { organization_id: ctx.organization_id, player_id: fd.get('player_id'), modality: fd.get('modality'), note: fd.get('note') });
+    cierraNominar(); await cargaSolicitudes();
+  } catch (err) { const m = $('nomMsg'); m.textContent = err.message || 'No se pudo nominar.'; m.classList.remove('hidden'); }
+});
+
+// --- Ajustes del programa (sólo Presidencia) ---
+function abreAjustes() {
+  const s = ajustes || {}; const v = (k, d) => (s[k] === null || s[k] === undefined) ? d : s[k];
+  $('cfgHoja').innerHTML = `
+    <h2 id="cfgHojaTitulo">Ajustes de Becas ${esc(nombreDelClub(ctx))}</h2>
+    <form id="formAjustes" class="sol-form">
+      <label>Porcentaje mínimo de apoyo <span class="sol-opt">· %</span><input type="number" name="min_percentage" min="0" max="100" value="${esc(v('minPercentage', 10))}" required></label>
+      <label>Cuota de evaluación <span class="sol-opt">· $ MXN</span><input type="number" name="application_fee" min="0" value="${esc(v('applicationFee', 200))}" required></label>
+      <div class="sol-dos">
+        <label>Tope de becas al 100% <span class="sol-opt">· activas a la vez</span><input type="number" name="max_full_scholarships" min="0" value="${esc(v('maxFullScholarships', 3))}" required></label>
+        <label>Días de respuesta <span class="sol-opt">· meta</span><input type="number" name="response_days" min="1" value="${esc(v('responseDays', 7))}" required></label>
+      </div>
+      <div class="sol-dos">
+        <label>Meta de asistencia <span class="sol-opt">· %</span><input type="number" name="attendance_target_pct" min="0" max="100" value="${esc(v('attendanceTargetPct', 90))}" required></label>
+        <label>Tope del fondo interno <span class="sol-opt">· % opcional</span><input type="number" name="internal_fund_cap_pct" min="0" max="100" value="${esc(v('internalFundCapPct', ''))}"></label>
+      </div>
+      <div class="sol-dos">
+        <label>Referidos por trimestre <span class="sol-opt">· Tanner por Tanner</span><input type="number" name="referrals_per_quarter" min="0" value="${esc(v('referralsPerQuarter', 2))}" required></label>
+        <label>Contactos comerciales <span class="sol-opt">· por trimestre</span><input type="number" name="commercial_contacts_per_quarter" min="0" value="${esc(v('commercialContactsPerQuarter', 1))}" required></label>
+      </div>
+      <label>Avisos antes de pausar el beneficio <span class="sol-opt">· Tanner por Tanner</span><input type="number" name="max_warnings" min="0" value="${esc(v('maxWarnings', 2))}" required></label>
+      <button type="submit" class="primary">Guardar ajustes</button>
+    </form>
+    <div id="cfgMsg" class="inline-message hidden"></div>`;
+  $('cfgFondo').classList.remove('hidden'); document.body.style.overflow = 'hidden';
+}
+function cierraAjustes() { $('cfgFondo').classList.add('hidden'); document.body.style.overflow = ''; }
+$('cfgHoja')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const n = k => fd.get(k) === '' ? null : Number(fd.get(k));
+  try {
+    await rpc('v2_scholarship_settings_update', { organization_id: ctx.organization_id,
+      min_percentage: n('min_percentage'), application_fee: n('application_fee'), internal_fund_cap_pct: n('internal_fund_cap_pct'),
+      max_full_scholarships: n('max_full_scholarships'), response_days: n('response_days'), attendance_target_pct: n('attendance_target_pct'),
+      referrals_per_quarter: n('referrals_per_quarter'), commercial_contacts_per_quarter: n('commercial_contacts_per_quarter'), max_warnings: n('max_warnings') });
+    ajustes = await rpc('v2_scholarship_settings_get', { organization_id: ctx.organization_id });
+    cierraAjustes();
+  } catch (err) { const m = $('cfgMsg'); m.textContent = err.message || 'No se pudo guardar.'; m.classList.remove('hidden'); }
+});
+
+document.querySelectorAll('.bc-modo-btn').forEach(b => b.addEventListener('click', () => setModo(b.dataset.modo)));
+$('solBuscar')?.addEventListener('input', e => { solBusqueda = sinAcentos(e.target.value.trim()); pintaSolLista(); });
+$('solCerrar')?.addEventListener('click', cierraSolicitud);
+$('solFondo')?.addEventListener('click', e => { if (e.target.id === 'solFondo') cierraSolicitud(); });
+$('solNominarBtn')?.addEventListener('click', abreNominar);
+$('nomCerrar')?.addEventListener('click', cierraNominar);
+$('nomFondo')?.addEventListener('click', e => { if (e.target.id === 'nomFondo') cierraNominar(); });
+$('solAjustesBtn')?.addEventListener('click', abreAjustes);
+$('cfgCerrar')?.addEventListener('click', cierraAjustes);
+$('cfgFondo')?.addEventListener('click', e => { if (e.target.id === 'cfgFondo') cierraAjustes(); });
+
 $('bcBuscar')?.addEventListener('input', e => { busqueda = sinAcentos(e.target.value.trim()); pintaLista(); });
 $('bcCsv')?.addEventListener('click', exportaCsv);
 $('bcCerrar')?.addEventListener('click', cierraFicha);
 $('bcFondo')?.addEventListener('click', e => { if (e.target.id === 'bcFondo') cierraFicha(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('bcFondo').classList.contains('hidden')) cierraFicha(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('bcFondo').classList.contains('hidden')) cierraFicha();
+  else if (!$('solFondo').classList.contains('hidden')) cierraSolicitud();
+  else if (!$('nomFondo').classList.contains('hidden')) cierraNominar();
+  else if (!$('cfgFondo').classList.contains('hidden')) cierraAjustes();
+});
 boot().catch(() => show('deniedView'));

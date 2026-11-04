@@ -23,35 +23,66 @@
       <div class="top-actions"><a class="secondary mini nav-link" href="/v2">Dirección</a><span id="roleBadge" class="role-badge"></span></div>
     </header>
 
-    <!-- La cancha: cuántos becados hay y cómo van, de un vistazo. -->
-    <section class="bc-cancha">
-      <p class="bc-dia" id="bcPeriodo">Octubre</p>
-      <h1>Becas</h1>
-      <div class="bc-marcador">
-        <div><b id="mTotal">0</b><span>Becados</span></div>
-        <div><b id="mPct">—</b><span>Asistencia</span></div>
-        <div><b id="mTipos">0 · 0</b><span>Total · Parcial</span></div>
-      </div>
-    </section>
-
-    <div id="bcPeriodos" class="bc-periodos" role="group" aria-label="Periodo"></div>
-
-    <!-- Lo que hay que atender. -->
-    <div id="bcFocos" class="bc-focos"></div>
-
-    <article id="bcSolicitudes" class="bc-carta hidden">
-      <div class="bc-carta-cab"><h2>Solicitudes de beca</h2><span>Las mandó la familia desde su portal</span></div>
-      <div id="bcSolicitudesLista" class="bc-solicitudes"></div>
-    </article>
-
-    <div class="bc-herr">
-      <label class="bc-buscar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="bcBuscar" type="search" placeholder="Buscar becado" autocomplete="off"></label>
-      <button type="button" id="bcCsv" class="secondary mini">Exportar</button>
+    <div id="bcModo" class="bc-modo" role="tablist" aria-label="Ver becados o solicitudes">
+      <button type="button" class="bc-modo-btn active" data-modo="becados" role="tab" aria-selected="true">Becados</button>
+      <button type="button" class="bc-modo-btn" data-modo="solicitudes" role="tab" aria-selected="false">Solicitudes de beca <span id="bcSolBadge" class="bc-modo-badge hidden">0</span></button>
     </div>
-    <nav id="bcFiltros" class="bc-filtros" aria-label="Filtrar becados"></nav>
 
-    <section id="bcLista" class="bc-lista" aria-live="polite"></section>
-    <p id="bcVacio" class="bc-vacio hidden">Ningún becado coincide.</p>
+    <div id="bcTabBecados">
+      <!-- La cancha: cuántos becados hay y cómo van, de un vistazo. -->
+      <section class="bc-cancha">
+        <p class="bc-dia" id="bcPeriodo">Octubre</p>
+        <h1>Becas</h1>
+        <div class="bc-marcador">
+          <div><b id="mTotal">0</b><span>Becados</span></div>
+          <div><b id="mPct">—</b><span>Asistencia</span></div>
+          <div><b id="mTipos">0 · 0</b><span>Total · Parcial</span></div>
+        </div>
+      </section>
+
+      <div id="bcPeriodos" class="bc-periodos" role="group" aria-label="Periodo"></div>
+
+      <!-- Lo que hay que atender. -->
+      <div id="bcFocos" class="bc-focos"></div>
+
+      <article id="bcSolicitudes" class="bc-carta hidden">
+        <div class="bc-carta-cab"><h2>Peticiones directas</h2><span>Pedidas fuera del flujo de Becas (pestaña "Solicitudes de beca")</span></div>
+        <div id="bcSolicitudesLista" class="bc-solicitudes"></div>
+      </article>
+
+      <div class="bc-herr">
+        <label class="bc-buscar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="bcBuscar" type="search" placeholder="Buscar becado" autocomplete="off"></label>
+        <button type="button" id="bcCsv" class="secondary mini">Exportar</button>
+      </div>
+      <nav id="bcFiltros" class="bc-filtros" aria-label="Filtrar becados"></nav>
+
+      <section id="bcLista" class="bc-lista" aria-live="polite"></section>
+      <p id="bcVacio" class="bc-vacio hidden">Ningún becado coincide.</p>
+    </div>
+
+    <div id="bcTabSolicitudes" class="hidden">
+      <section class="bc-cancha bc-cancha-sol">
+        <p class="bc-dia">BECAS TANNERY CITY</p>
+        <h1>Solicitudes</h1>
+        <div class="bc-marcador">
+          <div><b id="solTotal">0</b><span>Activas</span></div>
+          <div><b id="solPresidencia">0</b><span>Con Presidencia</span></div>
+          <div><b id="solAprobadas">0</b><span>Aprobadas</span></div>
+        </div>
+      </section>
+
+      <nav id="solEstados" class="bc-periodos" aria-label="Etapa de la solicitud"></nav>
+
+      <div class="bc-herr">
+        <label class="bc-buscar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="solBuscar" type="search" placeholder="Buscar Tanner" autocomplete="off"></label>
+        <button type="button" id="solAjustesBtn" class="secondary mini hidden">Ajustes</button>
+        <button type="button" id="solNominarBtn" class="secondary mini hidden">+ Nominar</button>
+      </div>
+
+      <section id="solLista" class="bc-lista" aria-live="polite"></section>
+      <p id="solVacio" class="bc-vacio hidden">Nada por aquí.</p>
+    </div>
+
     <div id="bcMensaje" class="inline-message hidden"></div>
   </section>
 </main>
@@ -62,6 +93,33 @@
     <div class="bc-asa" aria-hidden="true"></div>
     <button type="button" id="bcCerrar" class="bc-cerrar" aria-label="Cerrar">&times;</button>
     <div id="bcHoja"></div>
+  </section>
+</div>
+
+<!-- La solicitud: seguimiento, avanzar etapa, cuota y dictamen de Presidencia. -->
+<div id="solFondo" class="bc-fondo hidden">
+  <section class="bc-hoja" role="dialog" aria-modal="true" aria-labelledby="solHojaNombre">
+    <div class="bc-asa" aria-hidden="true"></div>
+    <button type="button" id="solCerrar" class="bc-cerrar" aria-label="Cerrar">&times;</button>
+    <div id="solHoja"></div>
+  </section>
+</div>
+
+<!-- Nominar a un Tanner para Beca Deportiva o Beca Tanner. -->
+<div id="nomFondo" class="bc-fondo hidden">
+  <section class="bc-hoja" role="dialog" aria-modal="true" aria-labelledby="nomHojaTitulo">
+    <div class="bc-asa" aria-hidden="true"></div>
+    <button type="button" id="nomCerrar" class="bc-cerrar" aria-label="Cerrar">&times;</button>
+    <div id="nomHoja"></div>
+  </section>
+</div>
+
+<!-- Ajustes del programa (sólo Presidencia). -->
+<div id="cfgFondo" class="bc-fondo hidden">
+  <section class="bc-hoja" role="dialog" aria-modal="true" aria-labelledby="cfgHojaTitulo">
+    <div class="bc-asa" aria-hidden="true"></div>
+    <button type="button" id="cfgCerrar" class="bc-cerrar" aria-label="Cerrar">&times;</button>
+    <div id="cfgHoja"></div>
   </section>
 </div>
 

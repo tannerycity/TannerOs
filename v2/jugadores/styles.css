@@ -125,7 +125,13 @@
 .num-x{border:0;background:#eef2f1;width:34px;height:34px;border-radius:50%;font-size:20px;cursor:pointer;color:#40595f;flex:0 0 auto}
 .status-modal-body{display:grid;gap:12px;margin-top:4px}
 .status-modal-body label{display:grid;gap:6px;font-size:12px;font-weight:800;color:#42575d}
-.status-modal-body input{width:100%;border:1px solid #cedbd8;background:#fff;padding:11px 12px;border-radius:12px;outline:none;font:inherit}
+.status-modal-body input,.status-modal-body textarea{width:100%;border:1px solid #cedbd8;background:#fff;padding:11px 12px;border-radius:12px;outline:none;font:inherit;box-sizing:border-box}
+.status-modal-body textarea{resize:vertical}
+/* Reactivar: adeudo e inscripción a la vista antes de confirmar (TC-001/TC-005). */
+.status-reactiva-info{display:grid;gap:8px;padding:12px;border-radius:14px;background:#f6f8f7;font-size:13px;color:#42575d}
+.status-reactiva-info.con-adeudo{background:#fdeceb;color:#a3443c}
+.status-reactiva-info strong{display:block;font-size:15px}
+.status-reactiva-info .reactiva-accion{justify-self:start;border:0;background:none;padding:2px 0;font:inherit;font-size:12.5px;font-weight:800;color:#087d8e;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 #toggleStatusBtn.danger-mini{background:#fdeceb;color:#a3443c}
 #toggleStatusBtn.danger-mini:hover{background:#f8d9d6}
 .num-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px}
@@ -229,6 +235,11 @@
 .bajas-actions{display:flex;gap:7px;flex-wrap:wrap;flex:0 0 auto}
 .bajas-actions button{min-height:36px;padding:0 13px;font-size:12.5px;white-space:nowrap;border-radius:10px}
 @media(max-width:560px){.bajas-actions{width:100%}.bajas-actions button{flex:1 1 0}}
+/* Sin asistir 2 meses o más (detectado solo, nadie lo reportó): mismo
+   formato, acento rojizo para distinguirlo del reportado a mano. */
+.bajas-panel-stale{border-color:#e7c6c2;background:#fdf3f1}
+.bajas-panel-stale .bajas-head .eyebrow{color:#a3443c}
+.bajas-panel-stale .bajas-row{border-color:#f0dbd7}
 
 /* Nota del filtro "Cobro por revisar": el punto rojo no dice qué falta. */
 .review-note{border:1px solid #ecd9a8;background:#fdf8ee;border-radius:14px;padding:12px 14px;

@@ -6,6 +6,7 @@ import { TANNER_SCALE, TANNER_DIMENSIONS, EVALUATION_ONBOARDING, guidanceForCate
 import { estadoDeImagen, puedePublicarse, cuentaDeImagen, noPublicables,
          COLUMNAS_NO_PUBLICABLES, filaDeNoPublicable, nombreDeArchivoNoPublicables } from '/v2/permiso-de-imagen.js';
 import { relacion, telefonoBonito } from '/v2/contacto.js';
+import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let sinNum=null,ctx=null,players=[],categories=[],current=null,canWrite=false,canFamily=false,canStatus=false,canMoney=false,puedeMoverIngreso=false,sportsSeq=0;
 const FAMILY_FIELDS=['firstName','lastName','birthDate','sex','school','bloodType','allergies','address','emergencyName','emergencyPhone','guardianName','guardianPhone','guardianEmail','guardianRelationship','canPickup','receivesBilling','notes'];
@@ -67,6 +68,46 @@ async function loadBajasPendientes(){
   try{bajasPend=await rpc('v2_withdrawal_requests',{organization_id:ctx.organization_id})||[];}
   catch{bajasPend=[];}
   renderBajasPendientes();
+  loadStaleActivos();
+}
+// === Posibles bajas por inasistencia (TC-001: "2 meses consecutivos sin
+// asistir... podrá considerarse dado de baja") ===
+// Antes nadie los detectaba si el profe no se daba cuenta solo. Un clic los
+// manda a la misma cola de arriba (v2_request_player_withdrawal) para que
+// Administración decida — no se da de baja solo.
+let staleActivos=[];
+async function loadStaleActivos(){
+  const box=$('staleActivos');if(!box)return;
+  if(!canStatus){box.classList.add('hidden');return;}
+  try{staleActivos=await rpc('v2_stale_active_players',{organization_id:ctx.organization_id,days:60})||[];}
+  catch{staleActivos=[];}
+  renderStaleActivos();
+}
+function renderStaleActivos(){
+  const box=$('staleActivos');if(!box)return;
+  if(!staleActivos.length){box.classList.add('hidden');box.innerHTML='';return;}
+  const n=staleActivos.length;
+  box.innerHTML=`<div class="bajas-head"><span class="eyebrow">SIN ASISTIR 2 MESES O MÁS</span>`+
+    `<strong>${n} Tanner${n>1?'s':''} activo${n>1?'s':''} sin venir, y nadie lo reportó</strong>`+
+    `<small>Siguen activos y cobrándose. Nómina según el reglamento (TC-001): a los 2 meses sin asistir, sin acuerdo, se puede considerar baja.</small></div>`+
+    `<div class="bajas-list">${staleActivos.map(r=>`<article class="bajas-row"><div><strong>${esc(r.name||'Tanner')}</strong>`+
+      `<small>${esc([r.code,r.categoryName].filter(Boolean).join(' · '))}</small>`+
+      `<em>${r.lastSeen?`Última vez hace ${esc(r.daysSince)} días`:`Nunca registró asistencia · ${esc(r.daysSince)} días de inscrito`}</em></div>`+
+      `<div class="bajas-actions"><button type="button" class="primary mini" data-baja-ver="${esc(r.playerId)}">Revisar expediente</button>`+
+      `<button type="button" class="secondary mini" data-stale-reportar="${esc(r.playerId)}" data-stale-dias="${esc(r.daysSince)}">Reportar como posible baja</button></div></article>`).join('')}</div>`;
+  box.classList.remove('hidden');
+}
+async function reportarStale(playerId,dias){
+  try{
+    await rpc('v2_request_player_withdrawal',{organization_id:ctx.organization_id,player_id:playerId,reason:`Detectado automático: ${dias} días sin asistir.`});
+    staleActivos=staleActivos.filter(r=>r.playerId!==playerId);renderStaleActivos();
+    await loadBajasPendientesListaSolamente();
+    msg('Reportado. Ya aparece en "Reportados desde la lista" para decidir la baja.','success');
+  }catch(err){msg(friendly(err));}
+}
+async function loadBajasPendientesListaSolamente(){
+  try{bajasPend=await rpc('v2_withdrawal_requests',{organization_id:ctx.organization_id})||[];}catch{bajasPend=[];}
+  renderBajasPendientes();
 }
 function renderBajasPendientes(){
   const box=$('bajasPendientes');if(!box)return;
@@ -95,6 +136,8 @@ document.addEventListener('click',e=>{
   if(ver){openProfile(ver.dataset.bajaVer);document.getElementById('profilePanel')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
   const quitar=e.target.closest?.('[data-baja-descartar]');
   if(quitar){descartarBaja(quitar.dataset.bajaDescartar);return;}
+  const stale=e.target.closest?.('[data-stale-reportar]');
+  if(stale){reportarStale(stale.dataset.staleReportar,stale.dataset.staleDias);return;}
 });
 
 // === Filtros de expediente (solo Presidencia y Operaciones) ===
@@ -1188,7 +1231,11 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProfile();});
 
 
 // === Dar de baja / Dar de alta ===
-function openStatusModal(forceMode){
+// Reactivar revisa adeudo antes de dejar pasar (TC-001/TC-005: "liquidar
+// adeudo + nueva inscripción, salvo acuerdo de Presidencia"). Si debe algo,
+// solo Presidencia puede reactivar y tiene que explicar por qué.
+let reactivaInfo=null;
+async function openStatusModal(forceMode){
   const p=current?.player;if(!p||!canWrite)return;
   const willWithdraw=forceMode?forceMode==='withdraw':p.status==='active';
   const fullName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'este Tanner';
@@ -1197,11 +1244,40 @@ function openStatusModal(forceMode){
   $('statusDate').value=today();
   $('statusReason').value='';
   $('statusReasonWrap').classList.toggle('hidden',!willWithdraw);
+  $('statusOverrideReason').value='';
+  $('statusOverrideWrap').classList.add('hidden');
+  $('statusReactivaInfo').classList.add('hidden');$('statusReactivaInfo').innerHTML='';
   $('statusModalMessage').classList.add('hidden');
   const btn=$('statusModalConfirm');
   btn.textContent=willWithdraw?'Confirmar baja':'Confirmar alta';
   btn.dataset.mode=willWithdraw?'withdraw':'reactivate';
+  btn.disabled=false;
   $('statusModal').classList.remove('hidden');
+  reactivaInfo=null;
+  if(!willWithdraw){
+    const box=$('statusReactivaInfo');
+    box.classList.remove('hidden');box.textContent='Revisando adeudo…';
+    try{
+      reactivaInfo=await rpc('v2_player_reactivation_info',{organization_id:ctx.organization_id,player_id:p.id});
+      pintaReactivaInfo(p.id);
+    }catch{box.textContent='No pudimos revisar el adeudo. Puedes seguir, pero verifícalo tú mismo.';}
+  }
+}
+function pintaReactivaInfo(playerId){
+  const box=$('statusReactivaInfo');if(!box)return;
+  const deuda=Number(reactivaInfo?.balanceDue||0);
+  box.classList.toggle('con-adeudo',deuda>0);
+  if(deuda<=0){
+    box.innerHTML='<strong>Sin adeudo pendiente.</strong><span>Recuerda cobrar la inscripción vigente si no se ha pagado ya.</span>';
+    $('statusOverrideWrap').classList.add('hidden');
+  }else{
+    const puede=!!reactivaInfo?.isPresidency;
+    box.innerHTML=`<strong>Debe ${esc(money.format(deuda))}.</strong>`+
+      (puede?'<span>Como Presidencia puedes reactivar de todos modos, explicando por qué abajo.</span>'
+            :'<span>Solo Presidencia puede reactivar con adeudo pendiente. Pide que lo autorice o cóbralo primero.</span>')+
+      `<button type="button" class="reactiva-accion" data-cobrar-ahora="${esc(playerId)}">Cobrar ahora</button>`;
+    $('statusOverrideWrap').classList.toggle('hidden',!puede);
+  }
 }
 function closeStatusModal(){$('statusModal')?.classList.add('hidden');}
 async function confirmStatusChange(){
@@ -1219,15 +1295,23 @@ async function confirmStatusChange(){
     }catch(err){errBox.textContent=friendly(err);errBox.classList.remove('hidden');}
     finally{btn.disabled=false;btn.textContent='Confirmar baja';}
   }else{
+    const overrideReason=$('statusOverrideReason').value.trim();
     btn.disabled=true;btn.textContent='Guardando…';
     try{
-      await rpc('v2_reactivate_player',{organization_id:ctx.organization_id,player_id:p.id,reactivated_at:date});
+      await rpc('v2_reactivate_player',{organization_id:ctx.organization_id,player_id:p.id,reactivated_at:date,override_reason:overrideReason||null});
       closeStatusModal();await loadPlayers();await openProfile(p.id);
       msg('Tanner dado de alta. Revisa su categoría y cuota en el expediente para completar el alta.','success');
     }catch(err){errBox.textContent=friendly(err);errBox.classList.remove('hidden');}
     finally{btn.disabled=false;btn.textContent='Confirmar alta';}
   }
 }
+$('statusReactivaInfo')?.addEventListener('click',e=>{
+  const t=e.target.closest('[data-cobrar-ahora]');if(!t)return;
+  const p=current?.player;if(!p)return;
+  closeStatusModal();
+  abrirCobro({rpc,org:ctx.organization_id,playerId:p.id,nombre:[p.firstName,p.lastName].filter(Boolean).join(' '),
+    nacimiento:p.birthDate,preseleccion:`reg:${p.id}`,quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx)});
+});
 document.addEventListener('click',e=>{
   if(e.target.closest?.('#toggleStatusBtn')){openStatusModal();return;}
   if(e.target.closest?.('#withdrawInactiveBtn')){openStatusModal('withdraw');return;}

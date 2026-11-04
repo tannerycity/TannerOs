@@ -647,8 +647,27 @@ async function eligeNumeroFichaje(){
   const n=await elegirDorsal({rpc,organizationId:ctx.organization_id,category:cat,nombre:(current?.first_name||'').split(/\s+/)[0],actual:$('convertJersey').value});
   if(n){$('convertJersey').value=n;numAuto='';$('convertJerseySug')?.querySelectorAll('[data-num]').forEach(x=>x.classList.toggle('activo',x.dataset.num===n));}
 }
+// Semana muestra (TC-016): solo 1 vez por jugador. Se detecta en el cliente
+// porque la lista completa de prospectos ya está cargada — mismo teléfono,
+// "Clase muestra" antes, sin necesidad de ir al servidor.
+function semanaMuestraPrevia(p){
+  if(!/muestra/i.test(p.purpose||''))return null;
+  const tel=String(p.phone||'').replace(/\D/g,'');if(!tel)return null;
+  const prev=prospects.filter(x=>x.id!==p.id&&/muestra/i.test(x.purpose||'')&&String(x.phone||'').replace(/\D/g,'')===tel&&new Date(x.created_at)<new Date(p.created_at));
+  if(!prev.length)return null;
+  prev.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  return prev[0];
+}
+function renderMuestraAviso(p){
+  const box=$('muestraAviso');if(!box)return;
+  const previo=semanaMuestraPrevia(p);
+  if(!previo){box.classList.add('hidden');box.innerHTML='';return;}
+  box.innerHTML=`<strong>Ya usó su semana muestra antes</strong><span>${esc(nameOf(previo)||'Mismo teléfono')} · ${esc(fmtDate(previo.created_at))}. Según el reglamento (TC-016) solo se usa una vez por jugador.</span>`;
+  box.classList.remove('hidden');
+}
 async function openProspect(p){
   current=p;$('prospectName').textContent=nameOf(p)||'Prospecto';$('prospectMeta').textContent=`${typeLabel[p.registration_type]||p.category_interest||'Prospecto'} · alta ${fmtDate(p.created_at)}`;
+  renderMuestraAviso(p);
   $('prospectStatus').value=p.status||'new';$('nextAction').value=p.next_action_at?localDateTimeValue(p.next_action_at):'';$('prospectNotes').value=p.notes||'';
   setLossReasonValue(p.loss_reason||null);toggleLossReasonField();
   $('saveFollowup').disabled=!ctx.canProspectsWrite;msg('followupMessage');renderProspectDetails(p);renderDrawerActions(p);prepareConversion(p);

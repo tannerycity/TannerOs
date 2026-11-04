@@ -518,6 +518,8 @@ export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', na
     for (const c of opcionesDe(principal()).cargos) if (preseleccion === 'todo' || (preseleccion && c.period === preseleccion)) agrega(c);
     // Desde un pedido de Tienda (21/10/2026): 'o:<id>' deja ese pedido ya elegido.
     for (const o of opcionesDe(principal()).pedidos) if (preseleccion === o.key) agrega(o);
+    // Desde una reactivación (04/11/2026): 'reg:<id>' deja la inscripción ya elegida.
+    for (const r of opcionesDe(principal()).reg) if (preseleccion === r.key) agrega(r);
     // Arranca con el primer pago: lo más antiguo que debe o, si no debe nada,
     // la mensualidad que le toca. Lo demás se agrega.
     if (!s.sel.size && col.canCollect) {

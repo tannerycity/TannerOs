@@ -223,6 +223,10 @@ body:has(.tc-cristal:not(.hidden)){background:linear-gradient(160deg,#0b2a33,#06
 .tc-icono-tienda{background:#c9a96e;color:#0a1d33}
 .tc-icono-registro{background:#30d158;color:#0a1d33}
 .tc-icono-centro{background:#bf5af2;color:#fff}
+/* Sesión abierta en las puertas (04/11/2026). */
+#abreStaff[data-con-sesion="1"] .tc-icono-staff{background:#30d158;color:#0a1d33}
+.tc-sesion-nota{margin:-4px 0 0;text-align:center;font-size:13px;color:rgba(255,255,255,.7)}
+.tc-sesion-salir{border:0;background:none;color:#fff;font:inherit;font-weight:600;text-decoration:underline;cursor:pointer;padding:6px 4px}
 .tc-icono-costos{background:#ff9f0a;color:#0a1d33}
 .tc-icono-staff{background:rgba(255,255,255,.14);color:#fff}
 .tc-puerta-txt{flex:1;display:grid;gap:2px;min-width:0}

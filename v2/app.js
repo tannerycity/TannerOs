@@ -5,6 +5,7 @@ import { avisosDeIdeas, claveVistas } from '/v2/ideas/ideas.js';
 import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
 import {iniciarUsoStaff,apagaAlSalir} from '/v2/analitica-uso.js';
+import {entraDirecto,puertasConSesion,puertasSinSesion} from '/v2/entrada-sesion.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -632,13 +633,19 @@ if(recovery){await renderRecovery();}
 else{
   wireAuth();
   const {data:{session}}=await supabase.auth.getSession();
-  if(session){try{await loadAuthenticatedApp();}catch(error){console.error(error);showView('authView');setMessage(friendlyError(error));}}
+  /* Con sesión: de fuera se ven las puertas y "Staff" entra con un toque;
+     de dentro de la app (o la app instalada, o ?vestidor) entra directo.
+     v2/entrada-sesion.js (04/11/2026). */
+  const alVestidor=async()=>{if(!new URLSearchParams(location.search).has('vestidor'))history.replaceState(null,'',`${location.pathname}?vestidor`);try{await loadAuthenticatedApp();}catch(error){console.error(error);showView('authView');setMessage(friendlyError(error));}};
+  const nombreDeSesion=s=>{const m=s?.user?.user_metadata||{};return String(m.display_name||m.full_name||m.name||'').trim().split(/\s+/)[0]||'';};
+  if(session&&entraDirecto())await alVestidor();
+  else if(session){showView('authView');puertasConSesion({nombre:nombreDeSesion(session),entrar:alVestidor,salir:()=>supabase.auth.signOut()});}
   else showView('authView');
   supabase.auth.onAuthStateChange(event=>{
     if(event==='SIGNED_OUT'){
       apagaAlSalir();
       detenPulso(); // sin sesión no se pregunta por la campana
-      ctx=null;navigation=[];loadGeneration++;resetHomeState();showView('authView');document.body.classList.remove('tos-body');
+      ctx=null;navigation=[];loadGeneration++;resetHomeState();showView('authView');document.body.classList.remove('tos-body');puertasSinSesion();
     }else if(event==='SIGNED_IN'&&!ctx){setTimeout(()=>loadAuthenticatedApp().catch(console.error),0);}
   });
 }

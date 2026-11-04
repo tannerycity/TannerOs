@@ -200,7 +200,9 @@ export default function comprobar() {
   // embudo, sin ceros inventados, Zul sin lo cobrado, 390 px).
   // Sube a 70 por qa-humo-por-pedir.mjs: confirmado con la familia (en el grupo
   // o en persona), Por pedir pagado o no y el PDF borrador antes de mandar.
-  const MAX_EXCLUIDAS = 70;
+  // Sube a 71 por qa-humo-entrada-sesion.mjs: con la sesion abierta, quien llega de
+  // fuera ve las puertas y entra al vestidor en un toque.
+  const MAX_EXCLUIDAS = 71;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

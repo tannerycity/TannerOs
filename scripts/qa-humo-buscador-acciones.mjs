@@ -85,7 +85,7 @@ async function busca(pg, q) { await pg.fill('#shellSearch', q); await pg.waitFor
 
 /* ===== EL BUSCADOR (Presidencia, en Inicio) ===== */
 {
-  const pg = await abre('Presidencia', '/');
+  const pg = await abre('Presidencia', '/?vestidor');
   revisa('un solo texto de ayuda', await pg.getAttribute('#shellSearch', 'placeholder') === 'Busca un Tanner, papá o acción');
   revisa('es un combobox con su lista', await pg.getAttribute('#shellSearch', 'role') === 'combobox' && await pg.getAttribute('#shellSearchResults', 'role') === 'listbox');
   await pg.focus('#shellSearch'); await pg.waitForTimeout(600);
@@ -114,7 +114,7 @@ async function busca(pg, q) { await pg.fill('#shellSearch', q); await pg.waitFor
 
 /* ===== PERMISOS: un profe no encuentra acciones de Estacionamiento ===== */
 {
-  const pg = await abre('Formadores', '/');
+  const pg = await abre('Formadores', '/?vestidor');
   const r = await busca(pg, 'gafete');
   revisa('sin permiso, "gafete" no ofrece Nuevo gafete', !r.some(t => /Nuevo gafete/.test(t)), JSON.stringify(r));
   await pg.close();
@@ -172,7 +172,7 @@ async function busca(pg, q) { await pg.fill('#shellSearch', q); await pg.waitFor
    iOS desenfoca esa franja. Con la franja simulada (47px, como un iPhone), los
    botones de la barra tienen que quedar debajo y con aire, la página sin el
    margen de 8px del navegador y el buscador a todo lo ancho. */
-for (const ruta of ['/', '/v2/estacionamiento/', '/v2/asistencia/']) {
+for (const ruta of ['/?vestidor', '/v2/estacionamiento/', '/v2/asistencia/']) {
   const pg = await abre('Presidencia', ruta, 390);
   const cdp = await pg.context().newCDPSession(pg);
   let simulado = true;

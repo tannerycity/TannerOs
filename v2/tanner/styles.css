@@ -235,3 +235,31 @@ button.tan-fila:disabled{opacity:.55}
 /* Los renglones viven dentro de la tarjeta de saldo: no heredan la cifra. */
 .tan-balance .tan-fila-txt strong{font-size:15px;line-height:1.25;margin-top:0;letter-spacing:-.01em;color:#0d2730;font-variant-numeric:normal}
 .tan-balance .tan-fila-txt small{margin-top:2px;font-size:12.5px;color:#7b8a8f}
+
+/* ===== Paquete y becas (h62, 04/11/2026) ===== */
+.tan-chip[data-tone="paquete"]{background:#30d158;color:#06321a}
+.tan-fila[data-urge] .tan-fila-txt small{color:#b4443a;font-weight:600}
+.tan-pill[data-kind="renovar"]{background:#0a84ff;border-color:#0a84ff;color:#fff;cursor:pointer;font:inherit;font-weight:700;font-size:13px}
+/* Botones de un renglón: 44 px, lo mínimo cómodo para un dedo (Apple). */
+.tan-fila .tan-pill{min-height:44px;padding:0 14px}
+.pq-opciones{display:grid;gap:8px}
+.pq-op{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:10px 14px;border:1px solid #d6dfdd;border-radius:14px;background:#fff;font:inherit;text-align:left;color:#0d2730;cursor:pointer}
+.pq-op[aria-checked="true"]{border-color:#0a84ff;box-shadow:0 0 0 2px rgba(10,132,255,.18);background:#f5f9ff}
+.pq-op:disabled{opacity:.5;cursor:default}
+.pq-radio{flex:0 0 22px;width:22px;height:22px;border-radius:50%;border:2px solid #c3cacc;box-sizing:border-box}
+.pq-op[aria-checked="true"] .pq-radio{border:7px solid #0a84ff}
+.pq-txt{flex:1;min-width:0}
+.pq-txt strong{display:block;font-size:15px}
+.pq-txt strong em{font-style:normal;font-size:11px;font-weight:700;color:#0a84ff;background:#e5f0ff;border-radius:6px;padding:2px 6px;margin-left:4px;vertical-align:2px}
+.pq-txt small{display:block;margin-top:2px;font-size:12.5px;color:#7b8a8f}
+.pq-precio{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Movimientos plegados: el detalle a un toque. */
+.tan-plegable{margin-top:22px;background:#fff;border:1px solid var(--tos-line,#dedbd0);border-radius:16px;overflow:hidden}
+.tan-plegable>summary{list-style:none;display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 14px;cursor:pointer}
+.tan-plegable>summary::-webkit-details-marker{display:none}
+.tan-plegable>summary .tan-fila-txt strong{font-size:15px;color:#0d2730}
+.tan-plegable[open]>summary .tan-fila-flecha{transform:rotate(90deg)}
+.tan-plegable>.tan-section{margin:0;border:0;border-top:1px solid #eceae2;border-radius:0}
+/* El botón flotante no tapa lo último de la pantalla. */
+body[data-hub="tanner"] .tos-content{padding-bottom:calc(env(safe-area-inset-bottom) + 110px)}

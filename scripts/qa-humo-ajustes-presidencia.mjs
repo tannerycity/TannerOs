@@ -23,6 +23,10 @@
  *     (con motivo, v2_set_player_fee_note), Salud (sangre, alergias,
  *     emergencia) y Familia; quien no es Presidencia ve la cuota sin poder
  *     tocarla.
+ *   · Paquetes (h62): el renglón dice el paquete y cuánto paga; cada beca
+ *     con su motivo y cuándo vence; "Renovar" cuando faltan 30 días o menos;
+ *     la hoja deja elegir paquete, enseña cuánto pagaría y pide motivo.
+ *     Movimientos van plegados y se abren con un toque.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -54,10 +58,11 @@ const revisiones = [], errores = [];
 const revisa = (n, ok, d = '') => revisiones.push({ nombre:n, ok, detalle:d });
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 
-async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1', rol = 'Presidencia') {
+async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1', rol = 'Presidencia', conPaquete = false) {
   const p = await nav.newPage({ viewport:{ width:ancho, height:844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
-  await p.addInitScript(({ estado, rol }) => {
+  await p.addInitScript(({ estado, rol, conPaquete }) => {
+    window.__conPaquete = conPaquete;
     window.__llamadas = []; window.__fallaAjuste = 1;
     const m = ['cobranza','contabilidad','taquilla','jugadores','finanzas'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true }));
     const R = { v2_player_change_history:[
@@ -66,6 +71,18 @@ async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1', rol = 'P
                 v2_players:[{ id:'p1', first_name:'Adan', last_name:'Ibarra', category:'Sub-12' },{ id:'p2', first_name:'Beto', last_name:'Ruiz', category:'Sub-12' },{ id:'p3', first_name:'Caro', last_name:'Paz', category:'Sub-14' }],
                 v2_presidency_bulk_charge:{ ok:true, players:1, total:350 },
                 v2_my_context:[{ user_id:'u1', display_name:'Mich', organization_id:'o1', organization_name:'Tannery City FC', role:rol, is_owner:rol === 'Presidencia' }],
+                v2_player_package: window.__conPaquete ? {
+                  hasPackages:true, canEdit:rol === 'Presidencia', canRenew:rol === 'Presidencia', category:'T12', group:'tanner', period:'2026-12-01',
+                  package:{ code:'tanner_4', name:'Tanner 4 días', audience:'tanner', days:4, goalkeeperDays:0, trainsWithCategory:true },
+                  price:800, discount:300, fee:500, upcoming:[{ fee:900, from:'2027-01-01' }],
+                  benefits:[{ id:'b1', type:'scholarship_partial', calculation:'fixed_amount', fixed:300, reason:'Beca deportiva por desempeño', endsOn:'2026-11-20', daysLeft:16, counts:true },
+                            { id:'b2', type:'sibling_discount', calculation:'percentage', percentage:10, reason:'Hermanos Tanner', endsOn:'2027-02-28', daysLeft:116, counts:true }],
+                  options:[{ code:'tanner_4', name:'Tanner 4 días', audience:'tanner', days:4, goalkeeperDays:0, trainsWithCategory:true, price:800 },
+                           { code:'tanner_2', name:'Tanner 2 días', audience:'tanner', days:2, goalkeeperDays:0, trainsWithCategory:true, price:null },
+                           { code:'porteros_4', name:'Porteros 4 días', audience:'porteros', days:4, goalkeeperDays:2, trainsWithCategory:true, price:800 },
+                           { code:'porteros_2', name:'Porteros 2 días', audience:'porteros', days:2, goalkeeperDays:2, trainsWithCategory:false, price:500 }] } : null,
+                v2_set_player_package:{ package:'porteros_4', packageName:'Porteros 4 días', price:800, fee:420, from:'2026-12-01' },
+                v2_renew_benefit:{ benefitId:'b1', endsOn:'2027-02-28' },
                 v2_player_profile:{ player:{ id:'p1', bloodType:'O+', allergies:'Asma: trae inhalador', emergencyContactName:'Laura Ibarra', emergencyContactPhone:'4779998877' } }, v2_set_player_fee_note:true,
                 v2_my_navigation:m, v2_player_account_statement:estado,
                 v2_presidency_adjust_charge:{ ok:true }, v2_presidency_add_charge:{ ok:true }, v2_correct_tanner_payment:null, v2_apply_player_credit:200 };
@@ -78,7 +95,7 @@ async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1', rol = 'P
       },
       channel:()=>({ on(){return this;}, subscribe(){return this;} }), removeChannel(){}
     };
-  }, { estado:ESTADO(canAdjust), rol });
+  }, { estado:ESTADO(canAdjust), rol, conPaquete });
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
@@ -105,6 +122,8 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   revisa('[pres] ve "Ajustar saldo"', await p.isVisible('.tan-balance [data-pres="ajustar"]'));
   revisa('[pres] ve "Agregar cargo"', await p.isVisible('.tan-balance [data-pres="cargo"]'));
   revisa('[pres] ve "Aplicar $200.00 a favor"', /Aplicar \$200\.00 a favor/.test(await p.textContent('.tan-balance [data-pres="favor"]')));
+  revisa('[apple] movimientos plegados al abrir', !(await p.isVisible('.tan-ledger')));
+  await p.click('#detMovs > summary');
   const enRenglones = await p.$$eval('.tan-ledger [data-pres]', els => els.map(e => e.dataset.pres + ':' + (e.dataset.charge || e.dataset.payment)));
   revisa('[pres] "Ajustar" sólo en cargos con saldo y "Corregir" en el pago', JSON.stringify(enRenglones) === JSON.stringify(['ajustar:c-oct','ajustar:c-tor','corregir:pay-1']), JSON.stringify(enRenglones));
 
@@ -164,6 +183,8 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
 /* ---------- Historial de cambios y PDF para la familia ---------- */
 {
   const p = await abre(true);
+  await p.waitForSelector('#detMovs', { timeout:5000 });
+  await p.click('#detMovs > summary');
   await p.waitForSelector('.tan-cambios', { timeout:5000 });
   const c = (await p.textContent('.tan-cambios')).replace(/\s+/g,' ');
   revisa('[cambios] dice qué, quién y el motivo', /Condonación · Mensualidad/.test(c) && /Mich/.test(c) && /MOTIVO-SECRETO beca/.test(c), c.slice(0,240));
@@ -243,6 +264,49 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   revisa('[cuota] avisa y recarga', /\$650\.00 al mes/.test(await p.textContent('#presToast')) && (await llamadas(p, 'v2_player_account_statement')).length === 2);
   await p.close();
 }
+/* ---------- Paquete y becas (h62) ---------- */
+{
+  const p = await abre(true, 390, '/v2/tanner/?id=p1', 'Presidencia', true);
+  if (process.env.SHOTS) await p.screenshot({ path:`${process.env.SHOTS}/tanner-paquete.png`, fullPage:true });
+  const grupo = await p.evaluate(() => [...document.querySelectorAll('.tan-grupo')].find(g => g.querySelector('.tan-grupo-tit').textContent === 'Paquete')?.textContent || '');
+  revisa('[paquete] dice paquete, precio menos becas y cuánto paga', /Tanner 4 días/.test(grupo) && /\$800\.00 − becas \$300\.00/.test(grupo) && /\$500\.00\/mes/.test(grupo), grupo);
+  revisa('[paquete] cada beca con su motivo y cuándo vence', /Beca parcial −\$300\.00/.test(grupo) && /Beca deportiva por desempeño/.test(grupo) && /faltan 16 días/.test(grupo) && /Hermanos −10%/.test(grupo), grupo);
+  revisa('[paquete] avisa el precio de enero', /Desde enero el paquete cuesta \$900\.00/.test(grupo), grupo);
+  revisa('[paquete] el encabezado dice el paquete', /Tanner 4 días/.test(await p.textContent('.tan-head')));
+  revisa('[becas] "Renovar" sólo en la que vence pronto', (await p.$$eval('[data-renovar]', b => b.map(x => x.dataset.renovar))).join() === 'b1');
+  revisa('[paquete] sin "Planes" (lo reemplaza Paquete)', !(await p.$('[data-cuota]')));
+  revisa('[paquete] botones de renglón de 44 px', await p.$eval('[data-renovar]', b => b.getBoundingClientRect().height >= 44));
+
+  await p.click('.tan-fila[data-paquete]');
+  await p.waitForSelector('#presSheet:not(.hidden)');
+  revisa('[hoja] marca el paquete actual', await p.getAttribute('[data-pq="tanner_4"]', 'aria-checked') === 'true');
+  revisa('[hoja] un paquete sin precio no se puede elegir', await p.isDisabled('[data-pq="tanner_2"]'));
+  await p.click('[data-pq="porteros_4"]');
+  revisa('[hoja] enseña cuánto pagaría con sus becas', /\$420\.00/.test(await p.textContent('#pqResumen')) && /diciembre/.test(await p.textContent('#pqResumen')), await p.textContent('#pqResumen'));
+  await p.click('#presForm .pres-primary');
+  revisa('[hoja] sin motivo no se manda', (await llamadas(p, 'v2_set_player_package')).length === 0 && /motivo/i.test(await p.textContent('.pres-error')));
+  await p.fill('#presMotivo', 'Entrena con Alexis');
+  await p.click('#presForm .pres-primary');
+  await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:4000 });
+  const sp = (await llamadas(p, 'v2_set_player_package'))[0]?.params || {};
+  revisa('[hoja] manda paquete y motivo', sp.package_code === 'porteros_4' && sp.reason === 'Entrena con Alexis' && sp.player_id === 'p1', JSON.stringify(sp));
+  revisa('[hoja] avisa desde cuándo', /Porteros 4 días, \$420\.00 al mes desde diciembre/.test(await p.textContent('#presToast')));
+
+  await p.click('[data-renovar="b1"]');
+  await p.waitForSelector('#presSheet:not(.hidden)');
+  revisa('[renovar] dice hasta cuándo queda', /vence el 31 ene 2027/.test(await p.textContent('#presSheet')), await p.textContent('#presSheet'));
+  await p.click('#presForm .pres-primary');
+  await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:4000 });
+  revisa('[renovar] renueva esa beca', (await llamadas(p, 'v2_renew_benefit'))[0]?.params?.benefit_id === 'b1');
+  revisa('[paquete] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await p.close();
+}
+{
+  const p = await abre(true, 390, '/v2/tanner/?id=p1', 'Contabilidad', true);
+  revisa('[paquete] quien no es Presidencia ve el paquete pero no lo cambia', /Tanner 4 días/.test(await p.textContent('.tan-grid')) && !(await p.$('.tan-fila[data-paquete]')) && !(await p.$('[data-renovar]')));
+  await p.close();
+}
+
 /* ---------- Quien no es Presidencia ve la cuota, no la cambia ---------- */
 {
   const p = await abre(true, 390, '/v2/tanner/?id=p1', 'Contabilidad');

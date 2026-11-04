@@ -53,6 +53,7 @@ function headBlock(p,photoUrl){
   if(p.category)chips.push(`<span class="tan-chip">${esc(p.category)}</span>`);
   chips.push(`<span class="tan-chip" ${p.status!=='active'?'data-tone="off"':''}>${esc(STATUS_LABEL[p.status]||p.status||'')}</span>`);
   if(p.jersey_number)chips.push(`<span class="tan-chip">#${esc(p.jersey_number)}</span>`);
+  if(paq?.package)chips.push(`<span class="tan-chip" data-tone="paquete">${esc(paq.package.name)}</span>`);
   // La fecha de ingreso al club que capturó Presidencia manda. La primera
   // inscripción sólo cubre mientras no haya una: en los migrados es el día de
   // la migración, no el día en que entraron.
@@ -69,7 +70,10 @@ function balanceBlock(data){
   const state=saldo>0?'due':aFavor>0?'credit':'clear';
   const titulo=saldo>0?'Saldo pendiente':aFavor>0?'Saldo a favor':'Sin adeudo';
   const cifra=money.format(Math.abs(neto));
-  const partes=(s.by_type||[]).map(t=>`<div class="tan-split-item"><span>${esc(chargeLabel(t.type))}</span><b>${money.format(Number(t.pending||0))}</b></div>`).join('');
+  // Los cuadritos por concepto sólo cuando no hay tarjetero "Por mes": si no,
+  // dicen dos veces lo mismo (04/11/2026).
+  const hayMeses=(data.ledger||[]).some(m=>m.kind==='charge'&&m.period);
+  const partes=hayMeses?'':(s.by_type||[]).map(t=>`<div class="tan-split-item"><span>${esc(chargeLabel(t.type))}</span><b>${money.format(Number(t.pending||0))}</b></div>`).join('');
   const sub=saldo>0
     ? `${(s.by_type||[]).length} concepto${(s.by_type||[]).length===1?'':'s'}${s.oldest_due?` · el más antiguo desde ${fmtDate(s.oldest_due)}`:''}`
     : aFavor>0?'Pagado por adelantado, se aplicará al próximo cargo':'Todo al corriente';
@@ -92,7 +96,7 @@ function balanceBlock(data){
 
   // Explica de dónde sale un saldo que parece no cuadrar tras un cobro.
   const notas=[];
-  if(aFavor>0&&saldo>0)notas.push({t:`${money.format(aFavor)} a favor sin aplicar`,d:'Hay un pago con saldo sobrante que todavía no cubre ningún cargo abierto.'});
+  if(aFavor>0&&saldo>0&&!data.canAdjust)notas.push({t:`${money.format(aFavor)} a favor sin aplicar`,d:'Hay un pago con saldo sobrante que todavía no cubre ningún cargo abierto.'});
   if(retenido>0)notas.push({t:`${money.format(retenido)} de crédito retenido`,d:'Pago migrado que requiere conciliación manual antes de aplicarse.'});
   const notasHtml=notas.map(n=>`<div class="tan-note"><span class="tan-dot" style="background:#d9e9ec;color:#0c5163">${shellIcon('wallet')}</span><span><strong>${esc(n.t)}</strong><span>${esc(n.d)}</span></span></div>`).join('');
 
@@ -389,6 +393,67 @@ function planesBlock(data){
   return grupo('Planes',filas,{pie});
 }
 
+/* ===== Paquete y becas (h62, 04/11/2026) =====
+   Presidencia: "en enero vamos a tener 6 paquetes"; "que se sepa qué beca
+   tienen y por qué motivo"; "las becas duran 3 meses y nosotros las tenemos
+   que renovar". Un renglón dice el paquete y cuánto paga; debajo, cada beca
+   con su motivo y cuándo vence. Se cambia con un toque. */
+let paq=null;
+const MES=d=>d?new Intl.DateTimeFormat('es-MX',{month:'long'}).format(new Date(`${String(d).slice(0,7)}-01T12:00:00`)):'';
+function detallePaquete(k){
+  if(!k)return '';
+  if(k.audience==='porteros')return k.trainsWithCategory?`${k.goalkeeperDays} con porteros + ${k.days-k.goalkeeperDays} con su categoría`:`${k.days} días con porteros`;
+  return `${k.days} días con su categoría`;
+}
+const TIPO_BECA={scholarship_full:'Beca completa',scholarship_partial:'Beca parcial',sibling_discount:'Hermanos',sponsor_funded:'Patrocinio',custom:'Apoyo'};
+const becaCompleta=b=>b.type==='scholarship_full'||b.calculation==='full_waiver'||Number(b.percentage)>=100;
+function becaCuanto(b){
+  if(becaCompleta(b))return '100%';
+  if(b.percentage!=null)return `−${Number(b.percentage)}%`;
+  if(b.fixed!=null&&Number(b.fixed)>0)return `−${money.format(Number(b.fixed))}`;
+  return '';
+}
+// Lo mismo que calcula la base (private.package_discount), para enseñar en la
+// hoja cuánto pagaría antes de guardar.
+function descuentoBecas(precio){
+  const bs=(paq?.benefits||[]).filter(b=>b.counts);
+  if(!(precio>0))return 0;
+  if(bs.some(becaCompleta))return precio;
+  const d=bs.reduce((t,b)=>t+(b.percentage!=null?Math.round(precio*Number(b.percentage))/100:Number(b.fixed||0)),0);
+  return Math.min(precio,Math.max(0,d));
+}
+function paqueteBlock(data){
+  if(!paq?.hasPackages)return planesBlock(data);
+  const filas=[],k=paq.package,editar=!!paq.canEdit;
+  if(k){
+    const sub=[detallePaquete(k),Number(paq.discount)>0?`${money.format(Number(paq.price))} − becas ${money.format(Number(paq.discount))}`:''].filter(Boolean).join(' · ');
+    filas.push(fila({icono:k.audience==='porteros'?'shield':'users',tono:'azul',titulo:k.name,sub,valor:`${money.format(Number(paq.fee||0))}/mes`,attrs:editar?'data-paquete':'',accion:editar}));
+  }else{
+    const gk=paq.goalkeeperAcademy&&Number(paq.goalkeeperAcademy.fee)>0?` + porteros ${money.format(Number(paq.goalkeeperAcademy.fee))}`:'';
+    filas.push(fila({icono:'wallet',tono:'naranja',titulo:'Sin paquete',sub:`Hoy paga ${money.format(Number(paq.fee||0))}/mes${gk}`,valor:editar?'Elegir':'',attrs:editar?'data-paquete':'',accion:editar}));
+  }
+  (paq.benefits||[]).forEach(b=>{
+    const dias=b.daysLeft==null?null:Number(b.daysLeft);
+    const vence=!b.endsOn?'Sin fecha de fin':dias<0?`Venció el ${fmtDate(b.endsOn)}`:dias===0?'Vence hoy':`Vence el ${fmtDate(b.endsOn)} · faltan ${dias} día${dias===1?'':'s'}`;
+    const urge=dias!=null&&dias<=21;
+    const renovar=paq.canRenew&&b.type!=='sponsor_funded'&&b.endsOn&&dias<=30
+      ?`<button type="button" class="tan-pill" data-kind="renovar" data-renovar="${esc(b.id)}" data-fin="${esc(b.endsOn)}">Renovar</button>`:'';
+    const cuanto=becaCuanto(b);
+    filas.push(fila({icono:'star',tono:urge?'rojo':'verde',titulo:[TIPO_BECA[b.type]||'Beca',cuanto&&cuanto!=='100%'?cuanto:''].filter(Boolean).join(' '),
+      sub:[b.reason,vence].filter(Boolean).join(' · '),accion:false,attrs:urge?'data-urge':'',
+      extra:renovar||(cuanto?`<span class="tan-fila-valor">${esc(cuanto)}</span>`:'')}));
+  });
+  // Lo demás que paga aparte: pedidos y otros pagos.
+  (data.orders||[]).forEach(o=>{
+    const falta=Number(o.total||0)-Number(o.paid||0);
+    filas.push(fila({icono:'bag',tono:'naranja',titulo:`Pedido ${o.folio||''}`.trim(),sub:falta>0?`Faltan ${money.format(falta)}`:'Pagado',valor:money.format(Number(o.total||0)),accion:false}));
+  });
+  const prox=(paq.upcoming||[])[0];
+  const pie=[paq.period&&k?`Cuenta así desde ${MES(paq.period)}.`:'',prox?`Desde ${MES(prox.from)} el paquete cuesta ${money.format(Number(prox.fee))}.`:'',
+    (paq.benefits||[]).some(b=>b.daysLeft!=null&&b.daysLeft<=21&&b.type!=='sponsor_funded')?'Una beca que no se renueva deja de descontar el mes siguiente.':''].filter(Boolean).join(' ');
+  return grupo('Paquete',filas,{pie:esc(pie)});
+}
+
 // Salud: lo que el coach necesita a la mano en una emergencia. Viene de la
 // ficha (v2_player_profile, permiso de Jugadores); sin permiso, no se enseña.
 let perfil=null;
@@ -397,6 +462,12 @@ function saludBlock(){
   const tel=telefonoWa(j.emergencyContactPhone);
   const llamar=tel?`<span class="tan-contacto-acciones"><a class="tan-pill" data-kind="wa" href="https://wa.me/${esc(tel)}" target="_blank" rel="noopener" aria-label="WhatsApp al contacto de emergencia">WhatsApp</a><a class="tan-pill" href="tel:+${esc(tel)}" aria-label="Llamar al contacto de emergencia">Llamar</a></span>`:'';
   const alergias=String(j.allergies||'').trim();
+  if(!j.bloodType&&!alergias&&!j.emergencyContactName&&!j.emergencyContactPhone){
+    const f=can('jugadores',true)
+      ?fila({icono:'shield',tono:'gris',titulo:'Sin datos médicos',sub:'Sangre, alergias y contacto de emergencia',valor:'Capturar',href:fichaUrl()})
+      :fila({icono:'shield',tono:'gris',titulo:'Sin datos médicos',accion:false});
+    return grupo('Salud',[f]);
+  }
   const filas=[
     fila({icono:'shield',tono:'rojo',titulo:'Tipo de sangre',valor:j.bloodType||'Sin capturar',vacio:!j.bloodType,accion:false}),
     fila({icono:'bug',tono:'naranja',titulo:'Alergias y condiciones',sub:alergias||'',valor:alergias?'':'Ninguna registrada',vacio:!alergias,accion:false,attrs:alergias?'data-alerta':''}),
@@ -422,12 +493,14 @@ async function render(){
   if(!playerId){$('tannerBody').innerHTML='<div class="tos-empty">Falta indicar el Tanner.</div>';return;}
   let data;
   try{
-    [data,cobro,perfil]=await Promise.all([
+    [data,cobro,perfil,paq]=await Promise.all([
       rpc('v2_player_account_statement',{organization_id:ctx.organization_id,player_id:playerId}),
       rpc('v2_player_collection',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null),
       // Salud sale de la ficha: sólo quien puede ver Jugadores. Si falla, la
       // cuenta se ve igual, sin esa sección.
-      can('jugadores')?rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null):null
+      can('jugadores')?rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null):null,
+      // Paquete y becas (h62). Si no hay o falla, se ve la cuota como antes.
+      rpc('v2_player_package',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null)
     ]);
   }catch(error){
     console.warn('estado de cuenta',error);
@@ -446,7 +519,10 @@ async function render(){
   const paint=url=>{
     // Orden (04/11/2026): cuenta, lo que tiene contratado, salud y familia;
     // después el detalle (meses, seguimiento, movimientos, documentos).
-    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${cobranza.acuerdoBlock()}<div class="tan-grid">${planesBlock(data)}${saludBlock()}${familiaBlock(data)}</div>${monthsBlock(data)}${cobranza.seguimientoBlock()}${ledgerBlock(data)}${cambiosBlock()}${docsBlock(data)}`;
+    const movs=ledgerBlock(data)+cambiosBlock();
+    const nMovs=(data.ledger||[]).filter(m=>m.kind!=='payment'||m.status==='posted').length;
+    const plegado=movs?`<details class="tan-plegable" id="detMovs"${movsAbierto?' open':''}><summary><span class="tan-fila-ico" data-tono="gris">${shellIcon('ledger')}</span><span class="tan-fila-txt"><strong>Movimientos</strong><small>${nMovs} cargo${nMovs===1?'':'s'} y pago${nMovs===1?'':'s'}${Array.isArray(cambios)&&cambios.length?' · cambios al saldo':''}</small></span>${flecha}</summary>${movs}</details>`:'';
+    $('tannerBody').innerHTML=`${headBlock(p,url)}${balanceBlock(data)}${cobranza.acuerdoBlock()}${monthsBlock(data)}<div class="tan-grid">${paqueteBlock(data)}${saludBlock()}${familiaBlock(data)}</div>${cobranza.seguimientoBlock()}${plegado}${docsBlock(data)}`;
   };
   paint('');
   cargaCambios(paint,p);
@@ -466,7 +542,9 @@ async function render(){
      · Aplicar saldo a favor (v2_apply_player_credit).
    La llave de idempotencia se crea al abrir la hoja y se reusa si se reintenta:
    un doble toque o una red lenta no duplican nada. */
-let ultimo=null,hoja=null;
+let ultimo=null,hoja=null,movsAbierto=false;
+// El plegado de movimientos se queda como lo dejaste aunque la pantalla se repinte.
+document.addEventListener('toggle',e=>{if(e.target?.id==='detMovs')movsAbierto=e.target.open;},true);
 document.addEventListener('click',e=>{
   const b=e.target.closest?.('[data-cobrar]');if(!b||!ultimo)return;
   const p=ultimo.player||{};
@@ -528,6 +606,29 @@ function pintarHoja(){
     html=cab('Corregir pago',`${fmtDate(pago.date)} · ${money.format(Math.abs(Number(pago.amount||0)))}`)+`<form id="presForm" class="pres-form">
       <p class="pres-nota">El pago se revierte y lo que cubría vuelve a quedar pendiente. Sale de la caja del día. Si el dinero sí entró pero se capturó mal, vuelve a registrarlo bien en Taquilla.</p>
       ${motivo}${err}${boton('Revertir este pago')}</form>`;
+  }else if(hoja.tipo==='paquete'){
+    const ops=paq?.options||[];
+    const elegido=ops.find(o=>o.code===hoja.codigo);
+    const precio=elegido?Number(elegido.price):null,desc=precio!=null?descuentoBecas(precio):0;
+    const resumen=elegido&&precio!=null
+      ?`Pagará <b>${money.format(Math.max(0,precio-desc))}</b> al mes desde ${esc(MES(paq.period))}${desc>0?` (${money.format(precio)} − becas ${money.format(desc)})`:''}. Lo ya cobrado no cambia.`
+      :'Elige un paquete.';
+    html=cab('Paquete',nombre)+`<form id="presForm" class="pres-form">
+      <div class="pq-opciones" role="radiogroup" aria-label="Paquete">${ops.map(o=>{
+        const sin=o.price==null,act=o.code===hoja.codigo,es=paq?.package?.code===o.code;
+        return `<button type="button" role="radio" class="pq-op" aria-checked="${act}" data-pq="${esc(o.code)}"${sin?' disabled':''}><span class="pq-radio" aria-hidden="true"></span><span class="pq-txt"><strong>${esc(o.name)}${es?' <em>actual</em>':''}</strong><small>${esc(sin?'Sin precio todavía':detallePaquete(o))}</small></span><span class="pq-precio">${sin?'—':`${money.format(Number(o.price))}`}</span></button>`;}).join('')}</div>
+      <p class="pres-nota" id="pqResumen">${resumen}</p>
+      <label>Motivo<textarea id="presMotivo" rows="2" maxlength="300" placeholder="Ej. Homologamos porteros a $800">${esc(hoja.motivo||'')}</textarea></label>
+      ${err}${boton('Guardar paquete')}</form>`;
+  }else if(hoja.tipo==='renovar'){
+    const b=(paq?.benefits||[]).find(x=>x.id===hoja.beca)||{};
+    const fin=b.endsOn?new Date(`${b.endsOn}T12:00:00`):new Date();
+    const hoyD=new Date();const base=fin<hoyD?hoyD:new Date(fin.getTime()+864e5);
+    const nuevoFin=new Date(base.getFullYear(),base.getMonth()+3,0);
+    html=cab('Renovar beca',nombre)+`<form id="presForm" class="pres-form">
+      <div class="pres-cuota"><span>${esc([TIPO_BECA[b.type]||'Beca',becaCuanto(b)].filter(Boolean).join(' '))}</span><b>3 meses</b></div>
+      <p class="pres-nota">${b.reason?`“${esc(b.reason)}”. `:''}Hoy vence el ${esc(fmtDate(b.endsOn))}. Renovada, vence el <b>${esc(new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(nuevoFin))}</b> y sigue descontando sola.</p>
+      ${err}${boton('Renovar 3 meses')}</form>`;
   }else if(hoja.tipo==='cuota'){
     const pl=ultimo?.player||{},actual=Number(pl.base_monthly_fee||0);
     const nueva=hoja.monto??actual;
@@ -548,6 +649,7 @@ function pintarHoja(){
   b.querySelector('#presCargo')?.addEventListener('change',e=>{guardaCampos();hoja.charge=e.target.value;hoja.monto=undefined;pintarHoja();});
   b.querySelectorAll('[data-ajuste]').forEach(x=>x.addEventListener('click',()=>{guardaCampos();hoja.ajuste=x.dataset.ajuste;pintarHoja();}));
   b.querySelector('#presMonto')?.addEventListener('input',e=>{const q=$('presQueda');if(q){const c=cargosAbiertos().find(c=>c.id===hoja.charge);if(c)q.textContent=money.format(Math.max(0,c.saldo-Number(e.target.value||0)));}});
+  b.querySelectorAll('[data-pq]').forEach(x=>x.addEventListener('click',()=>{guardaCampos();hoja.codigo=x.dataset.pq;pintarHoja();}));
   b.querySelector('#presForm')?.addEventListener('submit',enviarHoja);
 }
 function guardaCampos(){
@@ -562,7 +664,7 @@ const ERRORES={
   'Adjustment reason required':'Escribe el motivo (al menos 5 letras).',
   'Charge has no outstanding balance':'Ese cargo ya no tiene saldo pendiente.',
   'Amount must be greater than zero':'El monto debe ser mayor a cero.',
-  'Not authorized':'Sólo Presidencia puede cambiar la mensualidad.',
+  'Not authorized':'No tienes permiso para hacer este cambio.',
   'Billing profile not found':'Este Tanner todavía no tiene cuota registrada. Dale de alta su cuota en Taquilla.'
 };
 const amable=e=>{const m=String(e?.message||e||'');return ERRORES[m]||m.replace(/^.*?:\s*/,'')||'No se pudo guardar. Intenta de nuevo.';};
@@ -571,7 +673,9 @@ async function enviarHoja(ev){
   guardaCampos();
   const motivo=String(hoja.motivo||'').trim(),monto=Number(hoja.monto);
   hoja.error='';
-  if(hoja.tipo!=='favor'&&motivo.length<5){hoja.error='Escribe el motivo (al menos 5 letras): queda en el registro.';pintarHoja();return;}
+  if(hoja.tipo==='paquete'&&!hoja.codigo){hoja.error='Elige un paquete.';pintarHoja();return;}
+  if(hoja.tipo==='paquete'&&hoja.codigo===paq?.package?.code){hoja.error='Ya tiene ese paquete.';pintarHoja();return;}
+  if(hoja.tipo!=='favor'&&hoja.tipo!=='renovar'&&motivo.length<5){hoja.error='Escribe el motivo (al menos 5 letras): queda en el registro.';pintarHoja();return;}
   if((hoja.tipo==='ajustar'||hoja.tipo==='cargo')&&!(monto>0)){hoja.error='Escribe un monto mayor a cero.';pintarHoja();return;}
   if(hoja.tipo==='cuota'&&!(String(hoja.monto??'').trim()!==''&&monto>=0)){hoja.error='Escribe la nueva mensualidad (puede ser 0).';pintarHoja();return;}
   if(hoja.tipo==='cuota'&&monto===Number(ultimo?.player?.base_monthly_fee||0)&&!ultimo?.player?.is_exempt){hoja.error='Es la misma mensualidad que ya tiene.';pintarHoja();return;}
@@ -588,6 +692,12 @@ async function enviarHoja(ev){
     }else if(hoja.tipo==='corregir'){
       await rpc('v2_correct_tanner_payment',{organization_id:org,payment_id:hoja.payment,reason:motivo});
       aviso='Pago revertido. Lo que cubría volvió a quedar pendiente.';
+    }else if(hoja.tipo==='paquete'){
+      const r=await rpc('v2_set_player_package',{organization_id:org,player_id:playerId,package_code:hoja.codigo,reason:motivo});
+      aviso=`Paquete guardado: ${r?.packageName||''}, ${money.format(Number(r?.fee||0))} al mes desde ${MES(r?.from)}.`;
+    }else if(hoja.tipo==='renovar'){
+      const r=await rpc('v2_renew_benefit',{organization_id:org,benefit_id:hoja.beca,reason:null});
+      aviso=`Beca renovada hasta el ${fmtDate(r?.endsOn)}.`;
     }else if(hoja.tipo==='cuota'){
       // La nota es el "por qué paga lo que paga" que también ve Taquilla.
       await rpc('v2_set_player_fee_note',{organization_id:org,player_id:playerId,note:motivo,monthly_fee:monto});
@@ -617,6 +727,14 @@ document.addEventListener('click',e=>{
 document.addEventListener('click',e=>{
   if(!e.target.closest?.('[data-cuota]')||!ultimo||!esPresidencia())return;
   abrirHoja('cuota');
+});
+document.addEventListener('click',e=>{
+  if(!e.target.closest?.('[data-paquete]')||!ultimo||!paq?.canEdit)return;
+  abrirHoja('paquete',{codigo:paq.package?.code||null});
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest?.('[data-renovar]');if(!b||!ultimo||!paq?.canRenew)return;
+  abrirHoja('renovar',{beca:b.dataset.renovar});
 });
 
 await render();

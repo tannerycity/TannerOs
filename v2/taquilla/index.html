@@ -70,29 +70,25 @@
         </section>
 
         <section id="conciliaPanel" class="cashier-panel concilia-panel hidden">
-          <div class="cashier-panel-head">
-            <div><h2>Pagos por conciliar</h2><p id="conciliaSub">Presidencia valida cada cobro registrado.</p></div>
-            <div class="montos-head-actions">
-              <button id="closeConcilia" class="cashier-secondary" type="button">Volver</button>
-            </div>
-          </div>
-
-          <div id="conciliaKpis" class="montos-kpis"></div>
+          <!-- Tarjetas (05/11/2026): cada una es el número y el filtro a la vez.
+               Presidencia: "siento que está muy redundante... pocos botones". -->
+          <div id="conciliaKpis" class="cc-tablero" role="tablist" aria-label="Qué revisar"></div>
+          <p id="conciliaSub" class="cc-sub"></p>
 
           <div class="collections-toolbar">
             <div class="tsearch wide"><div class="tsearch-field">
               <input type="text" id="conciliaSearch" placeholder="Buscar Tanner, familia, referencia o quién cobró…" autocomplete="off">
               <button type="button" class="tsearch-clear hidden" id="conciliaSearchClear" aria-label="Quitar">×</button>
             </div></div>
-            <div class="collections-filters" id="conciliaChips">
-              <button type="button" class="active" data-concilia-filter="pending">Pendientes</button>
-              <button type="button" data-concilia-filter="clarification">Aclaración</button>
-              <button type="button" data-concilia-filter="legacy">Sin revisar</button><button type="button" data-concilia-filter="approved">Aprobados</button>
+            <!-- Sólo en Historial: qué parte del historial. -->
+            <div class="collections-filters cc-subfiltros hidden" id="conciliaChips">
+              <button type="button" data-concilia-filter="approved">Aprobados</button>
               <button type="button" data-concilia-filter="rejected">Rechazados</button>
+              <button type="button" data-concilia-filter="legacy">Sistema anterior</button>
               <button type="button" data-concilia-filter="">Todos</button>
-              <button type="button" data-concilia-filter="diff">Con diferencia</button>
             </div>
           </div>
+          <div id="conciliaBloque" class="cc-bloque hidden"></div>
 
           <div id="conciliaList" class="concilia-list"></div>
           <div id="conciliaEmpty" class="cashier-empty hidden">No hay pagos en este estado.</div>

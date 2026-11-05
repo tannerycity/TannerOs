@@ -1573,40 +1573,76 @@ function pintaBarraConcilia(){
   if(vistasListas)pintaVerTabs();
 }
 
+/* Por conciliar, en tarjetas (05/11/2026).
+   Presidencia: "los pagos se me hace chido, pero siento que está muy
+   redundante... estilo Apple, pocos botones... ahí está, en ese botón checo
+   esto". Antes: título + explicación + Volver + 4 cuadros + 7 filtros, que
+   decían lo mismo dos veces. Ahora: 4 tarjetas que son el número y el filtro
+   a la vez (Por revisar, Aclarar, Diferencias, Historial); cada cobro en 3
+   renglones con el detalle a un toque; un botón grande y "···" para lo demás;
+   y "Aprobar los que cuadran" para no aprobar 30 uno por uno. */
+const HISTORIAL=new Set(['approved','rejected','legacy','']);
+const enHistorial=()=>HISTORIAL.has(conciliaFiltro);
+// Un cobro "cuadra" si tiene monto esperado y entró exactamente eso.
+const cuadra=x=>x.status==='pending'&&!x.legacyApproved&&x.expectedAmount!=null&&!diferenciaDe(x).hay;
+
 function pintaConcilia(){
   const todas=conciliaData?.rows||[];
   const r=conciliaData?.summary||{};
   const canApprove=Boolean(conciliaData?.canApprove);
 
-  $('conciliaSub').textContent=canApprove
-    ? 'Presidencia valida cada cobro registrado.'
-    : (conciliaData?.seesEverything
-       ? 'Consulta. La aprobación final es de Presidencia.'
-       : 'Tus cobros registrados. La aprobación final es de Presidencia.');
+  // Una sola línea, y sólo para quien no aprueba: a Presidencia no hay que
+  // explicarle su propia pantalla.
+  const sub=$('conciliaSub');
+  if(sub){
+    sub.textContent=canApprove?'':(conciliaData?.seesEverything
+      ?'Consulta. La aprobación final es de Presidencia.'
+      :'Tus cobros registrados. La aprobación final es de Presidencia.');
+    sub.classList.toggle('hidden',!sub.textContent);
+  }
 
-  /* El mosaico que faltaba: los pagos que nadie revisó.
-     Se sumaban a "aprobados" y el club veía 0 pendientes con 242 sin revisar
-     debajo — la pantalla se veía terminada cuando el trabajo ni empezaba. */
   const heredados=Number(r.legacyApproved||0);
-  $('conciliaKpis').innerHTML=`
-    <article><span>Por conciliar</span><strong>${Number(r.pending||0)}</strong><small>${money.format(Number(r.pendingAmount||0))}</small></article>
-    <article><span>Con aclaración</span><strong>${Number(r.clarification||0)}</strong><small>esperan respuesta</small></article>
-    ${heredados?`<article class="kpi-atencion"><span>Sin revisar nunca</span><strong>${heredados}</strong><small>${money.format(Number(r.legacyApprovedAmount||0))} del sistema anterior</small></article>`:''}
-    <article><span>Aprobados hoy</span><strong>${Number(r.approvedToday||0)}</strong><small>${Number(r.rejected||0)} rechazados en total</small></article>
-    <article><span>Con diferencia</span><strong>${Number(r.withDifference||0)}</strong><small>${money.format(Number(r.differenceTotal||0))} contra lo esperado</small></article>`;
+  const tarjeta=(filtro,titulo,n,detalle,tono)=>{
+    const activa=filtro==='historial'?enHistorial():conciliaFiltro===filtro;
+    return `<button type="button" role="tab" aria-selected="${activa}" class="cc-tab${activa?' activa':''}" data-tono="${tono}" data-concilia-filter="${filtro}"${Number(n)>0?' data-hay="1"':''}><span>${esc(titulo)}</span><strong>${Number(n||0)}</strong><small>${esc(detalle)}</small></button>`;
+  };
+  $('conciliaKpis').innerHTML=
+    tarjeta('pending','Por revisar',r.pending,money.format(Number(r.pendingAmount||0)),'revisar')
+    +tarjeta('clarification','Aclarar',r.clarification,'esperan respuesta','aclarar')
+    +tarjeta('diff','Diferencias',r.withDifference,`${money.format(Number(r.differenceTotal||0))} en total`,'dif')
+    +tarjeta('historial','Historial',r.approvedToday,`aprobados hoy${heredados?` · ${heredados} sin revisar`:''}`,'hist');
+
+  // Sub-filtros sólo dentro de Historial.
+  const chips=$('conciliaChips');
+  if(chips){
+    chips.classList.toggle('hidden',!enHistorial());
+    chips.querySelectorAll('[data-concilia-filter]').forEach(b=>{
+      b.classList.toggle('active',b.dataset.conciliaFilter===conciliaFiltro);
+      if(b.dataset.conciliaFilter==='legacy')b.textContent=heredados?`Sistema anterior · ${heredados}`:'Sistema anterior';
+    });
+  }
 
   const f=conciliaFiltro==='diff'
     ? {texto:conciliaQuery,soloConDiferencia:true}
     : {texto:conciliaQuery,estado:conciliaFiltro||undefined};
   const filas=filtraConcilia(todas,f);
 
+  // Aprobar en bloque: sólo lo que cuadra exacto contra lo esperado.
+  const bloque=$('conciliaBloque');
+  const listos=canApprove&&conciliaFiltro==='pending'?filas.filter(cuadra):[];
+  if(bloque){
+    bloque.innerHTML=listos.length>=2
+      ?`<button type="button" data-bloque>Aprobar los ${listos.length} que cuadran · ${montoConcilia(listos.reduce((t,x)=>t+Number(x.amount||0),0))}</button><small>Entró exactamente lo esperado. Los demás, uno por uno.</small>`:'';
+    bloque.classList.toggle('hidden',listos.length<2);
+  }
+
   // Por día de pago, lo más nuevo arriba: "Hoy · 2 cobros · $1,200".
   $('conciliaList').innerHTML=agrupaPorDia(filas,hoyMexico()).map(g=>
     `<h3 class="cc-dia"><span>${esc(g.dia)}</span><small>${g.filas.length} ${g.filas.length===1?'cobro':'cobros'} · ${montoConcilia(g.total)}</small></h3>`
     +g.filas.map(x=>tarjetaConcilia(x,canApprove)).join('')).join('');
   /* "No hay pagos en este estado" con todo en cero se lee como una pantalla
-     rota. Si no hay pendientes pero sí hay 242 sin revisar, eso es lo que hay
-     que decir, y hacia dónde mandar a quien está mirando. */
+     rota. Si no hay pendientes pero sí hay pagos del sistema anterior, eso es
+     lo que hay que decir, y hacia dónde mandar a quien está mirando. */
   const vacio=$('conciliaEmpty');
   if(conciliaFiltro==='pending'&&!filas.length&&heredados){
     vacio.innerHTML=`<strong>Ningún cobro nuevo espera revisión.</strong>`
@@ -1615,20 +1651,28 @@ function pintaConcilia(){
   }else if(!filas.length&&!todas.length){
     vacio.innerHTML='<strong>Todavía no hay cobros registrados.</strong>'
       +'<span>En cuanto Taquilla registre uno, aparece aquí para que lo valides.</span>';
+  }else if(conciliaFiltro==='pending'&&!filas.length){
+    vacio.innerHTML='<strong>Todo revisado.</strong><span>No hay cobros nuevos por aprobar.</span>';
   }else{
-    vacio.textContent='No hay pagos en este estado.';
+    vacio.textContent='No hay pagos aquí.';
   }
   vacio.classList.toggle('hidden',filas.length>0);
   $('conciliaList').querySelectorAll('[data-accion]').forEach(b=>
     b.addEventListener('click',()=>abreAccion(b.dataset.pago,b.dataset.accion)));
+  $('conciliaList').querySelectorAll('[data-mas]').forEach(b=>
+    b.addEventListener('click',()=>{
+      const menu=b.closest('.concilia-acciones')?.querySelector('.cc-mas-menu');if(!menu)return;
+      menu.hidden=!menu.hidden;b.setAttribute('aria-expanded',String(!menu.hidden));
+    }));
 }
 
-/* La tarjeta de conciliación (26/10/2026). Presidencia: "que qué día pagó, a
-   qué hora... bien visual, que sea bien fácil ver quién cobró, quién pagó,
-   qué día". Arriba quién y cuánto (con el método en español); en medio
-   cuatro casillas con lo que se coteja: quién pagó, quién cobró, el día del
-   pago y cuándo se registró (con hora); abajo un botón grande para aprobar
-   y los otros dos al lado. */
+/* La tarjeta del cobro (05/11/2026): tres renglones.
+     1. Quién y cuánto, con el método en español.
+     2. Qué se cobró (el mes sólo si es una mensualidad: un pedido no tiene mes).
+     3. Quién pagó, quién cobró y cuándo se registró.
+   Lo que se coteja con calma (referencia, esperado, comprobante, contra qué se
+   valida, historial) va en "Ver detalle". Abajo, un botón grande con lo que
+   casi siempre se hace y "···" con lo demás. */
 const ICONO_METODO={transfer:ICONO_BANCO,cash:ICONO_EFECTIVO,
   card:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>',
   otro:ICONO_EFECTIVO};
@@ -1648,6 +1692,8 @@ function tarjetaConcilia(x,canApprove){
        : esc(x.registeredBy))
     : '<em class="cc-falta">No se registró</em>';
   const pagoQuien=x.family&&x.playerName?esc(x.family):(x.family?'El mismo':'<em class="cc-falta">Sin nombre</em>');
+  const esPedido=/pedido/i.test(String(x.concept||''));
+  const que=[x.concept||'Cobro',esPedido?'':mesDe(x.period)].filter(Boolean).join(' · ');
 
   const hist=(x.history||[]).map(h=>
     `<li>${esc(lineaDeHistorial(h))}<small class="h-motivo">${esc(registradoDe(h.at)||h.at||'')}${h.reason?` · ${esc(h.reason)}`:''}</small></li>`).join('');
@@ -1655,34 +1701,37 @@ function tarjetaConcilia(x,canApprove){
   const principal=acciones.find(a=>a.clave==='approve'||a.clave==='resubmit');
   const otras=acciones.filter(a=>a!==principal);
   const boton=a=>`<button type="button" data-tono="${a.tono}" data-pago="${esc(x.paymentId)}" data-accion="${a.clave}">${esc(a.etiqueta)}</button>`;
+  // El estado sólo se dice cuando no es el normal de la lista ("pendiente").
+  const chip=x.status!=='pending'||x.legacyApproved?estadoChip(e):'';
 
   return `<article class="concilia-card cc" data-estado="${esc(x.status||'')}" data-legacy="${x.legacyApproved?'1':'0'}">
     <div class="concilia-top cc-cab">
       <span class="cc-avatar" aria-hidden="true">${esc(iniciales(quien))}</span>
       <span class="concilia-quien"><strong>${esc(quien)}</strong>
-        <small>${esc(x.concept||'Cobro')} · ${esc(mesDe(x.period)||'—')}</small></span>
+        <small>${esc(que)}</small></span>
       <span class="concilia-monto"><b>${montoConcilia(x.amount)}</b><span class="cc-metodo" data-k="${met.k}"><i aria-hidden="true">${ICONO_METODO[met.k]||ICONO_EFECTIVO}</i>${esc(met.t)}</span></span>
     </div>
-    <div class="concilia-chips">
-      ${estadoChip(e)}
-      <span class="cc-pista" title="${esc(val.pista||'')}"><i aria-hidden="true">${x.validationKind==='banco'?ICONO_BANCO:ICONO_EFECTIVO}</i>${esc(val.etiqueta)}</span>
-    </div>
-    <dl class="concilia-datos cc-datos">
-      ${casilla(ICONO_CC.familia,'Pagó',pagoQuien)}
-      ${casilla(ICONO_CC.cobro,'Cobró',quienCobro)}
-      ${casilla(ICONO_CC.dia,'Día del pago',esc(fechaPago(x.date)||x.date||'—'))}
-      ${casilla(ICONO_CC.hora,'Se registró',esc(registradoDe(x.createdAt)||'—'))}
-      ${x.reference?casilla(ICONO_CC.ref,'Referencia',`<b>${esc(x.reference)}</b>`,'ancho'):''}
-      ${x.expectedAmount!=null?casilla(ICONO_CC.ref,'Esperado',montoConcilia(x.expectedAmount)):''}
-      ${x.receiptPath?casilla(ICONO_CC.ref,'Comprobante','Adjunto'):''}
-      ${x.reconciledBy?casilla(ICONO_CC.ok,'Revisó',`${esc(x.reconciledBy)}${x.reconciledAt?` · ${esc(registradoDe(x.reconciledAt))}`:''}`,'ancho'):''}
-      ${x.reconciliationReference?casilla(ICONO_CC.ref,'Evidencia',esc(x.reconciliationReference),'ancho'):''}
-    </dl>
+    <p class="cc-linea">Pagó <b>${pagoQuien}</b> · cobró <b>${quienCobro}</b> · ${esc(registradoDe(x.createdAt)||fechaPago(x.date)||'')}</p>
+    ${chip?`<div class="concilia-chips">${chip}</div>`:''}
     ${dif.hay?`<div class="concilia-dif" data-nivel="${dif.nivel}">${esc(dif.texto)} ${money.format(Math.abs(dif.monto))}</div>`:''}
     ${x.observations?`<div class="concilia-obs">${esc(x.observations)}</div>`:''}
     ${x.reconciliationNote?`<div class="concilia-obs">Nota de Presidencia: ${esc(x.reconciliationNote)}</div>`:''}
-    ${hist?`<details class="concilia-hist"><summary>Historial (${(x.history||[]).length})</summary><ol>${hist}</ol></details>`:''}
-    ${acciones.length?`<div class="concilia-acciones cc-acciones">${principal?`<div class="cc-principal">${boton(principal)}</div>`:''}${otras.length?`<div class="cc-otras">${otras.map(boton).join('')}</div>`:''}</div>`:''}
+    <details class="cc-detalle"><summary>Ver detalle</summary>
+      <p class="cc-pista" title="${esc(val.pista||'')}"><i aria-hidden="true">${x.validationKind==='banco'?ICONO_BANCO:ICONO_EFECTIVO}</i>${esc(val.etiqueta)}${val.pista?` · ${esc(val.pista)}`:''}</p>
+      <dl class="concilia-datos cc-datos">
+        ${casilla(ICONO_CC.familia,'Pagó',pagoQuien)}
+        ${casilla(ICONO_CC.cobro,'Cobró',quienCobro)}
+        ${casilla(ICONO_CC.dia,'Día del pago',esc(fechaPago(x.date)||x.date||'—'))}
+        ${casilla(ICONO_CC.hora,'Se registró',esc(registradoDe(x.createdAt)||'—'))}
+        ${x.reference?casilla(ICONO_CC.ref,'Referencia',`<b>${esc(x.reference)}</b>`,'ancho'):''}
+        ${x.expectedAmount!=null?casilla(ICONO_CC.ref,'Esperado',montoConcilia(x.expectedAmount)):''}
+        ${x.receiptPath?casilla(ICONO_CC.ref,'Comprobante','Adjunto'):''}
+        ${x.reconciledBy?casilla(ICONO_CC.ok,'Revisó',`${esc(x.reconciledBy)}${x.reconciledAt?` · ${esc(registradoDe(x.reconciledAt))}`:''}`,'ancho'):''}
+        ${x.reconciliationReference?casilla(ICONO_CC.ref,'Evidencia',esc(x.reconciliationReference),'ancho'):''}
+      </dl>
+      ${hist?`<p class="cc-hist-tit">Historial (${(x.history||[]).length})</p><ol class="cc-hist">${hist}</ol>`:''}
+    </details>
+    ${acciones.length?`<div class="concilia-acciones cc-acciones">${principal?boton(principal):''}${otras.length?`<button type="button" class="cc-mas" data-mas aria-expanded="false" aria-label="Más acciones">···</button><div class="cc-mas-menu" hidden>${otras.map(boton).join('')}</div>`:''}</div>`:''}
   </article>`;
 }
 const svgCC=d=>`<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -1701,10 +1750,29 @@ const TITULO_ACCION={
   approve:{titulo:'Aprobar el cobro',boton:'Aprobar',motivo:'Comentario (opcional)',placeholder:'Contra qué lo verificaste'},
   reject:{titulo:'Rechazar el cobro',boton:'Rechazar',motivo:'Motivo del rechazo',placeholder:'Por qué no es válido'},
   clarify:{titulo:'Solicitar aclaración',boton:'Solicitar',motivo:'Qué hace falta',placeholder:'Qué necesitas que corrijan o adjunten'},
-  resubmit:{titulo:'Responder la aclaración',boton:'Enviar',motivo:'Tu respuesta',placeholder:'Qué corregiste o qué adjuntaste'}
+  resubmit:{titulo:'Responder la aclaración',boton:'Enviar',motivo:'Tu respuesta',placeholder:'Qué corregiste o qué adjuntaste'},
+  bloque:{titulo:'Aprobar los que cuadran',boton:'Aprobar todos',motivo:'Comentario (opcional)',placeholder:'Ej. Cuadra con el corte de caja del día'}
 };
 
-function abreAccion(paymentId,accion){
+function abreAccion(paymentId,accion,lote){
+  if(accion==='bloque'){
+    const t=TITULO_ACCION.bloque,total=lote.reduce((s,x)=>s+Number(x.amount||0),0);
+    conciliaAccion={accion,ids:lote.map(x=>x.paymentId)};
+    $('conciliaModalTitle').textContent=`${t.titulo} · ${lote.length}`;
+    $('conciliaConfirm').textContent=t.boton;
+    $('conciliaConfirm').className='cashier-submit collect';
+    $('conciliaReasonLabel').textContent=t.motivo;
+    $('conciliaReason').placeholder=t.placeholder;
+    $('conciliaReason').value='';$('conciliaRef').value='';
+    $('conciliaRefWrap').classList.add('hidden');
+    $('conciliaModalWhat').innerHTML=`<b>${lote.length} cobros · ${money.format(total)}</b><br>`
+      +lote.slice(0,6).map(x=>`${esc(x.playerName||x.family||'Cobro general')} · ${money.format(Number(x.amount||0))}`).join('<br>')
+      +(lote.length>6?`<br>y ${lote.length-6} más`:'')
+      +'<br>En todos entró exactamente lo esperado. Cada uno queda en su historial.';
+    message('conciliaModalMessage');
+    modal('conciliaModal',true);
+    return;
+  }
   const fila=(conciliaData?.rows||[]).find(x=>String(x.paymentId)===String(paymentId));
   if(!fila)return;
   conciliaAccion={paymentId,accion};
@@ -1732,6 +1800,27 @@ async function confirmaAccion(){
   if(!conciliaAccion)return;
   const {paymentId,accion}=conciliaAccion;
   const motivo=$('conciliaReason').value.trim();
+  if(accion==='bloque'){
+    const btn=$('conciliaConfirm');btn.disabled=true;const antes=btn.textContent;
+    let ok=0;const fallos=[];
+    for(const id of conciliaAccion.ids){
+      btn.textContent=`${ok+fallos.length+1} de ${conciliaAccion.ids.length}…`;
+      try{
+        await rpc('v2_reconcile_payment',{organization_id:org,payment_id:id,action:'approve',
+          reason:motivo||'Aprobado en bloque: entró exactamente lo esperado',reference:null});
+        ok++;
+      }catch(e){fallos.push(friendlyMontos(e));}
+    }
+    btn.disabled=false;btn.textContent=antes;
+    await cargaConcilia();
+    if(fallos.length){
+      message('conciliaModalMessage',`Se aprobaron ${ok}. ${fallos.length} no se pudieron: ${fallos[0]}`);
+      conciliaAccion=null;return;
+    }
+    modal('conciliaModal',false);conciliaAccion=null;
+    message('conciliaMessage',`Listo: ${ok} cobros aprobados. Cada uno quedó en su historial.`,'success');
+    return;
+  }
   if(requiereMotivo(accion)&&motivo.length<4){
     message('conciliaModalMessage','Escribe el motivo para que quede en el historial.');return;
   }
@@ -1755,7 +1844,6 @@ async function confirmaAccion(){
 }
 
 $('collectApproveWrap')?.classList.toggle('hidden',ctx.role!=='Presidencia');
-$('closeConcilia')?.addEventListener('click',()=>mostrarVista(null,true));
 $('conciliaConfirm')?.addEventListener('click',confirmaAccion);
 $('conciliaSearch')?.addEventListener('input',e=>{
   conciliaQuery=e.target.value;
@@ -1767,13 +1855,21 @@ $('conciliaSearchClear')?.addEventListener('click',()=>{
   $('conciliaSearchClear').classList.add('hidden');pintaConcilia();
 });
 function eligeFiltroConcilia(valor){
-  conciliaFiltro=valor;
-  $('conciliaChips')?.querySelectorAll('button').forEach(x=>
-    x.classList.toggle('active',x.dataset.conciliaFilter===valor));
+  // "Historial" abre en lo que más se consulta: lo aprobado.
+  conciliaFiltro=valor==='historial'?(enHistorial()?conciliaFiltro:'approved'):valor;
   pintaConcilia();
 }
 $('conciliaChips')?.querySelectorAll('[data-concilia-filter]').forEach(b=>
   b.addEventListener('click',()=>eligeFiltroConcilia(b.dataset.conciliaFilter)));
+$('conciliaKpis')?.addEventListener('click',e=>{
+  const b=e.target.closest('[data-concilia-filter]');
+  if(b)eligeFiltroConcilia(b.dataset.conciliaFilter);
+});
+$('conciliaBloque')?.addEventListener('click',e=>{
+  if(!e.target.closest('[data-bloque]'))return;
+  const listos=filtraConcilia(conciliaData?.rows||[],{texto:conciliaQuery,estado:'pending'}).filter(cuadra);
+  if(listos.length)abreAccion(null,'bloque',listos);
+});
 /* El botón "Revisarlos" del estado vacío se dibuja cada vez que se repinta, así
    que se escucha en el contenedor y no en el botón: colgarle un listener a algo
    que se vuelve a crear es colgárselo a un nodo que ya no existe. */

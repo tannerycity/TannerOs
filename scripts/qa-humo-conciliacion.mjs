@@ -77,7 +77,22 @@ async function corre(rol) {
           reference:null, receiptPath:null, observations:null,
           registeredBy:'Presidencia', registeredByIsAccount:true, registeredByUserId:'u-pres',
           status:'approved', reconciledAt:null, reconciledBy:null, reconciliationNote:null,
-          reconciliationReference:null, legacyApproved:true, history:[] }
+          reconciliationReference:null, legacyApproved:true, history:[] },
+        // Dos que cuadran exacto: "Aprobar los que cuadran" (05/11/2026).
+        { paymentId:'x4', date:'2026-09-20', createdAt:'2026-09-20T16:00:00Z', playerId:'p4',
+          playerName:'Mateo Cuadra', family:'Familia Cuadra', concept:'Mensualidad', period:'2026-09',
+          amount:800, expectedAmount:800, difference:0, method:'Efectivo', validationKind:'corte_de_caja',
+          reference:null, receiptPath:null, observations:null,
+          registeredBy:'Zul', registeredByIsAccount:false, registeredByUserId:'u-otro',
+          status:'pending', reconciledAt:null, reconciledBy:null, reconciliationNote:null,
+          reconciliationReference:null, legacyApproved:false, history:[] },
+        { paymentId:'x5', date:'2026-09-20', createdAt:'2026-09-20T16:30:00Z', playerId:'p5',
+          playerName:'Lucas Exacto', family:'Familia Exacto', concept:'Abono pedido PED-2026-00011', period:'2026-09',
+          amount:800, expectedAmount:800, difference:0, method:'Efectivo', validationKind:'corte_de_caja',
+          reference:null, receiptPath:null, observations:null,
+          registeredBy:'Zul', registeredByIsAccount:false, registeredByUserId:'u-otro',
+          status:'pending', reconciledAt:null, reconciledBy:null, reconciliationNote:null,
+          reconciliationReference:null, legacyApproved:false, history:[] }
       ];
       const BANDEJA = {
         canApprove: esPres,
@@ -162,7 +177,14 @@ async function corre(rol) {
   await pagina.waitForSelector('.concilia-card', { timeout: 6000 });
 
   // Arranca en Pendientes
-  revisa(`[${rol}] arranca filtrado en pendientes`, (await pagina.$$('.concilia-card')).length === 1);
+  revisa(`[${rol}] arranca filtrado en pendientes`, (await pagina.$$('.concilia-card')).length === (rol === 'Presidencia' ? 3 : 1));
+  // Tarjetas (05/11/2026): sin título, explicación ni "Volver" repetidos; 4
+  // tarjetas que son número y filtro; el detalle plegado; un pedido sin mes.
+  revisa(`[${rol}] arriba 4 tarjetas: Por revisar, Aclarar, Diferencias, Historial`,
+    (await pagina.$$eval('#conciliaKpis .cc-tab span', s => s.map(x => x.textContent))).join('|') === 'Por revisar|Aclarar|Diferencias|Historial');
+  revisa(`[${rol}] ya no repite el título ni el botón Volver`, !(await pagina.$('#closeConcilia')) && !/Pagos por conciliar/.test(await pagina.textContent('#conciliaPanel')));
+  revisa(`[${rol}] el detalle va plegado`, !(await pagina.isVisible('.concilia-card .cc-datos')));
+  revisa(`[${rol}] los sub-filtros de Historial no estorban fuera de Historial`, !(await pagina.isVisible('#conciliaChips')));
 
   const kpis = (await pagina.textContent('#conciliaKpis')).replace(/\s+/g, ' ');
   revisa(`[${rol}] muestra el monto pendiente`, /\$450\.00/.test(kpis), kpis.slice(0, 200));
@@ -191,6 +213,9 @@ async function corre(rol) {
     // El pago viejo no se presenta como revisado. Desde que existe el filtro
     // "Sin revisar" (legacy), los del sistema anterior viven ahí y ya no se
     // mezclan con los aprobados de verdad.
+    await pagina.click('#conciliaKpis [data-concilia-filter="historial"]');
+    await pagina.waitForTimeout(100);
+    revisa(`[${rol}] Historial abre en Aprobados y enseña sus sub-filtros`, await pagina.isVisible('#conciliaChips') && /active/.test(await pagina.getAttribute('#conciliaChips [data-concilia-filter="approved"]', 'class') || ''));
     await pagina.click('[data-concilia-filter="legacy"]');
     await pagina.waitForTimeout(150);
     const viejo = (await pagina.textContent('.concilia-card')).replace(/\s+/g, ' ');
@@ -209,8 +234,26 @@ async function corre(rol) {
       botones.includes('Aprobar') && botones.includes('Solicitar aclaración') && botones.includes('Rechazar'),
       botones.join(' | '));
 
+    revisa(`[${rol}] un botón grande y "···" para lo demás`, await pagina.isVisible('.concilia-card button[data-accion="approve"]') && !(await pagina.isVisible('.concilia-card button[data-accion="reject"]')));
+    const pedido = (await pagina.textContent('.concilia-card:has-text("Lucas Exacto") .concilia-quien small')).trim();
+    revisa(`[${rol}] un pedido no dice mes`, pedido === 'Abono pedido PED-2026-00011', pedido);
+
+    // Aprobar los que cuadran: sólo los exactos, nunca el que tiene faltante.
+    revisa(`[${rol}] ofrece aprobar los 2 que cuadran`, /Aprobar los 2 que cuadran · \$1,600/.test(await pagina.textContent('#conciliaBloque')));
+    await pagina.click('#conciliaBloque [data-bloque]');
+    await pagina.waitForSelector('#conciliaModal:not(.hidden)', { timeout: 4000 });
+    revisa(`[${rol}] la confirmación dice cuántos y cuánto`, /2 cobros · \$1,600\.00/.test(await pagina.textContent('#conciliaModalWhat')));
+    const antesBloque = (await pagina.evaluate(() => window.__rpc.length));
+    await pagina.click('#conciliaConfirm');
+    await pagina.waitForFunction(n => window.__rpc.filter(r => r.name === 'v2_reconcile_payment').length >= 2, antesBloque, { timeout: 5000 });
+    const enBloque = await pagina.evaluate(() => window.__rpc.filter(r => r.name === 'v2_reconcile_payment').map(r => `${r.params.payment_id}:${r.params.action}`));
+    revisa(`[${rol}] aprueba x4 y x5, no el del faltante`, enBloque.join() === 'x4:approve,x5:approve', enBloque.join());
+    await pagina.waitForSelector('#conciliaModal.hidden', { state: 'attached', timeout: 4000 });
+    await pagina.evaluate(() => { window.__rpc = window.__rpc.filter(r => r.name !== 'v2_reconcile_payment'); });
+
     // Rechazar exige motivo y avisa de la deuda
-    await pagina.click('.concilia-card button[data-accion="reject"]');
+    await pagina.click('.concilia-card:has-text("Iker Flores") [data-mas]');
+    await pagina.click('.concilia-card:has-text("Iker Flores") button[data-accion="reject"]');
     await pagina.waitForSelector('#conciliaModal:not(.hidden)', { timeout: 4000 });
     const aviso = (await pagina.textContent('#conciliaModalWhat')).replace(/\s+/g, ' ');
     revisa(`[${rol}] al rechazar avisa que la deuda vuelve`, /la deuda de ese periodo vuelve a aparecer/.test(aviso), aviso);
@@ -246,6 +289,7 @@ async function corre(rol) {
     revisa(`[${rol}] la cruz cierra el modal`, await pagina.isHidden('#conciliaModal'));
     revisa(`[${rol}] y quita el fondo oscuro`, await pagina.isHidden('#modalBackdrop'));
     // La captura se toma con la bandeja a la vista, sin modal encima.
+    await pagina.click('#conciliaKpis [data-concilia-filter="historial"]');
     await pagina.click('[data-concilia-filter=""]');
     await pagina.waitForTimeout(250);
 
@@ -273,6 +317,7 @@ async function corre(rol) {
       (await pagina.getAttribute('#collectApproveWrap', 'class')).includes('hidden'));
 
     // Sólo ve sus propios cobros
+    await pagina.click('#conciliaKpis [data-concilia-filter="historial"]');
     await pagina.click('[data-concilia-filter=""]');
     await pagina.waitForTimeout(150);
     const nombres = await pagina.$$eval('.concilia-card .concilia-quien strong', e => e.map(x => x.textContent.trim()));

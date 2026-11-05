@@ -1,8 +1,8 @@
 {
-  "migraciones": 583,
-  "bytes": 3619042,
-  "huella": "8995c1562b2681c2ecadf936940f054f",
+  "migraciones": 584,
+  "bytes": 3622280,
+  "huella": "50ee1075418c5c1ce24cf1defefda645",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261105120000_objetos_perdidos.sql",
+  "ultima": "20261105123000_progreso_del_jugador_y_no_gritar.sql",
   "verificadoContraLaBase": "2026-11-05"
 }

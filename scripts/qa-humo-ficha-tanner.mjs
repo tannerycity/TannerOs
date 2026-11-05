@@ -34,14 +34,18 @@ await new Promise(r => srv.listen(4791, r));
 
 const HOY = new Date().toISOString().slice(0,10);
 const hace = d => new Date(Date.now() - d*86400000).toISOString().slice(0,10);
+// Meses por aritmetica de calendario, no restando dias: cerca del dia 1-5 del
+// mes, "hace(35)" y "hace(5)" pueden caer en el mismo mes y los dos cargos
+// pendientes se fusionan en uno (el test esperaba "Debe 2 meses").
+const mesHace = n => { const d=new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()-n); return d.toISOString().slice(0,10); };
 const ESTADO = {
   player:{ id:'p1', first_name:'Marcelo', last_name:'Pedroza' },
   summary:{ balance:1600, paid_total:3200, credit_available:0 },
   ledger:[
-    { id:'c3', kind:'charge', subtype:'monthly_fee', period:hace(5).slice(0,8)+'01', date:hace(-5), amount:800, charge_balance:800 },
-    { id:'c2', kind:'charge', subtype:'monthly_fee', period:hace(35).slice(0,8)+'01', date:hace(30), amount:800, charge_balance:800 },
+    { id:'c3', kind:'charge', subtype:'monthly_fee', period:mesHace(0), date:hace(-5), amount:800, charge_balance:800 },
+    { id:'c2', kind:'charge', subtype:'monthly_fee', period:mesHace(1), date:hace(30), amount:800, charge_balance:800 },
     { id:'pay', kind:'payment', status:'posted', date:hace(60), amount:-800, method:'cash' },
-    { id:'c1', kind:'charge', subtype:'monthly_fee', period:hace(65).slice(0,8)+'01', date:hace(60), amount:800, charge_balance:0 }
+    { id:'c1', kind:'charge', subtype:'monthly_fee', period:mesHace(2), date:hace(60), amount:800, charge_balance:0 }
   ],
   other_payments:[], orders:[{ folio:'TC-0142', total:650, paid:400, status:'in_production' },{ folio:'TC-0100', total:300, paid:300, status:'delivered' }]
 };

@@ -4,6 +4,10 @@ import { ligaPublica } from '/v2/club-publico.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// La vista pública (centro-tanner/app.js) convierte las URLs del contenido en
+// liga; esta previsualización de administración hace lo mismo para que se
+// vea igual a como la verán las familias.
+const linkify=escaped=>escaped.replace(/https:\/\/[^\s<]+/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
 function show(id){['loadingView','deniedView','view'].forEach(view=>$(view)?.classList.toggle('hidden',view!==id));}
 
@@ -78,7 +82,7 @@ function renderPolicyPreview(f){
       <div class="ct-policy-kicker">${esc(cat)}</div>
       <h1 class="ct-policy-title">${esc(fd.get('title')||'(sin título)')}</h1>
       <p class="ct-policy-short">${esc(fd.get('shortAnswer')||'')}</p>
-      <div class="ct-policy-full">${esc(fd.get('officialContent')||'')}</div>
+      <div class="ct-policy-full">${linkify(esc(fd.get('officialContent')||''))}</div>
       <div class="ct-policy-meta">${fd.get('effectiveDate')?`<span>Vigente desde ${esc(fd.get('effectiveDate'))}</span>`:''}</div>
     </article>
   </div>`;

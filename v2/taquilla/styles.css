@@ -433,3 +433,54 @@ a.collections-edo u{text-decoration:none;color:var(--tos-teal,#087d8e);font-weig
 .cc-otras button[data-tono="bajo"]{color:#b23a1d!important}
 .cc-otras button[data-tono="ok"]{color:#15964a!important}
 @media (min-width:900px){.concilia-list{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.cc-dia{grid-column:1/-1}}
+
+/* ===== Por conciliar en tarjetas (05/11/2026) =====
+   Presidencia: "muy redundante... estilo Apple, pocos botones... tipo
+   tarjetas". Arriba 4 tarjetas que son el número y el filtro; cada cobro en
+   tres renglones; un botón grande y "···". */
+.cc-tablero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:2px 0 12px}
+@media(min-width:760px){.cc-tablero{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.cc-tab{display:grid;gap:2px;text-align:left;min-height:92px;padding:13px 14px;border-radius:18px;border:1px solid var(--tos-line,#dce5e3);background:#fff;font:inherit;color:#07191e;cursor:pointer;box-shadow:0 1px 2px rgba(7,25,30,.04);transition:transform .12s ease,box-shadow .12s ease}
+.cc-tab:active{transform:scale(.98)}
+.cc-tab span{font-size:13px;font-weight:800;color:#5f7076}
+.cc-tab strong{font-size:30px;line-height:1.05;font-weight:1000;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.cc-tab small{font-size:12px;font-weight:700;color:#7d8c91;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-tab[data-tono="revisar"][data-hay] strong{color:#b07d12}
+.cc-tab[data-tono="aclarar"][data-hay] strong{color:#8a6410}
+.cc-tab[data-tono="dif"][data-hay] strong{color:#a32920}
+.cc-tab[data-tono="hist"] strong{color:#15964a}
+.cc-tab.activa{background:#07191e;border-color:#07191e;box-shadow:0 8px 20px -10px rgba(7,25,30,.55)}
+.cc-tab.activa span,.cc-tab.activa small{color:rgba(255,255,255,.72)}
+.cc-tab.activa strong{color:#fff!important}
+.cc-sub{margin:0 2px 10px;font-size:12.5px;color:#64767b;font-weight:700}
+.cc-sub.hidden,.cc-subfiltros.hidden,.cc-bloque.hidden{display:none!important}
+
+/* Aprobar los que cuadran */
+.cc-bloque{display:grid;gap:6px;margin:0 0 12px}
+.cc-bloque button{min-height:52px;border:0;border-radius:16px;background:#15964a;color:#fff;font:inherit;font-size:15px;font-weight:1000;cursor:pointer;box-shadow:0 8px 20px -12px rgba(21,150,74,.8)}
+.cc-bloque small{text-align:center;font-size:12px;color:#64767b;font-weight:700}
+
+/* La tarjeta del cobro: tres renglones */
+.concilia-card.cc{border-left-width:1px!important;border-left-color:var(--tos-line,#dce5e3)!important;padding:15px 16px}
+.concilia-card.cc[data-estado="clarification"]{background:#fffcf4;border-color:#ecdcb0!important}
+.cc-linea{margin:10px 0 0;font-size:13px;line-height:1.45;color:#5f7076;font-weight:600}
+.cc-linea b{color:#07191e;font-weight:800}
+.cc .concilia-chips{margin-top:8px}
+.cc-detalle{margin-top:10px}
+.cc-detalle>summary{list-style:none;cursor:pointer;font-size:13px;font-weight:900;color:#056c7f;padding:4px 0}
+.cc-detalle>summary::-webkit-details-marker{display:none}
+.cc-detalle>summary::after{content:" ›";display:inline-block;transition:transform .15s}
+.cc-detalle[open]>summary::after{transform:rotate(90deg)}
+.cc-detalle .cc-pista{display:flex;align-items:center;gap:6px;margin:6px 0 2px;font-size:12px;font-weight:800;color:#44585e}
+.cc-hist-tit{margin:10px 0 4px;font-size:12px;font-weight:900;color:#44585e}
+.cc-hist{margin:0;padding-left:17px;display:grid;gap:5px;font-size:12px;color:#5f7076;font-weight:700}
+.cc-hist .h-motivo{display:block;color:#44585e;font-weight:600}
+.cc-acciones{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:12px}
+.cc-acciones>button[data-accion]{min-height:48px;border-radius:14px;font-size:15px}
+.cc-acciones>button[data-accion]:only-child{grid-column:1/-1}
+.cc-mas{min-width:52px;min-height:48px;border:1px solid var(--tos-line,#dce5e3)!important;border-radius:14px!important;background:#fff!important;color:#07191e!important;font-size:18px!important;letter-spacing:.08em;cursor:pointer}
+.cc-mas:only-child{grid-column:2}
+.cc-mas-menu{grid-column:1/-1;display:grid;gap:8px}
+.cc-mas-menu[hidden]{display:none}
+.cc-mas-menu button{min-height:46px;border-radius:14px;font-size:14px}
+.cc-subfiltros{flex-wrap:wrap!important;overflow:visible!important}

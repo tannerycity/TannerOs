@@ -23,7 +23,11 @@ const THEME_GROUPS = [
   { label: 'Entrenamientos y fútbol', categories: ['entrenamientos', 'asistencia', 'partidos', 'jugadores', 'baby_tanners'] },
   { label: 'Uniformes', categories: ['uniformes'] },
   { label: 'Familias', categories: ['familias', 'inscripcion'] },
+  // 05/11/2026: Conducta (32 políticas, la categoría más grande) y Privacidad
+  // no tenían tarjeta — solo se llegaba por buscador o por liga de otra política.
+  { label: 'Conducta y convivencia', categories: ['conducta'] },
   { label: 'Seguridad y salud', categories: ['seguridad', 'salud'] },
+  { label: 'Privacidad e imagen', categories: ['privacidad'] },
   { label: 'Tannery City Park', categories: ['tannery_city_park', 'estacionamiento'] }
 ];
 
@@ -32,6 +36,19 @@ function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&am
 // contenido oficial se escapa a texto plano, así que sin esto la URL se ve
 // pero no se puede tocar. Corre SOBRE texto ya escapado: no abre huecos de HTML.
 function linkify(escaped) { return escaped.replace(/https:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`); }
+// La respuesta corta suele ser literalmente la primera frase del contenido
+// oficial (05/11/2026, "el botón no sirve, repite lo que ya leí"). Si el
+// contenido completo empieza igual que la respuesta corta, al desplegar solo
+// se muestra lo que sigue — lo nuevo, no lo que ya viste arriba.
+function restoSinRepetir(shortAnswer, officialContent) {
+  const corto = String(shortAnswer ?? '').trim();
+  const completo = String(officialContent ?? '').trim();
+  if (corto && completo.toLowerCase().startsWith(corto.toLowerCase())) {
+    const resto = completo.slice(corto.length).trim();
+    if (resto) return resto;
+  }
+  return completo;
+}
 function fmtDate(v) { if (!v) return ''; const d = new Date(`${String(v).slice(0, 10)}T12:00:00`); if (Number.isNaN(d.getTime())) return ''; return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }).format(d); }
 async function rpc(name, params = {}) { const { data, error } = await supabase.rpc(name, params); if (error) throw error; return data; }
 function setMeta(title, description) {
@@ -59,13 +76,6 @@ async function renderHome() {
       <h1>Centro Tanner</h1>
       <p>Todo lo que necesitas saber sobre ${esc(clubNombre)}.</p>
     </section>
-    <div class="ct-search">
-      <div class="ct-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span>
-        <input id="ctSearchInput" type="search" placeholder="¿Qué quieres saber?" autocomplete="off" aria-label="Buscar en Centro Tanner">
-      </div>
-      <div id="ctSearchResults" class="ct-search-results hidden"></div>
-      <p class="ct-search-hint">Prueba: mensualidad, vacaciones, uniforme, beca, estacionamiento…</p>
-    </div>
     <a class="bk-banner" href="/centro-tanner/becas">
       <div><span class="bk-banner-eyebrow">MÉRITO + NECESIDAD + COMUNIDAD</span><strong>${esc(becasNombre)}</strong><p>Queremos que el talento, la disciplina y las ganas de crecer encuentren oportunidades.</p></div>
       <span class="bk-banner-cta">Descubre qué apoyo podría aplicar para ti →</span>
@@ -75,7 +85,6 @@ async function renderHome() {
     <section class="ct-section"><h2 class="ct-section-title">Documentos oficiales</h2><div id="ctDocList" class="ct-doc-list"><div class="ct-loading">Cargando…</div></div></section>
     <p class="ct-updated" id="ctUpdated"></p>
   `);
-  wireSearch();
   $('ctThemeGrid').innerHTML = THEME_GROUPS.map((g) => `<a class="ct-theme-card" href="/centro-tanner/tema/${encodeURIComponent(g.categories[0])}" data-group='${esc(JSON.stringify(g.categories))}'>
       <div class="ct-theme-icon"><span class="tos-icon tos-icon-target" aria-hidden="true"></span></div>
       <div class="ct-theme-name">${esc(g.label)}</div>
@@ -133,7 +142,16 @@ async function renderTheme(categoriesParam) {
   try {
     const lists = await Promise.all(cats.map((c) => rpc('v2_public_centro_tanner_category', { club_key: CLUB_KEY, category_code: c }).catch(() => [])));
     const all = lists.flat();
-    $('ctThemeList').innerHTML = all.length ? all.map((p) => `<a class="ct-doc-row" href="/centro-tanner/p/${esc(p.slug)}"><div><div class="ct-doc-name">${esc(p.title)}</div><div class="ct-doc-meta">${esc(p.shortAnswer)}</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>`).join('') : '<p class="ct-empty">Aún no hay contenido publicado en este tema.</p>';
+    const filas = (ps) => ps.map((p) => `<a class="ct-doc-row" href="/centro-tanner/p/${esc(p.slug)}"><div><div class="ct-doc-name">${esc(p.title)}</div><div class="ct-doc-meta">${esc(p.shortAnswer)}</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>`).join('');
+    // Temas con varias categorías internas (ej. "Pagos" = mensualidades + becas)
+    // se ven con subtítulo por categoría en vez de una sola lista larga; dentro
+    // de cada una, lo que ya tiene preguntas frecuentes sale primero (faqCount).
+    $('ctThemeList').innerHTML = !all.length ? '<p class="ct-empty">Aún no hay contenido publicado en este tema.</p>'
+      : cats.length <= 1 ? filas(all)
+      : cats.map((c) => {
+          const ps = all.filter((p) => p.category === c);
+          return ps.length ? `<h2 class="ct-subtema-title">${esc(CATEGORY_LABELS[c] || c)}</h2><div class="ct-doc-list ct-subtema-list">${filas(ps)}</div>` : '';
+        }).join('');
   } catch { $('ctThemeList').innerHTML = '<p class="ct-empty">No pudimos cargar este tema.</p>'; }
 }
 
@@ -145,13 +163,17 @@ async function renderPolicy(slug) {
     const catLabel = CATEGORY_LABELS[p.category] || p.category;
     const consentNote = p.requiresAcceptance && p.consentDocumentCode && DOC_LABELS[p.consentDocumentCode]
       ? `<p class="ct-consent-note">Esta política forma parte de <a href="/centro-tanner/documento/${esc(p.consentDocumentCode)}">${esc(DOC_LABELS[p.consentDocumentCode])}</a>, que firmas en tu Portal de familia.</p>` : '';
+    const resto = restoSinRepetir(p.shortAnswer, p.officialContent);
+    const hayMas = resto.length > 4;
+    const toggle = hayMas
+      ? `<button class="ct-policy-toggle" id="ctToggleFull" type="button">Ver más detalles →</button>
+         <div id="ctFullContent" class="ct-policy-full hidden">${linkify(esc(resto))}</div>` : '';
     render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { href: `/centro-tanner/tema/${esc(p.category)}`, label: catLabel }, { label: p.title }])}
       <article class="ct-policy-card">
         <div class="ct-policy-kicker">${esc(catLabel)}</div>
         <h1 class="ct-policy-title">${esc(p.title)}</h1>
         <p class="ct-policy-short">${esc(p.shortAnswer)}</p>
-        <button class="ct-policy-toggle" id="ctToggleFull" type="button">Ver política completa →</button>
-        <div id="ctFullContent" class="ct-policy-full hidden">${linkify(esc(p.officialContent))}</div>
+        ${toggle}
         <div class="ct-policy-meta"><span>Versión ${esc(p.version)}</span>${p.effectiveDate ? `<span>Vigente desde ${esc(fmtDate(p.effectiveDate))}</span>` : ''}${p.policyCode ? `<span>${esc(p.policyCode)}</span>` : ''}</div>
         ${consentNote}
       </article>
@@ -159,9 +181,9 @@ async function renderPolicy(slug) {
       ${p.relatedFaqs?.length ? `<section class="ct-section"><h2 class="ct-section-title">Preguntas relacionadas</h2><div class="ct-faq-list">${p.relatedFaqs.map((f) => `<details class="ct-faq-item"><summary>${esc(f.question)}</summary><div class="ct-faq-body">${esc(f.answer)}</div></details>`).join('')}</div></section>` : ''}
     `);
     injectFaqSchema(p.relatedFaqs);
-    $('ctToggleFull').addEventListener('click', () => {
+    if (hayMas) $('ctToggleFull').addEventListener('click', () => {
       const el = $('ctFullContent'); const open = !el.classList.contains('hidden');
-      el.classList.toggle('hidden'); $('ctToggleFull').textContent = open ? 'Ver política completa →' : 'Ocultar política completa ↑';
+      el.classList.toggle('hidden'); $('ctToggleFull').textContent = open ? 'Ver más detalles →' : 'Ocultar detalles ↑';
     });
     wireFeedback(p.id);
   } catch (err) { render(`<div class="ct-empty"><h1>No encontramos esta política</h1><p>${esc(err.message || '')}</p><a href="/centro-tanner/">Volver a Centro Tanner</a></div>`); }
@@ -382,6 +404,7 @@ try {
 if (clubNombre) DOC_LABELS.reglamento = `Reglamento ${clubNombre}`;
 new MutationObserver(() => propagaClub($('ctContent'))).observe($('ctContent'), { childList: true, subtree: true });
 propagaClub();
+wireSearch();
 window.addEventListener('popstate', route);
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href^="/centro-tanner"]');

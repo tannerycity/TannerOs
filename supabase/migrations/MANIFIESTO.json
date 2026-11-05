@@ -1,8 +1,8 @@
 {
-  "migraciones": 586,
-  "bytes": 3636732,
-  "huella": "58440d7ccecdd816808635747ab446b1",
+  "migraciones": 587,
+  "bytes": 3638149,
+  "huella": "f6d6a5d4485df3bd233f449a7b7353b5",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261105134500_clima_canales_sana_convivencia_vocero_tanner.sql",
+  "ultima": "20261105140000_centro_tanner_ux_mejoras.sql",
   "verificadoContraLaBase": "2026-11-05"
 }

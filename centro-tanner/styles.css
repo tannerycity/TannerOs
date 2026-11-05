@@ -28,12 +28,14 @@ a{color:inherit}
 .ct-hero h1{font-size:clamp(28px,6vw,40px);margin:0 0 8px;letter-spacing:-.02em;font-weight:800}
 .ct-hero p{margin:0 auto;max-width:46ch;color:var(--ct-muted);font-size:16px;line-height:1.5}
 
-.ct-search{position:relative;margin:26px 0 8px}
-.ct-search-box{display:flex;align-items:center;gap:10px;background:var(--ct-card);border:1px solid var(--ct-line);border-radius:18px;padding:16px 18px;box-shadow:0 18px 40px rgba(26,26,26,.06)}
+/* 05/11/2026: antes solo vivía en la portada; ahora es fijo en todas las
+   pantallas de Centro Tanner para no tener que volver al inicio a buscar. */
+.ct-searchbar{position:sticky;top:0;z-index:20;background:var(--ct-bg);padding:10px 0 12px;margin-bottom:6px}
+.ct-search-box{display:flex;align-items:center;gap:10px;background:var(--ct-card);border:1px solid var(--ct-line);border-radius:16px;padding:13px 16px;box-shadow:0 10px 26px rgba(26,26,26,.05)}
 .ct-search-box:focus-within{border-color:var(--ct-teal);box-shadow:0 0 0 4px rgba(5,108,127,.12)}
-.ct-search-box input{border:0;outline:0;flex:1;font:inherit;font-size:17px;background:transparent;color:var(--ct-ink)}
+.ct-search-box input{border:0;outline:0;flex:1;font:inherit;font-size:16px;background:transparent;color:var(--ct-ink)}
 .ct-search-box .tos-icon{opacity:.55;flex:0 0 auto}
-.ct-search-results{margin-top:10px;background:var(--ct-card);border:1px solid var(--ct-line);border-radius:16px;overflow:hidden;box-shadow:0 18px 40px rgba(26,26,26,.08)}
+.ct-search-results{margin-top:6px;background:var(--ct-card);border:1px solid var(--ct-line);border-radius:16px;overflow-y:auto;max-height:60vh;box-shadow:0 18px 40px rgba(26,26,26,.1)}
 .ct-result{display:block;padding:14px 16px;text-decoration:none;color:inherit;border-bottom:1px solid var(--ct-line)}
 .ct-result:last-child{border-bottom:0}
 .ct-result:hover,.ct-result:focus{background:#f6f6f2}
@@ -41,7 +43,6 @@ a{color:inherit}
 .ct-result-title{font-weight:700;margin:2px 0 3px;font-size:14.5px}
 .ct-result-snippet{font-size:13px;color:var(--ct-muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .ct-search-empty{padding:18px 16px;color:var(--ct-muted);font-size:13.5px;text-align:center}
-.ct-search-hint{margin-top:8px;font-size:12px;color:var(--ct-muted);text-align:center}
 
 .ct-section{margin-top:40px}
 .ct-section-title{font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ct-muted);margin:0 0 14px}
@@ -61,6 +62,9 @@ a{color:inherit}
 .ct-theme-name{font-size:13px;font-weight:700}
 
 .ct-doc-list{display:grid;gap:10px}
+.ct-subtema-title{font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ct-teal);margin:26px 0 10px}
+.ct-subtema-title:first-child{margin-top:4px}
+.ct-subtema-list{margin-bottom:0}
 .ct-doc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ct-card);border:1px solid var(--ct-line);border-radius:16px;padding:16px 18px;text-decoration:none;color:inherit}
 .ct-doc-row:hover{background:#f6f6f2}
 .ct-doc-name{font-weight:700;font-size:14.5px}

@@ -28,6 +28,10 @@ const THEME_GROUPS = [
 ];
 
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+// Políticas como TC-132 remiten a un reglamento externo (TCP) por su liga; el
+// contenido oficial se escapa a texto plano, así que sin esto la URL se ve
+// pero no se puede tocar. Corre SOBRE texto ya escapado: no abre huecos de HTML.
+function linkify(escaped) { return escaped.replace(/https:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`); }
 function fmtDate(v) { if (!v) return ''; const d = new Date(`${String(v).slice(0, 10)}T12:00:00`); if (Number.isNaN(d.getTime())) return ''; return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }).format(d); }
 async function rpc(name, params = {}) { const { data, error } = await supabase.rpc(name, params); if (error) throw error; return data; }
 function setMeta(title, description) {
@@ -147,7 +151,7 @@ async function renderPolicy(slug) {
         <h1 class="ct-policy-title">${esc(p.title)}</h1>
         <p class="ct-policy-short">${esc(p.shortAnswer)}</p>
         <button class="ct-policy-toggle" id="ctToggleFull" type="button">Ver política completa →</button>
-        <div id="ctFullContent" class="ct-policy-full hidden">${esc(p.officialContent)}</div>
+        <div id="ctFullContent" class="ct-policy-full hidden">${linkify(esc(p.officialContent))}</div>
         <div class="ct-policy-meta"><span>Versión ${esc(p.version)}</span>${p.effectiveDate ? `<span>Vigente desde ${esc(fmtDate(p.effectiveDate))}</span>` : ''}${p.policyCode ? `<span>${esc(p.policyCode)}</span>` : ''}</div>
         ${consentNote}
       </article>

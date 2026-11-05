@@ -213,3 +213,7 @@
 .hj-listo.pp-terminar{width:100%;margin-top:12px}
 /* Estadísticas: cada bloque con su aire (iban pegados). */
 #ptStats:not(.hidden){display:grid;gap:10px}
+/* "+ Otro niño" en la hoja del gol (05/11/2026): busca en todo el club. */
+.hj-caras .hj-otro .pp-cara{border:2px dashed #9fb3b1;background:#f4f7f6}
+.hj-caras .hj-otro .pp-cara span{font-size:30px;font-weight:700;color:#3d6f78}
+.hj-caras .hj-otro small{color:#3d6f78}

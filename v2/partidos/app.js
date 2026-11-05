@@ -466,5 +466,7 @@ $('ppGAmenos').addEventListener('click', () => { P.golesContra = Math.max(0, P.g
 $('ppGuardar').addEventListener('click', () => guardar('scheduled'));
 $('ppTerminar').addEventListener('click', () => guardar('completed'));
 $('hjFondo').addEventListener('click', cierraHoja);
+$('hjCerrar')?.addEventListener('click', cierraHoja);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('hjHoja').classList.contains('hidden')) cierraHoja(); });
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('hjHoja').classList.contains('hidden')) cierraHoja(); else if (P) cierraPartido(); });
 boot().catch(() => show('deniedView'));

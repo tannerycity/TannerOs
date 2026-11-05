@@ -262,6 +262,19 @@ const estados = p => p.$$eval('#ppEstampas .pp-estado', e => e.map(x => x.textCo
   await p.waitForSelector('#ptPartido:not(.hidden)');
   await p.click('#ppTabJuego');
   await p.click('#ppGol');
+  // La X siempre a la vista (05/11/2026): "que se vea la X para que sepan
+  // que pueden cerrar esa pantalla".
+  if (process.env.SHOTS) await p.screenshot({ path: `${process.env.SHOTS}/partido-hoja-gol.png` });
+  const caja = await p.$eval('#hjHoja', h => { const r = h.getBoundingClientRect(); return { top: r.top, maxH: parseFloat(getComputedStyle(h).maxHeight) }; });
+  const x = await p.$eval('#hjCerrar', b => { const r = b.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: r.height, w: r.width }; });
+  revisa('[hoja] tiene X propia, de 44 px y a la vista', await p.isVisible('#hjCerrar') && x.h >= 44 && x.w >= 44 && x.top >= 0 && x.bottom <= 844, JSON.stringify(x));
+  revisa('[hoja] no tapa la parte de arriba de la pantalla, ni con 30 niños', caja.top >= 60 && caja.maxH <= 844 - 60, JSON.stringify(caja));
+  await p.click('#hjCerrar');
+  revisa('[hoja] la X la cierra', await p.isHidden('#hjHoja'));
+  await p.click('#ppGol');
+  await p.keyboard.press('Escape');
+  revisa('[hoja] Escape también la cierra', await p.isHidden('#hjHoja'));
+  await p.click('#ppGol');
   revisa('[gol de otra categoría] la hoja del gol ofrece "Otro niño"', await p.isVisible('#hjCuerpo [data-otro]') && /Otro niño/.test(await p.textContent('#hjCuerpo [data-otro]')));
   await p.click('#hjCuerpo [data-otro]');
   revisa('[gol de otra categoría] abre el buscador de todo el club', await p.isVisible('#invBusca'));

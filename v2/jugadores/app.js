@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { conectaBusquedaReciente } from '/v2/busqueda-reciente.js';
 import { elegirDorsal, tableroDorsales } from '/v2/dorsal.js';
 import { montaSinNumero } from '/v2/jugadores/sin-numero.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
@@ -806,7 +807,7 @@ document.querySelector('[data-close-sch]')?.addEventListener('click',()=>$('scho
 $('scholarshipModal')?.addEventListener('click',e=>{if(e.target.id==='scholarshipModal')$('scholarshipModal').classList.add('hidden');});
 $('schExport')?.addEventListener('click',exportarBecasCsv);
 $('addBenefit')?.addEventListener('click',()=>{if(current?.player?.id)formBeca(current.player.id,null);});
-$('statusFilter').addEventListener('change',loadPlayers);$('search').addEventListener('input',renderList);$('profileForm').addEventListener('submit',save);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
+$('statusFilter').addEventListener('change',loadPlayers);$('search').addEventListener('input',renderList);conectaBusquedaReciente($('search'),{storageKey:'tanneros:recientes:jugadores'});$('profileForm').addEventListener('submit',save);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 
 
 /* La marca en la tarjeta es la POSITIVA, y es a propósito.

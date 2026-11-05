@@ -213,3 +213,18 @@
 .hj-listo.pp-terminar{width:100%;margin-top:12px}
 /* Estadísticas: cada bloque con su aire (iban pegados). */
 #ptStats:not(.hidden){display:grid;gap:10px}
+/* "+ Otro niño" en la hoja del gol (05/11/2026): busca en todo el club. */
+.hj-caras .hj-otro .pp-cara{border:2px dashed #9fb3b1;background:#f4f7f6}
+.hj-caras .hj-otro .pp-cara span{font-size:30px;font-weight:700;color:#3d6f78}
+.hj-caras .hj-otro small{color:#3d6f78}
+
+/* La hoja (gol, asistencia, opciones) siempre deja ver cómo cerrarla
+   (05/11/2026). Presidencia: "que se vea la X para que sepan que pueden
+   cerrar esa pantalla". Antes subía al 90% y tapaba la X del partido, sin X
+   propia. Ahora deja libre la parte de arriba y trae su X fija. */
+.pt-hoja{max-height:calc(100dvh - max(64px, env(safe-area-inset-top) + 48px));padding-top:0}
+.pt-hoja .pt-asa{margin-top:8px}
+.hj-cab{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 -16px;padding:6px 12px 8px 16px;background:#fff}
+.hj-cab h3{min-width:0}
+.hj-cerrar{flex:0 0 44px;width:44px;height:44px;border:0;border-radius:50%;background:#eef2f1;color:#2b4248;font-size:28px;line-height:1;font-weight:500;cursor:pointer;display:grid;place-items:center}
+.hj-cerrar:active{transform:scale(.94)}

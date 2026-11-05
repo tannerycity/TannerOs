@@ -214,7 +214,7 @@ function pintaPartido() {
   $('ppGF').textContent = P.goles.length;
   $('ppGA').textContent = P.golesContra;
   const porId = new Map(P.plantel.map(p => [p.playerId, p]));
-  $('ppGoles').innerHTML = P.goles.map((g, i) => `<span class="pp-golchip">${esc(g.scorer ? primerNombre(porId.get(g.scorer)?.name) : 'Sin dato')}${g.assist ? `<small>asist. ${esc(primerNombre(porId.get(g.assist)?.name))}</small>` : ''}${P.canWrite ? `<button type="button" data-quita="${i}" aria-label="Quitar gol">&times;</button>` : ''}</span>`).join('');
+  $('ppGoles').innerHTML = P.goles.map((g, i) => `<span class="pp-golchip">${esc(g.scorer ? (porId.get(g.scorer) ? nombreEnHoja(porId.get(g.scorer), P.plantel) : 'Tanner') : 'Sin dato')}${g.assist ? `<small>asist. ${esc(porId.get(g.assist) ? nombreEnHoja(porId.get(g.assist), P.plantel) : 'Tanner')}</small>` : ''}${P.canWrite ? `<button type="button" data-quita="${i}" aria-label="Quitar gol">&times;</button>` : ''}</span>`).join('');
   $('ppGoles').querySelectorAll('[data-quita]').forEach(b => b.addEventListener('click', () => { P.goles.splice(Number(b.dataset.quita), 1); cambia(); }));
   const conv = P.plantel.filter(p => p.called);
   $('ppNConv').textContent = conv.length;
@@ -252,7 +252,7 @@ function pintaEstampas() {
   }).join('') || (P.canWrite && !P.plantel.length
     ? `<div class="pp-vacio-cat"><p><b>${esc(P.partido.category)}</b> no tiene niños activos.</p><p>Agrega a los que van a jugar, de cualquier categoría.</p><button type="button" class="pp-invitar-grande" data-invitar>+ Agregar niños</button></div>`
     : '<p class="pt-vacio">Nadie convocado todavía.</p>');
-  $('ppEstampas').querySelector('[data-invitar]')?.addEventListener('click', invitar);
+  $('ppEstampas').querySelector('[data-invitar]')?.addEventListener('click', () => invitar());
   $('ppEstampas').querySelectorAll('.pp-toque').forEach(b => b.addEventListener('click', () => tocaJugador(b.dataset.id)));
   $('ppEstampas').querySelectorAll('[data-mas]').forEach(b => b.addEventListener('click', () => opcionesJugador(b.dataset.mas)));
 }
@@ -277,19 +277,24 @@ function tocaJugador(id) {
    una categoría a otra; que sea bien fácil agregarlos". Buscar o filtrar por
    categoría, y un toque lo convoca. Cuenta asistencia, goles y asistencias
    igual que los demás. */
-let invitables = null, invFiltro = { cat: '', busca: '' };
-async function invitar() {
+let invitables = null, invFiltro = { cat: '', busca: '' }, invElegir = null;
+/* Con alElegir (05/11/2026): "a veces lo metió un niño que está en otra
+   categoría... que le piques, tenga buscador con todos los niños y lo agregues
+   aquí". Desde la hoja del gol se abre el mismo buscador; el niño elegido
+   queda convocado (jugó medio tiempo) y se usa en ese mismo gol. */
+async function invitar(alElegir = null) {
   if (!P?.canWrite) return;
+  invElegir = typeof alElegir === 'function' ? alElegir : null;
   if (!invitables) {
     try { invitables = await rpc('v2_match_invitables', { organization_id: ctx.organization_id }) || []; }
     catch (e) { msg('ppMensaje', amable(e)); return; }
   }
   invFiltro = { cat: '', busca: '' };
-  abreHoja('Agregar niños', `
+  abreHoja(invElegir ? 'Busca al niño' : 'Agregar niños', `
     <input id="invBusca" type="search" class="inv-busca" placeholder="Buscar por nombre o número" autocomplete="off">
     <div id="invCats" class="inv-cats"></div>
     <div id="invLista" class="inv-lista"></div>
-    <button type="button" id="invListo" class="hj-listo pp-terminar">Listo</button>`);
+    ${invElegir ? '' : '<button type="button" id="invListo" class="hj-listo pp-terminar">Listo</button>'}`);
   const cats = [...new Set(invitables.map(x => x.category).filter(Boolean))]
     .sort((a, b) => (b === P.partido.category) - (a === P.partido.category) || a.localeCompare(b, 'es'));
   $('invCats').innerHTML = ['', ...cats].map(c => `<button type="button" data-cat="${esc(c)}">${esc(c || 'Todas')}</button>`).join('');
@@ -299,12 +304,14 @@ async function invitar() {
     const b = e.target.closest('[data-inv]'); if (!b) return;
     const x = invitables.find(i => i.playerId === b.dataset.inv); if (!x) return;
     const ya = P.plantel.find(p => p.playerId === x.playerId);
-    if (ya) { if (!ya.called) { ya.called = true; ya.tiempo = ya.tiempo || 'medio'; } }
+    if (ya) { if (!ya.called) { ya.called = true; ya.tiempo = ya.tiempo || 'medio'; } if (!jugo(ya.tiempo)) ya.tiempo = 'medio'; }
     else P.plantel.push({ ...x, categoryName: x.category, invitado: x.category !== P.partido.category, called: true, tiempo: 'medio', yellow: 0, red: 0 });
-    cambia(); pintaInvitables();
     firmaCaras(P.plantel).then(() => P && pintaEstampas());
+    if (invElegir) { const f = invElegir; invElegir = null; P.sucio = true; f(x.playerId); return; }
+    cambia(); pintaInvitables();
   });
-  $('invListo').addEventListener('click', cierraHoja);
+  $('invListo')?.addEventListener('click', cierraHoja);
+  setTimeout(() => $('invBusca')?.focus(), 60);
   pintaInvitables();
 }
 function pintaInvitables() {
@@ -314,13 +321,13 @@ function pintaInvitables() {
   const lista = invitables.filter(x => (!invFiltro.cat || x.category === invFiltro.cat)
     && (!q || sinAcento(x.name).includes(q) || String(x.number || '') === q));
   $('invLista').innerHTML = lista.slice(0, 80).map(x => {
-    const va = P.plantel.some(p => p.playerId === x.playerId && p.called);
+    const va = !invElegir && P.plantel.some(p => p.playerId === x.playerId && p.called);
     return `<button type="button" class="inv-fila${va ? ' va' : ''}" data-inv="${esc(x.playerId)}"${va ? ' disabled' : ''}>
       <span class="inv-cara">${esc(iniciales(x.name))}</span><span class="inv-txt"><b>${esc(x.name)}</b><small>${esc(x.category || 'Sin categoría')}${x.number ? ` · #${esc(x.number)}` : ''}</small></span>
-      <span class="inv-estado">${va ? 'Convocado' : 'Agregar'}</span></button>`;
+      <span class="inv-estado">${invElegir ? 'Elegir' : va ? 'Convocado' : 'Agregar'}</span></button>`;
   }).join('') || '<p class="pt-vacio">Nadie con ese filtro.</p>';
 }
-$('ppInvitar')?.addEventListener('click', invitar);
+$('ppInvitar')?.addEventListener('click', () => invitar());
 
 function opcionesJugador(id) {
   const p = P.plantel.find(x => x.playerId === id); if (!p) return;
@@ -342,21 +349,33 @@ function opcionesJugador(id) {
 }
 
 // + Gol: quién lo metió, luego quién asistió. Tres toques.
+/* Tres "José" y tres "Santiago" en la misma hoja no se distinguen: cuando el
+   nombre se repite, va con la inicial del apellido ("José R."). */
+function nombreEnHoja(p, lista) {
+  const n = primerNombre(p.name), partes = String(p.name || '').trim().split(/\s+/);
+  const repetido = lista.some(o => o.playerId !== p.playerId && primerNombre(o.name) === n);
+  return repetido && partes[1] ? `${n} ${partes[1][0].toUpperCase()}.` : n;
+}
 function rejillaCaras(lista, extra) {
-  return `<div class="hj-caras">${lista.map(p => { const u = caras.get(p.playerId); return `<button type="button" data-p="${esc(p.playerId)}"><span class="pp-cara">${u ? `<img src="${esc(u)}" alt="">` : `<span>${esc(iniciales(p.name))}</span>`}</span><small>${esc(primerNombre(p.name))}</small></button>`; }).join('')}</div>
+  return `<div class="hj-caras">${lista.map(p => { const u = caras.get(p.playerId); return `<button type="button" data-p="${esc(p.playerId)}"><span class="pp-cara">${u ? `<img src="${esc(u)}" alt="">` : `<span>${esc(iniciales(p.name))}</span>`}</span><small>${esc(nombreEnHoja(p, lista))}</small></button>`; }).join('')}
+    <button type="button" class="hj-otro" data-otro><span class="pp-cara"><span>+</span></span><small>Otro niño</small></button></div>
     <button type="button" class="secondary hj-sin" data-p="">${esc(extra)}</button>`;
 }
 function golNuestro() {
-  const jugaron = P.plantel.filter(p => p.called && jugo(p.tiempo));
-  abreHoja('¿Quién metió el gol?', rejillaCaras(jugaron, 'Sin dato o autogol del rival'));
+  const jugaron = () => P.plantel.filter(p => p.called && jugo(p.tiempo));
+  const asistencia = scorer => {
+    abreHoja('¿Quién dio la asistencia?', rejillaCaras(jugaron().filter(p => p.playerId !== scorer), 'Sin asistencia'));
+    const anota = assist => { P.goles.push({ scorer, assist }); cierraHoja(); cambia(); };
+    $('hjCuerpo').querySelectorAll('[data-p]').forEach(x => x.addEventListener('click', () => anota(x.dataset.p || null)));
+    $('hjCuerpo').querySelector('[data-otro]')?.addEventListener('click', () => invitar(id => id === scorer ? asistencia(scorer) : anota(id)));
+  };
+  abreHoja('¿Quién metió el gol?', rejillaCaras(jugaron(), 'Sin dato o autogol del rival'));
   $('hjCuerpo').querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
     const scorer = b.dataset.p || null;
     if (!scorer) { P.goles.push({ scorer: null, assist: null }); cierraHoja(); cambia(); return; }
-    abreHoja('¿Quién dio la asistencia?', rejillaCaras(jugaron.filter(p => p.playerId !== scorer), 'Sin asistencia'));
-    $('hjCuerpo').querySelectorAll('[data-p]').forEach(x => x.addEventListener('click', () => {
-      P.goles.push({ scorer, assist: x.dataset.p || null }); cierraHoja(); cambia();
-    }));
+    asistencia(scorer);
   }));
+  $('hjCuerpo').querySelector('[data-otro]')?.addEventListener('click', () => invitar(asistencia));
 }
 
 async function guardar(estado) {
@@ -447,5 +466,7 @@ $('ppGAmenos').addEventListener('click', () => { P.golesContra = Math.max(0, P.g
 $('ppGuardar').addEventListener('click', () => guardar('scheduled'));
 $('ppTerminar').addEventListener('click', () => guardar('completed'));
 $('hjFondo').addEventListener('click', cierraHoja);
+$('hjCerrar')?.addEventListener('click', cierraHoja);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('hjHoja').classList.contains('hidden')) cierraHoja(); });
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('hjHoja').classList.contains('hidden')) cierraHoja(); else if (P) cierraPartido(); });
 boot().catch(() => show('deniedView'));

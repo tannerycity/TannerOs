@@ -88,7 +88,8 @@
 <div id="hjFondo" class="pt-hoja-fondo hidden"></div>
 <section id="hjHoja" class="pt-hoja hidden" role="dialog" aria-modal="true" aria-labelledby="hjTitulo">
   <div class="pt-asa" aria-hidden="true"></div>
-  <h3 id="hjTitulo"></h3>
+  <!-- Siempre se ve cómo cerrar (05/11/2026): título y X fijos arriba de la hoja. -->
+  <div class="hj-cab"><h3 id="hjTitulo"></h3><button type="button" id="hjCerrar" class="hj-cerrar" aria-label="Cerrar">&times;</button></div>
   <div id="hjCuerpo"></div>
 </section>
 

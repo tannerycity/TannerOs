@@ -251,6 +251,56 @@ const estados = p => p.$$eval('#ppEstampas .pp-estado', e => e.map(x => x.textCo
   await p.close();
 }
 
+/* Gol de un niño de otra categoría (05/11/2026). Presidencia: "lo metió un
+   niño que está registrado en otra categoría... que le piques, tenga buscador
+   con todos los niños y lo agregues aquí". */
+{
+  const p = await abre();
+  await p.click('#ptNuevo');
+  await p.fill('#nvRival', 'MLK');
+  await p.click('#nvCrear');
+  await p.waitForSelector('#ptPartido:not(.hidden)');
+  await p.click('#ppTabJuego');
+  await p.click('#ppGol');
+  // La X siempre a la vista (05/11/2026): "que se vea la X para que sepan
+  // que pueden cerrar esa pantalla".
+  if (process.env.SHOTS) await p.screenshot({ path: `${process.env.SHOTS}/partido-hoja-gol.png` });
+  const caja = await p.$eval('#hjHoja', h => { const r = h.getBoundingClientRect(); return { top: r.top, maxH: parseFloat(getComputedStyle(h).maxHeight) }; });
+  const x = await p.$eval('#hjCerrar', b => { const r = b.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: r.height, w: r.width }; });
+  revisa('[hoja] tiene X propia, de 44 px y a la vista', await p.isVisible('#hjCerrar') && x.h >= 44 && x.w >= 44 && x.top >= 0 && x.bottom <= 844, JSON.stringify(x));
+  revisa('[hoja] no tapa la parte de arriba de la pantalla, ni con 30 niños', caja.top >= 60 && caja.maxH <= 844 - 60, JSON.stringify(caja));
+  await p.click('#hjCerrar');
+  revisa('[hoja] la X la cierra', await p.isHidden('#hjHoja'));
+  await p.click('#ppGol');
+  await p.keyboard.press('Escape');
+  revisa('[hoja] Escape también la cierra', await p.isHidden('#hjHoja'));
+  await p.click('#ppGol');
+  revisa('[gol de otra categoría] la hoja del gol ofrece "Otro niño"', await p.isVisible('#hjCuerpo [data-otro]') && /Otro niño/.test(await p.textContent('#hjCuerpo [data-otro]')));
+  await p.click('#hjCuerpo [data-otro]');
+  revisa('[gol de otra categoría] abre el buscador de todo el club', await p.isVisible('#invBusca'));
+  await p.fill('#invBusca', 'leo');
+  revisa('[gol de otra categoría] busca por nombre', (await p.$$('#invLista .inv-fila')).length === 1 && /Elegir/.test(await p.textContent('#invLista')));
+  await p.click('#invLista [data-inv="b1"]');
+  revisa('[gol de otra categoría] sigue con la asistencia, sin volver a empezar', await p.isVisible('#hjCuerpo .hj-sin') && /Sin asistencia/.test(await p.textContent('#hjCuerpo .hj-sin')));
+  revisa('[gol de otra categoría] la asistencia no ofrece al que metió el gol', !(await p.$('#hjCuerpo .hj-caras [data-p="b1"]')));
+  await p.click('#hjCuerpo .hj-sin');
+  revisa('[gol de otra categoría] el gol queda a su nombre', /Leo/.test(await p.innerText('#ppGoles')) && (await p.textContent('#ppGF')) === '1', await p.innerText('#ppGoles'));
+  revisa('[gol de otra categoría] queda convocado, con su categoría', /De Baby Tanner/.test(await p.textContent('#ppEstampas')) && (await p.textContent('#ppNConv')) === '5', await p.textContent('#ppNConv'));
+  // También en el paso de la asistencia.
+  await p.click('#ppGol');
+  await p.click('#hjCuerpo .hj-caras [data-p="p0"]');
+  await p.click('#hjCuerpo [data-otro]');
+  await p.fill('#invBusca', 'ana');
+  await p.click('#invLista [data-inv="b2"]');
+  revisa('[asistencia de otra categoría] queda el gol con su asistencia', /asist\. Ana/.test(await p.innerText('#ppGoles')), await p.innerText('#ppGoles'));
+  await p.click('#ppTerminar');
+  await p.waitForFunction(() => /Ganamos/.test(document.getElementById('ppMensaje').textContent), null, { timeout: 4000 });
+  const g = await p.evaluate(() => window.__guardados.at(-1));
+  revisa('[gol de otra categoría] se guarda con goles y los dos convocados', JSON.stringify(g.goals) === '[{"scorer":"b1","assist":null},{"scorer":"p0","assist":"b2"}]'
+    && ['b1', 'b2'].every(id => g.players.some(x => x.playerId === id && x.called && x.tiempo === 'medio')), JSON.stringify({ goals: g.goals, players: g.players.map(x => x.playerId) }));
+  await p.close();
+}
+
 await nav.close(); srv.close();
 let mal = 0;
 for (const r of revisiones) if (!r.ok) { mal++; console.error(` - ${r.nombre}${r.detalle ? ' :: ' + r.detalle : ''}`); }

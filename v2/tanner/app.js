@@ -87,7 +87,7 @@ function balanceBlock(data){
   const filas=[];
   if(op.acuerdo)filas.push(fila({icono:'calendar',tono:'azul',titulo:'Acuerdo de pago',sub:'Pagos en partes con fechas',attrs:'data-acuerdo="nuevo"'}));
   if(data.canAdjust){
-    if(saldo>0)filas.push(fila({icono:'settings',tono:'naranja',titulo:'Ajustar saldo',sub:'Descuento, condonación o corrección',attrs:'data-pres="ajustar"'}));
+    filas.push(fila({icono:'settings',tono:'naranja',titulo:'Cambiar lo que debe',sub:'Subir, bajar o condonar un cargo',attrs:'data-pres="ajustar"'}));
     filas.push(fila({icono:'plus',tono:'morado',titulo:'Agregar cargo',sub:'Torneo, uniforme, viaje…',attrs:'data-pres="cargo"'}));
     if(saldo>0&&aFavor>0)filas.push(fila({icono:'wallet',tono:'verde',titulo:`Aplicar ${money.format(aFavor)} a favor`,sub:'A sus cargos, del más antiguo',attrs:'data-pres="favor"'}));
   }
@@ -154,6 +154,15 @@ function folioDe(m){
   if(!t)return '';
   return ` · Folio ${esc(folioTexto(t.folio))}${Number(t.parts)>1?` (${t.parts} partes)`:''}`;
 }
+// Un mes que no cuadra con la cuota casi siempre es proporcional: empezó a
+// pagar a medio mes. Se dice ahí mismo ("$493 de Luis Reyes", 08/11/2026).
+function proporcional(m,p){
+  const ini=p?.billing_start;
+  if(m.subtype!=='monthly_fee'||!m.period||!ini||Number(ini.slice(8,10))<=1)return '';
+  if(String(m.period).slice(0,7)!==String(ini).slice(0,7))return '';
+  const d=new Date(`${ini}T12:00:00`);
+  return ` · proporcional: empezó el ${new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'}).format(d).replace('.','')}`;
+}
 function ledgerBlock(data){
   const rows=(data.ledger||[]).filter(m=>m.kind!=='payment'||m.status==='posted');
   if(!rows.length)return '';
@@ -161,7 +170,7 @@ function ledgerBlock(data){
     const monto=Number(m.amount||0),cargo=m.kind==='charge';
     const titulo=cargo?`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}`:'Pago recibido';
     const detalle=cargo
-      ? `${fmtDate(m.date)}${m.charge_balance>0?` · quedan ${money.format(Number(m.charge_balance))}`:' · liquidado'}`
+      ? `${fmtDate(m.date)}${m.charge_balance>0?` · quedan ${money.format(Number(m.charge_balance))}`:' · liquidado'}${proporcional(m,data.player)}`
       : `${fmtDate(m.date)}${m.method?` · ${esc(METODO_PAGO[m.method]||m.method)}`:''}${m.reference&&m.reference!==METODO_PAGO[m.method]?` · ${esc(m.reference)}`:''}${folioDe(m)}`;
     // En un historial de pagos, "quién lo cobró" es la mitad del dato. El club
     // encontró un movimiento que decía "Pagó: Michel" y lo había capturado la
@@ -173,8 +182,8 @@ function ledgerBlock(data){
     // Presidencia corrige aquí mismo: el cargo que todavía se debe se ajusta y
     // el pago mal capturado se revierte. Siempre con motivo; nada se borra.
     const pres=!data.canAdjust||!id?''
-      :cargo?(Number(m.charge_balance||0)>0?`<button type="button" class="tan-audit tan-pres" data-pres="ajustar" data-charge="${esc(id)}">Ajustar</button>`:'')
-      :`<button type="button" class="tan-audit tan-pres" data-pres="corregir" data-payment="${esc(id)}">Corregir</button>`;
+      :cargo?`<button type="button" class="tan-audit tan-pres" data-pres="ajustar" data-charge="${esc(id)}">Cambiar monto</button>`
+      :`<button type="button" class="tan-audit tan-pres" data-pres="editar" data-payment="${esc(id)}">Editar</button>`;
     return `<div class="tan-mov" data-kind="${cargo?'charge':'payment'}"><span class="tan-dot">${shellIcon(cargo?'ledger':'check')}</span><span class="tan-mov-body"><strong>${esc(titulo)}</strong><span>${detalle}</span>${audit}${pres}</span><span class="tan-mov-nums"><b>${cargo?'+':'−'}${money.format(Math.abs(monto))}</b><span>${saldoTexto(Number(m.running_balance||0))}</span></span></div>`;
   }).join('');
   return `<section class="tan-section"><div class="tan-section-head"><h2>Movimientos</h2><span>${rows.length} en total</span></div><div class="tan-ledger">${html}</div></section>`;
@@ -535,10 +544,13 @@ async function render(){
    Pedido del club (06/10/2026): no ir hasta Taquilla o Contabilidad para
    corregir un saldo. Un saldo nunca se sobrescribe: cada acción es un
    movimiento con motivo y con el nombre de quien lo hizo.
-     · Ajustar: descuento, condonación o corrección de un cargo que se debe
-       (v2_presidency_adjust_charge: autoriza y aplica en un paso).
+     · Cambiar lo que debe (08/11/2026): se escribe cuánto debe quedar.
+       Si sube, v2_set_charge_amount; si baja, descuento, condonación o
+       corrección con v2_presidency_adjust_charge.
      · Agregar cargo: torneo, uniforme, etc. (v2_presidency_add_charge).
-     · Corregir pago: lo revierte y el adeudo vuelve (v2_correct_tanner_payment).
+     · Editar pago (08/11/2026): fecha, método y referencia
+       (v2_edit_payment); si con la fecha buena pagó a tiempo, el recargo se
+       quita solo. Revertirlo sigue ahí, abajo (v2_correct_tanner_payment).
      · Aplicar saldo a favor (v2_apply_player_credit).
    La llave de idempotencia se crea al abrir la hoja y se reusa si se reintenta:
    un doble toque o una red lenta no duplican nada. */
@@ -556,9 +568,12 @@ document.addEventListener('click',e=>{
 const llave=()=>(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`);
 const TIPOS_AJUSTE=[['discount','Descuento'],['waiver','Condonación'],['correction','Corrección']];
 function cargosAbiertos(){
-  return (ultimo?.ledger||[]).filter(m=>m.kind==='charge'&&Number(m.charge_balance||0)>0&&m.id)
-    .map(m=>({id:m.id,saldo:Number(m.charge_balance),texto:`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}${m.concept&&m.subtype==='other'?` · ${m.concept}`:''}`}));
+  const todos=(ultimo?.ledger||[]).filter(m=>m.kind==='charge'&&m.id&&m.status!=='cancelled')
+    .map(m=>{const saldo=Number(m.charge_balance||0),pagado=Number(m.allocated||0);
+      return {id:m.id,saldo,pagado,neto:Math.round((saldo+pagado)*100)/100,texto:`${chargeLabel(m.subtype)}${m.period?` · ${fmtDate(m.period).replace(/^\d+ /,'')}`:''}${m.concept&&m.subtype==='other'?` · ${m.concept}`:''}`};});
+  return [...todos.filter(c=>c.saldo>0),...todos.filter(c=>c.saldo<=0).slice(0,6)];
 }
+const METODOS_EDITAR=[['cash','Efectivo'],['transfer','Transferencia'],['card','Tarjeta']];
 function asegurarHoja(){
   if($('presSheet'))return;
   document.body.insertAdjacentHTML('beforeend','<div id="presBackdrop" class="pres-backdrop hidden"></div><section id="presSheet" class="pres-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="presTitle"><div class="pres-grab" aria-hidden="true"></div><div id="presBody"></div></section>');
@@ -583,16 +598,16 @@ function pintarHoja(){
   let html='';
   if(hoja.tipo==='ajustar'){
     const cargos=cargosAbiertos();
-    if(!cargos.length){html=cab('Ajustar saldo',nombre)+'<p class="pres-nota">No hay cargos con saldo pendiente.</p>';}
+    if(!cargos.length){html=cab('Cambiar lo que debe',nombre)+'<p class="pres-nota">Todavía no tiene cargos.</p>';}
     else{
       const elegido=cargos.find(c=>c.id===hoja.charge)||cargos[0];hoja.charge=elegido.id;
-      const monto=hoja.monto??elegido.saldo;
-      html=cab('Ajustar saldo',nombre)+`<form id="presForm" class="pres-form">
-        <label>Cargo<select id="presCargo">${cargos.map(c=>`<option value="${esc(c.id)}"${c.id===elegido.id?' selected':''}>${esc(c.texto)} · debe ${money.format(c.saldo)}</option>`).join('')}</select></label>
-        <div class="pres-seg" role="radiogroup" aria-label="Tipo de ajuste">${TIPOS_AJUSTE.map(([v,l])=>`<button type="button" role="radio" aria-checked="${(hoja.ajuste||'discount')===v}" data-ajuste="${v}">${l}</button>`).join('')}</div>
-        <label>Monto a quitar<input id="presMonto" type="number" inputmode="decimal" min="1" step="1" max="${elegido.saldo}" value="${esc(String(monto))}"></label>
-        <p class="pres-nota">Debe ${money.format(elegido.saldo)} de este cargo. Después del ajuste quedaría en <b id="presQueda">${money.format(Math.max(0,elegido.saldo-Number(monto||0)))}</b>.</p>
-        ${motivo}${err}${boton('Aplicar ajuste')}</form>`;
+      const quede=hoja.monto??elegido.saldo;
+      html=cab('Cambiar lo que debe',nombre)+`<form id="presForm" class="pres-form">
+        <label>Cargo<select id="presCargo">${cargos.map(c=>`<option value="${esc(c.id)}"${c.id===elegido.id?' selected':''}>${esc(c.texto)} · ${c.saldo>0?`debe ${money.format(c.saldo)}`:'liquidado'}</option>`).join('')}</select></label>
+        <div class="pres-cuota"><span>Cargo de ${money.format(elegido.neto)}${elegido.pagado>0?` · pagó ${money.format(elegido.pagado)}`:''}</span><b>Debe ${money.format(elegido.saldo)}</b></div>
+        <label>¿Cuánto debe quedar debiendo?<input id="presMonto" type="number" inputmode="decimal" min="0" step="1" value="${esc(String(quede))}"></label>
+        <div id="presCambio">${cambioHtml(elegido,quede)}</div>
+        ${motivo}${err}${boton('Guardar')}</form>`;
     }
   }else if(hoja.tipo==='cargo'){
     const hoy=new Date().toISOString().slice(0,10);
@@ -601,6 +616,18 @@ function pintarHoja(){
       <div class="pres-row"><label>Monto<input id="presMonto" type="number" inputmode="decimal" min="1" step="1" value="${esc(hoja.monto??'')}"></label><label>Fecha límite<input id="presFecha" type="date" value="${esc(hoja.fecha||hoy)}"></label></div>
       <p class="pres-nota">No genera recargo por atraso. Si tiene saldo a favor, se le aplica solo.</p>
       ${motivo}${err}${boton('Agregar cargo')}</form>`;
+  }else if(hoja.tipo==='editar'){
+    const pago=(ultimo?.ledger||[]).find(m=>m.id===hoja.payment)||{};
+    hoja.fecha??=String(pago.date||'').slice(0,10);hoja.metodo??=pago.method;
+    hoja.referencia??=pago.reference&&pago.reference!==METODO_PAGO[pago.method]?pago.reference:'';
+    const hoyL=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+    html=cab('Editar pago',`${money.format(Math.abs(Number(pago.amount||0)))} · ${METODO_PAGO[pago.method]||'pago'}`)+`<form id="presForm" class="pres-form">
+      <label>¿Qué día pagó?<input id="presFecha" type="date" max="${hoyL}" value="${esc(hoja.fecha)}"></label>
+      <div class="pres-seg" role="radiogroup" aria-label="Método">${METODOS_EDITAR.map(([v,l])=>`<button type="button" role="radio" aria-checked="${hoja.metodo===v}" data-metodo-ed="${v}">${l}</button>`).join('')}</div>
+      <label>Referencia<input id="presRef" type="text" maxlength="80" placeholder="Opcional" value="${esc(hoja.referencia||'')}"></label>
+      <p class="pres-nota">Si con la fecha buena pagó a tiempo, el recargo se quita solo. La fecha cambia en todo el cobro (mismo folio).</p>
+      ${motivo}${err}${boton('Guardar cambios')}
+      <button type="button" class="pres-link-peligro" data-revertir>Revertir este pago</button></form>`;
   }else if(hoja.tipo==='corregir'){
     const pago=(ultimo?.ledger||[]).find(m=>m.id===hoja.payment)||{};
     html=cab('Corregir pago',`${fmtDate(pago.date)} · ${money.format(Math.abs(Number(pago.amount||0)))}`)+`<form id="presForm" class="pres-form">
@@ -635,7 +662,7 @@ function pintarHoja(){
     html=cab('Ajustar mensualidad',nombre)+`<form id="presForm" class="pres-form">
       <div class="pres-cuota"><span>Hoy paga</span><b>${pl.is_exempt?'Exento':money.format(actual)}</b></div>
       <label>Nueva mensualidad<input id="presMonto" type="number" inputmode="decimal" min="0" step="1" value="${esc(String(nueva))}"></label>
-      <p class="pres-nota">Cuenta desde la próxima mensualidad. Lo que ya se cargó no cambia: para eso usa <b>Ajustar saldo</b>. Queda como su cuota personal, ya no la de su categoría.</p>
+      <p class="pres-nota">Cuenta desde la próxima mensualidad. Lo que ya se cargó no cambia: para eso usa <b>Cambiar lo que debe</b>. Queda como su cuota personal, ya no la de su categoría.</p>
       <label>¿Por qué paga esto?<textarea id="presMotivo" rows="2" maxlength="300" placeholder="Ej. Hermanos: 10% de descuento acordado con Presidencia">${esc(hoja.motivo||'')}</textarea></label>
       ${err}${boton('Guardar mensualidad')}</form>`;
   }else if(hoja.tipo==='favor'){
@@ -647,13 +674,28 @@ function pintarHoja(){
   b.innerHTML=html;
   b.querySelector('[data-pres-cerrar]')?.addEventListener('click',()=>{if(!hoja?.enviando)cerrarHoja();});
   b.querySelector('#presCargo')?.addEventListener('change',e=>{guardaCampos();hoja.charge=e.target.value;hoja.monto=undefined;pintarHoja();});
-  b.querySelectorAll('[data-ajuste]').forEach(x=>x.addEventListener('click',()=>{guardaCampos();hoja.ajuste=x.dataset.ajuste;pintarHoja();}));
-  b.querySelector('#presMonto')?.addEventListener('input',e=>{const q=$('presQueda');if(q){const c=cargosAbiertos().find(c=>c.id===hoja.charge);if(c)q.textContent=money.format(Math.max(0,c.saldo-Number(e.target.value||0)));}});
+  b.querySelectorAll('[data-ajuste]').forEach(engancharAjuste);
+  b.querySelector('#presMonto')?.addEventListener('input',e=>{const q=$('presCambio');if(q&&hoja.tipo==='ajustar'){const c=cargosAbiertos().find(c=>c.id===hoja.charge);if(c){hoja.monto=e.target.value;q.innerHTML=cambioHtml(c,e.target.value);q.querySelectorAll('[data-ajuste]').forEach(engancharAjuste);}}});
+  b.querySelectorAll('[data-metodo-ed]').forEach(x=>x.addEventListener('click',()=>{guardaCampos();hoja.metodo=x.dataset.metodoEd;pintarHoja();}));
+  b.querySelector('[data-revertir]')?.addEventListener('click',()=>{guardaCampos();hoja.tipo='corregir';hoja.error='';pintarHoja();});
   b.querySelectorAll('[data-pq]').forEach(x=>x.addEventListener('click',()=>{guardaCampos();hoja.codigo=x.dataset.pq;pintarHoja();}));
   b.querySelector('#presForm')?.addEventListener('submit',enviarHoja);
 }
+function engancharAjuste(x){x.addEventListener('click',()=>{guardaCampos();hoja.ajuste=x.dataset.ajuste;pintarHoja();});}
+// Lo que pasa al guardar, dicho antes: sube el cargo, o se quita como
+// descuento, condonación o corrección.
+function cambioHtml(c,valor){
+  const v=String(valor??'').trim()===''?NaN:Number(valor);
+  if(!(v>=0))return '<p class="pres-nota">Escribe cuánto debe quedar (puede ser 0).</p>';
+  const dif=Math.round((v-c.saldo)*100)/100;
+  if(Math.abs(dif)<0.005)return '<p class="pres-nota">Escribe un monto distinto al que debe hoy.</p>';
+  if(dif>0)return `<p class="pres-nota pres-sube">Sube <b>${money.format(dif)}</b>: el cargo queda en ${money.format(c.neto+dif)}.</p>`;
+  return `<div class="pres-seg" role="radiogroup" aria-label="Cómo se quita">${TIPOS_AJUSTE.map(([k,l])=>`<button type="button" role="radio" aria-checked="${(hoja.ajuste||'discount')===k}" data-ajuste="${k}">${l}</button>`).join('')}</div>
+    <p class="pres-nota">Se quitan <b>${money.format(-dif)}</b> y queda debiendo ${money.format(v)}.</p>`;
+}
 function guardaCampos(){
   if(!hoja)return;
+  if($('presRef'))hoja.referencia=$('presRef').value;
   if($('presMotivo'))hoja.motivo=$('presMotivo').value;
   if($('presMonto'))hoja.monto=$('presMonto').value;
   if($('presConcepto'))hoja.concepto=$('presConcepto').value;
@@ -667,7 +709,9 @@ const ERRORES={
   'Not authorized':'No tienes permiso para hacer este cambio.',
   'Billing profile not found':'Este Tanner todavía no tiene cuota registrada. Dale de alta su cuota en Taquilla.'
 };
-const amable=e=>{const m=String(e?.message||e||'');return ERRORES[m]||m.replace(/^.*?:\s*/,'')||'No se pudo guardar. Intenta de nuevo.';};
+// Sólo se quita un prefijo técnico ("Error: ..."); los mensajes del servidor
+// ya vienen en español y pueden llevar dos puntos.
+const amable=e=>{const m=String(e?.message||e||'');return ERRORES[m]||m.replace(/^(?:[A-Za-z]*Error|P\d{4})\b[^:]*:\s*/,'')||'No se pudo guardar. Intenta de nuevo.';};
 async function enviarHoja(ev){
   ev.preventDefault();if(!hoja||hoja.enviando)return;
   guardaCampos();
@@ -676,7 +720,11 @@ async function enviarHoja(ev){
   if(hoja.tipo==='paquete'&&!hoja.codigo){hoja.error='Elige un paquete.';pintarHoja();return;}
   if(hoja.tipo==='paquete'&&hoja.codigo===paq?.package?.code){hoja.error='Ya tiene ese paquete.';pintarHoja();return;}
   if(hoja.tipo!=='favor'&&hoja.tipo!=='renovar'&&motivo.length<5){hoja.error='Escribe el motivo (al menos 5 letras): queda en el registro.';pintarHoja();return;}
-  if((hoja.tipo==='ajustar'||hoja.tipo==='cargo')&&!(monto>0)){hoja.error='Escribe un monto mayor a cero.';pintarHoja();return;}
+  if(hoja.tipo==='cargo'&&!(monto>0)){hoja.error='Escribe un monto mayor a cero.';pintarHoja();return;}
+  const cAj=hoja.tipo==='ajustar'?cargosAbiertos().find(c=>c.id===hoja.charge):null;
+  if(hoja.tipo==='ajustar'&&!(String(hoja.monto??'').trim()!==''&&monto>=0)){hoja.error='Escribe cuánto debe quedar (puede ser 0).';pintarHoja();return;}
+  if(hoja.tipo==='ajustar'&&cAj&&Math.abs(monto-cAj.saldo)<0.005){hoja.error='Es lo mismo que ya debe.';pintarHoja();return;}
+  if(hoja.tipo==='editar'&&!hoja.fecha){hoja.error='Elige la fecha del pago.';pintarHoja();return;}
   if(hoja.tipo==='cuota'&&!(String(hoja.monto??'').trim()!==''&&monto>=0)){hoja.error='Escribe la nueva mensualidad (puede ser 0).';pintarHoja();return;}
   if(hoja.tipo==='cuota'&&monto===Number(ultimo?.player?.base_monthly_fee||0)&&!ultimo?.player?.is_exempt){hoja.error='Es la misma mensualidad que ya tiene.';pintarHoja();return;}
   if(hoja.tipo==='cargo'&&String(hoja.concepto||'').trim().length<3){hoja.error='Escribe el concepto del cargo.';pintarHoja();return;}
@@ -684,8 +732,17 @@ async function enviarHoja(ev){
   const org=ctx.organization_id;let aviso='';
   try{
     if(hoja.tipo==='ajustar'){
-      await rpc('v2_presidency_adjust_charge',{organization_id:org,charge_id:hoja.charge,adjustment_type:hoja.ajuste||'discount',amount:monto,reason:motivo,idempotency_key:hoja.llave});
-      aviso=`Ajuste aplicado: se quitaron ${money.format(monto)}.`;
+      const dif=Math.round((monto-cAj.saldo)*100)/100;
+      if(dif>0){
+        await rpc('v2_set_charge_amount',{organization_id:org,charge_id:hoja.charge,new_amount:Math.round((cAj.neto+dif)*100)/100,reason:motivo,idempotency_key:hoja.llave});
+        aviso=`Listo: ahora debe ${money.format(monto)} de ese cargo (subió ${money.format(dif)}).`;
+      }else{
+        await rpc('v2_presidency_adjust_charge',{organization_id:org,charge_id:hoja.charge,adjustment_type:hoja.ajuste||'discount',amount:-dif,reason:motivo,idempotency_key:hoja.llave});
+        aviso=`Listo: se quitaron ${money.format(-dif)}; debe ${money.format(monto)} de ese cargo.`;
+      }
+    }else if(hoja.tipo==='editar'){
+      const r=await rpc('v2_edit_payment',{organization_id:org,payment_id:hoja.payment,payment_date:hoja.fecha,method:hoja.metodo||null,reference:String(hoja.referencia??''),reason:motivo});
+      aviso=Number(r?.lateFeesAmount)>0?`Pago editado. Se quitó el recargo de ${money.format(Number(r.lateFeesAmount))}: pagó a tiempo.`:'Pago editado.';
     }else if(hoja.tipo==='cargo'){
       await rpc('v2_presidency_add_charge',{organization_id:org,player_id:playerId,concept:String(hoja.concepto).trim(),amount:monto,due_date:hoja.fecha||null,reason:motivo,idempotency_key:hoja.llave});
       aviso=`Cargo agregado: ${String(hoja.concepto).trim()} por ${money.format(monto)}.`;
@@ -722,6 +779,7 @@ document.addEventListener('click',e=>{
   if(t==='ajustar')abrirHoja('ajustar',{charge:b.dataset.charge||null});
   else if(t==='cargo')abrirHoja('cargo');
   else if(t==='corregir')abrirHoja('corregir',{payment:b.dataset.payment});
+  else if(t==='editar')abrirHoja('editar',{payment:b.dataset.payment});
   else if(t==='favor')abrirHoja('favor');
 });
 document.addEventListener('click',e=>{

@@ -49,7 +49,7 @@ const ESTADO = (canAdjust) => ({
     { id:'c-oct', date:'2026-10-01', kind:'charge', subtype:'monthly_fee', concept:'Mensualidad', amount:800, charge_balance:800, period:'2026-10-01', running_balance:1300 },
     { id:'c-tor', date:'2026-09-20', kind:'charge', subtype:'other', concept:'Torneo', amount:500, charge_balance:500, period:'2026-09-01', running_balance:500 },
     { id:'pay-1', date:'2026-09-05', kind:'payment', amount:-800, status:'posted', method:'cash', running_balance:0 },
-    { id:'c-sep', date:'2026-09-01', kind:'charge', subtype:'monthly_fee', concept:'Mensualidad', amount:800, charge_balance:0, period:'2026-09-01', running_balance:800 }
+    { id:'c-sep', date:'2026-09-01', kind:'charge', subtype:'monthly_fee', concept:'Mensualidad', amount:800, charge_balance:0, allocated:800, period:'2026-09-01', running_balance:800 }
   ],
   other_payments: [], documents: [], orders: [], academies: [{ starts_on:'2026-08-01', fee:400, status:'active' }]
 });
@@ -85,7 +85,8 @@ async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1', rol = 'P
                 v2_renew_benefit:{ benefitId:'b1', endsOn:'2027-02-28' },
                 v2_player_profile:{ player:{ id:'p1', bloodType:'O+', allergies:'Asma: trae inhalador', emergencyContactName:'Laura Ibarra', emergencyContactPhone:'4779998877' } }, v2_set_player_fee_note:true,
                 v2_my_navigation:m, v2_player_account_statement:estado,
-                v2_presidency_adjust_charge:{ ok:true }, v2_presidency_add_charge:{ ok:true }, v2_correct_tanner_payment:null, v2_apply_player_credit:200 };
+                v2_presidency_adjust_charge:{ ok:true }, v2_presidency_add_charge:{ ok:true }, v2_correct_tanner_payment:null, v2_apply_player_credit:200,
+                v2_set_charge_amount:{ ok:true }, v2_edit_payment:{ ok:true, lateFeesWaived:1, lateFeesAmount:100 } };
     window.__fakeSupabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}), getUser:async()=>({data:{user:{id:'u1'}}}), onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}) },
       rpc:async(n, params)=>{
@@ -119,26 +120,27 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
 /* ---------- Presidencia ---------- */
 {
   const p = await abre(true);
-  revisa('[pres] ve "Ajustar saldo"', await p.isVisible('.tan-balance [data-pres="ajustar"]'));
+  revisa('[pres] ve "Cambiar lo que debe"', /Cambiar lo que debe/.test(await p.textContent('.tan-balance [data-pres="ajustar"]')));
   revisa('[pres] ve "Agregar cargo"', await p.isVisible('.tan-balance [data-pres="cargo"]'));
   revisa('[pres] ve "Aplicar $200.00 a favor"', /Aplicar \$200\.00 a favor/.test(await p.textContent('.tan-balance [data-pres="favor"]')));
   revisa('[apple] movimientos plegados al abrir', !(await p.isVisible('.tan-ledger')));
   await p.click('#detMovs > summary');
   const enRenglones = await p.$$eval('.tan-ledger [data-pres]', els => els.map(e => e.dataset.pres + ':' + (e.dataset.charge || e.dataset.payment)));
-  revisa('[pres] "Ajustar" sólo en cargos con saldo y "Corregir" en el pago', JSON.stringify(enRenglones) === JSON.stringify(['ajustar:c-oct','ajustar:c-tor','corregir:pay-1']), JSON.stringify(enRenglones));
+  revisa('[pres] "Cambiar monto" en cada cargo y "Editar" en el pago', JSON.stringify(enRenglones) === JSON.stringify(['ajustar:c-oct','ajustar:c-tor','editar:pay-1','ajustar:c-sep']), JSON.stringify(enRenglones));
 
   // Ajustar desde el renglón del torneo
   await p.click('.tan-ledger [data-charge="c-tor"]');
   await p.waitForSelector('#presSheet:not(.hidden)');
   revisa('[ajuste] abre con el cargo del renglón elegido', await p.inputValue('#presCargo') === 'c-tor');
-  revisa('[ajuste] propone quitar todo lo que se debe', await p.inputValue('#presMonto') === '500');
+  revisa('[ajuste] arranca en lo que debe hoy', await p.inputValue('#presMonto') === '500');
   const enPantalla = await p.evaluate(() => { const r = document.getElementById('presSheet').getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; });
   revisa('[ajuste] en el teléfono la hoja cabe', enPantalla);
   await p.click('#presForm .pres-primary');
   revisa('[ajuste] sin motivo no se manda', (await llamadas(p, 'v2_presidency_adjust_charge')).length === 0 && /motivo/i.test(await p.textContent('.pres-error')));
+  revisa('[ajuste] sin cambiar el monto no se manda', /motivo|mismo/i.test(await p.textContent('.pres-error')));
+  await p.fill('#presMonto', '300');
   await p.click('[data-ajuste="waiver"]');
-  await p.fill('#presMonto', '200');
-  revisa('[ajuste] dice en cuánto queda', /\$300\.00/.test(await p.textContent('#presQueda')));
+  revisa('[ajuste] dice cuánto se quita y en cuánto queda', /Se quitan \$200\.00 y queda debiendo \$300\.00/.test(await p.textContent('#presCambio')), await p.textContent('#presCambio'));
   await p.fill('#presMotivo', 'Beca de torneo por buen desempeño');
   await p.click('#presForm .pres-primary');
   await p.waitForSelector('.pres-error', { timeout:4000 });
@@ -162,8 +164,41 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   const cg = (await llamadas(p, 'v2_presidency_add_charge'))[0]?.params || {};
   revisa('[cargo] manda Tanner, concepto, monto, fecha y motivo', cg.player_id === 'p1' && cg.concept === 'Torneo de Navidad' && cg.amount === 350 && cg.due_date === '2026-12-10' && cg.reason === 'Inscripción al torneo' && cg.idempotency_key, JSON.stringify(cg));
 
-  // Corregir pago
+  // Subir lo que debe (08/11/2026): "son 500 y tiene que pagar 800".
+  await p.click('.tan-ledger [data-charge="c-oct"]');
+  await p.fill('#presMonto', '1100');
+  revisa('[subir] dice cuánto sube y en cuánto queda el cargo', /Sube \$300\.00: el cargo queda en \$1,100\.00/.test(await p.textContent('#presCambio')), await p.textContent('#presCambio'));
+  revisa('[subir] al subir no pregunta descuento o condonación', !(await p.$('#presCambio [data-ajuste]')));
+  await p.fill('#presMotivo', 'Paga también el torneo de octubre');
+  await p.click('#presForm .pres-primary');
+  await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:4000 });
+  const sb = (await llamadas(p, 'v2_set_charge_amount'))[0]?.params || {};
+  revisa('[subir] manda el cargo con su monto nuevo', sb.charge_id === 'c-oct' && sb.new_amount === 1100 && /torneo/.test(sb.reason) && sb.idempotency_key, JSON.stringify(sb));
+  revisa('[subir] avisa lo que hizo', /subió \$300\.00/.test(await p.textContent('#presToast')));
+
+  // Un cargo ya pagado también se puede subir: dice lo que ya pagó.
+  await p.click('.tan-ledger [data-charge="c-sep"]');
+  revisa('[liquidado] dice el cargo y lo que ya pagó', /Cargo de \$800\.00 · pagó \$800\.00/.test(await p.textContent('.pres-cuota')) && await p.inputValue('#presMonto') === '0');
+  await p.click('[data-pres-cerrar]');
+
+  // Editar el pago: fecha, método y referencia (08/11/2026).
   await p.click('.tan-ledger [data-payment="pay-1"]');
+  await p.waitForSelector('#presSheet:not(.hidden)');
+  revisa('[editar] trae la fecha y el método del pago', await p.inputValue('#presFecha') === '2026-09-05' && /true/.test(await p.getAttribute('[data-metodo-ed="cash"]', 'aria-checked')));
+  if (process.env.SHOTS) await p.screenshot({ path:`${process.env.SHOTS}/tanner-editar-pago.png` });
+  await p.fill('#presFecha', '2026-09-04');
+  await p.click('[data-metodo-ed="transfer"]');
+  await p.fill('#presRef', 'SPEI 4471');
+  await p.fill('#presMotivo', 'Pagó el viernes en la noche');
+  await p.click('#presForm .pres-primary');
+  await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:4000 });
+  const ed = (await llamadas(p, 'v2_edit_payment'))[0]?.params || {};
+  revisa('[editar] manda fecha, método, referencia y motivo', ed.payment_id === 'pay-1' && ed.payment_date === '2026-09-04' && ed.method === 'transfer' && ed.reference === 'SPEI 4471' && /viernes/.test(ed.reason), JSON.stringify(ed));
+  revisa('[editar] avisa que se quitó el recargo', /quitó el recargo de \$100\.00/.test(await p.textContent('#presToast')));
+
+  // Revertir sigue ahí, abajo de Editar.
+  await p.click('.tan-ledger [data-payment="pay-1"]');
+  await p.click('[data-revertir]');
   await p.fill('#presMotivo', 'Se capturó dos veces');
   await p.click('#presForm .pres-primary');
   await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:4000 });
@@ -239,7 +274,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   const grandes = await p.$$eval('.tan-balance .tan-actions .tan-btn', b => b.map(x => x.matches('[data-cobrar],[data-wa-menu]')));
   revisa('[apple] arriba sólo Cobrar y WhatsApp (botones grandes)', grandes.every(Boolean), JSON.stringify(grandes));
   revisa('[apple] lo demás son renglones (ajustar, cargo, favor, enviar, ficha)',
-    (await p.$$eval('.tan-balance .tan-lista .tan-fila strong', s => s.map(x => x.textContent))).join('|') === 'Ajustar saldo|Agregar cargo|Aplicar $200.00 a favor|Enviar estado de cuenta|Ver ficha completa');
+    (await p.$$eval('.tan-balance .tan-lista .tan-fila strong', s => s.map(x => x.textContent))).join('|') === 'Cambiar lo que debe|Agregar cargo|Aplicar $200.00 a favor|Enviar estado de cuenta|Ver ficha completa');
   const grupos = await p.$$eval('.tan-grupo-tit', h => h.map(x => x.textContent));
   revisa('[apple] Planes, Salud y Familia antes de los meses', grupos.slice(0, 3).join() === 'Planes,Salud,Familia', grupos.join());
   const planes = await p.textContent('.tan-grupo:has(.tan-fila[data-cuota])');

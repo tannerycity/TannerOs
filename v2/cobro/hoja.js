@@ -29,6 +29,17 @@
 //   · Una mensualidad que todavía no está en su cuenta nace en el cobro con la
 //     misma llave que el cargo automático (h48): el día 1 no se carga doble.
 //
+// Pagos sin trabas (08/11/2026). Presidencia: "si yo quiero que pague 800 o
+// pagó 800, no lo puedo registrar porque dice sólo debe 500"; "me pagó el
+// viernes en la noche, lo registré después y ya me dice que está retrasado";
+// "agregar otro método de pago se ve de la verga". Ahora:
+//   · La fecha del pago va arriba, a la vista ("Pagó: hoy"). Si con la fecha
+//     real el mes quedó pagado a tiempo, el recargo se quita solo al cobrar
+//     (v2_waive_on_time_late_fees, h63).
+//   · Se puede cobrar de más: lo que pase de lo que debe queda a favor (para
+//     lo que siga) o como otro concepto (inscripción, torneo...). Se elige ahí.
+//   · Dos formas de pago: dos renglones limpios, el segundo con el resto.
+//
 // La base hace el reparto en una sola transacción (v2_collect_ticket): o entra
 // todo o nada. Cada parte es el pago de siempre, en la cuenta de su Tanner,
 // ligado por folio: Conciliación y Contabilidad no cambian.
@@ -209,7 +220,7 @@ function pinta() {
   const lista = lineas.length ? `<ul class="cobro-va">${lineas.map(lineaHtml).join('')}</ul>`
     : `<p class="cobro-vacio">${debeAlgo() ? 'Toca Agregar y elige qué paga.' : 'No debe nada. Agrega la mensualidad, la inscripción o lo que vaya a pagar.'}</p>`;
   b.innerHTML = `${cab('Cobrar', nombres())}<form class="pres-form cobro-form" novalidate>
-    ${quienHtml()}
+    ${quienHtml()}${fechaHtml()}
     <section class="cobro-bloque" aria-label="Lo que paga"><span class="cobro-titulo">Va en este cobro</span>${lista}
       <button type="button" class="cobro-agregar" data-agregar aria-expanded="${!!s.panel}"><i aria-hidden="true">+</i> ${lineas.length ? 'Agregar otro concepto' : 'Agregar qué paga'}</button>
       ${s.panel ? panelHtml() : ''}</section>
@@ -275,11 +286,34 @@ function lineaHtml(i) {
     return renglon('Otro ingreso', '', `<div class="cobro-dos"><label>Categoría<select data-categoria="otro">${opts}</select></label>
       <label><span>Concepto <span class="cobro-opt">· opcional</span></span><input type="text" data-concepto="otro" maxlength="80" value="${esc(i.concept || '')}" placeholder="Ej. Torneo de Navidad"></label></div>`);
   }
+  // Paga de más: lo que pasa de lo que debe queda a favor o es otro concepto.
+  if (i.max != null) i.sobraPintado = num(i.amount) > i.max + 0.004;
+  if (i.max != null && num(i.amount) > i.max + 0.004) {
+    const extra = Math.round((num(i.amount) - i.max) * 100) / 100, va = i.extra || 'favor';
+    const opts = ['', ...OTROS, 'Inscripción'].map(c => `<option value="${esc(c)}"${c === (i.extraCat || '') ? ' selected' : ''}>${c ? esc(c) : 'Elige…'}</option>`).join('');
+    return renglon(i.label, `Debe ${money.format(i.max)} · <b>${money.format(extra)} de más</b>`,
+      `<div class="cobro-extra"><span>Los ${money.format(extra)} de más:</span>
+        <div class="pres-seg cobro-seg2" role="radiogroup" aria-label="A dónde van los de más">
+          <button type="button" role="radio" aria-checked="${va === 'favor'}" data-extra="favor" data-linea2="${esc(i.key)}">Quedan a favor</button>
+          <button type="button" role="radio" aria-checked="${va === 'otro'}" data-extra="otro" data-linea2="${esc(i.key)}">Otro concepto</button></div>
+        ${va === 'otro' ? `<div class="cobro-dos"><label>Categoría<select data-extracat="${esc(i.key)}">${opts}</select></label>
+          <label><span>Concepto <span class="cobro-opt">· opcional</span></span><input type="text" data-extraconcepto="${esc(i.key)}" maxlength="80" value="${esc(i.extraConcept || '')}" placeholder="Ej. Torneo de Navidad"></label></div>`
+          : '<small class="cobro-nota">Se usan solos en lo próximo que deba (la siguiente mensualidad).</small>'}</div>`);
+  }
   // El monto ya se ve en la caja: repetir "Debe $X" cuando paga completo sólo
   // estorba. Se avisa nada más cuando deja algo pendiente.
   const nota = i.max != null ? (num(i.amount) > 0 && num(i.amount) < i.max ? `Queda a deber ${money.format(i.max - num(i.amount))}` : '')
     : i.kind === 'month' ? esc(i.detalle || '') : i.kind === 'abono' ? 'Se aplica a lo más antiguo; si sobra, queda a favor.' : '';
   return renglon(i.label, nota);
+}
+
+// La fecha del pago, a la vista: "Pagó hoy". Si se cambia a un día anterior,
+// se avisa que el recargo se quita solo cuando el mes quedó a tiempo.
+function fechaHtml() {
+  const hoy = hoyLocal(), atrasada = s.fecha && s.fecha < hoy;
+  const bonita = s.fecha === hoy ? 'Hoy' : new Intl.DateTimeFormat('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(`${s.fecha}T12:00:00`));
+  return `<div class="cobro-fecha"><label for="cobroFecha"><span>Pagó</span><b>${esc(bonita)}</b><input id="cobroFecha" type="date" value="${esc(s.fecha)}" max="${hoy}" aria-label="Fecha en que pagó"></label>
+    ${atrasada ? '<small>Si con esa fecha el mes quedó pagado a tiempo, el recargo se quita solo.</small>' : '<small>¿Pagó otro día? Toca la fecha.</small>'}</div>`;
 }
 
 // Lo que casi no se usa: otra fecha (17% de los cobros), nota (3%),
@@ -289,18 +323,20 @@ function masHtml(t) {
   let dos = '';
   if (s.dos) {
     const m1 = num(s.monto1), resto = Math.max(0, Math.round((t - m1) * 100) / 100);
-    dos = `<div class="cobro-dos"><label>En ${esc(nombreMetodo(s.metodo).toLowerCase())}<span class="cobro-peso"><input type="text" inputmode="decimal" id="cobroMonto1" value="${esc(s.monto1)}" placeholder="0"></span></label>
-      <label><span>Y el resto, <b id="cobroResto">${money.format(resto)}</b>, en</span><select id="cobroMetodo2">${METODOS.filter(([v]) => v !== s.metodo).map(([v, l]) => `<option value="${v}"${v === s.metodo2 ? ' selected' : ''}>${l}</option>`).join('')}</select></label></div>`;
+    const otros = METODOS.filter(([v]) => v !== s.metodo);
+    dos = `<div class="cobro-formas">
+      <div class="cobro-forma"><span class="cobro-forma-met">${esc(nombreMetodo(s.metodo))}</span><span class="cobro-peso"><input type="text" inputmode="decimal" id="cobroMonto1" value="${esc(s.monto1)}" placeholder="0" aria-label="Cuánto en ${esc(nombreMetodo(s.metodo).toLowerCase())}"></span></div>
+      <div class="cobro-forma"><span class="cobro-forma-met"><span class="cobro-mini" role="radiogroup" aria-label="Segunda forma de pago">${otros.map(([v, l]) => `<button type="button" role="radio" data-metodo2="${v}" aria-pressed="${v === s.metodo2}">${l}</button>`).join('')}</span></span><b class="cobro-forma-resto" id="cobroResto">${money.format(resto)}</b></div>
+    </div>`;
   }
   // Lo que se usa siempre (método) va arriba y grande; lo que casi nadie
   // toca (referencia, fecha, nota) va aparte y más chico, para no competir.
   return `<div class="cobro-bloque cobro-mas"><span class="cobro-titulo">¿Cómo paga?</span>${seg}
-    <button type="button" class="cobro-link" data-dos>${s.dos ? 'Pagó con un solo método' : '+ Pagó con dos métodos'}</button>${dos}
+    <button type="button" class="cobro-switch" data-dos role="switch" aria-checked="${!!s.dos}"><span>Pagó con dos formas</span><i aria-hidden="true"></i></button>${dos}
     <div class="cobro-mas-detalle">
       <span class="cobro-titulo cobro-titulo--sub">Más detalles · opcional</span>
       <label><span>Referencia <span class="cobro-opt">· el comprobante llega por WhatsApp</span></span><input id="cobroRef" type="text" maxlength="80" value="${esc(s.ref)}" placeholder="Folio SPEI, últimos 4 de la tarjeta…"></label>
-      <div class="cobro-dos"><label>Fecha<input id="cobroFecha" type="date" value="${esc(s.fecha)}" max="${hoyLocal()}"></label>
-        <label><span>Nota</span><input id="cobroObs" type="text" maxlength="300" placeholder="Pagó la abuela…" value="${esc(s.obs)}"></label></div>
+      <label><span>Nota</span><input id="cobroObs" type="text" maxlength="300" placeholder="Pagó la abuela…" value="${esc(s.obs)}"></label>
     </div></div>`;
 }
 
@@ -313,7 +349,7 @@ function botonesHtml(t) {
   return `<div class="cobro-pagar">
     <button type="button" class="pres-primary cobro-pagar-btn" data-pagar="cash"${dis}><small>Efectivo</small> <span>${s.enviando && s.metodo === 'cash' ? 'Un momento…' : money.format(t)}</span></button>
     <button type="button" class="pres-primary cobro-pagar-btn" data-pagar="transfer"${dis}><small>Transferencia</small> <span>${s.enviando && s.metodo === 'transfer' ? 'Un momento…' : money.format(t)}</span></button>
-  </div><button type="button" class="cobro-link cobro-menos" data-mas>Tarjeta, dos métodos, otra fecha o nota</button>`;
+  </div><button type="button" class="cobro-link cobro-menos" data-mas>Tarjeta, dos formas de pago o nota</button>`;
 }
 
 function hechoHtml() {
@@ -323,7 +359,7 @@ function hechoHtml() {
   const wa = s.telefono ? `<a class="pres-primary cobro-wa" target="_blank" rel="noopener" href="https://wa.me/${conLada(s.telefono)}?text=${encodeURIComponent(reciboTexto())}">Mandar recibo por WhatsApp</a>` : '';
   return `<div class="cobro-hecho"><div class="cobro-palomita" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
     <strong>${money.format(h.total)}</strong><span>Folio ${esc(folioTexto(h.folio))} · ${esc(metodos)}${h.quien ? ` · cobró ${esc(h.quien)}` : ''}</span>
-    <ul class="cobro-recibo">${partes}</ul>${wa}
+    <ul class="cobro-recibo">${partes}</ul>${h.recargos ? `<p class="cobro-recargo-quitado">Se quitó el recargo de ${money.format(h.recargos)}: con esa fecha pagó a tiempo.</p>` : ''}${wa}
     <button type="button" class="cobro-listo" data-cobro-cerrar>Listo</button></div>`;
 }
 
@@ -359,6 +395,7 @@ async function sumaHermano(id) {
 }
 
 function alClic(e) {
+  if (e.target.closest?.('.cobro-fecha label') && !e.target.matches('input')) { try { document.getElementById('cobroFecha')?.showPicker?.(); } catch { /* el navegador abre el suyo */ } }
   const t = e.target.closest('button,a'); if (!t || !s) return;
   if (t.matches('[data-cobro-cerrar]')) { if (!s.enviando) cierra(); return; }
   if (s.enviando) return;
@@ -379,7 +416,9 @@ function alClic(e) {
     s.metodo = t.dataset.metodo;
     if (s.metodo2 === s.metodo) s.metodo2 = METODOS.find(([v]) => v !== s.metodo)[0];
     pinta();
-  } else if (t.hasAttribute('data-dos')) { s.dos = !s.dos; pinta(); }
+  } else if (t.dataset.metodo2) { s.metodo2 = t.dataset.metodo2; pinta(); }
+  else if (t.hasAttribute('data-dos')) { s.dos = !s.dos; pinta(); }
+  else if (t.dataset.extra) { const i = s.sel.get(t.dataset.linea2); if (i) { i.extra = t.dataset.extra; pinta(); } }
   else if (t.hasAttribute('data-mas')) { s.mas = !s.mas; if (!s.mas) { s.dos = false; } pinta(); }
   else if (t.dataset.pagar) envia(t.dataset.pagar);
   else if (t.dataset.quien) eligeQuien(t.dataset.quien);
@@ -392,6 +431,7 @@ function alEscribir(e) {
   if (x.dataset.monto) { const i = s.sel.get(x.dataset.monto); if (i) i.amount = x.value; }
   else if (x.dataset.total) { const i = s.sel.get(x.dataset.total); if (i) { i.total = x.value; i.cat = ''; } }
   else if (x.dataset.concepto) { const i = s.sel.get('otro'); if (i) i.concept = x.value; }
+  else if (x.dataset.extraconcepto) { const i = s.sel.get(x.dataset.extraconcepto); if (i) i.extraConcept = x.value; return; }
   else if (x.id === 'cobroMonto1') s.monto1 = x.value;
   else if (x.id === 'cobroRef') s.ref = x.value;
   else if (x.id === 'cobroObs') s.obs = x.value;
@@ -402,8 +442,13 @@ function alEscribir(e) {
 function alCambiar(e) {
   const x = e.target; if (!s) return;
   if (x.dataset.categoria) { const i = s.sel.get('otro'); if (i) i.category = x.value; }
+  else if (x.dataset.extracat) { const i = s.sel.get(x.dataset.extracat); if (i) i.extraCat = x.value; }
   else if (x.id === 'cobroMetodo2') s.metodo2 = x.value;
-  else if (x.id === 'cobroFecha') s.fecha = x.value;
+  else if (x.id === 'cobroFecha') { s.fecha = x.value || hoyLocal(); pinta(); }
+  // Al salir de un monto se vuelve a pintar: si pasa de lo que debe, aparece
+  // a dónde van los de más.
+  // Sólo si cambia de lado: repintar siempre se come el siguiente toque.
+  else if (x.dataset.monto) { const i = s.sel.get(x.dataset.monto); if (i && i.max != null && (num(i.amount) > i.max + 0.004) !== !!i.sobraPintado) pinta(); }
 }
 // Al teclear no se repinta la hoja (se perdería el cursor): sólo las cifras.
 function recalcula() {
@@ -424,7 +469,7 @@ function valida() {
   for (const i of items) {
     const a = num(i.amount);
     if (!(a > 0)) return `Escribe cuánto paga de ${i.kind === 'income' && i.key === 'otro' ? 'otro ingreso' : i.label.toLowerCase()}.`;
-    if (i.max != null && a > i.max + 0.004) return `${i.label} sólo debe ${money.format(i.max)}.`;
+    if (i.max != null && a > i.max + 0.004 && i.extra === 'otro' && !i.extraCat) return `Elige a qué concepto van los ${money.format(a - i.max)} de más.`;
     if (i.kind === 'registration' && !(num(i.total) >= a)) return 'Lo que paga hoy no puede ser más que el precio de la inscripción.';
     if (i.key === 'otro' && !i.category) return 'Elige la categoría del otro ingreso.';
   }
@@ -441,13 +486,22 @@ function cuerpo() {
   const t = total();
   const items = [...s.sel.values()].map(i => {
     const a = num(i.amount), p = i.player || s.playerId;
-    if (i.kind === 'charge') return { kind: 'charge', player_id: p, charge_id: i.id, amount: a };
-    if (i.kind === 'order') return { kind: 'order', player_id: p, order_id: i.id, amount: a };
+    if (i.kind === 'charge') return { kind: 'charge', player_id: p, charge_id: i.id, amount: Math.min(a, i.max) };
+    if (i.kind === 'order') return { kind: 'order', player_id: p, order_id: i.id, amount: Math.min(a, i.max) };
     if (i.kind === 'registration') return { kind: 'registration', player_id: p, total: num(i.total), amount: a };
     if (i.kind === 'month') return { kind: 'month', player_id: p, period: i.period, total: a, amount: a };
     if (i.kind === 'income') return { kind: 'income', player_id: p, category: i.category, concept: (i.concept || '').trim() || i.category, amount: a };
     return { kind: 'abono', player_id: p, amount: a };
   });
+  // Lo de más de un cargo o pedido: a favor (abono) o como otro concepto.
+  for (const i of s.sel.values()) {
+    const a = num(i.amount);
+    if (i.max == null || a <= i.max + 0.004) continue;
+    const extra = Math.round((a - i.max) * 100) / 100, p = i.player || s.playerId;
+    if (i.extra === 'otro' && i.extraCat === 'Inscripción') items.push({ kind: 'registration', player_id: p, total: extra, amount: extra });
+    else if (i.extra === 'otro') items.push({ kind: 'income', player_id: p, category: i.extraCat, concept: (i.extraConcept || '').trim() || i.extraCat, amount: extra });
+    else items.push({ kind: 'abono', player_id: p, amount: extra });
+  }
   const ref = s.ref.trim() || null;
   const metodos = s.dos
     ? [{ method: s.metodo, amount: num(s.monto1), reference: s.metodo === 'cash' ? null : ref },
@@ -470,13 +524,25 @@ async function envia(metodo) {
   if (s.error) { pinta(); return; }
   const { items, metodos, t } = cuerpo();
   const etq = i => (i.key === 'otro' ? (i.category || 'Otro ingreso') : i.label);
-  const lineas = [...s.sel.values()].map(i => ({ label: etq(i), amount: num(i.amount) }));
+  const lineas = [...s.sel.values()].flatMap(i => {
+    const a = num(i.amount);
+    if (i.max == null || a <= i.max + 0.004) return [{ label: etq(i), amount: a }];
+    const extra = Math.round((a - i.max) * 100) / 100;
+    return [{ label: etq(i), amount: i.max }, { label: i.extra === 'otro' ? (i.extraConcept || i.extraCat || 'Otro concepto') : 'A favor (para lo que siga)', amount: extra }];
+  });
   s.enviando = true; pinta();
   try {
     const r = await s.rpc('v2_collect_ticket', { organization_id: s.org, player_id: s.playerId, payment_date: s.fecha, items, methods: metodos,
       collected_by_name: s.quien.trim() || null, observations: s.obs.trim() || null, idempotency_key: s.llave });
     s.hecho = { folio: r?.folio, ticketId: r?.ticketId, payments: r?.payments || [], total: t, lineas, metodos, quien: s.quien.trim(),
       fecha: new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${s.fecha}T12:00:00`)) };
+    // Con la fecha real del pago: si un mes quedó pagado a tiempo, su recargo
+    // se va. La regla vive en la base; si falla, el cobro ya quedó.
+    let quitados = 0;
+    for (const id of new Set(items.map(x => x.player_id))) {
+      try { const q = await s.rpc('v2_waive_on_time_late_fees', { organization_id: s.org, player_id: id }); quitados += Number(q?.amount || 0); } catch { /* sin permiso o sin red */ }
+    }
+    if (quitados > 0) s.hecho.recargos = quitados;
     s.enviando = false; pinta();
   } catch (e) {
     if (!s) return;

@@ -86,6 +86,7 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
                 v2_my_navigation:m, v2_player_account_statement:estado, v2_player_change_history:[],
                 v2_player_family:[{ id:'p2', name:'Sofía Santos', birthDate:'2019-05-01', balance:400 }],
                 v2_collect_ticket:{ ok:true, ticketId:'t9', folio:9, total:0, payments:['a','b','c'] },
+                v2_waive_on_time_late_fees:{ waived:1, amount:100 },
                 v2_cashier_snapshot:{ businessDate:'2026-10-21', incomeTotal:0, expenseTotal:0, netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], canViewLedger:true,
                   movements:[{ id:'m1', type:'income', status:'posted', amount:500, registeredBy:'Zul', registeredByIsAccount:false }] },
                 v2_billing_players:[{ player_id:'p1', player_name:'Liam Santos', base_monthly_fee:500, billing_status:'active' }],
@@ -152,7 +153,9 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   revisa('[hoja] ofrece el uniforme con su saldo', /Uniforme PED-0042.*\$350\.00/.test(await texto(p, '[data-chip="o:o1"]')));
   await p.click('#cobroBody [data-agregar]');
   revisa('[hoja] no pregunta quién cobra (cuenta personal)', !(await p.$('#cobroQuienNuevo')) && !(await p.$('.cobro-cobra')));
-  revisa('[hoja] lo raro está escondido: sin fecha, nota ni referencia a la vista', !(await p.$('#cobroFecha')) && !(await p.$('#cobroObs')) && !(await p.$('#cobroRef')));
+  revisa('[hoja] lo raro está escondido: sin nota ni referencia a la vista', !(await p.$('#cobroObs')) && !(await p.$('#cobroRef')));
+  // La fecha va arriba, a la vista (08/11/2026): "me pagó el viernes en la noche".
+  revisa('[fecha] arriba dice "Pagó Hoy"', /Pagó\s*Hoy/.test(await texto(p, '.cobro-fecha')) && await p.isVisible('#cobroFecha + *, .cobro-fecha'));
   const botones = await p.$$eval('[data-pagar]', els => els.map(e => `${e.dataset.pagar}:${e.textContent.replace(/\s+/g, ' ').trim()}`));
   revisa('[hoja] el último toque dice el método y el total', JSON.stringify(botones) === JSON.stringify(['cash:Efectivo $1,100.00','transfer:Transferencia $1,100.00']), JSON.stringify(botones));
 
@@ -171,11 +174,18 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.fill('[data-monto="arb"]', '150');
   revisa('[hoja] el total suma todo y los botones también: $1,750.00', /\$1,750\.00/.test(await texto(p, '#cobroTotal')) && /\$1,750\.00/.test(await texto(p, '[data-pagar="transfer"]')));
 
+  // Paga de más (08/11/2026): ya no se bloquea; se elige a dónde van.
   await p.fill('[data-monto="c:c-rec"]', '300');
+  await p.press('[data-monto="c:c-rec"]', 'Tab');
+  await p.waitForSelector('[data-linea="c:c-rec"] [data-extra]', { timeout:3000 });
+  revisa('[de más] dice cuánto debe y cuánto es de más', /Debe \$100\.00 · \$200\.00 de más/.test(await texto(p, '[data-linea="c:c-rec"]')), await texto(p, '[data-linea="c:c-rec"]'));
+  revisa('[de más] por omisión quedan a favor', await p.getAttribute('[data-linea="c:c-rec"] [data-extra="favor"]', 'aria-checked') === 'true');
+  await p.click('[data-linea="c:c-rec"] [data-extra="otro"]');
   await p.click('[data-pagar="cash"]');
-  revisa('[validación] no deja cobrar más de lo que debe el recargo', (await llamadas(p, 'v2_collect_ticket')).length === 0 && /Recargo oct sólo debe \$100\.00/.test(await texto(p, '.pres-error')));
+  revisa('[de más] como otro concepto pide la categoría', (await llamadas(p, 'v2_collect_ticket')).length === 0 && /Elige a qué concepto van los \$200\.00 de más/.test(await texto(p, '.pres-error')), await texto(p, '.pres-error').catch(() => ''));
   await p.fill('[data-monto="c:c-rec"]', '100');
-  revisa('[validación] al corregir el monto se quita el aviso', !(await p.$('#cobroBody .pres-error')));
+  await p.press('[data-monto="c:c-rec"]', 'Tab');
+  revisa('[de más] al corregir el monto se va la pregunta', !(await p.$('[data-linea="c:c-rec"] [data-extra]')));
 
   // Hermana: un toque la agrega con lo que debe.
   await abrePanel(p);
@@ -189,7 +199,8 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.click('#cobroBody [data-mas]');
   await p.click('[data-dos]');
   await p.fill('#cobroMonto1', '1000');
-  revisa('[más] dos métodos enseña el resto: $1,150.00 en transferencia', /\$1,150\.00/.test(await texto(p, '#cobroResto')) && await p.inputValue('#cobroMetodo2') === 'transfer');
+  revisa('[más] dos formas enseña el resto: $1,150.00 en transferencia', /\$1,150\.00/.test(await texto(p, '#cobroResto')) && await p.getAttribute('[data-metodo2="transfer"]', 'aria-pressed') === 'true');
+  revisa('[más] el switch dice que está prendido', await p.getAttribute('[data-dos]', 'aria-checked') === 'true');
   await p.fill('#cobroRef', 'SPEI 4455');
   const cabe = await p.evaluate(() => { const r = document.getElementById('cobroSheet').getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; });
   revisa('[hoja] en el teléfono cabe a lo ancho', cabe);
@@ -362,6 +373,33 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.click('#collectModal [data-close]');
   await p.click('#openExpense');
   revisa('[pagar] sin "Referencia" ni "¿Quién pagó?" a mano', !(await p.$('#expenseReference')) && !(await p.isVisible('#expensePaidBy')));
+  await p.close();
+}
+
+/* ---------- Paga de más y otro día (08/11/2026) ----------
+   "Me pagó 800 y sólo debe 500"; "me pagó el viernes en la noche". */
+{
+  const p = await abre(true);
+  await p.waitForSelector('.tan-balance [data-cobrar]', { timeout:8000 });
+  await p.click('.tan-balance [data-cobrar]');
+  await p.waitForSelector(hoja, { timeout:5000 });
+  await p.fill('#cobroFecha', '2026-11-06');
+  await p.waitForFunction(() => !/Hoy/.test(document.querySelector('.cobro-fecha')?.textContent || ''), null, { timeout:3000 });
+  revisa('[otro día] la fecha elegida se ve arriba y avisa del recargo', /6 de nov/.test(await texto(p, '.cobro-fecha')) && /recargo se quita solo/.test(await texto(p, '.cobro-fecha')), await texto(p, '.cobro-fecha'));
+  await p.fill('[data-monto="c:c-oct"]', '800');
+  await p.press('[data-monto="c:c-oct"]', 'Tab');
+  await p.waitForSelector('[data-linea="c:c-oct"] [data-extra]', { timeout:3000 });
+  await p.click('[data-pagar="cash"]');
+  await p.waitForSelector('.pres-error, .cobro-hecho', { timeout:4000 });
+  if (await p.$('.pres-error')) await p.click('[data-pagar="cash"]');
+  await p.waitForSelector('.cobro-hecho', { timeout:4000 });
+  const prm = (await llamadas(p, 'v2_collect_ticket')).at(-1)?.params || {};
+  revisa('[de más] el cargo se cubre y lo demás queda a favor', JSON.stringify(prm.items.filter(i => i.charge_id === 'c-oct' || i.kind === 'abono')) === JSON.stringify([{ kind:'charge', player_id:'p1', charge_id:'c-oct', amount:500 }, { kind:'abono', player_id:'p1', amount:300 }]), JSON.stringify(prm.items));
+  revisa('[otro día] se manda la fecha elegida', prm.payment_date === '2026-11-06', prm.payment_date);
+  revisa('[recargo] después del cobro revisa si pagó a tiempo', (await llamadas(p, 'v2_waive_on_time_late_fees')).some(l => l.params.player_id === 'p1'));
+  revisa('[recargo] el recibo dice que se quitó', /Se quitó el recargo de \$100\.00/.test(await texto(p, '.cobro-hecho')), await texto(p, '.cobro-hecho'));
+  revisa('[recibo] separa lo cobrado de lo que queda a favor', /A favor/.test(await texto(p, '.cobro-recibo')), await texto(p, '.cobro-recibo'));
+  await foto(p, 'cobro-de-mas');
   await p.close();
 }
 

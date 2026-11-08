@@ -263,3 +263,9 @@ button.tan-fila:disabled{opacity:.55}
 .tan-plegable>.tan-section{margin:0;border:0;border-top:1px solid #eceae2;border-radius:0}
 /* El botón flotante no tapa lo último de la pantalla. */
 body[data-hub="tanner"] .tos-content{padding-bottom:calc(env(safe-area-inset-bottom) + 110px)}
+/* Cambiar lo que debe / Editar pago (08/11/2026) */
+#presCambio{display:grid;gap:10px}
+.pres-sube{padding:10px 12px;border-radius:12px;background:#fff4e5;color:#7a4b00}
+.pres-cuota span{font-size:12.5px}
+.pres-cuota b{font-size:18px}
+.pres-link-peligro{justify-self:center;min-height:44px;border:0;background:transparent;font:inherit;font-size:14px;font-weight:700;color:#b42318;cursor:pointer}

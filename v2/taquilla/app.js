@@ -10,6 +10,8 @@ import {estadoDe,validacionDe,accionesPara,requiereMotivo,diferenciaDe,
         filtra as filtraConcilia,lineaDeHistorial,pendientesReales,metodoDe,mesDe,fechaCorta as fechaPago,registradoDe,agrupaPorDia,iniciales}
   from '/v2/taquilla/conciliacion.js';
 import {abrirCobro,esCuentaCompartida} from '/v2/cobro/hoja.js';
+import {preparaCobro,ligaDeCobro} from '/v2/cobranza-whatsapp.js';
+import {resumenCobranza,filtraCobranza,textoEstado} from '/v2/taquilla/cobranza.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
@@ -38,7 +40,7 @@ let snapshot=null,billingPlayers=[],collectMode='player',canViewLedger=true,rece
 // permisos de cada vista. applyLedgerVisibility corre antes de eso durante el
 // arranque, así que pregunta por esta bandera en vez de romperse.
 let vistasListas=false,vistaActual=null;
-const COLLECTIONS_COLLAPSED_LIMIT=6;
+const COLLECTIONS_COLLAPSED_LIMIT=12;
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -200,27 +202,61 @@ function fmtLastPayment(d){
 }
 const DIACRITICS_RE=new RegExp(String.fromCharCode(0x5b)+String.fromCharCode(0x300)+'-'+String.fromCharCode(0x36f)+String.fromCharCode(0x5d),'g');
 const normSearch=s=>String(s||'').toLowerCase().normalize('NFD').replace(DIACRITICS_RE,'');
+// Tablero de cobranza (h66): una sola llamada con el mes y cada Tanner. Se
+// vuelve a pedir después de cobrar (tablero=null).
+let tablero=null,clubWa=null,cobVista=(()=>{try{return localStorage.getItem('tanneros:cobranza:vista')||'tarjetas';}catch{return 'tarjetas';}})();
+const RECORDADOS=()=>`tanneros:cobranza:recordados:${org}:${new Date().toISOString().slice(0,10)}`;
+const recordados=()=>{try{return new Set(JSON.parse(localStorage.getItem(RECORDADOS())||'[]'));}catch{return new Set();}};
+function marcaRecordado(id){try{const s=recordados();s.add(id);localStorage.setItem(RECORDADOS(),JSON.stringify([...s]));}catch{}}
+async function cargaTablero(){
+  if(tablero)return tablero;
+  const [t,club]=await Promise.all([safe(rpc('v2_collection_board',{organization_id:org}),null),clubWa?Promise.resolve(clubWa):safe(rpc('v2_club_config',{organization_id:org}),null)]);
+  clubWa=club||{};tablero=t;return t;
+}
+function ligaRecordar(p){
+  const c=preparaCobro(p.phone||'',clubWa?.whatsapp||'');
+  if(c.estado!=='ok')return null;
+  const debe=Number(p.overdue||0)+Number(p.upcoming||0);
+  return ligaDeCobro({numero:c.numero,club:clubWa?.name||'',tanner:p.name,monto:money.format(debe),desde:p.oldestDue?fechaCorta(p.oldestDue):''});
+}
+function pintaResumen(t){
+  const box=$('cobResumen');if(!box)return;
+  const r=resumenCobranza(t);
+  if(!r){box.innerHTML='';return;}
+  $('cobMes').textContent=`${r.mes.charAt(0).toUpperCase()}${r.mes.slice(1)}: cómo va y quién debe.`;
+  const debenN=(t.players||[]).filter(p=>p.state==='atrasado').length;
+  box.innerHTML=`<div class="cob-pct"><div><strong>${r.pct}%</strong><span>cobrado de ${esc(r.mes)}</span></div><span class="cob-barra" role="progressbar" aria-valuenow="${r.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.min(100,r.pct)}%"></i></span></div>
+    <div class="cob-tiles">
+      <div class="cob-tile"><span>Esperado</span><b>${money.format(r.esperado)}</b></div>
+      <div class="cob-tile" data-tono="ok"><span>Cobrado</span><b>${money.format(r.cobrado)}</b></div>
+      <button type="button" class="cob-tile" data-tono="aviso" data-cob-ir="por_vencer"><span>Por vencer</span><b>${money.format(r.porVencer)}</b></button>
+      <button type="button" class="cob-tile" data-tono="mal" data-cob-ir="atrasado"><span>Atrasado</span><b>${money.format(r.atrasado)}</b></button>
+    </div>
+    ${debenN?`<button type="button" class="cob-recordar-todos" data-cob-recordar-todos>Recordar a los ${debenN} que deben</button>`:''}
+    <div id="cobRecordarLista" class="cob-recordar-lista hidden"></div>`;
+}
+function pintaRecordarTodos(){
+  const box=$('cobRecordarLista');if(!box)return;
+  const ya=recordados();
+  const deben=(tablero?.players||[]).filter(p=>p.state==='atrasado');
+  box.innerHTML=`<p class="cob-nota">Un toque abre WhatsApp con el mensaje listo. Lo que ya mandaste hoy queda marcado.</p>`+deben.map(p=>{
+    const liga=ligaRecordar(p);
+    return `<div class="cob-rec-fila"><span><strong>${esc(p.name)}</strong><small>${esc(textoEstado(p,fechaCorta,money))}</small></span>${liga?`<a class="cob-wa${ya.has(p.playerId)?' hecho':''}" href="${esc(liga)}" target="_blank" rel="noopener" data-cob-recordado="${esc(p.playerId)}">${ya.has(p.playerId)?'Enviado':'Recordar'}</a>`:'<small class="cob-sin">Sin WhatsApp</small>'}</div>`;
+  }).join('');
+}
 async function renderCollections(){
   const panel=$('collectionsPanel');if(!panel)return;
   // Quién enseña este panel lo decide el selector "Ver", que ya sólo ofrece
   // Cobranza a quien puede verla. Si aquí también se tocara `hidden`, cada
   // recarga de la lista apagaría la vista que el usuario acaba de elegir.
   if(!canViewCollections)return;
+  const t=await cargaTablero();
+  pintaResumen(t);
+  document.querySelectorAll('[data-cob-vista]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.cobVista===cobVista)));
   const q=normSearch($('collectionsSearch')?.value).trim();
-  const rows=(billingPlayers||[])
-    .filter(p=>!q||normSearch(p.player_name).includes(q))
-    .filter(p=>{
-      if(collectionsFilter==='all')return true;
-      if(collectionsFilter==='agreement')return acuerdos.has(p.player_id);
-      const pending=playerReceivables(p.player_id).length>0;
-      return collectionsFilter==='pending'?pending:!pending;
-    })
-    .sort((a,b)=>{
-      const pa=playerReceivables(a.player_id).length>0,pb=playerReceivables(b.player_id).length>0;
-      if(pa!==pb)return pa?-1:1;
-      return String(a.player_name||'').localeCompare(String(b.player_name||''),'es-MX');
-    });
+  const rows=filtraCobranza(t?.players||[],{filtro:collectionsFilter,busca:q,norm:normSearch,acuerdos});
   const list=$('collectionsList');if(!list)return;
+  list.dataset.vista=cobVista;
   $('collectionsEmpty').classList.toggle('hidden',rows.length>0);
   const visibleRows=collectionsExpanded?rows:rows.slice(0,COLLECTIONS_COLLAPSED_LIMIT);
   const toggle=$('collectionsToggle');
@@ -228,18 +264,18 @@ async function renderCollections(){
     toggle.classList.toggle('hidden',rows.length<=COLLECTIONS_COLLAPSED_LIMIT);
     toggle.textContent=collectionsExpanded?'Ver menos':`Ver todos (${rows.length})`;
   }
+  const ya=recordados();
   list.innerHTML=visibleRows.map(p=>{
-    const pend=playerReceivables(p.player_id),isPending=pend.length>0;
-    const total=pend.reduce((sum,r)=>sum+Number(r.balance_due||0),0);
-    const concept=isPending?pend.slice(0,2).map(conceptoCorto).join(' · ')+(pend.length>2?' …':''):'Sin adeudos pendientes';
-    const amount=Math.round(isPending?total:Number(p.base_monthly_fee||0));
-    const initials=String(p.player_name||'T').trim().split(/\s+/).map(part=>part[0]||'').join('').toUpperCase().slice(0,2)||'T';
-    const photoAttrs=p.photo_thumb_path?` data-photo-path="${esc(p.photo_thumb_path)}" data-photo-bucket="${esc(p.photo_bucket||'tanneros-private')}"`:'';
-    return `<div class="collections-row">
+    const debe=Number(p.overdue||0)+Number(p.upcoming||0);
+    const initials=String(p.name||'T').trim().split(/\s+/).map(part=>part[0]||'').join('').toUpperCase().slice(0,2)||'T';
+    const photoAttrs=p.photoThumbPath?` data-photo-path="${esc(p.photoThumbPath)}" data-photo-bucket="${esc(p.photoBucket||'tanneros-private')}"`:'';
+    const liga=p.state!=='al_dia'?ligaRecordar(p):null;
+    const pill={atrasado:'Atrasado',por_vencer:'Por vencer',al_dia:'Al día'}[p.state];
+    return `<div class="collections-row cob-fila" data-estado="${esc(p.state)}">
       <span class="collections-face"${photoAttrs}><b aria-hidden="true">${esc(initials)}</b></span>
-      <a class="collections-info collections-edo" href="/tanner/?id=${encodeURIComponent(p.player_id)}" title="Ver su historial de pagos"><strong>${esc(p.player_name)}</strong><span class="collections-concept">${esc(concept)} · <u>Ver historial</u></span></a>
-      <div class="collections-status"><span class="status-pill ${isPending?'pending':'current'}">${isPending?'Pendiente':'Al corriente'}</span>${acuerdoChip(p.player_id)}<small class="collections-last">${esc(fmtLastPayment(p.last_payment_date))}</small></div>
-      ${canCashWrite?`<button type="button" class="collections-collect" data-quick-collect="${esc(p.player_id)}" data-name="${esc(p.player_name||'')}" data-amount="${amount>0?amount:''}">Registrar</button>`:''}
+      <a class="collections-info collections-edo" href="/tanner/?id=${encodeURIComponent(p.playerId)}" title="Ver su estado de cuenta"><strong>${esc(p.name)}</strong><span class="collections-concept">${esc(textoEstado(p,fechaCorta,money))}</span></a>
+      <div class="collections-status"><span class="cob-pill" data-estado="${esc(p.state)}">${pill}</span>${acuerdoChip(p.playerId)}${debe>0?`<b class="cob-debe">${money.format(debe)}</b>`:''}</div>
+      <div class="cob-acciones">${liga?`<a class="cob-wa${ya.has(p.playerId)?' hecho':''}" href="${esc(liga)}" target="_blank" rel="noopener" data-cob-recordado="${esc(p.playerId)}">${ya.has(p.playerId)?'Enviado':'Recordar'}</a>`:''}${canCashWrite&&debe>0?`<button type="button" class="collections-collect" data-quick-collect="${esc(p.playerId)}" data-name="${esc(p.name||'')}" data-amount="${Math.round(debe)}">Ya pagó</button>`:''}</div>
     </div>`;
   }).join('');
   signCollectionsPhotos();
@@ -357,7 +393,7 @@ function cobraA(playerId,nombre){
   if(!canCashWrite||!playerId)return;
   closeModals();
   abrirCobro({rpc,org,playerId,nombre,preseleccion:'todo',quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),
-    alTerminar:async()=>{await Promise.all([load(),loadReceivables()]);renderCollections();cargaConcilia(true);}});
+    alTerminar:async()=>{await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();cargaConcilia(true);}});
 }
 function quickCollect(playerId,name){cobraA(playerId,name);}
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-quick-collect]');if(b)quickCollect(b.dataset.quickCollect,b.dataset.name,b.dataset.amount);});
@@ -648,7 +684,7 @@ async function postCollect(){
         method:$('gafeteMethod').value,reference:$('gafeteReference').value.trim()||null,
         collected_by_name:quienDelClub('gafeteCollectedBy'),idempotency_key:key('cashier-parking')});
       gafetes=null;
-      closeModals();await Promise.all([load(),loadReceivables()]);renderCollections();cargaConcilia(true);
+      closeModals();await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();cargaConcilia(true);
       if(window.tosAlert)await window.tosAlert({kicker:'ESTACIONAMIENTO',title:`Entrega el gafete ${r?.folio||''}`.trim(),
         message:`Cobrado ${money.format(Number(r?.paid||amount))}. Dale a ${quien} el gafete ${r?.folio||''} para ${placa}.`});
       return;
@@ -659,7 +695,7 @@ async function postCollect(){
       if(!okDbl){btn.disabled=false;return;}
       await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
     }
-    closeModals();await Promise.all([load(),loadReceivables()]);renderCollections();
+    closeModals();await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();
     cargaConcilia(true);
   }catch(e){message('collectMessage',e.message||'No se pudo registrar.');}finally{btn.disabled=false;}
 }
@@ -895,6 +931,15 @@ document.querySelectorAll('.collections-filters button').forEach(b=>b.addEventLi
   renderCollections();
 }));
 $('collectionsToggle')?.addEventListener('click',()=>{collectionsExpanded=!collectionsExpanded;renderCollections();});
+document.addEventListener('click',e=>{
+  const v=e.target.closest?.('[data-cob-vista]');
+  if(v){cobVista=v.dataset.cobVista;try{localStorage.setItem('tanneros:cobranza:vista',cobVista);}catch{}renderCollections();return;}
+  const ir=e.target.closest?.('[data-cob-ir]');
+  if(ir){collectionsFilter=ir.dataset.cobIr;collectionsExpanded=false;document.querySelectorAll('.collections-filters button').forEach(x=>x.classList.toggle('active',x.dataset.collectionsFilter===collectionsFilter));renderCollections();$('collectionsList')?.scrollIntoView({block:'start',behavior:'smooth'});return;}
+  if(e.target.closest?.('[data-cob-recordar-todos]')){const box=$('cobRecordarLista');if(box){const abrir=box.classList.contains('hidden');box.classList.toggle('hidden',!abrir);if(abrir)pintaRecordarTodos();}return;}
+  const rec=e.target.closest?.('[data-cob-recordado]');
+  if(rec){marcaRecordado(rec.dataset.cobRecordado);setTimeout(()=>{rec.textContent='Enviado';rec.classList.add('hecho');},50);}
+});
 
 await Promise.all([loadPlayers(),load(),loadReceivables()]);renderCollections();
 
@@ -922,7 +967,7 @@ async function confirmVoid(){
     if(pendingVoid.kind==='refund'){await rpc('v2_correct_tanner_payment',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else if(pendingVoid.kind==='void-income'){await rpc('v2_void_income',{organization_id:org,payment_id:pendingVoid.id,reason});}
     else{await rpc('v2_void_expense',{organization_id:org,expense_id:pendingVoid.id,reason});}
-    closeVoid();await Promise.all([load(),loadReceivables()]);renderCollections();
+    closeVoid();await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();
   }catch(e){msg.textContent=(e&&e.message)||'No se pudo completar.';msg.classList.remove('hidden');}
   finally{btn.disabled=false;}
 }

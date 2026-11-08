@@ -156,8 +156,12 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   revisa('[hoja] lo raro está escondido: sin nota ni referencia a la vista', !(await p.$('#cobroObs')) && !(await p.$('#cobroRef')));
   // La fecha va arriba, a la vista (08/11/2026): "me pagó el viernes en la noche".
   revisa('[fecha] arriba dice "Pagó Hoy"', /Pagó\s*Hoy/.test(await texto(p, '.cobro-fecha')) && await p.isVisible('#cobroFecha + *, .cobro-fecha'));
-  const botones = await p.$$eval('[data-pagar]', els => els.map(e => `${e.dataset.pagar}:${e.textContent.replace(/\s+/g, ' ').trim()}`));
-  revisa('[hoja] el último toque dice el método y el total', JSON.stringify(botones) === JSON.stringify(['cash:Efectivo $1,100.00','transfer:Transferencia $1,100.00']), JSON.stringify(botones));
+  // Un solo botón y un selector (08/11/2026): "menos botones, más Apple".
+  revisa('[hoja] un solo botón que dice cuánto y cómo', (await p.$$('#cobroBody .pres-primary')).length === 1 && /Cobrar \$1,100\.00\s*en efectivo/.test(await texto(p, '#cobroEnviar')), await texto(p, '#cobroEnviar'));
+  revisa('[hoja] sin ligas subrayadas: lo raro va en renglones', !(await p.$('#cobroBody .cobro-link')) && /Pagó con dos formas/.test(await texto(p, '.cobro-lista')) && /Referencia y nota/.test(await texto(p, '.cobro-lista')));
+  await p.click('[data-metodo="transfer"]');
+  revisa('[hoja] al elegir transferencia el botón lo dice', /en transferencia/.test(await texto(p, '#cobroEnviar')));
+  await p.click('[data-metodo="cash"]');
 
   // Inscripción: Liam tiene 12 años, le toca Tanners ($800 en Costos).
   await agrega(p, 'reg:p1');
@@ -169,10 +173,10 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await agrega(p, 'arb');
   revisa('[inscripción] abonar dice cuánto queda a deber', /Queda a deber \$300\.00/.test(await texto(p, '[data-linea="reg:p1"]')));
 
-  await p.click('[data-pagar="cash"]');
+  await p.click('#cobroEnviar');
   revisa('[validación] arbitraje sin monto no se manda', (await llamadas(p, 'v2_collect_ticket')).length === 0 && /arbitraje/i.test(await texto(p, '.pres-error')));
   await p.fill('[data-monto="arb"]', '150');
-  revisa('[hoja] el total suma todo y los botones también: $1,750.00', /\$1,750\.00/.test(await texto(p, '#cobroTotal')) && /\$1,750\.00/.test(await texto(p, '[data-pagar="transfer"]')));
+  revisa('[hoja] el total suma todo y los botones también: $1,750.00', /\$1,750\.00/.test(await texto(p, '#cobroTotal')) && /\$1,750\.00/.test(await texto(p, '#cobroEnviar')));
 
   // Paga de más (08/11/2026): ya no se bloquea; se elige a dónde van.
   await p.fill('[data-monto="c:c-rec"]', '300');
@@ -181,7 +185,7 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   revisa('[de más] dice cuánto debe y cuánto es de más', /Debe \$100\.00 · \$200\.00 de más/.test(await texto(p, '[data-linea="c:c-rec"]')), await texto(p, '[data-linea="c:c-rec"]'));
   revisa('[de más] por omisión quedan a favor', await p.getAttribute('[data-linea="c:c-rec"] [data-extra="favor"]', 'aria-checked') === 'true');
   await p.click('[data-linea="c:c-rec"] [data-extra="otro"]');
-  await p.click('[data-pagar="cash"]');
+  await p.click('#cobroEnviar');
   revisa('[de más] como otro concepto pide la categoría', (await llamadas(p, 'v2_collect_ticket')).length === 0 && /Elige a qué concepto van los \$200\.00 de más/.test(await texto(p, '.pres-error')), await texto(p, '.pres-error').catch(() => ''));
   await p.fill('[data-monto="c:c-rec"]', '100');
   await p.press('[data-monto="c:c-rec"]', 'Tab');
@@ -239,13 +243,14 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   revisa('[mes] tocar agosto abre el cobro sólo con agosto', JSON.stringify(delMes) === JSON.stringify(['c:c-ago']), JSON.stringify(delMes));
   await agrega(p, 'otro');
   await p.fill('[data-monto="otro"]', '200');
-  await p.click('[data-pagar="transfer"]');
+  await p.click('[data-metodo="transfer"]');
+  await p.click('#cobroEnviar');
   revisa('[validación] otro ingreso pide categoría', /categoría/.test(await texto(p, '.pres-error')));
   await p.click('[data-quita="otro"]');
-  await p.click('[data-pagar="transfer"]');
+  await p.click('#cobroEnviar');
   await p.waitForSelector('.cobro-hecho', { timeout:4000 });
   const ult = (await llamadas(p, 'v2_collect_ticket')).at(-1).params;
-  revisa('[mes] un toque en "Transferencia" cobra agosto por transferencia', JSON.stringify(ult.methods) === JSON.stringify([{ method:'transfer', amount:500, reference:null }]), JSON.stringify(ult.methods));
+  revisa('[mes] Transferencia + Cobrar cobra agosto por transferencia', JSON.stringify(ult.methods) === JSON.stringify([{ method:'transfer', amount:500, reference:null }]), JSON.stringify(ult.methods));
   await p.click('.cobro-listo');
   revisa('[cuenta] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await p.close();
@@ -268,7 +273,7 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await foto(p, 'cobro-nuevo');
   const cabe = await p.evaluate(() => document.getElementById('cobroSheet').scrollWidth <= document.getElementById('cobroSheet').clientWidth + 1);
   revisa('[nuevo] nada se sale a lo ancho', cabe);
-  await p.click('[data-pagar="cash"]');
+  await p.click('#cobroEnviar');
   await p.waitForSelector('.cobro-hecho', { timeout:4000 });
   const it = (await llamadas(p, 'v2_collect_ticket')).at(-1).params.items;
   revisa('[nuevo] se manda octubre y noviembre como mensualidades nuevas, más la inscripción', JSON.stringify(it) === JSON.stringify([
@@ -286,14 +291,14 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.waitForSelector(hoja, { timeout:5000 });
   revisa('[compartida] pregunta quién está cobrando', await p.isVisible('#cobroQuienNuevo'));
   revisa('[compartida] no sugiere nombres tecleados en el historial', !(await p.$('[data-quien]')));
-  await p.click('[data-pagar="cash"]');
+  await p.click('#cobroEnviar');
   revisa('[compartida] sin elegir quién cobra no se manda', (await llamadas(p, 'v2_collect_ticket')).length === 0 && /quién está cobrando/.test(await texto(p, '.pres-error')));
   await p.fill('#cobroQuienNuevo', 'Crespo');
   await p.click('[data-quien-listo]');
   revisa('[compartida] ya dice quién cobra, con opción de cambiar', /Cobra Crespo/.test(await texto(p, '.cobro-cobra')));
-  await p.click('[data-pagar="cash"]');
+  await p.click('#cobroEnviar');
   await p.waitForSelector('.pres-error', { timeout:4000 });
-  await p.click('[data-pagar="cash"]');
+  await p.click('#cobroEnviar');
   await p.waitForSelector('.cobro-hecho', { timeout:4000 });
   revisa('[compartida] el cobro lleva a Crespo', (await llamadas(p, 'v2_collect_ticket')).at(-1).params.collected_by_name === 'Crespo');
   await p.click('.cobro-listo');
@@ -310,8 +315,8 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.click('.tan-balance [data-cobrar]');
   await p.waitForSelector(hoja, { timeout:5000 });
   revisa('[presidencia] no pregunta quién cobra', !(await p.$('#cobroQuienNuevo')) && !(await p.$('.cobro-cobra')));
-  await p.click('[data-pagar="cash"]'); await p.waitForSelector('.pres-error', { timeout:4000 });
-  await p.click('[data-pagar="cash"]');
+  await p.click('#cobroEnviar'); await p.waitForSelector('.pres-error', { timeout:4000 });
+  await p.click('#cobroEnviar');
   await p.waitForSelector('.cobro-hecho', { timeout:4000 });
   revisa('[presidencia] el cobro queda a nombre de la cuenta', (await llamadas(p, 'v2_collect_ticket')).at(-1).params.collected_by_name === 'Presidencia');
   await p.close();
@@ -389,9 +394,9 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.fill('[data-monto="c:c-oct"]', '800');
   await p.press('[data-monto="c:c-oct"]', 'Tab');
   await p.waitForSelector('[data-linea="c:c-oct"] [data-extra]', { timeout:3000 });
-  await p.click('[data-pagar="cash"]');
+  await p.click('#cobroEnviar');
   await p.waitForSelector('.pres-error, .cobro-hecho', { timeout:4000 });
-  if (await p.$('.pres-error')) await p.click('[data-pagar="cash"]');
+  if (await p.$('.pres-error')) await p.click('#cobroEnviar');
   await p.waitForSelector('.cobro-hecho', { timeout:4000 });
   const prm = (await llamadas(p, 'v2_collect_ticket')).at(-1)?.params || {};
   revisa('[de más] el cargo se cubre y lo demás queda a favor', JSON.stringify(prm.items.filter(i => i.charge_id === 'c-oct' || i.kind === 'abono')) === JSON.stringify([{ kind:'charge', player_id:'p1', charge_id:'c-oct', amount:500 }, { kind:'abono', player_id:'p1', amount:300 }]), JSON.stringify(prm.items));

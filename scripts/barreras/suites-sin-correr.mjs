@@ -206,7 +206,9 @@ export default function comprobar() {
   // fuera ve las puertas y entra al vestidor en un toque.
   // Sube a 73 por qa-humo-busquedas-recientes.mjs: cada buscador recuerda lo
   // último que se buscó (por persona) y "Salir" lo borra.
-  const MAX_EXCLUIDAS = 73;
+  // Sube a 74 por qa-humo-mi-semana.mjs: la barra de cada rol, el tablero del
+  // equipo con destacados y el aviso fijo de Mensajes.
+  const MAX_EXCLUIDAS = 74;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

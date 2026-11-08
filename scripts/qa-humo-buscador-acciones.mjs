@@ -107,8 +107,8 @@ async function busca(pg, q) { await pg.fill('#shellSearch', q); await pg.waitFor
   revisa('las flechas marcan la opción activa para el lector', !!act && await pg.getAttribute('#' + act, 'aria-selected') === 'true', act);
   await Promise.all([pg.waitForNavigation({ waitUntil: 'domcontentloaded' }).catch(() => {}), pg.keyboard.press('Enter')]);
   await pg.waitForTimeout(300);
-  const rec = await pg.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('tos:buscador:recientes:')).map(k => [k, sessionStorage.getItem(k)]));
-  revisa('lo que abrió queda en Recientes, de esa persona', rec.length === 1 && /u-mich/.test(rec[0][0]) && /Rodrigo Torres Anda/.test(rec[0][1]), JSON.stringify(rec));
+  const rec = await pg.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('tos:buscador:recientes:')).map(k => [k, localStorage.getItem(k)]));
+  revisa('lo que abrió queda en Recientes, de esa persona (y sigue al reabrir la app)', rec.length === 1 && /u-mich/.test(rec[0][0]) && /Rodrigo Torres Anda/.test(rec[0][1]), JSON.stringify(rec));
   await pg.close();
 }
 

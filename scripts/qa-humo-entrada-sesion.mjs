@@ -12,8 +12,8 @@
  *      no se pide contraseña.
  *   2. Un toque en "Entrar al vestidor" abre el vestidor, sin login, y la
  *      dirección queda en /?vestidor.
- *   3. Entra directo (como antes) si viene de dentro de la app, si es la app
- *      instalada en el teléfono o si la liga trae ?vestidor o #staff.
+ *   3. Entra directo (como antes) si viene de dentro de la app o si
+ *      la liga trae ?vestidor o #staff. La app instalada ya enseña las puertas.
  *   4. "¿No eres tú? Cerrar sesión" cierra la sesión y la puerta vuelve a
  *      ser "Staff".
  *   5. Sin sesión, todo como siempre.
@@ -31,14 +31,14 @@ const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; conso
 
 // 6. La regla, sola.
 const L = (ruta) => new URL(`https://app.tannerycity.com${ruta}`);
-revisa('6. escribió la dirección: puertas', entraDirecto({ loc: L('/'), referrer: '', standalone: false }) === false);
-revisa('6. liga de WhatsApp: puertas', entraDirecto({ loc: L('/'), referrer: 'https://wa.me/', standalone: false }) === false);
-revisa('6. www.tannerycity.com no cuenta como "dentro": puertas', entraDirecto({ loc: L('/'), referrer: 'https://www.tannerycity.com/', standalone: false }) === false);
-revisa('6. desde dentro de la app: directo', entraDirecto({ loc: L('/'), referrer: 'https://app.tannerycity.com/v2/pedidos/', standalone: false }) === true);
-revisa('6. app instalada: directo', entraDirecto({ loc: L('/'), referrer: '', standalone: true }) === true);
-revisa('6. ?vestidor: directo', entraDirecto({ loc: L('/?vestidor'), referrer: '', standalone: false }) === true);
-revisa('6. #staff: directo', entraDirecto({ loc: L('/#staff'), referrer: '', standalone: false }) === true);
-revisa('6. referrer roto: puertas', entraDirecto({ loc: L('/'), referrer: 'no es url', standalone: false }) === false);
+revisa('6. escribió la dirección: puertas', entraDirecto({ loc: L('/'), referrer: '' }) === false);
+revisa('6. liga de WhatsApp: puertas', entraDirecto({ loc: L('/'), referrer: 'https://wa.me/' }) === false);
+revisa('6. www.tannerycity.com no cuenta como "dentro": puertas', entraDirecto({ loc: L('/'), referrer: 'https://www.tannerycity.com/' }) === false);
+revisa('6. desde dentro de la app: directo', entraDirecto({ loc: L('/'), referrer: 'https://app.tannerycity.com/v2/pedidos/' }) === true);
+revisa('6. app instalada al abrirla: puertas (Centro Tanner e Inscripción a la mano)', entraDirecto({ loc: L('/'), referrer: '' }) === false);
+revisa('6. ?vestidor: directo', entraDirecto({ loc: L('/?vestidor'), referrer: '' }) === true);
+revisa('6. #staff: directo', entraDirecto({ loc: L('/#staff'), referrer: '' }) === true);
+revisa('6. referrer roto: puertas', entraDirecto({ loc: L('/'), referrer: 'no es url' }) === false);
 
 const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
 const T = { '.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json','.png':'image/png','.woff2':'font/woff2' };
@@ -105,11 +105,22 @@ const staff = pg => pg.$eval('#abreStaff', b => `${b.querySelector('b').textCont
   await ctx.close();
 }
 // 3. Entra directo.
-for (const [nombre, ruta, op] of [['?vestidor', '/?vestidor', {}], ['#staff', '/#staff', {}], ['desde dentro de la app', '/', { referer: `${BASE}/v2/pedidos/` }], ['app instalada', '/', { instalada: true }]]) {
+for (const [nombre, ruta, op] of [['?vestidor', '/?vestidor', {}], ['#staff', '/#staff', {}], ['desde dentro de la app', '/', { referer: `${BASE}/v2/pedidos/` }]]) {
   const { ctx, pg, errs } = await abre(ruta, op);
   await pg.waitForSelector('#appView:not(.hidden)', { timeout: 6000 }).catch(() => {});
   revisa(`3. ${nombre}: entra directo al vestidor`, await enVestidor(pg) && !(await enPuertas(pg)));
   revisa(`sin errores (${nombre})`, !errs.length, errs.join(' | '));
+  await ctx.close();
+}
+// 3b. App instalada (08/11/2026): al abrirla, puertas; el vestidor a un toque.
+{
+  const { ctx, pg, errs } = await abre('/', { instalada: true });
+  revisa('3b. app instalada: se ven las puertas con Centro Tanner e Inscribe', await enPuertas(pg) && !(await enVestidor(pg)) && /Centro Tanner/.test(await pg.textContent('.tc-puertas')) && /Inscribe/.test(await pg.textContent('.tc-puertas')));
+  revisa('3b. app instalada: "Entrar al vestidor" con un toque', /^Entrar al vestidor/.test(await staff(pg)));
+  await pg.click('#abreStaff');
+  await pg.waitForSelector('#appView:not(.hidden)', { timeout: 6000 }).catch(() => {});
+  revisa('3b. app instalada: entra sin contraseña', await enVestidor(pg) && !(await pg.isVisible('#authForm')));
+  revisa('sin errores (app instalada)', !errs.length, errs.join(' | '));
   await ctx.close();
 }
 // 4. Cerrar sesión desde las puertas.
@@ -149,4 +160,4 @@ for (const [nombre, ruta, op] of [['?vestidor', '/?vestidor', {}], ['#staff', '/
 }
 await nav.close(); srv.close();
 if (fallos) { console.error(`Entrada con sesión humo: ${fallos} de ${corridas} fallaron`); process.exit(1); }
-console.log(`Entrada con sesión humo OK · ${corridas} revisiones: puertas aunque haya sesión, entrar en un toque, directo desde dentro o la app instalada, cerrar sesión`);
+console.log(`Entrada con sesión humo OK · ${corridas} revisiones: puertas aunque haya sesión, entrar en un toque, directo desde dentro, puertas en la app instalada, cerrar sesión`);

@@ -12,14 +12,15 @@
 
    Entra directo al vestidor (como antes) sólo si:
      - viene de dentro de la app (el "Inicio" del menú, el logo, "‹ regresar"),
-     - es la app instalada en el teléfono (modo standalone),
      - la liga lo pide: ?vestidor o #staff (lo que el staff guarda en favoritos).
+   App instalada (08/11/2026): Presidencia, "cuando inicia sesión te abre la
+   sesión, no puedes coger Centro Tanner ni Inscripción". Ya no es excepción:
+   al abrirla también se ven las puertas; "Entrar al vestidor" es un toque.
    Sin dependencias: se prueba sola (scripts/qa-entrada-sesion.mjs). */
 
-export function entraDirecto({ loc = globalThis.location, referrer = globalThis.document?.referrer || '', standalone = esAppInstalada() } = {}) {
+export function entraDirecto({ loc = globalThis.location, referrer = globalThis.document?.referrer || '' } = {}) {
   const p = new URLSearchParams(loc?.search || '');
   if (p.has('vestidor') || loc?.hash === '#staff' || p.has('staff')) return true;
-  if (standalone) return true;
   try { if (referrer && new URL(referrer).origin === loc.origin) return true; } catch { /* referrer raro: como si viniera de fuera */ }
   return false;
 }

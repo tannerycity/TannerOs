@@ -225,8 +225,8 @@ function pinta() {
       <button type="button" class="cobro-agregar" data-agregar aria-expanded="${!!s.panel}"><i aria-hidden="true">+</i> ${lineas.length ? 'Agregar otro concepto' : 'Agregar qué paga'}</button>
       ${s.panel ? panelHtml() : ''}</section>
     <div class="cobro-total"><span>Total</span><strong id="cobroTotal">${money.format(t)}</strong></div>
-    ${s.mas ? masHtml(t) : ''}
-    ${err}${botonesHtml(t)}
+    ${pagoHtml(t)}
+    ${err}${botonHtml(t)}
   </form>`;
 }
 const debeAlgo = () => [...s.cuentas.values()].some(c => { const o = opcionesDe(c); return o.cargos.length || o.pedidos.length; });
@@ -316,40 +316,34 @@ function fechaHtml() {
     ${atrasada ? '<small>Si con esa fecha el mes quedó pagado a tiempo, el recargo se quita solo.</small>' : '<small>¿Pagó otro día? Toca la fecha.</small>'}</div>`;
 }
 
-// Lo que casi no se usa: otra fecha (17% de los cobros), nota (3%),
-// referencia, tarjeta (1%) y dos métodos.
-function masHtml(t) {
-  const seg = `<div class="pres-seg cobro-metodos" role="radiogroup" aria-label="Método">${METODOS.map(([v, l]) => `<button type="button" role="radio" aria-checked="${s.metodo === v}" data-metodo="${v}">${l}</button>`).join('')}</div>`;
+/* Cómo paga, estilo Ajustes del iPhone (08/11/2026). Presidencia: "menos
+   botones y que se vea más Apple". Un selector de método, un solo botón
+   "Cobrar" y lo raro (dos formas, referencia, nota) en renglones de una
+   lista agrupada, no en ligas subrayadas. */
+function pagoHtml(t) {
+  const seg = `<div class="pres-seg cobro-metodos" role="radiogroup" aria-label="Cómo paga">${METODOS.map(([v, l]) => `<button type="button" role="radio" aria-checked="${s.metodo === v}" data-metodo="${v}">${l}</button>`).join('')}</div>`;
   let dos = '';
   if (s.dos) {
     const m1 = num(s.monto1), resto = Math.max(0, Math.round((t - m1) * 100) / 100);
     const otros = METODOS.filter(([v]) => v !== s.metodo);
-    dos = `<div class="cobro-formas">
-      <div class="cobro-forma"><span class="cobro-forma-met">${esc(nombreMetodo(s.metodo))}</span><span class="cobro-peso"><input type="text" inputmode="decimal" id="cobroMonto1" value="${esc(s.monto1)}" placeholder="0" aria-label="Cuánto en ${esc(nombreMetodo(s.metodo).toLowerCase())}"></span></div>
-      <div class="cobro-forma"><span class="cobro-forma-met"><span class="cobro-mini" role="radiogroup" aria-label="Segunda forma de pago">${otros.map(([v, l]) => `<button type="button" role="radio" data-metodo2="${v}" aria-pressed="${v === s.metodo2}">${l}</button>`).join('')}</span></span><b class="cobro-forma-resto" id="cobroResto">${money.format(resto)}</b></div>
-    </div>`;
+    dos = `<div class="cobro-fila cobro-fila--sub"><span>${esc(nombreMetodo(s.metodo))}</span><span class="cobro-peso"><input type="text" inputmode="decimal" id="cobroMonto1" value="${esc(s.monto1)}" placeholder="0" aria-label="Cuánto en ${esc(nombreMetodo(s.metodo).toLowerCase())}"></span></div>
+      <div class="cobro-fila cobro-fila--sub"><span class="cobro-mini" role="radiogroup" aria-label="Segunda forma de pago">${otros.map(([v, l]) => `<button type="button" role="radio" data-metodo2="${v}" aria-pressed="${v === s.metodo2}">${l}</button>`).join('')}</span><b class="cobro-forma-resto" id="cobroResto">${money.format(resto)}</b></div>`;
   }
-  // Lo que se usa siempre (método) va arriba y grande; lo que casi nadie
-  // toca (referencia, fecha, nota) va aparte y más chico, para no competir.
-  return `<div class="cobro-bloque cobro-mas"><span class="cobro-titulo">¿Cómo paga?</span>${seg}
-    <button type="button" class="cobro-switch" data-dos role="switch" aria-checked="${!!s.dos}"><span>Pagó con dos formas</span><i aria-hidden="true"></i></button>${dos}
-    <div class="cobro-mas-detalle">
-      <span class="cobro-titulo cobro-titulo--sub">Más detalles · opcional</span>
-      <label><span>Referencia <span class="cobro-opt">· el comprobante llega por WhatsApp</span></span><input id="cobroRef" type="text" maxlength="80" value="${esc(s.ref)}" placeholder="Folio SPEI, últimos 4 de la tarjeta…"></label>
-      <label><span>Nota</span><input id="cobroObs" type="text" maxlength="300" placeholder="Pagó la abuela…" value="${esc(s.obs)}"></label>
-    </div></div>`;
+  const resumen = [s.ref.trim() && 'Referencia', s.obs.trim() && 'Nota'].filter(Boolean).join(' y ');
+  const detalle = s.mas ? `<div class="cobro-fila cobro-fila--campo"><input id="cobroRef" type="text" maxlength="80" value="${esc(s.ref)}" placeholder="Referencia (folio SPEI, últimos 4)" aria-label="Referencia"></div>
+      <div class="cobro-fila cobro-fila--campo"><input id="cobroObs" type="text" maxlength="300" placeholder="Nota (pagó la abuela…)" value="${esc(s.obs)}" aria-label="Nota"></div>` : '';
+  return `<section class="cobro-como" aria-label="Cómo paga">${seg}
+    <div class="cobro-lista">
+      <button type="button" class="cobro-fila cobro-switch" data-dos role="switch" aria-checked="${!!s.dos}"><span>Pagó con dos formas</span><i aria-hidden="true"></i></button>${dos}
+      <button type="button" class="cobro-fila" data-mas aria-expanded="${!!s.mas}"><span>Referencia y nota</span><span class="cobro-fila-valor">${esc(resumen || 'Opcional')}<span class="cobro-chev" aria-hidden="true">›</span></span></button>${detalle}
+    </div></section>`;
 }
 
-// El último toque ya dice cómo pagó.
-function botonesHtml(t) {
-  const listo = t > 0 && !s.enviando;
-  const dis = listo ? '' : ' disabled';
-  if (s.mas) return `<button type="submit" class="pres-primary" id="cobroEnviar"${dis}>${s.enviando ? 'Un momento…' : t > 0 ? `Cobrar ${money.format(t)}` : 'Elige qué paga'}</button>
-    <button type="button" class="cobro-link cobro-menos" data-mas>Menos opciones</button>`;
-  return `<div class="cobro-pagar">
-    <button type="button" class="pres-primary cobro-pagar-btn" data-pagar="cash"${dis}><small>Efectivo</small> <span>${s.enviando && s.metodo === 'cash' ? 'Un momento…' : money.format(t)}</span></button>
-    <button type="button" class="pres-primary cobro-pagar-btn" data-pagar="transfer"${dis}><small>Transferencia</small> <span>${s.enviando && s.metodo === 'transfer' ? 'Un momento…' : money.format(t)}</span></button>
-  </div><button type="button" class="cobro-link cobro-menos" data-mas>Tarjeta, dos formas de pago o nota</button>`;
+// Un solo botón, grande, que dice cuánto y cómo.
+function botonHtml(t) {
+  const dis = t > 0 && !s.enviando ? '' : ' disabled';
+  const como = s.dos ? 'en dos formas' : `en ${nombreMetodo(s.metodo).toLowerCase()}`;
+  return `<button type="submit" class="pres-primary cobro-cobrar" id="cobroEnviar"${dis}>${s.enviando ? 'Un momento…' : t > 0 ? `Cobrar ${money.format(t)} <small>${esc(como)}</small>` : 'Elige qué paga'}</button>`;
 }
 
 function hechoHtml() {
@@ -419,8 +413,7 @@ function alClic(e) {
   } else if (t.dataset.metodo2) { s.metodo2 = t.dataset.metodo2; pinta(); }
   else if (t.hasAttribute('data-dos')) { s.dos = !s.dos; pinta(); }
   else if (t.dataset.extra) { const i = s.sel.get(t.dataset.linea2); if (i) { i.extra = t.dataset.extra; pinta(); } }
-  else if (t.hasAttribute('data-mas')) { s.mas = !s.mas; if (!s.mas) { s.dos = false; } pinta(); }
-  else if (t.dataset.pagar) envia(t.dataset.pagar);
+  else if (t.hasAttribute('data-mas')) { s.mas = !s.mas; pinta(); }
   else if (t.dataset.quien) eligeQuien(t.dataset.quien);
   else if (t.hasAttribute('data-quien-listo')) eligeQuien(document.getElementById('cobroQuienNuevo')?.value);
   else if (t.hasAttribute('data-cambia-quien')) { s.cambiaQuien = true; pinta(); }
@@ -458,8 +451,7 @@ function recalcula() {
   const el = document.getElementById('cobroTotal'); if (el) el.textContent = money.format(t);
   const r = document.getElementById('cobroResto'); if (r) r.textContent = money.format(Math.max(0, Math.round((t - num(s.monto1)) * 100) / 100));
   const btn = document.getElementById('cobroEnviar');
-  if (btn && !s.enviando) { btn.disabled = t <= 0; btn.textContent = t > 0 ? `Cobrar ${money.format(t)}` : 'Elige qué paga'; }
-  document.querySelectorAll('#cobroBody [data-pagar]').forEach(b => { b.disabled = t <= 0; b.querySelector('span').textContent = money.format(t); });
+  if (btn && !s.enviando) { btn.disabled = t <= 0; btn.innerHTML = t > 0 ? `Cobrar ${money.format(t)} <small>${s.dos ? 'en dos formas' : `en ${nombreMetodo(s.metodo).toLowerCase()}`}</small>` : 'Elige qué paga'; }
 }
 
 function valida() {

@@ -143,6 +143,9 @@ async function abre(ruta, modo = '') {
   const pg = await nav.newPage({ viewport:{ width:Number(process.env.ANCHO || 390), height:844 } });
   const errs = [];
   pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
+  // El staff entra con su sesión guardada; sin ella, /visorias manda a la
+  // visoría pública (v2/visorias/sin-sesion.js, 08/11/2026).
+  if (ruta.includes('visorias')) await pg.addInitScript(() => { try { localStorage.setItem('sb-pacnegivzgxpanphrnwp-auth-token', '{}'); } catch {} });
   await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:CLIENTE(modo) }));
   await pg.route(/\/v2\/shell\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:SHELL }));

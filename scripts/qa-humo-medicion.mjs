@@ -75,6 +75,8 @@ async function contexto({ oficial = true, role = 'Operaciones', ga4Staff = true 
   const ctx = await nav.newContext({ viewport:{ width:390, height:844 } });
   if (ga4Staff) await ctx.addInitScript(() => { window.__tosUsoGA4Prueba = true; });
   if (oficial) await ctx.addInitScript(() => { window.__tosMedicionHost = 'app.tannerycity.com'; });
+  // Sesión de staff guardada: /visorias no la manda a la visoría pública.
+  await ctx.addInitScript(() => { try { localStorage.setItem('sb-pacnegivzgxpanphrnwp-auth-token', '{}'); } catch {} });
   const terceros = [];
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await ctx.route(/googletagmanager\.com|google-analytics\.com|connect\.facebook\.net|facebook\.com\/tr/, r => { terceros.push(r.request().url()); r.fulfill({ status:200, contentType:'text/javascript', body:'' }); });

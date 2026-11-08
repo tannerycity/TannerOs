@@ -2,6 +2,7 @@ import {createClient} from '/v2/supabase-client.js';
 import { ligaPublica } from '/v2/club-publico.js';
 
 import { clearPhotoCache } from '/v2/photo-cache.js';
+import {instala as instalaRecientes,borraTodo as borraRecientes} from '/v2/busquedas-recientes.js';
 import {busca,filasEnOrden,trozosResaltados,TIPOS,llaveDeCache,cacheVigente,empaquetaCache,borraCacheDelBuscador,agregaReciente,llaveDeRecientes,MIN_LETRAS} from '/v2/buscador.js';
 import {FUENTES,desdeModulos,desdeAcciones,armaIndice} from '/v2/buscador-fuentes.js';
 export const supabase=createClient(
@@ -12,7 +13,9 @@ export const supabase=createClient(
 // Cualquier salida (el botón, otra pestaña o una sesión que caducó) borra el
 // índice del buscador: trae teléfonos de familias y no debe sobrevivir a quien
 // lo pidió.
-try{supabase.auth.onAuthStateChange(evento=>{if(evento==='SIGNED_OUT')borraCacheDelBuscador();});}catch(_){/* cliente sin eventos */}
+// Al salir: el caché del buscador, lo que se abrió desde él y las búsquedas
+// recientes de cada pantalla (05/11/2026).
+try{supabase.auth.onAuthStateChange(evento=>{if(evento==='SIGNED_OUT'){borraCacheDelBuscador();try{borraCacheDelBuscador(localStorage);}catch(_){}borraRecientes();}});}catch(_){/* cliente sin eventos */}
 export const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2});
 export const $=id=>document.getElementById(id);
 
@@ -445,11 +448,12 @@ function wireSearch(navigation,ctx){
   const modulos=()=>desdeModulos(navItems.filter(item=>itemReadable(navigation,item)));
   const acciones=()=>desdeAcciones(accionesBuscables(ctx,navigation));
   const base0=()=>armaIndice([acciones(),modulos()]);
-  // Lo que la persona abrió desde aquí. sessionStorage y con el prefijo del
-  // buscador: se va al cerrar la pestaña o al salir (trae nombres de familias).
+  // Lo que la persona abrió desde aquí (05/11/2026: localStorage para que siga
+  // al reabrir la app; se borra al salir). Con el prefijo del
+  // buscador y por persona (trae nombres de familias).
   const llaveRec=llaveDeRecientes(ctx?.organization_id,ctx?.user_id);
-  const leeRecientes=()=>{try{return JSON.parse(sessionStorage.getItem(llaveRec)||'[]')||[];}catch(e){return [];}};
-  const guardaReciente=f=>{try{sessionStorage.setItem(llaveRec,JSON.stringify(agregaReciente(leeRecientes(),f)));}catch(e){/* modo privado */}};
+  const leeRecientes=()=>{try{return JSON.parse(localStorage.getItem(llaveRec)||sessionStorage.getItem(llaveRec)||'[]')||[];}catch(e){return [];}};
+  const guardaReciente=f=>{try{localStorage.setItem(llaveRec,JSON.stringify(agregaReciente(leeRecientes(),f)));}catch(e){/* modo privado */}};
   let filasVacio=[];
 
   const ensureIndex=()=>{
@@ -804,7 +808,9 @@ export function renderShell({ctx,navigation,active='inicio',title='Inicio',searc
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
   const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
   renderNavigation($('sidebarNav'),navigation,active,role);pintaPestanasSeccion(navigation,active);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'el club';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{borraCacheDelBuscador();await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
-  if(ctx){ensureBellMarkup();wireBell(ctx,navigation);ensureQuickFab(ctx,navigation);accionDeLiga(ctx,navigation);}
+  if(ctx){ensureBellMarkup();wireBell(ctx,navigation);ensureQuickFab(ctx,navigation);accionDeLiga(ctx,navigation);
+    // Búsquedas recientes en cada buscador de la pantalla (05/11/2026).
+    try{instalaRecientes({org:ctx.organization_id,usuario:ctx.user_id});}catch(e){console.warn('recientes',e);}}
 }
 // Solo lectura (j4–n4): el club debe su mensualidad o es una demo. La base ya
 // no deja guardar; aquí sólo se avisa arriba de cada pantalla, sin esperar.

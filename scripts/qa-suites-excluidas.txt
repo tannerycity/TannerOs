@@ -97,3 +97,4 @@ qa-humo-metricas.mjs
 qa-humo-por-pedir.mjs
 qa-humo-paquetes.mjs
 qa-humo-entrada-sesion.mjs
+qa-humo-busquedas-recientes.mjs

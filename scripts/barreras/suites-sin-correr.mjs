@@ -204,7 +204,9 @@ export default function comprobar() {
   // asignar paquetes (los que cambian de monto sólo si se marcan).
   // Sube a 72 por qa-humo-entrada-sesion.mjs: con la sesion abierta, quien llega de
   // fuera ve las puertas y entra al vestidor en un toque.
-  const MAX_EXCLUIDAS = 72;
+  // Sube a 73 por qa-humo-busquedas-recientes.mjs: cada buscador recuerda lo
+  // último que se buscó (por persona) y "Salir" lo borra.
+  const MAX_EXCLUIDAS = 73;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

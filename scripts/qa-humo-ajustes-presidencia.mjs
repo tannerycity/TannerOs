@@ -86,7 +86,7 @@ async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1', rol = 'P
                 v2_player_profile:{ player:{ id:'p1', bloodType:'O+', allergies:'Asma: trae inhalador', emergencyContactName:'Laura Ibarra', emergencyContactPhone:'4779998877' } }, v2_set_player_fee_note:true,
                 v2_my_navigation:m, v2_player_account_statement:estado,
                 v2_presidency_adjust_charge:{ ok:true }, v2_presidency_add_charge:{ ok:true }, v2_correct_tanner_payment:null, v2_apply_player_credit:200,
-                v2_set_charge_amount:{ ok:true }, v2_edit_payment:{ ok:true, lateFeesWaived:1, lateFeesAmount:100 } };
+                v2_set_charge_amount:{ ok:true }, v2_punctuality_status:{ year:2027, onTime:7, december:{ state:'en_curso', onTime:7, of:11, percent:50 }, kit:{ state:'ganado', onTime:5, of:5, percent:20 } }, v2_edit_payment:{ ok:true, lateFeesWaived:1, lateFeesAmount:100 } };
     window.__fakeSupabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}), getUser:async()=>({data:{user:{id:'u1'}}}), onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}) },
       rpc:async(n, params)=>{
@@ -280,6 +280,8 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   const planes = await p.textContent('.tan-grupo:has(.tan-fila[data-cuota])');
   revisa('[planes] mensualidad, academia y beca', /Mensualidad/.test(planes) && /\$800\.00\/mes/.test(planes) && /día 5/.test(planes) && /Academia/.test(planes) && /\$400\.00\/mes/.test(planes) && /Beca deportiva/.test(planes) && /−25%/.test(planes), planes);
   const salud = await p.evaluate(() => [...document.querySelectorAll('.tan-grupo')].find(g => g.querySelector('.tan-grupo-tit').textContent === 'Salud')?.textContent || '');
+  const premio = await p.textContent('.tan-grupo:has(.tan-fila[data-cuota])');
+  revisa('[puntualidad] dice cuántos meses a tiempo y los dos premios', /Premio por puntualidad/.test(premio) && /7 de 11 meses a tiempo/.test(premio) && /Kit de agosto: 20% ganado/.test(premio) && /7\/11/.test(premio), premio);
   revisa('[salud] sangre, alergias y emergencia', /O\+/.test(salud) && /Asma: trae inhalador/.test(salud) && /Laura Ibarra/.test(salud) && /477\s999\s8877/.test(salud), salud);
   revisa('[salud] emergencia con WhatsApp y Llamar', await p.getAttribute('.tan-grupo a[aria-label="Llamar al contacto de emergencia"]', 'href') === 'tel:+524779998877');
   revisa('[apple] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

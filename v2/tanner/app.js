@@ -371,6 +371,19 @@ function grupo(titulo,filas,{pie='',clase=''}={}){
 const esPresidencia=()=>ctx.role==='Presidencia'||!!ctx.is_owner;
 const fichaUrl=()=>`/jugadores/?player=${encodeURIComponent(playerId)}`;
 
+/* Premios por puntualidad (h64, Centro Tanner TC-146): mensualidad completa
+   a más tardar el día 5. Enero-noviembre: 50% en diciembre (beca parcial
+   entra, completa no). Enero-mayo: 20% en el kit de agosto (sin beca). */
+function puntualidadFila(){
+  if(!punt?.december)return null;
+  const d=punt.december,k=punt.kit||{};
+  if(d.state==='no_vigente')return fila({icono:'star',tono:'gris',titulo:'Premio por puntualidad',sub:'Empieza en enero de 2027: pagar a más tardar el día 5',accion:false});
+  const dic={ganado:'Ganó 50% en diciembre',en_curso:`${d.onTime} de 11 meses a tiempo · va por 50% en diciembre`,perdido:'Diciembre: este año ya no, hubo un mes tarde',beca_completa:'Con beca completa no aplica'}[d.state]||'';
+  const kit={ganado:'Kit de agosto: 20% ganado',en_curso:`Kit de agosto: ${k.onTime} de 5 a tiempo`,perdido:'Kit de agosto: ya no'}[k.state]||'';
+  const bien=d.state==='ganado'||d.state==='en_curso';
+  return fila({icono:'star',tono:bien?'verde':'gris',titulo:'Premio por puntualidad',sub:[dic,kit].filter(Boolean).join(' · '),valor:bien?`${d.onTime}/11`:'',accion:false});
+}
+
 // Qué tiene contratado: su cuota (se ajusta aquí mismo), academias y apoyos.
 function planesBlock(data){
   const p=data.player||{},filas=[];
@@ -392,6 +405,7 @@ function planesBlock(data){
     const cubre=b.percentage?`${b.percentage}%`:b.fixed!=null?money.format(Number(b.fixed)):'';
     filas.push(fila({icono:'star',tono:'verde',titulo:b.source||b.label||'Beca o apoyo',sub:'Beca o apoyo',valor:cubre?`−${cubre}`:'',accion:false}));
   });
+  {const pz=puntualidadFila();if(pz)filas.push(pz);}
   (data.orders||[]).forEach(o=>{
     const falta=Number(o.total||0)-Number(o.paid||0);
     filas.push(fila({icono:'bag',tono:'naranja',titulo:`Pedido ${o.folio||''}`.trim(),sub:falta>0?`Faltan ${money.format(falta)}`:'Pagado',valor:money.format(Number(o.total||0)),accion:false}));
@@ -407,7 +421,7 @@ function planesBlock(data){
    tienen y por qué motivo"; "las becas duran 3 meses y nosotros las tenemos
    que renovar". Un renglón dice el paquete y cuánto paga; debajo, cada beca
    con su motivo y cuándo vence. Se cambia con un toque. */
-let paq=null;
+let paq=null,punt=null;
 const MES=d=>d?new Intl.DateTimeFormat('es-MX',{month:'long'}).format(new Date(`${String(d).slice(0,7)}-01T12:00:00`)):'';
 function detallePaquete(k){
   if(!k)return '';
@@ -452,6 +466,7 @@ function paqueteBlock(data){
       sub:[b.reason,vence].filter(Boolean).join(' · '),accion:false,attrs:urge?'data-urge':'',
       extra:renovar||(cuanto?`<span class="tan-fila-valor">${esc(cuanto)}</span>`:'')}));
   });
+  {const pz=puntualidadFila();if(pz)filas.push(pz);}
   // Lo demás que paga aparte: pedidos y otros pagos.
   (data.orders||[]).forEach(o=>{
     const falta=Number(o.total||0)-Number(o.paid||0);
@@ -502,14 +517,16 @@ async function render(){
   if(!playerId){$('tannerBody').innerHTML='<div class="tos-empty">Falta indicar el Tanner.</div>';return;}
   let data;
   try{
-    [data,cobro,perfil,paq]=await Promise.all([
+    [data,cobro,perfil,paq,punt]=await Promise.all([
       rpc('v2_player_account_statement',{organization_id:ctx.organization_id,player_id:playerId}),
       rpc('v2_player_collection',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null),
       // Salud sale de la ficha: sólo quien puede ver Jugadores. Si falla, la
       // cuenta se ve igual, sin esa sección.
       can('jugadores')?rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null):null,
       // Paquete y becas (h62). Si no hay o falla, se ve la cuota como antes.
-      rpc('v2_player_package',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null)
+      rpc('v2_player_package',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null),
+      // Premios por puntualidad (h64). Si falla, simplemente no sale el renglón.
+      rpc('v2_punctuality_status',{organization_id:ctx.organization_id,player_id:playerId}).catch(()=>null)
     ]);
   }catch(error){
     console.warn('estado de cuenta',error);

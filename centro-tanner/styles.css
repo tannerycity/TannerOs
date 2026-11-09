@@ -146,6 +146,20 @@ a{color:inherit}
 .bk-wizard-fineprint{font-size:12px;color:var(--ct-muted);margin:14px 0 18px}
 .bk-wizard-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid var(--ct-line)}
 
+/* 09/11/2026: "Solicitar apoyo" — formulario sin sesión en la propia política. */
+.bk-solicitud-wrap{margin-top:18px;padding-top:18px;border-top:1px solid var(--ct-line)}
+.bk-solicitud{display:grid;gap:14px;margin-top:4px}
+.bk-solicitud.hidden{display:none}
+.bk-solicitud label{display:block;font-size:12.5px;font-weight:800;color:var(--ct-muted)}
+.bk-solicitud input,.bk-solicitud select,.bk-solicitud textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--ct-line);border-radius:12px;padding:12px 14px;font:inherit;font-size:14.5px;color:var(--ct-ink);background:var(--ct-card)}
+.bk-solicitud input:focus,.bk-solicitud select:focus,.bk-solicitud textarea:focus{outline:2px solid var(--ct-teal);outline-offset:1px}
+.bk-solicitud textarea{resize:vertical}
+.bk-solicitud-check{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;color:var(--ct-ink)}
+.bk-solicitud-check input{width:auto;margin:3px 0 0}
+.bk-solicitud-msg{margin:0;padding:12px 14px;border-radius:12px;font-size:13.5px;font-weight:700}
+.bk-solicitud-msg[data-type="success"]{background:#eaf6ee;color:#1d6b3a}
+.bk-solicitud-msg[data-type="error"]{background:#fbeceb;color:#9b3328}
+
 @media (max-width:640px){
   .ct-theme-grid{grid-template-columns:repeat(2,1fr)}
   .ct-policy-card,.ct-doc-body-card{padding:20px 16px;border-radius:18px}

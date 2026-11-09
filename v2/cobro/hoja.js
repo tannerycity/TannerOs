@@ -44,6 +44,8 @@
 // todo o nada. Cada parte es el pago de siempre, en la cuenta de su Tanner,
 // ligado por folio: Conciliación y Contabilidad no cambian.
 import { TARIFAS, aplicaPrecios } from '/costos/tarifas.js';
+import { supabase } from '/v2/shell.js';
+import { getSignedPhotoUrl } from '/v2/photo-cache.js';
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 });
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -75,7 +77,7 @@ let s = null;
 function cargaEstilos() {
   if (document.querySelector('link[href^="/v2/cobro/hoja.css"]')) return;
   const l = document.createElement('link');
-  l.rel = 'stylesheet'; l.href = '/v2/cobro/hoja.css?v=20261028a';
+  l.rel = 'stylesheet'; l.href = '/v2/cobro/hoja.css?v=20261109a';
   document.head.appendChild(l);
 }
 
@@ -183,12 +185,16 @@ function porQueRecargo(c) {
   const mes = c.period ? new Intl.DateTimeFormat('es-MX', { month: 'long' }).format(new Date(`${String(c.period).slice(0, 7)}-15T12:00:00`)) : 'la mensualidad';
   const Mes = mes.charAt(0).toUpperCase() + mes.slice(1);
   if (Number(pa.balance) <= 0.004) return `${Mes} ya está pagada${pa.paidOn ? ` (pagó el ${DIA(pa.paidOn)}, el límite era el ${DIA(pa.due)})` : ''}`;
-  return `${Mes} todavía debe ${money.format(Number(pa.balance))} (el límite era el ${DIA(pa.due)})`;
+  // 09/11/2026: "a veces siento que me cobran cosas que no entiendo". Se dice
+  // qué pasó: abonó tarde una parte, o no ha pagado y ya pasó el día límite.
+  if (pa.paidOn) return `Abonó el ${DIA(pa.paidOn)}, después del día ${DIA(pa.due)}, y quedó saldo`;
+  return `${Mes} no se pagó antes del día ${DIA(pa.due)}`;
 }
 function opcionesDe(cuenta) {
   const col = cuenta.col || {};
   const cargos = (col.charges || []).filter(c => !c.sponsor).map(c => ({ key: `c:${c.id}`, kind: 'charge', id: c.id, player: cuenta.id,
-    label: etiqueta(c.label, cuenta), max: Number(c.balance), period: String(c.period || '').slice(0, 7), type: c.type, porque: porQueRecargo(c) }));
+    label: etiqueta(c.label, cuenta), max: Number(c.balance), period: String(c.period || '').slice(0, 7), type: c.type, porque: porQueRecargo(c),
+    vale: c.amount != null ? Number(c.amount) : null, abonado: Number(c.paid || 0), abonoEl: c.paidOn || null }));
   const pedidos = col.canOrders ? (col.orders || []).map(o => ({ key: `o:${o.id}`, kind: 'order', id: o.id, player: cuenta.id,
     label: etiqueta(`Uniforme ${o.folio}`, cuenta), max: Number(o.balance) })) : [];
   const reg = !cargos.some(c => c.type === 'registration') && inscripciones().length
@@ -222,24 +228,91 @@ const nombres = () => [...s.cuentas.values()].map(c => c.nombre).join(' y ');
 
 function pinta() {
   const b = document.getElementById('cobroBody'); if (!b || !s) return;
-  const cab = (t, sub) => `<header class="pres-head"><div><h2 id="cobroTitle">${esc(t)}</h2><p>${esc(sub)}</p></div><button type="button" class="pres-close" data-cobro-cerrar aria-label="Cerrar">×</button></header>`;
+  const cab = (t, sub) => `<header class="pres-head cobro-head">${caraHtml()}<div><h2 id="cobroTitle">${esc(t)}</h2><p>${esc(sub)}</p></div><button type="button" class="pres-close" data-cobro-cerrar aria-label="Cerrar">×</button></header>`;
   if (s.cargando) { b.innerHTML = `${cab('Cobrar', s.nombre)}<p class="pres-nota">Cargando lo que debe…</p>`; return; }
   if (s.fallo) { b.innerHTML = `${cab('Cobrar', s.nombre)}<div class="pres-error" role="alert">${esc(s.fallo)}</div>`; return; }
   if (s.hecho) { b.innerHTML = cab('Cobro registrado', nombres()) + hechoHtml(); return; }
   const lineas = [...s.sel.values()];
   const t = total();
   const err = s.error ? `<div class="pres-error" role="alert">${esc(s.error)}</div>` : '';
-  const lista = lineas.length ? `<ul class="cobro-va">${lineas.map(lineaHtml).join('')}</ul>`
+  const lista = lineas.length ? porMes(lineas)
     : `<p class="cobro-vacio">${debeAlgo() ? 'Toca Agregar y elige qué paga.' : 'No debe nada. Agrega la mensualidad, la inscripción o lo que vaya a pagar.'}</p>`;
   b.innerHTML = `${cab('Cobrar', nombres())}<form class="pres-form cobro-form" novalidate>
     ${quienHtml()}${fechaHtml()}
     <section class="cobro-bloque" aria-label="Lo que paga"><span class="cobro-titulo">Va en este cobro</span>${lista}
       <button type="button" class="cobro-agregar" data-agregar aria-expanded="${!!s.panel}"><i aria-hidden="true">+</i> ${lineas.length ? 'Agregar otro concepto' : 'Agregar qué paga'}</button>
       ${s.panel ? panelHtml() : ''}</section>
-    <div class="cobro-total"><span>Total</span><strong id="cobroTotal">${money.format(t)}</strong></div>
+    <div class="cobro-total"><span>Total${desglose()}</span><strong id="cobroTotal">${money.format(t)}</strong></div>
     ${pagoHtml(t)}
     ${err}${botonHtml(t)}
   </form>`;
+}
+/* La cara del Tanner (09/11/2026). Presidencia: "que salga una miniatura de
+   la cara del Tanner que está pagando... que te lo enseñen: sí, sí es". Se
+   pinta con iniciales y la foto entra encima cuando llega; tocarla la abre
+   grande. Fotos de menores: URL firmada de una hora, como en todo TannerOS. */
+const iniciales = n => String(n || 'T').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'T';
+function caraHtml() {
+  const f = s?.cara;
+  return `<button type="button" class="cobro-cara" data-cobro-cara aria-label="Ver la foto de ${esc(s?.nombre || 'este Tanner')}"${f?.thumb ? '' : ' disabled'}>
+    ${f?.thumb ? `<img src="${esc(f.thumb)}" alt="">` : `<b aria-hidden="true">${esc(iniciales(s?.nombre))}</b>`}</button>`;
+}
+async function cargaCara(yo, foto) {
+  let f = foto;
+  // Si la pantalla que abrió la hoja no dice nada de la foto (foto = null),
+  // se pide su ficha: la misma que ve quien cobra en el estado de cuenta. Si
+  // la pantalla la mandó vacía, es que no tiene foto: no se vuelve a pedir.
+  if (f == null) {
+    try { const st = await yo.rpc('v2_player_account_statement', { organization_id: yo.org, player_id: yo.playerId });
+      const p = st?.player || {}; f = { bucket: p.photo_bucket, path: p.photo_path, thumbPath: p.photo_thumb_path }; } catch { return; }
+  }
+  const bucket = f?.bucket || 'tanneros-private', chica = f?.thumbPath || f?.path;
+  if (!chica || s !== yo) return;
+  let url = ''; try { url = await getSignedPhotoUrl(supabase, bucket, chica) || ''; } catch { url = ''; }
+  if (!url || s !== yo) return;
+  yo.cara = { thumb: url, bucket, path: f.path || chica };
+  const vieja = document.querySelector('#cobroBody .cobro-cara');
+  if (vieja) vieja.outerHTML = caraHtml();
+}
+async function abreCara() {
+  const f = s?.cara; if (!f) return;
+  let url = f.thumb;
+  if (f.path) { try { url = await getSignedPhotoUrl(supabase, f.bucket, f.path) || url; } catch { /* se queda la miniatura */ } }
+  document.getElementById('cobroCaraGrande')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `<div id="cobroCaraGrande" class="cobro-cara-grande" role="dialog" aria-modal="true" aria-label="Foto de ${esc(s?.nombre || 'Tanner')}">
+    <img src="${esc(url)}" alt="Foto de ${esc(s?.nombre || 'Tanner')}"><p>${esc(s?.nombre || '')}</p><button type="button" aria-label="Cerrar foto">×</button></div>`);
+  const g = document.getElementById('cobroCaraGrande');
+  g.addEventListener('click', () => g.remove());
+}
+
+// "Total · mensualidades $900 + recargos $200": un recargo nunca se cuela
+// sin que se vea cuánto es del total.
+function desglose() {
+  let rec = 0, resto = 0;
+  for (const i of s.sel.values()) { if (i.type === 'late_fee') rec += num(i.amount); else resto += num(i.amount); }
+  return rec > 0 && resto > 0 ? `<small class="cobro-desglose">${money.format(resto)} + ${money.format(rec)} de recargo${rec > 100.004 ? 's' : ''}</small>` : '';
+}
+/* Agrupado por mes (09/11/2026). Presidencia: "agrupar por mes". Octubre con
+   su recargo, noviembre con el suyo, y cada mes con lo que suma. Lo que no es
+   de un mes (uniforme, arbitraje, inscripción) va al final en "Otros". Con un
+   solo grupo no se pone encabezado: no hace falta. */
+const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+function porMes(lineas) {
+  const grupos = new Map();
+  for (const i of lineas) {
+    const k = ['charge', 'month'].includes(i.kind) && i.period ? String(i.period).slice(0, 7) : 'zz';
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(i);
+  }
+  const llaves = [...grupos.keys()].sort();
+  if (llaves.length === 1) return `<ul class="cobro-va">${lineas.map(lineaHtml).join('')}</ul>`;
+  return llaves.map(k => {
+    const items = grupos.get(k), suma = items.reduce((t, i) => t + num(i.amount), 0);
+    const anio = k.slice(0, 4), mes = MESES_LARGOS[Number(k.slice(5, 7)) - 1] || '';
+    const titulo = k === 'zz' ? 'Otros' : `${mes.charAt(0).toUpperCase()}${mes.slice(1)}${anio !== hoyLocal().slice(0, 4) ? ` ${anio}` : ''}`;
+    return `<div class="cobro-mes" data-mes="${esc(k)}"><p class="cobro-mes-tit"><span>${esc(titulo)}</span><b>${money.format(Math.round(suma * 100) / 100)}</b></p>
+      <ul class="cobro-va">${items.map(lineaHtml).join('')}</ul></div>`;
+  }).join('');
 }
 const debeAlgo = () => [...s.cuentas.values()].some(c => { const o = opcionesDe(c); return o.cargos.length || o.pedidos.length; });
 
@@ -316,7 +389,14 @@ function lineaHtml(i) {
   // estorba. Se avisa nada más cuando deja algo pendiente.
   const nota = i.max != null ? (num(i.amount) > 0 && num(i.amount) < i.max ? `Queda a deber ${money.format(i.max - num(i.amount))}` : '')
     : i.kind === 'month' ? esc(i.detalle || '') : i.kind === 'abono' ? 'Se aplica a lo más antiguo; si sobra, queda a favor.' : '';
-  return renglon(i.label, nota || (i.porque ? esc(i.porque) : ''));
+  return renglon(i.label, nota || (i.porque ? esc(i.porque) : '') || yaAbono(i));
+}
+// 09/11/2026 (h79): una mensualidad a medio pagar dice de cuánto era y cuánto
+// ya se abonó; así $350 junto a $550 no parece otro precio.
+const diaMes = f => new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(new Date(`${String(f).slice(0, 10)}T12:00:00`)).replace('.', '');
+function yaAbono(i) {
+  if (i.kind !== 'charge' || !(i.abonado > 0.004) || !(i.vale > i.max + 0.004)) return '';
+  return `De ${money.format(i.vale)} · ya abonó ${money.format(i.abonado)}${i.abonoEl ? ` el ${esc(diaMes(i.abonoEl))}` : ''}`;
 }
 
 // La fecha del pago, a la vista: "Pagó hoy". Si se cambia a un día anterior,
@@ -404,6 +484,7 @@ function alClic(e) {
   if (e.target.closest?.('.cobro-fecha label') && !e.target.matches('input')) { try { document.getElementById('cobroFecha')?.showPicker?.(); } catch { /* el navegador abre el suyo */ } }
   const t = e.target.closest('button,a'); if (!t || !s) return;
   if (t.matches('[data-cobro-cerrar]')) { if (!s.enviando) cierra(); return; }
+  if (t.closest('[data-cobro-cara]')) { abreCara(); return; }
   if (s.enviando) return;
   if (t.hasAttribute('data-agregar')) { s.panel = !s.panel; pinta(); if (s.panel) document.querySelector('#cobroBody .cobro-panel button')?.focus(); return; }
   if (t.dataset.chip) {
@@ -461,6 +542,11 @@ function recalcula() {
   // El aviso de error era de lo que estaba escrito antes: al corregir se va.
   if (s.error) { s.error = ''; document.querySelector('#cobroBody .pres-error')?.remove(); }
   const el = document.getElementById('cobroTotal'); if (el) el.textContent = money.format(t);
+  const ds = document.querySelector('#cobroBody .cobro-total > span'); if (ds) ds.innerHTML = `Total${desglose()}`;
+  document.querySelectorAll('#cobroBody .cobro-mes').forEach(g => {
+    let suma = 0; g.querySelectorAll('[data-linea]').forEach(li => { suma += num(s.sel.get(li.dataset.linea)?.amount); });
+    const b = g.querySelector('.cobro-mes-tit b'); if (b) b.textContent = money.format(Math.round(suma * 100) / 100);
+  });
   const r = document.getElementById('cobroResto'); if (r) r.textContent = money.format(Math.max(0, Math.round((t - num(s.monto1)) * 100) / 100));
   const btn = document.getElementById('cobroEnviar');
   if (btn && !s.enviando) { btn.disabled = t <= 0; btn.innerHTML = t > 0 ? `Cobrar ${money.format(t)} <small>${s.dos ? 'en dos formas' : `en ${nombreMetodo(s.metodo).toLowerCase()}`}</small>` : 'Elige qué paga'; }
@@ -560,7 +646,7 @@ async function envia(metodo) {
 //   la usan varias personas, se pregunta quién cobra (una vez por aparato).
 //   alTerminar(hecho): corre al cerrar, sólo si se cobró.
 export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', nacimiento = null, preseleccion = null, alTerminar = null,
-  quien = '', compartida = false }) {
+  quien = '', compartida = false, foto = null }) {
   asegura();
   s = { rpc, org, playerId, nombre: nombre || 'este Tanner', telefono, alTerminar, cargando: true, fallo: '',
     cuentas: new Map([[playerId, { id: playerId, nombre: nombre || 'este Tanner', nacimiento, col: null }]]), familia: [], sel: new Map(),
@@ -569,6 +655,7 @@ export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', na
     llave: llave(), enviando: false, error: '', hecho: null };
   const yo = s;
   pinta();
+  cargaCara(yo, foto);
   document.getElementById('cobroSheet').classList.remove('hidden');
   document.getElementById('cobroBackdrop').classList.remove('hidden');
   document.body.style.overflow = 'hidden';

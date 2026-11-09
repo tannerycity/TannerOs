@@ -580,6 +580,7 @@ document.addEventListener('click',e=>{
   abrirCobro({rpc,org:ctx.organization_id,playerId,nombre:[p.first_name,p.last_name].filter(Boolean).join(' '),
     telefono:(p.guardians||[]).find(g=>g.phone)?.phone||'',nacimiento:p.birth_date,preseleccion:b.dataset.cobrar||null,
     quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),
+    foto:{bucket:p.photo_bucket,path:p.photo_path,thumbPath:p.photo_thumb_path},
     alTerminar:()=>render()});
 });
 const llave=()=>(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`);

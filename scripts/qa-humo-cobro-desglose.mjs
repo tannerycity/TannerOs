@@ -111,7 +111,7 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
   }, { estado:ESTADO, cobro:cobroDe || COBRO(canCollect), hermana:COBRO_HERMANA, usuario });
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
-    body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
+    body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(_c,_b,ruta){return String(ruta||"").includes("foto-prueba")?"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%2330b45a%22/%3E%3C/svg%3E#"+ruta:null;}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.goto(`http://127.0.0.1:${PUERTO}${ruta}`, { waitUntil:'domcontentloaded' });
   return p;
@@ -406,6 +406,57 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   revisa('[recargo] el recibo dice que se quitó', /Se quitó el recargo de \$100\.00/.test(await texto(p, '.cobro-hecho')), await texto(p, '.cobro-hecho'));
   revisa('[recibo] separa lo cobrado de lo que queda a favor', /A favor/.test(await texto(p, '.cobro-recibo')), await texto(p, '.cobro-recibo'));
   await foto(p, 'cobro-de-mas');
+  await p.close();
+}
+
+/* ---------- La cara del Tanner y un cobro que se entiende (09/11/2026) ----------
+   Presidencia: "a veces siento que me cobran cosas que no entiendo" (el caso de
+   Isabella: octubre abonado tarde, noviembre sin pagar, dos recargos), y "que
+   salga una miniatura de la cara del Tanner... si le picas se pueda ver grande". */
+{
+  const ISA = { canCollect:true, canOrders:true, prices:null, orders:[], monthly:{ fee:550 }, charges:[
+    { id:'i-oct', type:'monthly_fee', period:'2026-10-01', label:'Mensualidad oct', balance:350, amount:550, paid:200, paidOn:'2026-10-06', sponsor:false },
+    { id:'i-roct', type:'late_fee', period:'2026-10-01', label:'Recargo oct', balance:100, sponsor:false, parent:{ due:'2026-10-05', balance:350, paidOn:'2026-10-06' } },
+    { id:'i-nov', type:'monthly_fee', period:'2026-11-01', label:'Mensualidad nov', balance:550, sponsor:false },
+    { id:'i-rnov', type:'late_fee', period:'2026-11-01', label:'Recargo nov', balance:100, sponsor:false, parent:{ due:'2026-11-05', balance:550, paidOn:null } } ] };
+  const antes = { ...ESTADO.player };
+  Object.assign(ESTADO.player, { photo_bucket:'tanneros-private', photo_path:'p1/foto-prueba-grande.jpg', photo_thumb_path:'p1/foto-prueba-chica.webp' });
+  const p = await abre(true, '/v2/tanner/?id=p1', 390, undefined, ISA);
+  ESTADO.player = antes;
+  await p.waitForSelector('.tan-balance [data-cobrar]', { timeout:8000 });
+  await p.click('.tan-balance [data-cobrar]');
+  await p.waitForSelector(hoja, { timeout:5000 });
+  await p.waitForSelector('#cobroBody .cobro-cara img', { timeout:4000 }).catch(() => {});
+  revisa('[cara] la hoja enseña la cara del Tanner que paga', /foto-prueba-chica/.test(await p.getAttribute('#cobroBody .cobro-cara img', 'src').catch(() => '') || ''));
+  const notas = await p.$$eval('#cobroBody .cobro-linea', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
+  revisa('[claro] el recargo de octubre dice qué pasó: abonó tarde y quedó saldo', notas.some(t => /Recargo oct/.test(t) && /Abonó el 6, después del día 5, y quedó saldo/.test(t)), JSON.stringify(notas));
+  revisa('[claro] el de noviembre dice que no se pagó antes del día 5', notas.some(t => /Recargo nov/.test(t) && /Noviembre no se pagó antes del día 5/.test(t)), JSON.stringify(notas));
+  revisa('[claro] el total separa mensualidades y recargos', /\$900\.00 \+ \$200\.00 de recargos/.test(await texto(p, '.cobro-total')) && /\$1,100\.00/.test(await texto(p, '.cobro-total')), await texto(p, '.cobro-total'));
+  const grupos = await p.$$eval('#cobroBody .cobro-mes-tit', g => g.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
+  revisa('[mes] agrupado por mes, cada uno con lo que suma', JSON.stringify(grupos) === '["Octubre$450.00","Noviembre$650.00"]', JSON.stringify(grupos));
+  revisa('[mes] octubre dice de cuánto era y cuánto ya abonó', notas.some(t => /Mensualidad oct/.test(t) && /De \$550\.00 · ya abonó \$200\.00 el 6 oct/.test(t)), JSON.stringify(notas));
+  revisa('[mes] noviembre (sin abonos) no lleva esa nota', !notas.some(t => /Mensualidad nov/.test(t) && /ya abonó/.test(t)));
+  await p.fill('[data-monto="c:i-oct"]', '200'); await p.press('[data-monto="c:i-oct"]', 'Tab');
+  revisa('[mes] al cambiar un monto, el subtotal del mes cambia', /Octubre\$300\.00/.test((await texto(p, '#cobroBody .cobro-mes[data-mes="2026-10"] .cobro-mes-tit')).replace(/\s+/g, ' ')), await texto(p, '#cobroBody .cobro-mes[data-mes="2026-10"] .cobro-mes-tit'));
+  await p.fill('[data-monto="c:i-oct"]', '350'); await p.press('[data-monto="c:i-oct"]', 'Tab');
+  await p.click('[data-quita="c:i-rnov"]');
+  revisa('[claro] al quitar un recargo el desglose se actualiza', /\$900\.00 \+ \$100\.00 de recargo(?!s)/.test(await texto(p, '.cobro-total')), await texto(p, '.cobro-total'));
+  await foto(p, 'cobro-cara');
+  await p.click('#cobroBody .cobro-cara');
+  await p.waitForSelector('#cobroCaraGrande img', { timeout:3000 }).catch(() => {});
+  revisa('[cara] al tocarla se ve grande, con la foto completa y su nombre', /foto-prueba-grande/.test(await p.getAttribute('#cobroCaraGrande img', 'src').catch(() => '') || '') && /Liam Santos/.test(await texto(p, '#cobroCaraGrande')));
+  await foto(p, 'cobro-cara-grande');
+  await p.click('#cobroCaraGrande');
+  revisa('[cara] un toque la cierra y la hoja sigue abierta', !(await p.$('#cobroCaraGrande')) && !!(await p.$(hoja)));
+  revisa('[cara] no pide la cuenta otra vez sólo por la foto (ya venía en la pantalla)', (await llamadas(p, 'v2_player_account_statement')).length === 1);
+  await p.close();
+}
+{ // Sin foto: iniciales, y el botón no abre nada.
+  const p = await abre(true, '/v2/tanner/?id=p1', 390);
+  await p.waitForSelector('.tan-balance [data-cobrar]', { timeout:8000 });
+  await p.click('.tan-balance [data-cobrar]');
+  await p.waitForSelector(hoja, { timeout:5000 });
+  revisa('[cara] sin foto se ven sus iniciales', (await texto(p, '#cobroBody .cobro-cara')).trim() === 'LS' && await p.$eval('#cobroBody .cobro-cara', b => b.disabled));
   await p.close();
 }
 

@@ -266,16 +266,19 @@ function mensajeResultadoSol(d) {
   return `Hola, le escribimos de ${club} sobre la solicitud de ${modalidad} de ${nombre}.\n\nPor ahora no fue posible otorgar este apoyo. Si quiere platicarlo, con gusto le explicamos a detalle.`;
 }
 
-let modo = (() => { try { return localStorage.getItem('becasModo') === 'solicitudes' ? 'solicitudes' : 'becados'; } catch { return 'becados'; } })();
+let modo = (() => { try { const m = localStorage.getItem('becasModo'); return m === 'solicitudes' || m === 'publicas' ? m : 'becados'; } catch { return 'becados'; } })();
 let solicitudes = [], solEstado = 'atender', solBusqueda = '', solCargado = false, solActualId = null, ajustes = null, todosJugadores = null, fondo = null;
+let publicas = [], pubEstado = 'nueva', pubBusqueda = '', pubCargado = false, pubActualId = null;
 
 function setModo(m) {
-  modo = m === 'solicitudes' ? 'solicitudes' : 'becados';
+  modo = m === 'solicitudes' ? 'solicitudes' : m === 'publicas' ? 'publicas' : 'becados';
   try { localStorage.setItem('becasModo', modo); } catch { /* sin almacenamiento: no pasa nada */ }
   document.querySelectorAll('.bc-modo-btn').forEach(b => { const on = b.dataset.modo === modo; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); });
   $('bcTabBecados').classList.toggle('hidden', modo !== 'becados');
   $('bcTabSolicitudes').classList.toggle('hidden', modo !== 'solicitudes');
+  $('bcTabPublicas').classList.toggle('hidden', modo !== 'publicas');
   if (modo === 'solicitudes' && !solCargado) cargaSolicitudes();
+  if (modo === 'publicas' && !pubCargado) cargaPublicas();
 }
 
 async function cargaSolicitudes() {
@@ -477,6 +480,113 @@ $('solHoja')?.addEventListener('submit', e => {
   if (f.id === 'formExentar') exentarCuota(f.reason.value.trim());
 });
 
+// --- Pedidas desde Centro Tanner (09/11/2026): sin sesión, sin jugador
+// todavía. Presidencia las ve aquí, opcionalmente las vincula a un jugador
+// ya existente (si la familia ya estaba inscrita) y responde. ---
+const PUB_ESTADOS = { nueva: 'Nueva', contactada: 'Contactada', vinculada: 'Vinculada', rechazada: 'Rechazada' };
+const PUB_NIVEL = { nueva: 'atencion', contactada: 'atencion', vinculada: 'ok', rechazada: 'sindato' };
+const PUB_FILTROS = [
+  { clave: 'nueva', etiqueta: 'Nuevas', pasa: s => s.status === 'nueva' },
+  { clave: 'contactada', etiqueta: 'Contactadas', pasa: s => s.status === 'contactada' },
+  { clave: 'cerrada', etiqueta: 'Vinculadas / rechazadas', pasa: s => s.status === 'vinculada' || s.status === 'rechazada' },
+  { clave: 'todas', etiqueta: 'Todas', pasa: () => true },
+];
+
+async function cargaPublicas() {
+  try { publicas = await rpc('v2_scholarship_public_requests', { organization_id: ctx.organization_id, status_filter: null }) || []; pubCargado = true; }
+  catch { msg('No pudimos abrir las solicitudes públicas.'); return; }
+  pintaPubMarcador(); pintaPubEstados(); pintaPubLista();
+}
+function pintaPubMarcador() {
+  const nuevas = publicas.filter(s => s.status === 'nueva').length;
+  $('bcPubBadge').textContent = nuevas;
+  $('bcPubBadge').classList.toggle('hidden', !nuevas);
+}
+function pintaPubEstados() {
+  $('pubEstados').innerHTML = PUB_FILTROS.map(f => `<button type="button" data-f="${f.clave}" class="${f.clave === pubEstado ? 'activo' : ''}">${f.etiqueta} <b>${publicas.filter(f.pasa).length}</b></button>`).join('');
+  $('pubEstados').querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => { pubEstado = b.dataset.f; pintaPubEstados(); pintaPubLista(); }));
+}
+function pintaPubLista() {
+  const f = PUB_FILTROS.find(x => x.clave === pubEstado) || PUB_FILTROS[0];
+  const filas = publicas.filter(f.pasa).filter(s => !pubBusqueda || sinAcentos(s.guardianName).includes(pubBusqueda) || sinAcentos(s.childName).includes(pubBusqueda) || s.folio.toLowerCase().includes(pubBusqueda))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  $('pubVacio').classList.toggle('hidden', filas.length > 0);
+  $('pubLista').innerHTML = filas.map(s => {
+    const nivel = PUB_NIVEL[s.status] || '';
+    return `<button type="button" class="bc-fila${nivel ? ` bc-${nivel}` : ''}" data-id="${esc(s.id)}">
+      <span class="bc-fila-txt">
+        <strong>${esc(s.childName)}</strong>
+        <span class="bc-etq"><i class="bc-tipo">${esc(MODALIDADES[s.modality] || s.modality)}</i><small>${esc(s.folio)} · ${esc(s.guardianName)}</small></span>
+        <small class="bc-venc">${esc(fechaHora(s.createdAt))}${s.childStatus === 'inscrito' ? ' · ya inscrito' : ' · aún no se inscribe'}</small>
+      </span>
+      <span class="sol-pastilla sol-pastilla-${nivel || 'base'}">${esc(PUB_ESTADOS[s.status] || s.status)}</span>
+    </button>`;
+  }).join('');
+  $('pubLista').querySelectorAll('[data-id]').forEach(x => x.addEventListener('click', () => abrePublica(x.dataset.id)));
+}
+function pubMsg(t) { const m = $('pubHojaMsg'); if (!m) return; m.textContent = t || ''; m.classList.toggle('hidden', !t); }
+
+function abrePublica(id) {
+  pubActualId = id;
+  const s = publicas.find(x => x.id === id);
+  if (!s) return;
+  pintaPubHoja(s);
+  $('pubFondo').classList.remove('hidden'); document.body.style.overflow = 'hidden';
+}
+function cierraPublica() { $('pubFondo').classList.add('hidden'); document.body.style.overflow = ''; pubActualId = null; }
+
+function pintaPubHoja(s) {
+  const yaVinculada = !!s.linkedPlayerId;
+  $('pubHoja').innerHTML = `
+    <h2 id="pubHojaNombre">${esc(s.childName)}</h2>
+    <p class="muted tiny">${esc(s.folio)} · ${esc(MODALIDADES[s.modality] || s.modality)} · ${esc(fechaHora(s.createdAt))}</p>
+    <div class="sol-dictamen">
+      <p><b>${esc(s.guardianName)}</b> · <a href="${esc(ligaWhatsApp(s.phone, ''))}" target="_blank">${esc(s.phone)}</a>${s.email ? ` · ${esc(s.email)}` : ''}</p>
+      <p>${s.childStatus === 'inscrito' ? 'Dice que ya está inscrito en el club.' : 'Todavía no se inscribe.'}</p>
+      <p class="sol-opt">${esc(s.reason)}</p>
+    </div>
+    <div class="bc-acciones">
+      <button type="button" class="secondary" data-pub-estado="contactada" ${s.status === 'contactada' ? 'disabled' : ''}>Marcar contactada</button>
+      <button type="button" class="danger" data-pub-estado="rechazada">Rechazar</button>
+    </div>
+    <div class="sol-dictamen">
+      <span class="sol-tit">Vincular a un jugador</span>
+      <p class="sol-opt">${yaVinculada ? 'Ya está vinculada a un jugador del club.' : 'Si la familia ya está inscrita, búscala aquí para vincular la solicitud a su ficha.'}</p>
+      ${yaVinculada ? `<a class="secondary mini" href="/jugadores/?player=${encodeURIComponent(s.linkedPlayerId)}">Ver ficha del jugador →</a>` : `
+      <label>Buscar Tanner<input type="search" id="pubBuscarJugador" placeholder="Nombre del jugador" autocomplete="off"></label>
+      <div id="pubResultados" class="sol-resultados"></div>`}
+    </div>
+    <label>Notas internas<textarea id="pubNotas" rows="3" placeholder="Para el equipo, no la ve la familia">${esc(s.notes || '')}</textarea></label>
+    <button type="button" class="secondary" id="pubGuardarNotas">Guardar notas</button>
+    <div id="pubHojaMsg" class="inline-message hidden"></div>`;
+  $('pubBuscarJugador')?.addEventListener('input', e => buscaJugadoresPub(e.target.value.trim()));
+}
+async function buscaJugadoresPub(q) {
+  if (!todosJugadores) { try { todosJugadores = await rpc('v2_players', { organization_id: ctx.organization_id, status_filter: 'active' }) || []; } catch { todosJugadores = []; } }
+  const qq = sinAcentos(q);
+  const res = qq.length < 2 ? [] : todosJugadores.filter(p => sinAcentos(`${p.first_name} ${p.last_name}`).includes(qq)).slice(0, 8);
+  $('pubResultados').innerHTML = res.map(p => `<button type="button" class="sol-resultado" data-pid="${esc(p.id)}" data-pname="${esc(`${p.first_name} ${p.last_name}`)}">
+    <strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>${p.category ? `<small>${esc(p.category)}</small>` : ''}</button>`).join('');
+}
+async function actualizaPublica(payload) {
+  if (!pubActualId) return;
+  try {
+    await rpc('v2_scholarship_public_request_update', { organization_id: ctx.organization_id, id: pubActualId, ...payload });
+    publicas = await rpc('v2_scholarship_public_requests', { organization_id: ctx.organization_id, status_filter: null }) || [];
+    pintaPubMarcador(); pintaPubEstados(); pintaPubLista();
+    const actual = publicas.find(x => x.id === pubActualId);
+    if (actual) pintaPubHoja(actual);
+  } catch (e) { pubMsg(e.message || 'No se pudo guardar.'); }
+}
+$('pubHoja')?.addEventListener('click', e => {
+  const pid = e.target.closest('[data-pid]');
+  if (pid) { actualizaPublica({ link_player_id: pid.dataset.pid, status: 'vinculada' }); return; }
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.pubEstado === 'rechazada') { if (confirm('¿Rechazar esta solicitud?')) actualizaPublica({ status: 'rechazada' }); }
+  else if (t.dataset.pubEstado) actualizaPublica({ status: t.dataset.pubEstado });
+  else if (t.id === 'pubGuardarNotas') actualizaPublica({ notes: $('pubNotas').value.trim() });
+});
+
 // --- Nominar (Beca Deportiva / Beca Tanner) ---
 function abreNominar() {
   $('nomHoja').innerHTML = `
@@ -568,6 +678,9 @@ $('solFondo')?.addEventListener('click', e => { if (e.target.id === 'solFondo') 
 $('solNominarBtn')?.addEventListener('click', abreNominar);
 $('nomCerrar')?.addEventListener('click', cierraNominar);
 $('nomFondo')?.addEventListener('click', e => { if (e.target.id === 'nomFondo') cierraNominar(); });
+$('pubBuscar')?.addEventListener('input', e => { pubBusqueda = sinAcentos(e.target.value.trim()); pintaPubLista(); });
+$('pubCerrar')?.addEventListener('click', cierraPublica);
+$('pubFondo')?.addEventListener('click', e => { if (e.target.id === 'pubFondo') cierraPublica(); });
 $('solAjustesBtn')?.addEventListener('click', abreAjustes);
 $('cfgCerrar')?.addEventListener('click', cierraAjustes);
 $('cfgFondo')?.addEventListener('click', e => { if (e.target.id === 'cfgFondo') cierraAjustes(); });
@@ -605,6 +718,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('bcFondo').classList.contains('hidden')) cierraFicha();
   else if (!$('solFondo').classList.contains('hidden')) cierraSolicitud();
+  else if (!$('pubFondo').classList.contains('hidden')) cierraPublica();
   else if (!$('nomFondo').classList.contains('hidden')) cierraNominar();
   else if (!$('cfgFondo').classList.contains('hidden')) cierraAjustes();
 });

@@ -164,6 +164,62 @@ async function renderTheme(categoriesParam) {
   } catch { $('ctThemeList').innerHTML = '<p class="ct-empty">No pudimos cargar este tema.</p>'; }
 }
 
+// 09/11/2026, Mich: la política decía "Siguiente paso: SOLICITAR APOYO" pero
+// no había ningún botón, y el único camino real (Portal de familia) exige
+// sesión y un jugador ya inscrito — para Apoyo de Ingreso eso no tiene
+// sentido, es para quien AÚN NO se inscribe. Este botón manda la solicitud
+// sin sesión (v2_public_scholarship_request); el club la revisa y vincula.
+const SOLICITUD_MODALIDAD_POR_SLUG = {
+  'apoyo-de-ingreso': 'ingreso',
+  'beca-de-apoyo-familiar': 'apoyo_familiar',
+  'beca-academica': 'academica',
+  'beca-lealtad-tanner': 'lealtad',
+  curtibrother: 'curtibrother',
+};
+function solicitudApoyoHtml(modality) {
+  return `<div class="bk-solicitud-wrap">
+    <button type="button" id="bkSolicitarBtn" class="bk-btn-primary">Solicitar apoyo →</button>
+    <form id="bkSolicitudForm" class="bk-solicitud hidden">
+      <label>Tu nombre<input id="bsGuardian" required minlength="3" maxlength="120" placeholder="Nombre del papá, mamá o tutor"></label>
+      <label>Tu WhatsApp<input id="bsPhone" type="tel" required placeholder="10 dígitos"></label>
+      <label>Nombre de tu hijo(a)<input id="bsChild" required minlength="2" maxlength="120" placeholder="Nombre del jugador o futura jugadora"></label>
+      <label>¿Ya está inscrito en ${esc(clubNombre || 'el club')}?
+        <select id="bsChildStatus"><option value="sin_inscribir">Todavía no</option><option value="inscrito">Sí, ya está inscrito</option></select>
+      </label>
+      <label>Cuéntanos tu situación<textarea id="bsReason" required minlength="20" maxlength="2000" rows="4" placeholder="Al menos 20 caracteres — entre más contexto, más rápido podemos revisar tu caso"></textarea></label>
+      <label class="bk-solicitud-check"><input type="checkbox" id="bsConsent" required> He leído el <a href="/centro-tanner/privacidad" target="_blank">Aviso de privacidad</a> y acepto que usen estos datos para revisar mi solicitud.</label>
+      <button type="submit" class="bk-btn-primary">Enviar solicitud</button>
+      <p id="bkSolicitudMsg" class="bk-solicitud-msg hidden"></p>
+    </form>
+  </div>`;
+}
+function wireSolicitudApoyo(modality) {
+  const btn = $('bkSolicitarBtn'), form = $('bkSolicitudForm');
+  if (!btn || !form) return;
+  btn.addEventListener('click', () => { btn.classList.add('hidden'); form.classList.remove('hidden'); $('bsGuardian').focus(); });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = $('bkSolicitudMsg');
+    msg.classList.remove('hidden'); msg.dataset.type = ''; msg.textContent = 'Enviando…';
+    const submitBtn = form.querySelector('button[type="submit"]'); submitBtn.disabled = true;
+    try {
+      const r = await rpc('v2_public_scholarship_request', { club_key: CLUB_KEY, request: {
+        guardianName: $('bsGuardian').value, phone: $('bsPhone').value, childName: $('bsChild').value,
+        childStatus: $('bsChildStatus').value, modality, reason: $('bsReason').value,
+        consent: { dataAccepted: $('bsConsent').checked },
+      } });
+      form.querySelectorAll('input,select,textarea,button').forEach((el) => (el.disabled = true));
+      msg.dataset.type = 'success';
+      msg.innerHTML = r.duplicate
+        ? `Ya tenías una solicitud enviada (folio <b>${esc(r.folio)}</b>). El club te va a contestar por WhatsApp.`
+        : `¡Listo! Tu folio es <b>${esc(r.folio)}</b>. El club va a revisar tu solicitud y te contacta por WhatsApp.`;
+    } catch (err) {
+      submitBtn.disabled = false;
+      msg.dataset.type = 'error';
+      msg.textContent = err.message || 'No pudimos enviar tu solicitud, intenta de nuevo.';
+    }
+  });
+}
 async function renderPolicy(slug) {
   render('<div class="ct-loading">Cargando…</div>');
   try {
@@ -177,6 +233,7 @@ async function renderPolicy(slug) {
     const toggle = hayMas
       ? `<button class="ct-policy-toggle" id="ctToggleFull" type="button">Ver más detalles →</button>
          <div id="ctFullContent" class="ct-policy-full hidden">${linkify(esc(resto))}</div>` : '';
+    const modalidad = SOLICITUD_MODALIDAD_POR_SLUG[p.slug];
     render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { href: `/centro-tanner/tema/${esc(p.category)}`, label: catLabel }, { label: p.title }])}
       <article class="ct-policy-card">
         <div class="ct-policy-kicker">${esc(catLabel)}</div>
@@ -185,6 +242,7 @@ async function renderPolicy(slug) {
         ${toggle}
         <div class="ct-policy-meta"><span>Versión ${esc(p.version)}</span>${p.effectiveDate ? `<span>Vigente desde ${esc(fmtDate(p.effectiveDate))}</span>` : ''}${p.policyCode ? `<span>${esc(p.policyCode)}</span>` : ''}</div>
         ${consentNote}
+        ${modalidad ? solicitudApoyoHtml(modalidad) : ''}
       </article>
       ${feedbackWidget('policy', p.id)}
       ${p.relatedFaqs?.length ? `<section class="ct-section"><h2 class="ct-section-title">Preguntas relacionadas</h2><div class="ct-faq-list">${p.relatedFaqs.map((f) => `<details class="ct-faq-item"><summary>${esc(f.question)}</summary><div class="ct-faq-body">${esc(f.answer)}</div></details>`).join('')}</div></section>` : ''}
@@ -194,6 +252,7 @@ async function renderPolicy(slug) {
       const el = $('ctFullContent'); const open = !el.classList.contains('hidden');
       el.classList.toggle('hidden'); $('ctToggleFull').textContent = open ? 'Ver más detalles →' : 'Ocultar detalles ↑';
     });
+    if (modalidad) wireSolicitudApoyo(modalidad);
     wireFeedback(p.id);
   } catch (err) { render(`<div class="ct-empty"><h1>No encontramos esta política</h1><p>${esc(err.message || '')}</p><a href="/centro-tanner/">Volver a Centro Tanner</a></div>`); }
 }

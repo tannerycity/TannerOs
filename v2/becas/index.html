@@ -23,9 +23,10 @@
       <div class="top-actions"><a class="secondary mini nav-link" href="/v2">Dirección</a><span id="roleBadge" class="role-badge"></span></div>
     </header>
 
-    <div id="bcModo" class="bc-modo" role="tablist" aria-label="Ver becados o solicitudes">
+    <div id="bcModo" class="bc-modo" role="tablist" aria-label="Ver becados, solicitudes o pedidos públicos">
       <button type="button" class="bc-modo-btn active" data-modo="becados" role="tab" aria-selected="true">Becados</button>
       <button type="button" class="bc-modo-btn" data-modo="solicitudes" role="tab" aria-selected="false">Solicitudes de beca <span id="bcSolBadge" class="bc-modo-badge hidden">0</span></button>
+      <button type="button" class="bc-modo-btn" data-modo="publicas" role="tab" aria-selected="false">Pedidas desde Centro Tanner <span id="bcPubBadge" class="bc-modo-badge hidden">0</span></button>
     </div>
 
     <div id="bcTabBecados">
@@ -89,6 +90,25 @@
       <p id="solVacio" class="bc-vacio hidden">Nada por aquí.</p>
     </div>
 
+    <div id="bcTabPublicas" class="hidden">
+      <!-- Mich (09/11/2026): "en Centro Tanner debe de venir el click para
+           solicitarla" — esto es lo que llega de ahí, sin que la familia
+           haya iniciado sesión ni tenga un jugador inscrito todavía. -->
+      <section class="bc-cancha bc-cancha-sol">
+        <p class="bc-dia">DESDE CENTRO TANNER, SIN SESIÓN</p>
+        <h1>Pedidas desde Centro Tanner</h1>
+      </section>
+
+      <nav id="pubEstados" class="bc-periodos" aria-label="Estado de la solicitud"></nav>
+
+      <div class="bc-herr">
+        <label class="bc-buscar"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="pubBuscar" type="search" placeholder="Buscar por nombre o folio" autocomplete="off"></label>
+      </div>
+
+      <section id="pubLista" class="bc-lista" aria-live="polite"></section>
+      <p id="pubVacio" class="bc-vacio hidden">Nada por aquí.</p>
+    </div>
+
     <div id="bcMensaje" class="inline-message hidden"></div>
   </section>
 </main>
@@ -108,6 +128,15 @@
     <div class="bc-asa" aria-hidden="true"></div>
     <button type="button" id="solCerrar" class="bc-cerrar" aria-label="Cerrar">&times;</button>
     <div id="solHoja"></div>
+  </section>
+</div>
+
+<!-- La solicitud pública: ver, vincular a un jugador y responder. -->
+<div id="pubFondo" class="bc-fondo hidden">
+  <section class="bc-hoja" role="dialog" aria-modal="true" aria-labelledby="pubHojaNombre">
+    <div class="bc-asa" aria-hidden="true"></div>
+    <button type="button" id="pubCerrar" class="bc-cerrar" aria-label="Cerrar">&times;</button>
+    <div id="pubHoja"></div>
   </section>
 </div>
 

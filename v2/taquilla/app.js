@@ -938,7 +938,13 @@ document.addEventListener('click',e=>{
   if(ir){collectionsFilter=ir.dataset.cobIr;collectionsExpanded=false;document.querySelectorAll('.collections-filters button').forEach(x=>x.classList.toggle('active',x.dataset.collectionsFilter===collectionsFilter));renderCollections();$('collectionsList')?.scrollIntoView({block:'start',behavior:'smooth'});return;}
   if(e.target.closest?.('[data-cob-recordar-todos]')){const box=$('cobRecordarLista');if(box){const abrir=box.classList.contains('hidden');box.classList.toggle('hidden',!abrir);if(abrir)pintaRecordarTodos();}return;}
   const rec=e.target.closest?.('[data-cob-recordado]');
-  if(rec){marcaRecordado(rec.dataset.cobRecordado);setTimeout(()=>{rec.textContent='Enviado';rec.classList.add('hecho');},50);}
+  if(rec){
+    // El recordatorio queda en el seguimiento del Tanner (una vez al día): así
+    // cuenta en la barra de quien cobra (h70) y se ve en su ficha.
+    const id=rec.dataset.cobRecordado;
+    if(!recordados().has(id))rpc('v2_add_collection_note',{organization_id:org,player_id:id,kind:'whatsapp',body:'WhatsApp: Recordatorio de pago'}).catch(e=>console.warn('seguimiento',e));
+    marcaRecordado(id);setTimeout(()=>{rec.textContent='Enviado';rec.classList.add('hecho');},50);
+  }
 });
 
 await Promise.all([loadPlayers(),load(),loadReceivables()]);renderCollections();
@@ -1092,6 +1098,11 @@ function pintaPorQueEsteMonto(pl){
 
 
 // === Editar movimiento (solo Presidencia) ===
+function avisoTaquilla(t){
+  let el=document.getElementById('taqToast');
+  if(!el){document.body.insertAdjacentHTML('beforeend','<div id="taqToast" class="pres-toast" role="status"></div>');el=document.getElementById('taqToast');}
+  el.textContent=t;el.classList.add('visible');clearTimeout(avisoTaquilla.t);avisoTaquilla.t=setTimeout(()=>el.classList.remove('visible'),4500);
+}
 const _METHOD_VAL={'Efectivo':'cash','Transferencia':'transfer','Tarjeta':'card','Otro':'other'};
 let pendingEdit=null;
 function openEditMove(m){
@@ -1123,7 +1134,12 @@ async function saveEditMove(){
     }else{
       await rpc('v2_update_expense',{organization_id:org,expense_id:m.id,amount,method:$('editMethod').value,category:$('editCategory').value.trim(),concept:$('editConcept').value.trim(),supplier_name:$('editWho').value.trim()||null,expense_date:$('editDate').value||null,reference:m.reference||null});
     }
-    closeEditMove();await load();
+    // Con la fecha corregida, si el mes quedó pagado a tiempo, el recargo se
+    // quita solo (h63), igual que al editar desde la ficha del Tanner.
+    let quitado=0;
+    if(income&&m.playerId){try{const q=await rpc('v2_waive_on_time_late_fees',{organization_id:org,player_id:m.playerId});quitado=Number(q?.amount||0);}catch{/* sin permiso: el pago ya quedó */}}
+    closeEditMove();tablero=null;await Promise.all([load(),loadReceivables()]);renderCollections();
+    if(quitado>0)avisoTaquilla(`Pago corregido. Se quitó el recargo de ${money.format(quitado)}: con esa fecha pagó a tiempo.`);
   }catch(e){msg.textContent=(e&&e.message)||'No se pudo guardar.';msg.classList.remove('hidden');}
   finally{btn.disabled=false;}
 }

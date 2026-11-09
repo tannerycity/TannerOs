@@ -56,6 +56,7 @@ function quien(p) {
   if (r.director) partes.push('Director deportivo');
   if (r.profe) partes.push('Profe');
   if (r.marketing) partes.push('Marketing');
+  if (r.cobranza) partes.push('Cobranza');
   return partes.join(' · ') || ROL[p.role] || p.role || '';
 }
 
@@ -92,4 +93,37 @@ export function resumenCampana(d) {
   if (!d || !(d.sections || []).length) return '';
   const pct = Number(d.percent ?? 0);
   return `<a class="ms-aviso-semana" href="/?vestidor#miSemana"><span><strong>Mi semana · ${pct}%</strong><small>${todo.length ? esc(todo[0].text) + (todo.length > 1 ? ` y ${todo.length - 1} más` : '') : 'Todo al día'}</small></span>${barra(pct, true)}</a>`;
+}
+
+/* "Activa tus avisos" (09/11/2026). Sólo 3 celulares tenían las notificaciones
+   prendidas: los recordatorios de Mi semana no le llegaban a casi nadie. El
+   shell ya sabe si este equipo puede recibirlas y aún no las activó (la fila
+   oculta #tosBellSubscribeRow); aquí se ofrece en Inicio, con un toque. En el
+   iPhone sin instalar no hay push: se dice cómo instalarla. */
+export function estadoAvisos({ doc = document, win = window } = {}) {
+  const fila = doc.getElementById('tosBellSubscribeRow');
+  if (fila && !fila.classList.contains('hidden')) return 'ofrecer';
+  const ua = String(win.navigator?.userAgent || '');
+  const ios = /iPhone|iPad|iPod/.test(ua);
+  const instalada = !!(win.navigator?.standalone || win.matchMedia?.('(display-mode: standalone)').matches);
+  if (ios && !instalada && !('PushManager' in win)) return 'instalar';
+  return 'nada';
+}
+export function pintaActivarAvisos({ box = document.getElementById('activaAvisos'), doc = document, win = window } = {}) {
+  if (!box) return;
+  const pinta = () => {
+    const e = estadoAvisos({ doc, win });
+    if (e === 'ofrecer') {
+      box.innerHTML = `<span class="ms-avisos-txt"><strong>Activa tus avisos</strong><small>Te llegan al celular los recordatorios de tu semana y los mensajes del club.</small></span><button type="button" class="ms-avisos-btn" data-activa-avisos>Activar</button>`;
+      box.querySelector('[data-activa-avisos]').addEventListener('click', () => {
+        doc.getElementById('tosEnablePush')?.click();
+        setTimeout(pinta, 4000);
+      });
+    } else if (e === 'instalar') {
+      box.innerHTML = `<span class="ms-avisos-txt"><strong>Recibe tus avisos en el iPhone</strong><small>Toca Compartir y luego "Agregar a pantalla de inicio". Abre TannerOS desde ahí y activa los avisos.</small></span>`;
+    } else box.innerHTML = '';
+    box.classList.toggle('hidden', e === 'nada');
+  };
+  // El shell revisa el service worker sin bloquear: se pregunta un poco después.
+  setTimeout(pinta, 1500);
 }

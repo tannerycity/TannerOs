@@ -180,6 +180,11 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   await p.click('.tan-ledger [data-charge="c-sep"]');
   revisa('[liquidado] dice el cargo y lo que ya pagó', /Cargo de \$800\.00 · pagó \$800\.00/.test(await p.textContent('.pres-cuota')) && await p.inputValue('#presMonto') === '0');
   await p.click('[data-pres-cerrar]');
+  // La X cierra la hoja. Si no, que lo diga con lo que sigue abierto (en CI
+  // dos veces quedó una hoja encima del siguiente paso).
+  const cerroX = await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:8000 }).then(() => true, () => false);
+  revisa('[liquidado] la X cierra la hoja', cerroX, cerroX ? '' : 'sigue abierta: ' + ((await p.textContent('#presSheet').catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 300));
+  if (!cerroX) await p.keyboard.press('Escape');
 
   // Editar el pago: fecha, método y referencia (08/11/2026).
   await p.click('.tan-ledger [data-payment="pay-1"]');

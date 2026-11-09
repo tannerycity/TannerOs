@@ -61,7 +61,8 @@ async function abre(cobro, acuerdoAlGuardar = null, ruta = '/v2/tanner/?id=p1', 
     const m = ['cobranza','contabilidad','taquilla','jugadores'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true }));
     const R = { v2_my_context:[{ user_id:'u1', display_name:'Mich', organization_id:'o1', organization_name:'Tannery City FC', role:'Presidencia', is_owner:true }],
                 v2_my_navigation:m, v2_player_account_statement:estado, v2_player_change_history:[],
-                v2_cashier_snapshot:{ businessDate:'2026-10-21', incomeTotal:0, expenseTotal:0, netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], movements:[], canViewLedger:true },
+                v2_cashier_snapshot:{ businessDate:'2026-10-21', incomeTotal:0, expenseTotal:0, netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], movements:[{ id:'mv1', type:'income', status:'posted', amount:550, date:'2026-11-06', method:'Efectivo', category:'Mensualidad', concept:'Mensualidad nov', playerId:'p1', playerName:'Liam Santos', who:'Mayra' }], canViewLedger:true },
+                v2_update_payment:{ ok:true }, v2_waive_on_time_late_fees:{ waived:1, amount:100 },
                 v2_billing_players:[{ player_id:'p1', player_name:'Liam Santos', base_monthly_fee:500 }, { player_id:'p2', player_name:'Ana Ruiz', base_monthly_fee:500 }, { player_id:'p3', player_name:'Beto Paz', base_monthly_fee:500 }],
                 v2_agreements_overview:[{ playerId:'p1', state:'active', paid:600, total:1600, nextDue:'2026-11-10', nextAmount:1000 }, { playerId:'p2', state:'broken', paid:0, total:900, nextDue:'2026-10-15', nextAmount:450 }],
                 v2_open_receivables:[], v2_orders_to_collect:[], v2_payments_to_reconcile:[],
@@ -239,6 +240,11 @@ const filas = p => p.$$eval('.cb-fila', els => els.map(e => `${e.querySelector('
   revisa('[sencilla] tocar "Atrasado" filtra a los que deben, el más viejo primero', JSON.stringify(atrasados) === JSON.stringify(['Ana Ruiz','Liam Santos']), JSON.stringify(atrasados));
   const wa = await p.getAttribute('[data-estado="atrasado"]:has-text("Ana Ruiz") [data-cob-recordado]', 'href');
   revisa('[sencilla] Recordar abre WhatsApp con lada y el mensaje', /^https:\/\/wa\.me\/524776996600\?text=/.test(wa || '') && /Ana%20Ruiz/.test(wa || '') && /%24900\.00/.test(wa || ''), wa);
+  const antesNotas = (await llamadas(p, 'v2_add_collection_note')).length;
+  await p.$eval('[data-estado="atrasado"]:has-text("Ana Ruiz") [data-cob-recordado]', a => { a.removeAttribute('target'); a.addEventListener('click', e => e.preventDefault()); a.click(); });
+  await p.waitForTimeout(200);
+  const notaRec = (await llamadas(p, 'v2_add_collection_note')).slice(antesNotas);
+  revisa('[sencilla] Recordar queda en el seguimiento (cuenta para la barra de cobranza)', notaRec.length === 1 && notaRec[0].params.player_id === 'p2' && notaRec[0].params.kind === 'whatsapp', JSON.stringify(notaRec));
   revisa('[sencilla] sin teléfono no se inventa un número', !(await p.$('[data-estado="atrasado"]:has-text("Liam Santos") [data-cob-recordado]')));
   revisa('[sencilla] "Ya pagó" con lo que debe', await p.getAttribute('[data-estado="atrasado"]:has-text("Ana Ruiz") [data-quick-collect]', 'data-amount') === '900');
   await p.click('[data-cob-recordar-todos]');
@@ -248,6 +254,20 @@ const filas = p => p.$$eval('.cb-fila', els => els.map(e => `${e.querySelector('
   await p.click('[data-cob-vista="lista"]');
   revisa('[sencilla] cambia a Lista y se recuerda', await p.getAttribute('#collectionsList', 'data-vista') === 'lista' && await p.evaluate(() => localStorage.getItem('tanneros:cobranza:vista')) === 'lista');
   if (process.env.SHOTS) await p.screenshot({ path:`${process.env.SHOTS}/cobranza-lista.png`, fullPage:true });
+
+  // Taquilla > Caja del día: corregir la fecha de un pago quita el recargo
+  // si con esa fecha quedó a tiempo (09/11/2026, como en la ficha del Tanner).
+  await p.click('#verTabs [data-vista="caja"]');
+  await p.click('.edit-move[data-edit="mv1"]');
+  await p.fill('#editDate', '2026-11-05');
+  await p.fill('#editReason', 'Pagó el jueves 5 en la noche');
+  await p.click('#editSave');
+  await p.waitForSelector('#taqToast.visible', { timeout:5000 }).catch(() => {});
+  const up = (await llamadas(p, 'v2_update_payment'))[0]?.params || {};
+  revisa('[caja] editar el pago manda la fecha nueva', up.payment_id === 'mv1' && up.payment_date === '2026-11-05', JSON.stringify(up));
+  const w = await llamadas(p, 'v2_waive_on_time_late_fees');
+  revisa('[caja] después revisa si con esa fecha pagó a tiempo', w.length === 1 && w[0].params.player_id === 'p1', JSON.stringify(w));
+  revisa('[caja] avisa que se quitó el recargo', /Se quitó el recargo de \$100\.00/.test(await p.textContent('#taqToast').catch(() => '')));
   await p.close();
 }
 

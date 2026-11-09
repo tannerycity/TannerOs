@@ -392,7 +392,11 @@ async function loadReceivables(){
 function cobraA(playerId,nombre){
   if(!canCashWrite||!playerId)return;
   closeModals();
-  abrirCobro({rpc,org,playerId,nombre,preseleccion:'todo',quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),
+  // La cara del Tanner (09/11/2026): si la lista de Cobranza ya trae su foto
+  // completa se usa; si no, la hoja la pide sola.
+  const fila=tablero?.players?.find(x=>x.playerId===playerId);
+  const foto=fila?.photoPath?{bucket:fila.photoBucket,path:fila.photoPath,thumbPath:fila.photoThumbPath}:null;
+  abrirCobro({rpc,org,playerId,nombre,preseleccion:'todo',quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),foto,
     alTerminar:async()=>{await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();cargaConcilia(true);}});
 }
 function quickCollect(playerId,name){cobraA(playerId,name);}

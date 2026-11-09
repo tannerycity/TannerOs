@@ -158,3 +158,16 @@
 .cobro-form .cobro-fila--sub .cobro-peso input{box-sizing:border-box;width:100%;min-width:0}
 .cobro-form .cobro-fila--sub .cobro-mini{flex-wrap:nowrap}
 .cobro-form .cobro-fila--campo input{box-sizing:border-box;width:100%;min-height:44px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+
+/* La cara del Tanner en la hoja de cobro (09/11/2026). */
+.cobro-head{display:flex;align-items:center;gap:12px}
+.cobro-head>div{flex:1;min-width:0}
+.cobro-cara{flex:none;width:48px;height:48px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d8e0de;background:#e7eeec;padding:0;overflow:hidden;display:grid;place-items:center;cursor:zoom-in}
+.cobro-cara:disabled{cursor:default}
+.cobro-cara img{width:100%;height:100%;object-fit:cover;display:block}
+.cobro-cara b{font-size:16px;color:#354f55}
+.cobro-cara-grande{position:fixed;inset:0;z-index:2000;background:rgba(6,20,24,.92);display:grid;place-items:center;align-content:center;gap:12px;padding:24px;cursor:zoom-out}
+.cobro-cara-grande img{max-width:min(92vw,520px);max-height:72vh;border-radius:20px;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.cobro-cara-grande p{margin:0;color:#fff;font-size:17px;font-weight:700;text-align:center}
+.cobro-cara-grande button{position:absolute;top:max(16px,env(safe-area-inset-top));right:16px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;font-size:24px}
+.cobro-desglose{display:block;font-size:12px;font-weight:600;color:#6b7f84;margin-top:2px}

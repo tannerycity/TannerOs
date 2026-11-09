@@ -11,7 +11,7 @@
  * y en /v2/formacion/motor.js.
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth, moduleAccess } from '/v2/shell.js';
-import { recomienda, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador } from '/v2/formacion/motor.js?v=20261013b';
+import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador } from '/v2/formacion/motor.js?v=20261109a';
 
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
 if (!boot) throw new Error('No access');
@@ -22,10 +22,15 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 let catalogo = { concepts: [], tasks: [] }, semana = null, tab = esDireccion ? 'semana' : 'sesiones', tz = 'America/Mexico_City';
 let dataDir = null, dataMia = null, dataHoy = null, borrador = {};
 const album = { banco: 'tanner', mundo: '', nivel: 0, busca: '' };
+// PROP-FC-002 · 1: el Formador ve su semana en Tarjetas o en Calendario. Las dos
+// se pintan de las mismas sesiones (dataMia.sessions): no hay dos planeaciones.
+let vistaSemana = 'tarjetas';
+try { if (localStorage.getItem('tos:fm:vista') === 'calendario') vistaSemana = 'calendario'; } catch {}
 
 const concepto = (kind, code) => catalogo.concepts.find(c => c.kind === kind && c.code === code);
 const nombreReto = code => concepto('reto', code)?.name || concepto('mundo_baby', code)?.name || code || '';
 const tarea = id => catalogo.tasks.find(t => t.id === id);
+const nombreRecurso = code => concepto('recurso', code)?.name || code || '';
 const esBabyEtapa = etapa => String(etapa || '').startsWith('baby');
 const fecha = (iso, op) => new Intl.DateTimeFormat('es-MX', { timeZone: tz, ...op }).format(new Date(iso));
 const mayus = t => t ? t[0].toLocaleUpperCase('es-MX') + t.slice(1) : t;
@@ -191,29 +196,43 @@ async function publica() {
 function pintaSesiones() {
   const d = dataMia; if (!d) return '';
   const ses = d.sessions || [], r = resumenSemana(ses);
-  const tarjetas = ses.map(s => {
+  const tarjeta = s => {
     const lista = s.plan?.status === 'ready';
     const reto = s.plan?.challenge || s.week?.primary;
     return `<button type="button" class="fm-ses${lista ? ' lista' : ''}" data-ses="${esc(s.sessionId)}">
       <span class="fm-ses-dia">${esc(dia(s.startsAt))}</span>
       <span class="fm-ses-txt"><b>${esc(s.category)}</b><small>${esc(hora(s.startsAt))}–${esc(hora(s.endsAt))}${reto ? ` · ${esc(nombreReto(reto))}` : ''}</small></span>
       <span class="fm-pill ${lista ? 'ok' : 'pendiente'}">${lista ? 'Lista' : 'Pendiente'}</span></button>`;
+  };
+  const tarjetas = ses.map(tarjeta).join('');
+  const calendario = semanaEnDias(d.weekStart, ses, tz).map(x => {
+    const n = new Date(`${x.fecha}T12:00:00Z`);
+    const nom = mayus(new Intl.DateTimeFormat('es-MX', { timeZone: 'UTC', weekday: 'short' }).format(n).replace('.', ''));
+    return `<div class="fm-cal-dia${x.sesiones.length ? '' : ' vacio'}"><p class="fm-cal-fecha"><b>${esc(nom)}</b> ${n.getUTCDate()}</p>
+      ${x.sesiones.map(s => { const lista = s.plan?.status === 'ready', reto = s.plan?.challenge || s.week?.primary;
+        return `<button type="button" class="fm-cal-ses${lista ? ' lista' : ''}" data-ses="${esc(s.sessionId)}"><span>${esc(hora(s.startsAt))}</span><b>${esc(s.category)}</b>${reto ? `<small>${esc(nombreReto(reto))}</small>` : ''}<i class="fm-pill ${lista ? 'ok' : 'pendiente'}">${lista ? 'Lista' : 'Pendiente'}</i></button>`; }).join('')
+        || '<small class="fm-cal-nada">Sin sesión</small>'}</div>`;
   }).join('');
+  const cambio = `<div class="fm-vistas" role="tablist" aria-label="Ver mi semana como">
+      <button type="button" role="tab" aria-selected="${vistaSemana === 'tarjetas'}" data-vista="tarjetas">Tarjetas</button>
+      <button type="button" role="tab" aria-selected="${vistaSemana === 'calendario'}" data-vista="calendario">Calendario</button></div>`;
   return `${pintaHoy()}<section class="fm-hero ${r.completa ? 'completa' : ''}"><span>PRÓXIMA SEMANA · ${esc(rangoSemana(d.weekStart))}</span>
       <h1>${r.total ? (r.completa ? 'Próxima semana — lista' : `${r.total} ${r.total === 1 ? 'sesión' : 'sesiones'} · ${r.listas} ${r.listas === 1 ? 'lista' : 'listas'} · ${r.pendientes} ${r.pendientes === 1 ? 'pendiente' : 'pendientes'}`) : 'Sin sesiones esa semana'}</h1>
       <p>Corte: ${esc(fecha(d.deadline, { weekday: 'long', day: 'numeric', month: 'short' }))} a las ${esc(hora(d.deadline))}.</p>
       ${r.pendientes ? '<button type="button" id="fmTerminar" class="fm-cta">Terminar planeación</button>' : ''}</section>
     ${ses.length ? pintaPasosFormador(ses) : ''}
-    ${ses.length ? `${bannerPractica()}<div class="fm-lista">${tarjetas}</div>` : vacioConPractica(d)}`;
+    ${ses.length ? `${bannerPractica()}${cambio}${vistaSemana === 'calendario' ? `<div class="fm-cal">${calendario}</div>` : `<div class="fm-lista">${tarjetas}</div>`}` : vacioConPractica(d)}`;
 }
 
 /* ---------- Botones de juego (13/10/2026) ----------
    "Que sea como videojuego... que cualquier persona que sepa de fútbol pueda
    hacerlo." Dificultad como en un juego (Fácil verde, Normal amarillo, Difícil
    rojo) y el espacio con su cancha dibujada. Los valores no cambian (facil /
-   base / dificil, completo / reducido); sólo cómo se ven y se dicen. */
-const NIVELES_JUEGO = [['facil', 'Fácil', '¿Les cuesta?'], ['base', 'Normal', 'Como viene'], ['dificil', 'Difícil', '¿Ya les sale?']];
-const NOMBRE_NIVEL = { facil: 'Fácil', base: 'Normal', dificil: 'Difícil' };
+   base / dificil, completo / reducido); sólo cómo se ven y se dicen.
+   PROP-FC-002 (aprobada 08/11/2026, decisión 3): los nombres oficiales son
+   MÁS FÁCIL / BASE / MÁS DIFÍCIL. Se conservan los colores; cambia el texto. */
+const NIVELES_JUEGO = [['facil', 'Más fácil', '¿Les cuesta?'], ['base', 'Base', 'Como viene'], ['dificil', 'Más difícil', '¿Ya les sale?']];
+const NOMBRE_NIVEL = { facil: 'Más fácil', base: 'Base', dificil: 'Más difícil' };
 const ESPACIOS = [['completo', 'Cancha completa', 'Más correr y decidir'], ['reducido', 'Cancha chica', 'Más toques y duelos']];
 const NOMBRE_ESPACIO = { completo: 'Cancha completa', reducido: 'Cancha chica' };
 const CANCHA = {
@@ -272,7 +291,7 @@ function practica() {
       ${tip('Están ordenadas para el Reto y para el día de la semana. Si quieres otra, en tu sesión real tienes <b>Ver más</b> y el <b>Álbum de jugadas</b>.')}`,
     4: () => `${dots()}<p class="fm-paso-eti">PASO 4 DE 5 · AJÚSTALA A TU GRUPO</p><h3 class="fm-pregunta">${esc(t()?.name || 'Tu jugada')}</h3>
       ${ajustes(k => `data-pr-dif="${k}"`, st.dif, k => `data-pr-esp="${k}"`, st.esp)}
-      <p class="fm-modo fm-modo-${st.dif}">${st.dif === 'facil' ? `<b>Fácil:</b> ${esc(t()?.easier || '')}` : st.dif === 'dificil' ? `<b>Difícil:</b> ${esc(t()?.harder || '')}` : `<b>Normal:</b> ${esc(t()?.juega || '')}`}</p>
+      <p class="fm-modo fm-modo-${st.dif}">${st.dif === 'facil' ? `<b>Más fácil:</b> ${esc(t()?.easier || '')}` : st.dif === 'dificil' ? `<b>Más difícil:</b> ${esc(t()?.harder || '')}` : `<b>Base:</b> ${esc(t()?.juega || '')}`}</p>
       ${tip('¿Tu grupo va adelantado o le está costando? Súbele o bájale. No hay respuesta mala: <b>tú conoces a tus Tanners</b>.')}`,
     5: () => `${dots()}<p class="fm-paso-eti">PASO 5 DE 5 · DÉJALA LISTA</p><h3 class="fm-pregunta">Así queda tu sesión</h3>
       <ol class="fm-pr-resumen"><li><span>15 min</span><b>Calentar</b></li><li class="tu"><span>30 min</span><b>${esc(t()?.name || '')}</b><small>${NOMBRE_NIVEL[st.dif]} · ${NOMBRE_ESPACIO[st.esp]}</small></li><li><span>15 min</span><b>Jugar</b></li></ol>
@@ -325,33 +344,43 @@ function hojaSesion(s, pre = '') {
     const i = libres.length ? libres[0] : bloques.findIndex(b => b.principal);
     if (i >= 0) { sel[i].taskId = pre; sel[i].text = ''; }
   }
-  const recos = b => recomienda({ tareas: catalogo.tasks, etapa: s.stage, esBaby, reto, secundario: s.week?.secondary, bloque: b, indiceSesion: indice, totalSesiones: total, usos });
-  const todas = () => catalogo.tasks.filter(t => t.bank === (esBaby ? 'baby' : 'tanner') && (!s.stage || (t.stages || []).includes(s.stage)));
+  // PROP-FC-002 · 2: tres tareas con su "por qué"; si no hay tres, lo dice.
+  const recos = b => recomiendaConPorque({ tareas: catalogo.tasks, etapa: s.stage, esBaby, reto, secundario: s.week?.secondary, bloque: b, indiceSesion: indice, totalSesiones: total, usos, nombre: nombreReto });
+  const grupos = (b, fuera) => verMas({ tareas: catalogo.tasks, etapa: s.stage, esBaby, reto, secundario: s.week?.secondary, excluir: fuera, nombre: nombreReto });
   const textoItem = it => it.taskId ? esc(tarea(it.taskId)?.name || 'Tarea') : esc(it.text || '');
 
-  const cuerpo = () => `
+  let obsHtml = '';  // la observación de Dirección, si la sesión ya pasó y tiene
+  const cuerpo = () => `${obsHtml}
     <div class="fm-reto-card">${reto ? `<span>${esBaby ? 'MUNDO' : 'RETO'}</span><b>${esc(nombreReto(reto))}</b>${s.week?.secondary ? `<small>Secundario: ${esc(nombreReto(s.week.secondary))}</small>` : ''}<p>${esc(concepto('reto', reto)?.question || concepto('mundo_baby', reto)?.phrase || '')}</p>${s.week?.behavior ? `<p class="fm-conducta">Buscamos: ${esc(s.week.behavior)}</p>` : ''}`
       : `<span>OBJETIVO</span><p class="fm-ayuda">Dirección aún no publica el Reto de esta semana. Escribe tu objetivo: cuenta igual.</p><input id="fmObjetivo" maxlength="140" value="${esc(s.plan?.objective || '')}" placeholder="Ej. que se atrevan a encarar">`}</div>
     ${bloques.map((b, i) => {
       const it = sel[i];
       return `<section class="fm-bloque" data-i="${i}"><header><b>${esc(b.nombre)}</b>${it.taskId || it.text ? `<button type="button" class="fm-link" data-cambiar="${i}">Cambiar</button>` : ''}</header>
         ${it.taskId || it.text ? `<p class="fm-elegida">${textoItem(it)}${it.taskId ? `<small>${esc(tarea(it.taskId)?.buscamos || '')}</small>` : ''}</p>`
-          : `<div class="fm-recos">${recos(b).map(t => `<button type="button" data-elige="${i}" data-task="${esc(t.id)}"><b>${esc(t.name)}</b><small>${esc(t.buscamos)}</small></button>`).join('')}
-             <button type="button" class="fm-link" data-mas="${i}">Ver más</button><button type="button" class="fm-link" data-escribe="${i}">Escribir otra</button></div>`}
+          : (r => `<div class="fm-recos">${r.opciones.map(({ tarea: t, porque }) => `<button type="button" data-elige="${i}" data-task="${esc(t.id)}"><b>${esc(t.name)}</b><small>${esc(t.buscamos)}</small><span class="fm-porque">${porque.map(p => `<i>${esc(p)}</i>`).join('')}</span></button>`).join('')}
+             ${r.aviso ? `<p class="fm-recos-aviso">${esc(r.aviso)}</p>` : ''}
+             <button type="button" class="fm-link" data-mas="${i}">Ver más</button><button type="button" class="fm-link" data-escribe="${i}">Escribir otra</button></div>`)(recos(b))}
         ${b.principal && (it.taskId || it.text) ? ajustes(k => `data-dif="${i}" data-v="${k}"`, it.difficulty, k => `data-esp="${i}" data-v="${k}"`, it.space) : ''}
       </section>`;
     }).join('')}
     <p id="fmFalta" class="fm-falta"></p>`;
   const repinta = () => { $('fmHojaCuerpo').innerHTML = cuerpo(); };
   abreHoja(`${dia(s.startsAt)} · ${s.category} · ${hora(s.startsAt)}–${hora(s.endsAt)}`, cuerpo(),
-    `<button type="button" class="secondary" id="fmGuardar">Guardar</button><button type="button" class="primary" id="fmConfirmar">Confirmar lista</button>`);
+    `${esDireccion && yaPaso(s) ? '<button type="button" class="secondary" id="fmObservar">Observar</button>' : ''}<button type="button" class="secondary" id="fmGuardar">Guardar</button><button type="button" class="primary" id="fmConfirmar">Confirmar lista</button>`);
+  if ($('fmObservar')) $('fmObservar').onclick = () => hojaObservar(s);
+  // Llega después: sólo se pinta si esta misma hoja sigue abierta.
+  const abierta = $('fmHojaTitulo').textContent;
+  if (yaPaso(s)) pintaObservaciones(s, html => { if ($('fmHojaTitulo').textContent !== abierta || $('fmHoja').classList.contains('hidden')) return; obsHtml = html; repinta(); });
   $('fmHojaCuerpo').onclick = e => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.elige) { const it = sel[+t.dataset.elige]; it.taskId = t.dataset.task; it.text = ''; repinta(); }
     else if (t.dataset.cambiar) { const it = sel[+t.dataset.cambiar]; it.taskId = ''; it.text = ''; repinta(); }
     else if (t.dataset.mas) {
       const i = +t.dataset.mas, caja = t.closest('.fm-recos');
-      caja.innerHTML = todas().map(x => `<button type="button" data-elige="${i}" data-task="${esc(x.id)}"><b>${esc(x.name)}</b><small>${esc(nombreReto(x.primary))}${x.level ? ' · ' + esc(concepto('nivel', x.level)?.name || '') : ''}</small></button>`).join('');
+      const mostradas = recos(bloques[i]).opciones.map(o => o.tarea.id);
+      const g = grupos(bloques[i], mostradas);
+      caja.innerHTML = g.length ? g.map(x => `<p class="fm-recos-grupo">${esc(x.titulo)}</p>${x.tareas.map(y => `<button type="button" data-elige="${i}" data-task="${esc(y.id)}"><b>${esc(y.name)}</b><small>${esc(nombreReto(y.primary))}${y.level ? ' · ' + esc(concepto('nivel', y.level)?.name || '') : ''}</small></button>`).join('')}`).join('')
+        : `<p class="fm-recos-aviso">No hay más tareas oficiales para esta etapa.</p><button type="button" class="fm-link" data-escribe="${i}">Escribir otra</button>`;
     } else if (t.dataset.escribe) {
       const i = +t.dataset.escribe;
       t.closest('.fm-recos').innerHTML = `<div class="fm-escribe"><input data-texto="${i}" maxlength="140" placeholder="¿Qué van a hacer?"><button type="button" class="primary" data-usa="${i}">Usar</button></div>`;
@@ -377,6 +406,41 @@ function hojaSesion(s, pre = '') {
   };
   $('fmGuardar').onclick = () => guarda(false);
   $('fmConfirmar').onclick = () => guarda(true);
+}
+
+/* ---------- Observación de Dirección Deportiva (PROP-FC-002 · 6, h77) ----------
+   Independiente del cierre del Formador: cinco puntos con Sí / A veces /
+   Todavía no y una nota opcional. Observa la sesión, no califica al niño.
+   El Formador la lee en su sesión; las familias no la ven. */
+const PUNTOS_OBS = [['aprendizaje', 'Aprendizaje'], ['participacion', 'Participación'], ['seguridad', 'Seguridad'], ['adaptacion', 'Adaptación'], ['convivencia', 'Convivencia']];
+const yaPaso = s => new Date(s.startsAt) <= new Date();
+async function pintaObservaciones(s, pon) {
+  let r = null; try { r = await rpc('v2_session_review', { organization_id: org, session_id: s.sessionId }); } catch { return; }
+  const obs = r?.observations || [];
+  if (!obs.length || !$('fmHojaCuerpo')) return;
+  pon(`<section class="fm-obs-leida"><h4>Observación de Dirección</h4>${obs.map(o => `<div>
+      <p class="fm-obs-puntos">${PUNTOS_OBS.filter(([k]) => o.checklist?.[k]).map(([k, l]) => `<span class="fm-obs-${esc(o.checklist[k])}">${esc(l)}: ${esc(CIERRE[o.checklist[k]])}</span>`).join('')}</p>
+      ${o.note ? `<p>${esc(o.note)}</p>` : ''}<small>${esc(o.by)} · ${esc(fecha(o.at, { day: 'numeric', month: 'short' }))}</small></div>`).join('')}</section>`);
+}
+function hojaObservar(s) {
+  const st = {};
+  const cuerpo = () => `<p class="fm-ayuda">Observas la sesión, no calificas a los niños. Marca lo que viste; la nota es opcional.</p>
+    ${PUNTOS_OBS.map(([k, l]) => `<div class="fm-obs-fila"><b>${l}</b><div class="fm-obs-ops" role="radiogroup" aria-label="${l}">${Object.entries(CIERRE).map(([v, t]) => `<button type="button" role="radio" aria-checked="${st[k] === v}" class="${st[k] === v ? 'activa' : ''}" data-obs="${k}" data-v="${v}">${t}</button>`).join('')}</div></div>`).join('')}
+    <textarea id="fmObsNota" maxlength="600" rows="3" placeholder="¿Qué viste? ¿Qué ajustarías?"></textarea><p id="fmObsFalta" class="fm-falta"></p>`;
+  abreHoja(`Observar · ${s.category} · ${dia(s.startsAt)}`, cuerpo(), '<button type="button" class="secondary" data-cerrar>Cancelar</button><button type="button" class="primary" id="fmObsGuardar">Guardar observación</button>');
+  $('fmHojaCuerpo').onclick = e => {
+    const b = e.target.closest('[data-obs]'); if (!b) return;
+    const nota = $('fmObsNota').value; st[b.dataset.obs] = st[b.dataset.obs] === b.dataset.v ? undefined : b.dataset.v;
+    $('fmHojaCuerpo').innerHTML = cuerpo(); $('fmObsNota').value = nota;
+  };
+  $('fmObsGuardar').onclick = async () => {
+    const checklist = Object.fromEntries(Object.entries(st).filter(([, v]) => v));
+    const note = $('fmObsNota').value.trim();
+    if (!note && !Object.keys(checklist).length) { $('fmObsFalta').textContent = 'Marca al menos un punto o escribe qué viste.'; return; }
+    const b = $('fmObsGuardar'); b.disabled = true;
+    try { await rpc('v2_add_session_observation', { organization_id: org, session_id: s.sessionId, note: note || null, checklist }); cierraHoja(); aviso('Observación guardada'); }
+    catch (e) { b.disabled = false; $('fmObsFalta').textContent = errorDe(e); }
+  };
 }
 
 /* ---------- HOY · Modo Cancha · Cierre ----------
@@ -413,7 +477,7 @@ async function modoCancha(s) {
         <p class="fm-reloj" id="fmReloj">0:00</p>
         ${p.t?.dile?.length ? `<p class="fm-dile">${p.t.dile.map(f => `“${esc(f)}”`).join('<br>')}</p>` : ''}
         ${p.t ? `<ul class="fm-observa">${observables(p.t).map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
-        ${p.t ? `<div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-ver="facil"><b>Fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-ver="dificil"><b>Difícil</b><small>¿Ya les sale?</small></button></div>
+        ${p.t ? `<div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-ver="facil"><b>Más fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-ver="dificil"><b>Más difícil</b><small>¿Ya les sale?</small></button></div>
           <p class="fm-tarea-extra hidden" data-extra="facil">${esc(p.t.easier || '')}</p><p class="fm-tarea-extra hidden" data-extra="dificil">${esc(p.t.harder || '')}</p>` : ''}
       </div>`,
       `${paso ? '<button type="button" class="secondary" id="fmAtras">Atrás</button>' : '<a class="secondary fm-btn-link" href="/asistencia/">Pasar lista</a>'}<button type="button" class="primary" id="fmSiguiente">${paso === pasos.length - 1 ? 'Terminar' : 'Siguiente'}</button>`);
@@ -510,10 +574,11 @@ function hojaCarta(t) {
       <section><h4>Cómo se juega</h4><p>${esc(t.juega || '')}</p></section>
       ${t.montaje ? `<section><h4>Montaje</h4><p>${esc(t.montaje)}</p></section>` : ''}
       ${t.observa ? `<section><h4>Observa</h4><p>${esc(t.observa)}</p></section>` : ''}
-      <div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-modo="facil"><b>Fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-modo="dificil"><b>Difícil</b><small>¿Ya les sale?</small></button></div>
-      <p class="fm-modo fm-modo-facil hidden" data-ver-modo="facil"><b>Fácil:</b> ${esc(t.easier || '')}</p>
-      <p class="fm-modo fm-modo-dificil hidden" data-ver-modo="dificil"><b>Difícil:</b> ${esc(t.harder || '')}</p>
+      <div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-modo="facil"><b>Más fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-modo="dificil"><b>Más difícil</b><small>¿Ya les sale?</small></button></div>
+      <p class="fm-modo fm-modo-facil hidden" data-ver-modo="facil"><b>Más fácil:</b> ${esc(t.easier || '')}</p>
+      <p class="fm-modo fm-modo-dificil hidden" data-ver-modo="dificil"><b>Más difícil:</b> ${esc(t.harder || '')}</p>
       ${t.space ? `<p class="fm-ayuda"><b>Espacio:</b> ${esc(t.space)}</p>` : ''}${t.adapta ? `<p class="fm-ayuda"><b>Adapta:</b> ${esc(t.adapta)}</p>` : ''}
+      ${t.bank === 'tanner' ? `<section class="fm-recursos" id="fmRecursos">${recursosDeCarta(t)}</section>` : ''}
       <div class="fm-media"><button type="button" data-media="video"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></span><span><b>Ver video</b><small>Próximamente</small></span></button>
         <button type="button" data-media="foto"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><circle cx="9" cy="10.5" r="1.8"/><path d="m20.5 16-5-4.5-7.5 7"/></svg></span><span><b>Ver foto del montaje</b><small>Próximamente</small></span></button></div>
       <p class="fm-media-nota hidden" id="fmMediaNota">${t.videoGuide ? `Así se verá: ${esc(t.videoGuide)}` : 'Muy pronto verás aquí el video y la foto de esta jugada.'}</p>
@@ -523,8 +588,51 @@ function hojaCarta(t) {
     const m = e.target.closest('[data-modo]');
     if (m) { const p = $('fmHojaCuerpo').querySelector(`[data-ver-modo="${m.dataset.modo}"]`); p.classList.toggle('hidden'); m.classList.toggle('activa', !p.classList.contains('hidden')); return; }
     if (e.target.closest('[data-media]')) { $('fmMediaNota').classList.remove('hidden'); return; }
-    if (e.target.closest('#fmAgregar')) { eligeSesion(t, mias); }
+    if (e.target.closest('#fmAgregar')) { eligeSesion(t, mias); return; }
+    const rc = e.target.closest('[data-rec-accion]'); if (rc) { decideRecurso(t, rc); return; }
+    if (e.target.closest('[data-rec-agregar]')) { $('fmRecursos').innerHTML = recursosDeCarta(t, true); return; }
+    const pr = e.target.closest('[data-rec-elige]'); if (pr) { $('fmRecursos').innerHTML = recursosDeCarta(t, true, pr.dataset.recElige); return; }
   };
+}
+
+/* ---- Recursos del Futbolista (PROP-FC-002, h76, 09/11/2026) ----
+   Recurso = herramienta para resolver el Reto, nunca un Reto nuevo. En la
+   carta se ven los recursos APROBADOS. Dirección Deportiva ve además los
+   sugeridos (Aprobar / Descartar) y agrega uno nuevo: primero las familias
+   que el mapa 04 relaciona con el Reto de la tarea. Etiquetar se hace ficha
+   por ficha, leyendo la ficha: la sugerencia del mapa es una pista. */
+function recursosDeCarta(t, agregando = false, elegido = '') {
+  const tags = t.resources || [];
+  const chips = tags.map(r => `<span class="fm-rec ${r.status === 'sugerida' ? 'sugerida' : ''}">
+      <b>${esc(nombreRecurso(r.code))}</b><small>${r.relevance === 'principal' ? 'Principal' : 'Complementario'}${r.status === 'sugerida' ? ' · sugerido' : ''}</small>
+      ${esDireccion && r.status === 'sugerida' ? `<span class="fm-rec-acc"><button type="button" data-rec-accion="aprobada" data-rec="${esc(r.code)}" data-rel="${esc(r.relevance)}">Aprobar</button><button type="button" data-rec-accion="descartada" data-rec="${esc(r.code)}" data-rel="${esc(r.relevance)}">Descartar</button></span>` : ''}</span>`).join('');
+  const titulo = `<h4>Recursos</h4>`;
+  if (!esDireccion) return tags.length ? `${titulo}<div class="fm-recs">${chips}</div>` : '';
+  if (!agregando) return `${titulo}${tags.length ? `<div class="fm-recs">${chips}</div>` : '<p class="fm-ayuda">Sin recursos revisados todavía.</p>'}
+    <button type="button" class="fm-link" data-rec-agregar>Agregar recurso</button>`;
+  if (elegido) return `${titulo}<p class="fm-ayuda">${esc(nombreRecurso(elegido))} en “${esc(t.name)}” es…</p>
+    <div class="fm-juego dos"><button type="button" class="fm-jbtn" data-rec-accion="aprobada" data-rec="${esc(elegido)}" data-rel="principal"><b>Principal</b><small>La tarea lo necesita</small></button>
+      <button type="button" class="fm-jbtn" data-rec-accion="aprobada" data-rec="${esc(elegido)}" data-rel="complementaria"><b>Complementario</b><small>Ayuda, no es obligatorio</small></button></div>`;
+  const ya = new Set(tags.map(r => r.code));
+  const familias = catalogo.concepts.filter(c => c.kind === 'familia_recurso');
+  const delReto = familias.filter(f => (f.attrs?.retos || []).includes(t.primary));
+  const otras = familias.filter(f => !delReto.includes(f));
+  const grupo = f => {
+    const recs = catalogo.concepts.filter(c => c.kind === 'recurso' && c.attrs?.familia === f.code && !ya.has(c.code));
+    return recs.length ? `<p class="fm-recos-grupo">${esc(f.name)}</p><div class="fm-recs">${recs.map(c => `<button type="button" class="fm-rec-btn" data-rec-elige="${esc(c.code)}">${esc(c.name)}</button>`).join('')}</div>` : '';
+  };
+  return `${titulo}${delReto.length ? `<p class="fm-ayuda">El mapa relaciona estas familias con ${esc(nombreReto(t.primary))}. Revisa que la ficha de verdad lo pida.</p>${delReto.map(grupo).join('')}` : ''}
+    <details class="fm-mas"><summary>Otras familias</summary>${otras.map(grupo).join('')}</details>`;
+}
+async function decideRecurso(t, b) {
+  b.disabled = true;
+  try {
+    await rpc('v2_set_task_resource', { organization_id: org, task_id: t.id, resource_code: b.dataset.rec, relevance: b.dataset.rel, status: b.dataset.recAccion });
+    catalogo = await rpc('v2_formation_catalog', { organization_id: org });
+    const nueva = catalogo.tasks.find(x => x.id === t.id) || t;
+    $('fmRecursos').innerHTML = recursosDeCarta(nueva);
+    aviso(b.dataset.recAccion === 'descartada' ? 'Recurso descartado' : 'Recurso aprobado');
+  } catch (e) { b.disabled = false; aviso(errorDe(e), 'error'); }
 }
 function eligeSesion(t, mias) {
   if (mias.length === 1) { cierraHoja(); hojaSesion(mias[0], t.id); return; }
@@ -567,6 +675,7 @@ $('fmVista').addEventListener('click', e => {
   const hoy = e.target.closest('[data-hoy]'); if (hoy) { modoCancha(dataHoy.sessions.find(s => s.sessionId === hoy.dataset.hoy)); return; }
   const ses = e.target.closest('[data-ses]'); if (ses) { hojaSesion(dataMia.sessions.find(s => s.sessionId === ses.dataset.ses)); return; }
   if (e.target.closest('#fmTerminar')) { const p = dataMia.sessions.find(s => s.plan?.status !== 'ready'); if (p) hojaSesion(p); return; }
+  const vi = e.target.closest('[data-vista]'); if (vi) { vistaSemana = vi.dataset.vista; try { localStorage.setItem('tos:fm:vista', vistaSemana); } catch {} pinta(); return; }
   if (e.target.closest('[data-practica]')) { practica(); return; }
   if (e.target.closest('[data-practica-cierra]')) { try { localStorage.setItem('tos:fm:practica', '1'); } catch {} pinta(); return; }
   const bn = e.target.closest('[data-banco]'); if (bn) { album.banco = bn.dataset.banco; album.mundo = ''; album.nivel = 0; pinta(); return; }

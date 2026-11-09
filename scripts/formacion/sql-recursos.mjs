@@ -1,7 +1,12 @@
-// Genera supabase/propuestas/FC1_recursos_del_futbolista.sql desde
+// Genera el SQL de h76 (Recursos del Futbolista) desde
 // supabase/semillas/formacion/recursos-v0.1.json (PROP-FC-002, mapa 04).
 //
-//   node scripts/formacion/sql-recursos.mjs tannery-city-fc
+//   node scripts/formacion/sql-recursos.mjs tannery-city-fc            -> comprueba
+//   node scripts/formacion/sql-recursos.mjs tannery-city-fc --imprime  -> lo escribe en pantalla
+//
+// h76 ya corrió en producción (09/11/2026): un archivo aplicado no se edita.
+// Por eso, sin --imprime, este script sólo COMPRUEBA que la migración siga
+// siendo exactamente lo que sale de la semilla.
 //
 // Sin reescribir: nombres y precauciones tal como vienen en la semilla.
 // Idempotente: correrlo dos veces no duplica nada.
@@ -45,5 +50,7 @@ insert into app.task_resource_tags(organization_id, task_id, resource_id, releva
 ${tags.join('\nunion all\n')}
 on conflict (task_id, resource_id) do nothing;
 `;
-fs.writeFileSync(new URL('supabase/propuestas/FC1_recursos_del_futbolista.sql', raiz), salida);
-console.log(`FC1: ${familias.length} familias, ${recursos.length} recursos, ${tags.length} sugerencias`);
+if (process.argv.includes('--imprime')) { process.stdout.write(salida); process.exit(0); }
+const aplicada = fs.readFileSync(new URL('supabase/migrations/20261109124655_h76_recursos_del_futbolista.sql', raiz), 'utf8');
+if (aplicada !== salida) { console.error('h76 ya no coincide con la semilla de recursos'); process.exit(1); }
+console.log(`h76 coincide con la semilla: ${familias.length} familias, ${recursos.length} recursos, ${tags.length} sugerencias`);

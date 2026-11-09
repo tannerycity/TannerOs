@@ -30,6 +30,7 @@ try { if (localStorage.getItem('tos:fm:vista') === 'calendario') vistaSemana = '
 const concepto = (kind, code) => catalogo.concepts.find(c => c.kind === kind && c.code === code);
 const nombreReto = code => concepto('reto', code)?.name || concepto('mundo_baby', code)?.name || code || '';
 const tarea = id => catalogo.tasks.find(t => t.id === id);
+const nombreRecurso = code => concepto('recurso', code)?.name || code || '';
 const esBabyEtapa = etapa => String(etapa || '').startsWith('baby');
 const fecha = (iso, op) => new Intl.DateTimeFormat('es-MX', { timeZone: tz, ...op }).format(new Date(iso));
 const mayus = t => t ? t[0].toLocaleUpperCase('es-MX') + t.slice(1) : t;
@@ -348,7 +349,8 @@ function hojaSesion(s, pre = '') {
   const grupos = (b, fuera) => verMas({ tareas: catalogo.tasks, etapa: s.stage, esBaby, reto, secundario: s.week?.secondary, excluir: fuera, nombre: nombreReto });
   const textoItem = it => it.taskId ? esc(tarea(it.taskId)?.name || 'Tarea') : esc(it.text || '');
 
-  const cuerpo = () => `
+  let obsHtml = '';  // la observación de Dirección, si la sesión ya pasó y tiene
+  const cuerpo = () => `${obsHtml}
     <div class="fm-reto-card">${reto ? `<span>${esBaby ? 'MUNDO' : 'RETO'}</span><b>${esc(nombreReto(reto))}</b>${s.week?.secondary ? `<small>Secundario: ${esc(nombreReto(s.week.secondary))}</small>` : ''}<p>${esc(concepto('reto', reto)?.question || concepto('mundo_baby', reto)?.phrase || '')}</p>${s.week?.behavior ? `<p class="fm-conducta">Buscamos: ${esc(s.week.behavior)}</p>` : ''}`
       : `<span>OBJETIVO</span><p class="fm-ayuda">Dirección aún no publica el Reto de esta semana. Escribe tu objetivo: cuenta igual.</p><input id="fmObjetivo" maxlength="140" value="${esc(s.plan?.objective || '')}" placeholder="Ej. que se atrevan a encarar">`}</div>
     ${bloques.map((b, i) => {
@@ -364,7 +366,11 @@ function hojaSesion(s, pre = '') {
     <p id="fmFalta" class="fm-falta"></p>`;
   const repinta = () => { $('fmHojaCuerpo').innerHTML = cuerpo(); };
   abreHoja(`${dia(s.startsAt)} · ${s.category} · ${hora(s.startsAt)}–${hora(s.endsAt)}`, cuerpo(),
-    `<button type="button" class="secondary" id="fmGuardar">Guardar</button><button type="button" class="primary" id="fmConfirmar">Confirmar lista</button>`);
+    `${esDireccion && yaPaso(s) ? '<button type="button" class="secondary" id="fmObservar">Observar</button>' : ''}<button type="button" class="secondary" id="fmGuardar">Guardar</button><button type="button" class="primary" id="fmConfirmar">Confirmar lista</button>`);
+  if ($('fmObservar')) $('fmObservar').onclick = () => hojaObservar(s);
+  // Llega después: sólo se pinta si esta misma hoja sigue abierta.
+  const abierta = $('fmHojaTitulo').textContent;
+  if (yaPaso(s)) pintaObservaciones(s, html => { if ($('fmHojaTitulo').textContent !== abierta || $('fmHoja').classList.contains('hidden')) return; obsHtml = html; repinta(); });
   $('fmHojaCuerpo').onclick = e => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.elige) { const it = sel[+t.dataset.elige]; it.taskId = t.dataset.task; it.text = ''; repinta(); }
@@ -400,6 +406,41 @@ function hojaSesion(s, pre = '') {
   };
   $('fmGuardar').onclick = () => guarda(false);
   $('fmConfirmar').onclick = () => guarda(true);
+}
+
+/* ---------- Observación de Dirección Deportiva (PROP-FC-002 · 6, h77) ----------
+   Independiente del cierre del Formador: cinco puntos con Sí / A veces /
+   Todavía no y una nota opcional. Observa la sesión, no califica al niño.
+   El Formador la lee en su sesión; las familias no la ven. */
+const PUNTOS_OBS = [['aprendizaje', 'Aprendizaje'], ['participacion', 'Participación'], ['seguridad', 'Seguridad'], ['adaptacion', 'Adaptación'], ['convivencia', 'Convivencia']];
+const yaPaso = s => new Date(s.startsAt) <= new Date();
+async function pintaObservaciones(s, pon) {
+  let r = null; try { r = await rpc('v2_session_review', { organization_id: org, session_id: s.sessionId }); } catch { return; }
+  const obs = r?.observations || [];
+  if (!obs.length || !$('fmHojaCuerpo')) return;
+  pon(`<section class="fm-obs-leida"><h4>Observación de Dirección</h4>${obs.map(o => `<div>
+      <p class="fm-obs-puntos">${PUNTOS_OBS.filter(([k]) => o.checklist?.[k]).map(([k, l]) => `<span class="fm-obs-${esc(o.checklist[k])}">${esc(l)}: ${esc(CIERRE[o.checklist[k]])}</span>`).join('')}</p>
+      ${o.note ? `<p>${esc(o.note)}</p>` : ''}<small>${esc(o.by)} · ${esc(fecha(o.at, { day: 'numeric', month: 'short' }))}</small></div>`).join('')}</section>`);
+}
+function hojaObservar(s) {
+  const st = {};
+  const cuerpo = () => `<p class="fm-ayuda">Observas la sesión, no calificas a los niños. Marca lo que viste; la nota es opcional.</p>
+    ${PUNTOS_OBS.map(([k, l]) => `<div class="fm-obs-fila"><b>${l}</b><div class="fm-obs-ops" role="radiogroup" aria-label="${l}">${Object.entries(CIERRE).map(([v, t]) => `<button type="button" role="radio" aria-checked="${st[k] === v}" class="${st[k] === v ? 'activa' : ''}" data-obs="${k}" data-v="${v}">${t}</button>`).join('')}</div></div>`).join('')}
+    <textarea id="fmObsNota" maxlength="600" rows="3" placeholder="¿Qué viste? ¿Qué ajustarías?"></textarea><p id="fmObsFalta" class="fm-falta"></p>`;
+  abreHoja(`Observar · ${s.category} · ${dia(s.startsAt)}`, cuerpo(), '<button type="button" class="secondary" data-cerrar>Cancelar</button><button type="button" class="primary" id="fmObsGuardar">Guardar observación</button>');
+  $('fmHojaCuerpo').onclick = e => {
+    const b = e.target.closest('[data-obs]'); if (!b) return;
+    const nota = $('fmObsNota').value; st[b.dataset.obs] = st[b.dataset.obs] === b.dataset.v ? undefined : b.dataset.v;
+    $('fmHojaCuerpo').innerHTML = cuerpo(); $('fmObsNota').value = nota;
+  };
+  $('fmObsGuardar').onclick = async () => {
+    const checklist = Object.fromEntries(Object.entries(st).filter(([, v]) => v));
+    const note = $('fmObsNota').value.trim();
+    if (!note && !Object.keys(checklist).length) { $('fmObsFalta').textContent = 'Marca al menos un punto o escribe qué viste.'; return; }
+    const b = $('fmObsGuardar'); b.disabled = true;
+    try { await rpc('v2_add_session_observation', { organization_id: org, session_id: s.sessionId, note: note || null, checklist }); cierraHoja(); aviso('Observación guardada'); }
+    catch (e) { b.disabled = false; $('fmObsFalta').textContent = errorDe(e); }
+  };
 }
 
 /* ---------- HOY · Modo Cancha · Cierre ----------
@@ -537,6 +578,7 @@ function hojaCarta(t) {
       <p class="fm-modo fm-modo-facil hidden" data-ver-modo="facil"><b>Más fácil:</b> ${esc(t.easier || '')}</p>
       <p class="fm-modo fm-modo-dificil hidden" data-ver-modo="dificil"><b>Más difícil:</b> ${esc(t.harder || '')}</p>
       ${t.space ? `<p class="fm-ayuda"><b>Espacio:</b> ${esc(t.space)}</p>` : ''}${t.adapta ? `<p class="fm-ayuda"><b>Adapta:</b> ${esc(t.adapta)}</p>` : ''}
+      ${t.bank === 'tanner' ? `<section class="fm-recursos" id="fmRecursos">${recursosDeCarta(t)}</section>` : ''}
       <div class="fm-media"><button type="button" data-media="video"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></span><span><b>Ver video</b><small>Próximamente</small></span></button>
         <button type="button" data-media="foto"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><circle cx="9" cy="10.5" r="1.8"/><path d="m20.5 16-5-4.5-7.5 7"/></svg></span><span><b>Ver foto del montaje</b><small>Próximamente</small></span></button></div>
       <p class="fm-media-nota hidden" id="fmMediaNota">${t.videoGuide ? `Así se verá: ${esc(t.videoGuide)}` : 'Muy pronto verás aquí el video y la foto de esta jugada.'}</p>
@@ -546,8 +588,51 @@ function hojaCarta(t) {
     const m = e.target.closest('[data-modo]');
     if (m) { const p = $('fmHojaCuerpo').querySelector(`[data-ver-modo="${m.dataset.modo}"]`); p.classList.toggle('hidden'); m.classList.toggle('activa', !p.classList.contains('hidden')); return; }
     if (e.target.closest('[data-media]')) { $('fmMediaNota').classList.remove('hidden'); return; }
-    if (e.target.closest('#fmAgregar')) { eligeSesion(t, mias); }
+    if (e.target.closest('#fmAgregar')) { eligeSesion(t, mias); return; }
+    const rc = e.target.closest('[data-rec-accion]'); if (rc) { decideRecurso(t, rc); return; }
+    if (e.target.closest('[data-rec-agregar]')) { $('fmRecursos').innerHTML = recursosDeCarta(t, true); return; }
+    const pr = e.target.closest('[data-rec-elige]'); if (pr) { $('fmRecursos').innerHTML = recursosDeCarta(t, true, pr.dataset.recElige); return; }
   };
+}
+
+/* ---- Recursos del Futbolista (PROP-FC-002, h76, 09/11/2026) ----
+   Recurso = herramienta para resolver el Reto, nunca un Reto nuevo. En la
+   carta se ven los recursos APROBADOS. Dirección Deportiva ve además los
+   sugeridos (Aprobar / Descartar) y agrega uno nuevo: primero las familias
+   que el mapa 04 relaciona con el Reto de la tarea. Etiquetar se hace ficha
+   por ficha, leyendo la ficha: la sugerencia del mapa es una pista. */
+function recursosDeCarta(t, agregando = false, elegido = '') {
+  const tags = t.resources || [];
+  const chips = tags.map(r => `<span class="fm-rec ${r.status === 'sugerida' ? 'sugerida' : ''}">
+      <b>${esc(nombreRecurso(r.code))}</b><small>${r.relevance === 'principal' ? 'Principal' : 'Complementario'}${r.status === 'sugerida' ? ' · sugerido' : ''}</small>
+      ${esDireccion && r.status === 'sugerida' ? `<span class="fm-rec-acc"><button type="button" data-rec-accion="aprobada" data-rec="${esc(r.code)}" data-rel="${esc(r.relevance)}">Aprobar</button><button type="button" data-rec-accion="descartada" data-rec="${esc(r.code)}" data-rel="${esc(r.relevance)}">Descartar</button></span>` : ''}</span>`).join('');
+  const titulo = `<h4>Recursos</h4>`;
+  if (!esDireccion) return tags.length ? `${titulo}<div class="fm-recs">${chips}</div>` : '';
+  if (!agregando) return `${titulo}${tags.length ? `<div class="fm-recs">${chips}</div>` : '<p class="fm-ayuda">Sin recursos revisados todavía.</p>'}
+    <button type="button" class="fm-link" data-rec-agregar>Agregar recurso</button>`;
+  if (elegido) return `${titulo}<p class="fm-ayuda">${esc(nombreRecurso(elegido))} en “${esc(t.name)}” es…</p>
+    <div class="fm-juego dos"><button type="button" class="fm-jbtn" data-rec-accion="aprobada" data-rec="${esc(elegido)}" data-rel="principal"><b>Principal</b><small>La tarea lo necesita</small></button>
+      <button type="button" class="fm-jbtn" data-rec-accion="aprobada" data-rec="${esc(elegido)}" data-rel="complementaria"><b>Complementario</b><small>Ayuda, no es obligatorio</small></button></div>`;
+  const ya = new Set(tags.map(r => r.code));
+  const familias = catalogo.concepts.filter(c => c.kind === 'familia_recurso');
+  const delReto = familias.filter(f => (f.attrs?.retos || []).includes(t.primary));
+  const otras = familias.filter(f => !delReto.includes(f));
+  const grupo = f => {
+    const recs = catalogo.concepts.filter(c => c.kind === 'recurso' && c.attrs?.familia === f.code && !ya.has(c.code));
+    return recs.length ? `<p class="fm-recos-grupo">${esc(f.name)}</p><div class="fm-recs">${recs.map(c => `<button type="button" class="fm-rec-btn" data-rec-elige="${esc(c.code)}">${esc(c.name)}</button>`).join('')}</div>` : '';
+  };
+  return `${titulo}${delReto.length ? `<p class="fm-ayuda">El mapa relaciona estas familias con ${esc(nombreReto(t.primary))}. Revisa que la ficha de verdad lo pida.</p>${delReto.map(grupo).join('')}` : ''}
+    <details class="fm-mas"><summary>Otras familias</summary>${otras.map(grupo).join('')}</details>`;
+}
+async function decideRecurso(t, b) {
+  b.disabled = true;
+  try {
+    await rpc('v2_set_task_resource', { organization_id: org, task_id: t.id, resource_code: b.dataset.rec, relevance: b.dataset.rel, status: b.dataset.recAccion });
+    catalogo = await rpc('v2_formation_catalog', { organization_id: org });
+    const nueva = catalogo.tasks.find(x => x.id === t.id) || t;
+    $('fmRecursos').innerHTML = recursosDeCarta(nueva);
+    aviso(b.dataset.recAccion === 'descartada' ? 'Recurso descartado' : 'Recurso aprobado');
+  } catch (e) { b.disabled = false; aviso(errorDe(e), 'error'); }
 }
 function eligeSesion(t, mias) {
   if (mias.length === 1) { cierraHoja(); hojaSesion(mias[0], t.id); return; }

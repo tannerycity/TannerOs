@@ -1,6 +1,7 @@
 -- PROPUESTA · PROP-FC-002 · Recursos del Futbolista Tanner (09/11/2026)
 --
--- NO APLICADA. Requiere autorización de Presidencia para correr en producción.
+-- Autorizada por Presidencia el 09/11/2026 (10 familias, Cuerpo transversal;
+-- anticipar, comunicar y ejecutar se quedan como recursos de la Metodología).
 -- Archivo GENERADO: se edita scripts/formacion/fc1-esquema.sql o la semilla
 -- supabase/semillas/formacion/recursos-v0.1.json y se corre
 -- node scripts/formacion/sql-recursos.mjs.

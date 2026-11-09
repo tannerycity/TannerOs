@@ -1,5 +1,5 @@
 -- Prueba LOCAL (PostgreSQL desechable, nunca producción) de
--- supabase/propuestas/FC1_recursos_del_futbolista.sql, contra los bancos REALES:
+-- supabase/migrations/20261109124655_h76_recursos_del_futbolista.sql, contra los bancos REALES:
 -- carga las migraciones b4 (tablas) y c4 (las 36 + 24 tareas de Tannery).
 --
 --   psql -v ON_ERROR_STOP=1 -h /tmp -p 54329 -U postgres -f scripts/formacion/prueba-local-fc1.sql
@@ -25,10 +25,10 @@ insert into private.acceso values ('00000000-0000-0000-0000-0000000000d1', 'form
 create temp table antes as select kind, code, name, version, question, phrase from app.formation_concepts;
 create temp table tareas_antes as select id, code, name, primary_concept, level, buscamos, juega from app.training_tasks;
 
-\i supabase/propuestas/FC1_recursos_del_futbolista.sql
+\i supabase/migrations/20261109124655_h76_recursos_del_futbolista.sql
 -- Idempotente: la segunda corrida no duplica ni cambia nada.
 create temp table tras1 as select kind, code, attrs from app.formation_concepts;
-\i supabase/propuestas/FC1_recursos_del_futbolista.sql
+\i supabase/migrations/20261109124655_h76_recursos_del_futbolista.sql
 
 do $$
 declare o uuid := (select id from public.organizations); dir text := '00000000-0000-0000-0000-0000000000d1'; profe text := '00000000-0000-0000-0000-0000000000f1';

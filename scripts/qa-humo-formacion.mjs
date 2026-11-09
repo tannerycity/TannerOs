@@ -34,6 +34,13 @@ const CATALOGO = {
       buscamos: t.buscamos, montaje: t.montaje, juega: t.juega, dile: t.dile, observa: t.observa, easier: t.mas_facil, harder: t.mas_dificil, adapta: t.adapta, videoGuide: t.video, status: 'oficial' }))
   ]
 };
+// Recursos del Futbolista (h76): de la semilla real.
+const REC = lee('recursos-v0.1.json');
+CATALOGO.concepts.push(
+  ...REC.familias.map((f, i) => ({ kind: 'familia_recurso', code: f.code, name: f.name, question: null, phrase: f.precaucion, attrs: { retos: f.retos } })),
+  ...REC.familias.flatMap(f => f.recursos.filter(([c]) => !CATALOGO.concepts.some(x => x.kind === 'recurso' && x.code === c)).map(([c, n]) => ({ kind: 'recurso', code: c, name: n, question: null, phrase: null, attrs: { familia: f.code } }))));
+for (const t of CATALOGO.tasks) t.resources = t.id === 't10' ? [{ code: 'conduccion', relevance: 'principal', status: 'sugerida' }]
+  : t.id === 't12' ? [{ code: 'conduccion', relevance: 'principal', status: 'aprobada' }] : [];
 const SEMANA = '2026-12-07';
 const ses = (id, cat, catId, stage, ini, fin, plan = null, week = { primary: '1v1', secondary: null, behavior: 'Que se atrevan a encarar' }) =>
   ({ sessionId: id, categoryId: catId, category: cat, stage, startsAt: ini, endsAt: fin, status: 'scheduled', origin: 'horario', plan, week });
@@ -56,19 +63,29 @@ const revisiones = [], errores = [];
 const revisa = (n, ok, d = '') => revisiones.push({ nombre: n, ok, detalle: d });
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 
-async function abre({ direccion, vacio = false }) {
+async function abre({ direccion, vacio = false, pasada = false }) {
   const p = await nav.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(`console: ${m.text()}`); });
-  await p.addInitScript(({ direccion, vacio, CATALOGO, MIA, DIR, HOY }) => {
+  await p.addInitScript(({ direccion, vacio, pasada, CATALOGO, MIA, DIR, HOY }) => {
     window.__llamadas = [];
     const mia = JSON.parse(JSON.stringify(MIA)), hoy = JSON.parse(JSON.stringify(HOY));
     if (vacio) { mia.sessions = []; mia.settings = { ...mia.settings, inicio: '2026-12-14' }; hoy.sessions = []; }
+    if (pasada) mia.sessions.unshift({ sessionId: 'p1', categoryId: 'c6', category: 'T6', stage: 't6', startsAt: '2026-11-03T00:00:00Z', endsAt: '2026-11-03T01:00:00Z',
+      status: 'completed', origin: 'horario', plan: { status: 'ready', challenge: '1v1', items: [{ block: 'tarea', taskId: 't05' }] }, week: { primary: '1v1', behavior: 'Que se atrevan a encarar' } });
+    const cat = JSON.parse(JSON.stringify(CATALOGO));
+    // Lo que el servidor manda (h76): el Formador sólo recibe etiquetas aprobadas.
+    if (!direccion) for (const t of cat.tasks) t.resources = (t.resources || []).filter(r => r.status === 'aprobada');
+    const obs = [];
     const mods = ['inicio', 'formacion', ...(direccion ? ['formacion_direccion'] : [])];
     const R = {
       v2_my_context: () => [{ user_id: 'u2', display_name: 'Max', organization_id: 'o1', organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: direccion ? 'Operaciones' : 'Formadores', is_owner: false }],
       v2_my_navigation: () => mods.map(c => ({ module_code: c, enabled: true, can_read: true, can_write: true })),
-      v2_formation_catalog: () => CATALOGO,
+      v2_formation_catalog: () => cat,
+      v2_set_task_resource: prm => { const t = cat.tasks.find(x => x.id === prm.task_id); t.resources = t.resources.filter(r => r.code !== prm.resource_code);
+        if (prm.status !== 'descartada') t.resources.push({ code: prm.resource_code, relevance: prm.relevance, status: prm.status }); return { status: prm.status }; },
+      v2_session_review: prm => ({ sessionId: prm.session_id, observations: obs.filter(o => o.session === prm.session_id) }),
+      v2_add_session_observation: prm => { obs.push({ session: prm.session_id, id: 'o' + obs.length, checklist: prm.checklist, note: prm.note, at: '2026-11-03T02:00:00Z', by: 'Brandon' }); return { id: 'o' }; },
       v2_my_planning: () => mia,
       v2_direction_week: () => DIR,
       v2_save_training_weeks: () => 2,
@@ -86,7 +103,7 @@ async function abre({ direccion, vacio = false }) {
       from: () => ({ select() { return this; }, eq() { return this; }, then(r) { return Promise.resolve({ data: [], error: null }).then(r); } }),
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
-  }, { direccion, vacio, CATALOGO, MIA, DIR, HOY });
+  }, { direccion, vacio, pasada, CATALOGO, MIA, DIR, HOY });
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export function clearPhotoCache(){}' }));
@@ -192,6 +209,75 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.click(`.fm-bloque[data-i="1"] [data-elige][data-task="${resto.at(-1)}"]`);
   revisa('[fc-002] el profe puede elegir una de otro Reto', /Partido sin Pausa|Protege la Casa|Gana Terreno/.test(await p.textContent('.fm-bloque[data-i="1"] .fm-elegida')), await p.textContent('.fm-bloque[data-i="1"] .fm-elegida'));
   await cabe(p, 'ver más');
+  await p.close();
+}
+
+{ // Recursos del Futbolista y Observación de Dirección (PROP-FC-002, h76/h77, 09/11/2026)
+  const p = await abre({ direccion: true, pasada: true });
+  await p.waitForSelector('#fmTabs', { timeout: 6000 });
+  await p.click('[data-tab="banco"]');
+  await p.click('[data-carta="t10"]');
+  await p.waitForSelector('#fmRecursos');
+  revisa('[recursos] Dirección ve la sugerida con Aprobar y Descartar', /Conducción/.test(await p.textContent('#fmRecursos')) && /sugerido/.test(await p.textContent('#fmRecursos'))
+    && !!(await p.$('#fmRecursos [data-rec-accion="aprobada"]')) && !!(await p.$('#fmRecursos [data-rec-accion="descartada"]')), await p.textContent('#fmRecursos'));
+  await p.click('#fmRecursos [data-rec-accion="aprobada"]');
+  await p.waitForFunction(() => !/sugerido/.test(document.querySelector('#fmRecursos')?.textContent || ''));
+  const ap = (await llamadas(p, 'v2_set_task_resource'))[0]?.prm;
+  revisa('[recursos] Aprobar manda la etiqueta como aprobada', ap?.task_id === 't10' && ap.resource_code === 'conduccion' && ap.relevance === 'principal' && ap.status === 'aprobada', JSON.stringify(ap));
+  await p.click('#fmRecursos [data-rec-agregar]');
+  const grupos = await p.$$eval('#fmRecursos > .fm-recos-grupo', g => g.map(x => x.textContent));
+  revisa('[recursos] al agregar, primero las familias que el mapa liga al Reto (Jugar juntos)', grupos.join('|') === 'Pase y recepción|Ubicación y apoyo|Reinicios', JSON.stringify(grupos));
+  revisa('[recursos] no ofrece otra vez el que ya tiene', !(await p.$('#fmRecursos [data-rec-elige="conduccion"]')));
+  await p.click('#fmRecursos [data-rec-elige="pared"]');
+  await p.click('#fmRecursos [data-rec-accion="aprobada"][data-rel="complementaria"]');
+  await p.waitForFunction(() => /Pared/.test(document.querySelector('#fmRecursos')?.textContent || ''));
+  const ag = (await llamadas(p, 'v2_set_task_resource'))[1]?.prm;
+  revisa('[recursos] agrega Pared como complementario', ag?.resource_code === 'pared' && ag.relevance === 'complementaria' && ag.status === 'aprobada', JSON.stringify(ag));
+  await cabe(p, 'recursos');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-recursos.png' });
+  await p.click('#fmHoja [data-cerrar]');
+  await p.click('[data-banco="baby"]');
+  await p.click('[data-carta="bB01"]');
+  revisa('[recursos] las tareas Baby no llevan recursos (sus 4 mundos)', !(await p.$('#fmRecursos')));
+  await p.click('#fmHoja [data-cerrar]');
+  // Observación: sólo en una sesión que ya pasó.
+  await p.click('[data-tab="sesiones"]');
+  await p.click('[data-vista="tarjetas"]').catch(() => {});
+  await p.click('[data-ses="p1"]');
+  await p.waitForSelector('#fmObservar');
+  await p.click('#fmObservar');
+  await p.waitForSelector('.fm-obs-fila');
+  revisa('[observar] los 5 puntos con Sí / A veces / Todavía no', JSON.stringify(await p.$$eval('.fm-obs-fila > b', b => b.map(x => x.textContent))) === '["Aprendizaje","Participación","Seguridad","Adaptación","Convivencia"]'
+    && (await p.$$('.fm-obs-ops button')).length === 15);
+  await p.click('#fmObsGuardar');
+  revisa('[observar] vacía no se guarda', /Marca al menos un punto/.test(await p.textContent('#fmObsFalta')) && !(await llamadas(p, 'v2_add_session_observation')).length);
+  await p.click('[data-obs="aprendizaje"][data-v="a_veces"]');
+  await p.click('[data-obs="seguridad"][data-v="si"]');
+  await p.fill('#fmObsNota', 'Faltó acelerar después del engaño');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-observar.png' });
+  await p.click('#fmObsGuardar');
+  await p.waitForSelector('#fmHoja', { state: 'hidden' });
+  const ob = (await llamadas(p, 'v2_add_session_observation'))[0]?.prm;
+  revisa('[observar] guarda los puntos marcados y la nota, sin calificar niños', ob?.session_id === 'p1' && JSON.stringify(ob.checklist) === '{"aprendizaje":"a_veces","seguridad":"si"}' && ob.note === 'Faltó acelerar después del engaño', JSON.stringify(ob));
+  revisa('[observar] una sesión que no ha pasado no ofrece Observar', await (async () => { await p.click('[data-ses="s2"]'); await p.waitForSelector('#fmHoja:not(.hidden)'); const no = !(await p.$('#fmObservar')); await p.click('#fmHoja [data-cerrar]'); return no; })());
+  await p.close();
+}
+{ // El Formador: sólo recursos aprobados, y lee la observación de Dirección en su sesión.
+  const p = await abre({ direccion: false, pasada: true });
+  await p.waitForSelector('.fm-hero h1', { timeout: 6000 });
+  await p.click('[data-tab="banco"]');
+  await p.click('[data-carta="t10"]');
+  revisa('[formador] no ve recursos sugeridos ni botones de Dirección', !(await p.$('#fmRecursos')) || !/Conducción/.test(await p.textContent('#fmRecursos')));
+  await p.click('#fmHoja [data-cerrar]');
+  await p.click('[data-carta="t12"]');
+  revisa('[formador] ve el aprobado, sin poder decidir', /Conducción/.test(await p.textContent('#fmRecursos')) && /Principal/.test(await p.textContent('#fmRecursos')) && !(await p.$('#fmRecursos [data-rec-accion]')) && !(await p.$('[data-rec-agregar]')));
+  await p.click('#fmHoja [data-cerrar]');
+  await p.evaluate(() => window.__fakeSupabase.rpc('v2_add_session_observation', { session_id: 'p1', checklist: { convivencia: 'todavia_no' }, note: 'Hubo burlas al portero' }));
+  await p.click('[data-tab="sesiones"]');
+  await p.click('[data-ses="p1"]');
+  await p.waitForSelector('.fm-obs-leida', { timeout: 4000 }).catch(() => {});
+  revisa('[formador] lee la observación de Dirección en su sesión', /Convivencia: Todavía no/.test(await p.textContent('#fmHojaCuerpo')) && /Hubo burlas al portero/.test(await p.textContent('#fmHojaCuerpo')) && /Brandon/.test(await p.textContent('#fmHojaCuerpo')), (await p.textContent('#fmHojaCuerpo')).slice(0, 200));
+  revisa('[formador] no puede observar (eso es de Dirección)', !(await p.$('#fmObservar')));
   await p.close();
 }
 

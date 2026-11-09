@@ -2,6 +2,21 @@
 
 Rama: `fc-002-planeacion` · 09/11/2026 · **Sin merge, sin despliegue, sin migraciones en producción.**
 
+## 0. Decisiones de Presidencia del 09/11/2026 (tarde) y estado
+
+| Tema | Decisión | Estado |
+|---|---|---|
+| Familias de recursos | **10** (Cuerpo transversal, como el Mapa 04) | **Aplicado en producción** (h76, md5 `d10a3974…`) |
+| Microciclo P-D-A-R | No aparece en la pantalla: se quedan **Calentar / Tarea / Jugar** | Sin cambio (decisión) |
+| Checklist de la observación de Dirección | 5 puntos: aprendizaje, participación, seguridad, adaptación, convivencia (Sí / A veces / Todavía no) + nota | **Aplicado en producción** (h77, md5 `9727333f…`) |
+| Anticipar, comunicar y ejecutar | Se quedan en la Metodología, sin familia | Así quedó en h76 |
+| Migraciones FC1/FC2 | Autorizadas | h76 y h77 aplicadas; prueba en prod como Presidencia (se deshace sola): catálogo con 10 familias, aprobar etiqueta, checklist inválido rechazado, lectura |
+| Parches | **Campeones** e **Iniciación** | Propuesta FC3 escrita y probada en local (10 grupos). **Falta autorizar** su aplicación |
+
+Pantallas nuevas en la rama (aún sin publicar):
+- Carta del Álbum → **Recursos**: Dirección aprueba o descarta las sugeridas y agrega recursos (primero las familias que el mapa liga al Reto). El Formador solo ve los aprobados.
+- Hoja de sesión que ya pasó → **Observar** (solo Dirección): 5 puntos + nota. El Formador la lee en su sesión.
+
 ## 1. Fuentes revisadas
 
 Entrega de Presidencia `KIT_DOS_PROMPTS_CLAUDE_TANNERY_2026_11_08.zip` (carpeta `FUENTES_OFICIALES`), más Drive.

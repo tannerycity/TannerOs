@@ -1,5 +1,5 @@
 -- Prueba LOCAL (PostgreSQL desechable, nunca producción) de
--- supabase/propuestas/FC2_observacion_direccion_deportiva.sql.
+-- supabase/migrations/20261109125053_h77_observacion_direccion_deportiva.sql.
 --
 --   psql -v ON_ERROR_STOP=1 -h /tmp -p 54329 -U postgres -f scripts/formacion/prueba-local-fc2.sql
 --
@@ -38,7 +38,7 @@ insert into app.sessions(id, organization_id, status, closure, closure_note, clo
 values ('00000000-0000-0000-0000-0000000000b1', :org, 'completed', 'a_veces', 'Les costó mirar antes', now(), :profe),
        ('00000000-0000-0000-0000-0000000000c1', :org, 'cancelled', null, null, null, :profe);
 
-\i supabase/propuestas/FC2_observacion_direccion_deportiva.sql
+\i supabase/migrations/20261109125053_h77_observacion_direccion_deportiva.sql
 
 do $$
 declare o uuid := '00000000-0000-0000-0000-0000000000a1'; s uuid := '00000000-0000-0000-0000-0000000000b1';
@@ -54,6 +54,13 @@ begin
   begin perform private.command_add_session_observation(o, s, repeat('x', 601)); raise exception 'FALLA 2b'; exception when others then if sqlerrm like 'FALLA%' then raise; end if; end;
   r := private.command_add_session_observation(o, s, '  Apareció el engaño; faltó acelerar después.  ');
   id1 := (r->>'id')::uuid;
+  -- 2b. Checklist de 5 puntos (09/11/2026): sólo esas llaves y Sí / A veces / Todavía no.
+  begin perform private.command_add_session_observation(o, s, null, '{"puntos":"si"}'); raise exception 'FALLA 2c: llave inventada'; exception when others then if sqlerrm like 'FALLA%' then raise; end if; end;
+  begin perform private.command_add_session_observation(o, s, null, '{"seguridad":"5"}'); raise exception 'FALLA 2d: calificación numérica'; exception when others then if sqlerrm like 'FALLA%' then raise; end if; end;
+  begin perform private.command_add_session_observation(o, s, null, '{}'); raise exception 'FALLA 2e: vacía'; exception when others then if sqlerrm like 'FALLA%' then raise; end if; end;
+  r := private.command_add_session_observation(o, s, null, '{"aprendizaje":"a_veces","participacion":"si","seguridad":"si","adaptacion":"todavia_no","convivencia":"si"}');
+  if (select checklist->>'adaptacion' from app.session_observations where id = (r->>'id')::uuid) <> 'todavia_no' then raise exception 'FALLA 2f'; end if;
+  perform private.command_void_session_observation(o, (r->>'id')::uuid, 'Prueba del checklist');
   -- 3. Sesión cancelada: no.
   begin perform private.command_add_session_observation(o, '00000000-0000-0000-0000-0000000000c1', 'x'); raise exception 'FALLA 3'; exception when others then if sqlerrm like 'FALLA%' then raise; end if; end;
   -- 4. El cierre del Formador no se toca.
@@ -71,16 +78,16 @@ begin
   begin perform private.command_void_session_observation(o, id1, ''); raise exception 'FALLA 6a'; exception when others then if sqlerrm like 'FALLA%' then raise; end if; end;
   perform private.command_void_session_observation(o, id1, 'Era de otra sesión');
   perform private.command_void_session_observation(o, id1, 'Era de otra sesión');
-  if (select count(*) from app.domain_events where event_type = 'SessionObservationVoided') <> 1 then raise exception 'FALLA 6b: doble anulación'; end if;
+  if (select count(*) from app.domain_events where event_type = 'SessionObservationVoided') <> 2 then raise exception 'FALLA 6b: doble anulación'; end if;
   if (select voided_by::text from app.session_observations where id = id1) <> dir then raise exception 'FALLA 6c'; end if;
   if jsonb_array_length(private.query_session_review(o, s)->'observations') <> 0 then raise exception 'FALLA 6d: se sigue viendo'; end if;
-  if (select count(*) from app.session_observations) <> 1 then raise exception 'FALLA 6e: se borró en vez de anular'; end if;
+  if (select count(*) from app.session_observations) <> 2 then raise exception 'FALLA 6e: se borró en vez de anular'; end if;
   -- 7. Eventos de dominio.
-  if (select count(*) from app.domain_events where event_type = 'SessionObservationAdded') <> 1 then raise exception 'FALLA 7'; end if;
+  if (select count(*) from app.domain_events where event_type = 'SessionObservationAdded') <> 2 then raise exception 'FALLA 7'; end if;
   raise notice 'FC2 OK · 7 grupos de revisiones';
 end $$;
 -- 8. anon no ejecuta las funciones públicas; authenticated sí.
-select case when has_function_privilege('anon', 'public.v2_add_session_observation(uuid,uuid,text)', 'execute')
+select case when has_function_privilege('anon', 'public.v2_add_session_observation(uuid,uuid,text,jsonb)', 'execute')
          or has_function_privilege('anon', 'public.v2_session_review(uuid,uuid)', 'execute')
          or not has_function_privilege('authenticated', 'public.v2_session_review(uuid,uuid)', 'execute')
        then 'FALLA 8: permisos' else 'FC2 permisos OK' end as permisos;

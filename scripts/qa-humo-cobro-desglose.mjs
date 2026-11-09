@@ -415,7 +415,7 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
    salga una miniatura de la cara del Tanner... si le picas se pueda ver grande". */
 {
   const ISA = { canCollect:true, canOrders:true, prices:null, orders:[], monthly:{ fee:550 }, charges:[
-    { id:'i-oct', type:'monthly_fee', period:'2026-10-01', label:'Mensualidad oct', balance:350, sponsor:false },
+    { id:'i-oct', type:'monthly_fee', period:'2026-10-01', label:'Mensualidad oct', balance:350, amount:550, paid:200, paidOn:'2026-10-06', sponsor:false },
     { id:'i-roct', type:'late_fee', period:'2026-10-01', label:'Recargo oct', balance:100, sponsor:false, parent:{ due:'2026-10-05', balance:350, paidOn:'2026-10-06' } },
     { id:'i-nov', type:'monthly_fee', period:'2026-11-01', label:'Mensualidad nov', balance:550, sponsor:false },
     { id:'i-rnov', type:'late_fee', period:'2026-11-01', label:'Recargo nov', balance:100, sponsor:false, parent:{ due:'2026-11-05', balance:550, paidOn:null } } ] };
@@ -429,9 +429,16 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.waitForSelector('#cobroBody .cobro-cara img', { timeout:4000 }).catch(() => {});
   revisa('[cara] la hoja enseña la cara del Tanner que paga', /foto-prueba-chica/.test(await p.getAttribute('#cobroBody .cobro-cara img', 'src').catch(() => '') || ''));
   const notas = await p.$$eval('#cobroBody .cobro-linea', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
-  revisa('[claro] el recargo de octubre dice qué pasó: abonó tarde una parte y cuánto falta', notas.some(t => /Recargo oct/.test(t) && /abonó una parte el 6, después del día 5, y aún faltan \$350\.00/.test(t)), JSON.stringify(notas));
+  revisa('[claro] el recargo de octubre dice qué pasó: abonó tarde y quedó saldo', notas.some(t => /Recargo oct/.test(t) && /Abonó el 6, después del día 5, y quedó saldo/.test(t)), JSON.stringify(notas));
   revisa('[claro] el de noviembre dice que no se pagó antes del día 5', notas.some(t => /Recargo nov/.test(t) && /Noviembre no se pagó antes del día 5/.test(t)), JSON.stringify(notas));
   revisa('[claro] el total separa mensualidades y recargos', /\$900\.00 \+ \$200\.00 de recargos/.test(await texto(p, '.cobro-total')) && /\$1,100\.00/.test(await texto(p, '.cobro-total')), await texto(p, '.cobro-total'));
+  const grupos = await p.$$eval('#cobroBody .cobro-mes-tit', g => g.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
+  revisa('[mes] agrupado por mes, cada uno con lo que suma', JSON.stringify(grupos) === '["Octubre$450.00","Noviembre$650.00"]', JSON.stringify(grupos));
+  revisa('[mes] octubre dice de cuánto era y cuánto ya abonó', notas.some(t => /Mensualidad oct/.test(t) && /De \$550\.00 · ya abonó \$200\.00 el 6 oct/.test(t)), JSON.stringify(notas));
+  revisa('[mes] noviembre (sin abonos) no lleva esa nota', !notas.some(t => /Mensualidad nov/.test(t) && /ya abonó/.test(t)));
+  await p.fill('[data-monto="c:i-oct"]', '200'); await p.press('[data-monto="c:i-oct"]', 'Tab');
+  revisa('[mes] al cambiar un monto, el subtotal del mes cambia', /Octubre\$300\.00/.test((await texto(p, '#cobroBody .cobro-mes[data-mes="2026-10"] .cobro-mes-tit')).replace(/\s+/g, ' ')), await texto(p, '#cobroBody .cobro-mes[data-mes="2026-10"] .cobro-mes-tit'));
+  await p.fill('[data-monto="c:i-oct"]', '350'); await p.press('[data-monto="c:i-oct"]', 'Tab');
   await p.click('[data-quita="c:i-rnov"]');
   revisa('[claro] al quitar un recargo el desglose se actualiza', /\$900\.00 \+ \$100\.00 de recargo(?!s)/.test(await texto(p, '.cobro-total')), await texto(p, '.cobro-total'));
   await foto(p, 'cobro-cara');

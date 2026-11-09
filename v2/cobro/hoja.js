@@ -187,13 +187,14 @@ function porQueRecargo(c) {
   if (Number(pa.balance) <= 0.004) return `${Mes} ya está pagada${pa.paidOn ? ` (pagó el ${DIA(pa.paidOn)}, el límite era el ${DIA(pa.due)})` : ''}`;
   // 09/11/2026: "a veces siento que me cobran cosas que no entiendo". Se dice
   // qué pasó: abonó tarde una parte, o no ha pagado y ya pasó el día límite.
-  if (pa.paidOn) return `${Mes}: abonó una parte el ${DIA(pa.paidOn)}, después del día ${DIA(pa.due)}, y aún faltan ${money.format(Number(pa.balance))}`;
+  if (pa.paidOn) return `Abonó el ${DIA(pa.paidOn)}, después del día ${DIA(pa.due)}, y quedó saldo`;
   return `${Mes} no se pagó antes del día ${DIA(pa.due)}`;
 }
 function opcionesDe(cuenta) {
   const col = cuenta.col || {};
   const cargos = (col.charges || []).filter(c => !c.sponsor).map(c => ({ key: `c:${c.id}`, kind: 'charge', id: c.id, player: cuenta.id,
-    label: etiqueta(c.label, cuenta), max: Number(c.balance), period: String(c.period || '').slice(0, 7), type: c.type, porque: porQueRecargo(c) }));
+    label: etiqueta(c.label, cuenta), max: Number(c.balance), period: String(c.period || '').slice(0, 7), type: c.type, porque: porQueRecargo(c),
+    vale: c.amount != null ? Number(c.amount) : null, abonado: Number(c.paid || 0), abonoEl: c.paidOn || null }));
   const pedidos = col.canOrders ? (col.orders || []).map(o => ({ key: `o:${o.id}`, kind: 'order', id: o.id, player: cuenta.id,
     label: etiqueta(`Uniforme ${o.folio}`, cuenta), max: Number(o.balance) })) : [];
   const reg = !cargos.some(c => c.type === 'registration') && inscripciones().length
@@ -234,7 +235,7 @@ function pinta() {
   const lineas = [...s.sel.values()];
   const t = total();
   const err = s.error ? `<div class="pres-error" role="alert">${esc(s.error)}</div>` : '';
-  const lista = lineas.length ? `<ul class="cobro-va">${lineas.map(lineaHtml).join('')}</ul>`
+  const lista = lineas.length ? porMes(lineas)
     : `<p class="cobro-vacio">${debeAlgo() ? 'Toca Agregar y elige qué paga.' : 'No debe nada. Agrega la mensualidad, la inscripción o lo que vaya a pagar.'}</p>`;
   b.innerHTML = `${cab('Cobrar', nombres())}<form class="pres-form cobro-form" novalidate>
     ${quienHtml()}${fechaHtml()}
@@ -290,6 +291,28 @@ function desglose() {
   let rec = 0, resto = 0;
   for (const i of s.sel.values()) { if (i.type === 'late_fee') rec += num(i.amount); else resto += num(i.amount); }
   return rec > 0 && resto > 0 ? `<small class="cobro-desglose">${money.format(resto)} + ${money.format(rec)} de recargo${rec > 100.004 ? 's' : ''}</small>` : '';
+}
+/* Agrupado por mes (09/11/2026). Presidencia: "agrupar por mes". Octubre con
+   su recargo, noviembre con el suyo, y cada mes con lo que suma. Lo que no es
+   de un mes (uniforme, arbitraje, inscripción) va al final en "Otros". Con un
+   solo grupo no se pone encabezado: no hace falta. */
+const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+function porMes(lineas) {
+  const grupos = new Map();
+  for (const i of lineas) {
+    const k = ['charge', 'month'].includes(i.kind) && i.period ? String(i.period).slice(0, 7) : 'zz';
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(i);
+  }
+  const llaves = [...grupos.keys()].sort();
+  if (llaves.length === 1) return `<ul class="cobro-va">${lineas.map(lineaHtml).join('')}</ul>`;
+  return llaves.map(k => {
+    const items = grupos.get(k), suma = items.reduce((t, i) => t + num(i.amount), 0);
+    const anio = k.slice(0, 4), mes = MESES_LARGOS[Number(k.slice(5, 7)) - 1] || '';
+    const titulo = k === 'zz' ? 'Otros' : `${mes.charAt(0).toUpperCase()}${mes.slice(1)}${anio !== hoyLocal().slice(0, 4) ? ` ${anio}` : ''}`;
+    return `<div class="cobro-mes" data-mes="${esc(k)}"><p class="cobro-mes-tit"><span>${esc(titulo)}</span><b>${money.format(Math.round(suma * 100) / 100)}</b></p>
+      <ul class="cobro-va">${items.map(lineaHtml).join('')}</ul></div>`;
+  }).join('');
 }
 const debeAlgo = () => [...s.cuentas.values()].some(c => { const o = opcionesDe(c); return o.cargos.length || o.pedidos.length; });
 
@@ -366,7 +389,14 @@ function lineaHtml(i) {
   // estorba. Se avisa nada más cuando deja algo pendiente.
   const nota = i.max != null ? (num(i.amount) > 0 && num(i.amount) < i.max ? `Queda a deber ${money.format(i.max - num(i.amount))}` : '')
     : i.kind === 'month' ? esc(i.detalle || '') : i.kind === 'abono' ? 'Se aplica a lo más antiguo; si sobra, queda a favor.' : '';
-  return renglon(i.label, nota || (i.porque ? esc(i.porque) : ''));
+  return renglon(i.label, nota || (i.porque ? esc(i.porque) : '') || yaAbono(i));
+}
+// 09/11/2026 (h79): una mensualidad a medio pagar dice de cuánto era y cuánto
+// ya se abonó; así $350 junto a $550 no parece otro precio.
+const diaMes = f => new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(new Date(`${String(f).slice(0, 10)}T12:00:00`)).replace('.', '');
+function yaAbono(i) {
+  if (i.kind !== 'charge' || !(i.abonado > 0.004) || !(i.vale > i.max + 0.004)) return '';
+  return `De ${money.format(i.vale)} · ya abonó ${money.format(i.abonado)}${i.abonoEl ? ` el ${esc(diaMes(i.abonoEl))}` : ''}`;
 }
 
 // La fecha del pago, a la vista: "Pagó hoy". Si se cambia a un día anterior,
@@ -513,6 +543,10 @@ function recalcula() {
   if (s.error) { s.error = ''; document.querySelector('#cobroBody .pres-error')?.remove(); }
   const el = document.getElementById('cobroTotal'); if (el) el.textContent = money.format(t);
   const ds = document.querySelector('#cobroBody .cobro-total > span'); if (ds) ds.innerHTML = `Total${desglose()}`;
+  document.querySelectorAll('#cobroBody .cobro-mes').forEach(g => {
+    let suma = 0; g.querySelectorAll('[data-linea]').forEach(li => { suma += num(s.sel.get(li.dataset.linea)?.amount); });
+    const b = g.querySelector('.cobro-mes-tit b'); if (b) b.textContent = money.format(Math.round(suma * 100) / 100);
+  });
   const r = document.getElementById('cobroResto'); if (r) r.textContent = money.format(Math.max(0, Math.round((t - num(s.monto1)) * 100) / 100));
   const btn = document.getElementById('cobroEnviar');
   if (btn && !s.enviando) { btn.disabled = t <= 0; btn.innerHTML = t > 0 ? `Cobrar ${money.format(t)} <small>${s.dos ? 'en dos formas' : `en ${nombreMetodo(s.metodo).toLowerCase()}`}</small>` : 'Elige qué paga'; }

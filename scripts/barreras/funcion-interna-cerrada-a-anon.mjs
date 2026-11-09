@@ -18,6 +18,13 @@
 // (su texto tiene que ser identico a lo que corrio en la base). Si el cierre
 // se hizo dentro de un ciclo (format('revoke ...')), la siguiente migracion
 // lo deja escrito y cuenta.
+//
+// Y una que YA nacio cerrada (09/11/2026): `create or replace` sobre una
+// funcion que existe conserva sus permisos (PostgreSQL no se los regresa a
+// PUBLIC), asi que si una migracion anterior ya se la quito a public y anon y
+// este archivo no la borra (drop function), sigue cerrada. Caso real: h74
+// reescribio v2_punctuality_status (cerrada en h64) y v2_portal_punctuality
+// (cerrada en h67); en la base anon sigue sin EXECUTE.
 import fs from 'node:fs';
 
 const DESDE = '20261008132336';
@@ -35,6 +42,11 @@ export default function comprobar() {
     //   revoke all on function public.a(uuid), public.b(uuid, text) from public, anon;
     // Cuenta cada public.<nombre>( que aparezca en la lista de uno de esos revoke.
     const cerradas = new Set();
+    const revocadas = texto => [...texto.matchAll(/revoke\s+(?:all|execute)(?:\s+privileges)?\s+on\s+function\s+([^;]*?)\s+from\s+public\s*,\s*anon/gi)]
+      .flatMap(m => [...m[1].matchAll(/public\.([a-z0-9_]+)\s*\(/gi)].map(f => f[1].toLowerCase()));
+    const borradas = new Set([...sql.matchAll(/drop\s+function\s+(?:if\s+exists\s+)?public\.([a-z0-9_]+)/gi)].map(m => m[1].toLowerCase()));
+    for (const previo of archivos.slice(0, i))
+      for (const n of revocadas(textoDe(previo))) if (!borradas.has(n)) cerradas.add(n);
     const siguiente = archivos[i + 1] ? textoDe(archivos[i + 1]) : '';
     for (const texto of [sql, siguiente])
       for (const m of texto.matchAll(/revoke\s+(?:all|execute)(?:\s+privileges)?\s+on\s+function\s+([^;]*?)\s+from\s+public\s*,\s*anon/gi))

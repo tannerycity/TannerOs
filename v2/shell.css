@@ -298,3 +298,44 @@ body.tos-body,body:has(>.tos-layout){margin:0}
 .tos-seccion a[aria-current="page"]{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
 .tcs-todos{margin-left:auto;font-size:13px;font-weight:800;color:#087d8e;text-decoration:none}.tcs-todos:hover{text-decoration:underline}
 @media(max-width:760px){.tos-seccion{width:100%;max-width:100%;contain:inline-size}}
+/* Mi semana (h65, 08/11/2026): una barra por persona, sin ruido. */
+.ms-semana{display:grid;gap:12px}
+.ms-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.ms-cab h2{margin:0;font-size:18px}
+.ms-cab small{display:block;margin-top:2px;font-size:13px;color:#66737a}
+.ms-pct{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#0d2730}
+.ms-barra{position:relative;display:block;width:100%;height:10px;border-radius:999px;background:#e8eeec;overflow:hidden}
+.ms-barra--chica{height:6px}
+.ms-barra i{position:absolute;inset:0 auto 0 0;border-radius:999px;background:#d98a1c;transition:width .4s ease}
+.ms-barra[data-tono="medio"] i{background:#087d8e}
+.ms-barra[data-tono="lleno"] i{background:#30b45a}
+.ms-medalla{justify-self:start;margin:0;padding:6px 12px;border-radius:999px;background:#e7f6ec;color:#1d7a3d;font-size:13px;font-weight:800}
+.ms-racha{justify-self:start;font-size:12.5px;font-weight:700;color:#7a4b00;background:#fff4e5;padding:4px 10px;border-radius:999px}
+.ms-secciones{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.ms-secciones li{display:grid;gap:5px}
+.ms-secciones a,.ms-fila{display:flex;justify-content:space-between;gap:10px;color:#0d2730;font-size:14px;font-weight:600;text-decoration:none}
+.ms-secciones b{font-variant-numeric:tabular-nums;color:#5c6f74}
+.ms-faltan{display:grid;margin:0;padding:0;list-style:none;border-radius:14px;border:1px solid #e3e8e6;overflow:hidden;background:#fff}
+.ms-faltan li+li{border-top:1px solid #edf0ef}
+.ms-faltan a{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:46px;padding:0 14px;color:#0d2730;font-size:14px;font-weight:600;text-decoration:none}
+.ms-faltan a span{font-size:20px;color:#b3bec2}
+.ms-faltan--quieto li{padding:11px 14px;font-size:13.5px;color:#354f55}
+.ms-vertodo{justify-self:center;min-height:40px;border:0;background:none;font:inherit;font-size:14px;font-weight:700;color:#087d8e;cursor:pointer}
+.ms-destacados{margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#e7f6ec;color:#1d5a32;font-size:13.5px}
+.ms-equipo{display:grid;border-radius:14px;border:1px solid #e3e8e6;overflow:hidden;background:#fff}
+.ms-persona+.ms-persona{border-top:1px solid #edf0ef}
+.ms-persona summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:8px 14px;cursor:pointer;list-style:none}
+.ms-persona summary::-webkit-details-marker{display:none}
+.ms-quien{display:grid;min-width:0}
+.ms-quien strong{font-size:15px;color:#0d2730}
+.ms-quien small{font-size:12.5px;color:#66737a}
+.ms-quien em{font-style:normal;font-weight:800;color:#1d7a3d}
+.ms-avance{display:flex;align-items:center;gap:8px;flex:0 0 120px}
+.ms-avance b{min-width:40px;text-align:right;font-variant-numeric:tabular-nums;color:#0d2730}
+.ms-persona[open]{background:#fafbfb}
+.ms-persona>:not(summary){margin:0 14px 12px}
+.ms-nada{font-size:13px;color:#66737a}
+.ms-aviso-semana{display:grid;gap:8px;margin:8px 12px;padding:12px 14px;border-radius:14px;background:#f4f8f7;border:1px solid #e1e8e6;text-decoration:none;color:#0d2730}
+.ms-aviso-semana span{display:grid;gap:2px}
+.ms-aviso-semana strong{font-size:15px}
+.ms-aviso-semana small{font-size:13px;color:#5c6f74}

@@ -6,6 +6,7 @@ import { getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
 import {credencialACorreo,mensajeDeCredencialRechazada} from '/v2/login-credencial.js';
 import {iniciarUsoStaff,apagaAlSalir} from '/v2/analitica-uso.js';
 import {entraDirecto,puertasConSesion,puertasSinSesion} from '/v2/entrada-sesion.js';
+import {pintaMiSemana,pintaEquipo} from '/v2/mi-semana.js';
 
 const views=['authView','pendingView','forcePasswordView','appView'];
 const state={players:[],prospects:[],calendar:[],orders:[],executive:null,actionCenter:null};
@@ -366,6 +367,8 @@ async function loadAuthenticatedApp(){
     renderShell({ctx,navigation,active:'inicio',title:'Inicio'});
     iniciarUsoStaff({role:ctx.role,isOwner:ctx.is_owner,modulo:'inicio',organizationId:ctx.organization_id,rpc});
     renderCumpleStrip().catch(error=>console.warn('cumpleaños',error));
+    // Mi semana y el tablero del equipo (h65, 08/11/2026). Si no aplica, no sale.
+    pintaMiSemana({rpc,ctx});pintaEquipo({rpc,ctx});
     if(ctx.role==='Taquilla'){renderTaquillaHome().catch(error=>console.error('Taquilla home',error));}
     else if(ctx.role==='Academia'){renderAcademiaHome().catch(error=>console.error('Academia home',error));}
     else{

@@ -52,6 +52,7 @@ export async function seccionParches(el, { rpc, org, playerId, nombre = '' }) {
   if (!el) return; cargaEstilos();
   let d = null;
   try { d = await rpc('v2_player_patches', { organization_id: org, player_id: playerId }); } catch { el.innerHTML = ''; return; }  // sin permiso: no se enseña
+  if (!d || typeof d !== 'object') { el.innerHTML = ''; return; }
   const vigentes = (d.awards || []).filter(a => !a.revokedAt), revocados = (d.awards || []).filter(a => a.revokedAt);
   const nums = numerosDeCampeon(vigentes);
   el.innerHTML = `<section class="tan-section par-seccion"><div class="tan-section-head"><h2>Parches</h2><span>Lo que ha vivido en el club</span></div>
@@ -91,6 +92,7 @@ function hoja(html) {
 export async function hojaParchesGrupo({ rpc, org }) {
   let base;
   try { base = await rpc('v2_patch_roster', { organization_id: org }); } catch (e) { alert(errorDe(e)); return; }
+  base = base || { categories: [] };
   const h = hoja(`<header class="par-head"><h2 id="parTitulo">Registrar parches</h2><button type="button" class="par-x" data-par-cerrar aria-label="Cerrar">×</button></header>
     <p class="par-ayuda">Elige el parche y la categoría: salen todos marcados y desmarcas a quien no.</p>
     <div class="par-elige">${['campeones', 'iniciacion'].map((c, i) => `<button type="button" class="par-op${i ? '' : ' activa'}" data-par-code="${c}" aria-pressed="${!i}">${parcheHtml(c, { chico: true })}<b>${c === 'campeones' ? 'Campeón' : 'Iniciación'}</b></button>`).join('')}</div>
@@ -101,7 +103,7 @@ export async function hojaParchesGrupo({ rpc, org }) {
   const carga = async () => {
     const cat = h.querySelector('#parCat').value; if (!cat) return;
     const lista = h.querySelector('#parLista'); lista.innerHTML = '<p class="par-ayuda">Cargando…</p>';
-    let r; try { r = await rpc('v2_patch_roster', { organization_id: org, category_id: cat }); } catch (e) { lista.innerHTML = `<p class="par-error">${esc(errorDe(e))}</p>`; return; }
+    let r; try { r = await rpc('v2_patch_roster', { organization_id: org, category_id: cat }) || {}; } catch (e) { lista.innerHTML = `<p class="par-error">${esc(errorDe(e))}</p>`; return; }
     const catInfo = (base.categories || []).find(c => c.id === cat);
     formularioGrupo(lista, { rpc, org, code, jugadores: r.players || [], categoria: catInfo, alTerminar: () => {} });
   };

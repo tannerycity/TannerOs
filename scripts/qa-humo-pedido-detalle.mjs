@@ -41,6 +41,8 @@ const TABLERO = {
     items:[{ id:'i1', description:'Jersey Home', quantity:1, talla:'10', manga:'larga', nombre:'LEO', numero:'7', kit:null },
            { id:'i2', description:'Jersey Away', quantity:1, talla:'10', manga:null, nombre:'LEO', numero:'7', kit:null },
            { id:'i3', description:'Par de calcetas', quantity:1, talla:'Universal', manga:null, nombre:null, numero:null, kit:null }] },
+  'o-kit':{ playerName:'Leo Ávila', source:'internal_capture', attendedBy:null, attendedName:null, attendedManual:false,
+    items:[{ id:'ik', description:'Kit de entrenamiento', quantity:1, talla:'10', manga:null, nombre:null, numero:null, kit:null }] },
   'o-viejo':{ playerName:null, source:'internal_capture', attendedBy:'u-zul', attendedName:'Zul', attendedManual:false,
     items:[{ id:'i9', description:'Hoodie', quantity:1, talla:'L', manga:null, nombre:null, numero:null, kit:null }] }
 };
@@ -51,7 +53,11 @@ const PEDIDOS = [
     created_at:'2026-10-08T18:00:00Z', delivered_at:null, paid_amount:1450, item_count:2 },
   { id:'o-viejo', folio:'PED-2026-00020', customer_name:'Abuelo Pérez', customer_phone:'+524779876543', customer_email:null,
     subtotal:699, discount:0, total:699, status:'paid', source:'public_form', notes:null,
-    created_at:'2026-10-01T18:00:00Z', delivered_at:null, paid_amount:699, item_count:1 }
+    created_at:'2026-10-01T18:00:00Z', delivered_at:null, paid_amount:699, item_count:1 },
+  // Premio por puntualidad (09/11/2026): el kit de agosto de un Tanner que pagó a tiempo de enero a mayo.
+  { id:'o-kit', folio:'PED-2027-00101', customer_name:'Ana Sofía Ávila', customer_phone:'+524771234567', customer_email:null,
+    subtotal:1500, discount:0, total:1500, status:'pending_payment', source:'internal_capture', notes:null, player_id:'t1',
+    created_at:'2027-08-03T18:00:00Z', delivered_at:null, paid_amount:0, item_count:1 }
 ];
 const detalle = id => {
   const o = PEDIDOS.find(x => x.id === id);
@@ -137,6 +143,8 @@ const CLIENTE = (pagoFalla, puedeCorregir = true) => `
       if(n==='v2_can_correct')return ok(${puedeCorregir});
       if(n==='v2_edit_order_item'||n==='v2_delete_order'||n==='v2_correct_order_payment')return ok({changed:true});
       if(n==='v2_link_order_player'){ligado=p.player_id;return ok(null);}
+      if(n==='v2_punctuality_status')return ok(p.player_id==='t1'?{year:2027,kit:{state:'ganado',onTime:5,of:5,percent:20},december:{state:'en_curso',onTime:7,of:11,percent:50}}:null);
+      if(n==='v2_set_order_discount')return ok({discount:p.discount,total:1500-p.discount});
       return ok(null);}};}`;
 
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
@@ -231,6 +239,28 @@ const texto = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' '
   revisa('4. la segunda vez ya no lo vuelve a pedir', (await pg.evaluate(() => window.__abiertas.length)) === 2 && !(await pg.isVisible('.tosdlg-field')));
   await pg.evaluate(() => { document.getElementById('masDetalles').open = true; });
   revisa('4. en Más detalles se puede cambiar', /4771112222 · Cambiar/.test(await texto(pg, '#telProveedor')), await texto(pg, '#telProveedor'));
+  revisa('sin errores de página', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+// Premio por puntualidad: 20% en el kit, con un toque (09/11/2026, TC-146).
+{
+  const { pg, errs } = await abre('/v2/pedidos/');
+  await pg.waitForSelector('.order-row', { timeout:8000 });
+  await pg.selectOption('#statusFilter', '');
+  await pg.waitForSelector('.order-row[data-order-id="o-kit"]', { timeout:8000 });
+  await pg.click('.order-row[data-order-id="o-kit"]');
+  await pg.waitForSelector('#orderPremio:not(.hidden)', { timeout:5000 }).catch(() => {});
+  revisa('6. el pedido de quien ganó el premio lo ofrece con su monto', /Ganó 20% por puntualidad/.test(await texto(pg, '#orderPremio')) && /Aplicar −\$300\.00/.test(await texto(pg, '#orderPremio')), await texto(pg, '#orderPremio'));
+  const pz = await llamadas(pg, 'v2_punctuality_status');
+  revisa('6. pregunta por el año del pedido', pz.at(-1)?.player_id === 't1' && pz.at(-1)?.year === 2027, JSON.stringify(pz.at(-1)));
+  await pg.click('#orderPremio [data-premio-kit]');
+  await pg.waitForTimeout(300);
+  const ds = (await llamadas(pg, 'v2_set_order_discount'))[0];
+  revisa('6. aplica el 20% como descuento del pedido, con su motivo', ds?.order_id === 'o-kit' && ds?.discount === 300 && /puntualidad/.test(ds?.reason || ''), JSON.stringify(ds));
+  await pg.click('#drawer [data-close], #closeDrawer').catch(() => {});
+  await pg.click('.order-row[data-order-id="o-viejo"]').catch(() => {});
+  await pg.waitForTimeout(300);
+  revisa('6. un pedido sin Tanner no ofrece premio', !(await pg.isVisible('#orderPremio')));
   revisa('sin errores de página', !errs.length, errs.join(' | '));
   await pg.close();
 }

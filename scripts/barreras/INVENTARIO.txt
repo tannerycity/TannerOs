@@ -21,3 +21,4 @@ formulario-publico-sin-sesion.mjs
 funcion-interna-cerrada-a-anon.mjs
 club-sin-nombre-fijo.mjs
 club-sin-llave-fija.mjs
+envoltorio-que-llama-a-private.mjs

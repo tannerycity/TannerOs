@@ -1,0 +1,42 @@
+{
+  "catalogo": "Recursos del Futbolista Tanner",
+  "version": "0.1",
+  "estado": "propuesto",
+  "fuente": "PROP-FC-002 · 04_MAPA_RECURSOS_36_TAREAS.pdf, sección 3 (Catálogo inicial de recursos, PROPUESTO). Nombres de familia y ejemplos tal como vienen; no se agregan acciones.",
+  "notas": [
+    "01_ALTA_CENTRO_TANNER.pdf lista 9 familias (Cancha y apoyos; capacidades corporales dentro de Especialidades). 04 lista 10 (Ubicación y apoyo; Cuerpo aparte). Se carga 04 por ser el más detallado; decisión pendiente para Dirección Deportiva.",
+    "Recursos de la Metodología v1.1 que ya existían (mirar, perfilarse, engañar, temporizar, cambiar el ritmo) se conservan con su código y se ubican en su familia. anticipar, comunicar y ejecutar no aparecen en el mapa: se conservan sin familia.",
+    "Las etiquetas por tarea NO salen de aquí: el mapa dice 'etiquetas sugeridas, no definitivas' y pide revisión ficha por ficha de Dirección Deportiva."
+  ],
+  "familias": [
+    { "code": "dominio_control", "name": "Dominio y control", "retos": ["balon", "1v1", "avanzar", "cancha"], "precaucion": "Baby con juego propio; T6–T12 progresivo",
+      "recursos": [["conduccion", "Conducción"], ["parar", "Parar"], ["orientar", "Orientar"], ["ambos_pies", "Usar ambos pies"], ["cambio_direccion", "Cambios de dirección"], ["autopase", "Autopase"]] },
+    { "code": "pase_recepcion", "name": "Pase y recepción", "retos": ["jugar_juntos", "ventaja", "cancha"], "precaucion": "Variar distancia y presión",
+      "recursos": [["pase_interior", "Pase con interior"], ["pase_exterior", "Pase con exterior"], ["pase_empeine", "Pase con empeine"], ["pase_movimiento", "Pase en movimiento"], ["control_orientado", "Control orientado"], ["pared", "Pared"]] },
+    { "code": "finta_duelo", "name": "Finta y duelo", "retos": ["1v1", "avanzar", "defender"], "precaucion": "Graduar oposición",
+      "recursos": [["enganar", "Engañar"], ["proteger", "Proteger"], ["acelerar", "Acelerar"], ["encarar", "Encarar"], ["temporizar", "Temporizar"], ["cambiar_ritmo", "Cambiar el ritmo"]] },
+    { "code": "finalizacion", "name": "Finalización", "retos": ["gol", "reaccionar", "1v1"], "precaucion": "Priorizar decisiones, no solo repeticiones",
+      "recursos": [["tiro_parado", "Tiro parado"], ["tiro_movimiento", "Tiro en movimiento"], ["remate", "Remate tras control o autopase"], ["rebote", "Rebote"]] },
+    { "code": "ubicacion_apoyo", "name": "Ubicación y apoyo", "retos": ["cancha", "jugar_juntos", "ventaja"], "precaucion": "Lenguaje simple por edad",
+      "recursos": [["separarse", "Separarse"], ["linea_pase", "Crear línea de pase"], ["mirar", "Mirar"], ["perfilarse", "Perfilarse"], ["tercer_hombre", "Tercer hombre"]] },
+    { "code": "ataque_defensa", "name": "Ataque y defensa", "retos": ["ventaja", "defender", "reaccionar"], "precaucion": "Aprender jugando antes que memorizar sistemas",
+      "recursos": [["superioridad", "Superioridades"], ["cobertura", "Cobertura"], ["marcaje", "Marcaje"], ["presion", "Presión"], ["recuperar", "Recuperar"], ["cambio_rol", "Cambio de rol"]] },
+    { "code": "reinicios", "name": "Reinicios", "retos": ["reaccionar", "gol", "avanzar", "jugar_juntos"], "precaucion": "Enseñar reglas del formato de juego correspondiente",
+      "recursos": [["saque_banda", "Saque de banda"], ["saque_meta", "Saque de meta"], ["corner", "Córner"], ["faltas_tiros_libres", "Faltas y tiros libres"]] },
+    { "code": "especialidades", "name": "Especialidades", "retos": [], "precaucion": "Rotación de posiciones según etapa",
+      "recursos": [["portero_pies_area", "Pies y área de portero"], ["duelo_cobertura", "Duelo y cobertura"], ["conectar", "Conectar"], ["aparecer_definir", "Aparecer y definir"]] },
+    { "code": "cuerpo", "name": "Cuerpo", "retos": [], "transversal": true, "precaucion": "Sin cargas físicas universales; adaptar a etapa y seguridad",
+      "recursos": [["correr", "Correr"], ["aceleracion", "Acelerar (cuerpo)"], ["frenar", "Frenar"], ["saltar", "Saltar"], ["aterrizar", "Aterrizar"], ["equilibrio", "Equilibrio"], ["coordinacion", "Coordinación"]] },
+    { "code": "juego_aereo", "name": "Juego aéreo", "retos": ["balon", "gol", "defender"], "precaucion": "Progresivo y bajo protocolo de seguridad para menores",
+      "recursos": [["lectura_trayectoria", "Lectura de trayectoria"], ["ubicacion_aerea", "Ubicación en el juego aéreo"], ["tecnica_aerea", "Técnica apropiada"]] }
+  ],
+  "sugerencias_por_tarea": {
+    "fuente": "PROP-FC-002 · 04, sección 4 'Caso de prueba — JUGAR JUNTOS + CONDUCCIÓN'. Quedan como SUGERIDAS hasta que Dirección Deportiva las apruebe.",
+    "tareas": [
+      { "codigo": "10", "recurso": "conduccion", "relevancia": "principal", "por_que": "Conducir para atraer al defensor y decidir entre avanzar o pasar." },
+      { "codigo": "12", "recurso": "conduccion", "relevancia": "principal", "por_que": "Reconocer cuándo conducir y cuándo asociarse en juego." },
+      { "codigo": "09", "recurso": "conduccion", "relevancia": "complementaria", "por_que": "Genera apoyo para quien conduce, pero no necesita conducción para cumplir el objetivo original." },
+      { "codigo": "11", "recurso": "conduccion", "relevancia": "complementaria", "por_que": "Conducción opcional para atraer antes de conectar, sin hacerla obligatoria." }
+    ]
+  }
+}

@@ -96,5 +96,22 @@ revisa('"3 sesiones · 2 listas · 1 pendiente"', JSON.stringify(resumenSemana([
   revisa('1. calendario y tarjetas son las mismas sesiones (ni una más, ni una menos)', semanaEnDias('2026-11-16', ses).flatMap(d => d.sesiones).length === ses.length);
   revisa('1. cambio de año 2026→2027 sin brincar días', semanaEnDias('2026-12-28', []).map(d => d.fecha).join() === '2026-12-28,2026-12-29,2026-12-30,2026-12-31,2027-01-01,2027-01-02,2027-01-03');
 }
+// PROP-FC-002 · Recursos: sólo etiquetas aprobadas, el Reto manda (09/11/2026).
+{
+  const nombre = c => ({ jugar_juntos: 'Jugar juntos', '1v1': '1V1' })[c] || c;
+  const nombreRecurso = c => ({ conduccion: 'Conducción' })[c] || c;
+  // El caso de prueba del mapa 04: JUGAR JUNTOS + CONDUCCIÓN.
+  const conTags = tareas.map(t => ({ ...t, resources:
+    t.code === '10' || t.code === '12' ? [{ code: 'conduccion', relevance: 'principal', status: 'aprobada' }]
+    : t.code === '09' || t.code === '11' ? [{ code: 'conduccion', relevance: 'complementaria', status: 'aprobada' }]
+    : t.code === '05' ? [{ code: 'conduccion', relevance: 'principal', status: 'sugerida' }] : [] }));
+  const jj = recomiendaConPorque({ tareas: conTags, etapa: 't10', reto: 'jugar_juntos', recurso: 'conduccion', nombre, nombreRecurso });
+  revisa('recurso: JUGAR JUNTOS + CONDUCCIÓN sube las principales', jj.opciones.slice(0, 2).every(o => ['10', '12'].includes(o.tarea.code)), JSON.stringify(jj.opciones.map(o => o.tarea.code)));
+  revisa('recurso: dice si es principal o complementario', jj.opciones[0].porque.includes('Recurso principal: Conducción') && jj.opciones.some(o => o.porque.includes('Recurso complementario: Conducción')), JSON.stringify(jj.opciones.map(o => o.porque)));
+  revisa('recurso: nunca trae tareas de otro Reto', jj.opciones.every(o => o.tarea.primary === 'jugar_juntos'));
+  const solo = recomiendaConPorque({ tareas: conTags, etapa: 't10', reto: '1v1', recurso: 'conduccion', nombre, nombreRecurso });
+  revisa('recurso: una etiqueta SUGERIDA no cuenta (falta aprobación de Dirección)', !solo.opciones.some(o => o.porque.some(p => /Recurso/.test(p))) && /Ninguna tiene aún el recurso Conducción aprobado/.test(solo.aviso), JSON.stringify(solo));
+  revisa('recurso: sin recurso, el orden de siempre', JSON.stringify(recomiendaConPorque({ tareas: conTags, etapa: 't6', reto: '1v1', bloque: { escalon: 0 }, indiceSesion: 0, totalSesiones: 2 }).opciones.map(o => o.tarea.id)) === JSON.stringify(r1.map(t => t.id)));
+}
 console.log(fallos ? `Motor de Formación FAILED · ${fallos} de ${corridas}` : `Motor de Formación OK · ${corridas} revisiones: 3 recomendaciones, escalera, Baby aparte y reglas de lista`);
 process.exit(fallos ? 1 : 0);

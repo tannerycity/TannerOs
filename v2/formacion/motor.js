@@ -13,6 +13,7 @@
  */
 
 export const NIVELES = ['sin_rival', 'con_rival', 'con_decision', 'en_juego'];
+export const etiquetaDe = (t, recurso) => (t.resources || []).find(r => r.code === recurso && (r.status ?? 'aprobada') === 'aprobada') || null;
 
 export function bloquesDeSesion(minutos, esBaby = false) {
   if (esBaby) return [
@@ -39,7 +40,7 @@ export function nivelObjetivo(indiceSesion = 0, totalSesiones = 1, escalon = 0) 
 }
 
 export function recomienda({ tareas = [], etapa, esBaby = false, reto, secundario = null, bloque = {},
-  indiceSesion = 0, totalSesiones = 1, usos = {}, limite = 3 } = {}) {
+  indiceSesion = 0, totalSesiones = 1, usos = {}, limite = 3, recurso = null } = {}) {
   const banco = esBaby ? 'baby' : 'tanner';
   const candidatas = tareas.filter(t => t.bank === banco && (t.status ?? 'oficial') === 'oficial'
     && (!etapa || !(t.stages || []).length || (t.stages || []).includes(etapa)));
@@ -49,6 +50,12 @@ export function recomienda({ tareas = [], etapa, esBaby = false, reto, secundari
     if (reto && t.primary === reto) p += 3;
     else if ((secundario && t.primary === secundario) || (reto && (t.related || []).includes(reto))) p += 2;
     if (nivel && t.level === nivel) p += 1;
+    // PROP-FC-002 · Recursos (09/11/2026): sólo cuentan etiquetas APROBADAS por
+    // Dirección (el catálogo no manda las sugeridas al Formador). Principal +2,
+    // complementaria +1. El Reto sigue mandando: el recurso no trae tareas de
+    // otro Reto, sólo ordena las del objetivo.
+    const tag = recurso ? etiquetaDe(t, recurso) : null;
+    if (tag) p += tag.relevance === 'principal' ? 2 : 1;
     p -= Number(usos[t.id] || 0);
     return p;
   };
@@ -150,7 +157,7 @@ const cabe = (t, jugadores, minutos) =>
 
 export function recomiendaConPorque(opts = {}) {
   const { tareas = [], etapa, esBaby = false, reto, secundario = null, bloque = {}, indiceSesion = 0,
-    totalSesiones = 1, usos = {}, limite = 3, jugadores = null, minutos = null, nombre = c => c } = opts;
+    totalSesiones = 1, usos = {}, limite = 3, jugadores = null, minutos = null, nombre = c => c, nombreRecurso = c => c } = opts;
   const banco = esBaby ? 'baby' : 'tanner';
   const deEtapa = tareas.filter(t => t.bank === banco && (t.status ?? 'oficial') === 'oficial'
     && (!etapa || !(t.stages || []).length || (t.stages || []).includes(etapa)));
@@ -163,6 +170,8 @@ export function recomiendaConPorque(opts = {}) {
     if (reto && t.primary === reto) porque.push(`${esBaby ? 'Mundo' : 'Reto'} de la semana: ${nombre(reto)}`);
     else if (secundario && t.primary === secundario) porque.push(`Reto secundario: ${nombre(secundario)}`);
     else if (reto && (t.related || []).includes(reto)) porque.push(`También trabaja ${nombre(reto)}`);
+    const tag = opts.recurso ? etiquetaDe(t, opts.recurso) : null;
+    if (tag) porque.push(`Recurso ${tag.relevance === 'principal' ? 'principal' : 'complementario'}: ${nombreRecurso(opts.recurso)}`);
     if (nivel && t.level === nivel) porque.push(`Toca ${NOMBRE_NIVEL_FC[nivel]} en esta sesión`);
     else if (t.level) porque.push(`Nivel ${NOMBRE_NIVEL_FC[t.level]}`);
     const u = Number(usos[t.id] || 0);
@@ -177,6 +186,8 @@ export function recomiendaConPorque(opts = {}) {
       : `El banco tiene ${opciones.length} ${opciones.length === 1 ? 'tarea' : 'tareas'} ${quien} para esta etapa.`;
     aviso += ' Usa Ver más o escribe la tuya.';
   }
+  if (opts.recurso && opciones.length && !opciones.some(o => etiquetaDe(o.tarea, opts.recurso)))
+    aviso = `${aviso ? aviso + ' ' : ''}Ninguna tiene aún el recurso ${nombreRecurso(opts.recurso)} aprobado por Dirección.`;
   return { opciones, aviso };
 }
 

@@ -8,7 +8,8 @@
 -- validaciones, anulación auditada, doble toque y que no toca el cierre.
 drop database if exists fc2; create database fc2;
 \c fc2
-create role anon; create role authenticated;
+do $$ begin create role anon; exception when duplicate_object then null; end $$;
+do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
 create schema auth; create schema app; create schema private;
 create table auth.users(id uuid primary key);
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('prueba.uid', true), '')::uuid $$;

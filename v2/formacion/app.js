@@ -227,9 +227,11 @@ function pintaSesiones() {
    "Que sea como videojuego... que cualquier persona que sepa de fútbol pueda
    hacerlo." Dificultad como en un juego (Fácil verde, Normal amarillo, Difícil
    rojo) y el espacio con su cancha dibujada. Los valores no cambian (facil /
-   base / dificil, completo / reducido); sólo cómo se ven y se dicen. */
-const NIVELES_JUEGO = [['facil', 'Fácil', '¿Les cuesta?'], ['base', 'Normal', 'Como viene'], ['dificil', 'Difícil', '¿Ya les sale?']];
-const NOMBRE_NIVEL = { facil: 'Fácil', base: 'Normal', dificil: 'Difícil' };
+   base / dificil, completo / reducido); sólo cómo se ven y se dicen.
+   PROP-FC-002 (aprobada 08/11/2026, decisión 3): los nombres oficiales son
+   MÁS FÁCIL / BASE / MÁS DIFÍCIL. Se conservan los colores; cambia el texto. */
+const NIVELES_JUEGO = [['facil', 'Más fácil', '¿Les cuesta?'], ['base', 'Base', 'Como viene'], ['dificil', 'Más difícil', '¿Ya les sale?']];
+const NOMBRE_NIVEL = { facil: 'Más fácil', base: 'Base', dificil: 'Más difícil' };
 const ESPACIOS = [['completo', 'Cancha completa', 'Más correr y decidir'], ['reducido', 'Cancha chica', 'Más toques y duelos']];
 const NOMBRE_ESPACIO = { completo: 'Cancha completa', reducido: 'Cancha chica' };
 const CANCHA = {
@@ -288,7 +290,7 @@ function practica() {
       ${tip('Están ordenadas para el Reto y para el día de la semana. Si quieres otra, en tu sesión real tienes <b>Ver más</b> y el <b>Álbum de jugadas</b>.')}`,
     4: () => `${dots()}<p class="fm-paso-eti">PASO 4 DE 5 · AJÚSTALA A TU GRUPO</p><h3 class="fm-pregunta">${esc(t()?.name || 'Tu jugada')}</h3>
       ${ajustes(k => `data-pr-dif="${k}"`, st.dif, k => `data-pr-esp="${k}"`, st.esp)}
-      <p class="fm-modo fm-modo-${st.dif}">${st.dif === 'facil' ? `<b>Fácil:</b> ${esc(t()?.easier || '')}` : st.dif === 'dificil' ? `<b>Difícil:</b> ${esc(t()?.harder || '')}` : `<b>Normal:</b> ${esc(t()?.juega || '')}`}</p>
+      <p class="fm-modo fm-modo-${st.dif}">${st.dif === 'facil' ? `<b>Más fácil:</b> ${esc(t()?.easier || '')}` : st.dif === 'dificil' ? `<b>Más difícil:</b> ${esc(t()?.harder || '')}` : `<b>Base:</b> ${esc(t()?.juega || '')}`}</p>
       ${tip('¿Tu grupo va adelantado o le está costando? Súbele o bájale. No hay respuesta mala: <b>tú conoces a tus Tanners</b>.')}`,
     5: () => `${dots()}<p class="fm-paso-eti">PASO 5 DE 5 · DÉJALA LISTA</p><h3 class="fm-pregunta">Así queda tu sesión</h3>
       <ol class="fm-pr-resumen"><li><span>15 min</span><b>Calentar</b></li><li class="tu"><span>30 min</span><b>${esc(t()?.name || '')}</b><small>${NOMBRE_NIVEL[st.dif]} · ${NOMBRE_ESPACIO[st.esp]}</small></li><li><span>15 min</span><b>Jugar</b></li></ol>
@@ -434,7 +436,7 @@ async function modoCancha(s) {
         <p class="fm-reloj" id="fmReloj">0:00</p>
         ${p.t?.dile?.length ? `<p class="fm-dile">${p.t.dile.map(f => `“${esc(f)}”`).join('<br>')}</p>` : ''}
         ${p.t ? `<ul class="fm-observa">${observables(p.t).map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
-        ${p.t ? `<div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-ver="facil"><b>Fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-ver="dificil"><b>Difícil</b><small>¿Ya les sale?</small></button></div>
+        ${p.t ? `<div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-ver="facil"><b>Más fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-ver="dificil"><b>Más difícil</b><small>¿Ya les sale?</small></button></div>
           <p class="fm-tarea-extra hidden" data-extra="facil">${esc(p.t.easier || '')}</p><p class="fm-tarea-extra hidden" data-extra="dificil">${esc(p.t.harder || '')}</p>` : ''}
       </div>`,
       `${paso ? '<button type="button" class="secondary" id="fmAtras">Atrás</button>' : '<a class="secondary fm-btn-link" href="/asistencia/">Pasar lista</a>'}<button type="button" class="primary" id="fmSiguiente">${paso === pasos.length - 1 ? 'Terminar' : 'Siguiente'}</button>`);
@@ -531,9 +533,9 @@ function hojaCarta(t) {
       <section><h4>Cómo se juega</h4><p>${esc(t.juega || '')}</p></section>
       ${t.montaje ? `<section><h4>Montaje</h4><p>${esc(t.montaje)}</p></section>` : ''}
       ${t.observa ? `<section><h4>Observa</h4><p>${esc(t.observa)}</p></section>` : ''}
-      <div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-modo="facil"><b>Fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-modo="dificil"><b>Difícil</b><small>¿Ya les sale?</small></button></div>
-      <p class="fm-modo fm-modo-facil hidden" data-ver-modo="facil"><b>Fácil:</b> ${esc(t.easier || '')}</p>
-      <p class="fm-modo fm-modo-dificil hidden" data-ver-modo="dificil"><b>Difícil:</b> ${esc(t.harder || '')}</p>
+      <div class="fm-juego dos"><button type="button" class="fm-jbtn fm-jbtn-facil" data-modo="facil"><b>Más fácil</b><small>¿Les cuesta?</small></button><button type="button" class="fm-jbtn fm-jbtn-dificil" data-modo="dificil"><b>Más difícil</b><small>¿Ya les sale?</small></button></div>
+      <p class="fm-modo fm-modo-facil hidden" data-ver-modo="facil"><b>Más fácil:</b> ${esc(t.easier || '')}</p>
+      <p class="fm-modo fm-modo-dificil hidden" data-ver-modo="dificil"><b>Más difícil:</b> ${esc(t.harder || '')}</p>
       ${t.space ? `<p class="fm-ayuda"><b>Espacio:</b> ${esc(t.space)}</p>` : ''}${t.adapta ? `<p class="fm-ayuda"><b>Adapta:</b> ${esc(t.adapta)}</p>` : ''}
       <div class="fm-media"><button type="button" data-media="video"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></span><span><b>Ver video</b><small>Próximamente</small></span></button>
         <button type="button" data-media="foto"><span class="fm-media-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><circle cx="9" cy="10.5" r="1.8"/><path d="m20.5 16-5-4.5-7.5 7"/></svg></span><span><b>Ver foto del montaje</b><small>Próximamente</small></span></button></div>

@@ -4,92 +4,100 @@ Rama: `fc-002-planeacion` · 09/11/2026 · **Sin merge, sin despliegue, sin migr
 
 ## 1. Fuentes revisadas
 
-| Fuente | Dónde | Estado |
-|---|---|---|
-| Metodología v1.1 FINAL + Anexo Semana Clara | Drive `01_Metodologia`, `00_NUEVO_SEMANA_TANNER_CLARA` | Encontradas |
-| Banco Tanner 36 v1.0 (.docx/.pdf) | Drive | Encontrado. Ya cargado en la base desde `supabase/semillas/formacion/banco-tanner-v1.0.json` |
-| Banco Baby 24 v1.0 (.docx/.pdf) | Drive | Encontrado. Ya cargado (`banco-baby-v1.0.json`) |
-| Guía y Presentación Semana Tanner 4 Días | Drive | Encontradas |
-| Alta Centro Tanner de Cultura y Convivencia v1.0 | Drive `Alta_Centro_Tanner_y_TannerOS.md` | Encontrada |
-| **PROP-FC-002: `01_ALTA_CENTRO_TANNER.pdf`, `04_MAPA_RECURSOS_36_TAREAS.pdf`** | — | **NO encontradas** ni en Drive ni en el repo. PROP-FC-002 tampoco está registrada en Centro Tanner (`app.policies`). Las seis decisiones se toman del encargo de Presidencia (09/11/2026). |
+Entrega de Presidencia `KIT_DOS_PROMPTS_CLAUDE_TANNERY_2026_11_08.zip` (carpeta `FUENTES_OFICIALES`), más Drive.
 
-Verificado en la base: 36 tareas Tanner + 24 Baby oficiales, con los nombres exactos del encargo (BALÓN: Balón Vivo… REACCIONAR: Partido sin Pausa). 9 Retos, 4 niveles, 4 mundos Baby y 6 etapas, sin décimo Reto ni sexta dimensión.
+| Fuente | Uso aquí |
+|---|---|
+| `01_ALTA_CENTRO_TANNER.pdf` | Seis decisiones aprobadas, más una séptima (Catálogo de Recursos) y lo que no se modifica. |
+| `04_MAPA_RECURSOS_36_TAREAS.pdf` | Catálogo inicial de recursos (PROPUESTO) y mapa de las 36. Las etiquetas vienen "sugeridas, no definitivas", con revisión ficha por ficha de Dirección Deportiva. |
+| `03_CHECKLIST_CIERRE_Y_DOCUMENTOS.pdf` | Mínimo viable de aceptación. Indica actualizar **Centro Tanner primero** y luego Tanner OS. |
+| Bancos 36 / 24 (.docx) | Ya están cargados en la base desde `supabase/semillas/formacion/*.json` (extraídos del .docx sin reescribir). Verificado: los nombres coinciden 1:1 con la lista oficial. |
+| `02_PROMPT_CENTRO_TANNER.md` | **No ejecutado.** El LEEME lo destina a otra conversación (Centro Tanner). |
+
+PROP-EA-001 Estudiante–Atleta sigue en revisión: no se integra.
 
 ## 2. Inventario: EXISTE / EXTENDER / NUEVO / NO NECESARIO
 
 | # | Función | Estado | Dónde vive |
 |---|---|---|---|
-| Catálogo | 9 Retos, niveles, mundos Baby, etapas | EXISTE | `app.formation_concepts` (b4), `c4_formacion_carga_bancos_tannery` |
-| Catálogo | Banco 36 + Banco Baby 24, versionados, una oficial por código | EXISTE | `app.training_tasks` (b4/c4), `scripts/formacion/extraer_bancos.py` (sin reescribir texto) |
-| Catálogo | Recursos: hoy son los 8 de la Metodología v1.1 (mirar, perfilarse, engañar…) | EXTENDER, **bloqueado** | Las familias operativas del encargo (dominio/control, pase/recepción…) y su etiqueta principal/complementario requieren `04_MAPA_RECURSOS_36_TAREAS`. No se inventan etiquetas. |
-| Horarios | Versionados por fecha de vigencia + excepciones puntuales | EXISTE | `app.category_schedules`, `category_schedule_slots`, `schedule_exceptions` (e4). Un cambio desde 2027 no toca 2026. |
-| Semana Tanner (Dirección) | Reto principal, secundario opcional, "qué queremos ver", publicar/editar/quitar con historial | EXISTE | `app.training_weeks` (f4, h5g) |
-| Planeación única | Sesiones derivadas de horario + excepciones; plan por sesión | EXISTE | `app.sessions` + `app.session_plans` + `session_plan_items` (f4) |
-| **Decisión 1** | Tarjetas **y** Calendario sobre la misma planeación | **NUEVO (hecho en la rama)** | `v2/formacion/app.js` (`vistaSemana`), `motor.js` `semanaEnDias` y `fechaLocal` |
-| **Decisión 2** | 3 tareas deterministas + Ver más + sustituir | EXISTE | `motor.js` `recomienda` |
-| **Decisión 2** | El "por qué" de cada una; aviso si no hay 3 válidas; Ver más ordenado por el objetivo de Dirección | **NUEVO (hecho en la rama)** | `motor.js` `recomiendaConPorque`, `verMas` |
-| **Decisión 3** | Variantes por tarea (fácil / base / difícil), ajuste del grupo, nunca etiqueta del niño | EXISTE | `session_plan_items.difficulty` (f4). La UI dice "Fácil / Normal / Difícil" (ver decisión pendiente D2) |
-| **Decisión 4** | Progresión PREPARAR → DESAFIAR → APLICAR → REVISAR | **NO INICIADO, decisión pendiente** | Hoy existe la escalera del banco (Sin rival → En juego) repartida entre las sesiones de la semana, sin días fijos. Ver D3. |
-| **Decisión 5** | Parches por experiencias oficialmente aprobadas | **NO INICIADO, decisión pendiente** | No hay tabla ni pantalla. Requiere la lista oficial de parches (D4). |
-| **Decisión 6** | Cierre rápido Sí / A veces / Todavía no + nota | EXISTE | `sessions.closure` (i4), Modo Cancha |
-| **Decisión 6** | Observación de Dirección Deportiva | **NUEVO: propuesta escrita y probada localmente, NO aplicada** | `supabase/propuestas/FC2_observacion_direccion_deportiva.sql` |
-| Corte dominical | Configurable (hoy domingo 22:00, America/Mexico_City), foto de cumplimiento, revisión posterior que no borra la original | EXISTE | `planning_cutoffs` (f4), `formation_settings` |
-| LISTA | Exige fecha, categoría, hora, Reto/objetivo y tarea principal; un registro vacío no cuenta | EXISTE | `command_save_session_plan` (i4) |
-| Modo cancha | BUSCAMOS / JUEGA / DILE / OBSERVA y cierre en un toque | EXISTE | `modoCancha` en `v2/formacion/app.js` |
-| Asistencia | Pase de lista aparte, sin captura duplicada | EXISTE | `/asistencia/`, enlazado desde Modo Cancha |
-| Bonos Formador | Cumplimiento mensual Tanner OS | EXISTE (dato); pago manual | `v2_planning_compliance`. No se automatizan pagos ni sanciones. |
-| Cultura y convivencia | Aceptación versionada, incidentes restringidos, Consejo sin expedientes | NO INICIADO aquí | Alta encontrada en Drive; es un frente propio (fuera de esta rama) |
-| Familia | Resumen de Reto/recursos de la semana en lenguaje claro | NO INICIADO | Depende de D5 (qué se publica a familias) |
-| Estudiante–Atleta | v0.1 en revisión | NO NECESARIO por ahora | No está aprobada en Centro Tanner; no se integra |
+| Catálogo | 9 Retos, niveles, mundos Baby, etapas | EXISTE | `app.formation_concepts` (b4, c4) |
+| Catálogo | Banco 36 + Baby 24, versionados, una oficial por código | EXISTE | `app.training_tasks` (b4, c4) |
+| **Decisión 7** | Catálogo de Recursos del Futbolista (10 familias, 51 recursos) | **NUEVO: propuesta FC1, probada localmente, NO aplicada** | `supabase/propuestas/FC1_recursos_del_futbolista.sql`, generada desde `supabase/semillas/formacion/recursos-v0.1.json` |
+| Recursos | Etiqueta tarea ↔ recurso PRINCIPAL/COMPLEMENTARIA; el Formador sugiere, solo Dirección aprueba | **NUEVO: en FC1** | `app.task_resource_tags` + `v2_set_task_resource` |
+| Horarios | Versionados por vigencia + excepciones | EXISTE | e4. Un cambio desde 2027 no toca 2026. |
+| Semana Tanner | Reto, secundario, "qué queremos ver", publicar con historial | EXISTE | f4, h5g |
+| Planeación única | Sesiones = horario + excepciones; plan por sesión | EXISTE | f4 |
+| **Decisión 1** | Tarjetas y Calendario sobre la misma planeación | **NUEVO (hecho)** | `v2/formacion/app.js`, `motor.js` `semanaEnDias` y `fechaLocal` |
+| **Decisión 2** | 3 tareas deterministas + Ver más + sustituir | EXISTE + **NUEVO (hecho)**: por qué, aviso si faltan, Ver más ordenado por el objetivo, recurso aprobado sube la tarea | `motor.js` `recomiendaConPorque`, `verMas` y `etiquetaDe` |
+| **Decisión 3** | MÁS FÁCIL / BASE / MÁS DIFÍCIL por tarea, ajuste del grupo | EXISTE + **texto actualizado (hecho)** | Antes decía Fácil/Normal/Difícil (13/10). PROP-FC-002 (08/11), más reciente y aprobada, manda. El valor guardado no cambia. |
+| **Decisión 4** | PREPARAR → DESAFIAR → APLICAR → REVISAR | **NO INICIADO, decisión pendiente** | Ver D3 |
+| **Decisión 5** | Parches por experiencias aprobadas | **NO INICIADO, decisión pendiente** | El mapa 04 dice que el parche de Iniciación ya existe (físico). Requiere definición de Presidencia (D4). |
+| **Decisión 6** | Cierre Sí / A veces / Todavía no + nota | EXISTE | i4, Modo Cancha |
+| **Decisión 6** | Observación independiente de Dirección Deportiva | **NUEVO: propuesta FC2, probada localmente, NO aplicada** | `supabase/propuestas/FC2_observacion_direccion_deportiva.sql` |
+| Corte dominical | Configurable, foto de cumplimiento, revisión que no borra la original | EXISTE | `planning_cutoffs`, `formation_settings` |
+| LISTA | Fecha, categoría, hora, Reto/objetivo y tarea principal | EXISTE | `command_save_session_plan` (i4) |
+| Modo cancha | Buscamos / Juega / Dile / Observa / Más fácil / Más difícil | EXISTE | `modoCancha` |
+| Asistencia | Separada del cierre (no se duplica) | EXISTE | `/asistencia/` |
+| Bono Tanner OS | Cumplimiento mensual; pago manual | EXISTE (dato) | `v2_planning_compliance`. No se automatizan pagos ni sanciones. |
+| Familia | "Cada semana aprendemos un Reto, practicamos herramientas y las aplicamos jugando" | NO INICIADO | Ver D5 |
+| Cultura y convivencia | Aceptación versionada, incidentes restringidos | NO INICIADO aquí | Frente propio |
+| Estudiante–Atleta | PROP-EA-001 en revisión | NO NECESARIO por ahora | |
 | Puntos, XP, ranking, Tanner Score | — | NO NECESARIO (prohibido) | Revisado: no existe nada de esto en Formación |
 
 ## 3. Qué se hizo en esta rama
 
-1. **Calendario (decisión 1).** Botón "Tarjetas / Calendario" en Próxima semana. Ambas vistas salen de `dataMia.sessions`, así que no puede haber desincronización. Cada sesión cae en su **día local del club**: una sesión a las 19:00 en León es otro día en UTC. La vista se recuerda por persona (localStorage, solo preferencia). En móvil se muestra en lista por día y oculta los días sin sesión.
-2. **Por qué (decisión 2).** Cada recomendación dice si es del Reto de la semana, del secundario o relacionada; el nivel que toca en esa sesión; y si ya se usó en la semana.
-   - Si no hay 3 válidas, muestra las que hay y explica la causa. Nunca inventa ejercicios.
-   - Jugadores y duración filtran solo si la ficha trae ese dato. Las fichas v1.0 no lo traen, así que no se supone.
-3. **Ver más (decisión 2).** Ordenado por el objetivo de Dirección:
-   - primero las tareas "Del Reto X";
-   - luego el secundario y las relacionadas;
-   - al final "Otros".
-
-   No repite las 3 ya mostradas, y el Formador puede sustituir con cualquiera. Además corrige que antes "Ver más" escondía las tareas sin etapa marcada.
-4. **Observación de Dirección (decisión 6), solo propuesta.**
-   - Es una tabla nueva, solo de agregar: no toca `app.sessions` ni el cierre del Formador, y no se confunde con la asistencia.
-   - Para corregir, se anula con motivo auditado (quién y cuándo) y se escribe otra; un doble toque no duplica.
-   - Escribe solo Dirección. Leen Dirección y el Formador de esa sesión. Familias no la ven.
+1. **Calendario (decisión 1).** Cambio de vista "Tarjetas / Calendario" con las mismas sesiones y el mismo estado. Cada sesión aparece en el día local del club. La vista elegida se recuerda por persona.
+2. **Por qué y Ver más (decisión 2).**
+   - Cada tarea dice si es del Reto de la semana, del secundario o relacionada, qué nivel toca y si ya se usó esa semana.
+   - Si hay menos de 3 tareas válidas, muestra las que hay y explica la causa, sin inventar.
+   - "Ver más" ordena: primero el Reto de la semana, luego el secundario y las relacionadas, al final "Otros".
+3. **Recurso en el recomendador (decisión 7).**
+   - Si la sesión pide un recurso, sus tareas con etiqueta **aprobada** suben: principal +2, complementaria +1. El "por qué" dice "Recurso principal: Conducción".
+   - Una etiqueta **sugerida** no cuenta.
+   - El Reto sigue mandando: un recurso nunca trae tareas de otro Reto.
+4. **Más fácil / Base / Más difícil (decisión 3).** Cambia solo el texto en la planeación, la práctica, el Álbum y la cancha.
+5. **FC1: Recursos del Futbolista (propuesta).**
+   - Reutiliza `formation_concepts`: agrega el tipo `familia_recurso` y carga las 10 familias con sus recursos tal como vienen en el mapa 04.
+   - Los recursos de la Metodología v1.1 conservan nombre, versión y texto; solo ganan su familia.
+   - Tabla `task_resource_tags`, muchos a muchos. El Formador sugiere; Dirección aprueba o descarta. Cada cambio deja un evento con el antes y el después.
+   - Las tareas Baby no se etiquetan: conservan sus 4 mundos.
+   - Solo carga como **sugeridas** las 4 etiquetas que el mapa propone tarea por tarea (caso JUGAR JUNTOS + CONDUCCIÓN).
+6. **FC2: Observación de Dirección (propuesta).** Solo se agregan observaciones. Para corregir, se anula con motivo auditado. No toca el cierre del Formador. Familias no la ven.
 
 ## 4. Evidencias
 
 | Prueba | Comando | Resultado |
 |---|---|---|
-| Motor (unitarias, corre en `static-qa`) | `node scripts/qa-formacion-motor.mjs` | OK · 46 revisiones (+22 nuevas: porqué, aviso sin 3, jugadores, Baby sin niveles, Ver más, calendario, hora local, cambio de año 2026→2027) |
-| Formación en Chromium, 390px (corre en `navegador-qa`) | `CHROME_PATH=/opt/pw-browsers/chromium node scripts/qa-humo-formacion.mjs` | OK · 93 revisiones (+13 nuevas `[fc-002]`; las 80 anteriores siguen en verde) |
-| Propuesta FC2 en PostgreSQL 16 **local y desechable** | `psql -h /tmp -p 54329 -U postgres -f scripts/formacion/prueba-local-fc2.sql` | OK · 7 grupos (rol sin permiso, vacía/larga, cancelada, cierre intacto, otro Formador no lee, anulación auditada + doble toque, eventos) + anon sin EXECUTE |
-
-Capturas (390px): `fm-calendario.png` (semana por día con Lista/Pendiente) y `fm-porque.png` (3 tareas con sus chips de por qué).
+| Motor (corre en `static-qa`) | `node scripts/qa-formacion-motor.mjs` | OK · 51 revisiones (+27: por qué, aviso, jugadores, Baby, Ver más, calendario, hora local, 2026→2027, recurso aprobado vs. sugerido, caso JUGAR JUNTOS + CONDUCCIÓN) |
+| Formación en Chromium, 390px (corre en `navegador-qa`) | `CHROME_PATH=/opt/pw-browsers/chromium node scripts/qa-humo-formacion.mjs` | OK · 93 revisiones (+13 `[fc-002]`; dificultad con nombres oficiales) |
+| FC1 contra los bancos REALES (b4 + c4) en PostgreSQL 16 local | `psql -h /tmp -p 54329 -U postgres -f scripts/formacion/prueba-local-fc1.sql` | OK · 7 grupos: no toca Retos/fichas/conceptos; 10 familias; idempotente; sugeridas invisibles al Formador; el Formador no aprueba ni reabre; Baby rechazado; aprobar, doble toque y descartar con rastro; anon sin EXECUTE |
+| FC2 en PostgreSQL 16 local | `psql -h /tmp -p 54329 -U postgres -f scripts/formacion/prueba-local-fc2.sql` | OK · 7 grupos + permisos |
 
 ## 5. Decisiones humanas pendientes
 
-| # | Decisión | Por qué no la resolví |
+| # | Decisión | Fuente del conflicto o hueco |
 |---|---|---|
-| D1 | Subir PROP-FC-002 (Alta y Mapa de recursos) a Centro Tanner / Drive | Son la fuente para las etiquetas principal/complementario de recursos. Sin ellas no etiqueto. |
-| D2 | Botones de dificultad: hoy dicen **Fácil / Normal / Difícil** (decisión de Presidencia del 13/10/2026, "como videojuego"); PROP-FC-002 dice **MÁS FÁCIL / BASE / MÁS DIFÍCIL** | Hay contradicción entre dos decisiones de Presidencia. El valor guardado ya es `facil/base/dificil`, así que cambiar las etiquetas es solo texto. |
-| D3 | PREPARAR → DESAFIAR → APLICAR → REVISAR: ¿son fases dentro de cada sesión (Calentar = Preparar, Tarea = Desafiar, Jugar = Aplicar, Cierre = Revisar) o de la semana? | El documento de PROP-FC-002 no está disponible. Propongo la primera opción: solo etiqueta los bloques que ya existen, sin días fijos ni cargas. |
-| D4 | Lista oficial de parches (iniciación, Skills, ceremonias), quién los otorga, físico/digital | Sin la lista no hay qué otorgar. El diseño propuesto: catálogo aprobado + otorgamiento manual + revocación con motivo; sin compra ni automático por tareas. |
-| D5 | Qué ve la familia de la Semana Tanner (Reto + recursos en lenguaje niño/papá) | Política de comunicación. |
-| D6 | Aplicar `FC2_observacion_direccion_deportiva.sql` en producción | El encargo prohíbe migrar sin autorización. Una vez aplicada, falta la pantalla de Dirección (lista de sesiones cerradas + "Agregar observación"). |
+| D1 | **Familias de recursos: 9 o 10.** 01 dice "Cancha y apoyos" y pone las capacidades corporales dentro de Especialidades. 04 dice "Ubicación y apoyo" y separa "Cuerpo". FC1 carga la versión 04. | 01 vs 04, ambos de PROP-FC-002 |
+| D2 | **Revisión ficha por ficha (Brandon).** Aprobar o cambiar las 4 sugeridas y etiquetar las otras 32. El mapa 04 sugiere recursos por Reto (no por tarea), y esas sugerencias se mostrarán como pista, no como etiqueta. | 04 §4, §11 |
+| D3 | **Microciclo PREPARAR → DESAFIAR → APLICAR → REVISAR.** 04 lo define como "lógica interna flexible de planificación". Propongo usarlo como etiqueta de las partes que ya existen en cada sesión (Calentar = Preparar, Tarea = Desafiar, Jugar = Aplicar, Cierre = Revisar), sin días ni cargas. | 04 §6 no dice si es de sesión o de semana |
+| D4 | **Parches.** Lista oficial (Iniciación ya existe), quién los otorga, físico o digital, revocación. | 04 §7: "requiere definición/aprobación expresa de Presidencia" |
+| D5 | **Qué ve la familia** de la Semana Tanner. | Comunicación |
+| D6 | **Checklist de la observación de Dirección.** 01 dice "aprendizaje, participación, seguridad y adaptación"; 04 dice "aprendizaje, adaptación, convivencia y calidad de la sesión". FC2 queda en texto libre hasta definirlo. | 01 vs 04 |
+| D7 | **Aplicar FC1 y FC2 en producción.** El checklist 03 pide primero publicar en Centro Tanner y luego implementar contra esa versión. | Encargo + 03 |
+| D8 | **Recursos de Metodología v1.1 sin familia:** anticipar, comunicar y ejecutar. ¿Se ubican en una familia o se retiran? | No aparecen en 04 |
 
 ## 6. Riesgos
 
-- La regla de hora local depende del navegador (`Intl` con zona `America/Mexico_City`). Está probada con un horario de 19:00 que en UTC cae al día siguiente.
-- "Ver más" muestra las ~33 tareas restantes en una lista larga. En cancha el profe usa las 3 recomendadas; si molesta, se agrega un buscador.
-- El barrido de seguridad por rol se hizo sobre la propuesta FC2 en local. Las funciones existentes (f4/i4) no se modificaron.
+- La hora local depende de `Intl` del navegador; está probada con una sesión a las 19:00, que en UTC cae al día siguiente.
+- "Ver más" muestra unas 33 tareas en una lista larga. Si estorba en cancha, se agrega un buscador.
+- FC1 cambia el check de `formation_concepts.kind`: es aditivo (solo agrega un valor) y está probado contra los datos reales en local.
+- FC1 redefine `private.formation_catalog`: es la misma salida de b4 más la llave `resources`, y la pantalla actual la ignora sin error.
 
 ## 7. Próximos pasos
 
-1. Presidencia decide D1–D6.
-2. Con D6, aplicar FC2 y construir la pantalla de Dirección (con su prueba en Chromium).
-3. Con D1, cargar el mapa de recursos como metadato versionado por tarea, de forma idempotente y con fuente.
-4. Con D3 y D4, construir las fases y los parches.
+1. Presidencia y Dirección deciden D1–D8. Centro Tanner se actualiza primero (prompt 02, en su propia conversación).
+2. Con D7: aplicar FC1 y FC2 y construir las pantallas.
+   - Dirección "Revisar recursos" en cada carta del Álbum: pistas por Reto, y aprobar o descartar.
+   - Dirección "Observaciones" de sesiones cerradas.
+   - Formador: "Hoy quiero que aparezca…" con un recurso opcional.
+3. Piloto de 30 días (03 §D) y ajustes sin rehacer la metodología.

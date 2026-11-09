@@ -103,4 +103,10 @@ Los pendientes que vencen pasan al centro de notificaciones (la campana). Presid
 - **h65 en producción:** `v2_my_week` (mi semana con racha) y `v2_team_week` (el tablero para Presidencia y el Director deportivo).
 - **Inicio:** tarjeta "Mi semana" y, para quien le toca, "El equipo esta semana".
 - **Mensajes > Avisos:** "Mi semana" fija arriba, con lo primero que falta.
+- **Recordatorios automáticos (h69):** push al celular, una vez por cosa:
+  - lista sin tomar el día de la sesión, desde las 21:00;
+  - partido sin resultado al día siguiente, desde las 18:00;
+  - Marketing: ideas el jueves desde las 18:00 y patrocinadores el día 25;
+  - Presidencia: resumen de la semana pasada el lunes desde las 9:00.
+  La planeación la avisa el ciclo de formación desde el 30/11.
 - **Pendiente:** los profes reales necesitan cuenta en TannerOS con categoría asignada. Hoy sólo hay cuentas de prueba con categoría.

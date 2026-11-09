@@ -11,6 +11,7 @@
  * y en /v2/formacion/motor.js.
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth, moduleAccess } from '/v2/shell.js';
+import { hojaParchesGrupo } from '/v2/parches/parches.js';
 import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador } from '/v2/formacion/motor.js?v=20261109a';
 
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
@@ -99,7 +100,8 @@ function pintaSemana() {
       <p>Publica a más tardar el ${esc(fecha(d.publishBy, { weekday: 'long', day: 'numeric', month: 'short' }))}, ${esc(hora(d.publishBy))}. Los Formadores cierran su planeación el ${esc(fecha(d.deadline, { weekday: 'long' }))}, ${esc(hora(d.deadline))}.</p></section>
     ${st.n ? pasos : ''}
     ${cats.length ? `<div class="fm-cats2">${tarjetas}</div>` : '<p class="fm-vacio">Ninguna categoría tiene horario esa semana.</p>'}
-    <div class="fm-acciones">${cta}</div>`;
+    <div class="fm-acciones">${cta}</div>
+    <button type="button" class="fm-parches-cta" data-parches><img src="/brand/parches/campeon-azul.png" alt=""><span><b>Registrar parches</b><small>Campeón o Iniciación, por categoría</small></span><i aria-hidden="true">›</i></button>`;
 }
 
 /* La hoja de una categoría: dos pasos (Reto y qué quieres ver), y abajo el
@@ -655,6 +657,7 @@ function accionesDeFormacion() {
   window.tosAccionesDePantalla = [
     pend ? { label: 'Planear mi sesión', sub: `${pend.category} · ${dia(pend.startsAt)}`, icon: 'check', run: () => hojaSesion(pend) } : null,
     esDireccion ? { label: 'Semana Tanner', sub: 'Elegir y publicar los Retos', icon: 'calendar', run: () => { tab = 'semana'; pinta(); } } : null,
+    esDireccion ? { label: 'Registrar parches', sub: 'Campeón o Iniciación, por categoría', icon: 'spark', run: () => hojaParchesGrupo({ rpc, org }) } : null,
     { label: 'Practicar cómo se planea', sub: '1 minuto, no se guarda nada', icon: 'spark', run: practica },
     { label: 'Álbum de jugadas', sub: 'Las 60 jugadas por mundo y nivel', icon: 'book', run: () => { tab = 'banco'; pinta(); } }
   ].filter(Boolean);
@@ -672,6 +675,7 @@ $('fmVista').addEventListener('click', e => {
   const qu = e.target.closest('[data-quitar]'); if (qu) { quita(dataDir.categories.find(c => c.categoryId === qu.dataset.quitar)); return; }
   const de = e.target.closest('[data-descarta]'); if (de) { delete borrador[de.dataset.descarta]; pinta(); return; }
   if (e.target.closest('#fmRevisar')) { hojaRevisar(); return; }
+  if (e.target.closest('[data-parches]')) { hojaParchesGrupo({ rpc, org }); return; }
   const hoy = e.target.closest('[data-hoy]'); if (hoy) { modoCancha(dataHoy.sessions.find(s => s.sessionId === hoy.dataset.hoy)); return; }
   const ses = e.target.closest('[data-ses]'); if (ses) { hojaSesion(dataMia.sessions.find(s => s.sessionId === ses.dataset.ses)); return; }
   if (e.target.closest('#fmTerminar')) { const p = dataMia.sessions.find(s => s.plan?.status !== 'ready'); if (p) hojaSesion(p); return; }

@@ -3,6 +3,7 @@ import { nombreDelClub } from '/v2/club.js';
 import {getSignedPhotoUrl} from '/v2/photo-cache.js';
 import {abrirCobro,folioTexto,esCuentaCompartida} from '/v2/cobro/hoja.js';
 import {montaCobranza} from '/v2/tanner/cobranza.js';
+import {seccionParches} from '/v2/parches/parches.js';
 import {relacion,telefonoBonito,telefonoWa} from '/v2/contacto.js';
 
 // El shell valida el módulo activo, pero un estado de cuenta lo abre tanto
@@ -554,6 +555,9 @@ async function render(){
   cargaCambios(paint,p);
   const saldo=Number(data.summary?.balance||0);
   setShellHealth(saldo>0?{state:'attention',label:`Debe ${money.format(saldo)}`}:{state:'ok',label:'Al corriente'});
+  // Parches (09/11/2026): la historia del Tanner en el club. Sólo lo ve
+  // quien trabaja con Formación o los otorga; a los demás no se les enseña.
+  seccionParches($('tanParches'),{rpc,org:ctx.organization_id,playerId,nombre:[p.first_name,p.last_name].filter(Boolean).join(' ')});
   if(p.photo_thumb_path||p.photo_path){const url=await signPhoto(p);if(url){fotoActual=url;paint(url);}}
 }
 

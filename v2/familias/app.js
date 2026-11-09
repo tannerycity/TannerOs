@@ -1,6 +1,7 @@
 import {supabase,rpc,money,$,PUSH_PUBLIC_KEY,urlBase64ToUint8Array} from '/v2/shell.js';
 import { pendientesDe, proximoEvento, cuandoEs, saludo, avisosSinLeer, PASOS_PEDIDO, avanceDePedido, piezaTexto } from '/v2/familias/inicio.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
+import { parcheHtml, numerosDeCampeon } from '/v2/parches/parches.js';
 import { llaveDeLiga } from '/v2/club-publico.js';
 import { correoDeEntrada, tokenDeLiga, primeraPalabra, conEspacios } from '/v2/invitaciones/invitaciones.js';
 import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
@@ -41,7 +42,7 @@ const orderLabel=t=>ORDER_LABEL[t]||'';
 // viven juntos en "Club". Las ligas viejas (?tab=calendario|gafete) siguen.
 const TAB_PEDIDA=new URLSearchParams(location.search).get('tab');
 const TAB_INICIAL=['inicio','cuenta','progreso','tienda','club'].includes(TAB_PEDIDA)?TAB_PEDIDA:['calendario','gafete'].includes(TAB_PEDIDA)?'club':'inicio';
-const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},acuerdos:{},puntualidad:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
+const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},acuerdos:{},puntualidad:{},parches:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
 
 function show(id){['loginView','passwordView','inviteView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -451,9 +452,14 @@ async function renderCuenta(){
     try{state.puntualidad[p.id]=await rpc('v2_portal_punctuality',{player_id:p.id});}
     catch(error){console.warn('puntualidad',error);state.puntualidad[p.id]=null;}
   }
+  // Parches (h78, 09/11/2026): la historia de su hijo en el club. Tampoco bloquea.
+  if(!(p.id in state.parches)){
+    try{state.parches[p.id]=await rpc('v2_portal_patches',{player_id:p.id});}
+    catch(error){console.warn('parches',error);state.parches[p.id]=[];}
+  }
   const st=state.statements[p.id],pw=state.paperwork[p.id];
   const saldo=Number(st.summary?.balance||0);
-  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${acuerdoBlock(state.acuerdos[p.id])}${puntualidadBlock(state.puntualidad[p.id])}${saldo>0.004?comoPagarBlock(p,saldo):''}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${acuerdoBlock(state.acuerdos[p.id])}${puntualidadBlock(state.puntualidad[p.id])}${parchesBlock(state.parches[p.id],p)}${saldo>0.004?comoPagarBlock(p,saldo):''}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
   cableaTramites(p);cableaAcceso();cableaComoPagar();cableaAcuerdo(p);
 }
 
@@ -480,6 +486,16 @@ function acuerdoBlock(a){
    cómo va: mes por mes (pagado completo a más tardar el día 5) y qué premio
    lleva. Desde 2027; antes sólo se anuncia. */
 const MESES_CORTOS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'];
+// Sus parches: sólo si tiene. Sin conteos ni "le faltan": cuenta su historia.
+function parchesBlock(lista,p){
+  if(!Array.isArray(lista)||!lista.length)return '';
+  if(!document.querySelector('link[href^="/v2/parches/parches.css"]'))document.head.insertAdjacentHTML('beforeend','<link rel="stylesheet" href="/v2/parches/parches.css?v=20261109c">');
+  const f=d=>new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${String(d).slice(0,10)}T12:00:00`)).replace('.','');
+  const code=x=>/campe/i.test(x.name||'')?'campeones':'iniciacion';
+  const nums=numerosDeCampeon(lista.map(x=>Object.assign(x,{code:code(x)})));
+  return `<section class="fam-card par-seccion-portal"><div class="fam-card-head"><h2>Sus parches</h2><span>lo que ha vivido en el club</span></div>
+    <div class="par-fila">${lista.map(x=>`<div class="par-item">${parcheHtml(code(x),{titulo:x.name,numero:nums.get(x)})}<b>${code(x)==='campeones'?'Campeón':'Iniciación'}</b><small>${esc([x.reason||(x.variant==='baby'?'Baby':x.variant==='tanner'?'Tanner':''),f(x.awardedOn)].filter(Boolean).join(' · '))}</small></div>`).join('')}</div></section>`;
+}
 function puntualidadBlock(z){
   if(!z?.december)return '';
   const d=z.december,k=z.kit||{};

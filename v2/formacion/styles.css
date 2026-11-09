@@ -399,3 +399,9 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-obs-puntos{display:flex;flex-wrap:wrap;gap:4px}
 .fm-obs-puntos span{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#eef1f1}
 .fm-obs-puntos .fm-obs-si{background:#ddf5e5;color:#0b7e3b}.fm-obs-puntos .fm-obs-a_veces{background:#fff2ce;color:#7a5a08}.fm-obs-puntos .fm-obs-todavia_no{background:#fde7e4;color:#9c2b1d}
+
+/* Registrar parches (09/11/2026). */
+.fm-parches-cta{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;border:1px solid var(--tos-line,#dfe3e3);background:#fff;border-radius:16px;padding:10px 14px;font:inherit;text-align:left;cursor:pointer;min-height:60px}
+.fm-parches-cta img{width:40px;height:40px;object-fit:contain}
+.fm-parches-cta span{flex:1;display:grid}.fm-parches-cta small{color:#6f7c81;font-size:12.5px}
+.fm-parches-cta i{font-style:normal;color:#9aa6aa;font-size:22px}

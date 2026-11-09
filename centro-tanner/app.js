@@ -131,6 +131,15 @@ function wireSearch() {
       } catch { if (mySeq === seq) { box.classList.remove('hidden'); box.innerHTML = '<div class="ct-search-empty">No pudimos buscar en este momento.</div>'; } }
     }, 320);
   });
+  // 09/11/2026, Mich: "se queda trabado" — al tocar un resultado, la caja
+  // nunca se cerraba (el click cae DENTRO de box, así que el cierre por
+  // "click afuera" de abajo lo ignoraba a propósito) y quedaba encimada
+  // sobre la página a la que acabas de navegar.
+  box.addEventListener('click', (e) => {
+    if (!e.target.closest('a')) return;
+    box.classList.add('hidden');
+    input.value = '';
+  });
   document.addEventListener('click', (e) => { if (!box.contains(e.target) && e.target !== input) box.classList.add('hidden'); });
 }
 

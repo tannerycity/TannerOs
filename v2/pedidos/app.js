@@ -1030,6 +1030,34 @@ function renderItems(items,d){
   return html.join('');
 }
 function collapseDrawerSections(){['paymentHistoryWrap'].forEach(id=>$(id)?.classList.add('hidden'));if($('masDetalles'))$('masDetalles').open=false;['togglePaymentHistory'].forEach(id=>{const b=$(id);if(!b)return;b.setAttribute('aria-expanded','false');b.classList.remove('open');});}
+/* Premio por puntualidad: 20% en el kit con SU código (h74, TC-146).
+   Presidencia: "un código en la tienda, con vigencia y trazabilidad;
+   automático del 1 de junio al 31 de agosto; si no, se pierde". El pedido del
+   Tanner dice si tiene código y lo aplica con un toque (v2_apply_order_code,
+   el mismo camino que la tienda en línea: valida vigencia y que sea un uso). */
+const corta=f=>f?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'}).format(new Date(`${String(f).slice(0,10)}T12:00:00`)).replace('.',''):'';
+async function pintaPremioKit(d){
+  const box=$('orderPremio');if(!box)return;box.classList.add('hidden');box.innerHTML='';
+  if(!d?.player_id)return;
+  let z=null;const anio=new Date(d.created_at||Date.now()).getFullYear();
+  try{z=await rpc('v2_punctuality_status',{organization_id:ctx.organization_id,player_id:d.player_id,year:anio});}catch{return;}
+  if(current?.order?.id!==d.id||z?.kit?.state!=='ganado')return;
+  const k=z.kitCode,abierto=['draft','pending_payment','partial_payment'].includes(d.status)&&!(Number(d.discount||0)>0);
+  let txt='',boton='';
+  if(!k)txt=`<strong>Ganó 20% por puntualidad</strong><small>Su código llega el 1 de junio y vale hasta el 31 de agosto.</small>`;
+  else if(k.used)txt=`<strong>Premio por puntualidad usado</strong><small>Su código ${esc(k.code)} se usó en ${esc(k.orderFolio||'otro pedido')}.</small>`;
+  else if(k.expired)txt=`<strong>Su código de puntualidad venció</strong><small>${esc(k.code)} valía hasta el ${esc(corta(k.endsOn))}.</small>`;
+  else{
+    txt=`<strong>Tiene su código de puntualidad: ${esc(k.code)}</strong><small>20% en el kit · vale del ${esc(corta(k.startsOn))} al ${esc(corta(k.endsOn))} · un solo uso.</small>`;
+    if(abierto)boton=`<button type="button" data-premio-kit="${esc(k.code)}">Aplicar código</button>`;
+  }
+  box.innerHTML=`<span>${txt}</span>${boton}`;box.classList.remove('hidden');
+  box.querySelector('[data-premio-kit]')?.addEventListener('click',async e=>{
+    const b=e.currentTarget;b.disabled=true;b.textContent='Un momento…';
+    try{await rpc('v2_apply_order_code',{organization_id:ctx.organization_id,order_id:d.id,code:k.code});await openOrder({id:d.id});}
+    catch(err){b.disabled=false;b.textContent='Aplicar código';box.insertAdjacentHTML('beforeend',`<small class="order-premio-error">${esc(String(err?.message||'No se pudo aplicar.'))}</small>`);}
+  });
+}
 async function openOrder(o){
   current=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,current);otroPagador=false;
   const d=current.order;
@@ -1051,6 +1079,7 @@ async function openOrder(o){
   renderReview(d);
   pintaResumen();
   pintaJugadorDelPedido(d);
+  pintaPremioKit(d);
   renderProfitability();renderPaymentPlan(d);renderPayments(d);renderReadiness();renderStateActions(d);renderWarranty(d);
   renderBusinessMetrics(orders.filter(vigente));render();msg();collapseDrawerSections();
   $('backdrop').classList.remove('hidden');$('drawer').classList.remove('hidden');

@@ -107,6 +107,7 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
         installments:[{ seq:1, due:'2026-10-26', amount:600, state:'paid' }, { seq:2, due:'2026-11-10', amount:1000, state:'pending' }],
         next:{ seq:2, due:'2026-11-10', amount:1000 } };
       // Premio por puntualidad (08/11/2026): la familia ve cómo va.
+      if(name==='v2_portal_patches') return [{ name:'Parche de Iniciación Tanner', variant:'tanner', reason:null, awardedOn:'2026-11-07' }, { name:'Parche de Campeones', variant:null, reason:'Copa León 2026', awardedOn:'2026-11-08' }];
       if(name==='v2_portal_punctuality') return { year:2027, months:[1,2,3,4,5,6,7,8,9,10,11].map(m => ({ month:m, state: m===3 ? 'tarde' : m<=7 ? 'a_tiempo' : 'pendiente' })),
         kit:{ state:'ganado', onTime:5, of:5, percent:20 }, december:{ state:'perdido', onTime:6, of:11, percent:50 },
         kitCode:{ code:'PUNTUAL27RTYE', startsOn:'2027-06-01', endsOn:'2027-08-31', used:false, expired:false, orderFolio:null } };
@@ -234,6 +235,10 @@ const punt = (await pagina.textContent('.fam-punt')).replace(/\s+/g, ' ');
 revisa('[puntualidad] la familia ve sus meses y el premio', /Premio por puntualidad/.test(punt) && /6 de 11/.test(punt) && (await pagina.$$('.fam-punt-meses li')).length === 11 && await pagina.getAttribute('.fam-punt-meses li:nth-child(3)', 'data-state') === 'tarde', punt.slice(0, 160));
 revisa('[puntualidad] dice por qué ya no alcanza y lleva a las reglas', /un mes se pagó tarde/.test(punt) && await pagina.getAttribute('.fam-punt-liga', 'href') === '/centro-tanner/');
 revisa('[puntualidad] la familia ve SU código del kit, con vigencia y un uso', /Tu código para el kit/.test(punt) && /PUNTUAL27RTYE/.test(punt) && /un solo uso/.test(punt) && /31 de agosto/.test(punt), punt.slice(0, 300));
+const parc = (await pagina.textContent('.par-seccion-portal').catch(() => '')).replace(/\s+/g, ' ');
+revisa('[parches] la familia ve los parches de su hijo, con fecha y de qué fue', /Sus parches/.test(parc) && /Iniciación/.test(parc) && /Campeón/.test(parc) && /Copa León 2026/.test(parc) && /8 nov 2026/.test(parc), parc.slice(0, 200));
+revisa('[parches] sin quién lo registró ni conteos', !/Brandon|registr|faltan|de \d/i.test(parc), parc.slice(0, 200));
+revisa('[parches] el de Campeón con su arte', /campeon-azul\.png/.test(await pagina.getAttribute('.par-seccion-portal .par-item:nth-child(2) img', 'src').catch(() => '') || ''));
 if (process.env.SHOTS) { await pagina.$eval('.fam-punt', e => e.scrollIntoView({ block:'center' })); await pagina.screenshot({ path:`${process.env.SHOTS}/familias-puntualidad.png` }); }
 revisa('[acuerdo] ya no vuelve a pedir "Enterado"', !(await pagina.$('#acuerdoEnterado')));
 const tarjeta = (await pagina.textContent('.fam-imagen')).replace(/\s+/g, ' ');

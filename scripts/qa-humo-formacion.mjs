@@ -82,6 +82,11 @@ async function abre({ direccion, vacio = false, pasada = false }) {
       v2_my_context: () => [{ user_id: 'u2', display_name: 'Max', organization_id: 'o1', organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: direccion ? 'Operaciones' : 'Formadores', is_owner: false }],
       v2_my_navigation: () => mods.map(c => ({ module_code: c, enabled: true, can_read: true, can_write: true })),
       v2_formation_catalog: () => cat,
+      v2_patch_roster: prm => ({ categories: [{ id: 'c12', name: 'T12', stage: 't12' }, { id: 'cb', name: 'Baby Tanner', stage: 'baby_3_4' }],
+        players: prm.category_id === 'c12' ? [{ id: 'j1', name: 'Ana Ruiz', patches: [] }, { id: 'j2', name: 'Beto Sol', patches: [] },
+          { id: 'j3', name: 'Ceci Paz', patches: [{ code: 'campeones', reason: 'Copa León 2026' }] }] : [] }),
+      v2_award_patch: prm => ({ id: 'aw-' + prm.player_id, already: false }),
+      v2_mark_patch_delivered: prm => ({ id: prm.award_id, delivered: true }),
       v2_set_task_resource: prm => { const t = cat.tasks.find(x => x.id === prm.task_id); t.resources = t.resources.filter(r => r.code !== prm.resource_code);
         if (prm.status !== 'descartada') t.resources.push({ code: prm.resource_code, relevance: prm.relevance, status: prm.status }); return { status: prm.status }; },
       v2_session_review: prm => ({ sessionId: prm.session_id, observations: obs.filter(o => o.session === prm.session_id) }),
@@ -278,6 +283,45 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.waitForSelector('.fm-obs-leida', { timeout: 4000 }).catch(() => {});
   revisa('[formador] lee la observación de Dirección en su sesión', /Convivencia: Todavía no/.test(await p.textContent('#fmHojaCuerpo')) && /Hubo burlas al portero/.test(await p.textContent('#fmHojaCuerpo')) && /Brandon/.test(await p.textContent('#fmHojaCuerpo')), (await p.textContent('#fmHojaCuerpo')).slice(0, 200));
   revisa('[formador] no puede observar (eso es de Dirección)', !(await p.$('#fmObservar')));
+  await p.close();
+}
+
+{ // Parches (h78/h80, 09/11/2026): "Campeones, para toda la categoría y desmarcamos quién no".
+  const p = await abre({ direccion: true });
+  await p.waitForSelector('[data-parches]', { timeout: 6000 });
+  await p.click('[data-parches]');
+  await p.waitForSelector('#parHoja #parCat');
+  revisa('[parches] dos parches: Campeón (con su arte) e Iniciación', (await p.$$('#parHoja [data-par-code]')).length === 2 && /campeon-azul\.png/.test(await p.getAttribute('#parHoja [data-par-code="campeones"] img', 'src') || ''));
+  await p.selectOption('#parCat', 'c12');
+  await p.waitForSelector('#parHoja [data-par-j="j1"]');
+  revisa('[parches] toda la categoría sale marcada', await p.isChecked('[data-par-j="j1"]') && await p.isChecked('[data-par-j="j2"]'));
+  await p.fill('#parMotivo', 'Copa León 2026');
+  await p.click('[data-par-j="j2"]');
+  await p.click('#parGuardar');
+  await p.waitForSelector('#parHoja .par-hecho', { timeout: 5000 });
+  const aw = await llamadas(p, 'v2_award_patch');
+  revisa('[parches] registra sólo a los marcados y no repite a quien ya lo tiene', aw.length === 1 && aw[0].prm.player_id === 'j1' && aw[0].prm.code === 'campeones' && aw[0].prm.award.reason === 'Copa León 2026' && aw[0].prm.award.categoryId === 'c12', JSON.stringify(aw.map(x => x.prm)));
+  revisa('[parches] dice cuántos y deja la lista Por entregar', /1 parche registrado/.test(await p.textContent('#parHoja .par-hecho')) && !!(await p.$('[data-par-entrega="aw-j1"]')));
+  await p.click('[data-par-entrega="aw-j1"]');
+  await p.waitForTimeout(200);
+  revisa('[parches] palomear lo marca entregado', (await llamadas(p, 'v2_mark_patch_delivered')).some(x => x.prm.award_id === 'aw-j1'));
+  await cabe(p, 'parches');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-parches.png' });
+  await p.click('#parHoja .par-primario');
+  revisa('[parches] Listo cierra la hoja', !(await p.$('#parHoja')));
+  // Iniciación: Baby o Tanner; la categoría Baby arranca en Baby.
+  await p.click('[data-parches]');
+  await p.waitForSelector('#parHoja #parCat');
+  await p.click('#parHoja [data-par-code="iniciacion"]');
+  await p.selectOption('#parCat', 'c12');
+  await p.waitForSelector('#parHoja [data-par-var]');
+  revisa('[parches] Iniciación pide versión Baby o Tanner (T12 arranca en Tanner) y no pide motivo', (await p.getAttribute('[data-par-var="tanner"]', 'aria-checked')) === 'true' && !(await p.$('#parMotivo')));
+  await p.close();
+}
+{ // El Formador no ve el botón de parches.
+  const p = await abre({ direccion: false });
+  await p.waitForSelector('.fm-hero h1', { timeout: 6000 });
+  revisa('[parches] el Formador no registra parches', !(await p.$('[data-parches]')));
   await p.close();
 }
 

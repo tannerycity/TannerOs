@@ -1030,23 +1030,32 @@ function renderItems(items,d){
   return html.join('');
 }
 function collapseDrawerSections(){['paymentHistoryWrap'].forEach(id=>$(id)?.classList.add('hidden'));if($('masDetalles'))$('masDetalles').open=false;['togglePaymentHistory'].forEach(id=>{const b=$(id);if(!b)return;b.setAttribute('aria-expanded','false');b.classList.remove('open');});}
-/* Premio por puntualidad: 20% en el kit (h64, Centro Tanner TC-146). Si el
-   Tanner del pedido pagó a tiempo de enero a mayo (y no tiene beca), aquí se
-   ofrece aplicarlo con un toque; queda como descuento del pedido con su motivo. */
-const MOTIVO_KIT='Premio por puntualidad: 20% en el kit (enero a mayo a tiempo, TC-146)';
+/* Premio por puntualidad: 20% en el kit con SU código (h74, TC-146).
+   Presidencia: "un código en la tienda, con vigencia y trazabilidad;
+   automático del 1 de junio al 31 de agosto; si no, se pierde". El pedido del
+   Tanner dice si tiene código y lo aplica con un toque (v2_apply_order_code,
+   el mismo camino que la tienda en línea: valida vigencia y que sea un uso). */
+const corta=f=>f?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'}).format(new Date(`${String(f).slice(0,10)}T12:00:00`)).replace('.',''):'';
 async function pintaPremioKit(d){
   const box=$('orderPremio');if(!box)return;box.classList.add('hidden');box.innerHTML='';
-  if(!d?.player_id||Number(d.discount||0)>0||!['draft','pending_payment','partial_payment'].includes(d.status))return;
+  if(!d?.player_id)return;
   let z=null;const anio=new Date(d.created_at||Date.now()).getFullYear();
   try{z=await rpc('v2_punctuality_status',{organization_id:ctx.organization_id,player_id:d.player_id,year:anio});}catch{return;}
   if(current?.order?.id!==d.id||z?.kit?.state!=='ganado')return;
-  const monto=Math.round(Number(d.subtotal||0)*0.2);if(!(monto>0))return;
-  box.innerHTML=`<span><strong>Ganó 20% por puntualidad</strong><small>Pagó a tiempo de enero a mayo. En este pedido son ${money.format(monto)}.</small></span><button type="button" data-premio-kit="${monto}">Aplicar −${money.format(monto)}</button>`;
-  box.classList.remove('hidden');
-  box.querySelector('[data-premio-kit]').addEventListener('click',async e=>{
+  const k=z.kitCode,abierto=['draft','pending_payment','partial_payment'].includes(d.status)&&!(Number(d.discount||0)>0);
+  let txt='',boton='';
+  if(!k)txt=`<strong>Ganó 20% por puntualidad</strong><small>Su código llega el 1 de junio y vale hasta el 31 de agosto.</small>`;
+  else if(k.used)txt=`<strong>Premio por puntualidad usado</strong><small>Su código ${esc(k.code)} se usó en ${esc(k.orderFolio||'otro pedido')}.</small>`;
+  else if(k.expired)txt=`<strong>Su código de puntualidad venció</strong><small>${esc(k.code)} valía hasta el ${esc(corta(k.endsOn))}.</small>`;
+  else{
+    txt=`<strong>Tiene su código de puntualidad: ${esc(k.code)}</strong><small>20% en el kit · vale del ${esc(corta(k.startsOn))} al ${esc(corta(k.endsOn))} · un solo uso.</small>`;
+    if(abierto)boton=`<button type="button" data-premio-kit="${esc(k.code)}">Aplicar código</button>`;
+  }
+  box.innerHTML=`<span>${txt}</span>${boton}`;box.classList.remove('hidden');
+  box.querySelector('[data-premio-kit]')?.addEventListener('click',async e=>{
     const b=e.currentTarget;b.disabled=true;b.textContent='Un momento…';
-    try{await rpc('v2_set_order_discount',{organization_id:ctx.organization_id,order_id:d.id,discount:monto,reason:MOTIVO_KIT});await openOrder({id:d.id});}
-    catch(err){b.disabled=false;b.textContent=`Aplicar −${money.format(monto)}`;box.insertAdjacentHTML('beforeend',`<small class="order-premio-error">${esc(String(err?.message||'No se pudo aplicar.'))}</small>`);}
+    try{await rpc('v2_apply_order_code',{organization_id:ctx.organization_id,order_id:d.id,code:k.code});await openOrder({id:d.id});}
+    catch(err){b.disabled=false;b.textContent='Aplicar código';box.insertAdjacentHTML('beforeend',`<small class="order-premio-error">${esc(String(err?.message||'No se pudo aplicar.'))}</small>`);}
   });
 }
 async function openOrder(o){

@@ -143,8 +143,9 @@ const CLIENTE = (pagoFalla, puedeCorregir = true) => `
       if(n==='v2_can_correct')return ok(${puedeCorregir});
       if(n==='v2_edit_order_item'||n==='v2_delete_order'||n==='v2_correct_order_payment')return ok({changed:true});
       if(n==='v2_link_order_player'){ligado=p.player_id;return ok(null);}
-      if(n==='v2_punctuality_status')return ok(p.player_id==='t1'?{year:2027,kit:{state:'ganado',onTime:5,of:5,percent:20},december:{state:'en_curso',onTime:7,of:11,percent:50}}:null);
-      if(n==='v2_set_order_discount')return ok({discount:p.discount,total:1500-p.discount});
+      if(n==='v2_punctuality_status')return ok(p.player_id==='t1'?{year:2027,kit:{state:'ganado',onTime:5,of:5,percent:20},december:{state:'en_curso',onTime:7,of:11,percent:50},
+        kitCode:{code:'PUNTUAL27RTYE',startsOn:'2027-06-01',endsOn:'2027-08-31',used:false,expired:false,orderFolio:null}}:null);
+      if(n==='v2_apply_order_code')return ok({ok:true,total:1200});
       return ok(null);}};}`;
 
 const nav = await chromium.launch({ executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
@@ -250,13 +251,13 @@ const texto = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' '
   await pg.waitForSelector('.order-row[data-order-id="o-kit"]', { timeout:8000 });
   await pg.click('.order-row[data-order-id="o-kit"]');
   await pg.waitForSelector('#orderPremio:not(.hidden)', { timeout:5000 }).catch(() => {});
-  revisa('6. el pedido de quien ganó el premio lo ofrece con su monto', /Ganó 20% por puntualidad/.test(await texto(pg, '#orderPremio')) && /Aplicar −\$300\.00/.test(await texto(pg, '#orderPremio')), await texto(pg, '#orderPremio'));
+  revisa('6. el pedido dice el código del Tanner, su vigencia y que es de un uso', /Tiene su código de puntualidad: PUNTUAL27RTYE/.test(await texto(pg, '#orderPremio')) && /1 jun al 31 ago/.test(await texto(pg, '#orderPremio')) && /un solo uso/.test(await texto(pg, '#orderPremio')), await texto(pg, '#orderPremio'));
   const pz = await llamadas(pg, 'v2_punctuality_status');
   revisa('6. pregunta por el año del pedido', pz.at(-1)?.player_id === 't1' && pz.at(-1)?.year === 2027, JSON.stringify(pz.at(-1)));
   await pg.click('#orderPremio [data-premio-kit]');
   await pg.waitForTimeout(300);
-  const ds = (await llamadas(pg, 'v2_set_order_discount'))[0];
-  revisa('6. aplica el 20% como descuento del pedido, con su motivo', ds?.order_id === 'o-kit' && ds?.discount === 300 && /puntualidad/.test(ds?.reason || ''), JSON.stringify(ds));
+  const ds = (await llamadas(pg, 'v2_apply_order_code'))[0];
+  revisa('6. aplica SU código al pedido (mismo camino que la tienda: vigencia y un uso)', ds?.order_id === 'o-kit' && ds?.code === 'PUNTUAL27RTYE', JSON.stringify(ds));
   await pg.click('#drawer [data-close], #closeDrawer').catch(() => {});
   await pg.click('.order-row[data-order-id="o-viejo"]').catch(() => {});
   await pg.waitForTimeout(300);

@@ -191,7 +191,9 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   await p.fill('#presRef', 'SPEI 4471');
   await p.fill('#presMotivo', 'Pagó el viernes en la noche');
   await p.click('#presForm .pres-primary');
-  await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:4000 });
+  // Si la hoja no se cierra, que diga por qué (CI lento o un aviso en la hoja).
+  const cerro = await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:8000 }).then(() => true, () => false);
+  revisa('[editar] guarda y cierra la hoja', cerro, cerro ? '' : 'sigue abierta: ' + ((await p.textContent('#presSheet').catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 300));
   const ed = (await llamadas(p, 'v2_edit_payment'))[0]?.params || {};
   revisa('[editar] manda fecha, método, referencia y motivo', ed.payment_id === 'pay-1' && ed.payment_date === '2026-09-04' && ed.method === 'transfer' && ed.reference === 'SPEI 4471' && /viernes/.test(ed.reason), JSON.stringify(ed));
   revisa('[editar] avisa que se quitó el recargo', /quitó el recargo de \$100\.00/.test(await p.textContent('#presToast')));

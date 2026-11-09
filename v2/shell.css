@@ -339,3 +339,9 @@ body.tos-body,body:has(>.tos-layout){margin:0}
 .ms-aviso-semana span{display:grid;gap:2px}
 .ms-aviso-semana strong{font-size:15px}
 .ms-aviso-semana small{font-size:13px;color:#5c6f74}
+/* Activa tus avisos (09/11/2026) */
+.ms-avisos{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:16px;background:#eef7f8;border:1px solid #cfe5e8}
+.ms-avisos-txt{display:grid;gap:2px;min-width:0}
+.ms-avisos-txt strong{font-size:15px;color:#0d2730}
+.ms-avisos-txt small{font-size:13px;color:#4f6469}
+.ms-avisos-btn{flex:0 0 auto;min-height:44px;padding:0 18px;border:0;border-radius:12px;background:#053746;color:#fff;font:inherit;font-size:14px;font-weight:800;cursor:pointer}

@@ -13,7 +13,7 @@
  *   7. Cabe en el teléfono sin scroll horizontal. */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
-import { htmlMiSemana, htmlEquipo, resumenCampana } from '../v2/mi-semana.js';
+import { htmlMiSemana, htmlEquipo, resumenCampana, estadoAvisos } from '../v2/mi-semana.js';
 
 let corridas = 0, fallos = 0;
 const revisa = (nombre, ok, detalle) => { corridas++; if (!ok) { fallos++; console.error(` - ${nombre}${detalle ? `\n   ${detalle}` : ''}`); } };
@@ -49,17 +49,25 @@ revisa('6. el aviso de Mensajes resume lo primero que falta', /Mi semana · 45%/
 revisa('6. sin secciones, sin aviso', resumenCampana({ sections: [] }) === '');
 revisa('seguridad: escapa nombres', !/<script>/.test(htmlEquipo({ people: [{ name: '<script>x</script>', sections: [{ title: 't', done: 0, total: 1, items: [] }] }] })));
 
+// 8. "Activa tus avisos" (09/11/2026): cuándo se ofrece.
+const docCon = oculta => ({ getElementById: id => id === 'tosBellSubscribeRow' ? { classList: { contains: c => c === 'hidden' && oculta } } : null });
+const winDe = (ua, extra = {}) => ({ navigator: { userAgent: ua, ...extra }, matchMedia: () => ({ matches: false }) });
+revisa('8. se ofrece cuando el shell dice que aún no se activan', estadoAvisos({ doc: docCon(false), win: winDe('Chrome') }) === 'ofrecer');
+revisa('8. ya activados: no sale nada', estadoAvisos({ doc: docCon(true), win: { ...winDe('Chrome'), PushManager: function () {} } }) === 'nada');
+revisa('8. iPhone sin instalar: dice cómo instalarla', estadoAvisos({ doc: docCon(true), win: winDe('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)') }) === 'instalar');
+revisa('8. iPhone ya instalado: no insiste', estadoAvisos({ doc: docCon(true), win: winDe('Mozilla/5.0 (iPhone)', { standalone: true }) }) === 'nada');
+
 // 4 y 7: en el navegador, a 390 px.
 const RAIZ = path.resolve(new URL('..', import.meta.url).pathname);
 const T = { '.html':'text/html','.js':'text/javascript','.css':'text/css' };
 const srv = http.createServer((q, r) => {
   const p = decodeURIComponent(q.url.split('?')[0]);
-  if (p === '/prueba.html') { r.writeHead(200, { 'content-type': 'text/html' }); r.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"></head><body style="padding:16px;background:#f4f6f5"><section id="miSemana" class="tos-panel ms-semana hidden"></section><section id="equipoSemana" class="tos-panel hidden" style="margin-top:16px"></section><script type="module">
-    import { pintaMiSemana, pintaEquipo } from '/v2/mi-semana.js';
+  if (p === '/prueba.html') { r.writeHead(200, { 'content-type': 'text/html' }); r.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"></head><body style="padding:16px;background:#f4f6f5"><div class="hidden"><div id="tosBellSubscribeRow"><button id="tosEnablePush" onclick="window.__activo=1"></button></div></div><section id="activaAvisos" class="ms-avisos hidden"></section><section id="miSemana" class="tos-panel ms-semana hidden"></section><section id="equipoSemana" class="tos-panel hidden" style="margin-top:16px"></section><script type="module">
+    import { pintaMiSemana, pintaEquipo, pintaActivarAvisos } from '/v2/mi-semana.js';
     const datos = { v2_my_week: ${JSON.stringify(PROFE)}, v2_team_week: ${JSON.stringify(EQUIPO)} };
     const rpc = async n => datos[n];
     const ctx = { organization_id: 'o1' };
-    await pintaMiSemana({ rpc, ctx }); await pintaEquipo({ rpc, ctx }); window.__listo = true;
+    await pintaMiSemana({ rpc, ctx }); await pintaEquipo({ rpc, ctx }); pintaActivarAvisos(); window.__listo = true;
   </script></body></html>`); return; }
   const f = path.join(RAIZ, p);
   if (!f.startsWith(RAIZ) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end('no'); return; }
@@ -72,6 +80,9 @@ const errs = []; pg.on('pageerror', x => errs.push(String(x)));
 await pg.goto(`http://127.0.0.1:${srv.address().port}/prueba.html`);
 await pg.waitForFunction(() => window.__listo, null, { timeout: 5000 });
 revisa('7. la tarjeta se ve', await pg.isVisible('#miSemana .ms-pct'));
+await pg.waitForSelector('#activaAvisos [data-activa-avisos]', { timeout: 4000 });
+await pg.click('#activaAvisos [data-activa-avisos]');
+revisa('8. "Activar" en Inicio usa el mismo botón del shell', await pg.evaluate(() => window.__activo === 1));
 await pg.click('[data-ms-vertodo]');
 revisa('1. "Ver las 4" enseña todo', (await pg.$$('#miSemana .ms-faltan li')).length === 4);
 const orden = await pg.$$eval('#equipoSemana .ms-quien strong', s => s.map(x => x.textContent));

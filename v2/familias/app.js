@@ -41,7 +41,7 @@ const orderLabel=t=>ORDER_LABEL[t]||'';
 // viven juntos en "Club". Las ligas viejas (?tab=calendario|gafete) siguen.
 const TAB_PEDIDA=new URLSearchParams(location.search).get('tab');
 const TAB_INICIAL=['inicio','cuenta','progreso','tienda','club'].includes(TAB_PEDIDA)?TAB_PEDIDA:['calendario','gafete'].includes(TAB_PEDIDA)?'club':'inicio';
-const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},acuerdos:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
+const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},acuerdos:{},puntualidad:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
 
 function show(id){['loginView','passwordView','inviteView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -446,9 +446,14 @@ async function renderCuenta(){
     try{state.acuerdos[p.id]=await rpc('v2_portal_agreement',{player_id:p.id});}
     catch(error){console.warn('acuerdo',error);state.acuerdos[p.id]=null;}
   }
+  // Premio por puntualidad (h64/h67): tampoco bloquea la cuenta.
+  if(!(p.id in state.puntualidad)){
+    try{state.puntualidad[p.id]=await rpc('v2_portal_punctuality',{player_id:p.id});}
+    catch(error){console.warn('puntualidad',error);state.puntualidad[p.id]=null;}
+  }
   const st=state.statements[p.id],pw=state.paperwork[p.id];
   const saldo=Number(st.summary?.balance||0);
-  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${acuerdoBlock(state.acuerdos[p.id])}${saldo>0.004?comoPagarBlock(p,saldo):''}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
+  $('famBody').innerHTML=`${playerProfileBlock(p)}${balanceBlock(st)}${acuerdoBlock(state.acuerdos[p.id])}${puntualidadBlock(state.puntualidad[p.id])}${saldo>0.004?comoPagarBlock(p,saldo):''}${monthsBlock(st)}${ledgerBlock(st)}${docsBlock(st)}${imagenBlock(pw)}${consentsBlock(pw)}${benefitBlock(pw)}${accesoBlock()}`;
   cableaTramites(p);cableaAcceso();cableaComoPagar();cableaAcuerdo(p);
 }
 
@@ -470,6 +475,26 @@ function acuerdoBlock(a){
   return `<section class="fam-card fam-acuerdo" data-state="${esc(a.state)}"><div class="fam-card-head"><h2>${esc(titulo)}</h2><span>${money.format(Number(a.paid))} de ${money.format(Number(a.total))}</span></div>
     <div class="fam-barra"><i style="width:${pct}%"></i></div><p class="fam-acuerdo-sub">${esc(sub)}</p><ol class="fam-pagos">${pagos}</ol>
     ${a.note?`<p class="fam-muted fam-acuerdo-nota">${esc(a.note)}</p>`:''}${visto}</section>`;
+}
+/* Premio por puntualidad (08/11/2026, Centro Tanner TC-146). La familia ve
+   cómo va: mes por mes (pagado completo a más tardar el día 5) y qué premio
+   lleva. Desde 2027; antes sólo se anuncia. */
+const MESES_CORTOS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'];
+function puntualidadBlock(z){
+  if(!z?.december)return '';
+  const d=z.december,k=z.kit||{};
+  if(d.state==='no_vigente')return `<section class="fam-card fam-punt"><div class="fam-card-head"><h2>Premio por puntualidad</h2><span>Desde enero</span></div>
+    <p class="fam-acuerdo-sub">Paga la mensualidad completa a más tardar el día 5. De enero a noviembre a tiempo: <b>50% en diciembre</b>. De enero a mayo: <b>20% en el kit de agosto</b>.</p>
+    <a class="fam-punt-liga" href="/centro-tanner/">Ver las reglas en Centro Tanner</a></section>`;
+  const meses=(z.months||[]).map(m=>`<li data-state="${esc(m.state)}" title="${esc({a_tiempo:'A tiempo',tarde:'Tarde',pendiente:'Por venir',sin_cargo:'Sin cargo'}[m.state]||'')}"><span>${MESES_CORTOS[m.month-1]||''}</span></li>`).join('');
+  const dic={ganado:'¡Ganaste 50% en diciembre! Se aplica solo.',en_curso:`Vas ${d.onTime} de 11 a tiempo: sigue así y diciembre te sale a mitad de precio.`,perdido:'Este año ya no alcanza para el 50% de diciembre: un mes se pagó tarde. El próximo año vuelves a empezar.',beca_completa:'Con beca completa este premio no aplica.'}[d.state]||'';
+  const kit={ganado:'Ganaste 20% en el kit de agosto.',en_curso:`Kit de agosto: vas ${k.onTime} de 5 a tiempo para el 20%.`,perdido:'El 20% del kit ya no alcanza este año.'}[k.state]||'';
+  const pct=Math.round(100*Number(d.onTime||0)/11);
+  return `<section class="fam-card fam-punt" data-state="${esc(d.state)}"><div class="fam-card-head"><h2>Premio por puntualidad</h2><span>${Number(d.onTime||0)} de 11</span></div>
+    <div class="fam-barra"><i style="width:${pct}%"></i></div>
+    <ol class="fam-punt-meses">${meses}</ol>
+    <p class="fam-acuerdo-sub">${esc(dic)}${kit?` ${esc(kit)}`:''}</p>
+    <a class="fam-punt-liga" href="/centro-tanner/">Ver las reglas en Centro Tanner</a></section>`;
 }
 function cableaAcuerdo(p){
   const b=$('acuerdoEnterado');if(!b)return;

@@ -106,6 +106,9 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
         acknowledgedAt: window.__enterado || null,
         installments:[{ seq:1, due:'2026-10-26', amount:600, state:'paid' }, { seq:2, due:'2026-11-10', amount:1000, state:'pending' }],
         next:{ seq:2, due:'2026-11-10', amount:1000 } };
+      // Premio por puntualidad (08/11/2026): la familia ve cómo va.
+      if(name==='v2_portal_punctuality') return { year:2027, months:[1,2,3,4,5,6,7,8,9,10,11].map(m => ({ month:m, state: m===3 ? 'tarde' : m<=7 ? 'a_tiempo' : 'pendiente' })),
+        kit:{ state:'perdido', onTime:4, of:5, percent:20 }, december:{ state:'perdido', onTime:6, of:11, percent:50 } };
       if(name==='v2_portal_acknowledge_agreement'){ window.__enterado = '2026-10-21T18:00:00Z'; window.__enterados = (window.__enterados||0) + 1;
         return { ok:true, acknowledgedAt: window.__enterado }; }
       if(name==='v2_portal_decide_image_consent'){
@@ -226,6 +229,10 @@ revisa('[acuerdo] cada pago con su estado', JSON.stringify(await pagina.$$eval('
 await pagina.click('#acuerdoEnterado');
 await pagina.waitForSelector('.fam-acuerdo-visto', { timeout: 4000 });
 revisa('[acuerdo] "Enterado" queda registrado y lo dice', await pagina.evaluate(() => window.__enterados) === 1 && /Lo viste el 21 de octubre/.test(await pagina.textContent('.fam-acuerdo-visto')));
+const punt = (await pagina.textContent('.fam-punt')).replace(/\s+/g, ' ');
+revisa('[puntualidad] la familia ve sus meses y el premio', /Premio por puntualidad/.test(punt) && /6 de 11/.test(punt) && (await pagina.$$('.fam-punt-meses li')).length === 11 && await pagina.getAttribute('.fam-punt-meses li:nth-child(3)', 'data-state') === 'tarde', punt.slice(0, 160));
+revisa('[puntualidad] dice por qué ya no alcanza y lleva a las reglas', /un mes se pagó tarde/.test(punt) && await pagina.getAttribute('.fam-punt-liga', 'href') === '/centro-tanner/');
+if (process.env.SHOTS) { await pagina.$eval('.fam-punt', e => e.scrollIntoView({ block:'center' })); await pagina.screenshot({ path:`${process.env.SHOTS}/familias-puntualidad.png` }); }
 revisa('[acuerdo] ya no vuelve a pedir "Enterado"', !(await pagina.$('#acuerdoEnterado')));
 const tarjeta = (await pagina.textContent('.fam-imagen')).replace(/\s+/g, ' ');
 revisa('se le pregunta por las fotos, no se asume', /¿Podemos publicar sus fotos\?/.test(tarjeta), tarjeta.slice(0, 160));

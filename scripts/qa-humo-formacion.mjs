@@ -291,7 +291,7 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.waitForSelector('[data-parches]', { timeout: 6000 });
   await p.click('[data-parches]');
   await p.waitForSelector('#parHoja #parCat');
-  revisa('[parches] dos parches: Campeón (con su arte) e Iniciación', (await p.$$('#parHoja [data-par-code]')).length === 2 && /campeon-azul\.png/.test(await p.getAttribute('#parHoja [data-par-code="campeones"] img', 'src') || ''));
+  revisa('[parches] dos parches: Campeón (con su arte) e Iniciación', (await p.$$('#parHoja [data-par-code]')).length === 2 && /campeon-azul-sin-numero\.png/.test(await p.getAttribute('#parHoja [data-par-code="campeones"] img', 'src') || ''));
   await p.selectOption('#parCat', 'c12');
   await p.waitForSelector('#parHoja [data-par-j="j1"]');
   revisa('[parches] toda la categoría sale marcada', await p.isChecked('[data-par-j="j1"]') && await p.isChecked('[data-par-j="j2"]'));
@@ -302,6 +302,7 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   const aw = await llamadas(p, 'v2_award_patch');
   revisa('[parches] registra sólo a los marcados y no repite a quien ya lo tiene', aw.length === 1 && aw[0].prm.player_id === 'j1' && aw[0].prm.code === 'campeones' && aw[0].prm.award.reason === 'Copa León 2026' && aw[0].prm.award.categoryId === 'c12', JSON.stringify(aw.map(x => x.prm)));
   revisa('[parches] dice cuántos y deja la lista Por entregar', /1 parche registrado/.test(await p.textContent('#parHoja .par-hecho')) && !!(await p.$('[data-par-entrega="aw-j1"]')));
+  revisa('[parches] dice qué número lleva el parche de cada quien (su primer título: 1)', /Parche con el 1/.test(await p.textContent('#parHoja .par-jug')) && (await p.textContent('#parHoja .par-jug .par-num')) === '1');
   await p.click('[data-par-entrega="aw-j1"]');
   await p.waitForTimeout(200);
   revisa('[parches] palomear lo marca entregado', (await llamadas(p, 'v2_mark_patch_delivered')).some(x => x.prm.award_id === 'aw-j1'));

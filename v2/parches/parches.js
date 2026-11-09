@@ -16,7 +16,16 @@ import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 
 // El diseño del parche de Campeones lo eligió Presidencia de entre tres
 // (brand/parches/campeon-*.png). La Iniciación aún no tiene arte: se dibuja.
-export const ARTE = { campeones: '/brand/parches/campeon-azul.png' };
+// Presidencia (09/11/2026): "como el de la Champions: está el logo y nomás va
+// cambiando el número". El arte va sin número y el número se pone encima: el
+// primer título de ese Tanner dice 1, el segundo 2…
+export const ARTE = { campeones: '/brand/parches/campeon-azul-sin-numero.png' };
+// Qué número lleva cada parche de Campeón: su orden entre los títulos del Tanner.
+export function numerosDeCampeon(awards = []) {
+  const c = awards.filter(a => a.code === 'campeones' && !a.revokedAt)
+    .sort((a, b) => String(a.awardedOn).localeCompare(String(b.awardedOn)) || String(a.id || '').localeCompare(String(b.id || '')));
+  return new Map(c.map((a, i) => [a, i + 1]));
+}
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoyMx = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const fechaBonita = f => f ? new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${String(f).slice(0, 10)}T12:00:00`)).replace('.', '') : '';
@@ -25,13 +34,14 @@ const errorDe = e => String(e?.message || e || 'No se pudo').replace(/^.*?ERROR:
 
 function cargaEstilos() {
   if (document.querySelector('link[href^="/v2/parches/parches.css"]')) return;
-  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/v2/parches/parches.css?v=20261109a'; document.head.appendChild(l);
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/v2/parches/parches.css?v=20261109c'; document.head.appendChild(l);
 }
 
 // El parche dibujado: el arte oficial si existe; si no, un círculo con su nombre.
-export function parcheHtml(code, { chico = false, titulo = '' } = {}) {
+export function parcheHtml(code, { chico = false, titulo = '', numero = null } = {}) {
   const src = ARTE[code];
   const t = esc(titulo || (code === 'iniciacion' ? 'Iniciación' : code === 'campeones' ? 'Campeón' : code));
+  if (src && code === 'campeones') return `<span class="par-campeon${chico ? ' chico' : ''}" role="img" aria-label="${t}${numero ? ` · título ${numero}` : ''}"><img class="par-img${chico ? ' chico' : ''}" src="${esc(src)}" alt="">${numero ? `<b class="par-num${numero > 9 ? ' dos' : ''}">${Number(numero)}</b>` : ''}</span>`;
   return src ? `<img class="par-img${chico ? ' chico' : ''}" src="${esc(src)}" alt="${t}">`
     : `<span class="par-dibujo par-${esc(code)}${chico ? ' chico' : ''}" role="img" aria-label="${t}"><small>${code === 'iniciacion' ? 'INICIACIÓN' : t.toUpperCase()}</small><b>T</b></span>`;
 }
@@ -43,8 +53,9 @@ export async function seccionParches(el, { rpc, org, playerId, nombre = '' }) {
   let d = null;
   try { d = await rpc('v2_player_patches', { organization_id: org, player_id: playerId }); } catch { el.innerHTML = ''; return; }  // sin permiso: no se enseña
   const vigentes = (d.awards || []).filter(a => !a.revokedAt), revocados = (d.awards || []).filter(a => a.revokedAt);
+  const nums = numerosDeCampeon(vigentes);
   el.innerHTML = `<section class="tan-section par-seccion"><div class="tan-section-head"><h2>Parches</h2><span>Lo que ha vivido en el club</span></div>
-    ${vigentes.length ? `<div class="par-fila">${vigentes.map(a => `<div class="par-item">${parcheHtml(a.code, { titulo: a.name })}
+    ${vigentes.length ? `<div class="par-fila">${vigentes.map(a => `<div class="par-item">${parcheHtml(a.code, { titulo: a.name, numero: nums.get(a) })}
         <b>${esc(a.code === 'campeones' ? 'Campeón' : 'Iniciación')}</b><small>${esc(detalle(a))}</small>
         ${a.deliveredAt ? '<span class="par-ok">Entregado</span>' : d.canAward ? `<button type="button" class="par-btn" data-par-entregar="${esc(a.id)}">Marcar entregado</button>` : '<span class="par-pend">Por entregar</span>'}
         ${d.canRevoke ? `<button type="button" class="par-link" data-par-revocar="${esc(a.id)}">Revocar</button>` : ''}</div>`).join('')}</div>`
@@ -153,7 +164,8 @@ function porEntregar(cont, { rpc, org, code, hechos, fallas, st, alTerminar }) {
       <p>${esc(code === 'campeones' ? st.reason : `Iniciación ${st.variant === 'baby' ? 'Baby' : 'Tanner'}`)} · ${esc(fechaBonita(st.fecha))}</p></div>
     ${fallas.length ? `<p class="par-error">No se pudo con: ${esc(fallas.join(' · '))}</p>` : ''}
     ${hechos.length ? `<h4 class="par-sub">Por entregar</h4><p class="par-ayuda">Palomea conforme lo entregas en la ceremonia.</p>
-      <ul class="par-jug">${hechos.map(j => `<li><label><input type="checkbox" data-par-entrega="${esc(j.awardId || '')}"><span class="par-cara" data-foto="${esc(j.photoThumbPath || '')}" data-bucket="${esc(j.photoBucket || 'tanneros-private')}"><b>${esc(iniciales(j.name))}</b></span><span>${esc(j.name)}</span></label></li>`).join('')}</ul>` : ''}
+      <ul class="par-jug">${hechos.map(j => { const n = code === 'campeones' ? (j.patches || []).filter(p => p.code === 'campeones').length + 1 : null;
+        return `<li><label><input type="checkbox" data-par-entrega="${esc(j.awardId || '')}"><span class="par-cara" data-foto="${esc(j.photoThumbPath || '')}" data-bucket="${esc(j.photoBucket || 'tanneros-private')}"><b>${esc(iniciales(j.name))}</b></span><span>${esc(j.name)}${n ? `<small class="par-n">Parche con el ${n}</small>` : ''}</span>${n ? parcheHtml('campeones', { chico: true, numero: n }) : ''}</label></li>`; }).join('')}</ul>` : ''}
     <button type="button" class="par-primario" data-par-cerrar>Listo</button>`;
   fotos(cont);
   cont.onclick = e => { if (e.target.closest('[data-par-cerrar]')) { document.getElementById('parHoja')?.remove(); alTerminar?.(); } };

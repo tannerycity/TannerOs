@@ -1,7 +1,7 @@
 import {supabase,rpc,money,$,PUSH_PUBLIC_KEY,urlBase64ToUint8Array} from '/v2/shell.js';
 import { pendientesDe, proximoEvento, cuandoEs, saludo, avisosSinLeer, PASOS_PEDIDO, avanceDePedido, piezaTexto } from '/v2/familias/inicio.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
-import { parcheHtml } from '/v2/parches/parches.js';
+import { parcheHtml, numerosDeCampeon } from '/v2/parches/parches.js';
 import { llaveDeLiga } from '/v2/club-publico.js';
 import { correoDeEntrada, tokenDeLiga, primeraPalabra, conEspacios } from '/v2/invitaciones/invitaciones.js';
 import {getSignedPhotoUrl, getSignedPhotoUrls, clearPhotoCache} from '/v2/photo-cache.js';
@@ -489,11 +489,12 @@ const MESES_CORTOS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct',
 // Sus parches: sólo si tiene. Sin conteos ni "le faltan": cuenta su historia.
 function parchesBlock(lista,p){
   if(!Array.isArray(lista)||!lista.length)return '';
-  if(!document.querySelector('link[href^="/v2/parches/parches.css"]'))document.head.insertAdjacentHTML('beforeend','<link rel="stylesheet" href="/v2/parches/parches.css?v=20261109a">');
+  if(!document.querySelector('link[href^="/v2/parches/parches.css"]'))document.head.insertAdjacentHTML('beforeend','<link rel="stylesheet" href="/v2/parches/parches.css?v=20261109c">');
   const f=d=>new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${String(d).slice(0,10)}T12:00:00`)).replace('.','');
   const code=x=>/campe/i.test(x.name||'')?'campeones':'iniciacion';
+  const nums=numerosDeCampeon(lista.map(x=>Object.assign(x,{code:code(x)})));
   return `<section class="fam-card par-seccion-portal"><div class="fam-card-head"><h2>Sus parches</h2><span>lo que ha vivido en el club</span></div>
-    <div class="par-fila">${lista.map(x=>`<div class="par-item">${parcheHtml(code(x),{titulo:x.name})}<b>${code(x)==='campeones'?'Campeón':'Iniciación'}</b><small>${esc([x.reason||(x.variant==='baby'?'Baby':x.variant==='tanner'?'Tanner':''),f(x.awardedOn)].filter(Boolean).join(' · '))}</small></div>`).join('')}</div></section>`;
+    <div class="par-fila">${lista.map(x=>`<div class="par-item">${parcheHtml(code(x),{titulo:x.name,numero:nums.get(x)})}<b>${code(x)==='campeones'?'Campeón':'Iniciación'}</b><small>${esc([x.reason||(x.variant==='baby'?'Baby':x.variant==='tanner'?'Tanner':''),f(x.awardedOn)].filter(Boolean).join(' · '))}</small></div>`).join('')}</div></section>`;
 }
 function puntualidadBlock(z){
   if(!z?.december)return '';

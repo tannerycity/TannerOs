@@ -87,7 +87,8 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
                 // Parches (h78): Liam ya vivió su Iniciación y fue Campeón; falta entregar el de Campeón.
                 v2_player_patches:{ canAward:true, canRevoke:true, types:[{ code:'iniciacion' }, { code:'campeones' }], awards:[
                   { id:'aw1', code:'iniciacion', name:'Parche de Iniciación Tanner', variant:'tanner', awardedOn:'2026-11-07', deliveredAt:'2026-11-07T20:00:00Z' },
-                  { id:'aw2', code:'campeones', name:'Parche de Campeones', reason:'Copa León 2026', awardedOn:'2026-11-08', deliveredAt:null }] },
+                  { id:'aw2', code:'campeones', name:'Parche de Campeones', reason:'Copa León 2026', awardedOn:'2026-11-08', deliveredAt:null },
+                  { id:'aw0', code:'campeones', name:'Parche de Campeones', reason:'Liga de Verano 2026', awardedOn:'2026-07-20', deliveredAt:'2026-07-20T20:00:00Z' }] },
                 v2_mark_patch_delivered:{ id:'aw2', delivered:true },
                 v2_player_family:[{ id:'p2', name:'Sofía Santos', birthDate:'2019-05-01', balance:400 }],
                 v2_collect_ticket:{ ok:true, ticketId:'t9', folio:9, total:0, payments:['a','b','c'] },
@@ -469,8 +470,10 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   const p = await abre(true);
   await p.waitForSelector('#tanParches .par-item', { timeout:8000 });
   const items = await p.$$eval('#tanParches .par-item', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
-  revisa('[parches] el perfil enseña sus parches con fecha y de qué fue', items.length === 2 && /Iniciación/.test(items[0]) && /Tanner · 7 nov 2026/.test(items[0]) && /Campeón/.test(items[1]) && /Copa León 2026/.test(items[1]), JSON.stringify(items));
-  revisa('[parches] el de Campeón usa el arte oficial', /campeon-azul\.png/.test(await p.getAttribute('#tanParches .par-item:nth-child(2) img', 'src') || ''));
+  revisa('[parches] el perfil enseña sus parches con fecha y de qué fue', items.length === 3 && /Iniciación/.test(items[0]) && /Tanner · 7 nov 2026/.test(items[0]) && /Campeón/.test(items[1]) && /Copa León 2026/.test(items[1]), JSON.stringify(items));
+  revisa('[parches] el de Campeón usa el arte oficial (sin número)', /campeon-azul-sin-numero\.png/.test(await p.getAttribute('#tanParches .par-item:nth-child(2) img', 'src') || ''));
+  const nums = await p.$$eval('#tanParches .par-item', l => l.map(x => [x.querySelector('small')?.textContent || '', x.querySelector('.par-num')?.textContent || '']));
+  revisa('[parches] el número va cambiando, como la Champions: Verano 2026 es el 1, Copa León el 2', nums.some(([t, n]) => /Liga de Verano/.test(t) && n === '1') && nums.some(([t, n]) => /Copa León/.test(t) && n === '2') && !nums.some(([t, n]) => /Tanner ·/.test(t) && n), JSON.stringify(nums));
   revisa('[parches] dice cuál falta entregar', /Entregado/.test(items[0]) && /Marcar entregado/.test(items[1]));
   await p.click('[data-par-entregar="aw2"]');
   await p.waitForTimeout(300);

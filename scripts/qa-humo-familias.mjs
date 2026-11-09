@@ -238,7 +238,7 @@ revisa('[puntualidad] la familia ve SU código del kit, con vigencia y un uso', 
 const parc = (await pagina.textContent('.par-seccion-portal').catch(() => '')).replace(/\s+/g, ' ');
 revisa('[parches] la familia ve los parches de su hijo, con fecha y de qué fue', /Sus parches/.test(parc) && /Iniciación/.test(parc) && /Campeón/.test(parc) && /Copa León 2026/.test(parc) && /8 nov 2026/.test(parc), parc.slice(0, 200));
 revisa('[parches] sin quién lo registró ni conteos', !/Brandon|registr|faltan|de \d/i.test(parc), parc.slice(0, 200));
-revisa('[parches] el de Campeón con su arte', /campeon-azul\.png/.test(await pagina.getAttribute('.par-seccion-portal .par-item:nth-child(2) img', 'src').catch(() => '') || ''));
+revisa('[parches] el de Campeón con su arte', /campeon-azul-sin-numero\.png/.test(await pagina.getAttribute('.par-seccion-portal .par-item:nth-child(2) img', 'src').catch(() => '') || '') && (await pagina.textContent('.par-seccion-portal .par-num').catch(() => '')) === '1');
 if (process.env.SHOTS) { await pagina.$eval('.fam-punt', e => e.scrollIntoView({ block:'center' })); await pagina.screenshot({ path:`${process.env.SHOTS}/familias-puntualidad.png` }); }
 revisa('[acuerdo] ya no vuelve a pedir "Enterado"', !(await pagina.$('#acuerdoEnterado')));
 const tarjeta = (await pagina.textContent('.fam-imagen')).replace(/\s+/g, ' ');

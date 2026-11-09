@@ -13,6 +13,7 @@
  */
 
 export const NIVELES = ['sin_rival', 'con_rival', 'con_decision', 'en_juego'];
+export const etiquetaDe = (t, recurso) => (t.resources || []).find(r => r.code === recurso && (r.status ?? 'aprobada') === 'aprobada') || null;
 
 export function bloquesDeSesion(minutos, esBaby = false) {
   if (esBaby) return [
@@ -39,7 +40,7 @@ export function nivelObjetivo(indiceSesion = 0, totalSesiones = 1, escalon = 0) 
 }
 
 export function recomienda({ tareas = [], etapa, esBaby = false, reto, secundario = null, bloque = {},
-  indiceSesion = 0, totalSesiones = 1, usos = {}, limite = 3 } = {}) {
+  indiceSesion = 0, totalSesiones = 1, usos = {}, limite = 3, recurso = null } = {}) {
   const banco = esBaby ? 'baby' : 'tanner';
   const candidatas = tareas.filter(t => t.bank === banco && (t.status ?? 'oficial') === 'oficial'
     && (!etapa || !(t.stages || []).length || (t.stages || []).includes(etapa)));
@@ -49,6 +50,12 @@ export function recomienda({ tareas = [], etapa, esBaby = false, reto, secundari
     if (reto && t.primary === reto) p += 3;
     else if ((secundario && t.primary === secundario) || (reto && (t.related || []).includes(reto))) p += 2;
     if (nivel && t.level === nivel) p += 1;
+    // PROP-FC-002 · Recursos (09/11/2026): sólo cuentan etiquetas APROBADAS por
+    // Dirección (el catálogo no manda las sugeridas al Formador). Principal +2,
+    // complementaria +1. El Reto sigue mandando: el recurso no trae tareas de
+    // otro Reto, sólo ordena las del objetivo.
+    const tag = recurso ? etiquetaDe(t, recurso) : null;
+    if (tag) p += tag.relevance === 'principal' ? 2 : 1;
     p -= Number(usos[t.id] || 0);
     return p;
   };
@@ -134,4 +141,81 @@ export function pasosDelFormador(sesiones = []) {
   ];
   const actual = pasos.find(p => !p.hecho && !p.info)?.n || 4;
   return { pasos, actual, n, listas };
+}
+
+/* ---- PROP-FC-002 · decisión 2 (09/11/2026) ----
+   Tres tareas apropiadas CON su "por qué", y "Ver más" que respeta el
+   objetivo de Dirección: primero el Reto de la semana, luego el secundario y
+   los relacionados, al final los demás. Determinista: mismas entradas, misma
+   salida. Si no hay 3 válidas se muestran las que hay y se dice por qué;
+   nunca se inventa una tarea. Jugadores y duración filtran sólo cuando la
+   ficha los trae (las fichas v1.0 no los traen: no se suponen). */
+const NOMBRE_NIVEL_FC = { sin_rival: 'Sin rival', con_rival: 'Con rival', con_decision: 'Con decisión', en_juego: 'En juego' };
+const cabe = (t, jugadores, minutos) =>
+  (!jugadores || ((t.playersMin == null || jugadores >= t.playersMin) && (t.playersMax == null || jugadores <= t.playersMax)))
+  && (!minutos || t.minutes == null || t.minutes <= minutos);
+
+export function recomiendaConPorque(opts = {}) {
+  const { tareas = [], etapa, esBaby = false, reto, secundario = null, bloque = {}, indiceSesion = 0,
+    totalSesiones = 1, usos = {}, limite = 3, jugadores = null, minutos = null, nombre = c => c, nombreRecurso = c => c } = opts;
+  const banco = esBaby ? 'baby' : 'tanner';
+  const deEtapa = tareas.filter(t => t.bank === banco && (t.status ?? 'oficial') === 'oficial'
+    && (!etapa || !(t.stages || []).length || (t.stages || []).includes(etapa)));
+  const delObjetivo = deEtapa.filter(t => !reto || t.primary === reto || t.primary === secundario || (t.related || []).includes(reto));
+  const caben = delObjetivo.filter(t => cabe(t, jugadores, minutos));
+  const elegidas = recomienda({ ...opts, tareas: caben, limite });
+  const nivel = esBaby ? null : nivelObjetivo(indiceSesion, totalSesiones, bloque.escalon || 0);
+  const opciones = elegidas.map(t => {
+    const porque = [];
+    if (reto && t.primary === reto) porque.push(`${esBaby ? 'Mundo' : 'Reto'} de la semana: ${nombre(reto)}`);
+    else if (secundario && t.primary === secundario) porque.push(`Reto secundario: ${nombre(secundario)}`);
+    else if (reto && (t.related || []).includes(reto)) porque.push(`También trabaja ${nombre(reto)}`);
+    const tag = opts.recurso ? etiquetaDe(t, opts.recurso) : null;
+    if (tag) porque.push(`Recurso ${tag.relevance === 'principal' ? 'principal' : 'complementario'}: ${nombreRecurso(opts.recurso)}`);
+    if (nivel && t.level === nivel) porque.push(`Toca ${NOMBRE_NIVEL_FC[nivel]} en esta sesión`);
+    else if (t.level) porque.push(`Nivel ${NOMBRE_NIVEL_FC[t.level]}`);
+    const u = Number(usos[t.id] || 0);
+    porque.push(u ? `Ya la usaste ${u} ${u === 1 ? 'vez' : 'veces'} esta semana` : 'No la has usado esta semana');
+    return { tarea: t, porque };
+  });
+  let aviso = '';
+  if (opciones.length < limite) {
+    const quien = reto ? `del ${esBaby ? 'Mundo' : 'Reto'} ${nombre(reto)}` : 'del banco';
+    aviso = !deEtapa.length ? 'No hay tareas oficiales para esta etapa.'
+      : caben.length < delObjetivo.length ? `Solo ${opciones.length} ${quien} caben con ${jugadores} jugadores o ${minutos} minutos.`
+      : `El banco tiene ${opciones.length} ${opciones.length === 1 ? 'tarea' : 'tareas'} ${quien} para esta etapa.`;
+    aviso += ' Usa Ver más o escribe la tuya.';
+  }
+  if (opts.recurso && opciones.length && !opciones.some(o => etiquetaDe(o.tarea, opts.recurso)))
+    aviso = `${aviso ? aviso + ' ' : ''}Ninguna tiene aún el recurso ${nombreRecurso(opts.recurso)} aprobado por Dirección.`;
+  return { opciones, aviso };
+}
+
+// "Ver más": todas las de la etapa, agrupadas por cercanía al objetivo.
+export function verMas({ tareas = [], etapa, esBaby = false, reto = null, secundario = null, excluir = [], nombre = c => c } = {}) {
+  const banco = esBaby ? 'baby' : 'tanner', fuera = new Set(excluir);
+  const lista = tareas.filter(t => t.bank === banco && (t.status ?? 'oficial') === 'oficial' && !fuera.has(t.id)
+    && (!etapa || !(t.stages || []).length || (t.stages || []).includes(etapa)))
+    .sort((a, b) => (NIVEL_NUM[a.level] || 0) - (NIVEL_NUM[b.level] || 0) || String(a.code).localeCompare(String(b.code)));
+  if (!reto) return lista.length ? [{ titulo: 'Todas', tareas: lista }] : [];
+  const g = [
+    { titulo: `Del ${esBaby ? 'Mundo' : 'Reto'} ${nombre(reto)}`, tareas: lista.filter(t => t.primary === reto) },
+    { titulo: secundario ? `Secundario y relacionadas` : 'Relacionadas', tareas: lista.filter(t => t.primary !== reto && (t.primary === secundario || (t.related || []).includes(reto))) },
+    { titulo: 'Otros', tareas: lista.filter(t => t.primary !== reto && t.primary !== secundario && !(t.related || []).includes(reto)) }
+  ];
+  return g.filter(x => x.tareas.length);
+}
+
+/* ---- PROP-FC-002 · decisión 1: Calendario ----
+   La misma lista de sesiones que las Tarjetas, puesta por día (lunes a
+   domingo). No es otra planeación: se pinta de los mismos datos. */
+// La fecha es la LOCAL del club (una sesión a las 19:00 en León es otro día en UTC).
+export const fechaLocal = (iso, tz = 'America/Mexico_City') => iso ? new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)) : '';
+export function semanaEnDias(weekStart, sesiones = [], tz = 'America/Mexico_City') {
+  const fechaDe = s => fechaLocal(s.startsAt, tz);
+  const base = new Date(`${weekStart}T12:00:00Z`);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base.getTime() + i * 86400000).toISOString().slice(0, 10);
+    return { fecha: d, sesiones: sesiones.filter(s => fechaDe(s) === d).sort((a, b) => String(a.startsAt).localeCompare(String(b.startsAt))) };
+  });
 }

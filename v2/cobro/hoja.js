@@ -173,10 +173,22 @@ const etiqueta = (label, cuenta) => (variasCuentas() ? `${label} · ${primerNomb
 
 // Lo que se puede tocar de cada Tanner. Los cargos que paga un patrocinador no
 // entran: se cobran aparte, con su nombre.
+// Un recargo dice por qué está ahí (09/11/2026, h68). Presidencia: "falta el
+// concepto de debe mensualidad noviembre"; noviembre ya estaba pagado (el 6,
+// el límite era el 5) y sólo quedaba su recargo.
+const DIA = d => Number(String(d || '').slice(8, 10));
+function porQueRecargo(c) {
+  const pa = c?.parent;
+  if (c?.type !== 'late_fee' || !pa) return '';
+  const mes = c.period ? new Intl.DateTimeFormat('es-MX', { month: 'long' }).format(new Date(`${String(c.period).slice(0, 7)}-15T12:00:00`)) : 'la mensualidad';
+  const Mes = mes.charAt(0).toUpperCase() + mes.slice(1);
+  if (Number(pa.balance) <= 0.004) return `${Mes} ya está pagada${pa.paidOn ? ` (pagó el ${DIA(pa.paidOn)}, el límite era el ${DIA(pa.due)})` : ''}`;
+  return `${Mes} todavía debe ${money.format(Number(pa.balance))} (el límite era el ${DIA(pa.due)})`;
+}
 function opcionesDe(cuenta) {
   const col = cuenta.col || {};
   const cargos = (col.charges || []).filter(c => !c.sponsor).map(c => ({ key: `c:${c.id}`, kind: 'charge', id: c.id, player: cuenta.id,
-    label: etiqueta(c.label, cuenta), max: Number(c.balance), period: String(c.period || '').slice(0, 7), type: c.type }));
+    label: etiqueta(c.label, cuenta), max: Number(c.balance), period: String(c.period || '').slice(0, 7), type: c.type, porque: porQueRecargo(c) }));
   const pedidos = col.canOrders ? (col.orders || []).map(o => ({ key: `o:${o.id}`, kind: 'order', id: o.id, player: cuenta.id,
     label: etiqueta(`Uniforme ${o.folio}`, cuenta), max: Number(o.balance) })) : [];
   const reg = !cargos.some(c => c.type === 'registration') && inscripciones().length
@@ -239,7 +251,7 @@ function panelHtml() {
   const grupo = (titulo, filas) => filas.length ? `<div class="cobro-grupo"><span class="cobro-grupo-tit">${esc(titulo)}</span>${filas.join('')}</div>` : '';
   const cuentas = [...s.cuentas.values()].map(c => ({ c, o: opcionesDe(c) }));
   const quien = c => (variasCuentas() ? ` · ${primerNombre(c.nombre)}` : '');
-  const debe = cuentas.flatMap(({ c, o }) => [...o.cargos, ...o.pedidos].filter(libre).map(x => fila(x, x.max, x.kind === 'order' ? 'Uniforme pendiente' : `Debe${quien(c)}`)));
+  const debe = cuentas.flatMap(({ c, o }) => [...o.cargos, ...o.pedidos].filter(libre).map(x => fila(x, x.max, x.kind === 'order' ? 'Uniforme pendiente' : x.porque ? `${x.porque}${quien(c)}` : `Debe${quien(c)}`)));
   const meses = cuentas.flatMap(({ o }) => o.meses.filter(libre).map(x => fila(x, x.sugerido, x.detalle)));
   const otros = [
     ...cuentas.flatMap(({ o }) => o.reg.filter(libre).map(x => fila(x, inscripcionSugerida(x.nacimiento)?.precio, 'Se carga y se paga hoy'))),
@@ -304,7 +316,7 @@ function lineaHtml(i) {
   // estorba. Se avisa nada más cuando deja algo pendiente.
   const nota = i.max != null ? (num(i.amount) > 0 && num(i.amount) < i.max ? `Queda a deber ${money.format(i.max - num(i.amount))}` : '')
     : i.kind === 'month' ? esc(i.detalle || '') : i.kind === 'abono' ? 'Se aplica a lo más antiguo; si sobra, queda a favor.' : '';
-  return renglon(i.label, nota);
+  return renglon(i.label, nota || (i.porque ? esc(i.porque) : ''));
 }
 
 // La fecha del pago, a la vista: "Pagó hoy". Si se cambia a un día anterior,

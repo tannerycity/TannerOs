@@ -164,6 +164,37 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.close();
 }
 
+{ // PROP-FC-002 (09/11/2026): Tarjetas o Calendario, y el porqué de cada tarea.
+  const p = await abre({ direccion: false });
+  await p.waitForSelector('.fm-hero h1', { timeout: 6000 });
+  revisa('[fc-002] abre en Tarjetas', (await p.getAttribute('[data-vista="tarjetas"]', 'aria-selected')) === 'true' && (await p.$$('.fm-lista .fm-ses')).length === 3);
+  await p.click('[data-vista="calendario"]');
+  await p.waitForSelector('.fm-cal');
+  const dias = await p.$$eval('.fm-cal-dia', d => d.map(x => [x.querySelector('.fm-cal-fecha').textContent.trim(), [...x.querySelectorAll('[data-ses]')].map(b => b.dataset.ses).join()]));
+  revisa('[fc-002] calendario: 7 días, cada sesión en su día local', dias.length === 7 && dias[0][1] === 's1' && dias[1][1] === 's3' && dias[2][1] === 's2' && dias.slice(3).every(d => !d[1]), JSON.stringify(dias));
+  revisa('[fc-002] calendario y tarjetas: las mismas 3 sesiones', (await p.$$('.fm-cal [data-ses]')).length === 3);
+  revisa('[fc-002] el estado se ve igual en las dos vistas', /Lista/.test(await p.textContent('.fm-cal [data-ses="s1"]')) && /Pendiente/.test(await p.textContent('.fm-cal [data-ses="s2"]')));
+  await cabe(p, 'calendario');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-calendario.png' });
+  revisa('[fc-002] recuerda la vista al volver', await p.evaluate(() => localStorage.getItem('tos:fm:vista')) === 'calendario');
+  await p.click('.fm-cal [data-ses="s2"]');
+  await p.waitForSelector('#fmHoja:not(.hidden) .fm-bloque[data-i="1"] .fm-porque');
+  const porque = await p.$$eval('.fm-bloque[data-i="1"] [data-elige] .fm-porque', x => x.map(e => e.textContent));
+  revisa('[fc-002] desde el calendario abre la misma sesión, con 3 tareas y su porqué', porque.length === 3 && porque.every(t => /Reto de la semana: 1V1/.test(t)), JSON.stringify(porque));
+  revisa('[fc-002] el porqué dice si ya se usó esta semana', porque.some(t => /Ya la usaste 1 vez esta semana/.test(t)) || porque.every(t => /No la has usado/.test(t)), JSON.stringify(porque));
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-porque.png' });
+  const mostradas = await p.$$eval('.fm-bloque[data-i="1"] [data-elige]', b => b.map(x => x.dataset.task));
+  await p.click('.fm-bloque[data-i="1"] [data-mas="1"]');
+  const grupos = await p.$$eval('.fm-bloque[data-i="1"] .fm-recos-grupo', g => g.map(x => x.textContent));
+  const resto = await p.$$eval('.fm-bloque[data-i="1"] [data-elige]', b => b.map(x => x.dataset.task));
+  revisa('[fc-002] Ver más: primero el Reto de la semana, luego los demás', grupos[0] === 'Del Reto 1V1' && grupos.at(-1) === 'Otros', JSON.stringify(grupos));
+  revisa('[fc-002] Ver más no repite las 3 ya mostradas y deja sustituir', resto.length === 33 && !resto.some(t => mostradas.includes(t)) && resto[0] === ['t05', 't06', 't07', 't08'].find(t => !mostradas.includes(t)), JSON.stringify(resto.slice(0, 3)));
+  await p.click(`.fm-bloque[data-i="1"] [data-elige][data-task="${resto.at(-1)}"]`);
+  revisa('[fc-002] el profe puede elegir una de otro Reto', /Partido sin Pausa|Protege la Casa|Gana Terreno/.test(await p.textContent('.fm-bloque[data-i="1"] .fm-elegida')), await p.textContent('.fm-bloque[data-i="1"] .fm-elegida'));
+  await cabe(p, 'ver más');
+  await p.close();
+}
+
 { // Dirección: la Semana Tanner en 5 pasos (13/10/2026)
   const p = await abre({ direccion: true });
   await p.waitForSelector('.fm-cat2', { timeout: 6000 });

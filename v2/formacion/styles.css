@@ -353,3 +353,30 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-album-hero.con-mundo>.fm-mico{position:absolute;right:18px;top:50%;width:66px;height:66px;transform:translateY(-50%) rotate(-8deg);background:rgba(255,255,255,.2);color:#fff;animation:fm-pop .35s cubic-bezier(.2,.8,.2,1.4) both}
 .fm-album-hero.con-mundo>.fm-mico svg{width:38px;height:38px;stroke-width:1.8}
 @media (prefers-reduced-motion:reduce){.fm-album-hero.con-mundo>.fm-mico{animation:none}}
+
+/* PROP-FC-002 (09/11/2026): Tarjetas o Calendario, y el porqué de cada tarea. */
+.fm-vistas{display:inline-grid;grid-auto-flow:column;gap:2px;padding:3px;border-radius:999px;background:#eef1f1;margin:4px 0 10px}
+.fm-vistas button{border:0;background:transparent;border-radius:999px;padding:7px 16px;font:inherit;font-size:13px;font-weight:700;color:#4f6469;cursor:pointer;min-height:36px}
+.fm-vistas button[aria-selected="true"]{background:#fff;color:#0b1f24;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.fm-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.fm-cal-dia{display:grid;align-content:start;gap:6px;min-height:96px;padding:8px;border-radius:14px;background:#fafbfb;border:1px solid var(--tos-line,#dfe3e3)}
+.fm-cal-dia.vacio{background:transparent;border-style:dashed}
+.fm-cal-fecha{margin:0;font-size:12px;color:#6f7c81}
+.fm-cal-fecha b{color:#0b1f24}
+.fm-cal-ses{display:grid;gap:2px;text-align:left;border:1px solid #f0d78c;background:#fffaf0;border-radius:10px;padding:8px;font:inherit;cursor:pointer;min-height:44px}
+.fm-cal-ses.lista{border-color:#a6dfb9;background:#f1fbf4}
+.fm-cal-ses span{font-size:12px;font-variant-numeric:tabular-nums;color:#4f6469}
+.fm-cal-ses b{font-size:13px;line-height:1.2}
+.fm-cal-ses small{font-size:11.5px;color:#6f7c81}
+.fm-cal-ses .fm-pill{justify-self:start;font-style:normal;padding:3px 8px}
+.fm-cal-nada{font-size:11.5px;color:#9aa6aa}
+@media (max-width:720px){
+  .fm-cal{grid-template-columns:1fr}
+  .fm-cal-dia{min-height:0;grid-template-columns:64px 1fr;align-items:start}
+  .fm-cal-dia>.fm-cal-ses,.fm-cal-dia>.fm-cal-nada{grid-column:2}
+  .fm-cal-dia.vacio{display:none}
+}
+.fm-porque{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.fm-porque i{font-style:normal;font-size:11px;font-weight:600;color:#2c5d3d;background:#e9f6ee;border-radius:999px;padding:2px 8px}
+.fm-recos-aviso{margin:2px 0;font-size:12.5px;color:#7a5a08;background:#fff7e0;border-radius:10px;padding:8px 10px}
+.fm-recos-grupo{margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#6f7c81}

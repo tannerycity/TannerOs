@@ -11,7 +11,7 @@
  * y en /v2/formacion/motor.js.
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth, moduleAccess } from '/v2/shell.js';
-import { recomienda, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador } from '/v2/formacion/motor.js?v=20261013b';
+import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador } from '/v2/formacion/motor.js?v=20261109a';
 
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
 if (!boot) throw new Error('No access');
@@ -22,6 +22,10 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 let catalogo = { concepts: [], tasks: [] }, semana = null, tab = esDireccion ? 'semana' : 'sesiones', tz = 'America/Mexico_City';
 let dataDir = null, dataMia = null, dataHoy = null, borrador = {};
 const album = { banco: 'tanner', mundo: '', nivel: 0, busca: '' };
+// PROP-FC-002 · 1: el Formador ve su semana en Tarjetas o en Calendario. Las dos
+// se pintan de las mismas sesiones (dataMia.sessions): no hay dos planeaciones.
+let vistaSemana = 'tarjetas';
+try { if (localStorage.getItem('tos:fm:vista') === 'calendario') vistaSemana = 'calendario'; } catch {}
 
 const concepto = (kind, code) => catalogo.concepts.find(c => c.kind === kind && c.code === code);
 const nombreReto = code => concepto('reto', code)?.name || concepto('mundo_baby', code)?.name || code || '';
@@ -191,20 +195,32 @@ async function publica() {
 function pintaSesiones() {
   const d = dataMia; if (!d) return '';
   const ses = d.sessions || [], r = resumenSemana(ses);
-  const tarjetas = ses.map(s => {
+  const tarjeta = s => {
     const lista = s.plan?.status === 'ready';
     const reto = s.plan?.challenge || s.week?.primary;
     return `<button type="button" class="fm-ses${lista ? ' lista' : ''}" data-ses="${esc(s.sessionId)}">
       <span class="fm-ses-dia">${esc(dia(s.startsAt))}</span>
       <span class="fm-ses-txt"><b>${esc(s.category)}</b><small>${esc(hora(s.startsAt))}–${esc(hora(s.endsAt))}${reto ? ` · ${esc(nombreReto(reto))}` : ''}</small></span>
       <span class="fm-pill ${lista ? 'ok' : 'pendiente'}">${lista ? 'Lista' : 'Pendiente'}</span></button>`;
+  };
+  const tarjetas = ses.map(tarjeta).join('');
+  const calendario = semanaEnDias(d.weekStart, ses, tz).map(x => {
+    const n = new Date(`${x.fecha}T12:00:00Z`);
+    const nom = mayus(new Intl.DateTimeFormat('es-MX', { timeZone: 'UTC', weekday: 'short' }).format(n).replace('.', ''));
+    return `<div class="fm-cal-dia${x.sesiones.length ? '' : ' vacio'}"><p class="fm-cal-fecha"><b>${esc(nom)}</b> ${n.getUTCDate()}</p>
+      ${x.sesiones.map(s => { const lista = s.plan?.status === 'ready', reto = s.plan?.challenge || s.week?.primary;
+        return `<button type="button" class="fm-cal-ses${lista ? ' lista' : ''}" data-ses="${esc(s.sessionId)}"><span>${esc(hora(s.startsAt))}</span><b>${esc(s.category)}</b>${reto ? `<small>${esc(nombreReto(reto))}</small>` : ''}<i class="fm-pill ${lista ? 'ok' : 'pendiente'}">${lista ? 'Lista' : 'Pendiente'}</i></button>`; }).join('')
+        || '<small class="fm-cal-nada">Sin sesión</small>'}</div>`;
   }).join('');
+  const cambio = `<div class="fm-vistas" role="tablist" aria-label="Ver mi semana como">
+      <button type="button" role="tab" aria-selected="${vistaSemana === 'tarjetas'}" data-vista="tarjetas">Tarjetas</button>
+      <button type="button" role="tab" aria-selected="${vistaSemana === 'calendario'}" data-vista="calendario">Calendario</button></div>`;
   return `${pintaHoy()}<section class="fm-hero ${r.completa ? 'completa' : ''}"><span>PRÓXIMA SEMANA · ${esc(rangoSemana(d.weekStart))}</span>
       <h1>${r.total ? (r.completa ? 'Próxima semana — lista' : `${r.total} ${r.total === 1 ? 'sesión' : 'sesiones'} · ${r.listas} ${r.listas === 1 ? 'lista' : 'listas'} · ${r.pendientes} ${r.pendientes === 1 ? 'pendiente' : 'pendientes'}`) : 'Sin sesiones esa semana'}</h1>
       <p>Corte: ${esc(fecha(d.deadline, { weekday: 'long', day: 'numeric', month: 'short' }))} a las ${esc(hora(d.deadline))}.</p>
       ${r.pendientes ? '<button type="button" id="fmTerminar" class="fm-cta">Terminar planeación</button>' : ''}</section>
     ${ses.length ? pintaPasosFormador(ses) : ''}
-    ${ses.length ? `${bannerPractica()}<div class="fm-lista">${tarjetas}</div>` : vacioConPractica(d)}`;
+    ${ses.length ? `${bannerPractica()}${cambio}${vistaSemana === 'calendario' ? `<div class="fm-cal">${calendario}</div>` : `<div class="fm-lista">${tarjetas}</div>`}` : vacioConPractica(d)}`;
 }
 
 /* ---------- Botones de juego (13/10/2026) ----------
@@ -325,8 +341,9 @@ function hojaSesion(s, pre = '') {
     const i = libres.length ? libres[0] : bloques.findIndex(b => b.principal);
     if (i >= 0) { sel[i].taskId = pre; sel[i].text = ''; }
   }
-  const recos = b => recomienda({ tareas: catalogo.tasks, etapa: s.stage, esBaby, reto, secundario: s.week?.secondary, bloque: b, indiceSesion: indice, totalSesiones: total, usos });
-  const todas = () => catalogo.tasks.filter(t => t.bank === (esBaby ? 'baby' : 'tanner') && (!s.stage || (t.stages || []).includes(s.stage)));
+  // PROP-FC-002 · 2: tres tareas con su "por qué"; si no hay tres, lo dice.
+  const recos = b => recomiendaConPorque({ tareas: catalogo.tasks, etapa: s.stage, esBaby, reto, secundario: s.week?.secondary, bloque: b, indiceSesion: indice, totalSesiones: total, usos, nombre: nombreReto });
+  const grupos = (b, fuera) => verMas({ tareas: catalogo.tasks, etapa: s.stage, esBaby, reto, secundario: s.week?.secondary, excluir: fuera, nombre: nombreReto });
   const textoItem = it => it.taskId ? esc(tarea(it.taskId)?.name || 'Tarea') : esc(it.text || '');
 
   const cuerpo = () => `
@@ -336,8 +353,9 @@ function hojaSesion(s, pre = '') {
       const it = sel[i];
       return `<section class="fm-bloque" data-i="${i}"><header><b>${esc(b.nombre)}</b>${it.taskId || it.text ? `<button type="button" class="fm-link" data-cambiar="${i}">Cambiar</button>` : ''}</header>
         ${it.taskId || it.text ? `<p class="fm-elegida">${textoItem(it)}${it.taskId ? `<small>${esc(tarea(it.taskId)?.buscamos || '')}</small>` : ''}</p>`
-          : `<div class="fm-recos">${recos(b).map(t => `<button type="button" data-elige="${i}" data-task="${esc(t.id)}"><b>${esc(t.name)}</b><small>${esc(t.buscamos)}</small></button>`).join('')}
-             <button type="button" class="fm-link" data-mas="${i}">Ver más</button><button type="button" class="fm-link" data-escribe="${i}">Escribir otra</button></div>`}
+          : (r => `<div class="fm-recos">${r.opciones.map(({ tarea: t, porque }) => `<button type="button" data-elige="${i}" data-task="${esc(t.id)}"><b>${esc(t.name)}</b><small>${esc(t.buscamos)}</small><span class="fm-porque">${porque.map(p => `<i>${esc(p)}</i>`).join('')}</span></button>`).join('')}
+             ${r.aviso ? `<p class="fm-recos-aviso">${esc(r.aviso)}</p>` : ''}
+             <button type="button" class="fm-link" data-mas="${i}">Ver más</button><button type="button" class="fm-link" data-escribe="${i}">Escribir otra</button></div>`)(recos(b))}
         ${b.principal && (it.taskId || it.text) ? ajustes(k => `data-dif="${i}" data-v="${k}"`, it.difficulty, k => `data-esp="${i}" data-v="${k}"`, it.space) : ''}
       </section>`;
     }).join('')}
@@ -351,7 +369,10 @@ function hojaSesion(s, pre = '') {
     else if (t.dataset.cambiar) { const it = sel[+t.dataset.cambiar]; it.taskId = ''; it.text = ''; repinta(); }
     else if (t.dataset.mas) {
       const i = +t.dataset.mas, caja = t.closest('.fm-recos');
-      caja.innerHTML = todas().map(x => `<button type="button" data-elige="${i}" data-task="${esc(x.id)}"><b>${esc(x.name)}</b><small>${esc(nombreReto(x.primary))}${x.level ? ' · ' + esc(concepto('nivel', x.level)?.name || '') : ''}</small></button>`).join('');
+      const mostradas = recos(bloques[i]).opciones.map(o => o.tarea.id);
+      const g = grupos(bloques[i], mostradas);
+      caja.innerHTML = g.length ? g.map(x => `<p class="fm-recos-grupo">${esc(x.titulo)}</p>${x.tareas.map(y => `<button type="button" data-elige="${i}" data-task="${esc(y.id)}"><b>${esc(y.name)}</b><small>${esc(nombreReto(y.primary))}${y.level ? ' · ' + esc(concepto('nivel', y.level)?.name || '') : ''}</small></button>`).join('')}`).join('')
+        : `<p class="fm-recos-aviso">No hay más tareas oficiales para esta etapa.</p><button type="button" class="fm-link" data-escribe="${i}">Escribir otra</button>`;
     } else if (t.dataset.escribe) {
       const i = +t.dataset.escribe;
       t.closest('.fm-recos').innerHTML = `<div class="fm-escribe"><input data-texto="${i}" maxlength="140" placeholder="¿Qué van a hacer?"><button type="button" class="primary" data-usa="${i}">Usar</button></div>`;
@@ -567,6 +588,7 @@ $('fmVista').addEventListener('click', e => {
   const hoy = e.target.closest('[data-hoy]'); if (hoy) { modoCancha(dataHoy.sessions.find(s => s.sessionId === hoy.dataset.hoy)); return; }
   const ses = e.target.closest('[data-ses]'); if (ses) { hojaSesion(dataMia.sessions.find(s => s.sessionId === ses.dataset.ses)); return; }
   if (e.target.closest('#fmTerminar')) { const p = dataMia.sessions.find(s => s.plan?.status !== 'ready'); if (p) hojaSesion(p); return; }
+  const vi = e.target.closest('[data-vista]'); if (vi) { vistaSemana = vi.dataset.vista; try { localStorage.setItem('tos:fm:vista', vistaSemana); } catch {} pinta(); return; }
   if (e.target.closest('[data-practica]')) { practica(); return; }
   if (e.target.closest('[data-practica-cierra]')) { try { localStorage.setItem('tos:fm:practica', '1'); } catch {} pinta(); return; }
   const bn = e.target.closest('[data-banco]'); if (bn) { album.banco = bn.dataset.banco; album.mundo = ''; album.nivel = 0; pinta(); return; }

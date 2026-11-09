@@ -1,6 +1,6 @@
 /* El motor de recomendación y las reglas de "lista" de Formación. */
 import fs from 'node:fs';
-import { recomienda, bloquesDeSesion, nivelObjetivo, faltaParaLista, resumenSemana, pasosDeSemana, filtraAlbum, pasosDelFormador, colorDeMundo } from '../v2/formacion/motor.js';
+import { recomienda, bloquesDeSesion, nivelObjetivo, faltaParaLista, resumenSemana, pasosDeSemana, filtraAlbum, pasosDelFormador, colorDeMundo, recomiendaConPorque, verMas, semanaEnDias, fechaLocal } from '../v2/formacion/motor.js';
 
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d ? `\n   ${d}` : ''}`); } };
@@ -62,6 +62,39 @@ revisa('"3 sesiones · 2 listas · 1 pendiente"', JSON.stringify(resumenSemana([
   revisa('álbum: cada mundo tiene su color', colorDeMundo('gol') !== colorDeMundo('1v1') && colorDeMundo('balon', 'baby') !== colorDeMundo('balon'));
   const st = pasosDelFormador([{ week: { primary: 'gol' }, plan: { status: 'ready', items: [{ block: 'tarea', taskId: 'x' }] } }, { week: null, plan: { items: [{ block: 'calentar', text: 'Calentar' }] } }]);
   revisa('formador: calentar solo no cuenta como jugada; sigue el paso 1', st.actual === 1 && st.pasos[1].detalle === '1 de 2 sesiones' && st.pasos[2].detalle === '1 de 2 listas');
+}
+// PROP-FC-002 (09/11/2026): por qué, Ver más que respeta el objetivo, calendario.
+{
+  const nombre = c => ({ '1v1': '1V1', gol: 'Gol', reaccionar: 'Reaccionar', movimiento: 'Movimiento' })[c] || c;
+  const a = recomiendaConPorque({ tareas, etapa: 't6', reto: '1v1', bloque: { escalon: 0 }, indiceSesion: 0, totalSesiones: 2, nombre });
+  revisa('2. tres opciones, las mismas que el motor de siempre', a.opciones.length === 3 && a.opciones.map(o => o.tarea.id).join() === r1.map(t => t.id).join());
+  revisa('2. cada una dice por qué (Reto, nivel y uso)', a.opciones.every(o => o.porque[0] === 'Reto de la semana: 1V1' && o.porque.length >= 2), JSON.stringify(a.opciones[0].porque));
+  revisa('2. con 3 válidas no hay aviso', a.aviso === '');
+  revisa('2. la primera dice que toca su nivel', a.opciones[0].porque.includes('Toca Sin rival en esta sesión'), JSON.stringify(a.opciones[0].porque));
+  const u = recomiendaConPorque({ tareas, etapa: 't6', reto: '1v1', usos: { t05: 1, t06: 1, t07: 1, t08: 1 }, nombre });
+  revisa('2. dice cuando ya se usó esta semana', u.opciones.some(o => o.porque.includes('Ya la usaste 1 vez esta semana')));
+  const pocas = recomiendaConPorque({ tareas: tareas.filter(t => t.primary !== '1v1' || t.code === '05'), etapa: 't6', reto: '1v1', nombre });
+  revisa('2. si sólo hay 1 válida, muestra 1 y explica (no inventa)', pocas.opciones.length === 1 && /tiene 1 tarea del Reto 1V1/.test(pocas.aviso) && /Ver más/.test(pocas.aviso), pocas.aviso);
+  const cupo = recomiendaConPorque({ tareas: [{ id: 'x', bank: 'tanner', code: '99', primary: '1v1', level: 'sin_rival', playersMin: 10, stages: [] }, { id: 'y', bank: 'tanner', code: '98', primary: '1v1', level: 'sin_rival', stages: [] }], reto: '1v1', jugadores: 6, nombre });
+  revisa('2. jugadores filtra sólo si la ficha lo trae', cupo.opciones.map(o => o.tarea.id).join() === 'y' && /caben con 6 jugadores/.test(cupo.aviso), JSON.stringify(cupo));
+  const vacio = recomiendaConPorque({ tareas, etapa: 't99', reto: '1v1', nombre });
+  revisa('2. sin tareas de la etapa lo dice', vacio.opciones.length === 0 && /No hay tareas oficiales/.test(vacio.aviso));
+  const bb = recomiendaConPorque({ tareas, etapa: 'baby_3_4', esBaby: true, reto: 'movimiento', nombre });
+  revisa('2. Baby: dice Mundo, sin niveles de Reto', bb.opciones.length === 3 && bb.opciones.every(o => o.porque[0] === 'Mundo de la semana: Movimiento' && !o.porque.some(p => /Nivel|Toca/.test(p))), JSON.stringify(bb.opciones[0].porque));
+
+  const vm = verMas({ tareas, etapa: 't10', reto: 'gol', secundario: 'reaccionar', excluir: ['t25'], nombre });
+  revisa('2. Ver más: primero el Reto de la semana', vm[0].titulo === 'Del Reto Gol' && vm[0].tareas.every(t => t.primary === 'gol') && vm[0].tareas.length === 3, JSON.stringify(vm.map(g => g.titulo + ':' + g.tareas.length)));
+  revisa('2. Ver más: no repite las ya mostradas', !vm.flatMap(g => g.tareas).some(t => t.id === 't25'));
+  revisa('2. Ver más: luego el secundario, al final los demás', vm[1].tareas.every(t => t.primary === 'reaccionar') && vm[2].titulo === 'Otros' && vm.flatMap(g => g.tareas).length === 35);
+  revisa('2. Ver más Baby: sólo Banco Baby', verMas({ tareas, etapa: 'baby_5_6', esBaby: true, reto: 'juego' }).flatMap(g => g.tareas).every(t => t.bank === 'baby'));
+
+  revisa('1. hora local: 19:00 en León del lunes sigue siendo lunes', fechaLocal('2026-11-17T01:00:00Z') === '2026-11-16');
+  const dias = semanaEnDias('2026-11-16', [{ sessionId: 'a', startsAt: '2026-11-17T01:00:00Z' }, { sessionId: 'b', startsAt: '2026-11-18T23:00:00Z' }, { sessionId: 'c', startsAt: '2026-11-18T15:00:00Z' }]);
+  revisa('1. calendario: 7 días de lunes a domingo', dias.length === 7 && dias[0].fecha === '2026-11-16' && dias[6].fecha === '2026-11-22');
+  revisa('1. calendario: cada sesión en su día local y en orden', dias[0].sesiones.map(s => s.sessionId).join() === 'a' && dias[2].sesiones.map(s => s.sessionId).join() === 'c,b', JSON.stringify(dias.map(d => d.sesiones.map(s => s.sessionId))));
+  const ses = [{ sessionId: 'a', startsAt: '2026-11-17T01:00:00Z' }, { sessionId: 'b', startsAt: '2026-11-19T01:00:00Z' }];
+  revisa('1. calendario y tarjetas son las mismas sesiones (ni una más, ni una menos)', semanaEnDias('2026-11-16', ses).flatMap(d => d.sesiones).length === ses.length);
+  revisa('1. cambio de año 2026→2027 sin brincar días', semanaEnDias('2026-12-28', []).map(d => d.fecha).join() === '2026-12-28,2026-12-29,2026-12-30,2026-12-31,2027-01-01,2027-01-02,2027-01-03');
 }
 console.log(fallos ? `Motor de Formación FAILED · ${fallos} de ${corridas}` : `Motor de Formación OK · ${corridas} revisiones: 3 recomendaciones, escalera, Baby aparte y reglas de lista`);
 process.exit(fallos ? 1 : 0);

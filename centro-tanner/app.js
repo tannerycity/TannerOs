@@ -561,6 +561,12 @@ async function renderHistoria() {
         <p>Que esta cancha siga formando jugadores, familias y futuras generaciones que honren a León, a su historia y al amor por este juego.</p>
         <div class="hs-plaque-meta">Fundada el 20 de junio de 2026 · Nombrada por Tannery City y su comunidad</div>
       </div>
+      <div class="hs-plaque">
+        <div class="hs-plaque-title">Cancha “Chavicos” Enríquez</div>
+        <p>En honor a Ricardo “Chavicos” Enríquez, por su invaluable contribución al desarrollo y fomento del fútbol en la ciudad de León, Guanajuato.</p>
+        <p>Su pasión, entrega, éxitos y legado seguirán inspirando a las futuras generaciones de futbolistas.</p>
+        <div class="hs-plaque-meta">Fundada el 15 de agosto de 2025 · Dedicada por Tannery City, Salvador “Chavicos” Enríquez y su familia</div>
+      </div>
     </section>
 
     <section class="hs-card">

@@ -489,11 +489,17 @@ function puntualidadBlock(z){
   const meses=(z.months||[]).map(m=>`<li data-state="${esc(m.state)}" title="${esc({a_tiempo:'A tiempo',tarde:'Tarde',pendiente:'Por venir',sin_cargo:'Sin cargo'}[m.state]||'')}"><span>${MESES_CORTOS[m.month-1]||''}</span></li>`).join('');
   const dic={ganado:'¡Ganaste 50% en diciembre! Se aplica solo.',en_curso:`Vas ${d.onTime} de 11 a tiempo: sigue así y diciembre te sale a mitad de precio.`,perdido:'Este año ya no alcanza para el 50% de diciembre: un mes se pagó tarde. El próximo año vuelves a empezar.',beca_completa:'Con beca completa este premio no aplica.'}[d.state]||'';
   const kit={ganado:'Ganaste 20% en el kit de agosto.',en_curso:`Kit de agosto: vas ${k.onTime} de 5 a tiempo para el 20%.`,perdido:'El 20% del kit ya no alcanza este año.'}[k.state]||'';
+  // Su código (h74): llega el 1 de junio, vale hasta el 31 de agosto y es de un uso.
+  const kc=z.kitCode,fc=f=>f?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'long'}).format(new Date(`${String(f).slice(0,10)}T12:00:00`)):'';
+  const codigo=k.state!=='ganado'?'':!kc?'<p class="fam-punt-codigo">Tu código para el kit llega el 1 de junio y vale hasta el 31 de agosto.</p>'
+    :kc.used?`<p class="fam-punt-codigo">Ya usaste tu código ${esc(kc.code)}${kc.orderFolio?` en el pedido ${esc(kc.orderFolio)}`:''}.</p>`
+    :kc.expired?`<p class="fam-punt-codigo">Tu código ${esc(kc.code)} venció el ${esc(fc(kc.endsOn))}.</p>`
+    :`<div class="fam-punt-codigo is-vivo"><span>Tu código para el kit</span><b>${esc(kc.code)}</b><small>20% · un solo uso · vale hasta el ${esc(fc(kc.endsOn))}. Úsalo en la Tienda o díctalo en el club.</small></div>`;
   const pct=Math.round(100*Number(d.onTime||0)/11);
   return `<section class="fam-card fam-punt" data-state="${esc(d.state)}"><div class="fam-card-head"><h2>Premio por puntualidad</h2><span>${Number(d.onTime||0)} de 11</span></div>
     <div class="fam-barra"><i style="width:${pct}%"></i></div>
     <ol class="fam-punt-meses">${meses}</ol>
-    <p class="fam-acuerdo-sub">${esc(dic)}${kit?` ${esc(kit)}`:''}</p>
+    <p class="fam-acuerdo-sub">${esc(dic)}${kit?` ${esc(kit)}`:''}</p>${codigo}
     <a class="fam-punt-liga" href="/centro-tanner/">Ver las reglas en Centro Tanner</a></section>`;
 }
 function cableaAcuerdo(p){

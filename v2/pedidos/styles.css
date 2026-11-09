@@ -77,3 +77,11 @@
 .tienda-tabs a[aria-current="page"]{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
 .tienda-tabs a.is-off{opacity:.45;pointer-events:none}
 @media(max-width:520px){.tienda-tabs{width:100%}.tienda-tabs a{flex:1;justify-content:center;padding:0 10px;font-size:14px}}
+
+/* Premio por puntualidad en el kit (09/11/2026). */
+.order-premio{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;padding:12px 14px;border-radius:14px;background:#e7f6ec;border:1px solid #cfe8da}
+.order-premio span{display:grid;gap:2px;min-width:0}
+.order-premio strong{font-size:14px;color:#1d5a32}
+.order-premio small{font-size:12.5px;color:#3f6b4e}
+.order-premio button{flex:0 0 auto;min-height:40px;padding:0 14px;border:0;border-radius:11px;background:#1d7a3d;color:#fff;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.order-premio-error{flex-basis:100%;color:#a32920}

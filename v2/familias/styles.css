@@ -454,3 +454,9 @@
 .fam-punt-meses li[data-state="tarde"]{background:#ffe9e6;color:#a32920}
 .fam-punt-meses li[data-state="sin_cargo"]{background:#f4f6f5;color:#b3bec2}
 .fam-punt-liga{display:inline-block;margin-top:6px;font-size:13px;font-weight:700;color:var(--fam-teal,#087d8e);text-decoration:none}
+
+.fam-punt-codigo{margin:10px 0 0;font-size:13px;color:#4f6469}
+.fam-punt-codigo.is-vivo{display:grid;gap:4px;padding:12px 14px;border-radius:14px;background:#e7f6ec;border:1px dashed #30b45a;color:#1d5a32}
+.fam-punt-codigo.is-vivo span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.fam-punt-codigo.is-vivo b{font-size:22px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.fam-punt-codigo.is-vivo small{font-size:12.5px}

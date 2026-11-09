@@ -54,7 +54,7 @@ const COBRO = (canCollect) => ({
   charges: [
     { id:'c-ago', type:'monthly_fee', period:'2026-08-01', label:'Mensualidad ago', balance:500, sponsor:false },
     { id:'c-oct', type:'monthly_fee', period:'2026-10-01', label:'Mensualidad oct', balance:500, sponsor:false },
-    { id:'c-rec', type:'late_fee', period:'2026-10-01', label:'Recargo oct', balance:100, sponsor:false },
+    { id:'c-rec', type:'late_fee', period:'2026-10-01', label:'Recargo oct', balance:100, sponsor:false, parent:{ due:'2026-10-05', balance:0, paidOn:'2026-10-06' } },
     { id:'c-pat', type:'monthly_fee', period:'2026-10-01', label:'Mensualidad oct', balance:500, sponsor:true }
   ],
   orders: [{ id:'o1', folio:'PED-0042', total:900, balance:350 }],
@@ -143,6 +143,7 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.waitForTimeout(300); await foto(p, 'cobro-hoja-arriba');
   const elegidos = await lineas(p);
   revisa('[hoja] propone todo lo que debe', JSON.stringify(elegidos) === JSON.stringify(['c:c-ago','c:c-oct','c:c-rec']), JSON.stringify(elegidos));
+  revisa('[recargo] dice por qué: el mes ya está pagado, un día tarde', /Octubre ya está pagada \(pagó el 6, el límite era el 5\)/.test(await texto(p, '[data-linea="c:c-rec"]')), await texto(p, '[data-linea="c:c-rec"]'));
   await abrePanel(p); await foto(p, 'cobro-agregar');
   revisa('[agregar] el cargo de patrocinador no se ofrece', !(await p.$('[data-chip="c:c-pat"]')) && !(await p.$('[data-linea="c:c-pat"]')));
   revisa('[agregar] lo que ya va en el cobro no se repite en la lista', !(await p.$('.cobro-panel [data-chip="c:c-oct"]')));

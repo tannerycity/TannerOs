@@ -149,6 +149,8 @@ a{color:inherit}
 /* 09/11/2026: "Solicitar apoyo" — formulario sin sesión en la propia política. */
 .bk-solicitud-wrap{margin-top:18px;padding-top:18px;border-top:1px solid var(--ct-line)}
 .bk-solicitud{display:grid;gap:14px;margin-top:4px}
+.bk-solicitud-cuota{margin:0;padding:12px 14px;border-radius:12px;background:#fbf6e9;border:1px solid #ecdfb8;color:#6b5a26;font-size:12.5px;line-height:1.5;font-weight:600}
+.bk-solicitud-cuota a{color:inherit;text-decoration:underline}
 .bk-solicitud.hidden{display:none}
 .bk-solicitud label{display:block;font-size:12.5px;font-weight:800;color:var(--ct-muted)}
 .bk-solicitud input,.bk-solicitud select,.bk-solicitud textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--ct-line);border-radius:12px;padding:12px 14px;font:inherit;font-size:14.5px;color:var(--ct-ink);background:var(--ct-card)}

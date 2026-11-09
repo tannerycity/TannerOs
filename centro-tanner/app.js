@@ -176,10 +176,20 @@ const SOLICITUD_MODALIDAD_POR_SLUG = {
   'beca-lealtad-tanner': 'lealtad',
   curtibrother: 'curtibrother',
 };
-function solicitudApoyoHtml(modality) {
+// 09/11/2026, Mich: "para que la solicitud proceda hay que pagar $200". Ojo:
+// según TC-142 esa cuota NO aplica a Apoyo de Ingreso ni Curtibrother (ni a
+// Deportiva/Tanner, que ya no llegan aquí por ser de nominación) — espejo de
+// private.scholarship_modality_meta. Ahí es justo donde menos sentido tendría
+// cobrar: es para quien no puede pagar ni para inscribirse.
+const CUOTA_REQUERIDA = new Set(['apoyo_familiar', 'academica', 'lealtad']);
+function solicitudApoyoHtml(modality, cuota) {
+  const avisoCuota = CUOTA_REQUERIDA.has(modality)
+    ? `<p class="bk-solicitud-cuota">Esta modalidad tiene una cuota administrativa de evaluación de $${esc(Math.round(Number(cuota) || 200))} MXN para que tu solicitud proceda — no es reembolsable y no garantiza aprobación. Te contactaremos para indicarte cómo cubrirla. <a href="/centro-tanner/p/cuota-de-evaluacion-de-beca">Ver detalles →</a></p>`
+    : '';
   return `<div class="bk-solicitud-wrap">
     <button type="button" id="bkSolicitarBtn" class="bk-btn-primary">Solicitar apoyo →</button>
     <form id="bkSolicitudForm" class="bk-solicitud hidden">
+      ${avisoCuota}
       <label>Tu nombre<input id="bsGuardian" required minlength="3" maxlength="120" placeholder="Nombre del papá, mamá o tutor"></label>
       <label>Tu WhatsApp<input id="bsPhone" type="tel" required placeholder="10 dígitos"></label>
       <label>Nombre de tu hijo(a)<input id="bsChild" required minlength="2" maxlength="120" placeholder="Nombre del jugador o futura jugadora"></label>
@@ -234,6 +244,7 @@ async function renderPolicy(slug) {
       ? `<button class="ct-policy-toggle" id="ctToggleFull" type="button">Ver más detalles →</button>
          <div id="ctFullContent" class="ct-policy-full hidden">${linkify(esc(resto))}</div>` : '';
     const modalidad = SOLICITUD_MODALIDAD_POR_SLUG[p.slug];
+    const cuota = modalidad && CUOTA_REQUERIDA.has(modalidad) ? (await getBecasConfig()).applicationFee : null;
     render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { href: `/centro-tanner/tema/${esc(p.category)}`, label: catLabel }, { label: p.title }])}
       <article class="ct-policy-card">
         <div class="ct-policy-kicker">${esc(catLabel)}</div>
@@ -242,7 +253,7 @@ async function renderPolicy(slug) {
         ${toggle}
         <div class="ct-policy-meta"><span>Versión ${esc(p.version)}</span>${p.effectiveDate ? `<span>Vigente desde ${esc(fmtDate(p.effectiveDate))}</span>` : ''}${p.policyCode ? `<span>${esc(p.policyCode)}</span>` : ''}</div>
         ${consentNote}
-        ${modalidad ? solicitudApoyoHtml(modalidad) : ''}
+        ${modalidad ? solicitudApoyoHtml(modalidad, cuota) : ''}
       </article>
       ${feedbackWidget('policy', p.id)}
       ${p.relatedFaqs?.length ? `<section class="ct-section"><h2 class="ct-section-title">Preguntas relacionadas</h2><div class="ct-faq-list">${p.relatedFaqs.map((f) => `<details class="ct-faq-item"><summary>${esc(f.question)}</summary><div class="ct-faq-body">${esc(f.answer)}</div></details>`).join('')}</div></section>` : ''}

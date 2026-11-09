@@ -484,3 +484,53 @@ a.collections-edo u{text-decoration:none;color:var(--tos-teal,#087d8e);font-weig
 .cc-mas-menu[hidden]{display:none}
 .cc-mas-menu button{min-height:46px;border-radius:14px;font-size:14px}
 .cc-subfiltros{flex-wrap:wrap!important;overflow:visible!important}
+/* Cobranza sencilla (08/11/2026, h66): % del mes, 4 cifras, Recordar y Ya pagó,
+   en tarjetas o en lista. */
+#collectionsPanel .cashier-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.cob-vista{display:inline-grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:11px;background:#eef2f1;flex:0 0 auto}
+.cob-vista button{border:0;border-radius:9px;padding:7px 12px;background:transparent;font:inherit;font-size:12.5px;font-weight:800;color:#5c6f74;cursor:pointer}
+.cob-vista button[aria-checked="true"]{background:#fff;color:#0d2730;box-shadow:0 2px 8px rgba(3,47,59,.12)}
+.cob-resumen{display:grid;gap:12px;margin-bottom:14px}
+.cob-pct{display:grid;gap:8px}
+.cob-pct>div{display:flex;align-items:baseline;gap:8px}
+.cob-pct strong{font-size:34px;font-weight:800;letter-spacing:-.02em;color:#0d2730;font-variant-numeric:tabular-nums}
+.cob-pct>div span{font-size:14px;font-weight:600;color:#5c6f74}
+.cob-barra{position:relative;display:block;height:10px;border-radius:999px;background:#e8eeec;overflow:hidden}
+.cob-barra i{position:absolute;inset:0 auto 0 0;border-radius:999px;background:#30b45a}
+.cob-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.cob-tile{display:grid;gap:3px;padding:11px 12px;border-radius:14px;background:#f4f6f5;border:1px solid #e6ebe9;text-align:left;font:inherit;color:#0d2730}
+button.cob-tile{cursor:pointer}
+.cob-tile span{font-size:12px;font-weight:700;color:#66737a}
+.cob-tile b{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cob-tile[data-tono="ok"] b{color:#1d7a3d}
+.cob-tile[data-tono="aviso"] b{color:#a35f00}
+.cob-tile[data-tono="mal"] b{color:#b42318}
+.cob-recordar-todos{min-height:46px;border:0;border-radius:13px;background:#25D366;color:#fff;font:inherit;font-size:15px;font-weight:800;cursor:pointer}
+.cob-recordar-lista{display:grid;border-radius:14px;border:1px solid #e3e8e6;background:#fff;overflow:hidden}
+.cob-nota{margin:0;padding:10px 14px;font-size:12.5px;color:#66737a;background:#fafbfb}
+.cob-rec-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-top:1px solid #edf0ef}
+.cob-rec-fila span{display:grid;min-width:0}
+.cob-rec-fila strong{font-size:14px;color:#0d2730}
+.cob-rec-fila small{font-size:12px;color:#66737a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cob-wa{flex:0 0 auto;border-radius:999px;padding:8px 14px;background:#25D366;color:#fff;font-size:12.5px;font-weight:800;text-decoration:none;white-space:nowrap}
+.cob-wa.hecho{background:#e7f6ec;color:#1d7a3d}
+.cob-sin{font-size:12px;color:#9aa4ad}
+.cob-pill{display:inline-block;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800}
+.cob-pill[data-estado="atrasado"]{background:#ffe9e6;color:#a32920}
+.cob-pill[data-estado="por_vencer"]{background:#fff4e5;color:#7a4b00}
+.cob-pill[data-estado="al_dia"]{background:#e7f6ec;color:#1d7a3d}
+.cob-debe{font-size:15px;font-weight:800;color:#0d2730;font-variant-numeric:tabular-nums}
+.cob-acciones{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+/* Lista: renglones compactos (como estaba). Tarjetas: cuadrícula. */
+#collectionsList[data-vista="tarjetas"]{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+#collectionsList[data-vista="tarjetas"] .cob-fila{display:grid;grid-template-columns:40px minmax(0,1fr);gap:8px 12px;padding:14px;border:1px solid #e6ebe9;border-radius:16px;background:#fff}
+#collectionsList[data-vista="tarjetas"] .cob-fila .collections-status{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;margin:0}
+#collectionsList[data-vista="tarjetas"] .cob-fila .cob-acciones{grid-column:1/-1}
+#collectionsList[data-vista="tarjetas"] .cob-fila .cob-acciones>*{flex:1 1 0;text-align:center;justify-content:center}
+#collectionsList[data-vista="tarjetas"] .collections-info strong,#collectionsList[data-vista="tarjetas"] .collections-concept{max-width:none;white-space:normal}
+#collectionsList[data-vista="tarjetas"] .cob-fila[data-estado="atrasado"]{border-color:#f5c9c3}
+@media (max-width:640px){
+  .cob-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #collectionsList[data-vista="lista"] .cob-acciones{order:4;flex:1 1 100%}
+  #collectionsList[data-vista="lista"] .cob-acciones>*{flex:1 1 0;text-align:center}
+}

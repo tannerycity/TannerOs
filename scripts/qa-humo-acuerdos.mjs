@@ -64,7 +64,13 @@ async function abre(cobro, acuerdoAlGuardar = null, ruta = '/v2/tanner/?id=p1', 
                 v2_cashier_snapshot:{ businessDate:'2026-10-21', incomeTotal:0, expenseTotal:0, netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], movements:[], canViewLedger:true },
                 v2_billing_players:[{ player_id:'p1', player_name:'Liam Santos', base_monthly_fee:500 }, { player_id:'p2', player_name:'Ana Ruiz', base_monthly_fee:500 }, { player_id:'p3', player_name:'Beto Paz', base_monthly_fee:500 }],
                 v2_agreements_overview:[{ playerId:'p1', state:'active', paid:600, total:1600, nextDue:'2026-11-10', nextAmount:1000 }, { playerId:'p2', state:'broken', paid:0, total:900, nextDue:'2026-10-15', nextAmount:450 }],
-                v2_open_receivables:[], v2_orders_to_collect:[], v2_payments_to_reconcile:[] };
+                v2_open_receivables:[], v2_orders_to_collect:[], v2_payments_to_reconcile:[],
+                // Cobranza sencilla (h66): el mes y cada Tanner.
+                v2_club_config:{ name:'Tannery City', whatsapp:'524792651338' },
+                v2_collection_board:{ month:'2026-11-01', expected:1500, collected:500, upcoming:0, overdue:1400, percent:33, players:[
+                  { playerId:'p2', name:'Ana Ruiz', state:'atrasado', overdue:900, upcoming:0, oldestDue:'2026-10-05', guardian:'Rosa Ruiz', phone:'4776996600', lastPayment:null },
+                  { playerId:'p1', name:'Liam Santos', state:'atrasado', overdue:500, upcoming:0, oldestDue:'2026-11-05', guardian:'Mayra Santos', phone:'', lastPayment:'2026-10-02' },
+                  { playerId:'p3', name:'Beto Paz', state:'al_dia', overdue:0, upcoming:0, lastPayment:'2026-11-03' }] } };
     window.__fakeSupabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}), getUser:async()=>({data:{user:{id:'u1'}}}), onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}) },
       rpc:async(n, params)=>{
@@ -223,6 +229,25 @@ const filas = p => p.$$eval('.cb-fila', els => els.map(e => `${e.querySelector('
   await p.click('[data-collections-filter="agreement"]');
   const conAcuerdo = await p.$$eval('#collectionsList .collections-row strong', els => els.map(e => e.textContent));
   revisa('[cobranza] el filtro "Con acuerdo" deja sólo a esos', JSON.stringify(conAcuerdo.sort()) === JSON.stringify(['Ana Ruiz','Liam Santos']), JSON.stringify(conAcuerdo));
+
+  // Cobranza sencilla (08/11/2026): % del mes, 4 cifras, Recordar y Ya pagó.
+  const res = (await p.textContent('#cobResumen')).replace(/\s+/g, ' ');
+  revisa('[sencilla] % cobrado del mes', /33%\s*cobrado de noviembre/.test(res), res.slice(0, 120));
+  revisa('[sencilla] Esperado, Cobrado, Por vencer y Atrasado', /Esperado\s*\$1,500\.00/.test(res) && /Cobrado\s*\$500\.00/.test(res) && /Por vencer\s*\$0\.00/.test(res) && /Atrasado\s*\$1,400\.00/.test(res), res);
+  await p.click('#cobResumen [data-cob-ir="atrasado"]');
+  const atrasados = await p.$$eval('#collectionsList .cob-fila strong', els => els.map(e => e.textContent));
+  revisa('[sencilla] tocar "Atrasado" filtra a los que deben, el más viejo primero', JSON.stringify(atrasados) === JSON.stringify(['Ana Ruiz','Liam Santos']), JSON.stringify(atrasados));
+  const wa = await p.getAttribute('[data-estado="atrasado"]:has-text("Ana Ruiz") [data-cob-recordado]', 'href');
+  revisa('[sencilla] Recordar abre WhatsApp con lada y el mensaje', /^https:\/\/wa\.me\/524776996600\?text=/.test(wa || '') && /Ana%20Ruiz/.test(wa || '') && /%24900\.00/.test(wa || ''), wa);
+  revisa('[sencilla] sin teléfono no se inventa un número', !(await p.$('[data-estado="atrasado"]:has-text("Liam Santos") [data-cob-recordado]')));
+  revisa('[sencilla] "Ya pagó" con lo que debe', await p.getAttribute('[data-estado="atrasado"]:has-text("Ana Ruiz") [data-quick-collect]', 'data-amount') === '900');
+  await p.click('[data-cob-recordar-todos]');
+  revisa('[sencilla] "Recordar a los 2 que deben" enseña la lista', await p.isVisible('#cobRecordarLista') && (await p.$$('#cobRecordarLista .cob-rec-fila')).length === 2);
+  revisa('[sencilla] arranca en Tarjetas', await p.getAttribute('#collectionsList', 'data-vista') === 'tarjetas');
+  if (process.env.SHOTS) await p.screenshot({ path:`${process.env.SHOTS}/cobranza-tarjetas.png`, fullPage:true });
+  await p.click('[data-cob-vista="lista"]');
+  revisa('[sencilla] cambia a Lista y se recuerda', await p.getAttribute('#collectionsList', 'data-vista') === 'lista' && await p.evaluate(() => localStorage.getItem('tanneros:cobranza:vista')) === 'lista');
+  if (process.env.SHOTS) await p.screenshot({ path:`${process.env.SHOTS}/cobranza-lista.png`, fullPage:true });
   await p.close();
 }
 

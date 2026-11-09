@@ -1,5 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
-import { conectaBusquedaReciente } from '/v2/busqueda-reciente.js';
+import { conecta as conectaBusquedaReciente } from '/v2/busquedas-recientes.js';
 import { elegirDorsal, tableroDorsales } from '/v2/dorsal.js';
 import { montaSinNumero } from '/v2/jugadores/sin-numero.js';
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
@@ -30,6 +30,9 @@ function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/fai
   'Sponsor benefit not found':'No encontramos ese patrocinio.'};return map[s]||s;}
 function renderStatusAction(p){const btn=$('toggleStatusBtn'),alt=$('withdrawInactiveBtn');if(!btn)return;if(!canStatus){btn.classList.add('hidden');alt?.classList.add('hidden');return;}btn.classList.remove('hidden');if(p.status!=='active'){btn.textContent='Dar de alta';btn.dataset.action='reactivate';btn.classList.remove('danger-mini');}else{btn.textContent='Dar de baja';btn.dataset.action='withdraw';btn.classList.add('danger-mini');}alt?.classList.toggle('hidden',p.status!=='inactive');}
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='players');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Jugadores.';show('deniedView');return;}canWrite=!!mod.can_write;
+  // Jugadores no pasa por bootstrapProtectedShell (arranca solo), así que el
+  // sistema global de recientes de shell.js no llega aquí — se conecta directo.
+  conectaBusquedaReciente($('search'),{org:ctx.organization_id,usuario:ctx.user_id});
   const familyMod=mods.find(m=>m.module_code==='jugadores_familia');canFamily=!!(familyMod?.enabled&&familyMod?.can_write);
   const statusMod=mods.find(m=>m.module_code==='jugadores_estado');canStatus=!!(statusMod?.enabled&&statusMod?.can_write);
   /* Quién puede mover la fecha de ingreso. Se le PREGUNTA a la base en vez de
@@ -807,7 +810,7 @@ document.querySelector('[data-close-sch]')?.addEventListener('click',()=>$('scho
 $('scholarshipModal')?.addEventListener('click',e=>{if(e.target.id==='scholarshipModal')$('scholarshipModal').classList.add('hidden');});
 $('schExport')?.addEventListener('click',exportarBecasCsv);
 $('addBenefit')?.addEventListener('click',()=>{if(current?.player?.id)formBeca(current.player.id,null);});
-$('statusFilter').addEventListener('change',loadPlayers);$('search').addEventListener('input',renderList);conectaBusquedaReciente($('search'),{storageKey:'tanneros:recientes:jugadores'});$('profileForm').addEventListener('submit',save);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
+$('statusFilter').addEventListener('change',loadPlayers);$('search').addEventListener('input',renderList);$('profileForm').addEventListener('submit',save);boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
 
 
 /* La marca en la tarjeta es la POSITIVA, y es a propósito.

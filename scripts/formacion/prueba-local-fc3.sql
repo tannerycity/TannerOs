@@ -1,5 +1,5 @@
 -- Prueba LOCAL (PostgreSQL desechable, nunca producción) de
--- supabase/propuestas/FC3_parches_tanner.sql.
+-- supabase/migrations/20261109142749_h78_parches_tanner.sql.
 --
 --   psql -v ON_ERROR_STOP=1 -h /tmp -p 54329 -U postgres -f scripts/formacion/prueba-local-fc3.sql
 drop database if exists fc3; create database fc3;
@@ -32,8 +32,8 @@ insert into app.players values ('00000000-0000-0000-0000-0000000000b1', '0000000
   ('00000000-0000-0000-0000-0000000000b9', '00000000-0000-0000-0000-0000000000a2', 'De otro club');
 insert into private.tutor values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b1'), ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000b2');
 
-\i supabase/propuestas/FC3_parches_tanner.sql
-\i supabase/propuestas/FC3_parches_tanner.sql
+\i supabase/migrations/20261109142749_h78_parches_tanner.sql
+\i supabase/migrations/20261109142749_h78_parches_tanner.sql
 
 do $$
 declare o uuid := '00000000-0000-0000-0000-0000000000a1'; leo uuid := '00000000-0000-0000-0000-0000000000b1'; ana uuid := '00000000-0000-0000-0000-0000000000b2';

@@ -1,6 +1,6 @@
 -- PROPUESTA · PROP-FC-002 decisión 5 · Parches Tanner (09/11/2026)
 --
--- NO APLICADA. Requiere autorización de Presidencia para correr en producción.
+-- Autorizada por Presidencia el 09/11/2026 ("publica todo, ya dejemos todo en producción").
 --
 -- Presidencia (09/11/2026): "Los parches que se dan son los de Campeones y la
 -- Iniciación; hasta ahorita es lo único." Capitanía e Iniciación v1.1 §9 y §12:

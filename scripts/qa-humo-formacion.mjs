@@ -63,11 +63,11 @@ const revisiones = [], errores = [];
 const revisa = (n, ok, d = '') => revisiones.push({ nombre: n, ok, detalle: d });
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 
-async function abre({ direccion, vacio = false, pasada = false }) {
+async function abre({ direccion, vacio = false, pasada = false, presidencia = false, url = '' }) {
   const p = await nav.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(`console: ${m.text()}`); });
-  await p.addInitScript(({ direccion, vacio, pasada, CATALOGO, MIA, DIR, HOY }) => {
+  await p.addInitScript(({ direccion, vacio, pasada, presidencia, CATALOGO, MIA, DIR, HOY }) => {
     window.__llamadas = [];
     const mia = JSON.parse(JSON.stringify(MIA)), hoy = JSON.parse(JSON.stringify(HOY));
     if (vacio) { mia.sessions = []; mia.settings = { ...mia.settings, inicio: '2026-12-14' }; hoy.sessions = []; }
@@ -79,9 +79,25 @@ async function abre({ direccion, vacio = false, pasada = false }) {
     const obs = [];
     const mods = ['inicio', 'formacion', ...(direccion ? ['formacion_direccion'] : [])];
     const R = {
-      v2_my_context: () => [{ user_id: 'u2', display_name: 'Max', organization_id: 'o1', organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: direccion ? 'Operaciones' : 'Formadores', is_owner: false }],
+      v2_my_context: () => [{ user_id: 'u2', display_name: 'Max', organization_id: 'o1', organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: presidencia ? 'Presidencia' : direccion ? 'Operaciones' : 'Formadores', is_owner: false }],
       v2_my_navigation: () => mods.map(c => ({ module_code: c, enabled: true, can_read: true, can_write: true })),
       v2_formation_catalog: () => cat,
+      // Cultura y Convivencia (h81).
+      v2_convivencia: () => ({ canFollow: direccion || presidencia, isPresidency: presidencia,
+        myCode: { code: 'codigo_formador', version: 1, title: 'Código del Formador Tanner', body: 'Puede alzar la voz para ser escuchado; no para intimidar.', acceptedAt: window.__codigoOk || null },
+        categories: [{ id: 'c6', name: 'T6', stage: 't6', lastExplained: null, families: direccion || presidencia ? { total: 15, accepted: 4 } : null },
+          { id: 'cb', name: 'Baby Tanner', stage: 'baby_3_4', lastExplained: '2026-11-01', families: direccion || presidencia ? { total: 20, accepted: 20 } : null }],
+        staff: direccion || presidencia ? [{ userId: 'u2', name: 'Max', role: 'Formadores', acceptedAt: null }, { userId: 'u3', name: 'Brandon', role: 'Operaciones', acceptedAt: '2026-11-09T18:00:00Z' }] : null,
+        incidents: direccion || presidencia ? [{ id: 'i1', occurredOn: '2026-11-08', level: 'grave', status: 'abierto', escalatedTo: 'presidencia', category: 'T6', involvesStaff: false, players: [],
+          whatHappened: 'Empujó a un compañero al piso.', protectiveAction: 'Los separé.', resolution: null, reportedBy: 'Max', mine: false, createdAt: '2026-11-08T23:00:00Z', entries: [] }] : [] }),
+      v2_accept_staff_code: prm => { window.__codigoOk = '2026-11-09T20:00:00Z'; return { code: prm.code, version: 1 }; },
+      v2_record_code_explanation: () => ({ id: 'e1', already: false }),
+      v2_report_incident: prm => ({ id: 'i2', escalatedTo: ['grave', 'urgente'].includes(prm.incident.level) ? 'presidencia' : 'direccion' }),
+      v2_incident_entry: prm => ({ id: prm.incident_id, kind: prm.kind }),
+      v2_bonus_month: prm => ({ month: prm.month || '2026-11-01', people: [
+        { userId: 'u2', name: 'Max', weeks: 4, met: 3, pendingReview: 0, pct: 75, review: null },
+        { userId: 'u3', name: 'Lalo', weeks: 4, met: 4, pendingReview: 0, pct: 100, review: { decision: 'aprobado', note: null, at: '2026-11-02T18:00:00Z', by: 'Mich' } }] }),
+      v2_decide_bonus: prm => ({ userId: prm.user_id, month: prm.month, decision: prm.decision, compliance: 75 }),
       v2_patch_roster: prm => ({ categories: [{ id: 'c12', name: 'T12', stage: 't12' }, { id: 'cb', name: 'Baby Tanner', stage: 'baby_3_4' }],
         players: prm.category_id === 'c12' ? [{ id: 'j1', name: 'Ana Ruiz', patches: [] }, { id: 'j2', name: 'Beto Sol', patches: [] },
           { id: 'j3', name: 'Ceci Paz', patches: [{ code: 'campeones', reason: 'Copa León 2026' }] }] : [] }),
@@ -108,11 +124,11 @@ async function abre({ direccion, vacio = false, pasada = false }) {
       from: () => ({ select() { return this; }, eq() { return this; }, then(r) { return Promise.resolve({ data: [], error: null }).then(r); } }),
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
-  }, { direccion, vacio, pasada, CATALOGO, MIA, DIR, HOY });
+  }, { direccion, vacio, pasada, presidencia, CATALOGO, MIA, DIR, HOY });
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export function clearPhotoCache(){}' }));
-  await p.goto(BASE + '/v2/formacion/', { waitUntil: 'domcontentloaded' });
+  await p.goto(BASE + '/v2/formacion/' + url, { waitUntil: 'domcontentloaded' });
   return p;
 }
 const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n === n), n);
@@ -122,7 +138,7 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   const p = await abre({ direccion: false });
   await p.waitForSelector('.fm-hero h1', { timeout: 6000 });
   const tabs = await p.$$eval('#fmTabs button', b => b.map(x => x.textContent));
-  revisa('[formador] no ve la Semana Tanner de Dirección', JSON.stringify(tabs) === '["Próxima semana","Banco"]', JSON.stringify(tabs));
+  revisa('[formador] no ve la Semana Tanner de Dirección', JSON.stringify(tabs) === '["Próxima semana","Banco","Convivencia"]', JSON.stringify(tabs));
   revisa('[formador] "3 sesiones · 1 lista · 2 pendientes"', (await p.textContent('.fm-hero h1')) === '3 sesiones · 1 lista · 2 pendientes', await p.textContent('.fm-hero h1'));
   revisa('[formador] dice la semana', /7–13 dic/.test(await p.textContent('.fm-hero > span')), await p.textContent('.fm-hero > span'));
   // Los pasos del Formador (13/10/2026): mismo camino que Dirección.
@@ -323,6 +339,83 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   const p = await abre({ direccion: false });
   await p.waitForSelector('.fm-hero h1', { timeout: 6000 });
   revisa('[parches] el Formador no registra parches', !(await p.$('[data-parches]')));
+  await p.close();
+}
+
+{ // Convivencia (h81, 09/11/2026): Formador acepta su código, explica en 60 seg y reporta.
+  const p = await abre({ direccion: false });
+  await p.waitForSelector('.fm-hero h1', { timeout: 6000 });
+  await p.click('#fmTabs [data-tab="convivencia"]');
+  await p.waitForSelector('.cv-hero');
+  revisa('[convivencia] el lema y "Reportar algo"', /Respetamos\. Competimos\. Nos cuidamos\./.test(await p.textContent('.cv-hero h1')) && !!(await p.$('[data-cv-reportar]')));
+  revisa('[convivencia] el Formador no ve casos ajenos ni el staff', !(await p.$('[data-cv-staff]')) && /Mis reportes/.test(await p.textContent('#fmVista')) && !/Familias:/.test(await p.textContent('#fmVista')));
+  await p.click('[data-cv-codigo]');
+  await p.waitForSelector('#cvAcepto');
+  await p.click('#cvAcepto');
+  await p.waitForSelector('.cv-ok-linea', { timeout: 4000 });
+  revisa('[convivencia] acepta su código y queda la constancia', (await llamadas(p, 'v2_accept_staff_code')).some(x => x.prm.code === 'codigo_formador') && /Aceptaste el Código/.test(await p.textContent('.cv-ok-linea')));
+  revisa('[convivencia] dice qué categoría aún no se explica', /Aún no se explica/.test(await p.textContent('.cv-cats')));
+  await p.click('[data-cv-explicar="c6"]');
+  await p.waitForSelector('.cv-60');
+  revisa('[convivencia] el texto oficial de 60 segundos', /Compitamos fuerte, pero cuidándonos/.test(await p.textContent('.cv-60')));
+  await p.click('#cvExplicado');
+  await p.waitForTimeout(200);
+  revisa('[convivencia] "Ya se los expliqué" registra la categoría', (await llamadas(p, 'v2_record_code_explanation')).some(x => x.prm.category_id === 'c6'));
+  await p.click('[data-cv-reportar]');
+  await p.waitForSelector('#cvEnviar');
+  revisa('[reporte] no deja enviar sin nivel', await p.isDisabled('#cvEnviar'));
+  await p.click('[data-cv-nivel="urgente"]');
+  revisa('[reporte] urgente muestra qué hacer primero y va a Presidencia', await p.isVisible('#cvUrgente') && /Presidencia/.test(await p.textContent('#cvEnviar')));
+  await p.click('[data-cv-nivel="menor"]');
+  revisa('[reporte] menor va a Dirección Deportiva', !(await p.isVisible('#cvUrgente')) && /Dirección Deportiva/.test(await p.textContent('#cvEnviar')));
+  await p.selectOption('#cvCat', 'c6');
+  await p.fill('#cvQue', 'Se burló de un compañero que falló el pase.');
+  await p.fill('#cvAccion', 'Detuve el juego y hablé con él.');
+  await cabe(p, 'reporte');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-reporte.png' });
+  await p.click('#cvEnviar');
+  await p.waitForTimeout(300);
+  const rep = await llamadas(p, 'v2_report_incident');
+  revisa('[reporte] manda hechos, acción, nivel y categoría', rep.length === 1 && rep[0].prm.incident.level === 'menor' && rep[0].prm.incident.categoryId === 'c6' && /burló/.test(rep[0].prm.incident.whatHappened) && !(await p.$('#cvHoja')), JSON.stringify(rep.map(x => x.prm)));
+  await cabe(p, 'convivencia');
+  await p.close();
+}
+{ // Dirección: casos, familias y staff; un caso grave lo resuelve Presidencia.
+  const p = await abre({ direccion: true, url: '?tab=convivencia' });
+  await p.waitForSelector('.cv-hero', { timeout: 6000 });
+  revisa('[convivencia] ?tab=convivencia abre directo (el aviso push)', (await p.getAttribute('#fmTabs [data-tab="convivencia"]', 'aria-selected')) === 'true');
+  revisa('[convivencia] Dirección ve familias firmadas y el staff', /Familias: 4\/15 firmaron/.test(await p.textContent('.cv-cats')) && /1\/2 aceptaron/.test(await p.textContent('[data-cv-staff]')));
+  await p.click('[data-cv-caso="i1"]');
+  await p.waitForSelector('#cvHoja .cv-dl');
+  const tipos = await p.$$eval('#cvHoja [data-cv-tipo]', b => b.map(x => x.dataset.cvTipo));
+  revisa('[caso] Dirección da seguimiento pero no resuelve un grave', JSON.stringify(tipos) === '["seguimiento","aviso_familia"]' && /lo resuelve Presidencia/.test(await p.textContent('#cvHoja')), JSON.stringify(tipos));
+  await p.click('[data-cv-tipo="aviso_familia"]');
+  await p.fill('#cvNota', 'Llamé a la mamá el domingo.');
+  await p.click('#cvGuardaNota');
+  await p.waitForTimeout(200);
+  revisa('[caso] guarda el aviso a la familia', (await llamadas(p, 'v2_incident_entry')).some(x => x.prm.kind === 'aviso_familia' && x.prm.incident_id === 'i1'));
+  revisa('[bono] Dirección no ve el Bono', !(await p.$('#fmTabs [data-tab="bono"]')));
+  await p.close();
+}
+{ // Presidencia: resuelve el grave y decide el Bono Tanner OS del mes.
+  const p = await abre({ direccion: true, presidencia: true, url: '?tab=bono' });
+  await p.waitForSelector('.cv-bonos', { timeout: 6000 });
+  revisa('[bono] por Formador: % y semanas a tiempo', /75%/.test(await p.textContent('[data-cv-persona="u2"]')) && /3\/4 semanas a tiempo/.test(await p.textContent('[data-cv-persona="u2"]')));
+  revisa('[bono] lo ya decidido dice quién y cuándo', /Aprobado · Mich/.test(await p.textContent('[data-cv-persona="u3"]')));
+  await p.click('[data-cv-persona="u2"] [data-cv-dec="no_aprobado"]');
+  await p.waitForSelector('#cvDecide');
+  await p.fill('#cvNotaBono', 'Una semana tarde sin aviso');
+  await p.click('#cvDecide');
+  await p.waitForTimeout(300);
+  const dec = await llamadas(p, 'v2_decide_bonus');
+  revisa('[bono] Presidencia decide a mano con nota', dec.length === 1 && dec[0].prm.decision === 'no_aprobado' && dec[0].prm.user_id === 'u2' && dec[0].prm.month === '2026-11-01' && /tarde/.test(dec[0].prm.note), JSON.stringify(dec.map(x => x.prm)));
+  await cabe(p, 'bono');
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-bono.png' });
+  await p.click('#fmTabs [data-tab="convivencia"]');
+  await p.waitForSelector('[data-cv-caso="i1"]');
+  await p.click('[data-cv-caso="i1"]');
+  await p.waitForSelector('#cvHoja .cv-dl');
+  revisa('[caso] Presidencia sí puede resolver el grave', !!(await p.$('#cvHoja [data-cv-tipo="resolucion"]')));
   await p.close();
 }
 

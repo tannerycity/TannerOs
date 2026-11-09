@@ -1,7 +1,8 @@
 /* Formación: una decisión por pantalla, móvil primero. */
 .fm-page{max-width:880px}
-.fm-tabs{display:flex;gap:6px;background:#eef1f1;border-radius:14px;padding:4px;margin-bottom:12px}
-.fm-tabs button{flex:1;border:0;background:transparent;padding:10px 8px;border-radius:11px;font:inherit;font-weight:800;font-size:14px;color:#56656b;cursor:pointer}
+.fm-tabs{display:flex;gap:6px;background:#eef1f1;border-radius:14px;padding:4px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none}
+.fm-tabs::-webkit-scrollbar{display:none}
+.fm-tabs button{flex:1 0 auto;white-space:nowrap;border:0;background:transparent;padding:10px 8px;border-radius:11px;font:inherit;font-weight:800;font-size:14px;color:#56656b;cursor:pointer}
 .fm-tabs button.activa{background:#fff;color:var(--tos-ink,#0b3d5c);box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .fm-semana-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 12px}
 .fm-semana-nav strong{min-width:140px;text-align:center;font-size:15px}

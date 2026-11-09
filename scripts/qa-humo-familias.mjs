@@ -101,6 +101,9 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
         return params.from_date.startsWith('2026-09') ? MES : MES_VACIO;
       }
       if(name==='v2_portal_paperwork') return PAPERWORK;
+      // Esta semana aprendemos (h81, 09/11/2026).
+      if(name==='v2_portal_week') return { category:'T10', baby:false, weekStart:'2026-09-21',
+        primary:{ code:'1v1', name:'Ganar el 1 contra 1', question:'¿Cómo supero a mi rival?', phrase:null }, behavior:'Que se atrevan a encarar' };
       // Acuerdo de pago (21/10/2026): la familia lo ve y toca "Enterado".
       if(name==='v2_portal_agreement') return { id:'ac1', state:'active', total:1600, paid:600, note:'Paga en quincenas',
         acknowledgedAt: window.__enterado || null,
@@ -185,6 +188,8 @@ revisa('un retardo se ve como "Llegó tarde", no como "Faltó"', /Llegó tarde/.
 revisa('una justificada se ve identificada como tal', /Falta justificada/.test(mes), mes.slice(0, 400));
 
 const recientes = (await pagina.textContent('#famBody')).replace(/\s+/g, ' ');
+const semanaTxt = (await pagina.textContent('.fam-semana').catch(() => '')).replace(/\s+/g, ' ');
+revisa('[semana] "Esta semana aprendemos" con el Reto, su pregunta y lo que buscamos', /Esta semana aprendemos/.test(semanaTxt) && /RETO/.test(semanaTxt) && /Ganar el 1 contra 1/.test(semanaTxt) && /¿Cómo supero a mi rival\?/.test(semanaTxt) && /Buscamos: Que se atrevan a encarar/.test(semanaTxt), semanaTxt.slice(0, 200));
 // Auditoría 19/10/2026: dos porcentajes distintos en la misma pantalla confundían.
 revisa('el resumen de arriba dice que es de toda la temporada (y sólo él)', (recientes.match(/En toda la temporada/g) || []).length === 1 && !/En toda la temporada/.test(mes));
 revisa('la lista de entrenamientos no se repite abajo', !/Últimos entrenamientos/.test(recientes));

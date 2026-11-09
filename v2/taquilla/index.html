@@ -58,11 +58,17 @@
 
         <section id="collectionsPanel" class="cashier-panel hidden">
           <div class="cashier-panel-head">
-            <div><h2>Cobranza</h2><p>Estado de cada Tanner. Un toque para registrar su cobro.</p></div>
+            <div><h2>Cobranza</h2><p id="cobMes">Cómo va el mes y quién debe.</p></div>
+            <div class="cob-vista" role="radiogroup" aria-label="Cómo verlos"><button type="button" role="radio" data-cob-vista="tarjetas" aria-checked="true">Tarjetas</button><button type="button" role="radio" data-cob-vista="lista" aria-checked="false">Lista</button></div>
           </div>
+          <!-- Cobranza sencilla (08/11/2026, h66). Presidencia con el PDF de otra
+               plataforma: "toma lo mejor... pantalla sencillita". % cobrado del mes,
+               Esperado / Cobrado / Por vencer / Atrasado, y por familia Recordar y
+               Ya pagó. -->
+          <div id="cobResumen" class="cob-resumen"></div>
           <div class="collections-toolbar">
             <div class="tsearch wide" id="collectionsSearchBox"><div class="tsearch-field"><input type="text" id="collectionsSearch" placeholder="Buscar familia o jugador…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="collectionsSearchClear" aria-label="Quitar">×</button></div></div>
-            <div class="collections-filters"><button type="button" class="active" data-collections-filter="all">Todos</button><button type="button" data-collections-filter="pending">Pendientes</button><button type="button" data-collections-filter="ok">Al corriente</button><button type="button" data-collections-filter="agreement">Con acuerdo</button></div>
+            <div class="collections-filters"><button type="button" class="active" data-collections-filter="all">Todos</button><button type="button" data-collections-filter="atrasado">Atrasados</button><button type="button" data-collections-filter="por_vencer">Por vencer</button><button type="button" data-collections-filter="al_dia">Al día</button><button type="button" data-collections-filter="agreement">Con acuerdo</button></div>
           </div>
           <div id="collectionsList" class="collections-list"></div>
           <div id="collectionsEmpty" class="cashier-empty hidden">Sin Tanners que coincidan con la búsqueda.</div>

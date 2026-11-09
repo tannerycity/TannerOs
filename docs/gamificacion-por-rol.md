@@ -92,8 +92,21 @@ Los pendientes que vencen pasan al centro de notificaciones (la campana). Presid
 
 *Quick win:* la fase 1 se puede tener en una semana, porque `planning_cutoffs` ya calcula el cumplimiento.
 
-## Preguntas para decidir
+## Decisiones de Presidencia (08/11/2026)
 
-1. ¿Las metas de Marketing son 3 ideas por semana y 3 patrocinadores por mes, o las ajustamos?
-2. ¿El director deportivo también tiene barra propia (revisiones) o sólo ve la de los profes?
-3. ¿Quieres reconocimiento público, por ejemplo "Profe de la semana" en el grupo del staff, o todo privado?
+1. **Marketing:** 3 ideas por semana y 3 patrocinadores por mes. **Sólo el contacto vale**: con registrar al patrocinador ya cuenta.
+2. **Director deportivo:** tiene **las dos barras**, la suya (semanas publicadas, categorías con profe) y la de sus profes en el tablero.
+3. **Reconocimiento dentro de la app:** "Semana completa", racha de semanas al 100% y "Destacados de la semana pasada" en el tablero. Nada se publica fuera de la app.
+
+## Lo que ya está hecho (fase 1)
+
+- **h65 en producción:** `v2_my_week` (mi semana con racha) y `v2_team_week` (el tablero para Presidencia y el Director deportivo).
+- **Inicio:** tarjeta "Mi semana" y, para quien le toca, "El equipo esta semana".
+- **Mensajes > Avisos:** "Mi semana" fija arriba, con lo primero que falta.
+- **Recordatorios automáticos (h69):** push al celular, una vez por cosa:
+  - lista sin tomar el día de la sesión, desde las 21:00;
+  - partido sin resultado al día siguiente, desde las 18:00;
+  - Marketing: ideas el jueves desde las 18:00 y patrocinadores el día 25;
+  - Presidencia: resumen de la semana pasada el lunes desde las 9:00.
+  La planeación la avisa el ciclo de formación desde el 30/11.
+- **Pendiente:** los profes reales necesitan cuenta en TannerOS con categoría asignada. Hoy sólo hay cuentas de prueba con categoría.

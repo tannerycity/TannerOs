@@ -269,3 +269,9 @@ body[data-hub="tanner"] .tos-content{padding-bottom:calc(env(safe-area-inset-bot
 .pres-cuota span{font-size:12.5px}
 .pres-cuota b{font-size:18px}
 .pres-link-peligro{justify-self:center;min-height:44px;border:0;background:transparent;font:inherit;font-size:14px;font-weight:700;color:#b42318;cursor:pointer}
+/* El seguimiento no se sale del teléfono (08/11/2026): sus columnas pueden
+   encogerse; antes empujaba 8 px de scroll horizontal a 390 px. */
+.tan-nota-form{min-width:0;max-width:100%}
+.tan-nota-form .pres-seg{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tan-nota-form .pres-seg button{min-width:0;padding-inline:4px}
+.tan-nota-fila{min-width:0}

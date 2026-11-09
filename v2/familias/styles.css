@@ -443,3 +443,14 @@
 .fam-pasos li.actual em{color:#07191e}
 .fam-pedido-txt{margin:0;font-size:13.5px;color:#354f55}
 .fam-pedido-piezas{margin:0;padding-left:18px;font-size:13px;color:#4a6870;display:grid;gap:2px}
+
+/* Premio por puntualidad (08/11/2026). */
+.fam-punt{border-color:#cfe2e5}
+.fam-punt[data-state="ganado"]{border-color:#cfe8da;background:#f8fcf9}
+.fam-punt[data-state="ganado"] .fam-barra i{background:#30b45a}
+.fam-punt-meses{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:4px;margin:12px 0 4px;padding:0;list-style:none}
+.fam-punt-meses li{display:grid;place-items:center;height:30px;border-radius:8px;background:#eef2f1;font-size:10.5px;font-weight:800;color:#7b8a8f}
+.fam-punt-meses li[data-state="a_tiempo"]{background:#e7f6ec;color:#1d7a3d}
+.fam-punt-meses li[data-state="tarde"]{background:#ffe9e6;color:#a32920}
+.fam-punt-meses li[data-state="sin_cargo"]{background:#f4f6f5;color:#b3bec2}
+.fam-punt-liga{display:inline-block;margin-top:6px;font-size:13px;font-weight:700;color:var(--fam-teal,#087d8e);text-decoration:none}

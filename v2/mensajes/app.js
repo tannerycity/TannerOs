@@ -3,6 +3,7 @@ import {problemaConArchivo,extensionDe,rutaDeArchivo,pesoLegible,puedeEditar,men
   mencionados,resaltaMenciones,atajoEnCurso,filtraRapidas,atajoValido,RAPIDAS_SUGERIDAS,SILENCIOS,silencioHasta,validaProgramado,
   valorLocal,huellaDelHilo} from '/v2/mensajes/pro.js';
 import {getSignedPhotoUrl,getRawSignedPhotoUrl} from '/v2/photo-cache.js';
+import {resumenCampana} from '/v2/mi-semana.js';
 import {UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 // Vestidor: los mensajes internos del club. Pedido de Presidencia
@@ -88,6 +89,7 @@ async function cargaInbox(){
   pintaLista();
 }
 async function cargaAvisos(){
+  rpc('v2_my_week',{organization_id:org}).then(d=>{state.semana=d;if(state.tab==='avisos')pintaLista();}).catch(()=>{});
   try{state.avisos=await rpc('v2_avisos',{organization_id:org});}
   catch(e){state.avisos={avisos:[],canPublish:false,error:amable(e)};}
   if(state.tab==='avisos')pintaLista();
@@ -104,7 +106,7 @@ function amable(e){
 function pintaLista(){
   const app=$('msBody');
   if(!app.querySelector('.ms-list')){
-    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="chats">Chats<b class="ms-tab-n" id="msNChats" hidden></b></button><button type="button" role="tab" data-tab="avisos">Avisos<b class="ms-tab-n" id="msNAvisos" hidden></b></button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
+    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="chats">Chats<b class="ms-tab-n" id="msNChats" hidden></b></button><button type="button" role="tab" data-tab="avisos">Avisos<b class="ms-tab-n" id="msNAvisos" hidden></b></button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msSemana" hidden></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
     app.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>cambiaTab(b.dataset.tab)));
     $('msNuevo').addEventListener('click',()=>state.tab==='avisos'?hojaAviso():hojaNuevo());
     $('msBusca').addEventListener('input',e=>{state.busca=e.target.value;pintaItems();});
@@ -120,6 +122,8 @@ function pintaLista(){
   $('msNuevo').setAttribute('aria-label',state.tab==='avisos'?'Nuevo aviso':'Nuevo chat');
   $('msNuevo').classList.toggle('hidden',state.tab==='avisos'&&!state.avisos?.canPublish);
   $('msBusca').closest('.ms-search').classList.toggle('hidden',state.tab==='avisos');
+  // Mi semana fija arriba de los avisos (h65): lo que te falta, a un toque.
+  { const box=$('msSemana'); const html=state.tab==='avisos'?resumenCampana(state.semana):''; box.innerHTML=html; box.hidden=!html; }
   pintaPush();
   pintaItems();
 }

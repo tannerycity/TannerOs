@@ -185,6 +185,16 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.fill('[data-monto="arb"]', '150');
   revisa('[hoja] el total suma todo y los botones también: $1,750.00', /\$1,750\.00/.test(await texto(p, '#cobroTotal')) && /\$1,750\.00/.test(await texto(p, '#cobroEnviar')));
 
+  // "Mensualidad" en Otro ingreso (10/11/2026): se cobra como la mensualidad
+  // de verdad (aquí noviembre, porque ago y oct ya van), no como ingreso suelto.
+  await agrega(p, 'otro');
+  await p.fill('[data-monto="otro"]', '800');
+  revisa('[otro] Mensualidad es la primera categoría', (await p.$$eval('[data-categoria="otro"] option', o => o.map(x => x.value)))[1] === 'Mensualidad');
+  await p.selectOption('[data-categoria="otro"]', 'Mensualidad');
+  await p.waitForSelector('[data-linea="m:p1:2026-11"]', { timeout:3000 });
+  revisa('[otro] Mensualidad se vuelve la mensualidad de noviembre, con su monto', !(await p.$('[data-linea="otro"]')) && await p.inputValue('[data-monto="m:p1:2026-11"]') === '800' && /Se cobra como Mensualidad nov/.test(await texto(p, '.cobro-info')), await texto(p, '.cobro-info').catch(() => ''));
+  await p.click('[data-quita="m:p1:2026-11"]');
+
   // Paga de más (08/11/2026): ya no se bloquea; se elige a dónde van.
   await p.fill('[data-monto="c:c-rec"]', '300');
   await p.press('[data-monto="c:c-rec"]', 'Tab');

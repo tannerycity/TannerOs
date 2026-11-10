@@ -34,6 +34,26 @@ const THEME_GROUPS = [
   { label: 'Privacidad e imagen', categories: ['privacidad'] },
   { label: 'Tannery City Park', categories: ['tannery_city_park', 'estacionamiento'] }
 ];
+// 10/11/2026, Mich: "hazlo más interactivo, estilo Apple... que sea fácil
+// para los papás encontrarlo". "Nuestra historia" pasó de una sola página
+// larga a un hub con tarjetas grandes — cada tema es su propia página, con
+// "sigue explorando" al final para que se siga picando. El texto completo de
+// cada tema sale en HISTORIA_BODIES; esto solo es el índice/metadata (usado
+// también por el buscador, que antes no encontraba nada de esto).
+const HISTORIA_TOPICS = [
+  { slug: 'tano', icon: 'glove', kicker: 'NUESTRA MASCOTA', title: 'Tano el Tanner', desc: 'El portero luchador que es la cara de Tannery City', keywords: ['tano', 'mascota', 'portero', 'luchador', 'carbajal'] },
+  { slug: 'raices', icon: 'calendar', kicker: 'DESDE 1850', title: 'Nuestras raíces', desc: 'El lema que define a León y cómo "curtimos" mejores personas', keywords: ['raices', 'historia', '1850', 'leon', 'tenerias', 'lema fundador'] },
+  { slug: 'origen', icon: 'target', kicker: 'NUESTRO ADN DE FORMACIÓN', title: 'El origen de Tannery City', desc: 'La fórmula de 6 países detrás de cómo formamos', keywords: ['origen', 'formacion', 'paises', 'holanda', 'espana', 'pachuca', 'italia', 'inglaterra', 'formar entender proyectar'] },
+  { slug: 'escudo', icon: 'trophy', kicker: 'CADA PARTE CUENTA ALGO', title: 'Nuestro escudo', desc: 'Qué significa cada parte de nuestro monograma', keywords: ['escudo', 'monograma', 'corona', 'cuero', 'logo'] },
+  { slug: 'valores', icon: 'check', kicker: 'LO QUE NOS DEFINE', title: 'Nuestros valores', desc: 'Los 6 valores dentro y fuera de la cancha', keywords: ['valores', 'resiliencia', 'energia', 'unidad', 'curtibrother', 'bajio'] },
+  { slug: 'canchas', icon: 'pin', kicker: 'TRADICIÓN TANNER', title: 'Nuestras canchas', desc: 'Por qué llevan el nombre de alguien', keywords: ['cancha', 'canchas', 'lechuguilla', 'chavicos', 'placa', 'enriquez'] },
+  { slug: 'adn', icon: 'ball', kicker: 'FÚTBOL CURTIDO', title: 'Nuestro ADN de juego', desc: 'El estilo que enseñamos desde la formación', keywords: ['adn', 'futbol curtido', 'tiki tanner', 'estilo de juego', 'metodologia', 'joga bonito'] },
+  { slug: 'lema', icon: 'bell', kicker: 'LO QUE NOS UNE', title: 'Nuestro lema', desc: '"To our City, to our Family, to our Tanners"', keywords: ['lema', 'slogan', 'to our city', 'familia', 'tanners'] }
+];
+function normalizar(s) { return String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+// El hub en sí ("Nuestra historia") no es un HISTORIA_TOPICS — por eso buscar
+// justo la palabra "Historia" no encontraba nada (10/11/2026, screenshot de Mich).
+const HISTORIA_HUB_ENTRY = { title: 'Nuestra historia', desc: 'El origen de Tannery City, nuestro escudo, nuestros valores y la tradición de nombrar nuestras canchas.', href: '/centro-tanner/historia', keywords: ['historia', 'nuestra historia', 'tano el tanner', 'quien es tano'] };
 
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 // Políticas como TC-132 remiten a un reglamento externo (TCP) por su liga; el
@@ -126,17 +146,28 @@ function wireSearch() {
     if (q.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; return; }
     timer = setTimeout(async () => {
       const mySeq = ++seq;
-      try {
-        const results = await rpc('v2_public_centro_tanner_search', { club_key: CLUB_KEY, q });
-        if (mySeq !== seq) return;
-        box.classList.remove('hidden');
-        if (!results?.length) { box.innerHTML = `<div class="ct-search-empty">No encontramos nada para “${esc(q)}”. Intenta con otra palabra.</div>`; return; }
-        box.innerHTML = results.map((r) => {
-          const href = r.type === 'document' ? `/centro-tanner/documento/${esc(r.slug)}` : r.type === 'policy' ? `/centro-tanner/p/${esc(r.slug)}` : (r.slug ? `/centro-tanner/p/${esc(r.slug)}` : `/centro-tanner/tema/${esc(r.category)}`);
-          const kicker = r.type === 'faq' ? 'PREGUNTA FRECUENTE' : r.type === 'document' ? 'DOCUMENTO' : (CATEGORY_LABELS[r.category] || 'POLÍTICA').toUpperCase();
-          return `<a class="ct-result" href="${href}"><div class="ct-result-kicker">${esc(kicker)}</div><div class="ct-result-title">${esc(r.title)}</div><div class="ct-result-snippet">${esc(r.snippet || '')}</div></a>`;
-        }).join('');
-      } catch { if (mySeq === seq) { box.classList.remove('hidden'); box.innerHTML = '<div class="ct-search-empty">No pudimos buscar en este momento.</div>'; } }
+      // 10/11/2026, Mich: buscó "Historia" y no salió nada — "Nuestra
+      // historia" no vive en la base, así que el RPC nunca la iba a
+      // encontrar. Estos resultados estáticos se mezclan siempre, incluso
+      // si el RPC falla o no trae nada.
+      const nq = normalizar(q);
+      const coincide = (e) => e.keywords.some((k) => normalizar(k).includes(nq)) || normalizar(e.title).includes(nq) || normalizar(e.desc).includes(nq);
+      const staticResults = esTanneryCity ? [
+        ...(coincide(HISTORIA_HUB_ENTRY) ? [{ type: 'historia', title: HISTORIA_HUB_ENTRY.title, snippet: HISTORIA_HUB_ENTRY.desc, href: HISTORIA_HUB_ENTRY.href }] : []),
+        ...HISTORIA_TOPICS.filter(coincide).map((t) => ({ type: 'historia', title: t.title, snippet: t.desc, href: `/centro-tanner/historia/${t.slug}` })),
+      ].slice(0, 5) : [];
+      let results = [];
+      try { results = (await rpc('v2_public_centro_tanner_search', { club_key: CLUB_KEY, q })) || []; }
+      catch { results = []; }
+      if (mySeq !== seq) return;
+      const combined = [...staticResults, ...results];
+      box.classList.remove('hidden');
+      if (!combined.length) { box.innerHTML = `<div class="ct-search-empty">No encontramos nada para “${esc(q)}”. Intenta con otra palabra.</div>`; return; }
+      box.innerHTML = combined.map((r) => {
+        const href = r.href || (r.type === 'document' ? `/centro-tanner/documento/${esc(r.slug)}` : r.type === 'policy' ? `/centro-tanner/p/${esc(r.slug)}` : (r.slug ? `/centro-tanner/p/${esc(r.slug)}` : `/centro-tanner/tema/${esc(r.category)}`));
+        const kicker = r.type === 'historia' ? 'NUESTRA HISTORIA' : r.type === 'faq' ? 'PREGUNTA FRECUENTE' : r.type === 'document' ? 'DOCUMENTO' : (CATEGORY_LABELS[r.category] || 'POLÍTICA').toUpperCase();
+        return `<a class="ct-result" href="${href}"><div class="ct-result-kicker">${esc(kicker)}</div><div class="ct-result-title">${esc(r.title)}</div><div class="ct-result-snippet">${esc(r.snippet || '')}</div></a>`;
+      }).join('');
     }, 320);
   });
   // 09/11/2026, Mich: "se queda trabado" — al tocar un resultado, la caja
@@ -464,129 +495,134 @@ async function renderWizardResult(dest) {
 // City. Es estático (no viene de la base de datos) porque no cambia según
 // temporada; solo se muestra para el club Tannery City (ver esTanneryCity).
 // ---------------------------------------------------------------------------
-async function renderHistoria() {
-  setMeta('¿Quién es Tano el Tanner?', 'El origen de Tannery City, nuestro escudo, nuestros valores y la tradición de nombrar nuestras canchas.');
+function historiaHubCard(t) {
+  return `<a class="hs-hub-card" href="/centro-tanner/historia/${t.slug}">
+    <span class="hs-hub-badge hs-hub-badge-${t.icon}"><span class="tos-icon tos-icon-${t.icon}" aria-hidden="true"></span></span>
+    <span class="hs-hub-body"><span class="hs-hub-kicker">${esc(t.kicker)}</span><strong>${esc(t.title)}</strong><span class="hs-hub-desc">${esc(t.desc)}</span></span>
+    <span class="hs-hub-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span>
+  </a>`;
+}
+async function renderHistoriaHub() {
+  setMeta('Nuestra historia', 'El origen de Tannery City, nuestro escudo, nuestros valores y la tradición de nombrar nuestras canchas.');
   render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { label: 'Nuestra historia' }])}
     <section class="ct-hero hs-hero">
       <div class="ct-hero-eyebrow">TANNERY CITY · DESDE 1850</div>
       <h1>¿Quién es Tano el Tanner?</h1>
-      <p>Y toda la historia detrás del escudo, los colores y los valores que nos forman — para que te metas a investigar lo que quieras.</p>
+      <p>Toda la historia detrás del escudo, los colores y los valores que nos forman — tócale a lo que quieras y métete a investigar.</p>
     </section>
+    <section class="ct-section">
+      <h2 class="ct-section-title">Explora</h2>
+      <div class="hs-hub-grid">${HISTORIA_TOPICS.map(historiaHubCard).join('')}</div>
+    </section>
+  `);
+}
 
-    <section class="hs-card">
-      <div class="ct-section-title">Nuestra mascota</div>
-      <h2>Tano el Tanner</h2>
-      <div class="hs-tano-grid">
-        <div class="hs-tano-badge">T</div>
-        <div class="hs-tano-body">
-          <p>Tano es un portero luchador de León. Por la mañana va a la tenería, por la tarde juega fútbol y por la noche se sube al ring. Su nombre viene de Antonio, en homenaje a Antonio «La Tota» Carbajal.</p>
-          <div class="hs-trait-grid">
-            <div class="hs-trait"><strong>Juguetón</strong><span>Bromea, baila y canta con la afición.</span></div>
-            <div class="hs-trait"><strong>Valiente</strong><span>Se avienta por cada balón, al 200%.</span></div>
-            <div class="hs-trait"><strong>Compañero</strong><span>Anima a los niños y nunca regaña.</span></div>
-            <div class="hs-trait"><strong>Leonés</strong><span>Cuero, guacamayas y lechuguilla.</span></div>
-          </div>
-          <div class="hs-quotes">
-            <span class="hs-quote">“¡De la tenería a la portería!”</span>
-            <span class="hs-quote">“¡Andamos al 200%!”</span>
-            <span class="hs-quote">“¡Otra vez, Tanner!”</span>
-            <span class="hs-quote">“Aquí nos curtimos jugando”</span>
-            <span class="hs-quote">“¡Qué onda, Curtibrother!”</span>
-            <span class="hs-quote">“El trabajo todo lo vence”</span>
-          </div>
+// Cada tema es una página propia (crumb + tarjeta + "sigue explorando" hacia
+// el siguiente) para que se sienta como algo que se recorre, no un solo
+// documento larguísimo. El contenido de cada una vive en HISTORIA_BODIES.
+const HISTORIA_BODIES = {
+  tano: () => `
+    <div class="hs-tano-grid">
+      <div class="hs-tano-badge">T</div>
+      <div class="hs-tano-body">
+        <p>Tano es un portero luchador de León. Por la mañana va a la tenería, por la tarde juega fútbol y por la noche se sube al ring. Su nombre viene de Antonio, en homenaje a Antonio «La Tota» Carbajal.</p>
+        <div class="hs-trait-grid">
+          <div class="hs-trait"><strong>Juguetón</strong><span>Bromea, baila y canta con la afición.</span></div>
+          <div class="hs-trait"><strong>Valiente</strong><span>Se avienta por cada balón, al 200%.</span></div>
+          <div class="hs-trait"><strong>Compañero</strong><span>Anima a los niños y nunca regaña.</span></div>
+          <div class="hs-trait"><strong>Leonés</strong><span>Cuero, guacamayas y lechuguilla.</span></div>
+        </div>
+        <div class="hs-quotes">
+          <span class="hs-quote">“¡De la tenería a la portería!”</span>
+          <span class="hs-quote">“¡Andamos al 200%!”</span>
+          <span class="hs-quote">“¡Otra vez, Tanner!”</span>
+          <span class="hs-quote">“Aquí nos curtimos jugando”</span>
+          <span class="hs-quote">“¡Qué onda, Curtibrother!”</span>
+          <span class="hs-quote">“El trabajo todo lo vence”</span>
         </div>
       </div>
-    </section>
-
-    <section class="hs-card">
-      <div class="ct-section-title">Nuestra historia</div>
-      <h2>Desde 1850</h2>
-      <p style="margin:10px 0 0;font-size:14.5px;line-height:1.65;color:#33403f">Nuestra historia comienza en <strong>1850</strong>, con el lema que define a León: <strong>“el trabajo todo lo vence”</strong>. Es una historia de hacer posible lo imposible — contada por el equipo, la afición y los deportistas. Una historia sobre la creación de las estrellas del mañana, y de cómo <strong>“curtimos”</strong> humanos que se convierten en <strong>mejores personas</strong>. No olvidamos nuestras raíces, porque nos recuerdan de dónde venimos.</p>
-      <p style="margin:12px 0 0;font-size:14px;font-style:italic;color:var(--ct-teal);font-weight:700">To our city, to our family, to our Tanners.</p>
-    </section>
-
-    <section class="hs-card">
-      <div class="ct-section-title">El origen de Tannery City</div>
-      <h2>Aprendemos del mundo. Formamos desde León.</h2>
-      <div class="hs-origin-grid">
-        <div class="hs-origin-item"><span class="hs-origin-flag">Holanda</span><span class="hs-origin-word">Formar</span><span class="hs-origin-desc">Desarrollar al jugador por etapas. Primero crecer, luego competir.</span></div>
-        <div class="hs-origin-item"><span class="hs-origin-flag">España</span><span class="hs-origin-word">Entender</span><span class="hs-origin-desc">Jugar pensando. Técnica, posición, relación y decisión.</span></div>
-        <div class="hs-origin-item"><span class="hs-origin-flag">Pachuca, MX</span><span class="hs-origin-word">Proyectar</span><span class="hs-origin-desc">La formación debe abrir camino al alto rendimiento y al profesionalismo.</span></div>
-        <div class="hs-origin-item"><span class="hs-origin-flag">Italia</span><span class="hs-origin-word">Representar</span><span class="hs-origin-desc">Identidad, detalle, presencia y orgullo por la camiseta.</span></div>
-        <div class="hs-origin-item"><span class="hs-origin-flag">Inglaterra</span><span class="hs-origin-word">Competir</span><span class="hs-origin-desc">Energía, intensidad, ritmo y hambre de jugar.</span></div>
-        <div class="hs-origin-item"><span class="hs-origin-flag">León</span><span class="hs-origin-word">Pertenecer</span><span class="hs-origin-desc">Ciudad, familia, barrio e identidad propia.</span></div>
+    </div>`,
+  raices: () => `
+    <p style="margin:0;font-size:14.5px;line-height:1.65;color:#33403f">Nuestra historia comienza en <strong>1850</strong>, con el lema que define a León: <strong>“el trabajo todo lo vence”</strong>. Es una historia de hacer posible lo imposible — contada por el equipo, la afición y los deportistas. Una historia sobre la creación de las estrellas del mañana, y de cómo <strong>“curtimos”</strong> humanos que se convierten en <strong>mejores personas</strong>. No olvidamos nuestras raíces, porque nos recuerdan de dónde venimos.</p>
+    <p style="margin:12px 0 0;font-size:14px;font-style:italic;color:var(--ct-teal);font-weight:700">To our city, to our family, to our Tanners.</p>`,
+  origen: () => `
+    <div class="hs-origin-grid">
+      <div class="hs-origin-item"><span class="hs-origin-flag">Holanda</span><span class="hs-origin-word">Formar</span><span class="hs-origin-desc">Desarrollar al jugador por etapas. Primero crecer, luego competir.</span></div>
+      <div class="hs-origin-item"><span class="hs-origin-flag">España</span><span class="hs-origin-word">Entender</span><span class="hs-origin-desc">Jugar pensando. Técnica, posición, relación y decisión.</span></div>
+      <div class="hs-origin-item"><span class="hs-origin-flag">Pachuca, MX</span><span class="hs-origin-word">Proyectar</span><span class="hs-origin-desc">La formación debe abrir camino al alto rendimiento y al profesionalismo.</span></div>
+      <div class="hs-origin-item"><span class="hs-origin-flag">Italia</span><span class="hs-origin-word">Representar</span><span class="hs-origin-desc">Identidad, detalle, presencia y orgullo por la camiseta.</span></div>
+      <div class="hs-origin-item"><span class="hs-origin-flag">Inglaterra</span><span class="hs-origin-word">Competir</span><span class="hs-origin-desc">Energía, intensidad, ritmo y hambre de jugar.</span></div>
+      <div class="hs-origin-item"><span class="hs-origin-flag">León</span><span class="hs-origin-word">Pertenecer</span><span class="hs-origin-desc">Ciudad, familia, barrio e identidad propia.</span></div>
+    </div>
+    <p class="hs-origin-sum">Formar + Entender + Proyectar + Representar + Competir + Pertenecer = Tannery City<br>Curtimos futbolistas. Formamos personas.</p>`,
+  escudo: () => `
+    <div class="hs-shield-grid">
+      <div class="hs-shield-item"><strong>La corona de la bandera de León</strong><p>La parte superior de nuestro escudo se asemeja a una "corona mural", un tributo a la ciudad que nos vio nacer. Representa fortaleza, historia y grandeza.</p></div>
+      <div class="hs-shield-item"><strong>Industria del calzado</strong><p>Nuestro escudo está formado por las partes sobrantes del cuero, lo mismo que los artesanos de León usan para dar forma al calzado, chamarras y otros productos que pusieron a nuestra ciudad en el mapa mundial.</p></div>
+      <div class="hs-shield-item"><strong>Silueta del cuero</strong><p>Un homenaje a los curtidores que han dado vida a la ciudad de León. Es la piel de nuestra historia y compromiso con la excelencia.</p></div>
+      <div class="hs-shield-item"><strong>Ascenso hacia la grandeza</strong><p>Las astas de las "T" ascienden desde la base y convergen en el travesaño, como dos caminos separados que gradualmente se encuentran: crecimiento constante, ambición y deseo de alcanzar nuevos desafíos.</p></div>
+      <div class="hs-shield-item"><strong>Unión y reflejo</strong><p>Nuestro escudo es un monograma que comienza con dos letras "T" unidas, espejadas verticalmente: la unión de la tradición y la modernidad, herencia y evolución.</p></div>
+    </div>`,
+  valores: () => `
+    <div class="hs-values-grid">
+      <div class="hs-value"><strong>Resiliencia</strong><p>Los Tanners deben estar preparados para superar adversidades en el campo y fuera de él.</p></div>
+      <div class="hs-value"><strong>Energía</strong><p>En Tannery City todo trata de energía: la de quien sale a trabajar por la mañana, la de marcar el gol de la victoria, la de la afición cantando nuestro himno, la que vemos en la ciudad todos los días. Esa energía es la que nos mueve.</p></div>
+      <div class="hs-value"><strong>Unidad</strong><p>Ciudad, familia, Tanners y sponsors. Jugamos como una unidad, donde cada quien entiende su rol y contribuye al éxito colectivo. Cuando las cosas se ponen difíciles permanecemos unidos; cuando hay éxito, lo celebramos eufóricos.</p></div>
+      <div class="hs-value"><strong>Pies en la tierra</strong><p>Trabajamos todos los días para ser los mejores, todos los días. Sabemos que podemos superar cualquier obstáculo, pero siempre con humildad deportiva. Cuando hagas las cosas bien, serás felicitado con el orgullo que mereces. Pero si algo no sale como debería, también seremos los primeros en decírtelo, porque solo con autocrítica podemos mejorar.</p></div>
+      <div class="hs-value"><strong>Del Bajío para el mundo</strong><p>Confiamos y conocemos la calidad de los deportistas y personas en esta zona geográfica. Somos un puente para materializar tus sueños, solo tienes que estar dispuesto a pagar el precio.</p></div>
+      <div class="hs-value"><strong>Curtibrother</strong><p>Tannery City pertenece a personas como tú y yo: a quien va a una maquila a trabajar, va a la escuela, viaja en "la oruga" para ir a entrenar, come una guacamaya o se toma una lechuguilla para el calor. Tannery City está en cada esquina de nuestra ciudad, porque de ahí saldrán los próximos campeones mundiales.</p></div>
+    </div>
+    <div class="hs-triangle-wrap">
+      <div class="hs-triangle">
+        <span class="hs-triangle-top">Mente</span>
+        <span class="hs-triangle-bottom"><span>Cuerpo</span><span>Espíritu</span></span>
       </div>
-      <p class="hs-origin-sum">Formar + Entender + Proyectar + Representar + Competir + Pertenecer = Tannery City<br>Curtimos futbolistas. Formamos personas.</p>
-    </section>
-
-    <section class="hs-card">
-      <div class="ct-section-title">Nuestro escudo</div>
-      <h2>Cada parte cuenta algo</h2>
-      <div class="hs-shield-grid">
-        <div class="hs-shield-item"><strong>La corona de la bandera de León</strong><p>La parte superior de nuestro escudo se asemeja a una "corona mural", un tributo a la ciudad que nos vio nacer. Representa fortaleza, historia y grandeza.</p></div>
-        <div class="hs-shield-item"><strong>Industria del calzado</strong><p>Nuestro escudo está formado por las partes sobrantes del cuero, lo mismo que los artesanos de León usan para dar forma al calzado, chamarras y otros productos que pusieron a nuestra ciudad en el mapa mundial.</p></div>
-        <div class="hs-shield-item"><strong>Silueta del cuero</strong><p>Un homenaje a los curtidores que han dado vida a la ciudad de León. Es la piel de nuestra historia y compromiso con la excelencia.</p></div>
-        <div class="hs-shield-item"><strong>Ascenso hacia la grandeza</strong><p>Las astas de las "T" ascienden desde la base y convergen en el travesaño, como dos caminos separados que gradualmente se encuentran: crecimiento constante, ambición y deseo de alcanzar nuevos desafíos.</p></div>
-        <div class="hs-shield-item"><strong>Unión y reflejo</strong><p>Nuestro escudo es un monograma que comienza con dos letras "T" unidas, espejadas verticalmente: la unión de la tradición y la modernidad, herencia y evolución.</p></div>
-      </div>
-    </section>
-
-    <section class="hs-card">
-      <div class="ct-section-title">Nuestros valores</div>
-      <h2>Lo que nos define dentro y fuera de la cancha</h2>
-      <div class="hs-values-grid">
-        <div class="hs-value"><strong>Resiliencia</strong><p>Los Tanners deben estar preparados para superar adversidades en el campo y fuera de él.</p></div>
-        <div class="hs-value"><strong>Energía</strong><p>En Tannery City todo trata de energía: la de quien sale a trabajar por la mañana, la de marcar el gol de la victoria, la de la afición cantando nuestro himno, la que vemos en la ciudad todos los días. Esa energía es la que nos mueve.</p></div>
-        <div class="hs-value"><strong>Unidad</strong><p>Ciudad, familia, Tanners y sponsors. Jugamos como una unidad, donde cada quien entiende su rol y contribuye al éxito colectivo. Cuando las cosas se ponen difíciles permanecemos unidos; cuando hay éxito, lo celebramos eufóricos.</p></div>
-        <div class="hs-value"><strong>Pies en la tierra</strong><p>Trabajamos todos los días para ser los mejores, todos los días. Sabemos que podemos superar cualquier obstáculo, pero siempre con humildad deportiva. Cuando hagas las cosas bien, serás felicitado con el orgullo que mereces. Pero si algo no sale como debería, también seremos los primeros en decírtelo, porque solo con autocrítica podemos mejorar.</p></div>
-        <div class="hs-value"><strong>Del Bajío para el mundo</strong><p>Confiamos y conocemos la calidad de los deportistas y personas en esta zona geográfica. Somos un puente para materializar tus sueños, solo tienes que estar dispuesto a pagar el precio.</p></div>
-        <div class="hs-value"><strong>Curtibrother</strong><p>Tannery City pertenece a personas como tú y yo: a quien va a una maquila a trabajar, va a la escuela, viaja en "la oruga" para ir a entrenar, come una guacamaya o se toma una lechuguilla para el calor. Tannery City está en cada esquina de nuestra ciudad, porque de ahí saldrán los próximos campeones mundiales.</p></div>
-      </div>
-      <div class="hs-triangle-wrap">
-        <div class="hs-triangle">
-          <span class="hs-triangle-top">Mente</span>
-          <span class="hs-triangle-bottom"><span>Cuerpo</span><span>Espíritu</span></span>
-        </div>
-      </div>
-    </section>
-
-    <section class="hs-card">
-      <div class="ct-section-title">Nuestras canchas</div>
-      <h2>Nombradas en honor a alguien</h2>
-      <p style="margin:10px 0 0;font-size:14px;line-height:1.6;color:#33403f">En Tannery City, a nuestras canchas siempre les ponemos nombres en honor a alguien o a algo que representa nuestras raíces. Es nuestra manera de que la historia del club se siga contando cada vez que alguien juega en ellas.</p>
-      <div class="hs-plaque">
-        <div class="hs-plaque-title">Cancha “La Lechuguilla”</div>
-        <p>Nombrada “La Lechuguilla” como homenaje a nuestras raíces, a la identidad del Bajío y al espíritu de nuestra ciudad.</p>
-        <p>En Tannery City, La Lechuguilla representa origen, barrio, tradición y pertenencia. Es un símbolo de quienes trabajan, sueñan y construyen todos los días con humildad, carácter y pasión por el fútbol.</p>
-        <p>Que esta cancha siga formando jugadores, familias y futuras generaciones que honren a León, a su historia y al amor por este juego.</p>
-        <div class="hs-plaque-meta">Fundada el 20 de junio de 2026 · Nombrada por Tannery City y su comunidad</div>
-      </div>
-      <div class="hs-plaque">
-        <div class="hs-plaque-title">Cancha “Chavicos” Enríquez</div>
-        <p>En honor a Ricardo “Chavicos” Enríquez, por su invaluable contribución al desarrollo y fomento del fútbol en la ciudad de León, Guanajuato.</p>
-        <p>Su pasión, entrega, éxitos y legado seguirán inspirando a las futuras generaciones de futbolistas.</p>
-        <div class="hs-plaque-meta">Fundada el 15 de agosto de 2025 · Dedicada por Tannery City, Salvador “Chavicos” Enríquez y su familia</div>
-      </div>
-    </section>
-
-    <section class="hs-card">
-      <div class="ct-section-title">Nuestro ADN</div>
-      <h2>Fútbol Curtido</h2>
-      <p style="margin:10px 0 14px;font-size:14px;line-height:1.6;color:#33403f">Nuestro ADN combina la filosofía del "joga bonito" con un enfoque táctico y disciplinado, inspirado en las mejores academias del mundo pero arraigado en la cultura mexicana. Jugamos para la afición: por eso nuestro estilo es tribunero, le llamamos <strong>Fútbol Curtido / Tiki Tanner</strong>. Todavía estamos construyendo el camino para jugar siempre así — es justo por eso que enseñamos toda nuestra metodología desde la formación, para que este sea el estilo que se priorice en cada categoría.</p>
-      <div class="hs-dna-list">
-        <div class="hs-dna-item"><strong>Posesión y creatividad</strong><p>Priorizamos el control del balón con transiciones rápidas, movimientos inteligentes y desmarques constantes.</p></div>
-        <div class="hs-dna-item"><strong>Presión alta y recuperación rápida</strong><p>Cuando no tenemos el balón, el objetivo es recuperarlo lo más rápido posible, cerrando líneas de pase.</p></div>
-        <div class="hs-dna-item"><strong>Velocidad en las transiciones</strong><p>De defensa a ataque en pocos toques, con ataques directos y contundentes en el último tercio.</p></div>
-        <div class="hs-dna-item"><strong>Flexibilidad táctica</strong><p>Adaptación a diferentes formaciones según el rival, siempre manteniendo una identidad ofensiva.</p></div>
-      </div>
-    </section>
-
-    <section class="hs-card hs-slogan">
-      <div class="ct-section-title">Nuestro lema</div>
+    </div>`,
+  canchas: () => `
+    <p style="margin:0;font-size:14px;line-height:1.6;color:#33403f">En Tannery City, a nuestras canchas siempre les ponemos nombres en honor a alguien o a algo que representa nuestras raíces. Es nuestra manera de que la historia del club se siga contando cada vez que alguien juega en ellas.</p>
+    <div class="hs-plaque">
+      <div class="hs-plaque-title">Cancha “La Lechuguilla”</div>
+      <p>Nombrada “La Lechuguilla” como homenaje a nuestras raíces, a la identidad del Bajío y al espíritu de nuestra ciudad.</p>
+      <p>En Tannery City, La Lechuguilla representa origen, barrio, tradición y pertenencia. Es un símbolo de quienes trabajan, sueñan y construyen todos los días con humildad, carácter y pasión por el fútbol.</p>
+      <p>Que esta cancha siga formando jugadores, familias y futuras generaciones que honren a León, a su historia y al amor por este juego.</p>
+      <div class="hs-plaque-meta">Fundada el 20 de junio de 2026 · Nombrada por Tannery City y su comunidad</div>
+    </div>
+    <div class="hs-plaque">
+      <div class="hs-plaque-title">Cancha “Chavicos” Enríquez</div>
+      <p>En honor a Ricardo “Chavicos” Enríquez, por su invaluable contribución al desarrollo y fomento del fútbol en la ciudad de León, Guanajuato.</p>
+      <p>Su pasión, entrega, éxitos y legado seguirán inspirando a las futuras generaciones de futbolistas.</p>
+      <div class="hs-plaque-meta">Fundada el 15 de agosto de 2025 · Dedicada por Tannery City, Salvador “Chavicos” Enríquez y su familia</div>
+    </div>`,
+  adn: () => `
+    <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#33403f">Nuestro ADN combina la filosofía del "joga bonito" con un enfoque táctico y disciplinado, inspirado en las mejores academias del mundo pero arraigado en la cultura mexicana. Jugamos para la afición: por eso nuestro estilo es tribunero, le llamamos <strong>Fútbol Curtido / Tiki Tanner</strong>. Todavía estamos construyendo el camino para jugar siempre así — es justo por eso que enseñamos toda nuestra metodología desde la formación, para que este sea el estilo que se priorice en cada categoría.</p>
+    <div class="hs-dna-list">
+      <div class="hs-dna-item"><strong>Posesión y creatividad</strong><p>Priorizamos el control del balón con transiciones rápidas, movimientos inteligentes y desmarques constantes.</p></div>
+      <div class="hs-dna-item"><strong>Presión alta y recuperación rápida</strong><p>Cuando no tenemos el balón, el objetivo es recuperarlo lo más rápido posible, cerrando líneas de pase.</p></div>
+      <div class="hs-dna-item"><strong>Velocidad en las transiciones</strong><p>De defensa a ataque en pocos toques, con ataques directos y contundentes en el último tercio.</p></div>
+      <div class="hs-dna-item"><strong>Flexibilidad táctica</strong><p>Adaptación a diferentes formaciones según el rival, siempre manteniendo una identidad ofensiva.</p></div>
+    </div>`,
+  lema: () => `
+    <div class="hs-slogan">
       <div class="hs-slogan-en">“To our City, to our Family, to our Tanners.”</div>
       <div class="hs-slogan-es">Por la ciudad, por nuestra familia, por los Tanners.</div>
       <p class="hs-slogan-quote">“Recuerden todo lo que tuvimos que pasar para llegar a este momento y salgan a disfrutar, háganlo por la ciudad, por su familia y por los Tanners.”</p>
-    </section>
+    </div>`
+};
+async function renderHistoriaTopic(slug) {
+  const t = HISTORIA_TOPICS.find((x) => x.slug === slug);
+  const body = HISTORIA_BODIES[slug];
+  if (!t || !body) return render('<div class="ct-empty"><h1>No encontramos este tema</h1><a href="/centro-tanner/historia">Volver a Nuestra historia</a></div>');
+  setMeta(t.title, t.desc);
+  const idx = HISTORIA_TOPICS.indexOf(t);
+  const next = HISTORIA_TOPICS[(idx + 1) % HISTORIA_TOPICS.length];
+  render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { href: '/centro-tanner/historia', label: 'Nuestra historia' }, { label: t.title }])}
+    <div class="ct-hero-eyebrow" style="margin-top:4px">${esc(t.kicker)}</div>
+    <h1 class="ct-policy-title" style="margin:4px 0 0">${esc(t.title)}</h1>
+    <section class="hs-card">${body()}</section>
+    <a class="hs-next-strip" href="/centro-tanner/historia/${next.slug}">
+      <span class="hs-next-label">Sigue explorando</span>
+      <strong>${esc(next.title)} →</strong>
+    </a>
   `);
 }
 
@@ -597,7 +633,9 @@ function route() {
   if (rest.length === 0) return renderHome();
   if (rest[0] === 'becas' && rest[1] === 'wizard') { wizardStack = []; return renderBecasWizardStep(); }
   if (rest[0] === 'becas' && !rest[1]) return renderBecasHome();
-  if (rest[0] === 'historia') return esTanneryCity ? renderHistoria() : render('<div class="ct-empty"><h1>Página no disponible</h1><a href="/centro-tanner/">Volver a Centro Tanner</a></div>');
+  if (rest[0] === 'historia' && !esTanneryCity) return render('<div class="ct-empty"><h1>Página no disponible</h1><a href="/centro-tanner/">Volver a Centro Tanner</a></div>');
+  if (rest[0] === 'historia' && rest[1]) return renderHistoriaTopic(decodeURIComponent(rest[1]));
+  if (rest[0] === 'historia') return renderHistoriaHub();
   if (rest[0] === 'tema' && rest[1]) return renderTheme(decodeURIComponent(rest[1]));
   if (rest[0] === 'p' && rest[1]) return renderPolicy(decodeURIComponent(rest[1]));
   if (rest[0] === 'documento' && rest[1]) return renderDocument(decodeURIComponent(rest[1]));

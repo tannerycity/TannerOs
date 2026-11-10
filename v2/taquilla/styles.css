@@ -534,3 +534,36 @@ button.cob-tile{cursor:pointer}
   #collectionsList[data-vista="lista"] .cob-acciones{order:4;flex:1 1 100%}
   #collectionsList[data-vista="lista"] .cob-acciones>*{flex:1 1 0;text-align:center}
 }
+/* Por conciliar: "Ver detalle" limpio y "···" como hoja de acciones (10/11/2026). */
+.cc-detalle>summary{display:inline-flex!important;align-items:center;gap:6px;font-weight:800!important}
+.cc-detalle>summary::after{content:none!important}
+.cc-detalle>summary i{width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .18s}
+.cc-detalle[open]>summary i{transform:rotate(-135deg) translate(-2px,0)}
+.cc-capa{position:fixed;inset:0;z-index:1600;background:rgba(6,20,24,.42);display:grid;align-items:end;justify-items:center;padding:0 8px calc(8px + env(safe-area-inset-bottom))}
+.cc-acc-sheet{width:min(520px,100%);display:grid;gap:8px}
+.cc-acc-grupo{background:rgba(255,255,255,.97);border-radius:16px;overflow:hidden}
+.cc-acc-tit{margin:0;padding:12px 16px;text-align:center;font-size:12.5px;color:#6f7c81;border-bottom:1px solid #e6ecea}
+.cc-acc-op{display:grid;gap:2px;width:100%;border:0;border-top:1px solid #e6ecea;background:none;padding:14px 16px;font:inherit;font-size:17px;color:#0a6ad8;cursor:pointer;text-align:center;min-height:56px}
+.cc-acc-tit+.cc-acc-op{border-top:0}
+.cc-acc-op small{font-size:12px;color:#6f7c81}
+.cc-acc-op.rojo{color:#d0342c}
+.cc-acc-cancelar{border:0;border-radius:16px;background:#fff;padding:16px;font:inherit;font-size:17px;font-weight:700;color:#0a6ad8;cursor:pointer;min-height:56px}
+.cc-edit-sheet{width:min(560px,100%);max-height:92vh;overflow:auto;background:#f2f4f4;border-radius:18px;padding:0 16px 18px;box-sizing:border-box}
+.cc-edit-head{position:sticky;top:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:#f2f4f4;padding:12px 0 8px}
+.cc-edit-head h2{margin:0;font-size:17px}
+.cc-edit-txt{border:0;background:none;font:inherit;font-size:16px;color:#0a6ad8;cursor:pointer;justify-self:start;min-height:44px;padding:0}
+.cc-edit-txt.fuerte{font-weight:800;justify-self:end}
+.cc-edit-txt:disabled{opacity:.4}
+.cc-edit-quien{margin:2px 0 14px;text-align:center;color:#44585e;font-size:14px}
+.cc-edit-eti{margin:14px 4px 6px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#6f7c81}
+.cc-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:#e3e8e7;border-radius:10px;padding:2px}
+.cc-seg button{border:0;background:transparent;border-radius:8px;padding:9px 4px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;min-height:38px;color:#07191e}
+.cc-seg button[aria-checked="true"]{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.cc-edit-lista{margin-top:14px;background:#fff;border-radius:12px;overflow:hidden}
+.cc-edit-fila{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px;min-height:50px;border-top:1px solid #e6ecea;font-size:16px}
+.cc-edit-fila:first-child{border-top:0}
+.cc-edit-fila input{border:0;background:none;font:inherit;font-size:16px;text-align:right;color:#44585e;min-width:0;flex:1;min-height:44px}
+.cc-edit-motivo{width:100%;box-sizing:border-box;border:0;border-radius:12px;background:#fff;padding:12px 14px;font:inherit;font-size:16px;resize:vertical}
+.cc-edit-error{margin:10px 4px 0;color:#b3261e;font-size:14px}
+.cc-edit-error.hidden{display:none}
+@media (min-width:720px){.cc-capa{align-items:center}}

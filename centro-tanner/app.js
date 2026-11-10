@@ -105,8 +105,8 @@ async function renderHome() {
       <span class="bk-banner-cta">Descubre qué apoyo podría aplicar para ti →</span>
     </a>
     ${esTanneryCity ? `<a class="bk-banner hs-banner" href="/centro-tanner/historia">
-      <div><span class="bk-banner-eyebrow">DE LA TENERÍA A LA PORTERÍA</span><strong>¿Quién es Tano el Tanner?</strong><p>El origen de Tannery City, nuestro escudo, nuestros valores y la tradición de nombrar nuestras canchas.</p></div>
-      <span class="bk-banner-cta">Conoce nuestra historia →</span>
+      <div><span class="bk-banner-eyebrow">TANNERY CITY · DESDE 1850</span><strong>Nuestra historia</strong><p>Quién es Tano el Tanner, el origen del club, nuestro escudo, valores y la tradición de nombrar nuestras canchas.</p></div>
+      <span class="bk-banner-cta">Conócela →</span>
     </a>` : ''}
     <section class="ct-section" id="ctFaqSection"><h2 class="ct-section-title">Preguntas frecuentes</h2><div id="ctFaqList" class="ct-faq-list"><div class="ct-loading">Cargando…</div></div></section>
     <section class="ct-section"><h2 class="ct-section-title">Explorar por tema</h2><div id="ctThemeGrid" class="ct-theme-grid"></div></section>
@@ -507,8 +507,8 @@ async function renderHistoriaHub() {
   render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { label: 'Nuestra historia' }])}
     <section class="ct-hero hs-hero">
       <div class="ct-hero-eyebrow">TANNERY CITY · DESDE 1850</div>
-      <h1>¿Quién es Tano el Tanner?</h1>
-      <p>Toda la historia detrás del escudo, los colores y los valores que nos forman — tócale a lo que quieras y métete a investigar.</p>
+      <h1>Nuestra historia</h1>
+      <p>Quién es Tano el Tanner, de dónde venimos, qué significa nuestro escudo y los valores que nos forman — tócale a lo que quieras y métete a investigar.</p>
     </section>
     <section class="ct-section">
       <h2 class="ct-section-title">Explora</h2>

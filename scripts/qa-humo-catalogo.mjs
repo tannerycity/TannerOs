@@ -37,7 +37,7 @@ const CAT={products:[
   {id:'p3',name:'Jersey "Wet Blue" - Home Edition',category:'jersey',price:799,active:true,archived:false,sizes:TALLAS,
    photoPath:RUTA('p3'),photoThumbPath:RUTA('p3')+'-thumb',photoBucket:'tanneros-private'},
   {id:'p4',name:'Par de calcetas',category:'socks',price:200,active:true,archived:false,sizes:['Universal'],
-   photoPath:null,photoThumbPath:null,photoBucket:null},
+   photoPath:null,photoThumbPath:null,photoBucket:null,oferta:{price:150,before:200,endsOn:'2026-12-31',name:'Oferta calcetas'}},
   // Un archivado con foto: no debe aparecer mientras no se pidan los archivados.
   {id:'p5',name:'Producto legacy',category:null,price:0,active:false,archived:true,sizes:[],
    photoPath:RUTA('p5'),photoThumbPath:RUTA('p5')+'-thumb',photoBucket:'tanneros-private'}
@@ -127,6 +127,10 @@ const llamadas=await pg.evaluate(()=>window.__firmados?.length||0);
 revisa('las tres se firman juntas, no de una en una', llamadas===3, `rutas firmadas: ${llamadas}`);
 
 /* ===== Que enseñar la foto no rompa lo que ya funcionaba ===== */
+// La oferta se ve en el Catálogo (10/11/2026): normal tachado, el de oferta y hasta cuándo.
+const calcetasPrecio=(await pg.textContent('#productList .catalog-card:has-text("Par de calcetas") .cat-price-col')).replace(/\s+/g,' ');
+revisa('el producto en oferta lo dice: $200 tachado, $150 y hasta el 31 dic', /\$200\.00/.test(calcetasPrecio)&&/\$150\.00/.test(calcetasPrecio)&&/Oferta · hasta el 31 dic/.test(calcetasPrecio)&&!!(await pg.$('#productList .catalog-card:has-text("Par de calcetas") s.cat-antes')), calcetasPrecio);
+revisa('un producto sin oferta sólo trae su precio', !(await pg.$('#productList .catalog-card:has-text("Black Edition") .cat-oferta-chip')));
 revisa('los kits siguen listándose', (await pg.$$eval('#bundleList .catalog-card',n=>n.length))===1);
 revisa('el archivado sigue escondido mientras no se pida',
   (await pg.$$eval('#productList .catalog-card',n=>n.length))===4,

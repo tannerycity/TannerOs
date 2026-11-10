@@ -147,6 +147,16 @@ function bundleCard(b){
   return btn;
 }
 
+/* La oferta en el Catálogo (10/11/2026). Presidencia: "no me aparece en admin
+   que está en descuento". La tienda ya cobraba $450 (oferta hasta el 31 dic),
+   pero aquí sólo se veía el precio normal. v2_catalog ya trae p.oferta (la
+   misma que cobra la base), así que se pinta: normal tachado, el de oferta y
+   hasta cuándo. */
+function precioConOferta(p){
+  const o=p.oferta,precio=Number(o?.price),normal=Number(p.price||0);
+  if(!o||!(precio>0)||!(precio<normal))return `<strong class="cat-price">${money.format(normal)}</strong>`;
+  return `<s class="cat-antes">${money.format(normal)}</s><strong class="cat-price cat-oferta">${money.format(precio)}</strong><small class="cat-oferta-chip">Oferta${o.endsOn?` · ${esc(textoHasta(o.endsOn).replace(/^Hasta el/,'hasta el'))}`:''}</small>`;
+}
 function productCard(p){
   const btn=document.createElement('button');
   btn.type='button';
@@ -162,7 +172,7 @@ function productCard(p){
   else if(!p.active)chips.push('<span class="cat-chip warn">Inactivo</span>');
   // En qué kits va: así se ve de un vistazo que el jersey suelto es el mismo.
   const kits=bundles.filter(b=>!b.archived&&kitIncluye(b,p.id)).map(b=>b.name);
-  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong>${meta?`<span class="cat-meta">${esc(meta)}</span>`:''}${kits.length?`<span class="cat-kits">En ${esc(kits.join(' · '))}</span>`:''}${chips.length?`<span class="cat-chips">${chips.join('')}</span>`:''}</span><span class="cat-price-col"><strong class="cat-price">${money.format(Number(p.price||0))}</strong>${Number(p.priceKid||0)>0?`<small class="cat-sub">Niño ${esc(money.format(Number(p.priceKid)))}</small>`:''}</span>`;
+  btn.innerHTML=`<span class="cat-thumb" data-foto="${esc(p.id)}">${ICONS.product}</span><span class="cat-body"><strong class="cat-title">${esc(p.name)}</strong>${meta?`<span class="cat-meta">${esc(meta)}</span>`:''}${kits.length?`<span class="cat-kits">En ${esc(kits.join(' · '))}</span>`:''}${chips.length?`<span class="cat-chips">${chips.join('')}</span>`:''}</span><span class="cat-price-col">${precioConOferta(p)}${Number(p.priceKid||0)>0?`<small class="cat-sub">Niño ${esc(money.format(Number(p.priceKid)))}</small>`:''}</span>`;
   if(canManage)btn.addEventListener('click',()=>openProductDrawer(p));
   else btn.disabled=true;
   return btn;

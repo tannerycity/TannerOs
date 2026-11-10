@@ -448,3 +448,7 @@
 .cat-compartir-acc{display:flex;flex-wrap:wrap;gap:8px}
 .cat-compartir-acc button{min-height:38px;padding:0 14px;border-radius:999px;font-size:13.5px}
 .cat-compartir-nota{color:#8a5a12;font-weight:600}
+/* Oferta visible en el Catálogo (10/11/2026) */
+.cat-antes{font-size:12px;color:#8a979b;font-variant-numeric:tabular-nums}
+.cat-price.cat-oferta{color:#b0461f}
+.cat-oferta-chip{font-size:11px;font-weight:800;color:#7a4b06;background:#fde9c4;border-radius:999px;padding:2px 8px;white-space:nowrap}

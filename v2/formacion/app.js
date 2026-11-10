@@ -12,15 +12,20 @@
  */
 import { bootstrapProtectedShell, rpc, $, setShellHealth, moduleAccess } from '/v2/shell.js';
 import { hojaParchesGrupo } from '/v2/parches/parches.js';
+import { montaConvivencia, montaBono } from '/v2/convivencia/convivencia.js?v=20261109a';
 import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador } from '/v2/formacion/motor.js?v=20261109a';
 
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
 if (!boot) throw new Error('No access');
 const { ctx, navigation } = boot, org = ctx.organization_id;
 const esDireccion = moduleAccess(navigation, 'formacion_direccion', true);
+// Bono Tanner OS: sólo Presidencia lo decide (el servidor lo vuelve a revisar).
+const esPresidencia = ctx.role === 'Presidencia' || !!ctx.is_owner;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-let catalogo = { concepts: [], tasks: [] }, semana = null, tab = esDireccion ? 'semana' : 'sesiones', tz = 'America/Mexico_City';
+const URLQ = new URLSearchParams(location.search);
+const TAB_URL = ['convivencia', ...(esPresidencia ? ['bono'] : [])].includes(URLQ.get('tab')) ? URLQ.get('tab') : null;
+let catalogo = { concepts: [], tasks: [] }, semana = null, tab = TAB_URL || (esDireccion ? 'semana' : 'sesiones'), tz = 'America/Mexico_City';
 let dataDir = null, dataMia = null, dataHoy = null, borrador = {};
 const album = { banco: 'tanner', mundo: '', nivel: 0, busca: '' };
 // PROP-FC-002 · 1: el Formador ve su semana en Tarjetas o en Calendario. Las dos
@@ -48,9 +53,9 @@ const errorDe = e => String(e?.message || e || 'Algo falló').replace(/^.*?:\s*/
 
 /* ---------- Pestañas ---------- */
 function pintaTabs() {
-  const tabs = [...(esDireccion ? [['semana', 'Semana']] : []), ['sesiones', esDireccion ? 'Sesiones' : 'Próxima semana'], ['banco', 'Banco']];
+  const tabs = [...(esDireccion ? [['semana', 'Semana']] : []), ['sesiones', esDireccion ? 'Sesiones' : 'Próxima semana'], ['banco', 'Banco'], ['convivencia', 'Convivencia'], ...(esPresidencia ? [['bono', 'Bono']] : [])];
   $('fmTabs').innerHTML = tabs.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${tab === k}"${tab === k ? ' class="activa"' : ''}>${l}</button>`).join('');
-  document.querySelector('.fm-semana-nav').classList.toggle('hidden', tab === 'banco');
+  document.querySelector('.fm-semana-nav').classList.toggle('hidden', ['banco', 'convivencia', 'bono'].includes(tab));
 }
 $('fmTabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; tab = b.dataset.tab; pinta(); });
 $('fmPrev').addEventListener('click', () => { semana = masDias(semana, -7); carga(); });
@@ -658,16 +663,20 @@ function accionesDeFormacion() {
     pend ? { label: 'Planear mi sesión', sub: `${pend.category} · ${dia(pend.startsAt)}`, icon: 'check', run: () => hojaSesion(pend) } : null,
     esDireccion ? { label: 'Semana Tanner', sub: 'Elegir y publicar los Retos', icon: 'calendar', run: () => { tab = 'semana'; pinta(); } } : null,
     esDireccion ? { label: 'Registrar parches', sub: 'Campeón o Iniciación, por categoría', icon: 'spark', run: () => hojaParchesGrupo({ rpc, org }) } : null,
+    { label: 'Reportar algo de convivencia', sub: 'Lo ven Dirección Deportiva y Presidencia', icon: 'shield', run: () => { tab = 'convivencia'; pinta({ reportar: true }); } },
     { label: 'Practicar cómo se planea', sub: '1 minuto, no se guarda nada', icon: 'spark', run: practica },
     { label: 'Álbum de jugadas', sub: 'Las 60 jugadas por mundo y nivel', icon: 'book', run: () => { tab = 'banco'; pinta(); } }
   ].filter(Boolean);
   window.dispatchEvent(new Event('tos:acciones'));
 }
-function pinta() {
+function pinta({ reportar = false } = {}) {
   accionesDeFormacion();
   pintaTabs();
   $('fmSemana').textContent = semana ? rangoSemana(semana) : 'Próxima semana';
   const v = $('fmVista');
+  v.onclick = null;
+  if (tab === 'convivencia') { montaConvivencia(v, { rpc, org, abrirReporte: reportar }); return; }
+  if (tab === 'bono') { montaBono(v, { rpc, org }); return; }
   v.innerHTML = tab === 'semana' ? pintaSemana() : tab === 'banco' ? pintaBanco() : pintaSesiones();
 }
 $('fmVista').addEventListener('click', e => {

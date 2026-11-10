@@ -1,0 +1,79 @@
+/* Cultura y Convivencia Tanner + Bono Tanner OS (09/11/2026). */
+.cv-cargando,.cv-vacio{color:#6f7c81;margin:12px 0}
+.cv-hero{background:#0b1f24;color:#fff;border-radius:22px;padding:20px 18px;margin:4px 0 14px}
+.cv-hero.bono{background:#184159}
+.cv-hero span{font-size:11px;font-weight:800;letter-spacing:.08em;opacity:.75}
+.cv-hero h1{margin:6px 0 4px;font-size:22px;line-height:1.2}
+.cv-hero p{margin:0 0 14px;font-size:13.5px;opacity:.85}
+.cv-hero.bono p{margin:0}
+.cv-hero .cv-primario{background:#fff;color:#0b1f24;margin:0}
+.cv-primario{width:100%;border:0;background:#0b1f24;color:#fff;border-radius:14px;padding:14px;font:inherit;font-weight:800;font-size:15px;cursor:pointer;min-height:50px;margin-top:8px}
+.cv-primario:disabled{opacity:.5;cursor:default}
+.cv-btn{flex:none;border:1px solid #d8e0de;background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;min-height:40px}
+.cv-btn.ok{background:#0b7e3b;border-color:#0b7e3b;color:#fff}
+.cv-link{border:0;background:none;color:#1f4b6e;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:4px;text-decoration:underline}
+.cv-banner{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1.5px solid #e2b13c;background:#fff8e6;border-radius:16px;padding:14px;font:inherit;cursor:pointer;margin:0 0 14px;min-height:56px;box-sizing:border-box}
+.cv-banner.neutro{border-color:#d8e0de;background:#fff}
+.cv-banner span{flex:1;display:grid;gap:2px}.cv-banner small{color:#6f7c81;font-size:12.5px}
+.cv-banner i{font-style:normal;font-size:22px;color:#6f7c81}
+.cv-ok-linea{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;color:#0b7e3b;margin:0 0 14px}
+.cv-card{background:#fff;border:1px solid #e3e9e7;border-radius:18px;padding:14px;margin:0 0 14px}
+.cv-card-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.cv-card-head h2{margin:0;font-size:16px}.cv-card-head span{font-size:12px;color:#6f7c81}
+.cv-ayuda{color:#6f7c81;font-size:13px;margin:6px 0}
+.cv-privado{font-size:12px;margin-top:10px}
+.cv-cats,.cv-casos,.cv-staff,.cv-bonos{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.cv-cat{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #eef1f1}
+.cv-cat:first-child{border-top:0}
+.cv-cat span{display:grid;gap:1px}.cv-cat small{font-size:12px;color:#6f7c81}
+.cv-cat small.cv-falta{color:#9c5a08;font-weight:700}
+.cv-fam.ok{color:#0b7e3b!important}
+.cv-caso{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #e3e9e7;background:#fafbfb;border-radius:14px;padding:10px 12px;font:inherit;cursor:pointer;min-height:52px}
+.cv-caso.resuelto{opacity:.65}
+.cv-caso-txt{flex:1;display:grid;gap:2px}.cv-caso-txt small{font-size:12px;color:#6f7c81}
+.cv-caso i{font-style:normal;color:#6f7c81;font-size:20px}
+.cv-pill{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.cv-pill.gris{background:#eef1f1;color:#354f55}.cv-pill.ambar{background:#fff2ce;color:#7a5a08}
+.cv-pill.rojo{background:#fde3df;color:#9c2b1d}.cv-pill.verde{background:#ddf5e5;color:#0b7e3b}
+.cv-capa{position:fixed;inset:0;z-index:1500;background:rgba(6,20,24,.5);display:grid;align-items:end;justify-items:center}
+.cv-sheet{width:min(560px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box}
+@media (min-width:720px){.cv-capa{align-items:center}.cv-sheet{border-radius:22px}}
+.cv-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.cv-head h2{margin:0;font-size:19px}
+.cv-x{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:#eef1f1;font-size:20px;cursor:pointer}
+.cv-lema{font-weight:900;letter-spacing:.04em;color:#184159;margin:12px 0 6px;font-size:13px}
+.cv-texto{font-size:14px;line-height:1.55;color:#1c2b2f;background:#f6f8f8;border-radius:14px;padding:12px;margin:8px 0}
+.cv-60{margin:12px 0;font-size:17px;line-height:1.55;color:#0b1f24;background:#f6f8f8;border-left:4px solid #184159;border-radius:12px;padding:14px}
+.cv-trifuerza{font-size:12.5px;color:#354f55}
+.cv-eti{font-size:13px;font-weight:700;color:#354f55;margin:12px 0 6px}
+.cv-niveles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cv-nivel{display:grid;gap:3px;text-align:left;border:1.5px solid #d8e0de;background:#fafbfb;border-radius:14px;padding:10px;font:inherit;cursor:pointer;min-height:64px}
+.cv-nivel small{font-size:11.5px;color:#6f7c81;line-height:1.3}
+.cv-nivel[aria-checked="true"]{border-color:#184159;background:#eef4fa}
+.cv-nivel.rojo[aria-checked="true"]{border-color:#9c2b1d;background:#fdf0ee}
+.cv-urgente{background:#fde3df;color:#7a1f14;border-radius:12px;padding:12px;font-size:13.5px;line-height:1.45;margin:10px 0}
+.cv-urgente.hidden{display:none}
+.cv-campo{display:grid;gap:4px;font-size:13px;font-weight:700;color:#354f55;margin:10px 0}
+.cv-campo input,.cv-campo select,.cv-campo textarea{font:inherit;font-weight:400;border:1px solid #d8e0de;border-radius:12px;padding:10px;min-height:44px;box-sizing:border-box;width:100%}
+.cv-check{display:flex;align-items:center;gap:10px;font-size:14px;min-height:44px}
+.cv-check input{width:20px;height:20px}
+.cv-dl{margin:10px 0;display:grid;gap:2px}.cv-dl dt{font-size:11.5px;font-weight:800;color:#6f7c81;letter-spacing:.03em;margin-top:8px}.cv-dl dd{margin:0;font-size:14px;line-height:1.45}
+.cv-hist{margin:10px 0;padding-left:18px;font-size:13px;color:#354f55;display:grid;gap:6px}
+.cv-seg{display:flex;flex-wrap:wrap;gap:4px;background:#eef1f1;border-radius:12px;padding:3px;margin:12px 0 4px}
+.cv-seg button{flex:1 1 40%;border:0;background:transparent;border-radius:10px;padding:9px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;min-height:40px}
+.cv-seg button[aria-checked="true"]{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.cv-staff li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #eef1f1}
+.cv-staff li span{display:grid}.cv-staff small{font-size:12px;color:#6f7c81}
+.cv-mes{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 12px}
+.cv-flecha{width:40px;height:40px;border-radius:50%;border:1px solid #d8e0de;background:#fff;font-size:20px;cursor:pointer}
+.cv-flecha:disabled{opacity:.35;cursor:default}
+.cv-bono{background:#fff;border:1px solid #e3e9e7;border-radius:16px;padding:12px 14px}
+.cv-bono-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.cv-bono-top span{display:grid}.cv-bono-top small{font-size:12px;color:#6f7c81}
+.cv-pct{font-size:22px;color:#354f55}.cv-pct.ok{color:#0b7e3b}.cv-pct.bajo{color:#9c2b1d}
+.cv-barra{display:block;height:6px;border-radius:999px;background:#eef1f1;margin:8px 0;overflow:hidden}
+.cv-barra i{display:block;height:100%;background:#184159;border-radius:999px}
+.cv-bono-acc{display:flex;gap:8px}
+.cv-decidido{font-size:12.5px;margin:4px 0 0}.cv-decidido.ok{color:#0b7e3b}.cv-decidido.no{color:#9c2b1d}
+.cv-aviso{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#0b1f24;color:#fff;border-radius:999px;padding:10px 18px;font-size:14px;opacity:0;pointer-events:none;transition:.2s;z-index:1600;max-width:calc(100% - 32px)}
+.cv-aviso.ver{opacity:1;transform:translate(-50%,0)}
+.cv-aviso[data-malo="1"]{background:#9c2b1d}

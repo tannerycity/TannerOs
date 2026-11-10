@@ -42,7 +42,7 @@ const orderLabel=t=>ORDER_LABEL[t]||'';
 // viven juntos en "Club". Las ligas viejas (?tab=calendario|gafete) siguen.
 const TAB_PEDIDA=new URLSearchParams(location.search).get('tab');
 const TAB_INICIAL=['inicio','cuenta','progreso','tienda','club'].includes(TAB_PEDIDA)?TAB_PEDIDA:['calendario','gafete'].includes(TAB_PEDIDA)?'club':'inicio';
-const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},acuerdos:{},puntualidad:{},parches:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
+const state={home:null,playerId:'',tab:TAB_INICIAL,clubSub:TAB_PEDIDA==='gafete'?'gafete':'calendario',avisos:null,statements:{},acuerdos:{},puntualidad:{},parches:{},semanas:{},progress:{},paperwork:{},calendar:null,catalog:null,cart:{},parking:null,ultimoPedido:{},recompra:null};
 
 function show(id){['loginView','passwordView','inviteView','appView'].forEach(v=>$(v)?.classList.toggle('hidden',v!==id));}
 function msg(id,text='',type='error'){
@@ -631,6 +631,22 @@ function evaluacionBlock(ev){
     objetivo('OBJETIVO FORMATIVO',ev.formative_objective)}${
     objetivo('NOTAS DEL PROFE',ev.notes)}</section>`;
 }
+/* "Esta semana aprendemos" (B, 09/11/2026): el Reto (o mundo Baby) que
+   Dirección Deportiva publicó para su categoría esta semana, la pregunta del
+   Reto y lo que buscamos ver en la cancha. Sin semana publicada, no sale. */
+function cargaSemana(p){
+  if(p.id in state.semanas)return null;
+  return rpc('v2_portal_week',{player_id:p.id}).then(r=>{state.semanas[p.id]=r||null;}).catch(()=>{state.semanas[p.id]=null;});
+}
+function semanaBlock(w,p,conNombre){
+  if(!w?.primary?.name)return '';
+  const nombre=String(p?.first_name||'').trim().split(/\s+/)[0];
+  const frase=w.baby?(w.primary.phrase||w.primary.question):(w.primary.question||w.primary.phrase);
+  return `<section class="fam-card fam-semana"><div class="fam-card-head"><h2>Esta semana aprendemos</h2><span>${esc([conNombre&&nombre,w.category].filter(Boolean).join(' · '))}</span></div>
+    <div class="fam-semana-reto"><small>${w.baby?'MUNDO':'RETO'}</small><strong>${esc(w.primary.name)}</strong>${frase?`<p>“${esc(frase)}”</p>`:''}</div>
+    ${String(w.behavior||'').trim()?`<p class="fam-semana-busca"><b>Buscamos:</b> ${esc(w.behavior)}</p>`:''}
+    <p class="fam-muted fam-semana-casa">En casa: pregúntale cómo le fue con esto.</p></section>`;
+}
 async function renderProgreso(){
   const p=currentPlayer();
   if(!p){$('famBody').innerHTML='<div class="fam-empty">Tu cuenta todavía no tiene un Tanner ligado. Avísale al club.</div>';return;}
@@ -668,7 +684,9 @@ async function renderProgreso(){
     : `<section class="fam-card"><div class="fam-card-head"><h2>Valoración</h2></div><p class="fam-muted" style="margin:0;font-size:12.5px">Sus profes todavía no capturan una valoración. Aquí la vas a ver en cuanto la hagan.</p></section>`;
   // La lista de entrenamientos ya vive en "Asistencia del mes" (con meses
   // para atrás); repetirla abajo enseñaba otro porcentaje y confundía.
-  $('famBody').innerHTML=hero+'<div id="famStaff"></div>'+tarjetaDelMes(p)+valoraciones+(recientes?'':listaAsistencia);
+  await cargaSemana(p);
+  if(currentPlayer()?.id!==p.id)return;
+  $('famBody').innerHTML=hero+semanaBlock(state.semanas[p.id],p,false)+'<div id="famStaff"></div>'+tarjetaDelMes(p)+valoraciones+(recientes?'':listaAsistencia);
   cargarMesDeAsistencia(p);
   pintaStaffDelHijo(p);
   // La foto llega firmada aparte, igual que en Cuenta.
@@ -1135,7 +1153,8 @@ async function renderInicio(){
     state.calendar?Promise.resolve():rpc('v2_portal_calendar',{from_at:desde.toISOString(),to_at:hasta.toISOString()}).then(r=>{state.calendar=r||[];}).catch(()=>{state.calendar=[];}),
     ...players.map(p=>state.statements[p.id]?null:rpc('v2_portal_statement',{player_id:p.id}).then(r=>{state.statements[p.id]=r;}).catch(()=>{})),
     ...players.map(p=>state.paperwork[p.id]?null:rpc('v2_portal_paperwork',{player_id:p.id}).then(r=>{state.paperwork[p.id]=r||{};}).catch(()=>{state.paperwork[p.id]={};})),
-    ...players.map(p=>(state.pedidos||={})[p.id]?null:rpc('v2_portal_orders',{player_id:p.id}).then(r=>{state.pedidos[p.id]=Array.isArray(r)?r:[];}).catch(()=>{state.pedidos[p.id]=[];}))
+    ...players.map(p=>(state.pedidos||={})[p.id]?null:rpc('v2_portal_orders',{player_id:p.id}).then(r=>{state.pedidos[p.id]=Array.isArray(r)?r:[];}).catch(()=>{state.pedidos[p.id]=[];})),
+    ...players.map(cargaSemana)
   ]);
   if(state.tab!=='inicio')return;
   state.inicioListo=true;
@@ -1160,6 +1179,7 @@ async function renderInicio(){
     </section>
     <div id="famPush"></div>
     ${misPedidosBlock(players)}
+    ${players.map(p=>semanaBlock(state.semanas[p.id],p,players.length>1)).join('')}
     <section class="fam-card fam-pendientes"><div class="fam-card-head"><h2>Pendientes</h2><span>${pend.length?`${pend.length} por hacer`:'al día'}</span></div>${pendHtml}</section>
     ${prox?`<section class="fam-card fam-prox"><div class="fam-card-head"><h2>Lo próximo</h2><button type="button" class="fam-link" data-ir-club>Ver calendario</button></div>
       <div class="fam-prox-ev"><span class="fam-prox-cuando">${esc(cuandoEs(prox.starts_at))}</span><strong>${esc(prox.title||'Entrenamiento')}</strong><small>${esc([prox.location,prox.category].filter(Boolean).join(' · '))}</small></div></section>`:''}

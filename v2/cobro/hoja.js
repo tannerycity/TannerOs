@@ -53,7 +53,18 @@ const METODOS = [['cash', 'Efectivo'], ['transfer', 'Transferencia'], ['card', '
 const nombreMetodo = m => (METODOS.find(x => x[0] === m) || [m, 'Otro'])[1];
 // Las mismas categorías que "Otro ingreso" de Taquilla, para que Contabilidad
 // las agrupe igual. Uniforme no va aquí: se cobra contra su pedido.
-const OTROS = ['Torneo', 'Curso de Verano', 'Academia · Academia de porteros', 'Renta de cancha', 'Patrocinio'];
+const OTROS = ['Mensualidad', 'Torneo', 'Curso de Verano', 'Academia · Academia de porteros', 'Renta de cancha', 'Patrocinio'];
+/* "Mensualidad" en Otro ingreso (10/11/2026, Presidencia: "quiero que venga la
+   opción de mensualidad"). Si el Tanner tiene una mensualidad que debe (o la
+   del mes por cobrar), se cobra como ESA mensualidad: así se descuenta de lo
+   que debe y no queda pagada "por fuera" con el mes todavía pendiente. Sólo
+   si no tiene mensualidad que cobrar (no está inscrito a un horario, por
+   ejemplo) queda como ingreso con categoría Mensualidad. */
+export function mensualidadDe(op, yaVa = new Set()) {
+  const libre = o => !yaVa.has(o.key);
+  const debe = (op?.cargos || []).filter(c => c.type === 'monthly_fee' && libre(c)).sort((a, b) => String(a.period).localeCompare(String(b.period)));
+  return debe[0] || (op?.meses || []).find(libre) || null;
+}
 const QUIEN = 'tos-cobro-quien', NOMBRES = 'tos-cobro-nombres';
 const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const llave = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
@@ -77,7 +88,7 @@ let s = null;
 function cargaEstilos() {
   if (document.querySelector('link[href^="/v2/cobro/hoja.css"]')) return;
   const l = document.createElement('link');
-  l.rel = 'stylesheet'; l.href = '/v2/cobro/hoja.css?v=20261109a';
+  l.rel = 'stylesheet'; l.href = '/v2/cobro/hoja.css?v=20261110a';
   document.head.appendChild(l);
 }
 
@@ -235,11 +246,12 @@ function pinta() {
   const lineas = [...s.sel.values()];
   const t = total();
   const err = s.error ? `<div class="pres-error" role="alert">${esc(s.error)}</div>` : '';
+  const info = s.info ? `<p class="cobro-info" role="status">${esc(s.info)}</p>` : '';
   const lista = lineas.length ? porMes(lineas)
     : `<p class="cobro-vacio">${debeAlgo() ? 'Toca Agregar y elige qué paga.' : 'No debe nada. Agrega la mensualidad, la inscripción o lo que vaya a pagar.'}</p>`;
   b.innerHTML = `${cab('Cobrar', nombres())}<form class="pres-form cobro-form" novalidate>
     ${quienHtml()}${fechaHtml()}
-    <section class="cobro-bloque" aria-label="Lo que paga"><span class="cobro-titulo">Va en este cobro</span>${lista}
+    <section class="cobro-bloque" aria-label="Lo que paga"><span class="cobro-titulo">Va en este cobro</span>${info}${lista}
       <button type="button" class="cobro-agregar" data-agregar aria-expanded="${!!s.panel}"><i aria-hidden="true">+</i> ${lineas.length ? 'Agregar otro concepto' : 'Agregar qué paga'}</button>
       ${s.panel ? panelHtml() : ''}</section>
     <div class="cobro-total"><span>Total${desglose()}</span><strong id="cobroTotal">${money.format(t)}</strong></div>
@@ -527,7 +539,21 @@ function alEscribir(e) {
 }
 function alCambiar(e) {
   const x = e.target; if (!s) return;
-  if (x.dataset.categoria) { const i = s.sel.get('otro'); if (i) i.category = x.value; }
+  if (x.dataset.categoria) {
+    const i = s.sel.get('otro'); if (!i) return;
+    i.category = x.value;
+    const cuenta = s.cuentas.get(i.player) || principal();
+    const m = x.value === 'Mensualidad' && cuenta ? mensualidadDe(opcionesDe(cuenta), new Set(s.sel.keys())) : null;
+    if (m) {
+      const escrito = num(i.amount);
+      s.sel.delete('otro'); agrega(m);
+      const nueva = s.sel.get(m.key);
+      if (escrito > 0) nueva.amount = m.kind === 'charge' ? Math.min(escrito, m.max) : escrito;
+      const sobra = m.kind === 'charge' && escrito > m.max + 0.004;
+      s.info = `Se cobra como ${m.label}${m.kind === 'charge' ? ', para que se descuente de lo que debe' : ''}.${sobra ? ` Debía ${money.format(m.max)}: agrega el resto como otro concepto.` : ''}`;
+      pinta();
+    }
+  }
   else if (x.dataset.extracat) { const i = s.sel.get(x.dataset.extracat); if (i) i.extraCat = x.value; }
   else if (x.id === 'cobroMetodo2') s.metodo2 = x.value;
   else if (x.id === 'cobroFecha') { s.fecha = x.value || hoyLocal(); pinta(); }

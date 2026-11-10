@@ -118,6 +118,7 @@ async function corre(rol) {
         if(name==='v2_payments_to_reconcile') return BANDEJA;
         if(name==='v2_reconcile_payment') return { status:'approved', allocationsReversed:0, selfApproved:false };
         if(name==='v2_resubmit_payment') return true;
+        if(name==='v2_edit_payment') return { ok:true, date:params.payment_date, method:params.method, lateFeesWaived:0, lateFeesAmount:0 };
         if(name==='v2_collection_amounts') return { billingPeriod:'2026-09-01', canSeeBenefitDetail:esPres, rows:[], summary:{categoriesWithoutFee:0} };
         if(name==='v2_category_fees') return [];
         if(name==='v2_movement_audit') return { kind:'expense', date:'2026-09-23', amount:600,
@@ -230,8 +231,9 @@ async function corre(rol) {
     await pagina.click('[data-concilia-filter="pending"]');
     await pagina.waitForTimeout(150);
     const botones = await pagina.$$eval('.concilia-card .concilia-acciones button', b => b.map(x => x.textContent.trim()));
-    revisa(`[${rol}] puede aprobar, aclarar y rechazar`,
-      botones.includes('Aprobar') && botones.includes('Solicitar aclaración') && botones.includes('Rechazar'),
+    // Aclarar y Rechazar viven en la hoja del "···" (10/11/2026); se revisan abajo.
+    revisa(`[${rol}] la tarjeta trae Aprobar y "···" (nada de botones gigantes)`,
+      botones.includes('Aprobar') && botones.includes('···') && !botones.includes('Rechazar'),
       botones.join(' | '));
 
     revisa(`[${rol}] un botón grande y "···" para lo demás`, await pagina.isVisible('.concilia-card button[data-accion="approve"]') && !(await pagina.isVisible('.concilia-card button[data-accion="reject"]')));
@@ -251,9 +253,30 @@ async function corre(rol) {
     await pagina.waitForSelector('#conciliaModal.hidden', { state: 'attached', timeout: 4000 });
     await pagina.evaluate(() => { window.__rpc = window.__rpc.filter(r => r.name !== 'v2_reconcile_payment'); });
 
+    // "···" es una hoja de acciones y trae Editar cobro (10/11/2026).
+    await pagina.click('.concilia-card:has-text("Iker Flores") [data-mas]');
+    await pagina.waitForSelector('#ccHoja .cc-acc-sheet', { timeout: 4000 });
+    const ops = await pagina.$$eval('#ccHoja [data-cc-op]', b => b.map(x => x.dataset.ccOp));
+    revisa(`[${rol}] "···" abre hoja: Editar, Aclarar, Rechazar y Cancelar`, JSON.stringify(ops) === '["editar","clarify","reject"]' && !!(await pagina.$('#ccHoja .cc-acc-cancelar')) && !(await pagina.$('.concilia-card .cc-mas-menu')), JSON.stringify(ops));
+    await pagina.click('#ccHoja [data-cc-op="editar"]');
+    await pagina.waitForSelector('#ccHoja .cc-edit-sheet', { timeout: 4000 });
+    revisa(`[${rol}] Editar trae el método, el día y la referencia del cobro`, await pagina.getAttribute('#ccHoja [data-cc-met="transfer"]', 'aria-checked') === 'true' && await pagina.inputValue('#ccEditFecha') === '2026-09-22' && await pagina.inputValue('#ccEditRef') === 'BBVA-1120');
+    await pagina.click('#ccHoja [data-cc-met="cash"]');
+    await pagina.click('#ccEditGuardar');
+    revisa(`[${rol}] Editar sin motivo no se manda`, /por qué se cambia/.test(await pagina.textContent('#ccEditError')) && !(await pagina.evaluate(() => window.__rpc.some(r => r.name === 'v2_edit_payment'))));
+    await pagina.fill('#ccEditMotivo', 'Fue en efectivo, no transferencia');
+    if (process.env.QA_FOTO) await pagina.screenshot({ path: process.env.QA_FOTO + '-editar-cobro.png' });
+    await pagina.click('#ccEditGuardar');
+    await pagina.waitForSelector('#ccHoja', { state: 'detached', timeout: 4000 });
+    const ed = await pagina.evaluate(() => window.__rpc.filter(r => r.name === 'v2_edit_payment').map(r => r.params));
+    revisa(`[${rol}] Editar manda método, día, referencia y motivo`, ed.length === 1 && ed[0].payment_id === 'x1' && ed[0].method === 'cash' && ed[0].payment_date === '2026-09-22' && ed[0].reference === 'BBVA-1120' && /efectivo/.test(ed[0].reason), JSON.stringify(ed));
+    await pagina.click('.concilia-card:has-text("Iker Flores") .cc-detalle summary');
+    const oculta = await pagina.waitForFunction(() => [...document.querySelectorAll('.concilia-card')].find(c => /Iker Flores/.test(c.textContent))?.querySelector('.cc-ver')?.textContent === 'Ocultar detalle', null, { timeout: 2000 }).then(() => true, () => false);
+    revisa(`[${rol}] "Ver detalle" se vuelve "Ocultar detalle"`, oculta);
+
     // Rechazar exige motivo y avisa de la deuda
     await pagina.click('.concilia-card:has-text("Iker Flores") [data-mas]');
-    await pagina.click('.concilia-card:has-text("Iker Flores") button[data-accion="reject"]');
+    await pagina.click('#ccHoja [data-cc-op="reject"]');
     await pagina.waitForSelector('#conciliaModal:not(.hidden)', { timeout: 4000 });
     const aviso = (await pagina.textContent('#conciliaModalWhat')).replace(/\s+/g, ' ');
     revisa(`[${rol}] al rechazar avisa que la deuda vuelve`, /la deuda de ese periodo vuelve a aparecer/.test(aviso), aviso);

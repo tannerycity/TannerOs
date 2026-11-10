@@ -1725,10 +1725,9 @@ function pintaConcilia(){
   $('conciliaList').querySelectorAll('[data-accion]').forEach(b=>
     b.addEventListener('click',()=>abreAccion(b.dataset.pago,b.dataset.accion)));
   $('conciliaList').querySelectorAll('[data-mas]').forEach(b=>
-    b.addEventListener('click',()=>{
-      const menu=b.closest('.concilia-acciones')?.querySelector('.cc-mas-menu');if(!menu)return;
-      menu.hidden=!menu.hidden;b.setAttribute('aria-expanded',String(!menu.hidden));
-    }));
+    b.addEventListener('click',()=>hojaAccionesConcilia(b.dataset.mas,canApprove)));
+  $('conciliaList').querySelectorAll('.cc-detalle').forEach(d=>
+    d.addEventListener('toggle',()=>{const t=d.querySelector('.cc-ver');if(t)t.textContent=d.open?'Ocultar detalle':'Ver detalle';}));
 }
 
 /* La tarjeta del cobro (05/11/2026): tres renglones.
@@ -1765,6 +1764,7 @@ function tarjetaConcilia(x,canApprove){
   const casilla=(icono,titulo,valor,clase='')=>`<div class="cc-dato${clase?` ${clase}`:''}"><dt><i aria-hidden="true">${icono}</i>${titulo}</dt><dd>${valor}</dd></div>`;
   const principal=acciones.find(a=>a.clave==='approve'||a.clave==='resubmit');
   const otras=acciones.filter(a=>a!==principal);
+  const editable=puedeEditarCobro(x,canApprove);
   const boton=a=>`<button type="button" data-tono="${a.tono}" data-pago="${esc(x.paymentId)}" data-accion="${a.clave}">${esc(a.etiqueta)}</button>`;
   // El estado sólo se dice cuando no es el normal de la lista ("pendiente").
   const chip=x.status!=='pending'||x.legacyApproved?estadoChip(e):'';
@@ -1781,7 +1781,7 @@ function tarjetaConcilia(x,canApprove){
     ${dif.hay?`<div class="concilia-dif" data-nivel="${dif.nivel}">${esc(dif.texto)} ${money.format(Math.abs(dif.monto))}</div>`:''}
     ${x.observations?`<div class="concilia-obs">${esc(x.observations)}</div>`:''}
     ${x.reconciliationNote?`<div class="concilia-obs">Nota de Presidencia: ${esc(x.reconciliationNote)}</div>`:''}
-    <details class="cc-detalle"><summary>Ver detalle</summary>
+    <details class="cc-detalle"><summary><span class="cc-ver">Ver detalle</span><i aria-hidden="true"></i></summary>
       <p class="cc-pista" title="${esc(val.pista||'')}"><i aria-hidden="true">${x.validationKind==='banco'?ICONO_BANCO:ICONO_EFECTIVO}</i>${esc(val.etiqueta)}${val.pista?` · ${esc(val.pista)}`:''}</p>
       <dl class="concilia-datos cc-datos">
         ${casilla(ICONO_CC.familia,'Pagó',pagoQuien)}
@@ -1796,8 +1796,75 @@ function tarjetaConcilia(x,canApprove){
       </dl>
       ${hist?`<p class="cc-hist-tit">Historial (${(x.history||[]).length})</p><ol class="cc-hist">${hist}</ol>`:''}
     </details>
-    ${acciones.length?`<div class="concilia-acciones cc-acciones">${principal?boton(principal):''}${otras.length?`<button type="button" class="cc-mas" data-mas aria-expanded="false" aria-label="Más acciones">···</button><div class="cc-mas-menu" hidden>${otras.map(boton).join('')}</div>`:''}</div>`:''}
+    ${acciones.length||editable?`<div class="concilia-acciones cc-acciones">${principal?boton(principal):''}${otras.length||editable?`<button type="button" class="cc-mas" data-mas="${esc(x.paymentId)}" aria-haspopup="dialog" aria-label="Más acciones">···</button>`:''}</div>`:''}
   </article>`;
+}
+/* "···" y Editar cobro (10/11/2026). Presidencia: "Zul tiene permisos de
+   presidencia y no le permite editar esto... ese botón de ver menos se ve
+   ojete... estilo Apple, menos botones". El "···" ya no despliega dos botones
+   gigantes de color dentro de la tarjeta: abre una hoja de acciones como en
+   iPhone (Editar cobro, Solicitar aclaración, Rechazar en rojo, Cancelar).
+   Editar cambia método, día del pago y referencia con v2_edit_payment (lo
+   permite Presidencia o Contabilidad con escritura; queda en el registro con
+   el motivo). */
+const puedeEditarCobro=(x,canApprove)=>canApprove&&!!x?.paymentId&&x.status!=='rejected';
+function hojaCC(html){
+  document.getElementById('ccHoja')?.remove();
+  document.body.insertAdjacentHTML('beforeend',`<div id="ccHoja" class="cc-capa" role="dialog" aria-modal="true">${html}</div>`);
+  const h=document.getElementById('ccHoja');
+  h.addEventListener('click',e=>{if(e.target===h||e.target.closest('[data-cc-cerrar]'))h.remove();});
+  return h;
+}
+function hojaAccionesConcilia(paymentId,canApprove){
+  const x=(conciliaData?.rows||[]).find(r=>r.paymentId===paymentId);if(!x)return;
+  const acciones=accionesPara(x,{canApprove,esMio:Boolean(x.registeredByUserId)&&x.registeredByUserId===ctx.user_id})
+    .filter(a=>a.clave!=='approve'&&a.clave!=='resubmit');
+  const quien=x.playerName||x.family||'Cobro general';
+  const filas=[...(puedeEditarCobro(x,canApprove)?[{clave:'editar',etiqueta:'Editar cobro',sub:'Método, día del pago o referencia'}]:[]),
+    ...acciones.map(a=>({clave:a.clave,etiqueta:a.etiqueta,rojo:a.clave==='reject'}))];
+  const h=hojaCC(`<div class="cc-acc-sheet"><div class="cc-acc-grupo"><p class="cc-acc-tit">${esc(quien)} · ${montoConcilia(x.amount)}</p>
+    ${filas.map(f=>`<button type="button" class="cc-acc-op${f.rojo?' rojo':''}" data-cc-op="${f.clave}"><span>${esc(f.etiqueta)}</span>${f.sub?`<small>${esc(f.sub)}</small>`:''}</button>`).join('')}</div>
+    <button type="button" class="cc-acc-cancelar" data-cc-cerrar>Cancelar</button></div>`);
+  h.querySelectorAll('[data-cc-op]').forEach(b=>b.addEventListener('click',()=>{
+    h.remove();
+    if(b.dataset.ccOp==='editar')hojaEditarCobro(x);else abreAccion(x.paymentId,b.dataset.ccOp);
+  }));
+}
+function hojaEditarCobro(x){
+  const met0=metodoDe(x.method).k;let met=['cash','transfer','card'].includes(met0)?met0:'cash';
+  const fecha0=String(x.date||'').slice(0,10),ref0=x.reference||'';
+  const hoy=hoyMexico(),min=new Date(Date.parse(hoy+'T12:00:00Z')-180*864e5).toISOString().slice(0,10);
+  const quien=x.playerName||x.family||'Cobro general';
+  const h=hojaCC(`<form class="cc-edit-sheet" novalidate>
+    <header class="cc-edit-head"><button type="button" class="cc-edit-txt" data-cc-cerrar>Cancelar</button><h2>Editar cobro</h2><button type="submit" class="cc-edit-txt fuerte" id="ccEditGuardar">Guardar</button></header>
+    <p class="cc-edit-quien">${esc(quien)} · <b>${montoConcilia(x.amount)}</b></p>
+    <p class="cc-edit-eti">Cómo pagó</p>
+    <div class="cc-seg" role="radiogroup" aria-label="Cómo pagó">${[['cash','Efectivo'],['transfer','Transferencia'],['card','Tarjeta']].map(([k,t])=>`<button type="button" role="radio" data-cc-met="${k}" aria-checked="${k===met}">${t}</button>`).join('')}</div>
+    <div class="cc-edit-lista">
+      <label class="cc-edit-fila"><span>Día del pago</span><input type="date" id="ccEditFecha" value="${esc(fecha0)}" max="${hoy}" min="${min}"></label>
+      <label class="cc-edit-fila"><span>Referencia</span><input type="text" id="ccEditRef" value="${esc(ref0)}" maxlength="80" placeholder="Opcional" autocomplete="off"></label>
+    </div>
+    <p class="cc-edit-eti">Por qué se cambia</p>
+    <textarea id="ccEditMotivo" class="cc-edit-motivo" rows="2" maxlength="300" placeholder="Ej. Fue transferencia, no efectivo. Queda en el registro."></textarea>
+    <p class="cc-edit-error hidden" id="ccEditError" role="alert"></p>
+  </form>`);
+  h.querySelector('.cc-seg').addEventListener('click',e=>{const b=e.target.closest('[data-cc-met]');if(!b)return;met=b.dataset.ccMet;
+    h.querySelectorAll('[data-cc-met]').forEach(z=>z.setAttribute('aria-checked',String(z===b)));});
+  const err=t=>{const el=h.querySelector('#ccEditError');el.textContent=t;el.classList.toggle('hidden',!t);};
+  h.querySelector('form').addEventListener('input',()=>err(''));
+  h.querySelector('form').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const fecha=h.querySelector('#ccEditFecha').value,ref=h.querySelector('#ccEditRef').value.trim(),motivo=h.querySelector('#ccEditMotivo').value.trim();
+    if(fecha===fecha0&&met===met0&&ref===ref0)return err('No cambiaste nada.');
+    if(motivo.length<5){h.querySelector('#ccEditMotivo').focus();return err('Escribe por qué se cambia (al menos 5 letras).');}
+    const btn=h.querySelector('#ccEditGuardar');btn.disabled=true;err('');
+    try{
+      const r=await rpc('v2_edit_payment',{organization_id:org,payment_id:x.paymentId,payment_date:fecha||null,method:met,reference:ref,reason:motivo});
+      h.remove();
+      avisoTaquilla(Number(r?.lateFeesAmount)>0?`Cobro editado. Se quitó el recargo de ${money.format(Number(r.lateFeesAmount))}: pagó a tiempo.`:'Cobro editado.');
+      await cargaConcilia(true);
+    }catch(ex){btn.disabled=false;err(friendlyMontos(ex));}
+  });
 }
 const svgCC=d=>`<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICONO_CC={

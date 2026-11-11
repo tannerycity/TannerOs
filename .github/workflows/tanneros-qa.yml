@@ -147,7 +147,13 @@ jobs:
         run: |
           set -euo pipefail
           npm install --no-save --no-package-lock playwright-core@1.63.0 playwright@1.63.0 pdf-lib@1.17.1
-          npx playwright install --with-deps chromium
+          # Si los espejos de Ubuntu no responden (caída de DNS del runner, 11/11/2026),
+          # las fuentes del sistema son opcionales: se instala sólo Chromium y siguen
+          # las pruebas. El runner ya trae las bibliotecas que Chromium necesita.
+          if ! npx playwright install --with-deps chromium; then
+            echo "::warning::No se pudieron instalar las dependencias del sistema (apt); se instala sólo Chromium."
+            npx playwright install chromium
+          fi
           echo "CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
       - name: Suites de navegador
         shell: bash

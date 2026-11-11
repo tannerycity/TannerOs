@@ -187,7 +187,10 @@ const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { c
   await pg.click('[data-pdfh="cerrar"]'); await pg.waitForTimeout(150);
   // Formato Tremor (11/11/2026): el corte y el proveedor van en el encabezado.
   revisa('5. el PDF dice BORRADOR y el proveedor', textos.some(t => /^Corte BORRADOR/.test(t)) && textos.some(t => /Pedido al proveedor · Tremor/.test(t)), JSON.stringify(textos.slice(0, 8)));
-  revisa('5. el PDF es la tabla por diseño (JERSEY …, TALLAS, PRODUCTO, STATUS)', textos.some(t => /^JERSEY /.test(t)) && textos.includes('TALLAS') && textos.includes('PRODUCTO') && textos.includes('STATUS'), JSON.stringify(textos.slice(0, 20)));
+  revisa('5. el PDF es la tabla por diseño (JERSEY …, TALLAS, PRODUCTO, PAGO)', textos.some(t => /^JERSEY /.test(t)) && textos.includes('TALLAS') && textos.includes('PRODUCTO') && textos.includes('PAGO'), JSON.stringify(textos.slice(0, 20)));
+  // PAGO en vez del cuadro para palomear (11/11/2026): Ana debe, Beto pagó; sin montos.
+  revisa('5. el PDF dice PAGADO o PENDIENTE por playera', textos.includes('PAGADO') && textos.includes('PENDIENTE') && !textos.some(t => /\$/.test(t)), JSON.stringify(textos.filter(t => /PAG|PEND/.test(t))));
+  revisa('5. arriba cuenta pagadas y pendientes', textos.some(t => /PAGO: 1 pagada · 1 pendiente/.test(t)), JSON.stringify(textos.slice(0, 6)));
 
   // Faltan por confirmar lleva a Revisar.
   await pg.click('[data-ir-paso="@por_validar"]'); await pg.waitForTimeout(250);

@@ -340,7 +340,7 @@ async function verBorrador(btn){
     const sheet=await rpc('v2_orders_sheet',{organization_id:ctx.organization_id,order_ids:lista.map(o=>o.id)});
     const prov=($('heroProv')?.value||proveedor()).trim();if(sheet?.batch)sheet.batch.supplierName=prov||null;
     const fotos=await cargaFotos(supabase,sheet).catch(()=>({}));
-    const doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos});
+    const doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos,pagos:pagosPorFolio()});
     await hojaDelPdf({doc,nombre:`Pedido-proveedor-${new Date().toISOString().slice(0,10)}.pdf`,texto:`Pedido al proveedor · ${ctx.organization_name||''}`,kicker:'PDF PARA EL PROVEEDOR',title:'El PDF está listo',message:`${lista.length} ${lista.length===1?'pedido':'pedidos'} · ${piezasDe(lista)} piezas. Todavía no se manda nada: cuando esté bien, toca «Mandar».`});
   }catch(e){await window.tosAlert({kicker:'PDF',title:'No se pudo armar el PDF',message:e.message||String(e)});}
   finally{btn.disabled=false;btn.textContent=txt;}
@@ -565,7 +565,7 @@ async function mandaEnvio(){
     if(!envio.batchId){const r=await rpc('v2_create_production_batch',{organization_id:ctx.organization_id,order_ids:envio.lista.map(o=>o.id),supplier_name:envio.prov,notes:null});envio.batchId=r?.id||r?.batchId||r?.batch_id||r;usaFuncion('pedido_enviado_proveedor');}
     const sheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:envio.batchId});
     const fotos=await cargaFotos(supabase,sheet).catch(()=>({}));
-    envio.doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos});envio.nombre=nombreDelPdf(sheet);
+    envio.doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos,pagos:pagosPorFolio()});envio.nombre=nombreDelPdf(sheet);
     envio.listo={id:envio.batchId,folio:sheet?.batch?.folio||''};envio.enviando=false;
     $('statusFilter').value='@con_proveedor';await load();pintaEnvio();
   }catch(e){if(!envio)return;envio.enviando=false;envio.error=e.message||String(e);if(envio.batchId||envio.repoId)await load().catch(()=>{});pintaEnvio();}
@@ -574,6 +574,8 @@ async function mandaEnvio(){
    pedidos no encuentro el PDF... hacerlo más fácil". Si hay pedidos por
    pedir, arma ese PDF (borrador, no manda nada); si no, el del último corte
    que se mandó. */
+/* Pagado o pendiente por folio, para la columna PAGO del PDF. */
+function pagosPorFolio(){const m={};orders.forEach(o=>{if(o.folio)m[o.folio]=saldoDe(o)<=0.005;});return m;}
 async function pdfProveedor(){
   if(orders.some(o=>vigente(o)&&etapaDe(o)==='para_proveedor'))return verBorrador(null);
   const ultimo=envios.filter(e=>e.batch_type==='orders'&&e.status!=='cancelled').sort((a,b)=>String(b.submitted_on||b.created_at||'').localeCompare(String(a.submitted_on||a.created_at||'')))[0];
@@ -609,7 +611,7 @@ async function compartirCorte(batchId,recien){
   try{
     const sheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:batchId});
     const fotos=await cargaFotos(supabase,sheet).catch(()=>({}));
-    const doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos});
+    const doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos,pagos:pagosPorFolio()});
     const nombre=nombreDelPdf(sheet),texto=`Hoja de producción ${sheet?.batch?.folio||''} · ${ctx.organization_name||''}`;
     // Compartir necesita un toque fresco (el teléfono no deja compartir
     // después de esperar a la base y al PDF): por eso se pregunta aquí.

@@ -129,6 +129,18 @@ async function boot(){
   $('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Integrante');
   $('openCreateUser').disabled=!canWrite;
   await load();show('view');
+  /* El "+" de Usuarios (11/11/2026). Presidencia: "cuando le pongas el botón de
+     más, ahí le pongas agregar un nuevo usuario". Antes dependía de que el
+     botón de alta se viera en pantalla; al bajar en la lista ya no salía.
+     Ahora la pantalla publica sus acciones: primero agregar usuario. */
+  if(canWrite){
+    window.tosAccionesDePantalla=[
+      {label:'Agregar nuevo usuario',sub:'Staff: su llave y su rol',icon:'userPlus',run:()=>openWizard()},
+      {label:'Invitar a las familias que faltan',sub:'Por WhatsApp, una por una',icon:'chat',href:'/invitaciones/?accion=invitar-familias'},
+      {label:'Mandar liga de contraseña',sub:'Para una familia que la olvidó',icon:'chat',href:'/invitaciones/?accion=liga-contrasena'}
+    ];
+    window.dispatchEvent(new Event('tos:acciones'));
+  }
 }
 
 async function load(reopen=false){
@@ -308,6 +320,8 @@ function pintaResultados(){
     eligePersona({tipo:'nuevo',id:'',nombre:q,dato:null}));
 }
 function eligePersona(f){
+  // Otra persona: su propio usuario sugerido.
+  if(wizard.persona?.nombre!==f.nombre){wizard.usuarioTocado=false;$('accessUsername').value='';}
   wizard.persona=f;
   // Un tutor sólo puede ser Familia: su llave es la del portal, no la del staff.
   wizard.kind=f.tipo==='tutor'?'guardian':'staff';
@@ -382,9 +396,9 @@ function resuelveLlave(){
   if(wizard.kind==='guardian'){
     setFamilyMethod(correo?'email':'username');
     if(correo)$('accessEmail').value=correo;
-    else if(!$('accessUsername').value)$('accessUsername').value=usuarioCorto(p.nombre);
+    else if(!$('accessUsername').value&&!wizard.usuarioTocado)$('accessUsername').value=usuarioCorto(p.nombre);
   }else{
-    if(!$('accessUsername').value)$('accessUsername').value=usuarioCorto(p.nombre);
+    if(!$('accessUsername').value&&!wizard.usuarioTocado)$('accessUsername').value=usuarioCorto(p.nombre);
     setMethod(wizard.method);
   }
   const usa=(wizard.kind==='guardian'?wizard.familyMethod:wizard.method)==='email';
@@ -695,7 +709,10 @@ $('whoSearch').addEventListener('keydown',e=>{
   e.preventDefault();
   ($('whoResults').querySelector('.key-result:not([disabled])'))?.click();
 });
-$('accessUsername').addEventListener('input',resuelveLlave);
+/* El usuario sugerido se pone una vez (11/11/2026). Presidencia: "cuando borro
+   todo el nombre se vuelve a poner". Al escribir ya no se vuelve a sugerir:
+   lo que la persona teclea (o borra) manda. */
+$('accessUsername').addEventListener('input',()=>{wizard.usuarioTocado=true;resuelveLlave();});
 $('accessEmail').addEventListener('input',resuelveLlave);
 $('accessForm').addEventListener('submit',createAccess);
 $('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());

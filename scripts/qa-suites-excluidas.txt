@@ -99,3 +99,4 @@ qa-humo-paquetes.mjs
 qa-humo-entrada-sesion.mjs
 qa-humo-busquedas-recientes.mjs
 qa-humo-mi-semana.mjs
+qa-humo-usuarios-fab.mjs

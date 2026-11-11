@@ -1,8 +1,8 @@
 {
-  "migraciones": 611,
-  "bytes": 3832303,
-  "huella": "99b4c0bce0d065ab879e3630c71bde7d",
+  "migraciones": 612,
+  "bytes": 3835049,
+  "huella": "a46080dbd436c22a207999babf523d72",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261111020100_h84_pago_guarda_quien_cobro.sql",
+  "ultima": "20261111020200_h85_fecha_de_pago_hora_mexico.sql",
   "verificadoContraLaBase": "2026-11-11"
 }

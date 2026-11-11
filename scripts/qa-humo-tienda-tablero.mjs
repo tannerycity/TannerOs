@@ -206,8 +206,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   await pg.fill('#customerName', 'Ana Ávila');
   await pg.fill('#customerPhone', '4771234567');
   await pg.check('#orderDataConsent');
-  await pg.check('#orderPickup').catch(() => {});
-  await pg.click('#submitOrder');
+    await pg.click('#submitOrder');
   await pg.waitForSelector('.success', { timeout:5000 }).catch(() => {});
   const items = await pg.evaluate(() => (window.__rpc.find(c => c.n === 'v2_public_cart_order')?.p.items) || []);
   revisa('2. el pedido manda el kit con sleeve "larga", nombre y número', items.length === 1 && items[0].kind === 'bundle' && items[0].sleeve === 'larga' && items[0].personalizationName === 'LEO' && items[0].number === '7', JSON.stringify(items));

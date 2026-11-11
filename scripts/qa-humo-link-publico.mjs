@@ -259,7 +259,6 @@ revisa('[tanner] pregunta para qué Tanner es, antes de tus datos', /¿Para qué
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.fill('#customerPhone', '4771234567');
 await pg.check('#orderDataConsent');
-await pg.check('#orderPickup');
 await pg.fill('#tannerNombre', 'Leo');
 await pg.click('#submitOrder');
 await pg.waitForTimeout(300);
@@ -268,19 +267,15 @@ await pg.click('[data-para="no_tanner"]');
 revisa('[tanner] "No es para un Tanner" esconde el nombre', !(await pg.isVisible('#tannerNombre')) && (await pg.getAttribute('[data-para="no_tanner"]', 'aria-checked')) === 'true');
 await pg.click('[data-para="tanner"]');
 await pg.uncheck('#orderDataConsent');
-await pg.uncheck('#orderPickup');
 await pg.fill('#tannerNombre', 'Leo Ávila');
 await pg.fill('#tannerCategoria', 'T10');
 await pg.click('#submitOrder');
 await pg.waitForTimeout(300);
 revisa('6. sin autorizar el tratamiento de datos, NO se manda', !llamadas.some(c => c.n === 'v2_public_cart_order'));
 await pg.check('#orderDataConsent');
-// Plazo para recoger (22/10/2026): sin aceptar los 30 días, tampoco se manda.
-revisa('el pedido dice los 30 días para recoger', /30 días/.test(await pg.textContent('.st-plazo').catch(() => '')));
-await pg.click('#submitOrder');
-await pg.waitForTimeout(300);
-revisa('sin aceptar el plazo para recoger, NO se manda', !llamadas.some(c => c.n === 'v2_public_cart_order'));
-await pg.check('#orderPickup');
+// Una sola casilla (11/11/2026): privacidad y los 30 días para recoger juntos.
+revisa('una sola casilla con el aviso y los 30 días para recoger', (await pg.$$('.st-acepto .st-check')).length === 1 && /30 días/.test(await pg.textContent('.st-acepto')));
+revisa('dice a qué viernes entra el pedido', /Pide antes de .*viernes/.test(await pg.textContent('#content')));
 await pg.click('#submitOrder');
 await pg.waitForTimeout(600);
 const envios = llamadas.filter(c => c.n === 'v2_public_cart_order');
@@ -351,6 +346,12 @@ revisa('y no borra lo que ya se escribió', (await pg.inputValue('#customerName'
 await pg.click('#resumenCarrito [data-quita]');
 await pg.waitForTimeout(300);
 revisa('con el carrito vacío se regresa a la tienda', (await pg.$('#orderForm')) === null && (await pg.$('.st-card')) !== null);
+// Comprar ahora (11/11/2026): agrega y se va directo a pagar, sin el aviso.
+await pg.goto(BASE + '/pedido/#/p/p-calceta');
+await pg.waitForSelector('#stComprarYa');
+await pg.click('#stComprarYa');
+await pg.waitForSelector('#orderForm', { timeout: 5000 }).catch(() => {});
+revisa('"Comprar ahora" lleva directo a pagar con la pieza', (await pg.evaluate(() => location.hash)) === '#/pedido' && (await pg.$$('#resumenCarrito .fam-mov')).length === 1);
 
 /* ===== Kit Dúo (14/10/2026): "2 jerseys, los que quieras, + short" ===== */
 {

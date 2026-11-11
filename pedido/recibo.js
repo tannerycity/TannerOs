@@ -98,7 +98,7 @@ export async function dibujaRecibo(recibo, { pago = { filas: [] }, club = 'Tanne
   g.restore();
   const escudo = await cargaImagen('/brand/crest-gold.png');
   if (escudo) { const h = 130, w = escudo.width * h / escudo.height; g.drawImage(escudo, W / 2 - w / 2, 56, w, h); }
-  g.fillStyle = C.oroClaro; g.font = '800 24px Inter'; espaciado(g, 'TIENDA TANNER', W / 2, 236, 7);
+  g.fillStyle = C.oroClaro; g.font = '800 24px Inter'; espaciado(g, 'TIENDA OFICIAL', W / 2, 236, 7);
   g.fillStyle = '#fff'; g.font = '800 104px "Barlow Condensed"'; g.textAlign = 'center'; g.fillText('PEDIDO RECIBIDO', W / 2, 340);
   g.fillStyle = '#c9d4d6'; g.font = '400 28px Inter';
   g.fillText(recibo.nombre ? `Gracias por vestir los colores, ${primerNombre(recibo)}.` : 'Gracias por vestir los colores.', W / 2, 396);

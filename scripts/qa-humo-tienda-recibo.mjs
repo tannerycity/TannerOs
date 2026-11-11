@@ -82,8 +82,7 @@ async function pideCalcetas(pg) {
   await pg.fill('#customerName', 'Ana Ávila');
   await pg.fill('#customerPhone', '4771234567');
   await pg.check('#orderDataConsent');
-  await pg.check('#orderPickup').catch(() => {});
-  await pg.click('#submitOrder');
+    await pg.click('#submitOrder');
 }
 
 const ctx = await nav.newContext({ viewport:{ width:390, height:844 }, acceptDownloads:true });

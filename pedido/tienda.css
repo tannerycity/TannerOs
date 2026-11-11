@@ -712,3 +712,13 @@ body.st-sin-scroll { overflow: hidden; }
 .st-mis-lista b { grid-row: 1 / span 2; grid-column: 2; font-size: 17px; }
 @media (max-width: 380px) { .st-recibo-guarda { grid-template-columns: 1fr; } .st-body .st-recibo-hero h2 { font-size: 42px; } }
 .st-body:has(.st-recibo) .st-pie-lema { display: none; }
+
+/* Comprar ahora (11/11/2026): junto a Agregar, tintado estilo Apple. */
+.st-agregar-acc { display: flex; gap: 8px; max-width: 620px; margin: 0 auto; }
+.st-agregar-acc .st-cta { flex: 1.9 1 0; min-width: 0; margin: 0; font-size: 15px; padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-agregar-acc .st-cta-ya { flex: 1.1 1 0; background: color-mix(in srgb, var(--st-brand) 12%, #fff); color: var(--st-brand); }
+/* La fecha de corte: a qué viernes entra lo que se pide hoy. */
+.st-corte { display: flex; align-items: center; gap: 8px; margin: 10px 0; padding: 10px 14px; border-radius: 14px;
+  background: color-mix(in srgb, var(--st-brand) 7%, #fff); color: var(--st-ink); font-size: 14px; line-height: 1.35; }
+.st-corte b { font-weight: 700; }
+.st-corte-punto { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #1f9d55; box-shadow: 0 0 0 4px rgba(31, 157, 85, .16); }

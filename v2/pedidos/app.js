@@ -121,7 +121,7 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,canManage?{label:'PDF para el proveedor',sub:'Descargarlo o mandarlo por WhatsApp',icon:'list',run:pdfProveedor}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
   window.dispatchEvent(new Event('tos:acciones'));}
 /* El aviso de "Pedido nuevo" (campana y push) trae ?pedido=<id>: se abre directo. */
-function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');const o=id&&orders.find(x=>x.id===id);if(o)openOrder(o);}
+function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');/* El QR del recibo trae el folio (11/11/2026). */const o=id&&orders.find(x=>x.id===id||x.folio===id);if(o)openOrder(o);}
 async function load(){const [lista,revisar,tab,pipe,env,gar]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_orders_pipeline',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_production_batches',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_warranties',{organization_id:ctx.organization_id,status_filter:null}).catch(()=>[])]);orders=lista||[];envios=Array.isArray(env)?env:[];garantias=Array.isArray(gar)?gar:[];etapas=(pipe&&typeof pipe==='object')?pipe:{};tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);if(!vistaLista){vistaLista=true;vista=vistaInicial();}eligeEtapaInicial();render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
 /* Los filtros de arriba (segmentos tipo iOS). Cada uno trae su cuenta: los
    números que antes vivían en tarjetas aparte ahora dicen a dónde ir. */
@@ -225,7 +225,10 @@ function pintaAtajos(){
   const ultimo=envios.filter(e=>e.batch_type==='orders'&&e.status!=='cancelled').sort((a,b)=>String(b.submitted_on||b.created_at||'').localeCompare(String(a.submitted_on||a.created_at||'')))[0];
   const ICO_PDF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/></svg>';
   box.classList.remove('hidden');
-  box.innerHTML=`<button type="button" class="t-atajo-pdf" data-atajo="pdf"><span class="t-atajo-ico">${ICO_PDF}</span><span class="t-atajo-txt"><b>PDF para el proveedor</b><small>${esc(ped?`${ped} ${ped===1?'pedido listo':'pedidos listos'} · tabla por diseño`:ultimo?`Último corte ${ultimo.folio||''}`.trim():'Cuando haya pedidos por pedir')}</small></span><span class="t-atajo-cta">Descargar</span></button>${ventas}`;
+  /* Recordatorio del corte (11/11/2026): jueves y viernes la tarjeta lo dice. */
+  const dia=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Mexico_City'})).getDay();
+  const corte=ped&&(dia===4||dia===5)?`<em class="t-corte-hoy">${dia===5?'Hoy es el corte':'Mañana es el corte'}</em>`:'';
+  box.innerHTML=`<button type="button" class="t-atajo-pdf" data-atajo="pdf"><span class="t-atajo-ico">${ICO_PDF}</span><span class="t-atajo-txt"><b>PDF para el proveedor${corte}</b><small>${esc(ped?`${ped} ${ped===1?'pedido listo':'pedidos listos'} · tabla por diseño`:ultimo?`Último corte ${ultimo.folio||''}`.trim():'Cuando haya pedidos por pedir')}</small></span><span class="t-atajo-cta">Descargar</span></button>${ventas}`;
 }
 $('tAtajos')?.addEventListener('click',e=>{
   if(e.target.closest('[data-atajo="ventas"]')){verVentas();return;}
@@ -520,7 +523,8 @@ function pintaEtapa(){
   }else if(k==='para_entregar'){const gar=garEn('ready');
     const filasG=gar.map(g=>{const o=orders.find(x=>x.id===g.order_id);return `<div class="t-envio"><div><b>Garantía ${esc(g.folio)}${o?` · ${esc(tablero[o.id]?.playerName||o.customer_name||'')}`:''}</b><span>${esc(g.reason||'')} · ${Number(g.item_count||0)} pieza${Number(g.item_count)===1?'':'s'}</span></div>${canManage?`<div class="t-envio-acc"><button type="button" class="t-grande oro" data-garantia-entrega="${esc(g.id)}">Entregada</button></div>`:''}</div>`;}).join('');
     const n=lista.length+gar.length;
-    html=n?ahora('oro',5,gar.length?`${n} por entregar`:`${n} ${n===1?'pedido':'pedidos'} en el club`,`${lista.length?'Avisa a la familia y márcalo entregado cuando se lo lleve. Los botones están en cada pedido.':''}${gar.length?`${lista.length?' ':''}Las garantías se entregan aquí.`:''}`,filasG):nadaPorHacer('Nada por entregar','Lo que llegue del proveedor aparece aquí.');}
+    const porAvisar=lista.filter(o=>o.customer_phone).length;
+    html=n?ahora('oro',5,gar.length?`${n} por entregar`:`${n} ${n===1?'pedido':'pedidos'} en el club`,`${lista.length?'Avisa a cada familia y márcalo entregado cuando se lo lleve. Al entregar, escanea el código de su recibo.':''}${gar.length?`${lista.length?' ':''}Las garantías se entregan aquí.`:''}`,(porAvisar&&canWrite?`<button type="button" class="t-grande" data-avisa-todas>Avisar a las ${porAvisar} ${porAvisar===1?'familia':'familias'}</button>`:'')+filasG):nadaPorHacer('Nada por entregar','Lo que llegue del proveedor aparece aquí.');}
   box.innerHTML=html;box.classList.toggle('hidden',!html);
   const inp=$('heroProv');if(inp)inp.addEventListener('input',()=>{const b=box.querySelector('[data-mandar]');if(b)b.textContent=inp.value.trim()?`Mandar a ${inp.value.trim()}`:'Mandar al proveedor';});
 }
@@ -628,13 +632,31 @@ async function compartirCorte(batchId,recien){
     await hojaDelPdf({doc,nombre,texto,kicker:recien?'CORTE LISTO':'PDF DEL CORTE',title:recien?`Corte ${sheet?.batch?.folio||''} enviado`:`Corte ${sheet?.batch?.folio||''}`,message:recien?'Ya está en «Con el proveedor». Descárgalo o mándalo por WhatsApp.':'El PDF está listo para el proveedor.'});
   }catch(e){await window.tosAlert({kicker:'PDF',title:'No se pudo armar el PDF',message:e.message||String(e)});}
 }
+/* Avisar a todas (11/11/2026): cuando llega el corte, una lista con cada
+   familia y su botón de WhatsApp ya escrito. Un toque por familia (WhatsApp
+   no deja mandar a varios a la vez) y se marca "Avisado" para no repetir. */
+const AVISADOS_KEY='tos-pedidos-avisados';
+const avisados=()=>{try{return new Set(JSON.parse(localStorage.getItem(AVISADOS_KEY)||'[]'));}catch{return new Set();}};
+function marcaAvisado(id){try{const s=avisados();s.add(id);localStorage.setItem(AVISADOS_KEY,JSON.stringify([...s].slice(-500)));}catch{}}
+function avisaATodas(batchId=null){
+  const lista=orders.filter(o=>vigente(o)&&etapaDe(o)==='para_entregar'&&o.customer_phone&&(!batchId||etapas[o.id]?.batch?.id===batchId));
+  if(!lista.length)return;
+  const ya=avisados();
+  const capa=document.createElement('div');capa.className='t-pdf-capa';capa.setAttribute('role','dialog');capa.setAttribute('aria-modal','true');capa.setAttribute('aria-label','Avisar a las familias');
+  const filas=lista.map(o=>`<li class="t-aviso-fila${ya.has(o.id)?' hecho':''}"><span><b>${esc(tablero[o.id]?.playerName||o.customer_name||'Familia')}</b><small>${esc(o.folio||'')}${tablero[o.id]?.playerName&&o.customer_name?` · ${esc(o.customer_name)}`:''}</small></span><a class="t-aviso-wa" href="${esc(ligaAviso(o))}" target="_blank" rel="noopener" data-avisado="${esc(o.id)}">${ya.has(o.id)?'Avisado':'Avisar'}</a></li>`).join('');
+  capa.innerHTML=`<div class="t-pdf-hoja"><small class="t-pdf-kicker">YA LLEGÓ</small><h2>Avisa a las familias</h2><p>Un toque por familia: se abre WhatsApp con el mensaje listo. Tienen 30 días para recoger.</p><ul class="t-aviso-lista">${filas}</ul><button type="button" class="t-pdf-btn liga" data-pdfh="cerrar">Listo</button></div>`;
+  const cierra=()=>capa.remove();
+  capa.addEventListener('click',e=>{if(e.target===capa||e.target.closest('[data-pdfh="cerrar"]'))return cierra();const a=e.target.closest('[data-avisado]');if(a){marcaAvisado(a.dataset.avisado);a.textContent='Avisado';a.closest('li')?.classList.add('hecho');}});
+  document.body.appendChild(capa);
+}
 async function yaLlego(batchId,btn){
   const ok=await window.tosConfirm({kicker:'LLEGÓ EL CORTE',title:'¿Ya llegó a la tienda?',message:'Sus pedidos pasan a "Para entregar" para avisar a cada familia.',confirmText:'Sí, ya llegó'});
   if(!ok)return;btn.disabled=true;
-  try{await rpc('v2_receive_production_batch',{organization_id:ctx.organization_id,batch_id:batchId});$('statusFilter').value='@para_entregar';await load();}
+  try{await rpc('v2_receive_production_batch',{organization_id:ctx.organization_id,batch_id:batchId});ponVista('pasos',false);$('statusFilter').value='@para_entregar';await load();renderReviewBanner();avisaATodas(batchId);}
   catch(e){btn.disabled=false;await window.tosAlert({kicker:'LLEGÓ EL CORTE',title:'No se pudo marcar',message:e.message||String(e)});}
 }
 $('tEtapa')?.addEventListener('click',e=>{
+  if(e.target.closest('[data-avisa-todas]')){avisaATodas();return;}
   const m=e.target.closest('[data-mandar]');if(m){mandarAlProveedor();return;}
   if(e.target.closest('[data-cambia-prov]')){editaProv=true;pintaEtapa();$('heroProv')?.select();return;}
   if(e.target.closest('[data-revisa]')){const o=filteredOrders()[0];if(o)openOrder(o);return;}

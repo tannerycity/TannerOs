@@ -276,6 +276,10 @@ await pg.check('#orderDataConsent');
 // Una sola casilla (11/11/2026): privacidad y los 30 días para recoger juntos.
 revisa('una sola casilla con el aviso y los 30 días para recoger', (await pg.$$('.st-acepto .st-check')).length === 1 && /30 días/.test(await pg.textContent('.st-acepto')));
 revisa('dice a qué viernes entra el pedido', /Pide antes de .*viernes/.test(await pg.textContent('#content')));
+// Pagar al confirmar (11/11/2026): con pago en línea se elige antes; tarjeta viene marcada.
+revisa('[como paga] pregunta cómo pagas, con tarjeta marcada y "Confirmar y pagar"', (await pg.getAttribute('[data-como-paga="linea"]', 'aria-checked')) === 'true' && /^Confirmar y pagar · /.test(await pg.innerText('#submitOrder')));
+await pg.click('[data-como-paga="despues"]');
+revisa('[como paga] con transferencia el botón dice "Confirmar pedido"', /^Confirmar pedido · /.test(await pg.innerText('#submitOrder')) && /CLABE/.test(await pg.textContent('#stCoSeguro')));
 await pg.click('#submitOrder');
 await pg.waitForTimeout(600);
 const envios = llamadas.filter(c => c.n === 'v2_public_cart_order');
@@ -542,11 +546,13 @@ revisa('[liga] una liga que no existe abre la portada, sin error', await pg.eval
   await p4.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export function createClient(){return{
       auth:{getSession:async()=>({data:{session:{user:{id:'u-ana'}}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+      functions:{invoke:async(n,o)=>{window.__mp=(window.__mp||[]).concat([o.body]);return{data:{url:'/qa-mp/checkout'},error:null};}},
       storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/qa-foto/x'})),error:null})})},
       rpc:async(n,p={})=>{
         if(n==='v2_public_offerings')return{data:${JSON.stringify(OFERTA)},error:null};
         if(n==='v2_public_payment_info')return{data:${JSON.stringify(PAGO)},error:null};
         if(n==='v2_public_context')return{data:{organizationId:'org-qa',brand:'Club QA'},error:null};
+        if(n==='v2_public_cart_order')return{data:{id:'o-f',folio:'PED-F-1',total:200},error:null};
         if(n==='v2_portal_home')return{data:{guardian:{name:'Ana Ávila',phone:'+52 477 123 4567',email:'ana@correo.com'},players:[{id:'t1',first_name:'Leo',last_name:'Ávila',category:'T10',jersey_number:'24'},{id:'t2',first_name:'Mía',last_name:'Ávila',category:'T7',jersey_number:''}]},error:null};
         return {data:null,error:null};}};}` }));
   await p4.goto(BASE + '/pedido/', { waitUntil:'networkidle' });
@@ -566,6 +572,11 @@ revisa('[liga] una liga que no existe abre la portada, sin error', await pg.eval
   revisa('[cuenta] y sus datos de contacto', (await p4.inputValue('#customerName')) === 'Ana Ávila' && (await p4.inputValue('#customerPhone')) === '4771234567' && (await p4.inputValue('#customerEmail')) === 'ana@correo.com');
   await p4.click('[data-mi-tanner="1"]');
   revisa('[cuenta] un toque cambia a su otro Tanner', (await p4.inputValue('#tannerNombre')) === 'Mía Ávila' && (await p4.inputValue('#tannerCategoria')) === 'T7');
+  // Pagar al confirmar: con tarjeta (la opción marcada) se va directo a Mercado Pago.
+  await p4.check('#orderDataConsent');
+  await p4.click('#submitOrder');
+  await p4.waitForURL(/\/qa-mp\/checkout/, { timeout:5000 }).catch(() => {});
+  revisa('[como paga] "Confirmar y pagar" crea el pedido y abre Mercado Pago en el mismo toque', /\/qa-mp\/checkout/.test(p4.url()));
   await p4.close();
 }
 

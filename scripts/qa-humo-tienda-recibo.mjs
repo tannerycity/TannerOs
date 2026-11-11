@@ -97,6 +97,9 @@ nav.newPage = opts => ctx.newPage(opts);
   revisa('1. recibo con escudo, folio en boleto, total y gracias', !!(await pg.$('.st-recibo-hero .st-recibo-escudo')) && /PED-2026-00014/.test(await pg.textContent('.st-boleto')) && /Total: \$200/.test(t) && /Gracias por vestir los colores, Ana/.test(t), t.slice(0, 300));
   revisa('1. dice lo que pidió', /Par de calcetas/.test(await pg.textContent('.st-recibo-lineas')) && /Talla Universal/.test(await pg.textContent('.st-recibo-lineas')));
   revisa('1. cómo pagar sigue: CLABE, referencia y WhatsApp del club', /167210000079567650/.test(t) && /Referencia/.test(t) && !!(await pg.$('a.pago-wa[href*="524792651338"]')));
+  // QR para recoger (11/11/2026): lleva a /pedidos/?pedido=<folio>.
+  await pg.waitForSelector('#stQrEntrega svg', { timeout:4000 }).catch(() => {});
+  revisa('1. trae el QR para recoger', !!(await pg.$('#stQrEntrega svg')) && /Enseña este código/.test(await pg.textContent('.st-qr')));
   revisa('1. el lema del club al pie', /Curtimos campeones del mundo/i.test(await pg.textContent('.st-lema')) && /#WeAreTanners/.test(await pg.textContent('.st-lema')));
   revisa('1. cabe a 390px', await cabe(pg));
   const descarga = pg.waitForEvent('download', { timeout:8000 });

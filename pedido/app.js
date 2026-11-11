@@ -1152,7 +1152,17 @@ function totalAPagar() {
   const sub = totalDelCarrito(carrito);
   return Math.max(0, sub - (codigo?.ok ? descuentoDeCodigo(codigo, carrito, sub) : 0));
 }
-function textoConfirmar() { return `Confirmar pedido · ${money.format(totalAPagar())}`; }
+/* Pagar al confirmar (11/11/2026): si el club cobra en línea, se elige cómo
+   pagar ANTES de confirmar; con tarjeta u OXXO se abre Mercado Pago en el
+   mismo toque, sin pasar por el recibo. */
+let comoPaga = 'linea';
+const pagaEnLineaAlConfirmar = () => !!pagoInfo?.online && comoPaga === 'linea';
+function textoConfirmar() { return `${pagaEnLineaAlConfirmar() ? 'Confirmar y pagar' : 'Confirmar pedido'} · ${money.format(totalAPagar())}`; }
+function comoPagaHtml() {
+  if (!pagoInfo?.online) return '';
+  return `<fieldset class="st-co-card st-como-paga"><legend class="st-co-tit">¿Cómo pagas?</legend>
+    <div class="st-como-paga-opc" role="radiogroup" aria-label="Cómo pagas">${[['linea', 'Tarjeta u OXXO', 'Con Mercado Pago, ahora mismo'], ['despues', 'Transferencia o en taquilla', 'Te damos la CLABE y tu referencia']].map(([k, t, d]) => `<button type="button" role="radio" data-como-paga="${k}" aria-checked="${comoPaga === k}" class="${comoPaga === k ? 'activa' : ''}"><b>${t}</b><small>${d}</small></button>`).join('')}</div></fieldset>`;
+}
 function refrescaResumen() {
   if ($('resumenCarrito')) { $('resumenCarrito').innerHTML = resumen(); firmaFotos($('resumenCarrito')); }
   const b = $('submitOrder'); if (b && !b.disabled) b.textContent = textoConfirmar();
@@ -1314,6 +1324,7 @@ function renderCheckout() {
               <details class="st-co-nota"><summary>Agregar un comentario</summary>
                 <textarea id="orderNotes" rows="2" maxlength="500" placeholder="Algo que debamos saber (opcional)"></textarea></details>
             </div></section>
+          ${comoPagaHtml()}
           <fieldset class="st-co-card st-acepto"><legend class="st-co-tit">Antes de confirmar</legend>
             <!-- Una sola casilla (11/11/2026): antes eran dos obligatorias. -->
             <label class="st-check"><input id="orderDataConsent" type="checkbox" required>
@@ -1322,12 +1333,19 @@ function renderCheckout() {
           </fieldset>
           <div id="formMessage" class="message hidden"></div>
           <button id="submitOrder" class="st-cta st-co-confirmar" type="submit">${textoConfirmar()}</button>
-          <p class="st-co-seguro">Al confirmar ves la CLABE y tu referencia para pagar.</p>${corteHtml()}
+          <p class="st-co-seguro" id="stCoSeguro">${pagaEnLineaAlConfirmar() ? 'Al confirmar se abre Mercado Pago para pagar.' : 'Al confirmar ves la CLABE y tu referencia para pagar.'}</p>${corteHtml()}
         </form>
       </div>
     </div>`;
   wirePhone();
   prellenaFamilia();
+  document.querySelector('.st-como-paga')?.addEventListener('click', e => {
+    const b = e.target.closest('[data-como-paga]'); if (!b) return;
+    comoPaga = b.dataset.comoPaga;
+    document.querySelectorAll('[data-como-paga]').forEach(x => { const on = x === b; x.classList.toggle('activa', on); x.setAttribute('aria-checked', String(on)); });
+    refrescaResumen();
+    if ($('stCoSeguro')) $('stCoSeguro').textContent = pagaEnLineaAlConfirmar() ? 'Al confirmar se abre Mercado Pago para pagar.' : 'Al confirmar ves la CLABE y tu referencia para pagar.';
+  });
   $('stTannerCard').onclick = e => {
     const b = e.target.closest('[data-para]'); if (!b) return;
     paraQuien = b.dataset.para;
@@ -1447,6 +1465,7 @@ async function submit(e) {
     try { sessionStorage.removeItem('tiendaCodigo'); } catch {}
     actualizaCarrito();
     renderListo(result, comun.customer_name, lineas);
+    if (pagaEnLineaAlConfirmar() && result?.id && result?.folio && Number(result?.total || 0) > 0) pagaEnLinea({ id: result.id, folio: result.folio });
   } catch (err) {
     setMessage(err.message || 'No se pudo enviar el pedido.');
     btn.disabled = false; btn.textContent = textoConfirmar();
@@ -1461,6 +1480,17 @@ async function submit(e) {
 /* ---------- La liga del embajador (26/10/2026, h46) ----------
  * "Que vea sus ventas y que gane algo": cuántas compras con su código, cuánto
  * va y su premio, sin nombres de clientes. Y el botón para compartirlo. */
+/* QR de entrega (11/11/2026): lleva a /pedidos/?pedido=<folio>. Quien
+   entrega lo escanea con la cámara del teléfono y se abre el pedido en
+   TannerOS (con su sesión del club). Para la familia es sólo un código. */
+async function pintaQrEntrega() {
+  const box = $('stQrEntrega'); if (!box) return;
+  try {
+    const { default: qrcode } = await import('/vendor/qrcode.mjs');
+    const q = qrcode(0, 'M'); q.addData(`${location.origin}/pedidos/?pedido=${encodeURIComponent(box.dataset.folio)}`); q.make();
+    box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+  } catch { box.closest('.st-qr')?.remove(); }
+}
 /* La familia confirma en un toque (11/11/2026, h87). La liga llega en el
    WhatsApp del club: ve lo que pidió y toca "Sí, todo está bien" o dice qué
    cambiar. Sin datos personales: folio, primer nombre y las piezas. */
@@ -1676,6 +1706,8 @@ function pintaRecibo(recibo, nuevo) {
       : '<p class="muted pago-nota">Te contactamos por WhatsApp para confirmar tu pedido.</p>'}
     ${lineas.length ? `<section class="st-recibo-lineas" aria-label="Lo que pediste"><h3>Lo que pediste</h3>
       <ul>${lineas.map(l => `<li><span><strong>${l.cantidad > 1 ? `${l.cantidad} × ` : ''}${esc(l.nombre)}</strong>${l.detalle ? `<small>${esc(l.detalle)}</small>` : ''}</span><b>${money.format(l.importe)}</b></li>`).join('')}</ul></section>` : ''}
+    ${folio ? `<section class="st-qr" aria-label="Código para recoger"><div class="st-qr-img" id="stQrEntrega" data-folio="${esc(folio)}"></div>
+      <div><h3>Para recoger</h3><p class="muted">Enseña este código en la tienda del club: lo escanean y te entregan en segundos.</p></div></section>` : ''}
     <section class="st-sigue" aria-label="Así sigue tu pedido">
       <h3>Así sigue tu pedido</h3>
       ${PASOS_TIENDA}
@@ -1685,6 +1717,7 @@ function pintaRecibo(recibo, nuevo) {
     <footer class="st-lema"><span>Curtimos campeones del mundo</span><b>#WeAreTanners</b></footer>
   </section>`;
   $('pagarEnLinea')?.addEventListener('click', () => pagaEnLinea({ id: recibo.id, folio }));
+  pintaQrEntrega();
   $('content').querySelectorAll('[data-copiar]').forEach(btn => btn.addEventListener('click', async e => {
     const b = e.currentTarget;
     try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiado'; }

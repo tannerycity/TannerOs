@@ -553,12 +553,17 @@ revisa('[liga] una liga que no existe abre la portada, sin error', await pg.eval
         if(n==='v2_public_payment_info')return{data:${JSON.stringify(PAGO)},error:null};
         if(n==='v2_public_context')return{data:{organizationId:'org-qa',brand:'Club QA'},error:null};
         if(n==='v2_public_cart_order')return{data:{id:'o-f',folio:'PED-F-1',total:200},error:null};
+        if(n==='v2_public_branding_by_org')return{data:{colors:{primary:'#184159'},tagline:'To our city. To our family.',assets:{splash:'organizations/org-qa/branding/splash.png'}},error:null};
         if(n==='v2_portal_home')return{data:{guardian:{name:'Ana Ávila',phone:'+52 477 123 4567',email:'ana@correo.com'},players:[{id:'t1',first_name:'Leo',last_name:'Ávila',category:'T10',jersey_number:'24'},{id:'t2',first_name:'Mía',last_name:'Ávila',category:'T7',jersey_number:''}]},error:null};
         return {data:null,error:null};}};}` }));
   await p4.goto(BASE + '/pedido/', { waitUntil:'networkidle' });
   await p4.waitForSelector('.st-card', { timeout:6000 });
   revisa('[cuenta] saluda a la familia y dice para quién compra', /Hola, Ana/.test(await p4.textContent('.st-hola').catch(() => '')) && /Leo y Mía/.test(await p4.textContent('.st-hola').catch(() => '')));
   revisa('[cuenta] ya no le pide "Entrar"', !(await p4.$('.ya-familia')));
+  // Portada de campaña (11/11/2026): la imagen y el lema de la marca del club.
+  await p4.waitForSelector('.st-hero.portada.con-foto', { timeout:3000 }).catch(() => {});
+  revisa('[marca] la portada usa la imagen de marca del club', /tanneros-branding\/organizations\/org-qa\/branding\/splash\.png/.test(await p4.evaluate(() => getComputedStyle(document.querySelector('.st-hero.portada')).getPropertyValue('--st-splash'))));
+  revisa('[marca] y su lema', (await p4.textContent('.st-hero-lema').catch(() => '')) === 'To our city. To our family.' && await p4.isVisible('.st-hero-lema'));
   await p4.goto(BASE + '/pedido/#/p/p-jersey');
   await p4.waitForSelector('[data-usa-pers]', { timeout:5000 }).catch(() => {});
   revisa('[cuenta] la personalización ofrece "Usar LEO #24"', /Usar LEO #24/.test(await p4.textContent('.st-pers-mios').catch(() => '')));

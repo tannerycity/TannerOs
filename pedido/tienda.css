@@ -754,3 +754,11 @@ body.st-sin-scroll { overflow: hidden; }
 .st-qr { display: flex; align-items: center; gap: 14px; margin: 14px 0; padding: 14px; border-radius: 20px; background: #fff; box-shadow: 0 1px 3px rgba(7, 25, 30, .08); }
 .st-qr-img { flex: none; width: 112px; height: 112px; } .st-qr-img svg { width: 100%; height: 100%; display: block; }
 .st-qr h3 { margin: 0 0 4px; } .st-qr p { margin: 0; font-size: 14px; }
+
+/* Portada de campaña (11/11/2026): la imagen de marca del club con un velo del
+   color del club para que el texto siempre se lea. */
+.st-hero.portada.con-foto { background:
+  linear-gradient(180deg, color-mix(in srgb, var(--st-brand) 55%, transparent) 0%, color-mix(in srgb, var(--st-brand) 92%, #000) 78%),
+  var(--st-splash) center / cover no-repeat, var(--st-brand); }
+.st-hero.portada.con-foto .st-hero-escudo { opacity: .14; }
+.st-hero-lema { margin: 8px 0 0 !important; font-size: 13px !important; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--st-gold) !important; }

@@ -604,3 +604,6 @@
 .t-aviso-wa{flex:none;display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;background:#1f9d55;color:#fff;font-weight:700;font-size:15px;text-decoration:none}
 .t-aviso-fila.hecho .t-aviso-wa{background:rgba(118,118,128,.12);color:#3a3a3c}
 .t-corte-hoy{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;background:#fdebd3;color:#9a5a0b;font-style:normal;font-size:12px;font-weight:700;vertical-align:middle}
+
+/* Encabezado con la imagen de marca del club (11/11/2026). */
+.t-hero.con-foto{background:linear-gradient(180deg,color-mix(in srgb,var(--tos-ink,#184159) 60%,transparent) 0%,color-mix(in srgb,var(--tos-ink,#184159) 94%,#000) 85%),var(--t-splash) center/cover no-repeat,var(--tos-ink,#184159)}

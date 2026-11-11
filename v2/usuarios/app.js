@@ -149,8 +149,10 @@ async function load(reopen=false){
     rpc('v2_guardian_access',{organization_id:ctx.organization_id}),
     // Si falla, el resto del módulo sigue vivo: la sección de categorías
     // simplemente no se muestra.
-    rpc('v2_category_staff',{organization_id:ctx.organization_id}).catch(()=>null)
-  ]);
+    rpc('v2_category_staff',{organization_id:ctx.organization_id}).catch(()=>null),
+    // Fichas de Staff que aún no tienen llave (h86): se eligen al entregarla.
+    rpc('v2_staff_without_account',{organization_id:ctx.organization_id}).catch(()=>[])
+  ]).then(r=>{fichasSinLlave=Array.isArray(r[3])?r[3]:[];return r;});
   members=Array.isArray(userData?.members)?userData.members:[];
   invites=Array.isArray(userData?.invitations)?userData.invitations:[];
   guardians=Array.isArray(guardianData)?guardianData:[];
@@ -277,9 +279,21 @@ function closeWizard(){
 /* ---------- Buscador único ---------- */
 // Se listan también los que YA tienen llave, en gris: saber que alguien ya
 // existe evita crearlo dos veces, que es el error caro de un padrón.
+/* Staff y llave conectados (11/11/2026). Presidencia: "no es lo mismo staff
+   que entregar la llave". Al buscar a quién entregarle la llave salen también
+   las fichas de Staff que aún no tienen cuenta ("Checo Martínez · Formador ·
+   en Staff, sin llave"). Al elegirla, la llave nueva queda conectada a esa
+   ficha: una sola persona en el organigrama, el Portal y los permisos. */
+let fichasSinLlave=[];
+const NIVEL_A_ROL={formador:'coach',coordinacion:'coach',direccion:'coach',operacion:'operations',presidencia:'president'};
 function buscaPersonas(q){
   const t=normalize(q);if(t.length<2)return [];
   const out=[];
+  fichasSinLlave.forEach(f=>{
+    if(normalize(`${f.fullName} ${f.title||''}`).includes(t))out.push({
+      tipo:'ficha',id:f.id,nombre:f.fullName,
+      detalle:`${f.title||'Staff'} · en Staff, sin llave`,ocupado:false,dato:f});
+  });
   guardians.forEach(g=>{
     const texto=normalize([guardianName(g),(g.players||[]).join(' '),g.email,g.phone].join(' '));
     if(texto.includes(t))out.push({
@@ -326,6 +340,8 @@ function eligePersona(f){
   // Un tutor sólo puede ser Familia: su llave es la del portal, no la del staff.
   wizard.kind=f.tipo==='tutor'?'guardian':'staff';
   wizard.role=f.tipo==='tutor'?null:(wizard.role&&ROLES_VISIBLES.includes(wizard.role)?wizard.role:null);
+  // Una ficha de Staff ya dice qué hace: se propone su rol (se puede cambiar).
+  if(f.tipo==='ficha'&&!wizard.role)wizard.role=NIVEL_A_ROL[f.dato?.level]||null;
   wizard.categorias=new Set();
   $('whoResults').innerHTML='';$('whoSearch').value='';
   // Ya no hay nada que buscar: el campo y su ayuda estorban.
@@ -334,7 +350,7 @@ function eligePersona(f){
   $('whoPicked').classList.remove('hidden');
   $('whoPicked').innerHTML=
     `<span class="key-result-face">${safe(initials(f.nombre))}</span>
-     <span class="key-result-body"><strong>${safe(f.nombre)}</strong><small>${safe(f.tipo==='tutor'?(f.detalle||'Familia Tanner'):'Nueva persona en el club')}</small></span>
+     <span class="key-result-body"><strong>${safe(f.nombre)}</strong><small>${safe(f.tipo==='tutor'?(f.detalle||'Familia Tanner'):f.tipo==='ficha'?'Su llave quedará conectada a su ficha de Staff':'Nueva persona en el club')}</small></span>
      <button type="button" id="whoClear" class="key-clear" aria-label="Elegir a otra persona">✕</button>`;
   $('whoClear').addEventListener('click',()=>{
     wizard.persona=null;wizard.kind=null;wizard.role=null;wizard.categorias=new Set();
@@ -482,6 +498,11 @@ async function createAccess(event){
         :await invokeStaff({action:'send_email_invite',display_name:displayName,email:$('accessEmail').value.trim(),role_code:wizard.role});
       // Las categorías van en el mismo acto: un entrenador sin categorías no ve
       // a nadie, y dejarlo para una segunda vuelta es como se crea gente a medias.
+      // La llave nueva queda conectada a su ficha de Staff (h86).
+      if(p.tipo==='ficha'&&result?.user_id){
+        try{await rpc('v2_link_staff_account',{organization_id:ctx.organization_id,staff_id:p.id,user_id:result.user_id});}
+        catch(error){console.warn('conectar con Staff',error);message('createMessage','La llave se creó, pero no se pudo conectar con su ficha de Staff: '+friendly(error));}
+      }
       if(wizard.role==='coach'&&wizard.categorias.size&&result?.user_id){
         try{
           await rpc('v2_set_category_staff',{organization_id:ctx.organization_id,

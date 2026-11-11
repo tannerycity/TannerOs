@@ -193,10 +193,16 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   await p.waitForSelector('#presSheet:not(.hidden)');
   revisa('[editar] trae la fecha y el método del pago', await p.inputValue('#presFecha') === '2026-09-05' && /true/.test(await p.getAttribute('[data-metodo-ed="cash"]', 'aria-checked')));
   if (process.env.SHOTS) await p.screenshot({ path:`${process.env.SHOTS}/tanner-editar-pago.png` });
-  await p.fill('#presFecha', '2026-09-04');
-  await p.click('[data-metodo-ed="transfer"]');
-  await p.fill('#presRef', 'SPEI 4471');
-  await p.fill('#presMotivo', 'Pagó el viernes en la noche');
+  // En CI la hoja a veces se vuelve a pintar justo después de abrir y borra
+  // lo escrito; se llena otra vez hasta que todo quede antes de guardar.
+  for (let i = 0; i < 3; i++) {
+    await p.fill('#presFecha', '2026-09-04');
+    await p.click('[data-metodo-ed="transfer"]');
+    await p.fill('#presRef', 'SPEI 4471');
+    await p.fill('#presMotivo', 'Pagó el viernes en la noche');
+    await p.waitForTimeout(150);
+    if (await p.inputValue('#presMotivo') && await p.inputValue('#presRef') && await p.inputValue('#presFecha') === '2026-09-04') break;
+  }
   await p.click('#presForm .pres-primary');
   // Si la hoja no se cierra, que diga por qué (CI lento o un aviso en la hoja).
   const cerro = await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:8000 }).then(() => true, () => false);
@@ -211,7 +217,11 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   await p.$eval('.tan-ledger [data-payment="pay-1"]', el => el.click());
   await p.waitForSelector('#presSheet:not(.hidden)');
   await p.click('[data-revertir]');
-  await p.fill('#presMotivo', 'Se capturó dos veces');
+  for (let i = 0; i < 3; i++) {
+    await p.fill('#presMotivo', 'Se capturó dos veces');
+    await p.waitForTimeout(150);
+    if (await p.inputValue('#presMotivo')) break;
+  }
   await p.click('#presForm .pres-primary');
   await p.waitForSelector('#presSheet.hidden', { state:'attached', timeout:4000 });
   const cp = (await llamadas(p, 'v2_correct_tanner_payment'))[0]?.params || {};

@@ -220,7 +220,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   const { pg, errs } = await abre('/v2/pedidos/');
   await pg.waitForSelector('#orderList .order-row .order-items', { timeout:8000 }).catch(() => {});
   // Abre en la etapa que pide algo (22/10/2026); aquí se revisa todo.
-  await pg.click('#tSeg [data-f=""]').catch(() => {});
+  await pg.click('#tSeg .t-volver').catch(() => {});
   const fila = s => `.order-row[data-order-id="${s}"]`;
   const quien = await pg.textContent(`${fila('o-nuevo')} .order-who strong`).catch(() => '');
   revisa('3. el jugador va grande', quien === 'Leo Ávila', quien);
@@ -240,13 +240,13 @@ async function abre(ruta, { pagoFalla = false } = {}) {
 
   const segs = await pg.$$eval('#tSeg [data-f]', bs => bs.map(b => [b.dataset.f, b.querySelector('i').textContent]));
   // Desde el pedido por etapas (22/10/2026) las pestañas son las etapas.
-  revisa('12. los filtros traen su cuenta', JSON.stringify(segs) === JSON.stringify([['@por_validar','1'],['__cobrar','1'],['@para_proveedor','1'],['@con_proveedor','0'],['@para_entregar','0'],['@entregado','0'],['','2']]), JSON.stringify(segs));
+  revisa('12. los filtros traen su cuenta', JSON.stringify(segs) === JSON.stringify([['@por_validar','1'],['__cobrar','1'],['@para_proveedor','1'],['@con_proveedor','0'],['@para_entregar','0']]), JSON.stringify(segs));
   await pg.click('#tSeg [data-f="@por_validar"]');
   const solo = await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId));
   revisa('7. "Por validar" deja sólo lo pendiente', JSON.stringify(solo) === '["o-nuevo"]', JSON.stringify(solo));
-  await pg.selectOption('#statusFilter', '__numero');
+  await pg.evaluate(v => { const s = document.getElementById('statusFilter'); s.value = v; s.dispatchEvent(new Event('change')); }, '__numero');
   revisa('7. el filtro "Número por confirmar" sigue', JSON.stringify(await pg.$$eval('.order-row', rs => rs.map(r => r.dataset.orderId))) === '["o-nuevo"]');
-  await pg.click('#tSeg [data-f=""]');
+  await pg.click('#tSeg .t-volver').catch(() => {});
 
   await pg.click(`${fila('o-nuevo')} [data-num-confirma]`);
   await pg.waitForSelector(`${fila('o-nuevo')} .order-num.ok`, { timeout:4000 }).catch(() => {});
@@ -280,7 +280,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   await pg.waitForSelector('#drawer:not(.hidden)', { timeout:5000 }).catch(() => {});
   revisa('17. Cobrar abre el pedido para cobrarlo', await pg.isVisible('#paymentSection'));
   await pg.click('#closeDrawer');
-  await pg.click('#tSeg [data-f=""]');
+  await pg.click('#tSeg .t-volver').catch(() => {});
   await pg.click(`${fila('o-nuevo')} .order-who`);
   await pg.waitForSelector('#drawer:not(.hidden) #orderResumen .t-res-quien', { timeout:5000 }).catch(() => {});
   revisa('3 clics: tocar la fila abre el pedido', await pg.isVisible('#drawer'));

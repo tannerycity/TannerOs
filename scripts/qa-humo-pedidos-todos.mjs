@@ -110,11 +110,12 @@ async function abre(ruta, rol) {
   await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:CLIENTE(rol) }));
   await pg.route(/\/v2\/shell\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:SHELL(rol) }));
   await pg.goto(BASE + ruta, { waitUntil:'networkidle' });
-  await pg.waitForSelector('#tVista button', { timeout:8000 });
+  await pg.waitForSelector('#tSeg .t-paso', { timeout:8000 });
   await pg.waitForTimeout(300);
   return { pg, errs };
 }
-const vistaActiva = pg => pg.$eval('#tVista [aria-pressed="true"]', b => b.dataset.vista).catch(() => '');
+// Una sola fila de tarjetas (11/11/2026): si una está marcada estás en ese paso; si no, en Todos.
+const vistaActiva = async pg => (await pg.$('#tSeg .t-paso.activo')) ? 'pasos' : 'todos';
 const grupos = pg => pg.$$eval('#orderList .t-grupo-caja', cs => cs.map(c => `${c.querySelector('h3').childNodes[0].textContent.trim()}=${c.querySelector('h3 i').textContent}`));
 const ids = (pg, sel = '#orderList') => pg.$$eval(`${sel} .order-row`, rs => rs.map(r => r.dataset.orderId));
 const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
@@ -128,9 +129,10 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
   const { pg, errs } = await abre('/v2/pedidos/', 'Presidencia');
   if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/pedidos-todos.png`, fullPage:true });
   revisa('1. Presidencia abre en Todos', await vistaActiva(pg) === 'todos');
-  const tv = (await pg.innerText('#tVista')).replace(/\s+/g, ' ').trim();
-  revisa('1. el botón Todos trae la cuenta de vivos (sin entregados ni cancelados)', /^Todos 7\b/.test(tv) && /Por paso/.test(tv), tv);
-  revisa('1. en Todos no está el diagrama de pasos ni la tarjeta del paso', !(await pg.$('#tSeg .t-pasos')) && !(await pg.isVisible('#tEtapa')));
+  const cab0 = (await pg.innerText('#tSeg .t-hoy-cab')).replace(/\s+/g, ' ').trim();
+  revisa('1. "¿Qué toca hoy?" con la cuenta de lo que está en curso (sin entregados ni cancelados)', /¿Qué toca hoy\?/.test(cab0) && /7 en curso/.test(cab0), cab0);
+  revisa('1. ya no hay botones Todos / Por paso', !(await pg.isVisible('#tVista')));
+  revisa('1. en Todos ninguna tarjeta marcada y sin la tarjeta del paso', !(await pg.$('#tSeg .t-paso.activo')) && !(await pg.isVisible('#tEtapa')));
   const g = await grupos(pg);
   revisa('2. grupos en el orden del flujo con su cuenta', JSON.stringify(g) === JSON.stringify(['Revisar=1','Cobrar=2','Por pedir=1','Recibir=2','Entregar=1']), JSON.stringify(g));
   const todos = await ids(pg);
@@ -153,7 +155,7 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
   const cab = (await pg.innerText('[data-grupo="por_cobrar"] .t-grupo')).replace(/\s+/g, ' ');
   revisa('4. la cabecera cuenta los atrasados', /1 atrasado\b/.test(cab), cab);
   const filtros = (await pg.$$eval('#tSeg [data-todos-f]', bs => bs.map(b => b.textContent.replace(/\s+/g, ' ').trim())));
-  revisa('5. filtro Vivos / Entregados / Cancelados con su cuenta', JSON.stringify(filtros) === JSON.stringify(['Vivos 7','Entregados 1','Cancelados 2']), JSON.stringify(filtros));
+  revisa('5. historial: Entregados y Cancelados con su cuenta', JSON.stringify(filtros) === JSON.stringify(['Entregados 1','Cancelados 2']), JSON.stringify(filtros));
   revisa('el filtro de estado (de Por paso) no se muestra en Todos', !(await pg.isVisible('#statusFilter')));
 
   await pg.click('#tSeg [data-todos-f="cancelados"]');
@@ -185,9 +187,9 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
   revisa('6. "Ir al paso" lleva a Por paso en Cobrar', await vistaActiva(pg) === 'pasos' && activo === 'Cobrar', activo);
   revisa('6. y la vista se recuerda', await pg.evaluate(() => localStorage.getItem('tos-pedidos-vista')) === 'pasos');
   await pg.reload({ waitUntil:'networkidle' });
-  await pg.waitForSelector('#tVista button', { timeout:8000 });
+  await pg.waitForSelector('#tSeg .t-paso', { timeout:8000 });
   revisa('1. al volver abre en la última vista usada', await vistaActiva(pg) === 'pasos' && !!(await pg.$('#tSeg .t-pasos')));
-  await pg.click('#tVista [data-vista="todos"]');
+  await pg.click('#tSeg .t-volver');
   revisa('1. un toque regresa a Todos y se guarda', await vistaActiva(pg) === 'todos' && (await grupos(pg)).length === 5 && await pg.evaluate(() => localStorage.getItem('tos-pedidos-vista')) === 'todos');
   revisa('sin errores de página (Presidencia)', !errs.length, errs.join(' | '));
   await pg.close();
@@ -198,12 +200,14 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
 {
   const { pg, errs } = await abre('/v2/pedidos/', 'Operaciones');
   revisa('1. quien lleva la tienda abre en Todos', await vistaActiva(pg) === 'todos' && (await grupos(pg)).length === 5);
-  await pg.click('#tVista [data-vista="pasos"]');
+  await pg.click('#tSeg [data-f="@por_validar"]');
   await pg.waitForTimeout(200);
   const pasos = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
-  revisa('6. Por paso no cambia: el diagrama de cinco verbos con su cuenta', JSON.stringify(pasos) === JSON.stringify(['Revisar=1','Cobrar=2','Por pedir=1','Recibir=2','Entregar=1']), JSON.stringify(pasos));
-  revisa('6. y abre en el paso que pide algo', await pg.$eval('#tSeg .t-paso.activo b', b => b.textContent) === 'Revisar');
+  revisa('6. las cinco tarjetas de paso con su cuenta', JSON.stringify(pasos) === JSON.stringify(['Revisar=1','Cobrar=2','Por pedir=1','Recibir=2','Entregar=1']), JSON.stringify(pasos));
+  revisa('6. tocar una tarjeta abre ese paso', await pg.$eval('#tSeg .t-paso.activo b', b => b.textContent) === 'Revisar');
   revisa('6. en Por paso no se pintan grupos ni etiquetas de Todos', !(await pg.$('.t-grupo-caja')) && !(await pg.$('.t-donde')));
+  await pg.click('#tSeg [data-f="@por_validar"]'); await pg.waitForTimeout(200);
+  revisa('6. tocarla otra vez regresa a Todos', await vistaActiva(pg) === 'todos' && (await grupos(pg)).length === 5);
   revisa('sin errores de página (Operaciones)', !errs.length, errs.join(' | '));
   await pg.close();
 }
@@ -217,5 +221,5 @@ const fila = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => ({
 }
 
 await nav.close(); srv.close();
-console.log(fallos ? `Pedidos Todos humo FAILED · ${fallos} de ${corridas}` : `Pedidos Todos humo OK · ${corridas} revisiones: dos vistas a un toque, una lista agrupada por paso, dónde va cada pedido, atrasados, cancelados aparte y Por paso intacto`);
+console.log(fallos ? `Pedidos Todos humo FAILED · ${fallos} de ${corridas}` : `Pedidos Todos humo OK · ${corridas} revisiones: una fila de tarjetas por paso, una lista agrupada por paso, dónde va cada pedido, atrasados, cancelados aparte y Por paso intacto`);
 process.exit(fallos ? 1 : 0);

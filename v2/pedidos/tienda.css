@@ -455,23 +455,6 @@
 /* Mensaje para confirmar con la familia (11/11/2026). */
 .conf-wa{width:100%;min-height:52px;margin:4px 0 12px;background:#0b7e3b!important;border-color:#0b7e3b!important;color:#fff!important}
 
-/* Tarjetas arriba de Pedidos (11/11/2026): PDF, por revisar, por pedir y nuevo. */
-.t-atajos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 16px}
-.t-atajo{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--tos-line,#dce5e3);background:#fff;border-radius:16px;padding:14px;min-height:72px;font:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(7,25,30,.05)}
-.t-atajo:hover{border-color:#b9cac6}
-.t-atajo:disabled{opacity:.6;cursor:progress}
-.t-atajo-ico{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:#eef3f2;color:#07191e}
-.t-atajo-ico svg{width:22px;height:22px}
-.t-atajo[data-tono="verde"] .t-atajo-ico{background:#16a34a;color:#fff}
-.t-atajo[data-tono="naranja"] .t-atajo-ico{background:#fdebd3;color:#9a5a0b}
-.t-atajo[data-tono="azul"] .t-atajo-ico{background:#e1eef7;color:#1f5f8b}
-.t-atajo-txt{display:grid;gap:2px;min-width:0}
-.t-atajo-txt b{font-size:15px;color:#07191e}
-.t-atajo-txt b i{font-style:normal;font-size:12px;background:#07191e;color:#fff;border-radius:999px;padding:1px 7px;margin-left:4px}
-.t-atajo-txt small{font-size:12.5px;color:#5f7176;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-@media (max-width:900px){.t-atajos{grid-template-columns:1fr 1fr}}
-@media (max-width:420px){.t-atajo{padding:12px;min-height:64px}.t-atajo-ico{width:36px;height:36px}}
-
 /* Hoja del PDF: Descargar o Compartir (11/11/2026). */
 .t-pdf-capa{position:fixed;inset:0;z-index:1500;background:rgba(6,20,24,.5);display:grid;align-items:end;justify-items:center}
 .t-pdf-hoja{width:min(480px,100%);background:#fff;border-radius:22px 22px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;display:grid;gap:8px}
@@ -484,3 +467,110 @@
 .t-pdf-btn.principal{background:#07191e;border-color:#07191e;color:#fff;margin-top:6px}
 .t-pdf-btn.liga{border:0;background:none;color:#5f7176;min-height:44px;font-weight:700}
 .t-pdf-aviso{background:#e8f6ee;color:#0b7e3b!important;border-radius:12px;padding:10px 12px}
+
+/* Todo lo que se toca, de al menos 44 px (guía de Apple). */
+.tienda-tabs a{min-height:44px}
+.t-vista button,.t-cards-mas button{min-height:44px}
+.t-link-mini{display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
+@media (max-width:520px){.t-head{flex-wrap:nowrap;align-items:center}.t-head-acc{width:auto}}
+
+/* ¿De qué Tanner es? más compacta: no se come la fila. */
+.t-liga{padding:10px 12px;gap:6px}
+.t-liga-cab span{font-size:12.5px}
+.t-liga-sug:has(.t-liga-cargando:only-child){display:none}
+
+/* Detalle del pedido (11/11/2026, auditoría): botones de tamaño normal,
+   el peligroso como liga roja y lo pequeño con 44 px para el dedo. */
+.t-estado .status-actions{display:grid!important;grid-template-columns:1fr;gap:8px}
+.t-estado .status-btn{flex:none!important;height:auto!important;min-height:48px;width:100%}
+.t-estado .status-btn.danger{background:none!important;color:#b42318!important;border:0!important;box-shadow:none!important;min-height:44px;font-weight:700}
+#drawer .t-link,#drawer .link-toggle,#drawer .t-link-peligro{display:inline-flex;align-items:center;min-height:44px}
+#drawer .t-pill-btn{min-height:44px}
+.item-edit{margin-top:8px}
+.item-edit>summary{display:inline-flex;align-items:center;min-height:44px;color:#1f5fbf;font-weight:700;font-size:14px;cursor:pointer;list-style:none}
+.item-edit>summary::-webkit-details-marker{display:none}
+.item-edit[open]>summary{color:#5f7176}
+/* Un solo "Confirmar número": se queda junto a "Antes de mandarlo al proveedor". */
+#drawer:has(#readinessPayment [data-num-confirma]) #orderResumen [data-num-confirma]{display:none}
+#drawer select,#drawer .whatsapp-btn,#drawer .t-peligro,#drawer .t-mas-fila{min-height:44px}
+#drawer .whatsapp-btn{display:inline-flex;align-items:center}
+
+/* ===== Tienda oficial (11/11/2026) =====================================
+   Colores del club (branding.js los pone en --tos-ink, --tos-gold, --tos-teal,
+   --tos-bg). Botones estilo Apple: rellenos o tintados, redondos, sin bordes,
+   letra del sistema y 44 px o más para el dedo. */
+.t-hero,.t-hoy,.t-atajo-pdf,.t-hist{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
+.t-hero{position:relative;overflow:hidden;display:grid;gap:16px;margin:4px 0 14px;padding:20px 18px 18px;border-radius:24px;color:#fff;
+  background:linear-gradient(135deg,var(--tos-ink,#184159) 0%,var(--tos-ink-deep,#0f2c3d) 100%)}
+.t-hero::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.045) 0 14px,transparent 14px 34px);pointer-events:none}
+.t-hero::after{content:"";position:absolute;left:18px;right:18px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--tos-gold,#9a9169)}
+.t-hero>*{position:relative}
+.t-hero-id{display:flex;align-items:center;gap:14px;min-width:0}
+.t-hero-escudo{flex:none;width:58px;height:58px;border-radius:16px;display:grid;place-items:center;background:rgba(255,255,255,.1);font-size:24px;font-weight:900;color:#fff;overflow:hidden;padding:6px}
+.t-hero-kicker{display:block;font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--tos-gold,#c9bd8c);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-hero h1{margin:2px 0 0;font-size:30px;line-height:1.05;letter-spacing:-.02em;color:#fff}
+.t-hero .t-sub{margin:4px 0 0;color:rgba(255,255,255,.78);font-size:14px}
+.t-hero-acc{display:flex;gap:10px;flex-wrap:wrap}
+.t-hero-vender,.t-hero-sec{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border:0;border-radius:14px;font:inherit;font-size:16px;font-weight:700;text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s ease,opacity .12s ease}
+.t-hero-vender{flex:1 1 160px;background:#fff;color:var(--tos-ink,#184159)}
+.t-hero-sec{flex:0 1 auto;background:rgba(255,255,255,.14);color:#fff}
+.t-hero-vender:active,.t-hero-sec:active,.t-paso:active,.t-atajo-pdf:active,.t-hist button:active,.t-volver:active{transform:scale(.97);opacity:.85}
+.t-hero-vender.is-off{opacity:.45;pointer-events:none}
+/* PDF: tarjeta blanca con botón tintado. */
+.t-atajos{margin:0 0 14px}
+.t-atajos.hidden{display:none}
+.t-atajo-pdf{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:#fff;color:#07191e;border-radius:18px;padding:12px 14px;min-height:68px;font:inherit;cursor:pointer;box-shadow:0 1px 3px rgba(7,25,30,.08)}
+.t-atajo-pdf:disabled{opacity:.6;cursor:progress}
+.t-atajo-pdf .t-atajo-ico{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--tos-teal,#247c8f) 14%,#fff);color:var(--tos-teal,#247c8f)}
+.t-atajo-pdf .t-atajo-ico svg{width:22px;height:22px}
+.t-atajo-txt{flex:1;display:grid;gap:2px;min-width:0}
+.t-atajo-txt b{font-size:16px}
+.t-atajo-txt small{font-size:13px;color:#5f7176;line-height:1.3}
+.t-atajo-cta{flex:none;background:var(--tos-teal,#247c8f);color:#fff;border-radius:999px;padding:9px 15px;font-weight:700;font-size:14px}
+/* ¿Qué toca hoy?: una tarjeta por paso. */
+.t-hoy{display:grid;gap:10px;margin:0 0 16px}
+.t-hoy-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.t-hoy-cab h2{margin:0;font-size:20px;letter-spacing:-.01em;color:#07191e}
+.t-hoy-cab span{font-size:13.5px;color:#5f7176;font-weight:600}
+.t-volver{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:0;border-radius:999px;background:color-mix(in srgb,var(--tos-ink,#184159) 9%,#fff);color:var(--tos-ink,#184159);font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.t-hoy .t-pasos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0;padding:0;list-style:none}
+.t-hoy .t-pasos li{display:block}
+.t-hoy .t-pasos li::before,.t-hoy .t-pasos li::after{display:none}
+.t-hoy .t-paso{display:grid;justify-items:start;align-content:start;gap:2px;width:100%;min-height:96px;padding:12px;border:0;border-radius:18px;background:#fff;color:#07191e;text-align:left;font:inherit;cursor:pointer;box-shadow:0 1px 3px rgba(7,25,30,.08)}
+.t-hoy .t-paso i{display:block;width:auto;height:auto;min-width:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;font-style:normal;font-size:28px;font-weight:800;line-height:1.05;letter-spacing:-.02em;color:var(--tos-ink,#184159)}
+.t-hoy .t-paso b{font-size:15px;font-weight:700;color:#07191e}
+.t-hoy .t-paso small{font-size:12px;color:#5f7176;line-height:1.3}
+.t-hoy .t-paso:not(.con) i{color:#b3bec1}
+.t-hoy .t-paso:not(.con){background:#f7f8f8;box-shadow:none}
+.t-hoy .t-paso.activo{background:var(--tos-ink,#184159);box-shadow:0 6px 16px color-mix(in srgb,var(--tos-ink,#184159) 30%,transparent)}
+.t-hoy .t-paso.activo i,.t-hoy .t-paso.activo b{color:#fff}
+.t-hoy .t-paso.activo small{color:var(--tos-gold,#d8cd9c)}
+.t-hoy .t-paso:focus-visible,.t-hero a:focus-visible,.t-atajo-pdf:focus-visible{outline:3px solid var(--tos-gold,#9a9169);outline-offset:2px}
+.t-hist{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.t-hist>span{font-size:13px;color:#7a8a8e;font-weight:600;margin-right:2px}
+.t-hist button{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:#4a5d61;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.t-hist button i{font-style:normal;font-size:12.5px;color:#8a989b}
+.t-hist button.activo{background:color-mix(in srgb,var(--tos-ink,#184159) 10%,#fff);color:var(--tos-ink,#184159)}
+@media (max-width:640px){
+  .t-hoy .t-pasos{grid-template-columns:1fr 1fr}
+  .t-hoy .t-pasos li:first-child{grid-column:1/-1}
+  .t-hoy .t-pasos li:first-child .t-paso{min-height:72px;grid-template-columns:auto 1fr;column-gap:14px;align-items:center}
+  .t-hoy .t-pasos li:first-child .t-paso i{grid-row:span 2}
+}
+/* Las tarjetas de paso no heredan el círculo del diagrama viejo. */
+.t-hoy .t-pasos li .t-paso i{background:none!important;transform:none!important;width:auto;height:auto;display:block;place-items:initial}
+.t-hoy .t-pasos li:nth-child(1) .t-paso.con i{color:#c26a00}
+.t-hoy .t-pasos li:nth-child(2) .t-paso.con i{color:#c0352b}
+.t-hoy .t-pasos li:nth-child(3) .t-paso.con i{color:#128c4a}
+.t-hoy .t-pasos li:nth-child(4) .t-paso.con i{color:var(--tos-teal,#247c8f)}
+.t-hoy .t-pasos li:nth-child(5) .t-paso.con i{color:#8a6a00}
+.t-hoy .t-paso.activo i{color:#fff!important}
+.t-hero-acc{flex-wrap:nowrap}
+.t-hero-vender{flex:1 1 auto;min-width:0}
+.t-hero-sec{padding:0 14px}
+.t-atajos{display:grid;gap:8px}
+.t-atajo-ventas .t-atajo-ico{background:color-mix(in srgb,var(--tos-gold,#9a9169) 18%,#fff)!important;color:#6e6640!important}
+.t-atajo-ventas .t-atajo-cta{background:color-mix(in srgb,var(--tos-ink,#184159) 10%,#fff);color:var(--tos-ink,#184159)}
+/* "Ir al paso" como botón tintado estilo Apple. */
+.t-grupo .t-link-mini{min-height:36px;padding:0 12px;border-radius:999px;background:color-mix(in srgb,var(--tos-ink,#184159) 8%,#fff);color:var(--tos-ink,#184159);font-size:13.5px}
+@media (pointer:coarse){.t-grupo .t-link-mini{min-height:44px}}

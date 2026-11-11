@@ -59,6 +59,47 @@ let clubNombre = '';
 /* Un solo nombre (11/11/2026): "Tienda oficial <club>" en el título, el
    encabezado, el recibo y la tienda interna. */
 const nombreTienda = () => clubNombre ? `Tienda oficial ${clubNombre}` : 'Tienda oficial';
+/* Compra con tu cuenta (11/11/2026). Si la familia ya entró a su portal en
+   este teléfono, la tienda la reconoce: su Tanner, su categoría, su número y
+   sus datos de contacto ya van cargados. Sólo lee lo suyo (v2_portal_home);
+   sin sesión, o si la cuenta no es de familia, la tienda sigue como siempre. */
+let familia = null, miTanner = 0;
+async function cargaFamilia() {
+  try {
+    const { data } = await supabase.auth.getSession(); if (!data?.session) return;
+    const h = await rpc('v2_portal_home');
+    const players = (h?.players || []).map(p => ({ nombre: [p.first_name, p.last_name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(),
+      primer: String(p.first_name || '').trim().split(/\s+/)[0] || '', categoria: String(p.category || '').trim(), numero: String(p.jersey_number || '').trim() })).filter(p => p.nombre);
+    if (!players.length) return;
+    familia = { tutor: { name: String(h?.guardian?.name || '').trim(), phone: String(h?.guardian?.phone || '').replace(/\D/g, '').slice(-10), email: String(h?.guardian?.email || '').trim() }, players };
+  } catch { familia = null; }
+}
+function holaFamiliaHtml() {
+  if (!familia) return '';
+  const quien = familia.tutor.name.split(/\s+/)[0], nombres = familia.players.map(p => p.primer).join(' y ');
+  return `<div class="st-hola"><img src="/brand/crest-navy.png" alt="" width="34" height="34"><span><strong>Hola${quien ? `, ${esc(quien)}` : ''}</strong><small>Compras para ${esc(nombres)}: tus datos ya van cargados.</small></span></div>`;
+}
+function persMiosHtml() {
+  if (!familia) return '';
+  const con = familia.players.filter(p => p.primer);
+  if (!con.length) return '';
+  return `<div class="st-pers-mios">${con.map(p => `<button type="button" data-usa-pers data-n="${esc(p.primer.toUpperCase())}" data-num="${esc(p.numero)}">Usar ${esc(p.primer.toUpperCase())}${p.numero ? ` #${esc(p.numero)}` : ''}</button>`).join('')}</div>`;
+}
+function prellenaFamilia() {
+  if (!familia || !$('orderForm')) return;
+  const t = familia.tutor;
+  if (t.name && !$('customerName').value) $('customerName').value = t.name;
+  if (t.phone && !$('customerPhone').value) $('customerPhone').value = t.phone;
+  if (t.email && !$('customerEmail').value) $('customerEmail').value = t.email;
+  const box = $('stMisTanners'); if (!box) return;
+  const pon = i => {
+    miTanner = i; const p = familia.players[i]; if (!p) return;
+    $('tannerNombre').value = p.nombre; $('tannerCategoria').value = p.categoria;
+    box.querySelectorAll('[data-mi-tanner]').forEach(b => { const on = Number(b.dataset.miTanner) === i; b.classList.toggle('activa', on); b.setAttribute('aria-checked', String(on)); });
+  };
+  box.onclick = e => { const b = e.target.closest('[data-mi-tanner]'); if (b) pon(Number(b.dataset.miTanner)); };
+  if (paraQuien === 'tanner') pon(Math.min(miTanner, familia.players.length - 1));
+}
 const PRIVACY_NOTICE_VERSION = '2026-08-19-v1';
 const $ = id => document.getElementById(id);
 const regions = new Intl.DisplayNames(['es-MX', 'es'], { type: 'region' });
@@ -384,7 +425,7 @@ function bloquePersonaliza(e, nombreProducto = '', r = 0, conManga = true, kit =
     <div class="st-perso">
       <label><span>Nombre en la espalda</span><input data-campo="nombre" maxlength="20" autocomplete="off" autocapitalize="characters" value="${esc(e.nombre || '')}" placeholder="LEO"></label>
       <label class="num"><span>Número</span><input data-campo="numero" inputmode="numeric" maxlength="3" autocomplete="off" value="${esc(e.numero || '')}" placeholder="10"></label>
-    </div>
+    </div>${persMiosHtml()}
     ${conManga ? `<p class="st-manga-tit">Manga</p>${botonesManga(e, r)}` : ''}
     <p class="st-nota">Lo estampado es personal: no tiene cambio.</p></section>`;
 }
@@ -653,7 +694,7 @@ function renderTienda(clave = '') {
   }
   /* Dos caminos (09/10/2026): la familia con cuenta entra y ya trae sus datos
      y su Tanner; quien no tiene cuenta compra aquí mismo. */
-  $('content').innerHTML = `${franjaHtml()}${activa ? '' : carruselHtml()}${corteHtml()}
+  $('content').innerHTML = `${franjaHtml()}${activa ? '' : holaFamiliaHtml()}${activa ? '' : carruselHtml()}${corteHtml()}
     <section class="st-hero${activa ? '' : ' portada'}">
       ${activa ? '' : '<img class="st-hero-escudo" src="/brand/crest-navy.png" alt="" width="120" height="120">'}
       <p class="st-eyebrow">${esc(clubNombre)}</p>
@@ -669,8 +710,8 @@ function renderTienda(clave = '') {
     ${visibles.map(s => `<section class="st-seccion" data-seccion="${esc(s.clave)}">
       ${activa ? '' : `<div class="st-seccion-cab"><h2>${esc(s.etiqueta)}</h2>${s.items.length > 4 ? `<a href="#/c/${esc(s.clave)}">Ver todo</a>` : ''}</div>`}
       <div class="st-grid${s.clave === 'kits' ? ' kits' : ''}">${s.items.map(tarjeta).join('')}</div></section>`).join('')}
-    <a class="ya-familia" href="/familias/?tab=tienda">
-      <span><strong>¿Ya eres familia Tanner?</strong><small>Entra y tus datos y tu Tanner ya van cargados.</small></span><b>Entrar</b></a>`;
+    ${familia ? '' : `<a class="ya-familia" href="/familias/?tab=tienda">
+      <span><strong>¿Ya eres familia Tanner?</strong><small>Entra y tus datos y tu Tanner ya van cargados.</small></span><b>Entrar</b></a>`}`;
   pintaBarra(true);
   firmaFotos($('content'));
 }
@@ -952,6 +993,12 @@ function cablea() {
   });
   // Lo que se escribe se guarda al vuelo: si se toca Agregar sin salir del
   // campo, el nombre ya está.
+  // "Usar LEO #24": llena nombre y número del Tanner de la cuenta.
+  raiz.addEventListener('click', ev => {
+    const u = ev.target.closest('[data-usa-pers]'); if (!u) return;
+    const blq = u.closest('.st-bloque');
+    [['nombre', u.dataset.n], ['numero', u.dataset.num]].forEach(([c, v]) => { const i = blq?.querySelector(`[data-campo="${c}"]`); if (i && v) { i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); } });
+  });
   raiz.addEventListener('input', ev => {
     const campo = ev.target.dataset?.campo, ficha = raiz.querySelector('[data-ficha]')?.dataset.ficha;
     if (!campo || !ficha) return;
@@ -1253,6 +1300,7 @@ function renderCheckout() {
               ${[['tanner', 'Para un Tanner'], ['no_tanner', 'No es para un Tanner']].map(([k, t]) => `<button type="button" role="radio" data-para="${k}" aria-checked="${paraQuien === k}" class="${paraQuien === k ? 'activa' : ''}"><strong>${t}</strong></button>`).join('')}
             </div>
             <div id="stTannerCampos" class="st-co-campos${paraQuien === 'tanner' ? '' : ' hidden'}">
+              ${familia ? `<div class="st-mis-tanners" id="stMisTanners" role="radiogroup" aria-label="Tu Tanner">${familia.players.map((p, i) => `<button type="button" role="radio" data-mi-tanner="${i}" aria-checked="false"><b>${esc(p.nombre)}</b><small>${esc([p.categoria, p.numero && `#${p.numero}`].filter(Boolean).join(' · ') || 'Tanner')}</small></button>`).join('')}</div>` : ''}
               <label class="st-campo"><span>Nombre y apellido del Tanner</span><input id="tannerNombre" maxlength="120" autocomplete="off" autocapitalize="words" placeholder="Ej. Leo Ávila"></label>
               <label class="st-campo"><span>Categoría <em>opcional</em></span><input id="tannerCategoria" maxlength="20" autocomplete="off" placeholder="Ej. T10"></label>
               <small class="st-tanner-ayuda">¿Es nuevo o todavía no tiene cuenta? Escríbelo igual, nosotros lo ligamos. Si es para hermanos, sepáralos con coma.</small>
@@ -1279,12 +1327,13 @@ function renderCheckout() {
       </div>
     </div>`;
   wirePhone();
+  prellenaFamilia();
   $('stTannerCard').onclick = e => {
     const b = e.target.closest('[data-para]'); if (!b) return;
     paraQuien = b.dataset.para;
     $('stTannerCard').querySelectorAll('[data-para]').forEach(x => { const on = x === b; x.classList.toggle('activa', on); x.setAttribute('aria-checked', String(on)); });
     $('stTannerCampos').classList.toggle('hidden', paraQuien !== 'tanner');
-    if (paraQuien === 'tanner') $('tannerNombre').focus();
+    if (paraQuien === 'tanner') { if (familia) prellenaFamilia(); else $('tannerNombre').focus(); }
   };
   // Quitar un renglón no borra lo que ya se escribió en el formulario.
   $('resumenCarrito').onclick = e => {
@@ -1651,6 +1700,7 @@ if (hayIds() && medibleAqui()) {
 }
 try {
   // El catálogo manda; cómo pagar es un extra que no detiene la tienda.
+  const familiaLista = cargaFamilia();
   const [oferta, pago, club, banners] = await Promise.allSettled([
     rpc('v2_public_offerings', { club_key: CLUB_KEY }),
     rpc('v2_public_payment_info', { club_key: CLUB_KEY }),
@@ -1687,6 +1737,8 @@ try {
     }
   }
   // El carrito de la visita anterior, con lo que la tienda todavía vende.
+  // La familia con sesión, sin detener la tienda más de 2.5 s.
+  await Promise.race([familiaLista, new Promise(r => setTimeout(r, 2500))]);
   carrito = restauraCarrito(lee(LLAVE_CARRITO), catalogo);
   piezasAntes = piezasDelCarrito(carrito);
   actualizaCarrito();

@@ -34,11 +34,15 @@ async function abre({ escribe }) {
       v2_my_navigation: () => ['inicio', 'usuarios'].map(c => ({ module_code: c, enabled: true, can_read: true, can_write: escribe })),
       v2_users_admin: () => ({ members: [{ membershipId: 'm1', userId: 'u2', displayName: 'Crespo', username: 'crespo', role: 'Contabilidad', active: true }], invitations: [] }),
       v2_guardian_access: () => [],
-      v2_category_staff: () => ({ categories: [], byUser: {} })
+      v2_category_staff: () => ({ categories: [], byUser: {} }),
+      v2_staff_without_account: () => [{ id: 'st-checo', fullName: 'Checo Martínez', title: 'Formador', level: 'formador' }],
+      v2_link_staff_account: prm => ({ staffId: prm.staff_id, userId: prm.user_id })
     };
+    window.__llamadas = [];
     window.__fakeSupabase = {
       auth: { getSession: async () => ({ data: { session: { user: { id: 'u1' } } } }), getUser: async () => ({ data: { user: { id: 'u1' } } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
-      rpc: async (n, prm) => ({ data: R[n] ? R[n](prm) : null, error: null }),
+      rpc: async (n, prm) => { window.__llamadas.push({ n, prm }); return { data: R[n] ? R[n](prm) : null, error: null }; },
+      functions: { invoke: async (fn, { body }) => { window.__llamadas.push({ n: fn, prm: body }); return { data: { user_id: 'u-checo', username: body.username, temporary_password: 'Tmp-1234' }, error: null }; } },
       from: () => ({ select() { return this; }, eq() { return this; }, then(r) { return Promise.resolve({ data: [], error: null }).then(r); } }),
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
@@ -76,6 +80,23 @@ async function abre({ escribe }) {
   revisa('[llave] borrar todo el usuario no lo vuelve a poner', (await p.inputValue('#accessUsername')) === '', await p.inputValue('#accessUsername'));
   await p.type('#accessUsername', 'checo');
   revisa('[llave] lo que se escribe se queda', (await p.inputValue('#accessUsername')) === 'checo' && /usuario checo/.test(await p.textContent('#keySummary')));
+  await p.close();
+}
+{ // Staff y llave conectados (h86): la ficha sin llave sale al buscar y queda conectada.
+  const p = await abre({ escribe: true });
+  await p.waitForFunction(() => Array.isArray(window.tosAccionesDePantalla) && window.tosAccionesDePantalla.length > 0, null, { timeout: 8000 });
+  await p.click('#openCreateUser');
+  await p.waitForSelector('#wizardModal:not(.hidden)');
+  await p.fill('#whoSearch', 'Checo');
+  await p.waitForSelector('#whoResults [data-pick="ficha:st-checo"]', { timeout: 3000 });
+  revisa('[staff] la ficha sin llave sale al buscar', /en Staff, sin llave/.test(await p.textContent('#whoResults [data-pick="ficha:st-checo"]')));
+  await p.click('#whoResults [data-pick="ficha:st-checo"]');
+  revisa('[staff] propone Entrenador por ser formador y avisa que se conecta', (await p.getAttribute('#wizardModal [data-rol="coach"]', 'class') || '').includes('active') || (await p.getAttribute('#wizardModal [data-rol="coach"]', 'aria-pressed')) === 'true' || /activ|on|sel/.test(await p.getAttribute('#wizardModal [data-rol="coach"]', 'class') || ''), await p.getAttribute('#wizardModal [data-rol="coach"]', 'class'));
+  revisa('[staff] dice que la llave queda conectada a su ficha', /conectada a su ficha de Staff/.test(await p.textContent('#whoPicked')));
+  await p.click('#createAccess');
+  await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_link_staff_account'), null, { timeout: 4000 }).catch(() => {});
+  const ll = await p.evaluate(() => window.__llamadas.filter(x => x.n === 'v2_link_staff_account').map(x => x.prm));
+  revisa('[staff] al entregar la llave la conecta con su ficha', ll.length === 1 && ll[0].staff_id === 'st-checo' && ll[0].user_id === 'u-checo', JSON.stringify(ll));
   await p.close();
 }
 { // Sin permiso de escritura: no se ofrece.

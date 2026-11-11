@@ -219,6 +219,18 @@ export async function cargaFotos(supabase, sheet) {
   return salida;
 }
 
+// Descargar el PDF de verdad (11/11/2026). Presidencia: "no se puede
+// descargar el PDF, sólo da opción de compartir; necesitamos que se
+// descargue". Un enlace con download: en iPhone sale "Descargar" y queda en
+// Archivos; en Android y en la compu, en Descargas.
+export function descargaPdf(doc, nombre) {
+  const url = URL.createObjectURL(doc.output('blob'));
+  const a = document.createElement('a'); a.href = url; a.download = nombre; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return 'descargado';
+}
+
 // Compartir el PDF: en el teléfono abre la hoja de compartir (WhatsApp
 // Business sale ahí); en la compu lo descarga. Devuelve cómo se fue.
 export async function compartePdf(doc, nombre, texto) {

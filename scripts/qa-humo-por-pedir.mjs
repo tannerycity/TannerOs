@@ -150,9 +150,15 @@ const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { c
 
   // 5. El PDF antes de mandar.
   // Tarjetas arriba (11/11/2026): el PDF a la vista, no sólo en el +.
-  const atajos = await pg.$$eval('#tAtajos [data-atajo]', bs => bs.map(b => b.textContent.replace(/\s+/g, ' ').trim()));
-  revisa('8. tarjeta "PDF para el proveedor" a la vista', atajos.some(t => /^PDF para el proveedor ?2 pedidos listos/.test(t)), JSON.stringify(atajos));
-  revisa('8. tarjetas de Por revisar y Por pedir con su número', atajos.some(t => /^Por revisar \d/.test(t)) && atajos.some(t => /^Por pedir 2/.test(t)), JSON.stringify(atajos));
+  // Panel de arriba (11/11/2026): el PDF a la vista y los pendientes por paso.
+  const pdfTxt = (await txt(pg, '#tAtajos [data-atajo="pdf"]')).replace(/\s+/g, ' ');
+  revisa('8. "PDF para el proveedor" a la vista con lo listo y "Descargar"', /PDF para el proveedor ?2 pedidos listos/.test(pdfTxt) && /Descargar/.test(pdfTxt), pdfTxt);
+  const pends = await pg.$$eval('#tAtajos [data-pend]', bs => bs.map(b => b.getAttribute('aria-label')));
+  revisa('8. pendientes por paso con su número', JSON.stringify(pends.map(x => x.split(':')[0])) === '["Revisar","Cobrar","Por pedir","Entregar"]' && pends.includes('Por pedir: 2'), JSON.stringify(pends));
+  const fab = await pg.evaluate(() => (window.tosAccionesDePantalla || []).map(a => a.label));
+  revisa('8. el + es corto: nuevo pedido, PDF y ventas', fab.length <= 3 && fab.includes('PDF para el proveedor') && !fab.includes('Por atender'), JSON.stringify(fab));
+  const chicos = await pg.$$eval('#tAtajos button, .tienda-tabs a, #tVista button, #tSeg button', bs => bs.filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).map(b => b.textContent.trim().slice(0, 30)));
+  revisa('8. todo lo de arriba se toca fácil (44 px o más)', chicos.length === 0, JSON.stringify(chicos));
   await pg.click('[data-borrador]');
   await pg.waitForSelector('.t-pdf-hoja', { timeout:5000 }).catch(() => {});
   const dlg = await txt(pg, '.t-pdf-hoja');

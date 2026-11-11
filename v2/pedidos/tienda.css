@@ -455,23 +455,6 @@
 /* Mensaje para confirmar con la familia (11/11/2026). */
 .conf-wa{width:100%;min-height:52px;margin:4px 0 12px;background:#0b7e3b!important;border-color:#0b7e3b!important;color:#fff!important}
 
-/* Tarjetas arriba de Pedidos (11/11/2026): PDF, por revisar, por pedir y nuevo. */
-.t-atajos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 16px}
-.t-atajo{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--tos-line,#dce5e3);background:#fff;border-radius:16px;padding:14px;min-height:72px;font:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(7,25,30,.05)}
-.t-atajo:hover{border-color:#b9cac6}
-.t-atajo:disabled{opacity:.6;cursor:progress}
-.t-atajo-ico{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:#eef3f2;color:#07191e}
-.t-atajo-ico svg{width:22px;height:22px}
-.t-atajo[data-tono="verde"] .t-atajo-ico{background:#16a34a;color:#fff}
-.t-atajo[data-tono="naranja"] .t-atajo-ico{background:#fdebd3;color:#9a5a0b}
-.t-atajo[data-tono="azul"] .t-atajo-ico{background:#e1eef7;color:#1f5f8b}
-.t-atajo-txt{display:grid;gap:2px;min-width:0}
-.t-atajo-txt b{font-size:15px;color:#07191e}
-.t-atajo-txt b i{font-style:normal;font-size:12px;background:#07191e;color:#fff;border-radius:999px;padding:1px 7px;margin-left:4px}
-.t-atajo-txt small{font-size:12.5px;color:#5f7176;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-@media (max-width:900px){.t-atajos{grid-template-columns:1fr 1fr}}
-@media (max-width:420px){.t-atajo{padding:12px;min-height:64px}.t-atajo-ico{width:36px;height:36px}}
-
 /* Hoja del PDF: Descargar o Compartir (11/11/2026). */
 .t-pdf-capa{position:fixed;inset:0;z-index:1500;background:rgba(6,20,24,.5);display:grid;align-items:end;justify-items:center}
 .t-pdf-hoja{width:min(480px,100%);background:#fff;border-radius:22px 22px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;display:grid;gap:8px}
@@ -484,3 +467,50 @@
 .t-pdf-btn.principal{background:#07191e;border-color:#07191e;color:#fff;margin-top:6px}
 .t-pdf-btn.liga{border:0;background:none;color:#5f7176;min-height:44px;font-weight:700}
 .t-pdf-aviso{background:#e8f6ee;color:#0b7e3b!important;border-radius:12px;padding:10px 12px}
+
+/* Panel de arriba (11/11/2026): PDF y Pendientes, como en una tienda en línea. */
+.t-atajos{display:grid;gap:10px;margin:0 0 18px}
+.t-atajo-pdf{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:#0b1f24;color:#fff;border-radius:18px;padding:14px 16px;min-height:72px;font:inherit;cursor:pointer;box-shadow:0 6px 18px rgba(7,25,30,.14)}
+.t-atajo-pdf:disabled{opacity:.6;cursor:progress}
+.t-atajo-pdf .t-atajo-ico{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#169b4b;color:#fff}
+.t-atajo-pdf .t-atajo-ico svg{width:24px;height:24px}
+.t-atajo-txt{flex:1;display:grid;gap:2px;min-width:0}
+.t-atajo-txt b{font-size:16px}
+.t-atajo-txt small{font-size:13px;opacity:.78;line-height:1.3}
+.t-atajo-cta{flex:none;background:#fff;color:#0b1f24;border-radius:999px;padding:9px 14px;font-weight:800;font-size:13.5px}
+.t-pends{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.t-pend{display:grid;align-content:start;gap:2px;text-align:left;border:1px solid #e1e8e6;background:#fff;border-radius:16px;padding:12px;min-height:88px;font:inherit;cursor:pointer;color:#07191e;position:relative;overflow:hidden}
+.t-pend::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tono,#cfd8da)}
+.t-pend[data-tono="naranja"]{--tono:#e8902a}.t-pend[data-tono="rojo"]{--tono:#d9483b}.t-pend[data-tono="verde"]{--tono:#169b4b}.t-pend[data-tono="oro"]{--tono:#c9a227}
+.t-pend b{font-size:26px;line-height:1.05;letter-spacing:-.02em}
+.t-pend span{font-size:14px;font-weight:800}
+.t-pend small{font-size:12px;color:#5f7176;line-height:1.3}
+.t-pend.cero{background:#f6f8f8}.t-pend.cero b{color:#9aa8ab}.t-pend.cero::before{background:#dfe5e4}
+.t-pend:focus-visible,.t-atajo-pdf:focus-visible{outline:3px solid #169b4b;outline-offset:2px}
+@media (max-width:640px){.t-pends{grid-template-columns:1fr 1fr}}
+/* Todo lo que se toca, de al menos 44 px (guía de Apple). */
+.tienda-tabs a{min-height:44px}
+.t-vista button,.t-cards-mas button{min-height:44px}
+.t-link-mini{display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
+@media (max-width:520px){.t-head{flex-wrap:nowrap;align-items:center}.t-head-acc{width:auto}}
+
+/* ¿De qué Tanner es? más compacta: no se come la fila. */
+.t-liga{padding:10px 12px;gap:6px}
+.t-liga-cab span{font-size:12.5px}
+.t-liga-sug:has(.t-liga-cargando:only-child){display:none}
+
+/* Detalle del pedido (11/11/2026, auditoría): botones de tamaño normal,
+   el peligroso como liga roja y lo pequeño con 44 px para el dedo. */
+.t-estado .status-actions{display:grid!important;grid-template-columns:1fr;gap:8px}
+.t-estado .status-btn{flex:none!important;height:auto!important;min-height:48px;width:100%}
+.t-estado .status-btn.danger{background:none!important;color:#b42318!important;border:0!important;box-shadow:none!important;min-height:44px;font-weight:700}
+#drawer .t-link,#drawer .link-toggle,#drawer .t-link-peligro{display:inline-flex;align-items:center;min-height:44px}
+#drawer .t-pill-btn{min-height:44px}
+.item-edit{margin-top:8px}
+.item-edit>summary{display:inline-flex;align-items:center;min-height:44px;color:#1f5fbf;font-weight:700;font-size:14px;cursor:pointer;list-style:none}
+.item-edit>summary::-webkit-details-marker{display:none}
+.item-edit[open]>summary{color:#5f7176}
+/* Un solo "Confirmar número": se queda junto a "Antes de mandarlo al proveedor". */
+#drawer:has(#readinessPayment [data-num-confirma]) #orderResumen [data-num-confirma]{display:none}
+#drawer select,#drawer .whatsapp-btn,#drawer .t-peligro,#drawer .t-mas-fila{min-height:44px}
+#drawer .whatsapp-btn{display:inline-flex;align-items:center}

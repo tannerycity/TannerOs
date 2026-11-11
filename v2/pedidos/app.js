@@ -118,7 +118,8 @@ async function bootSoloDinero(conta){
 }
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){const conta=mods.find(m=>m.module_code==='accounting');if(conta?.enabled&&conta?.can_read){await bootSoloDinero(conta);return;}$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;cobraConHoja=mods.some(m=>['taquilla','billing'].includes(m.module_code)&&m.enabled&&m.can_write);canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia'||!!ctx.is_owner;const contab=mods.find(m=>m.module_code==='accounting');canPagar=!!(contab?.enabled&&contab?.can_write);rpc('v2_can_pay_supplier',{organization_id:ctx.organization_id}).then(v=>{if(v&&!canPagar){canPagar=true;pintaEtapa();}}).catch(()=>{});rpc('v2_can_correct',{organization_id:ctx.organization_id}).then(v=>{canCorrect=!!v;muestraZona();}).catch(()=>{});const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=false;/* Costo y utilidad viven SÓLO en Catálogo › Costos (13/10/2026). */void financeMod;document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();$('ventasAction')?.addEventListener('click',verVentas);
   // El botón + de abajo: lo de la Tienda primero (13/10/2026).
-  window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,{label:'Por atender',sub:'Nuevos y números por confirmar',icon:'check',run:()=>{ponVista('pasos',false);$('statusFilter').value='__atender';render();renderReviewBanner();$('orderList')?.scrollIntoView({behavior:'smooth',block:'start'});}},canManage?{label:'PDF para el proveedor',sub:'Tabla por diseño: uniforme o jersey, tallas y status',icon:'list',run:pdfProveedor}:null,canManage?{label:'Por pedir',sub:'Lo confirmado, pagado o no, y su PDF',icon:'list',run:()=>{ponVista('pasos',false);$('statusFilter').value='@para_proveedor';render();renderReviewBanner();$('tSeg')?.scrollIntoView({behavior:'smooth',block:'start'});}}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
+  /* El + corto (11/11/2026): lo de cada paso ya está arriba, en Pendientes. */
+  window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,canManage?{label:'PDF para el proveedor',sub:'Descargarlo o mandarlo por WhatsApp',icon:'list',run:pdfProveedor}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
   window.dispatchEvent(new Event('tos:acciones'));}
 /* El aviso de "Pedido nuevo" (campana y push) trae ?pedido=<id>: se abre directo. */
 function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');const o=id&&orders.find(x=>x.id===id);if(o)openOrder(o);}
@@ -199,7 +200,7 @@ function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$(
   else{seg.setAttribute('role','tablist');seg.setAttribute('aria-label','Filtrar pedidos');
   seg.innerHTML=`<ol class="t-pasos">${PASOS.map(p=>{const n=cuentaPaso(p.f);return `<li><button type="button" role="tab" data-f="${p.f}" aria-selected="${actual===p.f}" class="t-paso${actual===p.f?' activo':''}${n?' con':''}"><i>${n}</i><b>${p.t}</b></button></li>`;}).join('')}</ol>`
     +`<div class="t-cards-mas">${[['@entregado','Entregados'],['','Todos']].map(([f,t])=>`<button type="button" role="tab" data-f="${f}" aria-selected="${actual===f}" class="${actual===f?'activo':''}">${t} <i>${cuentaDe(f)}</i></button>`).join('')}</div>`;}
-  const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('@por_validar'),l=cuentaDe('@para_proveedor');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${l?` · ${l} por pedir`:''}${a?` · ${a} por revisar`:''}${!a&&!l?' · todo al día':''}`;}
+  const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('@por_validar'),l=cuentaDe('@para_proveedor');/* Los números de cada paso ya van en Pendientes: aquí sólo el total. */sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${!a&&!l&&!cuentaDe('__cobrar')&&!cuentaDe('@para_entregar')?' · todo al día':''}`;}
   pintaAtajos();}
 /* Tarjetas arriba de Pedidos (11/11/2026). Presidencia: "no se ve lo del PDF
    porque está muy grande lo que hay en el +... debería haber otro botón...
@@ -208,26 +209,24 @@ function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$(
    pedido nuevo. */
 function pintaAtajos(){
   const box=$('tAtajos');if(!box)return;
-  const rev=cuentaDe('@por_validar'),ped=cuentaDe('@para_proveedor');
+  const ped=cuentaDe('@para_proveedor'),debe=orders.filter(vigente).reduce((t,o)=>t+saldoDe(o),0);
   const ultimo=envios.filter(e=>e.batch_type==='orders'&&e.status!=='cancelled').sort((a,b)=>String(b.submitted_on||b.created_at||'').localeCompare(String(a.submitted_on||a.created_at||'')))[0];
-  const ico={pdf:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
-    rev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>',
-    ped:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M6 7v12h12V7M9 11h6"/></svg>',
-    nuevo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'};
-  const tarjeta=(k,t,sub,tono,n)=>`<button type="button" class="t-atajo" data-atajo="${k}" data-tono="${tono}"><span class="t-atajo-ico">${ico[k]}</span><span class="t-atajo-txt"><b>${t}${n?` <i>${n}</i>`:''}</b><small>${esc(sub)}</small></span></button>`;
-  box.innerHTML=[
-    canManage?tarjeta('pdf','PDF para el proveedor',ped?`${ped} ${ped===1?'pedido listo':'pedidos listos'} · uniforme o jersey`:ultimo?`Último corte ${ultimo.folio||''}`.trim():'Cuando haya pedidos por pedir','verde',0):'',
-    tarjeta('rev','Por revisar',rev?'Confirmar con la familia':'Nada pendiente','naranja',rev),
-    tarjeta('ped','Por pedir',ped?'Listos para el proveedor':'Nada por pedir','azul',ped),
-    canWrite?tarjeta('nuevo','Nuevo pedido','Levantarlo en el mostrador','gris',0):''
-  ].join('');
+  const ICO_PDF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/></svg>';
+  /* Pendientes como en el panel de una tienda en línea: cuántos hay en cada
+     paso que depende de nosotros. Un toque filtra la lista a ese paso. */
+  const pend=[{f:'@por_validar',t:'Revisar',sub:'Confirmar con la familia',tono:'naranja'},
+    {f:'__cobrar',t:'Cobrar',sub:debe>0.005?`Deben ${money.format(debe)}`:'Nadie debe',tono:'rojo'},
+    {f:'@para_proveedor',t:'Por pedir',sub:'Listos para el proveedor',tono:'verde'},
+    {f:'@para_entregar',t:'Entregar',sub:'Ya llegaron a la tienda',tono:'oro'}];
+  const tiles=pend.map(p=>{const n=cuentaPaso(p.f);return `<button type="button" class="t-pend${n?'':' cero'}" data-pend="${p.f}" data-tono="${p.tono}" aria-label="${p.t}: ${n}"><b>${n}</b><span>${p.t}</span><small>${n?esc(p.sub):'Al día'}</small></button>`;}).join('');
+  const pdf=canManage?`<button type="button" class="t-atajo-pdf" data-atajo="pdf"><span class="t-atajo-ico">${ICO_PDF}</span><span class="t-atajo-txt"><b>PDF para el proveedor</b><small>${esc(ped?`${ped} ${ped===1?'pedido listo':'pedidos listos'} · tabla por diseño`:ultimo?`Último corte ${ultimo.folio||''}`.trim():'Cuando haya pedidos por pedir')}</small></span><span class="t-atajo-cta">Descargar</span></button>`:'';
+  box.innerHTML=`${pdf}<div class="t-pends" role="group" aria-label="Pendientes">${tiles}</div>`;
 }
 $('tAtajos')?.addEventListener('click',e=>{
-  const b=e.target.closest('[data-atajo]');if(!b)return;
-  const k=b.dataset.atajo;
-  if(k==='pdf'){b.disabled=true;Promise.resolve(pdfProveedor()).finally(()=>{b.disabled=false;});return;}
-  if(k==='nuevo'){location.href='/captura/';return;}
-  ponVista('pasos',false);$('statusFilter').value=k==='rev'?'@por_validar':'@para_proveedor';render();renderReviewBanner();
+  const pdf=e.target.closest('[data-atajo="pdf"]');
+  if(pdf){pdf.disabled=true;Promise.resolve(pdfProveedor()).finally(()=>{pdf.disabled=false;});return;}
+  const b=e.target.closest('[data-pend]');if(!b)return;
+  ponVista('pasos',false);$('statusFilter').value=b.dataset.pend;render();renderReviewBanner();
   $('tSeg')?.scrollIntoView({behavior:'smooth',block:'start'});
 });
 const busqueda=()=>$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();
@@ -345,7 +344,7 @@ async function verBorrador(btn){
 function render(){if(vista==='todos'){renderTodos();return;}pintaEtapa();const rows=filteredOrders(),list=$('orderList');list.innerHTML='';$('empty').textContent='No hay pedidos aquí.';if($('statusFilter').value==='__cobrar'){renderDeudores(rows);return;}$('empty').classList.toggle('hidden',rows.length>0);rows.forEach(o=>list.append(filaPedido(o)));cargaSugerencias(rows);}
 function filaPedido(o,donde=''){const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
     const atendio=quienAtendio(t);
-    const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main">${donde}<div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} pieza(s) más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} pieza(s)</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b>${vigente(o)&&o.status!=='delivered'?(saldo>0.005?`<span class="t-pago debe">Debe ${money.format(saldo)}</span>`:'<span class="t-pago ok">Pagado</span>'):''}${vigente(o)&&['pending_payment','partial_payment','paid'].includes(o.status)?'':`<span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span>`}</div>${barraConfirma(o)}${cajaDeTanner(o)}${accionesDeFila(o,t)}`;
+    const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main">${donde}<div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} ${items.length-4===1?'pieza':'piezas'} más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} ${Number(o.item_count||0)===1?'pieza':'piezas'}</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b>${vigente(o)&&o.status!=='delivered'?(saldo>0.005?`<span class="t-pago debe">Debe ${money.format(saldo)}</span>`:'<span class="t-pago ok">Pagado</span>'):''}${vigente(o)&&['pending_payment','partial_payment','paid'].includes(o.status)?'':`<span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span>`}</div>${barraConfirma(o)}${cajaDeTanner(o)}${accionesDeFila(o,t)}`;
     b.addEventListener('click',ev=>{if(ev.target.closest('.t-liga button')){ev.stopPropagation();accionDeLiga(o,ev);return;}if(ev.target.closest('[data-avisa]')){ev.stopPropagation();return;}const en=ev.target.closest('[data-entregado]');if(en){ev.stopPropagation();entregaDeFila(o,en);return;}const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
     b.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
     return b;}
@@ -1021,7 +1020,7 @@ async function submitWarranty(){
   const wm=$('warrantyMessage');const setWm=(t,type='error')=>{if(!wm)return;wm.textContent=t;wm.dataset.type=type;wm.classList.toggle('hidden',!t);};
   if(reason.length<3){setWm('Escribe qué falló.');return;}
   if(!picked.length){setWm('Selecciona al menos una pieza.');return;}
-  const ok=await confirmAction({kicker:'GARANTÍA',title:'Abrir garantía',message:`Se abrirá una garantía para ${picked.length} pieza(s) de ${current.order.folio}.`,confirmText:'Sí, abrir'});
+  const ok=await confirmAction({kicker:'GARANTÍA',title:'Abrir garantía',message:`Se abrirá una garantía para ${picked.length} ${picked.length===1?'pieza':'piezas'} de ${current.order.folio}.`,confirmText:'Sí, abrir'});
   if(!ok)return;
   const btn=$('submitWarranty');btn.disabled=true;
   try{await rpc('v2_open_warranty',{organization_id:ctx.organization_id,order_id:current.order.id,reason,items:picked});await refreshCurrent(current.order.id);}
@@ -1048,7 +1047,7 @@ function itemEditor(i,d){
       </div>
       <div class="item-price"><b>${money.format(lineTotal)}</b><span class="item-badge ${complete?'ok':'warn'}">${complete?'Completo':'Falta info'}</span></div>
     </div>
-    ${editable?`<div class="item-editor"><label>Talla / medida<input class="item-size" value="${esc(talla)}" maxlength="40"></label><label>Nombre<input class="item-name" value="${esc(nombre)}" maxlength="80" placeholder="Si aplica"></label><label>Número<input class="item-number" value="${esc(numero)}" maxlength="4" inputmode="numeric" placeholder="Si aplica"></label><label>Observación<input class="item-note" value="${esc(a.obs||'')}" maxlength="200"></label><button class="secondary save-item" type="button">Guardar pieza</button></div>`:''}
+    ${editable?`<details class="item-edit"><summary>Editar pieza</summary><div class="item-editor"><label>Talla / medida<input class="item-size" value="${esc(talla)}" maxlength="40"></label><label>Nombre<input class="item-name" value="${esc(nombre)}" maxlength="80" placeholder="Si aplica"></label><label>Número<input class="item-number" value="${esc(numero)}" maxlength="4" inputmode="numeric" placeholder="Si aplica"></label><label>Observación<input class="item-note" value="${esc(a.obs||'')}" maxlength="200"></label><button class="secondary save-item" type="button">Guardar pieza</button></div></details>`:''}
   </article>`;
 }
 /* Agrupación de kits/paquetes: cuando un pedido viene de un kit (app.product_bundles), el
@@ -1068,7 +1067,7 @@ function kitPieceRow(i,d){
   return `<div class="kit-piece" data-item-id="${esc(i.id)}">
     <div class="kit-piece-head"><span>${esc(i.description)}</span><b class="kit-piece-price">${money.format(lineTotal)}</b><span class="item-badge ${complete?'ok':'warn'}">${complete?'Completo':'Falta info'}</span></div>
     <div class="item-chips">${chips||'<span class="item-chip muted">Sin variante capturada</span>'}</div>
-    ${editable?`<div class="item-editor"><label>Talla / medida<input class="item-size" value="${esc(talla)}" maxlength="40"></label><label>Nombre<input class="item-name" value="${esc(nombre)}" maxlength="80" placeholder="Si aplica"></label><label>Número<input class="item-number" value="${esc(numero)}" maxlength="4" inputmode="numeric" placeholder="Si aplica"></label><label>Observación<input class="item-note" value="${esc(a.obs||'')}" maxlength="200"></label><button class="secondary save-item" type="button">Guardar pieza</button></div>`:''}
+    ${editable?`<details class="item-edit"><summary>Editar pieza</summary><div class="item-editor"><label>Talla / medida<input class="item-size" value="${esc(talla)}" maxlength="40"></label><label>Nombre<input class="item-name" value="${esc(nombre)}" maxlength="80" placeholder="Si aplica"></label><label>Número<input class="item-number" value="${esc(numero)}" maxlength="4" inputmode="numeric" placeholder="Si aplica"></label><label>Observación<input class="item-note" value="${esc(a.obs||'')}" maxlength="200"></label><button class="secondary save-item" type="button">Guardar pieza</button></div></details>`:''}
   </div>`;
 }
 function kitCard(items,d){

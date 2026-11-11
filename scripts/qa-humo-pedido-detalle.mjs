@@ -195,6 +195,13 @@ const texto = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' '
   const listo = await texto(pg, '#readinessBox');
   revisa('2. arriba dice qué falta en palabras', /Antes de mandarlo al proveedor/.test(listo) && /Confirma el número con la familia/.test(listo), listo);
   revisa('2. con el botón para confirmarlo ahí', await pg.isVisible('#readinessBox [data-num-confirma]'));
+  // Auditoría UX (11/11/2026): un solo "Confirmar número", botones de tamaño normal y la edición de piezas plegada.
+  revisa('7. un solo "Confirmar número" a la vista', (await pg.$$eval('#drawer [data-num-confirma]', bs => bs.filter(b => b.offsetParent).length)) === 1);
+  const altos = await pg.$$eval('#statusActions .status-btn', bs => bs.map(b => Math.round(b.getBoundingClientRect().height)));
+  revisa('7. los botones de estado no son gigantes', altos.every(h => h >= 44 && h <= 64), JSON.stringify(altos));
+  revisa('7. editar pieza va plegado', (await pg.$$eval('#itemList .item-edit', ds => ds.filter(d => !d.open).length)) >= 1 && !(await pg.isVisible('#itemList .save-item')));
+  const chicos = await pg.$$eval('#drawer button, #drawer summary, #drawer select', bs => bs.filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).map(b => b.textContent.replace(/\s+/g, ' ').trim().slice(0, 30)));
+  revisa('7. todo lo que se toca mide 44 px o más', chicos.length === 0, JSON.stringify(chicos));
   await pg.click('#pasoAcciones [data-paso="proveedor"]');
   await pg.waitForSelector('.tosdlg', { timeout:3000 }).catch(() => {});
   revisa('3. WhatsApp al proveedor no sale sin confirmar el número', /Confirma el número primero/.test(await pg.evaluate(() => document.body.innerText)) && (await pg.evaluate(() => window.__abiertas.length)) === 0);

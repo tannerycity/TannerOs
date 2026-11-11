@@ -722,3 +722,12 @@ body.st-sin-scroll { overflow: hidden; }
   background: color-mix(in srgb, var(--st-brand) 7%, #fff); color: var(--st-ink); font-size: 14px; line-height: 1.35; }
 .st-corte b { font-weight: 700; }
 .st-corte-punto { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #1f9d55; box-shadow: 0 0 0 4px rgba(31, 157, 85, .16); }
+/* Compra con tu cuenta (11/11/2026). */
+.st-hola { display: flex; align-items: center; gap: 12px; margin: 10px 0; padding: 12px 14px; border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(7, 25, 30, .08); }
+.st-hola span { display: grid; gap: 2px; } .st-hola strong { font-size: 16px; color: var(--st-ink); } .st-hola small { font-size: 13px; color: #6e6e73; }
+.st-mis-tanners { display: grid; gap: 8px; margin: 4px 0 10px; }
+.st-mis-tanners button { display: grid; gap: 2px; text-align: left; min-height: 56px; padding: 10px 14px; border: 1.5px solid #e2e6e8; border-radius: 14px; background: #fff; font: inherit; cursor: pointer; }
+.st-mis-tanners button b { font-size: 15.5px; color: var(--st-ink); } .st-mis-tanners button small { font-size: 13px; color: #6e6e73; }
+.st-mis-tanners button.activa { border-color: var(--st-brand); background: color-mix(in srgb, var(--st-brand) 7%, #fff); box-shadow: 0 0 0 3px color-mix(in srgb, var(--st-brand) 14%, transparent); }
+.st-pers-mios { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+.st-pers-mios button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--st-brand) 11%, #fff); color: var(--st-brand); font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; }

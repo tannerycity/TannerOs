@@ -532,6 +532,43 @@ await pg.goto(BASE + '/tienda/no-existe', { waitUntil:'networkidle' });
 await pg.waitForSelector('.st-card', { timeout:6000 });
 revisa('[liga] una liga que no existe abre la portada, sin error', await pg.evaluate(() => location.pathname === '/tienda/' && location.hash === '#/'));
 
+/* ===== Compra con tu cuenta (11/11/2026): la familia con sesión ya trae su
+   Tanner, su número y sus datos. ===== */
+{
+  const p4 = await nav.newPage({ viewport:{ width:390, height:844 } });
+  p4.on('pageerror', e => errs.push('familia: ' + e.message));
+  await p4.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
+  await p4.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){const d=String(v).replace(/\\D/g,"");return{isValid:()=>d.length>=10,formatInternational:()=>"+52 "+d,number:"+52"+d};}' }));
+  await p4.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+    export function createClient(){return{
+      auth:{getSession:async()=>({data:{session:{user:{id:'u-ana'}}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+      storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/qa-foto/x'})),error:null})})},
+      rpc:async(n,p={})=>{
+        if(n==='v2_public_offerings')return{data:${JSON.stringify(OFERTA)},error:null};
+        if(n==='v2_public_payment_info')return{data:${JSON.stringify(PAGO)},error:null};
+        if(n==='v2_public_context')return{data:{organizationId:'org-qa',brand:'Club QA'},error:null};
+        if(n==='v2_portal_home')return{data:{guardian:{name:'Ana Ávila',phone:'+52 477 123 4567',email:'ana@correo.com'},players:[{id:'t1',first_name:'Leo',last_name:'Ávila',category:'T10',jersey_number:'24'},{id:'t2',first_name:'Mía',last_name:'Ávila',category:'T7',jersey_number:''}]},error:null};
+        return {data:null,error:null};}};}` }));
+  await p4.goto(BASE + '/pedido/', { waitUntil:'networkidle' });
+  await p4.waitForSelector('.st-card', { timeout:6000 });
+  revisa('[cuenta] saluda a la familia y dice para quién compra', /Hola, Ana/.test(await p4.textContent('.st-hola').catch(() => '')) && /Leo y Mía/.test(await p4.textContent('.st-hola').catch(() => '')));
+  revisa('[cuenta] ya no le pide "Entrar"', !(await p4.$('.ya-familia')));
+  await p4.goto(BASE + '/pedido/#/p/p-jersey');
+  await p4.waitForSelector('[data-usa-pers]', { timeout:5000 }).catch(() => {});
+  revisa('[cuenta] la personalización ofrece "Usar LEO #24"', /Usar LEO #24/.test(await p4.textContent('.st-pers-mios').catch(() => '')));
+  await p4.click('[data-usa-pers]').catch(() => {});
+  revisa('[cuenta] un toque llena nombre y número', (await p4.inputValue('[data-campo="nombre"]').catch(() => '')) === 'LEO' && (await p4.inputValue('[data-campo="numero"]').catch(() => '')) === '24');
+  await p4.goto(BASE + '/pedido/#/p/p-calceta');
+  await p4.waitForSelector('#stComprarYa');
+  await p4.click('#stComprarYa');
+  await p4.waitForSelector('#orderForm', { timeout:5000 }).catch(() => {});
+  revisa('[cuenta] al pagar ya van su Tanner y su categoría', (await p4.inputValue('#tannerNombre').catch(() => '')) === 'Leo Ávila' && (await p4.inputValue('#tannerCategoria').catch(() => '')) === 'T10');
+  revisa('[cuenta] y sus datos de contacto', (await p4.inputValue('#customerName')) === 'Ana Ávila' && (await p4.inputValue('#customerPhone')) === '4771234567' && (await p4.inputValue('#customerEmail')) === 'ana@correo.com');
+  await p4.click('[data-mi-tanner="1"]');
+  revisa('[cuenta] un toque cambia a su otro Tanner', (await p4.inputValue('#tannerNombre')) === 'Mía Ávila' && (await p4.inputValue('#tannerCategoria')) === 'T7');
+  await p4.close();
+}
+
 revisa('sin errores de consola', errs.length === 0, errs.join('\n   '));
 await nav.close(); srv.close();
 console.log(fallos

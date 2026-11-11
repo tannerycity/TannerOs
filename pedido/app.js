@@ -32,7 +32,6 @@
 import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
-import { brandingAssetUrl } from '/v2/branding.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { textoHasta, recargoDe, recargoPersDe, extraEstampadoKit, jerseysDeKit, llevaEstampado, llevaManga as tieneManga, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
@@ -649,9 +648,12 @@ function corteHtml() {
    subió en su marca (Ajustes › Marca) visten la portada de la tienda. Sin
    imagen, queda la banda del color del club. */
 let marca = null;
+// La URL pública de un archivo de marca (bucket tanneros-branding), sin cargar
+// todo branding.js: la tienda no debe detenerse si ese módulo cambia.
+const urlDeMarca = ruta => ruta ? `https://pacnegivzgxpanphrnwp.supabase.co/storage/v1/object/public/tanneros-branding/${String(ruta).split('/').map(encodeURIComponent).join('/')}` : null;
 function pintaPortada() {
   const h = document.querySelector('.st-hero.portada'); if (!h || !marca) return;
-  const foto = brandingAssetUrl(marca?.assets?.splash);
+  const foto = urlDeMarca(marca?.assets?.splash);
   if (foto) { h.style.setProperty('--st-splash', `url("${foto}")`); h.classList.add('con-foto'); }
   const lema = h.querySelector('[data-lema]'), t = String(marca?.tagline || '').trim();
   if (lema && t) { lema.textContent = t; lema.hidden = false; }

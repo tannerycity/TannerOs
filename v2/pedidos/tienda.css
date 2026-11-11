@@ -452,3 +452,5 @@
 .t-chips li.debe{background:#fdeeec;color:#a92a21}
 .t-falta-conf{display:block;width:100%;margin:10px 0 0;padding:10px 12px;border:1px dashed #e0a43a;border-radius:12px;background:#fff8ea;color:#8a5a00;font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
 .t-borrador{margin-top:12px}
+/* Mensaje para confirmar con la familia (11/11/2026). */
+.conf-wa{width:100%;min-height:52px;margin:4px 0 12px;background:#0b7e3b!important;border-color:#0b7e3b!important;color:#fff!important}

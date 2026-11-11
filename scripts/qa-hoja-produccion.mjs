@@ -10,7 +10,7 @@
  * ahí salió que las categorías vienen en DOS convenciones conviviendo, que un
  * kit puede traer cuatro jerseys distintos, y que el short viaja sin nombre.
  */
-import { hojaPorModelo, tipoDePieza, filaDeHoja, resumenDeTallas, nombreDeArchivoHoja, hojaPorProducto, ordenDeTalla }
+import { hojaPorModelo, tipoDePieza, filaDeHoja, resumenDeTallas, nombreDeArchivoHoja, hojaPorProducto, ordenDeTalla, hojaProveedor, disenoDe }
   from '../v2/produccion/hoja.js';
 
 let fallos = 0, corridas = 0;
@@ -189,6 +189,28 @@ revisa('un folio con caracteres raros no arma un nombre inválido',
   revisa('el corte suma 6 piezas en tallas 10 y 16', h.total === 6 && JSON.stringify(h.tallas) === '["10","16"]', JSON.stringify(h));
   revisa('cada prenda trae su foto del catálogo', h.productos.every(p => p.foto?.path && p.foto.bucket === 'tanneros-private'));
   revisa('las tallas se ordenan como en la tienda', JSON.stringify(['M', '16', 'CH', '8', 'G', '10', 'Unica'].sort(ordenDeTalla)) === '["8","10","16","CH","M","G","Unica"]', JSON.stringify(['M', '16', 'CH', '8', 'G', '10', 'Unica'].sort(ordenDeTalla)));
+}
+
+/* ---- Formato Tremor (11/11/2026): UNIFORME = jersey + short; JERSEY = sólo jersey ---- */
+{
+  const K = 'kit-christian', c = (id, d, cat, t, extra = {}) => ({ itemId: id, description: d, productName: d, categoria: cat, talla: t, kitKey: K, kitName: 'Kit Temporada', quantity: 1, orderFolio: 'PED-2026-00017', ...extra });
+  const ch = { nombrePers: 'Christian', numero: '24', manga: 'larga' };
+  const h = hojaProveedor([
+    c('s1', 'Short', 'shorts', '16'), c('s2', 'Short', 'shorts', '16'), c('m1', 'Par de calcetas', 'socks', 'Universal'), c('m2', 'Par de calcetas', 'socks', 'Universal'),
+    c('j1', 'Jersey "Lechuguilla Edition"', 'jersey', '16', ch), c('j2', 'Jersey "Black Edition"', 'jersey', '16', ch),
+    c('j3', 'Jersey "Wet Blue" - Home Edition', 'jersey', '16', ch), c('j4', 'Jersey "Pink Cantera" - Away Edition', 'jersey', '16', ch),
+    { itemId: 'g1', description: 'Jersey "Lechuguilla Edition"', productName: 'Jersey "Lechuguilla Edition"', categoria: 'jersey', talla: 'M', quantity: 2 },
+    { itemId: 'x1', description: 'Par de calcetas', productName: 'Par de calcetas', categoria: 'socks', talla: 'Universal', quantity: 1 }]);
+  const prod = t => h.disenos.find(d => d.diseno === t);
+  revisa('[tremor] una tabla por diseño, Home y Away primero', JSON.stringify(h.disenos.map(d => d.titulo)) === JSON.stringify(['JERSEY "WET BLUE" - HOME EDITION', 'JERSEY "PINK CANTERA" - AWAY EDITION', 'JERSEY "BLACK EDITION"', 'JERSEY "LECHUGUILLA EDITION"']), JSON.stringify(h.disenos.map(d => d.titulo)));
+  revisa('[tremor] los 2 shorts del kit van a Home y Away: UNIFORME con talla de short', ['"Wet Blue" - Home Edition', '"Pink Cantera" - Away Edition'].every(t => prod(t).renglones[0].uniforme && prod(t).renglones[0].tallaShort === '16' && /^UNIFORME /.test(prod(t).renglones[0].producto)));
+  revisa('[tremor] Black y Lechuguilla van como JERSEY, sin talla de short', ['"Black Edition"', '"Lechuguilla Edition"'].every(t => { const r = prod(t).renglones.find(x => x.nombre === 'Christian'); return !r.uniforme && r.tallaShort === '' && /^JERSEY /.test(r.producto); }));
+  revisa('[tremor] manga larga va en comentarios, nunca "talla tal"', h.disenos.every(d => d.renglones.every(r => !/talla/i.test(r.comentarios))) && prod('"Black Edition"').renglones[0].comentarios === 'Manga larga');
+  revisa('[tremor] las medias del kit van dentro del uniforme; la suelta sale aparte', JSON.stringify(h.sueltas) === JSON.stringify([{ prenda: 'Par de calcetas', tipo: 'calcetas', tallas: [{ talla: 'Universal', cantidad: 1 }] }]), JSON.stringify(h.sueltas));
+  revisa('[tremor] dos jerseys sin nombre (talla M ×2) son dos renglones', prod('"Lechuguilla Edition"').renglones.filter(r => r.tallaJersey === 'M').length === 2);
+  revisa('[tremor] cuenta 6 playeras y 2 uniformes', h.playeras === 6 && h.uniformes === 2, `${h.playeras} / ${h.uniformes}`);
+  revisa('[tremor] el diseño sin la palabra Jersey', disenoDe('Jersey "Black Edition"') === '"Black Edition"' && disenoDe('Short') === 'Short');
+  revisa('[tremor] un corte vacío no truena', hojaProveedor([]).disenos.length === 0 && hojaProveedor().playeras === 0);
 }
 
 console.log(fallos

@@ -118,7 +118,7 @@ async function bootSoloDinero(conta){
 }
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Sin organización.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id});const mod=mods.find(m=>m.module_code==='commerce');if(!mod?.enabled||!mod?.can_read){const conta=mods.find(m=>m.module_code==='accounting');if(conta?.enabled&&conta?.can_read){await bootSoloDinero(conta);return;}$('deniedText').textContent='Tu rol no tiene acceso a Tienda/Pedidos.';show('deniedView');return;}canWrite=!!mod.can_write;cobraConHoja=mods.some(m=>['taquilla','billing'].includes(m.module_code)&&m.enabled&&m.can_write);canManage=canWrite&&ctx.role!=='Taquilla';canCorrect=ctx.role==='Presidencia'||!!ctx.is_owner;const contab=mods.find(m=>m.module_code==='accounting');canPagar=!!(contab?.enabled&&contab?.can_write);rpc('v2_can_pay_supplier',{organization_id:ctx.organization_id}).then(v=>{if(v&&!canPagar){canPagar=true;pintaEtapa();}}).catch(()=>{});rpc('v2_can_correct',{organization_id:ctx.organization_id}).then(v=>{canCorrect=!!v;muestraZona();}).catch(()=>{});const financeMod=mods.find(m=>m.module_code==='commerce_finance');canViewFinance=false;/* Costo y utilidad viven SÓLO en Catálogo › Costos (13/10/2026). */void financeMod;document.querySelector('.business-cockpit')?.classList.toggle('hidden',!canViewFinance);$('financeSection')?.classList.toggle('hidden',!canViewFinance);$('statusSection')?.classList.toggle('hidden',!canManage);aplicaAccesos();$('orgName').textContent=ctx.organization_name;$('roleBadge').textContent=ctx.is_owner?'Propietario':ctx.role;clubCfg=await rpc('v2_club_config',{organization_id:ctx.organization_id}).catch(()=>null);await load();show('view');abrePedidoDeLiga();$('ventasAction')?.addEventListener('click',verVentas);
   // El botón + de abajo: lo de la Tienda primero (13/10/2026).
-  window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,{label:'Por atender',sub:'Nuevos y números por confirmar',icon:'check',run:()=>{ponVista('pasos',false);$('statusFilter').value='__atender';render();renderReviewBanner();$('orderList')?.scrollIntoView({behavior:'smooth',block:'start'});}},canManage?{label:'Por pedir',sub:'Lo confirmado, pagado o no, y su PDF',icon:'list',run:()=>{ponVista('pasos',false);$('statusFilter').value='@para_proveedor';render();renderReviewBanner();$('tSeg')?.scrollIntoView({behavior:'smooth',block:'start'});}}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
+  window.tosAccionesDePantalla=[canWrite?{label:'Nuevo pedido',sub:'Levantarlo en el mostrador',icon:'bag',href:'/captura/'}:null,{label:'Por atender',sub:'Nuevos y números por confirmar',icon:'check',run:()=>{ponVista('pasos',false);$('statusFilter').value='__atender';render();renderReviewBanner();$('orderList')?.scrollIntoView({behavior:'smooth',block:'start'});}},canManage?{label:'PDF para el proveedor',sub:'Tabla por diseño: uniforme o jersey, tallas y status',icon:'list',run:pdfProveedor}:null,canManage?{label:'Por pedir',sub:'Lo confirmado, pagado o no, y su PDF',icon:'list',run:()=>{ponVista('pasos',false);$('statusFilter').value='@para_proveedor';render();renderReviewBanner();$('tSeg')?.scrollIntoView({behavior:'smooth',block:'start'});}}:null,veVentas()?{label:'Ventas de la semana',sub:'Vendido, cobrado y lo que más sale',icon:'chart',run:verVentas}:null].filter(Boolean);
   window.dispatchEvent(new Event('tos:acciones'));}
 /* El aviso de "Pedido nuevo" (campana y push) trae ?pedido=<id>: se abre directo. */
 function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');const o=id&&orders.find(x=>x.id===id);if(o)openOrder(o);}
@@ -250,6 +250,7 @@ function abreConfirmar(o){
   document.body.insertAdjacentHTML('beforeend',`<div id="confFondo" class="pres-backdrop conf-fondo"></div><section id="confHoja" class="pres-sheet envio-hoja conf-hoja" role="dialog" aria-modal="true" aria-labelledby="confTitulo">
     <div class="pres-head"><div><h2 id="confTitulo">¿Ya lo confirmó la familia?</h2><p>${esc(quien)}${o.folio?` · ${esc(o.folio)}`:''}</p></div><button type="button" class="pres-close" data-conf-cierra aria-label="Cerrar">×</button></div>
     <p class="conf-ayuda">Revisa con ellos talla, nombre, número y manga: así se le pide al proveedor.</p>
+    ${o.customer_phone?`<button type="button" class="envio-btn conf-wa" data-conf-wa>Mandar mensaje para confirmar</button>`:'<p class="conf-ayuda">Sin teléfono de la familia: confírmalo en persona.</p>'}
     ${items.length?`<ul class="order-items conf-piezas">${items.map(lineaDePieza).join('')}</ul>`:''}
     <p class="conf-pago">${debe>0.005?`<span class="t-pago debe">Debe ${money.format(debe)}</span> Se puede pedir; se entrega hasta que pague.`:'<span class="t-pago ok">Pagado</span>'}</p>
     <div class="conf-como"><button type="button" class="envio-btn" data-conf-via="grupo">Sí, en el grupo</button><button type="button" class="envio-btn" data-conf-via="persona">Sí, en persona</button></div>
@@ -260,6 +261,17 @@ function abreConfirmar(o){
   $('confHoja').addEventListener('keydown',e=>{if(e.key==='Escape')cierraConfirmar();});
   $('confHoja').addEventListener('click',async e=>{
     if(e.target.closest('[data-conf-cierra]')){cierraConfirmar();return;}
+    /* El mensaje ya armado (11/11/2026). Presidencia: "cuando le ponga a
+       confirmar con la familia, ya tenga el mensaje predeterminado con sus
+       datos del pedido". Piezas, talla, nombre, número, manga, total y cómo
+       pagar; abre WhatsApp con la familia. No confirma solo: eso lo dice la
+       familia y se marca con "Sí, en el grupo" o "Sí, en persona". */
+    if(e.target.closest('[data-conf-wa]')){
+      const piezas=items.map(i=>({description:i.description,quantity:i.quantity,attributes:{talla:i.talla,nombrePers:i.nombre,numero:i.numero,manga:i.manga}}));
+      const texto=mensajeConfirmacion({order:o,items:piezas,info:clubCfg?.paymentInstructions,club:clubCfg?.name||ctx.organization_name||'el club',yo:ctx.display_name});
+      const url=ligaWhatsApp(o.customer_phone,texto);if(url)window.open(url,'_blank','noopener');
+      return;
+    }
     const b=e.target.closest('[data-conf-via]');if(!b)return;
     const botones=[...$('confHoja').querySelectorAll('[data-conf-via]')];botones.forEach(x=>x.disabled=true);
     try{
@@ -289,6 +301,7 @@ document.addEventListener('click',e=>{
    para revisarlo con calma. No crea el envío ni mueve ningún pedido. */
 async function verBorrador(btn){
   const lista=orders.filter(o=>vigente(o)&&etapaDe(o)==='para_proveedor');if(!lista.length)return;
+  btn=btn||{disabled:false,textContent:''};
   const txt=btn.textContent;btn.disabled=true;btn.textContent='Armando el PDF…';
   try{
     const sheet=await rpc('v2_orders_sheet',{organization_id:ctx.organization_id,order_ids:lista.map(o=>o.id)});
@@ -448,7 +461,7 @@ function pintaEtapa(){
       const titulo=lista.length?`${lista.length} ${conf?(lista.length===1?'pedido por pedir':'pedidos por pedir'):(lista.length===1?'pedido listo':'pedidos listos')} · ${piezasDe(lista)} piezas`:`${gar.length} ${gar.length===1?'reposición':'reposiciones'} por garantía`;
       const deben=lista.filter(o=>saldoDe(o)>0.005),pagados=lista.length-deben.length;
       const sub=!lista.length?'Piezas que salieron mal y se vuelven a hacer.':conf?`Todos confirmados con la familia · ${pagados} ${pagados===1?'pagado':'pagados'}${deben.length?` · ${deben.length} ${deben.length===1?'debe':'deben'} ${money.format(deben.reduce((n,o)=>n+saldoDe(o),0))}`:''}`:'Todos pagados y revisados.';
-      const borrador=conf&&lista.length?'<button type="button" class="envio-sec t-borrador" data-borrador>Ver el PDF antes de mandar</button>':'';
+      const borrador=conf&&lista.length?'<button type="button" class="envio-sec t-borrador" data-borrador>Ver el PDF para el proveedor</button>':'';
       html=ahora('verde',3,titulo,sub,chips+aviso+repos+(canManage?campo:'')+borrador+boton);}
   }else if(k==='con_proveedor'){
     // Con la lista de envíos (h-producción) se ve cada envío; si no llegó, se arma con los pedidos.
@@ -524,6 +537,16 @@ async function mandaEnvio(){
     envio.listo={id:envio.batchId,folio:sheet?.batch?.folio||''};envio.enviando=false;
     $('statusFilter').value='@con_proveedor';await load();pintaEnvio();
   }catch(e){if(!envio)return;envio.enviando=false;envio.error=e.message||String(e);if(envio.batchId||envio.repoId)await load().catch(()=>{});pintaEnvio();}
+}
+/* "PDF para el proveedor" en el botón + (11/11/2026). Presidencia: "en los
+   pedidos no encuentro el PDF... hacerlo más fácil". Si hay pedidos por
+   pedir, arma ese PDF (borrador, no manda nada); si no, el del último corte
+   que se mandó. */
+async function pdfProveedor(){
+  if(orders.some(o=>vigente(o)&&etapaDe(o)==='para_proveedor'))return verBorrador(null);
+  const ultimo=envios.filter(e=>e.batch_type==='orders'&&e.status!=='cancelled').sort((a,b)=>String(b.submitted_on||b.created_at||'').localeCompare(String(a.submitted_on||a.created_at||'')))[0];
+  if(ultimo)return compartirCorte(ultimo.id,false);
+  await window.tosAlert({kicker:'PDF',title:'Todavía no hay nada por pedir',message:'Cuando confirmes un pedido con la familia, pasa a «Por pedir» y aquí sale su PDF.'});
 }
 async function compartirCorte(batchId,recien){
   try{

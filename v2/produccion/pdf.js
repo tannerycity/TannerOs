@@ -17,7 +17,7 @@
    Lo arma Producción y también la Tienda al mandar el corte del viernes, y se
    comparte por WhatsApp Business desde el teléfono. Sin pantalla: recibe la
    hoja (v2_production_batch_sheet) y las fotos ya listas, y regresa el PDF. */
-import { hojaPorProducto, nombreDeArchivoHoja } from '/v2/produccion/hoja.js';
+import { hojaPorProducto, hojaProveedor, nombreDeArchivoHoja } from '/v2/produccion/hoja.js';
 import { coloresDePlayera } from '/v2/jersey-mockup.js';
 
 const C = { marca: [11, 61, 74], oro: [198, 172, 92], tinta: [11, 20, 24], gris: [110, 123, 128], suave: [244, 246, 245],
@@ -67,156 +67,127 @@ function pastilla(doc, texto, x, y, { fondo = C.suave, tinta = C.tinta, tam = 9 
   return w;
 }
 
+/* El PDF del proveedor, formato Tremor (11/11/2026). Presidencia: "así los
+   llena Zul a mano... lo que quiero es que cuando ya haga el pedido, se
+   desglose todo así para ya mandar". Una tabla por diseño de jersey, con su
+   foto al lado; un renglón por playera: ID, NOMBRE, NÚMERO, talla de PLAYERA,
+   talla de SHORT, PRODUCTO (UNIFORME = jersey + short + medias; JERSEY =
+   sólo jersey), COMENTARIOS (manga larga) y STATUS para palomear. Al final,
+   shorts y medias sueltos por talla. La talla nunca va escrita en
+   comentarios: vive en su columna. */
+const COLS = [
+  { k: 'id', t: 'ID', w: 26, centro: true },
+  { k: 'nombre', t: 'NOMBRE', w: 108 },
+  { k: 'numero', t: 'NÚMERO', w: 50, centro: true },
+  { k: 'tallaJersey', t: 'PLAYERA', w: 52, centro: true, grupo: 'TALLAS' },
+  { k: 'tallaShort', t: 'SHORT', w: 48, centro: true, grupo: 'TALLAS' },
+  { k: 'producto', t: 'PRODUCTO', w: 214 },
+  { k: 'comentarios', t: 'COMENTARIOS', w: 104 },
+  { k: 'status', t: 'STATUS', w: 44, centro: true }
+];
 export async function hojaPdf({ sheet, orgName, fotos = {}, jsPDF = null }) {
   const Doc = jsPDF || (await import('https://esm.sh/jspdf@2.5.2')).jsPDF;
-  const doc = new Doc({ unit: 'pt', format: 'letter', orientation: 'portrait' });
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 36;
-  const b = sheet?.batch || {}, hoja = hojaPorProducto(sheet?.items || []);
-  const club = orgName || 'el club';
+  const doc = new Doc({ unit: 'pt', format: 'letter', orientation: 'landscape' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 28;
+  const b = sheet?.batch || {}, h = hojaProveedor(sheet?.items || []), club = orgName || 'el club';
+  const anchoTabla = COLS.reduce((n, c) => n + c.w, 0), xFoto = M + anchoTabla + 16, anchoFoto = W - M - xFoto;
+  const ALTO = 18;
 
-  /* ---------- Portada ---------- */
-  doc.setFillColor(...C.marca); doc.rect(0, 0, W, 150, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...C.oro);
-  doc.text(club.toUpperCase(), M, 42);
-  doc.setFontSize(26); doc.setTextColor(...C.blanco); doc.text('Hoja de producción', M, 74);
-  doc.setFontSize(15); doc.text(`Corte ${b.folio || ''}`, M, 98);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(214, 228, 230);
-  doc.text(`Proveedor: ${b.supplierName || 'sin asignar'}`, M, 122);
-  doc.text(`Enviado: ${fecha(b.submittedOn)}`, M, 137);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(40); doc.setTextColor(...C.blanco);
-  doc.text(String(hoja.total), W - M, 92, { align: 'right' });
-  doc.setFontSize(11); doc.setTextColor(...C.oro); doc.text(hoja.total === 1 ? 'pieza' : 'piezas', W - M, 110, { align: 'right' });
+  // Encabezado: quién, qué corte y cómo se lee.
+  const encabezado = () => {
+    doc.setFillColor(...C.marca); doc.rect(0, 0, W, 56, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...C.oro); doc.text(club.toUpperCase(), M, 20);
+    doc.setFontSize(16); doc.setTextColor(...C.blanco);
+    doc.text(`Pedido al proveedor${b.supplierName ? ` · ${b.supplierName}` : ''}`, M, 40);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(214, 228, 230);
+    doc.text(`Corte ${b.folio || 'borrador'} · ${fecha(b.submittedOn || new Date().toISOString())}`, W - M, 22, { align: 'right' });
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.blanco);
+    doc.text(`${h.playeras} ${h.playeras === 1 ? 'playera' : 'playeras'} · ${h.uniformes} de uniforme`, W - M, 40, { align: 'right' });
+    return 74;
+  };
+  let y = encabezado();
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...C.gris);
+  doc.text('UNIFORME = jersey, short y medias.   JERSEY = sólo el jersey.   STATUS: palomea cuando la pieza esté lista.', M, y); y += 14;
+  if (b.notes) { const n = doc.splitTextToSize(`Notas: ${String(b.notes)}`, W - 2 * M); doc.setTextColor(...C.alerta); doc.text(n, M, y); y += n.length * 11 + 4; }
 
-  let y = 186;
-  doc.setTextColor(...C.tinta); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text('Qué hay que hacer', M, y); y += 8;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...C.gris);
-  doc.text('Piezas de cada prenda por talla. Cada prenda tiene su página con foto, en el orden de esta tabla.', M, y + 12); y += 30;
+  const cabezaTabla = () => {
+    doc.setFillColor(...C.marca); doc.rect(M, y, anchoTabla, 28, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.blanco); let x = M;
+    const xT = M + COLS.slice(0, 3).reduce((n, c) => n + c.w, 0), wT = COLS[3].w + COLS[4].w;
+    doc.setFontSize(7); doc.text('TALLAS', xT + wT / 2, y + 10, { align: 'center' });
+    doc.setDrawColor(255, 255, 255); doc.setLineWidth(.4); doc.line(xT + 4, y + 13, xT + wT - 4, y + 13);
+    for (const c of COLS) {
+      doc.setFontSize(7.5);
+      doc.text(c.t, c.centro ? x + c.w / 2 : x + 5, c.grupo ? y + 23 : y + 18, { align: c.centro ? 'center' : 'left' });
+      x += c.w;
+    }
+    y += 28;
+  };
+  const celda = (texto, c, x, negrita = false) => {
+    let t = String(texto ?? ''); doc.setFont('helvetica', negrita ? 'bold' : 'normal');
+    doc.setFontSize(c.k === 'producto' ? 7.8 : 8.5); while (t && doc.getTextWidth(t) > c.w - 8) t = t.slice(0, -1);
+    if (t !== String(texto ?? '') && t.length > 1) t = t.slice(0, -1) + '…';
+    doc.text(t, c.centro ? x + c.w / 2 : x + 5, y + 12.5, { align: c.centro ? 'center' : 'left' });
+  };
 
-  // La tabla de corte: prenda × talla.
-  const tallas = hoja.tallas, colNombre = 190, colTotal = 54;
-  const anchoTalla = Math.min(48, (W - 2 * M - colNombre - colTotal) / Math.max(1, tallas.length));
-  const fila = (alto, rayada) => { if (rayada) { doc.setFillColor(...C.suave); doc.rect(M, y, W - 2 * M, alto, 'F'); } };
-  // Cada columna dice "TALLA" arriba y la talla grande abajo: "16" solo se leía como cantidad.
-  doc.setFillColor(...C.tinta); doc.rect(M, y, W - 2 * M, 34, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...C.blanco);
-  doc.text('PRENDA', M + 10, y + 21);
-  tallas.forEach((t, i) => {
-    const cx = M + colNombre + anchoTalla * (i + .5);
-    doc.setFontSize(6.5); doc.setTextColor(...C.oro); doc.text('TALLA', cx, y + 12, { align: 'center' });
-    doc.setTextColor(...C.blanco); cabe(doc, String(t), anchoTalla - 6, 12, 7); doc.text(String(t), cx, y + 26, { align: 'center' });
-  });
-  doc.setFontSize(9); doc.text('TOTAL', W - M - colTotal / 2, y + 21, { align: 'center' });
-  y += 34;
-  hoja.productos.forEach((p, k) => {
-    const nombre = doc.splitTextToSize(p.nombre, colNombre - 20), alto = Math.max(32, 14 + nombre.length * 12);
-    fila(alto, k % 2 === 1);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...C.oro);
-    doc.text(TIPO[p.tipo], M + 10, y + 12);
-    doc.setFontSize(10.5); doc.setTextColor(...C.tinta); doc.text(nombre, M + 10, y + 24);
-    const porTalla = new Map(p.tallas.map(t => [t.talla, t.cantidad]));
-    doc.setFontSize(14);
-    tallas.forEach((t, i) => {
-      const n = porTalla.get(t);
-      doc.setTextColor(...(n ? C.tinta : C.linea));
-      doc.text(n ? String(n) : '·', M + colNombre + anchoTalla * (i + .5), y + alto / 2 + 5, { align: 'center' });
+  const lado = Math.min(anchoFoto, 92);
+  const rejilla = (y0, y1) => { doc.setDrawColor(...C.linea); doc.setLineWidth(.4); let xv = M;
+    for (const c of COLS) { doc.line(xv, y0, xv, y1); xv += c.w; } doc.line(xv, y0, xv, y1); doc.line(M, y1, M + anchoTabla, y1); };
+  for (const d of h.disenos) {
+    const alto = 22 + 28 + Math.max(d.renglones.length, 1) * ALTO;
+    const cabe = H - 34 - y, pagina = H - 34 - 74;
+    // La tabla entera en una página si cabe; si no, al menos título y 3 renglones.
+    if (alto > cabe && (alto <= pagina || 22 + 28 + 3 * ALTO > cabe)) { doc.addPage(); y = encabezado(); }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...C.tinta);
+    doc.text(d.titulo, M, y + 14); y += 22;
+    const yTabla = y;
+    // La foto del diseño, a la derecha del título (misma página).
+    if (anchoFoto > 60) {
+      const foto = fotos[d.modelo];
+      if (foto?.data) {
+        const rr = Math.min(lado / foto.w, lado / foto.h), fw = foto.w * rr, fh = foto.h * rr;
+        try { doc.addImage(foto.data, 'JPEG', xFoto + (anchoFoto - fw) / 2, yTabla, fw, fh); } catch { /* sin foto */ }
+      } else jersey(doc, xFoto + (anchoFoto - lado * .8) / 2, yTabla + 4, lado * .8, lado * .72, false, tonosDe(d.modelo));
+    }
+    cabezaTabla();
+    d.renglones.forEach((r, i) => {
+      if (y + ALTO > H - 34) { doc.addPage(); y = encabezado(); cabezaTabla(); }
+      if (i % 2) { doc.setFillColor(...C.suave); doc.rect(M, y, anchoTabla, ALTO, 'F'); }
+      doc.setTextColor(...C.tinta); let x = M;
+      const v = { id: i + 1, nombre: String(r.nombre || '').toUpperCase(), numero: r.numero, tallaJersey: r.tallaJersey, tallaShort: r.tallaShort,
+        producto: r.producto, comentarios: r.comentarios, status: '' };
+      for (const c of COLS) {
+        if (c.k === 'comentarios' && /manga larga/i.test(v.comentarios || '')) doc.setTextColor(...C.alerta);
+        celda(v[c.k], c, x, c.k === 'nombre' || c.k === 'numero' || (c.k === 'producto' && r.uniforme));
+        doc.setTextColor(...C.tinta);
+        if (c.k === 'status') cuadro(doc, x + c.w / 2 - 5, y + 4, 10);
+        x += c.w;
+      }
+      rejilla(y, y + ALTO);
+      y += ALTO;
     });
-    doc.setTextColor(...C.marca); doc.text(String(p.piezas), W - M - colTotal / 2, y + alto / 2 + 5, { align: 'center' });
-    y += alto;
-  });
-  doc.setDrawColor(...C.linea); doc.line(M, y, W - M, y); y += 26;
-
-  const largas = hoja.productos.reduce((n, p) => n + p.largas, 0);
-  if (largas) { pastilla(doc, `Ojo: ${largas} ${largas === 1 ? 'pieza va' : 'piezas van'} de MANGA LARGA`, M, y, { fondo: [255, 236, 214], tinta: C.alerta, tam: 10 }); y += 26; }
-  if (b.notes) {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...C.tinta); doc.text('Notas del corte', M, y); y += 14;
-    doc.setFont('helvetica', 'normal'); const n = doc.splitTextToSize(String(b.notes), W - 2 * M); doc.text(n, M, y); y += n.length * 12 + 10;
+    y = Math.max(y, yTabla + (anchoFoto > 60 ? lado : 0)) + 16;
   }
-  // Cómo se lee, para quien la ve por primera vez en el taller.
-  y = Math.max(y, H - 170);
-  doc.setFillColor(...C.suave); doc.roundedRect(M, y, W - 2 * M, 92, 10, 10, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...C.tinta); doc.text('Cómo leer esta hoja', M + 16, y + 22);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(58, 74, 80);
-  ['Cada prenda tiene su página, con su foto.',
-   'En las playeras, cada tarjeta es una pieza: estampa el NOMBRE y el NÚMERO tal cual el dibujo. Sin nombre = sólo número.',
-   'La talla y la manga van debajo de cada tarjeta. Palomea el cuadro cuando la pieza esté lista.'].forEach((t, i) => doc.text(`${i + 1}.  ${t}`, M + 16, y + 42 + i * 15));
 
-  /* ---------- Una página por prenda ---------- */
-  for (const p of hoja.productos) {
-    doc.addPage(); y = M;
-    const foto = fotos[p.nombre];
-    const lado = 118;
-    doc.setFillColor(...C.suave); doc.roundedRect(M, y, lado, lado, 12, 12, 'F');
-    if (foto?.data) {
-      const r = Math.min((lado - 12) / foto.w, (lado - 12) / foto.h), fw = foto.w * r, fh = foto.h * r;
-      try { doc.addImage(foto.data, 'JPEG', M + (lado - fw) / 2, y + (lado - fh) / 2, fw, fh); } catch { /* sin foto: queda el dibujo */ }
-    } else if (p.tipo === 'jersey') jersey(doc, M + 24, y + 22, lado - 48, lado - 44, false, tonosDe(p.nombre));
-    const x0 = M + lado + 20;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...C.oro); doc.text(TIPO[p.tipo], x0, y + 18);
-    doc.setTextColor(...C.tinta);
-    const t = doc.splitTextToSize(p.nombre, W - M - x0); cabe(doc, t[0] || '', W - M - x0, 22, 14);
-    doc.text(doc.splitTextToSize(p.nombre, W - M - x0).slice(0, 2), x0, y + 44);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...C.gris);
-    doc.text(`${p.piezas} ${p.piezas === 1 ? 'pieza' : 'piezas'} · corte ${b.folio || ''}`, x0, y + 70);
-    let px = x0;
-    for (const s of p.tallas) { const w = pastilla(doc, `Talla ${s.talla}  ×${s.cantidad}`, px, y + 98, { tam: 10 }); px += w + 6; if (px > W - M - 90) break; }
-    y += lado + 22;
-    if (p.largas) { pastilla(doc, `${p.largas} de MANGA LARGA`, M, y, { fondo: [255, 236, 214], tinta: C.alerta, tam: 10 }); y += 22; }
-
-    if (p.dorsales.length) {
-      // Tarjetas de dorsal: tres por renglón.
-      const gap = 12, cw = (W - 2 * M - gap * 2) / 3, ch = 212;
-      p.dorsales.forEach((d, i) => {
-        const col = i % 3;
-        if (col === 0 && i > 0) y += ch + gap;
-        if (y + ch > H - 40) { doc.addPage(); y = M; }
-        const x = M + col * (cw + gap);
-        const larga = d.manga === 'larga';
-        doc.setDrawColor(...(larga ? C.alerta : C.linea)); doc.setLineWidth(larga ? 1.4 : .8); doc.roundedRect(x, y, cw, ch, 10, 10, 'S'); doc.setLineWidth(.5);
-        const jw = 112, jh = 104, jx = x + (cw - jw) / 2, jy = y + 12;
-        const tonos = tonosDe(p.nombre);
-        jersey(doc, jx, jy, jw, jh, larga, tonos);
-        doc.setFont('helvetica', 'bold'); doc.setTextColor(...tonos.texto);
-        const nombre = String(d.nombre || '').toUpperCase();
-        if (nombre) { cabe(doc, nombre, jw * .5, 10, 5); doc.text(nombre, jx + jw / 2, jy + jh * .27, { align: 'center' }); }
-        if (d.numero) { cabe(doc, String(d.numero), jw * .5, 36, 18); doc.text(String(d.numero), jx + jw / 2, jy + jh * .72, { align: 'center' }); }
-        let ty = jy + jh + 20;
-        // "TALLA" chiquito y la talla grande debajo, como en la portada (25/10/2026).
-        doc.setFontSize(7.5); doc.setTextColor(...C.gris); doc.text('TALLA', x + 12, ty - 6);
-        doc.setTextColor(...C.tinta); doc.setFontSize(22); doc.text(String(d.talla || '—'), x + 12, ty + 14);
-        cuadro(doc, x + cw - 26, ty - 2, 14);
-        ty += 30; doc.setFontSize(9.5);
-        if (larga) { doc.setTextColor(...C.alerta); doc.text('MANGA LARGA', x + 12, ty); }
-        else { doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gris); doc.text(d.manga === 'corta' ? 'Manga corta' : 'Manga sin indicar', x + 12, ty); }
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...C.gris);
-        if (!d.nombre && d.numero) { ty += 13; doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.tinta); doc.text('SIN NOMBRE: sólo número', x + 12, ty); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gris); }
-        ty += 13; doc.text(doc.splitTextToSize(`${d.folio}${d.cantidad > 1 ? ` · ${d.cantidad} piezas` : ''}`, cw - 24)[0], x + 12, ty);
-        if (d.nota) { ty += 11; doc.setTextColor(...C.alerta); doc.text(doc.splitTextToSize(d.nota, cw - 24).slice(0, 2), x + 12, ty); }
-      });
-      y += ch + 18;
-      const sin = p.piezas - p.dorsales.reduce((n, d) => n + d.cantidad, 0);
-      if (sin > 0) { if (y > H - 60) { doc.addPage(); y = M; } doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...C.tinta); doc.text(`Además: ${sin} ${sin === 1 ? 'pieza' : 'piezas'} sin nombre ni número (ver tallas arriba).`, M, y); }
-    } else {
-      // Sin personalizar: cuántas por talla, con su cuadro.
-      doc.setFillColor(...C.tinta); doc.rect(M, y, W - 2 * M, 26, 'F');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...C.blanco);
-      doc.text('TALLA', M + 14, y + 17); doc.text('PIEZAS', M + 220, y + 17); doc.text('LISTO', W - M - 60, y + 17);
-      y += 26;
-      p.tallas.forEach((s, k) => {
-        if (k % 2) { doc.setFillColor(...C.suave); doc.rect(M, y, W - 2 * M, 36, 'F'); }
-        doc.setTextColor(...C.tinta); doc.setFontSize(16); doc.text(String(s.talla), M + 14, y + 24);
-        doc.text(String(s.cantidad), M + 220, y + 24); cuadro(doc, W - M - 52, y + 12, 13);
-        y += 36;
-      });
+  // Shorts, medias y demás que no van con una playera.
+  if (h.sueltas.length) {
+    if (y + 60 > H - 34) { doc.addPage(); y = encabezado(); }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...C.tinta); doc.text('SUELTOS (sin playera)', M, y + 14); y += 24;
+    for (const sp of h.sueltas) {
+      if (y + ALTO > H - 34) { doc.addPage(); y = encabezado(); }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.text(sp.prenda.toUpperCase(), M, y + 12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(sp.tallas.map(t => `${t.talla}: ${t.cantidad}`).join('     '), M + 200, y + 12);
+      cuadro(doc, M + anchoTabla - 22, y + 3, 10);
+      y += ALTO;
     }
   }
 
-  // Pie: corte y página en todas.
   const total = doc.internal.getNumberOfPages(), hecho = fecha(new Date().toISOString(), true);
   for (let i = 1; i <= total; i++) {
     doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(140, 155, 158);
-    doc.text(`${club} · corte ${b.folio || ''} · generado el ${hecho}`, M, H - 16);
-    doc.text(`Página ${i} de ${total}`, W - M, H - 16, { align: 'right' });
+    doc.text(`${club} · corte ${b.folio || 'borrador'} · generado el ${hecho}`, M, H - 14);
+    doc.text(`Página ${i} de ${total}`, W - M, H - 14, { align: 'right' });
   }
   return doc;
 }

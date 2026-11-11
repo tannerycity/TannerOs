@@ -260,3 +260,97 @@ export function hojaPorProducto(items = []) {
   }).sort((a, b) => ORDEN_TIPO[a.tipo] - ORDEN_TIPO[b.tipo] || a.nombre.localeCompare(b.nombre, 'es'));
   return { productos, tallas: [...todas].sort(ordenDeTalla), total: productos.reduce((n, p) => n + p.piezas, 0) };
 }
+
+/* La hoja para el proveedor, formato Tremor (11/11/2026).
+
+   Presidencia, con el Excel que hoy se llena a mano: "si le ponemos uniforme
+   es el jersey con el short; si nomás le ponemos jersey, pues es el jersey...
+   y que tenga el estatus. Bien fácil y sencillo". Así que:
+
+     - una tabla por diseño de jersey (JERSEY HOME "WET BLUE", ...);
+     - un renglón por playera: nombre, número, talla de playera, talla de
+       short (sólo si va de uniforme), PRODUCTO = "UNIFORME <diseño>" o
+       "JERSEY <diseño>", comentarios (manga larga) y STATUS para palomear;
+     - nunca "talla tal" escrito en comentarios: la talla vive en su columna.
+
+   Un kit trae menos shorts que playeras (Kit Temporada: 4 jerseys, 2 shorts).
+   El short del kit no trae nombre, así que se reparte uno por playera: primero
+   la Home, luego la Away, luego las demás. Las medias van implícitas en el
+   uniforme. Lo que sobra (shorts o medias sin playera) sale en su tabla. */
+const ORDEN_DISENO = n => (/\bhome\b/i.test(n) ? 0 : /\baway\b/i.test(n) ? 1 : 2);
+export function disenoDe(nombre) {
+  return String(nombre || '').replace(/^\s*(jersey|playera|uniforme)\s+/i, '').trim() || String(nombre || '').trim();
+}
+export function hojaProveedor(items = []) {
+  const piezas = (Array.isArray(items) ? items : []).flatMap(p => {
+    const n = Math.max(1, Math.round(Number(p.quantity || 1)));
+    return Array.from({ length: n }, (_, k) => ({ ...p, _u: `${p.itemId || ''}:${k}` }));
+  });
+  const kits = new Map(), sueltas = [];
+  for (const p of piezas) {
+    if (!p.kitKey) { sueltas.push(p); continue; }
+    if (!kits.has(p.kitKey)) kits.set(p.kitKey, []);
+    kits.get(p.kitKey).push(p);
+  }
+  const tablas = new Map(), extras = [];
+  const tabla = nombre => {
+    const diseno = disenoDe(nombre);
+    if (!tablas.has(diseno)) tablas.set(diseno, { diseno, titulo: `JERSEY ${diseno.toUpperCase()}`, modelo: nombre, renglones: [] });
+    return tablas.get(diseno);
+  };
+  const renglon = (j, short) => {
+    const comentarios = [];
+    if (j.manga === 'larga') comentarios.push('Manga larga');
+    if (j.obs) comentarios.push(String(j.obs).trim());
+    if (j.orderNotes) comentarios.push(`Nota: ${String(j.orderNotes).replace(/\s+/g, ' ').trim()}`);
+    const diseno = disenoDe(nombreDeModelo(j));
+    return { nombre: j.nombrePers || '', numero: j.numero || '', tallaJersey: j.talla || '', tallaShort: short ? (short.talla || '') : '',
+      uniforme: !!short, producto: `${short ? 'UNIFORME' : 'JERSEY'} ${diseno.toUpperCase()}`,
+      comentarios: [...new Set(comentarios)].join(' · '), folio: j.orderFolio || '', cliente: j.customerName || '' };
+  };
+  for (const lista of kits.values()) {
+    const jerseys = lista.filter(p => tipoDePieza(p.categoria) === 'jersey')
+      .sort((a, b) => ORDEN_DISENO(nombreDeModelo(a)) - ORDEN_DISENO(nombreDeModelo(b)));
+    const shorts = lista.filter(p => tipoDePieza(p.categoria) === 'short');
+    let medias = lista.filter(p => tipoDePieza(p.categoria) === 'calcetas');
+    const otras = lista.filter(p => tipoDePieza(p.categoria) === 'otra');
+    // Primero el short que sí dice de quién es (mismo número o nombre).
+    const usados = new Set(), asignado = new Map();
+    for (const j of jerseys) {
+      const s = shorts.find(x => !usados.has(x._u) && ((x.numero && String(x.numero) === String(j.numero || '')) || (x.nombrePers && normaliza(x.nombrePers) === normaliza(j.nombrePers))));
+      if (s) { usados.add(s._u); asignado.set(j._u, s); }
+    }
+    for (const j of jerseys) {
+      if (asignado.has(j._u)) continue;
+      const s = shorts.find(x => !usados.has(x._u) && !x.numero && !x.nombrePers);
+      if (s) { usados.add(s._u); asignado.set(j._u, s); }
+    }
+    for (const j of jerseys) {
+      const s = asignado.get(j._u) || null;
+      if (s && medias.length) medias = medias.slice(1); // las medias del uniforme
+      tabla(nombreDeModelo(j)).renglones.push(renglon(j, s));
+    }
+    extras.push(...shorts.filter(x => !usados.has(x._u)), ...medias, ...otras);
+  }
+  for (const p of sueltas) {
+    if (tipoDePieza(p.categoria) === 'jersey') tabla(nombreDeModelo(p)).renglones.push(renglon(p, null));
+    else extras.push(p);
+  }
+  // Shorts, medias y demás sueltos: por prenda y talla.
+  const porPrenda = new Map();
+  for (const p of extras) {
+    const k = nombreDeModelo(p);
+    if (!porPrenda.has(k)) porPrenda.set(k, { prenda: k, tipo: tipoDePieza(p.categoria), tallas: new Map(), dorsales: [] });
+    const g = porPrenda.get(k), t = String(p.talla || '').trim() || 'Sin talla';
+    g.tallas.set(t, (g.tallas.get(t) || 0) + 1);
+    if (p.nombrePers || p.numero) g.dorsales.push(`${p.nombrePers || ''}${p.numero ? ` #${p.numero}` : ''}`.trim());
+  }
+  const sueltasTabla = [...porPrenda.values()].map(g => ({ prenda: g.prenda, tipo: g.tipo,
+    tallas: [...g.tallas.entries()].sort((a, b) => ordenDeTalla(a[0], b[0])).map(([talla, cantidad]) => ({ talla, cantidad })) }))
+    .sort((a, b) => ORDEN_TIPO[a.tipo] - ORDEN_TIPO[b.tipo] || a.prenda.localeCompare(b.prenda, 'es'));
+  const disenos = [...tablas.values()].map(t => ({ ...t,
+    renglones: t.renglones.sort((a, b) => (a.nombre ? 0 : 1) - (b.nombre ? 0 : 1) || normaliza(a.nombre).localeCompare(normaliza(b.nombre), 'es') || ordenDeTalla(a.tallaJersey, b.tallaJersey)) }))
+    .sort((a, b) => ORDEN_DISENO(a.modelo) - ORDEN_DISENO(b.modelo) || a.diseno.localeCompare(b.diseno, 'es'));
+  const playeras = disenos.reduce((n, t) => n + t.renglones.length, 0);
+  return { disenos, sueltas: sueltasTabla, playeras, uniformes: disenos.reduce((n, t) => n + t.renglones.filter(r => r.uniforme).length, 0) };
+}

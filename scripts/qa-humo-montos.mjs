@@ -200,7 +200,7 @@ async function corre(rol) {
            'export function forgetPhoto(){}'].join('\n')
   }));
   // jsPDF no se descarga: se sustituye por un doble que graba lo que se le pide.
-  await pagina.route('**esm.sh/jspdf**', route => route.fulfill({
+  await pagina.route('**/vendor/jspdf.mjs*', route => route.fulfill({
     status: 200, contentType: 'text/javascript',
     body: `
       export class jsPDF {

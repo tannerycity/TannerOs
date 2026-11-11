@@ -98,7 +98,7 @@ await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200,
       if(n==='v2_public_cart_order')return{data:{id:'o-qa',folio:'PED-QA-1',total:3500+699*2},error:null};
       return {data:null,error:null};}};}` }));
 // Sin salida a internet, el import de esm.sh se cuelga y la página nunca arranca.
-await pg.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+await pg.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
   export function AsYouType(){return{input:v=>v}}
   export function getCountries(){return['MX','US']}
   export function getCountryCallingCode(c){return c==='MX'?'52':'1'}
@@ -365,7 +365,7 @@ revisa('"Comprar ahora" lleva directo a pagar con la pieza', (await pg.evaluate(
   const p2 = await nav.newPage({ viewport:{ width:390, height:844 } });
   p2.on('pageerror', e => errs.push('duo: ' + e.message));
   await p2.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
-  await p2.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v}}' }));
+  await p2.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v}}' }));
   await p2.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export function createClient(){return{
       auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
@@ -427,7 +427,7 @@ revisa('"Comprar ahora" lleva directo a pagar con la pieza', (await pg.evaluate(
   const p3 = await nav.newPage({ viewport:{ width:390, height:844 } });
   p3.on('pageerror', e => errs.push('varias: ' + e.message));
   await p3.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
-  await p3.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v}}' }));
+  await p3.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v}}' }));
   await p3.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export function createClient(){return{
       auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
@@ -484,7 +484,7 @@ revisa('"Comprar ahora" lleva directo a pagar con la pieza', (await pg.evaluate(
   const p4 = await nav.newPage({ viewport:{ width:390, height:844 } });
   p4.on('pageerror', e => errs.push('banners: ' + e.message));
   await p4.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
-  await p4.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(){return null}' }));
+  await p4.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(){return null}' }));
   await p4.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export function createClient(){return{
       auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
@@ -542,7 +542,7 @@ revisa('[liga] una liga que no existe abre la portada, sin error', await pg.eval
   const p4 = await nav.newPage({ viewport:{ width:390, height:844 } });
   p4.on('pageerror', e => errs.push('familia: ' + e.message));
   await p4.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
-  await p4.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){const d=String(v).replace(/\\D/g,"");return{isValid:()=>d.length>=10,formatInternational:()=>"+52 "+d,number:"+52"+d};}' }));
+  await p4.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){const d=String(v).replace(/\\D/g,"");return{isValid:()=>d.length>=10,formatInternational:()=>"+52 "+d,number:"+52"+d};}' }));
   await p4.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export function createClient(){return{
       auth:{getSession:async()=>({data:{session:{user:{id:'u-ana'}}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
@@ -590,7 +590,7 @@ revisa('[liga] una liga que no existe abre la portada, sin error', await pg.eval
   const p5 = await nav.newPage({ viewport:{ width:390, height:844 } });
   p5.on('pageerror', e => errs.push('confirma: ' + e.message));
   await p5.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
-  await p5.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v};}' }));
+  await p5.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v};}' }));
   await p5.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     window.__conf=[];
     const base={folio:'PED-2026-00031',cliente:'Ana',club:'Club QA',total:1398,estado:'pendiente',items:[{descripcion:'Jersey Wet Blue',cantidad:1,talla:'10',nombre:'Leo',numero:'24',manga:'larga'}]};

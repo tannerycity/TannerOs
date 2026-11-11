@@ -57,7 +57,7 @@ async function abre(ruta, { pagoFalla = false } = {}) {
   const errs = [];
   pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
   await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
-  await pg.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+  await pg.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export function AsYouType(){return{input:v=>v}}
     export function getCountries(){return['MX','US']}
     export function getCountryCallingCode(c){return c==='MX'?'52':'1'}

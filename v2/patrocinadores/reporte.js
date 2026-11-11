@@ -50,7 +50,7 @@ export function nombreDelReporte(marca, hoy) {
 
 // fotos: { [photoPath]: { data, w, h } } en JPEG, ya cargadas.
 export async function reportePdf({ datos, club, fotos = {}, jsPDF = null }) {
-  const Doc = jsPDF || (await import('https://esm.sh/jspdf@2.5.2')).jsPDF;
+  const Doc = jsPDF || (await import('/vendor/jspdf.mjs')).jsPDF;
   const doc = new Doc({ unit: 'pt', format: 'letter' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 44;
   let y = M;

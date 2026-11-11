@@ -279,8 +279,18 @@ else{
 // navegador la pide, así que el club podía amanecer con una versión que nadie
 // eligió, sin haber desplegado nada — y hay una 3.0 en camino.
 const clienteSupabase=fs.readFileSync('v2/supabase-client.js','utf8');
-if(!/@supabase\/supabase-js@2\.\d+\.\d+'/.test(clienteSupabase))
-  errors.push('Disponibilidad: v2/supabase-client.js no fija una versión exacta del cliente');
+if(!/from '\/vendor\/supabase-js\.mjs'/.test(clienteSupabase))
+  errors.push('Disponibilidad: v2/supabase-client.js debe tomar el cliente de /vendor/supabase-js.mjs (copia propia, versión fija)');
+// Seguridad (11/11/2026): ningún código de terceros se pide a un CDN en el
+// navegador. Si esm.sh se cae o lo comprometen, ese código correría con la
+// sesión del staff. Las librerías viven en /vendor/ y la CSP ya no lo permite.
+for(const file of walk('.').filter(f=>/\.(js|mjs|html)$/.test(f)&&!/^(node_modules|dist|scripts|docs|vendor|supabase)\//.test(f))){
+  const src=fs.readFileSync(file,'utf8');
+  if(/(?:import|from)\s*\(?\s*['"`]https?:\/\//.test(src))
+    errors.push(`Seguridad: ${file} importa código desde otro sitio; cópialo a /vendor/`);
+}
+if(/script-src[^;]*esm\.sh/.test(fs.readFileSync('vercel.json','utf8')))
+  errors.push('Seguridad: la CSP de vercel.json vuelve a permitir scripts de esm.sh');
 for(const file of [...clientFiles,'public-form.js','centro-tanner/app.js','pedido/app.js','aviso-de-privacidad/app.js']){
   if(file==='v2/supabase-client.js')continue;
   let source;try{source=fs.readFileSync(file,'utf8');}catch{continue;}

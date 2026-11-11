@@ -2378,7 +2378,7 @@ async function exportSponsorKit() {
   button.disabled = true;
   button.textContent = 'Generando…';
   try {
-    const { jsPDF } = await import('https://esm.sh/jspdf@2.5.2');
+    const { jsPDF } = await import('/vendor/jspdf.mjs');
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();

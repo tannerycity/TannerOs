@@ -15,4 +15,7 @@
 // 2.116.0 es exactamente lo que `@2` resolvía el 20 de septiembre de 2026
 // (`latest` de npm para la rama 2.x), así que fijarla NO cambia nada hoy: sólo
 // evita que cambie sola mañana.
-export { createClient } from 'https://esm.sh/@supabase/supabase-js@2.116.0';
+// 11/11/2026: ya no se pide al CDN. La copia vive en /vendor/ (supabase-js
+// 2.116.0, la misma versión que estaba fijada): si esm.sh se cae o lo
+// comprometen, TannerOS ni se entera. Para actualizar: vendor/LEEME.md.
+export { createClient } from '/vendor/supabase-js.mjs';

@@ -105,7 +105,7 @@ function porTalla(renglones) {
   return [...m].map(([t, n]) => `${t}: ${n}`).join('   ');
 }
 export async function hojaPdf({ sheet, orgName, fotos = {}, pagos = null, jsPDF = null }) {
-  const Doc = jsPDF || (await import('https://esm.sh/jspdf@2.5.2')).jsPDF;
+  const Doc = jsPDF || (await import('/vendor/jspdf.mjs')).jsPDF;
   const doc = new Doc({ unit: 'pt', format: 'letter', orientation: 'landscape' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 28;
   const b = sheet?.batch || {}, h = hojaProveedor(sheet?.items || []), club = orgName || 'el club';

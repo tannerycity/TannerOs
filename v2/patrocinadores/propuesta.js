@@ -80,7 +80,7 @@ export function nombreDePropuesta(marca, hoy) {
 
 export async function propuestaPdf({ marca, club, activos, metricas, fotos = {}, hoy, entidades, cotizacion = null, jsPDF = null }) {
   const datos = datosDePropuesta({ marca, activos, metricas, hoy, entidades, cotizacion });
-  const Doc = jsPDF || (await import('https://esm.sh/jspdf@2.5.2')).jsPDF;
+  const Doc = jsPDF || (await import('/vendor/jspdf.mjs')).jsPDF;
   const doc = new Doc({ unit: 'pt', format: 'letter' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 44;
   let y = M;

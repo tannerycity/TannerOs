@@ -1,7 +1,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga, LLAVE_POR_OMISION, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
-import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 'https://esm.sh/libphonenumber-js@1.11.20/max';
+import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from '/vendor/libphonenumber-js.mjs';
 import { renderWelcomeCard } from '/welcome-card.js';
 import { bloqueDeIndicaciones } from '/v2/indicaciones.js';
 import { puedeCompartirse, motivoSinCompartir } from '/credencial.js';

@@ -65,7 +65,7 @@ async function abre({ escribe = true } = {}) {
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export function clearPhotoCache(){}' }));
   // SheetJS falso: lee el "xlsx" como la hoja que devolvería Excel, con la
   // fecha como número de serie.
-  await p.route(/esm\.sh\/xlsx@0\.18\.5/, r => r.fulfill({ status: 200, contentType: 'text/javascript', body: `
+  await p.route(/\/vendor\/xlsx\.mjs/, r => r.fulfill({ status: 200, contentType: 'text/javascript', body: `
     export function read(){ window.__xlsxLeido = true; return { SheetNames: ['Hoja1'], Sheets: { Hoja1: {} } }; }
     export const utils = { sheet_to_json: () => [['Nombre completo','Fecha de nacimiento','Categoría','Celular'],['Iker Ramírez Soto',42798,'Sub-8',4771112233]] };` }));
   await p.goto(BASE + '/v2/jugadores/importar/', { waitUntil: 'domcontentloaded' });

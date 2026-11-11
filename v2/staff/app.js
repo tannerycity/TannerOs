@@ -118,6 +118,10 @@ function verFicha(m) {
         <button type="button" class="st-chip${m.backgroundCheck === 'entregada' ? ' activo' : ''}" data-carta="entregada">Entregada</button></div>
         <label class="st-vence"><span>Vence</span><input id="fVence" type="date" value="${esc(m.backgroundValidUntil || '')}"></label></div>
       <label class="st-check"><input id="fFamilias" type="checkbox"${m.showToFamilies ? ' checked' : ''}> Las familias lo ven en su portal (foto, nombre y puesto)</label>
+      ${!m.hasAccount && (datos.withoutCard || []).length ? `<div class="st-campo st-llave"><span>Conectar su llave</span>
+        <small>Si ya tiene cuenta para entrar a TannerOS, elígela: queda una sola persona.</small>
+        <div class="st-llave-fila"><select id="fLlave" aria-label="Su cuenta"><option value="">Elige su cuenta</option>${(datos.withoutCard || []).map(u => `<option value="${esc(u.userId)}">${esc(u.name)} · ${esc(u.role)}</option>`).join('')}</select>
+        <button type="button" id="fConecta" class="st-btn">Conectar</button></div></div>` : ''}
       <p id="fMsg" class="st-form-msg" role="alert"></p>
       <button type="submit" class="st-btn grande">Guardar</button>
       <button type="button" id="fBaja" class="st-baja">${m.active ? 'Dar de baja' : 'Reactivar'}</button>
@@ -136,6 +140,7 @@ function verFicha(m) {
     phone: $('fTel').value.trim(), backgroundCheck: $('fCarta').querySelector('.activo')?.dataset.carta || 'pendiente',
     backgroundValidUntil: $('fVence').value || null, showToFamilies: $('fFamilias').checked }); });
   $('fBaja').addEventListener('click', () => guarda(m, { active: !m.active }));
+  $('fConecta')?.addEventListener('click', () => conecta(m));
   $('fEliminar')?.addEventListener('click', () => elimina(m));
   $('fFoto').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) subeFoto(m, f); });
 }
@@ -155,6 +160,19 @@ async function elimina(m) {
     if (rutas.length) { try { await supabase.storage.from(BUCKET).remove(rutas); } catch (_) { /* la ficha ya no está */ } }
     cierraHoja(); msg(`${m.fullName} ya no está en el staff${r?.accessRemoved ? ' y su cuenta quedó sin acceso' : ''}.`, 'success'); await carga();
   } catch (e) { if (out) out.textContent = e.message || 'No se pudo eliminar.'; }
+}
+
+/* Conectar su llave (11/11/2026): para quien ya tenía cuenta antes de tener
+   ficha. Una ficha por llave y una llave por ficha (lo cuida h86). */
+async function conecta(m) {
+  const out = $('fMsg'), userId = $('fLlave').value; if (out) out.textContent = '';
+  if (!userId) { if (out) out.textContent = 'Elige su cuenta.'; return; }
+  const u = (datos.withoutCard || []).find(x => x.userId === userId);
+  const b = $('fConecta'); b.disabled = true;
+  try {
+    await rpc('v2_link_staff_account', { organization_id: org, staff_id: m.id, user_id: userId });
+    cierraHoja(); msg(`${m.fullName} quedó conectado a la cuenta de ${u?.name || 'su llave'}.`, 'success'); await carga();
+  } catch (e) { b.disabled = false; if (out) out.textContent = e.message || 'No se pudo conectar.'; }
 }
 
 async function guarda(m, cambios) {

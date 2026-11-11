@@ -1,8 +1,8 @@
 {
-  "migraciones": 609,
-  "bytes": 3823464,
-  "huella": "a9257eb18ef42faa41fa8234522342e0",
+  "migraciones": 611,
+  "bytes": 3832303,
+  "huella": "99b4c0bce0d065ab879e3630c71bde7d",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261109234429_h82_becas_publicas_permiso.sql",
-  "verificadoContraLaBase": "2026-11-10"
+  "ultima": "20261111020100_h84_pago_guarda_quien_cobro.sql",
+  "verificadoContraLaBase": "2026-11-11"
 }

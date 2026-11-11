@@ -41,7 +41,7 @@ const moduleLinks=[
   {codes:['tienda'],label:'Catálogo',href:'/catalogo/'},
   {codes:['cursosVerano'],label:'Programas',href:'/operacion/programas/'},
   {codes:['calendario'],label:'Calendario',href:'/calendario/'},
-  {codes:['callups','convocatoria'],label:'Convocatoria',href:'/convocatoria/'},
+  {codes:['callups','convocatoria'],label:'Partidos',href:'/partidos/'},
   {codes:['utileria'],label:'Utilería',href:'/utileria/'},
   {codes:['patrocinadores'],label:'Patrocinadores',href:'/patrocinadores/'},
   {codes:['contabilidad'],label:'Contabilidad',href:'/contabilidad/'},

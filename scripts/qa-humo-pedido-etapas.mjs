@@ -233,9 +233,22 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   await pg.click('.tosdlg-ok');
   await pg.waitForTimeout(300);
   revisa('4. Ya llegó recibe el corte', (await llamadas(pg, 'v2_receive_production_batch'))[0]?.batch_id === 'b1');
-  await pg.click('#tSeg [data-f="@para_entregar"]');
+  await pg.locator('.t-pdf-capa [data-pdfh="cerrar"]').click({ timeout:1000 }).catch(() => {});
+  revisa('4. Ya llegó deja en el paso Entregar', await pg.isVisible('#tSeg [data-f="@para_entregar"].activo'));
+  if (!(await pg.isVisible('#tSeg [data-f="@para_entregar"].activo'))) await pg.click('#tSeg [data-f="@para_entregar"]');
   await pg.waitForTimeout(200);
   if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-entregar.png`, fullPage: true });
+  // Avisar a todas (11/11/2026): una lista con el WhatsApp de cada familia.
+  await pg.locator('.t-pdf-capa [data-pdfh="cerrar"]').click({ timeout:1000 }).catch(() => {});
+  revisa('5. Entregar trae "Avisar a las familias"', await pg.isVisible('#tEtapa [data-avisa-todas]'));
+  await pg.click('#tEtapa [data-avisa-todas]');
+  await pg.waitForSelector('.t-aviso-lista', { timeout:3000 }).catch(() => {});
+  const avisos = await pg.$$eval('.t-aviso-lista [data-avisado]', as => as.map(a => [a.dataset.avisado, a.getAttribute('href').slice(0, 26)]));
+  revisa('5. la lista trae a cada familia con su WhatsApp', avisos.some(([id, h]) => id === 'o-viejo' && h === 'https://wa.me/524779876543'), JSON.stringify(avisos));
+  await pg.evaluate(() => { document.querySelectorAll('.t-aviso-lista [data-avisado]').forEach(a => a.removeAttribute('target')); document.querySelector('.t-aviso-lista [data-avisado]')?.addEventListener('click', e => e.preventDefault()); });
+  await pg.click('.t-aviso-lista [data-avisado]');
+  revisa('5. al tocar Avisar queda "Avisado"', /Avisado/.test(await pg.textContent('.t-aviso-lista li')));
+  await pg.click('.t-pdf-capa [data-pdfh="cerrar"]');
   const fila = '.order-row[data-order-id="o-viejo"]';
   revisa('5. en Entregar, cada pedido trae Avisar y Entregado a la vista', await pg.isVisible(`${fila} [data-avisa]`) && await pg.isVisible(`${fila} [data-entregado]`));
   revisa('5. Avisar lleva el WhatsApp de la familia con el mensaje', /^https:\/\/wa\.me\/524779876543\?text=Hola%2C%20ya%20lleg/.test(await pg.getAttribute(`${fila} [data-avisa]`, 'href')));

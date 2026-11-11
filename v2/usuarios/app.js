@@ -286,6 +286,12 @@ function closeWizard(){
    ficha: una sola persona en el organigrama, el Portal y los permisos. */
 let fichasSinLlave=[];
 const NIVEL_A_ROL={formador:'coach',coordinacion:'coach',direccion:'coach',operacion:'operations',presidencia:'president'};
+/* Sin depender del orden (11/11/2026). Presidencia: que no importe si primero
+   se da de alta en Staff o primero se le entrega la llave. Alguien nuevo con
+   una llave de staff también queda en Staff (organigrama) con su puesto. */
+const ROL_A_FICHA={coach:['formador','Formador'],president:['presidencia','Presidencia'],academy:['coordinacion','Academia'],
+  scouting:['coordinacion','Scouting'],operations:['operacion','Operación'],cashier:['operacion','Taquilla'],
+  accounting:['operacion','Contabilidad'],commercial:['operacion','Marketing']};
 function buscaPersonas(q){
   const t=normalize(q);if(t.length<2)return [];
   const out=[];
@@ -350,7 +356,7 @@ function eligePersona(f){
   $('whoPicked').classList.remove('hidden');
   $('whoPicked').innerHTML=
     `<span class="key-result-face">${safe(initials(f.nombre))}</span>
-     <span class="key-result-body"><strong>${safe(f.nombre)}</strong><small>${safe(f.tipo==='tutor'?(f.detalle||'Familia Tanner'):f.tipo==='ficha'?'Su llave quedará conectada a su ficha de Staff':'Nueva persona en el club')}</small></span>
+     <span class="key-result-body"><strong>${safe(f.nombre)}</strong><small>${safe(f.tipo==='tutor'?(f.detalle||'Familia Tanner'):f.tipo==='ficha'?'Su llave quedará conectada a su ficha de Staff':'Nueva persona: también queda en Staff')}</small></span>
      <button type="button" id="whoClear" class="key-clear" aria-label="Elegir a otra persona">✕</button>`;
   $('whoClear').addEventListener('click',()=>{
     wizard.persona=null;wizard.kind=null;wizard.role=null;wizard.categorias=new Set();
@@ -502,6 +508,13 @@ async function createAccess(event){
       if(p.tipo==='ficha'&&result?.user_id){
         try{await rpc('v2_link_staff_account',{organization_id:ctx.organization_id,staff_id:p.id,user_id:result.user_id});}
         catch(error){console.warn('conectar con Staff',error);message('createMessage','La llave se creó, pero no se pudo conectar con su ficha de Staff: '+friendly(error));}
+      }
+      // Alguien nuevo: se le hace su ficha de Staff ya conectada a la llave.
+      if(p.tipo==='nuevo'&&result?.user_id&&ROL_A_FICHA[wizard.role]){
+        const [level,title]=ROL_A_FICHA[wizard.role];
+        try{await rpc('v2_save_staff_member',{organization_id:ctx.organization_id,member:{userId:result.user_id,fullName:displayName,title,level,
+          showToFamilies:wizard.role==='coach',...(wizard.method==='email'?{email:$('accessEmail').value.trim()}:{})}});}
+        catch(error){console.warn('ficha de Staff',error);message('createMessage','La llave se creó, pero no se pudo agregar a Staff: '+friendly(error)+'. Agrégalo desde Staff.');}
       }
       if(wizard.role==='coach'&&wizard.categorias.size&&result?.user_id){
         try{

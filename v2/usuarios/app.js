@@ -129,6 +129,18 @@ async function boot(){
   $('roleBadge').textContent=ctx.is_owner?'Presidencia':(ctx.role||'Integrante');
   $('openCreateUser').disabled=!canWrite;
   await load();show('view');
+  /* El "+" de Usuarios (11/11/2026). Presidencia: "cuando le pongas el botón de
+     más, ahí le pongas agregar un nuevo usuario". Antes dependía de que el
+     botón de alta se viera en pantalla; al bajar en la lista ya no salía.
+     Ahora la pantalla publica sus acciones: primero agregar usuario. */
+  if(canWrite){
+    window.tosAccionesDePantalla=[
+      {label:'Agregar nuevo usuario',sub:'Staff: su llave y su rol',icon:'userPlus',run:()=>openWizard()},
+      {label:'Invitar a las familias que faltan',sub:'Por WhatsApp, una por una',icon:'chat',href:'/invitaciones/?accion=invitar-familias'},
+      {label:'Mandar liga de contraseña',sub:'Para una familia que la olvidó',icon:'chat',href:'/invitaciones/?accion=liga-contrasena'}
+    ];
+    window.dispatchEvent(new Event('tos:acciones'));
+  }
 }
 
 async function load(reopen=false){

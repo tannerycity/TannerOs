@@ -185,7 +185,7 @@ async function abre(ruta, { pagoFalla = false, prod = '' } = {}) {
   await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:CLIENTE(pagoFalla, prod) }));
   await pg.route(/\/v2\/shell\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:SHELL }));
   // El PDF real usa jsPDF de internet: aquí sólo se anota qué se compartió.
-  await pg.route(/\/v2\/produccion\/pdf\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`export async function hojaPdf({sheet}){return {folio:sheet.batch.folio};}\nexport function nombreDelPdf(s){return 'hoja-'+s.batch.folio+'.pdf';}\nexport async function compartePdf(doc,nombre){window.__compartido=nombre;return 'compartido';}\nexport async function cargaFotos(){return {};}` }));
+  await pg.route(/\/v2\/produccion\/pdf\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`export async function hojaPdf({sheet}){return {folio:sheet.batch.folio};}\nexport function nombreDelPdf(s){return 'hoja-'+s.batch.folio+'.pdf';}\nexport async function compartePdf(doc,nombre){window.__compartido=nombre;return 'compartido';}\nexport function descargaPdf(doc,nombre){window.__descargado=nombre;return 'descargado';}\nexport async function cargaFotos(){return {};}` }));
   await pg.goto(BASE + ruta, { waitUntil:'networkidle' });
   return { pg, errs };
 }

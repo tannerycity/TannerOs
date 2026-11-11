@@ -149,15 +149,33 @@ const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { c
   revisa('4. cada fila dice si debe o está pagado', /Debe \$1,000/.test(await txt(pg, '.order-row[data-order-id="a1"] .order-right')) && /Pagado/.test(await txt(pg, '.order-row[data-order-id="b1"] .order-right')));
 
   // 5. El PDF antes de mandar.
+  // Tarjetas arriba (11/11/2026): el PDF a la vista, no sólo en el +.
+  const atajos = await pg.$$eval('#tAtajos [data-atajo]', bs => bs.map(b => b.textContent.replace(/\s+/g, ' ').trim()));
+  revisa('8. tarjeta "PDF para el proveedor" a la vista', atajos.some(t => /^PDF para el proveedor ?2 pedidos listos/.test(t)), JSON.stringify(atajos));
+  revisa('8. tarjetas de Por revisar y Por pedir con su número', atajos.some(t => /^Por revisar \d/.test(t)) && atajos.some(t => /^Por pedir 2/.test(t)), JSON.stringify(atajos));
   await pg.click('[data-borrador]');
-  await pg.waitForSelector('.tosdlg', { timeout:5000 }).catch(() => {});
-  const dlg = await txt(pg, '.tosdlg');
-  revisa('5. el PDF borrador se arma y avisa que todavía no se manda nada', /El PDF está listo/.test(dlg) && /todavía no se manda nada/.test(dlg), dlg);
+  await pg.waitForSelector('.t-pdf-hoja', { timeout:5000 }).catch(() => {});
+  const dlg = await txt(pg, '.t-pdf-hoja');
+  revisa('5. el PDF borrador se arma y avisa que todavía no se manda nada', /El PDF está listo/.test(dlg) && /todavía no se manda nada/i.test(dlg), dlg);
   const hoja = (await llamadas(pg, 'v2_orders_sheet'))[0];
   revisa('5. la hoja lleva sólo lo de Por pedir', JSON.stringify(hoja?.order_ids) === JSON.stringify(['a1','b1']), JSON.stringify(hoja));
   revisa('5. no crea el envío', (await llamadas(pg, 'v2_create_production_batch')).length === 0);
-  await pg.click('.tosdlg-ok'); await pg.waitForTimeout(400);
+  // Descargar de verdad (no sólo compartir): un archivo .pdf baja.
+  revisa('9. la hoja trae "Descargar PDF" como botón principal', /Descargar PDF/.test(await txt(pg, '.t-pdf-btn.principal')));
+  const bajada = pg.waitForEvent('download', { timeout:5000 }).catch(() => null);
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/hoja-pdf.png` });
+  await pg.click('[data-pdfh="bajar"]');
+  const dl = await bajada;
+  revisa('9. se descarga el PDF', !!dl && /^Pedido-proveedor-\d{4}-\d\d-\d\d\.pdf$/.test(dl.suggestedFilename()), dl?.suggestedFilename());
+  revisa('9. avisa dónde quedó', /quedó en Descargas/.test(await txt(pg, '.t-pdf-hoja')));
   const textos = await pg.evaluate(() => window.__pdf?.textos || []);
+  await pg.click('[data-pdfh="cerrar"]'); await pg.waitForTimeout(150);
+  revisa('9. Cerrar quita la hoja', !(await pg.$('.t-pdf-capa')));
+  // La tarjeta abre el mismo PDF.
+  await pg.click('[data-atajo="pdf"]');
+  await pg.waitForSelector('.t-pdf-hoja', { timeout:5000 }).catch(() => {});
+  revisa('8. la tarjeta del PDF abre la hoja para descargar', /El PDF está listo/.test(await txt(pg, '.t-pdf-hoja')));
+  await pg.click('[data-pdfh="cerrar"]'); await pg.waitForTimeout(150);
   // Formato Tremor (11/11/2026): el corte y el proveedor van en el encabezado.
   revisa('5. el PDF dice BORRADOR y el proveedor', textos.some(t => /^Corte BORRADOR/.test(t)) && textos.some(t => /Pedido al proveedor · Tremor/.test(t)), JSON.stringify(textos.slice(0, 8)));
   revisa('5. el PDF es la tabla por diseño (JERSEY …, TALLAS, PRODUCTO, STATUS)', textos.some(t => /^JERSEY /.test(t)) && textos.includes('TALLAS') && textos.includes('PRODUCTO') && textos.includes('STATUS'), JSON.stringify(textos.slice(0, 20)));

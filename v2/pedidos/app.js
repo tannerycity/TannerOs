@@ -3,7 +3,7 @@ import { usaFuncion } from '/v2/analitica-uso.js';
 import { mensajeConfirmacion, ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { abreVentas } from '/v2/pedidos/ventas.js';
 import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
-import { hojaPdf, nombreDelPdf, compartePdf, cargaFotos } from '/v2/produccion/pdf.js';
+import { hojaPdf, nombreDelPdf, compartePdf, descargaPdf, cargaFotos } from '/v2/produccion/pdf.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,orders=[],envios=[],garantias=[],canPagar=false,current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();
@@ -199,7 +199,37 @@ function renderReviewBanner(){const seg=$('tSeg');if(!seg)return;const actual=$(
   else{seg.setAttribute('role','tablist');seg.setAttribute('aria-label','Filtrar pedidos');
   seg.innerHTML=`<ol class="t-pasos">${PASOS.map(p=>{const n=cuentaPaso(p.f);return `<li><button type="button" role="tab" data-f="${p.f}" aria-selected="${actual===p.f}" class="t-paso${actual===p.f?' activo':''}${n?' con':''}"><i>${n}</i><b>${p.t}</b></button></li>`;}).join('')}</ol>`
     +`<div class="t-cards-mas">${[['@entregado','Entregados'],['','Todos']].map(([f,t])=>`<button type="button" role="tab" data-f="${f}" aria-selected="${actual===f}" class="${actual===f?'activo':''}">${t} <i>${cuentaDe(f)}</i></button>`).join('')}</div>`;}
-  const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('@por_validar'),l=cuentaDe('@para_proveedor');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${l?` · ${l} por pedir`:''}${a?` · ${a} por revisar`:''}${!a&&!l?' · todo al día':''}`;}}
+  const sub=$('tResumen');if(sub){const v=orders.filter(vigente).length,a=cuentaDe('@por_validar'),l=cuentaDe('@para_proveedor');sub.textContent=`${v} ${v===1?'pedido vigente':'pedidos vigentes'}${l?` · ${l} por pedir`:''}${a?` · ${a} por revisar`:''}${!a&&!l?' · todo al día':''}`;}
+  pintaAtajos();}
+/* Tarjetas arriba de Pedidos (11/11/2026). Presidencia: "no se ve lo del PDF
+   porque está muy grande lo que hay en el +... debería haber otro botón...
+   botones tipo tarjeta". Lo que más se usa, a la vista: el PDF del
+   proveedor, lo que falta revisar, lo que ya se puede pedir y levantar un
+   pedido nuevo. */
+function pintaAtajos(){
+  const box=$('tAtajos');if(!box)return;
+  const rev=cuentaDe('@por_validar'),ped=cuentaDe('@para_proveedor');
+  const ultimo=envios.filter(e=>e.batch_type==='orders'&&e.status!=='cancelled').sort((a,b)=>String(b.submitted_on||b.created_at||'').localeCompare(String(a.submitted_on||a.created_at||'')))[0];
+  const ico={pdf:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+    rev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>',
+    ped:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M6 7v12h12V7M9 11h6"/></svg>',
+    nuevo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'};
+  const tarjeta=(k,t,sub,tono,n)=>`<button type="button" class="t-atajo" data-atajo="${k}" data-tono="${tono}"><span class="t-atajo-ico">${ico[k]}</span><span class="t-atajo-txt"><b>${t}${n?` <i>${n}</i>`:''}</b><small>${esc(sub)}</small></span></button>`;
+  box.innerHTML=[
+    canManage?tarjeta('pdf','PDF para el proveedor',ped?`${ped} ${ped===1?'pedido listo':'pedidos listos'} · uniforme o jersey`:ultimo?`Último corte ${ultimo.folio||''}`.trim():'Cuando haya pedidos por pedir','verde',0):'',
+    tarjeta('rev','Por revisar',rev?'Confirmar con la familia':'Nada pendiente','naranja',rev),
+    tarjeta('ped','Por pedir',ped?'Listos para el proveedor':'Nada por pedir','azul',ped),
+    canWrite?tarjeta('nuevo','Nuevo pedido','Levantarlo en el mostrador','gris',0):''
+  ].join('');
+}
+$('tAtajos')?.addEventListener('click',e=>{
+  const b=e.target.closest('[data-atajo]');if(!b)return;
+  const k=b.dataset.atajo;
+  if(k==='pdf'){b.disabled=true;Promise.resolve(pdfProveedor()).finally(()=>{b.disabled=false;});return;}
+  if(k==='nuevo'){location.href='/captura/';return;}
+  ponVista('pasos',false);$('statusFilter').value=k==='rev'?'@por_validar':'@para_proveedor';render();renderReviewBanner();
+  $('tSeg')?.scrollIntoView({behavior:'smooth',block:'start'});
+});
 const busqueda=()=>$('orderSearch').value.trim().normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase();
 function coincide(o,q){return !q||`${o.folio||''} ${o.customer_name||''} ${o.customer_phone||''} ${o.customer_email||''} ${tablero[o.id]?.playerName||''} ${tablero[o.id]?.attendedName||''} ${(tablero[o.id]?.items||[]).map(i=>i.nombre||'').join(' ')}`.normalize('NFD').replace(DIACRITICS_RE,'').toLowerCase().includes(q);}
 function filteredOrders(){const status=$('statusFilter').value,q=busqueda();const pasa=o=>{if(status.startsWith('@'))return etapaDe(o)===status.slice(1);if(status==='__review')return porRevisar.has(o.id);if(status==='__numero')return numeroPorConfirmar(o)&&vigente(o);if(status==='__atender')return porAtender(o);if(status==='__cobrar')return vigente(o)&&saldoDe(o)>0.005;return !status||o.status===status;};return orders.filter(o=>pasa(o)&&coincide(o,q));}
@@ -308,8 +338,7 @@ async function verBorrador(btn){
     const prov=($('heroProv')?.value||proveedor()).trim();if(sheet?.batch)sheet.batch.supplierName=prov||null;
     const fotos=await cargaFotos(supabase,sheet).catch(()=>({}));
     const doc=await hojaPdf({sheet,orgName:ctx.organization_name,fotos});
-    const ok=await window.tosConfirm({kicker:'BORRADOR',title:'El PDF está listo',message:`${lista.length} ${lista.length===1?'pedido':'pedidos'} · ${piezasDe(lista)} piezas. Es para revisarlo: todavía no se manda nada. Cuando esté bien, toca «Mandar».`,confirmText:'Ver PDF',cancelText:'Cerrar'});
-    if(ok)await compartePdf(doc,`Borrador-pedido-${new Date().toISOString().slice(0,10)}.pdf`,`Borrador del pedido · ${ctx.organization_name||''}`);
+    await hojaDelPdf({doc,nombre:`Pedido-proveedor-${new Date().toISOString().slice(0,10)}.pdf`,texto:`Pedido al proveedor · ${ctx.organization_name||''}`,kicker:'PDF PARA EL PROVEEDOR',title:'El PDF está listo',message:`${lista.length} ${lista.length===1?'pedido':'pedidos'} · ${piezasDe(lista)} piezas. Todavía no se manda nada: cuando esté bien, toca «Mandar».`});
   }catch(e){await window.tosAlert({kicker:'PDF',title:'No se pudo armar el PDF',message:e.message||String(e)});}
   finally{btn.disabled=false;btn.textContent=txt;}
 }
@@ -518,7 +547,7 @@ function mandarAlProveedor(){
     if(e.target.closest('[data-envio-manda]'))return mandaEnvio();
     // Compartir necesita un toque fresco: por eso es un botón aquí, no después de esperar.
     if(e.target.closest('[data-envio-wa]')){try{const como=await compartePdf(envio.doc,envio.nombre,`Pedido ${envio.listo?.folio||''} · ${ctx.organization_name||''}`);if(como==='descargado'){envio.error='En la compu se descarga: adjúntalo en WhatsApp Web o Business.';pintaEnvio();}}catch(err){envio.error=err.message||'No se pudo compartir.';pintaEnvio();}return;}
-    if(e.target.closest('[data-envio-pdf]')){envio.doc?.save(envio.nombre);return;}
+    if(e.target.closest('[data-envio-pdf]')){if(envio.doc)descargaPdf(envio.doc,envio.nombre);return;}
   });
   mandaEnvio();
 }
@@ -548,6 +577,31 @@ async function pdfProveedor(){
   if(ultimo)return compartirCorte(ultimo.id,false);
   await window.tosAlert({kicker:'PDF',title:'Todavía no hay nada por pedir',message:'Cuando confirmes un pedido con la familia, pasa a «Por pedir» y aquí sale su PDF.'});
 }
+/* Hoja del PDF: Descargar (principal) o Compartir. Cada uno es un toque
+   directo del usuario, así el teléfono deja descargar o compartir. */
+function hojaDelPdf({doc,nombre,texto,kicker,title,message}){
+  return new Promise(fin=>{
+    const capa=document.createElement('div');capa.className='t-pdf-capa';capa.setAttribute('role','dialog');capa.setAttribute('aria-modal','true');capa.setAttribute('aria-label',title);
+    const puedeCompartir=(()=>{try{return !!(navigator.canShare&&navigator.canShare({files:[new File([new Blob()],nombre,{type:'application/pdf'})]}));}catch{return false;}})();
+    capa.innerHTML=`<div class="t-pdf-hoja"><small class="t-pdf-kicker">${esc(kicker)}</small><h2>${esc(title)}</h2><p>${esc(message)}</p><p class="t-pdf-nombre">${esc(nombre)}</p>
+      <button type="button" class="t-pdf-btn principal" data-pdfh="bajar">Descargar PDF</button>
+      ${puedeCompartir?'<button type="button" class="t-pdf-btn" data-pdfh="compartir">Compartir por WhatsApp</button>':''}
+      <p class="t-pdf-aviso" data-pdf-aviso hidden></p>
+      <button type="button" class="t-pdf-btn liga" data-pdfh="cerrar">Cerrar</button></div>`;
+    const cierra=()=>{capa.remove();document.removeEventListener('keydown',tecla);fin();};
+    const tecla=e=>{if(e.key==='Escape')cierra();};
+    const aviso=t=>{const a=capa.querySelector('[data-pdf-aviso]');a.textContent=t;a.hidden=false;};
+    capa.addEventListener('click',async e=>{
+      if(e.target===capa)return cierra();
+      const k=e.target.closest("[data-pdfh]")?.dataset.pdfh;if(!k)return;
+      if(k==='cerrar')return cierra();
+      if(k==='bajar'){try{descargaPdf(doc,nombre);aviso('Listo: quedó en Descargas (en iPhone, en la app Archivos).');}catch(err){aviso(err.message||'No se pudo descargar.');}return;}
+      if(k==='compartir'){const como=await compartePdf(doc,nombre,texto).catch(err=>{aviso(err.message||'No se pudo compartir.');return null;});if(como==='compartido')cierra();}
+    });
+    document.addEventListener('keydown',tecla);
+    document.body.appendChild(capa);capa.querySelector('[data-pdfh="bajar"]').focus();
+  });
+}
 async function compartirCorte(batchId,recien){
   try{
     const sheet=await rpc('v2_production_batch_sheet',{organization_id:ctx.organization_id,batch_id:batchId});
@@ -556,10 +610,7 @@ async function compartirCorte(batchId,recien){
     const nombre=nombreDelPdf(sheet),texto=`Hoja de producción ${sheet?.batch?.folio||''} · ${ctx.organization_name||''}`;
     // Compartir necesita un toque fresco (el teléfono no deja compartir
     // después de esperar a la base y al PDF): por eso se pregunta aquí.
-    const ok=await window.tosConfirm({kicker:recien?'CORTE LISTO':'PDF DEL CORTE',title:recien?`Corte ${sheet?.batch?.folio||''} enviado`:`Corte ${sheet?.batch?.folio||''}`,message:recien?'Ya está en "Con el proveedor". ¿Compartimos el PDF por WhatsApp?':'El PDF está listo para mandarlo al proveedor.',confirmText:'Compartir PDF',cancelText:recien?'Después':'Cerrar'});
-    if(!ok)return;
-    const como=await compartePdf(doc,nombre,texto);
-    if(como==='descargado')await window.tosAlert({kicker:'PDF',title:'PDF descargado',message:'Desde la compu se descarga: adjúntalo en WhatsApp Business. En el teléfono se abre directo para compartir.'});
+    await hojaDelPdf({doc,nombre,texto,kicker:recien?'CORTE LISTO':'PDF DEL CORTE',title:recien?`Corte ${sheet?.batch?.folio||''} enviado`:`Corte ${sheet?.batch?.folio||''}`,message:recien?'Ya está en «Con el proveedor». Descárgalo o mándalo por WhatsApp.':'El PDF está listo para el proveedor.'});
   }catch(e){await window.tosAlert({kicker:'PDF',title:'No se pudo armar el PDF',message:e.message||String(e)});}
 }
 async function yaLlego(batchId,btn){

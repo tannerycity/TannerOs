@@ -187,7 +187,9 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   if (!cerroX) await p.keyboard.press('Escape');
 
   // Editar el pago: fecha, método y referencia (08/11/2026).
-  await p.click('.tan-ledger [data-payment="pay-1"]');
+  // La hoja anterior a veces sigue en su animación de salida y tapa la fila
+  // (CI); se toca la fila directo y se espera a que abra la hoja.
+  await p.$eval('.tan-ledger [data-payment="pay-1"]', el => el.click());
   await p.waitForSelector('#presSheet:not(.hidden)');
   revisa('[editar] trae la fecha y el método del pago', await p.inputValue('#presFecha') === '2026-09-05' && /true/.test(await p.getAttribute('[data-metodo-ed="cash"]', 'aria-checked')));
   if (process.env.SHOTS) await p.screenshot({ path:`${process.env.SHOTS}/tanner-editar-pago.png` });
@@ -204,7 +206,10 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
   revisa('[editar] avisa que se quitó el recargo', /quitó el recargo de \$100\.00/.test(await p.textContent('#presToast')));
 
   // Revertir sigue ahí, abajo de Editar.
-  await p.click('.tan-ledger [data-payment="pay-1"]');
+  // La hoja anterior a veces sigue en su animación de salida y tapa la fila
+  // (CI); se toca la fila directo y se espera a que abra la hoja.
+  await p.$eval('.tan-ledger [data-payment="pay-1"]', el => el.click());
+  await p.waitForSelector('#presSheet:not(.hidden)');
   await p.click('[data-revertir]');
   await p.fill('#presMotivo', 'Se capturó dos veces');
   await p.click('#presForm .pres-primary');

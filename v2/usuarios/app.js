@@ -320,6 +320,8 @@ function pintaResultados(){
     eligePersona({tipo:'nuevo',id:'',nombre:q,dato:null}));
 }
 function eligePersona(f){
+  // Otra persona: su propio usuario sugerido.
+  if(wizard.persona?.nombre!==f.nombre){wizard.usuarioTocado=false;$('accessUsername').value='';}
   wizard.persona=f;
   // Un tutor sólo puede ser Familia: su llave es la del portal, no la del staff.
   wizard.kind=f.tipo==='tutor'?'guardian':'staff';
@@ -394,9 +396,9 @@ function resuelveLlave(){
   if(wizard.kind==='guardian'){
     setFamilyMethod(correo?'email':'username');
     if(correo)$('accessEmail').value=correo;
-    else if(!$('accessUsername').value)$('accessUsername').value=usuarioCorto(p.nombre);
+    else if(!$('accessUsername').value&&!wizard.usuarioTocado)$('accessUsername').value=usuarioCorto(p.nombre);
   }else{
-    if(!$('accessUsername').value)$('accessUsername').value=usuarioCorto(p.nombre);
+    if(!$('accessUsername').value&&!wizard.usuarioTocado)$('accessUsername').value=usuarioCorto(p.nombre);
     setMethod(wizard.method);
   }
   const usa=(wizard.kind==='guardian'?wizard.familyMethod:wizard.method)==='email';
@@ -707,7 +709,10 @@ $('whoSearch').addEventListener('keydown',e=>{
   e.preventDefault();
   ($('whoResults').querySelector('.key-result:not([disabled])'))?.click();
 });
-$('accessUsername').addEventListener('input',resuelveLlave);
+/* El usuario sugerido se pone una vez (11/11/2026). Presidencia: "cuando borro
+   todo el nombre se vuelve a poner". Al escribir ya no se vuelve a sugerir:
+   lo que la persona teclea (o borra) manda. */
+$('accessUsername').addEventListener('input',()=>{wizard.usuarioTocado=true;resuelveLlave();});
 $('accessEmail').addEventListener('input',resuelveLlave);
 $('accessForm').addEventListener('submit',createAccess);
 $('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());

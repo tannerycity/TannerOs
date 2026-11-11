@@ -62,6 +62,20 @@ async function abre({ escribe }) {
   await p.click('#tosFabMenu .tos-fab-item');
   const abrio = await p.waitForSelector('#wizardModal:not(.hidden)', { timeout: 4000 }).then(() => true, () => false);
   revisa('[+] tocarla abre "Entregar una llave"', abrio);
+  // Borrar el usuario sugerido no lo vuelve a poner (11/11/2026).
+  await p.fill('#whoSearch', 'Sergio Martínez');
+  await p.click('#whoResults [data-nuevo]');
+  await p.click('#wizardModal [data-rol="Formadores"], #wizardModal .key-chip');
+  await p.waitForSelector('#keyDetails:not(.hidden)', { timeout: 4000 });
+  await p.evaluate(() => { document.getElementById('keyDetails').open = true; });
+  const sugerido = await p.inputValue('#accessUsername');
+  revisa('[llave] sugiere el usuario con su nombre', sugerido === 'sergio.martinez', sugerido);
+  await p.fill('#accessUsername', '');
+  await p.type('#accessUsername', 'x');
+  await p.press('#accessUsername', 'Backspace');
+  revisa('[llave] borrar todo el usuario no lo vuelve a poner', (await p.inputValue('#accessUsername')) === '', await p.inputValue('#accessUsername'));
+  await p.type('#accessUsername', 'checo');
+  revisa('[llave] lo que se escribe se queda', (await p.inputValue('#accessUsername')) === 'checo' && /usuario checo/.test(await p.textContent('#keySummary')));
   await p.close();
 }
 { // Sin permiso de escritura: no se ofrece.

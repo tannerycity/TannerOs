@@ -199,8 +199,8 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   await pg.waitForTimeout(400);
   const pasos = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
   revisa('1. el flujo es un diagrama de cinco verbos con su cuenta', JSON.stringify(pasos) === JSON.stringify(['Revisar=0','Cobrar=0','Por pedir=1','Recibir=1','Entregar=1']), JSON.stringify(pasos));
-  const mas = await pg.$$eval('#tSeg .t-cards-mas button', bs => bs.map(b => b.textContent.replace(/\s+/g, ' ').trim()));
-  revisa('1. Entregados y Todos aparte', JSON.stringify(mas) === JSON.stringify(['Entregados 0','Todos 3']), JSON.stringify(mas));
+  const mas = await pg.$$eval('#tSeg [data-todos-f]', bs => bs.map(b => b.textContent.replace(/\s+/g, ' ').trim()));
+  revisa('1. historial aparte y un toque regresa a todos', JSON.stringify(mas) === JSON.stringify(['‹ Todos los pedidos','Entregados 0','Cancelados 0']), JSON.stringify(mas));
   revisa('1. abre en el paso que pide algo', (await pg.inputValue('#statusFilter')) === '@para_proveedor' && await pg.isVisible('#tSeg [data-f="@para_proveedor"].activo'));
   const ahora = (await pg.textContent('#tEtapa')).replace(/\s+/g, ' ');
   if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-proveedor.png`, fullPage: true });

@@ -226,7 +226,7 @@ const texto = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' '
 {
   const { pg, errs } = await abre('/v2/pedidos/');
   await pg.waitForSelector('.order-row', { timeout:8000 });
-  await pg.selectOption('#statusFilter', '');
+  await pg.evaluate(v => { const s = document.getElementById('statusFilter'); s.value = v; s.dispatchEvent(new Event('change')); }, '');
   await pg.waitForSelector('.order-row[data-order-id="o-viejo"]', { timeout:8000 });
   await pg.click('.order-row[data-order-id="o-viejo"]');
   await pg.waitForSelector('#drawer:not(.hidden)', { timeout:5000 });
@@ -254,7 +254,7 @@ const texto = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' '
 {
   const { pg, errs } = await abre('/v2/pedidos/');
   await pg.waitForSelector('.order-row', { timeout:8000 });
-  await pg.selectOption('#statusFilter', '');
+  await pg.evaluate(v => { const s = document.getElementById('statusFilter'); s.value = v; s.dispatchEvent(new Event('change')); }, '');
   await pg.waitForSelector('.order-row[data-order-id="o-kit"]', { timeout:8000 });
   await pg.click('.order-row[data-order-id="o-kit"]');
   await pg.waitForSelector('#orderPremio:not(.hidden)', { timeout:5000 }).catch(() => {});

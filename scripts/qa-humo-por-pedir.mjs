@@ -123,13 +123,13 @@ async function abre(etapas, vista = 'pasos') {
   await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:CLIENTE(etapas) }));
   await pg.route(/\/v2\/shell\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:SHELL }));
   await pg.goto(BASE + '/v2/pedidos/', { waitUntil:'networkidle' });
-  await pg.waitForSelector('#tVista button', { timeout:8000 });
+  await pg.waitForSelector('#tSeg .t-paso', { timeout:8000 });
   await pg.waitForTimeout(300);
   return { pg, errs };
 }
 const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x).map(r => r.p), n);
 const txt = async (pg, sel) => ((await pg.$(sel)) ? (await pg.innerText(sel)).replace(/\s+/g, ' ').trim() : '');
-const vaA = async (pg, f) => { await pg.selectOption('#statusFilter', f).catch(() => {}); await pg.evaluate(v => { const s = document.getElementById('statusFilter'); s.value = v; s.dispatchEvent(new Event('change')); }, f); await pg.waitForTimeout(250); };
+const vaA = async (pg, f) => { await pg.evaluate(v => { const s = document.getElementById('statusFilter'); s.value = v; s.dispatchEvent(new Event('change')); }, f); await pg.waitForTimeout(250); };
 const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { const b = r.querySelector('.order-num'); return b ? `${b.classList.contains('ok') ? 'ok' : 'falta'}|${b.querySelector('span').textContent}|${b.querySelector('button')?.textContent || ''}` : ''; });
 
 {
@@ -153,11 +153,14 @@ const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { c
   // Panel de arriba (11/11/2026): el PDF a la vista y los pendientes por paso.
   const pdfTxt = (await txt(pg, '#tAtajos [data-atajo="pdf"]')).replace(/\s+/g, ' ');
   revisa('8. "PDF para el proveedor" a la vista con lo listo y "Descargar"', /PDF para el proveedor ?2 pedidos listos/.test(pdfTxt) && /Descargar/.test(pdfTxt), pdfTxt);
-  const pends = await pg.$$eval('#tAtajos [data-pend]', bs => bs.map(b => b.getAttribute('aria-label')));
-  revisa('8. pendientes por paso con su número', JSON.stringify(pends.map(x => x.split(':')[0])) === '["Revisar","Cobrar","Por pedir","Entregar"]' && pends.includes('Por pedir: 2'), JSON.stringify(pends));
+  const pasosHoy = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
+  revisa('8. "¿Qué toca hoy?": una tarjeta por paso con su número', pasosHoy.length === 5 && pasosHoy.includes('Por pedir=2'), JSON.stringify(pasosHoy));
+  revisa('8. la tarjeta del paso en el que estás se marca', await pg.isVisible('#tSeg [data-f="@para_proveedor"].activo') && /Todos los pedidos/.test(await txt(pg, '#tSeg .t-volver')));
+  revisa('8. ya no hay controles repetidos (Todos/Por paso)', !(await pg.isVisible('#tVista')));
+  revisa('8. encabezado de tienda oficial con Nuevo pedido y Catálogo', /TIENDA OFICIAL/.test(await txt(pg, '.t-hero')) && await pg.isVisible('.t-hero #newOrderAction') && await pg.isVisible('.t-hero a[href="/catalogo/"]'));
   const fab = await pg.evaluate(() => (window.tosAccionesDePantalla || []).map(a => a.label));
   revisa('8. el + es corto: nuevo pedido, PDF y ventas', fab.length <= 3 && fab.includes('PDF para el proveedor') && !fab.includes('Por atender'), JSON.stringify(fab));
-  const chicos = await pg.$$eval('#tAtajos button, .tienda-tabs a, #tVista button, #tSeg button', bs => bs.filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).map(b => b.textContent.trim().slice(0, 30)));
+  const chicos = await pg.$$eval('#tAtajos button, .t-hero a, #tSeg button', bs => bs.filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).map(b => b.textContent.trim().slice(0, 30)));
   revisa('8. todo lo de arriba se toca fácil (44 px o más)', chicos.length === 0, JSON.stringify(chicos));
   await pg.click('[data-borrador]');
   await pg.waitForSelector('.t-pdf-hoja', { timeout:5000 }).catch(() => {});

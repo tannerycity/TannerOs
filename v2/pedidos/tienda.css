@@ -574,3 +574,25 @@
 /* "Ir al paso" como botón tintado estilo Apple. */
 .t-grupo .t-link-mini{min-height:36px;padding:0 12px;border-radius:999px;background:color-mix(in srgb,var(--tos-ink,#184159) 8%,#fff);color:var(--tos-ink,#184159);font-size:13.5px}
 @media (pointer:coarse){.t-grupo .t-link-mini{min-height:44px}}
+/* ===== Acabado Apple (11/11/2026) ======================================
+   Presidencia: "esos botones no van con nuestro UX/UI de Apple". La tarjeta
+   del paso y el Historial con el lenguaje de iOS: botón relleno con el color
+   del club (no negro), esquinas de 14 px, letra semibold de 17 px, etiqueta
+   del paso como cápsula tintada y el Historial como cápsulas grises. */
+.t-ahora,.t-grande,.t-hist{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
+.t-ahora{gap:8px;padding:18px;border-radius:20px;box-shadow:0 1px 3px rgba(7,25,30,.06)}
+.t-ahora small{justify-self:start;padding:5px 10px;border-radius:999px;background:color-mix(in srgb,var(--tono,#6b7c80) 12%,#fff);font-size:12px;font-weight:700;letter-spacing:.02em;text-transform:none}
+.t-ahora h2{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.t-ahora p{font-size:15px;line-height:1.45;color:#6e6e73}
+.t-grande{min-height:50px;border-radius:14px;background:var(--tos-ink,#184159);font-size:17px;font-weight:600;letter-spacing:-.01em;margin-top:6px;-webkit-tap-highlight-color:transparent}
+.t-grande:active{transform:scale(.98);opacity:.85}
+.t-grande.verde{background:#1f9d55}
+.t-grande.azul{background:var(--tos-teal,#247c8f)}
+.t-btn-sec,.t-ahora .t-btn-sec{min-height:50px;border-radius:14px;background:color-mix(in srgb,var(--tos-ink,#184159) 9%,#fff);color:var(--tos-ink,#184159);font-size:17px;font-weight:600}
+.t-hist{gap:8px}
+.t-hist>span{width:100%;margin:0 0 -2px 4px;font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:#8e8e93}
+.t-hist button{min-height:44px;padding:0 16px;border-radius:999px;background:rgba(118,118,128,.12);color:#3a3a3c;font-size:15px;font-weight:600}
+.t-hist button i{font-size:13px;font-weight:600;color:#8e8e93}
+.t-hist button.activo{background:var(--tos-ink,#184159);color:#fff}
+.t-hist button.activo i{color:rgba(255,255,255,.75)}
+@media (pointer:coarse){.t-hist button{min-height:44px}}

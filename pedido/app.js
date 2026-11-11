@@ -32,6 +32,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
+import { brandingAssetUrl } from '/v2/branding.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
   from 'https://esm.sh/libphonenumber-js@1.11.20/max';
 import { textoHasta, recargoDe, recargoPersDe, extraEstampadoKit, jerseysDeKit, llevaEstampado, llevaManga as tieneManga, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
@@ -644,6 +645,17 @@ function corteHtml() {
   const dia = faltan === 0 ? 'hoy viernes' : faltan === 1 ? 'mañana viernes' : `el viernes ${new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(v).replace('.', '')}`;
   return `<p class="st-corte"><span class="st-corte-punto" aria-hidden="true"></span><span>Pide antes de <b>${dia}</b> y entra en el siguiente envío al proveedor.</span></p>`;
 }
+/* Portada de campaña (11/11/2026): la imagen de portada y el lema que el club
+   subió en su marca (Ajustes › Marca) visten la portada de la tienda. Sin
+   imagen, queda la banda del color del club. */
+let marca = null;
+function pintaPortada() {
+  const h = document.querySelector('.st-hero.portada'); if (!h || !marca) return;
+  const foto = brandingAssetUrl(marca?.assets?.splash);
+  if (foto) { h.style.setProperty('--st-splash', `url("${foto}")`); h.classList.add('con-foto'); }
+  const lema = h.querySelector('[data-lema]'), t = String(marca?.tagline || '').trim();
+  if (lema && t) { lema.textContent = t; lema.hidden = false; }
+}
 function franjaHtml() {
   const f = vitrina.franja; if (!f?.title) return '';
   return `<a class="st-franja" href="${esc(destinoDe(f, catalogo))}">${esc(f.title)}${f.ctaLabel ? ` <b>${esc(f.ctaLabel)} ›</b>` : ''}</a>`;
@@ -700,6 +712,7 @@ function renderTienda(clave = '') {
       <p class="st-eyebrow">${esc(clubNombre)}</p>
       <h1>${activa ? esc(etiquetaDe(activa)) : 'Tienda oficial'}</h1>
       <p>${activa ? '' : 'El uniforme que se usa con orgullo. '}Pídelo desde tu celular${pagoInfo?.delivery ? ` y recíbelo en ${esc(pagoInfo.delivery)}` : ''}.</p>
+      ${activa ? '' : '<p class="st-hero-lema" data-lema hidden></p>'}
       ${activa ? '' : PASOS_TIENDA}
       ${codigoEscrito ? `<p class="st-codigo-chip">Código <b>${esc(codigoEscrito)}</b> listo: se aplica al pagar.</p>` : ''}
     </section>
@@ -714,6 +727,7 @@ function renderTienda(clave = '') {
       <span><strong>¿Ya eres familia Tanner?</strong><small>Entra y tus datos y tu Tanner ya van cargados.</small></span><b>Entrar</b></a>`}`;
   pintaBarra(true);
   firmaFotos($('content'));
+  pintaPortada();
 }
 
 /* ---------- La ficha de una pieza (PDP) ---------- */
@@ -1795,6 +1809,7 @@ try {
     rpc('v2_public_branding_by_org', { organization_id: club.value.organizationId })
       .then(b => {
         coloresClub = b?.colors || {};
+        marca = b || null; pintaPortada();
         const ficha = document.querySelector('[data-ficha]')?.dataset.ficha;
         repintaMockup(eligiendo[ficha] || eligiendoKit[ficha] || {});
       }).catch(() => {});

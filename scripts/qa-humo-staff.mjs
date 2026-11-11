@@ -60,6 +60,7 @@ async function abre(opts = {}) {
       v2_my_navigation: () => ['inicio', 'jugadores'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true })),
       v2_staff_board: () => tablero,
       v2_save_staff_member: () => { if (opts.sinGuardar) throw new Error('Could not find the function public.v2_save_staff_member'); return { id:'s-x' }; },
+      v2_link_staff_account: prm => ({ staffId: prm.staff_id, userId: prm.user_id }),
       v2_quick_add_staff: prm => ({ staffId:'s-nuevo', name: prm.full_name }),
       v2_delete_staff_member: () => ({ accessRemoved:true, files:['organizations/o/staff/s-baja/foto-1.webp'] })
     };
@@ -125,6 +126,22 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.waitForTimeout(300);
   const conCuenta = (await llamadas(p, 'v2_save_staff_member')).map(x => x.member).find(m => m.userId);
   revisa('7. un toque lo agrega con su cuenta y su puesto', conCuenta?.userId === 'u-zul' && conCuenta?.level === 'operacion', JSON.stringify(conCuenta));
+  // 11. Conectar su llave: la ficha sin cuenta elige la cuenta que ya existe.
+  await p.click('.st-seg [data-ver="organigrama"]').catch(() => {});
+  await p.click('#stOrganigrama .st-tarjeta[data-id="s-ana"]');
+  await p.waitForSelector('#fLlave', { timeout: 4000 }).catch(() => {});
+  revisa('11. la ficha sin cuenta ofrece "Conectar su llave" con las cuentas sin ficha', /Zul · Operaciones/.test(await p.textContent('#fLlave').catch(() => '')));
+  await p.click('#fConecta'); await p.waitForTimeout(150);
+  revisa('11. sin elegir, pide la cuenta', /Elige su cuenta/.test(await p.textContent('#fMsg')) && (await llamadas(p, 'v2_link_staff_account')).length === 0);
+  await p.selectOption('#fLlave', 'u-zul');
+  await p.click('#fConecta'); await p.waitForTimeout(300);
+  const con = (await llamadas(p, 'v2_link_staff_account'))[0] || {};
+  revisa('11. conecta esa ficha con esa cuenta', con.staff_id === 's-ana' && con.user_id === 'u-zul' && con.organization_id === ORG, JSON.stringify(con));
+  revisa('11. cierra y avisa', await p.isHidden('#stHoja') && /Ana Ruiz quedó conectado a la cuenta de Zul/.test(await p.textContent('#stMensaje')));
+  await p.click('#stOrganigrama .st-tarjeta[data-id="s-mich"]');
+  await p.waitForSelector('#fFicha', { timeout: 4000 }).catch(() => {});
+  revisa('11. quien ya tiene cuenta no ve "Conectar su llave"', !(await p.$('#fLlave')));
+  await p.keyboard.press('Escape').catch(() => {});
   revisa('9. nada se sale a 390px', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await p.close();
 }

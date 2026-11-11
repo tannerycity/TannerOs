@@ -36,7 +36,8 @@ async function abre({ escribe }) {
       v2_guardian_access: () => [],
       v2_category_staff: () => ({ categories: [], byUser: {} }),
       v2_staff_without_account: () => [{ id: 'st-checo', fullName: 'Checo Martínez', title: 'Formador', level: 'formador' }],
-      v2_link_staff_account: prm => ({ staffId: prm.staff_id, userId: prm.user_id })
+      v2_link_staff_account: prm => ({ staffId: prm.staff_id, userId: prm.user_id }),
+      v2_save_staff_member: () => ({ id: 'st-nuevo' })
     };
     window.__llamadas = [];
     window.__fakeSupabase = {
@@ -97,6 +98,24 @@ async function abre({ escribe }) {
   await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_link_staff_account'), null, { timeout: 4000 }).catch(() => {});
   const ll = await p.evaluate(() => window.__llamadas.filter(x => x.n === 'v2_link_staff_account').map(x => x.prm));
   revisa('[staff] al entregar la llave la conecta con su ficha', ll.length === 1 && ll[0].staff_id === 'st-checo' && ll[0].user_id === 'u-checo', JSON.stringify(ll));
+  await p.close();
+}
+{ // Alguien nuevo con llave de staff también queda en Staff (sin depender del orden).
+  const p = await abre({ escribe: true });
+  await p.waitForFunction(() => Array.isArray(window.tosAccionesDePantalla) && window.tosAccionesDePantalla.length > 0, null, { timeout: 8000 });
+  await p.click('#openCreateUser');
+  await p.waitForSelector('#wizardModal:not(.hidden)');
+  await p.fill('#whoSearch', 'Pedro Gómez');
+  await p.waitForSelector('#whoResults [data-nuevo]', { timeout: 3000 });
+  await p.click('#whoResults [data-nuevo]');
+  revisa('[nuevo] avisa que también queda en Staff', /también queda en Staff/.test(await p.textContent('#whoPicked')), await p.textContent('#whoPicked'));
+  await p.click('#wizardModal [data-rol="coach"]');
+  await p.click('#createAccess');
+  await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_save_staff_member'), null, { timeout: 4000 }).catch(() => {});
+  const fi = await p.evaluate(() => window.__llamadas.filter(x => x.n === 'v2_save_staff_member').map(x => x.prm));
+  const m = fi[0]?.member || {};
+  revisa('[nuevo] le hace su ficha de Staff conectada a la llave', fi.length === 1 && m.userId === 'u-checo' && m.fullName === 'Pedro Gómez' && m.level === 'formador' && m.title === 'Formador' && m.showToFamilies === true, JSON.stringify(fi));
+  revisa('[nuevo] no la conecta a otra ficha', !(await p.evaluate(() => window.__llamadas.some(x => x.n === 'v2_link_staff_account'))));
   await p.close();
 }
 { // Sin permiso de escritura: no se ofrece.

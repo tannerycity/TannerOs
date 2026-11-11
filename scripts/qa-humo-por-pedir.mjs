@@ -158,7 +158,9 @@ const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { c
   revisa('5. no crea el envío', (await llamadas(pg, 'v2_create_production_batch')).length === 0);
   await pg.click('.tosdlg-ok'); await pg.waitForTimeout(400);
   const textos = await pg.evaluate(() => window.__pdf?.textos || []);
-  revisa('5. el PDF dice BORRADOR y el proveedor', textos.includes('Corte BORRADOR') && textos.includes('Proveedor: Tremor'), JSON.stringify(textos.slice(0, 8)));
+  // Formato Tremor (11/11/2026): el corte y el proveedor van en el encabezado.
+  revisa('5. el PDF dice BORRADOR y el proveedor', textos.some(t => /^Corte BORRADOR/.test(t)) && textos.some(t => /Pedido al proveedor · Tremor/.test(t)), JSON.stringify(textos.slice(0, 8)));
+  revisa('5. el PDF es la tabla por diseño (JERSEY …, TALLAS, PRODUCTO, STATUS)', textos.some(t => /^JERSEY /.test(t)) && textos.includes('TALLAS') && textos.includes('PRODUCTO') && textos.includes('STATUS'), JSON.stringify(textos.slice(0, 20)));
 
   // Faltan por confirmar lleva a Revisar.
   await pg.click('[data-ir-paso="@por_validar"]'); await pg.waitForTimeout(250);
@@ -173,6 +175,12 @@ const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { c
   const h = await txt(pg, '#confHoja');
   revisa('3. la hoja enseña las piezas y que debe', /Jersey Black Edition/.test(h) && /Talla 10/.test(h) && /LEO #7/.test(h) && /Debe \$600/.test(h) && /se entrega hasta que pague/.test(h), h);
   if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/confirmar.png` });
+  // El mensaje ya armado para la familia (11/11/2026).
+  await pg.evaluate(() => { window.__abiertas = []; window.open = u => { window.__abiertas.push(u); return null; }; });
+  await pg.click('#confHoja [data-conf-wa]');
+  const wa = decodeURIComponent((await pg.evaluate(() => window.__abiertas[0] || '')).replace(/\+/g, ' '));
+  revisa('3. "Mandar mensaje para confirmar" abre WhatsApp con la familia y los datos del pedido', /wa\.me\/524770000000/.test(wa) && /Jersey Black Edition · talla 10 · LEO #7/.test(wa) && /¿Están bien las tallas, el nombre y el número\?/.test(wa), wa.slice(0, 300));
+  revisa('3. mandar el mensaje no confirma solo', (await llamadas(pg, 'v2_confirm_order')).length === 0 && await pg.isVisible('#confHoja'));
   await pg.click('#confHoja [data-conf-via="persona"]'); await pg.waitForTimeout(500);
   const c = (await llamadas(pg, 'v2_confirm_order'))[0];
   revisa('3. manda la confirmación en persona', c?.order_id === 'd1' && c?.via === 'persona', JSON.stringify(c));

@@ -49,6 +49,9 @@ function lineaDePieza(i) {
   const partes = [`${cant > 1 ? `${cant} x ` : ''}${i?.description || 'Pieza'}`];
   if (talla) partes.push(`talla ${talla}`);
   if (espalda) partes.push(espalda);
+  // La manga también se confirma (11/11/2026): el proveedor la corta distinto.
+  if (a.manga === 'larga') partes.push('manga larga');
+  else if (a.manga === 'corta') partes.push('manga corta');
   return `- ${partes.join(' · ')}`;
 }
 

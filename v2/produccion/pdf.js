@@ -21,7 +21,7 @@ import { hojaPorProducto, hojaProveedor, nombreDeArchivoHoja } from '/v2/producc
 import { coloresDePlayera } from '/v2/jersey-mockup.js';
 
 const C = { marca: [11, 61, 74], oro: [198, 172, 92], tinta: [11, 20, 24], gris: [110, 123, 128], suave: [244, 246, 245],
-  linea: [223, 229, 228], blanco: [255, 255, 255], alerta: [178, 74, 20] };
+  linea: [223, 229, 228], blanco: [255, 255, 255], alerta: [178, 74, 20], ok: [22, 128, 61], okSuave: [222, 245, 230], debeSuave: [253, 232, 228], debe: [180, 40, 30] };
 const TIPO = { jersey: 'PLAYERA', short: 'SHORT', calcetas: 'CALCETAS', otra: 'PIEZA' };
 
 function fecha(v, conHora = false) {
@@ -72,7 +72,7 @@ function pastilla(doc, texto, x, y, { fondo = C.suave, tinta = C.tinta, tam = 9 
    desglose todo así para ya mandar". Una tabla por diseño de jersey, con su
    foto al lado; un renglón por playera: ID, NOMBRE, NÚMERO, talla de PLAYERA,
    talla de SHORT, PRODUCTO (UNIFORME = jersey + short + medias; JERSEY =
-   sólo jersey), COMENTARIOS (manga larga) y STATUS para palomear. Al final,
+   sólo jersey), COMENTARIOS (manga larga) y PAGO. Al final,
    shorts y medias sueltos por talla. La talla nunca va escrita en
    comentarios: vive en su columna. */
 const COLS = [
@@ -83,9 +83,28 @@ const COLS = [
   { k: 'tallaShort', t: 'SHORT', w: 48, centro: true, grupo: 'TALLAS' },
   { k: 'producto', t: 'PRODUCTO', w: 214 },
   { k: 'comentarios', t: 'COMENTARIOS', w: 104 },
-  { k: 'status', t: 'STATUS', w: 44, centro: true }
+  { k: 'pago', t: 'PAGO', w: 62, centro: true }
 ];
-export async function hojaPdf({ sheet, orgName, fotos = {}, jsPDF = null }) {
+/* PAGO en vez de un cuadro para palomear (11/11/2026). Presidencia: "que
+   dijera pagado, no pagado, para darle seguimiento". Sólo la palabra, sin
+   montos: el PDF puede llegar al proveedor. `pagos` es { folio: true|false };
+   sin dato (envíos viejos) se deja en blanco. */
+function etiquetaPago(doc, x, y, w, pagado) {
+  if (pagado === undefined || pagado === null) return;
+  const t = pagado ? 'PAGADO' : 'PENDIENTE', ww = w - 10;
+  doc.setFillColor(...(pagado ? C.okSuave : C.debeSuave)); doc.roundedRect(x + 5, y + 3.5, ww, 11, 5.5, 5.5, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8); doc.setTextColor(...(pagado ? C.ok : C.debe));
+  doc.text(t, x + w / 2, y + 11.3, { align: 'center' });
+  doc.setTextColor(...C.tinta);
+}
+/* Cuántas por talla de playera, en una línea bajo el título del diseño: el
+   proveedor corta por talla. */
+function porTalla(renglones) {
+  const m = new Map();
+  renglones.forEach(r => { const t = String(r.tallaJersey || 'Sin talla').trim(); m.set(t, (m.get(t) || 0) + 1); });
+  return [...m].map(([t, n]) => `${t}: ${n}`).join('   ');
+}
+export async function hojaPdf({ sheet, orgName, fotos = {}, pagos = null, jsPDF = null }) {
   const Doc = jsPDF || (await import('https://esm.sh/jspdf@2.5.2')).jsPDF;
   const doc = new Doc({ unit: 'pt', format: 'letter', orientation: 'landscape' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 28;
@@ -107,7 +126,10 @@ export async function hojaPdf({ sheet, orgName, fotos = {}, jsPDF = null }) {
   };
   let y = encabezado();
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...C.gris);
-  doc.text('UNIFORME = jersey, short y medias.   JERSEY = sólo el jersey.   STATUS: palomea cuando la pieza esté lista.', M, y); y += 14;
+  const pagoDe = r => (pagos && r.folio && Object.prototype.hasOwnProperty.call(pagos, r.folio)) ? !!pagos[r.folio] : undefined;
+  const todos = h.disenos.flatMap(d => d.renglones), conPago = todos.filter(r => pagoDe(r) !== undefined);
+  const nPag = conPago.filter(r => pagoDe(r)).length, nPen = conPago.length - nPag;
+  doc.text(`UNIFORME = jersey, short y medias.   JERSEY = sólo el jersey.${conPago.length ? `   PAGO: ${nPag} ${nPag === 1 ? 'pagada' : 'pagadas'} · ${nPen} ${nPen === 1 ? 'pendiente' : 'pendientes'}.` : ''}`, M, y); y += 14;
   if (b.notes) { const n = doc.splitTextToSize(`Notas: ${String(b.notes)}`, W - 2 * M); doc.setTextColor(...C.alerta); doc.text(n, M, y); y += n.length * 11 + 4; }
 
   const cabezaTabla = () => {
@@ -139,7 +161,10 @@ export async function hojaPdf({ sheet, orgName, fotos = {}, jsPDF = null }) {
     // La tabla entera en una página si cabe; si no, al menos título y 3 renglones.
     if (alto > cabe && (alto <= pagina || 22 + 28 + 3 * ALTO > cabe)) { doc.addPage(); y = encabezado(); }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...C.tinta);
-    doc.text(d.titulo, M, y + 14); y += 22;
+    doc.text(d.titulo, M, y + 14);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...C.gris);
+    doc.text(`${d.renglones.length} ${d.renglones.length === 1 ? 'pieza' : 'piezas'}  ·  ${porTalla(d.renglones)}`, M + doc.getTextWidth(d.titulo) * 12 / 8.5 + 14, y + 14);
+    y += 22;
     const yTabla = y;
     // La foto del diseño, a la derecha del título (misma página).
     if (anchoFoto > 60) {
@@ -155,12 +180,12 @@ export async function hojaPdf({ sheet, orgName, fotos = {}, jsPDF = null }) {
       if (i % 2) { doc.setFillColor(...C.suave); doc.rect(M, y, anchoTabla, ALTO, 'F'); }
       doc.setTextColor(...C.tinta); let x = M;
       const v = { id: i + 1, nombre: String(r.nombre || '').toUpperCase(), numero: r.numero, tallaJersey: r.tallaJersey, tallaShort: r.tallaShort,
-        producto: r.producto, comentarios: r.comentarios, status: '' };
+        producto: r.producto, comentarios: r.comentarios, pago: '' };
       for (const c of COLS) {
         if (c.k === 'comentarios' && /manga larga/i.test(v.comentarios || '')) doc.setTextColor(...C.alerta);
         celda(v[c.k], c, x, c.k === 'nombre' || c.k === 'numero' || (c.k === 'producto' && r.uniforme));
         doc.setTextColor(...C.tinta);
-        if (c.k === 'status') cuadro(doc, x + c.w / 2 - 5, y + 4, 10);
+        if (c.k === 'pago') etiquetaPago(doc, x, y, c.w, pagoDe(r));
         x += c.w;
       }
       rejilla(y, y + ALTO);

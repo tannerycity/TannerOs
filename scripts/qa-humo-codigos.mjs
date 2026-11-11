@@ -161,7 +161,6 @@ await pg.fill('#tannerNombre', 'Leo Ávila');
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.fill('#customerPhone', '4771234567');
 await pg.check('#orderDataConsent');
-await pg.check('#orderPickup');
 await pg.click('#submitOrder');
 await pg.waitForSelector('.success', { timeout: 4000 });
 const envio = llamadas.find(c => c.n === 'v2_public_cart_order');

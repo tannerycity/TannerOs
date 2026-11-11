@@ -56,6 +56,9 @@ const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_pu
 // De qué club es esta tienda: ?club=<slug>; sin él, Tannery (v2/club-publico.js).
 const CLUB_KEY = llaveDeLiga();
 let clubNombre = '';
+/* Un solo nombre (11/11/2026): "Tienda oficial <club>" en el título, el
+   encabezado, el recibo y la tienda interna. */
+const nombreTienda = () => clubNombre ? `Tienda oficial ${clubNombre}` : 'Tienda oficial';
 const PRIVACY_NOTICE_VERSION = '2026-08-19-v1';
 const $ = id => document.getElementById(id);
 const regions = new Intl.DisplayNames(['es-MX', 'es'], { type: 'region' });
@@ -255,6 +258,7 @@ let avisoTimer = 0;
    detalle y precio) y los dos caminos claros: seguir o ver el pedido. Abajo
    en el celular, arriba a la derecha en compu. */
 function agregado({ foto = '', titulo, detalle = '', precio = null, otro = false }) {
+  if (irAPagar) { irAPagar = false; location.hash = '#/pedido'; return; }
   const el = $('stAviso');
   const n = piezasDelCarrito(carrito), total = totalDelCarrito(carrito);
   el.innerHTML = `<div class="st-ag" role="dialog" aria-label="Va en tu pedido">
@@ -388,9 +392,13 @@ function bloquePersonaliza(e, nombreProducto = '', r = 0, conManga = true, kit =
 function bloqueManga(e, r = 0) {
   return `<section class="st-bloque"><div class="st-bloque-cab"><h2>Manga</h2></div>${botonesManga(e, r)}</section>`;
 }
+/* Comprar ahora (11/11/2026): quien compra una sola cosa se va directo a
+   pagar, sin pasar por "Va en tu pedido". */
+let irAPagar = false;
 function barraAgregar(texto, motivo) {
   return `<div class="st-agregar"><p class="st-motivo" role="alert">${esc(motivo || '')}</p>
-    <button type="button" id="stAgregar" class="st-cta">${esc(texto)}</button></div>`;
+    <div class="st-agregar-acc"><button type="button" id="stAgregar" class="st-cta">${esc(texto)}</button>
+    <button type="button" id="stComprarYa" class="st-cta st-cta-ya">Comprar ahora</button></div></div>`;
 }
 function botonesTalla(tallas, elegida, atributo) {
   return gruposDeTallas(tallas).map(g => `${g.etiqueta ? `<p class="st-grupo">${g.etiqueta}</p>` : ''}<div class="st-tallas">`
@@ -587,6 +595,14 @@ const PASOS_TIENDA = `<ol class="st-pasos" aria-label="Así funciona">
    de compu, a lo ancho, y si no, la de celular a un lado con el texto. El
    texto va encima en letra real, no pegado en la imagen. */
 let carruselTimer = 0;
+/* La fecha de corte (11/11/2026): el pedido sale al proveedor los viernes.
+   Se dice a qué viernes entra lo que se pide hoy (hora del centro de México). */
+function corteHtml() {
+  const hoy = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+  const faltan = (5 - hoy.getDay() + 7) % 7, v = new Date(hoy); v.setDate(hoy.getDate() + faltan);
+  const dia = faltan === 0 ? 'hoy viernes' : faltan === 1 ? 'mañana viernes' : `el viernes ${new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(v).replace('.', '')}`;
+  return `<p class="st-corte"><span class="st-corte-punto" aria-hidden="true"></span><span>Pide antes de <b>${dia}</b> y entra en el siguiente envío al proveedor.</span></p>`;
+}
 function franjaHtml() {
   const f = vitrina.franja; if (!f?.title) return '';
   return `<a class="st-franja" href="${esc(destinoDe(f, catalogo))}">${esc(f.title)}${f.ctaLabel ? ` <b>${esc(f.ctaLabel)} ›</b>` : ''}</a>`;
@@ -629,7 +645,7 @@ function armaCarrusel() {
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
   const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
-  document.title = activa ? `${etiquetaDe(activa)} · Tienda Tanner` : (clubNombre ? `Tienda · ${clubNombre}` : 'Tienda');
+  document.title = activa ? `${etiquetaDe(activa)} · ${nombreTienda()}` : nombreTienda();
   if (!secciones.length) {
     $('content').innerHTML = `<div class="empty-state"><h2>La tienda está vacía</h2>
       <p class="muted">Todavía no hay nada publicado. Escríbenos y te decimos qué sigue.</p></div>`;
@@ -637,7 +653,7 @@ function renderTienda(clave = '') {
   }
   /* Dos caminos (09/10/2026): la familia con cuenta entra y ya trae sus datos
      y su Tanner; quien no tiene cuenta compra aquí mismo. */
-  $('content').innerHTML = `${franjaHtml()}${activa ? '' : carruselHtml()}
+  $('content').innerHTML = `${franjaHtml()}${activa ? '' : carruselHtml()}${corteHtml()}
     <section class="st-hero${activa ? '' : ' portada'}">
       ${activa ? '' : '<img class="st-hero-escudo" src="/brand/crest-navy.png" alt="" width="120" height="120">'}
       <p class="st-eyebrow">${esc(clubNombre)}</p>
@@ -667,7 +683,7 @@ function renderProducto(id) {
   const cat = categoriaDe(p), unica = tallaUnica(p), tallas = tallasDe(p);
   const varias = admiteVariasTallas(p), cants = e.cantidades || {};
   const multi = varias ? preparaLineasPorTalla(p, { cantidades: cants, manga: e.manga }) : null;
-  document.title = `${p.name} · Tienda Tanner`;
+  document.title = `${p.name} · ${nombreTienda()}`;
   $('content').innerHTML = `
     <a class="st-volver" href="#/c/${esc(cat)}">‹ ${esc(etiquetaDe(cat))}</a>
     <article class="st-pdp" data-ficha="${esc(p.id)}">
@@ -742,7 +758,7 @@ function renderKit(id) {
   const tiers = tiersDeKit(k);
   if (!e.tier && tiers.length === 1) e.tier = tiers[0];
   const pr = precioDeTarjeta(k);
-  document.title = `${k.name} · Tienda Tanner`;
+  document.title = `${k.name} · ${nombreTienda()}`;
   const ranuras = ranurasDeKit(k);
   $('content').innerHTML = `
     <a class="st-volver" href="#/c/kits">‹ Kits</a>
@@ -932,6 +948,7 @@ function cablea() {
       repinta(renderKit, ficha); return;
     }
     if (t.closest('#stAgregar') && ficha) { esKit ? agregaKit(ficha) : agregaProducto(ficha); return; }
+    if (t.closest('#stComprarYa') && ficha) { irAPagar = true; esKit ? agregaKit(ficha) : agregaProducto(ficha); setTimeout(() => { irAPagar = false; }, 0); return; }
   });
   // Lo que se escribe se guarda al vuelo: si se toca Agregar sin salir del
   // campo, el nombre ya está.
@@ -1212,7 +1229,7 @@ function cableaExtras() {
 function renderCheckout() {
   if (!piezasDelCarrito(carrito)) { location.replace('#/'); return; }
   pintaBarra(false);
-  document.title = 'Tu pedido · Tienda Tanner';
+  document.title = `Tu pedido · ${nombreTienda()}`;
   /* El pedido (27/10/2026). Presidencia: "estos checkbox están horribles...
      rediséñalo como un experto en UX". En compu, dos columnas: a la
      izquierda lo que se llena (algo más, tus datos, aceptar) y a la derecha
@@ -1250,15 +1267,14 @@ function renderCheckout() {
                 <textarea id="orderNotes" rows="2" maxlength="500" placeholder="Algo que debamos saber (opcional)"></textarea></details>
             </div></section>
           <fieldset class="st-co-card st-acepto"><legend class="st-co-tit">Antes de confirmar</legend>
+            <!-- Una sola casilla (11/11/2026): antes eran dos obligatorias. -->
             <label class="st-check"><input id="orderDataConsent" type="checkbox" required>
-              <span>Acepto el <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a>: ${esc(clubNombre || 'el club')} usa mis datos sólo para mi pedido, el pago y la entrega.</span></label>
-            <label class="st-check st-plazo"><input id="orderPickup" type="checkbox" required>
-              <span>Tengo <b>${DIAS_PARA_RECOGER} días</b> para recoger mi pedido desde que me avisen que llegó. Después, el club ya no se hace responsable de la prenda.</span></label>
+              <span>Acepto el <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">aviso de privacidad</a> (${esc(clubNombre || 'el club')} usa mis datos sólo para mi pedido, el pago y la entrega) y que tengo <b>${DIAS_PARA_RECOGER} días</b> para recoger mi pedido desde que me avisen que llegó.</span></label>
             <small class="st-acepto-version">Aviso de privacidad ${PRIVACY_NOTICE_VERSION}</small>
           </fieldset>
           <div id="formMessage" class="message hidden"></div>
           <button id="submitOrder" class="st-cta st-co-confirmar" type="submit">${textoConfirmar()}</button>
-          <p class="st-co-seguro">Al confirmar ves la CLABE y tu referencia para pagar.</p>
+          <p class="st-co-seguro">Al confirmar ves la CLABE y tu referencia para pagar.</p>${corteHtml()}
         </form>
       </div>
     </div>`;
@@ -1339,8 +1355,7 @@ async function submit(e) {
   const tannerNombre = ($('tannerNombre')?.value || '').trim().replace(/\s+/g, ' ');
   if (paraQuien === 'tanner' && !/\S{2,}\s+\S{2,}/.test(tannerNombre)) return falta($('tannerNombre'), 'Escribe nombre y apellido del Tanner (o elige "No es para un Tanner").');
   if ($('customerName').value.trim().length < 2) return falta($('customerName'), 'Escribe el nombre de quien recibe.');
-  if (!$('orderDataConsent').checked) return falta($('orderDataConsent'), 'Necesitamos tu autorización de datos para gestionar el pedido.');
-  if (!$('orderPickup').checked) return falta($('orderPickup'), `Confirma que tienes ${DIAS_PARA_RECOGER} días para recoger tu pedido.`);
+  if (!$('orderDataConsent').checked) return falta($('orderDataConsent'), `Acepta el aviso de privacidad y los ${DIAS_PARA_RECOGER} días para recoger para confirmar tu pedido.`);
   const btn = $('submitOrder');
   let phone;
   try { phone = validatePhone(true); } catch (err) { return falta($('customerPhone'), err.message); }
@@ -1398,7 +1413,7 @@ async function submit(e) {
  * va y su premio, sin nombres de clientes. Y el botón para compartirlo. */
 async function renderEmbajador(token) {
   pintaBarra(false);
-  document.title = 'Mis ventas · Tienda Tanner';
+  document.title = `Mis ventas · ${nombreTienda()}`;
   $('content').innerHTML = '<p class="muted st-emb-cargando">Cargando tus ventas…</p>';
   let d;
   try { d = await rpc('v2_public_code_stats', { token }); }
@@ -1475,7 +1490,7 @@ function renderVueltaDePago(folio, estado) {
     <a class="st-sigue-portal" href="/familias/">Síguelo paso a paso en tu portal de familia</a>
     <a class="st-volver" href="#/">‹ Seguir comprando</a>`;
   $('pagarEnLinea')?.addEventListener('click', () => pagaEnLinea(mismo));
-  document.title = `${t.h} · Tienda Tanner`;
+  document.title = `${t.h} · ${nombreTienda()}`;
   window.scrollTo(0, 0);
 }
 
@@ -1511,9 +1526,9 @@ function renderRecibo(folio) {
 function renderMisPedidos() {
   pintaBarra(false);
   const lista = misRecibos();
-  document.title = 'Mis pedidos · Tienda Tanner';
+  document.title = `Mis pedidos · ${nombreTienda()}`;
   $('content').innerHTML = `<section class="st-mis">
-    <p class="st-eyebrow">Tienda Tanner</p><h1 class="st-titulo">Mis pedidos</h1>
+    <p class="st-eyebrow">Tienda oficial</p><h1 class="st-titulo">Mis pedidos</h1>
     <p class="muted">Los que hiciste desde este celular. Toca uno para ver tu recibo, cómo pagar y guardarlo como imagen.</p>
     ${lista.length ? `<ul class="st-mis-lista">${lista.map(r => `<li><a href="#/recibo/${esc(encodeURIComponent(r.folio))}">
       <span class="st-mis-folio">${esc(r.folio)}</span><span class="st-mis-dato">${esc(fechaCorta(r.fecha))} · ${(r.lineas || []).reduce((a, l) => a + Number(l.cantidad || 1), 0) || ''} ${(r.lineas || []).length ? 'piezas' : ''}</span>
@@ -1536,7 +1551,7 @@ function pintaRecibo(recibo, nuevo) {
   $('content').innerHTML = `<section class="st-recibo">
     <div class="success st-recibo-hero">
       <img class="st-recibo-escudo" src="/brand/crest-gold.png" alt="" width="64" height="64">
-      <p class="st-recibo-eyebrow">Tienda Tanner</p>
+      <p class="st-recibo-eyebrow">Tienda oficial</p>
       <h2>Pedido recibido</h2>
       <p class="st-recibo-gracias">${recibo.nombre ? `Gracias por vestir los colores, ${esc(primerNombre(recibo))}.` : 'Gracias por vestir los colores.'}</p>
       ${folio ? `<div class="st-boleto"><span>Folio</span><div class="folio">${esc(folio)}</div><small>${esc(fechaCorta(recibo.fecha))}</small></div>` : ''}
@@ -1584,7 +1599,7 @@ function pintaRecibo(recibo, nuevo) {
     const texto = textoParaMi({ recibo, pago, liga: ligaDelRecibo(folio), club: clubNombre || 'Tannery City' });
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
   });
-  document.title = `${nuevo ? 'Pedido recibido' : `Pedido ${folio}`} · Tienda Tanner`;
+  document.title = `${nuevo ? 'Pedido recibido' : `Pedido ${folio}`} · ${nombreTienda()}`;
   window.scrollTo(0, 0);
 }
 /* La imagen del recibo: en el teléfono se comparte (Guardar imagen / Fotos);

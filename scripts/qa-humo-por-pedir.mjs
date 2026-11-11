@@ -98,6 +98,7 @@ const CLIENTE = etapas => `
       if(n==='v2_order_detail')return ok(${JSON.stringify(DET)}[p.order_id]);
       if(n==='v2_order_player')return ok({linked:null,canWrite:true,suggestions:[]});
       if(n==='v2_order_staff')return ok([]);
+      if(n==='v2_order_confirm_link')return ok({token:'k'.repeat(64)});
       if(n==='v2_confirm_order'){ET[p.order_id]={...ET[p.order_id],stage:p.via?'para_proveedor':'por_validar',confirmado:p.via?{via:p.via,at:new Date().toISOString(),vigente:true}:null};return ok(ET[p.order_id]);}
       if(n==='v2_orders_sheet')return ok({batch:{id:null,folio:'BORRADOR',supplierName:null,submittedOn:'2026-11-03',status:'draft',notes:null},
         items:p.order_ids.map(id=>({itemId:'i-'+id,orderId:id,orderFolio:'PED-'+id,customerName:'x',description:'Jersey Black Edition',quantity:1,talla:'10',numero:'7',nombrePers:'LEO',manga:'corta',categoria:'jersey',productName:'Jersey Black Edition'}))});
@@ -210,6 +211,7 @@ const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { c
   await pg.click('#confHoja [data-conf-wa]');
   const wa = decodeURIComponent((await pg.evaluate(() => window.__abiertas[0] || '')).replace(/\+/g, ' '));
   revisa('3. "Mandar mensaje para confirmar" abre WhatsApp con la familia y los datos del pedido', /wa\.me\/524770000000/.test(wa) && /Jersey Black Edition · talla 10 · LEO #7/.test(wa) && /¿Están bien las tallas, el nombre y el número\?/.test(wa), wa.slice(0, 300));
+  revisa('3. el mensaje lleva la liga para que la familia confirme en un toque', /Confírmalo aquí con un toque/.test(wa) && wa.includes('/tienda/#/confirma/' + 'k'.repeat(64)), wa.slice(-160));
   revisa('3. mandar el mensaje no confirma solo', (await llamadas(pg, 'v2_confirm_order')).length === 0 && await pg.isVisible('#confHoja'));
   await pg.click('#confHoja [data-conf-via="persona"]'); await pg.waitForTimeout(500);
   const c = (await llamadas(pg, 'v2_confirm_order'))[0];

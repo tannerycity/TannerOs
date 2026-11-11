@@ -1370,6 +1370,7 @@ function ruta() {
   const [a, b] = h.split('/');
   const cambia = h !== rutaPrevia; rutaPrevia = h;
   if (a === 'embajador' && b) renderEmbajador(decodeURIComponent(b));
+  else if (a === 'confirma' && b) renderConfirma(decodeURIComponent(b));
   else if (a === 'p' && b) renderProducto(decodeURIComponent(b));
   else if (a === 'k' && b) renderKit(decodeURIComponent(b));
   else if (a === 'pedido') renderCheckout();
@@ -1460,6 +1461,52 @@ async function submit(e) {
 /* ---------- La liga del embajador (26/10/2026, h46) ----------
  * "Que vea sus ventas y que gane algo": cuántas compras con su código, cuánto
  * va y su premio, sin nombres de clientes. Y el botón para compartirlo. */
+/* La familia confirma en un toque (11/11/2026, h87). La liga llega en el
+   WhatsApp del club: ve lo que pidió y toca "Sí, todo está bien" o dice qué
+   cambiar. Sin datos personales: folio, primer nombre y las piezas. */
+async function renderConfirma(token, recien = null) {
+  pintaBarra(false);
+  document.title = `Confirma tu pedido · ${nombreTienda()}`;
+  if (!recien) $('content').innerHTML = '<p class="muted st-emb-cargando">Cargando tu pedido…</p>';
+  let d = recien;
+  if (!d) { try { d = await rpc('v2_public_order_to_confirm', { token }); } catch { d = null; } }
+  if (!d) {
+    $('content').innerHTML = `<div class="empty-state"><h2>Esta liga ya no sirve</h2>
+      <p class="muted">Escríbele al club por WhatsApp y te ayudamos.</p><a class="st-cta" href="#/">Ir a la tienda</a></div>`;
+    return;
+  }
+  const lineas = (d.items || []).map(i => `<li><strong>${Number(i.cantidad || 1) > 1 ? `${Number(i.cantidad)} × ` : ''}${esc(i.descripcion || '')}</strong>
+    <span>${esc([i.talla && `Talla ${i.talla}`, i.manga === 'larga' ? 'Manga larga' : i.manga === 'corta' ? 'Manga corta' : '', i.nombre && `Nombre ${String(i.nombre).toUpperCase()}`, i.numero && `#${i.numero}`].filter(Boolean).join(' · '))}</span></li>`).join('');
+  const estado = d.estado === 'confirmado'
+    ? `<div class="st-conf-ok"><span class="tos-icon tos-icon-check" aria-hidden="true"></span><div><strong>¡Listo, quedó confirmado!</strong><small>Gracias${d.cliente ? `, ${esc(d.cliente)}` : ''}. Te avisamos por WhatsApp cuando llegue.</small></div></div>`
+    : d.estado === 'cambio'
+      ? `<div class="st-conf-cambio"><strong>Recibimos tu cambio</strong><small>«${esc(d.cambio || '')}» · El club lo revisa y te escribe.</small></div>`
+      : d.estado === 'cerrado'
+        ? `<div class="st-conf-cambio"><strong>Este pedido ya se mandó al proveedor</strong><small>Para cualquier cambio, escríbele al club.</small></div>` : '';
+  const acciones = d.estado === 'pendiente' || d.estado === 'cambio' ? `
+    <button type="button" class="st-cta" data-conf="ok">Sí, todo está bien</button>
+    <button type="button" class="st-cta st-cta-ya" data-conf-abre>${d.estado === 'cambio' ? 'Cambiar otra cosa' : 'Necesito cambiar algo'}</button>
+    <div class="st-conf-nota hidden" id="stConfNota"><label class="st-campo"><span>¿Qué quieres cambiar?</span>
+      <textarea id="stConfTexto" rows="3" maxlength="500" placeholder="Ej. La talla del jersey es 12, no 10"></textarea></label>
+      <button type="button" class="st-cta" data-conf="cambio">Mandar el cambio</button></div>
+    <p class="st-motivo" id="stConfMsg" role="alert"></p>` : '';
+  $('content').innerHTML = `<section class="st-conf">
+    <p class="st-eyebrow">${esc(d.club || clubNombre || 'Tienda oficial')}</p>
+    <h1 class="st-titulo">${d.estado === 'pendiente' ? `${d.cliente ? `${esc(d.cliente)}, ¿` : '¿'}está bien tu pedido?` : `Pedido ${esc(d.folio || '')}`}</h1>
+    <p class="muted">Folio ${esc(d.folio || '')}${d.total != null ? ` · ${money.format(Number(d.total))}` : ''}. Revisa tallas, nombre y número: lo estampado no tiene cambio.</p>
+    ${estado}
+    <ul class="st-conf-lista">${lineas}</ul>
+    ${acciones}</section>`;
+  $('content').onclick = async e => {
+    if (e.target.closest('[data-conf-abre]')) { $('stConfNota').classList.remove('hidden'); $('stConfTexto').focus(); return; }
+    const b = e.target.closest('[data-conf]'); if (!b) return;
+    const decision = b.dataset.conf, nota = decision === 'cambio' ? $('stConfTexto').value.trim() : null;
+    if (decision === 'cambio' && (!nota || nota.length < 3)) { $('stConfMsg').textContent = 'Escribe qué quieres cambiar.'; return; }
+    b.disabled = true;
+    try { const r = await rpc('v2_public_confirm_order', { token, decision, nota }); renderConfirma(token, r); }
+    catch (err) { b.disabled = false; $('stConfMsg').textContent = err?.message || 'No se pudo guardar. Intenta otra vez.'; }
+  };
+}
 async function renderEmbajador(token) {
   pintaBarra(false);
   document.title = `Mis ventas · ${nombreTienda()}`;

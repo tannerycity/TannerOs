@@ -263,7 +263,15 @@ function barraNumero(o){
    hay que volver a confirmar. Mientras la base no conteste "confirmado", todo
    sigue como antes (número por confirmar). */
 const ABIERTOS=['draft','pending_payment','partial_payment','paid'];
-const COMO={grupo:'en el grupo',persona:'en persona'};
+const COMO={grupo:'en el grupo',persona:'en persona',familia:'por la familia'};
+/* La familia confirma en un toque (11/11/2026, h87): el mensaje para
+   confirmar lleva la liga única del pedido. Se pide al abrir la hoja o el
+   pedido para que el WhatsApp salga en el mismo toque (el teléfono no deja
+   abrir ventanas después de esperar a la base). Sin h87, el mensaje va sin
+   liga, como antes. */
+const ligasConf={};
+function pideLigaConf(id){if(!canWrite||!id||id in ligasConf)return;ligasConf[id]=null;rpc('v2_order_confirm_link',{organization_id:ctx.organization_id,order_id:id}).then(r=>{if(r?.token)ligasConf[id]=`${location.origin}/tienda/#/confirma/${r.token}`;}).catch(()=>{});}
+const conLigaConf=(texto,id)=>ligasConf[id]?`${texto}\n\nConfírmalo aquí con un toque (o dinos qué cambiar):\n${ligasConf[id]}`:texto;
 const hayConfirmacion=()=>Object.values(etapas).some(e=>e&&typeof e==='object'&&'confirmado' in e);
 const confDe=o=>etapas[o.id]?.confirmado||null;
 const diaConf=v=>{const t=v?new Date(v):null;return t&&Number.isFinite(t.getTime())?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short'}).format(t):'';};
@@ -271,12 +279,14 @@ function barraConfirma(o){
   if(!hayConfirmacion())return barraNumero(o);
   if(!vigente(o)||!ABIERTOS.includes(o.status))return '';
   const c=confDe(o);
+  const cambio=etapas[o.id]?.cambio;
+  if(cambio?.nota)return `<div class="order-num pendiente cambio"><span>La familia pidió un cambio: «${esc(String(cambio.nota).slice(0,120))}»</span>${canWrite?`<button type="button" class="t-pill-btn" data-confirma-pedido="${esc(o.id)}">Ya quedó</button>`:''}</div>`;
   if(c?.vigente)return `<div class="order-num ok"><span>Confirmado ${esc(COMO[c.via]||'')}${c.at?` · ${esc(diaConf(c.at))}`:''}</span>${canWrite?`<button type="button" class="t-link" data-desconfirma="${esc(o.id)}">Quitar</button>`:''}</div>`;
   return `<div class="order-num pendiente"><span>${c?'Cambió el pedido: confírmalo otra vez':'Falta confirmar con la familia'}</span>${canWrite?`<button type="button" class="t-pill-btn" data-confirma-pedido="${esc(o.id)}">Confirmar</button>`:''}</div>`;
 }
 let antesDeConf='';
 function cierraConfirmar(){if(!$('confHoja'))return;$('confHoja').remove();$('confFondo')?.remove();document.body.style.overflow=antesDeConf;}
-function abreConfirmar(o){
+function abreConfirmar(o){pideLigaConf(o.id);
   cierraConfirmar();
   const t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',debe=saldoDe(o);
   antesDeConf=document.body.style.overflow;
@@ -301,7 +311,7 @@ function abreConfirmar(o){
        familia y se marca con "Sí, en el grupo" o "Sí, en persona". */
     if(e.target.closest('[data-conf-wa]')){
       const piezas=items.map(i=>({description:i.description,quantity:i.quantity,attributes:{talla:i.talla,nombrePers:i.nombre,numero:i.numero,manga:i.manga}}));
-      const texto=mensajeConfirmacion({order:o,items:piezas,info:clubCfg?.paymentInstructions,club:clubCfg?.name||ctx.organization_name||'el club',yo:ctx.display_name});
+      const texto=conLigaConf(mensajeConfirmacion({order:o,items:piezas,info:clubCfg?.paymentInstructions,club:clubCfg?.name||ctx.organization_name||'el club',yo:ctx.display_name}),o.id);
       const url=ligaWhatsApp(o.customer_phone,texto);if(url)window.open(url,'_blank','noopener');
       return;
     }
@@ -1137,7 +1147,7 @@ async function pintaPremioKit(d){
     catch(err){b.disabled=false;b.textContent='Aplicar código';box.insertAdjacentHTML('beforeend',`<small class="order-premio-error">${esc(String(err?.message||'No se pudo aplicar.'))}</small>`);}
   });
 }
-async function openOrder(o){
+async function openOrder(o){if(o&&ABIERTOS.includes(o.status))pideLigaConf(o.id);
   current=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,current);otroPagador=false;
   const d=current.order;
   $('orderFolio').textContent=d.folio;
@@ -1219,7 +1229,7 @@ async function revisaNumeros(d){
 async function markReviewed(){if(!current||!canWrite)return;const id=current.order.id;try{await rpc('v2_mark_order_reviewed',{organization_id:ctx.organization_id,order_id:id});porRevisar.delete(id);await refreshCurrent(id);msg('Pedido confirmado.','success');}catch(e){reviewMsg(e.message||'No se pudo marcar como revisado.');}}
 /* La ventana de WhatsApp se abre en el mismo toque (si no, el navegador del
    teléfono la bloquea) y después se marca revisado. */
-function confirmWhatsApp(){if(!current||!canWrite)return;const d=current.order;const texto=mensajeConfirmacion({order:d,items:current.items||[],info:clubCfg?.paymentInstructions,club:clubCfg?.name||ctx.organization_name||'el club',yo:ctx.display_name});const url=ligaWhatsApp(d.customer_phone,texto);if(!url)return;window.open(url,'_blank','noopener');markReviewed();}
+function confirmWhatsApp(){if(!current||!canWrite)return;const d=current.order;const texto=conLigaConf(mensajeConfirmacion({order:d,items:current.items||[],info:clubCfg?.paymentInstructions,club:clubCfg?.name||ctx.organization_name||'el club',yo:ctx.display_name}),d.id);const url=ligaWhatsApp(d.customer_phone,texto);if(!url)return;window.open(url,'_blank','noopener');markReviewed();}
 function close(){current=null;$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');msg();payMsg();}async function refreshCurrent(orderId){details.delete(orderId);await load();const o=orders.find(x=>x.id===orderId);if(o)await openOrder(o);else close();}
 async function saveItem(row){if(!current||!canManage||!row)return;
   if(tienePagos()){const v=c=>row.querySelector(c).value.trim()||null;

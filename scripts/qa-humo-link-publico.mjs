@@ -569,6 +569,45 @@ revisa('[liga] una liga que no existe abre la portada, sin error', await pg.eval
   await p4.close();
 }
 
+/* ===== La familia confirma en un toque (11/11/2026, h87) ===== */
+{
+  const p5 = await nav.newPage({ viewport:{ width:390, height:844 } });
+  p5.on('pageerror', e => errs.push('confirma: ' + e.message));
+  await p5.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
+  await p5.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function AsYouType(){return{input:v=>v}} export function getCountries(){return["MX"]} export function getCountryCallingCode(){return "52"} export function parsePhoneNumberFromString(v){return{isValid:()=>true,formatInternational:()=>v,number:v};}' }));
+  await p5.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+    window.__conf=[];
+    const base={folio:'PED-2026-00031',cliente:'Ana',club:'Club QA',total:1398,estado:'pendiente',items:[{descripcion:'Jersey Wet Blue',cantidad:1,talla:'10',nombre:'Leo',numero:'24',manga:'larga'}]};
+    export function createClient(){return{
+      auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+      storage:{from:()=>({createSignedUrls:async(ps)=>({data:ps.map(p=>({path:p,signedUrl:'/qa-foto/x'})),error:null})})},
+      rpc:async(n,p={})=>{
+        if(n==='v2_public_offerings')return{data:${JSON.stringify(OFERTA)},error:null};
+        if(n==='v2_public_payment_info')return{data:${JSON.stringify(PAGO)},error:null};
+        if(n==='v2_public_context')return{data:{organizationId:'org-qa',brand:'Club QA'},error:null};
+        if(n==='v2_public_order_to_confirm')return{data:p.token==='t'.repeat(64)?base:null,error:null};
+        if(n==='v2_public_confirm_order'){window.__conf.push(p);return{data:p.decision==='ok'?{...base,estado:'confirmado'}:{...base,estado:'cambio',cambio:p.nota},error:null};}
+        return {data:null,error:null};}};}` }));
+  await p5.goto(BASE + '/pedido/#/confirma/' + 't'.repeat(64), { waitUntil:'networkidle' });
+  await p5.waitForSelector('.st-conf', { timeout:6000 }).catch(() => {});
+  const txt = (await p5.textContent('.st-conf').catch(() => '')).replace(/\s+/g, ' ');
+  revisa('[confirma] la liga enseña el pedido: talla, manga, nombre y número', /Ana, ¿está bien tu pedido\?/.test(txt) && /Talla 10 · Manga larga · Nombre LEO · #24/.test(txt), txt.slice(0, 200));
+  revisa('[confirma] sin datos personales de más (sin teléfono ni correo)', !/@|\+52|477/.test(txt));
+  await p5.click('[data-conf-abre]');
+  await p5.click('[data-conf="cambio"]');
+  revisa('[confirma] el cambio pide escribir qué', /Escribe qué quieres cambiar/.test(await p5.textContent('#stConfMsg')) && (await p5.evaluate(() => window.__conf.length)) === 0);
+  await p5.fill('#stConfTexto', 'La talla es 12');
+  await p5.click('[data-conf="cambio"]'); await p5.waitForTimeout(200);
+  revisa('[confirma] manda el cambio y dice que el club lo revisa', /Recibimos tu cambio/.test(await p5.textContent('.st-conf')) && JSON.stringify(await p5.evaluate(() => window.__conf.at(-1))) === JSON.stringify({ token:'t'.repeat(64), decision:'cambio', nota:'La talla es 12' }));
+  await p5.click('[data-conf="ok"]'); await p5.waitForTimeout(200);
+  revisa('[confirma] "Sí, todo está bien" confirma en un toque', /quedó confirmado/.test(await p5.textContent('.st-conf')) && (await p5.evaluate(() => window.__conf.at(-1).decision)) === 'ok' && !(await p5.$('[data-conf="ok"]')));
+  await p5.goto(BASE + '/pedido/#/confirma/otra');
+  await p5.waitForTimeout(400);
+  revisa('[confirma] una liga que no sirve lo dice', /Esta liga ya no sirve/.test(await p5.textContent('#content')));
+  revisa('[confirma] nada se sale a 390px', await p5.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  await p5.close();
+}
+
 revisa('sin errores de consola', errs.length === 0, errs.join('\n   '));
 await nav.close(); srv.close();
 console.log(fallos

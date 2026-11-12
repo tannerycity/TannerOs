@@ -406,3 +406,14 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-parches-cta img{width:40px;height:40px;object-fit:contain}
 .fm-parches-cta span{flex:1;display:grid}.fm-parches-cta small{color:#6f7c81;font-size:12.5px}
 .fm-parches-cta i{font-style:normal;color:#9aa6aa;font-size:22px}
+
+/* Plan del mes (h90, 12/11/2026) */
+.fm-mes-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;margin:14px 0 4px;padding:12px 16px;border:1px solid #dfe6e4;border-radius:18px;background:#fff;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.fm-mes-cta span{display:grid;gap:2px}.fm-mes-cta b{font-size:16px}.fm-mes-cta small{color:#5a6b70;font-size:13px}.fm-mes-cta i{font-style:normal;font-size:22px;color:#8a989c}
+.fm-mes-cat{margin:14px 0 0;padding:14px;border-radius:18px;background:#fff;border:1px solid #e3e8e7}
+.fm-mes-cat h3{margin:0 0 10px;font-size:17px}
+.fm-mes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fm-mes-sem{display:grid;gap:4px;min-width:0}
+.fm-mes-sem span{font-size:12px;font-weight:700;letter-spacing:.02em;color:#5a6b70}
+.fm-mes-sem select{width:100%;min-height:44px;padding:0 10px;border:1px solid #cfd8d6;border-radius:12px;background:#fff;font:inherit;font-size:15px}
+.fm-mes-sem.lista span{color:#1d7a4f}.fm-mes-sem.lista select{background:#f1f5f4;color:#5a6b70}

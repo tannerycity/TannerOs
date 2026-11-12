@@ -473,6 +473,25 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   const por = Object.fromEntries(pub.weeks.map(w => [w.categoryId, w]));
   revisa('[publicar] publica lo nuevo y lo corregido, sin re-publicar lo intacto', pub.publish === true && por.cb?.primary === 'movimiento' && por.cb?.behavior === 'Que frenen sin caerse'
     && por.c6?.primary === '1v1' && por.c6?.secondary === 'avanzar' && por.c10?.behavior === 'Que tiren a portería' && !por.c12 && pub.weeks.every(w => w.weekStart === '2026-12-07'), JSON.stringify(pub));
+  // Plan del mes (h90, 12/11/2026): 4 semanas de una vez, con el Reto que sigue.
+  {
+    const antes = (await llamadas(p, 'v2_save_training_weeks')).length;
+    await p.waitForSelector('#fmPlanMes');
+    await p.click('#fmPlanMes');
+    await p.waitForSelector('.fm-mes-cat select');
+    if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-plan-mes.png' });
+    const mes = await p.evaluate(() => ({ cats: document.querySelectorAll('.fm-mes-cat').length, sel: document.querySelectorAll('.fm-mes-cat select').length,
+      libres: document.querySelectorAll('.fm-mes-cat select:not([disabled])').length, boton: document.getElementById('fmPublicarMes')?.textContent.trim(),
+      ancho: document.documentElement.scrollWidth <= window.innerWidth + 1 }));
+    revisa('[mes] cada categoría con sus 4 semanas', mes.cats === 4 && mes.sel === 16, JSON.stringify(mes));
+    revisa('[mes] el botón dice cuántas semanas publica y cabe en 390px', new RegExp(`Publicar ${mes.libres} semanas`).test(mes.boton || '') && mes.libres > 0 && mes.ancho, JSON.stringify(mes));
+    await p.click('#fmPublicarMes');
+    await p.waitForFunction(n => window.__llamadas.filter(x => x.n === 'v2_save_training_weeks').length > n, antes);
+    const pm = (await llamadas(p, 'v2_save_training_weeks')).at(-1).prm;
+    revisa('[mes] publica todas las semanas abiertas, cada una con su lunes y su Reto', pm.publish === true && pm.weeks.length === mes.libres
+      && new Set(pm.weeks.map(w => w.weekStart)).size === 4 && pm.weeks.every(w => w.primary && /^\d{4}-\d{2}-\d{2}$/.test(w.weekStart) && new Date(w.weekStart + 'T12:00:00Z').getUTCDay() === 1), JSON.stringify(pm).slice(0, 400));
+    await p.waitForSelector('#fmHoja.hidden', { state: 'attached', timeout: 4000 }).catch(() => {});
+  }
   // Quitar con confirmación.
   await p.waitForSelector('#fmHoja', { state: 'hidden' });
   await p.click('[data-catcard="c10"] [data-quitar]');

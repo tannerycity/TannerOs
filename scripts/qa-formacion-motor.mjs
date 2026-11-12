@@ -1,6 +1,6 @@
 /* El motor de recomendación y las reglas de "lista" de Formación. */
 import fs from 'node:fs';
-import { recomienda, bloquesDeSesion, nivelObjetivo, faltaParaLista, resumenSemana, pasosDeSemana, filtraAlbum, pasosDelFormador, colorDeMundo, recomiendaConPorque, verMas, semanaEnDias, fechaLocal } from '../v2/formacion/motor.js';
+import { recomienda, bloquesDeSesion, nivelObjetivo, faltaParaLista, resumenSemana, pasosDeSemana, filtraAlbum, pasosDelFormador, colorDeMundo, recomiendaConPorque, verMas, semanaEnDias, fechaLocal, siguienteReto, planDelMes } from '../v2/formacion/motor.js';
 
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d ? `\n   ${d}` : ''}`); } };
@@ -112,6 +112,19 @@ revisa('"3 sesiones · 2 listas · 1 pendiente"', JSON.stringify(resumenSemana([
   const solo = recomiendaConPorque({ tareas: conTags, etapa: 't10', reto: '1v1', recurso: 'conduccion', nombre, nombreRecurso });
   revisa('recurso: una etiqueta SUGERIDA no cuenta (falta aprobación de Dirección)', !solo.opciones.some(o => o.porque.some(p => /Recurso/.test(p))) && /Ninguna tiene aún el recurso Conducción aprobado/.test(solo.aviso), JSON.stringify(solo));
   revisa('recurso: sin recurso, el orden de siempre', JSON.stringify(recomiendaConPorque({ tareas: conTags, etapa: 't6', reto: '1v1', bloque: { escalon: 0 }, indiceSesion: 0, totalSesiones: 2 }).opciones.map(o => o.tarea.id)) === JSON.stringify(r1.map(t => t.id)));
+}
+{
+  // Plan del mes y piloto automático (h90, 12/11/2026): el Reto que sigue.
+  const R = ['balon', '1v1', 'jugar_juntos'];
+  revisa('sigue: sin historia empieza por el primero', siguienteReto(R, null) === 'balon');
+  revisa('sigue: después de uno va el siguiente', siguienteReto(R, 'balon') === '1v1');
+  revisa('sigue: después del último vuelve al primero', siguienteReto(R, 'jugar_juntos') === 'balon');
+  revisa('sigue: un código que ya no existe no truena', siguienteReto(R, 'viejo') === 'balon' && siguienteReto([], 'x') === null);
+  const mes = planDelMes(R, [{ weekStart: 'a', primary: '1v1', status: 'published' }, { weekStart: 'b', primary: null }, { weekStart: 'c', primary: 'balon', status: 'draft' }, { weekStart: 'd', primary: null }]);
+  revisa('mes: lo publicado se respeta y se marca', mes[0].primary === '1v1' && mes[0].publicada && !mes[0].propuesta);
+  revisa('mes: lo vacío sigue la secuencia desde la semana anterior', mes[1].primary === 'jugar_juntos' && mes[1].propuesta && !mes[1].publicada);
+  revisa('mes: un borrador se respeta pero no cuenta como publicado', mes[2].primary === 'balon' && !mes[2].publicada && !mes[2].propuesta);
+  revisa('mes: y la que sigue parte del borrador', mes[3].primary === '1v1');
 }
 console.log(fallos ? `Motor de Formación FAILED · ${fallos} de ${corridas}` : `Motor de Formación OK · ${corridas} revisiones: 3 recomendaciones, escalera, Baby aparte y reglas de lista`);
 process.exit(fallos ? 1 : 0);

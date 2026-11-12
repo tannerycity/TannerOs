@@ -219,3 +219,24 @@ export function semanaEnDias(weekStart, sesiones = [], tz = 'America/Mexico_City
     return { fecha: d, sesiones: sesiones.filter(s => fechaDe(s) === d).sort((a, b) => String(a.startsAt).localeCompare(String(b.startsAt))) };
   });
 }
+
+/* El Reto que sigue (h90, 12/11/2026). Mismo criterio que el piloto automático
+   del servidor: el siguiente en el orden del catálogo; después del último,
+   vuelve al primero; sin historia, el primero. `codes` ya viene en orden. */
+export function siguienteReto(codes = [], ultimo = null) {
+  if (!codes.length) return null;
+  const i = codes.indexOf(ultimo);
+  return codes[(i + 1) % codes.length];
+}
+/* Plan del mes: para una categoría, sus 4 semanas. Lo que ya existe se respeta
+   (publicado o borrador); lo vacío se propone siguiendo la secuencia desde la
+   semana anterior. semanas = [{weekStart, primary, status}] en orden. */
+export function planDelMes(codes = [], semanas = []) {
+  let previo = null;
+  return semanas.map(w => {
+    const tiene = w.primary && codes.includes(w.primary);
+    const primary = tiene ? w.primary : siguienteReto(codes, previo);
+    previo = primary;
+    return { weekStart: w.weekStart, primary, publicada: tiene && w.status === 'published', propuesta: !tiene };
+  });
+}

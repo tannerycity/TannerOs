@@ -102,6 +102,8 @@ await pagina.route('**/v2/shell.js', route => route.fulfill({
       }
       if(name==='v2_portal_paperwork') return PAPERWORK;
       // Esta semana aprendemos (h81, 09/11/2026).
+      // h90 · D: sin Reto publicado, llega el objetivo del Formador.
+      if(name==='v2_portal_week' && new URLSearchParams(location.search).get('semana')==='objetivo') return { category:'T10', baby:false, weekStart:'2026-09-21', primary:null, behavior:null, objective:'Que pasen y se muevan' };
       if(name==='v2_portal_week') return { category:'T10', baby:false, weekStart:'2026-09-21',
         primary:{ code:'1v1', name:'Ganar el 1 contra 1', question:'¿Cómo supero a mi rival?', phrase:null }, behavior:'Que se atrevan a encarar' };
       // Acuerdo de pago (21/10/2026): la familia lo ve y toca "Enterado".
@@ -476,6 +478,12 @@ await pagina.waitForSelector('.fam-seg', { timeout: 8000 }).catch(() => {});
 revisa('la liga vieja ?tab=gafete abre Club en Estacionamiento',
   await pagina.getAttribute('.fam-nav-item[data-tab="club"]', 'aria-current') === 'page'
   && await pagina.getAttribute('[data-club="gafete"]', 'aria-selected') === 'true');
+
+// h90 · D (12/11/2026): sin Reto publicado, la familia ve el objetivo del Formador.
+await pagina.goto('http://127.0.0.1:4601/v2/familias/?semana=objetivo', { waitUntil: 'networkidle' });
+await pagina.waitForSelector('.fam-semana', { timeout: 6000 }).catch(() => {});
+const objTxt = (await pagina.textContent('.fam-semana').catch(() => '')).replace(/\s+/g, ' ');
+revisa('[semana] sin Reto publicado sale el objetivo que escribió el Formador', /Esta semana trabajamos/.test(objTxt) && /OBJETIVO DE LA SEMANA/.test(objTxt) && /Que pasen y se muevan/.test(objTxt) && !/RETO/.test(objTxt.replace('OBJETIVO','')), objTxt.slice(0, 300));
 
 await navegador.close();
 server.close();

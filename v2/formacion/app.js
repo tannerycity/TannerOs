@@ -13,7 +13,7 @@
 import { bootstrapProtectedShell, rpc, $, setShellHealth, moduleAccess } from '/v2/shell.js';
 import { hojaParchesGrupo } from '/v2/parches/parches.js';
 import { montaConvivencia, montaBono } from '/v2/convivencia/convivencia.js?v=20261109a';
-import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador } from '/v2/formacion/motor.js?v=20261109a';
+import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador, planDelMes } from '/v2/formacion/motor.js?v=20261112a';
 
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
 if (!boot) throw new Error('No access');
@@ -105,6 +105,7 @@ function pintaSemana() {
       <p>Publica a más tardar el ${esc(fecha(d.publishBy, { weekday: 'long', day: 'numeric', month: 'short' }))}, ${esc(hora(d.publishBy))}. Los Formadores cierran su planeación el ${esc(fecha(d.deadline, { weekday: 'long' }))}, ${esc(hora(d.deadline))}.</p></section>
     ${st.n ? pasos : ''}
     ${cats.length ? `<div class="fm-cats2">${tarjetas}</div>` : '<p class="fm-vacio">Ninguna categoría tiene horario esa semana.</p>'}
+    ${cats.length ? `<button type="button" class="fm-mes-cta" id="fmPlanMes"><span><b>Plan del mes</b><small>Deja listas 4 semanas de una vez</small></span><i aria-hidden="true">›</i></button>` : ''}
     <div class="fm-acciones">${cta}</div>
     <button type="button" class="fm-parches-cta" data-parches><img src="/brand/parches/campeon-azul.png" alt=""><span><b>Registrar parches</b><small>Campeón o Iniciación, por categoría</small></span><i aria-hidden="true">›</i></button>`;
 }
@@ -153,14 +154,14 @@ function hojaReto(c) {
   };
 }
 
-const ACCIONES = { creada: 'La guardó', guardada: 'La guardó', publicada: 'La publicó', editada: 'La cambió', quitada: 'La quitó' };
+const ACCIONES = { creada: 'La guardó', guardada: 'La guardó', publicada: 'La publicó', editada: 'La cambió', quitada: 'La quitó', automatica: 'La publicó en automático (nadie la publicó a tiempo)' };
 async function cargaHistoria(c) {
   const caja = $('fmHistoria'); if (!caja) return;
   try {
     const h = await rpc('v2_training_week_history', { organization_id: org, category_id: c.categoryId, week_start: dataDir.weekStart }) || [];
     if (!$('fmHistoria')) return;
     const desc = x => x ? `${nombreReto(x.primary)}${x.secondary ? ' + ' + nombreReto(x.secondary) : ''}${x.behavior ? ` · “${x.behavior}”` : ''}` : '';
-    $('fmHistoria').innerHTML = `<h4>Historial</h4>${h.length ? `<ol>${h.map(x => `<li><b>${esc(x.by)}</b> ${esc((ACCIONES[x.action] || 'La cambió').toLowerCase())} <time>${esc(haceCuanto(x.at))}</time>
+    $('fmHistoria').innerHTML = `<h4>Historial</h4>${h.length ? `<ol>${h.map(x => `<li><b>${esc(x.by || 'TannerOS')}</b> ${esc((ACCIONES[x.action] || 'La cambió').toLowerCase())} <time>${esc(haceCuanto(x.at))}</time>
         ${x.action === 'editada' && x.before ? `<small>Antes: ${esc(desc(x.before))}</small>` : ''}${x.after ? `<small>${x.action === 'editada' ? 'Ahora' : 'Quedó'}: ${esc(desc(x.after))}</small>` : x.before ? `<small>Tenía: ${esc(desc(x.before))}</small>` : ''}</li>`).join('')}</ol>` : '<p class="fm-ayuda">Sin cambios todavía.</p>'}`;
   } catch { if ($('fmHistoria')) $('fmHistoria').innerHTML = '<h4>Historial</h4><p class="fm-ayuda">El historial lo ven Presidencia y Dirección.</p>'; }
 }
@@ -173,6 +174,47 @@ async function quita(c) {
     await rpc('v2_remove_training_week', { organization_id: org, category_id: c.categoryId, week_start: dataDir.weekStart });
     delete borrador[c.categoryId]; cierraHoja(); aviso(`Se quitó el Reto de ${c.category}`); await carga();
   } catch (e) { aviso(errorDe(e), 'error'); }
+}
+
+/* Plan del mes (h90, 12/11/2026). Presidencia: "si no hace Brandon eso, los
+   profes no podrían avanzar". Dirección deja 4 semanas publicadas de una vez:
+   lo que ya existe se respeta y lo vacío se propone con el Reto que sigue.
+   Si aun así una semana se queda sin publicar, el servidor la publica sola el
+   viernes a la hora límite con ese mismo orden. */
+async function hojaPlanMes() {
+  const inicio = dataDir.weekStart, fechas = [0, 1, 2, 3].map(i => masDias(inicio, 7 * i));
+  abreHoja(`Plan del mes · ${rangoSemana(fechas[0])} a ${rangoSemana(fechas[3])}`, '<p class="fm-ayuda">Cargando las 4 semanas…</p>', '');
+  let semanas;
+  try { semanas = await Promise.all(fechas.map((f, i) => i === 0 ? Promise.resolve(dataDir) : rpc('v2_direction_week', { organization_id: org, week_start: f }))); }
+  catch (e) { $('fmHojaCuerpo').innerHTML = `<p class="fm-ayuda">${esc(errorDe(e))}</p>`; return; }
+  if ($('fmHoja').classList.contains('hidden')) return;
+  const cats = (dataDir.categories || []).map(c => {
+    const codes = catalogo.concepts.filter(x => x.kind === (c.usesChallenges ? 'reto' : 'mundo_baby')).map(x => x.code);
+    const filas = fechas.map((f, i) => { const w = (semanas[i]?.categories || []).find(x => x.categoryId === c.categoryId)?.week; return { weekStart: f, primary: w?.primary || null, status: w?.status || null, behavior: w?.behavior || '', secondary: w?.secondary || '' }; });
+    return { c, codes, filas, plan: planDelMes(codes, filas) };
+  });
+  const cuerpo = `<p class="fm-ayuda">Ya trae una propuesta: el Reto que sigue en cada categoría. Cambia lo que quieras y publica. Lo que ya está publicado no se toca aquí.</p>
+    ${cats.map(k => `<section class="fm-mes-cat"><h3>${esc(k.c.category)}</h3><div class="fm-mes-grid">${k.plan.map((p, i) => `<label class="fm-mes-sem${p.publicada ? ' lista' : ''}"><span>${esc(rangoSemana(p.weekStart))}${p.publicada ? ' · Publicada' : ''}</span>
+        <select data-mes-cat="${esc(k.c.categoryId)}" data-mes-i="${i}"${p.publicada ? ' disabled' : ''}>${k.codes.map(code => `<option value="${esc(code)}"${code === p.primary ? ' selected' : ''}>${esc(nombreReto(code))}</option>`).join('')}</select></label>`).join('')}</div></section>`).join('')}`;
+  const pendientes = cats.reduce((n, k) => n + k.plan.filter(p => !p.publicada).length, 0);
+  $('fmHojaCuerpo').innerHTML = cuerpo;
+  $('fmHojaPie').innerHTML = `<button type="button" class="secondary" data-cerrar>Cancelar</button><button type="button" class="primary" id="fmPublicarMes"${pendientes ? '' : ' disabled'}>${pendientes ? `Publicar ${pendientes} ${pendientes === 1 ? 'semana' : 'semanas'}` : 'Todo publicado'}</button>`;
+  $('fmHoja').onclick = async e => {
+    const b = e.target.closest('#fmPublicarMes'); if (!b) return;
+    const weeks = [];
+    for (const k of cats) k.plan.forEach((p, i) => {
+      if (p.publicada) return;
+      const sel = $('fmHojaCuerpo').querySelector(`select[data-mes-cat="${CSS.escape(k.c.categoryId)}"][data-mes-i="${i}"]`);
+      const primary = sel?.value || p.primary; if (!primary) return;
+      // Lo que Dirección ya había escrito para esa semana se conserva si no cambió el Reto.
+      const igual = k.filas[i].primary === primary;
+      weeks.push({ categoryId: k.c.categoryId, weekStart: p.weekStart, primary, secondary: igual ? k.filas[i].secondary : '', behavior: igual ? k.filas[i].behavior : '' });
+    });
+    if (!weeks.length) return;
+    b.disabled = true; b.textContent = 'Publicando…';
+    try { await rpc('v2_save_training_weeks', { organization_id: org, weeks, publish: true }); borrador = {}; cierraHoja(); aviso(`Plan del mes publicado: ${weeks.length} ${weeks.length === 1 ? 'semana' : 'semanas'}`); await carga(); }
+    catch (err) { aviso(errorDe(err), 'error'); b.disabled = false; b.textContent = `Publicar ${weeks.length} semanas`; }
+  };
 }
 
 // Paso 4: revisar todo junto antes de publicar. Paso 5: publicar.
@@ -684,6 +726,7 @@ $('fmVista').addEventListener('click', e => {
   const qu = e.target.closest('[data-quitar]'); if (qu) { quita(dataDir.categories.find(c => c.categoryId === qu.dataset.quitar)); return; }
   const de = e.target.closest('[data-descarta]'); if (de) { delete borrador[de.dataset.descarta]; pinta(); return; }
   if (e.target.closest('#fmRevisar')) { hojaRevisar(); return; }
+  if (e.target.closest('#fmPlanMes')) { hojaPlanMes(); return; }
   if (e.target.closest('[data-parches]')) { hojaParchesGrupo({ rpc, org }); return; }
   const hoy = e.target.closest('[data-hoy]'); if (hoy) { modoCancha(dataHoy.sessions.find(s => s.sessionId === hoy.dataset.hoy)); return; }
   const ses = e.target.closest('[data-ses]'); if (ses) { hojaSesion(dataMia.sessions.find(s => s.sessionId === ses.dataset.ses)); return; }

@@ -639,8 +639,15 @@ function cargaSemana(p){
   return rpc('v2_portal_week',{player_id:p.id}).then(r=>{state.semanas[p.id]=r||null;}).catch(()=>{state.semanas[p.id]=null;});
 }
 function semanaBlock(w,p,conNombre){
-  if(!w?.primary?.name)return '';
   const nombre=String(p?.first_name||'').trim().split(/\s+/)[0];
+  // h90 · D (12/11/2026): sin Reto publicado, la familia ve el objetivo que
+  // escribió el Formador en su sesión, para que la semana no salga vacía.
+  if(!w?.primary?.name){
+    const obj=String(w?.objective||'').trim();if(!obj)return '';
+    return `<section class="fam-card fam-semana"><div class="fam-card-head"><h2>Esta semana trabajamos</h2><span>${esc([conNombre&&nombre,w.category].filter(Boolean).join(' · '))}</span></div>
+    <div class="fam-semana-reto"><small>OBJETIVO DE LA SEMANA</small><strong>${esc(obj)}</strong></div>
+    <p class="fam-muted fam-semana-casa">En casa: pregúntale cómo le fue con esto.</p></section>`;
+  }
   const frase=w.baby?(w.primary.phrase||w.primary.question):(w.primary.question||w.primary.phrase);
   return `<section class="fam-card fam-semana"><div class="fam-card-head"><h2>Esta semana aprendemos</h2><span>${esc([conNombre&&nombre,w.category].filter(Boolean).join(' · '))}</span></div>
     <div class="fam-semana-reto"><small>${w.baby?'MUNDO':'RETO'}</small><strong>${esc(w.primary.name)}</strong>${frase?`<p>“${esc(frase)}”</p>`:''}</div>

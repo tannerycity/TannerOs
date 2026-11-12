@@ -153,7 +153,9 @@ const barra = (pg, id) => pg.$eval(`.order-row[data-order-id="${id}"]`, r => { c
   // Tarjetas arriba (11/11/2026): el PDF a la vista, no sólo en el +.
   // Panel de arriba (11/11/2026): el PDF a la vista y los pendientes por paso.
   const pdfTxt = (await txt(pg, '#tAtajos [data-atajo="pdf"]')).replace(/\s+/g, ' ');
-  revisa('8. "PDF para el proveedor" a la vista con lo listo y "Descargar"', /PDF para el proveedor ?2 pedidos listos/.test(pdfTxt) && /Descargar/.test(pdfTxt), pdfTxt);
+  // Jueves y viernes la tarjeta lleva además "Mañana/Hoy es el corte" (fase 4):
+  // la prueba no puede depender del día en que corre.
+  revisa('8. "PDF para el proveedor" a la vista con lo listo y "Descargar"', /PDF para el proveedor ?(?:(?:Hoy|Mañana) es el corte ?)?2 pedidos listos/.test(pdfTxt) && /Descargar/.test(pdfTxt), pdfTxt);
   const pasosHoy = await pg.$$eval('#tSeg .t-paso', bs => bs.map(b => `${b.querySelector('b').textContent}=${b.querySelector('i').textContent}`));
   revisa('8. "¿Qué toca hoy?": una tarjeta por paso con su número', pasosHoy.length === 5 && pasosHoy.includes('Por pedir=2'), JSON.stringify(pasosHoy));
   revisa('8. la tarjeta del paso en el que estás se marca', await pg.isVisible('#tSeg [data-f="@para_proveedor"].activo') && /Todos los pedidos/.test(await txt(pg, '#tSeg .t-volver')));

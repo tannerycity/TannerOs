@@ -29,7 +29,7 @@ const moduleCatalog={
   users:{name:'Usuarios y permisos',short:'Usuarios',route:'/usuarios/'},
   parking:{name:'Estacionamiento',short:'Estacionamiento',route:'/estacionamiento/'},
   messages:{name:'Mensajes',short:'Mensajes',route:'/mensajes/'},
-  sport:{name:'Área deportiva',short:'Deportivo',route:'/deportivo/'},
+  sport:{name:'Área deportiva',short:'Deportivo',route:'/jugadores/'},
   admin:{name:'Administración',short:'Administración',route:'/admin/'},
   qa:{name:'Centro de Calidad',short:'Calidad',route:'/qa/'}
 };
@@ -127,7 +127,7 @@ const fullRouteMatrix=[
   ['academies','Academias','/operacion/academias/','academies'],['prospects-full','Captación','/prospectos/','prospects'],['scouting-full','Scouting','/scouting/','scouting'],
   ['orders-full','Pedidos','/pedidos/','commerce'],['order-capture','Levantar pedido','/captura/','commerce'],['equipment','Utilería','/utileria/','equipment'],['sponsors','Patrocinios','/patrocinadores/','sponsors'],
   ['accounting','Contabilidad','/contabilidad/','finance'],['users','Usuarios','/usuarios/','users'],['admin-full','Administración','/admin/','admin'],
-  ['qa','Centro de Calidad','/qa/','qa'],['modules','Puertas disponibles','/modulos/','admin'],['sport','Área deportiva','/deportivo/','sport'],
+  ['qa','Centro de Calidad','/qa/','qa'],['modules','Puertas disponibles','/modulos/','admin'],
   ['production','Producción','/produccion/','commerce'],['programs-v2','Programas y eventos','/operacion/programas/','programs'],
   ['audit','Historial del club','/admin/auditoria/','admin'],['branding','Identidad del club','/admin/branding/','admin'],['club-settings','Datos del club','/admin/club/','admin'],
   ['onboarding','Preparación del club','/admin/onboarding/','admin'],

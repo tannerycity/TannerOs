@@ -34,7 +34,7 @@ $('imPlantilla').href = URL.createObjectURL(new Blob(['﻿' + PLANTILLA], { type
 
 async function leeArchivo(archivo) {
   if (/\.(xlsx|xls)$/i.test(archivo.name)) {
-    const XLSX = await import('https://esm.sh/xlsx@0.18.5');
+    const XLSX = await import('/vendor/xlsx.mjs');
     const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array' });
     const hoja = libro.Sheets[libro.SheetNames[0]];
     // raw: las fechas llegan como número de serie y leer.js las convierte;

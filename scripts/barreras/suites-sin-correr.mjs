@@ -210,7 +210,9 @@ export default function comprobar() {
   // equipo con destacados y el aviso fijo de Mensajes.
   // Sube a 75 por qa-humo-usuarios-fab.mjs: el "+" de Usuarios ofrece primero
   // "Agregar nuevo usuario" y el usuario sugerido no se rellena al borrarlo.
-  const MAX_EXCLUIDAS = 75;
+  // Sube a 76 por qa-humo-vendor.mjs (11/11/2026): prueba en Chromium que las
+  // librerías de /vendor/ cargan sin CDN. Es de navegador: la corre navegador-qa.
+  const MAX_EXCLUIDAS = 76;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

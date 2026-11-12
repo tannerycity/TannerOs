@@ -763,7 +763,7 @@ async function exportaCortePdf(){
   try{
     const fecha=$('businessDate').value||isoToday();
     const movs=snapshot?.movements||[];
-    const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+    const {jsPDF}=await import('/vendor/jspdf.mjs');
     const doc=new jsPDF({unit:'pt',format:'letter'});
     const ancho=doc.internal.pageSize.getWidth();
     const alto=doc.internal.pageSize.getHeight();
@@ -1529,7 +1529,7 @@ async function exportaMontosPdf(){
       categorias:Object.fromEntries([...$('montosCategory').options].map(o=>[o.value,o.textContent])),
       tipos:Object.fromEntries([...$('montosType').options].map(o=>[o.value,o.textContent]))
     };
-    const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+    const {jsPDF}=await import('/vendor/jspdf.mjs');
     const doc=new jsPDF({unit:'pt',format:'letter',orientation:'landscape'});
     const ancho=doc.internal.pageSize.getWidth();
     const alto=doc.internal.pageSize.getHeight();

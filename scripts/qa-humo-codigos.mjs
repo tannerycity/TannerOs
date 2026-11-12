@@ -68,7 +68,7 @@ await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200,
       if(n==='v2_public_code_stats')return p.token==='tok123'?{data:${JSON.stringify(STATS)},error:null}:{data:null,error:{message:'Esta liga ya no existe.'}};
       if(n==='v2_public_cart_order')return{data:{id:'o-qa',folio:'PED-QA-1',total:809.1,discount:89.9,code:'CURTI10'},error:null};
       return {data:null,error:null};}};}` }));
-await pg.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+await pg.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
   export function AsYouType(){return{input:v=>v}}
   export function getCountries(){return['MX','US']}
   export function getCountryCallingCode(c){return c==='MX'?'52':'1'}

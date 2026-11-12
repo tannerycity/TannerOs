@@ -62,7 +62,7 @@ await pg.route(/\/v2\/supabase-client\.js(\?.*)?$/, r => r.fulfill({ status:200,
       if(n==='v2_public_centro_tanner_home')return{data:{faqs:[],groups:[],documents:[{code:'reglamento',title:'Reglamento'}]},error:null};
       if(n==='v2_public_centro_tanner_document')return{data:{version:'1',effectiveDate:'2026-01-01',body:'Texto',title:'Aviso'},error:null};
       return {data:null,error:null};}};}` }));
-await pg.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+await pg.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
   export function AsYouType(){return{input:v=>v}}
   export function getCountries(){return['MX','US']}
   export function getCountryCallingCode(c){return c==='MX'?'52':'1'}

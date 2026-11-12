@@ -118,7 +118,7 @@ async function abre(ancho) {
   await pg.route('**/v2/supabase-client.js', r => r.fulfill({ contentType:'text/javascript', body:FAKE }));
   await pg.route('**/logo-prueba.png', r => r.fulfill({ contentType:'image/png', body:LOGO }));
   await pg.route('**/v2/branding-auto.js', r => r.fulfill({ contentType:'text/javascript', body:'' }));
-  await pg.route(/esm\.sh\/jspdf/, r => r.fulfill({ contentType:'text/javascript', body:JSPDF }));
+  await pg.route(/\/vendor\/jspdf\.mjs/, r => r.fulfill({ contentType:'text/javascript', body:JSPDF }));
   await pg.goto(`${BASE}/patrocinadores/`, { waitUntil:'networkidle' });
   await pg.waitForSelector('#view:not(.hidden)', { timeout:8000 });
   return { pg, errs };

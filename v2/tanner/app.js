@@ -251,7 +251,7 @@ async function cargaCambios(paint){
    compartir del sistema; donde no se puede, se descarga y se abre WhatsApp
    con el resumen escrito. */
 async function generaPdf(data){
-  const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+  const {jsPDF}=await import('/vendor/jspdf.mjs');
   const doc=new jsPDF({unit:'pt',format:'letter'});
   const ancho=doc.internal.pageSize.getWidth(),alto=doc.internal.pageSize.getHeight(),m=40;
   let y=m;

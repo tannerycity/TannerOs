@@ -110,7 +110,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   await pg.route(/\/v2\/shell\.js(\?.*)?$/, r => r.fulfill({ status:200, contentType:'text/javascript', body:shell(puedeTienda, veCobranza) }));
   await pg.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return null;}export async function getRawSignedPhotoUrl(){return null;}export function forgetPhoto(){}export function clearPhotoCache(){}' }));
-  await pg.route('**esm.sh/jspdf**', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export class jsPDF{}' }));
+  await pg.route('**/vendor/jspdf.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export class jsPDF{}' }));
   await pg.goto('http://127.0.0.1:4740' + ruta, { waitUntil:'networkidle' });
   await pg.waitForTimeout(400);
   return { pg, errs };

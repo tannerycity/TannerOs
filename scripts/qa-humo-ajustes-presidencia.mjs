@@ -104,7 +104,7 @@ async function abre(canAdjust, ancho = 390, ruta = '/v2/tanner/?id=p1', rol = 'P
   // bloqueo de internet va antes que el doble de jsPDF para no taparlo.
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   // jsPDF no se descarga: un doble que graba el texto y el nombre del archivo.
-  await p.route('**esm.sh/jspdf**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+  await p.route('**/vendor/jspdf.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export class jsPDF { constructor(){ this.t=[]; this.internal={ pageSize:{ getWidth:()=>612, getHeight:()=>792 } }; }
       setFont(){} setFontSize(){} setTextColor(){} setFillColor(){} rect(){} roundedRect(){} addPage(){}
       splitTextToSize(x){ return [String(x)]; } text(x){ this.t.push(Array.isArray(x)?x.join(' '):String(x)); }

@@ -80,7 +80,7 @@ async function contexto({ oficial = true, role = 'Operaciones', ga4Staff = true 
   const terceros = [];
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await ctx.route(/googletagmanager\.com|google-analytics\.com|connect\.facebook\.net|facebook\.com\/tr/, r => { terceros.push(r.request().url()); r.fulfill({ status:200, contentType:'text/javascript', body:'' }); });
-  await ctx.route('**esm.sh/libphonenumber-js**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+  await ctx.route('**/vendor/libphonenumber-js.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export function AsYouType(){return{input:v=>v}} export function getCountries(){return['MX']} export function getCountryCallingCode(){return'52'}
     export function parsePhoneNumberFromString(v){const d=String(v).replace(/\\D/g,'');return{isValid:()=>d.length>=10,formatInternational:()=>'+52 '+d,number:'+52'+d};}` }));
   await ctx.route(/\/v2\/supabase-client\.js(\?.*)?$/, (r, q) => r.fulfill({ status:200, contentType:'text/javascript', body: q.url().includes('visorias') || r.request().frame()?.url().includes('/visorias/') ? VISORIAS : TIENDA() }));

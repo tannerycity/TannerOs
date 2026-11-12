@@ -14,6 +14,32 @@ actualizarlo, se vuelve a copiar la versión nueva.
 | Archivo | Versión | Licencia | De dónde | Para qué |
 |---|---|---|---|---|
 | `qrcode.mjs` | qrcode-generator 2.0.4 | MIT · © 2009 Kazuhiko Arase | https://www.npmjs.com/package/qrcode-generator | El QR de la credencial Tanner |
+| `supabase-js.mjs` | @supabase/supabase-js 2.116.0 | MIT · © Supabase | https://www.npmjs.com/package/@supabase/supabase-js | El cliente de la base (lo importa sólo `v2/supabase-client.js`) |
+| `jspdf.mjs` | jspdf 2.5.2 | MIT · © James Hall y colaboradores | https://www.npmjs.com/package/jspdf | Recibos, estados de cuenta y el PDF del proveedor |
+| `libphonenumber-js.mjs` | libphonenumber-js 1.11.20 (`/max`) | MIT · © Nikolay Kuchumov | https://www.npmjs.com/package/libphonenumber-js | Validar y dar formato a los teléfonos de los formularios |
+| `xlsx.mjs` | xlsx (SheetJS CE) 0.18.5 | Apache-2.0 · © SheetJS LLC | https://www.npmjs.com/package/xlsx | Leer el Excel al importar jugadores |
+
+## Por qué estas cuatro ya no se piden a un CDN (11/11/2026)
+
+Se pedían a `esm.sh` desde el navegador. Ese código corre con la sesión de
+quien está usando TannerOS: si el CDN se cae, la app no abre; si lo
+comprometen, puede leer lo que ve el staff. Ahora son copias propias, la CSP
+de `vercel.json` ya no permite scripts de `esm.sh` y `qa-static.mjs` truena si
+alguien vuelve a importar código desde otro sitio.
+
+Cómo se generaron (en una carpeta temporal, fuera del repo):
+
+```
+npm i @supabase/supabase-js@2.116.0 jspdf@2.5.2 libphonenumber-js@1.11.20 xlsx@0.18.5 esbuild
+npx esbuild entrada.mjs --bundle --format=esm --minify --platform=browser --target=es2020 --legal-comments=eof --outfile=vendor/<nombre>.mjs
+```
+
+Cada `entrada.mjs` sólo reexporta lo que usa el sitio (`createClient`,
+`jsPDF`, las cuatro funciones de teléfonos, `export * from 'xlsx'`). En jsPDF
+se dejan fuera `canvg`, `html2canvas` y `dompurify`: sólo los pide
+`doc.html()` y `addSvgAsImage()`, que TannerOS no usa. Las licencias van al
+final de cada archivo. `scripts/qa-humo-vendor.mjs` prueba las cuatro.
+
 
 ## Por qué este no se escribió a mano
 

@@ -115,7 +115,7 @@ async function abre(etapas, vista = 'pasos') {
   pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
   await pg.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   // jsPDF no se descarga: un doble que anota los textos.
-  await pg.route('**esm.sh/jspdf**', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
+  await pg.route('**/vendor/jspdf.mjs*', r => r.fulfill({ status:200, contentType:'text/javascript', body:`
     export class jsPDF { constructor(){ this.t=[]; this.internal={ pageSize:{ getWidth:()=>612, getHeight:()=>792 }, getNumberOfPages:()=>1 };
         return new Proxy(this,{ get(o,k){ return k in o ? o[k] : k === 'then' ? undefined : () => 0; } }); }
       splitTextToSize(x){ return [String(x)]; } text(x){ this.t.push(Array.isArray(x)?x.join(' '):String(x)); }

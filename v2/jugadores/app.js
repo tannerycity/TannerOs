@@ -858,7 +858,7 @@ async function exportaNoPublicables(btn){
     const filas=noPublicables(activos);
     if(!filas.length){msg('Ningún Tanner activo queda fuera: todos autorizan su imagen.','success');return;}
 
-    const {jsPDF}=await import('https://esm.sh/jspdf@2.5.2');
+    const {jsPDF}=await import('/vendor/jspdf.mjs');
     const doc=new jsPDF({unit:'pt',format:'letter'});
     const ancho=doc.internal.pageSize.getWidth();
     const alto=doc.internal.pageSize.getHeight();

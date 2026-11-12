@@ -33,7 +33,7 @@ import { createClient } from '/v2/supabase-client.js';
 import { llaveDeLiga, propagaClub } from '/v2/club-publico.js';
 import { instalaVocabulario } from '/v2/vocabulario.js';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString }
-  from 'https://esm.sh/libphonenumber-js@1.11.20/max';
+  from '/vendor/libphonenumber-js.mjs';
 import { textoHasta, recargoDe, recargoPersDe, extraEstampadoKit, jerseysDeKit, llevaEstampado, llevaManga as tieneManga, precioDeProducto, precioDeEtiqueta, precioNinoDe, sugerenciasDeKit, textoSugerencia, quitaUnaPieza, preparaLinea, preparaKit, tiersDeKit, ranurasDeKit, ranuraElegida, nombreCorto, precioDeKit, aceptaPersonalizacion, llevaManga,
          tallasDe, tallaUnica, agregaAlCarrito, quitaDelCarrito, totalDelCarrito, piezasDelCarrito,
          admiteVariasTallas, preparaLineasPorTalla, cambiaCantidadDeTalla }

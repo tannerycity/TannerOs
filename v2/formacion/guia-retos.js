@@ -128,12 +128,19 @@ export const GUIA_RETOS = {
 };
 
 // Baby Tanners no usa los 9 Retos: descubre el fútbol jugando, en cuatro mundos.
+// Los tres juegos de cada mundo son fichas del Banco Baby (24, 6 por mundo), con
+// su nombre exacto, elegidas por cercanía con los tres pasos del mundo:
+//   Movimiento  (Corro, Freno, Cambio de camino): B01, B03, B02
+//   Balón       (Llevo, La paro, La pateo):       B08, B09, B12
+//   Juego       (Busco, Voy al gol, La meto):     B13, B14, B18
+//   Convivencia (Escucho, Comparto, Ayudo):       B19, B20, B21
+// PENDIENTE: validación de Dirección Deportiva (Brandon) de esta selección.
 export const GUIA_BABY = {
   movimiento: {
     subtitulo: 'Aprendo a moverme',
     buscamos: 'Aprendo a correr, frenar, saltar y mover mi cuerpo.',
     pasos: ['Corro', 'Freno', 'Cambio de camino'],
-    juegos: ['Semáforo', 'Carreras de animales', 'Congelados'],
+    juegos: ['Semáforo Tanner', 'Frena y Sal', 'Islas Tanner'],
     digo: '¡Corre! ¡Alto! ¡Ahora vamos para otro lado!',
     aprendio: 'Se mueve, frena y cambia de dirección jugando.'
   },
@@ -141,7 +148,7 @@ export const GUIA_BABY = {
     subtitulo: 'Juego con mi pelota',
     buscamos: 'Aprendo a llevar mi pelota y hacer que vaya donde quiero.',
     pasos: ['Llevo mi pelota', 'La paro', 'La pateo'],
-    juegos: ['La pelota a su casa', 'Derribar conos', 'Escapar con la pelota'],
+    juegos: ['El Balón me Sigue', 'Casas de Color', 'Empuja al Gol'],
     digo: '¡Lleva tu pelota a casa! ¡Que no se escape!',
     aprendio: 'Lleva, para y patea su pelota con más confianza.'
   },
@@ -149,7 +156,7 @@ export const GUIA_BABY = {
     subtitulo: 'Juego y busco el gol',
     buscamos: 'Aprendo a jugar fútbol, buscar la portería y hacer goles.',
     pasos: ['Busco la pelota', 'Voy hacia el gol', 'Intento meterla'],
-    juegos: ['Robar tesoros', 'Cruzar puertas', 'Partiditos pequeños'],
+    juegos: ['Encuentra la Portería', 'Roba y Marca', 'Partidito Vivo'],
     digo: '¡Busca la portería! ¡Ve por el gol!',
     aprendio: 'Participa, intenta jugar y busca hacer gol.'
   },
@@ -157,7 +164,7 @@ export const GUIA_BABY = {
     subtitulo: 'Juego con mis amigos',
     buscamos: 'Aprendo a jugar con mis amigos, ayudar y respetar.',
     pasos: ['Escucho', 'Comparto', 'Ayudo'],
-    juegos: ['Juegos por parejas', 'Misiones en equipo', 'Recoger materiales juntos'],
+    juegos: ['Saludo Tanner', 'Mi Turno, Tu Turno', 'Te Ayudo'],
     digo: '¡Jugamos juntos! ¡Ayudamos a nuestros amigos!',
     aprendio: 'Comparte, respeta y participa con sus compañeros.'
   }
@@ -189,9 +196,10 @@ export function guiaDeReto(concepto) {
   };
 }
 
-/* De los ejercicios que nombra la guía, los que sí están en el Banco del club
-   (mismo banco, mismo Reto). Nunca se muestra un ejercicio que no exista. */
-export function ejerciciosDelBanco(nombres = [], tareas = [], reto = '') {
+/* De los ejercicios o juegos que nombra la guía, los que sí están en el Banco
+   del club (mismo banco, mismo Reto o mundo). Nunca se muestra un ejercicio que no exista. */
+export function ejerciciosDelBanco(nombres = [], tareas = [], reto = '', banco = 'tanner') {
   const llave = s => String(s || '').trim().toLocaleLowerCase('es-MX');
-  return nombres.map(n => tareas.find(t => t.bank !== 'baby' && (!reto || t.primary === reto) && llave(t.name) === llave(n))).filter(Boolean);
+  const esBaby = banco === 'baby';
+  return nombres.map(n => tareas.find(t => (t.bank === 'baby') === esBaby && (!reto || t.primary === reto) && llave(t.name) === llave(n))).filter(Boolean);
 }

@@ -152,7 +152,7 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   revisa('[sesión] Terminar abre la primera pendiente', /T6/.test(await p.textContent('#fmHojaTitulo')) && /mié/i.test(await p.textContent('#fmHojaTitulo')), await p.textContent('#fmHojaTitulo'));
   revisa('[sesión] trae el Reto que publicó Dirección y la conducta', /1V1/.test(await p.textContent('.fm-reto-card')) && /Que se atrevan a encarar/.test(await p.textContent('.fm-reto-card')));
   // La "i" del Reto: cerrada no estorba; con un toque dice qué enseñar, decir, corregir y observar.
-  revisa('[sesión] el Reto se reconoce: ícono, nombre, subtítulo y su color', await p.$eval('.fm-reto-cabeza', d => !!d.querySelector('.fm-mico svg') && /1V1/.test(d.innerText) && /Supera al rival/.test(d.innerText) && getComputedStyle(d.querySelector('.fm-mico')).backgroundColor === 'rgb(255, 138, 0)'));
+  revisa('[sesión] el Reto se reconoce: ícono, nombre y su color; la pregunta de siempre, sin subtítulo de más', /¿Puedo ganar mi duelo\?/.test(await p.textContent('.fm-reto-card')) && !/Supera al rival/.test(await p.textContent('.fm-reto-cabeza')) && await p.$eval('.fm-reto-cabeza', d => !!d.querySelector('.fm-mico svg') && /1V1/.test(d.innerText) && getComputedStyle(d.querySelector('.fm-mico')).backgroundColor === 'rgb(255, 138, 0)'));
   revisa('[sesión] la "i" del Reto viene cerrada', await p.$eval('.fm-reto-card .fm-tip', d => !d.open && /Cómo se trabaja/.test(d.querySelector('summary').textContent)));
   await p.click('.fm-reto-card .fm-tip > summary');
   const tip = await p.$eval('.fm-reto-card .fm-tip', d => d.open ? d.innerText : '');
@@ -452,14 +452,14 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.waitForSelector('.fm-grid-retos');
   const babyOps = await p.$$eval('[data-reto]', b => b.map(x => x.dataset.reto));
   revisa('[dirección] Baby elige entre los 4 mundos, nunca los 9 Retos', JSON.stringify(babyOps) === '["movimiento","balon","juego","convivencia"]', JSON.stringify(babyOps));
-  revisa('[dirección] cada mundo se reconoce: ícono, color y subtítulo', await p.$$eval('.fm-grid-retos [data-reto]', b => b.every(x => x.querySelector('.fm-mico svg') && x.querySelector('small').textContent.length > 5)) && /Aprendo a moverme/.test(await p.textContent('[data-reto="movimiento"]')) && await p.$eval('[data-reto="balon"] .fm-mico', d => getComputedStyle(d).backgroundColor === 'rgb(255, 138, 0)'));
+  revisa('[dirección] cada mundo se reconoce: ícono, color y su frase de siempre', await p.$$eval('.fm-grid-retos [data-reto]', b => b.every(x => x.querySelector('.fm-mico svg') && x.querySelector('small').textContent.length > 5)) && !/Aprendo a moverme/.test(await p.textContent('[data-reto="movimiento"]')) && await p.$eval('[data-reto="balon"] .fm-mico', d => getComputedStyle(d).backgroundColor === 'rgb(255, 138, 0)'));
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-mundos-baby.png' });
   await p.click('[data-reto="movimiento"]');
   await p.waitForSelector('#fmConducta');
   await p.click('#fmHojaCuerpo .fm-tip > summary');
   const tipBaby = await p.$eval('#fmHojaCuerpo .fm-tip', d => d.innerText);
-  revisa('[dirección] Baby tiene su guía: qué buscamos, tres pasos, juegos, qué le digo y cómo sé que aprendió', /QUÉ BUSCAMOS\s+Aprendo a correr, frenar, saltar/.test(tipBaby) && /Corro\s*→\s*Freno\s*→\s*Cambio de camino/.test(tipBaby) && /Semáforo/.test(tipBaby) && /QUÉ LE DIGO\s+¡Corre! ¡Alto!/.test(tipBaby) && /CÓMO SÉ QUE APRENDIÓ/.test(tipBaby), tipBaby);
-  revisa('[dirección] la guía Baby no habla de errores ni de los 9 Retos', !/ERROR MÁS COMÚN|EJERCICIOS QUE PUEDO USAR/.test(tipBaby));
+  revisa('[dirección] Baby tiene su guía: qué buscamos, tres pasos, juegos, qué le digo y cómo sé que aprendió', /QUÉ BUSCAMOS\s+Aprendo a correr, frenar, saltar/.test(tipBaby) && /Corro\s*→\s*Freno\s*→\s*Cambio de camino/.test(tipBaby) && (await p.$$eval('#fmHojaCuerpo .fm-tip-chips b', b => b.map(x => x.textContent))).join('|') === 'Semáforo Tanner|Frena y Sal|Islas Tanner' && /QUÉ LE DIGO\s+¡Corre! ¡Alto!/.test(tipBaby) && /CÓMO SÉ QUE APRENDIÓ/.test(tipBaby), tipBaby);
+  revisa('[dirección] la guía Baby no habla de errores ni de los 9 Retos', !/ERROR MÁS COMÚN|EJERCICIOS QUE PUEDO USAR|CÓMO LO AYUDO/.test(tipBaby));
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-tip-baby.png' });
   await p.click('#fmHojaCuerpo .fm-tip > summary');
   revisa('[hoja] al elegir pasa sola al paso 2: qué quieres ver', /PASO 2 DE 2/.test(await p.textContent('#fmHojaCuerpo')) && /¿Qué quieres ver en la cancha\?/.test(await p.textContent('#fmHojaCuerpo')));

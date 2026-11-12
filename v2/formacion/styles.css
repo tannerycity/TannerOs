@@ -455,7 +455,5 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-reto-cabeza>div{display:grid}
 .fm-reto-cabeza>div>span{font-size:10px;letter-spacing:.09em;font-weight:950;color:#4b7b86}
 .fm-reto-cabeza b{font-size:20px;line-height:1.15}
-.fm-reto-cabeza small{font-size:13px;font-weight:600;color:#3f5157}
 .fm-elegido .fm-mico{width:30px;height:30px;background:var(--mundo);box-shadow:none;color:var(--mundo-tinta,#fff)}
 .fm-elegido.con-icono{grid-template-columns:auto auto 1fr auto}
-.fm-elegido b em{display:block;font-style:normal;font-size:13px;font-weight:600;color:#3f5157}

@@ -38,6 +38,13 @@ revisa('los íconos van en línea: nada se carga de fuera', !/https?:|<script|hr
 
 // El Banco Tanner real (la semilla oficial): 36 tareas, 4 por Reto.
 const tareas = JSON.parse(readFileSync(new URL('../supabase/semillas/formacion/banco-tanner-v1.0.json', import.meta.url), 'utf8')).tareas.map(t => ({ id: t.codigo, bank: 'tanner', primary: t.reto, name: t.nombre }));
+const juegosBaby = JSON.parse(readFileSync(new URL('../supabase/semillas/formacion/banco-baby-v1.0.json', import.meta.url), 'utf8')).tareas.map(t => ({ id: t.codigo, bank: 'baby', primary: t.mundo, name: t.nombre }));
+for (const c of CUATRO) revisa(`Baby ${c}: sus tres juegos son fichas del Banco Baby, de ese mundo y con su nombre exacto`, ejerciciosDelBanco(GUIA_BABY[c].juegos, juegosBaby, c, 'baby').map(t => t.name).join('|') === GUIA_BABY[c].juegos.join('|'), GUIA_BABY[c].juegos.join(' | '));
+revisa('Baby: 12 juegos, ninguno repetido, y el Banco Baby tiene sus 24', new Set(CUATRO.flatMap(c => GUIA_BABY[c].juegos)).size === 12 && juegosBaby.length === 24);
+revisa('Baby: un juego Baby no sale como ejercicio de un Reto, ni al revés', ejerciciosDelBanco(['Dos Caminos'], juegosBaby, 'juego').length === 0 && ejerciciosDelBanco(['Dos Caminos'], juegosBaby, 'juego', 'baby').length === 1);
+const frases = [...NUEVE.flatMap(c => [GUIA_RETOS[c].digo, GUIA_RETOS[c].error, GUIA_RETOS[c].ayudo, GUIA_RETOS[c].aprendio]), ...CUATRO.flatMap(c => [GUIA_BABY[c].buscamos, GUIA_BABY[c].digo, GUIA_BABY[c].aprendio])];
+revisa('ningún texto de la guía está repetido', new Set(frases).size === frases.length);
+revisa('36 tareas en el Banco Tanner y los 27 ejercicios de la guía no se repiten', tareas.length === 36 && new Set(NUEVE.flatMap(c => GUIA_RETOS[c].ejercicios)).size === 27);
 for (const c of NUEVE) revisa(`${c}: sus tres ejercicios existen en el Banco Tanner, en ese Reto`, ejerciciosDelBanco(GUIA_RETOS[c].ejercicios, tareas, c).length === 3, GUIA_RETOS[c].ejercicios.join(' | '));
 revisa('ejercicios: se muestran los que están en el Banco, en el orden de la guía', ejerciciosDelBanco(GUIA_RETOS['1v1'].ejercicios, tareas, '1v1').map(t => t.name).join('|') === 'Engaña y Sal|Cruza la Línea|Dos Salidas');
 revisa('ejercicios: el que no existe en el Banco no sale', ejerciciosDelBanco(['Engaña y Sal', 'Inventado'], tareas, '1v1').length === 1);

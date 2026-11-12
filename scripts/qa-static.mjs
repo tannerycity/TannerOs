@@ -37,7 +37,6 @@ const routeContract={
   '/admin/':'v2/admin/index.html',
   '/qa/':'v2/qa/index.html',
   '/modulos/':'v2/modulos/index.html',
-  '/deportivo/':'v2/deportivo/index.html',
   '/produccion/':'v2/produccion/index.html',
   '/operacion/programas/':'v2/programas/index.html',
   '/admin/auditoria/':'v2/admin/auditoria/index.html',
@@ -325,9 +324,8 @@ const academyApp=fs.readFileSync('v2/mi-academia/app.js','utf8');
 for(const contract of ["const METODOLOGIA='TC_1.0'",'Guardar y siguiente','Sin evidencia','BABY_DIMENSIONES','v2_save_academy_evaluation'])if(!academyApp.includes(contract))errors.push(`Perfil Tanner: falta contrato ${contract}`);
 const playerProfile=fs.readFileSync('v2/jugadores/index.html','utf8');
 if(/Promedio última evaluación|id="cardOverall"/.test(playerProfile))errors.push('Perfil Tanner: no debe mostrar promedio global');
-const sportsApp=fs.readFileSync('v2/deportivo/app.js','utf8');
-for(const contract of ["const METODOLOGIA='TC_1.0'",'restoreEvaluationDraft','v2_upsert_player_evaluation'])if(!sportsApp.includes(contract))errors.push(`Evaluación directa: falta ${contract}`);
-if(sportsApp.includes("evaluationPanel').classList.add('hidden')"))errors.push('Evaluación directa: el panel oficial está oculto');
+// Rendimiento deportivo (v2/deportivo) se retiró el 12/11/2026: la evaluación
+// vive en la ficha del jugador (abajo) y los partidos en Partidos.
 const playersApp=fs.readFileSync('v2/jugadores/app.js','utf8');
 for(const contract of ['openInlineEvaluation','saveInlineEvaluation','v2_upsert_player_evaluation','scaleMax','isTcEvaluation'])if(!playersApp.includes(contract))errors.push(`Evaluación en ficha: falta ${contract}`);
 if(!playersApp.includes("methodology_version==='TC_1.0'"))errors.push('Perfil Tanner: la ficha vuelve a mezclar evaluaciones de prueba');
@@ -337,7 +335,7 @@ if(!playerProfile.includes('radarPoint5')||!playerProfile.includes('Espíritu</t
 if(playerProfile.includes('<details class="radar-secondary">'))errors.push('Perfil Tanner: el pentagrama debe estar siempre visible');
 for(const contract of ['sportsRadarPrevious','profileEvalProgressBar','profileEvalRadarPolygon','PROFILE_SCALE_LABELS','sameStage','openEvaluationCoach','openDimensionGuidance','Guardar y siguiente'])if(!playersApp.includes(contract)&&!playerProfile.includes(contract))errors.push(`Perfil Tanner UX: falta ${contract}`);
 if(!playersApp.includes("'/v2/evaluation-guidance.js'"))errors.push('Perfil Tanner UX: Jugadores no usa el catálogo configurable de coaching');
-for(const [file,source] of [['Jugadores',playersApp],['Mi Academia',fs.readFileSync('v2/mi-academia/app.js','utf8')],['Deportivo',fs.readFileSync('v2/deportivo/index.html','utf8')]]){
+for(const [file,source] of [['Jugadores',playersApp],['Mi Academia',fs.readFileSync('v2/mi-academia/app.js','utf8')]]){
   for(const label of ['En formación','Tomando ritmo','En nivel','Sobresale','Alto nivel','Sin evidencia'])if(!source.includes(label))errors.push(`Escala oficial: falta “${label}” en ${file}`);
 }
 const profileFixture=fs.readFileSync('v2/qa/perfil-tanner/index.html','utf8');

@@ -12,7 +12,6 @@ const FINAL_ROUTES=[
   ['/candidatos/','candidatos','Candidatos'],
   ['/staff/','staff','Staff'],
   ['/produccion/','tienda','Producción'],
-  ['/deportivo/','club','Rendimiento deportivo'],
   ['/jugadores/importar/','jugadores','Importar jugadores'],
   ['/jugadores/','jugadores','Jugadores'],
   ['/asistencia/','asistencia','Asistencia'],

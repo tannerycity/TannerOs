@@ -174,6 +174,12 @@ const visible = (pg, sel) => pg.isVisible(sel).catch(() => false);
   await pg.waitForSelector('#cobroSheet:not(.hidden) [data-linea]', { timeout:5000 }).catch(() => {});
   const chip = await pg.$$eval('#cobroSheet [data-linea]', els => els.map(e => e.dataset.linea).join()).catch(() => null);
   revisa('2. la hoja abre con el pedido ya elegido', chip === 'o:o-nuevo', String(chip));
+  // 11/11/2026 (Presidencia: "el botón de cobrar no hace nada"): la hoja abría
+  // DETRÁS de la ventana del pedido. Que tenga la clase no basta: lo que está
+  // encima, en el centro de la hoja, tiene que ser la hoja.
+  const encima = await pg.evaluate(() => { const h = document.getElementById('cobroSheet'), r = h.getBoundingClientRect();
+    const e = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 120)); return !!e && h.contains(e); });
+  revisa('2. la hoja de cobro queda ENCIMA de la ventana del pedido', encima);
   const pidio = (await pg.evaluate(() => window.__rpc.filter(r => r.n === 'v2_player_collection').map(r => r.p.player_id))).join();
   revisa('2. y es la cuenta del niño ligado', pidio === 't1', pidio);
   await pg.keyboard.press('Escape');

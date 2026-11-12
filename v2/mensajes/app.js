@@ -19,7 +19,7 @@ if(!boot)throw new Error('No access');
 const {ctx}=boot;
 const org=ctx.organization_id;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const state={tab:'chats',inbox:null,avisos:null,thread:null,threadId:null,busca:'',pending:[],timer:null,inboxTimer:null,
+const state={tab:'avisos',inbox:null,avisos:null,thread:null,threadId:null,busca:'',pending:[],timer:null,inboxTimer:null,
   respondiendo:null,editando:null,rapidas:null,huella:''};
 const BUCKET='tanneros-private';
 // Íconos de línea, nunca emojis (regla del club): mismo trazo que el menú.
@@ -106,7 +106,7 @@ function amable(e){
 function pintaLista(){
   const app=$('msBody');
   if(!app.querySelector('.ms-list')){
-    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="chats">Chats<b class="ms-tab-n" id="msNChats" hidden></b></button><button type="button" role="tab" data-tab="avisos">Avisos<b class="ms-tab-n" id="msNAvisos" hidden></b></button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msSemana" hidden></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
+    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="avisos">Avisos<b class="ms-tab-n" id="msNAvisos" hidden></b></button><button type="button" role="tab" data-tab="chats">Chats<b class="ms-tab-n" id="msNChats" hidden></b></button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msSemana" hidden></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
     app.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>cambiaTab(b.dataset.tab)));
     $('msNuevo').addEventListener('click',()=>state.tab==='avisos'?hojaAviso():hojaNuevo());
     $('msBusca').addEventListener('input',e=>{state.busca=e.target.value;pintaItems();});
@@ -728,7 +728,9 @@ setShellHealth({state:'ok',label:'Vestidor'});
 const pedido=new URLSearchParams(location.search).get('chat');
 {const t=new URLSearchParams(location.search).get('tab');
  if(t==='avisos'||t==='chats')cambiaTab(t);
- else if(!pedido)avisosListos.then(()=>{if(state.tab==='chats'&&!conteos().chats&&conteos().avisos)cambiaTab('avisos');else pintaConteos();});}
+ // Avisos es la pestaña de entrada (11/11/2026): es lo que el club usa. A
+ // Chats se va solo si alguien te escribió y no lo has leído, o por la liga.
+ else{if(pedido||conteos().chats)cambiaTab('chats');avisosListos.then(()=>pintaConteos());}}
 if(pedido&&(state.inbox?.threads||[]).some(t=>t.id===pedido))abreChat(pedido);
 state.inboxTimer=setInterval(()=>{if(document.visibilityState==='visible')cargaInbox();},12000);
 // La campana abre la pestaña donde está lo nuevo (antes, siempre Avisos).

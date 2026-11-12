@@ -106,16 +106,18 @@ export const navItems=[
   // Métricas (02/11/2026, h58): redes, Google, web y prospectos para decidir.
   // Módulo por persona (Usuarios > persona > Métricas); así se le dio a Zul.
   {code:'metricas',label:'Métricas',href:'/metricas/',group:'marketing',icon:'chart'},
-  // Ideas: tablero tipo kanban para darle seguimiento; lo ve todo el staff.
-  {code:'ideas',label:'Ideas',href:'/ideas/',group:'marketing',icon:'bulb',always:true},
+  // Ideas (11/11/2026, Presidencia: "sácala del menú, déjala en marketing"): ya
+  // no sale suelta; es una pestaña de Patrocinadores para quien ve marketing.
+  {code:'ideas',label:'Ideas',href:'/ideas/',group:'marketing',icon:'bulb',always:true,dentroDe:'patrocinadores',soloDentro:true},
   {code:'usuarios',label:'Usuarios',href:'/usuarios/',group:'admin',icon:'userCog',dentroDe:'admin'},
   // Familias en el portal (18/10/2026): invitar por WhatsApp con liga personal.
   // No es módulo: la ve quien maneja Usuarios (y Presidencia).
   {code:'invitaciones',label:'Familias en el portal',href:'/invitaciones/',group:'admin',icon:'users',lee:['usuarios'],dentroDe:'admin'},
   {code:'admin',label:'Administración',href:'/admin/',group:'admin',icon:'settings'},
   // Cambios (22/10/2026): la bitácora de correcciones que revisa Presidencia.
-  {code:'cambios',label:'Cambios',href:'/cambios/',group:'admin',icon:'list',lee:['admin'],dentroDe:'admin'},
-  {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug',dentroDe:'admin'}
+  {code:'cambios',label:'Cambios',href:'/cambios/',group:'admin',icon:'list',lee:['admin'],dentroDe:'admin',soloDueno:true},
+  // QA y Cambios (11/11/2026): herramientas internas, sólo Presidencia.
+  {code:'qa',label:'QA',href:'/qa/',group:'admin',icon:'bug',dentroDe:'admin',soloDueno:true}
 ];
 const groupLabels={main:'',club:'Club',finance:'Finanzas',marketing:'Marketing',ops:'Operación',admin:'Administración'};
 
@@ -124,11 +126,12 @@ export function navigationMap(rows=[]){return new Map((rows||[]).map(r=>[r.modul
 export function moduleAccess(rows,code,write=false){const row=navigationMap(rows).get(code);return Boolean(row?.enabled&&(write?row.can_write:row.can_read));}
 // Una pantalla que no es módulo (Candidatos, Becas…) se abre con los módulos
 // que su entrada del menú dice que la leen.
-function puedeEntrar(rows,active){if(moduleAccess(rows,active,false))return true;const item=navItems.find(x=>x.code===active);return Boolean(item&&!item.always&&itemReadable(rows,item));}
-function itemReadable(rows,item){if(item.always)return true;return [item.code,...(item.aliases||[]),...(item.lee||[])].some(code=>moduleAccess(rows,code,false));}
+let esDueno=false;
+function puedeEntrar(rows,active){const item=navItems.find(x=>x.code===active);if(item?.soloDueno&&!esDueno)return false;if(moduleAccess(rows,active,false))return true;return Boolean(item&&!item.always&&itemReadable(rows,item));}
+function itemReadable(rows,item){if(item.soloDueno&&!esDueno)return false;if(item.always)return true;return [item.code,...(item.aliases||[]),...(item.lee||[])].some(code=>moduleAccess(rows,code,false));}
 function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active);}
 const padreDe=item=>item?.dentroDe?navItems.find(x=>x.code===item.dentroDe):null;
-function itemEnMenu(rows,item,fuera=new Set()){if(!itemReadable(rows,item))return false;const padre=padreDe(item);return !(padre&&itemReadable(rows,padre)&&!fuera.has(padre.code));}
+function itemEnMenu(rows,item,fuera=new Set()){if(!itemReadable(rows,item))return false;const padre=padreDe(item);if(item.soloDentro&&!(padre&&itemReadable(rows,padre)))return false;return !(padre&&itemReadable(rows,padre)&&!fuera.has(padre.code));}
 const hijosDe=(rows,item)=>navItems.filter(x=>x.dentroDe===item.code&&itemReadable(rows,x));
 // La sección donde estás: la pantalla misma o la sección que la contiene.
 function seccionDe(rows,active){const item=navItems.find(x=>itemActive(x,active));if(!item)return null;const padre=padreDe(item);return padre&&itemReadable(rows,padre)?padre:item;}
@@ -636,7 +639,7 @@ async function cargaIndiceUniversal(ctx,navigation){
 
 function ensureBackButton(){
   const topLeft=document.querySelector('.tos-topbar .tos-top-left');if(!topLeft)return;topLeft.querySelector('.tos-back-button')?.remove();const root=location.pathname==='/'||location.pathname==='/v2'||location.pathname==='/v2/';if(root)return;
-  const button=document.createElement('button');button.type='button';button.className='tos-back-button';button.setAttribute('aria-label','Volver');button.textContent='‹';button.addEventListener('click',()=>{try{const key=`tos:return:${location.pathname}`,saved=sessionStorage.getItem(key),ref=document.referrer?new URL(document.referrer):null;if(saved&&saved.startsWith('/')&&saved!==location.pathname+location.search+location.hash){sessionStorage.removeItem(key);if(ref?.origin===location.origin&&ref.pathname+ref.search+ref.hash===saved&&history.length>1){history.back();return;}location.href=saved;return;}if(ref?.origin===location.origin&&ref.pathname!==location.pathname&&history.length>1){history.back();return;}}catch{}const clubRoutes=['/jugadores/','/asistencia/','/convocatoria/','/operacion/academias/','/prospectos/','/scouting/'];location.href=clubRoutes.some(path=>location.pathname.startsWith(path))?'/club/':'/';});topLeft.prepend(button);
+  const button=document.createElement('button');button.type='button';button.className='tos-back-button';button.setAttribute('aria-label','Volver');button.textContent='‹';button.addEventListener('click',()=>{try{const key=`tos:return:${location.pathname}`,saved=sessionStorage.getItem(key),ref=document.referrer?new URL(document.referrer):null;if(saved&&saved.startsWith('/')&&saved!==location.pathname+location.search+location.hash){sessionStorage.removeItem(key);if(ref?.origin===location.origin&&ref.pathname+ref.search+ref.hash===saved&&history.length>1){history.back();return;}location.href=saved;return;}if(ref?.origin===location.origin&&ref.pathname!==location.pathname&&history.length>1){history.back();return;}}catch{}const clubRoutes=['/jugadores/','/asistencia/','/partidos/','/operacion/academias/','/prospectos/','/scouting/'];location.href=clubRoutes.some(path=>location.pathname.startsWith(path))?'/club/':'/';});topLeft.prepend(button);
 }
 /* ===== Acciones rápidas: botón flotante en todas las pantallas =====
    Cada rol trae a la mano lo que más repite (pedido de Presidencia,
@@ -654,6 +657,8 @@ const ACCIONES_RAPIDAS={
   conciliar:{label:'Por conciliar',sub:'Cobros por validar',href:'/taquilla/?ver=concilia',icon:'check',modulos:['taquilla','contabilidad']},
   caja:{label:'Caja del día',sub:'Movimientos y corte',href:'/taquilla/?ver=caja',icon:'ledger',modulos:['taquilla','contabilidad']},
   asistencia:{label:'Pasar asistencia',sub:'Lista del entrenamiento',href:'/asistencia/',icon:'check',modulos:['asistencia'],escribe:true},
+  // Evaluar (11/11/2026): cada tres meses; abre Jugadores en los que faltan.
+  evaluar:{label:'Evaluar Tanners',sub:'Los que te faltan este trimestre',href:'/jugadores/?ver=evaluacion',icon:'star',modulos:['jugadores']},
   convocatoria:{label:'Partido',sub:'Convocados, goles y quién jugó',href:'/partidos/',icon:'list',modulos:['convocatoria','callups']},
   miAcademia:{label:'Tomar asistencia',sub:'Mi academia',href:'/mi-academia/',icon:'check',siempre:true},
   scouting:{label:'Scouting',sub:'Visorías y prospectos',href:'/scouting/',icon:'search',modulos:['scouting']},
@@ -667,7 +672,7 @@ const ACCIONES_POR_ROL={
   Operaciones:['registrar','cobrar','pagar','gafete','tienda','captacion','mensaje','cotizar'],
   Contabilidad:['cobrar','pagar','conciliar','caja','cotizar'],
   Taquilla:['cobrar','pagar','gafete','tienda','cotizar'],
-  Formadores:['asistencia','convocatoria','mensaje','cotizar'],
+  Formadores:['asistencia','convocatoria','evaluar','mensaje','cotizar'],
   Academia:['miAcademia','mensaje','cotizar'],
   Scouting:['registrar','scouting','captacion','cotizar']
 };
@@ -805,6 +810,7 @@ function ensureQuickFab(ctx,navigation){
   document.body.append(fondo,menu,boton);
 }
 export function renderShell({ctx,navigation,active='inicio',title='Inicio',searchItems=[]}){
+  esDueno=Boolean(ctx?.is_owner);
   ensureProductionCss();window.__tosNavigation=navigation||[];window.__tosExperienceNavigation=navigation||[];window.__tosExperienceContext=ctx||null;
   const role=ctx?.is_owner?'Presidencia':(ctx?.role||'Miembro'),display=ctx?.display_name||'Tanner';
   renderNavigation($('sidebarNav'),navigation,active,role);pintaPestanasSeccion(navigation,active);if($('sidebarName'))$('sidebarName').textContent=display;if($('sidebarRole'))$('sidebarRole').textContent=role;if($('shellTitle'))$('shellTitle').textContent=title;if($('shellRole'))$('shellRole').textContent=role;if($('shellOrg'))$('shellOrg').textContent=ctx?.organization_name||'el club';setShellSearchItems(searchItems);wireMobileNav();wireRouteMemory();wireSearch(navigation,ctx);ensureBackButton();if($('shellSignOut')&&!$('shellSignOut').dataset.tosWired){$('shellSignOut').dataset.tosWired='1';$('shellSignOut').addEventListener('click',async()=>{borraCacheDelBuscador();await clearPhotoCache();await supabase.auth.signOut();location.href='/';});}
@@ -823,5 +829,5 @@ export function avisoSoloLectura(organizationId){
     d.textContent=SOLO_LECTURA[m.reason]||SOLO_LECTURA.pago;main.prepend(d);
   }).catch(()=>{});
 }
-export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});if(active!=='inicio'&&active!=='mensajes'&&active!=='staff'&&!puedeEntrar(navigation,active)){location.href='/';return null;}renderShell({ctx,navigation,active,title});avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
+export async function bootstrapProtectedShell({active,title}){ensureProductionCss();const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/';return null;}const rows=await rpc('v2_my_context');if(!rows?.length){location.href='/';return null;}const ctx=rows[0],navigation=await rpc('v2_my_navigation',{organization_id:ctx.organization_id});esDueno=Boolean(ctx?.is_owner);if(active!=='inicio'&&active!=='mensajes'&&active!=='staff'&&!puedeEntrar(navigation,active)){location.href='/';return null;}renderShell({ctx,navigation,active,title});avisoSoloLectura(ctx.organization_id);return {ctx,navigation,map:navigationMap(navigation)};}
 export function setShellHealth({state='ok',label='Todo en orden'}={}){const pill=$('shellHealth');if(!pill)return;pill.dataset.state=state;const text=pill.querySelector('span');if(text)text.textContent=label;}

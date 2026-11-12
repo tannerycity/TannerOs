@@ -50,6 +50,8 @@ await pagina.route('**/v2/supabase-client.js', route => route.fulfill({
     // que hoy no podía evaluar y para el que se hizo esta faceta.
     const MODULES = [
       { module_code:'players',  enabled:true, can_read:true,  can_write:false },
+      // El Formador real: Jugadores en lectura, Asistencia con escritura.
+      { module_code:'attendance', enabled:true, can_read:true, can_write:true },
       { module_code:'jugadores_familia', enabled:true, can_read:true, can_write:false },
       { module_code:'jugadores_estado',  enabled:false, can_read:false, can_write:false },
       // Un Formador NO lleva dinero: sin taquilla ni contabilidad.
@@ -64,7 +66,7 @@ await pagina.route('**/v2/supabase-client.js', route => route.fulfill({
     ];
     // T10 tiene responsable y uno al día. T8 no tiene responsable y nadie
     // evaluado: es el renglón que el club necesita ver.
-    const COBERTURA = { months:4, cutoff:'2026-05-23', categories:[
+    const COBERTURA = { months:3, cutoff:'2026-05-23', categories:[
       { categoryId:'c10', categoryName:'T10', sortKey:'00030', responsables:['Maximiliano Ponce'],
         players:3, upToDate:1, overdue:2, neverEvaluated:2, lastEvaluation:'2026-09-21',
         pending:[{playerId:'p1',name:'Dario Montalvo',lastEvaluatedOn:null,daysSince:null},
@@ -149,7 +151,7 @@ revisa('T8 dice que no tiene responsable, no una raya',
 revisa('avisa cuántas categorías están sin responsable',
   /1 categoría sin responsable/.test(cuerpo), cuerpo.slice(0, 400));
 revisa('explica qué significa "al día", con la fecha de corte',
-  /últimos 4 meses/.test(cuerpo) && /2026-05-23/.test(cuerpo), cuerpo.slice(-220));
+  /últimos 3 meses/.test(cuerpo) && /2026-05-23/.test(cuerpo), cuerpo.slice(-220));
 revisa('el chip de "Por evaluar" suma los de todas las categorías',
   /Por evaluar3/.test(cuerpo), cuerpo.slice(0, 160));
 
@@ -175,6 +177,13 @@ revisa('el enlace al estado de cuenta existe en la pantalla',
   (await pagina.$$('#verEstadoCuenta')).length === 1);
 revisa('pero un Formador NO lo ve: no lleva dinero',
   await pagina.isHidden('#verEstadoCuenta'));
+// 11/11/2026: el profe veía "te faltan" y no tenía con qué evaluar, porque
+// Jugadores lo tiene en lectura. Pasa lista, así que evalúa.
+revisa('el Formador SÍ tiene el botón "Evaluar aquí" en la ficha',
+  await pagina.isVisible('#openEvaluation'));
+await pagina.click('#openEvaluation');
+revisa('y al tocarlo se abre la evaluación de ese Tanner',
+  await pagina.isVisible('#inlineEvaluationForm'));
 
 const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 revisa('no hay scroll horizontal en iPhone', !desborde);

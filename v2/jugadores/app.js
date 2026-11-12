@@ -9,7 +9,7 @@ import { estadoDeImagen, puedePublicarse, cuentaDeImagen, noPublicables,
 import { relacion, telefonoBonito } from '/v2/contacto.js';
 import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
-const $=id=>document.getElementById(id);let sinNum=null,ctx=null,players=[],categories=[],current=null,canWrite=false,canFamily=false,canStatus=false,canMoney=false,puedeMoverIngreso=false,sportsSeq=0;
+const $=id=>document.getElementById(id);let sinNum=null,ctx=null,players=[],categories=[],current=null,canWrite=false,puedeEvaluar=false,canFamily=false,canStatus=false,canMoney=false,puedeMoverIngreso=false,sportsSeq=0;
 const FAMILY_FIELDS=['firstName','lastName','birthDate','sex','school','bloodType','allergies','address','emergencyName','emergencyPhone','guardianName','guardianPhone','guardianEmail','guardianRelationship','canPickup','receivesBilling','notes'];
 function applyFamilyLock(){FAMILY_FIELDS.forEach(id=>{const el=$(id);if(el)el.disabled=!canFamily;});}
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -30,6 +30,10 @@ function friendly(e){const s=String(e?.message||e||'Ocurrió un error.');if(/fai
   'Sponsor benefit not found':'No encontramos ese patrocinio.'};return map[s]||s;}
 function renderStatusAction(p){const btn=$('toggleStatusBtn'),alt=$('withdrawInactiveBtn');if(!btn)return;if(!canStatus){btn.classList.add('hidden');alt?.classList.add('hidden');return;}btn.classList.remove('hidden');if(p.status!=='active'){btn.textContent='Dar de alta';btn.dataset.action='reactivate';btn.classList.remove('danger-mini');}else{btn.textContent='Dar de baja';btn.dataset.action='withdraw';btn.classList.add('danger-mini');}alt?.classList.toggle('hidden',p.status!=='inactive');}
 async function boot(){const {data:{session}}=await supabase.auth.getSession();if(!session){location.href='/v2';return;}const rows=await rpc('v2_my_context');if(!rows?.length){$('deniedText').textContent='Tu cuenta no está vinculada a un club.';show('deniedView');return;}ctx=rows[0];const mods=await rpc('v2_my_modules',{organization_id:ctx.organization_id}),mod=mods.find(m=>m.module_code==='players');if(!mod?.enabled||!mod?.can_read){$('deniedText').textContent='Tu rol no tiene acceso a Jugadores.';show('deniedView');return;}canWrite=!!mod.can_write;
+  // Evaluar (11/11/2026): el servidor deja evaluar a quien escribe Jugadores O
+  // pasa lista (o1). La pantalla sólo miraba Jugadores, así que un Formador
+  // —que lo tiene en lectura— veía "te faltan 12" y no tenía botón para evaluar.
+  puedeEvaluar=canWrite||!!mods.find(m=>m.module_code==='attendance')?.can_write;
   // Jugadores no pasa por bootstrapProtectedShell (arranca solo), así que el
   // sistema global de recientes de shell.js no llega aquí — se conecta directo.
   conectaBusquedaReciente($('search'),{org:ctx.organization_id,usuario:ctx.user_id});
@@ -58,7 +62,10 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
   loadBajasPendientes();
   loadCobertura();
-  show('view');const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
+  show('view');
+  // ?ver=evaluacion (acción rápida "Evaluar Tanners"): abre en los que faltan.
+  if(new URLSearchParams(location.search).get('ver')==='evaluacion'){facet='evaluacion';fStat='porevaluar';renderFiltros();}
+  const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
 function renderCategories(){const s=$('categoryId');s.innerHTML='<option value="">Sin categoría</option>';categories.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;s.appendChild(o);});}
 async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];renderFiltros();renderList();sinNum?.refresca();signPlayerPhotos(players).then(()=>renderList());}
 
@@ -748,7 +755,7 @@ function openEvaluationCoach(firstUse=false,step=0){
 }
 function openDimensionGuidance(key){const dimension=TANNER_DIMENSIONS.find(item=>item.key===key),template=$(`profile-guidance-${key}`);if(!dimension||!template)return;evaluationSheet(`¿Qué observo en ${dimension.name}?`,template.innerHTML,`<button class="primary" type="button" data-close-sheet>Volver a evaluar</button>`);}
 function openInlineEvaluation(){
-  if(!canWrite||!current?.player)return;
+  if(!puedeEvaluar||!current?.player)return;
   // La fecha se escoge, no se escribe, y tampoco se fuerza a hoy: un profe
   // captura el lunes lo que observó el sábado. El periodo ya no se teclea —
   // sale de esta fecha en el servidor— porque dos módulos escribiendo
@@ -759,7 +766,7 @@ function openInlineEvaluation(){
   box.classList.remove('hidden');$('openEvaluation').classList.add('hidden');restoreInlineEvaluation();box.scrollIntoView({behavior:'smooth',block:'start'});
   $('inlineEvaluationForm').addEventListener('input',()=>{saveInlineDraft();updateInlineEvaluationProgress();});$('profileEvalHelp').addEventListener('click',()=>openEvaluationCoach(false));box.querySelectorAll('[data-guidance]').forEach(button=>button.addEventListener('click',()=>openDimensionGuidance(button.dataset.guidance)));if(!evaluationCoachSeen())openEvaluationCoach(true);$('inlineEvaluationForm').addEventListener('submit',saveInlineEvaluation);$('profileSaveDraft').addEventListener('click',saveInlineDraft);$('profilePower').addEventListener('change',e=>$('profilePowerOtherWrap').classList.toggle('hidden',e.target.value!=='Otro'));$('closeInlineEvaluation').addEventListener('click',closeInlineEvaluation);updateInlineEvaluationProgress();
 }
-function closeInlineEvaluation(){$('inlineEvaluation').classList.add('hidden');$('inlineEvaluation').innerHTML='';$('openEvaluation').classList.toggle('hidden',!canWrite);}
+function closeInlineEvaluation(){$('inlineEvaluation').classList.add('hidden');$('inlineEvaluation').innerHTML='';$('openEvaluation').classList.toggle('hidden',!puedeEvaluar);}
 function updateInlineEvaluationProgress(){
   const total=PROFILE_DIMENSIONS.length,scores={},category=guidanceForCategory(current?.player?.category);
   document.querySelectorAll('[data-profile-score]:checked').forEach(i=>scores[i.dataset.profileScore]=i.value);
@@ -779,7 +786,7 @@ loadCobertura();
 closeInlineEvaluation();if(next){await openProfile(next.id);openInlineEvaluation();const notice=$('profileEvalMessage');notice.textContent=`Evaluación guardada · Sigue ${nameOf(next)}`;notice.dataset.type='success';notice.classList.remove('hidden');}else msg('Evaluación guardada. Perfil Tanner actualizado.','success');}catch(error){box.textContent=friendly(error);box.classList.remove('hidden');btn.disabled=false;}}
 
 async function loadSports(playerId){const seq=++sportsSeq;setCardSports({},null);$('sportsLoading').textContent='Cargando lectura deportiva…';$('sportsLoading').classList.remove('hidden');$('sportsEmpty').classList.add('hidden');$('sportsContent').classList.add('hidden');try{const data=await rpc('v2_player_sports',{organization_id:ctx.organization_id,player_id:playerId});if(seq!==sportsSeq)return;renderSports(data);(window.__tannerAvisos=window.__tannerAvisos||{})['tanner-sports']={playerId,data};document.dispatchEvent(new CustomEvent('tanner-sports',{detail:{playerId,data}}));}catch(e){if(seq!==sportsSeq)return;$('sportsLoading').textContent='No pudimos cargar el perfil deportivo en este momento.';}}
-async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderEstadoDeCuenta(p);loadPagos(id);renderPhoto(p);renderList();closeInlineEvaluation();$('openEvaluation').classList.toggle('hidden',!canWrite);loadSports(id);loadBenefits(id);{const detail={playerId:id,player:p,guardians:current.guardians||[],organizationId:ctx.organization_id,canWrite,canMoney};window.__tannerAbierto=detail;document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail}));}}
+async function openProfile(id){msg();current=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});const p=current.player,g=(current.guardians||[]).find(x=>x.isPrimary)||(current.guardians||[])[0]||null;$('profileEmpty').classList.add('hidden');$('profileView').classList.remove('hidden');$('profilePanel').classList.add('open');$('profileName').textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');$('profileMeta').textContent=`${p.code||'Sin código'} · ${p.status==='active'?'Activo':'Baja'}${p.category?` · ${p.category}`:''}`;fill(p,g,current.activeEnrollment);renderCardIdentity(p);renderStatusAction(p);renderOtherGuardians(current.guardians,g);renderPrivacy(p);renderEstadoDeCuenta(p);loadPagos(id);renderPhoto(p);renderList();closeInlineEvaluation();$('openEvaluation').classList.toggle('hidden',!puedeEvaluar);loadSports(id);loadBenefits(id);{const detail={playerId:id,player:p,guardians:current.guardians||[],organizationId:ctx.organization_id,canWrite,canMoney};window.__tannerAbierto=detail;document.dispatchEvent(new CustomEvent('tanner-profile-opened',{detail}));}}
 /* Subir de categoría con número ocupado (Presidencia, 08/10/2026, opción A).
    Antes el guardado tronaba con "duplicate key" y el niño no se podía subir
    (caso real: Hugo Beltrán, Baby #14, a T10 donde el #14 es de Oscar). Ahora,
@@ -961,7 +968,8 @@ let cobertura=null;
 // Se arma una vez al cargar, no en cada fila: el filtro corre por cada Tanner
 // de la lista y rehacerlo ahí lo volvía cuadrático sin necesidad.
 let porEvaluar=new Set();
-const MESES_EVALUACION=4;
+// Presidencia (11/11/2026): "tenemos que evaluar a los jugadores cada tres meses".
+const MESES_EVALUACION=3;
 
 async function loadCobertura(){
   try{ cobertura=await rpc('v2_evaluation_coverage',{organization_id:ctx.organization_id,months:MESES_EVALUACION}); }

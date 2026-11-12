@@ -44,7 +44,7 @@ const ROLES = {
   Taquilla:    { yo:'u-ipad', nav: nav([['taquilla',true],['cobranza',true]]),
                  espera:['Cobrar','Pagar','Cotizar'] },
   Formadores:  { yo:'u-profe', nav: nav([['asistencia',true],['convocatoria',false],['jugadores',false]]),
-                 espera:['Pasar asistencia','Partido','Mensaje','Cotizar'] }
+                 espera:['Pasar asistencia','Partido','Evaluar Tanners','Mensaje','Cotizar'] }
 };
 
 const revisiones = []; const errores = [];

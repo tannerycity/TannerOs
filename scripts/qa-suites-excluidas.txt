@@ -66,6 +66,7 @@ qa-humo-postulaciones.mjs
 qa-product-ui.mjs
 qa-humo-pedidos-por-revisar.mjs
 qa-humo-utileria.mjs
+qa-humo-vendor.mjs
 qa-humo-fichajes-origen.mjs
 qa-humo-formacion.mjs
 qa-humo-tienda-tablero.mjs

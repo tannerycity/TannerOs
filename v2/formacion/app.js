@@ -46,12 +46,12 @@ function tipReto(code, { conUso = false, baby = false } = {}) {
   if (!g) return '';
   // La pregunta del niño ya sale arriba, en la tarjeta: aquí no se repite.
   const pregunta = c.question ? '' : g.pregunta;
-  return `<details class="fm-tip"><summary><i aria-hidden="true">i</i><span>¿Cómo se trabaja ${esc(nombreReto(code))}?</span></summary>
+  return `<details class="fm-tip"><summary><i aria-hidden="true">i</i><span>¿Cómo se trabaja ${esc(nombreReto(code))}?</span><em aria-hidden="true"></em></summary>
     <div class="fm-tip-cuerpo">${pregunta ? `<p class="fm-tip-pregunta">El niño se pregunta: <b>${esc(pregunta)}</b></p>` : ''}
-      <p class="fm-tip-eti">¿CÓMO LO RESOLVEMOS?</p><ol>${g.pasos.map(x => `<li>${esc(x)}</li>`).join('')}</ol>
+      <p class="fm-tip-eti">¿CÓMO LO RESOLVEMOS?</p><ol class="fm-tip-pasos">${g.pasos.map((x, n) => `<li><span>${n + 1}</span><b>${esc(x)}</b></li>`).join('')}</ol>
       ${g.ejercicios ? `<p class="fm-tip-eti">EJEMPLOS DE EJERCICIOS</p><p>${esc(g.ejercicios)}</p>` : ''}
-      ${conUso ? `<p class="fm-tip-eti">¿CÓMO USA UN PROFE LOS RETOS?</p><ol>${COMO_SE_USA.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
-      <p class="fm-tip-lema">${esc(LEMA_RETOS)}</p></div></details>`;
+      <p class="fm-tip-lema">${esc(LEMA_RETOS)}</p>
+      ${conUso ? `<details class="fm-tip-uso"><summary>¿Cómo usa un profe los Retos?<em aria-hidden="true"></em></summary><ol>${COMO_SE_USA.map(x => `<li>${esc(x)}</li>`).join('')}</ol></details>` : ''}</div></details>`;
 }
 const nombreReto = code => concepto('reto', code)?.name || concepto('mundo_baby', code)?.name || code || '';
 const tarea = id => catalogo.tasks.find(t => t.id === id);

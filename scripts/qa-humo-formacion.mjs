@@ -156,7 +156,10 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.click('.fm-reto-card .fm-tip summary');
   const tip = await p.$eval('.fm-reto-card .fm-tip', d => d.open ? d.innerText : '');
   revisa('[sesión] un toque y explica el 1V1 en tres pasos, con ejemplos', !/El niño se pregunta/.test(tip) && /Lo encaro/.test(tip) && /Hago una finta/.test(tip) && /Lo supero/.test(tip) && /EJEMPLOS DE EJERCICIOS/.test(tip), tip);
-  revisa('[sesión] y recuerda cómo usa un profe los Retos', /Termina jugando/.test(tip) && /Primero lo entiende el niño/.test(tip), tip);
+  revisa('[sesión] cierra con el lema, y el "cómo usa un profe los Retos" va aparte y cerrado', /Primero lo entiende el niño/.test(tip) && await p.$eval('.fm-tip-uso', d => !d.open));
+  await p.click('.fm-tip-uso summary');
+  revisa('[sesión] ese apartado abre con sus 4 pasos', await p.$eval('.fm-tip-uso', d => d.open && d.querySelectorAll('li').length === 4 && /Termina jugando/.test(d.innerText)));
+  await p.click('.fm-tip-uso summary');
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-tip.png' });
   await p.click('.fm-reto-card .fm-tip summary');
   const recos = await p.$$eval('.fm-bloque[data-i="1"] [data-elige]', b => b.map(x => x.dataset.task));

@@ -419,14 +419,23 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-mes-sem.lista span{color:#1d7a4f}.fm-mes-sem.lista select{background:#f1f5f4;color:#5a6b70}
 
 /* La "i" de cada Reto (12/11/2026) */
-.fm-tip{margin-top:8px;border-radius:14px;background:#fff;border:1px solid #d5e2e5;overflow:hidden}
-.fm-tip summary{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;cursor:pointer;list-style:none;font-size:14px;font-weight:700;color:#184159}
+.fm-tip{margin-top:8px;border-top:1px solid rgba(5,55,70,.12)}
+.fm-tip summary{display:flex;align-items:center;gap:10px;min-height:48px;cursor:pointer;list-style:none;font-size:14px;font-weight:700;color:var(--tos-ink,#053746)}
 .fm-tip summary::-webkit-details-marker{display:none}
-.fm-tip summary i{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#184159;color:#fff;font-style:normal;font-family:Georgia,serif;font-weight:700;font-size:15px}
-.fm-tip[open] summary{border-bottom:1px solid #e3ecee}
-.fm-tip-cuerpo{display:grid;gap:6px;padding:12px 14px 14px;font-size:14px;color:#24343a}
+.fm-tip summary span{flex:1}
+.fm-tip summary i{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--tos-teal,#087d8e);color:#fff;font-style:normal;font-weight:800;font-size:14px}
+.fm-tip summary em{flex:none;width:8px;height:8px;margin-right:4px;border-right:2px solid var(--tos-teal,#087d8e);border-bottom:2px solid var(--tos-teal,#087d8e);transform:rotate(45deg);transition:transform .18s}
+.fm-tip[open]>summary em,.fm-tip-uso[open]>summary em{transform:rotate(-135deg)}
+.fm-tip-cuerpo{display:grid;gap:6px;padding:2px 0 4px;font-size:14px;color:#24343a}
 .fm-tip-cuerpo p{margin:0;font-size:14px;color:#24343a}
-.fm-tip-pregunta b{display:block;font-size:17px;margin-top:2px;color:#07191e}
+.fm-tip-pregunta b{display:block;font-size:17px;margin-top:2px;color:var(--tos-ink,#053746)}
 .fm-tip-eti{margin-top:6px!important;font-size:10px!important;letter-spacing:.09em;font-weight:900;color:#4b7b86!important}
-.fm-tip-cuerpo ol{margin:0;padding-left:22px;display:grid;gap:4px;font-size:15px;font-weight:600}
-.fm-tip-lema{margin-top:8px!important;font-style:italic;color:#5a6b70!important}
+.fm-tip-pasos{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.fm-tip-pasos li{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 12px;border-radius:12px;background:#fff}
+.fm-tip-pasos span{flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--tos-ink,#053746);color:var(--tos-gold,#c6ac5c);font-weight:800;font-size:14px}
+.fm-tip-pasos b{font-size:16px;font-weight:700;color:var(--tos-ink,#053746)}
+.fm-tip-lema{margin-top:10px!important;padding-left:10px;border-left:3px solid var(--tos-gold,#c6ac5c);font-weight:700;color:var(--tos-ink,#053746)!important}
+.fm-tip-uso{margin-top:6px}
+.fm-tip-uso summary{justify-content:space-between;min-height:44px;font-size:13px;color:#3f5157}
+.fm-tip-uso ol{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px;color:#24343a}
+@media (prefers-reduced-motion:reduce){.fm-tip summary em{transition:none}}

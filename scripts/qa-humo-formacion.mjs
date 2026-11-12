@@ -151,17 +151,22 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.waitForSelector('#fmHoja:not(.hidden) .fm-reto-card');
   revisa('[sesión] Terminar abre la primera pendiente', /T6/.test(await p.textContent('#fmHojaTitulo')) && /mié/i.test(await p.textContent('#fmHojaTitulo')), await p.textContent('#fmHojaTitulo'));
   revisa('[sesión] trae el Reto que publicó Dirección y la conducta', /1V1/.test(await p.textContent('.fm-reto-card')) && /Que se atrevan a encarar/.test(await p.textContent('.fm-reto-card')));
-  // La "i" del Reto: cerrada no estorba; con un toque explica cómo se trabaja.
+  // La "i" del Reto: cerrada no estorba; con un toque dice qué enseñar, decir, corregir y observar.
+  revisa('[sesión] el Reto se reconoce: ícono, nombre, subtítulo y su color', await p.$eval('.fm-reto-cabeza', d => !!d.querySelector('.fm-mico svg') && /1V1/.test(d.innerText) && /Supera al rival/.test(d.innerText) && getComputedStyle(d.querySelector('.fm-mico')).backgroundColor === 'rgb(255, 138, 0)'));
   revisa('[sesión] la "i" del Reto viene cerrada', await p.$eval('.fm-reto-card .fm-tip', d => !d.open && /Cómo se trabaja/.test(d.querySelector('summary').textContent)));
-  await p.click('.fm-reto-card .fm-tip summary');
+  await p.click('.fm-reto-card .fm-tip > summary');
   const tip = await p.$eval('.fm-reto-card .fm-tip', d => d.open ? d.innerText : '');
-  revisa('[sesión] un toque y explica el 1V1 en tres pasos, con ejemplos', !/El niño se pregunta/.test(tip) && /Lo encaro/.test(tip) && /Hago una finta/.test(tip) && /Lo supero/.test(tip) && /EJEMPLOS DE EJERCICIOS/.test(tip), tip);
-  revisa('[sesión] cierra con el lema, y el "cómo usa un profe los Retos" va aparte y cerrado', /Primero lo entiende el niño/.test(tip) && await p.$eval('.fm-tip-uso', d => !d.open));
-  await p.click('.fm-tip-uso summary');
-  revisa('[sesión] ese apartado abre con sus 4 pasos', await p.$eval('.fm-tip-uso', d => d.open && d.querySelectorAll('li').length === 4 && /Termina jugando/.test(d.innerText)));
-  await p.click('.fm-tip-uso summary');
-  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-tip.png' });
-  await p.click('.fm-reto-card .fm-tip summary');
+  revisa('[sesión] un toque: qué le digo, error más común, cómo lo ayudo y cómo sé que aprendió', /QUÉ LE DIGO\s+¡Atrévete! Mira al rival, engáñalo y pasa\./.test(tip) && /ERROR MÁS COMÚN\s+Corre directo contra el rival/.test(tip) && /CÓMO LO AYUDO\s+Acércate con control/.test(tip) && /CÓMO SÉ QUE APRENDIÓ\s+Supera al rival y continúa jugando\./.test(tip), tip);
+  revisa('[sesión] ejercicios: los tres del Banco, por su nombre', (await p.$$eval('.fm-reto-card .fm-tip-chips b', b => b.map(x => x.textContent))).join('|') === 'Engaña y Sal|Cruza la Línea|Dos Salidas');
+  revisa('[sesión] el detalle "Cómo encarar" va aparte y cerrado, y la guía cierra con el lema', /Primero lo entiende el niño/.test(tip) && await p.$eval('.fm-tip-mas', d => !d.open && /Cómo encarar/.test(d.querySelector('summary').textContent)));
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-tip.png', fullPage: false });
+  await p.click('.fm-tip-mas > summary');
+  revisa('[sesión] el detalle abre: Mira, Acércate, Engaña, Arranca', (await p.$$eval('.fm-tip-mas dt', d => d.map(x => x.textContent))).join() === 'Mira,Acércate,Engaña,Arranca');
+  const colores = [await p.$eval('.fm-reto-cabeza .fm-mico', d => getComputedStyle(d).color), await p.$eval('.fm-tip-fila', d => getComputedStyle(d).borderLeftColor)];
+  revisa('[sesión] sobre el naranja de 1V1 el ícono va oscuro (se lee), y la guía lleva su color', colores.join() === 'rgb(26, 26, 26),rgb(255, 138, 0)', colores.join());
+  revisa('[sesión] el nombre del Reto no se repite dentro de la guía', !(await p.$('.fm-tip-cabeza')));
+  await p.click('.fm-tip-mas > summary');
+  await p.click('.fm-reto-card .fm-tip > summary');
   const recos = await p.$$eval('.fm-bloque[data-i="1"] [data-elige]', b => b.map(x => x.dataset.task));
   revisa('[sesión] 3 recomendadas, todas del Reto 1V1', recos.length === 3 && recos.every(t => ['t05', 't06', 't07', 't08'].includes(t)), JSON.stringify(recos));
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-sesion.png' });
@@ -447,8 +452,16 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.waitForSelector('.fm-grid-retos');
   const babyOps = await p.$$eval('[data-reto]', b => b.map(x => x.dataset.reto));
   revisa('[dirección] Baby elige entre los 4 mundos, nunca los 9 Retos', JSON.stringify(babyOps) === '["movimiento","balon","juego","convivencia"]', JSON.stringify(babyOps));
+  revisa('[dirección] cada mundo se reconoce: ícono, color y subtítulo', await p.$$eval('.fm-grid-retos [data-reto]', b => b.every(x => x.querySelector('.fm-mico svg') && x.querySelector('small').textContent.length > 5)) && /Aprendo a moverme/.test(await p.textContent('[data-reto="movimiento"]')) && await p.$eval('[data-reto="balon"] .fm-mico', d => getComputedStyle(d).backgroundColor === 'rgb(255, 138, 0)'));
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-mundos-baby.png' });
   await p.click('[data-reto="movimiento"]');
   await p.waitForSelector('#fmConducta');
+  await p.click('#fmHojaCuerpo .fm-tip > summary');
+  const tipBaby = await p.$eval('#fmHojaCuerpo .fm-tip', d => d.innerText);
+  revisa('[dirección] Baby tiene su guía: qué buscamos, tres pasos, juegos, qué le digo y cómo sé que aprendió', /QUÉ BUSCAMOS\s+Aprendo a correr, frenar, saltar/.test(tipBaby) && /Corro\s*→\s*Freno\s*→\s*Cambio de camino/.test(tipBaby) && /Semáforo/.test(tipBaby) && /QUÉ LE DIGO\s+¡Corre! ¡Alto!/.test(tipBaby) && /CÓMO SÉ QUE APRENDIÓ/.test(tipBaby), tipBaby);
+  revisa('[dirección] la guía Baby no habla de errores ni de los 9 Retos', !/ERROR MÁS COMÚN|EJERCICIOS QUE PUEDO USAR/.test(tipBaby));
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-tip-baby.png' });
+  await p.click('#fmHojaCuerpo .fm-tip > summary');
   revisa('[hoja] al elegir pasa sola al paso 2: qué quieres ver', /PASO 2 DE 2/.test(await p.textContent('#fmHojaCuerpo')) && /¿Qué quieres ver en la cancha\?/.test(await p.textContent('#fmHojaCuerpo')));
   revisa('[dirección] Baby no tiene secundario', (await p.$('#fmSec')) === null);
   await p.click('[data-ejemplo]');

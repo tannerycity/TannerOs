@@ -25,7 +25,6 @@ const routeContract={
   // Levantar pedido. Los links a /v2/captura/ los reescribe branding-auto a
   // /captura/, que no existía: 404 al levantar pedidos (09/10/2026).
   '/captura/':'v2/captura/index.html',
-  '/convocatoria/':'v2/convocatoria/index.html',
   '/calendario/':'v2/calendario/index.html',
   '/operacion/academias/':'v2/academias/index.html',
   '/prospectos/':'v2/prospectos/index.html',
@@ -39,7 +38,6 @@ const routeContract={
   '/qa/':'v2/qa/index.html',
   '/modulos/':'v2/modulos/index.html',
   '/deportivo/':'v2/deportivo/index.html',
-  '/porteros/':'v2/porteros/index.html',
   '/produccion/':'v2/produccion/index.html',
   '/operacion/programas/':'v2/programas/index.html',
   '/admin/auditoria/':'v2/admin/auditoria/index.html',

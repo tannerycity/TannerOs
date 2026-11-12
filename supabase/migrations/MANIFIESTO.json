@@ -1,8 +1,8 @@
 {
-  "migraciones": 614,
-  "bytes": 3853381,
-  "huella": "c36254f8a28fa833733ebd5a1c7832a6",
+  "migraciones": 615,
+  "bytes": 3858063,
+  "huella": "140d048ec57eaa9d323058cfe406a1c2",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261111020400_h87_familia_confirma_en_un_toque.sql",
-  "verificadoContraLaBase": "2026-11-11"
+  "ultima": "20261112000000_estacionamiento_costos_y_responsabilidad.sql",
+  "verificadoContraLaBase": "2026-11-12"
 }

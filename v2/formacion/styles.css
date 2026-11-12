@@ -417,3 +417,16 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-mes-sem span{font-size:12px;font-weight:700;letter-spacing:.02em;color:#5a6b70}
 .fm-mes-sem select{width:100%;min-height:44px;padding:0 10px;border:1px solid #cfd8d6;border-radius:12px;background:#fff;font:inherit;font-size:15px}
 .fm-mes-sem.lista span{color:#1d7a4f}.fm-mes-sem.lista select{background:#f1f5f4;color:#5a6b70}
+
+/* La "i" de cada Reto (12/11/2026) */
+.fm-tip{margin-top:8px;border-radius:14px;background:#fff;border:1px solid #d5e2e5;overflow:hidden}
+.fm-tip summary{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;cursor:pointer;list-style:none;font-size:14px;font-weight:700;color:#184159}
+.fm-tip summary::-webkit-details-marker{display:none}
+.fm-tip summary i{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#184159;color:#fff;font-style:normal;font-family:Georgia,serif;font-weight:700;font-size:15px}
+.fm-tip[open] summary{border-bottom:1px solid #e3ecee}
+.fm-tip-cuerpo{display:grid;gap:6px;padding:12px 14px 14px;font-size:14px;color:#24343a}
+.fm-tip-cuerpo p{margin:0;font-size:14px;color:#24343a}
+.fm-tip-pregunta b{display:block;font-size:17px;margin-top:2px;color:#07191e}
+.fm-tip-eti{margin-top:6px!important;font-size:10px!important;letter-spacing:.09em;font-weight:900;color:#4b7b86!important}
+.fm-tip-cuerpo ol{margin:0;padding-left:22px;display:grid;gap:4px;font-size:15px;font-weight:600}
+.fm-tip-lema{margin-top:8px!important;font-style:italic;color:#5a6b70!important}

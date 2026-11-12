@@ -15,6 +15,8 @@ import { hojaParchesGrupo } from '/v2/parches/parches.js';
 import { montaConvivencia, montaBono } from '/v2/convivencia/convivencia.js?v=20261109a';
 import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador, planDelMes } from '/v2/formacion/motor.js?v=20261112a';
 
+import { guiaDeReto, COMO_SE_USA, LEMA_RETOS } from '/v2/formacion/guia-retos.js?v=20261112a';
+
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
 if (!boot) throw new Error('No access');
 const { ctx, navigation } = boot, org = ctx.organization_id;
@@ -34,6 +36,23 @@ let vistaSemana = 'tarjetas';
 try { if (localStorage.getItem('tos:fm:vista') === 'calendario') vistaSemana = 'calendario'; } catch {}
 
 const concepto = (kind, code) => catalogo.concepts.find(c => c.kind === kind && c.code === code);
+/* La "i" de cada Reto (12/11/2026): qué le enseñas, en tres pasos y con
+   ejemplos, tal cual la lámina del club. Es un <details>: se abre con un toque,
+   funciona con teclado y no necesita código para abrir o cerrar. */
+function tipReto(code, { conUso = false, baby = false } = {}) {
+  // Baby usa mundos, y hay códigos que se repiten ("balon" es Reto y es mundo).
+  const c = concepto(baby ? 'mundo_baby' : 'reto', code);
+  const g = guiaDeReto(c);
+  if (!g) return '';
+  // La pregunta del niño ya sale arriba, en la tarjeta: aquí no se repite.
+  const pregunta = c.question ? '' : g.pregunta;
+  return `<details class="fm-tip"><summary><i aria-hidden="true">i</i><span>¿Cómo se trabaja ${esc(nombreReto(code))}?</span></summary>
+    <div class="fm-tip-cuerpo">${pregunta ? `<p class="fm-tip-pregunta">El niño se pregunta: <b>${esc(pregunta)}</b></p>` : ''}
+      <p class="fm-tip-eti">¿CÓMO LO RESOLVEMOS?</p><ol>${g.pasos.map(x => `<li>${esc(x)}</li>`).join('')}</ol>
+      ${g.ejercicios ? `<p class="fm-tip-eti">EJEMPLOS DE EJERCICIOS</p><p>${esc(g.ejercicios)}</p>` : ''}
+      ${conUso ? `<p class="fm-tip-eti">¿CÓMO USA UN PROFE LOS RETOS?</p><ol>${COMO_SE_USA.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
+      <p class="fm-tip-lema">${esc(LEMA_RETOS)}</p></div></details>`;
+}
 const nombreReto = code => concepto('reto', code)?.name || concepto('mundo_baby', code)?.name || code || '';
 const tarea = id => catalogo.tasks.find(t => t.id === id);
 const nombreRecurso = code => concepto('recurso', code)?.name || code || '';
@@ -124,6 +143,7 @@ function hojaReto(c) {
        <p class="fm-ayuda">${c.usesChallenges ? 'El Reto vive toda la semana. Tú decides el QUÉ; el Formador, el CÓMO.' : 'Baby no usa los 9 Retos: elige su mundo de la semana.'}</p>
        <div class="fm-grid-retos" role="radiogroup">${opciones.map(o => `<button type="button" role="radio" data-reto="${esc(o.code)}" aria-checked="${w.primary === o.code}" class="${w.primary === o.code ? 'activa' : ''}"><b>${esc(o.name)}</b><small>${esc(o.question || o.phrase || '')}</small></button>`).join('')}</div>`
     : `<p class="fm-paso-eti">PASO 2 DE 2</p><button type="button" class="fm-elegido" data-paso="1"><span>${c.usesChallenges ? 'RETO' : 'MUNDO'}</span><b>${esc(nombreReto(w.primary))}</b><small>Cambiar</small></button>
+       ${tipReto(w.primary, { baby: !c.usesChallenges })}
        <h3 class="fm-pregunta">¿Qué quieres ver en la cancha?</h3>
        <label class="fm-campo"><span class="sr">Lo que queremos ver</span><input id="fmConducta" maxlength="140" value="${esc(w.behavior || '')}" placeholder="${esc(ejemplos[0])}"></label>
        <div class="fm-ejemplos">${ejemplos.map(x => `<button type="button" data-ejemplo="${esc(x)}">${esc(x)}</button>`).join('')}</div>
@@ -400,7 +420,7 @@ function hojaSesion(s, pre = '') {
 
   let obsHtml = '';  // la observación de Dirección, si la sesión ya pasó y tiene
   const cuerpo = () => `${obsHtml}
-    <div class="fm-reto-card">${reto ? `<span>${esBaby ? 'MUNDO' : 'RETO'}</span><b>${esc(nombreReto(reto))}</b>${s.week?.secondary ? `<small>Secundario: ${esc(nombreReto(s.week.secondary))}</small>` : ''}<p>${esc(concepto('reto', reto)?.question || concepto('mundo_baby', reto)?.phrase || '')}</p>${s.week?.behavior ? `<p class="fm-conducta">Buscamos: ${esc(s.week.behavior)}</p>` : ''}`
+    <div class="fm-reto-card">${reto ? `<span>${esBaby ? 'MUNDO' : 'RETO'}</span><b>${esc(nombreReto(reto))}</b>${s.week?.secondary ? `<small>Secundario: ${esc(nombreReto(s.week.secondary))}</small>` : ''}<p>${esc(concepto('reto', reto)?.question || concepto('mundo_baby', reto)?.phrase || '')}</p>${s.week?.behavior ? `<p class="fm-conducta">Buscamos: ${esc(s.week.behavior)}</p>` : ''}${tipReto(reto, { conUso: true, baby: esBaby })}`
       : `<span>OBJETIVO</span><p class="fm-ayuda">Dirección aún no publica el Reto de esta semana. Escribe tu objetivo: cuenta igual.</p><input id="fmObjetivo" maxlength="140" value="${esc(s.plan?.objective || '')}" placeholder="Ej. que se atrevan a encarar">`}</div>
     ${bloques.map((b, i) => {
       const it = sel[i];

@@ -151,6 +151,14 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.waitForSelector('#fmHoja:not(.hidden) .fm-reto-card');
   revisa('[sesión] Terminar abre la primera pendiente', /T6/.test(await p.textContent('#fmHojaTitulo')) && /mié/i.test(await p.textContent('#fmHojaTitulo')), await p.textContent('#fmHojaTitulo'));
   revisa('[sesión] trae el Reto que publicó Dirección y la conducta', /1V1/.test(await p.textContent('.fm-reto-card')) && /Que se atrevan a encarar/.test(await p.textContent('.fm-reto-card')));
+  // La "i" del Reto: cerrada no estorba; con un toque explica cómo se trabaja.
+  revisa('[sesión] la "i" del Reto viene cerrada', await p.$eval('.fm-reto-card .fm-tip', d => !d.open && /Cómo se trabaja/.test(d.querySelector('summary').textContent)));
+  await p.click('.fm-reto-card .fm-tip summary');
+  const tip = await p.$eval('.fm-reto-card .fm-tip', d => d.open ? d.innerText : '');
+  revisa('[sesión] un toque y explica el 1V1 en tres pasos, con ejemplos', !/El niño se pregunta/.test(tip) && /Lo encaro/.test(tip) && /Hago una finta/.test(tip) && /Lo supero/.test(tip) && /EJEMPLOS DE EJERCICIOS/.test(tip), tip);
+  revisa('[sesión] y recuerda cómo usa un profe los Retos', /Termina jugando/.test(tip) && /Primero lo entiende el niño/.test(tip), tip);
+  if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-tip.png' });
+  await p.click('.fm-reto-card .fm-tip summary');
   const recos = await p.$$eval('.fm-bloque[data-i="1"] [data-elige]', b => b.map(x => x.dataset.task));
   revisa('[sesión] 3 recomendadas, todas del Reto 1V1', recos.length === 3 && recos.every(t => ['t05', 't06', 't07', 't08'].includes(t)), JSON.stringify(recos));
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-sesion.png' });

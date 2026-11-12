@@ -657,6 +657,8 @@ const ACCIONES_RAPIDAS={
   conciliar:{label:'Por conciliar',sub:'Cobros por validar',href:'/taquilla/?ver=concilia',icon:'check',modulos:['taquilla','contabilidad']},
   caja:{label:'Caja del día',sub:'Movimientos y corte',href:'/taquilla/?ver=caja',icon:'ledger',modulos:['taquilla','contabilidad']},
   asistencia:{label:'Pasar asistencia',sub:'Lista del entrenamiento',href:'/asistencia/',icon:'check',modulos:['asistencia'],escribe:true},
+  // Evaluar (11/11/2026): cada tres meses; abre Jugadores en los que faltan.
+  evaluar:{label:'Evaluar Tanners',sub:'Los que te faltan este trimestre',href:'/jugadores/?ver=evaluacion',icon:'star',modulos:['jugadores']},
   convocatoria:{label:'Partido',sub:'Convocados, goles y quién jugó',href:'/partidos/',icon:'list',modulos:['convocatoria','callups']},
   miAcademia:{label:'Tomar asistencia',sub:'Mi academia',href:'/mi-academia/',icon:'check',siempre:true},
   scouting:{label:'Scouting',sub:'Visorías y prospectos',href:'/scouting/',icon:'search',modulos:['scouting']},
@@ -670,7 +672,7 @@ const ACCIONES_POR_ROL={
   Operaciones:['registrar','cobrar','pagar','gafete','tienda','captacion','mensaje','cotizar'],
   Contabilidad:['cobrar','pagar','conciliar','caja','cotizar'],
   Taquilla:['cobrar','pagar','gafete','tienda','cotizar'],
-  Formadores:['asistencia','convocatoria','mensaje','cotizar'],
+  Formadores:['asistencia','convocatoria','evaluar','mensaje','cotizar'],
   Academia:['miAcademia','mensaje','cotizar'],
   Scouting:['registrar','scouting','captacion','cotizar']
 };

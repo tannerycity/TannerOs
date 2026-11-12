@@ -62,7 +62,10 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
   const canExport=ctx.is_owner||ctx.role==='Presidencia';const exportBtn=$('exportRoster');if(exportBtn){exportBtn.classList.toggle('hidden',!canExport);exportBtn.addEventListener('click',exportRosterCsv);}
   loadBajasPendientes();
   loadCobertura();
-  show('view');const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
+  show('view');
+  // ?ver=evaluacion (acción rápida "Evaluar Tanners"): abre en los que faltan.
+  if(new URLSearchParams(location.search).get('ver')==='evaluacion'){facet='evaluacion';fStat='porevaluar';renderFiltros();}
+  const requested=new URLSearchParams(location.search).get('player');if(requested&&players.some(p=>p.id===requested))await openProfile(requested);}
 function renderCategories(){const s=$('categoryId');s.innerHTML='<option value="">Sin categoría</option>';categories.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;s.appendChild(o);});}
 async function loadPlayers(){players=await rpc('v2_players',{organization_id:ctx.organization_id,status_filter:null})||[];renderFiltros();renderList();sinNum?.refresca();signPlayerPhotos(players).then(()=>renderList());}
 

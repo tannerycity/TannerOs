@@ -121,7 +121,19 @@ const TINTA_OSCURA = '#1A1A1A';
 const luz = hex => { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255].map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((a, v, k) => a + v * [.2126, .7152, .0722][k], 0); };
 export const contraste = (a, b) => { const [x, y] = [luz(a), luz(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
 export const tintaSobre = hex => /^#[0-9a-f]{6}$/i.test(hex || '') && contraste(hex, TINTA_OSCURA) > contraste(hex, '#FFFFFF') ? TINTA_OSCURA : '#FFFFFF';
-export const estiloMundo = (code, bank) => { const c = colorDeMundo(code, bank); return `--mundo:${c};--mundo-tinta:${tintaSobre(c)}`; };
+/* El fondo donde va texto (banda de la carta, portada del mundo). Si el color
+   del Reto no da un contraste holgado (5:1; el mínimo para texto es 4.5:1) ni
+   con blanco ni con oscuro, se oscurece poco a poco hasta que el blanco lo dé.
+   El color puro se queda para el ícono y los acentos (ahí basta 3:1). */
+export const CONTRASTE_TEXTO = 5;
+const oscurece = (hex, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k)).toString(16).padStart(2, '0')).join('').toUpperCase();
+export function fondoDeTexto(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex || '')) return hex;
+  if (contraste(hex, tintaSobre(hex)) >= CONTRASTE_TEXTO) return hex;
+  for (let k = .04; k <= .6; k += .04) { const c = oscurece(hex, k); if (contraste(c, '#FFFFFF') >= CONTRASTE_TEXTO) return c; }
+  return hex;
+}
+export const estiloMundo = (code, bank) => { const c = colorDeMundo(code, bank), f = fondoDeTexto(c); return `--mundo:${c};--mundo-icono:${tintaSobre(c)};--mundo-fondo:${f};--mundo-tinta:${tintaSobre(f)}`; };
 export const NIVEL_NUM = { sin_rival: 1, con_rival: 2, con_decision: 3, en_juego: 4 };
 export function filtraAlbum(tareas = [], { banco = 'tanner', mundo = '', nivel = 0, busca = '' } = {}) {
   const q = String(busca || '').trim().toLocaleLowerCase('es-MX').normalize('NFD').replace(/[̀-ͯ]/g, '');

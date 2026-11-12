@@ -13,9 +13,9 @@
 import { bootstrapProtectedShell, rpc, $, setShellHealth, moduleAccess } from '/v2/shell.js';
 import { hojaParchesGrupo } from '/v2/parches/parches.js';
 import { montaConvivencia, montaBono } from '/v2/convivencia/convivencia.js?v=20261109a';
-import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, estiloMundo, tintaSobre as tintaDe, NIVEL_NUM, filtraAlbum, pasosDelFormador, planDelMes } from '/v2/formacion/motor.js?v=20261112b';
+import { recomienda, recomiendaConPorque, verMas, semanaEnDias, bloquesDeSesion, faltaParaLista, resumenSemana, pasosDeSemana, colorDeMundo, estiloMundo, NIVEL_NUM, filtraAlbum, pasosDelFormador, planDelMes } from '/v2/formacion/motor.js?v=20261112c';
 
-import { guiaDeReto, ejerciciosDelBanco, ICONOS_RETO, LEMA_RETOS } from '/v2/formacion/guia-retos.js?v=20261112c';
+import { guiaDeReto, ejerciciosDelBanco, ICONOS_RETO, LEMA_RETOS } from '/v2/formacion/guia-retos.js?v=20261112d';
 
 const boot = await bootstrapProtectedShell({ active: 'formacion', title: 'Formación' });
 if (!boot) throw new Error('No access');
@@ -600,7 +600,7 @@ const usadasEnMiSemana = () => new Set((dataMia?.sessions || []).flatMap(x => (x
 const barras = n => `<span class="fm-nivel" aria-label="Nivel ${n} de 4">${[1, 2, 3, 4].map(k => `<i class="${k <= n ? 'on' : ''}"></i>`).join('')}</span>`;
 function cartaMini(t, usadas) {
   const n = NIVEL_NUM[t.level] || 0, color = colorDeMundo(t.primary, t.bank);
-  return `<button type="button" class="fm-carta" data-carta="${esc(t.id)}" style="--mundo:${color};--mundo-tinta:${tintaDe(color)}">
+  return `<button type="button" class="fm-carta" data-carta="${esc(t.id)}" style="${estiloMundo(t.primary, t.bank)}">
     <span class="fm-carta-banda"><span class="fm-carta-mundo">${iconoMundo(t.primary)}<span>${esc(nombreReto(t.primary))}</span></span>${n ? barras(n) : '<span class="fm-nivel-baby">Baby</span>'}</span>
     <span class="fm-carta-cuerpo"><b>${esc(t.name)}</b>
       <small class="fm-carta-mision">${esc(t.buscamos || '')}</small>
@@ -633,7 +633,7 @@ function pintaBanco() {
 function hojaCarta(t) {
   const n = NIVEL_NUM[t.level] || 0, color = colorDeMundo(t.primary, t.bank);
   const mias = (dataMia?.sessions || []).filter(x => (t.bank === 'baby') === esBabyEtapa(x.stage) && (!(t.stages || []).length || !x.stage || t.stages.includes(x.stage)));
-  abreHoja(t.name, `<div class="fm-carta-grande" style="--mundo:${color};--mundo-tinta:${tintaDe(color)}">
+  abreHoja(t.name, `<div class="fm-carta-grande" style="${estiloMundo(t.primary, t.bank)}">
       <div class="fm-carta-banda"><span class="fm-carta-mundo">${iconoMundo(t.primary)}<span>${esc(nombreReto(t.primary))}</span></span>${n ? `${barras(n)}<small>Nivel ${n} · ${esc(NIVEL_TXT[n])}</small>` : '<small>Banco Baby</small>'}</div>
       <section><h4>Misión</h4><p>${esc(t.buscamos || '')}</p></section>
       ${t.dile?.length ? `<section class="fm-grito"><h4>Grito para los niños</h4>${t.dile.map(f => `<p>“${esc(f)}”</p>`).join('')}</section>` : ''}

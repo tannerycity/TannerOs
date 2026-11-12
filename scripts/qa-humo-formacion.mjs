@@ -64,7 +64,7 @@ const revisa = (n, ok, d = '') => revisiones.push({ nombre: n, ok, detalle: d })
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 
 async function abre({ direccion, vacio = false, pasada = false, presidencia = false, url = '' }) {
-  const p = await nav.newPage({ viewport: { width: 390, height: 844 } });
+  const p = await nav.newPage({ viewport: { width: +process.env.QA_ANCHO || 390, height: +process.env.QA_ALTO || 844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(`console: ${m.text()}`); });
   await p.addInitScript(({ direccion, vacio, pasada, presidencia, CATALOGO, MIA, DIR, HOY }) => {
@@ -458,7 +458,7 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   await p.waitForSelector('#fmConducta');
   await p.click('#fmHojaCuerpo .fm-tip > summary');
   const tipBaby = await p.$eval('#fmHojaCuerpo .fm-tip', d => d.innerText);
-  revisa('[dirección] Baby tiene su guía: qué buscamos, tres pasos, juegos, qué le digo y cómo sé que aprendió', /QUÉ BUSCAMOS\s+Aprendo a correr, frenar, saltar/.test(tipBaby) && /Corro\s*→\s*Freno\s*→\s*Cambio de camino/.test(tipBaby) && (await p.$$eval('#fmHojaCuerpo .fm-tip-chips b', b => b.map(x => x.textContent))).join('|') === 'Semáforo Tanner|Frena y Sal|Islas Tanner' && /QUÉ LE DIGO\s+¡Corre! ¡Alto!/.test(tipBaby) && /CÓMO SÉ QUE APRENDIÓ/.test(tipBaby), tipBaby);
+  revisa('[dirección] Baby tiene su guía: qué buscamos, tres pasos, juegos, qué le digo y cómo sé que aprendió', /QUÉ BUSCAMOS\s+Aprendo a correr, frenar, saltar/.test(tipBaby) && /Corro\s*→\s*Freno\s*→\s*Cambio de camino/.test(tipBaby) && (await p.$$eval('#fmHojaCuerpo .fm-tip-chips b', b => b.map(x => x.textContent))).join('|') === 'Semáforo Tanner|Islas Tanner|Frena y Sal' && /QUÉ LE DIGO\s+¡Corre! ¡Alto!/.test(tipBaby) && /CÓMO SÉ QUE APRENDIÓ/.test(tipBaby), tipBaby);
   revisa('[dirección] la guía Baby no habla de errores ni de los 9 Retos', !/ERROR MÁS COMÚN|EJERCICIOS QUE PUEDO USAR|CÓMO LO AYUDO/.test(tipBaby));
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-tip-baby.png' });
   await p.click('#fmHojaCuerpo .fm-tip > summary');
@@ -540,6 +540,22 @@ const cabe = async (p, donde) => revisa(`[${donde}] nada se sale a 390px`, await
   revisa('[álbum] cada carta lleva el ícono de su mundo', await p.$$eval('.fm-carta', c => c.every(x => x.querySelector('.fm-carta-banda .fm-mico svg path, .fm-carta-banda .fm-mico svg circle'))));
   revisa('[álbum] el mundo elegido se pinta arriba con su ícono', await p.isVisible('.fm-album-hero.con-mundo > .fm-mico'));
   if (process.env.QA_FOTO) await p.screenshot({ path: process.env.QA_FOTO + '-mundo.png' });
+  // Contraste medido en la pantalla real, mundo por mundo (texto 4.5:1, ícono 3:1).
+  const medidas = [];
+  for (const m of await p.$$eval('.fm-mundos [data-mundo]:not([data-mundo=""])', b => b.map(x => x.dataset.mundo))) {
+    await p.click(`[data-mundo="${m}"]`);
+    medidas.push({ m, ...(await p.evaluate(() => {
+      const rgb = s => (s.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+      const luz = c => c.map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((a, v, k) => a + v * [.2126, .7152, .0722][k], 0);
+      const cr = (a, b) => { const [x, y] = [luz(rgb(a)), luz(rgb(b))].sort((p, q) => q - p); return +((x + .05) / (y + .05)).toFixed(2); };
+      const cs = s => getComputedStyle(document.querySelector(s));
+      const banda = cs('.fm-carta-banda'), hero = cs('.fm-album-hero.con-mundo'), boton = cs('.fm-mundos button.activa'), mico = cs('.fm-mundos button.activa .fm-mico');
+      return { banda: cr(banda.color, banda.backgroundColor), portada: cr(hero.color, hero.backgroundColor), botonActivo: cr(boton.color, boton.backgroundColor), icono: cr(mico.color, mico.backgroundColor) };
+    })) });
+  }
+  revisa('[contraste] en pantalla, los 9 Retos: texto de banda, portada y botón activo 4.5:1 o más; ícono 3:1 o más', medidas.length === 9 && medidas.every(x => x.banda >= 4.5 && x.portada >= 4.5 && x.botonActivo >= 4.5 && x.icono >= 3), JSON.stringify(medidas));
+  if (process.env.QA_CONTRASTE) console.log('CONTRASTE ' + JSON.stringify(medidas));
+  await p.click('[data-mundo="1v1"]');
   const niveles = await p.$$eval('.fm-carta', c => c.map(x => x.querySelectorAll('.fm-nivel i.on').length));
   revisa('[álbum] cada carta dice su nivel con barras, ordenadas', JSON.stringify(niveles) === '[1,2,3,4]', JSON.stringify(niveles));
   await p.click('[data-nivel="2"]');

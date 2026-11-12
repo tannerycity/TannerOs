@@ -6,7 +6,7 @@
  * y que la guía propia de Dirección mande sobre la base. */
 import { readFileSync } from 'node:fs';
 import { GUIA_RETOS, GUIA_BABY, ICONOS_RETO, LEMA_RETOS, guiaDeReto, ejerciciosDelBanco } from '../v2/formacion/guia-retos.js';
-import { MUNDOS, MUNDOS_BABY, colorDeMundo, tintaSobre, contraste, estiloMundo } from '../v2/formacion/motor.js';
+import { MUNDOS, MUNDOS_BABY, colorDeMundo, tintaSobre, contraste, estiloMundo, fondoDeTexto } from '../v2/formacion/motor.js';
 
 let fallos = 0, corridas = 0;
 const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` - ${n}${d ? `\n   ${d}` : ''}`); } };
@@ -31,9 +31,13 @@ revisa('los 9 colores de Reto son distintos entre sí, y los 4 de Baby también'
 revisa('paleta oficial: 1V1 naranja, Gol amarillo, Defender azul', MUNDOS['1v1'] === '#FF8A00' && MUNDOS.gol === '#F5C518' && MUNDOS.defender === '#374EA2');
 revisa('Baby Balón no usa el color del Reto Balón', colorDeMundo('balon', 'baby') === '#FF8A00' && colorDeMundo('balon') === '#00A8E8');
 const todos = [...Object.values(MUNDOS), ...Object.values(MUNDOS_BABY)];
-revisa('el texto sobre cada color se lee (contraste 4.3 o más; va en negrita)', todos.every(c => contraste(c, tintaSobre(c)) >= 4.3), todos.map(c => `${c}:${contraste(c, tintaSobre(c)).toFixed(1)}`).join(' '));
+revisa('texto sobre color: 5:1 o más en los 13 (el mínimo es 4.5:1; la negrita no cuenta)', todos.every(c => contraste(fondoDeTexto(c), tintaSobre(fondoDeTexto(c))) >= 5), todos.map(c => `${c}:${contraste(fondoDeTexto(c), tintaSobre(fondoDeTexto(c))).toFixed(2)}`).join(' '));
+revisa('ícono sobre el color puro: 3:1 o más en los 13', todos.every(c => contraste(c, tintaSobre(c)) >= 3));
+revisa('Reaccionar y Ventaja: se oscurece el fondo del texto, no cambia el color del Reto', fondoDeTexto(MUNDOS.reaccionar) === '#B6472D' && fondoDeTexto(MUNDOS.ventaja) === '#C13D6C' && MUNDOS.reaccionar === '#D95435' && MUNDOS.ventaja === '#E64980');
+revisa('los que ya se leían bien no se tocan', ['balon', '1v1', 'jugar_juntos', 'cancha', 'gol', 'defender'].every(c => fondoDeTexto(MUNDOS[c]) === MUNDOS[c]));
+revisa('nombres y textos sobre fondo blanco o tenue: tinta del club, 9:1 o más', todos.every(c => contraste('#053746', c) > 0) && contraste('#053746', '#FFFFFF') >= 9);
 revisa('sobre el amarillo de Gol va texto oscuro', tintaSobre(MUNDOS.gol) === '#1A1A1A' && tintaSobre(MUNDOS.defender) === '#FFFFFF');
-revisa('el estilo lleva color y tinta', estiloMundo('gol') === '--mundo:#F5C518;--mundo-tinta:#1A1A1A');
+revisa('el estilo lleva color, tinta del ícono, fondo de texto y tinta', estiloMundo('gol') === '--mundo:#F5C518;--mundo-icono:#1A1A1A;--mundo-fondo:#F5C518;--mundo-tinta:#1A1A1A' && estiloMundo('reaccionar') === '--mundo:#D95435;--mundo-icono:#1A1A1A;--mundo-fondo:#B6472D;--mundo-tinta:#FFFFFF');
 revisa('los íconos van en línea: nada se carga de fuera', !/https?:|<script|href=/i.test(Object.values(ICONOS_RETO).join('')) && Object.keys(ICONOS_RETO).length === 12);
 
 // El Banco Tanner real (la semilla oficial): 36 tareas, 4 por Reto.
@@ -42,6 +46,12 @@ const juegosBaby = JSON.parse(readFileSync(new URL('../supabase/semillas/formaci
 for (const c of CUATRO) revisa(`Baby ${c}: sus tres juegos son fichas del Banco Baby, de ese mundo y con su nombre exacto`, ejerciciosDelBanco(GUIA_BABY[c].juegos, juegosBaby, c, 'baby').map(t => t.name).join('|') === GUIA_BABY[c].juegos.join('|'), GUIA_BABY[c].juegos.join(' | '));
 revisa('Baby: 12 juegos, ninguno repetido, y el Banco Baby tiene sus 24', new Set(CUATRO.flatMap(c => GUIA_BABY[c].juegos)).size === 12 && juegosBaby.length === 24);
 revisa('Baby: un juego Baby no sale como ejercicio de un Reto, ni al revés', ejerciciosDelBanco(['Dos Caminos'], juegosBaby, 'juego').length === 0 && ejerciciosDelBanco(['Dos Caminos'], juegosBaby, 'juego', 'baby').length === 1);
+revisa('Baby: la selección definitiva, en su orden', JSON.stringify(CUATRO.map(c => GUIA_BABY[c].juegos)) === JSON.stringify([['Semáforo Tanner', 'Islas Tanner', 'Frena y Sal'], ['Pelota Viajera', 'El Balón me Sigue', 'Casas de Color'], ['Encuentra la Portería', 'Puertas Mágicas', 'Partidito Vivo'], ['Saludo Tanner', 'Te Ayudo', 'Celebramos Juntos']]));
+revisa('Gol: Todas las Formas de Gol, Ve a Buscar el Gol y El Gol Sigue Vivo; "3v2 al Gol" sigue en el Banco', GUIA_RETOS.gol.ejercicios.join('|') === 'Todas las Formas de Gol|Ve a Buscar el Gol|El Gol Sigue Vivo' && tareas.some(t => t.name === '3v2 al Gol' && t.primary === 'gol'));
+const conceptos = JSON.parse(readFileSync(new URL('../supabase/semillas/formacion/catalogo-v1.1.json', import.meta.url), 'utf8')).conceptos;
+const PREGUNTAS = { balon: '¿Puedo hacer con el balón lo que quiero?', '1v1': '¿Puedo ganar mi duelo?', jugar_juntos: '¿Puedo resolver con mis compañeros?', cancha: '¿Sé dónde estoy, dónde debo estar y qué pasa alrededor?', ventaja: '¿Podemos poner la jugada a nuestro favor?', avanzar: '¿Podemos superar la siguiente oposición?', gol: '¿Podemos convertir la jugada en gol?', defender: '¿Podemos proteger y recuperar?', reaccionar: '¿Qué hacemos cuando cambia quién tiene el balón?' };
+revisa('las 9 preguntas de Fútbol Curtido siguen en el catálogo, sin cambios', NUEVE.every(c => conceptos.find(x => x.kind === 'reto' && x.code === c)?.question === PREGUNTAS[c]));
+revisa('el encabezado no muestra el subtítulo: la pantalla no lo usa', !/subtitulo/.test(readFileSync(new URL('../v2/formacion/app.js', import.meta.url), 'utf8')));
 const frases = [...NUEVE.flatMap(c => [GUIA_RETOS[c].digo, GUIA_RETOS[c].error, GUIA_RETOS[c].ayudo, GUIA_RETOS[c].aprendio]), ...CUATRO.flatMap(c => [GUIA_BABY[c].buscamos, GUIA_BABY[c].digo, GUIA_BABY[c].aprendio])];
 revisa('ningún texto de la guía está repetido', new Set(frases).size === frases.length);
 revisa('36 tareas en el Banco Tanner y los 27 ejercicios de la guía no se repiten', tareas.length === 36 && new Set(NUEVE.flatMap(c => GUIA_RETOS[c].ejercicios)).size === 27);

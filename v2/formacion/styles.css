@@ -47,7 +47,7 @@ body.fm-sin-scroll{overflow:hidden}
 .fm-grid-retos{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .fm-grid-retos button{text-align:left;border:1.5px solid var(--tos-line,#dfe3e3);background:#fff;border-radius:14px;padding:10px 12px;font:inherit;cursor:pointer;display:grid;gap:3px}
 .fm-grid-retos button.activa{border-color:var(--tos-ink,#0b3d5c);background:#eaf2f4}
-.fm-grid-retos small{color:#6f7c81;font-size:11px;line-height:1.3}
+.fm-grid-retos small{color:#4f5e64;font-size:11px;line-height:1.3}
 .fm-campo{display:grid;gap:6px;font-size:13px;font-weight:700;color:#56656b}
 .fm-campo input,.fm-campo select,.fm-reto-card input,.fm-escribe input{min-height:46px;border:1.5px solid var(--tos-line,#dfe3e3);border-radius:12px;padding:0 12px;font:inherit;font-size:16px}
 .fm-reto-card{border-radius:16px;background:#eaf2f4;padding:14px;display:grid;gap:4px}
@@ -207,7 +207,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-mundos{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 10px}
 .fm-mundos::-webkit-scrollbar{display:none}
 .fm-mundos button{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border:1.5px solid #e1e6e7;background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;font-weight:700;color:#2b4146;cursor:pointer}
-.fm-mundos button .fm-mico{width:24px;height:24px;margin-left:-6px;background:var(--mundo,#8e8e93);color:var(--mundo-tinta,#fff)}
+.fm-mundos button .fm-mico{width:24px;height:24px;margin-left:-6px;background:var(--mundo,#8e8e93);color:var(--mundo-icono,#fff)}
 .fm-mundos button .fm-mico svg{width:15px;height:15px}
 .fm-mundos button.activa{background:#07191e;border-color:#07191e;color:#fff}
 .fm-album{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
@@ -215,7 +215,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
   box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.05);transition:transform .15s ease,box-shadow .2s ease}
 .fm-carta:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(7,25,30,.12),0 0 0 2px var(--mundo)}
 .fm-carta:active{transform:scale(.98)}
-.fm-carta-banda{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:var(--mundo);color:var(--mundo-tinta,#fff);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.fm-carta-banda{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:var(--mundo-fondo,var(--mundo));color:var(--mundo-tinta,#fff);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .fm-nivel{display:inline-flex;gap:3px;align-items:flex-end}
 .fm-nivel i{display:block;width:6px;border-radius:2px;background:currentColor;opacity:.3}
 .fm-nivel i:nth-child(1){height:6px}.fm-nivel i:nth-child(2){height:9px}.fm-nivel i:nth-child(3){height:12px}.fm-nivel i:nth-child(4){height:15px}
@@ -340,7 +340,8 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 /* ---------- Íconos de mundo (13/10/2026) ----------
    Cada Reto con su escudo: balón, duelo, pase, cancha, ventaja, avanzar,
    gol, defender y reaccionar. Trazo blanco sobre el color del mundo. */
-.fm-mico{display:inline-grid;place-items:center;flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.24);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);color:var(--mundo-tinta,currentColor)}
+.fm-mico{display:inline-grid;place-items:center;flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.24);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);color:var(--mundo-icono,currentColor)}
+.fm-carta-banda .fm-mico,.fm-album-hero .fm-mico{color:inherit;background:none;box-shadow:inset 0 0 0 1.5px currentColor}
 .fm-mico svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .fm-carta-mundo{display:inline-flex;align-items:center;gap:7px;min-width:0}
 .fm-carta-mundo>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -348,11 +349,11 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-carta-grande .fm-mico svg{width:20px;height:20px}
 .fm-carta-grande .fm-carta-mundo{gap:10px}
 .fm-mundos button.activa .fm-mico{box-shadow:0 0 0 2px #fff}
-.fm-album-hero.con-mundo{position:relative;overflow:hidden;padding-right:96px;background:var(--mundo);color:var(--mundo-tinta,#fff)}
+.fm-album-hero.con-mundo{position:relative;overflow:hidden;padding-right:96px;background:var(--mundo-fondo,var(--mundo));color:var(--mundo-tinta,#fff)}
 .fm-album-hero.con-mundo>span{color:inherit;opacity:.85}
 .fm-album-hero.con-mundo p{color:inherit}
-.fm-album-hero.con-mundo .fm-album-uso{background:rgba(255,255,255,.3);color:inherit}
-.fm-album-hero.con-mundo>.fm-mico{position:absolute;right:18px;top:50%;width:66px;height:66px;transform:translateY(-50%) rotate(-8deg);background:rgba(255,255,255,.2);color:inherit;animation:fm-pop .35s cubic-bezier(.2,.8,.2,1.4) both}
+.fm-album-hero.con-mundo .fm-album-uso{background:var(--mundo-tinta,#fff);color:var(--mundo-fondo,#07191e)}
+.fm-album-hero.con-mundo>.fm-mico{position:absolute;right:18px;top:50%;width:66px;height:66px;transform:translateY(-50%) rotate(-8deg);background:none;color:inherit;animation:fm-pop .35s cubic-bezier(.2,.8,.2,1.4) both}
 .fm-album-hero.con-mundo>.fm-mico svg{width:38px;height:38px;stroke-width:1.8}
 @media (prefers-reduced-motion:reduce){.fm-album-hero.con-mundo>.fm-mico{animation:none}}
 
@@ -455,5 +456,5 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-reto-cabeza>div{display:grid}
 .fm-reto-cabeza>div>span{font-size:10px;letter-spacing:.09em;font-weight:950;color:#4b7b86}
 .fm-reto-cabeza b{font-size:20px;line-height:1.15}
-.fm-elegido .fm-mico{width:30px;height:30px;background:var(--mundo);box-shadow:none;color:var(--mundo-tinta,#fff)}
+.fm-elegido .fm-mico{width:30px;height:30px;background:var(--mundo);box-shadow:none;color:var(--mundo-icono,#fff)}
 .fm-elegido.con-icono{grid-template-columns:auto auto 1fr auto}

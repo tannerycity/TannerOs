@@ -1,5 +1,10 @@
 /* Hoja de cobro con desglose. Se monta sobre .pres-sheet (shell.css). */
 .cobro-sheet{width:min(520px,96vw)}
+/* La hoja se abre desde ventanas que ya están encima de todo (el detalle del
+   pedido va en 9991). Con el z-index de .pres-sheet (96) abría DETRÁS y el
+   botón "Cobrar" parecía no hacer nada (11/11/2026). */
+#cobroBackdrop.pres-backdrop{z-index:9995}
+.pres-sheet.cobro-sheet{z-index:9996}
 .cobro-form{gap:14px}
 .cobro-bloque{display:grid;gap:9px}
 .cobro-titulo{font-size:12px;font-weight:700;color:#354f55}
@@ -166,7 +171,7 @@
 .cobro-cara:disabled{cursor:default}
 .cobro-cara img{width:100%;height:100%;object-fit:cover;display:block}
 .cobro-cara b{font-size:16px;color:#354f55}
-.cobro-cara-grande{position:fixed;inset:0;z-index:2000;background:rgba(6,20,24,.92);display:grid;place-items:center;align-content:center;gap:12px;padding:24px;cursor:zoom-out}
+.cobro-cara-grande{position:fixed;inset:0;z-index:9999;background:rgba(6,20,24,.92);display:grid;place-items:center;align-content:center;gap:12px;padding:24px;cursor:zoom-out}
 .cobro-cara-grande img{max-width:min(92vw,520px);max-height:72vh;border-radius:20px;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.45)}
 .cobro-cara-grande p{margin:0;color:#fff;font-size:17px;font-weight:700;text-align:center}
 .cobro-cara-grande button{position:absolute;top:max(16px,env(safe-area-inset-top));right:16px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;font-size:24px}

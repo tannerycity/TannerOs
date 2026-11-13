@@ -182,7 +182,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
    válido". Valores frontera sobre lo que falta del pedido. */
 {
   const { pg } = await abre(true);
-  await pg.click('#openCollect'); await pg.click('#tabTienda'); await pg.waitForTimeout(300);
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]'); await pg.click('#tabTienda'); await pg.waitForTimeout(300);
   await pg.click('.tienda-pedido[data-pedido="o2"]');
   revisa('[centavos] el monto es un campo de texto con teclado de decimales, no de pesos enteros', await pg.$eval('#tiendaAmount', i => i.type === 'text' && i.inputMode === 'decimal' && !i.step));
   await pg.click('.tienda-atajos [data-parte="0.5"]');

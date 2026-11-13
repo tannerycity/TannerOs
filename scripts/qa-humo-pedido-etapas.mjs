@@ -363,7 +363,7 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   revisa('12. el pedido ligado no lo pregunta', !(await pg.$('.order-row[data-order-id="o-nuevo"] .t-liga')));
   await pg.click('.order-row[data-order-id="o-viejo"] .t-liga-chip');
   await pg.waitForTimeout(300);
-  const liga = (await llamadas(pg, 'v2_link_order_player'))[0];
+  const liga = (await llamadas(pg, 'v2_link_order_player')).find(x => x.player_id === 't1');
   revisa('12. un toque lo liga, sin abrir el pedido', liga?.order_id === 'o-viejo' && liga?.player_id === 't1' && !(await pg.isVisible('#drawer:not(.hidden)')), JSON.stringify(liga));
   await pg.click('.order-row[data-order-id="o-viejo"] [data-no-tanner]');
   await pg.waitForSelector('.tosdlg-ok', { timeout:3000 });
@@ -371,6 +371,29 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   await pg.waitForTimeout(300);
   revisa('12. "No es para un Tanner" queda registrado', (await llamadas(pg, 'v2_order_not_tanner'))[0]?.order_id === 'o-viejo');
   revisa('sin errores de página (ligar)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+
+{
+  const { pg, errs } = await abre('/v2/pedidos/', { prod:'liga' });
+  await pg.waitForSelector('#tSeg .t-paso', { timeout:8000 });
+  await pg.click('#tSeg [data-f="@para_entregar"]');
+  await pg.waitForSelector('.order-row[data-order-id="o-viejo"] .t-liga-chip', { timeout:4000 });
+  // Buscar al Tanner ahí mismo (13/11/2026): "que no tengan que andar navegando en pantallas".
+  await pg.click('.order-row[data-order-id="o-viejo"] [data-liga-otro]');
+  await pg.waitForSelector('.order-row[data-order-id="o-viejo"] [data-liga-q]', { timeout:3000 }).catch(() => {});
+  revisa('12. "Buscar otro" abre un buscador en la misma tarjeta, sin abrir el pedido', await pg.isVisible('.order-row[data-order-id="o-viejo"] [data-liga-q]') && !(await pg.isVisible('#drawer:not(.hidden)')));
+  revisa('12. con el cursor ya puesto', await pg.evaluate(() => document.activeElement?.matches?.('[data-liga-q]')));
+  await pg.type('.order-row[data-order-id="o-viejo"] [data-liga-q]', 'Leonardo');
+  await pg.waitForSelector('.order-row[data-order-id="o-viejo"] [data-liga-res] [data-liga="t9"]', { timeout:3000 }).catch(() => {});
+  revisa('12. escribir busca y enseña a quién ligar, y escribir no abre el pedido', await pg.isVisible('[data-liga-res] [data-liga="t9"]') && !(await pg.isVisible('#drawer:not(.hidden)')));
+  const busco = (await llamadas(pg, 'v2_order_player')).find(x => x.query);
+  revisa('12. la búsqueda manda el nombre escrito para ese pedido', busco?.order_id === 'o-viejo' && busco?.query === 'Leonardo', JSON.stringify(busco));
+  await pg.click('[data-liga-res] [data-liga="t9"]');
+  await pg.waitForTimeout(300);
+  const ligaBusqueda = (await llamadas(pg, 'v2_link_order_player')).find(x => x.player_id === 't9');
+  revisa('12. un toque al resultado lo liga, sin abrir el pedido', ligaBusqueda?.order_id === 'o-viejo' && !(await pg.isVisible('#drawer:not(.hidden)')), JSON.stringify(ligaBusqueda));
+  revisa('sin errores de página (buscar para ligar)', !errs.length, errs.join(' | '));
   await pg.close();
 }
 

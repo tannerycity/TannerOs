@@ -256,6 +256,8 @@ await pg.waitForTimeout(150);
 revisa('[extra] con la talla elegida, se agrega', /Hoodie/.test(await pg.innerText('#resumenCarrito')) && /\$6,447/.test(await pg.innerText('.carrito-total')), await pg.innerText('.carrito-total'));
 // Para qué Tanner es (29/10/2026, h52): obligatorio, con nombre y apellido.
 revisa('[tanner] pregunta para qué Tanner es, antes de tus datos', /¿Para qué Tanner es\?/.test(await pg.textContent('#stTannerCard')) && await pg.isVisible('#tannerNombre'));
+// Sin cuenta la tienda nunca enseña nombres de Tanners (son menores): invita a entrar para que el suyo salga solo (13/11/2026).
+revisa('[tanner] sin cuenta invita a entrar con la de familia, y regresa a la tienda', await pg.isVisible('.st-entra-familia') && /^\/familias\/\?volver=%2F/.test(await pg.getAttribute('.st-entra-familia', 'href')));
 await pg.fill('#customerName', 'Ana Ávila');
 await pg.fill('#customerPhone', '4771234567');
 await pg.check('#orderDataConsent');
@@ -573,6 +575,7 @@ revisa('[liga] una liga que no existe abre la portada, sin error', await pg.eval
   await p4.waitForSelector('#stComprarYa');
   await p4.click('#stComprarYa');
   await p4.waitForSelector('#orderForm', { timeout:5000 }).catch(() => {});
+  revisa('[cuenta] con cuenta ya no invita a entrar', !(await p4.$('.st-entra-familia')));
   revisa('[cuenta] al pagar ya van su Tanner y su categoría', (await p4.inputValue('#tannerNombre').catch(() => '')) === 'Leo Ávila' && (await p4.inputValue('#tannerCategoria').catch(() => '')) === 'T10');
   revisa('[cuenta] y sus datos de contacto', (await p4.inputValue('#customerName')) === 'Ana Ávila' && (await p4.inputValue('#customerPhone')) === '4771234567' && (await p4.inputValue('#customerEmail')) === 'ana@correo.com');
   await p4.click('[data-mi-tanner="1"]');

@@ -1331,6 +1331,7 @@ function renderCheckout() {
             </div>
             <div id="stTannerCampos" class="st-co-campos${paraQuien === 'tanner' ? '' : ' hidden'}">
               ${familia ? `<div class="st-mis-tanners" id="stMisTanners" role="radiogroup" aria-label="Tu Tanner">${familia.players.map((p, i) => `<button type="button" role="radio" data-mi-tanner="${i}" aria-checked="false"><b>${esc(p.nombre)}</b><small>${esc([p.categoria, p.numero && `#${p.numero}`].filter(Boolean).join(' · ') || 'Tanner')}</small></button>`).join('')}</div>` : ''}
+              ${familia ? '' : `<a class="st-entra-familia" href="/familias/?volver=${encodeURIComponent(location.pathname + location.search)}"><b>¿Ya tienes cuenta de familia?</b><span>Entra y tu Tanner aparece solo, con su categoría y número.</span></a>`}
               <label class="st-campo"><span>Nombre y apellido del Tanner</span><input id="tannerNombre" maxlength="120" autocomplete="off" autocapitalize="words" placeholder="Ej. Leo Ávila"></label>
               <label class="st-campo"><span>Categoría <em>opcional</em></span><input id="tannerCategoria" maxlength="20" autocomplete="off" placeholder="Ej. T10"></label>
               <small class="st-tanner-ayuda">¿Es nuevo o todavía no tiene cuenta? Escríbelo igual, nosotros lo ligamos. Si es para hermanos, sepáralos con coma.</small>

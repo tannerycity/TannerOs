@@ -624,3 +624,9 @@
 .t-pieza-botones{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
 .t-pieza-botones button{min-height:44px;padding:0 20px}
 @media(max-width:520px){.t-pieza-forma{grid-template-columns:1fr}}
+
+/* Buscar al Tanner dentro de la tarjeta (13/11/2026) */
+.t-liga-busca{display:grid;gap:6px}
+.t-liga-busca input{min-height:44px;border:1.5px solid #e8cfa3;border-radius:12px;padding:0 12px;font:inherit;font-size:16px;background:#fff;color:#07191e}
+.t-liga-busca input:focus{outline:3px solid rgba(8,125,142,.25);border-color:var(--tos-teal,#087d8e)}
+.t-liga-res{display:grid;gap:6px}

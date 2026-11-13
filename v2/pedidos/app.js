@@ -365,8 +365,9 @@ function render(){if(vista==='todos'){renderTodos();return;}pintaEtapa();const r
 function filaPedido(o,donde=''){const d=details.get(o.id),balance=d?Number(d.balance||0):null,t=tablero[o.id]||{},items=t.items||[],quien=t.playerName||o.customer_name||'Sin nombre',b=document.createElement('article');b.dataset.orderId=o.id;b.className='order-row'+(vigente(o)?'':' apagado');b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',`Abrir pedido ${o.folio||''} de ${quien}`);
     const atendio=quienAtendio(t);
     const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main">${donde}<div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} ${items.length-4===1?'pieza':'piezas'} más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} ${Number(o.item_count||0)===1?'pieza':'piezas'}</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b>${vigente(o)&&o.status!=='delivered'?(saldo>0.005?`<span class="t-pago debe">Debe ${money.format(saldo)}</span>`:'<span class="t-pago ok">Pagado</span>'):''}${vigente(o)&&['pending_payment','partial_payment','paid'].includes(o.status)?'':`<span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span>`}</div>${barraConfirma(o)}${cajaDeTanner(o)}${accionesDeFila(o,t)}`;
-    b.addEventListener('click',ev=>{if(ev.target.closest('.t-liga button')){ev.stopPropagation();accionDeLiga(o,ev);return;}if(ev.target.closest('[data-avisa]')){ev.stopPropagation();return;}const en=ev.target.closest('[data-entregado]');if(en){ev.stopPropagation();entregaDeFila(o,en);return;}const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
-    b.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
+    b.addEventListener('input',ev=>{const q=ev.target.closest('[data-liga-q]');if(!q)return;clearTimeout(ligaReloj);const caja=b.querySelector(`[data-liga-res]`);ligaReloj=setTimeout(()=>caja&&buscaParaLigar(o.id,q.value,caja),250);});
+    b.addEventListener('click',ev=>{if(ev.target.closest('.t-liga button')){ev.stopPropagation();accionDeLiga(o,ev);return;}if(ev.target.closest('.t-liga-busca')){ev.stopPropagation();return;}if(ev.target.closest('[data-avisa]')){ev.stopPropagation();return;}const en=ev.target.closest('[data-entregado]');if(en){ev.stopPropagation();entregaDeFila(o,en);return;}const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
+    b.addEventListener('keydown',ev=>{if(ev.target.closest?.('[data-liga-q]')){ev.stopPropagation();return;}if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
     return b;}
 /* Quién me debe (13/10/2026, "y después saber quién me debe"): una tarjeta
    por persona con lo que debe, de cuántos pedidos y desde cuándo; WhatsApp
@@ -736,6 +737,20 @@ async function entregaGarantia(id,btn){
    familia y las sugerencias (mismo teléfono, mismo nombre): un toque y queda
    ligado. Si no es de un Tanner (abuelo, aficionado), se marca. */
 const sugerencias=new Map();
+/* Buscar al Tanner ahí mismo (13/11/2026). Presidencia: "cuando busca el
+   Tanner no lo encuentra y es difícil ligarle sus datos... que no tengan que
+   andar navegando en pantallas". "Buscar otro" abría el pedido completo; ahora
+   abre un buscador dentro de la misma tarjeta y un toque lo liga. */
+const ligaBuscando=new Set();let ligaReloj=null,ligaSeq=0;
+async function buscaParaLigar(orderId,q,caja){
+  const seq=++ligaSeq;
+  if(String(q||'').trim().length<2){caja.innerHTML='<span class="t-liga-cargando">Escribe al menos 2 letras.</span>';return;}
+  caja.innerHTML='<span class="t-liga-cargando">Buscando…</span>';
+  let r=null;try{r=await rpc('v2_order_player',{organization_id:ctx.organization_id,order_id:orderId,query:String(q).trim()});}catch{r=null;}
+  if(seq!==ligaSeq)return;
+  const l=Array.isArray(r?.suggestions)?r.suggestions:[];
+  caja.innerHTML=l.length?l.slice(0,6).map(x=>`<button type="button" class="t-liga-chip" data-liga="${esc(x.id)}"><b>${esc(x.name)}${x.category?` · ${esc(x.category)}`:''}</b>${x.reason?`<span>${esc(x.reason)}</span>`:''}</button>`).join(''):'<span class="t-liga-cargando">No encontramos a nadie con ese nombre. Si es nuevo, regístralo primero en Jugadores.</span>';
+}
 const sinTanner=o=>{if(!vigente(o)||['delivered'].includes(o.status))return false;const e=etapas[o.id]||{};if(e.tanner?.tipo==='no_tanner')return false;return e.linked===undefined?!tablero[o.id]?.playerName:!e.linked;};
 const escritoPor=o=>{const t=etapas[o.id]?.tanner;if(t?.nombre)return `${t.nombre}${t.categoria?` · ${t.categoria}`:''}`;const m=/Para el Tanner: ([^·]+)/.exec(o.notes||tablero[o.id]?.notes||'');return m?m[1].trim():'';};
 function cajaDeTanner(o){
@@ -743,7 +758,8 @@ function cajaDeTanner(o){
   const chips=sug===undefined?'<span class="t-liga-cargando">Buscando a quién se parece…</span>':sug.length?sug.slice(0,3).map(x=>`<button type="button" class="t-liga-chip" data-liga="${esc(x.id)}"${canWrite?'':' disabled'}><b>${esc(x.name)}${x.category?` · ${esc(x.category)}`:''}</b><span>${esc(x.reason||'')}</span></button>`).join(''):'<span class="t-liga-cargando">Sin parecidos. Búscalo a mano.</span>';
   return `<div class="t-liga"><div class="t-liga-cab"><b>¿De qué Tanner es?</b>${esc2?`<span>La familia escribió: <q>${esc(esc2)}</q></span>`:'<span>Lígalo para que salga en su cuenta y no se cobre doble.</span>'}</div>
     <div class="t-liga-sug">${chips}</div>
-    ${canWrite?`<div class="t-liga-acc"><button type="button" class="t-link-mini" data-liga-otro>Buscar otro</button><button type="button" class="t-link-mini gris" data-no-tanner>No es para un Tanner</button></div>`:''}</div>`;
+    ${canWrite&&ligaBuscando.has(o.id)?`<div class="t-liga-busca"><input type="search" data-liga-q="${esc(o.id)}" placeholder="Nombre o apellido del Tanner" aria-label="Buscar al Tanner" autocomplete="off" enterkeyhint="search"><div class="t-liga-res" data-liga-res="${esc(o.id)}" aria-live="polite"></div></div>`:''}
+    ${canWrite?`<div class="t-liga-acc"><button type="button" class="t-link-mini" data-liga-otro>${ligaBuscando.has(o.id)?'Cerrar búsqueda':'Buscar otro'}</button><button type="button" class="t-link-mini gris" data-no-tanner>No es para un Tanner</button></div>`:''}</div>`;
 }
 async function cargaSugerencias(rows){
   const faltan=rows.filter(o=>sinTanner(o)&&!sugerencias.has(o.id)).slice(0,12);if(!faltan.length)return;
@@ -753,8 +769,11 @@ async function cargaSugerencias(rows){
 async function accionDeLiga(o,ev){
   if(!canWrite)return;
   const chip=ev.target.closest('[data-liga]');
-  if(chip){chip.disabled=true;try{await rpc('v2_link_order_player',{organization_id:ctx.organization_id,order_id:o.id,player_id:chip.dataset.liga});sugerencias.delete(o.id);await load();}catch(e){chip.disabled=false;await window.tosAlert({kicker:'LIGAR',title:'No se pudo ligar',message:e.message||String(e)});}return;}
-  if(ev.target.closest('[data-liga-otro]')){openOrder(o);return;}
+  if(chip){chip.disabled=true;try{await rpc('v2_link_order_player',{organization_id:ctx.organization_id,order_id:o.id,player_id:chip.dataset.liga});sugerencias.delete(o.id);ligaBuscando.delete(o.id);await load();}catch(e){chip.disabled=false;await window.tosAlert({kicker:'LIGAR',title:'No se pudo ligar',message:e.message||String(e)});}return;}
+  if(ev.target.closest('[data-liga-otro]')){
+    if(ligaBuscando.has(o.id))ligaBuscando.delete(o.id);else ligaBuscando.add(o.id);
+    const caja=ev.target.closest('.t-liga');if(caja)caja.outerHTML=cajaDeTanner(o);
+    document.querySelector(`[data-liga-q="${CSS.escape(o.id)}"]`)?.focus();return;}
   const nt=ev.target.closest('[data-no-tanner]');
   if(nt){const ok=await window.tosConfirm({kicker:'NO ES TANNER',title:'¿No es para un Tanner?',message:'Por ejemplo un abuelo o un aficionado. Queda registrado con tu nombre.',confirmText:'Sí, no es Tanner'});if(!ok)return;nt.disabled=true;
     try{await rpc('v2_order_not_tanner',{organization_id:ctx.organization_id,order_id:o.id,value:true});await load();}

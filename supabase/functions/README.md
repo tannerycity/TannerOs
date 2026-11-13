@@ -91,3 +91,13 @@ que carga el dueño: `GOOGLE_SERVICE_ACCOUNT_JSON` y `META_SYSTEM_USER_TOKEN`
 Facebook (h57, 02/11/2026): cada métrica de página va en su propia llamada;
 si Meta retira una, se anota en el detalle de la sincronización y las demás
 siguen. Los nombres vigentes viven en `METRICAS_PAGINA` (normaliza.js).
+
+## staff-usuario
+
+Cambia el @usuario de una llave del staff. Sólo cambia con qué nombre entra: la
+contraseña, el rol y los permisos se quedan. Vive aparte de `staff-access` para
+no tocar la función que entrega todas las llaves.
+
+- Pide lo mismo que `staff-access`: ser del club y escribir en Usuarios.
+- No renombra la cuenta del dueño, ni una llave de otro club, ni una que entra
+  con correo, ni una del portal de familias.

@@ -391,24 +391,51 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.click('#cobroBody [data-cobro-cerrar]');
   revisa('[taquilla] el buscador queda limpio para el siguiente', await p.inputValue('#rapidoSearch') === '');
 
+  // ¿Qué vas a cobrar? (13/11/2026): lo de todos los días a un toque.
   await p.click('#openCollect');
-  revisa('[taquilla] COBRAR abre "¿Qué vas a cobrar?": buscar al Tanner y tarjetas, sin botón de enviar', await p.isVisible('#collectPlayerSearch') && /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle'))
-    && !(await p.isVisible('#collectAmount')) && !(await p.isVisible('#saveCollect')) && !(await p.isVisible('#collectVolver')));
+  const que = await p.$$eval('.cobrar-que button', bs => bs.filter(b => b.offsetParent).map(b => b.querySelector('b').textContent));
+  revisa('[taquilla] COBRAR abre cuatro botones: Mensualidad, Inscripción, Reinscripción y Otro', JSON.stringify(que) === JSON.stringify(['Mensualidad','Inscripción','Reinscripción','Otro']) && /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle')), JSON.stringify(que));
+  revisa('[taquilla] al inicio no hay nada más: ni buscador, ni tarjetas, ni enviar, ni "‹"', !(await p.isVisible('#collectPlayerSearch')) && !(await p.isVisible('.cobrar-opciones')) && !(await p.isVisible('#collectAmount')) && !(await p.isVisible('#saveCollect')) && !(await p.isVisible('#collectVolver')));
+  revisa('[taquilla] cada botón mide lo que un dedo (44 px o más)', await p.$$eval('.cobrar-que button', bs => bs.every(b => b.getBoundingClientRect().height >= 44)));
   await p.setViewportSize({ width:390, height:844 }); await p.waitForTimeout(250); await foto(p, 'cobrar-inicio'); await p.setViewportSize({ width:1280, height:844 });
+  await p.click('.cobrar-que [data-que="mensualidad"]');
+  revisa('[taquilla] Mensualidad pregunta de quién, con el cursor ya puesto y sin tarjetas', /Mensualidad/.test(await texto(p, '#collectTitle')) && /¿De quién es la mensualidad\?/.test(await texto(p, '#collectPlayerBox .tsearch-label')) && await p.isVisible('#collectVolver') && !(await p.isVisible('.cobrar-opciones'))
+    && await p.evaluate(() => new Promise(r => setTimeout(() => r(document.activeElement?.id === 'collectPlayerSearch'), 150))));
+  await p.fill('#collectPlayerSearch', 'Liam');
+  await p.click('#collectPlayerResults .tsearch-opt');
+  await p.waitForSelector(hoja, { timeout:5000 });
+  revisa('[taquilla] elegir al Tanner cierra el modal y abre su hoja con la mensualidad más vieja ya puesta', !(await p.isVisible('#collectModal')) && JSON.stringify(await lineas(p)) === '["c:c-ago"]', JSON.stringify(await lineas(p)));
+  await p.click('#cobroBody [data-cobro-cerrar]');
+  await p.click('#openCollect');
+  revisa('[taquilla] al volver a abrir empieza otra vez en los cuatro botones', await p.isVisible('.cobrar-que') && !(await p.isVisible('#collectPlayerSearch')));
+  await p.click('.cobrar-que [data-que="reinscripcion"]');
+  await p.fill('#collectPlayerSearch', 'Liam');
+  await p.click('#collectPlayerResults .tsearch-opt');
+  await p.waitForSelector(hoja, { timeout:5000 });
+  revisa('[taquilla] Reinscripción abre la hoja con ese renglón, listo para el importe', JSON.stringify(await lineas(p)) === '["reins"]' && /Reinscripción/.test(await texto(p, '#cobroBody')), JSON.stringify(await lineas(p)));
+  await p.click('#cobroBody [data-cobro-cerrar]');
+  await p.click('#openCollect');
+  await p.click('.cobrar-que [data-que="inscripcion"]');
+  revisa('[taquilla] Inscripción pregunta a quién inscribes; "‹" regresa a los cuatro botones', /¿A quién inscribes\?/.test(await texto(p, '#collectPlayerBox .tsearch-label')));
+  await p.click('#collectVolver');
+  revisa('[taquilla] "‹" regresa a ¿Qué vas a cobrar?', /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle')) && await p.isVisible('.cobrar-que') && !(await p.isVisible('#collectVolver')));
+  // "Otro" guarda lo demás: todo lo que debe un Tanner y las tarjetas de siempre.
+  await p.click('.cobrar-que [data-que="otro"]');
   const tarjetas = await p.$$eval('.cobrar-opciones button', bs => bs.filter(b => b.offsetParent).map(b => b.querySelector('b').textContent));
-  revisa('[taquilla] tarjetas: Tienda, Estacionamiento y Otro ingreso', JSON.stringify(tarjetas) === JSON.stringify(['Tienda','Estacionamiento','Otro ingreso']), JSON.stringify(tarjetas));
+  revisa('[taquilla] Otro: buscar a un Tanner y las tarjetas Tienda, Estacionamiento y Otro ingreso', /Otro cobro/.test(await texto(p, '#collectTitle')) && await p.isVisible('#collectPlayerSearch') && JSON.stringify(tarjetas) === JSON.stringify(['Tienda','Estacionamiento','Otro ingreso']), JSON.stringify(tarjetas));
   await p.click('.cobrar-opciones [data-mode="general"]');
   revisa('[taquilla] una tarjeta abre su formulario con título y "‹"', /Otro ingreso/.test(await texto(p, '#collectTitle')) && await p.isVisible('#collectVolver') && await p.isVisible('#generalAmount') && !(await p.isVisible('.cobrar-opciones')));
   await p.click('#collectVolver');
-  revisa('[taquilla] "‹" regresa a ¿Qué vas a cobrar?', /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle')) && await p.isVisible('.cobrar-opciones'));
+  revisa('[taquilla] desde una tarjeta, "‹" regresa a Otro cobro', /Otro cobro/.test(await texto(p, '#collectTitle')) && await p.isVisible('.cobrar-opciones'));
   revisa('[taquilla] sin campos que nadie usaba: método "Otro" e "Inscripción" en otro ingreso', !(await p.$('#collectMethod option[value="other"]')) && !(await p.$$eval('#generalCategory option', os => os.some(o => o.textContent === 'Inscripción'))));
   await p.fill('#collectPlayerSearch', 'Liam');
   await p.click('#collectPlayerResults .tsearch-opt');
   await p.waitForSelector(hoja, { timeout:5000 });
-  revisa('[taquilla] elegir al Tanner abre su hoja y cierra el modal', !(await p.isVisible('#collectModal')));
+  revisa('[taquilla] en Otro, elegir al Tanner abre su hoja con todo lo que debe', !(await p.isVisible('#collectModal')) && (await lineas(p)).length === 3, JSON.stringify(await lineas(p)));
   await p.click('#cobroBody [data-cobro-cerrar]');
 
   await p.click('#openCollect');
+  await p.click('.cobrar-que [data-que="otro"]');
   await p.click('#collectSponsorLink');
   revisa('[taquilla] patrocinador: vuelve el formulario de siempre', await p.isVisible('#collectAmount') && await p.isVisible('#saveCollect') && await p.inputValue('#collectPayerType') === 'sponsor');
   revisa('[taquilla] cuenta personal: no se escribe quién cobró', !(await p.isVisible('#collectCollectedBy')));

@@ -215,6 +215,7 @@ function opcionesDe(cuenta) {
 function extras() {
   const p = s.playerId;
   return [{ key: 'arb', kind: 'income', category: 'Arbitraje', label: 'Arbitraje', player: p },
+          { key: 'reins', kind: 'income', category: 'Reinscripción', label: 'Reinscripción', player: p },
           { key: 'otro', kind: 'income', category: '', label: 'Otro ingreso', player: p },
           { key: 'abono', kind: 'abono', label: 'Abono a cuenta', player: p }];
 }
@@ -340,7 +341,7 @@ function panelHtml() {
   const meses = cuentas.flatMap(({ o }) => o.meses.filter(libre).map(x => fila(x, x.sugerido, x.detalle)));
   const otros = [
     ...cuentas.flatMap(({ o }) => o.reg.filter(libre).map(x => fila(x, inscripcionSugerida(x.nacimiento)?.precio, 'Se carga y se paga hoy'))),
-    ...extras().filter(libre).map(x => fila(x, null, x.kind === 'abono' ? 'Queda a favor para lo que siga' : x.key === 'arb' ? 'Partido o torneo' : 'Torneo, curso, renta…'))
+    ...extras().filter(libre).map(x => fila(x, null, x.kind === 'abono' ? 'Queda a favor para lo que siga' : x.key === 'arb' ? 'Partido o torneo' : x.key === 'reins' ? 'Vuelve este ciclo' : 'Torneo, curso, renta…'))
   ];
   const hermanos = (s.familia || []).filter(h => !s.cuentas.has(h.id)).map(h => `<button type="button" class="cobro-op" data-hermano="${esc(h.id)}"><span><strong>${esc(h.name)}</strong><small>Agregar a su hermano al mismo cobro</small></span>${Number(h.balance) > 0 ? `<b>${money.format(Number(h.balance))}</b>` : '<i aria-hidden="true">+</i>'}</button>`);
   return `<div class="cobro-panel" role="group" aria-label="Agregar al cobro">
@@ -749,14 +750,32 @@ export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', na
     for (const c of opcionesDe(principal()).cargos) if (preseleccion === 'todo' || (preseleccion && c.period === preseleccion)) agrega(c);
     // Desde un pedido de Tienda (21/10/2026): 'o:<id>' deja ese pedido ya elegido.
     for (const o of opcionesDe(principal()).pedidos) if (preseleccion === o.key) agrega(o);
+    // Desde Taquilla (13/11/2026): se elige primero QUÉ se cobra y la hoja abre con eso.
+    //   'mensualidad'   el mes más viejo que debe (con su recargo) o el que le toca.
+    //   'inscripcion'   la inscripción que debe o, si no hay cargo, una nueva.
+    //   'reinscripcion' un renglón de Reinscripción para ponerle el importe.
+    if (preseleccion === 'mensualidad') {
+      const o = opcionesDe(principal()), mes = o.cargos.find(c => c.type === 'monthly_fee');
+      if (mes) { agrega(mes); o.cargos.filter(c => c.type === 'late_fee' && c.period === mes.period).forEach(agrega); }
+      else if (o.meses[0]) agrega(o.meses[0]);
+    } else if (preseleccion === 'inscripcion') {
+      const o = opcionesDe(principal()), debe = o.cargos.filter(c => c.type === 'registration');
+      if (debe.length) debe.forEach(agrega); else if (o.reg[0]) agrega(o.reg[0]);
+    } else if (preseleccion === 'reinscripcion') {
+      agrega(extras().find(x => x.key === 'reins'));
+    }
     // Desde una reactivación (04/11/2026): 'reg:<id>' deja la inscripción ya elegida.
     for (const r of opcionesDe(principal()).reg) if (preseleccion === r.key) agrega(r);
     // Arranca con el primer pago: lo más antiguo que debe o, si no debe nada,
     // la mensualidad que le toca. Lo demás se agrega.
-    if (!s.sel.size && col.canCollect) {
+    // Si se pidió algo en concreto y no hay de eso, no se pone otra cosa en su
+    // lugar: se abre la lista para elegir.
+    const pidio = ['mensualidad', 'inscripcion', 'reinscripcion'].includes(preseleccion);
+    if (!s.sel.size && col.canCollect && !pidio) {
       const o = opcionesDe(principal()), primero = o.cargos[0] || o.meses[0];
       if (primero) agrega(primero);
     }
+    if (!s.sel.size && pidio) s.panel = true;
   }
   pinta();
   setTimeout(() => document.querySelector('#cobroBody #cobroQuienNuevo, #cobroBody [data-agregar]')?.focus(), 60);

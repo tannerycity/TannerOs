@@ -264,7 +264,13 @@ async function corre(rol) {
     await pagina.click('.concilia-card:has-text("Iker Flores") [data-mas]');
     await pagina.waitForSelector('#ccHoja .cc-acc-sheet', { timeout: 4000 });
     const ops = await pagina.$$eval('#ccHoja [data-cc-op]', b => b.map(x => x.dataset.ccOp));
-    revisa(`[${rol}] "···" abre hoja: Editar, Aclarar, Rechazar y Cancelar`, JSON.stringify(ops) === '["editar","clarify","reject"]' && !!(await pagina.$('#ccHoja .cc-acc-cancelar')) && !(await pagina.$('.concilia-card .cc-mas-menu')), JSON.stringify(ops));
+    revisa(`[${rol}] "···" abre hoja: recibo (enviar, ver, descargar), Editar, Aclarar, Rechazar y Cancelar`, JSON.stringify(ops) === '["recibo-enviar","recibo-ver","recibo-descargar","editar","clarify","reject"]' && !!(await pagina.$('#ccHoja .cc-acc-cancelar')) && !(await pagina.$('.concilia-card .cc-mas-menu')), JSON.stringify(ops));
+    // El recibo de un pago anterior (13/11/2026): se descarga un PDF de verdad.
+    const [bajada] = await Promise.all([pagina.waitForEvent('download', { timeout: 15000 }), pagina.click('#ccHoja [data-cc-op="recibo-descargar"]')]);
+    const ruta = await bajada.path(), pdf = ruta ? fs.readFileSync(ruta) : Buffer.alloc(0);
+    revisa(`[${rol}] "Descargar recibo" de un pago anterior baja un PDF con su nombre`, /^Recibo-P-[A-Z0-9]{1,6}-Iker-Flores\.pdf$/.test(bajada.suggestedFilename()) && pdf.subarray(0, 5).toString() === '%PDF-', bajada.suggestedFilename());
+    await pagina.click('.concilia-card:has-text("Iker Flores") [data-mas]');
+    await pagina.waitForSelector('#ccHoja .cc-acc-sheet', { timeout: 4000 });
     await pagina.click('#ccHoja [data-cc-op="editar"]');
     await pagina.waitForSelector('#ccHoja .cc-edit-sheet', { timeout: 4000 });
     revisa(`[${rol}] Editar trae el método, el día y la referencia del cobro`, await pagina.getAttribute('#ccHoja [data-cc-met="transfer"]', 'aria-checked') === 'true' && await pagina.inputValue('#ccEditFecha') === '2026-09-22' && await pagina.inputValue('#ccEditRef') === 'BBVA-1120');

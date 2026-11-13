@@ -182,3 +182,9 @@
 .cobro-mes-tit{display:flex;justify-content:space-between;align-items:baseline;margin:0 4px 6px;font-size:13px;font-weight:800;color:#354f55}
 .cobro-mes-tit b{font-variant-numeric:tabular-nums;color:#0d2730}
 .cobro-info{margin:0 0 8px;font-size:13px;color:#0b5d3a;background:#e4f5ea;border-radius:12px;padding:10px 12px}
+
+/* Recibo en PDF (13/11/2026): enviar, ver y descargar */
+.cobro-recibo-pdf{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+.cobro-recibo-pdf .cobro-wa{grid-column:1/-1;min-height:50px;border:0;font:inherit;font-weight:800;color:#fff;cursor:pointer}
+.cobro-recibo-msg{margin:0;min-height:18px;font-size:13px;color:#51626a}
+.cobro-recibo-btn{width:100%;min-height:46px;border:1px solid #d6dfdd;border-radius:14px;background:#fff;font:inherit;font-size:15px;font-weight:700;color:#0d2730;cursor:pointer}

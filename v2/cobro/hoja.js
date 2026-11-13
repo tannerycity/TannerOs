@@ -454,11 +454,58 @@ function hechoHtml() {
   const h = s.hecho;
   const partes = h.lineas.map(l => `<li><span>${esc(l.label)}</span><b>${money.format(l.amount)}</b></li>`).join('');
   const metodos = h.metodos.map(m => `${nombreMetodo(m.method)} ${money.format(m.amount)}`).join(' + ');
-  const wa = s.telefono ? `<a class="pres-primary cobro-wa" target="_blank" rel="noopener" href="https://wa.me/${conLada(s.telefono)}?text=${encodeURIComponent(reciboTexto())}">Mandar recibo por WhatsApp</a>` : '';
   return `<div class="cobro-hecho"><div class="cobro-palomita" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
     <strong>${money.format(h.total)}</strong><span>Folio ${esc(folioTexto(h.folio))} · ${esc(metodos)}${h.quien ? ` · cobró ${esc(h.quien)}` : ''}</span>
-    <ul class="cobro-recibo">${partes}</ul>${h.recargos ? `<p class="cobro-recargo-quitado">Se quitó el recargo de ${money.format(h.recargos)}: con esa fecha pagó a tiempo.</p>` : ''}${wa}
+    <ul class="cobro-recibo">${partes}</ul>${h.recargos ? `<p class="cobro-recargo-quitado">Se quitó el recargo de ${money.format(h.recargos)}: con esa fecha pagó a tiempo.</p>` : ''}
+    <div class="cobro-recibo-pdf" role="group" aria-label="Recibo en PDF">
+      <button type="button" class="pres-primary cobro-wa" data-recibo="enviar">Enviar recibo por WhatsApp</button>
+      <button type="button" class="cobro-recibo-btn" data-recibo="ver">Ver recibo</button>
+      <button type="button" class="cobro-recibo-btn" data-recibo="descargar">Descargar recibo</button></div>
+    <p class="cobro-recibo-msg" id="cobroReciboMsg" role="status" aria-live="polite">${esc(s.reciboMsg || '')}</p>
     <button type="button" class="cobro-listo" data-cobro-cerrar>Listo</button></div>`;
+}
+
+/* El recibo en PDF (13/11/2026): verlo, descargarlo o mandarlo por WhatsApp.
+   En el teléfono, "Enviar" abre la hoja de compartir con el PDF adjunto
+   (WhatsApp sale ahí). En la compu no se puede adjuntar solo: se descarga y se
+   abre el chat con el mensaje listo, para arrastrarlo. */
+async function recibo(que) {
+  const yo = s, h = s.hecho; if (!h || s.reciboOcupado) return;
+  const dice = t => { if (s === yo) { s.reciboMsg = t; const e = document.getElementById('cobroReciboMsg'); if (e) e.textContent = t; } };
+  s.reciboOcupado = true; dice('Preparando el recibo…');
+  // La ventana se abre en el mismo toque: si se abre después de armar el PDF,
+  // el navegador la bloquea por no venir de un gesto.
+  const puedeAdjuntar = (() => { try { return !!navigator.canShare && navigator.canShare({ files: [new File(['%PDF'], 'r.pdf', { type: 'application/pdf' })] }); } catch { return false; } })();
+  const ventana = que === 'ver' || (que === 'enviar' && !puedeAdjuntar) ? window.open('', '_blank') : null;
+  try {
+    const { datosDeRecibo, reciboPdf, nombreDelRecibo, marcaDelClub } = await import('/v2/cobro/recibo-pdf.js?v=20261113a');
+    const marca = await marcaDelClub();
+    const datos = datosDeRecibo({ club: s.club || marca.nombre, folio: folioTexto(h.folio), fecha: h.fecha, tanners: [...s.cuentas.values()].map(c => c.nombre),
+      lineas: h.lineas, metodos: h.metodos, total: h.total, cobro: h.quien, referencia: s.ref });
+    const doc = await reciboPdf(datos, { marca }), nombre = nombreDelRecibo(datos);
+    if (que === 'ver') {
+      const url = URL.createObjectURL(doc.output('blob'));
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+      if (ventana) { ventana.location.href = url; dice(''); }
+      else { const { descargaPdf } = await import('/v2/produccion/pdf.js'); descargaPdf(doc, nombre); dice('El navegador no dejó abrirlo: se descargó.'); }
+    } else if (que === 'descargar') {
+      const { descargaPdf } = await import('/v2/produccion/pdf.js');
+      descargaPdf(doc, nombre); dice('Recibo descargado.');
+    } else {
+      const archivo = new File([doc.output('blob')], nombre, { type: 'application/pdf' });
+      if (puedeAdjuntar) {
+        try { await navigator.share({ files: [archivo], title: nombre, text: reciboTexto() }); dice('Recibo compartido.'); }
+        catch (e) { dice(e?.name === 'AbortError' ? '' : 'No se pudo compartir. Usa Descargar recibo.'); }
+      } else {
+        const { descargaPdf } = await import('/v2/produccion/pdf.js');
+        descargaPdf(doc, nombre);
+        const chat = `https://wa.me/${s.telefono ? conLada(s.telefono) : ''}?text=${encodeURIComponent(reciboTexto())}`;
+        if (ventana) ventana.location.href = chat;
+        dice(ventana ? 'El recibo se descargó: adjúntalo en el chat de WhatsApp que se abrió.' : 'El recibo se descargó: mándalo por WhatsApp.');
+      }
+    }
+  } catch (e) { console.warn('recibo', e); try { ventana?.close(); } catch { /* ya no está */ } dice('No se pudo armar el recibo. Intenta de nuevo.'); }
+  finally { if (s === yo) s.reciboOcupado = false; }
 }
 
 export function reciboTexto() {
@@ -496,6 +543,7 @@ function alClic(e) {
   if (e.target.closest?.('.cobro-fecha label') && !e.target.matches('input')) { try { document.getElementById('cobroFecha')?.showPicker?.(); } catch { /* el navegador abre el suyo */ } }
   const t = e.target.closest('button,a'); if (!t || !s) return;
   if (t.matches('[data-cobro-cerrar]')) { if (!s.enviando) cierra(); return; }
+  if (t.dataset.recibo) { recibo(t.dataset.recibo); return; }
   if (t.closest('[data-cobro-cara]')) { abreCara(); return; }
   if (s.enviando) return;
   if (t.hasAttribute('data-agregar')) { s.panel = !s.panel; pinta(); if (s.panel) document.querySelector('#cobroBody .cobro-panel button')?.focus(); return; }
@@ -672,9 +720,9 @@ async function envia(metodo) {
 //   la usan varias personas, se pregunta quién cobra (una vez por aparato).
 //   alTerminar(hecho): corre al cerrar, sólo si se cobró.
 export async function abrirCobro({ rpc, org, playerId, nombre, telefono = '', nacimiento = null, preseleccion = null, alTerminar = null,
-  quien = '', compartida = false, foto = null }) {
+  quien = '', compartida = false, foto = null, club = '' }) {
   asegura();
-  s = { rpc, org, playerId, nombre: nombre || 'este Tanner', telefono, alTerminar, cargando: true, fallo: '',
+  s = { rpc, org, playerId, nombre: nombre || 'este Tanner', telefono, alTerminar, club, cargando: true, fallo: '',
     cuentas: new Map([[playerId, { id: playerId, nombre: nombre || 'este Tanner', nacimiento, col: null }]]), familia: [], sel: new Map(),
     mas: false, panel: false, metodo: 'cash', metodo2: 'transfer', dos: false, monto1: '', ref: '', fecha: hoyLocal(), obs: '',
     compartida, quien: compartida ? leeLocal(QUIEN) : String(quien || '').trim(), cambiaQuien: false,

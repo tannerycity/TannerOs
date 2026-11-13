@@ -396,7 +396,7 @@ function cobraA(playerId,nombre){
   // completa se usa; si no, la hoja la pide sola.
   const fila=tablero?.players?.find(x=>x.playerId===playerId);
   const foto=fila?.photoPath?{bucket:fila.photoBucket,path:fila.photoPath,thumbPath:fila.photoThumbPath}:null;
-  abrirCobro({rpc,org,playerId,nombre,preseleccion:'todo',quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),foto,
+  abrirCobro({club:ctx.organization_name||'',rpc,org,playerId,nombre,preseleccion:'todo',quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),foto,
     alTerminar:async()=>{await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();cargaConcilia(true);}});
 }
 function quickCollect(playerId,name){cobraA(playerId,name);}

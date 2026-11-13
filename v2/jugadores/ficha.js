@@ -109,6 +109,9 @@ function pintaChips(){
   const box=$('fichaChips');if(!box||!F)return;
   const chips=[];
   if(F.docs&&F.docs.faltan>0)chips.push(`<button type="button" class="ficha-chip alerta" data-ficha-ir="expediente">Falta${F.docs.faltan===1?'':'n'} ${F.docs.faltan} documento${F.docs.faltan===1?'':'s'}</button>`);
+  // Portero (13/11/2026): "que en su ficha diga eso". Sigue en su categoría y
+  // además entrena con la academia de porteros; el chip dice cuándo.
+  if(F.portero)chips.push(`<span class="ficha-chip portero">${esc(F.portero)}</span>`);
   if(F.hermanos?.length)chips.push(`<button type="button" class="ficha-chip" data-ficha-ir="familia">${F.hermanos.length} herman${F.hermanos.length===1?'o':'os'} en el club</button>`);
   box.innerHTML=chips.join('');
 }
@@ -340,6 +343,11 @@ async function alAbrir(d){
   if(av['tanner-docs']?.playerId===d.playerId)alDocs(av['tanner-docs']);
   if(av['tanner-sports']?.playerId===d.playerId){pintaPerfil();pintaResumen();}
   const id=d.playerId;
+  // ¿Es portero y entrena con la academia? Si la lista no se puede leer, no sale nada.
+  Promise.all([rpc('v2_goalkeepers',{organization_id:d.organizationId}),rpc('v2_academies',{organization_id:d.organizationId}).catch(()=>[])]).then(([gk,acs])=>{
+    if(F?.playerId!==id)return;const g=(gk||[]).find(x=>x.id===id);if(!g){F.portero='';return;}
+    const a=(acs||[]).find(x=>x.academy_type==='goalkeeper'&&x.status==='active'),cuando=[a?.schedule?.days,a?.schedule?.time].filter(Boolean).join(' ');
+    F.portero=g.inAcademy?`Portero · con la academia${cuando?` · ${cuando}`:''}`:'Portero · sin academia';pintaChips();}).catch(()=>{});
   rpc('v2_player_story',{organization_id:d.organizationId,player_id:id}).then(r=>{if(F?.playerId!==id)return;F.hermanos=r?.siblings||[];F.historia=r?.timeline||[];pintaChips();pintaResumen();pintaFamilia();}).catch(()=>{});
   if(pm.asistencia){
     const hasta=new Date(),desde=new Date(Date.now()-30*86400000),iso=x=>x.toISOString().slice(0,10);

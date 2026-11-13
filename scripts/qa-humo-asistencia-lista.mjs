@@ -30,11 +30,11 @@ const revisiones = [], errores = [];
 const revisa = (n, ok, d = '') => revisiones.push({ nombre: n, ok, detalle: d });
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 
-async function abre({ mias = true, escribe = true, guardada = false } = {}) {
+async function abre({ mias = true, escribe = true, guardada = false, porteros = false } = {}) {
   const p = await nav.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error') errores.push(`console: ${m.text()}`); });
-  await p.addInitScript(({ mias, escribe, guardada }) => {
+  await p.addInitScript(({ mias, escribe, guardada, porteros }) => {
     const hoy = new Date(); hoy.setHours(18, 0, 0, 0);
     const nombres = ['Damián López Luna', 'Dario Montalvo Díaz', 'Iker Ramírez', 'Mateo Hernández'];
     let roster = nombres.map((n, i) => ({ player_id: 'p' + i, code: 'Tanner0' + (10 + i), player_name: n,
@@ -52,6 +52,10 @@ async function abre({ mias = true, escribe = true, guardada = false } = {}) {
       v2_create_attendance_session: prm => { sesiones.unshift({ id: 's-nueva', category_id: prm.category_id, title: 'Entrenamiento', category_name: 'Mini Baby Tanner', starts_at: prm.starts_at, roster_count: 4, present_count: 0 }); return 's-nueva'; },
       v2_attendance_roster: () => roster.map(x => ({ ...x })),
       v2_attendance_roster_thumbs: () => roster.map(x => ({ playerId: x.player_id, thumb: `t/${x.player_id}-thumb.webp`, bucket: 'tanneros-private' })),
+      // Porteros (h93): Damián entrena hoy con la academia; Iker es portero pero hoy no le toca.
+      v2_attendance_roster_goalkeepers: () => porteros ? [
+        { playerId: 'p0', academy: 'Academia de porteros', days: 'Martes', time: '5:00 a 6:00 pm', today: true },
+        { playerId: 'p2', academy: 'Academia de porteros', days: 'Martes', time: '5:00 a 6:00 pm', today: false }] : [],
       v2_save_attendance: prm => { const m = new Map(prm.records.map(r => [r.player_id, r.status])); roster = roster.map(x => ({ ...x, status: m.get(x.player_id) || x.status })); return prm.records.length; },
       v2_request_player_withdrawal: () => true
     };
@@ -60,7 +64,7 @@ async function abre({ mias = true, escribe = true, guardada = false } = {}) {
       rpc: async (n, prm) => { window.__llamadas.push({ n, prm }); return { data: R[n] ? R[n](prm) : null, error: null }; },
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
-  }, { mias, escribe, guardada });
+  }, { mias, escribe, guardada, porteros });
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: [
@@ -196,6 +200,29 @@ async function abreLista(p, cat) {
   revisa('[lectura] no se marca a nadie solo', (await estados(p)).every(x => x === 'Sin marcar'), JSON.stringify(await estados(p)));
   revisa('[lectura] sin "···", sin "Todos presentes" y sin Guardar', (await p.$$('#rosterList .as-mas')).length === 0 && await p.isHidden('#allPresent') && await p.isHidden('#saveAttendance'));
   revisa('[lectura] las estampas no se pueden tocar', await p.$eval('#rosterList .as-toque', b => b.disabled));
+  await p.close();
+}
+
+// --- Porteros: "portero + T10" (13/11/2026) ---
+{
+  const p = await abre({ porteros: true });
+  await abreLista(p, 'c2');
+  const est = await estados(p);
+  revisa('[porteros] el portero al que hoy le toca con la academia llega "Con porteros", no presente ni falta', est[0] === 'Con porteros' && est[1] === 'Presente' && est[2] === 'Presente', JSON.stringify(est));
+  const chips = await p.$$eval('#rosterList .as-portero', e => e.map(x => x.textContent.trim()));
+  revisa('[porteros] la tarjeta lo dice: "Hoy con porteros" y "Portero" el día que no le toca', JSON.stringify(chips) === '["Hoy con porteros","Portero"]', JSON.stringify(chips));
+  const toque = (await p.$$('#rosterList .as-toque'))[0];
+  await toque.click(); await p.waitForTimeout(150);
+  revisa('[porteros] si sí vino a su categoría, un toque lo pone Presente', (await estados(p))[0] === 'Presente');
+  await toque.click(); await p.waitForTimeout(150);
+  revisa('[porteros] otro toque, Falta', (await estados(p))[0] === 'Falta');
+  await toque.click(); await p.waitForTimeout(150);
+  revisa('[porteros] y otro, de regreso a Con porteros', (await estados(p))[0] === 'Con porteros');
+  await p.click('#saveAttendance'); await p.waitForTimeout(400);
+  const [g] = await llamadas(p, 'v2_save_attendance');
+  const d = g?.prm?.records?.find(r => r.player_id === 'p0'), otro = g?.prm?.records?.find(r => r.player_id === 'p2');
+  revisa('[porteros] se guarda justificada con la nota "Con porteros", y al otro portero nada raro', d?.status === 'excused' && d?.notes === 'Con porteros' && otro?.status === 'present' && otro?.notes === null, JSON.stringify(g?.prm?.records));
+  revisa('[porteros] tras guardar sigue diciendo Con porteros', (await estados(p))[0] === 'Con porteros');
   await p.close();
 }
 

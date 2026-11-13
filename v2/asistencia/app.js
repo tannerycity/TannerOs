@@ -149,7 +149,7 @@ async function openRoster(s){
   // guarda hasta que él toca Guardar.
   preMarcada=false;sucio=false;guardada=false;
   if(ctx.canWrite&&currentRoster.length&&currentRoster.every(p=>!statusOf(p))){
-    currentRoster.forEach(p=>{p.attendance_status='present';p.status='present';});
+    currentRoster.forEach(p=>{const s=p._portero?.today?'excused':'present';p.attendance_status=s;p.status=s;});
     preMarcada=true;sucio=true;
   }
   $('rosterTitle').textContent=s.category_name||s.title||'Entrenamiento';
@@ -178,7 +178,7 @@ function renderRoster(){
     card.className='roster-row as-estampa';card.dataset.id=p.player_id;
     card.innerHTML=`<button type="button" class="as-toque"${ctx.canWrite?'':' disabled'}>
         <span class="roster-avatar">${p._photoUrl?`<img src="${esc(p._photoUrl)}" alt="" loading="lazy">`:`<span class="as-ini">${esc(iniciales(full))}</span>`}</span>
-        <span class="as-nombre"><strong>${esc(nom)}</strong><small>${esc(ape||p.code||'')}</small></span>
+        <span class="as-nombre"><strong>${esc(nom)}</strong><small>${esc(ape||p.code||'')}</small>${p._portero?`<em class="as-portero${p._portero.today?' hoy':''}">${p._portero.today?'Hoy con porteros':'Portero'}</em>`:''}</span>
         <span class="as-estado"></span>
       </button>${ctx.canWrite?`<button type="button" class="as-mas" aria-label="Más opciones de ${esc(full)}"><i></i><i></i><i></i></button>`:''}`;
     const toque=card.querySelector('.as-toque');
@@ -197,16 +197,18 @@ function pintaEstampa(p){
   const s=statusOf(p),full=nameOf(p);
   card.className=`roster-row as-estampa st-${s||'none'}${s?' marked':''}`;
   const rep=bajaReportados.has(p.player_id);
-  card.querySelector('.as-estado').textContent=rep?`${ETIQUETA[s]} · baja reportada`:ETIQUETA[s];
+  const etiqueta=s==='excused'&&p._portero?.today?'Con porteros':ETIQUETA[s];
+  card.querySelector('.as-estado').textContent=rep?`${etiqueta} · baja reportada`:etiqueta;
   const toque=card.querySelector('.as-toque');
   toque.setAttribute('aria-pressed',String(s==='present'||s==='late'));
-  toque.setAttribute('aria-label',`${full}: ${ETIQUETA[s]}.${ctx.canWrite?` Toca para marcar ${s==='present'?'falta':'presente'}.`:''}`);
+  toque.setAttribute('aria-label',`${full}: ${etiqueta}.${ctx.canWrite?` Toca para marcar ${p._portero?.today?({excused:'presente',present:'falta'}[s]||'con porteros'):(s==='present'?'falta':'presente')}.`:''}`);
 }
 
 /* Un toque: presente <-> falta. Tarde y justificada, con toque largo o "···". */
 function alterna(p){
   if(!ctx.canWrite)return;
-  marca(p,statusOf(p)==='present'?'absent':'present');
+  const ahora=statusOf(p);
+  marca(p,p._portero?.today?({excused:'present',present:'absent'}[ahora]||'excused'):(ahora==='present'?'absent':'present'));
   try{navigator.vibrate?.(8);}catch{}
   pintaEstampa(p);updateRosterProgress();
 }
@@ -256,13 +258,13 @@ async function saveAttendance(){
   if(!marked.length){msg('rosterMessage','Marca al menos un Tanner.');return;}
   const btn=$('saveAttendance');btn.disabled=true;btn.textContent='Guardando…';
   try{
-    const payload=marked.map(p=>({player_id:p.player_id,status:statusOf(p),punctuality:statusOf(p)==='late'?'late':null,notes:null}));
+    const payload=marked.map(p=>({player_id:p.player_id,status:statusOf(p),punctuality:statusOf(p)==='late'?'late':null,notes:statusOf(p)==='excused'&&p._portero?.today?'Con porteros':null}));
     const count=await rpc('v2_save_attendance',{organization_id:ctx.organization_id,session_id:sesionId(currentSession),records:payload});
     usaFuncion('asistencia_guardada');
     // La lista recargada no trae las caras ya firmadas: se conservan.
     const antes=new Map(currentRoster.map(p=>[p.player_id,p]));
     const nueva=await rpc('v2_attendance_roster',{organization_id:ctx.organization_id,session_id:sesionId(currentSession)})||[];
-    currentRoster=nueva.map(p=>{const a=antes.get(p.player_id);return a?{...p,photo_thumb_path:p.photo_thumb_path||a.photo_thumb_path,photo_bucket:p.photo_bucket||a.photo_bucket,_photoUrl:a._photoUrl}:p;});
+    currentRoster=nueva.map(p=>{const a=antes.get(p.player_id);return a?{...p,photo_thumb_path:p.photo_thumb_path||a.photo_thumb_path,photo_bucket:p.photo_bucket||a.photo_bucket,_photoUrl:a._photoUrl,_portero:a._portero}:p;});
     sucio=false;guardada=true;preMarcada=false;
     renderRoster();
     const n=currentRoster.filter(p=>['present','late'].includes(statusOf(p))).length;
@@ -353,12 +355,16 @@ boot().catch(e=>{$('deniedText').textContent=friendly(e);show('deniedView');});
    niño) para no tocar la firma de la lista. Si esa llamada falla, la lista
    carga igual, con iniciales. */
 async function rosterConMiniaturas(sessionId){
-  const [lista,minis]=await Promise.all([
+  const [lista,minis,gk]=await Promise.all([
     rpc('v2_attendance_roster',{organization_id:ctx.organization_id,session_id:sessionId}),
-    rpc('v2_attendance_roster_thumbs',{organization_id:ctx.organization_id,session_id:sessionId}).catch(()=>[])
+    rpc('v2_attendance_roster_thumbs',{organization_id:ctx.organization_id,session_id:sessionId}).catch(()=>[]),
+    rpc('v2_attendance_roster_goalkeepers',{organization_id:ctx.organization_id,session_id:sessionId}).catch(()=>[])
   ]);
   const porTanner=new Map((Array.isArray(minis)?minis:[]).map(m=>[m.playerId,m]));
-  return (lista||[]).map(p=>{const m=porTanner.get(p.player_id);return m&&!p.photo_thumb_path?{...p,photo_thumb_path:m.thumb,photo_bucket:m.bucket||p.photo_bucket}:p;});
+  const porteros=new Map((Array.isArray(gk)?gk:[]).map(g=>[g.playerId,g]));
+  return (lista||[]).map(p=>{const m=porTanner.get(p.player_id),g=porteros.get(p.player_id);
+    const q=m&&!p.photo_thumb_path?{...p,photo_thumb_path:m.thumb,photo_bucket:m.bucket||p.photo_bucket}:{...p};
+    if(g)q._portero=g;return q;});
 }
 async function signRosterPhotos(list){
   try{

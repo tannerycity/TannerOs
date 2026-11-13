@@ -26,7 +26,7 @@ const flecha='<span class="tan-fila-flecha" aria-hidden="true">›</span>';
 const AUD={tanner:'Tanners',baby:'Baby Tanner y T6',porteros:'Porteros'};
 
 let vista=new URLSearchParams(location.search).get('ver')||'porteros';
-let porteros=null,catalogo=null,propuesta=null,elegidos=new Set(),hoja=null;
+let porteros=null,catalogo=null,propuesta=null,elegidos=new Set(),hoja=null,academiaPorteros=null;
 
 function detalle(k){
   if(k.audience==='porteros')return k.trainsWithCategory?`${k.goalkeeperDays} días con Alexis + ${k.days-k.goalkeeperDays} con su categoría`:`${k.days} días con Alexis (no entrena con su categoría)`;
@@ -49,10 +49,17 @@ function vistaPorteros(){
     sub:[g.category,g.packageName||(g.inAcademy?'En la academia, sin paquete':'No está con Alexis')].filter(Boolean).join(' · '),
     valor:Number(g.balance)>0?`<b class="pq-debe">Debe ${esc(pesos(g.balance))}</b>`:'<span class="pq-ok">Al corriente</span>'});
   const con=porteros.filter(g=>g.inAcademy||g.package?.startsWith?.('porteros')),sin=porteros.filter(g=>!(g.inAcademy||g.package?.startsWith?.('porteros')));
+  /* "Portero + T10" (13/11/2026). Presidencia: los porteros siguen en su
+     categoría y además entrenan con Alexis. Inscribirlo en la Academia de
+     porteros es un toque: sigue en su categoría y en la lista de ella sale
+     "Con porteros" el día que le toca con Alexis. */
+  const filSin=g=>academiaPorteros?.id?fila({avatar:iniciales(g.name),titulo:g.name,sub:[g.category,'No está con Alexis'].filter(Boolean).join(' · '),accion:false,
+      extra:`<button type="button" class="pq-inscribe" data-inscribe="${esc(g.id)}" data-nombre="${esc(g.name)}">Inscribir con Alexis</button>`}):fil(g);
   const debe=porteros.filter(g=>Number(g.balance)>0).length;
   return `<div class="pq-resumen"><div><b>${porteros.length}</b><span>portero${porteros.length===1?'':'s'}</span></div><div><b>${con.length}</b><span>con Alexis</span></div><div data-tono="${debe?'mal':''}"><b>${debe}</b><span>${debe===1?'debe':'deben'}</span></div></div>
     ${grupo(`Con Alexis · ${con.length}`,con.map(fil))}
-    ${grupo(`Porteros sin academia · ${sin.length}`,sin.map(fil),sin.length?'Son porteros por posición, pero no entrenan con Alexis. Ofréceles <b>Porteros 4 días</b>: mismo precio que el club.':'')}`;
+    ${academiaPorteros?.id?`<p class="pq-academia">${esc(academiaPorteros.name)}${academiaPorteros.schedule?.days?` · ${esc(academiaPorteros.schedule.days)}${academiaPorteros.schedule.time?` ${esc(academiaPorteros.schedule.time)}`:''}`:''}</p>`:''}
+    ${grupo(`Porteros sin academia · ${sin.length}`,sin.map(filSin),sin.length?'Son porteros por posición, pero no entrenan con Alexis. Ofréceles <b>Porteros 4 días</b>: mismo precio que el club.':'')}`;
 }
 
 /* ---------- Precios ---------- */
@@ -100,7 +107,8 @@ function pinta(){
   $('pqBody').innerHTML=`<div class="pres-seg pq-tabs" role="tablist" style="grid-template-columns:repeat(${tabs.length},1fr)">${tabs.map(([v,l])=>`<button type="button" role="tab" aria-checked="${v===vista}" aria-selected="${v===vista}" data-vista="${v}">${l}</button>`).join('')}</div><div class="pq-cuerpo">${cuerpo}</div>`;
 }
 async function carga(){
-  const [p,c]=await Promise.all([rpc('v2_goalkeepers',{organization_id:org}).catch(()=>[]),rpc('v2_club_packages',{organization_id:org}).catch(()=>null)]);
+  const [p,c,a]=await Promise.all([rpc('v2_goalkeepers',{organization_id:org}).catch(()=>[]),rpc('v2_club_packages',{organization_id:org}).catch(()=>null),rpc('v2_academies',{organization_id:org}).catch(()=>[])]);
+  academiaPorteros=(a||[]).find(x=>x.academy_type==='goalkeeper'&&x.status==='active')||null;
   porteros=p||[];catalogo=c||{packages:[],canEdit:false};
   if(catalogo.canEdit&&vista==='asignar')await cargaPropuesta();
   const debe=porteros.filter(g=>Number(g.balance)>0).length;
@@ -187,3 +195,17 @@ function avisar(t){
 
 pinta();
 await carga();
+
+/* Inscribir con Alexis desde la lista de Porteros (13/11/2026). */
+document.addEventListener('click',async e=>{
+  const ins=e.target.closest('[data-inscribe]');
+  if(ins){
+    const ok=await window.tosConfirm({kicker:'PORTEROS',title:`¿Inscribir a ${ins.dataset.nombre} con Alexis?`,message:'Sigue en su categoría. En la lista de ella saldrá "Con porteros" el día que le toque con Alexis.',confirmText:'Sí, inscribir'});
+    if(!ok)return;
+    ins.disabled=true;ins.textContent='Inscribiendo…';
+    try{await rpc('v2_enroll_academy',{organization_id:org,academy_id:academiaPorteros.id,player_id:ins.dataset.inscribe,starts_on:null,agreed_fee:null,notes:'Portero: entrena con su categoría y con la academia'});
+      porteros=await rpc('v2_goalkeepers',{organization_id:org}).catch(()=>porteros);pinta();}
+    catch(err){ins.disabled=false;ins.textContent='Inscribir con Alexis';await window.tosAlert({kicker:'PORTEROS',title:'No se pudo inscribir',message:/already enrolled/i.test(err?.message||'')?'Ya estaba inscrito.':/Not authorized/i.test(err?.message||'')?'Tu usuario no puede inscribir en academias.':(err?.message||String(err))});}
+    return;
+  }
+});

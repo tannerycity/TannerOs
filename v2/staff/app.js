@@ -21,11 +21,20 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const iniciales = n => String(n || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 function msg(t = '', tipo = 'error') { const e = $('stMensaje'); e.textContent = t; e.dataset.type = tipo; e.classList.toggle('hidden', !t); }
 
+/* Las áreas del club (12/11/2026). Presidencia: "contabilidad, marketing,
+   scouting y todo eso tiene que tener su apartado, no tienen que ir en
+   formadores". Antes la ficha sólo conocía cinco niveles y todo lo demás caía
+   en Formadores. Los mismos nombres que en Usuarios: una sola lista. */
 export const NIVELES = [
   { code: 'presidencia', label: 'Presidencia' },
   { code: 'direccion', label: 'Dirección deportiva' },
   { code: 'coordinacion', label: 'Coordinación' },
   { code: 'formador', label: 'Formadores' },
+  { code: 'academia', label: 'Academia' },
+  { code: 'scouting', label: 'Scouting' },
+  { code: 'marketing', label: 'Marketing' },
+  { code: 'contabilidad', label: 'Contabilidad' },
+  { code: 'taquilla', label: 'Taquilla' },
   { code: 'operacion', label: 'Operación' }
 ];
 const BUCKET = 'tanneros-private';
@@ -64,7 +73,7 @@ function pinta() {
   $('stOrganigrama').classList.toggle('hidden', ver !== 'organigrama');
   $('stLista').classList.toggle('hidden', ver !== 'lista');
 
-  // Organigrama: un escalón por nivel, de Presidencia a Operación.
+  // Organigrama: un apartado por área, de Presidencia a Operación.
   $('stOrganigrama').innerHTML = NIVELES.map(n => {
     const gente = vivos.filter(m => m.level === n.code);
     if (!gente.length) return '';
@@ -109,7 +118,7 @@ function verFicha(m) {
     <form id="fFicha" class="st-form">
       <label><span>Nombre</span><input id="fNombre" required minlength="2" maxlength="120" value="${esc(m.fullName)}"></label>
       <label><span>Puesto</span><input id="fPuesto" required minlength="2" maxlength="80" value="${esc(m.title)}" placeholder="Formador T10"></label>
-      <div class="st-campo"><span>Nivel</span><div class="st-chips" id="fNivel">${NIVELES.map(n => `<button type="button" class="st-chip${m.level === n.code ? ' activo' : ''}" data-nivel="${n.code}">${esc(n.label)}</button>`).join('')}</div></div>
+      <div class="st-campo"><span>Área</span><div class="st-chips" id="fNivel">${NIVELES.map(n => `<button type="button" class="st-chip${m.level === n.code ? ' activo' : ''}" data-nivel="${n.code}">${esc(n.label)}</button>`).join('')}</div></div>
       <label><span>Reporta a</span><select id="fJefe"><option value="">Nadie</option>${otros.map(x => `<option value="${esc(x.id)}"${x.id === m.reportsTo ? ' selected' : ''}>${esc(x.fullName)} · ${esc(x.title)}</option>`).join('')}</select></label>
       <div class="st-campo"><span>Categorías</span><div class="st-chips" id="fCats">${(datos.categories || []).map(c => `<button type="button" class="st-chip${(m.categories || []).some(x => x.id === c.id) ? ' activo' : ''}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join('') || '<small>Sin categorías activas.</small>'}</div></div>
       <label><span>WhatsApp</span><input id="fTel" inputmode="tel" maxlength="20" value="${esc(m.phone || '')}"></label>
@@ -149,7 +158,9 @@ function verFicha(m) {
    Borra la ficha y, si tiene cuenta, le quita el acceso al club (como en
    Usuarios). Después se suelta su foto de Storage. */
 async function elimina(m) {
-  const ok = await window.tosConfirm?.({ kicker: 'STAFF', title: `¿Eliminar a ${m.fullName}?`,
+  // Sin el cuadro del club se pregunta con el del navegador: nunca en silencio.
+  const pregunta = window.tosConfirm || (async o => window.confirm(`${o.title}\n\n${o.message}`));
+  const ok = await pregunta({ kicker: 'STAFF', title: `¿Eliminar a ${m.fullName}?`,
     message: m.hasAccount ? 'Se borra su ficha y su foto, y ya no podrá entrar a TannerOS. No se puede deshacer.' : 'Se borra su ficha y su foto. No se puede deshacer.',
     confirmText: 'Sí, eliminar', danger: true });
   if (!ok) return;

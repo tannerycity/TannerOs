@@ -92,7 +92,7 @@ async function abre({ escribe }) {
   await p.waitForSelector('#whoResults [data-pick="ficha:st-checo"]', { timeout: 3000 });
   revisa('[staff] la ficha sin llave sale al buscar', /en Staff, sin llave/.test(await p.textContent('#whoResults [data-pick="ficha:st-checo"]')));
   await p.click('#whoResults [data-pick="ficha:st-checo"]');
-  revisa('[staff] propone Entrenador por ser formador y avisa que se conecta', (await p.getAttribute('#wizardModal [data-rol="coach"]', 'class') || '').includes('active') || (await p.getAttribute('#wizardModal [data-rol="coach"]', 'aria-pressed')) === 'true' || /activ|on|sel/.test(await p.getAttribute('#wizardModal [data-rol="coach"]', 'class') || ''), await p.getAttribute('#wizardModal [data-rol="coach"]', 'class'));
+  revisa('[staff] propone Formador por ser formador y avisa que se conecta', (await p.getAttribute('#wizardModal [data-rol="coach"]', 'class') || '').includes('active') || (await p.getAttribute('#wizardModal [data-rol="coach"]', 'aria-pressed')) === 'true' || /activ|on|sel/.test(await p.getAttribute('#wizardModal [data-rol="coach"]', 'class') || ''), await p.getAttribute('#wizardModal [data-rol="coach"]', 'class'));
   revisa('[staff] dice que la llave queda conectada a su ficha', /conectada a su ficha de Staff/.test(await p.textContent('#whoPicked')));
   await p.click('#createAccess');
   await p.waitForFunction(() => window.__llamadas.some(x => x.n === 'v2_link_staff_account'), null, { timeout: 4000 }).catch(() => {});

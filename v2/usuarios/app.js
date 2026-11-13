@@ -21,8 +21,8 @@ let wizard={kind:null,role:null,method:'username',familyMethod:'username',person
 let lastCredentialText='';
 
 const roleLabels={
-  president:'Presidencia',operations:'Operación',coach:'Entrenador',academy:'Academia',
-  cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scout',player:'Familia'
+  president:'Presidencia',operations:'Operación',coach:'Formador',academy:'Academia',
+  cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scouting',player:'Familia'
 };
 const profileDescriptions={
   guardian:'Acompaña únicamente a sus Tanners: ficha, estado de cuenta, pagos, calendario, tienda y gafete.',
@@ -285,13 +285,14 @@ function closeWizard(){
    en Staff, sin llave"). Al elegirla, la llave nueva queda conectada a esa
    ficha: una sola persona en el organigrama, el Portal y los permisos. */
 let fichasSinLlave=[];
-const NIVEL_A_ROL={formador:'coach',coordinacion:'coach',direccion:'coach',operacion:'operations',presidencia:'president'};
+const NIVEL_A_ROL={formador:'coach',coordinacion:'coach',direccion:'coach',operacion:'operations',presidencia:'president',
+  academia:'academy',scouting:'scouting',marketing:'commercial',contabilidad:'accounting',taquilla:'cashier'};
 /* Sin depender del orden (11/11/2026). Presidencia: que no importe si primero
    se da de alta en Staff o primero se le entrega la llave. Alguien nuevo con
    una llave de staff también queda en Staff (organigrama) con su puesto. */
-const ROL_A_FICHA={coach:['formador','Formador'],president:['presidencia','Presidencia'],academy:['coordinacion','Academia'],
-  scouting:['coordinacion','Scouting'],operations:['operacion','Operación'],cashier:['operacion','Taquilla'],
-  accounting:['operacion','Contabilidad'],commercial:['operacion','Marketing']};
+const ROL_A_FICHA={coach:['formador','Formador'],president:['presidencia','Presidencia'],academy:['academia','Academia'],
+  scouting:['scouting','Scouting'],operations:['operacion','Operación'],cashier:['taquilla','Taquilla'],
+  accounting:['contabilidad','Contabilidad'],commercial:['marketing','Marketing']};
 function buscaPersonas(q){
   const t=normalize(q);if(t.length<2)return [];
   const out=[];

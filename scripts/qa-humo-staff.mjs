@@ -42,6 +42,10 @@ const TABLERO = (editor) => ({
       categories:[{ id:'c-t10', name:'T10' }], hasAccount:false, ...(editor ? { phone:'4771112233', backgroundCheck:'entregada' } : {}) },
     { id:'s-leo', fullName:'Leo Pérez', title:'Formador', level:'formador', reportsTo:'s-brandon', active:true, showToFamilies:true,
       categories:[], hasAccount:false, ...(editor ? { phone:'4774445566', backgroundCheck:'pendiente' } : {}) },
+    { id:'s-conta', fullName:'Crespo', title:'Contabilidad', level:'contabilidad', reportsTo:null, active:true, showToFamilies:false, categories:[], hasAccount:true,
+      ...(editor ? { backgroundCheck:'pendiente' } : {}) },
+    { id:'s-scout', fullName:'Irvin', title:'Scouting', level:'scouting', reportsTo:null, active:true, showToFamilies:false, categories:[], hasAccount:true,
+      ...(editor ? { backgroundCheck:'pendiente' } : {}) },
     { id:'s-baja', fullName:'Carlos Baja', title:'Formador', level:'formador', reportsTo:null, active:false, showToFamilies:false, categories:[], hasAccount:false,
       ...(editor ? { backgroundCheck:'pendiente' } : {}) }
   ].filter(m => editor || m.active),
@@ -84,7 +88,8 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   const p = await abre({ editor: true });
   if (process.env.SHOTS) await p.screenshot({ path: `${process.env.SHOTS}/staff.png`, fullPage: true });
   const niveles = await p.$$eval('.st-nivel h2', hs => hs.map(h => h.textContent.replace(/\s+/g, ' ').trim()));
-  revisa('1. el organigrama va por nivel, de Presidencia a Formadores', JSON.stringify(niveles) === '["Presidencia 1","Dirección deportiva 1","Formadores 2"]', JSON.stringify(niveles));
+  revisa('1. el organigrama va por área: Contabilidad y Scouting tienen su apartado, no caen en Formadores', JSON.stringify(niveles) === '["Presidencia 1","Dirección deportiva 1","Formadores 2","Scouting 1","Contabilidad 1"]', JSON.stringify(niveles));
+  revisa('1. la carta de no antecedentes sólo se le pide a Formadores', !(await p.$('.st-tarjeta[data-id="s-conta"] .st-alerta')) && !(await p.$('.st-tarjeta[data-id="s-scout"] .st-alerta')) && !!(await p.$('.st-tarjeta[data-id="s-leo"] .st-alerta')));
   revisa('1. la tarjeta dice nombre, puesto y categoría', /Ana Ruiz\s*Formadora T10\s*T10/.test(await p.innerText('.st-tarjeta[data-id="s-ana"]')));
   revisa('1. la baja no sale en el organigrama', !(await p.$('#stOrganigrama .st-tarjeta[data-id="s-baja"]')));
   const avisos = await p.innerText('#stAvisos');
@@ -92,7 +97,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   revisa('2. la tarjeta marca la carta pendiente', /Carta pendiente/.test(await p.innerText('.st-tarjeta[data-id="s-leo"]')));
   await p.click('.st-seg [data-ver="lista"]');
   const lista = await p.$$eval('#stLista .st-tarjeta', ts => ts.map(t => t.dataset.id));
-  revisa('3. la lista trae a todos, con la baja al final', lista[lista.length - 1] === 's-baja' && lista.length === 5, JSON.stringify(lista));
+  revisa('3. la lista trae a todos, con la baja al final', lista[lista.length - 1] === 's-baja' && lista.length === 7, JSON.stringify(lista));
   await p.click('.st-seg [data-ver="organigrama"]');
 
   await p.click('#stOrganigrama .st-tarjeta[data-id="s-leo"]');
@@ -157,11 +162,17 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   await p.click('#stLista .st-tarjeta[data-id="s-baja"]');
   await p.waitForSelector('#fEliminar', { timeout: 4000 }).catch(() => {});
   revisa('10. la baja sí tiene "Eliminar del staff" y avisa que no se deshace', await p.isVisible('#fEliminar') && /No se puede deshacer/.test(await p.textContent('.st-eliminar-nota')));
-  await p.evaluate(() => { window.__pregunta = null; window.tosConfirm = async q => { window.__pregunta = q; return false; }; });
-  await p.click('#fEliminar'); await p.waitForTimeout(200);
-  revisa('10. pregunta antes y, si dices que no, no borra nada', /Carlos Baja/.test(await p.evaluate(() => window.__pregunta?.title || '')) && (await llamadas(p, 'v2_delete_staff_member')).length === 0);
-  await p.evaluate(() => { window.tosConfirm = async () => true; });
-  await p.click('#fEliminar'); await p.waitForTimeout(300);
+  // Con el cuadro DE VERDAD: el humo ponía uno de mentira y por eso no vio que
+  // la página no cargaba el suyo y el botón no hacía nada (12/11/2026).
+  revisa('10. la página carga el cuadro de confirmación del club', await p.evaluate(() => typeof window.tosConfirm === 'function'));
+  await p.click('#fEliminar');
+  await p.waitForSelector('.tosdlg-backdrop', { timeout: 3000 }).catch(() => {});
+  revisa('10. al tocar Eliminar sale la pregunta, encima de la hoja', await p.isVisible('.tosdlg-backdrop') && /Carlos Baja/.test(await p.textContent('.tosdlg-title'))
+    && await p.evaluate(() => { const b = document.querySelector('.tosdlg-ok').getBoundingClientRect(); return !!document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2)?.closest('.tosdlg-ok'); }));
+  await p.click('.tosdlg-cancel'); await p.waitForTimeout(200);
+  revisa('10. si dices que no, no borra nada', (await llamadas(p, 'v2_delete_staff_member')).length === 0 && await p.isVisible('#fEliminar'));
+  await p.click('#fEliminar'); await p.waitForSelector('.tosdlg-ok');
+  await p.click('.tosdlg-ok'); await p.waitForTimeout(300);
   const del = (await llamadas(p, 'v2_delete_staff_member'))[0] || {};
   revisa('10. si confirmas, elimina esa ficha', del.member_id === 's-baja' && del.organization_id === ORG, JSON.stringify(del));
   revisa('10. y suelta su foto de Storage', JSON.stringify(await p.evaluate(() => window.__borrados || [])) === '["organizations/o/staff/s-baja/foto-1.webp"]');
@@ -180,7 +191,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
 
 { // 8. Formador: sólo ve
   const p = await abre({ editor: false });
-  revisa('8. el formador ve el organigrama', (await p.$$('#stOrganigrama .st-tarjeta')).length === 4);
+  revisa('8. el formador ve el organigrama', (await p.$$('#stOrganigrama .st-tarjeta')).length === 6);
   revisa('8. sin "+ Agregar" ni "con cuenta, sin ficha"', await p.isHidden('#stNuevo') && await p.isHidden('#stSinFicha'));
   await p.click('#stOrganigrama .st-tarjeta[data-id="s-ana"]');
   const hoja = await p.innerText('#stHoja');

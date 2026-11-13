@@ -21,8 +21,8 @@ let wizard={kind:null,role:null,method:'username',familyMethod:'username',person
 let lastCredentialText='';
 
 const roleLabels={
-  president:'Presidencia',operations:'Operación',coach:'Entrenador',academy:'Academia',
-  cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scout',player:'Familia'
+  president:'Presidencia',operations:'Operación',coach:'Formador',academy:'Academia',
+  cashier:'Taquilla',accounting:'Contabilidad',commercial:'Marketing',scouting:'Scouting',player:'Familia'
 };
 const profileDescriptions={
   guardian:'Acompaña únicamente a sus Tanners: ficha, estado de cuenta, pagos, calendario, tienda y gafete.',
@@ -285,13 +285,15 @@ function closeWizard(){
    en Staff, sin llave"). Al elegirla, la llave nueva queda conectada a esa
    ficha: una sola persona en el organigrama, el Portal y los permisos. */
 let fichasSinLlave=[];
-const NIVEL_A_ROL={formador:'coach',coordinacion:'coach',direccion:'coach',operacion:'operations',presidencia:'president'};
+const NIVEL_A_ROL={formador:'coach',coordinacion:'coach',direccion:'coach',operacion:'operations',presidencia:'president',
+  academia:'academy',scouting:'scouting',marketing:'commercial',contabilidad:'accounting',taquilla:'cashier'};
 /* Sin depender del orden (11/11/2026). Presidencia: que no importe si primero
    se da de alta en Staff o primero se le entrega la llave. Alguien nuevo con
    una llave de staff también queda en Staff (organigrama) con su puesto. */
-const ROL_A_FICHA={coach:['formador','Formador'],president:['presidencia','Presidencia'],academy:['coordinacion','Academia'],
-  scouting:['coordinacion','Scouting'],operations:['operacion','Operación'],cashier:['operacion','Taquilla'],
-  accounting:['operacion','Contabilidad'],commercial:['operacion','Marketing']};
+const NIVEL_DE_ANTES={academia:'coordinacion',scouting:'coordinacion',taquilla:'operacion',contabilidad:'operacion',marketing:'operacion'};
+const ROL_A_FICHA={coach:['formador','Formador'],president:['presidencia','Presidencia'],academy:['academia','Academia'],
+  scouting:['scouting','Scouting'],operations:['operacion','Operación'],cashier:['taquilla','Taquilla'],
+  accounting:['contabilidad','Contabilidad'],commercial:['marketing','Marketing']};
 function buscaPersonas(q){
   const t=normalize(q);if(t.length<2)return [];
   const out=[];
@@ -512,8 +514,11 @@ async function createAccess(event){
       // Alguien nuevo: se le hace su ficha de Staff ya conectada a la llave.
       if(p.tipo==='nuevo'&&result?.user_id&&ROL_A_FICHA[wizard.role]){
         const [level,title]=ROL_A_FICHA[wizard.role];
-        try{await rpc('v2_save_staff_member',{organization_id:ctx.organization_id,member:{userId:result.user_id,fullName:displayName,title,level,
-          showToFamilies:wizard.role==='coach',...(wizard.method==='email'?{email:$('accessEmail').value.trim()}:{})}});}
+        const ficha=nivel=>rpc('v2_save_staff_member',{organization_id:ctx.organization_id,member:{userId:result.user_id,fullName:displayName,title,level:nivel,
+          showToFamilies:wizard.role==='coach',...(wizard.method==='email'?{email:$('accessEmail').value.trim()}:{})}});
+        // Si la base todavía no conoce el área nueva (h91 sin correr), la ficha
+        // entra con el nivel de antes: nadie se queda sin ficha por eso.
+        try{await ficha(level).catch(error=>{const antes=NIVEL_DE_ANTES[level];if(antes&&/staff_members_level_check|violates check/i.test(String(error?.message||error)))return ficha(antes);throw error;});}
         catch(error){console.warn('ficha de Staff',error);message('createMessage','La llave se creó, pero no se pudo agregar a Staff: '+friendly(error)+'. Agrégalo desde Staff.');}
       }
       if(wizard.role==='coach'&&wizard.categorias.size&&result?.user_id){

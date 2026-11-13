@@ -91,6 +91,8 @@ function friendly(error){
     'Username must use 3-32 letters, numbers, dots, dashes or underscores':'El usuario debe tener de 3 a 32 caracteres: letras, números, punto, guion o guion bajo.',
     'Valid display name required':'Escribe el nombre completo.',
     'Username already exists':'Ese usuario ya existe. Elige otro.',
+    'Only username accounts can be renamed':'Esta llave entra con correo: su usuario es su correo y se cambia desde su cuenta.',
+    'Invalid action':'Cambiar el usuario todavía no está activado. Avísale a soporte.',
     'Password resets for email accounts use email recovery':'Las cuentas con correo recuperan su contraseña desde la pantalla de entrada.',
     'Email already registered':'Ese correo ya tiene una cuenta. Puede recuperar su acceso desde la pantalla de entrada.',
     'Email rate limit exceeded':'Se alcanzó temporalmente el límite de correos. Intenta de nuevo en unos minutos.',
@@ -104,8 +106,8 @@ function friendly(error){
   return clave?translations[clave]:raw;
 }
 async function rpc(name,params={}){const {data,error}=await supabase.rpc(name,params);if(error)throw error;return data;}
-async function invokeStaff(body){
-  const {data,error}=await supabase.functions.invoke('staff-access',{body:{organization_id:ctx.organization_id,...body}});
+async function invokeStaff(body,funcion='staff-access'){
+  const {data,error}=await supabase.functions.invoke(funcion,{body:{organization_id:ctx.organization_id,...body}});
   if(error){
     let detail='';
     try{detail=(await error.context?.clone?.().json())?.error||'';}catch{}
@@ -594,6 +596,7 @@ function renderPersonDrawer(){
   }
   renderCategoryPicker();
   $('resetMemberPassword').classList.toggle('hidden',!active||(guardian?false:(!username||data.isOwner)));$('resetMemberPassword').disabled=!canWrite;
+  $('renameMemberUser')?.classList.toggle('hidden',guardian||!active||!username||data.isOwner||!canWrite);
   $('toggleMember').classList.toggle('hidden',!guardian&&data.isOwner);$('toggleMember').disabled=!canWrite;
   $('toggleMember').textContent=guardian?(active?'Retirar llave':'Entregar llave'):(active?'Pausar llave':'Reactivar llave');
   $('memberSecurityHelp').textContent=guardian?'Puedes renovar su contraseña o retirar la llave sin afectar la ficha del Tanner.':username?'Puedes entregar una nueva contraseña o pausar esta llave.':'Las cuentas con correo recuperan su contraseña desde la entrada al vestidor.';
@@ -709,6 +712,22 @@ async function togglePersonAccess(){
   try{await rpc('v2_update_membership',{organization_id:ctx.organization_id,membership_id:member.membershipId,role_code:member.roleCode,active:next});await load();closePerson();}
   catch(error){message('profileMessage',friendly(error));}
 }
+/* Cambiar el @usuario (13/11/2026). Sólo cambia con qué nombre entra: su
+   contraseña, su rol y sus permisos se quedan igual. */
+async function renamePersonUser(){
+  if(!currentPerson||currentPerson.kind!=='staff')return;
+  const data=currentPerson.data,name=memberName(data),actual=usernameFromEmail(data.email);
+  const nuevo=await tosPrompt({kicker:'LLAVES',title:'Cambiar su usuario',message:`${name} entra hoy como @${actual}. Su contraseña no cambia.`,
+    value:actual,placeholder:'nombre.apellido',required:true,requiredText:'Escribe el usuario nuevo.',confirmText:'Cambiar usuario',maxlength:32});
+  if(nuevo===null||nuevo===undefined||nuevo===false)return;
+  const usuario=String(nuevo).trim().replace(/^@/,'');
+  if(!/^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$/.test(usuario)){message('profileMessage','El usuario necesita de 3 a 32 caracteres: letras, números, punto, guion o guion bajo, sin espacios.');return;}
+  if(usuario.toLowerCase()===actual.toLowerCase()){message('profileMessage','Es el mismo usuario que ya tiene.','success');return;}
+  try{
+    const r=await invokeStaff({action:'rename_username',user_id:data.userId,username:usuario},'staff-usuario');
+    await load();message('profileMessage',`Listo: ahora entra como @${r.username}. Avísale; su contraseña es la misma.`,'success');
+  }catch(error){message('profileMessage',friendly(error));}
+}
 async function resetPersonPassword(){
   if(!currentPerson)return;
   const guardian=currentPerson.kind==='guardian',data=currentPerson.data,name=guardian?guardianName(data):memberName(data);
@@ -755,7 +774,7 @@ $('accessUsername').addEventListener('input',()=>{wizard.usuarioTocado=true;resu
 $('accessEmail').addEventListener('input',resuelveLlave);
 $('accessForm').addEventListener('submit',createAccess);
 $('userSearch').addEventListener('input',renderPeople);document.querySelectorAll('.filter-chip').forEach(button=>button.addEventListener('click',()=>setFilter(button.dataset.filter)));$('refresh').addEventListener('click',()=>load());
-$('closeMember').addEventListener('click',closePerson);$('memberBackdrop').addEventListener('click',closePerson);$('saveMemberProfile').addEventListener('click',saveMemberProfile);$('memberBirth').addEventListener('change',saveMemberBirthday);$('resetAllModules').addEventListener('click',resetAllModules);$('saveCategories').addEventListener('click',saveCategories);$('toggleMember').addEventListener('click',togglePersonAccess);$('resetMemberPassword').addEventListener('click',resetPersonPassword);
+$('closeMember').addEventListener('click',closePerson);$('memberBackdrop').addEventListener('click',closePerson);$('saveMemberProfile').addEventListener('click',saveMemberProfile);$('memberBirth').addEventListener('change',saveMemberBirthday);$('resetAllModules').addEventListener('click',resetAllModules);$('saveCategories').addEventListener('click',saveCategories);$('toggleMember').addEventListener('click',togglePersonAccess);$('resetMemberPassword').addEventListener('click',resetPersonPassword);$('renameMemberUser')?.addEventListener('click',renamePersonUser);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!$('memberDrawer').classList.contains('hidden'))closePerson();else if(!$('wizardModal').classList.contains('hidden'))closeWizard();}});
 
 boot().catch(error=>{$('deniedText').textContent=friendly(error);show('deniedView');});

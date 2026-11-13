@@ -589,3 +589,5 @@ button.cob-tile{cursor:pointer}
 #collectModal.en-raiz #playerFields,#collectModal.en-raiz .cobrar-opciones,#collectModal.en-raiz .cobrar-patrocinio{display:none!important}
 #collectModal.uno-solo .cobrar-opciones,#collectModal.uno-solo .cobrar-patrocinio{display:none!important}
 @media (prefers-reduced-motion:reduce){.cobrar-que button{transition:none}}
+/* Montos con centavos (13/11/2026): el campo que está mal se nota */
+.cashier-form input[aria-invalid="true"],#editAmount[aria-invalid="true"]{border-color:#d23829!important;box-shadow:0 0 0 3px rgba(210,56,41,.16)!important}

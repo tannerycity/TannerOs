@@ -438,7 +438,7 @@ function renderQuickActions(){
   $('quickActions').innerHTML=visible.slice(0,9).map((item,index)=>`<a class="tos-quick-action ${(item.primary||index===0)?'primary':''}" href="${item.href}">${esc(item.label)}</a>`).join('')||'<div class="tos-empty">No hay acciones disponibles para tu rol.</div>';
   const cashVisible=can('taquilla',true)||can('cobranza',true)||can('contabilidad',true);
   $('cashPanel').classList.toggle('hidden',!cashVisible);
-  $('cashActions').innerHTML=`${(can('taquilla',true)||can('cobranza',true))?'<a class="tos-action-big collect" href="/taquilla/?action=cobrar">COBRAR</a>':''}${can('contabilidad',true)?'<a class="tos-action-big pay" href="/taquilla/">CAJA</a>':''}`;
+  $('cashActions').innerHTML=`${(can('taquilla',true)||can('cobranza',true))?'<a class="tos-action-big collect" href="/taquilla/?action=cobrar">COBRAR</a>':''}${can('contabilidad',true)?'<a class="tos-action-big pay" href="/taquilla/?action=pagar">PAGAR</a>':''}`;
 }
 
 function actionAllowed(item){

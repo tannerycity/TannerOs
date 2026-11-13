@@ -176,6 +176,31 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   await pg.close();
 }
 
+/* ===== CENTAVOS (13/11/2026) =====
+   Presidencia: "no acepta centavos". La Mitad de un pedido de $699 son
+   $349.50 y el campo, que era de pesos enteros, contestaba "Ingresa un valor
+   válido". Valores frontera sobre lo que falta del pedido. */
+{
+  const { pg } = await abre(true);
+  await pg.click('#openCollect'); await pg.click('#tabTienda'); await pg.waitForTimeout(300);
+  await pg.click('.tienda-pedido[data-pedido="o2"]');
+  revisa('[centavos] el monto es un campo de texto con teclado de decimales, no de pesos enteros', await pg.$eval('#tiendaAmount', i => i.type === 'text' && i.inputMode === 'decimal' && !i.step));
+  await pg.click('.tienda-atajos [data-parte="0.5"]');
+  revisa('[centavos] "Mitad" de $699 deja $349.50', await pg.inputValue('#tiendaAmount') === '349.50', await pg.inputValue('#tiendaAmount'));
+  revisa('[centavos] y el navegador lo da por bueno (antes: "Ingresa un valor válido")', await pg.$eval('#tiendaAmount', i => i.checkValidity()));
+  const intenta = async v => { await pg.fill('#tiendaAmount', v); await pg.click('#saveCollect'); await pg.waitForTimeout(250); return (await pg.textContent('#collectMessage')) || ''; };
+  revisa('[frontera] un centavo de más no pasa, y dice cuánto falta', /sólo le faltan \$699\.00/.test(await intenta('699.01')));
+  revisa('[frontera] el campo que está mal queda marcado', await pg.getAttribute('#tiendaAmount', 'aria-invalid') === 'true');
+  revisa('[frontera] tres decimales no se redondean a escondidas', /dos decimales/.test(await intenta('349.505')));
+  revisa('[frontera] cero no es un cobro', /mayor a cero/.test(await intenta('0')));
+  revisa('[frontera] letras no son un monto', /sólo números/.test(await intenta('abc')));
+  revisa('[frontera] vacío pide el monto', /Escribe el monto/.test(await intenta('')));
+  revisa('[frontera] nada de eso llegó a cobrarse', !(await pg.evaluate(() => window.__rpc.some(c => c.name === 'v2_post_order_payment_at_cashier'))));
+  await pg.fill('#tiendaAmount', '$1,349.5'); await pg.press('#tiendaAmount', 'Tab');
+  revisa('[centavos] al salir del campo acomoda lo escrito: "$1,349.5" queda "1349.50"', await pg.inputValue('#tiendaAmount') === '1349.50', await pg.inputValue('#tiendaAmount'));
+  await pg.close();
+}
+
 /* ===== OTRO INGRESO · UNIFORME AVISA ===== */
 {
   const { pg } = await abre(true);

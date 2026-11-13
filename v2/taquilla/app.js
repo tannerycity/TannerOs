@@ -1878,15 +1878,43 @@ function hojaAccionesConcilia(paymentId,canApprove){
   const acciones=accionesPara(x,{canApprove,esMio:Boolean(x.registeredByUserId)&&x.registeredByUserId===ctx.user_id})
     .filter(a=>a.clave!=='approve'&&a.clave!=='resubmit');
   const quien=x.playerName||x.family||'Cobro general';
-  const filas=[...(puedeEditarCobro(x,canApprove)?[{clave:'editar',etiqueta:'Editar cobro',sub:'Método, día del pago o referencia'}]:[]),
+  const filas=[{clave:'recibo-enviar',etiqueta:'Enviar recibo por WhatsApp',sub:'PDF con lo que se pagó'},{clave:'recibo-ver',etiqueta:'Ver recibo'},{clave:'recibo-descargar',etiqueta:'Descargar recibo'},
+    ...(puedeEditarCobro(x,canApprove)?[{clave:'editar',etiqueta:'Editar cobro',sub:'Método, día del pago o referencia'}]:[]),
     ...acciones.map(a=>({clave:a.clave,etiqueta:a.etiqueta,rojo:a.clave==='reject'}))];
   const h=hojaCC(`<div class="cc-acc-sheet"><div class="cc-acc-grupo"><p class="cc-acc-tit">${esc(quien)} · ${montoConcilia(x.amount)}</p>
     ${filas.map(f=>`<button type="button" class="cc-acc-op${f.rojo?' rojo':''}" data-cc-op="${f.clave}"><span>${esc(f.etiqueta)}</span>${f.sub?`<small>${esc(f.sub)}</small>`:''}</button>`).join('')}</div>
     <button type="button" class="cc-acc-cancelar" data-cc-cerrar>Cancelar</button></div>`);
   h.querySelectorAll('[data-cc-op]').forEach(b=>b.addEventListener('click',()=>{
     h.remove();
-    if(b.dataset.ccOp==='editar')hojaEditarCobro(x);else abreAccion(x.paymentId,b.dataset.ccOp);
+    if(b.dataset.ccOp.startsWith('recibo-'))reciboDePago(x,b.dataset.ccOp.slice(7));
+    else if(b.dataset.ccOp==='editar')hojaEditarCobro(x);else abreAccion(x.paymentId,b.dataset.ccOp);
   }));
+}
+/* El recibo de un pago anterior (13/11/2026). Presidencia pidió "ver recibo,
+   descargar recibo, enviar recibo por WhatsApp... que se quede el registro".
+   Al cobrar ya sale; esto lo vuelve a sacar desde cualquier tarjeta de pago,
+   por si la familia lo pide después. Lleva el concepto, lo que se pagó (si ya
+   está h92) y el monto; nada de notas internas. */
+async function reciboDePago(x,que){
+  const puedeAdjuntar=(()=>{try{return !!navigator.canShare&&navigator.canShare({files:[new File(['%PDF'],'r.pdf',{type:'application/pdf'})]});}catch{return false;}})();
+  const ventana=que==='ver'||(que==='enviar'&&!puedeAdjuntar)?window.open('','_blank'):null;
+  try{
+    const {datosDeRecibo,reciboPdf,nombreDelRecibo,marcaDelClub}=await import('/v2/cobro/recibo-pdf.js?v=20261113a');
+    const marca=await marcaDelClub();
+    const det=detallePago.get(x.paymentId)||[];
+    const fecha=x.date?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${String(x.date).slice(0,10)}T12:00:00`)):'';
+    const datos=datosDeRecibo({club:ctx.organization_name||marca.nombre,folio:`P-${String(x.paymentId||'').replace(/-/g,'').slice(0,6).toUpperCase()}`,fecha,
+      tanners:[x.playerName||x.family||'Cobro general'],lineas:[{label:`${x.concept||'Pago'}${det.length?`: ${det.join(', ')}`:''}`,amount:x.amount}],
+      metodos:[{method:metodoDe(x.method).k,amount:x.amount}],total:x.amount,cobro:x.registeredByIsAccount?'':(x.registeredBy||''),referencia:x.reference||''});
+    const doc=await reciboPdf(datos,{marca}),nombre=nombreDelRecibo(datos);
+    const texto=`Hola, este es el recibo de ${datos.tanners[0]}: ${montoConcilia(x.amount)}${fecha?` del ${fecha}`:''}. ¡Gracias!`;
+    if(que==='ver'){const url=URL.createObjectURL(doc.output('blob'));setTimeout(()=>URL.revokeObjectURL(url),120000);if(ventana)ventana.location.href=url;else{const {descargaPdf}=await import('/v2/produccion/pdf.js');descargaPdf(doc,nombre);}return;}
+    if(que==='descargar'){const {descargaPdf}=await import('/v2/produccion/pdf.js');descargaPdf(doc,nombre);message('conciliaMessage','Recibo descargado.','success');return;}
+    if(puedeAdjuntar){try{await navigator.share({files:[new File([doc.output('blob')],nombre,{type:'application/pdf'})],title:nombre,text:texto});}catch(e){if(e?.name!=='AbortError')message('conciliaMessage','No se pudo compartir. Usa Descargar recibo.');}return;}
+    const {descargaPdf}=await import('/v2/produccion/pdf.js');descargaPdf(doc,nombre);
+    if(ventana)ventana.location.href=`https://wa.me/?text=${encodeURIComponent(texto)}`;
+    message('conciliaMessage','El recibo se descargó: adjúntalo en el chat de WhatsApp.','success');
+  }catch(e){console.warn('recibo',e);try{ventana?.close();}catch{}message('conciliaMessage','No se pudo armar el recibo. Intenta de nuevo.');}
 }
 function hojaEditarCobro(x){
   const met0=metodoDe(x.method).k;let met=['cash','transfer','card'].includes(met0)?met0:'cash';

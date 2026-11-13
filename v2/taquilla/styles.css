@@ -567,3 +567,25 @@ button.cob-tile{cursor:pointer}
 .cc-edit-error{margin:10px 4px 0;color:#b3261e;font-size:14px}
 .cc-edit-error.hidden{display:none}
 @media (min-width:720px){.cc-capa{align-items:center}}
+
+/* ¿Qué vas a cobrar? (13/11/2026): lo de todos los días a un toque, tipo iOS */
+.cobrar-que{display:grid;gap:0;margin:4px 0 2px;border-radius:18px;background:#fff;box-shadow:0 0 0 1px var(--tos-line,#dedbd0);overflow:hidden}
+.cobrar-que button{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;padding:12px 16px;border:0;border-bottom:1px solid #eeece4;background:#fff;font:inherit;text-align:left;color:var(--tos-ink,#053746);cursor:pointer;transition:background .12s}
+.cobrar-que button:last-child{border-bottom:0}
+.cobrar-que button:hover{background:#f7f6f0}
+.cobrar-que button:active{background:#efede4}
+.cobrar-que button:focus-visible{outline:3px solid var(--tos-teal,#087d8e);outline-offset:-3px}
+.cobrar-que-ico{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:13px;color:#fff}
+.cobrar-que-ico svg{width:23px;height:23px}
+.cobrar-que-ico.mes{background:var(--tos-teal,#087d8e)}
+.cobrar-que-ico.ins{background:#2e7d4f}
+.cobrar-que-ico.rei{background:#3d4fa8}
+.cobrar-que-ico.otr{background:#6b7a80}
+.cobrar-que-txt{flex:1;display:grid;gap:1px;min-width:0}
+.cobrar-que-txt b{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.cobrar-que-txt small{font-size:13px;font-weight:600;color:#5c6b71}
+.cobrar-que button>i{flex:none;font-style:normal;font-size:24px;line-height:1;color:#a9b3b6}
+#collectModal:not(.en-raiz) .cobrar-que{display:none}
+#collectModal.en-raiz #playerFields,#collectModal.en-raiz .cobrar-opciones,#collectModal.en-raiz .cobrar-patrocinio{display:none!important}
+#collectModal.uno-solo .cobrar-opciones,#collectModal.uno-solo .cobrar-patrocinio{display:none!important}
+@media (prefers-reduced-motion:reduce){.cobrar-que button{transition:none}}

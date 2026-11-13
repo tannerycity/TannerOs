@@ -55,6 +55,7 @@ function modal(id,open){$('modalBackdrop').classList.toggle('hidden',!open);$(id
 // tarifas y al de conciliacion.
 function closeModals(){document.querySelectorAll('.cashier-modal').forEach(el=>el.classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.classList.remove('cashier-modal-open');resetCollectForm();resetExpenseForm();}
 function resetCollectForm(){
+  collectQue='';
   $('collectForm').reset();
   $('collectPlayer').value='';$('collectPlayerSearch').value='';
   $('collectPorQue')?.classList.add('hidden');
@@ -391,12 +392,14 @@ async function loadReceivables(){
 // módulos (?action=cobrar&player=…).
 function cobraA(playerId,nombre){
   if(!canCashWrite||!playerId)return;
+  // Lo que se eligió en "¿Qué vas a cobrar?" (se lee antes de cerrar: cerrar lo limpia).
+  const que=QUE_COBRO[collectQue]?collectQue:'todo';
   closeModals();
   // La cara del Tanner (09/11/2026): si la lista de Cobranza ya trae su foto
   // completa se usa; si no, la hoja la pide sola.
   const fila=tablero?.players?.find(x=>x.playerId===playerId);
   const foto=fila?.photoPath?{bucket:fila.photoBucket,path:fila.photoPath,thumbPath:fila.photoThumbPath}:null;
-  abrirCobro({rpc,org,playerId,nombre,preseleccion:'todo',quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),foto,
+  abrirCobro({rpc,org,playerId,nombre,preseleccion:que,quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),foto,
     alTerminar:async()=>{await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();cargaConcilia(true);}});
 }
 function quickCollect(playerId,name){cobraA(playerId,name);}
@@ -443,14 +446,27 @@ document.addEventListener('click',async e=>{
 // tarjeta (Tienda, Estacionamiento, Otro ingreso)— y al entrar a una, "‹"
 // regresa. El patrocinador es una liga discreta: casi nunca pasa.
 const TITULO_COBRO={player:'Lo paga un patrocinador',tienda:'Tienda',gafete:'Estacionamiento',general:'Otro ingreso'};
+/* Lo de todos los días, a un toque (13/11/2026). Presidencia: "que sea más
+   accesible registrar una inscripción, mensualidad o reinscripción... botones
+   fáciles de usar, tipo iOS, y si hay otro, que diga otro". Primero se elige
+   QUÉ; luego de quién. "Otro" guarda lo demás: todo lo que debe un Tanner,
+   Tienda, Estacionamiento, otro ingreso y patrocinador. */
+const QUE_COBRO={mensualidad:['Mensualidad','¿De quién es la mensualidad?'],inscripcion:['Inscripción','¿A quién inscribes?'],reinscripcion:['Reinscripción','¿Quién se reinscribe?']};
+let collectQue='';
+function setCollectQue(que){collectQue=que||'';setCollectMode('player');if(collectQue)setTimeout(()=>$('collectPlayerSearch')?.focus(),60);}
 function setCollectMode(mode){
   if(mode==='tienda'&&!canTienda)mode='player';
   if(mode==='gafete'&&!canGafete)mode='player';
   collectMode=mode;document.querySelectorAll('.cashier-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   const enInicio=mode==='player'&&!$('collectSponsorMode')?.checked;
+  const enRaiz=enInicio&&!collectQue,unoSolo=enInicio&&!!QUE_COBRO[collectQue];
   $('collectModal')?.classList.toggle('en-inicio',enInicio);
-  $('collectVolver')?.classList.toggle('hidden',enInicio);
-  if($('collectTitle'))$('collectTitle').textContent=enInicio?'¿Qué vas a cobrar?':TITULO_COBRO[mode];
+  $('collectModal')?.classList.toggle('en-raiz',enRaiz);
+  $('collectModal')?.classList.toggle('uno-solo',unoSolo);
+  $('collectVolver')?.classList.toggle('hidden',enRaiz);
+  if($('collectTitle'))$('collectTitle').textContent=enRaiz?'¿Qué vas a cobrar?':unoSolo?QUE_COBRO[collectQue][0]:enInicio?'Otro cobro':TITULO_COBRO[mode];
+  const eti=document.querySelector('#collectPlayerBox .tsearch-label');
+  if(eti)eti.innerHTML=unoSolo?esc(QUE_COBRO[collectQue][1]):'Un Tanner <small>uniforme, hermanos y todo lo que debe</small>';
   $('playerFields').classList.toggle('hidden',mode!=='player');$('generalFields').classList.toggle('hidden',mode!=='general');
   $('tiendaFields').classList.toggle('hidden',mode!=='tienda');
   $('gafeteFields')?.classList.toggle('hidden',mode!=='gafete');
@@ -1073,7 +1089,11 @@ $('collectSponsorMode')?.addEventListener('change',e=>{
   setCollectMode('player');
 });
 $('collectSponsorLink')?.addEventListener('click',()=>{const c=$('collectSponsorMode');c.checked=true;c.dispatchEvent(new Event('change'));$('collectPlayerSearch')?.focus();});
-$('collectVolver')?.addEventListener('click',()=>{const c=$('collectSponsorMode');if(c.checked){c.checked=false;c.dispatchEvent(new Event('change'));}setCollectMode('player');$('collectPlayerSearch')?.focus();});
+$('collectVolver')?.addEventListener('click',()=>{const c=$('collectSponsorMode');
+  // Desde "¿de quién?" u "Otro cobro" se regresa a los cuatro botones; desde Tienda y lo demás, a "Otro cobro".
+  if(collectMode==='player'&&!c.checked){setCollectQue('');return;}
+  if(c.checked){c.checked=false;c.dispatchEvent(new Event('change'));}setCollectMode('player');$('collectPlayerSearch')?.focus();});
+document.querySelector('.cobrar-que')?.addEventListener('click',e=>{const b=e.target.closest('[data-que]');if(b)setCollectQue(b.dataset.que);});
 // "¿A quién le cobras?": lo primero de la pantalla.
 $('cobroRapido')?.classList.toggle('hidden',!canCashWrite);
 if(canCashWrite)cargaJugadoresTienda();

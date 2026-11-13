@@ -567,3 +567,6 @@ button.cob-tile{cursor:pointer}
 .cc-edit-error{margin:10px 4px 0;color:#b3261e;font-size:14px}
 .cc-edit-error.hidden{display:none}
 @media (min-width:720px){.cc-capa{align-items:center}}
+
+/* Montos con centavos (13/11/2026): el campo que está mal se nota */
+.cashier-form input[aria-invalid="true"],#editAmount[aria-invalid="true"]{border-color:#d23829!important;box-shadow:0 0 0 3px rgba(210,56,41,.16)!important}

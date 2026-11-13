@@ -10,6 +10,7 @@ import {estadoDe,validacionDe,accionesPara,requiereMotivo,diferenciaDe,
         filtra as filtraConcilia,lineaDeHistorial,pendientesReales,metodoDe,mesDe,fechaCorta as fechaPago,registradoDe,agrupaPorDia,iniciales}
   from '/v2/taquilla/conciliacion.js';
 import {abrirCobro,esCuentaCompartida} from '/v2/cobro/hoja.js';
+import {leeMonto,leeMontoOpcional,escribeMonto,parteDe,resta} from '/v2/dinero.js?v=20261113a';
 import {preparaCobro,ligaDeCobro} from '/v2/cobranza-whatsapp.js';
 import {resumenCobranza,filtraCobranza,textoEstado} from '/v2/taquilla/cobranza.js';
 
@@ -54,6 +55,19 @@ function modal(id,open){$('modalBackdrop').classList.toggle('hidden',!open);$(id
 // mano, asi que cada modal nuevo nacia sin poder cerrarse: le pasaba al de
 // tarifas y al de conciliacion.
 function closeModals(){document.querySelectorAll('.cashier-modal').forEach(el=>el.classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.classList.remove('cashier-modal-open');resetCollectForm();resetExpenseForm();}
+/* Los montos se escriben con centavos (13/11/2026). Un campo de texto con
+   teclado de números: el navegador ya no contesta "Ingresa un valor válido";
+   el motivo se dice en español y el campo queda marcado. Al salir del campo se
+   acomoda lo escrito ("$1,299.5" queda "1299.50"). */
+const CAMPOS_DE_MONTO=['collectAmount','collectExpected','tiendaAmount','generalAmount','expenseAmount','editAmount'];
+function montoDe(id,op={},opcional=false){
+  const campo=$(id),r=(opcional?leeMontoOpcional:leeMonto)(campo.value,op);
+  if(!r.ok){campo.setAttribute('aria-invalid','true');campo.focus();throw new Error(r.error);}
+  campo.removeAttribute('aria-invalid');return r.valor;
+}
+CAMPOS_DE_MONTO.forEach(id=>{const c=$(id);if(!c)return;
+  c.addEventListener('input',()=>c.removeAttribute('aria-invalid'));
+  c.addEventListener('blur',()=>{const r=leeMonto(c.value);if(r.ok)c.value=escribeMonto(r.valor);});});
 function resetCollectForm(){
   $('collectForm').reset();
   $('collectPlayer').value='';$('collectPlayerSearch').value='';
@@ -526,7 +540,7 @@ function pintaPedidos(){
 function eligePedido(id){
   const o=pedidos.find(x=>String(x.id)===String(id));if(!o)return;
   $('tiendaOrder').value=o.id;
-  $('tiendaAmount').value=Math.round(Number(o.balance||0));
+  $('tiendaAmount').value=escribeMonto(o.balance);
   $('tiendaCobro').classList.remove('hidden');
   $('saveCollect').classList.remove('hidden');
   pintaPedidos();
@@ -535,7 +549,7 @@ function eligePedido(id){
 $('tiendaPedidos')?.addEventListener('click',e=>{const b=e.target.closest('[data-pedido]');if(b)eligePedido(b.dataset.pedido);});
 document.querySelectorAll('.tienda-atajos [data-parte]').forEach(b=>b.addEventListener('click',()=>{
   const o=pedidos.find(x=>String(x.id)===String($('tiendaOrder').value));if(!o)return;
-  $('tiendaAmount').value=Math.round(Number(o.balance||0)*Number(b.dataset.parte));
+  $('tiendaAmount').value=escribeMonto(parteDe(o.balance,b.dataset.parte));$('tiendaAmount').dispatchEvent(new Event('input'));
 }));
 // Otro ingreso: si eligen Uniforme o Tienda, se avisa que hay un camino que sí guarda el pedido.
 $('generalCategory')?.addEventListener('change',e=>$('generalTiendaAviso')?.classList.toggle('hidden',!canTienda||!/^(uniforme|tienda)$/i.test(e.target.value)));
@@ -637,7 +651,7 @@ async function postCollect(){
   const btn=$('saveCollect');btn.disabled=true;message('collectMessage');
   try{
     if(collectMode==='player'){
-      const player=$('collectPlayer').value,playerName=$('collectPlayerSearch').value.trim(),amount=Math.round(Number($('collectAmount').value)),date=$('collectDate').value;
+      const player=$('collectPlayer').value,playerName=$('collectPlayerSearch').value.trim(),amount=montoDe('collectAmount'),date=$('collectDate').value;
       if(!player||!Number.isFinite(amount)||amount<=0||!date)throw new Error('Completa Tanner, monto y fecha.');
       if($('collectPayerType').value==='sponsor'&&!$('collectPayerName').value.trim())throw new Error('Indica el patrocinador.');
       const okDbl=await confirmDoubleCheck({title:'Confirma el cobro',message:`Vas a registrar un cobro de ${money.format(amount)} a ${playerName||'este Tanner'} · ${methodLabel($('collectMethod').value)}. ¿Es correcto?`,confirmText:'Sí, cobrar'});
@@ -645,7 +659,7 @@ async function postCollect(){
       // El monto esperado es lo que permite el indicador de diferencias. Va
       // opcional: obligarlo frenaria a quien esta cobrando con el papa enfrente.
       const esperadoCrudo=$('collectExpected')?.value.trim()||'';
-      const esperado=esperadoCrudo===''?null:Number(esperadoCrudo);
+      const esperado=esperadoCrudo===''?null:montoDe('collectExpected',{},true);
       if(esperado!==null&&(!Number.isFinite(esperado)||esperado<0))throw new Error('El monto esperado no puede ser negativo.');
       const idPago=await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,collected_by_name:quienDelClub('collectCollectedBy'),idempotency_key:key('cashier-payment'),expected_amount:esperado,observations:$('collectObservations')?.value.trim()||null});
       usaFuncion('cobro_registrado');
@@ -659,12 +673,12 @@ async function postCollect(){
       }
     }else if(collectMode==='tienda'){
       const o=pedidos.find(x=>String(x.id)===String($('tiendaOrder').value));
-      const amount=Math.round(Number($('tiendaAmount').value)),date=$('tiendaDate').value;
       if(!o)throw new Error('Elige el pedido que se va a cobrar.');
+      const amount=montoDe('tiendaAmount',{max:Number(o.balance||0),quienTope:'Al pedido sólo le faltan'}),date=$('tiendaDate').value;
       if(!Number.isFinite(amount)||amount<=0||!date)throw new Error('Completa monto y fecha.');
       if(amount>Number(o.balance||0)+0.005)throw new Error(`Al pedido sólo le faltan ${money.format(Number(o.balance||0))}.`);
       const quien=o.playerName||o.customerName||'este cliente';
-      const resto=Number(o.balance||0)-amount;
+      const resto=resta(o.balance,amount);
       const okDbl=await confirmDoubleCheck({title:'Confirma el cobro del pedido',message:`Vas a cobrar ${money.format(amount)} del pedido ${o.folio} de ${quien} · ${methodLabel($('tiendaMethod').value)}. ${resto>0.005?`Quedará a deber ${money.format(resto)}.`:'Con esto queda pagado.'} ¿Es correcto?`,confirmText:'Sí, cobrar'});
       if(!okDbl){btn.disabled=false;return;}
       await rpc('v2_post_order_payment_at_cashier',{organization_id:org,order_id:o.id,amount,payment_date:date,method:$('tiendaMethod').value,
@@ -693,7 +707,7 @@ async function postCollect(){
         message:`Cobrado ${money.format(Number(r?.paid||amount))}. Dale a ${quien} el gafete ${r?.folio||''} para ${placa}.`});
       return;
     }else{
-      const amount=Math.round(Number($('generalAmount').value)),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
+      const amount=montoDe('generalAmount'),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
       const okDbl=await confirmDoubleCheck({title:'Confirma el ingreso',message:`Vas a registrar un ingreso de ${money.format(amount)} · ${concept} (${category}) · ${methodLabel($('generalMethod').value)}. ¿Es correcto?`,confirmText:'Sí, registrar'});
       if(!okDbl){btn.disabled=false;return;}
@@ -706,7 +720,7 @@ async function postCollect(){
 async function postExpense(){
   const btn=$('saveExpense');btn.disabled=true;message('expenseMessage');
   try{
-    const amount=Math.round(Number($('expenseAmount').value)),date=$('expenseDate').value,category=(($('expenseCategory').value==='__otra__')?($('expenseCategoryOther')?.value||''):$('expenseCategory').value).trim(),concept=$('expenseConcept').value.trim(),who=$('expenseWho').value.trim();
+    const amount=montoDe('expenseAmount'),date=$('expenseDate').value,category=(($('expenseCategory').value==='__otra__')?($('expenseCategoryOther')?.value||''):$('expenseCategory').value).trim(),concept=$('expenseConcept').value.trim(),who=$('expenseWho').value.trim();
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
     const okDbl=await confirmDoubleCheck({title:'Confirma el pago',message:`Vas a registrar un pago de ${money.format(amount)} a ${who||concept} · ${category} · ${methodLabel($('expenseMethod').value)}. ¿Es correcto?`,confirmText:'Sí, pagar'});
     if(!okDbl){btn.disabled=false;return;}
@@ -1061,7 +1075,7 @@ tannerSearchInit('collectPlayerBox','collectPlayerSearch','collectPlayer','colle
   if(!pl||$('collectAmount').value)return;
   const pendiente=(receivables||[]).filter(r=>r.player_id===pl.player_id).reduce((sum,r)=>sum+Number(r.balance_due||0),0);
   const sugerido=pendiente>0?pendiente:Number(pl.base_monthly_fee||0);
-  $('collectAmount').value=sugerido>0?Math.round(sugerido):'';
+  $('collectAmount').value=escribeMonto(sugerido);
 },fuenteTienda);
 
 // Patrocinador: el único caso que sigue con el formulario de siempre.
@@ -1112,7 +1126,7 @@ let pendingEdit=null;
 function openEditMove(m){
   if(!m)return;pendingEdit=m;const income=m.type==='income';
   $('editKicker').textContent=income?'COBRO':'PAGO';
-  $('editAmount').value=Math.round(Number(m.amount||0));
+  $('editAmount').value=escribeMonto(m.amount);
   $('editDate').value=m.date||isoToday();
   $('editMethod').value=_METHOD_VAL[m.method]||'other';
   $('editCategory').value=m.category&&m.category!=='—'?m.category:'';
@@ -1127,8 +1141,9 @@ function openEditMove(m){
 function closeEditMove(){pendingEdit=null;$('editModal').classList.add('hidden');$('modalBackdrop').classList.add('hidden');}
 async function saveEditMove(){
   if(!pendingEdit)return;const m=pendingEdit,income=m.type==='income',msg=$('editMessage');
-  const amount=Math.round(Number($('editAmount').value));
-  if(!Number.isFinite(amount)||amount<=0){msg.textContent='El monto debe ser mayor a cero.';msg.classList.remove('hidden');return;}
+  const leido=leeMonto($('editAmount').value);
+  if(!leido.ok){msg.textContent=leido.error;msg.classList.remove('hidden');$('editAmount').setAttribute('aria-invalid','true');$('editAmount').focus();return;}
+  const amount=leido.valor;
   const motivo=$('editReason').value.trim();
   if(income&&motivo.length<3){msg.textContent='Escribe el motivo del cambio (queda en la bitácora).';msg.classList.remove('hidden');$('editReason').focus();return;}
   const btn=$('editSave');btn.disabled=true;

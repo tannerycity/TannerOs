@@ -436,3 +436,7 @@
 .as-carta-beca{border-color:#e6d9a8}
 .as-focos{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(min-width:720px){.as-focos{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* Porteros en la lista de su categoría (13/11/2026) */
+.as-portero{justify-self:start;margin-top:3px;padding:2px 7px;border-radius:999px;background:#e8eefb;color:#2c3f86;font-style:normal;font-size:10px;font-weight:900;letter-spacing:.03em}
+.as-portero.hoy{background:#2c3f86;color:#fff}

@@ -50,21 +50,23 @@ const PROPUESTA = [
   { playerId:'a5', name:'Eli Revision', category:'T10', current:0, package:'tanner_4', packageName:'Tanner 4 días', price:800, discount:0, fee:800, alreadySet:false, blocked:'Cobro en revisión' },
   { playerId:'a6', name:'Fer Ya', category:'T10', current:800, package:'tanner_4', packageName:'Tanner 4 días', price:800, discount:0, fee:800, alreadySet:true, blocked:null } ];
 
-async function abre(ruta, { pres = true } = {}) {
+async function abre(ruta, { pres = true, academia = false } = {}) {
   const p = await nav.newPage({ viewport:{ width:390, height:844 } });
   p.on('pageerror', e => errores.push(`pageerror: ${e.message}`));
-  await p.addInitScript(({ pres, paq, porteros, propuesta }) => {
+  await p.addInitScript(({ pres, paq, porteros, propuesta, academia }) => {
     window.__llamadas = [];
     const m = ['cobranza','contabilidad','taquilla','jugadores'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true }));
     const R = { v2_my_context:[{ user_id:'u1', display_name:'Mich', organization_id:'o1', organization_name:'Tannery City FC', role:pres ? 'Presidencia' : 'Contabilidad', is_owner:pres }],
                 v2_my_navigation:m, v2_goalkeepers:porteros, v2_club_packages:paq, v2_package_proposal:propuesta,
-                v2_apply_package_proposal:{ applied:3 }, v2_set_package_price:paq };
+                v2_apply_package_proposal:{ applied:3 }, v2_set_package_price:paq,
+                v2_academies: academia ? [{ id:'a-gk', name:'Academia de porteros', academy_type:'goalkeeper', status:'active', schedule:{ days:'Martes', time:'5:00 a 6:00 pm' } }] : [],
+                v2_enroll_academy:'e-nuevo' };
     window.__fakeSupabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}), getUser:async()=>({data:{user:{id:'u1'}}}), onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}) },
       rpc:async(n, params)=>{ window.__llamadas.push({ n, params }); return { data:R[n] ?? null, error:null }; },
       channel:()=>({ on(){return this;}, subscribe(){return this;} }), removeChannel(){}
     };
-  }, { pres, paq:PAQ(pres), porteros:PORTEROS, propuesta:PROPUESTA });
+  }, { pres, paq:PAQ(pres), porteros:PORTEROS, propuesta:PROPUESTA, academia });
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript', body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.goto(BASE + ruta, { waitUntil:'domcontentloaded' });
@@ -85,6 +87,22 @@ const texto = (p, s) => p.textContent(s).then(t => t.replace(/\s+/g, ' '));
   revisa('[porteros] los que no están en la academia, aparte', /Porteros sin academia · 1/.test(t) && /Pepe Sin Academia/.test(t) && /No está con Alexis/.test(t), t);
   revisa('[porteros] cada uno abre su estado de cuenta', await p.getAttribute('a.tan-fila[href*="g3"]', 'href') === '/tanner/?id=g3');
   revisa('[porteros] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await p.close();
+}
+/* 1b. Porteros: "portero + T10", inscribir con Alexis en un toque (13/11/2026) */
+{
+  const p = await abre('/v2/paquetes/?ver=porteros', { academia:true });
+  const t = await texto(p, '.pq-cuerpo');
+  revisa('[porteros] dice cuál es la academia y cuándo entrena', /Academia de porteros · Martes 5:00 a 6:00 pm/.test(t), t.slice(0, 260));
+  revisa('[porteros] el que no está con Alexis trae "Inscribir con Alexis"; los que ya están, no', (await p.$$('[data-inscribe]')).length === 1 && await p.isVisible('[data-inscribe="g3"]'));
+  revisa('[porteros] el botón mide lo que un dedo', await p.$eval('[data-inscribe="g3"]', b => b.getBoundingClientRect().height >= 44));
+  await p.click('[data-inscribe="g3"]');
+  await p.waitForSelector('.tosdlg-backdrop', { timeout:3000 }).catch(() => {});
+  revisa('[porteros] pregunta antes, y avisa que sigue en su categoría', await p.isVisible('.tosdlg-backdrop') && /Pepe Sin Academia/.test(await p.textContent('.tosdlg-title')) && /Sigue en su categoría/.test(await p.textContent('.tosdlg-backdrop')));
+  await p.click('.tosdlg-ok'); await p.waitForTimeout(400);
+  const [e] = await llamadas(p, 'v2_enroll_academy');
+  revisa('[porteros] lo inscribe en la Academia de porteros, sin tocar su categoría', e?.params?.academy_id === 'a-gk' && e?.params?.player_id === 'g3' && e?.params?.organization_id === 'o1', JSON.stringify(e?.params));
+  revisa('sin errores de página (porteros)', !errores.length, errores.join(' | '));
   await p.close();
 }
 /* 2. Precios */

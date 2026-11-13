@@ -78,6 +78,9 @@ async function abre(rol, ancho=390) {
       v2_player_documents:[{ type:'birth_certificate', received:false },{ type:'curp', received:true, receivedAt:'2026-08-20' },{ type:'studies', received:true }],
       v2_player_sports:{ summary:{ played:0 }, evaluations:[] },
       v2_attendance_player:{ current:{ scheduled:14, attended:12, pct:85.7 } },
+      // Portero + su categoría (13/11/2026): Marcelo entrena también con la academia.
+      v2_goalkeepers:[{ id:'p1', name:'Marcelo Pedroza Ortiz', category:'Mini Baby Tanner', inAcademy:true }],
+      v2_academies:[{ id:'a-gk', name:'Academia de porteros', academy_type:'goalkeeper', status:'active', schedule:{ days:'Martes', time:'5:00 a 6:00 pm' } }],
       v2_player_story:{ siblings:[{ id:'p2', name:'Milan Pedroza', category:'Baby Tanner', status:'active' }],
         timeline:[{ kind:'category', date:'2026-08-19', title:'Categoría Mini Baby Tanner' },{ kind:'joined', date:'2026-02-10', title:'Entró al club' }] }
     };
@@ -171,6 +174,7 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   revisa('[resumen] su historia en el club', /SU HISTORIA EN EL CLUB/.test(res) && /Entró al club/.test(res));
   const chips = await texto(p, '#fichaChips');
   revisa('[chips] faltan documentos y hermanos', /Falta 1 documento/.test(chips) && /1 hermano en el club/.test(chips), chips);
+  revisa('[chips] la ficha dice que es portero y cuándo entrena con la academia', /Portero · con la academia · Martes 5:00 a 6:00 pm/.test(chips), chips);
 
   // Permiso de imagen con un toque
   await p.click('#privacyBadges [class*="img-"]');

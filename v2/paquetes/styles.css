@@ -23,3 +23,8 @@
 .pq-aplicar label{display:grid;gap:6px;font-size:12px;font-weight:700;color:#354f55}
 .pq-aplicar textarea{min-height:64px;border:1px solid #d6dfdd;border-radius:12px;padding:10px 12px;font:inherit;font-size:15px;resize:vertical}
 body[data-hub="paquetes"] .tos-content{padding-bottom:calc(env(safe-area-inset-bottom) + 110px)}
+
+/* Porteros: inscribir con Alexis en un toque (13/11/2026) */
+.pq-inscribe{flex:0 0 auto;min-height:44px;padding:0 14px;border:0;border-radius:12px;background:#2c3f86;color:#fff;font:inherit;font-size:13.5px;font-weight:800;cursor:pointer}
+.pq-inscribe:disabled{opacity:.6}
+.pq-academia{margin:4px 0 10px;font-size:13px;font-weight:700;color:#2c3f86}

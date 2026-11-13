@@ -739,3 +739,6 @@ body.ficha-visor-abierto{overflow:hidden}
 .profile-form .profile-actions{position:sticky;bottom:0;z-index:5;margin:0 -4px;padding:14px 4px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(rgba(255,255,255,0),#fff 32%)}
 .profile-form .profile-actions .primary{min-height:52px;border-radius:14px;font-size:16px}
 @media (prefers-reduced-motion:reduce){.profile-form .form-grid>.check input,.profile-form .form-grid>.check input::after{transition:none}}
+
+/* Portero en la ficha (13/11/2026) */
+.ficha-chip.portero{background:#e8eefb;color:#2c3f86;border-color:transparent;font-weight:800}

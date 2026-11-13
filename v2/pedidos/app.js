@@ -913,7 +913,7 @@ function pintaCobro(){
 }
 function cobrarConHoja(){
   const c=current;if(!c?.linked)return;const id=c.order.id;
-  abrirCobro({rpc,org:ctx.organization_id,playerId:c.linked.id,nombre:c.linked.name,telefono:c.order.customer_phone||'',
+  abrirCobro({club:ctx.organization_name||'',rpc,org:ctx.organization_id,playerId:c.linked.id,nombre:c.linked.name,telefono:c.order.customer_phone||'',
     preseleccion:`o:${id}`,quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),alTerminar:()=>refreshCurrent(id)});
 }
 async function correctPayment(paymentId,row){

@@ -80,7 +80,8 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
   await p.addInitScript(({ estado, cobro, hermana, usuario }) => {
     window.__llamadas = []; window.__fallaCobro = 1;
     window.tosConfirm = async () => { window.__confirmos = (window.__confirmos || 0) + 1; return true; };
-    window.open = (u) => { window.__abierto = u; return null; };
+    // Una ventana de mentira que recuerda a dónde la mandaron (el recibo la abre vacía y luego la dirige).
+    window.open = (u) => { window.__abierto = u; return { location: { set href(v) { window.__abierto = v; } }, close() {} }; };
     const m = ['cobranza','contabilidad','taquilla','jugadores','finanzas','tienda','estacionamiento'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true }));
     const R = { v2_my_context:[{ user_id:'u1', display_name:usuario.display_name, organization_id:'o1', organization_name:'Tannery City FC', role:usuario.role, is_owner:true }],
                 v2_my_navigation:m, v2_player_account_statement:estado, v2_player_change_history:[],
@@ -247,8 +248,27 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.waitForTimeout(300); await foto(p, 'cobro-hecho');
   const hecho = await texto(p, '.cobro-hecho');
   revisa('[hecho] enseña total, folio y quién cobró', /\$2,150\.00/.test(hecho) && /Folio C-0009/.test(hecho) && /cobró Mich/.test(hecho), hecho.slice(0, 200));
-  const wa = await p.getAttribute('.cobro-wa', 'href');
-  revisa('[hecho] recibo por WhatsApp con lada y el desglose de los dos', wa.startsWith('https://wa.me/524771234567?text=') && /Liam%20Santos%20y%20Sof%C3%ADa%20Santos/.test(wa) && /Folio%20C-0009/.test(wa), wa.slice(0, 90));
+  // Recibo en PDF (13/11/2026): enviar por WhatsApp, ver y descargar.
+  revisa('[recibo] tres botones: Enviar por WhatsApp, Ver y Descargar', (await p.$$eval('[data-recibo]', b => b.map(x => x.textContent.trim()))).join('|') === 'Enviar recibo por WhatsApp|Ver recibo|Descargar recibo');
+  const [bajada] = await Promise.all([p.waitForEvent('download', { timeout: 15000 }), p.click('[data-recibo="descargar"]')]);
+  const ruta = await bajada.path(), pdf = ruta ? fs.readFileSync(ruta) : Buffer.alloc(0);
+  revisa('[recibo] Descargar baja un PDF de verdad, con folio y nombre', bajada.suggestedFilename() === 'Recibo-C-0009-Liam-Santos.pdf' && pdf.subarray(0, 5).toString() === '%PDF-' && pdf.length > 2000, `${bajada.suggestedFilename()} ${pdf.length}`);
+  revisa('[recibo] avisa que se descargó', /Recibo descargado/.test(await texto(p, '#cobroReciboMsg')));
+  // En la compu no se puede adjuntar solo: baja el PDF y abre el chat con el mensaje.
+  const [bajada2] = await Promise.all([p.waitForEvent('download', { timeout: 15000 }), p.click('[data-recibo="enviar"]')]);
+  await p.waitForFunction(() => /wa\.me/.test(window.__abierto || ''), null, { timeout: 8000 }).catch(() => {});
+  const wa = await p.evaluate(() => window.__abierto || '');
+  revisa('[recibo] Enviar abre el chat con lada y el desglose de los dos, y baja el PDF para adjuntarlo', wa.startsWith('https://wa.me/524771234567?text=') && /Liam%20Santos%20y%20Sof%C3%ADa%20Santos/.test(wa) && /Folio%20C-0009/.test(wa) && /\.pdf$/.test(bajada2.suggestedFilename()), wa.slice(0, 90));
+  revisa('[recibo] y dice qué hacer con el archivo', /adjúntalo en el chat/.test(await texto(p, '#cobroReciboMsg')));
+  await p.click('[data-recibo="ver"]');
+  await p.waitForFunction(() => /^blob:/.test(window.__abierto || ''), null, { timeout: 8000 }).catch(() => {});
+  revisa('[recibo] Ver abre el PDF en otra pestaña', /^blob:/.test(await p.evaluate(() => window.__abierto || '')));
+  // En el teléfono sí se adjunta: se comparte el PDF con su mensaje.
+  await p.evaluate(() => { window.__compartido = null; navigator.canShare = d => !!d?.files?.length; navigator.share = async d => { window.__compartido = { nombre: d.files[0].name, tipo: d.files[0].type, texto: d.text }; }; });
+  await p.click('[data-recibo="enviar"]');
+  await p.waitForFunction(() => window.__compartido, null, { timeout: 8000 }).catch(() => {});
+  const comp = await p.evaluate(() => window.__compartido) || {};
+  revisa('[recibo] en el teléfono Enviar comparte el PDF adjunto con el mensaje', comp.nombre === 'Recibo-C-0009-Liam-Santos.pdf' && comp.tipo === 'application/pdf' && /Folio C-0009/.test(comp.texto || ''), JSON.stringify(comp).slice(0, 160));
   await p.click('.cobro-listo');
   await p.waitForSelector('#cobroSheet.hidden', { state:'attached', timeout:4000 });
   revisa('[hecho] al cerrar vuelve a pedir la cuenta y avisa el folio', (await llamadas(p, 'v2_player_account_statement')).length === 2 && /Folio C-0009/.test(await texto(p, '#cobroToast')));

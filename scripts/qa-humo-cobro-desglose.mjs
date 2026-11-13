@@ -80,7 +80,8 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
   await p.addInitScript(({ estado, cobro, hermana, usuario }) => {
     window.__llamadas = []; window.__fallaCobro = 1;
     window.tosConfirm = async () => { window.__confirmos = (window.__confirmos || 0) + 1; return true; };
-    window.open = (u) => { window.__abierto = u; return null; };
+    // Una ventana de mentira que recuerda a dónde la mandaron (el recibo la abre vacía y luego la dirige).
+    window.open = (u) => { window.__abierto = u; return { location: { set href(v) { window.__abierto = v; } }, close() {} }; };
     const m = ['cobranza','contabilidad','taquilla','jugadores','finanzas','tienda','estacionamiento'].map(c => ({ module_code:c, enabled:true, can_read:true, can_write:true }));
     const R = { v2_my_context:[{ user_id:'u1', display_name:usuario.display_name, organization_id:'o1', organization_name:'Tannery City FC', role:usuario.role, is_owner:true }],
                 v2_my_navigation:m, v2_player_account_statement:estado, v2_player_change_history:[],
@@ -247,8 +248,27 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.waitForTimeout(300); await foto(p, 'cobro-hecho');
   const hecho = await texto(p, '.cobro-hecho');
   revisa('[hecho] enseña total, folio y quién cobró', /\$2,150\.00/.test(hecho) && /Folio C-0009/.test(hecho) && /cobró Mich/.test(hecho), hecho.slice(0, 200));
-  const wa = await p.getAttribute('.cobro-wa', 'href');
-  revisa('[hecho] recibo por WhatsApp con lada y el desglose de los dos', wa.startsWith('https://wa.me/524771234567?text=') && /Liam%20Santos%20y%20Sof%C3%ADa%20Santos/.test(wa) && /Folio%20C-0009/.test(wa), wa.slice(0, 90));
+  // Recibo en PDF (13/11/2026): enviar por WhatsApp, ver y descargar.
+  revisa('[recibo] tres botones: Enviar por WhatsApp, Ver y Descargar', (await p.$$eval('[data-recibo]', b => b.map(x => x.textContent.trim()))).join('|') === 'Enviar recibo por WhatsApp|Ver recibo|Descargar recibo');
+  const [bajada] = await Promise.all([p.waitForEvent('download', { timeout: 15000 }), p.click('[data-recibo="descargar"]')]);
+  const ruta = await bajada.path(), pdf = ruta ? fs.readFileSync(ruta) : Buffer.alloc(0);
+  revisa('[recibo] Descargar baja un PDF de verdad, con folio y nombre', bajada.suggestedFilename() === 'Recibo-C-0009-Liam-Santos.pdf' && pdf.subarray(0, 5).toString() === '%PDF-' && pdf.length > 2000, `${bajada.suggestedFilename()} ${pdf.length}`);
+  revisa('[recibo] avisa que se descargó', /Recibo descargado/.test(await texto(p, '#cobroReciboMsg')));
+  // En la compu no se puede adjuntar solo: baja el PDF y abre el chat con el mensaje.
+  const [bajada2] = await Promise.all([p.waitForEvent('download', { timeout: 15000 }), p.click('[data-recibo="enviar"]')]);
+  await p.waitForFunction(() => /wa\.me/.test(window.__abierto || ''), null, { timeout: 8000 }).catch(() => {});
+  const wa = await p.evaluate(() => window.__abierto || '');
+  revisa('[recibo] Enviar abre el chat con lada y el desglose de los dos, y baja el PDF para adjuntarlo', wa.startsWith('https://wa.me/524771234567?text=') && /Liam%20Santos%20y%20Sof%C3%ADa%20Santos/.test(wa) && /Folio%20C-0009/.test(wa) && /\.pdf$/.test(bajada2.suggestedFilename()), wa.slice(0, 90));
+  revisa('[recibo] y dice qué hacer con el archivo', /adjúntalo en el chat/.test(await texto(p, '#cobroReciboMsg')));
+  await p.click('[data-recibo="ver"]');
+  await p.waitForFunction(() => /^blob:/.test(window.__abierto || ''), null, { timeout: 8000 }).catch(() => {});
+  revisa('[recibo] Ver abre el PDF en otra pestaña', /^blob:/.test(await p.evaluate(() => window.__abierto || '')));
+  // En el teléfono sí se adjunta: se comparte el PDF con su mensaje.
+  await p.evaluate(() => { window.__compartido = null; navigator.canShare = d => !!d?.files?.length; navigator.share = async d => { window.__compartido = { nombre: d.files[0].name, tipo: d.files[0].type, texto: d.text }; }; });
+  await p.click('[data-recibo="enviar"]');
+  await p.waitForFunction(() => window.__compartido, null, { timeout: 8000 }).catch(() => {});
+  const comp = await p.evaluate(() => window.__compartido) || {};
+  revisa('[recibo] en el teléfono Enviar comparte el PDF adjunto con el mensaje', comp.nombre === 'Recibo-C-0009-Liam-Santos.pdf' && comp.tipo === 'application/pdf' && /Folio C-0009/.test(comp.texto || ''), JSON.stringify(comp).slice(0, 160));
   await p.click('.cobro-listo');
   await p.waitForSelector('#cobroSheet.hidden', { state:'attached', timeout:4000 });
   revisa('[hecho] al cerrar vuelve a pedir la cuenta y avisa el folio', (await llamadas(p, 'v2_player_account_statement')).length === 2 && /Folio C-0009/.test(await texto(p, '#cobroToast')));
@@ -371,24 +391,51 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.click('#cobroBody [data-cobro-cerrar]');
   revisa('[taquilla] el buscador queda limpio para el siguiente', await p.inputValue('#rapidoSearch') === '');
 
+  // ¿Qué vas a cobrar? (13/11/2026): lo de todos los días a un toque.
   await p.click('#openCollect');
-  revisa('[taquilla] COBRAR abre "¿Qué vas a cobrar?": buscar al Tanner y tarjetas, sin botón de enviar', await p.isVisible('#collectPlayerSearch') && /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle'))
-    && !(await p.isVisible('#collectAmount')) && !(await p.isVisible('#saveCollect')) && !(await p.isVisible('#collectVolver')));
+  const que = await p.$$eval('.cobrar-que button', bs => bs.filter(b => b.offsetParent).map(b => b.querySelector('b').textContent));
+  revisa('[taquilla] COBRAR abre cuatro botones: Mensualidad, Inscripción, Reinscripción y Otro', JSON.stringify(que) === JSON.stringify(['Mensualidad','Inscripción','Reinscripción','Otro']) && /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle')), JSON.stringify(que));
+  revisa('[taquilla] al inicio no hay nada más: ni buscador, ni tarjetas, ni enviar, ni "‹"', !(await p.isVisible('#collectPlayerSearch')) && !(await p.isVisible('.cobrar-opciones')) && !(await p.isVisible('#collectAmount')) && !(await p.isVisible('#saveCollect')) && !(await p.isVisible('#collectVolver')));
+  revisa('[taquilla] cada botón mide lo que un dedo (44 px o más)', await p.$$eval('.cobrar-que button', bs => bs.every(b => b.getBoundingClientRect().height >= 44)));
   await p.setViewportSize({ width:390, height:844 }); await p.waitForTimeout(250); await foto(p, 'cobrar-inicio'); await p.setViewportSize({ width:1280, height:844 });
+  await p.click('.cobrar-que [data-que="mensualidad"]');
+  revisa('[taquilla] Mensualidad pregunta de quién, con el cursor ya puesto y sin tarjetas', /Mensualidad/.test(await texto(p, '#collectTitle')) && /¿De quién es la mensualidad\?/.test(await texto(p, '#collectPlayerBox .tsearch-label')) && await p.isVisible('#collectVolver') && !(await p.isVisible('.cobrar-opciones'))
+    && await p.evaluate(() => new Promise(r => setTimeout(() => r(document.activeElement?.id === 'collectPlayerSearch'), 150))));
+  await p.fill('#collectPlayerSearch', 'Liam');
+  await p.click('#collectPlayerResults .tsearch-opt');
+  await p.waitForSelector(hoja, { timeout:5000 });
+  revisa('[taquilla] elegir al Tanner cierra el modal y abre su hoja con la mensualidad más vieja ya puesta', !(await p.isVisible('#collectModal')) && JSON.stringify(await lineas(p)) === '["c:c-ago"]', JSON.stringify(await lineas(p)));
+  await p.click('#cobroBody [data-cobro-cerrar]');
+  await p.click('#openCollect');
+  revisa('[taquilla] al volver a abrir empieza otra vez en los cuatro botones', await p.isVisible('.cobrar-que') && !(await p.isVisible('#collectPlayerSearch')));
+  await p.click('.cobrar-que [data-que="reinscripcion"]');
+  await p.fill('#collectPlayerSearch', 'Liam');
+  await p.click('#collectPlayerResults .tsearch-opt');
+  await p.waitForSelector(hoja, { timeout:5000 });
+  revisa('[taquilla] Reinscripción abre la hoja con ese renglón, listo para el importe', JSON.stringify(await lineas(p)) === '["reins"]' && /Reinscripción/.test(await texto(p, '#cobroBody')), JSON.stringify(await lineas(p)));
+  await p.click('#cobroBody [data-cobro-cerrar]');
+  await p.click('#openCollect');
+  await p.click('.cobrar-que [data-que="inscripcion"]');
+  revisa('[taquilla] Inscripción pregunta a quién inscribes; "‹" regresa a los cuatro botones', /¿A quién inscribes\?/.test(await texto(p, '#collectPlayerBox .tsearch-label')));
+  await p.click('#collectVolver');
+  revisa('[taquilla] "‹" regresa a ¿Qué vas a cobrar?', /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle')) && await p.isVisible('.cobrar-que') && !(await p.isVisible('#collectVolver')));
+  // "Otro" guarda lo demás: todo lo que debe un Tanner y las tarjetas de siempre.
+  await p.click('.cobrar-que [data-que="otro"]');
   const tarjetas = await p.$$eval('.cobrar-opciones button', bs => bs.filter(b => b.offsetParent).map(b => b.querySelector('b').textContent));
-  revisa('[taquilla] tarjetas: Tienda, Estacionamiento y Otro ingreso', JSON.stringify(tarjetas) === JSON.stringify(['Tienda','Estacionamiento','Otro ingreso']), JSON.stringify(tarjetas));
+  revisa('[taquilla] Otro: buscar a un Tanner y las tarjetas Tienda, Estacionamiento y Otro ingreso', /Otro cobro/.test(await texto(p, '#collectTitle')) && await p.isVisible('#collectPlayerSearch') && JSON.stringify(tarjetas) === JSON.stringify(['Tienda','Estacionamiento','Otro ingreso']), JSON.stringify(tarjetas));
   await p.click('.cobrar-opciones [data-mode="general"]');
   revisa('[taquilla] una tarjeta abre su formulario con título y "‹"', /Otro ingreso/.test(await texto(p, '#collectTitle')) && await p.isVisible('#collectVolver') && await p.isVisible('#generalAmount') && !(await p.isVisible('.cobrar-opciones')));
   await p.click('#collectVolver');
-  revisa('[taquilla] "‹" regresa a ¿Qué vas a cobrar?', /¿Qué vas a cobrar\?/.test(await texto(p, '#collectTitle')) && await p.isVisible('.cobrar-opciones'));
+  revisa('[taquilla] desde una tarjeta, "‹" regresa a Otro cobro', /Otro cobro/.test(await texto(p, '#collectTitle')) && await p.isVisible('.cobrar-opciones'));
   revisa('[taquilla] sin campos que nadie usaba: método "Otro" e "Inscripción" en otro ingreso', !(await p.$('#collectMethod option[value="other"]')) && !(await p.$$eval('#generalCategory option', os => os.some(o => o.textContent === 'Inscripción'))));
   await p.fill('#collectPlayerSearch', 'Liam');
   await p.click('#collectPlayerResults .tsearch-opt');
   await p.waitForSelector(hoja, { timeout:5000 });
-  revisa('[taquilla] elegir al Tanner abre su hoja y cierra el modal', !(await p.isVisible('#collectModal')));
+  revisa('[taquilla] en Otro, elegir al Tanner abre su hoja con todo lo que debe', !(await p.isVisible('#collectModal')) && (await lineas(p)).length === 3, JSON.stringify(await lineas(p)));
   await p.click('#cobroBody [data-cobro-cerrar]');
 
   await p.click('#openCollect');
+  await p.click('.cobrar-que [data-que="otro"]');
   await p.click('#collectSponsorLink');
   revisa('[taquilla] patrocinador: vuelve el formulario de siempre', await p.isVisible('#collectAmount') && await p.isVisible('#saveCollect') && await p.inputValue('#collectPayerType') === 'sponsor');
   revisa('[taquilla] cuenta personal: no se escribe quién cobró', !(await p.isVisible('#collectCollectedBy')));

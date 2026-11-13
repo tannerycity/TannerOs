@@ -1321,7 +1321,7 @@ $('statusReactivaInfo')?.addEventListener('click',e=>{
   const t=e.target.closest('[data-cobrar-ahora]');if(!t)return;
   const p=current?.player;if(!p)return;
   closeStatusModal();
-  abrirCobro({rpc,org:ctx.organization_id,playerId:p.id,nombre:[p.firstName,p.lastName].filter(Boolean).join(' '),
+  abrirCobro({club:ctx.organization_name||'',rpc,org:ctx.organization_id,playerId:p.id,nombre:[p.firstName,p.lastName].filter(Boolean).join(' '),
     nacimiento:p.birthDate,preseleccion:`reg:${p.id}`,quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),
     foto:{bucket:p.photoBucket,path:p.photoPath,thumbPath:p.photoThumbPath}});
 });

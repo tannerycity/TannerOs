@@ -32,7 +32,7 @@ async function abre({ escribe }) {
       v2_my_context: () => [{ user_id: 'u1', display_name: 'Mich', organization_id: 'o1', organization_name: 'Tannery City FC', organization_slug: 'tannery-city-fc', role: 'Presidencia', is_owner: false }],
       v2_my_modules: () => [{ module_code: 'users', enabled: true, can_read: true, can_write: escribe }],
       v2_my_navigation: () => ['inicio', 'usuarios'].map(c => ({ module_code: c, enabled: true, can_read: true, can_write: escribe })),
-      v2_users_admin: () => ({ members: [{ membershipId: 'm1', userId: 'u2', displayName: 'Crespo', username: 'crespo', role: 'Contabilidad', active: true }], invitations: [] }),
+      v2_users_admin: () => ({ members: [{ membershipId: 'm1', userId: 'u2', displayName: 'Crespo', username: 'crespo', email: 'crespo@staff.tanneros.invalid', role: 'Contabilidad', roleCode: 'accounting', active: true }], invitations: [] }),
       v2_guardian_access: () => [],
       v2_category_staff: () => ({ categories: [], byUser: {} }),
       v2_staff_without_account: () => [{ id: 'st-checo', fullName: 'Checo Martínez', title: 'Formador', level: 'formador' }],
@@ -124,6 +124,40 @@ async function abre({ escribe }) {
   await p.waitForTimeout(1500);
   const ofrece = await p.evaluate(() => (window.tosAccionesDePantalla || []).some(a => /Agregar nuevo usuario/.test(a.label)));
   revisa('[+] sin permiso de escritura no ofrece agregar usuario', !ofrece);
+  await p.close();
+}
+
+/* Cambiar el @usuario (13/11/2026). Presidencia: "intenté cambiarle el @ a
+   Luis Felipe y ya no me dejó". No existía. */
+{
+  const p = await abre({ escribe: true });
+  await p.waitForSelector('[data-person-id="m1"]', { timeout: 8000 });
+  await p.click('[data-person-id="m1"]');
+  await p.waitForSelector('#memberDrawer:not(.hidden)');
+  revisa('[@] la ficha de una llave con usuario trae "Cambiar usuario"', await p.isVisible('#renameMemberUser'));
+  await p.click('#renameMemberUser');
+  await p.waitForSelector('.tosdlg-backdrop', { timeout: 3000 }).catch(() => {});
+  const campo = '.tosdlg-backdrop input, .tosdlg-backdrop textarea';
+  revisa('[@] pregunta con el usuario de hoy ya escrito y dice que la contraseña no cambia', await p.inputValue(campo) === 'crespo' && /contraseña no cambia/.test(await p.textContent('.tosdlg-backdrop')));
+  await p.fill(campo, 'con espacio');
+  await p.click('.tosdlg-ok'); await p.waitForTimeout(300);
+  revisa('[@] un usuario con espacios no se manda', !(await p.evaluate(() => window.__llamadas.some(l => l.prm?.action === 'rename_username'))) && /sin espacios/.test(await p.textContent('#profileMessage')));
+  await p.click('#renameMemberUser');
+  await p.waitForSelector('.tosdlg-backdrop');
+  await p.fill(campo, '@crespo.conta');
+  await p.click('.tosdlg-ok'); await p.waitForTimeout(500);
+  const ll = await p.evaluate(() => window.__llamadas.find(l => l.prm?.action === 'rename_username')?.prm || null);
+  revisa('[@] va a su propia función, no a la que entrega las llaves', await p.evaluate(() => window.__llamadas.find(l => l.prm?.action === 'rename_username')?.n) === 'staff-usuario');
+  revisa('[@] manda el usuario nuevo de esa persona, sin la arroba', ll?.user_id === 'u2' && ll?.username === 'crespo.conta' && ll?.organization_id === 'o1', JSON.stringify(ll));
+  revisa('[@] avisa cómo entra ahora y que la contraseña es la misma', /ahora entra como @crespo\.conta/.test(await p.textContent('#profileMessage')) && /contraseña es la misma/.test(await p.textContent('#profileMessage')));
+  await p.close();
+}
+{
+  const p = await abre({ escribe: false });
+  await p.waitForSelector('[data-person-id="m1"]', { timeout: 8000 }).catch(() => {});
+  await p.click('[data-person-id="m1"]').catch(() => {});
+  await p.waitForTimeout(300);
+  revisa('[@] sin permiso de escritura no sale "Cambiar usuario"', !(await p.isVisible('#renameMemberUser')));
   await p.close();
 }
 

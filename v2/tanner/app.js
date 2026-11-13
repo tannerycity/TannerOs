@@ -581,7 +581,7 @@ document.addEventListener('toggle',e=>{if(e.target?.id==='detMovs')movsAbierto=e
 document.addEventListener('click',e=>{
   const b=e.target.closest?.('[data-cobrar]');if(!b||!ultimo)return;
   const p=ultimo.player||{};
-  abrirCobro({rpc,org:ctx.organization_id,playerId,nombre:[p.first_name,p.last_name].filter(Boolean).join(' '),
+  abrirCobro({club:ctx.organization_name||'',rpc,org:ctx.organization_id,playerId,nombre:[p.first_name,p.last_name].filter(Boolean).join(' '),
     telefono:(p.guardians||[]).find(g=>g.phone)?.phone||'',nacimiento:p.birth_date,preseleccion:b.dataset.cobrar||null,
     quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),
     foto:{bucket:p.photo_bucket,path:p.photo_path,thumbPath:p.photo_thumb_path},

@@ -418,7 +418,10 @@ async function pintaResumen(){
   const opciones=(staffDelClub||[]).map(s=>`<option value="${esc(s.userId)}" ${s.userId===t.attendedBy?'selected':''}>${esc(s.name)}</option>`).join('');
   const piezas=items.map(i=>{const jersey=esJersey(i.description);const m=i.manga;
     const control=jersey?(editable&&tienePagos()?`<span class="t-manga-fija"><em class="t-manga ${m==='larga'?'larga':m?'':'falta'}">${m?`Manga ${esc(m)}`:'Manga sin definir'}</em><button type="button" class="t-link" data-manga-item="${esc(i.id)}" data-m="${m==='larga'?'corta':'larga'}">Cambiar</button></span>`:editable?`<div class="t-seg mini" role="group" aria-label="Manga">${['corta','larga'].map(v=>`<button type="button" data-manga-item="${esc(i.id)}" data-m="${v}" class="${m===v?'activo':''}" aria-pressed="${m===v}">${v==='larga'?'Larga':'Corta'}</button>`).join('')}</div>`:`<em class="t-manga ${m==='larga'?'larga':m?'':'falta'}">${m?`Manga ${esc(m)}`:'Manga sin definir'}</em>`):'';
-    return `<li><span class="t-pieza-foto" data-foto-item="${esc(i.id)}" aria-hidden="true">${itemThumb(i)}</span><div><b>${esc(i.description||'Pieza')}</b><span>${esc([i.talla?`Talla ${i.talla}`:null,i.nombre,i.numero?`#${i.numero}`:null].filter(Boolean).join(' · ')||'Sin variante')}</span>${i.obs?`<small class="t-obs">${esc(i.obs)}</small>`:''}</div>${control}</li>`;}).join('');
+    const puedeEditar=editable&&canManage;
+    const cab=`<span class="t-pieza-foto" data-foto-item="${esc(i.id)}" aria-hidden="true">${itemThumb(i)}</span><div><b>${esc(i.description||'Pieza')}</b><span>${esc([i.talla?`Talla ${i.talla}`:null,i.nombre,i.numero?`#${i.numero}`:(jersey&&i.nombre?'Sin número':null)].filter(Boolean).join(' · ')||'Sin variante')}</span>${i.obs?`<small class="t-obs">${esc(i.obs)}</small>`:''}</div>`;
+    if(puedeEditar&&piezaAbierta===i.id)return `<li class="t-pieza-edita" data-pieza="${esc(i.id)}">${cab}${formaPieza(i,jersey)}</li>`;
+    return `<li data-pieza="${esc(i.id)}">${cab}${control}${puedeEditar?`<button type="button" class="t-pieza-editar" data-edita-pieza="${esc(i.id)}" aria-label="Editar ${esc(i.description||'pieza')}">Editar</button>`:''}</li>`;}).join('');
   box.innerHTML=`<div class="t-res-quien"><span class="t-avatar grande" aria-hidden="true">${esc(iniciales(quien))}</span><div><strong>${esc(quien)}</strong><span>${t.playerName?`Pidió ${esc(d.customer_name||'—')}`:'Sin jugador ligado'}${t.playerCategory?` · ${esc(t.playerCategory)}`:''}</span></div></div>
     <dl class="t-res-datos"><div><dt>Cómo llegó</dt><dd>${esc(ORIGEN[t.source]||'—')}</dd></div><div><dt>Atendió</dt><dd>${canWrite?`<select id="tAtendio" aria-label="Quién del club atendió"><option value="">${t.attendedName&&!t.attendedManual?`${esc(t.attendedName)} (automático)`:'Nadie todavía'}</option>${opciones}</select>`:esc(t.attendedName||'—')}</dd></div></dl>
     ${t.notes?`<p class="t-nota"><b>Nota del pedido</b>${esc(t.notes)}</p>`:''}
@@ -855,6 +858,36 @@ async function editaConMotivo(itemId,cambios,titulo){
   await rpc('v2_edit_order_item',{organization_id:ctx.organization_id,order_item_id:itemId,...base,...cambios,reason:motivo});
   return true;
 }
+/* Editar la prenda ahí mismo (13/11/2026). Presidencia: "no deja editar los
+   datos desde aquí, quiero editar la talla... que no tengas que navegar
+   tanto". Antes la talla, el nombre y el número sólo se cambiaban hasta abajo
+   de la hoja, en "Editar pieza". Ahora cada prenda del resumen trae "Editar"
+   y se abre su tarjeta: talla, nombre, número (o "Sin número", para la playera
+   de un papá) y nota. Usa los mismos guardados de siempre. */
+let piezaAbierta=null;
+function formaPieza(i,jersey){
+  const sinNum=!String(i.numero||'').trim()&&!!String(i.nombre||'').trim();
+  return `<form class="t-pieza-forma" data-forma-pieza="${esc(i.id)}" novalidate>
+    <label><span>Talla</span><input name="talla" value="${esc(i.talla||'')}" maxlength="40" autocomplete="off" placeholder="Ej. 16, S, M"></label>
+    <label><span>Nombre en la espalda</span><input name="nombre" value="${esc(i.nombre||'')}" maxlength="80" autocomplete="off" autocapitalize="characters" placeholder="Si lleva"></label>
+    <div class="t-pieza-num"><label><span>Número</span><input name="numero" value="${esc(i.numero||'')}" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="10"${sinNum?' disabled':''}></label>
+      <label class="t-pieza-sin"><input type="checkbox" name="sinNumero"${sinNum?' checked':''}> <span>Sin número</span></label></div>
+    <label class="ancho"><span>Nota para el proveedor</span><input name="nota" value="${esc(i.obs||'')}" maxlength="200" autocomplete="off" placeholder="Opcional"></label>
+    <p class="t-pieza-msg" role="alert"></p>
+    <div class="t-pieza-botones"><button type="button" class="secondary" data-cancela-pieza>Cancelar</button><button type="submit" class="primary">Guardar</button></div></form>`;
+}
+async function guardaPieza(forma){
+  const id=forma.dataset.formaPieza,d=new FormData(forma),out=forma.querySelector('.t-pieza-msg'),btn=forma.querySelector('[type=submit]');
+  const sin=forma.elements.sinNumero.checked,numero=sin?'':String(forma.elements.numero.value||'').trim();
+  if(numero&&!/^\d{1,3}$/.test(numero)){out.textContent='El número va con 1 a 3 dígitos. Si no lleva, marca "Sin número".';forma.elements.numero.focus();return;}
+  const cambios={size:String(d.get('talla')||'').trim()||null,personalization_name:String(d.get('nombre')||'').trim()||null,number:numero||null,notes:String(d.get('nota')||'').trim()||null};
+  out.textContent='';btn.disabled=true;
+  try{
+    if(tienePagos()){if(!(await editaConMotivo(id,cambios,'Guardar cambio de la prenda'))){btn.disabled=false;return;}}
+    else await rpc('v2_update_order_item_fulfillment',{organization_id:ctx.organization_id,order_item_id:id,...cambios});
+    piezaAbierta=null;await refreshCurrent(current.order.id);msg('Prenda actualizada.','success');
+  }catch(e){out.textContent=e.message||'No se pudo guardar la prenda.';btn.disabled=false;}
+}
 async function cambiaManga(itemId,manga,btn){
   if(tienePagos()){
     try{if(await editaConMotivo(itemId,{manga},`Cambiar a manga ${manga}`)){await refreshCurrent(current.order.id);msg(`Manga ${manga} guardada con su motivo.`,'success');}}
@@ -913,7 +946,7 @@ function pintaCobro(){
 }
 function cobrarConHoja(){
   const c=current;if(!c?.linked)return;const id=c.order.id;
-  abrirCobro({rpc,org:ctx.organization_id,playerId:c.linked.id,nombre:c.linked.name,telefono:c.order.customer_phone||'',
+  abrirCobro({club:ctx.organization_name||'',rpc,org:ctx.organization_id,playerId:c.linked.id,nombre:c.linked.name,telefono:c.order.customer_phone||'',
     preseleccion:`o:${id}`,quien:ctx.display_name||'',compartida:esCuentaCompartida(ctx),alTerminar:()=>refreshCurrent(id)});
 }
 async function correctPayment(paymentId,row){
@@ -1255,7 +1288,7 @@ async function markReviewed(){if(!current||!canWrite)return;const id=current.ord
 /* La ventana de WhatsApp se abre en el mismo toque (si no, el navegador del
    teléfono la bloquea) y después se marca revisado. */
 function confirmWhatsApp(){if(!current||!canWrite)return;const d=current.order;const texto=conLigaConf(mensajeConfirmacion({order:d,items:current.items||[],info:clubCfg?.paymentInstructions,club:clubCfg?.name||ctx.organization_name||'el club',yo:ctx.display_name}),d.id);const url=ligaWhatsApp(d.customer_phone,texto);if(!url)return;window.open(url,'_blank','noopener');markReviewed();}
-function close(){current=null;$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');msg();payMsg();}async function refreshCurrent(orderId){details.delete(orderId);await load();const o=orders.find(x=>x.id===orderId);if(o)await openOrder(o);else close();}
+function close(){current=null;piezaAbierta=null;$('backdrop').classList.add('hidden');$('drawer').classList.add('hidden');msg();payMsg();}async function refreshCurrent(orderId){details.delete(orderId);await load();const o=orders.find(x=>x.id===orderId);if(o)await openOrder(o);else close();}
 async function saveItem(row){if(!current||!canManage||!row)return;
   if(tienePagos()){const v=c=>row.querySelector(c).value.trim()||null;
     try{if(await editaConMotivo(row.dataset.itemId,{size:v('.item-size'),personalization_name:v('.item-name'),number:v('.item-number'),notes:v('.item-note')},'Guardar cambio de la pieza')){await refreshCurrent(current.order.id);msg('Pieza actualizada con su motivo.','success');}}
@@ -1264,7 +1297,12 @@ async function saveItem(row){if(!current||!canManage||!row)return;
 async function postPayment(){if(!current||!canWrite)return;const d=current.order,amount=Number($('paymentAmount').value||0),balance=Number(current.balance||0),payerType=$('paymentPayerType').value,payerName=$('paymentPayer').value.trim();if(!Number.isFinite(amount)||amount<=0){payMsg('Captura un monto mayor a cero.');return;}if(amount>balance+0.005){payMsg(`El pago excede el saldo de ${money.format(balance)}.`);return;}if(payerType==='sponsor'&&!payerName){payMsg('Indica el nombre del patrocinador.');return;}const btn=$('savePayment');btn.disabled=true;payMsg();try{await rpc('v2_post_order_payment_attributed',{organization_id:ctx.organization_id,order_id:d.id,amount,payment_date:$('paymentDate').value||new Date().toISOString().slice(0,10),method:$('paymentMethod').value||'other',reference:$('paymentReference').value.trim()||null,payer_type:payerType,payer_name:payerName||d.customer_name||null,idempotency_key:`order-${d.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`});await refreshCurrent(d.id);payMsg('Pago registrado con pagador y estado actualizado.','success');}catch(e){payMsg(e.message||'No se pudo registrar el pago.');}finally{btn.disabled=!canWrite;}}
 function setupToggle(btnId,wrapId){const btn=$(btnId),wrap=$(wrapId);if(!btn||!wrap)return;btn.addEventListener('click',()=>{const nowHidden=wrap.classList.toggle('hidden');btn.setAttribute('aria-expanded',String(!nowHidden));btn.classList.toggle('open',!nowHidden);});}
 setupToggle('togglePaymentHistory','paymentHistoryWrap');
-$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',()=>{ponVista('pasos');render();renderReviewBanner();});$('tVista')?.addEventListener('click',e=>{const b=e.target.closest('[data-vista]');if(!b||b.dataset.vista===vista)return;ponVista(b.dataset.vista);render();renderReviewBanner();});$('orderList')?.addEventListener('click',e=>{const b=e.target.closest('[data-ir-paso]');if(!b)return;ponVista('pasos');$('statusFilter').value=b.dataset.irPaso;render();renderReviewBanner();$('tSeg')?.scrollIntoView({behavior:'smooth',block:'start'});});$('tSeg')?.addEventListener('click',e=>{const tf=e.target.closest('[data-todos-f]');if(tf){todosF=tf.dataset.todosF;ponVista('todos');render();renderReviewBanner();return;}const b=e.target.closest('[data-f]');if(!b)return;if(vista==='pasos'&&$('statusFilter').value===b.dataset.f){todosF='vivos';ponVista('todos');}else{ponVista('pasos');$('statusFilter').value=b.dataset.f;}render();renderReviewBanner();});$('orderResumen')?.addEventListener('click',e=>{const m=e.target.closest('[data-manga-item]');if(m){cambiaManga(m.dataset.mangaItem,m.dataset.m,m);return;}const c=e.target.closest('[data-num-confirma],[data-num-deshacer]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,!!c.dataset.numConfirma,c);}});$('orderResumen')?.addEventListener('change',e=>{if(e.target.id==='tAtendio')cambiaAtendio(e.target.value);});$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);$('noPagado')?.addEventListener('click',noPagado);$('telProveedor')?.addEventListener('click',cambiaTelProveedor);pintaTelProveedor();$('readinessBox')?.addEventListener('click',e=>{const c=e.target.closest('[data-num-confirma]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,true,c);}});$('cobrarPedido').addEventListener('click',cobrarConHoja);$('otroPagador').addEventListener('click',()=>{otroPagador=true;pintaCobro();});$('confirmWhatsApp')?.addEventListener('click',confirmWhatsApp);$('markReviewed')?.addEventListener('click',markReviewed);$('statusFilter').addEventListener('change',renderReviewBanner);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
+$('paymentPayerType').addEventListener('change',()=>{if($('paymentPayerType').value==='guardian'&&current)$('paymentPayer').value=current.order.customer_name||'';});$('statusFilter').addEventListener('change',()=>{ponVista('pasos');render();renderReviewBanner();});$('tVista')?.addEventListener('click',e=>{const b=e.target.closest('[data-vista]');if(!b||b.dataset.vista===vista)return;ponVista(b.dataset.vista);render();renderReviewBanner();});$('orderList')?.addEventListener('click',e=>{const b=e.target.closest('[data-ir-paso]');if(!b)return;ponVista('pasos');$('statusFilter').value=b.dataset.irPaso;render();renderReviewBanner();$('tSeg')?.scrollIntoView({behavior:'smooth',block:'start'});});$('tSeg')?.addEventListener('click',e=>{const tf=e.target.closest('[data-todos-f]');if(tf){todosF=tf.dataset.todosF;ponVista('todos');render();renderReviewBanner();return;}const b=e.target.closest('[data-f]');if(!b)return;if(vista==='pasos'&&$('statusFilter').value===b.dataset.f){todosF='vivos';ponVista('todos');}else{ponVista('pasos');$('statusFilter').value=b.dataset.f;}render();renderReviewBanner();});$('orderResumen')?.addEventListener('submit',e=>{const f=e.target.closest('[data-forma-pieza]');if(f){e.preventDefault();guardaPieza(f);}});
+$('orderResumen')?.addEventListener('change',e=>{if(e.target.name==='sinNumero'){const n=e.target.form.elements.numero;n.disabled=e.target.checked;if(e.target.checked)n.value='';else n.focus();}});
+$('orderResumen')?.addEventListener('input',e=>{if(e.target.name==='numero')e.target.value=e.target.value.replace(/\D/g,'').slice(0,3);});
+$('orderResumen')?.addEventListener('click',e=>{const ed=e.target.closest('[data-edita-pieza]');if(ed){piezaAbierta=ed.dataset.editaPieza;pintaResumen().then(()=>$('orderResumen').querySelector('.t-pieza-forma input')?.focus());return;}
+  if(e.target.closest('[data-cancela-pieza]')){piezaAbierta=null;pintaResumen();return;}
+  const m=e.target.closest('[data-manga-item]');if(m){cambiaManga(m.dataset.mangaItem,m.dataset.m,m);return;}const c=e.target.closest('[data-num-confirma],[data-num-deshacer]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,!!c.dataset.numConfirma,c);}});$('orderResumen')?.addEventListener('change',e=>{if(e.target.id==='tAtendio')cambiaAtendio(e.target.value);});$('orderSearch').addEventListener('input',render);$('closeDrawer').addEventListener('click',close);$('backdrop').addEventListener('click',close);$('savePayment').addEventListener('click',postPayment);$('noPagado')?.addEventListener('click',noPagado);$('telProveedor')?.addEventListener('click',cambiaTelProveedor);pintaTelProveedor();$('readinessBox')?.addEventListener('click',e=>{const c=e.target.closest('[data-num-confirma]');if(c&&current){const o=orders.find(x=>x.id===current.order.id);if(o)confirmaNumero(o,true,c);}});$('cobrarPedido').addEventListener('click',cobrarConHoja);$('otroPagador').addEventListener('click',()=>{otroPagador=true;pintaCobro();});$('confirmWhatsApp')?.addEventListener('click',confirmWhatsApp);$('markReviewed')?.addEventListener('click',markReviewed);$('statusFilter').addEventListener('change',renderReviewBanner);boot().catch(e=>{$('deniedText').textContent=e.message;show('deniedView');});
 // === Eliminar pedido — solo Presidencia (agregado) ===
 (function(){
   function inject(){

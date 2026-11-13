@@ -424,8 +424,8 @@ function bloquePersonaliza(e, nombreProducto = '', r = 0, conManga = true, kit =
       <figcaption>${kit ? 'Así se verá la espalda de cada jersey' : 'Así se verá la espalda'}</figcaption></figure>
     <div class="st-perso">
       <label><span>Nombre en la espalda</span><input data-campo="nombre" maxlength="20" autocomplete="off" autocapitalize="characters" value="${esc(e.nombre || '')}" placeholder="LEO"></label>
-      <label class="num"><span>Número</span><input data-campo="numero" inputmode="numeric" maxlength="3" autocomplete="off" value="${esc(e.numero || '')}" placeholder="10"></label>
-    </div>${persMiosHtml()}
+      <label class="num"><span>Número <small>opcional</small></span><input data-campo="numero" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" value="${esc(e.numero || '')}" placeholder="10" aria-describedby="stSinNumero"></label>
+    </div><p class="st-nota" id="stSinNumero">¿No lleva número (para papá o mamá)? Déjalo vacío.</p>${persMiosHtml()}
     ${conManga ? `<p class="st-manga-tit">Manga</p>${botonesManga(e, r)}` : ''}
     <p class="st-nota">Lo estampado es personal: no tiene cambio.</p></section>`;
 }
@@ -1018,6 +1018,9 @@ function cablea() {
   raiz.addEventListener('input', ev => {
     const campo = ev.target.dataset?.campo, ficha = raiz.querySelector('[data-ficha]')?.dataset.ficha;
     if (!campo || !ficha) return;
+    // El número son dígitos (13/11/2026): alguien escribió "no a" porque la
+    // playera era para un papá. Si no lleva número, se deja vacío.
+    if (campo === 'numero') ev.target.value = ev.target.value.replace(/\D/g, '').slice(0, 3);
     const e = eligiendo[ficha] || eligiendoKit[ficha];
     if (e) e[campo] = ev.target.value;
     // La playera se redibuja con cada letra.
@@ -1259,7 +1262,7 @@ function abreTallaRapida(p) {
       ${botonesTalla(tallas, e.talla, 'data-talla-rapida')}`}
       ${pers ? `<div class="st-tr-tit"><b>Nombre y número</b><span>${esc(recargoPersDe(p) ? `Opcional · +${money.format(recargoPersDe(p))}` : 'Opcional')}</span></div>
         <div class="st-perso"><label><span>Nombre en la espalda</span><input data-tr-campo="nombre" maxlength="20" autocomplete="off" autocapitalize="characters" value="${esc(e.nombre)}" placeholder="LEO"></label>
-        <label class="num"><span>Número</span><input data-tr-campo="numero" inputmode="numeric" maxlength="3" autocomplete="off" value="${esc(e.numero)}" placeholder="10"></label></div>` : ''}
+        <label class="num"><span>Número <small>opcional</small></span><input data-tr-campo="numero" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" value="${esc(e.numero)}" placeholder="10"></label></div>` : ''}
       ${manga ? `<div class="st-tr-tit"><b>Manga</b></div>${botonesManga(e, recargoDe(p), 'data-tr-manga')}` : ''}
       <p class="st-motivo" role="alert">${esc(e.motivo || '')}</p>
       <button type="button" class="st-cta" data-tr-agrega>${e.talla || unica ? `Agregar · ${money.format(precio())}` : 'Elige la talla'}</button></div>`;
@@ -1286,6 +1289,7 @@ function abreTallaRapida(p) {
   });
   capa.addEventListener('input', ev => {
     const c = ev.target.dataset?.trCampo; if (!c) return;
+    if (c === 'numero') ev.target.value = ev.target.value.replace(/\D/g, '').slice(0, 3);
     e[c] = ev.target.value; precioEnBoton();
   });
   document.addEventListener('keydown', esc_);

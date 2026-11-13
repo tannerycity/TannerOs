@@ -272,6 +272,48 @@ const texto = async (pg, sel) => (await pg.textContent(sel)).replace(/\s+/g, ' '
   revisa('sin errores de página', !errs.length, errs.join(' | '));
   await pg.close();
 }
+/* ===== EDITAR LA PRENDA EN SU TARJETA (13/11/2026) =====
+   Presidencia: "no deja editar los datos desde aquí, quiero editar la talla".
+   Antes sólo se podía hasta abajo de la hoja. Y "que se pueda poner que no
+   aplica el número... ejemplo con un papá". */
+{
+  const { pg, errs } = await abre('/v2/pedidos/');
+  await pg.waitForSelector('.order-row', { timeout:8000 });
+  await pg.evaluate(v => { const s = document.getElementById('statusFilter'); s.value = v; s.dispatchEvent(new Event('change')); }, '');
+  await pg.waitForSelector('.order-row[data-order-id="o-kit"]', { timeout:8000 });
+  await pg.click('.order-row[data-order-id="o-kit"]');
+  await pg.waitForSelector('#orderResumen [data-edita-pieza]', { timeout:5000 });
+  revisa('8. cada prenda del resumen trae "Editar", arriba, sin bajar', (await pg.$$('#orderResumen [data-edita-pieza]')).length === 1 && !(await pg.$('#orderResumen .t-pieza-forma')));
+  await pg.click('#orderResumen [data-edita-pieza="ik"]');
+  await pg.waitForSelector('#orderResumen .t-pieza-forma');
+  revisa('8. Editar abre la tarjeta con talla, nombre, número y nota, con la talla que traía', await pg.inputValue('.t-pieza-forma [name="talla"]') === '10' && await pg.isVisible('.t-pieza-forma [name="nombre"]') && await pg.isVisible('.t-pieza-forma [name="numero"]') && await pg.isVisible('.t-pieza-forma [name="nota"]'));
+  revisa('8. todo lo de la tarjeta mide 44 px o más', await pg.$$eval('.t-pieza-forma input:not([type=checkbox]), .t-pieza-forma button', es => es.every(e => e.getBoundingClientRect().height >= 44)));
+  await pg.type('.t-pieza-forma [name="numero"]', '1a2b345');
+  revisa('8. el número sólo acepta dígitos y hasta tres', await pg.inputValue('.t-pieza-forma [name="numero"]') === '123');
+  await pg.fill('.t-pieza-forma [name="talla"]', '12');
+  await pg.fill('.t-pieza-forma [name="nombre"]', 'PAPÁ');
+  await pg.check('.t-pieza-forma [name="sinNumero"]');
+  revisa('8. "Sin número" borra y apaga el campo', await pg.inputValue('.t-pieza-forma [name="numero"]') === '' && await pg.isDisabled('.t-pieza-forma [name="numero"]'));
+  if (process.env.SHOTS) await pg.screenshot({ path:`${process.env.SHOTS}/pedido-editar-prenda.png`, fullPage:false });
+  await pg.click('.t-pieza-forma [type="submit"]'); await pg.waitForTimeout(400);
+  const g = (await llamadas(pg, 'v2_update_order_item_fulfillment'))[0] || {};
+  revisa('8. Guardar manda la talla nueva y el número vacío, sin pedir motivo (no tiene pagos)', g.order_item_id === 'ik' && g.size === '12' && g.personalization_name === 'PAPÁ' && g.number === null, JSON.stringify(g));
+  await pg.click('#drawer [data-close], #closeDrawer').catch(() => {});
+  // Con pagos: el mismo botón, pero pide el motivo y queda en la bitácora.
+  await pg.click('.order-row[data-order-id="o-nuevo"]');
+  await pg.waitForSelector('#orderResumen [data-edita-pieza="i1"]', { timeout:5000 });
+  await pg.click('#orderResumen [data-edita-pieza="i1"]');
+  await pg.fill('.t-pieza-forma [name="talla"]', '14');
+  await pg.click('.t-pieza-forma [type="submit"]');
+  await pg.waitForSelector('.tosdlg-backdrop', { timeout:3000 }).catch(() => {});
+  revisa('8. con pagos, guardar pide el motivo', await pg.isVisible('.tosdlg-backdrop'));
+  await pg.fill('.tosdlg-backdrop input, .tosdlg-backdrop textarea', 'La mamá pidió una talla más');
+  await pg.click('.tosdlg-ok'); await pg.waitForTimeout(400);
+  const m = (await llamadas(pg, 'v2_edit_order_item'))[0] || {};
+  revisa('8. y el cambio va con su motivo, sin tocar lo demás de la prenda', m.order_item_id === 'i1' && m.size === '14' && m.number === '7' && m.personalization_name === 'LEO' && /talla más/.test(m.reason || ''), JSON.stringify(m));
+  revisa('sin errores de página', !errs.length, errs.join(' | '));
+  await pg.close();
+}
 await nav.close(); srv.close();
 if (fallos) { console.error(`Detalle del pedido humo: ${fallos} de ${corridas} fallaron`); process.exit(1); }
 console.log(`Detalle del pedido humo OK · ${corridas} revisiones: qué falta arriba, número confirmado, WhatsApp al proveedor y No está pagado y la foto de cada prenda`);

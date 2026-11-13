@@ -119,7 +119,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
 /* ===== EL CAMINO NORMAL: buscar al Tanner y cobrar el anticipo ===== */
 {
   const { pg, errs } = await abre(true);
-  await pg.click('#openCollect');
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]');
   revisa('la pestaña Tienda / uniformes existe para Taquilla', await pg.isVisible('#tabTienda'));
   await pg.click('#tabTienda'); await pg.waitForTimeout(300);
   const lista = await pg.$$eval('.tienda-pedido', e => e.map(x => x.innerText));
@@ -166,7 +166,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
 /* ===== NO SE COBRA DE MÁS ===== */
 {
   const { pg } = await abre(true);
-  await pg.click('#openCollect'); await pg.click('#tabTienda'); await pg.waitForTimeout(300);
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]'); await pg.click('#tabTienda'); await pg.waitForTimeout(300);
   await pg.click('.tienda-pedido[data-pedido="o2"]');
   await pg.fill('#tiendaAmount', '900');
   await pg.click('#saveCollect'); await pg.waitForTimeout(300);
@@ -176,10 +176,35 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   await pg.close();
 }
 
+/* ===== CENTAVOS (13/11/2026) =====
+   Presidencia: "no acepta centavos". La Mitad de un pedido de $699 son
+   $349.50 y el campo, que era de pesos enteros, contestaba "Ingresa un valor
+   válido". Valores frontera sobre lo que falta del pedido. */
+{
+  const { pg } = await abre(true);
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]'); await pg.click('#tabTienda'); await pg.waitForTimeout(300);
+  await pg.click('.tienda-pedido[data-pedido="o2"]');
+  revisa('[centavos] el monto es un campo de texto con teclado de decimales, no de pesos enteros', await pg.$eval('#tiendaAmount', i => i.type === 'text' && i.inputMode === 'decimal' && !i.step));
+  await pg.click('.tienda-atajos [data-parte="0.5"]');
+  revisa('[centavos] "Mitad" de $699 deja $349.50', await pg.inputValue('#tiendaAmount') === '349.50', await pg.inputValue('#tiendaAmount'));
+  revisa('[centavos] y el navegador lo da por bueno (antes: "Ingresa un valor válido")', await pg.$eval('#tiendaAmount', i => i.checkValidity()));
+  const intenta = async v => { await pg.fill('#tiendaAmount', v); await pg.click('#saveCollect'); await pg.waitForTimeout(250); return (await pg.textContent('#collectMessage')) || ''; };
+  revisa('[frontera] un centavo de más no pasa, y dice cuánto falta', /sólo le faltan \$699\.00/.test(await intenta('699.01')));
+  revisa('[frontera] el campo que está mal queda marcado', await pg.getAttribute('#tiendaAmount', 'aria-invalid') === 'true');
+  revisa('[frontera] tres decimales no se redondean a escondidas', /dos decimales/.test(await intenta('349.505')));
+  revisa('[frontera] cero no es un cobro', /mayor a cero/.test(await intenta('0')));
+  revisa('[frontera] letras no son un monto', /sólo números/.test(await intenta('abc')));
+  revisa('[frontera] vacío pide el monto', /Escribe el monto/.test(await intenta('')));
+  revisa('[frontera] nada de eso llegó a cobrarse', !(await pg.evaluate(() => window.__rpc.some(c => c.name === 'v2_post_order_payment_at_cashier'))));
+  await pg.fill('#tiendaAmount', '$1,349.5'); await pg.press('#tiendaAmount', 'Tab');
+  revisa('[centavos] al salir del campo acomoda lo escrito: "$1,349.5" queda "1349.50"', await pg.inputValue('#tiendaAmount') === '1349.50', await pg.inputValue('#tiendaAmount'));
+  await pg.close();
+}
+
 /* ===== OTRO INGRESO · UNIFORME AVISA ===== */
 {
   const { pg } = await abre(true);
-  await pg.click('#openCollect');
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]');
   await pg.click('.cashier-tabs [data-mode="general"]');
   await pg.selectOption('#generalCategory', 'Uniforme');
   revisa('elegir Uniforme en Otro ingreso avisa', await pg.isVisible('#generalTiendaAviso'));
@@ -208,7 +233,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
    Zul (Operaciones) cobra sin ver Cobranza: para la tienda basta el padrón. */
 {
   const { pg, errs } = await abre(true, '/v2/taquilla/', false);
-  await pg.click('#openCollect'); await pg.click('#tabTienda'); await pg.waitForTimeout(400);
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]'); await pg.click('#tabTienda'); await pg.waitForTimeout(400);
   await pg.fill('#tiendaPlayerSearch', 'matias'); await pg.waitForTimeout(200);
   const opciones = await pg.$$eval('#tiendaPlayerResults .tsearch-opt', e => e.map(x => x.textContent));
   revisa('sin Cobranza, el buscador de la tienda encuentra al Tanner por el padrón', opciones.length === 1, JSON.stringify(opciones));
@@ -232,7 +257,9 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   const { pg, errs } = await abre(true, '/v2/taquilla/?action=cobrar');
   await pg.waitForSelector('#collectModal:not(.hidden)', { timeout:5000 }).catch(() => {});
   revisa('?action=cobrar abre en "¿Qué vas a cobrar?"', await pg.$eval('#collectModal', m => m.classList.contains('en-inicio')).catch(() => false));
-  revisa('con las tarjetas Tienda y Otro ingreso a la vista', (await pg.isVisible('#tabTienda')) && (await pg.isVisible('#collectModal [data-mode="general"]')));
+  revisa('con los cuatro botones a la vista: Mensualidad, Inscripción, Reinscripción y Otro', (await pg.$$eval('.cobrar-que button', b => b.filter(x => x.offsetParent).length)) === 4);
+  await pg.click('.cobrar-que [data-que="otro"]');
+  revisa('y en Otro, las tarjetas Tienda y Otro ingreso', (await pg.isVisible('#tabTienda')) && (await pg.isVisible('#collectModal [data-mode="general"]')));
   revisa('y sin el botón suelto de Registrar cobro', !(await pg.isVisible('#saveCollect')));
   revisa('sin errores de consola (liga)', errs.length === 0, errs.join(' | '));
   await pg.close();
@@ -241,7 +268,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
 /* ===== ESTACIONAMIENTO: "en Taquilla se puede cobrar todo" ===== */
 {
   const { pg, errs } = await abre(true);
-  await pg.click('#openCollect');
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]');
   revisa('la pestaña Estacionamiento existe en Taquilla', await pg.isVisible('#tabGafete'));
   await pg.click('#tabGafete'); await pg.waitForTimeout(300);
   const lista = await pg.$$eval('.gafete-item', e => e.map(x => x.innerText));
@@ -264,7 +291,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   revisa('al terminar dice qué folio entregar', /TC009/.test(alerta?.title || ''), JSON.stringify(alerta));
 
   // Gafete nuevo para un Tanner que no lo ha pedido.
-  await pg.click('#openCollect'); await pg.click('#tabGafete'); await pg.waitForTimeout(200);
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]'); await pg.click('#tabGafete'); await pg.waitForTimeout(200);
   await pg.fill('#gafetePlayerSearch', 'matias');
   await pg.click('#gafetePlayerResults .tsearch-opt'); await pg.waitForTimeout(200);
   revisa('si el Tanner no tiene gafete pedido, se abre el alta solo', await pg.isVisible('#gafetePlaca'));
@@ -277,7 +304,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
   revisa('cada cobro lleva su propia llave', n.idempotency_key && n.idempotency_key !== p.idempotency_key);
 
   // Otro ingreso · Estacionamiento manda a la pestaña correcta.
-  await pg.click('#openCollect');
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]');
   await pg.click('.cashier-tabs [data-mode="general"]');
   await pg.selectOption('#generalCategory', 'Estacionamiento');
   revisa('"Otro ingreso · Estacionamiento" avisa que el gafete no se enteraría', await pg.isVisible('#generalGafeteAviso'));
@@ -290,7 +317,7 @@ async function abre(puedeTienda, ruta = '/v2/taquilla/', veCobranza = true) {
 /* ===== SIN PERMISO DE TIENDA ===== */
 {
   const { pg } = await abre(false);
-  await pg.click('#openCollect');
+  await pg.click('#openCollect'); await pg.click('.cobrar-que [data-que="otro"]');
   revisa('quien no escribe en Tienda no ve la pestaña', !(await pg.isVisible('#tabTienda')));
   await pg.click('.cashier-tabs [data-mode="general"]');
   await pg.selectOption('#generalCategory', 'Uniforme');

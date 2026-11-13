@@ -43,7 +43,8 @@ const ICON={
   chevron:'<path d="m9 18 6-6-6-6"/>',
   carta:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6"/><path d="M9 12h6"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
-  lupa:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>'
+  lupa:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>',
+  camara:'<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'
 };
 const svg=(n,size=20)=>`<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 
@@ -86,13 +87,23 @@ function irA(tab,despues){
 }
 
 /* ---------- Encabezado ---------- */
+// Puede cambiar la foto quien ve el botón de la tarjeta (mismo permiso de siempre).
+const puedeCambiarFoto=()=>{const b=$('photoCardAction');return !!b&&!b.classList.contains('hidden');};
+function irACambiarFoto(){
+  cerrarMas();vista()?.classList.add('ficha-foto-abierta');
+  $('photoEditor')?.scrollIntoView({behavior:'smooth',block:'center'});
+}
 function pintaAvatar(){
   const btn=$('fichaAvatar');if(!btn||!F)return;
   const img=$('photoBox')?.querySelector('img');
   const ini=[F.player.firstName,F.player.lastName].filter(Boolean).map(s=>String(s).trim()[0]||'').join('').toUpperCase().slice(0,2)||'T';
   vista()?.classList.toggle('ficha-sin-foto',!img?.src);
-  btn.innerHTML=(img?.src?`<img src="${esc(img.src)}" alt="">`:`<span>${esc(ini)}</span>`)+`<i aria-hidden="true">${svg(img?.src?'lupa':'carta',13)}</i>`;
-  btn.setAttribute('aria-label',img?.src?'Ver la foto en grande':'Abrir Carta Tanner');
+  // Cambiar la foto a la mano (13/11/2026). Presidencia: "no está accesible la
+  // opción de cambiar la fotografía": vivía dentro de "Más". Quien puede
+  // cambiarla ve una cámara sobre la foto; un toque y ahí está "Cambiar foto".
+  const cambia=puedeCambiarFoto();
+  btn.innerHTML=(img?.src?`<img src="${esc(img.src)}" alt="">`:`<span>${esc(ini)}</span>`)+`<i aria-hidden="true">${svg(cambia?'camara':img?.src?'lupa':'carta',13)}</i>`;
+  btn.setAttribute('aria-label',cambia?(img?.src?'Ver o cambiar la foto':'Agregar foto'):img?.src?'Ver la foto en grande':'Abrir Carta Tanner');
 }
 function pintaChips(){
   const box=$('fichaChips');if(!box||!F)return;
@@ -137,18 +148,20 @@ function abrirFoto(){
     document.body.insertAdjacentHTML('beforeend',`<div id="fichaFotoVisor" class="ficha-visor" role="dialog" aria-modal="true" aria-label="Foto del Tanner" hidden>
       <button type="button" class="ficha-visor-cerrar" data-visor-cerrar aria-label="Cerrar">${svg('x',18)}</button>
       <img id="fichaVisorImg" alt="">
-      <div class="ficha-visor-acciones"><button type="button" class="ficha-visor-btn principal" data-visor-guardar>Guardar foto</button><button type="button" class="ficha-visor-btn" data-visor-carta>Ver Carta Tanner</button></div>
+      <div class="ficha-visor-acciones"><button type="button" class="ficha-visor-btn principal" data-visor-cambiar hidden>Cambiar foto</button><button type="button" class="ficha-visor-btn" data-visor-guardar>Guardar foto</button><button type="button" class="ficha-visor-btn" data-visor-carta>Ver Carta Tanner</button></div>
       <p id="fichaVisorNota" class="ficha-visor-nota" hidden></p></div>`);
     v=$('fichaFotoVisor');
     v.addEventListener('click',async e=>{
       if(e.target===v||e.target.closest('[data-visor-cerrar]')){cerrarFoto();return;}
       if(e.target.closest('[data-visor-carta]')){cerrarFoto();abrirCarta();return;}
+      if(e.target.closest('[data-visor-cambiar]')){cerrarFoto();irACambiarFoto();return;}
       if(e.target.closest('[data-visor-guardar]'))await guardarFoto(e.target.closest('[data-visor-guardar]'));
     });
     // En captura y sin dejar pasar: Escape cierra SÓLO la foto, no la ficha.
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('fichaFotoVisor')?.hidden){e.preventDefault();e.stopImmediatePropagation();cerrarFoto();}},true);
   }
   $('fichaVisorImg').src=img.src;$('fichaVisorImg').alt=img.alt||'Foto del Tanner';
+  v.querySelector('[data-visor-cambiar]').hidden=!puedeCambiarFoto();
   $('fichaVisorNota').hidden=true;v.hidden=false;document.body.classList.add('ficha-visor-abierto');
   v.querySelector('[data-visor-cerrar]').focus({preventScroll:true});
 }
@@ -364,6 +377,8 @@ document.addEventListener('tanner-benefits',e=>alBecas(e.detail));
 // La foto la pone photos.js en la carta; el avatar redondo la refleja.
 const fotoObs=new MutationObserver(()=>{if(F)pintaAvatar();});
 if($('photoBox'))fotoObs.observe($('photoBox'),{childList:true,subtree:true,attributes:true,attributeFilter:['src']});
+// El permiso de foto llega después (photos.js muestra su botón): la cámara del avatar lo sigue.
+if($('photoCardAction'))fotoObs.observe($('photoCardAction'),{attributes:true,attributeFilter:['class']});
 
 document.addEventListener('click',e=>{
   const t=e.target.closest?.('[data-ficha-tab],[data-ficha-ir],[data-ficha-evaluar],[data-ficha-mas],[data-ficha-cerrar-mas],[data-ficha-carta],[data-ficha-foto],[data-ficha-permiso],#fichaAvatar,#fichaCartaFondo,#privacyBadges .profile-badge,.ficha-mas-viejas a[href^="#"]');
@@ -373,14 +388,16 @@ document.addEventListener('click',e=>{
   if(t.matches('[data-ficha-evaluar]')){e.preventDefault();cerrarMas();irA('deportivo',()=>$('openEvaluation')?.click());return;}
   if(t.matches('[data-ficha-mas]')){abrirMas();return;}
   if(t.matches('[data-ficha-cerrar-mas]')){cerrarMas();return;}
-  if(t.matches('#fichaAvatar')){cerrarMas();abrirFoto();return;}
+  if(t.matches('#fichaAvatar')){cerrarMas();
+    // Sin foto y con permiso: el toque va directo a ponerla.
+    if(!$('photoBox')?.querySelector('img')?.src&&puedeCambiarFoto()){irACambiarFoto();return;}
+    abrirFoto();return;}
   if(t.matches('[data-ficha-carta]')){cerrarMas();abrirCarta();return;}
   if(t.matches('#fichaCartaFondo')){cerrarCarta();return;}
   if(t.matches('[data-ficha-foto]')){
     // Abre la caja de foto (tomarla con la cámara o elegir archivo) en lugar
     // de ir directo al archivo: en el iPad lo normal es tomarla ahí mismo.
-    cerrarMas();vista()?.classList.add('ficha-foto-abierta');
-    $('photoEditor')?.scrollIntoView({behavior:'smooth',block:'center'});return;
+    irACambiarFoto();return;
   }
   if(t.matches('[data-ficha-permiso]')){abrirPermisos();return;}
   if(t.matches('#privacyBadges .profile-badge')){if(t.id!=='consentToggle'&&$('consentBox'))abrirPermisos();return;}

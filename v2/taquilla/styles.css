@@ -591,3 +591,10 @@ button.cob-tile{cursor:pointer}
 @media (prefers-reduced-motion:reduce){.cobrar-que button{transition:none}}
 /* Montos con centavos (13/11/2026): el campo que está mal se nota */
 .cashier-form input[aria-invalid="true"],#editAmount[aria-invalid="true"]{border-color:#d23829!important;box-shadow:0 0 0 3px rgba(210,56,41,.16)!important}
+
+/* De qué es cada pago (13/11/2026) */
+.cc-que{list-style:none;margin:10px 0 0;padding:8px 12px;border-radius:12px;background:#f5f7f6;display:grid;gap:3px}
+.cc-que li{position:relative;padding-left:12px;font-size:13.5px;font-weight:700;color:#07191e;line-height:1.35}
+.cc-que li::before{content:"";position:absolute;left:0;top:.55em;width:5px;height:5px;border-radius:50%;background:var(--tos-teal,#087d8e)}
+.cc-que li.cc-que-mas{color:#5f7076;font-weight:600}
+.cc-que li.cc-que-mas::before{display:none}

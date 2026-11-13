@@ -110,6 +110,16 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   revisa('[foto] la foto sale grande (≥140px en teléfono) y es la del Tanner', foto.w >= 140 && foto.img, JSON.stringify(foto));
   revisa('[foto] no se encima con el nombre', !foto.encima, JSON.stringify(foto));
   revisa('[foto] con foto, la caja para subir no estorba', await p.isHidden('#photoEditor'));
+  // Cambiar la foto a la mano (13/11/2026). Presidencia: "no está accesible la
+  // opción de cambiar la fotografía": vivía dentro de "Más".
+  revisa('[foto] quien puede cambiarla ve una cámara sobre la foto y lo dice el lector', await p.getAttribute('#fichaAvatar', 'aria-label') === 'Ver o cambiar la foto' && !!(await p.$('#fichaAvatar i svg circle[r="3.5"]')));
+  await p.click('#fichaAvatar');
+  await p.waitForSelector('#fichaFotoVisor:not([hidden])', { timeout: 3000 }).catch(() => {});
+  revisa('[foto] al tocarla se ve en grande y el primer botón es "Cambiar foto"', await p.isVisible('#fichaFotoVisor [data-visor-cambiar]') && (await p.textContent('#fichaFotoVisor .ficha-visor-acciones button:not([hidden])')).trim() === 'Cambiar foto');
+  await p.click('#fichaFotoVisor [data-visor-cambiar]');
+  await p.waitForTimeout(300);
+  revisa('[foto] "Cambiar foto" cierra la foto y abre la caja para tomarla o elegirla', await p.isHidden('#fichaFotoVisor') && await p.isVisible('#photoEditor'));
+  await p.evaluate(() => document.querySelector('#profileView')?.classList.remove('ficha-foto-abierta'));
   // Foto vertical (caso real: Mauro Contreras, 06/10/2026). Crecía a su alto
   // natural, salía ovalada y tapaba los botones. Debe quedar cuadrada.
   const vertical = await p.evaluate(async () => {
@@ -208,6 +218,8 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   revisa('[profe] ve el perfil deportivo', await visible(p, '#sportsSnapshot'));
   const acc = await p.$$eval('#fichaAcciones .ficha-accion', a => a.map(x => x.textContent.trim()));
   revisa('[profe] su botón principal es Evaluar, sin Cobrar', !acc.includes('Cobrar') && acc.includes('Evaluar'), JSON.stringify(acc));
+  // El profe toma las fotos en cancha: con permiso de Jugadores también ve la cámara.
+  revisa('[profe] con permiso de Jugadores también puede cambiar la foto desde la ficha', await p.getAttribute('#fichaAvatar', 'aria-label') === 'Ver o cambiar la foto');
   await p.close();
 }
 

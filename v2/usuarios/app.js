@@ -290,6 +290,7 @@ const NIVEL_A_ROL={formador:'coach',coordinacion:'coach',direccion:'coach',opera
 /* Sin depender del orden (11/11/2026). Presidencia: que no importe si primero
    se da de alta en Staff o primero se le entrega la llave. Alguien nuevo con
    una llave de staff también queda en Staff (organigrama) con su puesto. */
+const NIVEL_DE_ANTES={academia:'coordinacion',scouting:'coordinacion',taquilla:'operacion',contabilidad:'operacion',marketing:'operacion'};
 const ROL_A_FICHA={coach:['formador','Formador'],president:['presidencia','Presidencia'],academy:['academia','Academia'],
   scouting:['scouting','Scouting'],operations:['operacion','Operación'],cashier:['taquilla','Taquilla'],
   accounting:['contabilidad','Contabilidad'],commercial:['marketing','Marketing']};
@@ -513,8 +514,11 @@ async function createAccess(event){
       // Alguien nuevo: se le hace su ficha de Staff ya conectada a la llave.
       if(p.tipo==='nuevo'&&result?.user_id&&ROL_A_FICHA[wizard.role]){
         const [level,title]=ROL_A_FICHA[wizard.role];
-        try{await rpc('v2_save_staff_member',{organization_id:ctx.organization_id,member:{userId:result.user_id,fullName:displayName,title,level,
-          showToFamilies:wizard.role==='coach',...(wizard.method==='email'?{email:$('accessEmail').value.trim()}:{})}});}
+        const ficha=nivel=>rpc('v2_save_staff_member',{organization_id:ctx.organization_id,member:{userId:result.user_id,fullName:displayName,title,level:nivel,
+          showToFamilies:wizard.role==='coach',...(wizard.method==='email'?{email:$('accessEmail').value.trim()}:{})}});
+        // Si la base todavía no conoce el área nueva (h91 sin correr), la ficha
+        // entra con el nivel de antes: nadie se queda sin ficha por eso.
+        try{await ficha(level).catch(error=>{const antes=NIVEL_DE_ANTES[level];if(antes&&/staff_members_level_check|violates check/i.test(String(error?.message||error)))return ficha(antes);throw error;});}
         catch(error){console.warn('ficha de Staff',error);message('createMessage','La llave se creó, pero no se pudo agregar a Staff: '+friendly(error)+'. Agrégalo desde Staff.');}
       }
       if(wizard.role==='coach'&&wizard.categorias.size&&result?.user_id){

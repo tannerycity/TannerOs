@@ -194,7 +194,9 @@ async function guarda(m, cambios) {
   } catch (e) {
     // Guardar fichas se activa con un SQL que Presidencia corre en Supabase.
     const falta = /v2_save_staff_member|function .* does not exist|Could not find/i.test(e.message || '');
-    if (out) out.textContent = falta ? 'Guardar fichas todavía no está activado: falta correr el SQL de Staff en Supabase.' : (e.message || 'No se pudo guardar.');
+    const area = /staff_members_level_check|violates check/i.test(e.message || '');
+    if (out) out.textContent = falta ? 'Guardar fichas todavía no está activado: falta correr el SQL de Staff en Supabase.'
+      : area ? 'Esa área todavía no está activada: falta correr el SQL de áreas (h91) en Supabase.' : (e.message || 'No se pudo guardar.');
   }
 }
 

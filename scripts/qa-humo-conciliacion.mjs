@@ -116,6 +116,9 @@ async function corre(rol) {
         if(name==='v2_my_navigation') return [];
         window.__rpc.push({name, params});
         if(name==='v2_payments_to_reconcile') return BANDEJA;
+        // De qué es cada pago (h92): el pedido de Lucas trae sus prendas; los demás, nada.
+        if(name==='v2_payment_details') return Object.fromEntries((params.payment_ids||[]).map(id => [id, (BANDEJA.rows||[]).find(r => r.paymentId===id)?.playerName==='Lucas Exacto'
+          ? ['Kit Dúo: Short (T. 16)', 'Kit Dúo: Jersey "Pink Cantera" (T. 16)', 'Kit Dúo: Jersey "Black Edition" (T. 16)', 'Medias (T. 16)', 'Mochila'] : []]));
         if(name==='v2_reconcile_payment') return { status:'approved', allocationsReversed:0, selfApproved:false };
         if(name==='v2_resubmit_payment') return true;
         if(name==='v2_edit_payment') return { ok:true, date:params.payment_date, method:params.method, lateFeesWaived:0, lateFeesAmount:0 };
@@ -239,6 +242,10 @@ async function corre(rol) {
     revisa(`[${rol}] un botón grande y "···" para lo demás`, await pagina.isVisible('.concilia-card button[data-accion="approve"]') && !(await pagina.isVisible('.concilia-card button[data-accion="reject"]')));
     const pedido = (await pagina.textContent('.concilia-card:has-text("Lucas Exacto") .concilia-quien small')).trim();
     revisa(`[${rol}] un pedido no dice mes`, pedido === 'Abono pedido PED-2026-00011', pedido);
+    await pagina.waitForSelector('.concilia-card:has-text("Lucas Exacto") .cc-que', { timeout: 4000 }).catch(() => {});
+    const que = await pagina.$$eval('.concilia-card:has-text("Lucas Exacto") .cc-que li', l => l.map(x => x.textContent.trim()));
+    revisa(`[${rol}] el pago dice de qué es: las prendas del pedido, hasta 4 y "y N más"`, que.length === 5 && que[0] === 'Kit Dúo: Short (T. 16)' && que[4] === 'y 1 más', JSON.stringify(que));
+    revisa(`[${rol}] un pago sin desglose no pinta una lista vacía`, !(await pagina.$('.concilia-card:has-text("Iker Flores") .cc-que')));
 
     // Aprobar los que cuadran: sólo los exactos, nunca el que tiene faltante.
     revisa(`[${rol}] ofrece aprobar los 2 que cuadran`, /Aprobar los 2 que cuadran · \$1,600/.test(await pagina.textContent('#conciliaBloque')));

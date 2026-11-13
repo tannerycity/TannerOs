@@ -110,6 +110,10 @@ async function handleLogin(event){
     const email=await correoDeLaCuenta($('email').value,password);
     const {error}=await supabase.auth.signInWithPassword({email,password});
     if(error)throw error;
+    // Si llegó desde la tienda ("Entra y tu Tanner aparece solo"), regresa a
+    // ella ya con su cuenta. Sólo a la tienda de este mismo sitio.
+    const volver=new URLSearchParams(location.search).get('volver')||'';
+    if(/^\/(tienda|pedido)(\/|\?|$)/.test(volver)&&!/\/\/|\\/.test(volver)){location.replace(volver);return;}
     await boot();
   }catch(error){msg('loginMessage',friendly(error));}
   finally{btn.disabled=false;btn.textContent='Entrar';}

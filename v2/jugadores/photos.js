@@ -183,8 +183,7 @@ async function uploadPhoto(file){
   }
 }
 
-document.addEventListener('tanner-profile-opened',event=>{
-  const detail=event.detail||{};
+function alAbrir(detail={}){
   active={
     playerId:detail.playerId,
     player:detail.player||{},
@@ -193,7 +192,11 @@ document.addEventListener('tanner-profile-opened',event=>{
   };
   photoMsg();
   setControls(active);
-});
+}
+document.addEventListener('tanner-profile-opened',event=>alAbrir(event.detail||{}));
+// Si la ficha ya se abrió antes de que este módulo terminara de cargar, el
+// aviso se perdía y "Cambiar foto" no salía aunque hubiera permiso (13/11/2026).
+if(window.__tannerAbierto&&!active)alAbrir(window.__tannerAbierto);
 $('photoCardAction')?.addEventListener('click',()=>{if(!busy)$('playerPhotoUpload')?.click();});
 $('takePlayerPhoto')?.addEventListener('click',()=>{if(!busy)$('playerPhotoCamera')?.click();});
 $('choosePlayerPhoto')?.addEventListener('click',()=>{if(!busy)$('playerPhotoUpload')?.click();});

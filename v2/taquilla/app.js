@@ -1652,6 +1652,27 @@ function estadoChip(e){
   return `<span class="est est-${e.nivel}"><i aria-hidden="true">${esc(e.icono)}</i>${esc(e.etiqueta)}</span>`;
 }
 
+/* De qué es cada pago (13/11/2026). Presidencia: "que se especifique de qué
+   es cada pago". La tarjeta decía "Abono pedido PED-…" o "Cobro general"; ahora
+   lista lo que se pagó: los cargos que liquidó (mensualidad, recargo,
+   inscripción) y las prendas del pedido. Sale de v2_payment_details (h92); si
+   todavía no existe, la tarjeta se queda como antes. */
+const detallePago=new Map();
+async function cargaDetallesDePago(){
+  const faltan=(conciliaData?.rows||[]).map(x=>x.paymentId).filter(id=>id&&!detallePago.has(id));
+  if(!faltan.length)return false;
+  try{
+    const r=await rpc('v2_payment_details',{organization_id:org,payment_ids:faltan.slice(0,300)})||{};
+    faltan.forEach(id=>detallePago.set(id,Array.isArray(r[id])?r[id]:[]));
+    return true;
+  }catch{return false;}
+}
+function detalleHtml(x){
+  const d=detallePago.get(x.paymentId)||[];
+  if(!d.length)return '';
+  const muestra=d.slice(0,4),resto=d.length-muestra.length;
+  return `<ul class="cc-que" aria-label="Qué se pagó">${muestra.map(t=>`<li>${esc(t)}</li>`).join('')}${resto>0?`<li class="cc-que-mas">y ${resto} más</li>`:''}</ul>`;
+}
 async function cargaConcilia(silencioso){
   if(!canSeeConcilia)return;
   if(!silencioso)message('conciliaMessage');
@@ -1663,6 +1684,7 @@ async function cargaConcilia(silencioso){
   }
   pintaBarraConcilia();
   if(!$('conciliaPanel').classList.contains('hidden'))pintaConcilia();
+  if(await cargaDetallesDePago()&&!$('conciliaPanel').classList.contains('hidden'))pintaConcilia();
 }
 
 // El contador de pendientes ya no vive en una barra propia: viaja como globo
@@ -1811,6 +1833,7 @@ function tarjetaConcilia(x,canApprove){
         <small>${esc(que)}</small></span>
       <span class="concilia-monto"><b>${montoConcilia(x.amount)}</b><span class="cc-metodo" data-k="${met.k}"><i aria-hidden="true">${ICONO_METODO[met.k]||ICONO_EFECTIVO}</i>${esc(met.t)}</span></span>
     </div>
+    ${detalleHtml(x)}
     <p class="cc-linea">Pagó <b>${pagoQuien}</b> · cobró <b>${quienCobro}</b> · ${esc(registradoDe(x.createdAt)||fechaPago(x.date)||'')}</p>
     ${chip?`<div class="concilia-chips">${chip}</div>`:''}
     ${dif.hay?`<div class="concilia-dif" data-nivel="${dif.nivel}">${esc(dif.texto)} ${money.format(Math.abs(dif.monto))}</div>`:''}

@@ -34,6 +34,12 @@ const SLUG = new URLSearchParams(location.search).get('c') || 'visoria-noviembre
 const PHOTO_BUCKET = 'tanneros-prospect-photos';
 const WHATSAPP_CLUB = '524792651338';
 const UI_VERSION = 'visoria-h54';
+/* Promoción "Últimos 5 lugares" (16/11/2026). Presidencia, como estrategia de
+ * marketing: que la portada diga "últimos 5 lugares" con la barra en 25 de 30,
+ * y un asterisco de "aplican restricciones". No toca las inscripciones reales:
+ * se sigue apartando lugar hasta el cupo de verdad. Si de verdad quedan menos
+ * de 5, sale el número real. Para quitarla: ULTIMOS_LUGARES = 0. */
+const ULTIMOS_LUGARES = 5;
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -75,7 +81,8 @@ function aviso(t) { const m = $('viAviso'); if (!m) return; m.textContent = t ||
  * letra del club, fechas, lugar y los lugares que quedan, y un botón. */
 function portada() {
   paso = '';
-  const quedan = info.spotsLeft, cupo = info.capacity, ocupados = cupo ? cupo - quedan : 0;
+  const promo = ULTIMOS_LUGARES > 0 && info.open && info.capacity > ULTIMOS_LUGARES && info.spotsLeft >= ULTIMOS_LUGARES;
+  const quedan = promo ? ULTIMOS_LUGARES : info.spotsLeft, cupo = info.capacity, ocupados = cupo ? cupo - quedan : 0;
   const lugar = info.location ? esc(info.location) : 'Te confirmamos el lugar por WhatsApp';
   const cerrado = !info.open;
   pinta(`<section class="vi-portada">
@@ -93,7 +100,7 @@ function portada() {
       <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12 12 20l-8-8V4h8z"/><circle cx="8" cy="8" r="1.5"/></svg></span><div><b>Costo</b><span>Sin costo</span></div></li>
       <li class="vi-dato-alerta"><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></span><div><b>Calzado</b><span>Prohibidos los tachones. Usa multitacos o tenis deportivos.</span></div></li>
     </ul>
-    ${cupo ? `<div class="vi-cupo"><div class="vi-cupo-cab"><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : enEspera() ? 'Cupo lleno · abrimos lista de espera' : 'Cupo lleno') : `Quedan ${quedan} de ${cupo} lugares`}</b><span>Cupo limitado</span></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.max(3, Math.round(ocupados / cupo * 100)))}%"></i></div></div>` : ''}
+    ${cupo ? `<div class="vi-cupo"><div class="vi-cupo-cab"><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : enEspera() ? 'Cupo lleno · abrimos lista de espera' : 'Cupo lleno') : promo ? `¡Últimos ${quedan} lugares!<sup>*</sup>` : `Quedan ${quedan} de ${cupo} lugares`}</b><span>Cupo limitado</span></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.max(3, Math.round(ocupados / cupo * 100)))}%"></i></div>${promo ? '<small class="vi-cupo-nota">* Aplican restricciones. Cupo sujeto a disponibilidad.</small>' : ''}</div>` : ''}
     ${enEspera()
       ? '<button type="button" class="vi-boton" data-empieza>Regístrate en la lista de espera</button><p class="vi-pie">Si alguien se da de baja, te sumamos y te avisamos por WhatsApp. Toma 2 minutos.</p>'
       : cerrado

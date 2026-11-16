@@ -192,3 +192,7 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-estado.pendiente{background:#fbf3df;border-color:#c98a12}
 .vi-estado.ok{background:#eef7f1;border-color:var(--verde)}
 @media(max-width:380px){.vi-hero h1{font-size:40px}.vi-paso h2{font-size:34px}.vi-foto{grid-template-columns:86px 1fr}.vi-foto-circulo{width:86px;height:86px}}
+
+/* Promoción "Últimos lugares" (16/11/2026) */
+.vi-cupo-cab b sup{font-size:.55em;vertical-align:super;color:var(--oro-claro)}
+.vi-cupo-nota{font-size:12px;line-height:1.35;color:rgba(255,255,255,.72)}

@@ -661,19 +661,51 @@ $('irAGafete')?.addEventListener('click',()=>{
   if(id){$('gafetePlayer').value=id;$('gafetePlayerSearch').value=nombre;$('gafetePlayerClear')?.classList.remove('hidden');pintaGafetes();}
 });
 
+/* Deshacer en lugar de "¿Seguro?" (19/11/2026, Presidencia). Cobrar, registrar
+   un ingreso o un pago ya no pregunta "DOBLE CHECK · ¿Es correcto?": se
+   registra de una vez y abajo sale "Cobro registrado · Deshacer". La base
+   (h95, v2_undo_recent) sólo deja deshacer a quien lo registró y dentro de 2
+   minutos; el aviso se va a los 100 segundos para no ofrecer lo que ya no se
+   puede. No se borra nada: queda anulado con motivo y en la bitácora. Los
+   cobros de pedido y de gafete siguen con su confirmación: tocan el pedido y
+   el gafete entregado. */
+const SEGUNDOS_DESHACER=100;
+let avisoDeshacerTimer=null;
+function ofreceDeshacer(m){
+  let el=$('avisoDeshacer');
+  if(!el){el=document.createElement('div');el.id='avisoDeshacer';el.className='aviso-deshacer';el.setAttribute('role','status');el.setAttribute('aria-live','polite');document.body.appendChild(el);}
+  clearTimeout(avisoDeshacerTimer);
+  el.innerHTML=`<span class="aviso-deshacer-txt"></span><button type="button" class="aviso-deshacer-btn">Deshacer</button>`;
+  el.querySelector('.aviso-deshacer-txt').textContent=m.texto;
+  el.hidden=false;
+  const btn=el.querySelector('.aviso-deshacer-btn');
+  btn.addEventListener('click',async()=>{
+    btn.disabled=true;btn.textContent='Deshaciendo…';
+    try{
+      await rpc('v2_undo_recent',{organization_id:org,kind:m.kind,movement_id:m.id});
+      el.querySelector('.aviso-deshacer-txt').textContent='Listo, se deshizo. Queda anotado en el historial.';
+      btn.remove();
+      await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();cargaConcilia(true);
+    }catch(e){
+      el.querySelector('.aviso-deshacer-txt').textContent=String(e?.message||e||'No se pudo deshacer.');
+      btn.remove();
+    }
+    clearTimeout(avisoDeshacerTimer);avisoDeshacerTimer=setTimeout(()=>{el.hidden=true;},4000);
+  });
+  avisoDeshacerTimer=setTimeout(()=>{el.hidden=true;},SEGUNDOS_DESHACER*1000);
+}
 async function confirmDoubleCheck(o){
   if(!window.tosConfirm)return true;
   return window.tosConfirm({kicker:'DOBLE CHECK',title:o.title,message:o.message,confirmText:o.confirmText||'Sí, confirmar',cancelText:'Revisar'});
 }
 async function postCollect(){
   const btn=$('saveCollect');btn.disabled=true;message('collectMessage');
+  let deshacer=null;
   try{
     if(collectMode==='player'){
       const player=$('collectPlayer').value,playerName=$('collectPlayerSearch').value.trim(),amount=montoDe('collectAmount'),date=$('collectDate').value;
       if(!player||!Number.isFinite(amount)||amount<=0||!date)throw new Error('Completa Tanner, monto y fecha.');
       if($('collectPayerType').value==='sponsor'&&!$('collectPayerName').value.trim())throw new Error('Indica el patrocinador.');
-      const okDbl=await confirmDoubleCheck({title:'Confirma el cobro',message:`Vas a registrar un cobro de ${money.format(amount)} a ${playerName||'este Tanner'} · ${methodLabel($('collectMethod').value)}. ¿Es correcto?`,confirmText:'Sí, cobrar'});
-      if(!okDbl){btn.disabled=false;return;}
       // El monto esperado es lo que permite el indicador de diferencias. Va
       // opcional: obligarlo frenaria a quien esta cobrando con el papa enfrente.
       const esperadoCrudo=$('collectExpected')?.value.trim()||'';
@@ -681,6 +713,7 @@ async function postCollect(){
       if(esperado!==null&&(!Number.isFinite(esperado)||esperado<0))throw new Error('El monto esperado no puede ser negativo.');
       const idPago=await rpc('v2_post_payment',{organization_id:org,player_id:player,amount,payment_date:date,method:$('collectMethod').value,reference:$('collectReference').value.trim()||null,concept:'Mensualidad',payer_type:$('collectPayerType').value,payer_name:$('collectPayerName').value.trim()||null,collected_by_name:quienDelClub('collectCollectedBy'),idempotency_key:key('cashier-payment'),expected_amount:esperado,observations:$('collectObservations')?.value.trim()||null});
       usaFuncion('cobro_registrado');
+      if(idPago)deshacer={kind:'payment',id:idPago,texto:`Cobro registrado · ${money.format(amount)}${playerName?` · ${playerName}`:''}`};
       // Presidencia puede registrar y aprobar en un paso. Se hace como dos
       // llamadas a proposito: asi el historial guarda el paso por pendiente y
       // queda escrito quien aprobo, en vez de que el pago aparezca aprobado
@@ -727,12 +760,12 @@ async function postCollect(){
     }else{
       const amount=montoDe('generalAmount'),date=$('generalDate').value,category=(($('generalCategory').value==='__otra__')?($('generalCategoryOther')?.value||''):$('generalCategory').value).trim(),concept=$('generalConcept').value.trim();
       if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
-      const okDbl=await confirmDoubleCheck({title:'Confirma el ingreso',message:`Vas a registrar un ingreso de ${money.format(amount)} · ${concept} (${category}) · ${methodLabel($('generalMethod').value)}. ¿Es correcto?`,confirmText:'Sí, registrar'});
-      if(!okDbl){btn.disabled=false;return;}
-      await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
+      const idIngreso=await rpc('v2_post_general_income',{organization_id:org,amount,payment_date:date,method:$('generalMethod').value,category,concept,payer_name:$('generalPayer').value.trim()||null,reference:$('generalReference').value.trim()||null,idempotency_key:key('cashier-income'),player_id:$('generalPlayer').value||null});
+      if(idIngreso)deshacer={kind:'payment',id:idIngreso,texto:`Ingreso registrado · ${money.format(amount)} · ${concept}`};
     }
     closeModals();await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();
     cargaConcilia(true);
+    if(deshacer)ofreceDeshacer(deshacer);
   }catch(e){message('collectMessage',e.message||'No se pudo registrar.');}finally{btn.disabled=false;}
 }
 async function postExpense(){
@@ -740,10 +773,9 @@ async function postExpense(){
   try{
     const amount=montoDe('expenseAmount'),date=$('expenseDate').value,category=(($('expenseCategory').value==='__otra__')?($('expenseCategoryOther')?.value||''):$('expenseCategory').value).trim(),concept=$('expenseConcept').value.trim(),who=$('expenseWho').value.trim();
     if(!Number.isFinite(amount)||amount<=0||!date||!category||!concept)throw new Error('Completa monto, fecha, categoría y concepto.');
-    const okDbl=await confirmDoubleCheck({title:'Confirma el pago',message:`Vas a registrar un pago de ${money.format(amount)} a ${who||concept} · ${category} · ${methodLabel($('expenseMethod').value)}. ¿Es correcto?`,confirmText:'Sí, pagar'});
-    if(!okDbl){btn.disabled=false;return;}
-    await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:null,concept,metadata:who?{who}: {},supplier_name:who||null,paid_by_name:quienDelClub('expensePaidBy'),idempotency_key:key('cashier-expense')});
+    const idGasto=await rpc('v2_post_expense',{organization_id:org,amount,expense_date:date,category,method:$('expenseMethod').value,reference:null,concept,metadata:who?{who}: {},supplier_name:who||null,paid_by_name:quienDelClub('expensePaidBy'),idempotency_key:key('cashier-expense')});
     closeModals();await load();
+    if(idGasto)ofreceDeshacer({kind:'expense',id:idGasto,texto:`Pago registrado · ${money.format(amount)} · ${who||concept}`});
   }catch(e){message('expenseMessage',e.message||'No se pudo registrar el egreso.');}finally{btn.disabled=false;}
 }
 

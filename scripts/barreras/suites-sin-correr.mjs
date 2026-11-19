@@ -214,7 +214,9 @@ export default function comprobar() {
   // librerías de /vendor/ cargan sin CDN. Es de navegador: la corre navegador-qa.
   // Sube a 77 por qa-humo-registro-hermano.mjs (19/11/2026): "Registrar a otro
   // hijo" llena el formulario real en Chromium. Es de navegador: la corre navegador-qa.
-  const MAX_EXCLUIDAS = 77;
+  // Sube a 78 por qa-humo-sin-senal.mjs (19/11/2026): sin señal, el inicio
+  // guardado sale con sus estilos e imágenes (service worker real, en Chromium).
+  const MAX_EXCLUIDAS = 78;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

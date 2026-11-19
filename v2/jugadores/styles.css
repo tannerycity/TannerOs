@@ -746,3 +746,44 @@ body.ficha-visor-abierto{overflow:hidden}
 /* Semáforo del dinero igual que en Taquilla (19/11/2026, v2/estados.js) */
 .ficha-mes.atrasado{background:#ffe9e6;color:#a32920}.ficha-mes.por-vencer{background:#fff4e5;color:#7a4b00}
 .pagos-estado[data-estado="atrasado"]{background:#ffe9e6;color:#a32920}.pagos-estado[data-estado="por_vencer"]{background:#fff4e5;color:#7a4b00}.pagos-estado[data-estado="al_dia"]{background:#e7f6ec;color:#1d7a3d}
+/* Ficha estilo Apple (19/11/2026, Presidencia: "la ficha del jugador es la
+   siguiente"). Como Contactos del iPhone: foto grande al centro, nombre y una
+   línea de datos, los botones redondos debajo y lo que hay que atender en una
+   lista agrupada (un renglón, un tema, flecha si se toca). Mismos ids. */
+#profileView .profile-overview{grid-template-columns:minmax(0,1fr);justify-items:center;text-align:center;row-gap:6px;padding-top:6px}
+/* La foto sigue grande y cuadrada (06/10/2026: "el chiste es que se vea
+   grande la foto"), ahora al centro: 168px en teléfono, 208px en computadora. */
+#profileView .ficha-avatar{grid-row:auto;grid-column:1;width:168px;height:168px;margin-bottom:8px}
+@media (max-width:360px){#profileView .ficha-avatar{width:140px;height:140px}}
+@media (min-width:621px){#profileView .ficha-avatar{width:208px;height:208px}}
+#profileView #profileName,#profileView #profileMeta,#profileView #privacyBadges,#profileView .ficha-chips,#profileView .ficha-acciones,#profileView #photoEditor{grid-column:1}
+#profileView #profileName{font-size:30px;font-weight:700;letter-spacing:-.01em;align-self:auto;margin-top:0;text-align:center!important}
+#profileView #profileMeta{text-align:center!important;font-size:14px;color:#6b7c82}
+@media (max-width:420px){#profileView #profileName{font-size:26px}}
+#profileView .ficha-acciones{order:1;width:100%;max-width:420px;margin-top:12px}
+#profileView #privacyBadges,#profileView .ficha-chips{order:2;width:100%;max-width:520px;justify-self:center}
+#profileView #photoEditor{order:3}
+#profileView .ficha-accion>span{border-radius:16px;width:58px;height:50px;box-shadow:none;background:#f1f4f3}
+#profileView .ficha-accion.principal>span{background:#053746;box-shadow:none}
+#profileView .ficha-accion{font-size:12px;color:#087d8e}
+#profileView .ficha-accion.apagada{color:#6b7c82}
+/* Lista agrupada: permisos y avisos */
+#profileView #privacyBadges{display:flex;flex-direction:column;gap:0;margin-top:14px;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(3,47,59,.08)}
+#profileView #privacyBadges:not(:has(.profile-badge.pend,.profile-badge[class*="img-"])){display:none}
+#profileView #privacyBadges .profile-badge.pend,#profileView #privacyBadges .profile-badge[class*="img-"]{display:flex;align-items:center;gap:10px;margin:0;border-radius:0;padding:13px 14px;background:#fff;color:#0d2730;font-size:15px;font-weight:600;text-align:left;border-top:1px solid #eef0ee}
+#profileView #privacyBadges .profile-badge:first-child{border-top:0}
+#profileView #privacyBadges .profile-badge.pend::before,#profileView #privacyBadges .profile-badge[class*="img-"]::before{content:"";width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:#d0453a}
+#profileView #privacyBadges .profile-badge.img-autoriza::before{background:#1f9d55}
+#profileView #privacyBadges .profile-badge.img-sin_preguntar::before{background:#d39b1c}
+#profileView #privacyBadges .profile-badge.pend::after,#profileView #privacyBadges .profile-badge[class*="img-"]::after{content:"Cambiar";margin-left:auto;font-size:14px;font-weight:500;color:#087d8e;opacity:1}
+#profileView .ficha-chips{flex-direction:column;gap:0;margin-top:10px;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(3,47,59,.08)}
+#profileView .ficha-chip{display:flex;align-items:center;gap:10px;width:100%;border-radius:0;padding:13px 14px;background:#fff;color:#0d2730;font-size:15px;font-weight:600;text-align:left;border-top:1px solid #eef0ee}
+#profileView .ficha-chip:first-child{border-top:0}
+#profileView .ficha-chip>i{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:#087d8e}
+#profileView .ficha-chip.alerta{background:#fff;color:#0d2730}
+#profileView .ficha-chip.alerta>i{background:#d0453a}
+#profileView .ficha-chip.portero>i{background:#c6ac5c}
+#profileView .ficha-chip>span{flex:1;min-width:0}
+#profileView .ficha-chip>svg{flex:0 0 auto;color:#b5bfc2}
+#profileView #privacyBadges .profile-badge[class*="img-"]>i{display:none}
+#profileView #privacyBadges .consent-box{margin:0;border:0;border-top:1px solid #eef0ee;border-radius:0;box-shadow:none;text-align:left}

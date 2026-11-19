@@ -109,7 +109,7 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   const p = await abre('Presidencia');
   // "La foto es lo que nos ayuda a ver quién es": grande y sin encimarse.
   const foto = await p.evaluate(() => { const a = document.getElementById('fichaAvatar').getBoundingClientRect(), n = document.getElementById('profileName').getBoundingClientRect();
-    return { w: Math.round(a.width), img: !!document.querySelector('#fichaAvatar img'), encima: a.right > n.left + 1 }; });
+    return { w: Math.round(a.width), img: !!document.querySelector('#fichaAvatar img'), encima: a.right > n.left + 1 && a.bottom > n.top + 1 && a.left < n.right - 1 && a.top < n.bottom - 1 }; });
   revisa('[foto] la foto sale grande (≥140px en teléfono) y es la del Tanner', foto.w >= 140 && foto.img, JSON.stringify(foto));
   revisa('[foto] no se encima con el nombre', !foto.encima, JSON.stringify(foto));
   revisa('[foto] con foto, la caja para subir no estorba', await p.isHidden('#photoEditor'));
@@ -176,6 +176,20 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   const chips = await texto(p, '#fichaChips');
   revisa('[chips] faltan documentos y hermanos', /Falta 1 documento/.test(chips) && /1 hermano en el club/.test(chips), chips);
   revisa('[chips] la ficha dice que es portero y cuándo entrena con la academia', /Portero · con la academia · Martes 5:00 a 6:00 pm/.test(chips), chips);
+  // Estilo Apple (19/11/2026): lista agrupada en vez de pastillas, botones
+  // redondos justo debajo del nombre y un solo "Evaluar".
+  const apple = await p.evaluate(() => {
+    const filas = [...document.querySelectorAll('#fichaChips .ficha-chip')];
+    const r = id => document.getElementById(id).getBoundingClientRect();
+    return { filas: filas.length, anchoCompleto: filas.every(f => f.getBoundingClientRect().width >= document.getElementById('fichaChips').getBoundingClientRect().width - 2),
+      flechas: filas.filter(f => f.matches('[data-ficha-ir]')).every(f => !!f.querySelector('svg')), portSinFlecha: !document.querySelector('#fichaChips .portero svg'),
+      accionesBajoNombre: r('fichaAcciones').top >= r('profileName').bottom - 1 && r('fichaAcciones').top <= r('fichaChips').top,
+      evaluar: document.querySelectorAll('#profileView [data-ficha-evaluar], #fichaPerfil [data-ficha-evaluar]').length };
+  });
+  revisa('[apple] los avisos son renglones de lista a todo lo ancho', apple.filas === 3 && apple.anchoCompleto, apple);
+  revisa('[apple] los renglones que se tocan llevan flecha; el de portero no', apple.flechas && apple.portSinFlecha, apple);
+  revisa('[apple] los botones redondos quedan justo debajo del nombre', apple.accionesBajoNombre, apple);
+  revisa('[apple] un solo botón Evaluar en toda la ficha', apple.evaluar === 1, apple);
 
   // Permiso de imagen con un toque
   await p.click('#privacyBadges [class*="img-"]');

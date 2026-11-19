@@ -813,3 +813,29 @@ body.ficha-visor-abierto{overflow:hidden}
 .ficha-perfil-grid small{color:#8a979b}
 .ficha-card{border:0;border-radius:14px;box-shadow:0 1px 3px rgba(3,47,59,.08)}
 .ficha-card h3{font-weight:600;letter-spacing:.04em;color:#6b7c82}
+/* Fase B estilo Apple (19/11/2026): la ficha es una lista como Ajustes del
+   iPhone. Las pestañas pasan a renglones con su dato; cada sección se abre
+   como pantalla propia con "‹ Nombre" arriba para regresar. */
+#profileView .ficha-tabs{position:static;display:block;overflow:visible;margin:12px 0 4px;padding:0;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(3,47,59,.08);backdrop-filter:none}
+#profileView .ficha-tabs .ficha-seccion{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;border:0;border-top:1px solid #eef0ee;border-radius:0;background:#fff;color:#0d2730;text-align:left;font:inherit;cursor:pointer}
+#profileView .ficha-tabs .ficha-seccion:first-child{border-top:0}
+#profileView .ficha-tabs .ficha-seccion[aria-selected="true"]{background:#fff;color:#0d2730}
+.ficha-seccion-ico{width:30px;height:30px;flex:0 0 30px;border-radius:8px;display:grid;place-items:center;color:#fff}
+.ficha-seccion-ico.teal{background:#087d8e}.ficha-seccion-ico.rojo{background:#d0453a}.ficha-seccion-ico.navy{background:#053746}.ficha-seccion-ico.gris{background:#8a979b}.ficha-seccion-ico.verde{background:#1f9d55}
+.ficha-seccion-txt{flex:1;min-width:0;display:grid;gap:2px}
+.ficha-seccion-txt b{font-size:16px;font-weight:600}
+.ficha-seccion-txt small{font-size:13px;color:#6b7c82}
+.ficha-seccion-valor{font-size:15px;color:#6b7c82;white-space:nowrap}
+.ficha-seccion-valor.debe{color:#b23a21;font-weight:700}
+.ficha-seccion>svg{flex:0 0 auto;color:#b5bfc2}
+/* Barra de regreso: sólo dentro de una sección. */
+.ficha-barra{display:none}
+#profileView.ficha-sub .ficha-barra{position:sticky;top:-1px;z-index:7;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:-4px -4px 10px;padding:10px 4px;background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+.ficha-barra button{justify-self:start;display:flex;align-items:center;gap:2px;min-height:44px;padding:0 8px 0 0;border:0;background:transparent;color:#087d8e;font:600 16px/1 inherit;font-family:inherit;cursor:pointer}
+.ficha-barra strong{font-size:17px;font-weight:700;color:#0d2730}
+/* Dentro de una sección, el inicio se esconde. */
+#profileView.ficha-sub .player-profile-hero,#profileView.ficha-sub #fichaTabs{display:none!important}
+/* En Pagos se ven otra vez los meses (ahí es donde se preguntan). */
+#profileView.ficha-sub .ficha-cuenta .ficha-meses{display:flex}
+#profileView.ficha-sub .ficha-cuenta{margin-top:0}
+.ficha-seccion-valor{min-width:0;overflow:hidden;text-overflow:ellipsis;max-width:48%}

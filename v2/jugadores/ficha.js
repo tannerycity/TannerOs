@@ -45,7 +45,12 @@ const ICON={
   carta:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6"/><path d="M9 12h6"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
   lupa:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>',
-  camara:'<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'
+  camara:'<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  balon:'<circle cx="12" cy="12" r="9"/><path d="m12 7 4 3-1.5 4.5h-5L8 10z"/>',
+  familia:'<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a5 5 0 0 1 10 0"/><path d="M13.5 20a4 4 0 0 1 7.5-1.5"/>',
+  docs:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/>',
+  historia:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/>',
+  atras:'<path d="m15 18-6-6 6-6"/>'
 };
 const svg=(n,size=20)=>`<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 
@@ -63,18 +68,61 @@ async function permisos(){
 
 // Estado de la ficha abierta.
 let F=null;
-const TABS=[['resumen','Resumen'],['deportivo','Deportivo'],['pagos','Pagos'],['familia','Familia'],['expediente','Expediente']];
+/* Fase B estilo Apple (19/11/2026, Presidencia: "dale con todo"). Ya no hay
+   pestañas: la ficha es una lista como Ajustes del iPhone. Arriba lo de
+   siempre (foto, nombre, botones, avisos) y abajo un renglón por sección con
+   su dato ya escrito (cuánto debe, cómo va, qué falta). Tocar un renglón abre
+   esa sección como pantalla propia con "‹ Nombre" para regresar.
+   Por dentro sigue siendo F.tab y data-ficha: "resumen" es el inicio. */
+const SECCIONES=[['deportivo','Deportivo','balon','teal'],['pagos','Pagos','cuenta','rojo'],['familia','Familia','familia','navy'],
+  ['expediente','Expediente','docs','gris'],['historia','Historia','historia','verde']];
+const TITULO={...Object.fromEntries(SECCIONES.map(([k,l])=>[k,l])),historia:'Historia en el club'};
 const vista=()=>$('profileView');
 
 function tutorPrincipal(){return (F?.guardians||[]).find(g=>g.isPrimary)||(F?.guardians||[])[0]||null;}
 function telefono(g){const n=String(g?.phone||'').replace(/\D/g,'');return n.length===10?'52'+n:n;}
 const nombre=p=>[p?.firstName,p?.lastName].filter(Boolean).join(' ');
 
+// El dato que cada renglón ya trae escrito, para no tener que abrirlo.
+function datoDe(k){
+  if(k==='deportivo'){
+    const a=F.asistencia,sinEval=/Sin evaluación/i.test($('evaluationDate')?.textContent||'Sin evaluación');
+    return {sub:[a?.pct!=null?`${Math.round(a.pct)}% asistencia`:null,sinEval?'sin evaluar':'evaluado'].filter(Boolean).join(' · ')};
+  }
+  if(k==='pagos'){
+    const c=F.resumenCuenta;
+    return c?{sub:c.titulo,valor:c.saldo>0.004?pesos(c.saldo):'',debe:c.saldo>0.004}:{sub:''};
+  }
+  if(k==='familia'){
+    const g=tutorPrincipal(),h=F.hermanos?.length||0;
+    return {valor:[g?.name?String(g.name).split(' ')[0]:null,h?`${h} herman${h===1?'o':'os'}`:null].filter(Boolean).join(' · ')};
+  }
+  if(k==='expediente'){
+    const d=F.docs;
+    return d?{valor:d.faltan?`${d.entregados} de ${d.total}`:'Completo',debe:d.faltan>0}:{valor:''};
+  }
+  if(k==='historia'){
+    const t=(F.historia||[]).map(e=>String(e.date||'')).filter(Boolean).sort()[0];
+    return {valor:t?`desde ${mesCorto(t)} ${t.slice(0,4)}`:''};
+  }
+  return {};
+}
+function seccionesVisibles(){
+  return SECCIONES.filter(([k])=>(k!=='pagos'||F.canMoney)&&(k!=='historia'||(F.historia||[]).length));
+}
 function pintaTabs(){
   const nav=$('fichaTabs');if(!nav||!F)return;
-  const lista=TABS.filter(([k])=>k!=='pagos'||F.canMoney);
-  if(!lista.some(([k])=>k===F.tab))F.tab=lista[0][0];
-  nav.innerHTML=lista.map(([k,l])=>`<button type="button" role="tab" aria-selected="${k===F.tab}" data-ficha-tab="${k}">${l}</button>`).join('');
+  const lista=seccionesVisibles();
+  if(F.tab!=='resumen'&&!lista.some(([k])=>k===F.tab))F.tab='resumen';
+  nav.setAttribute('aria-label','Secciones de la ficha');nav.removeAttribute('role');
+  nav.innerHTML=lista.map(([k,l,ico,tono])=>{const d=datoDe(k);
+    return `<button type="button" class="ficha-seccion" aria-selected="${k===F.tab}" data-ficha-tab="${k}"><span class="ficha-seccion-ico ${tono}">${svg(ico,17)}</span><span class="ficha-seccion-txt"><b>${esc(l)}</b>${d.sub?`<small>${esc(d.sub)}</small>`:''}</span>${d.valor?`<span class="ficha-seccion-valor${d.debe?' debe':''}">${esc(d.valor)}</span>`:''}${svg('chevron',16)}</button>`;}).join('');
+  // La barra de regreso de cada pantalla.
+  let barra=$('fichaBarra');
+  if(!barra){barra=document.createElement('div');barra.id='fichaBarra';barra.className='ficha-barra';vista()?.prepend(barra);}
+  const quien=F.player?.firstName||'Ficha';
+  barra.innerHTML=`<button type="button" data-ficha-tab="resumen" aria-label="Regresar a la ficha de ${esc(quien)}">${svg('atras',20)}<span>${esc(quien)}</span></button><strong>${esc(TITULO[F.tab]||'')}</strong>`;
+  vista()?.classList.toggle('ficha-sub',F.tab!=='resumen');
   document.querySelectorAll('#profileView [data-ficha]').forEach(el=>{
     const en=el.dataset.ficha.split(/\s+/).includes(F.tab);
     el.classList.toggle('ficha-oculta',!en);
@@ -82,8 +130,9 @@ function pintaTabs(){
 }
 function irA(tab,despues){
   if(!F)return;F.tab=tab;pintaTabs();
-  const nav=$('fichaTabs');
-  if(nav)nav.scrollIntoView({behavior:'smooth',block:'start'});
+  // Pantalla nueva: arriba del todo, como al entrar a una sección del iPhone.
+  for(let el=vista();el;el=el.parentElement){if(el.scrollTop>0)el.scrollTop=0;}
+  if(document.scrollingElement)document.scrollingElement.scrollTop=0;
   if(despues)setTimeout(despues,250);
 }
 
@@ -217,6 +266,7 @@ function cerrarMas(){if($('fichaMas'))$('fichaMas').hidden=true;if($('fichaMasFo
 function pintaBeca(){
   const box=$('fichaBeca');if(!box)return;
   const b=F?.beca;
+  box.dataset.ficha=F?.canMoney?'pagos':'resumen';
   if(!b){box.hidden=true;box.innerHTML='';return;}
   box.innerHTML=`<span class="ficha-beca-ico">${svg('carta',20)}</span><span class="ficha-beca-txt"><strong>${esc(b.tipo)}${b.cuanto?` · ${esc(b.cuanto)}`:''}</strong><small>${b.quien?`Lo cubre ${esc(b.quien)}`:'Sin patrocinador registrado'}${b.hasta?` · hasta ${esc(fecha(b.hasta))}`:''}${b.pendiente?' · falta configurar cuánto cubre':''}</small></span>${svg('chevron',16)}`;
   box.hidden=false;
@@ -244,6 +294,7 @@ function pintaCuenta(){
   const estadoCuenta=estadoDeSaldo(saldo,vencidoMasViejo,hoy);
   const titulo=estadoCuenta==='al_dia'?ESTADO_DINERO.al_dia.texto
     :`${ESTADO_DINERO[estadoCuenta].texto} · ${debe>0?`debe ${debe} mes${debe===1?'':'es'}`:'saldo pendiente'}`;
+  F.resumenCuenta={titulo,saldo};
   const filaCuenta=`<button type="button" class="ficha-cuenta-fila ${saldo>0.004?'debe':'ok'}" data-estado="${estadoCuenta}" data-ficha-ir="pagos">
     <span class="ficha-ico">${svg('cuenta')}</span>
     <span class="ficha-cuenta-txt"><span class="ficha-cuenta-top"><strong>${titulo}</strong>${saldo>0.004?`<b>${esc(pesos(saldo))}</b>`:''}</span>
@@ -254,12 +305,14 @@ function pintaCuenta(){
   const ESTADO={pending_payment:'Pendiente de pago',partial_payment:'Pago parcial',paid:'Pagado',in_production:'En producción',ready:'Listo para entregar'};
   const filasPedido=activos.map(o=>{const falta=Number(o.total||0)-Number(o.paid||0);
     return `<a class="ficha-cuenta-fila" href="/pedidos/"><span class="ficha-ico oro">${svg('bolsa')}</span><span class="ficha-cuenta-txt"><strong>Pedido activo${o.folio?` · ${esc(o.folio)}`:''}</strong><small>${esc(ESTADO[o.status]||o.status||'')}${falta>0.004?` · faltan ${esc(pesos(falta))}`:' · pagado'}</small></span><span class="ficha-chev">${svg('chevron',16)}</span></a>`;}).join('');
-  box.innerHTML=filaCuenta+filasPedido;box.hidden=false;
+  box.innerHTML=filaCuenta+filasPedido;box.hidden=false;box.dataset.ficha='pagos';pintaTabs();
 }
 
 /* ---------- Perfil deportivo Tanner ---------- */
 function pintaPerfil(){
   const box=$('fichaPerfil');if(!box||!F)return;
+  // Fase B: vive dentro de Deportivo (data-ficha), arriba de la evaluación.
+  box.dataset.ficha='deportivo';
   const p=F.player;
   const evalTxt=$('evaluationDate')?.textContent?.trim()||'Sin evaluación';
   const sinEval=/Sin evaluación/i.test(evalTxt);
@@ -269,22 +322,18 @@ function pintaPerfil(){
       <div><span>Asistencia 30 días</span><strong>${asis?.pct!=null?esc(`${Math.round(asis.pct)}%`):'—'}</strong><small>${asis?.pct!=null?esc(asis.texto):'Sin registros'}</small></div>
       <div><span>Última evaluación</span><strong class="${sinEval?'pend':''}">${sinEval?'Sin evaluar':esc(evalTxt.replace(/^Evaluación\s*/,''))}</strong><small>${sinEval?'Pendiente este ciclo':'Perfil Tanner'}</small></div>
     </div>`;
+  pintaTabs();
 }
 
 /* ---------- Resumen: pendientes, hermanos e historia ---------- */
 function pintaResumen(){
   const box=$('fichaResumen');if(!box||!F)return;
-  const p=F.player,items=[];
-  // Fase A estilo Apple (19/11/2026): "una cosa, un lugar". El permiso de
-  // imagen y los documentos ya salen arriba, en la lista de avisos; aquí sólo
-  // queda lo que no está arriba. Sin nada, la tarjeta no sale (no decimos
-  // "Todo al día" si arriba hay un aviso rojo).
-  const sinEval=/Sin evaluación/i.test($('evaluationDate')?.textContent||'Sin evaluación');
-  if(sinEval)items.push({tono:'oro',t:'Evaluación del ciclo',d:'Todavía sin Perfil Tanner',attr:'data-ficha-ir="deportivo"'});
-  const lista=items.map(i=>`<button type="button" class="ficha-fila" ${i.attr}><i class="${i.tono}"></i><span><strong>${esc(i.t)}</strong><small>${esc(i.d)}</small></span>${svg('chevron',16)}</button>`).join('');
-  const hermanos=F.hermanos?.length
-    ?`<div class="ficha-card"><h3>FAMILIA EN EL CLUB</h3>${F.hermanos.map(h=>`<a class="ficha-fila" href="/jugadores/?player=${encodeURIComponent(h.id)}"><i class="teal"></i><span><strong>${esc(h.name)}</strong><small>${esc(h.category||'Sin categoría')}${h.status!=='active'?' · baja':''}</small></span>${svg('chevron',16)}</a>`).join('')}</div>`:'';
-  box.innerHTML=`${lista?`<div class="ficha-card"><h3>PENDIENTES</h3>${lista}</div>`:''}${hermanos}${pintaHistoria()}`;
+  // Fase B: esta caja es la pantalla "Historia en el club". Lo que antes
+  // vivía aquí ya tiene su lugar: la evaluación pendiente se lee en el
+  // renglón Deportivo ("sin evaluar") y los hermanos, en Familia.
+  box.dataset.ficha='historia';
+  box.innerHTML=pintaHistoria();
+  pintaTabs();
 }
 const KIND={joined:'teal',category:'teal',evaluation:'oro',callup:'navy',consent:'teal',withdrawn:'rojo',benefit:'oro'};
 function pintaHistoria(){
@@ -313,6 +362,7 @@ function pintaDocs(){
   box.innerHTML=`<div class="docs-barra"><span style="width:${total?Math.round(entregados/total*100):0}%"></span></div>
     <div class="docs-linea"><strong>${entregados} de ${total} entregados</strong>${nombres.length&&tel?`<a class="docs-wa" href="https://wa.me/${tel}?text=${msg}" target="_blank" rel="noopener">${svg('wa',16)} Pedir por WhatsApp</a>`:''}</div>`;
   box.hidden=!total;
+  pintaTabs();
 }
 
 /* ---------- Permiso de imagen: tocar el aviso abre el registro ---------- */
@@ -336,6 +386,8 @@ async function alAbrir(d){
   d=d||{};
   const mismo=F&&F.playerId===d.playerId;
   const pm=await permisos();
+  // Profes y Academia entran directo a Deportivo (su trabajo es evaluar);
+  // "‹ Nombre" los lleva a la ficha completa.
   const tabInicial=['Formadores','Academia'].includes(pm.rol)?'deportivo':'resumen';
   F={...(mismo?F:{}),playerId:d.playerId,player:d.player||{},guardians:d.guardians||[],canWrite:Boolean(d.canWrite),canMoney:Boolean(d.canMoney),
      puedeCobrar:pm.cobrar,org:d.organizationId,tab:mismo?F.tab:tabInicial};
@@ -398,7 +450,7 @@ if($('photoCardAction'))fotoObs.observe($('photoCardAction'),{attributes:true,at
 document.addEventListener('click',e=>{
   const t=e.target.closest?.('[data-ficha-tab],[data-ficha-ir],[data-ficha-evaluar],[data-ficha-mas],[data-ficha-cerrar-mas],[data-ficha-carta],[data-ficha-foto],[data-ficha-permiso],#fichaAvatar,#fichaCartaFondo,#privacyBadges .profile-badge,.ficha-mas-viejas a[href^="#"]');
   if(!t||!F)return;
-  if(t.matches('[data-ficha-tab]')){F.tab=t.dataset.fichaTab;pintaTabs();return;}
+  if(t.matches('[data-ficha-tab]')){irA(t.dataset.fichaTab);return;}
   if(t.matches('[data-ficha-ir]')){e.preventDefault();irA(t.dataset.fichaIr);return;}
   if(t.matches('[data-ficha-evaluar]')){e.preventDefault();cerrarMas();irA('deportivo',()=>$('openEvaluation')?.click());return;}
   if(t.matches('[data-ficha-mas]')){abrirMas();return;}

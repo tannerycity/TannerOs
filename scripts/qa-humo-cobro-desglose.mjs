@@ -373,7 +373,7 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   const p = await abre(true, '/v2/taquilla/', 1280);
   await p.waitForSelector('#cobroRapido:not(.hidden) #rapidoSearch', { timeout:8000 });
   revisa('[taquilla] lo primero es "¿A quién le cobras?"', /¿A quién le cobras\?/.test(await texto(p, '#cobroRapido')));
-  revisa('[taquilla] "Cotizar" lleva a la calculadora en modo staff', (await p.getAttribute('#cobroRapido .cotizar-link', 'href')) === '/costos/?para=familia');
+  revisa('[taquilla] "Cotizar" ya no está dentro de cobrar: va abajo, con lo de vez en cuando, y lleva a la calculadora en modo staff', (await p.getAttribute('.cashier-otros .cotizar-link', 'href')) === '/costos/?para=familia' && !(await p.$('#cobroRapido .cotizar-link')));
   await p.waitForSelector('#hoyEsperamos:not(.hidden) .hoy-chip', { timeout:5000 });
   const chips = await p.$$eval('#hoyEsperamos .hoy-chip', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   revisa('[hoy] "Hoy esperamos" con monto y cuándo (vencido incluido)', JSON.stringify(chips) === JSON.stringify(['Liam Santos$600.00 · hoy','Liam Santos$300.00 · vencido']), JSON.stringify(chips));

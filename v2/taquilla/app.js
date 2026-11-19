@@ -189,7 +189,8 @@ function applyLedgerVisibility(){
   // se hacía con un `querySelectorAll` de `.cashier-panel` había que ir
   // excluyendo a mano cada panel nuevo —y el día que alguien olvidara una
   // exclusión, el panel se escondía justo para el rol que lo pidió.
-  const actions=document.querySelector('.cashier-head-actions');if(actions)actions.classList.toggle('hidden',!canViewLedger);
+  // El día de la caja y el corte son de quien revisa la caja; la ventanilla sólo cobra y paga.
+  document.querySelector('.cashier-fecha')?.classList.toggle('hidden',!canViewLedger);$('printClose')?.classList.toggle('hidden',!canViewLedger);
   $('cashTodayCard')?.classList.toggle('hidden',canViewLedger);
   if(vistasListas)mostrarVista(vistaActual);
 }

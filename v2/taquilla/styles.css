@@ -598,3 +598,34 @@ button.cob-tile{cursor:pointer}
 .cc-que li::before{content:"";position:absolute;left:0;top:.55em;width:5px;height:5px;border-radius:50%;background:var(--tos-teal,#087d8e)}
 .cc-que li.cc-que-mas{color:#5f7076;font-weight:600}
 .cc-que li.cc-que-mas::before{display:none}
+
+/* ---------- Taquilla rediseñada (19/11/2026) ----------
+   Jerarquía: 1) ¿a quién le cobras? 2) COBRAR / PAGAR lado a lado, COBRAR
+   lleno y PAGAR con contorno (se usa menos) 3) lo de vez en cuando, en chips
+   chicos al final. Todo lo tocable mide 44 px o más. */
+.cashier-head-compacta{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 12px}
+.cashier-head-compacta h1{margin:0;font-size:30px;line-height:1.1}
+.cashier-fecha input{min-height:44px;padding:0 12px;border:1px solid var(--tos-line,#dedbd0);border-radius:12px;background:#fff;font:inherit;font-size:15px;font-weight:700;color:#0d2730}
+.cobro-hero{margin:0 0 12px;padding:18px;border:2px solid #1a9a4c;box-shadow:0 14px 30px -20px rgba(26,154,76,.55)}
+.cobro-hero .tsearch-label{display:block;margin-bottom:8px;font-size:20px;font-weight:900;letter-spacing:-.01em}
+.cobro-hero .tsearch-field input{min-height:56px;font-size:18px}
+.cashier-actions-par{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 12px}
+@media(min-width:760px){.cashier-actions-par{grid-template-columns:1fr 1fr}}
+.cashier-actions-par .cashier-action{min-height:96px;border-radius:20px;gap:2px;padding:12px}
+.cashier-actions-par .cashier-action svg{width:26px;height:26px}
+.cashier-actions-par .cashier-action strong{font-size:22px;letter-spacing:.04em}
+.cashier-actions-par .cashier-action small{font-size:12px;opacity:.9}
+.cashier-actions-par .cashier-action.expense{background:#fff;color:#c4421f;box-shadow:inset 0 0 0 2px #e05a33}
+.cashier-actions-par .cashier-action.expense small{color:#8a3a20}
+.cashier-otros{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 18px}
+.cashier-otro{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--tos-line,#dedbd0);border-radius:999px;background:#fff;color:#2b4a52;font:inherit;font-size:14px;font-weight:800;text-decoration:none;cursor:pointer}
+.cashier-otro svg{width:18px;height:18px;flex:none}
+.cashier-otro:hover{background:#f3f8f8}
+.cashier-otro:focus-visible{outline:2px solid #087d8e;outline-offset:2px}
+.cashier-otros .cotizar-link{margin:0}
+.cashier-otros .cotizar-link b{color:inherit;text-decoration:none}
+#miCorte{margin:0 0 12px}
+/* Los dos de vez en cuando, lado a lado en el teléfono. */
+.cashier-otros{display:grid;grid-template-columns:1fr 1fr}
+.cashier-otro{justify-content:center;padding:6px 10px;border-radius:14px;font-size:13px;line-height:1.2;text-align:center}
+@media(min-width:760px){.cashier-otros{display:flex}.cashier-otro{padding:0 16px;border-radius:999px;font-size:14px}}

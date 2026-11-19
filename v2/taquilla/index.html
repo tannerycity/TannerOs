@@ -24,22 +24,30 @@
         <div class="tos-top-right"><span id="shellHealth" class="tos-health" data-state="ok"><i></i><span>Todo en orden</span></span><span id="shellRole" class="tos-role">Rol</span></div>
       </header>
       <main class="tos-content cashier-page">
-        <section class="cashier-head">
-          <div><span class="cashier-eyebrow">OPERACIÓN DE CAJA</span><h1>Taquilla</h1><p>Cobra, consulta movimientos y cierra caja sin duplicar la contabilidad.</p></div>
-          <div class="cashier-head-actions"><label>Fecha<input id="businessDate" type="date"></label><button id="printClose" class="cashier-secondary" type="button">Corte de caja · PDF</button><p id="cutMessage" class="cashier-message hidden"></p></div>
+        <!-- Taquilla rediseñada (19/11/2026, Presidencia: "hacerlo más fácil para
+             Zul"). Una pregunta arriba (¿a quién le cobras?), los dos botones de
+             siempre justo abajo y, chiquito y al final, lo que se usa de vez en
+             cuando: el corte de caja y cotizar a una familia nueva. Antes había
+             encabezado con explicación, fecha y corte ANTES de poder cobrar, y
+             "Cotizar" metido dentro de la tarjeta de cobrar. -->
+        <section class="cashier-head cashier-head-compacta">
+          <h1>Taquilla</h1>
+          <label class="cashier-fecha"><span class="tos-sr">Día de la caja</span><input id="businessDate" type="date" aria-label="Día de la caja"></label>
         </section>
-        <!-- Lo que más se hace en Taquilla, primero: escribir el nombre y
-             cobrar. Abre la hoja con lo que debe ya elegido (3 toques). -->
-        <section id="cobroRapido" class="cobro-rapido hidden">
+        <section id="cobroRapido" class="cobro-rapido cobro-hero hidden">
           <div class="tsearch wide" id="rapidoBox"><span class="tsearch-label">¿A quién le cobras?</span><div class="tsearch-field"><input type="text" id="rapidoSearch" placeholder="Escribe el nombre del Tanner…" autocomplete="off"><button type="button" class="tsearch-clear hidden" id="rapidoClear" aria-label="Quitar">×</button><div class="tsearch-results hidden" id="rapidoResults"></div></div><input type="hidden" id="rapidoPlayer" value=""></div>
-          <a class="cotizar-link" href="/costos/?para=familia">¿Una familia nueva pregunta cuánto cuesta? <b>Cotizar</b></a>
           <div id="hoyEsperamos" class="hoy-esperamos hidden"></div>
-          <div id="miCorte" class="mi-corte hidden"></div>
         </section>
-        <section class="cashier-actions">
-          <button id="openCollect" class="cashier-action collect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg><strong>COBRAR</strong><small>Entra dinero al club</small></button>
-          <button id="openExpense" class="cashier-action expense" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/></svg><strong>PAGAR</strong><small id="paySubtitle">Sale dinero del club</small></button>
+        <section class="cashier-actions cashier-actions-par">
+          <button id="openCollect" class="cashier-action collect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg><strong>COBRAR</strong><small>Entra dinero</small></button>
+          <button id="openExpense" class="cashier-action expense" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/></svg><strong>PAGAR</strong><small id="paySubtitle">Sale dinero</small></button>
         </section>
+        <div id="miCorte" class="mi-corte hidden"></div>
+        <nav class="cashier-otros" aria-label="Otras cosas de la caja">
+          <button id="printClose" class="cashier-otro" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M8 14h8v7H8z"/></svg>Corte de caja</button>
+          <a class="cotizar-link cashier-otro" href="/costos/?para=familia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h3"/></svg>Cotizar a una familia nueva</a>
+        </nav>
+        <p id="cutMessage" class="cashier-message hidden"></p>
 
         <!-- Taquilla tenía cinco puertas de entrada: COBRAR, PAGAR, CUÁNTO
              COBRAR, la barra de conciliación y el panel de Cobranza, todas

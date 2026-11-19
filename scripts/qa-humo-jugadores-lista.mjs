@@ -117,7 +117,7 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p = await abre('Presidencia', ctx);
-  const filas = await p.$$eval('#playerList .jrow', bs => bs.map(b => ({ id: b.dataset.playerId, txt: b.innerText.replace(/\s+/g, ' ').trim(), alto: b.getBoundingClientRect().height, punto: !!b.querySelector('.jrow-punto') })));
+  const filas = await p.$$eval('#playerList .jrow', bs => bs.map(b => ({ id: b.dataset.playerId, txt: b.innerText.replace(/\s+/g, ' ').trim(), alto: b.getBoundingClientRect().height, punto: !!b.querySelector('.jrow-txt small.falta') })));
   revisa('1. la lista es la vista por defecto: un renglón por Tanner', filas.length === 3 && await p.isVisible('#vistaJugadores [data-vista-jug="lista"][aria-pressed="true"]'), filas);
   revisa('1. cada renglón mide lo que un dedo', filas.every(f => f.alto >= 44), filas.map(f => f.alto));
   const m = filas.find(f => f.id === 'p1'), a = filas.find(f => f.id === 'p2'), i = filas.find(f => f.id === 'p3');
@@ -170,7 +170,7 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p = await abre('Formadores', ctx);
-  revisa('2. el profe no ve puntos de expediente', (await p.$$('#playerList .jrow-punto')).length === 0 && (await p.$$('#playerList .jrow')).length === 3);
+  revisa('2. el profe no ve puntos de expediente', (await p.$$('#playerList .jrow-txt small.falta')).length === 0 && (await p.$$('#playerList .jrow')).length === 3);
   await desliza(p, 'p2', 220);
   revisa('7. el profe desliza y ve WhatsApp, sin Cobrar', await abierto(p, 'p2') && !(await p.$('.jrow-wrap.abierto .jrow-acc.cobrar')) && await p.isVisible('.jrow-wrap.abierto .jrow-acc.wa'));
   await ctx.close();
@@ -180,7 +180,7 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p = await abre('Taquilla', ctx, JUG_H96);
-  const f = await p.$$eval('#playerList .jrow', bs => Object.fromEntries(bs.map(b => [b.dataset.playerId, { txt: b.innerText.replace(/\s+/g, ' ').trim(), punto: !!b.querySelector('.jrow-punto'), pos: b.querySelector('.jrow-pos')?.textContent || '', num: b.querySelector('.jrow-num')?.textContent || '', motivo: b.querySelector('.jrow-txt small')?.textContent || '' }])));
+  const f = await p.$$eval('#playerList .jrow', bs => Object.fromEntries(bs.map(b => [b.dataset.playerId, { txt: b.innerText.replace(/\s+/g, ' ').trim(), punto: !!b.querySelector('.jrow-txt small.falta'), pos: b.querySelector('.jrow-pos')?.textContent || '', num: b.querySelector('.jrow-num')?.textContent || '', motivo: b.querySelector('.jrow-txt small')?.textContent || '' }])));
   revisa('R2: con deuda, el punto dice cuánto debe (h96)', f.t1?.punto && /Debe \$1,600/.test(f.t1.txt), f.t1);
   revisa('R2: sin permiso de expediente, el motivo sólo habla de dinero (ni documentos ni permisos)', /^Debe \$1,600$/.test(f.t1?.motivo || ''), f.t1);
   revisa('frontera del saldo: $0.01 sí pinta; $0 y vacío no', f.t2?.punto && !f.t3?.punto && !f.t4?.punto, { t2: f.t2, t3: f.t3, t4: f.t4 });

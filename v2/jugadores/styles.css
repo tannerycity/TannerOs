@@ -742,3 +742,7 @@ body.ficha-visor-abierto{overflow:hidden}
 
 /* Portero en la ficha (13/11/2026) */
 .ficha-chip.portero{background:#e8eefb;color:#2c3f86;border-color:transparent;font-weight:800}
+
+/* Semáforo del dinero igual que en Taquilla (19/11/2026, v2/estados.js) */
+.ficha-mes.atrasado{background:#ffe9e6;color:#a32920}.ficha-mes.por-vencer{background:#fff4e5;color:#7a4b00}
+.pagos-estado[data-estado="atrasado"]{background:#ffe9e6;color:#a32920}.pagos-estado[data-estado="por_vencer"]{background:#fff4e5;color:#7a4b00}.pagos-estado[data-estado="al_dia"]{background:#e7f6ec;color:#1d7a3d}

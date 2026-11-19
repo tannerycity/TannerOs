@@ -10,7 +10,7 @@
  * Esta prueba levanta /v2/jugadores/ REAL con un Supabase falso y revisa:
  *   · la carta FIFA no ocupa la pantalla: se abre al tocar la foto y se cierra;
  *   · la beca sale en franja dorada con cuánto, quién y hasta cuándo;
- *   · "Debe 2 meses · $1,600" con los meses en color y el pedido activo;
+ *   · "Atrasado · debe 2 meses · $1,600" (el semáforo de Taquilla) con los meses en color y el pedido activo;
  *   · Presidencia abre en Resumen; un profe en Deportivo y sin Pagos ni adeudo;
  *   · cada pestaña muestra sólo lo suyo (el formulario se reparte);
  *   · pendientes: permiso de imagen, documentos faltantes y evaluación;
@@ -157,8 +157,9 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   revisa('[beca] franja dorada visible', await visible(p, '#fichaBeca'));
   revisa('[beca] dice cuánto, quién y hasta cuándo', /Beca parcial · 50% de la mensualidad/.test(beca) && /Lo cubre Don Trapo/.test(beca) && /hasta 31 dic/.test(beca), beca);
   const cuenta = await texto(p, '#fichaCuenta');
-  revisa('[cuenta] debe 2 meses y cuánto', /Debe 2 meses/.test(cuenta) && /\$1,600/.test(cuenta), cuenta.slice(0,160));
-  revisa('[cuenta] meses en color', (await p.$$('#fichaCuenta .ficha-mes.vencido')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.pagado')).length === 1, cuenta);
+  revisa('[cuenta] el mismo semáforo que Taquilla: Atrasado · debe 2 meses y cuánto', /Atrasado · debe 2 meses/.test(cuenta) && /\$1,600/.test(cuenta) && !/Al corriente|vencido/.test(cuenta), cuenta.slice(0,160));
+  revisa('[cuenta] la fila dice su estado para el color', await p.$eval('#fichaCuenta .ficha-cuenta-fila', b => b.dataset.estado) === 'atrasado');
+  revisa('[cuenta] meses en color', (await p.$$('#fichaCuenta .ficha-mes.atrasado')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.por-vencer')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.pagado')).length === 1, cuenta);
   revisa('[cuenta] último pago', /Último pago .* Efectivo/.test(cuenta));
   revisa('[cuenta] pedido activo y lo que falta (no el entregado)', /Pedido activo · TC-0142/.test(cuenta) && /faltan \$250/.test(cuenta) && !/TC-0100/.test(cuenta), cuenta);
   const perfil = await texto(p, '#fichaPerfil');

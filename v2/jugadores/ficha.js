@@ -23,6 +23,7 @@
 import { createClient } from '/v2/supabase-client.js';
 import { nombreDelClub } from '/v2/club.js';
 import { relacion, telefonoBonito } from '/v2/contacto.js';
+import { ESTADO_DINERO, estadoDeSaldo, estadoDeMes, TEXTO_MES, hoyMx } from '/v2/estados.js';
 
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);
@@ -220,19 +221,25 @@ function pintaBeca(){
 function pintaCuenta(){
   const box=$('fichaCuenta');if(!box)return;
   if(!F?.canMoney||!F.cuenta){box.hidden=true;box.innerHTML='';return;}
-  const d=F.cuenta,s=d.summary||{},hoy=new Date().toISOString().slice(0,10);
+  const d=F.cuenta,s=d.summary||{},hoy=hoyMx();
   const saldo=Number(s.balance||0);
   const mensual=(d.ledger||[]).filter(m=>m.kind==='charge'&&m.subtype==='monthly_fee'&&m.period);
   const porMes=new Map();
   mensual.forEach(m=>{const k=String(m.period).slice(0,7);const a=porMes.get(k)||{saldo:0,vence:m.date};a.saldo+=Number(m.charge_balance||0);porMes.set(k,a);});
   const meses=[...porMes.entries()].sort((a,b)=>a[0].localeCompare(b[0])).slice(-3);
   const debe=[...porMes.values()].filter(v=>v.saldo>0.004).length;
-  const chips=meses.map(([k,v])=>{const estado=v.saldo<=0.004?'pagado':String(v.vence||'')<hoy?'vencido':'por vencer';
-    return `<span class="ficha-mes ${estado.replace(' ','-')}">${esc(mesCorto(k+'-01'))} ${estado}</span>`;}).join('');
+  // Mismo semáforo que Taquilla (v2/estados.js): pagado, por vencer, atrasado.
+  const chips=meses.map(([k,v])=>{const estado=estadoDeMes(v.saldo,v.vence,hoy);
+    return `<span class="ficha-mes ${estado.replace('_','-')}">${esc(mesCorto(k+'-01'))} ${TEXTO_MES[estado]}</span>`;}).join('');
   const pago=(d.ledger||[]).find(m=>m.kind==='payment'&&m.status==='posted');
   const METODO={cash:'Efectivo',transfer:'Transferencia',card:'Tarjeta'};
-  const titulo=saldo>0.004?(debe>0?`Debe ${debe} mes${debe===1?'':'es'}`:'Tiene saldo pendiente'):'Al corriente';
-  const filaCuenta=`<button type="button" class="ficha-cuenta-fila ${saldo>0.004?'debe':'ok'}" data-ficha-ir="pagos">
+  // "Atrasado · debe 2 meses": primero el estado (la misma palabra que en
+  // Taquilla) y luego el detalle. Atrasado si algo de lo que debe ya venció.
+  const vencidoMasViejo=[...porMes.values()].filter(v=>v.saldo>0.004).map(v=>String(v.vence||'')).filter(Boolean).sort()[0]||s.oldest_due||'';
+  const estadoCuenta=estadoDeSaldo(saldo,vencidoMasViejo,hoy);
+  const titulo=estadoCuenta==='al_dia'?ESTADO_DINERO.al_dia.texto
+    :`${ESTADO_DINERO[estadoCuenta].texto} · ${debe>0?`debe ${debe} mes${debe===1?'':'es'}`:'saldo pendiente'}`;
+  const filaCuenta=`<button type="button" class="ficha-cuenta-fila ${saldo>0.004?'debe':'ok'}" data-estado="${estadoCuenta}" data-ficha-ir="pagos">
     <span class="ficha-ico">${svg('cuenta')}</span>
     <span class="ficha-cuenta-txt"><span class="ficha-cuenta-top"><strong>${titulo}</strong>${saldo>0.004?`<b>${esc(pesos(saldo))}</b>`:''}</span>
     ${chips?`<span class="ficha-meses">${chips}</span>`:''}

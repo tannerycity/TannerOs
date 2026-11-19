@@ -598,3 +598,116 @@ button.cob-tile{cursor:pointer}
 .cc-que li::before{content:"";position:absolute;left:0;top:.55em;width:5px;height:5px;border-radius:50%;background:var(--tos-teal,#087d8e)}
 .cc-que li.cc-que-mas{color:#5f7076;font-weight:600}
 .cc-que li.cc-que-mas::before{display:none}
+
+/* ---------- Taquilla rediseñada (19/11/2026) ----------
+   Jerarquía: 1) ¿a quién le cobras? 2) COBRAR / PAGAR lado a lado, COBRAR
+   lleno y PAGAR con contorno (se usa menos) 3) lo de vez en cuando, en chips
+   chicos al final. Todo lo tocable mide 44 px o más. */
+.cashier-head-compacta{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 12px}
+.cashier-head-compacta h1{margin:0;font-size:30px;line-height:1.1}
+.cashier-fecha input{min-height:44px;padding:0 12px;border:1px solid var(--tos-line,#dedbd0);border-radius:12px;background:#fff;font:inherit;font-size:15px;font-weight:700;color:#0d2730}
+.cobro-hero{margin:0 0 12px;padding:18px;border:2px solid #1a9a4c;box-shadow:0 14px 30px -20px rgba(26,154,76,.55)}
+.cobro-hero .tsearch-label{display:block;margin-bottom:8px;font-size:20px;font-weight:900;letter-spacing:-.01em}
+.cobro-hero .tsearch-field input{min-height:56px;font-size:18px}
+.cashier-actions-par{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 12px}
+@media(min-width:760px){.cashier-actions-par{grid-template-columns:1fr 1fr}}
+.cashier-actions-par .cashier-action{min-height:96px;border-radius:20px;gap:2px;padding:12px}
+.cashier-actions-par .cashier-action svg{width:26px;height:26px}
+.cashier-actions-par .cashier-action strong{font-size:22px;letter-spacing:.04em}
+.cashier-actions-par .cashier-action small{font-size:12px;opacity:.9}
+.cashier-actions-par .cashier-action.expense{background:#fff;color:#c4421f;box-shadow:inset 0 0 0 2px #e05a33}
+.cashier-actions-par .cashier-action.expense small{color:#8a3a20}
+.cashier-otros{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 18px}
+.cashier-otro{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--tos-line,#dedbd0);border-radius:999px;background:#fff;color:#2b4a52;font:inherit;font-size:14px;font-weight:800;text-decoration:none;cursor:pointer}
+.cashier-otro svg{width:18px;height:18px;flex:none}
+.cashier-otro:hover{background:#f3f8f8}
+.cashier-otro:focus-visible{outline:2px solid #087d8e;outline-offset:2px}
+.cashier-otros .cotizar-link{margin:0}
+.cashier-otros .cotizar-link b{color:inherit;text-decoration:none}
+#miCorte{margin:0 0 12px}
+/* Los dos de vez en cuando, lado a lado en el teléfono. */
+.cashier-otros{display:grid;grid-template-columns:1fr 1fr}
+.cashier-otro{justify-content:center;padding:6px 10px;border-radius:14px;font-size:13px;line-height:1.2;text-align:center}
+@media(min-width:760px){.cashier-otros{display:flex}.cashier-otro{padding:0 16px;border-radius:999px;font-size:14px}}
+
+/* ================= Taquilla estilo Apple (19/11/2026) =================
+   Presidencia: "más estilo Apple... súper simple, minimalista". Lenguaje de
+   iOS, sin inventar nada:
+   · Fondo gris de sistema y tarjetas blancas sin bordes, con sombra muy suave.
+   · Título grande; la fecha, gris y chiquita, como subtítulo.
+   · Buscador gris relleno, con lupa, sin borde (como el de Ajustes).
+   · Botones en minúsculas: Cobrar (verde lleno) y Pagar (gris con texto rojo).
+   · Lo de vez en cuando como renglones de Ajustes: ícono, texto y ">".
+   · Las vistas (Montos, Caja del día, Por conciliar) como control segmentado.
+   Todo lo tocable mide 44 px o más; los colores pasan contraste AA. */
+.cashier-apple{--ap-bg:#f2f2f7;--ap-card:#fff;--ap-txt:#1c1c1e;--ap-gris:#6e6e73;--ap-relleno:#e9e9ee;--ap-verde:#1e8e43;--ap-rojo:#c4321c;--ap-sep:rgba(60,60,67,.14);--ap-radio:16px;--ap-sombra:0 1px 2px rgba(0,0,0,.04),0 6px 18px -10px rgba(0,0,0,.18)}
+
+.cashier-apple .cashier-head-compacta{margin:2px 0 14px}
+.cashier-apple .cashier-head-compacta h1{font-size:34px;font-weight:800;letter-spacing:-.02em;color:var(--ap-txt)}
+.cashier-apple .cashier-fecha input{min-height:36px;padding:0 10px;border:0;border-radius:10px;background:var(--ap-relleno);color:var(--ap-gris);font-size:14px;font-weight:600}
+/* Buscador */
+.cashier-apple .cobro-hero{padding:16px;border:0;border-radius:var(--ap-radio);background:var(--ap-card);box-shadow:var(--ap-sombra)}
+.cashier-apple .cobro-hero .tsearch-label{margin-bottom:10px;font-size:17px;font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--ap-txt)}
+.cashier-apple .cobro-hero .tsearch-field input{min-height:48px;padding-left:42px;border:0;border-radius:12px;background:var(--ap-relleno) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 14px 50%/18px;font-size:17px;color:var(--ap-txt);box-shadow:none}
+.cashier-apple .cobro-hero .tsearch-field input:focus{outline:0;box-shadow:0 0 0 3px rgba(30,142,67,.28)}
+.cashier-apple .cobro-hero .tsearch-field input::placeholder{color:#8e8e93}
+/* Cobrar / Pagar */
+.cashier-apple .cashier-actions-par{gap:10px;margin:0 0 14px}
+.cashier-apple .cashier-actions-par .cashier-action{min-height:56px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;border-radius:14px;padding:0 14px;box-shadow:none}
+.cashier-apple .cashier-actions-par .cashier-action svg{width:22px;height:22px}
+.cashier-apple .cashier-actions-par .cashier-action strong{font-size:18px;font-weight:700;letter-spacing:-.01em;text-transform:none}
+.cashier-apple .cashier-actions-par .cashier-action small{display:none}
+.cashier-apple .cashier-actions-par .cashier-action.disabled small{display:block;font-size:12px}
+.cashier-apple .cashier-actions-par .cashier-action.collect{background:var(--ap-verde);color:#fff}
+.cashier-apple .cashier-actions-par .cashier-action.expense{background:var(--ap-relleno);color:var(--ap-rojo);box-shadow:none}
+.cashier-apple .cashier-actions-par .cashier-action:active{transform:scale(.98)}
+/* Mi corte de hoy: un renglón gris, sin línea arriba */
+.cashier-apple #miCorte{margin:0 0 14px;padding:0 4px;border:0}
+/* Lo de vez en cuando: lista agrupada de Ajustes */
+.cashier-apple .cashier-otros{display:block;margin:0 0 22px;border-radius:var(--ap-radio);background:var(--ap-card);box-shadow:var(--ap-sombra);overflow:hidden}
+.cashier-apple .cashier-otro{display:flex;width:100%;min-height:52px;justify-content:flex-start;gap:12px;padding:0 14px;border:0;border-radius:0;background:transparent;color:var(--ap-txt);font-size:16px;font-weight:500;text-align:left}
+.cashier-apple .cashier-otro+.cashier-otro{box-shadow:inset 46px 1px 0 -45px var(--ap-sep)}
+.cashier-apple .cashier-otro:not(.hidden)~.cashier-otro{border-top:1px solid var(--ap-sep);box-shadow:none}
+.cashier-apple .cashier-otro svg{width:20px;height:20px;color:var(--ap-gris)}
+.cashier-apple .cashier-otro .otro-txt{flex:1}
+.cashier-apple .cashier-otro .otro-chev{display:inline-flex;color:#c7c7cc}
+.cashier-apple .cashier-otro .otro-chev svg{width:16px;height:16px;color:inherit}
+.cashier-apple .cashier-otro:hover{background:#f7f7f9}
+.cashier-apple .cashier-otro:active{background:#ececf0}
+@media(min-width:760px){.cashier-apple .cashier-otros{display:block}.cashier-apple .cashier-otro{border-radius:0;padding:0 16px;font-size:16px}}
+/* Vistas: control segmentado */
+.cashier-apple .ver-tabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:2px;border-radius:10px;background:var(--ap-relleno);overflow:visible}
+.cashier-apple .ver-tabs button{justify-content:center;min-height:40px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--ap-txt);font-size:14px;font-weight:600;white-space:nowrap}
+.cashier-apple .ver-tabs button.active{background:#fff;color:var(--ap-txt);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
+.cashier-apple .ver-tabs .ver-badge{background:#ff3b30;min-width:19px;height:19px;font-size:11px}
+.cashier-apple .ver-tabs button.active .ver-badge{background:#ff3b30;color:#fff}
+/* Tarjetas de abajo: sin borde, la misma sombra */
+.cashier-apple .cashier-panel,.cashier-apple .cashier-cash-card,.cashier-apple .cashier-kpis article{border:0;border-radius:var(--ap-radio);box-shadow:var(--ap-sombra)}
+@media(prefers-reduced-motion:reduce){.cashier-apple .cashier-actions-par .cashier-action:active{transform:none}}
+/* Segmentado de 4 que cabe en 390 px (etiquetas cortas como en iOS: Cobranza, Montos, Caja, Conciliar). */
+.cashier-apple .ver-tabs{display:flex}
+.cashier-apple .ver-tabs button{flex:1 1 0;min-width:0;gap:4px;padding:0 4px;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.cashier-apple .ver-tabs .ver-badge{flex:none;min-width:17px;height:17px;padding:0 4px;font-size:10.5px}
+
+/* ===== Ajuste 2 estilo Apple (19/11/2026): botones más grandes y mosaicos ===== */
+/* Cobrar / Pagar: más grandes para atinarles al primer toque (76 px). */
+.cashier-apple .cashier-actions-par{gap:12px}
+.cashier-apple .cashier-actions-par .cashier-action{min-height:76px;border-radius:18px;gap:10px}
+.cashier-apple .cashier-actions-par .cashier-action svg{width:26px;height:26px}
+.cashier-apple .cashier-actions-par .cashier-action strong{font-size:21px}
+/* Vistas: mosaicos tipo Centro de control. */
+.cashier-apple .ver-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:10px;padding:0;border-radius:0;background:transparent}
+.cashier-apple .ver-tabs button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:78px;padding:10px 4px;border:0;border-radius:18px;background:var(--ap-card);color:var(--ap-txt);font-size:13px;font-weight:600;box-shadow:var(--ap-sombra);overflow:visible;white-space:nowrap}
+.cashier-apple .ver-tabs .ver-ico{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--ap-relleno);color:#3a3a3c}
+.cashier-apple .ver-tabs .ver-ico svg{width:19px;height:19px}
+.cashier-apple .ver-tabs .ver-txt{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.cashier-apple .ver-tabs button.active{background:#0d2730;color:#fff;box-shadow:0 8px 20px -10px rgba(13,39,48,.6)}
+.cashier-apple .ver-tabs button.active .ver-ico{background:rgba(255,255,255,.16);color:#fff}
+.cashier-apple .ver-tabs .ver-badge{position:absolute;top:8px;right:8px;min-width:20px;height:20px;padding:0 6px;border:2px solid var(--ap-card);background:#ff3b30;color:#fff;font-size:11px;font-weight:800;box-sizing:content-box}
+.cashier-apple .ver-tabs button.active .ver-badge{border-color:#0d2730;background:#ff3b30;color:#fff}
+.cashier-apple .ver-tabs button:active{transform:scale(.97)}
+@media(prefers-reduced-motion:reduce){.cashier-apple .ver-tabs button:active{transform:none}}
+/* El número rojo va en la esquina del ícono, como el globito de las apps de iOS. */
+.cashier-apple .ver-tabs .ver-ico{position:relative}
+.cashier-apple .ver-tabs .ver-badge{top:-7px;right:-12px}
+.cashier-apple .ver-tabs .ver-badge{top:-5px;right:-9px;min-width:12px;height:16px;padding:0 4px;font-size:10.5px;line-height:16px;border-width:2px}

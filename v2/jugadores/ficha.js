@@ -108,12 +108,17 @@ function pintaAvatar(){
 }
 function pintaChips(){
   const box=$('fichaChips');if(!box||!F)return;
+  // Estilo Apple (19/11/2026): ya no son pastillas de colores sino una lista
+  // agrupada; cada fila dice una cosa y la flecha avisa que se puede tocar.
+  const fila=(tono,texto,ir)=>ir
+    ?`<button type="button" class="ficha-chip ${tono}" data-ficha-ir="${ir}"><i aria-hidden="true"></i><span>${texto}</span>${svg('chevron',16)}</button>`
+    :`<span class="ficha-chip ${tono}"><i aria-hidden="true"></i><span>${texto}</span></span>`;
   const chips=[];
-  if(F.docs&&F.docs.faltan>0)chips.push(`<button type="button" class="ficha-chip alerta" data-ficha-ir="expediente">Falta${F.docs.faltan===1?'':'n'} ${F.docs.faltan} documento${F.docs.faltan===1?'':'s'}</button>`);
+  if(F.docs&&F.docs.faltan>0)chips.push(fila('alerta',`Falta${F.docs.faltan===1?'':'n'} ${F.docs.faltan} documento${F.docs.faltan===1?'':'s'}`,'expediente'));
   // Portero (13/11/2026): "que en su ficha diga eso". Sigue en su categoría y
-  // además entrena con la academia de porteros; el chip dice cuándo.
-  if(F.portero)chips.push(`<span class="ficha-chip portero">${esc(F.portero)}</span>`);
-  if(F.hermanos?.length)chips.push(`<button type="button" class="ficha-chip" data-ficha-ir="familia">${F.hermanos.length} herman${F.hermanos.length===1?'o':'os'} en el club</button>`);
+  // además entrena con la academia de porteros; la fila dice cuándo.
+  if(F.portero)chips.push(fila('portero',esc(F.portero)));
+  if(F.hermanos?.length)chips.push(fila('familia',`${F.hermanos.length} herman${F.hermanos.length===1?'o':'os'} en el club`,'familia'));
   box.innerHTML=chips.join('');
 }
 function pintaAcciones(){
@@ -261,7 +266,7 @@ function pintaPerfil(){
   const objetivo=$('evaluationObjectives')?.querySelector('div strong')?.textContent?.trim()||'';
   const asis=F.asistencia;
   const pos=[p.position||'Por definir',p.dominantFoot?({right:'Derecha',left:'Izquierda',both:'Ambas'}[p.dominantFoot]||p.dominantFoot):null].filter(Boolean).join(' · ');
-  box.innerHTML=`<div class="ficha-perfil-head"><span>PERFIL DEPORTIVO TANNER</span>${F.canWrite?'<button type="button" data-ficha-evaluar>Evaluar</button>':''}</div>
+  box.innerHTML=`<div class="ficha-perfil-head"><span>PERFIL DEPORTIVO TANNER</span></div>
     <div class="ficha-perfil-grid">
       <div><span>Asistencia 30 días</span><strong>${asis?.pct!=null?esc(`${Math.round(asis.pct)}%`):'—'}</strong><small>${asis?.pct!=null?esc(asis.texto):'Sin registros'}</small></div>
       <div><span>Última evaluación</span><strong class="${sinEval?'pend':''}">${sinEval?'Sin evaluar':esc(evalTxt.replace(/^Evaluación\s*/,''))}</strong><small>${sinEval?'Pendiente este ciclo':'Perfil Tanner'}</small></div>

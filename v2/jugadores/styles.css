@@ -839,3 +839,25 @@ body.ficha-visor-abierto{overflow:hidden}
 #profileView.ficha-sub .ficha-cuenta .ficha-meses{display:flex}
 #profileView.ficha-sub .ficha-cuenta{margin-top:0}
 .ficha-seccion-valor{min-width:0;overflow:hidden;text-overflow:ellipsis;max-width:48%}
+/* Avisos como globito rojo en su renglón (19/11/2026): ya no hay un grupo de
+   avisos aparte; los permisos viven en Expediente. */
+#profileView #fichaChips,#profileView .player-profile-hero #privacyBadges{display:none!important}
+.ficha-globo{flex:0 0 auto;min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:#e5483d;color:#fff;font-size:13px;font-weight:700;display:grid;place-items:center;line-height:1}
+.ficha-permisos{background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(3,47,59,.08);padding:4px 0;margin-bottom:12px}
+.ficha-permisos h3{margin:10px 14px 4px;font-size:12px;font-weight:600;letter-spacing:.04em;color:#6b7c82}
+#profileView .ficha-permisos #privacyBadges{display:flex;margin:0;box-shadow:none;border-radius:0}
+/* Pagos con número grande. */
+.ficha-pago-hero{display:grid!important;justify-items:center;gap:6px;text-align:center;padding:22px 16px 18px!important;cursor:default}
+.ficha-pago-monto{font-size:44px;line-height:1;font-weight:800;letter-spacing:-.02em;color:#b23a21}
+.ficha-pago-hero.ok .ficha-pago-monto{color:#1f9d55}
+.ficha-pago-estado{font-size:15px;color:#6b7c82;font-weight:600}
+.ficha-pago-hero .ficha-meses{justify-content:center}
+.ficha-pago-hero small{font-size:12.5px;color:#8a979b}
+.ficha-pago-cobrar{display:block;width:100%;margin-top:8px;padding:15px;border-radius:14px;background:#053746;color:#f2e6bd;font-weight:700;font-size:16px;text-decoration:none;text-align:center}
+#profileView.ficha-sub .ficha-cuenta .ficha-pago-hero .ficha-meses{display:flex}
+/* El recuadro de abajo ya no repite cuánto debe: lo dice el número grande. */
+#profileView.ficha-sub #pagosSnapshot .pagos-kpis article:nth-child(2){display:none}
+#profileView.ficha-sub #pagosSnapshot .pagos-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+#profileView .ficha-tabs .ficha-seccion{white-space:normal}
+.ficha-seccion-txt small{white-space:normal;line-height:1.3}
+#profileView.ficha-sub .ficha-beca{margin-top:10px}

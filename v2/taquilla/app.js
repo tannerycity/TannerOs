@@ -2146,6 +2146,15 @@ function mostrarVista(clave,desplazar){
   if(desplazar&&elegida)$(elegida.panel)?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+/* Mosaicos de las vistas (19/11/2026, Presidencia: "lo de cobranza, montos,
+   caja, conciliar... si lo puedes mejorar"). Como el Centro de control del
+   iPhone: ícono arriba, nombre abajo y el número rojo en la esquina. */
+const ICONO_VISTA={
+  cobranza:'<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/>',
+  montos:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  caja:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
+  concilia:'<path d="M20 6 9 17l-5-5"/>'
+};
 function pintaVerTabs(){
   const nav=$('verTabs');if(!nav)return;
   const lista=vistasDisponibles();
@@ -2156,7 +2165,7 @@ function pintaVerTabs(){
   nav.innerHTML=lista.map(v=>{
     const pend=v.clave==='concilia'?pendientesDeConcilia():0;
     const activa=v.clave===vistaActual;
-    return `<button type="button" role="tab" aria-selected="${activa}" class="${activa?'active':''}" data-vista="${esc(v.clave)}">${esc(v.etiqueta)}${pend?`<span class="ver-badge">${pend}</span>`:''}</button>`;
+    return `<button type="button" role="tab" aria-selected="${activa}" class="${activa?'active':''}" data-vista="${esc(v.clave)}"${pend?` aria-label="${esc(v.etiqueta)}: ${pend} pendientes"`:''}><span class="ver-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONO_VISTA[v.clave]||''}</svg>${pend?`<span class="ver-badge">${pend}</span>`:''}</span><span class="ver-txt">${esc(v.etiqueta)}</span></button>`;
   }).join('');
   nav.querySelectorAll('[data-vista]').forEach(b=>b.addEventListener('click',()=>{
     const clave=b.dataset.vista;

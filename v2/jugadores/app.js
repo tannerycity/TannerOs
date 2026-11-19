@@ -328,11 +328,10 @@ function vistaLista(){try{return localStorage.getItem(VISTA_KEY)!=='tarjetas';}c
 function avisosDe(p){
   // Sólo quien ve los filtros de expediente (jugadores_estado); al profe no le toca.
   const a=[];
-  // h96: si la lista ya trae el saldo (sólo llega a quien ve dinero), va primero.
-  if(canMoney&&Number(p.balance_due||0)>0.004)a.push(`Debe ${money.format(Number(p.balance_due))}`);
+  // Separación total: el dinero (lo que debe, cobro sin configurar) se ve en
+  // Taquilla. Aquí sólo lo del expediente del futbolista.
   if(!canStatus)return a;
   if(Number(p.docs_missing||0)>0)a.push(`Falta${Number(p.docs_missing)===1?'':'n'} ${p.docs_missing} documento${Number(p.docs_missing)===1?'':'s'}`);
-  if(p.status_value==='active'&&p.needs_review)a.push('Cobro sin configurar');
   if(!p.data_consent)a.push('Consentimiento pendiente');
   if(estadoDeImagen(p).clave==='sin_preguntar')a.push('Sin permiso de fotos');
   return a;
@@ -353,7 +352,7 @@ function cierraDeslizable(){if(abierto){abierto.style.transform='';abierto.paren
 function envuelveDeslizable(b,p){
   const w=document.createElement('div');w.className='jrow-wrap';
   const acc=[];
-  if(canMoney)acc.push(`<a class="jrow-acc cobrar" href="/taquilla/?action=cobrar&player=${encodeURIComponent(p.id)}&name=${encodeURIComponent(nameOf(p))}">Cobrar</a>`);
+  // Separación total (19/11/2026): cobrar vive en Taquilla, no en Jugadores.
   acc.push(`<button type="button" class="jrow-acc wa" data-wa="${esc(p.id)}">WhatsApp</button>`);
   w.innerHTML=`<div class="jrow-acciones">${acc.join('')}</div>`;
   w.appendChild(b);
@@ -437,7 +436,9 @@ const pesos=v=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).
 async function loadPagos(id){
   const box=$('pagosSnapshot');if(!box)return;
   const seq=++pagosSeq;
-  if(!canMoney){box.classList.add('hidden');box.innerHTML='';return;}
+  // Separación total (19/11/2026): el estado de cuenta vive en Taquilla
+  // (/tanner/?id=). La ficha ya no lo pide ni lo pinta.
+  box.classList.add('hidden');box.innerHTML='';return;
   box.classList.remove('hidden');
   box.innerHTML='<div class="pagos-head"><div><div class="eyebrow">PAGOS</div><h3>Lo que ha pagado</h3></div></div><div class="mini-empty">Cargando pagos…</div>';
   let d=null;

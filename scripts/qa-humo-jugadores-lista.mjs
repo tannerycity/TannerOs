@@ -4,7 +4,7 @@
  *   A · Cada Tanner es un renglón: foto chiquita, nombre, número y posición, y
  *       un punto rojo si le falta algo, con qué es en la línea de abajo. Las
  *       tarjetas con foto siguen a un toque ("Tarjetas") y se recuerda.
- *   B · Deslizar un renglón a la izquierda enseña Cobrar y WhatsApp sin abrir
+ *   B · Deslizar un renglón a la izquierda enseña WhatsApp sin abrir
  *       la ficha. El teléfono del tutor se pide hasta tocar WhatsApp.
  *
  * Levanta /v2/jugadores/ REAL con un Supabase falso y revisa, como
@@ -12,17 +12,18 @@
  *   1. La lista es la vista por defecto, con renglones de 44 px o más.
  *   2. Punto rojo y motivo sólo para quien tiene avisos; el profe no los ve.
  *   3. "Tarjetas" vuelve a las tarjetas con foto y se recuerda al recargar.
- *   4. Deslizar enseña Cobrar (con el Tanner) y WhatsApp; soltar a medias no.
+ *   4. Deslizar enseña WhatsApp; soltar a medias no. Separación total
+ *      (19/11/2026): en Jugadores no se cobra ni se ve dinero (vive en Taquilla).
  *   5. Después de deslizar, el toque no abre la ficha; un toque normal sí.
  *   6. WhatsApp abre el chat del tutor con el mensaje del club.
- *   7. El profe no ve Cobrar.
+ *   7. Nadie ve Cobrar en Jugadores.
  *
  * TÉCNICAS (ISTQB, nivel Foundation):
  *   · Tabla de decisión (quién ve qué). Condiciones: ve dinero (billing o
  *     accounting) × ve expediente (jugadores_estado).
- *       R1 Presidencia  sí/sí  → punto por expediente y por deuda, Cobrar.
- *       R2 Taquilla     sí/no  → punto sólo por deuda (h96), Cobrar.
- *       R3 Profe        no/no  → sin puntos, sin Cobrar; WhatsApp sí.
+ *       R1 Presidencia  sí/sí  → motivo por expediente; sin dinero ni Cobrar.
+ *       R2 Taquilla     sí/no  → sin motivos (aunque la lista traiga saldo), sin Cobrar.
+ *       R3 Profe        no/no  → sin motivos, sin Cobrar; WhatsApp sí.
  *   · Valores frontera del deslizar: el umbral es la mitad del ancho de las
  *     acciones. Se prueba umbral − 12 px (no abre) y umbral + 12 px (abre).
  *   · Transición de estados del renglón: cerrado → abierto (deslizar) →
@@ -30,7 +31,7 @@
  *   · Partición de equivalencia de la posición: portero, defensa, lateral,
  *     medio, extremo, delantero y una clase inválida (texto libre) → placa.
  *   · Adivinación de errores: sin dorsal ("–"), tutor sin teléfono
- *     ("Sin teléfono"), saldo 0 no pinta punto (frontera 0 / 0.01).
+ *     ("Sin teléfono"), saldo en la lista que no debe enseñarse.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -122,7 +123,8 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
   revisa('1. cada renglón mide lo que un dedo', filas.every(f => f.alto >= 44), filas.map(f => f.alto));
   const m = filas.find(f => f.id === 'p1'), a = filas.find(f => f.id === 'p2'), i = filas.find(f => f.id === 'p3');
   revisa('A. dorsal, nombre y posición en placa (como el FIFA)', /^7\b/.test(m?.txt) && /MARCELO PEDROZA ORTIZ/i.test(m?.txt) && /\bPOR\b/.test(m?.txt) && /\bDEL\b/.test(a?.txt || ''), { m, a });
-  revisa('2. punto rojo y el motivo para quien le falta algo', m?.punto && /Falta 1 documento/.test(m?.txt) && i?.punto && /Cobro sin configurar/.test(i?.txt), { m, i });
+  revisa('2. el motivo para quien le falta algo del expediente', m?.punto && /Falta 1 documento/.test(m?.txt), m);
+  revisa('separación: el cobro sin configurar no sale en Jugadores (es de Taquilla)', i && !i.punto && !/Cobro sin configurar/.test(i.txt), i);
   revisa('2. sin punto para quien está completa', a && !a.punto, a);
 
   // B · Deslizar
@@ -135,9 +137,8 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
   await desliza(p, 'p2', 40);
   revisa('4. soltar a medias no deja abierto', !(await abierto(p, 'p2')));
   await desliza(p, 'p2', 220);
-  revisa('4. deslizar a la izquierda enseña Cobrar y WhatsApp', await abierto(p, 'p2') && await p.isVisible('.jrow-wrap.abierto .jrow-acc.cobrar') && await p.isVisible('.jrow-wrap.abierto .jrow-acc.wa'));
-  const href = await p.getAttribute('.jrow-wrap.abierto .jrow-acc.cobrar', 'href');
-  revisa('4. Cobrar lleva a Taquilla con el Tanner', /\/taquilla\/\?action=cobrar&player=p2&name=Ana%20Luna/.test(href || ''), href);
+  revisa('4. deslizar a la izquierda enseña WhatsApp', await abierto(p, 'p2') && await p.isVisible('.jrow-wrap.abierto .jrow-acc.wa'));
+  revisa('7. separación: Presidencia tampoco ve Cobrar en Jugadores', !(await p.$('.jrow-acc.cobrar')));
   revisa('5. después de deslizar, la ficha no se abrió', !(await p.evaluate(() => document.getElementById('profilePanel')?.classList.contains('open'))));
   await desliza(p, 'p1', 220);
   revisa('4. abrir otro renglón cierra el anterior', await abierto(p, 'p1') && !(await abierto(p, 'p2')));
@@ -176,18 +177,16 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
   await ctx.close();
 }
 
-/* ---------- R2 Taquilla, con la lista de h96 ---------- */
+/* ---------- R2 Taquilla (la lista trae saldo y teléfono) ---------- */
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p = await abre('Taquilla', ctx, JUG_H96);
   const f = await p.$$eval('#playerList .jrow', bs => Object.fromEntries(bs.map(b => [b.dataset.playerId, { txt: b.innerText.replace(/\s+/g, ' ').trim(), punto: !!b.querySelector('.jrow-txt small.falta'), pos: b.querySelector('.jrow-pos')?.textContent || '', num: b.querySelector('.jrow-num')?.textContent || '', motivo: b.querySelector('.jrow-txt small')?.textContent || '' }])));
-  revisa('R2: con deuda, el punto dice cuánto debe (h96)', f.t1?.punto && /Debe \$1,600/.test(f.t1.txt), f.t1);
-  revisa('R2: sin permiso de expediente, el motivo sólo habla de dinero (ni documentos ni permisos)', /^Debe \$1,600$/.test(f.t1?.motivo || ''), f.t1);
-  revisa('frontera del saldo: $0.01 sí pinta; $0 y vacío no', f.t2?.punto && !f.t3?.punto && !f.t4?.punto, { t2: f.t2, t3: f.t3, t4: f.t4 });
+  revisa('R2 + separación: aunque la lista traiga saldo, Jugadores no enseña dinero', Object.values(f).every(x => !x.punto && !/Debe|\$/.test(x.txt)), f);
   revisa('partición de posición: POR, DEF, LAT, MED, EXT y texto libre (LIB)', f.t1?.pos === 'POR' && f.t2?.pos === 'DEF' && f.t3?.pos === 'LAT' && f.t4?.pos === 'MED' && f.t5?.pos === 'EXT' && f.t6?.pos === 'LIB', Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.pos])));
   revisa('error típico: sin dorsal sale "–", no un hueco', f.t6?.num === '–', f.t6);
   await desliza(p, 't1', 220);
-  revisa('R2: Taquilla desliza y ve Cobrar', await p.isVisible('.jrow-wrap.abierto .jrow-acc.cobrar'));
+  revisa('R2: Taquilla desliza y ve WhatsApp, sin Cobrar', await p.isVisible('.jrow-wrap.abierto .jrow-acc.wa') && !(await p.$('.jrow-acc.cobrar')));
   await Promise.all([p.waitForURL(/wa\.me/, { timeout: 5000 }).catch(() => {}), p.click('.jrow-wrap.abierto .jrow-acc.wa')]);
   revisa('h96: con el teléfono en la lista, WhatsApp abre sin pedir la ficha', /wa\.me\/524775550001/.test(p.url()) && !(await p.evaluate(() => (window.__llamadas || []).some(l => l.n === 'v2_player_profile')).catch(() => true)), p.url());
   await ctx.close();
@@ -206,5 +205,5 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
 
 revisa('sin errores de página', !errores.length, errores.join(' | '));
 await browser.close(); srv.close();
-console.log(fallos ? `Jugadores lista FAILED · ${fallos} de ${corridas}` : `Jugadores lista OK · ${corridas} revisiones: tabla de decisión por rol, fronteras del deslizar y del saldo, estados del renglón, posiciones y errores típicos`);
+console.log(fallos ? `Jugadores lista FAILED · ${fallos} de ${corridas}` : `Jugadores lista OK · ${corridas} revisiones: tabla de decisión por rol, frontera del deslizar, separación del dinero, estados del renglón, posiciones y errores típicos`);
 process.exit(fallos ? 1 : 0);

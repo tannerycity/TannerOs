@@ -83,31 +83,23 @@ async function abre(rol, ruta) {
   return p;
 }
 
-/* ---------- Ficha: Presidencia ---------- */
+/* ---------- Ficha: Presidencia ----------
+   Separación total (19/11/2026): "no juntes los cobros con la ficha del
+   jugador". El historial de pagos vive en la cuenta del Tanner, en Taquilla;
+   la ficha sólo tiene el puente en "Más". */
 {
   const p = await abre('Presidencia', '/v2/jugadores/?player=p1');
-  // Desde el rediseño de la ficha, los pagos viven en su pestaña.
-  await p.waitForSelector('[data-ficha-tab="pagos"]', { timeout:8000 });
-  await p.click('[data-ficha-tab="pagos"]');
-  await p.waitForSelector('#pagosSnapshot .pagos-kpis', { timeout:8000 });
-  const t = (await p.innerText('#pagosSnapshot')).replace(/\s+/g,' ');
-  revisa('[ficha] sale la sección Pagos', await p.isVisible('#pagosSnapshot'));
-  revisa('[ficha] dice cuánto ha pagado', /Ha pagado \$3,400\.00/i.test(t), t.slice(0,200));
-  // Ficha estilo Apple: el semáforo vive en el renglón de la cuenta, arriba
-  // en la misma pantalla; el recuadro ya no repite (ni contradice) el estado.
-  const cta = (await p.innerText('#fichaCuenta').catch(() => '')).replace(/\s+/g,' ');
-  revisa('[ficha] Pagos dice el estado una sola vez, con el semáforo de Taquilla', /Atrasado/.test(cta) && /\$800/.test(cta) && !/Atrasado|Por vencer|Al día|Al corriente/.test(t), cta.slice(0,160) + ' || ' + t.slice(0,120));
-  revisa('[ficha] saldo a favor', /Saldo a favor \$650\.00/i.test(t));
-  const filas = await p.$$eval('#pagosSnapshot .pagos-fila', els => els.map(e => e.textContent.replace(/\s+/g,' ').trim()));
-  revisa('[ficha] sólo los últimos 5 pagos', filas.length === 5, JSON.stringify(filas));
-  revisa('[ficha] el más reciente primero', /Mensualidad.*5 oct\.? 2026.*Efectivo.*\$550\.00/.test(filas[0]||''), filas[0]);
-  revisa('[ficha] incluye pagos de tienda', filas.some(f => /Pedido de tienda.*\$450\.00/.test(f)));
-  revisa('[ficha] los cargos no se cuentan como pago', !filas.some(f => /octubre/.test(f)));
-  revisa('[ficha] método en español', filas.some(f => /Transferencia/.test(f)) && filas.some(f => /Tarjeta/.test(f)));
-  revisa('[ficha] un concepto con HTML sale como texto', !(await p.$('#pagosSnapshot .pagos-fila b b')));
-  const href = await p.getAttribute('#pagosSnapshot .pagos-todo', 'href');
-  revisa('[ficha] enlaza al historial completo', href === '/tanner/?id=p1', href);
-  revisa('[ficha] avisa cuántos pagos hay en total', /\(6 pagos\)/.test(t), t.slice(-80));
+  await p.waitForSelector('#fichaTabs button', { timeout:8000, state:'attached' });
+  await p.waitForTimeout(400);
+  const secs = await p.$$eval('#fichaTabs [data-ficha-tab]', b => b.map(x => x.dataset.fichaTab));
+  revisa('[ficha] no hay sección de Pagos', !secs.includes('pagos'), JSON.stringify(secs));
+  revisa('[ficha] no se ve el historial ni la cuenta', await p.isHidden('#pagosSnapshot') && await p.isHidden('#fichaCuenta'));
+  const acc = await p.$$eval('#fichaAcciones .ficha-accion', a => a.map(x => x.textContent.trim()));
+  revisa('[ficha] sin botón Cobrar', !acc.includes('Cobrar'), JSON.stringify(acc));
+  revisa('[ficha] la ficha ya no pide el estado de cuenta', !(await p.evaluate(() => window.__llamadas.includes('v2_player_account_statement'))));
+  await p.click('[data-ficha-mas]');
+  const href = await p.getAttribute('#fichaMas a.ficha-mas-dinero', 'href').catch(() => null);
+  revisa('[ficha] "Más" lleva a su cuenta en Taquilla (el historial completo)', href === '/tanner/?id=p1', href);
   await p.close();
 }
 
@@ -118,6 +110,9 @@ async function abre(rol, ruta) {
   await p.waitForTimeout(400);
   revisa('[profe] no ve la sección Pagos', await p.isHidden('#pagosSnapshot'));
   revisa('[profe] ni se pide el estado de cuenta', !(await p.evaluate(() => window.__llamadas.includes('v2_player_account_statement'))));
+  if (await p.isVisible('#fichaBarra [data-ficha-tab="resumen"]')) await p.click('#fichaBarra [data-ficha-tab="resumen"]');
+  await p.click('[data-ficha-mas]');
+  revisa('[profe] en "Más" no hay puente al dinero', !(await p.$('#fichaMas .ficha-mas-dinero')));
   await p.close();
 }
 

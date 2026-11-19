@@ -74,9 +74,15 @@ let F=null;
    su dato ya escrito (cuánto debe, cómo va, qué falta). Tocar un renglón abre
    esa sección como pantalla propia con "‹ Nombre" para regresar.
    Por dentro sigue siendo F.tab y data-ficha: "resumen" es el inicio. */
-const SECCIONES=[['deportivo','Deportivo','balon','teal'],['pagos','Pagos','cuenta','rojo'],['familia','Familia','familia','navy'],
+/* Separación total (19/11/2026, Presidencia: "no juntes los cobros con la
+   ficha del jugador... son cosas distintas"). La ficha es del futbolista:
+   Deportivo, Familia, Expediente e Historia. El dinero vive en Taquilla (la
+   cuenta del Tanner, /tanner/?id=); desde la ficha sólo hay un puente en
+   "Más" para quien maneja dinero. La beca y los apoyos (un acuerdo con la
+   familia, no un cobro) tienen su pantalla, también desde "Más". */
+const SECCIONES=[['deportivo','Deportivo','balon','teal'],['familia','Familia','familia','navy'],
   ['expediente','Expediente','docs','gris'],['historia','Historia','historia','verde']];
-const TITULO={...Object.fromEntries(SECCIONES.map(([k,l])=>[k,l])),historia:'Historia en el club'};
+const TITULO={...Object.fromEntries(SECCIONES.map(([k,l])=>[k,l])),historia:'Historia en el club',apoyos:'Beca y apoyos'};
 const vista=()=>$('profileView');
 
 function tutorPrincipal(){return (F?.guardians||[]).find(g=>g.isPrimary)||(F?.guardians||[])[0]||null;}
@@ -101,10 +107,6 @@ function datoDe(k){
     // Portero (13/11/2026): "que en su ficha diga eso". Ahora va aquí.
     return {sub:F.portero?`${sub}${sub?' · ':''}${F.portero}`:sub};
   }
-  if(k==='pagos'){
-    const c=F.resumenCuenta;
-    return c?{sub:c.titulo,valor:c.saldo>0.004?pesos(c.saldo):'',debe:c.saldo>0.004}:{sub:''};
-  }
   if(k==='familia'){
     const g=tutorPrincipal(),h=F.hermanos?.length||0;
     return {valor:[g?.name?String(g.name).split(' ')[0]:null,h?`${h} herman${h===1?'o':'os'}`:null].filter(Boolean).join(' · ')};
@@ -121,12 +123,12 @@ function datoDe(k){
   return {};
 }
 function seccionesVisibles(){
-  return SECCIONES.filter(([k])=>(k!=='pagos'||F.canMoney)&&(k!=='historia'||(F.historia||[]).length));
+  return SECCIONES.filter(([k])=>k!=='historia'||(F.historia||[]).length);
 }
 function pintaTabs(){
   const nav=$('fichaTabs');if(!nav||!F)return;
   const lista=seccionesVisibles();
-  if(F.tab!=='resumen'&&!lista.some(([k])=>k===F.tab))F.tab='resumen';
+  if(F.tab!=='resumen'&&!lista.some(([k])=>k===F.tab)&&!(F.tab==='apoyos'&&F.canMoney))F.tab='resumen';
   nav.setAttribute('aria-label','Secciones de la ficha');nav.removeAttribute('role');
   nav.innerHTML=lista.map(([k,l,ico,tono])=>{const d=datoDe(k);
     return `<button type="button" class="ficha-seccion" aria-selected="${k===F.tab}" data-ficha-tab="${k}"><span class="ficha-seccion-ico ${tono}">${svg(ico,17)}</span><span class="ficha-seccion-txt"><b>${esc(l)}</b>${d.sub?`<small>${esc(d.sub)}</small>`:''}</span>${d.valor?`<span class="ficha-seccion-valor${d.debe&&!d.globo?' debe':''}">${esc(d.valor)}</span>`:''}${d.globo?`<span class="ficha-globo" aria-label="${d.globo} aviso${d.globo===1?'':'s'}">${d.globo}</span>`:''}${svg('chevron',16)}</button>`;}).join('');
@@ -232,11 +234,7 @@ function pintaAcciones(){
   }else{
     acc.push(`<span class="ficha-accion apagada" title="El tutor no tiene teléfono registrado"><span>${svg('wa',22)}</span>Sin teléfono</span>`);
   }
-  if(F.puedeCobrar&&F.canMoney){
-    const deuda=Math.round(Number(F.cuenta?.summary?.balance||0));
-    acc.push(boton('cobrar','Cobrar',{href:`/taquilla/?action=cobrar&player=${encodeURIComponent(p.id)}${deuda>0?`&amount=${deuda}`:''}&name=${encodeURIComponent(nombre(p))}`},true));
-  }
-  if(F.canWrite)acc.push(boton('evaluar','Evaluar',{extra:'data-ficha-evaluar'},!(F.puedeCobrar&&F.canMoney)));
+  if(F.canWrite)acc.push(boton('evaluar','Evaluar',{extra:'data-ficha-evaluar'},true));
   acc.push(boton('mas','Más',{extra:'data-ficha-mas aria-haspopup="dialog"'}));
   box.innerHTML=acc.join('');
 }
@@ -306,6 +304,11 @@ function abrirMas(){
   asegurarMas();
   const foto=document.querySelector('[data-ficha-foto]');
   if(foto)foto.hidden=$('photoCardAction')?.classList.contains('hidden')??true;
+  // Separación total: el único puente al dinero, sólo para quien lo maneja.
+  document.querySelectorAll('#fichaMasBody .ficha-mas-dinero').forEach(el=>el.remove());
+  if(F?.canMoney){
+    $('fichaMasBody').insertAdjacentHTML('afterbegin',`<a class="ficha-mas-item ficha-mas-dinero" href="/tanner/?id=${encodeURIComponent(F.playerId)}">Ver su cuenta en Taquilla</a><button type="button" class="ficha-mas-item ficha-mas-dinero" data-ficha-ir="apoyos">Beca y apoyos</button>`);
+  }
   $('fichaMas').hidden=false;$('fichaMasFondo').hidden=false;
 }
 function cerrarMas(){if($('fichaMas'))$('fichaMas').hidden=true;if($('fichaMasFondo'))$('fichaMasFondo').hidden=true;}
@@ -316,55 +319,21 @@ function cerrarMas(){if($('fichaMas'))$('fichaMas').hidden=true;if($('fichaMasFo
 function pintaBeca(){
   const box=$('fichaBeca');if(!box)return;
   const b=F?.beca;
-  box.dataset.ficha=F?.canMoney?'pagos':'resumen';
-  // En Pagos va debajo del número grande.
-  if(F?.canMoney){const c=$('fichaCuenta');if(c&&c.nextElementSibling!==box)c.after(box);}
+  // Separación total: la beca es un dato de la familia (quién la cubre y
+  // hasta cuándo); quien maneja dinero la abre en "Beca y apoyos".
+  box.dataset.ficha='familia';
+  if(F?.canMoney)box.dataset.fichaIr='apoyos';else delete box.dataset.fichaIr;
+  const fam=$('fichaFamilia');if(fam&&fam.previousElementSibling!==box)fam.before(box);
   if(!b){box.hidden=true;box.innerHTML='';return;}
-  box.innerHTML=`<span class="ficha-beca-ico">${svg('carta',20)}</span><span class="ficha-beca-txt"><strong>${esc(b.tipo)}${b.cuanto?` · ${esc(b.cuanto)}`:''}</strong><small>${b.quien?`Lo cubre ${esc(b.quien)}`:'Sin patrocinador registrado'}${b.hasta?` · hasta ${esc(fecha(b.hasta))}`:''}${b.pendiente?' · falta configurar cuánto cubre':''}</small></span>${svg('chevron',16)}`;
+  box.innerHTML=`<span class="ficha-beca-ico">${svg('carta',20)}</span><span class="ficha-beca-txt"><strong>${esc(b.tipo)}${b.cuanto&&F?.canMoney?` · ${esc(b.cuanto)}`:''}</strong><small>${b.quien?`Lo cubre ${esc(b.quien)}`:'Sin patrocinador registrado'}${b.hasta?` · hasta ${esc(fecha(b.hasta))}`:''}${b.pendiente?' · falta configurar cuánto cubre':''}</small></span>${svg('chevron',16)}`;
   box.hidden=false;
 }
 
 /* ---------- Cuenta y tienda ---------- */
 function pintaCuenta(){
+  // El dinero vive en Taquilla (separación total): la ficha no lo pinta.
   const box=$('fichaCuenta');if(!box)return;
-  if(!F?.canMoney||!F.cuenta){box.hidden=true;box.innerHTML='';return;}
-  const d=F.cuenta,s=d.summary||{},hoy=hoyMx();
-  const saldo=Number(s.balance||0);
-  const mensual=(d.ledger||[]).filter(m=>m.kind==='charge'&&m.subtype==='monthly_fee'&&m.period);
-  const porMes=new Map();
-  mensual.forEach(m=>{const k=String(m.period).slice(0,7);const a=porMes.get(k)||{saldo:0,vence:m.date};a.saldo+=Number(m.charge_balance||0);porMes.set(k,a);});
-  const meses=[...porMes.entries()].sort((a,b)=>a[0].localeCompare(b[0])).slice(-3);
-  const debe=[...porMes.values()].filter(v=>v.saldo>0.004).length;
-  // Mismo semáforo que Taquilla (v2/estados.js): pagado, por vencer, atrasado.
-  const chips=meses.map(([k,v])=>{const estado=estadoDeMes(v.saldo,v.vence,hoy);
-    return `<span class="ficha-mes ${estado.replace('_','-')}">${esc(mesCorto(k+'-01'))} ${TEXTO_MES[estado]}</span>`;}).join('');
-  const pago=(d.ledger||[]).find(m=>m.kind==='payment'&&m.status==='posted');
-  const METODO={cash:'Efectivo',transfer:'Transferencia',card:'Tarjeta'};
-  // "Atrasado · debe 2 meses": primero el estado (la misma palabra que en
-  // Taquilla) y luego el detalle. Atrasado si algo de lo que debe ya venció.
-  const vencidoMasViejo=[...porMes.values()].filter(v=>v.saldo>0.004).map(v=>String(v.vence||'')).filter(Boolean).sort()[0]||s.oldest_due||'';
-  const estadoCuenta=estadoDeSaldo(saldo,vencidoMasViejo,hoy);
-  const titulo=estadoCuenta==='al_dia'?ESTADO_DINERO.al_dia.texto
-    :`${ESTADO_DINERO[estadoCuenta].texto} · ${debe>0?`debe ${debe} mes${debe===1?'':'es'}`:'saldo pendiente'}`;
-  F.resumenCuenta={titulo,saldo};
-  // Pagos con número grande (19/11/2026): arriba lo que debe, enorme, el
-  // estado con la misma palabra que Taquilla, los meses y "Cobrar $1,600" de
-  // un toque. Es lo que se viene a ver a esta pantalla.
-  const p=F.player,cobrar=F.puedeCobrar&&F.canMoney;
-  const deuda=Math.round(saldo>0.004?saldo:0);
-  const urlCobrar=`/taquilla/?action=cobrar&player=${encodeURIComponent(p.id||F.playerId)}${deuda>0?`&amount=${deuda}`:''}&name=${encodeURIComponent(nombre(p))}`;
-  const filaCuenta=`<div class="ficha-pago-hero ficha-cuenta-fila ${saldo>0.004?'debe':'ok'}" data-estado="${estadoCuenta}">
-    <b class="ficha-pago-monto">${saldo>0.004?esc(pesos(saldo)):esc(ESTADO_DINERO.al_dia.texto)}</b>
-    <span class="ficha-pago-estado">${saldo>0.004?esc(titulo):'No debe nada'}</span>
-    ${chips?`<span class="ficha-meses">${chips}</span>`:''}
-    <small>${pago?`Último pago ${esc(fecha(pago.date))}${pago.method?` · ${esc(METODO[pago.method]||pago.method)}`:''}`:'Sin pagos registrados'}</small>
-    ${cobrar?`<a class="ficha-pago-cobrar" href="${esc(urlCobrar)}">${deuda>0?`Cobrar ${esc(pesos(deuda))}`:'Registrar un pago'}</a>`:''}
-  </div>`;
-  const activos=(d.orders||[]).filter(o=>!['delivered','cancelled','refunded'].includes(o.status));
-  const ESTADO={pending_payment:'Pendiente de pago',partial_payment:'Pago parcial',paid:'Pagado',in_production:'En producción',ready:'Listo para entregar'};
-  const filasPedido=activos.map(o=>{const falta=Number(o.total||0)-Number(o.paid||0);
-    return `<a class="ficha-cuenta-fila" href="/pedidos/"><span class="ficha-ico oro">${svg('bolsa')}</span><span class="ficha-cuenta-txt"><strong>Pedido activo${o.folio?` · ${esc(o.folio)}`:''}</strong><small>${esc(ESTADO[o.status]||o.status||'')}${falta>0.004?` · faltan ${esc(pesos(falta))}`:' · pagado'}</small></span><span class="ficha-chev">${svg('chevron',16)}</span></a>`;}).join('');
-  box.innerHTML=filaCuenta+filasPedido;box.hidden=false;box.dataset.ficha='pagos';pintaTabs();
+  box.hidden=true;box.innerHTML='';box.dataset.ficha='fuera';
 }
 
 /* ---------- Perfil deportivo Tanner ---------- */
@@ -438,7 +407,7 @@ function abrirPermisos(){
   box.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
-function pintaTodo(){pintaAvatar();pintaChips();pintaBeca();pintaAcciones();pintaCuenta();pintaPerfil();pintaTabs();pintaResumen();pintaFamilia();pintaDocs();}
+function pintaTodo(){const bp=$('benefitsPanel');if(bp)bp.dataset.ficha='apoyos';pintaAvatar();pintaChips();pintaBeca();pintaAcciones();pintaCuenta();pintaPerfil();pintaTabs();pintaResumen();pintaFamilia();pintaDocs();}
 
 /* ---------- Eventos de la ficha ---------- */
 async function alAbrir(d){
@@ -511,7 +480,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest?.('[data-ficha-tab],[data-ficha-ir],[data-ficha-evaluar],[data-ficha-mas],[data-ficha-cerrar-mas],[data-ficha-carta],[data-ficha-foto],[data-ficha-permiso],#fichaAvatar,#fichaCartaFondo,#privacyBadges .profile-badge,.ficha-mas-viejas a[href^="#"]');
   if(!t||!F)return;
   if(t.matches('[data-ficha-tab]')){irA(t.dataset.fichaTab);return;}
-  if(t.matches('[data-ficha-ir]')){e.preventDefault();irA(t.dataset.fichaIr);return;}
+  if(t.matches('[data-ficha-ir]')){e.preventDefault();cerrarMas();irA(t.dataset.fichaIr);return;}
   if(t.matches('[data-ficha-evaluar]')){e.preventDefault();cerrarMas();irA('deportivo',()=>$('openEvaluation')?.click());return;}
   if(t.matches('[data-ficha-mas]')){abrirMas();return;}
   if(t.matches('[data-ficha-cerrar-mas]')){cerrarMas();return;}

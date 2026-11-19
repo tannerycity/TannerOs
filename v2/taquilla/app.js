@@ -1,4 +1,5 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,supabase} from '/v2/shell.js';
+import { ESTADO_DINERO } from '/v2/estados.js';
 import { usaFuncion } from '/v2/analitica-uso.js';
 import {getSignedPhotoUrls} from '/v2/photo-cache.js';
 import {etiquetaCondicion,condicionDeFila,estadoVigencia,desglose,aCobrarHoy,
@@ -285,7 +286,7 @@ async function renderCollections(){
     const initials=String(p.name||'T').trim().split(/\s+/).map(part=>part[0]||'').join('').toUpperCase().slice(0,2)||'T';
     const photoAttrs=p.photoThumbPath?` data-photo-path="${esc(p.photoThumbPath)}" data-photo-bucket="${esc(p.photoBucket||'tanneros-private')}"`:'';
     const liga=p.state!=='al_dia'?ligaRecordar(p):null;
-    const pill={atrasado:'Atrasado',por_vencer:'Por vencer',al_dia:'Al día'}[p.state];
+    const pill=ESTADO_DINERO[p.state]?.texto||'';
     return `<div class="collections-row cob-fila" data-estado="${esc(p.state)}">
       <span class="collections-face"${photoAttrs}><b aria-hidden="true">${esc(initials)}</b></span>
       <a class="collections-info collections-edo" href="/tanner/?id=${encodeURIComponent(p.playerId)}" title="Ver su estado de cuenta"><strong>${esc(p.name)}</strong><span class="collections-concept">${esc(textoEstado(p,fechaCorta,money))}</span></a>

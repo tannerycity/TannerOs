@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { ESTADO_DINERO, estadoDeSaldo } from '/v2/estados.js';
 import { conecta as conectaBusquedaReciente } from '/v2/busquedas-recientes.js';
 import { elegirDorsal, tableroDorsales } from '/v2/dorsal.js';
 import { montaSinNumero } from '/v2/jugadores/sin-numero.js';
@@ -373,9 +374,11 @@ async function loadPagos(id){
     ...(d?.other_payments||[]).map(m=>({fecha:m.date,concepto:m.concept||'Otro pago',monto:Number(m.amount||0),metodo:m.method}))
   ].sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
   const debe=Number(s.balance||0),favor=Number(s.credit_available||0);
-  const estado=debe>0
-    ?`<span class="pagos-estado debe">Debe ${esc(pesos(debe))}${s.oldest_due?` · desde ${esc(fechaPago(s.oldest_due))}`:''}</span>`
-    :`<span class="pagos-estado ok">Al corriente</span>`;
+  // Mismo semáforo que Taquilla y la ficha (v2/estados.js).
+  const clave=estadoDeSaldo(debe,s.oldest_due);
+  const estado=clave==='al_dia'
+    ?`<span class="pagos-estado ok" data-estado="al_dia">${ESTADO_DINERO.al_dia.texto}</span>`
+    :`<span class="pagos-estado debe" data-estado="${clave}">${ESTADO_DINERO[clave].texto} · ${esc(pesos(debe))}${clave==='atrasado'&&s.oldest_due?` desde ${esc(fechaPago(s.oldest_due))}`:''}</span>`;
   const filas=pagos.slice(0,5).map(p=>`<div class="pagos-fila"><span><strong>${esc(p.concepto)}</strong><small>${esc(fechaPago(p.fecha))}${p.metodo?` · ${esc(METODO[p.metodo]||p.metodo)}`:''}</small></span><b>${esc(pesos(p.monto))}</b></div>`).join('');
   box.innerHTML=`<div class="pagos-head"><div><div class="eyebrow">PAGOS</div><h3>Lo que ha pagado</h3></div>${estado}</div>`+
     `<div class="pagos-kpis"><article><span>Ha pagado</span><strong>${esc(pesos(s.paid_total))}</strong></article><article><span>Debe</span><strong class="${debe>0?'debe':''}">${esc(pesos(debe))}</strong></article><article><span>Saldo a favor</span><strong>${esc(pesos(favor))}</strong></article></div>`+

@@ -164,7 +164,7 @@ async function seccion(p, k) {
   revisa('[apple B] Deportivo ya dice asistencia y evaluación', /^Deportivo 86% asistencia · sin evaluar/.test(filas[0] || ''), filas[0]);
   revisa('[apple B] Pagos ya dice el estado y cuánto', /^Pagos Atrasado · debe 2 meses \$1,600/.test(filas[1] || ''), filas[1]);
   revisa('[apple B] Familia ya dice quién y cuántos hermanos', /^Familia Laura · 1 hermano/.test(filas[2] || ''), filas[2]);
-  revisa('[apple B] Expediente ya dice cuántos documentos', /^Expediente 2 de 3/.test(filas[3] || ''), filas[3]);
+  revisa('[apple B] Expediente dice qué falta, con globito', /^Expediente Falta acta de nacimiento · No autorizan fotos 2/.test(filas[3] || ''), filas[3]);
   revisa('[apple B] Historia dice desde cuándo', /^Historia desde/.test(filas[4] || ''), filas[4]);
   revisa('[apple B] en el inicio no se ven cuenta, beca, perfil ni formularios', await p.isHidden('#fichaCuenta') && await p.isHidden('#fichaBeca') && await p.isHidden('#fichaPerfil') && await p.isHidden('#firstName') && await p.isHidden('#sportsSnapshot'));
   revisa('[apple B] cada renglón mide lo que un dedo', await p.$$eval('#fichaTabs .ficha-seccion', b => b.every(x => x.getBoundingClientRect().height >= 44)));
@@ -179,6 +179,16 @@ async function seccion(p, k) {
   revisa('[cuenta] la fila dice su estado para el color', await p.$eval('#fichaCuenta .ficha-cuenta-fila', b => b.dataset.estado) === 'atrasado');
   revisa('[cuenta] en Pagos sí se ven los meses, en color', await p.isVisible('#fichaCuenta .ficha-meses') && (await p.$$('#fichaCuenta .ficha-mes.atrasado')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.por-vencer')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.pagado')).length === 1, cuenta);
   revisa('[cuenta] último pago', /Último pago .* Efectivo/.test(cuenta));
+  const hero = await p.evaluate(() => { const h = document.querySelector('#fichaCuenta .ficha-pago-hero'); const c = h?.querySelector('.ficha-pago-cobrar');
+    return { monto: h?.querySelector('.ficha-pago-monto')?.textContent || '', tam: h ? parseFloat(getComputedStyle(h.querySelector('.ficha-pago-monto')).fontSize) : 0,
+      cobrar: c?.textContent || '', href: c?.getAttribute('href') || '', alto: c ? c.getBoundingClientRect().height : 0,
+      primero: h && document.querySelector('#fichaCuenta').firstElementChild === h,
+      becaDebajo: !!(document.getElementById('fichaBeca').compareDocumentPosition(document.getElementById('fichaCuenta')) & Node.DOCUMENT_POSITION_PRECEDING) };
+  });
+  revisa('[pagos] número grande arriba: $1,600', hero.primero && /\$1,600/.test(hero.monto) && hero.tam >= 36, hero);
+  revisa('[pagos] "Cobrar $1,600" de un toque, con el monto y el Tanner', /Cobrar \$1,600/.test(hero.cobrar) && /action=cobrar&player=p1&amount=1600/.test(hero.href) && hero.alto >= 44, hero);
+  revisa('[pagos] la beca va debajo del número grande', hero.becaDebajo, hero);
+  revisa('[pagos] el recuadro de abajo ya no repite cuánto debe', !(await p.isVisible('#pagosSnapshot .pagos-kpis article:nth-child(2)')));
   revisa('[cuenta] pedido activo y lo que falta (no el entregado)', /Pedido activo · TC-0142/.test(cuenta) && /faltan \$250/.test(cuenta) && !/TC-0100/.test(cuenta), cuenta);
   revisa('[pagos] pagos y beca', await visible(p, '#pagosSnapshot') && await visible(p, '#benefitsPanel'));
 
@@ -195,29 +205,38 @@ async function seccion(p, k) {
   revisa('[historia] su historia en el club, en su pantalla', /SU HISTORIA EN EL CLUB/.test(res) && /Entró al club/.test(res) && /Historia en el club/.test(await texto(p, '#fichaBarra strong')), res.slice(0, 200));
   await seccion(p, 'resumen');
   revisa('[apple B] "‹ Marcelo" regresa al inicio', await p.isVisible('#profileName') && !(await p.isVisible('#fichaBarra')));
-  const chips = await texto(p, '#fichaChips');
-  revisa('[chips] faltan documentos y hermanos', /Falta 1 documento/.test(chips) && /1 hermano en el club/.test(chips), chips);
-  revisa('[chips] la ficha dice que es portero y cuándo entrena con la academia', /Portero · con la academia · Martes 5:00 a 6:00 pm/.test(chips), chips);
-  // Estilo Apple (19/11/2026): lista agrupada en vez de pastillas, botones
-  // redondos justo debajo del nombre y un solo "Evaluar".
-  const apple = await p.evaluate(() => {
-    const filas = [...document.querySelectorAll('#fichaChips .ficha-chip')];
-    const r = id => document.getElementById(id).getBoundingClientRect();
-    return { filas: filas.length, anchoCompleto: filas.every(f => f.getBoundingClientRect().width >= document.getElementById('fichaChips').getBoundingClientRect().width - 2),
-      flechas: filas.filter(f => f.matches('[data-ficha-ir]')).every(f => !!f.querySelector('svg')), portSinFlecha: !document.querySelector('#fichaChips .portero svg'),
-      accionesBajoNombre: r('fichaAcciones').top >= r('profileName').bottom - 1 && r('fichaAcciones').top <= r('fichaChips').top,
-      evaluar: document.querySelectorAll('#profileView [data-ficha-evaluar], #fichaPerfil [data-ficha-evaluar]').length };
+  // Botón atrás del celular: en una sección regresa a la ficha; en la ficha, la cierra y deja la lista.
+  await seccion(p, 'familia');
+  await p.goBack(); await p.waitForTimeout(300);
+  revisa('[atrás] desde una sección, atrás regresa a la ficha', await p.isVisible('#profileName') && !(await p.isVisible('#fichaBarra')) && await p.evaluate(() => document.getElementById('profilePanel').classList.contains('open')));
+  await seccion(p, 'pagos'); await seccion(p, 'resumen');
+  revisa('[atrás] "‹ Marcelo" no deja entradas de más en el historial', await p.evaluate(() => history.state?.ficha === 'abierta'), await p.evaluate(() => JSON.stringify(history.state)));
+  // Avisos como globito rojo en su renglón (19/11/2026): ya no hay un grupo de
+  // avisos aparte. Portero va en Deportivo; documentos y fotos, en Expediente.
+  const ap = await p.evaluate(() => {
+    const fila = k => document.querySelector(`#fichaTabs [data-ficha-tab="${k}"]`);
+    const r = el => el.getBoundingClientRect();
+    return { avisosArriba: !!(document.querySelector('#fichaChips')?.offsetParent || document.querySelector('.player-profile-hero #privacyBadges')?.offsetParent),
+      deportivo: fila('deportivo')?.innerText.replace(/\s+/g, ' ') || '', expediente: fila('expediente')?.innerText.replace(/\s+/g, ' ') || '',
+      globo: fila('expediente')?.querySelector('.ficha-globo')?.textContent || '', globosOtros: document.querySelectorAll('#fichaTabs .ficha-globo').length,
+      accionesBajoNombre: r(document.getElementById('fichaAcciones')).top >= r(document.getElementById('profileName')).bottom - 1 && r(document.getElementById('fichaAcciones')).bottom <= r(document.getElementById('fichaTabs')).top + 1,
+      evaluar: document.querySelectorAll('#profileView [data-ficha-evaluar]').length };
   });
-  revisa('[apple] los avisos son renglones de lista a todo lo ancho', apple.filas === 3 && apple.anchoCompleto, apple);
-  revisa('[apple] los renglones que se tocan llevan flecha; el de portero no', apple.flechas && apple.portSinFlecha, apple);
-  revisa('[apple] los botones redondos quedan justo debajo del nombre', apple.accionesBajoNombre, apple);
-  revisa('[apple] un solo botón Evaluar en toda la ficha', apple.evaluar === 1, apple);
+  revisa('[globos] ya no hay grupo de avisos arriba: la ficha es una sola lista', !ap.avisosArriba, ap);
+  revisa('[globos] Expediente: globito con 2 y dice qué falta (acta y fotos)', ap.globo === '2' && /Falta acta de nacimiento/.test(ap.expediente) && /No autorizan fotos/.test(ap.expediente), ap);
+  revisa('[globos] sólo Expediente trae globito', ap.globosOtros === 1, ap);
+  revisa('[globos] la ficha dice que es portero y cuándo entrena con la academia (en Deportivo)', /Portero · con la academia · Martes 5:00 a 6:00 pm/.test(ap.deportivo), ap.deportivo);
+  revisa('[apple] los botones redondos quedan justo debajo del nombre, antes de la lista', ap.accionesBajoNombre, ap);
+  revisa('[apple] un solo botón Evaluar en toda la ficha', ap.evaluar === 1, ap);
 
-  // Permiso de imagen con un toque
+  // Permiso de imagen: vive en Expediente, arriba de los datos.
+  await seccion(p, 'expediente');
+  revisa('[imagen] en Expediente están los permisos', await visible(p, '#fichaPermisos #privacyBadges [class*="img-"]'));
   await p.click('#privacyBadges [class*="img-"]');
   revisa('[imagen] tocar el aviso abre el registro de permisos', await visible(p, '#consentBox'));
   const wa = await p.getAttribute('#consentBox .consent-wa', 'href');
   revisa('[imagen] trae el WhatsApp para pedir el permiso', (wa||'').startsWith('https://wa.me/524771112233?text='), wa);
+  await seccion(p, 'resumen');
 
   // Secciones
   await seccion(p, 'familia');
@@ -244,6 +263,8 @@ async function seccion(p, k) {
   revisa('[pres] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await seccion(p, 'resumen');
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/ficha-tanner-telefono.png') });
+  await p.goBack(); await p.waitForTimeout(300);
+  revisa('[atrás] en la ficha, atrás la cierra y te deja en Jugadores', !(await p.evaluate(() => document.getElementById('profilePanel').classList.contains('open'))) && /\/v2\/jugadores\//.test(p.url()), p.url());
   await p.close();
 }
 
@@ -251,7 +272,8 @@ async function seccion(p, k) {
 {
   const p = await abre('Formadores');
   revisa('[profe] entra directo a Deportivo, con "‹ Marcelo" para la ficha completa', await visible(p, '#sportsSnapshot') && /Deportivo/.test(await texto(p, '#fichaBarra strong')));
-  await seccion(p, 'resumen');
+  await p.goBack(); await p.waitForTimeout(300);
+  revisa('[profe] atrás del celular lo lleva a la ficha completa, no la cierra', await p.isVisible('#profileName') && await p.evaluate(() => document.getElementById('profilePanel').classList.contains('open')));
   const secs = await p.$$eval('#fichaTabs .ficha-seccion', b => b.map(x => x.dataset.fichaTab));
   revisa('[profe] su lista: Deportivo primero y sin Pagos', secs[0] === 'deportivo' && !secs.includes('pagos'), JSON.stringify(secs));
   revisa('[profe] no ve adeudo ni pedidos', await p.isHidden('#fichaCuenta'));

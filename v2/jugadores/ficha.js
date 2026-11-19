@@ -84,10 +84,22 @@ function telefono(g){const n=String(g?.phone||'').replace(/\D/g,'');return n.len
 const nombre=p=>[p?.firstName,p?.lastName].filter(Boolean).join(' ');
 
 // El dato que cada renglón ya trae escrito, para no tener que abrirlo.
+// El dato que cada renglón ya trae escrito, para no tener que abrirlo, y
+// sus avisos como globito rojo (como Ajustes del iPhone): ya no hay un grupo
+// de avisos aparte; cada uno vive en el renglón de su tema.
+function avisosExpediente(){
+  const a=[];
+  if(F.docs&&F.docs.faltan>0)a.push(F.docs.faltan===1&&F.docs.nombres?.[0]?`Falta ${F.docs.nombres[0].toLowerCase()}`:`Faltan ${F.docs.faltan} documentos`);
+  const img=$('privacyBadges')?.querySelector('[class*="img-"]');
+  if(img&&!img.classList.contains('img-autoriza'))a.push(img.classList.contains('img-no_autoriza')?'No autorizan fotos':'Falta preguntar por fotos');
+  return a;
+}
 function datoDe(k){
   if(k==='deportivo'){
     const a=F.asistencia,sinEval=/Sin evaluación/i.test($('evaluationDate')?.textContent||'Sin evaluación');
-    return {sub:[a?.pct!=null?`${Math.round(a.pct)}% asistencia`:null,sinEval?'sin evaluar':'evaluado'].filter(Boolean).join(' · ')};
+    const sub=[a?.pct!=null?`${Math.round(a.pct)}% asistencia`:null,sinEval?'sin evaluar':'evaluado'].filter(Boolean).join(' · ');
+    // Portero (13/11/2026): "que en su ficha diga eso". Ahora va aquí.
+    return {sub:F.portero?`${sub}${sub?' · ':''}${F.portero}`:sub};
   }
   if(k==='pagos'){
     const c=F.resumenCuenta;
@@ -98,8 +110,9 @@ function datoDe(k){
     return {valor:[g?.name?String(g.name).split(' ')[0]:null,h?`${h} herman${h===1?'o':'os'}`:null].filter(Boolean).join(' · ')};
   }
   if(k==='expediente'){
-    const d=F.docs;
-    return d?{valor:d.faltan?`${d.entregados} de ${d.total}`:'Completo',debe:d.faltan>0}:{valor:''};
+    const d=F.docs,av=avisosExpediente();
+    // Con avisos, el globito y el subtítulo lo dicen todo; sin avisos, "Completo".
+    return {sub:av.join(' · '),valor:av.length?'':(d&&!d.faltan?'Completo':(d?`${d.entregados} de ${d.total}`:'')),globo:av.length};
   }
   if(k==='historia'){
     const t=(F.historia||[]).map(e=>String(e.date||'')).filter(Boolean).sort()[0];
@@ -116,25 +129,61 @@ function pintaTabs(){
   if(F.tab!=='resumen'&&!lista.some(([k])=>k===F.tab))F.tab='resumen';
   nav.setAttribute('aria-label','Secciones de la ficha');nav.removeAttribute('role');
   nav.innerHTML=lista.map(([k,l,ico,tono])=>{const d=datoDe(k);
-    return `<button type="button" class="ficha-seccion" aria-selected="${k===F.tab}" data-ficha-tab="${k}"><span class="ficha-seccion-ico ${tono}">${svg(ico,17)}</span><span class="ficha-seccion-txt"><b>${esc(l)}</b>${d.sub?`<small>${esc(d.sub)}</small>`:''}</span>${d.valor?`<span class="ficha-seccion-valor${d.debe?' debe':''}">${esc(d.valor)}</span>`:''}${svg('chevron',16)}</button>`;}).join('');
+    return `<button type="button" class="ficha-seccion" aria-selected="${k===F.tab}" data-ficha-tab="${k}"><span class="ficha-seccion-ico ${tono}">${svg(ico,17)}</span><span class="ficha-seccion-txt"><b>${esc(l)}</b>${d.sub?`<small>${esc(d.sub)}</small>`:''}</span>${d.valor?`<span class="ficha-seccion-valor${d.debe&&!d.globo?' debe':''}">${esc(d.valor)}</span>`:''}${d.globo?`<span class="ficha-globo" aria-label="${d.globo} aviso${d.globo===1?'':'s'}">${d.globo}</span>`:''}${svg('chevron',16)}</button>`;}).join('');
   // La barra de regreso de cada pantalla.
   let barra=$('fichaBarra');
   if(!barra){barra=document.createElement('div');barra.id='fichaBarra';barra.className='ficha-barra';vista()?.prepend(barra);}
   const quien=F.player?.firstName||'Ficha';
   barra.innerHTML=`<button type="button" data-ficha-tab="resumen" aria-label="Regresar a la ficha de ${esc(quien)}">${svg('atras',20)}<span>${esc(quien)}</span></button><strong>${esc(TITULO[F.tab]||'')}</strong>`;
+  muevePermisos();
   vista()?.classList.toggle('ficha-sub',F.tab!=='resumen');
   document.querySelectorAll('#profileView [data-ficha]').forEach(el=>{
     const en=el.dataset.ficha.split(/\s+/).includes(F.tab);
     el.classList.toggle('ficha-oculta',!en);
   });
 }
+// El permiso de imagen y sus papeles viven en Expediente, arriba de los datos.
+function muevePermisos(){
+  const pb=$('privacyBadges'),dest=document.querySelector('#profileView [data-ficha~="expediente"]:not(#fichaPermisos)');
+  if(!pb||!dest||pb.dataset.movido)return;
+  let caja=$('fichaPermisos');
+  if(!caja){caja=document.createElement('section');caja.id='fichaPermisos';caja.className='ficha-permisos';caja.dataset.ficha='expediente';
+    caja.innerHTML='<h3>PERMISOS</h3>';dest.parentElement.insertBefore(caja,dest);}
+  caja.appendChild(pb);pb.dataset.movido='1';
+}
+// Botón atrás del celular (19/11/2026): dentro de una sección regresa a la
+// ficha; en la ficha, la cierra y deja la lista (antes sacaba de Jugadores).
+// pila: 0 ficha cerrada · 1 ficha abierta · 2 dentro de una sección.
+let pila=0,ignorarPop=0;
 function irA(tab,despues){
-  if(!F)return;F.tab=tab;pintaTabs();
+  if(!F)return;
+  const antes=F.tab;
+  if(tab!=='resumen'&&antes==='resumen'&&pila===1){history.pushState({ficha:'seccion'},'');pila=2;}
+  if(tab==='resumen'&&pila===2){pila=1;ignorarPop++;history.back();}
+  F.tab=tab;pintaTabs();
   // Pantalla nueva: arriba del todo, como al entrar a una sección del iPhone.
   for(let el=vista();el;el=el.parentElement){if(el.scrollTop>0)el.scrollTop=0;}
   if(document.scrollingElement)document.scrollingElement.scrollTop=0;
   if(despues)setTimeout(despues,250);
 }
+function fichaAbiertaEnHistorial(){
+  if(pila===0){history.pushState({ficha:'abierta'},'');pila=1;}
+  // Profes entran directo a Deportivo: atrás los lleva primero a la ficha.
+  if(F&&F.tab!=='resumen'&&pila===1){history.pushState({ficha:'seccion'},'');pila=2;}
+}
+window.addEventListener('popstate',()=>{
+  if(ignorarPop>0){ignorarPop--;return;}
+  const panel=$('profilePanel');
+  if(!F||!panel?.classList.contains('open')){pila=0;return;}
+  if(pila===2){pila=1;F.tab='resumen';pintaTabs();return;}
+  if(pila===1){pila=0;cerrandoPorAtras=true;$('profileClose')?.click();cerrandoPorAtras=false;}
+});
+let cerrandoPorAtras=false;
+// Si se cierra con la X, se limpian las entradas que puso la ficha.
+document.addEventListener('click',e=>{
+  if(!e.target.closest?.('#profileClose')||cerrandoPorAtras||pila===0)return;
+  const n=pila;pila=0;ignorarPop++;history.go(-n);
+},true);
 
 /* ---------- Encabezado ---------- */
 // Puede cambiar la foto quien ve el botón de la tarjeta (mismo permiso de siempre).
@@ -169,6 +218,7 @@ function pintaChips(){
   if(F.portero)chips.push(fila('portero',esc(F.portero)));
   if(F.hermanos?.length)chips.push(fila('familia',`${F.hermanos.length} herman${F.hermanos.length===1?'o':'os'} en el club`,'familia'));
   box.innerHTML=chips.join('');
+  pintaTabs();
 }
 function pintaAcciones(){
   const box=$('fichaAcciones');if(!box||!F)return;
@@ -267,6 +317,8 @@ function pintaBeca(){
   const box=$('fichaBeca');if(!box)return;
   const b=F?.beca;
   box.dataset.ficha=F?.canMoney?'pagos':'resumen';
+  // En Pagos va debajo del número grande.
+  if(F?.canMoney){const c=$('fichaCuenta');if(c&&c.nextElementSibling!==box)c.after(box);}
   if(!b){box.hidden=true;box.innerHTML='';return;}
   box.innerHTML=`<span class="ficha-beca-ico">${svg('carta',20)}</span><span class="ficha-beca-txt"><strong>${esc(b.tipo)}${b.cuanto?` · ${esc(b.cuanto)}`:''}</strong><small>${b.quien?`Lo cubre ${esc(b.quien)}`:'Sin patrocinador registrado'}${b.hasta?` · hasta ${esc(fecha(b.hasta))}`:''}${b.pendiente?' · falta configurar cuánto cubre':''}</small></span>${svg('chevron',16)}`;
   box.hidden=false;
@@ -295,12 +347,19 @@ function pintaCuenta(){
   const titulo=estadoCuenta==='al_dia'?ESTADO_DINERO.al_dia.texto
     :`${ESTADO_DINERO[estadoCuenta].texto} · ${debe>0?`debe ${debe} mes${debe===1?'':'es'}`:'saldo pendiente'}`;
   F.resumenCuenta={titulo,saldo};
-  const filaCuenta=`<button type="button" class="ficha-cuenta-fila ${saldo>0.004?'debe':'ok'}" data-estado="${estadoCuenta}" data-ficha-ir="pagos">
-    <span class="ficha-ico">${svg('cuenta')}</span>
-    <span class="ficha-cuenta-txt"><span class="ficha-cuenta-top"><strong>${titulo}</strong>${saldo>0.004?`<b>${esc(pesos(saldo))}</b>`:''}</span>
+  // Pagos con número grande (19/11/2026): arriba lo que debe, enorme, el
+  // estado con la misma palabra que Taquilla, los meses y "Cobrar $1,600" de
+  // un toque. Es lo que se viene a ver a esta pantalla.
+  const p=F.player,cobrar=F.puedeCobrar&&F.canMoney;
+  const deuda=Math.round(saldo>0.004?saldo:0);
+  const urlCobrar=`/taquilla/?action=cobrar&player=${encodeURIComponent(p.id||F.playerId)}${deuda>0?`&amount=${deuda}`:''}&name=${encodeURIComponent(nombre(p))}`;
+  const filaCuenta=`<div class="ficha-pago-hero ficha-cuenta-fila ${saldo>0.004?'debe':'ok'}" data-estado="${estadoCuenta}">
+    <b class="ficha-pago-monto">${saldo>0.004?esc(pesos(saldo)):esc(ESTADO_DINERO.al_dia.texto)}</b>
+    <span class="ficha-pago-estado">${saldo>0.004?esc(titulo):'No debe nada'}</span>
     ${chips?`<span class="ficha-meses">${chips}</span>`:''}
-    <small>${pago?`Último pago ${esc(fecha(pago.date))}${pago.method?` · ${esc(METODO[pago.method]||pago.method)}`:''}`:'Sin pagos registrados'}</small></span>
-  </button>`;
+    <small>${pago?`Último pago ${esc(fecha(pago.date))}${pago.method?` · ${esc(METODO[pago.method]||pago.method)}`:''}`:'Sin pagos registrados'}</small>
+    ${cobrar?`<a class="ficha-pago-cobrar" href="${esc(urlCobrar)}">${deuda>0?`Cobrar ${esc(pesos(deuda))}`:'Registrar un pago'}</a>`:''}
+  </div>`;
   const activos=(d.orders||[]).filter(o=>!['delivered','cancelled','refunded'].includes(o.status));
   const ESTADO={pending_payment:'Pendiente de pago',partial_payment:'Pago parcial',paid:'Pagado',in_production:'En producción',ready:'Listo para entregar'};
   const filasPedido=activos.map(o=>{const falta=Number(o.total||0)-Number(o.paid||0);
@@ -393,6 +452,7 @@ async function alAbrir(d){
      puedeCobrar:pm.cobrar,org:d.organizationId,tab:mismo?F.tab:tabInicial};
   if(!mismo){cerrarCarta();cerrarMas();vista()?.classList.remove('ficha-foto-abierta');}
   asegurarMas();
+  fichaAbiertaEnHistorial();
   pintaTodo();
   // Lo que llegó mientras se revisaban permisos (pagos, becas, documentos,
   // deportivo) se aplica ya: si no, se perdía en la carrera.

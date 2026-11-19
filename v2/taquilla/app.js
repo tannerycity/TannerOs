@@ -113,7 +113,7 @@ function renderCategoryLists(){
 function renderMethods(){
   const rows=snapshot?.methods||[],body=$('methodRows');body.innerHTML='';
   $('methodsEmpty').classList.toggle('hidden',rows.length>0);
-  rows.forEach(r=>{const tr=document.createElement('tr');const net=Number(r.net||0);tr.innerHTML=`<td>${esc(r.method)}</td><td class="money-in">${money.format(Number(r.income||0))}</td><td class="money-out">${Number(r.expense||0)?money.format(Number(r.expense||0)):'—'}</td><td class="${net<0?'money-out':''}">${money.format(net)}</td>`;body.appendChild(tr);});
+  rows.forEach(r=>{const tr=document.createElement('tr');const net=Number(r.net||0);tr.innerHTML=`<td>${esc(methodLabel(r.method))}</td><td class="money-in">${money.format(Number(r.income||0))}</td><td class="money-out">${Number(r.expense||0)?money.format(Number(r.expense||0)):'—'}</td><td class="${net<0?'money-out':''}">${money.format(net)}</td>`;body.appendChild(tr);});
 }
 // Quién del club hizo el movimiento.
 //
@@ -789,8 +789,9 @@ function registroDeCorte(m){
 async function exportaCortePdf(){
   if(!canViewLedger)return;
   const btn=$('printClose');
-  const antes=btn.textContent;
-  btn.disabled=true;btn.textContent='Generando…';
+  // Sólo cambia el texto: el renglón también trae su ícono y su flecha.
+  const txt=btn.querySelector('.otro-txt')||btn,antes=txt.textContent;
+  btn.disabled=true;txt.textContent='Generando…';
   message('cutMessage');
   try{
     const fecha=$('businessDate').value||isoToday();
@@ -933,7 +934,7 @@ async function exportaCortePdf(){
     // El botón nunca vuelve a quedarse mudo: si jsPDF no carga (sin red, por
     // ejemplo) el papel no sale, pero la pantalla lo dice.
     message('cutMessage',`No pudimos generar el corte: ${String(e?.message||e)}`);
-  }finally{ btn.disabled=false;btn.textContent=antes; }
+  }finally{ btn.disabled=false;txt.textContent=antes; }
 }
 
 $('businessDate').value=isoToday();$('collectDate').value=isoToday();$('generalDate').value=isoToday();$('expenseDate').value=isoToday();

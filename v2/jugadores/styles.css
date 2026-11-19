@@ -895,3 +895,46 @@ body.ficha-visor-abierto{overflow:hidden}
 .jcard.jrow .jcard-pub svg{width:14px;height:14px;flex:0 0 14px}
 .jcard.jrow .jcard-pub.img-sin_preguntar{background:#fdf3dc!important;color:#a3701a!important}
 .jcard.jrow .jcard-pub.img-autoriza{display:none!important}
+/* ==== Plantilla en blanco, con alma de club (19/11/2026) ====
+   Presidencia: "en blanco se ve más limpio... esos colores están muy
+   saturados" y "los puntos rojos parecen de sistema". Arriba sigue sin la
+   tarjeta de bienvenida (la plantilla empieza de inmediato). Del FIFA queda
+   la tipografía, no el color: dorsal grande en azul noche, nombre en la
+   Barlow Condensed del club y la posición en una placa gris suave. Lo que
+   falta se dice con texto en terracota discreto, sin puntos de alerta. */
+@font-face{font-family:'Barlow Condensed';font-weight:700;font-display:swap;src:url('/fonts/barlow-condensed-700.woff2') format('woff2')}
+@font-face{font-family:'Barlow Condensed';font-weight:800;font-display:swap;src:url('/fonts/barlow-condensed-800.woff2') format('woff2')}
+#view>.hero{display:none!important}
+/* Encabezado: PLANTILLA en grande; importar/exportar como enlaces discretos. */
+.plantilla-header{display:flex!important;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 10px!important}
+.plantilla-header h2{margin:0;font-family:'Barlow Condensed',Inter,system-ui,sans-serif;font-weight:800;font-size:32px;line-height:1;letter-spacing:.02em;text-transform:uppercase;color:#0b2a33}
+.plantilla-header #importRoster,.plantilla-header #exportRoster{margin-left:auto;min-height:32px;padding:0 4px!important;border:0!important;background:none!important;box-shadow:none!important;color:#087d8e!important;font-size:13px!important;font-weight:600!important;text-decoration:none!important}
+.plantilla-header #exportRoster{margin-left:0}
+@media (max-width:640px){.plantilla-header #importRoster,.plantilla-header #exportRoster{display:none!important}}
+/* "Tanners sin número": una línea, no un cartel. */
+.list-panel #sinNumero>*{border-radius:12px!important;padding:8px 12px!important;min-height:0!important}
+/* Filtro elegido: azul noche, no negro de sistema. */
+.list-panel .filter-bar button.fchip.on,.list-panel .filter-bar .fchip.on{background:#0b2a33!important;border-color:#0b2a33!important;color:#fff!important}
+/* Categoría */
+.list-panel .cat-head h3{font-family:'Barlow Condensed',Inter,sans-serif;font-weight:800;font-size:19px;letter-spacing:.08em;text-transform:uppercase;color:#0b2a33}
+/* Renglón de plantilla */
+.jcard.jrow{min-height:64px;gap:10px;padding:8px 12px}
+.jrow-num{flex:0 0 32px;text-align:center;font-family:'Barlow Condensed',Inter,sans-serif;font-weight:800;font-size:26px;line-height:1;color:#0b2a33;font-variant-numeric:tabular-nums}
+.jrow-foto{flex-basis:46px!important;width:46px!important;height:46px!important;border-radius:12px!important}
+.jcard.jrow .jcard-name{font-family:'Barlow Condensed',Inter,sans-serif!important;font-weight:700!important;font-size:19px!important;letter-spacing:.02em!important;text-transform:uppercase}
+.jrow-pos{flex:0 0 auto;min-width:38px;padding:3px 6px;border-radius:6px;background:#f1f3f2;color:#4d5f65;font-family:'Barlow Condensed',Inter,sans-serif;font-weight:700;font-size:14px;letter-spacing:.06em;text-align:center}
+/* Lo que falta, en texto: terracota discreto, sin punto de alerta. */
+.jrow-punto{display:none!important}
+.jrow-txt small.falta{color:#a2542f;font-weight:600}
+.jcard.jrow .jcard-pub{background:#f1f3f2!important;color:#8a979b!important}
+.jcard.jrow .jcard-pub.img-sin_preguntar{background:#f1f3f2!important;color:#8a979b!important}
+/* Deslizar: Cobrar en azul noche; WhatsApp en gris claro. Nada de verde. */
+.jrow-acc.cobrar{background:#0b2a33!important;color:#fff!important;font-weight:700}
+.jrow-acc.wa{background:#eef1f0!important;color:#0b2a33!important;font-weight:700}
+/* Fuera de la plantilla: los verdes de sistema pasan a la paleta del club. */
+.ficha-seccion-ico.verde{background:#c6ac5c!important;color:#0b2a33}
+.ficha-pago-hero.ok .ficha-pago-monto{color:#087d8e}
+#profileView #privacyBadges .profile-badge.img-autoriza::before{background:#087d8e}
+.jcard-dot.ok{background:#c6ac5c}
+/* El globito de la ficha: terracota del club, no rojo de sistema. */
+.ficha-globo{background:#a2542f!important}

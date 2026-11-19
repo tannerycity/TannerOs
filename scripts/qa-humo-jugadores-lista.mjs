@@ -16,6 +16,21 @@
  *   5. Después de deslizar, el toque no abre la ficha; un toque normal sí.
  *   6. WhatsApp abre el chat del tutor con el mensaje del club.
  *   7. El profe no ve Cobrar.
+ *
+ * TÉCNICAS (ISTQB, nivel Foundation):
+ *   · Tabla de decisión (quién ve qué). Condiciones: ve dinero (billing o
+ *     accounting) × ve expediente (jugadores_estado).
+ *       R1 Presidencia  sí/sí  → punto por expediente y por deuda, Cobrar.
+ *       R2 Taquilla     sí/no  → punto sólo por deuda (h96), Cobrar.
+ *       R3 Profe        no/no  → sin puntos, sin Cobrar; WhatsApp sí.
+ *   · Valores frontera del deslizar: el umbral es la mitad del ancho de las
+ *     acciones. Se prueba umbral − 12 px (no abre) y umbral + 12 px (abre).
+ *   · Transición de estados del renglón: cerrado → abierto (deslizar) →
+ *     cerrado (tocar fuera); abierto A + deslizar B → A cerrado, B abierto.
+ *   · Partición de equivalencia de la posición: portero, defensa, lateral,
+ *     medio, extremo, delantero y una clase inválida (texto libre) → placa.
+ *   · Adivinación de errores: sin dorsal ("–"), tutor sin teléfono
+ *     ("Sin teléfono"), saldo 0 no pinta punto (frontera 0 / 0.01).
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -34,8 +49,18 @@ const BASE = `http://127.0.0.1:${srv.address().port}`;
 const MODS = {
   Presidencia:{ my:[['players',true],['billing',true],['accounting',true],['jugadores_familia',true],['jugadores_estado',true]],
                 nav:[['jugadores',true],['cobranza',true],['contabilidad',true],['taquilla',true]] },
-  Formadores:{ my:[['players',true]], nav:[['jugadores',true],['asistencia',true]] }
+  Formadores:{ my:[['players',true]], nav:[['jugadores',true],['asistencia',true]] },
+  Taquilla:{ my:[['players',false],['billing',true]], nav:[['jugadores',true],['taquilla',true]] }
 };
+// R2 + h96: la lista ya trae saldo y teléfono. Posiciones para la partición.
+const JUG_H96 = [
+  { id:'t1', first_name:'Leo', last_name:'Ríos', status:'active', status_value:'active', category:'T10', jersey_number:'1', player_position:'Portero', docs_missing:2, data_consent:false, image_consent_status:'sin_preguntar', balance_due:1600, guardian_phone:'4775550001' },
+  { id:'t2', first_name:'Sara', last_name:'Paz', status:'active', status_value:'active', category:'T10', jersey_number:'3', player_position:'Defensa central', docs_missing:0, data_consent:true, image_consent_status:'autoriza', balance_due:0.01 },
+  { id:'t3', first_name:'Hugo', last_name:'Sol', status:'active', status_value:'active', category:'T10', jersey_number:'2', player_position:'Lateral derecho', docs_missing:0, data_consent:true, image_consent_status:'autoriza', balance_due:0 },
+  { id:'t4', first_name:'Iván', last_name:'Mar', status:'active', status_value:'active', category:'T10', jersey_number:'8', player_position:'Medio', docs_missing:0, data_consent:true, image_consent_status:'autoriza', balance_due:null },
+  { id:'t5', first_name:'Eva', last_name:'Luz', status:'active', status_value:'active', category:'T10', jersey_number:'11', player_position:'Extremo', docs_missing:0, data_consent:true, image_consent_status:'autoriza' },
+  { id:'t6', first_name:'Noé', last_name:'Gil', status:'active', status_value:'active', category:'T10', jersey_number:'', player_position:'Libero', docs_missing:0, data_consent:true, image_consent_status:'autoriza' }
+];
 const JUGADORES = [
   { id:'p1', first_name:'Marcelo', last_name:'Pedroza Ortiz', status:'active', status_value:'active', category:'T10', jersey_number:'7', player_position:'Portero', docs_missing:1, data_consent:true, image_consent:false, image_consent_status:'no_autoriza' },
   { id:'p2', first_name:'Ana', last_name:'Luna', status:'active', status_value:'active', category:'T10', jersey_number:'10', player_position:'Delantera', docs_missing:0, data_consent:true, image_consent:true, image_consent_status:'autoriza' },
@@ -47,7 +72,7 @@ const revisa = (n, ok, d) => { corridas++; if (!ok) { fallos++; console.error(` 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 const errores = [];
 
-async function abre(rol, ctx) {
+async function abre(rol, ctx, jug = JUGADORES) {
   const p = await ctx.newPage();
   p.on('pageerror', e => errores.push(`[${rol}] ${e.message}`));
   await p.addInitScript(({ rol, m, JUG }) => {
@@ -66,7 +91,7 @@ async function abre(rol, ctx) {
       storage: { from: () => ({ createSignedUrl: async () => ({ data: null }), createSignedUrls: async () => ({ data: [] }) }) },
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {}
     };
-  }, { rol, m: MODS[rol], JUG: JUGADORES });
+  }, { rol, m: MODS[rol], JUG: jug });
   await p.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
   await p.route('https://wa.me/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<p>wa</p>' }));
   await p.route('**/v2/supabase-client.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'export function createClient(){ return window.__fakeSupabase; }' }));
@@ -92,15 +117,21 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p = await abre('Presidencia', ctx);
-  const filas = await p.$$eval('#playerList .jrow', bs => bs.map(b => ({ id: b.dataset.playerId, txt: b.innerText.replace(/\s+/g, ' ').trim(), alto: b.getBoundingClientRect().height, punto: !!b.querySelector('.jrow-punto') })));
+  const filas = await p.$$eval('#playerList .jrow', bs => bs.map(b => ({ id: b.dataset.playerId, txt: b.innerText.replace(/\s+/g, ' ').trim(), alto: b.getBoundingClientRect().height, punto: !!b.querySelector('.jrow-txt small.falta') })));
   revisa('1. la lista es la vista por defecto: un renglón por Tanner', filas.length === 3 && await p.isVisible('#vistaJugadores [data-vista-jug="lista"][aria-pressed="true"]'), filas);
   revisa('1. cada renglón mide lo que un dedo', filas.every(f => f.alto >= 44), filas.map(f => f.alto));
   const m = filas.find(f => f.id === 'p1'), a = filas.find(f => f.id === 'p2'), i = filas.find(f => f.id === 'p3');
-  revisa('A. nombre, número y posición en el renglón', /Marcelo Pedroza Ortiz/.test(m?.txt) && /#7 · Portero/.test(m?.txt), m);
+  revisa('A. dorsal, nombre y posición en placa (como el FIFA)', /^7\b/.test(m?.txt) && /MARCELO PEDROZA ORTIZ/i.test(m?.txt) && /\bPOR\b/.test(m?.txt) && /\bDEL\b/.test(a?.txt || ''), { m, a });
   revisa('2. punto rojo y el motivo para quien le falta algo', m?.punto && /Falta 1 documento/.test(m?.txt) && i?.punto && /Cobro sin configurar/.test(i?.txt), { m, i });
   revisa('2. sin punto para quien está completa', a && !a.punto, a);
 
   // B · Deslizar
+  const umbral = await p.$eval('.jrow[data-player-id="p2"]', b => b.parentElement.querySelector('.jrow-acciones').getBoundingClientRect().width / 2);
+  await desliza(p, 'p2', umbral - 12);
+  revisa('frontera: umbral − 12 px no abre', !(await abierto(p, 'p2')), umbral);
+  await desliza(p, 'p2', umbral + 12);
+  revisa('frontera: umbral + 12 px abre', await abierto(p, 'p2'), umbral);
+  await p.click('.cat-head h3');
   await desliza(p, 'p2', 40);
   revisa('4. soltar a medias no deja abierto', !(await abierto(p, 'p2')));
   await desliza(p, 'p2', 220);
@@ -139,13 +170,41 @@ const abierto = (p, id) => p.$eval(`.jrow[data-player-id="${id}"]`, b => b.paren
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p = await abre('Formadores', ctx);
-  revisa('2. el profe no ve puntos de expediente', (await p.$$('#playerList .jrow-punto')).length === 0 && (await p.$$('#playerList .jrow')).length === 3);
+  revisa('2. el profe no ve puntos de expediente', (await p.$$('#playerList .jrow-txt small.falta')).length === 0 && (await p.$$('#playerList .jrow')).length === 3);
   await desliza(p, 'p2', 220);
   revisa('7. el profe desliza y ve WhatsApp, sin Cobrar', await abierto(p, 'p2') && !(await p.$('.jrow-wrap.abierto .jrow-acc.cobrar')) && await p.isVisible('.jrow-wrap.abierto .jrow-acc.wa'));
   await ctx.close();
 }
 
+/* ---------- R2 Taquilla, con la lista de h96 ---------- */
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await abre('Taquilla', ctx, JUG_H96);
+  const f = await p.$$eval('#playerList .jrow', bs => Object.fromEntries(bs.map(b => [b.dataset.playerId, { txt: b.innerText.replace(/\s+/g, ' ').trim(), punto: !!b.querySelector('.jrow-txt small.falta'), pos: b.querySelector('.jrow-pos')?.textContent || '', num: b.querySelector('.jrow-num')?.textContent || '', motivo: b.querySelector('.jrow-txt small')?.textContent || '' }])));
+  revisa('R2: con deuda, el punto dice cuánto debe (h96)', f.t1?.punto && /Debe \$1,600/.test(f.t1.txt), f.t1);
+  revisa('R2: sin permiso de expediente, el motivo sólo habla de dinero (ni documentos ni permisos)', /^Debe \$1,600$/.test(f.t1?.motivo || ''), f.t1);
+  revisa('frontera del saldo: $0.01 sí pinta; $0 y vacío no', f.t2?.punto && !f.t3?.punto && !f.t4?.punto, { t2: f.t2, t3: f.t3, t4: f.t4 });
+  revisa('partición de posición: POR, DEF, LAT, MED, EXT y texto libre (LIB)', f.t1?.pos === 'POR' && f.t2?.pos === 'DEF' && f.t3?.pos === 'LAT' && f.t4?.pos === 'MED' && f.t5?.pos === 'EXT' && f.t6?.pos === 'LIB', Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.pos])));
+  revisa('error típico: sin dorsal sale "–", no un hueco', f.t6?.num === '–', f.t6);
+  await desliza(p, 't1', 220);
+  revisa('R2: Taquilla desliza y ve Cobrar', await p.isVisible('.jrow-wrap.abierto .jrow-acc.cobrar'));
+  await Promise.all([p.waitForURL(/wa\.me/, { timeout: 5000 }).catch(() => {}), p.click('.jrow-wrap.abierto .jrow-acc.wa')]);
+  revisa('h96: con el teléfono en la lista, WhatsApp abre sin pedir la ficha', /wa\.me\/524775550001/.test(p.url()) && !(await p.evaluate(() => (window.__llamadas || []).some(l => l.n === 'v2_player_profile')).catch(() => true)), p.url());
+  await ctx.close();
+}
+/* ---------- Error típico: tutor sin teléfono ---------- */
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await abre('Formadores', ctx);
+  await p.evaluate(() => { const r = window.__fakeSupabase.rpc; window.__fakeSupabase.rpc = async (n, params) => n === 'v2_player_profile' ? { data: { player: { firstName: 'Ana' }, guardians: [{ phone: null, isPrimary: true }] }, error: null } : r(n, params); });
+  await desliza(p, 'p2', 220);
+  await p.click('.jrow-wrap.abierto .jrow-acc.wa');
+  await p.waitForTimeout(400);
+  revisa('error típico: sin teléfono, el botón lo dice y no abre nada', /Sin teléfono/.test(await p.textContent('.jrow-wrap.abierto .jrow-acc.wa')) && !/wa\.me/.test(p.url()));
+  await ctx.close();
+}
+
 revisa('sin errores de página', !errores.length, errores.join(' | '));
 await browser.close(); srv.close();
-console.log(fallos ? `Jugadores lista FAILED · ${fallos} de ${corridas}` : `Jugadores lista OK · ${corridas} revisiones: renglones estilo Contactos con punto rojo, Tarjetas recordadas, deslizar para Cobrar y WhatsApp`);
+console.log(fallos ? `Jugadores lista FAILED · ${fallos} de ${corridas}` : `Jugadores lista OK · ${corridas} revisiones: tabla de decisión por rol, fronteras del deslizar y del saldo, estados del renglón, posiciones y errores típicos`);
 process.exit(fallos ? 1 : 0);

@@ -96,13 +96,18 @@ async function abre(rol, ancho=390) {
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return "/icon-512.png";}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
   await p.goto('http://127.0.0.1:4791/v2/jugadores/?player=p1', { waitUntil:'domcontentloaded' });
-  await p.waitForSelector('#fichaTabs button', { timeout:8000 });
+  await p.waitForSelector('#fichaTabs button', { timeout:8000, state:'attached' });
   await p.waitForFunction(() => window.__llamadas.includes('v2_player_story') && window.__llamadas.includes('v2_player_documents'), null, { timeout:6000 });
   await p.waitForTimeout(500);
   return p;
 }
 const visible = (p, sel) => p.isVisible(sel);
 const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
+// Fase B: las secciones se abren desde la lista; dentro, "‹ Nombre" regresa.
+async function seccion(p, k) {
+  if (await p.isVisible('#fichaBarra [data-ficha-tab="resumen"]')) await p.click('#fichaBarra [data-ficha-tab="resumen"]');
+  if (k !== 'resumen') await p.click(`#fichaTabs [data-ficha-tab="${k}"]`);
+}
 
 /* ---------- Presidencia, teléfono ---------- */
 {
@@ -153,30 +158,43 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   revisa('[pres] desde la foto se abre la Carta Tanner', await visible(p, '#tannerCard'));
   await p.keyboard.press('Escape');
   revisa('[pres] Escape cierra la carta', await p.isHidden('#tannerCard'));
+  // Fase B estilo Apple: sin pestañas; una lista de secciones con su dato ya escrito.
+  const filas = await p.$$eval('#fichaTabs .ficha-seccion', b => b.map(x => x.innerText.replace(/\s+/g, ' ').trim()));
+  revisa('[apple B] la ficha abre en el inicio, con la lista de secciones', !(await p.isVisible('#fichaBarra')) && filas.length === 5, JSON.stringify(filas));
+  revisa('[apple B] Deportivo ya dice asistencia y evaluación', /^Deportivo 86% asistencia · sin evaluar/.test(filas[0] || ''), filas[0]);
+  revisa('[apple B] Pagos ya dice el estado y cuánto', /^Pagos Atrasado · debe 2 meses \$1,600/.test(filas[1] || ''), filas[1]);
+  revisa('[apple B] Familia ya dice quién y cuántos hermanos', /^Familia Laura · 1 hermano/.test(filas[2] || ''), filas[2]);
+  revisa('[apple B] Expediente ya dice cuántos documentos', /^Expediente 2 de 3/.test(filas[3] || ''), filas[3]);
+  revisa('[apple B] Historia dice desde cuándo', /^Historia desde/.test(filas[4] || ''), filas[4]);
+  revisa('[apple B] en el inicio no se ven cuenta, beca, perfil ni formularios', await p.isHidden('#fichaCuenta') && await p.isHidden('#fichaBeca') && await p.isHidden('#fichaPerfil') && await p.isHidden('#firstName') && await p.isHidden('#sportsSnapshot'));
+  revisa('[apple B] cada renglón mide lo que un dedo', await p.$$eval('#fichaTabs .ficha-seccion', b => b.every(x => x.getBoundingClientRect().height >= 44)));
+
+  await seccion(p, 'pagos');
+  revisa('[apple B] tocar Pagos abre su pantalla con "‹ Marcelo · Pagos"', /Marcelo/.test(await texto(p, '#fichaBarra')) && /Pagos/.test(await texto(p, '#fichaBarra strong')) && await p.isHidden('#profileName'), await texto(p, '#fichaBarra'));
   const beca = await texto(p, '#fichaBeca');
-  revisa('[beca] renglón de beca visible', await visible(p, '#fichaBeca'));
+  revisa('[beca] en Pagos sale la beca', await visible(p, '#fichaBeca'));
   revisa('[beca] dice cuánto, quién y hasta cuándo', /Beca parcial · 50% de la mensualidad/.test(beca) && /Lo cubre Don Trapo/.test(beca) && /hasta 31 dic/.test(beca), beca);
   const cuenta = await texto(p, '#fichaCuenta');
   revisa('[cuenta] el mismo semáforo que Taquilla: Atrasado · debe 2 meses y cuánto', /Atrasado · debe 2 meses/.test(cuenta) && /\$1,600/.test(cuenta) && !/Al corriente|vencido/.test(cuenta), cuenta.slice(0,160));
   revisa('[cuenta] la fila dice su estado para el color', await p.$eval('#fichaCuenta .ficha-cuenta-fila', b => b.dataset.estado) === 'atrasado');
-  revisa('[cuenta] meses en color', (await p.$$('#fichaCuenta .ficha-mes.atrasado')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.por-vencer')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.pagado')).length === 1, cuenta);
+  revisa('[cuenta] en Pagos sí se ven los meses, en color', await p.isVisible('#fichaCuenta .ficha-meses') && (await p.$$('#fichaCuenta .ficha-mes.atrasado')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.por-vencer')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.pagado')).length === 1, cuenta);
   revisa('[cuenta] último pago', /Último pago .* Efectivo/.test(cuenta));
   revisa('[cuenta] pedido activo y lo que falta (no el entregado)', /Pedido activo · TC-0142/.test(cuenta) && /faltan \$250/.test(cuenta) && !/TC-0100/.test(cuenta), cuenta);
+  revisa('[pagos] pagos y beca', await visible(p, '#pagosSnapshot') && await visible(p, '#benefitsPanel'));
+
+  await seccion(p, 'deportivo');
   const perfil = await texto(p, '#fichaPerfil');
-  revisa('[perfil] se llama Perfil deportivo Tanner', /PERFIL DEPORTIVO TANNER/.test(perfil));
+  revisa('[perfil] en Deportivo: Perfil deportivo Tanner', /PERFIL DEPORTIVO TANNER/.test(perfil) && await visible(p, '#sportsSnapshot'));
   revisa('[perfil] asistencia de 30 días', /86%/.test(perfil) && /12 de 14/.test(perfil), perfil);
   revisa('[perfil] sin evaluación lo dice', /Sin evaluar/.test(perfil));
-  // Fase A estilo Apple: la cuenta es un renglón (los meses viven en Pagos) y el perfil, dos datos sobre blanco.
-  revisa('[apple A] los meses no se ven al frente; están en Pagos al tocar', !(await p.isVisible('#fichaCuenta .ficha-meses')));
-  revisa('[apple A] perfil deportivo: dos datos, sin posición ni objetivo', (await p.$$('#fichaPerfil .ficha-perfil-grid > div')).length === 2 && !/Objetivo actual/.test(perfil));
-  revisa('[apple A] sin degradados abajo', await p.evaluate(() => ['#fichaBeca', '#fichaPerfil'].every(s => !/gradient/.test(getComputedStyle(document.querySelector(s)).backgroundImage))));
-  const tabs = await p.$$eval('#fichaTabs button', b => b.map(x => x.textContent + (x.getAttribute('aria-selected')==='true'?'*':'')));
-  revisa('[tabs] Presidencia abre en Resumen y ve Pagos', JSON.stringify(tabs) === JSON.stringify(['Resumen*','Deportivo','Pagos','Familia','Expediente']), JSON.stringify(tabs));
-  revisa('[tabs] en Resumen no se ve el formulario', await p.isHidden('#firstName') && await p.isHidden('#sportsSnapshot'));
+  revisa('[perfil] dos datos, sin posición ni objetivo', (await p.$$('#fichaPerfil .ficha-perfil-grid > div')).length === 2 && !/Objetivo actual/.test(perfil));
+  revisa('[apple] sin degradados', await p.evaluate(() => ['#fichaBeca', '#fichaPerfil'].every(s => !/gradient/.test(getComputedStyle(document.querySelector(s)).backgroundImage))));
+
+  await seccion(p, 'historia');
   const res = await texto(p, '#fichaResumen');
-  revisa('[resumen] pendientes sin repetir lo de arriba: sólo la evaluación', /Evaluación del ciclo/.test(res) && !/Registrar permiso de imagen/.test(res) && !/Falta 1 documento/.test(res), res.slice(0,300));
-  revisa('[resumen] familia en el club', /Milan Pedroza/.test(res));
-  revisa('[resumen] su historia en el club', /SU HISTORIA EN EL CLUB/.test(res) && /Entró al club/.test(res));
+  revisa('[historia] su historia en el club, en su pantalla', /SU HISTORIA EN EL CLUB/.test(res) && /Entró al club/.test(res) && /Historia en el club/.test(await texto(p, '#fichaBarra strong')), res.slice(0, 200));
+  await seccion(p, 'resumen');
+  revisa('[apple B] "‹ Marcelo" regresa al inicio', await p.isVisible('#profileName') && !(await p.isVisible('#fichaBarra')));
   const chips = await texto(p, '#fichaChips');
   revisa('[chips] faltan documentos y hermanos', /Falta 1 documento/.test(chips) && /1 hermano en el club/.test(chips), chips);
   revisa('[chips] la ficha dice que es portero y cuándo entrena con la academia', /Portero · con la academia · Martes 5:00 a 6:00 pm/.test(chips), chips);
@@ -201,21 +219,18 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   const wa = await p.getAttribute('#consentBox .consent-wa', 'href');
   revisa('[imagen] trae el WhatsApp para pedir el permiso', (wa||'').startsWith('https://wa.me/524771112233?text='), wa);
 
-  // Pestañas
-  await p.click('[data-ficha-tab="familia"]');
+  // Secciones
+  await seccion(p, 'familia');
   const fam = await texto(p, '#fichaFamilia');
   revisa('[familia] tutores con quién paga y hermanos', /Laura Ortiz/.test(fam) && /paga la mensualidad/.test(fam) && /HERMANOS EN EL CLUB/.test(fam) && /Milan Pedroza/.test(fam), fam.slice(0,240));
   revisa('[familia] aquí sí está el formulario del tutor', await visible(p, '#guardianName') && await p.isHidden('#firstName'));
-  await p.click('[data-ficha-tab="expediente"]');
+  await seccion(p, 'expediente');
   revisa('[expediente] datos y documentos', await visible(p, '#firstName') && await visible(p, '#documentChecklist'));
   const docs = await texto(p, '#docsProgreso');
   revisa('[docs] 2 de 3 entregados', /2 de 3 entregados/.test(docs), docs);
   const dwa = await p.getAttribute('#docsProgreso .docs-wa', 'href');
   revisa('[docs] pedir lo que falta por WhatsApp', /Acta%20de%20nacimiento/.test(dwa||''), dwa);
-  await p.click('[data-ficha-tab="pagos"]');
-  revisa('[pagos] pagos y beca', await visible(p, '#pagosSnapshot') && await visible(p, '#benefitsPanel'));
-  await p.click('#fichaBeca');
-  revisa('[beca] tocar la franja lleva a Pagos', (await p.getAttribute('[data-ficha-tab="pagos"]', 'aria-selected')) === 'true');
+  await seccion(p, 'resumen');
 
   // Más
   await p.click('[data-ficha-mas]');
@@ -227,7 +242,7 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   const cob = await p.getAttribute('#fichaAcciones a.principal', 'href');
   revisa('[acciones] Cobrar lleva el monto que debe', /action=cobrar&player=p1&amount=1600/.test(cob||''), cob);
   revisa('[pres] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-  await p.click('[data-ficha-tab="resumen"]');
+  await seccion(p, 'resumen');
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/ficha-tanner-telefono.png') });
   await p.close();
 }
@@ -235,10 +250,12 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
 /* ---------- Profe ---------- */
 {
   const p = await abre('Formadores');
-  const tabs = await p.$$eval('#fichaTabs button', b => b.map(x => x.textContent + (x.getAttribute('aria-selected')==='true'?'*':'')));
-  revisa('[profe] abre en Deportivo y sin Pagos', JSON.stringify(tabs) === JSON.stringify(['Resumen','Deportivo*','Familia','Expediente']), JSON.stringify(tabs));
+  revisa('[profe] entra directo a Deportivo, con "‹ Marcelo" para la ficha completa', await visible(p, '#sportsSnapshot') && /Deportivo/.test(await texto(p, '#fichaBarra strong')));
+  await seccion(p, 'resumen');
+  const secs = await p.$$eval('#fichaTabs .ficha-seccion', b => b.map(x => x.dataset.fichaTab));
+  revisa('[profe] su lista: Deportivo primero y sin Pagos', secs[0] === 'deportivo' && !secs.includes('pagos'), JSON.stringify(secs));
   revisa('[profe] no ve adeudo ni pedidos', await p.isHidden('#fichaCuenta'));
-  revisa('[profe] ve el perfil deportivo', await visible(p, '#sportsSnapshot'));
+  revisa('[profe] sin dinero, la beca se queda en el inicio', await p.getAttribute('#fichaBeca', 'data-ficha') === 'resumen');
   const acc = await p.$$eval('#fichaAcciones .ficha-accion', a => a.map(x => x.textContent.trim()));
   revisa('[profe] su botón principal es Evaluar, sin Cobrar', !acc.includes('Cobrar') && acc.includes('Evaluar'), JSON.stringify(acc));
   // El profe toma las fotos en cancha: con permiso de Jugadores también ve la cámara.
@@ -250,7 +267,9 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
 {
   const p = await abre('Presidencia', 1280);
   revisa('[compu] foto grande de 208px', await p.evaluate(() => Math.round(document.getElementById('fichaAvatar').getBoundingClientRect().width) === 208));
+  await seccion(p, 'deportivo');
   revisa('[compu] perfil deportivo en 2 columnas (dos datos)', await p.evaluate(() => getComputedStyle(document.querySelector('.ficha-perfil-grid')).gridTemplateColumns.split(' ').length === 2));
+  await seccion(p, 'resumen');
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/ficha-tanner-compu.png') });
   await p.close();
 }

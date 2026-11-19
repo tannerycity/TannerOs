@@ -735,3 +735,42 @@ button.cob-tile{cursor:pointer}
 .caja-hoy-filas div:last-child{border-bottom:0}
 .caja-hoy-cuenta{border-top:1px solid rgba(60,60,67,.12)}
 .caja-hoy-cuenta label{text-transform:none;letter-spacing:0;font-size:15px}
+
+/* ===== Cobranza y Montos estilo Apple (19/11/2026) =====
+   El mismo lenguaje que la parte de arriba: título grande, botones de
+   herramientas como pastillas grises, buscador y selectores grises rellenos,
+   filtros como pastillas (la elegida oscura) y tarjetas sin borde. */
+.cashier-apple .cashier-panel{padding:18px 16px}
+.cashier-apple .cashier-panel-head h2{font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--ap-txt)}
+.cashier-apple .cashier-panel-head p{color:var(--ap-gris);font-size:14px}
+/* Montos: título arriba y las herramientas en una fila de pastillas abajo */
+.cashier-apple #montosPanel .cashier-panel-head{display:grid;gap:10px}
+.cashier-apple .montos-head-actions{gap:8px}
+.cashier-apple .cashier-panel .cashier-secondary{min-height:40px;padding:0 14px;border:0;border-radius:999px;background:var(--ap-relleno);color:var(--ap-txt);font-size:14px;font-weight:600;box-shadow:none}
+.cashier-apple .cashier-panel .cashier-secondary:hover{background:#dedee3}
+/* Números del mes: mosaicos grises sin borde */
+.cashier-apple .montos-kpis{gap:10px}
+.cashier-apple .montos-kpis article{border:0;border-radius:14px;background:#f2f2f7;padding:12px 14px}
+.cashier-apple .montos-kpis span{font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ap-gris)}
+.cashier-apple .montos-kpis strong{font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--ap-txt)}
+.cashier-apple .montos-kpis small{font-weight:500;color:var(--ap-gris)}
+/* Buscadores de los paneles: el gris con lupa de iOS */
+.cashier-apple .cashier-panel .tsearch-field input{min-height:46px;padding-left:40px;border:0;border-radius:12px;background:var(--ap-relleno) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 13px 50%/17px;font-size:16px;box-shadow:none}
+.cashier-apple .cashier-panel .tsearch-field input:focus{outline:0;box-shadow:0 0 0 3px rgba(30,142,67,.28)}
+/* Mes, categoría y beneficio: el mes arriba y los otros dos lado a lado */
+.cashier-apple .montos-selects{grid-template-columns:1fr 1fr;gap:10px}
+.cashier-apple .montos-selects label{font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ap-gris)}
+.cashier-apple .montos-selects label:first-child{grid-column:1/-1}
+.cashier-apple .montos-selects input,.cashier-apple .montos-selects select{min-height:44px;border:0;border-radius:12px;background-color:var(--ap-relleno);font-size:15px;color:var(--ap-txt)}
+/* Filtros: pastillas grises, la elegida oscura */
+.cashier-apple .collections-filters{gap:8px}
+.cashier-apple .collections-filters button{min-height:36px;padding:0 14px;border:0;background:var(--ap-relleno);color:var(--ap-txt);font-size:14px;font-weight:600}
+.cashier-apple .collections-filters button.active{background:#0d2730;color:#fff}
+/* Tarjetas / Lista de Cobranza: control segmentado */
+.cashier-apple .cob-vista{background:var(--ap-relleno);border-radius:10px;padding:2px}
+.cashier-apple .cob-vista button{min-height:32px;border-radius:8px;color:var(--ap-txt);font-weight:600}
+.cashier-apple .cob-vista button[aria-checked="true"]{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+/* Tarjetas de cada Tanner: sin borde, sombra suave */
+.cashier-apple .monto-card{border:0;border-radius:16px;box-shadow:var(--ap-sombra)}
+.cashier-apple .collections-list[data-vista="tarjetas"] .collections-row{border:0;border-radius:16px;background:#fff;box-shadow:var(--ap-sombra)}
+.cashier-apple .cob-resumen>*{border:0}

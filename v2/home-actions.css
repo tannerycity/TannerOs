@@ -1,1 +1,8 @@
 .tos-action-alert{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;min-height:92px;padding:13px 14px;border:1px solid #e1ddcf;border-left:4px solid var(--tos-gold);border-radius:15px;background:#fff;text-decoration:none;color:#102a33}.tos-action-alert:hover{background:#fbfcfb}.tos-action-alert.critical{border-left-color:var(--tos-danger)}.tos-action-alert.attention{border-left-color:var(--tos-gold)}.tos-action-alert.info{border-left-color:var(--tos-teal)}.tos-action-alert .tos-alert-tag{align-self:start}.tos-action-alert div{min-width:0}.tos-action-alert b{display:block;font-size:15px;line-height:1.2}.tos-action-alert b em{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:999px;background:#edf2f1;font-size:11px;font-style:normal;margin-left:4px}.tos-action-alert small{display:block;margin-top:5px;color:#6e7a7f;line-height:1.35}.tos-action-arrow{font-size:25px;color:#7a8689}@media(max-width:640px){.tos-action-alert{min-height:78px;padding:11px 12px}.tos-action-alert b{font-size:14px}.tos-action-alert small{font-size:11px}.tos-action-alert .tos-alert-tag{font-size:8px;padding:4px 6px}}
+/* Inicio "Hoy" (19/11/2026): "Ver los otros N" en Hoy te toca y lo de hoy
+   marcado en la agenda. */
+.tos-ver-todos{width:100%;min-height:44px;margin-top:4px;border:1px dashed #c9d6d8;border-radius:14px;background:transparent;color:#087d8e;font:inherit;font-weight:800;cursor:pointer}
+.tos-ver-todos:hover{background:#f3f8f8}
+.tos-ver-todos:focus-visible{outline:2px solid #087d8e;outline-offset:2px}
+.tos-list-row.hoy{box-shadow:inset 3px 0 0 var(--tos-gold,#c9a646)}
+.tos-list-row.hoy strong{color:#07191e}

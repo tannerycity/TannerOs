@@ -14,7 +14,11 @@
  *   · si nadie cumple y ya dio su fecha, la franja no ocupa lugar;
  *   · el botón flotante trae las acciones de su rol y sólo las que su
  *     permiso abre; se abre, se cierra con Escape y con el fondo;
- *   · nombres con HTML se enseñan como texto.
+ *   · nombres con HTML se enseñan como texto;
+ *   · Inicio "Hoy" (19/11/2026, carga cognitiva): "Hoy te toca" va primero,
+ *     lo urgente arriba y cinco a la vista con "Ver los otros N"; cuatro
+ *     accesos por rol sin repetir Cobrar; la agenda marca lo de hoy; los
+ *     números del club al final.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -51,12 +55,12 @@ const revisiones = []; const errores = [];
 function revisa(nombre, ok, detalle = '') { revisiones.push({ nombre, ok, detalle }); }
 const navegador = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 
-async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
-  const cfg = ROLES[rol];
+async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390, extra = {}, navMas = [] } = {}) {
+  const cfg = { ...ROLES[rol], nav: [...ROLES[rol].nav, ...nav(navMas)] };
   const pagina = await navegador.newPage({ viewport: { width: ancho, height: 844 } });
   pagina.on('pageerror', e => errores.push(`[${rol}] pageerror: ${e.message}`));
   pagina.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(`[${rol}] console: ${m.text()}`); });
-  await pagina.addInitScript(({ rol, cfg, gente, miFecha, HOY }) => {
+  await pagina.addInitScript(({ rol, cfg, gente, miFecha, HOY, extra }) => {
     window.__llamadas = [];
     const R = {
       v2_my_context: [{ user_id: cfg.yo, display_name: rol === 'Presidencia' ? 'Mich' : 'Zul', organization_id:'o1', organization_name:'Tannery City FC', role: rol, is_owner: rol === 'Presidencia' }],
@@ -70,6 +74,10 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
         { id: 'i-n', title: 'Lona de Kine VFX', status: 'idea', ownerId: cfg.yo, createdBy: 'otro' },
         { id: 'i-o', title: 'De otra persona', status: 'todo', ownerId: 'otro', createdBy: cfg.yo, dueDate: '2000-01-01' }] }
     };
+    Object.assign(R, extra);
+    // Un evento de hoy (al mediodía) y otro en tres días, con la fecha real del navegador.
+    if (extra.__agenda) { const d = new Date(); d.setHours(12, 0, 0, 0); const l = new Date(d); l.setDate(l.getDate() + 3);
+      R.v2_calendar = [{ title: 'Partido amistoso', startsAt: l.toISOString() }, { title: 'Entrenamiento T10', startsAt: d.toISOString(), location: 'Cancha 1' }]; }
     window.__fakeSupabase = {
       auth: {
         getSession: async () => ({ data: { session: { user: { id: cfg.yo } } } }),
@@ -83,7 +91,7 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
       },
       channel: () => ({ on(){ return this; }, subscribe(){ return this; } }), removeChannel(){}
     };
-  }, { rol, cfg, gente, miFecha, HOY });
+  }, { rol, cfg, gente, miFecha, HOY, extra });
   await pagina.route('**/v2/supabase-client.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export function createClient(){ return window.__fakeSupabase; }' }));
   await pagina.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
@@ -175,6 +183,53 @@ async function abre(rol, { gente = GENTE, miFecha = null, ancho = 390 } = {}) {
   revisa('[Presidencia] tocar una acción de la pantalla la corre ahí mismo y cierra el menú', await p.evaluate(() => window.__corrio) === 1 && await p.isHidden('#tosFabMenu'));
   const scroll = await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
   revisa('[Presidencia] sin scroll horizontal', scroll);
+  await p.close();
+}
+
+/* ---------- Inicio "Hoy" (19/11/2026) ---------- */
+{
+  const centro = { items: [
+    { code: 'equipment_low', module: 'equipment', priority: 'info', title: 'Utilería baja', count: 2 },
+    { code: 'orders_ready', module: 'commerce', priority: 'attention', title: 'Pedidos listos para entregar', count: 4 },
+    { code: 'billing_overdue', module: 'billing', priority: 'critical', title: 'Mensualidades vencidas', count: 7 },
+    { code: 'players_review', module: 'players', priority: 'info', title: 'Fichas por completar', count: 3 },
+    { code: 'prospects_overdue', module: 'prospects', priority: 'attention', title: 'Prospectos sin seguimiento', count: 2 },
+    { code: 'orders_payment_pending', module: 'commerce', priority: 'info', title: 'Pedidos con pago pendiente', count: 1 }], summary: {} };
+  const p = await abre('Presidencia', { extra: { v2_action_center: centro, __agenda: true }, navMas: [['calendario', true], ['utileria', true]] });
+  await p.waitForFunction(() => document.querySelectorAll('#attentionList .tos-action-alert').length >= 5, null, { timeout: 5000 }).catch(() => {});
+  const orden = await p.evaluate(() => {
+    const secciones = [...document.querySelectorAll('.tos-content > section')];
+    const pos = sel => { const e = document.querySelector(sel); return e ? secciones.indexOf(e.closest('.tos-content > section')) : -1; };
+    return { hoy: pos('#attentionPanel'), accesos: pos('#quickActions'), semana: pos('#miSemana'), agenda: pos('#agendaList'), numeros: pos('#homeKpis') };
+  });
+  revisa('[Hoy] "Hoy te toca" va antes que accesos, Mi semana, agenda y números', orden.hoy >= 0 && orden.hoy < orden.accesos && orden.accesos < orden.semana && orden.semana < orden.agenda && orden.agenda < orden.numeros, JSON.stringify(orden));
+  revisa('[Hoy] el panel se llama "Hoy te toca"', (await p.textContent('#attentionPanel h2')).trim() === 'Hoy te toca');
+  const filas = await p.$$eval('#attentionList .tos-action-alert', xs => xs.map(x => ({ t: x.querySelector('b')?.textContent || '', c: x.className })));
+  revisa('[Hoy] cinco a la vista, no siete', filas.length === 5, String(filas.length));
+  revisa('[Hoy] lo urgente va primero', /Mensualidades vencidas/.test(filas[0]?.t || '') && /critical/.test(filas[0]?.c || ''), JSON.stringify(filas[0]));
+  const ultimoAtencion = filas.map(f => /attention/.test(f.c)).lastIndexOf(true), primerInfo = filas.findIndex(f => /\binfo\b/.test(f.c));
+  revisa('[Hoy] el seguimiento va después de lo que pide atención', primerInfo === -1 || primerInfo > ultimoAtencion, JSON.stringify(filas.map(f => f.c)));
+  const boton = ((await p.textContent('[data-ver-pendientes]').catch(() => '')) || '').trim();
+  revisa('[Hoy] "Ver los otros 4"', boton === 'Ver los otros 4', boton);
+  revisa('[Hoy] el botón mide lo que un dedo', await p.$eval('[data-ver-pendientes]', b => b.getBoundingClientRect().height >= 44).catch(() => false));
+  await p.click('[data-ver-pendientes]');
+  revisa('[Hoy] tocarlo enseña los 9', (await p.$$('#attentionList .tos-action-alert')).length === 9 && !(await p.$('[data-ver-pendientes]')));
+  const accesos = await p.$$eval('#quickActions a', xs => xs.map(x => x.textContent.trim()));
+  revisa('[Hoy] Presidencia: cuatro accesos, sin repetir Cobrar', JSON.stringify(accesos) === '["Jugadores","Taquilla","Tienda","Fichajes"]', JSON.stringify(accesos));
+  revisa('[Hoy] Cobrar sigue en el botón grande de Caja rápida', await p.isVisible('#cashActions a[href="/taquilla/?action=cobrar"]'));
+  await p.waitForSelector('#agendaList .tos-list-row', { timeout: 4000 }).catch(() => {});
+  const agenda = await p.$$eval('#agendaList .tos-list-row', xs => xs.map(x => ({ t: x.textContent, hoy: x.classList.contains('hoy') })));
+  revisa('[Hoy] la agenda pone primero lo de hoy y lo dice', !!agenda[0]?.hoy && /Entrenamiento T10/.test(agenda[0].t) && /Hoy, /.test(agenda[0].t) && !!agenda[1] && !agenda[1].hoy, JSON.stringify(agenda));
+  const tituloAgenda = await p.evaluate(() => document.getElementById('agendaList')?.closest('article')?.querySelector('h2')?.textContent.trim());
+  revisa('[Hoy] la agenda se llama "Hoy y esta semana"', tituloAgenda === 'Hoy y esta semana', tituloAgenda);
+  revisa('[Hoy] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+  await p.close();
+}
+{
+  const p = await abre('Formadores', { gente: [], miFecha: '1988-06-02' });
+  await p.waitForSelector('#quickActions a', { timeout: 4000 }).catch(() => {});
+  const accesos = await p.$$eval('#quickActions a', xs => xs.map(x => x.textContent.trim()));
+  revisa('[Hoy] Formador: Asistencia primero y sólo lo que su permiso abre', accesos[0] === 'Asistencia' && accesos.length <= 4 && accesos.includes('Jugadores'), JSON.stringify(accesos));
   await p.close();
 }
 

@@ -42,6 +42,7 @@ const moduleLinks=[
   {codes:['cursosVerano'],label:'Programas',href:'/operacion/programas/'},
   {codes:['calendario'],label:'Calendario',href:'/calendario/'},
   {codes:['callups','convocatoria'],label:'Partidos',href:'/partidos/'},
+  {codes:['formacion','formacion_direccion'],label:'Formación',href:'/formacion/'},
   {codes:['utileria'],label:'Utilería',href:'/utileria/'},
   {codes:['patrocinadores'],label:'Patrocinadores',href:'/patrocinadores/'},
   {codes:['contabilidad'],label:'Contabilidad',href:'/contabilidad/'},
@@ -50,6 +51,21 @@ const moduleLinks=[
   {codes:['qa'],label:'QA',href:'/qa/'}
 ];
 
+/* Accesos rápidos por rol (19/11/2026, carga cognitiva fase 1): cuatro, no
+   nueve, y en el orden de lo que ese rol hace más. Cobrar no se repite cuando
+   ya está el botón grande de Caja rápida. Sin rol en la lista: los primeros
+   cuatro que pueda abrir. */
+const ACCESOS_POR_ROL={
+  Presidencia:['Jugadores','Taquilla','Tienda','Fichajes'],
+  Operaciones:['Taquilla','Tienda','Jugadores','Utilería'],
+  Formadores:['Asistencia','Jugadores','Partidos','Formación'],
+  Contabilidad:['Finanzas','Taquilla','Contabilidad'],
+  Scouting:['Scouting','Fichajes','Calendario'],
+  Marketing:['Patrocinadores','Calendario']
+};
+const MAX_ACCESOS=4;
+// "Hoy te toca": cinco a la vista; el resto con "Ver los N".
+const PENDIENTES_A_LA_VISTA=5;
 const actionModules={
   billing:['cobranza','finanzas','contabilidad'],players:['jugadores'],prospects:['prospectos'],
   sponsors:['patrocinadores'],commerce:['tienda'],equipment:['utileria'],admin:['admin']
@@ -245,7 +261,7 @@ function renderImmediateHome(){
   // Si antes entró un profesor en esta misma pestaña, el panel quedó con su
   // nombre. Se devuelve al del club.
   const tituloAgenda=$('agendaList')?.closest('.tos-panel')?.querySelector('h2');
-  if(tituloAgenda)tituloAgenda.textContent='Agenda de la semana';
+  if(tituloAgenda)tituloAgenda.textContent='Hoy y esta semana';
   $('roleFocusBody').innerHTML='<div class="tos-empty">Preparando inteligencia del club…</div>';
   setShellHealth({state:'ok',label:'Conectando datos'});
 }
@@ -433,9 +449,18 @@ function renderKpis(){
   $('homeKpis').innerHTML=(cards.length?cards.slice(0,4):[kpi('TannerOS','Listo','Usa los accesos para trabajar')]).join('');
 }
 
+function accesosDelRol(){
+  const cobraGrande=can('taquilla',true)||can('cobranza',true);
+  const puede=moduleLinks.filter(item=>canAny(item.codes,item.write===true)&&!(cobraGrande&&item.label==='Cobrar'));
+  const orden=ACCESOS_POR_ROL[ctx?.is_owner?'Presidencia':ctx?.role];
+  const elegidos=orden?orden.map(l=>puede.find(x=>x.label===l)).filter(Boolean):[];
+  // Si al rol le faltan permisos de su lista, se completa con lo que sí abre.
+  for(const x of [...puede].sort((a,b)=>(b.primary?1:0)-(a.primary?1:0)))if(elegidos.length<MAX_ACCESOS&&!elegidos.includes(x))elegidos.push(x);
+  return elegidos.slice(0,MAX_ACCESOS);
+}
 function renderQuickActions(){
-  const visible=moduleLinks.filter(item=>canAny(item.codes,item.write===true)).sort((a,b)=>(b.primary?1:0)-(a.primary?1:0));
-  $('quickActions').innerHTML=visible.slice(0,9).map((item,index)=>`<a class="tos-quick-action ${(item.primary||index===0)?'primary':''}" href="${item.href}">${esc(item.label)}</a>`).join('')||'<div class="tos-empty">No hay acciones disponibles para tu rol.</div>';
+  const visible=accesosDelRol();
+  $('quickActions').innerHTML=visible.map((item,index)=>`<a class="tos-quick-action ${(item.primary||index===0)?'primary':''}" href="${item.href}">${esc(item.label)}</a>`).join('')||'<div class="tos-empty">No hay acciones disponibles para tu rol.</div>';
   const cashVisible=can('taquilla',true)||can('cobranza',true)||can('contabilidad',true);
   $('cashPanel').classList.toggle('hidden',!cashVisible);
   $('cashActions').innerHTML=`${(can('taquilla',true)||can('cobranza',true))?'<a class="tos-action-big collect" href="/taquilla/?action=cobrar">COBRAR</a>':''}${can('contabilidad',true)?'<a class="tos-action-big pay" href="/taquilla/?action=pagar">PAGAR</a>':''}`;
@@ -464,22 +489,34 @@ function renderAttention(){
     $('attentionList').innerHTML='<article class="tos-alert good"><span class="tos-alert-tag">Bien</span><b>Todo en orden</b><small>No hay pendientes visibles para tus módulos.</small></article>';
     setShellHealth({state:'ok',label:'Todo en orden'});return;
   }
-  $('attentionList').innerHTML=items.slice(0,7).map(item=>{
+  // Lo urgente primero, luego lo que pide atención y al final el seguimiento.
+  const peso={critical:0,attention:1,info:2};
+  items.sort((a,b)=>(peso[a.priority]??2)-(peso[b.priority]??2));
+  const fila=item=>{
     const priority=safePriorities.has(item.priority)?item.priority:'info';
     return `<a class="tos-action-alert ${priority}" href="${esc(actionHref(item))}"><span class="tos-alert-tag">${priorityLabels[priority]}</span><div><b>${esc(item.title||'Pendiente')}${Number(item.count||0)>0?` <em>${Number(item.count)}</em>`:''}</b><small>${esc(item.detail||'Abrir para revisar')}</small></div><span class="tos-action-arrow">›</span></a>`;
-  }).join('');
+  };
+  const resto=items.length-PENDIENTES_A_LA_VISTA;
+  $('attentionList').innerHTML=items.slice(0,PENDIENTES_A_LA_VISTA).map(fila).join('')
+    +(resto>0?`<button type="button" class="tos-ver-todos" data-ver-pendientes>Ver ${resto===1?'1 más':`los otros ${resto}`}</button>`:'');
+  $('attentionList').querySelector('[data-ver-pendientes]')?.addEventListener('click',e=>{e.currentTarget.outerHTML=items.slice(PENDIENTES_A_LA_VISTA).map(fila).join('');});
   const critical=items.filter(x=>x.priority==='critical').length,attention=items.filter(x=>x.priority==='attention').length;
   setShellHealth(critical?{state:'danger',label:`${critical} urgente${critical===1?'':'s'}`}:attention?{state:'attention',label:`${attention} por atender`}:{state:'ok',label:'Todo en orden'});
 }
 
 function fmtDateTime(value){
   if(!value)return 'Sin fecha';const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value);
+  // "Hoy, 5:00 p.m." y "Mañana, ...": lo de hoy se reconoce sin leer la fecha.
+  const dia=new Date(date);dia.setHours(0,0,0,0);const hoy=new Date();hoy.setHours(0,0,0,0);
+  const dif=Math.round((dia-hoy)/86400000);
+  if(dif===0||dif===1)return `${dif===0?'Hoy':'Mañana'}, ${new Intl.DateTimeFormat('es-MX',{hour:'numeric',minute:'2-digit'}).format(date)}`;
   return new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(date);
 }
 function renderAgenda(){
   const rows=[...state.calendar].sort((a,b)=>new Date(a.startsAt||a.starts_at)-new Date(b.startsAt||b.starts_at)).slice(0,6);
   $('calendarLink').classList.toggle('hidden',!can('calendario'));
-  $('agendaList').innerHTML=rows.length?rows.map(item=>`<a class="tos-list-row" href="/calendario/"><div><strong>${esc(item.title||'Actividad')}</strong><span>${esc(fmtDateTime(item.startsAt||item.starts_at))}${item.location?` · ${esc(item.location)}`:''}</span></div><b>›</b></a>`).join(''):'<div class="tos-empty">Sin eventos en los próximos 7 días.</div>';
+  const esHoy=v=>{const d=new Date(v);return !Number.isNaN(d.getTime())&&d.toDateString()===new Date().toDateString();};
+  $('agendaList').innerHTML=rows.length?rows.map(item=>`<a class="tos-list-row${esHoy(item.startsAt||item.starts_at)?' hoy':''}" href="/calendario/"><div><strong>${esc(item.title||'Actividad')}</strong><span>${esc(fmtDateTime(item.startsAt||item.starts_at))}${item.location?` · ${esc(item.location)}`:''}</span></div><b>›</b></a>`).join(''):'<div class="tos-empty">Sin eventos en los próximos 7 días.</div>';
 }
 
 function usefulSourceRows(){

@@ -7,6 +7,18 @@
 const CACHE = 'tanneros-shell-final-20260821';
 const SHELL_KEY = 'app-shell';
 const NET_TIMEOUT_MS = 8000;
+/* Los archivos de la página (19/11/2026). Presidencia mandó captura del inicio
+   "en crudo": letras con serif, el logo con signo de interrogación e íconos
+   enormes. Con señal mala, el service worker servía el HTML guardado, pero
+   sus estilos, fuentes e imágenes no estaban guardados y también dependían de
+   la red. Ahora:
+     · Al guardar el inicio se guardan también los archivos que pide.
+     · Los archivos con huella (?v=...) nunca cambian (la construcción les da
+       una huella nueva cuando cambian), así que se sirven primero del
+       guardado y, si no están, de la red.
+   Sólo misma origen, sólo GET, sólo con ?v=. Nada de datos ni de Supabase. */
+const ASSETS = 'tanneros-archivos-v1';
+const MAX_ASSETS = 220;
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -19,7 +31,7 @@ self.addEventListener('activate', (e) => {
     // si se borrara en cada activación, las familias volverían a descargar la
     // foto de su hijo en cada visita, que es justo lo que evita.
     await Promise.all(keys
-      .filter((k) => k !== CACHE && !k.startsWith('tanneros-fotos-'))
+      .filter((k) => k !== CACHE && k !== ASSETS && !k.startsWith('tanneros-fotos-'))
       .map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
@@ -93,12 +105,60 @@ async function isCurrentTannerOSShell(response) {
   }
 }
 
+function isFingerprintedAsset(request) {
+  if (request.method !== 'GET') return false;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return false;
+  return url.searchParams.has('v') && /\.(css|js|png|svg|jpg|jpeg|webp|woff2)$/i.test(url.pathname);
+}
+
+async function cacheFirstAsset(request) {
+  const cache = await caches.open(ASSETS);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const fresh = await fetch(request);
+  if (fresh && fresh.ok && fresh.type === 'basic') {
+    try { await cache.put(request, fresh.clone()); await trimAssets(cache); } catch (_) { /* sin espacio: se sirve igual */ }
+  }
+  return fresh;
+}
+
+async function trimAssets(cache) {
+  const keys = await cache.keys();
+  const sobran = keys.length - MAX_ASSETS;
+  for (let i = 0; i < sobran; i++) await cache.delete(keys[i]);
+}
+
+// Lo que pide el HTML del inicio: estilos, scripts, fuentes e imágenes con huella.
+function assetsOf(html) {
+  const urls = new Set();
+  const re = /(?:href|src)="(\/[^"?#]+\.(?:css|js|png|svg|jpg|jpeg|webp|woff2)\?v=[^"]+)"/g;
+  let m;
+  while ((m = re.exec(html))) urls.add(m[1]);
+  return [...urls];
+}
+
+async function precacheShellAssets(html) {
+  try {
+    const cache = await caches.open(ASSETS);
+    for (const u of assetsOf(html)) {
+      if (await cache.match(u)) continue;
+      try { const r = await fetch(u); if (r.ok) await cache.put(u, r); } catch (_) { /* se intenta la próxima vez */ }
+    }
+    await trimAssets(cache);
+  } catch (_) { /* nunca tumba la navegación */ }
+}
+
 self.addEventListener('fetch', (event) => {
+  if (isFingerprintedAsset(event.request)) {
+    event.respondWith(cacheFirstAsset(event.request));
+    return;
+  }
   if (!isInternalAppNavigation(event.request)) return;
-  event.respondWith(networkFirstInternalApp(event.request));
+  event.respondWith(networkFirstInternalApp(event.request, event));
 });
 
-async function networkFirstInternalApp(request) {
+async function networkFirstInternalApp(request, event) {
   const cache = await caches.open(CACHE);
 
   try {
@@ -108,6 +168,10 @@ async function networkFirstInternalApp(request) {
       // convertirse otra vez en fallback del dominio principal.
       if (await isCurrentTannerOSShell(fresh)) {
         await cache.put(SHELL_KEY, fresh.clone());
+        // Y sus archivos, para que el guardado no salga "en crudo" sin señal.
+        const html = await fresh.clone().text();
+        const tarea = precacheShellAssets(html);
+        if (event && event.waitUntil) event.waitUntil(tarea);
       }
       return fresh;
     }

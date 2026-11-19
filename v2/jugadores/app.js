@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 import { conecta as conectaBusquedaReciente } from '/v2/busquedas-recientes.js';
 import { elegirDorsal, tableroDorsales } from '/v2/dorsal.js';
 import { montaSinNumero } from '/v2/jugadores/sin-numero.js';
@@ -314,7 +315,69 @@ function pintaIngreso(p){
   if(pistaClub&&puedeMoverIngreso&&p.joinedAt&&reingresos)pistaClub.textContent='La primera vez que llegó. Los reingresos no la cambian.';
 }
 
-function renderList(){const q=$('search').value.trim().toLocaleLowerCase('es-MX');const rows=players.filter(p=>{const stOk=pasaFiltro(p);if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.toLocaleLowerCase('es-MX').includes(q))return false;return true;});const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const NOTAS={review:{t:'Esto no es documentación faltante.',d:'Son Tanners cuyo <b>cobro</b> quedó sin configurar.'},nodocs:{t:'Expediente incompleto de verdad.',d:'Les falta al menos un documento del checklist: acta, CURP o constancia de estudios.'},beca:{t:'Tanners con beca o apoyo activo.',d:'Alguien más cubre parte o toda su cuota. Revisa que el patrocinio esté configurado.'},nocorreo:{t:'Sin correo de tutor.',d:'Sin correo no se les puede dar acceso al portal de familias ni mandarles su estado de cuenta.'},nofoto:{t:'Sin foto en el expediente.',d:'La foto se usa en la credencial y para pasar lista más rápido.'}};const nota=NOTAS[fStat];if(nota&&rows.length){const motivos=fStat==='review'?[...new Set(rows.map(p=>p.review_reason).filter(Boolean))]:[];const fuentes=fStat==='beca'?[...new Set(rows.map(p=>p.benefit_source).filter(Boolean))]:[];const extra=motivos.length?motivos:fuentes;const el=document.createElement('div');el.className='review-note';el.innerHTML=`<strong>${nota.t}</strong><span>${nota.d}${extra.length?' '+(fStat==='beca'?'Fuentes:':'Motivo'+(extra.length>1?'s':'')+':'):''}</span>`+(extra.length?`<ul>${extra.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'');box.appendChild(el);}const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className='jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;const review=p.needs_review;if(review&&p.review_reason)b.title=p.review_reason;b.innerHTML=`${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:''}<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span>${marcaDePublicidad(p)}${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
+
+/* Lista estilo Contactos (19/11/2026, Presidencia: "dale con A más B").
+   A · Cada Tanner es un renglón: foto chiquita, nombre, número y posición, y
+       un punto rojo si le falta algo (documentos, permisos, cobro sin
+       configurar), con qué es en la línea de abajo. Las tarjetas con foto
+       siguen a un toque ("Tarjetas"), recordado en este teléfono.
+   B · Deslizar un renglón a la izquierda enseña Cobrar y WhatsApp, sin abrir
+       la ficha. El teléfono del tutor se pide hasta que se toca WhatsApp. */
+const VISTA_KEY='tos:jugadores-vista';
+function vistaLista(){try{return localStorage.getItem(VISTA_KEY)!=='tarjetas';}catch{return true;}}
+function avisosDe(p){
+  // Sólo quien ve los filtros de expediente (jugadores_estado); al profe no le toca.
+  if(!canStatus)return [];
+  const a=[];
+  if(Number(p.docs_missing||0)>0)a.push(`Falta${Number(p.docs_missing)===1?'':'n'} ${p.docs_missing} documento${Number(p.docs_missing)===1?'':'s'}`);
+  if(p.status_value==='active'&&p.needs_review)a.push('Cobro sin configurar');
+  if(!p.data_consent)a.push('Consentimiento pendiente');
+  if(estadoDeImagen(p).clave==='sin_preguntar')a.push('Sin permiso de fotos');
+  return a;
+}
+let deslizado=0,abierto=null;
+function cierraDeslizable(){if(abierto){abierto.style.transform='';abierto.parentElement?.classList.remove('abierto');abierto=null;}}
+function envuelveDeslizable(b,p){
+  const w=document.createElement('div');w.className='jrow-wrap';
+  const acc=[];
+  if(canMoney)acc.push(`<a class="jrow-acc cobrar" href="/taquilla/?action=cobrar&player=${encodeURIComponent(p.id)}&name=${encodeURIComponent(nameOf(p))}">Cobrar</a>`);
+  acc.push(`<button type="button" class="jrow-acc wa" data-wa="${esc(p.id)}">WhatsApp</button>`);
+  w.innerHTML=`<div class="jrow-acciones">${acc.join('')}</div>`;
+  w.appendChild(b);
+  const ancho=()=>w.querySelector('.jrow-acciones').getBoundingClientRect().width||150;
+  let x0=null,y0=0,dx=0,horizontal=null,base=0;
+  b.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;x0=e.clientX;y0=e.clientY;dx=0;horizontal=null;base=abierto===b?-ancho():0;if(abierto&&abierto!==b)cierraDeslizable();});
+  b.addEventListener('pointermove',e=>{if(x0===null)return;const mx=e.clientX-x0,my=e.clientY-y0;
+    if(horizontal===null&&(Math.abs(mx)>8||Math.abs(my)>8))horizontal=Math.abs(mx)>Math.abs(my);
+    if(!horizontal)return;dx=mx;const t=Math.max(-ancho(),Math.min(0,base+dx));b.style.transition='none';b.style.transform=`translateX(${t}px)`;});
+  const suelta=()=>{if(x0===null)return;x0=null;b.style.transition='';
+    if(horizontal){deslizado=Date.now();const t=base+dx;if(t<-ancho()/2){b.style.transform=`translateX(${-ancho()}px)`;abierto=b;w.classList.add('abierto');}else{b.style.transform='';if(abierto===b)abierto=null;w.classList.remove('abierto');}}};
+  b.addEventListener('pointerup',suelta);b.addEventListener('pointercancel',suelta);
+  return w;
+}
+document.addEventListener('click',async e=>{
+  const wa=e.target.closest?.('[data-wa]');
+  if(wa){e.preventDefault();const id=wa.dataset.wa;wa.disabled=true;wa.textContent='Abriendo…';
+    try{const r=await rpc('v2_player_profile',{organization_id:ctx.organization_id,player_id:id});
+      const g=(r?.guardians||[]).find(x=>x.isPrimary)||(r?.guardians||[])[0];
+      let tel=String(g?.phone||'').replace(/\D/g,'');if(tel.length===10)tel='52'+tel;
+      if(!tel){wa.textContent='Sin teléfono';setTimeout(()=>{wa.textContent='WhatsApp';wa.disabled=false;},1800);return;}
+      const nom=r?.player?.firstName||'su Tanner',tutor=String(g?.firstName||'').split(' ')[0];
+      const msg=encodeURIComponent(`Hola${tutor?` ${tutor}`:''}, le escribimos de ${nombreDelClub(ctx)} sobre ${nom}.`);
+      window.__ultimoWa=`https://wa.me/${tel}?text=${msg}`;location.href=window.__ultimoWa;
+    }catch{wa.textContent='No se pudo';}finally{setTimeout(()=>{wa.disabled=false;if(wa.textContent==='Abriendo…')wa.textContent='WhatsApp';},2500);}
+    return;}
+  if(abierto&&!e.target.closest?.('.jrow-wrap.abierto'))cierraDeslizable();
+  const v=e.target.closest?.('[data-vista-jug]');
+  if(v){try{localStorage.setItem(VISTA_KEY,v.dataset.vistaJug);}catch{}pintaVistaToggle();renderList();}
+});
+function pintaVistaToggle(){
+  let t=$('vistaJugadores');
+  if(!t){const lista=$('playerList');if(!lista)return;t=document.createElement('div');t.id='vistaJugadores';t.className='vista-jug';t.setAttribute('role','group');t.setAttribute('aria-label','Cómo ver la plantilla');lista.parentElement.insertBefore(t,lista);}
+  const l=vistaLista();
+  t.innerHTML=`<button type="button" data-vista-jug="lista" aria-pressed="${l}">Lista</button><button type="button" data-vista-jug="tarjetas" aria-pressed="${!l}">Tarjetas</button>`;
+}
+function renderList(){const q=$('search').value.trim().toLocaleLowerCase('es-MX');const rows=players.filter(p=>{const stOk=pasaFiltro(p);if(!stOk)return false;if(fCat&&p.category!==fCat)return false;if(q&&!`${p.code||''} ${nameOf(p)} ${p.category||''} ${p.player_position||''} ${p.jersey_number||''}`.toLocaleLowerCase('es-MX').includes(q))return false;return true;});pintaVistaToggle();const box=$('playerList');box.innerHTML='';$('empty').classList.toggle('hidden',rows.length>0);const NOTAS={review:{t:'Esto no es documentación faltante.',d:'Son Tanners cuyo <b>cobro</b> quedó sin configurar.'},nodocs:{t:'Expediente incompleto de verdad.',d:'Les falta al menos un documento del checklist: acta, CURP o constancia de estudios.'},beca:{t:'Tanners con beca o apoyo activo.',d:'Alguien más cubre parte o toda su cuota. Revisa que el patrocinio esté configurado.'},nocorreo:{t:'Sin correo de tutor.',d:'Sin correo no se les puede dar acceso al portal de familias ni mandarles su estado de cuenta.'},nofoto:{t:'Sin foto en el expediente.',d:'La foto se usa en la credencial y para pasar lista más rápido.'}};const nota=NOTAS[fStat];if(nota&&rows.length){const motivos=fStat==='review'?[...new Set(rows.map(p=>p.review_reason).filter(Boolean))]:[];const fuentes=fStat==='beca'?[...new Set(rows.map(p=>p.benefit_source).filter(Boolean))]:[];const extra=motivos.length?motivos:fuentes;const el=document.createElement('div');el.className='review-note';el.innerHTML=`<strong>${nota.t}</strong><span>${nota.d}${extra.length?' '+(fStat==='beca'?'Fuentes:':'Motivo'+(extra.length>1?'s':'')+':'):''}</span>`+(extra.length?`<ul>${extra.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'');box.appendChild(el);}const ORDER=['Baby Tanner','Mini Baby Tanner','T8','T10','T12'];const groups={};rows.forEach(p=>{const k=p.category||'Sin categoría';(groups[k]=groups[k]||[]).push(p);});let cats=Object.keys(groups).sort((a,b)=>{const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});cats.forEach(cat=>{const list=groups[cat].slice().sort((a,b)=>((parseInt(a.jersey_number,10)||999)-(parseInt(b.jersey_number,10)||999))||nameOf(a).localeCompare(nameOf(b)));const sec=document.createElement('section');sec.className='cat-section';const head=document.createElement('div');head.className='cat-head';head.innerHTML=`<h3>${esc(cat)} · ${list.length}</h3><button type="button" class="free-link" data-freecat="${esc(cat)}">Números libres</button>`;const grid=document.createElement('div');grid.className=vistaLista()?'jgrid jlista':'jgrid';list.forEach(p=>{const full=nameOf(p)||'Sin nombre',initials=full.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();const b=document.createElement('button');b.type='button';b.dataset.playerId=p.id;b.className=`jcard${p._photoUrl?' has-photo':''}${current?.player?.id===p.id?' selected':''}`;const review=p.needs_review;if(review&&p.review_reason)b.title=p.review_reason;if(vistaLista()){const av=avisosDe(p);b.classList.add('jrow');b.innerHTML=`<span class="jrow-foto">${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:`<span class="jcard-initials">${esc(initials)}</span>`}</span><span class="jrow-txt"><span class="jcard-name">${esc(full)}</span><small>${esc(['#'+(p.jersey_number||'—'),p.player_position||null].filter(Boolean).join(' · '))}${av.length?` · ${esc(av[0])}${av.length>1?` +${av.length-1}`:''}`:''}</small></span>${marcaDePublicidad(p)}${av.length?`<span class="jrow-punto" aria-label="${esc(av.join(', '))}"></span>`:''}<svg class="jrow-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`;b.onclick=e=>{if(Date.now()-deslizado<350){e.preventDefault();return;}openProfile(p.id);};grid.appendChild(envuelveDeslizable(b,p));return;}b.innerHTML=`${p._photoUrl?`<img class="jcard-photo" loading="lazy" decoding="async" alt="" src="${esc(p._photoUrl)}">`:''}<span class="jcard-cat">${esc(cat)}</span><span class="jcard-num">#${esc(p.jersey_number||'—')}</span>${marcaDePublicidad(p)}${p._photoUrl?'':`<span class="jcard-initials">${esc(initials)}</span>`}<span class="jcard-name">${esc(full)}</span>`;b.onclick=()=>openProfile(p.id);grid.appendChild(b);});sec.appendChild(head);sec.appendChild(grid);box.appendChild(sec);});}
 let photoRenderSeq=0;
 function legacyPhotoSource(value){const raw=String(value||'').trim();if(/^data:image\//i.test(raw)||/^https?:\/\//i.test(raw))return raw;return null;}
 function drawPhoto(box,src,alt){box.innerHTML='';const img=document.createElement('img');img.src=src;img.alt=alt;img.decoding='async';box.appendChild(img);}

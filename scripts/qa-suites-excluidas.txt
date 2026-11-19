@@ -103,3 +103,4 @@ qa-humo-busquedas-recientes.mjs
 qa-humo-mi-semana.mjs
 qa-humo-usuarios-fab.mjs
 qa-humo-sin-senal.mjs
+qa-humo-jugadores-lista.mjs

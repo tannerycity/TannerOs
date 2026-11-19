@@ -345,3 +345,15 @@ body.tos-body,body:has(>.tos-layout){margin:0}
 .ms-avisos-txt strong{font-size:15px;color:#0d2730}
 .ms-avisos-txt small{font-size:13px;color:#4f6469}
 .ms-avisos-btn{flex:0 0 auto;min-height:44px;padding:0 18px;border:0;border-radius:12px;background:#053746;color:#fff;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+
+/* Menú por rol (19/11/2026): arriba lo tuyo; lo demás en "Más", que se abre
+   con un toque. El botón mide lo de cualquier entrada del menú. */
+.tos-nav-mas{margin-top:6px;border-top:1px solid rgba(255,255,255,.1);padding-top:6px}
+.tos-nav-mas>summary{list-style:none;cursor:pointer;min-height:44px;color:#bcd3d6}
+.tos-nav-mas>summary::-webkit-details-marker{display:none}
+.tos-nav-mas>summary small{margin-left:auto;min-width:24px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px;font-weight:800;text-align:center}
+.tos-nav-mas>summary:after{content:"";width:8px;height:8px;margin-left:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.tos-nav-mas[open]>summary:after{transform:rotate(-135deg) translateY(-2px)}
+.tos-nav-mas>summary:focus-visible{outline:2px solid var(--tos-gold);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.tos-nav-mas>summary:after{transition:none}}
+.tos-nav-mas .tos-nav-section-label{padding:10px 13px 4px;color:#7eb2bb;font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}

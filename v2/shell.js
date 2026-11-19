@@ -394,6 +394,25 @@ function destinoAcademias(navigation,item){
   if(item.code!=='academias')return item.href;
   return moduleAccess(navigation,'academias',true)?item.href:'/mi-academia/';
 }
+/* Menú por rol (19/11/2026, carga cognitiva fase 1). Presidencia: "¿cómo
+   mejoramos la carga cognitiva en todos los módulos?". El uso real de 30 días:
+   Inicio, Jugadores, Taquilla y Tienda son el 71% de lo que se abre. Cada rol ve
+   arriba sólo lo suyo, en este orden; lo demás queda en "Más", que se abre con
+   un toque y se abre solo si estás en una de sus pantallas. No cambia ningún
+   permiso: lo que no está arriba sigue en "Más" y en el buscador. La lista es
+   fija a propósito (un menú que se reacomoda solo obliga a buscar cada vez). */
+export const MENU_PRINCIPAL={
+  Presidencia:['inicio','mensajes','jugadores','taquilla','tienda','prospectos','finanzas'],
+  Operaciones:['inicio','mensajes','taquilla','tienda','jugadores','utileria'],
+  Formadores:['inicio','mensajes','jugadores','asistencia','partidos','formacion'],
+  Contabilidad:['inicio','mensajes','finanzas','taquilla','contabilidad'],
+  Academia:['inicio','mensajes','academias','asistencia'],
+  Scouting:['inicio','mensajes','prospectos','scouting','visorias'],
+  Marketing:['inicio','mensajes','patrocinadores','metricas']
+};
+// Con 7 o menos entradas no hace falta esconder nada.
+const MAX_SIN_MAS=7;
+const LLAVE_MAS='tos:nav-mas';
 function renderNavigation(nav,navigation,active,role){
   if(!nav)return;nav.innerHTML='';
   const sec=seccionDe(navigation,active);
@@ -408,13 +427,32 @@ function renderNavigation(nav,navigation,active,role){
     nav.appendChild(section);
     return;
   }
-  ['main','club','finance','marketing','ops','admin'].forEach(group=>{
-    const items=navItems.filter(item=>item.group===group&&itemEnMenu(navigation,item));if(!items.length)return;
+  const visibles=navItems.filter(item=>itemEnMenu(navigation,item));
+  const orden=MENU_PRINCIPAL[role];
+  const arriba=orden?orden.map(code=>visibles.find(x=>x.code===code)).filter(Boolean):[];
+  const resto=visibles.filter(x=>!arriba.includes(x));
+  const porGrupo=(destino,items)=>['main','club','finance','marketing','ops','admin'].forEach(group=>{
+    const delGrupo=items.filter(item=>item.group===group);if(!delGrupo.length)return;
     const section=document.createElement('div');section.className=`tos-nav-section tos-nav-section-${group}`;
     if(groupLabels[group]){const title=document.createElement('div');title.className='tos-nav-section-label';title.textContent=groupLabels[group];section.appendChild(title);}
-    items.forEach(item=>pinta(section,item));
-    nav.appendChild(section);
+    delGrupo.forEach(item=>pinta(section,item));
+    destino.appendChild(section);
   });
+  if(!orden||visibles.length<=MAX_SIN_MAS||!arriba.length||!resto.length){porGrupo(nav,visibles);return;}
+  const principal=document.createElement('div');principal.className='tos-nav-section tos-nav-section-principal';
+  arriba.forEach(item=>pinta(principal,item));nav.appendChild(principal);
+  // "Más": cerrado de entrada; abierto si estás en una de sus pantallas o si la
+  // persona lo dejó abierto la última vez.
+  const mas=document.createElement('details');mas.className='tos-nav-mas';
+  const dentro=resto.some(x=>x.code===sec?.code||itemActive(x,active));
+  let recordado=false;try{recordado=localStorage.getItem(LLAVE_MAS)==='1';}catch{}
+  mas.open=dentro||recordado;
+  const resumen=document.createElement('summary');resumen.className='tos-nav-item tos-nav-mas-boton';
+  resumen.innerHTML=`<span class="tos-nav-icon">${shellIcon('list')}</span><span>Más</span><small>${resto.length}</small>`;
+  mas.appendChild(resumen);
+  porGrupo(mas,resto);
+  mas.addEventListener('toggle',()=>{try{localStorage.setItem(LLAVE_MAS,mas.open?'1':'0');}catch{}});
+  nav.appendChild(mas);
 }
 // Pestañas de la sección arriba de la pantalla (Jugadores · Asistencia · Becas).
 // La Tienda trae las suyas (con Nuevo pedido), así que ahí no se ponen.

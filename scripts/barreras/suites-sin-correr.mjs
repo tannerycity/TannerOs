@@ -212,7 +212,9 @@ export default function comprobar() {
   // "Agregar nuevo usuario" y el usuario sugerido no se rellena al borrarlo.
   // Sube a 76 por qa-humo-vendor.mjs (11/11/2026): prueba en Chromium que las
   // librerías de /vendor/ cargan sin CDN. Es de navegador: la corre navegador-qa.
-  const MAX_EXCLUIDAS = 76;
+  // Sube a 77 por qa-humo-registro-hermano.mjs (19/11/2026): "Registrar a otro
+  // hijo" llena el formulario real en Chromium. Es de navegador: la corre navegador-qa.
+  const MAX_EXCLUIDAS = 77;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

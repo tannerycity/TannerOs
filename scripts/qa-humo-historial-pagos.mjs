@@ -93,7 +93,7 @@ async function abre(rol, ruta) {
   const t = (await p.innerText('#pagosSnapshot')).replace(/\s+/g,' ');
   revisa('[ficha] sale la sección Pagos', await p.isVisible('#pagosSnapshot'));
   revisa('[ficha] dice cuánto ha pagado', /Ha pagado \$3,400\.00/i.test(t), t.slice(0,200));
-  revisa('[ficha] dice cuánto debe y desde cuándo', /Debe \$800\.00 · desde 10 sept?\.? 2026/.test(t), t.slice(0,200));
+  revisa('[ficha] dice cuánto debe y desde cuándo, con el semáforo de Taquilla', /Atrasado · \$800\.00 desde 10 sept?\.? 2026/.test(t) && !/Al corriente/.test(t), t.slice(0,200));
   revisa('[ficha] saldo a favor', /Saldo a favor \$650\.00/i.test(t));
   const filas = await p.$$eval('#pagosSnapshot .pagos-fila', els => els.map(e => e.textContent.replace(/\s+/g,' ').trim()));
   revisa('[ficha] sólo los últimos 5 pagos', filas.length === 5, JSON.stringify(filas));

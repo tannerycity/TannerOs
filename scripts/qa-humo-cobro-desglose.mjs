@@ -94,6 +94,8 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
                 v2_player_family:[{ id:'p2', name:'Sofía Santos', birthDate:'2019-05-01', balance:400 }],
                 v2_collect_ticket:{ ok:true, ticketId:'t9', folio:9, total:0, payments:['a','b','c'] },
                 v2_waive_on_time_late_fees:{ waived:1, amount:100 },
+                // Deshacer (h95): los post regresan el id del movimiento.
+                v2_post_expense:'g-1', v2_post_general_income:'i-1', v2_undo_recent:null,
                 v2_cashier_snapshot:{ businessDate:'2026-10-21', incomeTotal:0, expenseTotal:0, netTotal:0, expectedCash:0, cashTodayNet:0, methods:[], canViewLedger:true,
                   movements:[{ id:'m1', type:'income', status:'posted', amount:500, registeredBy:'Zul', registeredByIsAccount:false }] },
                 v2_billing_players:[{ player_id:'p1', player_name:'Liam Santos', base_monthly_fee:500, billing_status:'active' }],
@@ -442,6 +444,38 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.click('#collectModal [data-close]');
   await p.click('#openExpense');
   revisa('[pagar] sin "Referencia" ni "¿Quién pagó?" a mano', !(await p.$('#expenseReference')) && !(await p.isVisible('#expensePaidBy')));
+
+  // Deshacer en lugar de "¿Seguro?" (19/11/2026, h95).
+  const antes = await p.evaluate(() => window.__confirmos || 0);
+  await p.fill('#expenseAmount', '250');
+  await p.selectOption('#expenseCategory', { index: 1 });
+  if (await p.isVisible('#expenseCategoryOther')) await p.fill('#expenseCategoryOther', 'Papelería');
+  await p.fill('#expenseConcept', 'Garrafones');
+  await p.click('#saveExpense');
+  await p.waitForSelector('#avisoDeshacer:not([hidden])', { timeout:5000 }).catch(() => {});
+  revisa('[deshacer] pagar ya no pregunta "¿Es correcto?"', (await p.evaluate(() => window.__confirmos || 0)) === antes && (await llamadas(p, 'v2_post_expense')).length === 1);
+  revisa('[deshacer] sale "Pago registrado · $250.00 · Garrafones" con Deshacer', /Pago registrado · \$250\.00 · Garrafones/.test(await texto(p, '#avisoDeshacer')) && await p.isVisible('#avisoDeshacer .aviso-deshacer-btn'), await texto(p, '#avisoDeshacer').catch(() => ''));
+  revisa('[deshacer] el botón mide lo que un dedo', await p.$eval('#avisoDeshacer .aviso-deshacer-btn', b => b.getBoundingClientRect().height >= 44));
+  await p.click('#avisoDeshacer .aviso-deshacer-btn');
+  await p.waitForFunction(() => /se deshizo/.test(document.getElementById('avisoDeshacer')?.textContent || ''), null, { timeout:4000 }).catch(() => {});
+  const und = (await llamadas(p, 'v2_undo_recent')).at(-1)?.params || {};
+  revisa('[deshacer] tocarlo deshace ESE pago', und.kind === 'expense' && und.movement_id === 'g-1' && und.organization_id === 'o1', JSON.stringify(und));
+  revisa('[deshacer] y lo dice', /se deshizo/.test(await texto(p, '#avisoDeshacer')));
+
+  await p.click('#openCollect');
+  await p.click('.cobrar-que [data-que="otro"]');
+  await p.click('.cobrar-opciones [data-mode="general"]');
+  await p.fill('#generalAmount', '120');
+  await p.selectOption('#generalCategory', { index: 1 });
+  if (await p.isVisible('#generalCategoryOther')) await p.fill('#generalCategoryOther', 'Varios');
+  await p.fill('#generalConcept', 'Renta de balones');
+  await p.click('#saveCollect');
+  await p.waitForFunction(() => /Ingreso registrado/.test(document.getElementById('avisoDeshacer')?.textContent || ''), null, { timeout:5000 }).catch(() => {});
+  revisa('[deshacer] un ingreso tampoco pregunta y ofrece Deshacer', (await p.evaluate(() => window.__confirmos || 0)) === antes && /Ingreso registrado · \$120\.00 · Renta de balones/.test(await texto(p, '#avisoDeshacer')), await texto(p, '#avisoDeshacer'));
+  await p.click('#avisoDeshacer .aviso-deshacer-btn');
+  await p.waitForFunction(() => /se deshizo/.test(document.getElementById('avisoDeshacer')?.textContent || ''), null, { timeout:4000 }).catch(() => {});
+  const und2 = (await llamadas(p, 'v2_undo_recent')).at(-1)?.params || {};
+  revisa('[deshacer] el ingreso se deshace como cobro (kind payment)', und2.kind === 'payment' && und2.movement_id === 'i-1', JSON.stringify(und2));
   await p.close();
 }
 

@@ -774,3 +774,9 @@ button.cob-tile{cursor:pointer}
 .cashier-apple .monto-card{border:0;border-radius:16px;box-shadow:var(--ap-sombra)}
 .cashier-apple .collections-list[data-vista="tarjetas"] .collections-row{border:0;border-radius:16px;background:#fff;box-shadow:var(--ap-sombra)}
 .cashier-apple .cob-resumen>*{border:0}
+/* Deshacer en lugar de "¿Seguro?" (19/11/2026): barra oscura abajo, como iOS. */
+.aviso-deshacer{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:1400;display:flex;align-items:center;gap:14px;width:min(460px,calc(100vw - 32px));padding:12px 12px 12px 18px;border-radius:16px;background:#0d2730;color:#fff;box-shadow:0 12px 32px rgba(3,22,28,.35);font-size:15px;font-weight:600}
+.aviso-deshacer[hidden]{display:none}
+.aviso-deshacer-txt{flex:1;min-width:0}
+.aviso-deshacer-btn{flex:0 0 auto;min-height:44px;padding:0 16px;border:0;border-radius:12px;background:#c6ac5c;color:#032f3b;font:800 15px/1 inherit;font-family:inherit;cursor:pointer}
+.aviso-deshacer-btn:disabled{opacity:.6}

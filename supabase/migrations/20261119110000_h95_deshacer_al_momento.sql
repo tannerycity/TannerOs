@@ -1,4 +1,4 @@
--- h95 · Deshacer al momento (PROPUESTA, sin correr) · 19/11/2026
+-- h95 · Deshacer al momento · corrida el 19/11/2026 con autorización de Presidencia
 --
 -- Presidencia: "deshacer en lugar de ¿seguro?". Hoy Taquilla pregunta
 -- "DOBLE CHECK · ¿Confirmas?" antes de cada cobro, ingreso o pago. La

@@ -2116,8 +2116,8 @@ if(canSeeConcilia)cargaConcilia(true);
 const VISTAS=[
   { clave:'cobranza', etiqueta:'Cobranza',      panel:'collectionsPanel', puede:()=>canViewCollections },
   { clave:'montos',   etiqueta:'Montos',        panel:'montosPanel',      puede:()=>canViewMontos },
-  { clave:'caja',     etiqueta:'Caja del día',  panel:'vistaCaja',        puede:()=>canViewLedger },
-  { clave:'concilia', etiqueta:'Por conciliar', panel:'conciliaPanel',
+  { clave:'caja',     etiqueta:'Caja',          panel:'vistaCaja',        puede:()=>canViewLedger },
+  { clave:'concilia', etiqueta:'Conciliar', panel:'conciliaPanel',
     puede:()=>canSeeConcilia&&(Boolean(conciliaData?.seesEverything)||pendientesDeConcilia()>0) }
 ];
 

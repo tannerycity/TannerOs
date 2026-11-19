@@ -399,6 +399,12 @@ async function corre(rol) {
     await pagina.click('#printClose');
     await pagina.waitForFunction(() => window.__pdf, { timeout: 8000 });
     const conCorte = (await pagina.evaluate(() => window.__pdf)).textos.join(' | ');
+    await pagina.waitForFunction(() => !document.getElementById('printClose')?.disabled, null, { timeout: 4000 }).catch(() => {});
+    revisa(`[${rol}] después del corte, el renglón conserva su ícono, su texto y su flecha`,
+      await pagina.evaluate(() => { const b = document.getElementById('printClose'); return !!b?.querySelector('svg') && !!b?.querySelector('.otro-chev') && b?.querySelector('.otro-txt')?.textContent === 'Corte de caja'; }));
+    const caja = await pagina.evaluate(() => ({ efectivo: document.getElementById('expectedCash')?.textContent, entro: document.getElementById('incomeDay')?.textContent, salio: document.getElementById('expenseDay')?.textContent, neto: document.getElementById('netDay')?.textContent, una: document.querySelectorAll('.caja-hoy').length, kpis: document.querySelectorAll('.cashier-kpis').length, metodos: [...document.querySelectorAll('#methodRows tr td:first-child')].map(t => t.textContent) }));
+    revisa(`[${rol}] la tabla por método dice Efectivo y Transferencia, no cash y transfer`, JSON.stringify(caja.metodos.slice(0, 2)) === '["Efectivo","Transferencia"]', JSON.stringify(caja.metodos));
+    revisa(`[${rol}] la Caja es una sola tarjeta: debe haber, entró, salió y neto`, caja.una === 1 && caja.kpis === 0 && caja.efectivo === '$900.00' && caja.entro === '$1,300.00' && caja.salio === '$400.00' && caja.neto === '$900.00', JSON.stringify(caja));
     revisa(`[${rol}] si contaron el efectivo, el corte lleva el faltante`,
       /Efectivo contado/.test(conCorte) && /Faltante/.test(conCorte) && /\$50\.00/.test(conCorte),
       conCorte.slice(0, 500));

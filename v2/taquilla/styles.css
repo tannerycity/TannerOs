@@ -711,3 +711,27 @@ button.cob-tile{cursor:pointer}
 .cashier-apple .ver-tabs .ver-ico{position:relative}
 .cashier-apple .ver-tabs .ver-badge{top:-7px;right:-12px}
 .cashier-apple .ver-tabs .ver-badge{top:-5px;right:-9px;min-width:12px;height:16px;padding:0 4px;font-size:10.5px;line-height:16px;border-width:2px}
+
+/* ===== Caja de hoy estilo Wallet (19/11/2026, Taquilla fase 2) ===== */
+.caja-hoy{margin:0 0 16px;border-radius:20px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 18px -10px rgba(0,0,0,.18);overflow:hidden}
+.caja-hoy-top{display:grid;gap:4px;padding:20px 20px 18px;background:linear-gradient(135deg,#0d2730,#14404c);color:#fff}
+.caja-hoy-top span{font-size:13px;font-weight:600;color:rgba(255,255,255,.75)}
+.caja-hoy-top strong{font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.05;color:#fff}
+.caja-hoy-top small{font-size:12.5px;line-height:1.35;color:rgba(255,255,255,.7)}
+.caja-hoy-filas{margin:0;padding:4px 20px}
+.caja-hoy-filas div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;min-height:46px;border-bottom:1px solid rgba(60,60,67,.12)}
+.caja-hoy-filas dt{font-size:16px;color:#3a3a3c}
+.caja-hoy-filas dd{margin:0;font-size:17px;font-weight:700;color:#1c1c1e;font-variant-numeric:tabular-nums}
+.caja-hoy-filas dd.sem-ok{color:#1e8e43}
+.caja-hoy-filas dd.sem-warn{color:#a15c00}
+.caja-hoy-filas dd.sem-alert{color:#c4321c}
+.caja-hoy-filas dd.sem-neutral{color:#1c1c1e}
+.caja-hoy-neto dt{font-weight:700;color:#1c1c1e}
+.caja-hoy-cuenta{display:grid;gap:8px;padding:12px 20px 18px}
+.caja-hoy-cuenta label{display:grid;gap:6px;font-size:14px;font-weight:700;color:#1c1c1e}
+.caja-hoy-cuenta input{min-height:48px;padding:0 14px;border:0;border-radius:12px;background:#e9e9ee;font:inherit;font-size:17px}
+.caja-hoy-cuenta input:focus{outline:0;box-shadow:0 0 0 3px rgba(30,142,67,.28)}
+.caja-hoy-filas div{align-items:center}
+.caja-hoy-filas div:last-child{border-bottom:0}
+.caja-hoy-cuenta{border-top:1px solid rgba(60,60,67,.12)}
+.caja-hoy-cuenta label{text-transform:none;letter-spacing:0;font-size:15px}

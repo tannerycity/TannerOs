@@ -148,15 +148,23 @@
         </section>
 
         <div id="vistaCaja" class="cashier-vista hidden">
-        <section class="cashier-kpis">
-          <article><span>Cobrado del día</span><strong id="incomeDay">$0.00</strong></article>
-          <article><span>Pagado del día</span><strong id="expenseDay" class="sem-neutral">$0.00</strong></article>
-          <article><span>Caja del día</span><strong id="netDay">$0.00</strong></article>
-        </section>
-
-        <section class="cashier-cash-card">
-          <div><span>Efectivo contable esperado</span><strong id="expectedCash">$0.00</strong><p>Efectivo acumulado hasta la fecha seleccionada. Transferencias y tarjeta no entran aquí.</p></div>
-          <div class="cashier-reconcile"><label>Efectivo contado<input id="countedCash" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Cuenta el dinero físico"></label><div id="reconcileResult" class="reconcile-result hidden"></div></div>
+        <!-- Caja de hoy (19/11/2026, Taquilla fase 2). Antes: tres tarjetas de
+             "$0.00" (cobrado, pagado, caja) y otra de "efectivo contable
+             esperado". Ahora una sola tarjeta estilo Wallet: arriba, grande, lo
+             que debe haber en efectivo; abajo, lo que entró, salió y el neto; y
+             al final cuánto contaste, para saber si cuadra. Mismos ids y datos. -->
+        <section class="caja-hoy" aria-label="Caja de hoy">
+          <div class="caja-hoy-top">
+            <span>Debe haber en efectivo</span>
+            <strong id="expectedCash">$0.00</strong>
+            <small>Efectivo acumulado hasta este día. Transferencias y tarjeta no entran aquí.</small>
+          </div>
+          <dl class="caja-hoy-filas">
+            <div><dt>Entró</dt><dd id="incomeDay">$0.00</dd></div>
+            <div><dt>Salió</dt><dd id="expenseDay" class="sem-neutral">$0.00</dd></div>
+            <div class="caja-hoy-neto"><dt>Neto del día</dt><dd id="netDay">$0.00</dd></div>
+          </dl>
+          <div class="cashier-reconcile caja-hoy-cuenta"><label>¿Cuánto contaste?<input id="countedCash" type="number" min="0" step="0.01" inputmode="decimal" placeholder="El dinero físico de la caja"></label><div id="reconcileResult" class="reconcile-result hidden"></div></div>
         </section>
 
         <section class="cashier-panel">

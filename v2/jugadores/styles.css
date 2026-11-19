@@ -787,3 +787,29 @@ body.ficha-visor-abierto{overflow:hidden}
 #profileView .ficha-chip>svg{flex:0 0 auto;color:#b5bfc2}
 #profileView #privacyBadges .profile-badge[class*="img-"]>i{display:none}
 #profileView #privacyBadges .consent-box{margin:0;border:0;border-top:1px solid #eef0ee;border-radius:0;box-shadow:none;text-align:left}
+/* Fase A estilo Apple (19/11/2026, Presidencia: "aún más minimalista").
+   Debajo del encabezado todo es la misma lista blanca: beca, cuenta y
+   pedidos son renglones; el perfil deportivo son dos datos sobre blanco. Sin
+   degradados, sin tarjetas de colores, aro fino en la foto. */
+#profileView .ficha-avatar{box-shadow:0 0 0 2px #fff,0 0 0 3.5px #c6ac5c,0 8px 22px rgba(3,47,59,.14)}
+@media (min-width:621px){#profileView .ficha-avatar{box-shadow:0 0 0 2px #fff,0 0 0 3.5px #c6ac5c,0 10px 26px rgba(3,47,59,.14)}}
+.ficha-beca{margin-top:14px;padding:13px 14px;border-radius:14px;background:#fff;color:#0d2730;box-shadow:0 1px 3px rgba(3,47,59,.08)}
+.ficha-beca-ico{width:32px;height:32px;flex:0 0 32px;border-radius:9px;background:#f7f0dc;color:#8a6413}
+.ficha-beca-txt strong{font-size:15px;font-weight:600}.ficha-beca-txt small{color:#6b7c82}
+.ficha-beca>svg{color:#b5bfc2}
+.ficha-cuenta{margin-top:10px;border:0;border-radius:14px;box-shadow:0 1px 3px rgba(3,47,59,.08)}
+.ficha-cuenta-fila,.ficha-cuenta-fila.debe{background:#fff;padding:13px 14px;border-top-color:#eef0ee}
+.ficha-cuenta .ficha-ico{width:32px;height:32px;flex:0 0 32px;border-radius:9px}
+.ficha-cuenta-top strong{font-weight:600}.ficha-cuenta-top b{font-size:17px}
+/* Los meses viven en Pagos (se abre al tocar el renglón). */
+.ficha-cuenta .ficha-meses{display:none}
+.ficha-perfil{margin-top:10px;padding:14px;border-radius:14px;background:#fff;color:#0d2730;box-shadow:0 1px 3px rgba(3,47,59,.08);gap:8px}
+.ficha-perfil-head span{font-size:12px;font-weight:600;letter-spacing:.04em;color:#6b7c82}
+.ficha-perfil-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:0}
+.ficha-perfil-grid>div{background:transparent;padding:4px 0;border-radius:0}
+.ficha-perfil-grid>div+div{border-left:1px solid #eef0ee;padding-left:14px}
+.ficha-perfil-grid span{color:#6b7c82;font-size:12px}
+.ficha-perfil-grid strong{color:#0d2730;font-size:28px;font-weight:700}.ficha-perfil-grid strong.pend{color:#a3701a;font-size:20px}
+.ficha-perfil-grid small{color:#8a979b}
+.ficha-card{border:0;border-radius:14px;box-shadow:0 1px 3px rgba(3,47,59,.08)}
+.ficha-card h3{font-weight:600;letter-spacing:.04em;color:#6b7c82}

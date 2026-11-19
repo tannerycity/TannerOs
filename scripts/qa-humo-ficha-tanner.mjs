@@ -154,7 +154,7 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   await p.keyboard.press('Escape');
   revisa('[pres] Escape cierra la carta', await p.isHidden('#tannerCard'));
   const beca = await texto(p, '#fichaBeca');
-  revisa('[beca] franja dorada visible', await visible(p, '#fichaBeca'));
+  revisa('[beca] renglón de beca visible', await visible(p, '#fichaBeca'));
   revisa('[beca] dice cuánto, quién y hasta cuándo', /Beca parcial · 50% de la mensualidad/.test(beca) && /Lo cubre Don Trapo/.test(beca) && /hasta 31 dic/.test(beca), beca);
   const cuenta = await texto(p, '#fichaCuenta');
   revisa('[cuenta] el mismo semáforo que Taquilla: Atrasado · debe 2 meses y cuánto', /Atrasado · debe 2 meses/.test(cuenta) && /\$1,600/.test(cuenta) && !/Al corriente|vencido/.test(cuenta), cuenta.slice(0,160));
@@ -166,11 +166,15 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
   revisa('[perfil] se llama Perfil deportivo Tanner', /PERFIL DEPORTIVO TANNER/.test(perfil));
   revisa('[perfil] asistencia de 30 días', /86%/.test(perfil) && /12 de 14/.test(perfil), perfil);
   revisa('[perfil] sin evaluación lo dice', /Sin evaluar/.test(perfil));
+  // Fase A estilo Apple: la cuenta es un renglón (los meses viven en Pagos) y el perfil, dos datos sobre blanco.
+  revisa('[apple A] los meses no se ven al frente; están en Pagos al tocar', !(await p.isVisible('#fichaCuenta .ficha-meses')));
+  revisa('[apple A] perfil deportivo: dos datos, sin posición ni objetivo', (await p.$$('#fichaPerfil .ficha-perfil-grid > div')).length === 2 && !/Objetivo actual/.test(perfil));
+  revisa('[apple A] sin degradados abajo', await p.evaluate(() => ['#fichaBeca', '#fichaPerfil'].every(s => !/gradient/.test(getComputedStyle(document.querySelector(s)).backgroundImage))));
   const tabs = await p.$$eval('#fichaTabs button', b => b.map(x => x.textContent + (x.getAttribute('aria-selected')==='true'?'*':'')));
   revisa('[tabs] Presidencia abre en Resumen y ve Pagos', JSON.stringify(tabs) === JSON.stringify(['Resumen*','Deportivo','Pagos','Familia','Expediente']), JSON.stringify(tabs));
   revisa('[tabs] en Resumen no se ve el formulario', await p.isHidden('#firstName') && await p.isHidden('#sportsSnapshot'));
   const res = await texto(p, '#fichaResumen');
-  revisa('[resumen] pendientes: permiso, documento y evaluación', /Registrar permiso de imagen/.test(res) && /Falta 1 documento/.test(res) && /Acta de nacimiento/.test(res) && /Evaluación del ciclo/.test(res), res.slice(0,300));
+  revisa('[resumen] pendientes sin repetir lo de arriba: sólo la evaluación', /Evaluación del ciclo/.test(res) && !/Registrar permiso de imagen/.test(res) && !/Falta 1 documento/.test(res), res.slice(0,300));
   revisa('[resumen] familia en el club', /Milan Pedroza/.test(res));
   revisa('[resumen] su historia en el club', /SU HISTORIA EN EL CLUB/.test(res) && /Entró al club/.test(res));
   const chips = await texto(p, '#fichaChips');
@@ -246,7 +250,7 @@ const texto = async (p, sel) => (await p.innerText(sel)).replace(/\s+/g,' ');
 {
   const p = await abre('Presidencia', 1280);
   revisa('[compu] foto grande de 208px', await p.evaluate(() => Math.round(document.getElementById('fichaAvatar').getBoundingClientRect().width) === 208));
-  revisa('[compu] perfil deportivo en 4 columnas', await p.evaluate(() => getComputedStyle(document.querySelector('.ficha-perfil-grid')).gridTemplateColumns.split(' ').length === 4));
+  revisa('[compu] perfil deportivo en 2 columnas (dos datos)', await p.evaluate(() => getComputedStyle(document.querySelector('.ficha-perfil-grid')).gridTemplateColumns.split(' ').length === 2));
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/ficha-tanner-compu.png') });
   await p.close();
 }

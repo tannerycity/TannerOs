@@ -14,8 +14,8 @@
        (los botones de siempre, en una hoja).
      · Cuenta y tienda: cuántos meses debe, de cuáles, último pago y pedidos
        activos de la tienda (sólo quien ve dinero).
-     · Perfil deportivo Tanner: asistencia 30 días, última evaluación,
-       posición y objetivo.
+     · Perfil deportivo Tanner: asistencia 30 días y última evaluación
+       (posición y objetivo viven en la pestaña Deportivo).
      · Pestañas: Resumen · Deportivo · Pagos · Familia · Expediente. La que se
        abre primero depende del rol (profes: Deportivo).
      · Familia completa (hermanos en el club), línea de tiempo, beca visible y
@@ -263,15 +263,11 @@ function pintaPerfil(){
   const p=F.player;
   const evalTxt=$('evaluationDate')?.textContent?.trim()||'Sin evaluación';
   const sinEval=/Sin evaluación/i.test(evalTxt);
-  const objetivo=$('evaluationObjectives')?.querySelector('div strong')?.textContent?.trim()||'';
   const asis=F.asistencia;
-  const pos=[p.position||'Por definir',p.dominantFoot?({right:'Derecha',left:'Izquierda',both:'Ambas'}[p.dominantFoot]||p.dominantFoot):null].filter(Boolean).join(' · ');
   box.innerHTML=`<div class="ficha-perfil-head"><span>PERFIL DEPORTIVO TANNER</span></div>
     <div class="ficha-perfil-grid">
       <div><span>Asistencia 30 días</span><strong>${asis?.pct!=null?esc(`${Math.round(asis.pct)}%`):'—'}</strong><small>${asis?.pct!=null?esc(asis.texto):'Sin registros'}</small></div>
       <div><span>Última evaluación</span><strong class="${sinEval?'pend':''}">${sinEval?'Sin evaluar':esc(evalTxt.replace(/^Evaluación\s*/,''))}</strong><small>${sinEval?'Pendiente este ciclo':'Perfil Tanner'}</small></div>
-      <div><span>Posición · pierna</span><strong class="chico">${esc(pos)}</strong></div>
-      <div><span>Objetivo actual</span><strong class="chico">${objetivo?esc(objetivo):'Se define al evaluar'}</strong></div>
     </div>`;
 }
 
@@ -279,17 +275,16 @@ function pintaPerfil(){
 function pintaResumen(){
   const box=$('fichaResumen');if(!box||!F)return;
   const p=F.player,items=[];
-  const img=p.imageConsent?null:(p.imageConsentAt||p.dataConsent?'La familia no autorizó su imagen':'Nunca se le preguntó');
-  if(img)items.push({tono:'rojo',t:'Registrar permiso de imagen',d:img,attr:'data-ficha-permiso'});
-  if(F.docs&&F.docs.faltan>0)items.push({tono:'rojo',t:`Falta${F.docs.faltan===1?'':'n'} ${F.docs.faltan} documento${F.docs.faltan===1?'':'s'}`,d:F.docs.nombres.join(', '),attr:'data-ficha-ir="expediente"'});
+  // Fase A estilo Apple (19/11/2026): "una cosa, un lugar". El permiso de
+  // imagen y los documentos ya salen arriba, en la lista de avisos; aquí sólo
+  // queda lo que no está arriba. Sin nada, la tarjeta no sale (no decimos
+  // "Todo al día" si arriba hay un aviso rojo).
   const sinEval=/Sin evaluación/i.test($('evaluationDate')?.textContent||'Sin evaluación');
   if(sinEval)items.push({tono:'oro',t:'Evaluación del ciclo',d:'Todavía sin Perfil Tanner',attr:'data-ficha-ir="deportivo"'});
-  const lista=items.length
-    ?items.map(i=>`<button type="button" class="ficha-fila" ${i.attr}><i class="${i.tono}"></i><span><strong>${esc(i.t)}</strong><small>${esc(i.d)}</small></span>${svg('chevron',16)}</button>`).join('')
-    :'<p class="ficha-vacio">Todo al día. Sin pendientes de expediente.</p>';
+  const lista=items.map(i=>`<button type="button" class="ficha-fila" ${i.attr}><i class="${i.tono}"></i><span><strong>${esc(i.t)}</strong><small>${esc(i.d)}</small></span>${svg('chevron',16)}</button>`).join('');
   const hermanos=F.hermanos?.length
     ?`<div class="ficha-card"><h3>FAMILIA EN EL CLUB</h3>${F.hermanos.map(h=>`<a class="ficha-fila" href="/jugadores/?player=${encodeURIComponent(h.id)}"><i class="teal"></i><span><strong>${esc(h.name)}</strong><small>${esc(h.category||'Sin categoría')}${h.status!=='active'?' · baja':''}</small></span>${svg('chevron',16)}</a>`).join('')}</div>`:'';
-  box.innerHTML=`<div class="ficha-card"><h3>PENDIENTES</h3>${lista}</div>${hermanos}${pintaHistoria()}`;
+  box.innerHTML=`${lista?`<div class="ficha-card"><h3>PENDIENTES</h3>${lista}</div>`:''}${hermanos}${pintaHistoria()}`;
 }
 const KIND={joined:'teal',category:'teal',evaluation:'oro',callup:'navy',consent:'teal',withdrawn:'rojo',benefit:'oro'};
 function pintaHistoria(){

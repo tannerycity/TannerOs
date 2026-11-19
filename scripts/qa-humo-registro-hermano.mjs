@@ -16,6 +16,8 @@
  *   5. El segundo registro se manda con los datos de la familia.
  *   6. Nada de la familia se guarda en el teléfono (localStorage ni
  *      sessionStorage).
+ *   7. Categoría sugerida por la edad (h94): con la fecha de nacimiento se
+ *      elige sola y lo dice; si la familia eligió otra a mano, no se toca.
  */
 import { chromium } from 'playwright-core';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
@@ -35,7 +37,7 @@ const FAKE = `export function createClient(){
   return {
     auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
     rpc:async(name,params)=>{(window.__llamadas=window.__llamadas||[]).push({name,params});
-      if(name==='v2_public_context')return{data:{organizationId:'o1',organizationName:'Tannery City FC',categories:['T10','T12'],whatsappNumber:'524790000000'},error:null};
+      if(name==='v2_public_context')return{data:{organizationId:'o1',organizationName:'Tannery City FC',categories:['T10','T12'],categoryAges:[{name:'T10',minAge:7,maxAge:10},{name:'T12',minAge:11,maxAge:12}],whatsappNumber:'524790000000'},error:null};
       if(name==='v2_public_register_enhanced'){const n=window.__llamadas.filter(l=>l.name===name).length;return{data:{id:'p'+n,folio:'TC-000'+n},error:null};}
       return{data:null,error:null};},
     storage:{from(){return{upload:async()=>({data:{},error:null}),createSignedUrls:async()=>({data:[]})}}},
@@ -56,6 +58,8 @@ await pg.goto(`${BASE}/registro/`, { waitUntil: 'domcontentloaded' });
 await pg.waitForSelector('#regForm', { timeout: 8000 });
 
 const FOTO = path.join(RAIZ, 'icon-512.png');
+// Fechas relativas a hoy: 8 años y 2 meses (T10) y 11 años y 2 meses (T12).
+const hace = (anios) => { const d = new Date(); d.setFullYear(d.getFullYear() - anios); d.setMonth(d.getMonth() - 2); return d.toISOString().slice(0, 10); };
 async function llenaNino(nombre, fecha) {
   await pg.setInputFiles('#photoUpload', FOTO);
   await pg.selectOption('#registrationType', 'player');
@@ -66,7 +70,15 @@ async function llenaNino(nombre, fecha) {
 }
 
 /* ---------- 1. Primer hijo ---------- */
-await llenaNino('Mateo', '2016-03-10');
+await llenaNino('Mateo', hace(8));
+const sug1 = await pg.evaluate(() => ({ cat: document.getElementById('category').value, nota: document.getElementById('categoriaSugerida')?.textContent || '', visible: !document.getElementById('categoriaSugerida')?.classList.contains('hidden') }));
+revisa('7. con la fecha, la categoría se elige sola (8 años: T10) y lo dice', sug1.cat === 'T10' && sug1.visible && /Sugerida por su edad \(8 años\)/.test(sug1.nota), sug1);
+await pg.selectOption('#category', 'T12');
+await pg.fill('#birthDate', hace(9));
+revisa('7. si la familia eligió otra a mano, cambiar la fecha no se la mueve', (await pg.inputValue('#category')) === 'T12');
+await pg.selectOption('#category', '');
+await pg.fill('#birthDate', hace(8));
+revisa('7. con la categoría vacía, la vuelve a sugerir', (await pg.inputValue('#category')) === 'T10');
 await pg.fill('#lastName', 'Pérez Luna');
 await pg.fill('#guardian', 'Laura Luna');
 await pg.fill('#phone', '4771234567');
@@ -103,15 +115,18 @@ revisa('3. el cursor queda en el nombre del niño', v.foco === 'firstName', v.fo
 revisa('4. los permisos de privacidad e imagen se vuelven a aceptar', v.datos === false && v.imagen === false, v);
 
 /* ---------- 5. Segundo hijo ---------- */
-await llenaNino('Sofía', '2018-07-22');
+await llenaNino('Sofía', hace(11));
+revisa('7. el segundo hijo trae su propia categoría por edad (11 años: T12)', (await pg.inputValue('#category')) === 'T12');
 await pg.click('#regSubmit');
 await pg.waitForSelector('#otroHijo', { timeout: 15000 }).catch(() => {});
 const regs = await pg.evaluate(() => (window.__llamadas || []).filter(l => l.name === 'v2_public_register_enhanced').map(l => l.params));
 const b = regs[1] || {};
 revisa('5. el segundo registro se manda con la familia', regs.length === 2 && b.first_name === 'Sofía' && b.guardian_name === 'Laura Luna' && /4771234567/.test(b.phone || '') && b.email === 'laura@example.com' && b.school_name === 'Colegio Miraflores' && b.source_channel === 'Recomendación' && b.referral_name === 'Familia Ruiz' && b.last_name === 'Pérez Luna', b);
 revisa('5. y con su propio permiso de privacidad', b.data_consent === true);
+revisa('7. cada hijo se manda con su categoría', regs[0]?.category_interest === 'T10' && b.category_interest === 'T12', regs.map(r => r.category_interest));
 
 /* ---------- 6. Nada en el teléfono ---------- */
+
 const guardado = await pg.evaluate(() => { const t = []; for (const s of [localStorage, sessionStorage]) for (let i = 0; i < s.length; i++) t.push(s.getItem(s.key(i))); return t.join(' '); });
 revisa('6. nada de la familia queda guardado en el teléfono', !/Laura|4771234567|laura@example|Miraflores/.test(guardado), guardado.slice(0, 200));
 revisa('sin errores de página', !errs.length, errs.join(' | '));

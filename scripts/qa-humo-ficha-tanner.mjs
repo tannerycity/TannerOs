@@ -9,7 +9,8 @@
  *
  * Esta prueba levanta /v2/jugadores/ REAL con un Supabase falso y revisa:
  *   · la carta FIFA no ocupa la pantalla: se abre al tocar la foto y se cierra;
- *   · la beca sale en franja dorada con cuánto, quién y hasta cuándo;
+ *   · separación total: la ficha no trae dinero; "Más" lleva a su cuenta en
+ *     Taquilla y a "Beca y apoyos"; la beca es un dato de Familia;
  *   · "Atrasado · debe 2 meses · $1,600" (el semáforo de Taquilla) con los meses en color y el pedido activo;
  *   · Presidencia abre en Resumen; un profe en Deportivo y sin Pagos ni adeudo;
  *   · cada pestaña muestra sólo lo suyo (el formulario se reparte);
@@ -160,37 +161,23 @@ async function seccion(p, k) {
   revisa('[pres] Escape cierra la carta', await p.isHidden('#tannerCard'));
   // Fase B estilo Apple: sin pestañas; una lista de secciones con su dato ya escrito.
   const filas = await p.$$eval('#fichaTabs .ficha-seccion', b => b.map(x => x.innerText.replace(/\s+/g, ' ').trim()));
-  revisa('[apple B] la ficha abre en el inicio, con la lista de secciones', !(await p.isVisible('#fichaBarra')) && filas.length === 5, JSON.stringify(filas));
+  revisa('[apple B] la ficha abre en el inicio, con la lista de secciones', !(await p.isVisible('#fichaBarra')) && filas.length === 4, JSON.stringify(filas));
   revisa('[apple B] Deportivo ya dice asistencia y evaluación', /^Deportivo 86% asistencia · sin evaluar/.test(filas[0] || ''), filas[0]);
-  revisa('[apple B] Pagos ya dice el estado y cuánto', /^Pagos Atrasado · debe 2 meses \$1,600/.test(filas[1] || ''), filas[1]);
-  revisa('[apple B] Familia ya dice quién y cuántos hermanos', /^Familia Laura · 1 hermano/.test(filas[2] || ''), filas[2]);
-  revisa('[apple B] Expediente dice qué falta, con globito', /^Expediente Falta acta de nacimiento · No autorizan fotos 2/.test(filas[3] || ''), filas[3]);
-  revisa('[apple B] Historia dice desde cuándo', /^Historia desde/.test(filas[4] || ''), filas[4]);
+  revisa('[separación] la ficha no tiene sección de Pagos: el dinero vive en Taquilla', !filas.some(f => /^Pagos/.test(f)), filas);
+  revisa('[apple B] Familia ya dice quién y cuántos hermanos', /^Familia Laura · 1 hermano/.test(filas[1] || ''), filas[1]);
+  revisa('[apple B] Expediente dice qué falta, con globito', /^Expediente Falta acta de nacimiento · No autorizan fotos 2/.test(filas[2] || ''), filas[2]);
+  revisa('[apple B] Historia dice desde cuándo', /^Historia desde/.test(filas[3] || ''), filas[3]);
   revisa('[apple B] en el inicio no se ven cuenta, beca, perfil ni formularios', await p.isHidden('#fichaCuenta') && await p.isHidden('#fichaBeca') && await p.isHidden('#fichaPerfil') && await p.isHidden('#firstName') && await p.isHidden('#sportsSnapshot'));
   revisa('[apple B] cada renglón mide lo que un dedo', await p.$$eval('#fichaTabs .ficha-seccion', b => b.every(x => x.getBoundingClientRect().height >= 44)));
 
-  await seccion(p, 'pagos');
-  revisa('[apple B] tocar Pagos abre su pantalla con "‹ Marcelo · Pagos"', /Marcelo/.test(await texto(p, '#fichaBarra')) && /Pagos/.test(await texto(p, '#fichaBarra strong')) && await p.isHidden('#profileName'), await texto(p, '#fichaBarra'));
+  // Separación total (19/11/2026): sin dinero en la ficha.
+  revisa('[separación] no se ve la cuenta ni el historial de pagos', await p.isHidden('#fichaCuenta') && await p.isHidden('#pagosSnapshot'));
+  await seccion(p, 'familia');
   const beca = await texto(p, '#fichaBeca');
-  revisa('[beca] en Pagos sale la beca', await visible(p, '#fichaBeca'));
-  revisa('[beca] dice cuánto, quién y hasta cuándo', /Beca parcial · 50% de la mensualidad/.test(beca) && /Lo cubre Don Trapo/.test(beca) && /hasta 31 dic/.test(beca), beca);
-  const cuenta = await texto(p, '#fichaCuenta');
-  revisa('[cuenta] el mismo semáforo que Taquilla: Atrasado · debe 2 meses y cuánto', /Atrasado · debe 2 meses/.test(cuenta) && /\$1,600/.test(cuenta) && !/Al corriente|vencido/.test(cuenta), cuenta.slice(0,160));
-  revisa('[cuenta] la fila dice su estado para el color', await p.$eval('#fichaCuenta .ficha-cuenta-fila', b => b.dataset.estado) === 'atrasado');
-  revisa('[cuenta] en Pagos sí se ven los meses, en color', await p.isVisible('#fichaCuenta .ficha-meses') && (await p.$$('#fichaCuenta .ficha-mes.atrasado')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.por-vencer')).length >= 1 && (await p.$$('#fichaCuenta .ficha-mes.pagado')).length === 1, cuenta);
-  revisa('[cuenta] último pago', /Último pago .* Efectivo/.test(cuenta));
-  const hero = await p.evaluate(() => { const h = document.querySelector('#fichaCuenta .ficha-pago-hero'); const c = h?.querySelector('.ficha-pago-cobrar');
-    return { monto: h?.querySelector('.ficha-pago-monto')?.textContent || '', tam: h ? parseFloat(getComputedStyle(h.querySelector('.ficha-pago-monto')).fontSize) : 0,
-      cobrar: c?.textContent || '', href: c?.getAttribute('href') || '', alto: c ? c.getBoundingClientRect().height : 0,
-      primero: h && document.querySelector('#fichaCuenta').firstElementChild === h,
-      becaDebajo: !!(document.getElementById('fichaBeca').compareDocumentPosition(document.getElementById('fichaCuenta')) & Node.DOCUMENT_POSITION_PRECEDING) };
-  });
-  revisa('[pagos] número grande arriba: $1,600', hero.primero && /\$1,600/.test(hero.monto) && hero.tam >= 36, hero);
-  revisa('[pagos] "Cobrar $1,600" de un toque, con el monto y el Tanner', /Cobrar \$1,600/.test(hero.cobrar) && /action=cobrar&player=p1&amount=1600/.test(hero.href) && hero.alto >= 44, hero);
-  revisa('[pagos] la beca va debajo del número grande', hero.becaDebajo, hero);
-  revisa('[pagos] el recuadro de abajo ya no repite cuánto debe', !(await p.isVisible('#pagosSnapshot .pagos-kpis article:nth-child(2)')));
-  revisa('[cuenta] pedido activo y lo que falta (no el entregado)', /Pedido activo · TC-0142/.test(cuenta) && /faltan \$250/.test(cuenta) && !/TC-0100/.test(cuenta), cuenta);
-  revisa('[pagos] pagos y beca', await visible(p, '#pagosSnapshot') && await visible(p, '#benefitsPanel'));
+  revisa('[beca] la beca es un dato de Familia: qué es, quién la cubre y hasta cuándo', await visible(p, '#fichaBeca') && /Beca parcial/.test(beca) && /Lo cubre Don Trapo/.test(beca) && /hasta 31 dic/.test(beca), beca);
+  await p.click('#fichaBeca');
+  revisa('[beca] tocarla abre "Beca y apoyos" (quien maneja dinero)', /Beca y apoyos/.test(await texto(p, '#fichaBarra strong')) && await visible(p, '#benefitsPanel'));
+  await seccion(p, 'resumen');
 
   await seccion(p, 'deportivo');
   const perfil = await texto(p, '#fichaPerfil');
@@ -209,7 +196,7 @@ async function seccion(p, k) {
   await seccion(p, 'familia');
   await p.goBack(); await p.waitForTimeout(300);
   revisa('[atrás] desde una sección, atrás regresa a la ficha', await p.isVisible('#profileName') && !(await p.isVisible('#fichaBarra')) && await p.evaluate(() => document.getElementById('profilePanel').classList.contains('open')));
-  await seccion(p, 'pagos'); await seccion(p, 'resumen');
+  await seccion(p, 'familia'); await seccion(p, 'resumen');
   revisa('[atrás] "‹ Marcelo" no deja entradas de más en el historial', await p.evaluate(() => history.state?.ficha === 'abierta'), await p.evaluate(() => JSON.stringify(history.state)));
   // Avisos como globito rojo en su renglón (19/11/2026): ya no hay un grupo de
   // avisos aparte. Portero va en Deportivo; documentos y fotos, en Expediente.
@@ -257,9 +244,14 @@ async function seccion(p, k) {
   await p.click('#fichaMas >> text=Editar expediente');
   revisa('[más] "Editar expediente" lleva a Expediente', (await p.getAttribute('[data-ficha-tab="expediente"]', 'aria-selected')) === 'true' && await p.isHidden('#fichaMas'));
   const acc = await p.$$eval('#fichaAcciones .ficha-accion', a => a.map(x => x.textContent.trim()));
-  revisa('[acciones] WhatsApp, Llamar, Cobrar, Evaluar, Más', JSON.stringify(acc) === JSON.stringify(['WhatsApp','Llamar','Cobrar','Evaluar','Más']), JSON.stringify(acc));
-  const cob = await p.getAttribute('#fichaAcciones a.principal', 'href');
-  revisa('[acciones] Cobrar lleva el monto que debe', /action=cobrar&player=p1&amount=1600/.test(cob||''), cob);
+  revisa('[acciones] WhatsApp, Llamar, Evaluar, Más (sin Cobrar)', JSON.stringify(acc) === JSON.stringify(['WhatsApp','Llamar','Evaluar','Más']), JSON.stringify(acc));
+  await seccion(p, 'resumen');
+  await p.click('[data-ficha-mas]');
+  const puente = await p.$$eval('#fichaMas .ficha-mas-dinero', els => els.map(e => e.textContent.trim() + (e.getAttribute('href') ? ' ' + e.getAttribute('href') : '')));
+  revisa('[separación] "Más" es el único puente: su cuenta en Taquilla y Beca y apoyos', JSON.stringify(puente) === JSON.stringify(['Ver su cuenta en Taquilla /tanner/?id=p1', 'Beca y apoyos']), JSON.stringify(puente));
+  await p.click('#fichaMas [data-ficha-ir="apoyos"]');
+  revisa('[separación] "Beca y apoyos" abre su pantalla y cierra "Más"', await visible(p, '#benefitsPanel') && await p.isHidden('#fichaMas'));
+  await seccion(p, 'resumen');
   revisa('[pres] sin scroll horizontal', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await seccion(p, 'resumen');
   await p.screenshot({ path: path.join(RAIZ, 'docs/evidencias/ficha-tanner-telefono.png') });
@@ -277,7 +269,7 @@ async function seccion(p, k) {
   const secs = await p.$$eval('#fichaTabs .ficha-seccion', b => b.map(x => x.dataset.fichaTab));
   revisa('[profe] su lista: Deportivo primero y sin Pagos', secs[0] === 'deportivo' && !secs.includes('pagos'), JSON.stringify(secs));
   revisa('[profe] no ve adeudo ni pedidos', await p.isHidden('#fichaCuenta'));
-  revisa('[profe] sin dinero, la beca se queda en el inicio', await p.getAttribute('#fichaBeca', 'data-ficha') === 'resumen');
+  revisa('[profe] la beca es dato de Familia, sin monto ni enlace a apoyos', await p.getAttribute('#fichaBeca', 'data-ficha') === 'familia' && !(await p.getAttribute('#fichaBeca', 'data-ficha-ir')) && !/50%/.test(await p.textContent('#fichaBeca')));
   const acc = await p.$$eval('#fichaAcciones .ficha-accion', a => a.map(x => x.textContent.trim()));
   revisa('[profe] su botón principal es Evaluar, sin Cobrar', !acc.includes('Cobrar') && acc.includes('Evaluar'), JSON.stringify(acc));
   // El profe toma las fotos en cancha: con permiso de Jugadores también ve la cámara.

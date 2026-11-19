@@ -82,7 +82,7 @@ async function abre(rol, ancho=390) {
   await p.route('**/v2/photo-cache.js', r => r.fulfill({ status:200, contentType:'text/javascript',
     body:'export async function getSignedPhotoUrls(){return {};}export async function getSignedPhotoUrl(){return "/icon-512.png";}export async function getRawSignedPhotoUrl(){return null;}export async function clearPhotoCache(){}export function forgetPhoto(){}' }));
   await p.goto('http://127.0.0.1:4793/v2/jugadores/?player=p1', { waitUntil:'domcontentloaded' });
-  await p.waitForSelector('#fichaTabs button', { timeout:8000 });
+  await p.waitForSelector('#fichaTabs button', { timeout:8000, state:'attached' });
   await p.waitForFunction(() => window.__llamadas.includes('v2_player_story') && window.__llamadas.includes('v2_player_documents'), null, { timeout:6000 });
   await p.waitForTimeout(500);
   return p;
@@ -91,7 +91,7 @@ async function abre(rol, ancho=390) {
 /* ---------- Presidencia termina un patrocinio ---------- */
 {
   const p = await abre('Presidencia');
-  await p.click('[data-ficha-tab="pagos"]');
+  await p.click('[data-ficha-mas]'); await p.click('#fichaMas [data-ficha-ir="apoyos"]'); // Separación total: Beca y apoyos desde Más
   await p.waitForSelector('#benefitsList [data-benend="b2"]', { timeout:6000 });
   const botones = await p.$$eval('#benefitsList [data-benend]', b => b.map(x => x.dataset.benend + '=' + x.textContent.trim()));
   revisa('[botón] el patrocinio dice "Terminar patrocinio" y la beca "Terminar"', botones.includes('b2=Terminar patrocinio') && botones.includes('b1=Terminar'), JSON.stringify(botones));

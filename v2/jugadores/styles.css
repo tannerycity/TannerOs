@@ -938,3 +938,8 @@ body.ficha-visor-abierto{overflow:hidden}
 .jcard-dot.ok{background:#c6ac5c}
 /* El globito de la ficha: terracota del club, no rojo de sistema. */
 .ficha-globo{background:#a2542f!important}
+/* "Más": los botones de siempre a todo lo ancho, alineados con los nuevos;
+   "Estado de cuenta" ya es "Ver su cuenta en Taquilla" (separación total). */
+.ficha-mas-viejas{width:100%!important;justify-items:stretch!important;justify-content:stretch!important;align-items:stretch!important}
+.ficha-mas-viejas>a,.ficha-mas-viejas>button{max-width:none!important;justify-content:flex-start!important;text-align:left!important;margin:0!important}
+.ficha-mas-viejas>#verEstadoCuenta{display:none!important}

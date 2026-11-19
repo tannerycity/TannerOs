@@ -1,20 +1,16 @@
--- h96 · La lista de Jugadores trae el adeudo y el teléfono del tutor
+-- h96 · La lista de Jugadores trae el teléfono del tutor
 -- (PROPUESTA, sin correr) · 19/11/2026
 --
--- Presidencia: lista estilo Contactos con punto rojo "si debe o le falta
--- algo" y deslizar para Cobrar o WhatsApp. Hoy v2_players no trae el saldo
--- ni el teléfono: el punto rojo no puede decir "Debe $1,600" y WhatsApp tiene
--- que pedir la ficha completa antes de abrir el chat.
+-- Presidencia: deslizar un Tanner para mandar WhatsApp. Hoy v2_players no
+-- trae el teléfono: WhatsApp tiene que pedir la ficha completa antes de abrir
+-- el chat. Con la separación total (19/11/2026) el adeudo NO va en la lista
+-- de Jugadores (vive en Taquilla), así que esta versión sólo agrega el
+-- teléfono.
 --
 -- Qué agrega (al final, para no mover las columnas de siempre):
---   · balance_due  numeric  lo que debe (suma de charge_balances.balance_due > 0,
---                           la misma cuenta que el estado de cuenta).
---   · oldest_due   date     el cargo sin pagar más viejo (para Atrasado / Por vencer).
---   · guardian_phone text   el teléfono del tutor principal.
+--   · guardian_phone text   el teléfono del tutor principal (o el primero).
 --
--- Quién ve qué (las mismas reglas de hoy):
---   · balance_due y oldest_due: sólo quien ve el dinero (can_see_player_money).
---     A los demás les llegan vacíos, como los seis campos de dinero de siempre.
+-- Quién lo ve:
 --   · guardian_phone: quien administra Tanners o tiene Familia
 --     (is_player_admin o jugadores_familia). Al profe le llega vacío y su
 --     WhatsApp sigue pidiendo la ficha, como hoy.
@@ -34,7 +30,7 @@ returns table(id uuid, code text, first_name text, last_name text, birth_date da
   base_monthly_fee numeric, billing_status text, needs_review boolean, review_reason text, sex text, school text,
   has_guardian_email boolean, benefit_active boolean, benefit_source text, docs_missing integer, data_consent boolean,
   image_consent boolean, benefit_type text, image_consent_status text,
-  balance_due numeric, oldest_due date, guardian_phone text)
+  guardian_phone text)
 language plpgsql stable security definer set search_path to 'pg_catalog', 'app', 'private' as $function$
 declare v_docs_requeridos integer; v_dinero boolean; v_admin boolean; v_tel boolean;
 begin
@@ -77,11 +73,6 @@ begin
                and (b.ends_on is null or b.ends_on>=current_date)
              order by b.priority nulls last, b.starts_on desc limit 1) end,
          private.estado_de_imagen(p.image_consent, p.data_consent, p.privacy_notice_version),
-         -- h96: lo que debe y desde cuándo (misma cuenta que el estado de cuenta).
-         case when v_dinero then coalesce((select sum(cb.balance_due) from app.charge_balances cb
-                where cb.player_id=p.id and cb.organization_id=p.organization_id and cb.balance_due>0),0) end,
-         case when v_dinero then (select min(coalesce(cb.due_date,cb.billing_period)) from app.charge_balances cb
-                where cb.player_id=p.id and cb.organization_id=p.organization_id and cb.balance_due>0) end,
          -- h96: teléfono del tutor principal (o el primero), para WhatsApp en un toque.
          case when v_tel then (select nullif(trim(g.phone),'') from app.player_guardians pg
                 join app.guardians g on g.id=pg.guardian_id
@@ -106,7 +97,7 @@ returns table(id uuid, code text, first_name text, last_name text, birth_date da
   base_monthly_fee numeric, billing_status text, needs_review boolean, review_reason text, sex text, school text,
   has_guardian_email boolean, benefit_active boolean, benefit_source text, docs_missing integer, data_consent boolean,
   image_consent boolean, benefit_type text, image_consent_status text,
-  balance_due numeric, oldest_due date, guardian_phone text)
+  guardian_phone text)
 language sql security definer set search_path to 'pg_catalog', 'private'
 as $function$ select * from private.query_players(organization_id,status_filter) $function$;
 revoke all on function public.v2_players(uuid, text) from public, anon;

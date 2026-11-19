@@ -861,3 +861,37 @@ body.ficha-visor-abierto{overflow:hidden}
 #profileView .ficha-tabs .ficha-seccion{white-space:normal}
 .ficha-seccion-txt small{white-space:normal;line-height:1.3}
 #profileView.ficha-sub .ficha-beca{margin-top:10px}
+/* Lista estilo Contactos (19/11/2026): un renglón por Tanner, foto chiquita,
+   punto rojo si le falta algo; deslizar a la izquierda enseña Cobrar y
+   WhatsApp. Las tarjetas con foto siguen en "Tarjetas". */
+.vista-jug{display:inline-flex;gap:2px;padding:3px;margin:0 0 12px;border-radius:10px;background:#eef1f0}
+.vista-jug button{min-height:34px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:#4d5f65;font:600 13px/1 inherit;font-family:inherit;cursor:pointer}
+.vista-jug button[aria-pressed="true"]{background:#fff;color:#0d2730;box-shadow:0 1px 3px rgba(3,47,59,.12)}
+.jgrid.jlista{display:block;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(3,47,59,.08)}
+.jrow-wrap{position:relative;overflow:hidden;border-top:1px solid #eef0ee;touch-action:pan-y}
+.jrow-wrap:first-child{border-top:0}
+.jrow-acciones{position:absolute;top:0;right:0;bottom:0;display:flex}
+.jrow-acc{display:grid;place-items:center;min-width:78px;padding:0 10px;border:0;color:#fff;font:600 14px/1 inherit;font-family:inherit;text-decoration:none;cursor:pointer}
+.jrow-acc.cobrar{background:#053746;color:#f2e6bd}
+.jrow-acc.wa{background:#1f9d55}
+.jcard.jrow{position:relative;z-index:1;display:flex!important;align-items:center;gap:12px;width:100%;aspect-ratio:auto;min-height:60px;padding:8px 14px;border:0;border-radius:0;background:#fff!important;color:#0d2730;text-align:left;box-shadow:none;transition:transform .22s ease;overflow:visible}
+.jcard.jrow.selected{background:#f1f7f6!important}
+.jrow-foto{flex:0 0 44px;width:44px;height:44px;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#053746,#0b5d6e);display:grid;place-items:center}
+.jrow-foto .jcard-photo{position:static!important;width:100%;height:100%;object-fit:cover;object-position:center 22%;opacity:1!important;filter:none!important}
+.jrow-foto .jcard-initials{position:static!important;font:700 16px/1 inherit!important;color:#f2e6bd!important;transform:none!important;opacity:1!important}
+.jrow-txt{flex:1;min-width:0;display:grid;gap:2px}
+.jcard.jrow .jcard-name{position:static!important;font-size:16px!important;font-weight:600!important;color:#0d2730!important;text-shadow:none!important;padding:0!important;background:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25!important}
+.jrow-txt small{font-size:13px;color:#6b7c82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jcard.jrow .jcard-pub{position:static!important;flex:0 0 auto;margin:0!important}
+.jrow-punto{flex:0 0 10px;width:10px;height:10px;border-radius:50%;background:#e5483d}
+.jrow-chev{flex:0 0 auto;color:#b5bfc2}
+@media (hover:hover){.jcard.jrow:hover{background:#f7f9f8!important}}
+/* Ajustes del renglón: sin el degradado de la tarjeta, iniciales chicas y el
+   permiso de fotos como ícono (sólo cuando no se puede publicar). */
+.jcard.jrow::before,.jcard.jrow::after{display:none!important}
+.jcard.jrow{background-image:none!important}
+.jrow-foto .jcard-initials{font-size:16px!important;font-weight:700!important;letter-spacing:0!important;line-height:1!important;font-family:inherit!important;text-shadow:none!important}
+.jcard.jrow .jcard-pub{font-size:0!important;gap:0!important;padding:0!important;width:26px;height:26px;border-radius:50%!important;border-left:0!important;justify-content:center;background:#fdecea!important;color:#c0392b!important;max-width:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.jcard.jrow .jcard-pub svg{width:14px;height:14px;flex:0 0 14px}
+.jcard.jrow .jcard-pub.img-sin_preguntar{background:#fdf3dc!important;color:#a3701a!important}
+.jcard.jrow .jcard-pub.img-autoriza{display:none!important}

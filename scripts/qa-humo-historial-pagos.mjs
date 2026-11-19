@@ -93,7 +93,10 @@ async function abre(rol, ruta) {
   const t = (await p.innerText('#pagosSnapshot')).replace(/\s+/g,' ');
   revisa('[ficha] sale la sección Pagos', await p.isVisible('#pagosSnapshot'));
   revisa('[ficha] dice cuánto ha pagado', /Ha pagado \$3,400\.00/i.test(t), t.slice(0,200));
-  revisa('[ficha] dice cuánto debe y desde cuándo, con el semáforo de Taquilla', /Atrasado · \$800\.00 desde 10 sept?\.? 2026/.test(t) && !/Al corriente/.test(t), t.slice(0,200));
+  // Ficha estilo Apple: el semáforo vive en el renglón de la cuenta, arriba
+  // en la misma pantalla; el recuadro ya no repite (ni contradice) el estado.
+  const cta = (await p.innerText('#fichaCuenta').catch(() => '')).replace(/\s+/g,' ');
+  revisa('[ficha] Pagos dice el estado una sola vez, con el semáforo de Taquilla', /Atrasado/.test(cta) && /\$800/.test(cta) && !/Atrasado|Por vencer|Al día|Al corriente/.test(t), cta.slice(0,160) + ' || ' + t.slice(0,120));
   revisa('[ficha] saldo a favor', /Saldo a favor \$650\.00/i.test(t));
   const filas = await p.$$eval('#pagosSnapshot .pagos-fila', els => els.map(e => e.textContent.replace(/\s+/g,' ').trim()));
   revisa('[ficha] sólo los últimos 5 pagos', filas.length === 5, JSON.stringify(filas));

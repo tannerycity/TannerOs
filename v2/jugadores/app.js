@@ -1,4 +1,5 @@
 import { createClient } from '/v2/supabase-client.js';
+import { nombreDelClub } from '/v2/club.js';
 import { conecta as conectaBusquedaReciente } from '/v2/busquedas-recientes.js';
 import { elegirDorsal, tableroDorsales } from '/v2/dorsal.js';
 import { montaSinNumero } from '/v2/jugadores/sin-numero.js';
@@ -362,7 +363,7 @@ document.addEventListener('click',async e=>{
       let tel=String(g?.phone||'').replace(/\D/g,'');if(tel.length===10)tel='52'+tel;
       if(!tel){wa.textContent='Sin teléfono';setTimeout(()=>{wa.textContent='WhatsApp';wa.disabled=false;},1800);return;}
       const nom=r?.player?.firstName||'su Tanner',tutor=String(g?.firstName||'').split(' ')[0];
-      const msg=encodeURIComponent(`Hola${tutor?` ${tutor}`:''}, le escribimos de ${ctx?.organization_name||'Tannery City'} sobre ${nom}.`);
+      const msg=encodeURIComponent(`Hola${tutor?` ${tutor}`:''}, le escribimos de ${nombreDelClub(ctx)} sobre ${nom}.`);
       window.__ultimoWa=`https://wa.me/${tel}?text=${msg}`;location.href=window.__ultimoWa;
     }catch{wa.textContent='No se pudo';}finally{setTimeout(()=>{wa.disabled=false;if(wa.textContent==='Abriendo…')wa.textContent='WhatsApp';},2500);}
     return;}

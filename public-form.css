@@ -27,3 +27,11 @@ h2{letter-spacing:-.022em}
 .check span{font-weight:450;color:#33484e}
 .check span b{font-weight:700}
 .consent-line{font-weight:400}
+
+/* Registrar a otro hijo (19/11/2026) */
+.otro-hijo{display:block;width:100%;min-height:48px;margin:16px 0 4px;font-weight:800}
+.otro-hijo-nota{margin-top:0}
+.otro-hijo-aviso{margin:0 0 4px;padding:12px 14px;border-radius:14px;background:#eef7f2;color:#1d5c3c;font-size:14px;line-height:1.4}
+
+/* Categoría sugerida por la edad (19/11/2026) */
+.categoria-sugerida{display:block;margin-top:6px;font-size:13px;font-weight:700;color:#1d5c3c}

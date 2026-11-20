@@ -179,12 +179,64 @@ function abreHoja(etiqueta) {
 }
 function cierraHoja() { evalua = null; $('vsHoja')?.remove(); $('vsFondo')?.remove(); document.body.style.overflow = ''; }
 
+/* Hoja del inscrito, estilo Apple (20/11/2026, Presidencia: "tienes un chingo
+   de botones... que sean menos botones, que se puedan hacer más cosas").
+   Antes: hasta 10 botones apilados, varios en verde de sistema. Ahora:
+     · Arriba, hasta 4 acciones redondas: WhatsApp, Liga (si falta firmar),
+       Expediente y Salud. Lo que se hace todos los días, a un toque.
+     · Si hay una tarea pendiente (verificar identidad o revisar facultades),
+       un solo bloque con su botón.
+     · Los datos, como lista.
+     · Lo de vez en cuando (alerta, permiso de fotos) y lo delicado (anular,
+       dar de baja, eliminar) en listas agrupadas al final, en renglones y no
+       en botones gordos; lo delicado en rojo y aparte.
+   Los data-* son los de siempre: accionHoja no cambia. */
+const ICO_VS = {
+  wa: '<path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5Z"/>',
+  liga: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  doc: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 13h5M10 17h5"/>',
+  salud: '<path d="M12 21s-7-4.4-9.3-9A5.2 5.2 0 0 1 12 6a5.2 5.2 0 0 1 9.3 6c-2.3 4.6-9.3 9-9.3 9Z"/>'
+};
+const icoVs = n => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO_VS[n]}</svg>`;
+function hojaRapidas(x, k, a, wa) {
+  if (!(datos.canWrite || datos.canSeeContact)) return '';
+  const r = [];
+  if (wa) r.push(`<a class="vs-rapida" href="https://wa.me/${wa}" target="_blank" rel="noopener" aria-label="WhatsApp a ${esc(x.guardian || 'la familia')}"><span>${icoVs('wa')}</span>WhatsApp</a>`);
+  if (a !== 'AUTORIZADO' || !k) r.push(`<button type="button" class="vs-rapida principal" data-manda-liga><span>${icoVs('liga')}</span>Liga para firmar</button>`);
+  if (k && x.hasCopy) r.push(`<button type="button" class="vs-rapida" data-expediente><span>${icoVs('doc')}</span>Expediente</button>`);
+  if (k && !x.hasCopy) r.push(`<button type="button" class="vs-rapida" data-genera><span>${icoVs('doc')}</span>Generar expediente</button>`);
+  if (k && datos.canHealth) r.push(`<button type="button" class="vs-rapida" data-salud><span>${icoVs('salud')}</span>Salud</button>`);
+  return r.length ? `<nav class="vs-rapidas" aria-label="Acciones">${r.join('')}</nav>` : '';
+}
+function hojaTarea(x, k, st) {
+  if (!(datos.canWrite || datos.canSeeContact)) return '';
+  let t = '';
+  if (k && st !== 'signed' && !x.verifiedAt) t += `<div class="vs-bloque vs-tarea"><b>Verificar identidad de quien firmó</b>
+        <div class="vs-seg" role="group">${Object.entries(VERIFICACION).map(([m, tx], i) => `<button type="button" data-metodo="${m}" aria-pressed="${i === 0}">${tx}</button>`).join('')}</div>
+        <input id="vsRef" maxlength="200" placeholder="Referencia: 'el pase llegó del 477…', 'INE vista en la entrada'">
+        <button type="button" class="vs-guarda" data-verifica="${esc(k)}">Verificar identidad</button></div>`;
+  if (k && st === 'requires_review') t += `<div class="vs-bloque vs-tarea"><b>Facultades de quien firmó</b><textarea id="vsRevNota" rows="2" placeholder="Qué revisaste (documento de tutela, acuerdo, etc.)"></textarea>
+        <div class="vs-dos"><button type="button" class="vs-guarda" data-revisa="si">Tiene facultades</button><button type="button" class="vs-guarda rojo" data-revisa="no">No tiene: anular</button></div></div>`;
+  return t;
+}
+function hojaAcciones(x, k, st, a, wa) {
+  if (!(datos.canWrite || datos.canSeeContact)) return '';
+  const fila = (attr, t, rojo) => `<button type="button" class="vs-fila${rojo ? ' rojo' : ''}" ${attr}><span>${t}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>`;
+  const otras = [fila('data-alerta', x.alert ? 'Quitar alerta operativa' : 'Poner alerta operativa'),
+    x.imageConsent ? fila('data-quita-imagen', 'La familia retira el permiso de fotos') : ''].join('');
+  const delicadas = [k ? fila('data-anula', 'Anular consentimiento', true) : '',
+    datos.canWrite && datos.canSeeContact ? fila('data-baja', 'Dar de baja (libera su lugar)', true) : '',
+    puedeEliminar(x) ? fila('data-elimina', 'Eliminar', true) : ''].join('');
+  return `<div class="vs-grupo">${otras}</div>${delicadas ? `<div class="vs-grupo">${delicadas}</div>` : ''}`;
+}
 function verDatos(x) {
   const h = abreHoja('Datos y consentimiento'), em = x.emergencia || {}, wa = String(x.phone || '').replace(/\D/g, '');
   const fila = (t, v) => v ? `<div><dt>${t}</dt><dd>${esc(v)}</dd></div>` : '';
   const k = x.access?.consentId, st = x.access?.consentStatus, a = estadoDe(x);
   h.innerHTML = `<header class="vs-ev-cab"><div><h2>${esc(`${x.firstName} ${x.lastName}`)}</h2><p>${esc(x.folio || '')}</p></div><button type="button" class="vs-cierra" data-cierra aria-label="Cerrar">×</button></header>
     <div class="vs-estado-acceso acc-${(ACCESO[a] || {}).tono}"><b>${esc((ACCESO[a] || {}).t || a)}</b>${x.access?.reason ? `<span>${esc(x.access.reason)}</span>` : ''}</div>
+    ${hojaRapidas(x, k, a, wa)}
+    ${hojaTarea(x, k, st)}
     <dl class="vs-datos">${fila('Papá, mamá o tutor', x.guardian)}${fila('Parentesco declarado', PARENTESCO[x.relationship] || '')}${fila('WhatsApp', x.phone)}${fila('Correo', x.email)}
       ${fila('Emergencia', [em.nombre, em.telefono].filter(Boolean).join(' · '))}${fila('Puede recogerlo', x.recoge)}
       ${fila('Firmó', x.signedBy ? `${x.signedBy} · ${PARENTESCO[x.signedRelationship] || ''} · ${fecha(x.signedAt)}` : '')}
@@ -192,24 +244,7 @@ function verDatos(x) {
       ${fila('Revisión de facultades', x.reviewReason || '')}${fila('Fotos para redes', x.imageConsent ? 'Sí autorizó' : 'No autorizó')}
       ${x.transfer === true || x.transfer === false ? fila('Datos al evaluador', x.transfer ? 'Sí autorizó' : 'No autorizó') : ''}
       ${fila('Alerta operativa', x.alert ? (x.alertNote || 'Sí') : '')}</dl>
-    ${datos.canWrite || datos.canSeeContact ? `<div class="vs-acciones">
-      ${k && st !== 'signed' && !x.verifiedAt ? `<div class="vs-bloque"><b>Verificar identidad de quien firmó</b>
-        <div class="vs-seg" role="group">${Object.entries(VERIFICACION).map(([m, t], i) => `<button type="button" data-metodo="${m}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
-        <input id="vsRef" maxlength="200" placeholder="Referencia: 'el pase llegó del 477…', 'INE vista en la entrada'">
-        <button type="button" class="vs-guarda" data-verifica="${esc(k)}">Verificar identidad</button></div>` : ''}
-      ${k && st === 'requires_review' ? `<div class="vs-bloque"><b>Facultades de quien firmó</b><textarea id="vsRevNota" rows="2" placeholder="Qué revisaste (documento de tutela, acuerdo, etc.)"></textarea>
-        <div class="vs-dos"><button type="button" class="vs-guarda" data-revisa="si">Tiene facultades</button><button type="button" class="vs-guarda rojo" data-revisa="no">No tiene: anular</button></div></div>` : ''}
-      ${k && datos.canHealth ? '<button type="button" class="vs-boton sec" data-salud>Ficha de salud (restringida)</button>' : ''}
-      ${k && x.hasCopy ? '<button type="button" class="vs-boton sec" data-expediente>Descargar expediente (PDF)</button>' : ''}
-      ${k && !x.hasCopy ? '<button type="button" class="vs-boton sec" data-genera>Generar expediente</button>' : ''}
-      ${a !== 'AUTORIZADO' || !k ? `<button type="button" class="vs-boton" data-manda-liga>Mandar liga para firmar por WhatsApp</button>` : ''}
-      <button type="button" class="vs-boton sec" data-alerta>${x.alert ? 'Quitar alerta operativa' : 'Poner alerta operativa'}</button>
-      ${x.imageConsent ? '<button type="button" class="vs-boton sec" data-quita-imagen>La familia retira el permiso de fotos</button>' : ''}
-      ${k ? '<button type="button" class="vs-boton sec rojo" data-anula>Anular consentimiento</button>' : ''}
-      ${datos.canWrite && datos.canSeeContact ? '<button type="button" class="vs-boton sec rojo" data-baja>Dar de baja (libera su lugar)</button>' : ''}
-      ${puedeEliminar(x) ? '<button type="button" class="vs-boton sec rojo" data-elimina>Eliminar</button>' : ''}
-    </div>` : ''}
-    ${wa ? `<a class="vs-guarda" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp a ${esc(x.guardian || 'la familia')}</a>` : ''}`;
+    ${hojaAcciones(x, k, st, a, wa)}`;
   h.onclick = e => accionHoja(e, x);
 }
 

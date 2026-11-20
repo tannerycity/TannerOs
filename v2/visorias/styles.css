@@ -189,3 +189,23 @@
 .vs-estado em{box-shadow:0 0 0 1px rgba(255,255,255,.18)}
 .vs-mini dd{font-size:18px}
 .vs-links button{white-space:nowrap}
+/* Hoja del inscrito estilo Apple (20/11/2026): menos botones, más claro.
+   Sin verde de sistema: la acción principal va en azul noche del club. */
+.vs-boton{background:#0b2a33}
+.vs-guarda{background:#0b2a33}
+.vs-rapidas{display:flex;justify-content:center;gap:10px;margin:4px 0 14px}
+.vs-rapida{flex:1 1 0;max-width:84px;display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:none;padding:0;color:#087d8e;font:600 12px/1.15 inherit;font-family:inherit;text-align:center;text-decoration:none;cursor:pointer}
+.vs-rapida>span{width:54px;height:50px;border-radius:15px;background:#f1f4f3;display:grid;place-items:center;color:#0b2a33}
+.vs-rapida.principal>span{background:#0b2a33;color:#fff}
+.vs-tarea{margin-bottom:12px}
+.vs-grupo{margin-top:12px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(3,47,59,.08)}
+.vs-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:50px;padding:12px 14px;border:0;border-top:1px solid #eef0ee;background:#fff;color:#0b2a33;font:500 15.5px/1.25 inherit;font-family:inherit;text-align:left;cursor:pointer}
+.vs-fila:first-child{border-top:0}
+.vs-fila>svg{flex:0 0 auto;color:#b5bfc2}
+.vs-fila.rojo{color:#a92a21}
+.vs-fila.rojo>svg{color:#e2b3ae}
+/* Los datos en una sola lista, como Contactos (no siete tarjetas sueltas). */
+.vs-hoja .vs-datos{gap:0;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(3,47,59,.08)}
+.vs-hoja .vs-datos div{border-radius:0;background:#fff;border-top:1px solid #eef0ee;padding:10px 14px}
+.vs-hoja .vs-datos div:first-child{border-top:0}
+.vs-hoja .vs-datos dd{font-weight:600}

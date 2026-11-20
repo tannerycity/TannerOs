@@ -39,7 +39,12 @@ const UI_VERSION = 'visoria-h54';
  * y un asterisco de "aplican restricciones". No toca las inscripciones reales:
  * se sigue apartando lugar hasta el cupo de verdad. Si de verdad quedan menos
  * de 5, sale el número real. Para quitarla: ULTIMOS_LUGARES = 0. */
-const ULTIMOS_LUGARES = 5;
+const ULTIMOS_LUGARES = 0;
+/* Sin contador (20/11/2026, Presidencia: "deja abierto el link... que ya no
+ * le pongas contador... pero que la gente sí se pueda volver a registrar").
+ * Abierta, la portada ya no enseña cupo ni barra; sólo si se cierra o se
+ * llena sale el aviso. La inscripción sigue igual (la base decide el cupo). */
+const MUESTRA_CONTADOR = false;
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -100,7 +105,7 @@ function portada() {
       <li><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12 12 20l-8-8V4h8z"/><circle cx="8" cy="8" r="1.5"/></svg></span><div><b>Costo</b><span>Sin costo</span></div></li>
       <li class="vi-dato-alerta"><span class="vi-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></span><div><b>Calzado</b><span>Prohibidos los tachones. Usa multitacos o tenis deportivos.</span></div></li>
     </ul>
-    ${cupo ? `<div class="vi-cupo"><div class="vi-cupo-cab"><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : enEspera() ? 'Cupo lleno · abrimos lista de espera' : 'Cupo lleno') : promo ? `¡Últimos ${quedan} lugares!<sup>*</sup>` : `Quedan ${quedan} de ${cupo} lugares`}</b><span>Cupo limitado</span></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.max(3, Math.round(ocupados / cupo * 100)))}%"></i></div>${promo ? '<small class="vi-cupo-nota">* Aplican restricciones. Cupo sujeto a disponibilidad.</small>' : ''}</div>` : ''}
+    ${cupo && (MUESTRA_CONTADOR || cerrado) ? `<div class="vi-cupo"><div class="vi-cupo-cab"><b>${cerrado ? (info.closed ? 'Inscripciones cerradas' : enEspera() ? 'Cupo lleno · abrimos lista de espera' : 'Cupo lleno') : promo ? `¡Últimos ${quedan} lugares!<sup>*</sup>` : `Quedan ${quedan} de ${cupo} lugares`}</b><span>Cupo limitado</span></div><div class="vi-cupo-barra"><i style="width:${Math.min(100, Math.max(3, Math.round(ocupados / cupo * 100)))}%"></i></div>${promo ? '<small class="vi-cupo-nota">* Aplican restricciones. Cupo sujeto a disponibilidad.</small>' : ''}</div>` : ''}
     ${enEspera()
       ? '<button type="button" class="vi-boton" data-empieza>Regístrate en la lista de espera</button><p class="vi-pie">Si alguien se da de baja, te sumamos y te avisamos por WhatsApp. Toma 2 minutos.</p>'
       : cerrado

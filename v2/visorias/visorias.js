@@ -48,14 +48,30 @@ export function textoParaCompartir(c = {}) {
 /* ---------- Control de acceso (h54) ----------
  * La puerta: sólo pasa AUTORIZADO. El estado lo calcula el servidor; aquí
  * sólo se nombra y se cuenta. */
+/* Idioma de club, no de sistema (21/11/2026, Presidencia: "háblame como si
+ * fuera un equipo de fútbol... si yo no lo entiendo, imagínate los demás"). */
 export const ACCESO = {
-  AUTORIZADO: { t: 'Autorizado', tono: 'ok' },
-  PENDIENTE: { t: 'Pendiente', tono: 'aviso' },
-  REVISION_MEDICA: { t: 'Revisión médica', tono: 'aviso' },
-  SIN_CONSENTIMIENTO: { t: 'Sin consentimiento', tono: 'falta' },
-  NO_APTO: { t: 'No apto · alerta', tono: 'falta' },
-  NO_AUTORIZADO: { t: 'No autorizado', tono: 'falta' }
+  AUTORIZADO: { t: 'Puede jugar', tono: 'ok' },
+  PENDIENTE: { t: 'Le falta un paso', tono: 'aviso' },
+  REVISION_MEDICA: { t: 'Checar su salud', tono: 'aviso' },
+  SIN_CONSENTIMIENTO: { t: 'Falta firma de papás', tono: 'falta' },
+  NO_APTO: { t: 'Hoy no juega', tono: 'falta' },
+  NO_AUTORIZADO: { t: 'No puede jugar', tono: 'falta' }
 };
+/* El servidor explica en idioma de sistema; aquí se dice como en la cancha.
+ * Lo que no esté en la lista se muestra tal cual. */
+const MOTIVOS = {
+  'Falta firmar el consentimiento.': 'Sus papás todavía no firman.',
+  'Cambió el evento: necesita firmar la versión vigente.': 'Cambiamos datos de la visoría: sus papás tienen que volver a firmar.',
+  'Alerta operativa.': 'Lo apartaron: hoy no juega.',
+  'Revisión médica: no apto para este evento.': 'Por su salud, hoy no puede jugar.',
+  'Revisión médica pendiente.': 'Hay que revisar su ficha de salud antes de jugar.',
+  'Revisar facultades de quien firmó.': 'Hay que confirmar que quien firmó sí puede firmar por él.',
+  'Falta generar el expediente.': 'Falta guardar su hoja firmada.',
+  'Verificar la identidad de quien firmó.': 'Hay que confirmar que firmó su papá o su mamá.',
+  'Consentimiento no válido.': 'Esa firma no sirve: que sus papás firmen otra vez.'
+};
+export const motivo = t => (t ? MOTIVOS[String(t).trim()] || t : '');
 export const ORDEN_ACCESO = ['NO_APTO', 'SIN_CONSENTIMIENTO', 'REVISION_MEDICA', 'PENDIENTE', 'NO_AUTORIZADO', 'AUTORIZADO'];
 export const estadoDe = x => x?.access?.status || 'SIN_CONSENTIMIENTO';
 
@@ -70,7 +86,7 @@ export function ordenaPorAcceso(items = []) {
 }
 
 export const PARENTESCO = { madre: 'Mamá', padre: 'Papá', tutor_legal: 'Tutor legal', otro: 'Otro', sin_dato: 'Sin dato' };
-export const VERIFICACION = { whatsapp_club: 'Por el WhatsApp del club', presencial_identificacion: 'En persona, con identificación' };
+export const VERIFICACION = { whatsapp_club: 'Por WhatsApp', presencial_identificacion: 'En persona, con INE' };
 
 /* Lo que Presidencia llena antes de abrir la firma (docs/visorias/01 y 02).
  * Ningún dato legal se inventa: si está vacío, la firma no abre. */

@@ -22,7 +22,7 @@ import { usaFuncion } from '/v2/analitica-uso.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { nombreDelClub } from '/v2/club.js';
 import { edad, filtra, porAnio, porCanal, PIERNA, DECISIONES, LIGA_PUBLICA, textoParaCompartir,
-  ACCESO, estadoDe, resumenAcceso, ordenaPorAcceso, PARENTESCO, VERIFICACION, CAMPOS_LEGALES, SEGURO, APROBACIONES, faltante } from '/v2/visorias/visorias.js';
+  ACCESO, motivo as dicho, estadoDe, resumenAcceso, ordenaPorAcceso, PARENTESCO, VERIFICACION, CAMPOS_LEGALES, SEGURO, APROBACIONES, faltante } from '/v2/visorias/visorias.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',
   { auth: { persistSession: true, autoRefreshToken: true } });
@@ -37,17 +37,17 @@ let ctx = null, datos = null, fotos = {}, ver = 'todos', busca = '', evalua = nu
 async function rpc(n, p) { const { data, error } = await supabase.rpc(n, p); if (error) throw error; return data; }
 function muestra(id) { ['loadingView', 'deniedView', 'view'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
 function aviso(t, tipo) { const m = $('vsMensaje'); m.textContent = t || ''; m.dataset.type = tipo || ''; m.classList.toggle('hidden', !t); if (t) m.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-const chip = x => { const k = estadoDe(x), a = ACCESO[k] || ACCESO.SIN_CONSENTIMIENTO; return `<em class="acc-${a.tono}" title="${esc(x.access?.reason || '')}">${esc(a.t)}</em>`; };
+const chip = x => { const k = estadoDe(x), a = ACCESO[k] || ACCESO.SIN_CONSENTIMIENTO; return `<em class="acc-${a.tono}" title="${esc(dicho(x.access?.reason))}">${esc(a.t)}</em>`; };
 
 function pintaCampana() {
   const c = datos.campaign || {}, items = datos.items || [], n = items.length, cupo = c.capacity, llegaron = items.filter(x => x.arrivedAt).length;
   const anios = porAnio(items), canales = porCanal(items), r = resumenAcceso(items);
   $('vsCampana').innerHTML = `
     <div class="vs-cab"><div><p class="vs-eyebrow">VISORÍA</p><h1>${esc(c.title || 'Visoría')}</h1><p class="vs-sub">${esc(c.datesLabel || '')}${c.location ? ` · ${esc(c.location)}` : ''}</p></div></div>
-    ${c.signingOpen ? '' : `<div class="vs-alerta" role="status"><b>La firma del consentimiento está cerrada.</b> Las familias sólo pueden apartar lugar. ${datos.canSeeContact ? 'Completa el evento y sus tres aprobaciones en <button type="button" class="vs-enlace" data-vista-ir="evento">Evento</button>.' : ''}</div>`}
+    ${c.signingOpen ? '' : `<div class="vs-alerta" role="status"><b>Los papás todavía no pueden firmar.</b> Por ahora sólo apartan lugar. ${datos.canSeeContact ? 'Se abre cuando terminas los datos en <button type="button" class="vs-enlace" data-vista-ir="evento">Evento</button>.' : ''}</div>`}
     <div class="vs-numeros">
       <div class="vs-num grande"><b>${n}${cupo ? `<small> de ${cupo}</small>` : ''}</b><span>inscritos</span>${cupo ? `<div class="vs-barra"><i style="width:${Math.min(100, Math.round(n / cupo * 100))}%"></i></div>` : ''}</div>
-      <div class="vs-num"><b>${r.AUTORIZADO}</b><span>autorizados</span></div>
+      <div class="vs-num"><b>${r.AUTORIZADO}</b><span>pueden jugar</span></div>
       <div class="vs-num"><b>${llegaron}</b><span>llegaron</span></div>
     </div>
     <div class="vs-liga"><span>${esc(LIGA_PUBLICA.replace('https://', ''))}</span><button type="button" class="vs-boton sec" data-copia>Copiar liga</button><a class="vs-boton" href="https://wa.me/?text=${encodeURIComponent(textoParaCompartir(c))}" target="_blank" rel="noopener">Compartir</a></div>
@@ -82,7 +82,7 @@ function tarjeta(x) {
       ${datos.canWrite ? `<button type="button" class="vs-llego${x.arrivedAt ? ' si' : ''}" data-llego>${x.arrivedAt ? 'Llegó' : 'Marcar llegada'}</button><button type="button" class="vs-evalua" data-evalua>Evaluar</button>` : ''}
     </div>
     ${datos.canSeeContact || puedeEliminar(x) ? `<div class="vs-links">
-      ${datos.canSeeContact ? `<button type="button" class="vs-ver" data-ver-mas>${ICO_DOC}Datos y consentimiento</button>` : ''}
+      ${datos.canSeeContact ? `<button type="button" class="vs-ver" data-ver-mas>${ICO_DOC}Ver su ficha</button>` : ''}
       ${puedeEliminar(x) ? `<button type="button" class="vs-eliminar" data-elimina aria-label="Eliminar a ${esc(x.firstName || '')}">${ICO_BOTE}Eliminar</button>` : ''}
     </div>` : ''}
   </article>`;
@@ -136,12 +136,11 @@ function pintaAcceso() {
     .filter(x => !busca || `${x.firstName} ${x.lastName} ${x.folio}`.toLowerCase().includes(busca.toLowerCase()));
   const boton = (k, t) => `<button type="button" data-acceso="${k}" aria-pressed="${verAcceso === k}">${t}${k === 'todos' ? '' : ` · ${r[k] || 0}`}</button>`;
   $('vsAcceso').innerHTML = `
-    <p class="vs-recuerda">Un consentimiento firmado no sustituye la revisión de la cancha, la hidratación, la supervisión, el botiquín, el contacto de emergencias ni el protocolo de protección infantil.</p>
-    <div class="vs-seg vs-seg-acceso" role="group" aria-label="Estado">${boton('todos', 'Todos')}${boton('AUTORIZADO', 'Autorizados')}${boton('PENDIENTE', 'Pendientes')}${boton('REVISION_MEDICA', 'Revisión médica')}${boton('SIN_CONSENTIMIENTO', 'Sin consentimiento')}${boton('NO_APTO', 'No aptos')}</div>
+    <div class="vs-seg vs-seg-acceso" role="group" aria-label="Estado">${boton('todos', 'Todos')}${boton('AUTORIZADO', 'Pueden jugar')}${boton('SIN_CONSENTIMIENTO', 'Falta firma')}${boton('PENDIENTE', 'Les falta un paso')}${boton('REVISION_MEDICA', 'Checar salud')}${boton('NO_APTO', 'Hoy no juegan')}</div>
     <ol class="vs-puerta">${items.map(x => `<li data-id="${esc(x.id)}" class="acc-${(ACCESO[estadoDe(x)] || {}).tono || 'falta'}">
       <div><b>${esc(`${x.firstName} ${x.lastName}`)}</b><small>${esc(x.folio || '')} · ${edad(x.birthDate) ?? '—'} años</small></div>
-      <div class="vs-puerta-estado">${chip(x)}${x.access?.reason ? `<small>${esc(x.access.reason)}</small>` : ''}</div>
-      ${datos.canSeeContact ? '<button type="button" class="vs-boton sec" data-ver-mas>Abrir</button>' : ''}</li>`).join('') || '<li class="vs-vacio">Nadie en este estado.</li>'}</ol>`;
+      <div class="vs-puerta-estado">${chip(x)}${x.access?.reason ? `<small>${esc(dicho(x.access.reason))}</small>` : ''}</div>
+      ${datos.canSeeContact ? '<button type="button" class="vs-boton sec" data-ver-mas>Ver</button>' : ''}</li>`).join('') || '<li class="vs-vacio">Nadie aquí.</li>'}</ol>`;
 }
 
 function pinta() {
@@ -179,37 +178,72 @@ function abreHoja(etiqueta) {
 }
 function cierraHoja() { evalua = null; $('vsHoja')?.remove(); $('vsFondo')?.remove(); document.body.style.overflow = ''; }
 
+/* Hoja del inscrito, estilo Apple (20/11/2026, Presidencia: "tienes un chingo
+   de botones... que sean menos botones, que se puedan hacer más cosas").
+   Antes: hasta 10 botones apilados, varios en verde de sistema. Ahora:
+     · Arriba, hasta 4 acciones redondas: WhatsApp, Liga (si falta firmar),
+       Expediente y Salud. Lo que se hace todos los días, a un toque.
+     · Si hay una tarea pendiente (verificar identidad o revisar facultades),
+       un solo bloque con su botón.
+     · Los datos, como lista.
+     · Lo de vez en cuando (alerta, permiso de fotos) y lo delicado (anular,
+       dar de baja, eliminar) en listas agrupadas al final, en renglones y no
+       en botones gordos; lo delicado en rojo y aparte.
+   Los data-* son los de siempre: accionHoja no cambia. */
+const ICO_VS = {
+  wa: '<path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5Z"/>',
+  liga: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  doc: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 13h5M10 17h5"/>',
+  salud: '<path d="M12 21s-7-4.4-9.3-9A5.2 5.2 0 0 1 12 6a5.2 5.2 0 0 1 9.3 6c-2.3 4.6-9.3 9-9.3 9Z"/>'
+};
+const icoVs = n => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO_VS[n]}</svg>`;
+function hojaRapidas(x, k, a, wa) {
+  if (!(datos.canWrite || datos.canSeeContact)) return '';
+  const r = [];
+  if (wa) r.push(`<a class="vs-rapida" href="https://wa.me/${wa}" target="_blank" rel="noopener" aria-label="WhatsApp a ${esc(x.guardian || 'la familia')}"><span>${icoVs('wa')}</span>WhatsApp</a>`);
+  if (a !== 'AUTORIZADO' || !k) r.push(`<button type="button" class="vs-rapida principal" data-manda-liga><span>${icoVs('liga')}</span>Mandar firma</button>`);
+  if (k && x.hasCopy) r.push(`<button type="button" class="vs-rapida" data-expediente><span>${icoVs('doc')}</span>Hoja firmada</button>`);
+  if (k && !x.hasCopy) r.push(`<button type="button" class="vs-rapida" data-genera><span>${icoVs('doc')}</span>Guardar hoja firmada</button>`);
+  if (k && datos.canHealth) r.push(`<button type="button" class="vs-rapida" data-salud><span>${icoVs('salud')}</span>Salud</button>`);
+  return r.length ? `<nav class="vs-rapidas" aria-label="Acciones">${r.join('')}</nav>` : '';
+}
+function hojaTarea(x, k, st) {
+  if (!(datos.canWrite || datos.canSeeContact)) return '';
+  let t = '';
+  if (k && st !== 'signed' && !x.verifiedAt) t += `<div class="vs-bloque vs-tarea"><b>¿Ya confirmaste que firmó su papá o su mamá?</b>
+        <div class="vs-seg" role="group">${Object.entries(VERIFICACION).map(([m, tx], i) => `<button type="button" data-metodo="${m}" aria-pressed="${i === 0}">${tx}</button>`).join('')}</div>
+        <input id="vsRef" maxlength="200" placeholder="¿Cómo? Ej. 'me escribió del 477…', 'le vi la INE en la entrada'">
+        <button type="button" class="vs-guarda" data-verifica="${esc(k)}">Sí, ya lo confirmé</button></div>`;
+  if (k && st === 'requires_review') t += `<div class="vs-bloque vs-tarea"><b>Firmó alguien que no es papá ni mamá. ¿Puede firmar por él?</b><textarea id="vsRevNota" rows="2" placeholder="¿Qué te enseñó? Ej. 'papel de tutela', 'es su abuela con permiso'"></textarea>
+        <div class="vs-dos"><button type="button" class="vs-guarda" data-revisa="si">Sí puede</button><button type="button" class="vs-guarda rojo" data-revisa="no">No puede: que firmen sus papás</button></div></div>`;
+  return t;
+}
+function hojaAcciones(x, k, st, a, wa) {
+  if (!(datos.canWrite || datos.canSeeContact)) return '';
+  const fila = (attr, t, rojo) => `<button type="button" class="vs-fila${rojo ? ' rojo' : ''}" ${attr}><span>${t}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>`;
+  const otras = [fila('data-alerta', x.alert ? 'Ya puede jugar' : 'Que hoy no juegue'),
+    x.imageConsent ? fila('data-quita-imagen', 'Ya no subir sus fotos') : ''].join('');
+  const delicadas = [k ? fila('data-anula', 'Pedir que firmen otra vez', true) : '',
+    datos.canWrite && datos.canSeeContact ? fila('data-baja', 'Sacarlo de la visoría', true) : '',
+    puedeEliminar(x) ? fila('data-elimina', 'Borrar (si está repetido o fue prueba)', true) : ''].join('');
+  return `<div class="vs-grupo">${otras}</div>${delicadas ? `<div class="vs-grupo">${delicadas}</div>` : ''}`;
+}
 function verDatos(x) {
-  const h = abreHoja('Datos y consentimiento'), em = x.emergencia || {}, wa = String(x.phone || '').replace(/\D/g, '');
+  const h = abreHoja('Ficha de visoría'), em = x.emergencia || {}, wa = String(x.phone || '').replace(/\D/g, '');
   const fila = (t, v) => v ? `<div><dt>${t}</dt><dd>${esc(v)}</dd></div>` : '';
   const k = x.access?.consentId, st = x.access?.consentStatus, a = estadoDe(x);
   h.innerHTML = `<header class="vs-ev-cab"><div><h2>${esc(`${x.firstName} ${x.lastName}`)}</h2><p>${esc(x.folio || '')}</p></div><button type="button" class="vs-cierra" data-cierra aria-label="Cerrar">×</button></header>
-    <div class="vs-estado-acceso acc-${(ACCESO[a] || {}).tono}"><b>${esc((ACCESO[a] || {}).t || a)}</b>${x.access?.reason ? `<span>${esc(x.access.reason)}</span>` : ''}</div>
-    <dl class="vs-datos">${fila('Papá, mamá o tutor', x.guardian)}${fila('Parentesco declarado', PARENTESCO[x.relationship] || '')}${fila('WhatsApp', x.phone)}${fila('Correo', x.email)}
-      ${fila('Emergencia', [em.nombre, em.telefono].filter(Boolean).join(' · '))}${fila('Puede recogerlo', x.recoge)}
+    <div class="vs-estado-acceso acc-${(ACCESO[a] || {}).tono}"><b>${esc((ACCESO[a] || {}).t || a)}</b>${x.access?.reason ? `<span>${esc(dicho(x.access.reason))}</span>` : ''}</div>
+    ${hojaRapidas(x, k, a, wa)}
+    ${hojaTarea(x, k, st)}
+    <dl class="vs-datos">${fila('Papá, mamá o tutor', x.guardian)}${fila('Es su', PARENTESCO[x.relationship] || '')}${fila('WhatsApp', x.phone)}${fila('Correo', x.email)}
+      ${fila('Si pasa algo, llamar a', [em.nombre, em.telefono].filter(Boolean).join(' · '))}${fila('Quién lo recoge', x.recoge)}
       ${fila('Firmó', x.signedBy ? `${x.signedBy} · ${PARENTESCO[x.signedRelationship] || ''} · ${fecha(x.signedAt)}` : '')}
-      ${fila('Identidad', x.verifiedAt ? `${VERIFICACION[x.verification] || x.verification} · ${fecha(x.verifiedAt)}` : (k ? 'Sin verificar' : ''))}
-      ${fila('Revisión de facultades', x.reviewReason || '')}${fila('Fotos para redes', x.imageConsent ? 'Sí autorizó' : 'No autorizó')}
-      ${x.transfer === true || x.transfer === false ? fila('Datos al evaluador', x.transfer ? 'Sí autorizó' : 'No autorizó') : ''}
-      ${fila('Alerta operativa', x.alert ? (x.alertNote || 'Sí') : '')}</dl>
-    ${datos.canWrite || datos.canSeeContact ? `<div class="vs-acciones">
-      ${k && st !== 'signed' && !x.verifiedAt ? `<div class="vs-bloque"><b>Verificar identidad de quien firmó</b>
-        <div class="vs-seg" role="group">${Object.entries(VERIFICACION).map(([m, t], i) => `<button type="button" data-metodo="${m}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
-        <input id="vsRef" maxlength="200" placeholder="Referencia: 'el pase llegó del 477…', 'INE vista en la entrada'">
-        <button type="button" class="vs-guarda" data-verifica="${esc(k)}">Verificar identidad</button></div>` : ''}
-      ${k && st === 'requires_review' ? `<div class="vs-bloque"><b>Facultades de quien firmó</b><textarea id="vsRevNota" rows="2" placeholder="Qué revisaste (documento de tutela, acuerdo, etc.)"></textarea>
-        <div class="vs-dos"><button type="button" class="vs-guarda" data-revisa="si">Tiene facultades</button><button type="button" class="vs-guarda rojo" data-revisa="no">No tiene: anular</button></div></div>` : ''}
-      ${k && datos.canHealth ? '<button type="button" class="vs-boton sec" data-salud>Ficha de salud (restringida)</button>' : ''}
-      ${k && x.hasCopy ? '<button type="button" class="vs-boton sec" data-expediente>Descargar expediente (PDF)</button>' : ''}
-      ${k && !x.hasCopy ? '<button type="button" class="vs-boton sec" data-genera>Generar expediente</button>' : ''}
-      ${a !== 'AUTORIZADO' || !k ? `<button type="button" class="vs-boton" data-manda-liga>Mandar liga para firmar por WhatsApp</button>` : ''}
-      <button type="button" class="vs-boton sec" data-alerta>${x.alert ? 'Quitar alerta operativa' : 'Poner alerta operativa'}</button>
-      ${x.imageConsent ? '<button type="button" class="vs-boton sec" data-quita-imagen>La familia retira el permiso de fotos</button>' : ''}
-      ${k ? '<button type="button" class="vs-boton sec rojo" data-anula>Anular consentimiento</button>' : ''}
-      ${datos.canWrite && datos.canSeeContact ? '<button type="button" class="vs-boton sec rojo" data-baja>Dar de baja (libera su lugar)</button>' : ''}
-      ${puedeEliminar(x) ? '<button type="button" class="vs-boton sec rojo" data-elimina>Eliminar</button>' : ''}
-    </div>` : ''}
-    ${wa ? `<a class="vs-guarda" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp a ${esc(x.guardian || 'la familia')}</a>` : ''}`;
+      ${fila('Confirmamos quién firmó', x.verifiedAt ? `${VERIFICACION[x.verification] || x.verification} · ${fecha(x.verifiedAt)}` : (k ? 'Todavía no' : ''))}
+      ${fila('Ojo con la firma', x.reviewReason || '')}${fila('Fotos en redes', x.imageConsent ? 'Sí se pueden subir' : 'No subir')}
+      ${x.transfer === true || x.transfer === false ? fila('Compartir con otro club', x.transfer ? 'Sí' : 'No') : ''}
+      ${fila('Hoy no juega', x.alert ? (x.alertNote || 'Sí') : '')}</dl>
+    ${hojaAcciones(x, k, st, a, wa)}`;
   h.onclick = e => accionHoja(e, x);
 }
 
@@ -226,23 +260,23 @@ async function accionHoja(e, x) {
   const v = t.closest('[data-verifica]');
   if (v) {
     const metodo = h.querySelector('[data-metodo][aria-pressed="true"]')?.dataset.metodo, ref = $('vsRef').value.trim();
-    if (ref.length < 3) return aviso('Escribe la referencia de cómo verificaste.');
-    return corre(v, () => rpc('v2_visoria_verify', { organization_id: ctx.organization_id, consent_id: k, method: metodo, reference: ref }), `Identidad verificada para ${x.firstName}.`);
+    if (ref.length < 3) return aviso('Escribe cómo lo confirmaste.');
+    return corre(v, () => rpc('v2_visoria_verify', { organization_id: ctx.organization_id, consent_id: k, method: metodo, reference: ref }), `Listo: confirmado quién firmó por ${x.firstName}.`);
   }
   const rv = t.closest('[data-revisa]');
   if (rv) {
-    const nota = $('vsRevNota').value.trim(); if (nota.length < 5) return aviso('Escribe qué revisaste.');
-    return corre(rv, () => rpc('v2_visoria_review', { organization_id: ctx.organization_id, consent_id: k, approve: rv.dataset.revisa === 'si', note: nota }), 'Revisión guardada.');
+    const nota = $('vsRevNota').value.trim(); if (nota.length < 5) return aviso('Escribe qué te enseñaron.');
+    return corre(rv, () => rpc('v2_visoria_review', { organization_id: ctx.organization_id, consent_id: k, approve: rv.dataset.revisa === 'si', note: nota }), 'Listo, guardado.');
   }
   const an = t.closest('[data-anula]');
   if (an) {
-    const motivo = prompt('¿Por qué se anula? Queda en la bitácora y la familia tendrá que firmar de nuevo.'); if (!motivo || motivo.trim().length < 5) return;
-    return corre(an, () => rpc('v2_visoria_invalidate', { organization_id: ctx.organization_id, consent_id: k, reason: motivo.trim() }), 'Consentimiento anulado.');
+    const motivo = prompt('¿Por qué tienen que firmar otra vez? Los papás reciben de nuevo la firma.'); if (!motivo || motivo.trim().length < 5) return;
+    return corre(an, () => rpc('v2_visoria_invalidate', { organization_id: ctx.organization_id, consent_id: k, reason: motivo.trim() }), 'Listo: sus papás tienen que firmar otra vez.');
   }
   const bj = t.closest('[data-baja]');
   if (bj) {
-    const motivo = prompt(`¿Por qué se da de baja ${x.firstName}? Libera su lugar; sus datos se quedan en la lista de bajas.`); if (!motivo || motivo.trim().length < 3) return;
-    return corre(bj, () => rpc('v2_visoria_drop', { organization_id: ctx.organization_id, prospect_id: x.id, reason: motivo.trim() }), `${x.firstName} quedó de baja. Ya hay un lugar: suma a alguien de la lista de espera.`);
+    const motivo = prompt(`¿Por qué sale ${x.firstName} de la visoría? Su lugar queda libre para otro niño.`); if (!motivo || motivo.trim().length < 3) return;
+    return corre(bj, () => rpc('v2_visoria_drop', { organization_id: ctx.organization_id, prospect_id: x.id, reason: motivo.trim() }), `${x.firstName} quedó de baja. Hay un lugar libre: suma a alguien de la lista de espera.`);
   }
   /* Eliminar (h61): sólo para pruebas o duplicados; lo que tiene firma,
    * salud, incidente o evaluación no se borra: se da de baja. */
@@ -251,13 +285,13 @@ async function accionHoja(e, x) {
   const al = t.closest('[data-alerta]');
   if (al) {
     let nota = null;
-    if (!x.alert) { nota = prompt('¿Cuál es la alerta? (sin datos médicos: "revisar con coordinador", "falta autorización de recogida"...)'); if (!nota || nota.trim().length < 3) return; }
-    return corre(al, () => rpc('v2_visoria_alert', { organization_id: ctx.organization_id, prospect_id: x.id, value: !x.alert, note: nota }), x.alert ? 'Alerta retirada.' : 'Alerta puesta: no entra a la cancha.');
+    if (!x.alert) { nota = prompt('¿Por qué no juega hoy? (sin datos médicos. Ej. "llegó sin tenis", "no vino quien lo recoge")'); if (!nota || nota.trim().length < 3) return; }
+    return corre(al, () => rpc('v2_visoria_alert', { organization_id: ctx.organization_id, prospect_id: x.id, value: !x.alert, note: nota }), x.alert ? `${x.firstName} ya puede jugar.` : `${x.firstName} no juega hoy.`);
   }
   const qi = t.closest('[data-quita-imagen]');
   if (qi) {
     const fuente = prompt('¿Cómo lo pidió la familia? (Ej. "WhatsApp de la mamá 29/10")'); if (!fuente || fuente.trim().length < 3) return;
-    return corre(qi, () => rpc('v2_visoria_media', { organization_id: ctx.organization_id, prospect_id: x.id, value: false, source: fuente.trim() }), 'Permiso de fotos retirado desde hoy.');
+    return corre(qi, () => rpc('v2_visoria_media', { organization_id: ctx.organization_id, prospect_id: x.id, value: false, source: fuente.trim() }), 'Listo: ya no se suben sus fotos.');
   }
   const ml = t.closest('[data-manda-liga]');
   if (ml) {
@@ -265,7 +299,7 @@ async function accionHoja(e, x) {
     try {
       const r = await rpc('v2_visoria_sign_link', { organization_id: ctx.organization_id, prospect_id: x.id });
       const url = `${LIGA_PUBLICA}/#firmar=${r.token}`, wa = String(r.phone || '').replace(/\D/g, '').replace(/^(\d{10})$/, '52$1');
-      const txt = `Hola ${r.guardian || ''}. Para que ${r.firstName} entre a la visoría de ${nombreDelClub(ctx)} falta firmar el consentimiento. Es tu liga personal (no la compartas): ${url}`;
+      const txt = `Hola ${r.guardian || ''}. Para que ${r.firstName} entre a la visoría de ${nombreDelClub(ctx)} falta tu firma. Es tu liga personal (no la compartas): ${url}`;
       window.open(`https://wa.me/${wa}?text=${encodeURIComponent(txt)}`, '_blank', 'noopener');
     } catch (err) { aviso(err.message || 'No se pudo crear la liga.'); }
     ml.disabled = false; return;
@@ -276,7 +310,7 @@ async function accionHoja(e, x) {
     try {
       const { data, error } = await supabase.functions.invoke('visoria-expediente', { body: { action: ex.dataset.genera !== undefined ? 'build' : 'copy', consentId: k } });
       if (error || data?.error) throw new Error(data?.error || 'No se pudo.');
-      if (data.url) window.open(data.url, '_blank', 'noopener'); else { cierraHoja(); aviso('Expediente generado.', 'success'); await carga(); }
+      if (data.url) window.open(data.url, '_blank', 'noopener'); else { cierraHoja(); aviso('Hoja firmada guardada.', 'success'); await carga(); }
     } catch (err) { aviso(err.message || 'No se pudo.'); }
     ex.disabled = false; return;
   }
@@ -285,24 +319,24 @@ async function accionHoja(e, x) {
 
 /* Ficha de salud: con motivo, auditada, y sólo con el permiso de salud. */
 async function verSalud(x) {
-  const motivo = prompt('¿Para qué la abres? Queda en la bitácora. (Ej. "revisión médica previa al evento")');
+  const motivo = prompt('¿Para qué la abres? Queda anotado. (Ej. "revisar antes de que juegue")');
   if (!motivo || motivo.trim().length < 3) return;
   try {
     const r = await rpc('v2_visoria_health', { organization_id: ctx.organization_id, consent_id: x.access.consentId, reason: motivo.trim() });
     if (r?.error) throw new Error('Tu perfil no tiene permiso para ver datos de salud.');
     const h = abreHoja('Ficha de salud'), R = { ninguna: 'Ninguna conocida', privado: 'Lo dirá en privado al coordinador', si: 'Sí' };
     const P = { condicion: 'Lesión o condición actual', alergias: 'Alergias', restriccion: 'Restricción médica', atencion: 'Atención o medicamento' };
-    h.innerHTML = `<header class="vs-ev-cab"><div><h2>Salud · ${esc(x.firstName)}</h2><p>Dato sensible. No lo compartas ni lo copies a chats.</p></div><button type="button" class="vs-cierra" data-cierra aria-label="Cerrar">×</button></header>
+    h.innerHTML = `<header class="vs-ev-cab"><div><h2>Salud · ${esc(x.firstName)}</h2><p>Es privado: no lo pases a chats.</p></div><button type="button" class="vs-cierra" data-cierra aria-label="Cerrar">×</button></header>
       <dl class="vs-datos">${Object.entries(P).map(([q, t]) => `<div><dt>${t}</dt><dd>${esc(R[r.answers?.[q]?.respuesta] || '—')}${r.answers?.[q]?.detalle ? `: ${esc(r.answers[q].detalle)}` : ''}</dd></div>`).join('')}
         <div><dt>Revisión</dt><dd>${esc({ no_requiere: 'No requiere', pendiente: 'Pendiente', apto: 'Apto', no_apto: 'No apto' }[r.reviewStatus] || r.reviewStatus)}${r.reviewNote ? ` · ${esc(r.reviewNote)}` : ''}</dd></div></dl>
-      <textarea id="vsSaludNota" rows="2" placeholder="Nota de la revisión (qué se acordó con la familia)"></textarea>
-      <div class="vs-dos"><button type="button" class="vs-guarda" data-apto="apto">Apto para participar</button><button type="button" class="vs-guarda rojo" data-apto="no_apto">No apto</button></div>`;
+      <textarea id="vsSaludNota" rows="2" placeholder="¿Qué platicaste con los papás?"></textarea>
+      <div class="vs-dos"><button type="button" class="vs-guarda" data-apto="apto">Puede jugar</button><button type="button" class="vs-guarda rojo" data-apto="no_apto">Hoy no juega</button></div>`;
     h.onclick = async e => {
       if (e.target.closest('[data-cierra]')) return cierraHoja();
       const b = e.target.closest('[data-apto]'); if (!b) return;
-      const nota = $('vsSaludNota').value.trim(); if (nota.length < 5) return aviso('Escribe la nota de la revisión.');
+      const nota = $('vsSaludNota').value.trim(); if (nota.length < 5) return aviso('Escribe qué platicaste con los papás.');
       b.disabled = true;
-      try { await rpc('v2_visoria_health_review', { organization_id: ctx.organization_id, consent_id: x.access.consentId, decision: b.dataset.apto, note: nota }); cierraHoja(); aviso('Revisión médica guardada.', 'success'); await carga(); }
+      try { await rpc('v2_visoria_health_review', { organization_id: ctx.organization_id, consent_id: x.access.consentId, decision: b.dataset.apto, note: nota }); cierraHoja(); aviso('Listo, guardado.', 'success'); await carga(); }
       catch (err) { b.disabled = false; aviso(err.message || 'No se pudo.'); }
     };
   } catch (e) { aviso(e.message || 'No se pudo abrir la ficha.'); }
@@ -467,7 +501,7 @@ async function marcaLlegada(x, btn) {
   try { const r = await rpc('v2_visoria_arrival', { organization_id: ctx.organization_id, prospect_id: x.id, value: !x.arrivedAt }); x.arrivedAt = r?.arrivedAt || null; if (x.arrivedAt) usaFuncion('llegada_visoria'); pinta(); }
   catch (e) { btn.disabled = false; aviso(e.message || 'No se pudo marcar.'); }
   if (!x.arrivedAt) return;
-  if (estadoDe(x) !== 'AUTORIZADO') aviso(`${x.firstName} llegó, pero NO está autorizado para entrar a la cancha: ${(ACCESO[estadoDe(x)] || {}).t}. ${x.access?.reason || ''}`);
+  if (estadoDe(x) !== 'AUTORIZADO') aviso(`${x.firstName} llegó, pero todavía NO puede jugar: ${(ACCESO[estadoDe(x)] || {}).t}. ${dicho(x.access?.reason)}`);
 }
 
 /* Evaluar: cuatro calificaciones de un toque, la decisión y una nota. */

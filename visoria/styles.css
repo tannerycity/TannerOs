@@ -196,3 +196,10 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 /* Promoción "Últimos lugares" (16/11/2026) */
 .vi-cupo-cab b sup{font-size:.55em;vertical-align:super;color:var(--oro-claro)}
 .vi-cupo-nota{font-size:12px;line-height:1.35;color:rgba(255,255,255,.72)}
+
+/* h98: visoría terminada, avísame de la próxima. */
+.vi-proxima{display:grid;gap:12px;margin-top:8px}
+.vi-proxima .vi-campo{display:grid;gap:6px}
+.vi-proxima .vi-campo span{font-weight:700;font-size:.95rem}
+.vi-proxima input{border:1px solid #d9e0e3;border-radius:12px;padding:12px 14px;font:inherit;font-size:16px;background:#fff}
+.vi-listo-px{text-align:center;padding:32px 8px}

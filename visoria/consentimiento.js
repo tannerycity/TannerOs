@@ -38,6 +38,8 @@ const DECLARA = {
 const ERRORES = [
   [/Campaign full/, 'Ya se llenaron los lugares. Escríbenos por WhatsApp y te avisamos si se libera uno.'],
   [/Campaign closed/, 'Las inscripciones ya cerraron.'],
+  [/Campaign still open/, 'La visoría sigue abierta: inscríbelo desde el inicio.'],
+  [/Guardian required/, 'Escribe tu nombre.'],
   [/Signing closed/, 'El club todavía no abre la firma del consentimiento. Te avisamos por WhatsApp.'],
   [/Document version changed/, 'El documento cambió mientras lo leías. Revisa la versión nueva antes de firmar.'],
   [/Signature required/, 'Falta tu firma en el recuadro.'],

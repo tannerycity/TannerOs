@@ -57,7 +57,7 @@ const SHELL = `
 
 const TOKEN = 'a'.repeat(48);
 const INFO = (modo) => ({ slug:'visoria-noviembre-2026', title:'Visoría Tannery City', datesLabel:'Viernes 13 y sábado 14 de noviembre', location:null,
-  startsOn:'2026-11-13', capacity:30, spotsLeft: ['lleno','espera'].includes(modo) ? 0 : 18, open: !['lleno','espera'].includes(modo), closed:false,
+  startsOn:'2026-11-13', capacity:30, spotsLeft: ['lleno','espera'].includes(modo) ? 0 : 18, open: !['lleno','espera','terminada'].includes(modo), closed: modo === 'terminada',
   waitlist: modo === 'espera', signingOpen: modo !== 'cerrada', documents:{} });
 // h60: la lista de espera y las bajas que ve el staff.
 const WL = [
@@ -111,7 +111,10 @@ const CLIENTE = (modo) => `
     rpc:async(n,p={})=>{
       window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});
       const ok=d=>({data:d,error:null});
-      if(n==='v2_public_visoria')return ok(MODO==='espera'?${JSON.stringify(INFO('espera'))}:MODO==='lleno'?${JSON.stringify(INFO('lleno'))}:MODO==='cerrada'?${JSON.stringify(INFO('cerrada'))}:${JSON.stringify(INFO(''))});
+      if(n==='v2_public_visoria')return ok(MODO==='espera'?${JSON.stringify(INFO('espera'))}:MODO==='lleno'?${JSON.stringify(INFO('lleno'))}:MODO==='cerrada'?${JSON.stringify(INFO('cerrada'))}:MODO==='terminada'?${JSON.stringify(INFO('terminada'))}:${JSON.stringify(INFO(''))});
+      if(n==='v2_public_visoria_next')return ok({ok:true,existing:false});
+      if(n==='v2_visoria_campaigns')return ok([{slug:'visoria-noviembre-2026',title:'Visoría Tannery City',open:MODO!=='staff-terminada',registered:2},{slug:'visoria-mayo-2026',title:'Visoría mayo',open:false,registered:9}]);
+      if(n==='v2_visoria_close')return ok({open:p.open,registered:2});
       if(n==='v2_public_context')return ok({organizationId:'o1',categories:['T8','T10','T12']});
       if(n==='v2_public_visoria_reserve')return ok(MODO==='espera'?{id:'p-espera',folio:'TC-2026-00051',existing:false,token:null,waitlist:true}:{id:'p-nuevo',folio:'TC-2026-00042',existing:false,token:'${TOKEN}'});
       if(n==='v2_visoria_waitlist_add')return ok({token:'${'c'.repeat(48)}',phone:'4775550001',guardian:'Laura Soto',firstName:'Iker'});
@@ -123,7 +126,8 @@ const CLIENTE = (modo) => `
       if(n==='v2_public_attach_prospect_photo')return ok(true);
       if(n==='v2_my_context')return ok([{user_id:'u1',display_name:'Zulema García',organization_id:'o1',organization_name:'Tannery City FC',role:'Operaciones',is_owner:false}]);
       if(n==='v2_visoria_board'){const todo=MODO!=='visor';
-        return ok({campaign:{ id:'c1', slug:'visoria-noviembre-2026', title:'Visoría Tannery City', datesLabel:'Viernes 13 y sábado 14 de noviembre', location:null, startsOn:'2026-11-13', capacity:30, open:true, signingOpen:false },
+        const terminada=MODO==='staff-terminada'||p.slug==='visoria-mayo-2026';
+        return ok({campaign:{ id:'c1', slug:p.slug||'visoria-noviembre-2026', title:p.slug==='visoria-mayo-2026'?'Visoría mayo':'Visoría Tannery City', datesLabel:'Viernes 13 y sábado 14 de noviembre', location:null, startsOn:'2026-11-13', capacity:30, open:!terminada, signingOpen:false },
           canSeeContact:todo,canWrite:true,canHealth:false,canAdmin:todo,waitlist:todo?${JSON.stringify(WL)}:[],items:ninos.map(x=>{const y={...x};if(!todo){${JSON.stringify(SIN_CONTACTO)}.forEach(k=>delete y[k]);y.access={status:y.access.status==='AUTORIZADO'?'AUTORIZADO':'NO_AUTORIZADO'};}return y;})});}
       if(n==='v2_visoria_setup')return ok(${JSON.stringify(SETUP)});
       if(n==='v2_visoria_verify')return ok({status:'signed'});
@@ -447,6 +451,68 @@ async function ninoYFamilia(pg) {
   revisa('16. un solo aviso con el motivo ya escrito y elimina', pr.d === 'Registro de prueba' && /No se puede deshacer/.test(pr.m) && e1.prospect_id === 'v2' && e1.reason === 'Registro de prueba', JSON.stringify({ pr, e1 }));
   revisa('16. desaparece de la lista y avisa', !(await pg.$('.vs-carta[data-id="v2"]')) && /se eliminó/.test(await pg.textContent('#vsMensaje')));
   revisa('sin errores de página (staff)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+// h98: visoría terminada. La liga da las gracias y anota para la próxima.
+{
+  const { pg, errs } = await abre('/visoria/', 'terminada');
+  await pg.waitForSelector('.vi-terminada', { timeout:8000 });
+  const t = await texto(pg, '#contenido');
+  revisa('17. liga terminada: da las gracias y no deja inscribir', /ya terminó/.test(t) && !(await pg.$('[data-empieza]')) && !!(await pg.$('[data-proxima]')), t);
+  await pg.click('[data-proxima]');
+  revisa('17. sin datos no manda nada y dice qué falta', /nombre de tu hijo/.test(await pg.textContent('#viAviso')) && !(await llamadas(pg, 'v2_public_visoria_next')).length);
+  await pg.fill('#viPxNombre', 'Leo'); await pg.fill('#viPxApellido', 'Ávila'); await pg.fill('#viPxNace', '2015-04-02');
+  await pg.fill('#viPxTutor', 'Ana Ávila'); await pg.fill('#viPxTel', '477 123 456');
+  await pg.click('[data-proxima]');
+  revisa('17. WhatsApp de 9 dígitos no pasa (frontera)', /10 dígitos/.test(await pg.textContent('#viAviso')) && !(await llamadas(pg, 'v2_public_visoria_next')).length);
+  await pg.fill('#viPxTel', '477 123 4567');
+  await pg.click('[data-proxima]');
+  await pg.waitForTimeout(250);
+  const nx = (await llamadas(pg, 'v2_public_visoria_next'))[0] || {};
+  revisa('17. avísame de la próxima manda sólo lo mínimo', nx.slug === 'visoria-noviembre-2026' && nx.nino?.firstName === 'Leo' && nx.nino?.birthDate === '2015-04-02' && nx.tutor?.phone === '4771234567' && Object.keys(nx.tutor || {}).sort().join() === 'name,phone', JSON.stringify(nx));
+  revisa('17. confirma con su nombre', /Listo, Ana/.test(await texto(pg, '#contenido')));
+  revisa('sin errores de página (terminada)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+// h98: el staff ve la visoría terminada sin poder mover nada, y la reabre.
+{
+  const { pg, errs } = await abre('/v2/visorias/', 'staff-terminada');
+  await pg.waitForSelector('.vs-carta', { timeout:8000 });
+  const cab = await texto(pg, '#vsCampana');
+  revisa('18. dice que terminó y manda a Prospectos', /TERMINADA/.test(cab) && /ya terminó/.test(cab) && !!(await pg.$('#vsCampana a[href*="prospectos/?origen=visoria"]')) && !(await pg.$('[data-copia]')), cab);
+  revisa('18. terminada = sólo lectura (sin Marcar llegada ni Evaluar)', !(await pg.$('[data-llego]')) && !(await pg.$('[data-evalua]')));
+  revisa('18. selector de visorías con la pasada', await pg.$$eval('#vsElige option', o => o.map(x => x.textContent).join('|')).then(t => /Visoría mayo · terminada/.test(t)).catch(() => false));
+  await pg.click('[data-vista="evento"]');
+  await pg.waitForSelector('[data-termina]', { timeout:5000 });
+  revisa('18. el botón dice Reabrir', /Reabrir visoría/.test(await pg.textContent('[data-termina]')));
+  await pg.evaluate(() => { window.tosConfirm = async () => true; });
+  await pg.click('[data-termina]');
+  await pg.waitForTimeout(300);
+  const cl = (await llamadas(pg, 'v2_visoria_close'))[0] || {};
+  revisa('18. reabrir llama al servidor con open=true', cl.campaign_id === 'c1' && cl.open === true, JSON.stringify(cl));
+  revisa('sin errores de página (staff terminada)', !errs.length, errs.join(' | '));
+  await pg.close();
+}
+{
+  const { pg, errs } = await abre('/v2/visorias/', '');
+  await pg.waitForSelector('.vs-carta', { timeout:8000 });
+  await pg.click('[data-vista="evento"]');
+  await pg.waitForSelector('[data-termina]', { timeout:5000 });
+  revisa('19. abierta: Presidencia ve Terminar visoría', /Terminar visoría/.test(await pg.textContent('[data-termina]')));
+  await pg.evaluate(() => { window.__conf = null; window.tosConfirm = async o => { window.__conf = o; return false; }; });
+  await pg.click('[data-termina]');
+  await pg.waitForTimeout(200);
+  revisa('19. pide confirmar, dice que no se borra nada; si cancela no llama', /se quedan/.test((await pg.evaluate(() => window.__conf?.message)) || '') && !(await llamadas(pg, 'v2_visoria_close')).length);
+  await pg.evaluate(() => { window.tosConfirm = async () => true; });
+  await pg.click('[data-termina]');
+  await pg.waitForTimeout(300);
+  const cl = (await llamadas(pg, 'v2_visoria_close'))[0] || {};
+  revisa('19. terminar llama con open=false', cl.open === false, JSON.stringify(cl));
+  await pg.selectOption('#vsElige', 'visoria-mayo-2026');
+  await pg.waitForTimeout(300);
+  const b = (await llamadas(pg, 'v2_visoria_board')).pop() || {};
+  revisa('19. escoger la pasada la carga por su slug', b.slug === 'visoria-mayo-2026' && /Visoría mayo/.test(await texto(pg, '#vsCampana')), JSON.stringify(b));
+  revisa('sin errores de página (terminar)', !errs.length, errs.join(' | '));
   await pg.close();
 }
 // Visor.

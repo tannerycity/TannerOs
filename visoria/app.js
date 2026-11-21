@@ -84,7 +84,57 @@ function aviso(t) { const m = $('viAviso'); if (!m) return; m.textContent = t ||
 /* ---------- Portada ----------
  * Que den ganas de inscribirlo "al mejor equipo del mundo": escudo dorado,
  * letra del club, fechas, lugar y los lugares que quedan, y un botón. */
+/* h98 (21/11/2026): visoría terminada. Gracias, y deja tu WhatsApp para la
+   próxima: el club no pierde a nadie. Sólo lo mínimo para avisarte. */
+function terminada() {
+  paso = 'proxima';
+  pinta(`<section class="vi-portada vi-terminada">
+    <div class="vi-hero">
+      <img src="/brand/crest-gold.png" alt="" class="vi-hero-escudo">
+      <img src="/brand/wordmark-gold.png" alt="Tannery City" class="vi-hero-marca">
+      <span class="vi-hero-filo" aria-hidden="true"></span>
+      <p class="vi-pastilla">VISORÍA TERMINADA</p>
+      <h1>Gracias, familias Tanner</h1>
+      <p class="vi-hero-sub">${esc(info.title || 'La visoría')} ya terminó. Si quieres que tu hijo venga a la próxima, déjanos tu WhatsApp y te avisamos primero.</p>
+    </div>
+    <div class="vi-paso vi-proxima">
+      <h2>Avísame de la próxima</h2>
+      <label class="vi-campo"><span>Nombre de tu hijo</span><input id="viPxNombre" maxlength="80" autocomplete="off"></label>
+      <label class="vi-campo"><span>Apellidos de tu hijo</span><input id="viPxApellido" maxlength="80" autocomplete="off"></label>
+      <label class="vi-campo"><span>Fecha de nacimiento</span><input id="viPxNace" type="date"></label>
+      <label class="vi-campo"><span>Tu nombre</span><input id="viPxTutor" maxlength="120" autocomplete="name"></label>
+      <label class="vi-campo"><span>Tu WhatsApp (10 dígitos)</span><input id="viPxTel" inputmode="tel" maxlength="16" autocomplete="tel"></label>
+      <p class="vi-pie">Usamos estos datos sólo para avisarte de la próxima visoría. <a href="/aviso-de-privacidad/" target="_blank" rel="noopener">Aviso de privacidad</a>.</p>
+      <div id="viAviso" class="vi-aviso hidden" role="alert"></div>
+      <button type="button" class="vi-boton" data-proxima>Avísame</button>
+    </div>
+    <footer class="vi-lema"><span>CURTIMOS CAMPEONES DEL MUNDO</span><b>#WeAreTanners</b></footer>
+  </section>`);
+}
+function leeProxima() {
+  const v = id => ($(id)?.value || '').trim();
+  const d = { nombre: v('viPxNombre'), apellido: v('viPxApellido'), nace: v('viPxNace'), tutor: v('viPxTutor'), tel: diez(v('viPxTel')) };
+  if (d.nombre.length < 2) return [null, 'Escribe el nombre de tu hijo.'];
+  if (d.apellido.length < 2) return [null, 'Escribe los apellidos de tu hijo.'];
+  if (!d.nace || d.nace > new Date().toISOString().slice(0, 10)) return [null, 'Escribe su fecha de nacimiento.'];
+  if (d.tutor.length < 2) return [null, 'Escribe tu nombre.'];
+  if (d.tel.length !== 10) return [null, 'Tu WhatsApp debe tener 10 dígitos.'];
+  return [d, ''];
+}
+async function mandaProxima(btn) {
+  const [d, falta] = leeProxima(); if (!d) return aviso(falta);
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    await rpc('v2_public_visoria_next', { club_key: CLUB_KEY, slug: SLUG,
+      nino: { firstName: d.nombre, lastName: d.apellido, birthDate: d.nace }, tutor: { name: d.tutor, phone: d.tel } });
+    pinta(`<section class="vi-portada vi-terminada"><div class="vi-paso vi-proxima vi-listo-px"><h2>¡Listo, ${esc(d.tutor.split(' ')[0])}!</h2>
+      <p class="vi-intro">Te avisamos por WhatsApp en cuanto abramos la próxima visoría para ${esc(d.nombre)}.</p></div>
+      <footer class="vi-lema"><span>CURTIMOS CAMPEONES DEL MUNDO</span><b>#WeAreTanners</b></footer></section>`);
+  } catch (e) { aviso(mensajeDeError(e)); btn.disabled = false; btn.textContent = 'Avísame'; }
+}
+
 function portada() {
+  if (info.closed) return terminada();
   paso = '';
   const promo = ULTIMOS_LUGARES > 0 && info.open && info.capacity > ULTIMOS_LUGARES && info.spotsLeft >= ULTIMOS_LUGARES;
   const quedan = promo ? ULTIMOS_LUGARES : info.spotsLeft, cupo = info.capacity, ocupados = cupo ? cupo - quedan : 0;
@@ -564,6 +614,7 @@ document.addEventListener('click', async e => {
   if (t.closest('[data-cierra]') || t.id === 'viFondo') return cierraDocumento();
   const doc = t.closest('[data-doc]'); if (doc) return documento(doc.dataset.doc);
   const des = t.closest('[data-descarga]'); if (des) return descargaDocumento(des.dataset.descarga);
+  const px = t.closest('[data-proxima]'); if (px) return mandaProxima(px);
   if (t.closest('[data-empieza]')) { pasos = info.signingOpen && !enEspera() ? ['nino', 'familia', 'salud', 'autoriza', 'firma'] : ['nino', 'familia']; return pasoNino(); }
   if (t.closest('[data-a-firmar]')) { pasos = ['salud', 'autoriza', 'firma']; return pasoSalud(); }
   if (t.closest('[data-foto],[data-camara]')) return $('viCamara')?.click();

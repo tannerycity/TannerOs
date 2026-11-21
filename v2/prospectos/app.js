@@ -45,14 +45,38 @@ let origenFiltro=null,origenVista='persona',origenTodos=false;
 // Visoría (04/11/2026): viven en la misma tabla que los fichajes de la
 // academia, pero Presidencia no quiere que se vean mezclados ni se
 // confundan. Pestaña aparte, nunca combinada por default.
-let origenTab=(()=>{try{return localStorage.getItem('fichajesOrigenTab')==='visoria'?'visoria':'academia';}catch{return 'academia';}})();
+let origenTab=(()=>{if(new URLSearchParams(location.search).get('origen')==='visoria')return 'visoria';try{return localStorage.getItem('fichajesOrigenTab')==='visoria'?'visoria':'academia';}catch{return 'academia';}})();
+// Visoría terminada (h98, 21/11/2026). Presidencia: "que tenga esa base de
+// datos para decir, ah, ahora le quiero escribir a esta persona". Qué dijo el
+// visor, si llegó, si ya es Tanner (mismo nombre y fecha de nacimiento) y si
+// pidió que le avisen de la próxima; y filtros de un toque.
+let seguimiento={},filtroVisoria='todos';
+const FILTROS_VISORIA=[['todos','Todos'],['invitar','Invitar a prueba'],['observar','Volver a observar'],['nollego','No llegaron'],['tanner','Ya son Tanners'],['proxima','Para la próxima']];
+function segDe(p){return seguimiento[p.id]||{};}
+function cumpleFiltroVisoria(p){
+  if(origenTab!=='visoria'||filtroVisoria==='todos')return true;
+  const s=segDe(p),v=String(s.verdict||'');
+  if(filtroVisoria==='invitar')return /invitar/i.test(v);
+  if(filtroVisoria==='observar')return /observar/i.test(v);
+  if(filtroVisoria==='nollego')return !s.arrived&&!s.next;
+  if(filtroVisoria==='tanner')return !!s.tanner;
+  if(filtroVisoria==='proxima')return !!s.next;
+  return true;
+}
+function pintaFiltrosVisoria(){
+  const box=$('visoriaFiltros');if(!box)return;
+  box.classList.toggle('hidden',origenTab!=='visoria');
+  if(origenTab!=='visoria')return;
+  const base=prospects.filter(esVisoria),cuenta=k=>{const prev=filtroVisoria;filtroVisoria=k;const n=base.filter(cumpleFiltroVisoria).length;filtroVisoria=prev;return n;};
+  box.innerHTML=FILTROS_VISORIA.map(([k,t])=>`<button type="button" data-filtro-visoria="${k}" aria-pressed="${filtroVisoria===k}">${t}<i>${cuenta(k)}</i></button>`).join('');
+}
 function esVisoria(p){return /visor/i.test(p.purpose||'');}
 function prospectsEnTab(){return prospects.filter(p=>origenTab==='visoria'?esVisoria(p):!esVisoria(p));}
 function setOrigenTab(tab){
   origenTab=tab==='visoria'?'visoria':'academia';
   try{localStorage.setItem('fichajesOrigenTab',origenTab);}catch{/* sin almacenamiento: no pasa nada */}
   document.querySelectorAll('.origen-modo-tab').forEach(b=>{const on=b.dataset.origenTab===origenTab;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));});
-  origenFiltro=null;setActiveView('pipeline');applyFilters();
+  origenFiltro=null;filtroVisoria='todos';setActiveView('pipeline');applyFilters();
 }
 function updateOrigenTabCounts(){
   $('tabCountAcademia').textContent=prospects.filter(p=>!esVisoria(p)).length;
@@ -119,6 +143,10 @@ async function enviarSeguimiento(p){
 function forgottenLabel(p){const d=olvidados.get(p.id);return `Olvidado · ${d} día${d===1?'':'s'}`;}
 function campaignName(code){
   if(!code)return 'General';
+  if(/-proxima$/.test(code))return 'Quiere la próxima visoría';
+  if(/-espera$/.test(code))return 'Lista de espera de visoría';
+  if(/-baja$/.test(code))return 'Baja de visoría';
+  if(/^visoria-/.test(code))return code.replaceAll('-',' ').replace(/(^|\s)(\p{L})/gu,(m,sep,ch)=>sep+ch.toUpperCase()).replace('Visoria','Visoría');
   const known={captacion_porteros_2026:'Captación Porteros 2026',captacion_jugadores_2026:'Captación Jugadores 2026',registro_general_2026:'Registro general 2026'};
   // \p{L} en vez de \w: con /\b\w/ la ó no cuenta como letra, abría un falso
   // límite de palabra y "recomendación" salía como "RecomendacióN".
@@ -161,7 +189,8 @@ async function loadProspects(){
   const [lista,viejos,enviados]=await Promise.all([
     rpc('v2_prospects',{organization_id:ctx.organization_id,status_filter:null}),
     rpc('v2_stale_prospects',{organization_id:ctx.organization_id}).catch(()=>[]),
-    rpc('v2_prospect_messages',{organization_id:ctx.organization_id}).catch(()=>[])
+    rpc('v2_prospect_messages',{organization_id:ctx.organization_id}).catch(()=>[]),
+    rpc('v2_visoria_followup',{organization_id:ctx.organization_id}).then(r=>{seguimiento=r&&typeof r==='object'?r:{};}).catch(()=>{seguimiento={};})
   ]);
   prospects=Array.isArray(lista)?lista:[];
   olvidados=new Map((Array.isArray(viejos)?viejos:[]).map(o=>[o.id,o.days]));
@@ -241,7 +270,7 @@ function populateFilterOptions(){
 
 function baseScoped(){
   const type=$('typeFilter').value,campaign=$('campaignFilter').value,source=$('sourceFilter').value;
-  return prospectsEnTab().filter(p=>(!type||p.registration_type===type)&&(!campaign||p.source_campaign===campaign)&&(!source||(p.source_channel||p.source)===source)&&cumpleOrigen(p));
+  return prospectsEnTab().filter(p=>(!type||p.registration_type===type)&&(!campaign||p.source_campaign===campaign)&&(!source||(p.source_channel||p.source)===source)&&cumpleOrigen(p)&&cumpleFiltroVisoria(p));
 }
 function cumpleOrigen(p){
   if(!origenFiltro)return true;
@@ -499,7 +528,7 @@ function pintaFiltroOrigen(){
 }
 
 const EMPTY_MESSAGES={pipeline:'Sin pendientes: no hay prospectos activos con estos filtros.',converted:'Aún no hay convertidos con estos filtros.',lost:'Nadie marcado como "No continúa" con estos filtros.',all:'No hay prospectos con estos filtros.'};
-function applyFilters(){
+function applyFilters(){pintaFiltrosVisoria();
   const status=$('statusFilter').value,q=$('searchProspect').value.trim().toLocaleLowerCase('es-MX'),urgency=$('urgencyFilter').value;
   filtered=viewFiltered().filter(p=>{
     if(status==='trial'){if(!['trial_scheduled','trial_completed'].includes(p.status))return false;}
@@ -557,6 +586,11 @@ function renderList(){
     const contact=document.createElement('small');contact.textContent=[p.guardian_name,p.phone||p.email].filter(Boolean).join(' · ')||'Contacto pendiente';
     const badges=document.createElement('div');badges.className='lead-badges';
     badges.append(makeBadge(campaignName(p.source_campaign),'campaign'));
+    if(esVisoria(p)){const s=segDe(p);
+      if(s.tanner)badges.append(makeBadge(`Ya es Tanner${s.tanner.category?` · ${s.tanner.category}`:''}`,'tanner'));
+      if(s.verdict)badges.append(makeBadge(s.verdict,/invitar/i.test(s.verdict)?'verdict-si':'source'));
+      if(s.next)badges.append(makeBadge('Quiere la próxima','campaign'));
+      else if(!s.arrived)badges.append(makeBadge('No llegó','warning'));}
     if(p.source_channel||p.source)badges.append(makeBadge(sourceName(p.source_channel||p.source),'source'));
     if(active(p)&&sent(p))badges.append(makeBadge(sent(p)>=3?'3 mensajes sin respuesta':`Mensaje ${sent(p)} de 3`,sent(p)>=3?'danger':'source'));
     if(forgotten(p))badges.append(makeBadge(forgottenLabel(p),'danger'));
@@ -793,6 +827,7 @@ document.querySelectorAll('.origen-modo-tab').forEach(btn=>{
   btn.setAttribute('aria-selected',String(btn.dataset.origenTab===origenTab));
   btn.addEventListener('click',()=>setOrigenTab(btn.dataset.origenTab));
 });
+$('visoriaFiltros')?.addEventListener('click',e=>{const b=e.target.closest('[data-filtro-visoria]');if(!b)return;filtroVisoria=b.dataset.filtroVisoria;applyFilters();});
 $('viewList').addEventListener('click',()=>setViewMode('list'));
 $('viewKanban').addEventListener('click',()=>setViewMode('kanban'));
 document.querySelectorAll('.funnel-stage').forEach(btn=>btn.addEventListener('click',()=>{

@@ -209,3 +209,12 @@
 .vs-hoja .vs-datos div{border-radius:0;background:#fff;border-top:1px solid #eef0ee;padding:10px 14px}
 .vs-hoja .vs-datos div:first-child{border-top:0}
 .vs-hoja .vs-datos dd{font-weight:600}
+
+/* h97: confirmar quién firmó, opcional y plegado al final de la hoja. */
+.vs-opcional{padding:0}
+.vs-opcional>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer;font-weight:600;color:#0b2a33}
+.vs-opcional>summary::-webkit-details-marker{display:none}
+.vs-opcional>summary em{font-style:normal;font-weight:500;color:#6b7a80;font-size:.85em;margin-left:6px}
+.vs-opcional>summary::after{content:'›';font-size:1.2em;color:#9aa6ab;transition:transform .2s}
+.vs-opcional[open]>summary::after{transform:rotate(90deg)}
+.vs-opcional .vs-tarea{margin:0 12px 12px}

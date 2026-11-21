@@ -168,9 +168,12 @@ begin
     if private.visoria_sha(v_txt) <> v_hash or v_txt !~ 'Mamá QA Prueba' or v_txt !~ 'Qaniño Prueba Uno' then
       v_fallas := v_fallas || 'TC-18: el texto firmado no corresponde a su hash o no trae firmante y menor'::text; else v_ok := v_ok + 1; end if;
 
-    -- La función del expediente adjunta el PDF; luego hay que verificar identidad.
+    -- h97: firmar con su liga basta para jugar; el expediente sigue diciendo
+    -- que nadie ha confirmado la identidad (pending_verification).
     perform public.v2_visoria_artifact_attach(v_k1, 'organizations/qa/expediente.pdf', repeat('a', 64), 'qa');
-    if private.visoria_acceso(v_c, v_pid)->>'status' <> 'PENDIENTE' then v_fallas := v_fallas || 'Identidad: autorizado sin verificar a quien firmó'::text; else v_ok := v_ok + 1; end if;
+    if private.visoria_acceso(v_c, v_pid)->>'status' <> 'AUTORIZADO'
+       or (select status from app.visoria_consents where id = v_k1) <> 'pending_verification'
+    then v_fallas := v_fallas || 'h97: firmado sin verificar debe poder jugar y el expediente decir que no se verificó'::text; else v_ok := v_ok + 1; end if;
     -- TC-10: el PDF con la liga de otra familia.
     v_res := public.v2_visoria_artifact_access(v_k1, v_tok2, null, 'copia');
     if (v_res->>'ok')::boolean then v_fallas := v_fallas || 'TC-10: una familia pudo pedir el expediente de otra'::text; else v_ok := v_ok + 1; end if;

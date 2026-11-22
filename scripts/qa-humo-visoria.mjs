@@ -95,7 +95,7 @@ const SETUP = { campaign:{ id:'c1', slug:'visoria-noviembre-2026', title:'Visor�
 
 const CLIENTE = (modo) => `
   window.__rpc=[]; window.__subidas=[]; window.__abiertas=[]; window.__fn=[]; window.open=(u)=>{window.__abiertas.push(u);return null;};
-  window.confirm=()=>true; window.alert=()=>{}; window.prompt=()=>'Referencia de prueba QA';
+  window.confirm=()=>true; window.alert=()=>{}; window.prompt=()=>'Referencia de prueba QA'; window.tosPrompt=async o=>{(window.__tosPrompts=window.__tosPrompts||[]).push(o);return o&&o.value!=null&&o.value!==''?o.value:'Referencia de prueba QA';};
   const MODO=${JSON.stringify(modo)};
   const ninos=${JSON.stringify(NINOS)};
   let firmo = MODO==='liga';
@@ -443,7 +443,7 @@ async function ninoYFamilia(pg) {
   revisa('15. Dar de baja pide motivo y libera el lugar', b1.prospect_id === 'v1' && b1.reason === 'Referencia de prueba QA' && /quedó de baja/.test(await pg.textContent('#vsMensaje')), JSON.stringify(b1));
   // h61: eliminar en un toque desde la tarjeta, sólo sin firma; motivo ya escrito.
   revisa('16. la tarjeta sin firma trae Eliminar; la firmada no', !!(await pg.$('.vs-carta[data-id="v2"] [data-elimina]')) && !(await pg.$('.vs-carta[data-id="v1"] [data-elimina]')));
-  await pg.evaluate(() => { window.__prompts = []; window.prompt = (m, d) => { window.__prompts.push({ m, d }); return d; }; });
+  await pg.evaluate(() => { window.__prompts = []; window.tosPrompt = async o => { window.__prompts.push({ m: `${o.title} ${o.message || ''}`, d: o.value }); return o.value; }; });
   await pg.click('.vs-carta[data-id="v2"] [data-elimina]');
   await pg.waitForTimeout(300);
   const e1 = (await llamadas(pg, 'v2_visoria_delete'))[0] || {};

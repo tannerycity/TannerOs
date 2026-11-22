@@ -19,6 +19,12 @@ import { getSignedPhotoUrls } from '/v2/photo-cache.js';
 // Presidencia (09/11/2026): "como el de la Champions: está el logo y nomás va
 // cambiando el número". El arte va sin número y el número se pone encima: el
 // primer título de ese Tanner dice 1, el segundo 2…
+/* Hojas del club en lugar de las ventanitas del navegador (22/11/2026). Este
+   archivo se usa desde varias pantallas: si alguna no cargó el diálogo, se
+   carga aquí. */
+async function dialogos() { if (!window.tosPrompt) { try { await import('/v2/tos-dialog.js?v=20260909a'); } catch { /* sin diálogo: no se hace nada */ } } }
+async function avisaPar(m) { await dialogos(); if (window.tosAlert) await window.tosAlert({ kicker: 'PARCHES', title: 'No se pudo', message: String(m || '') }); }
+
 export const ARTE = { campeones: '/brand/parches/campeon-azul-sin-numero.png' };
 // Qué número lleva cada parche de Campeón: su orden entre los títulos del Tanner.
 export function numerosDeCampeon(awards = []) {
@@ -69,12 +75,12 @@ export async function seccionParches(el, { rpc, org, playerId, nombre = '' }) {
     try {
       if (b.dataset.parEntregar) { b.disabled = true; await rpc('v2_mark_patch_delivered', { organization_id: org, award_id: b.dataset.parEntregar }); return recarga(); }
       if (b.dataset.parRevocar) {
-        const motivo = prompt('¿Por qué se revoca este parche? (queda registrado)');
+        await dialogos(); const motivo = window.tosPrompt ? await window.tosPrompt({ kicker: 'PARCHES', title: '¿Por qué se revoca este parche?', message: 'Queda registrado.', required: true, confirmText: 'Revocar', danger: true }) : null;
         if (!motivo || !motivo.trim()) return;
         await rpc('v2_revoke_patch', { organization_id: org, award_id: b.dataset.parRevocar, reason: motivo.trim() }); return recarga();
       }
       if (b.dataset.parNuevo) hojaRegistrar({ rpc, org, code: b.dataset.parNuevo, jugadores: [{ id: playerId, name: nombre, patches: vigentes.map(a => ({ code: a.code, variant: a.variant, reason: a.reason })) }], alTerminar: recarga });
-    } catch (err) { b.disabled = false; alert(errorDe(err)); }
+    } catch (err) { b.disabled = false; avisaPar(errorDe(err)); }
   };
 }
 
@@ -91,7 +97,7 @@ function hoja(html) {
 // Desde Formación (Dirección): elige parche y categoría.
 export async function hojaParchesGrupo({ rpc, org }) {
   let base;
-  try { base = await rpc('v2_patch_roster', { organization_id: org }); } catch (e) { alert(errorDe(e)); return; }
+  try { base = await rpc('v2_patch_roster', { organization_id: org }); } catch (e) { avisaPar(errorDe(e)); return; }
   base = base || { categories: [] };
   const h = hoja(`<header class="par-head"><h2 id="parTitulo">Registrar parches</h2><button type="button" class="par-x" data-par-cerrar aria-label="Cerrar">×</button></header>
     <p class="par-ayuda">Elige el parche y la categoría: salen todos marcados y desmarcas a quien no.</p>
@@ -175,7 +181,7 @@ function porEntregar(cont, { rpc, org, code, hechos, fallas, st, alTerminar }) {
     const c = e.target.closest('[data-par-entrega]'); if (!c || !c.checked || !c.dataset.parEntrega) return;
     c.disabled = true;
     try { await rpc('v2_mark_patch_delivered', { organization_id: org, award_id: c.dataset.parEntrega }); c.closest('li').classList.add('entregado'); }
-    catch (err) { c.checked = false; c.disabled = false; alert(errorDe(err)); }
+    catch (err) { c.checked = false; c.disabled = false; avisaPar(errorDe(err)); }
   };
 }
 

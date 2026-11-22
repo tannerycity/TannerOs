@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const MAX_VENTANITAS = 43;
+const MAX_VENTANITAS = 7;
 const MAX_COLORES = 1742;
 // Dibujos en miniatura (el parche y la playera chica de la ficha): ahi la letra
 // es parte del dibujo, no texto para leer.

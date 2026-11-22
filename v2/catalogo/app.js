@@ -1,3 +1,5 @@
+/* Errores con la hoja del club, no con la ventanita del navegador (22/11/2026). */
+const avisaCat = m => window.tosAlert ? window.tosAlert({ kicker: 'CATÁLOGO', title: 'Ojo', message: String(m || '') }) : console.warn(m);
 import { createClient } from '/v2/supabase-client.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
@@ -749,7 +751,7 @@ $('pKid')?.addEventListener('change',()=>{pintaPrecioNino();if($('pKid').checked
 $('recargoManga')?.addEventListener('change',async e=>{
   const monto=Math.max(0,Math.round(Number(e.target.value||0)));
   try{await rpc('v2_set_recargo_manga',{organization_id:ctx.organization_id,monto});e.target.value=monto||'';e.target.closest('.recargo-manga').classList.add('guardado');setTimeout(()=>e.target.closest('.recargo-manga')?.classList.remove('guardado'),1500);}
-  catch(err){alert(err.message||'No se pudo guardar el cargo.');}
+  catch(err){avisaCat(err.message||'No se pudo guardar el cargo.');}
 });
 /* Nombre y número (h45): el interruptor cobra o regala; el monto se queda
    guardado aunque esté apagado, para volver a prenderlo igual. */
@@ -771,10 +773,10 @@ async function guardaPers(cambio){
     const r=await rpc('v2_set_recargo_personalizacion',{organization_id:ctx.organization_id,activo:cargoPers.activo,monto:cargoPers.monto});
     pintaCargoPers(r);
     $('recargoPersCaja').classList.add('guardado');setTimeout(()=>$('recargoPersCaja')?.classList.remove('guardado'),1500);
-  }catch(err){cargoPers=antes;pintaCargoPers();alert(err.message||'No se pudo guardar el cargo.');}
+  }catch(err){cargoPers=antes;pintaCargoPers();avisaCat(err.message||'No se pudo guardar el cargo.');}
 }
 $('cobraPers')?.addEventListener('change',e=>{
-  if(e.target.checked&&!(cargoPers.monto>0)){e.target.checked=false;alert('Primero escribe cuánto cuesta.');$('recargoPers')?.focus();return;}
+  if(e.target.checked&&!(cargoPers.monto>0)){e.target.checked=false;avisaCat('Primero escribe cuánto cuesta.');$('recargoPers')?.focus();return;}
   guardaPers({activo:e.target.checked});
 });
 $('recargoPers')?.addEventListener('change',e=>guardaPers({monto:Math.max(0,Math.min(5000,Math.round(Number(e.target.value||0))))}));
@@ -962,7 +964,7 @@ $('ofertasLista')?.addEventListener('click',async e=>{
   if(window.tosConfirm&&!(await window.tosConfirm({kicker:'OFERTA',title:`¿Terminar "${o?.name||'la oferta'}"?`,message:'Regresa el precio normal desde ya.',confirmText:'Sí, terminar',cancelText:'Cancelar'})))return;
   b.disabled=true;
   try{await rpc('v2_end_promotion',{organization_id:ctx.organization_id,promotion_id:b.dataset.termina});await load();pintaCabecera();}
-  catch(err){b.disabled=false;alert(err.message||'No se pudo terminar.');}
+  catch(err){b.disabled=false;avisaCat(err.message||'No se pudo terminar.');}
 });
 
 /* ---------- Códigos (26/10/2026, h46) ----------
@@ -1081,7 +1083,7 @@ $('payHistorial')?.addEventListener('click',async e=>{
   if(window.tosConfirm&&!(await window.tosConfirm({kicker:'PREMIO',title:'¿Quitar este pago?',message:'Vuelve a contar como deuda con el embajador.',confirmText:'Sí, quitar',cancelText:'Cancelar'})))return;
   b.disabled=true;
   try{await rpc('v2_void_store_code_payout',{organization_id:ctx.organization_id,payout_id:b.dataset.pagoQuita});await load();const c=codigos.codes.find(x=>x.id===draft?.id);if(c)abrePago(c);else closeDrawerFn();pintaCabecera();}
-  catch(err){b.disabled=false;alert(err.message||'No se pudo quitar.');}
+  catch(err){b.disabled=false;avisaCat(err.message||'No se pudo quitar.');}
 });
 $('codigosLista')?.addEventListener('click',async e=>{
   const b=e.target.closest('[data-cd-acc]');if(!b)return;
@@ -1099,7 +1101,7 @@ $('codigosLista')?.addEventListener('click',async e=>{
   if(acc==='archivar'&&window.tosConfirm&&!(await window.tosConfirm({kicker:'CÓDIGO',title:`¿Archivar ${c.code}?`,message:'Deja de funcionar en la tienda. Lo vendido y los premios se quedan en el historial.',confirmText:'Sí, archivar',cancelText:'Cancelar'})))return;
   b.disabled=true;
   try{await rpc('v2_set_store_code',{organization_id:ctx.organization_id,code_id:c.id,action:acc});await load();pintaCabecera();}
-  catch(err){b.disabled=false;alert(err.message||'No se pudo cambiar.');}
+  catch(err){b.disabled=false;avisaCat(err.message||'No se pudo cambiar.');}
 });
 
 /* ---------- Costos (13/10/2026) ----------
@@ -1148,7 +1150,7 @@ $('costosProductos')?.addEventListener('change',async e=>{
   try{
     await rpc('v2_upsert_product',{organization_id:ctx.organization_id,id:p.id,name:p.name,sku:p.sku||null,category:p.category||null,price:Number(p.price||0),cost:valor,sizes:Array.isArray(p.sizes)?p.sizes:[],active:!!p.active,description:p.description??null,lead_days:p.leadDays??null});
     p.cost=valor;renderCostos();
-  }catch(err){inp.disabled=false;alert(err.message||'No se pudo guardar el costo.');}
+  }catch(err){inp.disabled=false;avisaCat(err.message||'No se pudo guardar el costo.');}
 });
 /* La utilidad de la Tienda: lo que estaba arriba de Pedidos, ahora aquí. */
 let negocio=null,negocioCorrida=0;
@@ -1328,6 +1330,6 @@ $('bannersLista')?.addEventListener('click',async e=>{
       await rpc('v2_set_store_banner',{organization_id:ctx.organization_id,banner_id:bn.id,action:acc});
     }
     await load();pintaCabecera();
-  }catch(err){alert(err.message||'No se pudo cambiar.');}
+  }catch(err){avisaCat(err.message||'No se pudo cambiar.');}
   finally{b.disabled=false;}
 });

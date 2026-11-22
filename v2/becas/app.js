@@ -461,14 +461,14 @@ async function exentarCuota(motivo) {
   catch (e) { solMsg(e.message || 'No se pudo exentar la cuota.'); }
 }
 
-$('solHoja')?.addEventListener('click', e => {
+$('solHoja')?.addEventListener('click', async e => {
   const t = e.target.closest('button'); if (!t) return;
   if (t.dataset.avanza) avanzar(t.dataset.avanza, null);
   else if (t.dataset.abreNota) $('solHoja').querySelector(`[data-avanza-form="${CSS.escape(t.dataset.abreNota)}"]`)?.classList.toggle('hidden');
-  else if (t.hasAttribute('data-retirar')) { if (confirm('¿Retirar esta solicitud? No se puede deshacer.')) avanzar('retirada', null); }
+  else if (t.hasAttribute('data-retirar')) { if (await window.tosConfirm({ kicker: 'BECAS', title: '¿Retirar esta solicitud?', message: 'No se puede deshacer.', confirmText: 'Retirar', danger: true })) avanzar('retirada', null); }
   else if (t.dataset.dictamen === 'aprobar') { $('formAprobar')?.classList.remove('hidden'); $('formNoAprobar')?.classList.add('hidden'); }
   else if (t.dataset.dictamen === 'no_aprobar') { $('formNoAprobar')?.classList.remove('hidden'); $('formAprobar')?.classList.add('hidden'); }
-  else if (t.hasAttribute('data-pagar-cuota')) { if (confirm('¿Ya se pagó la cuota de evaluación?')) marcarPagada(); }
+  else if (t.hasAttribute('data-pagar-cuota')) { if (await window.tosConfirm({ kicker: 'BECAS', title: '¿Ya se pagó la cuota de evaluación?', confirmText: 'Sí, ya pagó' })) marcarPagada(); }
   else if (t.hasAttribute('data-exentar-cuota')) $('formExentar')?.classList.toggle('hidden');
 });
 $('solHoja')?.addEventListener('submit', e => {
@@ -578,11 +578,11 @@ async function actualizaPublica(payload) {
     if (actual) pintaPubHoja(actual);
   } catch (e) { pubMsg(e.message || 'No se pudo guardar.'); }
 }
-$('pubHoja')?.addEventListener('click', e => {
+$('pubHoja')?.addEventListener('click', async e => {
   const pid = e.target.closest('[data-pid]');
   if (pid) { actualizaPublica({ link_player_id: pid.dataset.pid, status: 'vinculada' }); return; }
   const t = e.target.closest('button'); if (!t) return;
-  if (t.dataset.pubEstado === 'rechazada') { if (confirm('¿Rechazar esta solicitud?')) actualizaPublica({ status: 'rechazada' }); }
+  if (t.dataset.pubEstado === 'rechazada') { if (await window.tosConfirm({ kicker: 'BECAS', title: '¿Rechazar esta solicitud?', confirmText: 'Rechazar', danger: true })) actualizaPublica({ status: 'rechazada' }); }
   else if (t.dataset.pubEstado) actualizaPublica({ status: t.dataset.pubEstado });
   else if (t.id === 'pubGuardarNotas') actualizaPublica({ notes: $('pubNotas').value.trim() });
 });
@@ -707,7 +707,7 @@ $('bcHoja')?.addEventListener('submit', async e => {
     } catch (err) { fichaMsg(err.message || 'No se pudo registrar la advertencia.'); }
   } else if (f.id === 'formSuspender') {
     if (!fichaActual) return;
-    if (!confirm('¿Confirmas suspender/cancelar esta beca? No se puede deshacer.')) return;
+    if (!(await window.tosConfirm({ kicker: 'BECAS', title: '¿Suspender esta beca?', message: 'No se puede deshacer.', confirmText: 'Suspender', danger: true }))) return;
     try {
       await rpc('v2_scholarship_benefit_suspend', { organization_id: ctx.organization_id, benefit_id: fichaActual.benefitId, cause: fd.get('cause'), reason: fd.get('reason').trim() });
       cierraFicha(); await carga();

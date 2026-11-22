@@ -3,8 +3,8 @@
    Tanner #1f6fa3, Visitantes #b8791f, Otros #8a5aa8. El semáforo y el NPS
    siempre llevan palabra o número, nunca sólo color. */
 @font-face{font-family:'Barlow Condensed';font-weight:800;src:url('/fonts/barlow-condensed-800.woff2') format('woff2');font-display:swap}
-.enc-page{--noche:#07191e;--noche2:#0f2b32;--oro:#c8ae62;--oro-claro:#e9d19c;--oro-oscuro:#a9895a;--crema:#f6f2e8;--linea:#e3d9b8;--tinta:#0d2229;--gris:#5c6a63;
-  --bien:#2f7d4a;--regular:#9a6b12;--mal:#b3412e;display:grid;gap:14px;min-width:0}
+.enc-page{--noche:#07191e;--noche2:#0b2a33;--oro:#c6ac5c;--oro-claro:#e9d19c;--oro-oscuro:#a9895a;--crema:#f6f2e8;--linea:#e3d9b8;--tinta:#10252b;--gris:#5c6a63;
+  --bien:#2f7d4a;--regular:#9a6a12;--mal:#b3412e;display:grid;gap:14px;min-width:0}
 .enc-page h1,.enc-page h2,.enc-kpis b,.enc-tarjeta-tit{font-family:'Barlow Condensed',Inter,sans-serif;text-transform:uppercase;font-weight:800}
 .enc-hero{position:relative;overflow:hidden;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding:22px;border-radius:24px;color:#fff;
   background:radial-gradient(120% 120% at 0% 0%,var(--noche2),var(--noche) 70%)}
@@ -31,7 +31,7 @@
 .enc-tarjeta-meta{font-size:12.5px;color:var(--gris)}
 .enc-tarjeta.activa .enc-tarjeta-meta{color:rgba(255,255,255,.75)}
 .enc-estado{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px}
-.enc-estado.abierta{background:#e2f1e6;color:var(--bien)}.enc-estado.cerrada{background:#eceae4;color:var(--gris)}
+.enc-estado.abierta{background:#e2f1e6;color:var(--bien)}.enc-estado.cerrada{background:#eeeae0;color:var(--gris)}
 
 .enc-detalle{display:grid;gap:14px;min-width:0}
 .enc-liga{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:14px;border-radius:20px;background:var(--crema);border:1px solid var(--linea)}
@@ -52,7 +52,7 @@
 .enc-visita span{padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--linea);font-weight:700;color:var(--tinta)}
 .enc-visita i{font-style:normal;margin-left:4px;color:var(--gris)}
 .enc-n{font-weight:600;font-size:12px;color:var(--gris)}
-.enc-aviso{margin:0;padding:10px 14px;border-radius:12px;background:#fbf3df;color:#6b5314;font-size:13.5px;line-height:1.4}
+.enc-aviso{margin:0;padding:10px 14px;border-radius:12px;background:#fdf2dc;color:#6b5414;font-size:13.5px;line-height:1.4}
 
 .enc-concl{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
 .enc-concl article{padding:14px 16px;border-radius:16px;background:#fff;border:1px solid var(--linea);border-left:5px solid var(--gris)}
@@ -71,9 +71,9 @@
 .enc-fila{display:grid;gap:4px}
 .enc-fila-cab{display:flex;justify-content:space-between;gap:10px;align-items:baseline;font-size:14px;font-weight:700}
 .enc-sem{font-style:normal;font-size:12px;font-weight:800;white-space:nowrap;padding:2px 8px;border-radius:999px}
-.enc-sem.bien{background:#e2f1e6;color:var(--bien)}.enc-sem.regular{background:#fbf0d6;color:var(--regular)}.enc-sem.mal{background:#f8e2dd;color:var(--mal)}
+.enc-sem.bien{background:#e2f1e6;color:var(--bien)}.enc-sem.regular{background:#fdf2dc;color:var(--regular)}.enc-sem.mal{background:#f8e2dd;color:var(--mal)}
 .enc-barra{position:relative;display:grid;grid-template-columns:1fr 30px;gap:8px;align-items:center;outline:none}
-.enc-barra-pista{display:block;height:10px;border-radius:0 4px 4px 0;background:#f1ede2}
+.enc-barra-pista{display:block;height:10px;border-radius:0 4px 4px 0;background:#eeeae0}
 .enc-barra-pista span{display:block;height:100%;border-radius:0 4px 4px 0}
 .enc-barra b{font-size:12.5px;color:var(--tinta);text-align:right}
 .enc-sin{margin:0;font-size:12.5px;color:var(--gris)}
@@ -93,7 +93,7 @@
 .enc-tabla{margin-top:14px;font-size:13px}
 .enc-tabla summary{cursor:pointer;font-weight:700;color:var(--gris)}
 .enc-tabla table{width:100%;border-collapse:collapse;margin-top:8px}
-.enc-tabla th,.enc-tabla td{padding:6px 8px;border-bottom:1px solid #eee7d3;text-align:right}
+.enc-tabla th,.enc-tabla td{padding:6px 8px;border-bottom:1px solid #ece5d2;text-align:right}
 .enc-tabla th:first-child,.enc-tabla td:first-child{text-align:left}
 
 .enc-com-cab{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;margin:8px 0 12px}

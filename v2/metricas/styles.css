@@ -3,8 +3,8 @@
    siempre con ícono y palabra, nunca sólo color. Las tendencias son líneas
    delgadas de una sola serie, sin doble eje. */
 @font-face{font-family:'Barlow Condensed';font-weight:800;src:url('/fonts/barlow-condensed-800.woff2') format('woff2');font-display:swap}
-.met-page{--noche:#07191e;--noche2:#0f2b32;--oro:#c8ae62;--oro-claro:#e9d19c;--crema:#f6f2e8;--linea:#e7e1cf;--tinta:#0d2229;--gris:#5c6a63;
-  --bien:#2f7d4a;--bien-f:#e8f4ec;--alerta:#b3412e;--alerta-f:#fbebe7;--opor:#8a5d0c;--opor-f:#fbf3e1;--info:#36566a;--info-f:#eaf1f5;--serie:#1f6fa3;
+.met-page{--noche:#07191e;--noche2:#0b2a33;--oro:#c6ac5c;--oro-claro:#e9d19c;--crema:#f6f2e8;--linea:#e3e0d4;--tinta:#10252b;--gris:#5c6a63;
+  --bien:#2f7d4a;--bien-f:#e4f6e9;--alerta:#b3412e;--alerta-f:#fdecea;--opor:#8a5c00;--opor-f:#fdf2dc;--info:#36566a;--info-f:#eef2f1;--serie:#1f6fa3;
   display:grid;gap:16px;min-width:0}
 .met-page h1,.met-page h2{font-family:'Barlow Condensed',Inter,sans-serif;text-transform:uppercase;font-weight:800;letter-spacing:.01em}
 
@@ -32,7 +32,7 @@
 .met-ideas{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
 .met-idea{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:16px;border-radius:18px;background:#fff;border:1px solid var(--linea);border-left-width:5px}
 .met-idea h3{margin:2px 0 4px;font-size:16px;line-height:1.25;color:var(--tinta)}
-.met-idea p{margin:0;font-size:14px;line-height:1.45;color:#2b3b40}
+.met-idea p{margin:0;font-size:14px;line-height:1.45;color:#2b3d42}
 .met-idea small{display:block;margin-top:6px;font-size:12px;color:var(--gris)}
 .met-idea .met-idea-tono{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
 .met-idea-icono{display:grid;place-items:center;width:36px;height:36px;border-radius:50%}
@@ -49,7 +49,7 @@
 .met-embudo li strong{display:block;margin:2px 0;font-family:'Barlow Condensed',Inter,sans-serif;font-size:32px;line-height:1;color:var(--tinta);font-variant-numeric:tabular-nums}
 .met-embudo li small{display:block;font-size:12px;line-height:1.35;color:var(--gris)}
 .met-paso-n{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--noche);color:var(--oro-claro);font-size:13px;font-weight:800}
-.met-embudo li.sin{background:repeating-linear-gradient(135deg,#fff 0 8px,#faf7ef 8px 16px)}
+.met-embudo li.sin{background:repeating-linear-gradient(135deg,#fff 0 8px,#fffaf0 8px 16px)}
 .met-embudo li.sin strong{font-size:20px;color:var(--gris)}
 .met-embudo li.sin .met-paso-n{background:#d9d3c2;color:var(--tinta)}
 .met-embudo li.corte{border:2px dashed var(--oro)}
@@ -68,7 +68,7 @@
 .met-cambio small{font-weight:600;opacity:.8}
 .met-cambio.sube{background:var(--bien-f);color:var(--bien)}
 .met-cambio.baja{background:var(--alerta-f);color:var(--alerta)}
-.met-cambio.plano{background:#f1efe8;color:var(--gris)}
+.met-cambio.plano{background:#f6f2e8;color:var(--gris)}
 .met-spark{position:relative;color:var(--serie);margin-top:4px;touch-action:pan-y}
 .met-spark svg{display:block;width:100%;height:44px;overflow:visible}
 .met-spark-pie{display:block;margin-top:2px;font-size:12px;color:var(--gris)}

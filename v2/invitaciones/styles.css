@@ -1,6 +1,6 @@
 /* Familias en el portal (18/10/2026). Paleta Tanner: azul noche, dorado, crema. */
 @font-face{font-family:'Barlow Condensed';font-weight:800;src:url('/fonts/barlow-condensed-800.woff2') format('woff2');font-display:swap}
-.inv-page{--noche:#07191e;--noche2:#0f2b32;--oro:#c8ae62;--oro-claro:#e9d19c;--oro-oscuro:#a9895a;--crema:#f6f2e8;--linea:#e3d9b8;--tinta:#0d2229;--gris:#5c6a63;--ok:#2f7d4a;--wa:#0b2a33;display:grid;gap:14px;min-width:0}
+.inv-page{--noche:#07191e;--noche2:#0b2a33;--oro:#c6ac5c;--oro-claro:#e9d19c;--oro-oscuro:#a9895a;--crema:#f6f2e8;--linea:#e3d9b8;--tinta:#10252b;--gris:#5c6a63;--ok:#2f7d4a;--wa:#0b2a33;display:grid;gap:14px;min-width:0}
 .inv-page h1,.inv-page h2,.inv-avance b{font-family:'Barlow Condensed',Inter,sans-serif;text-transform:uppercase;font-weight:800}
 .inv-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;padding:22px;border-radius:24px;color:#fff;background:radial-gradient(120% 120% at 0% 0%,var(--noche2),var(--noche) 70%)}
 .inv-hero::after{content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;background:url('/brand/crest-gold.png') center/contain no-repeat;opacity:.07;pointer-events:none}
@@ -22,7 +22,7 @@
 .inv-filtros button.activo{background:var(--noche);border-color:var(--noche);color:var(--oro-claro)}
 .inv-filtros button.activo i{background:rgba(200,174,98,.2)}
 .inv-barra input{font:inherit;font-size:15px;padding:11px 14px;border-radius:12px;border:1px solid var(--linea);background:#fff;max-width:420px}
-.inv-rapido{display:grid;gap:2px;text-align:left;padding:16px 18px;border-radius:18px;border:0;cursor:pointer;color:#fff;background:linear-gradient(135deg,#0b2a33,#167a42);box-shadow:0 12px 28px rgba(31,157,85,.25);font:inherit}
+.inv-rapido{display:grid;gap:2px;text-align:left;padding:16px 18px;border-radius:18px;border:0;cursor:pointer;color:#fff;background:linear-gradient(135deg,#0b2a33,#1d7a46);box-shadow:0 12px 28px rgba(31,157,85,.25);font:inherit}
 .inv-rapido b{font-size:17px}
 .inv-rapido span{font-size:13px;opacity:.9}
 .inv-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
@@ -30,8 +30,8 @@
 .inv-fam-cab{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
 .inv-fam-cab strong{font-size:15.5px;line-height:1.25}
 .inv-estado{flex:0 0 auto;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:var(--crema);color:var(--gris)}
-.inv-estado.activa{background:#e2f1e6;color:var(--ok)}.inv-estado.cuenta{background:#e4eef6;color:#1d4a6b}
-.inv-estado.invitada{background:#fbf0d6;color:#8a6410}.inv-estado.sintel{background:#f8e2dd;color:#a4352b}
+.inv-estado.activa{background:#e2f1e6;color:var(--ok)}.inv-estado.cuenta{background:#e3f1f3;color:#1f4b6e}
+.inv-estado.invitada{background:#fdf2dc;color:#8a6410}.inv-estado.sintel{background:#f8e2dd;color:#a4352b}
 .inv-hijos{margin:0;font-size:13.5px;font-weight:700;color:var(--tinta)}
 .inv-det{margin:0;font-size:12.5px;color:var(--gris)}
 .inv-acciones{display:flex;gap:8px;margin-top:6px}

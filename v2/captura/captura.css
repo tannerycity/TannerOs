@@ -72,24 +72,24 @@
    Cuatro jerseys que se distinguen por color y corte no se eligen leyendo
    "Jersey Pink Cantera - Away Edition". La foto manda; el texto acompaña. */
 .pick-card-foto{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:center;text-align:left;padding:12px}
-.pick-foto{width:76px;height:76px;border-radius:14px;overflow:hidden;background:#eef4f3;
+.pick-foto{width:76px;height:76px;border-radius:14px;overflow:hidden;background:#eef2f1;
   display:grid;place-items:center;flex:0 0 auto}
 .pick-foto img{width:100%;height:100%;object-fit:cover;display:block}
 /* El monograma es el estado normal mientras la foto llega, y el definitivo
    si el producto todavía no tiene una. No es un error: es el respaldo. */
-.pick-foto b{font-size:22px;font-weight:900;color:#7c9299;letter-spacing:-.02em}
+.pick-foto b{font-size:22px;font-weight:900;color:#7b8f92;letter-spacing:-.02em}
 .pick-datos{display:flex;flex-direction:column;gap:2px;min-width:0}
 .pick-datos strong{font-size:15px;font-weight:900;letter-spacing:-.01em;line-height:1.25}
-.pick-datos span{font-size:12px;color:#7d8a8f;font-weight:650}
+.pick-datos span{font-size:12px;color:#7a8a8e;font-weight:650}
 .pick-datos b{font-size:15px;font-weight:900;color:#0b2a33;margin-top:2px}
 
 /* Tallas de tocar. Botones de 44px: es el mínimo para el dedo en un iPhone,
    y esto se usa de pie en el mostrador, no sentado. */
 .tallas-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
 .talla-chip{min-width:48px;min-height:44px;padding:0 13px;border-radius:12px;
-  border:1px solid var(--tos-line,#dce5e3);background:#fff;color:#31525c;
+  border:1px solid var(--tos-line,#dfe7e5);background:#fff;color:#31525c;
   font:inherit;font-weight:900;font-size:14px;cursor:pointer}
-.talla-chip:hover{border-color:#a9bcc2}
+.talla-chip:hover{border-color:#a8bcc0}
 .talla-chip.activa{background:#087d8e;border-color:#087d8e;color:#fff}
 .talla-chip:focus-visible{outline:2px solid #056c7f;outline-offset:2px}
 @media(max-width:420px){.pick-card-foto{grid-template-columns:64px 1fr}
@@ -103,11 +103,11 @@
 .cap-tanner>span{display:block;font-size:12px;font-weight:900;letter-spacing:.05em;
   text-transform:uppercase;color:#68777d;margin-bottom:6px}
 .cap-quien{display:flex;flex-direction:column;gap:2px;padding:13px 15px;border-radius:15px;
-  background:#eef6f4;border:1px solid #d3e5e1;margin-bottom:10px}
+  background:#edf8f2;border:1px solid #cfe6e2;margin-bottom:10px}
 .cap-quien strong{font-size:16px;font-weight:900;letter-spacing:-.01em;color:#0e3038}
 .cap-quien span{font-size:13px;font-weight:750;color:#4a6870}
 /* Dice qué gana el club, no sólo qué pasó: el pedido entra a su cuenta. */
-.cap-quien small{margin-top:4px;font-size:12px;color:#7d8a8f;line-height:1.45}
+.cap-quien small{margin-top:4px;font-size:12px;color:#7a8a8e;line-height:1.45}
 #capExterno{margin-top:2px}
 
 /* Número de camiseta: el campo y el botón "Elegir" en una sola fila
@@ -116,20 +116,20 @@
 .num-campo input{flex:1;min-width:0}
 .num-elegir{border:0;border-radius:12px;background:#0b3d4a;color:#f2e6bd;font-weight:800;padding:0 14px;cursor:pointer;white-space:nowrap}
 .num-pista{display:block;margin-top:5px;font-size:12px;color:#5b6b70;font-weight:600}
-.num-pista.ok{color:#1d7a54}
+.num-pista.ok{color:#0b7b5a}
 .num-pista.mal{color:#b13d34}
 .campo-num{display:grid;gap:6px;align-content:start;min-width:0}
 /* Manga del jersey (13/10/2026): corta o larga, a lo ancho del bloque. */
 .campo-manga{grid-column:1/-1;display:grid;gap:6px}
-.campo-manga>span{font-size:12px;font-weight:800;color:#50676b}
-.manga-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;background:#eceff0}
+.campo-manga>span{font-size:12px;font-weight:800;color:#4a6870}
+.manga-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;background:#eef2f1}
 .manga-seg button{min-height:40px;border:0;border-radius:9px;background:transparent;font:inherit;font-weight:700;color:#3c4e52;cursor:pointer}
 .manga-seg button.activa{background:#07191e;color:#fff}
 
 /* ¿Lo conviertes en kit? (13/10/2026) */
-.cart-sugiere{display:grid;gap:8px;margin:-2px 0 8px;padding:10px 12px;border-radius:12px;background:#fff8e6;border:1px solid #f1dfae;font-size:13px;color:#4f3b06;line-height:1.4}
+.cart-sugiere{display:grid;gap:8px;margin:-2px 0 8px;padding:10px 12px;border-radius:12px;background:#fff8e6;border:1px solid #f0dcb0;font-size:13px;color:#4f3b06;line-height:1.4}
 .cart-sugiere-btn{justify-self:start;min-height:38px;padding:0 14px;border:0;border-radius:999px;background:#07191e;color:#fff;font:inherit;font-weight:800;cursor:pointer}
-.cart-sugiere.ahorro{background:#eaf6ee;border-color:#bfe3cb;color:#1e5b33}
+.cart-sugiere.ahorro{background:#edf8f2;border-color:#bfe3cb;color:#1e5b33}
 
 /* Levantar pedido rápido (13/10/2026). */
 .app-wrap>.hero{display:none}
@@ -138,10 +138,10 @@
 .cap-titulo{margin:0 0 10px;font-size:20px;letter-spacing:-.01em}
 .cap-sub{margin:14px 0 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#7a8a8e}
 .cap-sub:first-of-type{margin-top:0}
-.cap-link{margin-top:8px;border:0;background:none;padding:6px 0;color:#0a7d8c;font:inherit;font-weight:700;cursor:pointer}
+.cap-link{margin-top:8px;border:0;background:none;padding:6px 0;color:#087d8e;font:inherit;font-weight:700;cursor:pointer}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .pick-card{position:relative}
-.pick-kit{min-height:110px;justify-content:space-between;background:linear-gradient(160deg,#0c3a46,#1f6f7d);color:#fff;border:0!important}
+.pick-kit{min-height:110px;justify-content:space-between;background:linear-gradient(160deg,#0b3d4a,#08717e);color:#fff;border:0!important}
 .pick-kit strong{font-size:16px;color:#fff}
 .pick-kit span{color:rgba(255,255,255,.8)!important}
 .pick-kit b{color:#fff!important;font-size:14px}
@@ -170,9 +170,9 @@
 @media(max-width:620px){.pick-grid{grid-template-columns:1fr 1fr}}
 
 /* ¿Cobras ahora? (13/10/2026) */
-.cobro-ahora{display:grid;gap:10px;margin:14px 0 6px;padding:16px;border-radius:18px;background:#f2f8f4;text-align:left}
+.cobro-ahora{display:grid;gap:10px;margin:14px 0 6px;padding:16px;border-radius:18px;background:#edf8f2;text-align:left}
 .cobro-ahora h3{margin:0;font-size:18px}
-.cobro-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:12px;background:#e3ece7}
+.cobro-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:12px;background:#e4ebe9}
 .cobro-seg button{min-height:42px;border:0;border-radius:9px;background:transparent;font:inherit;font-weight:700;font-size:14px;color:#3c4e52;cursor:pointer}
 .cobro-seg button.activo{background:#fff;color:#07191e;box-shadow:0 1px 3px rgba(7,25,30,.12)}
 .cobro-monto{border:1px solid #cedbd8;border-radius:12px;min-height:46px;padding:0 14px;font:inherit;font-size:17px}
@@ -180,7 +180,7 @@
 .cobro-ok:disabled{background:#9fb0b3}
 .cobro-ok.hecho{background:#1e6b3c}
 .cobro-msg{margin:0;font-weight:700;color:#1e5b33;min-height:1em}
-.pick-datos b s{color:#8a979a;font-weight:600}
+.pick-datos b s{color:#8a969b;font-weight:600}
 .pick-oferta{align-self:start;margin-top:4px;padding:2px 8px;border-radius:999px;background:#ffe9c7;color:#8a4b00;font-size:12px;font-weight:800;font-style:normal}
 /* Jersey sin "Lleva nombre y número": sólo la manga (13/10/2026). */
 #pfPersonalization.solo-manga>:not(.campo-manga){display:none}

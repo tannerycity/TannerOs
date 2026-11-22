@@ -25,7 +25,7 @@
 .bc-filtros b{margin-left:3px;font-weight:950;opacity:.7}
 
 .bc-focos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.bc-foco{appearance:none;text-align:left;cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:16px;padding:11px;display:grid;gap:2px;border-top:4px solid #cfdcd9;min-width:0}
+.bc-foco{appearance:none;text-align:left;cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:16px;padding:11px;display:grid;gap:2px;border-top:4px solid #cedbd8;min-width:0}
 .bc-foco b{font-size:28px;line-height:1;font-weight:950;font-style:italic;color:var(--ink)}
 .bc-foco strong{font-size:12.5px;font-weight:900;color:var(--ink)}
 .bc-foco small{font-size:12px;color:var(--muted);font-weight:700}
@@ -38,11 +38,11 @@
 .bc-carta-cab h2{margin:0;font-size:18px;font-weight:950}
 .bc-carta-cab span{font-size:12px;color:var(--muted);font-weight:700}
 .bc-solicitudes{display:grid;gap:7px}
-.bc-sol{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);background:#fffcf2;border:1px solid #efe4bd;border-radius:14px;padding:10px 12px}
+.bc-sol{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);background:#fffaf0;border:1px solid #f2e6bd;border-radius:14px;padding:10px 12px}
 .bc-sol span{display:grid;gap:2px;flex:1;min-width:0}
 .bc-sol strong{font-size:14px;font-weight:900}
 .bc-sol small{font-size:12px;color:var(--muted)}
-.bc-sol em{font-style:normal;font-size:12.5px;color:#3e555b}
+.bc-sol em{font-style:normal;font-size:12.5px;color:#42575d}
 .bc-sol i{font-style:normal;font-size:22px;color:#9fb0b3}
 
 .bc-herr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
@@ -55,17 +55,17 @@
 .bc-fila{appearance:none;width:100%;border:1px solid var(--line);background:#fff;border-radius:16px;padding:10px 12px;cursor:pointer;color:var(--ink);text-align:left;
   display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:11px;align-items:center;box-shadow:0 1px 3px rgba(7,25,30,.04)}
 .bc-fila:active{transform:scale(.99)}
-.bc-fila.bc-bajo{border-color:#f1d3d0;background:#fffafa}
-.bc-cara{width:50px;height:50px;border-radius:14px;overflow:hidden;flex:0 0 auto;background:#e3ecea;display:grid;place-items:center;font-weight:950;font-style:italic;color:#4a6268;box-shadow:0 0 0 2px var(--oro)}
+.bc-fila.bc-bajo{border-color:#f0d0ca;background:#f7f9f8}
+.bc-cara{width:50px;height:50px;border-radius:14px;overflow:hidden;flex:0 0 auto;background:#e4ebe9;display:grid;place-items:center;font-weight:950;font-style:italic;color:#4b6066;box-shadow:0 0 0 2px var(--oro)}
 .bc-cara img{width:100%;height:100%;object-fit:cover}
 .bc-fila-txt{display:grid;gap:4px;min-width:0}
 .bc-fila-txt>strong{font-size:14.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bc-etq{display:flex;align-items:center;gap:6px;min-width:0}
 .bc-etq small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bc-tipo{font-style:normal;flex:0 0 auto;font-size:12px;font-weight:950;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 7px;background:#f3e6b3;color:#6e5a12}
-.bc-tipo-scholarship_partial{background:#eef2f1;color:#3e555b}
-.bc-tipo-sponsor_funded{background:#e3eef6;color:#1d4a6b}
-.bc-barra{position:relative;height:7px;border-radius:999px;background:#edf2f1;margin-top:1px}
+.bc-tipo-scholarship_partial{background:#eef2f1;color:#42575d}
+.bc-tipo-sponsor_funded{background:#e3f1f3;color:#1f4b6e}
+.bc-barra{position:relative;height:7px;border-radius:999px;background:#eef2f1;margin-top:1px}
 .bc-barra i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--barra)}
 .bc-bajo .bc-barra i,.bc-atencion .bc-barra i{background:var(--barra-baja)}
 .bc-barra em{position:absolute;left:90%;top:-3px;bottom:-3px;width:2px;background:var(--oro-2);border-radius:2px}
@@ -82,10 +82,10 @@
 
 /* Expediente */
 .bc-fondo{position:fixed;inset:0;z-index:9990;background:rgba(6,20,24,.55);display:flex;align-items:flex-end;justify-content:center}
-.bc-hoja{position:relative;width:min(560px,100vw);max-height:92vh;overflow:auto;background:#f8faf9;border-radius:24px 24px 0 0;padding:8px 16px max(18px,env(safe-area-inset-bottom));display:grid;gap:12px;animation:bcSube .2s cubic-bezier(.2,.9,.25,1)}
+.bc-hoja{position:relative;width:min(560px,100vw);max-height:92vh;overflow:auto;background:#f7f9f8;border-radius:24px 24px 0 0;padding:8px 16px max(18px,env(safe-area-inset-bottom));display:grid;gap:12px;animation:bcSube .2s cubic-bezier(.2,.9,.25,1)}
 @keyframes bcSube{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
-.bc-asa{width:38px;height:5px;border-radius:9px;background:#d5dedc;justify-self:center}
-.bc-cerrar{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:0;background:#e7edeb;font-size:22px;cursor:pointer;color:var(--ink)}
+.bc-asa{width:38px;height:5px;border-radius:9px;background:#d6dfdd;justify-self:center}
+.bc-cerrar{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:0;background:#e4ebe9;font-size:22px;cursor:pointer;color:var(--ink)}
 #bcHoja{display:grid;gap:12px}
 .bc-hoja-quien{display:flex;align-items:center;gap:12px;padding-right:40px}
 .bc-hoja-quien .bc-cara{width:60px;height:60px}
@@ -95,13 +95,13 @@
 .bc-hoja-pct div{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .bc-hoja-pct b{font-size:34px;line-height:1;font-weight:950;font-style:italic}
 .bc-hoja-pct span{font-size:12.5px;font-weight:800}
-.bc-hoja-pct small{font-size:12px;font-weight:700;color:#3e555b}
-.bc-hoja-pct.bc-bajo{background:#ffe9e6;color:#a32920}
+.bc-hoja-pct small{font-size:12px;font-weight:700;color:#42575d}
+.bc-hoja-pct.bc-bajo{background:#fdecea;color:#a32920}
 .bc-hoja-pct.bc-atencion{background:#fdf2dc;color:#8a6410}
 .bc-hoja-pct.bc-sindato{background:#eef2f1;color:#5f7076}
 .bc-datos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .bc-dato{background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 11px;display:grid;gap:2px;min-width:0}
-.bc-dato span{font-size:12px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.05em}
+.bc-dato span{font-size:12px;font-weight:900;color:#7a8a8e;text-transform:uppercase;letter-spacing:.05em}
 .bc-dato b{font-size:14px;font-weight:850;color:var(--ink);overflow-wrap:anywhere}
 .bc-dato b small{display:block;margin-top:2px}
 .bc-dato-ancho{grid-column:1/-1}
@@ -122,30 +122,30 @@
 
 /* ---- Becados / Solicitudes: pestaña grande arriba de todo (04/11/2026) ---- */
 .bc-modo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:4px}
-.bc-modo-btn{appearance:none;border:1.5px solid var(--line);background:#fff;color:#4d6267;padding:12px 10px;border-radius:16px;font:900 13px/1.15 inherit;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:7px;cursor:pointer;text-align:center;min-width:0;width:100%;overflow-wrap:break-word}
+.bc-modo-btn{appearance:none;border:1.5px solid var(--line);background:#fff;color:#4b6066;padding:12px 10px;border-radius:16px;font:900 13px/1.15 inherit;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:7px;cursor:pointer;text-align:center;min-width:0;width:100%;overflow-wrap:break-word}
 .bc-modo-btn.active{border-color:#07191e;background:linear-gradient(180deg,#0e3038,#07191e);color:#fff}
 .bc-modo-badge{background:var(--oro-2);color:#fff;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:950}
 .bc-modo-btn.active .bc-modo-badge{background:rgba(255,255,255,.22)}
 .bc-cancha-sol{background:linear-gradient(160deg,#3a3010,#07191e)}
 
 /* Pastillas de estado de una solicitud. */
-.sol-pastilla{flex:0 0 auto;font-size:12px;font-weight:950;letter-spacing:.03em;border-radius:999px;padding:5px 9px;background:#eef2f1;color:#3e555b;white-space:nowrap;align-self:center}
+.sol-pastilla{flex:0 0 auto;font-size:12px;font-weight:950;letter-spacing:.03em;border-radius:999px;padding:5px 9px;background:#eef2f1;color:#42575d;white-space:nowrap;align-self:center}
 .sol-pastilla-ok{background:#e4f6e9;color:#11773c}
-.sol-pastilla-bajo{background:#ffe9e6;color:#a32920}
+.sol-pastilla-bajo{background:#fdecea;color:#a32920}
 .sol-pastilla-atencion{background:#fdf2dc;color:#8a6410}
 .sol-pastilla-sindato{background:#eef2f1;color:#5f7076}
-.sol-pastilla-grande{justify-self:start;font-size:13px;font-weight:950;border-radius:12px;padding:8px 13px;background:#eef2f1;color:#3e555b}
+.sol-pastilla-grande{justify-self:start;font-size:13px;font-weight:950;border-radius:12px;padding:8px 13px;background:#eef2f1;color:#42575d}
 .sol-pastilla-grande.sol-pastilla-ok{background:#e4f6e9;color:#11773c}
-.sol-pastilla-grande.sol-pastilla-bajo{background:#ffe9e6;color:#a32920}
+.sol-pastilla-grande.sol-pastilla-bajo{background:#fdecea;color:#a32920}
 .sol-pastilla-grande.sol-pastilla-atencion{background:#fdf2dc;color:#8a6410}
 .sol-pastilla-grande.sol-pastilla-sindato{background:#eef2f1;color:#5f7076}
 
 /* Formularios cortos dentro del expediente: mismo lenguaje que el resto. */
-.sol-tit{display:block;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#7d8c91;margin-bottom:2px}
-.sol-opt{font-weight:600;color:#9aa6ab}
+.sol-tit{display:block;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#7a8a8e;margin-bottom:2px}
+.sol-opt{font-weight:600;color:#9aa8ac}
 .sol-dos{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .sol-link{justify-self:start;border:0;background:none;padding:4px 0;font:inherit;font-size:13px;font-weight:800;color:#b3302b;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.sol-form{display:grid;gap:9px;padding:12px;border-radius:14px;background:#f6f8f7;border:1px solid #e2e7e5}
+.sol-form{display:grid;gap:9px;padding:12px;border-radius:14px;background:#f7f9f8;border:1px solid #dfe7e5}
 .sol-form label{display:grid;gap:5px;font-size:12px;font-weight:800;color:#42575d}
 .sol-form input,.sol-form select,.sol-form textarea{font:inherit;padding:9px 11px;border-radius:11px;border:1px solid var(--line);width:100%;box-sizing:border-box}
 .sol-form textarea{resize:vertical;min-height:54px}
@@ -155,23 +155,23 @@
 .sol-check{display:flex!important;flex-direction:row!important;align-items:center;gap:6px;font-size:12.5px!important;font-weight:700!important;width:auto!important}
 .sol-check input{width:auto!important}
 
-.sol-cuota{display:grid;gap:8px;padding:12px;border-radius:14px;background:#fffaf0;border:1px solid #f2dfb8}
+.sol-cuota{display:grid;gap:8px;padding:12px;border-radius:14px;background:#fffaf0;border:1px solid #eddfba}
 .sol-cuota p{margin:0;display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:#42575d}
 
 .sol-avances{flex-direction:column;align-items:stretch}
 .sol-avance-nota{display:grid;gap:8px}
 
-.sol-dictamen{display:grid;gap:10px;padding:12px;border-radius:14px;background:#f6f8f7;border:1px solid #e2e7e5}
+.sol-dictamen{display:grid;gap:10px;padding:12px;border-radius:14px;background:#f7f9f8;border:1px solid #dfe7e5}
 .sol-dictamen-botones{display:grid;grid-template-columns:1fr 1fr}
 
 .sol-timeline{list-style:none;margin:0;padding:0;display:grid;gap:7px}
-.sol-timeline li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 10px;padding:9px 11px;border-radius:11px;background:#f6f8f7;font-size:12.5px}
+.sol-timeline li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 10px;padding:9px 11px;border-radius:11px;background:#f7f9f8;font-size:12.5px}
 .sol-timeline b{font-weight:800;color:var(--ink)}
 .sol-timeline small{color:var(--muted);white-space:nowrap}
 .sol-timeline li>span{flex-basis:100%;color:#4a6870}
 
 /* Cuidado del beneficio: advertencias y suspensión de una beca ya activa. */
-.bc-cuidado{display:grid;gap:9px;padding-top:4px;border-top:1px solid #e2e7e5}
+.bc-cuidado{display:grid;gap:9px;padding-top:4px;border-top:1px solid #dfe7e5}
 .bc-cuidado-cab{display:flex;align-items:center;justify-content:space-between;gap:8px}
 
 .sol-resultados{display:grid;gap:6px}
@@ -183,10 +183,10 @@
 
 /* Fondo interno (04/11/2026): techo en % del ingreso proyectado por
    mensualidades, sólo para becas que paga el club mismo. */
-.fondo-interno{border-color:#e2e7e5}
+.fondo-interno{border-color:#dfe7e5}
 .fondo-barra{position:relative;height:10px;border-radius:999px;background:#eef2f1;overflow:hidden}
 .fondo-barra i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--barra,#0e7c6b);transition:width .2s ease}
 .fondo-barra i.fondo-sobre{background:var(--mal,#d0453f)}
 .fondo-texto{margin:0;font-size:13px;color:#42575d}
 .fondo-aviso{color:#a32920}
-.fondo-nota{margin:0;padding:8px 10px;border-radius:10px;background:#f6f8f7}
+.fondo-nota{margin:0;padding:8px 10px;border-radius:10px;background:#f7f9f8}

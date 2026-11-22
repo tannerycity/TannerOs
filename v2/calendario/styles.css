@@ -6,40 +6,40 @@
 .month-controls{display:flex;gap:7px;align-items:center}
 .month-controls input{min-width:150px}
 .calendar-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}
-.calendar-kpis button{appearance:none;border:1px solid var(--line);background:#f8faf9;border-radius:15px;padding:11px;text-align:left;color:var(--muted);display:grid;gap:3px;cursor:pointer}
+.calendar-kpis button{appearance:none;border:1px solid var(--line);background:#f7f9f8;border-radius:15px;padding:11px;text-align:left;color:var(--muted);display:grid;gap:3px;cursor:pointer}
 .calendar-kpis button b{font-size:22px;color:var(--ink)}
-.calendar-kpis button[aria-pressed="true"]{border-color:var(--teal);background:#eef8f8;box-shadow:inset 0 0 0 1px var(--teal)}
-.calendar-kpis .birthday-kpi[aria-pressed="true"]{border-color:var(--gold);background:#fff8e8}
+.calendar-kpis button[aria-pressed="true"]{border-color:var(--teal);background:#edf8f2;box-shadow:inset 0 0 0 1px var(--teal)}
+.calendar-kpis .birthday-kpi[aria-pressed="true"]{border-color:var(--gold);background:#fff8e6}
 .month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
-.weekday{text-align:center;padding:6px 0;font-size:12px;font-weight:800;color:#809094}
+.weekday{text-align:center;padding:6px 0;font-size:12px;font-weight:800;color:#7b8f92}
 .day{appearance:none;border:0;background:transparent;min-height:56px;border-radius:13px;padding:7px 4px;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:space-between;cursor:pointer}
-.day:hover{background:#f0f5f3}
+.day:hover{background:#eef2f1}
 .day.today b{display:grid;place-items:center;width:27px;height:27px;background:var(--ink);color:#fff;border-radius:50%}
-.day.selected{background:#e9f4f4;box-shadow:inset 0 0 0 1px #91c3c7}
+.day.selected{background:#eef2f1;box-shadow:inset 0 0 0 1px #91c3c7}
 .day.blank{pointer-events:none}
 .day-dots{display:flex;gap:3px;min-height:6px}
-.day-dots i{width:5px;height:5px;border-radius:50%;background:#759094}
+.day-dots i{width:5px;height:5px;border-radius:50%;background:#7b8f92}
 .day-dots .dot-birthday{background:var(--gold)}
 .day-dots .dot-session{background:#168a72}
-.day-dots .dot-match{background:#2767b0}
+.day-dots .dot-match{background:#2d69b6}
 .day-dots .dot-event,.day-dots .dot-program{background:#7b67a7}
 
 /* === Fotos protagonistas: avatar redondo con imagen real, iniciales solo como fallback === */
-.tanner-avatar{display:block;border-radius:50%;background-size:cover;background-position:center top;background-color:#ead39a;flex:0 0 auto}
+.tanner-avatar{display:block;border-radius:50%;background-size:cover;background-position:center top;background-color:#e9d19c;flex:0 0 auto}
 .tanner-avatar.initials{display:grid;place-items:center;color:#594719;font-weight:900}
 .tanner-avatar.lg{width:64px;height:64px;font-size:19px}
 .tanner-avatar.sm{width:36px;height:36px;font-size:12px}
 
-.birthday-panel{background:linear-gradient(145deg,#fffaf0,#fff 62%);border-color:#eadcb9}
+.birthday-panel{background:linear-gradient(145deg,#fffaf0,#fff 62%);border-color:#eddfba}
 .birthday-lead{display:flex;gap:12px;align-items:center;min-height:84px}
 .birthday-lead>div:last-child{display:grid;gap:3px}
-.birthday-lead span,.birthday-lead small{color:#756b56;font-size:12px}
+.birthday-lead span,.birthday-lead small{color:#716b57;font-size:12px}
 .birthday-lead strong{font-size:19px;color:#2c2921}
 .birthday-actions{display:flex;gap:8px;margin:12px 0}
 .birthday-actions .secondary{flex:1;padding:9px 10px}
-.upcoming-birthdays{display:grid;gap:6px;border-top:1px solid #eee4ce;padding-top:8px}
+.upcoming-birthdays{display:grid;gap:6px;border-top:1px solid #ece5d2;padding-top:8px}
 .upcoming-birthdays a{display:flex;gap:9px;align-items:center;padding:7px;border-radius:12px;text-decoration:none;color:#20363c}
-.upcoming-birthdays a:hover{background:#fff6df}
+.upcoming-birthdays a:hover{background:#fff8e6}
 .upcoming-birthdays a>span:last-child{display:grid}
 .upcoming-birthdays small{color:#7b7c73}
 
@@ -49,17 +49,17 @@
 .agenda-rail::-webkit-scrollbar{height:7px}
 .agenda-rail::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
 .rail-card{scroll-snap-align:start;flex:0 0 auto;width:198px;min-height:150px;border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:4px;background:#fff;text-decoration:none;color:inherit}
-.rail-card:hover{border-color:#b7ccca}
+.rail-card:hover{border-color:#bdceca}
 .rail-card strong{font-size:14px;line-height:1.25;color:var(--ink)}
 .rail-card small,.rail-loc{font-size:12px;color:var(--muted)}
 .rail-icon{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
-.rail-icon .tos-icon{width:26px;height:26px;padding:6px;border-radius:10px;background:#f2f6f5;color:#31565e;box-sizing:content-box}
-.source-chip{font-size:12px!important;font-weight:800;padding:4px 7px;border-radius:999px;background:#edf2f1;color:#31565e;white-space:nowrap}
+.rail-icon .tos-icon{width:26px;height:26px;padding:6px;border-radius:10px;background:#edf8f2;color:#31565e;box-sizing:content-box}
+.source-chip{font-size:12px!important;font-weight:800;padding:4px 7px;border-radius:999px;background:#eef2f1;color:#31565e;white-space:nowrap}
 .rail-date{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#8a969b}
-.rail-card.source-birthday{border-color:#eadcb9}
-.rail-card.source-birthday .rail-icon .tos-icon{background:#fff3d4;color:#8a6819}
-.rail-card.source-match .rail-icon .tos-icon{background:#edf4fc;color:#245f9f}
-.rail-card.source-session .rail-icon .tos-icon{background:#eaf7f2;color:#14735f}
+.rail-card.source-birthday{border-color:#eddfba}
+.rail-card.source-birthday .rail-icon .tos-icon{background:#fff2ce;color:#8a6410}
+.rail-card.source-match .rail-icon .tos-icon{background:#eef6ff;color:#245f9f}
+.rail-card.source-session .rail-icon .tos-icon{background:#edf8f2;color:#16765f}
 .rail-card.has-photo{width:170px;min-height:210px;padding:0;background-size:cover;background-position:center top;position:relative;overflow:hidden;justify-content:flex-end}
 .rail-date.on-photo{position:absolute;top:10px;left:10px;color:#fff;background:rgba(11,20,24,.45);padding:4px 8px;border-radius:999px;backdrop-filter:blur(2px)}
 .rail-scrim{background:linear-gradient(0deg,rgba(11,20,24,.86),rgba(11,20,24,.05) 78%);padding:34px 12px 12px;display:grid;gap:2px}
@@ -97,10 +97,10 @@
 /* Cumpleaños con foto (19/10/2026): la foto arriba, el texto abajo. Antes el
    nombre iba encima de la foto y le tapaba la cara al Tanner. */
 .rail-card.has-photo{display:flex;flex-direction:column;justify-content:flex-start;padding:0;background:#fff;min-height:0}
-.rail-foto{position:relative;display:block;width:100%;aspect-ratio:4/5;background-size:cover;background-position:center 22%;background-color:#ead39a}
+.rail-foto{position:relative;display:block;width:100%;aspect-ratio:4/5;background-size:cover;background-position:center 22%;background-color:#e9d19c}
 .rail-pie{display:grid;gap:2px;padding:10px 12px 12px}
 .rail-pie strong{font-size:14px;line-height:1.25;color:var(--ink)}
-.rail-pie small{font-size:12px;color:#8a6819}
+.rail-pie small{font-size:12px;color:#8a6410}
 .rail-scrim{display:none}
 
 /* El día elegido: su agenda en lista y el botón para agregar en esa fecha. */

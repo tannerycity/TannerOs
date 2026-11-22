@@ -14,11 +14,14 @@
 //   app.tannerycity.com. Cuando haya dominio neutro se cambia y se quita de aqui.
 // - v2/admin/centro-tanner/app.js: los ambitos tannery_city / tannery_city_park
 //   son del Centro Tanner, el reglamento propio de Tannery.
+// - v2/vocabulario.js: es el traductor que QUITA "Tannery City" de lo que ve
+//   un club que no es Tannery (demo para vender, 22/11/2026); el nombre esta
+//   en la expresion que lo busca, no en algo que se pinte.
 // - Comentarios: describen la historia, no los ve nadie.
 import fs from 'node:fs';
 import path from 'node:path';
 
-const PERMITIDOS = new Set(['v2/index.html', 'v2/admin/centro-tanner/app.js']);
+const PERMITIDOS = new Set(['v2/index.html', 'v2/admin/centro-tanner/app.js', 'v2/vocabulario.js']);
 const NOMBRE = /Tannery City|de Tannery\b/;
 
 function archivos(dir) {

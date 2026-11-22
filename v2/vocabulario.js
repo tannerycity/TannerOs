@@ -9,7 +9,25 @@
    lo que la persona escribe (inputs, textareas) ni lo marcado con
    data-sin-vocabulario. */
 
+import { PLATAFORMA, esTannery } from './plataforma.js';
 const TANNERY = { singular: 'Tanner', plural: 'Tanners' };
+
+/* Lo que ve un club según su marca guardada (v2_branding / portal):
+   - Tannery: nada cambia.
+   - Otro club (o un demo sin configurar): "Jugador" si no eligió palabra, el
+     nombre de la plataforma en lugar de TannerOS y su nombre en lugar de
+     Tannery City. */
+export function vocabularioDelClub(marcaGuardada) {
+  if (esTannery(marcaGuardada)) return { noun: marcaGuardada?.playerNoun || TANNERY, marca: null };
+  const noun = vocabularioValido(marcaGuardada?.playerNoun) || PLATAFORMA.jugador;
+  const producto = marcaGuardada?.product && !/tanner ?os/i.test(marcaGuardada.product) ? marcaGuardada.product : PLATAFORMA.nombre;
+  const club = String(marcaGuardada?.brand || marcaGuardada?.name || '').replace(/\s*\(demo\)\s*$/i, '').trim() || 'tu club';
+  return { noun, marca: { producto, club } };
+}
+export function instalaDelClub(marcaGuardada, win = globalThis.window) {
+  const { noun, marca } = vocabularioDelClub(marcaGuardada);
+  return instalaVocabulario(noun, win, marca);
+}
 
 export function vocabularioValido(v) {
   const ok = s => typeof s === 'string' && /^\p{L}[\p{L} ]{1,23}$/u.test(s.trim());
@@ -25,8 +43,22 @@ const mayus = s => s.charAt(0).toLocaleUpperCase('es-MX') + s.slice(1);
 
 // "Buscar Tanner" -> "Buscar jugador"; "Tanners activos" -> "Jugadores activos";
 // "TANNERS" -> "JUGADORES"; "Centro Tanner" -> "Centro del club".
+/* La marca de la plataforma (22/11/2026): para un club que no es Tannery,
+   "TannerOS" es el nombre de la plataforma (v2/plataforma.js) y "Tannery City"
+   es el nombre de su club. marca = { producto, club }. */
+export function traduceMarca(texto, marca) {
+  if (!texto || !marca || !/Tanner|TANNER/.test(texto)) return texto;
+  let t = String(texto);
+  if (marca.producto) t = t.replace(/\bTANNER ?OS\b/g, marca.producto.toLocaleUpperCase('es-MX')).replace(/\bTanner ?OS\b/gi, marca.producto);
+  if (marca.club) t = t.replace(/\bTANNERY CITY( FC)?\b/g, marca.club.toLocaleUpperCase('es-MX')).replace(/\bTannery City( FC)?\b/g, marca.club).replace(/\bTannery\b/g, marca.club);
+  return t;
+}
+const traduceAlgo = v => !!v && (!esDeTannery(v) || !!v.marca);
+
 export function traduce(texto, v) {
-  if (!texto || esDeTannery(v) || !/Tanner|TANNER/.test(texto)) return texto;
+  if (!texto) return texto;
+  if (v?.marca) texto = traduceMarca(texto, v.marca);
+  if (esDeTannery(v) || !/Tanner|TANNER/.test(texto)) return texto;
   return String(texto)
     .replace(/\bCentro Tanner\b/g, 'Centro del club')
     .replace(/\bCENTRO TANNER\b/g, 'CENTRO DEL CLUB')
@@ -48,7 +80,7 @@ function saltar(el) {
 }
 
 export function aplicaEn(raiz, v) {
-  if (esDeTannery(v) || !raiz) return;
+  if (!traduceAlgo(v) || !raiz) return;
   const doc = raiz.ownerDocument || raiz;
   if (raiz.nodeType === 3) { if (!saltar(raiz.parentElement)) { const t = traduce(raiz.nodeValue, v); if (t !== raiz.nodeValue) raiz.nodeValue = t; } return; }
   if (raiz.nodeType !== 1 && raiz.nodeType !== 9) return;
@@ -70,7 +102,7 @@ export function aplicaEn(raiz, v) {
 
 // El texto de una liga de WhatsApp (?text=) también.
 export function traduceLiga(url, v) {
-  if (esDeTannery(v) || !/wa\.me|whatsapp\.com/.test(String(url))) return url;
+  if (!traduceAlgo(v) || !/wa\.me|whatsapp\.com/.test(String(url))) return url;
   try {
     const u = new URL(url, globalThis.location?.href);
     const t = u.searchParams.get('text');
@@ -80,9 +112,10 @@ export function traduceLiga(url, v) {
 }
 
 let activo = null;
-export function instalaVocabulario(entrada, win = globalThis.window) {
-  const v = vocabularioValido(entrada);
-  if (!v || esDeTannery(v) || !win?.document) return false;
+export function instalaVocabulario(entrada, win = globalThis.window, marca = null) {
+  let v = vocabularioValido(entrada);
+  if (marca && (marca.producto || marca.club)) v = { ...(v || TANNERY), marca };
+  if (!traduceAlgo(v) || !win?.document) return false;
   const primera = !activo;
   activo = v;
   const doc = win.document;

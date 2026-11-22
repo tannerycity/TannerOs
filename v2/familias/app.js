@@ -1,6 +1,6 @@
 import {supabase,rpc,money,$,PUSH_PUBLIC_KEY,urlBase64ToUint8Array} from '/v2/shell.js';
 import { pendientesDe, proximoEvento, cuandoEs, saludo, avisosSinLeer, PASOS_PEDIDO, avanceDePedido, piezaTexto } from '/v2/familias/inicio.js';
-import { instalaVocabulario } from '/v2/vocabulario.js';
+import { instalaDelClub } from '/v2/vocabulario.js';
 import { parcheHtml, numerosDeCampeon } from '/v2/parches/parches.js';
 import { llaveDeLiga } from '/v2/club-publico.js';
 import { correoDeEntrada, tokenDeLiga, primeraPalabra, conEspacios } from '/v2/invitaciones/invitaciones.js';
@@ -1274,7 +1274,7 @@ async function boot(){
     $('contactEmailField')?.classList.toggle('hidden',user?.app_metadata?.login_type!=='username');
     show('passwordView');return;
   }
-  try{state.home=await rpc('v2_portal_home');instalaVocabulario(state.home?.organization?.playerNoun);}
+  try{state.home=await rpc('v2_portal_home');instalaDelClub(state.home?.organization);}
   catch(error){
     // Sin señal o el servidor tardó: la sesión sigue buena. Antes se cerraba
     // aquí y la familia sentía que "se le salía"; ahora se reintenta.

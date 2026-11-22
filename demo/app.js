@@ -8,6 +8,10 @@
  * son de solo lectura (o4): se ve todo y no se guarda nada.
  */
 import { createClient } from '/v2/supabase-client.js';
+import { PLATAFORMA } from '/v2/plataforma.js';
+// La página de venta dice el nombre de la plataforma (v2/plataforma.js), nunca TannerOS.
+document.querySelectorAll('[data-plataforma]').forEach(el => { el.textContent = PLATAFORMA.nombre; });
+document.title = document.title.replace(/^[^|]+\|/, `${PLATAFORMA.nombre} |`);
 
 const URL_SUPABASE = 'https://pacnegivzgxpanphrnwp.supabase.co';
 const LLAVE = 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG';

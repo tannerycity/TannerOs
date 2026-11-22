@@ -14,11 +14,11 @@
 @font-face{font-family:'Barlow Condensed';font-weight:800;font-display:swap;src:url('/fonts/barlow-condensed-800.woff2') format('woff2');}
 
 .tc-entrada,.tc-cristal{
-  --tc-noche:#06161b;
+  --tc-noche:#0b1418;
   --tc-azul:#0b2a33;
-  --tc-oro:#c8ad62;
-  --tc-oro-claro:#e6d295;
-  --tc-crema:#f4efe2;
+  --tc-oro:#c6ac5c;
+  --tc-oro-claro:#e9d19c;
+  --tc-crema:#f6f2e8;
   --tc-tenue:rgba(244,239,226,.62);
   --tc-linea:rgba(200,173,98,.22);
 }
@@ -28,7 +28,7 @@
   display:grid!important;place-items:center;
   padding:max(28px,env(safe-area-inset-top)) 20px max(28px,env(safe-area-inset-bottom))!important;
   background:radial-gradient(1200px 700px at 18% 12%,#12414d 0%,transparent 60%),
-             radial-gradient(900px 600px at 90% 100%,#0d3540 0%,transparent 55%),
+             radial-gradient(900px 600px at 90% 100%,#16343d 0%,transparent 55%),
              linear-gradient(160deg,var(--tc-azul) 0%,var(--tc-noche) 70%);
   color:var(--tc-crema);
 }
@@ -96,11 +96,11 @@
 }
 :is(.tc-entrada,.tc-cristal) input::placeholder{color:rgba(244,239,226,.38)!important}
 :is(.tc-entrada,.tc-cristal) input:focus{outline:none;border-color:var(--tc-oro)!important;box-shadow:0 0 0 4px rgba(200,173,98,.2)!important;background:rgba(0,0,0,.36)!important}
-:is(.tc-entrada,.tc-cristal) input:-webkit-autofill{-webkit-text-fill-color:var(--tc-crema);-webkit-box-shadow:0 0 0 1000px #0f2a31 inset;transition:background-color 9999s}
+:is(.tc-entrada,.tc-cristal) input:-webkit-autofill{-webkit-text-fill-color:var(--tc-crema);-webkit-box-shadow:0 0 0 1000px #0b2a33 inset;transition:background-color 9999s}
 
 /* Botón principal, dorado. */
 :is(.tc-entrada,.tc-cristal) button.primary{
-  background:linear-gradient(180deg,var(--tc-oro-claro),var(--tc-oro))!important;color:#10262c!important;
+  background:linear-gradient(180deg,var(--tc-oro-claro),var(--tc-oro))!important;color:#10252b!important;
   border:0!important;border-radius:14px!important;font-weight:800!important;letter-spacing:.01em;
   box-shadow:0 12px 30px rgba(200,173,98,.28),inset 0 1px 0 rgba(255,255,255,.5)!important;
   transition:transform .15s ease,box-shadow .2s ease,filter .2s;
@@ -126,7 +126,7 @@
 :is(.tc-entrada,.tc-cristal) .tc-ver:hover{color:var(--tc-crema);background:rgba(255,255,255,.14)}
 
 /* Mensajes legibles sobre fondo oscuro */
-:is(.tc-entrada,.tc-cristal) .message{border-radius:12px!important;border:1px solid rgba(255,255,255,.12)!important;background:rgba(192,54,44,.16)!important;color:#ffd9d3!important}
+:is(.tc-entrada,.tc-cristal) .message{border-radius:12px!important;border:1px solid rgba(255,255,255,.12)!important;background:rgba(192,54,44,.16)!important;color:#f7d9d4!important}
 :is(.tc-entrada,.tc-cristal) .message[data-type="success"]{background:rgba(74,222,128,.14)!important;color:#d5ffe4!important}
 
 /* Las familias que caen aquí buscando la tienda tienen salida sin cuenta. */
@@ -145,7 +145,7 @@
 .tc-cristal{max-width:440px;margin:0 auto;padding:32px!important}
 .tc-cristal .brand-mark{background:transparent!important;box-shadow:none!important;color:transparent!important;width:56px;height:56px;
   background-image:url('/brand/crest-gold.png')!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important}
-body:has(.tc-cristal:not(.hidden)){background:linear-gradient(160deg,#0b2a33,#06161b) fixed}
+body:has(.tc-cristal:not(.hidden)){background:linear-gradient(160deg,#0b2a33,#0b1418) fixed}
 
 /* ---- Teléfono: todo en una columna, la marca compacta arriba ---- */
 @media (max-width:860px){
@@ -216,7 +216,7 @@ body:has(.tc-cristal:not(.hidden)){background:linear-gradient(160deg,#0b2a33,#06
 .tc-puerta:active{transform:scale(.985)}
 .tc-puerta:focus-visible,.tc-trabaja:focus-visible{outline:2px solid #64a8ff;outline-offset:3px}
 .tc-puerta.principal{background:#fff!important;color:#0a1d33!important;border-color:#fff!important}
-.tc-puerta.principal:hover{background:#f2f5f9!important}
+.tc-puerta.principal:hover{background:#eef6ff!important}
 .tc-icono{flex:0 0 46px;width:46px;height:46px;border-radius:13px;display:grid;place-items:center}
 .tc-icono svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tc-icono-portal{background:#0a84ff;color:#fff}
@@ -265,7 +265,7 @@ body:has(.tc-cristal:not(.hidden)){background:radial-gradient(120% 70% at 50% 0%
 
 /* La orilla de arriba en iPhone (19/10/2026). iOS pinta la franja de la hora
    (y su difuminado) con el fondo de la PÁGINA, no con el de esta sección; la
-   página era gris claro (#f6f6f4) y en la entrada se veía una niebla gris
+   página era gris claro (#f7f9f8) y en la entrada se veía una niebla gris
    sobre el azul. Mientras la entrada está a la vista, la página entera es azul
    noche, igual que theme-color. */
 html:has(.tc-entrada:not(.hidden)),

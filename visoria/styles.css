@@ -8,7 +8,7 @@
 @font-face{font-family:'Inter';font-weight:400;font-display:swap;src:url('/fonts/inter-400.woff2') format('woff2')}
 @font-face{font-family:'Inter';font-weight:600;font-display:swap;src:url('/fonts/inter-600.woff2') format('woff2')}
 @font-face{font-family:'Inter';font-weight:800;font-display:swap;src:url('/fonts/inter-800.woff2') format('woff2')}
-:root{--navy:#07191e;--navy2:#0f2b32;--oro:#c8ae62;--oro-claro:#e9d19c;--oro-osc:#a9895a;--crema:#f6f2e8;--papel:#fffdf8;--linea:#e7dfc8;--gris:#5c6a63;--verde:#0b2a33;--rojo:#a92a21;
+:root{--navy:#07191e;--navy2:#0b2a33;--oro:#c6ac5c;--oro-claro:#e9d19c;--oro-osc:#a9895a;--crema:#f6f2e8;--papel:#fffaf0;--linea:#e6ddc4;--gris:#5c6a63;--verde:#0b2a33;--rojo:#a92a21;
   --titulo:'Barlow Condensed','Arial Narrow',Impact,sans-serif;--texto:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -22,7 +22,7 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 
 /* Portada */
 .vi-portada{display:grid;gap:14px}
-.vi-hero{position:relative;display:grid;justify-items:center;gap:8px;padding:34px 20px 30px;background:radial-gradient(120% 90% at 50% 0%,#14363e 0%,var(--navy) 62%);color:#fff;text-align:center;border-radius:0 0 28px 28px;overflow:hidden}
+.vi-hero{position:relative;display:grid;justify-items:center;gap:8px;padding:34px 20px 30px;background:radial-gradient(120% 90% at 50% 0%,#16343d 0%,var(--navy) 62%);color:#fff;text-align:center;border-radius:0 0 28px 28px;overflow:hidden}
 .vi-hero::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(200,174,98,.05) 0 2px,transparent 2px 22px);pointer-events:none}
 .vi-hero-escudo{width:64px;height:auto;filter:drop-shadow(0 6px 18px rgba(0,0,0,.35))}
 .vi-hero-marca{width:150px;height:auto}
@@ -49,7 +49,7 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-portada>.vi-boton,.vi-portada>.vi-pie,.vi-portada>.vi-link{margin-left:16px;margin-right:16px}
 
 /* Botones */
-.vi-boton{display:flex;align-items:center;justify-content:center;gap:10px;width:calc(100% - 32px);margin:6px 16px 0;min-height:58px;border:0;border-radius:16px;background:linear-gradient(180deg,#d9c07a,var(--oro));color:var(--navy);font:800 18px/1 var(--titulo);letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer;box-shadow:0 10px 24px rgba(169,137,90,.35);transition:transform .1s}
+.vi-boton{display:flex;align-items:center;justify-content:center;gap:10px;width:calc(100% - 32px);margin:6px 16px 0;min-height:58px;border:0;border-radius:16px;background:linear-gradient(180deg,#d6c27d,var(--oro));color:var(--navy);font:800 18px/1 var(--titulo);letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer;box-shadow:0 10px 24px rgba(169,137,90,.35);transition:transform .1s}
 .vi-paso .vi-boton,.vi-pase .vi-boton{width:100%;margin:6px 0 0}
 .vi-portada>.vi-boton{width:calc(100% - 32px)}
 .vi-boton:active{transform:scale(.98)}
@@ -112,7 +112,7 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-switch{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:16px;border-radius:16px;background:var(--papel);box-shadow:0 0 0 1px var(--linea);cursor:pointer}
 .vi-switch small{display:block;color:var(--gris);font-size:13px}
 .vi-switch input{position:absolute;opacity:0;pointer-events:none}
-.vi-switch i{position:relative;width:52px;height:32px;border-radius:32px;background:#d7dfe0;transition:background .2s}
+.vi-switch i{position:relative;width:52px;height:32px;border-radius:32px;background:#d6dfdd;transition:background .2s}
 .vi-switch i::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
 .vi-switch input:checked+i{background:var(--verde)}
 .vi-switch input:checked+i::after{transform:translateX(20px)}
@@ -122,12 +122,12 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-firma{display:grid;gap:8px;padding:16px;border-radius:16px;background:var(--papel);box-shadow:0 0 0 1px var(--linea)}
 .vi-firma-cab{display:flex;justify-content:space-between;align-items:center}
 .vi-firma-cab b{font:800 18px var(--titulo);text-transform:uppercase}
-.vi-firma .vi-mini{background:#eee8d6}
+.vi-firma .vi-mini{background:#ece5d2}
 .vi-firma canvas{width:100%;height:auto;aspect-ratio:600/220;border:1.5px dashed var(--oro);border-radius:12px;background:#fff;touch-action:none}
 .vi-check{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;font-size:14.5px}
 .vi-check input{width:24px;height:24px;margin-top:1px;accent-color:var(--navy)}
 .vi-check a{color:var(--navy);font-weight:800}
-.vi-aviso{padding:12px 14px;border-radius:12px;background:#f7eeee;color:var(--rojo);font-size:14.5px;font-weight:800;border-left:4px solid var(--rojo)}
+.vi-aviso{padding:12px 14px;border-radius:12px;background:#fdecea;color:var(--rojo);font-size:14.5px;font-weight:800;border-left:4px solid var(--rojo)}
 
 /* Pase */
 .vi-pase{display:grid;gap:12px;padding:20px 16px 0;text-align:center}
@@ -137,7 +137,7 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-pase-cab p b{color:var(--oro-osc);font-family:var(--titulo);font-size:20px;letter-spacing:.04em}
 .vi-palomita{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:var(--navy);color:var(--oro)}
 .vi-palomita svg{width:34px;height:34px}
-.vi-pase-img{justify-self:center;width:min(100%,340px);aspect-ratio:1080/1920;border-radius:18px;overflow:hidden;background:#efe9d8;box-shadow:0 22px 50px rgba(7,25,30,.25);display:grid;place-items:center}
+.vi-pase-img{justify-self:center;width:min(100%,340px);aspect-ratio:1080/1920;border-radius:18px;overflow:hidden;background:#eeeae0;box-shadow:0 22px 50px rgba(7,25,30,.25);display:grid;place-items:center}
 .vi-pase-img img{width:100%;height:100%;object-fit:contain;display:block}
 .vi-cargando-mini{display:flex;align-items:center;gap:8px;color:var(--gris);font-size:14px}
 .vi-pase-respaldo{display:grid;gap:6px;padding:24px}
@@ -159,10 +159,10 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-evento dl div{display:grid;grid-template-columns:92px 1fr;gap:8px;font-size:13.5px}
 .vi-evento dt{color:#c9d4d6}
 .vi-evento dd{margin:0;font-weight:600}
-.vi-seguro{display:grid;gap:6px;padding:16px;border-radius:16px;background:#fff4f2;border:2px solid #b3261e;color:#7c1a14}
+.vi-seguro{display:grid;gap:6px;padding:16px;border-radius:16px;background:#fdf3f1;border:2px solid #b3261e;color:#7c1a14}
 .vi-seguro b{font:800 19px/1.15 var(--titulo);letter-spacing:.02em}
 .vi-seguro span{font-size:13.5px}
-.vi-seguro.con{background:#eef7f1;border-color:var(--verde);color:#0f5f2f}
+.vi-seguro.con{background:#edf8f2;border-color:var(--verde);color:#0b5e30}
 .vi-riesgos{padding:14px 16px;border-radius:16px;background:var(--papel);box-shadow:0 0 0 1px var(--linea);font-size:14px}
 .vi-riesgos b{font:800 18px var(--titulo);text-transform:uppercase}
 .vi-riesgos ul{margin:8px 0;padding-left:20px;display:grid;gap:4px}
@@ -171,7 +171,7 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-doc-boton{display:grid;gap:2px;text-align:left;padding:14px 16px;border:1.5px solid var(--navy);border-radius:14px;background:#fff;color:var(--navy);cursor:pointer;font:inherit}
 .vi-doc-boton b{font-size:15px}
 .vi-doc-boton span{font-size:12px;color:var(--gris)}
-.vi-doc-boton.leido{border-color:var(--verde);background:#f1faf4}
+.vi-doc-boton.leido{border-color:var(--verde);background:#edf8f2}
 .vi-doc-boton.leido b::after{content:"  · leído";color:var(--verde);font-weight:800}
 .vi-decision{display:grid;gap:10px;padding:14px;border-radius:16px;background:var(--papel);box-shadow:0 0 0 1px var(--linea)}
 .vi-decision p{margin:0;font-size:14.5px}
@@ -182,15 +182,15 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-hoja header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px 16px 10px;border-bottom:1px solid var(--linea)}
 .vi-hoja header small{display:block;color:var(--oro-osc);font:800 11px var(--texto);letter-spacing:.08em}
 .vi-hoja header b{font:800 20px/1.05 var(--titulo);text-transform:uppercase}
-.vi-cierra{width:40px;height:40px;border:0;border-radius:50%;background:#e9e3d2;color:var(--navy);font-size:24px;cursor:pointer;flex:none}
-.vi-hoja-texto{overflow:auto;padding:14px 16px;font-size:14px;line-height:1.55;color:#22363a}
+.vi-cierra{width:40px;height:40px;border:0;border-radius:50%;background:#ece5d2;color:var(--navy);font-size:24px;cursor:pointer;flex:none}
+.vi-hoja-texto{overflow:auto;padding:14px 16px;font-size:14px;line-height:1.55;color:#20363c}
 .vi-hoja footer{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--linea)}
 .vi-hoja footer .vi-boton{width:100%;margin:0;min-height:50px;font-size:16px}
 .vi-estado{display:grid;gap:4px;text-align:left;padding:14px 16px;border-radius:16px;border-left:5px solid var(--oro)}
 .vi-estado b{font-size:15.5px}
 .vi-estado span{font-size:13.5px;color:#3c4e52}
-.vi-estado.pendiente{background:#fbf3df;border-color:#c98a12}
-.vi-estado.ok{background:#eef7f1;border-color:var(--verde)}
+.vi-estado.pendiente{background:#fdf2dc;border-color:#c98a12}
+.vi-estado.ok{background:#edf8f2;border-color:var(--verde)}
 @media(max-width:380px){.vi-hero h1{font-size:40px}.vi-paso h2{font-size:34px}.vi-foto{grid-template-columns:86px 1fr}.vi-foto-circulo{width:86px;height:86px}}
 
 /* Promoción "Últimos lugares" (16/11/2026) */
@@ -201,5 +201,5 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-proxima{display:grid;gap:12px;margin-top:8px}
 .vi-proxima .vi-campo{display:grid;gap:6px}
 .vi-proxima .vi-campo span{font-weight:700;font-size:.95rem}
-.vi-proxima input{border:1px solid #d9e0e3;border-radius:12px;padding:12px 14px;font:inherit;font-size:16px;background:#fff}
+.vi-proxima input{border:1px solid #d6dfdd;border-radius:12px;padding:12px 14px;font:inherit;font-size:16px;background:#fff}
 .vi-listo-px{text-align:center;padding:32px 8px}

@@ -277,12 +277,12 @@ async function accionHoja(e, x) {
   }
   const an = t.closest('[data-anula]');
   if (an) {
-    const motivo = prompt('¿Por qué tienen que firmar otra vez? Los papás reciben de nuevo la firma.'); if (!motivo || motivo.trim().length < 5) return;
+    const motivo = await window.tosPrompt({ kicker: 'VISORÍA', required: true, title: '¿Por qué tienen que firmar otra vez?', message: 'Los papás reciben de nuevo la firma.', placeholder: 'Ej. cambió quien lo recoge', confirmText: 'Pedir firma' }); if (!motivo || motivo.trim().length < 5) return;
     return corre(an, () => rpc('v2_visoria_invalidate', { organization_id: ctx.organization_id, consent_id: k, reason: motivo.trim() }), 'Listo: sus papás tienen que firmar otra vez.');
   }
   const bj = t.closest('[data-baja]');
   if (bj) {
-    const motivo = prompt(`¿Por qué sale ${x.firstName} de la visoría? Su lugar queda libre para otro niño.`); if (!motivo || motivo.trim().length < 3) return;
+    const motivo = await window.tosPrompt({ kicker: 'VISORÍA', required: true, title: `¿Por qué sale ${x.firstName} de la visoría?`, message: 'Su lugar queda libre para otro niño.', placeholder: 'Ej. ya no puede venir', confirmText: 'Sacarlo', danger: true }); if (!motivo || motivo.trim().length < 3) return;
     return corre(bj, () => rpc('v2_visoria_drop', { organization_id: ctx.organization_id, prospect_id: x.id, reason: motivo.trim() }), `${x.firstName} quedó de baja. Hay un lugar libre: suma a alguien de la lista de espera.`);
   }
   /* Eliminar (h61): sólo para pruebas o duplicados; lo que tiene firma,
@@ -292,12 +292,12 @@ async function accionHoja(e, x) {
   const al = t.closest('[data-alerta]');
   if (al) {
     let nota = null;
-    if (!x.alert) { nota = prompt('¿Por qué no juega hoy? (sin datos médicos. Ej. "llegó sin tenis", "no vino quien lo recoge")'); if (!nota || nota.trim().length < 3) return; }
+    if (!x.alert) { nota = await window.tosPrompt({ kicker: 'VISORÍA', required: true, title: '¿Por qué no juega hoy?', message: 'Sin datos médicos.', placeholder: 'Ej. llegó sin tenis', confirmText: 'Que no juegue' }); if (!nota || nota.trim().length < 3) return; }
     return corre(al, () => rpc('v2_visoria_alert', { organization_id: ctx.organization_id, prospect_id: x.id, value: !x.alert, note: nota }), x.alert ? `${x.firstName} ya puede jugar.` : `${x.firstName} no juega hoy.`);
   }
   const qi = t.closest('[data-quita-imagen]');
   if (qi) {
-    const fuente = prompt('¿Cómo lo pidió la familia? (Ej. "WhatsApp de la mamá 29/10")'); if (!fuente || fuente.trim().length < 3) return;
+    const fuente = await window.tosPrompt({ kicker: 'VISORÍA', required: true, title: '¿Cómo lo pidió la familia?', placeholder: 'Ej. WhatsApp de la mamá 29/10', confirmText: 'Ya no subir fotos' }); if (!fuente || fuente.trim().length < 3) return;
     return corre(qi, () => rpc('v2_visoria_media', { organization_id: ctx.organization_id, prospect_id: x.id, value: false, source: fuente.trim() }), 'Listo: ya no se suben sus fotos.');
   }
   const ml = t.closest('[data-manda-liga]');
@@ -326,7 +326,7 @@ async function accionHoja(e, x) {
 
 /* Ficha de salud: con motivo, auditada, y sólo con el permiso de salud. */
 async function verSalud(x) {
-  const motivo = prompt('¿Para qué la abres? Queda anotado. (Ej. "revisar antes de que juegue")');
+  const motivo = await window.tosPrompt({ kicker: 'VISORÍA', required: true, title: '¿Para qué abres su ficha de salud?', message: 'Queda anotado.', placeholder: 'Ej. revisar antes de que juegue', confirmText: 'Abrir' });
   if (!motivo || motivo.trim().length < 3) return;
   try {
     const r = await rpc('v2_visoria_health', { organization_id: ctx.organization_id, consent_id: x.access.consentId, reason: motivo.trim() });
@@ -414,7 +414,7 @@ async function accionEvento(e) {
   }
   const re = t.closest('[data-retira]');
   if (re) {
-    const motivo = prompt('¿Por qué se retira la aprobación? La firma se cierra de inmediato.'); if (!motivo || motivo.trim().length < 5) return;
+    const motivo = await window.tosPrompt({ kicker: 'VISORÍA', required: true, title: '¿Por qué se retira la aprobación?', message: 'La firma se cierra de inmediato.', confirmText: 'Retirar', danger: true }); if (!motivo || motivo.trim().length < 5) return;
     return corre(re, () => rpc('v2_visoria_revoke_approval', { organization_id: ctx.organization_id, campaign_id: c.id, gate: re.dataset.retira, reason: motivo.trim() }), 'Aprobación retirada.');
   }
   const d = t.closest('[data-doc]');
@@ -499,7 +499,7 @@ async function accionIncidentes(e) {
   const sg = t.closest('[data-seguimiento],[data-cierra-incidente]');
   if (sg) {
     const cierra = sg.dataset.cierraIncidente !== undefined, id = sg.dataset.seguimiento || sg.dataset.cierraIncidente;
-    const nota = prompt(cierra ? '¿Cómo se cerró? (seguimiento hecho, responsables operativos)' : 'Seguimiento:'); if (!nota || nota.trim().length < 3) return;
+    const nota = await window.tosPrompt({ kicker: 'VISORÍA', required: true, title: cierra ? '¿Cómo se cerró?' : 'Seguimiento', placeholder: cierra ? 'Seguimiento hecho, responsables' : 'Qué pasó', multiline: true, confirmText: 'Guardar' }); if (!nota || nota.trim().length < 3) return;
     try { await rpc('v2_visoria_incident_entry', { organization_id: ctx.organization_id, incident_id: id, kind: cierra ? 'cierre' : 'seguimiento', note: nota.trim() }); incidentes = null; pintaIncidentes(); }
     catch (err) { aviso(err.message || 'No se pudo.'); }
   }
@@ -559,7 +559,7 @@ async function guardaEvaluacion() {
  * administra y sólo si no ha firmado (lo firmado se da de baja). */
 const puedeEliminar = x => !!datos?.canAdmin && !x.signed && !x.access?.consentId;
 async function eliminar(x, btn) {
-  const motivo = prompt(`Eliminar a ${x.firstName} ${x.lastName}. No se puede deshacer.\n\nMotivo:`, 'Registro de prueba');
+  const motivo = await window.tosPrompt({ kicker: 'VISORÍA', title: `¿Borrar a ${x.firstName} ${x.lastName}?`, message: 'No se puede deshacer. Motivo:', value: 'Registro de prueba', confirmText: 'Borrar', danger: true });
   if (motivo === null) return;
   if (motivo.trim().length < 3) { aviso('Escribe el motivo (3 letras o más).'); return; }
   btn.disabled = true;
@@ -607,7 +607,7 @@ async function terminaVisoria(btn) {
   const ok = window.tosConfirm ? await window.tosConfirm({ kicker: 'VISORÍA', title: abrir ? '¿Reabrir la visoría?' : '¿Terminar la visoría?',
     message: abrir ? 'Las familias podrán volver a inscribirse con la liga.' : `Ya nadie se podrá inscribir. Los ${(datos.items || []).length} inscritos, sus firmas y evaluaciones se quedan. La liga dirá que ya terminó y dejará anotar el WhatsApp para la próxima.`,
     confirmText: abrir ? 'Sí, reabrir' : 'Sí, terminar', cancelText: 'Cancelar', danger: !abrir })
-    : confirm(abrir ? '¿Reabrir la visoría?' : '¿Terminar la visoría? Nada se borra.');
+    : false;
   if (!ok) return;
   btn.disabled = true;
   try {

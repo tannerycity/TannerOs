@@ -17,7 +17,7 @@ function ringKpi(label,value,sub,progress,cls=''){const safeProgress=Math.max(0,
 function barKpi(label,value,sub,progress,cls=''){const safeProgress=Math.max(0,Math.min(100,Number(progress)||0));return `<article class="tos-kpi tos-kpi-bar ${esc(cls)}"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(sub)}</small><div class="tos-metric-track" role="img" aria-label="${esc(sub)}"><i style="width:${safeProgress}%"></i></div></article>`;}
 function iconKpi(label,value,sub,iconName='target',cls=''){return `<article class="tos-kpi tos-kpi-icon ${esc(cls)}"><span>${esc(label)}</span><div class="tos-icon-metric"><i aria-hidden="true">${shellIcon(iconName)}</i><div><strong>${esc(value)}</strong><small>${esc(sub)}</small></div></div></article>`;}
 function moneyKpi(label,amount,sub='',severity='danger'){const numeric=Number(amount||0),cls=numeric>0?severity:'good',badge=numeric>0?(severity==='attention'?'En seguimiento':'Por cobrar'):numeric<0?'A favor':'Al día',detail=numeric===0?'Sin saldo pendiente':numeric<0?'Saldo disponible':sub;return `<article class="tos-kpi tos-kpi-money ${esc(cls)}"><div class="tos-kpi-label"><span>${esc(label)}</span><em>${badge}</em></div><strong>${money.format(Math.abs(numeric))}</strong><small>${esc(detail)}</small></article>`;}
-function alert(tag,title,value,detail,type='',href=''){const body=`<span class="tos-alert-tag">${esc(tag)}</span><b>${esc(title)}${value?`<br>${esc(value)}`:''}</b><small>${esc(detail)}</small>`;return href?`<a class="tos-alert ${esc(type)}" href="${esc(href)}">${body}</a>`:`<article class="tos-alert ${esc(type)}">${body}</article>`;}
+function alerta(tag,title,value,detail,type='',href=''){const body=`<span class="tos-alert-tag">${esc(tag)}</span><b>${esc(title)}${value?`<br>${esc(value)}`:''}</b><small>${esc(detail)}</small>`;return href?`<a class="tos-alert ${esc(type)}" href="${esc(href)}">${body}</a>`:`<article class="tos-alert ${esc(type)}">${body}</article>`;}
 function countBy(rows,getter){const map=new Map();for(const row of rows||[]){const key=String(getter(row)||'').trim();if(!key)continue;map.set(key,(map.get(key)||0)+1);}return [...map.entries()].sort((a,b)=>b[1]-a[1]);}
 // Pone en mayúscula la inicial de cada palabra sin romper los acentos: con
 // /\b\w/ la ó no es \w, así que "recomendación" abría un falso límite de
@@ -50,13 +50,13 @@ async function renderDirection(){
   if(can('patrocinadores'))cards.push(kpi('Marcas activas',sponsors.filter(s=>Number(s.active_agreements||0)>0).length,`${renewal.length} por revisar`));
   const attention=[];
   const _cobrable=collection?Number(collection.total_receivable||0):0;
-  if(_cobrable>0)attention.push(alert('Atención','Cartera cobrable',money.format(_cobrable),`${collection.pending_players||0} Tanners activos con saldo por cobrar.`,'danger','/finanzas/'));
-  if(collection&&Number(collection.residual_receivable||0)>0)attention.push(alert('Atención','Arrastre de meses anteriores',money.format(Number(collection.residual_receivable)),`${collection.residual_players||0} Tanners con saldo de meses previos. Es lo más viejo por cobrar.`,'danger','/finanzas/#cobranza'));
-  if(collection&&Number(collection.needs_configuration||0)>0)attention.push(alert('Atención','Cuotas por configurar',collection.needs_configuration,'Se requiere definición antes de cobrar.','','/finanzas/'));
-  if(overdue.length)attention.push(alert('Atención','Seguimientos vencidos',overdue.length,'Fichajes requiere acción.','danger','/prospectos/'));
-  if(open.length)attention.push(alert('Oportunidad','Talento en seguimiento',open.length,'Niños en proceso de fichaje.','opportunity','/prospectos/'));
-  if(renewal.length)attention.push(alert('Oportunidad','Patrocinios por revisar',renewal.length,'Revisa convenios y renovaciones.','opportunity','/patrocinadores/'));
-  if(!attention.length)attention.push(alert('Bien','Todo en orden','','No detectamos alertas en los módulos que puedes ver.','good'));
+  if(_cobrable>0)attention.push(alerta('Atención','Cartera cobrable',money.format(_cobrable),`${collection.pending_players||0} Tanners activos con saldo por cobrar.`,'danger','/finanzas/'));
+  if(collection&&Number(collection.residual_receivable||0)>0)attention.push(alerta('Atención','Arrastre de meses anteriores',money.format(Number(collection.residual_receivable)),`${collection.residual_players||0} Tanners con saldo de meses previos. Es lo más viejo por cobrar.`,'danger','/finanzas/#cobranza'));
+  if(collection&&Number(collection.needs_configuration||0)>0)attention.push(alerta('Atención','Cuotas por configurar',collection.needs_configuration,'Se requiere definición antes de cobrar.','','/finanzas/'));
+  if(overdue.length)attention.push(alerta('Atención','Seguimientos vencidos',overdue.length,'Fichajes requiere acción.','danger','/prospectos/'));
+  if(open.length)attention.push(alerta('Oportunidad','Talento en seguimiento',open.length,'Niños en proceso de fichaje.','opportunity','/prospectos/'));
+  if(renewal.length)attention.push(alerta('Oportunidad','Patrocinios por revisar',renewal.length,'Revisa convenios y renovaciones.','opportunity','/patrocinadores/'));
+  if(!attention.length)attention.push(alerta('Bien','Todo en orden','','No detectamos alertas en los módulos que puedes ver.','good'));
   $('hubBody').innerHTML=`<section class="tos-kpis">${cards.slice(0,6).join('')}</section><section class="tos-panel"><div class="tos-panel-head"><h2>Requiere tu atención</h2></div><div class="tos-attention-list">${attention.slice(0,6).join('')}</div></section>`;
   setShellHealth(attention.some(x=>x.includes('Atención'))?{state:'attention',label:'Requiere atención'}:{state:'ok',label:'Todo en orden'});
   setShellSearchItems(players.map(p=>({label:[p.first_name,p.last_name].filter(Boolean).join(' '),meta:`Jugador · ${p.category||''}`,href:'/jugadores/'})));

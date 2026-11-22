@@ -126,27 +126,27 @@
   font-size:12.5px;
   font-weight:750;
 }
-.order-tracker-alert.cancelled{background:#f7eeee;color:#943c35;}
+.order-tracker-alert.cancelled{background:#fdecea;color:#943c35;}
 .order-tracker-alert.refunded{background:rgba(184,164,100,.18);color:#766526;}
 
 /* Tarjetas de artículo estilo e-commerce: miniatura + variantes + estado de datos */
 .item-summary{display:flex;gap:12px;align-items:flex-start;}
 .item-thumb{
   flex:0 0 auto;width:52px;height:52px;border-radius:12px;
-  background:#eef4f3;display:grid;place-items:center;color:var(--teal);
+  background:#eef2f1;display:grid;place-items:center;color:var(--teal);
 }
 .item-thumb svg{width:26px;height:26px;}
 .item-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
 .item-info strong{font-size:14px;}
 .item-chips{display:flex;flex-wrap:wrap;gap:6px;}
-.item-chip{font-size:12px;font-weight:750;padding:3px 8px;border-radius:999px;background:#edf2f1;color:#42575d;}
+.item-chip{font-size:12px;font-weight:750;padding:3px 8px;border-radius:999px;background:#eef2f1;color:#42575d;}
 .item-chip.bundle{background:rgba(184,164,100,.18);color:#766526;}
 .item-chip.muted{background:transparent;color:var(--muted);padding:3px 0;}
 .item-qty{font-size:12px;color:var(--muted);}
 .item-price{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
 .item-badge{font-size:12px;font-weight:800;padding:3px 7px;border-radius:999px;white-space:nowrap;}
 .item-badge.ok{background:#edf8f2;color:#226b45;}
-.item-badge.warn{background:#f7eeee;color:#943c35;}
+.item-badge.warn{background:#fdecea;color:#943c35;}
 
 /* Tarjeta de kit/paquete: una sola cabecera con nombre y precio total del kit;
    las piezas individuales van adentro, sin precio propio (evita mostrar precios
@@ -168,14 +168,14 @@
   background:#edf8f2;color:#226b45;
   font-weight:800;font-size:12.5px;text-decoration:none;
 }
-.whatsapp-btn:hover{background:#dcf0e6;}
+.whatsapp-btn:hover{background:#e2f1e6;}
 .whatsapp-btn svg{flex:0 0 auto;}
 
 /* Plan de pago (anticipo/50-50) dentro de COBRANZA */
 .payment-plan-box{margin-bottom:12px;}
-.payment-plan-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:#eef4f3;font-size:12.5px;font-weight:700;color:#2d4a4a;}
+.payment-plan-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:#eef2f1;font-size:12.5px;font-weight:700;color:#2d4a4a;}
 .payment-plan-row .link-toggle{width:auto;padding:0;font-size:12px;}
-.payment-plan-form{margin-top:10px;padding:12px;border-radius:12px;background:#f4f7f6;display:flex;flex-direction:column;gap:8px;}
+.payment-plan-form{margin-top:10px;padding:12px;border-radius:12px;background:#f7f9f8;display:flex;flex-direction:column;gap:8px;}
 .payment-plan-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted);}
 .payment-plan-form select,.payment-plan-form input{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);}
 .payment-plan-form button{align-self:flex-start;}
@@ -189,14 +189,14 @@
 .payment-row-main{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;}
 .payment-row-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
 .payment-row-side .link-toggle{width:auto;padding:0;font-size:12px;}
-.correct-form{margin-top:10px;padding:12px;border-radius:12px;background:#f7eeee;display:flex;flex-direction:column;gap:8px;}
+.correct-form{margin-top:10px;padding:12px;border-radius:12px;background:#fdecea;display:flex;flex-direction:column;gap:8px;}
 .correct-reason{width:100%;min-height:56px;border:1px solid #e3c9c6;border-radius:10px;padding:8px 10px;font:inherit;resize:vertical;}
 .correct-actions{display:flex;gap:8px;justify-content:flex-end;}
 .correct-actions button{padding:8px 12px;font-size:12.5px;}
 
 /* Garantía */
 .warranty-list{display:grid;gap:8px;margin-bottom:10px;}
-.warranty-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #edf2f1;}
+.warranty-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef2f1;}
 .warranty-row span{display:block;color:var(--muted);font-size:12px;margin-top:2px;}
 .warranty-row-side{display:flex;align-items:center;gap:8px;}
 .warranty-items{display:grid;gap:6px;margin-bottom:10px;}
@@ -217,4 +217,4 @@
 .cobro-unico{display:grid;gap:8px;justify-items:center}
 .cobro-unico #cobrarPedido{width:100%;min-height:52px;font-size:17px}
 /* Código de la tienda (26/10/2026, h46) */
-.order-codigo{margin:6px 0 0;padding:6px 10px;border-radius:10px;background:#e9f5ee;color:#1d7a46;font-size:13px;font-weight:700}
+.order-codigo{margin:6px 0 0;padding:6px 10px;border-radius:10px;background:#edf8f2;color:#1d7a46;font-size:13px;font-weight:700}

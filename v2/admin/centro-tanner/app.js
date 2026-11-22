@@ -116,11 +116,11 @@ function renderPolicies(panel){
       const res=await rpc('v2_centro_tanner_policy_publish',{organization_id:orgId,policy_id:btn.dataset.publish});
       await loadAll();renderPanel();
       promptChangelog(p,res?.version);
-    }catch(e){alert(e.message||'No se pudo publicar.');btn.disabled=false;}
+    }catch(e){window.tosAlert({kicker:'CENTRO TANNER',title:'No se pudo publicar',message:e.message||''});btn.disabled=false;}
   }));
   panel.querySelectorAll('[data-archive]').forEach(btn=>btn.addEventListener('click',async()=>{
-    if(!confirm('¿Archivar esta política? Dejará de verse en el sitio público.'))return;
-    btn.disabled=true;try{await rpc('v2_centro_tanner_policy_archive',{organization_id:orgId,policy_id:btn.dataset.archive});await loadAll();renderPanel();}catch(e){alert(e.message||'No se pudo archivar.');btn.disabled=false;}
+    if(!(await window.tosConfirm({kicker:'CENTRO TANNER',title:'¿Archivar esta política?',message:'Dejará de verse en el sitio público.',confirmText:'Archivar',danger:true})))return;
+    btn.disabled=true;try{await rpc('v2_centro_tanner_policy_archive',{organization_id:orgId,policy_id:btn.dataset.archive});await loadAll();renderPanel();}catch(e){window.tosAlert({kicker:'CENTRO TANNER',title:'No se pudo archivar',message:e.message||''});btn.disabled=false;}
   }));
 }
 function wirePolicyForm(){

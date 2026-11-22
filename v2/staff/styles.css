@@ -71,3 +71,6 @@
 .st-llave small{color:#5f7176;font-size:12.5px}
 .st-llave-fila{display:flex;gap:8px;margin-top:6px}
 .st-llave-fila select{flex:1;min-width:0;min-height:44px;border:1px solid #d8e0de;border-radius:12px;padding:0 10px;font:inherit;background:#fff}
+
+/* Avisos en calma: sin banner rojo de sistema. */
+.st-aviso,.st-alerta{background:#f6f3ee!important;color:#3d4a4f!important;border:0!important}

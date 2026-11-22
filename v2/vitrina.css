@@ -19,7 +19,7 @@
  * JS y las 53 revisiones del humo de Familias sin cambiar un pixel. */
 
 :root{
-  --vit-line:#e0e7e5; --vit-ink:#0d3b45; --vit-deep:#032f3b;
+  --vit-line:#dfe7e5; --vit-ink:#123a43; --vit-deep:#0e3038;
   --vit-teal:#056c7f; --vit-ok:#0b2a33;
 }
 
@@ -31,15 +31,15 @@
 /* La foto manda: es lo primero que la familia reconoce del kit. Se saca del
    padding de la tarjeta para que llegue de orilla a orilla. */
 .fam-shot{margin:-15px -15px 9px;aspect-ratio:1;display:grid;place-items:center;overflow:hidden;
-  background:linear-gradient(160deg,#eef3f4,#e2eaec);color:#9aa9ad;font-size:12px;font-weight:600}
+  background:linear-gradient(160deg,#eef2f1,#e4ebe9);color:#9aa8ac;font-size:12px;font-weight:600}
 .fam-shot img{width:100%;height:100%;object-fit:cover;display:block}
 .fam-prod strong{font-size:14px;line-height:1.25}
 .fam-prod .fam-price{font-size:19px;font-weight:600;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--fam-deep,var(--vit-deep))}
-.fam-prod p{margin:0;font-size:12px;color:#8b979c;line-height:1.35}
+.fam-prod p{margin:0;font-size:12px;color:#8a969b;line-height:1.35}
 .fam-prod select{margin-top:4px;border:1px solid var(--fam-line,var(--vit-line));
   border-radius:10px;padding:9px;min-height:44px;font:inherit;font-size:16px;background:#fff}
-.fam-prod button{margin-top:auto;min-height:44px;border:0;border-radius:11px;background:#eef5f6;color:#0c5163;
+.fam-prod button{margin-top:auto;min-height:44px;border:0;border-radius:11px;background:#eef2f1;color:#0c5464;
   font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .fam-prod button[data-in="1"]{background:var(--fam-teal,var(--vit-teal));color:#fff}
 
@@ -51,7 +51,7 @@
    familia quiere comparar dos jerseys. */
 .fam-tallas{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
 .fam-talla{min-width:44px;min-height:44px;padding:0 11px;border-radius:11px;
-  border:1px solid var(--fam-line,var(--vit-line));background:#fff;color:#33535d;
+  border:1px solid var(--fam-line,var(--vit-line));background:#fff;color:#31525c;
   font:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
 .fam-talla.activa{background:var(--fam-ink,var(--vit-ink));
   border-color:var(--fam-ink,var(--vit-ink));color:#fff}
@@ -59,7 +59,7 @@
 /* Una talla única se dice, no se ofrece: tocar "Universal" es un toque que
    no informa. */
 .fam-talla-unica{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:9px;
-  background:#eef4f3;color:#4a6870;font-size:12px;font-weight:800}
+  background:#eef2f1;color:#4a6870;font-size:12px;font-weight:800}
 
 /* ---- Nombre y número, sólo cuando ya hay talla ---- */
 .fam-pers{display:grid;grid-template-columns:1fr 62px;gap:6px;margin-top:8px}
@@ -80,9 +80,9 @@
   background:var(--fam-ok,var(--vit-ok));color:#fff;font:inherit;font-weight:900;font-size:15px;cursor:pointer}
 .fam-add:active{transform:scale(.99)}
 .fam-linea-fin{display:flex;align-items:center;gap:10px}
-.fam-quita{border:0;background:#f4f6f5;color:#7d8a8f;border-radius:9px;
+.fam-quita{border:0;background:#f7f9f8;color:#7a8a8e;border-radius:9px;
   min-width:32px;min-height:32px;font-size:14px;font-weight:900;cursor:pointer;line-height:1}
-.fam-quita:hover{background:#e8eceb;color:#a4352b}
+.fam-quita:hover{background:#e4ebe9;color:#a4352b}
 
 /* ---- La talla, plegada ----
    Antes se desplegaban las DOCE tallas en cada tarjeta, siempre: ocho
@@ -91,37 +91,37 @@
    quinta parte de pantalla. */
 .fam-talla-sel{
   width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;
-  gap:10px;padding:0 14px;border-radius:12px;border:1.5px solid #dbe5e3;background:#fff;
+  gap:10px;padding:0 14px;border-radius:12px;border:1.5px solid #dfe7e5;background:#fff;
   cursor:pointer;text-align:left;
 }
-.fam-talla-sel b{font-size:14px;font-weight:800;color:#12313a;}
-.fam-talla-sel span{font-size:12px;font-weight:700;color:#7d8f95;}
+.fam-talla-sel b{font-size:14px;font-weight:800;color:#0e3038;}
+.fam-talla-sel span{font-size:12px;font-weight:700;color:#7b8f92;}
 /* Sin talla elegida el boton se ve como lo que es: algo que falta. */
-.fam-talla-sel.vacia{border-style:dashed;border-color:#b9cdc8;}
+.fam-talla-sel.vacia{border-style:dashed;border-color:#bdceca;}
 .fam-talla-sel.vacia b{color:#2f6b60;}
 
 /* ---- El kit ----
    Va primero y ocupa el ancho: un club no vende piezas, vende el uniforme. */
 .fam-kits{display:flex;flex-direction:column;gap:12px;margin:12px 0;}
 .fam-kit{
-  background:#fff;border:1.5px solid #cfe0db;border-radius:18px;padding:16px;
+  background:#fff;border:1.5px solid #d6dfdd;border-radius:18px;padding:16px;
   display:flex;flex-direction:column;gap:12px;
   box-shadow:0 10px 24px rgba(12,48,44,.07);
 }
 .fam-kit-head{display:flex;flex-direction:column;gap:4px;}
 .fam-kit-tag{
   align-self:flex-start;font-size:12px;font-weight:800;letter-spacing:.09em;
-  padding:4px 10px;border-radius:999px;background:#0d2229;color:#e9d19c;
+  padding:4px 10px;border-radius:999px;background:#10252b;color:#e9d19c;
 }
-.fam-kit-head strong{font-size:17px;line-height:1.25;color:#0d2229;}
+.fam-kit-head strong{font-size:17px;line-height:1.25;color:#10252b;}
 .fam-kit-head .fam-price{font-size:22px;font-weight:700;letter-spacing:-.02em;
-  font-variant-numeric:tabular-nums;color:#0d2229;}
+  font-variant-numeric:tabular-nums;color:#10252b;}
 .fam-tier{display:flex;gap:8px;flex-wrap:wrap;}
 /* Las piezas del kit: se ve QUE trae antes de pedir tallas. */
 .fam-piezas{display:flex;flex-direction:column;gap:10px;}
-.fam-pieza{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid #edf2f1;}
-.fam-pieza>span{font-size:13px;font-weight:750;color:#2b3d43;}
-.fam-pieza em{font-size:12.5px;font-style:normal;font-weight:700;color:#7d8f95;}
+.fam-pieza{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid #eef2f1;}
+.fam-pieza>span{font-size:13px;font-weight:750;color:#2b3d42;}
+.fam-pieza em{font-size:12.5px;font-style:normal;font-weight:700;color:#7b8f92;}
 
 /* ---- Iniciales cuando no hay foto ----
    Taquilla ya lo hacia asi y Familias dejaba un recuadro gris. La foto cae
@@ -163,21 +163,21 @@
 .fam-grupo{display:flex;flex-direction:column;gap:2px;}
 .fam-grupo>span{
   font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  color:#8a9aa0;
+  color:#8b9c9f;
 }
 /* Al abrirse, el panel puede salirse de la tarjeta de dos columnas: se le deja
    romper el ancho para que la fila tenga donde deslizarse. */
 .fam-prod .fam-tallas{margin:0 -12px;padding:0 12px;}
 
 /* ¿Lo conviertes en kit? (13/10/2026) */
-.fam-sugiere{display:grid;gap:8px;margin-top:10px;padding:12px;border-radius:14px;background:#fff8e6;border:1px solid #f1dfae;font-size:13.5px;color:#4f3b06;line-height:1.4}
+.fam-sugiere{display:grid;gap:8px;margin-top:10px;padding:12px;border-radius:14px;background:#fff8e6;border:1px solid #f0dcb0;font-size:13.5px;color:#4f3b06;line-height:1.4}
 .fam-sugiere button{justify-self:start;min-height:40px;padding:0 16px;border:0;border-radius:999px;background:var(--fam-ink,var(--vit-ink));color:#fff;font:inherit;font-weight:800;cursor:pointer}
 .fam-convierte{margin:0 0 8px;padding:9px 11px;border-radius:11px;background:#fff8e6;color:#4f3b06;font-size:13px;font-weight:700}
-.fam-sugiere.ahorro{background:#eaf6ee;border-color:#bfe3cb;color:#1e5b33}
-.fam-price s{color:#8a979a;font-weight:600;font-size:.85em}
+.fam-sugiere.ahorro{background:#edf8f2;border-color:#bfe3cb;color:#1e5b33}
+.fam-price s{color:#8a969b;font-weight:600;font-size:.85em}
 .fam-oferta{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:#ffe9c7;color:#8a4b00;font-size:12px;font-weight:800;font-style:normal}
 /* Comprar otra vez (13/10/2026). */
-.fam-otravez{border:1px solid #d6ebe0;background:#f3faf6}
+.fam-otravez{border:1px solid #d6ebe0;background:#f7f9f8}
 .fam-otravez-que{margin:2px 0 0;font-size:14px;color:#2b4146;line-height:1.4}
 .fam-otravez-aviso{margin:8px 0 0;padding:8px 10px;border-radius:10px;background:#fff8e6;color:#6b4e08;font-size:12.5px;line-height:1.4}
 .fam-otravez-btn{width:100%;min-height:46px;margin-top:10px;border:0;border-radius:999px;background:#0b2a33;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
@@ -185,13 +185,13 @@
 /* Kit Dúo (14/10/2026): la pieza a elegir enseña sus opciones como botones. */
 .fam-pieza-elige{display:grid;gap:8px}
 .fam-elige{display:flex;flex-wrap:wrap;gap:7px}
-.fam-precios-nino{display:block;font-size:12.5px;font-weight:600;color:var(--vit-muted,#6e7b80)}
+.fam-precios-nino{display:block;font-size:12.5px;font-weight:600;color:var(--vit-muted,#6b7c80)}
 
 /* Varias tallas a la vez y "Agregar otro" (18/10/2026). */
 .fam-varias{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
-.fam-varias li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 6px 6px 12px;border-radius:12px;background:#f3f5f4}
-.fam-varias b{font-size:13.5px;color:#12313a}
+.fam-varias li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 6px 6px 12px;border-radius:12px;background:#eef2f1}
+.fam-varias b{font-size:13.5px;color:#0e3038}
 .fam-cant{display:inline-flex;align-items:center;gap:2px}
-.fam-cant button{width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:#12313a;font-size:18px;font-weight:700;cursor:pointer}
+.fam-cant button{width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:#0e3038;font-size:18px;font-weight:700;cursor:pointer}
 .fam-cant output{min-width:24px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums}
-.fam-recien{display:block;margin-top:8px;padding:8px 10px;border-radius:10px;background:#e8f4ec;color:#1d5c38;font-size:12.5px;line-height:1.35}
+.fam-recien{display:block;margin-top:8px;padding:8px 10px;border-radius:10px;background:#e4f6e9;color:#1e5b33;font-size:12.5px;line-height:1.35}

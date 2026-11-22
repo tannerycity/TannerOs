@@ -1,40 +1,40 @@
 /* Estado de cuenta del Tanner */
-.tan-head{display:flex;align-items:center;gap:16px;background:linear-gradient(115deg,var(--tos-ink-deep,#032f3b),#0d5b6d);color:#fff;border-radius:24px;padding:20px 22px;box-shadow:0 12px 32px rgba(3,47,59,.09)}
+.tan-head{display:flex;align-items:center;gap:16px;background:linear-gradient(115deg,var(--tos-ink-deep,#0e3038),#0a5c68);color:#fff;border-radius:24px;padding:20px 22px;box-shadow:0 12px 32px rgba(3,47,59,.09)}
 .tan-face{position:relative;width:72px;height:72px;flex:0 0 72px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
 .tan-face img{width:100%;height:100%;object-fit:cover;display:block}
 .tan-face b{font-size:25px;font-weight:700;letter-spacing:-.02em}
 .tan-id{min-width:0;flex:1}
 .tan-id h1{margin:0;font-size:25px;line-height:1.1;letter-spacing:-.024em}
 .tan-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
-.tan-chip{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;background:rgba(255,255,255,.14);color:#e6f3f5}
-.tan-chip[data-tone="off"]{background:rgba(255,190,180,.2);color:#ffd9d2}
+.tan-chip{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;background:rgba(255,255,255,.14);color:#e3f1f3}
+.tan-chip[data-tone="off"]{background:rgba(255,190,180,.2);color:#f7d9d4}
 
 /* Tarjeta de saldo: la cifra manda, y debajo el porqué. */
 .tan-balance{margin-top:14px;background:#fff;border:1px solid var(--tos-line,#dedbd0);border-radius:20px;padding:20px 22px;box-shadow:0 1px 2px rgba(3,47,59,.05),0 10px 26px -14px rgba(3,47,59,.18)}
-.tan-balance>span{display:block;font-size:12.5px;font-weight:600;color:#6b7a80}
+.tan-balance>span{display:block;font-size:12.5px;font-weight:600;color:#6b7c80}
 .tan-balance strong{display:block;font-size:42px;line-height:1;margin-top:8px;letter-spacing:-.036em;font-variant-numeric:tabular-nums;color:#bd2e22}
-.tan-balance[data-state="clear"] strong{color:#087c3a}
-.tan-balance[data-state="credit"] strong{color:#0d6b7d}
-.tan-balance small{display:block;margin-top:7px;font-size:12.5px;color:#8b979c;font-variant-numeric:tabular-nums}
+.tan-balance[data-state="clear"] strong{color:#0b7e3b}
+.tan-balance[data-state="credit"] strong{color:#056c7f}
+.tan-balance small{display:block;margin-top:7px;font-size:12.5px;color:#8a969b;font-variant-numeric:tabular-nums}
 .tan-split{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.tan-split-item{display:flex;flex-direction:column;gap:2px;padding:9px 13px;border-radius:12px;background:#f4f6f5;border:1px solid #e2e7e5}
-.tan-split-item span{font-size:12px;color:#6f7d82;font-weight:600}
-.tan-split-item b{font-size:16px;letter-spacing:-.02em;color:#0d2730;font-variant-numeric:tabular-nums}
+.tan-split-item{display:flex;flex-direction:column;gap:2px;padding:9px 13px;border-radius:12px;background:#f7f9f8;border:1px solid #dfe7e5}
+.tan-split-item span{font-size:12px;color:#6b7c80;font-weight:600}
+.tan-split-item b{font-size:16px;letter-spacing:-.02em;color:#0b2a33;font-variant-numeric:tabular-nums}
 .tan-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
 .tan-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 18px;border-radius:13px;font-weight:600;font-size:14px;text-decoration:none;border:1px solid transparent}
 .tan-btn[data-kind="pay"]{background:#087d8e;color:#fff}
 .tan-btn[data-kind="wa"]{background:#25D366;color:#fff}
-.tan-btn[data-kind="ghost"]{background:#fff;color:#0d2730;border-color:var(--tos-line,#dedbd0)}
+.tan-btn[data-kind="ghost"]{background:#fff;color:#0b2a33;border-color:var(--tos-line,#dedbd0)}
 
 /* Aviso cuando hay dinero del Tanner sin aplicar: explica el saldo raro. */
-.tan-note{display:flex;gap:11px;align-items:flex-start;margin-top:12px;padding:12px 14px;border-radius:13px;background:#eef5f6;border:1px solid #cfe2e5}
-.tan-note strong{display:block;font-size:13.5px;color:#0c5163}
+.tan-note{display:flex;gap:11px;align-items:flex-start;margin-top:12px;padding:12px 14px;border-radius:13px;background:#eef2f1;border:1px solid #cfe2e5}
+.tan-note strong{display:block;font-size:13.5px;color:#0c5464}
 .tan-note span{display:block;margin-top:2px;font-size:12.5px;line-height:1.4;color:#4a6870}
 
 .tan-section{margin-top:16px;background:#fff;border:1px solid var(--tos-line,#dedbd0);border-radius:20px;padding:18px}
 .tan-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px}
 .tan-section-head h2{margin:0;font-size:17px;letter-spacing:-.018em}
-.tan-section-head span{font-size:12px;color:#8b979c;font-weight:600;font-variant-numeric:tabular-nums}
+.tan-section-head span{font-size:12px;color:#8a969b;font-weight:600;font-variant-numeric:tabular-nums}
 
 /* Movimientos: cargo/abono a la izquierda, saldo corriente a la derecha.
    Es la única forma de que un número se pueda auditar de un vistazo. */
@@ -42,23 +42,23 @@
 .tan-mov{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #eeeae0}
 .tan-mov:last-child{border-bottom:0}
 .tan-dot{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:0 0 32px;background:#fdecea;color:#b4443a}
-.tan-mov[data-kind="payment"] .tan-dot{background:#e6f4ec;color:#1e6b3c}
+.tan-mov[data-kind="payment"] .tan-dot{background:#e4f6e9;color:#1e6b3c}
 .tan-dot svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tan-mov-body{min-width:0}
-.tan-mov-body strong{display:block;font-size:13.5px;line-height:1.25;color:#0d2730}
-.tan-mov-body span{display:block;margin-top:2px;font-size:12px;color:#8b979c}
+.tan-mov-body strong{display:block;font-size:13.5px;line-height:1.25;color:#0b2a33}
+.tan-mov-body span{display:block;margin-top:2px;font-size:12px;color:#8a969b}
 .tan-mov-nums{text-align:right;white-space:nowrap}
 .tan-mov-nums b{display:block;font-size:14px;letter-spacing:-.015em;font-variant-numeric:tabular-nums;color:#b4443a}
 .tan-mov[data-kind="payment"] .tan-mov-nums b{color:#1e6b3c}
-.tan-mov-nums span{display:block;margin-top:2px;font-size:12px;color:#93a0a5;font-variant-numeric:tabular-nums}
+.tan-mov-nums span{display:block;margin-top:2px;font-size:12px;color:#98a2a8;font-variant-numeric:tabular-nums}
 
 .tan-rows{display:grid;margin-top:6px}
 .tan-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #eeeae0}
 .tan-row:last-child{border-bottom:0}
-.tan-row strong{font-size:13.5px;font-weight:600;color:#0d2730}
-.tan-row small{display:block;margin-top:2px;font-size:12px;color:#8b979c}
-.tan-state{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;background:#f4f6f5;color:#6f7d82}
-.tan-state[data-ok="1"]{background:#e6f4ec;color:#1e6b3c}
+.tan-row strong{font-size:13.5px;font-weight:600;color:#0b2a33}
+.tan-row small{display:block;margin-top:2px;font-size:12px;color:#8a969b}
+.tan-state{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;background:#f7f9f8;color:#6b7c80}
+.tan-state[data-ok="1"]{background:#e4f6e9;color:#1e6b3c}
 .tan-state[data-ok="0"]{background:#fdecea;color:#b4443a}
 
 .tan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
@@ -80,42 +80,42 @@
    vistazo "¿de qué meses debe?" sin leer los movimientos uno por uno. */
 .tan-meses{display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:10px -2px 0;padding:2px}
 .tan-meses::-webkit-scrollbar{display:none}
-.tan-mes{flex:0 0 92px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 8px 11px;border-radius:16px;border:1px solid #e2e7e5;background:#f7f9f8}
-.tan-mes-nom{font-size:12px;font-weight:600;color:#6f7d82;text-transform:capitalize}
-.tan-mes b{font-size:16px;letter-spacing:-.022em;font-variant-numeric:tabular-nums;color:#0d2730}
-.tan-mes-pie{font-size:12px;font-weight:600;color:#8b979c}
-.tan-mes small{font-size:12px;color:#a3aeb2;font-variant-numeric:tabular-nums}
-.tan-mes[data-state="pagado"]{background:#f2faf5;border-color:#cfe8da}
+.tan-mes{flex:0 0 92px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 8px 11px;border-radius:16px;border:1px solid #dfe7e5;background:#f7f9f8}
+.tan-mes-nom{font-size:12px;font-weight:600;color:#6b7c80;text-transform:capitalize}
+.tan-mes b{font-size:16px;letter-spacing:-.022em;font-variant-numeric:tabular-nums;color:#0b2a33}
+.tan-mes-pie{font-size:12px;font-weight:600;color:#8a969b}
+.tan-mes small{font-size:12px;color:#9fb0b3;font-variant-numeric:tabular-nums}
+.tan-mes[data-state="pagado"]{background:#f7f9f8;border-color:#cfe8da}
 .tan-mes[data-state="pagado"] b{color:#1e6b3c}
 .tan-mes[data-state="pagado"] .tan-mes-pie{color:#3f7d5b}
-.tan-mes[data-state="vencido"]{background:#fdf1ef;border-color:#f0d0ca}
+.tan-mes[data-state="vencido"]{background:#fdf3f1;border-color:#f0d0ca}
 .tan-mes[data-state="vencido"] b{color:#bd2e22}
 .tan-mes[data-state="vencido"] .tan-mes-pie{color:#a9483d}
-.tan-mes[data-state="pendiente"]{background:#fdf8ec;border-color:#eddfba}
-.tan-mes[data-state="pendiente"] b{color:#8a6413}
+.tan-mes[data-state="pendiente"]{background:#fffaf0;border-color:#eddfba}
+.tan-mes[data-state="pendiente"] b{color:#8a6410}
 .tan-mes[data-state="pendiente"] .tan-mes-pie{color:#957430}
 
 /* "¿quién lo cobró?" en el historial de pagos. Un nombre tecleado no prueba
    nada; la cuenta desde la que se guardó, sí. */
 .tan-audit{display:block;margin-top:3px;border:0;background:none;padding:0;font:inherit;font-size:12px;font-weight:800;color:#0c5464;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .tan-audit:hover{color:#a32920}
-.tan-audit-detalle{display:block;margin-top:4px;font-size:12px;line-height:1.5;color:#5a6a70}
+.tan-audit-detalle{display:block;margin-top:4px;font-size:12px;line-height:1.5;color:#5b6b70}
 .tan-audit-detalle span{display:block}
 .tan-audit-detalle.alerta{color:#a32920;font-weight:800}
 
 /* Botón de Presidencia en los renglones del estado de cuenta. La hoja vive
    en shell.css porque también la usa Finanzas (cargo masivo). */
-.tan-pres{color:#8a5a12!important}
+.tan-pres{color:#8a5c00!important}
 
 /* La nota de saldo a favor vive dentro de .tan-balance y heredaba la cifra
    grande (42px) del saldo. */
-.tan-balance .tan-note strong{font-size:13.5px;line-height:1.3;margin-top:0;letter-spacing:normal;color:#0c5163}
+.tan-balance .tan-note strong{font-size:13.5px;line-height:1.3;margin-top:0;letter-spacing:normal;color:#0c5464}
 .tan-balance .tan-note .tan-dot{flex:0 0 28px;width:28px;height:28px;display:grid;place-items:center;border-radius:9px}
 .tan-balance .tan-note .tan-dot svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
 /* Cambios al saldo: interno, no sale en el PDF. */
-.tan-cambios .tan-section-head span{color:#8a5a12}
-.tan-motivo{display:block;margin-top:3px;font-style:italic;color:#5c6f74;font-size:12px}
-.tan-mov[data-kind="cambio"] .tan-dot{background:#f7f0dc;color:#8a6413}
+.tan-cambios .tan-section-head span{color:#8a5c00}
+.tan-motivo{display:block;margin-top:3px;font-style:italic;color:#5f7076;font-size:12px}
+.tan-mov[data-kind="cambio"] .tan-dot{background:#fdf2dc;color:#8a6410}
 
 /* Un mes que se debe es un botón: se toca y abre el cobro de ese mes. */
 button.tan-mes{font:inherit;cursor:pointer;color:inherit;transition:transform .12s ease,box-shadow .12s ease}
@@ -125,26 +125,26 @@ button.tan-btn{font:inherit;font-weight:600;font-size:14px;cursor:pointer}
 
 /* Acuerdo de pago: cuánto lleva, cada pago y el que sigue. */
 .tan-acuerdo{border-color:#cfe2e5}
-.tan-acuerdo[data-tono="mal"]{border-color:#f0d0ca;background:#fffaf9}
-.tan-acuerdo[data-tono="bien"]{border-color:#cfe8da;background:#f8fcf9}
-.tan-barra{height:8px;border-radius:99px;background:#e8edec;overflow:hidden;margin-top:10px}
+.tan-acuerdo[data-tono="mal"]{border-color:#f0d0ca;background:#f7f9f8}
+.tan-acuerdo[data-tono="bien"]{border-color:#cfe8da;background:#f7f9f8}
+.tan-barra{height:8px;border-radius:99px;background:#e4ebe9;overflow:hidden;margin-top:10px}
 .tan-barra i{display:block;height:100%;border-radius:99px;background:#087d8e}
 .tan-acuerdo[data-tono="mal"] .tan-barra i{background:#bd2e22}
 .tan-acuerdo[data-tono="bien"] .tan-barra i{background:#1e8a4c}
-.tan-acuerdo-sub{margin:10px 0 0;font-size:13.5px;font-weight:600;color:#0d2730}
-.tan-acuerdo[data-tono="mal"] .tan-acuerdo-sub{color:#a9372b}
+.tan-acuerdo-sub{margin:10px 0 0;font-size:13.5px;font-weight:600;color:#0b2a33}
+.tan-acuerdo[data-tono="mal"] .tan-acuerdo-sub{color:#a53c2f}
 .tan-pagos{list-style:none;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px -2px 0;padding:2px}
 .tan-pagos::-webkit-scrollbar{display:none}
-.tan-pagos li{flex:0 0 96px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:14px;border:1px solid #e2e7e5;background:#f7f9f8}
-.tan-pagos li span{font-size:12px;font-weight:600;color:#6f7d82}
-.tan-pagos li b{font-size:15px;font-variant-numeric:tabular-nums;color:#0d2730}
-.tan-pagos li small{font-size:12px;font-weight:700;color:#8b979c}
-.tan-pagos li[data-state="paid"]{background:#f2faf5;border-color:#cfe8da}
+.tan-pagos li{flex:0 0 96px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:14px;border:1px solid #dfe7e5;background:#f7f9f8}
+.tan-pagos li span{font-size:12px;font-weight:600;color:#6b7c80}
+.tan-pagos li b{font-size:15px;font-variant-numeric:tabular-nums;color:#0b2a33}
+.tan-pagos li small{font-size:12px;font-weight:700;color:#8a969b}
+.tan-pagos li[data-state="paid"]{background:#f7f9f8;border-color:#cfe8da}
 .tan-pagos li[data-state="paid"] small{color:#3f7d5b}
-.tan-pagos li[data-state="late"]{background:#fdf1ef;border-color:#f0d0ca}
+.tan-pagos li[data-state="late"]{background:#fdf3f1;border-color:#f0d0ca}
 .tan-pagos li[data-state="late"] b,.tan-pagos li[data-state="late"] small{color:#bd2e22}
 .tan-acuerdo-nota{margin:10px 0 0;font-size:13px;color:#4a6870;font-style:italic}
-.tan-acuerdo-quien{display:block;margin-top:8px;font-size:12px;color:#8b979c}
+.tan-acuerdo-quien{display:block;margin-top:8px;font-size:12px;color:#8a969b}
 
 /* Seguimiento: anotar en un toque y ver lo que ya se habló. */
 .tan-nota-form{display:grid;gap:8px;margin:10px 0 4px}
@@ -154,27 +154,27 @@ button.tan-btn{font:inherit;font-weight:600;font-size:14px;cursor:pointer}
 .tan-nota .tan-mov-body strong{font-weight:600}
 .tan-nota[data-kind="agreement"] .tan-dot{background:#e3f1f3;color:#05505d}
 .tan-nota[data-kind="whatsapp"] .tan-dot{background:#e4f6e9;color:#11773c}
-.tan-nota-vacia{margin:8px 0 0;font-size:13px;color:#8b979c}
+.tan-nota-vacia{margin:8px 0 0;font-size:13px;color:#8a969b}
 
 /* Hoja del acuerdo y de los mensajes. */
 .pres-seg.cb-seg2{grid-template-columns:1fr 1fr}
 .cb-dos{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .cb-stepper{display:flex;align-items:center;justify-content:space-between;min-height:46px;border:1px solid #d6dfdd;border-radius:12px;padding:0 6px;background:#fff}
-.cb-stepper button{width:36px;height:36px;border:0;border-radius:10px;background:#eef2f1;font:inherit;font-size:18px;font-weight:800;color:#0d2730;cursor:pointer}
-.cb-stepper b{font-size:17px;color:#0d2730}
+.cb-stepper button{width:36px;height:36px;border:0;border-radius:10px;background:#eef2f1;font:inherit;font-size:18px;font-weight:800;color:#0b2a33;cursor:pointer}
+.cb-stepper b{font-size:17px;color:#0b2a33}
 .cb-filas{display:grid;gap:7px}
 .cb-fila{display:grid;grid-template-columns:64px 1fr 120px;align-items:center;gap:8px}
-.cb-fila>span:first-child{font-size:12px;font-weight:700;color:#354f55}
+.cb-fila>span:first-child{font-size:12px;font-weight:700;color:#3c4e52}
 .cb-mensajes{display:grid;gap:8px}
 .cb-mensaje{display:grid;gap:4px;text-align:left;border:1px solid #d6dfdd;border-radius:14px;padding:12px 14px;background:#fff;font:inherit;cursor:pointer}
-.cb-mensaje strong{font-size:14px;color:#0d2730}
-.cb-mensaje span{font-size:12.5px;line-height:1.4;color:#5c6f74;white-space:pre-line}
-.cb-mensaje:hover{border-color:#25D366;background:#f5fcf7}
+.cb-mensaje strong{font-size:14px;color:#0b2a33}
+.cb-mensaje span{font-size:12.5px;line-height:1.4;color:#5f7076;white-space:pre-line}
+.cb-mensaje:hover{border-color:#25D366;background:#f7f9f8}
 @media (max-width:420px){.cb-fila{grid-template-columns:52px 1fr 104px}}
 
 /* Contacto del tutor: se lee como lo dice la gente y se usa con un toque. */
 .tan-contacto-acciones{display:flex;gap:6px;flex:0 0 auto}
-.tan-pill{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--tos-line,#dedbd0);background:#fff;font-size:12.5px;font-weight:700;color:#0d2730;text-decoration:none}
+.tan-pill{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--tos-line,#dedbd0);background:#fff;font-size:12.5px;font-weight:700;color:#0b2a33;text-decoration:none}
 .tan-pill[data-kind="wa"]{background:#25D366;border-color:#25D366;color:#fff}
 .tan-tel{white-space:nowrap}
 
@@ -186,20 +186,20 @@ button.tan-btn{font:inherit;font-weight:600;font-size:14px;cursor:pointer}
 .tan-balance-top{padding:20px 22px 18px}
 .tan-balance .tan-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .tan-balance .tan-actions .tan-btn{min-height:50px;border-radius:14px;font-size:15px}
-.tan-balance>.tan-lista{border-top:1px solid #eceae2;border-radius:0;box-shadow:none;background:#fbfcfb}
+.tan-balance>.tan-lista{border-top:1px solid #eeeae0;border-radius:0;box-shadow:none;background:#f7f9f8}
 
 .tan-grupo{margin-top:22px}
-.tan-grupo-tit{margin:0 0 7px 16px;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#7b8a8f}
-.tan-grupo-pie{margin:7px 16px 0;font-size:12.5px;line-height:1.4;color:#8b979c}
+.tan-grupo-tit{margin:0 0 7px 16px;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#7a8a8e}
+.tan-grupo-pie{margin:7px 16px 0;font-size:12.5px;line-height:1.4;color:#8a969b}
 .tan-grupo-pie a{color:#087d8e;font-weight:600;text-decoration:none}
 .tan-lista{background:#fff;border:1px solid var(--tos-line,#dedbd0);border-radius:16px;overflow:hidden}
-.tan-fila{box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;margin:0;border:0;background:transparent;font:inherit;text-align:left;color:#0d2730;text-decoration:none;position:relative}
-.tan-fila+.tan-fila::before{content:"";position:absolute;top:0;left:58px;right:0;height:1px;background:#eceae2}
+.tan-fila{box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;margin:0;border:0;background:transparent;font:inherit;text-align:left;color:#0b2a33;text-decoration:none;position:relative}
+.tan-fila+.tan-fila::before{content:"";position:absolute;top:0;left:58px;right:0;height:1px;background:#eeeae0}
 button.tan-fila,a.tan-fila{cursor:pointer;transition:background .12s ease}
-button.tan-fila:hover,a.tan-fila:hover{background:#f5f7f6}
-button.tan-fila:active,a.tan-fila:active{background:#eceff0}
+button.tan-fila:hover,a.tan-fila:hover{background:#f7f9f8}
+button.tan-fila:active,a.tan-fila:active{background:#eef2f1}
 button.tan-fila:disabled{opacity:.55}
-.tan-fila-ico{flex:0 0 30px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;background:#8e9aa0}
+.tan-fila-ico{flex:0 0 30px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;background:#8b9c9f}
 .tan-fila-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tan-fila-ico[data-tono="azul"]{background:#0a84ff}
 .tan-fila-ico[data-tono="verde"]{background:#0b2a33}
@@ -208,11 +208,11 @@ button.tan-fila:disabled{opacity:.55}
 .tan-fila-ico[data-tono="morado"]{background:#af52de}
 .tan-fila-txt{flex:1;min-width:0}
 .tan-fila-txt strong{display:block;font-size:15px;font-weight:600;line-height:1.25;letter-spacing:-.01em}
-.tan-fila-txt small{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:#7b8a8f}
-.tan-fila-valor{flex:0 0 auto;font-size:15px;color:#5c6f74;font-variant-numeric:tabular-nums;white-space:nowrap}
-.tan-fila-valor[data-vacio]{color:#a3aeb2}
-.tan-fila[data-cuota] .tan-fila-valor{color:#0d2730;font-weight:600}
-.tan-fila-flecha{flex:0 0 auto;font-size:22px;line-height:1;color:#c3cacc;margin-left:-4px}
+.tan-fila-txt small{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:#7a8a8e}
+.tan-fila-valor{flex:0 0 auto;font-size:15px;color:#5f7076;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tan-fila-valor[data-vacio]{color:#9fb0b3}
+.tan-fila[data-cuota] .tan-fila-valor{color:#0b2a33;font-weight:600}
+.tan-fila-flecha{flex:0 0 auto;font-size:22px;line-height:1;color:#c7c7cc;margin-left:-4px}
 .tan-fila[data-alerta] .tan-fila-txt small{color:#b4443a;font-weight:600}
 .tan-fila .tan-contacto-acciones{flex:0 0 auto}
 
@@ -222,9 +222,9 @@ button.tan-fila:disabled{opacity:.55}
 .tan-grid+.tan-section,.tan-grid+.tan-acuerdo{margin-top:22px}
 
 /* Hoja de la mensualidad: lo de hoy, grande. */
-.pres-cuota{display:flex;align-items:baseline;justify-content:space-between;padding:12px 14px;border-radius:14px;background:#f4f6f5}
-.pres-cuota span{font-size:13px;font-weight:600;color:#6f7d82}
-.pres-cuota b{font-size:22px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#0d2730}
+.pres-cuota{display:flex;align-items:baseline;justify-content:space-between;padding:12px 14px;border-radius:14px;background:#f7f9f8}
+.pres-cuota span{font-size:13px;font-weight:600;color:#6b7c80}
+.pres-cuota b{font-size:22px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#0b2a33}
 
 @media(max-width:760px){
   .tan-balance-top{padding:17px 18px 16px}
@@ -233,8 +233,8 @@ button.tan-fila:disabled{opacity:.55}
   .tan-fila .tan-contacto-acciones .tan-pill{padding:0 10px}
 }
 /* Los renglones viven dentro de la tarjeta de saldo: no heredan la cifra. */
-.tan-balance .tan-fila-txt strong{font-size:15px;line-height:1.25;margin-top:0;letter-spacing:-.01em;color:#0d2730;font-variant-numeric:normal}
-.tan-balance .tan-fila-txt small{margin-top:2px;font-size:12.5px;color:#7b8a8f}
+.tan-balance .tan-fila-txt strong{font-size:15px;line-height:1.25;margin-top:0;letter-spacing:-.01em;color:#0b2a33;font-variant-numeric:normal}
+.tan-balance .tan-fila-txt small{margin-top:2px;font-size:12.5px;color:#7a8a8e}
 
 /* ===== Paquete y becas (h62, 04/11/2026) ===== */
 .tan-chip[data-tone="paquete"]{background:#0b2a33;color:#06321a}
@@ -243,32 +243,32 @@ button.tan-fila:disabled{opacity:.55}
 /* Botones de un renglón: 44 px, lo mínimo cómodo para un dedo (Apple). */
 .tan-fila .tan-pill{min-height:44px;padding:0 14px}
 .pq-opciones{display:grid;gap:8px}
-.pq-op{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:10px 14px;border:1px solid #d6dfdd;border-radius:14px;background:#fff;font:inherit;text-align:left;color:#0d2730;cursor:pointer}
-.pq-op[aria-checked="true"]{border-color:#0a84ff;box-shadow:0 0 0 2px rgba(10,132,255,.18);background:#f5f9ff}
+.pq-op{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:10px 14px;border:1px solid #d6dfdd;border-radius:14px;background:#fff;font:inherit;text-align:left;color:#0b2a33;cursor:pointer}
+.pq-op[aria-checked="true"]{border-color:#0a84ff;box-shadow:0 0 0 2px rgba(10,132,255,.18);background:#f7f9f8}
 .pq-op:disabled{opacity:.5;cursor:default}
-.pq-radio{flex:0 0 22px;width:22px;height:22px;border-radius:50%;border:2px solid #c3cacc;box-sizing:border-box}
+.pq-radio{flex:0 0 22px;width:22px;height:22px;border-radius:50%;border:2px solid #c7c7cc;box-sizing:border-box}
 .pq-op[aria-checked="true"] .pq-radio{border:7px solid #0a84ff}
 .pq-txt{flex:1;min-width:0}
 .pq-txt strong{display:block;font-size:15px}
 .pq-txt strong em{font-style:normal;font-size:12px;font-weight:700;color:#0a84ff;background:#e5f0ff;border-radius:6px;padding:2px 6px;margin-left:4px;vertical-align:2px}
-.pq-txt small{display:block;margin-top:2px;font-size:12.5px;color:#7b8a8f}
+.pq-txt small{display:block;margin-top:2px;font-size:12.5px;color:#7a8a8e}
 .pq-precio{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
 
 /* Movimientos plegados: el detalle a un toque. */
 .tan-plegable{margin-top:22px;background:#fff;border:1px solid var(--tos-line,#dedbd0);border-radius:16px;overflow:hidden}
 .tan-plegable>summary{list-style:none;display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 14px;cursor:pointer}
 .tan-plegable>summary::-webkit-details-marker{display:none}
-.tan-plegable>summary .tan-fila-txt strong{font-size:15px;color:#0d2730}
+.tan-plegable>summary .tan-fila-txt strong{font-size:15px;color:#0b2a33}
 .tan-plegable[open]>summary .tan-fila-flecha{transform:rotate(90deg)}
-.tan-plegable>.tan-section{margin:0;border:0;border-top:1px solid #eceae2;border-radius:0}
+.tan-plegable>.tan-section{margin:0;border:0;border-top:1px solid #eeeae0;border-radius:0}
 /* El botón flotante no tapa lo último de la pantalla. */
 body[data-hub="tanner"] .tos-content{padding-bottom:calc(env(safe-area-inset-bottom) + 110px)}
 /* Cambiar lo que debe / Editar pago (08/11/2026) */
 #presCambio{display:grid;gap:10px}
-.pres-sube{padding:10px 12px;border-radius:12px;background:#fff4e5;color:#7a4b00}
+.pres-sube{padding:10px 12px;border-radius:12px;background:#fff8e6;color:#7a4b00}
 .pres-cuota span{font-size:12.5px}
 .pres-cuota b{font-size:18px}
-.pres-link-peligro{justify-self:center;min-height:44px;border:0;background:transparent;font:inherit;font-size:14px;font-weight:700;color:#b42318;cursor:pointer}
+.pres-link-peligro{justify-self:center;min-height:44px;border:0;background:transparent;font:inherit;font-size:14px;font-weight:700;color:#b3261e;cursor:pointer}
 /* El seguimiento no se sale del teléfono (08/11/2026): sus columnas pueden
    encogerse; antes empujaba 8 px de scroll horizontal a 390 px. */
 .tan-nota-form{min-width:0;max-width:100%}

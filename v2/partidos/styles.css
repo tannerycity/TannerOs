@@ -1,6 +1,6 @@
 /* Partidos · mismo lenguaje que Asistencia: la cancha arriba, un marcador de
    estadio y estampas para los Tanners. */
-.pt,.pt-partido,.pt-hoja{--oro:#d6c27d;--ok:#0b2a33;--mal:#d0453f;--aten:#d49a1c;--gris:#6d8389}
+.pt,.pt-partido,.pt-hoja{--oro:#d6c27d;--ok:#0b2a33;--mal:#d0453f;--aten:#d49a1c;--gris:#718386}
 .pt{display:grid;gap:12px;padding-bottom:90px;grid-template-columns:minmax(0,1fr)}
 /* La fila de categorías se desliza; sin esto su ancho estiraba toda la
    columna y en iPhone se cortaban el encabezado y las pestañas (19/10/2026,
@@ -20,7 +20,7 @@
 .pt-nuevo{appearance:none;border:0;border-radius:14px;padding:10px 14px;font-weight:950;font-size:14px;background:#fff;color:#07191e;cursor:pointer;white-space:nowrap}
 .pt-nuevo b{font-size:18px;line-height:1}
 
-.pt-tabs{display:flex;gap:6px;background:#e7edeb;border-radius:999px;padding:4px}
+.pt-tabs{display:flex;gap:6px;background:#e4ebe9;border-radius:999px;padding:4px}
 .pt-tabs button{flex:1;border:0;background:transparent;border-radius:999px;padding:10px;font-weight:900;font-size:13px;color:var(--muted);cursor:pointer}
 .pt-tabs button.activo{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(7,25,30,.14)}
 
@@ -43,7 +43,7 @@
 .pt-score small{font-size:12px;font-weight:950}
 .pt-ok{background:#e4f6e9;color:#11773c}
 .pt-atencion{background:#fdf2dc;color:#8a6410}
-.pt-bajo{background:#ffe9e6;color:#a32920}
+.pt-bajo{background:#fdecea;color:#a32920}
 .pt-pend{font-size:12px;font-weight:900;color:#8a6410;background:#fdf2dc;border-radius:999px;padding:4px 9px;white-space:nowrap}
 .pt-vacio{margin:0;color:var(--muted);font-weight:700;font-size:13px;text-align:center;padding:8px 0}
 
@@ -68,7 +68,7 @@
 .pt-top-txt small{font-size:12px;color:var(--muted)}
 .pt-top-fila>b{font-size:22px;font-weight:950;font-style:italic;font-variant-numeric:tabular-nums}
 .pt-sin{display:flex;flex-wrap:wrap;gap:6px}
-.pt-sin span{background:#fff8f7;border:1px solid #f1d3d0;border-radius:999px;padding:5px 10px;font-size:12.5px;font-weight:850}
+.pt-sin span{background:#f7f9f8;border:1px solid #f0d0ca;border-radius:999px;padding:5px 10px;font-size:12.5px;font-weight:850}
 .pt-sin small{margin-left:5px;color:var(--muted);font-weight:700}
 .pt-porcat{display:grid;gap:8px}
 .pt-porcat div{display:flex;justify-content:space-between;gap:10px;font-size:13px;flex-wrap:wrap}
@@ -76,7 +76,7 @@
 .pt-porcat .g{color:#11773c}.pt-porcat .e{color:#8a6410}.pt-porcat .p{color:#a32920}
 
 /* El partido: pantalla completa en el celular */
-.pt-partido{width:min(780px,94vw);height:min(900px,92vh);padding:0!important;display:flex;flex-direction:column;overflow:auto;background:#f3f6f5}
+.pt-partido{width:min(780px,94vw);height:min(900px,92vh);padding:0!important;display:flex;flex-direction:column;overflow:auto;background:#f7f9f8}
 .pp-cab{position:sticky;top:0;z-index:3;color:#fff;padding:max(14px,env(safe-area-inset-top)) 16px 12px;
   background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(255,255,255,.08) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px)),linear-gradient(160deg,#0b4a43,#07191e);
   box-shadow:0 8px 20px rgba(7,25,30,.18)}
@@ -99,7 +99,7 @@
 .pp-golchip small{font-weight:700;opacity:.75}
 .pp-golchip button{appearance:none;border:0;background:rgba(0,0,0,.25);color:#fff;width:20px;height:20px;border-radius:50%;font-size:13px;line-height:1;cursor:pointer}
 
-.pp-tabs{display:flex;gap:6px;margin:12px 14px 0;background:#e7edeb;border-radius:999px;padding:4px}
+.pp-tabs{display:flex;gap:6px;margin:12px 14px 0;background:#e4ebe9;border-radius:999px;padding:4px}
 .pp-tabs button{flex:1;border:0;background:transparent;border-radius:999px;padding:9px;font-weight:900;font-size:13px;color:var(--muted);cursor:pointer}
 .pp-tabs button.activo{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(7,25,30,.14)}
 .pp-tabs b{margin-left:4px;font-weight:950}
@@ -113,9 +113,9 @@
   box-shadow:0 0 0 2px var(--c),0 4px 12px rgba(7,25,30,.06);-webkit-user-select:none;user-select:none;touch-action:manipulation}
 .pp-toque:active{transform:scale(.95)}
 .pp-toque:disabled{cursor:default}
-.pp-cara{position:relative;width:100%;aspect-ratio:1;border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#dfe9e6,#c7d6d2);display:grid;place-items:center}
+.pp-cara{position:relative;width:100%;aspect-ratio:1;border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#dfe7e5,#c9d4d6);display:grid;place-items:center}
 .pp-cara img{width:100%;height:100%;object-fit:cover;display:block}
-.pp-cara>span{font-size:22px;font-weight:950;font-style:italic;color:#4a6268}
+.pp-cara>span{font-size:22px;font-weight:950;font-style:italic;color:#4b6066}
 .pp-cara em{position:absolute;left:5px;bottom:5px;font-style:normal;font-size:12px;font-weight:950;background:#07191e;color:#fff;border-radius:7px;padding:1px 6px}
 .pp-nombre{display:grid;line-height:1.1;min-width:0}
 .pp-nombre strong{font-size:13px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -126,13 +126,13 @@
 .pp-estampa.st-poco{--c:var(--aten)}
 .pp-estampa.st-no_jugo{--c:var(--gris)}
 .pp-estampa.st-no_llego{--c:var(--mal)}
-.pp-estampa.st-nova{--c:#cbd7d4}
+.pp-estampa.st-nova{--c:#c9d4d6}
 .pp-estampa.st-nova .pp-estado{color:#4b6066}
 .pp-estampa.st-nova .pp-cara img,.pp-estampa.st-no_llego .pp-cara img,.pp-estampa.st-no_jugo .pp-cara img{filter:grayscale(1);opacity:.55}
 .pp-mas{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;border:0;padding:0;cursor:pointer;background:rgba(7,25,30,.55);display:flex;align-items:center;justify-content:center;gap:2.5px}
 .pp-mas i{width:3.5px;height:3.5px;border-radius:50%;background:#fff}
 
-.pp-guardar{position:sticky;bottom:0;z-index:3;margin-top:auto;padding:16px 14px max(14px,env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(243,246,245,0),#f3f6f5 30%);display:grid;gap:8px}
+.pp-guardar{position:sticky;bottom:0;z-index:3;margin-top:auto;padding:16px 14px max(14px,env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(243,246,245,0),#f7f9f8 30%);display:grid;gap:8px}
 .pp-guardar .inline-message{margin:0}
 .pp-botones{display:grid;grid-template-columns:auto 1fr;gap:8px}
 .pp-botones .secondary{min-height:54px;border-radius:16px}
@@ -143,14 +143,14 @@
 .pt-hoja-fondo{position:fixed;inset:0;z-index:9992;background:rgba(6,20,24,.5)}
 .pt-hoja{position:fixed;z-index:9993;left:50%;bottom:0;transform:translateX(-50%);width:min(520px,100vw);max-height:90vh;overflow:auto;background:#fff;
   border-radius:24px 24px 0 0;padding:8px 16px max(16px,env(safe-area-inset-bottom));display:grid;gap:10px;box-shadow:0 -20px 60px rgba(0,0,0,.25)}
-.pt-asa{width:38px;height:5px;border-radius:9px;background:#d5dedc;justify-self:center}
+.pt-asa{width:38px;height:5px;border-radius:9px;background:#d6dfdd;justify-self:center}
 .pt-hoja h3{margin:0;font-size:19px;font-weight:950}
 #hjCuerpo{display:grid;gap:10px}
-.hj-et{margin:0;font-size:12px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.06em}
+.hj-et{margin:0;font-size:12px;font-weight:900;color:#7a8a8e;text-transform:uppercase;letter-spacing:.06em}
 .hj-chips{display:flex;flex-wrap:wrap;gap:6px}
 .hj-chips button{border:1.5px solid var(--line);background:#f7f9f8;border-radius:12px;padding:9px 12px;font-weight:900;font-size:13.5px;cursor:pointer;color:var(--ink)}
 .hj-chips button.activo{background:#07191e;border-color:#07191e;color:#fff}
-.hj-campo{display:grid;gap:5px;font-size:12px;font-weight:900;color:#7d8c91;text-transform:uppercase;letter-spacing:.06em}
+.hj-campo{display:grid;gap:5px;font-size:12px;font-weight:900;color:#7a8a8e;text-transform:uppercase;letter-spacing:.06em}
 .hj-campo input,.hj-otra{font-size:16px;text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink)}
 .hj-dos{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:end}
 .hj-caras{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -187,16 +187,16 @@
 .pp-menu i{width:4px;height:4px;border-radius:50%;background:#fff}
 .hj-accion{appearance:none;border:1.5px solid var(--line);background:#f7f9f8;border-radius:14px;padding:12px 14px;text-align:left;font-weight:900;font-size:15px;color:var(--ink);cursor:pointer;display:grid;gap:2px}
 .hj-accion small{font-size:12px;font-weight:650;color:var(--muted)}
-.hj-peligro{color:#a32920;border-color:#f1d3d0;background:#fff8f7}
+.hj-peligro{color:#a32920;border-color:#f0d0ca;background:#f7f9f8}
 
 /* Invitar de otra categoría (14/10/2026) */
-.pp-herr .pp-invitar{margin-left:auto;background:#e8f6ec;border-color:#bfe5c9;color:#1e6b3c}
-.pp-de{display:inline-block;margin-top:2px;padding:1px 6px;border-radius:999px;background:#eef3ff;color:#2f5bd3;font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pp-herr .pp-invitar{margin-left:auto;background:#e4f6e9;border-color:#bfe3cb;color:#1e6b3c}
+.pp-de{display:inline-block;margin-top:2px;padding:1px 6px;border-radius:999px;background:#eef6ff;color:#2f5bd3;font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .pp-vacio-cat{grid-column:1/-1;display:grid;gap:4px;justify-items:center;text-align:center;padding:28px 16px;color:var(--muted)}
 .pp-vacio-cat p{margin:0;font-size:14px}
 .pp-vacio-cat b{color:var(--ink)}
 .pp-invitar-grande{margin-top:10px;border:0;border-radius:14px;padding:14px 22px;background:#0b2a33;color:#fff;font:inherit;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 8px 20px rgba(31,157,85,.25)}
-.inv-busca{width:100%;min-height:44px;border:0;border-radius:12px;background:#eceff0;padding:0 14px;font:inherit;font-size:15px;box-sizing:border-box}
+.inv-busca{width:100%;min-height:44px;border:0;border-radius:12px;background:#eef2f1;padding:0 14px;font:inherit;font-size:15px;box-sizing:border-box}
 .inv-cats{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:10px 0}
 .inv-cats::-webkit-scrollbar{display:none}
 .inv-cats button{flex:0 0 auto;border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font:inherit;font-weight:800;font-size:13px;cursor:pointer}
@@ -204,7 +204,7 @@
 .inv-lista{display:grid;gap:6px;max-height:52vh;overflow-y:auto}
 .inv-fila{display:flex;align-items:center;gap:10px;border:0;background:#f7f9f8;border-radius:14px;padding:8px 10px;font:inherit;text-align:left;cursor:pointer}
 .inv-fila.va{opacity:.6;cursor:default}
-.inv-cara{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#dfe8e6;font-weight:900;font-size:13px;flex:0 0 auto}
+.inv-cara{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#dfe7e5;font-weight:900;font-size:13px;flex:0 0 auto}
 .inv-txt{display:grid;flex:1;min-width:0}
 .inv-txt b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .inv-txt small{font-size:12px;color:var(--muted)}
@@ -214,7 +214,7 @@
 /* Estadísticas: cada bloque con su aire (iban pegados). */
 #ptStats:not(.hidden){display:grid;gap:10px}
 /* "+ Otro niño" en la hoja del gol (05/11/2026): busca en todo el club. */
-.hj-caras .hj-otro .pp-cara{border:2px dashed #9fb3b1;background:#f4f7f6}
+.hj-caras .hj-otro .pp-cara{border:2px dashed #9fb4ae;background:#f7f9f8}
 .hj-caras .hj-otro .pp-cara span{font-size:30px;font-weight:700;color:#3d6f78}
 .hj-caras .hj-otro small{color:#3d6f78}
 
@@ -226,5 +226,5 @@
 .pt-hoja .pt-asa{margin-top:8px}
 .hj-cab{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 -16px;padding:6px 12px 8px 16px;background:#fff}
 .hj-cab h3{min-width:0}
-.hj-cerrar{flex:0 0 44px;width:44px;height:44px;border:0;border-radius:50%;background:#eef2f1;color:#2b4248;font-size:28px;line-height:1;font-weight:500;cursor:pointer;display:grid;place-items:center}
+.hj-cerrar{flex:0 0 44px;width:44px;height:44px;border:0;border-radius:50%;background:#eef2f1;color:#2b4146;font-size:28px;line-height:1;font-weight:500;cursor:pointer;display:grid;place-items:center}
 .hj-cerrar:active{transform:scale(.94)}

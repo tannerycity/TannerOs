@@ -259,7 +259,7 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   await pg.waitForTimeout(300);
   const st = (await llamadas(pg, 'v2_update_order_status'))[0];
   revisa('5. Entregado desde la lista', st?.order_id === 'o-viejo' && st?.new_status === 'delivered', JSON.stringify(st));
-  await pg.click('.order-row[data-order-id="o-viejo"]');
+  await pg.click('.order-row[data-order-id="o-viejo"] .order-who');
   await pg.waitForSelector('#pasoAcciones:not(.hidden)', { timeout:4000 }).catch(() => {});
   const acc = await pg.$$eval('#pasoAcciones [data-paso]', bs => bs.map(b => b.dataset.paso));
   if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/etapas-pedido.png` });

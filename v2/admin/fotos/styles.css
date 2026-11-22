@@ -1,42 +1,42 @@
 .thumbs-page{max-width:900px}
 .thumbs-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-.thumbs-stats article{display:grid;gap:3px;padding:14px;border-radius:14px;background:#f4f8f7}
-.thumbs-stats span{font-size:12px;font-weight:900;letter-spacing:.06em;color:#6e7b80}
+.thumbs-stats article{display:grid;gap:3px;padding:14px;border-radius:14px;background:#f7f9f8}
+.thumbs-stats span{font-size:12px;font-weight:900;letter-spacing:.06em;color:#6b7c80}
 .thumbs-stats strong{font-size:26px;letter-spacing:-.02em;color:var(--tos-ink,#0b1418)}
-.thumbs-stats article[data-tone="warn"]{background:#fdf6ea}
-.thumbs-stats article[data-tone="warn"] strong{color:#8a6413}
-.thumbs-stats article[data-tone="ok"]{background:#eef7f1}
-.thumbs-stats article[data-tone="ok"] strong{color:#15753f}
+.thumbs-stats article[data-tone="warn"]{background:#fff3e6}
+.thumbs-stats article[data-tone="warn"] strong{color:#8a6410}
+.thumbs-stats article[data-tone="ok"]{background:#edf8f2}
+.thumbs-stats article[data-tone="ok"] strong{color:#11773c}
 .thumbs-hint{margin:0 0 14px;font-size:13px;line-height:1.5;color:#5f7076}
-.thumbs-bar{height:10px;border-radius:99px;background:#e9eeef;overflow:hidden;margin-bottom:12px}
+.thumbs-bar{height:10px;border-radius:99px;background:#ececf1;overflow:hidden;margin-bottom:12px}
 .thumbs-bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--tos-teal);transition:width .2s}
 .thumbs-message{border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:13px;font-weight:700;
-  background:#ffe8e4;color:#a52b22}
-.thumbs-message[data-type="success"]{background:#e5f5e9;color:#11763c}
+  background:#fbe7e5;color:#a32920}
+.thumbs-message[data-type="success"]{background:#e4f6e9;color:#11773c}
 .thumbs-page button.primary{border:0;border-radius:14px;padding:13px 18px;background:var(--tos-teal);color:#fff;
   font:inherit;font-weight:1000;cursor:pointer}
 .thumbs-page button.primary:disabled{opacity:.45;cursor:default}
 .thumbs-log{display:grid;gap:6px;max-height:420px;overflow:auto}
 .thumbs-log div{display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:10px;
-  background:#f7faf9;font-size:12.5px}
+  background:#f7f9f8;font-size:12.5px}
 .thumbs-log b{white-space:nowrap;font-weight:800}
-.thumbs-log div[data-ok="0"]{background:#fdf1ef}
-.thumbs-log div[data-ok="0"] b{color:#a52b22}
-.thumbs-log div[data-ok="1"] b{color:#15753f}
-.thumbs-muted{color:#718086;font-size:12px}
+.thumbs-log div[data-ok="0"]{background:#fdf3f1}
+.thumbs-log div[data-ok="0"] b{color:#a32920}
+.thumbs-log div[data-ok="1"] b{color:#11773c}
+.thumbs-muted{color:#718386;font-size:12px}
 @media(max-width:640px){.thumbs-stats{grid-template-columns:1fr}}
 
 .thumbs-actions{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:14px}
 .thumbs-actions button{flex:0 0 auto}
 .thumbs-batch{display:flex;flex-direction:column;gap:4px}
 .thumbs-batch span{font:800 10px/1 Inter,system-ui;letter-spacing:.08em;color:#6b8592}
-.thumbs-batch input{width:96px;padding:9px 10px;border:1px solid #d5e0e6;border-radius:10px;font:700 14px Inter,system-ui}
-.thumbs-huerfanos{width:100%;margin-top:10px;padding:10px;border:1px solid #d5e0e6;border-radius:10px;
-  font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3d5560;background:#f7fafb;resize:vertical}
+.thumbs-batch input{width:96px;padding:9px 10px;border:1px solid #cfe2e5;border-radius:10px;font:700 14px Inter,system-ui}
+.thumbs-huerfanos{width:100%;margin-top:10px;padding:10px;border:1px solid #cfe2e5;border-radius:10px;
+  font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#42575d;background:#f7f9f8;resize:vertical}
 @media(max-width:560px){.thumbs-actions{flex-direction:column;align-items:stretch}.thumbs-batch input{width:100%}}
 
 /* El aviso de permisos en la pantalla de fotos. Es de mantenimiento, pero es
    donde vive el archivero: si el dato no sale aquí, nadie lo ve antes de bajar
    una foto. */
-.thumbs-permiso{margin:10px 0 0;border-radius:13px;padding:11px 13px;background:#ffe9e6;color:#a32920;font-size:12.5px;font-weight:700;line-height:1.45}
+.thumbs-permiso{margin:10px 0 0;border-radius:13px;padding:11px 13px;background:#fdecea;color:#a32920;font-size:12.5px;font-weight:700;line-height:1.45}
 .thumbs-permiso b{font-weight:1000}

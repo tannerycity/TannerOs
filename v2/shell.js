@@ -416,7 +416,7 @@ const LLAVE_MAS='tos:nav-mas';
 function renderNavigation(nav,navigation,active,role){
   if(!nav)return;nav.innerHTML='';
   const sec=seccionDe(navigation,active);
-  const liga=(item,sub=false)=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item${sub?' tos-nav-sub':''} ${itemActive(item,active)||(!sub&&sec?.code===item.code)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${item.label}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));return a;};
+  const liga=(item,sub=false)=>{const a=document.createElement('a');a.href=destinoAcademias(navigation,item);a.className=`tos-nav-item${sub?' tos-nav-sub':''} ${itemActive(item,active)||(!sub&&sec?.code===item.code)?'active':''}`;a.dataset.module=item.code;a.innerHTML=`<span class="tos-nav-icon">${shellIcon(item.icon)}</span><span>${escBell(item.label)}</span>`;a.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));return a;};
   // Cada sección con sus pantallas debajo, sólo la sección donde estás.
   const pinta=(section,item)=>{section.appendChild(liga(item));if(sec?.code===item.code)hijosDe(navigation,item).forEach(h=>section.appendChild(liga(h,true)));};
   const simple=SIMPLE_SIDEBAR_ROLES[role];
@@ -462,7 +462,7 @@ function pintaPestanasSeccion(navigation,active){
   if(!miembros.length||document.querySelector('.tienda-tabs'))return;
   const destino=document.querySelector('.tos-main>.tos-content')||document.querySelector('main.tos-content')||document.querySelector('main .app-wrap');if(!destino)return;
   const nav=document.createElement('nav');nav.id='tosSeccion';nav.className='tos-seccion';nav.setAttribute('aria-label',miembros[0].label);
-  nav.innerHTML=miembros.map(it=>`<a href="${destinoAcademias(navigation,it)}"${itemActive(it,active)?' aria-current="page"':''}>${it.code==='inicio'?'Resumen':it.label}</a>`).join('');
+  nav.innerHTML=miembros.map(it=>`<a href="${destinoAcademias(navigation,it)}"${itemActive(it,active)?' aria-current="page"':''}>${it.code==='inicio'?'Resumen':escBell(it.label)}</a>`).join('');
   destino.prepend(nav);
 }
 function wireMobileNav(){if(document.documentElement.dataset.tosMobileNavWired==='1')return;document.documentElement.dataset.tosMobileNavWired='1';$('shellMenuToggle')?.addEventListener('click',()=>document.body.classList.toggle('tos-nav-open'));$('shellNavBackdrop')?.addEventListener('click',()=>document.body.classList.remove('tos-nav-open'));}

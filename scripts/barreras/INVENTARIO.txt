@@ -23,3 +23,4 @@ club-sin-nombre-fijo.mjs
 club-sin-llave-fija.mjs
 envoltorio-que-llama-a-private.mjs
 dialogo-que-no-carga.mjs
+diseno-limpio.mjs

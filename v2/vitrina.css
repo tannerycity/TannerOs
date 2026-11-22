@@ -20,7 +20,7 @@
 
 :root{
   --vit-line:#e0e7e5; --vit-ink:#0d3b45; --vit-deep:#032f3b;
-  --vit-teal:#056c7f; --vit-ok:#15964a;
+  --vit-teal:#056c7f; --vit-ok:#0b2a33;
 }
 
 /* ---- La rejilla y la tarjeta ---- */
@@ -31,7 +31,7 @@
 /* La foto manda: es lo primero que la familia reconoce del kit. Se saca del
    padding de la tarjeta para que llegue de orilla a orilla. */
 .fam-shot{margin:-15px -15px 9px;aspect-ratio:1;display:grid;place-items:center;overflow:hidden;
-  background:linear-gradient(160deg,#eef3f4,#e2eaec);color:#9aa9ad;font-size:11px;font-weight:600}
+  background:linear-gradient(160deg,#eef3f4,#e2eaec);color:#9aa9ad;font-size:12px;font-weight:600}
 .fam-shot img{width:100%;height:100%;object-fit:cover;display:block}
 .fam-prod strong{font-size:14px;line-height:1.25}
 .fam-prod .fam-price{font-size:19px;font-weight:600;letter-spacing:-.02em;
@@ -110,7 +110,7 @@
 }
 .fam-kit-head{display:flex;flex-direction:column;gap:4px;}
 .fam-kit-tag{
-  align-self:flex-start;font-size:10.5px;font-weight:800;letter-spacing:.09em;
+  align-self:flex-start;font-size:12px;font-weight:800;letter-spacing:.09em;
   padding:4px 10px;border-radius:999px;background:#0d2229;color:#e9d19c;
 }
 .fam-kit-head strong{font-size:17px;line-height:1.25;color:#0d2229;}
@@ -142,7 +142,7 @@
   gap:2px;padding:8px 12px;min-height:52px;
 }
 .fam-prod .fam-talla-sel b{font-size:13px;}
-.fam-prod .fam-talla-sel span{font-size:11px;}
+.fam-prod .fam-talla-sel span{font-size:12px;}
 
 /* ---- Las tallas abiertas: una fila que se desliza ----
 
@@ -162,7 +162,7 @@
    con su etiqueta se ve de un vistazo. */
 .fam-grupo{display:flex;flex-direction:column;gap:2px;}
 .fam-grupo>span{
-  font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
   color:#8a9aa0;
 }
 /* Al abrirse, el panel puede salirse de la tarjeta de dos columnas: se le deja
@@ -175,12 +175,12 @@
 .fam-convierte{margin:0 0 8px;padding:9px 11px;border-radius:11px;background:#fff8e6;color:#4f3b06;font-size:13px;font-weight:700}
 .fam-sugiere.ahorro{background:#eaf6ee;border-color:#bfe3cb;color:#1e5b33}
 .fam-price s{color:#8a979a;font-weight:600;font-size:.85em}
-.fam-oferta{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:#ffe9c7;color:#8a4b00;font-size:11.5px;font-weight:800;font-style:normal}
+.fam-oferta{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:#ffe9c7;color:#8a4b00;font-size:12px;font-weight:800;font-style:normal}
 /* Comprar otra vez (13/10/2026). */
 .fam-otravez{border:1px solid #d6ebe0;background:#f3faf6}
 .fam-otravez-que{margin:2px 0 0;font-size:14px;color:#2b4146;line-height:1.4}
 .fam-otravez-aviso{margin:8px 0 0;padding:8px 10px;border-radius:10px;background:#fff8e6;color:#6b4e08;font-size:12.5px;line-height:1.4}
-.fam-otravez-btn{width:100%;min-height:46px;margin-top:10px;border:0;border-radius:999px;background:#169b4b;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+.fam-otravez-btn{width:100%;min-height:46px;margin-top:10px;border:0;border-radius:999px;background:#0b2a33;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
 
 /* Kit Dúo (14/10/2026): la pieza a elegir enseña sus opciones como botones. */
 .fam-pieza-elige{display:grid;gap:8px}

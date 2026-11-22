@@ -3,7 +3,7 @@
 .st-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin:6px 0 16px}
 .st-head h1{margin:0;font-size:34px;letter-spacing:-.02em;color:#07191e}
 .st-sub{margin:4px 0 0;font-size:15px;color:#6b7c80}
-.st-btn{min-height:44px;padding:0 18px;border:0;border-radius:999px;background:#169b4b;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+.st-btn{min-height:44px;padding:0 18px;border:0;border-radius:999px;background:#0b2a33;color:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
 .st-btn.grande{width:100%;min-height:52px;font-size:16px}
 .st-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:#eceff0;margin-bottom:12px}
 .st-seg button{min-height:40px;border:0;border-radius:10px;background:transparent;font:inherit;font-weight:700;font-size:15px;color:#3c4e52;cursor:pointer}
@@ -27,7 +27,7 @@
 .st-tarjeta-txt small{font-size:13px;color:#5d6f73}
 .st-cats{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .st-cat{padding:2px 8px;border-radius:999px;background:#e8f2f3;color:#1f5f6b;font-size:12px;font-weight:700}
-.st-alerta{position:absolute;top:8px;right:10px;padding:2px 8px;border-radius:999px;background:#fdecea;color:#a92a21;font-size:11px;font-style:normal;font-weight:800}
+.st-alerta{position:absolute;top:8px;right:10px;padding:2px 8px;border-radius:999px;background:#fdecea;color:#a92a21;font-size:12px;font-style:normal;font-weight:800}
 .st-alerta.gris{background:#eef0ef;color:#6b7c80}
 .st-lista{display:grid;gap:8px}
 .st-vacio{display:grid;gap:6px;justify-items:center;padding:40px 16px;border-radius:20px;background:#f5f7f7;color:#5d6f73;text-align:center}
@@ -39,7 +39,7 @@
 .st-sin-btn{display:grid;grid-template-columns:1fr auto;gap:0 8px;align-items:center;padding:10px 12px;border:0;border-radius:14px;background:#fff;text-align:left;font:inherit;cursor:pointer}
 .st-sin-btn b{font-size:14.5px}
 .st-sin-btn small{grid-column:1;font-size:12px;color:#6b7c80}
-.st-sin-btn span{grid-row:1/3;grid-column:2;color:#169b4b;font-weight:800;font-size:14px}
+.st-sin-btn span{grid-row:1/3;grid-column:2;color:#0b2a33;font-weight:800;font-size:14px}
 /* La ficha */
 .st-fondo{position:fixed;inset:0;z-index:200;background:rgba(7,25,30,.4)}
 .st-hoja{position:fixed;z-index:210;left:50%;bottom:0;transform:translateX(-50%);width:min(560px,100vw);max-height:92dvh;overflow:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom));border-radius:22px 22px 0 0;background:#fff;box-shadow:0 -10px 40px rgba(7,25,30,.2)}
@@ -50,7 +50,7 @@
 .st-ficha-cab strong{display:block;font-size:19px}
 .st-ficha-cab span{font-size:14px;color:#5d6f73}
 .st-foto-btn{display:grid;justify-items:center;gap:4px;cursor:pointer}
-.st-foto-btn small{font-size:11.5px;font-weight:700;color:#0a7d8c}
+.st-foto-btn small{font-size:12px;font-weight:700;color:#0a7d8c}
 .st-dato{display:grid;gap:4px;margin:10px 0;font-size:14px}
 .st-dato b{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#7a8a8e}
 .st-form{display:grid;gap:12px}

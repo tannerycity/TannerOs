@@ -1,6 +1,6 @@
 /* Estacionamiento: app de caseta (Caseta · Pendientes · Padrón) */
 .park-drawer,.park-drawer *,.pk-app,.pk-app *,.pk-sheet,.pk-sheet *{box-sizing:border-box}
-.park-state{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;
+.park-state{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;
   background:#f4f6f5;color:#6f7d82}
 .park-state[data-s="requested"]{background:#fdf8ec;color:#8a6413}
 .park-state[data-s="approved"]{background:#eef5f6;color:#0c5163}
@@ -15,7 +15,7 @@
   padding-top:max(20px,env(safe-area-inset-top));padding-bottom:max(20px,env(safe-area-inset-bottom))}
 .park-drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
 .park-drawer-head h2{margin:4px 0 0;font-size:21px;letter-spacing:-.02em}
-.park-detail-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px;border-radius:17px;background:linear-gradient(145deg,#eef5f4,#f9fbfa);border:1px solid #dce7e4}.park-detail-plate{padding:8px 10px;border-radius:10px;background:#0d2730;color:#fff;font-size:12px;font-weight:800;letter-spacing:.04em}.park-detail-hero>div{display:grid;gap:3px;min-width:0}.park-detail-hero>div strong{font-size:14px;color:#0d2730}.park-detail-hero>div small{font-size:10px;line-height:1.4;color:#75858a}.park-detail-section{margin-top:20px}.park-detail-section>h3{margin:0 0 8px;font-size:14px}.park-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.park-fact{display:grid;gap:4px;min-width:0;padding:11px;border:1px solid #e4ebe9;border-radius:12px;background:#fff}.park-fact>span{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#7b898d}.park-fact>strong{font-size:12px;line-height:1.35;color:#17343c;overflow-wrap:anywhere}
+.park-detail-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px;border-radius:17px;background:linear-gradient(145deg,#eef5f4,#f9fbfa);border:1px solid #dce7e4}.park-detail-plate{padding:8px 10px;border-radius:10px;background:#0d2730;color:#fff;font-size:12px;font-weight:800;letter-spacing:.04em}.park-detail-hero>div{display:grid;gap:3px;min-width:0}.park-detail-hero>div strong{font-size:14px;color:#0d2730}.park-detail-hero>div small{font-size:12px;line-height:1.4;color:#75858a}.park-detail-section{margin-top:20px}.park-detail-section>h3{margin:0 0 8px;font-size:14px}.park-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.park-fact{display:grid;gap:4px;min-width:0;padding:11px;border:1px solid #e4ebe9;border-radius:12px;background:#fff}.park-fact>span{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#7b898d}.park-fact>strong{font-size:12px;line-height:1.35;color:#17343c;overflow-wrap:anywhere}
 .park-log{display:grid;margin-top:8px}
 .park-drawer-action{display:flex;justify-content:center;margin-bottom:14px;text-decoration:none;min-height:48px;align-items:center}
 .park-delete{width:100%;min-height:46px;margin-top:22px;border:1px solid #e8bbb6;border-radius:12px;background:#fff5f4;color:#a7352c;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
@@ -24,7 +24,7 @@
 .park-ev-dot{width:10px;height:10px;border-radius:50%;margin-top:5px;background:#c3ccd0}
 .park-ev:first-child .park-ev-dot{background:#087d8e}
 .park-ev strong{display:block;font-size:13.5px}
-.park-ev span{display:block;margin-top:2px;font-size:11.5px;color:#8b979c}
+.park-ev span{display:block;margin-top:2px;font-size:12px;color:#8b979c}
 @media(max-width:560px){
   .park-drawer{width:100%}
   .park-detail-hero{grid-template-columns:auto minmax(0,1fr)}.park-detail-hero>.park-state{grid-column:2;justify-self:start}.park-facts{grid-template-columns:1fr 1fr}
@@ -37,16 +37,16 @@
 .park-print{display:none}
 .park-print-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:14px}
 .park-print-head strong{display:block;font-size:17px}
-.park-print-head small,.park-print-meta small{display:block;font-size:11px;color:#444}
+.park-print-head small,.park-print-meta small{display:block;font-size:12px;color:#444}
 .park-print-meta{text-align:right}
 .park-print h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px;border-bottom:1px solid #bbb;padding-bottom:3px}
 .park-print h2 small{font-weight:400;text-transform:none;letter-spacing:0;color:#555}
 .park-print-table{width:100%;border-collapse:collapse;font-size:12px}
-.park-print-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#555;border-bottom:1px solid #999;padding:4px 6px}
+.park-print-table th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#555;border-bottom:1px solid #999;padding:4px 6px}
 .park-print-table td{padding:5px 6px;border-bottom:1px solid #e2e2e2;vertical-align:top}
 .park-print-table td small{color:#666}
 .park-print-table .pp-plate{font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.03em;white-space:nowrap}
-.park-print-foot{margin-top:16px;padding-top:8px;border-top:1px solid #bbb;font-size:11px;color:#333}
+.park-print-foot{margin-top:16px;padding-top:8px;border-top:1px solid #bbb;font-size:12px;color:#333}
 .park-print-empty{font-size:12px;color:#555}
 @media print{
   @page{size:letter;margin:14mm}
@@ -71,7 +71,7 @@
   margin:4px 0 18px;border-radius:13px;background:rgba(118,118,128,.12);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
 .pk-tabs button{min-height:40px;white-space:nowrap;padding:0 6px;border:0;border-radius:10px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--pk-ink);cursor:pointer}
 .pk-tabs button[aria-selected="true"]{background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.08),0 1px 1px rgba(0,0,0,.04)}
-.pk-tabs i{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:#e8473b;color:#fff;font-size:11.5px;font-style:normal;font-weight:700}
+.pk-tabs i{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:#e8473b;color:#fff;font-size:12px;font-style:normal;font-weight:700}
 
 .pk-caseta{display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
 .pk-col{display:grid;gap:14px;align-content:start}

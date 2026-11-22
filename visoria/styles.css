@@ -8,7 +8,7 @@
 @font-face{font-family:'Inter';font-weight:400;font-display:swap;src:url('/fonts/inter-400.woff2') format('woff2')}
 @font-face{font-family:'Inter';font-weight:600;font-display:swap;src:url('/fonts/inter-600.woff2') format('woff2')}
 @font-face{font-family:'Inter';font-weight:800;font-display:swap;src:url('/fonts/inter-800.woff2') format('woff2')}
-:root{--navy:#07191e;--navy2:#0f2b32;--oro:#c8ae62;--oro-claro:#e9d19c;--oro-osc:#a9895a;--crema:#f6f2e8;--papel:#fffdf8;--linea:#e7dfc8;--gris:#5c6a63;--verde:#169b4b;--rojo:#a92a21;
+:root{--navy:#07191e;--navy2:#0f2b32;--oro:#c8ae62;--oro-claro:#e9d19c;--oro-osc:#a9895a;--crema:#f6f2e8;--papel:#fffdf8;--linea:#e7dfc8;--gris:#5c6a63;--verde:#0b2a33;--rojo:#a92a21;
   --titulo:'Barlow Condensed','Arial Narrow',Impact,sans-serif;--texto:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -73,7 +73,7 @@ h1,h2{font-family:var(--titulo);text-transform:uppercase;letter-spacing:.01em;li
 .vi-barra i::before{content:"";height:5px;border-radius:5px;background:var(--linea)}
 .vi-barra i.hecho::before{background:var(--oro-osc)}
 .vi-barra i.actual::before{background:linear-gradient(90deg,var(--oro-osc),var(--oro-claro))}
-.vi-barra span{font-size:11.5px;font-weight:800;color:#9aa49f;text-transform:uppercase;letter-spacing:.08em}
+.vi-barra span{font-size:12px;font-weight:800;color:#9aa49f;text-transform:uppercase;letter-spacing:.08em}
 .vi-barra .actual span,.vi-barra .hecho span{color:var(--navy)}
 .vi-leyenda{margin:10px 16px 0;font-size:12.5px;color:var(--gris)}
 .vi-leyenda em{font-style:normal;font-weight:700}

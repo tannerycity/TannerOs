@@ -9,7 +9,7 @@
 .fm-flecha{width:40px;height:40px;border-radius:50%;border:1px solid var(--tos-line,#dfe3e3);background:#fff;font-size:22px;line-height:1;cursor:pointer;color:var(--tos-ink,#0b3d5c)}
 .fm-hero{padding:22px;border-radius:22px;background:linear-gradient(135deg,var(--tos-ink,#0b3d5c),#164e61);color:#fff;margin-bottom:12px}
 .fm-hero.completa{background:linear-gradient(135deg,#0d6b3c,#16824c)}
-.fm-hero>span{font-size:10px;letter-spacing:.09em;font-weight:950;color:#a8d7df}
+.fm-hero>span{font-size:12px;letter-spacing:.09em;font-weight:950;color:#a8d7df}
 .fm-hero.completa>span{color:#c8f0d8}
 .fm-hero h1{margin:6px 0 6px;font-size:24px;line-height:1.2}
 .fm-hero p{margin:0;color:#d8e7e9;font-size:13px}
@@ -26,7 +26,7 @@
 .fm-ses-dia{font-weight:950;font-size:13px;text-transform:capitalize;text-align:center;background:#eef1f1;border-radius:12px;padding:8px 4px}
 .fm-ses-txt{display:grid}
 .fm-ses-txt small{color:#6f7c81}
-.fm-pill{font-size:11px;font-weight:900;border-radius:999px;padding:5px 10px;white-space:nowrap;justify-self:end}
+.fm-pill{font-size:12px;font-weight:900;border-radius:999px;padding:5px 10px;white-space:nowrap;justify-self:end}
 .fm-pill.ok{background:#ddf5e5;color:#0b7e3b}
 .fm-pill.pendiente{background:#fff2ce;color:#7a5a08}
 .fm-pill.borrador{background:#e6eefc;color:#1d4fa3}
@@ -47,11 +47,11 @@ body.fm-sin-scroll{overflow:hidden}
 .fm-grid-retos{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .fm-grid-retos button{text-align:left;border:1.5px solid var(--tos-line,#dfe3e3);background:#fff;border-radius:14px;padding:10px 12px;font:inherit;cursor:pointer;display:grid;gap:3px}
 .fm-grid-retos button.activa{border-color:var(--tos-ink,#0b3d5c);background:#eaf2f4}
-.fm-grid-retos small{color:#4f5e64;font-size:11px;line-height:1.3}
+.fm-grid-retos small{color:#4f5e64;font-size:12px;line-height:1.3}
 .fm-campo{display:grid;gap:6px;font-size:13px;font-weight:700;color:#56656b}
 .fm-campo input,.fm-campo select,.fm-reto-card input,.fm-escribe input{min-height:46px;border:1.5px solid var(--tos-line,#dfe3e3);border-radius:12px;padding:0 12px;font:inherit;font-size:16px}
 .fm-reto-card{border-radius:16px;background:#eaf2f4;padding:14px;display:grid;gap:4px}
-.fm-reto-card>span{font-size:10px;letter-spacing:.09em;font-weight:950;color:#4b7b86}
+.fm-reto-card>span{font-size:12px;letter-spacing:.09em;font-weight:950;color:#4b7b86}
 .fm-reto-card b{font-size:20px}
 .fm-reto-card p{margin:0;font-size:13px;color:#3f5157}
 .fm-conducta{font-weight:800}
@@ -73,10 +73,10 @@ body.fm-sin-scroll{overflow:hidden}
 .fm-chips button.activa{background:var(--tos-ink,#0b3d5c);color:#fff;border-color:transparent}
 .fm-banco{display:grid;gap:10px}
 .fm-tarea{background:#fff;border:1px solid var(--tos-line,#dfe3e3);border-radius:16px;padding:14px 16px}
-.fm-tarea header span{font-size:10px;letter-spacing:.08em;font-weight:950;color:#4b7b86;text-transform:uppercase}
+.fm-tarea header span{font-size:12px;letter-spacing:.08em;font-weight:950;color:#4b7b86;text-transform:uppercase}
 .fm-tarea h3{margin:3px 0 8px;font-size:18px}
 .fm-tarea dl{margin:0;display:grid;grid-template-columns:78px 1fr;gap:6px 10px;font-size:14px}
-.fm-tarea dt{font-weight:900;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6f7c81;padding-top:2px}
+.fm-tarea dt{font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6f7c81;padding-top:2px}
 .fm-tarea dd{margin:0}
 .fm-tarea-mas{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .fm-tarea-mas button{border:0;background:#eef1f1;border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
@@ -89,7 +89,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 /* HOY y Modo Cancha: letra grande, pocas palabras, el teléfono en la bolsa. */
 .fm-hoy{display:grid;gap:4px;width:100%;text-align:left;border:0;border-radius:20px;padding:18px;margin-bottom:12px;background:var(--tos-gold,#c6ac5c);color:#07191e;font:inherit;cursor:pointer}
 .fm-hoy.cerrada{background:#ddf5e5;color:#0b5e30}
-.fm-hoy-eti{font-size:11px;font-weight:950;letter-spacing:.08em}
+.fm-hoy-eti{font-size:12px;font-weight:950;letter-spacing:.08em}
 .fm-hoy b{font-size:24px}
 .fm-hoy-frase{font-weight:800}
 .fm-hoy-cta{margin-top:6px;font-weight:950;text-transform:uppercase;letter-spacing:.04em;font-size:14px}
@@ -118,7 +118,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-page{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
 .fm-hero2{padding:22px 22px 20px;border-radius:24px;margin-bottom:14px;color:#fff;
   background:radial-gradient(600px 260px at 15% -10%,rgba(100,170,240,.35),transparent 60%),linear-gradient(135deg,#0f2c4c,#164e61)}
-.fm-hero2>span{font-size:11px;letter-spacing:.09em;font-weight:800;color:#a8d7df}
+.fm-hero2>span{font-size:12px;letter-spacing:.09em;font-weight:800;color:#a8d7df}
 .fm-hero2 h1{margin:6px 0;font-size:26px;line-height:1.15;letter-spacing:-.02em;font-weight:700}
 .fm-hero2 p{margin:0;color:#d4e4ea;font-size:13.5px;line-height:1.45}
 .fm-pasos{list-style:none;margin:0 0 14px;padding:6px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:#fff;border-radius:20px;box-shadow:0 1px 2px rgba(7,25,30,.06),0 0 0 1px rgba(7,25,30,.05)}
@@ -126,8 +126,8 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-paso-n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#eef1f1;font-weight:800;font-size:14px}
 .fm-paso-txt{display:grid;gap:2px}
 .fm-paso-txt b{font-size:12.5px;font-weight:700;line-height:1.25;color:#3c4e52}
-.fm-paso-txt small{font-size:11.5px}
-.fm-pasos li.hecho .fm-paso-n{background:#34c759;color:#fff}
+.fm-paso-txt small{font-size:12px}
+.fm-pasos li.hecho .fm-paso-n{background:#0b2a33;color:#fff}
 .fm-pasos li.actual{background:#eef6ff}
 .fm-pasos li.actual .fm-paso-n{background:#0a84ff;color:#fff;box-shadow:0 0 0 4px rgba(10,132,255,.18)}
 .fm-pasos li.actual b{color:#07191e}
@@ -137,7 +137,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-cat2-nom{font-size:18px;font-weight:700;letter-spacing:-.01em;color:#07191e}
 .fm-cat2-reto{display:grid;gap:3px;width:100%;text-align:left;border:0;border-radius:14px;background:#f2f6f8;padding:12px 14px;font:inherit;color:inherit;cursor:pointer}
 .fm-cat2-reto:hover{background:#e9f0f3}
-.fm-cat2-eti{font-size:10.5px;font-weight:800;letter-spacing:.09em;color:#4b7b86}
+.fm-cat2-eti{font-size:12px;font-weight:800;letter-spacing:.09em;color:#4b7b86}
 .fm-cat2-reto b{font-size:17px;color:#0b3d5c}
 .fm-cat2-reto b i{font-style:normal;font-weight:600;color:#4b7b86}
 .fm-cat2-ver{font-size:14px;color:#2b4146}
@@ -151,10 +151,10 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-listo{margin:0;padding:14px;border-radius:16px;background:#e8f6ec;color:#1e6b3c;font-weight:700;text-align:center}
 .fm-acciones .primary:disabled{opacity:.55}
 /* La hoja de la categoría */
-.fm-paso-eti{margin:0;font-size:11px;font-weight:800;letter-spacing:.09em;color:#0a84ff}
+.fm-paso-eti{margin:0;font-size:12px;font-weight:800;letter-spacing:.09em;color:#0a84ff}
 .fm-pregunta{margin:0;font-size:21px;line-height:1.25;letter-spacing:-.01em;color:#07191e}
 .fm-elegido{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;border:0;border-radius:14px;background:#f2f6f8;padding:12px 14px;font:inherit;text-align:left;cursor:pointer}
-.fm-elegido span{font-size:10.5px;font-weight:800;letter-spacing:.09em;color:#4b7b86}
+.fm-elegido span{font-size:12px;font-weight:800;letter-spacing:.09em;color:#4b7b86}
 .fm-elegido b{font-size:16px;color:#0b3d5c}
 .fm-elegido small{color:#0a84ff;font-weight:700}
 .fm-ejemplos{display:flex;flex-wrap:wrap;gap:6px}
@@ -192,7 +192,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
    abren. Claro para el profe y para los niños. */
 .fm-album-hero{padding:20px 22px;border-radius:24px;margin-bottom:12px;color:#fff;
   background:radial-gradient(500px 220px at 85% -20%,rgba(255,214,10,.35),transparent 60%),radial-gradient(500px 240px at 0% 120%,rgba(10,132,255,.35),transparent 60%),linear-gradient(135deg,#0f2c4c,#1c1446)}
-.fm-album-hero>span{font-size:11px;letter-spacing:.12em;font-weight:800;color:#ffd60a}
+.fm-album-hero>span{font-size:12px;letter-spacing:.12em;font-weight:800;color:#ffd60a}
 .fm-album-hero h1{margin:6px 0 4px;font-size:26px;letter-spacing:-.02em;font-weight:800}
 .fm-album-hero p{margin:0;color:#d6e0f0;font-size:14px;line-height:1.45}
 .fm-album-hero .fm-album-uso{margin-top:10px;display:inline-block;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-weight:700;font-size:13px}
@@ -220,7 +220,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-nivel i{display:block;width:6px;border-radius:2px;background:currentColor;opacity:.3}
 .fm-nivel i:nth-child(1){height:6px}.fm-nivel i:nth-child(2){height:9px}.fm-nivel i:nth-child(3){height:12px}.fm-nivel i:nth-child(4){height:15px}
 .fm-nivel i.on{opacity:1}
-.fm-nivel-baby{font-size:11px;opacity:.9}
+.fm-nivel-baby{font-size:12px;opacity:.9}
 .fm-carta-cuerpo{display:grid;gap:6px;align-content:start;padding:12px 14px}
 .fm-carta-cuerpo b{font-size:17px;line-height:1.2;color:#07191e;letter-spacing:-.01em}
 .fm-carta-mision{font-size:13px;color:#4d5f63;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -232,20 +232,20 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-carta-grande .fm-carta-banda{border-radius:16px;padding:14px 16px;font-size:14px}
 .fm-carta-grande .fm-carta-banda small{margin-left:auto;font-size:12px;opacity:.95}
 .fm-carta-grande .fm-nivel i{width:8px}.fm-carta-grande .fm-nivel i:nth-child(4){height:18px}
-.fm-carta-grande section h4{margin:0 0 4px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7a8a8e}
+.fm-carta-grande section h4{margin:0 0 4px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7a8a8e}
 .fm-carta-grande section p{margin:0;font-size:15px;line-height:1.45;color:#1f3338}
 .fm-grito{padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--mundo) 12%,#fff)}
 .fm-grito p{font-size:17px!important;font-weight:800;color:#07191e!important}
 .fm-powerups{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .fm-powerups button{min-height:46px;border-radius:14px;border:1.5px solid #e1e6e7;background:#fff;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
-.fm-powerups button[data-modo="facil"].activa{background:#e8f6ec;border-color:#34c759;color:#1e6b3c}
+.fm-powerups button[data-modo="facil"].activa{background:#e8f6ec;border-color:#0b2a33;color:#1e6b3c}
 .fm-powerups button[data-modo="dificil"].activa{background:#fdecea;border-color:#ff453a;color:#a92a21}
 .fm-modo{margin:0;padding:10px 12px;border-radius:12px;background:#f5f7f7;font-size:14.5px;line-height:1.4}
 .fm-media{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .fm-media button{display:flex;align-items:center;gap:10px;text-align:left;min-height:60px;border:0;border-radius:14px;background:#0f2c4c;color:#fff;padding:10px 12px;font:inherit;cursor:pointer}
 .fm-media-ico{display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:50%;background:rgba(255,255,255,.16);font-size:14px}
 .fm-media b{display:block;font-size:14px}
-.fm-media small{display:inline-block;margin-top:2px;padding:1px 8px;border-radius:999px;background:#ffd60a;color:#1c1446;font-size:11px;font-weight:800}
+.fm-media small{display:inline-block;margin-top:2px;padding:1px 8px;border-radius:999px;background:#ffd60a;color:#1c1446;font-size:12px;font-weight:800}
 .fm-media-nota{margin:0;font-size:13.5px;color:#4d5f63;background:#f5f7f7;border-radius:12px;padding:10px 12px}
 .fm-pasos li.info{opacity:.75}
 @media(max-width:520px){.fm-album{grid-template-columns:1fr 1fr;gap:10px}.fm-carta-cuerpo b{font-size:15px}.fm-carta-grito{display:none}.fm-album-hero h1{font-size:22px}.fm-media{grid-template-columns:1fr}}
@@ -255,7 +255,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 /* ==== Práctica guiada (13/10/2026): un ejemplo para aprender a planear ==== */
 .fm-practica-card{display:grid;gap:8px;padding:22px;border-radius:24px;color:#fff;margin-top:4px;
   background:radial-gradient(500px 220px at 90% -20%,rgba(255,214,10,.3),transparent 60%),linear-gradient(135deg,#0f2c4c,#164e61)}
-.fm-practica-eti{font-size:11px;letter-spacing:.1em;font-weight:800;color:#ffd60a}
+.fm-practica-eti{font-size:12px;letter-spacing:.1em;font-weight:800;color:#ffd60a}
 .fm-practica-card h2{margin:0;font-size:22px;letter-spacing:-.01em}
 .fm-practica-card p{margin:0;color:#d6e4ea;font-size:14.5px;line-height:1.45}
 .fm-practica-btn{margin-top:8px;min-height:52px;border:0;border-radius:16px;background:#fff;color:#0f2c4c;font:inherit;font-size:16px;font-weight:800;cursor:pointer}
@@ -270,7 +270,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-pr-tip{display:flex;gap:10px;align-items:flex-start;margin:0;padding:12px 14px;border-radius:14px;background:#fff8e6;color:#4f3b06;font-size:14px;line-height:1.45}
 .fm-pr-tip>.fm-pr-ico{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#ffd60a;color:#1c1446;font-weight:800;font-style:italic;font-size:13px}
 .fm-pr-reto{display:grid;gap:4px;padding:16px;border-radius:18px;background:linear-gradient(135deg,#ff453a,#c7273b);color:#fff}
-.fm-pr-reto span{font-size:11px;letter-spacing:.1em;font-weight:800;opacity:.9}
+.fm-pr-reto span{font-size:12px;letter-spacing:.1em;font-weight:800;opacity:.9}
 .fm-pr-reto b{font-size:28px;letter-spacing:-.01em}
 .fm-pr-reto p{margin:0;font-size:14.5px;opacity:.95}
 .fm-pr-reto .fm-conducta{margin-top:4px;font-weight:700}
@@ -294,7 +294,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-pr-resumen li small{font-size:12.5px;color:#0a6dd6;font-weight:700}
 .fm-pr-resumen li.tu{background:#eef6ff}
 .fm-pr-fin{display:grid;gap:10px;justify-items:center;text-align:center;padding:18px 6px}
-.fm-pr-check{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:#34c759;color:#fff;font-size:36px;font-weight:800;box-shadow:0 10px 30px rgba(52,199,89,.35);animation:fm-pop .4s cubic-bezier(.2,.8,.2,1.4) both}
+.fm-pr-check{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:#0b2a33;color:#fff;font-size:36px;font-weight:800;box-shadow:0 10px 30px rgba(52,199,89,.35);animation:fm-pop .4s cubic-bezier(.2,.8,.2,1.4) both}
 .fm-pr-fin h3{margin:4px 0 0;font-size:24px;letter-spacing:-.01em}
 .fm-pr-fin p{margin:0;font-size:15px;line-height:1.45;color:#2b4146;max-width:34ch}
 @keyframes fm-pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
@@ -305,13 +305,13 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
    como botones de consola (verde, amarillo, rojo) y el espacio como una
    canchita que se ve, no como un selector. */
 .fm-ajustes{display:grid;gap:8px;margin-top:10px}
-.fm-ajuste-tit{margin:6px 0 0;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7a8a8e}
+.fm-ajuste-tit{margin:6px 0 0;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7a8a8e}
 .fm-juego{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:2px}
 .fm-juego.dos{grid-template-columns:1fr 1fr;margin-top:10px}
 .fm-jbtn{position:relative;display:grid;gap:2px;justify-items:center;align-content:center;min-height:72px;padding:12px 8px 14px;border:0;border-radius:18px;color:#fff;font:inherit;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.25);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -4px 0 rgba(0,0,0,.18),0 6px 14px rgba(0,0,0,.12);transition:transform .14s cubic-bezier(.2,.8,.2,1.2),filter .2s,opacity .2s,box-shadow .2s;filter:saturate(.55) brightness(1.05);opacity:.78;-webkit-tap-highlight-color:transparent}
 .fm-jbtn::before{content:"";position:absolute;inset:3px 6px auto;height:42%;border-radius:15px 15px 40% 40%;background:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0));pointer-events:none}
 .fm-jbtn b{font-size:20px;font-weight:900;letter-spacing:-.01em;line-height:1.1}
-.fm-jbtn small{font-size:11.5px;font-weight:700;opacity:.92}
+.fm-jbtn small{font-size:12px;font-weight:700;opacity:.92}
 .fm-jbtn-facil{background:linear-gradient(180deg,#63de7f,#28a948)}
 .fm-jbtn-base{background:linear-gradient(180deg,#ffdc55,#f0a500);color:#3a2a00;text-shadow:0 1px 0 rgba(255,255,255,.35)}
 .fm-jbtn-dificil{background:linear-gradient(180deg,#ff7d55,#dc3b25)}
@@ -334,7 +334,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-modo-facil{background:#e9f8ee;color:#1d5b31}
 .fm-modo-dificil{background:#fdece8;color:#8f2a1a}
 .fm-modo-base{background:#fff6d9;color:#5a4300}
-@media (max-width:420px){.fm-jbtn{min-height:64px;padding:10px 4px 12px;border-radius:16px}.fm-jbtn b{font-size:17px}.fm-jbtn small{font-size:10.5px}.fm-juego,.fm-espacio{gap:8px}}
+@media (max-width:420px){.fm-jbtn{min-height:64px;padding:10px 4px 12px;border-radius:16px}.fm-jbtn b{font-size:17px}.fm-jbtn small{font-size:12px}.fm-juego,.fm-espacio{gap:8px}}
 @media (prefers-reduced-motion:reduce){.fm-jbtn,.fm-ebtn{transition:none}.fm-jbtn.activa{transform:none}}
 
 /* ---------- Íconos de mundo (13/10/2026) ----------
@@ -370,9 +370,9 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-cal-ses.lista{border-color:#a6dfb9;background:#f1fbf4}
 .fm-cal-ses span{font-size:12px;font-variant-numeric:tabular-nums;color:#4f6469}
 .fm-cal-ses b{font-size:13px;line-height:1.2}
-.fm-cal-ses small{font-size:11.5px;color:#6f7c81}
+.fm-cal-ses small{font-size:12px;color:#6f7c81}
 .fm-cal-ses .fm-pill{justify-self:start;font-style:normal;padding:3px 8px}
-.fm-cal-nada{font-size:11.5px;color:#9aa6aa}
+.fm-cal-nada{font-size:12px;color:#9aa6aa}
 @media (max-width:720px){
   .fm-cal{grid-template-columns:1fr}
   .fm-cal-dia{min-height:0;grid-template-columns:64px 1fr;align-items:start}
@@ -380,16 +380,16 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
   .fm-cal-dia.vacio{display:none}
 }
 .fm-porque{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
-.fm-porque i{font-style:normal;font-size:11px;font-weight:600;color:#2c5d3d;background:#e9f6ee;border-radius:999px;padding:2px 8px}
+.fm-porque i{font-style:normal;font-size:12px;font-weight:600;color:#2c5d3d;background:#e9f6ee;border-radius:999px;padding:2px 8px}
 .fm-recos-aviso{margin:2px 0;font-size:12.5px;color:#7a5a08;background:#fff7e0;border-radius:10px;padding:8px 10px}
-.fm-recos-grupo{margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#6f7c81}
+.fm-recos-grupo{margin:8px 0 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#6f7c81}
 
 /* Recursos del Futbolista y Observación de Dirección (PROP-FC-002, 09/11/2026). */
 .fm-recursos h4,.fm-obs-leida h4{margin:0 0 6px}
 .fm-recs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
 .fm-rec{display:inline-grid;gap:2px;padding:6px 10px;border-radius:12px;background:#e9f6ee;border:1px solid #a6dfb9}
 .fm-rec.sugerida{background:#fff;border:1px dashed #b9c4c7}
-.fm-rec b{font-size:13px}.fm-rec small{font-size:11px;color:#4f6469}
+.fm-rec b{font-size:13px}.fm-rec small{font-size:12px;color:#4f6469}
 .fm-rec-acc{display:flex;gap:6px;margin-top:4px}
 .fm-rec-acc button,.fm-rec-btn{border:1px solid var(--tos-line,#dfe3e3);background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;min-height:36px}
 .fm-obs-fila{display:grid;gap:6px;margin:10px 0}
@@ -400,7 +400,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-obs-leida{margin:0 0 12px;padding:12px;border-radius:14px;background:#f2f6ff;border:1px solid #cfdcf7}
 .fm-obs-leida p{margin:4px 0}.fm-obs-leida small{color:#6f7c81;font-size:12px}
 .fm-obs-puntos{display:flex;flex-wrap:wrap;gap:4px}
-.fm-obs-puntos span{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#eef1f1}
+.fm-obs-puntos span{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:#eef1f1}
 .fm-obs-puntos .fm-obs-si{background:#ddf5e5;color:#0b7e3b}.fm-obs-puntos .fm-obs-a_veces{background:#fff2ce;color:#7a5a08}.fm-obs-puntos .fm-obs-todavia_no{background:#fde7e4;color:#9c2b1d}
 
 /* Registrar parches (09/11/2026). */
@@ -430,7 +430,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-tip[open]>summary em,.fm-tip-mas[open]>summary em{transform:rotate(-135deg)}
 .fm-tip-cuerpo{display:grid;gap:8px;padding:2px 0 4px}
 .fm-tip-fila{padding:9px 12px;border-radius:12px;background:#fff;border-left:4px solid var(--mundo)}
-.fm-tip-fila>span{display:block;font-size:10px;letter-spacing:.09em;font-weight:900;color:#4b7b86}
+.fm-tip-fila>span{display:block;font-size:12px;letter-spacing:.09em;font-weight:900;color:#4b7b86}
 .fm-tip-fila>p{margin:2px 0 0;font-size:15px;line-height:1.35;font-weight:600;color:var(--tos-ink,#053746)}
 .fm-tip-fila.digo>p{font-size:16px;font-weight:700}
 .fm-tip-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
@@ -440,7 +440,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-tip-mas summary{justify-content:space-between;min-height:44px;font-size:13px}
 .fm-tip-mas dl{margin:0;display:grid;gap:6px}
 .fm-tip-mas dl div{padding:7px 12px;border-radius:10px;background:#fff}
-.fm-tip-mas dt{font-size:11px;letter-spacing:.07em;font-weight:900;text-transform:uppercase;color:var(--tos-ink,#053746)}
+.fm-tip-mas dt{font-size:12px;letter-spacing:.07em;font-weight:900;text-transform:uppercase;color:var(--tos-ink,#053746)}
 .fm-tip-mas dd{margin:1px 0 0;font-size:14px;line-height:1.35;color:#24343a}
 .fm-tip-nota{margin:6px 0 0;font-size:13px;color:#3f5157}
 .fm-tip-lema{margin:4px 0 0;padding-left:10px;border-left:3px solid var(--tos-gold,#c6ac5c);font-size:13px;font-weight:700;color:var(--tos-ink,#053746)}
@@ -454,7 +454,7 @@ body.fm-sin-scroll .fm-aviso{bottom:96px}
 .fm-reto-cabeza .fm-mico{width:38px;height:38px;background:var(--mundo);box-shadow:none}
 .fm-reto-cabeza .fm-mico svg{width:22px;height:22px}
 .fm-reto-cabeza>div{display:grid}
-.fm-reto-cabeza>div>span{font-size:10px;letter-spacing:.09em;font-weight:950;color:#4b7b86}
+.fm-reto-cabeza>div>span{font-size:12px;letter-spacing:.09em;font-weight:950;color:#4b7b86}
 .fm-reto-cabeza b{font-size:20px;line-height:1.15}
 .fm-elegido .fm-mico{width:30px;height:30px;background:var(--mundo);box-shadow:none;color:var(--mundo-icono,#fff)}
 .fm-elegido.con-icono{grid-template-columns:auto auto 1fr auto}

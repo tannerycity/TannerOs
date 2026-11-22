@@ -74,7 +74,7 @@
 .detail-toggle .chev{
   display:inline-block;
   transition:transform .15s ease;
-  font-size:11px;
+  font-size:12px;
 }
 .link-toggle[aria-expanded="true"] .chev,
 .detail-toggle[aria-expanded="true"] .chev{
@@ -112,12 +112,12 @@
   width:26px;height:26px;border-radius:50%;
   background:#fff;border:2px solid var(--line);
   display:grid;place-items:center;
-  font-size:11px;font-weight:800;color:var(--muted);
+  font-size:12px;font-weight:800;color:var(--muted);
   z-index:1;
 }
 .track-step.done .track-dot{background:var(--teal);border-color:var(--teal);color:#fff;}
 .track-step.current .track-dot{border-color:var(--teal);color:var(--teal);box-shadow:0 0 0 4px rgba(5,108,127,.12);}
-.track-label{font-size:10.5px;font-weight:750;color:var(--muted);}
+.track-label{font-size:12px;font-weight:750;color:var(--muted);}
 .track-step.done .track-label,.track-step.current .track-label{color:var(--ink);}
 .order-tracker-alert{
   margin:14px 0 2px;
@@ -139,12 +139,12 @@
 .item-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
 .item-info strong{font-size:14px;}
 .item-chips{display:flex;flex-wrap:wrap;gap:6px;}
-.item-chip{font-size:11px;font-weight:750;padding:3px 8px;border-radius:999px;background:#edf2f1;color:#42575d;}
+.item-chip{font-size:12px;font-weight:750;padding:3px 8px;border-radius:999px;background:#edf2f1;color:#42575d;}
 .item-chip.bundle{background:rgba(184,164,100,.18);color:#766526;}
 .item-chip.muted{background:transparent;color:var(--muted);padding:3px 0;}
 .item-qty{font-size:12px;color:var(--muted);}
 .item-price{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
-.item-badge{font-size:10px;font-weight:800;padding:3px 7px;border-radius:999px;white-space:nowrap;}
+.item-badge{font-size:12px;font-weight:800;padding:3px 7px;border-radius:999px;white-space:nowrap;}
 .item-badge.ok{background:#edf8f2;color:#226b45;}
 .item-badge.warn{background:#f7eeee;color:#943c35;}
 
@@ -174,7 +174,7 @@
 /* Plan de pago (anticipo/50-50) dentro de COBRANZA */
 .payment-plan-box{margin-bottom:12px;}
 .payment-plan-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:#eef4f3;font-size:12.5px;font-weight:700;color:#2d4a4a;}
-.payment-plan-row .link-toggle{width:auto;padding:0;font-size:11px;}
+.payment-plan-row .link-toggle{width:auto;padding:0;font-size:12px;}
 .payment-plan-form{margin-top:10px;padding:12px;border-radius:12px;background:#f4f7f6;display:flex;flex-direction:column;gap:8px;}
 .payment-plan-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted);}
 .payment-plan-form select,.payment-plan-form input{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);}
@@ -188,7 +188,7 @@
 .payment-row{display:flex;flex-direction:column;align-items:stretch;gap:0;}
 .payment-row-main{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;}
 .payment-row-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
-.payment-row-side .link-toggle{width:auto;padding:0;font-size:11px;}
+.payment-row-side .link-toggle{width:auto;padding:0;font-size:12px;}
 .correct-form{margin-top:10px;padding:12px;border-radius:12px;background:#f7eeee;display:flex;flex-direction:column;gap:8px;}
 .correct-reason{width:100%;min-height:56px;border:1px solid #e3c9c6;border-radius:10px;padding:8px 10px;font:inherit;resize:vertical;}
 .correct-actions{display:flex;gap:8px;justify-content:flex-end;}
@@ -206,7 +206,7 @@
 @media (max-width:620px){
   .order-hero{padding:14px;}
   .order-hero-balance strong{font-size:22px;}
-  .track-label{font-size:9.5px;}
+  .track-label{font-size:12px;}
   .item-thumb{width:44px;height:44px;}
   .item-thumb svg{width:22px;height:22px;}
   .payment-row-main{flex-direction:column;align-items:flex-start;gap:8px;}

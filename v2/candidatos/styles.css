@@ -7,24 +7,24 @@
   background:radial-gradient(120% 120% at 0% 0%,var(--noche2),var(--noche) 70%)}
 .cand-hero::after{content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;background:url('/brand/crest-gold.png') center/contain no-repeat;opacity:.07;pointer-events:none}
 .cand-hero>*{position:relative;z-index:1}
-.cand-eyebrow{margin:0;font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--oro-claro)}
+.cand-eyebrow{margin:0;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--oro-claro)}
 .cand-hero h1{margin:4px 0 6px;font-size:48px;line-height:.95;font-weight:800;color:#fff}
 .cand-hero-txt>p:not(.cand-eyebrow){margin:0;max-width:520px;color:rgba(255,255,255,.75);line-height:1.45}
 .cand-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px;max-width:560px}
 .cand-kpis article{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
 .cand-kpis b{display:block;font-size:34px;line-height:1;font-weight:800;color:var(--oro-claro)}
-.cand-kpis span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.cand-kpis span{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7)}
 .cand-kpis article.alerta{background:rgba(200,174,98,.16);border-color:rgba(200,174,98,.5)}
 .cand-liga{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;padding:12px;border-radius:18px;background:var(--crema);color:var(--noche);max-width:380px}
 .cand-liga canvas{width:110px;height:110px;border-radius:10px;background:#fff}
 .cand-liga-txt{display:grid;gap:4px;min-width:0}
-.cand-liga-txt small{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--oro-oscuro)}
+.cand-liga-txt small{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--oro-oscuro)}
 .cand-liga-txt strong{font-size:13px;overflow-wrap:anywhere;line-height:1.3}
 .cand-liga-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .cand-liga-btns a,.cand-liga-btns button{border:0;border-radius:9px;padding:7px 10px;background:var(--noche);color:var(--oro-claro);font:inherit;font-size:12px;font-weight:800;text-decoration:none;cursor:pointer}
 .cand-filtros{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
 .cand-filtros button{flex:0 0 auto;border:1px solid var(--linea);background:#fff;border-radius:999px;padding:9px 15px;font:inherit;font-weight:800;font-size:13px;cursor:pointer;color:#2b3d42}
-.cand-filtros button i{font-style:normal;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--crema);font-size:11px}
+.cand-filtros button i{font-style:normal;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--crema);font-size:12px}
 .cand-filtros button.activo{background:var(--noche);border-color:var(--noche);color:var(--oro-claro)}
 .cand-filtros button.activo i{background:rgba(200,174,98,.2);color:var(--oro-claro)}
 .cand-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
@@ -35,7 +35,7 @@
 .cand-cab div{min-width:0}
 .cand-nombre{display:block;font-size:22px;line-height:1;font-weight:800;letter-spacing:.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cand-cab small{display:block;margin-top:4px;font-size:12px;color:rgba(255,255,255,.65)}
-.cand-estado{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:5px 10px;white-space:nowrap;background:rgba(255,255,255,.12);color:#fff}
+.cand-estado{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:5px 10px;white-space:nowrap;background:rgba(255,255,255,.12);color:#fff}
 .cand-nueva{background:var(--oro);color:var(--noche)}
 .cand-revision{background:#d9e8f3;color:#1d4a6b}.cand-entrevista{background:#e6dbfa;color:#4a2482}
 .cand-contratado{background:#c9ebd4;color:#0f5f30}.cand-descartado{background:rgba(255,255,255,.12);color:rgba(255,255,255,.7)}
@@ -43,19 +43,19 @@
 .cand-puestos span{padding:5px 10px;border-radius:999px;background:var(--crema);border:1px solid var(--linea);font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--noche)}
 .cand-ficha{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .cand-ficha div{padding:8px 10px;border-radius:12px;background:#f8f6ef}
-.cand-ficha small{display:block;font-size:9.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a7a4d}
+.cand-ficha small{display:block;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a7a4d}
 .cand-ficha b{display:block;margin-top:2px;font-size:13.5px;line-height:1.25;overflow-wrap:anywhere}
 .cand-datos{font-size:13.5px;color:#2b3d42;line-height:1.4}
 .cand details summary{cursor:pointer;font-weight:800;font-size:13.5px;color:var(--oro-oscuro)}
 .cand details p{margin:6px 0 0;white-space:pre-wrap;line-height:1.45;font-size:14px}
 .cand-acciones{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cand-acciones a,.cand-acciones button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:12px;font:inherit;font-weight:800;font-size:14px;text-decoration:none;cursor:pointer}
-.cand-acciones a.cand-wa{background:#fff;color:#1a7f4a;border:1.5px solid #1f9d5b}
+.cand-acciones a.cand-wa{background:#fff;color:#1a7f4a;border:1.5px solid #0b2a33}
 .cand-acciones button{background:var(--noche);color:var(--oro-claro);border:0}
 .cand-sin-cv{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:12px;border:1px dashed var(--linea);font-size:13px;color:#8a999c;font-weight:700}
-.cand-mover{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a7a4d}
+.cand-mover{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a7a4d}
 .cand-mover select{padding:10px 12px;border-radius:12px;border:1px solid var(--linea);font:inherit;font-size:14px;font-weight:800;background:#fff;letter-spacing:0;text-transform:none}
-.cand-nota{display:grid;gap:4px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a7a4d}
+.cand-nota{display:grid;gap:4px;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a7a4d}
 .cand-nota textarea{font:inherit;font-size:14px;letter-spacing:0;text-transform:none;border:1px solid var(--linea);border-radius:12px;padding:9px 11px;resize:vertical;background:#fffdf7}
 .cand-vacio{grid-column:1/-1;text-align:center;padding:36px 16px;border-radius:20px;border:1px dashed var(--linea);background:#fffdf7;color:#5c6a63}
 .cand-vacio b{display:block;margin-bottom:4px;font:800 22px 'Barlow Condensed',sans-serif;text-transform:uppercase;color:var(--noche)}
@@ -63,7 +63,7 @@
 @media(max-width:420px){.cand-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.cand-ficha{grid-template-columns:1fr 1fr}}
 /* Seguimiento para quien no es de tecnología: el camino y el siguiente paso. */
 .cand-guia{padding:14px 16px;border-radius:18px;background:#fffdf7;border:1px solid var(--linea)}
-.cand-guia-tit{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--oro-oscuro)}
+.cand-guia-tit{margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--oro-oscuro)}
 .cand-guia ol{margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;counter-reset:g}
 .cand-guia li{list-style:none;counter-increment:g;padding:8px;border-radius:12px;background:var(--crema);display:grid;gap:2px}
 .cand-guia li b{font:800 15px 'Barlow Condensed',sans-serif;text-transform:uppercase}
@@ -74,7 +74,7 @@
 .cand-avatar{overflow:hidden}
 .cand-avatar img{width:100%;height:100%;object-fit:cover}
 .cand-camino{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:0;list-style:none}
-.cand-camino li{position:relative;padding-top:14px;text-align:center;font-size:10.5px;font-weight:800;letter-spacing:.02em;color:#9aa6a2}
+.cand-camino li{position:relative;padding-top:14px;text-align:center;font-size:12px;font-weight:800;letter-spacing:.02em;color:#9aa6a2}
 .cand-camino li::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;border-radius:999px;background:#ece6d2}
 .cand-camino li.hecho{color:var(--noche)}
 .cand-camino li.hecho::before{background:var(--oro)}
@@ -87,7 +87,7 @@
 .cand-paso p{margin:0;font-size:14.5px;line-height:1.4}
 .cand-paso-btns{display:flex;flex-wrap:wrap;gap:8px}
 .cand-paso-btn{flex:1 1 auto;min-height:46px;padding:10px 14px;border-radius:12px;border:1px solid #cfd9d4;background:#fff;color:var(--noche);font:inherit;font-weight:800;font-size:14.5px;cursor:pointer;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center}
-.cand-paso-btn.principal{background:#1f9d5b;border-color:#1f9d5b;color:#fff}
+.cand-paso-btn.principal{background:#0b2a33;border-color:#0b2a33;color:#fff}
 .cand-fecha{display:grid;gap:8px}
 .cand-fecha label{display:grid;gap:4px;font-size:12px;font-weight:800;color:#42575d}
 .cand-fecha input{padding:11px 12px;border-radius:12px;border:1px solid #cfd9d4;font:inherit;font-size:15px}

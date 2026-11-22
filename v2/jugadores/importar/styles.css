@@ -2,7 +2,7 @@
 .im-page{max-width:880px}
 .im{display:grid;gap:16px}
 .im-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;border-radius:24px;padding:22px 20px;color:#fff;background:linear-gradient(150deg,var(--tos-ink,#0b3d5c),#07191e)}
-.im-eyebrow{margin:0;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--tos-gold,#d6c27d)}
+.im-eyebrow{margin:0;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--tos-gold,#d6c27d)}
 .im-hero h1{margin:2px 0 0;font-size:30px;font-weight:950;color:#fff}
 .im-lema{margin:4px 0 0;color:rgba(255,255,255,.75);font-size:14px;max-width:46ch}
 .im-pasos{display:flex;gap:6px;margin:0;padding:0;list-style:none;flex-wrap:wrap}

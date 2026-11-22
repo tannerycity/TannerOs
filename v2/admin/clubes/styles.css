@@ -1,10 +1,10 @@
 /* Portal de la plataforma: tablero de clubes y alta en 5 pasos. */
-:root{--pf-ink:#07191e;--pf-oro:#d6c27d;--pf-ok:#16a36f;--pf-aten:#d49a1c}
+:root{--pf-ink:#07191e;--pf-oro:#d6c27d;--pf-ok:#0b2a33;--pf-aten:#d49a1c}
 .clubes-muted{color:var(--muted);font-size:13px}
 .pf{display:grid;gap:16px}
 .pf-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;border-radius:24px;padding:22px 20px;color:#fff;
   background:radial-gradient(circle at 85% 20%,rgba(214,194,125,.25),transparent 45%),linear-gradient(150deg,#0b3d5c,#07191e)}
-.pf-eyebrow{margin:0;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--pf-oro)}
+.pf-eyebrow{margin:0;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--pf-oro)}
 .pf-hero h1{margin:2px 0 0;font-size:34px;font-weight:950;letter-spacing:-.02em;color:#fff}
 .pf-lema{margin:4px 0 0;color:rgba(255,255,255,.7);font-size:13.5px}
 .pf-hero-btns{display:flex;gap:8px;flex-wrap:wrap}
@@ -15,22 +15,22 @@
 .pf-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .pf-kpis article{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;display:grid;gap:3px}
 .pf-kpis b{font-size:28px;font-weight:950;line-height:1;color:var(--pf-ink);font-variant-numeric:tabular-nums}
-.pf-kpis span{font-size:11.5px;font-weight:800;color:var(--muted)}
+.pf-kpis span{font-size:12px;font-weight:800;color:var(--muted)}
 .pf-bloque{display:grid;gap:10px}
 .pf-bloque h2{margin:0;font-size:20px;font-weight:950}
 .pf-clubes{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
 .pf-club{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px 14px}
 .pf-club-demo{border-style:dashed;background:#fbfaf5}
-.pf-demo{font-style:normal;font-size:9.5px;font-weight:950;letter-spacing:.06em;text-transform:uppercase;background:#fdf2dc;color:#8a6410;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:2px}
+.pf-demo{font-style:normal;font-size:12px;font-weight:950;letter-spacing:.06em;text-transform:uppercase;background:#fdf2dc;color:#8a6410;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:2px}
 .pf-escudo{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;color:#fff;font-weight:950;font-size:17px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.2);flex:0 0 auto}
 .pf-club-txt{display:grid;gap:2px;min-width:0}
 .pf-club-txt strong{font-size:15.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pf-club-txt small{font-size:12px;color:var(--muted)}
 .pf-club-datos{font-size:12px;color:#3e555b}
-.pf-pend{font-size:11.5px;font-weight:800;color:#8a6410}
-.pf-act{font-size:11.5px;font-weight:800;color:#11773c}
+.pf-pend{font-size:12px;font-weight:800;color:#8a6410}
+.pf-act{font-size:12px;font-weight:800;color:#11773c}
 .pf-plan{display:grid;justify-items:center;gap:2px;font-size:12px;font-weight:950;border-radius:12px;padding:6px 10px;background:#eef2f1;color:#3e555b;text-align:center}
-.pf-plan i{font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:#8a6410}
+.pf-plan i{font-style:normal;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8a6410}
 .pf-plan-cantera{background:#e4f6e9;color:#11773c}
 .pf-plan-primera{background:#e3eef6;color:#1d4a6b}
 .pf-plan-seleccion{background:#fdf2dc;color:#8a6410}
@@ -50,17 +50,17 @@
 .az-cab h2{margin:2px 0 0;font-size:24px;font-weight:950}
 .az-cerrar{width:38px;height:38px;border-radius:50%;border:0;background:#e7edeb;font-size:22px;cursor:pointer;flex:0 0 auto}
 .az-pasos{list-style:none;margin:0;padding:0 18px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
-.az-pasos li{font-size:10.5px;font-weight:900;text-align:center;color:#9fb0b3;padding-top:8px;border-top:4px solid #dfe6e4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.az-pasos li{font-size:12px;font-weight:900;text-align:center;color:#9fb0b3;padding-top:8px;border-top:4px solid #dfe6e4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .az-pasos li.hecho{border-top-color:var(--pf-ok);color:#11773c}
 .az-pasos li.actual{border-top-color:#0b3d5c;color:var(--pf-ink)}
 .az-cuerpo{padding:16px 18px;display:grid;gap:12px}
-.az-campo{display:grid;gap:5px;font-size:11.5px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.05em}
+.az-campo{display:grid;gap:5px;font-size:12px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.05em}
 .az-campo input{font-size:16px;text-transform:none;letter-spacing:0;font-weight:600;color:var(--pf-ink)}
-.az-campo small{text-transform:none;letter-spacing:0;font-weight:650;color:var(--muted);font-size:11.5px}
+.az-campo small{text-transform:none;letter-spacing:0;font-weight:650;color:var(--muted);font-size:12px}
 .az-slug,.az-pesos{display:flex;align-items:center;gap:4px;font-size:16px;color:var(--muted);text-transform:none}
 .az-slug input,.az-pesos input{flex:1;min-width:0}
 .az-colores{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.az-colores label{display:grid;gap:4px;font-size:11.5px;font-weight:850;color:#5f7076}
+.az-colores label{display:grid;gap:4px;font-size:12px;font-weight:850;color:#5f7076}
 .az-colores input{width:100%;height:44px;padding:2px;border-radius:12px;cursor:pointer}
 .az-vista{display:flex;align-items:center;gap:12px;border-radius:18px;padding:14px;color:#fff}
 .az-vista strong{display:block;font-size:17px;font-weight:950}
@@ -75,7 +75,7 @@
 .az-plan.activo{border-color:#0b3d5c;box-shadow:0 0 0 3px rgba(11,61,92,.12)}
 .az-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;font-weight:600;color:#3e555b;text-transform:none;letter-spacing:0;cursor:pointer}
 .az-check input{width:20px;height:20px;margin-top:1px}
-.az-et{margin:0;font-size:11.5px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.05em}
+.az-et{margin:0;font-size:12px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.05em}
 .az-chips{display:flex;flex-wrap:wrap;gap:6px}
 .az-chips button{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:9px 12px;font-weight:900;font-size:13.5px;cursor:pointer;color:var(--pf-ink)}
 .az-chips button.activo{background:#0b3d5c;border-color:#0b3d5c;color:#fff}
@@ -88,7 +88,7 @@
 .az-nota{margin:0;font-size:12.5px;color:var(--muted)}
 .az-resumen{display:grid;gap:12px}
 .az-resumen dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:8px 14px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
-.az-resumen dt{font-size:11.5px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.05em}
+.az-resumen dt{font-size:12px;font-weight:900;color:#5f7076;text-transform:uppercase;letter-spacing:.05em}
 .az-resumen dd{margin:0;font-size:14px;font-weight:700;color:var(--pf-ink)}
 .az-listo{display:grid;gap:10px}
 .az-listo pre{margin:0;white-space:pre-wrap;font:inherit;font-size:13.5px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;color:#22373c}
@@ -104,7 +104,7 @@
   .az-fondo{padding:0;align-items:stretch}
   .az{max-height:none;height:100dvh;border-radius:0}
   .az-tres{grid-template-columns:1fr}
-  .az-pasos li{font-size:9.5px}
+  .az-pasos li{font-size:12px}
   .pf-hero h1{font-size:28px}
 }
 
@@ -121,7 +121,7 @@
 .pf-cobro>b{font-size:17px;font-weight:950;text-align:right}
 .pf-cobro-estado{font-size:12.5px;font-weight:900}
 .pf-cobro button{justify-self:end}
-.pf-cobro-ok{border-left-color:#1f9d5b}.pf-cobro-ok .pf-cobro-estado{color:#11773c}
+.pf-cobro-ok{border-left-color:#0b2a33}.pf-cobro-ok .pf-cobro-estado{color:#11773c}
 .pf-cobro-aviso{border-left-color:#d49a1c}.pf-cobro-aviso .pf-cobro-estado{color:#8a6410}
 .pf-cobro-tarde{border-left-color:#b4532a}.pf-cobro-tarde .pf-cobro-estado{color:#9a4220}
 .pf-cobro-bloqueo{border-left-color:#9b2c1f;background:#fdf3f1}.pf-cobro-bloqueo .pf-cobro-estado{color:#9b2c1f}

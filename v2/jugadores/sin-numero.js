@@ -27,15 +27,15 @@ function estilosPropios() {
   s.textContent = `
 .sinnum-banner{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding:13px 16px;border:1px solid #eedca6;border-radius:16px;background:#fffaf0;color:#765719;font:inherit;font-weight:800;font-size:14px;cursor:pointer;text-align:left}
 .sinnum-banner b{background:#765719;color:#fff;border-radius:999px;padding:6px 12px;font-size:13px;white-space:nowrap}
-.sinnum-cat{margin:16px 0 6px;font-size:11px;font-weight:900;letter-spacing:.08em;color:#8a969b;text-transform:uppercase}
+.sinnum-cat{margin:16px 0 6px;font-size:12px;font-weight:900;letter-spacing:.08em;color:#8a969b;text-transform:uppercase}
 .sinnum-fila{display:grid;grid-template-columns:44px 1fr;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid #eef1f0}
 .sinnum-cara{grid-row:span 2;width:44px;height:44px;border-radius:50%;overflow:hidden;background:#e2ecec;color:#2e5660;display:grid;place-items:center;font-weight:800;font-size:15px}
 .sinnum-cara img{width:100%;height:100%;object-fit:cover}
 .sinnum-fila strong{font-size:15px;color:#0b1418}
 .sinnum-fila .dorsal-chips{margin:0}
-.sinnum-fila.listo strong::after{content:attr(data-num);margin-left:8px;color:#159c4c;font-weight:900}
+.sinnum-fila.listo strong::after{content:attr(data-num);margin-left:8px;color:#0b2a33;font-weight:900}
 .sinnum-aviso{grid-column:2;margin:0;font-size:12.5px;font-weight:700;color:#b13d34}
-.sinnum-ok{grid-column:2;margin:0;font-size:13px;font-weight:700;color:#159c4c}
+.sinnum-ok{grid-column:2;margin:0;font-size:13px;font-weight:700;color:#0b2a33}
 .sinnum-vacio{padding:18px 0;text-align:center;color:#5b6b70;font-weight:700}`;
   document.head.appendChild(s);
 }

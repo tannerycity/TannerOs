@@ -210,10 +210,13 @@ function hojaRapidas(x, k, a, wa) {
 function hojaTarea(x, k, st) {
   if (!(datos.canWrite || datos.canSeeContact)) return '';
   let t = '';
-  if (k && st !== 'signed' && !x.verifiedAt) t += `<div class="vs-bloque vs-tarea"><b>¿Ya confirmaste que firmó su papá o su mamá?</b>
+  /* h97 (21/11/2026): firmar con su liga basta para jugar. Confirmar quién
+     firmó ya no frena a nadie: queda opcional y plegado, por si un día hace
+     falta (el expediente dice la verdad: confirmado o no). */
+  if (k && st !== 'signed' && !x.verifiedAt) t += `<details class="vs-grupo vs-opcional"><summary><span>Confirmar quién firmó <em>opcional</em></span></summary><div class="vs-bloque vs-tarea"><b>¿Ya confirmaste que firmó su papá o su mamá?</b>
         <div class="vs-seg" role="group">${Object.entries(VERIFICACION).map(([m, tx], i) => `<button type="button" data-metodo="${m}" aria-pressed="${i === 0}">${tx}</button>`).join('')}</div>
         <input id="vsRef" maxlength="200" placeholder="¿Cómo? Ej. 'me escribió del 477…', 'le vi la INE en la entrada'">
-        <button type="button" class="vs-guarda" data-verifica="${esc(k)}">Sí, ya lo confirmé</button></div>`;
+        <button type="button" class="vs-guarda" data-verifica="${esc(k)}">Sí, ya lo confirmé</button></div></details>`;
   if (k && st === 'requires_review') t += `<div class="vs-bloque vs-tarea"><b>Firmó alguien que no es papá ni mamá. ¿Puede firmar por él?</b><textarea id="vsRevNota" rows="2" placeholder="¿Qué te enseñó? Ej. 'papel de tutela', 'es su abuela con permiso'"></textarea>
         <div class="vs-dos"><button type="button" class="vs-guarda" data-revisa="si">Sí puede</button><button type="button" class="vs-guarda rojo" data-revisa="no">No puede: que firmen sus papás</button></div></div>`;
   return t;
@@ -235,7 +238,6 @@ function verDatos(x) {
   h.innerHTML = `<header class="vs-ev-cab"><div><h2>${esc(`${x.firstName} ${x.lastName}`)}</h2><p>${esc(x.folio || '')}</p></div><button type="button" class="vs-cierra" data-cierra aria-label="Cerrar">×</button></header>
     <div class="vs-estado-acceso acc-${(ACCESO[a] || {}).tono}"><b>${esc((ACCESO[a] || {}).t || a)}</b>${x.access?.reason ? `<span>${esc(dicho(x.access.reason))}</span>` : ''}</div>
     ${hojaRapidas(x, k, a, wa)}
-    ${hojaTarea(x, k, st)}
     <dl class="vs-datos">${fila('Papá, mamá o tutor', x.guardian)}${fila('Es su', PARENTESCO[x.relationship] || '')}${fila('WhatsApp', x.phone)}${fila('Correo', x.email)}
       ${fila('Si pasa algo, llamar a', [em.nombre, em.telefono].filter(Boolean).join(' · '))}${fila('Quién lo recoge', x.recoge)}
       ${fila('Firmó', x.signedBy ? `${x.signedBy} · ${PARENTESCO[x.signedRelationship] || ''} · ${fecha(x.signedAt)}` : '')}
@@ -243,6 +245,7 @@ function verDatos(x) {
       ${fila('Ojo con la firma', x.reviewReason || '')}${fila('Fotos en redes', x.imageConsent ? 'Sí se pueden subir' : 'No subir')}
       ${x.transfer === true || x.transfer === false ? fila('Compartir con otro club', x.transfer ? 'Sí' : 'No') : ''}
       ${fila('Hoy no juega', x.alert ? (x.alertNote || 'Sí') : '')}</dl>
+    ${hojaTarea(x, k, st)}
     ${hojaAcciones(x, k, st, a, wa)}`;
   h.onclick = e => accionHoja(e, x);
 }

@@ -390,7 +390,10 @@ async function ninoYFamilia(pg) {
   await pg.click('.vs-carta[data-id="v1"] [data-ver-mas]');
   await pg.waitForSelector('#vsHoja .vs-datos', { timeout:3000 });
   const det = await texto(pg, '#vsHoja');
-  revisa('12. staff ve tutor, emergencia, quién firmó y qué falta; nada de salud', /Ana Ávila/.test(det) && /Luis Ávila/.test(det) && /confirmar que firmó su papá o su mamá/.test(det) && !/consentimiento|operativa|facultades/i.test(det) && !/alergia|Penicilina|IMSS/i.test(det), det);
+  revisa('12. staff ve tutor, emergencia, quién firmó y qué falta; nada de salud', /Ana Ávila/.test(det) && /Luis Ávila/.test(det) && /confirmar que firmó su papá o su mamá/.test(det) && !/consentimiento|operativa|facultades/i.test(det)
+    && await pg.evaluate(() => !document.querySelector('#vsHoja .vs-opcional').open && !!document.querySelector('#vsHoja .vs-opcional').closest('#vsHoja')) && !/alergia|Penicilina|IMSS/i.test(det), det);
+  revisa('12. h97: confirmar quién firmó es opcional y va plegado', await pg.evaluate(() => { const d = document.querySelector('#vsHoja .vs-opcional'); return !!d && !d.open && /opcional/.test(d.querySelector('summary').textContent); }));
+  await pg.click('#vsHoja .vs-opcional summary');
   await pg.fill('#vsRef', 'El pase llegó del WhatsApp registrado');
   await pg.click('[data-verifica]');
   await pg.waitForTimeout(250);

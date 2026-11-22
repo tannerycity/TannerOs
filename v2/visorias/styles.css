@@ -218,3 +218,15 @@
 .vs-opcional>summary::after{content:'›';font-size:1.2em;color:#9aa6ab;transition:transform .2s}
 .vs-opcional[open]>summary::after{transform:rotate(90deg)}
 .vs-opcional .vs-tarea{margin:0 12px 12px}
+
+/* h98: visoría terminada y selector de visorías pasadas. */
+.vs-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.vs-elige select{appearance:none;border:1px solid #d9e0e3;border-radius:999px;background:#fff;padding:8px 30px 8px 14px;font:inherit;font-size:.9rem;color:#0b2a33;max-width:200px;
+  background-image:linear-gradient(45deg,transparent 50%,#6b7a80 50%),linear-gradient(135deg,#6b7a80 50%,transparent 50%);background-position:calc(100% - 16px) 55%,calc(100% - 11px) 55%;background-size:5px 5px;background-repeat:no-repeat}
+.vs-terminada{color:#a2542f}
+.vs-terminada-aviso{background:#f6f3ee;border-radius:14px;padding:12px 14px;margin:10px 0;color:#3d4a4f;font-size:.92rem;line-height:1.4}
+.vs-terminada-aviso a{color:#0b2a33;font-weight:700}
+.vs-termina{display:grid;gap:8px;margin-bottom:14px}
+.vs-termina span{color:#55656b;font-size:.92rem}
+.vs-guarda.sec{background:#eef2f3;color:#0b2a33}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}

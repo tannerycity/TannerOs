@@ -33,7 +33,7 @@ const iniciales = x => `${(x.firstName || '?')[0]}${(x.lastName || '')[0] || ''}
 const hora = v => new Intl.DateTimeFormat('es-MX', { hour: 'numeric', minute: '2-digit' }).format(new Date(v));
 const fecha = v => v ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Mexico_City' }).format(new Date(v)) : '';
 
-let ctx = null, datos = null, fotos = {}, ver = 'todos', busca = '', evalua = null, vista = 'inscritos', evento = null, incidentes = null, verAcceso = 'todos';
+let campanas = [], slugActual = null, ctx = null, datos = null, fotos = {}, ver = 'todos', busca = '', evalua = null, vista = 'inscritos', evento = null, incidentes = null, verAcceso = 'todos';
 async function rpc(n, p) { const { data, error } = await supabase.rpc(n, p); if (error) throw error; return data; }
 function muestra(id) { ['loadingView', 'deniedView', 'view'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
 function aviso(t, tipo) { const m = $('vsMensaje'); m.textContent = t || ''; m.dataset.type = tipo || ''; m.classList.toggle('hidden', !t); if (t) m.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
@@ -43,14 +43,16 @@ function pintaCampana() {
   const c = datos.campaign || {}, items = datos.items || [], n = items.length, cupo = c.capacity, llegaron = items.filter(x => x.arrivedAt).length;
   const anios = porAnio(items), canales = porCanal(items), r = resumenAcceso(items);
   $('vsCampana').innerHTML = `
-    <div class="vs-cab"><div><p class="vs-eyebrow">VISORÍA</p><h1>${esc(c.title || 'Visoría')}</h1><p class="vs-sub">${esc(c.datesLabel || '')}${c.location ? ` · ${esc(c.location)}` : ''}</p></div></div>
-    ${c.signingOpen ? '' : `<div class="vs-alerta" role="status"><b>Los papás todavía no pueden firmar.</b> Por ahora sólo apartan lugar. ${datos.canSeeContact ? 'Se abre cuando terminas los datos en <button type="button" class="vs-enlace" data-vista-ir="evento">Evento</button>.' : ''}</div>`}
+    <div class="vs-cab"><div><p class="vs-eyebrow">VISORÍA${c.open === false ? ' · <span class="vs-terminada">TERMINADA</span>' : ''}</p><h1>${esc(c.title || 'Visoría')}</h1><p class="vs-sub">${esc(c.datesLabel || '')}${c.location ? ` · ${esc(c.location)}` : ''}</p></div>
+      ${campanas.length > 1 ? `<label class="vs-elige"><span class="sr-only">Ver otra visoría</span><select id="vsElige" aria-label="Ver otra visoría">${campanas.map(k => `<option value="${esc(k.slug)}"${k.slug === c.slug ? ' selected' : ''}>${esc(k.title || k.slug)}${k.open ? '' : ' · terminada'}</option>`).join('')}</select></label>` : ''}</div>
+    ${c.open === false ? `<div class="vs-terminada-aviso" role="status"><b>Esta visoría ya terminó.</b> No se borró nada: aquí están todos como quedaron. Para escribirles y darles seguimiento, ve a <a href="/v2/prospectos/?origen=visoria">Prospectos › Visorías</a>.</div>`
+    : c.signingOpen ? '' : `<div class="vs-alerta" role="status"><b>Los papás todavía no pueden firmar.</b> Por ahora sólo apartan lugar. ${datos.canSeeContact ? 'Se abre cuando terminas los datos en <button type="button" class="vs-enlace" data-vista-ir="evento">Evento</button>.' : ''}</div>`}
     <div class="vs-numeros">
       <div class="vs-num grande"><b>${n}${cupo ? `<small> de ${cupo}</small>` : ''}</b><span>inscritos</span>${cupo ? `<div class="vs-barra"><i style="width:${Math.min(100, Math.round(n / cupo * 100))}%"></i></div>` : ''}</div>
       <div class="vs-num"><b>${r.AUTORIZADO}</b><span>pueden jugar</span></div>
       <div class="vs-num"><b>${llegaron}</b><span>llegaron</span></div>
     </div>
-    <div class="vs-liga"><span>${esc(LIGA_PUBLICA.replace('https://', ''))}</span><button type="button" class="vs-boton sec" data-copia>Copiar liga</button><a class="vs-boton" href="https://wa.me/?text=${encodeURIComponent(textoParaCompartir(c))}" target="_blank" rel="noopener">Compartir</a></div>
+    ${c.open === false ? '' : `<div class="vs-liga"><span>${esc(LIGA_PUBLICA.replace('https://', ''))}</span><button type="button" class="vs-boton sec" data-copia>Copiar liga</button><a class="vs-boton" href="https://wa.me/?text=${encodeURIComponent(textoParaCompartir(c))}" target="_blank" rel="noopener">Compartir</a></div>`}
     ${n ? `<div class="vs-desglose"><div><b>Por año</b>${anios.map(a => `<span>${a.anio} · ${a.n}</span>`).join('')}</div><div><b>Llegaron por</b>${canales.map(a => `<span>${esc(a.canal)} · ${a.n}</span>`).join('')}</div></div>` : ''}`;
 }
 
@@ -163,7 +165,9 @@ async function cargaFotos() {
 }
 
 async function carga() {
-  datos = await rpc('v2_visoria_board', { organization_id: ctx.organization_id, slug: null });
+  datos = await rpc('v2_visoria_board', { organization_id: ctx.organization_id, slug: slugActual });
+  /* h98: una visoría terminada se ve como quedó, sin mover nada. */
+  if (datos?.campaign && datos.campaign.open === false) datos.canWrite = false;
   if (!datos?.campaign) { $('vsCampana').innerHTML = '<div class="vs-cab"><h1>Visorías</h1><p class="vs-sub">Todavía no hay una visoría abierta.</p></div>'; $('vsLista').innerHTML = ''; return; }
   pinta(); cargaFotos();
 }
@@ -355,7 +359,10 @@ function pintaEvento() {
   const c = evento.campaign, puede = evento.canAdmin, l = c.legal || {};
   const vigente = g => (evento.approvals || []).find(a => a.gate === g && a.current);
   const docs = evento.documents || [];
-  box.innerHTML = `
+  const term = datos.canAdmin ? `<div class="vs-bloque vs-termina"><b>${datos.campaign.open === false ? 'Esta visoría está terminada' : '¿Ya pasó la visoría?'}</b>
+      <span>${datos.campaign.open === false ? 'Si la reabres, las familias vuelven a poder inscribirse.' : 'Termínala: nadie más se inscribe y no se borra nada. Todos quedan en Prospectos › Visorías para escribirles.'}</span>
+      <button type="button" class="vs-guarda${datos.campaign.open === false ? ' sec' : ' rojo'}" data-termina>${datos.campaign.open === false ? 'Reabrir visoría' : 'Terminar visoría'}</button></div>` : '';
+  box.innerHTML = `${term}
     <div class="vs-bloque ${evento.missing.length ? 'falta' : 'ok'}"><b>${evento.missing.length ? 'La firma está cerrada' : 'La firma está abierta'}</b>
       ${evento.missing.length ? `<ul>${evento.missing.map(m => `<li>${esc(faltante(m))}</li>`).join('')}</ul>` : '<span>Todo aprobado para esta versión del evento.</span>'}
       <small>Huella del evento: ${esc(String(evento.eventHash).slice(0, 16))}… Si cambia algo importante (sede, organizador, seguro, evaluador, textos), las aprobaciones y las firmas anteriores dejan de valer solas.</small></div>
@@ -585,13 +592,39 @@ $('vsCampana').addEventListener('click', async e => {
   try { await navigator.clipboard.writeText(LIGA_PUBLICA); aviso('Liga copiada.', 'success'); } catch { aviso(LIGA_PUBLICA); }
 });
 
+async function cargaCampanas() {
+  try { campanas = await rpc('v2_visoria_campaigns', { organization_id: ctx.organization_id }) || []; } catch { campanas = []; }
+}
+$('vsCampana').addEventListener('change', async e => {
+  if (e.target.id !== 'vsElige') return;
+  slugActual = e.target.value; evento = null; incidentes = null; fotos = {};
+  try { await carga(); } catch (err) { aviso(err.message || 'No se pudo abrir esa visoría.'); }
+});
+
+/* h98: Presidencia termina o reabre la visoría. Nada se borra. */
+async function terminaVisoria(btn) {
+  const c = datos.campaign, abrir = c.open === false;
+  const ok = window.tosConfirm ? await window.tosConfirm({ kicker: 'VISORÍA', title: abrir ? '¿Reabrir la visoría?' : '¿Terminar la visoría?',
+    message: abrir ? 'Las familias podrán volver a inscribirse con la liga.' : `Ya nadie se podrá inscribir. Los ${(datos.items || []).length} inscritos, sus firmas y evaluaciones se quedan. La liga dirá que ya terminó y dejará anotar el WhatsApp para la próxima.`,
+    confirmText: abrir ? 'Sí, reabrir' : 'Sí, terminar', cancelText: 'Cancelar', danger: !abrir })
+    : confirm(abrir ? '¿Reabrir la visoría?' : '¿Terminar la visoría? Nada se borra.');
+  if (!ok) return;
+  btn.disabled = true;
+  try {
+    await rpc('v2_visoria_close', { organization_id: ctx.organization_id, campaign_id: c.id, open: abrir });
+    slugActual = c.slug; evento = null; await cargaCampanas(); await carga();
+    aviso(abrir ? 'Visoría reabierta.' : 'Visoría terminada. Todos siguen en Prospectos › Visorías.', 'success');
+  } catch (err) { btn.disabled = false; aviso(err.message || 'No se pudo.'); }
+}
+$('vsVista_evento').addEventListener('click', e => { const b = e.target.closest('[data-termina]'); if (b) terminaVisoria(b); });
+
 async function arranca() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { location.href = '/v2'; return; }
   const rows = await rpc('v2_my_context'); ctx = rows?.[0];
   if (!ctx) { muestra('deniedView'); return; }
   $('orgName').textContent = ctx.organization_name || '';
-  try { await carga(); muestra('view'); }
+  try { await cargaCampanas(); await carga(); muestra('view'); }
   catch (e) { $('deniedText').textContent = /Not authorized/i.test(e?.message || '') ? 'Las visorías las ven Fichajes y Scouting.' : (e.message || 'No se pudo abrir.'); muestra('deniedView'); }
 }
 arranca();

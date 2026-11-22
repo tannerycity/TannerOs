@@ -1,4 +1,4 @@
-import {instalaVocabulario} from '/v2/vocabulario.js';
+import {instalaDelClub,vocabularioDelClub} from '/v2/vocabulario.js';
 const SUPABASE_URL='https://pacnegivzgxpanphrnwp.supabase.co';
 export const BRANDING_BUCKET='tanneros-branding';
 
@@ -25,6 +25,8 @@ function setImage(el,url,alt){if(!el||!url)return;el.innerHTML='';const img=docu
 
 export function applyBranding(raw,{organizationId}={}){
   const brand=normalizeBranding(raw),root=document.documentElement,c=brand.colors;
+  // Un club que no es Tannery (y los demos) ve el nombre de la plataforma, no TannerOS (v2/plataforma.js).
+  const delClub=vocabularioDelClub(raw);if(delClub.marca){brand.product=delClub.marca.producto;if(!raw?.appName||/tanner/i.test(raw.appName))brand.appName=delClub.marca.producto;}
   const vars={'--tos-ink':c.primary,'--tos-ink-deep':colorMix(c.primary,-12),'--tos-teal':c.secondary,'--tos-teal-soft':`${c.secondary}18`,'--tos-gold':c.accent,'--tos-bg':c.background,'--ink':c.primary,'--teal':c.secondary,'--gold':c.accent};
   Object.entries(vars).forEach(([k,v])=>root.style.setProperty(k,v));
   document.body?.style.setProperty('--brand-primary',c.primary);
@@ -43,7 +45,7 @@ export function applyBranding(raw,{organizationId}={}){
   document.querySelectorAll('.brand-lockup .eyebrow').forEach(el=>{if(/TANNERY CITY|CLUB|ORGANIZACI/i.test(el.textContent||''))el.textContent=brand.brand.toUpperCase();});
   const titleParts=document.title.split('·').map(x=>x.trim()).filter(Boolean),page=titleParts.length>1?titleParts[0]:'';document.title=page?`${page} · ${brand.appName}`:brand.appName;
   // Cómo le dice el club a sus jugadores ("Tanner" en Tannery): ver vocabulario.js.
-  instalaVocabulario(raw?.playerNoun);
+  instalaDelClub(raw);
   window.__tosBranding=brand;window.dispatchEvent(new CustomEvent('tanneros:branding',{detail:brand}));return brand;
 }
 

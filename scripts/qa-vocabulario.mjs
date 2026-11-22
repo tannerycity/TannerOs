@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import { traduce, traduceLiga, vocabularioValido, esDeTannery } from '../v2/vocabulario.js';
+import { traduce, traduceLiga, vocabularioValido, esDeTannery, traduceMarca, vocabularioDelClub } from '../v2/vocabulario.js';
+import { PLATAFORMA } from '../v2/plataforma.js';
 const require = createRequire(import.meta.url);
 const vista = require('../api/vista-previa.js');
 
@@ -37,6 +38,43 @@ await prueba('el texto de WhatsApp también', () => {
 await prueba('vocabulario inválido se ignora', () => {
   assert.equal(vocabularioValido({ singular: '<x>', plural: '' }), null);
   assert.deepEqual(vocabularioValido({ singular: ' Halcón ', plural: 'Halcones' }), { singular: 'Halcón', plural: 'Halcones' });
+});
+
+// Demo para vender (22/11/2026): un club que no es Tannery no ve TannerOS, Tannery ni Tanner.
+await prueba('Tannery se queda igual (marca guardada de Tannery)', () => {
+  const t = vocabularioDelClub({ brand: 'Tannery City', product: 'TannerOS', playerNoun: TC });
+  assert.equal(t.marca, null);
+  assert.deepEqual(t.noun, TC);
+});
+await prueba('demo sin configurar: Jugador, plataforma y su nombre sin "(demo)"', () => {
+  const d = vocabularioDelClub({ brand: 'Halcones FC (demo)', product: null, playerNoun: null });
+  assert.deepEqual(d.noun, PLATAFORMA.jugador);
+  assert.deepEqual(d.marca, { producto: PLATAFORMA.nombre, club: 'Halcones FC' });
+  const v = { ...d.noun, marca: d.marca };
+  assert.equal(traduce('Bienvenido a TannerOS, el sistema de Tannery City FC para tus Tanners', v), `Bienvenido a ${PLATAFORMA.nombre}, el sistema de Halcones FC para tus jugadores`);
+  assert.equal(traduce('TANNEROS · TANNERY CITY', v), `${PLATAFORMA.nombre.toUpperCase()} · HALCONES FC`);
+});
+await prueba('club con su propio producto y palabra', () => {
+  const d = vocabularioDelClub({ brand: 'León Norte', product: 'LeónApp', playerNoun: { singular: 'León', plural: 'Leones' } });
+  assert.deepEqual(d.marca, { producto: 'LeónApp', club: 'León Norte' });
+  assert.equal(traduce('Abre TannerOS y busca al Tanner', { ...d.noun, marca: d.marca }), 'Abre LeónApp y busca al león');
+});
+await prueba('sin marca guardada no se toca nada (se queda como Tannery)', () => {
+  assert.equal(vocabularioDelClub(null).marca, null);
+  assert.equal(vocabularioDelClub({ playerNoun: null }).marca, null);
+});
+await prueba('producto guardado como TannerOS en otro club cuenta como sin configurar', () => {
+  assert.equal(vocabularioDelClub({ brand: 'Club X', product: 'TannerOS' }).marca.producto, PLATAFORMA.nombre);
+});
+await prueba('traduceMarca no inventa: sin marca o sin texto, igual', () => {
+  assert.equal(traduceMarca('TannerOS', null), 'TannerOS');
+  assert.equal(traduceMarca('', { producto: 'X' }), '');
+  assert.equal(traduceMarca('Hola', { producto: 'X', club: 'Y' }), 'Hola');
+});
+await prueba('WhatsApp de un demo tampoco dice Tannery', () => {
+  const d = vocabularioDelClub({ brand: 'Halcones FC (demo)' });
+  const u = traduceLiga('https://wa.me/1?text=' + encodeURIComponent('Hola de Tannery City, su Tanner'), { ...d.noun, marca: d.marca });
+  assert.equal(new URL(u).searchParams.get('text'), 'Hola de Halcones FC, su jugador');
 });
 
 await prueba('vista previa: nombre del club, escapado, sin Tannery', () => {

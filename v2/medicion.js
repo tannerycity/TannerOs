@@ -31,6 +31,7 @@ export const MEDICION = {
 };
 
 export const HOST_TIENDA = 'app.tannerycity.com';
+export const CLUB_MEDIDO = 'tannery-city-fc';
 // Parámetros que pueden venir en la liga sin datos personales: el club, el
 // código de descuento y los de campaña. Cualquier otro apaga la medición.
 const PARAMS_OK = /^(club|c|codigo|utm_(source|medium|campaign|content|term)|fbclid|gclid)$/;
@@ -38,7 +39,14 @@ export function paginaMedible({ hostname = '', pathname = '', search = '', hash 
   if (hostname !== HOST_TIENDA) return false;
   if (!(pathname === '/tienda' || pathname === '/tienda/' || pathname === '/pedido/' || /^\/tienda\/[a-z0-9-]+\/?$/.test(pathname))) return false;
   if (/^#\/(embajador|recibo|mis-pedidos)/.test(hash)) return false;
-  for (const k of new URLSearchParams(search).keys()) if (!PARAMS_OK.test(k)) return false;
+  const params = new URLSearchParams(search);
+  for (const k of params.keys()) if (!PARAMS_OK.test(k)) return false;
+  // Sólo la tienda de Tannery (22/11/2026): el pixel de Meta y la etiqueta de
+  // Google son de Tannery. La tienda de otro club (?club=<slug>, Mi Club FC)
+  // vive en el mismo dominio y no debe mandarle a Tannery las compras de sus
+  // familias. Sin ?club= la tienda es la de Tannery (v2/club-publico.js).
+  const club = (params.get('club') || '').trim().toLowerCase();
+  if (club && club !== CLUB_MEDIDO) return false;
   return true;
 }
 export const aqui = () => {

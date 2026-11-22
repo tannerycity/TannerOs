@@ -72,7 +72,7 @@ function ponEstilos(doc) {
   st.id = 'tosRecientesCss';
   st.textContent = `.tos-recientes{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 4px}
 .tos-recientes[hidden]{display:none}
-.tos-recientes>span{flex:1 0 100%;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#7d8c91}
+.tos-recientes>span{flex:1 0 100%;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#7d8c91}
 .tos-recientes button{display:inline-flex;align-items:center;gap:5px;min-height:34px;max-width:100%;padding:0 12px;border:1px solid #d6dfdd;border-radius:999px;background:#fff;color:#0d2730;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tos-recientes button svg{flex:0 0 auto;color:#7d8c91}
 .tos-recientes button.tos-rec-borra{border:0;background:none;color:#056c7f;font-weight:800;padding:0 6px}`;

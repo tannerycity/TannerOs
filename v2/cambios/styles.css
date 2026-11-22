@@ -11,7 +11,7 @@
 .ca-carta.revisado{opacity:.7}
 .ca-carta-cab{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .ca-carta-cab small{font-size:12.5px;color:#6b7a80}
-.ca-tipo{font-size:11.5px;font-weight:800;border-radius:999px;padding:3px 10px;background:#e3f1f3;color:#05505d}
+.ca-tipo{font-size:12px;font-weight:800;border-radius:999px;padding:3px 10px;background:#e3f1f3;color:#05505d}
 .ca-tipo[data-kind="order_deleted"],.ca-tipo[data-kind="income_voided"],.ca-tipo[data-kind="tanner_payment_refunded"]{background:#fdecea;color:#a92a21}
 .ca-carta h2{margin:0;font-size:17px;color:#07191e}
 .ca-carta h2 a{color:inherit;text-decoration:none}

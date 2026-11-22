@@ -79,7 +79,7 @@
 :is(.tc-entrada,.tc-cristal) .preview-pill{
   display:inline-flex;align-items:center;gap:8px;
   background:rgba(200,173,98,.14)!important;color:var(--tc-oro-claro)!important;
-  border:1px solid var(--tc-linea);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+  border:1px solid var(--tc-linea);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
 }
 :is(.tc-entrada,.tc-cristal) .preview-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.18)}
 
@@ -221,10 +221,10 @@ body:has(.tc-cristal:not(.hidden)){background:linear-gradient(160deg,#0b2a33,#06
 .tc-icono svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tc-icono-portal{background:#0a84ff;color:#fff}
 .tc-icono-tienda{background:#c9a96e;color:#0a1d33}
-.tc-icono-registro{background:#30d158;color:#0a1d33}
+.tc-icono-registro{background:#0b2a33;color:#0a1d33}
 .tc-icono-centro{background:#bf5af2;color:#fff}
 /* Sesión abierta en las puertas (04/11/2026). */
-#abreStaff[data-con-sesion="1"] .tc-icono-staff{background:#30d158;color:#0a1d33}
+#abreStaff[data-con-sesion="1"] .tc-icono-staff{background:#0b2a33;color:#0a1d33}
 .tc-sesion-nota{margin:-4px 0 0;text-align:center;font-size:13px;color:rgba(255,255,255,.7)}
 .tc-sesion-salir{border:0;background:none;color:#fff;font:inherit;font-weight:600;text-decoration:underline;cursor:pointer;padding:6px 4px}
 .tc-icono-costos{background:#ff9f0a;color:#0a1d33}

@@ -1,7 +1,7 @@
 .thumbs-page{max-width:900px}
 .thumbs-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .thumbs-stats article{display:grid;gap:3px;padding:14px;border-radius:14px;background:#f4f8f7}
-.thumbs-stats span{font-size:10px;font-weight:900;letter-spacing:.06em;color:#6e7b80}
+.thumbs-stats span{font-size:12px;font-weight:900;letter-spacing:.06em;color:#6e7b80}
 .thumbs-stats strong{font-size:26px;letter-spacing:-.02em;color:var(--tos-ink,#0b1418)}
 .thumbs-stats article[data-tone="warn"]{background:#fdf6ea}
 .thumbs-stats article[data-tone="warn"] strong{color:#8a6413}

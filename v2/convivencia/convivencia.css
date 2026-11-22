@@ -2,7 +2,7 @@
 .cv-cargando,.cv-vacio{color:#6f7c81;margin:12px 0}
 .cv-hero{background:#0b1f24;color:#fff;border-radius:22px;padding:20px 18px;margin:4px 0 14px}
 .cv-hero.bono{background:#184159}
-.cv-hero span{font-size:11px;font-weight:800;letter-spacing:.08em;opacity:.75}
+.cv-hero span{font-size:12px;font-weight:800;letter-spacing:.08em;opacity:.75}
 .cv-hero h1{margin:6px 0 4px;font-size:22px;line-height:1.2}
 .cv-hero p{margin:0 0 14px;font-size:13.5px;opacity:.85}
 .cv-hero.bono p{margin:0}
@@ -32,7 +32,7 @@
 .cv-caso.resuelto{opacity:.65}
 .cv-caso-txt{flex:1;display:grid;gap:2px}.cv-caso-txt small{font-size:12px;color:#6f7c81}
 .cv-caso i{font-style:normal;color:#6f7c81;font-size:20px}
-.cv-pill{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.cv-pill{display:inline-block;font-size:12px;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap}
 .cv-pill.gris{background:#eef1f1;color:#354f55}.cv-pill.ambar{background:#fff2ce;color:#7a5a08}
 .cv-pill.rojo{background:#fde3df;color:#9c2b1d}.cv-pill.verde{background:#ddf5e5;color:#0b7e3b}
 .cv-capa{position:fixed;inset:0;z-index:1500;background:rgba(6,20,24,.5);display:grid;align-items:end;justify-items:center}
@@ -47,7 +47,7 @@
 .cv-eti{font-size:13px;font-weight:700;color:#354f55;margin:12px 0 6px}
 .cv-niveles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cv-nivel{display:grid;gap:3px;text-align:left;border:1.5px solid #d8e0de;background:#fafbfb;border-radius:14px;padding:10px;font:inherit;cursor:pointer;min-height:64px}
-.cv-nivel small{font-size:11.5px;color:#6f7c81;line-height:1.3}
+.cv-nivel small{font-size:12px;color:#6f7c81;line-height:1.3}
 .cv-nivel[aria-checked="true"]{border-color:#184159;background:#eef4fa}
 .cv-nivel.rojo[aria-checked="true"]{border-color:#9c2b1d;background:#fdf0ee}
 .cv-urgente{background:#fde3df;color:#7a1f14;border-radius:12px;padding:12px;font-size:13.5px;line-height:1.45;margin:10px 0}
@@ -56,7 +56,7 @@
 .cv-campo input,.cv-campo select,.cv-campo textarea{font:inherit;font-weight:400;border:1px solid #d8e0de;border-radius:12px;padding:10px;min-height:44px;box-sizing:border-box;width:100%}
 .cv-check{display:flex;align-items:center;gap:10px;font-size:14px;min-height:44px}
 .cv-check input{width:20px;height:20px}
-.cv-dl{margin:10px 0;display:grid;gap:2px}.cv-dl dt{font-size:11.5px;font-weight:800;color:#6f7c81;letter-spacing:.03em;margin-top:8px}.cv-dl dd{margin:0;font-size:14px;line-height:1.45}
+.cv-dl{margin:10px 0;display:grid;gap:2px}.cv-dl dt{font-size:12px;font-weight:800;color:#6f7c81;letter-spacing:.03em;margin-top:8px}.cv-dl dd{margin:0;font-size:14px;line-height:1.45}
 .cv-hist{margin:10px 0;padding-left:18px;font-size:13px;color:#354f55;display:grid;gap:6px}
 .cv-seg{display:flex;flex-wrap:wrap;gap:4px;background:#eef1f1;border-radius:12px;padding:3px;margin:12px 0 4px}
 .cv-seg button{flex:1 1 40%;border:0;background:transparent;border-radius:10px;padding:9px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;min-height:40px}

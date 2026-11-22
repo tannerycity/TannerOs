@@ -6,7 +6,7 @@
 .tan-id{min-width:0;flex:1}
 .tan-id h1{margin:0;font-size:25px;line-height:1.1;letter-spacing:-.024em}
 .tan-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
-.tan-chip{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:600;background:rgba(255,255,255,.14);color:#e6f3f5}
+.tan-chip{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;background:rgba(255,255,255,.14);color:#e6f3f5}
 .tan-chip[data-tone="off"]{background:rgba(255,190,180,.2);color:#ffd9d2}
 
 /* Tarjeta de saldo: la cifra manda, y debajo el porqué. */
@@ -18,7 +18,7 @@
 .tan-balance small{display:block;margin-top:7px;font-size:12.5px;color:#8b979c;font-variant-numeric:tabular-nums}
 .tan-split{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .tan-split-item{display:flex;flex-direction:column;gap:2px;padding:9px 13px;border-radius:12px;background:#f4f6f5;border:1px solid #e2e7e5}
-.tan-split-item span{font-size:11.5px;color:#6f7d82;font-weight:600}
+.tan-split-item span{font-size:12px;color:#6f7d82;font-weight:600}
 .tan-split-item b{font-size:16px;letter-spacing:-.02em;color:#0d2730;font-variant-numeric:tabular-nums}
 .tan-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
 .tan-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 18px;border-radius:13px;font-weight:600;font-size:14px;text-decoration:none;border:1px solid transparent}
@@ -46,18 +46,18 @@
 .tan-dot svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tan-mov-body{min-width:0}
 .tan-mov-body strong{display:block;font-size:13.5px;line-height:1.25;color:#0d2730}
-.tan-mov-body span{display:block;margin-top:2px;font-size:11.5px;color:#8b979c}
+.tan-mov-body span{display:block;margin-top:2px;font-size:12px;color:#8b979c}
 .tan-mov-nums{text-align:right;white-space:nowrap}
 .tan-mov-nums b{display:block;font-size:14px;letter-spacing:-.015em;font-variant-numeric:tabular-nums;color:#b4443a}
 .tan-mov[data-kind="payment"] .tan-mov-nums b{color:#1e6b3c}
-.tan-mov-nums span{display:block;margin-top:2px;font-size:11.5px;color:#93a0a5;font-variant-numeric:tabular-nums}
+.tan-mov-nums span{display:block;margin-top:2px;font-size:12px;color:#93a0a5;font-variant-numeric:tabular-nums}
 
 .tan-rows{display:grid;margin-top:6px}
 .tan-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #eeeae0}
 .tan-row:last-child{border-bottom:0}
 .tan-row strong{font-size:13.5px;font-weight:600;color:#0d2730}
-.tan-row small{display:block;margin-top:2px;font-size:11.5px;color:#8b979c}
-.tan-state{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;background:#f4f6f5;color:#6f7d82}
+.tan-row small{display:block;margin-top:2px;font-size:12px;color:#8b979c}
+.tan-state{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap;background:#f4f6f5;color:#6f7d82}
 .tan-state[data-ok="1"]{background:#e6f4ec;color:#1e6b3c}
 .tan-state[data-ok="0"]{background:#fdecea;color:#b4443a}
 
@@ -81,10 +81,10 @@
 .tan-meses{display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:10px -2px 0;padding:2px}
 .tan-meses::-webkit-scrollbar{display:none}
 .tan-mes{flex:0 0 92px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 8px 11px;border-radius:16px;border:1px solid #e2e7e5;background:#f7f9f8}
-.tan-mes-nom{font-size:11.5px;font-weight:600;color:#6f7d82;text-transform:capitalize}
+.tan-mes-nom{font-size:12px;font-weight:600;color:#6f7d82;text-transform:capitalize}
 .tan-mes b{font-size:16px;letter-spacing:-.022em;font-variant-numeric:tabular-nums;color:#0d2730}
-.tan-mes-pie{font-size:11px;font-weight:600;color:#8b979c}
-.tan-mes small{font-size:10px;color:#a3aeb2;font-variant-numeric:tabular-nums}
+.tan-mes-pie{font-size:12px;font-weight:600;color:#8b979c}
+.tan-mes small{font-size:12px;color:#a3aeb2;font-variant-numeric:tabular-nums}
 .tan-mes[data-state="pagado"]{background:#f2faf5;border-color:#cfe8da}
 .tan-mes[data-state="pagado"] b{color:#1e6b3c}
 .tan-mes[data-state="pagado"] .tan-mes-pie{color:#3f7d5b}
@@ -97,9 +97,9 @@
 
 /* "¿quién lo cobró?" en el historial de pagos. Un nombre tecleado no prueba
    nada; la cuenta desde la que se guardó, sí. */
-.tan-audit{display:block;margin-top:3px;border:0;background:none;padding:0;font:inherit;font-size:11px;font-weight:800;color:#0c5464;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.tan-audit{display:block;margin-top:3px;border:0;background:none;padding:0;font:inherit;font-size:12px;font-weight:800;color:#0c5464;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .tan-audit:hover{color:#a32920}
-.tan-audit-detalle{display:block;margin-top:4px;font-size:11px;line-height:1.5;color:#5a6a70}
+.tan-audit-detalle{display:block;margin-top:4px;font-size:12px;line-height:1.5;color:#5a6a70}
 .tan-audit-detalle span{display:block}
 .tan-audit-detalle.alerta{color:#a32920;font-weight:800}
 
@@ -136,15 +136,15 @@ button.tan-btn{font:inherit;font-weight:600;font-size:14px;cursor:pointer}
 .tan-pagos{list-style:none;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px -2px 0;padding:2px}
 .tan-pagos::-webkit-scrollbar{display:none}
 .tan-pagos li{flex:0 0 96px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:14px;border:1px solid #e2e7e5;background:#f7f9f8}
-.tan-pagos li span{font-size:11.5px;font-weight:600;color:#6f7d82}
+.tan-pagos li span{font-size:12px;font-weight:600;color:#6f7d82}
 .tan-pagos li b{font-size:15px;font-variant-numeric:tabular-nums;color:#0d2730}
-.tan-pagos li small{font-size:10.5px;font-weight:700;color:#8b979c}
+.tan-pagos li small{font-size:12px;font-weight:700;color:#8b979c}
 .tan-pagos li[data-state="paid"]{background:#f2faf5;border-color:#cfe8da}
 .tan-pagos li[data-state="paid"] small{color:#3f7d5b}
 .tan-pagos li[data-state="late"]{background:#fdf1ef;border-color:#f0d0ca}
 .tan-pagos li[data-state="late"] b,.tan-pagos li[data-state="late"] small{color:#bd2e22}
 .tan-acuerdo-nota{margin:10px 0 0;font-size:13px;color:#4a6870;font-style:italic}
-.tan-acuerdo-quien{display:block;margin-top:8px;font-size:11.5px;color:#8b979c}
+.tan-acuerdo-quien{display:block;margin-top:8px;font-size:12px;color:#8b979c}
 
 /* Seguimiento: anotar en un toque y ver lo que ya se habló. */
 .tan-nota-form{display:grid;gap:8px;margin:10px 0 4px}
@@ -202,7 +202,7 @@ button.tan-fila:disabled{opacity:.55}
 .tan-fila-ico{flex:0 0 30px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;background:#8e9aa0}
 .tan-fila-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tan-fila-ico[data-tono="azul"]{background:#0a84ff}
-.tan-fila-ico[data-tono="verde"]{background:#30b45a}
+.tan-fila-ico[data-tono="verde"]{background:#0b2a33}
 .tan-fila-ico[data-tono="naranja"]{background:#ff9500}
 .tan-fila-ico[data-tono="rojo"]{background:#ff3b30}
 .tan-fila-ico[data-tono="morado"]{background:#af52de}
@@ -237,7 +237,7 @@ button.tan-fila:disabled{opacity:.55}
 .tan-balance .tan-fila-txt small{margin-top:2px;font-size:12.5px;color:#7b8a8f}
 
 /* ===== Paquete y becas (h62, 04/11/2026) ===== */
-.tan-chip[data-tone="paquete"]{background:#30d158;color:#06321a}
+.tan-chip[data-tone="paquete"]{background:#0b2a33;color:#06321a}
 .tan-fila[data-urge] .tan-fila-txt small{color:#b4443a;font-weight:600}
 .tan-pill[data-kind="renovar"]{background:#0a84ff;border-color:#0a84ff;color:#fff;cursor:pointer;font:inherit;font-weight:700;font-size:13px}
 /* Botones de un renglón: 44 px, lo mínimo cómodo para un dedo (Apple). */
@@ -250,7 +250,7 @@ button.tan-fila:disabled{opacity:.55}
 .pq-op[aria-checked="true"] .pq-radio{border:7px solid #0a84ff}
 .pq-txt{flex:1;min-width:0}
 .pq-txt strong{display:block;font-size:15px}
-.pq-txt strong em{font-style:normal;font-size:11px;font-weight:700;color:#0a84ff;background:#e5f0ff;border-radius:6px;padding:2px 6px;margin-left:4px;vertical-align:2px}
+.pq-txt strong em{font-style:normal;font-size:12px;font-weight:700;color:#0a84ff;background:#e5f0ff;border-radius:6px;padding:2px 6px;margin-left:4px;vertical-align:2px}
 .pq-txt small{display:block;margin-top:2px;font-size:12.5px;color:#7b8a8f}
 .pq-precio{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
 

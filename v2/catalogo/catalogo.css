@@ -30,7 +30,7 @@
 .cat-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
 .cat-title{font-size:14px;overflow-wrap:anywhere;}
 .cat-chips{display:flex;flex-wrap:wrap;gap:6px;}
-.cat-chip{font-size:11px;font-weight:750;padding:3px 8px;border-radius:999px;background:#edf2f1;color:#42575d;}
+.cat-chip{font-size:12px;font-weight:750;padding:3px 8px;border-radius:999px;background:#edf2f1;color:#42575d;}
 .cat-chip.warn{background:#f7eeee;color:#943c35;}
 .cat-chip.archived{background:rgba(184,164,100,.18);color:#766526;}
 /* El precio nunca se come al nombre.
@@ -39,7 +39,7 @@
    a 390px el precio del kit se encime con el nombre y los chips. */
 .cat-price-col{flex:0 1 auto;max-width:40%;display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;}
 .cat-price{font-size:14px;white-space:nowrap;}
-.cat-sub{color:var(--muted);font-size:11.5px;white-space:nowrap;}
+.cat-sub{color:var(--muted);font-size:12px;white-space:nowrap;}
 
 /* Drawer de edición */
 .catalog-drawer{width:min(520px,92vw);}
@@ -64,18 +64,18 @@
 }
 .margin-preview.single{grid-template-columns:1fr;}
 .margin-preview div{display:flex;flex-direction:column;gap:2px;}
-.margin-preview span{font-size:11px;font-weight:700;color:var(--muted);}
+.margin-preview span{font-size:12px;font-weight:700;color:var(--muted);}
 .margin-preview strong{font-size:16px;color:var(--teal);}
 
 /* Foto del producto: es lo que la familia ve en la tienda del portal. */
 .photo-field{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:start;
   padding:12px;border-radius:14px;background:#f4f8f7;margin-bottom:16px;}
 .photo-box{width:96px;height:96px;border-radius:14px;background:#edf2f1;display:flex;align-items:center;
-  justify-content:center;color:#8a9a9e;font-size:11px;font-weight:700;overflow:hidden;}
+  justify-content:center;color:#8a9a9e;font-size:12px;font-weight:700;overflow:hidden;}
 .photo-box img{width:100%;height:100%;object-fit:cover;display:block;}
 .photo-copy{display:grid;gap:4px;min-width:0;}
 .photo-copy strong{font-size:13px;color:var(--ink);}
-.photo-copy p{margin:0;font-size:11.5px;line-height:1.4;color:var(--muted);}
+.photo-copy p{margin:0;font-size:12px;line-height:1.4;color:var(--muted);}
 .photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
 .photo-actions label,.photo-actions button{font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
   border-radius:10px;padding:9px 13px;border:1px solid var(--line);background:#fff;color:var(--ink);}
@@ -137,11 +137,11 @@
 .drawer-subhead small{display:block;font-weight:500;font-size:12px;color:#6b7c80;text-transform:none;letter-spacing:0;margin-top:2px}
 #bComponents{display:grid;gap:6px;max-height:min(46vh,420px);overflow:auto;padding:2px}
 .kit-pieza{display:flex;align-items:center;gap:8px;border-radius:14px;background:#f5f7f7;padding:4px 8px 4px 4px}
-.kit-pieza.en{background:#e9f6ef;box-shadow:inset 0 0 0 1.5px #169b4b}
+.kit-pieza.en{background:#e9f6ef;box-shadow:inset 0 0 0 1.5px #0b2a33}
 .kit-pieza.huerfana{background:#fdecea;box-shadow:inset 0 0 0 1.5px #d24b3e}
 .kit-pieza-toca{flex:1;display:flex;align-items:center;gap:10px;min-height:48px;border:0;background:none;text-align:left;font:inherit;cursor:pointer;padding:4px 6px;min-width:0}
 .kit-check{display:grid;place-items:center;width:24px;height:24px;flex:0 0 24px;border-radius:50%;border:2px solid #b8c4c2;color:#fff;font-weight:900;font-size:13px}
-.kit-pieza.en .kit-check{background:#169b4b;border-color:#169b4b}
+.kit-pieza.en .kit-check{background:#0b2a33;border-color:#0b2a33}
 .kit-pieza.huerfana .kit-check{background:#d24b3e;border-color:#d24b3e}
 .kit-pieza-nombre{display:grid;min-width:0}
 .kit-pieza-nombre b{font-size:14.5px;color:#07191e;line-height:1.25}
@@ -183,16 +183,16 @@
 .costo-nombre{display:grid;min-width:0}
 .costo-nombre b{font-size:14.5px;line-height:1.25}
 .costo-nombre small{font-size:12px;color:#6b7c80}
-.costo-input{display:grid;gap:2px;font-size:11px;font-weight:700;color:#7a8a8e}
+.costo-input{display:grid;gap:2px;font-size:12px;font-weight:700;color:#7a8a8e}
 .costo-input input{min-height:40px;border:1px solid #cedbd8;border-radius:10px;padding:0 10px;font:inherit;font-size:15px;width:100%}
 .costo-total{font-size:13.5px;color:#3c4e52}
 .costo-total em{font-style:normal;color:#a92a21;font-weight:700;font-size:12.5px}
 .costo-margen{display:grid;text-align:right;font-weight:800;font-size:15px;color:#3c4e52}
-.costo-margen small{font-weight:600;font-size:11.5px;color:#7a8a8e}
+.costo-margen small{font-weight:600;font-size:12px;color:#7a8a8e}
 .costo-margen.bien{color:#1e6b3c}.costo-margen.medio{color:#8a5c00}.costo-margen.bajo{color:#a92a21}
 .costos-negocio .negocio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .negocio-grid div{padding:12px;border-radius:14px;background:#f5f7f7;display:grid;gap:2px}
-.negocio-grid span{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#7a8a8e}
+.negocio-grid span{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#7a8a8e}
 .negocio-grid b{font-size:18px;color:#07191e}
 .negocio-grid .clave{background:#07191e}.negocio-grid .clave span{color:rgba(255,255,255,.7)}.negocio-grid .clave b{color:#fff}
 .negocio-nota{font-size:12.5px;margin:8px 0 0}
@@ -228,7 +228,7 @@
 .switch-fila small{font-size:12.5px;color:#6b7c80}
 .switch-fila input{appearance:none;-webkit-appearance:none;flex:0 0 auto;position:relative;width:51px;height:31px;margin:0;border-radius:999px;background:#d9dfe0;cursor:pointer;transition:background .2s}
 .switch-fila input::after{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(7,25,30,.2);transition:transform .2s}
-.switch-fila input:checked{background:#34c759}
+.switch-fila input:checked{background:#0b2a33}
 .switch-fila input:checked::after{transform:translateX(20px)}
 .switch-fila input:focus-visible{outline:2px solid #0a84ff;outline-offset:2px}
 
@@ -238,18 +238,18 @@
 .fotos-cab{display:flex;align-items:baseline;justify-content:space-between}
 .fotos-cab strong{font-size:13px;color:var(--ink)}
 .fotos-cab span{font-size:12px;color:var(--muted);font-weight:600}
-.fotos-campo>p{margin:0;font-size:11.5px;line-height:1.4;color:var(--muted)}
+.fotos-campo>p{margin:0;font-size:12px;line-height:1.4;color:var(--muted)}
 .fotos-tira{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 6px;scroll-snap-type:x proximity;scrollbar-width:none}
 .fotos-tira::-webkit-scrollbar{display:none}
 .foto-item{position:relative;flex:0 0 auto;scroll-snap-align:start}
 .foto-ver{display:block;width:84px;height:84px;padding:0;border:0;border-radius:16px;overflow:hidden;background:#edf2f1;cursor:pointer;box-shadow:0 0 0 1px rgba(7,25,30,.08)}
 .foto-ver img{width:100%;height:100%;object-fit:cover;display:block}
 .foto-item.portada .foto-ver{width:104px;height:104px;box-shadow:0 0 0 2.5px var(--ink,#0b3d5c),0 6px 16px rgba(7,25,30,.14)}
-.foto-tag{position:absolute;left:6px;bottom:6px;padding:2px 8px;border-radius:999px;background:rgba(7,25,30,.78);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.02em;pointer-events:none}
+.foto-tag{position:absolute;left:6px;bottom:6px;padding:2px 8px;border-radius:999px;background:rgba(7,25,30,.78);color:#fff;font-size:12px;font-weight:800;letter-spacing:.02em;pointer-events:none}
 .foto-quita{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border:2px solid #fff;border-radius:50%;background:#1c1c1e;color:#fff;font-size:15px;line-height:18px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 .foto-agregar{flex:0 0 auto;display:grid;place-items:center;align-content:center;gap:2px;width:84px;height:84px;border:1.5px dashed #b9c6c4;border-radius:16px;background:#f6f8f8;color:var(--ink,#0b3d5c);cursor:pointer;align-self:center}
 .foto-agregar span{font-size:26px;line-height:1;font-weight:300}
-.foto-agregar small{font-size:11px;font-weight:700}
+.foto-agregar small{font-size:12px;font-weight:700}
 .fotos-tira:not(:has(.foto-item)) .foto-agregar{width:104px;height:104px}
 .foto-cargando{display:block;width:100%;height:100%;background:linear-gradient(90deg,#edf2f1,#f6f8f8,#edf2f1);background-size:200% 100%;animation:foto-brillo 1.2s linear infinite}
 @keyframes foto-brillo{to{background-position:-200% 0}}
@@ -263,7 +263,7 @@
 
 /* El kit como receta (14/10/2026): tarjeta en vivo arriba y tres pasos. */
 .kit-vista{display:grid;gap:4px;padding:16px 18px;border-radius:20px;margin-bottom:14px;color:#fff;background:radial-gradient(400px 160px at 100% 0%,rgba(255,255,255,.18),transparent 60%),linear-gradient(135deg,#0b3d5c,#07191e)}
-.kit-vista-tag{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9fd8e4}
+.kit-vista-tag{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9fd8e4}
 .kit-vista strong{font-size:22px;letter-spacing:-.01em}
 .kit-vista p{margin:0}
 .kit-vista-frase{font-size:15px;font-weight:700}
@@ -279,11 +279,11 @@
 .kit-agregar{width:100%;margin-top:8px;min-height:44px;border:1.5px dashed #b9c6c4;border-radius:14px;background:#fff;color:#0b3d5c;font:inherit;font-weight:800;cursor:pointer}
 .kit-elegir-lista{margin-top:8px}
 .kit-elegir{display:flex;align-items:center;gap:10px;width:100%;border:0;border-radius:14px;background:#f5f7f7;padding:6px 12px 6px 4px;font:inherit;text-align:left;cursor:pointer}
-.kit-mas{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#169b4b;color:#fff;font-weight:800;font-size:18px}
+.kit-mas{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#0b2a33;color:#fff;font-weight:800;font-size:18px}
 .kit-pool{margin-top:10px}
 .kit-pool-cab{justify-content:flex-start;gap:10px;font-size:15px}
 .kit-pool-grupo{display:grid;gap:6px}
-.kit-pool-tit{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7a8a8e}
+.kit-pool-tit{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7a8a8e}
 .kit-pool-nota.falta{color:#b4261b;font-weight:700}
 .kit-se-vende{margin-top:14px}
 
@@ -294,7 +294,7 @@
 .recargo-manga small{font-size:12.5px;color:#6b7c80}
 .recargo-campo{display:inline-flex;align-items:center;gap:4px;font-weight:800;color:#07191e}
 .recargo-campo input{width:80px;min-height:40px;border:0;border-radius:10px;background:#fff;padding:0 10px;font:inherit;font-weight:800;text-align:right}
-.recargo-manga.guardado{box-shadow:inset 0 0 0 2px #169b4b}
+.recargo-manga.guardado{box-shadow:inset 0 0 0 2px #0b2a33}
 .recargo-pers-ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .recargo-pers.apagado .recargo-campo{opacity:.45}
 
@@ -315,7 +315,7 @@
 .cat-seg{display:flex}
 .cat-seg button{flex:1 1 auto;white-space:nowrap;min-height:40px;font-size:14px;padding:0 8px}
 @media(max-width:400px){.cat-seg button{font-size:13px;padding:0 6px}}
-.cat-seg button i{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:rgba(7,25,30,.07);font-size:11.5px;line-height:16px;margin-left:5px}
+.cat-seg button i{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:rgba(7,25,30,.07);font-size:12px;line-height:16px;margin-left:5px}
 .cat-seg button.activo i{background:#07191e;color:#fff}
 .cat-seg button i:empty{display:none}
 
@@ -332,7 +332,7 @@
 .cat-switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#3c4e52;cursor:pointer;white-space:nowrap;min-height:44px}
 .cat-switch input{appearance:none;-webkit-appearance:none;margin:0;flex:0 0 auto;width:40px;height:24px;min-height:0!important;padding:0;border:0!important;border-radius:999px!important;cursor:pointer;
   background:radial-gradient(circle at 12px 12px,#fff 0 9px,transparent 9.5px),#d5dcdd;transition:background .2s;box-shadow:inset 0 0 0 1px rgba(7,25,30,.06)}
-.cat-switch input:checked{background:radial-gradient(circle at 28px 12px,#fff 0 9px,transparent 9.5px),#169b4b}
+.cat-switch input:checked{background:radial-gradient(circle at 28px 12px,#fff 0 9px,transparent 9.5px),#0b2a33}
 .cat-switch input:focus,.cat-switch input:focus-visible{box-shadow:0 0 0 3px rgba(10,132,255,.35)!important;outline:0}
 
 /* La lista: una tarjeta, renglones separados por una línea fina. */
@@ -368,12 +368,12 @@
 .costo-fila{grid-template-columns:minmax(0,1fr) 104px minmax(118px,auto)}
 .costo-margen{display:grid;gap:4px;justify-items:end}
 .costo-tipo{display:grid;justify-items:end;line-height:1.15;color:#3c4e52}
-.costo-tipo i{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8a8e}
+.costo-tipo i{font-style:normal;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8a8e}
 .costo-tipo b{font-size:13px}
-.costo-tipo small{font-size:11px;font-weight:600;color:#7a8a8e}
+.costo-tipo small{font-size:12px;font-weight:600;color:#7a8a8e}
 .costo-tipo.principal b{font-size:17px}
 .costo-tipo.bien b{color:#1e6b3c}.costo-tipo.medio b{color:#8a5c00}.costo-tipo.bajo b{color:#a92a21}
-.costo-real{font-size:11px;font-weight:700;color:#3c4e52;text-align:right;padding:2px 7px;border-radius:999px;background:#f1f4f3}
+.costo-real{font-size:12px;font-weight:700;color:#3c4e52;text-align:right;padding:2px 7px;border-radius:999px;background:#f1f4f3}
 .costo-real.bien b{color:#1e6b3c}.costo-real.medio b{color:#8a5c00}.costo-real.bajo b{color:#a92a21}
 .negocio-mezcla{margin:10px 0 0;padding:10px 12px;border-radius:12px;background:#eef6f1;font-size:13px;color:#1f3d2b}
 @media(max-width:620px){.costo-fila{grid-template-columns:minmax(0,1fr) 84px minmax(104px,auto)}}
@@ -424,7 +424,7 @@
 .bn-item{display:grid;grid-template-columns:72px minmax(0,1fr);gap:14px;align-items:start}
 .bn-mini{width:72px;aspect-ratio:4/5;border-radius:12px;overflow:hidden;background:#e9eeed}
 .bn-mini img{display:block;width:100%;height:100%;object-fit:cover}
-.bn-mini.franja{display:grid;place-items:center;aspect-ratio:auto;height:40px;background:#0b1418;color:#fff;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.bn-mini.franja{display:grid;place-items:center;aspect-ratio:auto;height:40px;background:#0b1418;color:#fff;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
 .bn-info{min-width:0}
 .bn-titulo{font-size:15.5px;line-height:1.25}
 .bn-fotos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:12px;align-items:start}
@@ -451,4 +451,4 @@
 /* Oferta visible en el Catálogo (10/11/2026) */
 .cat-antes{font-size:12px;color:#8a979b;font-variant-numeric:tabular-nums}
 .cat-price.cat-oferta{color:#b0461f}
-.cat-oferta-chip{font-size:11px;font-weight:800;color:#7a4b06;background:#fde9c4;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.cat-oferta-chip{font-size:12px;font-weight:800;color:#7a4b06;background:#fde9c4;border-radius:999px;padding:2px 8px;white-space:nowrap}

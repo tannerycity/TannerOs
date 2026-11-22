@@ -29,11 +29,11 @@ export function estilos() {
 @keyframes dorsalSube{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
 .dorsal-asa{width:42px;height:5px;border-radius:99px;background:#d9e1df;margin:0 auto 12px}
 .dorsal-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.dorsal-cab small{display:block;font-size:11px;font-weight:900;letter-spacing:.08em;color:#8a969b;text-transform:uppercase}
+.dorsal-cab small{display:block;font-size:12px;font-weight:900;letter-spacing:.08em;color:#8a969b;text-transform:uppercase}
 .dorsal-cab h3{margin:2px 0 0;font-size:21px;color:#0b1418;line-height:1.15}
 .dorsal-cab p{margin:3px 0 0;color:#5b6b70;font-size:13px}
 .dorsal-cerrar{border:0;background:#eef2f1;color:#0b1418;border-radius:99px;width:34px;height:34px;font-size:18px;cursor:pointer;flex:0 0 auto}
-.dorsal-titulo{margin:16px 0 8px;font-size:11px;font-weight:900;letter-spacing:.08em;color:#8a969b;text-transform:uppercase}
+.dorsal-titulo{margin:16px 0 8px;font-size:12px;font-weight:900;letter-spacing:.08em;color:#8a969b;text-transform:uppercase}
 .dorsal-sugeridos{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 .dorsal-sug{border:0;border-radius:16px;background:#0b3d4a;color:#f2e6bd;font:800 24px 'Barlow Condensed',system-ui,sans-serif;height:58px;cursor:pointer}
 .dorsal-sug:active,.dorsal-num:active{transform:scale(.96)}

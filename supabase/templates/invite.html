@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tu acceso a TannerOS</title>
+  <title>Tu acceso a {{ if or (eq .Data.brand_name "Tannery City") (eq .Data.brand_name "Tannery City FC") }}TannerOS{{ else }}Mi Club FC{{ end }}</title>
 </head>
 <body style="margin:0;padding:0;background:#F5F3EB;color:#18313D;font-family:Arial,Helvetica,sans-serif;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Tannery City te invitó a entrar al vestidor en TannerOS.</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ if .Data.brand_name }}{{ .Data.brand_name }}{{ else }}tu club{{ end }} te invitó a entrar en {{ if or (eq .Data.brand_name "Tannery City") (eq .Data.brand_name "Tannery City FC") }}TannerOS{{ else }}Mi Club FC{{ end }}.</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#F5F3EB;">
     <tr>
       <td align="center" style="padding:32px 14px;">
@@ -16,15 +16,15 @@
           </tr>
           <tr>
             <td align="center" style="padding:30px 28px 26px;background:#184159;">
-              <img src="https://pacnegivzgxpanphrnwp.supabase.co/storage/v1/object/public/tanneros-branding/organizations/3776f3a6-8c3d-4f46-bd03-5f1e59deb6f8/branding/logoDark-1787348278621-6e81e113-b658-4230-98de-800fa20f8520.png" width="190" alt="Tannery City" style="display:block;width:190px;max-width:75%;height:auto;border:0;margin:0 auto 16px;">
-              <div style="font-size:11px;line-height:16px;letter-spacing:2px;font-weight:700;color:#D9D3B5;">TANNEROS · ACCESO OFICIAL</div>
-              <div style="margin-top:8px;font-size:13px;line-height:20px;color:#D5E3E8;">To our city. To our family. To our Tanners.</div>
+              <div style="font-size:24px;line-height:30px;font-weight:800;color:#FFFFFF;">{{ if .Data.brand_name }}{{ .Data.brand_name }}{{ else }}tu club{{ end }}</div>
+              <div style="font-size:11px;line-height:16px;letter-spacing:2px;font-weight:700;color:#D9D3B5;">{{ if or (eq .Data.brand_name "Tannery City") (eq .Data.brand_name "Tannery City FC") }}TANNEROS{{ else }}MI CLUB FC{{ end }} · ACCESO OFICIAL</div>
+              
             </td>
           </tr>
           <tr>
             <td style="padding:36px 34px 18px;">
               <h1 style="margin:0 0 16px;font-size:30px;line-height:36px;color:#184159;">Bienvenido al vestidor.</h1>
-              <p style="margin:0 0 16px;font-size:16px;line-height:25px;color:#425D68;">Te invitaron a formar parte del equipo de <strong>Tannery City FC</strong> en TannerOS, nuestra plataforma oficial para operar el club.</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:25px;color:#425D68;">Te invitaron a formar parte del equipo de <strong>{{ if .Data.brand_name }}{{ .Data.brand_name }}{{ else }}tu club{{ end }}</strong> en {{ if or (eq .Data.brand_name "Tannery City") (eq .Data.brand_name "Tannery City FC") }}TannerOS{{ else }}Mi Club FC{{ end }}, nuestra plataforma oficial para operar el club.</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0;background:#F4F8F8;border:1px solid #D9E6E8;border-radius:12px;">
                 <tr>
                   <td style="padding:15px 17px;">
@@ -41,7 +41,7 @@
                   </td>
                 </tr>
               </table>
-              <p style="margin:26px 0 0;font-size:12px;line-height:19px;color:#74878E;text-align:center;">Este enlace es personal y de un solo uso. Tannery City nunca te pedirá tu contraseña por correo o mensaje.</p>
+              <p style="margin:26px 0 0;font-size:12px;line-height:19px;color:#74878E;text-align:center;">Este enlace es personal y de un solo uso. {{ if .Data.brand_name }}{{ .Data.brand_name }}{{ else }}tu club{{ end }} nunca te pedirá tu contraseña por correo o mensaje.</p>
             </td>
           </tr>
           <tr>
@@ -53,7 +53,7 @@
           </tr>
           <tr>
             <td align="center" style="padding:20px 26px;background:#102F40;color:#C6D5DA;">
-              <div style="font-size:12px;line-height:18px;font-weight:700;">Tannery City FC · TannerOS</div>
+              <div style="font-size:12px;line-height:18px;font-weight:700;">{{ if .Data.brand_name }}{{ .Data.brand_name }}{{ else }}tu club{{ end }} · {{ if or (eq .Data.brand_name "Tannery City") (eq .Data.brand_name "Tannery City FC") }}TannerOS{{ else }}Mi Club FC{{ end }}</div>
               <div style="margin-top:4px;font-size:10px;line-height:16px;color:#9DB1B8;">Comunicación operativa del club</div>
             </td>
           </tr>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#07191e" />
+  <!-- Fuera de buscadores hasta el lanzamiento comercial (docs/saas-comercial/04-despliegue.md). -->
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Precios · Mi Club FC</title>
+  <meta name="description" content="Profesionaliza tu club de fútbol. Toda tu academia en una sola plataforma." />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/precios/estilos.css" />
+</head>
+<body>
+  <main class="mc-page">
+    <header class="mc-hero">
+      <p class="mc-eyebrow">Mi Club FC</p>
+      <h1>Profesionaliza tu club de fútbol.</h1>
+      <p class="mc-sub">Toda tu academia en una sola plataforma. Comienza gratis y crece a tu ritmo.</p>
+    </header>
+
+    <section id="cargando" class="mc-estado" aria-live="polite">Cargando planes…</section>
+
+    <section id="pronto" class="mc-estado hidden">
+      <h2>Estamos preparando los planes de Mi Club FC</h2>
+      <p>Muy pronto podrás consultar aquí los planes y contratar en línea.</p>
+    </section>
+
+    <div id="catalogo" class="hidden">
+      <div class="mc-ciclo" role="radiogroup" aria-label="Forma de pago">
+        <button type="button" role="radio" aria-checked="true" data-ciclo="monthly">Mensual</button>
+        <button type="button" role="radio" aria-checked="false" data-ciclo="annual">Anual <span id="ahorro"></span></button>
+      </div>
+      <p class="mc-nota" id="notaIva"></p>
+
+      <section id="planes" class="mc-planes" aria-label="Planes"></section>
+
+      <section class="mc-semilla" aria-labelledby="semillaTitulo">
+        <p class="mc-eyebrow">Programa social · Semilla 20</p>
+        <h2 id="semillaTitulo">Los primeros 20 juegan gratis.</h2>
+        <p>Sabemos lo difícil que es comenzar una academia de fútbol. Por eso te ayudamos a profesionalizarla desde el primer día.</p>
+        <ul>
+          <li>Gratis mientras tengas hasta 20 jugadores activos, sin fecha de caducidad.</li>
+          <li>Sin tarjeta. Puedes sumar complementos cuando quieras, nunca son obligatorios.</li>
+          <li>Si creces, te avisamos con anticipación y tus datos siempre son tuyos.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="compTitulo">
+        <h2 id="compTitulo" class="mc-h2">Complementos</h2>
+        <p class="mc-nota">Se contratan en cualquier plan, incluido Semilla 20.</p>
+        <div id="complementos" class="mc-complementos"></div>
+      </section>
+
+      <section aria-labelledby="faqTitulo" class="mc-faq">
+        <h2 id="faqTitulo" class="mc-h2">Preguntas frecuentes</h2>
+        <details><summary>¿Cómo se cuentan los jugadores?</summary><p>Contamos jugadores activos únicos de tu academia. Un jugador en dos categorías cuenta una sola vez. Inactivos, egresados y archivados no cuentan.</p></details>
+        <details><summary>¿Qué pasa si paso del límite de mi plan?</summary><p>No bloqueamos tu academia. Te avisamos, te damos <span data-gracia>15</span> días de gracia y te mostramos el plan que te corresponde. Ningún cambio se cobra sin que lo autorices.</p></details>
+        <details><summary>¿Los precios incluyen IVA?</summary><p>No. Los precios se muestran antes de IVA; antes de pagar verás el IVA y el total.</p></details>
+        <details><summary>¿Cómo funciona el pago anual?</summary><p>Se paga por adelantado y equivale a 12 meses con <span data-descuento>10</span> % de descuento. Verás el total antes de autorizar el pago.</p></details>
+        <details><summary>¿Puedo cancelar?</summary><p>Sí. Cancelas la renovación y conservas el acceso hasta el final del periodo que ya pagaste. Tus datos básicos siguen disponibles y puedes exportarlos.</p></details>
+        <details><summary>¿Cómo se paga?</summary><p>Con Mercado Pago, en su propio sitio. Mi Club FC nunca guarda los datos de tu tarjeta.</p></details>
+        <details><summary>¿Emiten factura?</summary><p>Sí. Captura tus datos fiscales en tu cuenta y solicita la factura de cada pago.</p></details>
+      </section>
+    </div>
+
+    <footer class="mc-pie">Mi Club FC · Impulsado por Tannery City</footer>
+  </main>
+  <script type="module" src="/precios/app.js"></script>
+</body>
+</html>

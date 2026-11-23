@@ -129,7 +129,7 @@ const fullRouteMatrix=[
   ['accounting','Contabilidad','/contabilidad/','finance'],['users','Usuarios','/usuarios/','users'],['admin-full','Administración','/admin/','admin'],
   ['qa','Centro de Calidad','/qa/','qa'],['modules','Puertas disponibles','/modulos/','admin'],
   ['production','Producción','/produccion/','commerce'],['programs-v2','Programas y eventos','/operacion/programas/','programs'],
-  ['audit','Historial del club','/admin/auditoria/','admin'],['branding','Identidad del club','/admin/branding/','admin'],['club-settings','Datos del club','/admin/club/','admin'],
+  ['audit','Historial del club','/admin/auditoria/','admin'],['branding','Identidad del club','/admin/branding/','admin'],['club-settings','Datos del club','/admin/club/','admin'],['mi-plan','Mi plan','/admin/suscripcion/','admin'],
   ['onboarding','Preparación del club','/admin/onboarding/','admin'],
   ['formacion','Formación','/formacion/','formacion'],
   ['candidatos','Candidatos a staff','/candidatos/','usuarios'],

@@ -15,7 +15,7 @@ begin
   end loop;
 end $$;
 
-drop table if exists app.live_diagnostics, app.live_tickets, app.live_viewer_terms, app.live_access_blocks,
+drop table if exists app.live_diagnostics, app.live_tickets, app.live_broadcasts, app.live_viewer_terms, app.live_access_blocks,
   app.live_camera_windows, app.live_camera_audience, app.live_cameras, app.live_recorders, app.live_settings;
 
 delete from public.role_module_permissions where module_code = 'live';

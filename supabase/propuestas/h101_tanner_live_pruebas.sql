@@ -263,6 +263,124 @@ begin
   perform pr.como(null);
 end $$;
 
+-- 18. Botón "Transmitir": enlace sin cuenta, candado de la academia, familias.
+do $$
+declare
+  A constant uuid := 'a0000000-0000-0000-0000-00000000000a';
+  PRESI constant uuid := '11111111-0000-0000-0000-000000000001';
+  FORM constant uuid := '11111111-0000-0000-0000-000000000002';
+  PAPA10 constant uuid := '33333333-0000-0000-0000-000000000001';
+  r jsonb; v_cam uuid; v_c2 uuid; v_c3 uuid; v_b uuid; v_enl text; v_enl2 text; v_tk text; v_err text; v_hoy int; v_otro int; v_local timestamp;
+begin
+  v_local := now() at time zone 'America/Mexico_City';
+  v_hoy := extract(isodow from v_local);
+  v_otro := case when v_hoy = 7 then 1 else v_hoy + 1 end;
+  perform pr.como(PRESI);
+  select (x->>'id')::uuid into v_cam from jsonb_array_elements(public.v2_live_panel(A)->'camaras') x where x->>'nombre' = 'Cancha 1';
+
+  -- 18.1 Cámara sin horario de academia: Transmitir por enlace, en un toque.
+  v_c2 := (public.v2_live_guardar_camara(A, '{"nombre":"Cancha 2","ruta":"tc-cancha-2"}')->>'id')::uuid;
+  r := public.v2_live_transmitir(A, v_c2, 'enlace', 'Final Copa TCP', 120);
+  v_b := (r->>'id')::uuid; v_enl := r->>'enlace';
+  perform pr.es((r->>'ok')::boolean and v_enl ~ '^[0-9a-f]{32}$', 'Transmitir por enlace da un enlace sin pedir audiencia ni permisos');
+  perform pr.es(((r->>'termina')::timestamptz - now()) between interval '119 minutes' and interval '121 minutes', 'la transmisión termina sola a las 2 h');
+  r := public.v2_live_transmitir(A, v_c2, 'enlace', null, 60);
+  perform pr.es((r->>'ya_estaba')::boolean and (r->>'id')::uuid = v_b, 'tocar Transmitir otra vez no duplica');
+  begin perform public.v2_live_transmitir(A, v_c2, 'enlace', null, 400); v_err := null; exception when others then v_err := sqlerrm; end;
+  perform pr.es(v_err is not null, 'una transmisión no dura más de 6 h');
+
+  -- 18.2 Quien abre el enlace, sin cuenta.
+  perform pr.rol('anon');
+  r := public.v2_live_publico(v_enl);
+  perform pr.es((r->>'ok')::boolean and r->>'titulo' = 'Final Copa TCP', 'el enlace abre sin cuenta y dice qué es');
+  perform pr.es(public.v2_live_publico(repeat('f', 32))->>'motivo' = 'no_existe', 'un enlace inventado no abre');
+  perform pr.es(public.v2_live_publico('x')->>'motivo' = 'no_existe', 'basura en el enlace no revienta');
+  r := public.v2_live_publico_ticket(v_enl);
+  v_tk := r->>'ticket';
+  perform pr.es((r->>'ok')::boolean and r->>'whep' = 'https://live.tannerycity.com/tc-cancha-2/whep', 'el enlace da ticket para su cámara');
+  perform pr.rol('service_role');
+  perform pr.es((public.v2_live_gateway_autoriza(v_tk, 'tc-cancha-2', 'read', '189.1.1.1', 's-enl')->>'ok')::boolean, 'el gateway acepta el ticket del enlace');
+  perform pr.es(public.v2_live_gateway_autoriza(v_tk, 'tc-cancha-1', 'read', '189.1.1.1', null)->>'motivo' = 'ruta', 'el ticket del enlace no abre otra cancha');
+
+  -- 18.3 Tope de personas viendo.
+  perform pr.como(null);
+  update app.live_broadcasts set max_viewers = 1 where id = v_b;
+  perform pr.rol('anon');
+  perform pr.es(public.v2_live_publico_ticket(v_enl)->>'motivo' = 'lleno', 'con el cupo lleno no entra uno más');
+  perform pr.como(null);
+  update app.live_broadcasts set max_viewers = 50 where id = v_b;
+
+  -- 18.4 Nuevo enlace: el viejo deja de servir y corta a quien lo usaba.
+  perform pr.como(PRESI);
+  v_enl2 := public.v2_live_nuevo_enlace(A, v_b)->>'enlace';
+  perform pr.es(v_enl2 ~ '^[0-9a-f]{32}$' and v_enl2 <> v_enl, 'Nuevo enlace da otro');
+  perform pr.rol('anon');
+  perform pr.es(public.v2_live_publico(v_enl)->>'motivo' = 'no_existe', 'el enlace viejo ya no abre');
+  perform pr.es((public.v2_live_publico(v_enl2)->>'ok')::boolean, 'el enlace nuevo sí');
+  perform pr.rol('service_role');
+  perform pr.es(public.v2_live_gateway_autoriza(v_tk, 'tc-cancha-2', 'read', '189.1.1.1', null)->>'motivo' = 'revocado', 'cambiar el enlace corta a quien lo usaba');
+
+  -- 18.5 Detener.
+  perform pr.rol('anon');
+  v_tk := public.v2_live_publico_ticket(v_enl2)->>'ticket';
+  perform pr.como(PRESI);
+  perform pr.es((public.v2_live_panel(A)->'transmisiones')::text ~ 'Final Copa TCP', 'el panel enseña la transmisión activa');
+  r := public.v2_live_detener(A, v_b);
+  perform pr.es((r->>'sesiones_cortadas')::int >= 1, 'Detener corta a quien estaba viendo');
+  perform pr.rol('anon');
+  perform pr.es(public.v2_live_publico(v_enl2)->>'motivo' = 'terminada', 'tras Detener, el enlace dice que terminó');
+  perform pr.es(public.v2_live_publico_ticket(v_enl2)->>'motivo' = 'terminada', 'tras Detener no hay ticket');
+
+  -- 18.6 Candado de la academia.
+  perform pr.como(PRESI);
+  r := public.v2_live_guardar_camara(A, jsonb_build_object('id', v_cam, 'nombre', 'Cancha 1', 'canal', 1, 'ruta', 'tc-cancha-1',
+         'categorias', jsonb_build_array('T10', 'T12'), 'roles', jsonb_build_array('Formadores'),
+         'horario', jsonb_build_array(jsonb_build_object('dia', v_hoy, 'de', '00:00', 'a', '23:59'))));
+  perform pr.es(public.v2_live_transmitir(A, v_cam, 'enlace', null, 60)->>'motivo' = 'horario_academia', 'en horario de academia no se transmite por enlace');
+  if v_local::time < time '21:00' then
+    v_c3 := (public.v2_live_guardar_camara(A, jsonb_build_object('nombre', 'Cancha 3', 'ruta', 'tc-cancha-3',
+             'horario', jsonb_build_array(jsonb_build_object('dia', v_hoy, 'de', to_char(v_local + interval '1 hour', 'HH24:MI'), 'a', '23:59')))) ->>'id')::uuid;
+    r := public.v2_live_transmitir(A, v_c3, 'enlace', 'Renta', 180);
+    perform pr.es((r->>'recortada_por_academia')::boolean and (r->>'termina')::timestamptz <= now() + interval '61 minutes', 'el enlace se apaga solo antes de que empiece la academia');
+  else
+    perform pr.es(true, 'recorte por academia (se omite después de las 21:00)');
+  end if;
+
+  -- 18.7 Transmitir para familias fuera de su horario.
+  r := public.v2_live_guardar_camara(A, jsonb_build_object('id', v_cam, 'nombre', 'Cancha 1', 'canal', 1, 'ruta', 'tc-cancha-1',
+         'categorias', jsonb_build_array('T10', 'T12'), 'roles', jsonb_build_array('Formadores'),
+         'horario', jsonb_build_array(jsonb_build_object('dia', v_otro, 'de', '16:00', 'a', '19:00'))));
+  perform pr.como(PAPA10);
+  perform pr.es(public.v2_live_ticket(v_cam)->>'motivo' in ('desactivada', 'fuera_de_horario'), 'fuera de horario y apagada, la familia no ve');
+  perform pr.como(PRESI);
+  r := public.v2_live_transmitir(A, v_cam, 'familias', 'Partido amistoso', 90);
+  perform pr.es((r->>'ok')::boolean and r->>'enlace' is null, 'Transmitir para familias no crea enlace público');
+  v_b := (r->>'id')::uuid;
+  perform pr.como(PAPA10);
+  perform pr.es((public.v2_live_ticket(v_cam)->>'ok')::boolean, 'con Transmitir para familias, el tutor ve fuera de horario');
+  perform pr.como(PRESI);
+  perform public.v2_live_detener(A, v_b);
+  perform pr.como(PAPA10);
+  perform pr.es(public.v2_live_ticket(v_cam)->>'motivo' in ('desactivada', 'fuera_de_horario'), 'al detener, la familia deja de ver');
+
+  -- 18.8 Pausa general detiene transmisiones; nadie más transmite.
+  perform pr.como(PRESI);
+  v_enl := public.v2_live_transmitir(A, v_c2, 'enlace', null, 60)->>'enlace';
+  perform public.v2_live_pausa(A, true, 'Prueba de pánico');
+  perform pr.rol('anon');
+  perform pr.es(public.v2_live_publico(v_enl)->>'motivo' in ('terminada', 'pausado'), 'la pausa general apaga los enlaces');
+  perform pr.como(PRESI);
+  perform pr.es(public.v2_live_transmitir(A, v_c2, 'enlace', null, 60)->>'motivo' = 'pausado', 'en pausa no se puede transmitir');
+  perform public.v2_live_pausa(A, false, 'listo');
+  perform pr.como(FORM);
+  begin perform public.v2_live_transmitir(A, v_c2, 'enlace', null, 60); v_err := null; exception when others then v_err := sqlerrm; end;
+  perform pr.es(v_err ~ 'Not authorized', 'sólo un administrador toca Transmitir');
+  perform pr.rol('anon');
+  begin perform public.v2_live_transmitir(A, v_c2, 'enlace', null, 60); v_err := null; exception when others then v_err := sqlerrm; end;
+  perform pr.es(v_err ~ 'permission denied', 'anon no puede transmitir');
+  perform pr.como(null);
+end $$;
+
 -- 17. Permisos de base: nadie lee las tablas ni llama funciones de servidor.
 do $$
 declare v_err text;

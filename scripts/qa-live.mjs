@@ -15,7 +15,8 @@
  */
 import {
   esIpPrivada, validaGrabador, validaCamara, limpiaSecretos, pareceSecreto, dentroDeHorario, proximaVentana, textoVentana,
-  relojDelClub, puedeDecirEnVivo, motivo, MOTIVOS, faltaParaEncender, plantillaRtspDahua, textoHorario, NO_ENCIENDE, esc
+  relojDelClub, puedeDecirEnVivo, motivo, MOTIVOS, faltaParaEncender, plantillaRtspDahua, textoHorario, NO_ENCIENDE, esc,
+  enlaceDe, codigoDeEnlace, mensajeWhatsApp, minutosHasta, DURACIONES
 } from '../v2/live/live.js';
 import fs from 'node:fs';
 
@@ -100,7 +101,7 @@ for (const [proveedor, reproduciendo, cuadros, esperado] of [
 
 // --- Motivos del servidor: todos con texto para la familia ------------------
 const MOTIVOS_SERVIDOR = ['ok', 'sin_terminos', 'fuera_de_horario', 'sin_horario', 'desactivada', 'pausado', 'bloqueado', 'sin_gateway',
-  'demasiados_intentos', 'sin_permiso', 'no_existe', 'modulo_apagado', 'sin_sesion', 'sensible'];
+  'demasiados_intentos', 'sin_permiso', 'no_existe', 'modulo_apagado', 'sin_sesion', 'sensible', 'terminada', 'horario_academia', 'lleno'];
 for (const m of MOTIVOS_SERVIDOR) revisa(`motivo ${m} tiene texto`, Boolean(MOTIVOS[m]?.titulo && MOTIVOS[m]?.texto));
 revisa('motivo desconocido no revienta', motivo('xyz').titulo === 'No disponible');
 // Cada motivo que regresa la base (h101) está traducido aquí.
@@ -114,6 +115,21 @@ for (const m of new Set(noEnciende)) revisa(`la base rechaza encender por "${m}"
 revisa('cámara nueva: faltan audiencia, horario y permisos', faltaParaEncender({}).length === 3);
 revisa('cámara lista: no falta nada', faltaParaEncender({ categorias: ['T10'], horario: [{ dia: 2, de: '17:00', a: '19:00' }], consentimiento_al: '2026-11-23' }).length === 0);
 revisa('cámara sensible: avisa', faltaParaEncender({ sensible: true }).some(f => /sensible/.test(f)));
+
+// --- Botón Transmitir y enlace ---------------------------------------------
+const C = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+revisa('el enlace lleva el código después de #', enlaceDe(C) === `https://app.tannerycity.com/ver/#${C}`);
+revisa('el enlace respeta el dominio del club', enlaceDe(C, 'https://app.otroclub.mx').startsWith('https://app.otroclub.mx/ver/#'));
+revisa('se lee el código del enlace', codigoDeEnlace(`#${C}`) === C && codigoDeEnlace(C.toUpperCase()) === C);
+for (const malo of ['', '#', '#abc', `#${C}x`, `#${C.slice(1)}`, '#<script>', null])
+  revisa(`un código inválido no se acepta: ${String(malo).slice(0, 12)}`, codigoDeEnlace(malo) === null);
+revisa('mensaje de WhatsApp con nombre, hora y enlace', /^Final Copa en vivo \(hasta las .+\): https:\/\/app\.tannerycity\.com\/ver\/#/.test(mensajeWhatsApp({ titulo: 'Final Copa', enlace: enlaceDe(C), termina: '2026-11-25T05:00:00Z' })));
+// Frontera de "Hasta las 11 pm" (hora de León): 19:00 -> 240; 22:50 -> 15 (mínimo); 23:00 -> mañana, tope 360.
+revisa('19:00 -> 4 h hasta las 11', minutosHasta('23:00', new Date('2026-11-25T01:00:00Z')) === 240);
+revisa('22:50 -> mínimo 15 min', minutosHasta('23:00', new Date('2026-11-25T04:50:00Z')) === 15);
+revisa('22:59 -> mínimo 15 min', minutosHasta('23:00', new Date('2026-11-25T04:59:00Z')) === 15);
+revisa('23:00 exacto -> tope de 6 h', minutosHasta('23:00', new Date('2026-11-25T05:00:00Z')) === 360);
+revisa('las duraciones caben en lo que acepta la base (15–360)', DURACIONES.filter(([k]) => /^\d+$/.test(k)).every(([k]) => Number(k) >= 15 && Number(k) <= 360));
 
 console.log(`qa-live · ${corridas - fallos}/${corridas} pruebas`);
 if (fallos) { console.error(`${fallos} prueba(s) de Tanner LIVE fallaron`); process.exit(1); }

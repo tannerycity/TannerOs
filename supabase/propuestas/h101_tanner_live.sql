@@ -145,12 +145,44 @@ create table app.live_viewer_terms(
   primary key (organization_id, user_id, version)
 );
 
+-- Transmisiones con el botón "Transmitir" (24/11/2026, Presidencia: "un
+-- botón de transmitir y ya, y veo a quién le doy acceso").
+--   modo 'enlace'   — la ve quien tenga el enlace, sin cuenta (rentas de TCP,
+--                     la final del torneo). Nunca durante el horario de la
+--                     academia de esa cámara: no arranca, y si llega la hora
+--                     se corta sola.
+--   modo 'familias' — la academia fuera de su horario fijo: la ven los
+--                     tutores de la audiencia de la cámara, con su cuenta.
+-- Toda transmisión tiene fin (máx. 6 h). El enlace se guarda para poder
+-- copiarlo otra vez; sólo lo lee un administrador por RPC. "Nuevo enlace"
+-- invalida el anterior y corta a quien lo estaba usando.
+create table app.live_broadcasts(
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  camera_id uuid not null references app.live_cameras(id) on delete cascade,
+  mode text not null check (mode in ('enlace','familias')),
+  title text check (title is null or length(title) <= 80),
+  link_token text unique check (link_token is null or link_token ~ '^[0-9a-f]{32}$'),
+  max_viewers integer not null default 50 check (max_viewers between 1 and 500),
+  started_at timestamptz not null default now(),
+  ends_at timestamptz not null,
+  stopped_at timestamptz,
+  stop_reason text check (stop_reason is null or length(stop_reason) <= 120),
+  created_by uuid,
+  stopped_by uuid,
+  check (ends_at > started_at and ends_at <= started_at + interval '6 hours'),
+  check ((mode = 'enlace') = (link_token is not null))
+);
+create index live_broadcasts_activas on app.live_broadcasts(camera_id) where stopped_at is null;
+
 -- Tickets de reproducción. Se guarda sólo el hash; el token viaja una vez.
+-- user_id null = ticket de un enlace (quien lo abre no tiene cuenta).
 create table app.live_tickets(
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   camera_id uuid not null references app.live_cameras(id) on delete cascade,
-  user_id uuid not null,
+  user_id uuid,
+  broadcast_id uuid references app.live_broadcasts(id) on delete cascade,
   token_hash bytea not null unique,
   issued_at timestamptz not null default now(),
   expires_at timestamptz not null,           -- para empezar a ver
@@ -160,7 +192,8 @@ create table app.live_tickets(
   gateway_session_id text check (gateway_session_id is null or length(gateway_session_id) <= 120),
   last_seen_at timestamptz,
   revoked_at timestamptz,
-  revoke_reason text check (revoke_reason is null or length(revoke_reason) <= 120)
+  revoke_reason text check (revoke_reason is null or length(revoke_reason) <= 120),
+  check (user_id is not null or broadcast_id is not null)
 );
 create index live_tickets_user on app.live_tickets(user_id, issued_at desc);
 create index live_tickets_activos on app.live_tickets(organization_id) where revoked_at is null;
@@ -187,7 +220,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['live_settings','live_recorders','live_cameras','live_camera_audience','live_camera_windows',
-                           'live_access_blocks','live_viewer_terms','live_tickets','live_diagnostics']
+                           'live_access_blocks','live_viewer_terms','live_broadcasts','live_tickets','live_diagnostics']
   loop
     execute format('alter table app.%I enable row level security', t);
     execute format('revoke all on table app.%I from public, anon, authenticated', t);
@@ -283,6 +316,31 @@ returns timestamptz language sql stable security definer set search_path to '' a
      and (now() at time zone private.live_tz(w.organization_id))::time < w.end_time
 $$;
 
+-- Transmisión "familias" activa en la cámara (botón Transmitir).
+create or replace function private.live_familias_activa(p_camera uuid)
+returns boolean language sql stable security definer set search_path to '' as $$
+  select exists (select 1 from app.live_broadcasts b where b.camera_id = p_camera and b.mode = 'familias'
+                    and b.stopped_at is null and now() < b.ends_at)
+$$;
+
+-- Siguiente inicio del horario de la academia en esa cámara (hoy o mañana),
+-- para que una transmisión por enlace se apague sola antes de que empiece.
+create or replace function private.live_proximo_inicio(p_camera uuid)
+returns timestamptz language plpgsql stable security definer set search_path to '' as $$
+declare v_tz text; v_dia date; v_min timestamptz; v_t timestamptz; w record;
+begin
+  select private.live_tz(c.organization_id) into v_tz from app.live_cameras c where c.id = p_camera;
+  if v_tz is null then return null; end if;
+  for k in 0..1 loop
+    v_dia := (now() at time zone v_tz)::date + k;
+    for w in select x.start_time from app.live_camera_windows x where x.camera_id = p_camera and x.weekday = extract(isodow from v_dia) loop
+      v_t := (v_dia + w.start_time) at time zone v_tz;
+      if v_t > now() and (v_min is null or v_t < v_min) then v_min := v_t; end if;
+    end loop;
+  end loop;
+  return v_min;
+end $$;
+
 -- LA regla. Devuelve 'ok' o el motivo por el que el usuario actual no puede
 -- ver esa cámara ahora. Todo lo demás (listas, tickets, gateway) la usa.
 create or replace function private.live_motivo(p_camera uuid)
@@ -293,7 +351,7 @@ declare
   s app.live_settings;
   v_staff boolean; v_admin boolean; v_guardian uuid;
   v_aud boolean := false;
-  v_now timestamp;
+  v_fam boolean;
 begin
   if v_uid is null then return 'sin_sesion'; end if;
   select * into c from app.live_cameras where id = p_camera;
@@ -310,7 +368,9 @@ begin
   if c.sensitive then return 'sensible'; end if;
   select * into s from app.live_settings where organization_id = c.organization_id;
   if coalesce(s.paused, false) then return 'pausado'; end if;
-  if not c.enabled then return 'desactivada'; end if;
+  v_fam := private.live_familias_activa(c.id);
+  -- "Transmitir" en modo familias vale como encendida y en horario.
+  if not c.enabled and not v_fam then return 'desactivada'; end if;
 
   if v_admin then v_aud := true; end if;
   if not v_aud and v_staff then
@@ -340,7 +400,7 @@ begin
   end if;
 
   -- El administrador puede revisar la imagen fuera de horario para configurar.
-  if not v_admin then
+  if not v_admin and not v_fam then
     if not exists (select 1 from app.live_camera_windows w where w.camera_id = c.id) then return 'sin_horario'; end if;
     if private.live_fin_de_ventana(c.id) is null then return 'fuera_de_horario'; end if;
   end if;
@@ -420,6 +480,10 @@ begin
   v_exp := now() + make_interval(secs => coalesce(s.ticket_ttl_seconds, 120));
   v_ses := now() + make_interval(mins => coalesce(s.session_max_minutes, 90));
   v_fin := private.live_fin_de_ventana(c.id);
+  if v_fin is null then
+    select max(b.ends_at) into v_fin from app.live_broadcasts b
+     where b.camera_id = c.id and b.mode = 'familias' and b.stopped_at is null and now() < b.ends_at;
+  end if;
   if v_fin is not null and v_fin < v_ses then v_ses := v_fin; end if;
   insert into app.live_tickets(organization_id, camera_id, user_id, token_hash, expires_at, session_expires_at)
   values (c.organization_id, c.id, v_uid, extensions.digest(v_token, 'sha256'), v_exp, v_ses);
@@ -460,6 +524,13 @@ begin
         'viendo', (select count(*) from app.live_tickets t where t.camera_id = c.id and t.revoked_at is null and t.used_at is not null and t.session_expires_at > now()))
         order by c.name)
       from app.live_cameras c where c.organization_id = p_org and c.archived_at is null), '[]'::jsonb),
+    'transmisiones', coalesce((select jsonb_agg(jsonb_build_object(
+        'id', b.id, 'camara_id', b.camera_id, 'camara', cam.name, 'modo', b.mode, 'titulo', b.title, 'enlace', b.link_token,
+        'desde', b.started_at, 'termina', b.ends_at,
+        'viendo', (select count(*) from app.live_tickets t where t.broadcast_id = b.id and t.revoked_at is null and t.used_at is not null and t.session_expires_at > now()))
+        order by b.started_at desc)
+      from app.live_broadcasts b join app.live_cameras cam on cam.id = b.camera_id
+      where b.organization_id = p_org and b.stopped_at is null and now() < b.ends_at), '[]'::jsonb),
     'bloqueos', coalesce((select jsonb_agg(jsonb_build_object(
         'id', b.id, 'tutor', nullif(concat_ws(' ', g.first_name, g.last_name), ''), 'camara', cam.name,
         'motivo', b.reason, 'desde', b.created_at) order by b.created_at desc)
@@ -618,7 +689,11 @@ begin
   values (p_org, p_pausar, case when p_pausar then btrim(p_motivo) end, case when p_pausar then now() end, case when p_pausar then (select auth.uid()) end)
   on conflict (organization_id) do update set paused = excluded.paused, paused_reason = excluded.paused_reason,
      paused_at = excluded.paused_at, paused_by = excluded.paused_by, updated_at = now();
-  if p_pausar then v_n := private.live_revoca_tickets(p_org, null, null, 'pausa general'); end if;
+  if p_pausar then
+    v_n := private.live_revoca_tickets(p_org, null, null, 'pausa general');
+    update app.live_broadcasts set stopped_at = now(), stopped_by = (select auth.uid()), stop_reason = 'pausa general'
+     where organization_id = p_org and stopped_at is null;
+  end if;
   perform private.live_audita(p_org, case when p_pausar then 'pausa_general' else 'pausa_levantada' end, 'live_settings', null,
     jsonb_build_object('motivo', left(p_motivo, 300), 'sesiones_cortadas', v_n));
   return jsonb_build_object('ok', true, 'pausado', p_pausar, 'sesiones_cortadas', v_n);
@@ -702,6 +777,8 @@ begin
     update app.live_cameras set archived_at = now(), enabled = false, updated_at = now() where id = p_id and organization_id = p_org and archived_at is null;
     if not found then raise exception 'Camera not found'; end if;
     perform private.live_revoca_tickets(p_org, p_id, null, 'cámara archivada');
+    update app.live_broadcasts set stopped_at = now(), stopped_by = (select auth.uid()), stop_reason = 'cámara archivada'
+     where camera_id = p_id and stopped_at is null;
   elsif p_tipo = 'grabador' then
     update app.live_recorders set archived_at = now(), updated_at = now() where id = p_id and organization_id = p_org and archived_at is null;
     if not found then raise exception 'Recorder not found'; end if;
@@ -738,6 +815,154 @@ begin
            order by x.occurred_at desc limit least(greatest(coalesce(p_limite, 100), 1), 500)) e), '[]'::jsonb);
 end $$;
 
+-- ================================================ botón "Transmitir" ====
+
+-- ¿Se puede ver por enlace esta transmisión AHORA? 'ok' o el motivo.
+create or replace function private.live_motivo_enlace(p_broadcast uuid)
+returns text language plpgsql stable security definer set search_path to '' as $$
+declare b app.live_broadcasts; c app.live_cameras;
+begin
+  select * into b from app.live_broadcasts where id = p_broadcast;
+  if not found or b.mode <> 'enlace' then return 'no_existe'; end if;
+  select * into c from app.live_cameras where id = b.camera_id;
+  if c.archived_at is not null then return 'no_existe'; end if;
+  if not private.module_enabled(b.organization_id, 'live') then return 'modulo_apagado'; end if;
+  if b.stopped_at is not null or now() >= b.ends_at then return 'terminada'; end if;
+  if c.sensitive then return 'sensible'; end if;
+  if coalesce((select paused from app.live_settings where organization_id = b.organization_id), false) then return 'pausado'; end if;
+  -- El candado de la academia: en su horario, esa cámara es sólo de familias.
+  if private.live_fin_de_ventana(c.id) is not null then return 'horario_academia'; end if;
+  return 'ok';
+end $$;
+
+create or replace function private.live_revoca_transmision(p_broadcast uuid, p_motivo text)
+returns integer language plpgsql security definer set search_path to '' as $$
+declare n integer;
+begin
+  update app.live_tickets set revoked_at = now(), revoke_reason = left(p_motivo, 120)
+   where broadcast_id = p_broadcast and revoked_at is null and session_expires_at > now();
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+create or replace function private.live_transmitir(p_org uuid, p_camera uuid, p_modo text, p_titulo text, p_minutos integer)
+returns jsonb language plpgsql security definer set search_path to '' as $$
+declare
+  c app.live_cameras; b app.live_broadcasts;
+  v_fin timestamptz; v_prox timestamptz; v_token text; v_sin integer; v_recortada boolean := false;
+begin
+  if not private.live_admin(p_org) then raise exception 'Not authorized'; end if;
+  if p_modo not in ('enlace', 'familias') then raise exception 'Invalid mode'; end if;
+  if p_minutos is null or p_minutos < 15 or p_minutos > 360 then raise exception 'Duration must be 15 to 360 minutes'; end if;
+  select * into c from app.live_cameras where id = p_camera and organization_id = p_org and archived_at is null;
+  if not found then raise exception 'Camera not found'; end if;
+  if c.sensitive then return jsonb_build_object('ok', false, 'motivo', 'sensible'); end if;
+  if coalesce((select paused from app.live_settings where organization_id = p_org), false) then return jsonb_build_object('ok', false, 'motivo', 'pausado'); end if;
+  -- Si ya está transmitiendo, se regresa la misma (no se duplica).
+  select * into b from app.live_broadcasts where camera_id = p_camera and stopped_at is null and now() < ends_at order by started_at desc limit 1;
+  if found then
+    return jsonb_build_object('ok', true, 'ya_estaba', true, 'id', b.id, 'modo', b.mode, 'enlace', b.link_token, 'termina', b.ends_at);
+  end if;
+  v_fin := now() + make_interval(mins => p_minutos);
+  if p_modo = 'enlace' then
+    if private.live_fin_de_ventana(c.id) is not null then return jsonb_build_object('ok', false, 'motivo', 'horario_academia'); end if;
+    v_prox := private.live_proximo_inicio(c.id);
+    if v_prox is not null and v_prox < v_fin then v_fin := v_prox; v_recortada := true; end if;
+    if v_fin < now() + interval '5 minutes' then return jsonb_build_object('ok', false, 'motivo', 'horario_academia'); end if;
+    v_token := encode(extensions.gen_random_bytes(16), 'hex');
+  else
+    if not exists (select 1 from app.live_camera_audience a where a.camera_id = c.id) then return jsonb_build_object('ok', false, 'motivo', 'sin_audiencia'); end if;
+    if c.consent_reviewed_at is null or c.consent_reviewed_at < now() - interval '30 days' then return jsonb_build_object('ok', false, 'motivo', 'revisar_consentimiento'); end if;
+    select count(*) filter (where not coalesce(p.image_consent, false)) into v_sin
+      from app.players p join app.live_camera_audience a on a.camera_id = c.id and a.kind = 'categoria' and lower(btrim(a.value)) = lower(btrim(p.category))
+     where p.organization_id = p_org and p.archived_at is null;
+    if v_sin > 0 and not private.is_presidency(p_org) then return jsonb_build_object('ok', false, 'motivo', 'consentimiento_incompleto', 'sin_permiso', v_sin); end if;
+  end if;
+  insert into app.live_broadcasts(organization_id, camera_id, mode, title, link_token, ends_at, created_by)
+  values (p_org, c.id, p_modo, nullif(btrim(coalesce(p_titulo, '')), ''), v_token, v_fin, (select auth.uid()))
+  returning * into b;
+  perform private.live_audita(p_org, 'transmision_iniciada', 'live_broadcast', b.id,
+    jsonb_build_object('camara', c.name, 'modo', p_modo, 'titulo', b.title, 'termina', v_fin, 'recortada_por_academia', v_recortada));
+  return jsonb_build_object('ok', true, 'id', b.id, 'modo', b.mode, 'enlace', b.link_token, 'termina', b.ends_at, 'recortada_por_academia', v_recortada);
+end $$;
+
+create or replace function private.live_detener(p_org uuid, p_broadcast uuid)
+returns jsonb language plpgsql security definer set search_path to '' as $$
+declare b app.live_broadcasts; v_n integer;
+begin
+  if not private.live_admin(p_org) then raise exception 'Not authorized'; end if;
+  update app.live_broadcasts set stopped_at = now(), stopped_by = (select auth.uid()), stop_reason = 'detenida'
+   where id = p_broadcast and organization_id = p_org and stopped_at is null returning * into b;
+  if not found then raise exception 'Broadcast not found'; end if;
+  v_n := private.live_revoca_transmision(b.id, 'transmisión detenida');
+  -- Familias fuera de su horario: al detener, se corta también a los tutores.
+  if b.mode = 'familias' and private.live_fin_de_ventana(b.camera_id) is null then
+    v_n := v_n + private.live_revoca_tickets(p_org, b.camera_id, null, 'transmisión detenida');
+  end if;
+  perform private.live_audita(p_org, 'transmision_detenida', 'live_broadcast', b.id, jsonb_build_object('sesiones_cortadas', v_n));
+  return jsonb_build_object('ok', true, 'sesiones_cortadas', v_n);
+end $$;
+
+create or replace function private.live_nuevo_enlace(p_org uuid, p_broadcast uuid)
+returns jsonb language plpgsql security definer set search_path to '' as $$
+declare v_token text := encode(extensions.gen_random_bytes(16), 'hex'); v_n integer;
+begin
+  if not private.live_admin(p_org) then raise exception 'Not authorized'; end if;
+  update app.live_broadcasts set link_token = v_token
+   where id = p_broadcast and organization_id = p_org and mode = 'enlace' and stopped_at is null and now() < ends_at;
+  if not found then raise exception 'Broadcast not found'; end if;
+  v_n := private.live_revoca_transmision(p_broadcast, 'enlace cambiado');
+  perform private.live_audita(p_org, 'enlace_cambiado', 'live_broadcast', p_broadcast, jsonb_build_object('sesiones_cortadas', v_n));
+  return jsonb_build_object('ok', true, 'enlace', v_token, 'sesiones_cortadas', v_n);
+end $$;
+
+-- Quien abre el enlace (sin cuenta): qué es y si se puede ver.
+create or replace function private.live_publico(p_token text)
+returns jsonb language plpgsql stable security definer set search_path to '' as $$
+declare b app.live_broadcasts; c app.live_cameras; v_m text;
+begin
+  if p_token is null or p_token !~ '^[0-9a-f]{32}$' then return jsonb_build_object('ok', false, 'motivo', 'no_existe'); end if;
+  select * into b from app.live_broadcasts where link_token = p_token;
+  if not found then return jsonb_build_object('ok', false, 'motivo', 'no_existe'); end if;
+  v_m := private.live_motivo_enlace(b.id);
+  if v_m in ('no_existe', 'modulo_apagado', 'sensible') then return jsonb_build_object('ok', false, 'motivo', v_m); end if;
+  select * into c from app.live_cameras where id = b.camera_id;
+  return jsonb_build_object('ok', v_m = 'ok', 'motivo', v_m, 'titulo', coalesce(b.title, c.name), 'camara', c.name,
+    'cancha', c.venue_label, 'termina', b.ends_at, 'estado', case when v_m = 'ok' then c.stream_state end);
+end $$;
+
+create or replace function private.live_publico_ticket(p_token text)
+returns jsonb language plpgsql security definer set search_path to '' as $$
+declare b app.live_broadcasts; c app.live_cameras; s app.live_settings; v_m text; v_tk text; v_ses timestamptz; v_exp timestamptz; v_prox timestamptz;
+begin
+  if p_token is null or p_token !~ '^[0-9a-f]{32}$' then return jsonb_build_object('ok', false, 'motivo', 'no_existe'); end if;
+  select * into b from app.live_broadcasts where link_token = p_token for update;
+  if not found then return jsonb_build_object('ok', false, 'motivo', 'no_existe'); end if;
+  v_m := private.live_motivo_enlace(b.id);
+  if v_m <> 'ok' then return jsonb_build_object('ok', false, 'motivo', v_m); end if;
+  select * into c from app.live_cameras where id = b.camera_id;
+  select * into s from app.live_settings where organization_id = b.organization_id;
+  if s.gateway_base_url is null or c.gateway_path is null then return jsonb_build_object('ok', false, 'motivo', 'sin_gateway'); end if;
+  -- Tope de personas viendo a la vez, y freno a quien pide tickets sin parar.
+  if (select count(*) from app.live_tickets t where t.broadcast_id = b.id and t.revoked_at is null and t.session_expires_at > now()
+        and (t.used_at is not null or t.issued_at > now() - interval '2 minutes')) >= b.max_viewers then
+    return jsonb_build_object('ok', false, 'motivo', 'lleno');
+  end if;
+  if (select count(*) from app.live_tickets t where t.broadcast_id = b.id and t.issued_at > now() - interval '1 minute') >= b.max_viewers + 20 then
+    return jsonb_build_object('ok', false, 'motivo', 'demasiados_intentos');
+  end if;
+  v_tk := encode(extensions.gen_random_bytes(32), 'hex');
+  v_exp := now() + make_interval(secs => coalesce(s.ticket_ttl_seconds, 120));
+  v_ses := least(now() + make_interval(mins => coalesce(s.session_max_minutes, 90)), b.ends_at);
+  v_prox := private.live_proximo_inicio(c.id);
+  if v_prox is not null and v_prox < v_ses then v_ses := v_prox; end if;
+  insert into app.live_tickets(organization_id, camera_id, user_id, broadcast_id, token_hash, expires_at, session_expires_at)
+  values (b.organization_id, c.id, null, b.id, extensions.digest(v_tk, 'sha256'), v_exp, v_ses);
+  return jsonb_build_object('ok', true, 'motivo', 'ok', 'ticket', v_tk, 'expira', v_exp, 'sesion_hasta', v_ses,
+    'whep', s.gateway_base_url || '/' || c.gateway_path || '/whep',
+    'hls', s.gateway_base_url || '/' || c.gateway_path || '/index.m3u8');
+end $$;
+
 -- ========================================== gateway y agente (service_role) ====
 -- Los llama sólo una función de servidor con la llave de servicio, nunca el
 -- navegador. Ver docs/tanner-live/gateway/.
@@ -759,11 +984,17 @@ begin
   if t.first_ip is not null and v_ip is not null and t.first_ip <> v_ip then return jsonb_build_object('ok', false, 'motivo', 'otro_dispositivo'); end if;
   -- Se vuelve a revisar TODO como si fuera esa persona: horario, pausa,
   -- bloqueo, permisos. Un ticket viejo no sobrevive a un cambio de reglas.
-  perform set_config('request.jwt.claims', jsonb_build_object('sub', t.user_id, 'role', 'authenticated')::text, true);
-  perform set_config('request.jwt.claim.sub', t.user_id::text, true);
-  v_motivo := private.live_motivo(t.camera_id);
-  perform set_config('request.jwt.claims', '', true);
-  perform set_config('request.jwt.claim.sub', '', true);
+  if t.user_id is null then
+    -- Ticket de un enlace: vale mientras la transmisión siga y no sea hora
+    -- de la academia en esa cámara.
+    v_motivo := private.live_motivo_enlace(t.broadcast_id);
+  else
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', t.user_id, 'role', 'authenticated')::text, true);
+    perform set_config('request.jwt.claim.sub', t.user_id::text, true);
+    v_motivo := private.live_motivo(t.camera_id);
+    perform set_config('request.jwt.claims', '', true);
+    perform set_config('request.jwt.claim.sub', '', true);
+  end if;
   if v_motivo <> 'ok' then return jsonb_build_object('ok', false, 'motivo', v_motivo); end if;
   update app.live_tickets set used_at = coalesce(used_at, now()), first_ip = coalesce(first_ip, v_ip),
          gateway_session_id = coalesce(left(p_sesion, 120), gateway_session_id), last_seen_at = now()
@@ -854,6 +1085,19 @@ returns jsonb language sql security definer set search_path to '' as $$ select p
 create or replace function public.v2_live_bitacora(organization_id uuid, limite integer default 100)
 returns jsonb language sql security definer set search_path to '' as $$ select private.live_bitacora($1, $2) $$;
 
+create or replace function public.v2_live_transmitir(organization_id uuid, camera_id uuid, modo text, titulo text default null, minutos integer default 120)
+returns jsonb language sql security definer set search_path to '' as $$ select private.live_transmitir($1, $2, $3, $4, $5) $$;
+create or replace function public.v2_live_detener(organization_id uuid, broadcast_id uuid)
+returns jsonb language sql security definer set search_path to '' as $$ select private.live_detener($1, $2) $$;
+create or replace function public.v2_live_nuevo_enlace(organization_id uuid, broadcast_id uuid)
+returns jsonb language sql security definer set search_path to '' as $$ select private.live_nuevo_enlace($1, $2) $$;
+
+-- Para quien abre el enlace: sin cuenta (anon). Sólo sirven con el enlace.
+create or replace function public.v2_live_publico(enlace text)
+returns jsonb language sql security definer set search_path to '' as $$ select private.live_publico($1) $$;
+create or replace function public.v2_live_publico_ticket(enlace text)
+returns jsonb language sql security definer set search_path to '' as $$ select private.live_publico_ticket($1) $$;
+
 -- Sólo servidor.
 create or replace function public.v2_live_gateway_autoriza(token text, path text, accion text, ip text default null, sesion text default null)
 returns jsonb language sql security definer set search_path to '' as $$ select private.live_gateway_autoriza($1, $2, $3, $4, $5) $$;
@@ -882,10 +1126,17 @@ begin
     'public.v2_live_revisar_consentimiento(uuid,uuid)', 'public.v2_live_activar(uuid,uuid,boolean,text)', 'public.v2_live_pausa(uuid,boolean,text)',
     'public.v2_live_ajustes(uuid,jsonb)', 'public.v2_live_accesos(uuid,uuid)', 'public.v2_live_bloquear(uuid,uuid,uuid,text)',
     'public.v2_live_desbloquear(uuid,uuid)', 'public.v2_live_archivar(uuid,text,uuid)',
-    'public.v2_live_prueba_manual(uuid,uuid,uuid,text,text,jsonb)', 'public.v2_live_bitacora(uuid,integer)']
+    'public.v2_live_prueba_manual(uuid,uuid,uuid,text,text,jsonb)', 'public.v2_live_bitacora(uuid,integer)',
+    'public.v2_live_transmitir(uuid,uuid,text,text,integer)', 'public.v2_live_detener(uuid,uuid)', 'public.v2_live_nuevo_enlace(uuid,uuid)']
   loop
     execute format('revoke all on function %s from public, anon', f);
     execute format('grant execute on function %s to authenticated', f);
+  end loop;
+  -- El enlace: anon y authenticated (quien lo abre puede tener o no cuenta).
+  foreach f in array array['public.v2_live_publico(text)', 'public.v2_live_publico_ticket(text)']
+  loop
+    execute format('revoke all on function %s from public', f);
+    execute format('grant execute on function %s to anon, authenticated', f);
   end loop;
   -- Gateway y agente: sólo service_role.
   foreach f in array array[

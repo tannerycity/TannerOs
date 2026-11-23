@@ -160,6 +160,68 @@ const sello = p => p.locator('.live-sello span').textContent();
   await p.close();
 }
 
+// 9. Botón Transmitir (24/11/2026).
+const C = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+{
+  const { p, errs } = await abre('/v2/live/', staff({ v2_live_transmitir: { ok: true, id: 'b-1', modo: 'enlace', enlace: C, termina: '2026-11-25T05:00:00Z' } }));
+  revisa('Transmitir: el botón está en la pantalla', await p.locator('[data-transmitir]').count() === 1, errs.join(' | '));
+  await p.click('[data-tx-dura="120"]');
+  await p.fill('[data-tx-titulo]', 'Final Copa TCP');
+  await p.click('[data-transmitir]');
+  await p.waitForSelector('.tosdlg', { timeout: 5000 });
+  const tx = await p.evaluate(() => window.__rpc.find(x => x.name === 'v2_live_transmitir')?.params);
+  revisa('Transmitir manda cámara, modo enlace, 120 min y nombre', tx?.camera_id === 'cam-1' && tx?.modo === 'enlace' && tx?.minutos === 120 && tx?.titulo === 'Final Copa TCP', JSON.stringify(tx));
+  const dlg = await p.locator('.tosdlg').textContent();
+  const campo = await p.locator('.tosdlg-field').count() ? await p.locator('.tosdlg-field').inputValue() : '';
+  revisa('Transmitir entrega el enlace para compartir', /Enlace copiado/.test(dlg) || campo.endsWith(`/ver/#${C}`), dlg + ' ' + campo);
+  await p.close();
+}
+{
+  const activa = { id: 'b-1', camara_id: 'cam-1', camara: 'Cancha 1', modo: 'enlace', titulo: 'Final Copa TCP', enlace: C, desde: '2026-11-25T03:00:00Z', termina: '2026-11-25T05:00:00Z', viendo: 7 };
+  const { p } = await abre('/v2/live/', staff({ v2_live_panel: { ...PANEL, transmisiones: [activa] }, v2_live_detener: { ok: true, sesiones_cortadas: 7 } }));
+  const txt = await p.locator('.live-activa').textContent();
+  revisa('la transmisión activa dice qué es, cuánta gente y el enlace', /Final Copa TCP/.test(txt) && /7 viendo/.test(txt) && txt.includes(`/ver/#${C}`), txt);
+  const wa = await p.locator('.live-activa a').getAttribute('href');
+  revisa('WhatsApp lleva el enlace', wa.startsWith('https://wa.me/?text=') && decodeURIComponent(wa).includes(`/ver/#${C}`), wa);
+  revisa('una cámara que ya transmite no se ofrece otra vez', await p.locator('[data-tx-cam="cam-1"]').count() === 0);
+  await p.click('[data-detener]');
+  await p.waitForSelector('.tosdlg');
+  await p.click('.tosdlg-ok');
+  await p.waitForTimeout(300);
+  revisa('Detener llama a v2_live_detener', (await p.evaluate(() => window.__rpc.find(x => x.name === 'v2_live_detener')?.params?.broadcast_id)) === 'b-1');
+  await p.close();
+}
+
+// 10. El enlace (/ver/), sin cuenta.
+{
+  const fx = { v2_live_publico: { ok: true, motivo: 'ok', titulo: 'Final Copa TCP', camara: 'Cancha 1', termina: '2026-11-25T05:00:00Z' }, v2_live_publico_ticket: { ok: false, motivo: 'sin_gateway' } };
+  const { p, errs } = await abre(`/v2/ver/#${C}`, fx, { width: 390, height: 844 });
+  revisa('enlace: abre sin errores', !errs.length, errs.join(' | '));
+  revisa('enlace: dice qué se transmite', /Final Copa TCP/.test(await p.locator('#liveBody').textContent()));
+  revisa('enlace: la hora es la del club (11 pm), no la del teléfono', /hasta las 11:00/i.test(await p.locator('#liveBody').textContent()), await p.locator('.live-hero p:last-child').textContent());
+  revisa('enlace: no pide sesión del staff', !(await rpcs(p)).some(n => /v2_my_context|v2_live_mis_camaras/.test(n)));
+  revisa('enlace: manda el código, no otra cosa', (await p.evaluate(() => window.__rpc.find(x => x.name === 'v2_live_publico')?.params?.enlace)) === C);
+  const v = await p.evaluate(() => { const v = document.querySelector('video'); return v && { auto: v.autoplay, muted: v.muted, paused: v.paused }; });
+  revisa('enlace: el video no arranca solo y va sin audio', v && !v.auto && v.muted && v.paused, JSON.stringify(v));
+  await p.click('.live-play');
+  await p.waitForTimeout(400);
+  revisa('enlace sin gateway: nunca señal de prueba', await p.locator('.tosdlg').count() === 0 && !/prueba|en vivo/i.test(await sello(p)));
+  revisa('enlace sin gateway: lo dice con palabras', /aún no conectada|todavía no está conectada/i.test(await p.locator('#liveBody').textContent()));
+  const ancho = await p.evaluate(() => document.documentElement.scrollWidth);
+  revisa('enlace a 390 px: sin scroll horizontal', ancho <= 390, String(ancho));
+  await p.close();
+}
+{
+  const { p } = await abre('/v2/ver/', { v2_live_publico: { ok: true } }, { width: 390, height: 844 });
+  revisa('enlace sin código: lo dice y no llama a la base', /incompleto/i.test(await p.locator('#liveBody').textContent()) && !(await rpcs(p)).length);
+  await p.close();
+}
+{
+  const { p } = await abre(`/v2/ver/#${C}`, { v2_live_publico: { ok: false, motivo: 'terminada' } }, { width: 390, height: 844 });
+  revisa('enlace terminado: lo dice y no enseña reproductor', /terminó/i.test(await p.locator('#liveBody').textContent()) && await p.locator('.live-video').count() === 0);
+  await p.close();
+}
+
 // Staff a 390 px.
 {
   const { p } = await abre('/v2/live/', staff(), { width: 390, height: 844 });

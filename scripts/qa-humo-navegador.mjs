@@ -119,7 +119,7 @@ const FIX={
   v2_live_panel:{ajustes:{pausado:false,gateway:null,ticket_seg:120,sesion_min:90,terminos_version:1},presidencia:true,
     grabadores:[{id:'rec-1',nombre:'Grabador del parque',tipo:'desconocido',puerto:554,codec:'desconocido',substream:null,conectividad:'sin_verificar'}],
     camaras:[{id:'cam-1',grabador:'rec-1',nombre:'Cancha 1',cancha:'Cancha 1',perfil:'sub',activa:false,sensible:false,categorias:['T10'],roles:[],horario:[{dia:2,de:'17:00',a:'19:00'}],estado:'sin_configurar',viendo:0}],
-    bloqueos:[],diagnosticos:[],categorias:['T10','T12'],roles:['Formadores','Presidencia']},
+    transmisiones:[],bloqueos:[],diagnosticos:[],categorias:['T10','T12'],roles:['Formadores','Presidencia']},
 };
 const b=await chromium.launch({executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome',args:['--no-sandbox']});
 

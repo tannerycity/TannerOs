@@ -17,7 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DIRS = ['v2/live', 'v2/familias/live'];
+const DIRS = ['v2/live', 'v2/familias/live', 'v2/ver'];
 const listar = d => fs.existsSync(d) ? fs.readdirSync(d).map(f => path.join(d, f)).filter(f => /\.(js|html)$/.test(f)) : [];
 
 export default function comprobar() {
@@ -44,7 +44,14 @@ export default function comprobar() {
     if (/NEXT_PUBLIC_|import\.meta\.env|process\.env/.test(t)) errors.push(`Tanner LIVE: ${f} lee variables de entorno en el navegador; los secretos viven sólo en el servidor`);
     if (/(localStorage|sessionStorage)[^;\n]*ticket/i.test(t)) errors.push(`Tanner LIVE: ${f} guarda el ticket en el navegador`);
   }
-  const familia = listar('v2/familias/live').map(f => fs.readFileSync(f, 'utf8')).join('\n');
-  if (/modoPrueba\s*:\s*true/.test(familia)) errors.push('Tanner LIVE: la pantalla de familias no debe ofrecer la señal de prueba');
+  for (const d of ['v2/familias/live', 'v2/ver']) {
+    const t = listar(d).map(f => fs.readFileSync(f, 'utf8')).join('\n');
+    if (/modoPrueba\s*:\s*true/.test(t)) errors.push(`Tanner LIVE: ${d} no debe ofrecer la señal de prueba`);
+  }
+  // 6. El enlace público entra como anónimo aunque haya sesión del staff.
+  const ver = fs.existsSync('v2/ver/app.js') ? fs.readFileSync('v2/ver/app.js', 'utf8') : '';
+  const llamadas = ver.match(/createClient\([^;]*\);/g) || [];
+  if (!llamadas.length || llamadas.some(l => !/persistSession\s*:\s*false/.test(l))) errors.push('Tanner LIVE: /ver/ debe crear su cliente con persistSession:false (entra como anónimo)');
+  if (/from '\/v2\/shell\.js'/.test(ver)) errors.push('Tanner LIVE: /ver/ no debe usar el cliente del shell (trae la sesión del staff)');
   return errors;
 }

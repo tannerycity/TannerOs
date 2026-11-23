@@ -101,6 +101,24 @@
 .live-log li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:12px;border:1px solid var(--linea)}
 .live-log li div{display:grid;gap:2px;min-width:0;flex:1}.live-log small{color:var(--gris);font-size:12.5px;overflow-wrap:anywhere}
 
+/* Botón Transmitir */
+.live-tx{display:grid;gap:10px}
+.live-opciones{display:flex;flex-wrap:wrap;gap:6px}
+.live-opciones button{border:1.5px solid var(--linea);background:#fff;color:var(--tinta);border-radius:999px;padding:9px 14px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;min-height:40px}
+.live-opciones button[aria-checked="true"]{background:var(--noche);border-color:var(--noche);color:var(--oro-claro)}
+.live-transmitir-btn{border:0;border-radius:14px;padding:16px;min-height:54px;font:inherit;font-weight:800;font-size:17px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;background:var(--vivo);color:#fff}
+.live-transmitir-btn:disabled{opacity:.6}
+.live-activas{display:grid;gap:8px}
+.live-activa{display:grid;gap:8px;padding:12px;border-radius:14px;border:1.5px solid var(--vivo);background:#fff}
+.live-activa>div:first-child{display:grid;gap:3px;min-width:0}.live-activa small{color:var(--gris);font-size:12.5px}
+a.live-b{display:inline-flex;align-items:center;text-decoration:none}
+
+/* Enlace público (/ver/): fondo noche, como pantalla de cine. */
+.live-publica .live-panel{background:var(--noche2);border-color:var(--noche2);color:#fff}
+.live-publica .live-muted,.live-publica .live-nota{color:rgba(255,255,255,.72)}
+.live-pub-tit{font-size:30px;color:#fff}
+.live-pub-hero{padding:16px 4px;background:none}
+
 /* Portal de familias: misma caja, fondo crema. */
 .live-familia{max-width:760px;margin:0 auto;padding:16px;box-sizing:border-box}
 .live-familia-top{display:flex;align-items:center;justify-content:space-between;gap:10px}

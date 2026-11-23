@@ -106,7 +106,8 @@ falta con WebRTC, y la CSP prohíbe CDNs: habría que meterla a `vendor/`).
 | `live_camera_windows` | Cuándo: horario semanal (hora de León) |
 | `live_access_blocks` | Revocaciones por tutor, por cámara o de todo |
 | `live_viewer_terms` | Aceptación de las reglas (no grabar, no compartir) |
-| `live_tickets` | Tickets de reproducción (hash, vigencia, IP del primer uso, sesión del gateway) |
+| `live_broadcasts` | Botón Transmitir: cámara, modo (enlace/familias), nombre, enlace, fin, cupo |
+| `live_tickets` | Tickets de reproducción (hash, vigencia, IP del primer uso, sesión del gateway). Sin usuario si vienen de un enlace |
 | `live_diagnostics` | Pruebas reportadas por agente, gateway o persona (sin secretos) |
 
 Reglas que la base hace cumplir (no la pantalla):
@@ -130,6 +131,40 @@ Reglas que la base hace cumplir (no la pantalla):
 | `/live/` (`v2/live/`) | Staff con el módulo `live` | **Ver** (reproductor). Administradores: **Cámaras**, **Diagnóstico**, **Accesos**, **Bitácora** y **Pausar todo** |
 | `/familias/live/` (`v2/familias/live/`) | Tutores | Sus cámaras, reglas, reproductor. Sin shell del staff |
 | Inicio del portal | Tutores | Tarjeta "Tanner LIVE" sólo si el servidor dice que tiene cámaras |
+
+| `/ver/#<código>` (`v2/ver/`) | Cualquiera con el enlace, **sin cuenta** | La transmisión de ese enlace, mientras dure |
+
+### Botón "Transmitir" (24/11/2026)
+
+Presidencia: *"un botón de transmitir y ya, y veo a quién le doy acceso"*. Arriba
+de **Tanner LIVE › Ver**, para administradores:
+
+1. Elige la cámara.
+2. Elige quién la ve: **Cualquiera con el enlace** (rentas de TCP, la final del
+   torneo) o **Sólo familias de la academia** (con su cuenta, fuera de su
+   horario fijo).
+3. Elige cuánto dura: 1 h, 2 h, 3 h o **hasta las 11 pm**.
+4. **Transmitir.** El enlace se copia solo; se comparte por WhatsApp.
+
+Se apaga sola al terminar el tiempo. Mientras está en vivo se ve cuánta gente
+la ve, y hay **Copiar enlace**, **WhatsApp**, **Nuevo enlace** (el anterior deja
+de servir y corta a quien lo usaba) y **Detener**.
+
+Lo que el botón cuida solo, sin preguntarle nada a nadie:
+
+- **Candado de la academia:** una cámara con horario de academia (p. ej. de
+  4 a 7 pm) no se transmite por enlace en ese horario. Si una transmisión por
+  enlace va a chocar con la academia, se apaga sola cuando empieza. El gateway
+  lo revisa otra vez en cada conexión.
+- **Cupo:** máximo 50 personas a la vez por enlace (ajustable en la base).
+- **Pánico:** *Pausar todo* también detiene todas las transmisiones.
+- Cámaras sensibles: nunca. Sin audio, sin grabación.
+- El código va después de `#`: no llega al servidor web ni se filtra a otras
+  páginas (`referrer: no-referrer`). La página entra siempre como anónima.
+
+**TCP:** la recepción de TCP usa el mismo botón con un usuario de TannerOS que
+sólo tenga Tanner LIVE (se da por persona en Usuarios). Quien rentó no necesita
+cuenta ni app: sólo el enlace. Horario de TCP: 7 a 11 pm; academia: 4 a 7 pm.
 
 Reproductor (`v2/live/reproductor.js`): no arranca solo, sin audio, sin
 descarga ni imagen en imagen, pantalla completa (también en iPhone), estados
@@ -186,7 +221,7 @@ node scripts/qa-humo-navegador.mjs
 createdb live && export DB=postgres:///live
 psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live_replica_local.sql
 psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live.sql
-psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live_pruebas.sql   # 61 pruebas
+psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live_pruebas.sql   # 90 pruebas
 psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live_reverso.sql   # deshace todo
 ```
 

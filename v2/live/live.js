@@ -35,7 +35,11 @@ export const MOTIVOS = {
   no_existe: { titulo: 'Cámara no disponible', texto: 'Esta cámara no existe o ya no está disponible.', tono: 'aviso' },
   modulo_apagado: { titulo: 'Tanner LIVE no está activo', texto: 'Tu club todavía no tiene Tanner LIVE.', tono: 'neutro' },
   sin_sesion: { titulo: 'Inicia sesión', texto: 'Vuelve a entrar a tu cuenta para ver la transmisión.', tono: 'aviso' },
-  sensible: { titulo: 'Cámara restringida', texto: 'Esta cámara no se transmite.', tono: 'aviso' }
+  sensible: { titulo: 'Cámara restringida', texto: 'Esta cámara no se transmite.', tono: 'aviso' },
+  // Botón Transmitir / enlace (24/11/2026)
+  terminada: { titulo: 'La transmisión terminó', texto: 'Esta transmisión ya terminó. Si te mandan un enlace nuevo, ábrelo.', tono: 'neutro' },
+  horario_academia: { titulo: 'Horario de la academia', texto: 'En este horario la cámara es sólo para las familias de la academia.', tono: 'aviso' },
+  lleno: { titulo: 'Cupo lleno', texto: 'Ya hay demasiadas personas viendo. Intenta en unos minutos.', tono: 'aviso' }
 };
 export const motivo = m => MOTIVOS[m] || { titulo: 'No disponible', texto: 'Por ahora no se puede ver esta cámara.', tono: 'aviso' };
 
@@ -166,8 +170,32 @@ export const NO_ENCIENDE = {
   sin_horario: 'Primero define su horario.',
   revisar_consentimiento: 'Primero revisa los permisos de imagen (vale 30 días).',
   consentimiento_incompleto: 'Hay jugadores sin permiso de imagen: sólo Presidencia puede encenderla.',
-  falta_justificacion: 'Hay jugadores sin permiso de imagen: escribe por qué se autoriza (mínimo 10 letras).'
+  falta_justificacion: 'Hay jugadores sin permiso de imagen: escribe por qué se autoriza (mínimo 10 letras).',
+  horario_academia: 'Es horario de la academia en esa cámara: por enlace no se puede. Usa "Sólo familias".',
+  pausado: 'Las transmisiones están en pausa. Reanúdalas primero.'
 };
+
+// ---------- Botón "Transmitir" ----------
+// El enlace lleva el código después de #: el navegador no lo manda al
+// servidor ni lo deja en el historial de quien comparte una página.
+export const enlaceDe = (codigo, origen = 'https://app.tannerycity.com') => `${origen}/ver/#${codigo}`;
+export function codigoDeEnlace(hash = '') {
+  const c = String(hash || '').replace(/^#/, '').trim().toLowerCase();
+  return /^[0-9a-f]{32}$/.test(c) ? c : null;
+}
+export function mensajeWhatsApp({ titulo, camara, enlace, termina }) {
+  const hora = termina ? new Intl.DateTimeFormat('es-MX', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Mexico_City' }).format(new Date(termina)) : '';
+  return `${titulo || camara || 'Transmisión'} en vivo${hora ? ` (hasta las ${hora})` : ''}: ${enlace}`;
+}
+// Duraciones del botón. "Hasta las 11 pm" se calcula con la hora del club.
+export function minutosHasta(horaHHMM, fecha = new Date(), tz = 'America/Mexico_City') {
+  const { minutos } = relojDelClub(fecha, tz);
+  const [h, m] = String(horaHHMM).split(':').map(Number);
+  let faltan = h * 60 + m - minutos;
+  if (faltan <= 0) faltan += 1440;
+  return Math.max(15, Math.min(360, faltan));
+}
+export const DURACIONES = [['60', '1 hora'], ['120', '2 horas'], ['180', '3 horas'], ['hasta-23', 'Hasta las 11 pm']];
 
 // Plantilla que documenta Dahua, SIN credenciales. Sólo orientativa para quien
 // configura el gateway; el navegador nunca la usa para conectarse.

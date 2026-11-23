@@ -203,6 +203,17 @@ revisa('[puertas] "‹ Inicio" también regresa', await pg.isVisible('.tc-puerta
 if (process.env.QA_FOTO) await pg.screenshot({ path: process.env.QA_FOTO, fullPage: true });
 
 revisa('sin errores de consola', errs.length === 0, errs.join('\n   '));
+/* ===== Dominio de Mi Club FC (22/11/2026): entrada de la plataforma ===== */
+await pg.addInitScript(() => { window.__tosDominioPlataforma = true; });
+await pg.goto(BASE + '/', { waitUntil:'networkidle' });
+await pg.waitForTimeout(300);
+const ent = await pg.evaluate(() => ({ nombre: document.querySelector('.tc-club-nombre')?.textContent, escudo: !!document.querySelector('.tc-escudo'),
+  firma: !!document.querySelector('.tc-wordmark'), familias: document.querySelectorAll('.tc-familias [data-familia]').length,
+  demo: document.querySelector('[data-puerta="demo"]')?.getAttribute('href'), staff: !!document.querySelector('#abreStaff'),
+  titulo: document.title, texto: document.querySelector('#authView')?.innerText || '' }));
+revisa('[plataforma] la entrada dice Mi Club FC, sin escudo ni firma de Tannery', ent.nombre === 'Mi Club FC' && !ent.escudo && !ent.firma && /^Mi Club FC/.test(ent.titulo), JSON.stringify(ent));
+revisa('[plataforma] sólo Staff y Ver la demo (sin puertas de familias de Tannery)', ent.familias === 0 && ent.demo === '/demo/' && ent.staff, JSON.stringify(ent));
+revisa('[plataforma] ni Tannery ni Tanner en lo que se ve', !/Tannery|Tanner\b|TannerOS|WEARETANNERS/i.test(ent.texto), ent.texto.slice(0, 300));
 await nav.close(); srv.close();
 console.log(fallos
   ? `Ligas por club humo FAILED · ${fallos} de ${corridas}`

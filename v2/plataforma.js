@@ -6,8 +6,17 @@
    sale de aquí. Tannery se sigue viendo como TannerOS. */
 export const PLATAFORMA = Object.freeze({
   nombre: 'Mi Club FC',
-  jugador: Object.freeze({ singular: 'Jugador', plural: 'Jugadores' })
+  jugador: Object.freeze({ singular: 'Jugador', plural: 'Jugadores' }),
+  // Dominios propios de Mi Club FC (sin "www."). Vacío hasta que Presidencia
+  // compre el dominio: entonces se agrega aquí y la entrada sin ?club= deja de
+  // verse como Tannery en ese dominio (v2/entrada-club.js).
+  dominios: Object.freeze([])
 });
+
+// ¿Estamos en un dominio de la plataforma? (las pruebas lo fuerzan con
+// window.__tosDominioPlataforma).
+export const esDominioPlataforma = (host = globalThis.location?.hostname || '') =>
+  !!globalThis.__tosDominioPlataforma || PLATAFORMA.dominios.includes(String(host).replace(/^www\./, ''));
 
 // ¿Es Tannery? Por la marca guardada del club. Sin marca guardada no se sabe
 // de quién es, y se deja como estaba (Tannery): los clubes demo y los nuevos sí

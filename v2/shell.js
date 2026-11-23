@@ -49,7 +49,8 @@ const ICONS={
   moneyOut:'<path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><rect x="4" y="3" width="16" height="4" rx="1"/>',
   chat:'<path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5Z"/>',
   book:'<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5V4.5Z"/><path d="M4 19a2.5 2.5 0 0 1 2.5-2.5H20"/>',
-  star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>'
+  star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  video:'<rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/>'
 };
 export const shellIcon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]||ICONS.home}</svg>`;
 
@@ -94,6 +95,9 @@ export const navItems=[
   {code:'encuestas',label:'Encuestas',href:'/encuestas/',group:'club',icon:'chat',lee:['direccion'],dentroDe:'inicio'},
   {code:'scouting',label:'Scouting',href:'/scouting/',group:'club',icon:'search',dentroDe:'prospectos'},
   {code:'visorias',label:'Visorías',href:'/visorias/',group:'club',icon:'star',lee:['scouting','prospectos'],dentroDe:'prospectos'},
+  // Tanner LIVE (23/11/2026, h101): entrenamientos en vivo, privados. Es
+  // módulo: Presidencia por rol; a un formador se le da por persona.
+  {code:'live',label:'Tanner LIVE',href:'/live/',group:'club',icon:'video'},
   {code:'cursosVerano',label:'Programas y eventos',href:'/operacion/programas/',group:'club',icon:'spark',dentroDe:'formacion'},
   {code:'tienda',label:'Tienda',href:'/pedidos/',group:'ops',icon:'bag'},
   // Tienda unificada (21/10/2026): Pedidos, Nuevo pedido y Catálogo son

@@ -1189,6 +1189,7 @@ async function renderInicio(){
       <div class="fam-hijos">${hijos}</div>
     </section>
     <div id="famPush"></div>
+    <div id="famLive"></div>
     ${misPedidosBlock(players)}
     ${players.map(p=>semanaBlock(state.semanas[p.id],p,players.length>1)).join('')}
     <section class="fam-card fam-pendientes"><div class="fam-card-head"><h2>Pendientes</h2><span>${pend.length?`${pend.length} por hacer`:'al día'}</span></div>${pendHtml}</section>
@@ -1201,8 +1202,21 @@ async function renderInicio(){
   body.querySelector('[data-ir-club]')?.addEventListener('click',()=>{state.clubSub='calendario';irA('club');});
   body.querySelector('[data-ver-avisos]')?.addEventListener('click',()=>{state.verTodosAvisos=true;renderInicio();});
   pintaPush();
+  pintaLive();
   // Vistos: el globo se apaga, pero en esta pantalla siguen marcados como nuevos.
   if(avisosSinLeer(avisos))rpc('v2_portal_avisos_vistos').then(()=>{state.avisos=avisos.map(a=>({...a,unread:false}));pintaGloboAvisos();}).catch(()=>{});
+}
+
+/* Tanner LIVE (23/11/2026): la tarjeta sale sólo si el servidor dice que este
+   tutor tiene cámaras. Si la base aún no tiene Tanner LIVE (h101) o el club no
+   lo usa, no sale nada y el inicio sigue igual. */
+async function pintaLive(){
+  const caja=$('famLive');if(!caja)return;
+  let r=null;try{r=await rpc('v2_live_mis_camaras',{});}catch(_){return;}
+  const n=(r?.camaras||[]).length;if(!n||!$('famLive'))return;
+  $('famLive').innerHTML=`<section class="fam-card"><div class="fam-card-head"><h2>Tanner LIVE</h2><span>${n===1?'1 cámara':`${n} cámaras`}</span></div>
+    <p class="fam-muted">Mira el entrenamiento en vivo, en su horario. Privado, sin audio y sin grabación.</p>
+    <a class="fam-btn" href="/familias/live/">Ver entrenamiento</a></section>`;
 }
 
 /* Avisos en el celular: se pide permiso sólo cuando la familia toca el botón.

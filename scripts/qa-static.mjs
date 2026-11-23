@@ -11,6 +11,8 @@ const routeContract={
   '/taquilla/':'v2/taquilla/index.html',
   '/tanner/':'v2/tanner/index.html',
   '/familias/':'v2/familias/index.html',
+  '/familias/live/':'v2/familias/live/index.html',
+  '/live/':'v2/live/index.html',
   '/estacionamiento/':'v2/estacionamiento/index.html',
   '/mensajes/':'v2/mensajes/index.html',
   '/jugadores/':'v2/jugadores/index.html',

@@ -65,6 +65,8 @@ async function carga() {
     if (/does not exist|Could not find the function|schema cache/i.test(e?.message || '')) { $('spPendiente').classList.remove('hidden'); setShellHealth({ state: 'attention', label: 'Pendiente' }); return; }
     msg(amable(e)); return;
   }
+  // Sin respuesta (la funcion aun no existe o no devolvio nada): pendiente, nunca un error.
+  if (!datos) { $('spPendiente').classList.remove('hidden'); setShellHealth({ state: 'attention', label: 'Pendiente' }); return; }
   if (datos.interno) { $('spInterno').classList.remove('hidden'); setShellHealth({ state: 'ok', label: 'Plan interno' }); return; }
   $('sp').classList.remove('hidden');
   if (new URLSearchParams(location.search).get('suscripcion') === 'revisar' && datos.pendiente)

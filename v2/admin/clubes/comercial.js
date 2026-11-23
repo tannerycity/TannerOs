@@ -34,6 +34,10 @@ export async function montaComercial({ rpc, $, esc, aviso }) {
       <p class="clubes-muted">${falta ? 'Pendiente de activar: falta aplicar la migración del sistema comercial (docs/saas-comercial/04-despliegue.md).' : esc(e?.message || 'No se pudo cargar.')}</p>`;
     return;
   }
+  if (!board || !cat) {
+    raiz.innerHTML = '<div class="pf-bloque-cab"><h2>Mi Club FC · Comercial</h2></div><p class="clubes-muted">Pendiente de activar: falta aplicar la migración del sistema comercial.</p>';
+    return;
+  }
   const recarga = () => montaComercial({ rpc, $, esc, aviso });
   const hazlo = async (fn, ok) => { if (demo) { aviso('Demostración: en el portal real esta acción se guarda y queda en la bitácora.', 'info'); return; } try { await fn(); aviso(ok, 'ok'); await recarga(); } catch (e) { aviso(e?.message || 'No se pudo completar.'); } };
   const versiones = cat.versiones || [];

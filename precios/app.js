@@ -1,12 +1,15 @@
 /* Pagina publica de precios de Mi Club FC (23/11/2026).
  *
- * Los precios NO estan escritos aqui: salen del catalogo PUBLICADO en el
- * servidor (v2_saas_public_catalog). Mientras Presidencia no publique una
- * version aprobada, la funcion devuelve null y la pagina solo dice "muy
- * pronto": ningun precio se ve antes de su aprobacion final.
+ * Los precios salen del catalogo PUBLICADO en el servidor
+ * (v2_saas_public_catalog). Mientras Presidencia no publique una version
+ * aprobada, la funcion devuelve null y la pagina solo dice "muy pronto".
+ * Excepcion deliberada (Presidencia, 23/11/2026: "quiero que este para
+ * mostrarla como demo"): /precios/?demo=1 ensena el catalogo v1 con letrero
+ * de demostracion. Sin ?demo=1 no se ve ningun precio.
  */
 import { createClient } from '/v2/supabase-client.js';
 import { pesos, anualDesdeMensual } from '/v2/saas/precios.js';
+import { DEMO_CATALOGO, AVISO_DEMO } from '/v2/saas/demo.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
 const $ = id => document.getElementById(id);
@@ -48,11 +51,20 @@ function pinta() {
 
 document.querySelectorAll('[data-ciclo]').forEach(b => b.addEventListener('click', () => { ciclo = b.dataset.ciclo; pinta(); }));
 
-try {
-  const { data, error } = await supabase.rpc('v2_saas_public_catalog');
-  if (error) throw error;
-  catalogo = data;
-} catch { catalogo = null; }
+// ?demo=1: el catalogo v1 de demostracion, con letrero. Sin el, solo lo publicado.
+const demo = new URLSearchParams(location.search).get('demo') === '1';
+if (demo) {
+  catalogo = DEMO_CATALOGO;
+  const aviso = Object.assign(document.createElement('p'), { className: 'mc-demo', textContent: AVISO_DEMO });
+  aviso.setAttribute('role', 'status');
+  document.querySelector('.mc-hero').after(aviso);
+} else {
+  try {
+    const { data, error } = await supabase.rpc('v2_saas_public_catalog');
+    if (error) throw error;
+    catalogo = data;
+  } catch { catalogo = null; }
+}
 $('cargando').classList.add('hidden');
 if (!catalogo) $('pronto').classList.remove('hidden');
 else { $('catalogo').classList.remove('hidden'); pinta(); }

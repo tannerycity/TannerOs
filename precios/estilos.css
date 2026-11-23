@@ -43,3 +43,5 @@ body{margin:0;background:var(--mc-fondo)}
   .mc-plan,.mc-comp,.mc-faq details,.mc-estado,.mc-ciclo{background:#0b2128}
   .mc-ciclo button[aria-checked="true"]{background:var(--mc-oro);color:#07191e}
 }
+.mc-demo{margin:0;border:1px solid var(--mc-oro);border-radius:14px;padding:10px 14px;text-align:center;font-size:13px;font-weight:800;background:#fff;color:var(--mc-ink)}
+@media (prefers-color-scheme:dark){.mc-demo{background:#0b2128}}

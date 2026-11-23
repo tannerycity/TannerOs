@@ -14,6 +14,7 @@
  * dice y no hace nada.
  */
 import { pesos, anualDesdeMensual } from '/v2/saas/precios.js';
+import { demoPortal, AVISO_DEMO } from '/v2/saas/demo.js';
 
 const ESTADOS = { free: 'Gratis', pending: 'Pendiente', active: 'Activa', past_due: 'Atrasada', grace_period: 'En gracia', cancelled: 'Cancelada', expired: 'Vencida', sin_plan: 'Sin plan' };
 const TECNICO = { ready: 'Listo', review: 'En revisión', partial: 'Parcial', not_built: 'No existe', internal: 'Interno' };
@@ -23,8 +24,10 @@ export async function montaComercial({ rpc, $, esc, aviso }) {
   const raiz = $('mcComercial');
   if (!raiz) return;
   let board, cat;
+  const demo = new URLSearchParams(location.search).get('demo') === '1';
   try {
-    [board, cat] = await Promise.all([rpc('v2_saas_admin_board'), rpc('v2_saas_admin_catalog')]);
+    if (demo) ({ board, cat } = demoPortal());
+    else [board, cat] = await Promise.all([rpc('v2_saas_admin_board'), rpc('v2_saas_admin_catalog')]);
   } catch (e) {
     const falta = /does not exist|Could not find the function|schema cache/i.test(e?.message || '');
     raiz.innerHTML = `<div class="pf-bloque-cab"><h2>Mi Club FC · Comercial</h2></div>
@@ -32,7 +35,7 @@ export async function montaComercial({ rpc, $, esc, aviso }) {
     return;
   }
   const recarga = () => montaComercial({ rpc, $, esc, aviso });
-  const hazlo = async (fn, ok) => { try { await fn(); aviso(ok, 'ok'); await recarga(); } catch (e) { aviso(e?.message || 'No se pudo completar.'); } };
+  const hazlo = async (fn, ok) => { if (demo) { aviso('Demostración: en el portal real esta acción se guarda y queda en la bitácora.', 'info'); return; } try { await fn(); aviso(ok, 'ok'); await recarga(); } catch (e) { aviso(e?.message || 'No se pudo completar.'); } };
   const versiones = cat.versiones || [];
   const publicada = versiones.find(v => v.status === 'published');
   const vigentes = versiones.filter(v => v.status === 'approved' || v.status === 'published');
@@ -41,6 +44,7 @@ export async function montaComercial({ rpc, $, esc, aviso }) {
   raiz.innerHTML = `
     <div class="pf-bloque-cab"><h2>Mi Club FC · Comercial</h2>
       <span class="mc-chip ${publicada ? 'mc-ok' : 'mc-aten'}">${publicada ? `Precios publicados · v${publicada.version}` : 'Precios sin publicar'}</span></div>
+    ${demo ? `<p class="mc-alerta">${esc(AVISO_DEMO)} Academias ficticias.</p>` : ''}
     <section class="pf-kpis mc-kpis">
       <article><b>${board.academiasGratis}</b><span>Academias gratis</span></article>
       <article><b>${board.academiasPago}</b><span>Academias de pago</span></article>

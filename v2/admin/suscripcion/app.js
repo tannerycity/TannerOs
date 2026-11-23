@@ -14,6 +14,7 @@
  */
 import { bootstrapProtectedShell, rpc, $, moduleAccess, setShellHealth, supabase } from '/v2/shell.js';
 import { pesos, cotiza, anualDesdeMensual } from '/v2/saas/precios.js';
+import { DEMO_CATALOGO, demoMiPlan, AVISO_DEMO } from '/v2/saas/demo.js';
 import { textoSuscripcion, textoCupo, opcionesDePlan, revisaFiscal, textoConfirmacion, REGIMENES, USOS_CFDI } from '/v2/admin/suscripcion/logica.js';
 
 const boot = await bootstrapProtectedShell({ active: 'admin', title: 'Mi plan' });
@@ -26,7 +27,25 @@ const fecha = iso => { const [a, m, d] = String(iso || '').slice(0, 10).split('-
 const ESTADO_PAGO = { approved: 'Aprobado', pending: 'Pendiente', in_process: 'En proceso', rejected: 'Rechazado', cancelled: 'Cancelado', refunded: 'Reembolsado', charged_back: 'Contracargo' };
 const ESTADO_CFDI = { pending_integration: 'Factura solicitada (en preparación)', requested: 'Factura en proceso', stamped: 'Factura emitida', cancelled: 'Factura cancelada', error: 'Factura con error' };
 
-let datos = null, catalogo = null, ciclo = 'monthly', plan = null, cotizacion = null;
+let datos = null, catalogo = null, ciclo = 'monthly', plan = null, cotizacion = null, demo = false;
+
+// Demostracion: el club demo (solo lectura) o ?demo=1. Datos de ejemplo, nada se cobra ni se guarda.
+const DEMO_QUE_PASARIA = {
+  contratar: 'En tu academia, aquí se abre Mercado Pago para autorizar el pago con el total que acabas de ver. En la demo no se cobra nada.',
+  cancelar: 'En tu academia, aquí se cancela la renovación y conservas todo hasta el fin del periodo pagado.',
+  fiscal: 'En tu academia, aquí se guardan tus datos fiscales para emitir tus facturas.',
+  factura: 'En tu academia, aquí se solicita la factura (CFDI) de este pago.',
+  exportar: 'En tu academia, aquí se descarga un archivo con toda la información de tu club (jugadores, pagos, asistencia y más).'
+};
+async function enDemo(accion) {
+  if (!demo) return false;
+  await window.tosAlert({ kicker: 'DEMOSTRACIÓN', title: 'Así funcionaría', message: DEMO_QUE_PASARIA[accion] });
+  return true;
+}
+async function esDemo() {
+  if (new URLSearchParams(location.search).get('demo') === '1') return true;
+  try { return (await rpc('v2_my_access_mode', { organization_id: org }))?.reason === 'demo'; } catch { return false; }
+}
 
 async function invoca(body) {
   const { data, error } = await supabase.functions.invoke('saas-suscripcion', { body: { organizationId: org, ...body } });
@@ -36,6 +55,10 @@ async function invoca(body) {
 }
 
 async function carga() {
+  if (demo) {
+    datos = demoMiPlan(); catalogo = DEMO_CATALOGO;
+    msg(AVISO_DEMO, 'info'); $('sp').classList.remove('hidden'); pinta(); return;
+  }
   try {
     [datos, catalogo] = await Promise.all([rpc('v2_saas_my_subscription', { organization_id: org }), rpc('v2_saas_public_catalog')]);
   } catch (e) {
@@ -118,9 +141,9 @@ $('spCupon').addEventListener('input', previa);
 document.querySelectorAll('[data-ciclo]').forEach(b => b.addEventListener('click', () => { ciclo = b.dataset.ciclo; pintaSelector(); }));
 
 $('spRevisar').addEventListener('click', async () => {
-  msg(); $('spRevisar').disabled = true;
+  if (!demo) msg(); $('spRevisar').disabled = true;
   try {
-    cotizacion = await rpc('v2_saas_quote', { organization_id: org, tier: plan, cycle: ciclo, addons: complementos(), coupon: $('spCupon').value.trim() || null });
+    cotizacion = demo ? cotiza(catalogo, { plan, ciclo, complementos: complementos(), activos: datos.cupo?.activos ?? 0 }) : await rpc('v2_saas_quote', { organization_id: org, tier: plan, cycle: ciclo, addons: complementos(), coupon: $('spCupon').value.trim() || null });
     pintaResumen(cotizacion); $('spContratar').disabled = !cotizacion?.ok;
     $('spContratar').textContent = cotizacion?.ok && !cotizacion.requierePago ? 'Activar sin tarjeta' : 'Contratar';
   } catch (e) { msg(amable(e)); } finally { $('spRevisar').disabled = false; }
@@ -132,6 +155,7 @@ $('spContratar').addEventListener('click', async () => {
     message: textoConfirmacion(cotizacion, { inicia: datos.suscripcion && datos.suscripcion.estado !== 'free' ? datos.suscripcion.periodoFin : null }),
     confirmText: cotizacion.requierePago ? 'Ir a Mercado Pago' : 'Activar' });
   if (!ok) return;
+  if (await enDemo('contratar')) return;
   $('spContratar').disabled = true; msg();
   try {
     const r = await invoca({ action: 'checkout', tier: cotizacion.plan, cycle: cotizacion.ciclo, addons: complementos(), coupon: $('spCupon').value.trim() || null });
@@ -146,6 +170,7 @@ $('spCancelar').addEventListener('click', async () => {
     message: `Conservas todo hasta el ${fecha(s.periodoFin)}. Después sigues con lo básico de Semilla y tus datos. ¿Nos cuentas por qué? (opcional)`,
     placeholder: 'Ej. Cerramos la temporada', confirmText: 'Cancelar renovación', maxlength: 200 });
   if (motivo === null) return;
+  if (await enDemo('cancelar')) return;
   try { await invoca({ action: 'cancel', reason: motivo || null }); msg('Renovación cancelada.', 'success'); await carga(); } catch (e) { msg(amable(e)); }
 });
 
@@ -161,6 +186,7 @@ $('spFiscal').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.currentTarget, r = revisaFiscal({ rfc: f.rfc.value, razonSocial: f.razonSocial.value, regimen: f.regimen.value, cp: f.cp.value.trim(), usoCfdi: f.usoCfdi.value, correo: f.correo.value.trim() });
   if (!r.ok) { msg(r.error); return; }
+  if (await enDemo('fiscal')) return;
   try { await rpc('v2_saas_set_fiscal_profile', { organization_id: org, profile: r.datos }); msg('Datos fiscales guardados.', 'success'); datos = await rpc('v2_saas_my_subscription', { organization_id: org }); pinta(); }
   catch (err) { msg(amable(err)); }
 });
@@ -174,6 +200,7 @@ function pintaPagos() {
 }
 $('spPagos').addEventListener('click', async e => {
   const b = e.target.closest('[data-factura]'); if (!b) return;
+  if (await enDemo('factura')) return;
   if (!datos.fiscal) { msg('Primero guarda tus datos fiscales.'); return; }
   b.disabled = true;
   try { await rpc('v2_saas_request_invoice', { organization_id: org, receipt_folio: Number(b.dataset.factura) }); msg('Factura solicitada. Te avisaremos cuando esté emitida.', 'success'); datos = await rpc('v2_saas_my_subscription', { organization_id: org }); pintaPagos(); }
@@ -181,6 +208,7 @@ $('spPagos').addEventListener('click', async e => {
 });
 
 $('spExportar').addEventListener('click', async () => {
+  if (await enDemo('exportar')) return;
   $('spExportar').disabled = true; msg();
   try {
     const x = await rpc('v2_saas_export_my_data', { organization_id: org });
@@ -192,4 +220,5 @@ $('spExportar').addEventListener('click', async () => {
   finally { $('spExportar').disabled = false; }
 });
 
+demo = await esDemo();
 await carga();

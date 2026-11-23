@@ -125,3 +125,32 @@
 .pf-cobro-aviso{border-left-color:#d49a1c}.pf-cobro-aviso .pf-cobro-estado{color:#8a6410}
 .pf-cobro-tarde{border-left-color:#b4532a}.pf-cobro-tarde .pf-cobro-estado{color:#9a4220}
 .pf-cobro-bloqueo{border-left-color:#9c2b1d;background:#fdf3f1}.pf-cobro-bloqueo .pf-cobro-estado{color:#9c2b1d}
+/* Mi Club FC · Comercial (23/11/2026). Solo colores que ya usa el portal. */
+.mc{gap:12px}
+.mc-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.mc-chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:850;color:var(--pf-ink);background:#fff}
+.mc-ok{border-color:var(--pf-ok)}
+.mc-aten{border-color:var(--pf-aten);color:#8a6410}
+.mc-alerta{margin:0;border:1px solid var(--pf-aten);border-radius:14px;padding:10px 12px;font-size:13px;font-weight:800;color:#8a6410;background:#fdf2dc}
+.mc-sub{margin:6px 0 0;font-size:16px;font-weight:950}
+.mc-semilla{display:grid;gap:10px;border-radius:20px;padding:16px;color:#fff;background:linear-gradient(150deg,#0b3d5c,#07191e)}
+.mc-semilla h3{margin:2px 0 0;font-size:20px;font-weight:950;color:#fff}
+.mc-semilla dl{margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.mc-semilla dt{font-size:12px;color:rgba(255,255,255,.7)}
+.mc-semilla dd{margin:0;font-size:24px;font-weight:950;font-variant-numeric:tabular-nums}
+.mc-version{display:grid;gap:8px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}
+.mc-version header{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mc-version header small{flex-basis:100%;font-size:12px;color:var(--muted)}
+.mc-tabla-envoltura{overflow-x:auto}
+.mc-tabla{width:100%;border-collapse:collapse;font-size:13px}
+.mc-tabla th{text-align:left;font-size:12px;font-weight:850;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line)}
+.mc-tabla td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-variant-numeric:tabular-nums}
+.mc-tabla small{display:block;font-size:12px;color:var(--muted)}
+.mc-acciones{display:flex;flex-wrap:wrap;gap:8px}
+.mc-modulos{display:flex;flex-wrap:wrap;gap:6px}
+.mc-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}
+.mc-form h3{grid-column:1/-1}
+.mc-form label{display:grid;gap:4px;font-size:12px;font-weight:850;color:var(--muted)}
+.mc-form input,.mc-form select{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:12px;padding:9px 10px;color:var(--pf-ink);background:#fff}
+.mc-ancho{grid-column:1/-1}
+@media (max-width:720px){.mc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}

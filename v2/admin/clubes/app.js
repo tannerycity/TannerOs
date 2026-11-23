@@ -18,6 +18,7 @@ import { bootstrapProtectedShell, rpc, $, setShellHealth } from '/v2/shell.js';
 import { ligaWhatsApp } from '/v2/pedido-mensajes.js';
 import { PASOS, CATEGORIAS_SUGERIDAS, slugDe, faltantes, datosParaAlta, mensajeBienvenida } from '/v2/admin/clubes/alta.js';
 import { ingresoMensual, usoDelPlan } from '/v2/admin/plan.js';
+import { montaComercial } from '/v2/admin/clubes/comercial.js';
 
 const boot = await bootstrapProtectedShell({ active: 'admin', title: 'Portal' });
 if (!boot) throw new Error('No access');
@@ -44,6 +45,7 @@ async function carga() {
   $('pf').classList.remove('hidden');
   pinta();
   await cargaCobros();
+  await montaComercial({ rpc, $, esc, aviso: (t, tipo) => msg('pfMensaje', t, tipo) });
 }
 
 // === Cobros a clubes (j4–n4) ===

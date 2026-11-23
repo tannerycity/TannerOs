@@ -14,12 +14,14 @@ Resultados del 23/11/2026, en este contenedor:
 |---|---|
 | `qa-saas-precios.mjs` | **73/73 OK** |
 | `qa-saas-mercadopago.mjs` | **35/35 OK** |
-| `supabase/tests/saas/10_pruebas_local.sql` | **81/81 OK** |
+| `qa-saas-mi-plan.mjs` (pantalla de la academia) | **27/27 OK** |
+| `supabase/tests/saas/10_pruebas_local.sql` | **88/88 OK** (incluye la exportación) |
 | Paridad JS = SQL | **976/976 casos idénticos** |
 | Mutaciones (romper a propósito) | Motor JS: 8 fallos detectados. Redondeo SQL: 22 diferencias detectadas |
 | Stub contra producción | Hash de `module_enabled`, `has_module_access`, `is_active_member`, `is_platform_admin` y `legacy_module_code` **idéntico** a producción |
 | Página `/precios` en Chromium (390 px y 1280 px) | Sin catálogo: ningún precio visible. Publicado: montos correctos, sin desborde horizontal y sin errores de página |
 | Portal comercial en Chromium | Renderiza con datos reales de la base local, sin errores |
+| "Mi plan" en Chromium (390 px y 1280 px) | Plan correcto preseleccionado; planes chicos bloqueados con su motivo; total del servidor (Semilla + Tienda $172.84; Ascenso + Tienda $867.68); al contratar va a Mercado Pago; sin desborde ni errores |
 
 ## Casos funcionales mínimos
 
@@ -53,6 +55,7 @@ Resultados del 23/11/2026, en este contenedor:
 | Recibo y CFDI diferenciados | Folio interno ≠ folio fiscal; CFDI en `pending_integration`; "timbrada" imposible sin PAC |
 | Permisos | Formador sin facturación; usuario desactivado sin acceso; academia sin tablero ni funciones privadas ni puerta del webhook; anon solo ve el catálogo publicado |
 | Mercado Pago | Monto o `external_reference` ajenos rechazados; autorizar la tarjeta no activa; aviso viejo no pisa el nuevo; firma inválida o vencida; sandbox por omisión; sin datos del pagador |
+| Exportación | Presidencia de A se lleva solo lo suyo; ni A exporta B, ni un formador, ni anon; tablas faltantes se omiten; queda en la bitácora |
 | Integridad | Pagos y suscripciones no se borran ni se reasignan; bitácora solo agrega; versión aprobada congelada |
 | Compatibilidad TannerOS | 144 combinaciones idénticas; el plan interno no se toca; el plan viejo se traspasa |
 | Migración | Se aplica dos veces sin error (idempotente) |
@@ -65,5 +68,5 @@ Resultados del 23/11/2026, en este contenedor:
 | Concurrencia (dos checkouts simultáneos) | El índice `saas_sub_one_pending` lo impide en teoría; falta una carga real | En la rama de Supabase |
 | Migración contra el esquema real completo | Solo hay un proyecto (producción) | En la rama de Supabase (04, paso 2) |
 | Backups y restauración | Política de Supabase; no se cambió | Checklist de producción |
-| Accesibilidad completa del flujo de compra | El flujo autoservicio no existe (alta asistida) | Fase 3b |
+| Accesibilidad completa del flujo de compra | "Mi plan" ya existe para la academia con sesión; falta el registro público autoservicio | Fase 3b |
 | `deno check` de la Edge Function | Deno no está instalado en el contenedor | Antes de desplegarla |

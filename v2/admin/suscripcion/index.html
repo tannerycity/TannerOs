@@ -1,0 +1,45 @@
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#184159"><title>Mi plan · Mi Club FC</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"><link rel="stylesheet" href="/v2/admin/clubes/styles.css"><link rel="stylesheet" href="/v2/admin/suscripcion/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body class="tos-body"><div class="tos-layout"><aside class="tos-sidebar"><div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div></aside><div id="shellNavBackdrop" class="tos-nav-backdrop"></div><div class="tos-main"><header class="tos-topbar"><div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">Mi plan</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health"><i></i><span>Mi plan</span></span><span id="shellRole" class="tos-role">Rol</span></div></header><main class="tos-content sp">
+<section class="tos-welcome"><div class="eyebrow">MI CLUB FC</div><h1>Mi plan</h1><p>Tu plan, complementos, pagos y facturas. Sin cargos sorpresa: siempre ves el total con IVA antes de autorizar.</p></section>
+<div id="spMsg" class="inline-message hidden" role="status"></div>
+<section id="spPendiente" class="tos-panel hidden"><h2>Pendiente de activar</h2><p class="clubes-muted">El sistema de planes de Mi Club FC todavía no está activo para tu club.</p></section>
+<section id="spInterno" class="tos-panel hidden"><h2>Plan interno</h2><p class="clubes-muted">Tu club usa el plan interno de TannerOS con todo incluido. Aquí no hay nada que contratar.</p></section>
+
+<div id="sp" class="sp-grid hidden">
+  <div class="sp-main">
+    <article id="spEstado" class="sp-card"><p class="pf-eyebrow">Tu suscripción</p><h2 id="spEstadoTitulo"></h2><p id="spEstadoDetalle" class="clubes-muted"></p>
+      <ul id="spComplementos" class="sp-lista"></ul>
+      <div class="sp-acciones"><a id="spPagarPendiente" class="pf-cta hidden" href="#">Completar pago en Mercado Pago</a>
+      <button type="button" id="spCancelar" class="pf-sec hidden">Cancelar renovación</button></div></article>
+    <p id="spCupo" class="sp-cupo hidden" role="status"></p>
+
+    <section id="spElegir" class="sp-card hidden" aria-labelledby="spElegirTitulo">
+      <div class="sp-cab"><h2 id="spElegirTitulo">Elegir plan</h2>
+        <div class="sp-ciclo" role="radiogroup" aria-label="Forma de pago"><button type="button" role="radio" data-ciclo="monthly" aria-checked="true">Mensual</button><button type="button" role="radio" data-ciclo="annual" aria-checked="false">Anual <small id="spAhorro"></small></button></div></div>
+      <p class="clubes-muted" id="spActivos"></p>
+      <div id="spPlanes" class="sp-planes" role="radiogroup" aria-label="Planes"></div>
+      <h3 class="mc-sub">Complementos <small class="clubes-muted">(opcionales, en cualquier plan)</small></h3>
+      <div id="spAddons" class="sp-addons"></div>
+      <label class="sp-cupon">Cupón (opcional)<input id="spCupon" autocomplete="off" maxlength="30"></label>
+      <div id="spResumen" class="sp-resumen" aria-live="polite"></div>
+      <div class="sp-acciones"><button type="button" id="spRevisar" class="pf-sec">Revisar total</button><button type="button" id="spContratar" class="pf-cta" disabled>Contratar</button></div>
+    </section>
+    <p id="spSinCatalogo" class="sp-card clubes-muted hidden">Los planes todavía no están disponibles para contratar. Te avisaremos en cuanto abran.</p>
+  </div>
+
+  <aside class="sp-side">
+    <form id="spFiscal" class="sp-card sp-form" novalidate><h2>Datos fiscales</h2><p class="clubes-muted">Para emitir tus facturas (CFDI). Tal como aparecen en tu constancia de situación fiscal.</p>
+      <label>RFC<input name="rfc" autocomplete="off" maxlength="13" required></label>
+      <label>Nombre o razón social<input name="razonSocial" autocomplete="organization" required></label>
+      <label>Régimen fiscal<select name="regimen" id="spRegimen" required></select></label>
+      <label>Código postal fiscal<input name="cp" inputmode="numeric" maxlength="5" required></label>
+      <label>Uso del CFDI<select name="usoCfdi" id="spUso" required></select></label>
+      <label>Correo para facturas<input name="correo" type="email" autocomplete="email"></label>
+      <button type="submit" class="pf-cta">Guardar datos fiscales</button></form>
+
+    <section class="sp-card"><h2>Pagos</h2><p class="clubes-muted">Cada pago tiene su comprobante interno. La factura (CFDI) se solicita aparte.</p><div id="spPagos"></div></section>
+
+    <section class="sp-card"><h2>Tus datos</h2><p class="clubes-muted">Descarga toda la información de tu academia en un archivo. Solo Presidencia o el dueño del club; queda registrado.</p>
+      <button type="button" id="spExportar" class="pf-sec">Descargar mis datos</button></section>
+  </aside>
+</div>
+</main></div></div><script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/admin/suscripcion/app.js"></script></body></html>

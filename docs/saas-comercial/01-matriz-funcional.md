@@ -25,7 +25,7 @@ Nada de TannerOS se elimina: Tannery City conserva su plan interno con todo.
 | Portal de familias | Estado de cuenta, pedidos y avisos del hijo | Listo | Semilla+ | — | `family-access` | — | Tutor sin membresía (probado en `01_*.sql`) |
 | Mensajes | Mensajería interna por área (`always`) | Listo | Semilla+ | — | Push web | — | — |
 | `correcciones` | Bitácora de correcciones (historial de movimientos) | Listo | Semilla+ | — | — | — | — |
-| Exportación básica | Exportes CSV por pantalla | Parcial | Semilla+ | — | — | — | Falta una exportación completa por academia (pendiente P4) |
+| Exportación de datos | Exportes CSV por pantalla + **archivo completo de la academia** (18 tablas, `v2_saas_export_my_data`) | Listo (en la migración pendiente) | Semilla+ | — | — | — | Solo Presidencia o el dueño; solo filas propias; queda en la bitácora (probado) |
 
 ## B. Administración avanzada
 

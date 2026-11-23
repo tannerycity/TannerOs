@@ -1121,6 +1121,37 @@ begin
 end $$;
 revoke all on function private.saas_request_invoice(uuid, bigint) from public, anon, authenticated;
 
+
+-- ===================================================== 10b. Exportar mis datos
+-- Semilla 20: "mantener opciones para exportar informacion". La academia se
+-- lleva lo suyo en un archivo: solo sus filas, solo Presidencia o el dueno
+-- (hay datos sensibles de menores) y cada exportacion queda en la bitacora.
+create or replace function private.saas_export_my_data(p_org uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_tablas constant text[] := array['categories','players','player_enrollments','guardians','player_guardians','billing_profiles',
+    'player_benefits','charges','payments','expenses','attendance_records','academies','academy_enrollments','matches',
+    'products','orders','order_items','staff_members'];
+  t text; v_filas jsonb; v_out jsonb := '{}'::jsonb; v_conteo jsonb := '{}'::jsonb;
+begin
+  if not (private.has_module_access(p_org, 'admin', true) and exists (
+      select 1 from public.organization_memberships m where m.organization_id = p_org and m.user_id = (select auth.uid())
+        and m.active and (m.is_owner or m.role = 'Presidencia'))) then
+    raise exception 'Not authorized';
+  end if;
+  foreach t in array v_tablas loop
+    if to_regclass(format('app.%I', t)) is null then continue; end if;
+    execute format('select coalesce(jsonb_agg(to_jsonb(x)), ''[]''::jsonb) from app.%I x where x.organization_id = $1', t) into v_filas using p_org;
+    v_out := v_out || jsonb_build_object(t, v_filas);
+    v_conteo := v_conteo || jsonb_build_object(t, jsonb_array_length(v_filas));
+  end loop;
+  perform private.saas_audit(p_org, 'data_export', 'organization', p_org::text, null, v_conteo, null);
+  return jsonb_build_object('formato', 'mi-club-fc-export-v1', 'generado', now(),
+    'academia', (select jsonb_build_object('id', o.id, 'nombre', o.name, 'slug', o.slug) from public.organizations o where o.id = p_org),
+    'conteo', v_conteo, 'tablas', v_out);
+end $$;
+revoke all on function private.saas_export_my_data(uuid) from public, anon, authenticated;
+
 -- ============================================== 11. Portal de la plataforma
 create or replace function private.saas_admin_catalog()
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
@@ -1426,6 +1457,10 @@ create or replace function public.v2_saas_request_invoice(organization_id uuid, 
 returns jsonb language sql security definer set search_path = '' as $$ select private.saas_request_invoice(organization_id, receipt_folio) $$;
 create or replace function public.v2_saas_cancel_renewal(organization_id uuid, reason text default null)
 returns jsonb language sql security definer set search_path = '' as $$ select private.saas_cancel_renewal(organization_id, reason) $$;
+create or replace function public.v2_saas_export_my_data(organization_id uuid)
+returns jsonb language sql security definer set search_path = '' as $$ select private.saas_export_my_data(organization_id) $$;
+revoke all on function public.v2_saas_export_my_data(uuid) from public, anon;
+grant execute on function public.v2_saas_export_my_data(uuid) to authenticated;
 create or replace function public.v2_saas_admin_catalog()
 returns jsonb language sql stable security definer set search_path = '' as $$ select private.saas_admin_catalog() $$;
 create or replace function public.v2_saas_admin_board()

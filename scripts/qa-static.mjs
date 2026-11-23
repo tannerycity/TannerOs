@@ -42,6 +42,7 @@ const routeContract={
   '/admin/auditoria/':'v2/admin/auditoria/index.html',
   '/admin/branding/':'v2/admin/branding/index.html',
   '/admin/club/':'v2/admin/club/index.html',
+  '/admin/suscripcion/':'v2/admin/suscripcion/index.html',
   '/admin/onboarding/':'v2/admin/onboarding/index.html',
   '/formacion/':'v2/formacion/index.html',
   '/candidatos/':'v2/candidatos/index.html',

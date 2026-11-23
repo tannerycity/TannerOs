@@ -18,6 +18,7 @@
 | `v2/saas/precios.js` | Motor de precios en centavos (pantalla) |
 | `supabase/functions/saas-suscripcion/` | Edge Function de Mercado Pago (**sin desplegar**, sandbox por omisión) |
 | `v2/admin/clubes/comercial.js` | Sección comercial del portal de la plataforma |
+| `v2/admin/suscripcion/` | "Mi plan" de la academia: contratar, pagar, cancelar, datos fiscales, facturas y exportar |
 | `precios/` | Página pública: solo muestra un catálogo **publicado** |
 | `scripts/qa-saas-*.mjs`, `supabase/tests/saas/` | Pruebas |
 

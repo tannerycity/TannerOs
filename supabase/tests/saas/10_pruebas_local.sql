@@ -234,6 +234,23 @@ select qa.revisa('tablero: todo vencido -> MRR 0', (public.v2_saas_admin_board()
 select qa.revisa('tablero sin datos personales de jugadores', public.v2_saas_admin_board()::text !~ 'Jugador[0-9]|Extra[0-9]|first_name|birth_date|2015-01');
 select qa.yo();
 
+-- ── 10. Exportar mis datos ────────────────────────────────────────────────
+select qa.como('00000000-0000-0000-0000-00000000000a');
+select qa.revisa('exportar: Presidencia de A se lleva sus 15 jugadores (12 activos + 3) y sus 2 inscripciones',
+  jsonb_array_length(public.v2_saas_export_my_data(:A)->'tablas'->'players') = 15
+  and jsonb_array_length(public.v2_saas_export_my_data(:A)->'tablas'->'player_enrollments') = 2);
+select qa.revisa('exportar: ni una fila de B en el archivo de A',
+  not exists (select 1 from jsonb_array_elements(public.v2_saas_export_my_data(:A)->'tablas'->'players') j where j->>'organization_id' <> '10000000-0000-0000-0000-00000000000a'));
+select qa.revisa('exportar: tablas que no existen se omiten sin fallar', not (public.v2_saas_export_my_data(:A)->'tablas' ? 'orders'));
+select qa.revisa('exportar: A no exporta B', qa.falla($q$select public.v2_saas_export_my_data('10000000-0000-0000-0000-00000000000b')$q$, 'Not authorized'));
+select qa.como('00000000-0000-0000-0000-0000000000c0');
+select qa.revisa('exportar: un formador no exporta (datos de menores)', qa.falla($q$select public.v2_saas_export_my_data('10000000-0000-0000-0000-00000000000a')$q$, 'Not authorized'));
+select qa.como(null);
+select qa.revisa('exportar: anon no exporta', qa.falla($q$select public.v2_saas_export_my_data('10000000-0000-0000-0000-00000000000a')$q$, 'permission denied|Not authorized'));
+select qa.yo();
+select qa.revisa('exportar: queda en la bitacora con el conteo', exists (select 1 from public.saas_billing_audit_log where action = 'data_export'
+  and organization_id = :A and (after->>'players')::int = 15));
+
 -- ── Resultado ─────────────────────────────────────────────────────────────
 do $$
 declare r record; v_f int := 0; v_t int := 0;

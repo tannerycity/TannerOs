@@ -272,3 +272,6 @@ html:has(.tc-entrada:not(.hidden)),
 html:has(.tc-entrada:not(.hidden)) body{background:#0a1d33!important}
 /* Y el escudo con aire bajo la hora, no pegado al borde de la franja. */
 .tc-entrada{padding-top:calc(env(safe-area-inset-top,0px) + 24px)!important;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px)!important}
+
+/* Entrada de Mi Club FC (22/11/2026): sin la marca de agua del escudo de Tannery. */
+html[data-plataforma="1"] .tc-entrada::after{content:none}

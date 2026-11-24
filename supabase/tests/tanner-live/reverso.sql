@@ -1,4 +1,5 @@
--- Reverso de h101 · Tanner LIVE. Deja la base como estaba antes de h101.
+-- Reverso de Tanner LIVE (h101a…f). Deja la base como estaba antes. Probado en
+-- local; en producción sólo con decisión de Presidencia.
 -- Borra las tablas live_* y sus datos (cámaras, horarios, tickets, bitácora
 -- técnica). La bitácora general (app.audit_events, eventos 'live.%') se queda:
 -- nada se borra de auditoría.

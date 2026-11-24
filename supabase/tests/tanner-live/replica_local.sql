@@ -30,7 +30,8 @@ create table private.membership_module_overrides(organization_id uuid, membershi
 create table app.guardians(id uuid primary key default gen_random_uuid(), organization_id uuid, first_name text, last_name text, phone text, status text default 'active', user_id uuid);
 create table app.players(id uuid primary key default gen_random_uuid(), organization_id uuid, first_name text, last_name text, category text, image_consent boolean default false, archived_at timestamptz);
 create table app.player_guardians(player_id uuid, guardian_id uuid, organization_id uuid, primary key(player_id, guardian_id));
-create table app.audit_events(id uuid primary key default gen_random_uuid(), organization_id uuid, actor_user_id uuid, actor_label text, event_type text, aggregate_type text, aggregate_id text, payload jsonb default '{}', request_id text, occurred_at timestamptz default now(), legacy_id text);
+-- Mismas restricciones que producción (h101f nació de que la réplica no exigía aggregate_id).
+create table app.audit_events(id uuid primary key default gen_random_uuid(), organization_id uuid not null, actor_user_id uuid, actor_label text, event_type text not null, aggregate_type text not null, aggregate_id text not null, payload jsonb not null default '{}', request_id text, occurred_at timestamptz not null default now(), legacy_id text);
 
 create function private.module_enabled(p_org uuid, p_module text) returns boolean language sql stable security definer set search_path = '' as $$
   select coalesce((select o.enabled from public.organization_module_overrides o where o.organization_id = p_org and o.module_code = p_module), false) $$;

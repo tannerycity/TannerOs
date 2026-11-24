@@ -105,7 +105,9 @@ const MOTIVOS_SERVIDOR = ['ok', 'sin_terminos', 'fuera_de_horario', 'sin_horario
 for (const m of MOTIVOS_SERVIDOR) revisa(`motivo ${m} tiene texto`, Boolean(MOTIVOS[m]?.titulo && MOTIVOS[m]?.texto));
 revisa('motivo desconocido no revienta', motivo('xyz').titulo === 'No disponible');
 // Cada motivo que regresa la base (h101) está traducido aquí.
-const sql = fs.readFileSync(new URL('../supabase/propuestas/h101_tanner_live.sql', import.meta.url), 'utf8');
+const MIG = new URL('../supabase/migrations/', import.meta.url);
+const sql = fs.readdirSync(MIG).filter(f => /_h101[a-z]_.*\.sql$/.test(f)).sort().map(f => fs.readFileSync(new URL(f, MIG), 'utf8')).join('\n');
+revisa('las migraciones de Tanner LIVE están en el repo', sql.includes('private.live_motivo'));
 const enLaBase = [...sql.matchAll(/return '([a-z_]+)';/g)].map(m => m[1]);
 for (const m of new Set(enLaBase)) revisa(`la base devuelve "${m}" y la pantalla lo traduce`, Boolean(MOTIVOS[m]), m);
 const noEnciende = [...sql.matchAll(/'motivo', '([a-z_]+)'/g)].map(m => m[1]).filter(m => !MOTIVOS[m] && !['ok', 'accion', 'ticket_invalido', 'revocado', 'ruta', 'vencido', 'otro_dispositivo'].includes(m));

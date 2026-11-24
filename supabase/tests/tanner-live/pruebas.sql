@@ -1,10 +1,12 @@
--- Pruebas de h101 · Tanner LIVE. ESCRIBEN DATOS: sólo en la réplica local o
--- en una rama de Supabase, NUNCA en producción (al revés que supabase/tests/,
--- que son de sólo lectura). Todo corre en una transacción que se revierte.
+-- Pruebas de Tanner LIVE (h101a…f, aplicadas en producción el 24/11/2026).
+-- ESCRIBEN DATOS: sólo en la réplica local o en una rama de Supabase, NUNCA en
+-- producción (al revés que el resto de supabase/tests/, que es de sólo lectura).
+-- Todo corre en una transacción que se revierte.
 --
---   psql "$DB" -v ON_ERROR_STOP=1 -f h101_tanner_live_replica_local.sql   (sólo local)
---   psql "$DB" -v ON_ERROR_STOP=1 -f h101_tanner_live.sql
---   psql "$DB" -v ON_ERROR_STOP=1 -f h101_tanner_live_pruebas.sql
+--   psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/tanner-live/replica_local.sql   (sólo local)
+--   for f in supabase/migrations/*_h101?_*.sql; do psql "$DB" -v ON_ERROR_STOP=1 -1 -f "$f"; done
+--   psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/tanner-live/pruebas.sql          (90 pruebas)
+--   psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/tanner-live/reverso.sql          (deshace todo)
 --
 -- Una prueba que falla levanta 'PRUEBA FALLÓ: …'. Al final imprime cuántas pasaron.
 \set ON_ERROR_STOP 1

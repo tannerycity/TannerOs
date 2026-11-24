@@ -65,8 +65,10 @@ process.on('exit', limpia);
 console.log(`Carpeta de la prueba: ${TMP}`);
 psql(`drop database if exists ${DB}`, 'postgres');
 psql(`create database ${DB}`, 'postgres');
-psqlArchivo(path.join(RAIZ, 'supabase/propuestas/h101_tanner_live_replica_local.sql'));
-psqlArchivo(path.join(RAIZ, 'supabase/propuestas/h101_tanner_live.sql'));
+psqlArchivo(path.join(RAIZ, 'supabase/tests/tanner-live/replica_local.sql'));
+// Las migraciones de Tanner LIVE tal cual se aplicaron en producción (h101a…f).
+for (const f of fs.readdirSync(path.join(RAIZ, 'supabase/migrations')).filter(f => /_h101[a-z]_.*\.sql$/.test(f)).sort())
+  psqlArchivo(path.join(RAIZ, 'supabase/migrations', f));
 const ORG = 'e2e00000-0000-0000-0000-00000000000a', PRESI = 'e2e00000-0000-0000-0000-000000000001';
 psql(`insert into public.organizations(id, slug, name) values ('${ORG}', 'club-e2e', 'Club E2E');
   insert into public.organization_module_overrides(organization_id, module_code, enabled) values ('${ORG}', 'live', true);

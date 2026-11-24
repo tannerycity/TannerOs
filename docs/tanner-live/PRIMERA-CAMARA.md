@@ -10,7 +10,7 @@ Presidencia.**
 |---|---|---|---|
 | D1 | Levantamiento físico ([LEVANTAMIENTO-PARQUE.md](LEVANTAMIENTO-PARQUE.md)) | Staff en el parque | Todo |
 | D2 | Confirmar que RTSP abre en VLC dentro de la red del parque | Staff en el parque | D4 |
-| D3 | Aprobar y aplicar `h101` (ver README §6) | Presidencia + desarrollo | Panel y familias |
+| ~~D3~~ | Base de Tanner LIVE (h101a…f) — **aplicada 24/11/2026** | — | — |
 | D4 | Decidir dónde vive el gateway: (a) mini PC en el parque, (b) VPS con túnel | Presidencia | D5 |
 | D5 | Subdominio `live.tannerycity.com` + certificado TLS | Quien administra el DNS | Familias |
 | D6 | Texto de consentimiento / aviso de privacidad de Tanner LIVE | Presidencia + abogado | Encender |

@@ -3,16 +3,22 @@
 Entrenamientos en vivo, privados, para tutores y staff autorizados de Tannery
 City, desde el CCTV Dahua de Tannery City Park.
 
-**Estado (23/11/2026): fases 1 y 2 hechas en código; la base todavía no.**
-La migración `h101` es una **propuesta** (`supabase/propuestas/`) y no se ha
-aplicado. Hasta que se aplique, en producción no cambia nada: el menú no
-enseña Tanner LIVE (la base no devuelve el módulo) y el portal de familias no
-enseña la tarjeta.
+**Estado (24/11/2026): la base está aplicada en producción; el código, en la
+rama `claude/peaceful-sagan-pbosrs` (sin mezclar a `main`).**
+
+- Base: migraciones `h101a…f` aplicadas el 24/11/2026 y verificadas función
+  por función contra lo probado en local. Módulo `live` encendido sólo para
+  Tannery City FC y sólo Presidencia lo tiene por rol.
+- Ya registrados: el *XVR del parque* (Dahua DH-XVR1B16-I/T, 192.168.100.57,
+  16 canales) y **4 cámaras de la cancha** por instalar (canales 9–12, rutas
+  `tc-cancha-1` a `tc-cancha-4`), apagadas, sin audiencia ni horario.
+- `app.tannerycity.com` (rama `main`) todavía no tiene el código: allí no se ve
+  nada nuevo. La versión de prueba de Vercel de esta rama sí lo muestra.
 
 | Fase | Qué | Estado |
 |---|---|---|
 | 1 | Auditoría y arquitectura | Hecha (este documento) |
-| 2 | Módulo, navegación, interfaz, permisos y esquema, con proveedor de prueba | Hecha en código. Migración **por aplicar** |
+| 2 | Módulo, navegación, interfaz, permisos y esquema, con proveedor de prueba | **Hecha.** Base aplicada en producción (h101a…f) |
 | 3 | Diagnóstico Dahua desde la red del parque | Pantalla y RPC listos; **falta el agente** en sitio |
 | 4 | Integración real (MediaMTX + primera cámara) | Pendiente: ver [PRIMERA-CAMARA.md](PRIMERA-CAMARA.md) |
 | 5 | QA y despliegue | Pruebas automáticas listas; faltan las de carga y las de campo |
@@ -95,7 +101,7 @@ falta con WebRTC, y la CSP prohíbe CDNs: habría que meterla a `vendor/`).
 
 ## 3. Qué se construyó (fase 2)
 
-### Base de datos — `supabase/propuestas/h101_tanner_live.sql` (por aplicar)
+### Base de datos — `supabase/migrations/*_h101[a-f]_*.sql` (aplicadas)
 
 | Tabla (`app.`) | Para qué |
 |---|---|
@@ -218,29 +224,43 @@ npm i --no-save playwright-core@1.63.0 && npx playwright install chromium
 node scripts/qa-humo-live.mjs
 node scripts/qa-humo-navegador.mjs
 
-# Migración propuesta contra un Postgres 16 local (NO producción)
+# Base de Tanner LIVE contra un Postgres 16 local (NO producción)
 createdb live && export DB=postgres:///live
-psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live_replica_local.sql
-psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live.sql
-psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live_pruebas.sql   # 90 pruebas
-psql "$DB" -v ON_ERROR_STOP=1 -f supabase/propuestas/h101_tanner_live_reverso.sql   # deshace todo
+psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/tanner-live/replica_local.sql
+for f in supabase/migrations/*_h101?_*.sql; do psql "$DB" -v ON_ERROR_STOP=1 -1 -f "$f"; done
+psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/tanner-live/pruebas.sql   # 90 pruebas
+psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/tanner-live/reverso.sql   # deshace todo
 ```
 
 Para ver las pantallas: `npx serve .` no aplica las rutas de `vercel.json`;
 usa `vercel dev` o abre `/v2/live/` y `/v2/familias/live/` directo.
 
-## 6. Cómo se aplica h101 (cuando se apruebe)
+## 6. Cómo se aplicó la base (24/11/2026)
 
-Sigue `supabase/propuestas/README.md`:
+1. Pasó todas las barreras del repo y las 90 pruebas SQL en la réplica local.
+2. Se aplicó en producción en seis partes (`h101a` a `h101f`), cada una en su
+   transacción, y se comparó una huella de las 63 funciones y de las columnas
+   contra la réplica: idénticas.
+3. **Lo que encontró producción:** `app.audit_events.aggregate_id` es
+   obligatorio y la réplica no lo exigía; pausar, ajustes y aceptar reglas
+   habrían fallado al escribir la bitácora. `h101f` lo corrige, y la réplica
+   ahora tiene las mismas restricciones (sin `h101f`, las pruebas fallan).
+4. Exportada a `supabase/migrations/` con su versión real y manifiesto al día.
 
-1. Aplicar en una **rama de Supabase** y correr `h101_tanner_live_pruebas.sql` ahí
-   (escribe datos: nunca en producción).
-2. Aplicar en producción, exportar a `supabase/migrations/` y correr
-   `node scripts/manifiesto-migraciones.mjs --escribir`.
-3. Agregar `'live'` a `MODULOS` en `v2/analitica-uso.js` (la prueba
-   `qa-analitica-uso` lo exigirá en cuanto h101 salga de propuestas).
-4. Borrar los cuatro archivos `h101_*` de `supabase/propuestas/`.
-5. Dar el módulo por persona en Usuarios a quien administre o vea.
+### Para el lanzamiento (falta)
+
+1. Mezclar la rama a `main` (PR) para que `app.tannerycity.com` tenga el código.
+2. Servidor de video y mini PC en el parque (`gateway/README.md`).
+3. Instalar las 4 cámaras con substream H.264 y ponerles audiencia, horario
+   (academia 4–7 pm) y revisión de permisos de imagen.
+4. Dar el módulo por persona en Usuarios a quien opere el botón Transmitir.
+
+### Aviso aparte (no es de Tanner LIVE)
+
+El historial de Supabase (`supabase_migrations.schema_migrations`) no tiene
+registradas 14 migraciones que sí están aplicadas y en el repo (h91–h100,
+entre otras): se aplicaron sin `apply_migration`. `scripts/qa-migraciones-vs-base.sh`
+ya fallaba antes de h101. Las de Tanner LIVE sí quedaron registradas.
 
 ## Archivos
 

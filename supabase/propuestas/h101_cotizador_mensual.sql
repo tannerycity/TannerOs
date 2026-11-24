@@ -215,7 +215,7 @@ begin
         (select count(*) from app.sponsor_quote_items i where i.asset_id = a.id) + (select count(*) from app.sponsor_agreement_items i where i.sponsor_asset_id = a.id) desc,
         a.updated_at desc, a.created_at desc, a.entity) n,
       count(*) over (partition by lower(a.name)) cuantos,
-      count(distinct a.entity) over (partition by lower(a.name)) entidades
+      (min(a.entity) over (partition by lower(a.name)) is distinct from max(a.entity) over (partition by lower(a.name))) mezcla
     from app.sponsor_assets a where a.organization_id = v_org and a.archived_at is null
   ), archivados as (
     update app.sponsor_assets a set archived_at = now(), updated_at = now(),
@@ -224,7 +224,7 @@ begin
     returning a.id
   )
   update app.sponsor_assets a set entity = 'AMBOS', updated_at = now()
-    from uso where uso.id = a.id and uso.cuantos > 1 and uso.n = 1 and uso.entidades > 1;
+    from uso where uso.id = a.id and uso.cuantos > 1 and uso.n = 1 and uso.mezcla;
 
   -- Paquetes del diseño.
   insert into app.sponsor_assets (organization_id, name, category, family, price, unit, price_status, entity, channel, availability, description, metadata)

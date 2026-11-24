@@ -52,14 +52,24 @@ export function totales(renglones, { tipo = null, valor = 0 } = {}, tope = 10) {
   return { subtotal, descuento, pct, total: redondea(subtotal - descuento), pideAutorizacion: pct > Number(tope) };
 }
 
-export const ESTADOS = { draft: 'Borrador', sent: 'Enviada', accepted: 'Aceptada', rejected: 'No aceptó' };
+export const ESTADOS = { draft: 'Borrador', sent: 'Enviada', accepted: 'Aceptada', rejected: 'No aceptó', expired: 'Vencida' };
+
+/* Vencida (24/11/2026): la que no se cerró y ya pasó su "válida hasta". No se
+   guarda en la base: se calcula con la fecha de hoy, así nunca se queda atrás. */
+export function vencida(cot, hoy) {
+  if (!cot?.validUntil || !hoy || !['draft', 'sent'].includes(cot.status)) return false;
+  return String(cot.validUntil).slice(0, 10) < String(hoy).slice(0, 10);
+}
 
 // La etiqueta principal y lo que se puede hacer con una cotización.
-export function accionesDe(cot, { esPresidencia = false, puedeEscribir = true } = {}) {
+export function accionesDe(cot, { esPresidencia = false, puedeEscribir = true, hoy = null } = {}) {
   const a = cot?.approvalStatus;
   if (!cot) return { etiqueta: '', tono: '', acciones: [] };
   if (cot.status === 'accepted') return { etiqueta: 'Aceptada', tono: 'ok', acciones: ['verMarca'] };
-  if (!puedeEscribir) return { etiqueta: ESTADOS[cot.status] || cot.status, tono: '', acciones: [] };
+  const vence = vencida(cot, hoy) && a !== 'pending';
+  if (!puedeEscribir) return { etiqueta: vence ? 'Vencida' : ESTADOS[cot.status] || cot.status, tono: vence ? 'mal' : '', acciones: [] };
+  // Renovar es editarla: se le pone otra fecha y se vuelve a mandar.
+  if (vence) return { etiqueta: 'Vencida', tono: 'mal', acciones: ['renovar', 'noAcepto', 'archivar'] };
   if (a === 'pending') return { etiqueta: 'Por autorizar', tono: 'espera', acciones: esPresidencia ? ['autorizar', 'noAutorizar', 'editar'] : ['editar'] };
   if (a === 'rejected') return { etiqueta: 'Descuento no autorizado', tono: 'mal', acciones: ['editar', 'archivar'] };
   if (cot.status === 'draft') return { etiqueta: 'Borrador', tono: '', acciones: ['enviar', 'editar', 'archivar'] };
@@ -70,17 +80,55 @@ export function accionesDe(cot, { esPresidencia = false, puedeEscribir = true } 
 
 export const FILTROS_COT = [
   { k: 'all', t: 'Todas' }, { k: 'pending', t: 'Por autorizar' }, { k: 'draft', t: 'Borrador' },
-  { k: 'sent', t: 'Enviadas' }, { k: 'accepted', t: 'Aceptadas' }, { k: 'rejected', t: 'No aceptó' },
+  { k: 'sent', t: 'Enviadas' }, { k: 'expired', t: 'Vencidas' }, { k: 'accepted', t: 'Aceptadas' }, { k: 'rejected', t: 'No aceptó' },
 ];
-export function filtraCotizaciones(lista, filtro = 'all') {
+export function filtraCotizaciones(lista, filtro = 'all', hoy = null) {
   return (lista || []).filter((c) => filtro === 'all' ? true
     : filtro === 'pending' ? c.approvalStatus === 'pending' && c.status !== 'accepted'
-    : c.status === filtro && !(filtro === 'draft' && c.approvalStatus === 'pending'));
+    : filtro === 'expired' ? vencida(c, hoy) && c.approvalStatus !== 'pending'
+    : c.status === filtro && !(filtro === 'draft' && c.approvalStatus === 'pending') && !(vencida(c, hoy) && c.approvalStatus !== 'pending'));
 }
+
+/* POR MES (24/11/2026). Presidencia mandó el cotizador con paquete base,
+   meses, IVA y total del contrato. El paquete es un activo con sus meses
+   (mínimo y máximo); el resto de los renglones son extras por mes. Un precio
+   en 0 es "Incluido". El servidor (h101) hace la misma cuenta y no deja
+   guardar meses fuera del rango del paquete.
+     sub = base + extras; desc = sub x desc%; iva = (sub - desc) x 16%;
+     mensual = sub - desc + iva; contrato = mensual x meses */
+export const esPaquete = (a) => !!(a?.paquete && Number(a.paquete.min) > 0);
+export function paquetesDe(activos) {
+  return (activos || []).filter(esPaquete).sort((a, b) => Number(a.paquete.orden || 0) - Number(b.paquete.orden || 0) || Number(a.price || 0) - Number(b.price || 0));
+}
+export function totalesDePlan(renglones, { tipo = null, valor = 0, meses = null, ivaPct = 0, paqueteId = null } = {}, tope = 10) {
+  const t = totales(renglones, { tipo, valor }, tope);
+  const base = redondea((renglones || []).filter((r) => paqueteId && r.assetId === paqueteId).reduce((s, r) => s + Number(r.unitPrice || 0) * Number(r.quantity || 1), 0));
+  const m = Number(meses) > 0 ? Math.round(Number(meses)) : null;
+  const iva = redondea(t.total * (Number(ivaPct) === 16 ? 16 : 0) / 100);
+  return { ...t, base, extras: redondea(t.subtotal - base), iva, meses: m,
+    mensual: m ? redondea(t.total + iva) : null,
+    contrato: m ? redondea((t.total + iva) * m) : redondea(t.total + iva),
+    // Lo que entra al club sin IVA: pasa al acuerdo cuando la marca acepta.
+    totalSinIva: m ? redondea(t.total * m) : t.total };
+}
+// El aviso del paquete: los meses fuera de rango no dejan guardar; el precio
+// abajo del de lista sólo avisa.
+export function avisoDePlan(paquete, meses, base) {
+  if (!esPaquete(paquete)) return { texto: '', bloquea: false };
+  const { min, max } = paquete.paquete, m = Number(meses) || 0;
+  if (m < min || m > max) return { bloquea: true, texto: Number(min) === Number(max) ? 'Este paquete es sólo de ' + min + ' meses.' : m < min ? 'Este paquete pide mínimo ' + min + ' meses.' : 'Este paquete es de máximo ' + max + ' meses.' };
+  if (Number(paquete.price) > 0 && Number(base) < Number(paquete.price)) return { bloquea: false, texto: 'El precio base está abajo del de lista (' + dinero(paquete.price) + '/mes).' };
+  return { texto: '', bloquea: false };
+}
+const dinero = (n) => '$' + Math.round(Number(n || 0)).toLocaleString('es-MX');
 
 // Un mensaje corto para acompañar el PDF por WhatsApp.
 export function mensajeWhatsApp(cot, club) {
-  const dinero = (n) => '$' + Math.round(Number(n || 0)).toLocaleString('es-MX');
+  if (Number(cot?.months) > 0) {
+    return 'Hola, te comparto la propuesta ' + cot.folio + ' de ' + club + ' para ' + (cot.sponsorName || 'tu marca') + ': ' +
+      (cot.packageName ? cot.packageName + ', ' : '') + dinero(cot.monthlyTotal) + ' al mes por ' + cot.months + ' meses (' + dinero(cot.contractTotal) + ' el contrato' +
+      (Number(cot.ivaPct) > 0 ? ', IVA incluido' : '') + '). ¿Lo platicamos?';
+  }
   return 'Hola, te comparto la cotización ' + cot.folio + ' de ' + club + ' para ' + (cot.sponsorName || 'tu marca') + ': ' +
     (cot.items || []).length + ' ' + ((cot.items || []).length === 1 ? 'espacio' : 'espacios') + ' por ' + dinero(cot.total) +
     (cot.discountAmount > 0 ? ' (ya con ' + dinero(cot.discountAmount) + ' de descuento)' : '') + '. ¿Lo platicamos?';

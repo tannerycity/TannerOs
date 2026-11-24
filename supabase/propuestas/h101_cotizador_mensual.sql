@@ -190,6 +190,12 @@ begin
   if not private.has_module_access(p_organization_id, 'sponsors', false) then raise exception 'Not authorized'; end if;
   return jsonb_build_object('discountCapPct', private.sponsor_quote_discount_cap(p_organization_id), 'isPresidency', private.is_presidency(p_organization_id),
     'whatsapp', (select nullif(regexp_replace(coalesce(o.settings->>'whatsappNumber', ''), '\D', '', 'g'), '') from public.organizations o where o.id = p_organization_id),
+    -- Lo que el cotizador necesita de cada activo y no viene en la lista
+    -- general: si es paquete (meses), su foto del kit y cuántas piezas son.
+    'assetExtras', coalesce((select jsonb_agg(jsonb_build_object('id', a.id, 'paquete', a.metadata->'paquete', 'foto', a.metadata->>'foto',
+        'piezas', case when a.metadata->>'piezas' ~ '^\d{1,4}$' then (a.metadata->>'piezas')::int end))
+      from app.sponsor_assets a where a.organization_id = p_organization_id and a.archived_at is null
+       and (a.metadata ? 'paquete' or a.metadata ? 'foto' or a.metadata ? 'piezas')), '[]'::jsonb),
     'quotes', coalesce((select jsonb_agg(private.sponsor_quote_json(q.id) order by q.created_at desc)
       from app.sponsor_quotes q where q.organization_id = p_organization_id and q.archived_at is null), '[]'::jsonb));
 end $function$;

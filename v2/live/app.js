@@ -180,22 +180,19 @@ function enlazaVer() {
   const cam = (state.mis.camaras || []).find(x => x.id === state.camara) || state.mis.camaras[0];
   reproductor = creaReproductor(cont, {
     pideTicket: () => rpc('v2_live_ticket', { camera_id: cam.id }),
-    alCambiar: () => {}
-  });
-  cont.addEventListener('live:play', async () => {
-    const r = await reproductor.arranca();
-    if (r && !r.ok) {
-      const m = motivo(r.motivo);
+    alRechazo: async r => {
+      const m = motivo(r?.motivo);
       $('liveNota').textContent = m.texto;
       // Sólo el administrador puede revisar la pantalla con una señal de prueba
       // mientras no hay gateway. La familia nunca la ve.
-      if (r.motivo === 'sin_gateway' && ADMIN) {
+      if (r?.motivo === 'sin_gateway' && ADMIN) {
         reproductor.aviso('Cámara aún no conectada al servidor de video.');
         const ok = await window.tosConfirm({ kicker: 'SIN GATEWAY', title: 'Ver señal de prueba', message: 'Todavía no hay servidor de video. ¿Quieres revisar el reproductor con una señal de prueba? Se verá rotulada como prueba, nunca como en vivo.', confirmText: 'Ver prueba' });
         if (ok) reproductor.arranca({ modoPrueba: true });
       } else reproductor.aviso(m.titulo);
     }
   });
+  cont.addEventListener('live:play', () => reproductor.arranca());
 }
 
 async function alternaPausa() {

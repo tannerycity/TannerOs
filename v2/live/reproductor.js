@@ -12,7 +12,9 @@ import { puedeDecirEnVivo, ESTADOS } from '/v2/live/live.js';
 
 const ESPERA_ICE_MS = 2500;
 
-export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {} } = {}) {
+// alRechazo(r): el servidor dijo que no (terminó, pausa, fuera de horario…).
+// Se llama al tocar Reproducir y también en cada reintento automático.
+export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {}, alRechazo = () => {} } = {}) {
   contenedor.innerHTML = `
     <div class="live-video" data-estado="inactivo">
       <video playsinline muted disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" disableremoteplayback></video>
@@ -34,7 +36,7 @@ export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {} }
   video.muted = true; video.defaultMuted = true; video.autoplay = false; video.controls = false;
   video.addEventListener('contextmenu', e => e.preventDefault());
 
-  let pc = null, recurso = null, ticket = null, proveedor = null, animacion = 0, intentos = 0, vivo = false, reintento = 0;
+  let pc = null, recurso = null, ticket = null, proveedor = null, animacion = 0, intentos = 0, vivo = false, reintento = 0, desconexion = 0;
   let estado = 'inactivo';
 
   function pon(nuevo, texto = '') {
@@ -58,7 +60,7 @@ export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {} }
   video.addEventListener('error', () => { if (proveedor === 'hls') falla('No se pudo reproducir la transmisión.'); });
 
   async function detenTodo() {
-    cancelAnimationFrame(animacion); animacion = 0; clearTimeout(reintento);
+    cancelAnimationFrame(animacion); animacion = 0; clearTimeout(reintento); clearTimeout(desconexion);
     lienzo.classList.add('hidden');
     try { video.pause(); } catch (_) {}
     if (video.srcObject) { video.srcObject.getTracks?.().forEach(t => t.stop()); video.srcObject = null; }
@@ -89,8 +91,10 @@ export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {} }
     pc.onconnectionstatechange = () => {
       if (!pc) return;
       if (pc.connectionState === 'failed') falla('Se perdió la conexión.');
-      if (pc.connectionState === 'disconnected') pon('conectando', 'Recuperando la señal…');
-      if (pc.connectionState === 'connected' && vivo) pon('en_vivo');
+      // Desconectado más de 4 s (p. ej. el club detuvo la transmisión): se
+      // pide un ticket nuevo, y el servidor dice si sigue o ya terminó.
+      if (pc.connectionState === 'disconnected') { pon('conectando', 'Recuperando la señal…'); clearTimeout(desconexion); desconexion = setTimeout(() => { if (pc?.connectionState !== 'connected') falla('Se perdió la conexión.'); }, 4000); }
+      if (pc.connectionState === 'connected') { clearTimeout(desconexion); if (vivo) pon('en_vivo'); }
     };
     const oferta = await pc.createOffer();
     await pc.setLocalDescription(oferta);
@@ -138,7 +142,7 @@ export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {} }
     let r;
     try { r = await pideTicket(); }
     catch (e) { return falla('No pudimos pedir acceso a la cámara.'); }
-    if (!r?.ok) { intentos = 0; pon('inactivo', ''); return r; }
+    if (!r?.ok) { intentos = 0; pon('inactivo', ''); try { alRechazo(r); } catch (_) {} return r; }
     ticket = r.ticket;
     try {
       if (window.RTCPeerConnection && r.whep) { proveedor = 'whep'; await whep(r.whep); }

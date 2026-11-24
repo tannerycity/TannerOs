@@ -202,8 +202,9 @@ configurar en Vercel. La URL del gateway se guarda en la base
 | `SUPABASE_URL` | Servidor del gateway (puente) | `https://pacnegivzgxpanphrnwp.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Servidor del gateway (puente) | Llave de servicio. Alternativa más estrecha: una edge function `live-gateway` con un secreto propio |
 
-**CSP (`vercel.json`, fase 4):** agregar el origen del gateway a `connect-src`
-(WHEP) y a `media-src` (HLS). Hoy no hace falta y no se tocó.
+**CSP (`vercel.json`):** `https://live.tannerycity.com` ya está en `connect-src`
+(WHEP) y `media-src` (HLS) desde el 24/11/2026. Si el servidor de video usa otro
+dominio, hay que cambiarlo ahí.
 
 ## 5. Cómo correrlo en local
 
@@ -245,4 +246,4 @@ Sigue `supabase/propuestas/README.md`:
 
 - [LEVANTAMIENTO-PARQUE.md](LEVANTAMIENTO-PARQUE.md) — qué recopilar físicamente en Tannery City Park.
 - [PRIMERA-CAMARA.md](PRIMERA-CAMARA.md) — pasos y dependencias para conectar la primera cámara.
-- [gateway/mediamtx.example.yml](gateway/mediamtx.example.yml) — configuración de ejemplo, sin secretos.
+- [../../gateway/](../../gateway/README.md) — servidor de video: config de MediaMTX, puente de autorización y prueba de punta a punta.

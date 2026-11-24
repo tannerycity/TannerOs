@@ -58,11 +58,11 @@ function pinta() {
   });
   const cont = document.getElementById('liveReproductor');
   if (!cont) return;
-  reproductor = creaReproductor(cont, { pideTicket: () => rpc('v2_live_ticket', { camera_id: c.id }) });
-  cont.addEventListener('live:play', async () => {
-    const r = await reproductor.arranca();
-    if (r && !r.ok) { const mm = motivo(r.motivo); document.getElementById('liveNota').textContent = mm.texto; reproductor.aviso(mm.titulo); }
+  reproductor = creaReproductor(cont, {
+    pideTicket: () => rpc('v2_live_ticket', { camera_id: c.id }),
+    alRechazo: r => { const mm = motivo(r?.motivo); document.getElementById('liveNota').textContent = mm.texto; reproductor.aviso(mm.titulo); }
   });
+  cont.addEventListener('live:play', () => reproductor.arranca());
 }
 
 await carga();

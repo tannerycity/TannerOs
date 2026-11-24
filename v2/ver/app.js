@@ -36,11 +36,16 @@ async function abre() {
     <section class="live-panel live-escenario"><div id="liveReproductor"></div>
       <p class="live-nota" id="liveNota">${esc(info.ok ? 'Toca Reproducir para ver.' : m.texto)}</p>
       <p class="live-muted">No grabes ni compartas la transmisión. Este enlace deja de servir cuando termina.</p></section>`;
-  reproductor = creaReproductor(document.getElementById('liveReproductor'), { pideTicket: () => rpc('v2_live_publico_ticket', { enlace: codigo }) });
-  document.getElementById('liveReproductor').addEventListener('live:play', async () => {
-    const r = await reproductor.arranca();
-    if (r && !r.ok) { const mm = motivo(r.motivo); document.getElementById('liveNota').textContent = mm.texto; reproductor.aviso(mm.titulo); }
+  reproductor = creaReproductor(document.getElementById('liveReproductor'), {
+    pideTicket: () => rpc('v2_live_publico_ticket', { enlace: codigo }),
+    alCambiar: e => { if (e === 'en_vivo') document.getElementById('liveNota').textContent = 'Estás viendo en vivo.'; },
+    alRechazo: r => {
+      const mm = motivo(r?.motivo);
+      if (['terminada', 'no_existe'].includes(r?.motivo)) return aviso(mm.titulo, mm.texto);
+      document.getElementById('liveNota').textContent = mm.texto; reproductor.aviso(mm.titulo);
+    }
   });
+  document.getElementById('liveReproductor').addEventListener('live:play', () => reproductor.arranca());
 }
 
 window.addEventListener('hashchange', () => location.reload());

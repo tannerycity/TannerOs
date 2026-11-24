@@ -14,7 +14,7 @@ Presidencia.**
 | D4 | Decidir dónde vive el gateway: (a) mini PC en el parque, (b) VPS con túnel | Presidencia | D5 |
 | D5 | Subdominio `live.tannerycity.com` + certificado TLS | Quien administra el DNS | Familias |
 | D6 | Texto de consentimiento / aviso de privacidad de Tanner LIVE | Presidencia + abogado | Encender |
-| D7 | CSP de `vercel.json`: agregar el origen del gateway a `connect-src` y `media-src` | Desarrollo (PR) | Reproducir en producción |
+| ~~D7~~ | CSP de `vercel.json` con `https://live.tannerycity.com` — **hecho 24/11/2026** | — | — |
 
 ## Recomendación de despliegue del gateway
 
@@ -37,7 +37,7 @@ un equipo pequeño en el parque.**
    Codec), 640×360 o 704×480, 15 fps, I-frame 1–2 s, sin audio.
 3. **Usuario de sólo vista** en el grabador (`tannerlive`).
 4. **Servidor del gateway** (fuera de este repositorio):
-   - MediaMTX con [gateway/mediamtx.example.yml](gateway/mediamtx.example.yml).
+   - MediaMTX con [gateway/mediamtx.yml](../../gateway/mediamtx.yml) y el puente [gateway/puente.mjs](../../gateway/puente.mjs) (ya escritos y probados de punta a punta).
    - Caddy: `live.tannerycity.com` → `127.0.0.1:8889` (WHEP) y `/…/index.m3u8` → `127.0.0.1:8888`.
    - Firewall: 443/TCP y 8189/UDP+TCP abiertos; 9997 y 9100 sólo locales.
    - Puente de autorización (~80 líneas, Node o Deno) en `127.0.0.1:9100`:
@@ -57,8 +57,7 @@ un equipo pequeño en el parque.**
 5. **TannerOS:** Presidencia pone `https://live.tannerycity.com` en
    *Cámaras › Servidor de video*. En la cámara: canal, ruta (`tc-cancha-1`),
    audiencia, horario. *Revisar permisos de imagen* → *Encender*.
-6. **CSP (D7):** PR que agregue `https://live.tannerycity.com` a `connect-src` y
-   `media-src`. Con su prueba en `qa-static`.
+6. **CSP (D7):** ya hecho; sólo cambia si el dominio del servidor de video es otro.
 7. **Primera prueba real:** un administrador abre `/live/`. El sello debe pasar
    de *Conectando…* a *En vivo* sólo cuando llegan cuadros. Luego una familia
    piloto en `/familias/live/` desde iPhone y Android.

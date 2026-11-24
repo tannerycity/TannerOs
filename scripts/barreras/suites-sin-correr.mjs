@@ -218,7 +218,9 @@ export default function comprobar() {
   // guardado sale con sus estilos e imágenes (service worker real, en Chromium).
   // Sube a 79 por qa-humo-jugadores-lista.mjs (19/11/2026): lista estilo
   // Contactos y deslizar para Cobrar/WhatsApp, en Chromium.
-  const MAX_EXCLUIDAS = 79;
+  // Sube a 80 por qa-humo-cotizador-mensual.mjs (24/11/2026): cotizar por mes
+  // con paquete, IVA y hoja carta, en Chromium. Es de navegador: la corre navegador-qa.
+  const MAX_EXCLUIDAS = 80;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

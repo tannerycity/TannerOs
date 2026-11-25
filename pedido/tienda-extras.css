@@ -159,3 +159,15 @@
 @media (prefers-reduced-motion: reduce) {
   .st-filtros, .st-fgrupo summary svg, .st-ftalla span, .st-swatch-c, .st-chip { transition: none; }
 }
+
+/* ================= Marquee "Tienda Tanner" ================= */
+.st-marquee { position: relative; overflow: hidden; margin: 14px -4px 0; padding: 14px 0; border-radius: 20px; background: var(--st-navy);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.st-mq-pista { display: flex; width: max-content; animation: st-mq var(--mq-dur, 40s) linear infinite; will-change: transform; }
+.st-marquee:hover .st-mq-pista { animation-play-state: paused; }
+.st-mq-grupo { display: flex; align-items: center; flex: none; }
+.st-mq-txt { padding: 0 28px; font-family: var(--st-titulo); font-weight: 800; font-size: clamp(40px, 7vw, 76px); line-height: 1; text-transform: uppercase; letter-spacing: .01em; color: var(--st-oro); white-space: nowrap; }
+.st-mq-txt.hueco { color: transparent; -webkit-text-stroke: 1.5px var(--st-oro-claro); }
+.st-mq-sep { flex: none; width: clamp(34px, 5vw, 56px); height: auto; }
+@keyframes st-mq { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .st-mq-pista { animation: none; } }

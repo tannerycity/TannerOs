@@ -910,6 +910,24 @@ function cuentaGrupos() {
   });
 }
 
+/* ---------- Marquee (25/11/2026) ----------
+   Una franja que no se acaba: "Tienda Tanner" y el escudo, a velocidad
+   constante (la misma en celular y en compu: se calcula por pixeles por
+   segundo, no por duración fija). Se detiene con el mouse encima y, para
+   quien pidió menos movimiento, se queda quieta. */
+const MARQUEE_PX_SEG = 70;
+function marqueeHtml() {
+  const uno = Array.from({ length: 6 }, (_, i) => `<span class="st-mq-txt${i % 2 ? ' hueco' : ''}">Tienda Tanner</span><img class="st-mq-sep" src="/brand/crest-gold.png" alt="" width="56" height="56">`).join('');
+  return `<section class="st-marquee" aria-label="Tienda Tanner"><div class="st-mq-pista"><div class="st-mq-grupo">${uno}</div><div class="st-mq-grupo" aria-hidden="true">${uno}</div></div></section>`;
+}
+function armaMarquee() {
+  const g = document.querySelector('.st-mq-grupo'); if (!g) return;
+  const fija = () => g.parentElement.style.setProperty('--mq-dur', `${Math.max(8, g.getBoundingClientRect().width / MARQUEE_PX_SEG)}s`);
+  fija();
+  g.querySelectorAll('img').forEach(i => i.complete || i.addEventListener('load', fija, { once: true }));
+  document.fonts?.ready.then(fija);
+}
+
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
   const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
@@ -932,6 +950,7 @@ function renderTienda(clave = '') {
       ${activa ? '' : PASOS_TIENDA}
       ${codigoEscrito ? `<p class="st-codigo-chip">Código <b>${esc(codigoEscrito)}</b> listo: se aplica al pagar.</p>` : ''}
     </section>
+    ${activa ? '' : marqueeHtml()}
     <nav class="st-cats" aria-label="Categorías">
       <a href="#/"${activa ? '' : ' class="activa" aria-current="page"'}>Todo</a>
       ${secciones.map(s => `<a href="#/c/${esc(s.clave)}" data-cat="${esc(s.clave)}"${s.clave === activa ? ' class="activa" aria-current="page"' : ''}>${esc(s.etiqueta)}</a>`).join('')}
@@ -950,6 +969,7 @@ function renderTienda(clave = '') {
   pintaBarra(true);
   firmaFotos($('content'));
   pintaPortada();
+  armaMarquee();
 }
 
 /* ---------- La ficha de una pieza (PDP) ---------- */

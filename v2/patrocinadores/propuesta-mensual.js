@@ -21,11 +21,12 @@ const pesos = (n) => '$' + Math.round(Number(n || 0)).toLocaleString('es-MX');
 
 // Dónde va cada lugar del uniforme, en % de la foto: [foto, x, y, ancho, alto].
 export const POSICIONES = [
-  [/pecho/i, 'Frente', 35, 50, 32, 10],
-  [/manga.*der/i, 'Frente', 18, 23, 13, 12],
-  [/manga.*izq/i, 'Frente', 69, 23, 13, 12],
-  [/espalda.*sup/i, 'Espalda', 35, 8, 30, 7],
-  [/espalda.*inf/i, 'Espalda', 30, 60, 40, 9],
+  // Sobre la playera extendida (frente y espalda, 25/11/2026).
+  [/pecho/i, 'Frente', 33, 53, 28, 9],
+  [/manga.*der/i, 'Frente', 4, 14, 13, 9],
+  [/manga.*izq/i, 'Frente', 79, 12, 12, 18],
+  [/espalda.*sup/i, 'Espalda', 31, 16, 43, 7],
+  [/espalda.*inf/i, 'Espalda', 36, 78, 36, 11],
   [/short.*der/i, 'Medias', 56, 1, 12, 11],
   [/short.*izq/i, 'Medias', 32, 1, 12, 11],
   [/medias/i, 'Medias', 41, 22, 26, 22],
@@ -161,12 +162,14 @@ export async function hojaPdf(datos, { jsPDF = null, cargar = async () => null }
   etiqueta('Grupo', cG, y, K.cuero, 7.5); etiqueta('Concepto', cN, y, K.cuero, 7.5); etiqueta('Cant.', cQ, y, K.cuero, 7.5, { align: 'right' }); etiqueta('Precio', cP, y, K.cuero, 7.5, { align: 'right' });
   y += 10; doc.setLineWidth(.6); draw(K.linea); doc.line(M, y, W - M, y); y += 15;
   datos.lineas.forEach((l) => {
-    cabe(22);
+    // Con muchos renglones se aprietan para que la cuenta quepa en la portada.
+    const fila = datos.lineas.length > 9 ? 18 : 22;
+    cabe(fila);
     letra(7.5, true); color(K.legendario); doc.text(l.grupo.toUpperCase(), cG, y, { charSpace: .5 });
     letra(10.5, l.paquete); color(K.negro); doc.text(doc.splitTextToSize(l.nombre, cQ - cN - 40)[0], cN, y);
     letra(10.5, false); doc.text(String(l.cantidad), cQ, y, { align: 'right' });
     letra(10.5, true); color(l.precio === 'Incluido' ? K.legendario : K.negro); doc.text(l.precio, cP, y, { align: 'right' });
-    draw(K.linea); doc.line(M, y + 8, W - M, y + 8); y += 22;
+    draw(K.linea); doc.line(M, y + (fila > 20 ? 8 : 6), W - M, y + (fila > 20 ? 8 : 6)); y += fila;
   });
 
   const T = datos.totales;
@@ -201,7 +204,7 @@ export async function hojaPdf(datos, { jsPDF = null, cargar = async () => null }
       etiqueta(titulo, x, yy, K.cuero, 7.5);
       fill(K.fondo); doc.rect(x, yy + 8, bw, bh, 'F');
       const area = img[k] ? pon(img[k], x, yy + 8, bw, bh, 'JPEG') : { x, y: yy + 8, w: bw, h: bh };
-      const marcas = k === 'Manga' ? datos.uniforme.filter((u) => /manga/i.test(u.nombre)).slice(0, 1).map((u) => ({ ...u, x: 64, y: 30, w: 22, h: 18 }))
+      const marcas = k === 'Manga' ? [...datos.uniforme.filter((u) => /manga.*izq/i.test(u.nombre)), ...datos.uniforme.filter((u) => /manga/i.test(u.nombre))].slice(0, 1).map((u) => ({ ...u, x: 42, y: 22, w: 40, h: 55 }))
         : datos.uniforme.filter((u) => u.lado === k);
       marcas.forEach((u) => {
         const mx = area.x + area.w * u.x / 100, my = area.y + area.h * u.y / 100, mw = area.w * u.w / 100, mh = area.h * u.h / 100;

@@ -94,7 +94,8 @@ const sello = p => p.locator('.live-sello span').textContent();
   revisa('pausar la prueba deja el reproductor en pausa', await p.locator('.live-video').getAttribute('data-estado') === 'pausado');
 
   // 6. Panel: validación antes de llamar a la base.
-  await p.click('[data-tab="camaras"]');
+  await p.click('[data-ir="ajustes"]');
+  await p.click('[data-ir="camaras"]');
   await p.click('[data-nueva="grabador"]');
   await p.fill('[data-form="grabador"] [name=nombre]', 'Grabador QA');
   await p.fill('[data-form="grabador"] [name=ip]', '8.8.8.8');
@@ -104,12 +105,14 @@ const sello = p => p.locator('.live-sello span').textContent();
   revisa('el panel rechaza IP pública y credenciales en notas', /red local/.test(errTxt) && /contraseñas/.test(errTxt), errTxt);
   revisa('con datos inválidos no se llama a la base', !(await rpcs(p)).includes('v2_live_guardar_grabador'));
   await p.click('[data-cancela]');
-  await p.click('[data-tab="diagnostico"]');
+  await p.click('[data-ir="ajustes"]');
+  await p.click('[data-ir="diagnostico"]');
   const diag = await p.locator('.live-vista').textContent();
   revisa('diagnóstico: sin pruebas no se inventan resultados', /no se inventan resultados/i.test(diag) && /0 de 6 verificados/.test(diag), diag.slice(0, 200));
   revisa('diagnóstico: la plantilla RTSP no trae credenciales reales', /USUARIO:CLAVE@IP_DEL_GRABADOR/.test(diag));
 
-  // 7. Pausar todo pide motivo.
+  // 7. Pausar todo pide motivo (vive en Ajustes).
+  await p.click('[data-ir="ajustes"]');
   await p.click('[data-pausa]');
   await p.waitForSelector('.tosdlg-field');
   await p.click('.tosdlg-ok');
@@ -138,6 +141,34 @@ const sello = p => p.locator('.live-sello span').textContent();
   await p.close();
 }
 
+// 11. Pantalla completa en iPhone (sin requestFullscreen): modo cine que cubre todo.
+//     Con ticket válido (el servidor de video no responde aquí: se queda
+//     conectando, que es lo que importa para la pantalla).
+{
+  const fx = { v2_live_mis_camaras: { pausado: false, terminos: { version: 1, aceptados: true }, camaras: [CAM] }, v2_live_ticket: { ok: true, ticket: 't', whep: 'http://127.0.0.1:9/tc/whep' } };
+  const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await p.addInitScript(f => { window.__rpc = []; window.__fixtures = f; delete Element.prototype.requestFullscreen; delete Element.prototype.webkitRequestFullscreen; delete HTMLVideoElement.prototype.webkitEnterFullscreen; }, fx);
+  await p.goto(BASE + '/v2/familias/live/', { waitUntil: 'networkidle' }); await p.waitForTimeout(500);
+  revisa('el botón de expandir se ve antes de reproducir', await p.locator('.live-full').isVisible());
+  await p.click('.live-full'); await p.waitForTimeout(300);
+  const r = await p.evaluate(() => { const c = document.querySelector('.live-video').getBoundingClientRect(); return { cine: document.querySelector('.live-video').classList.contains('cine'), w: c.width, h: c.height, x: c.x, y: c.y }; });
+  revisa('iPhone: expandir cubre toda la pantalla', r.cine && r.w === 390 && r.h === 844 && r.x === 0 && r.y === 0, JSON.stringify(r));
+  revisa('expandir antes de reproducir también pide la transmisión', (await rpcs(p)).includes('v2_live_ticket'));
+  await p.click('.live-full'); await p.waitForTimeout(200);
+  revisa('tocar otra vez regresa a la vista normal', !(await p.evaluate(() => document.querySelector('.live-video').classList.contains('cine'))));
+  await p.close();
+}
+// 12. Si el servidor dice que no, se sale de pantalla completa para explicarlo.
+{
+  const fx = { v2_live_mis_camaras: { pausado: false, terminos: { version: 1, aceptados: true }, camaras: [CAM] }, v2_live_ticket: { ok: false, motivo: 'fuera_de_horario' } };
+  const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await p.addInitScript(f => { window.__rpc = []; window.__fixtures = f; delete Element.prototype.requestFullscreen; delete Element.prototype.webkitRequestFullscreen; }, fx);
+  await p.goto(BASE + '/v2/familias/live/', { waitUntil: 'networkidle' }); await p.waitForTimeout(500);
+  await p.click('.live-full'); await p.waitForTimeout(400);
+  revisa('un "no" del servidor no queda escondido en pantalla completa', !(await p.evaluate(() => document.querySelector('.live-video').classList.contains('cine'))) && /horario/i.test(await p.locator('.live-msg').textContent()));
+  await p.close();
+}
+
 // 4. Familia sin aceptar reglas: reglas, no video.
 {
   const fx = { v2_live_mis_camaras: { pausado: false, terminos: { version: 1, aceptados: false }, camaras: [{ ...CAM, motivo: 'sin_terminos' }] }, v2_live_aceptar_terminos: { ok: true, version: 1 } };
@@ -156,7 +187,7 @@ const sello = p => p.locator('.live-sello span').textContent();
   const fx = { v2_live_mis_camaras: { pausado: false, terminos: { version: 1, aceptados: true }, camaras: [{ ...CAM, motivo: 'fuera_de_horario' }] }, v2_live_ticket: { ok: false, motivo: 'fuera_de_horario' } };
   const { p } = await abre('/v2/familias/live/', fx, { width: 390, height: 844 });
   revisa('fuera de horario: se explica con palabras', /sólo transmite en el horario/i.test(await p.locator('#liveBody').textContent()));
-  revisa('fuera de horario: dice cuándo es el siguiente', /Martes|Hoy|Mañana|Ahora/.test(await p.locator('.live-info p').textContent()));
+  revisa('fuera de horario: dice cuándo es el siguiente', /Martes|Hoy|Mañana|Ahora/.test(await p.locator('.tv-sub').textContent()));
   await p.close();
 }
 
@@ -164,26 +195,30 @@ const sello = p => p.locator('.live-sello span').textContent();
 const C = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
 {
   const { p, errs } = await abre('/v2/live/', staff({ v2_live_transmitir: { ok: true, id: 'b-1', modo: 'enlace', enlace: C, termina: '2026-11-25T05:00:00Z' } }));
-  revisa('Transmitir: el botón está en la pantalla', await p.locator('[data-transmitir]').count() === 1, errs.join(' | '));
+  revisa('Transmitir: un solo botón en la pantalla', await p.locator('[data-abrir-tx]').count() === 1, errs.join(' | '));
+  await p.click('[data-abrir-tx]');
   await p.click('[data-tx-dura="120"]');
   await p.fill('[data-tx-titulo]', 'Final Copa TCP');
   await p.click('[data-transmitir]');
-  await p.waitForSelector('.tosdlg', { timeout: 5000 });
+  await p.waitForSelector('.live-hoja-enlace', { timeout: 5000 });
   const tx = await p.evaluate(() => window.__rpc.find(x => x.name === 'v2_live_transmitir')?.params);
   revisa('Transmitir manda cámara, modo enlace, 120 min y nombre', tx?.camera_id === 'cam-1' && tx?.modo === 'enlace' && tx?.minutos === 120 && tx?.titulo === 'Final Copa TCP', JSON.stringify(tx));
-  const dlg = await p.locator('.tosdlg').textContent();
-  const campo = await p.locator('.tosdlg-field').count() ? await p.locator('.tosdlg-field').inputValue() : '';
-  revisa('Transmitir entrega el enlace para compartir', /Enlace copiado/.test(dlg) || campo.endsWith(`/ver/#${C}`), dlg + ' ' + campo);
+  const campo = (await p.locator('.live-hoja-enlace').textContent()).trim();
+  revisa('Transmitir entrega el enlace para compartir', campo.endsWith(`/ver/#${C}`), campo);
   await p.close();
 }
 {
   const activa = { id: 'b-1', camara_id: 'cam-1', camara: 'Cancha 1', modo: 'enlace', titulo: 'Final Copa TCP', enlace: C, desde: '2026-11-25T03:00:00Z', termina: '2026-11-25T05:00:00Z', viendo: 7 };
   const { p } = await abre('/v2/live/', staff({ v2_live_panel: { ...PANEL, transmisiones: [activa] }, v2_live_detener: { ok: true, sesiones_cortadas: 7 } }));
   const txt = await p.locator('.live-activa').textContent();
-  revisa('la transmisión activa dice qué es, cuánta gente y el enlace', /Final Copa TCP/.test(txt) && /7 viendo/.test(txt) && txt.includes(`/ver/#${C}`), txt);
-  const wa = await p.locator('.live-activa a').getAttribute('href');
+  revisa('la transmisión activa dice qué es y cuánta gente la ve', /Final Copa TCP/.test(txt) && /7 viendo/.test(txt), txt);
+  revisa('con la cámara transmitiendo no aparece otro botón Transmitir', await p.locator('[data-abrir-tx]').count() === 0);
+  await p.click('[data-copia]');
+  revisa('Compartir muestra el enlace', (await p.locator('.live-hoja-enlace').textContent()).includes(`/ver/#${C}`));
+  const wa = await p.locator('.tv-hoja a[href^="https://wa.me"]').getAttribute('href');
   revisa('WhatsApp lleva el enlace', wa.startsWith('https://wa.me/?text=') && decodeURIComponent(wa).includes(`/ver/#${C}`), wa);
   revisa('una cámara que ya transmite no se ofrece otra vez', await p.locator('[data-tx-cam="cam-1"]').count() === 0);
+  await p.click('.tv-hoja [data-cerrar]');
   await p.click('[data-detener]');
   await p.waitForSelector('.tosdlg');
   await p.click('.tosdlg-ok');
@@ -198,7 +233,7 @@ const C = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
   const { p, errs } = await abre(`/v2/ver/#${C}`, fx, { width: 390, height: 844 });
   revisa('enlace: abre sin errores', !errs.length, errs.join(' | '));
   revisa('enlace: dice qué se transmite', /Final Copa TCP/.test(await p.locator('#liveBody').textContent()));
-  revisa('enlace: la hora es la del club (11 pm), no la del teléfono', /hasta las 11:00/i.test(await p.locator('#liveBody').textContent()), await p.locator('.live-hero p:last-child').textContent());
+  revisa('enlace: la hora es la del club (11 pm), no la del teléfono', /hasta las 11:00/i.test(await p.locator('#liveBody').textContent()), await p.locator('.tv-sub').textContent());
   revisa('enlace: no pide sesión del staff', !(await rpcs(p)).some(n => /v2_my_context|v2_live_mis_camaras/.test(n)));
   revisa('enlace: manda el código, no otra cosa', (await p.evaluate(() => window.__rpc.find(x => x.name === 'v2_live_publico')?.params?.enlace)) === C);
   const v = await p.evaluate(() => { const v = document.querySelector('video'); return v && { auto: v.autoplay, muted: v.muted, paused: v.paused }; });

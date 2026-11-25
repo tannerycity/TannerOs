@@ -27,7 +27,7 @@ DVR Dahua ──RTSP (red privada o túnel)──▶ MediaMTX ──WebRTC/HLS +
 |---|---|---|
 | `SUPABASE_URL` | `https://pacnegivzgxpanphrnwp.supabase.co` | |
 | `SUPABASE_SERVICE_ROLE_KEY` | *(secreto)* | Sólo llama `v2_live_gateway_*` |
-| `DVR_HOST` | `192.168.100.57` | IP del DVR **vista desde el servidor** (red del parque o túnel) |
+| `DVR_HOST` | `192.168.100.200` | IP del DVR **vista desde el servidor** (red del parque o túnel) |
 | `DVR_PUERTO` | `554` | |
 | `DVR_USUARIO` / `DVR_CLAVE` | `tannerlive` / *(secreto)* | Usuario **de sólo ver** en el DVR |
 | `CAMARAS` | `[{"ruta":"tc-cancha-1","canal":9}]` | O la ruta a un `camaras.json`. La `ruta` es la misma que se pone en Tanner LIVE › Cámaras |

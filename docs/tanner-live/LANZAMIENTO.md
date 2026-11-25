@@ -14,9 +14,9 @@ video escrito y probado de punta a punta, instalador del servidor.
 |---|---|---|---|
 | 0.1 | Instalar las 4 cámaras en los **canales 9, 10, 11 y 12** del XVR | Instalador | Se ven en la vista en vivo del DVR |
 | 0.2 | Substream de esos 4 canales: **H.264, 704x480, 15 fps, CBR ~512 kbps, I-frame 1–2 s, sin audio** | Instalador | Foto de *Cámara › Codificar* de cada canal |
-| 0.3 | Reservar en el router la IP del DVR **192.168.100.57** (o fijarla en el DVR) | Quien tenga el router | La IP no cambia al reiniciar |
+| ~~0.3~~ | IP del DVR fija: **192.168.100.200** — **hecho 25/11/2026** (estática en el DVR, fuera del rango DHCP del módem: .2–.100) | — | — |
 | 0.4 | Usuario **de sólo ver** en el DVR: `tannerlive` (vista en vivo de canales 9–12) | Presidencia / instalador | Contraseña guardada en el gestor del club |
-| 0.5 | Prueba VLC: `rtsp://192.168.100.57:554/cam/realmonitor?channel=9&subtype=1` | Quien esté en el parque | Se ve la cancha |
+| 0.5 | Prueba VLC: `rtsp://192.168.100.200:554/cam/realmonitor?channel=9&subtype=1` | Quien esté en el parque | Se ve la cancha |
 
 ## 1. Servidor de video (≈ 1 hora)
 
@@ -35,9 +35,9 @@ mismo router que el DVR, siempre prendida y con no-break si se puede.
 | # | Qué | Detalle |
 |---|---|---|
 | 2.1 | Instalar Tailscale | tailscale.com/download |
-| 2.2 | `sudo tailscale up --advertise-routes=192.168.100.57/32` | Sólo anuncia el DVR, nada más de la red |
+| 2.2 | `sudo tailscale up --advertise-routes=192.168.100.200/32` | Sólo anuncia el DVR, nada más de la red |
 | 2.3 | En el panel de Tailscale: **aprobar la ruta** y desactivar el vencimiento de llave de esa máquina | |
-| 2.4 | Desde el VPS: `nc -zv 192.168.100.57 554` | Debe decir *succeeded* |
+| 2.4 | Desde el VPS: `nc -zv 192.168.100.200 554` | Debe decir *succeeded* |
 
 Así el DVR **no se abre a internet**: el túnel lo inicia el parque.
 

@@ -9,7 +9,7 @@ rama `claude/peaceful-sagan-pbosrs` (sin mezclar a `main`).**
 - Base: migraciones `h101a…f` aplicadas el 24/11/2026 y verificadas función
   por función contra lo probado en local. Módulo `live` encendido sólo para
   Tannery City FC y sólo Presidencia lo tiene por rol.
-- Ya registrados: el *XVR del parque* (Dahua DH-XVR1B16-I/T, 192.168.100.57,
+- Ya registrados: el *XVR del parque* (Dahua DH-XVR1B16-I/T, 192.168.100.200,
   16 canales) y **4 cámaras de la cancha** por instalar (canales 9–12, rutas
   `tc-cancha-1` a `tc-cancha-4`), apagadas, sin audiencia ni horario.
 - `app.tannerycity.com` (rama `main`) todavía no tiene el código: allí no se ve

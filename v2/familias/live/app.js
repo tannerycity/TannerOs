@@ -11,9 +11,9 @@ import { creaReproductor } from '/v2/live/reproductor.js';
 // que la cámara todavía no está conectada.
 const TZ = 'America/Mexico_City';
 const body = document.getElementById('liveBody');
-const top = '<div class="live-familia-top"><a href="/familias/">Volver al portal</a></div>';
-const hero = `<section class="live-hero"><div><p class="live-eyebrow">Entrenamientos en vivo · privado</p><h1>Tanner LIVE</h1>
-  <p>Sólo tú y las familias autorizadas. Sin audio, sin grabación y sólo en horario de entrenamiento.</p></div></section>`;
+const top = '<header class="tv-cab"><a class="tv-volver" href="/familias/">‹ Portal</a></header><div class="tv-marca"><h1>Tanner <b>LIVE</b></h1></div>';
+const hero = '';
+const CAM = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13.5" height="12" rx="2.5"/><path d="m16 10.5 5.5-3v9l-5.5-3"/></svg>';
 const state = { datos: null, camara: null };
 let reproductor = null;
 
@@ -24,7 +24,7 @@ async function carga() {
   try {
     state.datos = await rpc('v2_live_mis_camaras', {}) || { camaras: [] };
   } catch (e) {
-    body.innerHTML = `${top}${hero}<section class="live-panel"><h2>Tanner LIVE no está disponible</h2><p class="live-muted">Tu club todavía no tiene transmisiones para tu cuenta.</p></section>`;
+    body.innerHTML = `${top}${hero}<section class="live-panel live-vacio"><h2>Tanner LIVE no está disponible</h2><p class="live-muted">Tu club todavía no tiene transmisiones para tu cuenta.</p></section>`;
     return;
   }
   const cams = state.datos.camaras || [];
@@ -41,16 +41,13 @@ function pinta() {
   const c = cams.find(x => x.id === state.camara) || cams[0];
   const m = motivo(d.pausado ? 'pausado' : c.motivo);
   const reglas = !d.terminos?.aceptados;
-  body.innerHTML = `${top}${hero}
-    ${cams.length > 1 ? `<div class="live-lista">${cams.map(x => `<button type="button" class="live-chip${x.id === c.id ? ' activa' : ''}" data-cam="${esc(x.id)}"><strong>${esc(x.nombre)}</strong><small>${esc(x.cancha || textoHorario(x.horario))}</small></button>`).join('')}</div>` : ''}
-    <section class="live-panel live-escenario">
-      ${reglas ? '' : '<div id="liveReproductor"></div>'}
-      <div class="live-info"><div><h2>${esc(c.nombre)}</h2><p>${esc([c.cancha, textoVentana(proximaVentana(c.horario, new Date(), TZ))].filter(Boolean).join(' · '))}</p></div>
-        <span class="live-pill ${m.tono}">${esc(m.titulo)}</span></div>
-      <p class="live-nota" id="liveNota">${esc(c.motivo === 'ok' ? 'La transmisión no arranca sola: toca Reproducir.' : m.texto)}</p>
-      ${reglas ? `<div class="live-reglas"><h3>Antes de ver: reglas de Tanner LIVE</h3><ol>${REGLAS.map(r => `<li>${esc(r)}</li>`).join('')}</ol>
-        <button type="button" class="live-b primario" data-acepta>Acepto las reglas</button></div>` : ''}
-    </section>`;
+  body.innerHTML = `${top}
+    <section class="tv-escenario">${reglas ? '' : '<div id="liveReproductor"></div>'}</section>
+    <div class="tv-info"><div><h2>${esc(c.nombre)}</h2><p class="tv-sub">${esc([c.cancha !== c.nombre ? c.cancha : null, textoVentana(proximaVentana(c.horario, new Date(), TZ))].filter(Boolean).join(' · '))}</p></div></div>
+    <p class="tv-nota" id="liveNota">Sólo familias autorizadas · sin audio · sin grabación.</p>
+    ${reglas ? `<div class="live-reglas"><h3>Antes de ver</h3><ol>${REGLAS.map(r => `<li>${esc(r)}</li>`).join('')}</ol>
+      <button type="button" class="tv-grande claro" data-acepta>Acepto las reglas</button></div>` : ''}
+    ${cams.length > 1 ? `<section class="tv-seccion"><h3>Cámaras</h3><div class="tv-canales">${cams.map(x => `<button type="button" class="tv-canal" data-cam="${esc(x.id)}" aria-current="${x.id === c.id}"><div class="tv-canal-img">${x.motivo === 'ok' && x.estado === 'online' ? '<span class="tv-canal-vivo">EN VIVO</span>' : ''}${CAM}</div><strong>${esc(x.nombre)}</strong><small>${esc(x.cancha || textoHorario(x.horario))}</small></button>`).join('')}</div></section>` : ''}`;
   body.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => { state.camara = b.dataset.cam; reproductor?.detener(); reproductor = null; pinta(); });
   body.querySelector('[data-acepta]')?.addEventListener('click', async () => {
     try { await rpc('v2_live_aceptar_terminos', { organization_id: null, version: d.terminos?.version || REGLAS_VERSION }); await carga(); }
@@ -59,9 +56,11 @@ function pinta() {
   const cont = document.getElementById('liveReproductor');
   if (!cont) return;
   reproductor = creaReproductor(cont, {
+    titulo: c.nombre,
     pideTicket: () => rpc('v2_live_ticket', { camera_id: c.id }),
-    alRechazo: r => { const mm = motivo(r?.motivo); document.getElementById('liveNota').textContent = mm.texto; reproductor.aviso(mm.titulo); }
+    alRechazo: r => reproductor.aviso(motivo(r?.motivo).texto)
   });
+  reproductor.poster('', c.motivo === 'ok' && !d.pausado ? 'Toca play para ver.' : m.texto);
   cont.addEventListener('live:play', () => reproductor.arranca());
 }
 

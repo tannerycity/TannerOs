@@ -19,8 +19,8 @@ for (const malo of [{}, { token: 'abc' }, { token: T.slice(1) }, { token: T + 'a
   revisa(`ticket inválido no pasa: ${JSON.stringify(malo).slice(0, 30)}`, ticketDe(malo) === null);
 
 // URL Dahua.
-revisa('substream = subtype 1', urlDahua({ host: '192.168.100.57', puerto: 554, usuario: 'tannerlive', clave: 'x', canal: 9, perfil: 'sub' })
-  === 'rtsp://tannerlive:x@192.168.100.57:554/cam/realmonitor?channel=9&subtype=1');
+revisa('substream = subtype 1', urlDahua({ host: '192.168.100.200', puerto: 554, usuario: 'tannerlive', clave: 'x', canal: 9, perfil: 'sub' })
+  === 'rtsp://tannerlive:x@192.168.100.200:554/cam/realmonitor?channel=9&subtype=1');
 revisa('principal = subtype 0', /subtype=0$/.test(urlDahua({ host: 'h', puerto: 554, usuario: 'u', clave: 'c', canal: 1, perfil: 'main' })));
 revisa('una clave con símbolos no rompe la URL', urlDahua({ host: 'h', puerto: 554, usuario: 'u', clave: 'a@b:c/d', canal: 1 }).includes('u:a%40b%3Ac%2Fd@h'));
 

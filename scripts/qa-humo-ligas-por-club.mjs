@@ -187,8 +187,9 @@ revisa('[entrada] el botón de tienda se ve en el teléfono y nada se sale', awa
 // Las puertas (13/10/2026): puertas grandes y el login sólo al tocar Staff.
 // Costos (20/10/2026) sigue en /costos/, pero Presidencia pidió que aún no
 // salga en la entrada (21/10/2026).
-revisa('[puertas] Familias, Tienda, Inscribe, Centro Tanner y Staff, en ese orden',
-  JSON.stringify(await pg.$$eval('.tc-puerta b', b => b.map(x => x.textContent))) === JSON.stringify(['Familias', 'Tienda', 'Inscribe a tu hijo', 'Centro Tanner', 'Staff']));
+// Tanner LIVE (25/11/2026): abajo, "muy pronto", sin abrir todavía.
+revisa('[puertas] Familias, Tienda, Inscribe, Centro Tanner, Staff y Tanner LIVE, en ese orden',
+  JSON.stringify(await pg.$$eval('.tc-puerta b', b => b.map(x => x.textContent))) === JSON.stringify(['Familias', 'Tienda', 'Inscribe a tu hijo', 'Centro Tanner', 'Staff', 'Tanner LIVE']));
 revisa('[puertas] Centro Tanner lleva al Centro Tanner', /^\/centro-tanner\/(\?|$)/.test(await pg.getAttribute('.tc-familias a[data-familia="centro"]', 'href') || ''));
 revisa('[puertas] Costos aún no sale en la entrada', !(await pg.$('.tc-familias a[data-familia="costos"]')));
 revisa('[puertas] el login no se ve hasta tocar Staff', !(await pg.isVisible('#authForm')));

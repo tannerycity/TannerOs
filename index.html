@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="/v2/home-actions.css?v=20260821g">
   <link rel="stylesheet" href="/v2/auth-gate.css?v=20260821g">
   <link rel="stylesheet" href="/v2/production.css?v=20260907b">
-<link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"><link rel="stylesheet" href="/v2/entrada.css?v=20261011a"><link rel="preload" href="/brand/crest-gold.png" as="image"></head>
+<link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"><link rel="stylesheet" href="/v2/entrada.css?v=20261125a"><link rel="preload" href="/brand/crest-gold.png" as="image"></head>
 <body>
 <main class="shell">
   <section id="authView" class="auth-wrap tc-entrada">
@@ -44,12 +44,14 @@
     <nav class="tc-familias tc-puertas" aria-label="¿A dónde vas?">
       <a class="tc-puerta principal" href="/familias/" data-familia="portal"><span class="tc-icono tc-icono-portal" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3.5 19c.6-3.2 3-5 5.5-5s4.9 1.8 5.5 5"/><path d="M14.8 14.6c2.6-.4 5 1 5.7 4.4"/></svg></span><span class="tc-puerta-txt"><b>Familias</b><small>Pagos, asistencia y progreso de tu Tanner</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
       <a class="tc-puerta" href="/tienda/" data-familia="tienda"><span class="tc-icono tc-icono-tienda" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 4 4 6.5 5.5 10 7 9.4V20h10V9.4l1.5.6L20 6.5 16 4c-.6 1.4-2.2 2.3-4 2.3S8.6 5.4 8 4Z"/></svg></span><span class="tc-puerta-txt"><b>Tienda</b><small>Jerseys, kits y uniformes oficiales</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
-      <a class="tc-puerta" href="/registro/" data-familia="registro"><span class="tc-icono tc-icono-registro" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg></span><span class="tc-puerta-txt"><b>Inscribe a tu hijo</b><small>Clase muestra y registro en 3 minutos</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
+      <a class="tc-puerta" href="/registro/" data-familia="registro"><span class="tc-icono tc-icono-registro" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9.5" cy="8" r="3.3"/><path d="M3.5 19.5c.6-3.4 3.1-5.3 6-5.3 1.4 0 2.7.4 3.7 1.2"/><path d="M18 13.5v6M15 16.5h6"/></svg></span><span class="tc-puerta-txt"><b>Inscribe a tu hijo</b><small>Clase muestra y registro en 3 minutos</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
       <!-- Centro Tanner (04/11/2026). Presidencia: "un botón que diga Centro Tanner, para preguntas
            o dudas de Tannery City... ingresa aquí". -->
       <a class="tc-puerta" href="/centro-tanner/" data-familia="centro"><span class="tc-icono tc-icono-centro" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7"/><path d="M12 17.2h.01"/></svg></span><span class="tc-puerta-txt"><b>Centro Tanner</b><small>Dudas, reglamento y todo de Tannery City</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
       <!-- Costos (/costos/) sigue vivo, pero aún no sale en la entrada (Presidencia, 21/10/2026). -->
       <button class="tc-puerta" type="button" id="abreStaff" data-puerta="staff"><span class="tc-icono tc-icono-staff" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg></span><span class="tc-puerta-txt"><b>Staff</b><small>Acceso del equipo del club</small></span><span class="tc-chevron" aria-hidden="true">›</span></button>
+      <!-- Tanner LIVE (25/11/2026). Presidencia: "ponle otro iconito abajo que se llama Tanner Live... todavía no lo actives, solo que quede ahí". Sin liga hasta que se active. -->
+      <div class="tc-puerta tc-puerta-pronto" data-puerta="live" aria-disabled="true"><span class="tc-icono tc-icono-live" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.2" class="tc-live-punto"/><path d="M8.2 15.8a5.4 5.4 0 0 1 0-7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6"/><path d="M5.3 18.7a9.5 9.5 0 0 1 0-13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4"/></svg></span><span class="tc-puerta-txt"><b>Tanner LIVE</b><small>Los partidos del club en vivo</small></span><span class="tc-pronto">Muy pronto</span></div>
       <a class="tc-trabaja" href="/trabaja/" data-familia="trabaja"><span><b>¿Quieres trabajar en Tannery?</b><small>Manda tu solicitud y tu CV</small></span><span class="tc-chevron" aria-hidden="true">›</span></a>
     </nav>
     <div class="auth-card">

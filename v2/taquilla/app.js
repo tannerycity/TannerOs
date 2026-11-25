@@ -2219,3 +2219,6 @@ vistasListas=true;
 // ?ver=montos entra directo a esa vista. Sirve para que otros módulos enlacen
 // al padrón sin obligar a nadie a buscarlo, y para las pruebas de humo.
 mostrarVista(_params.get('ver'));
+
+// Jalar para actualizar (v2/jalar.js): vuelve a pedir los datos sin recargar.
+window.tosAlActualizar=()=>load();

@@ -224,7 +224,9 @@ export default function comprobar() {
   // en Chromium (sin autoplay, señal de prueba nunca "En vivo", reglas, 390 px).
   // Sube a 82 por qa-humo-egresos-beneficiarios.mjs (25/11/2026): escoger a quién
   // se le pagó y las gráficas del dinero, en Chromium. La corre navegador-qa.
-  const MAX_EXCLUIDAS = 82;
+  // Sube a 83 por qa-humo-gestos.mjs (25/11/2026): jalar para actualizar con
+  // toques de dedo reales y el selector deslizante, en Chromium. La corre navegador-qa.
+  const MAX_EXCLUIDAS = 83;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

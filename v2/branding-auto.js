@@ -112,5 +112,7 @@ async function boot(){
   iniciarUsoStaff({role:ctx.role,isOwner:ctx.is_owner,modulo:page.active,organizationId:ctx.organization_id,rpc});
   try{await loadAndApplyBranding(supabase,ctx.organization_id);}catch(error){console.warn('branding',error);}
   normalizeNode(document);installObserver();
+  // Jalar para actualizar y selector deslizante en todas las pantallas (25/11/2026).
+  import('/v2/gestos.js').then(m=>m.activaGestos(ctx)).catch(()=>{});
 }
 boot().catch(error=>{console.error('TannerOS shell',error);});

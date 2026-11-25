@@ -51,3 +51,31 @@ export function uniformes(u) {
   const entro = Number(u?.entro || 0), pagado = Number(u?.pagadoProveedor || 0);
   return { entro, pagado, queda: entro - pagado, pctPagado: entro ? Math.round((pagado / entro) * 100) : null };
 }
+
+/* Desglose (h103): al picarle a una barra se ven sus renglones. */
+export const DIMENSIONES = Object.freeze({
+  grBenef: 'beneficiario', grEgCat: 'egresoCategoria', grIngTipo: 'ingresoTipo', grIngCat: 'ingresoCategoria',
+  grDeuCat: 'adeudoCategoria', grDeuTipo: 'adeudoTipo',
+});
+export const esAdeudo = (dim) => dim === 'adeudoCategoria' || dim === 'adeudoTipo';
+const METODOS = { cash: 'Efectivo', efectivo: 'Efectivo', transfer: 'Transferencia', transferencia: 'Transferencia', card: 'Tarjeta', tarjeta: 'Tarjeta', other: 'Otro', otro: 'Otro' };
+export const metodo = (m) => METODOS[String(m || '').toLowerCase()] || (m ? String(m) : '');
+
+// Lo que va arriba del desglose: cuántos, total y promedio.
+export function resumenDetalle(rows, dim) {
+  const xs = rows || [];
+  const total = xs.reduce((s, r) => s + (Number(esAdeudo(dim) ? r.saldo : r.monto) || 0), 0);
+  return { n: xs.length, total, promedio: xs.length ? Math.round(total / xs.length) : 0 };
+}
+
+// Los renglones por mes, para la mini gráfica del desglose (en orden).
+export function porMes(rows) {
+  const m = new Map();
+  for (const r of rows || []) { const k = String(r.fecha || '').slice(0, 7); if (k) m.set(k, (m.get(k) || 0) + Number(r.monto || 0)); }
+  const xs = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([mes, total]) => ({ mes, total }));
+  const max = Math.max(0, ...xs.map((x) => x.total));
+  return xs.map((x) => ({ ...x, pct: max ? Math.max(4, Math.round((x.total / max) * 100)) : 0 }));
+}
+
+// Contar hacia arriba con freno al final (para los números grandes).
+export const suaviza = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);

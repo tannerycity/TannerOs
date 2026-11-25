@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07191e">
   <title>Patrocinios · TannerOS</title>
   <link rel="stylesheet" href="/v2/styles.css">
-  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261025g">
+  <link rel="stylesheet" href="/v2/patrocinadores/styles.css?v=20261124a">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <link rel="stylesheet" href="/icons.css?v=20260907a">
@@ -360,6 +360,16 @@
   <form id="quoteForm" class="pt-cot-form">
     <label>¿Para qué marca?<select id="quoteSponsor" required></select></label>
     <label id="quoteProspectField" class="hidden">Nombre de la marca nueva<input id="quoteProspect" maxlength="160" placeholder="Ej. Ferretería del Centro"></label>
+    <label>Contacto <span class="optional">opcional</span><input id="quoteContact" maxlength="120" placeholder="Ej. Ana López, gerente"></label>
+    <div id="quotePlan" class="pt-cot-plan hidden">
+      <span class="pt-cot-plan-t">Paquete base</span>
+      <div id="quotePackages" class="pt-cot-paqs" role="radiogroup" aria-label="Paquete base"></div>
+      <div class="pt-cot-plan-fila">
+        <label>Meses de contrato<input id="quoteMonths" type="number" min="1" max="36" step="1" inputmode="numeric" placeholder="Pago único"></label>
+        <label class="pt-cot-iva"><input id="quoteIva" type="checkbox"> IVA 16% <small>se suma aparte</small></label>
+      </div>
+      <div id="quotePlanWarn" class="pt-cot-aviso hidden" role="status"></div>
+    </div>
     <div id="quoteLines" class="pt-cot-lineas"></div>
     <button type="button" id="quoteAddMore" class="pt-link">+ Agregar más espacios</button>
     <div class="pt-cot-desc">
@@ -478,6 +488,6 @@
 </section>
 
 <script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script>
-<script type="module" src="/v2/patrocinadores/app.js?v=20261025g"></script>
+<script type="module" src="/v2/patrocinadores/app.js?v=20261124a"></script>
 </body>
 </html>

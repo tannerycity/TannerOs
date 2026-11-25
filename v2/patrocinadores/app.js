@@ -4,7 +4,9 @@ import { getSignedPhotoUrl, getSignedPhotoUrls } from '/v2/photo-cache.js';
 import { datosDelReporte, reportePdf, nombreDelReporte } from '/v2/patrocinadores/reporte.js';
 import { saludDeMarca, hoyToca, marcador, ordenTablero, efectivoDelMes, especieRecibida } from '/v2/patrocinadores/tablero.js';
 import { propuestaPdf, nombreDePropuesta, ultimasMetricas, ETIQUETA_METRICA } from '/v2/patrocinadores/propuesta.js';
-import { CATEGORIAS, categoriaDe, nombreCategoria, filtraCatalogo, renglonDe, totales, accionesDe, FILTROS_COT, filtraCotizaciones, mensajeWhatsApp, avisosDeCotizaciones } from '/v2/patrocinadores/cotizar.js';
+import { CATEGORIAS, categoriaDe, nombreCategoria, filtraCatalogo, renglonDe, totales, accionesDe, FILTROS_COT, filtraCotizaciones, mensajeWhatsApp, avisosDeCotizaciones, esPaquete, paquetesDe, totalesDePlan, avisoDePlan } from '/v2/patrocinadores/cotizar.js';
+import { datosDeHoja, hojaPdf, nombreDeHoja } from '/v2/patrocinadores/propuesta-mensual.js';
+import { esTannery } from '/v2/plataforma.js';
 import { encodeVariant, THUMB_MAX_SIDE, THUMB_MAX_BYTES, FULL_MAX_SIDE, FULL_MAX_BYTES, UPLOAD_CACHE_CONTROL} from '/v2/image-encode.js';
 
 const supabase = createClient(
@@ -76,6 +78,9 @@ let carrito = [];
 let editingQuote = null;
 let quoteFilter = 'all';
 let descTipo = 'pct';
+// Por mes (h101): el paquete elegido y el WhatsApp del club para el pie del PDF.
+let planPaquete = '';
+let quoteWhatsapp = '';
 let editingPaymentId = null;
 let editingMetricId = null;
 let evidenceTargetItemId = null;
@@ -389,6 +394,10 @@ async function load() {
   sponsors = Array.isArray(data?.sponsors) ? data.sponsors : [];
   agreements = Array.isArray(data?.agreements) ? data.agreements : [];
   assets = Array.isArray(data?.assets) ? data.assets : [];
+  // Lo del cotizador por mes que no viene en la lista general (h101).
+  const extras = new Map((Array.isArray(cot?.assetExtras) ? cot.assetExtras : []).map((e) => [e.id, e]));
+  assets = assets.map((a) => extras.has(a.id) ? { ...a, paquete: extras.get(a.id).paquete || null, foto: extras.get(a.id).foto || null, piezas: extras.get(a.id).piezas || null } : a);
+  quoteWhatsapp = cot?.whatsapp || '';
   agreementItems = Array.isArray(data?.agreementItems) ? data.agreementItems : [];
   movements = Array.isArray(data?.movements) ? data.movements : [];
   itemEvidence = Array.isArray(data?.itemEvidence) ? data.itemEvidence : [];
@@ -805,11 +814,39 @@ function renderCart() {
    lo cuida también el servidor (h44). Cambiar precios del catálogo sólo lo
    hace Presidencia; lo que no tiene precio se escribe aquí. */
 const masDias = (d) => { const f = new Date(Date.now() - new Date().getTimezoneOffset() * 60000 + d * 86400000); return f.toISOString().slice(0, 10); };
+const paqueteDe = (id) => { const a = assetById(id); return esPaquete(a) ? a : null; };
+// Pone el paquete hasta arriba del carrito (sólo uno) y acomoda los meses.
+function eligePaquete(id) {
+  carrito = carrito.filter((l) => !paqueteDe(l.assetId));
+  planPaquete = paqueteDe(id) ? id : '';
+  const p = paqueteDe(planPaquete);
+  if (p) {
+    carrito.unshift(renglonDe(p));
+    const m = Number($('quoteMonths').value) || 12;
+    $('quoteMonths').value = Math.min(Math.max(m, Number(p.paquete.min)), Number(p.paquete.max));
+  }
+}
+function pintaPaquetes() {
+  const paqs = paquetesDe(assets);
+  $('quotePlan').classList.toggle('hidden', !paqs.length && !editingQuote?.months);
+  $('quotePackages').innerHTML = paqs.map((p) => '<button type="button" role="radio" class="pt-cot-paq" data-paquete="' + esc(p.id) + '" aria-checked="' + (planPaquete === p.id) + '">' +
+      '<b>' + esc(p.name) + '</b><small>' + esc(p.description || (money.format(Number(p.price || 0)) + '/mes')) + '</small></button>').join('') +
+    (paqs.length ? '<button type="button" role="radio" class="pt-cot-paq sin" data-paquete="" aria-checked="' + (!planPaquete) + '"><b>Sin paquete</b><small>Sólo los espacios que elijas</small></button>' : '');
+}
 function openQuoteForm() {
   if (!canWrite) return;
-  if (!carrito.length) { switchView('assets'); return; }
+  const paqs = paquetesDe(assets);
+  if (!carrito.length && !paqs.length) { switchView('assets'); return; }
   const q = editingQuote;
-  $('quoteTitle').textContent = q ? 'Editar ' + q.folio : 'Nueva cotización';
+  // Meses e IVA: lo guardado, o lo del diseño para una nueva (12 meses, IVA).
+  $('quoteMonths').value = q ? (q.months || '') : (paqs.length ? 12 : '');
+  $('quoteIva').checked = q ? Number(q.ivaPct) > 0 : paqs.length > 0;
+  $('quoteContact').value = q?.contactName || '';
+  const enCarritoPaq = carrito.find((l) => paqueteDe(l.assetId));
+  planPaquete = q ? (q.packageAssetId && paqueteDe(q.packageAssetId) ? q.packageAssetId : '') : enCarritoPaq ? enCarritoPaq.assetId : '';
+  if (!q && !planPaquete && !carrito.length && paqs.length) eligePaquete((paqs.find((p) => p.paquete.clave === 'oficial') || paqs[0]).id);
+  pintaPaquetes();
+  $('quoteTitle').textContent = q ? (vencidaHoy(q) ? 'Renovar ' : 'Editar ') + q.folio : 'Nueva cotización';
   $('quoteSub').textContent = q && q.status === 'sent' ? 'Al guardar regresa a borrador hasta que la vuelvas a enviar.' : '';
   const vivas = sponsors.filter((x) => !['lost', 'finished'].includes(normalizeStage(x.stage, x.status)));
   $('quoteSponsor').innerHTML = '<option value="">Elige la marca…</option>' + vivas.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('') +
@@ -819,7 +856,7 @@ function openQuoteForm() {
   $('quoteProspectField').classList.toggle('hidden', $('quoteSponsor').value !== '__nueva');
   descTipo = q?.discountType || 'pct';
   $('quoteDiscount').value = q?.discountValue ?? '';
-  $('quoteValid').value = q?.validUntil || masDias(30);
+  $('quoteValid').value = q?.validUntil || masDias(paqs.length ? 15 : 30);
   $('quoteNotes').value = q?.notes || '';
   message('quoteMessage');
   pintaLineas();
@@ -828,11 +865,12 @@ function openQuoteForm() {
 function pintaLineas() {
   $('quoteLines').innerHTML = carrito.map((l, i) => {
     const editable = isPresidency || l.sinPrecio;
+    const porMes = Number($('quoteMonths').value) > 0;
     return '<div class="pt-cot-linea" data-linea="' + i + '">' +
       '<span class="pt-cot-nom"><b>' + esc(l.description) + '</b>' + (l.unit ? '<small>' + esc(/^por /.test(l.unit) ? l.unit : 'por ' + l.unit) + '</small>' : '') + '</span>' +
       '<label class="pt-cot-q"><span class="sr-only">Cantidad</span><input type="number" min="1" step="1" inputmode="numeric" value="' + esc(l.quantity) + '" data-campo="quantity"></label>' +
-      (editable ? '<label class="pt-cot-p"><span class="sr-only">Precio</span><input type="number" min="0" step="50" inputmode="decimal" value="' + (l.unitPrice || '') + '" placeholder="Precio" data-campo="unitPrice"></label>'
-        : '<span class="pt-cot-p">' + money.format(l.unitPrice) + '</span>') +
+      (editable ? '<label class="pt-cot-p"><span class="sr-only">Precio</span><input type="number" min="0" step="50" inputmode="decimal" value="' + (l.unitPrice || '') + '" placeholder="' + (porMes ? 'Incluido' : 'Precio') + '" data-campo="unitPrice"></label>'
+        : '<span class="pt-cot-p">' + (porMes && !Number(l.unitPrice) ? 'Incluido' : money.format(l.unitPrice)) + '</span>') +
       '<b class="pt-cot-imp">' + money.format(l.unitPrice * l.quantity) + '</b>' +
       '<button type="button" class="pt-cot-quita" data-quita="' + i + '" aria-label="Quitar ' + esc(l.description) + '">&times;</button>' +
     '</div>';
@@ -840,39 +878,57 @@ function pintaLineas() {
   document.querySelectorAll('.pt-seg [data-desc]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.desc === descTipo)));
   recalcula();
 }
+function planActual() {
+  return totalesDePlan(carrito, { tipo: $('quoteDiscount').value ? descTipo : null, valor: $('quoteDiscount').value,
+    meses: $('quoteMonths').value, ivaPct: $('quoteIva').checked ? 16 : 0, paqueteId: planPaquete || null }, quoteCap);
+}
 function recalcula() {
-  const t = totales(carrito, { tipo: $('quoteDiscount').value ? descTipo : null, valor: $('quoteDiscount').value }, quoteCap);
-  $('quoteTotals').innerHTML = '<span>Subtotal <b>' + money.format(t.subtotal) + '</b></span>' +
-    (t.descuento ? '<span>Descuento <b>-' + money.format(t.descuento) + ' (' + t.pct + '%)</b></span>' : '') +
-    '<span class="pt-cot-total-final">Total <b>' + money.format(t.total) + '</b></span>';
+  const t = planActual();
+  const fila = (k, v, cls = '') => '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + k + ' <b>' + v + '</b></span>';
+  $('quoteTotals').innerHTML = (planPaquete ? fila('Base', money.format(t.base)) + fila('Activos extra', money.format(t.extras)) : fila('Subtotal', money.format(t.subtotal))) +
+    (t.descuento ? fila('Descuento', '-' + money.format(t.descuento) + ' (' + t.pct + '%)', 'pt-cot-menos') : '') +
+    (t.iva ? fila('IVA 16%', money.format(t.iva)) : '') +
+    (t.meses ? fila('Total mensual', money.format(t.mensual), 'pt-cot-total-final') + fila('Total contrato · ' + t.meses + (t.meses === 1 ? ' mes' : ' meses'), money.format(t.contrato), 'pt-cot-contrato')
+      : fila('Total', money.format(t.contrato), 'pt-cot-total-final'));
+  const aviso = avisoDePlan(paqueteDe(planPaquete), $('quoteMonths').value, t.base);
+  $('quotePlanWarn').textContent = aviso.texto;
+  $('quotePlanWarn').classList.toggle('hidden', !aviso.texto);
   const w = $('quoteWarn');
   w.classList.toggle('hidden', !t.pideAutorizacion);
   w.textContent = !t.pideAutorizacion ? '' : isPresidency
     ? 'Pasa del tope de ' + quoteCap + '%: como Presidencia, queda autorizada al guardar.'
     : 'Pasa del tope de ' + quoteCap + '% (es ' + t.pct + '%). Se guarda y Presidencia tiene que autorizarla antes de enviarla.';
   w.classList.toggle('presidencia', isPresidency);
-  carrito.forEach((l, i) => { const imp = document.querySelector('[data-linea="' + i + '"] .pt-cot-imp'); if (imp) imp.textContent = money.format(l.unitPrice * l.quantity); });
+  carrito.forEach((l, i) => { const imp = document.querySelector('[data-linea="' + i + '"] .pt-cot-imp'); if (imp) imp.textContent = t.meses && !(l.unitPrice * l.quantity) ? 'Incluido' : money.format(l.unitPrice * l.quantity); });
 }
 async function saveQuote(event) {
   event.preventDefault(); message('quoteMessage');
   const sel = $('quoteSponsor').value, nueva = sel === '__nueva';
   if (!sel) { message('quoteMessage', 'Elige la marca.'); return; }
   if (nueva && $('quoteProspect').value.trim().length < 2) { message('quoteMessage', 'Escribe el nombre de la marca nueva.'); return; }
-  const sinPrecio = carrito.filter((l) => !(Number(l.unitPrice) > 0));
+  if (!carrito.length) { message('quoteMessage', 'Elige el paquete o agrega al menos un espacio.'); return; }
+  const meses = Number($('quoteMonths').value) || null;
+  // Por mes, un precio en 0 es "Incluido"; de pago único, todo lleva precio.
+  const sinPrecio = meses ? [] : carrito.filter((l) => !(Number(l.unitPrice) > 0));
   if (sinPrecio.length) { message('quoteMessage', 'Ponle precio a: ' + sinPrecio.map((l) => l.description).join(', ') + '.'); return; }
+  if (!(planActual().subtotal > 0)) { message('quoteMessage', 'La cotización necesita al menos un precio.'); return; }
+  if (meses && (meses < 1 || meses > 36)) { message('quoteMessage', 'Los meses van de 1 a 36.'); return; }
+  const aviso = avisoDePlan(paqueteDe(planPaquete), meses, planActual().base);
+  if (aviso.bloquea) { message('quoteMessage', aviso.texto); return; }
   const b = $('saveQuote'); b.disabled = true; b.textContent = 'Guardando…';
   try {
     const q = await rpc('v2_save_sponsor_quote', { organization_id: ctx.organization_id, quote_id: editingQuote?.id || null,
       sponsor_id: nueva ? null : sel, prospect_name: nueva ? $('quoteProspect').value.trim() : null,
       discount_type: $('quoteDiscount').value ? descTipo : null, discount_value: $('quoteDiscount').value ? Number($('quoteDiscount').value) : null,
       notes: $('quoteNotes').value.trim() || null, valid_until: $('quoteValid').value || null,
-      items: carrito.map((l) => ({ assetId: l.assetId || null, description: l.description, unitPrice: Number(l.unitPrice), quantity: Number(l.quantity), unit: l.unit || null })) });
+      items: carrito.map((l) => ({ assetId: l.assetId || null, description: l.description, unitPrice: Number(l.unitPrice), quantity: Number(l.quantity), unit: l.unit || null })),
+      plan: { months: meses, ivaPct: $('quoteIva').checked ? 16 : 0, packageAssetId: planPaquete || null, contactName: $('quoteContact').value.trim() || null } });
     carrito = []; editingQuote = null;
     closeModal(); await load(); quoteFilter = 'all'; switchView('quotes');
     if (q?.approvalStatus === 'pending') {
       await tosAlert({ kicker: 'COTIZACIÓN ' + q.folio, title: 'Guardada · falta autorización', message: 'El descuento es de ' + q.discountPct + '%. Presidencia la autoriza y luego ya la puedes enviar. Le sale en su Inicio.' });
     } else if (q) {
-      const ok = await tosConfirm({ kicker: 'COTIZACIÓN ' + q.folio, title: 'Lista: ' + money.format(q.total), message: '¿Se la mandas ya a ' + (q.sponsorName || 'la marca') + '? Sale en PDF con fotos, precios y total.', confirmText: 'Enviar PDF', cancelText: 'Después' });
+      const ok = await tosConfirm({ kicker: 'COTIZACIÓN ' + q.folio, title: 'Lista: ' + (Number(q.months) > 0 ? money.format(q.monthlyTotal) + ' al mes' : money.format(q.total)), message: '¿Se la mandas ya a ' + (q.sponsorName || 'la marca') + '? Sale en PDF con fotos, precios y total.', confirmText: 'Enviar PDF', cancelText: 'Después' });
       if (ok) await enviarCotizacion(q, true);
     }
   } catch (error) { message('quoteMessage', friendly(error)); }
@@ -880,8 +936,22 @@ async function saveQuote(event) {
 }
 // El PDF de la cotización: los espacios con su foto y precio, y la inversión.
 // Se comparte (WhatsApp en el teléfono) y queda como Enviada.
+// La hoja carta por mes (h101), con los logos y fotos del kit si es Tannery.
+async function imagenPara(url, png) {
+  if (!png) return fotoJpeg(url, 1000);
+  const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = url; });
+  const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext('2d').drawImage(img, 0, 0);
+  return { data: c.toDataURL('image/png'), w: c.width, h: c.height };
+}
+async function hojaDeCotizacion(q) {
+  const club = nombreDelClub(ctx), hoy = hoyIso();
+  const datos = datosDeHoja({ cot: q, activos: assets, club, hoy, whatsapp: quoteWhatsapp, esTannery: esTannery({ name: club }) });
+  return { doc: await hojaPdf(datos, { cargar: imagenPara }), nombre: nombreDeHoja(q.folio, q.sponsorName) };
+}
 async function enviarCotizacion(q, marcar) {
   try {
+    if (Number(q.months) > 0 || q.packageAssetId) return await compartirPdf(q, marcar, await hojaDeCotizacion(q));
     const activos = q.items.map((i) => assetById(i.assetId)).filter(Boolean);
     const fotos = {};
     await Promise.all(activos.filter((a) => a.photoPath).map(async (a) => {
@@ -890,6 +960,13 @@ async function enviarCotizacion(q, marcar) {
     const hoy = hoyIso();
     const doc = await propuestaPdf({ marca: q.sponsorName || 'Marca', club: nombreDelClub(ctx), entidades: ENTIDADES, activos, metricas: socialMetrics, fotos, hoy, cotizacion: q });
     const nombre = nombreDePropuesta(q.sponsorName, hoy).replace(/^Propuesta-/, 'Cotizacion-' + q.folio + '-');
+    await compartirPdf(q, marcar, { doc, nombre });
+  } catch (error) {
+    await tosAlert({ kicker: 'COTIZACIÓN', title: 'No se pudo enviar', message: friendly(error) });
+  }
+}
+async function compartirPdf(q, marcar, { doc, nombre }) {
+  try {
     // Compartir necesita un toque nuevo: armar el PDF tarda y el navegador lo olvida.
     const ok = await tosConfirm({ kicker: 'COTIZACIÓN ' + q.folio, title: 'PDF listo', message: 'Compártelo por WhatsApp con ' + (sponsorById(q.sponsorId)?.contactName || q.sponsorName || 'la marca') + '.', confirmText: 'Compartir', cancelText: 'Cerrar' });
     if (!ok) return;
@@ -906,27 +983,33 @@ async function enviarCotizacion(q, marcar) {
 /* COTIZACIONES: de borrador a aceptada. Al aceptarse nace el acuerdo con todo
    lo cotizado (h44) y se abre la ficha de la marca. */
 const dineroCorto = (n) => money.format(Number(n || 0));
+const vencidaHoy = (q) => accionesDe(q, { hoy: hoyIso() }).etiqueta === 'Vencida';
 function renderQuotes() {
   const box = $('quoteList'); if (!box) return;
+  const hoy = hoyIso();
   const porAutorizar = filtraCotizaciones(quotes, 'pending').length;
   $('quotesBadge').textContent = porAutorizar;
   $('quotesBadge').classList.toggle('hidden', !porAutorizar);
   $('quoteCapText').textContent = quoteCap + '%';
-  $('quoteFilters').innerHTML = FILTROS_COT.filter((f) => f.k === 'all' || f.k === quoteFilter || filtraCotizaciones(quotes, f.k).length).map((f) =>
-    '<button type="button" data-cot-filtro="' + f.k + '" aria-pressed="' + (quoteFilter === f.k) + '">' + esc(f.t) + ' <b>' + filtraCotizaciones(quotes, f.k).length + '</b></button>').join('');
-  const lista = filtraCotizaciones(quotes, quoteFilter);
+  $('quoteFilters').innerHTML = FILTROS_COT.filter((f) => f.k === 'all' || f.k === quoteFilter || filtraCotizaciones(quotes, f.k, hoy).length).map((f) =>
+    '<button type="button" data-cot-filtro="' + f.k + '" aria-pressed="' + (quoteFilter === f.k) + '">' + esc(f.t) + ' <b>' + filtraCotizaciones(quotes, f.k, hoy).length + '</b></button>').join('');
+  const lista = filtraCotizaciones(quotes, quoteFilter, hoy);
   $('quoteEmpty').classList.toggle('hidden', lista.length > 0);
   const TXT = { enviar: 'Enviar PDF', reenviar: 'Reenviar PDF', editar: 'Editar', archivar: 'Archivar', autorizar: 'Autorizar descuento', noAutorizar: 'No autorizar',
-    acepto: 'Aceptó', noAcepto: 'No aceptó', borrador: 'Regresar a borrador', verMarca: 'Ver la marca' };
-  const FUERTE = new Set(['enviar', 'autorizar', 'acepto', 'verMarca']);
+    acepto: 'Aceptó', noAcepto: 'No aceptó', borrador: 'Regresar a borrador', verMarca: 'Ver la marca', renovar: 'Renovar' };
+  const FUERTE = new Set(['enviar', 'autorizar', 'acepto', 'verMarca', 'renovar']);
   box.innerHTML = lista.map((q) => {
-    const { etiqueta, tono, acciones } = accionesDe(q, { esPresidencia: isPresidency, puedeEscribir: canWrite });
+    const { etiqueta, tono, acciones } = accionesDe(q, { esPresidencia: isPresidency, puedeEscribir: canWrite, hoy });
+    const porMes = Number(q.months) > 0;
     const resumen = q.items.slice(0, 3).map((i) => (Number(i.quantity) > 1 ? i.quantity + ' x ' : '') + i.description).join(', ') + (q.items.length > 3 ? '…' : '');
     return '<article class="pt-cot ' + esc(tono) + '" data-cot="' + esc(q.id) + '">' +
       '<header><span class="pt-cot-folio">' + esc(q.folio) + '</span><span class="pt-cot-chip ' + esc(tono) + '">' + esc(etiqueta) + '</span></header>' +
       '<strong class="pt-cot-marca">' + esc(q.sponsorName || 'Marca') + '</strong>' +
       '<small class="pt-cot-res">' + esc(resumen) + '</small>' +
-      '<div class="pt-cot-dinero"><b>' + dineroCorto(q.total) + '</b>' + (Number(q.discountAmount) > 0 ? '<small>con ' + esc(q.discountPct) + '% de descuento (' + dineroCorto(q.discountAmount) + ')</small>' : '<small>sin descuento</small>') + '</div>' +
+      (porMes
+        ? '<div class="pt-cot-dinero"><b>' + dineroCorto(q.monthlyTotal) + '<small> al mes</small></b><small>' + esc(q.months) + ' meses · ' + dineroCorto(q.contractTotal) + ' el contrato' + (Number(q.ivaPct) > 0 ? ' con IVA' : '') + '</small></div>' +
+          (q.packageName || Number(q.discountAmount) > 0 ? '<small class="pt-cot-res">' + esc([q.packageName, Number(q.discountAmount) > 0 ? q.discountPct + '% de descuento' : null].filter(Boolean).join(' · ')) + '</small>' : '')
+        : '<div class="pt-cot-dinero"><b>' + dineroCorto(q.total) + '</b>' + (Number(q.discountAmount) > 0 ? '<small>con ' + esc(q.discountPct) + '% de descuento (' + dineroCorto(q.discountAmount) + ')</small>' : '<small>sin descuento</small>') + '</div>') +
       '<small class="pt-cot-meta">' + esc([q.createdByName ? 'Hizo ' + q.createdByName : null, q.sentAt ? 'enviada ' + shortDate(q.sentAt) : null, q.validUntil ? 'válida al ' + shortDate(q.validUntil) : null].filter(Boolean).join(' · ')) + '</small>' +
       (q.approvalStatus === 'approved' && Number(q.discountPct) > quoteCap ? '<small class="pt-cot-ok">Descuento autorizado por ' + esc(q.approvedByName || 'Presidencia') + '</small>' : '') +
       (q.approvalStatus === 'rejected' ? '<small class="pt-cot-no">Presidencia no autorizó el descuento' + (q.approvalNote ? ': ' + esc(q.approvalNote) : '') + '. Bájalo y guárdala otra vez.</small>' : '') +
@@ -941,10 +1024,12 @@ async function accionCotizacion(id, accion) {
   const estado = async (status) => { await rpc('v2_set_sponsor_quote_status', { organization_id: org, quote_id: q.id, status }); await load(); };
   try {
     if (accion === 'enviar' || accion === 'reenviar') await enviarCotizacion(q, accion === 'enviar');
-    else if (accion === 'editar') {
+    else if (accion === 'editar' || accion === 'renovar') {
       editingQuote = q; descTipo = q.discountType || 'pct';
       carrito = q.items.map((i) => ({ assetId: i.assetId || null, description: i.description, unit: i.unit || null, unitPrice: Number(i.unitPrice), quantity: Number(i.quantity), sinPrecio: false }));
       openQuoteForm();
+      // Renovar: la vigencia vuelve a correr desde hoy.
+      if (accion === 'renovar') $('quoteValid').value = masDias(15);
     } else if (accion === 'archivar') {
       if (await tosConfirm({ kicker: q.folio, title: '¿Archivar esta cotización?', message: 'Deja de verse en la lista. No afecta a la marca.', confirmText: 'Sí, archivar', danger: true })) {
         await rpc('v2_archive_sponsor_quote', { organization_id: org, quote_id: q.id }); await load();
@@ -2535,7 +2620,10 @@ $('assetList').addEventListener('click', (e) => {
 });
 $('cartClear').addEventListener('click', () => { carrito = []; editingQuote = null; renderAssets(); renderCart(); });
 $('cartQuote').addEventListener('click', openQuoteForm);
-$('newQuoteButton').addEventListener('click', () => { if (carrito.length) openQuoteForm(); else { switchView('assets'); tosAlert({ kicker: 'COTIZAR', title: 'Elige los espacios', message: 'Toca + Agregar en lo que le interesa a la marca y luego Cotizar.' }); } });
+$('newQuoteButton').addEventListener('click', () => {
+  // Nueva es nueva: si se quedó abierta la edición de otra, se suelta.
+  if (editingQuote) { editingQuote = null; carrito = []; renderAssets(); renderCart(); }
+  if (carrito.length || paquetesDe(assets).length) openQuoteForm(); else { switchView('assets'); tosAlert({ kicker: 'COTIZAR', title: 'Elige los espacios', message: 'Toca + Agregar en lo que le interesa a la marca y luego Cotizar.' }); } });
 $('quoteForm').addEventListener('submit', saveQuote);
 $('quoteSponsor').addEventListener('change', () => { $('quoteProspectField').classList.toggle('hidden', $('quoteSponsor').value !== '__nueva'); if ($('quoteSponsor').value === '__nueva') $('quoteProspect').focus(); });
 $('quoteLines').addEventListener('input', (e) => {
@@ -2547,11 +2635,15 @@ $('quoteLines').addEventListener('input', (e) => {
 $('quoteLines').addEventListener('click', (e) => {
   const b = e.target.closest('[data-quita]'); if (!b) return;
   carrito.splice(Number(b.dataset.quita), 1);
+  if (planPaquete && !carrito.some((l) => l.assetId === planPaquete)) { planPaquete = ''; pintaPaquetes(); }
   if (!carrito.length) { closeModal(); editingQuote = null; renderAssets(); renderCart(); return; }
   pintaLineas(); renderAssets();
 });
 document.querySelectorAll('.pt-seg [data-desc]').forEach((b) => b.addEventListener('click', () => { descTipo = b.dataset.desc; pintaLineas(); }));
 $('quoteDiscount').addEventListener('input', recalcula);
+$('quotePackages').addEventListener('click', (e) => { const b = e.target.closest('[data-paquete]'); if (!b) return; eligePaquete(b.dataset.paquete); pintaPaquetes(); pintaLineas(); renderAssets(); });
+$('quoteMonths').addEventListener('input', pintaLineas);
+$('quoteIva').addEventListener('change', recalcula);
 $('quoteAddMore').addEventListener('click', () => { closeModal(); switchView('assets'); });
 $('quoteFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-cot-filtro]'); if (!b) return; quoteFilter = b.dataset.cotFiltro; renderQuotes(); });
 $('quoteList').addEventListener('click', (e) => { const b = e.target.closest('[data-cot-accion]'); if (!b) return; accionCotizacion(b.closest('[data-cot]').dataset.cot, b.dataset.cotAccion); });

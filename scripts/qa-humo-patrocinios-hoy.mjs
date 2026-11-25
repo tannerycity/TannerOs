@@ -79,7 +79,7 @@ const DATOS = {
   isPresidency: false,
 };
 const QUOTES = [{ id:'q1', folio:'COT-2026-001', sponsorId:'s-tremor', sponsorName:'Tremor', status:'draft', approvalStatus:'none', subtotal:11800, discountAmount:0, discountPct:0, total:11800,
-  validUntil:'2026-11-24', createdByName:'Zul', items:[{ assetId:'as1', description:'Reel Instagram', unitPrice:2500, quantity:1, unit:'reel' },
+  validUntil:'2099-12-31', createdByName:'Zul', items:[{ assetId:'as1', description:'Reel Instagram', unitPrice:2500, quantity:1, unit:'reel' },
   { assetId:'u2', description:'Logo en manga derecha', unitPrice:7500, quantity:1, unit:'temporada' }, { assetId:'as2', description:'Frente Españita 1', unitPrice:1800, quantity:1, unit:'espacio' }] },
   { id:'q9', folio:'COT-2026-009', sponsorId:'s-dis', sponsorName:'Disonante', status:'sent', approvalStatus:'none', subtotal:5000, discountAmount:0, discountPct:0, total:5000,
     sentAt:'2020-01-01T12:00:00Z', validUntil:'2099-12-31', items:[{ assetId:'as1', description:'Reel Instagram', unitPrice:2500, quantity:2, unit:'reel' }] }];

@@ -136,3 +136,32 @@ export function sugerenciasAntesDePagar(productos = [], carrito = {}, { max = 6 
     .sort((a, b) => peso(a) - peso(b) || Number(a.price) - Number(b.price) || String(a.name).localeCompare(String(b.name), 'es-MX'))
     .slice(0, max);
 }
+
+/* También te puede gustar (25/11/2026). Debajo de la ficha, cuatro tarjetas:
+   primero lo que combina (con un jersey, el short, las calcetas y el kit),
+   luego lo de la misma categoría y al final lo demás de la tienda. Nunca la
+   misma pieza; sólo productos y kits que se venden hoy. */
+const COMBINA = {
+  jersey: ['shorts', 'socks', 'kits', 'gorras'],
+  shorts: ['jersey', 'socks', 'kits'],
+  socks: ['jersey', 'shorts', 'kits'],
+  kits: ['gorras', 'outerwear', 'socks', 'accesorios'],
+  outerwear: ['pants', 'gorras', 'casual'],
+  pants: ['outerwear', 'casual', 'gorras'],
+  casual: ['gorras', 'outerwear', 'accesorios'],
+  gorras: ['casual', 'accesorios', 'jersey'],
+  accesorios: ['gorras', 'calcomanias', 'casual'],
+  calcomanias: ['accesorios', 'gorras'],
+  mascaras: ['accesorios', 'gorras']
+};
+export function relacionadosDe({ tipo, item } = {}, { products = [], bundles = [] } = {}, n = 4) {
+  if (!item) return [];
+  const cat = tipo === 'kit' ? 'kits' : categoriaDe(item);
+  const todos = [...bundles.map(k => ({ tipo: 'kit', item: k, cat: 'kits' })), ...products.map(p => ({ tipo: 'producto', item: p, cat: categoriaDe(p) }))]
+    .filter(x => !(x.tipo === tipo && String(x.item.id) === String(item.id)));
+  const orden = [...(COMBINA[cat] || []), cat];
+  const rango = x => { const i = orden.indexOf(x.cat); return i < 0 ? 99 : i; };
+  // Estable: a igual rango, el orden del catálogo.
+  return todos.map((x, i) => ({ x, i })).sort((a, b) => rango(a.x) - rango(b.x) || a.i - b.i)
+    .slice(0, n).map(({ x }) => ({ tipo: x.tipo, item: x.item }));
+}

@@ -46,11 +46,12 @@ import { lineasDeRecibo, reciboDe, guardaRecibo, buscaRecibo, leeRecibos, llaveR
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
 import { bannersParaTienda, destinoDe, CADA_MS } from '/pedido/banners.js';
 import { columnasDelMenu, destacadoDelMenu } from '/pedido/megamenu.js';
+import { vacios, hayFiltros, opcionesDeFiltros, aplicaFiltros, chipsDe, quitaFiltro, ajustaRango } from '/pedido/filtros.js';
 import { rutaDeLiga, ligaDe } from '/pedido/ligas.js';
 import { iniciaMedicion, mide, hayIds, cambiaConsentimiento, aqui as medibleAqui } from '/v2/medicion.js';
 import { serializaCarrito, restauraCarrito, cambiaCantidadEnCarrito, cambiaCantidad, alternaGuardado, guardadosVivos } from '/pedido/carrito.js';
 import { normalizaCodigo, codigoValido, descuentoDeCodigo, textoAplicado, ligaDeCompra } from '/v2/codigos.js';
-import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe, sugerenciasAntesDePagar }
+import { seccionesDeTienda, fotosPorFirmar, fotosDeKit, precioDeTarjeta, gruposDeTallas, etiquetaDe, categoriaDe, sugerenciasAntesDePagar, relacionadosDe }
   from '/pedido/catalogo.js';
 
 const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG');
@@ -437,9 +438,19 @@ function bloqueManga(e, r = 0) {
 /* Comprar ahora (11/11/2026): quien compra una sola cosa se va directo a
    pagar, sin pasar por "Va en tu pedido". */
 let irAPagar = false;
-function barraAgregar(texto, motivo) {
-  return `<div class="st-agregar"><p class="st-motivo" role="alert">${esc(motivo || '')}</p>
-    <div class="st-agregar-acc"><button type="button" id="stAgregar" class="st-cta">${esc(texto)}</button>
+/* La barra de comprar (25/11/2026). En el celular lleva arriba la miniatura,
+   el nombre y el precio: quien baja a leer la descripción no pierde de vista
+   qué está comprando ni cuánto cuesta. En el botón, el monto se esconde en el
+   celular (ya está a la izquierda) y se queda en compu. */
+function textoBoton(texto) {
+  const [a, ...b] = String(texto).split(' · ');
+  return `${esc(a)}${b.length ? `<span class="st-cta-monto"> · ${esc(b.join(' · '))}</span>` : ''}`;
+}
+function barraAgregar(texto, motivo, prod = null) {
+  return `<div class="st-agregar${prod ? ' con-prod' : ''}">${prod ? `<div class="st-agregar-prod">${prod.foto}
+      <span class="st-agregar-txt"><small>${esc(prod.nombre)}</small><b id="stBarraPrecio">${prod.desde ? '<small>Desde</small> ' : ''}${money.format(prod.precio)}</b></span></div>` : ''}
+    <p class="st-motivo" role="alert">${esc(motivo || '')}</p>
+    <div class="st-agregar-acc"><button type="button" id="stAgregar" class="st-cta">${textoBoton(texto)}</button>
     <button type="button" id="stComprarYa" class="st-cta st-cta-ya">Comprar ahora</button></div></div>`;
 }
 function botonesTalla(tallas, elegida, atributo) {
@@ -774,6 +785,131 @@ function migas(pasos) {
     : `<li><a href="${esc(m.href)}">${esc(m.texto)}</a><span class="st-migas-sep" aria-hidden="true">/</span></li>`).join('')}</ol></nav>`;
 }
 
+/* ---------- Sellos de confianza (25/11/2026) ----------
+   Debajo de la compra, tres promesas que el club sí cumple: cómo se paga,
+   dónde se recoge y cuánto tiempo hay. (No "devoluciones": lo estampado es
+   personal y no tiene cambio; no "envío gratis": se recoge en el club.) */
+const ICONOS_SELLO = {
+  candado: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5M12 14.5v2.5"/>',
+  club: '<path d="M4 10 12 4l8 6"/><path d="M6 9.5V20h12V9.5M10 20v-5h4v5"/>',
+  reloj: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'
+};
+function sellosHtml() {
+  const metodos = (pagoInfo?.methods || []).map(m => String(m).toLocaleLowerCase('es-MX'));
+  const pago = metodos.length ? (metodos.length > 1 ? `${metodos.slice(0, -1).join(', ')} o ${metodos.at(-1)}` : metodos[0]) : 'tarjeta o transferencia';
+  const sellos = [
+    ['candado', 'Pago seguro', `Con ${pago}`],
+    ['club', 'Sin costo de envío', 'Lo recoges en el club con tu QR'],
+    ['reloj', `${DIAS_PARA_RECOGER} días para recoger`, 'Te avisamos por WhatsApp cuando llegue']
+  ];
+  return `<ul class="st-sellos" aria-label="Compra segura">${sellos.map(([i, t, d]) => `<li>
+    <span class="st-sello-ico"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONOS_SELLO[i]}</svg></span>
+    <span><strong>${esc(t)}</strong><small>${esc(d)}</small></span></li>`).join('')}</ul>`;
+}
+
+/* ---------- También te puede gustar (25/11/2026) ---------- */
+function relacionadosHtml(x) {
+  const l = relacionadosDe(x, catalogo);
+  if (!l.length) return '';
+  return `<section class="st-relacionados" aria-labelledby="stRelT">
+    <div class="st-seccion-cab"><h2 id="stRelT">También te puede gustar</h2></div>
+    <div class="st-rel-pista">${l.map(tarjeta).join('')}</div></section>`;
+}
+
+/* ---------- Filtros (25/11/2026) ----------
+   Talla, color y precio a un lado de las tarjetas (en compu) o en una hoja
+   que sube desde abajo (en el celular). Lo elegido sale arriba en chips que
+   se quitan con un toque. Cambiar de categoría empieza sin filtros. */
+let filtros = vacios(), vista = { clave: null, secciones: [] }, opFiltros = null;
+const ACCESO = {
+  precio: it => it.tipo === 'kit' ? precioDeTarjeta(it.item).monto : precioDeEtiqueta(it.item).monto,
+  tallas: it => it.tipo === 'kit' ? tallasDelKit(it.item) : tallasDe(it.item)
+};
+const dineroCorto = n => money.format(n).replace(/\.00$/, '');
+function seccionesFiltradas() {
+  return vista.secciones.map(s => ({ ...s, items: aplicaFiltros(s.items, filtros, ACCESO) })).filter(s => s.items.length);
+}
+function pintaFiltros() {
+  const aside = $('stFiltros'); if (!aside) return;
+  const op = opFiltros, abiertos = new Set([...aside.querySelectorAll('details')].filter(d => !d.open).map(d => `-${d.dataset.grupo}`));
+  const grupo = (clave, titulo, n, cuerpo) => `<details class="st-fgrupo" data-grupo="${clave}"${abiertos.has(`-${clave}`) ? '' : ' open'}>
+    <summary><span>${titulo}</span>${n ? `<b>${n}</b>` : ''}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="st-fgrupo-in">${cuerpo}</div></details>`;
+  const min = filtros.min ?? op.min, max = filtros.max ?? op.max;
+  aside.innerHTML = `<div class="st-filtros-cab"><h2>Filtros</h2><button type="button" class="st-filtros-x" data-filtros-cierra aria-label="Cerrar filtros">&times;</button></div>
+    ${op.tallas.length ? grupo('talla', 'Talla', filtros.tallas.length, op.tallas.map(g => `${g.etiqueta ? `<p class="st-fsub">${esc(g.etiqueta)}</p>` : ''}<div class="st-ftallas">${g.tallas.map(t => `<label class="st-ftalla"><input type="checkbox" data-f-talla="${esc(t)}"${filtros.tallas.includes(t) ? ' checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>`).join('')) : ''}
+    ${op.colores.length ? grupo('color', 'Color', filtros.colores.length, `<div class="st-swatches">${op.colores.map(c => `<label class="st-swatch"><input type="checkbox" data-f-color="${esc(c.clave)}"${filtros.colores.includes(c.clave) ? ' checked' : ''}><span class="st-swatch-c" style="--c:${esc(c.hex)}"></span><small>${esc(c.etiqueta)}</small></label>`).join('')}</div>`) : ''}
+    ${op.max > op.min ? grupo('precio', 'Precio', filtros.min != null || filtros.max != null ? 1 : 0, `<output class="st-rango-txt" id="stRangoTxt">${dineroCorto(min)} – ${dineroCorto(max)}</output>
+      <div class="st-rango" id="stRango"><div class="st-rango-lleno"></div>
+        <input type="range" id="stRangoMin" min="${op.min}" max="${op.max}" step="${op.paso}" value="${min}" aria-label="Precio mínimo">
+        <input type="range" id="stRangoMax" min="${op.min}" max="${op.max}" step="${op.paso}" value="${max}" aria-label="Precio máximo"></div>
+      <div class="st-rango-lim"><span>${dineroCorto(op.min)}</span><span>${dineroCorto(op.max)}</span></div>`) : ''}
+    <div class="st-filtros-pie"><button type="button" class="st-filtros-limpia" data-f-limpia>Limpiar</button><button type="button" class="st-cta" data-filtros-cierra id="stFiltrosVer"></button></div>`;
+  pintaRango();
+}
+function pintaRango() {
+  const a = $('stRangoMin'), b = $('stRangoMax'), r = $('stRango'); if (!a || !r) return;
+  const lo = Number(a.min), hi = Number(a.max), pct = v => ((v - lo) / Math.max(1, hi - lo)) * 100;
+  r.style.setProperty('--de', `${pct(Math.min(a.value, b.value))}%`);
+  r.style.setProperty('--a', `${pct(Math.max(a.value, b.value))}%`);
+  $('stRangoTxt').textContent = `${dineroCorto(Math.min(a.value, b.value))} – ${dineroCorto(Math.max(a.value, b.value))}`;
+}
+function pintaResultados() {
+  const caja = $('stSecciones'); if (!caja) return;
+  const lista = seccionesFiltradas(), total = lista.reduce((n, s) => n + s.items.length, 0);
+  const chips = chipsDe(filtros, { dinero: dineroCorto }), activa = vista.clave;
+  $('stFiltrosBarra').innerHTML = `<div class="st-fbarra-fila">
+      <button type="button" class="st-filtros-btn" data-filtros-abre aria-controls="stFiltros"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Filtros${chips.length ? ` <b>${chips.length}</b>` : ''}</button>
+      <span class="st-fconteo" aria-live="polite">${total} ${total === 1 ? 'resultado' : 'resultados'}</span></div>
+    ${chips.length ? `<ul class="st-chips" aria-label="Filtros activos">${chips.map(c => `<li><button type="button" class="st-chip" data-chip-tipo="${c.tipo}" data-chip-valor="${esc(c.valor)}" aria-label="Quitar ${esc(c.texto)}">${esc(c.texto)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg></button></li>`).join('')}
+      <li><button type="button" class="st-chip-limpia" data-f-limpia>Limpiar todo</button></li></ul>` : ''}`;
+  const ver = $('stFiltrosVer'); if (ver) ver.textContent = `Ver ${total} ${total === 1 ? 'resultado' : 'resultados'}`;
+  caja.innerHTML = lista.length ? lista.map(s => `<section class="st-seccion" data-seccion="${esc(s.clave)}">
+      ${activa ? '' : `<div class="st-seccion-cab"><h2>${esc(s.etiqueta)}</h2>${s.items.length > 4 && !hayFiltros(filtros) ? `<a href="#/c/${esc(s.clave)}">Ver todo</a>` : ''}</div>`}
+      <div class="st-grid${s.clave === 'kits' && !hayFiltros(filtros) ? ' kits' : ''}">${s.items.map(tarjeta).join('')}</div></section>`).join('')
+    : `<div class="st-sin-res"><strong>Nada con esos filtros</strong><p>Prueba con otra talla, otro color o un rango de precio más amplio.</p><button type="button" class="st-cta" data-f-limpia>Quitar filtros</button></div>`;
+  firmaFotos(caja);
+}
+function abreFiltros(si) {
+  const a = $('stFiltros'); if (!a) return;
+  a.classList.toggle('abierta', si); document.body.classList.toggle('st-sin-scroll', si);
+  if (si) a.querySelector('.st-filtros-x')?.focus(); else document.querySelector('[data-filtros-abre]')?.focus({ preventScroll: true });
+}
+function cableaFiltros() {
+  const c = $('content');
+  let cuadro = 0;
+  c.addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset.fTalla != null) filtros = { ...filtros, tallas: t.checked ? [...filtros.tallas, t.dataset.fTalla] : filtros.tallas.filter(x => x !== t.dataset.fTalla) };
+    else if (t.dataset.fColor != null) filtros = { ...filtros, colores: t.checked ? [...filtros.colores, t.dataset.fColor] : filtros.colores.filter(x => x !== t.dataset.fColor) };
+    else return;
+    pintaResultados(); cuentaGrupos();
+  });
+  c.addEventListener('input', e => {
+    if (e.target.id !== 'stRangoMin' && e.target.id !== 'stRangoMax') return;
+    pintaRango();
+    cancelAnimationFrame(cuadro);
+    cuadro = requestAnimationFrame(() => { filtros = ajustaRango(filtros, $('stRangoMin').value, $('stRangoMax').value, opFiltros); pintaResultados(); cuentaGrupos(); });
+  });
+  c.addEventListener('click', e => {
+    const chip = e.target.closest('[data-chip-tipo]');
+    if (chip) { filtros = quitaFiltro(filtros, { tipo: chip.dataset.chipTipo, valor: chip.dataset.chipValor }); pintaFiltros(); pintaResultados(); return; }
+    if (e.target.closest('[data-f-limpia]')) { filtros = vacios(); pintaFiltros(); pintaResultados(); return; }
+    if (e.target.closest('[data-filtros-abre]')) { abreFiltros(true); return; }
+    if (e.target.closest('[data-filtros-cierra]') || e.target.id === 'stFiltros') abreFiltros(false);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('stFiltros')?.classList.contains('abierta')) abreFiltros(false); });
+}
+// El numerito de cada grupo, sin repintar el panel (no se pierde el foco).
+function cuentaGrupos() {
+  const n = { talla: filtros.tallas.length, color: filtros.colores.length, precio: filtros.min != null || filtros.max != null ? 1 : 0 };
+  document.querySelectorAll('#stFiltros details[data-grupo]').forEach(d => {
+    const s = d.querySelector('summary'); let b = s.querySelector('b');
+    if (!n[d.dataset.grupo]) { b?.remove(); return; }
+    if (!b) { b = document.createElement('b'); s.querySelector('span').after(b); }
+    b.textContent = n[d.dataset.grupo];
+  });
+}
+
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
   const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
@@ -800,11 +936,17 @@ function renderTienda(clave = '') {
       <a href="#/"${activa ? '' : ' class="activa" aria-current="page"'}>Todo</a>
       ${secciones.map(s => `<a href="#/c/${esc(s.clave)}" data-cat="${esc(s.clave)}"${s.clave === activa ? ' class="activa" aria-current="page"' : ''}>${esc(s.etiqueta)}</a>`).join('')}
     </nav>
-    ${visibles.map(s => `<section class="st-seccion" data-seccion="${esc(s.clave)}">
-      ${activa ? '' : `<div class="st-seccion-cab"><h2>${esc(s.etiqueta)}</h2>${s.items.length > 4 ? `<a href="#/c/${esc(s.clave)}">Ver todo</a>` : ''}</div>`}
-      <div class="st-grid${s.clave === 'kits' ? ' kits' : ''}">${s.items.map(tarjeta).join('')}</div></section>`).join('')}
+    <div class="st-catalogo">
+      <aside class="st-filtros" id="stFiltros" aria-label="Filtros"></aside>
+      <div class="st-resultados"><div class="st-fbarra" id="stFiltrosBarra"></div><div id="stSecciones"></div></div>
+    </div>
     ${familia ? '' : `<a class="ya-familia" href="/familias/?tab=tienda">
       <span><strong>¿Ya eres familia Tanner?</strong><small>Entra y tus datos y tu Tanner ya van cargados.</small></span><b>Entrar</b></a>`}`;
+  if (vista.clave !== activa) filtros = vacios();
+  vista = { clave: activa, secciones: visibles };
+  opFiltros = opcionesDeFiltros(visibles.flatMap(s => s.items), ACCESO);
+  pintaFiltros();
+  pintaResultados();
   pintaBarra(true);
   firmaFotos($('content'));
   pintaPortada();
@@ -839,22 +981,30 @@ function renderProducto(id) {
         ${varias ? '' : `<section class="st-bloque"><div class="st-bloque-cab"><h2>Cantidad</h2></div>
           <div class="st-cantidad"><button type="button" data-cantidad="-1" aria-label="Uno menos">&minus;</button>
           <output>${e.cantidad}</output><button type="button" data-cantidad="1" aria-label="Uno más">+</button></div></section>`}
+        ${sellosHtml()}
         ${renglonesDeFicha(p)}
       </div>
     </article>
+    ${relacionadosHtml({ tipo: 'producto', item: p })}
     ${barraAgregar(varias
       ? (multi.ok ? `Agregar ${multi.piezas} ${multi.piezas === 1 ? 'pieza' : 'piezas'} · ${money.format(multi.total)}` : 'Agregar al pedido')
-      : textoAgregarProducto(p, e), e.motivo)}`;
+      : textoAgregarProducto(p, e), e.motivo, {
+      foto: medio(p.photoThumbPath || p.photoPath, p.photoBucket, '', 'st-barra-foto'), nombre: p.name,
+      ...(varias ? (multi.ok ? { precio: multi.total } : (et => ({ precio: et.monto, desde: et.desde }))(precioDeEtiqueta(p))) : { precio: precioAgregarProducto(p, e) })
+    })}`;
   pintaBarra(false);
   cableaGaleria(e);
   firmaFotos($('content'));
 }
 
 // El precio de la barra con manga y nombre y número; se repinta al escribir.
-function textoAgregarProducto(p, e) {
+function precioAgregarProducto(p, e) {
   const extraManga = e.manga === 'larga' && llevaManga(p) ? recargoDe(p) : 0;
   const extraPers = aceptaPersonalizacion(p) && llevaEstampado(e) ? recargoPersDe(p) : 0;
-  return `Agregar al pedido · ${money.format((precioDeProducto(p, e.talla || tallaUnica(p)) + extraManga + extraPers) * e.cantidad)}`;
+  return (precioDeProducto(p, e.talla || tallaUnica(p)) + extraManga + extraPers) * e.cantidad;
+}
+function textoAgregarProducto(p, e) {
+  return `Agregar al pedido · ${money.format(precioAgregarProducto(p, e))}`;
 }
 
 /* ---------- La ficha de un kit ---------- */
@@ -927,10 +1077,15 @@ function renderKit(id) {
               ${tieneManga(r.producto || { name: r.nombre }) ? `<div class="st-pieza-manga">${botonesManga(e, recargoDe(k), 'data-pieza-manga', (e.mangas || {})[r.id] || e.manga)}</div>` : ''}
             </li>`; }).join('')}</ul></section>
         ${bloquePersonaliza(e, k.name, recargoDe(k), false, k, recargoPersDe(k))}
+        ${sellosHtml()}
         ${renglonesDeFicha(k, { kit: true })}
       </div>
     </article>
-    ${barraAgregar(textoAgregarKit(k, e), e.motivo)}`;
+    ${relacionadosHtml({ tipo: 'kit', item: k })}
+    ${barraAgregar(textoAgregarKit(k, e), e.motivo, {
+      foto: (f => medio(f?.ruta, f?.bucket, '', 'st-barra-foto'))(fotosDeKit(k)[0]), nombre: k.name,
+      ...(e.tier ? { precio: precioDeFichaKit(k, e) } : { precio: pr.monto, desde: pr.desde })
+    })}`;
   pintaBarra(false);
   firmaFotos($('content'));
 }
@@ -1112,12 +1267,14 @@ function repintaPrecio(ficha) {
   const p = (catalogo.products || []).find(x => String(x.id) === String(ficha));
   const k = p ? null : (catalogo.bundles || []).find(x => String(x.id) === String(ficha));
   const boton = $('stAgregar');
-  if (p && boton && !admiteVariasTallas(p)) boton.textContent = textoAgregarProducto(p, eligiendo[ficha]);
+  const enBarra = $('stBarraPrecio');
+  if (p && boton && !admiteVariasTallas(p)) { boton.innerHTML = textoBoton(textoAgregarProducto(p, eligiendo[ficha])); if (enBarra) enBarra.textContent = money.format(precioAgregarProducto(p, eligiendo[ficha])); }
   const notaP = p && $('stExtrasPieza');
   if (notaP) { notaP.innerHTML = notaExtrasPieza(p, eligiendo[ficha]); notaP.hidden = !notaP.innerHTML; }
   if (k && boton) {
     const e = eligiendoKit[ficha];
-    boton.textContent = textoAgregarKit(k, e);
+    boton.innerHTML = textoBoton(textoAgregarKit(k, e));
+    if (enBarra && e.tier) enBarra.textContent = money.format(precioDeFichaKit(k, e));
     const nota = $('stExtrasKit');
     if (nota) { nota.innerHTML = notaExtrasKit(k, e); nota.hidden = !nota.innerHTML; }
   }
@@ -1918,6 +2075,7 @@ try {
   }
   // El mega menú, ya con los banners firmados para su tarjeta destacada.
   try { pintaMegaMenu(); cableaMegaMenu(); } catch { /* sin menú, quedan las pestañas */ }
+  cableaFiltros();
   // El carrito de la visita anterior, con lo que la tienda todavía vende.
   // La familia con sesión, sin detener la tienda más de 2.5 s.
   await Promise.race([familiaLista, new Promise(r => setTimeout(r, 2500))]);

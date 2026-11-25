@@ -264,6 +264,7 @@ ya fallaba antes de h101. Las de Tanner LIVE sí quedaron registradas.
 
 ## Archivos
 
+- **[LANZAMIENTO.md](LANZAMIENTO.md) — día de configuración, paso a paso.**
 - [LEVANTAMIENTO-PARQUE.md](LEVANTAMIENTO-PARQUE.md) — qué recopilar físicamente en Tannery City Park.
 - [PRIMERA-CAMARA.md](PRIMERA-CAMARA.md) — pasos y dependencias para conectar la primera cámara.
 - [../../gateway/](../../gateway/README.md) — servidor de video: config de MediaMTX, puente de autorización y prueba de punta a punta.

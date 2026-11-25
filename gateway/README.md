@@ -14,8 +14,12 @@ DVR Dahua ──RTSP (red privada o túnel)──▶ MediaMTX ──WebRTC/HLS +
 | Archivo | Qué es |
 |---|---|
 | `mediamtx.yml` | Configuración de MediaMTX v1.21.4. Sin secretos ni cámaras |
-| `puente.mjs` | Autoriza, da de alta cámaras, corta sesiones y reporta estado. Node 22, sin dependencias |
+| `puente.mjs` | Autoriza, da de alta cámaras, corta sesiones y reporta estado. Node 18 o más nuevo, sin dependencias |
 | `prueba-local.mjs` | Prueba de punta a punta con un DVR simulado, en una sola máquina |
+| `camaras.json` | Las 4 cámaras de la cancha: rutas `tc-cancha-1…4` → canales 9–12 |
+| `servidor/` | Instalador para Ubuntu 24.04 (`instalar.sh`), servicios systemd, Caddyfile y plantilla de variables |
+
+**Guía paso a paso del día de configuración: [docs/tanner-live/LANZAMIENTO.md](../docs/tanner-live/LANZAMIENTO.md).**
 
 ## Variables del puente (sólo en el servidor, nunca en el repo)
 

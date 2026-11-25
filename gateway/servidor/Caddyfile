@@ -1,0 +1,7 @@
+# Tanner LIVE · TLS automático para el servidor de video.
+# HLS (Safari): playlist y segmentos → 8888. WHEP (WebRTC) → 8889.
+live.tannerycity.com {
+	@hls path *.m3u8 *.mp4 *.m4s *.ts
+	reverse_proxy @hls 127.0.0.1:8888
+	reverse_proxy 127.0.0.1:8889
+}

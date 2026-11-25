@@ -40,6 +40,9 @@ export function puertasConSesion({ doc = globalThis.document, nombre = '', entra
   if (b) b.textContent = 'Entrar al vestidor';
   if (s) s.textContent = nombre ? `Sesión abierta: ${nombre}. Un toque y entras` : 'Tu sesión sigue abierta. Un toque y entras';
   boton.setAttribute('aria-label', 'Entrar al vestidor con tu sesión abierta');
+  // El candado se abre: ya estás adentro (25/11/2026).
+  const arco = boton.querySelector('.tc-icono-staff svg path');
+  if (arco) arco.setAttribute('d', 'M8.5 10.5V8a3.5 3.5 0 0 1 6.9-.9');
   // En captura: antes de que las puertas abran el formulario de contraseña. Una sola vez.
   acciones.entrar = entrar; acciones.salir = salir;
   if (!doc.__tcSesion) {

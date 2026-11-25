@@ -221,14 +221,21 @@ body:has(.tc-cristal:not(.hidden)){background:linear-gradient(160deg,#0b2a33,#0b
 .tc-icono svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tc-icono-portal{background:#0a84ff;color:#fff}
 .tc-icono-tienda{background:#c9a96e;color:#0a1d33}
-.tc-icono-registro{background:#0b2a33;color:#0a1d33}
+.tc-icono-registro{background:#ff9f0a;color:#0a1d33}
 .tc-icono-centro{background:#bf5af2;color:#fff}
 /* Sesión abierta en las puertas (04/11/2026). */
-#abreStaff[data-con-sesion="1"] .tc-icono-staff{background:#0b2a33;color:#0a1d33}
+#abreStaff[data-con-sesion="1"] .tc-icono-staff{background:#fff;color:#0a1d33}
 .tc-sesion-nota{margin:-4px 0 0;text-align:center;font-size:13px;color:rgba(255,255,255,.7)}
 .tc-sesion-salir{border:0;background:none;color:#fff;font:inherit;font-weight:600;text-decoration:underline;cursor:pointer;padding:6px 4px}
 .tc-icono-costos{background:#ff9f0a;color:#0a1d33}
 .tc-icono-staff{background:rgba(255,255,255,.14);color:#fff}
+/* Tanner LIVE (25/11/2026): ya se ve, todavía no abre. */
+.tc-icono-live{background:#ff3b30;color:#fff}
+.tc-icono-live .tc-live-punto{fill:currentColor}
+.tc-puerta.tc-puerta-pronto{cursor:default}
+.tc-puerta.tc-puerta-pronto:hover{background:rgba(255,255,255,.08)!important}
+.tc-puerta.tc-puerta-pronto:active{transform:none}
+.tc-pronto{flex:0 0 auto;font-size:12px;font-weight:700;letter-spacing:.02em;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
 .tc-puerta-txt{flex:1;display:grid;gap:2px;min-width:0}
 .tc-puerta-txt b{font-size:17px;font-weight:600;letter-spacing:-.01em}
 .tc-puerta-txt small{font-size:13.5px;opacity:.68;line-height:1.3}

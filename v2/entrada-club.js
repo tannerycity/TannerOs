@@ -42,6 +42,8 @@ async function pinta() {
   if (!club || club === 'tannery-city-fc') return;
   // /costos tiene los precios de Tannery: en la entrada de otro club no va.
   q('.tc-familias [data-familia="costos"]')?.remove();
+  // Tanner LIVE es de Tannery: otro club no lo ve (25/11/2026).
+  q('.tc-familias [data-puerta="live"]')?.remove();
   let ctx = null;
   try {
     const { data, error } = await supabase.rpc('v2_public_context', { club_key: club });
@@ -69,7 +71,7 @@ async function pinta() {
 }
 
 function entradaDePlataforma() {
-  ['.tc-escudo', '.tc-hashtag', '.tc-trabaja'].forEach(s => q(s)?.remove());
+  ['.tc-escudo', '.tc-hashtag', '.tc-trabaja', '.tc-familias [data-puerta="live"]'].forEach(s => q(s)?.remove());
   document.querySelectorAll('.tc-familias [data-familia]').forEach(a => a.remove());
   const firma = q('.tc-wordmark');
   if (firma) { const h = document.createElement('p'); h.className = 'tc-club-nombre'; h.textContent = PLATAFORMA.nombre; firma.replaceWith(h); }

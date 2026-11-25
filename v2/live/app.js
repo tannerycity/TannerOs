@@ -212,7 +212,7 @@ function hojaCompartir(b, nota = '') {
     <code class="live-hoja-enlace">${esc(enlace)}</code>
     <div class="tv-botones"><button type="button" class="tv-grande claro" data-copiar>Copiar</button>
       <a class="tv-grande" style="display:grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(wa)}">WhatsApp</a></div>
-    ${navigator.share ? '<button type="button" class="tv-texto" data-compartir>Más opciones</button>' : ''}
+    ${navigator.share ? '<button type="button" class="tv-texto" data-compartir>Compartir en otras apps</button>' : ''}
     <button type="button" class="tv-texto" data-nuevo-enlace="${esc(b.id)}">Cambiar el enlace</button>
     <button type="button" class="tv-texto" data-cerrar>Listo</button>`, h => {
     h.querySelector('[data-copiar]').onclick = async ev => {

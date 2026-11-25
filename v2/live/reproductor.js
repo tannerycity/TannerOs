@@ -19,6 +19,7 @@ const ICONO = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none"/></svg>',
   pausa: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none"/></svg>',
   completa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>',
+  salir: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></svg>',
   camara: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13.5" height="12" rx="2.5"/><path d="m16 10.5 5.5-3v9l-5.5-3"/></svg>'
 };
 
@@ -32,7 +33,7 @@ export function creaReproductor(contenedor, { titulo = '', pideTicket, alCambiar
       <div class="live-poster"><span class="live-poster-ico">${ICONO.camara}</span><strong class="live-poster-tit"></strong><p class="live-msg"></p></div>
       <div class="live-sello" aria-live="polite"><i></i><span>Listo</span></div>
       <button type="button" class="live-play" aria-label="Reproducir"><span class="ico-play">${ICONO.play}</span><span class="ico-pausa">${ICONO.pausa}</span></button>
-      <div class="live-controles"><button type="button" class="live-btn live-full" aria-label="Pantalla completa">${ICONO.completa}</button></div>
+      <div class="live-controles"><button type="button" class="live-btn live-full" aria-label="Pantalla completa"><span class="ico-completa">${ICONO.completa}</span><span class="ico-salir">${ICONO.salir}</span></button></div>
     </div>`;
   const caja = contenedor.querySelector('.live-video');
   const video = caja.querySelector('video');
@@ -48,6 +49,7 @@ export function creaReproductor(contenedor, { titulo = '', pideTicket, alCambiar
 
   let pc = null, recurso = null, ticket = null, proveedor = null, animacion = 0, intentos = 0, vivo = false, reintento = 0, desconexion = 0;
   let estado = 'inactivo';
+  let salCompleta = () => {};
 
   function pon(nuevo, texto = '') {
     estado = nuevo;
@@ -151,7 +153,9 @@ export function creaReproductor(contenedor, { titulo = '', pideTicket, alCambiar
     let r;
     try { r = await pideTicket(); }
     catch (e) { return falla('No pudimos pedir acceso a la cámara.'); }
-    if (!r?.ok) { intentos = 0; pon('inactivo', ''); try { alRechazo(r); } catch (_) {} return r; }
+    // Un "no" del servidor se explica fuera de la pantalla completa: si no, el
+    // aviso quedaría detrás del video.
+    if (!r?.ok) { intentos = 0; pon('inactivo', ''); salCompleta(); try { alRechazo(r); } catch (_) {} return r; }
     ticket = r.ticket;
     try {
       if (window.RTCPeerConnection && r.whep) { proveedor = 'whep'; await whep(r.whep); }
@@ -175,10 +179,28 @@ export function creaReproductor(contenedor, { titulo = '', pideTicket, alCambiar
     if (estado === 'en_vivo' || estado === 'conectando' || estado === 'prueba') { detenTodo(); intentos = 0; pon('pausado', 'Transmisión en pausa.'); }
     else caja.dispatchEvent(new CustomEvent('live:play', { bubbles: true }));
   });
-  btnFull.addEventListener('click', () => {
-    if (document.fullscreenElement) return document.exitFullscreen?.();
-    if (caja.requestFullscreen) return caja.requestFullscreen().catch(() => video.webkitEnterFullscreen?.());
-    if (video.webkitEnterFullscreen) return video.webkitEnterFullscreen(); // iPhone
+  // Pantalla completa (25/11/2026, Presidencia: "que se vea en todo el iPhone").
+  // Android, iPad y computadora: pantalla completa real del navegador y, si se
+  // deja, se gira a horizontal. iPhone: con video en vivo, el reproductor
+  // nativo de iOS (gira con el teléfono); si no, "modo cine" que cubre toda la
+  // pantalla. Si se toca antes de reproducir, también arranca.
+  const enCompleta = () => document.fullscreenElement === caja || document.webkitFullscreenElement === caja || caja.classList.contains('cine');
+  const marca = () => { const si = enCompleta(); caja.classList.toggle('completa', si); btnFull.setAttribute('aria-label', si ? 'Salir de pantalla completa' : 'Pantalla completa'); };
+  const saleCine = () => { caja.classList.remove('cine'); document.documentElement.classList.remove('live-cine'); marca(); };
+  salCompleta = () => { saleCine(); if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {}); };
+  document.addEventListener('fullscreenchange', marca);
+  document.addEventListener('webkitfullscreenchange', marca);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && caja.classList.contains('cine')) saleCine(); });
+  btnFull.addEventListener('click', async () => {
+    if (caja.classList.contains('cine')) return saleCine();
+    if (document.fullscreenElement || document.webkitFullscreenElement) return (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+    if (estado !== 'en_vivo' && estado !== 'prueba' && estado !== 'conectando') caja.dispatchEvent(new CustomEvent('live:play', { bubbles: true }));
+    const pide = caja.requestFullscreen || caja.webkitRequestFullscreen;
+    if (pide) {
+      try { await pide.call(caja); try { await screen.orientation?.lock?.('landscape'); } catch (_) {} return; } catch (_) {}
+    }
+    if (estado === 'en_vivo' && video.webkitEnterFullscreen) { try { return video.webkitEnterFullscreen(); } catch (_) {} } // iPhone
+    caja.classList.add('cine'); document.documentElement.classList.add('live-cine'); marca();
   });
   // Si la pestaña se oculta mucho tiempo, se suelta la conexión.
   let ocultoDesde = 0;
@@ -186,7 +208,7 @@ export function creaReproductor(contenedor, { titulo = '', pideTicket, alCambiar
     if (document.hidden) ocultoDesde = Date.now();
     else if (ocultoDesde && Date.now() - ocultoDesde > 5 * 60 * 1000 && (estado === 'en_vivo' || estado === 'conectando')) { detenTodo(); pon('pausado', 'Pausamos la transmisión mientras no la veías.'); }
   });
-  window.addEventListener('pagehide', () => { detenTodo(); });
+  window.addEventListener('pagehide', () => { detenTodo(); saleCine(); });
 
   return {
     arranca, detener: async (texto = '') => { await detenTodo(); intentos = 0; pon('inactivo', texto); },

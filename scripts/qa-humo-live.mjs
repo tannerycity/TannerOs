@@ -141,6 +141,34 @@ const sello = p => p.locator('.live-sello span').textContent();
   await p.close();
 }
 
+// 11. Pantalla completa en iPhone (sin requestFullscreen): modo cine que cubre todo.
+//     Con ticket válido (el servidor de video no responde aquí: se queda
+//     conectando, que es lo que importa para la pantalla).
+{
+  const fx = { v2_live_mis_camaras: { pausado: false, terminos: { version: 1, aceptados: true }, camaras: [CAM] }, v2_live_ticket: { ok: true, ticket: 't', whep: 'http://127.0.0.1:9/tc/whep' } };
+  const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await p.addInitScript(f => { window.__rpc = []; window.__fixtures = f; delete Element.prototype.requestFullscreen; delete Element.prototype.webkitRequestFullscreen; delete HTMLVideoElement.prototype.webkitEnterFullscreen; }, fx);
+  await p.goto(BASE + '/v2/familias/live/', { waitUntil: 'networkidle' }); await p.waitForTimeout(500);
+  revisa('el botón de expandir se ve antes de reproducir', await p.locator('.live-full').isVisible());
+  await p.click('.live-full'); await p.waitForTimeout(300);
+  const r = await p.evaluate(() => { const c = document.querySelector('.live-video').getBoundingClientRect(); return { cine: document.querySelector('.live-video').classList.contains('cine'), w: c.width, h: c.height, x: c.x, y: c.y }; });
+  revisa('iPhone: expandir cubre toda la pantalla', r.cine && r.w === 390 && r.h === 844 && r.x === 0 && r.y === 0, JSON.stringify(r));
+  revisa('expandir antes de reproducir también pide la transmisión', (await rpcs(p)).includes('v2_live_ticket'));
+  await p.click('.live-full'); await p.waitForTimeout(200);
+  revisa('tocar otra vez regresa a la vista normal', !(await p.evaluate(() => document.querySelector('.live-video').classList.contains('cine'))));
+  await p.close();
+}
+// 12. Si el servidor dice que no, se sale de pantalla completa para explicarlo.
+{
+  const fx = { v2_live_mis_camaras: { pausado: false, terminos: { version: 1, aceptados: true }, camaras: [CAM] }, v2_live_ticket: { ok: false, motivo: 'fuera_de_horario' } };
+  const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await p.addInitScript(f => { window.__rpc = []; window.__fixtures = f; delete Element.prototype.requestFullscreen; delete Element.prototype.webkitRequestFullscreen; }, fx);
+  await p.goto(BASE + '/v2/familias/live/', { waitUntil: 'networkidle' }); await p.waitForTimeout(500);
+  await p.click('.live-full'); await p.waitForTimeout(400);
+  revisa('un "no" del servidor no queda escondido en pantalla completa', !(await p.evaluate(() => document.querySelector('.live-video').classList.contains('cine'))) && /horario/i.test(await p.locator('.live-msg').textContent()));
+  await p.close();
+}
+
 // 4. Familia sin aceptar reglas: reglas, no video.
 {
   const fx = { v2_live_mis_camaras: { pausado: false, terminos: { version: 1, aceptados: false }, camaras: [{ ...CAM, motivo: 'sin_terminos' }] }, v2_live_aceptar_terminos: { ok: true, version: 1 } };

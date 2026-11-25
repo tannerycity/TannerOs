@@ -1,0 +1,17 @@
+[Unit]
+Description=Tanner LIVE · puente de autorización
+After=mediamtx.service
+Requires=mediamtx.service
+
+[Service]
+User=tannerlive
+EnvironmentFile=/etc/tannerlive/puente.env
+ExecStart=/usr/bin/node /opt/tannerlive/puente.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

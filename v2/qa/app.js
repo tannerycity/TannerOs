@@ -29,6 +29,7 @@ const moduleCatalog={
   users:{name:'Usuarios y permisos',short:'Usuarios',route:'/usuarios/'},
   parking:{name:'Estacionamiento',short:'Estacionamiento',route:'/estacionamiento/'},
   messages:{name:'Mensajes',short:'Mensajes',route:'/mensajes/'},
+  live:{name:'Tanner LIVE',short:'LIVE',route:'/live/'},
   sport:{name:'Área deportiva',short:'Deportivo',route:'/jugadores/'},
   admin:{name:'Administración',short:'Administración',route:'/admin/'},
   qa:{name:'Centro de Calidad',short:'Calidad',route:'/qa/'}
@@ -122,7 +123,7 @@ function criticalTests(){return [
 const fullRouteMatrix=[
   ['home-full','Inicio','/','home'],['club','Club','/club/','club'],['direction','Dirección','/direccion/','club'],
   ['finance-full','Finanzas','/finanzas/','finance'],['cashier-full','Taquilla','/taquilla/','cashier'],['tanner','Ficha Tanner','/tanner/','players'],
-  ['families','Familias','/familias/','players'],['parking','Estacionamiento','/estacionamiento/','parking'],['messages','Mensajes','/mensajes/','messages'],['players-full','Jugadores','/jugadores/','players'],
+  ['families','Familias','/familias/','players'],['parking','Estacionamiento','/estacionamiento/','parking'],['live','Tanner LIVE','/live/','live'],['live-familias','Tanner LIVE para familias','/familias/live/','live'],['live-enlace','Tanner LIVE por enlace','/ver/','live'],['messages','Mensajes','/mensajes/','messages'],['players-full','Jugadores','/jugadores/','players'],
   ['attendance','Asistencia','/asistencia/','attendance'],['scholarships','Becas','/becas/','club'],['ideas','Ideas','/ideas/','admin'],['changes','Cambios','/cambios/','admin'],['visorias','Visorías','/visorias/','scouting'],['birthdays','Cumpleaños','/cumpleanos/','club'],['packages','Paquetes','/paquetes/','club'],['matches','Partidos','/partidos/','sport'],['calendar','Calendario','/calendario/','calendar'],
   ['academies','Academias','/operacion/academias/','academies'],['prospects-full','Captación','/prospectos/','prospects'],['scouting-full','Scouting','/scouting/','scouting'],
   ['orders-full','Pedidos','/pedidos/','commerce'],['order-capture','Levantar pedido','/captura/','commerce'],['equipment','Utilería','/utileria/','equipment'],['sponsors','Patrocinios','/patrocinadores/','sponsors'],

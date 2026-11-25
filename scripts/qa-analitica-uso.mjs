@@ -16,7 +16,22 @@ revisa('staff sí; Tanner, familias y desconocidos no', rolMedible('Presidencia'
 revisa('sólo el dominio oficial', hostMedible('app.tannerycity.com') && !hostMedible('tanneros-git-x.vercel.app') && !hostMedible('localhost') && !hostMedible('tcp.tannerycity.com'));
 const shell = fs.readFileSync(new URL('../v2/shell.js', import.meta.url), 'utf8');
 const delMenu = [...shell.slice(shell.indexOf('export const navItems=['), shell.indexOf('];', shell.indexOf('export const navItems=['))).matchAll(/\{code:'([^']+)'/g)].map(m => m[1]);
-revisa('el catálogo cubre cada módulo del menú', delMenu.length > 20 && delMenu.every(m => MODULOS.includes(m)), delMenu.filter(m => !MODULOS.includes(m)).join(','));
+// Un módulo nuevo puede estar en el menú antes de que su migración se aplique
+// (Tanner LIVE, h101): el menú sólo lo enseña cuando la base lo devuelve en
+// v2_my_navigation. Se tolera SÓLO si una propuesta pendiente lo agrega a
+// private.usage_modulos(). Al aplicarla y borrarla de propuestas/, esta prueba
+// vuelve a exigir que el catálogo del navegador lo incluya.
+const PROP = new URL('../supabase/propuestas/', import.meta.url);
+const pendientes = new Set(fs.readdirSync(PROP).filter(f => f.endsWith('.sql') && !/_reverso\.sql$/.test(f)).flatMap(f => {
+  const sql = fs.readFileSync(new URL(f, PROP), 'utf8'), i = sql.indexOf('function private.usage_modulos()');
+  if (i < 0) return [];
+  const a = sql.indexOf('select array[', i);
+  return [...sql.slice(a, sql.indexOf(']', a)).matchAll(/'([^']+)'/g)].map(m => m[1]);
+}));
+const fuera = delMenu.filter(m => !MODULOS.includes(m));
+const porAplicar = fuera.filter(m => pendientes.has(m));
+if (porAplicar.length) console.log(`· en el menú con su migración por aplicar: ${porAplicar.join(', ')}`);
+revisa('el catálogo cubre cada módulo del menú', delMenu.length > 20 && fuera.every(m => pendientes.has(m)), fuera.filter(m => !pendientes.has(m)).join(','));
 revisa('el catálogo de h55 es el mismo que el del navegador', (() => {
   // El catálogo vigente es el de la última migración que redefine private.usage_modulos() (h55, h58…).
   const MIG = new URL('../supabase/migrations/', import.meta.url);

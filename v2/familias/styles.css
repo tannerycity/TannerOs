@@ -30,6 +30,7 @@
 .fam-btn{min-height:48px;border:0;border-radius:13px;background:var(--fam-teal);color:#fff;
   font:inherit;font-weight:600;font-size:15px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .fam-btn:disabled{opacity:.55}
+a.fam-btn{display:flex;align-items:center;justify-content:center;text-decoration:none}
 .fam-message{font-size:13px;padding:11px 13px;border-radius:11px;background:#fdecea;color:#a4352b;border:1px solid #f0d0ca}
 .fam-message[data-type="success"]{background:#edf8f2;color:#1c6339;border-color:#c5e6d1}
 

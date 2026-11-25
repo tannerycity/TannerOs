@@ -77,7 +77,7 @@ const BASE='http://localhost:'+s.address().port;
 const NAV=['inicio','club','direccion','finanzas','taquilla','tanner','jugadores','asistencia',
   'convocatoria','calendario','academias','prospectos','scouting','pedidos','catalogo','utileria',
   'patrocinadores','contabilidad','usuarios','admin','qa','modulos','deportivo','porteros',
-  'produccion','programas','estacionamiento','familias','captura','formacion','formacion_direccion','metricas']
+  'produccion','programas','estacionamiento','familias','captura','formacion','formacion_direccion','metricas','live']
   .map((c,i)=>({module_code:c,module_name:c,can_read:true,can_write:true,enabled:true,customized:false,sort_order:i*10}));
 const MOD=['sponsors','equipment','prospects','players','programs','catalog','scouting','admin','calendar','attendance','tanner','store','pos']
   .map(c=>({module_code:c,enabled:true,can_read:true,can_write:true}));
@@ -113,6 +113,13 @@ const FIX={
   v2_club_config:{name:'Tannery City FC',legalName:'Tannery City FC',timezone:'America/Mexico_City',
     locale:'es-MX',currency:'MXN',slug:'tannery-city',status:'active'},
   v2_organization_settings:{whatsappNumber:'524792651338',ledgerCutoverOn:'2026-08-01'},
+  // Tanner LIVE (h101): una cámara sin gateway, sin grabador conectado. El
+  // humo comprueba que /live/ y /familias/live/ dibujan sin señal real.
+  v2_live_mis_camaras:{pausado:false,terminos:{version:1,aceptados:true},camaras:[{id:'cam-1',nombre:'Cancha 1',cancha:'Cancha 1',motivo:'ok',estado:'sin_configurar',horario:[{dia:2,de:'17:00',a:'19:00'}]}]},
+  v2_live_panel:{ajustes:{pausado:false,gateway:null,ticket_seg:120,sesion_min:90,terminos_version:1},presidencia:true,
+    grabadores:[{id:'rec-1',nombre:'Grabador del parque',tipo:'desconocido',puerto:554,codec:'desconocido',substream:null,conectividad:'sin_verificar'}],
+    camaras:[{id:'cam-1',grabador:'rec-1',nombre:'Cancha 1',cancha:'Cancha 1',perfil:'sub',activa:false,sensible:false,categorias:['T10'],roles:[],horario:[{dia:2,de:'17:00',a:'19:00'}],estado:'sin_configurar',viendo:0}],
+    transmisiones:[],bloqueos:[],diagnosticos:[],categorias:['T10','T12'],roles:['Formadores','Presidencia']},
 };
 const b=await chromium.launch({executablePath:process.env.CHROME_PATH||'/opt/pw-browsers/chromium-1194/chrome-linux/chrome',args:['--no-sandbox']});
 

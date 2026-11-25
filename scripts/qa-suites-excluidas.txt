@@ -17,6 +17,7 @@ qa-humo-navegador.mjs
 qa-image-encode-browser.mjs
 qa-humo-asistencia.mjs
 qa-humo-familias.mjs
+qa-humo-live.mjs
 qa-humo-montos.mjs
 qa-humo-conciliacion.mjs
 qa-humo-evaluacion.mjs

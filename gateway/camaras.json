@@ -1,0 +1,6 @@
+[
+  { "ruta": "tc-cancha-1", "canal": 9,  "perfil": "sub" },
+  { "ruta": "tc-cancha-2", "canal": 10, "perfil": "sub" },
+  { "ruta": "tc-cancha-3", "canal": 11, "perfil": "sub" },
+  { "ruta": "tc-cancha-4", "canal": 12, "perfil": "sub" }
+]

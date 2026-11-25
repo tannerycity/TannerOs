@@ -1,0 +1,16 @@
+[Unit]
+Description=Tanner LIVE · MediaMTX (servidor de video)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tannerlive
+ExecStart=/opt/tannerlive/mediamtx /etc/tannerlive/mediamtx.yml
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

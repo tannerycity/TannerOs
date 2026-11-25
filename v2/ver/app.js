@@ -30,21 +30,22 @@ async function abre() {
   if (!info) return aviso('No pudimos abrir la transmisión', 'Revisa tu conexión e intenta de nuevo.');
   const m = motivo(info.motivo);
   if (!info.ok && ['no_existe', 'terminada', 'modulo_apagado', 'sensible'].includes(info.motivo)) return aviso(m.titulo, m.texto);
-  body.innerHTML = `<section class="live-hero live-pub-hero"><div><p class="live-eyebrow">Transmisión en vivo · sin audio</p>
-      <h1>${esc(info.titulo || info.camara || 'En vivo')}</h1>
-      <p>${esc([info.cancha || info.camara, info.termina ? `hasta las ${hora(info.termina)}` : ''].filter(Boolean).join(' · '))}</p></div></section>
-    <section class="live-panel live-escenario"><div id="liveReproductor"></div>
-      <p class="live-nota" id="liveNota">${esc(info.ok ? 'Toca Reproducir para ver.' : m.texto)}</p>
-      <p class="live-muted">No grabes ni compartas la transmisión. Este enlace deja de servir cuando termina.</p></section>`;
+  const nombre = info.titulo || info.camara || 'En vivo';
+  body.innerHTML = `<header class="tv-cab"><div class="tv-marca"><h1>Tanner <b>LIVE</b></h1></div></header>
+    <section class="tv-escenario"><div id="liveReproductor"></div></section>
+    <div class="tv-info"><div><h2 class="live-pub-tit">${esc(nombre)}</h2>
+      <p class="tv-sub">${esc([info.cancha || (info.titulo ? info.camara : ''), info.termina ? `hasta las ${hora(info.termina)}` : ''].filter(Boolean).join(' · '))}</p></div></div>
+    <p class="tv-nota" id="liveNota">Sin audio. No grabes ni compartas la transmisión; el enlace deja de servir cuando termina.</p>`;
   reproductor = creaReproductor(document.getElementById('liveReproductor'), {
+    titulo: nombre,
     pideTicket: () => rpc('v2_live_publico_ticket', { enlace: codigo }),
-    alCambiar: e => { if (e === 'en_vivo') document.getElementById('liveNota').textContent = 'Estás viendo en vivo.'; },
     alRechazo: r => {
       const mm = motivo(r?.motivo);
       if (['terminada', 'no_existe'].includes(r?.motivo)) return aviso(mm.titulo, mm.texto);
-      document.getElementById('liveNota').textContent = mm.texto; reproductor.aviso(mm.titulo);
+      reproductor.aviso(mm.texto);
     }
   });
+  reproductor.poster('', info.ok ? 'Toca play para ver.' : m.texto);
   document.getElementById('liveReproductor').addEventListener('live:play', () => reproductor.arranca());
 }
 

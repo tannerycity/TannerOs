@@ -1,125 +1,222 @@
-/* Tanner LIVE (23/11/2026). Paleta de la casa (la misma de Encuestas y la
-   credencial): azul noche, dorado y crema. Ningún color nuevo. El rojo de
-   "En vivo" es el rojo del club (#b3412e) y siempre va con palabra. */
-.live-page{--noche:#07191e;--noche2:#0b2a33;--oro:#c6ac5c;--oro-claro:#e9d19c;--oro-oscuro:#a9895a;--crema:#f6f2e8;--linea:#e3d9b8;--tinta:#10252b;--gris:#5c6a63;
-  --vivo:#b3412e;--bien:#2f7d4a;--aviso-fondo:#fdf2dc;--aviso-tinta:#6b5414;display:grid;gap:14px;min-width:0}
-.live-page h1,.live-page h2{font-family:'Barlow Condensed',Inter,sans-serif;text-transform:uppercase;font-weight:800;margin:0}
-.live-hero{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding:22px;border-radius:24px;color:#fff;
-  background:radial-gradient(120% 120% at 0% 0%,var(--noche2),var(--noche) 70%)}
-.live-hero h1{font-size:44px;line-height:.95;color:#fff;margin:4px 0 6px}
-.live-hero p{margin:0;max-width:560px;color:rgba(255,255,255,.78);line-height:1.45;font-size:14px}
-.live-eyebrow{font-size:12px!important;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--oro-claro)!important}
-.live-panico{border:1.5px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:12px;padding:12px 16px;font:inherit;font-weight:800;font-size:14px;cursor:pointer}
-.live-panico:hover{background:var(--vivo);border-color:var(--vivo)}
-.live-panico.reanuda{background:var(--oro);border-color:var(--oro);color:var(--noche)}
-.live-banda{margin:0;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.4}
-.live-banda.aviso{background:var(--aviso-fondo);color:var(--aviso-tinta);font-weight:700}
-.live-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
-.live-tabs button{flex:0 0 auto;border:1px solid var(--linea);background:#fff;color:var(--tinta);border-radius:999px;padding:9px 15px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}
-.live-tabs button[aria-selected="true"]{background:var(--noche);border-color:var(--noche);color:var(--oro-claro)}
-.live-vista{display:grid;gap:14px;min-width:0}
-.live-panel{display:grid;gap:12px;padding:18px;border-radius:20px;background:#fff;border:1px solid var(--linea);min-width:0}
-.live-panel h2{font-size:24px;color:var(--tinta)}
-.live-panel p{margin:0;line-height:1.45}
-.live-vacio{text-align:center;justify-items:center;padding:34px 18px}
-.live-cab{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
-.live-muted{color:var(--gris);font-size:13px;line-height:1.45}
-.live-b{border:1px solid var(--linea);background:#fff;color:var(--tinta);border-radius:11px;padding:10px 14px;font:inherit;font-weight:800;font-size:13px;cursor:pointer;min-height:40px}
-.live-b.primario{background:var(--noche);border-color:var(--noche);color:var(--oro-claro)}
-.live-b.peligro{color:var(--vivo);border-color:var(--vivo)}
-.live-b.sutil{border-color:transparent;color:var(--gris)}
-.live-acciones{display:flex;flex-wrap:wrap;gap:8px}
-.live-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.04em;padding:4px 10px;border-radius:999px;white-space:nowrap;background:var(--crema);color:var(--gris)}
-.live-pill.ok{background:var(--noche2);color:var(--oro-claro)}
-.live-pill.aviso{background:var(--aviso-fondo);color:var(--aviso-tinta)}
-.live-pill.vivo{background:var(--vivo);color:#fff}
+/* Tanner LIVE (rediseño 25/11/2026, Presidencia: "hazlo estilo Apple, fácil,
+   como Real Madrid TV o MUTV"). El video manda: pantalla oscura de cine, un
+   solo botón de play, cámaras como canales y un solo botón rojo: Transmitir.
+   Lo técnico vive en Ajustes.
+   Colores: sólo los que ya existen en el sistema (tope de diseno-limpio):
+   azul noche y dorado del club, grises y rojo de Apple. "En vivo" siempre
+   lleva palabra, nunca sólo color. */
+.live-page{--fondo:#07191e;--capa:#0b2a33;--capa2:#1c1c1e;--linea:rgba(255,255,255,.09);--txt:#fff;--txt2:#8e8e93;
+  --oro:#c6ac5c;--oro2:#e9d19c;--vivo:#ff3b30;--aviso:#e9d19c;
+  --f:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,system-ui,sans-serif;
+  font-family:var(--f);color:var(--txt);background:var(--fondo);border-radius:24px;padding:20px;
+  display:grid;gap:22px;align-content:start;min-width:0;-webkit-font-smoothing:antialiased}
+.live-publica{min-height:100vh;min-height:100dvh;border-radius:0}
+.live-page *{box-sizing:border-box}
+.live-page h1,.live-page h2,.live-page h3{margin:0;font-family:var(--f);letter-spacing:-.02em;color:var(--txt)}
+.live-page p{margin:0}
+.live-page button{font-family:var(--f)}
+.live-page :focus-visible{outline:3px solid var(--oro);outline-offset:2px}
 
-/* Ver */
-.live-ver{display:grid;gap:12px;min-width:0}
-@media(min-width:980px){.live-ver{grid-template-columns:240px 1fr;align-items:start}.live-lista{flex-direction:column;overflow:visible}}
-.live-lista{display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;min-width:0}
-.live-chip{flex:0 0 auto;display:grid;gap:2px;text-align:left;padding:12px 14px;border-radius:14px;border:1.5px solid var(--linea);background:#fff;color:var(--tinta);font:inherit;cursor:pointer;min-width:160px}
-.live-chip small{color:var(--gris);font-size:12px}
-.live-chip.activa{background:var(--noche);border-color:var(--noche);color:#fff}.live-chip.activa small{color:rgba(255,255,255,.72)}
-.live-escenario{display:grid;gap:10px;min-width:0}
-.live-info{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
-.live-info h2{font-size:26px}.live-info p{color:var(--gris);font-size:13px}
-.live-nota{color:var(--gris);font-size:13px}
-.live-reglas{padding:16px;border-radius:16px;background:var(--crema);border:1px solid var(--linea);display:grid;gap:10px}
-.live-reglas h3{margin:0;font-size:15px}.live-reglas ol{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.4}
+/* Encabezado */
+.tv-cab{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tv-marca{display:flex;align-items:baseline;gap:10px;min-width:0}
+.tv-marca h1{font-size:28px;font-weight:800}
+.tv-marca h1 b{color:var(--vivo);font-weight:800}
+.tv-icono{width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.08);color:var(--txt);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.tv-icono svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tv-icono:hover{background:rgba(255,255,255,.14)}
+.tv-volver{border:0;background:none;color:var(--oro2);font-size:17px;font-weight:600;cursor:pointer;padding:8px 0;display:inline-flex;align-items:center;gap:4px}
 
 /* Reproductor */
-.live-video{position:relative;width:100%;aspect-ratio:16/9;background:var(--noche);border-radius:18px;overflow:hidden;color:#fff;user-select:none;-webkit-user-select:none}
-.live-video video,.live-video canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--noche)}
+.live-video{position:relative;width:100%;aspect-ratio:16/9;max-width:100%;background:#000;border-radius:20px;overflow:hidden;color:#fff;user-select:none;-webkit-user-select:none;
+  box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.live-video video,.live-video canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 .live-video:fullscreen{border-radius:0}
-.live-sello{position:absolute;top:12px;left:12px;display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;background:rgba(7,25,30,.72);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-.live-sello i{width:8px;height:8px;border-radius:50%;background:var(--gris)}
-.live-video[data-estado="en_vivo"] .live-sello{background:var(--vivo)}
-.live-video[data-estado="en_vivo"] .live-sello i{background:#fff;animation:livePulso 1.4s ease-in-out infinite}
-.live-video[data-estado="prueba"] .live-sello{background:var(--oro);color:var(--noche)}
-.live-video[data-estado="sin_senal"] .live-sello i,.live-video[data-estado="error"] .live-sello i{background:var(--oro)}
-.live-video[data-estado="conectando"] .live-sello i{background:var(--oro-claro);animation:livePulso .9s ease-in-out infinite}
-@keyframes livePulso{50%{opacity:.25}}
-@media(prefers-reduced-motion:reduce){.live-sello i{animation:none!important}}
-.live-centro{position:absolute;inset:0;display:grid;place-items:center;padding:20px;pointer-events:none}
-.live-msg{margin:0;max-width:420px;text-align:center;font-size:15px;line-height:1.4;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.5)}
-.live-video[data-estado="en_vivo"] .live-msg,.live-video[data-estado="prueba"] .live-msg{display:none}
-.live-controles{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:space-between;padding:12px;background:linear-gradient(transparent,rgba(7,25,30,.85))}
-.live-btn{border:0;border-radius:11px;padding:10px 16px;min-height:44px;font:inherit;font-weight:800;font-size:14px;cursor:pointer;background:rgba(255,255,255,.16);color:#fff;backdrop-filter:blur(6px)}
-.live-play{background:var(--oro);color:var(--noche)}
+.live-poster{position:absolute;inset:0;display:grid;align-content:end;justify-items:start;gap:2px;padding:16px 18px;text-align:left;
+  background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.55)),radial-gradient(120% 90% at 50% 0%,var(--capa),var(--fondo) 70%)}
+.live-poster .live-poster-ico{display:none}
+.live-poster-ico{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.07);color:var(--oro2);margin-bottom:4px}
+.live-poster-ico svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.live-poster-tit{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.live-msg{max-width:420px;font-size:13px;line-height:1.4;color:rgba(255,255,255,.7)}
+.live-video[data-estado="en_vivo"] .live-poster,.live-video[data-estado="prueba"] .live-poster{display:none}
+.live-video[data-estado="conectando"] .live-poster{align-content:center;justify-items:center}
+.live-video[data-estado="conectando"] .live-poster-tit,.live-video[data-estado="conectando"] .live-msg{display:none}
+.live-video[data-estado="conectando"] .live-poster-ico{display:grid;animation:livePulso 1.2s ease-in-out infinite}
 
-/* Cámaras / formularios */
-.live-card{display:grid;gap:10px;padding:14px;border-radius:16px;border:1px solid var(--linea);background:#fff}
-.live-card.encendida{border-left:5px solid var(--oro)}
+/* El play: grande al centro; ya reproduciendo, chico abajo a la izquierda. */
+.live-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin-top:-14px;width:64px;height:64px;border-radius:50%;border:0;cursor:pointer;
+  background:#fff;color:var(--fondo);display:grid;place-items:center;box-shadow:0 8px 30px rgba(0,0,0,.4);transition:transform .15s}
+.live-play:hover{transform:translate(-50%,-50%) scale(1.06)}
+.live-play svg{width:28px;height:28px}
+.live-play .ico-pausa{display:none}
+.live-video[data-estado="en_vivo"] .live-play,.live-video[data-estado="prueba"] .live-play,.live-video[data-estado="conectando"] .live-play{
+  left:16px;top:auto;bottom:16px;transform:none;margin:0;width:44px;height:44px;background:rgba(0,0,0,.45);color:#fff;box-shadow:none;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.live-video[data-estado="en_vivo"] .live-play:hover,.live-video[data-estado="prueba"] .live-play:hover,.live-video[data-estado="conectando"] .live-play:hover{transform:scale(1.06)}
+.live-video[data-estado="en_vivo"] .ico-play,.live-video[data-estado="prueba"] .ico-play,.live-video[data-estado="conectando"] .ico-play{display:none}
+.live-video[data-estado="en_vivo"] .ico-pausa,.live-video[data-estado="prueba"] .ico-pausa,.live-video[data-estado="conectando"] .ico-pausa{display:block}
+.live-video[data-estado="en_vivo"] .live-play svg,.live-video[data-estado="prueba"] .live-play svg,.live-video[data-estado="conectando"] .live-play svg{width:20px;height:20px}
+.live-controles{position:absolute;right:16px;bottom:16px;display:none;gap:8px}
+.live-video[data-estado="en_vivo"] .live-controles,.live-video[data-estado="prueba"] .live-controles{display:flex}
+.live-btn{width:44px;height:44px;border-radius:50%;border:0;cursor:pointer;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.live-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Sello: sólo aparece cuando algo pasa (conectando, en vivo, prueba). */
+.live-sello{position:absolute;top:16px;left:16px;display:none;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(0,0,0,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.live-sello i{width:7px;height:7px;border-radius:50%;background:#fff}
+.live-video[data-estado="en_vivo"] .live-sello,.live-video[data-estado="prueba"] .live-sello,.live-video[data-estado="conectando"] .live-sello,.live-video[data-estado="sin_senal"] .live-sello,.live-video[data-estado="error"] .live-sello{display:inline-flex}
+.live-video[data-estado="en_vivo"] .live-sello{background:var(--vivo)}
+.live-video[data-estado="en_vivo"] .live-sello i{animation:livePulso 1.4s ease-in-out infinite}
+.live-video[data-estado="prueba"] .live-sello{background:var(--oro);color:var(--fondo)}
+.live-video[data-estado="prueba"] .live-sello i{background:var(--fondo)}
+.live-video[data-estado="sin_senal"] .live-sello i,.live-video[data-estado="error"] .live-sello i{background:var(--oro2)}
+@keyframes livePulso{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.live-page *{animation:none!important;transition:none!important}}
+
+/* Debajo del video */
+.tv-escenario{margin-bottom:16px}
+.tv-info{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.tv-info>div{display:grid;gap:4px;min-width:0}
+.tv-info h2{font-size:24px;font-weight:700}
+.tv-sub{color:var(--txt2);font-size:15px}
+.tv-nota{color:var(--txt2);font-size:14px;line-height:1.45}
+.tv-transmitir{border:0;border-radius:999px;padding:0 22px;min-height:48px;background:var(--vivo);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:10px;flex:0 0 auto}
+.tv-transmitir i{width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.25)}
+.tv-transmitir:hover{filter:brightness(1.08)}
+
+/* Transmisión en curso: una barra, no una tarjeta de botones */
+.live-activas{display:grid;gap:10px}
+.live-activa{display:flex;align-items:center;gap:14px;padding:12px 14px 12px 16px;border-radius:16px;background:var(--capa2);flex-wrap:wrap}
+.live-activa .tv-punto{width:10px;height:10px;border-radius:50%;background:var(--vivo);animation:livePulso 1.4s ease-in-out infinite;flex:0 0 auto}
+.live-activa .tv-que{display:grid;gap:2px;min-width:0;flex:1 1 200px}
+.live-activa .tv-que strong{font-size:16px;font-weight:700}
+.live-activa .tv-que small{color:var(--txt2);font-size:13px}
+.tv-mini{border:0;border-radius:999px;min-height:40px;padding:0 16px;background:rgba(255,255,255,.1);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.tv-mini:hover{background:rgba(255,255,255,.16)}
+.tv-mini.rojo{color:var(--vivo)}
+
+/* Cámaras como canales */
+.tv-seccion{display:grid;gap:12px;min-width:0}
+.tv-seccion>h3{font-size:20px;font-weight:700}
+.tv-canales{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,240px);gap:14px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory;scrollbar-width:none}
+.tv-canales::-webkit-scrollbar{display:none}
+.tv-canal{scroll-snap-align:start;border:0;padding:0;background:none;color:var(--txt);text-align:left;cursor:pointer;display:grid;gap:8px}
+.tv-canal-img{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;display:grid;place-items:center;color:rgba(255,255,255,.35);
+  background:linear-gradient(135deg,var(--capa),var(--capa2));box-shadow:inset 0 0 0 1px var(--linea);transition:box-shadow .15s}
+.tv-canal-img svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.tv-canal[aria-current="true"] .tv-canal-img{box-shadow:inset 0 0 0 3px var(--oro)}
+.tv-canal-vivo{position:absolute;top:8px;left:8px;padding:3px 7px;border-radius:6px;background:var(--vivo);color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em}
+.tv-canal strong{font-size:15px;font-weight:600}
+.tv-canal small{color:var(--txt2);font-size:13px;margin-top:-6px}
+
+/* Hoja (Transmitir): abajo en el celular, al centro en la compu */
+.tv-hoja-fondo{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center}
+.tv-hoja{width:min(560px,100%);max-height:92vh;overflow:auto;background:var(--capa2);color:var(--txt);border-radius:22px 22px 0 0;padding:10px 20px calc(24px + env(safe-area-inset-bottom,0px));display:grid;gap:18px;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;animation:tvSube .22s cubic-bezier(.2,.9,.3,1)}
+@media (min-width:720px){.tv-hoja-fondo{align-items:center}.tv-hoja{border-radius:22px;padding-bottom:24px}}
+@keyframes tvSube{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+.tv-agarre{width:40px;height:5px;border-radius:3px;background:#3a3a3c;justify-self:center}
+.tv-hoja h2{font-size:24px;font-weight:800;margin:0;letter-spacing:-.02em}
+.tv-hoja p{margin:0;color:var(--txt2);font-size:15px;line-height:1.4}
+.tv-campo{display:grid;gap:8px}
+.tv-campo>span{font-size:13px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+.tv-seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;padding:4px;border-radius:14px;background:rgba(255,255,255,.07)}
+.tv-seg button{border:0;border-radius:11px;min-height:42px;padding:6px 8px;background:none;color:var(--txt);font-size:15px;font-weight:600;cursor:pointer}
+.tv-seg button[aria-checked="true"]{background:#3a3a3c;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.tv-hoja input{font:inherit;font-size:17px;min-height:48px;padding:0 14px;border-radius:12px;border:0;background:rgba(255,255,255,.07);color:var(--txt);width:100%;box-sizing:border-box}
+.tv-hoja input::placeholder{color:var(--txt2)}
+.tv-grande{border:0;border-radius:14px;min-height:54px;font-size:17px;font-weight:700;cursor:pointer;background:var(--vivo);color:#fff;width:100%}
+.tv-grande.claro{background:#fff;color:var(--fondo)}
+.tv-grande:disabled{opacity:.55}
+.tv-texto{border:0;background:none;color:var(--oro2);font-size:16px;font-weight:600;cursor:pointer;min-height:44px}
+.live-hoja-enlace{display:block;padding:14px;border-radius:12px;background:rgba(255,255,255,.07);font-size:14px;overflow-wrap:anywhere;color:var(--txt);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.tv-botones{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Ajustes: lista agrupada estilo iOS */
+.tv-lista{display:grid;border-radius:16px;overflow:hidden;background:var(--capa2)}
+.tv-fila{display:flex;align-items:center;gap:14px;min-height:56px;padding:10px 16px;border:0;border-top:1px solid var(--linea);background:none;color:var(--txt);text-align:left;font-size:16px;cursor:pointer;width:100%}
+.tv-fila:first-child{border-top:0}
+.tv-fila span{flex:1;min-width:0}
+.tv-fila small{color:var(--txt2);font-size:14px}
+.tv-fila em{font-style:normal;color:#3a3a3c;font-size:22px;line-height:1}
+.tv-fila.rojo{color:var(--vivo);font-weight:600}
+.tv-fila.oro{color:var(--oro2);font-weight:600}
+.tv-pie{color:var(--txt2);font-size:13px;line-height:1.45;padding:0 4px}
+
+/* Vistas de Ajustes (cámaras, diagnóstico, accesos, bitácora) */
+.live-panel{display:grid;gap:14px;padding:18px;border-radius:18px;background:var(--capa2);min-width:0}
+.live-panel h2{font-size:20px;font-weight:700}
+.live-vacio{text-align:center;justify-items:center;padding:36px 18px}
+.live-cab{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.live-muted{color:var(--txt2);font-size:14px;line-height:1.45}
+.live-b{border:0;border-radius:999px;min-height:40px;padding:0 16px;background:rgba(255,255,255,.1);color:var(--txt);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}
+.live-b:hover{background:rgba(255,255,255,.16)}
+.live-b.primario{background:#fff;color:var(--fondo)}
+.live-b.peligro{color:var(--vivo)}
+.live-b.sutil{background:none;color:var(--txt2)}
+.live-acciones{display:flex;flex-wrap:wrap;gap:8px}
+.live-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;letter-spacing:.03em;padding:5px 10px;border-radius:999px;white-space:nowrap;background:rgba(255,255,255,.08);color:var(--txt2)}
+.live-pill.ok{background:rgba(198,172,92,.16);color:var(--oro2)}
+.live-pill.aviso{background:rgba(233,209,156,.14);color:var(--aviso)}
+.live-pill.vivo{background:var(--vivo);color:#fff}
+.live-pill.neutro{background:rgba(255,255,255,.08);color:var(--txt2)}
+.live-card{display:grid;gap:12px;padding:16px;border-radius:14px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--linea)}
+.live-card.encendida{box-shadow:inset 0 0 0 1px var(--oro)}
 .live-card header{display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
-.live-card header div{display:grid;gap:2px;min-width:0}.live-card header small{color:var(--gris);font-size:12.5px}
-.live-datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin:0}
-.live-datos div{display:grid;gap:2px}.live-datos dt{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--gris)}.live-datos dd{margin:0;font-size:13.5px;overflow-wrap:anywhere}
-.live-falta{margin:0;padding:10px 12px 10px 28px;border-radius:12px;background:var(--crema);font-size:13px;display:grid;gap:4px}
-.live-form{display:grid;gap:12px}
-.live-form label{display:grid;gap:5px;font-size:13px;font-weight:700;color:var(--tinta);min-width:0}
-.live-form label small{font-weight:400;color:var(--gris);font-size:12px}
-.live-form input,.live-form select,.live-form textarea{font:inherit;font-size:16px;padding:10px 12px;border-radius:11px;border:1px solid var(--linea);background:#fff;color:var(--tinta);min-width:0;width:100%;box-sizing:border-box}
-.live-form fieldset{border:1px solid var(--linea);border-radius:14px;padding:12px;display:grid;gap:10px;margin:0}
-.live-form legend{font-weight:800;font-size:13px;padding:0 6px}
+.live-card header div{display:grid;gap:3px;min-width:0}
+.live-card header strong{font-size:16px}
+.live-card header small{color:var(--txt2);font-size:13px}
+.live-datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:0}
+.live-datos div{display:grid;gap:2px}
+.live-datos dt{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)}
+.live-datos dd{margin:0;font-size:14px;overflow-wrap:anywhere}
+.live-falta{margin:0;padding:12px 12px 12px 30px;border-radius:12px;background:rgba(233,209,156,.08);color:var(--oro2);font-size:14px;display:grid;gap:4px}
+.live-form{display:grid;gap:14px}
+.live-form label{display:grid;gap:6px;font-size:13px;font-weight:600;color:var(--txt2);min-width:0}
+.live-form label small{font-weight:400;font-size:12px}
+.live-form input,.live-form select,.live-form textarea{font:inherit;font-size:16px;min-height:46px;padding:10px 12px;border-radius:12px;border:0;background:rgba(255,255,255,.07);color:var(--txt);min-width:0;width:100%}
+.live-form select option{background:var(--capa2);color:var(--txt)}
+.live-form fieldset{border:0;border-radius:14px;padding:14px;display:grid;gap:10px;margin:0;background:rgba(255,255,255,.04)}
+.live-form legend{font-weight:700;font-size:14px;color:var(--txt);padding:0;float:left;width:100%;margin-bottom:6px}
 .live-fila{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .live-checks{display:flex;flex-wrap:wrap;gap:8px}
-.live-check{display:inline-flex!important;align-items:center;gap:8px;font-weight:600!important;padding:8px 12px;border:1px solid var(--linea);border-radius:999px;background:var(--crema)}
-.live-check input{width:18px!important;height:18px;padding:0}
+.live-check{display:inline-flex!important;align-items:center;gap:8px;font-weight:600!important;font-size:14px!important;color:var(--txt)!important;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.07)}
+.live-check input{width:18px!important;height:18px;min-height:0!important;padding:0;accent-color:var(--oro)}
 .live-ventana{display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;align-items:center}
-@media(max-width:520px){.live-ventana{grid-template-columns:1fr 1fr;}.live-ventana span{display:none}}
-.live-ventana input,.live-ventana select{font:inherit;font-size:16px;padding:9px;border-radius:10px;border:1px solid var(--linea);min-width:0}
-.live-errores{margin:0;color:var(--vivo);font-weight:700;font-size:13px;min-height:1px}
+@media(max-width:520px){.live-ventana{grid-template-columns:1fr 1fr}.live-ventana span{display:none}}
+.live-ventana input,.live-ventana select{font:inherit;font-size:16px;min-height:44px;padding:8px;border-radius:10px;border:0;background:rgba(255,255,255,.07);color:var(--txt);min-width:0}
+.live-errores{margin:0;color:var(--vivo);font-weight:600;font-size:14px;min-height:1px}
+.live-pasos{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:15px}
+.live-pasos li{display:flex;align-items:center;gap:10px;color:var(--txt2)}
+.live-pasos li span{width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 2px #3a3a3c;flex:0 0 auto}
+.live-pasos li.hecho{color:var(--txt)}
+.live-pasos li.hecho span{background:var(--oro);box-shadow:none}
+.live-code{display:block;padding:12px;border-radius:12px;background:rgba(255,255,255,.06);font-size:13px;overflow-wrap:anywhere;color:var(--txt);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.live-log{list-style:none;margin:0;padding:0;display:grid;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.04)}
+.live-log li{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 14px;border-top:1px solid var(--linea)}
+.live-log li:first-child{border-top:0}
+.live-log li div{display:grid;gap:2px;min-width:0;flex:1}
+.live-log small{color:var(--txt2);font-size:13px;overflow-wrap:anywhere}
+.live-banda{margin:0;padding:12px 16px;border-radius:14px;font-size:15px;font-weight:600;background:rgba(233,209,156,.12);color:var(--oro2)}
 
-/* Diagnóstico y listas */
-.live-pasos{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14px}
-.live-pasos li{display:flex;align-items:center;gap:10px;color:var(--gris)}
-.live-pasos li span{width:18px;height:18px;border-radius:50%;border:2px solid var(--linea);flex:0 0 auto}
-.live-pasos li.hecho{color:var(--tinta);font-weight:700}.live-pasos li.hecho span{background:var(--noche2);border-color:var(--noche2)}
-.live-code{display:block;padding:10px 12px;border-radius:10px;background:var(--crema);font-size:12.5px;overflow-wrap:anywhere;color:var(--tinta)}
-.live-log{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.live-log li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:12px;border:1px solid var(--linea)}
-.live-log li div{display:grid;gap:2px;min-width:0;flex:1}.live-log small{color:var(--gris);font-size:12.5px;overflow-wrap:anywhere}
+/* Reglas (primera vez de una familia) */
+.live-reglas{padding:20px;border-radius:18px;background:var(--capa2);display:grid;gap:14px}
+.live-reglas h3{font-size:20px;font-weight:700}
+.live-reglas ol{margin:0;padding-left:20px;display:grid;gap:8px;font-size:15px;line-height:1.45;color:rgba(255,255,255,.85)}
 
-/* Botón Transmitir */
-.live-tx{display:grid;gap:10px}
-.live-opciones{display:flex;flex-wrap:wrap;gap:6px}
-.live-opciones button{border:1.5px solid var(--linea);background:#fff;color:var(--tinta);border-radius:999px;padding:9px 14px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;min-height:40px}
-.live-opciones button[aria-checked="true"]{background:var(--noche);border-color:var(--noche);color:var(--oro-claro)}
-.live-transmitir-btn{border:0;border-radius:14px;padding:16px;min-height:54px;font:inherit;font-weight:800;font-size:17px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;background:var(--vivo);color:#fff}
-.live-transmitir-btn:disabled{opacity:.6}
-.live-activas{display:grid;gap:8px}
-.live-activa{display:grid;gap:8px;padding:12px;border-radius:14px;border:1.5px solid var(--vivo);background:#fff}
-.live-activa>div:first-child{display:grid;gap:3px;min-width:0}.live-activa small{color:var(--gris);font-size:12.5px}
-a.live-b{display:inline-flex;align-items:center;text-decoration:none}
+/* Páginas sin el menú del staff (familias y enlace) */
+.live-familia{max-width:860px;margin:0 auto;min-height:100vh;border-radius:0;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
+.live-familia-top a{color:var(--oro2);font-weight:600;font-size:16px;text-decoration:none}
+.live-pub-tit{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.live-eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--oro2)}
 
-/* Enlace público (/ver/): fondo noche, como pantalla de cine. */
-.live-publica .live-panel{background:var(--noche2);border-color:var(--noche2);color:#fff}
-.live-publica .live-muted,.live-publica .live-nota{color:rgba(255,255,255,.72)}
-.live-pub-tit{font-size:30px;color:#fff}
-.live-pub-hero{padding:16px 4px;background:none}
-
-/* Portal de familias: misma caja, fondo crema. */
-.live-familia{max-width:760px;margin:0 auto;padding:16px;box-sizing:border-box}
-.live-familia-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.live-familia-top a{color:var(--tinta);font-weight:800;font-size:14px;text-decoration:none}
+@media (max-width:640px){
+  .live-page{padding:14px;border-radius:18px;gap:18px}
+  .tv-marca h1{font-size:24px}
+  .tv-info h2{font-size:21px}
+  .tv-transmitir{width:100%;justify-content:center}
+  .live-play{width:54px;height:54px;margin-top:-18px}
+  .live-poster-tit{font-size:16px}
+  .live-msg{font-size:14px}
+  .tv-canales{grid-auto-columns:minmax(160px,180px)}
+}

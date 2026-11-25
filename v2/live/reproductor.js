@@ -14,23 +14,33 @@ const ESPERA_ICE_MS = 2500;
 
 // alRechazo(r): el servidor dijo que no (terminó, pausa, fuera de horario…).
 // Se llama al tocar Reproducir y también en cada reintento automático.
-export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {}, alRechazo = () => {} } = {}) {
+// Iconos de línea (mismo trazo del menú). Sin emojis.
+const ICONO = {
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none"/></svg>',
+  pausa: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none"/></svg>',
+  completa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>',
+  camara: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13.5" height="12" rx="2.5"/><path d="m16 10.5 5.5-3v9l-5.5-3"/></svg>'
+};
+
+// Estilo de TV del club: póster con el nombre de la cámara, un solo botón de
+// play al centro y, ya reproduciendo, controles discretos abajo.
+export function creaReproductor(contenedor, { titulo = '', pideTicket, alCambiar = () => {}, alRechazo = () => {} } = {}) {
   contenedor.innerHTML = `
     <div class="live-video" data-estado="inactivo">
       <video playsinline muted disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" disableremoteplayback></video>
       <canvas class="live-prueba hidden" width="640" height="360" aria-hidden="true"></canvas>
+      <div class="live-poster"><span class="live-poster-ico">${ICONO.camara}</span><strong class="live-poster-tit"></strong><p class="live-msg"></p></div>
       <div class="live-sello" aria-live="polite"><i></i><span>Listo</span></div>
-      <div class="live-centro"><p class="live-msg"></p></div>
-      <div class="live-controles">
-        <button type="button" class="live-btn live-play" aria-label="Reproducir">Reproducir</button>
-        <button type="button" class="live-btn live-full" aria-label="Pantalla completa">Pantalla completa</button>
-      </div>
+      <button type="button" class="live-play" aria-label="Reproducir"><span class="ico-play">${ICONO.play}</span><span class="ico-pausa">${ICONO.pausa}</span></button>
+      <div class="live-controles"><button type="button" class="live-btn live-full" aria-label="Pantalla completa">${ICONO.completa}</button></div>
     </div>`;
   const caja = contenedor.querySelector('.live-video');
   const video = caja.querySelector('video');
   const lienzo = caja.querySelector('canvas');
   const sello = caja.querySelector('.live-sello span');
   const msg = caja.querySelector('.live-msg');
+  const posterTit = caja.querySelector('.live-poster-tit');
+  posterTit.textContent = titulo;
   const btnPlay = caja.querySelector('.live-play');
   const btnFull = caja.querySelector('.live-full');
   video.muted = true; video.defaultMuted = true; video.autoplay = false; video.controls = false;
@@ -45,8 +55,7 @@ export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {}, 
     sello.textContent = ESTADOS[nuevo]?.etiqueta || nuevo;
     msg.textContent = texto;
     const corriendo = nuevo === 'en_vivo' || nuevo === 'conectando' || nuevo === 'prueba';
-    btnPlay.textContent = corriendo ? 'Pausar' : 'Reproducir';
-    btnPlay.setAttribute('aria-label', btnPlay.textContent);
+    btnPlay.setAttribute('aria-label', corriendo ? 'Pausar' : 'Reproducir');
     alCambiar(nuevo);
   }
 
@@ -181,6 +190,8 @@ export function creaReproductor(contenedor, { pideTicket, alCambiar = () => {}, 
 
   return {
     arranca, detener: async (texto = '') => { await detenTodo(); intentos = 0; pon('inactivo', texto); },
-    get estado() { return estado; }, aviso: (texto) => { msg.textContent = texto; }
+    get estado() { return estado; }, aviso: (texto) => { msg.textContent = texto; },
+    // Lo que dice el póster cuando no hay video (nombre de la cámara y motivo).
+    poster: (t, texto = '') => { posterTit.textContent = t || ''; msg.textContent = texto; }
   };
 }

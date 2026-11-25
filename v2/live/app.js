@@ -1,34 +1,38 @@
 import { bootstrapProtectedShell, rpc, $, moduleAccess, setShellHealth } from '/v2/shell.js';
 import {
-  esc, motivo, DIAS, DIAS_CORTOS, REGLAS, REGLAS_VERSION, ESTADO_CAMARA, textoHorario, textoVentana, proximaVentana,
+  esc, motivo, DIAS, REGLAS, REGLAS_VERSION, ESTADO_CAMARA, textoHorario, textoVentana, proximaVentana,
   validaGrabador, validaCamara, faltaParaEncender, NO_ENCIENDE, plantillaRtspDahua, limpiaSecretos,
   enlaceDe, mensajeWhatsApp, minutosHasta, DURACIONES
 } from '/v2/live/live.js';
 import { creaReproductor } from '/v2/live/reproductor.js';
 
-// Tanner LIVE para el staff (23/11/2026). Una sola pantalla:
-//   Ver          — quien tiene el módulo (lectura) y está en la audiencia.
-//   Cámaras      — administradores: grabadores, cámaras, quién ve y cuándo.
-//   Diagnóstico  — datos técnicos (sin contraseñas) y pruebas registradas.
-//   Accesos      — tutores con acceso a cada cámara; revocar y restituir.
-//   Bitácora     — todo lo que pasó en Tanner LIVE.
-// Todo lo decide el servidor (v2_live_*). Si la base todavía no tiene h101,
-// la pantalla lo dice en vez de reventar.
+// Tanner LIVE para el staff. Rediseño 25/11/2026 (Presidencia: "estilo Apple,
+// fácil, como Real Madrid TV o MUTV; tenemos un chingo de botones").
+//   Ver      — el reproductor grande, las cámaras como canales y UN botón rojo:
+//              Transmitir (abre una hoja con dos preguntas).
+//   Ajustes  — detrás del engrane: Cámaras, Diagnóstico, Accesos, Bitácora y
+//              Pausar todo. Sólo administradores.
+// Todo lo decide el servidor (v2_live_*).
 const boot = await bootstrapProtectedShell({ active: 'live', title: 'Tanner LIVE' });
 if (!boot) throw new Error('No access');
 const { ctx, navigation } = boot;
 const ORG = ctx.organization_id;
 const ADMIN = moduleAccess(navigation, 'live', true);
 const TZ = 'America/Mexico_City';
-const TABS = ADMIN ? [['ver', 'Ver'], ['camaras', 'Cámaras'], ['diagnostico', 'Diagnóstico'], ['accesos', 'Accesos'], ['bitacora', 'Bitácora']] : [['ver', 'Ver']];
-const tabGuardada = () => { try { const t = localStorage.getItem('tos.live.tab'); return TABS.some(x => x[0] === t) ? t : 'ver'; } catch (_) { return 'ver'; } };
-const state = { tab: tabGuardada(), mis: null, panel: null, camara: null, accesosDe: null, accesos: null, bitacora: null, edita: null, error: null,
+const state = { tab: 'ver', mis: null, panel: null, camara: null, accesosDe: null, accesos: null, bitacora: null, edita: null, error: null,
   tx: { camara: null, modo: 'enlace', dura: '120', titulo: '' } };
 let reproductor = null;
 const body = $('liveBody');
 const fecha = v => v ? new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '';
+const hora = v => new Intl.DateTimeFormat('es-MX', { hour: 'numeric', minute: '2-digit', timeZone: TZ }).format(new Date(v));
 const sinH101 = e => /could not find the function|does not exist|PGRST202/i.test(String(e?.message || e?.code || e));
 const aviso = (titulo, message) => window.tosAlert({ kicker: 'TANNER LIVE', title: titulo, message });
+const ICO = {
+  engrane: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>',
+  camara: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13.5" height="12" rx="2.5"/><path d="m16 10.5 5.5-3v9l-5.5-3"/></svg>'
+};
+const transmisiones = () => state.panel?.transmisiones || [];
+const transmisionDe = idCam => transmisiones().find(b => b.camara_id === idCam);
 
 async function carga() {
   state.error = null;
@@ -44,130 +48,76 @@ async function carga() {
   pinta();
 }
 
-function encabezado() {
-  const pausado = state.mis?.pausado;
-  return `<section class="live-hero">
-    <div><p class="live-eyebrow">Entrenamientos en vivo · privado</p><h1>Tanner LIVE</h1>
-    <p>Sólo para tutores y staff autorizados. Sin audio, sin grabación y sólo en horario de entrenamiento.</p></div>
-    ${ADMIN ? `<button type="button" class="live-panico${pausado ? ' reanuda' : ''}" data-pausa>${pausado ? 'Reanudar transmisiones' : 'Pausar todo'}</button>` : ''}
-  </section>
-  ${pausado ? `<p class="live-banda aviso">Todas las transmisiones están en pausa${state.panel?.ajustes?.pausa_motivo ? `: ${esc(state.panel.ajustes.pausa_motivo)}` : ''}.</p>` : ''}
-  ${TABS.length > 1 ? `<nav class="live-tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${t}</button>`).join('')}</nav>` : ''}`;
+const TITULOS = { ajustes: 'Ajustes', camaras: 'Cámaras', diagnostico: 'Diagnóstico', accesos: 'Accesos', bitacora: 'Bitácora' };
+function cabecera() {
+  if (state.tab === 'ver') {
+    const enVivo = transmisiones().length;
+    return `<header class="tv-cab"><div class="tv-marca"><h1>Tanner <b>LIVE</b></h1>${enVivo ? `<span class="live-pill vivo">${enVivo} en vivo</span>` : ''}</div>
+      ${ADMIN ? `<button type="button" class="tv-icono" data-ir="ajustes" aria-label="Ajustes">${ICO.engrane}</button>` : ''}</header>
+      ${state.mis?.pausado ? `<p class="live-banda">Transmisiones en pausa${state.panel?.ajustes?.pausa_motivo ? `: ${esc(state.panel.ajustes.pausa_motivo)}` : ''}.</p>` : ''}`;
+  }
+  const atras = state.tab === 'ajustes' ? ['ver', 'Tanner LIVE'] : ['ajustes', 'Ajustes'];
+  return `<header class="tv-cab"><button type="button" class="tv-volver" data-ir="${atras[0]}">‹ ${atras[1]}</button></header>
+    <div class="tv-marca"><h1>${TITULOS[state.tab] || ''}</h1></div>`;
+}
+
+function ir(vista) {
+  state.tab = vista; state.edita = null;
+  reproductor?.detener(); reproductor = null;
+  pinta();
+  if (vista === 'bitacora') cargaBitacora();
+  try { window.scrollTo({ top: 0 }); } catch (_) {}
 }
 
 function pinta() {
-  if (state.error === 'pendiente') {
-    body.innerHTML = `${encabezadoSimple()}<section class="live-panel"><h2>Falta activar Tanner LIVE en la base</h2>
-      <p>La pantalla está lista, pero la migración <b>h101</b> todavía no se aplica. Ver <code>docs/tanner-live/README.md</code>.</p></section>`;
+  if (state.error) {
+    body.innerHTML = `<header class="tv-cab"><div class="tv-marca"><h1>Tanner <b>LIVE</b></h1></div></header>
+      <section class="live-panel live-vacio"><h2>${state.error === 'pendiente' ? 'Falta activar Tanner LIVE en la base' : 'No pudimos cargar Tanner LIVE'}</h2>
+      <p class="live-muted">${state.error === 'pendiente' ? 'Ver docs/tanner-live/README.md.' : 'Revisa tu conexión e intenta de nuevo.'}</p>
+      ${state.error === 'pendiente' ? '' : '<button type="button" class="live-b primario" data-recarga>Reintentar</button>'}</section>`;
+    body.querySelector('[data-recarga]')?.addEventListener('click', carga);
     return;
   }
-  if (state.error) { body.innerHTML = `${encabezadoSimple()}<section class="live-panel"><h2>No pudimos cargar Tanner LIVE</h2><p>Revisa tu conexión e intenta de nuevo.</p><button type="button" class="live-b" data-recarga>Reintentar</button></section>`; body.querySelector('[data-recarga]').onclick = carga; return; }
   if (!state.mis) return;
-  const vista = { ver: vistaVer, camaras: vistaCamaras, diagnostico: vistaDiagnostico, accesos: vistaAccesos, bitacora: vistaBitacora }[state.tab] || vistaVer;
-  body.innerHTML = encabezado() + `<div class="live-vista">${state.tab === 'ver' && ADMIN ? transmitirHtml() : ''}${vista()}</div>`;
-  body.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; try { localStorage.setItem('tos.live.tab', state.tab); } catch (_) {} reproductor?.detener(); reproductor = null; pinta(); if (state.tab === 'bitacora') cargaBitacora(); });
-  body.querySelector('[data-pausa]')?.addEventListener('click', alternaPausa);
-  if (state.tab === 'ver' && ADMIN) enlazaTransmitir();
-  ({ ver: enlazaVer, camaras: enlazaCamaras, diagnostico: enlazaDiagnostico, accesos: enlazaAccesos, bitacora: () => {} }[state.tab] || enlazaVer)();
+  const vista = { ver: vistaVer, ajustes: vistaAjustes, camaras: vistaCamaras, diagnostico: vistaDiagnostico, accesos: vistaAccesos, bitacora: vistaBitacora }[state.tab] || vistaVer;
+  body.innerHTML = `${cabecera()}<div class="live-vista">${vista()}</div>`;
+  body.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
+  ({ ver: enlazaVer, ajustes: enlazaAjustes, camaras: enlazaCamaras, diagnostico: enlazaDiagnostico, accesos: enlazaAccesos, bitacora: () => {} }[state.tab] || enlazaVer)();
 }
-const encabezadoSimple = () => `<section class="live-hero"><div><p class="live-eyebrow">Entrenamientos en vivo · privado</p><h1>Tanner LIVE</h1></div></section>`;
 
 // ------------------------------------------------------------------- Ver ----
-// -------------------------------------------------------------- Transmitir ----
-// Presidencia (24/11/2026): "un botón de transmitir y ya, y veo a quién le doy
-// acceso". Elige cámara, quién la ve y cuánto dura. Sale el enlace para
-// compartir. Se apaga sola al terminar el tiempo.
-function transmitirHtml() {
-  const p = state.panel || {};
-  const cams = (p.camaras || []).filter(c => !c.sensible);
-  const activas = p.transmisiones || [];
-  const tx = state.tx;
-  if (!tx.camara || !cams.some(c => c.id === tx.camara)) tx.camara = cams[0]?.id || null;
-  const enVivo = activas.length ? `<div class="live-activas">${activas.map(b => {
-    const enlace = b.enlace ? enlaceDe(b.enlace, location.origin) : null;
-    return `<article class="live-activa"><div><strong>${esc(b.titulo || b.camara)}</strong>
-      <small>${esc([b.camara, b.modo === 'enlace' ? 'Con enlace' : 'Sólo familias', `hasta las ${new Intl.DateTimeFormat('es-MX', { hour: 'numeric', minute: '2-digit', timeZone: TZ }).format(new Date(b.termina))}`, `${Number(b.viendo || 0)} viendo`].join(' · '))}</small>
-      ${enlace ? `<code class="live-code">${esc(enlace)}</code>` : ''}</div>
-      <div class="live-acciones">${enlace ? `<button type="button" class="live-b primario" data-copia="${esc(b.id)}">Copiar enlace</button>
-        <a class="live-b" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(mensajeWhatsApp({ titulo: b.titulo, camara: b.camara, enlace, termina: b.termina }))}">WhatsApp</a>
-        <button type="button" class="live-b sutil" data-nuevo-enlace="${esc(b.id)}">Nuevo enlace</button>` : ''}
-        <button type="button" class="live-b peligro" data-detener="${esc(b.id)}">Detener</button></div></article>`;
-  }).join('')}</div>` : '';
-  if (!cams.length) return enVivo;
-  const libres = cams.filter(c => !activas.some(b => b.camara_id === c.id));
-  return `<section class="live-panel live-transmitir">
-    <div class="live-cab"><h2>Transmitir</h2>${activas.length ? `<span class="live-pill vivo">${activas.length} en vivo</span>` : ''}</div>
-    ${enVivo}
-    ${libres.length ? `<div class="live-tx">
-      <div class="live-opciones" role="radiogroup" aria-label="Cámara">${libres.map(c => `<button type="button" role="radio" aria-checked="${tx.camara === c.id}" data-tx-cam="${esc(c.id)}">${esc(c.nombre)}</button>`).join('')}</div>
-      <div class="live-opciones" role="radiogroup" aria-label="Quién la ve">
-        <button type="button" role="radio" aria-checked="${tx.modo === 'enlace'}" data-tx-modo="enlace">Cualquiera con el enlace</button>
-        <button type="button" role="radio" aria-checked="${tx.modo === 'familias'}" data-tx-modo="familias">Sólo familias de la academia</button></div>
-      <div class="live-opciones" role="radiogroup" aria-label="Cuánto tiempo">${DURACIONES.map(([k, t]) => `<button type="button" role="radio" aria-checked="${tx.dura === k}" data-tx-dura="${k}">${t}</button>`).join('')}</div>
-      <label class="live-form">Nombre (opcional)<input data-tx-titulo maxlength="80" placeholder="Final Copa TCP · Renta 8 pm" value="${esc(tx.titulo)}"></label>
-      <button type="button" class="live-transmitir-btn" data-transmitir>Transmitir</button>
-    </div>` : ''}
-  </section>`;
-}
-
-function enlazaTransmitir() {
-  const tx = state.tx;
-  body.querySelectorAll('[data-tx-cam]').forEach(b => b.onclick = () => { tx.camara = b.dataset.txCam; pinta(); });
-  body.querySelectorAll('[data-tx-modo]').forEach(b => b.onclick = () => { tx.modo = b.dataset.txModo; pinta(); });
-  body.querySelectorAll('[data-tx-dura]').forEach(b => b.onclick = () => { tx.dura = b.dataset.txDura; pinta(); });
-  body.querySelector('[data-tx-titulo]')?.addEventListener('input', ev => { tx.titulo = ev.target.value; });
-  body.querySelector('[data-transmitir]')?.addEventListener('click', async ev => {
-    ev.currentTarget.disabled = true;
-    const minutos = tx.dura === 'hasta-23' ? minutosHasta('23:00', new Date(), TZ) : Number(tx.dura);
-    try {
-      const r = await rpc('v2_live_transmitir', { organization_id: ORG, camera_id: tx.camara, modo: tx.modo, titulo: tx.titulo || null, minutos });
-      if (r && !r.ok) { await aviso('No se pudo transmitir', NO_ENCIENDE[r.motivo] || motivo(r.motivo).texto); }
-      else {
-        tx.titulo = '';
-        if (r?.recortada_por_academia) await aviso('Se apaga antes', 'La transmisión se apagará sola cuando empiece el horario de la academia en esa cámara.');
-        if (r?.enlace) { await copia(enlaceDe(r.enlace, location.origin)); }
-      }
-    } catch (_) { await aviso('No se pudo transmitir', 'Intenta de nuevo.'); }
-    await carga();
-  });
-  const buscaTx = id => (state.panel?.transmisiones || []).find(b => b.id === id);
-  body.querySelectorAll('[data-copia]').forEach(b => b.onclick = () => { const t = buscaTx(b.dataset.copia); if (t?.enlace) copia(enlaceDe(t.enlace, location.origin)); });
-  body.querySelectorAll('[data-detener]').forEach(b => b.onclick = async () => {
-    if (!await window.tosConfirm({ kicker: 'TRANSMISIÓN', title: 'Detener transmisión', message: 'Se corta para todos los que la están viendo y el enlace deja de servir.', confirmText: 'Detener', danger: true })) return;
-    try { await rpc('v2_live_detener', { organization_id: ORG, broadcast_id: b.dataset.detener }); } catch (_) { aviso('No se pudo', 'No pudimos detenerla.'); }
-    await carga();
-  });
-  body.querySelectorAll('[data-nuevo-enlace]').forEach(b => b.onclick = async () => {
-    if (!await window.tosConfirm({ kicker: 'ENLACE', title: 'Cambiar el enlace', message: 'El enlace anterior deja de servir y se corta a quien lo estaba usando. Útil si se compartió de más.', confirmText: 'Cambiar enlace' })) return;
-    try { const r = await rpc('v2_live_nuevo_enlace', { organization_id: ORG, broadcast_id: b.dataset.nuevoEnlace }); if (r?.enlace) await copia(enlaceDe(r.enlace, location.origin)); }
-    catch (_) { aviso('No se pudo', 'No pudimos cambiar el enlace.'); }
-    await carga();
-  });
-}
-async function copia(texto) {
-  try { await navigator.clipboard.writeText(texto); await aviso('Enlace copiado', 'Pégalo en WhatsApp a quien quieras que lo vea. Se apaga solo al terminar el tiempo.'); }
-  catch (_) { await window.tosPrompt({ kicker: 'ENLACE', title: 'Copia el enlace', value: texto, maxlength: 400, confirmText: 'Listo' }); }
-}
-
 function vistaVer() {
   const cams = state.mis.camaras || [];
-  if (!cams.length) return `<section class="live-panel live-vacio"><h2>Sin cámaras para ti</h2><p>${ADMIN ? 'Registra la primera cámara en la pestaña Cámaras. Puedes hacerlo aunque todavía no conozcas el modelo del grabador.' : 'Cuando el club te asigne una cámara, aparecerá aquí.'}</p></section>`;
+  if (!cams.length) return `<section class="live-panel live-vacio"><span class="live-poster-ico">${ICO.camara}</span><h2>Todavía no hay cámaras</h2>
+    <p class="live-muted">${ADMIN ? 'Agrega la primera en Ajustes › Cámaras. Puedes hacerlo aunque todavía no conozcas el modelo del grabador.' : 'Cuando el club te asigne una cámara, aparecerá aquí.'}</p>
+    ${ADMIN ? '<button type="button" class="live-b primario" data-ir="camaras">Agregar cámara</button>' : ''}</section>`;
   const c = cams.find(x => x.id === state.camara) || cams[0];
-  const m = motivo(c.motivo);
   const prox = proximaVentana(c.horario, new Date(), TZ);
+  const suya = transmisionDe(c.id);
   const terminos = !state.mis.terminos?.aceptados && c.motivo === 'sin_terminos';
-  return `<div class="live-ver">
-    <div class="live-lista" role="list">${cams.map(x => `<button type="button" role="listitem" class="live-chip${x.id === c.id ? ' activa' : ''}" data-cam="${esc(x.id)}"><strong>${esc(x.nombre)}</strong><small>${esc(x.cancha || textoHorario(x.horario))}</small></button>`).join('')}</div>
-    <section class="live-escenario">
-      <div id="liveReproductor"></div>
-      <div class="live-info"><div><h2>${esc(c.nombre)}</h2><p>${esc([c.cancha, textoVentana(prox)].filter(Boolean).join(' · '))}</p></div>
-        <span class="live-pill ${m.tono}">${esc(c.motivo === 'ok' ? (ESTADO_CAMARA[c.estado] || 'Lista') : m.titulo)}</span></div>
-      <p class="live-nota" id="liveNota">${esc(c.motivo === 'ok' ? 'La transmisión no arranca sola: toca Reproducir.' : m.texto)}</p>
-      ${terminos ? reglasHtml() : ''}
-    </section></div>`;
+  return `<section class="tv-escenario">${terminos ? '' : '<div id="liveReproductor"></div>'}</section>
+    <div class="tv-info"><div><h2>${esc(c.nombre)}</h2><p class="tv-sub">${esc([c.cancha !== c.nombre ? c.cancha : null, suya ? `En vivo hasta las ${hora(suya.termina)}` : textoVentana(prox)].filter(Boolean).join(' · '))}</p></div>
+      ${ADMIN && !suya && (state.panel?.camaras || []).some(x => !x.sensible) ? '<button type="button" class="tv-transmitir" data-abrir-tx><i></i>Transmitir</button>' : ''}</div>
+    ${terminos ? reglasHtml() : ''}
+    ${ADMIN && transmisiones().length ? `<div class="live-activas">${transmisiones().map(activaHtml).join('')}</div>` : ''}
+    ${cams.length > 1 ? `<section class="tv-seccion"><h3>Cámaras</h3><div class="tv-canales">${cams.map(canalHtml).join('')}</div></section>` : ''}`;
 }
-const reglasHtml = () => `<div class="live-reglas"><h3>Reglas de Tanner LIVE</h3><ol>${REGLAS.map(r => `<li>${esc(r)}</li>`).join('')}</ol>
-  <button type="button" class="live-b primario" data-acepta>Acepto las reglas</button></div>`;
+function canalHtml(x) {
+  const vivo = transmisionDe(x.id) || (x.motivo === 'ok' && x.estado === 'online');
+  const sub = transmisionDe(x.id) ? 'Transmitiendo' : x.motivo === 'ok' ? (ESTADO_CAMARA[x.estado] === 'En línea' ? 'En línea' : 'Lista') : motivo(x.motivo).titulo;
+  return `<button type="button" class="tv-canal" data-cam="${esc(x.id)}" aria-current="${x.id === state.camara}">
+    <div class="tv-canal-img">${vivo ? '<span class="tv-canal-vivo">EN VIVO</span>' : ''}${ICO.camara}</div>
+    <strong>${esc(x.nombre)}</strong><small>${esc(sub)}</small></button>`;
+}
+function activaHtml(b) {
+  return `<article class="live-activa"><span class="tv-punto" aria-hidden="true"></span>
+    <div class="tv-que"><strong>${esc(b.titulo || b.camara)}</strong>
+      <small>${esc([b.titulo ? b.camara : null, b.modo === 'enlace' ? 'Con enlace' : 'Sólo familias', `hasta las ${hora(b.termina)}`, `${Number(b.viendo || 0)} viendo`].filter(Boolean).join(' · '))}</small></div>
+    <div class="live-acciones">${b.enlace ? `<button type="button" class="tv-mini" data-copia="${esc(b.id)}">Compartir</button>` : ''}
+      <button type="button" class="tv-mini rojo" data-detener="${esc(b.id)}">Detener</button></div></article>`;
+}
+const reglasHtml = () => `<div class="live-reglas"><h3>Antes de ver</h3><ol>${REGLAS.map(r => `<li>${esc(r)}</li>`).join('')}</ol>
+  <button type="button" class="tv-grande claro" data-acepta>Acepto las reglas</button></div>`;
 
 function enlazaVer() {
   body.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => { state.camara = b.dataset.cam; reproductor?.detener(); reproductor = null; pinta(); });
@@ -175,25 +125,130 @@ function enlazaVer() {
     try { await rpc('v2_live_aceptar_terminos', { organization_id: ORG, version: state.mis.terminos?.version || REGLAS_VERSION }); await carga(); }
     catch (_) { aviso('No se guardó', 'No pudimos registrar tu aceptación. Intenta de nuevo.'); }
   });
+  body.querySelector('[data-abrir-tx]')?.addEventListener('click', () => hojaTransmitir());
+  body.querySelectorAll('[data-copia]').forEach(b => b.onclick = () => { const t = transmisiones().find(x => x.id === b.dataset.copia); if (t) hojaCompartir(t); });
+  body.querySelectorAll('[data-detener]').forEach(b => b.onclick = () => detener(b.dataset.detener));
   const cont = $('liveReproductor');
   if (!cont) return;
   const cam = (state.mis.camaras || []).find(x => x.id === state.camara) || state.mis.camaras[0];
   reproductor = creaReproductor(cont, {
+    titulo: cam.nombre,
     pideTicket: () => rpc('v2_live_ticket', { camera_id: cam.id }),
     alRechazo: async r => {
       const m = motivo(r?.motivo);
-      $('liveNota').textContent = m.texto;
-      // Sólo el administrador puede revisar la pantalla con una señal de prueba
-      // mientras no hay gateway. La familia nunca la ve.
+      // Sólo el administrador puede revisar el reproductor con una señal de
+      // prueba mientras no hay servidor de video. La familia nunca la ve.
       if (r?.motivo === 'sin_gateway' && ADMIN) {
-        reproductor.aviso('Cámara aún no conectada al servidor de video.');
-        const ok = await window.tosConfirm({ kicker: 'SIN GATEWAY', title: 'Ver señal de prueba', message: 'Todavía no hay servidor de video. ¿Quieres revisar el reproductor con una señal de prueba? Se verá rotulada como prueba, nunca como en vivo.', confirmText: 'Ver prueba' });
+        reproductor.aviso('Esta cámara aún no está conectada al servidor de video.');
+        const ok = await window.tosConfirm({ kicker: 'SIN SERVIDOR DE VIDEO', title: 'Ver señal de prueba', message: 'Todavía no hay servidor de video. ¿Revisas el reproductor con una señal de prueba? Se verá rotulada como prueba, nunca como en vivo.', confirmText: 'Ver prueba' });
         if (ok) reproductor.arranca({ modoPrueba: true });
-      } else reproductor.aviso(m.titulo);
+      } else reproductor.aviso(m.texto);
     }
   });
+  reproductor.poster('', cam.motivo === 'ok' ? 'Toca play para ver.' : motivo(cam.motivo).texto);
   cont.addEventListener('live:play', () => reproductor.arranca());
 }
+
+// ---------------------------------------------------------- Hojas (sheets) ----
+function abreHoja(html, enlazar) {
+  cierraHoja();
+  const fondo = document.createElement('div');
+  fondo.className = 'tv-hoja-fondo live-page';
+  fondo.style.cssText = 'padding:0;border-radius:0;background:rgba(0,0,0,.55);display:flex;gap:0';
+  fondo.innerHTML = `<div class="tv-hoja" role="dialog" aria-modal="true"><div class="tv-agarre" aria-hidden="true"></div>${html}</div>`;
+  fondo.addEventListener('click', ev => { if (ev.target === fondo) cierraHoja(); });
+  fondo.querySelectorAll('[data-cerrar]').forEach(b => b.onclick = cierraHoja);
+  document.body.appendChild(fondo);
+  document.addEventListener('keydown', escHoja);
+  enlazar?.(fondo.querySelector('.tv-hoja'));
+  fondo.querySelector('button, input')?.focus();
+}
+function cierraHoja() { document.querySelector('.tv-hoja-fondo')?.remove(); document.removeEventListener('keydown', escHoja); }
+function escHoja(ev) { if (ev.key === 'Escape') cierraHoja(); }
+
+// Presidencia (24/11/2026): "un botón de transmitir y ya, y veo a quién le doy
+// acceso". Dos preguntas: quién la ve y cuánto dura. Se apaga sola.
+function hojaTransmitir(error = '') {
+  const tx = state.tx;
+  const libres = (state.panel?.camaras || []).filter(c => !c.sensible && !transmisionDe(c.id));
+  if (!libres.some(c => c.id === tx.camara)) tx.camara = libres.find(c => c.id === state.camara)?.id || libres[0]?.id || null;
+  const seg = (attr, ops, val) => ops.map(([k, t]) => `<button type="button" role="radio" aria-checked="${val === k}" data-${attr}="${esc(k)}">${esc(t)}</button>`).join('');
+  abreHoja(`<h2>Transmitir</h2>
+    ${libres.length > 1 ? `<div class="tv-campo"><span>Cámara</span><div class="tv-seg envuelve" role="radiogroup">${seg('tx-cam', libres.map(c => [c.id, c.nombre]), tx.camara)}</div></div>` : ''}
+    <div class="tv-campo"><span>¿Quién la ve?</span><div class="tv-seg" role="radiogroup">${seg('tx-modo', [['enlace', 'Con enlace'], ['familias', 'Familias']], tx.modo)}</div>
+      <p>${tx.modo === 'enlace' ? 'Cualquiera con el enlace, sin cuenta. Para rentas y finales.' : 'Sólo las familias de la academia, con su cuenta.'}</p></div>
+    <div class="tv-campo"><span>¿Cuánto tiempo?</span><div class="tv-seg" role="radiogroup">${seg('tx-dura', DURACIONES.map(([k, t]) => [k, t.replace(/ horas?$/, ' h').replace('Hasta las ', 'Hasta ')]), tx.dura)}</div></div>
+    <label class="tv-campo"><span>Nombre (opcional)</span><input data-tx-titulo maxlength="80" placeholder="Final Copa TCP" value="${esc(tx.titulo)}"></label>
+    ${error ? `<p class="live-errores" role="alert">${esc(error)}</p>` : ''}
+    <button type="button" class="tv-grande" data-transmitir>Empezar transmisión</button>
+    <button type="button" class="tv-texto" data-cerrar>Cancelar</button>`, h => {
+    h.querySelectorAll('[data-tx-cam]').forEach(b => b.onclick = () => { tx.camara = b.dataset.txCam; hojaTransmitir(); });
+    h.querySelectorAll('[data-tx-modo]').forEach(b => b.onclick = () => { tx.modo = b.dataset.txModo; hojaTransmitir(); });
+    h.querySelectorAll('[data-tx-dura]').forEach(b => b.onclick = () => { tx.dura = b.dataset.txDura; hojaTransmitir(); });
+    h.querySelector('[data-tx-titulo]').addEventListener('input', ev => { tx.titulo = ev.target.value; });
+    h.querySelector('[data-transmitir]').addEventListener('click', async ev => {
+      ev.currentTarget.disabled = true;
+      const minutos = tx.dura === 'hasta-23' ? minutosHasta('23:00', new Date(), TZ) : Number(tx.dura);
+      let r;
+      try { r = await rpc('v2_live_transmitir', { organization_id: ORG, camera_id: tx.camara, modo: tx.modo, titulo: tx.titulo || null, minutos }); }
+      catch (_) { return hojaTransmitir('No se pudo transmitir. Intenta de nuevo.'); }
+      if (r && !r.ok) return hojaTransmitir(NO_ENCIENDE[r.motivo] || motivo(r.motivo).texto);
+      tx.titulo = '';
+      await carga();
+      const cam = (state.panel?.camaras || []).find(c => c.id === tx.camara);
+      const nueva = { id: r.id, enlace: r.enlace, termina: r.termina, titulo: null, camara: cam?.nombre || '', modo: r.modo || tx.modo };
+      if (r.enlace) hojaCompartir(nueva, r.recortada_por_academia ? 'Se apagará sola cuando empiece el horario de la academia en esa cámara.' : '');
+      else abreHoja(`<h2>Ya están en vivo</h2><p>Las familias de la academia ya pueden verla en su portal hasta las ${esc(hora(r.termina))}.</p>
+        <button type="button" class="tv-grande claro" data-cerrar>Listo</button>`);
+    });
+  });
+}
+
+function hojaCompartir(b, nota = '') {
+  const enlace = enlaceDe(b.enlace, location.origin);
+  const wa = `https://wa.me/?text=${encodeURIComponent(mensajeWhatsApp({ titulo: b.titulo, camara: b.camara, enlace, termina: b.termina }))}`;
+  abreHoja(`<h2>Estás en vivo</h2>
+    <p>Comparte este enlace con quien quieras que lo vea. Se apaga sola a las ${esc(hora(b.termina))}${nota ? ` ${esc(nota)}` : ''}</p>
+    <code class="live-hoja-enlace">${esc(enlace)}</code>
+    <div class="tv-botones"><button type="button" class="tv-grande claro" data-copiar>Copiar</button>
+      <a class="tv-grande" style="display:grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(wa)}">WhatsApp</a></div>
+    ${navigator.share ? '<button type="button" class="tv-texto" data-compartir>Más opciones</button>' : ''}
+    <button type="button" class="tv-texto" data-nuevo-enlace="${esc(b.id)}">Cambiar el enlace</button>
+    <button type="button" class="tv-texto" data-cerrar>Listo</button>`, h => {
+    h.querySelector('[data-copiar]').onclick = async ev => {
+      const btn = ev.currentTarget;
+      try { await navigator.clipboard.writeText(enlace); btn.textContent = 'Copiado'; }
+      catch (_) { const r = document.createRange(); r.selectNodeContents(h.querySelector('.live-hoja-enlace')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = 'Selecciónalo y cópialo'; }
+    };
+    h.querySelector('[data-compartir]')?.addEventListener('click', () => navigator.share({ title: 'Tanner LIVE', text: mensajeWhatsApp({ titulo: b.titulo, camara: b.camara, enlace, termina: b.termina }) }).catch(() => {}));
+    h.querySelector('[data-nuevo-enlace]').onclick = async () => {
+      if (!await window.tosConfirm({ kicker: 'ENLACE', title: 'Cambiar el enlace', message: 'El enlace anterior deja de servir y se corta a quien lo estaba usando. Útil si se compartió de más.', confirmText: 'Cambiar enlace' })) return;
+      try { const r = await rpc('v2_live_nuevo_enlace', { organization_id: ORG, broadcast_id: b.id }); await carga(); if (r?.enlace) hojaCompartir({ ...b, enlace: r.enlace }); }
+      catch (_) { aviso('No se pudo', 'No pudimos cambiar el enlace.'); }
+    };
+  });
+}
+
+async function detener(id) {
+  if (!await window.tosConfirm({ kicker: 'TRANSMISIÓN', title: 'Detener transmisión', message: 'Se corta para todos los que la están viendo y el enlace deja de servir.', confirmText: 'Detener', danger: true })) return;
+  try { await rpc('v2_live_detener', { organization_id: ORG, broadcast_id: id }); } catch (_) { aviso('No se pudo', 'No pudimos detenerla.'); }
+  await carga();
+}
+
+// --------------------------------------------------------------- Ajustes ----
+function vistaAjustes() {
+  const p = state.panel || {};
+  const n = (p.camaras || []).length, pausado = state.mis?.pausado;
+  return `<div class="tv-lista">
+      <button type="button" class="tv-fila" data-ir="camaras"><span>Cámaras</span><small>${n}</small><em>›</em></button>
+      <button type="button" class="tv-fila" data-ir="diagnostico"><span>Diagnóstico del grabador</span><em>›</em></button>
+      <button type="button" class="tv-fila" data-ir="accesos"><span>Accesos de familias</span><em>›</em></button>
+      <button type="button" class="tv-fila" data-ir="bitacora"><span>Bitácora</span><em>›</em></button>
+    </div>
+    <div class="tv-lista"><button type="button" class="tv-fila ${pausado ? 'oro' : 'rojo'}" data-pausa><span>${pausado ? 'Reanudar transmisiones' : 'Pausar todas las transmisiones'}</span></button></div>
+    <p class="tv-pie">${pausado ? 'Las cámaras encendidas vuelven a transmitir en su horario.' : 'Corta al instante a todos los que estén viendo. Úsalo si algo no debe verse.'}</p>`;
+}
+function enlazaAjustes() { body.querySelector('[data-pausa]')?.addEventListener('click', alternaPausa); }
 
 async function alternaPausa() {
   const pausado = state.mis?.pausado;
@@ -488,7 +543,7 @@ const EVENTOS = {
 };
 function vistaBitacora() {
   const b = state.bitacora;
-  return `<section class="live-panel"><h2>Bitácora</h2>${!b ? '<p class="live-muted">Cargando…</p>' : b.length ? `<ul class="live-log">${b.map(e => `<li><div><strong>${esc(EVENTOS[e.tipo] || e.tipo)}</strong><small>${esc([e.quien || 'Sistema', fecha(e.al), e.datos?.motivo].filter(Boolean).join(' · '))}</small></div></li>`).join('')}</ul>` : '<p class="live-muted">Sin movimientos todavía.</p>'}</section>`;
+  return `<section class="live-panel">${!b ? '<p class="live-muted">Cargando…</p>' : b.length ? `<ul class="live-log">${b.map(e => `<li><div><strong>${esc(EVENTOS[e.tipo] || e.tipo)}</strong><small>${esc([e.quien || 'Sistema', fecha(e.al), e.datos?.motivo].filter(Boolean).join(' · '))}</small></div></li>`).join('')}</ul>` : '<p class="live-muted">Sin movimientos todavía.</p>'}</section>`;
 }
 async function cargaBitacora() {
   try { state.bitacora = await rpc('v2_live_bitacora', { organization_id: ORG, limite: 150 }) || []; } catch (_) { state.bitacora = []; }

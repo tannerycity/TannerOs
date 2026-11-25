@@ -766,6 +766,14 @@ function cableaMegaMenu() {
   window.addEventListener('hashchange', () => { cierra(); marcaMegaMenu(); });
 }
 
+/* Migas (25/11/2026): Inicio / Categoría / Pieza arriba del título. La
+   página actual va en negritas y sin liga; los separadores, en gris. */
+function migas(pasos) {
+  return `<nav class="st-migas" aria-label="Ruta"><ol>${pasos.map((m, i) => i === pasos.length - 1
+    ? `<li><span aria-current="page">${esc(m.texto)}</span></li>`
+    : `<li><a href="${esc(m.href)}">${esc(m.texto)}</a><span class="st-migas-sep" aria-hidden="true">/</span></li>`).join('')}</ol></nav>`;
+}
+
 function renderTienda(clave = '') {
   const activa = secciones.some(s => s.clave === clave) ? clave : '';
   const visibles = activa ? secciones.filter(s => s.clave === activa) : secciones;
@@ -779,6 +787,7 @@ function renderTienda(clave = '') {
      y su Tanner; quien no tiene cuenta compra aquí mismo. */
   $('content').innerHTML = `${franjaHtml()}${activa ? '' : holaFamiliaHtml()}${activa ? '' : carruselHtml()}${corteHtml()}
     <section class="st-hero${activa ? '' : ' portada'}">
+      ${activa ? migas([{ texto: 'Inicio', href: '#/' }, { texto: etiquetaDe(activa) }]) : ''}
       ${activa ? '' : '<img class="st-hero-escudo" src="/brand/crest-navy.png" alt="" width="120" height="120">'}
       <p class="st-eyebrow">${esc(clubNombre)}</p>
       <h1>${activa ? esc(etiquetaDe(activa)) : 'Tienda oficial'}</h1>
@@ -811,7 +820,7 @@ function renderProducto(id) {
   const multi = varias ? preparaLineasPorTalla(p, { cantidades: cants, manga: e.manga }) : null;
   document.title = `${p.name} · ${nombreTienda()}`;
   $('content').innerHTML = `
-    <a class="st-volver" href="#/c/${esc(cat)}">‹ ${esc(etiquetaDe(cat))}</a>
+    ${migas([{ texto: 'Inicio', href: '#/' }, { texto: etiquetaDe(cat), href: `#/c/${encodeURIComponent(cat)}` }, { texto: p.name }])}
     <article class="st-pdp" data-ficha="${esc(p.id)}">
       ${galeria(p, e.foto || 0)}
       <div class="st-pdp-info">
@@ -887,7 +896,7 @@ function renderKit(id) {
   document.title = `${k.name} · ${nombreTienda()}`;
   const ranuras = ranurasDeKit(k);
   $('content').innerHTML = `
-    <a class="st-volver" href="#/c/kits">‹ Kits</a>
+    ${migas([{ texto: 'Inicio', href: '#/' }, { texto: 'Kits', href: '#/c/kits' }, { texto: k.name }])}
     <article class="st-pdp" data-ficha="${esc(k.id)}">
       ${medioKit(k, 'grande')}
       <div class="st-pdp-info">

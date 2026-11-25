@@ -87,3 +87,16 @@
 @media (prefers-reduced-motion: reduce) {
   .st-mega, .st-nav-btn svg, .st-mega-foto img { transition: none; }
 }
+
+/* MIGAS (25/11/2026): Inicio / Categoría / Pieza, arriba del título.
+ * La página actual en negritas; los separadores, en gris tenue. */
+.st-migas { margin: 14px 0 0; font-size: 14px; line-height: 1.4; }
+.st-hero .st-migas { margin: 0 0 10px; }
+.st-migas ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; min-width: 0; }
+.st-migas li { display: inline-flex; align-items: center; min-width: 0; }
+.st-migas a { display: inline-flex; align-items: center; min-height: 32px; color: var(--st-ink-2); text-decoration: none; border-radius: 6px; }
+.st-migas a:hover { color: var(--st-ink); text-decoration: underline; text-underline-offset: 3px; }
+.st-migas a:focus-visible { outline: 2px solid var(--st-brand); outline-offset: 2px; }
+.st-migas-sep { margin: 0 8px; color: #b4bdc0; font-weight: 400; }
+.st-migas [aria-current="page"] { font-weight: 700; color: var(--st-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62vw; }
+@media (min-width: 720px) { .st-migas [aria-current="page"] { max-width: 520px; } }

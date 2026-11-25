@@ -14,11 +14,14 @@ import {abrirCobro,esCuentaCompartida} from '/v2/cobro/hoja.js';
 import {leeMonto,leeMontoOpcional,escribeMonto,parteDe,resta} from '/v2/dinero.js?v=20261113a';
 import {preparaCobro,ligaDeCobro} from '/v2/cobranza-whatsapp.js';
 import {resumenCobranza,filtraCobranza,textoEstado} from '/v2/taquilla/cobranza.js';
+import {pegaSelector} from '/v2/beneficiarios.js';
 
 const boot=await bootstrapProtectedShell({active:'taquilla',title:'Taquilla'});
 if(!boot)throw new Error('No access');
 const {ctx,navigation}=boot;
 const org=ctx.organization_id;
+// A quién se le pagó: Staff y proveedores de la lista (h102).
+pegaSelector($('expenseWho'),{rpc,org});
 // Corregir pedidos y cobros (h32): Presidencia o quien tenga el permiso personal.
 let puedeCorregir=ctx.role==='Presidencia';
 rpc('v2_can_correct',{organization_id:ctx.organization_id}).then(v=>{if(!!v!==puedeCorregir){puedeCorregir=!!v;try{renderMovements?.();}catch{}}}).catch(()=>{});
@@ -97,7 +100,7 @@ function resetCollectForm(){
   message('collectMessage');
 }
 function resetExpenseForm(){
-  $('expenseForm').reset();
+  $('expenseForm').reset();if($('expenseWho'))$('expenseWho').dataset.libre='';
   $('expenseDate').value=isoToday();
   $('expenseCategoryOtherWrap')?.classList.add('hidden');
   message('expenseMessage');

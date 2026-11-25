@@ -106,3 +106,4 @@ qa-humo-mi-semana.mjs
 qa-humo-usuarios-fab.mjs
 qa-humo-sin-senal.mjs
 qa-humo-jugadores-lista.mjs
+qa-humo-egresos-beneficiarios.mjs

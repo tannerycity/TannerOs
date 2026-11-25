@@ -75,7 +75,7 @@ ok('WhatsApp por mes: mensual, meses y contrato con IVA', /\$5,220 al mes por 12
 ok('WhatsApp de pago único como antes', /espacio por \$1,000/.test(mensajeWhatsApp({ folio: 'COT-2026-001', total: 1000, items: [{}] }, 'X')));
 
 /* Hoja */
-ok('posiciones del uniforme', posicionDe('Logo en pecho').lado === 'Frente' && posicionDe('Logo en manga izquierda').x === 69 && posicionDe('Logo en medias').lado === 'Medias' && posicionDe('Reel') === null);
+ok('posiciones del uniforme', posicionDe('Logo en pecho').lado === 'Frente' && posicionDe('Logo en manga izquierda').x === 79 && posicionDe('Logo en medias').lado === 'Medias' && posicionDe('Reel') === null);
 ok('sólo fotos del kit', fotoDelKit('/brand/patrocinios/chavicos.jpg') && !fotoDelKit('https://malo.com/x.jpg') && !fotoDelKit('/brand/patrocinios/../x.jpg') && !fotoDelKit(null));
 ok('teléfono bonito', telefonoBonito('524792651338') === '479 265 1338' && telefonoBonito('4792651338') === '479 265 1338' && telefonoBonito('') === '');
 const COT = {

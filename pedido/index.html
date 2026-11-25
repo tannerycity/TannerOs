@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="/pedido/styles.css" />
   <link rel="stylesheet" href="/v2/vitrina.css" />
   <link rel="stylesheet" href="/pedido/tienda.css" />
+  <link rel="stylesheet" href="/pedido/megamenu.css" />
 <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head>
 <body class="st-body">
   <header class="st-head">
@@ -34,6 +35,12 @@
       <img src="/brand/crest-navy.png" alt="" width="30" height="30">
       <span>Tienda oficial</span>
     </a>
+    <nav class="st-nav" id="stNav" aria-label="Menú de la tienda" hidden>
+      <button type="button" class="st-nav-btn" id="stNavBtn" aria-expanded="false" aria-controls="stMega">
+        Comprar <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="st-mega" id="stMega" hidden></div>
+    </nav>
     <div class="st-head-acc">
     <a id="stMisPedidos" class="st-carrito st-mis-btn" href="#/mis-pedidos" aria-label="Mis pedidos" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></svg>

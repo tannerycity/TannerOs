@@ -45,6 +45,7 @@ import { datosDePago, mensajeComprobante, ligaWhatsApp } from '/v2/pedido-mensaj
 import { lineasDeRecibo, reciboDe, guardaRecibo, buscaRecibo, leeRecibos, llaveRecibos, fechaCorta, textoParaMi, dibujaRecibo, primerNombre } from '/pedido/recibo.js';
 import { tablasPara, CONSEJO_TALLA, MEDIDAS_CONFIRMADAS } from '/v2/guia-tallas.js';
 import { bannersParaTienda, destinoDe, CADA_MS } from '/pedido/banners.js';
+import { columnasDelMenu, destacadoDelMenu } from '/pedido/megamenu.js';
 import { rutaDeLiga, ligaDe } from '/pedido/ligas.js';
 import { iniciaMedicion, mide, hayIds, cambiaConsentimiento, aqui as medibleAqui } from '/v2/medicion.js';
 import { serializaCarrito, restauraCarrito, cambiaCantidadEnCarrito, cambiaCantidad, alternaGuardado, guardadosVivos } from '/pedido/carrito.js';
@@ -695,6 +696,74 @@ function armaCarrusel() {
     if (document.hidden || Date.now() - quieto < 8000) return;
     ir((actual() + 1) % total);
   }, CADA_MS);
+}
+
+/* ---------- Mega menú (25/11/2026) ----------
+   "Comprar" en la cabecera: tres columnas de ligas con icono y una línea, y
+   a la derecha una tarjeta destacada con foto. En compu abre al pasar el
+   mouse (con una pausa corta para que no parpadee al cruzar); en el celular
+   y con teclado, al tocar. Esc, tocar fuera o elegir una liga lo cierran. */
+const ICONOS_MENU = {
+  kit: '<path d="M8 3 4 6l2 4 2-1v11h8V9l2 1 2-4-4-3h-2a2 2 0 0 1-4 0Z"/><path d="M10 14h4"/>',
+  jersey: '<path d="M8 3 4 6l2 4 2-1v11h8V9l2 1 2-4-4-3h-2a2 2 0 0 1-4 0Z"/>',
+  shorts: '<path d="M5 4h14l1 15h-6l-2-8-2 8H4L5 4Z"/><path d="M5 7h14"/>',
+  calceta: '<path d="M9 3h6v9l3 4a3 3 0 0 1-2.5 5H10a4 4 0 0 1-4-4v-1l3-4V3Z"/><path d="M9 6h6"/>',
+  chamarra: '<path d="M9 3h6l5 4-2 4-2-1v11H8V10l-2 1-2-4 5-4Z"/><path d="M12 6v15M9 3l3 3 3-3"/>',
+  pants: '<path d="M7 3h10l1 18h-4l-2-12-2 12H6L7 3Z"/>',
+  playera: '<path d="M8 4 3 7l2 4 2-1v10h10V10l2 1 2-4-5-3a4 4 0 0 1-8 0Z"/>',
+  gorra: '<path d="M4 15a8 8 0 0 1 16 0Z"/><path d="M12 7V6M20 15h2"/>',
+  mochila: '<rect x="5" y="7" width="14" height="14" rx="3"/><path d="M9 7V5a3 3 0 0 1 6 0v2M9 13h6"/>',
+  mascara: '<path d="M3 8c3-2 15-2 18 0 0 6-3 10-9 10S3 14 3 8Z"/><path d="M8 11h2M14 11h2"/>',
+  estrella: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>'
+};
+const iconoMenu = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONOS_MENU[n] || ICONOS_MENU.estrella}</svg>`;
+function pintaMegaMenu() {
+  const nav = $('stNav'), panel = $('stMega');
+  const columnas = columnasDelMenu(secciones);
+  if (!columnas.length) { nav.hidden = true; return; }
+  const d = destacadoDelMenu({ banners: vitrina.banners, catalogo });
+  panel.innerHTML = `<div class="st-mega-in${d ? '' : ' sin-destacado'}">
+    <div class="st-mega-cols">${columnas.map(c => `<section class="st-mega-col" aria-labelledby="stMegaT-${esc(c.clave)}">
+      <h2 id="stMegaT-${esc(c.clave)}">${esc(c.titulo)}</h2>
+      <ul>${c.ligas.map(l => `<li><a href="${esc(l.href)}" data-mega-cat="${esc(l.clave)}">
+        <span class="st-mega-ico">${iconoMenu(l.icono)}</span>
+        <span class="st-mega-txt"><strong>${esc(l.etiqueta)}</strong><small>${esc(l.descripcion)}</small></span></a></li>`).join('')}</ul>
+    </section>`).join('')}</div>
+    ${d ? `<a class="st-mega-dest" href="${esc(d.href)}">
+      <div class="st-mega-foto">${fotos.get(d.foto.ruta) ? `<img src="${esc(fotos.get(d.foto.ruta))}" alt="" class="lista" decoding="async">` : imagen(d.foto.ruta, d.foto.bucket, '')}</div>
+      <div class="st-mega-dest-txt"><span class="st-mega-eyebrow">Destacado</span><strong>${esc(d.titulo)}</strong>${d.texto ? `<small>${esc(d.texto)}</small>` : ''}<span class="st-mega-cta">${esc(d.cta)} ›</span></div></a>` : ''}
+    <a class="st-mega-todo" href="#/">Ver toda la tienda ›</a>
+  </div>`;
+  nav.hidden = false;
+  firmaFotos(panel);
+  marcaMegaMenu();
+}
+// La liga de la categoría en la que va, marcada.
+function marcaMegaMenu() {
+  const [a, b] = location.hash.replace(/^#\/?/, '').split('/');
+  const actual = a === 'c' ? decodeURIComponent(b || '') : '';
+  document.querySelectorAll('[data-mega-cat]').forEach(l => (l.dataset.megaCat === actual ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current')));
+}
+function cableaMegaMenu() {
+  const nav = $('stNav'), btn = $('stNavBtn'), panel = $('stMega');
+  const conMouse = matchMedia('(hover: hover) and (pointer: fine) and (min-width: 860px)');
+  let abreT = 0, cierraT = 0;
+  const abierto = () => btn.getAttribute('aria-expanded') === 'true';
+  const abre = () => { clearTimeout(cierraT); if (abierto()) return; panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); requestAnimationFrame(() => nav.classList.add('abierto')); };
+  const cierra = (foco = false) => {
+    clearTimeout(abreT); if (!abierto()) return;
+    btn.setAttribute('aria-expanded', 'false'); nav.classList.remove('abierto');
+    setTimeout(() => { if (!abierto()) panel.hidden = true; }, 180);
+    if (foco) btn.focus();
+  };
+  btn.addEventListener('click', () => (abierto() ? cierra() : abre()));
+  nav.addEventListener('mouseenter', () => { if (!conMouse.matches) return; clearTimeout(cierraT); abreT = setTimeout(abre, 90); });
+  nav.addEventListener('mouseleave', () => { if (!conMouse.matches) return; clearTimeout(abreT); cierraT = setTimeout(() => cierra(), 220); });
+  panel.addEventListener('click', e => { if (e.target.closest('a')) cierra(); });
+  nav.addEventListener('focusout', e => { if (!nav.contains(e.relatedTarget)) cierra(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && abierto()) cierra(nav.contains(document.activeElement)); });
+  document.addEventListener('pointerdown', e => { if (abierto() && !nav.contains(e.target)) cierra(); });
+  window.addEventListener('hashchange', () => { cierra(); marcaMegaMenu(); });
 }
 
 function renderTienda(clave = '') {
@@ -1838,6 +1907,8 @@ try {
       catch { /* sin foto, ese banner no sale */ }
     }
   }
+  // El mega menú, ya con los banners firmados para su tarjeta destacada.
+  try { pintaMegaMenu(); cableaMegaMenu(); } catch { /* sin menú, quedan las pestañas */ }
   // El carrito de la visita anterior, con lo que la tienda todavía vende.
   // La familia con sesión, sin detener la tienda más de 2.5 s.
   await Promise.race([familiaLista, new Promise(r => setTimeout(r, 2500))]);

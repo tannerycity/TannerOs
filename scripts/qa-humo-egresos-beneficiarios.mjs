@@ -51,6 +51,10 @@ const FAKE = `
       if(n==='v2_my_navigation')return ok((window.__nav||['inicio','contabilidad','finanzas','metricas']).map(c=>({module_code:c,enabled:true,can_read:true,can_write:true})));
       if(n==='v2_collection_snapshot')return ok({collection_rate:72,covered:36,collection_population:50,current_period_receivable:9800,total_receivable:43388,pending_players:45,residual_receivable:12000,residual_players:9,needs_configuration:0});
       if(n==='v2_bi_serie'||n==='v2_bi_tablero')return {data:null,error:{message:'Not authorized'}};
+      if(n==='v2_finance_monthly'){window.__mes=(window.__mes||[]).concat(p);const y=new Date().getFullYear();
+        if(String(p.desde||'').startsWith(String(y-1)))return ok([{mes:(y-1)+'-10',ingresos:200000,egresos:150000}]);
+        if(window.__sinMes)return {data:null,error:{message:'function v2_finance_monthly does not exist'}};
+        return ok([{mes:y+'-10',ingresos:150000,egresos:100000},{mes:y+'-11',ingresos:119633,egresos:75310}]);}
       if(n==='v2_my_modules')return ok([{module_code:'accounting',enabled:true,can_read:true,can_write:true}]);
       if(n==='v2_expense_payees')return ok({payees:L,staffSinAlta:[{id:'s9',name:'Luis Felipe',title:'Formador'}]});
       if(n==='v2_save_expense_payee'){const name=p.name||'Luis Felipe';if(p.payee_id){const x=L.find(y=>y.id===p.payee_id);x.active=p.active;}else L.push({id:'n'+L.length,name,kind:p.kind,active:true,aliases:[],total:0});return ok({id:'n',name,kind:p.kind});}
@@ -136,6 +140,19 @@ for (const ancho of [1280, 390]) {
 
   // Gráficas
   const g = await abre('/v2/metricas/index.html', ancho);
+  // Mes a mes (h104): "que sea interactivo... como una web de $50,000".
+  await g.pg.waitForSelector('#grMesPanel:not([hidden]) .gr-mescol', { timeout: 5000 });
+  revisa('F2. mes a mes: una columna por mes con Entró y Salió' + n, (await g.pg.$$('#grMes .gr-mescol')).length === 2 && (await g.pg.$$('#grMes .gr-mescol i.ing')).length === 2 && /Entró/.test(await txt(g.pg, '#grMesPanel .gr-leyenda')));
+  const det0 = await txt(g.pg, '#grMesDetalle');
+  revisa('F2. arranca en el último mes: cuánto entró, salió y quedó' + n, /Nov/.test(det0) && /\$119,633/.test(det0) && /\$75,310/.test(det0) && /Quedó\s*\$44,323/.test(det0), det0);
+  await g.pg.click('#grMes [data-mes$="-10"]');
+  const det1 = await txt(g.pg, '#grMesDetalle');
+  revisa('F2. tocar otro mes cambia el detalle' + n, /Oct/.test(det1) && /Quedó\s*\$50,000/.test(det1) && await g.pg.$eval('#grMes [data-mes$="-10"]', (b) => b.getAttribute('aria-pressed')) === 'true', det1);
+  const mp = await g.pg.evaluate(() => window.__mes);
+  revisa('F2. pide el mes a mes del periodo y del mismo tramo del año pasado' + n, mp.length >= 2 && mp.some((x) => /-01-01$/.test(x.desde || '') && x.desde.slice(0, 4) === String(new Date().getFullYear() - 1)), JSON.stringify(mp));
+  const dIng = await txt(g.pg, '#dIngresos'), dEg = await txt(g.pg, '#dEgresos');
+  revisa('F2. Entró dice cuánto subió contra el año pasado' + n, /\+35%/.test(dIng) && /año pasado/.test(dIng) && await g.pg.$eval('#dIngresos', (e) => e.dataset.tono) === 'bien', dIng);
+  revisa('F2. Salió subió: se marca como malo' + n, /\+17%/.test(dEg) && await g.pg.$eval('#dEgresos', (e) => e.dataset.tono) === 'mal', dEg);
   // Métricas en una hoja (26/11/2026): "vamos a concentrar todo en una hoja".
   await g.pg.waitForSelector('#secCobranza:not([hidden]) .cob-kpi', { timeout: 5000 });
   const tabs = await g.pg.$$eval('#metSecciones button', (bs) => bs.map((b) => b.textContent.trim()));

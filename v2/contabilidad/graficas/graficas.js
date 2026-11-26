@@ -105,3 +105,36 @@ export function semanasDePago(rows, { desde = null, hasta = null, hoy = null } =
   }
   return { semanas, faltan: semanas.filter((s) => !s.pagos.length && !s.enCurso), dobles: semanas.filter((s) => s.pagos.length > 1) };
 }
+
+/* MES A MES Y COMPARACIÓN (26/11/2026, h104). Presidencia: "que sea
+ * interactivo... como si fuera una web de $50,000". */
+// El mismo tramo, un periodo antes: este mes → mismo tramo del mes pasado;
+// 3 meses → los 3 de antes; este año → mismo tramo del año pasado.
+export function rangoAnterior(k, hoyIso) {
+  const r = rangoDe(k, hoyIso);
+  if (!r.desde) return null;
+  const mueve = (iso, meses) => {
+    const [a, m, d] = iso.split('-').map(Number);
+    const base = new Date(Date.UTC(a, m - 1 - meses, 1));
+    const ultimo = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)).getUTCDate();
+    return `${base.getUTCFullYear()}-${pad(base.getUTCMonth() + 1)}-${pad(Math.min(d, ultimo))}`;
+  };
+  const meses = k === 'mes' ? 1 : k === 'tres' ? 3 : 12;
+  return { desde: mueve(r.desde, meses), hasta: mueve(r.hasta, meses) };
+}
+// % de cambio; null si antes no hubo nada (no se inventa un "+100%").
+export function cambioPct(actual, antes) {
+  const a = Number(actual || 0), b = Number(antes || 0);
+  if (!(b > 0)) return null;
+  return Math.round(((a - b) / b) * 100);
+}
+// Totales de una lista mes a mes (h104).
+export const sumaMeses = (rows) => (rows || []).reduce((t, r) => ({ ingresos: t.ingresos + Number(r.ingresos || 0), egresos: t.egresos + Number(r.egresos || 0) }), { ingresos: 0, egresos: 0 });
+// Para dibujar: cada mes con su altura contra el mayor de los dos.
+export function mesAMes(rows) {
+  const xs = (rows || []).map((r) => ({ mes: String(r.mes), ingresos: Number(r.ingresos || 0), egresos: Number(r.egresos || 0) }));
+  const max = Math.max(0, ...xs.flatMap((r) => [r.ingresos, r.egresos]));
+  return xs.map((r) => ({ ...r, queda: r.ingresos - r.egresos,
+    hIng: max ? Math.max(r.ingresos ? 2 : 0, Math.round((r.ingresos / max) * 100)) : 0,
+    hEg: max ? Math.max(r.egresos ? 2 : 0, Math.round((r.egresos / max) * 100)) : 0 }));
+}

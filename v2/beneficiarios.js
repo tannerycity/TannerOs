@@ -45,7 +45,7 @@ function estilos() {
   const s = document.createElement('style');
   s.id = 'benefEstilos';
   s.textContent = `
-.benef-fondo{position:fixed;inset:0;z-index:9000;background:rgba(7,25,30,.45);display:flex;align-items:flex-end;justify-content:center}
+.benef-fondo{position:fixed;inset:0;z-index:9997;background:rgba(7,25,30,.45);display:flex;align-items:flex-end;justify-content:center}
 .benef-hoja{width:100%;max-width:520px;max-height:86vh;overflow:auto;background:#fff;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;font:inherit;color:#10252b}
 @media (min-width:700px){.benef-fondo{align-items:center}.benef-hoja{border-radius:22px}}
 .benef-hoja h3{margin:0 0 4px;font-size:19px}

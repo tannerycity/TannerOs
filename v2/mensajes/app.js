@@ -20,7 +20,7 @@ const {ctx}=boot;
 const org=ctx.organization_id;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={tab:'avisos',inbox:null,avisos:null,thread:null,threadId:null,busca:'',pending:[],timer:null,inboxTimer:null,
-  respondiendo:null,editando:null,rapidas:null,huella:''};
+  respondiendo:null,editando:null,rapidas:null,huella:'',filtroAvisos:'todos'};
 const BUCKET='tanneros-private';
 // Íconos de línea, nunca emojis (regla del club): mismo trazo que el menú.
 const ICONO={
@@ -112,6 +112,7 @@ function pintaLista(){
     $('msBusca').addEventListener('input',e=>{state.busca=e.target.value;pintaItems();});
     $('msItems').addEventListener('click',e=>{
       const ack=e.target.closest('[data-ack]');if(ack){enterado(ack.dataset.ack,ack);return;}
+      const fil=e.target.closest('[data-filtro]');if(fil){state.filtroAvisos=fil.dataset.filtro;pintaItems();return;}
       const det=e.target.closest('[data-detalle]');if(det){detalleAviso(det.dataset.detalle);return;}
       const ges=e.target.closest('[data-gestion]');if(ges){gestionAviso(ges.dataset.gestion);return;}
       const b=e.target.closest('[data-thread]');if(b)abreChat(b.dataset.thread);
@@ -199,20 +200,52 @@ function alcance(a){
   return a.canManage?`<button type="button" class="ms-visto" data-detalle="${esc(a.id)}" title="${titulo}">${cuantos}${ent}</button>`
     :`<b class="ms-visto" title="${titulo}">${cuantos}${ent}</b>`;
 }
+/* Avisos estilo bandeja de notificaciones (26/11/2026): "está medio feo…
+   que sea estilo Mercado Libre". Una fila por aviso, sin tarjetas: ícono
+   redondo de quién/para quién a la izquierda, título y texto, la hora y un
+   punto azul si es nuevo. Agrupados por día (Hoy, Ayer, Esta semana…), con
+   lo programado y lo fijado arriba, y filtro Todos / No leídos. */
+function iconoAviso(a){
+  if(a.scheduledFor)return `<span class="ms-av-ic prog" aria-hidden="true">${svg('reloj')}</span>`;
+  if(a.audienceType==='familias'||a.audienceType==='categoria')return `<span class="ms-av-ic fam" aria-hidden="true">${svg('Marketing')}</span>`;
+  if(a.audienceType==='role')return `<span class="ms-av-ic area" aria-hidden="true">${svg(a.audienceValue)}</span>`;
+  if(a.audienceType==='club')return `<span class="ms-av-ic club" aria-hidden="true">${svg('club')}</span>`;
+  return `<span class="ms-av-ic persona" style="background:${tono(a.author)}" aria-hidden="true">${esc(iniciales(a.author))}</span>`;
+}
 function tarjetaAviso(a){
   const chips=`${a.pinned?`<span class="ms-chip pin">${svg('pin')}Fijado</span>`:''}${a.scheduledFor?`<span class="ms-chip prog">${svg('reloj')}Sale ${esc(fechaHora(a.scheduledFor))}</span>`:''}`;
   const enterado=a.canAck?(a.acked?`<span class="ms-acked">${svg('check')}Enterado</span>`
     :`<button type="button" class="ms-ack" data-ack="${esc(a.id)}">${svg('check')}Enterado</button>`):'';
   const gestion=a.canManage?`<button type="button" class="ms-gestion" data-gestion="${esc(a.id)}" aria-label="Opciones del aviso">${svg('mas')}</button>`:'';
-  return `<article class="ms-aviso${a.unread?' unread':''}${a.pinned?' pinned':''}${a.scheduledFor?' scheduled':''}" data-aviso="${esc(a.id)}"><header><strong>${esc(a.title)}</strong><span class="ms-aviso-top"><time>${esc(a.scheduledFor?'Programado':cuando(a.publishedAt))}</time>${gestion}</span></header>${chips?`<div class="ms-chips">${chips}</div>`:''}${a.body?`<p>${texto(a.body)}</p>`:''}<footer><span>${esc(a.author||'')} · ${esc(paraQuien(a))}</span>${alcance(a)}</footer>${enterado?`<div class="ms-aviso-acciones">${enterado}</div>`:''}</article>`;
+  const autor=a.author?`<b>${esc(a.author)}</b> · `:'';
+  return `<article class="ms-aviso${a.unread?' unread':''}${a.pinned?' pinned':''}${a.scheduledFor?' scheduled':''}" data-aviso="${esc(a.id)}">${iconoAviso(a)}<div class="ms-aviso-main"><header><strong>${a.unread?'<span class="ms-sr">Nuevo: </span>':''}${esc(a.title)}</strong><span class="ms-aviso-top"><time>${esc(a.scheduledFor?'Programado':cuando(a.publishedAt))}</time>${a.unread?'<i class="ms-dot" aria-hidden="true"></i>':''}${gestion}</span></header>${a.body?`<p>${texto(a.body)}</p>`:''}${chips?`<div class="ms-chips">${chips}</div>`:''}<footer><span>${autor}${esc(paraQuien(a))}</span>${alcance(a)}</footer>${enterado?`<div class="ms-aviso-acciones">${enterado}</div>`:''}</div></article>`;
 }
+function grupoDeAviso(a){
+  if(a.scheduledFor)return 'Programados';
+  if(a.pinned)return 'Fijados';
+  const d=new Date(a.publishedAt),hoy=new Date();hoy.setHours(0,0,0,0);
+  const dias=Math.floor((hoy-new Date(d).setHours(0,0,0,0))/864e5);
+  if(dias<=0)return 'Hoy';
+  if(dias===1)return 'Ayer';
+  if(dias<7)return 'Esta semana';
+  if(dias<31)return 'Este mes';
+  return 'Anteriores';
+}
+const ORDEN_GRUPOS=['Programados','Fijados','Hoy','Ayer','Esta semana','Este mes','Anteriores'];
 function pintaAvisos(box){
   const d=state.avisos;
   if(!d){box.innerHTML='<div class="ms-vacio">Cargando avisos…</div>';return;}
-  const lista=d.avisos||[];
-  box.innerHTML=(d.canPublish?`<button type="button" class="ms-aviso-nuevo" id="msAvisoNuevo">＋ Nuevo aviso para el club</button>`:'')
-    +(lista.length?lista.map(tarjetaAviso).join('')
-      :`<div class="ms-vacio">${esc(d.error||'Sin avisos. Cuando Presidencia publique uno, aparece aquí.')}</div>`);
+  const todos=d.avisos||[],sinLeer=todos.filter(a=>a.unread).length;
+  if(state.filtroAvisos==='nuevos'&&!sinLeer)state.filtroAvisos='todos';
+  const filtro=state.filtroAvisos||'todos';
+  const lista=filtro==='nuevos'?todos.filter(a=>a.unread):todos;
+  const grupos=new Map(ORDEN_GRUPOS.map(g=>[g,[]]));
+  for(const a of lista)grupos.get(grupoDeAviso(a)).push(a);
+  const filtros=todos.length?`<div class="ms-filtros" role="group" aria-label="Filtrar avisos"><button type="button" data-filtro="todos" aria-pressed="${filtro==='todos'}">Todos</button><button type="button" data-filtro="nuevos" aria-pressed="${filtro==='nuevos'}"${sinLeer?'':' disabled'}>No leídos${sinLeer?` <b>${sinLeer}</b>`:''}</button></div>`:'';
+  const vacio=`<div class="ms-vacio ms-vacio-avisos"><span aria-hidden="true">${svg('campana')}</span><strong>${d.error?'No se cargaron los avisos':'Todo al día'}</strong><small>${esc(d.error||'Cuando Presidencia o tu área publiquen un aviso, aparece aquí.')}</small></div>`;
+  box.innerHTML=filtros
+    +(lista.length?[...grupos].filter(([,l])=>l.length).map(([g,l])=>`<section class="ms-grupo-avisos"><h2 class="ms-dia">${esc(g)}</h2>${l.map(tarjetaAviso).join('')}</section>`).join(''):vacio)
+    +(d.canPublish?`<button type="button" class="ms-aviso-nuevo" id="msAvisoNuevo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Nuevo aviso</button>`:'');
   pintaConteos();
   $('msAvisoNuevo')?.addEventListener('click',hojaAviso);
 }

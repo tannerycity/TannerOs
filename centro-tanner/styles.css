@@ -70,6 +70,11 @@ a{color:inherit}
 .ct-doc-name{font-weight:700;font-size:14.5px}
 .ct-doc-meta{font-size:12px;color:var(--ct-muted);margin-top:2px}
 .ct-doc-arrow{color:var(--ct-muted)}
+/* 26/11/2026: tarjeta de Privacidad con un documento relacionado adentro
+   (Uso de fotos y video), sin fusionarlos de verdad en la base de datos. */
+.ct-doc-row-grouped{flex-direction:column;align-items:stretch;gap:8px}
+.ct-doc-row-main{display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;text-decoration:none;color:inherit}
+.ct-doc-sub{font-size:12.5px;font-weight:700;color:var(--ct-teal);text-decoration:none;padding-top:8px;border-top:1px solid var(--ct-line)}
 .ct-updated{margin-top:26px;font-size:12.5px;color:var(--ct-muted);text-align:center}
 .ct-updated a{color:var(--ct-teal);font-weight:700;text-decoration:none}
 

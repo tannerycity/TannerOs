@@ -129,8 +129,15 @@ async function renderHome() {
     const faqs = home?.featuredFaqs || [];
     $('ctFaqList').innerHTML = faqs.length ? faqs.map((f) => `<details class="ct-faq-item"><summary>${esc(f.question)}</summary><div class="ct-faq-body">${esc(f.answer)}${f.policySlug ? `<a class="ct-faq-link" href="/centro-tanner/p/${esc(f.policySlug)}">Ver política completa →</a>` : ''}</div></details>`).join('') : '<p class="ct-empty">Todavía no hay preguntas frecuentes publicadas.</p>';
     injectFaqSchema(faqs);
-    const docs = home?.documents || [];
-    $('ctDocList').innerHTML = docs.length ? docs.map((d) => `<a class="ct-doc-row" href="/centro-tanner/documento/${esc(d.code)}"><div><div class="ct-doc-name">${esc(d.title)} — versión vigente</div><div class="ct-doc-meta">Actualizado ${esc(fmtDate(d.updatedAt))}</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>`).join('') : '<p class="ct-empty">Sin documentos publicados.</p>';
+    // 26/11/2026, Mich: "siento que tenemos muchos códigos... hazlo más
+    // fácil". Uso de fotos y video no se fusiona de verdad (su decisión de
+    // 3 respuestas está conectada al expediente del jugador, no es un
+    // documento simple) — pero visualmente aparece junto a Privacidad, no
+    // como su propia fila, para que la lista se sienta más corta.
+    const docsTodos = home?.documents || [];
+    const imagen = docsTodos.find((d) => d.code === 'uso_de_imagen');
+    const docs = docsTodos.filter((d) => d.code !== 'uso_de_imagen');
+    $('ctDocList').innerHTML = docs.length ? docs.map((d) => `<div class="ct-doc-row ${d.code === 'privacidad' && imagen ? 'ct-doc-row-grouped' : ''}"><a class="ct-doc-row-main" href="/centro-tanner/documento/${esc(d.code)}"><div><div class="ct-doc-name">${esc(d.title)} — versión vigente</div><div class="ct-doc-meta">Actualizado ${esc(fmtDate(d.updatedAt))}</div></div><span class="ct-doc-arrow tos-icon tos-icon-chevron" aria-hidden="true"></span></a>${d.code === 'privacidad' && imagen ? `<a class="ct-doc-sub" href="/centro-tanner/documento/uso_de_imagen">Incluye: Uso de fotos y video →</a>` : ''}</div>`).join('') : '<p class="ct-empty">Sin documentos publicados.</p>';
     if (home?.lastUpdated) $('ctUpdated').innerHTML = `Última actualización: ${esc(fmtDate(home.lastUpdated))} · <a href="/centro-tanner/cambios">Ver historial de cambios →</a>`;
   } catch (err) {
     $('ctFaqList').innerHTML = `<p class="ct-empty">No pudimos cargar Centro Tanner. ${esc(err.message || '')}</p>`;

@@ -1,8 +1,9 @@
-# Control documental — Código del Jugador Tanner y Código de las Familias Tanner v1.1
+# Control documental — Código del Jugador Tanner y Código de Convivencia y Familias Tanner
 
-Registro de control para los dos documentos integrados el 26/11/2026, como pide la
-misión de integración de Mich. Donde no hay un dato confirmado, se escribe
-**PENDIENTE** — no se inventa.
+Registro de control para los documentos integrados el 26/11/2026, como pide la
+misión de integración de Mich, y para la fusión del 26/11/2026 (Mich sintió que
+había demasiados códigos; ver sección de fusión más abajo). Donde no hay un dato
+confirmado, se escribe **PENDIENTE** — no se inventa.
 
 ## Código del Jugador Tanner
 
@@ -18,28 +19,32 @@ misión de integración de Mich. Donde no hay un dato confirmado, se escribe
 | Documentos relacionados | Cultura y Convivencia Tanner v1.0 (OFICIAL), Reglamento Tanner vigente, Aviso de privacidad |
 | Historial de cambios | v1 (26/11): publicación inicial · v2 (26/11): aclara que Dirección Deportiva autoriza excepciones de uniforme |
 
-## Código de las Familias Tanner
+## Código de Convivencia y Familias Tanner (documento fusionado, 26/11/2026)
 
 | Campo | Valor |
 |---|---|
-| Identificador | `codigo_familias` (`app.consent_documents`) |
-| Versión actual | 1 |
+| Identificador | `codigo_convivencia` (`app.consent_documents`) |
+| Versión actual | 3 |
 | Estado | Publicado y activo |
 | Responsable | PENDIENTE |
 | Fecha real de aprobación | PENDIENTE |
 | Fecha de publicación (en Centro Tanner) | 26 de noviembre de 2026 |
-| Fecha de entrada en vigor | 26 de noviembre de 2026 — confirmado por Mich: igual a la de publicación |
-| Documentos relacionados | Cultura y Convivencia Tanner v1.0 (OFICIAL), Reglamento Tanner vigente, protocolos de protección de menores, reglas vigentes del parque, Aviso de privacidad |
-| Historial de cambios | v1 (26/11): publicación inicial |
+| Fecha de entrada en vigor | 26 de noviembre de 2026 |
+| Documentos relacionados | Reglamento Tanner vigente, protocolos de protección de menores, reglas vigentes del parque, Aviso de privacidad, Código del Jugador Tanner |
+| Historial de cambios | v1: Cultura y Convivencia Tanner v1.0 (OFICIAL) · v2 (26/11): agrega párrafo de referencia a los códigos nuevos · v3 (26/11): se fusiona con el Código de las Familias Tanner en un solo documento — mismo contenido, cero firmas existentes afectadas (0 aceptaciones en ambos antes de la fusión) |
 
-## Cultura y Convivencia Tanner (documento base, no modificado en su contenido)
+### Por qué se fusionó
 
-| Campo | Valor |
-|---|---|
-| Identificador | `codigo_convivencia` |
-| Versión actual | 2 (de registro — el contenido v1.0 sigue intacto) |
-| Cambio aplicado | Se agregó un párrafo de referencia a los dos códigos nuevos; nada se borró ni se reescribió |
-| Fecha del cambio | 26 de noviembre de 2026 |
+Mich: "Siento que tenemos muchos códigos... analízalo y dime qué harías para hacerlo
+más fácil." El Código de las Familias Tanner v1.1 se había escrito explícitamente
+como "Documento complementario de Cultura y Convivencia Tanner v1.0" y cubría, más a
+detalle, los mismos 7 puntos que v1.0 ya traía — eran el mismo tema contado dos veces.
+El Código del Jugador Tanner se mantiene **separado** a petición de Mich: vive su
+propio ritual "Explicar (60 seg)" por categoría y se dirige directamente al niño, no
+a la familia.
+
+`codigo_familias` no se borró: quedó con `active=false` y su historial de versiones
+intacto en `app.consent_document_versions`, consultable si Presidencia lo necesita.
 
 ## Mecanismo de aceptación digital (verificado, no nuevo)
 

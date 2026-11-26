@@ -172,6 +172,18 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
   if (process.env.SHOTS) await p.screenshot({ path: `${process.env.SHOTS}/metricas-390.png`, fullPage: true });
   const ancho = await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
   revisa('12. cabe a 390 px sin scroll horizontal', ancho);
+  // Ningún texto se sale de su tarjeta (26/11/2026: "checa que no se vea así en todos los textos").
+  const salidos = await p.evaluate(() => {
+    const malos = [];
+    for (const el of document.querySelectorAll('.met-page span,.met-page b,.met-page strong,.met-page small,.met-page p,.met-page h2,.met-page h3,.met-page li,.met-page a')) {
+      if (!el.offsetParent || el.closest('.tos-seg,.met-secciones,.met-spark,[hidden]')) continue;
+      const caja = el.parentElement.closest('.met-tarjeta,.met-idea,.met-bloque,.met-seccion-head,.met-hero,article,li'); if (!caja) continue;
+      const r = el.getBoundingClientRect(), c = caja.getBoundingClientRect();
+      if (r.width && (r.right > c.right + 1 || r.left < c.left - 1)) malos.push((el.className || el.tagName) + ': ' + el.textContent.trim().slice(0, 40));
+    }
+    return malos;
+  });
+  revisa('12. ningún texto se sale de su tarjeta (390 px)', salidos.length === 0, salidos.slice(0, 6).join(' | '));
   revisa('sin errores de página (390 px)', !errs.length, errs.join(' | '));
   await ctx.close();
 }

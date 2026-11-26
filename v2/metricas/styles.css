@@ -180,3 +180,6 @@
 .cobrar-edo-fila span{display:grid;gap:2px;min-width:0}.cobrar-edo-fila b{font-size:15px}.cobrar-edo-fila small{font-size:12px;color:var(--gris)}
 @media (max-width:640px){.cobrar-paso{grid-template-columns:1fr;gap:10px;padding:16px}.cobrar-fila{grid-template-columns:minmax(0,1fr) auto}.cobrar-acciones{grid-column:1/-1}.cobrar-acciones .cobrar-btn{flex:1}.cobrar-edo-fila em{display:none}}
 @media (prefers-reduced-motion:reduce){.cobrar-fila{animation:none}}
+
+/* Que el botón redondo de acciones (+) no tape lo último de la hoja. */
+.met-page{padding-bottom:96px}

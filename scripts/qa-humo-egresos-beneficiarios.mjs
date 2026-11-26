@@ -36,7 +36,9 @@ const ANALITICA = {
   porBeneficiario: [{ id: 't', name: 'Tremor', kind: 'proveedor', total: 40060, count: 5, last: '2026-09-01' }, { id: 'b', name: 'Brandon Andrade', kind: 'staff', total: 25900, count: 21, last: '2026-11-08' },
     { id: null, name: 'Otros (sin asignar)', kind: 'otro', total: 13657, count: 20, last: '2026-11-08' }],
   nominaPorMes: [{ name: 'Brandon Andrade', mes: '2026-10', total: 1600 }, { name: 'Brandon Andrade', mes: '2026-11', total: 800 }, { name: 'Checo Martínez', mes: '2026-11', total: 700 }],
-  proveedores: [{ name: 'Tremor', total: 40060, pagos: [{ fecha: '2026-09-01', monto: 20000, concepto: 'Uniformes T10' }] }],
+  proveedores: [{ name: 'Tremor', total: 40060, pagos: [{ fecha: '2026-09-01', monto: 20000, concepto: 'Uniformes T10' }] },
+    // Textos largos de verdad (Presidencia, 26/11: "se ve descuadrado... checa que no se vea así en todos los textos").
+    { name: 'Publicidad en internet y redes sociales del club', total: 1690, pagos: [{ fecha: '2026-09-08', monto: 890, concepto: 'Pago de publicidad de Facebook - Campaña Septiembre Tanners y porteros 2026' }, { fecha: '2026-08-27', monto: 800, concepto: 'Publicidad en Instagram - Campaña de Tanners Septiembre larga larga' }] }],
   egresosPorCategoria: [{ name: 'Proveedor', total: 41292 }], ingresosPorTipo: [{ name: 'Mensualidad', total: 136563 }, { name: 'Uniformes y tienda', total: 81915 }],
   ingresosPorCategoria: [{ name: 'T10', total: 83357 }], adeudoPorCategoria: [{ name: 'Baby Tanner', total: 13538, cargos: 47 }], adeudoPorTipo: [{ name: 'Mensualidad', total: 34138, cargos: 70 }],
   uniformes: { entro: 81915, pagadoProveedor: 40060 },
@@ -61,10 +63,12 @@ const FAKE = `
       if(n==='v2_finance_analytics')return ok(${JSON.stringify(ANALITICA)});
       if(n==='v2_post_expense')return ok('e1');
       if(n==='v2_finance_detail'){window.__det=(window.__det||[]).concat(p);if(p.dimension==='adeudoCategoria')return ok([{jugador:'Niño Uno',categoria:'Baby Tanner',cargos:3,saldo:1850,desde:'2026-09-05',conceptos:['Mensualidad 2026-09']},{jugador:'Niño Dos',categoria:'Baby Tanner',cargos:1,saldo:650,desde:'2026-11-05',conceptos:[]}]);
+        if(window.__largo)return ok([{fecha:'2026-10-02',concepto:'Pago de publicidad de Facebook e Instagram - Campaña de porteros y Tanners de septiembre y octubre',categoria:'Publicidad en internet y redes sociales',quien:'Meta Platforms Ireland Limited',metodo:'transfer',monto:1690}]);
         return ok(['2026-10-01','2026-10-08','2026-10-09','2026-10-22','2026-10-29','2026-11-05','2026-11-12','2026-11-19','2026-11-20','2026-11-24'].map((fecha,i)=>({fecha,concepto:'Semana '+(i+1),categoria:'Nómina profesores',quien:'DT Brandon',metodo:'transfer',monto:400})));}
       if(n==='v2_open_receivables')return ok([{player_id:'p1',player_name:'Adán Ibarra',player_status:'active',billing_period:'2026-09-01',due_date:'2026-09-05',balance_due:1300},
         {player_id:'p1',player_name:'Adán Ibarra',player_status:'active',billing_period:'2026-10-01',due_date:'2026-10-05',balance_due:650},
         {player_id:'p2',player_name:'Beto Ruiz',player_status:'active',billing_period:'2026-10-01',due_date:'2026-10-05',balance_due:650},
+        {player_id:'p5',player_name:'Maximiliano Alejandro de la Santísima Trinidad Hernández Villaseñor',player_status:'active',billing_period:'2026-11-01',due_date:'2026-11-05',balance_due:650},
         {player_id:'p3',player_name:'Ciro Baja',player_status:'inactive',billing_period:'2026-08-01',due_date:'2026-08-05',balance_due:900},
         {player_id:'p4',player_name:'Dani Futuro',player_status:'active',billing_period:'2099-01-01',due_date:'2099-01-05',balance_due:650}]);
       if(n==='v2_search_index')return ok([{id:'p1',phones:'4771234567'}]);
@@ -177,7 +181,7 @@ for (const ancho of [1280, 390]) {
   const pasos = await g.pg.$$eval('#secCobrar .cobrar-paso:not([hidden]) h4', (h) => h.map((x) => x.textContent.trim()));
   revisa('C. Para cobrar: tres pasos en orden' + n, JSON.stringify(pasos) === '["Quién debe","Estado de cuenta","Cargo a varios Tanners"]', JSON.stringify(pasos));
   const filas = await g.pg.$$eval('#cobrarDeben .cobrar-fila', (f) => f.map((x) => x.innerText.replace(/\s+/g, ' ')));
-  revisa('C. quién debe: lo más viejo primero, sólo vencidos y activos' + n, filas.length === 2 && /Adán Ibarra/.test(filas[0]) && /\$1,950/.test(filas[0]) && /5 sep 2026/.test(filas[0]) && /2 cargos/.test(filas[0]) && /Beto Ruiz/.test(filas[1]) && !/Dani|Ciro/.test(filas.join(' ')), JSON.stringify(filas));
+  revisa('C. quién debe: lo más viejo primero, sólo vencidos y activos' + n, filas.length === 3 && /Adán Ibarra/.test(filas[0]) && /\$1,950/.test(filas[0]) && /5 sep 2026/.test(filas[0]) && /2 cargos/.test(filas[0]) && /Beto Ruiz/.test(filas[1]) && !/Dani|Ciro/.test(filas.join(' ')), JSON.stringify(filas));
   const wa = await g.pg.$eval('#cobrarDeben .cobrar-fila:first-child .cobrar-btn.wa', (a) => a.getAttribute('href'));
   revisa('C. WhatsApp con el mensaje listo y el número completo' + n, /^https:\/\/wa\.me\/524771234567\?text=/.test(wa) && /Ad%C3%A1n/.test(wa), wa);
   revisa('C. sin teléfono lo dice en vez de esconder el botón' + n, /Falta teléfono/.test(filas[1]));
@@ -253,14 +257,47 @@ for (const ancho of [1280, 390]) {
   revisa('8. uniformes: lo que entró abre sus cobros' + n, (await g.pg.evaluate(() => window.__det.at(-1))).dimension === 'ingresoTipo' && !!(await g.pg.$('.gr-anillo')));
   await g.pg.click('.gr-kpi[data-ir="grDeuCat"]'); await g.pg.waitForTimeout(500);
   revisa('8. las cifras de arriba llevan a su gráfica' + n, await g.pg.$eval('#grDeuCat', (e) => e.closest('.panel').classList.contains('gr-brilla')));
-  revisa('5. la lista con quien está de baja' + n, /Maxi Ponce.*De baja/.test(await txt(g.pg, '#grLista')));
-  await g.pg.click('#grLista [data-baja="t"]');
+  // La lista en tarjetas (26/11/2026): "hazla más interactiva... que no sea una fila larguísima".
+  const chips = await g.pg.$$eval('#grListaFiltro button', (bs) => bs.map((b) => b.textContent.replace(/\s+/g, ' ').trim()));
+  revisa('L. filtros con cuántos hay en cada uno' + n, JSON.stringify(chips) === '["Todos 3","Staff 1","Proveedores 2","De baja 1"]', JSON.stringify(chips));
+  const tarjetas = await g.pg.$$eval('#grLista .gr-persona', (t) => t.map((x) => x.innerText.replace(/\s+/g, ' ')));
+  revisa('L. tarjetas con iniciales y lo pagado, lo que más se paga primero (sin los de baja)' + n, tarjetas.length === 3 && /^T Tremor/.test(tarjetas[0]) && /\$40,060/.test(tarjetas[0]) && !/Maxi/.test(tarjetas.join(' ')), JSON.stringify(tarjetas));
+  await g.pg.click('#grListaFiltro [data-filtro-lista="baja"]');
+  revisa('L. "De baja" enseña a quien ya no está' + n, /Maxi Ponce/.test(await txt(g.pg, '#grLista')) && (await g.pg.$$('#grLista .gr-persona')).length === 1);
+  await g.pg.click('#grListaFiltro [data-filtro-lista="todos"]');
+  await g.pg.fill('#grListaBusca', 'amazon');
+  revisa('L. el buscador también encuentra por alias' + n, /Compras por internet/.test(await txt(g.pg, '#grLista')) && (await g.pg.$$('#grLista .gr-persona')).length === 1);
+  await g.pg.fill('#grListaBusca', '');
+  await g.pg.click('#grLista [data-persona="b"]');
+  await g.pg.waitForSelector('#grHoja .gr-det', { timeout: 4000 });
+  const hojaP = await txt(g.pg, '#grHoja');
+  revisa('L. tocar una tarjeta abre su hoja: total, último pago y sus pagos' + n, /Brandon Andrade/.test(hojaP) && /Pagado en total\s*\$25,900/.test(hojaP) && /Sus pagos/.test(hojaP) && /Semana por semana/.test(hojaP), hojaP.slice(0, 200));
+  if (process.env.SHOTS) await g.pg.waitForTimeout(700), await g.pg.screenshot({ path: `${process.env.SHOTS}/lista-hoja${ancho === 390 ? '-cel' : ''}.png` }), await g.pg.click('#grHoja [data-cierra-hoja]'), await g.pg.waitForTimeout(100), await (await g.pg.$('#grLista')).evaluate((e) => e.closest('.panel').scrollIntoView()), await g.pg.waitForTimeout(500), await (await g.pg.$('#grLista')).evaluate(() => 0), await g.pg.screenshot({ path: `${process.env.SHOTS}/lista${ancho === 390 ? '-cel' : ''}.png` });
+  if (await g.pg.$('#grHoja')) await g.pg.click('#grHoja [data-cierra-hoja]');
+  revisa('L. la hoja se cierra' + n, !(await g.pg.$('#grHoja')));
+  await g.pg.click('#grLista [data-persona="t"]');
+  await g.pg.waitForSelector('#grHoja [data-baja="t"]', { timeout: 4000 });
+  await g.pg.click('#grHoja [data-baja="t"]');
   await g.pg.waitForSelector('.tosdlg', { timeout: 3000 });
   await g.pg.click('.tosdlg-btn:not(.tosdlg-cancel)'); await g.pg.waitForTimeout(300);
   const bj = await g.pg.evaluate(() => window.__rpc.filter((x) => x.n === 'v2_save_expense_payee').pop()?.p);
   revisa('5. dar de baja manda active=false' + n, bj?.payee_id === 't' && bj?.active === false, JSON.stringify(bj));
   if (process.env.SHOTS) await g.pg.waitForTimeout(1500), await g.pg.screenshot({ path: `${process.env.SHOTS}/graficas-dinero${ancho === 390 ? '-cel' : ''}.png`, fullPage: true });
   revisa('6. Gráficas no se sale' + n, await g.pg.evaluate(() => document.documentElement.scrollWidth) <= ancho);
+  await g.pg.evaluate(() => { window.__largo = 1; });
+  await g.pg.click('#grEgCat button.gr-fila'); await g.pg.waitForSelector('#grEgCat .gr-desglose.abierto .gr-det', { timeout: 4000 });
+  // Ningún texto se sale de su tarjeta (los que se desplazan de lado a propósito no cuentan).
+  const salidos = await g.pg.evaluate(() => {
+    const raiz = document.querySelector('.met-page'); const malos = [];
+    for (const el of raiz.querySelectorAll('span,b,strong,small,a,button,li,p,h2,h3,h4,td,th')) {
+      if (!el.offsetParent || el.closest('.table-wrap,.gr-mesames,.tos-seg,.gr-chips,.met-secciones,[hidden]')) continue;
+      const caja = el.parentElement.closest('.panel,.cobrar-paso,.gr-prov article,.met-decide,.cob-kpi,.gr-kpi,.met-bloque,.met-seccion-head'); if (!caja) continue;
+      const r = el.getBoundingClientRect(), c = caja.getBoundingClientRect();
+      if (r.width && (r.right > c.right + 1 || r.left < c.left - 1)) malos.push((el.className || el.tagName) + ': ' + el.textContent.trim().slice(0, 40));
+    }
+    return malos;
+  });
+  revisa('6. ningún texto se sale de su tarjeta' + n, salidos.length === 0, salidos.slice(0, 6).join(' | '));
   revisa('sin errores en Gráficas' + n, g.errs.length === 0, g.errs.join(' | '));
   await g.pg.close();
 }

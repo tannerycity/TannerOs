@@ -1,0 +1,53 @@
+/* Gráficas del dinero (25/11/2026, h102), sin pantalla: se prueba con node.
+ * Presidencia: "saber a quién se le pagó más... deudas por categorías,
+ * ingresos por categorías, uniformes, cuándo se le pagó a tales proveedores".
+ * Reglas: sin datos no hay número inventado; las barras van contra el mayor
+ * de su lista; el adeudo es el de hoy (no depende del periodo). */
+
+export const PERIODOS = Object.freeze([
+  { k: 'mes', t: 'Este mes' }, { k: 'tres', t: '3 meses' }, { k: 'anio', t: 'Este año' }, { k: 'todo', t: 'Todo' },
+]);
+
+const pad = (n) => String(n).padStart(2, '0');
+export function rangoDe(k, hoyIso) {
+  const [a, m] = String(hoyIso).slice(0, 10).split('-').map(Number);
+  const hasta = String(hoyIso).slice(0, 10);
+  if (k === 'mes') return { desde: `${a}-${pad(m)}-01`, hasta };
+  if (k === 'tres') { const d = new Date(Date.UTC(a, m - 3, 1)); return { desde: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-01`, hasta }; }
+  if (k === 'anio') return { desde: `${a}-01-01`, hasta };
+  return { desde: null, hasta };
+}
+
+// Cada renglón con su % contra el mayor (para el ancho de la barra).
+export function barras(lista, { tope = 12 } = {}) {
+  const xs = (lista || []).map((x) => ({ ...x, total: Number(x.total || 0) })).filter((x) => x.total > 0).sort((a, b) => b.total - a.total);
+  const max = xs[0]?.total || 0;
+  const vis = xs.slice(0, tope).map((x) => ({ ...x, pct: max ? Math.max(2, Math.round((x.total / max) * 100)) : 0 }));
+  const resto = xs.slice(tope);
+  return { filas: vis, resto: resto.length ? { n: resto.length, total: resto.reduce((s, x) => s + x.total, 0) } : null, suma: xs.reduce((s, x) => s + x.total, 0) };
+}
+
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+export const etiquetaMes = (ym) => { const [a, m] = String(ym).split('-').map(Number); return MESES[m - 1] ? `${MESES[m - 1]} ${String(a).slice(2)}` : String(ym); };
+
+// Nómina: una fila por persona, una columna por mes, ordenada por lo pagado.
+export function tablaNomina(rows) {
+  const meses = [...new Set((rows || []).map((r) => r.mes))].sort();
+  const por = new Map();
+  for (const r of rows || []) {
+    const f = por.get(r.name) || { name: r.name, valores: {}, total: 0 };
+    f.valores[r.mes] = (f.valores[r.mes] || 0) + Number(r.total || 0);
+    f.total += Number(r.total || 0);
+    por.set(r.name, f);
+  }
+  return { meses, filas: [...por.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'es')) };
+}
+
+export const filtraTipo = (lista, tipo) => (lista || []).filter((x) => tipo === 'todos' || x.kind === tipo);
+export const ETIQUETA_TIPO = { staff: 'Staff', proveedor: 'Proveedor', otro: 'Otro' };
+
+// Uniformes: lo que entró contra lo que se le pagó al proveedor.
+export function uniformes(u) {
+  const entro = Number(u?.entro || 0), pagado = Number(u?.pagadoProveedor || 0);
+  return { entro, pagado, queda: entro - pagado, pctPagado: entro ? Math.round((pagado / entro) * 100) : null };
+}

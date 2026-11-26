@@ -222,7 +222,9 @@ export default function comprobar() {
   // con paquete, IVA y hoja carta, en Chromium. Es de navegador: la corre navegador-qa.
   // Sube a 81 por qa-humo-live.mjs (23/11/2026, mezclada el 25/11): Tanner LIVE
   // en Chromium (sin autoplay, señal de prueba nunca "En vivo", reglas, 390 px).
-  const MAX_EXCLUIDAS = 81;
+  // Sube a 82 por qa-humo-egresos-beneficiarios.mjs (25/11/2026): escoger a quién
+  // se le pagó y las gráficas del dinero, en Chromium. La corre navegador-qa.
+  const MAX_EXCLUIDAS = 82;
   if (excluidas.length > MAX_EXCLUIDAS)
     errors.push(`Suites: hay ${excluidas.length} excluidas y el tope son ${MAX_EXCLUIDAS}. `
       + 'Excluir una suite es ocultarla: arregla lo que falla o sube el tope a proposito.');

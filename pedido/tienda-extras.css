@@ -135,7 +135,6 @@
   .st-agregar-txt small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--st-ink-2); }
   .st-agregar-txt b { font-size: 18px; font-weight: 800; color: var(--st-navy); letter-spacing: -.01em; }
   .st-agregar-txt b small { font-size: 12px; font-weight: 600; color: var(--st-muted); }
-  .st-cta-monto { display: none; }
   .st-body:has(.st-agregar.con-prod) .st-main { padding-bottom: 190px; }
 }
 

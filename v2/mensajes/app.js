@@ -20,7 +20,7 @@ const {ctx}=boot;
 const org=ctx.organization_id;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={tab:'avisos',inbox:null,avisos:null,thread:null,threadId:null,busca:'',pending:[],timer:null,inboxTimer:null,
-  respondiendo:null,editando:null,rapidas:null,huella:'',filtroAvisos:'todos'};
+  respondiendo:null,editando:null,rapidas:null,huella:'',filtroAvisos:'todos',filtroChats:'todos'};
 const BUCKET='tanneros-private';
 // Íconos de línea, nunca emojis (regla del club): mismo trazo que el menú.
 const ICONO={
@@ -106,7 +106,7 @@ function amable(e){
 function pintaLista(){
   const app=$('msBody');
   if(!app.querySelector('.ms-list')){
-    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1><button id="msNuevo" class="ms-icon-btn" type="button" aria-label="Nuevo chat" title="Nuevo chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="avisos">Avisos<b class="ms-tab-n" id="msNAvisos" hidden></b></button><button type="button" role="tab" data-tab="chats">Chats<b class="ms-tab-n" id="msNChats" hidden></b></button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msSemana" hidden></div><div id="msItems" class="ms-items"></div></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
+    app.innerHTML=`<aside class="ms-list"><header class="ms-list-head"><h1>Mensajes</h1></header><nav class="ms-seg" role="tablist"><button type="button" role="tab" data-tab="avisos">Avisos<b class="ms-tab-n" id="msNAvisos" hidden></b></button><button type="button" role="tab" data-tab="chats">Chats<b class="ms-tab-n" id="msNChats" hidden></b></button></nav><label class="ms-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="msBusca" type="search" placeholder="Buscar" autocomplete="off" aria-label="Buscar chats"></label><div id="msPush"></div><div id="msSemana" hidden></div><div id="msItems" class="ms-items"></div><button id="msNuevo" class="ms-fab" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span id="msNuevoTxt">Nuevo chat</span></button></aside><section id="msChat" class="ms-chat"><div class="ms-chat-empty"><span aria-hidden="true">${svg('chat')}</span><strong>El vestidor del club</strong><small>Elige un chat o empieza uno nuevo. Lo que se diga aquí se queda en el club.</small></div></section>`;
     app.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>cambiaTab(b.dataset.tab)));
     $('msNuevo').addEventListener('click',()=>state.tab==='avisos'?hojaAviso():hojaNuevo());
     $('msBusca').addEventListener('input',e=>{state.busca=e.target.value;pintaItems();});
@@ -115,12 +115,18 @@ function pintaLista(){
       const fil=e.target.closest('[data-filtro]');if(fil){state.filtroAvisos=fil.dataset.filtro;pintaItems();return;}
       const det=e.target.closest('[data-detalle]');if(det){detalleAviso(det.dataset.detalle);return;}
       const ges=e.target.closest('[data-gestion]');if(ges){gestionAviso(ges.dataset.gestion);return;}
+      const fc=e.target.closest('[data-filtro-chat]');if(fc){state.filtroChats=fc.dataset.filtroChat;pintaItems();return;}
+      if(e.target.closest('#msLeerTodo')){marcarTodoLeido();return;}
       const b=e.target.closest('[data-thread]');if(b)abreChat(b.dataset.thread);
     });
+    // Abrir rápido (26/11/2026): "a veces tarda". Al tocar (antes de soltar)
+    // ya se pide la conversación; al abrir, se usa lo que ya llegó.
+    $('msItems').addEventListener('pointerdown',e=>{const b=e.target.closest('[data-thread]');if(b)precarga(b.dataset.thread);});
+    $('msItems').addEventListener('mouseover',e=>{if(esTactil)return;const b=e.target.closest('[data-thread]');if(b)precarga(b.dataset.thread);});
   }
   app.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===state.tab)));
   pintaConteos();
-  $('msNuevo').setAttribute('aria-label',state.tab==='avisos'?'Nuevo aviso':'Nuevo chat');
+  $('msNuevoTxt').textContent=state.tab==='avisos'?'Nuevo aviso':'Nuevo chat';
   $('msNuevo').classList.toggle('hidden',state.tab==='avisos'&&!state.avisos?.canPublish);
   $('msBusca').closest('.ms-search').classList.toggle('hidden',state.tab==='avisos');
   // Mi semana fija arriba de los avisos (h65): lo que te falta, a un toque.
@@ -140,7 +146,12 @@ function pintaItems(){
   const box=$('msItems');if(!box)return;
   if(state.tab==='avisos'){pintaAvisos(box);return;}
   const q=state.busca.trim().toLowerCase();
-  const lista=(state.inbox?.threads||[]).filter(t=>!q||String(t.title||'').toLowerCase().includes(q)||String(t.last?.body||'').toLowerCase().includes(q));
+  const todos=state.inbox?.threads||[];
+  const sinLeer=todos.filter(t=>Number(t.unread||0)>0);
+  if(state.filtroChats==='nuevos'&&!sinLeer.length)state.filtroChats='todos';
+  const f=state.filtroChats||'todos';
+  const pasa=t=>f==='nuevos'?Number(t.unread||0)>0:f==='directos'?t.kind==='direct':f==='areas'?t.kind==='area':true;
+  const lista=todos.filter(pasa).filter(t=>!q||String(t.title||'').toLowerCase().includes(q)||String(t.last?.body||'').toLowerCase().includes(q));
   const fila=t=>{
     const ult=t.last?`${t.last.mine?'Tú: ':t.kind==='area'?`${esc(String(t.last.senderName||'').split(/\s+/)[0])}: `:''}${esc(t.last.body)}`
       :`<i>${t.kind==='area'?(t.areaRole==='*'?'Todo el club en un chat':`Chat del área de ${esc(t.areaRole)}`):'Sin mensajes todavía'}</i>`;
@@ -149,10 +160,33 @@ function pintaItems(){
     const marcas=`${t.muted?`<span class="ms-muted" title="Silenciado" aria-label="Silenciado">${svg('mudo')}</span>`:''}${arroba?'<b class="ms-at" title="Te mencionaron" aria-label="Te mencionaron">@</b>':''}${n?`<b class="ms-count${t.muted&&!arroba?' muted':''}">${n>99?'99+':n}</b>`:''}`;
     return `<button type="button" class="ms-item${t.id===state.threadId?' on':''}${n?' unread':''}${t.muted?' is-muted':''}" data-thread="${esc(t.id)}">${avatar(t)}<span class="ms-item-main"><span class="ms-item-top"><strong>${esc(t.title||'Chat')}</strong><time>${esc(cuando(t.last?.at))}</time></span><span class="ms-item-bottom"><span class="ms-prev">${ult}</span>${marcas}</span></span></button>`;
   };
+  // Híbrido (26/11/2026): filas de chat como WhatsApp, con filtros y
+  // "Marcar todo como leído" como en una bandeja de notificaciones. Presidencia
+  // ve todas las áreas y antes el globito no se le quitaba nunca.
+  const chip=(k,t,n)=>`<button type="button" data-filtro-chat="${k}" aria-pressed="${f===k}"${k==='nuevos'&&!n?' disabled':''}>${t}${n?` <b>${n>99?'99+':n}</b>`:''}</button>`;
+  const filtros=todos.length?`<div class="ms-filtros" role="group" aria-label="Filtrar chats">${chip('todos','Todos')}${chip('nuevos','No leídos',sinLeer.length)}${chip('directos','Personas')}${chip('areas','Áreas')}</div>`:'';
+  const leerTodo=sinLeer.length?`<div class="ms-barra-leer"><span>${sinLeer.length===1?'1 chat sin leer':`${sinLeer.length} chats sin leer`}</span><button type="button" id="msLeerTodo">${svg('check')}Marcar todo como leído</button></div>`:'';
   const directos=lista.filter(t=>t.kind==='direct'||t.last),areas=lista.filter(t=>t.kind==='area'&&!t.last);
-  box.innerHTML=(directos.length?directos.map(fila).join(''):'')
-    +(areas.length?`<p class="ms-sec">Áreas del club</p>${areas.map(fila).join('')}`:'')
-    +(!lista.length?`<div class="ms-vacio">${q?'Nada con ese nombre.':'Sin chats todavía.'}</div>`:'');
+  const vacio=q?'Nada con ese nombre.':f==='nuevos'?'Todo leído.':'Sin chats todavía.';
+  box.innerHTML=filtros+leerTodo
+    +(directos.length?`<div class="ms-grupo-chats">${directos.map(fila).join('')}</div>`:'')
+    +(areas.length?`<p class="ms-sec">Áreas del club</p><div class="ms-grupo-chats">${areas.map(fila).join('')}</div>`:'')
+    +(!lista.length?`<div class="ms-vacio ms-vacio-avisos"><span aria-hidden="true">${svg('chat')}</span><strong>${esc(vacio)}</strong></div>`:'');
+}
+async function marcarTodoLeido(){
+  const pend=(state.inbox?.threads||[]).filter(t=>Number(t.unread||0)>0);if(!pend.length)return;
+  const antes=pend.map(t=>[t,t.unread,t.mentions]);
+  pend.forEach(t=>{t.unread=0;t.mentions=0;});pintaItems();pintaConteos();
+  const r=await Promise.allSettled(pend.map(t=>rpc('v2_chat_mark_read',{organization_id:org,thread_id:t.id})));
+  const fallos=antes.filter((_,i)=>r[i].status==='rejected');
+  if(fallos.length){fallos.forEach(([t,u,m])=>{t.unread=u;t.mentions=m;});pintaItems();pintaConteos();
+    await window.tosAlert?.({kicker:'MENSAJES',title:'No se marcaron todos',message:amable(r.find(x=>x.status==='rejected').reason)});}
+}
+// La campana del menú se pone al día al momento (antes esperaba hasta 30 s).
+function sincronizaCampana(){
+  const badge=$('tosBellBadge');if(!badge||!state.inbox||!state.avisos)return;
+  const c=conteos(),n=c.chats+c.avisos;
+  badge.textContent=n>99?'99+':String(n);badge.classList.toggle('hidden',n===0);
 }
 /* De dónde viene lo nuevo (19/10/2026): "algunos son avisos y otros son
    chats… luego no sabes de dónde vienen". Cada pestaña lleva su globito azul
@@ -167,7 +201,7 @@ function conteos(){
   return {chats,avisos};
 }
 function pintaConteos(){
-  const c=conteos();
+  const c=conteos();sincronizaCampana();
   for(const [id,n,etq] of [['msNChats',c.chats,'chats'],['msNAvisos',c.avisos,'avisos']]){
     const el=$(id);if(!el)continue;
     el.hidden=!n;el.textContent=n>99?'99+':String(n);
@@ -244,10 +278,8 @@ function pintaAvisos(box){
   const filtros=todos.length?`<div class="ms-filtros" role="group" aria-label="Filtrar avisos"><button type="button" data-filtro="todos" aria-pressed="${filtro==='todos'}">Todos</button><button type="button" data-filtro="nuevos" aria-pressed="${filtro==='nuevos'}"${sinLeer?'':' disabled'}>No leídos${sinLeer?` <b>${sinLeer}</b>`:''}</button></div>`:'';
   const vacio=`<div class="ms-vacio ms-vacio-avisos"><span aria-hidden="true">${svg('campana')}</span><strong>${d.error?'No se cargaron los avisos':'Todo al día'}</strong><small>${esc(d.error||'Cuando Presidencia o tu área publiquen un aviso, aparece aquí.')}</small></div>`;
   box.innerHTML=filtros
-    +(lista.length?[...grupos].filter(([,l])=>l.length).map(([g,l])=>`<section class="ms-grupo-avisos"><h2 class="ms-dia">${esc(g)}</h2>${l.map(tarjetaAviso).join('')}</section>`).join(''):vacio)
-    +(d.canPublish?`<button type="button" class="ms-aviso-nuevo" id="msAvisoNuevo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Nuevo aviso</button>`:'');
+    +(lista.length?[...grupos].filter(([,l])=>l.length).map(([g,l])=>`<section class="ms-grupo-avisos"><h2 class="ms-dia">${esc(g)}</h2>${l.map(tarjetaAviso).join('')}</section>`).join(''):vacio);
   pintaConteos();
-  $('msAvisoNuevo')?.addEventListener('click',hojaAviso);
 }
 const avisoPorId=id=>(state.avisos?.avisos||[]).find(a=>a.id===id);
 // "Enterado" (h20): visto no es enterado. Se marca al momento y, si falla, se regresa.
@@ -314,7 +346,10 @@ async function abreChat(id,{silencioso=false}={}){
   $('msBody').dataset.view='chat';
   history.replaceState(null,'',`/mensajes/?chat=${encodeURIComponent(id)}`);
   pintaItems();
-  if(!silencioso&&!state.thread)$('msChat').innerHTML='<div class="ms-chat-empty"><small>Cargando…</small></div>';
+  // Se apaga su globito al instante; el servidor se entera en cargaChat.
+  const ti=(state.inbox?.threads||[]).find(x=>x.id===id);
+  if(ti&&(ti.unread||ti.mentions)){ti.unread=0;ti.mentions=0;pintaItems();pintaConteos();}
+  if(!silencioso&&!state.thread)pintaEsqueleto(ti);
   await cargaChat(true);
   clearInterval(state.timer);
   state.timer=setInterval(()=>{if(document.visibilityState==='visible')cargaChat(false);},4000);
@@ -322,7 +357,7 @@ async function abreChat(id,{silencioso=false}={}){
 async function cargaChat(primera){
   const id=state.threadId;if(!id)return;
   let d;
-  try{d=await rpc('v2_chat_thread',{organization_id:org,thread_id:id,before:null});}
+  try{d=await (primera&&tomaPrecarga(id)||rpc('v2_chat_thread',{organization_id:org,thread_id:id,before:null}));}
   catch(e){if(primera)$('msChat').innerHTML=`<div class="ms-chat-empty"><small>${esc(amable(e))}</small></div>`;return;}
   if(state.threadId!==id)return;
   const ultimoAntes=state.thread?.messages?.at(-1)?.id;
@@ -339,6 +374,21 @@ async function cargaChat(primera){
     }).catch(()=>{});
   }
 }
+const precargas=new Map();
+function precarga(id){
+  if(!id||id===state.threadId)return;
+  const p=precargas.get(id);if(p&&Date.now()-p.at<8000)return;
+  const prom=rpc('v2_chat_thread',{organization_id:org,thread_id:id,before:null});prom.catch(()=>{});
+  precargas.set(id,{at:Date.now(),prom});
+}
+function tomaPrecarga(id){const p=precargas.get(id);precargas.delete(id);return p&&Date.now()-p.at<8000?p.prom:null;}
+function regresaALista(){$('msBody').dataset.view='list';state.threadId=null;clearInterval(state.timer);history.replaceState(null,'','/mensajes/');pintaItems();cargaInbox();}
+// Mientras llega la conversación ya se ve el chat: cabeza real y burbujas grises.
+function pintaEsqueleto(t){
+  const burbuja=(lado,w)=>`<div class="ms-esq ${lado}" style="width:${w}%"></div>`;
+  $('msChat').innerHTML=`<header class="ms-chat-head"><button type="button" class="ms-back" id="msBack" aria-label="Regresar a los chats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Chats</span></button>${t?avatar(t):''}<span class="ms-chat-title"><strong>${esc(t?.title||'Chat')}</strong><small>Abriendo…</small></span></header><div class="ms-esqueleto" aria-busy="true" aria-label="Cargando conversación">${burbuja('theirs',62)}${burbuja('theirs',44)}${burbuja('mine',55)}${burbuja('theirs',70)}${burbuja('mine',38)}</div>`;
+  $('msBack').addEventListener('click',regresaALista);
+}
 function infoDe(){
   const t=state.thread?.thread;if(!t)return '';
   if(t.kind==='direct'){const o=(t.members||[]).find(m=>m.userId!==state.inbox?.me?.userId);return o?.role||'';}
@@ -352,7 +402,7 @@ function pintaCabeza(){
 function pintaChat(){
   const t=state.thread.thread;
   $('msChat').innerHTML=`<header class="ms-chat-head"><button type="button" class="ms-back" id="msBack" aria-label="Regresar a los chats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Chats</span></button>${avatar({...t,title:t.title})}<span class="ms-chat-title"><strong>${esc(t.title||'Chat')}</strong><small id="msInfo">${esc(infoDe())}</small></span><span class="ms-head-btns"><button type="button" class="ms-icon-btn sm" id="msLupa" aria-label="Buscar en este chat">${svg('lupa')}</button><button type="button" class="ms-icon-btn sm" id="msSilencio" aria-label="Silenciar chat">${svg('campana')}</button></span></header><div id="msFind" class="ms-find hidden"><label class="ms-search">${svg('lupa')}<input id="msBuscaHilo" type="search" placeholder="Buscar en este chat" autocomplete="off" aria-label="Buscar en este chat"></label><div id="msHallazgos" class="ms-hallazgos" aria-live="polite"></div></div><div id="msPin"></div><div class="ms-scroll" id="msScroll"><div class="ms-msgs" id="msMsgs"></div></div><div class="ms-bottom"><div id="msSugiere" class="ms-suggest hidden" role="listbox" aria-label="Sugerencias"></div><div id="msContexto"></div><form class="ms-composer" id="msForm"><button type="button" class="ms-tool" id="msAdjuntar" aria-label="Mandar foto o archivo">${svg('clip')}</button><input type="file" id="msArchivo" class="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,video/mp4,video/quicktime" tabindex="-1" aria-hidden="true"><textarea id="msTexto" rows="1" maxlength="4000" placeholder="${t.kind==='area'?'Mensaje · @ para mencionar':'Mensaje'}" aria-label="Escribe un mensaje" enterkeyhint="send"></textarea><button type="button" class="ms-tool" id="msRapidas" aria-label="Respuestas rápidas">${svg('rayo')}</button><button type="submit" id="msEnviar" class="ms-send" aria-label="Enviar" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button></form></div>`;
-  $('msBack').addEventListener('click',()=>{$('msBody').dataset.view='list';state.threadId=null;clearInterval(state.timer);history.replaceState(null,'','/mensajes/');pintaItems();cargaInbox();});
+  $('msBack').addEventListener('click',regresaALista);
   const ta=$('msTexto'),btn=$('msEnviar');
   const crece=()=>{ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,140)+'px';btn.disabled=!ta.value.trim();};
   ta.addEventListener('input',()=>{crece();sugerencias();});

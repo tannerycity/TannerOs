@@ -105,7 +105,7 @@ async function abre(canCollect, ruta = '/v2/tanner/?id=p1', ancho = 390, usuario
                                      due:(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date()) },
                                    { playerId:'p1', name:'Liam Santos', state:'broken', due:'2026-10-10', amount:300 }],
                 v2_my_cash_day:{ date:'2026-10-21', rows:[{ who:'Mich', kind:'in', method:'cash', count:2, total:1500 },
-                  { who:'Mich', kind:'in', method:'transfer', count:1, total:800 }, { who:'Mich', kind:'out', method:'cash', count:1, total:200 }] } };
+                  { who:'Mich', kind:'in', method:'transfer', count:1, total:800 }, { who:'Mich', kind:'out', method:'cash', count:1, total:200 }, { who:'Zul', kind:'out', method:'cash', count:1, total:6870 }] } };
     window.__fakeSupabase = {
       auth:{ getSession:async()=>({data:{session:{user:{id:'u1'}}}}), getUser:async()=>({data:{user:{id:'u1'}}}), onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}) },
       rpc:async(n, params)=>{
@@ -380,6 +380,7 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   const chips = await p.$$eval('#hoyEsperamos .hoy-chip', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   revisa('[hoy] "Hoy esperamos" con monto y cuándo (vencido incluido)', JSON.stringify(chips) === JSON.stringify(['Liam Santos$600.00 · hoy','Liam Santos$300.00 · vencido']), JSON.stringify(chips));
   const corte = await texto(p, '#miCorte');
+  revisa('[corte] si salió más de lo que entró: no sale en verde ni con menos', /\$6,870\.00\s*salió de más \(a reponer\)/.test(corte) && !/-\$6,870/.test(corte) && await p.$eval('#miCorte strong.debe-caja', e => getComputedStyle(e).color) === 'rgb(163, 41, 32)', corte);
   revisa('[corte] Mi corte de hoy: cobrado por método y efectivo a entregar', /Cobró \$2,300\.00/.test(corte) && /efectivo \$1,500\.00/.test(corte) && /\$1,300\.00\s*efectivo a entregar/.test(corte), corte);
   await foto(p, 'taquilla-arriba');
   await p.click('#hoyEsperamos .hoy-chip');
@@ -456,6 +457,8 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   revisa('[deshacer] pagar ya no pregunta "¿Es correcto?"', (await p.evaluate(() => window.__confirmos || 0)) === antes && (await llamadas(p, 'v2_post_expense')).length === 1);
   revisa('[deshacer] sale "Pago registrado · $250.00 · Garrafones" con Deshacer', /Pago registrado · \$250\.00 · Garrafones/.test(await texto(p, '#avisoDeshacer')) && await p.isVisible('#avisoDeshacer .aviso-deshacer-btn'), await texto(p, '#avisoDeshacer').catch(() => ''));
   revisa('[deshacer] el botón mide lo que un dedo', await p.$eval('#avisoDeshacer .aviso-deshacer-btn', b => b.getBoundingClientRect().height >= 44));
+  revisa('[deshacer] dice cuánto tiempo queda para deshacer', /Deshacer\s*1:[34]\d/.test(await texto(p, '#avisoDeshacer .aviso-deshacer-btn')), await texto(p, '#avisoDeshacer .aviso-deshacer-btn'));
+  revisa('[deshacer] trae X para cerrarlo', await p.isVisible('#avisoDeshacer .aviso-deshacer-x'));
   await p.click('#avisoDeshacer .aviso-deshacer-btn');
   await p.waitForFunction(() => /se deshizo/.test(document.getElementById('avisoDeshacer')?.textContent || ''), null, { timeout:4000 }).catch(() => {});
   const und = (await llamadas(p, 'v2_undo_recent')).at(-1)?.params || {};
@@ -476,6 +479,19 @@ const lineas = p => p.$$eval('#cobroBody [data-linea]', els => els.map(e => e.da
   await p.waitForFunction(() => /se deshizo/.test(document.getElementById('avisoDeshacer')?.textContent || ''), null, { timeout:4000 }).catch(() => {});
   const und2 = (await llamadas(p, 'v2_undo_recent')).at(-1)?.params || {};
   revisa('[deshacer] el ingreso se deshace como cobro (kind payment)', und2.kind === 'payment' && und2.movement_id === 'i-1', JSON.stringify(und2));
+  // Presidencia: "se queda siempre... no lo podemos quitar".
+  await p.click('#openExpense');
+  await p.fill('#expenseAmount', '90');
+  await p.selectOption('#expenseCategory', { index: 1 });
+  if (await p.isVisible('#expenseCategoryOther')) await p.fill('#expenseCategoryOther', 'Papelería');
+  await p.fill('#expenseConcept', 'Hielo');
+  await p.click('#saveExpense');
+  await p.waitForFunction(() => /Hielo/.test(document.getElementById('avisoDeshacer')?.textContent || ''), null, { timeout:5000 }).catch(() => {});
+  await p.waitForTimeout(8600);
+  revisa('[deshacer] a los 8 segundos se encoge para no tapar', await p.$eval('#avisoDeshacer', e => e.classList.contains('compacto') && !e.hidden) && !(await p.isVisible('#avisoDeshacer .aviso-deshacer-txt')) && await p.isVisible('#avisoDeshacer .aviso-deshacer-btn'));
+  await p.click('#avisoDeshacer .aviso-deshacer-x');
+  revisa('[deshacer] la X lo quita sin anular nada', await p.$eval('#avisoDeshacer', e => e.hidden) && (await llamadas(p, 'v2_undo_recent')).length === 2);
+  await p.evaluate(() => { const el = document.getElementById('avisoDeshacer'); el.hidden = false; });
   await p.close();
 }
 

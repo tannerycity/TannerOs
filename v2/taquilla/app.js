@@ -377,7 +377,7 @@ function pintaCorte(c){
     const cobrado=Object.values(q.in).reduce((a,b)=>a+b,0);
     const metodos=Object.entries(q.in).map(([m,v])=>`${methodLabel(m).toLowerCase()} ${money.format(v)}`).join(' · ');
     const entrega=(q.in.cash||0)-(q.out.cash||0);
-    return `<div class="mi-corte-fila"><div><b>${esc(quien)}</b><span>Cobró ${money.format(cobrado)}${metodos?` · ${esc(metodos)}`:''}${q.out.cash?` · pagó ${money.format(q.out.cash)} en efectivo`:''}</span></div><strong title="Efectivo a entregar">${money.format(entrega)}<small>efectivo a entregar</small></strong></div>`;
+    return `<div class="mi-corte-fila"><div><b>${esc(quien)}</b><span>Cobró ${money.format(cobrado)}${metodos?` · ${esc(metodos)}`:''}${q.out.cash?` · pagó ${money.format(q.out.cash)} en efectivo`:''}</span></div>${entrega<0?`<strong class="debe-caja" title="Salió más efectivo del que entró">${money.format(-entrega)}<small>salió de más (a reponer)</small></strong>`:`<strong title="Efectivo a entregar">${money.format(entrega)}<small>efectivo a entregar</small></strong>`}</div>`;
   }).join('')}`;
 }
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-cobra]');if(b)cobraA(b.dataset.cobra,b.dataset.name);});
@@ -673,29 +673,60 @@ $('irAGafete')?.addEventListener('click',()=>{
    cobros de pedido y de gafete siguen con su confirmación: tocan el pedido y
    el gafete entregado. */
 const SEGUNDOS_DESHACER=100;
-let avisoDeshacerTimer=null;
+/* Presidencia (25/11/2026): "se queda siempre el pago registrado... no lo
+   podemos quitar". Ahora el aviso:
+   - se cierra con la X o deslizándolo hacia abajo;
+   - a los 8 segundos se encoge a un botoncito "Deshacer 1:32" en la esquina
+     para no tapar la pantalla;
+   - cuenta con la hora real: si la app se fue a segundo plano, al volver ya
+     no ofrece deshacer lo que la base ya no deja (2 minutos).
+   Cerrarlo no anula nada; después se borra desde Movimientos. */
+const SEGUNDOS_GRANDE=8;
+let avisoDeshacerTimer=null,avisoDeshacerTic=null;
+const mmss=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function cierraAvisoDeshacer(){const el=$('avisoDeshacer');clearTimeout(avisoDeshacerTimer);clearInterval(avisoDeshacerTic);if(el){el.hidden=true;el.classList.remove('compacto');el.style.transform='';}}
 function ofreceDeshacer(m){
   let el=$('avisoDeshacer');
-  if(!el){el=document.createElement('div');el.id='avisoDeshacer';el.className='aviso-deshacer';el.setAttribute('role','status');el.setAttribute('aria-live','polite');document.body.appendChild(el);}
-  clearTimeout(avisoDeshacerTimer);
-  el.innerHTML=`<span class="aviso-deshacer-txt"></span><button type="button" class="aviso-deshacer-btn">Deshacer</button>`;
+  if(!el){
+    el=document.createElement('div');el.id='avisoDeshacer';el.className='aviso-deshacer';el.setAttribute('role','status');el.setAttribute('aria-live','polite');document.body.appendChild(el);
+    // Deslizar hacia abajo lo quita.
+    let y0=null;
+    el.addEventListener('touchstart',e=>{y0=e.touches[0].clientY;el.style.transition='none';},{passive:true});
+    el.addEventListener('touchmove',e=>{if(y0==null)return;const dy=Math.max(0,e.touches[0].clientY-y0);el.style.transform=`translate(var(--ad-x),${dy}px)`;},{passive:true});
+    el.addEventListener('touchend',e=>{if(y0==null)return;const dy=(e.changedTouches[0]?.clientY||y0)-y0;y0=null;el.style.transition='';el.style.transform='';if(dy>40)cierraAvisoDeshacer();});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)el.__tic?.();});
+  }
+  clearTimeout(avisoDeshacerTimer);clearInterval(avisoDeshacerTic);
+  el.classList.remove('compacto');
+  el.innerHTML=`<span class="aviso-deshacer-txt"></span><button type="button" class="aviso-deshacer-btn">Deshacer <small></small></button><button type="button" class="aviso-deshacer-x" aria-label="Cerrar aviso">×</button><i class="aviso-deshacer-barra" aria-hidden="true"></i>`;
   el.querySelector('.aviso-deshacer-txt').textContent=m.texto;
   el.hidden=false;
-  const btn=el.querySelector('.aviso-deshacer-btn');
+  const btn=el.querySelector('.aviso-deshacer-btn'),reloj=btn.querySelector('small'),barra=el.querySelector('.aviso-deshacer-barra');
+  const hasta=Date.now()+SEGUNDOS_DESHACER*1000,grandeHasta=Date.now()+SEGUNDOS_GRANDE*1000;
+  const tic=()=>{
+    if(!btn.isConnected)return;
+    const falta=Math.ceil((hasta-Date.now())/1000);
+    if(falta<=0)return cierraAvisoDeshacer();
+    reloj.textContent=mmss(falta);
+    barra.style.transform=`scaleX(${Math.max(0,falta/SEGUNDOS_DESHACER)})`;
+    if(Date.now()>=grandeHasta)el.classList.add('compacto');
+  };
+  el.__tic=tic;tic();avisoDeshacerTic=setInterval(tic,1000);
+  el.querySelector('.aviso-deshacer-x').addEventListener('click',cierraAvisoDeshacer);
   btn.addEventListener('click',async()=>{
+    clearInterval(avisoDeshacerTic);el.classList.remove('compacto');
     btn.disabled=true;btn.textContent='Deshaciendo…';
     try{
       await rpc('v2_undo_recent',{organization_id:org,kind:m.kind,movement_id:m.id});
       el.querySelector('.aviso-deshacer-txt').textContent='Listo, se deshizo. Queda anotado en el historial.';
-      btn.remove();
+      btn.remove();barra.remove();
       await Promise.all([load(),loadReceivables()]);tablero=null;renderCollections();cargaConcilia(true);
     }catch(e){
       el.querySelector('.aviso-deshacer-txt').textContent=String(e?.message||e||'No se pudo deshacer.');
-      btn.remove();
+      btn.remove();barra.remove();
     }
-    clearTimeout(avisoDeshacerTimer);avisoDeshacerTimer=setTimeout(()=>{el.hidden=true;},4000);
+    clearTimeout(avisoDeshacerTimer);avisoDeshacerTimer=setTimeout(cierraAvisoDeshacer,4000);
   });
-  avisoDeshacerTimer=setTimeout(()=>{el.hidden=true;},SEGUNDOS_DESHACER*1000);
 }
 async function confirmDoubleCheck(o){
   if(!window.tosConfirm)return true;

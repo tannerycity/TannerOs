@@ -780,3 +780,6 @@ button.cob-tile{cursor:pointer}
 .aviso-deshacer-txt{flex:1;min-width:0}
 .aviso-deshacer-btn{flex:0 0 auto;min-height:44px;padding:0 16px;border:0;border-radius:12px;background:#c6ac5c;color:#0e3038;font:800 15px/1 inherit;font-family:inherit;cursor:pointer}
 .aviso-deshacer-btn:disabled{opacity:.6}
+/* iPhone: el campo de fecha no se sale de la hoja (25/11/2026). */
+.cashier-modal input[type="date"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;text-align:left}
+.cashier-modal input[type="date"]::-webkit-date-and-time-value{text-align:left}

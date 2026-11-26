@@ -82,7 +82,7 @@ for (const ancho of [1280, 390]) {
   const pg = await nav.newPage({ viewport: { width: ancho, height: 900 } });
   const errs = []; pg.on('pageerror', (e) => errs.push(e.message));
   await pg.route(/^https?:\/\/(?!127)/, (r) => r.abort());
-  await pg.route('**/__benef.html', (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:16px;font-family:sans-serif"><form id="f"><label>A quién<input id="who" style="width:100%;box-sizing:border-box"></label><input id="concept"><button id="save">Guardar</button></form>' +
+  await pg.route('**/__benef.html', (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:16px;font-family:sans-serif"><div class="hoja-taquilla" style="position:fixed;inset:0;z-index:9991;background:#fff;padding:16px"><form id="f"><label>A quién<input id="who" style="width:100%;box-sizing:border-box"></label><input id="concept"><button id="save">Guardar</button></form></div>' +
     '<script type="module">' + FAKE.replace('export function createClient', 'function createClient') + ';const c=createClient();const rpc=async(n,p)=>{const {data,error}=await c.rpc(n,p);if(error)throw error;return data;};' +
     'const {pegaSelector}=await import("/v2/beneficiarios.js");pegaSelector(document.getElementById("who"),{rpc,org:"o1"});' +
     'document.getElementById("f").addEventListener("submit",e=>{e.preventDefault();window.__enviado=document.getElementById("who").value;});window.__listo=1;</script>' }));
@@ -91,6 +91,7 @@ for (const ancho of [1280, 390]) {
   await pg.click('#who');
   await pg.waitForSelector('.benef-hoja', { timeout: 3000 });
   const hoja = await txt(pg, '.benef-hoja');
+  revisa('1. la lista sale encima de la hoja de Taquilla (no detrás)' + n, await pg.evaluate(() => { const r = document.querySelector('.benef-hoja').getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + 20); return !!e?.closest('.benef-hoja'); }));
   revisa('1. abre la lista con Staff y Proveedores' + n, /Staff/.test(hoja) && /Proveedores/.test(hoja) && /Brandon Andrade/.test(hoja) && /Tremor/.test(hoja), hoja);
   revisa('1. quien está de baja no sale' + n, !/Maxi Ponce/.test(hoja));
   await pg.fill('.benef-buscar', 'amazon');

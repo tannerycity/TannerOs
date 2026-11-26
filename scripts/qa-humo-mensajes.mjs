@@ -258,7 +258,7 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   const post = await pg.$$eval('.ms-aviso', as => as.filter(a => /postulación/.test(a.textContent)).map(a => a.querySelector('footer').innerText));
   revisa('el aviso para varios sale una vez y dice para quiénes', post.length === 1 && /Para ti, Brandon Andrade y Emmanuel/.test(post[0]) && /Visto por 1 de 3/.test(post[0]), JSON.stringify(post));
   await cap(pg, 'avisos');
-  await pg.click('#msAvisoNuevo'); await pg.waitForTimeout(150);
+  await pg.click('#msNuevo'); await pg.waitForTimeout(150);
   await pg.fill('#msAvTitulo', 'Junta de staff');
   await pg.selectOption('#msAvPara', 'role:Operaciones');
   await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
@@ -288,6 +288,34 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   await pg.click('#msAvisoForm button[type=submit]'); await pg.waitForTimeout(300);
   const todas = (await llamadas(pg, 'v2_publish_announcement'))[3] || {};
   revisa('publicar a todas las familias', todas.audience_type === 'familias' && todas.audience_value === null, JSON.stringify(todas));
+  await pg.close();
+}
+
+/* ===== CHATS HÍBRIDOS (26/11/2026): "siempre me aparece y nunca se le quitan" ===== */
+{
+  const { pg, errs } = await abre();
+  await pg.evaluate(() => { const b = document.createElement('b'); b.id = 'tosBellBadge'; document.body.append(b); });
+  await pg.click('[data-tab="chats"]'); await pg.waitForTimeout(200);
+  revisa('[híbrido] un solo botón para crear y dice "Nuevo chat"', await pg.$$eval('#msNuevo', e => e.length) === 1 && /Nuevo chat/.test(await pg.textContent('#msNuevo')));
+  revisa('[híbrido] la barra dice cuántos chats faltan por leer', /2 chats sin leer/.test(await pg.textContent('.ms-barra-leer')));
+  await pg.click('[data-filtro-chat="nuevos"]'); await pg.waitForTimeout(100);
+  const nuevos = await pg.$$eval('.ms-item', e => e.map(x => x.dataset.thread));
+  revisa('[híbrido] "No leídos" deja sólo los que tienen algo nuevo', nuevos.length === 2 && nuevos.includes('dm-zul'), JSON.stringify(nuevos));
+  await pg.click('[data-filtro-chat="areas"]'); await pg.waitForTimeout(100);
+  revisa('[híbrido] "Áreas" deja sólo los chats de área', await pg.$$eval('.ms-item', e => e.every(x => !x.dataset.thread.startsWith('dm-'))));
+  await pg.click('[data-filtro-chat="todos"]'); await pg.waitForTimeout(100);
+  await pg.click('#msLeerTodo'); await pg.waitForTimeout(250);
+  const marcados = (await llamadas(pg, 'v2_chat_mark_read')).map(c => c.thread_id).sort();
+  revisa('[híbrido] "Marcar todo como leído" avisa al servidor de cada chat pendiente', JSON.stringify(marcados) === JSON.stringify(['dm-emma','dm-zul']), JSON.stringify(marcados));
+  revisa('[híbrido] y se apagan los globitos: pestaña, filas y campana', await pg.isHidden('#msNChats') && await pg.$$eval('.ms-count', e => e.length) === 0
+    && !(await pg.isVisible('.ms-barra-leer')) && /^(0|1)$/.test(await pg.textContent('#tosBellBadge')), await pg.textContent('#tosBellBadge'));
+  // Abrir rápido: al tocar ya se pide la conversación y al soltar no se pide otra vez.
+  await pg.dispatchEvent('[data-thread="area-ops"]', 'pointerdown'); await pg.waitForTimeout(50);
+  const antes = (await llamadas(pg, 'v2_chat_thread')).length;
+  await pg.click('[data-thread="area-ops"]'); await pg.waitForTimeout(250);
+  revisa('[híbrido] la conversación se pide al tocar y se reusa al abrir', antes === 1 && (await llamadas(pg, 'v2_chat_thread')).length === 1 && await pg.isVisible('#msTexto'), String(antes));
+  await pg.click('[data-tab="avisos"]').catch(() => {});
+  revisa('[híbrido] sin errores de página', errs.length === 0, errs.join(' | '));
   await pg.close();
 }
 
@@ -421,7 +449,7 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   await pg.click('[data-op="cancelar"]'); await pg.waitForTimeout(250);
   revisa('[avisos] un programado se puede cancelar', (await llamadas(pg, 'v2_aviso_cancelar'))[0]?.aviso_id === 'v4');
   // Programar.
-  await pg.click('#msAvisoNuevo'); await pg.waitForTimeout(150);
+  await pg.click('#msNuevo'); await pg.waitForTimeout(150);
   await pg.fill('#msAvTitulo', 'Entrenamiento a las 7');
   revisa('[programar] la fecha no aparece si es "Ahora"', !(await pg.isVisible('#msAvFecha')));
   await pg.check('[name=msAvCuando][value=programar]'); await pg.waitForTimeout(100);

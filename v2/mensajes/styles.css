@@ -47,15 +47,6 @@
 .ms-push button{flex:0 0 auto;min-height:34px;padding:0 12px;border:0;border-radius:9px;background:#0b2a33;color:#fff;font:inherit;font-weight:700;cursor:pointer}
 
 /* ---- Avisos ---- */
-.ms-aviso-nuevo{display:block;width:calc(100% - 32px);margin:4px 16px 10px;min-height:46px;border:1px dashed #c9d4d6;border-radius:13px;background:#f7f9f8;font:inherit;font-weight:700;color:var(--ms-teal);cursor:pointer}
-.ms-aviso{margin:0 16px 10px;padding:13px 14px;border-radius:16px;background:#fff;border:1px solid var(--ms-line);box-shadow:0 1px 2px rgba(0,0,0,.03)}
-.ms-aviso.unread{border-color:#e9d19c;background:#fffdfb}
-.ms-aviso header{display:flex;justify-content:space-between;gap:10px}
-.ms-aviso header strong{font-size:16px}
-.ms-aviso header time{flex:0 0 auto;font-size:12.5px;color:var(--ms-mute)}
-.ms-aviso p{margin:6px 0 0;font-size:14.5px;line-height:1.45;color:#2b4146}
-.ms-aviso footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;margin-top:9px;font-size:12.5px;color:var(--ms-mute)}
-.ms-visto{color:var(--ms-teal)}
 
 /* ---- Conversación ---- */
 .ms-chat{display:flex;flex-direction:column;min-height:0;background:var(--ms-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cpath d='M0 22 22 0' stroke='%23000' stroke-opacity='.025'/%3E%3C/svg%3E")}
@@ -157,8 +148,6 @@
 .ms-item.unread strong{font-weight:800}
 .ms-item.unread .ms-item-top time{color:#0a84ff}
 .ms-count{background:#0a84ff!important;color:#fff!important}
-.ms-aviso.unread{border-color:#9ecbff;background:#eef6ff;box-shadow:inset 3px 0 0 #0a84ff}
-.ms-aviso.unread header strong::before{content:"Nuevo";display:inline-block;margin-right:8px;padding:1px 7px;border-radius:999px;background:#0a84ff;color:#fff;font-size:12px;font-weight:700;vertical-align:2px}
 
 /* ---- Mensajería pro (h20, 19/10/2026) ---- */
 .ms-app .hidden,.ms-sheet .hidden{display:none!important}
@@ -269,19 +258,95 @@
 .ms-form .ms-opcion input{width:20px;height:20px;min-height:0;accent-color:#087d8e}
 .ms-cuando input[type=datetime-local]{flex:1 1 100%}
 /* Tarjeta de aviso: fijado, programado y Enterado */
-.ms-aviso-top{display:flex;align-items:center;gap:4px;flex:0 0 auto}
-.ms-gestion{display:grid;place-items:center;width:36px;height:36px;margin:-8px -8px -8px 0;border:0;border-radius:50%;background:transparent;color:var(--ms-mute);cursor:pointer}
-.ms-gestion svg{width:20px;height:20px}
 .ms-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .ms-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700}
 .ms-chip svg{width:13px;height:13px}
 .ms-chip.pin{background:#eef2f1;color:var(--ms-teal)}
 .ms-chip.prog{background:#fff8e6;color:#7a5a12}
-.ms-aviso.pinned{border-color:#bcdde2}
-.ms-aviso.scheduled{border-style:dashed;background:#fffaf0}
-button.ms-visto{padding:0;border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:700;color:var(--ms-teal);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.ms-aviso-acciones{display:flex;justify-content:flex-end;margin-top:10px}
-.ms-ack{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 18px;border:0;border-radius:12px;background:var(--ms-teal);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
 .ms-ack svg,.ms-acked svg{width:18px;height:18px}
 .ms-acked{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:14px;font-weight:700;color:#1d7a46}
 @media (prefers-reduced-motion:reduce){.ms-bubble.flash{animation:none;box-shadow:0 0 0 3px #f4c84a}}
+
+/* ---- Avisos estilo bandeja de notificaciones (26/11/2026) ----
+   Una fila por aviso, separadas por línea, sin tarjetas; ícono redondo a la
+   izquierda; lo nuevo con fondo azul tenue y punto azul; grupos por día. */
+.ms-filtros{display:flex;gap:8px;padding:2px 16px 10px;overflow-x:auto;scrollbar-width:none}
+.ms-filtros::-webkit-scrollbar{display:none}
+.ms-filtros button{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;min-height:36px;padding:0 12px;border:1px solid var(--ms-line);border-radius:999px;background:#fff;font:inherit;font-size:14px;font-weight:600;color:var(--ms-ink);cursor:pointer}
+.ms-filtros button[aria-pressed="true"]{border-color:#0b2a33;background:#0b2a33;color:#fff}
+.ms-filtros button:disabled{opacity:.45;cursor:default}
+.ms-filtros b{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#0a84ff;color:#fff;font-size:12px;display:grid;place-items:center}
+.ms-grupo-avisos{border-top:1px solid var(--ms-line)}
+.ms-dia{position:sticky;top:0;z-index:1;margin:0;padding:10px 16px 8px;background:var(--ms-bg);font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--ms-mute)}
+.ms-aviso{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid var(--ms-line);transition:background .2s}
+.ms-aviso:last-child{border-bottom:0}
+.ms-aviso.unread{background:#eef6ff}
+.ms-aviso.scheduled{background:#fffaf0}
+.ms-av-ic{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid var(--ms-line);background:#fff;color:var(--ms-teal);font-size:14px;font-weight:800}
+.ms-av-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ms-av-ic.club{background:#0b2a33;border-color:#0b2a33;color:#c6ac5c}
+.ms-av-ic.area{background:#e3f1f3;border-color:#e3f1f3}
+.ms-av-ic.fam{background:#fff8e6;border-color:#fff8e6;color:#7a5a12}
+.ms-av-ic.prog{background:#fff8e6;border-color:#fff8e6;color:#7a5a12}
+.ms-av-ic.persona{border:0;color:#fff}
+.ms-aviso-main{display:grid;gap:4px;min-width:0}
+.ms-aviso header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.ms-aviso header strong{font-size:16px;font-weight:600;line-height:1.3;color:var(--ms-ink)}
+.ms-aviso.unread header strong{font-weight:800}
+.ms-aviso-top{display:flex;align-items:center;gap:6px;flex:0 0 auto;min-height:22px}
+.ms-aviso-top time{font-size:13px;color:var(--ms-mute);white-space:nowrap}
+.ms-aviso.unread .ms-aviso-top time{color:#0a84ff;font-weight:700}
+.ms-dot{display:block;width:9px;height:9px;border-radius:50%;background:#0a84ff}
+.ms-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ms-gestion{display:grid;place-items:center;width:32px;height:32px;margin:-6px -8px -6px 0;border:0;border-radius:50%;background:transparent;color:var(--ms-mute);cursor:pointer}
+.ms-gestion:hover{background:rgba(0,0,0,.05)}
+.ms-gestion svg{width:20px;height:20px}
+.ms-aviso p{margin:0;font-size:15px;line-height:1.45;color:#2b4146;overflow-wrap:anywhere}
+.ms-aviso .ms-chips{margin-top:2px}
+.ms-aviso footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px;margin-top:2px;font-size:13px;color:var(--ms-mute)}
+.ms-aviso footer b{font-weight:600;color:#2b4146}
+.ms-visto{font-size:13px;font-weight:700;color:var(--ms-teal)}
+button.ms-visto{padding:0;border:0;background:transparent;font:inherit;font-size:13px;font-weight:700;color:var(--ms-teal);cursor:pointer}
+button.ms-visto:hover{text-decoration:underline;text-underline-offset:2px}
+.ms-aviso-acciones{display:flex;margin-top:8px}
+.ms-ack{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 18px;border:0;border-radius:10px;background:#0a84ff;color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.ms-ack:active{transform:scale(.98)}
+.ms-vacio-avisos{display:grid;justify-items:center;gap:6px;padding:48px 24px}
+.ms-vacio-avisos span{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:#e3f1f3;color:var(--ms-teal)}
+.ms-vacio-avisos svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ms-vacio-avisos strong{font-size:17px;color:var(--ms-ink)}
+.ms-vacio-avisos small{max-width:280px;font-size:14px}
+
+/* ---- Chats híbridos y botón único (26/11/2026) ----
+   Filas de chat como WhatsApp, pero con filtros, barra de "Marcar todo como
+   leído" y lo no leído en azul tenue, como la bandeja de avisos. */
+.ms-list{position:relative}
+.ms-list-head{padding-bottom:4px}
+.ms-barra-leer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:8px 8px 8px 14px;border-radius:12px;background:#eef6ff;font-size:14px;font-weight:600;color:var(--ms-ink)}
+.ms-barra-leer button{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:0;border-radius:10px;background:#fff;font:inherit;font-size:14px;font-weight:700;color:#0a84ff;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.ms-barra-leer svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.ms-grupo-chats{border-top:1px solid var(--ms-line)}
+.ms-grupo-chats .ms-item{padding:12px 16px;border-bottom:1px solid var(--ms-line);transition:background .15s}
+.ms-grupo-chats .ms-item-main{padding-bottom:0;border-bottom:0}
+.ms-grupo-chats .ms-item.unread{background:#eef6ff}
+.ms-grupo-chats .ms-item.on{background:#eef2f1}
+.ms-grupo-chats .ms-item:active{background:#e3f1f3}
+.ms-grupo-chats .ms-av{width:48px;height:48px}
+.ms-sec{margin:0;padding:10px 16px 8px;background:var(--ms-bg);font-size:13px;font-weight:700;letter-spacing:.02em;text-transform:none;color:var(--ms-mute)}
+/* Un solo botón para crear, abajo a la derecha: "Nuevo aviso" o "Nuevo chat". */
+.ms-fab{position:absolute;right:16px;bottom:16px;z-index:5;display:flex;align-items:center;gap:8px;min-height:52px;padding:0 20px 0 16px;border:0;border-radius:999px;background:#0b2a33;color:#fff;font:inherit;font-size:15px;font-weight:700;box-shadow:0 6px 18px rgba(11,42,51,.28);cursor:pointer;transition:transform .12s}
+.ms-fab:active{transform:scale(.96)}
+.ms-fab svg{width:20px;height:20px;fill:none;stroke:#c6ac5c;stroke-width:2.4;stroke-linecap:round}
+.ms-fab.hidden{display:none}
+.ms-items{padding-bottom:88px}
+@media (max-width:859px){
+  .ms-fab{position:fixed;right:16px;bottom:max(18px,env(safe-area-inset-bottom))}
+  .ms-app[data-view="chat"] .ms-fab{display:none}
+}
+/* Mientras abre la conversación: burbujas grises que laten, sin "Cargando…". */
+.ms-esqueleto{flex:1;display:flex;flex-direction:column;gap:10px;padding:18px 14px}
+.ms-esq{height:38px;border-radius:18px;background:#fff;animation:ms-late 1.1s ease-in-out infinite alternate}
+.ms-esq.theirs{align-self:flex-start;border-bottom-left-radius:6px}
+.ms-esq.mine{align-self:flex-end;border-bottom-right-radius:6px;background:#e3f1f3}
+@keyframes ms-late{from{opacity:.55}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.ms-esq{animation:none}}

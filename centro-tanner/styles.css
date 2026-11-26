@@ -10,6 +10,7 @@
   --ct-bg:#fbfbf9;
   --ct-card:#ffffff;
   --ct-gold:#b8a464;
+  --ct-cherry:#A8324A;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--ct-bg);color:var(--ct-ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
@@ -169,6 +170,20 @@ a{color:inherit}
 
 /* === Nuestra Historia / Tano el Tanner === */
 .hs-banner{background:linear-gradient(135deg,var(--ct-teal),var(--ct-navy))}
+
+/* === Tanner y Comparte (26/11/2026) === */
+.tc-banner{background:linear-gradient(135deg,var(--ct-cherry),var(--ct-ink))}
+.tc-hero{background:linear-gradient(160deg,var(--ct-cherry) 0%,var(--ct-ink) 100%)}
+.tc-grid{display:grid;gap:10px;margin-bottom:14px}
+.tc-item{display:flex;align-items:center;gap:14px;background:var(--ct-card);border:1px solid var(--ct-line);border-radius:16px;padding:16px 18px}
+.tc-badge{flex:0 0 auto;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:#fff;background:linear-gradient(160deg,var(--ct-cherry),#6e1f2d)}
+.tc-badge .tos-icon{width:22px;height:22px}
+.tc-item-body{display:flex;flex-direction:column;gap:2px}
+.tc-item-body strong{font-size:14.5px;font-weight:700}
+.tc-item-desc{font-size:13px;color:var(--ct-muted);line-height:1.4}
+.tc-mas{font-size:13.5px;color:var(--ct-muted);text-align:center;margin:6px 0 0}
+.tc-cta-text{font-size:14.5px;color:var(--ct-muted);line-height:1.5}
+.tc-closing{margin:30px 0 6px;text-align:center;font-size:15px;font-weight:700;color:var(--ct-cherry)}
 .hs-hero{background:linear-gradient(160deg,var(--ct-ink) 0%,var(--ct-navy) 100%);color:#fff;border-radius:24px;padding:34px 22px 30px;margin-top:10px;text-align:center}
 .hs-hero .ct-hero-eyebrow{color:var(--ct-gold)}
 .hs-hero h1{color:#fff;margin:0 0 10px;font-size:clamp(26px,6vw,36px);letter-spacing:-.02em;font-weight:800}

@@ -54,6 +54,12 @@ function normalizar(s) { return String(s ?? '').toLowerCase().normalize('NFD').r
 // El hub en sí ("Nuestra historia") no es un HISTORIA_TOPICS — por eso buscar
 // justo la palabra "Historia" no encontraba nada (10/11/2026, screenshot de Mich).
 const HISTORIA_HUB_ENTRY = { title: 'Nuestra historia', desc: 'El origen de Tannery City, nuestro escudo, nuestros valores y la tradición de nombrar nuestras canchas.', href: '/centro-tanner/historia', keywords: ['historia', 'nuestra historia', 'tano el tanner', 'quien es tano'] };
+// 26/11/2026, Mich: "tenemos campañas sociales que se llaman Tanner y
+// Comparte... regalamos uniformes, casacas, balones, horas de
+// entrenamiento... con un tono cherry para que se escuche chido". Página
+// estática (igual que Nuestra historia) mientras Mich manda el detalle de
+// cómo funcionan las campañas; nada de cifras o fechas se inventa aquí.
+const TANNER_COMPARTE_ENTRY = { title: 'Tanner y Comparte', desc: 'Nuestras campañas sociales: uniformes, casacas, balones y horas de entrenamiento para que más niños vivan el fútbol.', href: '/centro-tanner/comparte', keywords: ['comparte', 'tanner y comparte', 'donamos', 'regalamos', 'campaña social', 'uniformes gratis', 'ayuda social', 'beneficencia'] };
 
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 // Políticas como TC-132 remiten a un reglamento externo (TCP) por su liga; el
@@ -104,6 +110,10 @@ async function renderHome() {
       <div><span class="bk-banner-eyebrow">MÉRITO + NECESIDAD + COMUNIDAD</span><strong>${esc(becasNombre)}</strong><p>Queremos que el talento, la disciplina y las ganas de crecer encuentren oportunidades.</p></div>
       <span class="bk-banner-cta">Descubre qué apoyo podría aplicar para ti →</span>
     </a>
+    ${esTanneryCity ? `<a class="bk-banner tc-banner" href="/centro-tanner/comparte">
+      <div><span class="bk-banner-eyebrow">COMUNIDAD · TANNER Y COMPARTE</span><strong>Tanner y Comparte</strong><p>Cuando un Tanner crece, no crece solo: compartimos uniformes, casacas, balones y horas de entrenamiento.</p></div>
+      <span class="bk-banner-cta">Conoce cómo compartimos →</span>
+    </a>` : ''}
     ${esTanneryCity ? `<a class="bk-banner hs-banner" href="/centro-tanner/historia">
       <div><span class="bk-banner-eyebrow">TANNERY CITY · DESDE 1850</span><strong>Nuestra historia</strong><p>Quién es Tano el Tanner, el origen del club, nuestro escudo, valores y la tradición de nombrar nuestras canchas.</p></div>
       <span class="bk-banner-cta">Conócela →</span>
@@ -160,6 +170,7 @@ function wireSearch() {
       const nq = normalizar(q);
       const coincide = (e) => e.keywords.some((k) => normalizar(k).includes(nq)) || normalizar(e.title).includes(nq) || normalizar(e.desc).includes(nq);
       const staticResults = esTanneryCity ? [
+        ...(coincide(TANNER_COMPARTE_ENTRY) ? [{ type: 'comparte', title: TANNER_COMPARTE_ENTRY.title, snippet: TANNER_COMPARTE_ENTRY.desc, href: TANNER_COMPARTE_ENTRY.href }] : []),
         ...(coincide(HISTORIA_HUB_ENTRY) ? [{ type: 'historia', title: HISTORIA_HUB_ENTRY.title, snippet: HISTORIA_HUB_ENTRY.desc, href: HISTORIA_HUB_ENTRY.href }] : []),
         ...HISTORIA_TOPICS.filter(coincide).map((t) => ({ type: 'historia', title: t.title, snippet: t.desc, href: `/centro-tanner/historia/${t.slug}` })),
       ].slice(0, 5) : [];
@@ -172,7 +183,7 @@ function wireSearch() {
       if (!combined.length) { box.innerHTML = `<div class="ct-search-empty">No encontramos nada para “${esc(q)}”. Intenta con otra palabra.</div>`; return; }
       box.innerHTML = combined.map((r) => {
         const href = r.href || (r.type === 'document' ? `/centro-tanner/documento/${esc(r.slug)}` : r.type === 'policy' ? `/centro-tanner/p/${esc(r.slug)}` : (r.slug ? `/centro-tanner/p/${esc(r.slug)}` : `/centro-tanner/tema/${esc(r.category)}`));
-        const kicker = r.type === 'historia' ? 'NUESTRA HISTORIA' : r.type === 'faq' ? 'PREGUNTA FRECUENTE' : r.type === 'document' ? 'DOCUMENTO' : (CATEGORY_LABELS[r.category] || 'POLÍTICA').toUpperCase();
+        const kicker = r.type === 'comparte' ? 'TANNER Y COMPARTE' : r.type === 'historia' ? 'NUESTRA HISTORIA' : r.type === 'faq' ? 'PREGUNTA FRECUENTE' : r.type === 'document' ? 'DOCUMENTO' : (CATEGORY_LABELS[r.category] || 'POLÍTICA').toUpperCase();
         return `<a class="ct-result" href="${href}"><div class="ct-result-kicker">${esc(kicker)}</div><div class="ct-result-title">${esc(r.title)}</div><div class="ct-result-snippet">${esc(r.snippet || '')}</div></a>`;
       }).join('');
     }, 320);
@@ -497,6 +508,43 @@ async function renderWizardResult(dest) {
 }
 
 // ---------------------------------------------------------------------------
+// TANNER Y COMPARTE: campañas sociales del club (uniformes, casacas,
+// balones, horas de entrenamiento). Contenido estático y general por ahora
+// — Mich va a mandar más detalle (cómo se organiza cada campaña, a quién
+// nomina, fechas) para ampliar esta página; no se inventan cifras ni reglas.
+// ---------------------------------------------------------------------------
+function comparteItem(icon, titulo, desc) {
+  return `<div class="tc-item">
+    <span class="tc-badge"><span class="tos-icon tos-icon-${icon}" aria-hidden="true"></span></span>
+    <span class="tc-item-body"><strong>${esc(titulo)}</strong><span class="tc-item-desc">${esc(desc)}</span></span>
+  </div>`;
+}
+async function renderComparte() {
+  setMeta('Tanner y Comparte', 'Nuestras campañas sociales: uniformes, casacas, balones y horas de entrenamiento para que más niños vivan el fútbol.');
+  render(`${crumb([{ href: '/centro-tanner/', label: 'Centro Tanner' }, { label: 'Tanner y Comparte' }])}
+    <section class="ct-hero hs-hero tc-hero">
+      <div class="ct-hero-eyebrow">FÚTBOL CURTIDO · CORAZÓN COMPARTIDO</div>
+      <h1>Tanner y Comparte</h1>
+      <p>En Tannery City creemos que el fútbol se disfruta más cuando se comparte. Por eso impulsamos campañas sociales para que el talento y las ganas de jugar nunca se queden fuera por falta de recursos.</p>
+    </section>
+    <section class="ct-section">
+      <h2 class="ct-section-title">¿Qué compartimos?</h2>
+      <div class="tc-grid">
+        ${comparteItem('user', 'Uniformes y casacas', 'Para que ponerse la playera Tanner nunca dependa del bolsillo.')}
+        ${comparteItem('ball', 'Balones', 'Para que siempre haya con qué entrenar y jugar.')}
+        ${comparteItem('calendar', 'Horas de entrenamiento', 'Sesiones y espacios para que más niños se sumen a la cancha.')}
+      </div>
+      <p class="tc-mas">Y varias cositas más — cada campaña es distinta, según lo que la comunidad Tanner necesite en ese momento.</p>
+    </section>
+    <section class="ct-section">
+      <h2 class="ct-section-title">¿Quieres apoyar o nominar a alguien?</h2>
+      <p class="tc-cta-text">Escríbenos al WhatsApp oficial del club — con gusto te contamos cómo funciona la campaña vigente.</p>
+    </section>
+    <p class="tc-closing">Fútbol Curtido también es compartir lo que tenemos con quien lo necesita.</p>
+  `);
+}
+
+// ---------------------------------------------------------------------------
 // NUESTRA HISTORIA / TANO EL TANNER: contenido de marca (brandbook + mascota)
 // para que cualquiera se pueda meter a investigar de dónde viene Tannery
 // City. Es estático (no viene de la base de datos) porque no cambia según
@@ -640,6 +688,8 @@ function route() {
   if (rest.length === 0) return renderHome();
   if (rest[0] === 'becas' && rest[1] === 'wizard') { wizardStack = []; return renderBecasWizardStep(); }
   if (rest[0] === 'becas' && !rest[1]) return renderBecasHome();
+  if (rest[0] === 'comparte' && !esTanneryCity) return render('<div class="ct-empty"><h1>Página no disponible</h1><a href="/centro-tanner/">Volver a Centro Tanner</a></div>');
+  if (rest[0] === 'comparte') return renderComparte();
   if (rest[0] === 'historia' && !esTanneryCity) return render('<div class="ct-empty"><h1>Página no disponible</h1><a href="/centro-tanner/">Volver a Centro Tanner</a></div>');
   if (rest[0] === 'historia' && rest[1]) return renderHistoriaTopic(decodeURIComponent(rest[1]));
   if (rest[0] === 'historia') return renderHistoriaHub();

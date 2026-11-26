@@ -14,7 +14,7 @@ misión de integración de Mich. Donde no hay un dato confirmado, se escribe
 | Responsable | PENDIENTE — Presidencia debe confirmar quién lo aprobó formalmente |
 | Fecha real de aprobación | PENDIENTE |
 | Fecha de publicación (en Centro Tanner) | 26 de noviembre de 2026 |
-| Fecha de entrada en vigor | 26 de noviembre de 2026 (igual a la de publicación; Presidencia puede cambiarla) |
+| Fecha de entrada en vigor | 26 de noviembre de 2026 — confirmado por Mich: igual a la de publicación |
 | Documentos relacionados | Cultura y Convivencia Tanner v1.0 (OFICIAL), Reglamento Tanner vigente, Aviso de privacidad |
 | Historial de cambios | v1 (26/11): publicación inicial · v2 (26/11): aclara que Dirección Deportiva autoriza excepciones de uniforme |
 
@@ -28,7 +28,7 @@ misión de integración de Mich. Donde no hay un dato confirmado, se escribe
 | Responsable | PENDIENTE |
 | Fecha real de aprobación | PENDIENTE |
 | Fecha de publicación (en Centro Tanner) | 26 de noviembre de 2026 |
-| Fecha de entrada en vigor | 26 de noviembre de 2026 (igual a la de publicación; Presidencia puede cambiarla) |
+| Fecha de entrada en vigor | 26 de noviembre de 2026 — confirmado por Mich: igual a la de publicación |
 | Documentos relacionados | Cultura y Convivencia Tanner v1.0 (OFICIAL), Reglamento Tanner vigente, protocolos de protección de menores, reglas vigentes del parque, Aviso de privacidad |
 | Historial de cambios | v1 (26/11): publicación inicial |
 
@@ -52,7 +52,13 @@ fecha, tutor y jugador vinculado. No se construyó nada nuevo para esto: ya exis
 ## Pendiente de decisión por Presidencia
 
 1. Responsable y fecha real de aprobación de ambos códigos (campos arriba en PENDIENTE).
-2. Si la fecha de entrada en vigor debe ser distinta a la de publicación (ej. inicio de
-   temporada en vez de "hoy").
-3. Si "Dirección Deportiva" es el cargo correcto para autorizar excepciones de uniforme
+2. Si "Dirección Deportiva" es el cargo correcto para autorizar excepciones de uniforme
    (así quedó redactado v2 del Código del Jugador; corregible si no es el cargo correcto).
+
+## Confirmado por Mich (26/11/2026)
+
+- Fecha de entrada en vigor de ambos códigos = fecha de publicación (hoy). Cerrado, sin
+  cambio de código necesario.
+- FAQ para Formadores: se construyó como módulo real (no solo texto) dentro de la pestaña
+  Convivencia — botón "Preguntas frecuentes para Formadores" que abre la hoja con las 7
+  preguntas (ver `v2/convivencia/convivencia.js`, `FAQ_FORMADOR`).

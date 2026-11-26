@@ -203,14 +203,69 @@ function htmlDesglose(dim, titulo, rows, clave = '') {
   return cabeza + mini + semanas + '<ul class="gr-det">' + rows.map(li).join('') + '</ul>' + (rows.length > VISIBLES ? '<button type="button" class="gr-mas">Ver los ' + rows.length + '</button>' : '');
 }
 
+/* LA LISTA (26/11/2026). Presidencia: "hazla más interactiva y no que se
+ * vea como texto... que no sea una fila larguísima". Filtros arriba (Todos,
+ * Staff, Proveedores, De baja) con buscador; tarjetas con iniciales y lo
+ * pagado; se ven 8 y el resto con "Ver todos". Al tocar una tarjeta se abre
+ * su hoja: lo pagado, el último pago, sus pagos (y semana por semana si es
+ * Staff) y, al final, dar de baja o volver a activar. */
+const FILTROS_LISTA = [['todos', 'Todos'], ['staff', 'Staff'], ['proveedor', 'Proveedores'], ['baja', 'De baja']];
+let filtroLista = 'todos', buscaLista = '', verTodaLista = false;
+const VISIBLES_LISTA = 8;
+const iniciales = (n) => String(n || '?').trim().split(/\s+/).filter((w) => /\p{L}/u.test(w[0] || '')).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+const sinAcentos = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 function pintaLista() {
-  const xs = (lista?.payees || []).slice().sort((a, b) => (b.active - a.active) || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name, 'es'));
+  const todos = lista?.payees || [];
   $('grAgregar').classList.toggle('hidden', !canWrite);
-  $('grLista').innerHTML = !xs.length ? '<p class="gr-vacio">Todavía no hay nadie en la lista.</p>'
-    : '<div class="gr-lista">' + xs.map((p) => '<div class="gr-item' + (p.active ? '' : ' baja') + '"><div><b>' + esc(p.name) + '<span class="gr-tag">' + esc(ETIQUETA_TIPO[p.kind]) + '</span>' + (p.active ? '' : '<span class="gr-tag">De baja</span>') + '</b>' +
-      '<small>' + (Number(p.total) > 0 ? money.format(Number(p.total)) + ' pagado en total' + (p.lastPaidOn ? ' · último ' + esc(fechaCorta(p.lastPaidOn)) : '') : 'Sin pagos todavía') + '</small></div>' +
-      (canWrite ? '<button type="button" class="secondary mini" data-baja="' + esc(p.id) + '">' + (p.active ? 'Dar de baja' : 'Volver a activar') + '</button>' : '') + '</div>').join('') + '</div>';
+  const cuenta = { todos: todos.filter((p) => p.active).length, staff: todos.filter((p) => p.active && p.kind === 'staff').length, proveedor: todos.filter((p) => p.active && p.kind === 'proveedor').length, baja: todos.filter((p) => !p.active).length };
+  $('grListaFiltro').innerHTML = FILTROS_LISTA.filter(([k]) => k !== 'baja' || cuenta.baja).map(([k, t]) => '<button type="button" data-filtro-lista="' + k + '" aria-pressed="' + (filtroLista === k) + '">' + t + ' <small>' + cuenta[k] + '</small></button>').join('');
+  const q = sinAcentos(buscaLista).trim();
+  const xs = todos.filter((p) => (filtroLista === 'baja' ? !p.active : p.active && (filtroLista === 'todos' || p.kind === filtroLista)))
+    .filter((p) => !q || sinAcentos(p.name).includes(q) || (p.aliases || []).some((a) => sinAcentos(a).includes(q)))
+    .sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0) || a.name.localeCompare(b.name, 'es'));
+  const box = $('grLista');
+  if (!todos.length) { box.innerHTML = '<p class="gr-vacio">Todavía no hay nadie en la lista.</p>'; return; }
+  if (!xs.length) { box.innerHTML = '<p class="gr-vacio">' + (q ? 'Nadie con ese nombre.' : 'Nadie en este grupo.') + '</p>'; return; }
+  const mostrar = verTodaLista || q ? xs : xs.slice(0, VISIBLES_LISTA);
+  box.innerHTML = '<div class="gr-personas">' + mostrar.map((p, i) => '<button type="button" class="gr-persona' + (p.active ? '' : ' baja') + '" data-persona="' + esc(p.id) + '" style="--i:' + Math.min(i, 12) + '">' +
+    '<span class="gr-avatar ' + esc(p.kind) + '" aria-hidden="true">' + esc(iniciales(p.name)) + '</span>' +
+    '<span class="gr-persona-txt"><b>' + esc(p.name) + '</b><small>' + esc(ETIQUETA_TIPO[p.kind] || '') + (p.active ? '' : ' · de baja') + '</small></span>' +
+    '<strong>' + (Number(p.total) > 0 ? money.format(Number(p.total)) : '—') + '</strong>' +
+    '<small class="gr-persona-ult">' + (p.lastPaidOn ? 'último ' + esc(fechaCorta(p.lastPaidOn)) : 'sin pagos') + '</small></button>').join('') + '</div>' +
+    (mostrar.length < xs.length ? '<button type="button" class="gr-mas gr-ver-lista">Ver todos (' + xs.length + ')</button>' : '');
 }
+// La hoja de una persona o proveedor.
+function cierraHojaPersona() { $('grHoja')?.remove(); $('grHojaFondo')?.remove(); document.body.style.overflow = ''; }
+async function abreHojaPersona(id) {
+  const p = (lista?.payees || []).find((x) => x.id === id); if (!p) return;
+  cierraHojaPersona();
+  document.body.insertAdjacentHTML('beforeend', '<div id="grHojaFondo" class="pres-backdrop"></div><section id="grHoja" class="pres-sheet gr-hoja" role="dialog" aria-modal="true" aria-labelledby="grHojaT"><div class="pres-grab" aria-hidden="true"></div>' +
+    '<header class="gr-hoja-head"><span class="gr-avatar grande ' + esc(p.kind) + '" aria-hidden="true">' + esc(iniciales(p.name)) + '</span><div><h2 id="grHojaT">' + esc(p.name) + '</h2><p>' + esc(ETIQUETA_TIPO[p.kind] || '') + (p.active ? '' : ' · de baja') + ((p.aliases || []).length ? ' · también «' + esc(p.aliases.slice(0, 2).join('», «')) + '»' : '') + '</p></div><button type="button" class="pres-close" data-cierra-hoja aria-label="Cerrar">×</button></header>' +
+    '<div class="gr-hoja-kpis"><span><small>Pagado en total</small><strong>' + money.format(Number(p.total) || 0) + '</strong></span><span><small>Último pago</small><strong>' + (p.lastPaidOn ? esc(fechaCorta(p.lastPaidOn)) : '—') + '</strong></span></div>' +
+    '<div id="grHojaPagos" class="gr-desglose abierto"><div class="gr-cargando"><i></i><i></i><i></i></div></div>' +
+    (canWrite ? '<button type="button" class="gr-hoja-baja' + (p.active ? '' : ' activa') + '" data-baja="' + esc(p.id) + '">' + (p.active ? 'Dar de baja' : 'Volver a activar') + '</button>' : '') + '</section>');
+  document.body.style.overflow = 'hidden';
+  $('grHojaFondo').addEventListener('click', cierraHojaPersona);
+  $('grHoja').addEventListener('click', (e) => {
+    if (e.target.closest('[data-cierra-hoja]')) return cierraHojaPersona();
+    const mas = e.target.closest('.gr-mas'); if (mas) { $('grHoja').querySelectorAll('.gr-det li[hidden]').forEach((li) => { li.hidden = false; }); mas.remove(); }
+    const b = e.target.closest('[data-baja]'); if (b) bajaPersona(b.dataset.baja);
+  });
+  try {
+    const rows = await rpc('v2_finance_detail', { organization_id: ctx.organization_id, desde: rango.desde, hasta: rango.hasta, dimension: 'beneficiario', clave: p.id }) || [];
+    if (!$('grHojaPagos')) return;
+    $('grHojaPagos').innerHTML = rows.length ? htmlDesglose('beneficiario', 'Sus pagos · ' + (PERIODOS.find((x) => x.k === periodo)?.t || ''), rows, p.id) : '<p class="gr-vacio">Sin pagos en este periodo.</p>';
+    creceBarras($('grHojaPagos'));
+    $('grHojaPagos').querySelectorAll('.gr-mes i').forEach((i) => { requestAnimationFrame(() => requestAnimationFrame(() => { i.style.height = i.dataset.pct + '%'; })); });
+  } catch { if ($('grHojaPagos')) $('grHojaPagos').innerHTML = '<p class="gr-vacio">No se pudieron traer sus pagos.</p>'; }
+}
+async function bajaPersona(id) {
+  const p = (lista?.payees || []).find((x) => x.id === id); if (!p) return;
+  if (p.active && !(await window.tosConfirm?.({ kicker: 'LA LISTA', title: '¿Dar de baja a ' + p.name + '?', message: 'Ya no sale para escoger. Sus pagos se quedan en las gráficas.', confirmText: 'Dar de baja' }))) return;
+  cierraHojaPersona();
+  guardaPayee({ payee_id: p.id, name: p.name, kind: p.kind, staff_member_id: null, active: !p.active });
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('grHoja')) cierraHojaPersona(); });
 
 async function carga() {
   $('grMensaje').classList.add('hidden');
@@ -263,12 +318,15 @@ document.querySelectorAll('.gr-grid').forEach((g) => g.addEventListener('click',
   const b = e.target.closest('[data-dim][data-clave]'); if (!b) return;
   abreDesglose(b);
 }));
-$('grLista').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-baja]'); if (!b) return;
-  const p = (lista?.payees || []).find((x) => x.id === b.dataset.baja); if (!p) return;
-  if (p.active && !(await window.tosConfirm?.({ kicker: 'LA LISTA', title: '¿Dar de baja a ' + p.name + '?', message: 'Ya no sale para escoger. Sus pagos se quedan en las gráficas.', confirmText: 'Dar de baja' }))) return;
-  guardaPayee({ payee_id: p.id, name: p.name, kind: p.kind, staff_member_id: null, active: !p.active });
+$('grLista').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-persona]'); if (c) return abreHojaPersona(c.dataset.persona);
+  if (e.target.closest('.gr-ver-lista')) { verTodaLista = true; pintaLista(); }
 });
+$('grListaFiltro').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-filtro-lista]'); if (!b || b.dataset.filtroLista === filtroLista) return;
+  filtroLista = b.dataset.filtroLista; verTodaLista = false; pintaLista();
+});
+$('grListaBusca').addEventListener('input', (e) => { buscaLista = e.target.value; pintaLista(); });
 // Agregar: un formulario corto arriba de la lista (nombre y si es Staff o proveedor).
 let tipoNuevo = 'staff';
 $('grAgregar').addEventListener('click', () => {

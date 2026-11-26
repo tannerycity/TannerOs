@@ -1,4 +1,6 @@
-/* Gráficas del dinero (25/11/2026, h102 + h103). Ver graficas.js.
+/* MÉTRICAS · DINERO (antes «Gráficas del dinero», 25/11/2026, h102 + h103).
+ * Presidencia (26/11): "vamos a concentrar todo en una hoja": vive dentro
+ * de Métricas (montaDinero). Los cálculos siguen en contabilidad/graficas/graficas.js.
  * Presidencia: "más animadas... que le piques y puedas desglosar... para que
  * llegues a todo". Todo lo que es número se puede picar:
  *   - Las cifras de arriba cuentan hacia arriba y llevan a su gráfica.
@@ -7,24 +9,21 @@
  *   - En la nómina, cada celda abre los pagos de esa persona en ese mes.
  *   - Cada proveedor abre todos sus pagos.
  * Sin animación si el teléfono pide menos movimiento. */
-import { createClient } from '/v2/supabase-client.js';
-import { PERIODOS, rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, ETIQUETA_TIPO, uniformes, esAdeudo, metodo, resumenDetalle, porMes, suaviza, semanasDePago } from '/v2/contabilidad/graficas/graficas.js';
+import { rpc } from '/v2/shell.js';
+import { PERIODOS, rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, ETIQUETA_TIPO, uniformes, esAdeudo, metodo, resumenDetalle, porMes, suaviza, semanasDePago, rangoAnterior, cambioPct, sumaMeses, mesAMes } from '/v2/contabilidad/graficas/graficas.js';
 import { cargaBeneficiarios } from '/v2/beneficiarios.js';
 import { segmentos } from '/v2/segmento.js';
 
-const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG', { auth: { persistSession: true, autoRefreshToken: true } });
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
-const rpc = async (n, p = {}) => { const { data, error } = await supabase.rpc(n, p); if (error) throw error; return data; };
-const show = (id) => ['loadingView', 'deniedView', 'view'].forEach((v) => $(v)?.classList.toggle('hidden', v !== id));
 const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const fechaCorta = (f) => { if (!f) return ''; const [, m, d] = String(f).slice(0, 10).split('-').map(Number); return `${d} ${MES[m - 1]}`; };
 const ERRORES = { 'Payee already exists': 'Ya está en la lista.', 'Payee needs a name': 'Escribe el nombre.', 'Not authorized': 'Tu cuenta no puede cambiar la lista.' };
 const quieto = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let ctx = null, canWrite = false, periodo = 'anio', tipo = 'todos', datos = null, lista = null, rango = null;
+let meses = null, antes = null, mesElegido = null, sinPermiso = false, ctx = null, canWrite = false, periodo = 'anio', tipo = 'todos', datos = null, lista = null, rango = null;
 
 /* Números que cuentan hacia arriba. */
 function cuenta(el, valor) {
@@ -105,6 +104,43 @@ function pinta() {
   document.querySelectorAll('.gr-grid > .panel').forEach((e) => e.classList.add('gr-entra'));
 }
 
+/* Contra el periodo anterior: sólo si antes hubo movimientos (h104). */
+const TXT_ANTES = { mes: 'vs. mismo tramo del mes pasado', tres: 'vs. los 3 meses anteriores', anio: 'vs. mismo tramo del año pasado' };
+function pintaDeltas() {
+  const prev = Array.isArray(antes) && antes.length ? sumaMeses(antes) : null;
+  const items = [['dIngresos', datos.ingresos, prev?.ingresos, true], ['dEgresos', datos.egresos, prev?.egresos, false],
+    ['dQueda', (datos.ingresos || 0) - (datos.egresos || 0), prev ? prev.ingresos - prev.egresos : null, true]];
+  for (const [id, ahora, entonces, subirEsBueno] of items) {
+    const el = $(id); if (!el) continue;
+    const c = prev && entonces > 0 ? cambioPct(ahora, entonces) : null;
+    if (c == null) { el.hidden = true; continue; }
+    const bueno = c === 0 ? null : (c > 0) === subirEsBueno;
+    el.hidden = false;
+    el.dataset.tono = bueno == null ? 'igual' : bueno ? 'bien' : 'mal';
+    el.innerHTML = '<b>' + (c > 0 ? '+' : c < 0 ? '-' : '') + Math.abs(c) + '%</b> ' + esc(TXT_ANTES[periodo] || '');
+  }
+}
+/* Mes a mes: dos columnas por mes; tocar un mes enseña cuánto quedó. */
+function pintaMeses() {
+  const panel = $('grMesPanel'); if (!panel) return;
+  const xs = Array.isArray(meses) ? mesAMes(meses) : [];
+  panel.hidden = xs.length < 2;
+  if (panel.hidden) return;
+  if (!xs.some((x) => x.mes === mesElegido)) mesElegido = xs[xs.length - 1].mes;
+  $('grMes').innerHTML = xs.map((x, i) => '<button type="button" class="gr-mescol" data-mes="' + esc(x.mes) + '" aria-pressed="' + (x.mes === mesElegido) + '" style="--i:' + i + '" aria-label="' + esc(etiquetaMes(x.mes)) + ': entró ' + money.format(x.ingresos) + ', salió ' + money.format(x.egresos) + '">' +
+    '<span class="gr-mescol-barras"><i class="ing" data-h="' + x.hIng + '"></i><i class="eg" data-h="' + x.hEg + '"></i></span><small>' + esc(etiquetaMes(x.mes).split(' ')[0]) + '</small></button>').join('');
+  const crece = () => $('grMes').querySelectorAll('i[data-h]').forEach((b) => { b.style.height = b.dataset.h + '%'; });
+  if (quieto()) crece(); else requestAnimationFrame(() => requestAnimationFrame(crece));
+  pintaMesDetalle(xs);
+}
+function pintaMesDetalle(xs = mesAMes(meses || [])) {
+  const x = xs.find((m) => m.mes === mesElegido); if (!x) return;
+  $('grMesDetalle').innerHTML = '<b>' + esc(etiquetaMes(x.mes)) + '</b>' +
+    '<span><small>Entró</small><strong>' + money.format(x.ingresos) + '</strong></span>' +
+    '<span><small>Salió</small><strong>' + money.format(x.egresos) + '</strong></span>' +
+    '<span class="' + (x.queda < 0 ? 'neg' : '') + '"><small>' + (x.queda < 0 ? 'Faltó' : 'Quedó') + '</small><strong>' + money.format(Math.abs(x.queda)) + '</strong></span>';
+}
+
 /* El desglose: se abre debajo de lo que picaste, con su mini gráfica. */
 async function abreDesglose(boton) {
   const dim = boton.dataset.dim, clave = boton.dataset.clave, titulo = boton.dataset.titulo || '';
@@ -182,18 +218,22 @@ async function carga() {
   rango = rangoDe(periodo, hoy());
   document.body.classList.add('gr-ocupado');
   try {
-    [datos, lista] = await Promise.all([
+    const previo = rangoAnterior(periodo, hoy());
+    [datos, lista, meses, antes] = await Promise.all([
       rpc('v2_finance_analytics', { organization_id: ctx.organization_id, desde: rango.desde, hasta: rango.hasta }),
       cargaBeneficiarios(rpc, ctx.organization_id, { fresco: true }),
+      // Mes a mes (h104). Si la base todavía no lo tiene, la gráfica no sale.
+      rpc('v2_finance_monthly', { organization_id: ctx.organization_id, desde: rango.desde, hasta: rango.hasta }).catch(() => null),
+      previo ? rpc('v2_finance_monthly', { organization_id: ctx.organization_id, desde: previo.desde, hasta: previo.hasta }).catch(() => null) : null,
     ]);
-    pinta(); pintaLista();
+    pinta(); pintaLista(); pintaMeses(); pintaDeltas();
   } catch (e) {
+    if (/not authorized/i.test(e?.message || '')) { sinPermiso = true; return; }
     $('grMensaje').textContent = 'No se pudieron cargar las gráficas. Vuelve a intentar.';
     $('grMensaje').classList.remove('hidden');
   } finally { document.body.classList.remove('gr-ocupado'); }
 }
 // Jalar para actualizar (v2/jalar.js) vuelve a pedir las gráficas sin recargar.
-window.tosAlActualizar = () => carga();
 
 async function guardaPayee(params) {
   try {
@@ -202,18 +242,27 @@ async function guardaPayee(params) {
   } catch (e) { await window.tosAlert?.({ kicker: 'LA LISTA', title: 'No se pudo', message: ERRORES[String(e?.message || '')] || 'Vuelve a intentar.' }); }
 }
 
+$('grMes')?.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-mes]'); if (!b) return;
+  mesElegido = b.dataset.mes;
+  $('grMes').querySelectorAll('[data-mes]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  pintaMesDetalle();
+});
 $('periodos').addEventListener('click', (e) => { const b = e.target.closest('[data-periodo]'); if (!b || b.dataset.periodo === periodo) return; periodo = b.dataset.periodo; carga(); });
 $('filtroTipo').addEventListener('click', (e) => { const b = e.target.closest('[data-tipo]'); if (!b || !datos) return; tipo = b.dataset.tipo; pintaBenef(); });
 document.querySelector('.gr-kpis')?.addEventListener('click', (e) => {
   const b = e.target.closest('[data-ir]'); if (!b) return;
   const destino = $(b.dataset.ir)?.closest('.panel'); if (!destino) return;
+  // Si su gráfica está en otra sección escondida, Métricas la enseña primero.
+  if (destino.closest('[hidden]')) window.tosMetricasMuestra?.(destino);
   destino.scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'start' });
   destino.classList.remove('gr-brilla'); void destino.offsetWidth; destino.classList.add('gr-brilla');
 });
-document.querySelector('.gr-grid').addEventListener('click', (e) => {
+// Las barras viven en Dinero y en Cobranza (los adeudos): las dos abren desglose.
+document.querySelectorAll('.gr-grid').forEach((g) => g.addEventListener('click', (e) => {
   const b = e.target.closest('[data-dim][data-clave]'); if (!b) return;
   abreDesglose(b);
-});
+}));
 $('grLista').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-baja]'); if (!b) return;
   const p = (lista?.payees || []).find((x) => x.id === b.dataset.baja); if (!p) return;
@@ -242,17 +291,11 @@ $('grLista').addEventListener('submit', (e) => {
   guardaPayee({ payee_id: null, name: nombre, kind: tipoNuevo, staff_member_id: null, active: true });
 });
 
-(async function boot() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { location.href = '/v2'; return; }
-  const rows = await rpc('v2_my_context');
-  if (!rows?.length) { $('deniedText').textContent = 'Sin organización.'; show('deniedView'); return; }
-  ctx = rows[0];
-  const mods = await rpc('v2_my_modules', { organization_id: ctx.organization_id }), mod = mods.find((m) => m.module_code === 'accounting');
-  if (!mod?.enabled || !mod?.can_read) { $('deniedText').textContent = 'Tu rol no tiene acceso a Contabilidad.'; show('deniedView'); return; }
-  canWrite = !!mod.can_write;
-  $('orgName').textContent = ctx.organization_name || '';
-  show('view');
-  segmentos();
-  carga();
-})();
+/* Lo monta Métricas. Regresa false si la cuenta no puede ver el dinero
+ * (la base dice Not authorized): entonces la sección no se enseña. */
+export async function montaDinero({ ctx: c, canWrite: w = false }) {
+  ctx = c; canWrite = !!w;
+  await carga();
+  return !sinPermiso;
+}
+export const recargaDinero = () => carga();

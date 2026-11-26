@@ -29,6 +29,19 @@ export const NIVELES = {
 const ESTADO = { abierto: 'Abierto', seguimiento: 'En seguimiento', resuelto: 'Resuelto' };
 const TIPO_NOTA = { seguimiento: 'Seguimiento', aviso_familia: 'Aviso a la familia', escalado: 'Escalado a Presidencia', resolucion: 'Resolución' };
 
+// 26/11/2026, Mich: "FAQ para formadores, crea su módulo" — con la integración
+// del Código del Jugador y el Código de las Familias. Vive aquí mismo (no es
+// pantalla nueva): un botón que abre la hoja de siempre.
+export const FAQ_FORMADOR = [
+  { q: '¿Cómo explico el código a mi categoría?', a: 'Usa "Explicar (60 seg)" en esta misma pantalla: reúnelos en círculo y léelo en voz alta. Queda registrado por categoría y fecha, sin que el niño firme nada.' },
+  { q: '¿Qué hago si un jugador me insulta?', a: 'Escúchalo, documenta lo que pasó en "Reportar algo" y elige el nivel según la gravedad. No apliques tú una sanción por tu cuenta.' },
+  { q: '¿Puedo expulsar a un niño de un entrenamiento?', a: 'No de forma automática. Las medidas significativas y la expulsión definitiva las resuelve Presidencia, con escucha y revisión del contexto.' },
+  { q: '¿Qué nivel elijo al reportar algo?', a: 'Menor: se atendió en el momento. Reincidencia o daño: se repite o hubo daño, va a Dirección Deportiva. Grave: medida protectora inmediata, lo evalúa Presidencia. Urgente: abuso, agresión grave, amenaza creíble o peligro inmediato.' },
+  { q: '¿Qué pasa si el reporte es sobre otro Formador o sobre mí?', a: 'No tienes que reportarle a esa persona primero. Repórtalo directo a Dirección Deportiva, Presidencia o el WhatsApp oficial.' },
+  { q: '¿Yo también tengo que aceptar un código?', a: 'Sí, el Código del Formador (el banner que ves arriba, si no lo has aceptado). Es independiente del Código del Jugador y el Código de las Familias, que firman los papás en su Portal.' },
+  { q: '¿Los papás ven lo que yo reporto?', a: 'No. Solo lo ven quien reportó, Dirección Deportiva y Presidencia. Nunca se comparte en chats ni con el Consejo de Familias.' }
+];
+
 function cargaEstilos() {
   if (document.querySelector('link[href^="/v2/convivencia/convivencia.css"]')) return;
   const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/v2/convivencia/convivencia.css?v=20261109a'; document.head.appendChild(l);
@@ -68,6 +81,7 @@ export async function montaConvivencia(el, { rpc, org, abrirReporte = false }) {
     const inc = e.target.closest('[data-cv-caso]');
     if (inc) return hojaCaso({ rpc, org, d, i: d.incidents.find(x => x.id === inc.dataset.cvCaso), alTerminar: recarga });
     if (e.target.closest('[data-cv-staff]')) return hojaStaff(d);
+    if (e.target.closest('[data-cv-faq]')) return hojaFaqFormador();
   };
   if (abrirReporte) hojaReporte({ rpc, org, d, alTerminar: recarga });
   return d;
@@ -104,7 +118,9 @@ export function pintaConvivencia(d) {
     <section class="cv-card"><div class="cv-card-head"><h2>${d.canFollow ? 'Casos' : 'Mis reportes'}</h2><span>${abiertos.length ? `${abiertos.length} abierto${abiertos.length === 1 ? '' : 's'}` : 'sin pendientes'}</span></div>
       ${casos ? `<ul class="cv-casos">${casos}</ul>` : `<p class="cv-vacio">${d.canFollow ? 'Sin reportes.' : 'No has reportado nada. Si ves algo, repórtalo.'}</p>`}
       <p class="cv-ayuda cv-privado">Sólo lo ven quien reporta, Dirección Deportiva y Presidencia. No se comparte en chats ni con el Consejo de Familias.</p></section>
-    ${staff ? `<button type="button" class="cv-banner neutro" data-cv-staff><span><b>Código del Formador: ${staffOk}/${staff.length} aceptaron</b><small>Ver quién falta</small></span><i aria-hidden="true">›</i></button>` : ''}`;
+    ${staff ? `<button type="button" class="cv-banner neutro" data-cv-staff><span><b>Código del Formador: ${staffOk}/${staff.length} aceptaron</b><small>Ver quién falta</small></span><i aria-hidden="true">›</i></button>` : ''}
+    <button type="button" class="cv-banner neutro" data-cv-faq><span><b>Preguntas frecuentes para Formadores</b><small>Reportar, códigos, niveles</small></span><i aria-hidden="true">›</i></button>
+    ${d.isPresidency && d.codesAcceptance ? `<p class="cv-ayuda">Código del Jugador: ${d.codesAcceptance.jugador}/${d.codesAcceptance.total} firmado · Código de las Familias: ${d.codesAcceptance.familias}/${d.codesAcceptance.total} firmado</p>` : ''}`;
 }
 
 function hojaCodigo({ rpc, org, d, alTerminar }) {
@@ -209,6 +225,12 @@ function hojaCaso({ rpc, org, d, i, alTerminar }) {
     try { await rpc('v2_incident_entry', { organization_id: org, incident_id: i.id, kind: tipo, note }); h.remove(); avisa(tipo === 'resolucion' ? 'Caso resuelto.' : 'Guardado.'); alTerminar?.(); }
     catch (e) { ev.currentTarget.disabled = false; avisa(errorDe(e), true); }
   });
+}
+
+function hojaFaqFormador() {
+  hoja(`${cabeza('Preguntas frecuentes para Formadores')}
+    <dl class="cv-dl">${FAQ_FORMADOR.map(f => `<dt>${esc(f.q)}</dt><dd>${esc(f.a)}</dd>`).join('')}</dl>
+    <button type="button" class="cv-primario" data-cv-cerrar>Listo</button>`);
 }
 
 function hojaStaff(d) {

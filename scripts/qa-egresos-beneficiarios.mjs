@@ -4,7 +4,7 @@
  * ligar por nombre o alias igual que el servidor) y las cuentas de las
  * gráficas (periodos, barras, nómina por mes y uniformes). */
 import { agrupa, coincide } from '../v2/beneficiarios.js';
-import { rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, uniformes, semanasDePago, lunesDe } from '../v2/contabilidad/graficas/graficas.js';
+import { rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, uniformes, semanasDePago, lunesDe, rangoAnterior, cambioPct, sumaMeses, mesAMes } from '../v2/contabilidad/graficas/graficas.js';
 
 let casos = 0, fallos = 0;
 const ok = (n, c, d) => { casos++; if (!c) { fallos++; console.error(' - ' + n + (d !== undefined ? '\n   ' + JSON.stringify(d) : '')); } };
@@ -68,6 +68,14 @@ ok('semanas: detecta dos pagos en una semana', sp.dobles.length === 1 && sp.dobl
 const sc = semanasDePago([{ fecha: '2026-11-03', monto: 1 }], { desde: '2026-01-01', hasta: '2026-12-31', hoy: '2026-11-25' });
 ok('semanas: no pasa de hoy y la semana en curso no cuenta como faltante', sc.semanas.length === 4 && sc.semanas.at(-1).enCurso && sc.faltan.length === 2);
 ok('semanas: sin pagos no hay semanas', semanasDePago([], {}).semanas.length === 0);
+
+// Mes a mes y comparación (h104).
+ok('anterior: este mes contra el mismo tramo del mes pasado', JSON.stringify(rangoAnterior('mes', '2026-11-26')) === '{"desde":"2026-10-01","hasta":"2026-10-26"}');
+ok('anterior: este año contra el mismo tramo del año pasado', JSON.stringify(rangoAnterior('anio', '2026-11-26')) === '{"desde":"2025-01-01","hasta":"2025-11-26"}');
+ok('anterior: 31 de marzo cae en el último día de febrero', rangoAnterior('mes', '2026-03-31').hasta === '2026-02-28');
+ok('anterior: "Todo" no se compara', rangoAnterior('todo', '2026-11-26') === null);
+ok('cambio: % redondeado y sin inventar si antes fue 0', cambioPct(120, 100) === 20 && cambioPct(80, 100) === -20 && cambioPct(50, 0) === null);
+ok('mes a mes: suma y alturas contra el mayor', sumaMeses([{ ingresos: 10, egresos: 4 }, { ingresos: 5, egresos: 1 }]).ingresos === 15 && mesAMes([{ mes: '2026-10', ingresos: 100, egresos: 50 }])[0].hEg === 50 && mesAMes([{ mes: '2026-10', ingresos: 100, egresos: 150 }])[0].queda === -50);
 
 if (fallos) { console.error(`Egresos y gráficas QA: ${fallos} de ${casos} fallaron`); process.exit(1); }
 console.log(`Egresos y gráficas QA OK · ${casos} casos: lista de a quién se le paga, ligar por alias, periodos, barras, nómina, uniformes y semana por semana`);

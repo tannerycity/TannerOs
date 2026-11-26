@@ -43,10 +43,18 @@ const ANALITICA = {
 };
 const FAKE = `
   window.__rpc=[];
-  export function createClient(){return{auth:{getSession:async()=>({data:{session:{user:{id:'u1'}}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+  export function createClient(){return{auth:{getSession:async()=>({data:{session:{user:{id:'u1'}}}}),getUser:async()=>({data:{user:{id:'u1'}}}),onAuthStateChange(){return{data:{subscription:{unsubscribe(){}}}}}},
+    from:()=>({select(){return this},eq(){return this},order(){return this},limit(){return this},then(r){return Promise.resolve({data:[],error:null}).then(r)}}),storage:{from:()=>({})},channel:()=>({on(){return this},subscribe(){return this}}),removeChannel(){},
     rpc:async(n,p={})=>{window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});const ok=d=>({data:d,error:null});
       const L=window.__p||(window.__p=${JSON.stringify(PAYEES)});
       if(n==='v2_my_context')return ok([{organization_id:'o1',organization_name:'Tannery City FC',role:'Presidencia'}]);
+      if(n==='v2_my_navigation')return ok((window.__nav||['inicio','contabilidad','finanzas','metricas']).map(c=>({module_code:c,enabled:true,can_read:true,can_write:true})));
+      if(n==='v2_collection_snapshot')return ok({collection_rate:72,covered:36,collection_population:50,current_period_receivable:9800,total_receivable:43388,pending_players:45,residual_receivable:12000,residual_players:9,needs_configuration:0});
+      if(n==='v2_bi_serie'||n==='v2_bi_tablero')return {data:null,error:{message:'Not authorized'}};
+      if(n==='v2_finance_monthly'){window.__mes=(window.__mes||[]).concat(p);const y=new Date().getFullYear();
+        if(String(p.desde||'').startsWith(String(y-1)))return ok([{mes:(y-1)+'-10',ingresos:200000,egresos:150000}]);
+        if(window.__sinMes)return {data:null,error:{message:'function v2_finance_monthly does not exist'}};
+        return ok([{mes:y+'-10',ingresos:150000,egresos:100000},{mes:y+'-11',ingresos:119633,egresos:75310}]);}
       if(n==='v2_my_modules')return ok([{module_code:'accounting',enabled:true,can_read:true,can_write:true}]);
       if(n==='v2_expense_payees')return ok({payees:L,staffSinAlta:[{id:'s9',name:'Luis Felipe',title:'Formador'}]});
       if(n==='v2_save_expense_payee'){const name=p.name||'Luis Felipe';if(p.payee_id){const x=L.find(y=>y.id===p.payee_id);x.active=p.active;}else L.push({id:'n'+L.length,name,kind:p.kind,active:true,aliases:[],total:0});return ok({id:'n',name,kind:p.kind});}
@@ -66,7 +74,7 @@ async function abre(url, ancho) {
   await pg.route('**/v2/supabase-client.js', (r) => r.fulfill({ contentType: 'text/javascript', body: FAKE }));
   await pg.route('**/v2/branding-auto.js', (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
   await pg.goto(BASE + url, { waitUntil: 'networkidle' });
-  await pg.waitForSelector('#view:not(.hidden)', { timeout: 8000 });
+  await pg.waitForSelector(url.includes('metricas') ? '#secDinero:not([hidden])' : '#view:not(.hidden)', { timeout: 8000 });
   return { pg, errs };
 }
 // Taquilla y Contabilidad usan el mismo campo.
@@ -131,7 +139,38 @@ for (const ancho of [1280, 390]) {
   await pg.close();
 
   // Gráficas
-  const g = await abre('/v2/contabilidad/graficas/', ancho);
+  const g = await abre('/v2/metricas/index.html', ancho);
+  // Mes a mes (h104): "que sea interactivo... como una web de $50,000".
+  await g.pg.waitForSelector('#grMesPanel:not([hidden]) .gr-mescol', { timeout: 5000 });
+  revisa('F2. mes a mes: una columna por mes con Entró y Salió' + n, (await g.pg.$$('#grMes .gr-mescol')).length === 2 && (await g.pg.$$('#grMes .gr-mescol i.ing')).length === 2 && /Entró/.test(await txt(g.pg, '#grMesPanel .gr-leyenda')));
+  const det0 = await txt(g.pg, '#grMesDetalle');
+  revisa('F2. arranca en el último mes: cuánto entró, salió y quedó' + n, /Nov/.test(det0) && /\$119,633/.test(det0) && /\$75,310/.test(det0) && /Quedó\s*\$44,323/.test(det0), det0);
+  await g.pg.click('#grMes [data-mes$="-10"]');
+  const det1 = await txt(g.pg, '#grMesDetalle');
+  revisa('F2. tocar otro mes cambia el detalle' + n, /Oct/.test(det1) && /Quedó\s*\$50,000/.test(det1) && await g.pg.$eval('#grMes [data-mes$="-10"]', (b) => b.getAttribute('aria-pressed')) === 'true', det1);
+  const mp = await g.pg.evaluate(() => window.__mes);
+  revisa('F2. pide el mes a mes del periodo y del mismo tramo del año pasado' + n, mp.length >= 2 && mp.some((x) => /-01-01$/.test(x.desde || '') && x.desde.slice(0, 4) === String(new Date().getFullYear() - 1)), JSON.stringify(mp));
+  const dIng = await txt(g.pg, '#dIngresos'), dEg = await txt(g.pg, '#dEgresos');
+  revisa('F2. Entró dice cuánto subió contra el año pasado' + n, /\+35%/.test(dIng) && /año pasado/.test(dIng) && await g.pg.$eval('#dIngresos', (e) => e.dataset.tono) === 'bien', dIng);
+  revisa('F2. Salió subió: se marca como malo' + n, /\+17%/.test(dEg) && await g.pg.$eval('#dEgresos', (e) => e.dataset.tono) === 'mal', dEg);
+  // Métricas en una hoja (26/11/2026): "vamos a concentrar todo en una hoja".
+  await g.pg.waitForSelector('#secCobranza:not([hidden]) .cob-kpi', { timeout: 5000 });
+  const tabs = await g.pg.$$eval('#metSecciones button', (bs) => bs.map((b) => b.textContent.trim()));
+  revisa('M. arriba: Todo, Dinero y Cobranza (sin permiso de Crecimiento no sale)' + n, JSON.stringify(tabs) === '["Todo","Dinero","Cobranza"]' && await g.pg.$eval('#secCrecimiento', (e) => e.hidden), JSON.stringify(tabs));
+  revisa('M. el selector es deslizante' + n, await g.pg.$eval('#metSecciones', (e) => e.classList.contains('tos-seg')));
+  const decide = await txt(g.pg, '#metDecidir');
+  revisa('M. Para decidir: lo más viejo primero y la cobranza abajo del objetivo' + n, /Para decidir/i.test(decide) && /9 Tanners deben meses anteriores/.test(decide) && decide.indexOf('meses anteriores') < decide.indexOf('por cobrar') && /Cobranza del mes en 72%/.test(decide), decide);
+  revisa('M. de Para decidir se va a cobrar' + n, await g.pg.$eval('#metDecidir .met-decide-ir', (a) => a.getAttribute('href')) === '/finanzas/#cobranza');
+  const cob = await txt(g.pg, '#cobKpis');
+  revisa('M. Cobranza del mes: % y lo que se debe, tal cual de la base' + n, /72%/.test(cob) && /36 de 50/.test(cob) && /\$43,388/.test(cob) && /\$12,000/.test(cob), cob);
+  if (process.env.SHOTS) await g.pg.waitForTimeout(1200), await g.pg.screenshot({ path: `${process.env.SHOTS}/metricas-arriba${ancho === 390 ? '-cel' : ''}.png` });
+  await g.pg.click('#metSecciones [data-vista="cobranza"]'); await g.pg.waitForTimeout(200);
+  revisa('M. tocar Cobranza deja sólo Cobranza' + n, await g.pg.$eval('#secDinero', (e) => e.hidden) && !(await g.pg.$eval('#secCobranza', (e) => e.hidden)) && !(await g.pg.$eval('#metDecidir', (e) => e.hidden)) && await g.pg.evaluate(() => location.hash) === '#cobranza');
+  await g.pg.click('#metSecciones [data-vista="dinero"]'); await g.pg.waitForTimeout(200);
+  revisa('M. tocar Dinero esconde Cobranza y Para decidir' + n, await g.pg.$eval('#secCobranza', (e) => e.hidden) && await g.pg.$eval('#metDecidir', (e) => e.hidden));
+  await g.pg.click('.gr-kpi[data-ir="grDeuCat"]'); await g.pg.waitForTimeout(300);
+  revisa('M. "Nos deben hoy" desde Dinero enseña su gráfica de Cobranza' + n, !(await g.pg.$eval('#secCobranza', (e) => e.hidden)));
+  await g.pg.click('#metSecciones [data-vista="todo"]'); await g.pg.waitForTimeout(200);
   await g.pg.waitForFunction(() => document.getElementById('kIngresos').textContent !== '—', null, { timeout: 5000 });
   await g.pg.waitForTimeout(1100); // las cifras cuentan hacia arriba
   revisa('5. entró, salió, quedó y nos deben' + n, /269,633/.test(await txt(g.pg, '#kIngresos')) && /175,310/.test(await txt(g.pg, '#kEgresos')) && /94,323/.test(await txt(g.pg, '#kQueda')) && /43,388/.test(await txt(g.pg, '#kAdeudo')));

@@ -246,9 +246,15 @@ const cap = async (pg, nombre) => { if (process.env.QA_CAPTURA) await pg.screens
   await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(300);
   const nuevo = await pg.$$eval('.ms-aviso.unread', as => as.map(a => a.textContent));
   revisa('[origen] el aviso nuevo se ve resaltado mientras lo lees', nuevo.length === 1 && /postulación/.test(nuevo[0]), JSON.stringify(nuevo));
-  revisa('[origen] no se marca visto al entrar (si no, el resaltado se apaga antes de leerlo)', (await llamadas(pg, 'v2_mark_announcements_seen')).length === 0);
+  // 26/11/2026: "le doy click y no se quita, me sigue apareciendo que no lo he visto".
+  revisa('[vistos] trae "Marcar todo como leído" con cuántos son nuevos', /1 aviso nuevo/.test(await pg.textContent('#msBarraAvisos')) && await pg.isVisible('#msLeerAvisos'));
+  await pg.waitForTimeout(1800);
+  revisa('[vistos] al verlos un momento se marcan en la base y el globito se apaga', (await llamadas(pg, 'v2_mark_announcements_seen')).length === 1 && await pg.isHidden('#msNAvisos'));
+  revisa('[vistos] lo que era nuevo sigue resaltado mientras estás aquí', (await pg.$$('.ms-aviso.unread')).length === 1);
+  await pg.click('.ms-aviso.unread p');
+  revisa('[vistos] tocar el aviso le quita el resaltado y la barra se va', (await pg.$$('.ms-aviso.unread')).length === 0 && !(await pg.$('#msBarraAvisos')));
   await pg.click('[data-tab="chats"]'); await pg.waitForTimeout(300);
-  revisa('salir de Avisos los marca como vistos y apaga su globito', (await llamadas(pg, 'v2_mark_announcements_seen')).length === 1 && await pg.isHidden('#msNAvisos'));
+  revisa('[vistos] salir de Avisos no lo vuelve a marcar', (await llamadas(pg, 'v2_mark_announcements_seen')).length === 1 && await pg.isHidden('#msNAvisos'));
   // La campana lleva a donde está lo nuevo: con chats sin leer, a Chats.
   await pg.click('[data-tab="avisos"]'); await pg.waitForTimeout(150);
   await pg.evaluate(() => window.dispatchEvent(new CustomEvent('tos:campana'))); await pg.waitForTimeout(250);

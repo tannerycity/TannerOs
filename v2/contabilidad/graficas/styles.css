@@ -93,3 +93,19 @@ body.gr-ocupado .gr-grid{opacity:.55;transition:opacity .2s ease}
 @keyframes grBrilla{0%{box-shadow:0 0 0 0 rgba(184,164,100,.55)}100%{box-shadow:0 0 0 14px rgba(184,164,100,0)}}
 @media(max-width:800px){button.gr-fila{grid-template-columns:1fr auto 14px}button.gr-fila b{grid-column:1 / -1}}
 @media (prefers-reduced-motion:reduce){.gr-carril i,.gr-mes i{transition:none}.gr-det li,.gr-nomina tbody tr,.gr-prov article,.gr-entra,.gr-anillo,.gr-brilla{animation:none}.gr-desglose{transition:none}}
+/* Semana por semana: fecha de cada pago y semanas sin pago. */
+.gr-semanas{margin:2px 0 12px;padding:12px;border-radius:14px;background:#fff}
+.gr-sem-titulo{display:block;font-size:14px;margin-bottom:6px}
+.gr-sem-aviso{margin:0 0 8px;font-size:13px;font-weight:700;color:#31525c;line-height:1.4}
+.gr-sem-aviso.falta{padding:8px 10px;border-radius:10px;background:#fdecea;color:#a32920}
+.gr-sem-aviso.doble{padding:8px 10px;border-radius:10px;background:#eef2f1;color:#10252b}
+.gr-sem-lista{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:320px;overflow-y:auto}
+.gr-sem-lista li{display:grid;grid-template-columns:minmax(92px,auto) 1fr auto;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:#f7f9f8;border-left:4px solid #0b3d4a;animation:grSube .35s both;animation-delay:calc(var(--i,0) * 25ms)}
+.gr-sem-lista li span{font-size:13px;font-weight:800;color:#10252b;white-space:nowrap}
+.gr-sem-lista li small{font-size:12px;color:#5f7076;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gr-sem-lista li strong{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gr-sem-lista li.falta{background:#fdecea;border-left-color:#a32920}
+.gr-sem-lista li.falta small,.gr-sem-lista li.falta strong{color:#a32920;font-weight:800}
+.gr-sem-lista li.doble{border-left-color:#b8a464}
+.gr-sem-lista li.curso{border-left-color:#d6dfdd}
+@media (max-width:420px){.gr-sem-lista li{grid-template-columns:1fr auto}.gr-sem-lista li small{grid-column:1/-1;grid-row:2;white-space:normal}}

@@ -53,7 +53,7 @@ const FAKE = `
       if(n==='v2_finance_analytics')return ok(${JSON.stringify(ANALITICA)});
       if(n==='v2_post_expense')return ok('e1');
       if(n==='v2_finance_detail'){window.__det=(window.__det||[]).concat(p);if(p.dimension==='adeudoCategoria')return ok([{jugador:'Niño Uno',categoria:'Baby Tanner',cargos:3,saldo:1850,desde:'2026-09-05',conceptos:['Mensualidad 2026-09']},{jugador:'Niño Dos',categoria:'Baby Tanner',cargos:1,saldo:650,desde:'2026-11-05',conceptos:[]}]);
-        return ok(Array.from({length:10},(_,i)=>({fecha:i<5?'2026-10-0'+(i+1):'2026-11-0'+(i-4),concepto:'Semana '+(i+1),categoria:'Nómina profesores',quien:'DT Brandon',metodo:'transfer',monto:400})));}
+        return ok(['2026-10-01','2026-10-08','2026-10-09','2026-10-22','2026-10-29','2026-11-05','2026-11-12','2026-11-19','2026-11-20','2026-11-24'].map((fecha,i)=>({fecha,concepto:'Semana '+(i+1),categoria:'Nómina profesores',quien:'DT Brandon',metodo:'transfer',monto:400})));}
       if(['v2_expenses','v2_billing_players','v2_open_receivables','v2_adjustment_authorizations','v2_unresolved_credit'].includes(n))return ok([]);
       return ok(null);}}}`;
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
@@ -157,6 +157,10 @@ for (const ancho of [1280, 390]) {
   await g.pg.waitForSelector('#grBenef .gr-desglose.abierto .gr-det', { timeout: 3000 });
   const det = await txt(g.pg, '#grBenef .gr-desglose');
   revisa('8. picarle a Brandon abre sus pagos con resumen' + n, /10 movimientos · \$4,000 · promedio \$400/.test(det) && /Semana 1/.test(det) && /Transferencia/.test(det), det.slice(0, 200));
+  const sem = await txt(g.pg, '#grBenef .gr-semanas');
+  revisa('9. staff: semana por semana con la fecha de cada pago' + n, /Semana por semana/.test(sem) && /pagado el jue 1 oct/.test(sem) && /Pagado el jue 1 oct/.test(det), sem.slice(0, 200));
+  revisa('9. marca la semana que no se le pagó' + n, /sin pago: 12–18 oct/.test(sem) && (await g.pg.$$('#grBenef .gr-sem-lista li.falta')).length >= 1, sem.slice(0, 300));
+  revisa('9. avisa si una semana trae dos pagos' + n, /dos pagos o más: 5–11 oct, 16–22 nov/.test(sem), sem);
   revisa('8. con su mini gráfica por mes' + n, (await g.pg.$$('#grBenef .gr-mes')).length === 2);
   if (process.env.SHOTS) await g.pg.waitForTimeout(600), await (await g.pg.$('#grBenef')).screenshot({ path: `${process.env.SHOTS}/graficas-desglose${ancho === 390 ? '-cel' : ''}.png` });
   revisa('8. muestra 8 y deja ver todos' + n, (await g.pg.$$('#grBenef .gr-det li:not([hidden])')).length === 8 && /Ver los 10/.test(det));

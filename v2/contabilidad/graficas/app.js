@@ -8,7 +8,7 @@
  *   - Cada proveedor abre todos sus pagos.
  * Sin animación si el teléfono pide menos movimiento. */
 import { createClient } from '/v2/supabase-client.js';
-import { PERIODOS, rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, ETIQUETA_TIPO, uniformes, esAdeudo, metodo, resumenDetalle, porMes, suaviza } from '/v2/contabilidad/graficas/graficas.js';
+import { PERIODOS, rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, ETIQUETA_TIPO, uniformes, esAdeudo, metodo, resumenDetalle, porMes, suaviza, semanasDePago } from '/v2/contabilidad/graficas/graficas.js';
 import { cargaBeneficiarios } from '/v2/beneficiarios.js';
 import { segmentos } from '/v2/segmento.js';
 
@@ -123,7 +123,7 @@ async function abreDesglose(boton) {
   try { rows = await rpc('v2_finance_detail', { organization_id: ctx.organization_id, desde: esAdeudo(dim) ? null : rango.desde, hasta: esAdeudo(dim) ? null : rango.hasta, dimension: dim, clave }) || []; }
   catch { caja.innerHTML = '<p class="gr-vacio">No se pudo abrir el desglose.</p>'; return; }
   if (caja.dataset.de !== clave) return;
-  caja.innerHTML = htmlDesglose(dim, titulo, rows);
+  caja.innerHTML = htmlDesglose(dim, titulo, rows, clave);
   creceBarras(caja);
   caja.querySelectorAll('.gr-mes i').forEach((i) => { requestAnimationFrame(() => requestAnimationFrame(() => { i.style.height = i.dataset.pct + '%'; })); });
   caja.querySelector('.gr-mas')?.addEventListener('click', (e) => { e.stopPropagation(); caja.querySelectorAll('.gr-det li[hidden]').forEach((li) => { li.hidden = false; }); e.target.remove(); });
@@ -135,18 +135,36 @@ function cierra(boton) {
   caja.classList.remove('abierto');
   setTimeout(() => { if (!caja.classList.contains('abierto')) { caja.hidden = true; caja.innerHTML = ''; } }, quieto() ? 0 : 260);
 }
-function htmlDesglose(dim, titulo, rows) {
+const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const conDia = (f) => { if (!f) return ''; const [a, m, d] = String(f).slice(0, 10).split('-').map(Number); return DIAS[new Date(Date.UTC(a, m - 1, d)).getUTCDay()] + ' ' + fechaCorta(f); };
+const rangoSemana = (s) => { const [, m1, d1] = s.lunes.split('-').map(Number), [, m2, d2] = s.domingo.split('-').map(Number); return m1 === m2 ? d1 + '–' + d2 + ' ' + MES[m1 - 1] : d1 + ' ' + MES[m1 - 1] + '–' + d2 + ' ' + MES[m2 - 1]; };
+// Sólo el staff cobra por semana: a ellos se les revisa semana por semana.
+const esStaff = (clave) => (lista?.payees || []).some((p) => p.id === String(clave).split('|')[0] && p.kind === 'staff');
+function htmlSemanas(rows, clave) {
+  const mes = String(clave).split('|')[1];
+  const desde = mes ? mes + '-01' : rango.desde, hasta = mes ? mes + '-' + String(new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 0)).getUTCDate()).padStart(2, '0') : rango.hasta;
+  const w = semanasDePago(rows, { desde, hasta, hoy: hoy() });
+  if (w.semanas.length < 2) return '';
+  const aviso = w.faltan.length
+    ? '<p class="gr-sem-aviso falta">' + (w.faltan.length === 1 ? 'Una semana sin pago: ' : w.faltan.length + ' semanas sin pago: ') + esc(w.faltan.map(rangoSemana).join(', ')) + '</p>'
+    : '<p class="gr-sem-aviso">Todas las semanas tienen pago.</p>';
+  const dobles = w.dobles.length ? '<p class="gr-sem-aviso doble">' + (w.dobles.length === 1 ? 'Una semana con dos pagos o más: ' : w.dobles.length + ' semanas con dos pagos o más: ') + esc(w.dobles.map(rangoSemana).join(', ')) + ' (revisa si fue doble o si se pagó una atrasada).</p>' : '';
+  return '<div class="gr-semanas"><b class="gr-sem-titulo">Semana por semana</b>' + aviso + dobles + '<ol class="gr-sem-lista">' + w.semanas.slice().reverse().map((s, i) => '<li style="--i:' + Math.min(i, 12) + '" class="' + (s.pagos.length ? (s.pagos.length > 1 ? 'doble' : 'pagada') : (s.enCurso ? 'curso' : 'falta')) + '"><span>' + esc(rangoSemana(s)) + '</span><small>' +
+    (s.pagos.length ? esc(s.pagos.map((p) => 'pagado el ' + conDia(p.fecha)).join(' y ')) : (s.enCurso ? 'semana en curso' : 'sin pago')) + '</small><strong>' + (s.pagos.length ? money.format(s.total) : '—') + '</strong></li>').join('') + '</ol></div>';
+}
+function htmlDesglose(dim, titulo, rows, clave = '') {
   const r = resumenDetalle(rows, dim);
   if (!rows.length) return '<p class="gr-vacio">Sin renglones.</p>';
   const cabeza = '<div class="gr-det-cabeza"><b>' + esc(titulo) + '</b><span>' + r.n + (esAdeudo(dim) ? (r.n === 1 ? ' jugador' : ' jugadores') : (r.n === 1 ? ' movimiento' : ' movimientos')) +
     ' · ' + money.format(r.total) + (r.n > 1 ? ' · promedio ' + money.format(r.promedio) : '') + '</span></div>';
   const meses = esAdeudo(dim) ? [] : porMes(rows);
   const mini = meses.length > 1 ? '<div class="gr-meses" aria-hidden="true">' + meses.map((m) => '<div class="gr-mes"><i data-pct="' + m.pct + '"></i><small>' + esc(etiquetaMes(m.mes).split(' ')[0]) + '</small></div>').join('') + '</div>' : '';
+  const semanas = dim === 'beneficiario' && esStaff(clave) ? htmlSemanas(rows, clave) : '';
   const VISIBLES = 8;
   const li = (x, i) => '<li style="--i:' + Math.min(i, 12) + '"' + (i >= VISIBLES ? ' hidden' : '') + '>' + (esAdeudo(dim)
     ? '<div><b>' + esc(x.jugador) + '</b><small>' + esc([x.categoria, x.cargos + (x.cargos === 1 ? ' cargo' : ' cargos'), x.desde ? 'desde ' + fechaCorta(x.desde) : '', ...(x.conceptos || []).slice(0, 2)].filter(Boolean).join(' · ')) + '</small></div><strong>' + money.format(Number(x.saldo || 0)) + '</strong>'
-    : '<div><b>' + esc(x.concepto || x.categoria || 'Movimiento') + '</b><small>' + esc([fechaCorta(x.fecha), x.jugador || x.quien, dim === 'beneficiario' || dim === 'egresoCategoria' ? x.categoria : x.categoria, metodo(x.metodo)].filter(Boolean).join(' · ')) + '</small></div><strong>' + money.format(Number(x.monto || 0)) + '</strong>') + '</li>';
-  return cabeza + mini + '<ul class="gr-det">' + rows.map(li).join('') + '</ul>' + (rows.length > VISIBLES ? '<button type="button" class="gr-mas">Ver los ' + rows.length + '</button>' : '');
+    : '<div><b>' + esc(x.concepto || x.categoria || 'Movimiento') + '</b><small>' + esc([(dim === 'beneficiario' || dim === 'egresoCategoria' ? 'Pagado el ' : '') + conDia(x.fecha), x.jugador || x.quien, x.categoria, metodo(x.metodo)].filter(Boolean).join(' · ')) + '</small></div><strong>' + money.format(Number(x.monto || 0)) + '</strong>') + '</li>';
+  return cabeza + mini + semanas + '<ul class="gr-det">' + rows.map(li).join('') + '</ul>' + (rows.length > VISIBLES ? '<button type="button" class="gr-mas">Ver los ' + rows.length + '</button>' : '');
 }
 
 function pintaLista() {

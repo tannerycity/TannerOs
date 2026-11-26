@@ -1,20 +1,59 @@
-<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#184159"><title>Métricas · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"><link rel="stylesheet" href="/v2/metricas/styles.css"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body class="tos-body"><div class="tos-layout"><aside class="tos-sidebar"><div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div></aside><div id="shellNavBackdrop" class="tos-nav-backdrop"></div><div class="tos-main"><header class="tos-topbar"><div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">Métricas</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health"><i></i><span>Métricas</span></span><span id="shellRole" class="tos-role">Rol</span></div></header><main class="tos-content met-page">
+<!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#184159"><title>Métricas · TannerOS</title><link rel="stylesheet" href="/v2/styles.css"><link rel="stylesheet" href="/v2/shell.css"><link rel="stylesheet" href="/v2/metricas/dinero.css?v=20261126a"><link rel="stylesheet" href="/v2/metricas/styles.css?v=20261126a"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-180.png"><link rel="stylesheet" href="/icons.css?v=20260907a"><link rel="stylesheet" href="/polish.css?v=20260907a"></head><body class="tos-body"><div class="tos-layout"><aside class="tos-sidebar"><div class="tos-brand"><div class="tos-brand-mark">T</div><div><strong data-brand-product>TannerOS</strong><small><span id="sidebarName">Usuario</span> · <span id="sidebarRole">Rol</span></small><small class="tos-version">TannerOS</small></div></div><nav id="sidebarNav" class="tos-nav"></nav><div class="tos-sidebar-bottom"><button id="shellSignOut" class="tos-signout" type="button">Salir del vestidor</button></div></aside><div id="shellNavBackdrop" class="tos-nav-backdrop"></div><div class="tos-main"><header class="tos-topbar"><div class="tos-top-left"><button id="shellMenuToggle" class="tos-menu-toggle" type="button"><span class="tos-icon tos-icon-menu" aria-hidden="true"></span></button><span id="shellTitle" class="tos-page-title">Métricas</span></div><div class="tos-search-wrap"><div class="tos-search-box"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="shellSearch" type="search" placeholder="Buscar en todo TannerOS…"><kbd>Ctrl K</kbd></div><div id="shellSearchResults" class="tos-search-results hidden"></div></div><div class="tos-top-right"><span id="shellHealth" class="tos-health"><i></i><span>Métricas</span></span><span id="shellRole" class="tos-role">Rol</span></div></header><main class="tos-content met-page">
 <section class="met-hero">
   <div>
-    <p class="met-eyebrow">Marketing</p>
+    <p class="met-eyebrow">El club en números</p>
     <h1>Métricas</h1>
-    <p class="met-sub">Cómo te encuentra la gente y cuántos llegan al club. <span id="metActualizado"></span></p>
+    <p class="met-sub">Dinero, cobranza y crecimiento en un solo lugar. Toca cualquier barra para ver el detalle.</p>
   </div>
+</section>
+<nav id="metSecciones" class="met-secciones" data-segmento role="group" aria-label="Qué ver" hidden></nav>
+<p id="metCargando" class="met-cargando">Juntando los números…</p>
+<section id="metDecidir" class="met-bloque met-decidir" aria-labelledby="metDecidirT" hidden>
+  <h2 id="metDecidirT">Para decidir</h2><ul id="metDecidirLista" class="met-decide-lista"></ul>
+</section>
+<section id="secDinero" class="met-seccion" aria-labelledby="secDineroT" hidden>
+  <header class="met-seccion-head"><h2 id="secDineroT">Dinero</h2><p>De dónde entra, a dónde se va y cuánto queda.</p></header>
+  <nav id="periodos" class="gr-chips" data-segmento aria-label="Periodo"></nav>
+  <section class="kpis compact-kpis gr-kpis" aria-label="Resumen">
+    <button type="button" class="gr-kpi" data-ir="grIngTipo"><span>Entró</span><strong id="kIngresos">—</strong></button>
+    <button type="button" class="gr-kpi" data-ir="grBenef"><span>Salió</span><strong id="kEgresos">—</strong></button>
+    <button type="button" class="gr-kpi" data-ir="grEgCat"><span>Quedó</span><strong id="kQueda">—</strong></button>
+    <button type="button" class="gr-kpi" data-ir="grDeuCat"><span>Nos deben hoy</span><strong id="kAdeudo">—</strong></button>
+  </section>
+  <div id="grMensaje" class="inline-message hidden"></div>
+  <section class="gr-grid">
+    <article class="panel gr-ancho"><div class="panel-head"><div><div class="eyebrow">EGRESOS</div><h2>¿A quién se le paga más?</h2></div><div id="filtroTipo" class="gr-chips chico" data-segmento role="group" aria-label="Tipo"></div></div><div id="grBenef"></div></article>
+    <article class="panel gr-ancho"><div class="panel-head"><div><div class="eyebrow">NÓMINA</div><h2>Lo pagado a cada profe por mes</h2></div></div><div id="grNomina" class="table-wrap"></div></article>
+    <article class="panel"><div class="panel-head"><div><div class="eyebrow">INGRESOS</div><h2>Por tipo</h2></div></div><div id="grIngTipo"></div></article>
+    <article class="panel"><div class="panel-head"><div><div class="eyebrow">INGRESOS</div><h2>Por categoría</h2></div></div><div id="grIngCat"></div></article>
+    <article class="panel"><div class="panel-head"><div><div class="eyebrow">UNIFORMES Y TIENDA</div><h2>Lo que entró y lo pagado a Tremor</h2></div></div><div id="grUniformes"></div></article>
+    <article class="panel"><div class="panel-head"><div><div class="eyebrow">EGRESOS</div><h2>Por categoría</h2></div></div><div id="grEgCat"></div></article>
+    <article class="panel gr-ancho"><div class="panel-head"><div><div class="eyebrow">PROVEEDORES</div><h2>Cuándo y cuánto se les pagó</h2></div></div><div id="grProv" class="gr-prov"></div></article>
+    <article class="panel gr-ancho"><div class="panel-head"><div><div class="eyebrow">LA LISTA</div><h2>A quién se le paga</h2><p class="muted tiny">Es la lista que sale al registrar un egreso en Taquilla y Contabilidad. Quien ya no está se da de baja: sus pagos se quedan.</p></div><button id="grAgregar" class="primary mini" type="button">+ Agregar</button></div><div id="grLista"></div></article>
+  </section>
+</section>
+<section id="secCobranza" class="met-seccion" aria-labelledby="secCobranzaT" hidden>
+  <header class="met-seccion-head"><h2 id="secCobranzaT">Cobranza</h2><p>Cómo va el mes y quién nos debe. <a class="met-ir" href="/finanzas/#cobranza">Ver quién debe y cobrar</a></p></header>
+  <div id="cobKpis" class="cob-kpis"></div>
+  <section class="gr-grid"><article class="panel"><div class="panel-head"><div><div class="eyebrow">NOS DEBEN HOY</div><h2>Por categoría</h2><p class="muted tiny">T6, Baby Tanner… Toca una para ver quién debe.</p></div></div><div id="grDeuCat"></div></article>
+    <article class="panel"><div class="panel-head"><div><div class="eyebrow">NOS DEBEN HOY</div><h2>Por tipo</h2><p class="muted tiny">Mensualidad, uniforme, inscripción…</p></div></div><div id="grDeuTipo"></div></article>
+    </section>
+</section>
+<section id="secCrecimiento" class="met-seccion" aria-labelledby="secCrecimientoT" hidden>
+  <header class="met-seccion-head met-seccion-head-controles"><div><h2 id="secCrecimientoT">Crecimiento</h2><p>Cómo te encuentra la gente y cuántos llegan al club. <span id="metActualizado"></span></p></div>
   <div class="met-controles">
     <div class="met-seg" data-segmento id="metNegocio" role="group" aria-label="Negocio"></div>
     <div class="met-seg" data-segmento id="metPeriodo" role="group" aria-label="Periodo"></div>
-  </div>
-</section>
+  </div></header>
+  
 <section class="met-bloque" aria-labelledby="metIdeasT"><h2 id="metIdeasT">Para decidir</h2><div id="metIdeas" class="met-ideas"></div></section>
 <section class="met-bloque" aria-labelledby="metEmbudoT"><h2 id="metEmbudoT">Del primer vistazo a la inscripción</h2><p class="met-bloque-sub" id="metEmbudoSub"></p><ol id="metEmbudo" class="met-embudo"></ol></section>
 <div id="metGrupos"></div>
 <section class="met-bloque" aria-labelledby="metFuentesT"><h2 id="metFuentesT">De dónde salen los números</h2><ul id="metFuentes" class="met-fuentes"></ul>
 <p class="met-nota">Se actualiza solo todos los días a las 6:15 a.m. Lo que no está conectado dice «Sin medir»: nunca un cero inventado. Sólo números agregados, sin datos de personas.</p></section>
-<div id="metMensaje" class="inline-message hidden"></div>
-<section id="metDenied" class="tos-panel hidden"><h2>Esta pantalla no es para tu cuenta</h2><p>Las métricas las ve Presidencia y quien tenga el permiso de Métricas (Usuarios &gt; persona &gt; Métricas).</p></section>
-</main></div></div><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/metricas/app.js"></script></body></html>
+
+
+  <div id="metMensaje" class="inline-message hidden"></div>
+</section>
+<section id="metDenied" class="tos-panel hidden"><h2>Esta pantalla no es para tu cuenta</h2><p>Métricas la ve Presidencia; Contabilidad ve el dinero y la cobranza, y Marketing el crecimiento (Usuarios &gt; persona &gt; Métricas).</p></section>
+</main></div></div><script src="/v2/tos-dialog.js?v=20260909a"></script><script type="module" src="/v2/branding-auto.js"></script><script type="module" src="/v2/metricas/app.js?v=20261126a"></script></body></html>

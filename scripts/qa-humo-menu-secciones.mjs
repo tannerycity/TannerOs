@@ -90,10 +90,12 @@ async function menu(rol, active, opts = '', { masRecordado = null } = {}) {
 {
   const m = await menu('Presidencia', 'asistencia');
   // Marketing (22/10/2026): Patrocinadores e Ideas tienen su sección.
-  const principal = ['Inicio','Mensajes','Jugadores','Taquilla','Tienda','Fichajes','Finanzas'];
-  const mas = ['Partidos','Formación','Staff','Patrocinadores','Utilería','Administración'];
+  // Métricas en una hoja (26/11/2026): Métricas sube a los 7 de arriba y
+  // Finanzas (la lista de quién debe) queda en "Más".
+  const principal = ['Inicio','Mensajes','Jugadores','Taquilla','Tienda','Fichajes','Métricas'];
+  const mas = ['Partidos','Formación','Staff','Finanzas','Patrocinadores','Utilería','Administración'];
   revisa('1. Presidencia: arriba sólo sus 7, en el orden de lo que más usa', JSON.stringify(m.principal) === JSON.stringify(principal), JSON.stringify(m.principal));
-  revisa('7. lo demás vive en "Más" (no se pierde nada: 13 en total)', JSON.stringify(m.mas) === JSON.stringify(mas) && m.arriba.length === 13 && m.masCuenta === '6', JSON.stringify(m));
+  revisa('7. lo demás vive en "Más" (no se pierde nada: 14 en total)', JSON.stringify(m.mas) === JSON.stringify(mas) && m.arriba.length === 14 && m.masCuenta === '7', JSON.stringify(m));
   revisa('7. estando en Asistencia (arriba), "Más" sigue cerrado', m.masAbierto === false);
   revisa('7. "Más" mide lo que un dedo', m.masAlto >= 44, String(m.masAlto));
   revisa('2. en Asistencia, Jugadores queda marcada', m.activa.includes('Jugadores') && m.activa.includes('Asistencia'), JSON.stringify(m.activa));

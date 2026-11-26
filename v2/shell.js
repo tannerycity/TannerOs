@@ -109,7 +109,7 @@ export const navItems=[
   {code:'patrocinadores',label:'Patrocinadores',href:'/patrocinadores/',group:'marketing',icon:'briefcase'},
   // Métricas (02/11/2026, h58): redes, Google, web y prospectos para decidir.
   // Módulo por persona (Usuarios > persona > Métricas); así se le dio a Zul.
-  {code:'metricas',label:'Métricas',href:'/metricas/',group:'marketing',icon:'chart'},
+  {code:'metricas',label:'Métricas',href:'/metricas/',group:'main',icon:'chart',lee:['contabilidad','finanzas']},
   // Ideas (11/11/2026, Presidencia: "sácala del menú, déjala en marketing"): ya
   // no sale suelta; es una pestaña de Patrocinadores para quien ve marketing.
   {code:'ideas',label:'Ideas',href:'/ideas/',group:'marketing',icon:'bulb',always:true,dentroDe:'patrocinadores',soloDentro:true},
@@ -406,10 +406,10 @@ function destinoAcademias(navigation,item){
    permiso: lo que no está arriba sigue en "Más" y en el buscador. La lista es
    fija a propósito (un menú que se reacomoda solo obliga a buscar cada vez). */
 export const MENU_PRINCIPAL={
-  Presidencia:['inicio','mensajes','jugadores','taquilla','tienda','prospectos','finanzas'],
+  Presidencia:['inicio','mensajes','jugadores','taquilla','tienda','prospectos','metricas'],
   Operaciones:['inicio','mensajes','taquilla','tienda','jugadores','utileria'],
   Formadores:['inicio','mensajes','jugadores','asistencia','partidos','formacion'],
-  Contabilidad:['inicio','mensajes','finanzas','taquilla','contabilidad'],
+  Contabilidad:['inicio','mensajes','metricas','finanzas','taquilla','contabilidad'],
   Academia:['inicio','mensajes','academias','asistencia'],
   Scouting:['inicio','mensajes','prospectos','scouting','visorias'],
   Marketing:['inicio','mensajes','patrocinadores','metricas']

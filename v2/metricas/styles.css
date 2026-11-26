@@ -102,3 +102,40 @@
   .met-fuentes li{grid-template-columns:1fr;grid-template-areas:"e" "n" "d";row-gap:4px}
   .met-fuente-estado{justify-self:start}
 }
+
+/* MÉTRICAS EN UNA HOJA (26/11/2026): selector de sección pegado arriba,
+   secciones con su título, "Para decidir" y la cobranza del mes. */
+.met-secciones{position:sticky;top:8px;z-index:20;justify-self:start;max-width:100%;box-shadow:0 6px 18px rgba(7,25,30,.10)}
+.met-secciones[hidden]{display:none!important}
+.met-cargando{margin:0;color:var(--gris);font-weight:700}
+.met-seccion{display:grid;gap:14px;min-width:0;scroll-margin-top:72px}
+.met-seccion[hidden]{display:none}
+.met-seccion-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;padding-top:6px;border-top:1px solid var(--linea)}
+.met-seccion-head h2{margin:8px 0 2px;font-size:30px;color:var(--tinta)}
+.met-seccion-head p{margin:0;color:var(--gris);font-size:14px}
+.met-seccion-head-controles .met-controles{justify-items:end}
+.met-ir{color:var(--info);font-weight:800;text-decoration:none;white-space:nowrap}
+.met-ir::after{content:" \2192"}
+.met-decidir[hidden]{display:none}
+.met-decide-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.met-decide{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid var(--linea);border-left:4px solid var(--info)}
+.met-decide[data-tono="alerta"]{border-left-color:var(--alerta);background:var(--alerta-f)}
+.met-decide[data-tono="aviso"]{border-left-color:var(--oro)}
+.met-decide[data-tono="bien"]{border-left-color:var(--bien)}
+.met-decide div{display:grid;gap:2px;min-width:0}
+.met-decide b{font-size:15px;color:var(--tinta)}
+.met-decide small{font-size:13px;color:var(--gris)}
+.met-decide-ir{flex:0 0 auto;min-height:40px;display:inline-flex;align-items:center;padding:0 14px;border-radius:12px;background:var(--noche2);color:#fff;font-weight:800;font-size:13px;text-decoration:none}
+.cob-kpis{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:12px}
+.cob-kpi{display:grid;align-content:center;gap:4px;background:#fff;border:1px solid var(--linea);border-radius:18px;padding:16px;min-width:0}
+.cob-kpi>span,.cob-kpi>div:not(.gr-anillo)>span{display:block;font-size:12px;font-weight:750;color:var(--gris)}
+.cob-kpi>div:not(.gr-anillo)>small{display:block;margin-top:3px}
+.cob-kpi strong{font-size:24px;color:var(--tinta);font-variant-numeric:tabular-nums}
+.cob-kpi small{font-size:12px;color:var(--gris)}
+.met-page #periodos{justify-self:start}
+.cob-anillo-kpi{grid-template-columns:auto 1fr;align-items:center;gap:14px}
+.cob-anillo-kpi .gr-anillo{width:96px;height:96px;margin:0}
+.cob-anillo-kpi .gr-anillo span{width:72px;height:72px;font-size:inherit;color:var(--tinta);font-weight:800}
+.cob-anillo-kpi .gr-anillo b{font-size:20px}
+.met-page .gr-kpis{margin-bottom:0}
+@media (max-width:760px){.cob-kpis{grid-template-columns:1fr 1fr}.cob-anillo-kpi{grid-column:1/-1}.met-seccion-head h2{font-size:26px}.met-seccion-head-controles .met-controles{justify-items:stretch;width:100%}.met-page .gr-kpis{grid-template-columns:1fr 1fr}}

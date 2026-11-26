@@ -1,4 +1,6 @@
-/* Gráficas del dinero (25/11/2026, h102 + h103). Ver graficas.js.
+/* MÉTRICAS · DINERO (antes «Gráficas del dinero», 25/11/2026, h102 + h103).
+ * Presidencia (26/11): "vamos a concentrar todo en una hoja": vive dentro
+ * de Métricas (montaDinero). Los cálculos siguen en contabilidad/graficas/graficas.js.
  * Presidencia: "más animadas... que le piques y puedas desglosar... para que
  * llegues a todo". Todo lo que es número se puede picar:
  *   - Las cifras de arriba cuentan hacia arriba y llevan a su gráfica.
@@ -7,24 +9,21 @@
  *   - En la nómina, cada celda abre los pagos de esa persona en ese mes.
  *   - Cada proveedor abre todos sus pagos.
  * Sin animación si el teléfono pide menos movimiento. */
-import { createClient } from '/v2/supabase-client.js';
+import { rpc } from '/v2/shell.js';
 import { PERIODOS, rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, ETIQUETA_TIPO, uniformes, esAdeudo, metodo, resumenDetalle, porMes, suaviza, semanasDePago } from '/v2/contabilidad/graficas/graficas.js';
 import { cargaBeneficiarios } from '/v2/beneficiarios.js';
 import { segmentos } from '/v2/segmento.js';
 
-const supabase = createClient('https://pacnegivzgxpanphrnwp.supabase.co', 'sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG', { auth: { persistSession: true, autoRefreshToken: true } });
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
-const rpc = async (n, p = {}) => { const { data, error } = await supabase.rpc(n, p); if (error) throw error; return data; };
-const show = (id) => ['loadingView', 'deniedView', 'view'].forEach((v) => $(v)?.classList.toggle('hidden', v !== id));
 const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const fechaCorta = (f) => { if (!f) return ''; const [, m, d] = String(f).slice(0, 10).split('-').map(Number); return `${d} ${MES[m - 1]}`; };
 const ERRORES = { 'Payee already exists': 'Ya está en la lista.', 'Payee needs a name': 'Escribe el nombre.', 'Not authorized': 'Tu cuenta no puede cambiar la lista.' };
 const quieto = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let ctx = null, canWrite = false, periodo = 'anio', tipo = 'todos', datos = null, lista = null, rango = null;
+let sinPermiso = false, ctx = null, canWrite = false, periodo = 'anio', tipo = 'todos', datos = null, lista = null, rango = null;
 
 /* Números que cuentan hacia arriba. */
 function cuenta(el, valor) {
@@ -188,12 +187,12 @@ async function carga() {
     ]);
     pinta(); pintaLista();
   } catch (e) {
+    if (/not authorized/i.test(e?.message || '')) { sinPermiso = true; return; }
     $('grMensaje').textContent = 'No se pudieron cargar las gráficas. Vuelve a intentar.';
     $('grMensaje').classList.remove('hidden');
   } finally { document.body.classList.remove('gr-ocupado'); }
 }
 // Jalar para actualizar (v2/jalar.js) vuelve a pedir las gráficas sin recargar.
-window.tosAlActualizar = () => carga();
 
 async function guardaPayee(params) {
   try {
@@ -207,13 +206,16 @@ $('filtroTipo').addEventListener('click', (e) => { const b = e.target.closest('[
 document.querySelector('.gr-kpis')?.addEventListener('click', (e) => {
   const b = e.target.closest('[data-ir]'); if (!b) return;
   const destino = $(b.dataset.ir)?.closest('.panel'); if (!destino) return;
+  // Si su gráfica está en otra sección escondida, Métricas la enseña primero.
+  if (destino.closest('[hidden]')) window.tosMetricasMuestra?.(destino);
   destino.scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'start' });
   destino.classList.remove('gr-brilla'); void destino.offsetWidth; destino.classList.add('gr-brilla');
 });
-document.querySelector('.gr-grid').addEventListener('click', (e) => {
+// Las barras viven en Dinero y en Cobranza (los adeudos): las dos abren desglose.
+document.querySelectorAll('.gr-grid').forEach((g) => g.addEventListener('click', (e) => {
   const b = e.target.closest('[data-dim][data-clave]'); if (!b) return;
   abreDesglose(b);
-});
+}));
 $('grLista').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-baja]'); if (!b) return;
   const p = (lista?.payees || []).find((x) => x.id === b.dataset.baja); if (!p) return;
@@ -242,17 +244,11 @@ $('grLista').addEventListener('submit', (e) => {
   guardaPayee({ payee_id: null, name: nombre, kind: tipoNuevo, staff_member_id: null, active: true });
 });
 
-(async function boot() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { location.href = '/v2'; return; }
-  const rows = await rpc('v2_my_context');
-  if (!rows?.length) { $('deniedText').textContent = 'Sin organización.'; show('deniedView'); return; }
-  ctx = rows[0];
-  const mods = await rpc('v2_my_modules', { organization_id: ctx.organization_id }), mod = mods.find((m) => m.module_code === 'accounting');
-  if (!mod?.enabled || !mod?.can_read) { $('deniedText').textContent = 'Tu rol no tiene acceso a Contabilidad.'; show('deniedView'); return; }
-  canWrite = !!mod.can_write;
-  $('orgName').textContent = ctx.organization_name || '';
-  show('view');
-  segmentos();
-  carga();
-})();
+/* Lo monta Métricas. Regresa false si la cuenta no puede ver el dinero
+ * (la base dice Not authorized): entonces la sección no se enseña. */
+export async function montaDinero({ ctx: c, canWrite: w = false }) {
+  ctx = c; canWrite = !!w;
+  await carga();
+  return !sinPermiso;
+}
+export const recargaDinero = () => carga();

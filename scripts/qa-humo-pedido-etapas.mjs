@@ -12,8 +12,9 @@
  *   3. Un toque en "Mandar a Tremor" lo manda; luego WhatsApp o Descargar PDF
  *      (29/10/2026). Sin proveedor no se manda.
  *   4. Recibir dice cuándo se mandó, con "Ya llegó" y el PDF.
- *   5. En Entregar, cada pedido trae Avisar y Entregado sin abrirlo; dentro,
- *      Regresar un paso pide motivo.
+ *   5. En Entregar, cada pedido trae Avisar y Entregado sin abrirlo. Entregado
+ *      abre la hoja de entrega (h104): piezas, quién recoge, firma, aceptación y
+ *      recibo para WhatsApp. Dentro, Regresar un paso pide motivo.
  *
  * Hermética: nada sale de 127.0.0.1.
  */
@@ -145,6 +146,8 @@ const CLIENTE = (pagoFalla, prod = '') => `
       if(n==='v2_confirm_order_number'){TAB[p.order_id].numberConfirmed=p.confirmed?{numeros:['7']}:null;return ok({ok:true});}
       if(n==='v2_orders_to_review')return ok(['o-nuevo'].filter(x=>!revisados.has(x)));
       if(n==='v2_order_detail')return ok(DET[p.order_id]);
+      // Entrega con recibo (h104): regresa el recibo guardado.
+      if(n==='v2_deliver_order'){const o=PEDIDOS.find(x=>x.id===p.order_id);return ok({receiptFolio:'E-'+o.folio,orderId:o.id,folio:o.folio,customerName:o.customer_name,customerPhone:o.customer_phone,playerName:null,receivedBy:p.received_by,relation:p.relation,accepted:true,signature:p.signature,items:DET[o.id].items,total:o.total,paid:o.paid_amount,deliveredByName:'Zul',deliveredAt:'2026-11-26T18:00:00Z'});}
       if(n==='v2_mark_order_reviewed'){revisados.add(p.order_id);return ok({orderId:p.order_id});}
       if(n==='v2_warranties')return ok([]);
       if(n==='v2_order_number_check')return ok(asignados.has('t1')
@@ -252,13 +255,34 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   const fila = '.order-row[data-order-id="o-viejo"]';
   revisa('5. en Entregar, cada pedido trae Avisar y Entregado a la vista', await pg.isVisible(`${fila} [data-avisa]`) && await pg.isVisible(`${fila} [data-entregado]`));
   revisa('5. Avisar lleva el WhatsApp de la familia con el mensaje', /^https:\/\/wa\.me\/524779876543\?text=Hola%2C%20ya%20lleg/.test(await pg.getAttribute(`${fila} [data-avisa]`, 'href')));
+  // Entrega con recibo (26/11/2026, h104): revisan piezas, quién recoge, firma y acepta.
   await pg.click(`${fila} [data-entregado]`);
-  await pg.waitForSelector('.tosdlg-ok', { timeout:3000 });
-  revisa('5. Entregado no abre el pedido', !(await pg.isVisible('#drawer:not(.hidden)')));
-  await pg.click('.tosdlg-ok');
+  await pg.waitForSelector('.ent-hoja #entConfirma', { timeout:4000 });
+  revisa('5. Entregado no abre el pedido: abre la hoja de entrega', !(await pg.isVisible('#drawer:not(.hidden)')));
+  revisa('5. la hoja trae la pieza y a quien compró', /Hoodie/.test(await pg.textContent('.ent-piezas')) && (await pg.inputValue('#entQuien')) === 'Abuelo Pérez');
+  revisa('5. sin palomear las piezas no deja confirmar', await pg.isDisabled('#entConfirma') && /Palomea/.test(await pg.textContent('#entFalta')));
+  for (const l of await pg.$$('.ent-piezas label')) await l.click();
+  revisa('5. sin firma no deja confirmar', await pg.isDisabled('#entConfirma') && /firma/.test(await pg.textContent('#entFalta')));
+  const caja = await (await pg.$('#entFirma')).boundingBox();
+  await pg.mouse.move(caja.x + 30, caja.y + caja.height * .6); await pg.mouse.down();
+  await pg.mouse.move(caja.x + caja.width * .4, caja.y + caja.height * .3, { steps:6 }); await pg.mouse.move(caja.x + caja.width * .7, caja.y + caja.height * .7, { steps:6 }); await pg.mouse.up();
+  revisa('5. sin aceptar no deja confirmar', await pg.isDisabled('#entConfirma') && /acepte/.test(await pg.textContent('#entFalta')));
+  await pg.click('.ent-acepta');
+  revisa('5. con todo, se puede confirmar', !(await pg.isDisabled('#entConfirma')));
+  await pg.click('#entConfirma');
+  await pg.waitForSelector('.ent-recibo', { timeout:6000 });
+  const st = (await llamadas(pg, 'v2_deliver_order'))[0];
+  revisa('5. Entregado desde la lista, con quién recibió, aceptación y firma', st?.order_id === 'o-viejo' && st?.received_by === 'Abuelo Pérez' && st?.relation === 'titular' && st?.accepted === true && /^M\d+ \d+ L/.test(st?.signature || ''), JSON.stringify({ ...st, signature:(st?.signature || '').slice(0, 24) }));
+  revisa('5. ya no usa el cambio de estado sin recibo', (await llamadas(pg, 'v2_update_order_status')).length === 0);
+  revisa('5. sale el recibo con WhatsApp y Descargar', await pg.isVisible('.ent-hoja [data-wa]') && await pg.isVisible('.ent-hoja [data-baja]') && /Uniforme entregado/i.test(await pg.textContent('.ent-cab.ok h2')));
+  await pg.evaluate(() => { navigator.canShare = undefined; });
+  await pg.click('.ent-hoja [data-wa]');
   await pg.waitForTimeout(300);
-  const st = (await llamadas(pg, 'v2_update_order_status'))[0];
-  revisa('5. Entregado desde la lista', st?.order_id === 'o-viejo' && st?.new_status === 'delivered', JSON.stringify(st));
+  const wa = await pg.evaluate(() => window.__abiertas.find(u => /wa\.me/.test(u)) || '');
+  revisa('5. WhatsApp a quien compró con el recibo', /^https:\/\/wa\.me\/524779876543\?text=/.test(wa) && /Recibo%20E-PED-2026-00020/.test(wa), wa.slice(0, 120));
+  revisa('5. queda anotado que se mandó', (await llamadas(pg, 'v2_mark_delivery_sent'))[0]?.order_id === 'o-viejo');
+  await pg.click('.ent-hoja [data-cierra]');
+  await pg.waitForTimeout(350);
   await pg.click('.order-row[data-order-id="o-viejo"] .order-who');
   await pg.waitForSelector('#pasoAcciones:not(.hidden)', { timeout:4000 }).catch(() => {});
   const acc = await pg.$$eval('#pasoAcciones [data-paso]', bs => bs.map(b => b.dataset.paso));

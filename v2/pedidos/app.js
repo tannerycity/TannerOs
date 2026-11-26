@@ -5,6 +5,8 @@ import { abreVentas } from '/v2/pedidos/ventas.js';
 import { abrirCobro, esCuentaCompartida } from '/v2/cobro/hoja.js';
 import { hojaPdf, nombreDelPdf, compartePdf, descargaPdf, cargaFotos } from '/v2/produccion/pdf.js';
 import { getSignedPhotoUrls } from '/v2/photo-cache.js';
+import { abreEntrega, muestraRecibo } from '/v2/pedidos/entrega.js';
+import { nombreDelClub } from '/v2/club.js';
 const supabase=createClient('https://pacnegivzgxpanphrnwp.supabase.co','sb_publishable_XG-mi_NVeit5BSco9t9AaQ_pk8CU0QG',{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id);let ctx=null,orders=[],envios=[],garantias=[],canPagar=false,current=null,canWrite=false,canManage=false,canCorrect=false,canViewFinance=true,metricsRun=0;const details=new Map();
 /* Pedidos que llegaron por el link o el portal y nadie ha confirmado todavía
@@ -366,7 +368,7 @@ function filaPedido(o,donde=''){const d=details.get(o.id),balance=d?Number(d.bal
     const atendio=quienAtendio(t);
     const saldo=Math.max(0,Number(o.total||0)-Number(o.paid_amount||0));b.innerHTML=`<span class="t-avatar" aria-hidden="true">${esc(iniciales(quien))}</span><div class="order-main">${donde}<div class="order-who"><strong>${esc(quien)}</strong>${t.playerName&&(t.playerCategory||t.playerJersey)?`<span>${esc([t.playerCategory,t.playerJersey?`dorsal #${t.playerJersey}`:null].filter(Boolean).join(' · '))}</span>`:''}</div><span class="order-pidio">${t.playerName?`Pidió ${esc(o.customer_name||'—')}`:esc(o.folio||'')}${atendio?` · ${esc(atendio)}`:''}</span>${items.length?`<ul class="order-items">${items.slice(0,4).map(lineaDePieza).join('')}${items.length>4?`<li class="mas">+${items.length-4} ${items.length-4===1?'pieza':'piezas'} más</li>`:''}</ul>`:`<small>${Number(o.item_count||0)} ${Number(o.item_count||0)===1?'pieza':'piezas'}</small>`}${t.notes?`<p class="t-nota"><b>Nota</b>${esc(t.notes)}</p>`:''}<span class="t-meta">${t.playerName?`${esc(o.folio||'')} · `:''}${fmt(o.created_at)}${saldo>0.005&&vigente(o)?` · saldo ${money.format(saldo)}`:''}</span></div><div class="order-right">${porRevisar.has(o.id)?'<span class="order-review-tag">Por revisar</span>':''}<b>${money.format(Number(o.total||0))}</b>${vigente(o)&&o.status!=='delivered'?(saldo>0.005?`<span class="t-pago debe">Debe ${money.format(saldo)}</span>`:'<span class="t-pago ok">Pagado</span>'):''}${vigente(o)&&['pending_payment','partial_payment','paid'].includes(o.status)?'':`<span class="order-status ${esc(o.status)}">${labels[o.status]||esc(o.status)}</span>`}</div>${barraConfirma(o)}${cajaDeTanner(o)}${accionesDeFila(o,t)}`;
     b.addEventListener('input',ev=>{const q=ev.target.closest('[data-liga-q]');if(!q)return;clearTimeout(ligaReloj);const caja=b.querySelector(`[data-liga-res]`);ligaReloj=setTimeout(()=>caja&&buscaParaLigar(o.id,q.value,caja),250);});
-    b.addEventListener('click',ev=>{if(ev.target.closest('.t-liga button')){ev.stopPropagation();accionDeLiga(o,ev);return;}if(ev.target.closest('.t-liga-busca')){ev.stopPropagation();return;}if(ev.target.closest('[data-avisa]')){ev.stopPropagation();return;}const en=ev.target.closest('[data-entregado]');if(en){ev.stopPropagation();entregaDeFila(o,en);return;}const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
+    b.addEventListener('click',ev=>{if(ev.target.closest('.t-liga button')){ev.stopPropagation();accionDeLiga(o,ev);return;}if(ev.target.closest('.t-liga-busca')){ev.stopPropagation();return;}if(ev.target.closest('[data-avisa]')){ev.stopPropagation();return;}const en=ev.target.closest('[data-entregado]');if(en){ev.stopPropagation();entregaDeFila(o,en);return;}if(ev.target.closest('[data-recibo]')){ev.stopPropagation();verRecibo(o);return;}const c=ev.target.closest('[data-num-confirma],[data-num-deshacer]');if(c){ev.stopPropagation();confirmaNumero(o,!!c.dataset.numConfirma,c);return;}openOrder(o);});
     b.addEventListener('keydown',ev=>{if(ev.target.closest?.('[data-liga-q]')){ev.stopPropagation();return;}if((ev.key==='Enter'||ev.key===' ')&&ev.target===b){ev.preventDefault();openOrder(o);}});
     return b;}
 /* Quién me debe (13/10/2026, "y después saber quién me debe"): una tarjeta
@@ -785,15 +787,48 @@ function ligaAviso(d){const quien=tablero[d.id]?.playerName||'tu pedido';
   const texto=`Hola, ya llegó el pedido ${d.folio} de ${quien} a la tienda de ${clubCfg?.name||ctx.organization_name||'el club'}. Puedes pasar por él cuando gustes. Recuerda que tienes 30 días para recogerlo; después el club ya no se hace responsable de la prenda.`;
   return `${waLink(d.customer_phone)}?text=${encodeURIComponent(texto)}`;}
 function accionesDeFila(o){
+  if(vigente(o)&&o.status==='delivered')return '<div class="t-fila-acc"><button type="button" class="t-fila-btn" data-recibo>Recibo de entrega</button></div>';
   if(!vigente(o)||etapaDe(o)!=='para_entregar')return '';
   const wa=canWrite&&waLink(o.customer_phone),ent=canManage;if(!wa&&!ent)return '';
   return `<div class="t-fila-acc">${wa?`<a class="t-fila-btn wa" data-avisa href="${esc(ligaAviso(o))}" target="_blank" rel="noopener">Avisar por WhatsApp</a>`:''}${ent?'<button type="button" class="t-fila-btn" data-entregado>Entregado</button>':''}</div>`;}
-async function entregaDeFila(o,btn){
-  const quien=tablero[o.id]?.playerName||o.customer_name||o.folio;
-  const ok=await window.tosConfirm({kicker:'ENTREGAR',title:`¿Ya se lo llevaron?`,message:`El pedido de ${quien} queda como entregado.`,confirmText:'Sí, entregado'});
-  if(!ok)return;btn.disabled=true;
-  try{await rpc('v2_update_order_status',{organization_id:ctx.organization_id,order_id:o.id,new_status:'delivered'});await load();}
-  catch(e){btn.disabled=false;await window.tosAlert({kicker:'ENTREGAR',title:'No se pudo marcar',message:e.message||String(e)});}
+/* Entrega con recibo (26/11/2026, h104): pedido por pedido, con el papá
+   enfrente. Revisan las piezas, quién recoge, firma y acepta; sale el recibo
+   con la marca del club para descargar o mandar por WhatsApp. */
+const faltaFuncion=e=>/PGRST202|schema cache|Could not find the function/i.test(`${e?.code||''} ${e?.message||''}`);
+const nombreClub=()=>clubCfg?.name||nombreDelClub(ctx);
+function reciboLocal(det,t,extra={}){const d=det.order||{};
+  return {receiptFolio:`E-${d.folio||''}`,orderId:d.id,folio:d.folio,customerName:d.customer_name,customerPhone:d.customer_phone,playerName:t.playerName||null,playerCategory:t.playerCategory||null,
+    items:det.items||[],total:Number(d.total||0),paid:Math.max(0,Number(d.total||0)-Math.max(0,Number(det.balance||0))),deliveredAt:d.delivered_at||new Date().toISOString(),...extra};}
+async function entregaConRecibo(o,btn){
+  if(btn)btn.disabled=true;
+  try{
+    const det=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,det);
+    const debe=Number(det.balance||0);
+    if(debe>0.005){await window.tosAlert({kicker:'ENTREGAR',title:`Primero se cobra: debe ${money.format(debe)}`,message:'No se entrega sin pagar. Registra el cobro y vuelve a intentar.'});return;}
+    const t=tablero[o.id]||{};
+    const rec=await abreEntrega({order:det.order,items:det.items||[],playerName:t.playerName||'',club:nombreClub(),guarda:async datos=>{
+      try{return await rpc('v2_deliver_order',{organization_id:ctx.organization_id,order_id:o.id,received_by:datos.receivedBy,relation:datos.relation,accepted:true,signature:datos.signature||null,notes:null});}
+      catch(e){if(!faltaFuncion(e))throw e;
+        // Sin h104 en la base: se entrega como antes y el recibo sale igual (la firma no se guarda).
+        await rpc('v2_update_order_status',{organization_id:ctx.organization_id,order_id:o.id,new_status:'delivered'});
+        return reciboLocal(det,t,{receivedBy:datos.receivedBy,relation:datos.relation,signature:datos.signature,deliveredByName:ctx.display_name||null,deliveredAt:new Date().toISOString(),_sinGuardar:true});}
+    }});
+    if(!rec)return;
+    usaFuncion('pedido_entregado_con_recibo');
+    if(current?.order?.id===o.id)await refreshCurrent(o.id);else await load();
+    await muestraRecibo(rec,{club:nombreClub(),alMandar:()=>rpc('v2_mark_delivery_sent',{organization_id:ctx.organization_id,order_id:o.id}).catch(()=>{})});
+  }catch(e){await window.tosAlert({kicker:'ENTREGAR',title:'No se pudo entregar',message:e.message||String(e)});}
+  finally{if(btn)btn.disabled=false;}
+}
+const entregaDeFila=(o,btn)=>entregaConRecibo(o,btn);
+/* El recibo de un pedido ya entregado: para volver a descargarlo o mandarlo. */
+async function verRecibo(o){
+  try{
+    let rec=null;try{rec=await rpc('v2_order_delivery',{organization_id:ctx.organization_id,order_id:o.id});}catch(e){if(!faltaFuncion(e))throw e;}
+    if(!rec){const det=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});
+      rec=reciboLocal(det,tablero[o.id]||{},{receivedBy:'Sin registro de firma',relation:null,signature:null});}
+    await muestraRecibo(rec,{club:nombreClub(),alMandar:()=>rpc('v2_mark_delivery_sent',{organization_id:ctx.organization_id,order_id:o.id}).catch(()=>{})});
+  }catch(e){await window.tosAlert({kicker:'RECIBO',title:'No se pudo abrir el recibo',message:e.message||String(e)});}
 }
 /* Lo que sigue con este pedido, a la vista (22/10/2026). "Regresar un paso"
    pide el motivo y queda en la bitácora: es lo que faltó cuando se marcó
@@ -804,7 +839,8 @@ function pintaPaso(){
   const wa=d.status==='ready'&&canWrite&&waLink(d.customer_phone);
   const entrega=d.status==='ready'&&canManage;
   const prov=canWrite&&['paid','partial_payment','in_production'].includes(d.status);
-  box.innerHTML=`${prov?'<button type="button" class="t-btn wa" data-paso="proveedor">WhatsApp al proveedor</button>':''}${wa?'<button type="button" class="t-btn wa" data-paso="avisar">Avisar que ya llegó</button>':''}${entrega?'<button type="button" class="t-btn" data-paso="entregar">Entregado</button>':''}${atras?'<button type="button" class="t-link" data-paso="atras">Regresar un paso</button>':''}`;
+  const recibo=d.status==='delivered';
+  box.innerHTML=`${prov?'<button type="button" class="t-btn wa" data-paso="proveedor">WhatsApp al proveedor</button>':''}${wa?'<button type="button" class="t-btn wa" data-paso="avisar">Avisar que ya llegó</button>':''}${entrega?'<button type="button" class="t-btn" data-paso="entregar">Entregar con recibo</button>':''}${recibo?'<button type="button" class="t-btn" data-paso="recibo">Recibo de entrega</button>':''}${atras?'<button type="button" class="t-link" data-paso="atras">Regresar un paso</button>':''}`;
   box.classList.toggle('hidden',!box.innerHTML);
 }
 async function accionPaso(k,btn){
@@ -812,7 +848,8 @@ async function accionPaso(k,btn){
   if(k==='avisar'){
     window.open(ligaAviso(d),'_blank','noopener');return;
   }
-  if(k==='entregar'){await changeStatus('delivered','Marcar entregado');return;}
+  if(k==='entregar'){const o=orders.find(x=>x.id===d.id)||d;await entregaConRecibo(o,btn);return;}
+  if(k==='recibo'){const o=orders.find(x=>x.id===d.id)||d;await verRecibo(o);return;}
   if(k==='proveedor'){await waProveedor();return;}
   if(k==='atras'){
     const motivo=await window.tosPrompt({kicker:'REGRESAR UN PASO',title:`Regresar ${d.folio}`,message:'Queda en la bitácora con tu nombre.',placeholder:'¿Por qué? Ej. lo marcamos listo por error',required:true,requiredText:'Escribe el motivo.',confirmText:'Regresar',maxlength:200});
@@ -1051,7 +1088,7 @@ function renderStateActions(d){
   if(heldByBalance){
     const p=document.createElement('p');p.className='muted state-help';p.textContent=`Falta cobrar ${money.format(balance)} antes de poder entregar. Registra el cobro en COBRANZA.`;wrap.appendChild(p);
   }else if(primary){
-    const b=document.createElement('button');b.type='button';b.className='primary status-btn';b.textContent=primary.label;b.addEventListener('click',()=>changeStatus(primary.to,primary.label,false));wrap.appendChild(b);
+    const b=document.createElement('button');b.type='button';b.className='primary status-btn';b.textContent=primary.to==='delivered'?'Entregar con recibo':primary.label;b.addEventListener('click',()=>primary.to==='delivered'?entregaConRecibo(orders.find(x=>x.id===d.id)||d,b):changeStatus(primary.to,primary.label,false));wrap.appendChild(b);
   }
   if(!heldByBalance&&skip){const b=document.createElement('button');b.type='button';b.className='secondary status-btn';b.textContent=skip.label;b.addEventListener('click',()=>changeStatus(skip.to,skip.label,false));wrap.appendChild(b);}
   if(d.status==='partial_payment'&&!primary){

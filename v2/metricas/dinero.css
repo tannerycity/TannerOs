@@ -21,20 +21,23 @@
 .gr-nomina td:first-child,.gr-nomina th:first-child{text-align:left;white-space:normal}
 .gr-nomina td.cero{color:#a8bcc0}
 .gr-nomina tfoot td{font-weight:800;border-top:1px solid #dfe7e5}
-.gr-prov{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.gr-prov article{border:1px solid #e4ebe9;border-radius:16px;padding:14px;background:#f7f9f8}
+.gr-prov{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:12px}
+.gr-prov article{min-width:0;border:1px solid #e4ebe9;border-radius:16px;padding:14px;background:#f7f9f8}
 .gr-prov header{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:8px}
-.gr-prov header b{font-size:15px}
-.gr-prov ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.gr-prov li{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#31525c}
-.gr-prov li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gr-prov header b{font-size:15px;min-width:0;overflow-wrap:anywhere}
+.gr-prov header strong{flex:none;white-space:nowrap}
+.gr-prov ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.gr-prov li{min-width:0;display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#31525c}
+.gr-prov li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gr-prov li b{flex:none;white-space:nowrap}
 .gr-uni{display:grid;gap:12px}
 .gr-uni p{margin:0;font-size:13px;color:#5f7076}
 .gr-lista{display:grid;gap:8px}
 .gr-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid #e4ebe9;border-radius:14px}
 .gr-item.baja{opacity:.6}
 .gr-item div{display:grid;gap:2px;min-width:0}
-.gr-item b{font-size:14px}
+.gr-item b{font-size:14px;overflow-wrap:anywhere}
+.gr-item>button{flex:none}
 .gr-item small{font-size:12px;color:#7a8a8e}
 @media(max-width:800px){.gr-grid{grid-template-columns:1fr}.gr-fila{grid-template-columns:1fr auto;row-gap:4px}.gr-fila b{grid-column:1 / -1;white-space:normal}}
 .gr-nuevo{padding:12px;border-radius:14px;background:#f7f9f8;margin-bottom:10px}

@@ -36,7 +36,9 @@ const ANALITICA = {
   porBeneficiario: [{ id: 't', name: 'Tremor', kind: 'proveedor', total: 40060, count: 5, last: '2026-09-01' }, { id: 'b', name: 'Brandon Andrade', kind: 'staff', total: 25900, count: 21, last: '2026-11-08' },
     { id: null, name: 'Otros (sin asignar)', kind: 'otro', total: 13657, count: 20, last: '2026-11-08' }],
   nominaPorMes: [{ name: 'Brandon Andrade', mes: '2026-10', total: 1600 }, { name: 'Brandon Andrade', mes: '2026-11', total: 800 }, { name: 'Checo Martínez', mes: '2026-11', total: 700 }],
-  proveedores: [{ name: 'Tremor', total: 40060, pagos: [{ fecha: '2026-09-01', monto: 20000, concepto: 'Uniformes T10' }] }],
+  proveedores: [{ name: 'Tremor', total: 40060, pagos: [{ fecha: '2026-09-01', monto: 20000, concepto: 'Uniformes T10' }] },
+    // Textos largos de verdad (Presidencia, 26/11: "se ve descuadrado... checa que no se vea así en todos los textos").
+    { name: 'Publicidad en internet y redes sociales del club', total: 1690, pagos: [{ fecha: '2026-09-08', monto: 890, concepto: 'Pago de publicidad de Facebook - Campaña Septiembre Tanners y porteros 2026' }, { fecha: '2026-08-27', monto: 800, concepto: 'Publicidad en Instagram - Campaña de Tanners Septiembre larga larga' }] }],
   egresosPorCategoria: [{ name: 'Proveedor', total: 41292 }], ingresosPorTipo: [{ name: 'Mensualidad', total: 136563 }, { name: 'Uniformes y tienda', total: 81915 }],
   ingresosPorCategoria: [{ name: 'T10', total: 83357 }], adeudoPorCategoria: [{ name: 'Baby Tanner', total: 13538, cargos: 47 }], adeudoPorTipo: [{ name: 'Mensualidad', total: 34138, cargos: 70 }],
   uniformes: { entro: 81915, pagadoProveedor: 40060 },
@@ -61,10 +63,12 @@ const FAKE = `
       if(n==='v2_finance_analytics')return ok(${JSON.stringify(ANALITICA)});
       if(n==='v2_post_expense')return ok('e1');
       if(n==='v2_finance_detail'){window.__det=(window.__det||[]).concat(p);if(p.dimension==='adeudoCategoria')return ok([{jugador:'Niño Uno',categoria:'Baby Tanner',cargos:3,saldo:1850,desde:'2026-09-05',conceptos:['Mensualidad 2026-09']},{jugador:'Niño Dos',categoria:'Baby Tanner',cargos:1,saldo:650,desde:'2026-11-05',conceptos:[]}]);
+        if(window.__largo)return ok([{fecha:'2026-10-02',concepto:'Pago de publicidad de Facebook e Instagram - Campaña de porteros y Tanners de septiembre y octubre',categoria:'Publicidad en internet y redes sociales',quien:'Meta Platforms Ireland Limited',metodo:'transfer',monto:1690}]);
         return ok(['2026-10-01','2026-10-08','2026-10-09','2026-10-22','2026-10-29','2026-11-05','2026-11-12','2026-11-19','2026-11-20','2026-11-24'].map((fecha,i)=>({fecha,concepto:'Semana '+(i+1),categoria:'Nómina profesores',quien:'DT Brandon',metodo:'transfer',monto:400})));}
       if(n==='v2_open_receivables')return ok([{player_id:'p1',player_name:'Adán Ibarra',player_status:'active',billing_period:'2026-09-01',due_date:'2026-09-05',balance_due:1300},
         {player_id:'p1',player_name:'Adán Ibarra',player_status:'active',billing_period:'2026-10-01',due_date:'2026-10-05',balance_due:650},
         {player_id:'p2',player_name:'Beto Ruiz',player_status:'active',billing_period:'2026-10-01',due_date:'2026-10-05',balance_due:650},
+        {player_id:'p5',player_name:'Maximiliano Alejandro de la Santísima Trinidad Hernández Villaseñor',player_status:'active',billing_period:'2026-11-01',due_date:'2026-11-05',balance_due:650},
         {player_id:'p3',player_name:'Ciro Baja',player_status:'inactive',billing_period:'2026-08-01',due_date:'2026-08-05',balance_due:900},
         {player_id:'p4',player_name:'Dani Futuro',player_status:'active',billing_period:'2099-01-01',due_date:'2099-01-05',balance_due:650}]);
       if(n==='v2_search_index')return ok([{id:'p1',phones:'4771234567'}]);
@@ -177,7 +181,7 @@ for (const ancho of [1280, 390]) {
   const pasos = await g.pg.$$eval('#secCobrar .cobrar-paso:not([hidden]) h4', (h) => h.map((x) => x.textContent.trim()));
   revisa('C. Para cobrar: tres pasos en orden' + n, JSON.stringify(pasos) === '["Quién debe","Estado de cuenta","Cargo a varios Tanners"]', JSON.stringify(pasos));
   const filas = await g.pg.$$eval('#cobrarDeben .cobrar-fila', (f) => f.map((x) => x.innerText.replace(/\s+/g, ' ')));
-  revisa('C. quién debe: lo más viejo primero, sólo vencidos y activos' + n, filas.length === 2 && /Adán Ibarra/.test(filas[0]) && /\$1,950/.test(filas[0]) && /5 sep 2026/.test(filas[0]) && /2 cargos/.test(filas[0]) && /Beto Ruiz/.test(filas[1]) && !/Dani|Ciro/.test(filas.join(' ')), JSON.stringify(filas));
+  revisa('C. quién debe: lo más viejo primero, sólo vencidos y activos' + n, filas.length === 3 && /Adán Ibarra/.test(filas[0]) && /\$1,950/.test(filas[0]) && /5 sep 2026/.test(filas[0]) && /2 cargos/.test(filas[0]) && /Beto Ruiz/.test(filas[1]) && !/Dani|Ciro/.test(filas.join(' ')), JSON.stringify(filas));
   const wa = await g.pg.$eval('#cobrarDeben .cobrar-fila:first-child .cobrar-btn.wa', (a) => a.getAttribute('href'));
   revisa('C. WhatsApp con el mensaje listo y el número completo' + n, /^https:\/\/wa\.me\/524771234567\?text=/.test(wa) && /Ad%C3%A1n/.test(wa), wa);
   revisa('C. sin teléfono lo dice en vez de esconder el botón' + n, /Falta teléfono/.test(filas[1]));
@@ -261,6 +265,20 @@ for (const ancho of [1280, 390]) {
   revisa('5. dar de baja manda active=false' + n, bj?.payee_id === 't' && bj?.active === false, JSON.stringify(bj));
   if (process.env.SHOTS) await g.pg.waitForTimeout(1500), await g.pg.screenshot({ path: `${process.env.SHOTS}/graficas-dinero${ancho === 390 ? '-cel' : ''}.png`, fullPage: true });
   revisa('6. Gráficas no se sale' + n, await g.pg.evaluate(() => document.documentElement.scrollWidth) <= ancho);
+  await g.pg.evaluate(() => { window.__largo = 1; });
+  await g.pg.click('#grEgCat button.gr-fila'); await g.pg.waitForSelector('#grEgCat .gr-desglose.abierto .gr-det', { timeout: 4000 });
+  // Ningún texto se sale de su tarjeta (los que se desplazan de lado a propósito no cuentan).
+  const salidos = await g.pg.evaluate(() => {
+    const raiz = document.querySelector('.met-page'); const malos = [];
+    for (const el of raiz.querySelectorAll('span,b,strong,small,a,button,li,p,h2,h3,h4,td,th')) {
+      if (!el.offsetParent || el.closest('.table-wrap,.gr-mesames,.tos-seg,.gr-chips,.met-secciones,[hidden]')) continue;
+      const caja = el.parentElement.closest('.panel,.cobrar-paso,.gr-prov article,.met-decide,.cob-kpi,.gr-kpi,.met-bloque,.met-seccion-head'); if (!caja) continue;
+      const r = el.getBoundingClientRect(), c = caja.getBoundingClientRect();
+      if (r.width && (r.right > c.right + 1 || r.left < c.left - 1)) malos.push((el.className || el.tagName) + ': ' + el.textContent.trim().slice(0, 40));
+    }
+    return malos;
+  });
+  revisa('6. ningún texto se sale de su tarjeta' + n, salidos.length === 0, salidos.slice(0, 6).join(' | '));
   revisa('sin errores en Gráficas' + n, g.errs.length === 0, g.errs.join(' | '));
   await g.pg.close();
 }

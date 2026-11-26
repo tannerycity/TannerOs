@@ -188,3 +188,6 @@ async function applyCredit(playerId,btn){
     msg('creditMessage',`${money.format(Number(aplicado||0))} aplicados a su deuda.`,'success');
   }catch(err){msg('creditMessage',friendly(err));btn.disabled=false;btn.textContent='Aplicar a su deuda';}
 }
+
+// Jalar para actualizar (v2/jalar.js): vuelve a pedir los datos sin recargar.
+window.tosAlActualizar=()=>loadAll();

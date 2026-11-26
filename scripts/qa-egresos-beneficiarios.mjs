@@ -4,7 +4,7 @@
  * ligar por nombre o alias igual que el servidor) y las cuentas de las
  * gráficas (periodos, barras, nómina por mes y uniformes). */
 import { agrupa, coincide } from '../v2/beneficiarios.js';
-import { rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, uniformes } from '../v2/contabilidad/graficas/graficas.js';
+import { rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, uniformes, semanasDePago, lunesDe } from '../v2/contabilidad/graficas/graficas.js';
 
 let casos = 0, fallos = 0;
 const ok = (n, c, d) => { casos++; if (!c) { fallos++; console.error(' - ' + n + (d !== undefined ? '\n   ' + JSON.stringify(d) : '')); } };
@@ -59,5 +59,15 @@ const u = uniformes({ entro: 81915, pagadoProveedor: 40060 });
 ok('uniformes: lo que queda y el % pagado', u.queda === 41855 && u.pctPagado === 49, u);
 ok('uniformes sin ventas no divide entre cero', uniformes({ entro: 0, pagadoProveedor: 500 }).pctPagado === null);
 
+// Semana por semana (fecha de pago y semanas sin pago).
+ok('semanas: el lunes de cualquier día', lunesDe('2026-11-25') === '2026-11-23' && lunesDe('2026-11-29') === '2026-11-23' && lunesDe('2026-11-23') === '2026-11-23');
+const sp = semanasDePago([{ fecha: '2026-10-01', monto: 400 }, { fecha: '2026-10-08', monto: 400 }, { fecha: '2026-10-09', monto: 400 }, { fecha: '2026-10-22', monto: 400 }], { desde: '2026-10-01', hasta: '2026-10-31', hoy: '2026-11-25' });
+ok('semanas: de la primera semana pagada al fin del periodo', sp.semanas.length === 5 && sp.semanas[0].lunes === '2026-09-28', sp.semanas.map((s) => s.lunes));
+ok('semanas: detecta las que no tienen pago', JSON.stringify(sp.faltan.map((s) => s.lunes)) === '["2026-10-12","2026-10-26"]', sp.faltan);
+ok('semanas: detecta dos pagos en una semana', sp.dobles.length === 1 && sp.dobles[0].total === 800);
+const sc = semanasDePago([{ fecha: '2026-11-03', monto: 1 }], { desde: '2026-01-01', hasta: '2026-12-31', hoy: '2026-11-25' });
+ok('semanas: no pasa de hoy y la semana en curso no cuenta como faltante', sc.semanas.length === 4 && sc.semanas.at(-1).enCurso && sc.faltan.length === 2);
+ok('semanas: sin pagos no hay semanas', semanasDePago([], {}).semanas.length === 0);
+
 if (fallos) { console.error(`Egresos y gráficas QA: ${fallos} de ${casos} fallaron`); process.exit(1); }
-console.log(`Egresos y gráficas QA OK · ${casos} casos: lista de a quién se le paga, ligar por alias, periodos, barras, nómina y uniformes`);
+console.log(`Egresos y gráficas QA OK · ${casos} casos: lista de a quién se le paga, ligar por alias, periodos, barras, nómina, uniformes y semana por semana`);

@@ -2701,3 +2701,6 @@ boot().catch((error) => {
   $('deniedText').textContent = friendly(error) || 'No pudimos abrir Patrocinios.';
   show('deniedView');
 });
+
+// Jalar para actualizar (v2/jalar.js): vuelve a pedir los datos sin recargar.
+window.tosAlActualizar = () => load();

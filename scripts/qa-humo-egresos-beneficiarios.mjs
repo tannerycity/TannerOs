@@ -52,6 +52,8 @@ const FAKE = `
       if(n==='v2_save_expense_payee'){const name=p.name||'Luis Felipe';if(p.payee_id){const x=L.find(y=>y.id===p.payee_id);x.active=p.active;}else L.push({id:'n'+L.length,name,kind:p.kind,active:true,aliases:[],total:0});return ok({id:'n',name,kind:p.kind});}
       if(n==='v2_finance_analytics')return ok(${JSON.stringify(ANALITICA)});
       if(n==='v2_post_expense')return ok('e1');
+      if(n==='v2_finance_detail'){window.__det=(window.__det||[]).concat(p);if(p.dimension==='adeudoCategoria')return ok([{jugador:'Niño Uno',categoria:'Baby Tanner',cargos:3,saldo:1850,desde:'2026-09-05',conceptos:['Mensualidad 2026-09']},{jugador:'Niño Dos',categoria:'Baby Tanner',cargos:1,saldo:650,desde:'2026-11-05',conceptos:[]}]);
+        return ok(['2026-10-01','2026-10-08','2026-10-09','2026-10-22','2026-10-29','2026-11-05','2026-11-12','2026-11-19','2026-11-20','2026-11-24'].map((fecha,i)=>({fecha,concepto:'Semana '+(i+1),categoria:'Nómina profesores',quien:'DT Brandon',metodo:'transfer',monto:400})));}
       if(['v2_expenses','v2_billing_players','v2_open_receivables','v2_adjustment_authorizations','v2_unresolved_credit'].includes(n))return ok([]);
       return ok(null);}}}`;
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
@@ -130,6 +132,7 @@ for (const ancho of [1280, 390]) {
   // Gráficas
   const g = await abre('/v2/contabilidad/graficas/', ancho);
   await g.pg.waitForFunction(() => document.getElementById('kIngresos').textContent !== '—', null, { timeout: 5000 });
+  await g.pg.waitForTimeout(1100); // las cifras cuentan hacia arriba
   revisa('5. entró, salió, quedó y nos deben' + n, /269,633/.test(await txt(g.pg, '#kIngresos')) && /175,310/.test(await txt(g.pg, '#kEgresos')) && /94,323/.test(await txt(g.pg, '#kQueda')) && /43,388/.test(await txt(g.pg, '#kAdeudo')));
   const benef = await txt(g.pg, '#grBenef');
   revisa('5. a quién se le paga más, con cuántos pagos y el último' + n, /Tremor.*Proveedor · 5 pagos · último 1 sep/.test(benef) && /Brandon Andrade/.test(benef), benef);
@@ -139,13 +142,56 @@ for (const ancho of [1280, 390]) {
   revisa('5. proveedores con fecha y concepto' + n, /1 sep · Uniformes T10/.test(await txt(g.pg, '#grProv')));
   revisa('5. adeudo por categoría con cargos' + n, /Baby Tanner.*47 cargos/.test(await txt(g.pg, '#grDeuCat')));
   revisa('5. uniformes: queda y % pagado' + n, /Quedan \$41,855/.test(await txt(g.pg, '#grUniformes')) && /49%/.test(await txt(g.pg, '#grUniformes')));
+  // Animadas e interactivas.
+  await g.pg.waitForTimeout(1200);
+  revisa('7. las barras crecen hasta su tamaño' + n, await g.pg.$eval('#grBenef .gr-carril i', (i) => i.style.width) === '100%');
+  revisa('7. los periodos son un selector deslizante' + n, await g.pg.$eval('#periodos', (e) => e.classList.contains('tos-seg') && !!e.querySelector('.tos-seg-pastilla')));
+  const pas = async () => g.pg.$eval('#periodos .tos-seg-pastilla', (e) => e.style.transform);
+  const antes = await pas();
+  await g.pg.click('#periodos [data-periodo="mes"]'); await g.pg.waitForTimeout(500);
+  revisa('7. la pastilla se mueve al periodo elegido' + n, (await pas()) !== antes, antes + ' -> ' + await pas());
+  const per = await g.pg.evaluate(() => window.__rpc.filter((x) => x.n === 'v2_finance_analytics').pop()?.p);
+  revisa('7. cambiar de periodo pide ese rango' + n, /-01$/.test(per?.desde || '') && per?.desde?.slice(0, 7) === per?.hasta?.slice(0, 7), JSON.stringify(per));
+  await g.pg.click('#periodos [data-periodo="anio"]'); await g.pg.waitForTimeout(400);
+  await g.pg.click('#grBenef button.gr-fila[data-clave="b"]');
+  await g.pg.waitForSelector('#grBenef .gr-desglose.abierto .gr-det', { timeout: 3000 });
+  const det = await txt(g.pg, '#grBenef .gr-desglose');
+  revisa('8. picarle a Brandon abre sus pagos con resumen' + n, /10 movimientos · \$4,000 · promedio \$400/.test(det) && /Semana 1/.test(det) && /Transferencia/.test(det), det.slice(0, 200));
+  const sem = await txt(g.pg, '#grBenef .gr-semanas');
+  revisa('9. staff: semana por semana con la fecha de cada pago' + n, /Semana por semana/.test(sem) && /pagado el jue 1 oct/.test(sem) && /Pagado el jue 1 oct/.test(det), sem.slice(0, 200));
+  revisa('9. marca la semana que no se le pagó' + n, /sin pago: 12–18 oct/.test(sem) && (await g.pg.$$('#grBenef .gr-sem-lista li.falta')).length >= 1, sem.slice(0, 300));
+  revisa('9. avisa si una semana trae dos pagos' + n, /dos pagos o más: 5–11 oct, 16–22 nov/.test(sem), sem);
+  revisa('8. con su mini gráfica por mes' + n, (await g.pg.$$('#grBenef .gr-mes')).length === 2);
+  if (process.env.SHOTS) await g.pg.waitForTimeout(600), await (await g.pg.$('#grBenef')).screenshot({ path: `${process.env.SHOTS}/graficas-desglose${ancho === 390 ? '-cel' : ''}.png` });
+  revisa('8. muestra 8 y deja ver todos' + n, (await g.pg.$$('#grBenef .gr-det li:not([hidden])')).length === 8 && /Ver los 10/.test(det));
+  await g.pg.click('#grBenef .gr-mas');
+  revisa('8. "Ver los 10" abre todos' + n, (await g.pg.$$('#grBenef .gr-det li:not([hidden])')).length === 10);
+  const d1 = await g.pg.evaluate(() => window.__det.at(-1));
+  revisa('8. pide el desglose del beneficiario en el periodo' + n, d1?.dimension === 'beneficiario' && d1?.clave === 'b' && /-01-01$/.test(d1?.desde || ''), JSON.stringify(d1));
+  await g.pg.click('#grBenef button.gr-fila[data-clave="b"]'); await g.pg.waitForTimeout(350);
+  revisa('8. picarle otra vez lo cierra' + n, await g.pg.$eval('#grBenef button.gr-fila[data-clave="b"]', (b) => b.getAttribute('aria-expanded')) === 'false' && await g.pg.$eval('#grBenef .gr-desglose', (d) => d.hidden));
+  await g.pg.click('#grDeuCat button.gr-fila');
+  await g.pg.waitForSelector('#grDeuCat .gr-desglose.abierto .gr-det');
+  const dd = await txt(g.pg, '#grDeuCat .gr-desglose'), d2 = await g.pg.evaluate(() => window.__det.at(-1));
+  revisa('8. el adeudo por categoría abre quién debe (hoy, sin periodo)' + n, /2 jugadores · \$2,500/.test(dd) && /Niño Uno/.test(dd) && /3 cargos/.test(dd) && d2.desde === null && d2.clave === 'Baby Tanner', dd.slice(0, 160));
+  await g.pg.click('#grNomina .gr-celda[data-clave="b|2026-10"]');
+  await g.pg.waitForSelector('#grNominaDesglose.abierto .gr-det');
+  revisa('8. una celda de la nómina abre ese mes de esa persona' + n, (await g.pg.evaluate(() => window.__det.at(-1).clave)) === 'b|2026-10' && /Brandon Andrade · Oct 26/.test(await txt(g.pg, '#grNominaDesglose')));
+  await g.pg.click('#grProv .gr-ver-todo');
+  await g.pg.waitForSelector('#grProv .gr-desglose.abierto .gr-det');
+  revisa('8. cada proveedor abre todos sus pagos' + n, (await g.pg.evaluate(() => window.__det.at(-1).clave)) === 't');
+  await g.pg.click('#grUniformes button.gr-fila[data-clave="Uniformes y tienda"]');
+  await g.pg.waitForSelector('#grUniformes .gr-desglose.abierto');
+  revisa('8. uniformes: lo que entró abre sus cobros' + n, (await g.pg.evaluate(() => window.__det.at(-1))).dimension === 'ingresoTipo' && !!(await g.pg.$('.gr-anillo')));
+  await g.pg.click('.gr-kpi[data-ir="grDeuCat"]'); await g.pg.waitForTimeout(500);
+  revisa('8. las cifras de arriba llevan a su gráfica' + n, await g.pg.$eval('#grDeuCat', (e) => e.closest('.panel').classList.contains('gr-brilla')));
   revisa('5. la lista con quien está de baja' + n, /Maxi Ponce.*De baja/.test(await txt(g.pg, '#grLista')));
   await g.pg.click('#grLista [data-baja="t"]');
   await g.pg.waitForSelector('.tosdlg', { timeout: 3000 });
   await g.pg.click('.tosdlg-btn:not(.tosdlg-cancel)'); await g.pg.waitForTimeout(300);
   const bj = await g.pg.evaluate(() => window.__rpc.filter((x) => x.n === 'v2_save_expense_payee').pop()?.p);
   revisa('5. dar de baja manda active=false' + n, bj?.payee_id === 't' && bj?.active === false, JSON.stringify(bj));
-  if (process.env.SHOTS) await g.pg.screenshot({ path: `${process.env.SHOTS}/graficas-dinero${ancho === 390 ? '-cel' : ''}.png`, fullPage: true });
+  if (process.env.SHOTS) await g.pg.waitForTimeout(1500), await g.pg.screenshot({ path: `${process.env.SHOTS}/graficas-dinero${ancho === 390 ? '-cel' : ''}.png`, fullPage: true });
   revisa('6. Gráficas no se sale' + n, await g.pg.evaluate(() => document.documentElement.scrollWidth) <= ancho);
   revisa('sin errores en Gráficas' + n, g.errs.length === 0, g.errs.join(' | '));
   await g.pg.close();

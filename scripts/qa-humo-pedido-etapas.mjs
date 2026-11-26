@@ -12,8 +12,9 @@
  *   3. Un toque en "Mandar a Tremor" lo manda; luego WhatsApp o Descargar PDF
  *      (29/10/2026). Sin proveedor no se manda.
  *   4. Recibir dice cuándo se mandó, con "Ya llegó" y el PDF.
- *   5. En Entregar, cada pedido trae Avisar y Entregado sin abrirlo; dentro,
- *      Regresar un paso pide motivo.
+ *   5. En Entregar, cada pedido trae Avisar y Entregado sin abrirlo. Entregado
+ *      abre la hoja de entrega (h104): piezas (también por partes), quién recoge, aceptación y
+ *      recibo para WhatsApp. Dentro, Regresar un paso pide motivo.
  *
  * Hermética: nada sale de 127.0.0.1.
  */
@@ -145,6 +146,10 @@ const CLIENTE = (pagoFalla, prod = '') => `
       if(n==='v2_confirm_order_number'){TAB[p.order_id].numberConfirmed=p.confirmed?{numeros:['7']}:null;return ok({ok:true});}
       if(n==='v2_orders_to_review')return ok(['o-nuevo'].filter(x=>!revisados.has(x)));
       if(n==='v2_order_detail')return ok(DET[p.order_id]);
+      // Entrega con recibo (h104): regresa el recibo guardado.
+      if(n==='v2_order_deliveries'){const it=DET[p.order_id].items.map(x=>({itemId:x.id,description:x.description,quantity:x.quantity,talla:x.attributes?.talla||null,delivered:0,pending:x.quantity}));return ok({items:it,deliveries:[]});}
+      if(n==='v2_pending_deliveries')return ok({});
+      if(n==='v2_deliver_order'){const o=PEDIDOS.find(x=>x.id===p.order_id);const it=DET[o.id].items;const lleva=(p.items||[]).map(s=>{const x=it.find(y=>y.id===s.item_id);return {itemId:x.id,description:x.description,quantity:s.quantity,talla:x.attributes?.talla||null};});return ok({id:'dl-1',number:1,receiptFolio:'E-'+o.folio,orderId:o.id,folio:o.folio,customerName:o.customer_name,customerPhone:o.customer_phone,playerName:null,receivedBy:p.received_by,relation:p.relation,accepted:true,items:lleva,pending:[],complete:true,total:o.total,paid:o.paid_amount,deliveredByName:'Zul',deliveredAt:'2026-11-26T18:00:00Z'});}
       if(n==='v2_mark_order_reviewed'){revisados.add(p.order_id);return ok({orderId:p.order_id});}
       if(n==='v2_warranties')return ok([]);
       if(n==='v2_order_number_check')return ok(asignados.has('t1')
@@ -252,13 +257,31 @@ const llamadas = (pg, n) => pg.evaluate(x => window.__rpc.filter(r => r.n === x)
   const fila = '.order-row[data-order-id="o-viejo"]';
   revisa('5. en Entregar, cada pedido trae Avisar y Entregado a la vista', await pg.isVisible(`${fila} [data-avisa]`) && await pg.isVisible(`${fila} [data-entregado]`));
   revisa('5. Avisar lleva el WhatsApp de la familia con el mensaje', /^https:\/\/wa\.me\/524779876543\?text=Hola%2C%20ya%20lleg/.test(await pg.getAttribute(`${fila} [data-avisa]`, 'href')));
+  // Entrega con recibo (26/11/2026, h104): todo viene palomeado; quién recoge y "revisó y recibe en buen estado".
   await pg.click(`${fila} [data-entregado]`);
-  await pg.waitForSelector('.tosdlg-ok', { timeout:3000 });
-  revisa('5. Entregado no abre el pedido', !(await pg.isVisible('#drawer:not(.hidden)')));
-  await pg.click('.tosdlg-ok');
+  await pg.waitForSelector('.ent-hoja #entConfirma', { timeout:4000 });
+  revisa('5. Entregado no abre el pedido: abre la hoja de entrega', !(await pg.isVisible('#drawer:not(.hidden)')));
+  revisa('5. la hoja trae la pieza ya palomeada y a quien compró', /Hoodie/.test(await pg.textContent('.ent-grupo')) && (await pg.getAttribute('.ent-fila[data-pieza="i3"]', 'aria-checked')) === 'true' && (await pg.inputValue('#entQuien')) === 'Abuelo Pérez');
+  revisa('5. sin confirmar que lo revisó no deja entregar', await pg.isDisabled('#entConfirma') && /revisó/.test(await pg.textContent('#entFalta')));
+  await pg.click('.ent-fila[data-pieza="i3"]');
+  revisa('5. si no llegó nada, el botón lo dice', /Elige qué se lleva/.test(await pg.textContent('#entConfirma')) && await pg.isDisabled('#entConfirma'));
+  await pg.click('.ent-fila[data-pieza="i3"]');
+  await pg.click('.ent-acepta');
+  revisa('5. listo: "Entregar 1 pieza"', !(await pg.isDisabled('#entConfirma')) && /Entregar 1 pieza/.test(await pg.textContent('#entConfirma')), await pg.textContent('#entConfirma'));
+  await pg.click('#entConfirma');
+  await pg.waitForSelector('.ent-recibo[src]', { timeout:6000 });
+  const st = (await llamadas(pg, 'v2_deliver_order'))[0];
+  revisa('5. Entregado desde la lista, con quién recogió, la aceptación y la pieza', st?.order_id === 'o-viejo' && st?.received_by === 'Abuelo Pérez' && st?.relation === 'titular' && st?.accepted === true && JSON.stringify(st?.items) === '[{"item_id":"i3","quantity":1}]', JSON.stringify(st));
+  revisa('5. ya no usa el cambio de estado sin recibo', (await llamadas(pg, 'v2_update_order_status')).length === 0);
+  revisa('5. sale el recibo con WhatsApp y Guardar imagen', await pg.isVisible('.ent-hoja [data-wa]') && await pg.isVisible('.ent-hoja [data-baja]') && /Entregado/.test(await pg.textContent('#entRecEstado')));
+  await pg.evaluate(() => { navigator.canShare = undefined; });
+  await pg.click('.ent-hoja [data-wa]');
   await pg.waitForTimeout(300);
-  const st = (await llamadas(pg, 'v2_update_order_status'))[0];
-  revisa('5. Entregado desde la lista', st?.order_id === 'o-viejo' && st?.new_status === 'delivered', JSON.stringify(st));
+  const wa = await pg.evaluate(() => window.__abiertas.find(u => /wa\.me/.test(u)) || '');
+  revisa('5. WhatsApp a quien compró con el recibo', /^https:\/\/wa\.me\/524779876543\?text=/.test(wa) && /Recibo%20E-PED-2026-00020/.test(wa), wa.slice(0, 120));
+  revisa('5. queda anotado que se mandó', (await llamadas(pg, 'v2_mark_delivery_sent'))[0]?.delivery_id === 'dl-1');
+  await pg.click('.ent-hoja [data-cierra]');
+  await pg.waitForTimeout(350);
   await pg.click('.order-row[data-order-id="o-viejo"] .order-who');
   await pg.waitForSelector('#pasoAcciones:not(.hidden)', { timeout:4000 }).catch(() => {});
   const acc = await pg.$$eval('#pasoAcciones [data-paso]', bs => bs.map(b => b.dataset.paso));

@@ -139,3 +139,44 @@
 .cob-anillo-kpi .gr-anillo b{font-size:20px}
 .met-page .gr-kpis{margin-bottom:0}
 @media (max-width:760px){.cob-kpis{grid-template-columns:1fr 1fr}.cob-anillo-kpi{grid-column:1/-1}.met-seccion-head h2{font-size:26px}.met-seccion-head-controles .met-controles{justify-items:stretch;width:100%}.met-page .gr-kpis{grid-template-columns:1fr 1fr}}
+
+/* PARA COBRAR (26/11/2026, fase 3): el centro de dinero cierra con lo que se
+   hace. Tres pasos numerados, con aire entre ellos, estilo Apple. */
+.cobrar{counter-reset:paso;display:grid;gap:14px;margin-top:6px}
+.cobrar[hidden]{display:none}
+.cobrar-head h3{margin:6px 0 2px;font-family:'Barlow Condensed',Inter,sans-serif;text-transform:uppercase;font-weight:800;font-size:24px;color:var(--tinta)}
+.cobrar-head p{margin:0;color:var(--gris);font-size:14px}
+.cobrar-paso{counter-increment:paso;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;padding:18px;border-radius:20px;background:#fff;border:1px solid var(--linea);scroll-margin-top:80px}
+.cobrar-paso[hidden]{display:none}
+.cobrar-num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--noche2);color:#fff;font-weight:800;font-size:15px}
+.cobrar-num::before{content:counter(paso)}
+.cobrar-cuerpo{min-width:0;display:grid;gap:8px}
+.cobrar-cuerpo h4{margin:5px 0 0;font-size:18px;color:var(--tinta)}
+.cobrar-nota{margin:0;font-size:13px;color:var(--gris)}
+.cobrar-vacio{margin:4px 0 0;font-size:14px;color:var(--gris);font-weight:600}
+.cobrar-aviso{margin:0;padding:10px 12px;border-radius:12px;background:var(--opor-f);color:var(--opor);font-size:13px;font-weight:700}
+.cobrar-aviso a{color:inherit}
+.cobrar-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cobrar-fila{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#f7f9f8;animation:grSube .35s both;animation-delay:calc(var(--i,0) * 30ms)}
+.cobrar-fila[hidden]{display:none}
+.cobrar-quien{display:grid;gap:2px;min-width:0;color:inherit;text-decoration:none}
+.cobrar-quien b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cobrar-quien small{font-size:12px;color:var(--gris)}
+.cobrar-fila>strong{font-size:16px;color:var(--alerta);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cobrar-acciones{display:flex;gap:6px}
+.cobrar-btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:12px;font:inherit;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap;cursor:pointer;border:1px solid var(--linea);background:#fff;color:var(--noche2)}
+.cobrar-btn.pri{background:var(--noche2);border-color:var(--noche2);color:#fff}
+.cobrar-btn.falta{color:var(--opor);background:var(--opor-f);border-color:transparent}
+.cobrar-btn.grande{min-height:48px;padding:0 22px;font-size:15px;justify-self:start}
+.cobrar-mas{min-height:44px;border-radius:12px;border:1px solid var(--linea);background:#fff;color:var(--noche2);font:inherit;font-weight:800;font-size:14px;cursor:pointer}
+.cobrar-bajas{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:var(--info-f);color:var(--tinta);text-decoration:none}
+.cobrar-bajas span{display:grid;gap:2px}.cobrar-bajas b{font-size:14px}.cobrar-bajas small{font-size:12px;color:var(--gris)}
+.cobrar-bajas em,.cobrar-edo-fila em{font-style:normal;font-weight:800;font-size:13px;color:var(--noche2);white-space:nowrap}
+.cobrar-bajas em::after,.cobrar-edo-fila em::after{content:" \2192"}
+.cobrar-buscar input{width:100%;box-sizing:border-box;min-height:48px;padding:0 16px;border-radius:14px;border:1px solid var(--linea);background:#f7f9f8;font:inherit;font-size:16px}
+.cobrar-buscar input:focus{outline:2px solid var(--oro);background:#fff}
+.cobrar-edo{display:grid;gap:6px}
+.cobrar-edo-fila{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:#f7f9f8;color:inherit;text-decoration:none}
+.cobrar-edo-fila span{display:grid;gap:2px;min-width:0}.cobrar-edo-fila b{font-size:15px}.cobrar-edo-fila small{font-size:12px;color:var(--gris)}
+@media (max-width:640px){.cobrar-paso{grid-template-columns:1fr;gap:10px;padding:16px}.cobrar-fila{grid-template-columns:minmax(0,1fr) auto}.cobrar-acciones{grid-column:1/-1}.cobrar-acciones .cobrar-btn{flex:1}.cobrar-edo-fila em{display:none}}
+@media (prefers-reduced-motion:reduce){.cobrar-fila{animation:none}}

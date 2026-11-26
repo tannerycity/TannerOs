@@ -91,9 +91,10 @@ async function menu(rol, active, opts = '', { masRecordado = null } = {}) {
   const m = await menu('Presidencia', 'asistencia');
   // Marketing (22/10/2026): Patrocinadores e Ideas tienen su sección.
   // Métricas en una hoja (26/11/2026): Métricas sube a los 7 de arriba y
-  // Finanzas (la lista de quién debe) queda en "Más".
+  // Finanzas se va del menú (todo lo suyo vive en Métricas); Contabilidad,
+  // que vivía dentro de Finanzas, queda sola en "Más".
   const principal = ['Inicio','Mensajes','Jugadores','Taquilla','Tienda','Fichajes','Métricas'];
-  const mas = ['Partidos','Formación','Staff','Finanzas','Patrocinadores','Utilería','Administración'];
+  const mas = ['Partidos','Formación','Staff','Contabilidad','Patrocinadores','Utilería','Administración'];
   revisa('1. Presidencia: arriba sólo sus 7, en el orden de lo que más usa', JSON.stringify(m.principal) === JSON.stringify(principal), JSON.stringify(m.principal));
   revisa('7. lo demás vive en "Más" (no se pierde nada: 14 en total)', JSON.stringify(m.mas) === JSON.stringify(mas) && m.arriba.length === 14 && m.masCuenta === '7', JSON.stringify(m));
   revisa('7. estando en Asistencia (arriba), "Más" sigue cerrado', m.masAbierto === false);

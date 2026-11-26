@@ -263,7 +263,7 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(l => l.n ===
 
 /* ---------- Finanzas: cargo a varios Tanners ---------- */
 {
-  const p = await abre(true, 390, '/v2/finanzas/');
+  const p = await abre(true, 390, '/v2/metricas/index.html');
   await p.waitForSelector('#abrirCargoMasivo', { timeout:8000 });
   await p.evaluate(() => { window.__fallaAjuste = 1; });
   await p.click('#abrirCargoMasivo');

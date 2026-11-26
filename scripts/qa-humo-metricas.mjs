@@ -90,6 +90,8 @@ const llamadas = (p, n) => p.evaluate(n => window.__llamadas.filter(x => x.n ===
 {
   const { p, ctx, errs, fuera } = await abre();
   if (process.env.SHOTS) await p.screenshot({ path: `${process.env.SHOTS}/metricas-club.png`, fullPage: true });
+  // Métricas en una hoja: sin permiso de dinero sólo sale Crecimiento y sin selector.
+  revisa('[una hoja] sin Contabilidad: sólo Crecimiento, sin selector de secciones', await p.$eval('#secCrecimiento', e => !e.hidden) && await p.$eval('#secDinero', e => e.hidden) && await p.$eval('#secCobranza', e => e.hidden) && await p.$eval('#metSecciones', e => e.hidden) && (await llamadas(p, 'v2_finance_analytics')).length === 0);
   const ideas = await textos(p, '.met-idea');
   revisa('1. recomendaciones: entre 1 y 4, cada una dice su tipo en palabra', ideas.length >= 1 && ideas.length <= 4 && ideas.every(t => /^(Atención|Oportunidad|Va bien|Dato)/i.test(t)), JSON.stringify(ideas));
   revisa('1. club: el sitio sin medir sale como oportunidad', ideas.some(t => /^Oportunidad Tu sitio todavía no mide visitas/i.test(t)), JSON.stringify(ideas));

@@ -66,8 +66,11 @@ export const navItems=[
   {code:'club',label:'Club',href:'/club/',group:'main',icon:'shield',dentroDe:'inicio'},
   {code:'direccion',label:'Dirección',href:'/direccion/',group:'main',icon:'chart',dentroDe:'inicio'},
   {code:'taquilla',label:'Taquilla',href:'/taquilla/',group:'finance',icon:'cashier'},
-  {code:'contabilidad',label:'Contabilidad',href:'/contabilidad/',group:'finance',icon:'ledger',dentroDe:'finanzas'},
-  {code:'finanzas',label:'Finanzas',href:'/finanzas/',group:'finance',icon:'wallet',aliases:['cobranza']},
+  {code:'contabilidad',label:'Contabilidad',href:'/contabilidad/',group:'finance',icon:'ledger'},
+  // Finanzas (26/11/2026): todo lo suyo vive en Métricas (el centro de dinero):
+  // tablero, quién debe, estado de cuenta y cargo a varios. No sale en el menú;
+  // se queda para los permisos y /finanzas/ lleva a Métricas.
+  {code:'finanzas',label:'Finanzas',href:'/metricas/#cobranza',group:'finance',icon:'wallet',aliases:['cobranza'],fueraDelMenu:true},
   {code:'jugadores',label:'Jugadores',href:'/jugadores/',group:'club',icon:'users'},
   {code:'asistencia',label:'Asistencia',href:'/asistencia/',group:'club',icon:'check',dentroDe:'jugadores'},
   // Becas no es un módulo: lo ve quien ve Dirección (Presidencia, 09/10/2026).
@@ -135,7 +138,7 @@ function puedeEntrar(rows,active){const item=navItems.find(x=>x.code===active);i
 function itemReadable(rows,item){if(item.soloDueno&&!esDueno)return false;if(item.always)return true;return [item.code,...(item.aliases||[]),...(item.lee||[])].some(code=>moduleAccess(rows,code,false));}
 function itemActive(item,active){return item.code===active||(item.aliases||[]).includes(active);}
 const padreDe=item=>item?.dentroDe?navItems.find(x=>x.code===item.dentroDe):null;
-function itemEnMenu(rows,item,fuera=new Set()){if(!itemReadable(rows,item))return false;const padre=padreDe(item);if(item.soloDentro&&!(padre&&itemReadable(rows,padre)))return false;return !(padre&&itemReadable(rows,padre)&&!fuera.has(padre.code));}
+function itemEnMenu(rows,item,fuera=new Set()){if(item.fueraDelMenu||!itemReadable(rows,item))return false;const padre=padreDe(item);if(item.soloDentro&&!(padre&&itemReadable(rows,padre)))return false;return !(padre&&itemReadable(rows,padre)&&!fuera.has(padre.code));}
 const hijosDe=(rows,item)=>navItems.filter(x=>x.dentroDe===item.code&&itemReadable(rows,x));
 // La sección donde estás: la pantalla misma o la sección que la contiene.
 function seccionDe(rows,active){const item=navItems.find(x=>itemActive(x,active));if(!item)return null;const padre=padreDe(item);return padre&&itemReadable(rows,padre)?padre:item;}
@@ -409,7 +412,7 @@ export const MENU_PRINCIPAL={
   Presidencia:['inicio','mensajes','jugadores','taquilla','tienda','prospectos','metricas'],
   Operaciones:['inicio','mensajes','taquilla','tienda','jugadores','utileria'],
   Formadores:['inicio','mensajes','jugadores','asistencia','partidos','formacion'],
-  Contabilidad:['inicio','mensajes','metricas','finanzas','taquilla','contabilidad'],
+  Contabilidad:['inicio','mensajes','metricas','taquilla','contabilidad'],
   Academia:['inicio','mensajes','academias','asistencia'],
   Scouting:['inicio','mensajes','prospectos','scouting','visorias'],
   Marketing:['inicio','mensajes','patrocinadores','metricas']

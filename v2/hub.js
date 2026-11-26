@@ -1,5 +1,4 @@
 import {bootstrapProtectedShell,rpc,money,$,moduleAccess,setShellHealth,setShellSearchItems,shellIcon} from '/v2/shell.js';
-import {preparaCobro,ligaDeCobro,faltaConfigurarElClub} from '/v2/cobranza-whatsapp.js';
 
 const page=document.body.dataset.hub;
 const titles={club:'Club',direccion:'Dirección',finanzas:'Finanzas'};
@@ -50,9 +49,9 @@ async function renderDirection(){
   if(can('patrocinadores'))cards.push(kpi('Marcas activas',sponsors.filter(s=>Number(s.active_agreements||0)>0).length,`${renewal.length} por revisar`));
   const attention=[];
   const _cobrable=collection?Number(collection.total_receivable||0):0;
-  if(_cobrable>0)attention.push(alerta('Atención','Cartera cobrable',money.format(_cobrable),`${collection.pending_players||0} Tanners activos con saldo por cobrar.`,'danger','/finanzas/'));
-  if(collection&&Number(collection.residual_receivable||0)>0)attention.push(alerta('Atención','Arrastre de meses anteriores',money.format(Number(collection.residual_receivable)),`${collection.residual_players||0} Tanners con saldo de meses previos. Es lo más viejo por cobrar.`,'danger','/finanzas/#cobranza'));
-  if(collection&&Number(collection.needs_configuration||0)>0)attention.push(alerta('Atención','Cuotas por configurar',collection.needs_configuration,'Se requiere definición antes de cobrar.','','/finanzas/'));
+  if(_cobrable>0)attention.push(alerta('Atención','Cartera cobrable',money.format(_cobrable),`${collection.pending_players||0} Tanners activos con saldo por cobrar.`,'danger','/metricas/#cobranza'));
+  if(collection&&Number(collection.residual_receivable||0)>0)attention.push(alerta('Atención','Arrastre de meses anteriores',money.format(Number(collection.residual_receivable)),`${collection.residual_players||0} Tanners con saldo de meses previos. Es lo más viejo por cobrar.`,'danger','/metricas/#cobrar'));
+  if(collection&&Number(collection.needs_configuration||0)>0)attention.push(alerta('Atención','Cuotas por configurar',collection.needs_configuration,'Se requiere definición antes de cobrar.','','/metricas/#cobranza'));
   if(overdue.length)attention.push(alerta('Atención','Seguimientos vencidos',overdue.length,'Fichajes requiere acción.','danger','/prospectos/'));
   if(open.length)attention.push(alerta('Oportunidad','Talento en seguimiento',open.length,'Niños en proceso de fichaje.','opportunity','/prospectos/'));
   if(renewal.length)attention.push(alerta('Oportunidad','Patrocinios por revisar',renewal.length,'Revisa convenios y renovaciones.','opportunity','/patrocinadores/'));
@@ -63,161 +62,5 @@ async function renderDirection(){
 }
 
 
-/* ===== Cargo a varios Tanners (sólo Presidencia) =====
-   "Para cuando sean los torneos": un cargo con concepto, monto, fecha límite y
-   motivo para toda una categoría (o varias) y se puede quitar a quien no va.
-   Antes de guardar dice a cuántos y cuánto suma. Un lote reintentado no
-   duplica a nadie (llave del lote + Tanner, en la base). */
-const esPresidencia=Boolean(ctx.is_owner)||ctx.role==='Presidencia';
-let masivo=null;
-const pesosHub=v=>money.format(Number(v||0));
-async function abrirCargoMasivo(){
-  if(!$('presSheet'))document.body.insertAdjacentHTML('beforeend','<div id="presBackdrop" class="pres-backdrop hidden"></div><section id="presSheet" class="pres-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="presTitle"><div class="pres-grab" aria-hidden="true"></div><div id="presBody"></div></section>');
-  $('presBackdrop').onclick=()=>{if(!masivo?.enviando)cerrarMasivo();};
-  masivo={cargando:true,llave:(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`),cats:new Set(),fuera:new Set(),extra:new Set(),jugadores:[],concepto:'',monto:'',fecha:new Date().toISOString().slice(0,10),motivo:'',error:'',enviando:false};
-  $('presSheet').classList.remove('hidden');$('presBackdrop').classList.remove('hidden');document.body.style.overflow='hidden';
-  pintaMasivo();
-  try{const v=await rpc('v2_players',{organization_id:org,status_filter:'active'});masivo.jugadores=(Array.isArray(v)?v:[]).map(p=>({id:p.id,nombre:[p.first_name,p.last_name].filter(Boolean).join(' '),cat:p.category||'Sin categoría'})).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es-MX'));}
-  catch(e){masivo.error='No se pudo cargar la lista de Tanners.';}
-  masivo.cargando=false;pintaMasivo();
-}
-function cerrarMasivo(){masivo=null;$('presSheet')?.classList.add('hidden');$('presBackdrop')?.classList.add('hidden');document.body.style.overflow='';}
-function elegidosMasivo(){
-  if(!masivo)return [];
-  return masivo.jugadores.filter(j=>(masivo.cats.has(j.cat)&&!masivo.fuera.has(j.id))||masivo.extra.has(j.id));
-}
-function guardaMasivo(){
-  if(!masivo)return;
-  for(const [id,k] of [['mConcepto','concepto'],['mMonto','monto'],['mFecha','fecha'],['mMotivo','motivo']])if($(id))masivo[k]=$(id).value;
-}
-function pintaMasivo(){
-  const b=$('presBody');if(!b||!masivo)return;
-  const cats=[...new Set(masivo.jugadores.map(j=>j.cat))].sort((a,b)=>a.localeCompare(b,'es-MX',{numeric:true}));
-  const elegidos=elegidosMasivo(),monto=Number(masivo.monto||0);
-  const enLista=masivo.jugadores.filter(j=>masivo.cats.has(j.cat)||masivo.extra.has(j.id));
-  const resumen=elegidos.length&&monto>0?`Se cargarán ${pesosHub(monto)} a ${elegidos.length} Tanner${elegidos.length===1?'':'s'} = ${pesosHub(monto*elegidos.length)}`:'Elige categorías y escribe el monto.';
-  b.innerHTML=`<header class="pres-head"><div><h2 id="presTitle">Cargo a varios Tanners</h2><p>Sólo Presidencia · queda registrado con tu nombre</p></div><button type="button" class="pres-close" id="mCerrar" aria-label="Cerrar">×</button></header>
-  ${masivo.cargando?'<p class="pres-nota">Cargando Tanners…</p>':`<form id="mForm" class="pres-form">
-    <label>Concepto<input id="mConcepto" type="text" maxlength="120" placeholder="Ej. Torneo de Navidad" value="${esc(masivo.concepto)}"></label>
-    <div class="pres-row"><label>Monto por Tanner<input id="mMonto" type="number" inputmode="decimal" min="1" step="1" value="${esc(masivo.monto)}"></label><label>Fecha límite<input id="mFecha" type="date" value="${esc(masivo.fecha)}"></label></div>
-    <div class="m-bloque"><span class="m-etq">Categorías</span><div class="m-chips">${cats.map(c=>`<button type="button" class="m-chip" aria-pressed="${masivo.cats.has(c)}" data-cat="${esc(c)}">${esc(c)} <small>${masivo.jugadores.filter(j=>j.cat===c).length}</small></button>`).join('')}</div></div>
-    ${enLista.length?`<div class="m-bloque"><span class="m-etq">Tanners (${elegidos.length} de ${enLista.length}) · quita a quien no va</span><div class="m-lista">${enLista.map(j=>{const on=(masivo.cats.has(j.cat)&&!masivo.fuera.has(j.id))||masivo.extra.has(j.id);return `<label class="m-jug"><input type="checkbox" data-jug="${esc(j.id)}"${on?' checked':''}><span>${esc(j.nombre)}</span><small>${esc(j.cat)}</small></label>`;}).join('')}</div></div>`:''}
-    <label>Motivo<textarea id="mMotivo" rows="2" maxlength="300" placeholder="Queda en el registro de cada Tanner">${esc(masivo.motivo)}</textarea></label>
-    <p class="pres-nota m-resumen" id="mResumen">${esc(resumen)}</p>
-    ${masivo.error?`<div class="pres-error" role="alert">${esc(masivo.error)}</div>`:''}
-    <button type="submit" class="pres-primary"${masivo.enviando?' disabled':''}>${masivo.enviando?'Un momento…':'Agregar cargo'}</button></form>`}`;
-  $('mCerrar').onclick=()=>{if(!masivo?.enviando)cerrarMasivo();};
-  b.querySelectorAll('[data-cat]').forEach(x=>x.onclick=()=>{guardaMasivo();const c=x.dataset.cat;masivo.cats.has(c)?masivo.cats.delete(c):masivo.cats.add(c);pintaMasivo();});
-  b.querySelectorAll('[data-jug]').forEach(x=>x.onchange=()=>{const j=masivo.jugadores.find(y=>y.id===x.dataset.jug);if(!j)return;
-    if(masivo.cats.has(j.cat)){x.checked?masivo.fuera.delete(j.id):masivo.fuera.add(j.id);}else{x.checked?masivo.extra.add(j.id):masivo.extra.delete(j.id);}
-    guardaMasivo();pintaMasivo();});
-  $('mMonto')?.addEventListener('input',()=>{guardaMasivo();const el=elegidosMasivo(),m=Number(masivo.monto||0);$('mResumen').textContent=el.length&&m>0?`Se cargarán ${pesosHub(m)} a ${el.length} Tanner${el.length===1?'':'s'} = ${pesosHub(m*el.length)}`:'Elige categorías y escribe el monto.';});
-  $('mForm')?.addEventListener('submit',enviaMasivo);
-}
-async function enviaMasivo(ev){
-  ev.preventDefault();if(!masivo||masivo.enviando)return;
-  guardaMasivo();masivo.error='';
-  const ids=elegidosMasivo().map(j=>j.id),monto=Number(masivo.monto),concepto=String(masivo.concepto||'').trim(),motivo=String(masivo.motivo||'').trim();
-  if(concepto.length<3)masivo.error='Escribe el concepto del cargo.';
-  else if(!(monto>0))masivo.error='Escribe un monto mayor a cero.';
-  else if(!ids.length)masivo.error='Elige al menos un Tanner.';
-  else if(motivo.length<3)masivo.error='Escribe el motivo: queda en el registro.';
-  if(masivo.error){pintaMasivo();return;}
-  masivo.enviando=true;pintaMasivo();
-  try{
-    const r=await rpc('v2_presidency_bulk_charge',{organization_id:org,player_ids:ids,concept:concepto,amount:monto,due_date:masivo.fecha||null,reason:motivo,idempotency_key:masivo.llave});
-    cerrarMasivo();
-    avisoHub(`Listo: ${concepto} a ${r?.players??ids.length} Tanners por ${pesosHub(r?.total??monto*ids.length)}.`);
-  }catch(e){masivo.enviando=false;masivo.error=String(e?.message||'No se pudo guardar. Intenta de nuevo.');pintaMasivo();}
-}
-function avisoHub(t){
-  let el=$('presToast');
-  if(!el){document.body.insertAdjacentHTML('beforeend','<div id="presToast" class="pres-toast" role="status"></div>');el=$('presToast');}
-  el.textContent=t;el.classList.add('visible');clearTimeout(avisoHub.t);avisoHub.t=setTimeout(()=>el.classList.remove('visible'),4500);
-}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&masivo&&!masivo.enviando)cerrarMasivo();});
 
-function wireEstadoDeCuenta(padron){
-  const input=$('edoBusca'),lista=$('edoLista');if(!input||!lista)return;
-  const norm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const fecha=d=>d?new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${String(d).slice(0,10)}T12:00:00`)):'';
-  const pinta=()=>{
-    const q=norm(input.value).trim();
-    if(q.length<2){lista.innerHTML='';return;}
-    const hits=padron.filter(p=>norm(p.player_name).includes(q)).slice(0,8);
-    lista.innerHTML=hits.length?hits.map(p=>`<a class="tos-list-row" href="/tanner/?id=${encodeURIComponent(p.player_id)}"><div><strong>${esc(p.player_name)}</strong><span>${p.last_payment_date?`Último pago: ${esc(fecha(p.last_payment_date))}`:'Sin pagos registrados'}</span></div><b>Ver estado de cuenta ›</b></a>`).join(''):'<div class="tos-empty">Ningún Tanner con ese nombre.</div>';
-  };
-  input.addEventListener('input',pinta);
-}
-
-async function renderFinance(){
-  $('hubEyebrow').textContent='COBRANZA Y CONTABILIDAD';$('hubTitle').textContent='Finanzas';$('hubSubtitle').textContent='Caja, cartera activa y movimientos financieros desde el mismo ledger.';
-  // Estado de cuenta por Tanner: lo consulta quien lleva dinero (Cobranza),
-  // no la ventanilla. Es el mismo estado de cuenta de /tanner/.
-  const puedeEstado=can('cobranza')&&ctx.role!=='Taquilla';
-  const [collection,receivables,searchIdx,clubCfg,padron]=await Promise.all([
-    (can('cobranza')||can('contabilidad'))?safe(rpc('v2_collection_snapshot',{organization_id:org,billing_period:new Date().toISOString().slice(0,7)+'-01'}),null):null,
-    can('cobranza')?safe(rpc('v2_open_receivables',{organization_id:org}),[]):[],
-    can('cobranza')?safe(rpc('v2_search_index',{organization_id:org}),[]):[],
-    // El WhatsApp del club da la lada de pais para completar numeros locales, y
-    // su nombre va en el mensaje. Lo puede leer cualquier miembro activo.
-    can('cobranza')?safe(rpc('v2_club_config',{organization_id:org}),null):null,
-    puedeEstado?safe(rpc('v2_billing_players',{organization_id:org}),[]):[]
-  ]);
-  const _today=new Date().toISOString().slice(0,10);
-  // La asignación de pagos sólo toca cargos desde 2026-09-01 (frontera de la
-  // migración). Desde que la asignación de pagos dejó de respetar ese corte, ese
-  // saldo sí se concilia y sí se cobra: se separa sólo por antigüedad, porque el
-  // arrastre es el que urge. Fuera de cobranza quedan únicamente las bajas.
-  const CORTE=String((collection&&collection.billing_cutover)||'2026-09-01').slice(0,10);
-  const vencidos=(receivables||[]).filter(r=>{const d=r.due_date||r.billing_period;return d&&String(d).slice(0,10)<_today&&Number(r.balance_due||0)>0;});
-  const esBaja=r=>r.player_status&&r.player_status!=='active';
-  const esArrastre=r=>String(r.billing_period||'').slice(0,10)<CORTE;
-  const _ovd=vencidos.filter(r=>!esBaja(r));
-  const bajas=vencidos.filter(esBaja),arrastre=_ovd.filter(esArrastre);
-  const suma=list=>list.reduce((a,r)=>a+Number(r.balance_due||0),0);
-  const abiertos=(receivables||[]).filter(r=>Number(r.balance_due||0)>0);
-  const cobrables=abiertos.filter(r=>!esBaja(r));
-  const cobrablesTotal=suma(cobrables),cobrablesSet=new Set(cobrables.map(r=>r.player_id||r.player_name));
-  const fueraTotal=suma(abiertos)-cobrablesTotal;
-  const _ovdTotal=suma(_ovd);const _ovdSet=new Set(_ovd.map(r=>r.player_id||r.player_name));
-  const bajasSet=new Set(bajas.map(r=>r.player_id||r.player_name)),arrastreSet=new Set(arrastre.map(r=>r.player_id||r.player_name));const _byP={};_ovd.forEach(r=>{const k=r.player_id||r.player_name;_byP[k]=(_byP[k]||0)+1;});const _multi=Object.values(_byP).filter(n=>n>=2).length;const _rate=Number((collection&&collection.collection_rate)||0);const _alerts=[];
-  const _aparte=[];
-  if(bajasSet.size)_aparte.push({t:`${bajasSet.size} Tanner${bajasSet.size>1?'s':''} dado${bajasSet.size>1?'s':''} de baja con saldo`,d:`${money.format(suma(bajas))} · fuera de cobranza. Cancélalo con un ajuste autorizado.`,cta:'Ajustar'});
-  if(arrastreSet.size)_alerts.push({t:`${arrastreSet.size} Tanner${arrastreSet.size>1?'s':''} con saldo de meses anteriores`,d:`${money.format(suma(arrastre))} · lo más viejo, cóbralo primero`,tone:'danger'});if(_ovdSet.size>0)_alerts.push({t:`${_ovdSet.size} Tanner${_ovdSet.size>1?'s':''} con pagos vencidos`,d:`${money.format(_ovdTotal)} por cobrar de Tanners activos`,tone:'danger'});if(_multi>0)_alerts.push({t:`${_multi} Tanner${_multi>1?'s':''} con 2+ meses vencidos`,d:'Prioriza el cobro por antigüedad',tone:'danger'});if(_rate>0&&_rate<85)_alerts.push({t:`Cobranza en ${_rate}%`,d:'Por debajo del objetivo (85%)',tone:'warn'});const _ajusteHref=can('contabilidad')?'/contabilidad/#ajustes':'';const _aparteRow=a=>`<span style="display:flex;flex-direction:column;gap:2px"><strong style="color:#4a585e;font-size:13.5px;font-weight:600">${esc(a.t)}</strong><span style="color:#7d8a8f;font-size:12px;line-height:1.4">${esc(a.d)}</span></span>${_ajusteHref?`<span style="color:#4a585e;font-weight:600;font-size:13px;white-space:nowrap">${esc(a.cta)} \u2192</span>`:''}`;const _aparteStyle='display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;background:#f4f6f5;border:1px solid #e2e7e5;text-decoration:none';const _aparteHtml=_aparte.length?`<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px"><span style="color:#8a949a;font-size:12px;font-weight:600;letter-spacing:.02em;margin-top:6px">FUERA DE LA COBRANZA DEL MES</span>${_aparte.map(a=>_ajusteHref?`<a href="${_ajusteHref}" style="${_aparteStyle}">${_aparteRow(a)}</a>`:`<div style="${_aparteStyle}">${_aparteRow(a)}</div>`).join('')}</div>`:'';
-  const phoneMap={};(searchIdx||[]).forEach(p=>{if(p&&p.id&&p.phones)phoneMap[p.id]=String(p.phones).split(' ')[0];});const byPlayer=new Map();for(const r of _ovd){const key=r.player_id||r.player_name,old=byPlayer.get(key)||{name:r.player_name,amount:0,playerId:r.player_id||null,oldest:null};old.amount+=Number(r.balance_due||0);const dd=r.due_date||r.billing_period;if(dd&&(!old.oldest||String(dd)<old.oldest))old.oldest=String(dd);byPlayer.set(key,old);}const debtors=[...byPlayer.values()].sort((a,b)=>String(a.oldest||'9999').localeCompare(String(b.oldest||'9999'))||b.amount-a.amount);
-  const kpis=collection?`<section class="tos-kpis">${kpi('Cobranza del mes',`${collection.collection_rate||0}%`,`${collection.covered||0}/${collection.collection_population||0} cubiertos`,Number(collection.collection_rate||0)>=85?'good':'')}${kpi('Cartera del mes',money.format(Number(collection.current_period_receivable||0)),'Pendiente actual',Number(collection.current_period_receivable||0)>0?'danger':'')}${kpi('Cartera cobrable',money.format(cobrablesTotal),fueraTotal>0?`${cobrablesSet.size} Tanners activos · ${money.format(fueraTotal)} aparte`:`${cobrablesSet.size} Tanners activos`,cobrablesTotal>0?'danger':'')}${kpi('Por configurar',collection.needs_configuration||0,'Cuotas que requieren definición')}</section>`:'';
-  const modules=`<section class="tos-hub-grid">${can('cobranza')?`<a class="tos-hub-card" href="#cobranza"><span class="tos-hub-icon" aria-hidden="true">${shellIcon('wallet')}</span><div class="tos-hub-copy"><strong>Cobranza</strong><span>Estado de cuenta y saldos</span></div><span class="tos-hub-chevron" aria-hidden="true">${shellIcon('chevronRight')}</span></a>`:''}${card('taquilla','Taquilla','Cobros, ingresos y egresos del día','/taquilla/','gold','cashier')}${card('contabilidad','Contabilidad','Movimientos, ajustes y trazabilidad','/contabilidad/','','ledger')}${card('estacionamiento','Estacionamiento','Gafetes: solicitudes y padrón','/estacionamiento/','blue','car')}${card('tienda','Tienda','Pedidos, cobrado y rentabilidad','/pedidos/','blue','bag')}${can('tienda')?`<a class="tos-hub-card" href="/catalogo/"><span class="tos-hub-icon" aria-hidden="true">${shellIcon('box')}</span><div class="tos-hub-copy"><strong>Catálogo</strong><span>Kits, productos y precios</span></div><span class="tos-hub-chevron" aria-hidden="true">${shellIcon('chevronRight')}</span></a>`:''}</section>`;
-  // Cobro por WhatsApp. El boton ya no desaparece cuando no se puede: dice por
-  // que. Y nunca se arma un numero a medias — ver v2/cobranza-whatsapp.js.
-  const waClub=clubCfg?.whatsapp||'';
-  const nombreClub=clubCfg?.name||'';
-  const cobros=new Map();
-  debtors.forEach(d=>cobros.set(d,preparaCobro(d.playerId?phoneMap[d.playerId]:'',waClub)));
-  const avisoClub=faltaConfigurarElClub(waClub,[...cobros.values()]);
-  const chip=(texto,fondo,color,titulo,href)=>`<a href="${href}" title="${esc(titulo)}" style="background:${fondo};color:${color};padding:5px 11px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">${esc(texto)}</a>`;
-  const debtRows=debtors.map(d=>{const cobro=cobros.get(d)||{estado:'sin_telefono'};
-    const fichaHref=d.playerId?`/jugadores/?player=${encodeURIComponent(d.playerId)}`:'/jugadores/';
-    const wa=cobro.estado==='ok'
-      ? `<a href="${ligaDeCobro({numero:cobro.numero,club:nombreClub,tanner:d.name,monto:money.format(d.amount),desde:d.oldest||''})}" target="_blank" rel="noopener" style="background:#25D366;color:#fff;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">Cobrar por WhatsApp</a>`
-      : cobro.estado==='sin_telefono'
-        ? chip('Falta su teléfono','#fdf2dd','#7a5a10','Esta familia no tiene teléfono registrado. Agrégalo en su expediente para poder cobrarle por WhatsApp.',fichaHref)
-        : chip('Teléfono sin lada','#fbe6e6','#9b2c2c',`Su teléfono (${cobro.local||''}) no trae lada de país y no se puede deducir. Corrígelo en su expediente.`,fichaHref);const cob=d.playerId?`<a href="/v2/taquilla/?action=cobrar&player=${d.playerId}&amount=${Math.round(d.amount)}&name=${encodeURIComponent(d.name||'')}" style="background:#087d8e;color:#fff;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">Cobrar</a>`:'';const since=d.oldest?` · desde ${d.oldest}`:'';const ver=d.playerId?`<a href="/tanner/?id=${encodeURIComponent(d.playerId)}" style="background:#eef2f1;color:#31525c;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Ver estado</a>`:'';return `<div class="tos-list-row"><div><strong>${esc(d.name||'Tanner')}</strong><span>Saldo pendiente${since}</span></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b style="color:#d23829">${money.format(d.amount)}</b><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${ver}${wa}${cob}</div></div></div>`;}).join('');
-  const listos=[...cobros.values()].filter(c=>c.estado==='ok').length;
-  const nota=debtors.length?`${debtors.length} con saldo · ${listos} con WhatsApp listo`:'Sin saldos';
-  // El aviso es del CLUB, no de una familia: aparece solo cuando hay numeros
-  // locales que no se pueden completar porque falta la configuracion.
-  const banner=avisoClub?`<div style="margin:0 0 12px;padding:11px 13px;border-radius:10px;background:#fdf2dd;color:#7a5a10;font:700 12.5px/1.5 Inter,system-ui">${
-    avisoClub==='sin_whatsapp_del_club'
-      ? 'Falta configurar el WhatsApp del club. Sin él no se pueden completar los teléfonos que vienen sin lada de país, y esos Tanners no se pueden cobrar por aquí. <a href="/admin/club/" style="color:#7a5a10;font-weight:800">Configurarlo</a>'
-      : 'Hay teléfonos cuya lada de país no se puede deducir del WhatsApp del club. Revísalos en el expediente de cada Tanner.'
-  }</div>`:'';
-  const list=can('cobranza')?`<section id="cobranza" class="tos-panel" style="margin-top:14px"><div class="tos-panel-head"><h2>Vencidos por cobrar</h2><span class="tos-user-note">${nota}</span></div>${banner}<div class="tos-list">${debtRows||'<div class="tos-empty">Sin pagos vencidos. Todo al corriente.</div>'}</div></section>`:'';
-  const attentionBlock=(_alerts.length||_aparte.length)?`<section class="tos-panel" style="margin-top:14px;padding:16px 18px"><strong style="display:block;margin-bottom:10px;font-size:15px">Necesita tu atención</strong><div style="display:flex;flex-direction:column;gap:8px">${_alerts.map(a=>{const col=a.tone==='danger'?'#d23829':'#a9791b';const bg=a.tone==='danger'?'#fdeceb':'#fbf3e2';const bd=a.tone==='danger'?'#f5c6c2':'#ecd9a8';return `<a href="#cobranza" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:${bg};border:1px solid ${bd};text-decoration:none"><span style="display:flex;flex-direction:column"><strong style="color:${col};font-size:14px">${esc(a.t)}</strong><span style="color:#66737a;font-size:12.5px">${esc(a.d)}</span></span><span style="color:${col};font-weight:800;font-size:13px;white-space:nowrap">Ver →</span></a>`;}).join('')}</div>${_aparteHtml}</section>`:'';const masivoBlock=esPresidencia?`<section class="tos-panel tos-masivo" style="margin-top:14px"><div class="tos-panel-head"><div><h2>Cargo a varios Tanners</h2><div class="tos-user-note">Torneos, uniformes o eventos: el mismo cargo a una categoría o a quien elijas, de una vez.</div></div><button type="button" id="abrirCargoMasivo" class="tos-masivo-btn">Nuevo cargo</button></div></section>`:'';
-  const estadoBlock=puedeEstado?`<section id="estadoCuenta" class="tos-panel tos-edo" style="margin-top:14px"><div class="tos-panel-head"><div><h2>Estado de cuenta por Tanner</h2><div class="tos-user-note">Qué ha pagado cada jugador, qué debe y su historial completo.</div></div></div><label class="tos-edo-search"><span class="tos-icon tos-icon-search" aria-hidden="true"></span><input id="edoBusca" type="search" autocomplete="off" placeholder="Escribe el nombre del Tanner" aria-label="Buscar Tanner"></label><div id="edoLista" class="tos-list"></div></section>`:'';
-  $('hubBody').innerHTML=`${kpis}${estadoBlock}${masivoBlock}${attentionBlock}${modules}${list}`;
-  if(puedeEstado)wireEstadoDeCuenta(Array.isArray(padron)?padron:[]);
-  if(esPresidencia)$('abrirCargoMasivo')?.addEventListener('click',abrirCargoMasivo);if(collection&&Number(collection.total_receivable||0)>0)setShellHealth({state:'attention',label:'Cobranza pendiente'});
-}
-
-if(page==='club')await renderClub();else if(page==='direccion')await renderDirection();else if(page==='finanzas')await renderFinance();
+if(page==='club')await renderClub();else if(page==='direccion')await renderDirection();

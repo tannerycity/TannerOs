@@ -8,7 +8,7 @@ const routes={
   scouting:{name:'Scouting',desc:'Visorías y evaluación de talento.',href:'/scouting/'},
   academies:{name:'Academias',desc:'Academias, cupos e inscripciones de Tanners.',href:'/operacion/academias/'},
   commerce:{name:'Pedidos y producción',desc:'Órdenes, cortes, producción, entrega y garantías.',href:'/pedidos/'},
-  billing:{name:'Cobranza',desc:'Pagos, beneficios y cartera del club.',href:'/finanzas/'},
+  billing:{name:'Cobranza',desc:'Pagos, beneficios y cartera del club.',href:'/metricas/#cobranza'},
   accounting:{name:'Contabilidad',desc:'Egresos y trazabilidad contable.',href:'/contabilidad/'},
   programs:{name:'Programas',desc:'Programas, cupos e inscritos.',href:'/operacion/programas/'},
   sponsors:{name:'Patrocinios',desc:'Marcas, acuerdos, beneficios y renovaciones.',href:'/patrocinadores/'},

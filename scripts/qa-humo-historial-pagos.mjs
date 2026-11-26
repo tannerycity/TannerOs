@@ -118,23 +118,24 @@ async function abre(rol, ruta) {
 
 /* ---------- Finanzas ---------- */
 {
-  const p = await abre('Presidencia', '/v2/finanzas/');
-  await p.waitForSelector('#edoBusca', { timeout:8000 });
-  revisa('[finanzas] está el buscador de estado de cuenta', await p.isVisible('#edoBusca'));
-  await p.fill('#edoBusca', 'adan');
-  const filas = await p.$$eval('#edoLista a', els => els.map(e => ({ t:e.textContent.replace(/\s+/g,' ').trim(), h:e.getAttribute('href') })));
+  const p = await abre('Presidencia', '/v2/metricas/index.html');
+  await p.waitForSelector('#cobrarEdoBusca', { timeout:8000 });
+  revisa('[finanzas] está el buscador de estado de cuenta', await p.isVisible('#cobrarEdoBusca'));
+  await p.fill('#cobrarEdoBusca', 'adan');
+  const filas = await p.$$eval('#cobrarEdoLista a', els => els.map(e => ({ t:e.textContent.replace(/\s+/g,' ').trim(), h:e.getAttribute('href') })));
   revisa('[finanzas] encuentra sin acentos', filas.length === 1 && /Adán Ibarra/.test(filas[0].t), JSON.stringify(filas));
   revisa('[finanzas] dice su último pago', /Último pago: 5 oct\.? 2026/.test(filas[0]?.t||''));
   revisa('[finanzas] abre su estado de cuenta', filas[0]?.h === '/tanner/?id=p1', filas[0]?.h);
-  await p.fill('#edoBusca', 'zzz');
-  revisa('[finanzas] sin coincidencias lo dice', /Ningún Tanner/.test(await p.textContent('#edoLista')));
+  await p.fill('#cobrarEdoBusca', 'zzz');
+  revisa('[finanzas] sin coincidencias lo dice', /Ningún Tanner/.test(await p.textContent('#cobrarEdoLista')));
   await p.close();
 }
 {
-  const p = await abre('Taquilla', '/v2/finanzas/');
-  await p.waitForFunction(() => document.getElementById('hubSubtitle')?.textContent !== 'Cargando...', null, { timeout:8000 });
-  await p.waitForTimeout(400);
-  revisa('[finanzas · Taquilla] la ventanilla no ve el buscador', (await p.$$('#edoBusca')).length === 0);
+  const p = await abre('Taquilla', '/v2/metricas/index.html');
+  // Desde el 26/11/2026 el buscador vive en Métricas > Para cobrar; la
+  // ventanilla no entra a Métricas (y si entrara, no vería el buscador).
+  await p.waitForTimeout(1500);
+  revisa('[finanzas · Taquilla] la ventanilla no ve el buscador', !(await p.isVisible('#cobrarEdoBusca').catch(() => false)));
   await p.close();
 }
 

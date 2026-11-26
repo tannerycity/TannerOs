@@ -48,7 +48,7 @@ const FAKE = `
     rpc:async(n,p={})=>{window.__rpc.push({n,p:JSON.parse(JSON.stringify(p))});const ok=d=>({data:d,error:null});
       const L=window.__p||(window.__p=${JSON.stringify(PAYEES)});
       if(n==='v2_my_context')return ok([{organization_id:'o1',organization_name:'Tannery City FC',role:'Presidencia'}]);
-      if(n==='v2_my_navigation')return ok((window.__nav||['inicio','contabilidad','finanzas','metricas']).map(c=>({module_code:c,enabled:true,can_read:true,can_write:true})));
+      if(n==='v2_my_navigation')return ok((window.__nav||['inicio','contabilidad','finanzas','cobranza','metricas']).map(c=>({module_code:c,enabled:true,can_read:true,can_write:true})));
       if(n==='v2_collection_snapshot')return ok({collection_rate:72,covered:36,collection_population:50,current_period_receivable:9800,total_receivable:43388,pending_players:45,residual_receivable:12000,residual_players:9,needs_configuration:0});
       if(n==='v2_bi_serie'||n==='v2_bi_tablero')return {data:null,error:{message:'Not authorized'}};
       if(n==='v2_finance_monthly'){window.__mes=(window.__mes||[]).concat(p);const y=new Date().getFullYear();
@@ -62,7 +62,15 @@ const FAKE = `
       if(n==='v2_post_expense')return ok('e1');
       if(n==='v2_finance_detail'){window.__det=(window.__det||[]).concat(p);if(p.dimension==='adeudoCategoria')return ok([{jugador:'Niño Uno',categoria:'Baby Tanner',cargos:3,saldo:1850,desde:'2026-09-05',conceptos:['Mensualidad 2026-09']},{jugador:'Niño Dos',categoria:'Baby Tanner',cargos:1,saldo:650,desde:'2026-11-05',conceptos:[]}]);
         return ok(['2026-10-01','2026-10-08','2026-10-09','2026-10-22','2026-10-29','2026-11-05','2026-11-12','2026-11-19','2026-11-20','2026-11-24'].map((fecha,i)=>({fecha,concepto:'Semana '+(i+1),categoria:'Nómina profesores',quien:'DT Brandon',metodo:'transfer',monto:400})));}
-      if(['v2_expenses','v2_billing_players','v2_open_receivables','v2_adjustment_authorizations','v2_unresolved_credit'].includes(n))return ok([]);
+      if(n==='v2_open_receivables')return ok([{player_id:'p1',player_name:'Adán Ibarra',player_status:'active',billing_period:'2026-09-01',due_date:'2026-09-05',balance_due:1300},
+        {player_id:'p1',player_name:'Adán Ibarra',player_status:'active',billing_period:'2026-10-01',due_date:'2026-10-05',balance_due:650},
+        {player_id:'p2',player_name:'Beto Ruiz',player_status:'active',billing_period:'2026-10-01',due_date:'2026-10-05',balance_due:650},
+        {player_id:'p3',player_name:'Ciro Baja',player_status:'inactive',billing_period:'2026-08-01',due_date:'2026-08-05',balance_due:900},
+        {player_id:'p4',player_name:'Dani Futuro',player_status:'active',billing_period:'2099-01-01',due_date:'2099-01-05',balance_due:650}]);
+      if(n==='v2_search_index')return ok([{id:'p1',phones:'4771234567'}]);
+      if(n==='v2_club_config')return ok({whatsapp:'524771112233',name:'Tannery City FC'});
+      if(n==='v2_billing_players')return ok([{player_id:'p1',player_name:'Adán Ibarra',last_payment_date:'2026-10-05'},{player_id:'p2',player_name:'Beto Ruiz',last_payment_date:null}]);
+      if(['v2_expenses','v2_adjustment_authorizations','v2_unresolved_credit'].includes(n))return ok([]);
       return ok(null);}}}`;
 const nav = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 let fallos = 0, corridas = 0;
@@ -160,10 +168,30 @@ for (const ancho of [1280, 390]) {
   revisa('M. el selector es deslizante' + n, await g.pg.$eval('#metSecciones', (e) => e.classList.contains('tos-seg')));
   const decide = await txt(g.pg, '#metDecidir');
   revisa('M. Para decidir: lo más viejo primero y la cobranza abajo del objetivo' + n, /Para decidir/i.test(decide) && /9 Tanners deben meses anteriores/.test(decide) && decide.indexOf('meses anteriores') < decide.indexOf('por cobrar') && /Cobranza del mes en 72%/.test(decide), decide);
-  revisa('M. de Para decidir se va a cobrar' + n, await g.pg.$eval('#metDecidir .met-decide-ir', (a) => a.getAttribute('href')) === '/finanzas/#cobranza');
+  revisa('M. de Para decidir se va a cobrar' + n, await g.pg.$eval('#metDecidir .met-decide-ir', (a) => a.getAttribute('href')) === '#cobrar');
   const cob = await txt(g.pg, '#cobKpis');
   revisa('M. Cobranza del mes: % y lo que se debe, tal cual de la base' + n, /72%/.test(cob) && /36 de 50/.test(cob) && /\$43,388/.test(cob) && /\$12,000/.test(cob), cob);
   if (process.env.SHOTS) await g.pg.waitForTimeout(1200), await g.pg.screenshot({ path: `${process.env.SHOTS}/metricas-arriba${ancho === 390 ? '-cel' : ''}.png` });
+  // Fase 3: "deja nuestro centro de dinero" (lo que era Finanzas, en orden).
+  await g.pg.waitForSelector('#secCobrar:not([hidden]) .cobrar-fila', { timeout: 5000 });
+  const pasos = await g.pg.$$eval('#secCobrar .cobrar-paso:not([hidden]) h4', (h) => h.map((x) => x.textContent.trim()));
+  revisa('C. Para cobrar: tres pasos en orden' + n, JSON.stringify(pasos) === '["Quién debe","Estado de cuenta","Cargo a varios Tanners"]', JSON.stringify(pasos));
+  const filas = await g.pg.$$eval('#cobrarDeben .cobrar-fila', (f) => f.map((x) => x.innerText.replace(/\s+/g, ' ')));
+  revisa('C. quién debe: lo más viejo primero, sólo vencidos y activos' + n, filas.length === 2 && /Adán Ibarra/.test(filas[0]) && /\$1,950/.test(filas[0]) && /5 sep 2026/.test(filas[0]) && /2 cargos/.test(filas[0]) && /Beto Ruiz/.test(filas[1]) && !/Dani|Ciro/.test(filas.join(' ')), JSON.stringify(filas));
+  const wa = await g.pg.$eval('#cobrarDeben .cobrar-fila:first-child .cobrar-btn.wa', (a) => a.getAttribute('href'));
+  revisa('C. WhatsApp con el mensaje listo y el número completo' + n, /^https:\/\/wa\.me\/524771234567\?text=/.test(wa) && /Ad%C3%A1n/.test(wa), wa);
+  revisa('C. sin teléfono lo dice en vez de esconder el botón' + n, /Falta teléfono/.test(filas[1]));
+  revisa('C. Cobrar lleva a Taquilla con el Tanner y el monto' + n, /action=cobrar&player=p1&amount=1950/.test(await g.pg.$eval('#cobrarDeben .cobrar-fila:first-child .cobrar-btn.pri', (a) => a.getAttribute('href'))));
+  revisa('C. los dados de baja van aparte, para ajustar' + n, /1 Tanner dado de baja con saldo/.test(await txt(g.pg, '#cobrarDeben .cobrar-bajas')) && await g.pg.$eval('#cobrarDeben .cobrar-bajas', (a) => a.getAttribute('href')) === '/contabilidad/#ajustes');
+  await g.pg.fill('#cobrarEdoBusca', 'adan');
+  revisa('C. estado de cuenta: busca sin acentos y abre su estado' + n, /Adán Ibarra/.test(await txt(g.pg, '#cobrarEdoLista')) && await g.pg.$eval('#cobrarEdoLista a', (a) => a.getAttribute('href')) === '/tanner/?id=p1');
+  await g.pg.click('#metDecidir .met-decide-ir');
+  await g.pg.waitForTimeout(700);
+  revisa('C. "Cobrar" en Para decidir baja a quién debe (misma hoja)' + n, await g.pg.evaluate(() => { const r = document.getElementById('cobrar').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }));
+  await g.pg.click('#abrirCargoMasivo');
+  await g.pg.waitForSelector('#presSheet:not(.hidden)', { timeout: 4000 });
+  revisa('C. cargo a varios Tanners abre su hoja' + n, /Cargo a varios Tanners/.test(await txt(g.pg, '#presSheet')));
+  await g.pg.click('#mCerrar');
   await g.pg.click('#metSecciones [data-vista="cobranza"]'); await g.pg.waitForTimeout(200);
   revisa('M. tocar Cobranza deja sólo Cobranza' + n, await g.pg.$eval('#secDinero', (e) => e.hidden) && !(await g.pg.$eval('#secCobranza', (e) => e.hidden)) && !(await g.pg.$eval('#metDecidir', (e) => e.hidden)) && await g.pg.evaluate(() => location.hash) === '#cobranza');
   await g.pg.click('#metSecciones [data-vista="dinero"]'); await g.pg.waitForTimeout(200);

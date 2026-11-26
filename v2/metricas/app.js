@@ -32,6 +32,8 @@ const montar = [];
 const recargas = [];
 if (veDinero) {
   montar.push(import('/v2/metricas/dinero.js').then(async (m) => ({ k: 'dinero', ok: await m.montaDinero({ ctx, canWrite: moduleAccess(navigation, 'contabilidad', true) }), recarga: m.recargaDinero })));
+  // Para cobrar (lo que era Finanzas) también hace que Cobranza salga.
+  montar.push(import('/v2/metricas/cobrar.js').then(async (m) => ({ k: 'cobranza', ok: await m.montaCobrar({ ctx, navigation }), recarga: () => {} })));
   montar.push(import('/v2/metricas/cobranza.js').then(async (m) => ({ k: 'cobranza', ok: await m.montaCobranza({ org }), recarga: m.recargaCobranza })));
 }
 if (veCrecimiento) montar.push(import('/v2/metricas/crecimiento.js').then(async (m) => ({ k: 'crecimiento', ok: await m.montaCrecimiento({ org, nombre: ctx.organization_name }), recarga: m.recargaCrecimiento })));
@@ -51,7 +53,7 @@ if (!disponibles.length) {
   const tabs = $('metSecciones');
   const pinta = () => {
     for (const s of SECCIONES) $(s.el).hidden = !disponibles.some((d) => d.k === s.k) || (vista !== 'todo' && vista !== s.k);
-    $('metDecidir').hidden = !hayCobranza || !(vista === 'todo' || vista === 'cobranza');
+    $('metDecidir').hidden = !hayCobranza || !$('metDecidirLista').children.length || !(vista === 'todo' || vista === 'cobranza');
     tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vista === vista)));
   };
   // Con una sola sección (Marketing) no hace falta el selector.
@@ -65,6 +67,20 @@ if (!disponibles.length) {
       pinta(); window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }
+  // Ligas dentro de la hoja (#cobrar desde Para decidir): enseñan su sección y bajan suave.
+  const irA = (id) => {
+    const el = document.getElementById(id); if (!el) return false;
+    if (el.closest('[hidden]') && hayCobranza) { vista = 'todo'; pinta(); }
+    el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    return true;
+  };
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]'); if (!a) return;
+    const id = a.getAttribute('href').slice(1);
+    if (['todo', 'dinero', 'cobranza', 'crecimiento'].includes(id) || !document.getElementById(id)) return;
+    e.preventDefault(); irA(id);
+  });
+  if (desdeLiga === 'cobrar') setTimeout(() => irA('cobrar'), 600);
   // Una cifra de Dinero que lleva a una gráfica de Cobranza (o al revés).
   window.tosMetricasMuestra = () => { vista = 'todo'; pinta(); };
   pinta();

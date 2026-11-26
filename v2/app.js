@@ -32,7 +32,7 @@ const moduleLinks=[
   {codes:['taquilla','cobranza'],label:'Cobrar',href:'/taquilla/?action=cobrar',write:true,primary:true},
   {codes:['jugadores'],label:'Jugadores',href:'/jugadores/'},
   {codes:['asistencia'],label:'Asistencia',href:'/asistencia/'},
-  {codes:['finanzas','cobranza','contabilidad'],label:'Finanzas',href:'/finanzas/'},
+  {codes:['finanzas','cobranza','contabilidad'],label:'Métricas',href:'/metricas/'},
   {codes:['taquilla'],label:'Taquilla',href:'/taquilla/'},
   {codes:['prospectos'],label:'Fichajes',href:'/prospectos/'},
   {codes:['scouting'],label:'Scouting',href:'/scouting/'},
@@ -473,7 +473,7 @@ function actionAllowed(item){
 function actionHref(item){
   const href=String(item?.href||'').trim();
   if(href.startsWith('/')&&!href.startsWith('//'))return href;
-  const fallbacks={billing_overdue:'/finanzas/#cobranza',billing_review:'/finanzas/',players_review:'/jugadores/',prospects_overdue:'/prospectos/',prospects_unplanned:'/prospectos/',orders_ready:'/pedidos/',orders_payment_pending:'/pedidos/',sponsors_renewal_overdue:'/patrocinadores/',sponsors_renewal_soon:'/patrocinadores/',sponsors_followup_overdue:'/patrocinadores/',equipment_low:'/utileria/'};
+  const fallbacks={billing_overdue:'/metricas/#cobrar',billing_review:'/metricas/#cobranza',players_review:'/jugadores/',prospects_overdue:'/prospectos/',prospects_unplanned:'/prospectos/',orders_ready:'/pedidos/',orders_payment_pending:'/pedidos/',sponsors_renewal_overdue:'/patrocinadores/',sponsors_renewal_soon:'/patrocinadores/',sponsors_followup_overdue:'/patrocinadores/',equipment_low:'/utileria/'};
   return fallbacks[item?.code]||'/';
 }
 function renderAttention(){
@@ -538,7 +538,7 @@ function renderRoleFocus(){
   // en un solo párrafo, así que había que leerlo completo para encontrar el dato.
   const insights=[];
   const plural=(n,one,many)=>Number(n)===1?one:many;
-  if(billing?.current_period_receivable>0)insights.push({icon:'wallet',tone:'danger',module:'cobranza',href:'/finanzas/',value:money.format(Number(billing.current_period_receivable)),label:`Pendiente del periodo · ${billing.pending_players||0} ${plural(billing.pending_players,'Tanner','Tanners')} con saldo activo`});
+  if(billing?.current_period_receivable>0)insights.push({icon:'wallet',tone:'danger',module:'cobranza',href:'/metricas/#cobranza',value:money.format(Number(billing.current_period_receivable)),label:`Pendiente del periodo · ${billing.pending_players||0} ${plural(billing.pending_players,'Tanner','Tanners')} con saldo activo`});
   if(acquisition?.unplanned>0)insights.push({icon:'target',tone:'attention',module:'prospectos',href:'/prospectos/',value:String(acquisition.unplanned),label:`${plural(acquisition.unplanned,'Prospecto nuevo','Prospectos nuevos')} sin próxima acción agendada`});
   if(acquisition?.topSource?.count>0)insights.push({icon:'spark',tone:'',module:'prospectos',href:'/prospectos/',value:String(acquisition.topSource.count),label:`${acquisition.topSource.label} es la fuente con más registros`});
   const best=usefulSourceRows().sort((a,b)=>Number(b.conversionRate||0)-Number(a.conversionRate||0))[0];
@@ -555,7 +555,7 @@ function renderRoleFocus(){
       : `<div class="tos-insight" data-tone="${esc(item.tone)}">${body}</div>`;
   }).join('');
   $('roleFocusBody').innerHTML=`<div class="tos-mini-stats">${stats.slice(0,3).join('')}</div>${rows?`<div class="tos-insight-list">${rows}</div>`:'<div class="tos-empty">Sin alertas relevantes en los datos cargados.</div>'}`;
-  const href=billing?.current_period_receivable>0?'/finanzas/':acquisition?.unplanned>0?'/prospectos/':commerce?.pendingPayment>0?'/pedidos/':'';
+  const href=billing?.current_period_receivable>0?'/metricas/#cobranza':acquisition?.unplanned>0?'/prospectos/':commerce?.pendingPayment>0?'/pedidos/':'';
   $('roleFocusLink').classList.toggle('hidden',!href);if(href)$('roleFocusLink').href=href;
 }
 

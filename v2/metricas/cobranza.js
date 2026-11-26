@@ -18,11 +18,11 @@ export const OBJETIVO = 85; // el mismo objetivo que ya usa Finanzas
 export function avisosDeCobranza(c) {
   if (!c) return [];
   const a = [];
-  if (n(c.residual_receivable) > 0) a.push({ tono: 'alerta', titulo: tanners(n(c.residual_players)) + ' deben meses anteriores', detalle: money.format(n(c.residual_receivable)) + ' · es lo más viejo, cóbralo primero', ir: '/finanzas/#cobranza', accion: 'Cobrar' });
-  if (n(c.total_receivable) > 0) a.push({ tono: 'alerta', titulo: money.format(n(c.total_receivable)) + ' por cobrar', detalle: tanners(n(c.pending_players)) + ' activos con saldo', ir: '/finanzas/#cobranza', accion: 'Ver quién' });
+  if (n(c.residual_receivable) > 0) a.push({ tono: 'alerta', titulo: tanners(n(c.residual_players)) + ' deben meses anteriores', detalle: money.format(n(c.residual_receivable)) + ' · es lo más viejo, cóbralo primero', ir: '#cobrar', accion: 'Cobrar' });
+  if (n(c.total_receivable) > 0) a.push({ tono: 'alerta', titulo: money.format(n(c.total_receivable)) + ' por cobrar', detalle: tanners(n(c.pending_players)) + ' activos con saldo', ir: '#cobrar', accion: 'Ver quién' });
   const tasa = n(c.collection_rate);
   if (tasa > 0 && tasa < OBJETIVO) a.push({ tono: 'aviso', titulo: 'Cobranza del mes en ' + tasa + '%', detalle: 'Abajo del objetivo (' + OBJETIVO + '%)' });
-  if (n(c.needs_configuration) > 0) a.push({ tono: 'aviso', titulo: n(c.needs_configuration) + (n(c.needs_configuration) === 1 ? ' cuota por configurar' : ' cuotas por configurar'), detalle: 'Hay que definirlas antes de poder cobrar', ir: '/finanzas/', accion: 'Revisar' });
+  if (n(c.needs_configuration) > 0) a.push({ tono: 'aviso', titulo: n(c.needs_configuration) + (n(c.needs_configuration) === 1 ? ' cuota por configurar' : ' cuotas por configurar'), detalle: 'Hay que definirlas antes de poder cobrar' });
   if (!a.length) a.push({ tono: 'bien', titulo: 'Cobranza al corriente', detalle: 'No hay nada vencido en este momento.' });
   return a;
 }

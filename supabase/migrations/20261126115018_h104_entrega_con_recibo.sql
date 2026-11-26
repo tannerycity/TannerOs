@@ -1,4 +1,4 @@
--- h104 · Entrega con recibo, también por partes (26/11/2026) — PENDIENTE DE APLICAR.
+-- h104 · Entrega con recibo, también por partes (26/11/2026) — aplicada el 26/11/2026.
 --
 -- Presidencia: "no tenemos una opción sencilla de marcar de entregado... no
 -- todo el pedido que nos manda Tremor, sino individualmente... que están

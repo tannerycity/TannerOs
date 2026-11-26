@@ -1,5 +1,6 @@
-/* ENTREGA CON RECIBO (26/11/2026, h104). La hoja que se usa en el mostrador
- * con el papá enfrente: grande, clara, con la marca del club. Lógica en
+/* ENTREGA CON RECIBO (26/11/2026, h104). Estilo Apple: hoja que sube desde
+ * abajo, listas agrupadas como en Ajustes, control segmentado, interruptor y un
+ * solo botón. Azul noche del club como color de acción. Lógica en
  * /v2/pedidos/entrega.js. */
 @font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url('/fonts/barlow-condensed-700.woff2') format('woff2'); }
 @font-face { font-family: 'Barlow Condensed'; font-weight: 800; font-display: swap; src: url('/fonts/barlow-condensed-800.woff2') format('woff2'); }
@@ -8,75 +9,108 @@
 @font-face { font-family: 'Inter'; font-weight: 800; font-display: swap; src: url('/fonts/inter-800.woff2') format('woff2'); }
 
 .ent-capa {
-  --ent-navy: #07191e; --ent-petroleo: #0b3d4a; --ent-oro: #c6ac5c; --ent-oro-osc: #a9895a; --ent-crema: #f6f2e8;
-  --ent-linea: #dedbd0; --ent-gris: #6b7c80; --ent-ok: #1d7a46; --ent-mal: #b13d34;
+  --ent-accion: #0b2a33; --ent-oro: #c6ac5c; --ent-fondo: #eef2f1; --ent-texto: #1c1c1e;
+  --ent-gris: #6e6e73; --ent-gris-2: #8e8e93; --ent-linea: #e5e5ea; --ent-apagado: #c7c7cc; --ent-relleno: #d1d1d6;
   position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-end; justify-content: center;
-  background: rgba(7, 25, 30, 0); transition: background .2s ease;
-  font-family: Inter, -apple-system, 'Segoe UI', sans-serif; color: var(--ent-navy);
+  background: rgba(0, 0, 0, 0); transition: background .25s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--ent-texto); -webkit-font-smoothing: antialiased;
 }
-.ent-capa.entra { background: rgba(7, 25, 30, .55); }
+.ent-capa.entra { background: rgba(0, 0, 0, .4); }
 body.ent-sin-scroll { overflow: hidden; }
 .ent-hoja {
-  width: 100%; max-width: 620px; max-height: 94vh; max-height: 94dvh; display: flex; flex-direction: column;
-  background: #fff; border-radius: 24px 24px 0 0; box-shadow: 0 -24px 70px rgba(7, 25, 30, .35); overflow: hidden;
-  transform: translateY(40px); opacity: 0; transition: transform .22s ease, opacity .22s ease;
+  position: relative; width: 100%; max-width: 560px; max-height: 94vh; max-height: 94dvh; display: flex; flex-direction: column;
+  background: var(--ent-fondo); border-radius: 14px 14px 0 0; overflow: hidden;
+  transform: translateY(100%); transition: transform .32s cubic-bezier(.32, .72, 0, 1);
 }
-.ent-capa.entra .ent-hoja { transform: none; opacity: 1; }
-@media (min-width: 700px) { .ent-capa { align-items: center; } .ent-hoja { border-radius: 24px; } }
+.ent-capa.entra .ent-hoja { transform: none; }
+@media (min-width: 700px) { .ent-capa { align-items: center; } .ent-hoja { border-radius: 14px; transform: translateY(24px) scale(.98); opacity: 0; transition: transform .28s cubic-bezier(.32, .72, 0, 1), opacity .2s ease; } .ent-capa.entra .ent-hoja { opacity: 1; } }
+.ent-asa { position: absolute; top: 6px; left: 50%; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: var(--ent-apagado); }
+@media (min-width: 700px) { .ent-asa { display: none; } }
 
-.ent-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 16px; background: var(--ent-navy); color: #fff; border-bottom: 3px solid var(--ent-oro); }
-.ent-cab small { display: block; color: var(--ent-oro); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.ent-cab h2 { margin: 4px 0 0; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 800; font-size: 32px; line-height: 1; text-transform: uppercase; letter-spacing: .01em; }
-.ent-cab.ok h2::before { content: '✓ '; color: var(--ent-oro); }
-.ent-x { flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .12); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; }
+/* La barra de arriba: Cancelar · Entregar · (vacío), como en iOS. */
+.ent-barra { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 52px; padding: 10px 8px 0; }
+.ent-barra b { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.ent-barra > :last-child { justify-self: end; }
+.ent-texto { justify-self: start; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--ent-accion); font: inherit; font-size: 17px; cursor: pointer; border-radius: 10px; }
+.ent-texto.fuerte { font-weight: 600; }
+.ent-texto.ancho { width: 100%; margin-top: 4px; }
+.ent-texto:focus-visible, .ent-cta:focus-visible, .ent-fila:focus-visible, .ent-segmento button:focus-visible { outline: 2px solid var(--ent-oro); outline-offset: 2px; }
 
-.ent-cuerpo { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 6px 20px 12px; }
-.ent-paso { padding: 16px 0; border-bottom: 1px solid var(--ent-linea); }
-.ent-paso:last-child { border-bottom: 0; }
-.ent-paso h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 800; font-size: 21px; text-transform: uppercase; letter-spacing: .03em; }
-.ent-paso h3 b { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--ent-oro); color: var(--ent-navy); font-family: Inter, sans-serif; font-size: 13px; }
+.ent-cuerpo { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
+.ent-cuerpo.centro { text-align: center; }
+.ent-quien { padding: 6px 4px 6px; }
+.ent-quien h2 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.ent-quien p { margin: 4px 0 0; font-size: 15px; color: var(--ent-gris); }
 
-/* Casillas grandes: se palomean con el pulgar. */
-.ent-piezas { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.ent-piezas label, .ent-acepta { position: relative; display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 10px 14px; border: 1.5px solid var(--ent-linea); border-radius: 14px; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
-.ent-piezas input, .ent-acepta input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
-.ent-check { flex: none; width: 26px; height: 26px; border-radius: 8px; border: 2px solid #b5bfc2; background: #fff; display: grid; place-items: center; transition: background .15s ease, border-color .15s ease; }
-.ent-check::after { content: ''; width: 12px; height: 7px; border: 3px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); opacity: 0; }
-input:checked + .ent-check { background: var(--ent-ok); border-color: var(--ent-ok); }
-input:checked + .ent-check::after { opacity: 1; }
-.ent-piezas label:has(input:checked), .ent-acepta:has(input:checked) { border-color: var(--ent-ok); background: #edf8f2; }
-input:focus-visible + .ent-check { outline: 2px solid var(--ent-oro); outline-offset: 2px; }
-.ent-pieza { display: grid; gap: 2px; min-width: 0; }
-.ent-pieza strong { font-size: 15px; font-weight: 600; }
-.ent-pieza small { font-size: 13px; color: var(--ent-gris); }
-.ent-link { margin-top: 8px; min-height: 36px; padding: 0 4px; border: 0; background: none; color: var(--ent-petroleo); font: inherit; font-size: 14px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* Listas agrupadas, como en Ajustes. */
+.ent-seccion { margin: 22px 16px 7px; font-size: 13px; color: var(--ent-gris); text-transform: uppercase; letter-spacing: .02em; text-align: left; }
+.ent-pie-grupo { margin: 7px 16px 0; font-size: 13px; line-height: 1.35; color: var(--ent-gris); text-align: left; }
+.ent-cuerpo.centro .ent-pie-grupo { text-align: center; }
+.ent-grupo { list-style: none; margin: 0; padding: 0; background: #fff; border-radius: 12px; overflow: hidden; }
+.ent-fila { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .15s ease; }
+.ent-fila + .ent-fila::before { content: ''; position: absolute; top: 0; left: 52px; right: 0; height: 1px; background: var(--ent-linea); }
+.ent-fila:active { background: var(--ent-linea); }
+.ent-grupo.apagado .ent-fila { cursor: default; color: var(--ent-gris); }
+.ent-pieza { flex: 1; display: grid; gap: 2px; min-width: 0; text-align: left; }
+.ent-pieza strong { font-size: 17px; font-weight: 400; letter-spacing: -.01em; }
+.ent-pieza small { font-size: 14px; color: var(--ent-gris); }
 
-.ent-input { width: 100%; min-height: 50px; padding: 0 14px; border: 1.5px solid var(--ent-linea); border-radius: 12px; font: inherit; font-size: 17px; color: var(--ent-navy); background: #fff; box-sizing: border-box; }
-.ent-input:focus { outline: none; border-color: var(--ent-navy); box-shadow: 0 0 0 3px rgba(200, 174, 98, .35); }
-.ent-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.ent-chips button { min-height: 40px; padding: 0 14px; border: 1.5px solid var(--ent-linea); border-radius: 99px; background: #fff; color: var(--ent-navy); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-.ent-chips button[aria-checked="true"] { background: var(--ent-navy); border-color: var(--ent-navy); color: #fff; box-shadow: inset 0 -3px 0 var(--ent-oro); }
+/* El círculo de iOS: lleno con palomita, o vacío si no se lleva. */
+.ent-circulo { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--ent-accion); transition: background .18s ease, box-shadow .18s ease; }
+.ent-circulo svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; transition: opacity .15s ease; }
+.ent-circulo.listo { background: var(--ent-relleno); }
+.ent-fila.fuera .ent-circulo { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ent-apagado); }
+.ent-fila.fuera .ent-circulo svg { opacity: 0; }
+.ent-fila.fuera .ent-pieza strong { color: var(--ent-gris); }
+.ent-estado { font-size: 15px; color: var(--ent-gris-2); }
+.ent-estado:empty { display: none; }
+.ent-paso-cant { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 9px; background: var(--ent-fondo); }
+.ent-paso-cant button { width: 34px; height: 30px; border: 0; border-radius: 7px; background: transparent; color: var(--ent-texto); font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.ent-paso-cant button:active { background: #fff; }
+.ent-paso-cant output { min-width: 52px; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--ent-gris); text-align: center; }
 
-.ent-firma { position: relative; height: 170px; border: 2px dashed #b8a464; border-radius: 16px; background: var(--ent-crema); touch-action: none; }
-.ent-firma canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
-.ent-firma-guia { position: absolute; left: 18px; right: 18px; bottom: 34px; border-bottom: 1.5px solid var(--ent-oro); color: #a9895a; font-size: 13px; padding-bottom: 4px; pointer-events: none; }
-.ent-firma.con-firma { border-style: solid; border-color: var(--ent-oro); }
-.ent-firma.con-firma .ent-firma-guia { color: transparent; }
-.ent-borra { position: absolute; top: 2px; right: 8px; margin: 0; }
-.ent-acepta { margin-top: 12px; font-size: 15px; font-weight: 600; }
+.ent-campo { display: block; width: 100%; min-height: 50px; padding: 0 16px; border: 0; background: transparent; font: inherit; font-size: 17px; color: var(--ent-texto); box-sizing: border-box; }
+.ent-campo:focus { outline: none; }
+.ent-campo::placeholder { color: var(--ent-apagado); }
 
-.ent-pie { padding: 12px 20px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--ent-linea); background: #fff; }
-.ent-pie.dos { display: grid; gap: 8px; }
-.ent-falta { margin: 0 0 8px; min-height: 18px; font-size: 13px; font-weight: 600; color: var(--ent-gris); text-align: center; }
-.ent-falta:empty { display: none; }
-.ent-cta { width: 100%; min-height: 54px; border: 0; border-radius: 14px; background: var(--ent-navy); color: #fff; font: inherit; font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: inset 0 -3px 0 var(--ent-oro); }
-.ent-cta:disabled { background: #b5bfc2; box-shadow: none; cursor: not-allowed; }
-.ent-cta.wa { background: #1d7a46; box-shadow: none; }
-.ent-sec { width: 100%; min-height: 50px; border: 1.5px solid var(--ent-navy); border-radius: 14px; background: #fff; color: var(--ent-navy); font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
-.ent-cta:focus-visible, .ent-sec:focus-visible, .ent-x:focus-visible, .ent-chips button:focus-visible { outline: 2px solid var(--ent-oro); outline-offset: 2px; }
+/* Control segmentado. */
+.ent-segmento { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin-top: 10px; padding: 2px; border-radius: 9px; background: var(--ent-linea); }
+.ent-segmento button { min-height: 32px; padding: 0 6px; border: 0; border-radius: 7px; background: transparent; color: var(--ent-texto); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background .18s ease, box-shadow .18s ease; }
+.ent-segmento button[aria-checked="true"] { background: #fff; font-weight: 600; box-shadow: 0 3px 8px rgba(0, 0, 0, .12), 0 1px 1px rgba(0, 0, 0, .04); }
+.ent-cuerpo.centro .ent-segmento { max-width: 360px; margin: 14px auto 0; }
 
-.ent-recibo { display: block; width: 100%; max-width: 420px; margin: 14px auto 6px; border-radius: 14px; box-shadow: 0 10px 30px rgba(7, 25, 30, .18); }
-.ent-nota { margin: 8px 0 0; font-size: 13px; color: var(--ent-gris); text-align: center; }
-.ent-nota.alerta { padding: 10px 12px; border-radius: 12px; background: #fff8e6; color: #8a4b00; text-align: left; }
+/* Interruptor de iOS. */
+.ent-acepta-grupo { margin-top: 22px; }
+.ent-acepta { cursor: pointer; }
+.ent-switch { flex: none; position: relative; width: 51px; height: 31px; margin: 0; border-radius: 16px; background: var(--ent-linea); -webkit-appearance: none; appearance: none; cursor: pointer; transition: background .2s ease; }
+.ent-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, .15), 0 1px 1px rgba(0, 0, 0, .06); transition: transform .2s cubic-bezier(.32, .72, 0, 1); }
+.ent-switch:checked { background: var(--ent-accion); }
+.ent-switch:checked::after { transform: translateX(20px); }
+.ent-switch:focus-visible { outline: 2px solid var(--ent-oro); outline-offset: 2px; }
 
-@media (prefers-reduced-motion: reduce) { .ent-capa, .ent-hoja { transition: none; } }
+/* El botón: cápsula ancha, un solo color. */
+.ent-pie { padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--ent-fondo); }
+.ent-cta { width: 100%; min-height: 52px; border: 0; border-radius: 14px; background: var(--ent-accion); color: #fff; font: inherit; font-size: 17px; font-weight: 600; letter-spacing: -.01em; cursor: pointer; transition: opacity .15s ease, transform .1s ease; }
+.ent-cta:active { transform: scale(.985); }
+.ent-cta:disabled { background: var(--ent-relleno); color: #fff; cursor: default; transform: none; }
+.ent-falta { margin: 8px 0 0; min-height: 17px; font-size: 13px; color: var(--ent-gris); text-align: center; }
+
+/* El recibo listo. */
+.ent-hecho { padding: 6px 0 2px; }
+.ent-hecho-ico { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--ent-accion); animation: ent-aparece .4s cubic-bezier(.32, .72, 0, 1); }
+.ent-hecho-ico svg { width: 30px; height: 30px; fill: none; stroke: var(--ent-oro); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; animation: ent-traza .35s .15s ease forwards; }
+.ent-hecho h2 { margin: 12px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.ent-hecho p { margin: 4px 0 0; font-size: 15px; color: var(--ent-gris); }
+.ent-recibo { display: block; width: 100%; max-width: 360px; margin: 18px auto 0; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .12); background: #fff; }
+@keyframes ent-aparece { from { transform: scale(.6); opacity: 0; } }
+@keyframes ent-traza { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ent-capa, .ent-hoja, .ent-switch, .ent-switch::after, .ent-circulo, .ent-segmento button { transition: none; }
+  .ent-hecho-ico, .ent-hecho-ico svg { animation: none; stroke-dashoffset: 0; }
+}
+
+/* En la lista de Entregar: el pedido que ya se llevó una parte. */
+.t-parcial { grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 99px; background: #fff8e6; color: #8a4b00; font-size: 13px; font-weight: 600; }
+.t-parcial::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #c6ac5c; }

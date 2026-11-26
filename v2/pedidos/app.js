@@ -12,7 +12,7 @@ const $=id=>document.getElementById(id);let ctx=null,orders=[],envios=[],garanti
 /* Pedidos que llegaron por el link o el portal y nadie ha confirmado todavía
    (a3_pedidos_por_revisar). clubCfg trae el nombre del club y cómo pagar, para
    el mensaje de WhatsApp. */
-let porRevisar=new Set(),clubCfg=null;
+let porRevisar=new Set(),clubCfg=null,parciales={};
 /* El pedido por etapas (22/10/2026, h34). Presidencia: "compran + llega a
    TannerOS + validamos la info y el número + los viernes se envían al
    proveedor + nos los entrega + se entregan al cliente". Cada pestaña es una
@@ -127,7 +127,7 @@ async function boot(){const {data:{session}}=await supabase.auth.getSession();if
    misma portada que ven las familias. */
 import('/v2/branding.js').then(({brandingAssetUrl})=>{const pinta=b=>{const u=brandingAssetUrl(b?.assets?.splash),h=document.querySelector('.t-hero');if(u&&h){h.style.setProperty('--t-splash',`url("${u}")`);h.classList.add('con-foto');}};if(window.__tosBranding)pinta(window.__tosBranding);window.addEventListener('tanneros:branding',e=>pinta(e.detail));}).catch(()=>{});
 function abrePedidoDeLiga(){const id=new URLSearchParams(location.search).get('pedido');/* El QR del recibo trae el folio (11/11/2026). */const o=id&&orders.find(x=>x.id===id||x.folio===id);if(o)openOrder(o);}
-async function load(){const [lista,revisar,tab,pipe,env,gar]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_orders_pipeline',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_production_batches',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_warranties',{organization_id:ctx.organization_id,status_filter:null}).catch(()=>[])]);orders=lista||[];envios=Array.isArray(env)?env:[];garantias=Array.isArray(gar)?gar:[];etapas=(pipe&&typeof pipe==='object')?pipe:{};tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);if(!vistaLista){vistaLista=true;vista=vistaInicial();}eligeEtapaInicial();render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
+async function load(){const [lista,revisar,tab,pipe,env,gar]=await Promise.all([rpc('v2_orders',{organization_id:ctx.organization_id,status_filter:null}),rpc('v2_orders_to_review',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_orders_board',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_orders_pipeline',{organization_id:ctx.organization_id}).catch(()=>({})),rpc('v2_production_batches',{organization_id:ctx.organization_id}).catch(()=>[]),rpc('v2_warranties',{organization_id:ctx.organization_id,status_filter:null}).catch(()=>[])]);orders=lista||[];envios=Array.isArray(env)?env:[];garantias=Array.isArray(gar)?gar:[];etapas=(pipe&&typeof pipe==='object')?pipe:{};tablero=(tab&&typeof tab==='object')?tab:{};porRevisar=new Set(Array.isArray(revisar)?revisar:[]);parciales=await rpc('v2_pending_deliveries',{organization_id:ctx.organization_id}).catch(()=>({}))||{};if(!vistaLista){vistaLista=true;vista=vistaInicial();}eligeEtapaInicial();render();renderKpis();renderReviewBanner();loadBusinessMetrics();}
 /* Los filtros de arriba (segmentos tipo iOS). Cada uno trae su cuenta: los
    números que antes vivían en tarjetas aparte ahora dicen a dónde ir. */
 // "Por cobrar" es Quién me debe: una tarjeta por familia con su WhatsApp.
@@ -789,8 +789,9 @@ function ligaAviso(d){const quien=tablero[d.id]?.playerName||'tu pedido';
 function accionesDeFila(o){
   if(vigente(o)&&o.status==='delivered')return '<div class="t-fila-acc"><button type="button" class="t-fila-btn" data-recibo>Recibo de entrega</button></div>';
   if(!vigente(o)||etapaDe(o)!=='para_entregar')return '';
-  const wa=canWrite&&waLink(o.customer_phone),ent=canManage;if(!wa&&!ent)return '';
-  return `<div class="t-fila-acc">${wa?`<a class="t-fila-btn wa" data-avisa href="${esc(ligaAviso(o))}" target="_blank" rel="noopener">Avisar por WhatsApp</a>`:''}${ent?'<button type="button" class="t-fila-btn" data-entregado>Entregado</button>':''}</div>`;}
+  const wa=canWrite&&waLink(o.customer_phone),ent=canManage,par=parciales[o.id];if(!wa&&!ent&&!par)return '';
+  // Entrega por partes (h104): ya se llevó una parte; lo demás sigue pendiente.
+  return `<div class="t-fila-acc">${par?`<span class="t-parcial">Se llevó ${Number(par.delivered)} de ${Number(par.total)}</span>`:''}${wa?`<a class="t-fila-btn wa" data-avisa href="${esc(ligaAviso(o))}" target="_blank" rel="noopener">Avisar por WhatsApp</a>`:''}${ent?`<button type="button" class="t-fila-btn" data-entregado>${par?'Entregar lo que falta':'Entregado'}</button>`:''}${par?'<button type="button" class="t-fila-btn" data-recibo>Recibos</button>':''}</div>`;}
 /* Entrega con recibo (26/11/2026, h104): pedido por pedido, con el papá
    enfrente. Revisan las piezas, quién recoge, firma y acepta; sale el recibo
    con la marca del club para descargar o mandar por WhatsApp. */
@@ -798,36 +799,43 @@ const faltaFuncion=e=>/PGRST202|schema cache|Could not find the function/i.test(
 const nombreClub=()=>clubCfg?.name||nombreDelClub(ctx);
 function reciboLocal(det,t,extra={}){const d=det.order||{};
   return {receiptFolio:`E-${d.folio||''}`,orderId:d.id,folio:d.folio,customerName:d.customer_name,customerPhone:d.customer_phone,playerName:t.playerName||null,playerCategory:t.playerCategory||null,
-    items:det.items||[],total:Number(d.total||0),paid:Math.max(0,Number(d.total||0)-Math.max(0,Number(det.balance||0))),deliveredAt:d.delivered_at||new Date().toISOString(),...extra};}
+    items:det.items||[],pending:[],total:Number(d.total||0),paid:Math.max(0,Number(d.total||0)-Math.max(0,Number(det.balance||0))),deliveredAt:d.delivered_at||new Date().toISOString(),...extra};}
+/* Las piezas con lo que ya se llevó y sus recibos (h104). Sin h104, todo pendiente y sin recibos. */
+async function entregasDe(o,det){
+  try{const r=await rpc('v2_order_deliveries',{organization_id:ctx.organization_id,order_id:o.id});return {items:r?.items||[],recibos:r?.deliveries||[],h104:true};}
+  catch(e){if(!faltaFuncion(e))throw e;return {items:(det?.items||[]).map(i=>({...i,itemId:i.id,delivered:0,pending:Number(i.quantity||1)})),recibos:[],h104:false};}
+}
+const marcaEnviado=rec=>rec?.id?rpc('v2_mark_delivery_sent',{organization_id:ctx.organization_id,delivery_id:rec.id}).catch(()=>{}):null;
 async function entregaConRecibo(o,btn){
   if(btn)btn.disabled=true;
   try{
     const det=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});details.set(o.id,det);
     const debe=Number(det.balance||0);
     if(debe>0.005){await window.tosAlert({kicker:'ENTREGAR',title:`Primero se cobra: debe ${money.format(debe)}`,message:'No se entrega sin pagar. Registra el cobro y vuelve a intentar.'});return;}
-    const t=tablero[o.id]||{};
-    const rec=await abreEntrega({order:det.order,items:det.items||[],playerName:t.playerName||'',club:nombreClub(),guarda:async datos=>{
-      try{return await rpc('v2_deliver_order',{organization_id:ctx.organization_id,order_id:o.id,received_by:datos.receivedBy,relation:datos.relation,accepted:true,signature:datos.signature||null,notes:null});}
-      catch(e){if(!faltaFuncion(e))throw e;
-        // Sin h104 en la base: se entrega como antes y el recibo sale igual (la firma no se guarda).
-        await rpc('v2_update_order_status',{organization_id:ctx.organization_id,order_id:o.id,new_status:'delivered'});
-        return reciboLocal(det,t,{receivedBy:datos.receivedBy,relation:datos.relation,signature:datos.signature,deliveredByName:ctx.display_name||null,deliveredAt:new Date().toISOString(),_sinGuardar:true});}
+    const t=tablero[o.id]||{},ent=await entregasDe(o,det);
+    const rec=await abreEntrega({order:det.order,items:ent.items,playerName:t.playerName||'',guarda:async datos=>{
+      if(ent.h104)return await rpc('v2_deliver_order',{organization_id:ctx.organization_id,order_id:o.id,received_by:datos.receivedBy,relation:datos.relation,accepted:true,items:datos.items,notes:null});
+      // Sin h104 en la base: sólo completo, como antes; el recibo sale igual.
+      if(!datos.completo)throw new Error('Para entregar por partes falta activar h104 en la base. Por ahora entrega todo junto.');
+      await rpc('v2_update_order_status',{organization_id:ctx.organization_id,order_id:o.id,new_status:'delivered'});
+      return reciboLocal(det,t,{receivedBy:datos.receivedBy,relation:datos.relation,deliveredByName:ctx.display_name||null,deliveredAt:new Date().toISOString(),_sinGuardar:true});
     }});
     if(!rec)return;
-    usaFuncion('pedido_entregado_con_recibo');
+    usaFuncion(totalPendiente(rec)?'pedido_entregado_parcial':'pedido_entregado_con_recibo');
     if(current?.order?.id===o.id)await refreshCurrent(o.id);else await load();
-    await muestraRecibo(rec,{club:nombreClub(),alMandar:()=>rpc('v2_mark_delivery_sent',{organization_id:ctx.organization_id,order_id:o.id}).catch(()=>{})});
+    await muestraRecibo(rec,{club:nombreClub(),alMandar:marcaEnviado});
   }catch(e){await window.tosAlert({kicker:'ENTREGAR',title:'No se pudo entregar',message:e.message||String(e)});}
   finally{if(btn)btn.disabled=false;}
 }
+const totalPendiente=rec=>(rec?.pending||[]).reduce((n,p)=>n+Number(p.quantity||0),0);
 const entregaDeFila=(o,btn)=>entregaConRecibo(o,btn);
-/* El recibo de un pedido ya entregado: para volver a descargarlo o mandarlo. */
+/* Los recibos de un pedido (si se entregó por partes, uno por entrega). */
 async function verRecibo(o){
   try{
-    let rec=null;try{rec=await rpc('v2_order_delivery',{organization_id:ctx.organization_id,order_id:o.id});}catch(e){if(!faltaFuncion(e))throw e;}
-    if(!rec){const det=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});
-      rec=reciboLocal(det,tablero[o.id]||{},{receivedBy:'Sin registro de firma',relation:null,signature:null});}
-    await muestraRecibo(rec,{club:nombreClub(),alMandar:()=>rpc('v2_mark_delivery_sent',{organization_id:ctx.organization_id,order_id:o.id}).catch(()=>{})});
+    const det=await rpc('v2_order_detail',{organization_id:ctx.organization_id,order_id:o.id});
+    const ent=await entregasDe(o,det);
+    const recs=ent.recibos.length?ent.recibos:[reciboLocal(det,tablero[o.id]||{},{receivedBy:'Sin registro',relation:null})];
+    await muestraRecibo(recs,{club:nombreClub(),alMandar:marcaEnviado});
   }catch(e){await window.tosAlert({kicker:'RECIBO',title:'No se pudo abrir el recibo',message:e.message||String(e)});}
 }
 /* Lo que sigue con este pedido, a la vista (22/10/2026). "Regresar un paso"
@@ -839,8 +847,8 @@ function pintaPaso(){
   const wa=d.status==='ready'&&canWrite&&waLink(d.customer_phone);
   const entrega=d.status==='ready'&&canManage;
   const prov=canWrite&&['paid','partial_payment','in_production'].includes(d.status);
-  const recibo=d.status==='delivered';
-  box.innerHTML=`${prov?'<button type="button" class="t-btn wa" data-paso="proveedor">WhatsApp al proveedor</button>':''}${wa?'<button type="button" class="t-btn wa" data-paso="avisar">Avisar que ya llegó</button>':''}${entrega?'<button type="button" class="t-btn" data-paso="entregar">Entregar con recibo</button>':''}${recibo?'<button type="button" class="t-btn" data-paso="recibo">Recibo de entrega</button>':''}${atras?'<button type="button" class="t-link" data-paso="atras">Regresar un paso</button>':''}`;
+  const recibo=d.status==='delivered'||!!parciales[d.id];
+  box.innerHTML=`${prov?'<button type="button" class="t-btn wa" data-paso="proveedor">WhatsApp al proveedor</button>':''}${wa?'<button type="button" class="t-btn wa" data-paso="avisar">Avisar que ya llegó</button>':''}${entrega?`<button type="button" class="t-btn" data-paso="entregar">${parciales[d.id]?'Entregar lo que falta':'Entregar'}</button>`:''}${recibo?`<button type="button" class="t-btn" data-paso="recibo">${parciales[d.id]&&d.status!=='delivered'?'Recibos':'Recibo de entrega'}</button>`:''}${atras?'<button type="button" class="t-link" data-paso="atras">Regresar un paso</button>':''}`;
   box.classList.toggle('hidden',!box.innerHTML);
 }
 async function accionPaso(k,btn){
@@ -1088,7 +1096,7 @@ function renderStateActions(d){
   if(heldByBalance){
     const p=document.createElement('p');p.className='muted state-help';p.textContent=`Falta cobrar ${money.format(balance)} antes de poder entregar. Registra el cobro en COBRANZA.`;wrap.appendChild(p);
   }else if(primary){
-    const b=document.createElement('button');b.type='button';b.className='primary status-btn';b.textContent=primary.to==='delivered'?'Entregar con recibo':primary.label;b.addEventListener('click',()=>primary.to==='delivered'?entregaConRecibo(orders.find(x=>x.id===d.id)||d,b):changeStatus(primary.to,primary.label,false));wrap.appendChild(b);
+    const b=document.createElement('button');b.type='button';b.className='primary status-btn';b.textContent=primary.to==='delivered'?(parciales[d.id]?'Entregar lo que falta':'Entregar'):primary.label;b.addEventListener('click',()=>primary.to==='delivered'?entregaConRecibo(orders.find(x=>x.id===d.id)||d,b):changeStatus(primary.to,primary.label,false));wrap.appendChild(b);
   }
   if(!heldByBalance&&skip){const b=document.createElement('button');b.type='button';b.className='secondary status-btn';b.textContent=skip.label;b.addEventListener('click',()=>changeStatus(skip.to,skip.label,false));wrap.appendChild(b);}
   if(d.status==='partial_payment'&&!primary){

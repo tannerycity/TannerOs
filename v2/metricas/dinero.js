@@ -10,7 +10,7 @@
  *   - Cada proveedor abre todos sus pagos.
  * Sin animación si el teléfono pide menos movimiento. */
 import { rpc } from '/v2/shell.js';
-import { PERIODOS, rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, ETIQUETA_TIPO, uniformes, esAdeudo, metodo, resumenDetalle, porMes, suaviza, semanasDePago } from '/v2/contabilidad/graficas/graficas.js';
+import { PERIODOS, rangoDe, barras, tablaNomina, etiquetaMes, filtraTipo, ETIQUETA_TIPO, uniformes, esAdeudo, metodo, resumenDetalle, porMes, suaviza, semanasDePago, rangoAnterior, cambioPct, sumaMeses, mesAMes } from '/v2/contabilidad/graficas/graficas.js';
 import { cargaBeneficiarios } from '/v2/beneficiarios.js';
 import { segmentos } from '/v2/segmento.js';
 
@@ -23,7 +23,7 @@ const fechaCorta = (f) => { if (!f) return ''; const [, m, d] = String(f).slice(
 const ERRORES = { 'Payee already exists': 'Ya está en la lista.', 'Payee needs a name': 'Escribe el nombre.', 'Not authorized': 'Tu cuenta no puede cambiar la lista.' };
 const quieto = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let sinPermiso = false, ctx = null, canWrite = false, periodo = 'anio', tipo = 'todos', datos = null, lista = null, rango = null;
+let meses = null, antes = null, mesElegido = null, sinPermiso = false, ctx = null, canWrite = false, periodo = 'anio', tipo = 'todos', datos = null, lista = null, rango = null;
 
 /* Números que cuentan hacia arriba. */
 function cuenta(el, valor) {
@@ -104,6 +104,43 @@ function pinta() {
   document.querySelectorAll('.gr-grid > .panel').forEach((e) => e.classList.add('gr-entra'));
 }
 
+/* Contra el periodo anterior: sólo si antes hubo movimientos (h104). */
+const TXT_ANTES = { mes: 'vs. mismo tramo del mes pasado', tres: 'vs. los 3 meses anteriores', anio: 'vs. mismo tramo del año pasado' };
+function pintaDeltas() {
+  const prev = Array.isArray(antes) && antes.length ? sumaMeses(antes) : null;
+  const items = [['dIngresos', datos.ingresos, prev?.ingresos, true], ['dEgresos', datos.egresos, prev?.egresos, false],
+    ['dQueda', (datos.ingresos || 0) - (datos.egresos || 0), prev ? prev.ingresos - prev.egresos : null, true]];
+  for (const [id, ahora, entonces, subirEsBueno] of items) {
+    const el = $(id); if (!el) continue;
+    const c = prev && entonces > 0 ? cambioPct(ahora, entonces) : null;
+    if (c == null) { el.hidden = true; continue; }
+    const bueno = c === 0 ? null : (c > 0) === subirEsBueno;
+    el.hidden = false;
+    el.dataset.tono = bueno == null ? 'igual' : bueno ? 'bien' : 'mal';
+    el.innerHTML = '<b>' + (c > 0 ? '+' : c < 0 ? '-' : '') + Math.abs(c) + '%</b> ' + esc(TXT_ANTES[periodo] || '');
+  }
+}
+/* Mes a mes: dos columnas por mes; tocar un mes enseña cuánto quedó. */
+function pintaMeses() {
+  const panel = $('grMesPanel'); if (!panel) return;
+  const xs = Array.isArray(meses) ? mesAMes(meses) : [];
+  panel.hidden = xs.length < 2;
+  if (panel.hidden) return;
+  if (!xs.some((x) => x.mes === mesElegido)) mesElegido = xs[xs.length - 1].mes;
+  $('grMes').innerHTML = xs.map((x, i) => '<button type="button" class="gr-mescol" data-mes="' + esc(x.mes) + '" aria-pressed="' + (x.mes === mesElegido) + '" style="--i:' + i + '" aria-label="' + esc(etiquetaMes(x.mes)) + ': entró ' + money.format(x.ingresos) + ', salió ' + money.format(x.egresos) + '">' +
+    '<span class="gr-mescol-barras"><i class="ing" data-h="' + x.hIng + '"></i><i class="eg" data-h="' + x.hEg + '"></i></span><small>' + esc(etiquetaMes(x.mes).split(' ')[0]) + '</small></button>').join('');
+  const crece = () => $('grMes').querySelectorAll('i[data-h]').forEach((b) => { b.style.height = b.dataset.h + '%'; });
+  if (quieto()) crece(); else requestAnimationFrame(() => requestAnimationFrame(crece));
+  pintaMesDetalle(xs);
+}
+function pintaMesDetalle(xs = mesAMes(meses || [])) {
+  const x = xs.find((m) => m.mes === mesElegido); if (!x) return;
+  $('grMesDetalle').innerHTML = '<b>' + esc(etiquetaMes(x.mes)) + '</b>' +
+    '<span><small>Entró</small><strong>' + money.format(x.ingresos) + '</strong></span>' +
+    '<span><small>Salió</small><strong>' + money.format(x.egresos) + '</strong></span>' +
+    '<span class="' + (x.queda < 0 ? 'neg' : '') + '"><small>' + (x.queda < 0 ? 'Faltó' : 'Quedó') + '</small><strong>' + money.format(Math.abs(x.queda)) + '</strong></span>';
+}
+
 /* El desglose: se abre debajo de lo que picaste, con su mini gráfica. */
 async function abreDesglose(boton) {
   const dim = boton.dataset.dim, clave = boton.dataset.clave, titulo = boton.dataset.titulo || '';
@@ -181,11 +218,15 @@ async function carga() {
   rango = rangoDe(periodo, hoy());
   document.body.classList.add('gr-ocupado');
   try {
-    [datos, lista] = await Promise.all([
+    const previo = rangoAnterior(periodo, hoy());
+    [datos, lista, meses, antes] = await Promise.all([
       rpc('v2_finance_analytics', { organization_id: ctx.organization_id, desde: rango.desde, hasta: rango.hasta }),
       cargaBeneficiarios(rpc, ctx.organization_id, { fresco: true }),
+      // Mes a mes (h104). Si la base todavía no lo tiene, la gráfica no sale.
+      rpc('v2_finance_monthly', { organization_id: ctx.organization_id, desde: rango.desde, hasta: rango.hasta }).catch(() => null),
+      previo ? rpc('v2_finance_monthly', { organization_id: ctx.organization_id, desde: previo.desde, hasta: previo.hasta }).catch(() => null) : null,
     ]);
-    pinta(); pintaLista();
+    pinta(); pintaLista(); pintaMeses(); pintaDeltas();
   } catch (e) {
     if (/not authorized/i.test(e?.message || '')) { sinPermiso = true; return; }
     $('grMensaje').textContent = 'No se pudieron cargar las gráficas. Vuelve a intentar.';
@@ -201,6 +242,12 @@ async function guardaPayee(params) {
   } catch (e) { await window.tosAlert?.({ kicker: 'LA LISTA', title: 'No se pudo', message: ERRORES[String(e?.message || '')] || 'Vuelve a intentar.' }); }
 }
 
+$('grMes')?.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-mes]'); if (!b) return;
+  mesElegido = b.dataset.mes;
+  $('grMes').querySelectorAll('[data-mes]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  pintaMesDetalle();
+});
 $('periodos').addEventListener('click', (e) => { const b = e.target.closest('[data-periodo]'); if (!b || b.dataset.periodo === periodo) return; periodo = b.dataset.periodo; carga(); });
 $('filtroTipo').addEventListener('click', (e) => { const b = e.target.closest('[data-tipo]'); if (!b || !datos) return; tipo = b.dataset.tipo; pintaBenef(); });
 document.querySelector('.gr-kpis')?.addEventListener('click', (e) => {

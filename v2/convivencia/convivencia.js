@@ -104,7 +104,8 @@ export function pintaConvivencia(d) {
     <section class="cv-card"><div class="cv-card-head"><h2>${d.canFollow ? 'Casos' : 'Mis reportes'}</h2><span>${abiertos.length ? `${abiertos.length} abierto${abiertos.length === 1 ? '' : 's'}` : 'sin pendientes'}</span></div>
       ${casos ? `<ul class="cv-casos">${casos}</ul>` : `<p class="cv-vacio">${d.canFollow ? 'Sin reportes.' : 'No has reportado nada. Si ves algo, repórtalo.'}</p>`}
       <p class="cv-ayuda cv-privado">Sólo lo ven quien reporta, Dirección Deportiva y Presidencia. No se comparte en chats ni con el Consejo de Familias.</p></section>
-    ${staff ? `<button type="button" class="cv-banner neutro" data-cv-staff><span><b>Código del Formador: ${staffOk}/${staff.length} aceptaron</b><small>Ver quién falta</small></span><i aria-hidden="true">›</i></button>` : ''}`;
+    ${staff ? `<button type="button" class="cv-banner neutro" data-cv-staff><span><b>Código del Formador: ${staffOk}/${staff.length} aceptaron</b><small>Ver quién falta</small></span><i aria-hidden="true">›</i></button>` : ''}
+    ${d.isPresidency && d.codesAcceptance ? `<p class="cv-ayuda">Código del Jugador: ${d.codesAcceptance.jugador}/${d.codesAcceptance.total} firmado · Código de las Familias: ${d.codesAcceptance.familias}/${d.codesAcceptance.total} firmado</p>` : ''}`;
 }
 
 function hojaCodigo({ rpc, org, d, alTerminar }) {

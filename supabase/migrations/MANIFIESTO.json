@@ -1,8 +1,8 @@
 {
-  "migraciones": 639,
-  "bytes": 4083841,
-  "huella": "e1c4c727d52bc13d2b220ed917dc3a49",
+  "migraciones": 641,
+  "bytes": 4091768,
+  "huella": "325e8e62502495d217a5caf8960711ce",
   "primera": "20260818183130_cleanup_old_tanneros_prototype.sql",
-  "ultima": "20261126000000_h103_desglose_graficas.sql",
+  "ultima": "20261126020000_codigo_jugador_autoriza_excepcion_uniforme.sql",
   "verificadoContraLaBase": "2026-11-26"
 }

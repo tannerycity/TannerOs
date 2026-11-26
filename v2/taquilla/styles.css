@@ -775,7 +775,7 @@ button.cob-tile{cursor:pointer}
 .cashier-apple .collections-list[data-vista="tarjetas"] .collections-row{border:0;border-radius:16px;background:#fff;box-shadow:var(--ap-sombra)}
 .cashier-apple .cob-resumen>*{border:0}
 /* Deshacer en lugar de "¿Seguro?" (19/11/2026): barra oscura abajo, como iOS. */
-.aviso-deshacer{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:1400;display:flex;align-items:center;gap:14px;width:min(460px,calc(100vw - 32px));padding:12px 12px 12px 18px;border-radius:16px;background:#0b2a33;color:#fff;box-shadow:0 12px 32px rgba(3,22,28,.35);font-size:15px;font-weight:600}
+.aviso-deshacer{--ad-x:-50%;position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);overflow:hidden;transition:transform .3s cubic-bezier(.3,.9,.3,1),width .3s ease,left .3s ease,padding .3s ease;z-index:1400;display:flex;align-items:center;gap:14px;width:min(460px,calc(100vw - 32px));padding:12px 12px 12px 18px;border-radius:16px;background:#0b2a33;color:#fff;box-shadow:0 12px 32px rgba(3,22,28,.35);font-size:15px;font-weight:600}
 .aviso-deshacer[hidden]{display:none}
 .aviso-deshacer-txt{flex:1;min-width:0}
 .aviso-deshacer-btn{flex:0 0 auto;min-height:44px;padding:0 16px;border:0;border-radius:12px;background:#c6ac5c;color:#0e3038;font:800 15px/1 inherit;font-family:inherit;cursor:pointer}
@@ -783,3 +783,13 @@ button.cob-tile{cursor:pointer}
 /* iPhone: el campo de fecha no se sale de la hoja (25/11/2026). */
 .cashier-modal input[type="date"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;text-align:left}
 .cashier-modal input[type="date"]::-webkit-date-and-time-value{text-align:left}
+
+/* Aviso de Deshacer: cerrar, deslizar, cuenta regresiva y modo chiquito. */
+.aviso-deshacer-btn small{font-size:13px;font-weight:700;opacity:.75;margin-left:4px;font-variant-numeric:tabular-nums}
+.aviso-deshacer-x{flex:0 0 auto;width:44px;height:44px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font-size:22px;line-height:1;cursor:pointer}
+.aviso-deshacer-barra{position:absolute;left:0;right:0;bottom:0;height:3px;background:#c6ac5c;transform-origin:left;transition:transform 1s linear}
+.aviso-deshacer.compacto{--ad-x:0;left:auto;right:16px;transform:none;width:auto;padding:6px;gap:6px}
+.aviso-deshacer.compacto .aviso-deshacer-txt{display:none}
+.mi-corte-fila strong.debe-caja{color:#a32920}
+.cashier-fecha input[type="date"]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;box-sizing:border-box}
+@media (prefers-reduced-motion:reduce){.aviso-deshacer,.aviso-deshacer-barra{transition:none}}

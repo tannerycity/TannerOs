@@ -350,3 +350,7 @@ button.ms-visto:hover{text-decoration:underline;text-underline-offset:2px}
 .ms-esq.mine{align-self:flex-end;border-bottom-right-radius:6px;background:#e3f1f3}
 @keyframes ms-late{from{opacity:.55}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.ms-esq{animation:none}}
+
+/* 26/11/2026: con el botón redondo de acciones (+) abajo a la derecha, "Nuevo
+   aviso" se sube para no quedar encimado. */
+body:has(#tosFab) .ms-fab{bottom:calc(max(18px,env(safe-area-inset-bottom)) + 72px)}

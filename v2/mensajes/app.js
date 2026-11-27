@@ -92,7 +92,7 @@ async function cargaAvisos(){
   rpc('v2_my_week',{organization_id:org}).then(d=>{state.semana=d;if(state.tab==='avisos')pintaLista();}).catch(()=>{});
   try{state.avisos=await rpc('v2_avisos',{organization_id:org});}
   catch(e){state.avisos={avisos:[],canPublish:false,error:amable(e)};}
-  if(state.tab==='avisos')pintaLista();
+  if(state.tab==='avisos'){pintaLista();vistosPronto();}
 }
 function amable(e){
   const raw=String(e?.message||e);
@@ -111,13 +111,15 @@ function pintaLista(){
     $('msNuevo').addEventListener('click',()=>state.tab==='avisos'?hojaAviso():hojaNuevo());
     $('msBusca').addEventListener('input',e=>{state.busca=e.target.value;pintaItems();});
     $('msItems').addEventListener('click',e=>{
-      const ack=e.target.closest('[data-ack]');if(ack){enterado(ack.dataset.ack,ack);return;}
+      if(e.target.closest('#msLeerAvisos')){leerTodosAvisos();return;}
+      const ack=e.target.closest('[data-ack]');if(ack){apagaNuevo(ack.dataset.ack);enterado(ack.dataset.ack,ack);return;}
       const fil=e.target.closest('[data-filtro]');if(fil){state.filtroAvisos=fil.dataset.filtro;pintaItems();return;}
       const det=e.target.closest('[data-detalle]');if(det){detalleAviso(det.dataset.detalle);return;}
       const ges=e.target.closest('[data-gestion]');if(ges){gestionAviso(ges.dataset.gestion);return;}
       const fc=e.target.closest('[data-filtro-chat]');if(fc){state.filtroChats=fc.dataset.filtroChat;pintaItems();return;}
       if(e.target.closest('#msLeerTodo')){marcarTodoLeido();return;}
-      const b=e.target.closest('[data-thread]');if(b)abreChat(b.dataset.thread);
+      const b=e.target.closest('[data-thread]');if(b){abreChat(b.dataset.thread);return;}
+      const av=e.target.closest('[data-aviso]');if(av&&!e.target.closest('a,button'))apagaNuevo(av.dataset.aviso);
     });
     // Abrir rápido (26/11/2026): "a veces tarda". Al tocar (antes de soltar)
     // ya se pide la conversación; al abrir, se usa lo que ya llegó.
@@ -247,12 +249,13 @@ function iconoAviso(a){
   return `<span class="ms-av-ic persona" style="background:${tono(a.author)}" aria-hidden="true">${esc(iniciales(a.author))}</span>`;
 }
 function tarjetaAviso(a){
+  const nuevo=a.unread||a.nuevoAqui;
   const chips=`${a.pinned?`<span class="ms-chip pin">${svg('pin')}Fijado</span>`:''}${a.scheduledFor?`<span class="ms-chip prog">${svg('reloj')}Sale ${esc(fechaHora(a.scheduledFor))}</span>`:''}`;
   const enterado=a.canAck?(a.acked?`<span class="ms-acked">${svg('check')}Enterado</span>`
     :`<button type="button" class="ms-ack" data-ack="${esc(a.id)}">${svg('check')}Enterado</button>`):'';
   const gestion=a.canManage?`<button type="button" class="ms-gestion" data-gestion="${esc(a.id)}" aria-label="Opciones del aviso">${svg('mas')}</button>`:'';
   const autor=a.author?`<b>${esc(a.author)}</b> · `:'';
-  return `<article class="ms-aviso${a.unread?' unread':''}${a.pinned?' pinned':''}${a.scheduledFor?' scheduled':''}" data-aviso="${esc(a.id)}">${iconoAviso(a)}<div class="ms-aviso-main"><header><strong>${a.unread?'<span class="ms-sr">Nuevo: </span>':''}${esc(a.title)}</strong><span class="ms-aviso-top"><time>${esc(a.scheduledFor?'Programado':cuando(a.publishedAt))}</time>${a.unread?'<i class="ms-dot" aria-hidden="true"></i>':''}${gestion}</span></header>${a.body?`<p>${texto(a.body)}</p>`:''}${chips?`<div class="ms-chips">${chips}</div>`:''}<footer><span>${autor}${esc(paraQuien(a))}</span>${alcance(a)}</footer>${enterado?`<div class="ms-aviso-acciones">${enterado}</div>`:''}</div></article>`;
+  return `<article class="ms-aviso${nuevo?' unread':''}${a.pinned?' pinned':''}${a.scheduledFor?' scheduled':''}" data-aviso="${esc(a.id)}">${iconoAviso(a)}<div class="ms-aviso-main"><header><strong>${nuevo?'<span class="ms-sr">Nuevo: </span>':''}${esc(a.title)}</strong><span class="ms-aviso-top"><time>${esc(a.scheduledFor?'Programado':cuando(a.publishedAt))}</time>${nuevo?'<i class="ms-dot" aria-hidden="true"></i>':''}${gestion}</span></header>${a.body?`<p>${texto(a.body)}</p>`:''}${chips?`<div class="ms-chips">${chips}</div>`:''}<footer><span>${autor}${esc(paraQuien(a))}</span>${alcance(a)}</footer>${enterado?`<div class="ms-aviso-acciones">${enterado}</div>`:''}</div></article>`;
 }
 function grupoDeAviso(a){
   if(a.scheduledFor)return 'Programados';
@@ -269,15 +272,16 @@ const ORDEN_GRUPOS=['Programados','Fijados','Hoy','Ayer','Esta semana','Este mes
 function pintaAvisos(box){
   const d=state.avisos;
   if(!d){box.innerHTML='<div class="ms-vacio">Cargando avisos…</div>';return;}
-  const todos=d.avisos||[],sinLeer=todos.filter(a=>a.unread).length;
+  const todos=d.avisos||[],esNuevo=a=>a.unread||a.nuevoAqui,sinLeer=todos.filter(esNuevo).length;
   if(state.filtroAvisos==='nuevos'&&!sinLeer)state.filtroAvisos='todos';
   const filtro=state.filtroAvisos||'todos';
-  const lista=filtro==='nuevos'?todos.filter(a=>a.unread):todos;
+  const lista=filtro==='nuevos'?todos.filter(esNuevo):todos;
   const grupos=new Map(ORDEN_GRUPOS.map(g=>[g,[]]));
   for(const a of lista)grupos.get(grupoDeAviso(a)).push(a);
   const filtros=todos.length?`<div class="ms-filtros" role="group" aria-label="Filtrar avisos"><button type="button" data-filtro="todos" aria-pressed="${filtro==='todos'}">Todos</button><button type="button" data-filtro="nuevos" aria-pressed="${filtro==='nuevos'}"${sinLeer?'':' disabled'}>No leídos${sinLeer?` <b>${sinLeer}</b>`:''}</button></div>`:'';
   const vacio=`<div class="ms-vacio ms-vacio-avisos"><span aria-hidden="true">${svg('campana')}</span><strong>${d.error?'No se cargaron los avisos':'Todo al día'}</strong><small>${esc(d.error||'Cuando Presidencia o tu área publiquen un aviso, aparece aquí.')}</small></div>`;
-  box.innerHTML=filtros
+  const barra=sinLeer?`<div class="ms-barra-leer" id="msBarraAvisos"><span>${sinLeer===1?'1 aviso nuevo':`${sinLeer} avisos nuevos`}</span><button type="button" id="msLeerAvisos">${svg('check')}Marcar todo como leído</button></div>`:'';
+  box.innerHTML=filtros+barra
     +(lista.length?[...grupos].filter(([,l])=>l.length).map(([g,l])=>`<section class="ms-grupo-avisos"><h2 class="ms-dia">${esc(g)}</h2>${l.map(tarjetaAviso).join('')}</section>`).join(''):vacio);
   pintaConteos();
 }
@@ -322,21 +326,51 @@ function gestionAviso(id){
     }catch(err){await window.tosAlert?.({kicker:'AVISOS',title:'No se pudo',message:amable(err)});}
   });
 }
-let avisosPorMarcar=false;
-async function marcaAvisosVistos(){
-  if(!avisosPorMarcar)return;avisosPorMarcar=false;
-  try{await rpc('v2_mark_announcements_seen',{organization_id:org});}catch(_){return;}
-  (state.avisos?.avisos||[]).forEach(a=>{a.unread=false;});pintaConteos();
+/* Vistos (26/11/2026). Presidencia: "le doy click y no se quita, me sigue
+   apareciendo que no lo he visto". Antes se marcaban al SALIR de la pestaña,
+   y al entrar a Mensajes (Avisos se abre solo) nunca se marcaban; en el
+   iPhone tampoco había "salida". Ahora:
+   - Al verlos un momento (1.5 s con la pantalla visible) se marcan vistos en
+     la base y la campana y el globito bajan a cero.
+   - Lo que era nuevo sigue resaltado mientras estás aquí, para que sepas qué
+     llegó; al tocar el aviso (o "Enterado") se apaga ese resaltado.
+   - "Marcar todo como leído" apaga todos de una vez. */
+let vistosTimer=null;
+function vistosPronto(){
+  clearTimeout(vistosTimer);
+  if(!(state.avisos?.avisos||[]).some(a=>a.unread))return;
+  vistosTimer=setTimeout(marcaAvisosVistos,1500);
 }
-addEventListener('pagehide',()=>{if(avisosPorMarcar)rpc('v2_mark_announcements_seen',{organization_id:org}).catch(()=>{});});
+async function marcaAvisosVistos(){
+  clearTimeout(vistosTimer);
+  const nuevos=(state.avisos?.avisos||[]).filter(a=>a.unread);
+  if(!nuevos.length||state.tab!=='avisos'||document.visibilityState!=='visible')return;
+  try{await rpc('v2_mark_announcements_seen',{organization_id:org});}catch(_){return;}
+  nuevos.forEach(a=>{a.unread=false;a.nuevoAqui=true;});pintaConteos();
+}
+function apagaNuevo(id){
+  const a=avisoPorId(id);if(!a||!(a.nuevoAqui||a.unread))return;
+  if(a.unread)marcaAvisosVistos();
+  a.nuevoAqui=false;
+  const el=document.querySelector(`.ms-aviso[data-aviso="${CSS.escape(id)}"]`);
+  el?.classList.remove('unread');el?.querySelector('.ms-dot')?.remove();el?.querySelector('.ms-sr')?.remove();
+  pintaBarraLeidos();
+}
+function pintaBarraLeidos(){
+  const n=(state.avisos?.avisos||[]).filter(a=>a.unread||a.nuevoAqui).length,bar=$('msBarraAvisos');
+  if(!bar)return;
+  if(!n){bar.remove();return;}
+  bar.querySelector('span').textContent=n===1?'1 aviso nuevo':`${n} avisos nuevos`;
+}
+async function leerTodosAvisos(){
+  await marcaAvisosVistos();
+  (state.avisos?.avisos||[]).forEach(a=>{a.nuevoAqui=false;});
+  pintaItems();
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.tab==='avisos')vistosPronto();});
 function cambiaTab(tab){
-  if(state.tab==='avisos'&&tab!=='avisos')marcaAvisosVistos();
   state.tab=tab;pintaLista();
-  if(tab==='avisos'){
-    // Se marcan vistos al salir de la pestaña, no al entrar: así el que era
-    // nuevo se ve resaltado mientras lo lees, y el globito se apaga después.
-    cargaAvisos().then(()=>{avisosPorMarcar=true;});
-  }
+  if(tab==='avisos')cargaAvisos();
 }
 
 /* ---------- Conversación ---------- */
